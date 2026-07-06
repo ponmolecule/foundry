@@ -1,0 +1,20 @@
+{
+ "solstice_golden_v2": "c7f0a357eea6",
+ "icarus_expectations": {
+  "constraints_fail": [
+   "leverage_min",
+   "card_receivables_max_share"
+  ],
+  "must_flag": [
+   "PEER-cac_per_funded_account",
+   "COUPLED-01",
+   "COUPLED-02",
+   "PEER-card_nco_mature",
+   "PEER-cost_of_deposits_spread"
+  ]
+ },
+ "solstice_golden_v3": "0568b9ae3e3b",
+ "engine": "0.2.1",
+ "solstice_golden_v4": "fa969b37747c",
+ "blackland_golden_v1": "740bf4dd6830"
+}

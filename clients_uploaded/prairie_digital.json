@@ -1,0 +1,112 @@
+{
+  "engagement_id": "ENG-2026-0004",
+  "client_legal_name": "Prairie Digital Financial, Inc.",
+  "proposed_bank": "Prairie Digital Bank (in organization)",
+  "hq": "Des Moines, IA",
+  "prepared_by": "Klaros Group / Foundry engagement team",
+  "config_version": "1.0",
+  "config_frozen": "2026-07-05",
+  "archetype": "digital_consumer",
+
+  "step_minus_1": {
+    "decision": "proceed_de_novo",
+    "alternatives_priced": {
+      "remain_sponsor": "Program fees ~36bp of average deposits; partner renegotiation risk at 2027 renewal.",
+      "de_novo": "Full deposit economics and card program in-house; accepts ~30-month path and $70M raise."
+    }
+  },
+  "step_0": {
+    "one_sentence": "We gather Midwestern consumer deposits through the Prairie app, deploy them into securities and an in-house card book, and keep the interchange the sponsor model gives away.",
+    "earning_engine": "hybrid_deposit_led",
+    "modules": ["core_deposits", "revolving_credit", "payments_fees",
+                "investment_portfolio", "capacity_expenses"]
+  },
+  "step_0a": {
+    "entities": {
+      "parent": "Prairie Digital Financial, Inc. - app, brand, marketing, 410k funded accounts (via current sponsor)",
+      "bank": "Prairie Digital Bank - deposits, card program, securities, payments"
+    },
+    "flags_from_map": [
+      {"id": "MAP-01", "class": "advisory",
+       "text": "Customer-support team stays at parent under a services agreement through month 12; migration plan filed with the application."}
+    ],
+    "map_approved": "2026-06-25"
+  },
+  "step_1": {
+    "charter": "Iowa state nonmember bank",
+    "regulators": ["Iowa Division of Banking", "FDIC (insurance + primary federal)"],
+    "rationale": "Deposit-led consumer model; state charter matches footprint; no BHC appetite for Fed membership."
+  },
+
+  "constraints": [
+    {"key": "leverage_min", "value": 0.095,
+     "text": "Tier 1 leverage >= 9.5% through year 3",
+     "source": "FDIC pre-filing memo 2026-06-28"},
+    {"key": "card_receivables_max_share", "value": 0.32,
+     "text": "Card receivables <= 32% of total assets through year 3",
+     "source": "Iowa DOB pre-filing letter 2026-06-30"}
+  ],
+
+  "target_state": {
+    "assets_yr3": 430000000, "deposits_yr3": 360000000,
+    "card_receivables_yr3": 95000000, "securities_yr3": 240000000,
+    "headcount_yr3": 64, "footprint": "national digital, Midwest-weighted",
+    "initial_capital": 70000000
+  },
+
+  "peer_query": {
+    "log_assets_yr3": null,
+    "consumer_loan_share": 0.22,
+    "fee_income_share": 0.25,
+    "core_funding_share": 0.95,
+    "digital_channel": 1.0
+  },
+  "prior_metrics": ["deposit_growth_yr1", "cost_of_deposits_spread",
+                    "card_nco_mature", "cac_per_funded_account",
+                    "opex_per_active_acct", "efficiency_q12"],
+
+  "assumptions": {
+    "migration_accounts_m1": 6000,
+    "migration_decay": 0.93,
+    "new_accts_per_marketing_dollar": 0.005714,
+    "marketing_budget_m": [700000, 700000, 700000, 700000, 700000, 700000,
+                           900000, 900000, 900000, 900000, 900000, 900000,
+                           1000000, 1000000, 1000000, 1000000, 1000000, 1000000,
+                           1000000, 1000000, 1000000, 1000000, 1000000, 1000000,
+                           1000000, 1000000, 1000000, 1000000, 1000000, 1000000,
+                           1000000, 1000000, 1000000, 1000000, 1000000, 1000000],
+    "monthly_attrition": 0.015,
+    "avg_balance_savings": 2400.0, "avg_balance_checking": 1200.0,
+    "savings_share_accounts": 0.55,
+    "balance_ramp_months": 9,
+    "fed_funds": 0.045,
+    "savings_rate": 0.0385, "checking_rate": 0.001,
+    "deposit_beta_up": 0.6,
+    "cash_yield": 0.044, "securities_yield": 0.0445,
+    "cash_target_pct_deposits": 0.08,
+    "card_penetration": 0.22, "card_penetration_ramp_m": 18,
+    "card_avg_balance": 1900.0, "card_yield": 0.209,
+    "card_nco_mature": 0.058, "card_nco_ramp_m": 12,
+    "allowance_coverage": 0.065,
+    "interchange_rate": 0.0105,
+    "monthly_debit_spend_per_acct": 540.0,
+    "fee_per_acct_m": 0.5,
+    "kyc_reviews_per_new_acct": 1.0, "kyc_min_per_review": 6.0,
+    "fraud_alerts_per_1k_accts_m": 9.0, "min_per_alert": 22.0,
+    "service_contacts_per_acct_m": 0.09, "min_per_contact": 7.5,
+    "productive_hours_m": 140.0, "loaded_cost_ops_fte_m": 7800.0,
+    "fixed_exec_team_m": 420000.0,
+    "tech_core_base_m": 160000.0, "tech_per_acct_m": 0.42,
+    "occupancy_other_m": 110000.0,
+    "org_costs_pre_open": 5000000.0,
+    "tax_rate": 0.24
+  },
+  "assumption_tags": {
+    "migration_accounts_m1": ["management_estimate", null],
+    "new_accts_per_marketing_dollar": ["externally_benchmarked", null],
+    "avg_balance_savings": ["observed", null],
+    "savings_rate": ["management_estimate", "cost_of_deposits_spread"],
+    "card_nco_mature": ["externally_benchmarked", "card_nco_mature"],
+    "deposit_growth_yr1": ["derived", "deposit_growth_yr1"]
+  }
+}

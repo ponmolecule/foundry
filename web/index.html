@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Foundry · Solstice Bank (in organization)</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{
+  --bg:#0D1626; --panel:#131F33; --panel2:#182640; --line:#24334D;
+  --amber:#DFA85A; --amber-dim:#B9873F; --text:#EDF0F5; --muted:#8C99AF;
+  --good:#34D399; --bad:#F87171; --warn:#FBBF24;
+  --mono:"JetBrains Mono","SF Mono",ui-monospace,Menlo,Consolas,monospace;
+  --sans:"Inter","Segoe UI",system-ui,Arial,sans-serif;
+}
+*{box-sizing:border-box;margin:0}
+body{background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+a{color:var(--amber)}
+/* ---- engagement ribbon (signature element) ---- */
+#ribbon{position:sticky;top:0;z-index:20;background:#0A1220;border-bottom:1px solid var(--line);
+  display:flex;gap:1.4rem;align-items:center;padding:.5rem 1.2rem;font-family:var(--mono);font-size:11px;color:var(--muted);flex-wrap:wrap}
+#ribbon b{color:var(--text);font-weight:600}
+#ribbon .pill{padding:.15rem .55rem;border-radius:99px;font-weight:600}
+.pill.ok{background:rgba(52,211,153,.12);color:var(--good)}
+.pill.bad{background:rgba(248,113,113,.12);color:var(--bad)}
+#ribbon .brand{color:var(--amber);letter-spacing:.18em;font-weight:700}
+/* ---- header ---- */
+header{padding:1.6rem 1.2rem .4rem;max-width:1180px;margin:0 auto}
+header h1{font-size:1.45rem;font-weight:650}
+header .sub{color:var(--muted);margin-top:.25rem;font-size:.86rem}
+.demo-tag{display:inline-block;margin-left:.6rem;font-family:var(--mono);font-size:10px;color:var(--warn);
+  border:1px solid rgba(251,191,36,.35);border-radius:4px;padding:.1rem .4rem;vertical-align:middle}
+/* ---- nav + layout ---- */
+nav{display:flex;gap:.25rem;max-width:1180px;margin:1rem auto 0;padding:0 1.2rem;flex-wrap:wrap}
+nav button{background:none;border:1px solid transparent;color:var(--muted);padding:.45rem .8rem;
+  border-radius:8px 8px 0 0;cursor:pointer;font-size:.86rem;font-family:var(--sans)}
+nav button.active{color:var(--amber);background:var(--panel);border-color:var(--line);border-bottom-color:var(--panel)}
+main{max-width:1180px;margin:0 auto;padding:0 1.2rem 3rem}
+section{display:none;background:var(--panel);border:1px solid var(--line);border-radius:0 10px 10px 10px;padding:1.2rem}
+section.active{display:block}
+h2{font-size:1.02rem;margin-bottom:.8rem;color:var(--text)}
+h3{font-size:.85rem;color:var(--amber);margin:1.1rem 0 .45rem;text-transform:uppercase;letter-spacing:.08em}
+p.note{color:var(--muted);font-size:.84rem;line-height:1.5}
+/* ---- cards / grids ---- */
+.grid{display:grid;gap:.7rem}
+.g4{grid-template-columns:repeat(auto-fit,minmax(190px,1fr))}
+.g2{grid-template-columns:repeat(auto-fit,minmax(340px,1fr))}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:.85rem .95rem}
+.card .k{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
+.card .v{font-family:var(--mono);font-size:1.35rem;margin-top:.3rem}
+.card .s{font-size:.75rem;color:var(--muted);margin-top:.2rem}
+/* ---- tables ---- */
+table{width:100%;border-collapse:collapse;font-size:.83rem}
+th{color:var(--muted);text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid var(--line);font-size:.75rem;text-transform:uppercase;letter-spacing:.05em}
+td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align:top}
+td.num,th.num{text-align:right;font-family:var(--mono)}
+tr:hover td{background:#16233A}
+.tag{font-family:var(--mono);font-size:10.5px;padding:.12rem .45rem;border-radius:4px;white-space:nowrap}
+.tag.ok{background:rgba(52,211,153,.12);color:var(--good)}
+.tag.bad{background:rgba(248,113,113,.14);color:var(--bad)}
+.tag.warn{background:rgba(251,191,36,.13);color:var(--warn)}
+.tag.mut{background:#1E2B44;color:var(--muted)}
+.chartbox{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:.8rem;height:300px}
+.flag{border:1px solid var(--line);border-radius:8px;padding:.7rem .85rem;margin-bottom:.55rem;background:var(--panel2)}
+.flag .fid{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin-right:.5rem}
+.qa{border:1px solid var(--line);border-radius:8px;background:var(--panel2);padding:.8rem .95rem;margin-bottom:.6rem}
+.qa .q{font-weight:600}
+.qa .links{font-family:var(--mono);font-size:10.5px;color:var(--muted);margin:.35rem 0}
+.qa .r{font-size:.85rem;color:#C3CCDB;line-height:1.5}
+code,.mono{font-family:var(--mono)}
+@media (prefers-reduced-motion: no-preference){ section.active{animation:fade .18s ease} }
+@keyframes fade{from{opacity:.4}to{opacity:1}}
+</style>
+</head>
+<body>
+<div id="ribbon"></div>
+<header>
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap">
+    <div>
+      <h1 id="bankname">Foundry</h1>
+      <div class="sub" id="clientline"></div>
+    </div>
+    <div style="display:flex;gap:.8rem;align-items:flex-end">
+      <label style="font-size:.75rem;color:var(--muted)">Engagement<br>
+        <select id="engsel" style="margin-top:.3rem;background:var(--panel2);color:var(--text);
+          border:1px solid var(--line);border-radius:7px;padding:.4rem .6rem;font-family:var(--mono);font-size:12px"></select>
+      </label>
+      <span id="upwrap">
+        <input type="file" id="upfile" accept=".xlsx,.json" style="display:none">
+        <button id="upbtn" style="background:none;border:1px solid var(--line);color:var(--muted);
+          border-radius:7px;padding:.42rem .7rem;font-size:12px;cursor:pointer;font-family:var(--mono)">Upload config</button>
+      </span>
+    </div>
+  </div>
+</header>
+<nav id="nav"></nav>
+<main id="main"></main>
+
+<script>
+const fmtM = x => "$" + (x/1e6).toLocaleString(undefined,{maximumFractionDigits:0}) + "M";
+const pct = (x,d=1) => (100*x).toFixed(d) + "%";
+const esc = s => String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;");
+
+const TABS = ["Overview","Financials","Peer Cohort","Assumption Book","Scenarios & Stress","Examiner Book","Configuration"];
+
+function ribbon(R){
+  const lev = R.scenarios.base.min_leverage, commit = R.constraints.find(c=>c.key==="leverage_min").value;
+  const ok = lev >= commit;
+  document.getElementById("ribbon").innerHTML = `
+    <span class="brand">FOUNDRY</span>
+    <span>engine <b>${esc(R.engine_version)}</b></span>
+    <span>run <b>${esc(R.run_hash)}</b></span>
+    <span>config <b>v${esc(R.client.config_version)}</b> frozen ${esc(R.client.config_frozen)}</span>
+    <span>cohort <b>${esc(R.cohort.cohort_id)}</b> frozen ${esc(R.cohort.frozen)}</span>
+    <span class="pill ${ok?"ok":"bad"}">min leverage ${pct(lev)} vs ${pct(commit,0)} commitment</span>`;
+}
+
+function overview(R){
+  const rd = R.readiness, s = R.scenarios.base;
+  const cards = [
+    ["Readiness", rd.constraints_pass_all_scenarios ? "PASS" : "ATTENTION",
+     rd.open_items + " open items · " + (rd.hard_stops||0) + " hard stops"],
+    ["Min leverage (base)", pct(s.min_leverage), "month " + s.min_leverage_month + " · commitment 10.0%"],
+    ["Breakeven", "month " + s.breakeven_month, "pre-tax positive"],
+    ["Assets, year 3", fmtM(s.assets_yr3), "target " + fmtM(R.target_state.assets_yr3)],
+    ["Deposits, year 3", fmtM(s.deposits_yr3), "accounts " + s.accounts_yr3.toLocaleString()],
+    ["Card share, peak", pct(s.card_share_max), "cap 30.0% (TX DOB)"],
+    ["Peer cohort", R.cohort.n + " banks", "radius " + R.cohort.radius_original + " → " + R.cohort.radius_final + " · eff. n " + R.cohort.effective_n],
+    ["Cohort survivorship", R.cohort.terminal_summary.failed + " failed · " + R.cohort.terminal_summary.acquired + " acquired", "retained in evidence base"],
+  ];
+  let h = `<h2>Engagement overview</h2><div class="grid g4">` +
+    cards.map(c=>`<div class="card"><div class="k">${c[0]}</div><div class="v">${c[1]}</div><div class="s">${c[2]}</div></div>`).join("") + `</div>`;
+  h += `<h3>Flags & challenge results</h3>`;
+  h += R.flags.map(f=>{
+    const cls = {satisfied:"ok",advisory:"mut",likely_regulatory_objection:"bad",
+      commercial_assumption_requiring_support:"warn",counsel_determination_required:"warn"}[f.class]||"mut";
+    return `<div class="flag"><span class="fid">${esc(f.id)}</span><span class="tag ${cls}">${esc(f.class).replaceAll("_"," ")}</span><div style="margin-top:.35rem">${esc(f.text)}</div></div>`;
+  }).join("");
+  h += `<h3>Constraint tests, every scenario</h3><table><tr><th>Scenario</th><th>Constraint</th><th class="num">Value</th><th class="num">Limit</th><th>Result</th><th>Source</th></tr>` +
+    R.constraint_tests.map(t=>`<tr><td>${esc(t.scenario)}</td><td class="mono">${esc(t.constraint)}</td><td class="num">${pct(t.value)}</td><td class="num">${pct(t.limit,0)}</td><td><span class="tag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td><td class="mono" style="font-size:11px;color:var(--muted)">${esc(t.source)}</td></tr>`).join("") + `</table>`;
+  return h;
+}
+
+function financials(R){
+  return `<h2>Projected financials — base scenario, 36 months</h2>
+  <div class="grid g2">
+    <div class="chartbox"><canvas id="chLev"></canvas></div>
+    <div class="chartbox"><canvas id="chBS"></canvas></div>
+    <div class="chartbox"><canvas id="chNI"></canvas></div>
+    <div class="chartbox"><canvas id="chAcc"></canvas></div>
+  </div>
+  <h3>Quarterly summary</h3><table><tr><th>Q</th><th class="num">Accounts</th><th class="num">Deposits</th><th class="num">Card recv.</th><th class="num">Securities</th><th class="num">Assets</th><th class="num">Equity</th><th class="num">Leverage</th><th class="num">Pre-tax, qtr</th></tr>
+  ${[2,5,8,11,14,17,20,23,26,29,32,35].map(i=>{const r=R.base_monthly[i];
+    const q=R.base_monthly.slice(i-2,i+1).reduce((a,x)=>a+x.pretax,0);
+    return `<tr><td class="mono">Q${(i+1)/3}</td><td class="num">${r.accounts.toLocaleString()}</td><td class="num">${fmtM(r.deposits)}</td><td class="num">${fmtM(r.receivables)}</td><td class="num">${fmtM(r.securities)}</td><td class="num">${fmtM(r.assets)}</td><td class="num">${fmtM(r.equity)}</td><td class="num">${pct(r.leverage)}</td><td class="num" style="color:${q>=0?"var(--good)":"var(--bad)"}">${fmtM(q)}</td></tr>`}).join("")}
+  </table>
+  <p class="note" style="margin-top:.7rem">Balance sheet ties to the cent in every month; a failed identity blocks the run entirely (discipline D6).</p>`;
+}
+
+function drawFinancials(R){
+  const ms = R.base_monthly.map(r=>r.m);
+  const gridc = "#1E2B44", tickc = "#8C99AF";
+  const ax = {grid:{color:gridc},ticks:{color:tickc,font:{family:"JetBrains Mono, monospace",size:10}}};
+  const commit = R.constraints.find(c=>c.key==="leverage_min").value*100;
+  new Chart(chLev,{type:"line",data:{labels:ms,datasets:[
+    ...Object.entries(R.scenario_leverage_paths).map(([k,v],i)=>({label:k,data:v.map(x=>x*100),
+      borderColor:["#DFA85A","#60A5FA","#F87171","#A78BFA","#34D399"][i],borderWidth:1.6,pointRadius:0,tension:.25})),
+    {label:"10% commitment",data:ms.map(()=>commit),borderColor:"#F87171",borderDash:[6,4],borderWidth:1,pointRadius:0}]},
+    options:{plugins:{title:{display:true,text:"Tier 1 leverage vs pre-filing commitment",color:"#EDF0F5"},legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},scales:{x:ax,y:{...ax,title:{display:true,text:"%",color:tickc}}},maintainAspectRatio:false}});
+  new Chart(chBS,{type:"line",data:{labels:ms,datasets:[
+    {label:"Deposits",data:R.base_monthly.map(r=>r.deposits/1e6),borderColor:"#DFA85A",backgroundColor:"rgba(245,158,11,.08)",fill:true,pointRadius:0,borderWidth:1.6},
+    {label:"Securities",data:R.base_monthly.map(r=>r.securities/1e6),borderColor:"#60A5FA",pointRadius:0,borderWidth:1.4},
+    {label:"Card receivables",data:R.base_monthly.map(r=>r.receivables/1e6),borderColor:"#34D399",pointRadius:0,borderWidth:1.4}]},
+    options:{plugins:{title:{display:true,text:"Balance sheet build ($M)",color:"#EDF0F5"},legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},scales:{x:ax,y:ax},maintainAspectRatio:false}});
+  new Chart(chNI,{type:"bar",data:{labels:ms,datasets:[{label:"Pre-tax income ($M/mo)",
+    data:R.base_monthly.map(r=>r.pretax/1e6),backgroundColor:R.base_monthly.map(r=>r.pretax>=0?"rgba(52,211,153,.7)":"rgba(248,113,113,.7)")}]},
+    options:{plugins:{title:{display:true,text:"Path to profitability",color:"#EDF0F5"},legend:{display:false}},scales:{x:ax,y:ax},maintainAspectRatio:false}});
+  new Chart(chAcc,{type:"line",data:{labels:ms,datasets:[
+    {label:"Funded accounts (k)",data:R.base_monthly.map(r=>r.accounts/1e3),borderColor:"#DFA85A",pointRadius:0,borderWidth:1.6},
+    {label:"Ops FTE",data:R.base_monthly.map(r=>r.ops_fte),borderColor:"#A78BFA",pointRadius:0,borderWidth:1.4,yAxisID:"y2"}]},
+    options:{plugins:{title:{display:true,text:"Volume engine and capacity-driven staffing",color:"#EDF0F5"},legend:{labels:{color:tickc,boxWidth:10,font:{size:10}}}},
+    scales:{x:ax,y:ax,y2:{position:"right",grid:{drawOnChartArea:false},ticks:{color:tickc,font:{size:10}}}},maintainAspectRatio:false}});
+}
+
+function cohortTab(R){
+  const c = R.cohort;
+  let h = `<h2>Peer cohort — frozen before calibration</h2>
+  <div class="grid g4">
+    <div class="card"><div class="k">Cohort ID</div><div class="v" style="font-size:.85rem">${esc(c.cohort_id)}</div><div class="s">criteria doc ${esc(c.criteria_doc)} · frozen ${esc(c.frozen)}</div></div>
+    <div class="card"><div class="k">Radius</div><div class="v">${c.radius_original} → ${c.radius_final}</div><div class="s">widened in ${c.params.widen} steps · max admissible ${c.params.r_max}</div></div>
+    <div class="card"><div class="k">Cohort size</div><div class="v">${c.n}</div><div class="s">effective n ${c.effective_n} (kernel bw ${c.params.bw}) · min required ${c.params.min_n}</div></div>
+    <div class="card"><div class="k">Terminal events</div><div class="v">${c.terminal_summary.failed}F / ${c.terminal_summary.acquired}A</div><div class="s">failed & acquired peers retained to terminal event</div></div>
+  </div>
+  <p class="note" style="margin-top:.8rem">Selection: bounded-radius similarity on five pre-registered intent descriptors (Euclidean, standardized). Radius widened from ${c.radius_original} to ${c.radius_final} to reach minimum cohort size — original and final radius, full distance distribution, and effective sample size disclosed per methodology. Distance distribution: <code>${c.distance_distribution.join(", ")}</code>. ${c.insufficient_evidence?'<b style="color:var(--bad)">INSUFFICIENT PEER EVIDENCE — reported as such, not filled with distant non-peers.</b>':""}</p>
+  <p class="note" style="margin-top:.4rem;color:var(--warn)">Reference data in this demonstration is a synthetic fixture standing in for the Call Report / UBPR warehouse. Methodology, disclosures, and freeze discipline are production-real.</p>
+  <h3>Members</h3><table><tr><th>ID</th><th>Archetype</th><th class="num">Class</th><th class="num">Distance</th><th>Status</th></tr>` +
+  c.members.map(m=>`<tr><td class="mono">${esc(m.id)}</td><td>${esc(m.archetype)}</td><td class="num">${m.class}</td><td class="num">${m.distance}</td><td><span class="tag ${m.terminal==="operating"?"ok":m.terminal==="failed"?"bad":"warn"}">${esc(m.terminal)}</span></td></tr>`).join("") + `</table>`;
+  h += `<h3>Kernel-weighted priors and client placement</h3>
+  <table><tr><th>Metric</th><th class="num">p25</th><th class="num">p50</th><th class="num">p75</th><th class="num">Client</th><th class="num">Percentile</th></tr>` +
+  Object.entries(R.priors).map(([k,p])=>`<tr><td class="mono">${esc(k)}</td><td class="num">${p.p25}</td><td class="num">${p.p50}</td><td class="num">${p.p75}</td><td class="num">${p.client}</td><td class="num"><span class="tag ${p.client_percentile>=90||p.client_percentile<=10?"warn":"ok"}">p${p.client_percentile}</span></td></tr>`).join("") + `</table>`;
+  return h;
+}
+
+function abook(R){
+  return `<h2>Assumption book</h2>
+  <p class="note">Every driver carries a confidence tag and, where a cohort prior exists, ancestry to the frozen cohort and criteria document. Deviations from priors are permitted but argued.</p>
+  <table style="margin-top:.7rem"><tr><th>Assumption</th><th class="num">Value</th><th>Confidence</th><th class="num">Cohort p50</th><th class="num">Client pct.</th><th>Ancestry</th></tr>` +
+  R.assumption_book.map(a=>{
+    const tagcls={observed:"ok",contractual:"ok",externally_benchmarked:"mut",management_estimate:"warn",derived:"mut",unsubstantiated:"bad"}[a.confidence]||"mut";
+    return `<tr><td class="mono">${esc(a.assumption)}</td><td class="num">${typeof a.value==="number"?(Math.abs(a.value)<1?a.value.toFixed(4):a.value.toLocaleString(undefined,{maximumFractionDigits:2})):esc(a.value)}</td>
+    <td><span class="tag ${tagcls}">${esc(a.confidence).replaceAll("_"," ")}</span></td>
+    <td class="num">${a.cohort_p50??"—"}</td><td class="num">${a.cohort_percentile!=null?"p"+a.cohort_percentile:"—"}</td>
+    <td class="mono" style="font-size:11px;color:var(--muted)">${esc(a.ancestry)}</td></tr>`;}).join("") + `</table>`;
+}
+
+function scenarios(R){
+  const rows = Object.entries(R.scenarios);
+  let h = `<h2>Scenarios, stress, and reverse stress</h2>
+  <table><tr><th>Scenario</th><th class="num">Min leverage</th><th class="num">Month</th><th class="num">Breakeven</th><th class="num">Assets yr3</th><th class="num">Card share max</th><th>10% commitment</th></tr>` +
+  rows.map(([k,s])=>`<tr><td class="mono">${esc(k)}</td><td class="num">${pct(s.min_leverage)}</td><td class="num">m${s.min_leverage_month}</td><td class="num">m${s.breakeven_month??"—"}</td><td class="num">${fmtM(s.assets_yr3)}</td><td class="num">${pct(s.card_share_max)}</td><td><span class="tag ${s.min_leverage>=0.10?"ok":"bad"}">${s.min_leverage>=0.10?"holds":"BREACH"}</span></td></tr>`).join("") + `</table>`;
+  h += `<h3>Reverse stress — solve backward for the breach</h3>
+  <div class="grid g2">
+    <div class="card"><div class="k">Growth dimension</div><div class="s" style="margin-top:.4rem;line-height:1.5">${esc(R.reverse_stress.growth.note)}</div></div>
+    <div class="card"><div class="k">Credit dimension</div><div class="v">${R.reverse_stress.credit.nco_multiplier?R.reverse_stress.credit.nco_multiplier+"×":"—"}</div>
+    <div class="s" style="line-height:1.5">${esc(R.reverse_stress.credit.note)}${R.reverse_stress.credit.implied_nco?" — implied NCO "+pct(R.reverse_stress.credit.implied_nco):""}</div></div>
+  </div>`;
+  return h;
+}
+
+function ebook(R){
+  return `<h2>Examiner question book</h2>
+  <p class="note">Generated deterministically from flags, constraint tests, cohort facts, and reverse-stress results. Filed with the answers already written.</p>` +
+  R.examiner_book.map((q,i)=>`<div class="qa"><div class="q">${i+1}. ${esc(q.q)}</div>
+    <div class="links">links: ${q.links.map(esc).join(" · ")}</div>
+    <div class="r">${esc(q.proposed_response)}</div></div>`).join("");
+}
+
+function configTab(R){
+  const c = R.steps;
+  return `<h2>Configuration — the engagement sequence as data</h2>
+  <h3>Step −1 · should this be a bank?</h3>
+  <p class="note"><b style="color:var(--text)">Decision: proceed de novo.</b> ${esc(c.minus_1.alternatives_priced.de_novo)}<br>
+  Sponsor alternative: ${esc(c.minus_1.alternatives_priced.remain_sponsor)}</p>
+  <h3>Step 0 · how does the bank make money?</h3>
+  <p class="note">“${esc(c.zero.one_sentence)}”<br>Modules loaded: <code>${c.zero.modules.join(", ")}</code></p>
+  <h3>Step 0A · entity & funds-flow map (gate approved ${esc(c.zero_a.map_approved)})</h3>
+  <p class="note">Parent: ${esc(c.zero_a.entities.parent)}<br>Bank: ${esc(c.zero_a.entities.bank)}</p>
+  <h3>Step 1 · license</h3>
+  <p class="note">${esc(c.one.charter)} — ${c.one.regulators.map(esc).join(" + ")}. ${esc(c.one.rationale)}</p>
+  <h3>Step 2 · pre-filing constraints (binding, provenance-tagged)</h3>
+  <table><tr><th>Constraint</th><th class="num">Limit</th><th>Source</th></tr>` +
+  R.constraints.map(x=>`<tr><td>${esc(x.text)}</td><td class="num">${x.value!=null?(x.value<1?pct(x.value,0):x.value):"—"}</td><td class="mono" style="font-size:11px;color:var(--muted)">${esc(x.source)}</td></tr>`).join("") +
+  `</table>
+  <h3>Step 3 · target state (stated intent)</h3>
+  <p class="note">Assets ${fmtM(R.target_state.assets_yr3)} · deposits ${fmtM(R.target_state.deposits_yr3)} · card ${fmtM(R.target_state.card_receivables_yr3)} · initial capital ${fmtM(R.target_state.initial_capital)} · headcount ${R.target_state.headcount_yr3} · ${esc(R.target_state.footprint)}</p>`;
+}
+
+function render(R){
+  document.getElementById("nav").innerHTML = "";
+  document.getElementById("main").innerHTML = "";
+  ribbon(R);
+  document.getElementById("bankname").innerHTML = esc(R.client.proposed_bank) + `<span class="demo-tag">FICTITIOUS DEMONSTRATION ENGAGEMENT</span>`;
+  document.getElementById("clientline").textContent =
+    `${R.client.client_legal_name} · ${R.client.hq} · engagement ${R.client.engagement_id} · run ${R.run_at}`;
+  const nav = document.getElementById("nav"), main = document.getElementById("main");
+  const builders = [overview, financials, cohortTab, abook, scenarios, ebook, configTab];
+  TABS.forEach((t,i)=>{
+    const b = document.createElement("button"); b.textContent = t;
+    b.onclick = ()=>{document.querySelectorAll("nav button").forEach(x=>x.classList.remove("active"));
+      document.querySelectorAll("section").forEach(x=>x.classList.remove("active"));
+      b.classList.add("active"); document.getElementById("tab"+i).classList.add("active");};
+    nav.appendChild(b);
+    const s = document.createElement("section"); s.id = "tab"+i; s.innerHTML = builders[i](R);
+    main.appendChild(s);
+  });
+  nav.children[0].classList.add("active"); document.getElementById("tab0").classList.add("active");
+  drawFinancials(R);
+}
+
+async function load(slug){
+  let R = (window.__RESULTS_MAP__||{})[slug];
+  if(!R){ try{ R = await (await fetch("/api/results?engagement="+slug)).json(); }catch(e){} }
+  if(!R){ document.getElementById("main").innerHTML = "<p style='padding:2rem'>No results for <code>"+esc(slug)+"</code>.</p>"; return; }
+  render(R);
+}
+(async function(){
+  const sel = document.getElementById("engsel");
+  let list = window.__ENGAGEMENTS__;
+  if(!list){ try{ list = await (await fetch("/api/engagements")).json(); }catch(e){} }
+  if(!list || !list.length){ document.getElementById("main").innerHTML = "<p style='padding:2rem'>No engagements registered.</p>"; return; }
+  list.forEach(e=>{ const o=document.createElement("option"); o.value=e.slug; o.textContent=e.label; sel.appendChild(o); });
+  sel.onchange = ()=>load(sel.value);
+  // config upload: live server only (the offline demo has no engine behind it)
+  const wrap = document.getElementById("upwrap");
+  if(window.__RESULTS_MAP__){ wrap.style.display = "none"; }
+  else{
+    const fi = document.getElementById("upfile");
+    document.getElementById("upbtn").onclick = ()=>fi.click();
+    fi.onchange = async ()=>{
+      const f = fi.files[0]; if(!f) return;
+      const fd = new FormData(); fd.append("file", f);
+      const resp = await fetch("/api/engagements/upload", {method:"POST", body: fd});
+      if(!resp.ok){
+        const err = await resp.json().catch(()=>({detail: resp.statusText}));
+        alert("Configuration rejected (fail-closed):\n\n" + err.detail); fi.value=""; return;
+      }
+      const {slug, label} = await resp.json();
+      const o = document.createElement("option"); o.value = slug; o.textContent = label;
+      sel.appendChild(o); sel.value = slug; fi.value = "";
+      load(slug);
+    };
+  }
+  load(list[0].slug);
+})();
+</script>
+</body>
+</html>
