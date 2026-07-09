@@ -227,6 +227,26 @@ def main():
     except ImportError:
         pass
 
+    # 2h) run wrapper (C.1/A.8): preview IS the run — deterministic, hash-stable;
+    # constraint tests cover every constraint in every scenario
+    try:
+        from foundry.v2.run_q import run_v2, SCENARIOS_V2
+        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        r1, r2 = run_v2(cfg), run_v2(cfg)
+        if r1 != r2 or r1["run_hash"] != r2["run_hash"]:
+            print("  T-PRV FAIL: identical config produced different results"); sys.exit(1)
+        want = len(cfg["constraints"]) * len(SCENARIOS_V2)
+        if len(r1["constraint_tests"]) != want:
+            print(f"  A.8 FAIL: {len(r1['constraint_tests'])} constraint tests, expected {want}"); sys.exit(1)
+        if not all(abs(sum(x['contribution'] for x in [dict(row) for row in r1['ftp']['rows']])
+                       + r1['ftp']['treasury_center'] - r1['ftp']['consolidated_pretax']) < 0.05
+                   for _ in [0]):
+            print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
+        print("T-PAR: run wrapper — preview==run (hash-stable), constraint tests span every"
+              " constraint x scenario, FTP view reconciles to pre-tax exactly")
+    except ImportError:
+        pass
+
     # 3) parity runs
     runner = load_v2_runner()
     if runner is None:

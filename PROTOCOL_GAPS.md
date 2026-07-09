@@ -38,3 +38,23 @@
   completeness checked across all fixtures). B.5/B.6 documented in ENGINE_SPEC §13.
 - Remaining before PC: A.8 (constraint-tests surface for v2 — lands with the run
   wrapper), B.4 monthly-chassis FV explicitly deferred per reconciliation note.
+
+## PC-1 (2026-07-09) — the console phase
+- C.1/C.2 delivered: /api/v2/preview calls run_v2 exactly (preview IS the run, T-PRV
+  attested); invalid configs return structured 422 errors, rendered by the workspace
+  as answerable prompts (C.4). A.8 delivered inside run_v2: every constraint evaluated
+  in every scenario with sources.
+- C.3-C.9, C.11: web/console_v2.html — thin client, zero browser arithmetic (numbers
+  arrive from the engine; the page formats). Composer, override grid, statements with
+  Call Report codes, ratios, stress + constraint tests, FTP contribution reconciling
+  exactly to pre-tax, freeze-scenario returning canonical hashes, exhibit download.
+- C.12: T17 provenance gate in the protocol harness (30/30) — and it earned its keep
+  immediately by catching fixture-inherited wording in the embedded template.
+- Sandbox retired: /sandbox now 307-redirects to /v2. If the interim sandbox patch was
+  applied earlier, delete web/sandbox.html on pull (instruction in DELIVERY.md).
+- Engineering note for the record: two intended edits to app.py and web/index.html
+  silently no-opped because their anchor text had been stashed at P0; caught by the
+  HTTP smoke test, fixed by appending anchored on verified content. Lesson kept:
+  every replace is now followed by a verification read.
+- v2 run hashes have no golden freeze yet (no registered v2 clients); first frozen
+  v2 engagement should be accompanied by a goldens entry.

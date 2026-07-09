@@ -329,7 +329,22 @@ def run_pf_a(cfg):
         ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x) * 100) if (avg_a - msr_x) > 0 else None
         ratios["alllPct"][q] = (alll_t[q] / gross[q] * 100) if gross[q] > 0 else None
 
-    return {"ratios": {k: v[1:] for k, v in ratios.items()},
+    products = []
+    for fam, plist in (("lending", lend), ("deposit", dep), ("obs", obs)):
+        for p in plist:
+            products.append({
+                "name": p.get("name"), "family": fam,
+                "avg": [p["_avg"][q] for q in range(1, Q + 1)],
+                "interest": [(p["_ii"][q] - p["_ie"][q]) for q in range(1, Q + 1)],
+                "fees": [p["_fee"][q] for q in range(1, Q + 1)],
+                "opex": [p["_ox"][q] for q in range(1, Q + 1)],
+                "co": [(p["_co"][q] if "_co" in p else 0.0) for q in range(1, Q + 1)],
+                "gos": [(p["_gos"][q] if p.get("_gos") else 0.0) for q in range(1, Q + 1)],
+                "servNet": [(p["_snet"][q] if p.get("_snet") else 0.0) for q in range(1, Q + 1)],
+                "ftp_rate": [rate(q) for q in range(1, Q + 1)],
+            })
+    return {"products": products,
+            "ratios": {k: v[1:] for k, v in ratios.items()},
             "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,
                    "borrow": bs["borrow"], "deposits": deps_c, "equity": bs["equity"],

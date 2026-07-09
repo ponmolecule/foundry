@@ -164,9 +164,22 @@ def t16():
         check("T16", "config missing run()-consumed key fails closed", True)
 
 
+def t17():
+    print("T17 provenance gate: source names never appear in the product surface")
+    import glob
+    banned = ["goldstein", "superapp", "jsx build", "predecessor a", "predecessor b"]
+    hits = []
+    for path in glob.glob("web/*.html"):
+        low = open(path, encoding="utf-8").read().lower()
+        for b in banned:
+            if b in low:
+                hits.append(f"{path}: '{b}'")
+    check("T17", "web/ carries no source attribution", not hits, "; ".join(hits))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

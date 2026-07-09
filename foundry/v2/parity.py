@@ -10,14 +10,18 @@ from .validate_q import validate_config_v2
 
 
 def _k(x):
-    return None if x is None else round(x / 1000.0, 2)
+    if x is None or isinstance(x, str):
+        return x
+    return round(x / 1000.0, 2)
 
 
 def _conv(tree, is_ratio=False):
     if isinstance(tree, dict):
         return {k: _conv(v, is_ratio or k == "ratios") for k, v in tree.items()}
     if isinstance(tree, list):
-        return [(None if x is None else round(x, 2)) if is_ratio else _k(x) for x in tree]
+        return [_conv(x, is_ratio) if isinstance(x, (dict, list))
+                else ((None if x is None else round(x, 2)) if is_ratio else _k(x))
+                for x in tree]
     return tree
 
 

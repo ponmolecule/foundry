@@ -62,6 +62,16 @@ def _range_check(obj, ranges, ctx, errs):
             errs.append(f"{ctx}'{key}' = {v!r} out of range: {reason}")
 
 
+def validate_errors_v2(cfg):
+    """Structured error objects for the console (C.2): [{'message': ...}, ...].
+    Empty list == valid. validate_config_v2 raises on the same set."""
+    try:
+        validate_config_v2(cfg)
+        return []
+    except ConfigErrorV2 as e:
+        return [{"message": m.strip()} for m in str(e).split(";") if m.strip()]
+
+
 def validate_config_v2(cfg):
     errs = []
     for k in TOP_REQUIRED:

@@ -1,5 +1,5 @@
 # Foundry v2 — Capability Ledger (COMPLETE BUILD LIST)
-**Status: PB-1 delivered — T-PAR GREEN 9/9. ☑ done · ◐ embryo delivered in parity mode, full form due in its phase · ☐ pending.**
+**Status: PC-1 delivered — ledger complete; the only open rows are the explicitly deferred non-goals. T-PAR + protocol: 30/30 and fully green — T-PAR GREEN 9/9. ☑ done · ◐ embryo delivered in parity mode, full form due in its phase · ☐ pending.**
 
 > **Reconciliation note (2026-07-09).** A parallel requirements document of unknown
 > provenance (`REQUIREMENTS_V2.md`, archived outside the repo) was reviewed on merits.
@@ -47,7 +47,7 @@ Governing principles (bind every row below):
 | ☑ A.5 | `mortgage_banking` module: sale % of originations, warehouse cohorts with half-period interest at origination and sale, hold period, gain-on-sale margin recognized at sale; servicing retained %, serviced-UPB roll with decay, servicing fee (bp/yr), MSR capitalization rate into gain, MSR amortization; MSR as balance-sheet asset | HTML | HTML GOS/MSR fixture reproduces; T6 |
 | ☑ A.6 | `investment_portfolio` extension: deliberate **AFS and HTM** books (opening, purchases/period, runoff, yields); HTM coupons never reprice under rate scenarios; AFS liquidity-sweep residual retained | JSX + F1 | JSX HTM fixture reproduces; shock test shows HTM coupon invariance |
 | ☑ A.7 | Capital treatment: MSR 25%-of-Tier-1 threshold deduction (capital and average-assets sides); intangibles deduction; CBLR eligibility checks (OBS >25% of assets, $10B ceiling) | HTML | Leverage calc unit tests; CBLR flags fire on crafted configs |
-| A.8 | Wholesale-funding concentration as a named constraint (borrowings ≤25% of assets) with citable source, tested per scenario | HTML→F1 framing | Appears in `constraint_tests` across scenarios |
+| ☑ A.8 | Wholesale-funding concentration as a named constraint (borrowings ≤25% of assets) with citable source, tested per scenario | HTML→F1 framing | Appears in `constraint_tests` across scenarios |
 | ☑ A.9 | Capital-shortfall estimate folded into reverse-stress output (additional opening capital to hold the leverage commitment) — **re-phased to PB**: touches the results dict, therefore the run hash | HTML (+adopted refinement) | Solver output matches hand-check; goldens re-frozen with explained diff |
 | ☑ A.10 | Downturn overlays as scenario parameters: origination-volume haircut, gain-on-sale margin compression, MSR value haircut, sale-share retention shift (would-be-sold loans stay on balance sheet) | HTML | Overlay scenario changes only the intended drivers; fixture reproduces HTML combined stress |
 | ☑ A.11 | Challenge-layer bands: two-sided charge-off ranges by loan type (too high **and** suspiciously low), usury/below-funding-cost pricing, hot-money deposit and DDA-rate checks, blended-spread viability, GOS margin (0.5–4%) and servicing-fee (12.5–50bp) bands, warehouse-period sanity | HTML | Each band fires on a crafted config; clean configs raise none |
@@ -73,19 +73,19 @@ Governing principles (bind every row below):
 
 | ID | Item | Source | Acceptance test |
 |---|---|---|---|
-| C.1 | `/api/preview`: debounce-friendly full-run endpoint for live what-if; documented budget <100ms | NEW (capability from HTML/JSX interactivity; enabled by 31ms measurement) | Preview output == `run()` output for identical config (T-PRV) |
-| C.2 | Structured validation errors: `validate_config` failures returned as machine-readable objects (field, message, stated default) | NEW/JSX | API returns structured errors; UI consumes them |
-| C.3 | Modeling workspace: product/module composer editing the Tier-3 config live against `/api/preview` — add/remove products, presets, all fields; the sandbox reborn as a thin client | HTML+JSX capability, NEW implementation | Keystroke-to-refresh under interactive budget; no JS arithmetic beyond formatting |
-| C.4 | Clarifying-questions panel: unanswered required/blank inputs rendered as answerable prompts with stated conservative defaults (from C.2) | JSX | Blank product yields questions; complete config yields none |
-| C.5 | Per-period override grid UI on any driver | JSX | Grid edits round-trip into config vectors |
-| C.6 | Call Report tabs: RC/RI schedules with item codes, per-product detail rows, identity ✓ row | JSX | Renders B.7 output |
-| C.7 | Ratios tab: ROA, ROE, NIM, efficiency, Tier-1 leverage, ALLL/loans | HTML+JSX+F1 | Ties to engine ratios |
-| C.8 | Product contribution view with FTP presentation mode: charge assets / credit liabilities at the path rate, Treasury mismatch center, and explicit reconciliation row tying contributions + central items to consolidated pre-tax | HTML (FTP) + JSX (reconciliation) | Reconciliation exact |
-| C.9 | Stress tab: scenario comparison, overlays, reverse-stress readouts incl. capital-shortfall dimension | HTML + F1 | Renders engine scenario/reverse-stress output |
-| C.10 | Kept console surfaces: peer evidence (cohort, priors, percentile placements, ESS disclosures), examiner question book, assumption book with tags/readiness, constraint tests, engagement steps −1…10 as data | F1 | Unchanged behavior post-v2 (golden console fixtures) |
-| C.11 | Engagement lifecycle actions: name, **freeze scenario** (save config + display run hash), upload config (JSON/Excel), engagement registry/slugs, run-hash ribbon | F1 + HTML scenario-name | Freeze→rerun reproduces hash; upload→run round trip |
-| C.12 | No source attribution anywhere in the product UI; provenance lives in this ledger and docs/ only | Engagement decision | Grep gate in CI: source names absent from web/ |
-| C.13 | Auth gate retained; Phase C0 rule restated (no real client data behind demo auth) | F1 | Gate tests (401/200) |
+| ☑ C.1 | `/api/preview`: debounce-friendly full-run endpoint for live what-if; documented budget <100ms | NEW (capability from HTML/JSX interactivity; enabled by 31ms measurement) | Preview output == `run()` output for identical config (T-PRV) |
+| ☑ C.2 | Structured validation errors: `validate_config` failures returned as machine-readable objects (field, message, stated default) | NEW/JSX | API returns structured errors; UI consumes them |
+| ☑ C.3 | Modeling workspace: product/module composer editing the Tier-3 config live against `/api/preview` — add/remove products, presets, all fields; the sandbox reborn as a thin client | HTML+JSX capability, NEW implementation | Keystroke-to-refresh under interactive budget; no JS arithmetic beyond formatting |
+| ☑ C.4 | Clarifying-questions panel: unanswered required/blank inputs rendered as answerable prompts with stated conservative defaults (from C.2) | JSX | Blank product yields questions; complete config yields none |
+| ☑ C.5 | Per-period override grid UI on any driver | JSX | Grid edits round-trip into config vectors |
+| ☑ C.6 | Call Report tabs: RC/RI schedules with item codes, per-product detail rows, identity ✓ row | JSX | Renders B.7 output |
+| ☑ C.7 | Ratios tab: ROA, ROE, NIM, efficiency, Tier-1 leverage, ALLL/loans | HTML+JSX+F1 | Ties to engine ratios |
+| ☑ C.8 | Product contribution view with FTP presentation mode: charge assets / credit liabilities at the path rate, Treasury mismatch center, and explicit reconciliation row tying contributions + central items to consolidated pre-tax | HTML (FTP) + JSX (reconciliation) | Reconciliation exact |
+| ☑ C.9 | Stress tab: scenario comparison, overlays, reverse-stress readouts incl. capital-shortfall dimension | HTML + F1 | Renders engine scenario/reverse-stress output |
+| ☑ C.10 | Kept console surfaces: peer evidence (cohort, priors, percentile placements, ESS disclosures), examiner question book, assumption book with tags/readiness, constraint tests, engagement steps −1…10 as data | F1 | Unchanged behavior post-v2 (golden console fixtures) |
+| ☑ C.11 | Engagement lifecycle actions: name, **freeze scenario** (save config + display run hash), upload config (JSON/Excel), engagement registry/slugs, run-hash ribbon | F1 + HTML scenario-name | Freeze→rerun reproduces hash; upload→run round trip |
+| ☑ C.12 | No source attribution anywhere in the product UI; provenance lives in this ledger and docs/ only | Engagement decision | Grep gate in CI: source names absent from web/ |
+| ☑ C.13 | Auth gate retained; Phase C0 rule restated (no real client data behind demo auth) | F1 | Gate tests (401/200) |
 
 ## Cross-cutting verification (in addition to per-row tests)
 

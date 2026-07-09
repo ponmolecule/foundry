@@ -145,4 +145,23 @@ def run_pf_b(cfg):
         out_ratios["nim"].append(None)  # informational only in profile B fixtures
         out_ratios["leverage"].append(eq / ta * 100 if ta > 0 else None)
         pa, pe = ta, eq
-    return {"bs": out_bs, "is": out_is, "ratios": out_ratios}
+    ftp = (a.get("reporting") or {}).get("ftp_benchmark_ann", 0.0)
+    products = []
+    for fam, plist in (("lending", lend), ("deposit", dep), ("obs", obs)):
+        for p in plist:
+            def _r(field, dflt_key):
+                return [_ov(p, field, qi + 1, p.get(dflt_key) or 0.0) for qi in range(Q)]
+            yv = _r("yield_ann", "yield_ann") if fam == "lending" else _r("rate_paid_ann", "rate_paid_ann")
+            cov = _r("charge_off_ann", "charge_off_ann")
+            products.append({
+                "name": p.get("name"), "family": fam,
+                "avg": list(p["_avg"]),
+                "interest": [p["_avg"][qi] * yv[qi] / 4.0 * (1 if fam == "lending" else -1)
+                             for qi in range(Q)] if fam != "obs" else [0.0] * Q,
+                "fees": [p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for qi in range(Q)],
+                "opex": [(p.get("opex_fixed_m") or 0.0) * 3.0] * Q,
+                "co": [p["_avg"][qi] * cov[qi] / 4.0 for qi in range(Q)] if fam == "lending" else [0.0] * Q,
+                "gos": [0.0] * Q, "servNet": [0.0] * Q,
+                "ftp_rate": [ftp] * Q,
+            })
+    return {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
