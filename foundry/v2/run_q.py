@@ -124,6 +124,7 @@ def _ftp_view(res):
         rows.append({"name": p["name"], "family": p["family"],
                      "avg_balance": round(avg_bal, 2), "q12_balance": round(bal_q12, 2),
                      "interest_income": round(ii, 2), "interest_expense": round(ie, 2),
+                     "revenue": round(ii + comp["fees"] + comp["gos"] + comp["servNet"], 2),
                      "interest": round(comp["interest"], 2), "fees": round(comp["fees"], 2),
                      "credit_costs": round(comp["co"], 2), "opex": round(comp["opex"], 2),
                      "gos_servicing": round(comp["gos"] + comp["servNet"], 2),
