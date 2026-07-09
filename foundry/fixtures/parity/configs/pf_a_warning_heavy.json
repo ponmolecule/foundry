@@ -1,0 +1,199 @@
+{
+ "engagement_id": "ENG-PAR-PF_A_WARNING_HEAVY",
+ "schema_version": "2.0",
+ "client_legal_name": "Parity Fixture Bank A3",
+ "proposed_bank": "Parity Fixture Bank A3 (in organization)",
+ "hq": "Parity fixture \u2014 n/a",
+ "prepared_by": "Foundry v2 parity harness",
+ "config_version": "1.0",
+ "config_frozen": "2026-07-08",
+ "parity_profile": "pf_a",
+ "step_minus_1": {
+  "decision": "proceed_de_novo",
+  "alternatives_priced": {
+   "de_novo": "Parity fixture."
+  }
+ },
+ "step_0a": {
+  "entities": {
+   "bank": "Parity Fixture Bank A3 \u2014 single entity"
+  },
+  "flags_from_map": [],
+  "map_approved": null
+ },
+ "step_1": {
+  "charter": "n/a (fixture)",
+  "regulators": [
+   "n/a"
+  ],
+  "rationale": "Parity fixture."
+ },
+ "assumption_tags": {},
+ "step_0": {
+  "one_sentence": "Parity fixture (predecessor A semantics).",
+  "earning_engine": "spread",
+  "modules": [
+   "balance_driven_deposits",
+   "balance_driven_lending",
+   "mortgage_banking"
+  ]
+ },
+ "constraints": [
+  {
+   "key": "leverage_min",
+   "value": 0.09,
+   "text": "Tier 1 leverage floor.",
+   "source": "Parity fixture (predecessor A default)"
+  }
+ ],
+ "target_state": {
+  "initial_capital": 60000000.0,
+  "assets_yr3": 309054790.0
+ },
+ "peer_query": {
+  "consumer_loan_share": 0.4,
+  "fee_income_share": 0.2,
+  "core_funding_share": 0.9,
+  "digital_channel": 1.0
+ },
+ "assumptions": {
+  "rate_path_q": [
+   0.037000000000000005,
+   0.0385,
+   0.038,
+   0.0375,
+   0.037000000000000005,
+   0.0365,
+   0.036000000000000004,
+   0.0355,
+   0.035,
+   0.0345,
+   0.034,
+   0.0335
+  ],
+  "rate_path_longer_run": 0.0315,
+  "tax_semantics": "nol_carryforward_pf_a",
+  "tax_rate": 0.21,
+  "cash_target_pct_deposits": 0.05,
+  "cash_yield": 0.025,
+  "securities_yield": 0.04,
+  "borrow_rate_ann": 0.055,
+  "overhead_q": 1800000.0,
+  "overhead_growth_q": 0.01,
+  "premises_equipment": 5000000.0,
+  "intangibles": 0.0,
+  "other_assets": 2000000.0,
+  "other_liabilities": 1000000.0,
+  "deposit_products": [
+   {
+    "name": "DDA",
+    "opening_balance": 25000000.0,
+    "rate_type": "fixed",
+    "fee_yield_ann": 0.005,
+    "opex_pct_ann": 0.01,
+    "opex_fixed_m": 50000.0,
+    "growth_q": 0.12,
+    "runoff_q": 0.0,
+    "call_report_line": "depDDA",
+    "rate_paid_ann": 0.0025
+   },
+   {
+    "name": "Savings",
+    "opening_balance": 35000000.0,
+    "rate_type": "fixed",
+    "fee_yield_ann": 0.001,
+    "opex_pct_ann": 0.003,
+    "opex_fixed_m": 16666.666666666668,
+    "growth_q": 0.14,
+    "runoff_q": 0.0,
+    "call_report_line": "depSavings",
+    "rate_paid_ann": 0.06
+   }
+  ],
+  "lending_products": [
+   {
+    "name": "Personal Loans",
+    "opening_balance": 10000000.0,
+    "rate_type": "fixed",
+    "fee_yield_ann": 0.005,
+    "opex_pct_ann": 0.015,
+    "opex_fixed_m": 33333.333333333336,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.05,
+    "runoff_q": 0.08,
+    "charge_off_ann": 0.04,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.03,
+    "measurement": "amortized",
+    "call_report_line": "loanConsumer",
+    "yield_ann": 0.11
+   },
+   {
+    "name": "Commercial Loans",
+    "opening_balance": 15000000.0,
+    "rate_type": "float",
+    "fee_yield_ann": 0.0034999999999999996,
+    "opex_pct_ann": 0.0075,
+    "opex_fixed_m": 50000.0,
+    "index_spread": 0.035,
+    "originations_q": 7500000.0,
+    "orig_growth_q": 0.05,
+    "runoff_q": 0.05,
+    "charge_off_ann": 0.0075,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.0125,
+    "measurement": "amortized",
+    "call_report_line": "loanCommercial"
+   },
+   {
+    "name": "Credit Cards",
+    "opening_balance": 5000000.0,
+    "rate_type": "fixed",
+    "fee_yield_ann": 0.03,
+    "opex_pct_ann": 0.04,
+    "opex_fixed_m": 66666.66666666667,
+    "originations_q": 2000000.0,
+    "orig_growth_q": 0.06,
+    "runoff_q": 0.1,
+    "charge_off_ann": 0.12,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.08,
+    "measurement": "amortized",
+    "call_report_line": "loanCreditCard",
+    "yield_ann": 0.27
+   },
+   {
+    "name": "Mortgages",
+    "opening_balance": 20000000.0,
+    "rate_type": "fixed",
+    "fee_yield_ann": 0.0025,
+    "opex_pct_ann": 0.004,
+    "opex_fixed_m": 33333.333333333336,
+    "originations_q": 6000000.0,
+    "orig_growth_q": 0.04,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.0015,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.005,
+    "measurement": "amortized",
+    "call_report_line": "loanMortgage",
+    "yield_ann": 0.06,
+    "mortgage_banking": {
+     "sale_pct_of_orig": 0.5,
+     "gain_on_sale_margin": 0.0175,
+     "warehouse_hold_q": 1,
+     "servicing_retained_pct": 1.0,
+     "servicing_fee_bp_ann": 25,
+     "msr_cap_rate_pct_upb": 0.011000000000000001,
+     "msr_decay_q": 0.03
+    }
+   }
+  ],
+  "obs_exposures": []
+ },
+ "scenario_overlays": null,
+ "parity_expectation": {
+  "fixture": "pf_a_warning_heavy",
+  "run_scenario": "base"
+ }
+}

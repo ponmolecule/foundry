@@ -1,0 +1,230 @@
+{
+ "engagement_id": "ENG-PAR-PF_B_HTM_SECURITIES",
+ "schema_version": "2.0",
+ "client_legal_name": "Parity Fixture Bank B3",
+ "proposed_bank": "Parity Fixture Bank B3 (in organization)",
+ "hq": "Parity fixture \u2014 n/a",
+ "prepared_by": "Foundry v2 parity harness",
+ "config_version": "1.0",
+ "config_frozen": "2026-07-08",
+ "parity_profile": "pf_b",
+ "step_minus_1": {
+  "decision": "proceed_de_novo",
+  "alternatives_priced": {
+   "de_novo": "Parity fixture."
+  }
+ },
+ "step_0a": {
+  "entities": {
+   "bank": "Parity Fixture Bank B3 \u2014 single entity"
+  },
+  "flags_from_map": [],
+  "map_approved": null
+ },
+ "step_1": {
+  "charter": "n/a (fixture)",
+  "regulators": [
+   "n/a"
+  ],
+  "rationale": "Parity fixture."
+ },
+ "assumption_tags": {},
+ "step_0": {
+  "one_sentence": "Parity fixture (predecessor B semantics).",
+  "earning_engine": "spread",
+  "modules": [
+   "balance_driven_deposits",
+   "balance_driven_lending",
+   "investment_portfolio"
+  ]
+ },
+ "constraints": [
+  {
+   "key": "leverage_min",
+   "value": 0.08,
+   "text": "Tier 1 leverage floor.",
+   "source": "Parity fixture (predecessor B default)"
+  }
+ ],
+ "target_state": {
+  "initial_capital": 30000000.0,
+  "assets_yr3": 190177420.0
+ },
+ "peer_query": {
+  "consumer_loan_share": 0.4,
+  "fee_income_share": 0.2,
+  "core_funding_share": 0.9,
+  "digital_channel": 1.0
+ },
+ "assumptions": {
+  "rate_path_q": [
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0,
+   0.0
+  ],
+  "rate_path_longer_run": 0.0,
+  "tax_semantics": "no_dta_pf_b",
+  "tax_rate": 0.21,
+  "cash_yield": 0.04,
+  "sweep_securities_yield": 0.044000000000000004,
+  "sweep_securities_alloc": 0.6,
+  "borrow_rate_ann": 0.055,
+  "alll_floor_pct_loans": 0.0125,
+  "overhead_q": 1400000.0,
+  "overhead_growth_q": 0.0,
+  "premises_equipment": 3000000.0,
+  "intangibles": 0.0,
+  "other_assets": 750000.0,
+  "other_liabilities": 400000.0,
+  "reporting": {
+   "ftp_benchmark_ann": 0.0425
+  },
+  "deposit_products": [
+   {
+    "name": "DDA",
+    "opening_balance": 50000000.0,
+    "growth_q": 0.05,
+    "runoff_q": 0.0,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.001,
+    "fee_yield_ann": 0.005,
+    "opex_fixed_m": 50000.0,
+    "call_report_line": "Deposits: Demand (DDA)",
+    "overrides": null
+   },
+   {
+    "name": "Savings",
+    "opening_balance": 30000000.0,
+    "growth_q": 0.04,
+    "runoff_q": 0.0,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.03,
+    "fee_yield_ann": 0.0005,
+    "opex_fixed_m": 25000.0,
+    "call_report_line": "Deposits: Savings & MMDA",
+    "overrides": null
+   },
+   {
+    "name": "Time Deposits",
+    "opening_balance": 20000000.0,
+    "growth_q": 0.03,
+    "runoff_q": 0.0,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.045,
+    "fee_yield_ann": 0.0,
+    "opex_fixed_m": 16666.666666666668,
+    "call_report_line": "Deposits: Time",
+    "overrides": null
+   }
+  ],
+  "lending_products": [
+   {
+    "name": "Personal Loans",
+    "opening_balance": 20000000.0,
+    "volume_mode": "growth",
+    "growth_q": 0.06,
+    "originations_q": 0.0,
+    "runoff_q": 0.08,
+    "rate_type": "fixed",
+    "yield_ann": 0.12,
+    "charge_off_ann": 0.04,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": null,
+    "fee_yield_ann": 0.005,
+    "opex_fixed_m": 66666.66666666667,
+    "measurement": "amortized",
+    "call_report_line": "Loans: Consumer",
+    "overrides": null
+   },
+   {
+    "name": "Commercial Loans",
+    "opening_balance": 40000000.0,
+    "volume_mode": "growth",
+    "growth_q": 0.05,
+    "originations_q": 0.0,
+    "runoff_q": 0.05,
+    "rate_type": "fixed",
+    "yield_ann": 0.075,
+    "charge_off_ann": 0.0075,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": null,
+    "fee_yield_ann": 0.0034999999999999996,
+    "opex_fixed_m": 83333.33333333333,
+    "measurement": "amortized",
+    "call_report_line": "Loans: Commercial & Industrial",
+    "overrides": null
+   },
+   {
+    "name": "Credit Cards",
+    "opening_balance": 10000000.0,
+    "volume_mode": "growth",
+    "growth_q": 0.08,
+    "originations_q": 0.0,
+    "runoff_q": 0.1,
+    "rate_type": "fixed",
+    "yield_ann": 0.19,
+    "charge_off_ann": 0.06,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": null,
+    "fee_yield_ann": 0.03,
+    "opex_fixed_m": 100000.0,
+    "measurement": "amortized",
+    "call_report_line": "Loans: Credit Cards",
+    "overrides": null
+   },
+   {
+    "name": "Mortgages",
+    "opening_balance": 30000000.0,
+    "volume_mode": "growth",
+    "growth_q": 0.04,
+    "originations_q": 0.0,
+    "runoff_q": 0.03,
+    "rate_type": "fixed",
+    "yield_ann": 0.0625,
+    "charge_off_ann": 0.0015,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": null,
+    "fee_yield_ann": 0.0025,
+    "opex_fixed_m": 50000.0,
+    "measurement": "amortized",
+    "call_report_line": "Loans: 1\u20134 Family Residential",
+    "overrides": null
+   }
+  ],
+  "obs_exposures": [],
+  "securities_afs": [
+   {
+    "name": "AFS Securities",
+    "opening": 15000000.0,
+    "purchases_q": 0.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.0,
+    "yield_ann": 0.044000000000000004
+   }
+  ],
+  "securities_htm": [
+   {
+    "name": "HTM Securities",
+    "opening": 10000000.0,
+    "purchases_q": 0.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.0,
+    "yield_ann": 0.047
+   }
+  ]
+ },
+ "scenario_overlays": null,
+ "parity_expectation": {
+  "fixture": "pf_b_htm_securities",
+  "run_scenario": "base"
+ }
+}
