@@ -104,6 +104,19 @@ def console_v2(_=Depends(gate)):
     return FileResponse("web/console_v2.html")
 
 
+@app.get("/v2.1")
+@app.get("/v21")
+def console_v21(_=Depends(gate)):
+    """Foundry v2.1: the faithful surface plus approved JSX enhancements
+    (Call Report reference column, per-quarter override grids, CBLR cards).
+    Same file, same engine; a flag turns the additive layer on so the client
+    can choose which surface to deploy."""
+    from fastapi.responses import HTMLResponse
+    html = open("web/console_v2.html", encoding="utf-8").read()
+    html = html.replace("</head>", "<script>window.V21=true</script>\n</head>")
+    return HTMLResponse(html)
+
+
 @app.get("/api/v2/template")
 def v2_template(_=Depends(gate)):
     import json as _json

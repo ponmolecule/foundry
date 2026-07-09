@@ -106,6 +106,34 @@ td.neg{color:var(--red)}
 footer{padding:.8rem 1.2rem 1.2rem;display:flex;gap:1rem;font-family:var(--mono);font-size:10.5px;color:var(--nmut);background:var(--nvy)}
 footer .conf{color:var(--namber);letter-spacing:.14em;font-weight:700}
 #status{font-family:var(--mono);font-size:10.5px;color:var(--nmut)}
+/* ------- v2.1 additive layer ------- */
+td.ref,th.ref{font-family:var(--mono);font-size:9px;color:var(--mut);text-align:left;white-space:nowrap;
+  border-right:1px solid var(--soft);min-width:52px;max-width:74px;padding:5px 5px}
+.schedbadge{font-family:var(--mono);font-size:9.5px;letter-spacing:.08em;color:#8A6D2F;background:var(--champ);
+  border-radius:2px;padding:2px 7px;margin-left:10px;vertical-align:2px;font-weight:700}
+.ovdisc{grid-column:1/-1;margin-top:6px}
+.ovdisc>button{background:none;border:1px dashed var(--hair);color:var(--grey);font-family:inherit;font-size:10.5px;
+  padding:5px 9px;cursor:pointer;border-radius:3px;width:100%;text-align:left}
+.ovdisc>button:hover{border-color:var(--gold2);color:var(--gold2)}
+.ovgrid{margin-top:7px;overflow-x:auto;border:1px solid var(--soft);border-radius:3px;padding:7px;background:#FFFDF8}
+.ovtitle{font-size:10px;font-weight:700;color:var(--ink);margin-bottom:5px}
+.ovtitle span{font-weight:400;color:var(--mut);margin-left:7px}
+.ovgrid table{border-collapse:collapse}
+.ovgrid th,.ovgrid td{border:1px solid var(--soft);padding:2px 3px;font-size:9.5px;white-space:nowrap}
+.ovgrid th{background:#F7F5F0;font-family:var(--mono);font-weight:600}
+.ovgrid td:first-child{font-size:10px;color:var(--grey);padding:2px 6px}
+.ovgrid input{width:58px;border:1px solid transparent;background:transparent;font-family:var(--mono);font-size:10px;
+  padding:2px 3px;text-align:right;color:var(--ink)}
+.ovgrid input:focus{outline:1.2px solid var(--gold);background:#FFF}
+.ovgrid input::placeholder{color:#C4BFB6}
+.kcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin:8px 0 12px;max-width:900px}
+.kcard{border:1px solid var(--soft);border-left:4px solid var(--gold);border-radius:3px;padding:11px 13px;background:var(--paper)}
+.kcard .kt{font-size:10px;color:var(--grey);text-transform:uppercase;letter-spacing:.05em;margin-bottom:5px}
+.kcard .kv{font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.kcard .km{font-size:10px;color:var(--mut);margin-top:3px}
+.kpass{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:2px;padding:2px 7px;margin-left:8px;vertical-align:3px}
+.kpass.ok{background:#E7F0E7;color:#4E7A4E}
+.kpass.bad{background:#F7E3E2;color:var(--red)}
 </style>
 </head>
 <body>
@@ -187,8 +215,19 @@ const FAM_OF = {asset:"lending", liability:"deposit", offbs:"obs"};
 const ARR_OF = {lending:"lending_products", deposit:"deposit_products", obs:"obs_exposures"};
 const CAT_OF = {lending:"asset", deposit:"liability", obs:"offbs"};
 
+const V21 = !!window.V21;
 let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
-let currentTab = "products", openMap = {}, timer = null, seq = 0;
+let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
+function refFor(key){
+  if(!V21 || !lastRes || !lastRes.callreport || !key) return null;
+  const c = lastRes.callreport[key];
+  return c ? (c[0] + " " + c[1]) : null;
+}
+function refCell(key){
+  if(!V21) return "";
+  const rf = refFor(key);
+  return `<td class="ref">${rf || ""}</td>`;
+}
 
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
@@ -392,7 +431,67 @@ function prodCardHtml(fam, i){
     }
   }
   h += fieldsFor(fam, p, base);
+  if(V21) h += ovGridHtml(fam, i);
   h += '</div></div>';
+  return h;
+}
+function ovFieldsFor(fam, p){
+  const f = [];
+  if(fam==="lending"){
+    f.push(["originations_q","Originations ($000s)","k"]);
+    f.push(["runoff_q","Runoff (%/qtr)","pct"]);
+    if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
+    else f.push(["yield_ann","Yield (ann. %)","pct"]);
+    f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
+    f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
+  } else if(fam==="deposit"){
+    f.push(["growth_q","Growth (%/qtr)","pct"]);
+    f.push(["runoff_q","Runoff (%/qtr)","pct"]);
+    if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
+    else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
+    f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
+  } else {
+    f.push(["growth_q","Growth (%/qtr)","pct"]);
+    f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
+  }
+  return f;
+}
+function ovDisp(v, unit){ if(v==null) return ""; return unit==="pct" ? +(v*100).toFixed(6) : (unit==="k" ? v/K : v); }
+function setOv(fam, i, field, unit, q, raw){
+  const p = famArr(fam)[i];
+  const ov = p.overrides = p.overrides || {};
+  const f = ov[field] = ov[field] || {};
+  if(raw===""){ delete f[String(q)]; if(!Object.keys(f).length) delete ov[field]; }
+  else {
+    let x = parseFloat(raw); if(isNaN(x)) return;
+    if(unit==="pct") x/=100; if(unit==="k") x*=K;
+    f[String(q)] = x;
+  }
+  refresh();
+}
+window.setOv=setOv;
+function ovGridHtml(fam, i){
+  const p = famArr(fam)[i], key = fam+"_"+i;
+  let h = '<div class="ovdisc">';
+  h += `<button onclick="event.stopPropagation();ovOpen['${key}']=!ovOpen['${key}'];renderContent()">${ovOpen[key]?"\u25BC":"\u25B6"} Per-quarter overrides</button>`;
+  if(ovOpen[key]){
+    h += '<div class="ovgrid"><div class="ovtitle">Per-quarter overrides <span>blank cells use the baseline shown as placeholder</span></div>';
+    h += '<table><tr><th style="text-align:left">Driver</th>';
+    for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+    h += '</tr>';
+    ovFieldsFor(fam, p).forEach(([field,label,unit])=>{
+      const base = ovDisp(p[field] != null ? p[field] : ((p.mortgage_banking||{})[field]), unit);
+      h += `<tr><td>${esc(label)}</td>`;
+      for(let q=1;q<=12;q++){
+        const cur = ((p.overrides||{})[field]||{})[String(q)];
+        h += `<td><input type="number" step="any" value="${cur==null?"":ovDisp(cur,unit)}" placeholder="${base}"
+          onchange="setOv('${fam}',${i},'${field}','${unit}',${q},this.value)"></td>`;
+      }
+      h += '</tr>';
+    });
+    h += '</table></div>';
+  }
+  h += '</div>';
   return h;
 }
 function toggleOpen(key){ openMap[key] = !openMap[key]; renderContent(); }
@@ -450,7 +549,7 @@ function renderTabs(){
     `<button class="tab${k===currentTab?" active":""}" onclick="setTab('${k}')">${l}</button>`).join(" ");
 }
 function headerRow(withOpen, withTotal){
-  let h = "<tr><th>Line item ($000s)</th>";
+  let h = "<tr>" + (V21 ? '<th class="ref">Ref</th>' : "") + "<th>Line item ($000s)</th>";
   if(withOpen) h += "<th>Open</th>";
   for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
   if(withTotal) h += "<th>Total</th>";
@@ -461,24 +560,24 @@ function arr12(a, hasOpen){
   if(hasOpen) return a.length===13 ? a : [null].concat(a);
   return a.length===13 ? a.slice(1) : a;
 }
-function rowBS(label, arr, cls){
+function rowBS(label, arr, cls, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}><td>${label}</td>`;
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td>${label}</td>`;
   arr.forEach(v=>{ h += v==null ? "<td></td>" : cellNum(v); });
   return h + "</tr>";
 }
-function rowIS(label, arr, cls, tot){
+function rowIS(label, arr, cls, tot, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}><td>${label}</td>`;
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td>${label}</td>`;
   let sum = 0;
   arr.forEach(v=>{ if(v!=null) sum += v; h += v==null ? "<td></td>" : cellNum(v); });
   h += cellNum(tot!==undefined && tot!==null ? tot : sum);
   return h + "</tr>";
 }
-function rowPct(label, arr, d){
+function rowPct(label, arr, d, refKey){
   if(!arr) return "";
   const a = arr.length===13 ? arr.slice(1) : arr;
-  let h = `<tr><td>${label}</td>`;
+  let h = "<tr>" + refCell(refKey) + `<td>${label}</td>`;
   a.forEach(v=>{ h += `<td>${fmtP(v, d===undefined?2:d)}</td>`; });
   return h + "</tr>";
 }
@@ -510,38 +609,38 @@ function renderContent(){
   }
 
   if(currentTab==="bs"){
-    h += '<div class="h2">Pro Forma Balance Sheet</div>';
+    h += '<div class="h2">Pro Forma Balance Sheet' + (V21 ? '<span class="schedbadge">SCHEDULE RC</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
-    h += '<tr class="section"><td colspan="14">Assets</td></tr>';
-    h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen));
-    h += rowBS('Securities (AFS/HTM)', arr12(fin.bs.sec || fin.bs.afs, bsHasOpen));
-    if(some(fin.bs.htm)) h += rowBS('&nbsp;&nbsp;of which held-to-maturity', arr12(fin.bs.htm, bsHasOpen));
+    h += `<tr class="section"><td colspan="${V21?15:14}">Assets</td></tr>`;
+    h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
+    h += rowBS('Securities (AFS/HTM)', arr12(fin.bs.sec || fin.bs.afs, bsHasOpen), null, 'sec');
+    if(some(fin.bs.htm)) h += rowBS('&nbsp;&nbsp;of which held-to-maturity', arr12(fin.bs.htm, bsHasOpen), null, 'htm');
     LOAN_KEYS.forEach(k=>{
       const a = (F.loans_by_line||{})[k];
-      if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen));
+      if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen), null, k);
     });
-    if(some(fin.bs.hfs)) h += rowBS('&nbsp;&nbsp;Loans Held for Sale', arr12(fin.bs.hfs, bsHasOpen));
-    h += rowBS('Total Loans & Leases (gross)', arr12(fin.bs.grossLoans, bsHasOpen), 'subtotal');
-    h += rowBS('Less: Allowance for Loan Losses', arr12((fin.bs.alll||[]).map(v=>v==null?null:-v), bsHasOpen));
-    h += rowBS('Net Loans & Leases', arr12(fin.bs.netLoans, bsHasOpen), 'subtotal');
+    if(some(fin.bs.hfs)) h += rowBS('&nbsp;&nbsp;Loans Held for Sale', arr12(fin.bs.hfs, bsHasOpen), null, 'hfs');
+    h += rowBS('Total Loans & Leases (gross)', arr12(fin.bs.grossLoans, bsHasOpen), 'subtotal', 'grossLoans');
+    h += rowBS('Less: Allowance for Loan Losses', arr12((fin.bs.alll||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'alll');
+    h += rowBS('Net Loans & Leases', arr12(fin.bs.netLoans, bsHasOpen), 'subtotal', 'netLoans');
     h += rowBS('Premises & Equipment', arr12(fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen));
     h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen));
-    if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen));
+    if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen));
-    h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand');
-    h += '<tr class="section"><td colspan="14">Liabilities</td></tr>';
+    h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
+    h += `<tr class="section"><td colspan="${V21?15:14}">Liabilities</td></tr>`;
     DEP_KEYS.forEach(k=>{
       const a = (F.deps_by_line||{})[k];
-      if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen));
+      if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen), null, k);
     });
-    h += rowBS('Total Deposits', arr12(fin.bs.deposits, bsHasOpen), 'subtotal');
-    h += rowBS('Borrowings', arr12(fin.bs.borrow || fin.bs.borrowings, bsHasOpen));
+    h += rowBS('Total Deposits', arr12(fin.bs.deposits, bsHasOpen), 'subtotal', 'deposits');
+    h += rowBS('Borrowings', arr12(fin.bs.borrow || fin.bs.borrowings, bsHasOpen), null, 'borrow');
     h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen));
     h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal');
-    h += '<tr class="section"><td colspan="14">Equity</td></tr>';
+    h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;
     h += rowBS('Capital Stock & Surplus', arr12(D.paidIn, bsHasOpen));
-    h += rowBS('Retained Earnings (Deficit)', arr12(fin.bs.re || fin.bs.retained, bsHasOpen));
-    h += rowBS('Total Equity Capital', arr12(fin.bs.equity, bsHasOpen), 'subtotal');
+    h += rowBS('Retained Earnings (Deficit)', arr12(fin.bs.re || fin.bs.retained, bsHasOpen), null, 're');
+    h += rowBS('Total Equity Capital', arr12(fin.bs.equity, bsHasOpen), 'subtotal', 'equity');
     h += rowBS('TOTAL LIABILITIES & EQUITY', arr12(D.totalLiabEq, bsHasOpen), 'grand');
     h += '</table>';
     const hasMemo = some(F.obs_notional), hasFV = some(F.fv_adj_assets) || some(F.fv_adj_liabs);
@@ -558,29 +657,29 @@ function renderContent(){
 
   if(currentTab==="is"){
     const T = F.is_totals || {};
-    h += '<div class="h2">Pro Forma Income Statement (quarterly)</div>';
+    h += '<div class="h2">Pro Forma Income Statement (quarterly)' + (V21 ? '<span class="schedbadge">SCHEDULE RI</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(false, true);
-    h += rowIS('Interest Income: Loans', fin.is.loanInt || fin.is.intLoans, null, T.loanInt ?? T.intLoans);
-    h += rowIS('Interest Income: Securities', fin.is.secInt || fin.is.intSec, null, T.secInt ?? T.intSec);
-    h += rowIS('Interest Income: Cash & Due from Banks', fin.is.cashInt || fin.is.intCash, null, T.cashInt ?? T.intCash);
+    h += rowIS('Interest Income: Loans', fin.is.loanInt || fin.is.intLoans, null, T.loanInt ?? T.intLoans, 'loanInt');
+    h += rowIS('Interest Income: Securities', fin.is.secInt || fin.is.intSec, null, T.secInt ?? T.intSec, 'secInt');
+    h += rowIS('Interest Income: Cash & Due from Banks', fin.is.cashInt || fin.is.intCash, null, T.cashInt ?? T.intCash, 'cashInt');
     h += rowIS('Total Interest Income', D.totalIntInc, 'subtotal');
-    h += rowIS('Interest Expense: Deposits', fin.is.depExp || fin.is.intDep, null, T.depExp ?? T.intDep);
-    h += rowIS('Interest Expense: Borrowings', fin.is.borrExp || fin.is.intBorrow, null, T.borrExp ?? T.intBorrow);
+    h += rowIS('Interest Expense: Deposits', fin.is.depExp || fin.is.intDep, null, T.depExp ?? T.intDep, 'depExp');
+    h += rowIS('Interest Expense: Borrowings', fin.is.borrExp || fin.is.intBorrow, null, T.borrExp ?? T.intBorrow, 'borrExp');
     h += rowIS('Total Interest Expense', D.totalIntExp, 'subtotal');
-    h += rowIS('Net Interest Income', fin.is.nii, 'subtotal', T.nii);
-    h += rowIS('Provision for Loan Losses', fin.is.prov || fin.is.provision, null, T.prov ?? T.provision);
-    h += rowIS('Noninterest Income (fees)', fin.is.fees, null, T.fees);
-    if(some(fin.is.gos)) h += rowIS('Gains on Sale of Loans (incl. MSR capitalization)', fin.is.gos, null, T.gos);
-    if(some(fin.is.servNet)) h += rowIS('Net Servicing Income (fees less MSR amortization)', fin.is.servNet, null, T.servNet);
-    if(some(fin.is.fvPnl)) h += rowIS('Net Gains (Losses) on Fair Value Instruments', fin.is.fvPnl, null, T.fvPnl);
-    h += rowIS('Noninterest Expense: Product Operating Costs', fin.is.prodOpex || fin.is.opexProd, null, T.prodOpex ?? T.opexProd);
-    h += rowIS('Noninterest Expense: Corporate Overhead', fin.is.overhead || fin.is.fixedOpex, null, T.overhead ?? T.fixedOpex);
+    h += rowIS('Net Interest Income', fin.is.nii, 'subtotal', T.nii, 'nii');
+    h += rowIS('Provision for Loan Losses', fin.is.prov || fin.is.provision, null, T.prov ?? T.provision, 'prov');
+    h += rowIS('Noninterest Income (fees)', fin.is.fees, null, T.fees, 'fees');
+    if(some(fin.is.gos)) h += rowIS('Gains on Sale of Loans (incl. MSR capitalization)', fin.is.gos, null, T.gos, 'gos');
+    if(some(fin.is.servNet)) h += rowIS('Net Servicing Income (fees less MSR amortization)', fin.is.servNet, null, T.servNet, 'servNet');
+    if(some(fin.is.fvPnl)) h += rowIS('Net Gains (Losses) on Fair Value Instruments', fin.is.fvPnl, null, T.fvPnl, 'fvPnl');
+    h += rowIS('Noninterest Expense: Product Operating Costs', fin.is.prodOpex || fin.is.opexProd, null, T.prodOpex ?? T.opexProd, 'prodOpex');
+    h += rowIS('Noninterest Expense: Corporate Overhead', fin.is.overhead || fin.is.fixedOpex, null, T.overhead ?? T.fixedOpex, 'overhead');
     h += rowIS('Total Noninterest Expense', D.nie, 'subtotal');
-    h += rowIS('Income (Loss) Before Taxes', fin.is.pretax, 'subtotal', T.pretax);
-    h += rowIS('Income Tax Expense', fin.is.tax, null, T.tax);
-    h += rowIS('NET INCOME (LOSS)', fin.is.ni, 'grand', T.ni);
-    h += rowIS('Memo: Net Charge-offs', fin.is.nco || fin.is.chargeoffs, null, T.nco ?? T.chargeoffs);
-    if(fin.is.nol) h += rowIS('Memo: NOL Carryforward (end)', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0]);
+    h += rowIS('Income (Loss) Before Taxes', fin.is.pretax, 'subtotal', T.pretax, 'pretax');
+    h += rowIS('Income Tax Expense', fin.is.tax, null, T.tax, 'tax');
+    h += rowIS('NET INCOME (LOSS)', fin.is.ni, 'grand', T.ni, 'ni');
+    h += rowIS('Memo: Net Charge-offs', fin.is.nco || fin.is.chargeoffs, null, T.nco ?? T.chargeoffs, 'nco');
+    if(fin.is.nol) h += rowIS('Memo: NOL Carryforward (end)', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0], 'nol');
     h += '</table>';
     h += '<div class="memo">Taxes apply the statutory rate to pre-tax income net of accumulated NOL carryforwards; no deferred tax asset is booked (conservative). FV gains/losses include credit losses on fair-value elected loans, which carry no provision.</div>';
     c.innerHTML = h; return;
@@ -588,8 +687,8 @@ function renderContent(){
 
   if(currentTab==="ratios"){
     const rt = fin.ratios || {};
-    h += '<div class="h2">Summary Ratios (annualized)</div>';
-    h += '<table class="fin"><tr><th>Ratio</th>';
+    h += '<div class="h2">Summary Ratios (annualized)' + (V21 ? '<span class="schedbadge">SCHEDULE RI-X</span>' : '') + '</div>';
+    h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Ratio</th>';
     for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
     h += '</tr>';
     h += rowPct('Return on Average Assets (ROA)', rt.roa);
@@ -600,6 +699,26 @@ function renderContent(){
     if(rt.alllPct) h += rowPct('ALLL / Gross Loans', rt.alllPct);
     h += '</table>';
     h += '<div class="memo">Leverage ratio approximated as end-of-quarter equity less intangibles, less mortgage servicing assets above the 25%-of-Tier-1 deduction threshold (12 CFR 3.22(d)), over average assets net of the same deduction. Below-threshold MSAs remain in capital (they would carry a 250% risk weight in a risk-based ratio, which this model does not compute). Efficiency ratio = noninterest expense / (net interest income + noninterest income); &ldquo;n/m&rdquo; where revenue is not positive.</div>';
+    if(V21 && r.cblr){
+      h += '<div class="h2" style="font-size:15px;margin-top:16px">Capital Position \u2014 CBLR Framework Eligibility</div>';
+      h += '<div class="kcards">';
+      r.cblr.forEach(k=>{
+        let val;
+        if(k.units==="$000s") val = fmt0(k.value);
+        else if(k.units==="share") val = (k.value*100).toFixed(1)+"%";
+        else val = k.value==null ? "n/m" : (k.value*100).toFixed(2)+"%";
+        let thr;
+        if(k.units==="$000s") thr = "&lt; " + fmt0(k.threshold);
+        else if(k.units==="share") thr = "\u2264 " + (k.threshold*100).toFixed(0)+"%";
+        else thr = "&gt; " + (k.threshold*100).toFixed(0)+"%";
+        h += `<div class="kcard" style="border-left-color:${k.pass?"#4E7A4E":"var(--red)"}">`+
+          `<div class="kt">${esc(k.check)}</div>`+
+          `<div class="kv">${val}<span class="kpass ${k.pass?"ok":"bad"}">${k.pass?"PASS":"FAIL"}</span></div>`+
+          `<div class="km">Threshold: ${thr}</div></div>`;
+      });
+      h += '</div>';
+      h += '<div class="memo">Community Bank Leverage Ratio framework eligibility checks, computed by the engine on the base case (presentation only; election is a strategic decision \u2014 qualifying banks may opt out of risk-based capital reporting under 12 CFR 3.12). The stress tab shows leverage under adverse scenarios.</div>';
+    }
     c.innerHTML = h; return;
   }
 

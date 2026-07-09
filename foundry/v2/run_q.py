@@ -14,7 +14,7 @@ import hashlib
 from .validate_q import validate_config_v2
 from .parity import run_parity
 from .challenge_q import challenge_config
-from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, code_for_line
+from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
 
 ENGINE_V2 = "foundry-engine 0.3.0 / v2-quarterly"
@@ -292,6 +292,7 @@ def run_v2(cfg):
         "product_codes": {p["name"]: (code_for_line(p.get("line")) or ["", "", "", ""])
                           for p in (base.get("products") or [])},
     }
-    results["callreport"] = {k: list(v) for k, v in {**RESULT_CODES_BS, **RESULT_CODES_IS}.items()}
+    results["callreport"] = {k: list(v) for k, v in
+                             {**RESULT_CODES_BS, **RESULT_CODES_IS, **LINE_CODES}.items()}
     results["run_hash"] = _hash(results)
     return results

@@ -284,9 +284,22 @@ def main():
                          "obs_exposures", "Longer run"]
         # efficiency ratio must exist in the server label set (exhibit path)
         need_labels.append("Efficiency ratio")
+        # v2.1 additive layer (iteration 2, approved items 1/3/8): everything is
+        # gated on window.V21 so the faithful surface is untouched at /v2.
+        need_v21 = ["window.V21", "V21 ?", "refCell", "callreport", "SCHEDULE RC",
+                    "SCHEDULE RI", "SCHEDULE RI-X", "Per-quarter overrides",
+                    "blank cells use the baseline shown as placeholder",
+                    "CBLR Framework Eligibility", "12 CFR 3.12", "overrides"]
+        miss += [x for x in need_v21 if x not in html]
+        app_src = open("app.py", encoding="utf-8").read()
+        if '"/v2.1"' not in app_src or "window.V21=true" not in app_src:
+            miss += ["/v2.1 route"]
         miss += [x for x in need_controls if x not in html]
         if miss:
             print(f"  UI-PARITY FAIL: missing {miss}"); sys.exit(1)
+        print("T-PAR: v2.1 additive layer — Call Report ref column + schedule badges,"
+              " per-quarter override grids, CBLR eligibility cards, all V21-gated;"
+              " /v2.1 route serves the flag")
         print("T-PAR: UI parity checklist — faithful iteration-1 surface: predecessor tab set,"
               " three-card sidebar with quarter-labeled SOFR path, Products tab + Add-Product"
               " modal, line-level BS, contributions + per-product schedules, scenario"
