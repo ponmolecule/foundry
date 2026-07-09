@@ -62,10 +62,12 @@ aside .snote{font-size:10px;color:#97A2B8;margin-bottom:8px;line-height:1.55}
 table.fin{border-collapse:collapse;margin:0 0 24px;width:100%}
 table.fin th,table.fin td{border:none;border-bottom:1px solid #E4E7EC;padding:6px 10px;font-size:11.5px;
   text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+table.fin td{color:#1C2128;font-weight:500}
 table.fin th{background:#101B2E;color:#F4EFE4;font-weight:600;font-size:10px;letter-spacing:.06em;
   text-transform:uppercase;border-bottom:2px solid var(--gold);padding:8px 10px}
-table.fin th:first-child,table.fin td:first-child{text-align:left}
-table.fin td:first-child{color:#2E2E2E}
+table.fin th:first-child,table.fin td:first-child,
+table.fin th.ref + th,table.fin td.ref + td{text-align:left}
+table.fin td:first-child,table.fin td.ref + td{color:#242A33;font-weight:500}
 table.fin tbody tr:nth-child(even) td,table.fin tr:nth-child(even) td{background:#F3F5F9}
 table.fin tr:hover td{background:#EAEFF6}
 tr.section td{font-weight:700;background:#FFFFFF !important;color:#16233B;text-transform:uppercase;
