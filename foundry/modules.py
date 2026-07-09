@@ -78,7 +78,9 @@ def revolving_credit(a, S, t, ctx):
     provision = chargeoffs + max(target_all - S["allowance"], -S["allowance"])
     S["allowance"] = target_all
     S["recv"] = recv
-    return {"interest_terms": [recv * a["card_yield"]],
+    from .chassis import resolve_rate
+    _cy = resolve_rate(a, a["card_yield"], t, ctx["rate_m"]) if "rate_m" in ctx else a["card_yield"]
+    return {"interest_terms": [recv * _cy],
             "provision": provision,
             "balances": {"receivables": recv, "allowance": S["allowance"]}}
 
@@ -101,7 +103,9 @@ def commercial_lending(a, S, t, ctx):
         target_all = seg["allowance_coverage"] * bal
         out["provision"] += chargeoffs + max(target_all - S.get(akey, 0.0), -S.get(akey, 0.0))
         S[akey] = target_all
-        out["interest_terms"].append(bal * seg["yield"])
+        from .chassis import resolve_rate
+        _sy = resolve_rate(a, seg["yield"], t, ctx["rate_m"]) if "rate_m" in ctx else seg["yield"]
+        out["interest_terms"].append(bal * _sy)
         total_recv += bal; total_all += target_all
         out["balances"]["loans_" + seg["name"]] = bal
     S["recv"] = total_recv

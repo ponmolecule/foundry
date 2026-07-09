@@ -57,3 +57,18 @@ within these archetypes.
 - COUPLED-01 fires on Solstice itself (p0 funding, p56 growth) — retained deliberately; the client's
   answer (checking mix + migration channel) belongs in the assumption book as joint support.
 - Full canonical manifest fields present; lockfile digest approximated by requirements hash.
+
+## Golden re-freeze — engine 0.3.0 (PB-1, 2026-07-09)
+Explained diff, per T2 discipline. Deliberate hash movement, one cause:
+- reverse_stress output gains a third dimension, `capital` (A.9): smallest
+  additional opening capital holding the leverage commitment across every
+  scenario, solved exactly by bisection over full re-runs (earnings feedback
+  included). Solstice/Blackland: 0 additional (commitment holds). Icarus:
+  ~47.8M additional — the broken applicant priced.
+Financial projections are UNCHANGED: B.1 rate path (fed_funds auto-promotes to
+a flat path), B.2 fixed/float rate typing, and B.3 universal scalar-or-vector
+drivers were verified hash-neutral before this change (pre-change hashes
+reproduced solstice_golden_v4 / blackland_golden_v1 bit-identically — that
+verification is also the B.8 schema-promotion attestation).
+Goldens: solstice_golden_v4 fa969b37747c -> v5 0ff7ac65dd0b;
+blackland_golden_v1 740bf4dd6830 -> v2 54d956a50692.

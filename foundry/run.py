@@ -3,7 +3,7 @@ import json, math, hashlib, datetime, os, sys
 from . import peers, chassis, challenge
 from .client_solstice import CLIENT
 
-ENGINE_VERSION = "foundry-engine 0.2.1"
+ENGINE_VERSION = "foundry-engine 0.3.0"
 OUTPUT_SCHEMA = "2"
 
 def _h(obj):
@@ -43,6 +43,7 @@ def run(cfg=None):
     commit = next(c["value"] for c in cfg["constraints"] if c["key"] == "leverage_min")
     rev_growth = chassis.reverse_stress(cfg, commit)
     rev_nco = chassis.reverse_stress_nco(cfg, commit)
+    rev_cap = chassis.reverse_stress_capital(cfg, commit)
 
     ctests = challenge.constraint_tests(cfg, scen)
     flags = challenge.business_flags(cfg, base["rows"], prior_table)
@@ -89,7 +90,7 @@ def run(cfg=None):
                           for kk, vv in r.items()} for r in base["rows"]],
         "scenario_leverage_paths": {k: [round(r["leverage"], 4) for r in v["rows"]]
                                     for k, v in scen.items()},
-        "reverse_stress": {"growth": rev_growth, "credit": rev_nco},
+        "reverse_stress": {"growth": rev_growth, "credit": rev_nco, "capital": rev_cap},
         "constraint_tests": ctests, "flags": flags,
         "assumption_book": abook, "examiner_book": book,
         "readiness": readiness,

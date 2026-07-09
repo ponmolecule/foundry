@@ -27,3 +27,14 @@
   ties cell-for-cell to engine output with the canonical config hash on the cover.
 - Phase A remaining: A.6 shock-invariance unit (PB rate work), A.8 constraint-tests
   surface for v2 (lands with the run wrapper in PC/API), A.9 (re-phased to PB).
+
+## PB-1 (2026-07-09) — engine 0.3.0
+- B.1/B.2/B.3 delivered hash-neutral (goldens v4/v1 reproduced bit-identically before
+  the deliberate A.9 change; that verification doubles as the B.8 promotion attestation).
+- A.9 delivered (reverse_stress.capital, exact solve) — the one deliberate hash move;
+  goldens re-frozen v5/v2 with explained diff in PROTOCOL_RUN_REPORT.
+- A.6 completed (securities books in profile A; HTM shock-invariance attested, bookInt
+  reported as its own line). B.7 delivered (Call Report mapping; exhibit carries codes;
+  completeness checked across all fixtures). B.5/B.6 documented in ENGINE_SPEC §13.
+- Remaining before PC: A.8 (constraint-tests surface for v2 — lands with the run
+  wrapper), B.4 monthly-chassis FV explicitly deferred per reconciliation note.

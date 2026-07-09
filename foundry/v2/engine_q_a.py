@@ -86,6 +86,8 @@ def run_pf_a(cfg):
     lend = copy.deepcopy(a.get("lending_products") or [])
     dep = copy.deepcopy(a.get("deposit_products") or [])
     obs = copy.deepcopy(a.get("obs_exposures") or [])
+    afs_p = copy.deepcopy(a.get("securities_afs") or [])
+    htm_p = copy.deepcopy(a.get("securities_htm") or [])
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov)
@@ -95,6 +97,17 @@ def run_pf_a(cfg):
     non_earn = a["premises_equipment"] + a["intangibles"] + a["other_assets"]
     cash_floor = a["cash_target_pct_deposits"]
     other_liab = a["other_liabilities"]
+
+    # deliberate securities books (A.6): balance path with purchases and runoff;
+    # HTM income at its own fixed coupon — the rate shock (applied above to the
+    # path and treasury yields) does not touch it. That is what HTM means.
+    for p in afs_p + htm_p:
+        bal = [p.get("opening", 0.0) or 0.0]
+        for _q in range(1, Q + 1):
+            bal.append(max(0.0, bal[-1] * (1 + (p.get("growth_q") or 0.0) - (p.get("runoff_q") or 0.0))
+                           + (p.get("purchases_q") or 0.0)))
+        p["_bal"] = bal
+        p["_avg"] = [None] + [(bal[i - 1] + bal[i]) / 2.0 for i in range(1, Q + 1)]
 
     # ---- per-product projection ----
     for p in lend + dep + obs:
@@ -224,9 +237,9 @@ def run_pf_a(cfg):
         for p in obs:
             obs_n[q] += p["_bal"][q]
 
-    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end):
+    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0):
         funding = dep_carry + other_liab + equity_end
-        investable = funding - net_loans_end - non_earn - msr_end
+        investable = funding - net_loans_end - non_earn - msr_end - sec_books_end
         req_cash = cash_floor * dep_bal
         if investable >= req_cash:
             return req_cash, investable - req_cash, 0.0
@@ -235,14 +248,15 @@ def run_pf_a(cfg):
     day_one = sum(p["_fvadj"][0] for p in lend if p["_is_fv"])
     net0 = gross[0] - alll_t[0]
     equity0 = capital + day_one
-    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0)
+    sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p)
+    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0)
 
     bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
-    bs["totalAssets"][0] = c0 + s0 + net0 + non_earn
+    bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
 
-    isk = ("loanInt", "secInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
+    isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
            "gos", "servNet", "fvPnl", "prodOpex", "overhead", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
 
@@ -261,13 +275,15 @@ def run_pf_a(cfg):
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
         net_loans_end = gross[q] - alll_t[q]
+        sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
+        book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
         for _ in range(60):
             equity_end = capital + re + ni
-            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q])
-            sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0
+            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end)
+            sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
             borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / 4.0
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
@@ -287,8 +303,8 @@ def run_pf_a(cfg):
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
         bs["netLoans"][q], bs["re"][q], bs["equity"][q] = net_loans_end, re, capital + re
-        bs["totalAssets"][q] = c + s + net_loans_end + non_earn + msr_t[q]
-        for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("cashInt", cash_int),
+        bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn + msr_t[q]
+        for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
                      ("prodOpex", prod_ox), ("overhead", overhead), ("pretax", pretax),

@@ -14,7 +14,9 @@
   ]
  },
  "solstice_golden_v3": "0568b9ae3e3b",
- "engine": "0.2.1",
+ "engine": "0.3.0",
  "solstice_golden_v4": "fa969b37747c",
- "blackland_golden_v1": "740bf4dd6830"
+ "blackland_golden_v1": "740bf4dd6830",
+ "solstice_golden_v5": "0ff7ac65dd0b",
+ "blackland_golden_v2": "54d956a50692"
 }

@@ -171,13 +171,59 @@ def main():
         res = _rp(cfg)
         buf = _io.BytesIO(); results_workbook_v2(cfg, res).save(buf)
         wb2 = _lw(_io.BytesIO(buf.getvalue()), data_only=True)
-        bs_rows = {r[0]: list(r[1:]) for r in wb2["Balance Sheet"].iter_rows(min_row=2, values_only=True)}
+        bs_rows = {r[0]: list(r[4:]) for r in wb2["Balance Sheet"].iter_rows(min_row=2, values_only=True)}
         ok = all(abs((bs_rows[k][i] or 0) - (res["bs"][k][i] or 0)) < 0.005
                  for k in res["bs"] for i in range(len(res["bs"][k]))
                  if res["bs"][k][i] is not None)
         if not (ok and not xls_fail):
             print("  XLS FAIL: results workbook does not tie to engine output"); sys.exit(1)
         print("T-PAR: results workbook — every balance-sheet cell ties to engine output (MSR fixture)")
+    except ImportError:
+        pass
+
+    # 2f) HTM shock invariance (A.6): under a +300bp overlay the HTM coupon is
+    # unchanged while shocked treasury yields move — held-to-maturity means held
+    try:
+        from foundry.v2.engine_q_a import run_pf_a
+        import copy
+        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_a_base.json"))))
+        c["assumptions"]["securities_htm"] = [{"name": "HTM ladder", "opening": 20_000_000,
+                                               "purchases_q": 0, "growth_q": 0, "runoff_q": 0.02,
+                                               "yield_ann": 0.047}]
+        r0 = run_pf_a(copy.deepcopy(c))
+        cs = copy.deepcopy(c); cs["scenario_overlays"] = {"rate_shock_bp": 300}
+        r1 = run_pf_a(cs)
+        book0 = ((20_000_000 + 20_000_000 * 0.98) / 2) * 0.047 / 4
+        if abs(r0["is"]["bookInt"][0] - book0) > 1.0:
+            print(f"  HTM FAIL: book coupon {r0['is']['bookInt'][0]:.0f} vs expected {book0:.0f}"); sys.exit(1)
+        if any(abs(a2 - b2) > 1e-6 for a2, b2 in zip(r0["is"]["bookInt"], r1["is"]["bookInt"])):
+            print("  HTM FAIL: +300bp shock moved the HTM coupon — the book repriced"); sys.exit(1)
+        if r1["is"]["cashInt"][0] <= r0["is"]["cashInt"][0]:
+            print("  HTM FAIL: shock did not move treasury income — overlay not applied"); sys.exit(1)
+        print("T-PAR: HTM shock invariance — +300bp moves treasury income, not the HTM coupon")
+    except ImportError:
+        pass
+
+    # 2g) Call Report mapping (B.7): every result line and every product line in
+    # the fixtures maps to a schedule/item reference
+    try:
+        from foundry.v2.callreport import code_for_result, code_for_line
+        from foundry.v2.parity import run_parity as _rp2
+        unmapped = set()
+        for k in fx["fixtures"]:
+            cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
+            res = _rp2(cfg)
+            for section in ("bs", "is"):
+                for rk in res[section]:
+                    if code_for_result(rk) is None:
+                        unmapped.add(f"result:{rk}")
+            for fam in ("deposit_products", "lending_products"):
+                for p in cfg["assumptions"].get(fam) or []:
+                    if p.get("call_report_line") and code_for_line(p["call_report_line"]) is None:
+                        unmapped.add(f"line:{p['call_report_line']}")
+        if unmapped:
+            print(f"  CALLREPORT FAIL: unmapped {sorted(unmapped)}"); sys.exit(1)
+        print("T-PAR: Call Report mapping — every result line and product line carries a schedule reference")
     except ImportError:
         pass
 

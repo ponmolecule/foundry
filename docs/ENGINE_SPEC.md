@@ -129,3 +129,50 @@ The run hash is SHA-256 over the JSON-serialized results with sorted keys, exclu
 ## 12. Known simplifications and limitations, stated plainly
 
 Accounting: no journal-entry engine yet — statements are built from identity-enforced roll-forwards, not double-entry event logic; no cash-flow statement; no deferred taxes; the NOL treatment is the simplification in 5.4. Balance sheet: leverage uses period-end equity over period-end assets rather than tier 1 over average assets; other assets are a $6M constant; borrowings are unbounded and uncollateralized (no FHLB capacity limit); no AOCI, no securities duration or mark-to-market, no HTM/AFS split. Behavior: card receivables are a level, not a flow (no utilization dynamics); no pricing-volume elasticity anywhere, so rate-versus-growth metamorphic tests can pass vacuously and are labeled accordingly; deposit balances use a single blended average per channel. Liquidity: the cash target is the entire liquidity module; no stress outflow modeling. Peer evidence: the reference set is a synthetic fixture — methodology, freezing, and disclosures are production-real, the data is not; and the `deposit_growth_yr1` metric definition is not yet computed identically between fixture and client (life-stage alignment is a production-warehouse requirement, flagged in the protocol run report). Horizon: 36 months, monthly; no five-year management view. Each of these has a named home in the Master Architecture's roadmap; none is silent.
+
+
+---
+
+# §13 — v2 addendum (engine 0.3.0, PB-1)
+
+## 13.1 Rate context (B.1/B.2, chassis)
+`rate_path_m`: optional monthly list of annual index rates; beyond the list the
+path glides 5bp/month toward `rate_path_longer_run`. Absent a path, scalar
+`fed_funds` promotes to a flat path — schema-v1 configs reproduce their frozen
+numbers bit-identically (attested before the 0.3.0 re-freeze; this is the B.8
+promotion guarantee). Consumers: borrowing cost; any module rate driver given as
+`{"type": "float", "spread": x}` reprices monthly at path + spread (+ scenario
+rate shock). Scalar rate drivers are fixed, exactly as in 0.2.x.
+
+## 13.2 Universal scalar-or-vector drivers (B.3, chassis)
+Any numeric assumption consumed through `av()` may be a monthly list (last value
+repeating). Precedent: `marketing_budget_m`. Currently vectorized at the chassis
+level: `savings_rate`, opex components, and every rate driver via 13.1. Scalars
+are untouched arithmetic.
+
+## 13.3 Tax semantics elections (B.5)
+Three documented modes. Chassis (monthly): simplified NOL — negative pre-tax
+accrues no benefit; positive pre-tax is taxed after exhausting the accumulated
+loss account. Profile pf_a (quarterly, v2): NOL carryforward with the
+carry-account updated after the iterative solve each quarter. Profile pf_b
+(quarterly, v2): taxes on positive pre-tax only, no DTA. Elections are config
+data (`tax_semantics`); a frozen config's meaning never changes (B.8).
+
+## 13.4 Reverse stress — capital dimension (A.9)
+`reverse_stress.capital`: smallest additional opening capital such that minimum
+leverage holds the commitment in every scenario; exact bisection over full
+re-runs (earnings feedback included), not the closed-form shortcut. Healthy
+plans report 0; Icarus prices at ~$47.8M.
+
+## 13.5 Quarterly convention layer (B.6) and Call Report mapping (B.7)
+The v2 quarterly engines (`foundry/v2/engine_q_*`) are the quarterly-convention
+implementations, parity-attested against the predecessor fixtures (T-PAR).
+Presentation mapping to Call Report schedule/item references lives in
+`foundry/v2/callreport.py` and is consumed by exhibits and the console only —
+never by arithmetic.
+
+## 13.6 Explicit non-goals restated
+Monthly-chassis-native fair-value election remains deferred (the balance-driven
+family carries FV; the driver-based monthly paradigm does not, by decision
+recorded in the ledger reconciliation note). RWA ratios, journal-entry engine,
+prepayment MSR revaluation, multi-entity consolidation: unchanged non-goals.

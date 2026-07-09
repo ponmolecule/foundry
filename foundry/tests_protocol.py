@@ -20,12 +20,12 @@ def t2():
     print("T2 golden-run regression")
     r = runner.run(copy.deepcopy(SOLSTICE))
     check("T2", "Solstice canonical hash reproduces golden v4",
-          r["run_hash"] == GOLDENS["solstice_golden_v4"],
-          f"{r['run_hash']} vs {GOLDENS['solstice_golden_v4']}")
+          r["run_hash"] == GOLDENS["solstice_golden_v5"],
+          f"{r['run_hash']} vs {GOLDENS['solstice_golden_v5']}")
     b = runner.run(copy.deepcopy(BLACKLAND))
     check("T2", "Blackland canonical hash reproduces golden v1",
-          b["run_hash"] == GOLDENS["blackland_golden_v1"],
-          f"{b['run_hash']} vs {GOLDENS['blackland_golden_v1']}")
+          b["run_hash"] == GOLDENS["blackland_golden_v2"],
+          f"{b['run_hash']} vs {GOLDENS['blackland_golden_v2']}")
 
 # ---------------- T3: metamorphic with mechanism-exercised reporting ----------------
 def _summ(cfg, ov=None, cap=None):
@@ -125,7 +125,7 @@ def t6():
     print("T6 strong form: unused modules must not move existing clients")
     r = runner.run(copy.deepcopy(SOLSTICE))
     check("T6", "Solstice unchanged with commercial_lending/relationship modules registered",
-          r["run_hash"] == GOLDENS["solstice_golden_v4"])
+          r["run_hash"] == GOLDENS["solstice_golden_v5"])
 
 def t15():
     print("T15 output-contract parity: Excel round-trip must reproduce the JSON run")

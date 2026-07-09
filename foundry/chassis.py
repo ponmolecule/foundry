@@ -7,6 +7,48 @@ the cent; a failed identity raises rather than producing output (D6).
 from .modules import REGISTRY
 
 
+def av(a, key, t, default=0.0):
+    """B.3 — universal scalar-or-vector assumption: any numeric driver may be a
+    monthly list (the marketing_budget_m pattern generalized). Scalars behave
+    exactly as before; lists index by month, last value repeating."""
+    v = a.get(key, default)
+    if isinstance(v, list):
+        if not v:
+            return default
+        return v[min(t, len(v)) - 1]
+    return v
+
+
+def rate_m(a):
+    """B.1 — forward rate context. rate_path_m (monthly annual rates, last value
+    repeating; glides 5bp/month toward rate_path_longer_run beyond the list) with
+    scalar fed_funds as the compatibility fallback (a flat path — schema-v1
+    configs auto-promote and reproduce their frozen numbers exactly, B.8)."""
+    path = a.get("rate_path_m")
+    if not path:
+        ff = a["fed_funds"]
+        return lambda t: ff
+    lr = a.get("rate_path_longer_run", path[-1])
+    n = len(path)
+
+    def r(t):
+        if t <= n:
+            return path[t - 1]
+        last = path[n - 1]
+        step = 0.0005 * (t - n)
+        return max(lr, last - step) if last > lr else min(lr, last + step)
+    return r
+
+
+def resolve_rate(a, spec, t, rm):
+    """B.2 — fixed/floating rate typing for module drivers. A rate driver may be
+    a scalar (fixed, exactly as before) or {"type": "float", "spread": x}, which
+    reprices monthly at rate_path + spread (+ any scenario rate shock)."""
+    if isinstance(spec, dict) and spec.get("type") == "float":
+        return rm(t) + spec.get("spread", 0.0) + a.get("_rate_shock", 0.0)
+    return spec
+
+
 def project(cfg, overrides=None):
     a = dict(cfg["assumptions"])
     if overrides:
@@ -22,8 +64,8 @@ def project(cfg, overrides=None):
     fee_mods = [f for n, f, r in loaded if r == "fees"]
     cap_mods = [f for n, f, r in loaded if r == "capacity"]
 
-    ctx = {"mkt": mkt,
-           "savings_rate": a["savings_rate"] + a.get("_rate_shock", 0.0) * a.get("_beta", a["deposit_beta_up"])}
+    rm = rate_m(a)
+    ctx = {"mkt": mkt, "rate_m": rm, "savings_rate": 0.0}
 
     S = {"accts": 0.0, "new_hist": [], "mig": a.get("migration_accounts_m1", 0.0),
          "deposits": 0.0, "recv": 0.0, "allowance": 0.0, "interchange": 0.0,
@@ -35,6 +77,7 @@ def project(cfg, overrides=None):
     rows = []
 
     for t in range(1, T + 1):
+        ctx["savings_rate"] = av(a, "savings_rate", t) + a.get("_rate_shock", 0.0) * a.get("_beta", a["deposit_beta_up"])
         cost_dep = 0.0; provision = 0.0; ops_minutes = 0.0
         interest_terms = []; fee_terms = []
 
@@ -60,7 +103,7 @@ def project(cfg, overrides=None):
 
         # income: sum annualized products left-to-right, divide once (float-exact)
         int_inc = sum([cash * a["cash_yield"], a_sec * a["securities_yield"]] + interest_terms) / 12.0
-        cost_borrow = borrowings * (a["fed_funds"] + a.get("borrow_spread", 0.0045)) / 12.0
+        cost_borrow = borrowings * (rm(t) + a.get("borrow_spread", 0.0045)) / 12.0
 
         for f in fee_mods:
             c = f(a, S, t, ctx)
@@ -162,6 +205,35 @@ def reverse_stress(cfg, commit):
                         "leverage binds through the cost base, not asset growth. "
                         "Binding reverse-stress dimension is credit + funding cost (see credit_stress)."}
     return {"breach_multiplier": max(breach), "note": "largest growth multiplier that breaches"}
+
+
+def reverse_stress_capital(cfg, commit):
+    """A.9 — additional opening capital such that minimum leverage holds the
+    commitment in EVERY scenario. Exact solve (bisection over full re-runs with
+    the extra capital in place), not the closed-form approximation: earnings
+    feedback and balance-sheet effects of the added capital are included."""
+    import copy as _copy
+
+    def worst(extra):
+        c = _copy.deepcopy(cfg)
+        c["target_state"]["initial_capital"] = cfg["target_state"]["initial_capital"] + extra
+        return min(s["summary"]["min_leverage"] for s in run_scenarios(c).values())
+
+    if worst(0.0) >= commit:
+        return {"additional_capital": 0.0,
+                "note": "commitment holds in every scenario at current capital"}
+    lo, hi = 0.0, 2.0 * cfg["target_state"]["initial_capital"]
+    if worst(hi) < commit:
+        return {"additional_capital": None,
+                "note": "commitment not reachable within 2x current capital — restructure the plan"}
+    for _ in range(40):
+        mid = (lo + hi) / 2.0
+        if worst(mid) >= commit:
+            hi = mid
+        else:
+            lo = mid
+    return {"additional_capital": round(hi),
+            "note": "smallest additional opening capital holding the commitment across all scenarios"}
 
 
 def reverse_stress_nco(cfg, commit):

@@ -198,16 +198,20 @@ def results_workbook_v2(cfg, res):
     bs = wb.create_sheet("Balance Sheet")
     n = len(next(iter(res["bs"].values())))
     labels = ["Open"] + [f"Q{q}" for q in range(1, n)] if n == 13 else [f"Q{q}" for q in range(1, n + 1)]
-    bs.append(["Line item ($000s)"] + labels)
+    bs.append(["Line item ($000s)", "Schedule", "Item", "Code"] + labels)
+    from .callreport import code_for_result
     for k, arr in res["bs"].items():
-        bs.append([k] + [x for x in arr])
+        c = code_for_result(k) or ("", "", "", "")
+        bs.append([k, c[0], c[1], c[2]] + [x for x in arr])
 
     inc = wb.create_sheet("Income Statement")
     m = len(next(iter(res["is"].values())))
-    inc.append(["Line item ($000s)"] + [f"Q{q}" for q in range(1, m + 1)] + ["Total"])
+    inc.append(["Line item ($000s)", "Schedule", "Item", "Code"] + [f"Q{q}" for q in range(1, m + 1)] + ["Total"])
+    from .callreport import code_for_result
     for k, arr in res["is"].items():
+        c = code_for_result(k) or ("", "", "", "")
         tot = sum(x for x in arr if x is not None)
-        inc.append([k] + list(arr) + [round(tot, 2)])
+        inc.append([k, c[0], c[1], c[2]] + list(arr) + [round(tot, 2)])
 
     if res.get("ratios"):
         rt = wb.create_sheet("Ratios")
