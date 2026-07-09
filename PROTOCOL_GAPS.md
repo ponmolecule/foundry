@@ -91,3 +91,22 @@ on the same presentation layer with a machine-key column so the tie-out stays
 exact (negation-aware). New permanent gate: UI-parity checklist in T-PAR —
 required labels in present.py and required controls in the Workspace, so the
 surface now fails loudly the way the arithmetic always has.
+
+## PC-4 (2026-07-09) — faithful surface, iteration 1 of the three-iteration plan
+Client direction: replicate the predecessor's Capital IQ-style surface faithfully —
+light number regions — while retaining the Foundry theme in the border regions; then
+layer the JSX innovations (iteration 2); then the Foundry-native differentiators
+(iteration 3). Delivered: Workspace rebuilt on the predecessor's exact extracted
+tokens (white paper, #343434 ink, #C4C4C4 hairline grid, champagne golds, zebra rows,
+red-parenthesized negatives, Montserrat, dense 11.5px tables, champagne grand rows,
+charcoal active tabs, gold-left-border cards) inside the Foundry navy frame (ribbon,
+gutters, footer). Faithful tab set: Balance Sheet | Income Statement | Ratios &
+Capital | Product P&L | Stress | Warnings | Notes | Config; toolbar scenario name,
+live flags badge (hot on severe), Export to Excel; sidebar preset chips, bank-level
+assumptions incl. premises/other, rate path, stress module, per-product stat lines
+(Q12 balance + 12-q contribution from engine output). Engine additions (additive,
+fixtures verified): efficiency ratio both profiles; CBLR eligibility checks; full
+component columns on Product P&L rows. Still a thin client: every number from
+/api/v2/preview. UI-parity checklist extended to the faithful surface. Iterations
+2 (JSX layer) and 3 (peer evidence surface, examiner book, engagement lifecycle,
+config roster in v2 UI; warehouse swap remains its own track) are queued.

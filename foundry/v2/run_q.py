@@ -61,11 +61,16 @@ def _ftp_view(res):
         n = len(p["avg"])
         ftp = sum((p["avg"][q] or 0) * (p["ftp_rate"][q] or 0) / 4.0 for q in range(n))
         sign = -1.0 if p["family"] == "lending" else (1.0 if p["family"] == "deposit" else 0.0)
-        econ = sum((p["interest"][q] or 0) + (p["fees"][q] or 0) - (p["opex"][q] or 0)
-                   - (p["co"][q] or 0) + (p["gos"][q] or 0) + (p["servNet"][q] or 0)
-                   for q in range(n))
+        comp = {k: sum((p[k][q] or 0) for q in range(n))
+                for k in ("interest", "fees", "opex", "co", "gos", "servNet")}
+        avg_bal = sum((p["avg"][q] or 0) for q in range(n)) / n if n else 0.0
+        econ = comp["interest"] + comp["fees"] - comp["opex"] - comp["co"] + comp["gos"] + comp["servNet"]
         contrib = econ + sign * ftp
         rows.append({"name": p["name"], "family": p["family"],
+                     "avg_balance": round(avg_bal, 2),
+                     "interest": round(comp["interest"], 2), "fees": round(comp["fees"], 2),
+                     "credit_costs": round(comp["co"], 2), "opex": round(comp["opex"], 2),
+                     "gos_servicing": round(comp["gos"] + comp["servNet"], 2),
                      "economics": round(econ, 2), "ftp": round(sign * ftp, 2),
                      "contribution": round(contrib, 2)})
         contrib_sum += contrib
@@ -77,6 +82,32 @@ def _ftp_view(res):
             "reconciliation_ok": True,  # by construction: center is the exact residual
             "note": "Contributions charge assets / credit liabilities at the path rate; "
                     "the treasury center holds the mismatch. Sum ties to pre-tax exactly."}
+
+
+def _cblr_checks(cfg, base):
+    """Community Bank Leverage Ratio framework eligibility (presentation checks)."""
+    bs = base["bs"]; n = len(bs["totalAssets"])
+    ta_q12 = bs["totalAssets"][-1] or 0.0
+    lev = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
+    lev_min = min((x for x in lev if x is not None), default=None)
+    obs_share = 0.0
+    for p in (base.get("products") or []):
+        if p["family"] == "obs" and p.get("bal"):
+            arr = p["bal"]
+            m = len(arr)
+            for i in range(m):
+                ta = bs["totalAssets"][i + (n - m)]
+                if ta:
+                    obs_share = max(obs_share, arr[i] / ta)
+    return [
+        {"check": "Total assets under $10B (Q12)", "value": round(ta_q12, 2),
+         "threshold": 10_000_000.0, "pass": ta_q12 < 10_000_000.0, "units": "$000s"},
+        {"check": "Off-balance-sheet exposures ≤ 25% of assets", "value": round(obs_share, 4),
+         "threshold": 0.25, "pass": obs_share <= 0.25, "units": "share"},
+        {"check": "Leverage ratio above 9% CBLR floor (min quarter)",
+         "value": None if lev_min is None else round(lev_min / 100.0, 4),
+         "threshold": 0.09, "pass": (lev_min is not None and lev_min / 100.0 > 0.09), "units": "ratio"},
+    ]
 
 
 def _capital_shortfall_estimate(cfg, scen_results):
@@ -156,6 +187,7 @@ def run_v2(cfg):
         "flags": challenge_config(cfg),
     }
     results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
+    results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
         "bs_layout": present.BS_LAYOUT, "is_layout": present.IS_LAYOUT,
         "ratio_labels": present.RATIO_LABELS, "scenario_labels": present.SCENARIO_LABELS,

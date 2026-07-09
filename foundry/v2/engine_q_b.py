@@ -135,7 +135,7 @@ def run_pf_b(cfg):
         alll = alll_end
         cash, sweep, borrow = c2, s2, b2
 
-    out_ratios = {"roa": [], "roe": [], "nim": [], "leverage": []}
+    out_ratios = {"roa": [], "roe": [], "nim": [], "eff": [], "leverage": []}
     pa, pe = prev_assets, capital
     for qi in range(Q):
         ta, eq, ni = out_bs["totalAssets"][qi], out_bs["equity"][qi], out_is["ni"][qi]
@@ -143,6 +143,8 @@ def run_pf_b(cfg):
         out_ratios["roa"].append(ni * 4 / avg_a * 100 if avg_a > 0 else None)
         out_ratios["roe"].append(ni * 4 / avg_e * 100 if avg_e > 0 else None)
         out_ratios["nim"].append(None)  # informational only in profile B fixtures
+        rev = out_is["nii"][qi] + out_is["fees"][qi]
+        out_ratios["eff"].append((out_is["opexProd"][qi] + out_is["fixedOpex"][qi]) / rev * 100 if rev > 0 else None)
         out_ratios["leverage"].append(eq / ta * 100 if ta > 0 else None)
         pa, pe = ta, eq
     ftp = (a.get("reporting") or {}).get("ftp_benchmark_ann", 0.0)

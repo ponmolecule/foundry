@@ -266,7 +266,11 @@ def main():
         html = open("web/console_v2.html", encoding="utf-8").read()
         need_controls = ["scenario_overlays", "preset library", "securities_afs", "securities_htm",
                          "obs_exposures", "parse-workbook", "config-workbook",
-                         "capital_shortfall", "presentation", "identity"]
+                         "capital_shortfall", "presentation", "identity",
+                         "Ratios & Capital", "Product P&L", "Warnings", "scenario_name",
+                         "Export to Excel", "Stress module", "cblr", "Methodology"]
+        # efficiency ratio must exist in the label set
+        need_labels.append("Efficiency ratio")
         miss += [x for x in need_controls if x not in html]
         if miss:
             print(f"  UI-PARITY FAIL: missing {miss}"); sys.exit(1)
