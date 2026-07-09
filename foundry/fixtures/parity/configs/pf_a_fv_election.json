@@ -124,7 +124,7 @@
     "charge_off_ann": 0.04,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.03,
-    "measurement": "fairvalue",
+    "measurement": "fair_value",
     "call_report_line": "loanConsumer",
     "yield_ann": 0.11,
     "discount_spread_ann": 0.13
