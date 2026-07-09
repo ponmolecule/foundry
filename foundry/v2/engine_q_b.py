@@ -158,6 +158,14 @@ def run_pf_b(cfg):
             products.append({
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
+                "rate_type": "fixed", "index_spread": None, "is_fv": False,
+                "sale_pct": 0.0, "serv_retained": 0.0,
+                "rateQ": [v * 100 for v in yv] if fam != "obs" else None,
+                "intInc": ([p["_avg"][qi] * yv[qi] / 4.0 for qi in range(Q)] if fam == "lending" else [0.0] * Q),
+                "intExp": ([p["_avg"][qi] * yv[qi] / 4.0 for qi in range(Q)] if fam == "deposit" else [0.0] * Q),
+                "origq": None, "soldOrig": None, "whCarry": None, "servUPB": None,
+                "msrCap": None, "msrAmort": None, "msrBal": None, "alll": None,
+                "fv": None, "fvAdj": None,
                 "bal": list(p["_end"]),
                 "avg": list(p["_avg"]),
                 "interest": [p["_avg"][qi] * yv[qi] / 4.0 * (1 if fam == "lending" else -1)

@@ -344,11 +344,25 @@ def run_pf_a(cfg):
     products = []
     for fam, plist in (("lending", lend), ("deposit", dep), ("obs", obs)):
         for p in plist:
+            def _s(key):
+                return [p[key][q] for q in range(1, Q + 1)] if p.get(key) else None
             products.append({
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
+                "rate_type": p.get("rate_type", "fixed"),
+                "index_spread": p.get("index_spread"),
+                "is_fv": bool(p.get("_is_fv")),
+                "sale_pct": p.get("_sale", 0.0),
+                "serv_retained": (p.get("mortgage_banking") or {}).get("servicing_retained_pct", 0.0) if fam == "lending" else 0.0,
                 "bal": [(p["_bal"][q] + (p["_fvadj"][q] if p.get("_is_fv") else 0.0)
                          if fam == "lending" else p["_bal"][q]) for q in range(0, Q + 1)],
+                "rateQ": [_prod_rate(p, q, rate) * 100 for q in range(1, Q + 1)] if fam != "obs" else None,
+                "intInc": _s("_ii"), "intExp": _s("_ie"),
+                "origq": _s("_orig"), "soldOrig": _s("_sold"), "whCarry": _s("_whc"),
+                "servUPB": _s("_upb"), "msrCap": _s("_scap"), "msrAmort": _s("_samort"),
+                "msrBal": _s("_msr"), "alll": _s("_alll"),
+                "fv": ([p["_fv"][q] for q in range(1, Q + 1)] if p.get("_is_fv") else None),
+                "fvAdj": ([p["_fvadj"][q] for q in range(1, Q + 1)] if p.get("_is_fv") else None),
                 "avg": [p["_avg"][q] for q in range(1, Q + 1)],
                 "interest": [(p["_ii"][q] - p["_ie"][q]) for q in range(1, Q + 1)],
                 "fees": [p["_fee"][q] for q in range(1, Q + 1)],

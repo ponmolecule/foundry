@@ -76,6 +76,7 @@ IS_LAYOUT = [
     {"t": "line", "key": "opexProd", "label": "Product operating expense", "indent": 1},
     {"t": "line", "key": "overhead", "label": "Salaries, occupancy, and other overhead", "indent": 1},
     {"t": "line", "key": "fixedOpex", "label": "Salaries, occupancy, and other overhead", "indent": 1},
+    {"t": "line", "key": "nie", "label": "Total noninterest expense", "subtotal": True},
     {"t": "spacer"},
     {"t": "line", "key": "pretax", "label": "INCOME (LOSS) BEFORE INCOME TAXES", "subtotal": True},
     {"t": "line", "key": "tax", "label": "Applicable income taxes", "negate_style": True},
@@ -137,4 +138,18 @@ def derived_lines(res, cfg):
     out["totalIntExp"] = [round((g("depExp")[i] if "depExp" in is_ else g("intDep")[i] or 0)
                                 + (g("borrExp")[i] if "borrExp" in is_ else g("intBorrow")[i] or 0), 2)
                           for i in range(m)]
+    out["nie"] = [round((g("prodOpex")[i] if "prodOpex" in is_ else g("opexProd")[i] or 0)
+                        + (g("overhead")[i] if "overhead" in is_ else g("fixedOpex")[i] or 0), 2)
+                  for i in range(m)]
     return out
+
+
+LINE_LABELS = {
+    "loanCommercial": "Loans: Commercial & Industrial", "loanConsumer": "Loans: Consumer",
+    "loanCreditCard": "Loans: Credit Card", "loanMortgage": "Loans: 1-4 Family Residential",
+    "loanOther": "Loans: Other",
+    "depDDA": "Deposits: Transaction (DDA)", "depSavings": "Deposits: Savings & MMDA",
+    "depTime": "Deposits: Time", "obs": "Off-Balance-Sheet Commitments",
+}
+LOAN_KEYS = ["loanCommercial", "loanConsumer", "loanCreditCard", "loanMortgage", "loanOther"]
+DEP_KEYS = ["depDDA", "depSavings", "depTime"]

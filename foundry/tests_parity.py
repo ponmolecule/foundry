@@ -264,18 +264,33 @@ def main():
         blob = json.dumps(_pres.BS_LAYOUT + _pres.IS_LAYOUT)
         miss = [x for x in need_labels if x.lower() not in blob.lower()]
         html = open("web/console_v2.html", encoding="utf-8").read()
-        need_controls = ["scenario_overlays", "preset library", "securities_afs", "securities_htm",
-                         "obs_exposures", "parse-workbook", "config-workbook",
-                         "capital_shortfall", "presentation", "identity",
-                         "Ratios & Capital", "Product P&L", "Warnings", "scenario_name",
-                         "Export to Excel", "Stress module", "cblr", "Methodology"]
-        # efficiency ratio must exist in the label set
+        # Iteration-1 contract: faithful replication of the predecessor HTML surface.
+        # Tokens are drawn from the transcribed artifact, not from memory.
+        need_controls = ["Products", "Balance Sheet", "Income Statement", "Ratios",
+                         "Product Detail", "Stress Testing", "Assumptions & Notes",
+                         "Pro Forma Balance Sheet", "Pro Forma Income Statement (quarterly)",
+                         "Less: Allowance for Loan Losses", "TOTAL LIABILITIES & EQUITY",
+                         "Total Loans & Leases (gross)", "Summary Ratios (annualized)",
+                         "Efficiency Ratio", "Tier 1 Leverage Ratio", "NET INCOME (LOSS)",
+                         "Per-Product Contributions", "Direct Contribution",
+                         "Apply funds-transfer pricing", "Treasury (FTP mismatch center)",
+                         "Stress Testing \\u2014 Scenario Comparison", "Net Income by Quarter",
+                         "Tier 1 Leverage Ratio by Quarter",
+                         "Reasonableness Flags", "Defaults Applied", "Methodology",
+                         "Global Assumptions", "Interest Rate Forecast (SOFR)",
+                         "Stress Scenario Settings", "stress_params",
+                         "+ Add Product", "Add a product", "Call Report line",
+                         "Floating (SOFR + spread)", "scenarioName", "Export to Excel",
+                         "obs_exposures", "Longer run"]
+        # efficiency ratio must exist in the server label set (exhibit path)
         need_labels.append("Efficiency ratio")
         miss += [x for x in need_controls if x not in html]
         if miss:
             print(f"  UI-PARITY FAIL: missing {miss}"); sys.exit(1)
-        print("T-PAR: UI parity checklist — statement labels, detail structure, identity row,"
-              " presets, securities/OBS composers, stress dials, Excel both ways all present")
+        print("T-PAR: UI parity checklist — faithful iteration-1 surface: predecessor tab set,"
+              " three-card sidebar with quarter-labeled SOFR path, Products tab + Add-Product"
+              " modal, line-level BS, contributions + per-product schedules, scenario"
+              " comparison, flags/defaults/methodology, Excel export")
     except ImportError:
         pass
 
