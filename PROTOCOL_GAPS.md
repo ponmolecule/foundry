@@ -16,3 +16,14 @@
 - A.7 delivered: ratio layer with MSR threshold deduction + intangibles, attested
   against predecessor ratios within 0.02pp inside T-PAR.
 - A.9 re-phased to PB per reconciliation note (results-dict change moves run hashes).
+
+## PA-3 / PA-4 (2026-07-09)
+- A.11/A.12 delivered: v2 challenge layer (two-sided bands, pricing/funding/OTS checks,
+  blended-spread viability, COUPLED-01/02). Attested finding: COUPLED-01 fires on the
+  default preset plan (13%/q deposit growth priced ~185bp below market) — deliberate,
+  mirrors the Solstice precedent; review burden, not a noise gate.
+- A.4 attested (OBS notional path + fee accrual). A.14/A.15 delivered: v2 config
+  workbook round-trips to identical parity output for all 9 fixtures; results workbook
+  ties cell-for-cell to engine output with the canonical config hash on the cover.
+- Phase A remaining: A.6 shock-invariance unit (PB rate work), A.8 constraint-tests
+  surface for v2 (lands with the run wrapper in PC/API), A.9 (re-phased to PB).

@@ -99,6 +99,88 @@ def main():
     except ImportError:
         pass
 
+    # 2c) challenge layer (A.11/A.12): bands fire on the warning-heavy fixture,
+    # stay silent on the clean base; coupled rules fire on crafted contradictions
+    try:
+        from foundry.v2.challenge_q import challenge_config
+        import copy
+        wh = json.load(open(os.path.join(CONFIGS, "pf_a_warning_heavy.json")))
+        ids = {f["id"] for f in challenge_config(wh)}
+        need = {"BAND-CO-HI", "PRICE-USURY", "FUND-HOT"}
+        if not need <= ids:
+            print(f"  CHALLENGE FAIL: warning-heavy fixture missing {need - ids}"); sys.exit(1)
+        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        base_flags = challenge_config(base)
+        sev = [f for f in base_flags if f["sev"] == "severe" and not f["id"].startswith("COUPLED")]
+        if sev:
+            print(f"  CHALLENGE FAIL: clean base raised severe band/pricing flags {[f['id'] for f in sev]}"); sys.exit(1)
+        # the default digital-bank plan claims cheap AND fast funding — COUPLED-01 firing
+        # on it is correct and deliberate (mirrors the Solstice precedent: review burden,
+        # joint support required, not a noise gate)
+        if "COUPLED-01" not in {f["id"] for f in base_flags}:
+            print("  CHALLENGE FAIL: COUPLED-01 should fire on the default plan (13%/q growth, sub-market cost)"); sys.exit(1)
+        c1 = copy.deepcopy(base)
+        for p in c1["assumptions"]["deposit_products"]:
+            p["growth_q"] = 0.12; p["rate_type"] = "fixed"; p["rate_paid_ann"] = 0.005
+        if "COUPLED-01" not in {f["id"] for f in challenge_config(c1)}:
+            print("  CHALLENGE FAIL: COUPLED-01 did not fire on cheap+fast funding"); sys.exit(1)
+        c2 = copy.deepcopy(base)
+        cc = [p for p in c2["assumptions"]["lending_products"] if "Card" in p["name"]][0]
+        cc["yield_ann"] = 0.18; cc["charge_off_ann"] = 0.010
+        if "COUPLED-02" not in {f["id"] for f in challenge_config(c2)}:
+            print("  CHALLENGE FAIL: COUPLED-02 did not fire on risk pricing + prime losses"); sys.exit(1)
+        print("T-PAR: challenge layer — bands fire on crafted configs, clean case raises no severe flags,"
+              " both coupled rules fire")
+    except ImportError:
+        pass
+
+    # 2d) OBS module (A.4): notional path and fee accrual on a synthetic product
+    try:
+        from foundry.v2.engine_q_b import run_pf_b
+        import copy
+        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"))))
+        c["assumptions"]["obs_exposures"] = [{"name": "Unused commitments", "notional": 10_000_000,
+                                              "growth_q": 0.02, "fee_yield_ann": 0.004}]
+        r0 = run_pf_b(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"))))
+        r1 = run_pf_b(c)
+        dfee = r1["is"]["fees"][0] - r0["is"]["fees"][0]
+        expect = ((10_000_000 + 10_200_000) / 2) * 0.004 / 4
+        if abs(dfee - expect) > 1.0:
+            print(f"  OBS FAIL: fee accrual {dfee:.2f} vs expected {expect:.2f}"); sys.exit(1)
+        print("T-PAR: OBS module — notional grows and fees accrue on average notional")
+    except ImportError:
+        pass
+
+    # 2e) Excel layer (A.14/A.15): config workbook round-trips to identical parity
+    # output for every fixture; results workbook cells tie to engine output exactly
+    try:
+        from foundry.v2.excel_q import workbook_from_config_v2, parse_workbook_v2, results_workbook_v2
+        from foundry.v2.parity import run_parity as _rp
+        import io as _io
+        from openpyxl import load_workbook as _lw
+        xls_fail = 0
+        for k in fx["fixtures"]:
+            cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
+            buf = _io.BytesIO(); workbook_from_config_v2(cfg).save(buf)
+            cfg2 = parse_workbook_v2(buf.getvalue())
+            r1, r2 = _rp(cfg), _rp(cfg2)
+            if r1 != r2:
+                print(f"  XLS ROUND-TRIP FAIL {k}: parity output differs across formats"); xls_fail += 1
+        print(f"T-PAR: Excel config round-trip — {len(fx['fixtures'])-xls_fail}/{len(fx['fixtures'])} identical across formats")
+        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_ots_msr.json")))
+        res = _rp(cfg)
+        buf = _io.BytesIO(); results_workbook_v2(cfg, res).save(buf)
+        wb2 = _lw(_io.BytesIO(buf.getvalue()), data_only=True)
+        bs_rows = {r[0]: list(r[1:]) for r in wb2["Balance Sheet"].iter_rows(min_row=2, values_only=True)}
+        ok = all(abs((bs_rows[k][i] or 0) - (res["bs"][k][i] or 0)) < 0.005
+                 for k in res["bs"] for i in range(len(res["bs"][k]))
+                 if res["bs"][k][i] is not None)
+        if not (ok and not xls_fail):
+            print("  XLS FAIL: results workbook does not tie to engine output"); sys.exit(1)
+        print("T-PAR: results workbook — every balance-sheet cell ties to engine output (MSR fixture)")
+    except ImportError:
+        pass
+
     # 3) parity runs
     runner = load_v2_runner()
     if runner is None:
