@@ -107,7 +107,7 @@ def console_v2(_=Depends(gate)):
 @app.get("/api/v2/template")
 def v2_template(_=Depends(gate)):
     import json as _json
-    t = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json"))
+    t = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
     t["engagement_id"] = "ENG-NEW"; t["parity_expectation"] = None
     t["step_0"]["one_sentence"] = "New applicant scoping template."
     t["step_minus_1"]["alternatives_priced"] = {"de_novo": "Template."}
@@ -143,7 +143,7 @@ def v2_register(cfg: dict, _=Depends(gate)):
     base = slug; i = 1
     while os.path.exists(f"clients_v2/{slug}.json"):
         i += 1; slug = f"{base}-{i}"
-    _json.dump(cfg, open(f"clients_v2/{slug}.json", "w"), indent=1)
+    _json.dump(cfg, open(f"clients_v2/{slug}.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
     r = run_v2(cfg)
     return {"slug": slug, "config_hash": r["config_hash"], "run_hash": r["run_hash"]}
 

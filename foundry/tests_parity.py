@@ -56,7 +56,7 @@ def compare(expected, got, path=""):
     return diffs
 
 def main():
-    fx = json.load(open(FIXTURES))
+    fx = json.load(open(FIXTURES, encoding="utf-8"))
     # 1) fixture integrity: hashes recompute
     bad = [k for k, v in fx["fixtures"].items()
            if _h({kk: v[kk] for kk in ("inputs", "expected")}) != v["fixture_hash"]]
@@ -81,7 +81,7 @@ def main():
     try:
         from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
         import copy
-        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json"), encoding="utf-8"))
         for label, breaker in [
             ("missing step_0a", lambda c: c.pop("step_0a")),
             ("negative runoff", lambda c: c["assumptions"]["lending_products"][0].__setitem__("runoff_q", -0.5)),
@@ -104,12 +104,12 @@ def main():
     try:
         from foundry.v2.challenge_q import challenge_config
         import copy
-        wh = json.load(open(os.path.join(CONFIGS, "pf_a_warning_heavy.json")))
+        wh = json.load(open(os.path.join(CONFIGS, "pf_a_warning_heavy.json"), encoding="utf-8"))
         ids = {f["id"] for f in challenge_config(wh)}
         need = {"BAND-CO-HI", "PRICE-USURY", "FUND-HOT"}
         if not need <= ids:
             print(f"  CHALLENGE FAIL: warning-heavy fixture missing {need - ids}"); sys.exit(1)
-        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json"), encoding="utf-8"))
         base_flags = challenge_config(base)
         sev = [f for f in base_flags if f["sev"] == "severe" and not f["id"].startswith("COUPLED")]
         if sev:
@@ -138,10 +138,10 @@ def main():
     try:
         from foundry.v2.engine_q_b import run_pf_b
         import copy
-        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"))))
+        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"), encoding="utf-8")))
         c["assumptions"]["obs_exposures"] = [{"name": "Unused commitments", "notional": 10_000_000,
                                               "growth_q": 0.02, "fee_yield_ann": 0.004}]
-        r0 = run_pf_b(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"))))
+        r0 = run_pf_b(json.load(open(os.path.join(CONFIGS, "pf_b_base.json"), encoding="utf-8")))
         r1 = run_pf_b(c)
         dfee = r1["is"]["fees"][0] - r0["is"]["fees"][0]
         expect = ((10_000_000 + 10_200_000) / 2) * 0.004 / 4
@@ -160,14 +160,14 @@ def main():
         from openpyxl import load_workbook as _lw
         xls_fail = 0
         for k in fx["fixtures"]:
-            cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
+            cfg = json.load(open(os.path.join(CONFIGS, k + ".json"), encoding="utf-8"))
             buf = _io.BytesIO(); workbook_from_config_v2(cfg).save(buf)
             cfg2 = parse_workbook_v2(buf.getvalue())
             r1, r2 = _rp(cfg), _rp(cfg2)
             if r1 != r2:
                 print(f"  XLS ROUND-TRIP FAIL {k}: parity output differs across formats"); xls_fail += 1
         print(f"T-PAR: Excel config round-trip — {len(fx['fixtures'])-xls_fail}/{len(fx['fixtures'])} identical across formats")
-        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_ots_msr.json")))
+        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_ots_msr.json"), encoding="utf-8"))
         res = _rp(cfg)
         buf = _io.BytesIO(); results_workbook_v2(cfg, res).save(buf)
         wb2 = _lw(_io.BytesIO(buf.getvalue()), data_only=True)
@@ -186,7 +186,7 @@ def main():
     try:
         from foundry.v2.engine_q_a import run_pf_a
         import copy
-        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_a_base.json"))))
+        c = copy.deepcopy(json.load(open(os.path.join(CONFIGS, "pf_a_base.json"), encoding="utf-8")))
         c["assumptions"]["securities_htm"] = [{"name": "HTM ladder", "opening": 20_000_000,
                                                "purchases_q": 0, "growth_q": 0, "runoff_q": 0.02,
                                                "yield_ann": 0.047}]
@@ -211,7 +211,7 @@ def main():
         from foundry.v2.parity import run_parity as _rp2
         unmapped = set()
         for k in fx["fixtures"]:
-            cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
+            cfg = json.load(open(os.path.join(CONFIGS, k + ".json"), encoding="utf-8"))
             res = _rp2(cfg)
             for section in ("bs", "is"):
                 for rk in res[section]:
@@ -231,7 +231,7 @@ def main():
     # constraint tests cover every constraint in every scenario
     try:
         from foundry.v2.run_q import run_v2, SCENARIOS_V2
-        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        cfg = json.load(open(os.path.join(CONFIGS, "pf_a_base.json"), encoding="utf-8"))
         r1, r2 = run_v2(cfg), run_v2(cfg)
         if r1 != r2 or r1["run_hash"] != r2["run_hash"]:
             print("  T-PRV FAIL: identical config produced different results"); sys.exit(1)
@@ -255,7 +255,7 @@ def main():
         sys.exit(1)
     npass = 0
     for k, v in fx["fixtures"].items():
-        cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
+        cfg = json.load(open(os.path.join(CONFIGS, k + ".json"), encoding="utf-8"))
         got = runner(cfg)
         diffs = compare(v["expected"], got)
         # A.7 attestation: ratio layer must match predecessor ratios within 0.02pp

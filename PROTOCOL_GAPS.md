@@ -58,3 +58,12 @@
   every replace is now followed by a verification read.
 - v2 run hashes have no golden freeze yet (no registered v2 clients); first frozen
   v2 engagement should be accompanied by a goldens entry.
+
+## PC-2 hotfix (2026-07-09) — Windows encoding
+Field report from first Windows deployment: T-PAR integrity failed on exactly the
+four pf_b fixtures. Root cause: text-mode open() without encoding uses the locale
+codec (cp1252 on Windows), which mangles the en dash in predecessor-B product names
+before hashing; reproduced deliberately via cp1252 decode. Fix: encoding="utf-8"
+declared on every text read/write in tests_parity, tests_protocol (T16), and the
+v2 API routes. Also corrected stale T2 label text (said v4/v1 while correctly
+comparing v5/v2). No arithmetic touched; run hashes unchanged.

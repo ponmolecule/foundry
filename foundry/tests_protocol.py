@@ -19,11 +19,11 @@ def check(tid, name, ok, detail=""):
 def t2():
     print("T2 golden-run regression")
     r = runner.run(copy.deepcopy(SOLSTICE))
-    check("T2", "Solstice canonical hash reproduces golden v4",
+    check("T2", "Solstice canonical hash reproduces golden v5",
           r["run_hash"] == GOLDENS["solstice_golden_v5"],
           f"{r['run_hash']} vs {GOLDENS['solstice_golden_v5']}")
     b = runner.run(copy.deepcopy(BLACKLAND))
-    check("T2", "Blackland canonical hash reproduces golden v1",
+    check("T2", "Blackland canonical hash reproduces golden v2",
           b["run_hash"] == GOLDENS["blackland_golden_v2"],
           f"{b['run_hash']} vs {GOLDENS['blackland_golden_v2']}")
 
@@ -133,7 +133,7 @@ def t15():
     from .excelio import workbook_from_config, parse_workbook
     import io as _io
     cfg = _json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                       "clients_uploaded", "prairie_digital.json")))
+                                       "clients_uploaded", "prairie_digital.json"), encoding="utf-8"))
     buf = _io.BytesIO(); workbook_from_config(cfg).save(buf)
     cfg2 = parse_workbook(buf.getvalue())
     r1, r2 = runner.run(copy.deepcopy(cfg)), runner.run(cfg2)
@@ -149,7 +149,7 @@ def t16():
     import json as _json
     from .configio import validate_config, ConfigError
     cfg = _json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
-                                       "clients_uploaded", "prairie_digital.json")))
+                                       "clients_uploaded", "prairie_digital.json"), encoding="utf-8"))
     validate_config(copy.deepcopy(cfg))
     try:
         runner.run(copy.deepcopy(cfg))
