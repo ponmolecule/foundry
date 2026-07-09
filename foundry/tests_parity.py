@@ -247,6 +247,13 @@ def main():
                        + r1['ftp']['treasury_center'] - r1['ftp']['consolidated_pretax']) < 0.05
                    for _ in [0]):
             print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
+        ftp_rows = r1.get("ftp", {}).get("rows", [])
+        bal_rows = [x for x in ftp_rows if x["family"] in ("lending", "deposit")
+                    and abs(x.get("avg_balance", 0)) > 1]
+        if bal_rows and not any(abs(x.get("ftp", 0)) > 1 for x in bal_rows):
+            print("  FAIL: FTP charges/credits are all ~zero despite balances and a "
+                  "nonzero rate path — rate series likely mangled by unit conversion")
+            sys.exit(1)
         print("T-PAR: run wrapper — preview==run (hash-stable), constraint tests span every"
               " constraint x scenario, FTP view reconciles to pre-tax exactly")
     except ImportError:
