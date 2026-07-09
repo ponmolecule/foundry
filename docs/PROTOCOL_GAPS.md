@@ -27,3 +27,13 @@ between two live surfaces of the same engine. Presentation of items 1 and 3 tran
 the archived JSX; codes sourced from the tested `callreport.py` mapping rather than the JSX's
 simplified codes. Items 5 (per-product P&L) and 7 (RC-L schedule) parked pending explicit
 request; items 2, 4, 6, 9 parked without a scheduled case.
+
+## PC-7 — Client-directed presentation divergence (skin only)
+Client reviewed v2.1 against the predecessor side by side and issued a new styling directive
+superseding "100% faithful" for visual presentation only: keep every structural element the
+checklist enforces (tabs, rows, labels, memos, sidebar, modal) but render to a Capital IQ
+standard with the Foundry palette — full-width tables, white-on-navy header band with gold
+rule, warm ivory zebra with row hover, horizontal-rule grid instead of full cell borders,
+champagne grand-total bands, gold-ruled section titles, brighter sidebar labels. Applied
+identically to the v2 branch and main so both deployment options carry it; the faithful
+STRUCTURE checklist is unchanged and still green on both.
