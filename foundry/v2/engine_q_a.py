@@ -295,7 +295,26 @@ def run_pf_a(cfg):
                      ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)):
             is_[k][q] = v
 
-    return {"bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
+    # ---- ratios (A.7): Tier 1 approx = equity - intangibles - MSA excess over the
+    # 25%-of-Tier-1 threshold (12 CFR 3.22(d) simplification); deducted MSAs also
+    # come out of average assets in the leverage denominator. ----
+    ratios = {k: [None] * (Q + 1) for k in ("roa", "roe", "nim", "lev", "alllPct")}
+    for q in range(1, Q + 1):
+        avg_a = (bs["totalAssets"][q - 1] + bs["totalAssets"][q]) / 2.0
+        avg_e = (bs["equity"][q - 1] + bs["equity"][q]) / 2.0
+        avg_earn = ((gross[q - 1] + gross[q]) / 2.0 + (bs["sec"][q - 1] + bs["sec"][q]) / 2.0
+                    + (bs["cash"][q - 1] + bs["cash"][q]) / 2.0)
+        ni_q = is_["ni"][q]
+        ratios["roa"][q] = (ni_q * 4 / avg_a * 100) if avg_a > 0 else None
+        ratios["roe"][q] = (ni_q * 4 / avg_e * 100) if avg_e > 0 else None
+        ratios["nim"][q] = (is_["nii"][q] * 4 / avg_earn * 100) if avg_earn > 0 else None
+        t1 = bs["equity"][q] - a["intangibles"]
+        msr_x = max(0.0, msr_t[q] - 0.25 * max(0.0, t1))
+        ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x) * 100) if (avg_a - msr_x) > 0 else None
+        ratios["alllPct"][q] = (alll_t[q] / gross[q] * 100) if gross[q] > 0 else None
+
+    return {"ratios": {k: v[1:] for k, v in ratios.items()},
+            "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,
                    "borrow": bs["borrow"], "deposits": deps_c, "equity": bs["equity"],
                    "re": bs["re"], "totalAssets": bs["totalAssets"]},

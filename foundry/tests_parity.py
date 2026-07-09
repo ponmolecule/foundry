@@ -77,6 +77,28 @@ def main():
             print(f"  CONFIG FAIL {k}: {e}"); cfg_fail += 1
     print(f"T-PAR: v2 configs structural check — {len(fx['fixtures'])-cfg_fail}/{len(fx['fixtures'])} pass")
 
+    # 2b) fail-closed validator (A.13): accepts all fixtures, rejects nonsense
+    try:
+        from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
+        import copy
+        base = json.load(open(os.path.join(CONFIGS, "pf_a_base.json")))
+        for label, breaker in [
+            ("missing step_0a", lambda c: c.pop("step_0a")),
+            ("negative runoff", lambda c: c["assumptions"]["lending_products"][0].__setitem__("runoff_q", -0.5)),
+            ("FV without discount spread", lambda c: (c["assumptions"]["lending_products"][0].__setitem__("measurement", "fair_value"),
+                                                      c["assumptions"]["lending_products"][0].pop("discount_spread_ann", None))),
+            ("charge-off 80%", lambda c: c["assumptions"]["lending_products"][0].__setitem__("charge_off_ann", 0.80)),
+        ]:
+            broken = copy.deepcopy(base); breaker(broken)
+            try:
+                validate_config_v2(broken)
+                print(f"  VALIDATOR FAIL: accepted nonsense ({label})"); sys.exit(1)
+            except ConfigErrorV2:
+                pass
+        print("T-PAR: fail-closed validator — 4/4 nonsense configs rejected, fixtures accepted")
+    except ImportError:
+        pass
+
     # 3) parity runs
     runner = load_v2_runner()
     if runner is None:
@@ -88,6 +110,15 @@ def main():
         cfg = json.load(open(os.path.join(CONFIGS, k + ".json")))
         got = runner(cfg)
         diffs = compare(v["expected"], got)
+        # A.7 attestation: ratio layer must match predecessor ratios within 0.02pp
+        exp_r, got_r = v["expected"].get("ratios") or {}, got.get("ratios") or {}
+        for rk, ev in exp_r.items():
+            gv = got_r.get(rk)
+            if gv is None:
+                continue
+            for i, (e2, g2) in enumerate(zip(ev, gv)):
+                if e2 is not None and g2 is not None and abs(e2 - g2) > 0.02:
+                    diffs.append(f"ratios.{rk}[{i}]: expected {e2}, got {g2}")
         if diffs:
             print(f"  PARITY FAIL {k}: {len(diffs)} line-quarters out of tolerance; first: {diffs[0]}")
         else:

@@ -20,7 +20,10 @@ class ConfigError(ValueError):
 
 TOP_REQUIRED = ["engagement_id", "client_legal_name", "proposed_bank",
                 "config_version", "config_frozen", "step_0", "constraints",
-                "target_state", "peer_query", "assumptions"]
+                "target_state", "peer_query", "assumptions",
+                # seam fix (v2 ledger A.13): run() consumes these; a config that
+                # validates must run — validation now covers everything behind it
+                "hq", "step_minus_1", "step_0a", "step_1", "assumption_tags"]
 
 CHASSIS_REQUIRED = ["cash_target_pct_deposits", "cash_yield", "securities_yield",
                     "productive_hours_m", "loaded_cost_ops_fte_m", "fixed_exec_team_m",
@@ -71,6 +74,9 @@ def validate_config(cfg):
             errs.append(f"missing required top-level key '{k}'")
     if errs:
         raise ConfigError("; ".join(errs))
+
+    if "flags_from_map" not in cfg["step_0a"]:
+        errs.append("step_0a.flags_from_map is required (challenge layer consumes it)")
 
     mods = cfg["step_0"].get("modules", [])
     if not mods:

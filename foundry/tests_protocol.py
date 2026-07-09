@@ -144,9 +144,29 @@ def t15():
           and [f["id"] for f in r1["flags"]] == [f["id"] for f in r2["flags"]])
 
 
+def t16():
+    print("T16 validate/run seam: anything validate_config passes, run() must complete")
+    import json as _json
+    from .configio import validate_config, ConfigError
+    cfg = _json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                       "clients_uploaded", "prairie_digital.json")))
+    validate_config(copy.deepcopy(cfg))
+    try:
+        runner.run(copy.deepcopy(cfg))
+        check("T16", "validated config runs end-to-end", True)
+    except KeyError as e:
+        check("T16", "validated config runs end-to-end", False, f"KeyError {e} — seam reopened")
+    broken = copy.deepcopy(cfg); broken.pop("step_0a")
+    try:
+        validate_config(broken)
+        check("T16", "config missing run()-consumed key fails closed", False, "validator passed it")
+    except ConfigError:
+        check("T16", "config missing run()-consumed key fails closed", True)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -6,21 +6,23 @@ compares like with like.
 """
 from .engine_q_a import run_pf_a
 from .engine_q_b import run_pf_b
+from .validate_q import validate_config_v2
 
 
 def _k(x):
     return None if x is None else round(x / 1000.0, 2)
 
 
-def _conv(tree):
+def _conv(tree, is_ratio=False):
     if isinstance(tree, dict):
-        return {k: _conv(v) for k, v in tree.items()}
+        return {k: _conv(v, is_ratio or k == "ratios") for k, v in tree.items()}
     if isinstance(tree, list):
-        return [_k(x) for x in tree]
+        return [(None if x is None else round(x, 2)) if is_ratio else _k(x) for x in tree]
     return tree
 
 
 def run_parity(cfg):
+    validate_config_v2(cfg)   # fail closed before any arithmetic (A.13)
     profile = cfg.get("parity_profile")
     if profile == "pf_a":
         return _conv(run_pf_a(cfg))

@@ -1,5 +1,18 @@
 # Foundry v2 — Capability Ledger (COMPLETE BUILD LIST)
 **Status: PA-1 delivered — T-PAR GREEN 9/9. ☑ done · ◐ embryo delivered in parity mode, full form due in its phase · ☐ pending.**
+
+> **Reconciliation note (2026-07-09).** A parallel requirements document of unknown
+> provenance (`REQUIREMENTS_V2.md`, archived outside the repo) was reviewed on merits.
+> Adopted: (1) its status vocabulary — rows below additionally carry NATIVE / MODULE /
+> CHASSIS / PRESENT / DEFER classifications going forward; (2) folding the capital-
+> shortfall estimate into reverse-stress *output* rather than a standalone solver —
+> ledger row A.9 is so revised, and because any addition to the results dict moves the
+> canonical run hash, A.9 is re-phased from PA to PB (CHASSIS class, golden re-freeze).
+> Rejected: its deferral of the fair-value election — FV is already built and parity-
+> green (pf_a_fv_election), and deferral would breach governing principle G1.
+> Architecture reconciliation, recorded: the quarterly engines in `foundry/v2` are the
+> permanent parity-floor implementation satisfying T-PAR; the monthly-chassis-native
+> module forms remain PB scope. Both statements are true; neither supersedes the other.
 **Origin: marching orders · July 2026 · internal document — sources are for engagement honesty and never appear in the product**
 
 Source key: **[HTML]** Goldstein pro forma build · **[JSX]** first JSX modeler (this engagement) · **[F1]** Foundry v0.2.1 (kept/extended) · **[NEW]** v2-original, arising from integration findings in this engagement
@@ -33,13 +46,13 @@ Governing principles (bind every row below):
 | A.4 | `balance_driven_obs` module: notional, growth, fee yield, opex; RC-L-style reporting | HTML+JSX | Notional path + fee accrual test |
 | ☑ A.5 | `mortgage_banking` module: sale % of originations, warehouse cohorts with half-period interest at origination and sale, hold period, gain-on-sale margin recognized at sale; servicing retained %, serviced-UPB roll with decay, servicing fee (bp/yr), MSR capitalization rate into gain, MSR amortization; MSR as balance-sheet asset | HTML | HTML GOS/MSR fixture reproduces; T6 |
 | ◐ A.6 | `investment_portfolio` extension: deliberate **AFS and HTM** books (opening, purchases/period, runoff, yields); HTM coupons never reprice under rate scenarios; AFS liquidity-sweep residual retained | JSX + F1 | JSX HTM fixture reproduces; shock test shows HTM coupon invariance |
-| A.7 | Capital treatment: MSR 25%-of-Tier-1 threshold deduction (capital and average-assets sides); intangibles deduction; CBLR eligibility checks (OBS >25% of assets, $10B ceiling) | HTML | Leverage calc unit tests; CBLR flags fire on crafted configs |
+| ☑ A.7 | Capital treatment: MSR 25%-of-Tier-1 threshold deduction (capital and average-assets sides); intangibles deduction; CBLR eligibility checks (OBS >25% of assets, $10B ceiling) | HTML | Leverage calc unit tests; CBLR flags fire on crafted configs |
 | A.8 | Wholesale-funding concentration as a named constraint (borrowings ≤25% of assets) with citable source, tested per scenario | HTML→F1 framing | Appears in `constraint_tests` across scenarios |
-| A.9 | Capital-shortfall solver as third reverse-stress dimension: smallest additional opening capital keeping leverage ≥ commitment in every scenario | HTML | Solver output matches hand-check on fixture |
+| A.9 | Capital-shortfall estimate folded into reverse-stress output (additional opening capital to hold the leverage commitment) — **re-phased to PB**: touches the results dict, therefore the run hash | HTML (+adopted refinement) | Solver output matches hand-check; goldens re-frozen with explained diff |
 | ☑ A.10 | Downturn overlays as scenario parameters: origination-volume haircut, gain-on-sale margin compression, MSR value haircut, sale-share retention shift (would-be-sold loans stay on balance sheet) | HTML | Overlay scenario changes only the intended drivers; fixture reproduces HTML combined stress |
 | A.11 | Challenge-layer bands: two-sided charge-off ranges by loan type (too high **and** suspiciously low), usury/below-funding-cost pricing, hot-money deposit and DDA-rate checks, blended-spread viability, GOS margin (0.5–4%) and servicing-fee (12.5–50bp) bands, warehouse-period sanity | HTML | Each band fires on a crafted config; clean configs raise none |
 | A.12 | Coupled-inconsistency rules kept and extended: existing F1 rules + COUPLED-01 (cheap-and-fast funding) + COUPLED-02 (risk-priced yield with prime-book losses) | F1 + this engagement | Icarus-style negative fixtures fire both |
-| A.13 | Fail-closed validator completeness: close the validate/run gap (`step_0a.flags_from_map`, `step_minus_1`, `step_1`, `hq`, `assumption_tags` required or consumers tolerant); sanity ranges extended to all new fields (spreads, sale margins, MSR cap rates, servicing fees, runoff ≥0) | Finding (this engagement) + F1 | Minimal-valid-config fixture: anything `validate_config` passes, `run()` completes; T14 extended |
+| ☑ A.13 | Fail-closed validator completeness: close the validate/run gap (`step_0a.flags_from_map`, `step_minus_1`, `step_1`, `hq`, `assumption_tags` required or consumers tolerant); sanity ranges extended to all new fields (spreads, sale margins, MSR cap rates, servicing fees, runoff ≥0) | Finding (this engagement) + F1 | Minimal-valid-config fixture: anything `validate_config` passes, `run()` completes; T14 extended |
 | A.14 | Excel round-trip (T15) extended: every new module field in the workbook with data-dictionary rows; workbook↔JSON runs remain identical | F1 | T15 green across new fields |
 | A.15 | `workbook_from_results`: Excel **results** export — balance sheet, income statement, ratios, product detail, stress comparison, assumptions — with run hash and manifest on the cover sheet | HTML + F1 excelio | Generated workbook numbers tie to the run JSON exactly |
 

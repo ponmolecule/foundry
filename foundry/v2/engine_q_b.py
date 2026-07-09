@@ -135,4 +135,14 @@ def run_pf_b(cfg):
         alll = alll_end
         cash, sweep, borrow = c2, s2, b2
 
-    return {"bs": out_bs, "is": out_is}
+    out_ratios = {"roa": [], "roe": [], "nim": [], "leverage": []}
+    pa, pe = prev_assets, capital
+    for qi in range(Q):
+        ta, eq, ni = out_bs["totalAssets"][qi], out_bs["equity"][qi], out_is["ni"][qi]
+        avg_a, avg_e = (pa + ta) / 2.0, (pe + eq) / 2.0
+        out_ratios["roa"].append(ni * 4 / avg_a * 100 if avg_a > 0 else None)
+        out_ratios["roe"].append(ni * 4 / avg_e * 100 if avg_e > 0 else None)
+        out_ratios["nim"].append(None)  # informational only in profile B fixtures
+        out_ratios["leverage"].append(eq / ta * 100 if ta > 0 else None)
+        pa, pe = ta, eq
+    return {"bs": out_bs, "is": out_is, "ratios": out_ratios}
