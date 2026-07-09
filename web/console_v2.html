@@ -20,23 +20,25 @@ a{color:var(--amber)}
 #ribbon b{color:var(--text);font-weight:600}
 #ribbon .brand{color:var(--amber);letter-spacing:.18em;font-weight:700}
 #ribbon .pill{padding:.15rem .55rem;border-radius:99px;font-weight:600;background:rgba(223,168,90,.12);color:var(--amber)}
-header{padding:1.3rem 1.2rem .4rem;max-width:1280px;margin:0 auto}
+header{padding:1.3rem 1.2rem .4rem;max-width:1320px;margin:0 auto}
 header h1{font-size:1.4rem;font-weight:650}
-header .sub{color:var(--muted);margin-top:.25rem;font-size:.85rem;max-width:960px;line-height:1.5}
-nav{display:flex;gap:.25rem;max-width:1280px;margin:.9rem auto 0;padding:0 1.2rem;flex-wrap:wrap}
+header .sub{color:var(--muted);margin-top:.25rem;font-size:.85rem;max-width:980px;line-height:1.5}
+nav{display:flex;gap:.25rem;max-width:1320px;margin:.9rem auto 0;padding:0 1.2rem;flex-wrap:wrap}
 nav button{background:none;border:1px solid transparent;color:var(--muted);padding:.45rem .8rem;
   border-radius:8px 8px 0 0;cursor:pointer;font-size:.86rem;font-family:var(--sans)}
 nav button.active{color:var(--amber);background:var(--panel);border-color:var(--line);border-bottom-color:var(--panel)}
-main{display:grid;grid-template-columns:320px 1fr;gap:1rem;max-width:1280px;margin:0 auto;padding:0 1.2rem 3rem;align-items:start}
+main{display:grid;grid-template-columns:330px 1fr;gap:1rem;max-width:1320px;margin:0 auto;padding:0 1.2rem 3rem;align-items:start}
 @media(max-width:980px){main{grid-template-columns:1fr}}
 aside{position:sticky;top:44px;max-height:calc(100vh - 60px);overflow:auto;padding-right:2px}
-.alabel{font-size:.7rem;color:var(--amber);margin:.9rem 0 .35rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600}
+.alabel{font-size:.7rem;color:var(--amber);margin:.9rem 0 .35rem;text-transform:uppercase;letter-spacing:.08em;font-weight:600;display:flex;align-items:center;gap:.5rem}
 .card{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:.7rem .8rem;margin-bottom:.5rem}
 .card .phead{display:flex;align-items:center;gap:.5rem;cursor:pointer}
 .card .pname{font-weight:600;font-size:.88rem;flex:1}
 .chip{font-family:var(--mono);font-size:10px;padding:.12rem .45rem;border-radius:4px;background:rgba(140,153,175,.14);color:var(--muted)}
 .chip.lending{background:rgba(52,211,153,.12);color:var(--good)}
 .chip.deposit{background:rgba(223,168,90,.14);color:var(--amber)}
+.chip.securities{background:rgba(96,165,250,.14);color:#93C5FD}
+.chip.obs{background:rgba(251,191,36,.12);color:var(--warn)}
 .del{background:none;border:none;color:var(--muted);cursor:pointer;font-size:.85rem}
 .del:hover{color:var(--bad)}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:.45rem .55rem;margin-top:.55rem}
@@ -54,6 +56,7 @@ aside{position:sticky;top:44px;max-height:calc(100vh - 60px);overflow:auto;paddi
 .btn{background:var(--amber);color:#14100A;border:none;padding:.5rem .95rem;font-weight:600;font-size:.82rem;cursor:pointer;border-radius:6px}
 .btn:hover{background:var(--amber-dim)}
 .btn2{background:none;border:1px solid var(--line);color:var(--muted);padding:.5rem .9rem;font-size:.82rem;cursor:pointer;border-radius:6px}
+select.btn2{padding:.45rem .6rem;background:#0F1A2C;color:var(--text)}
 #content{background:var(--panel);border:1px solid var(--line);border-radius:0 10px 10px 10px;padding:1.1rem;min-width:0;overflow-x:auto}
 .h2{font-size:1rem;margin:1rem 0 .6rem;font-weight:650}.h2:first-child{margin-top:0}
 .grid{display:grid;gap:.7rem;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-bottom:1rem}
@@ -61,15 +64,23 @@ aside{position:sticky;top:44px;max-height:calc(100vh - 60px);overflow:auto;paddi
 .kcard .k{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
 .kcard .v{font-family:var(--mono);font-size:1.25rem;margin-top:.25rem}
 .kcard .s{font-size:.72rem;color:var(--muted);margin-top:.15rem}
-table.fin{width:100%;border-collapse:collapse;font-size:.79rem;margin:0 0 1rem;min-width:860px}
+table.fin{width:100%;border-collapse:collapse;font-size:.79rem;margin:0 0 1.1rem;min-width:900px}
 table.fin th{color:var(--muted);text-align:right;font-weight:500;padding:.38rem .45rem;border-bottom:1px solid var(--line);font-size:.68rem;text-transform:uppercase;letter-spacing:.05em;font-family:var(--mono)}
 table.fin th:first-child,table.fin th.txt{text-align:left;font-family:var(--sans)}
 table.fin td{padding:.32rem .45rem;border-bottom:1px solid #1C2940;text-align:right;font-family:var(--mono);white-space:nowrap}
 table.fin td:first-child,table.fin td.txt{text-align:left;font-family:var(--sans);white-space:normal}
+table.fin td.lbl{min-width:300px}
 table.fin tr:hover td{background:#16233A}
+tr.sect td{color:var(--amber);text-transform:uppercase;letter-spacing:.08em;font-size:.68rem;font-weight:600;border-bottom:none;padding-top:.75rem;font-family:var(--sans)}
+tr.sub td{font-weight:600;border-top:1px solid var(--line)}
+tr.tot td{font-weight:700;border-top:2px solid var(--amber-dim);border-bottom:3px double var(--amber-dim);color:var(--amber)}
+tr.det td{color:var(--muted)}
+td.ind{padding-left:1.4rem !important}
 td.neg{color:var(--bad)}
-.code{font-family:var(--mono);font-size:.64rem;color:var(--amber-dim)}
-.memo{color:var(--muted);font-size:.8rem;line-height:1.55;margin:.5rem 0 1rem;max-width:960px}
+td.idok{color:var(--good);font-weight:700;text-align:center}
+td.idbad{color:var(--bad);font-weight:700;text-align:center}
+.code{font-family:var(--mono);font-size:.62rem;color:var(--amber-dim)}
+.memo{color:var(--muted);font-size:.8rem;line-height:1.55;margin:.5rem 0 1rem;max-width:980px}
 .okbox{background:rgba(52,211,153,.08);border:1px solid rgba(52,211,153,.3);color:var(--good);border-radius:8px;padding:.55rem .8rem;font-size:.82rem;margin:.35rem 0}
 .warnitem{border-radius:8px;padding:.55rem .8rem;font-size:.82rem;margin:.35rem 0;border:1px solid}
 .warnitem.severe{background:rgba(248,113,113,.08);border-color:rgba(248,113,113,.35);color:#FCA5A5}
@@ -81,7 +92,7 @@ textarea{width:100%;min-height:300px;background:#0F1A2C;border:1px solid var(--l
 .tag{font-family:var(--mono);font-size:10.5px;padding:.12rem .45rem;border-radius:4px}
 .tag.ok{background:rgba(52,211,153,.12);color:var(--good)}
 .tag.bad{background:rgba(248,113,113,.14);color:var(--bad)}
-footer{max-width:1280px;margin:0 auto;padding:0 1.2rem 1.4rem;display:flex;gap:1rem;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
+footer{max-width:1320px;margin:0 auto;padding:0 1.2rem 1.4rem;display:flex;gap:1rem;font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 footer .conf{color:var(--amber);letter-spacing:.14em;font-weight:700}
 #status{font-family:var(--mono);font-size:10.5px;color:var(--muted)}
 </style>
@@ -108,37 +119,56 @@ footer .conf{color:var(--amber);letter-spacing:.14em;font-weight:700}
 <footer><span class="conf">CONFIDENTIAL</span><span>Illustrative planning workspace — freeze the scenario to register it as the engagement of record.</span><span id="status"></span></footer>
 <script>
 "use strict";
-/* ---------- state: the Tier-3 config is the single source of truth ---------- */
-const K = 1000; // UI edits in $000s -> config in dollars
-function defProduct(fam){
-  if(fam==="deposit") return {name:"New Deposit Product", opening_balance:20_000_000, growth_q:0.05, runoff_q:0.0,
-    rate_type:"fixed", rate_paid_ann:0.02, fee_yield_ann:0.001, opex_pct_ann:0.003, opex_fixed_m:20000,
-    call_report_line:"depSavings"};
-  return {name:"New Loan Product", opening_balance:15_000_000, originations_q:2_000_000, orig_growth_q:0.005,
-    runoff_q:0.05, rate_type:"fixed", yield_ann:0.065, charge_off_ann:0.0075, provision_rate_ann:null,
-    reserve_rate_pct_bal:0.0125, measurement:"amortized", fee_yield_ann:0.002, opex_pct_ann:0.005,
-    opex_fixed_m:25000, call_report_line:"loanCommercial"};
-}
+const K = 1000;
+
+/* ---------- preset product library (client seeds; the engine prices them) ---------- */
+const PRESETS = {
+  "Demand deposits (DDA)": {fam:"deposit", p:{name:"Demand Deposits (DDA)", opening_balance:25e6, growth_q:0.12, runoff_q:0,
+    rate_type:"fixed", rate_paid_ann:0.0025, fee_yield_ann:0.006, opex_pct_ann:0.004, opex_fixed_m:40000, call_report_line:"depDDA"}},
+  "Savings & MMDA (floating)": {fam:"deposit", p:{name:"Savings & MMDA", opening_balance:35e6, growth_q:0.14, runoff_q:0,
+    rate_type:"float", index_spread:-0.007, fee_yield_ann:0.001, opex_pct_ann:0.002, opex_fixed_m:23333, call_report_line:"depSavings"}},
+  "Time deposits (CDs)": {fam:"deposit", p:{name:"Time Deposits", opening_balance:15e6, growth_q:0.06, runoff_q:0,
+    rate_type:"fixed", rate_paid_ann:0.041, fee_yield_ann:0, opex_pct_ann:0.001, opex_fixed_m:10000, call_report_line:"depTime"}},
+  "Commercial & industrial loans": {fam:"lending", p:{name:"Commercial Loans", opening_balance:40e6, originations_q:6e6, orig_growth_q:0.005,
+    runoff_q:0.06, rate_type:"fixed", yield_ann:0.0775, charge_off_ann:0.0075, provision_rate_ann:null, reserve_rate_pct_bal:0.0125,
+    measurement:"amortized", fee_yield_ann:0.003, opex_pct_ann:0.006, opex_fixed_m:33333, call_report_line:"loanCommercial"}},
+  "1-4 family mortgages (originate-to-sell)": {fam:"lending", p:{name:"Mortgages", opening_balance:20e6, originations_q:6e6, orig_growth_q:0.01,
+    runoff_q:0.02, rate_type:"fixed", yield_ann:0.064, charge_off_ann:0.0015, provision_rate_ann:null, reserve_rate_pct_bal:0.005,
+    measurement:"amortized", fee_yield_ann:0.002, opex_pct_ann:0.004, opex_fixed_m:26667, call_report_line:"loanMortgage",
+    mortgage_banking:{sale_pct_of_orig:0.5, gain_on_sale_margin:0.0175, warehouse_hold_q:1, servicing_retained_pct:1.0,
+      servicing_fee_bp_ann:25, msr_cap_rate_pct_upb:0.011, msr_decay_q:0.01}}},
+  "Credit cards": {fam:"lending", p:{name:"Credit Cards", opening_balance:8e6, originations_q:2.5e6, orig_growth_q:0.02,
+    runoff_q:0.18, rate_type:"fixed", yield_ann:0.185, charge_off_ann:0.055, provision_rate_ann:null, reserve_rate_pct_bal:0.065,
+    measurement:"amortized", fee_yield_ann:0.02, opex_pct_ann:0.02, opex_fixed_m:40000, call_report_line:"loanCreditCard"}},
+  "Consumer installment loans": {fam:"lending", p:{name:"Personal Loans", opening_balance:10e6, originations_q:3e6, orig_growth_q:0.01,
+    runoff_q:0.08, rate_type:"fixed", yield_ann:0.12, charge_off_ann:0.04, provision_rate_ann:null, reserve_rate_pct_bal:0.03,
+    measurement:"amortized", fee_yield_ann:0.005, opex_pct_ann:0.01, opex_fixed_m:30000, call_report_line:"loanConsumer"}},
+  "AFS securities ladder": {fam:"afs", p:{name:"AFS Treasury/Agency Ladder", opening:10e6, purchases_q:500000, growth_q:0, runoff_q:0.007, yield_ann:0.044}},
+  "HTM securities ladder": {fam:"htm", p:{name:"HTM Municipal Ladder", opening:8e6, purchases_q:0, growth_q:0, runoff_q:0.007, yield_ann:0.047}},
+  "Unused loan commitments (OBS)": {fam:"obs", p:{name:"Unused Commitments", notional:15e6, growth_q:0.02, fee_yield_ann:0.0025, opex_fixed_m:0}},
+};
+function defProduct(fam){ return JSON.parse(JSON.stringify(Object.values(PRESETS).find(x=>x.fam===fam).p)); }
+
 let cfg = null;
 async function boot(){
-  // seed from the committed reference configuration — the workspace edits a real Tier-3 config
   const r = await fetch("/api/v2/template").catch(()=>null);
-  if(r && r.ok){ cfg = await r.json(); }
-  else cfg = TEMPLATE;
+  cfg = (r && r.ok) ? await r.json() : TEMPLATE;
   cfg.proposed_bank = "New Applicant Bank (in organization)";
   cfg.client_legal_name = "New Applicant Bank";
+  cfg.assumptions.securities_afs = cfg.assumptions.securities_afs || null;
+  cfg.assumptions.securities_htm = cfg.assumptions.securities_htm || null;
+  cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
   renderSide(); refresh();
 }
 const TEMPLATE = {"engagement_id": "ENG-NEW", "schema_version": "2.0", "client_legal_name": "Parity Fixture Bank A1", "proposed_bank": "Parity Fixture Bank A1 (in organization)", "hq": "TBD", "prepared_by": "Foundry Modeling Workspace", "config_version": "1.0", "config_frozen": "2026-07-08", "parity_profile": "pf_a", "step_minus_1": {"decision": "proceed_de_novo", "alternatives_priced": {"de_novo": "Template."}}, "step_0a": {"entities": {"bank": "Parity Fixture Bank A1 \u2014 single entity"}, "flags_from_map": [], "map_approved": null}, "step_1": {"charter": "n/a (fixture)", "regulators": ["n/a"], "rationale": "Template."}, "assumption_tags": {}, "step_0": {"one_sentence": "New applicant scoping template.", "earning_engine": "spread", "modules": ["balance_driven_deposits", "balance_driven_lending", "mortgage_banking"]}, "constraints": [{"key": "leverage_min", "value": 0.09, "text": "Tier 1 leverage floor.", "source": "Engagement commitment (edit with citation)"}], "target_state": {"initial_capital": 60000000.0, "assets_yr3": 316408500.0}, "peer_query": {"consumer_loan_share": 0.4, "fee_income_share": 0.2, "core_funding_share": 0.9, "digital_channel": 1.0}, "assumptions": {"rate_path_q": [0.037000000000000005, 0.0385, 0.038, 0.0375, 0.037000000000000005, 0.0365, 0.036000000000000004, 0.0355, 0.035, 0.0345, 0.034, 0.0335], "rate_path_longer_run": 0.0315, "tax_semantics": "nol_carryforward_pf_a", "tax_rate": 0.21, "cash_target_pct_deposits": 0.05, "cash_yield": 0.025, "securities_yield": 0.04, "borrow_rate_ann": 0.055, "overhead_q": 1800000.0, "overhead_growth_q": 0.01, "premises_equipment": 5000000.0, "intangibles": 0.0, "other_assets": 2000000.0, "other_liabilities": 1000000.0, "deposit_products": [{"name": "DDA", "opening_balance": 25000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.01, "opex_fixed_m": 50000.0, "growth_q": 0.12, "runoff_q": 0.0, "call_report_line": "depDDA", "rate_paid_ann": 0.0025}, {"name": "Savings", "opening_balance": 35000000.0, "rate_type": "float", "fee_yield_ann": 0.001, "opex_pct_ann": 0.003, "opex_fixed_m": 16666.666666666668, "index_spread": -0.006999999999999999, "growth_q": 0.14, "runoff_q": 0.0, "call_report_line": "depSavings"}], "lending_products": [{"name": "Personal Loans", "opening_balance": 10000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.015, "opex_fixed_m": 33333.333333333336, "originations_q": 5000000.0, "orig_growth_q": 0.05, "runoff_q": 0.08, "charge_off_ann": 0.04, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "call_report_line": "loanConsumer", "yield_ann": 0.11}, {"name": "Commercial Loans", "opening_balance": 15000000.0, "rate_type": "float", "fee_yield_ann": 0.0034999999999999996, "opex_pct_ann": 0.0075, "opex_fixed_m": 50000.0, "index_spread": 0.035, "originations_q": 7500000.0, "orig_growth_q": 0.05, "runoff_q": 0.05, "charge_off_ann": 0.0075, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.0125, "measurement": "amortized", "call_report_line": "loanCommercial"}, {"name": "Credit Cards", "opening_balance": 5000000.0, "rate_type": "fixed", "fee_yield_ann": 0.03, "opex_pct_ann": 0.04, "opex_fixed_m": 66666.66666666667, "originations_q": 2000000.0, "orig_growth_q": 0.06, "runoff_q": 0.1, "charge_off_ann": 0.055, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.08, "measurement": "amortized", "call_report_line": "loanCreditCard", "yield_ann": 0.18}, {"name": "Mortgages", "opening_balance": 20000000.0, "rate_type": "fixed", "fee_yield_ann": 0.0025, "opex_pct_ann": 0.004, "opex_fixed_m": 33333.333333333336, "originations_q": 6000000.0, "orig_growth_q": 0.04, "runoff_q": 0.03, "charge_off_ann": 0.0015, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.005, "measurement": "amortized", "call_report_line": "loanMortgage", "yield_ann": 0.06, "mortgage_banking": {"sale_pct_of_orig": 0.5, "gain_on_sale_margin": 0.0175, "warehouse_hold_q": 1, "servicing_retained_pct": 1.0, "servicing_fee_bp_ann": 25, "msr_cap_rate_pct_upb": 0.011000000000000001, "msr_decay_q": 0.03}}], "obs_exposures": []}, "scenario_overlays": null, "parity_expectation": null};
 
-/* ---------- engine calls (the only source of numbers) ---------- */
+/* ---------- engine calls ---------- */
 let timer=null, lastRes=null, lastErrs=null, seq=0;
 function refresh(){ clearTimeout(timer); timer=setTimeout(preview, 350); }
 async function preview(){
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
-  const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"},
-    body: JSON.stringify(cfg)});
+  const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
   if(my !== seq) return;
   if(r.status === 422){ lastErrs = (await r.json()).errors; lastRes = null; }
   else { lastRes = await r.json(); lastErrs = null; }
@@ -148,33 +178,41 @@ async function preview(){
   renderTab();
 }
 
-/* ---------- left panel: config composer ---------- */
+/* ---------- composer helpers ---------- */
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+function getPath(p){ return p.split(".").reduce((o,k)=> o==null?o : o[isNaN(+k)?k:+k], cfg); }
+function setPath(p, v){ const ks=p.split("."); let o=cfg; for(let i=0;i<ks.length-1;i++){ const k=isNaN(+ks[i])?ks[i]:+ks[i]; if(o[k]==null) o[k]={}; o=o[k]; }
+  o[ks[ks.length-1]] = v; refresh(); }
+function setNum(p, v, pct, k){ if(v===""){ setPath(p, null); return; } let x = parseFloat(v); if(isNaN(x)) return;
+  if(pct) x/=100; if(k) x*=K; setPath(p, x); }
+window.setPath=setPath; window.setNum=setNum;
 function fld(label, path, opts){
+  opts = opts||{};
   const v = getPath(path);
-  if(opts && opts.select){
+  if(opts.select){
     return `<div class="fld"><label>${label}</label><select onchange="setPath('${path}', this.value)">`+
       opts.select.map(o=>`<option value="${o}" ${String(v)===o?"selected":""}>${o}</option>`).join("")+`</select></div>`;
   }
-  const scale = opts&&opts.k ? 1/K : 1, pct = opts&&opts.pct;
-  let disp = v==null ? "" : (pct ? (v*100) : v*scale);
+  let disp = v==null ? "" : (opts.pct ? v*100 : (opts.k ? v/K : v));
   if(typeof disp === "number") disp = +disp.toFixed(6);
-  return `<div class="fld ${opts&&opts.wide?"wide":""}"><label>${label}</label>
-    <input value="${disp}" onchange="setNum('${path}', this.value, ${pct?1:0}, ${opts&&opts.k?1:0})"></div>`;
+  return `<div class="fld ${opts.wide?"wide":""}"><label>${label}</label>
+    <input value="${disp}" onchange="setNum('${path}', this.value, ${opts.pct?1:0}, ${opts.k?1:0})"></div>`;
 }
-function getPath(p){ return p.split(".").reduce((o,k)=> o==null?o : o[isNaN(+k)?k:+k], cfg); }
-function setPath(p, v){ const ks=p.split("."); let o=cfg; for(let i=0;i<ks.length-1;i++) o=o[isNaN(+ks[i])?ks[i]:+ks[i]];
-  o[ks[ks.length-1]] = v; refresh(); }
-function setNum(p, v, pct, k){ let x = v===""? null : parseFloat(v); if(x!=null && !isNaN(x)){ if(pct) x/=100; if(k) x*=K; } else if(v!=="") return;
-  setPath(p, v===""? null : x); }
-window.setPath=setPath; window.setNum=setNum;
 
-const OV_FIELDS = {lending:["yield_ann","charge_off_ann","originations_q","growth_q","runoff_q"],
-                   deposit:["rate_paid_ann","growth_q","runoff_q"]};
-let open = {};
+const FAM_META = {
+  deposit: {arr:"deposit_products", chip:"deposit"},
+  lending: {arr:"lending_products", chip:"lending"},
+  afs: {arr:"securities_afs", chip:"securities"},
+  htm: {arr:"securities_htm", chip:"securities"},
+  obs: {arr:"obs_exposures", chip:"obs"},
+};
+const OV_FIELDS = {lending:["yield_ann","index_spread","charge_off_ann","originations_q","growth_q","runoff_q","fee_yield_ann"],
+                   deposit:["rate_paid_ann","index_spread","growth_q","runoff_q","fee_yield_ann"]};
+let openMap = {};
 function prodCard(fam, i){
-  const key = fam+"_"+i, p = cfg.assumptions[fam==="deposit"?"deposit_products":"lending_products"][i];
-  const base = `assumptions.${fam==="deposit"?"deposit_products":"lending_products"}.${i}`;
+  const meta = FAM_META[fam];
+  const arr = cfg.assumptions[meta.arr]||[];
+  const p = arr[i], key = fam+"_"+i, base = `assumptions.${meta.arr}.${i}`;
   let f = "";
   if(fam==="deposit"){
     f = fld("Opening ($000s)", base+".opening_balance", {k:1}) + fld("Growth %/q", base+".growth_q", {pct:1})
@@ -182,7 +220,7 @@ function prodCard(fam, i){
       + (p.rate_type==="float" ? fld("Spread vs index %", base+".index_spread", {pct:1}) : fld("Rate paid %", base+".rate_paid_ann", {pct:1}))
       + fld("Fee yield %/yr", base+".fee_yield_ann", {pct:1}) + fld("Opex % bal/yr", base+".opex_pct_ann", {pct:1})
       + fld("Opex fixed $/mo", base+".opex_fixed_m", {}) + fld("Call Report line", base+".call_report_line", {wide:1});
-  } else {
+  } else if(fam==="lending"){
     f = fld("Opening ($000s)", base+".opening_balance", {k:1}) + fld("Originations $000s/q", base+".originations_q", {k:1})
       + fld("Orig growth %/q", base+".orig_growth_q", {pct:1}) + fld("Runoff %/q", base+".runoff_q", {pct:1})
       + fld("Rate type", base+".rate_type", {select:["fixed","float"]})
@@ -190,50 +228,105 @@ function prodCard(fam, i){
       + fld("Charge-offs %/yr", base+".charge_off_ann", {pct:1}) + fld("Provision %/yr (blank=CO)", base+".provision_rate_ann", {pct:1})
       + fld("Reserve % of bal", base+".reserve_rate_pct_bal", {pct:1}) + fld("Measurement", base+".measurement", {select:["amortized","fair_value"]})
       + (p.measurement==="fair_value" ? fld("Discount spread %", base+".discount_spread_ann", {pct:1}) : "")
-      + fld("Fee yield %/yr", base+".fee_yield_ann", {pct:1}) + fld("Opex fixed $/mo", base+".opex_fixed_m", {})
-      + fld("Call Report line", base+".call_report_line", {wide:1})
+      + fld("Fee yield %/yr", base+".fee_yield_ann", {pct:1}) + fld("Opex % bal/yr", base+".opex_pct_ann", {pct:1})
+      + fld("Opex fixed $/mo", base+".opex_fixed_m", {}) + fld("Call Report line", base+".call_report_line", {wide:1})
       + `<div class="fld wide"><label><input type="checkbox" ${p.mortgage_banking?"checked":""}
-           onchange="toggleMB('${base}', this.checked)" style="width:auto;margin-right:.4rem">Originate-to-sell (GOS / warehouse / MSR)</label></div>`
+           onchange="toggleMB('${base}', this.checked)" style="width:auto;margin-right:.4rem">Originate-to-sell (gain on sale / warehouse / servicing)</label></div>`
       + (p.mortgage_banking ? (
           fld("Sale % of orig", base+".mortgage_banking.sale_pct_of_orig", {pct:1})
-        + fld("GOS margin %", base+".mortgage_banking.gain_on_sale_margin", {pct:1})
-        + fld("Warehouse (q)", base+".mortgage_banking.warehouse_hold_q", {})
+        + fld("Gain-on-sale margin %", base+".mortgage_banking.gain_on_sale_margin", {pct:1})
+        + fld("Warehouse (quarters)", base+".mortgage_banking.warehouse_hold_q", {})
         + fld("Servicing retained %", base+".mortgage_banking.servicing_retained_pct", {pct:1})
         + fld("Servicing fee bp/yr", base+".mortgage_banking.servicing_fee_bp_ann", {})
-        + fld("MSR cap % UPB", base+".mortgage_banking.msr_cap_rate_pct_upb", {pct:1})
+        + fld("MSR capitalization % UPB", base+".mortgage_banking.msr_cap_rate_pct_upb", {pct:1})
         + fld("MSR decay %/q", base+".mortgage_banking.msr_decay_q", {pct:1})) : "");
+  } else if(fam==="afs" || fam==="htm"){
+    f = fld("Opening ($000s)", base+".opening", {k:1}) + fld("Purchases $000s/q", base+".purchases_q", {k:1})
+      + fld("Growth %/q", base+".growth_q", {pct:1}) + fld("Runoff %/q", base+".runoff_q", {pct:1})
+      + fld("Yield %/yr" + (fam==="htm"?" (never reprices)":""), base+".yield_ann", {pct:1});
+  } else { // obs
+    f = fld("Notional ($000s)", base+".notional", {k:1}) + fld("Growth %/q", base+".growth_q", {pct:1})
+      + fld("Fee yield %/yr", base+".fee_yield_ann", {pct:1}) + fld("Opex fixed $/mo", base+".opex_fixed_m", {});
   }
-  const ov = p.overrides || {};
-  const ovRows = OV_FIELDS[fam].map(fd=>{
-    const m = ov[fd]||{};
-    return `<tr><td>${fd}</td>`+Array.from({length:12},(_,q)=>
-      `<td><input value="${m[q+1]!=null?+((m[q+1]*100).toFixed(4)):""}" placeholder="·"
-        onchange="setOv('${base}','${fd}',${q+1},this.value)"></td>`).join("")+`</tr>`;
-  }).join("");
+  let ovHtml = "";
+  if(OV_FIELDS[fam]){
+    const ov = p.overrides || {};
+    const rows = OV_FIELDS[fam].map(fd=>{
+      const m = ov[fd]||{};
+      const pctScale = fd==="originations_q" ? 0 : 1;
+      return `<tr><td>${fd}</td>`+Array.from({length:12},(_,q)=>{
+        let val = m[q+1];
+        if(val!=null) val = pctScale ? +(val*100).toFixed(4) : +(val/K).toFixed(2);
+        return `<td><input value="${val??""}" placeholder="·" onchange="setOv('${base}','${fd}',${q+1},this.value,${pctScale})"></td>`;
+      }).join("")+`</tr>`;
+    }).join("");
+    ovHtml = `<span class="ovlink" onclick="openMap['ov_${key}']=!openMap['ov_${key}'];renderSide()">per-quarter overrides ${openMap['ov_'+key]?"▴":"▾"} (%, originations in $000s)</span>`
+      + (openMap['ov_'+key]?`<div class="ovgrid"><table><tr><th></th>${Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("")}</tr>${rows}</table></div>`:"");
+  }
   return `<div class="card">
-    <div class="phead" onclick="open['${key}']=!open['${key}'];renderSide()">
-      <span class="pname">${esc(p.name)}</span><span class="chip ${fam}">${fam}</span>
+    <div class="phead" onclick="openMap['${key}']=!openMap['${key}'];renderSide()">
+      <span class="pname">${esc(p.name)}</span><span class="chip ${meta.chip}">${fam}</span>
       <button class="del" onclick="event.stopPropagation();delProd('${fam}',${i})">✕</button>
     </div>
-    <div class="fields ${open[key]?"":"hidden"}">
-      ${fld("Name", base+".name", {wide:1})}${f}
-      <span class="ovlink" onclick="open['ov_${key}']=!open['ov_${key}'];renderSide()">per-quarter overrides (%) ${open['ov_'+key]?"▴":"▾"}</span>
-      ${open['ov_'+key]?`<div class="ovgrid"><table><tr><th></th>${Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("")}</tr>${ovRows}</table></div>`:""}
+    <div class="fields ${openMap[key]?"":"hidden"}">
+      ${fld("Name", base+".name", {wide:1})}${f}${ovHtml}
     </div></div>`;
 }
-function toggleMB(base, on){ const p=getPath(base); p.mortgage_banking = on ? {sale_pct_of_orig:0.5, gain_on_sale_margin:0.0175,
-  warehouse_hold_q:1, servicing_retained_pct:1.0, servicing_fee_bp_ann:25, msr_cap_rate_pct_upb:0.011, msr_decay_q:0.01} : undefined;
-  if(!on) delete p.mortgage_banking; renderSide(); refresh(); }
-function setOv(base, fd, q, v){ const p=getPath(base); p.overrides=p.overrides||{}; const m=p.overrides[fd]=p.overrides[fd]||{};
-  if(v==="") delete m[q]; else m[q]=parseFloat(v)/100; if(!Object.keys(m).length) delete p.overrides[fd]; refresh(); }
-function delProd(fam,i){ cfg.assumptions[fam==="deposit"?"deposit_products":"lending_products"].splice(i,1); renderSide(); refresh(); }
-function addProd(fam){ cfg.assumptions[fam==="deposit"?"deposit_products":"lending_products"].push(defProduct(fam)); renderSide(); refresh(); }
-window.toggleMB=toggleMB; window.setOv=setOv; window.delProd=delProd; window.addProd=addProd; window.open=open;
+function toggleMB(base, on){ const p=getPath(base); if(on){ p.mortgage_banking = {sale_pct_of_orig:0.5, gain_on_sale_margin:0.0175,
+  warehouse_hold_q:1, servicing_retained_pct:1.0, servicing_fee_bp_ann:25, msr_cap_rate_pct_upb:0.011, msr_decay_q:0.01}; }
+  else delete p.mortgage_banking; renderSide(); refresh(); }
+function setOv(base, fd, q, v, pctScale){ const p=getPath(base); p.overrides=p.overrides||{}; const m=p.overrides[fd]=p.overrides[fd]||{};
+  if(v==="") delete m[q]; else m[q]= pctScale ? parseFloat(v)/100 : parseFloat(v)*K;
+  if(!Object.keys(m).length) delete p.overrides[fd]; refresh(); }
+function delProd(fam,i){ const arr=cfg.assumptions[FAM_META[fam].arr]; arr.splice(i,1);
+  if((fam==="afs"||fam==="htm") && !arr.length) cfg.assumptions[FAM_META[fam].arr]=null; renderSide(); refresh(); }
+function addPreset(name){ if(!name) return; const pr = PRESETS[name]; const meta = FAM_META[pr.fam];
+  if(!cfg.assumptions[meta.arr]) cfg.assumptions[meta.arr]=[];
+  cfg.assumptions[meta.arr].push(JSON.parse(JSON.stringify(pr.p)));
+  if(pr.fam!=="deposit"&&pr.fam!=="lending"){ const mods=cfg.step_0.modules;
+    if((pr.fam==="afs"||pr.fam==="htm") && !mods.includes("investment_portfolio")) mods.push("investment_portfolio");
+    if(pr.fam==="obs" && !mods.includes("balance_driven_obs")) mods.push("balance_driven_obs"); }
+  renderSide(); refresh(); }
+function addBlank(fam){ addPresetObj(fam, defProduct(fam)); }
+function addPresetObj(fam, p){ const meta=FAM_META[fam]; if(!cfg.assumptions[meta.arr]) cfg.assumptions[meta.arr]=[];
+  cfg.assumptions[meta.arr].push(p); renderSide(); refresh(); }
+window.toggleMB=toggleMB; window.setOv=setOv; window.delProd=delProd; window.addPreset=addPreset; window.addBlank=addBlank; window.openMap=openMap;
+
+const DIALS = [["charge_off_mult","Charge-off multiplier (x)",0],["reserve_mult","Reserve multiplier (x)",0],
+  ["rate_shock_bp","Rate shock (bp)",0],["origination_volume_haircut","Origination volume haircut %",1],
+  ["gos_margin_compression","GOS margin compression %",1],["msr_value_haircut","MSR value haircut %",1],
+  ["sale_share_retention_shift","Sale-share retention shift %",1]];
+function stressPanel(){
+  const ov = cfg.scenario_overlays || {};
+  return `<div class="alabel">Stress the plan (applies to the model on screen)</div><div class="card"><div class="fields" style="display:grid">
+    ${DIALS.map(([k,label,pct])=>{
+      let v = ov[k]; if(v==null) v="";
+      else v = pct ? +(v*100).toFixed(3) : v;
+      return `<div class="fld"><label>${label}</label><input value="${v}" placeholder="off" onchange="setDial('${k}', this.value, ${pct})"></div>`;
+    }).join("")}
+    <div class="fld wide"><button class="btn2" onclick="cfg.scenario_overlays=null;renderSide();refresh()">Clear stress — back to base</button></div>
+  </div></div>`;
+}
+function setDial(k, v, pct){ cfg.scenario_overlays = cfg.scenario_overlays || {};
+  if(v==="") delete cfg.scenario_overlays[k]; else cfg.scenario_overlays[k] = pct ? parseFloat(v)/100 : parseFloat(v);
+  if(!Object.keys(cfg.scenario_overlays).length) cfg.scenario_overlays=null; refresh(); }
+window.setDial=setDial;
 
 function renderSide(){
   const a = cfg.assumptions;
   document.getElementById("bname").textContent = cfg.proposed_bank || "Modeling Workspace";
-  let h = `<div class="alabel">Engagement</div><div class="card"><div class="fields" style="display:grid">
+  const famList = (fam)=> (a[FAM_META[fam].arr]||[]).map((_,i)=>prodCard(fam,i)).join("");
+  document.getElementById("side").innerHTML = `
+  <div class="alabel">Add products</div><div class="card">
+    <select class="btn2" style="width:100%" onchange="addPreset(this.value); this.value=''">
+      <option value="">+ add from preset library…</option>
+      ${Object.keys(PRESETS).map(k=>`<option>${k}</option>`).join("")}
+    </select>
+    <div style="display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap">
+      <button class="btn2" onclick="addBlank('deposit')">+ blank deposit</button>
+      <button class="btn2" onclick="addBlank('lending')">+ blank loan</button>
+    </div></div>
+  <div class="alabel">Engagement</div><div class="card"><div class="fields" style="display:grid">
     ${fld("Proposed bank", "proposed_bank", {wide:1})}
     ${fld("Opening capital ($000s)", "target_state.initial_capital", {k:1})}
     ${fld("Leverage commitment %", "constraints.0.value", {pct:1})}
@@ -248,17 +341,16 @@ function renderSide(){
     ${Array.from({length:12},(_,q)=>`<td><input value="${+(a.rate_path_q[q]*100).toFixed(3)}"
       onchange="cfg.assumptions.rate_path_q[${q}]=parseFloat(this.value)/100;refresh()"></td>`).join("")}</tr></table>
     <div style="margin-top:.3rem">${fld("Longer-run %", "assumptions.rate_path_longer_run", {pct:1})}</div></div></div>
-  <div class="alabel">Deposit products</div>
-  ${(a.deposit_products||[]).map((_,i)=>prodCard("deposit", i)).join("")}
-  <button class="btn2" onclick="addProd('deposit')">+ deposit product</button>
-  <div class="alabel">Lending products</div>
-  ${(a.lending_products||[]).map((_,i)=>prodCard("lending", i)).join("")}
-  <button class="btn2" onclick="addProd('lending')">+ lending product</button>`;
-  document.getElementById("side").innerHTML = h;
+  ${stressPanel()}
+  <div class="alabel">Deposit products</div>${famList("deposit")}
+  <div class="alabel">Lending products</div>${famList("lending")}
+  <div class="alabel">Securities — available-for-sale</div>${famList("afs")}
+  <div class="alabel">Securities — held-to-maturity</div>${famList("htm")}
+  <div class="alabel">Off-balance-sheet exposures</div>${famList("obs")}`;
 }
 
-/* ---------- tabs (render engine output; formatting only) ---------- */
-const TABS = ["Overview","Statements","Ratios","Stress","Contribution","Flags","Config"];
+/* ---------- tabs: statements that look like statements ---------- */
+const TABS = ["Overview","Balance Sheet","Income Statement","Ratios","Stress","Contribution","Flags","Config"];
 let tab = "Overview";
 function money(x){ if(x==null) return "—"; const n=+x; const s=Math.abs(n).toLocaleString("en-US",{maximumFractionDigits:0});
   return n<0?`<span class="neg">(${s})</span>`:s; }
@@ -267,62 +359,108 @@ function renderTabs(){ document.getElementById("tabs").innerHTML =
   TABS.map(t=>`<button class="${t===tab?"active":""}" onclick="tab='${t}';renderTabs();renderTab()">${t}</button>`).join(""); }
 window.renderTabs=renderTabs;
 
-function qhead(n, open){ return `<tr><th class="txt">Line</th><th class="txt">Sched</th><th class="txt">Code</th>${open?"<th>Open</th>":""}${Array.from({length:n},(_,q)=>`<th>Q${q+1}</th>`).join("")}</tr>`; }
-function finTable(sec, res){
-  const cr = res.callreport||{};
-  const rows = Object.entries(res.financials[sec]).map(([k,arr])=>{
-    const c = cr[k]||["","","",""];
-    const open = arr.length===13;
-    return `<tr><td class="txt">${k}</td><td class="txt code">${c[0]} ${c[1]}</td><td class="txt code">${c[2]}</td>${arr.map(x=>`<td>${money(x)}</td>`).join("")}</tr>`;
-  }).join("");
-  const n = Object.values(res.financials[sec])[0].length;
-  return `<table class="fin">${qhead(n===13?12:n, n===13)}${rows}</table>`;
+function stmtHead(cols, open){
+  return `<tr><th class="txt">Line item</th><th class="txt">Schedule</th><th class="txt">Code</th>`+
+    (open?`<th>Open</th>`:"")+Array.from({length:cols},(_,q)=>`<th>Q${q+1}</th>`).join("")+`</tr>`;
 }
+function rowCells(arr, cls, negate){
+  return arr.map(x=>{
+    if(x==null) return `<td></td>`;
+    const v = negate ? -x : x;
+    return `<td class="${cls||""}">${money(v)}</td>`;
+  }).join("");
+}
+function statement(kind){
+  const r = lastRes, P = r.presentation, layout = kind==="bs" ? P.bs_layout : P.is_layout;
+  const fin = r.financials[kind], derived = P.derived, cr = r.callreport||{};
+  const n0 = Object.values(fin)[0].length, hasOpen = (kind==="bs" && n0===13), cols = hasOpen ? 12 : n0;
+  const blanks = hasOpen ? cols+1 : cols;
+  let h = `<table class="fin">${stmtHead(cols, hasOpen)}`;
+  for(const row of layout){
+    if(row.t==="spacer"){ h += `<tr><td colspan="${blanks+3}" style="border:none;padding:.2rem"></td></tr>`; continue; }
+    if(row.t==="section"){ h += `<tr class="sect"><td class="txt lbl" colspan="${blanks+3}">${row.label}</td></tr>`; continue; }
+    if(row.t==="detail"){
+      const prods = (r.products||[]).filter(p=>p.family===row.family && p.bal);
+      if(!prods.length) continue;
+      h += `<tr class="det"><td class="txt lbl">${row.label}</td><td></td><td></td><td colspan="${blanks}"></td></tr>`;
+      for(const p of prods){
+        const c = (P.product_codes||{})[p.name]||["","","",""];
+        let arr = p.bal;
+        if(kind==="bs" && !hasOpen && arr.length===13) arr = arr.slice(1);
+        if(kind==="bs" && hasOpen && arr.length===12) arr = [null].concat(arr);
+        h += `<tr class="det"><td class="txt lbl ind">${esc(p.name)}</td><td class="txt code">${c[0]} ${c[1]}</td><td class="txt code">${c[2]}</td>${rowCells(arr)}</tr>`;
+      }
+      continue;
+    }
+    if(row.t==="identity"){
+      const idv = derived.identity||[];
+      h += `<tr><td class="txt lbl">${row.label}</td><td></td><td></td>`+
+        idv.map(x=>Math.abs(x)<=0.02?`<td class="idok">✓</td>`:`<td class="idbad">✗ ${money(x)}</td>`).join("")+`</tr>`;
+      continue;
+    }
+    const arr = fin[row.key] !== undefined ? fin[row.key] : derived[row.key];
+    if(arr === undefined || arr === null) continue;
+    const c = cr[row.key]||["","","",""];
+    const cls = row.t==="total" ? "tot" : (row.subtotal ? "sub" : "");
+    h += `<tr class="${cls}"><td class="txt lbl ${row.indent?"ind":""}">${row.label}</td>
+      <td class="txt code">${c[0]} ${c[1]}</td><td class="txt code">${c[2]}</td>${rowCells(arr, "", row.negate)}</tr>`;
+  }
+  return h + `</table>`;
+}
+
 function renderTab(){
   const el = document.getElementById("content");
   if(lastErrs){
     el.innerHTML = `<div class="qbox"><div class="qt">The engine needs answers before it will produce numbers (fail-closed)</div>
-      ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
+      ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}${e.default?` — <i>stated default: ${esc(e.default)}</i>`:""}</div>`).join("")}</div>
       <p class="memo">Fix the inputs on the left — the run resumes automatically. Nothing renders from a broken configuration; that is a feature.</p>`;
     return;
   }
   if(!lastRes){ el.innerHTML = `<p class="memo">Running…</p>`; return; }
-  const r = lastRes;
+  const r = lastRes, P = r.presentation;
   if(tab==="Overview"){
     const sc = r.scenarios, worst = Math.min(...Object.values(sc).map(s=>s.min_leverage??9));
     const sev = r.flags.filter(f=>f.sev==="severe").length;
-    el.innerHTML = `<div class="grid">
+    const stressed = !!cfg.scenario_overlays;
+    el.innerHTML = `${stressed?`<div class="warnitem mild">Stress dials are ON — every figure on every tab reflects the stressed plan. Clear them in the sidebar to return to base.</div>`:""}
+    <div class="grid">
       <div class="kcard"><div class="k">Q12 total assets</div><div class="v">${money(r.financials.bs.totalAssets.at(-1))}</div><div class="s">$000s</div></div>
-      <div class="kcard"><div class="k">Cumulative NI (base)</div><div class="v">${money(sc.base.cum_ni)}</div><div class="s">12 quarters</div></div>
+      <div class="kcard"><div class="k">Cumulative net income</div><div class="v">${money(sc.base.cum_ni)}</div><div class="s">12 quarters, plan on screen</div></div>
       <div class="kcard"><div class="k">Min leverage, worst scenario</div><div class="v">${pctf(worst*100)}</div><div class="s">commitment ${pctf(cfg.constraints[0].value*100,1)}</div></div>
+      <div class="kcard"><div class="k">Additional capital (est.)</div><div class="v">${money(r.capital_shortfall?.additional_capital_est)}</div><div class="s">to hold the commitment; 0 = plan holds</div></div>
       <div class="kcard"><div class="k">Challenge flags</div><div class="v">${r.flags.length}</div><div class="s">${sev} severe</div></div>
-      <div class="kcard"><div class="k">Run identity</div><div class="v" style="font-size:.95rem">${r.run_hash}</div><div class="s">config ${r.config_hash} · ${esc(r.engine_version)}</div></div>
+      <div class="kcard"><div class="k">Run identity</div><div class="v" style="font-size:.95rem">${r.run_hash}</div><div class="s">config ${r.config_hash}</div></div>
     </div>
     <div class="h2">Scenario summary</div>
-    <table class="fin" style="min-width:520px"><tr><th class="txt">Scenario</th><th>Min leverage</th><th>Cum NI</th><th>Q12 assets</th></tr>
-    ${Object.entries(sc).map(([k,s])=>`<tr><td class="txt">${k}</td><td>${pctf((s.min_leverage??0)*100)}</td><td>${money(s.cum_ni)}</td><td>${money(s.q12_total_assets)}</td></tr>`).join("")}</table>
-    <p class="memo">Constraint tests and reverse-stress views are on the Stress tab; every figure above is engine output.</p>`;
-  } else if(tab==="Statements"){
-    el.innerHTML = `<div class="h2">Balance sheet</div>${finTable("bs", r)}
-      <div class="h2">Income statement</div>${finTable("is", r)}
-      <p class="memo">Schedule and item codes are presentation mapping (RC / RC-C / RC-E / RI / RI-B); arithmetic never consumes them.</p>`;
+    <table class="fin" style="min-width:560px"><tr><th class="txt">Scenario</th><th>Min leverage</th><th>Cumulative NI</th><th>Q12 assets</th></tr>
+    ${Object.entries(sc).map(([k,s])=>`<tr><td class="txt lbl">${(P.scenario_labels||{})[k]||k}</td><td>${pctf((s.min_leverage??0)*100)}</td><td>${money(s.cum_ni)}</td><td>${money(s.q12_total_assets)}</td></tr>`).join("")}</table>`;
+  } else if(tab==="Balance Sheet"){
+    el.innerHTML = `<div class="h2">Balance sheet — ${esc(cfg.proposed_bank||"")}</div>${statement("bs")}
+      <p class="memo">$ thousands. Per-product detail rows tie to their totals; the identity row attests assets = liabilities + equity every period. Schedule references (RC / RC-C / RC-E) are presentation only.</p>`;
+  } else if(tab==="Income Statement"){
+    el.innerHTML = `<div class="h2">Income statement — ${esc(cfg.proposed_bank||"")}</div>${statement("is")}
+      <p class="memo">$ thousands per quarter. Schedule references (RI / RI-B) are presentation only.</p>`;
   } else if(tab==="Ratios"){
-    const rt = r.financials.ratios||{};
-    el.innerHTML = `<div class="h2">Ratios</div><table class="fin">${qhead(12,false)}
-      ${Object.entries(rt).map(([k,arr])=>`<tr><td class="txt">${k}</td><td class="txt"></td><td class="txt"></td>${arr.map(x=>`<td>${pctf(x)}</td>`).join("")}</tr>`).join("")}</table>`;
+    const rt = r.financials.ratios||{}, labels = P.ratio_labels||{};
+    el.innerHTML = `<div class="h2">Key ratios</div><table class="fin"><tr><th class="txt">Ratio</th>${Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("")}</tr>
+      ${Object.entries(rt).filter(([k,a])=>a && a.some(x=>x!=null)).map(([k,arr])=>`<tr><td class="txt lbl">${labels[k]||k}</td>${arr.map(x=>`<td>${pctf(x)}</td>`).join("")}</tr>`).join("")}</table>`;
   } else if(tab==="Stress"){
-    el.innerHTML = `<div class="h2">Constraint tests — every constraint, every scenario</div>
-      <table class="fin" style="min-width:640px"><tr><th class="txt">Constraint</th><th class="txt">Scenario</th><th>Value</th><th>Threshold</th><th>Result</th><th class="txt">Source</th></tr>
-      ${r.constraint_tests.map(t=>`<tr><td class="txt">${t.key}</td><td class="txt">${t.scenario}</td><td>${pctf((t.value??0)*100)}</td><td>${pctf(t.threshold*100,1)}</td>
+    const cs = r.capital_shortfall||{};
+    el.innerHTML = `<div class="grid">
+      <div class="kcard"><div class="k">Additional opening capital (estimate)</div><div class="v">${money(cs.additional_capital_est)}</div><div class="s">${esc(cs.note||"")}</div></div>
+    </div>
+    <div class="h2">Constraint tests — every constraint, every scenario</div>
+      <table class="fin" style="min-width:680px"><tr><th class="txt">Constraint</th><th class="txt">Scenario</th><th>Value</th><th>Threshold</th><th>Result</th><th class="txt">Source</th></tr>
+      ${r.constraint_tests.map(t=>`<tr><td class="txt">${t.key}</td><td class="txt lbl">${(P.scenario_labels||{})[t.scenario]||t.scenario}</td><td>${pctf((t.value??0)*100)}</td><td>${pctf(t.threshold*100,1)}</td>
         <td><span class="tag ${t.pass?"ok":"bad"}">${t.pass?"PASS":"FAIL"}</span></td><td class="txt code">${esc(t.source)}</td></tr>`).join("")}</table>
-      <p class="memo">The monthly engine's reverse-stress solves (growth, credit, and the additional-capital dimension) live in the engagement console for registered clients; this workspace evaluates the committed constraints across the four-scenario suite.</p>`;
+      <p class="memo">The stress dials in the sidebar reshape the on-screen plan itself; the scenario suite above then stresses THAT plan further. The exact capital solve (with earnings feedback) runs when the engagement is registered.</p>`;
   } else if(tab==="Contribution"){
     const f = r.ftp;
-    el.innerHTML = `<div class="h2">Product contribution (FTP at the path rate)</div>
-      <table class="fin" style="min-width:620px"><tr><th class="txt">Product</th><th class="txt">Family</th><th>Economics</th><th>FTP charge/credit</th><th>Contribution</th></tr>
-      ${f.rows.map(x=>`<tr><td class="txt">${esc(x.name)}</td><td class="txt">${x.family}</td><td>${money(x.economics)}</td><td>${money(x.ftp)}</td><td>${money(x.contribution)}</td></tr>`).join("")}
-      <tr><td class="txt" style="font-weight:600">Treasury / mismatch center</td><td></td><td></td><td></td><td>${money(f.treasury_center)}</td></tr>
-      <tr><td class="txt" style="font-weight:700;color:var(--amber)">Consolidated pre-tax (ties exactly)</td><td></td><td></td><td></td><td style="color:var(--amber);font-weight:700">${money(f.consolidated_pretax)}</td></tr></table>
+    el.innerHTML = `<div class="h2">Product contribution (funds-transfer pricing at the path rate)</div>
+      <table class="fin" style="min-width:660px"><tr><th class="txt">Product</th><th class="txt">Family</th><th>Product economics</th><th>FTP charge / credit</th><th>Contribution</th></tr>
+      ${f.rows.map(x=>`<tr><td class="txt lbl">${esc(x.name)}</td><td class="txt">${x.family}</td><td>${money(x.economics)}</td><td>${money(x.ftp)}</td><td>${money(x.contribution)}</td></tr>`).join("")}
+      <tr class="sub"><td class="txt lbl">Treasury / rate-mismatch center</td><td></td><td></td><td></td><td>${money(f.treasury_center)}</td></tr>
+      <tr class="tot"><td class="txt lbl">Consolidated pre-tax income (ties exactly)</td><td></td><td></td><td></td><td>${money(f.consolidated_pretax)}</td></tr></table>
       <p class="memo">${esc(f.note)}</p>`;
   } else if(tab==="Flags"){
     el.innerHTML = `<div class="h2">Challenge flags</div>` + (r.flags.length ?
@@ -334,8 +472,10 @@ function renderTab(){
       <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin-bottom:.6rem">
         <button class="btn" onclick="freeze()">Freeze scenario (register + hash)</button>
         <button class="btn2" onclick="dl()">Download JSON</button>
-        <button class="btn2" onclick="exhibit()">Download results workbook</button>
+        <button class="btn2" onclick="dlwb()">Download config workbook (.xlsx)</button>
+        <button class="btn2" onclick="exhibit()">Download results workbook (.xlsx)</button>
         <label class="btn2" style="cursor:pointer">Upload JSON<input type="file" accept=".json" style="display:none" onchange="up(this)"></label>
+        <label class="btn2" style="cursor:pointer">Upload workbook (.xlsx)<input type="file" accept=".xlsx" style="display:none" onchange="upwb(this)"></label>
       </div><div class="memo" id="fmsg"></div>
       <textarea id="cfgta">${esc(JSON.stringify(cfg, null, 1))}</textarea>
       <div style="margin-top:.5rem"><button class="btn2" onclick="applyTa()">Apply edited JSON</button></div>`;
@@ -347,13 +487,20 @@ async function freeze(){ const r = await fetch("/api/v2/engagements", {method:"P
     `Fail-closed: ${(j.errors||[]).map(e=>esc(e.message)).join("; ")}`; }
 function dl(){ const b=new Blob([JSON.stringify(cfg,null,1)],{type:"application/json"}); const a=document.createElement("a");
   a.href=URL.createObjectURL(b); a.download="foundry_v2_config.json"; a.click(); }
-async function exhibit(){ const r = await fetch("/api/v2/exhibit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
-  if(!r.ok){ document.getElementById("fmsg").textContent="Fail-closed: fix validation first."; return; }
-  const b = await r.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download="proforma_exhibit.xlsx"; a.click(); }
+async function post_dl(url, name, failMsg){ const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
+  if(!r.ok){ document.getElementById("fmsg").textContent=failMsg; return; }
+  const b = await r.blob(); const a=document.createElement("a"); a.href=URL.createObjectURL(b); a.download=name; a.click(); }
+function exhibit(){ post_dl("/api/v2/exhibit", "proforma_exhibit.xlsx", "Fail-closed: fix validation first."); }
+function dlwb(){ post_dl("/api/v2/config-workbook", "foundry_v2_config.xlsx", "Fail-closed: fix validation first."); }
 function up(inp){ const f=inp.files[0]; if(!f) return; const rd=new FileReader();
   rd.onload=()=>{ try{ cfg=JSON.parse(rd.result); renderSide(); refresh(); }catch(e){ alert("Not valid JSON"); } }; rd.readAsText(f); }
+async function upwb(inp){ const f=inp.files[0]; if(!f) return;
+  const r = await fetch("/api/v2/parse-workbook", {method:"POST", headers:{"Content-Type":"application/octet-stream"}, body: await f.arrayBuffer()});
+  const j = await r.json();
+  if(!r.ok){ document.getElementById("fmsg").textContent = "Workbook rejected: " + ((j.errors||[]).map(e=>e.message).join("; ") || j.detail || "parse error"); return; }
+  cfg = j; renderSide(); refresh(); }
 function applyTa(){ try{ cfg=JSON.parse(document.getElementById("cfgta").value); renderSide(); refresh(); }catch(e){ alert("Not valid JSON: "+e.message); } }
-window.freeze=freeze; window.dl=dl; window.exhibit=exhibit; window.up=up; window.applyTa=applyTa;
+window.freeze=freeze; window.dl=dl; window.dlwb=dlwb; window.exhibit=exhibit; window.up=up; window.upwb=upwb; window.applyTa=applyTa;
 
 renderTabs(); boot();
 </script>

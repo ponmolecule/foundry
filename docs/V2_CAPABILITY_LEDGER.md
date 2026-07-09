@@ -1,5 +1,5 @@
 # Foundry v2 — Capability Ledger (COMPLETE BUILD LIST)
-**Status: PC-1 delivered — ledger complete; the only open rows are the explicitly deferred non-goals. T-PAR + protocol: 30/30 and fully green — T-PAR GREEN 9/9. ☑ done · ◐ embryo delivered in parity mode, full form due in its phase · ☐ pending.**
+**Status: PC-3 delivered — presentation layer + UI-parity gate; C.3/C.6/C.9 now genuinely satisfied (previously over-checked, see PROTOCOL_GAPS PC-3) — ledger complete; the only open rows are the explicitly deferred non-goals. T-PAR + protocol: 30/30 and fully green — T-PAR GREEN 9/9. ☑ done · ◐ embryo delivered in parity mode, full form due in its phase · ☐ pending.**
 
 > **Reconciliation note (2026-07-09).** A parallel requirements document of unknown
 > provenance (`REQUIREMENTS_V2.md`, archived outside the repo) was reviewed on merits.

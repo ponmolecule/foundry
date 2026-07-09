@@ -10,7 +10,7 @@ No real client data behind this gate. Ever.
 Deploy: uvicorn app:app --host 0.0.0.0 --port $PORT
 """
 import os, secrets, json
-from fastapi import FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import Request, FastAPI, HTTPException, Depends, UploadFile, File
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from foundry.run import run
@@ -164,3 +164,37 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
     buf.seek(0)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                              headers={"Content-Disposition": "attachment; filename=proforma_exhibit.xlsx"})
+
+
+@app.post("/api/v2/config-workbook")
+def v2_config_workbook(cfg: dict, _=Depends(gate)):
+    """Banker-native config workbook (A.14) for the posted configuration."""
+    import io as _io
+    from fastapi.responses import StreamingResponse
+    from foundry.v2.excel_q import workbook_from_config_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    errs = validate_errors_v2(cfg)
+    if errs:
+        return JSONResponse({"valid": False, "errors": errs}, status_code=422)
+    buf = _io.BytesIO()
+    workbook_from_config_v2(cfg).save(buf)
+    buf.seek(0)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": "attachment; filename=foundry_v2_config.xlsx"})
+
+
+@app.post("/api/v2/parse-workbook")
+async def v2_parse_workbook(request: Request, _=Depends(gate)):
+    """Upload the config workbook; returns the canonical Tier-3 JSON (A.14).
+    Fail-closed: the parsed config is validated before it is returned."""
+    from foundry.v2.excel_q import parse_workbook_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    data = await request.body()
+    try:
+        cfg = parse_workbook_v2(data)
+    except Exception as e:
+        return JSONResponse({"valid": False, "errors": [{"message": f"workbook did not parse: {e}"}]}, status_code=422)
+    errs = validate_errors_v2(cfg)
+    if errs:
+        return JSONResponse({"valid": False, "errors": errs}, status_code=422)
+    return JSONResponse(cfg)

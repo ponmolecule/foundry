@@ -155,6 +155,8 @@ def run_pf_b(cfg):
             cov = _r("charge_off_ann", "charge_off_ann")
             products.append({
                 "name": p.get("name"), "family": fam,
+                "line": p.get("call_report_line"),
+                "bal": list(p["_end"]),
                 "avg": list(p["_avg"]),
                 "interest": [p["_avg"][qi] * yv[qi] / 4.0 * (1 if fam == "lending" else -1)
                              for qi in range(Q)] if fam != "obs" else [0.0] * Q,

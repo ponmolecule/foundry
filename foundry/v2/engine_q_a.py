@@ -28,10 +28,18 @@ def rate_fn(path_q, longer_run):
     return r
 
 
+def _ovq(p, field, q, base):
+    m = (p.get("overrides") or {}).get(field) or {}
+    v = m.get(str(q))
+    return float(v) if v is not None else base
+
+
 def _prod_rate(p, t, rate):
     if p.get("rate_type") == "float":
-        return rate(t) + p.get("index_spread", 0.0)
-    return p.get("yield_ann", p.get("rate_paid_ann", 0.0)) or 0.0
+        return rate(t) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
+    if "yield_ann" in p:
+        return _ovq(p, "yield_ann", t, p.get("yield_ann") or 0.0)
+    return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
 
 
 def _fv_of(p, q, bal, rate, is_asset):
@@ -127,7 +135,8 @@ def run_pf_a(cfg):
     for p in dep + obs:
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
-            end = max(0.0, beg * (1 + (p.get("growth_q") or 0.0) - (p.get("runoff_q") or 0.0)))
+            end = max(0.0, beg * (1 + _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
+                                  - _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0)))
             avg = (beg + end) / 2.0
             r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)
@@ -142,15 +151,16 @@ def run_pf_a(cfg):
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
             r = _prod_rate(p, q, rate)
-            co = beg * (p.get("charge_off_ann") or 0.0) / 4.0
-            o = (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1)
+            co = beg * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0
+            o = _ovq(p, "originations_q", q,
+                     (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1))
             retained = o * (1 - p["_sale"])
             p["_sold"].append(o * p["_sale"])
-            end = max(0.0, beg + retained - beg * (p.get("runoff_q") or 0.0) - co)
+            end = max(0.0, beg + retained - beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) - co)
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
-            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0)
+            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + (p.get("opex_fixed_m") or 0.0) * 3.0)
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
@@ -334,6 +344,9 @@ def run_pf_a(cfg):
         for p in plist:
             products.append({
                 "name": p.get("name"), "family": fam,
+                "line": p.get("call_report_line"),
+                "bal": [(p["_bal"][q] + (p["_fvadj"][q] if p.get("_is_fv") else 0.0)
+                         if fam == "lending" else p["_bal"][q]) for q in range(0, Q + 1)],
                 "avg": [p["_avg"][q] for q in range(1, Q + 1)],
                 "interest": [(p["_ii"][q] - p["_ie"][q]) for q in range(1, Q + 1)],
                 "fees": [p["_fee"][q] for q in range(1, Q + 1)],

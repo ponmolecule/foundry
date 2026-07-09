@@ -14,7 +14,8 @@ import hashlib
 from .validate_q import validate_config_v2
 from .parity import run_parity
 from .challenge_q import challenge_config
-from .callreport import RESULT_CODES_BS, RESULT_CODES_IS
+from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, code_for_line
+from . import present
 
 ENGINE_V2 = "foundry-engine 0.3.0 / v2-quarterly"
 
@@ -78,6 +79,29 @@ def _ftp_view(res):
                     "the treasury center holds the mismatch. Sum ties to pre-tax exactly."}
 
 
+def _capital_shortfall_estimate(cfg, scen_results):
+    """Smallest additional opening capital to hold the leverage commitment in the
+    worst scenario-quarter. Closed-form ESTIMATE (ignores earnings on the added
+    capital) — matches predecessor capability; the exact bisection solve remains
+    in the monthly engine's reverse_stress.capital for registered clients."""
+    commit = next((c["value"] for c in cfg["constraints"] if c["key"] == "leverage_min"), None)
+    if commit is None:
+        return None
+    worst = 0.0
+    for res in scen_results.values():
+        bs = res["bs"]; n = len(bs["totalAssets"])
+        intang = cfg["assumptions"]["intangibles"] / 1000.0
+        for q in range(1, n):
+            avg_a = ((bs["totalAssets"][q - 1] or 0) + (bs["totalAssets"][q] or 0)) / 2.0
+            t1 = (bs["equity"][q] or 0) - intang
+            need = commit * avg_a - t1
+            if need > worst:
+                worst = need
+    return {"additional_capital_est": round(max(0.0, worst), 2), "units": "$000s",
+            "note": "Closed-form estimate at the worst scenario-quarter; ignores earnings on "
+                    "the added capital. The exact solve runs with the registered engagement."}
+
+
 def _constraint_tests(cfg, scen_results):
     """A.8 — every constraint, every scenario, source cited."""
     tests = []
@@ -130,6 +154,14 @@ def run_v2(cfg):
                       for scen, r in scen_results.items()},
         "constraint_tests": _constraint_tests(cfg, scen_results),
         "flags": challenge_config(cfg),
+    }
+    results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
+    results["presentation"] = {
+        "bs_layout": present.BS_LAYOUT, "is_layout": present.IS_LAYOUT,
+        "ratio_labels": present.RATIO_LABELS, "scenario_labels": present.SCENARIO_LABELS,
+        "derived": present.derived_lines(base, cfg),
+        "product_codes": {p["name"]: (code_for_line(p.get("line")) or ["", "", "", ""])
+                          for p in (base.get("products") or [])},
     }
     results["callreport"] = {k: list(v) for k, v in {**RESULT_CODES_BS, **RESULT_CODES_IS}.items()}
     results["run_hash"] = _hash(results)

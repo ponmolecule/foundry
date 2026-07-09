@@ -195,27 +195,54 @@ def results_workbook_v2(cfg, res):
     cover.append(["Units", "$ thousands"])
     cover.append(["Note", "Identical configuration reproduces identical figures and this hash, forever."])
 
-    bs = wb.create_sheet("Balance Sheet")
-    n = len(next(iter(res["bs"].values())))
-    labels = ["Open"] + [f"Q{q}" for q in range(1, n)] if n == 13 else [f"Q{q}" for q in range(1, n + 1)]
-    bs.append(["Line item ($000s)", "Schedule", "Item", "Code"] + labels)
-    from .callreport import code_for_result
-    for k, arr in res["bs"].items():
-        c = code_for_result(k) or ("", "", "", "")
-        bs.append([k, c[0], c[1], c[2]] + [x for x in arr])
+    from .callreport import code_for_result, code_for_line
+    from . import present
+    derived = present.derived_lines(res, cfg)
+    prods = res.get("products") or []
 
-    inc = wb.create_sheet("Income Statement")
-    m = len(next(iter(res["is"].values())))
-    inc.append(["Line item ($000s)", "Schedule", "Item", "Code"] + [f"Q{q}" for q in range(1, m + 1)] + ["Total"])
-    from .callreport import code_for_result
-    for k, arr in res["is"].items():
-        c = code_for_result(k) or ("", "", "", "")
-        tot = sum(x for x in arr if x is not None)
-        inc.append([k, c[0], c[1], c[2]] + list(arr) + [round(tot, 2)])
+    def sheet_from_layout(ws, layout, fin, n, has_open):
+        cols = (["Open"] if has_open else []) + [f"Q{q}" for q in range(1, (n - 1 if has_open else n) + 1)]
+        ws.append(["Line item ($000s)", "key", "Schedule", "Item", "Code"] + cols)
+        for row in layout:
+            t = row["t"]
+            if t == "spacer":
+                ws.append([]); continue
+            if t == "section":
+                ws.append([row["label"]]); continue
+            if t == "detail":
+                fam_p = [p for p in prods if p["family"] == row["family"] and p.get("bal")]
+                if not fam_p:
+                    continue
+                ws.append([row["label"]])
+                for p in fam_p:
+                    c = code_for_line(p.get("line")) or ("", "", "", "")
+                    arr = p["bal"]
+                    if not has_open and len(arr) == n + 1:
+                        arr = arr[1:]
+                    ws.append(["    " + p["name"], "", c[0], c[1], c[2]] + list(arr))
+                continue
+            if t == "identity":
+                ws.append([row["label"], "identity", "", "", ""] +
+                          ["OK" if abs(x) <= 0.02 else x for x in derived["identity"]])
+                continue
+            key = row["key"]
+            arr = fin.get(key, derived.get(key))
+            if arr is None:
+                continue
+            c = code_for_result(key) or ("", "", "", "")
+            label = ("    " if row.get("indent") else "") + row["label"]
+            vals = [None if x is None else (-x if row.get("negate") else x) for x in arr]
+            ws.append([label, key, c[0], c[1], c[2]] + vals)
+
+    n_bs = len(res["bs"]["totalAssets"])
+    sheet_from_layout(wb.create_sheet("Balance Sheet"), present.BS_LAYOUT, res["bs"], n_bs, n_bs == 13)
+    n_is = len(res["is"]["ni"])
+    sheet_from_layout(wb.create_sheet("Income Statement"), present.IS_LAYOUT, res["is"], n_is, False)
 
     if res.get("ratios"):
         rt = wb.create_sheet("Ratios")
-        rt.append(["Ratio (%)"] + [f"Q{q}" for q in range(1, m + 1)])
+        rt.append(["Ratio (%)", "key"] + [f"Q{q}" for q in range(1, n_is + 1)])
         for k, arr in res["ratios"].items():
-            rt.append([k] + list(arr))
+            if arr and any(x is not None for x in arr):
+                rt.append([present.RATIO_LABELS.get(k, k), k] + list(arr))
     return wb

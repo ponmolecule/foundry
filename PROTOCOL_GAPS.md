@@ -67,3 +67,27 @@ before hashing; reproduced deliberately via cp1252 decode. Fix: encoding="utf-8"
 declared on every text read/write in tests_parity, tests_protocol (T16), and the
 v2 API routes. Also corrected stale T2 label text (said v4/v1 while correctly
 comparing v5/v2). No arithmetic touched; run hashes unchanged.
+
+## PC-3 (2026-07-09) — presentation layer; UI held to the parity floor
+Client review found the Workspace shipped materially below both predecessors'
+surfaces: raw engine keys as statement labels, no sectioned statements, no
+securities/OBS composers, no stress dials, no inline capital estimate, no
+presets, no per-product detail or identity row, Excel intake unexposed. Ledger
+rows C.3/C.6/C.9 had been checked while delivering less — recorded here as the
+engagement's third scope-narrowing incident, this time against self-written
+acceptance criteria. Root cause: no UI equivalent of T-PAR existed.
+Delivered: foundry/v2/present.py (single source of professional labels and
+statement structure, shared by Workspace and exhibit); layout-driven Balance
+Sheet / Income Statement with sections, per-product detail rows, subtotals,
+double-ruled totals, negated allowance presentation, and the balance-identity
+attestation row (ties to $0.01); full-name ratios; preset product library;
+securities (AFS/HTM) and OBS composer sections; stress dials editing
+scenario_overlays with a stressed-state banner; inline capital-shortfall
+estimate (closed-form, labeled as such — exact solve remains with registration);
+expanded override grid (incl. fees, spreads, originations in $); profile-A
+per-quarter overrides in the engine (fixtures unaffected, verified); Excel
+config workbook download AND upload wired to the tested parser; exhibit rebuilt
+on the same presentation layer with a machine-key column so the tie-out stays
+exact (negation-aware). New permanent gate: UI-parity checklist in T-PAR —
+required labels in present.py and required controls in the Workspace, so the
+surface now fails loudly the way the arithmetic always has.

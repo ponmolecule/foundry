@@ -171,8 +171,13 @@ def main():
         res = _rp(cfg)
         buf = _io.BytesIO(); results_workbook_v2(cfg, res).save(buf)
         wb2 = _lw(_io.BytesIO(buf.getvalue()), data_only=True)
-        bs_rows = {r[0]: list(r[4:]) for r in wb2["Balance Sheet"].iter_rows(min_row=2, values_only=True)}
-        ok = all(abs((bs_rows[k][i] or 0) - (res["bs"][k][i] or 0)) < 0.005
+        bs_rows = {r[1]: list(r[5:]) for r in wb2["Balance Sheet"].iter_rows(min_row=2, values_only=True) if len(r) > 5 and r[1]}
+        from foundry.v2 import present as _p2
+        negated = {row["key"] for row in _p2.BS_LAYOUT if row.get("negate")}
+        def _cell(k, i):
+            v = bs_rows[k][i]
+            return -v if (k in negated and v is not None) else v
+        ok = all(k in bs_rows and abs((_cell(k, i) or 0) - (res["bs"][k][i] or 0)) < 0.005
                  for k in res["bs"] for i in range(len(res["bs"][k]))
                  if res["bs"][k][i] is not None)
         if not (ok and not xls_fail):
@@ -244,6 +249,29 @@ def main():
             print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
         print("T-PAR: run wrapper — preview==run (hash-stable), constraint tests span every"
               " constraint x scenario, FTP view reconciles to pre-tax exactly")
+    except ImportError:
+        pass
+
+    # 2i) UI-parity checklist (PC-3): the Workspace must carry the controls and the
+    # presentation layer must carry the professional labels — the surface gets the
+    # same discipline as the arithmetic. No dict keys as client-facing labels.
+    try:
+        from foundry.v2 import present as _pres
+        need_labels = ["Retained earnings", "TOTAL ASSETS", "TOTAL LIABILITIES AND EQUITY",
+                       "allowance for credit losses", "Loans held for sale",
+                       "Mortgage servicing rights", "held-to-maturity", "NET INTEREST INCOME",
+                       "Provision for credit losses", "NET INCOME"]
+        blob = json.dumps(_pres.BS_LAYOUT + _pres.IS_LAYOUT)
+        miss = [x for x in need_labels if x.lower() not in blob.lower()]
+        html = open("web/console_v2.html", encoding="utf-8").read()
+        need_controls = ["scenario_overlays", "preset library", "securities_afs", "securities_htm",
+                         "obs_exposures", "parse-workbook", "config-workbook",
+                         "capital_shortfall", "presentation", "identity"]
+        miss += [x for x in need_controls if x not in html]
+        if miss:
+            print(f"  UI-PARITY FAIL: missing {miss}"); sys.exit(1)
+        print("T-PAR: UI parity checklist — statement labels, detail structure, identity row,"
+              " presets, securities/OBS composers, stress dials, Excel both ways all present")
     except ImportError:
         pass
 
