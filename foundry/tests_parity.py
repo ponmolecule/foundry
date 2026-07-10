@@ -316,7 +316,7 @@ def main():
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
         need_v22 = ["window.V3", '"overview","Overview"', "Engagement overview",
                     '"peer","Peer Cohort"', '"examiner","Examiner Book"',
-                    "SYNTHETIC REFERENCE DATA", "insufficient evidence",
+                    'class="ovwm"', "insufficient evidence",
                     "Engagement sequence", "renderPeer", "renderExaminer",
                     "Flags &amp; challenge results", "Constraint tests, every scenario",
                     "renderOverview", "breakeven_q", '"config","Configuration"', '"gov","Governance"',
