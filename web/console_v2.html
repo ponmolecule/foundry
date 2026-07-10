@@ -595,9 +595,9 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
-if(V3){ TAB_DEFS.unshift(["overview","Overview"]);
+if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overview","Overview"]);
   TAB_DEFS.push(["peer","Peer Cohort"]); TAB_DEFS.push(["examiner","Examiner Book"]);
-  TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]);
+  TAB_DEFS.push(["gov","Governance"]);
   currentTab = "overview"; }
 const DARKTABS = new Set(["overview","peer","examiner","config","gov"]);
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
