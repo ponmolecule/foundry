@@ -283,6 +283,24 @@ def run_v2(cfg):
     results["faithful"] = {"loans_by_line": by_line["loans"], "deps_by_line": by_line["deps"],
                            "obs_notional": obs_notional, "fv_adj_assets": fv_assets,
                            "fv_adj_liabs": fv_liabs, "is_totals": is_totals}
+    # Overview (v3 front page): readiness, breakeven, class-mapped flags
+    base_ct = [t for t in results.get("constraint_tests", []) if t.get("scenario") == "base"]
+    hard_stops = sum(1 for t in base_ct if not t.get("pass"))
+    pretax = base["is"].get("pretax") or []
+    breakeven_q = next((i + 1 for i, v in enumerate(pretax) if v is not None and v > 0), None)
+    def _cls(f):
+        if str(f.get("id", "")).startswith("COUPLED"):
+            return "commercial_assumption_requiring_support"
+        if str(f.get("id", "")).startswith("REG"):
+            return "counsel_determination_required"
+        return "commercial_assumption_requiring_support" if f.get("sev") == "severe" else "advisory"
+    for f in results["flags"]:
+        f["cls"] = _cls(f)
+    results["overview"] = {
+        "readiness": {"status": "PASS" if hard_stops == 0 else "ATTENTION",
+                       "open_items": len(results["flags"]), "hard_stops": hard_stops},
+        "breakeven_q": breakeven_q,
+    }
     results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {

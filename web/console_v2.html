@@ -150,6 +150,15 @@ th.ref{color:#D9C79A}
 .kpass{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:2px;padding:2px 7px;margin-left:8px;vertical-align:3px}
 .kpass.ok{background:#E7F0E7;color:#4E7A4E}
 .kpass.bad{background:#F7E3E2;color:var(--red)}
+/* ------- v3 overview (transcribed from the v1 front page) ------- */
+.flag{border:1px solid #C7CEDC;border-radius:3px;padding:10px 13px;margin-bottom:9px;background:var(--paper)}
+.flag .fid{font-family:var(--mono);font-size:10px;color:#5A6270;margin-right:9px;font-weight:600}
+.flag .ftext{margin-top:5px;font-size:12px;color:#1C2128;line-height:1.5}
+.tag{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;border-radius:2px;padding:2px 8px}
+.tag.ok{background:#E7F0E7;color:#3E6A3E}
+.tag.mut{background:#E9EDF4;color:#4A5568}
+.tag.warn{background:#F4E8CE;color:#7A5A17}
+.tag.bad{background:#F7E3E2;color:var(--red)}
 </style>
 </head>
 <body>
@@ -562,7 +571,7 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
-if(V3){ TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); }
+if(V3){ TAB_DEFS.unshift(["overview","Overview"]); TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); currentTab = "overview"; }
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -604,8 +613,55 @@ function rowPct(label, arr, d, refKey){
 }
 function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 
+function renderOverview(){
+  const r = lastRes, el = document.getElementById("content");
+  const ov = r.overview || {}, rd = ov.readiness || {};
+  const base = (r.scenarios||{}).base || {};
+  const levMin = getPath("constraints.0.value") * 100;
+  const fin = r.financials;
+  const kc = [];
+  kc.push(["Readiness", esc(rd.status||"\u2014"),
+           `${rd.open_items??0} open items \u00b7 ${rd.hard_stops??0} hard stops`]);
+  kc.push(["Min leverage (base)",
+           base.min_leverage==null ? "n/m" : (base.min_leverage*100).toFixed(1)+"%",
+           `Q${base.min_leverage_q??"\u2014"} \u00b7 commitment ${levMin.toFixed(1)}%`]);
+  kc.push(["Breakeven", ov.breakeven_q ? "Q"+ov.breakeven_q : "beyond Q12", "pre-tax positive"]);
+  kc.push(["Total assets, Q12", fmt0(fin.bs.totalAssets.slice(-1)[0]), "$000s"]);
+  kc.push(["Total deposits, Q12", fmt0(fin.bs.deposits.slice(-1)[0]), "$000s"]);
+  const cum = base.cum_ni;
+  kc.push(["Cumulative net income", fmt0(cum), "12 quarters, $000s"]);
+  let h = '<div class="h2">Engagement overview</div>';
+  h += '<div class="kcards" style="max-width:none">' + kc.map(x=>
+    `<div class="kcard" style="border-left-color:#16233B"><div class="kt">${x[0]}</div>`+
+    `<div class="kv${(x[0].startsWith('Cumulative')&&cum<0)?' neg':''}" ${ (x[0].startsWith('Cumulative')&&cum<0)?'style="color:var(--red)"':'' }>${x[1]}</div>`+
+    `<div class="km">${x[2]}</div></div>`).join("") + '</div>';
+  h += '<div class="h2" style="font-size:15px;margin-top:18px">Flags & challenge results</div>';
+  const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
+    commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
+  if(!(r.flags||[]).length) h += '<div class="okbox">No flags. Assumptions are within typical ranges and jointly consistent.</div>';
+  (r.flags||[]).forEach(f=>{
+    const cls = TAGMAP[f.cls] || "mut";
+    h += `<div class="flag"><span class="fid">${esc(f.id)}</span><span class="tag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}</span><div class="ftext">${esc(f.text)}</div></div>`;
+  });
+  h += '<div class="h2" style="font-size:15px;margin-top:18px">Constraint tests, every scenario</div>';
+  h += '<table class="fin" style="width:auto;min-width:720px"><tr><th style="text-align:left">Scenario</th><th style="text-align:left">Constraint</th><th>Value</th><th>Limit</th><th style="text-align:left">Result</th><th style="text-align:left">Source</th></tr>';
+  (r.constraint_tests||[]).forEach(t=>{
+    const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;
+    h += `<tr><td style="text-align:left">${esc(lbl)}</td><td style="text-align:left;font-family:var(--mono);font-size:10px">${esc(t.key)}</td>`+
+      `<td>${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td>${(t.threshold*100).toFixed(1)}%</td>`+
+      `<td style="text-align:left"><span class="tag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
+      `<td style="text-align:left;font-family:var(--mono);font-size:10px;color:#6E7684">${esc(t.source||"")}</td></tr>`;
+  });
+  h += '</table>';
+  h += '<div class="memo">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
+  el.innerHTML = h;
+}
 function renderContent(){
   const c = document.getElementById("content");
+  if(V3 && currentTab==="overview"){
+    if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
+    else { renderOverview(); return; }
+  }
   if(V3 && currentTab==="config"){ renderConfigTab(); return; }
   if(V3 && currentTab==="gov"){ renderGovTab(); return; }
   if(lastErrs){

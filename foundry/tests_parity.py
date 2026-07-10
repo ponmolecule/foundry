@@ -247,6 +247,10 @@ def main():
                        + r1['ftp']['treasury_center'] - r1['ftp']['consolidated_pretax']) < 0.05
                    for _ in [0]):
             print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
+        if not any(str(f.get("id","")).startswith("COUPLED") for f in r1.get("flags", [])):
+            print("  FAIL: coupled-inconsistency rules produced no COUPLED flag on pf_a_base"); sys.exit(1)
+        if "overview" not in r1 or "readiness" not in r1["overview"]:
+            print("  FAIL: overview block missing from run payload"); sys.exit(1)
         ftp_rows = r1.get("ftp", {}).get("rows", [])
         bal_rows = [x for x in ftp_rows if x["family"] in ("lending", "deposit")
                     and abs(x.get("avg_balance", 0)) > 1]
@@ -303,7 +307,9 @@ def main():
             miss += ["/v2.1 route"]
         # v2.2 Foundry-native layer: config front door surface + run registry,
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
-        need_v22 = ["window.V3", '"config","Configuration"', '"gov","Governance"',
+        need_v22 = ["window.V3", '"overview","Overview"', "Engagement overview",
+                    "Flags & challenge results", "Constraint tests, every scenario",
+                    "renderOverview", "breakeven_q", '"config","Configuration"', '"gov","Governance"',
                     "Client configuration (JSON)", "Download configuration",
                     "Upload configuration", "config-workbook", "parse-workbook",
                     "Freeze current run", "Re-verify", "/api/v2/registry",

@@ -57,3 +57,14 @@ Client ratified the ladder: /v2 (faithful HTML replication) -> /v2.1 (+ approved
 1/3/8) -> /v3 (+ Foundry-native layer). The former /v2.2 route is renamed /v3 with /v2.2 and
 /v22 retained as aliases; the layer flag is window.V3 (window.V22 honored for back-compat).
 Each rung remains an intact, separately shareable surface of the same engine.
+
+## PC-19 — v3 Overview: the v1 front page on the v2 engine (items 3 surface + 6 partial)
+The Overview tab is transcribed from web/index.html (kcards grid, coded flags with the v1
+class taxonomy, constraint-tests-every-scenario table) and rendered from the v2 payload:
+readiness (open items / hard stops from base-scenario constraint tests), min base leverage,
+breakeven quarter, Q12 assets/deposits, cumulative NI. Correction to the record: item 3
+(coupled-inconsistency rules) was already implemented server-side in challenge_q.py
+(COUPLED-01/02, structural versions) — the earlier claim that it was unbuilt was wrong; this
+commit surfaces it and adds a gate assertion that pf_a_base fires a COUPLED flag. The v1
+peer-percentile versions of the coupled rules return when the evidence layer (item 4) loads
+real cohort data. Overview is the default tab on /v3 only.
