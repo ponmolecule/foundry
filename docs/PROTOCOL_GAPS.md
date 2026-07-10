@@ -51,3 +51,9 @@ durability. Gate gains a v2.2 section including a live freeze->re-verify roundtr
 Correction to the record: earlier claim that a freeze endpoint already existed server-side was
 wrong — config/workbook endpoints existed; freeze/registry/verify are new in this commit.
 Remaining iteration-3 items: 3 (coupled rules), 6 (lifecycle), 5 (roster), 4 (peer evidence).
+
+## PC-18 — Naming: the top rung is Foundry v3
+Client ratified the ladder: /v2 (faithful HTML replication) -> /v2.1 (+ approved JSX items
+1/3/8) -> /v3 (+ Foundry-native layer). The former /v2.2 route is renamed /v3 with /v2.2 and
+/v22 retained as aliases; the layer flag is window.V3 (window.V22 honored for back-compat).
+Each rung remains an intact, separately shareable surface of the same engine.

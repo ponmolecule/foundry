@@ -115,15 +115,18 @@ def gated_openapi(_=Depends(gate)):
     return JSONResponse(app.openapi())
 
 
+@app.get("/v3")
 @app.get("/v2.2")
 @app.get("/v22")
-def console_v22(_=Depends(gate)):
-    """Foundry v2.2: v2.1 plus the Foundry-native layer (config front door,
-    run registry/governance, and successors). Flag-gated and additive; /v2
-    and /v2.1 are untouched."""
+def console_v3(_=Depends(gate)):
+    """Foundry v3: the full lineage on one engine — faithful HTML replication
+    (v2) + approved JSX enhancements (v2.1) + the Foundry-native layer
+    (configuration front door, governance registry, and the Overview/flags
+    work to come). Flag-gated and additive; /v2 and /v2.1 are untouched
+    rungs. /v2.2 is kept as an alias of /v3."""
     from fastapi.responses import HTMLResponse
     html = open("web/console_v2.html", encoding="utf-8").read()
-    html = html.replace("</head>", "<script>window.V22=true</script>\n</head>")
+    html = html.replace("</head>", "<script>window.V3=true</script>\n</head>")
     return HTMLResponse(html)
 
 

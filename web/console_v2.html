@@ -232,8 +232,8 @@ const FAM_OF = {asset:"lending", liability:"deposit", offbs:"obs"};
 const ARR_OF = {lending:"lending_products", deposit:"deposit_products", obs:"obs_exposures"};
 const CAT_OF = {lending:"asset", deposit:"liability", obs:"offbs"};
 
-const V22 = !!window.V22;
-const V21 = !!window.V21 || V22;
+const V3 = !!window.V3 || !!window.V22;
+const V21 = !!window.V21 || V3;
 let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
@@ -562,7 +562,7 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
-if(V22){ TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); }
+if(V3){ TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); }
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -606,8 +606,8 @@ function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 
 function renderContent(){
   const c = document.getElementById("content");
-  if(V22 && currentTab==="config"){ renderConfigTab(); return; }
-  if(V22 && currentTab==="gov"){ renderGovTab(); return; }
+  if(V3 && currentTab==="config"){ renderConfigTab(); return; }
+  if(V3 && currentTab==="gov"){ renderGovTab(); return; }
   if(lastErrs){
     c.innerHTML = `<div class="qbox"><div class="qt">Open questions — the engine needs answers before it will produce numbers (fail-closed)</div>
       ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
