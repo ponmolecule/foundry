@@ -152,3 +152,73 @@ def challenge_config(cfg):
                   f"borrower population the loss rate denies.")
 
     return flags
+
+
+# ---------------- peer-evidence layer (v3): flags + examiner book ----------------
+_PEER_AGGRESSIVE_LOW = {"cost_of_deposits_spread", "efficiency_q12"}
+_PEER_AGGRESSIVE_HIGH = {"deposit_growth_yr1"}
+
+
+def peer_flags(prior_table):
+    """v1 business_flags peer section, ported: aggressive-direction outliers
+    require support; conservative-direction outliers are advisory notes."""
+    flags = []
+    for m, p in sorted(prior_table.items()):
+        pc = p["client_percentile"]
+        aggressive = (m in _PEER_AGGRESSIVE_LOW and pc <= 10) or                      (m in _PEER_AGGRESSIVE_HIGH and pc >= 90)
+        if aggressive:
+            flags.append({"id": f"PEER-{m}", "sev": "severe",
+                          "text": f"{m}: client at p{pc:.0f} of frozen cohort "
+                                  f"(cohort p50 {p['p50']}); aggressive vs peer evidence, "
+                                  "requires additional support."})
+        elif pc >= 90 or pc <= 10:
+            flags.append({"id": f"PEER-{m}", "sev": "mild",
+                          "text": f"{m}: client at p{pc:.0f} of frozen cohort "
+                                  f"(cohort p50 {p['p50']}); conservative-direction outlier, "
+                                  "note in assumption book."})
+    return flags
+
+
+def coupled_percentile_upgrade(prior_table):
+    """v1 COUPLED-01 percentile version: replaces the structural rule when
+    cohort evidence is loaded."""
+    def _p(m):
+        return prior_table[m]["client_percentile"] if m in prior_table else None
+    out = []
+    if _p("cost_of_deposits_spread") is not None and _p("deposit_growth_yr1") is not None        and _p("cost_of_deposits_spread") <= 10 and _p("deposit_growth_yr1") >= 50:
+        out.append({"id": "COUPLED-01", "sev": "severe",
+                    "text": "Coupled contradiction: funding priced below nearly all peers "
+                            f"(p{_p('cost_of_deposits_spread'):.0f}) while deposit growth runs at/above "
+                            f"peer median (p{_p('deposit_growth_yr1'):.0f}). Below-market pricing and "
+                            "above-market growth cannot both hold without an unmodeled advantage; "
+                            "requires joint support, not two separate footnotes."})
+    return out
+
+
+def examiner_book_v2(cfg, results, prior_table, cohort):
+    """v1 examiner_book_generic ported to the v2 payload shapes."""
+    q = []
+    def add(question, links, response):
+        q.append({"q": question, "links": links, "proposed_response": response})
+    for t in [t for t in results.get("constraint_tests", []) if t.get("scenario") == "base"]:
+        val = "n/m" if t.get("value") is None else f"{t['value']*100:.2f}%"
+        add(f"Constraint '{t['key']}' ({t.get('source','')}): what is the margin and where is it thinnest?",
+            [f"constraint: {t['key']}"],
+            f"Base value {val} vs limit {t['threshold']*100:.1f}%; result "
+            f"{'holds' if t.get('pass') else 'BREACH'} in base, tested identically in every scenario.")
+    for m, p in sorted((prior_table or {}).items()):
+        pc = p["client_percentile"]
+        if pc >= 90 or pc <= 10:
+            add(f"{m} sits at p{pc:.0f} of the frozen cohort. What supports it?",
+                [f"assumption: {m}", f"cohort {cohort.get('cohort_id','')}"] ,
+                f"Cohort p50 {p['p50']}; client {p['client']}. Support documented in the "
+                "assumption book; deviation argued, not asserted.")
+    ts = (cohort or {}).get("terminal_summary") or {}
+    if (ts.get("failed", 0) + ts.get("acquired", 0)) >= 3:
+        ml = ((results.get("scenarios") or {}).get("combined") or {}).get("min_leverage")
+        mltxt = "n/m" if ml is None else f"{ml*100:.1f}%"
+        add("Several cohort peers did not survive independently. Why will this bank differ?",
+            [f"cohort {cohort.get('cohort_id','')} terminal summary"],
+            "Terminal-event peers are retained in evidence deliberately; the combined scenario "
+            f"tests their common failure pattern and the plan's minimum leverage under it is {mltxt}.")
+    return q

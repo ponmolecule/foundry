@@ -249,6 +249,13 @@ def main():
             print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
         if not any(str(f.get("id","")).startswith("COUPLED") for f in r1.get("flags", [])):
             print("  FAIL: coupled-inconsistency rules produced no COUPLED flag on pf_a_base"); sys.exit(1)
+        pr = r1.get("peer") or {}
+        if not pr.get("prior_table") or "ILLUSTRATIVE" not in (pr.get("watermark") or ""):
+            print("  FAIL: peer evidence layer missing prior table or watermark"); sys.exit(1)
+        if not any(str(f.get("id","")).startswith("PEER-") for f in r1.get("flags", [])):
+            print("  FAIL: no PEER-* flag on pf_a_base despite cohort outliers"); sys.exit(1)
+        if not r1.get("examiner_book"):
+            print("  FAIL: examiner book empty on pf_a_base"); sys.exit(1)
         if "overview" not in r1 or "readiness" not in r1["overview"]:
             print("  FAIL: overview block missing from run payload"); sys.exit(1)
         ftp_rows = r1.get("ftp", {}).get("rows", [])
@@ -308,6 +315,9 @@ def main():
         # v2.2 Foundry-native layer: config front door surface + run registry,
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
         need_v22 = ["window.V3", '"overview","Overview"', "Engagement overview",
+                    '"peer","Peer Cohort"', '"examiner","Examiner Book"',
+                    "SYNTHETIC REFERENCE DATA", "insufficient evidence",
+                    "Engagement sequence", "renderPeer", "renderExaminer",
                     "Flags &amp; challenge results", "Constraint tests, every scenario",
                     "renderOverview", "breakeven_q", '"config","Configuration"', '"gov","Governance"',
                     "Client configuration (JSON)", "Download configuration",

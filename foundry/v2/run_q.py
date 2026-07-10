@@ -13,6 +13,7 @@ import hashlib
 
 from .validate_q import validate_config_v2
 from .parity import run_parity
+from . import challenge_q
 from .challenge_q import challenge_config
 from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
@@ -296,6 +297,63 @@ def run_v2(cfg):
         return "commercial_assumption_requiring_support" if f.get("sev") == "severe" else "advisory"
     for f in results["flags"]:
         f["cls"] = _cls(f)
+    # Peer evidence (v3): synthetic reference cohort — methodology real, data a fixture
+    results["peer"] = None
+    results["examiner_book"] = []
+    prior_table, cohort = {}, {}
+    if cfg.get("peer_query"):
+        try:
+            import math as _math
+            from .. import peers as _peers
+            pq = dict(cfg["peer_query"])
+            if "log_assets_yr3" not in pq:
+                pq["log_assets_yr3"] = _math.log10(max(base["bs"]["totalAssets"][-1], 1.0) * 1000.0)
+            cohort = _peers.select_cohort(pq)
+            a = cfg["assumptions"]
+            deps = a.get("deposit_products") or []
+            tot_open = sum(p.get("opening_balance", 0.0) for p in deps) or 1.0
+            sofr1 = a["rate_path_q"][0]
+            def _dep_rate(p):
+                if p.get("rate_type") == "float":
+                    return sofr1 + (p.get("index_spread") or 0.0)
+                return p.get("rate_paid_ann") or 0.0
+            blended = sum(_dep_rate(p) * p.get("opening_balance", 0.0) for p in deps) / tot_open
+            darr = base["bs"]["deposits"]
+            i4 = 4 if len(darr) == 13 else 3
+            growth1 = (darr[i4] / darr[0] - 1.0) if darr[0] else None
+            effq = (base.get("ratios") or {}).get("eff") or []
+            client_metrics = {"cost_of_deposits_spread": blended - sofr1}
+            if growth1 is not None:
+                client_metrics["deposit_growth_yr1"] = growth1
+            if effq and effq[-1] is not None:
+                client_metrics["efficiency_q12"] = effq[-1] / 100.0
+            prior_table = _peers.priors(cohort, client_metrics)
+            pf = challenge_q.peer_flags(prior_table)
+            up = challenge_q.coupled_percentile_upgrade(prior_table)
+            if up:
+                results["flags"] = [f for f in results["flags"] if f.get("id") != "COUPLED-01"]
+                results["flags"].extend(up)
+            results["flags"].extend(pf)
+            for f in results["flags"]:
+                if "cls" not in f:
+                    f["cls"] = _cls(f)
+            results["peer"] = {
+                "synthetic": True,
+                "watermark": "SYNTHETIC REFERENCE DATA \u2014 ILLUSTRATIVE ONLY. "
+                             "Methodology is production; the 43-bank cohort is an invented "
+                             "fixture pending the CharterIQ Call Report warehouse.",
+                "params": dict(_peers.PARAMS),
+                "cohort": {k: v for k, v in cohort.items() if not str(k).startswith("_")
+                           and k not in ("banks",)},
+                "prior_table": prior_table,
+                "client_metrics": {k: round(v, 5) for k, v in client_metrics.items()},
+            }
+        except Exception as _e:
+            results["peer"] = {"error": f"peer engine unavailable: {_e}", "synthetic": True}
+    try:
+        results["examiner_book"] = challenge_q.examiner_book_v2(cfg, results, prior_table, cohort)
+    except Exception:
+        results["examiner_book"] = []
     results["overview"] = {
         "readiness": {"status": "PASS" if hard_stops == 0 else "ATTENTION",
                        "open_items": len(results["flags"]), "hard_stops": hard_stops},

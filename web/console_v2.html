@@ -173,6 +173,16 @@ table.ovt{border-collapse:collapse;font-size:.83rem;color:#EDF0F5;margin-top:4px
 table.ovt th{color:#8C99AF;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #24334D;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
 table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align:top}
 table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
+.ovwm{border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);color:#FBBF24;
+  font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:10px 14px;border-radius:6px;margin:6px 0 16px}
+#content.cover .card{background:#182640;border-color:#24334D;border-top-color:#DFA85A;box-shadow:none;color:#EDF0F5}
+#content.cover .accent-label{color:#DFA85A !important}
+#content.cover .btn-plain{background:#182640;border-color:#33415C;color:#EDF0F5}
+#content.cover .okbox{color:#8C99AF}
+#content.cover .warnitem{background:#182640;border-color:#24334D;border-left-color:#FBBF24;color:#EDF0F5}
+#content.cover .qbox{background:#182640;border-color:#24334D}
+#content.cover .qbox .qt,#content.cover .qitem{color:#EDF0F5}
+#content.cover .memo a{color:#DFA85A}
 </style>
 </head>
 <body>
@@ -585,7 +595,11 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
-if(V3){ TAB_DEFS.unshift(["overview","Overview"]); TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); currentTab = "overview"; }
+if(V3){ TAB_DEFS.unshift(["overview","Overview"]);
+  TAB_DEFS.push(["peer","Peer Cohort"]); TAB_DEFS.push(["examiner","Examiner Book"]);
+  TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]);
+  currentTab = "overview"; }
+const DARKTABS = new Set(["overview","peer","examiner","config","gov"]);
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -627,6 +641,52 @@ function rowPct(label, arr, d, refKey){
 }
 function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 
+function renderPeer(){
+  const r = lastRes, el = document.getElementById("content");
+  let h = '<div class="h2" style="font-weight:700">Peer Cohort</div>';
+  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; el.innerHTML = h; return; }
+  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; el.innerHTML = h; return; }
+  const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
+  h += `<div class="ovwm">${esc(r.peer.watermark)}</div>`;
+  const kc = [
+    ["Peer cohort", (co.n??"\u2014") + " banks", `radius ${co.radius_original} \u2192 ${co.radius_final} \u00b7 eff. n ${co.effective_n}`],
+    ["Cohort survivorship", `${ts.failed??0} failed \u00b7 ${ts.acquired??0} acquired`, "retained in evidence base"],
+    ["Parameters frozen", esc(co.frozen||"\u2014"), `criteria ${esc(co.criteria_doc||"")} \u00b7 Gaussian kernel bw ${((co.params||{}).bw)??""}`],
+    ["Evidence status", co.insufficient_evidence ? "INSUFFICIENT" : "ADMISSIBLE", `minimum cohort n ${((co.params||{}).min_n)??""}`],
+  ];
+  h += '<div class="ovcards">' + kc.map(x=>`<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[1]==="INSUFFICIENT"?" neg":""}" style="font-size:1.05rem">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
+  if(co.insufficient_evidence){
+    h += `<div class="ovflag"><span class="ovtag bad">insufficient evidence</span><div class="ftext">Mandatory disclosure: the radius widened from ${co.radius_original} to the admissible maximum ${co.radius_final} and found n=${co.n}, below the pre-registered minimum of ${(co.params||{}).min_n}. Percentile placements below are advisory only and cannot support assumption sign-off.</div></div>`;
+  }
+  h += '<div class="ovh3">Prior table \u2014 client vs kernel-weighted cohort</div>';
+  h += '<table class="ovt"><tr><th>Metric</th><th style="text-align:right">Client</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th>Placement</th></tr>';
+  Object.entries(r.peer.prior_table||{}).forEach(([m,p])=>{
+    const pc = p.client_percentile, hot = pc<=10 || pc>=90;
+    h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(m)}</td><td class="num">${p.client}</td><td class="num">${p.p25}</td><td class="num">${p.p50}</td><td class="num">${p.p75}</td><td><span class="ovtag ${hot?"warn":"mut"}">p${pc.toFixed(0)}</span></td></tr>`;
+  });
+  h += '</table>';
+  h += '<div class="ovh3">Cohort members</div>';
+  h += '<table class="ovt"><tr><th>ID</th><th>Archetype</th><th>Class</th><th style="text-align:right">Distance</th><th>Terminal</th></tr>';
+  (co.members||[]).forEach(m=>{
+    const t = m.terminal, cls = t==="operating"?"ok":(t==="failed"?"bad":"warn");
+    h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(m.id)}</td><td>${esc(m.archetype)}</td><td class="num">${m["class"]}</td><td class="num">${m.distance}</td><td><span class="ovtag ${cls}">${esc(t)}</span></td></tr>`;
+  });
+  h += '</table>';
+  el.innerHTML = h;
+}
+function renderExaminer(){
+  const r = lastRes, el = document.getElementById("content");
+  let h = '<div class="h2" style="font-weight:700">Examiner Book</div>';
+  h += '<div class="memo" style="margin:0 0 16px">Questions an examiner will ask, generated from this configuration\u2019s constraints, cohort placements, and survivorship evidence \u2014 each with a proposed response grounded in the model.</div>';
+  const qs = r.examiner_book || [];
+  if(!qs.length) h += '<div class="okbox">No questions generated \u2014 add constraints or a peer_query.</div>';
+  qs.forEach((x,i)=>{
+    h += `<div class="ovflag"><div style="font-weight:600;color:#EDF0F5">Q${i+1}. ${esc(x.q)}</div>`
+      + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
+      + `<div class="ftext" style="color:#B7C0D2">Proposed response: ${esc(x.proposed_response)}</div></div>`;
+  });
+  el.innerHTML = h;
+}
 function renderOverview(){
   const r = lastRes, el = document.getElementById("content");
   const ov = r.overview || {}, rd = ov.readiness || {};
@@ -643,6 +703,12 @@ function renderOverview(){
     ["Deposits, Q12", fmt0(fin.bs.deposits.slice(-1)[0]), "$000s", false],
     ["Cumulative net income", fmt0(cum), "12 quarters \u00b7 $000s", cum<0],
   ];
+  if(r.peer && r.peer.cohort){
+    const co = r.peer.cohort, ts = co.terminal_summary || {};
+    kc.push(["Peer cohort", (co.n??"\u2014")+" banks",
+      `radius ${co.radius_original} \u2192 ${co.radius_final} \u00b7 eff. n ${co.effective_n}` + (co.insufficient_evidence?" \u00b7 INSUFFICIENT":""), false]);
+    kc.push(["Cohort survivorship", `${ts.failed??0} failed \u00b7 ${ts.acquired??0} acquired`, "retained in evidence base", false]);
+  }
   let h = '<div class="h2" style="font-weight:700">Engagement overview</div>';
   h += '<div class="ovcards">' + kc.map(x=>
     `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
@@ -669,11 +735,13 @@ function renderOverview(){
 }
 function renderContent(){
   const c = document.getElementById("content");
-  c.classList.toggle("cover", V3 && currentTab==="overview" && !!lastRes && !lastErrs);
+  c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
     else { renderOverview(); return; }
   }
+  if(V3 && currentTab==="peer"){ if(lastRes){ renderPeer(); return; } }
+  if(V3 && currentTab==="examiner"){ if(lastRes){ renderExaminer(); return; } }
   if(V3 && currentTab==="config"){ renderConfigTab(); return; }
   if(V3 && currentTab==="gov"){ renderGovTab(); return; }
   if(lastErrs){
@@ -1023,8 +1091,33 @@ window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFr
 
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
-  let h = '<div class="h2">Configuration</div>';
-  h += '<div class="memo" style="margin:0 0 18px">The client configuration is the single front door (G3): the charter-candidate-defining parameter set \u2014 identity, products, assumptions, constraints \u2014 as one portable document. Everything this workspace edits is this file; the engine runs from it and nothing else.</div>';
+  const r = lastRes || {};
+  let h = '<div class="h2" style="font-weight:700">Configuration</div>';
+  h += '<div class="memo" style="margin:0 0 14px">The engagement sequence as data: the ten-step arc from \u201cshould this be a bank at all\u201d to post-opening monitoring, read directly from the client configuration \u2014 the single front door (G3). Whatever a step needs lives in this one document; the engine runs from it and nothing else.</div>';
+  const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
+  const co = ((r.peer||{}).cohort)||null;
+  const steps = [
+    ["\u22121", "Should this be a bank at all?", g("step_minus_1") ? `decision: ${esc(g("step_minus_1.decision")||"\u2014")} \u00b7 ${Object.keys(g("step_minus_1.alternatives_priced")||{}).length} alternatives priced` : null],
+    ["0", "Grounding \u2014 thesis & earning engine", g("step_0") ? `${esc(g("step_0.one_sentence")||"")} \u00b7 engine: ${esc(g("step_0.earning_engine")||"")} \u00b7 ${ (g("step_0.modules")||[]).length } modules` : null],
+    ["0a", "Entity map & MAP", g("step_0a") ? `${Object.keys(g("step_0a.entities")||{}).length} entities \u00b7 MAP approved: ${g("step_0a.map_approved")===null?"pending":g("step_0a.map_approved")}` : null],
+    ["1", "Charter strategy & regulators", g("step_1") ? `${esc(g("step_1.charter")||"")} \u00b7 ${(g("step_1.regulators")||[]).join(", ")}` : null],
+    ["2", "Target state", g("target_state") ? `initial capital ${fmt0((g("target_state.initial_capital")||0)/K)} ($000s)` : null],
+    ["3", "Assumption book", (g("assumption_tags")||[]).length ? `${(g("assumption_tags")||[]).length} tagged assumptions` : null],
+    ["4", "Peer evidence", co ? `cohort ${esc(co.cohort_id||"")}${co.insufficient_evidence?" \u00b7 INSUFFICIENT":""}` : (g("peer_query")?"query present \u00b7 engine pending":null)],
+    ["5", "Projection engine", r.run_hash ? `engine of record \u00b7 run ${esc(r.run_hash)}` : null],
+    ["6", "Constraints & commitments", (g("constraints")||[]).length ? `${(g("constraints")||[]).length} constraints, each with a source` : null],
+    ["7", "Scenarios & stress", r.scenarios ? `${Object.keys(r.scenarios).length} scenarios, constraint-tested identically` : null],
+    ["8", "Examiner book", (r.examiner_book||[]).length ? `${r.examiner_book.length} questions with proposed responses` : null],
+    ["9", "Freeze & filing", "see Governance \u2014 run registry"],
+    ["10", "Plan vs actual monitoring", null],
+  ];
+  h += '<div class="ovh3">Engagement sequence</div>';
+  h += '<table class="ovt"><tr><th>Step</th><th>Focus</th><th>In this configuration</th></tr>';
+  steps.forEach(x=>{
+    h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
+  });
+  h += '</table>';
+  h += '<div class="ovh3">Configuration as document</div>';
   h += '<div class="accent-label" style="color:#8A6D2F">Client configuration (JSON)</div>';
   h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
     + '<button class="btn-plain" onclick="downloadScenario()">Download configuration</button>'
