@@ -303,8 +303,9 @@ def main():
             miss += ["/v2.1 route"]
         # v2.2 Foundry-native layer: config front door surface + run registry,
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
-        need_v22 = ["window.V22", "Config & Governance", "Download current scenario",
-                    "Upload scenario", "config-workbook", "parse-workbook",
+        need_v22 = ["window.V22", '"config","Configuration"', '"gov","Governance"',
+                    "Client configuration (JSON)", "Download configuration",
+                    "Upload configuration", "config-workbook", "parse-workbook",
                     "Freeze current run", "Re-verify", "/api/v2/registry",
                     "REPRODUCED", "loadFrozen"]
         miss += [x for x in need_v22 if x not in html]

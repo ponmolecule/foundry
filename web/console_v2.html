@@ -562,7 +562,7 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
-if(V22) TAB_DEFS.push(["config","Config & Governance"]);
+if(V22){ TAB_DEFS.push(["config","Configuration"]); TAB_DEFS.push(["gov","Governance"]); }
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -607,6 +607,7 @@ function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 function renderContent(){
   const c = document.getElementById("content");
   if(V22 && currentTab==="config"){ renderConfigTab(); return; }
+  if(V22 && currentTab==="gov"){ renderGovTab(); return; }
   if(lastErrs){
     c.innerHTML = `<div class="qbox"><div class="qt">Open questions — the engine needs answers before it will produce numbers (fail-closed)</div>
       ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
@@ -892,7 +893,7 @@ function dl(blob, filename){
 }
 function downloadScenario(){
   dl(new Blob([JSON.stringify(cfg, null, 1)], {type:"application/json"}),
-     (cfg.scenario_name||"scenario").replace(/[^A-Za-z0-9_-]+/g,"_") + ".json");
+     (cfg.proposed_bank||cfg.scenario_name||"configuration").replace(/[^A-Za-z0-9_-]+/g,"_") + ".json");
 }
 async function uploadScenario(input){
   const f = input.files[0]; if(!f) return;
@@ -901,7 +902,7 @@ async function uploadScenario(input){
     cfg = parsed;
     document.getElementById("scenarioName").value = cfg.scenario_name || "";
     renderGlobals(); refresh(); renderContent();
-  } catch(e){ alert("Not a valid scenario JSON: " + e.message); }
+  } catch(e){ alert("Not a valid configuration JSON: " + e.message); }
   input.value = "";
 }
 async function downloadWorkbook(){
@@ -954,14 +955,14 @@ window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFr
 
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
-  let h = '<div class="h2">Config & Governance</div>';
-  h += '<div class="memo" style="margin:0 0 18px">The configuration is the single front door (G3): everything the workspace edits is this one document. Download it, hand it to a banker as a workbook, upload it back, and freeze the runs that matter. Frozen runs can be re-verified at any time: the engine re-executes the exact frozen inputs and must reproduce the hashes bit-for-bit (G4).</div>';
-  h += '<div class="accent-label" style="color:#8A6D2F">Scenario file (JSON)</div>';
+  let h = '<div class="h2">Configuration</div>';
+  h += '<div class="memo" style="margin:0 0 18px">The client configuration is the single front door (G3): the charter-candidate-defining parameter set \u2014 identity, products, assumptions, constraints \u2014 as one portable document. Everything this workspace edits is this file; the engine runs from it and nothing else.</div>';
+  h += '<div class="accent-label" style="color:#8A6D2F">Client configuration (JSON)</div>';
   h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
-    + '<button class="btn-plain" onclick="downloadScenario()">Download current scenario</button>'
-    + '<button class="btn-plain" onclick="document.getElementById(\'upJson\').click()">Upload scenario\u2026</button>'
+    + '<button class="btn-plain" onclick="downloadScenario()">Download configuration</button>'
+    + '<button class="btn-plain" onclick="document.getElementById(\'upJson\').click()">Upload configuration\u2026</button>'
     + '<input id="upJson" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">'
-    + '<span class="memo" style="margin:0">The full configuration as a portable file \u2014 email it, archive it, reopen it later.</span>'
+    + '<span class="memo" style="margin:0">Download to archive or hand off; upload to load a charter candidate\u2019s parameter set into the workspace.</span>'
     + '</div></div>';
   h += '<div class="accent-label" style="color:#8A6D2F">Banker workbook (Excel)</div>';
   h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
@@ -971,6 +972,12 @@ function renderConfigTab(){
     + '<input id="upXlsx" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)">'
     + '<span class="memo" style="margin:0">The intake instrument: a labeled workbook a banker can complete without ever seeing Foundry. Upload is fail-closed \u2014 an incomplete workbook returns open questions, not silent defaults.</span>')
     + '</div></div>';
+  document.getElementById("content").innerHTML = h;
+}
+function renderGovTab(){
+  const snapshotMode = !!window.SNAPSHOT;
+  let h = '<div class="h2">Governance</div>';
+  h += '<div class="memo" style="margin:0 0 18px">Freeze the runs that matter. A frozen run notarizes the exact configuration and the hashes it produced; Re-verify re-executes those frozen inputs through the deployed engine and must reproduce the hashes bit-for-bit (G4) \u2014 the \u201cregenerate exhibit 4 from the filing\u201d proof.</div>';
   h += '<div class="accent-label" style="color:#8A6D2F">Run registry</div>';
   if(snapshotMode){
     h += '<div class="memo">The registry (freeze + re-verify) is available on the deployed workspace.</div>';
@@ -994,7 +1001,7 @@ function renderConfigTab(){
           + '<td><button class="btn-plain" onclick="loadFrozen(\'' + e.id + '\')">Load</button></td></tr>';
       });
       h += '</table>';
-      h += '<div class="memo">Re-verify re-executes the frozen configuration through the deployed engine; REPRODUCED means both hashes matched exactly \u2014 the "regenerate exhibit 4 from the filing" proof.</div>';
+      h += '<div class="memo">REPRODUCED means both hashes matched exactly on re-execution. Load pulls a frozen configuration back into the workspace without altering the frozen record.</div>';
     }
   }
   h += '<div class="accent-label" style="color:#8A6D2F">API</div>';
