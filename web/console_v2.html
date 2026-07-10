@@ -205,7 +205,7 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
   <span id="tabs"></span>
   <span class="spacer"></span>
   <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value">
-  <button class="warnbadge" id="warnBadge" onclick="setTab('notes')">0 flags</button>
+  <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22)?'overview':'notes')">0 flags</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
 <main>
@@ -599,7 +599,7 @@ if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overvie
   TAB_DEFS.push(["peer","Peer Cohort"]); TAB_DEFS.push(["examiner","Examiner Book"]);
   TAB_DEFS.push(["gov","Governance"]);
   currentTab = "overview"; }
-const DARKTABS = new Set(["overview","peer","examiner","config","gov"]);
+const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes"]);
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -1009,9 +1009,14 @@ function renderContent(){
   }
 
   if(currentTab==="notes"){
-    h += '<div class="h2">Reasonableness Flags</div>';
-    if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';
-    r.flags.forEach(w=>{ h += `<div class="warnitem ${w.sev}">${esc(w.text)}</div>`; });
+    if(V3){
+      h += '<div class="h2" style="font-weight:700">Assumptions & Notes</div>';
+      h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#DFA85A" onclick="setTab('overview');return false">Overview</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
+    } else {
+      h += '<div class="h2">Reasonableness Flags</div>';
+      if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';
+      r.flags.forEach(w=>{ h += `<div class="warnitem ${w.sev}">${esc(w.text)}</div>`; });
+    }
     h += '<div class="h2" style="margin-top:20px">Defaults Applied</div>';
     h += '<div class="okbox">All inputs specified \u2014 no defaults applied. The engine validates fail-closed: an incomplete configuration raises open questions instead of silently assuming values.</div>';
     h += '<div class="h2" style="margin-top:20px">Methodology</div>';
