@@ -20,7 +20,7 @@ from foundry.configio import ConfigError
 USER = os.environ.get("FOUNDRY_USER", "klaros")
 PASS = os.environ.get("FOUNDRY_PASS", "solstice-2026")
 
-app = FastAPI(title="Foundry", version="0.2.1")
+app = FastAPI(title="Foundry", version="0.2.2", docs_url=None, redoc_url=None, openapi_url=None)
 security = HTTPBasic()
 _cache = {}
 
@@ -102,6 +102,65 @@ def console_v2(_=Depends(gate)):
     """Modeling Workspace: thin client over /api/v2/preview. No arithmetic in
     the browser; the engine is the only engine (ledger G2)."""
     return FileResponse("web/console_v2.html")
+
+
+@app.get("/docs", include_in_schema=False)
+def gated_docs(_=Depends(gate)):
+    from fastapi.openapi.docs import get_swagger_ui_html
+    return get_swagger_ui_html(openapi_url="/openapi.json", title="Foundry API")
+
+
+@app.get("/openapi.json", include_in_schema=False)
+def gated_openapi(_=Depends(gate)):
+    return JSONResponse(app.openapi())
+
+
+@app.get("/v2.2")
+@app.get("/v22")
+def console_v22(_=Depends(gate)):
+    """Foundry v2.2: v2.1 plus the Foundry-native layer (config front door,
+    run registry/governance, and successors). Flag-gated and additive; /v2
+    and /v2.1 are untouched."""
+    from fastapi.responses import HTMLResponse
+    html = open("web/console_v2.html", encoding="utf-8").read()
+    html = html.replace("</head>", "<script>window.V22=true</script>\n</head>")
+    return HTMLResponse(html)
+
+
+@app.post("/api/v2/freeze")
+def v2_freeze(body: dict, _=Depends(gate)):
+    """Notarize the posted configuration: run it and record config+hashes."""
+    from foundry.v2 import registry_q
+    from foundry.v2.validate_q import validate_errors_v2
+    cfg = body.get("cfg") or body
+    errs = validate_errors_v2(cfg)
+    if errs:
+        return JSONResponse({"valid": False, "errors": errs}, status_code=422)
+    return JSONResponse(registry_q.freeze(cfg, body.get("label")))
+
+
+@app.get("/api/v2/registry")
+def v2_registry(_=Depends(gate)):
+    from foundry.v2 import registry_q
+    return JSONResponse({"status": registry_q.status(), "entries": registry_q.list_entries()})
+
+
+@app.post("/api/v2/verify/{entry_id}")
+def v2_verify(entry_id: str, _=Depends(gate)):
+    from foundry.v2 import registry_q
+    out = registry_q.verify(entry_id)
+    if out is None:
+        return JSONResponse({"error": "no such frozen run"}, status_code=404)
+    return JSONResponse(out)
+
+
+@app.get("/api/v2/frozen/{entry_id}/config")
+def v2_frozen_config(entry_id: str, _=Depends(gate)):
+    from foundry.v2 import registry_q
+    e = registry_q.get_entry(entry_id)
+    if e is None:
+        return JSONResponse({"error": "no such frozen run"}, status_code=404)
+    return JSONResponse(e["config"])
 
 
 @app.get("/v2.1")

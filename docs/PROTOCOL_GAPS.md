@@ -37,3 +37,17 @@ rule, warm ivory zebra with row hover, horizontal-rule grid instead of full cell
 champagne grand-total bands, gold-ruled section titles, brighter sidebar labels. Applied
 identically to the v2 branch and main so both deployment options carry it; the faithful
 STRUCTURE checklist is unchanged and still green on both.
+
+## PC-16 — v2.2 phase 1 (iteration 3, items 1 / 7 / 2)
+Client approved all seven Foundry-native items. Phase 1 ships the pure-additive trio behind a
+V22 flag served only by /v2.2 (which also enables the V21 layer; /v2 and /v2.1 untouched):
+config front door surface (scenario JSON download/upload; banker workbook download/upload over
+the existing gate-tested endpoints), run registry (freeze -> notarized config+hashes on disk,
+list, re-verify that re-executes the frozen config and must reproduce hashes exactly), and the
+API made usable (FastAPI auto-docs, previously exposed UNAUTHENTICATED in production — closed
+and gated behind basic auth this commit). Registry storage lives under FOUNDRY_DATA_DIR; without
+an attached volume the surface banners that frozen runs die on redeploy rather than implying
+durability. Gate gains a v2.2 section including a live freeze->re-verify roundtrip.
+Correction to the record: earlier claim that a freeze endpoint already existed server-side was
+wrong — config/workbook endpoints existed; freeze/registry/verify are new in this commit.
+Remaining iteration-3 items: 3 (coupled rules), 6 (lifecycle), 5 (roster), 4 (peer evidence).

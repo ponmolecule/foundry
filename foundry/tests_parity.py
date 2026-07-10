@@ -301,6 +301,33 @@ def main():
         app_src = open("app.py", encoding="utf-8").read()
         if '"/v2.1"' not in app_src or "window.V21=true" not in app_src:
             miss += ["/v2.1 route"]
+        # v2.2 Foundry-native layer: config front door surface + run registry,
+        # gated docs, and a live freeze->re-verify roundtrip through the registry.
+        need_v22 = ["window.V22", "Config & Governance", "Download current scenario",
+                    "Upload scenario", "config-workbook", "parse-workbook",
+                    "Freeze current run", "Re-verify", "/api/v2/registry",
+                    "REPRODUCED", "loadFrozen"]
+        miss += [x for x in need_v22 if x not in html]
+        app_src2 = open("app.py", encoding="utf-8").read()
+        for tok in ['"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
+            if tok not in app_src2:
+                miss += [f"app.py: {tok}"]
+        import tempfile
+        with tempfile.TemporaryDirectory() as td:
+            os.environ["FOUNDRY_DATA_DIR"] = td
+            try:
+                from foundry.v2 import registry_q
+                cfg_r = json.load(open(os.path.join(CONFIGS, "pf_a_base.json"), encoding="utf-8"))
+                fe = registry_q.freeze(cfg_r, "gate roundtrip")
+                vr = registry_q.verify(fe["id"])
+                if not (vr and vr["match"]):
+                    print("  FAIL: registry freeze->verify did not reproduce hashes"); sys.exit(1)
+                if not registry_q.status()["persistent"]:
+                    print("  FAIL: registry status should report persistent with FOUNDRY_DATA_DIR set"); sys.exit(1)
+            finally:
+                del os.environ["FOUNDRY_DATA_DIR"]
+        print("T-PAR: v2.2 layer \u2014 config front door surface, gated API docs, run registry"
+              " freeze\u2192re-verify reproduces hashes, persistence honesty reported")
         miss += [x for x in need_controls if x not in html]
         if miss:
             print(f"  UI-PARITY FAIL: missing {miss}"); sys.exit(1)

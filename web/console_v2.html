@@ -232,7 +232,8 @@ const FAM_OF = {asset:"lending", liability:"deposit", offbs:"obs"};
 const ARR_OF = {lending:"lending_products", deposit:"deposit_products", obs:"obs_exposures"};
 const CAT_OF = {lending:"asset", deposit:"liability", obs:"offbs"};
 
-const V21 = !!window.V21;
+const V22 = !!window.V22;
+const V21 = !!window.V21 || V22;
 let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
@@ -561,6 +562,7 @@ function ftpToggleHtml(){
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
+if(V22) TAB_DEFS.push(["config","Config & Governance"]);
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -604,6 +606,7 @@ function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 
 function renderContent(){
   const c = document.getElementById("content");
+  if(V22 && currentTab==="config"){ renderConfigTab(); return; }
   if(lastErrs){
     c.innerHTML = `<div class="qbox"><div class="qt">Open questions — the engine needs answers before it will produce numbers (fail-closed)</div>
       ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
@@ -878,6 +881,125 @@ function renderContent(){
     h += '<div style="max-width:820px;font-size:12.5px;line-height:1.7">' + METHODOLOGY + '</div>';
     c.innerHTML = h; return;
   }
+}
+
+/* ---------------- v2.2: config front door + run registry ---------------- */
+let regData = null;
+function dl(blob, filename){
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob); a.download = filename; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+}
+function downloadScenario(){
+  dl(new Blob([JSON.stringify(cfg, null, 1)], {type:"application/json"}),
+     (cfg.scenario_name||"scenario").replace(/[^A-Za-z0-9_-]+/g,"_") + ".json");
+}
+async function uploadScenario(input){
+  const f = input.files[0]; if(!f) return;
+  try {
+    const parsed = JSON.parse(await f.text());
+    cfg = parsed;
+    document.getElementById("scenarioName").value = cfg.scenario_name || "";
+    renderGlobals(); refresh(); renderContent();
+  } catch(e){ alert("Not a valid scenario JSON: " + e.message); }
+  input.value = "";
+}
+async function downloadWorkbook(){
+  const r = await fetch("/api/v2/config-workbook", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
+  if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
+  dl(await r.blob(), "foundry_v2_config.xlsx");
+}
+async function uploadWorkbook(input){
+  const f = input.files[0]; if(!f) return;
+  const r = await fetch("/api/v2/parse-workbook", {method:"POST", body: await f.arrayBuffer()});
+  const j = await r.json();
+  if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
+  else { cfg = j; document.getElementById("scenarioName").value = cfg.scenario_name || "";
+         renderGlobals(); refresh(); renderContent(); }
+  input.value = "";
+}
+async function loadRegistry(force){
+  if(regData && !force) return;
+  try { const r = await fetch("/api/v2/registry"); regData = await r.json(); }
+  catch(e){ regData = {status:{persistent:false, note:"registry unreachable"}, entries:[]}; }
+  if(currentTab==="config") renderContent();
+}
+async function freezeRun(){
+  const label = prompt("Label for this frozen run:", cfg.scenario_name || "") ;
+  if(label===null) return;
+  const r = await fetch("/api/v2/freeze", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({cfg, label})});
+  if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
+  await loadRegistry(true);
+}
+async function verifyRun(id, btn){
+  btn.disabled = true; btn.textContent = "verifying\u2026";
+  const r = await fetch("/api/v2/verify/" + id, {method:"POST"});
+  const j = await r.json();
+  btn.outerHTML = j.match
+    ? '<span class="kpass ok">REPRODUCED</span>'
+    : '<span class="kpass bad">MISMATCH</span>';
+}
+async function loadFrozen(id){
+  const r = await fetch("/api/v2/frozen/" + id + "/config");
+  if(!r.ok){ alert("Frozen run not found."); return; }
+  cfg = await r.json();
+  document.getElementById("scenarioName").value = cfg.scenario_name || "";
+  renderGlobals(); refresh(); setTab("products");
+}
+window.downloadScenario=downloadScenario; window.uploadScenario=uploadScenario;
+window.downloadWorkbook=downloadWorkbook; window.uploadWorkbook=uploadWorkbook;
+window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFrozen;
+
+function renderConfigTab(){
+  const snapshotMode = !!window.SNAPSHOT;
+  let h = '<div class="h2">Config & Governance</div>';
+  h += '<div class="memo" style="margin:0 0 18px">The configuration is the single front door (G3): everything the workspace edits is this one document. Download it, hand it to a banker as a workbook, upload it back, and freeze the runs that matter. Frozen runs can be re-verified at any time: the engine re-executes the exact frozen inputs and must reproduce the hashes bit-for-bit (G4).</div>';
+  h += '<div class="accent-label" style="color:#8A6D2F">Scenario file (JSON)</div>';
+  h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
+    + '<button class="btn-plain" onclick="downloadScenario()">Download current scenario</button>'
+    + '<button class="btn-plain" onclick="document.getElementById(\'upJson\').click()">Upload scenario\u2026</button>'
+    + '<input id="upJson" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">'
+    + '<span class="memo" style="margin:0">The full configuration as a portable file \u2014 email it, archive it, reopen it later.</span>'
+    + '</div></div>';
+  h += '<div class="accent-label" style="color:#8A6D2F">Banker workbook (Excel)</div>';
+  h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
+    + (snapshotMode ? '<span class="memo" style="margin:0">Available on the deployed workspace.</span>' :
+      '<button class="btn-plain" onclick="downloadWorkbook()">Download config workbook</button>'
+    + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx\').click()">Upload filled workbook\u2026</button>'
+    + '<input id="upXlsx" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)">'
+    + '<span class="memo" style="margin:0">The intake instrument: a labeled workbook a banker can complete without ever seeing Foundry. Upload is fail-closed \u2014 an incomplete workbook returns open questions, not silent defaults.</span>')
+    + '</div></div>';
+  h += '<div class="accent-label" style="color:#8A6D2F">Run registry</div>';
+  if(snapshotMode){
+    h += '<div class="memo">The registry (freeze + re-verify) is available on the deployed workspace.</div>';
+  } else if(regData === null){
+    loadRegistry(); h += '<div class="memo">Loading registry\u2026</div>';
+  } else {
+    if(regData.status && !regData.status.persistent){
+      h += '<div class="warnitem"><strong>Storage notice:</strong> ' + esc(regData.status.note || "registry storage is ephemeral on this deployment.") + '</div>';
+    }
+    h += '<div style="margin:10px 0"><button class="btn-gold" onclick="freezeRun()">Freeze current run</button></div>';
+    const es = regData.entries || [];
+    if(!es.length){ h += '<div class="okbox">No frozen runs yet.</div>'; }
+    else {
+      h += '<table class="fin" style="width:auto;min-width:760px"><tr><th style="text-align:left">Frozen (UTC)</th><th style="text-align:left">Label</th><th style="text-align:left">Config hash</th><th style="text-align:left">Run hash</th><th></th><th></th></tr>';
+      es.forEach(e=>{
+        h += '<tr><td style="text-align:left">' + esc(e.frozen_at_utc) + '</td>'
+          + '<td style="text-align:left">' + esc(e.label) + '</td>'
+          + '<td style="text-align:left;font-family:var(--mono);font-size:10px">' + esc(e.config_hash) + '</td>'
+          + '<td style="text-align:left;font-family:var(--mono);font-size:10px">' + esc(e.run_hash) + '</td>'
+          + '<td><button class="btn-plain" onclick="verifyRun(\'' + e.id + '\', this)">Re-verify</button></td>'
+          + '<td><button class="btn-plain" onclick="loadFrozen(\'' + e.id + '\')">Load</button></td></tr>';
+      });
+      h += '</table>';
+      h += '<div class="memo">Re-verify re-executes the frozen configuration through the deployed engine; REPRODUCED means both hashes matched exactly \u2014 the "regenerate exhibit 4 from the filing" proof.</div>';
+    }
+  }
+  h += '<div class="accent-label" style="color:#8A6D2F">API</div>';
+  h += '<div class="memo">Everything this workspace does goes through the API \u2014 interactive reference at <a href="/docs" style="color:#8A6D2F">/docs</a> (same login). CharterIQ or any script can drive the engine the same way this page does.</div>';
+  document.getElementById("content").innerHTML = h;
 }
 
 async function exportExcel(){
