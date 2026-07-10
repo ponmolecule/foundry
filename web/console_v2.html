@@ -150,15 +150,29 @@ th.ref{color:#D9C79A}
 .kpass{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.06em;border-radius:2px;padding:2px 7px;margin-left:8px;vertical-align:3px}
 .kpass.ok{background:#E7F0E7;color:#4E7A4E}
 .kpass.bad{background:#F7E3E2;color:var(--red)}
-/* ------- v3 overview (transcribed from the v1 front page) ------- */
-.flag{border:1px solid #C7CEDC;border-radius:3px;padding:10px 13px;margin-bottom:9px;background:var(--paper)}
-.flag .fid{font-family:var(--mono);font-size:10px;color:#5A6270;margin-right:9px;font-weight:600}
-.flag .ftext{margin-top:5px;font-size:12px;color:#1C2128;line-height:1.5}
-.tag{display:inline-block;font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:.04em;border-radius:2px;padding:2px 8px}
-.tag.ok{background:#E7F0E7;color:#3E6A3E}
-.tag.mut{background:#E9EDF4;color:#4A5568}
-.tag.warn{background:#F4E8CE;color:#7A5A17}
-.tag.bad{background:#F7E3E2;color:var(--red)}
+/* ------- v3 overview: dark cover page, v1 tokens verbatim ------- */
+#content.cover{background:var(--nvy);color:#EDF0F5}
+#content.cover .h2{color:#EDF0F5;border-bottom:1px solid #24334D}
+#content.cover .memo{color:#8C99AF}
+.ovcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:12px;margin:8px 0 4px}
+.ovcard{background:#182640;border:1px solid #24334D;border-radius:9px;padding:.85rem .95rem}
+.ovcard .k{font-size:.72rem;color:#8C99AF;text-transform:uppercase;letter-spacing:.07em}
+.ovcard .v{font-family:var(--mono);font-size:1.35rem;margin-top:.3rem;color:#EDF0F5}
+.ovcard .v.neg{color:#F87171}
+.ovcard .s{font-size:.75rem;color:#8C99AF;margin-top:.2rem}
+.ovh3{font-size:.85rem;color:#DFA85A;margin:1.5rem 0 .6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.ovflag{border:1px solid #24334D;border-radius:8px;padding:.7rem .85rem;margin-bottom:.55rem;background:#182640}
+.ovflag .fid{font-family:var(--mono);font-size:10.5px;color:#8C99AF;margin-right:.5rem}
+.ovflag .ftext{margin-top:.4rem;font-size:13px;color:#EDF0F5;line-height:1.55}
+.ovtag{font-family:var(--mono);font-size:10.5px;padding:.12rem .45rem;border-radius:4px;white-space:nowrap;display:inline-block}
+.ovtag.ok{background:rgba(52,211,153,.12);color:#34D399}
+.ovtag.mut{background:#1E2B44;color:#8C99AF}
+.ovtag.warn{background:rgba(251,191,36,.13);color:#FBBF24}
+.ovtag.bad{background:rgba(248,113,113,.14);color:#F87171}
+table.ovt{border-collapse:collapse;font-size:.83rem;color:#EDF0F5;margin-top:4px;min-width:760px}
+table.ovt th{color:#8C99AF;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #24334D;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align:top}
+table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
 </style>
 </head>
 <body>
@@ -619,45 +633,43 @@ function renderOverview(){
   const base = (r.scenarios||{}).base || {};
   const levMin = getPath("constraints.0.value") * 100;
   const fin = r.financials;
-  const kc = [];
-  kc.push(["Readiness", esc(rd.status||"\u2014"),
-           `${rd.open_items??0} open items \u00b7 ${rd.hard_stops??0} hard stops`]);
-  kc.push(["Min leverage (base)",
-           base.min_leverage==null ? "n/m" : (base.min_leverage*100).toFixed(1)+"%",
-           `Q${base.min_leverage_q??"\u2014"} \u00b7 commitment ${levMin.toFixed(1)}%`]);
-  kc.push(["Breakeven", ov.breakeven_q ? "Q"+ov.breakeven_q : "beyond Q12", "pre-tax positive"]);
-  kc.push(["Total assets, Q12", fmt0(fin.bs.totalAssets.slice(-1)[0]), "$000s"]);
-  kc.push(["Total deposits, Q12", fmt0(fin.bs.deposits.slice(-1)[0]), "$000s"]);
   const cum = base.cum_ni;
-  kc.push(["Cumulative net income", fmt0(cum), "12 quarters, $000s"]);
-  let h = '<div class="h2">Engagement overview</div>';
-  h += '<div class="kcards" style="max-width:none">' + kc.map(x=>
-    `<div class="kcard" style="border-left-color:#16233B"><div class="kt">${x[0]}</div>`+
-    `<div class="kv${(x[0].startsWith('Cumulative')&&cum<0)?' neg':''}" ${ (x[0].startsWith('Cumulative')&&cum<0)?'style="color:var(--red)"':'' }>${x[1]}</div>`+
-    `<div class="km">${x[2]}</div></div>`).join("") + '</div>';
-  h += '<div class="h2" style="font-size:15px;margin-top:18px">Flags & challenge results</div>';
+  const kc = [
+    ["Readiness", esc(rd.status||"\u2014"), `${rd.open_items??0} open items \u00b7 ${rd.hard_stops??0} hard stops`, false],
+    ["Min leverage (base)", base.min_leverage==null ? "n/m" : (base.min_leverage*100).toFixed(1)+"%",
+      `Q${base.min_leverage_q??"\u2014"} \u00b7 commitment ${levMin.toFixed(1)}%`, false],
+    ["Breakeven", ov.breakeven_q ? "Q"+ov.breakeven_q : "beyond Q12", "pre-tax positive", false],
+    ["Assets, Q12", fmt0(fin.bs.totalAssets.slice(-1)[0]), "$000s", false],
+    ["Deposits, Q12", fmt0(fin.bs.deposits.slice(-1)[0]), "$000s", false],
+    ["Cumulative net income", fmt0(cum), "12 quarters \u00b7 $000s", cum<0],
+  ];
+  let h = '<div class="h2" style="font-weight:700">Engagement overview</div>';
+  h += '<div class="ovcards">' + kc.map(x=>
+    `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${x[1]}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
+  h += '<div class="ovh3">Flags &amp; challenge results</div>';
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
-  if(!(r.flags||[]).length) h += '<div class="okbox">No flags. Assumptions are within typical ranges and jointly consistent.</div>';
+  if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
   (r.flags||[]).forEach(f=>{
     const cls = TAGMAP[f.cls] || "mut";
-    h += `<div class="flag"><span class="fid">${esc(f.id)}</span><span class="tag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}</span><div class="ftext">${esc(f.text)}</div></div>`;
+    h += `<div class="ovflag"><span class="fid">${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}</span><div class="ftext">${esc(f.text)}</div></div>`;
   });
-  h += '<div class="h2" style="font-size:15px;margin-top:18px">Constraint tests, every scenario</div>';
-  h += '<table class="fin" style="width:auto;min-width:720px"><tr><th style="text-align:left">Scenario</th><th style="text-align:left">Constraint</th><th>Value</th><th>Limit</th><th style="text-align:left">Result</th><th style="text-align:left">Source</th></tr>';
+  h += '<div class="ovh3">Constraint tests, every scenario</div>';
+  h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
   (r.constraint_tests||[]).forEach(t=>{
     const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;
-    h += `<tr><td style="text-align:left">${esc(lbl)}</td><td style="text-align:left;font-family:var(--mono);font-size:10px">${esc(t.key)}</td>`+
-      `<td>${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td>${(t.threshold*100).toFixed(1)}%</td>`+
-      `<td style="text-align:left"><span class="tag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
-      `<td style="text-align:left;font-family:var(--mono);font-size:10px;color:#6E7684">${esc(t.source||"")}</td></tr>`;
+    h += `<tr><td>${esc(lbl)}</td><td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc(t.key)}</td>`+
+      `<td class="num">${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td class="num">${(t.threshold*100).toFixed(1)}%</td>`+
+      `<td><span class="ovtag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
+      `<td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc(t.source||"")}</td></tr>`;
   });
   h += '</table>';
-  h += '<div class="memo">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
+  h += '<div class="memo" style="margin-top:14px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
   el.innerHTML = h;
 }
 function renderContent(){
   const c = document.getElementById("content");
+  c.classList.toggle("cover", V3 && currentTab==="overview" && !!lastRes && !lastErrs);
   if(V3 && currentTab==="overview"){
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
     else { renderOverview(); return; }

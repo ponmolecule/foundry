@@ -308,7 +308,7 @@ def main():
         # v2.2 Foundry-native layer: config front door surface + run registry,
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
         need_v22 = ["window.V3", '"overview","Overview"', "Engagement overview",
-                    "Flags & challenge results", "Constraint tests, every scenario",
+                    "Flags &amp; challenge results", "Constraint tests, every scenario",
                     "renderOverview", "breakeven_q", '"config","Configuration"', '"gov","Governance"',
                     "Client configuration (JSON)", "Download configuration",
                     "Upload configuration", "config-workbook", "parse-workbook",
