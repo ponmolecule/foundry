@@ -256,6 +256,14 @@ def main():
             print("  FAIL: no PEER-* flag on pf_a_base despite cohort outliers"); sys.exit(1)
         if not r1.get("examiner_book"):
             print("  FAIL: examiner book empty on pf_a_base"); sys.exit(1)
+        cap = r1.get("capital") or {}
+        if not cap.get("rows") or cap.get("recon_max_bp", 99) > 2:
+            print(f"  FAIL: capital derivation missing or does not reconcile to engine leverage "
+                  f"(max {cap.get('recon_max_bp')}bp)"); sys.exit(1)
+        if len((r1.get("cblr_grid") or {}).get("rows", [])) < 5:
+            print("  FAIL: per-quarter CBLR qualification grid incomplete"); sys.exit(1)
+        if len(r1.get("caveats") or []) < 5:
+            print("  FAIL: caveat register missing or thin"); sys.exit(1)
         rp = r1.get("reg_params") or {}
         if rp.get("version") != "2026.07.a" or not rp.get("citations"):
             print("  FAIL: versioned regulatory parameters missing from payload"); sys.exit(1)
@@ -323,6 +331,8 @@ def main():
         # v2.2 Foundry-native layer: config front door surface + run registry,
         # gated docs, and a live freeze->re-verify roundtrip through the registry.
         need_v22 = ["window.V3", '"overview","Overview"', "Engagement overview",
+                    "Capital & Ratios", "validated every period", "recorded condition",
+                    "Caveat register", "management_capital_target", "sec_gos_deduction",
                     '"peer","Peer Cohort"', '"examiner","Examiner Book"',
                     'class="ovwm"', "insufficient evidence",
                     "Engagement sequence", "renderPeer", "renderExaminer",

@@ -600,6 +600,7 @@ if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overvie
   TAB_DEFS.push(["gov","Governance"]);
   currentTab = "overview"; }
 const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes"]);
+if(V3){ const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios"; }
 function setTab(t){ currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
@@ -858,7 +859,69 @@ function renderContent(){
     if(rt.alllPct) h += rowPct('ALLL / Gross Loans', rt.alllPct);
     h += '</table>';
     h += '<div class="memo">Leverage ratio approximated as end-of-quarter equity less intangibles, less mortgage servicing assets above the 25%-of-Tier-1 deduction threshold (12 CFR 3.22(d)), over average assets net of the same deduction. Below-threshold MSAs remain in capital (they would carry a 250% risk weight in a risk-based ratio, which this model does not compute). Efficiency ratio = noninterest expense / (net interest income + noninterest income); &ldquo;n/m&rdquo; where revenue is not positive.</div>';
-    if(V21 && r.cblr){
+    if(V3 && r.capital){
+      const cap = r.capital, T3 = cap.thresholds, rows = cap.rows;
+      h += '<div class="h2" style="font-size:15px;margin-top:18px">Capital \u2014 Community Bank Leverage Ratio framework</div>';
+      if(r.reg_params){
+        h += `<div class="memo" style="margin:4px 0 12px">Rule parameters: version ${esc(r.reg_params.version)}, effective ${esc(r.reg_params.effective)}, verified ${esc(r.reg_params.verified)}. ${(r.reg_params.citations||[]).map(esc).join("; ")}. Regulatory values resolve from this versioned set, never from memory.</div>`;
+      }
+      /* leverage chart: engine data only, three threshold lines */
+      const lv = rows.leverage.map(x=>x==null?null:x*100);
+      const vmax = Math.max(...lv.filter(x=>x!=null), (T3.management||0)*100+1, 11) * 1.08;
+      const W=980, H=230, L=44, B=26;
+      const X = i => L + i*( (W-L-14) / Math.max(1, lv.length-1) );
+      const Y = v => (H-B) - (v/vmax)*(H-B-12);
+      let pts = lv.map((v,i)=> v==null?null:`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean).join(" ");
+      const hline = (v,color,dash,label)=> v==null?"" :
+        `<line x1="${L}" y1="${Y(v*100)}" x2="${W-14}" y2="${Y(v*100)}" stroke="${color}" stroke-dasharray="${dash}" stroke-width="1"/>`+
+        `<text x="${W-16}" y="${Y(v*100)-3}" text-anchor="end" font-size="9" fill="${color}">${label}</text>`;
+      h += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:1100px;border:1px solid #DCE1EA;border-radius:3px;background:#FFFFFF;margin:0 0 16px">
+        ${lv.map((v,i)=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#7C8698">Q${i+1}</text>`).join("")}
+        ${hline(T3.statutory, "#b0413e", "5 3", (T3.statutory*100).toFixed(0)+"% statutory (CBLR)")}
+        ${hline(T3.chartering, "#7A5A17", "3 3", (T3.chartering*100).toFixed(0)+"% chartering minimum")}
+        ${hline(T3.management, "#4A5568", "1 3", T3.management==null?"":(T3.management*100).toFixed(1)+"% management target")}
+        <polyline points="${pts}" fill="none" stroke="#16233B" stroke-width="1.8"/>
+        ${lv.map((v,i)=> v==null?"":`<circle cx="${X(i)}" cy="${Y(v)}" r="2.4" fill="#C59C5E"/>`).join("")}
+      </svg>`;
+      /* derivation table */
+      h += '<table class="fin"><tr><th>Capital derivation ($000s)</th>';
+      for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>Q${qq}</th>`;
+      h += '</tr>';
+      h += rowBS('Tier 1 capital', rows.tier1);
+      h += rowBS('\u2014 securitization gain-on-sale deduction (not modeled; parked decision \u2014 caveat register)', rows.sec_gos_deduction);
+      h += rowBS('\u2014 MSA excess over 25% of Tier 1 (12 CFR 3.22(d), approximated)', rows.msa_excess.map(x=>-x));
+      h += rowBS('Average assets, net of deductions', rows.avg_assets_net);
+      h += rowPct('Leverage ratio', rows.leverage.map(x=>x==null?null:x*100));
+      h += rowPct('Statutory CBLR requirement', rows.leverage.map(()=>T3.statutory*100), 2);
+      if(T3.chartering!=null) h += rowPct('Chartering-authority operating minimum (client commitment)', rows.leverage.map(()=>T3.chartering*100), 2);
+      if(T3.management!=null) h += rowPct('Management capital target (buffer; breach is a warning, not a compliance event)', rows.leverage.map(()=>T3.management*100), 2);
+      h += '</table>';
+      if(cap.recon_max_bp > 2) h += `<div class="warnitem severe">Derivation does not reconcile to the engine leverage (max ${cap.recon_max_bp}bp) \u2014 report this.</div>`;
+      else h += `<div class="memo">Derivation reconciles to the engine of record within ${cap.recon_max_bp}bp (rounding).${T3.management==null?' No management capital target set \u2014 add management_capital_target to the configuration to complete the three-tier framework.':''}</div>`;
+      /* per-quarter qualification grid */
+      if(r.cblr_grid){
+        h += '<div class="h2" style="font-size:15px;margin-top:8px">CBLR qualification tests \u2014 validated every period</div>';
+        h += '<table class="fin"><tr><th>Criterion</th>';
+        for(let qq=1; qq<=r.cblr_grid.quarters; qq++) h += `<th>Q${qq}</th>`;
+        h += '</tr>';
+        r.cblr_grid.rows.forEach(row=>{
+          let rr = `<tr><td>${esc(row.label)}${row.attested?' <span style="color:#96928C">(recorded condition)</span>':''}</td>`;
+          if(row.attested){
+            for(let qq=0; qq<r.cblr_grid.quarters; qq++) rr += `<td>${row.value?"\u2713":"\u2717"}</td>`;
+          } else if(row.states){
+            row.states.forEach(st=>{ rr += `<td${st!=="ok"&&st!=="grace"?' class="neg"':''}>${esc(st)}</td>`; });
+          } else {
+            row.cells.forEach(cl=>{
+              rr += `<td${cl.pass?"":" class=\"neg\""}>${cl.pass?"\u2713":"\u2717"}${cl.value!=null?" "+(cl.value*100).toFixed(1)+"%":""}</td>`;
+            });
+          }
+          h += rr + '</tr>';
+        });
+        h += '</table>';
+        h += '<div class="memo">Grace-period entry is a severe warning; below the 7% floor or exhausted limits is a blocking condition for an approvable base case. The M&amp;A no-grace transition is recorded but unreachable: this model carries no business-combination events (caveat register, Assumptions &amp; Notes).</div>';
+      }
+    }
+    if(!V3 && V21 && r.cblr){
       h += '<div class="h2" style="font-size:15px;margin-top:16px">Capital Position \u2014 CBLR Framework Eligibility</div>';
       if(r.reg_params){
         h += `<div class="memo" style="margin:4px 0 10px">Rule parameters: version ${esc(r.reg_params.version)}, effective ${esc(r.reg_params.effective)}, verified ${esc(r.reg_params.verified)}. ${(r.reg_params.citations||[]).map(esc).join("; ")}. Regulatory values resolve from this versioned set, never from memory.</div>`;
@@ -1017,6 +1080,11 @@ function renderContent(){
       h += '<div class="h2">Reasonableness Flags</div>';
       if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';
       r.flags.forEach(w=>{ h += `<div class="warnitem ${w.sev}">${esc(w.text)}</div>`; });
+    }
+    if(V3 && (r.caveats||[]).length){
+      h += '<div class="h2" style="margin-top:20px">Caveat register</div>';
+      h += '<div class="memo" style="margin:4px 0 10px">What this model deliberately does not do \u2014 recorded so scope is argued once, here, instead of discovered by an examiner.</div>';
+      r.caveats.forEach(cv=>{ h += `<div class="noteitem">${esc(cv)}</div>`; });
     }
     h += '<div class="h2" style="margin-top:20px">Defaults Applied</div>';
     h += '<div class="okbox">All inputs specified \u2014 no defaults applied. The engine validates fail-closed: an incomplete configuration raises open questions instead of silently assuming values.</div>';

@@ -391,6 +391,91 @@ def run_v2(cfg):
         "breakeven_q": breakeven_q,
     }
     results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
+    # Capital module (v3): derivation rows reconciled to the engine's own leverage,
+    # thresholds in three tiers, per-quarter qualification grid, caveat register.
+    P2 = REG_PARAMS["cblr"]
+    bs2 = base["bs"]; n2 = len(bs2["totalAssets"])
+    intangk = cfg["assumptions"]["intangibles"] / 1000.0
+    msr2 = bs2.get("msr") or [0.0] * n2
+    lev2 = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
+    q0 = 1 if n2 == 13 else 0
+    tier1, msa_x, avg_net, lev_drv = [], [], [], []
+    for i in range(q0, n2):
+        eq = bs2["equity"][i] or 0.0
+        t1p = eq - intangk
+        mx = max(0.0, (msr2[i] or 0.0) - 0.25 * t1p)
+        t1 = t1p - mx
+        aa = ((bs2["totalAssets"][i - 1] or 0.0) + (bs2["totalAssets"][i] or 0.0)) / 2.0 - mx
+        tier1.append(round(t1, 2)); msa_x.append(round(mx, 2)); avg_net.append(round(aa, 2))
+        lev_drv.append(round(t1 / aa, 6) if aa else None)
+    lev_eng = [None if x is None else round(x / 100.0, 6) for x in lev2[-len(lev_drv):]]
+    recon_bp = max((abs((a or 0) - (b or 0)) * 10000 for a, b in zip(lev_drv, lev_eng)), default=0.0)
+    mct = cfg.get("management_capital_target")
+    results["capital"] = {
+        "rows": {"tier1": tier1, "sec_gos_deduction": [0.0] * len(tier1),
+                 "msa_excess": msa_x, "avg_assets_net": avg_net, "leverage": lev_eng},
+        "recon_max_bp": round(recon_bp, 3),
+        "thresholds": {"statutory": P2["requirement"],
+                        "chartering": next((c2["value"] for c2 in cfg["constraints"]
+                                            if c2["key"] == "leverage_min"), None),
+                        "management": mct},
+    }
+    if mct is not None:
+        breach_qs = [i + 1 for i, x in enumerate(lev_eng) if x is not None and x < mct]
+        if breach_qs:
+            results["flags"].append({"id": "CAP-BUFFER", "sev": "mild", "cls": "advisory",
+                "text": f"Leverage below the management capital target ({mct*100:.1f}%) in "
+                        f"Q{breach_qs[0]}\u2013Q{breach_qs[-1]} span ({len(breach_qs)} quarters). "
+                        "Buffer breach is a warning, not a compliance event."})
+    # per-quarter qualification grid
+    obs_arr = [0.0] * n2
+    for p2 in (base.get("products") or []):
+        if p2["family"] == "obs" and p2.get("bal"):
+            arr2 = p2["bal"]; off = n2 - len(arr2)
+            for i, v in enumerate(arr2):
+                if v is not None:
+                    obs_arr[i + off] += v
+    def _grid(vals, thr, kind):
+        return [{"pass": bool(pv), "value": vv} for pv, vv in vals] if kind else None
+    assets_row = [{"pass": (bs2["totalAssets"][i] or 0) < P2["assets_ceiling_usd"] / 1000.0,
+                   "value": None} for i in range(q0, n2)]
+    obs_row = [{"pass": (obs_arr[i] / bs2["totalAssets"][i] if bs2["totalAssets"][i] else 0) <= P2["obs_share_max"],
+                "value": round(obs_arr[i] / bs2["totalAssets"][i], 4) if bs2["totalAssets"][i] else 0.0}
+               for i in range(q0, n2)]
+    trading_row = [{"pass": True, "value": 0.0} for _ in range(q0, n2)]
+    grace_row = []
+    consec2 = 0
+    used2 = 0
+    for x in lev_eng:
+        if x is not None and P2["grace_floor"] < x <= P2["requirement"]:
+            consec2 += 1; used2 += 1
+            st = "grace" if (consec2 <= P2["grace_max_consecutive_q"] and used2 <= P2["grace_limit_q"]) else "EXHAUSTED"
+        elif x is not None and x <= P2["grace_floor"]:
+            consec2 = 0; st = "BLOCKING"
+        else:
+            consec2 = 0; st = "ok"
+        grace_row.append(st)
+    results["cblr_grid"] = {
+        "quarters": len(assets_row),
+        "rows": [
+            {"label": "Total assets < $10B", "cells": assets_row, "units": "check"},
+            {"label": "Qualifying off-BS exposures \u2264 25% of assets", "cells": obs_row, "units": "share"},
+            {"label": "Trading assets + liabilities \u2264 5% of assets", "cells": trading_row, "units": "share"},
+            {"label": "Not an advanced-approaches organization", "attested": True,
+             "value": bool((cfg.get("attestations") or {}).get("not_advanced_approaches", True))},
+            {"label": "Grace-period state (floor 7.0%; \u22644 consecutive, \u22648-of-20)",
+             "states": grace_row},
+        ],
+    }
+    results["caveats"] = [
+        "No trading book is modeled; the trading-assets qualification test is structurally zero.",
+        "Funds-transfer pricing is presentation-only and never changes the income statement.",
+        "No deferred tax asset is booked; NOL carryforwards offset future taxable income only (conservative).",
+        "Securitization is not modeled (open decision, parked); the gain-on-sale capital deduction row is shown at zero for schedule completeness.",
+        "The MSA deduction is approximated per 12 CFR 3.22(d) as excess over 25% of Tier 1 before threshold deductions.",
+        "Business-combination events (incl. the CBLR M&A no-grace transition) are out of scope; the condition is recorded but unreachable.",
+        "Ramped (non-parallel) rate shocks, matched-maturity FTP, and MSR prepayment revaluation remain parked open decisions.",
+    ]
     results["reg_params"] = {k: REG_PARAMS[k] for k in ("version", "effective", "verified", "citations")}
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
