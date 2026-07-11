@@ -884,7 +884,7 @@ function renderContent(){
         ${lv.map((v,i)=> v==null?"":`<circle cx="${X(i)}" cy="${Y(v)}" r="2.4" fill="#C59C5E"/>`).join("")}
       </svg>`;
       /* derivation table */
-      h += '<table class="fin"><tr><th>Capital derivation ($000s)</th>';
+      h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Capital derivation ($000s)</th>';
       for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>Q${qq}</th>`;
       h += '</tr>';
       h += rowBS('Tier 1 capital', rows.tier1);
