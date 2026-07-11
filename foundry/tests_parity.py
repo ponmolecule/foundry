@@ -256,6 +256,14 @@ def main():
             print("  FAIL: no PEER-* flag on pf_a_base despite cohort outliers"); sys.exit(1)
         if not r1.get("examiner_book"):
             print("  FAIL: examiner book empty on pf_a_base"); sys.exit(1)
+        rp = r1.get("reg_params") or {}
+        if rp.get("version") != "2026.07.a" or not rp.get("citations"):
+            print("  FAIL: versioned regulatory parameters missing from payload"); sys.exit(1)
+        cb = {c["check"]: c for c in r1.get("cblr", [])}
+        if not any("8% CBLR requirement" in k for k in cb):
+            print("  FAIL: CBLR requirement not resolved from REG_PARAMS (2026 rule: 8%)"); sys.exit(1)
+        if any("CBLR 9" in (open(p, encoding="utf-8").read()) for p in ("web/console_v2.html",)):
+            print("  FAIL: stale 'CBLR 9' framing survives in the console"); sys.exit(1)
         if "overview" not in r1 or "readiness" not in r1["overview"]:
             print("  FAIL: overview block missing from run payload"); sys.exit(1)
         ftp_rows = r1.get("ftp", {}).get("rows", [])

@@ -14,6 +14,7 @@ import hashlib
 from .validate_q import validate_config_v2
 from .parity import run_parity
 from . import challenge_q
+from .regparams import REG_PARAMS
 from .challenge_q import challenge_config
 from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
@@ -157,14 +158,44 @@ def _cblr_checks(cfg, base):
                 ta = bs["totalAssets"][i + (n - m)]
                 if ta:
                     obs_share = max(obs_share, arr[i] / ta)
+    P = REG_PARAMS["cblr"]
+    req, floor = P["requirement"], P["grace_floor"]
+    # grace-period state per the 2026 rule: > requirement = compliant; (floor, req] = grace
+    # (max 4 consecutive, 8-of-20); <= floor = blocking. Evaluated on the base path.
+    lev_dec = [None if x is None else x / 100.0 for x in lev]
+    grace_q = [i for i, x in enumerate(lev_dec) if x is not None and floor < x <= req]
+    breach_q = [i for i, x in enumerate(lev_dec) if x is not None and x <= floor]
+    consec = 0
+    best_consec = 0
+    for x in lev_dec:
+        if x is not None and floor < x <= req:
+            consec += 1
+            best_consec = max(best_consec, consec)
+        else:
+            consec = 0
+    if breach_q:
+        grace_state = "BLOCKING: below 7% floor"
+    elif not grace_q:
+        grace_state = "ok"
+    elif best_consec > P["grace_max_consecutive_q"] or len(grace_q) > P["grace_limit_q"]:
+        grace_state = "EXHAUSTED: grace limits exceeded"
+    else:
+        grace_state = f"in grace ({len(grace_q)}q used of {P['grace_limit_q']}/{P['grace_window_q']})"
     return [
         {"check": "Total assets under $10B (Q12)", "value": round(ta_q12, 2),
-         "threshold": 10_000_000.0, "pass": ta_q12 < 10_000_000.0, "units": "$000s"},
-        {"check": "Off-balance-sheet exposures ≤ 25% of assets", "value": round(obs_share, 4),
-         "threshold": 0.25, "pass": obs_share <= 0.25, "units": "share"},
-        {"check": "Leverage ratio above 9% CBLR floor (min quarter)",
+         "threshold": P["assets_ceiling_usd"] / 1000.0, "pass": ta_q12 < P["assets_ceiling_usd"] / 1000.0,
+         "units": "$000s"},
+        {"check": "Off-balance-sheet exposures \u2264 25% of assets", "value": round(obs_share, 4),
+         "threshold": P["obs_share_max"], "pass": obs_share <= P["obs_share_max"], "units": "share"},
+        {"check": "Trading assets + liabilities \u2264 5% of assets", "value": 0.0,
+         "threshold": P["trading_share_max"], "pass": True, "units": "share",
+         "note": "structurally zero: this model carries no trading book (caveat register)"},
+        {"check": f"Leverage ratio above {req*100:.0f}% CBLR requirement (min quarter)",
          "value": None if lev_min is None else round(lev_min / 100.0, 4),
-         "threshold": 0.09, "pass": (lev_min is not None and lev_min / 100.0 > 0.09), "units": "ratio"},
+         "threshold": req, "pass": (lev_min is not None and lev_min / 100.0 > req), "units": "ratio"},
+        {"check": "Grace-period state (floor 7.0%; \u22644 consecutive, \u22648-of-20)",
+         "value": None, "threshold": None, "pass": not (breach_q or "EXHAUSTED" in grace_state),
+         "units": "state", "state": grace_state},
     ]
 
 
@@ -360,6 +391,7 @@ def run_v2(cfg):
         "breakeven_q": breakeven_q,
     }
     results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
+    results["reg_params"] = {k: REG_PARAMS[k] for k in ("version", "effective", "verified", "citations")}
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
         "line_labels": present.LINE_LABELS, "loan_keys": present.LOAN_KEYS, "dep_keys": present.DEP_KEYS,
