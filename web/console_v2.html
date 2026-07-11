@@ -868,21 +868,35 @@ function renderContent(){
       /* leverage chart: engine data only, three threshold lines */
       const lv = rows.leverage.map(x=>x==null?null:x*100);
       const vmax = Math.max(...lv.filter(x=>x!=null), (T3.management||0)*100+1, 11) * 1.08;
-      const W=980, H=230, L=44, B=26;
-      const X = i => L + i*( (W-L-14) / Math.max(1, lv.length-1) );
-      const Y = v => (H-B) - (v/vmax)*(H-B-12);
+      const W=980, H=280, L=52, B=28, T=16;
+      const X = i => L + i*( (W-L-18) / Math.max(1, lv.length-1) );
+      const Y = v => (H-B) - (v/vmax)*(H-B-T);
       let pts = lv.map((v,i)=> v==null?null:`${X(i).toFixed(1)},${Y(v).toFixed(1)}`).filter(Boolean).join(" ");
-      const hline = (v,color,dash,label)=> v==null?"" :
-        `<line x1="${L}" y1="${Y(v*100)}" x2="${W-14}" y2="${Y(v*100)}" stroke="${color}" stroke-dasharray="${dash}" stroke-width="1"/>`+
-        `<text x="${W-16}" y="${Y(v*100)-3}" text-anchor="end" font-size="9" fill="${color}">${label}</text>`;
-      h += `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:1100px;border:1px solid #DCE1EA;border-radius:3px;background:#FFFFFF;margin:0 0 16px">
-        ${lv.map((v,i)=>`<text x="${X(i)}" y="${H-8}" text-anchor="middle" font-size="9" fill="#7C8698">Q${i+1}</text>`).join("")}
-        ${hline(T3.statutory, "#b0413e", "5 3", (T3.statutory*100).toFixed(0)+"% statutory (CBLR)")}
-        ${hline(T3.chartering, "#7A5A17", "3 3", (T3.chartering*100).toFixed(0)+"% chartering minimum")}
-        ${hline(T3.management, "#4A5568", "1 3", T3.management==null?"":(T3.management*100).toFixed(1)+"% management target")}
+      const yticks = [];
+      const step = vmax > 20 ? 5 : 2.5;
+      for(let v=0; v<=vmax; v+=step) yticks.push(v);
+      const hline = (v,color,dash)=> v==null?"" :
+        `<line x1="${L}" y1="${Y(v*100)}" x2="${W-18}" y2="${Y(v*100)}" stroke="${color}" stroke-dasharray="${dash}" stroke-width="1.2"/>`;
+      const LEG = [];
+      if(T3.statutory!=null)  LEG.push(["#b0413e","5 3", `${(T3.statutory*100).toFixed(0)}% statutory (CBLR)`]);
+      if(T3.chartering!=null) LEG.push(["#7A5A17","3 3", `${(T3.chartering*100).toFixed(0)}% chartering minimum`]);
+      if(T3.management!=null) LEG.push(["#4A5568","1 3", `${(T3.management*100).toFixed(1)}% management target`]);
+      const legend = LEG.map((e,i)=>
+        `<line x1="${W-198}" y1="${T+6+i*16}" x2="${W-168}" y2="${T+6+i*16}" stroke="${e[0]}" stroke-dasharray="${e[1]}" stroke-width="1.4"/>`+
+        `<text x="${W-162}" y="${T+9.5+i*16}" font-size="10" fill="${e[0]}">${e[2]}</text>`).join("");
+      h += `<div style="text-align:center"><svg viewBox="0 0 ${W} ${H}" style="display:block;margin:0 auto 16px;width:100%;max-width:1100px;border:1px solid #DCE1EA;border-radius:3px;background:#FFFFFF">
+        ${yticks.map(v=>`<line x1="${L}" y1="${Y(v)}" x2="${W-18}" y2="${Y(v)}" stroke="#EEF1F6" stroke-width="1"/>`+
+          `<text x="${L-6}" y="${Y(v)+3}" text-anchor="end" font-size="9.5" fill="#7C8698">${v.toFixed(0)}%</text>`).join("")}
+        ${lv.map((v,i)=>`<text x="${X(i)}" y="${H-9}" text-anchor="middle" font-size="9.5" fill="#7C8698">Q${i+1}</text>`).join("")}
+        ${hline(T3.statutory, "#b0413e", "5 3")}
+        ${hline(T3.chartering, "#7A5A17", "3 3")}
+        ${hline(T3.management, "#4A5568", "1 3")}
+        <rect x="${W-206}" y="${T-4}" width="196" height="${LEG.length*16+10}" fill="#FFFFFF" fill-opacity=".92" stroke="#E4E7EC"/>
+        ${legend}
         <polyline points="${pts}" fill="none" stroke="#16233B" stroke-width="1.8"/>
         ${lv.map((v,i)=> v==null?"":`<circle cx="${X(i)}" cy="${Y(v)}" r="2.4" fill="#C59C5E"/>`).join("")}
-      </svg>`;
+        <text x="${L}" y="${T-4}" font-size="9.5" fill="#7C8698">Leverage ratio, base path (%)</text>
+      </svg></div>`;
       /* derivation table */
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Capital derivation ($000s)</th>';
       for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>Q${qq}</th>`;
