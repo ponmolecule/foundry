@@ -14,7 +14,7 @@ import hashlib
 from .validate_q import validate_config_v2
 from .parity import run_parity
 from . import challenge_q
-from .regparams import REG_PARAMS
+from .regparams import REG_PARAMS, PENDING_RULES
 from .challenge_q import challenge_config
 from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
@@ -477,6 +477,7 @@ def run_v2(cfg):
         "Ramped (non-parallel) rate shocks, matched-maturity FTP, and MSR prepayment revaluation remain parked open decisions.",
     ]
     results["reg_params"] = {k: REG_PARAMS[k] for k in ("version", "effective", "verified", "citations")}
+    results["reg_params"]["pending_rules"] = PENDING_RULES
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
         "line_labels": present.LINE_LABELS, "loan_keys": present.LOAN_KEYS, "dep_keys": present.DEP_KEYS,

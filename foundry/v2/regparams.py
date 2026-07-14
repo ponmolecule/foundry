@@ -8,6 +8,22 @@ a parameter means adding a new version block with new citations, never editing
 history.
 """
 
+# Proposed-rule watch: named, dated, status "proposed" — annotated in the artifact,
+# NEVER encoded as parameters until final. Standing client rule (2026-07-13).
+PENDING_RULES = [
+    {"name": "Standardized Approach reform proposals (incl. elimination of the MSA "
+             "CET1 deduction in favor of a 250% risk weight; est. 7.7\u20138.3% CET1 "
+             "requirement reduction for smaller banks)",
+     "status": "PROPOSED \u2014 not law; comments closed 2026-06-18; final rule pending",
+     "would_affect": ["MSA threshold deduction (12 CFR 3.22(d)) in the capital derivation",
+                       "standardized RWA stack (pilot scope)"],
+     "watch_opened": "2026-07-13"},
+    {"name": "Stress-testing framework proposal (Oct 2025)",
+     "status": "PROPOSED \u2014 pending",
+     "would_affect": ["scenario framework context; no direct engine parameter"],
+     "watch_opened": "2026-07-13"},
+]
+
 REG_PARAMS = {
     "version": "2026.07.a",
     "effective": "2026-07-01",

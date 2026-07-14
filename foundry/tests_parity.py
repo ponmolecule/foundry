@@ -265,6 +265,9 @@ def main():
         if len(r1.get("caveats") or []) < 5:
             print("  FAIL: caveat register missing or thin"); sys.exit(1)
         rp = r1.get("reg_params") or {}
+        if not rp.get("pending_rules") or not any("PROPOSED" in (x.get("status") or "")
+                                                    for x in rp.get("pending_rules", [])):
+            print("  FAIL: proposed-rule watch missing from reg_params payload"); sys.exit(1)
         if rp.get("version") != "2026.07.a" or not rp.get("citations"):
             print("  FAIL: versioned regulatory parameters missing from payload"); sys.exit(1)
         cb = {c["check"]: c for c in r1.get("cblr", [])}

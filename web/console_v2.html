@@ -864,6 +864,9 @@ function renderContent(){
       h += '<div class="h2" style="font-size:15px;margin-top:18px">Capital \u2014 Community Bank Leverage Ratio framework</div>';
       if(r.reg_params){
         h += `<div class="memo" style="margin:4px 0 12px">Rule parameters: version ${esc(r.reg_params.version)}, effective ${esc(r.reg_params.effective)}, verified ${esc(r.reg_params.verified)}. ${(r.reg_params.citations||[]).map(esc).join("; ")}. Regulatory values resolve from this versioned set, never from memory.</div>`;
+        (r.reg_params.pending_rules||[]).forEach(pr=>{
+          h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #C59C5E;padding-left:9px"><strong>Proposed-rule watch:</strong> ${esc(pr.name)} \u2014 ${esc(pr.status)}. Would affect: ${(pr.would_affect||[]).map(esc).join("; ")}. Annotated only; not encoded until final.</div>`;
+        });
       }
       /* leverage chart: engine data only, three threshold lines */
       const lv = rows.leverage.map(x=>x==null?null:x*100);
