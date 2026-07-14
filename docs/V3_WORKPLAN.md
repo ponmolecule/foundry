@@ -31,7 +31,7 @@ from Ponmile to the database team listing what the new design must keep:
 (1) full quarterly history back to 2010, not just the latest quarter; (2) each bank's
 charter date; (3) whether/when each bank failed or was acquired; (4) branch counts by year;
 (5) each bank's UBPR peer-group number; (6) the ability to export the two tables the
-extract spec describes. Six bullets. As long as those survive, Foundry only touches
+extract spec describes. Six bullets — now expanded into docs/SUBSTRATE_DATA_BRIEF.md (window 2009Q1+, field priorities incl. RC-N/RC-O/RC-B, mechanism-tagged failures, enforcement actions, versioned field mapping, narrow-v1-first sequencing). Hand the brief, not just the bullets. As long as those survive, Foundry only touches
 CharterIQ at one point in the code (peers.py), so nothing else can break.
 
 ---
