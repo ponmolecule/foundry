@@ -36,7 +36,7 @@ unsupervised window Jul 30–Aug 10 · reconvene **Aug 11**.
 - [ ] UBPR peer-group baseline as the insufficiency fallback
 
 ## E — Post-pilot roadmap (Aug 11+, sequenced then)
-- [ ] Native monthly + pre-opening time basis (engine)
+- [x] ~~Native monthly time basis~~ DECIDED 2026-07-14: engine stays quarterly; monthly handled at import. Pre-opening phase ships per B-2 (quarterly, no clock change)
 - [ ] DTA / valuation-allowance tax layer (the "genuine addition")
 - [ ] AOCI / AFS scope decision
 - [ ] Lifecycle tracker completion (steps 9–10 surfaces)

@@ -40,7 +40,7 @@ CharterIQ at one point in the code (peers.py), so nothing else can break.
 
 | # | Lesson from his workbook | What we do in Foundry |
 |---|---|---|
-| II-1 | **Charter applications think in calendar months** — his model runs monthly, with dated events and a start month; ours runs in abstract quarters | Now: the importer converts his monthly numbers to quarterly (multiply by 3; yearly rates spread over 4 quarters), and writes the conversion into the config so nothing is hidden. Later: rebuild the engine's clock to run monthly natively — a big change, done carefully with tests, after the pilot |
+| II-1 | **Charter applications think in calendar months** — his model runs monthly, with dated events and a start month; ours runs in abstract quarters | Now: the importer converts his monthly numbers to quarterly (multiply by 3; yearly rates spread over 4 quarters), and writes the conversion into the config so nothing is hidden. **Decided 2026-07-14: the engine stays quarterly.** Monthly inputs are converted at import (documented in the config); outputs report quarters, with the start month shown so calendar timing stays readable |
 | II-2 | **The model starts before the bank opens** — he has a pre-opening expense schedule, application fees, day-one balances, and a minimum day-one capital check | Add a "pre-opening" section to the config; opening equity = money raised minus pre-opening spending; day-one starting balances; a pre-opening check on the Overview page |
 | II-3 | **Capital comes in rounds** — he has three dated raises | Let the engine accept capital injections in later quarters, not just at the start |
 | II-4 | **Deliverables must look like regulatory forms** — his tabs are named RC, RI, RC-R; he has an average-balance sheet and a concentration checker | Make Foundry's outputs match his tab layouts (we have Patrick's row-by-row worksheets); add the average-balance table and the concentration checks |
@@ -122,7 +122,7 @@ because Klaros will use it unsupervised while Ponmile travels.
 
 **Sprint 3, August window → Aug 11.** Load the real peer data when CharterIQ's rebuild
 delivers it (remove the watermark, do a real parameter freeze, add the UBPR backup) →
-ratify the peer-governance rules → decide on the monthly-clock engine rebuild → build the
+ratify the peer-governance rules → build the
 deferred-tax layer (four known pieces: the 80% usage cap on loss carryforwards; the
 temporary-difference DTA with its 25% capital threshold; the valuation-allowance release
 when the bank turns profitable; state taxes or an explicit federal-only note) → decide
