@@ -1,117 +1,133 @@
-# Foundry v3 Work Plan — Influences Integrated (v1, 2026-07-14)
+# Foundry v3 Work Plan (plain-language v2, 2026-07-14)
 
-Companion to PROJECT_PLAN.md (the check-off sheet). This is the reasoning and the granularity.
-Influences integrated: Roman's engine (already the spine), Patrick's workbook (lifecycle +
-presentation), the parallel-build capital tab (adopted PC-25/26), governance rulings (drafted),
-pilot calendar (Jul 24 / Jul 29 / Aug 11).
+Companion to PROJECT_PLAN.md (the short checklist). This document explains what we're
+building, why, and in what order. Sources we're drawing from: Roman's model (already the
+core of our engine), Patrick's workbook (tells us how applications and regulators actually
+work), the other AI build's capital tab (already adopted), the peer-governance draft, and
+the pilot dates: demo to Patrick July 24, checkpoint July 29, Klaros decides Aug 11.
 
 ---
 
-## Part I — CharterIQ substrate surgery: where Foundry needs it, and whether it blocks
+## Part I — The CharterIQ database rebuild: where we need it, and whether it delays us
 
-| # | Foundry consumer | Needs from substrate | Needed by | Fallback until then | Blocked? |
+CharterIQ's database is being restructured in a separate workstream. Five Foundry features
+eventually need data from it. For each: what we need, when, and what we do in the meantime.
+
+| # | Foundry feature | What it needs from CharterIQ | When | What we use until then | Delayed? |
 |---|---|---|---|---|---|
-| I-1 | Peer cohort real data (watermark retirement) | De novo trajectory extract per PEER_EXTRACT_SPEC v1.0→1.1 | Aug window (post-checkpoint) | Synthetic 43-bank fixture, watermarked | **No** |
-| I-2 | UBPR peer-group baseline (Ruling 4 fallback) | UBPR PG assignment + PG distribution stats | With I-1 | Omit; rulings not yet ratified | **No** |
-| I-3 | Retrodiction overlay v0 (C-track) | 2–3 real de novo Call Report histories | Jul 29 | **Direct FFIEC CDR pull** (raw filings suffice; surgery irrelevant) | **No** |
-| I-4 | Live benchmark strip for warnings (pilot scope) | Percentile service or extract refresh | Aug 11 phase | Synthetic percentiles, watermarked | **No** |
-| I-5 | Patrick PEER-tab shapes populated with real figures | Same as I-1/I-2 | Post-pilot | Populate from synthetic w/ watermark for demo | **No** |
+| I-1 | Real peer data (so we can remove the "SYNTHETIC" watermark) | The de novo bank history table described in PEER_EXTRACT_SPEC | August, after the checkpoint | The invented 43-bank dataset, clearly watermarked | **No** |
+| I-2 | UBPR peer-group comparison (the backup when a custom cohort is too small) | UBPR peer-group stats | Same time as I-1 | Leave it out for now | **No** |
+| I-3 | Retrodiction (run a real bank's history through our model to prove accuracy) | 2–3 real banks' quarterly filings | July 29 | Download the filings straight from the FFIEC website — doesn't touch CharterIQ at all | **No** |
+| I-4 | Warning thresholds tied to live FDIC percentiles | A percentile lookup | Aug 11 phase | Synthetic percentiles, watermarked | **No** |
+| I-5 | Filling Patrick's PEER tab with real numbers | Same as I-1/I-2 | After the pilot | Fill it with watermarked synthetic numbers for the demo | **No** |
 
-**Verdict: the surgery does not hold us up.** Every Jul-24 and Jul-29 deliverable runs on the
-engine plus synthetic-watermarked evidence or direct FFIEC pulls. The substrate becomes
-load-bearing only at watermark retirement (D-track), which is deliberately post-checkpoint.
+**Bottom line: the database rebuild does not delay us.** Everything for July 24 and July 29
+runs on the engine plus clearly-labeled synthetic data, or on files downloaded directly
+from the FFIEC.
 
-**The one real coupling risk runs the other direction:** if the surgery optimizes the new
-schema for current-state analytics and drops what the extract needs, D-track gets harder.
-**Action I-A (P, this week): hand the substrate workstream a requirements memo** — the new
-schema must preserve: (1) full quarterly history to 2010, not just latest quarter; (2)
-charter/established dates; (3) terminal status + date (failed-list & structure-change joins);
-(4) SOD office counts by year; (5) UBPR peer-group assignment; (6) an extract-job path that
-can emit PEER_EXTRACT_SPEC's two tables + manifest. Six bullets; the spec is the contract;
-peers.py stays the only seam.
+**The risk actually runs the other way:** if the rebuilt database throws away things the
+peer extract needs, our August work gets harder. So the first action item is a short memo
+from Ponmile to the database team listing what the new design must keep:
+(1) full quarterly history back to 2010, not just the latest quarter; (2) each bank's
+charter date; (3) whether/when each bank failed or was acquired; (4) branch counts by year;
+(5) each bank's UBPR peer-group number; (6) the ability to export the two tables the
+extract spec describes. Six bullets. As long as those survive, Foundry only touches
+CharterIQ at one point in the code (peers.py), so nothing else can break.
 
 ---
 
-## Part II — What Patrick's model teaches, and the translation of each lesson
+## Part II — What Patrick's model teaches us, and what we do about each lesson
 
-| # | Lesson (from the artifact itself) | Translates into Foundry as |
+| # | Lesson from his workbook | What we do in Foundry |
 |---|---|---|
-| II-1 | **Applications live in calendar months** — monthly cadence, dated events, a start month | Now: monthly→quarterly input dialect in the intake translator (documented ×3 / expand-by-4). Later: native monthly + calendar-anchored time basis (E-track, gated engine change) |
-| II-2 | **The model starts before the bank does** — pre-opening expense schedule, application fees, Day-1 seeds, min Day-1 capital check | `pre_open` config block; opening equity derived = raises − cumulative pre-open burn; Day-1 seed balances; a PRE-OPEN readiness check on Overview |
-| II-3 | **Capital arrives in tranches** | Staged capital-raise events in the equity rollforward (engine additive) |
-| II-4 | **The deliverable's shape is the regulator's shape** — RC/RI/RC-C/RC-R tabs, ABR, CONC | Schedule-output dialect = his tab shapes (worksheets in hand); ABR tab; CONC diagnostics under REG_PARAMS |
-| II-5 | **Cost realism has a vocabulary** — FTE×comp, named lines, asset-indexed FDIC/OCC assessments | Structured NIE module replacing/augmenting abstract overhead |
-| II-6 | **Fee businesses are per-account / per-transaction** — and his own doctrine says take them flat monthly for v1 | Translator: net $ fee lines now; native per-account/per-tx fields later (Solstice dialect kin) |
-| II-7 | **One control surface, banker-legible** — CONTROL panel idiom | Configuration tab absorbs it: identity block, cadence, engaged-modules view |
-| II-8 | **RWA as simple assumption buckets** | The 5-bucket weight table is the pilot RWA stack's input shape |
-| II-9 | **Balance-driven core validated** — his dialect ≈ ours | The 85% is empirical: ~90% of his 165 inputs map to existing config fields via unit conversion |
-| II-10 | **Anti-lessons** — scattered literals, zero-wire toggles, hidden-tab stubs, file-state | Already answered by REG_PARAMS, T6-gated modules, registry/roster. Do not import. |
+| II-1 | **Charter applications think in calendar months** — his model runs monthly, with dated events and a start month; ours runs in abstract quarters | Now: the importer converts his monthly numbers to quarterly (multiply by 3; yearly rates spread over 4 quarters), and writes the conversion into the config so nothing is hidden. Later: rebuild the engine's clock to run monthly natively — a big change, done carefully with tests, after the pilot |
+| II-2 | **The model starts before the bank opens** — he has a pre-opening expense schedule, application fees, day-one balances, and a minimum day-one capital check | Add a "pre-opening" section to the config; opening equity = money raised minus pre-opening spending; day-one starting balances; a pre-opening check on the Overview page |
+| II-3 | **Capital comes in rounds** — he has three dated raises | Let the engine accept capital injections in later quarters, not just at the start |
+| II-4 | **Deliverables must look like regulatory forms** — his tabs are named RC, RI, RC-R; he has an average-balance sheet and a concentration checker | Make Foundry's outputs match his tab layouts (we have Patrick's row-by-row worksheets); add the average-balance table and the concentration checks |
+| II-5 | **Costs have real structure** — headcount × salary, named cost lines, FDIC/OCC fees that scale with bank size | Add a proper expense section: staff counts by year, named cost lines, and the FDIC/OCC fees computed from assets |
+| II-6 | **Fee businesses are priced per account and per transaction** — and Patrick himself said: for version 1, just take fee income as a flat monthly number | For now the importer converts his per-account math into flat dollar amounts. Native per-account inputs come later |
+| II-7 | **One settings page a banker can read** — his CONTROL tab | Our Configuration tab gets the same layout: who the client is, the timeline, and which modules this bank uses |
+| II-8 | **Risk-weighting can start simple** — five buckets (0%/20%/50%/100%/150%) | Use his five buckets as the input format for the risk-weighted capital build |
+| II-9 | **His inputs and ours are nearly the same language** — about 90% of his 165 inputs already have a matching field in our config | This is the good news: importing his workbook is mostly unit conversion, not new engineering |
+| II-10 | **What NOT to copy** — thresholds typed into random cells, toggles wired to nothing, hidden stub tabs, no saved history | We already solved these (versioned rule parameters, tested modules, the freeze registry). Don't import the bad habits |
 
 ---
 
-## Part III — Three-bucket inventory (granular)
+## Part III — The full inventory, three buckets
 
-### A. Have and good — keep, showcase (no work except demo framing)
-A1 Deterministic engine of record; SHA-256 config/run hashes. A2 39-gate suite; 9 frozen
-fixtures ±$1k/line/qtr; jsdom UI probes. A3 Freeze→re-verify registry (the live REPRODUCED
-demo). A4 Config front door: JSON + banker workbook, fail-closed both ways. A5 Per-quarter
-override grids (strictly supersets Patrick's flat scalars). A6 Product mechanics: MSR w/
-3.22(d), FV election, OTS, warehouse, GOS, FTP view. A7 Stress engine: dials, per-scenario
-constraint tests, capital-shortfall estimate. A8 Challenge layer: reasonableness + COUPLED
-structural/percentile + PEER flags. A9 Peer methodology: pre-registered, kernel-weighted,
-insufficiency machinery + rulings draft. A10 Examiner book. A11 REG_PARAMS versioned+cited +
-pending-rule watch (gate-enforced). A12 Caveat register. A13 Call Report line mapping on
-every row. A14 Capital derivation reconciled ≤2bp to engine. A15 Ladder (v2/v2.1/v3 intact).
-A16 Gated API + /docs.
+### A. What we have that's good — keep it, show it off (no work needed)
+A1 An engine that gives the same answer every time, with fingerprints (hashes) proving it.
+A2 39 automated tests plus 9 locked example banks that must reproduce to within $1,000 per
+line per quarter on every change. A3 Freeze a run, come back later, click Re-verify, watch
+it reproduce exactly — the live demo moment. A4 Two ways in: a config file or an Excel
+intake workbook; incomplete input gets rejected with a list of questions instead of guesses.
+A5 Any assumption can be overridden for any single quarter. A6 The hard product mechanics:
+mortgage servicing (with the capital deduction), fair-value election, loan sales, warehouse.
+A7 Stress testing with adjustable dials, every constraint re-checked in every scenario, and
+an estimate of the capital needed to cure a breach. A8 Automatic challenge flags, including
+the "these two assumptions can't both be true" checks. A9 The peer-comparison method: rules
+fixed in advance, honest about small samples, failed banks kept in the data. A10 The
+examiner Q&A generator. A11 Regulatory numbers kept in one versioned, cited place — with a
+watch list for proposed rules. A12 A register of what the model deliberately doesn't do.
+A13 Every output row labeled with its Call Report line. A14 The capital math shown
+step-by-step and proven to match the engine. A15 Three intact versions (v2 / v2.1 / v3) —
+nothing old ever broke. A16 A documented, login-protected API.
 
-### B. Patrick has, we don't — adopt (size S/M/L · target · notes)
-| ID | Item | Size | Target | Notes |
+### B. What Patrick has that we don't — build it (size · deadline · notes)
+| ID | What | Size | Deadline | Notes |
 |---|---|---|---|---|
-| B-1 | Monthly-input dialect (flat $/mo originations & deposit adds; annual-step rates) | M | **Jul 24** | Translator-level: ×3 to quarterly $, $-adds→growth via override grids, rate steps→quarterly path; every mapping written into the config |
-| B-2 | Pre-opening phase (expense schedule, app fees, Day-1 seeds, min-capital check) | M | Jul 24 lite / Jul 29 full | Lite: opening capital net of documented pre-open burn + seeds. Full: `pre_open` block + Overview check |
-| B-3 | Staged capital raises (3 dated rounds) | M | **Jul 29** | Equity events at quarter t; fixture + gate; enables "raise round 2 in Q6" answers |
-| B-4 | RWA / standardized stack (5 weight buckets → CET1/T1/Total/PCA, RC-R shape) | M-L | **Jul 29** | Pilot scope; per-product bucket tags in config; PCA ladder from REG_PARAMS |
-| B-5 | ABR schedule (avg balances & rates, UBPR-style) | S | Jul 29 | All series already computed; new white tab |
-| B-6 | CONC diagnostics (CRE/TRBC, C&I, brokered, LTD) | S-M | Jul 29 | Ratios + thresholds into REG_PARAMS w/ sources; flags on breach |
-| B-7 | Structured NIE (FTE×comp by year; named lines; FDIC/OCC asset-indexed assessments) | M | Jul 29 subset (assessments) / Aug (full) | Engine additive expense lines |
-| B-8 | Per-account / per-tx fee vocabulary (5 rails, BaaS, service charges, trust) | S now / M native | Jul 24 (as net $ via translator) / Aug (native) | His own flat-monthly doctrine blesses the interim |
-| B-9 | Schedule output in his tab shapes — RC + RI first | M | **Jul 24** | Patrick's worksheets are the row map; RC-R rides B-4; RC-E after |
-| B-10 | Identity/engagement metadata block (client, engagement ID, preparer, version) | S | Jul 24 | Config fields + Configuration tab header |
-| B-11 | Deposit maturity structure (CD ladders) | M | **Decision Aug 11** | ALM realism vs scope; caveat until decided |
-| B-12 | AOCI / AFS modeling | L | **Decision Aug 11** | Caveat-registered today; interacts with B-4 (AOCI opt-out) |
-| B-13 | BHC double-leverage view | — | Parking lot | Stub even for Patrick |
+| B-1 | **Importer for his input style** (flat dollars per month; rates set per year) | Medium | **Jul 24** | Multiply monthly by 3; spread yearly rates over quarters; convert dollar deposit growth using our per-quarter overrides; write every conversion into the config file |
+| B-2 | **Pre-opening phase** (expenses, application fees, day-one balances, minimum-capital check) | Medium | Jul 24 simple / Jul 29 full | Simple version: subtract documented pre-opening spending from opening capital. Full version: a proper pre_open config section plus an Overview check |
+| B-3 | **Capital raises after opening** (his three dated rounds) | Medium | **Jul 29** | Equity injections in later quarters; add a test bank that uses it |
+| B-4 | **Risk-weighted capital** (five weight buckets → CET1 / Tier 1 / Total ratios + PCA categories, laid out like his RC-R tab) | Medium-Large | **Jul 29** | Already promised in the pilot; each product gets a weight-bucket tag in the config |
+| B-5 | **Average-balance-and-rate table** (the classic examiner view) | Small | Jul 29 | We already compute every number it needs; it's just a new page |
+| B-6 | **Concentration checks** (CRE, C&I, brokered deposits, loans-to-deposits vs. their limits) | Small-Med | Jul 29 | Ratios plus limits stored in the versioned rule set, with sources; breach raises a flag |
+| B-7 | **Structured expenses** (staff × salary by year; named cost lines; FDIC/OCC fees that scale with assets) | Medium | Jul 29 for the FDIC/OCC fees; August for the rest | New expense lines in the engine |
+| B-8 | **Per-account / per-transaction fee inputs** (his five payment rails, account fees, trust fees) | Small now / Medium later | Jul 24 (converted to flat dollars by the importer) / August (native fields) | Patrick's own advice blesses the flat-dollar interim |
+| B-9 | **Output pages shaped like his RC and RI tabs** | Medium | **Jul 24** | His worksheets tell us exactly which row is which; RC-R comes with B-4 |
+| B-10 | **Client header** (client name, engagement ID, preparer, version) | Small | Jul 24 | A few config fields shown at the top of Configuration |
+| B-11 | **CD maturity ladders** (his time deposits have terms; ours don't) | Medium | **Decide Aug 11** | More realism vs. more scope — a decision, not a default; note it in the caveat register meanwhile |
+| B-12 | **AFS securities with AOCI** (market-value swings hitting equity) | Large | **Decide Aug 11** | Interacts with B-4; caveat-registered until decided |
+| B-13 | Holding-company view | — | Parked | It's an empty stub even in his workbook |
 
-### C. Have, but tweak per Patrick (granular)
-| ID | Tweak | Size | Target |
+### C. What we have that needs adjusting, based on his
+| ID | Adjustment | Size | Deadline |
 |---|---|---|---|
-| C-1 | Configuration tab absorbs CONTROL idiom: identity block (B-10), cadence line, **engaged-modules view** (which Tier-2 modules this config activates — our honest version of his toggles) | S-M | Jul 24 |
-| C-2 | Ratios tab gains ABR framing (or ABR ships as its own tab per B-5; pick one, not both) | S | Jul 29 |
-| C-3 | Fee inputs: expose simple flat-$/quarter fee path alongside %-of-balance (his doctrine as a first-class input, not just a translator artifact) | S | Jul 29 |
-| C-4 | Rate sidebar: accept annual-step entry that expands to the quarterly path (input convenience, engine unchanged) | S | Jul 29 |
-| C-5 | Opening balance seeds: Day-1 cash/premises/other-assets as explicit config fields (ties B-2) | S | Jul 24 lite |
-| C-6 | Caveat register cross-linked from Configuration (scope visible where the client looks) | S | Jul 29 |
-| C-7 | Demo config: keep canonical OTS+MSR, add a "Patrick-translated" second resident for the roster (the ultimate B-1 test artifact) | S | Jul 24 |
+| C-1 | Configuration tab laid out like his CONTROL tab: client header (B-10), timeline, and a list of which modules this bank actually uses | Small-Med | Jul 24 |
+| C-2 | Decide: fold the average-balance view into the Ratios tab, or give it its own tab (B-5) — one or the other, not both | Small | Jul 29 |
+| C-3 | Let users enter fee income as a plain dollar amount per quarter, not only as % of balances | Small | Jul 29 |
+| C-4 | Let users type rates per year and have them spread across quarters automatically | Small | Jul 29 |
+| C-5 | Day-one starting balances (cash, premises, other) as explicit config fields | Small | Jul 24 |
+| C-6 | Link the "what this model doesn't do" register from the Configuration tab, where clients will look | Small | Jul 29 |
+| C-7 | Add a second saved bank: Patrick's own workbook, imported — the proof the importer works | Small | Jul 24 |
 
 ---
 
-## Part IV — Sequenced build (merges into PROJECT_PLAN tracks)
+## Part IV — Order of work
 
-**Sprint 1 → Jul 24 demo (track B).** Order: B-10/C-5 (config fields) → B-1 translator
-(Patrick workbook → config; monthly dialect; fee-net conversion; B-2 lite pre-open netting)
-→ C-1 Configuration/CONTROL idiom → B-9 RC+RI schedule shapes → completion/gap flags
-(no-loans conversation) → Prairie translation (existing plan) → roster v0 (needs volume) →
-demo dry-run script built on the seven contrasts (PEER, tax, SENS, MORT, CHECKS/re-verify,
-no-loans open, CBLR-drift reserve). Gate rule unchanged: every box lands with a green run.
+**Sprint 1, finishes July 24 (the demo).** In order: B-10 and C-5 (new config fields) →
+B-1 the importer (Patrick's workbook in; every conversion documented) → C-1 (Configuration
+page layout) → B-9 (RC and RI output pages) → the gap-flagging conversation ("this bank
+has deposits but no loans") → the Prairie Digital import (already planned) → saved-bank
+roster v0 (needs the Railway volume) → write and rehearse the demo script around the seven
+contrasts (his empty PEER tab vs. our Peer Cohort; his tax =0 vs. our NOL engine; his
+stress stub vs. our stress engine; his mortgage stub vs. our shipped module; his 10 checks
+vs. our re-verify-live moment; opening on his own no-loans default bank; and the CBLR rule
+drift, held in reserve). Rule unchanged: nothing is "done" without a green test run.
 
-**Sprint 2 → Jul 29 checkpoint (track C).** B-4 RWA/PCA → B-3 staged raises → B-5 ABR →
-B-6 CONC → B-7 assessments subset → C-2/C-3/C-4/C-6 tweaks → retrodiction v0 (I-3 via
-direct FFIEC pull) → hardening for the unsupervised window.
+**Sprint 2, finishes July 29 (the checkpoint).** B-4 risk-weighted capital → B-3 staged
+raises → B-5 average-balance table → B-6 concentration checks → B-7 FDIC/OCC fees →
+C-2/C-3/C-4/C-6 → retrodiction v0 (filings downloaded straight from FFIEC) → hardening,
+because Klaros will use it unsupervised while Ponmile travels.
 
-**Sprint 3 → Aug window / Aug 11 (tracks D/E).** Substrate integration on the surgery's
-timeline (extract load at peers.py, real freeze event, watermark retirement, UBPR baseline)
-→ rulings ratification → native monthly/pre-open engine decision → DTA/valuation-allowance
-layer (spec already four items: 80% cap, temp-diff DTA w/ 25% threshold, VA release, state
-parameterization) → B-11/B-12 decisions.
+**Sprint 3, August window → Aug 11.** Load the real peer data when CharterIQ's rebuild
+delivers it (remove the watermark, do a real parameter freeze, add the UBPR backup) →
+ratify the peer-governance rules → decide on the monthly-clock engine rebuild → build the
+deferred-tax layer (four known pieces: the 80% usage cap on loss carryforwards; the
+temporary-difference DTA with its 25% capital threshold; the valuation-allowance release
+when the bank turns profitable; state taxes or an explicit federal-only note) → decide
+B-11 and B-12.
 
-**Standing dependencies:** Railway volume (roster, durable registry) — P, this week.
-Substrate requirements memo (I-A) — P, this week. Patrick workbook go — **given by this plan.**
+**Waiting on Ponmile this week:** the Railway volume (so saved runs survive redeploys);
+the six-bullet memo to the database team; nothing else — the go-ahead for importing
+Patrick's workbook is given by this plan.
