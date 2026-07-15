@@ -128,6 +128,8 @@ The run hash is SHA-256 over the JSON-serialized results with sorted keys, exclu
 
 ## 12. Known simplifications and limitations, stated plainly
 
+*(Governance note, 2026-07-15: the rationale for each simplification and discard lives in  — scoping law; this section states shipped facts flatly and cites it. One home per rationale.)*
+
 Accounting: no journal-entry engine yet — statements are built from identity-enforced roll-forwards, not double-entry event logic; no cash-flow statement; no deferred taxes; the NOL treatment is the simplification in 5.4. Balance sheet: leverage uses period-end equity over period-end assets rather than tier 1 over average assets; other assets are a $6M constant; borrowings are unbounded and uncollateralized (no FHLB capacity limit); no AOCI, no securities duration or mark-to-market, no HTM/AFS split. Behavior: card receivables are a level, not a flow (no utilization dynamics); no pricing-volume elasticity anywhere, so rate-versus-growth metamorphic tests can pass vacuously and are labeled accordingly; deposit balances use a single blended average per channel. Liquidity: the cash target is the entire liquidity module; no stress outflow modeling. Peer evidence: the reference set is a synthetic fixture — methodology, freezing, and disclosures are production-real, the data is not; and the `deposit_growth_yr1` metric definition is not yet computed identically between fixture and client (life-stage alignment is a production-warehouse requirement, flagged in the protocol run report). Horizon: 36 months, monthly; no five-year management view. Each of these has a named home in the Master Architecture's roadmap; none is silent.
 
 
