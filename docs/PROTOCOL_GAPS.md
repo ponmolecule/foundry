@@ -93,3 +93,12 @@ gate failure (and the ledger write itself was skipped). Third output-handling fa
 engagement, after a grep and a tail each masked a nonzero exit. Standing rule adopted: gates
 and commits run as separate steps with explicit exit-code echoes; no heredocs inside
 conditional chains; every "green" claim in a reply must correspond to an echoed exit code.
+
+## v3.1 step 1 (input-spec branch) — two records
+(1) DISCOVERY, credit to gate T18: v1 engine results are order-sensitive to config mappings
+(sort_keys round-trip flips solstice 0ff7ac65dd0b -> b187771ff064 with zero semantic change).
+Store now preserves insertion order verbatim; order-canonicalization deferred as a documented
+decision since it would re-freeze goldens. ENGINE_SPEC §12 states the determinism scope.
+(2) PROCESS SLIP, recurrence of the PC-25b class: step-1 commit was created unconditionally
+after a red T18 (chain used echoed exits but no conditional). Standing rule reaffirmed and
+this fix lands by amending that commit only after green gates, run as separate steps.

@@ -177,9 +177,49 @@ def t17():
     check("T17", "web/ carries no source attribution", not hits, "; ".join(hits))
 
 
+def t18():
+    print("T18 engagement store: schema-pinned save/load reproduces the golden hash")
+    import tempfile
+    from . import store
+    base = runner.run(copy.deepcopy(SOLSTICE))["run_hash"]
+    prev = os.environ.get("FOUNDRY_DATA_DIR")
+    with tempfile.TemporaryDirectory() as td:
+        os.environ["FOUNDRY_DATA_DIR"] = td
+        try:
+            meta = store.save_engagement(copy.deepcopy(SOLSTICE))
+            loaded = store.load_engagement(meta["slug"])
+            ok_ver = loaded.get("config_schema_version") == store.CONFIG_SCHEMA_VERSION
+            rerun = runner.run(loaded)["run_hash"]
+            check("T18a", "stored-then-loaded Solstice reproduces golden hash",
+                  ok_ver and rerun == base, f"{rerun} vs {base}, ver_ok={ok_ver}")
+            # tamper: unsupported version must refuse to load
+            path = meta["path"]
+            bad = json.load(open(path, encoding="utf-8"))
+            bad["config_schema_version"] = "999"
+            json.dump(bad, open(path, "w", encoding="utf-8"))
+            try:
+                store.load_engagement(meta["slug"])
+                check("T18b", "unsupported schema version fails closed", False, "loaded anyway")
+            except store.SchemaVersionError:
+                check("T18b", "unsupported schema version fails closed", True)
+            # missing version must refuse to load
+            bad.pop("config_schema_version")
+            json.dump(bad, open(path, "w", encoding="utf-8"))
+            try:
+                store.load_engagement(meta["slug"])
+                check("T18c", "missing schema version fails closed", False, "loaded anyway")
+            except store.SchemaVersionError:
+                check("T18c", "missing schema version fails closed", True)
+        finally:
+            if prev is None:
+                os.environ.pop("FOUNDRY_DATA_DIR", None)
+            else:
+                os.environ["FOUNDRY_DATA_DIR"] = prev
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
