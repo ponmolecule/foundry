@@ -16,6 +16,10 @@ if two documents disagree, the more specific one wins and the conflict gets logg
 | Strategic frame for the engagement | MODEL_COMPARISON_MEMO.md, PROJECT_PLAN.md | — |
 | CharterIQ data window/fields | SUBSTRATE_DATA_BRIEF.md | — |
 
+**The two T-families (do not conflate):** `Stage T-n` (hyphenated) = Mode T build
+stages, laid out in TRANSLATION_PIPELINE.md. `Gate Tnn` (no hyphen) = named checks in
+the protocol suite, catalogued in **GATE_LEDGER.md** (generated from the suite itself).
+
 **Standing rulings not in any single doc** (logged here so they have an address):
 engine QUARTERLY permanently; ALL calendar deadlines dropped — gates are the schedule;
 surface text written for the client (no schema/JSON/env vars/source names); attached
