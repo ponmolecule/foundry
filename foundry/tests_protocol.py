@@ -402,9 +402,41 @@ def t23():
             _os.environ["FOUNDRY_DATA_DIR"] = old_env
 
 
+def t24():
+    print("T24 Mode T stage T-1: ingest+recon on the two real shapes")
+    import os as _os
+    from .modet import recon_file
+    src = "/mnt/project/Klaros_Bank_Charter_Financial_Model_v1_0_Patrick.xlsx"
+    if _os.path.exists(src):
+        rep = recon_file(open(src, "rb").read(), src)
+        check("T24a", "hidden sheets surfaced (the PEER lesson)",
+              "PEER" in rep["hidden_sheets"], str(rep["hidden_sheets"])[:90])
+        themes = {t for c in rep["candidates"] for t in c["themes"]}
+        check("T24b", "lexicon finds the expected themes across the workbook",
+              {"deposits", "loans", "credit", "capital", "treasury"} <= themes, str(sorted(themes)))
+        long_axes = [ax for sh in rep["sheets"] for ax in sh["time_axes"]
+                      if ax["cadence"] == "monthly" or (ax["cadence"] == "periodic" and ax["span"] >= 18)]
+        check("T24c", "a long time axis detected (labeled monthly, or periodic span>=18)", bool(long_axes))
+        check("T24d", "no unit is ever asserted",
+              all(c["units"] == "UNVERIFIED" for c in rep["candidates"]))
+        rep2 = recon_file(open(src, "rb").read(), src)
+        check("T24e", "recon is deterministic", rep["report_hash"] == rep2["report_hash"])
+    else:
+        print("  SKIP  source workbook not present in this environment (T24a-e)")
+    csvp = "foundry/fixtures/modet/prairie_style_unit_economics.csv"
+    rep = recon_file(open(csvp, "rb").read(), csvp)
+    ok = (rep["kind"] == "csv"
+          and any(ax["cadence"] == "periodic" and ax["span"] == 12
+                   for sh in rep["sheets"] for ax in sh["time_axes"])
+          and any("volume" in c["themes"] for c in rep["candidates"])
+          and any("fees" in c["themes"] for c in rep["candidates"]))
+    check("T24f", "CSV shape (S4): periodic axis (span 12, cadence NOT guessed) + volume/fee candidates", ok,
+          f"{rep['candidate_count']} candidates")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

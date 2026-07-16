@@ -194,6 +194,17 @@ async def v31_fiw_import(file: UploadFile = File(...), current: str = Form("{}")
     return JSONResponse({"cfg": merged, "report": report})
 
 
+@app.post("/api/v31/modet/recon")
+async def v31_modet_recon(file: UploadFile = File(...), _=Depends(gate)):
+    """Mode T stage T-1: what does this file contain? (No interpretation.)"""
+    from foundry.modet import recon_file
+    data = await file.read()
+    try:
+        return JSONResponse(recon_file(data, file.filename or ""))
+    except Exception as e:
+        return JSONResponse({"error": f"could not read file: {e}"}, status_code=422)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl
