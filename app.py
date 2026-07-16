@@ -357,7 +357,13 @@ def v2_preview(cfg: dict, _=Depends(gate)):
     errs = validate_errors_v2(cfg)
     if errs:
         return JSONResponse({"valid": False, "errors": errs}, status_code=422)
-    return JSONResponse(run_v2(cfg))
+    res = run_v2(cfg)
+    try:
+        from foundry.v2.callreport import build_call_report
+        res["call_report"] = build_call_report(res, cfg)   # presentation only
+    except Exception:
+        pass   # schedules must never take down the run
+    return JSONResponse(res)
 
 
 @app.post("/api/v2/engagements")

@@ -91,3 +91,142 @@ def code_for_result(key):
 
 def code_for_line(line):
     return LINE_CODES.get(line)
+
+
+# ---------------------------------------------------------------- builders
+# Pro forma schedule assembly (presentation only; every subtotal recomputed
+# from engine series and tie-checked by Gate T31). Lines the model does not
+# compute are OMITTED and listed in the footer — omission is honest; a zero
+# asserts a fact the model never computed (TEST_CASES.md #12).
+
+def _q(series):
+    """Normalize to Q1..Q12: balance series carry a Q0 opening (13 points);
+    flow series carry 12. Schedules are uniformly quarterly columns."""
+    return list(series[1:13]) if len(series) == 13 else list(series[:12])
+
+
+def _row(item, code, label, vals):
+    return {"item": item, "code": code, "label": label, "values": _q(vals)}
+
+
+def build_rc(res, cfg):
+    bs, a = res["financials"]["bs"], cfg["assumptions"]
+    n = len(bs["totalAssets"])
+    prem = [a.get("premises_equipment", 0) / 1000.0] * n
+    intang = [a.get("intangibles", 0) / 1000.0] * n
+    oa = [a.get("other_assets", 0) / 1000.0] * n
+    ol = [a.get("other_liabilities", 0) / 1000.0] * n
+    rows = [
+        _row("1", "RCON0081/0071", "Cash and balances due from depository institutions", bs["cash"]),
+        _row("2.b", "RCON1773", "Available-for-sale debt securities (fair value)", bs["sec"]),
+        _row("4.b", "RCONB528", "Loans and leases held for investment", bs["grossLoans"]),
+        _row("4.c", "RCON3123", "LESS: allowance for credit losses", [-x for x in bs["alll"]]),
+        _row("4.d", "RCONB529", "Loans and leases, net", bs["netLoans"]),
+        _row("6", "RCON2145", "Premises and fixed assets", prem),
+        _row("10", "RCON2143", "Intangible assets", intang),
+        _row("11", "RCON2160", "Other assets", oa),
+        _row("12", "RCON2170", "TOTAL ASSETS", bs["totalAssets"]),
+        _row("13.a", "RCON2200", "Deposits in domestic offices", bs["deposits"]),
+        _row("16", "RCON3190", "Other borrowed money", bs["borrow"]),
+        _row("20", "RCON2930", "Other liabilities", ol),
+        _row("26.a", "RCON3632", "Retained earnings", bs["re"]),
+        _row("27.a", "RCON3210", "Total bank equity capital", bs["equity"]),
+    ]
+    if any(x > 0 for x in bs["msr"]):
+        rows.insert(8, _row("RC-M 2.a", "RCON6438", "Mortgage servicing assets (memoranda)", bs["msr"]))
+    if any(x > 0 for x in bs["hfs"]):
+        rows.append(_row("MEMO", "RCON5369", "Loans held for sale (memoranda — engine carries the "
+                          "warehouse outside total assets; carry earns in RI)", bs["hfs"]))
+    return {"schedule": "RC", "title": "Balance Sheet", "rows": rows,
+            "omitted": ["trading assets (RC 5)", "held-to-maturity securities (RC 2.a) — none modeled",
+                          "bank premises detail, foreclosed assets, subordinated debt"],
+            "notes": ["Held-for-sale balances shown as memoranda: the engine's total-assets "
+                        "composition excludes the warehouse (disclosed convention, tie-checked)."]}
+
+
+def build_ri(res):
+    s = res["financials"]["is"]
+    n = len(s["ni"])
+    tii = [s["loanInt"][t] + s["secInt"][t] + s["cashInt"][t] + s["bookInt"][t] for t in range(n)]
+    tie = [s["depExp"][t] + s["borrExp"][t] for t in range(n)]
+    nonint_inc = [s["fees"][t] + s["gos"][t] + s["servNet"][t] + s["fvPnl"][t] for t in range(n)]
+    nonint_exp = [s["overhead"][t] + s["prodOpex"][t] for t in range(n)]
+    rows = [
+        _row("1.a", "RIAD4010", "Interest and fees on loans", s["loanInt"]),
+        _row("1.c", "RIAD4115", "Interest on balances due from depository institutions", s["cashInt"]),
+        _row("1.d", "RIADB488/B489", "Interest on securities", [s["secInt"][t] + s["bookInt"][t] for t in range(n)]),
+        _row("1.h", "RIAD4107", "Total interest income", tii),
+        _row("2.a", "RIAD4508/0093", "Interest on deposits", s["depExp"]),
+        _row("2.b", "RIAD4185", "Interest on borrowed money", s["borrExp"]),
+        _row("2.e", "RIAD4073", "Total interest expense", tie),
+        _row("3", "RIAD4074", "Net interest income", s["nii"]),
+        _row("4", "RIADJJ33", "Provision for credit losses", s["prov"]),
+        _row("5", "RIAD4079", "Noninterest income (fees, gains on sale, net servicing, FV marks)", nonint_inc),
+        _row("7", "RIAD4093", "Noninterest expense (overhead and product operating costs)", nonint_exp),
+        _row("8", "RIAD4301", "Income before income taxes", s["pretax"]),
+        _row("9", "RIAD4302", "Applicable income taxes", s["tax"]),
+        _row("12", "RIAD4340", "NET INCOME", s["ni"]),
+    ]
+    return {"schedule": "RI", "title": "Income Statement", "rows": rows,
+            "omitted": ["trading revenue, realized securities gains (RI 6) — none modeled",
+                          "extraordinary items, discontinued operations"]}
+
+
+def build_rce(res):
+    lines = {"depDDA": ("Transaction accounts (demand)", []),
+              "depSavings": ("Nontransaction: savings and MMDA", []),
+              "depTime": ("Nontransaction: time deposits", [])}
+    n = 0
+    for p in res["products"]:
+        if p["family"] != "deposit":
+            continue
+        n = max(n, len(p["bal"]) - 1)
+        key = p.get("line") or "depDDA"
+        if key in lines:
+            lines[key][1].append(p)
+    rows = []
+    for key, (label, prods) in lines.items():
+        if not prods:
+            continue
+        vals = [sum(p["bal"][t + 1] for p in prods) for t in range(n)]
+        rows.append(_row({"depDDA": "1", "depSavings": "M.2.a", "depTime": "M.2.c"}[key],
+                          {"depDDA": "RCONB549", "depSavings": "RCON6810/0352", "depTime": "RCON6648/J473"}[key],
+                          label + f" ({len(prods)} product{'s' if len(prods) > 1 else ''})", vals))
+    total = [sum(r["values"][t] for r in rows) for t in range(n)] if rows else []
+    rows.append(_row("—", "RCON2200", "Total deposits (ties to RC 13.a)", total))
+    return {"schedule": "RC-E", "title": "Deposit Liabilities", "rows": rows,
+            "omitted": ["brokered-deposit memoranda detail, uninsured estimate — flagged, not computed"]}
+
+
+def build_rcr(res, cfg):
+    bs, ratios = res["financials"]["bs"], res["financials"]["ratios"]
+    a = cfg["assumptions"]
+    n = len(bs["equity"])
+    intang = [a.get("intangibles", 0) / 1000.0] * n
+    t1 = [bs["equity"][t] - intang[t] for t in range(n)]
+    ch = cfg.get("charter_profile") or {}
+    req = None
+    for con in (cfg.get("constraints") or []):
+        if "lever" in str(con.get("name", con.get("metric", ""))).lower():
+            req = con.get("value")
+    rows = [
+        _row("26", "RCOA8274", "Tier 1 capital (equity less intangibles — pro forma proxy)", t1),
+        _row("—", "RCON2170", "Total assets (quarter-end; average-assets basis not modeled)", bs["totalAssets"]),
+        _row("31", "RCOA7204", "Leverage ratio (%)", ratios["lev"]),
+    ]
+    return {"schedule": "RC-R Part I", "title": "Regulatory Capital", "rows": rows,
+            "cblr": bool(ch.get("cblr_election")),
+            "requirement_pct": (req * 100.0 if isinstance(req, (int, float)) and req < 1 else req),
+            "omitted": ["risk-weighted assets detail (Part II) — CBLR framework elected"
+                          if ch.get("cblr_election") else
+                          "risk-weighted assets detail (Part II) — not yet modeled",
+                          "AOCI opt-out, capital conservation buffer detail"],
+            "notes": ["Tier 1 proxied as equity capital less intangibles; deferred-tax and AOCI "
+                        "adjustments not modeled.",
+                        "Leverage shown on quarter-end assets; the regulatory average-assets basis "
+                        "is a disclosed simplification."]}
+
+
+def build_call_report(res, cfg):
+    return {"RC": build_rc(res, cfg), "RI": build_ri(res),
+            "RC-E": build_rce(res), "RC-R": build_rcr(res, cfg)}

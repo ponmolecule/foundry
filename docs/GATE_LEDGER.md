@@ -57,7 +57,7 @@
 
 ## T21 v3.1 empty-start + taxonomy templates carry the source values
 - **T21a** — default starts empty (products and modules)
-- **T21b** — fail-closed preserved: empty start cannot run (UI gates the engine)
+- **T21b** — empty start RUNS: capital plugs into securities, deposits zero (source-model fidelity)
 - **T21c** — template constants match the source workbook
 - **T21d** — fitted template: Q1 exact and Q12 within house tol (editable scalars, no pins)
 
@@ -116,3 +116,12 @@
 - **T29d** — the clean golden passes the screen silently
 
 ## T30 equivalence matrix: an unedited workbook round-trip is a perfect no-op
+
+## T31 Call Report schedules: assembled from engine series, ties recomputed
+- **T31g** — all schedule rows are uniform Q1..Q12 (openings normalized away)
+- **T31a** — RC ties to the ENGINE's total (HFS memoranda per disclosed convention)
+- **T31b** — RC ties: deposits + borrowings + other liabilities + equity = Total Assets
+- **T31c** — RI ties: interest income - expense - provision + noninterest net = pretax
+- **T31d** — RI ties: pretax - taxes = NET INCOME
+- **T31e** — RC-E total ties to RC 13.a
+- **T31f** — RC-R leverage equals the ratios tab; omissions and proxies disclosed

@@ -106,3 +106,21 @@ app without its label.
 "Gate T21a" (no hyphen) = automated checks, all catalogued in plain English in
 docs/GATE_LEDGER.md.
 **Check:** Read GATE_LEDGER.md — every check has a sentence you can understand.
+
+## 12. Call Report schedules: assembled honestly, omissions named, ties recomputed
+**Decided:** The Examiner Book tab now shows four pro forma schedules (RC balance
+sheet, RI income statement, RC-E deposits, RC-R capital), built from engine output
+with regulatory item numbers and codes. Three sub-decisions, all in the charter
+use case's favor: (a) lines the model does not compute are **omitted and listed**
+at the foot of each schedule, never zero-filled — a zero asserts a fact the model
+never computed; (b) held-for-sale loan balances appear as a **memoranda row** because
+the engine's own total-assets convention carries the warehouse outside the total
+(disclosed in a note, tie-checked to the dollar); (c) RC-R shows Tier 1 as equity
+less intangibles and leverage on quarter-end assets, each **labeled as a pro forma
+proxy** rather than passed off as the regulatory definition.
+**Why:** An examiner reading this exhibit must never be misled about what was and
+wasn't modeled; disclosed simplification beats silent precision-theater.
+**Check:** Add a couple of products → Examiner Book → four schedules render with
+item numbers, RCON/RIAD codes, and Q1–Q12 columns; every schedule ends with a
+"Not modeled (omitted, not zeroed)" line; RC-R names its proxies. Totals tie:
+RC 12 equals the Balance Sheet tab; RI 12 equals the Income Statement's net income.

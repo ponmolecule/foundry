@@ -653,9 +653,48 @@ def t30():
             _os.environ["FOUNDRY_DATA_DIR"] = old_env
 
 
+def t31():
+    print("T31 Call Report schedules: assembled from engine series, ties recomputed")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.callreport import build_call_report
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    res = run_v2(cfg)
+    cr = build_call_report(res, cfg)
+    rc = {r["item"]: r["values"] for r in cr["RC"]["rows"]}
+    n = len(rc["12"])
+    check("T31g", "all schedule rows are uniform Q1..Q12 (openings normalized away)",
+          n == 12 and all(len(r["values"]) == 12 for sch in cr.values() for r in sch["rows"]))
+    worst_rc = max(abs(rc["1"][t] + rc["2.b"][t] + rc["4.d"][t]
+                        + (rc.get("RC-M 2.a", [0]*n)[t]) + rc["6"][t] + rc["10"][t] + rc["11"][t]
+                        - rc["12"][t]) for t in range(n))
+    check("T31a", "RC ties to the ENGINE's total (HFS memoranda per disclosed convention)",
+          worst_rc < 1.0 and any("warehouse" in nt for nt in cr["RC"].get("notes", [])),
+          f"worst {worst_rc:.4f}")
+    worst_lq = max(abs(rc["13.a"][t] + rc["16"][t] + rc["20"][t] + rc["27.a"][t] - rc["12"][t])
+                    for t in range(n))
+    check("T31b", "RC ties: deposits + borrowings + other liabilities + equity = Total Assets",
+          worst_lq < 1.0, f"worst {worst_lq:.4f}")
+    ri = {r["item"]: r["values"] for r in cr["RI"]["rows"]}
+    worst_ri = max(abs(ri["1.h"][t] - ri["2.e"][t] - ri["4"][t] + ri["5"][t] - ri["7"][t]
+                        - ri["8"][t]) for t in range(n))
+    check("T31c", "RI ties: interest income - expense - provision + noninterest net = pretax",
+          worst_ri < 1.0, f"worst {worst_ri:.4f}")
+    worst_ni = max(abs(ri["8"][t] - ri["9"][t] - ri["12"][t]) for t in range(n))
+    check("T31d", "RI ties: pretax - taxes = NET INCOME", worst_ni < 1.0)
+    rce = cr["RC-E"]["rows"]
+    tot = [r for r in rce if "Total deposits" in r["label"]][0]["values"]
+    worst_e = max(abs(tot[t] - rc["13.a"][t]) for t in range(len(tot)))
+    check("T31e", "RC-E total ties to RC 13.a", worst_e < 1.0)
+    rcr = {str(r["item"]): r["values"] for r in cr["RC-R"]["rows"]}
+    lev = res["financials"]["ratios"]["lev"]
+    check("T31f", "RC-R leverage equals the ratios tab; omissions and proxies disclosed",
+          rcr["31"] == lev and any("proxied" in nt for nt in cr["RC-R"]["notes"]))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

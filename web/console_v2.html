@@ -874,6 +874,23 @@ function renderExaminer(){
       + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
       + `<div class="ftext" style="color:#B7C0D2">Proposed response: ${esc(x.proposed_response)}</div></div>`;
   });
+  if(V31 && lastRes && lastRes.call_report){
+    const CR = lastRes.call_report;
+    h += '<div class="ovh3">Call Report schedules (pro forma)</div>';
+    h += '<div class="memo">Assembled from engine output, presentation only \u2014 every subtotal recomputed and tie-checked. Lines the model does not compute are omitted and listed, not zero-filled: a zero asserts a fact the model never computed.</div>';
+    ["RC","RI","RC-E","RC-R"].forEach(k=>{
+      const sc = CR[k]; if(!sc) return;
+      h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
+      h += '<div style="overflow-x:auto"><table class="fin"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
+      sc.rows.forEach(r=>{
+        h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
+          + r.values.slice(0,12).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
+      });
+      h += '</table></div>';
+      if(sc.omitted && sc.omitted.length) h += `<div class="memo" style="font-size:11px">Not modeled (omitted, not zeroed): ${esc(sc.omitted.join("; "))}.</div>`;
+      if(sc.notes) sc.notes.forEach(nt=>{ h += `<div class="memo" style="font-size:11px">${esc(nt)}</div>`; });
+    });
+  }
   el.innerHTML = h;
 }
 function renderOverview(){
