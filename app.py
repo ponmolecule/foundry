@@ -115,8 +115,6 @@ def gated_openapi(_=Depends(gate)):
     return JSONResponse(app.openapi())
 
 
-@app.get("/v3.1")
-@app.get("/v31")
 def _build_stamp():
     import subprocess
     try:
@@ -126,6 +124,8 @@ def _build_stamp():
         return "unknown"
 
 
+@app.get("/v3.1")
+@app.get("/v31")
 def console_v31(_=Depends(gate)):
     """Foundry v3.1 (input-spec rung): the v3 shell plus the input layer -
     Start screen (config-source selector), wizard, FIW. Engine untouched;
