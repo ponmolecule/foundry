@@ -133,3 +133,11 @@
 - **T32d** — summary counts within-15% series and names the worst miss
 - **T32e** — unknown series labels fail closed (exact labels by design)
 - **T32f** — the report is deterministic
+
+## T33 CharterIQ client: read-only contract, units, caveats, fail-closed map
+- **T33a** — read-only enforced: non-SELECT refused before any executor sees it
+- **T33b** — institution record shaped with the terminal-status honesty note
+- **T33c** — quarterly series ordered and accuracy-labeled per family
+- **T33d** — capital-family percentiles carry the recomputation caveat
+- **T33e** — retro pull fails closed without the series map, listing real metric names
+- **T33f** — queries are parameterized (no literals interpolated)

@@ -256,6 +256,63 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.get("/api/v31/substrate/status")
+def v31_substrate_status(_=Depends(gate)):
+    """Is the CharterIQ substrate configured and reachable? Honest either way."""
+    from foundry.charteriq_client import CharterIQClient
+    cl = CharterIQClient()
+    if not cl.configured():
+        return JSONResponse({"configured": False,
+                              "note": "set CHARTERIQ_DATABASE_URL on this instance"})
+    try:
+        n = len(cl.list_available_metrics())
+        return JSONResponse({"configured": True, "reachable": True, "metrics_catalogued": n})
+    except Exception as e:
+        return JSONResponse({"configured": True, "reachable": False, "error": str(e)[:200]})
+
+
+@app.get("/api/v31/substrate/peers")
+def v31_substrate_peers(metric: str, band: str, year: int, quarter: int, _=Depends(gate)):
+    from foundry.charteriq_client import CharterIQClient, PEER_BANDS
+    if band not in PEER_BANDS:
+        return JSONResponse({"error": f"unknown band {band}; known: {PEER_BANDS}"}, status_code=422)
+    cl = CharterIQClient()
+    try:
+        row = cl.get_peer_percentiles(metric, band, year, quarter)
+    except Exception as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=422)
+    if row is None:
+        return JSONResponse({"error": f"no percentile row for {metric}/{band}/{year}Q{quarter}"}, status_code=404)
+    return JSONResponse(row)
+
+
+@app.post("/api/v31/retro/substrate")
+def v31_retro_substrate(body: dict, _=Depends(gate)):
+    """Retrodiction against the substrate: cert + config -> scored overlay.
+    Fails closed until CHARTERIQ_RETRO_MAP names the series' metric names."""
+    from foundry.charteriq_client import CharterIQClient
+    from foundry.retro import compare
+    from foundry.v2.run_q import run_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    cl = CharterIQClient()
+    try:
+        cert = int(body.get("cert"))
+        actuals = cl.get_retro_actuals(cert, since_year=body.get("since_year"))
+        inst = cl.get_institution(cert)
+        cfg = body.get("cfg") or {}
+        errs = validate_errors_v2(cfg)
+        if errs:
+            return JSONResponse({"error": "config invalid: " + "; ".join(errs[:3])}, status_code=422)
+        rep = compare(run_v2(cfg), actuals)
+        rep["institution"] = inst
+        rep["accuracy"] = actuals.get("accuracy")
+        return JSONResponse(rep)
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": str(e)[:600]}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"substrate error: {str(e)[:300]}"}, status_code=502)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl

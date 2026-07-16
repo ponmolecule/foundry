@@ -723,9 +723,55 @@ def t32():
     check("T32f", "the report is deterministic", rep["report_hash"] == rep2["report_hash"])
 
 
+def t33():
+    print("T33 CharterIQ client: read-only contract, units, caveats, fail-closed map")
+    import os as _os
+    from .charteriq_client import CharterIQClient, accuracy_label
+    calls = []
+    def fake_exec(sql, params):
+        calls.append((sql, params))
+        if "FROM institutions" in sql:
+            return [(12345, "Testament Bank", "TX", "Austin", 250.0, 2024, "2024-03-15",
+                      None, None, "state_nonmember", True, "community")]
+        if "FROM metrics" in sql and "DISTINCT" not in sql:
+            return [("cet1_ratio", 2025, 3, 12.5), ("cet1_ratio", 2025, 4, 12.8)]
+        if "DISTINCT metric_name" in sql:
+            return [("cet1_ratio",), ("tier1_ratio",), ("nim",)]
+        if "FROM peer_percentiles" in sql:
+            return [(8.1, 9.4, 10.9, 12.6, 14.8, 412)]
+        return []
+    cl = CharterIQClient(executor=fake_exec)
+    try:
+        cl._run("DELETE FROM institutions"); wrote = True
+    except PermissionError:
+        wrote = False
+    check("T33a", "read-only enforced: non-SELECT refused before any executor sees it", not wrote)
+    inst = cl.get_institution(12345)
+    check("T33b", "institution record shaped with the terminal-status honesty note",
+          inst["name"] == "Testament Bank" and "attribution pending" in inst["terminal_status_note"])
+    ser = cl.get_bank_quarterly_series(12345, ["cet1_ratio"])
+    check("T33c", "quarterly series ordered and accuracy-labeled per family",
+          ser["series"]["cet1_ratio"][0]["value"] == 12.5
+          and "item-level" in ser["accuracy"]["cet1_ratio"]
+          and "legacy" in accuracy_label("nim"))
+    pp = cl.get_peer_percentiles("cet1_ratio", "500M_2B", 2025, 4)
+    check("T33d", "capital-family percentiles carry the recomputation caveat",
+          pp["p50"] == 10.9 and "approximate until refreshed" in pp["caveat"])
+    _os.environ.pop("CHARTERIQ_RETRO_MAP", None)
+    try:
+        cl.get_retro_actuals(12345); mapped = True
+    except ValueError as e:
+        mapped = False
+        msg = str(e)
+    check("T33e", "retro pull fails closed without the series map, listing real metric names",
+          not mapped and "cet1_ratio" in msg and "CHARTERIQ_RETRO_MAP" in msg)
+    check("T33f", "queries are parameterized (no literals interpolated)",
+          all("%s" in sql for sql, _ in calls if "WHERE" in sql))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

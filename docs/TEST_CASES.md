@@ -144,3 +144,31 @@ planted drift to the decimal) before any real bank's history touches it.
 appear even when the peer benchmark itself errors). Upload the synthetic CSV from
 foundry/fixtures/retro/ → overlay tables render with red error cells past 15%, a
 summary line counting series within 15%, and a report hash.
+
+## 14. The CharterIQ substrate connection: one file, read-only, honest about its own accuracy
+**Decided (Path 3, per your integration spec):** Foundry consumes your curated
+database through a single client file exposing exactly the four semantic
+operations you specified — institution lookup, quarterly series, peer cohort by
+asset band, peer percentiles — over CHARTERIQ_DATABASE_URL, opened read-only
+(the client refuses anything but SELECT before a query ever leaves the file).
+Sub-decisions, all in the charter use case's favor: (a) **your accuracy caveats
+ride with the data** — every capital-family payload is labeled "item-level FFIEC
+CDR" and every legacy-family payload "migration pending," and capital percentiles
+carry the "approximate until refreshed" caveat, so nobody can quote a legacy
+number as item-level; (b) **the retrodiction series map is never guessed** —
+pulling a bank's history fails closed until CHARTERIQ_RETRO_MAP (one JSON env
+var) names which substrate metrics mean deposits/loans/assets/equity/net_income,
+and the refusal message lists the bank's actual available metric names to choose
+from; (c) **absence degrades honestly** — an unconfigured or unreachable
+substrate shows exactly that on the Peer Cohort panel ("no substrate, no
+numbers: nothing on this panel is ever simulated"), never fabricated figures;
+(d) terminal-status reads carry your "detection-only, attribution pending
+Deliverable A" note verbatim.
+**Deployment steps (yours):** set CHARTERIQ_DATABASE_URL (read-only credentials,
+out-of-band) and CHARTERIQ_RETRO_MAP on Foundry's Railway instance; redeploy
+(requirements now include the Postgres driver).
+**Check:** Peer Cohort tab → "CharterIQ substrate" panel → "Check now" shows
+Connected with the metric count. "Pull from CharterIQ substrate…" with a cert
+number either runs a real retrodiction or refuses with the metric-name list
+(until the map is set). Every substrate number on screen carries its accuracy
+label.
