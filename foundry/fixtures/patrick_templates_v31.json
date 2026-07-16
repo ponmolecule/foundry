@@ -1,0 +1,82 @@
+{
+ "loans": [
+  {
+   "name": "Consumer Installment",
+   "originations_q": 3000000.0,
+   "runoff_q": 0.0375,
+   "yield_ann": 0.08,
+   "charge_off_ann": 0.015,
+   "reserve_rate_pct_bal": 0.0125
+  },
+  {
+   "name": "Credit Card",
+   "originations_q": 1500000.0,
+   "runoff_q": 0.0,
+   "yield_ann": 0.18,
+   "charge_off_ann": 0.04,
+   "reserve_rate_pct_bal": 0.03
+  },
+  {
+   "name": "Small Business / C&I",
+   "originations_q": 4500000.0,
+   "runoff_q": 0.025,
+   "yield_ann": 0.065,
+   "charge_off_ann": 0.005,
+   "reserve_rate_pct_bal": 0.0125
+  },
+  {
+   "name": "Residential Mortgage",
+   "originations_q": 6000000.0,
+   "runoff_q": 0.03,
+   "yield_ann": 0.055,
+   "charge_off_ann": 0.002,
+   "reserve_rate_pct_bal": 0.005
+  },
+  {
+   "name": "Commercial Real Estate",
+   "originations_q": 6000000.0,
+   "runoff_q": 0.02,
+   "yield_ann": 0.06,
+   "charge_off_ann": 0.003,
+   "reserve_rate_pct_bal": 0.01
+  }
+ ],
+ "deposits": [
+  {
+   "name": "Retail Demand",
+   "rate_paid_ann": 0.005,
+   "adds_m": 3000000.0,
+   "runoff_ann": 0.05
+  },
+  {
+   "name": "MMDA / Savings",
+   "rate_paid_ann": 0.025,
+   "adds_m": 2000000.0,
+   "runoff_ann": 0.08
+  },
+  {
+   "name": "Time Deposits / CDs",
+   "rate_paid_ann": 0.04,
+   "adds_m": 1000000.0,
+   "runoff_ann": 0.0
+  },
+  {
+   "name": "Brokered",
+   "rate_paid_ann": 0.045,
+   "adds_m": 0.0,
+   "runoff_ann": 0.0
+  },
+  {
+   "name": "Sweep / Program",
+   "rate_paid_ann": 0.03,
+   "adds_m": 0.0,
+   "runoff_ann": 0.1
+  },
+  {
+   "name": "Institutional",
+   "rate_paid_ann": 0.035,
+   "adds_m": 0.0,
+   "runoff_ann": 0.15
+  }
+ ]
+}
