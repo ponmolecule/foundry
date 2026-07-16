@@ -1224,8 +1224,8 @@ function renderStart(){
   h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 mapped into the configuration with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork. Mapping session: a later increment; available scripted today.</div></div>';
   if(!snapshotMode){
     h += '<div class="memo" style="margin:0 0 14px">Configuration as a file: '
-      + '<a href="#" style="color:#DFA85A" onclick="downloadScenario();return false">download JSON</a> \u00b7 '
-      + '<a href="#" style="color:#DFA85A" onclick="document.getElementById(\'upJson31\').click();return false">upload JSON</a>'
+      + '<a href="#" style="color:#DFA85A" onclick="downloadScenario();return false">download</a> \u00b7 '
+      + '<a href="#" style="color:#DFA85A" onclick="document.getElementById(\'upJson31\').click();return false">upload</a>'
       + '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div>';
   }
   h += '<div class="ovh3">Saved engagements</div>';
@@ -1234,12 +1234,11 @@ function renderStart(){
   } else if(engStore === null){
     loadEngStore(); h += '<div class="memo">Loading engagement store\u2026</div>';
   } else if(!(engStore.engagements||[]).length){
-    h += '<div class="memo">No saved engagements yet. Schema version pinned at ' + esc(engStore.schema_version||"1") + '; files live under FOUNDRY_DATA_DIR/engagements.</div>';
+    h += '<div class="memo">No saved engagements yet \u2014 engagements you save will appear here, and survive between sessions.</div>';
   } else {
-    h += '<table class="ovt"><tr><th>Engagement</th><th>Slug</th><th>Schema</th><th></th></tr>';
+    h += '<table class="ovt"><tr><th>Engagement</th><th>Reference</th><th></th></tr>';
     engStore.engagements.forEach(e=>{
       h += `<tr><td>${esc(e.name)}</td><td style="font-family:var(--mono);font-size:11px">${esc(e.slug)}</td>`
-        + `<td style="font-family:var(--mono);font-size:11px">${esc(e.config_schema_version||"\u2014")}</td>`
         + `<td><button class="btn-plain" onclick="openEngagement('${e.slug}')">Open</button></td></tr>`;
     });
     h += '</table>';
