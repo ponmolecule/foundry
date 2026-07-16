@@ -874,7 +874,7 @@ function substratePanelHtml(){
       h += `<div class="ovh3" style="font-size:12px">Modeled capital vs real peers \u2014 ${esc(P.band)} band, ${P.year}Q${P.quarter}</div>`;
       h += '<table class="ovt"><tr><th>Peer metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
       P.rows.forEach(r=>{
-        h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(r.metric)}</td><td class="num">${r.modeled_value.toFixed(2)}%</td><td class="num">${r.p10.toFixed(1)}</td><td class="num">${r.p25.toFixed(1)}</td><td class="num">${r.p50.toFixed(1)}</td><td class="num">${r.p75.toFixed(1)}</td><td class="num">${r.p90.toFixed(1)}</td><td><span class="ovtag mut">${esc(r.placement)}</span></td><td class="num">${r.n}</td></tr>`;
+        h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(r.metric)}</td><td class="num">${r.modeled_value.toFixed(2)}%</td><td class="num">${r.p10.toFixed(1)}</td><td class="num">${r.p25.toFixed(1)}</td><td class="num">${r.p50.toFixed(1)}</td><td class="num">${r.p75.toFixed(1)}</td><td class="num">${r.p90.toFixed(1)}</td><td><span class="ovtag mut">${esc(r.placement)}</span></td><td class="num">${r.n===null?"\u2014":r.n}</td></tr>`;
         h += `<tr><td colspan="9" style="color:#8FA3C0;font-size:10.5px;padding:0 6px 6px">${esc(r.comparison_note)} \u00b7 ${esc(r.accuracy)}${r.caveat ? " \u00b7 " + esc(r.caveat) : ""}</td></tr>`;
       });
       h += '</table>';

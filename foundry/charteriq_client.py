@@ -73,22 +73,38 @@ class CharterIQClient:
         ex = self._executor or self._default_executor
         return ex(sql, params)
 
+    def _columns(self, table):
+        """Live column list, cached — the spec document is a map; the running
+        database is the territory; select only what exists."""
+        if not hasattr(self, "_col_cache"):
+            self._col_cache = {}
+        if table not in self._col_cache:
+            rows = self._run("SELECT column_name FROM information_schema.columns "
+                              "WHERE table_name = %s", (table,))
+            self._col_cache[table] = {r[0] for r in rows}
+        return self._col_cache[table]
+
     # ---------------------------------------------------------- semantics
+    INSTITUTION_FIELDS = ["cert", "name", "state", "city", "asset_size_mm",
+                            "est_year", "estymd", "end_year", "fail_date",
+                            "charter_type", "active", "profile_tag"]
+
     def get_institution(self, cert):
-        rows = self._run(
-            "SELECT cert, name, state, city, asset_size_mm, est_year, estymd, "
-            "end_year, fail_date, charter_type, active, profile_tag "
-            "FROM institutions WHERE cert = %s", (int(cert),))
+        have = self._columns("institutions")
+        cols = [f for f in self.INSTITUTION_FIELDS if f in have] or ["cert"]
+        rows = self._run(f"SELECT {', '.join(cols)} FROM institutions "
+                          "WHERE cert = %s", (int(cert),))
         if not rows:
             return None
-        r = rows[0]
-        return {"cert": r[0], "name": r[1], "state": r[2], "city": r[3],
-                "asset_size_mm": float(r[4]) if r[4] is not None else None,
-                "est_year": r[5], "estymd": r[6], "end_year": r[7],
-                "fail_date": str(r[8]) if r[8] else None,
-                "charter_type": r[9], "active": r[10], "profile_tag": r[11],
-                "terminal_status_note": "detection-only (end_year/fail_date); "
-                                          "attribution pending Deliverable A"}
+        rec = dict(zip(cols, rows[0]))
+        out = {f: rec.get(f) for f in self.INSTITUTION_FIELDS}
+        if out.get("asset_size_mm") is not None:
+            out["asset_size_mm"] = float(out["asset_size_mm"])
+        if out.get("fail_date") is not None:
+            out["fail_date"] = str(out["fail_date"])
+        out["terminal_status_note"] = ("detection-only (end_year/fail_date); "
+                                         "attribution pending Deliverable A")
+        return out
 
     def get_bank_quarterly_series(self, cert, metrics, quarters=None):
         """-> {metric: [{"year","quarter","value"}...]} ordered by (year, quarter).
@@ -128,11 +144,15 @@ class CharterIQClient:
                               "asset_size_mm": float(r[3]) if r[3] is not None else None,
                               "est_year": r[4], "charter_type": r[5]} for r in rows]}
 
+    N_CANDIDATES = ["sample_size", "n", "bank_count", "num_banks", "count"]
+
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
+        have = self._columns("peer_percentiles")
+        ncol = next((c2 for c2 in self.N_CANDIDATES if c2 in have), None)
+        sel = "peer_p10, peer_p25, peer_p50, peer_p75, peer_p90" + (f", {ncol}" if ncol else "")
         rows = self._run(
-            "SELECT peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, sample_size "
-            "FROM peer_percentiles WHERE metric_name = %s AND peer_group = %s "
-            "AND year = %s AND quarter = %s",
+            f"SELECT {sel} FROM peer_percentiles WHERE metric_name = %s "
+            "AND peer_group = %s AND year = %s AND quarter = %s",
             (metric_name, peer_group, int(year), int(quarter)))
         if not rows:
             return None
@@ -140,7 +160,8 @@ class CharterIQClient:
         out = {"metric": metric_name, "peer_group": peer_group,
                 "year": int(year), "quarter": int(quarter),
                 "p10": float(r[0]), "p25": float(r[1]), "p50": float(r[2]),
-                "p75": float(r[3]), "p90": float(r[4]), "n": int(r[5]),
+                "p75": float(r[3]), "p90": float(r[4]),
+                "n": int(r[5]) if ncol and r[5] is not None else None,
                 "accuracy": accuracy_label(metric_name)}
         if metric_name in CAPITAL_METRICS:
             out["caveat"] = ("percentiles computed on the legacy substrate; "
