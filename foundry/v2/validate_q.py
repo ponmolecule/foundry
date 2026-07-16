@@ -84,8 +84,10 @@ def validate_config_v2(cfg):
         errs.append("step_0a.flags_from_map is required (the challenge layer consumes it)")
 
     mods = cfg["step_0"].get("modules", [])
-    if not mods:
-        errs.append("step_0.modules is empty — at least a deposit module is required")
+    # Empty modules is LEGAL (fidelity ruling 2026-07-16): the source model
+    # keeps a balance sheet alive with zero products — initial capital plugs
+    # into securities/cash via the funding waterfall. A module loaded with an
+    # empty product list is still rejected below (that is misconfiguration).
     unknown = [m for m in mods if m not in KNOWN_MODULES]
     if unknown:
         errs.append(f"unknown modules {unknown}; known: {sorted(KNOWN_MODULES)}")

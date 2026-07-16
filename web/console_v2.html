@@ -314,15 +314,7 @@ async function boot(){
 }
 function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); }
 async function preview(){
-  if(V31){
-    syncModules();
-    if(!(cfg.assumptions.deposit_products||[]).length){
-      lastRes = null; lastErrs = null;
-      document.getElementById("status").textContent = "add a deposit product to run the engine";
-      document.getElementById("rhash").innerHTML = '<span style="color:#FBBF24">no products yet</span>';
-      renderContent(); return;
-    }
-  }
+  if(V31){ syncModules(); }
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
   const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
@@ -945,7 +937,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
   if(currentTab==="products" && V31){
     let h = "";
     h += '<div class="h2">Products</div>';
-    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; the engine runs once the first deposit product exists (a de novo funds before it lends).</div>';
+    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; with no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
     h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
     const secs = [["Loans","lending"],["Deposits","deposit"]];
     secs.forEach(([cn,fam])=>{
@@ -970,10 +962,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     return;
   }
   if(!lastRes){
-    c.innerHTML = (V31 && !(cfg.assumptions.deposit_products||[]).length)
-      ? '<div class="memo">No products yet — build the bank on the <a href="#" style="color:#8a6d3b" onclick="setTab(\'products\');return false">Products</a> tab. The engine runs once the first deposit product exists.</div>'
-      : '<div class="memo">Running…</div>';
-    return; }
+    c.innerHTML = '<div class="memo">Running…</div>'; return; }
   const r = lastRes, fin = r.financials, F = r.faithful || {}, D = (r.presentation||{}).derived || {};
   const bsHasOpen = fin.bs.totalAssets.length===13;
   const G = (path)=>getPath(path);

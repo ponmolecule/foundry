@@ -278,11 +278,12 @@ def t21():
     check("T21a", "default starts empty (products and modules)",
           not cfg["assumptions"]["lending_products"] and not cfg["assumptions"]["deposit_products"]
           and not cfg["step_0"]["modules"])
-    try:
-        run_v2(cfg); rejected = False
-    except ConfigErrorV2:
-        rejected = True
-    check("T21b", "fail-closed preserved: empty start cannot run (UI gates the engine)", rejected)
+    r0 = run_v2(cfg)   # fidelity ruling: the source model keeps the BS alive
+    bs0 = r0["financials"]["bs"]
+    check("T21b", "empty start RUNS: capital plugs into securities, deposits zero (source-model fidelity)",
+          bs0["sec"][0] > 0 and bs0["deposits"][0] == 0
+          and abs(bs0["equity"][0] * 1000 - cfg["target_state"]["initial_capital"]) < 1e-3,
+          f"sec Q1 {bs0['sec'][0]:,.0f}k, equity Q1 {bs0['equity'][0]:,.0f}k")
     tpl = _json.load(open("foundry/fixtures/patrick_templates_v31.json", encoding="utf-8"))
     cc = next(t for t in tpl["loans"] if t["name"] == "Credit Card")
     ok = (abs(cc["yield_ann"] - 0.18) < 1e-12 and abs(cc["originations_q"] - 1_500_000) < 1e-6
