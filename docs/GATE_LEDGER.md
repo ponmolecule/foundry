@@ -114,3 +114,5 @@
 - **T29b** — Icarus's optimistic card losses (1.9% vs baseline 4%) warned by name
 - **T29c** — arithmetic self-destruction and negative runoff are BLOCKERS
 - **T29d** — the clean golden passes the screen silently
+
+## T30 equivalence matrix: an unedited workbook round-trip is a perfect no-op

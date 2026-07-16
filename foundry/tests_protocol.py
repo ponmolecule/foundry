@@ -603,9 +603,58 @@ def t29():
           not sc3["blockers"] and not sc3["warnings"])
 
 
+def t30():
+    print("T30 equivalence matrix: an unedited workbook round-trip is a perfect no-op")
+    import io as _io
+    import os as _os
+    import json as _json
+    import tempfile
+    from .v2 import fiw as F
+    from .v2.run_q import run_v2
+    old_env = _os.environ.get("FOUNDRY_DATA_DIR")
+    _os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp()
+    try:
+        # a wizard-shaped bank, built from the same template constants the JS uses
+        tpl = _json.load(open("foundry/fixtures/patrick_templates_v31.json", encoding="utf-8"))
+        cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+        rd = next(t for t in tpl["deposits"] if t["name"] == "Retail Demand")
+        b, monthly = 0.0, []
+        for _ in range(36):
+            b = b * (1 - rd["runoff_ann"] / 12.0) + rd["adds_m"]; monthly.append(b)
+        qp = [monthly[3 * q - 1] for q in range(1, 13)]
+        g = (qp[11] / qp[0]) ** (1 / 11) - 1.0
+        cc = next(t for t in tpl["loans"] if t["name"] == "Credit Card")
+        cfg["assumptions"]["deposit_products"] = [{"name": "Retail Demand", "call_report_line": "depDDA",
+            "opening_balance": qp[0] / (1 + g), "growth_q": g, "runoff_q": 0.0, "rate_type": "fixed",
+            "rate_paid_ann": rd["rate_paid_ann"], "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+        cfg["assumptions"]["lending_products"] = [{"name": "Credit Card", "call_report_line": "loanCreditCard",
+            "opening_balance": 0.0, "originations_q": cc["originations_q"], "orig_growth_q": 0.0,
+            "runoff_q": cc["runoff_q"], "rate_type": "fixed", "yield_ann": cc["yield_ann"],
+            "charge_off_ann": cc["charge_off_ann"], "provision_rate_ann": None,
+            "reserve_rate_pct_bal": cc["reserve_rate_pct_bal"], "measurement": "amortized",
+            "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+        cfg["step_0"]["modules"] = ["balance_driven_deposits", "balance_driven_lending"]
+        for name, case in (("wizard-shaped bank", cfg),
+                            ("golden pf_a", _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8")))):
+            data, gh = F.build_fiw(case)
+            F.persist_snapshot(case, gh)
+            merged, repd = F.diff_import(data, case)
+            same_cfg = _json.dumps(merged, sort_keys=True) == _json.dumps(case, sort_keys=True)
+            h1, h2 = run_v2(case)["run_hash"], run_v2(merged)["run_hash"]
+            check("T30a" if name.startswith("wizard") else "T30b",
+                  f"{name}: unedited round-trip -> zero edits, identical config, identical run hash",
+                  repd["edit_count"] == 0 and same_cfg and h1 == h2,
+                  f"edits={repd['edit_count']}, hash {h1[:8]} vs {h2[:8]}")
+    finally:
+        if old_env is None:
+            _os.environ.pop("FOUNDRY_DATA_DIR", None)
+        else:
+            _os.environ["FOUNDRY_DATA_DIR"] = old_env
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
