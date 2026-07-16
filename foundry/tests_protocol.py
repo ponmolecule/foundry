@@ -424,6 +424,8 @@ def t24():
         check("T24e", "recon is deterministic", rep["report_hash"] == rep2["report_hash"])
     else:
         print("  SKIP  source workbook not present in this environment (T24a-e)")
+        print("        (5 checks skipped by design on machines without the client file;")
+        print("         they run and must pass in the build environment before any bundle ships)")
     csvp = "foundry/fixtures/modet/prairie_style_unit_economics.csv"
     rep = recon_file(open(csvp, "rb").read(), csvp)
     ok = (rep["kind"] == "csv"
