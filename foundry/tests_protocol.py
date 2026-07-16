@@ -508,9 +508,39 @@ def t26():
           MC is C.REGISTRY)
 
 
+def t27():
+    print("T27 inverter metamorphic gate: golden statements -> invert -> re-run -> same statements")
+    import json as _json
+    import hashlib as _hl
+    from .v2.run_q import run_v2
+    from .inverter import aggregate_from_run, invert_statements
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    r1 = run_v2(cfg)
+    agg1 = aggregate_from_run(r1)          # the "client's statements"
+    inv = invert_statements(agg1, cfg)
+    r2 = run_v2(inv)
+    agg2 = aggregate_from_run(r2)
+    def worst(key):
+        return max(abs(a - b) for a, b in zip(agg1[key], agg2[key]))
+    check("T27a", "deposit balance path reproduced ($000s, house tol 1.0)",
+          worst("dep_bal") < 1.0, f"worst {worst('dep_bal'):.3f}")
+    check("T27b", "loan balance path reproduced", worst("loan_bal") < 1.0,
+          f"worst {worst('loan_bal'):.3f}")
+    check("T27c", "interest expense reproduced (pinned deposit rates)",
+          worst("dep_int_exp") < 1.0, f"worst {worst('dep_int_exp'):.3f}")
+    check("T27d", "interest income reproduced (pinned yields)",
+          worst("loan_int_inc") < 1.0, f"worst {worst('loan_int_inc'):.3f}")
+    check("T27e", "charge-offs reproduced (pinned CO rates, compensated originations)",
+          worst("charge_offs") < 1.0, f"worst {worst('charge_offs'):.3f}")
+    h = lambda a: _hl.sha256(_json.dumps({k: [round(x, 6) for x in v] for k, v in a.items()},
+                                          sort_keys=True).encode()).hexdigest()[:12]
+    check("T27f", "statement-series hash equality (the doc's metamorphic test, made precise)",
+          h(agg1) == h(agg2), f"{h(agg1)} vs {h(agg2)}")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

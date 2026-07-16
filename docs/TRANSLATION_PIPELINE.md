@@ -26,7 +26,10 @@ against a bounded requirement list with human-confirmed mapping — never freefo
    growth_q from balance paths; blended yield/cost from income over average balances;
    NCO from charge-off or provision lines where present. Every derived value carries the
    convention that produced it. Self-gate: golden -> its own statements -> invert ->
-   re-run -> hash equality (the inverter's metamorphic test).
+   re-run -> statement-series hash equality (the metamorphic test made precise:
+   the hash is over the compared series, not configs — an aggregate inversion
+   legitimately produces a different, smaller config). Achieved: T27, exact to
+   the dollar on balances, interest lines, and charge-offs.
 4. **Completion** — requirement slots still empty after 2-3 become **gap questions**
    (the conversational thesis: "no funding structure is specified for $XXXM of assets"),
    answered by the practitioner or accepted as peer defaults with provenance + citation.
