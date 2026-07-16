@@ -238,6 +238,24 @@ def v31_modet_finalize(body: dict, _=Depends(gate)):
     return JSONResponse(out)
 
 
+@app.post("/api/v31/retro")
+async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depends(gate)):
+    """Retrodiction: projection under the posted config vs uploaded actuals."""
+    from foundry.retro import load_actuals, compare
+    from foundry.v2.run_q import run_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    data = await file.read()
+    try:
+        actuals = load_actuals(data, file.filename or "")
+        c = json.loads(cfg)
+        errs = validate_errors_v2(c)
+        if errs:
+            return JSONResponse({"error": "config invalid: " + "; ".join(errs[:3])}, status_code=422)
+        return JSONResponse(compare(run_v2(c), actuals))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl

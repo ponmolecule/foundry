@@ -692,9 +692,40 @@ def t31():
           rcr["31"] == lev and any("proxied" in nt for nt in cr["RC-R"]["notes"]))
 
 
+def t32():
+    print("T32 retrodiction harness: known drift measured exactly; fail-closed labels")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .retro import load_actuals, compare
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    res = run_v2(cfg)
+    act = load_actuals(open("foundry/fixtures/retro/synthetic_de_novo_actuals.csv", "rb").read(),
+                        "synthetic_de_novo_actuals.csv")
+    rep = compare(res, act)
+    dep = next(s2 for s2 in rep["series"] if s2["label"] == "deposits")
+    loans = next(s2 for s2 in rep["series"] if s2["label"] == "loans")
+    check("T32a", "deposits drift recovered (~7.4% APE from the x1.08 fixture)",
+          abs(dep["mape_pct"] - (1 - 1 / 1.08) * 100) < 0.15, f"MAPE {dep['mape_pct']}%")
+    check("T32b", "loans drift recovered (~5.3% APE from the x0.95 fixture)",
+          abs(loans["mape_pct"] - (1 / 0.95 - 1) * 100) < 0.15, f"MAPE {loans['mape_pct']}%")
+    check("T32c", "overlap window respected (8 actual quarters, not 12)",
+          rep["quarters"] == 8 and all(len(s2["rows"]) == 8 for s2 in rep["series"]))
+    check("T32d", "summary counts within-15% series and names the worst miss",
+          rep["summary"]["series_compared"] == 5
+          and isinstance(rep["summary"]["worst_terminal_error_pct"], (int, float)))
+    try:
+        load_actuals(b"metric,1,2\nmystery_series,1,2\n", "x.csv")
+        bad_ok = True
+    except ValueError:
+        bad_ok = False
+    check("T32e", "unknown series labels fail closed (exact labels by design)", not bad_ok)
+    rep2 = compare(res, act)
+    check("T32f", "the report is deterministic", rep["report_hash"] == rep2["report_hash"])
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

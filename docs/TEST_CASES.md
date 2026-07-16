@@ -124,3 +124,23 @@ wasn't modeled; disclosed simplification beats silent precision-theater.
 item numbers, RCON/RIAD codes, and Q1–Q12 columns; every schedule ends with a
 "Not modeled (omitted, not zeroed)" line; RC-R names its proxies. Totals tie:
 RC 12 equals the Balance Sheet tab; RI 12 equals the Income Statement's net income.
+
+## 13. Retrodiction: the harness ships now; real-bank data is a drop-in
+**Decided:** The Peer Cohort tab gains a "Retrodiction — projection vs filed
+history" section: upload a bank's actual quarterly history (CSV rows: deposits /
+loans / assets / equity / net_income, in $000s) and the current configuration's
+projection is scored against it — projected vs actual vs error % per quarter,
+MAPE per series, and the terminal-quarter miss. The summary reads it against a
+15% terminal-error line, labeled explicitly as "a conversation anchor, not a
+verdict." Because this build environment has no route to FDIC data, the shipped
+demonstration uses a synthetic history (a golden case's own output with a known,
+labeled drift), and the CSV format is documented so a real de novo's history from
+the CharterIQ substrate is a data drop, not a code change. Unrecognized series
+labels are refused — exact labels by design.
+**Why:** The 85/15 answer needs a measuring instrument before it needs data; and
+the instrument must be provably honest (its gates verify it recovers a known,
+planted drift to the decimal) before any real bank's history touches it.
+**Check:** Peer Cohort tab → Retrodiction section with the upload button (it must
+appear even when the peer benchmark itself errors). Upload the synthetic CSV from
+foundry/fixtures/retro/ → overlay tables render with red error cells past 15%, a
+summary line counting series within 15%, and a report hash.

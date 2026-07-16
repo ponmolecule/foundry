@@ -125,3 +125,11 @@
 - **T31d** — RI ties: pretax - taxes = NET INCOME
 - **T31e** — RC-E total ties to RC 13.a
 - **T31f** — RC-R leverage equals the ratios tab; omissions and proxies disclosed
+
+## T32 retrodiction harness: known drift measured exactly; fail-closed labels
+- **T32a** — deposits drift recovered (~7.4% APE from the x1.08 fixture)
+- **T32b** — loans drift recovered (~5.3% APE from the x0.95 fixture)
+- **T32c** — overlap window respected (8 actual quarters, not 12)
+- **T32d** — summary counts within-15% series and names the worst miss
+- **T32e** — unknown series labels fail closed (exact labels by design)
+- **T32f** — the report is deterministic

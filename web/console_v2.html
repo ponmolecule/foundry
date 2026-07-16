@@ -830,11 +830,31 @@ function rowPct(label, arr, d, refKey){
 }
 function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
 
+function retroSectionHtml(){
+  let h = "";
+  h += '<div class="ovh3">Retrodiction \u2014 projection vs filed history</div>';
+  if(!window.retroReport){
+    h += '<div class="memo">Upload a bank\u2019s actual quarterly history (CSV: rows deposits / loans / assets / equity / net_income, $000s) and the current configuration\u2019s projection is scored against it \u2014 per-series error each quarter, MAPE, and the terminal-quarter miss the 85/15 conversation turns on.</div>';
+    h += '<button class="btn-plain" onclick="document.getElementById(\'retroFile\').click()">Upload actual history\u2026</button><input id="retroFile" type="file" accept=".csv,.json" style="display:none" onchange="retroUpload(this)">';
+  } else {
+    const R = window.retroReport;
+    h += `<div class="memo"><b>${R.summary.series_within_15pct_terminal} of ${R.summary.series_compared}</b> series land within 15% at the terminal quarter (worst miss ${R.summary.worst_terminal_error_pct}%). ${esc(R.summary.note)} Report <span style="font-family:var(--mono)">${esc(R.report_hash)}</span>.</div>`;
+    R.series.forEach(s=>{
+      h += `<div class="ovh3" style="font-size:12px">${esc(s.label)} \u2014 MAPE ${s.mape_pct}%, terminal ${s.terminal_error_pct}%</div>`;
+      h += '<div style="overflow-x:auto"><table class="fin"><tr><th></th>' + s.rows.map(r=>`<th>Q${r.q}</th>`).join("") + '</tr>';
+      h += '<tr><td>Projected</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.projected.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
+      h += '<tr><td>Actual</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.actual.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
+      h += '<tr><td>Error %</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right;color:${r.ape!==null&&r.ape>0.15?'#B45454':'#8FA3C0'}">${r.ape===null?'\u2014':(r.ape*100).toFixed(1)+'%'}</td>`).join("") + '</tr></table></div>';
+    });
+    h += '<button class="btn-plain" onclick="window.retroReport=null;renderContent()">Clear / upload another</button>';
+  }
+  return h;
+}
 function renderPeer(){
   const r = lastRes, el = document.getElementById("content");
   let h = '<div class="h2" style="font-weight:700">Peer Cohort</div>';
-  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; el.innerHTML = h; return; }
-  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; el.innerHTML = h; return; }
+  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += retroSectionHtml(); el.innerHTML = h; return; }
   const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
   h += `<div class="ovwm">${esc(r.peer.watermark)}</div>`;
   const kc = [
@@ -861,6 +881,7 @@ function renderPeer(){
     h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(m.id)}</td><td>${esc(m.archetype)}</td><td class="num">${m["class"]}</td><td class="num">${m.distance}</td><td><span class="ovtag ${cls}">${esc(t)}</span></td></tr>`;
   });
   h += '</table>';
+  h += retroSectionHtml();
   el.innerHTML = h;
 }
 function renderExaminer(){
@@ -1514,6 +1535,15 @@ async function mtFinalize(){
   cfg = j.cfg; mt.result = j;
   syncModules(); renderGlobals(); refresh(); renderContent();
 }
+async function retroUpload(inp){
+  const f = inp.files[0]; if(!f) return; inp.value = "";
+  const fd = new FormData(); fd.append("file", f); fd.append("cfg", JSON.stringify(cfg));
+  const r = await fetch("/api/v31/retro", {method:"POST", body: fd});
+  const j = await r.json();
+  if(!r.ok){ alert("Retrodiction refused (fail-closed):\n" + (j.error||r.status)); return; }
+  window.retroReport = j; renderContent();
+}
+window.retroUpload = retroUpload;
 window.mtUpload=mtUpload; window.mtAssign=mtAssign; window.mtFinalize=mtFinalize;
 window.mtSet = function(s){ mt = s; renderContent(); };
 window.mtState = function(){ return mt; };
