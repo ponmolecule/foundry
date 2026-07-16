@@ -28,7 +28,10 @@ PEER_BANDS = ["under_200M", "200M_500M", "500M_2B", "2B_10B", "10B_50B",
 
 # Retrodiction series -> substrate metric_name. Completed at DEPLOYMENT by the
 # substrate owner (env var CHARTERIQ_RETRO_MAP, JSON) — never guessed here.
-RETRO_SERIES = ["deposits", "loans", "assets", "equity", "net_income"]
+# Dollar series may not exist in a ratio-centric catalog; ratio series usually
+# will. At least ONE mapped series is required; more is better.
+RETRO_SERIES = ["deposits", "loans", "assets", "equity", "net_income",
+                 "leverage", "roa", "roe", "nim", "efficiency"]
 
 
 def accuracy_label(metric_name):
@@ -144,15 +147,22 @@ class CharterIQClient:
                               "asset_size_mm": float(r[3]) if r[3] is not None else None,
                               "est_year": r[4], "charter_type": r[5]} for r in rows]}
 
-    N_CANDIDATES = ["sample_size", "n", "bank_count", "num_banks", "count"]
+    def available_peer_groups(self, year=None, quarter=None):
+        sql = "SELECT DISTINCT group_type, group_id FROM peer_percentiles"
+        params = ()
+        if year and quarter:
+            sql += " WHERE year = %s AND quarter = %s"
+            params = (int(year), int(quarter))
+        return [{"group_type": r[0], "group_id": r[1]} for r in self._run(sql + " ORDER BY 1, 2", params)]
 
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
-        have = self._columns("peer_percentiles")
-        ncol = next((c2 for c2 in self.N_CANDIDATES if c2 in have), None)
-        sel = "peer_p10, peer_p25, peer_p50, peer_p75, peer_p90" + (f", {ncol}" if ncol else "")
+        """Real schema (surveyed 2026-07-16): per-bank rows carrying the group
+        distribution; band lives in group_id, count in peer_count. Any one row
+        for the group carries the distribution -> LIMIT 1."""
         rows = self._run(
-            f"SELECT {sel} FROM peer_percentiles WHERE metric_name = %s "
-            "AND peer_group = %s AND year = %s AND quarter = %s",
+            "SELECT peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
+            "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
+            "AND year = %s AND quarter = %s LIMIT 1",
             (metric_name, peer_group, int(year), int(quarter)))
         if not rows:
             return None
@@ -161,7 +171,7 @@ class CharterIQClient:
                 "year": int(year), "quarter": int(quarter),
                 "p10": float(r[0]), "p25": float(r[1]), "p50": float(r[2]),
                 "p75": float(r[3]), "p90": float(r[4]),
-                "n": int(r[5]) if ncol and r[5] is not None else None,
+                "n": int(r[5]) if r[5] is not None else None,
                 "accuracy": accuracy_label(metric_name)}
         if metric_name in CAPITAL_METRICS:
             out["caveat"] = ("percentiles computed on the legacy substrate; "
@@ -186,10 +196,11 @@ class CharterIQClient:
         if not raw:
             return None
         m = json.loads(raw)
-        missing = [s for s in RETRO_SERIES if s not in m]
-        if missing:
-            raise ValueError(f"CHARTERIQ_RETRO_MAP incomplete — missing {missing}")
-        return m
+        known = {k: v for k, v in m.items() if k in RETRO_SERIES}
+        if not known:
+            raise ValueError(f"CHARTERIQ_RETRO_MAP has no recognized series; "
+                              f"recognized: {RETRO_SERIES}")
+        return known
 
     def get_retro_actuals(self, cert, since_year=None):
         """Actuals for the retrodiction harness, aligned to a bank's opening.

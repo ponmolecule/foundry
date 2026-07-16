@@ -901,7 +901,7 @@ function retroSectionHtml(){
   let h = "";
   h += '<div class="ovh3">Retrodiction \u2014 projection vs filed history</div>';
   if(!window.retroReport){
-    h += '<div class="memo">Upload a bank\u2019s actual quarterly history (CSV: rows deposits / loans / assets / equity / net_income, $000s) and the current configuration\u2019s projection is scored against it \u2014 per-series error each quarter, MAPE, and the terminal-quarter miss the 85/15 conversation turns on.</div>';
+    h += '<div class="memo">Upload a bank\u2019s actual quarterly history (CSV rows \u2014 dollars in $000s: deposits / loans / assets / equity / net_income; ratios in %: leverage / roa / roe / nim / efficiency) and the current configuration\u2019s projection is scored against it \u2014 per-series error each quarter, MAPE, and the terminal-quarter miss the 85/15 conversation turns on.</div>';
     h += '<button class="btn-plain" onclick="document.getElementById(\'retroFile\').click()">Upload actual history\u2026</button><input id="retroFile" type="file" accept=".csv,.json" style="display:none" onchange="retroUpload(this)"> <button class="btn-plain" onclick="retroSubstrate()">Pull from CharterIQ substrate\u2026</button>';
   } else {
     const R = window.retroReport;

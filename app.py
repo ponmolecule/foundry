@@ -338,8 +338,13 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
                 p["comparison_note"] = note
                 rows.append(p)
         if not rows:
-            return JSONResponse({"error": f"no percentile rows for band {band} at "
-                                  f"{year}Q{quarter}"}, status_code=404)
+            try:
+                groups = cl.available_peer_groups(year, quarter)
+            except Exception:
+                groups = []
+            return JSONResponse({"error": f"no percentile rows for band '{band}' at "
+                                  f"{year}Q{quarter}. Groups actually present: "
+                                  f"{groups[:40]}"}, status_code=404)
         return JSONResponse({"band": band, "year": year, "quarter": quarter, "rows": rows,
                               "band_note": "band derived from the MODELED Q12 total assets; "
                                             "UBPR peer codes arrive via Deliverable D"})

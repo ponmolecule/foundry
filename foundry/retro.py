@@ -22,11 +22,18 @@ import io
 import json
 
 SERIES_MAP = {
+    # dollar series ($000s)
     "deposits": ("bs", "deposits"),
     "loans": ("bs", "netLoans"),
     "assets": ("bs", "totalAssets"),
     "equity": ("bs", "equity"),
     "net_income": ("is", "ni"),
+    # ratio series (percent, both sides)
+    "leverage": ("ratios", "lev"),
+    "roa": ("ratios", "roa"),
+    "roe": ("ratios", "roe"),
+    "nim": ("ratios", "nim"),
+    "efficiency": ("ratios", "eff"),
 }
 
 

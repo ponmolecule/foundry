@@ -737,9 +737,10 @@ def t33():
             cols = {"institutions": ["cert", "name", "state", "city", "asset_size_mm",
                                        "est_year", "estymd", "end_year", "fail_date",
                                        "charter_type", "active", "profile_tag"],
-                     "peer_percentiles": ["metric_name", "peer_group", "year", "quarter",
+                     "peer_percentiles": ["id", "cert", "year", "quarter", "group_type",
+                                           "group_id", "metric_name", "value", "percentile_rank",
                                            "peer_p10", "peer_p25", "peer_p50", "peer_p75",
-                                           "peer_p90", "bank_count"]}[table]
+                                           "peer_p90", "peer_count"]}[table]
             return [(c2,) for c2 in cols]
         if "FROM institutions" in sql:
             return [(12345, "Testament Bank", "TX", "Austin", 250.0, 2024, "2024-03-15",
@@ -766,10 +767,18 @@ def t33():
           and "item-level" in ser["accuracy"]["cet1_ratio"]
           and "legacy" in accuracy_label("nim"))
     pp = cl.get_peer_percentiles("cet1_ratio", "500M_2B", 2025, 4)
-    check("T33d", "capital-family percentiles carry the recomputation caveat "
-                    "(n resolved via live-schema introspection: bank_count here)",
+    check("T33d", "capital-family percentiles from the surveyed schema (group_id + "
+                    "peer_count), caveat attached",
           pp["p50"] == 10.9 and pp["n"] == 412
           and "approximate until refreshed" in pp["caveat"])
+    import os as _os2
+    _os2.environ["CHARTERIQ_RETRO_MAP"] = '{"leverage": "leverage_ratio"}'
+    try:
+        m2 = cl.retro_map()
+        check("T33g", "a partial retro map with one ratio series is accepted",
+              m2 == {"leverage": "leverage_ratio"})
+    finally:
+        _os2.environ.pop("CHARTERIQ_RETRO_MAP", None)
     _os.environ.pop("CHARTERIQ_RETRO_MAP", None)
     try:
         cl.get_retro_actuals(12345); mapped = True
