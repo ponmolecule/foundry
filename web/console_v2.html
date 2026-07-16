@@ -1301,6 +1301,22 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
   }
 
   if(currentTab==="notes"){
+    if(V31){
+      h += '<div class="ovh3">Defaults in effect (not from the client)</div>';
+      h += '<div class="memo">Everything below was supplied by the engine, not the engagement. Each carries its source and its home; overruling any of them is one edit away.</div>';
+      const rp = cfg.assumptions.rate_path_q || [];
+      const DEFS = [
+        ["SOFR forward path", rp.length ? (rp[0]*100).toFixed(2)+"% \u2192 "+(rp[rp.length-1]*100).toFixed(2)+"% over 12 quarters" : "\u2014", "June 17, 2026 FOMC SEP medians + ~5bp basis", "Sidebar \u2192 Rate path"],
+        ["Rate glide beyond Q12", ((cfg.assumptions.rate_path_longer_run||0)*100).toFixed(2)+"% longer run, 5bp/qtr glide", "engine convention", "Sidebar \u2192 Rate path \u2192 Longer run"],
+        ["Stress-test multipliers", "charge-offs \u00d7"+((cfg.stress_params||{}).charge_off_mult ?? "\u2014")+", rate shock "+(((cfg.stress_params||{}).rate_shock_bp ?? "\u2014"))+"bp", "engine convention (severe-but-plausible)", "Sidebar \u2192 Stress parameters"],
+        ["Funds-transfer pricing method", "SOFR on average balances (off by default)", "methodology election", "Sidebar \u2192 Treasury \u2192 FTP"],
+        ["Tax sequencing", String((cfg.assumptions||{}).tax_semantics || "profile default"), "engine profile (see ENGINE_SPEC)", "config \u2192 tax_semantics"],
+        ["Inverted-statement reserve rate", "1.5% of balances when statements hide it", "disclosed fit \u2014 translation only", "product card after translation"],
+      ];
+      h += '<table class="fin"><tr><th>Default</th><th>Current value</th><th>Source</th><th>Change it in</th></tr>';
+      DEFS.forEach(d=>{ h += `<tr><td>${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${d[3]}</td></tr>`; });
+      h += '</table>';
+    }
     if(V3){
       h += '<div class="h2" style="font-weight:700">Assumptions & Notes</div>';
       h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#DFA85A" onclick="setTab('overview');return false">Overview</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
