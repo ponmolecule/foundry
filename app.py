@@ -115,6 +115,46 @@ def gated_openapi(_=Depends(gate)):
     return JSONResponse(app.openapi())
 
 
+@app.get("/v3.1")
+@app.get("/v31")
+def console_v31(_=Depends(gate)):
+    """Foundry v3.1 (input-spec rung): the v3 shell plus the input layer -
+    Start screen (config-source selector), wizard, FIW. Engine untouched;
+    /v2, /v2.1, /v3 are frozen rungs."""
+    from fastapi.responses import HTMLResponse
+    html = open("web/console_v2.html", encoding="utf-8").read()
+    html = html.replace("</head>", "<script>window.V31=true</script>\n</head>")
+    return HTMLResponse(html)
+
+
+@app.get("/api/v31/engagements")
+def v31_engagements(_=Depends(gate)):
+    from foundry import store
+    return JSONResponse({"engagements": store.list_engagements(),
+                          "schema_version": store.CONFIG_SCHEMA_VERSION})
+
+
+@app.get("/api/v31/engagement/{slug}")
+def v31_engagement(slug: str, _=Depends(gate)):
+    from foundry import store
+    try:
+        return JSONResponse(store.load_engagement(slug))
+    except FileNotFoundError:
+        return JSONResponse({"error": "no such engagement"}, status_code=404)
+    except store.SchemaVersionError as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
+
+
+@app.post("/api/v31/engagement")
+def v31_save_engagement(body: dict, _=Depends(gate)):
+    from foundry import store
+    try:
+        return JSONResponse(store.save_engagement(body.get("cfg") or body,
+                                                   slug=body.get("slug")))
+    except store.SchemaVersionError as e:
+        return JSONResponse({"error": str(e)}, status_code=409)
+
+
 @app.get("/v3")
 @app.get("/v2.2")
 @app.get("/v22")

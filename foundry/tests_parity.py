@@ -347,7 +347,10 @@ def main():
                     "REPRODUCED", "loadFrozen"]
         miss += [x for x in need_v22 if x not in html]
         app_src2 = open("app.py", encoding="utf-8").read()
-        for tok in ['"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
+        need_v31 = ["window.V31", '"start","Start"', "renderStart", "openEngagement",
+                    "/api/v31/engagements", "Saved engagements"]
+        miss += [x for x in need_v31 if x not in html]
+        for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
             if tok not in app_src2:
                 miss += [f"app.py: {tok}"]
         import tempfile
