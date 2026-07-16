@@ -101,3 +101,29 @@ merges to main before the 24th. Build order, each step gated before the next:
 Calendar: Jul 24 demo = v3 as planned (v3.1 not demo-critical; one-slide FIW teaser).
 Jul 29 checkpoint = Modes W+F shipped on /v3.1, hardened for unsupervised use.
 Aug 11 = Mode T UI + M11–M14 scope conversation.
+
+---
+
+## 7. FIW blueprint — correspondence to Patrick's input tabs (approved design basis)
+
+Patrick's workbook has five input surfaces (~165 typed cells + ~25 toggles). Every one of
+his input cells meets one of four fates in the FIW. Kept-by-name sheets preserve his
+furniture; the burden shrinks because resolvers, peer defaults, and the funding waterfall
+answer what he asks humans.
+
+| Patrick surface | Contents (his) | FIW fate |
+|---|---|---|
+| **CONTROL** | identity, dates/cadence, ~17 product toggles, capital thresholds, scale | **Kept by name.** Identity + dates typed (Tier A). Toggles become archetype activations (Tier C). Capital thresholds & regulator identity: **deleted — resolved** from REG_PARAMS + charter/state, shown not asked. Scale fixed ($000s). |
+| **ASSM_BS** (80 cells) | 5 loan products × 6 params; 7 deposit products × 5; securities AFS/HTM; IB cash; fed funds; premises; FHLB; other borrowings; other assets % | **Restructured by archetype, not by statement.** Loans → `ASSM_<lending archetype>` driver blocks (volume path, pricing, mix; losses/coverage = defaults block). Deposits → `ASSM_<deposit archetype>` (drivers typed; attrition/ramp/beta = defaults). Securities, cash, fed funds, overnight borrowings: **deleted — the funding waterfall (M6) derives them**; nothing to ask. Premises → Tier E optional. FHLB term/other borrowings → phase 2 (M11), grayed with disposition. Other-assets %: engine convention, disclosed. |
+| **ASSM_IS** (47 cells) | fed funds/prime/10Y annual steps; fee drivers (interchange, BaaS, service charges, trust, GOS); NIE (FTE×comp, 6 cost lines, FDIC/OCC bps, 5 payment rails) | Rate path: **defaults from the standing SOFR curve**; annual-step entry accepted as a convenience, expanded to quarters. Fee drivers → per-archetype fee fields (M7), per-account/per-tx vocabulary phased; net-$ accepted meanwhile. NIE → **capacity engine (M8) defaults** + Tier E overlay (exec comp, premises, named vendor items — optional, each with start_month). FDIC/OCC assessments: engine expense lines (roadmap item), defaulted. |
+| **ASSM_CAP** | 3 dated raises; RWA weight buckets; AOCI sensitivity | Raises → Tier B `staged_raises[]` (typed — this is strategy). RWA weights: **deleted — archetype mapping facts**, resolved. AOCI: out of scope, disclosed (Assumptions & Notes). |
+| **PRE_OPEN** | 10 expense categories × monthly grid; raise schedule; Day-1 seeds; min-capital check | Collapsed to three typed fields (pre_open_months, org_costs_pre_open, pre_open_payroll_monthly) + a **defaulted expense schedule** (his grid becomes an editable defaults block). Day-1 seeds → Tier B. Min-capital check: computed chip, never typed. |
+
+**Net arithmetic:** ~165 typed cells → ~30–40 typed values + provenance-badged review,
+with three whole categories never asked (treasury legs, regulatory constants, rate path).
+His CHECKS instinct lives on as entry validators + the Overview flags; his hidden V2 stubs
+appear as grayed archetype cards carrying their ontology dispositions.
+
+**Approved:** slim-FIW import = diff against generation state (README generation hash);
+untouched cells keep defaulted provenance, edited cells become `user`; all-or-nothing
+validation at the border (2026-07-15).
