@@ -911,19 +911,8 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
   if(V3 && currentTab==="examiner"){ if(lastRes){ renderExaminer(); return; } }
   if(V3 && currentTab==="config"){ renderConfigTab(); return; }
   if(V3 && currentTab==="gov"){ renderGovTab(); return; }
-  if(lastErrs){
-    c.innerHTML = `<div class="qbox"><div class="qt">Open questions — the engine needs answers before it will produce numbers (fail-closed)</div>
-      ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
-      <div class="memo">Complete the inputs — the schedules resume automatically. Nothing renders from a broken configuration; that is a feature.</div>`;
-    return;
-  }
-  if(!lastRes){ c.innerHTML = '<div class="memo">Running…</div>'; return; }
-  const r = lastRes, fin = r.financials, F = r.faithful || {}, D = (r.presentation||{}).derived || {};
-  const bsHasOpen = fin.bs.totalAssets.length===13;
-  const G = (path)=>getPath(path);
-  let h = "";
-
   if(currentTab==="products" && V31){
+    let h = "";
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; the engine runs once the first deposit product exists (a de novo funds before it lends).</div>';
     h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
@@ -942,11 +931,27 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       h += '</div>';
     });
     h += '<div class="ovh3">Securities &amp; Cash</div>';
-    h += `<div class="memo">Computed by the funding waterfall \u2014 deposits fund loans; excess is invested, shortfalls borrow. Current settings: securities yield ${(G("assumptions.securities_yield")*100).toFixed(2)}%, cash yield ${(G("assumptions.cash_yield")*100).toFixed(2)}%, cash floor ${(G("assumptions.cash_target_pct_deposits")*100).toFixed(1)}% of deposits \u2014 edit in Global Assumptions.</div>`;
+    h += `<div class="memo">Computed by the funding waterfall \u2014 deposits fund loans; excess is invested, shortfalls borrow. Current settings: securities yield ${(getPath("assumptions.securities_yield")*100).toFixed(2)}%, cash yield ${(getPath("assumptions.cash_yield")*100).toFixed(2)}%, cash floor ${(getPath("assumptions.cash_target_pct_deposits")*100).toFixed(1)}% of deposits \u2014 edit in Global Assumptions.</div>`;
     h += '<div class="ovh3">Other Assets &amp; Liabilities</div>';
-    h += `<div class="memo">Premises ${fmt0(G("assumptions.premises_equipment")/K)}, intangibles ${fmt0(G("assumptions.intangibles")/K)}, other assets ${fmt0(G("assumptions.other_assets")/K)}, other liabilities ${fmt0(G("assumptions.other_liabilities")/K)} ($000s); borrowing rate ${(G("assumptions.borrow_rate_ann")*100).toFixed(2)}% \u2014 edit in Global Assumptions.</div>`;
+    h += `<div class="memo">Premises ${fmt0(getPath("assumptions.premises_equipment")/K)}, intangibles ${fmt0(getPath("assumptions.intangibles")/K)}, other assets ${fmt0(getPath("assumptions.other_assets")/K)}, other liabilities ${fmt0(getPath("assumptions.other_liabilities")/K)} ($000s); borrowing rate ${(getPath("assumptions.borrow_rate_ann")*100).toFixed(2)}% \u2014 edit in Global Assumptions.</div>`;
     c.innerHTML = h; return;
   }
+  if(lastErrs){
+    c.innerHTML = `<div class="qbox"><div class="qt">Open questions — the engine needs answers before it will produce numbers (fail-closed)</div>
+      ${lastErrs.map(e=>`<div class="qitem">${esc(e.message)}</div>`).join("")}</div>
+      <div class="memo">Complete the inputs — the schedules resume automatically. Nothing renders from a broken configuration; that is a feature.</div>`;
+    return;
+  }
+  if(!lastRes){
+    c.innerHTML = (V31 && !(cfg.assumptions.deposit_products||[]).length)
+      ? '<div class="memo">No products yet — build the bank on the <a href="#" style="color:#8a6d3b" onclick="setTab(\'products\');return false">Products</a> tab. The engine runs once the first deposit product exists.</div>'
+      : '<div class="memo">Running…</div>';
+    return; }
+  const r = lastRes, fin = r.financials, F = r.faithful || {}, D = (r.presentation||{}).derived || {};
+  const bsHasOpen = fin.bs.totalAssets.length===13;
+  const G = (path)=>getPath(path);
+  let h = "";
+
   if(currentTab==="products"){
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Define the bank&rsquo;s products here — everything downstream (balance sheet, income statement, ratios, stress) recalculates automatically. Click a product to expand its assumptions. The engine validates fail-closed: incomplete inputs raise open questions rather than silent defaults.</div>';
