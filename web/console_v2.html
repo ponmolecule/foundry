@@ -472,7 +472,8 @@ function prodCardHtml(fam, i){
   h += `<div class="fields${isOpen(key) ? "" : " hidden"}">`;
   h += `<div class="fld wide"><label>Name</label><input value="${esc(p.name)}" onchange="setPath('${base}.name', this.value)"></div>`;
   h += `<div class="fld wide"><label>Call Report line</label><select data-restore="${base}.call_report_line" onchange="setPath('${base}.call_report_line', this.value)">`;
-  lineOptionsFor(cat).forEach(k=>{ h += `<option value="${k}"${p.call_report_line===k?" selected":""}>${esc(LINE_LABELS[k])}</option>`; });
+  const _ks = lineOptionsFor(cat).slice().sort((a,b)=>(a===p.call_report_line?-1:0)-(b===p.call_report_line?-1:0));
+  _ks.forEach(k=>{ h += `<option value="${k}"${p.call_report_line===k?" selected":""}>${esc(LINE_LABELS[k])}</option>`; });
   h += '</select></div>';
   if(cat!=="offbs"){
     h += `<div class="fld"><label>Rate type</label><select onchange="setPath('${base}.rate_type', this.value)">`+
