@@ -172,3 +172,21 @@ Connected with the metric count. "Pull from CharterIQ substrate…" with a cert
 number either runs a real retrodiction or refuses with the metric-name list
 (until the map is set). Every substrate number on screen carries its accuracy
 label.
+
+## 15. Staged capital raises: modeled, exact, and provably harmless when unused
+**Decided:** Follow-on raises are now a first-class input — the sidebar's Capital
+& tax cluster has a "Staged raises" editor (quarter + amount rows). A raise lands
+at the start of its stated quarter: paid-in capital steps by exactly the raise,
+the funding waterfall absorbs the cash into securities automatically, and the new
+money starts earning immediately (so total equity rises by slightly MORE than the
+raise — that's the earnings on it, landing in retained earnings where they
+belong). The feature is default-off and provably inert when unused: the gates
+re-ran every frozen reference bank with the engine change in place and every
+result came out identical to the decimal.
+**Why:** De novo charters routinely raise in tranches; a model that can't show a
+committed Q4 follow-on can't have the capital-plan conversation.
+**Check:** Sidebar → Capital & tax → "+ add a raise" → set Q and amount → Balance
+Sheet equity steps at that quarter by the amount (plus a small earnings kicker in
+later quarters); Capital & Ratios leverage jumps the same quarter; delete the row
+and everything returns exactly. Impossible raises (quarter 13, negative amounts)
+are refused with plain messages.

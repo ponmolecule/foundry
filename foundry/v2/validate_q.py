@@ -95,6 +95,12 @@ def validate_config_v2(cfg):
         errs.append("no deposit module loaded — a bank needs a funding side")
 
     a = cfg["assumptions"]
+    for i, r in enumerate(a.get("capital_raises") or []):
+        q = r.get("quarter"); amt = r.get("amount")
+        if not isinstance(q, int) or not (1 <= q <= 12):
+            errs.append(f"capital_raises[{i}].quarter must be an integer 1..12")
+        if not isinstance(amt, (int, float)) or amt <= 0:
+            errs.append(f"capital_raises[{i}].amount must be a positive dollar amount")
     missing = [k for k in ASSUMPTION_REQUIRED if k not in a]
     if missing:
         errs.append(f"missing required assumptions: {missing}")

@@ -27,6 +27,11 @@ def run_pf_b(cfg):
     htm_p = copy.deepcopy(a.get("securities_htm") or [])
 
     capital = cfg["target_state"]["initial_capital"]
+    _raises = cfg["assumptions"].get("capital_raises") or []
+    cap_t = [capital] * 13
+    for _r in _raises:
+        for _q in range(int(_r["quarter"]), 13):
+            cap_t[_q] += float(_r["amount"])
     non_earn = a["premises_equipment"] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
     alloc = a["sweep_securities_alloc"]
@@ -110,7 +115,7 @@ def run_pf_b(cfg):
         tax = max(0.0, pretax) * a["tax_rate"]
         ni = pretax - tax
         re += ni
-        equity_end = capital + re
+        equity_end = cap_t[qi] + re
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)

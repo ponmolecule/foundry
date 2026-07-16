@@ -141,3 +141,6 @@
 - **T33d** — capital-family percentiles carry the recomputation caveat
 - **T33e** — retro pull fails closed without the series map, listing real metric names
 - **T33f** — queries are parameterized (no literals interpolated)
+
+## T34 staged capital raises: additive, exact, waterfall-absorbed, both engines
+- **T34d** — validator rejects quarter 13 and negative amounts

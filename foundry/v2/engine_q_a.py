@@ -102,6 +102,13 @@ def run_pf_a(cfg):
     rate = rate_fn(a["rate_path_q"], a["rate_path_longer_run"])
 
     capital = cfg["target_state"]["initial_capital"]
+    # staged capital raises (additive, default-off): raises land at the START
+    # of their stated quarter; the waterfall absorbs the cash side via plug()
+    _raises = cfg["assumptions"].get("capital_raises") or []
+    cap_t = [capital] * 13
+    for _r in _raises:
+        for _q in range(int(_r["quarter"]), 13):
+            cap_t[_q] += float(_r["amount"])
     non_earn = a["premises_equipment"] + a["intangibles"] + a["other_assets"]
     cash_floor = a["cash_target_pct_deposits"]
     other_liab = a["other_liabilities"]
@@ -291,7 +298,7 @@ def run_pf_a(cfg):
 
         ni = 0.0
         for _ in range(60):
-            equity_end = capital + re + ni
+            equity_end = cap_t[q] + re + ni
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end)
             sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
@@ -312,7 +319,7 @@ def run_pf_a(cfg):
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
-        bs["netLoans"][q], bs["re"][q], bs["equity"][q] = net_loans_end, re, capital + re
+        bs["netLoans"][q], bs["re"][q], bs["equity"][q] = net_loans_end, re, cap_t[q] + re
         bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn + msr_t[q]
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),

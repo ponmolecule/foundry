@@ -769,9 +769,47 @@ def t33():
           all("%s" in sql for sql, _ in calls if "WHERE" in sql))
 
 
+def t34():
+    print("T34 staged capital raises: additive, exact, waterfall-absorbed, both engines")
+    import json as _json
+    from .v2.run_q import run_v2
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["capital_raises"] = []
+        same = run_v2(cfg2)
+        check(f"T34a-{eng}", f"engine {eng}: empty raises list == feature absent (identical results)",
+              same["financials"]["bs"]["equity"] == base["financials"]["bs"]["equity"]
+              and same["financials"]["bs"]["totalAssets"] == base["financials"]["bs"]["totalAssets"])
+        cfg3 = _json.loads(_json.dumps(cfg))
+        cfg3["assumptions"]["capital_raises"] = [{"quarter": 4, "amount": 10_000_000}]
+        r = run_v2(cfg3)
+        eb, ea_ = base["financials"]["bs"], r["financials"]["bs"]
+        rk = "re" if "re" in eb else "retained"
+        n2 = min(len(eb["equity"]), len(eb[rk]))
+        paid_b = [eb["equity"][t] - eb[rk][t] for t in range(n2)]
+        paid_r = [ea_["equity"][t] - ea_[rk][t] for t in range(n2)]
+        d3, d4 = paid_r[3] - paid_b[3], paid_r[4] - paid_b[4]
+        check(f"T34b-{eng}", f"engine {eng}: paid-in capital steps by exactly $10M at Q4 "
+                              "(the raise itself; its earnings land in RE, correctly)",
+              abs(d3) < 0.01 and abs(d4 - 10_000.0) < 0.01, f"dQ3 {d3:.2f}k, dQ4 {d4:.2f}k")
+        ta_b, ta_r = base["financials"]["bs"]["totalAssets"], r["financials"]["bs"]["totalAssets"]
+        check(f"T34c-{eng}", f"engine {eng}: the waterfall absorbs the cash (assets up ~$10M at Q4)",
+              9_500.0 < (ta_r[4] - ta_b[4]) < 10_500.0, f"dTA {ta_r[4]-ta_b[4]:.0f}k")
+    from .v2.validate_q import validate_errors_v2
+    import json as _j
+    bad = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    bad["assumptions"]["capital_raises"] = [{"quarter": 13, "amount": -5}]
+    errs = validate_errors_v2(bad)
+    msgs = [e["message"] if isinstance(e, dict) else str(e) for e in errs]
+    check("T34d", "validator rejects quarter 13 and negative amounts",
+          any("1..12" in m for m in msgs) and any("positive" in m for m in msgs))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

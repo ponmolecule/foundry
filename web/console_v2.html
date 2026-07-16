@@ -405,6 +405,17 @@ function renderGlobals(){
       h += '<div class="fields">';
       members.forEach(f=>{ used.add(f[0]); h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
       h += '</div>';
+      if(gname.startsWith("Capital")){
+        const raises = cfg.assumptions.capital_raises || [];
+        h += '<div style="margin:6px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">STAGED RAISES</b>';
+        raises.forEach((r,i)=>{
+          h += `<div style="display:flex;gap:6px;align-items:center;margin-top:4px">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
+            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+            + `</select><input type="number" style="width:110px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span style="color:#8FA3C0">$000s</span>`
+            + `<a href="#" style="color:#B45454" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<div style="margin-top:5px"><a href="#" style="color:#8a6d3b" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderGlobals();refresh();return false">+ add a raise</a></div></div>';
+      }
       if(gname.startsWith("Treasury")){
         h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
       }
@@ -1644,7 +1655,7 @@ function renderWizard(){
       + `<div class="fld"><label>Initial capital raise ($)</label><input type="number" value="${wiz.initial_capital}" onchange="wizSet('initial_capital',+this.value)"></div>`
       + `<div class="fld"><label>Pre-opening organizational costs ($)</label><input type="number" value="${wiz.org_costs}" onchange="wizSet('org_costs',+this.value)"></div>`
       + '</div></div>';
-    h += wizChip(`<b>Day-1 arithmetic:</b> ${fmtC(wiz.initial_capital)} raised \u2212 ${fmtC(wiz.org_costs)} organizational costs = <b>${fmtC(day1)}</b> opening equity (${lev.toFixed(1)}% of the raise). Staged follow-on raises are a roadmap module \u2014 noted, not modeled.`, day1 <= 0);
+    h += wizChip(`<b>Day-1 arithmetic:</b> ${fmtC(wiz.initial_capital)} raised \u2212 ${fmtC(wiz.org_costs)} organizational costs = <b>${fmtC(day1)}</b> opening equity (${lev.toFixed(1)}% of the raise). Staged follow-on raises are modeled \u2014 add them in the sidebar\u2019s Capital &amp; tax cluster after creation.`, day1 <= 0);
   }
   if(wiz.step===3){
     let picked = 0, hasDep = false;
