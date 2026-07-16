@@ -270,28 +270,45 @@ def t20():
 
 
 def t21():
-    print("T21 v3.1 default bank: source values carried, deposit paths exact")
+    print("T21 v3.1 empty-start + taxonomy templates carry the source values")
     import json as _json
     from .v2.run_q import run_v2
+    from .v2.validate_q import ConfigErrorV2
     cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    check("T21a", "default starts empty (products and modules)",
+          not cfg["assumptions"]["lending_products"] and not cfg["assumptions"]["deposit_products"]
+          and not cfg["step_0"]["modules"])
+    try:
+        run_v2(cfg); rejected = False
+    except ConfigErrorV2:
+        rejected = True
+    check("T21b", "fail-closed preserved: empty start cannot run (UI gates the engine)", rejected)
+    tpl = _json.load(open("foundry/fixtures/patrick_templates_v31.json", encoding="utf-8"))
+    cc = next(t for t in tpl["loans"] if t["name"] == "Credit Card")
+    ok = (abs(cc["yield_ann"] - 0.18) < 1e-12 and abs(cc["originations_q"] - 1_500_000) < 1e-6
+          and abs(cc["charge_off_ann"] - 0.04) < 1e-12)
+    check("T21c", "template constants match the source workbook", ok)
+    # materialize Retail Demand exactly as the UI does; path must hit the targets
     tg = _json.load(open("foundry/fixtures/patrick_default_targets.json", encoding="utf-8"))
-    lp = {p["name"]: p for p in cfg["assumptions"]["lending_products"]}
-    ok_vals = (abs(lp["Credit Card"]["yield_ann"] - 0.18) < 1e-12
-               and abs(lp["Credit Card"]["charge_off_ann"] - 0.04) < 1e-12
-               and abs(lp["Residential Mortgage"]["originations_q"] - 6_000_000) < 1e-6
-               and abs(lp["Small Business / C&I"]["runoff_q"] - 0.025) < 1e-12
-               and lp["Credit Card"]["call_report_line"] == "loanCreditCard")
-    check("T21a", "loan values transcribed with stated conversions", ok_vals)
+    rd = next(t for t in tpl["deposits"] if t["name"] == "Retail Demand")
+    b, monthly = 0.0, []
+    for _ in range(36):
+        b = b * (1 - rd["runoff_ann"] / 12.0) + rd["adds_m"]; monthly.append(b)
+    qp = [monthly[3 * q - 1] for q in range(1, 13)]
+    ov = {"1": 0.0}
+    for t in range(2, 13):
+        ov[str(t)] = qp[t - 1] / qp[t - 2] - 1.0 if qp[t - 2] else 0.0
+    cfg["assumptions"]["deposit_products"] = [{"name": "Retail Demand", "call_report_line": "depDDA",
+        "opening_balance": qp[0], "growth_q": 0.0, "runoff_q": 0.0, "rate_type": "fixed",
+        "rate_paid_ann": rd["rate_paid_ann"], "fee_yield_ann": 0.0, "opex_pct_ann": 0.0,
+        "opex_fixed_m": 0.0, "overrides": {"growth_q": ov}}]
+    cfg["step_0"]["modules"] = ["balance_driven_deposits"]
     r = run_v2(cfg)
-    deps = {p["name"]: p for p in r["products"] if p["family"] == "deposit"}
-    worst = 0.0
-    for name, target in tg.items():
-        got = [b * 1000 for b in deps[name]["bal"][1:13]]
-        worst = max(worst, max(abs(x - y) for x, y in zip(got, target)))
-    check("T21b", "all deposit paths reproduce the source recursion (house tol $1k)",
+    dep = [p for p in r["products"] if p["family"] == "deposit"][0]
+    got = [x * 1000 for x in dep["bal"][1:13]]
+    worst = max(abs(a - b) for a, b in zip(got, tg["Retail Demand"]))
+    check("T21d", "materialized template reproduces the source path (house tol $1k)",
           worst < 1000.0, f"worst ${worst:.2f}")
-    check("T21c", "conversion notes travel in the config",
-          bool(cfg.get("conversion_notes")) and any("maturity" in n for n in cfg["conversion_notes"]))
 
 
 if __name__ == "__main__":

@@ -113,8 +113,12 @@ def main():
                   "(B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth "
                   "pinned per quarter via overrides — path exact, not approximated")
 
-    a["lending_products"] = lending
-    a["deposit_products"] = deposits
+    # Empty-start ruling (2026-07-16): products begin empty; the taxonomy
+    # templates carry these values instead. Full product set preserved below
+    # for the T21 path gate via the targets sidecar + template equivalence.
+    a["lending_products"] = []
+    a["deposit_products"] = []
+    cfg["step_0"]["modules"] = []
     a["securities_yield"] = v(70)       # AFS average yield
     a["cash_yield"] = v(76)             # IB deposits at other banks rate
     a["borrow_rate_ann"] = v(84)        # FHLB advance rate
@@ -130,6 +134,14 @@ def main():
     cfg["parity_expectation"] = None
     cfg["conversion_notes"] = notes
 
+    templates = {"loans": [dict(name=n, originations_q=v(r+1)*K*3, runoff_q=v(r+3)/4,
+                                  yield_ann=v(r+2), charge_off_ann=v(r+4),
+                                  reserve_rate_pct_bal=v(r+5))
+                            for n, r, _ in LOANS],
+                  "deposits": [dict(name=n, rate_paid_ann=v(r+2), adds_m=v(r+1)*K,
+                                     runoff_ann=v(r+4)) for n, r, _ in DEPOSITS]}
+    json.dump(templates, open("foundry/fixtures/patrick_templates_v31.json", "w",
+                               encoding="utf-8"), indent=1)
     json.dump(cfg, open(OUT, "w", encoding="utf-8"), indent=1)
     json.dump(dep_targets, open(TARGETS, "w", encoding="utf-8"), indent=1)
     print(f"wrote {OUT} ({len(lending)} loans, {len(deposits)} deposits) + targets")

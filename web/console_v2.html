@@ -314,6 +314,12 @@ async function boot(){
 }
 function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); }
 async function preview(){
+  if(V31){
+    syncModules();
+    if(!(cfg.assumptions.deposit_products||[]).length){
+      res = null; renderContent(); return;
+    }
+  }
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
   const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
@@ -623,12 +629,76 @@ function v31AddProduct(){
   famArr(s.fam).push(p);
   closeModal(); renderContent(); refresh();
 }
+let TAX31_DATA = null;
+function TAX31(){
+  if(TAX31_DATA) return TAX31_DATA;
+  // templates carry the engagement-baseline assumptions per sub-type
+  const L = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
+    orig_growth_q:0, rate_type:"fixed", provision_rate_ann:null, measurement:"amortized",
+    fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
+  const D = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
+    growth_q:0, runoff_q:0, rate_type:"fixed", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
+  TAX31_DATA = {
+    "Loans": [
+      {name:"Consumer Installment", line:"loanConsumer", fam:"lending", tpl:L("Consumer Installment","loanConsumer",{originations_q:3000000, runoff_q:0.0375, yield_ann:0.08, charge_off_ann:0.015, reserve_rate_pct_bal:0.0125})},
+      {name:"Credit Card", line:"loanCreditCard", fam:"lending", tpl:L("Credit Card","loanCreditCard",{originations_q:1500000, runoff_q:0, yield_ann:0.18, charge_off_ann:0.04, reserve_rate_pct_bal:0.03})},
+      {name:"Small Business / C&I", line:"loanCommercial", fam:"lending", tpl:L("Small Business / C&I","loanCommercial",{originations_q:4500000, runoff_q:0.025, yield_ann:0.065, charge_off_ann:0.005, reserve_rate_pct_bal:0.0125})},
+      {name:"Residential Mortgage", line:"loanMortgage", fam:"lending", tpl:L("Residential Mortgage","loanMortgage",{originations_q:6000000, runoff_q:0.03, yield_ann:0.055, charge_off_ann:0.002, reserve_rate_pct_bal:0.005})},
+      {name:"Commercial Real Estate", line:"loanCRE", fam:"lending", tpl:L("Commercial Real Estate","loanCRE",{originations_q:6000000, runoff_q:0.02, yield_ann:0.06, charge_off_ann:0.003, reserve_rate_pct_bal:0.01})}],
+    "Deposits": [
+      {name:"Retail Demand", line:"depDDA", fam:"deposit", tpl:D("Retail Demand","depDDA",{rate_paid_ann:0.005, _adds_m:3000000, _runoff_ann:0.05})},
+      {name:"MMDA / Savings", line:"depSavings", fam:"deposit", tpl:D("MMDA / Savings","depSavings",{rate_paid_ann:0.025, _adds_m:2000000, _runoff_ann:0.08})},
+      {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{rate_paid_ann:0.04, _adds_m:1000000, _runoff_ann:0})},
+      {name:"Brokered", line:"depTime", fam:"deposit", tpl:D("Brokered","depTime",{rate_paid_ann:0.045, _adds_m:0, _runoff_ann:0})},
+      {name:"Sweep / Program", line:"depDDA", fam:"deposit", tpl:D("Sweep / Program","depDDA",{rate_paid_ann:0.03, _adds_m:0, _runoff_ann:0.10})},
+      {name:"Institutional", line:"depDDA", fam:"deposit", tpl:D("Institutional","depDDA",{rate_paid_ann:0.035, _adds_m:0, _runoff_ann:0.15})}]
+  };
+  return TAX31_DATA;
+}
+function depositPathFromAdds(adds_m, runoff_ann){
+  let b = 0; const monthly = [];
+  for(let m=0;m<36;m++){ b = b*(1-runoff_ann/12) + adds_m; monthly.push(b); }
+  const qp = []; for(let q=1;q<=12;q++) qp.push(monthly[3*q-1]);
+  return qp;
+}
+function materializeTemplate(s){
+  const p = JSON.parse(JSON.stringify(s.tpl));
+  if(s.fam === "deposit"){
+    const qp = depositPathFromAdds(p._adds_m||0, p._runoff_ann||0);
+    delete p._adds_m; delete p._runoff_ann;
+    p.opening_balance = qp[0]; p.growth_q = 0; p.runoff_q = 0;
+    const ov = {"1": 0};
+    for(let t=2;t<=12;t++){ const prev=qp[t-2]; ov[String(t)] = prev ? qp[t-1]/prev - 1 : 0; }
+    p.overrides = {growth_q: ov};
+  }
+  return p;
+}
+function syncModules(){
+  const mods = [];
+  if((cfg.assumptions.deposit_products||[]).length) mods.push("balance_driven_deposits");
+  if((cfg.assumptions.lending_products||[]).length) mods.push("balance_driven_lending");
+  if((cfg.assumptions.lending_products||[]).some(p=>p.mortgage_banking)) mods.push("mortgage_banking");
+  cfg.step_0.modules = mods;
+}
+function addFromTaxonomy(cat, idx){
+  const s = TAX31()[cat][idx];
+  famArr(s.fam).push(materializeTemplate(s));
+  syncModules(); renderContent(); refresh();
+}
+window.addFromTaxonomy = addFromTaxonomy; window.TAX31 = TAX31; window.syncModules = syncModules;
 window.v31FillSubs=v31FillSubs; window.v31ShowLine=v31ShowLine; window.v31AddProduct=v31AddProduct;
 
 function openModal(){
   if(V31){
-    document.getElementById("modal").innerHTML = v31ModalBody();
-    v31FillSubs();
+    let mh = '<h3>Add a product</h3>';
+    [["Loans"],["Deposits"]].forEach(([cn])=>{
+      mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
+        + TAX31()[cn].map((s,i)=>`<button class="preset-btn" onclick="addFromTaxonomy('${cn}',${i});closeModal();"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
+        + '</div>';
+    });
+    mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
+    mh += '<div class="modal-actions"><button class="btn-plain" onclick="closeModal()">Cancel</button></div>';
+    document.getElementById("modal").innerHTML = mh;
     document.getElementById("modal-bg").style.display = "block";
     document.getElementById("modal").style.display = "block";
     return;
@@ -850,6 +920,30 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
   const G = (path)=>getPath(path);
   let h = "";
 
+  if(currentTab==="products" && V31){
+    h += '<div class="h2">Products</div>';
+    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; the engine runs once the first deposit product exists (a de novo funds before it lends).</div>';
+    h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
+    h += ftpToggleHtml();
+    const secs = [["Loans","lending"],["Deposits","deposit"]];
+    secs.forEach(([cn,fam])=>{
+      const subs = TAX31()[cn] || [];
+      h += `<div class="ovh3" style="display:flex;align-items:center;gap:14px">${cn}
+        <select style="max-width:280px" onchange="if(this.value!==''){addFromTaxonomy('${cn}', +this.value); this.value='';}">
+        <option value="">Add ${cn.toLowerCase().replace(/s$/,'')} type\u2026</option>
+        ${subs.map((s,i)=>`<option value="${i}">${esc(s.name)}</option>`).join("")}</select></div>`;
+      const cards = allProducts().filter(x=>x.fam===fam);
+      h += '<div class="prod-grid">';
+      if(cards.length) cards.forEach(x=>{ h += prodCardHtml(x.fam, x.i); });
+      else h += `<div class="memo" style="grid-column:1/-1">No ${cn.toLowerCase()} yet.</div>`;
+      h += '</div>';
+    });
+    h += '<div class="ovh3">Securities &amp; Cash</div>';
+    h += `<div class="memo">Computed by the funding waterfall \u2014 deposits fund loans; excess is invested, shortfalls borrow. Current settings: securities yield ${(G("assumptions.securities_yield")*100).toFixed(2)}%, cash yield ${(G("assumptions.cash_yield")*100).toFixed(2)}%, cash floor ${(G("assumptions.cash_target_pct_deposits")*100).toFixed(1)}% of deposits \u2014 edit in Global Assumptions.</div>`;
+    h += '<div class="ovh3">Other Assets &amp; Liabilities</div>';
+    h += `<div class="memo">Premises ${fmt0(G("assumptions.premises_equipment")/K)}, intangibles ${fmt0(G("assumptions.intangibles")/K)}, other assets ${fmt0(G("assumptions.other_assets")/K)}, other liabilities ${fmt0(G("assumptions.other_liabilities")/K)} ($000s); borrowing rate ${(G("assumptions.borrow_rate_ann")*100).toFixed(2)}% \u2014 edit in Global Assumptions.</div>`;
+    c.innerHTML = h; return;
+  }
   if(currentTab==="products"){
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Define the bank&rsquo;s products here — everything downstream (balance sheet, income statement, ratios, stress) recalculates automatically. Click a product to expand its assumptions. The engine validates fail-closed: incomplete inputs raise open questions rather than silent defaults.</div>';
