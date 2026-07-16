@@ -50,34 +50,8 @@ def slots_for(cfg):
     return out
 
 
-# ---- converters (initial registry; T-3 expands and unit-tests) -------------
-def _conv_identity(v, p):
-    return float(v)
-
-
-def _conv_monthly_flow_x3(v, p):
-    return float(v) * 3.0
-
-
-def _conv_annual_rate_div4(v, p):
-    return float(v) / 4.0
-
-
-def _conv_pct_to_rate(v, p):
-    return float(v) / 100.0
-
-
-def _conv_units_thousands(v, p):
-    return float(v) * 1000.0
-
-
-CONVERTERS = {
-    "identity": _conv_identity,
-    "monthly_flow_x3": _conv_monthly_flow_x3,
-    "annual_rate_div4": _conv_annual_rate_div4,
-    "pct_to_rate": _conv_pct_to_rate,
-    "units_thousands": _conv_units_thousands,
-}
+# ---- converters: the T-3 library is the single source of truth -------------
+from .converters import REGISTRY as CONVERTERS
 
 
 def _series_from(inventory, sheet, row):

@@ -484,9 +484,33 @@ def t25():
           str([g["slot"] for g in gaps2])[:80])
 
 
+def t26():
+    print("T26 converter library: arithmetic, conventions, registry integrity")
+    from . import converters as C
+    ok = (abs(C.monthly_flow_x3(1000) - 3000) < 1e-12
+          and abs(C.annual_rate_div4(0.15) - 0.0375) < 1e-12
+          and abs(C.pct_to_rate(1.5) - 0.015) < 1e-12
+          and abs(C.bp_to_rate(25) - 0.0025) < 1e-12
+          and abs(C.units_thousands(60000) - 60_000_000) < 1e-6)
+    check("T26a", "scalar converters: x3, /4, pct, bp, $000s", ok)
+    steps = C.annual_steps_to_quarterly([0.038, 0.036, 0.034])
+    check("T26b", "annual steps -> 12 quarterly points, held flat per year (no interpolation)",
+          len(steps) == 12 and steps[0] == steps[3] == 0.038 and steps[4] == 0.036 and steps[11] == 0.034)
+    path = C.dollar_adds_to_monthly_path(3_000_000, 0.05, 36)
+    qp = C.monthly_path_to_quarterly_eop(path)
+    import json as _json
+    tg = _json.load(open("foundry/fixtures/patrick_default_targets.json", encoding="utf-8"))
+    worst = max(abs(a - b) for a, b in zip(qp, tg["Retail Demand"]))
+    check("T26c", "dollar-adds path matches the source-workbook recursion (targets sidecar)",
+          worst < 1.0, f"worst ${worst:.4f}")
+    from .modet_map import CONVERTERS as MC
+    check("T26d", "mapping session consumes the library registry (no duplicate arithmetic)",
+          MC is C.REGISTRY)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
