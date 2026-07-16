@@ -1210,11 +1210,11 @@ function renderStart(){
   h += '<div class="memo" style="margin:0 0 16px">Two ways in, one configuration. Both paths capture the identical field set \u2014 the schema cannot even record which door a value came through \u2014 so the choice is purely where you prefer to work. Validation differs only in timing: in-app entry checks as you type; workbook entry checks at upload.</div>';
   h += '<div class="ovcards" style="grid-template-columns:1fr 1fr">'
     + '<div class="ovcard"><div class="k">Enter directly in the app</div><div class="v" style="font-size:1rem">Type here, see results instantly</div>'
-    + '<div class="s">Work the assumptions in the workspace \u2014 every edit recomputes through the engine. A guided setup (identity \u2192 capital \u2192 products, under 30 typed values; the rest defaulted with citations) is the next build increment.</div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Edit assumptions; every change recomputes</li><li>Validation fires as you type</li><li>Guided setup (\u224830 typed values, rest defaulted with citations) \u2014 next increment</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-plain" onclick="setTab(\'config\')">Open the workspace</button></div>')
     + '</div>'
     + '<div class="ovcard"><div class="k">Fill outside the app, then upload</div><div class="v" style="font-size:1rem">Take a workbook to your desk</div>'
-    + '<div class="s">Download the input workbook, complete it in Excel, upload it back \u2014 the import validates fail-closed and lists open questions instead of guessing. A slimmer per-engagement workbook (only the sheets your products need, pre-filled for review) follows the guided setup.</div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload</li><li>Import validates fail-closed; gaps become questions</li><li>Slim per-engagement workbook, pre-filled \u2014 next increment</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn-plain" onclick="downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
