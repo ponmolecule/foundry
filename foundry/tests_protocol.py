@@ -434,9 +434,59 @@ def t24():
           f"{rep['candidate_count']} candidates")
 
 
+def t25():
+    print("T25 Mode T stage T-2: mapping session — declarations, exact series, gaps")
+    import json as _json
+    from .modet import ingest
+    from . import modet_map as M
+    from .modet import recon
+    from .v2.run_q import run_v2
+    csvp = "foundry/fixtures/modet/prairie_style_unit_economics.csv"
+    inv = ingest(open(csvp, "rb").read(), csvp)
+    rep = recon(inv)
+    cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    cfg["assumptions"]["deposit_products"] = [{"name": "Digital Deposits", "call_report_line": "depDDA",
+        "opening_balance": None, "growth_q": 0.0, "runoff_q": 0.0, "rate_type": "fixed",
+        "rate_paid_ann": None, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+    cfg["step_0"]["modules"] = ["balance_driven_deposits"]
+    sess = M.new_session(rep, cfg)
+    # refusing to declare is refusing to map
+    try:
+        M.assign(sess, {"sheet": "(csv)", "row": 4, "label": "Deposit balance"},
+                  "deposit.0.balance_path"); undeclared_ok = True
+    except ValueError:
+        undeclared_ok = False
+    check("T25a", "series assignment without declared cadence/units is refused", not undeclared_ok)
+    M.assign(sess, {"sheet": "(csv)", "row": 4, "label": "Deposit balance"},
+              "deposit.0.balance_path", converter="series_pin",
+              declared={"cadence": "monthly", "units": "dollars"})
+    M.assign(sess, {"sheet": "(client meeting)", "row": 0, "label": "stated cost of funds"},
+              "deposit.0.rate_paid_ann", converter="pct_to_rate",
+              declared={"units": "percent"}, params={"value": 1.5})
+    merged, log, gaps = M.apply_session(sess, inv, cfg)
+    r = run_v2(merged)
+    dep = [p for p in r["products"] if p["family"] == "deposit"][0]
+    got = [x * 1000 for x in dep["bal"][1:5]]
+    src = [5_817_000, 14_294_900, 23_894_900, 34_393_900]  # CSV months 3/6/9/12
+    worst = max(abs(a - b) for a, b in zip(got, src))
+    check("T25b", "mapped series reproduces the client's path exactly (house tol $1k)",
+          worst < 1000.0, f"worst ${worst:,.0f}")
+    check("T25c", "scalar conversion applied with provenance user",
+          abs(merged["assumptions"]["deposit_products"][0]["rate_paid_ann"] - 0.015) < 1e-12
+          and all(x["provenance"] == "user" for x in log))
+    check("T25d", "translation log names source, slot, and conversion for every assignment",
+          len(log) == 2 and all(("source" in x and "slot" in x and "conversion" in x) for x in log))
+    holed = _json.loads(_json.dumps(merged))
+    holed["assumptions"]["cash_yield"] = None   # a genuine hole, on a copy
+    gaps2 = [g for g in M.slots_for(holed) if g["required"] and not g["filled"]]
+    check("T25e", "unfilled required slots surface as gap questions",
+          any(g["slot"] == "assumptions.cash_yield" for g in gaps2),
+          str([g["slot"] for g in gaps2])[:80])
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
