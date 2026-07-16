@@ -166,6 +166,19 @@ def v31_template(_=Depends(gate)):
     return JSONResponse(_json.load(open(p, encoding="utf-8")))
 
 
+@app.post("/api/v31/fiw")
+def v31_fiw(body: dict, _=Depends(gate)):
+    """Per-engagement Foundry Input Workbook (INPUT_SPEC section 7)."""
+    from fastapi.responses import Response
+    from foundry.v2.fiw import build_fiw
+    cfg = body.get("cfg") or body
+    data, gh = build_fiw(cfg)
+    name = (cfg.get("proposed_bank") or "engagement").lower().replace(" ", "_")[:40]
+    return Response(content=data,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="fiw_{name}_{gh}.xlsx"'})
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl

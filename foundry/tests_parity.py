@@ -352,7 +352,7 @@ def main():
                     "Enter directly in the app", "Fill outside the app, then upload",
                     "Two ways in, one model", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "Day-1 arithmetic", "REGULATOR_OF"]
         miss += [x for x in need_v31 if x not in html]
-        for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/api/v31/fieldlib"', '"/api/v31/template"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
+        for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/api/v31/fieldlib"', '"/api/v31/template"', '"/api/v31/fiw"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
             if tok not in app_src2:
                 miss += [f"app.py: {tok}"]
         import tempfile

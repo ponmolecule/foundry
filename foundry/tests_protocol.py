@@ -310,9 +310,45 @@ def t21():
           q1_exact and q12_close, f"Q1 d=${abs(got[0]-tg['Retail Demand'][0]):.2f}, Q12 d=${abs(got[11]-tg['Retail Demand'][11]):.2f}")
 
 
+def t22():
+    print("T22 FIW: per-engagement workbook, progressive sheets, values, hash")
+    import io as _io
+    import json as _json
+    from openpyxl import load_workbook as _lw
+    from .v2.fiw import build_fiw, cfg_hash
+    cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    cfg["proposed_bank"] = "Testament Bank"
+    cfg["charter_profile"] = {"charter_type": "national", "regulator": "OCC",
+                                "cblr_election": True, "pre_open_months": 9}
+    cfg["assumptions"]["deposit_products"] = [{"name": "Retail Demand", "call_report_line": "depDDA",
+        "opening_balance": 8_930_000, "growth_q": 0.24, "runoff_q": 0.0, "rate_type": "fixed",
+        "rate_paid_ann": 0.005, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+    data, gh = build_fiw(cfg)
+    wb = _lw(_io.BytesIO(data))
+    check("T22a", "deposits-only FIW: no loan sheet (disclosure extends to paper)",
+          wb.sheetnames == ["README", "CONTROL", "ASSM_DEPOSITS", "LIMITS"], str(wb.sheetnames))
+    check("T22b", "generation hash on README matches the canonical hash",
+          any(r[0].value == "Generation hash" and r[1].value == cfg_hash(cfg) for r in wb["README"].iter_rows()))
+    dep = {(r[0].value): r[3].value for r in wb["ASSM_DEPOSITS"].iter_rows(min_row=2)}
+    check("T22c", "values transcribed (rate 0.5%, opening $8.93M) and line rendered as label",
+          abs(dep["deposit.0.rate_paid_ann"] - 0.005) < 1e-12
+          and abs(dep["deposit.0.opening_balance"] - 8_930_000) < 1e-6
+          and dep["deposit.0.call_report_line"] == "Deposits: Transaction (DDA)")
+    cfg["assumptions"]["lending_products"] = [{"name": "Credit Card", "call_report_line": "loanCreditCard",
+        "opening_balance": 0, "originations_q": 1_500_000, "orig_growth_q": 0, "runoff_q": 0,
+        "rate_type": "fixed", "yield_ann": 0.18, "charge_off_ann": 0.04, "provision_rate_ann": None,
+        "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "fee_yield_ann": 0,
+        "opex_pct_ann": 0, "opex_fixed_m": 0}]
+    data2, _ = build_fiw(cfg)
+    wb2 = _lw(_io.BytesIO(data2))
+    keys2 = [r[0].value for r in wb2["ASSM_LOANS"].iter_rows(min_row=2)]
+    check("T22d", "adding a loan adds ASSM_LOANS; no mb_ rows without originate-to-sell",
+          "ASSM_LOANS" in wb2.sheetnames and not any("mortgage_banking" in (k or "") for k in keys2))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

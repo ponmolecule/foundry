@@ -1406,6 +1406,19 @@ window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFr
 let wiz = null;
 const REGULATOR_OF = {national:"OCC", state_member:"Federal Reserve + state supervisor",
   state_nonmember:"FDIC + state supervisor", thrift:"OCC (savings association)"};
+async function downloadFIW(){
+  const r = await fetch("/api/v31/fiw", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({cfg})});
+  if(!r.ok){ alert("Workbook generation failed."); return; }
+  const blob = await r.blob();
+  const cd = r.headers.get("Content-Disposition")||"";
+  const m = cd.match(/filename="([^"]+)"/);
+  const aEl = document.createElement("a");
+  aEl.href = URL.createObjectURL(blob);
+  aEl.download = m ? m[1] : "foundry_input_workbook.xlsx";
+  aEl.click(); URL.revokeObjectURL(aEl.href);
+}
+window.downloadFIW = downloadFIW;
 function wizStart(){
   wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
          cblr:true, initial_capital:60000000, org_costs:2500000, picks:{}};
@@ -1525,7 +1538,7 @@ function renderStart(){
     + '<div class="ovcard"><div class="k">Fill outside the app, then upload</div><div class="v" style="font-size:1rem">Take a workbook to your desk</div>'
     + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload</li><li>Import validates fail-closed; gaps become questions</li><li>Slim per-engagement workbook, pre-filled \u2014 next increment</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="btn-plain" onclick="downloadWorkbook()">Download input workbook</button>'
+      + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)"></div>')
     + '</div>'
