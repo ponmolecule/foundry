@@ -474,7 +474,7 @@ function prodCardHtml(fam, i){
   if(V31){
     // Classification is a fact of the product, not a menu (INPUT_SPEC P3).
     h += `<div class="fld wide"><label>Call Report line</label>`
-      + `<div style="padding:8px 2px 4px;font-weight:600">${esc(LINE_LABELS[p.call_report_line] || p.call_report_line || "unmapped")}</div>`;
+      + `<div style="padding:8px 2px 4px;font-weight:600">${esc(LINE_LABELS[p.call_report_line] || p.call_report_line || "unmapped")}</div></div>`;
   } else {
   h += `<div class="fld wide"><label>Call Report line</label><select data-restore="${base}.call_report_line" onchange="setPath('${base}.call_report_line', this.value)">`;
   const _ks = lineOptionsFor(cat).slice().sort((a,b)=>(a===p.call_report_line?-1:0)-(b===p.call_report_line?-1:0));
