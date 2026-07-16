@@ -413,6 +413,9 @@ function renderGlobals(){
       h += '<div class="fields">';
       members.forEach(f=>{ used.add(f[0]); h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
       h += '</div>';
+      if(gname.startsWith("Treasury")){
+        h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
+      }
     });
     const rest = GLOBAL_FIELDS.filter(f=>!used.has(f[0]));
     if(rest.length){
@@ -944,7 +947,6 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; the engine runs once the first deposit product exists (a de novo funds before it lends).</div>';
     h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
-    h += ftpToggleHtml();
     const secs = [["Loans","lending"],["Deposits","deposit"]];
     secs.forEach(([cn,fam])=>{
       const subs = TAX31()[cn] || [];
