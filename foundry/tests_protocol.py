@@ -217,9 +217,43 @@ def t18():
                 os.environ["FOUNDRY_DATA_DIR"] = prev
 
 
+def t19():
+    print("T19 field library: concordance closure + progressive disclosure + budget")
+    from . import fieldlib as fl
+    # (a) closure against the real goldens: every assumption key consumed by the
+    # chassis for Solstice/Blackland has exactly one disposition in the library
+    lib_fields = set()
+    for a in fl.ARCHETYPES.values():
+        lib_fields |= set(a["drivers"]) | set(a["defaults"])
+    for d in fl.CAPACITY_DEFAULTS.values():
+        lib_fields |= set(d)
+    lib_fields |= set(fl.GLOBAL_DEFAULTS) | {"org_costs_pre_open"}
+    golden_keys = set(SOLSTICE["assumptions"].keys()) | set(BLACKLAND["assumptions"].keys())
+    missing = sorted(golden_keys - lib_fields)
+    check("T19a", "every golden-consumed assumption key has a library disposition",
+          not missing, f"missing: {missing}")
+    phantom = sorted(f for f in lib_fields - golden_keys if f != "org_costs_pre_open")
+    check("T19b", "library names no field the chassis does not consume",
+          not phantom, f"phantom: {phantom}")
+    # (c) progressive disclosure: deposits-only surface contains no lending field
+    dep = fl.fields_for(["funnel_deposit"])
+    lend = fl.fields_for(["funnel_deposit", "commercial_lending"])
+    lend_drivers = set(fl.ARCHETYPES["commercial_lending"]["drivers"])
+    leak = lend_drivers & (set(dep["typed"]) | set(dep["defaults"]))
+    check("T19c", "deposits-only surface carries no lending fields", not leak, f"leak: {sorted(leak)}")
+    strictly_adds = set(dep["typed"]) < set(lend["typed"])
+    check("T19d", "adding an archetype strictly adds typed fields", strictly_adds,
+          f"{len(dep['typed'])} -> {len(lend['typed'])}")
+    # (e) budget rule P6
+    two = fl.typed_budget(["funnel_deposit", "revolving_credit"])
+    four = fl.typed_budget(list(fl.ARCHETYPES.keys())[:4])
+    check("T19e", "typed budget: 2-product <=40, 4-product <=70",
+          two <= 40 and four <= 70, f"two={two}, four={four}")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -145,6 +145,29 @@ def v31_engagement(slug: str, _=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=409)
 
 
+@app.get("/api/v31/fieldlib")
+def v31_fieldlib(_=Depends(gate)):
+    from foundry import fieldlib as fl
+    return JSONResponse({
+        "archetypes": {k: {"label": v["label"], "drivers": v["drivers"],
+                            "defaults": v["defaults"]}
+                        for k, v in fl.ARCHETYPES.items()},
+        "tier_a": fl.TIER_A, "tier_b": fl.TIER_B,
+        "derived": fl.DERIVED, "phase2": fl.PHASE2})
+
+
+@app.get("/api/v31/fields")
+def v31_fields(activations: str = "", _=Depends(gate)):
+    from foundry import fieldlib as fl
+    acts = [x for x in activations.split(",") if x]
+    try:
+        out = fl.fields_for(acts)
+        out["typed_count"] = len(out["typed"])
+        return JSONResponse(out)
+    except KeyError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
 @app.post("/api/v31/engagement")
 def v31_save_engagement(body: dict, _=Depends(gate)):
     from foundry import store
