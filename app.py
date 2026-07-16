@@ -117,6 +117,15 @@ def gated_openapi(_=Depends(gate)):
 
 @app.get("/v3.1")
 @app.get("/v31")
+def _build_stamp():
+    import subprocess
+    try:
+        return subprocess.run(["git", "rev-parse", "--short", "HEAD"],
+                               capture_output=True, text=True, timeout=3).stdout.strip() or "unknown"
+    except Exception:
+        return "unknown"
+
+
 def console_v31(_=Depends(gate)):
     """Foundry v3.1 (input-spec rung): the v3 shell plus the input layer -
     Start screen (config-source selector), wizard, FIW. Engine untouched;
@@ -124,6 +133,8 @@ def console_v31(_=Depends(gate)):
     from fastapi.responses import HTMLResponse
     html = open("web/console_v2.html", encoding="utf-8").read()
     html = html.replace("</head>", "<script>window.V31=true</script>\n</head>")
+    html = html.replace("one engine — the browser does no arithmetic",
+                         "one engine — build " + _build_stamp())
     return HTMLResponse(html)
 
 
