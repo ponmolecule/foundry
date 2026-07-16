@@ -317,7 +317,10 @@ async function preview(){
   if(V31){
     syncModules();
     if(!(cfg.assumptions.deposit_products||[]).length){
-      res = null; renderContent(); return;
+      lastRes = null; lastErrs = null;
+      document.getElementById("status").textContent = "add a deposit product to run the engine";
+      document.getElementById("rhash").innerHTML = '<span style="color:#FBBF24">no products yet</span>';
+      renderContent(); return;
     }
   }
   const my = ++seq;
