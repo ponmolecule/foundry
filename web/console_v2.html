@@ -667,12 +667,15 @@ function depositPathFromAdds(adds_m, runoff_ann){
 function materializeTemplate(s){
   const p = JSON.parse(JSON.stringify(s.tpl));
   if(s.fam === "deposit"){
+    // Fitted, fully editable scalars (no pins): opening = Q1 of the source
+    // path; growth is the flat quarterly rate hitting the source's Q12.
+    // Per-quarter overrides remain available in the card for refinement.
     const qp = depositPathFromAdds(p._adds_m||0, p._runoff_ann||0);
     delete p._adds_m; delete p._runoff_ann;
-    p.opening_balance = qp[0]; p.growth_q = 0; p.runoff_q = 0;
-    const ov = {"1": 0};
-    for(let t=2;t<=12;t++){ const prev=qp[t-2]; ov[String(t)] = prev ? qp[t-1]/prev - 1 : 0; }
-    p.overrides = {growth_q: ov};
+    const g = (qp[0] > 0 && qp[11] > 0) ? Math.pow(qp[11]/qp[0], 1/11) - 1 : 0;
+    p.opening_balance = qp[0] / (1 + g);   // engine grows into Q1
+    p.growth_q = g;
+    p.runoff_q = 0;
   }
   return p;
 }
@@ -920,10 +923,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     const secs = [["Loans","lending"],["Deposits","deposit"]];
     secs.forEach(([cn,fam])=>{
       const subs = TAX31()[cn] || [];
-      h += `<div class="ovh3" style="display:flex;align-items:center;gap:14px">${cn}
-        <select style="max-width:280px" onchange="if(this.value!==''){addFromTaxonomy('${cn}', +this.value); this.value='';}">
-        <option value="">Add ${cn.toLowerCase().replace(/s$/,'')} type\u2026</option>
-        ${subs.map((s,i)=>`<option value="${i}">${esc(s.name)}</option>`).join("")}</select></div>`;
+      h += `<div class="ovh3">${cn}</div>`;
       const cards = allProducts().filter(x=>x.fam===fam);
       h += '<div class="prod-grid">';
       if(cards.length) cards.forEach(x=>{ h += prodCardHtml(x.fam, x.i); });
