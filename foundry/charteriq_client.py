@@ -221,7 +221,12 @@ class CharterIQClient:
                                      and r["value"] is not None]
         n = min((len(v) for v in series.values() if v), default=0)
         if n == 0:
-            raise ValueError(f"no overlapping quarterly history for cert {cert}")
+            counts = {inv[m2]: len(rows2) for m2, rows2 in pulled["series"].items()}
+            raise ValueError(
+                f"no rows returned for cert {cert} under the configured map — "
+                f"per-series row counts: {counts}; configured map: {m}. "
+                "If a mapped name looks like a placeholder, reset CHARTERIQ_RETRO_MAP "
+                "with real metric names and restart the server.")
         return {"series": {k: v[:n] for k, v in series.items()}, "quarters": n,
                 "accuracy": pulled["accuracy"]}
 
