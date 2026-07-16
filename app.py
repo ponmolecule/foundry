@@ -156,6 +156,16 @@ def v31_engagement(slug: str, _=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=409)
 
 
+@app.get("/api/v31/template")
+def v31_template(_=Depends(gate)):
+    import json as _json
+    import os as _os
+    p = "foundry/fixtures/patrick_default_v31.json"
+    if not _os.path.exists(p):
+        return JSONResponse({"error": "v3.1 default configuration missing"}, status_code=500)
+    return JSONResponse(_json.load(open(p, encoding="utf-8")))
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl

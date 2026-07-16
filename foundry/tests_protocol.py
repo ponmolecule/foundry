@@ -269,9 +269,34 @@ def t20():
     check("T20b", "bridged card path within $1k/qtr of chassis", cd < 1000, f"max ${cd:,.0f}")
 
 
+def t21():
+    print("T21 v3.1 default bank: source values carried, deposit paths exact")
+    import json as _json
+    from .v2.run_q import run_v2
+    cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    tg = _json.load(open("foundry/fixtures/patrick_default_targets.json", encoding="utf-8"))
+    lp = {p["name"]: p for p in cfg["assumptions"]["lending_products"]}
+    ok_vals = (abs(lp["Credit Card"]["yield_ann"] - 0.18) < 1e-12
+               and abs(lp["Credit Card"]["charge_off_ann"] - 0.04) < 1e-12
+               and abs(lp["Residential Mortgage"]["originations_q"] - 6_000_000) < 1e-6
+               and abs(lp["Small Business / C&I"]["runoff_q"] - 0.025) < 1e-12
+               and lp["Credit Card"]["call_report_line"] == "loanCreditCard")
+    check("T21a", "loan values transcribed with stated conversions", ok_vals)
+    r = run_v2(cfg)
+    deps = {p["name"]: p for p in r["products"] if p["family"] == "deposit"}
+    worst = 0.0
+    for name, target in tg.items():
+        got = [b * 1000 for b in deps[name]["bal"][1:13]]
+        worst = max(worst, max(abs(x - y) for x, y in zip(got, target)))
+    check("T21b", "all deposit paths reproduce the source recursion (house tol $1k)",
+          worst < 1000.0, f"worst ${worst:.2f}")
+    check("T21c", "conversion notes travel in the config",
+          bool(cfg.get("conversion_notes")) and any("maturity" in n for n in cfg["conversion_notes"]))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

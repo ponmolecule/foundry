@@ -283,7 +283,7 @@ function refCell(key){
 
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
-  const r = await fetch("/api/v2/template").catch(()=>null);
+  const r = await fetch(window.V31 ? "/api/v31/template" : "/api/v2/template").catch(()=>null);
   cfg = (r && r.ok) ? await r.json() : TEMPLATE;
   cfg.proposed_bank = "De Novo Bank";
   cfg.client_legal_name = "De Novo Bank";
