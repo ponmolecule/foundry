@@ -251,9 +251,27 @@ def t19():
           two <= 40 and four <= 70, f"two={two}, four={four}")
 
 
+def t20():
+    print("T20 dialect bridge: chassis drivers -> workspace config, paths pinned")
+    import json as _json
+    from .bridge import bridge_solstice
+    from .v2.run_q import run_v2
+    tpl = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg, targets = bridge_solstice(copy.deepcopy(SOLSTICE), tpl)
+    r = run_v2(cfg)
+    deps = [p for p in r["products"] if p["family"] == "deposit"]
+    card = [p for p in r["products"] if p["family"] == "lending"][0]
+    dep_path = [sum(p["bal"][t + 1] for p in deps) * 1000 for t in range(12)]
+    card_path = [b * 1000 for b in card["bal"][1:13]]
+    dd = max(abs(a - b) for a, b in zip(dep_path, targets["target_deposits"]))
+    cd = max(abs(a - b) for a, b in zip(card_path, targets["target_receivables"]))
+    check("T20a", "bridged deposit path within $1k/qtr of chassis", dd < 1000, f"max ${dd:,.0f}")
+    check("T20b", "bridged card path within $1k/qtr of chassis", cd < 1000, f"max ${cd:,.0f}")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

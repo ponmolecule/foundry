@@ -127,3 +127,18 @@ appear as grayed archetype cards carrying their ontology dispositions.
 **Approved:** slim-FIW import = diff against generation state (README generation hash);
 untouched cells keep defaulted provenance, edited cells become `user`; all-or-nothing
 validation at the border (2026-07-15).
+
+
+---
+
+## 8. Dialect-bridge ruling (2026-07-15, option B — approved)
+The wizard speaks the driver dialect (chassis engine); the workspace speaks the balance
+dialect (Roman lineage). RULING: wizard-built engagements run through the chassis, and
+the computed quarterly paths are emitted as a workspace config whose per-quarter
+overrides pin the same trajectory — the workspace product card becomes the inspection
+view of what the drivers produced (provenance: derived; editable to override).
+Implementation: foundry/bridge.py; fidelity gate T20 (paths within $1k/line/quarter).
+v0 scope: funnel deposits + revolving credit (Solstice family); commercial lending
+segments next. Stated conventions: quarterly EOP = chassis month 3q; charge-off flow
+compensated in pinned originations; overhead fitted (Q1 level + CAGR) so balance paths
+are exact while income is approximate — each convention visible in the emitted config.
