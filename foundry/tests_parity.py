@@ -348,7 +348,9 @@ def main():
         miss += [x for x in need_v22 if x not in html]
         app_src2 = open("app.py", encoding="utf-8").read()
         need_v31 = ["window.V31", '"start","Start"', "renderStart", "openEngagement",
-                    "/api/v31/engagements", "Saved engagements"]
+                    "/api/v31/engagements", "Saved engagements",
+                    "Enter directly in the app", "Fill outside the app, then upload",
+                    "Two ways in, one configuration"]
         miss += [x for x in need_v31 if x not in html]
         for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
             if tok not in app_src2:

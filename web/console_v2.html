@@ -1207,26 +1207,26 @@ function renderStart(){
   const el = document.getElementById("content");
   const snapshotMode = !!window.SNAPSHOT;
   let h = '<div class="h2" style="font-weight:700">Start</div>';
-  h += '<div class="memo" style="margin:0 0 18px">One engine, one canonical configuration, three doors in. Pick up a saved engagement, load a golden case, upload a configuration \u2014 or start a new engagement and let the wizard ask only what resolvers and peers cannot answer.</div>';
-  h += '<div class="ovcards">'
-    + '<div class="ovcard" style="border-color:#DFA85A"><div class="k">Bring your plan</div><div class="v" style="font-size:1rem">Client forecast in</div><div class="s">the client\u2019s own workbook or forecast, translated and completed \u2014 the thesis. Scripted for the demo; mapping UI lands Aug 11</div></div>'
-    + '<div class="ovcard"><div class="k">Start from a conversation</div><div class="v" style="font-size:1rem">Wizard</div><div class="s">for the practitioner in the room: identity + strategy typed (\u226430 values), behavior defaulted with citations \u2014 step 3</div></div>'
-    + '<div class="ovcard"><div class="k">Prefer a workbook?</div><div class="v" style="font-size:1rem">Generated FIW</div><div class="s">per-engagement Excel, CONTROL/ASSM shape, pre-filled \u2014 only the fields your archetypes need \u2014 step 4</div></div>'
-    + '</div>';
-  if(!snapshotMode){
-    if(V31){
-    h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
-    document.getElementById("content").innerHTML = h; return;
-  }
-  h += '<div class="ovh3">Configuration as document</div>';
-    h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
-      + '<button class="btn-plain" onclick="downloadScenario()">Download configuration</button>'
-      + '<button class="btn-plain" onclick="document.getElementById(\'upJson31\').click()">Upload configuration\u2026</button>'
-      + '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">'
-      + '<button class="btn-plain" onclick="downloadWorkbook()">Download config workbook</button>'
+  h += '<div class="memo" style="margin:0 0 16px">Two ways in, one configuration. Both paths capture the identical field set \u2014 the schema cannot even record which door a value came through \u2014 so the choice is purely where you prefer to work. Validation differs only in timing: in-app entry checks as you type; workbook entry checks at upload.</div>';
+  h += '<div class="ovcards" style="grid-template-columns:1fr 1fr">'
+    + '<div class="ovcard"><div class="k">Enter directly in the app</div><div class="v" style="font-size:1rem">Type here, see results instantly</div>'
+    + '<div class="s">Work the assumptions in the workspace \u2014 every edit recomputes through the engine. A guided setup (identity \u2192 capital \u2192 products, under 30 typed values; the rest defaulted with citations) is the next build increment.</div>'
+    + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-plain" onclick="setTab(\'config\')">Open the workspace</button></div>')
+    + '</div>'
+    + '<div class="ovcard"><div class="k">Fill outside the app, then upload</div><div class="v" style="font-size:1rem">Take a workbook to your desk</div>'
+    + '<div class="s">Download the input workbook, complete it in Excel, upload it back \u2014 the import validates fail-closed and lists open questions instead of guessing. A slimmer per-engagement workbook (only the sheets your products need, pre-filled for review) follows the guided setup.</div>'
+    + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
+      + '<button class="btn-plain" onclick="downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
-      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)">'
-      + '</div></div>';
+      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)"></div>')
+    + '</div>'
+    + '</div>';
+  h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 mapped into the configuration with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork. Mapping session: a later increment; available scripted today.</div></div>';
+  if(!snapshotMode){
+    h += '<div class="memo" style="margin:0 0 14px">Configuration as a file: '
+      + '<a href="#" style="color:#DFA85A" onclick="downloadScenario();return false">download JSON</a> \u00b7 '
+      + '<a href="#" style="color:#DFA85A" onclick="document.getElementById(\'upJson31\').click();return false">upload JSON</a>'
+      + '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div>';
   }
   h += '<div class="ovh3">Saved engagements</div>';
   if(snapshotMode){
@@ -1245,7 +1245,7 @@ function renderStart(){
     h += '</table>';
   }
   h += '<div class="ovh3">Golden cases</div>';
-  h += '<div class="memo">The frozen reference banks. Workspace goldens load here; chassis goldens (Solstice, Blackland, Prairie, Icarus) run on the Console \u2014 ribbon link \u2014 until the unified results view ships. The wizard\u2019s correctness gate is rebuilding them from human-shaped input to identical hashes.</div>';
+  h += '<div class="memo">The frozen reference banks. Both entry paths carry the same correctness obligation: a golden bank entered through either door must reproduce its exact hash \u2014 the gate that proves the doors are skins over one schema.</div>';
   el.innerHTML = h;
 }
 function renderConfigTab(){
