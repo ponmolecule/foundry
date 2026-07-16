@@ -67,8 +67,8 @@ def bridge_solstice(chassis_cfg, template_cfg):
 
     # opening = end of Q1; pinned growth reproduces Q2..Q12 (Q1 -> flat entry)
     t["deposit_products"] = [
-        dep("Checking (bridged)", "RCON: transaction accounts", qc, a["checking_rate"]),
-        dep("Savings (bridged)", "RCON: savings", qs, a["savings_rate"]),
+        dep("Checking (bridged)", "depDDA", qc, a["checking_rate"]),
+        dep("Savings (bridged)", "depSavings", qs, a["savings_rate"]),
     ]
 
     qint = _q_sum(interchange)
@@ -83,7 +83,7 @@ def bridge_solstice(chassis_cfg, template_cfg):
         co = qr[tq - 2] * co_ann / 4.0
         orig_ov[str(tq)] = (qr[tq - 1] - qr[tq - 2]) + co
 
-    card = {"name": "Credit Cards (bridged)", "call_report_line": "Loans: Credit Card",
+    card = {"name": "Credit Cards (bridged)", "call_report_line": "loanCreditCard",
             "family": "lending", "opening_balance": qr[0], "originations_q": 0.0,
             "orig_growth_q": 0.0, "runoff_q": 0.0, "yield_ann": a["card_yield"],
             "rate_type": "fixed", "charge_off_ann": a["card_nco_mature"],
