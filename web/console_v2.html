@@ -863,7 +863,8 @@ function substratePanelHtml(){
   if(subStatus === null){
     h += '<div class="memo">Substrate link not yet checked. <a href="#" style="color:#8a6d3b" onclick="subCheck();return false">Check now</a>.</div>';
   } else if(!subStatus.configured){
-    h += '<div class="memo">Not configured on this instance \u2014 set <span style="font-family:var(--mono)">CHARTERIQ_DATABASE_URL</span> (read-only credentials) to draw peer percentiles and retrodiction history from the curated Call Report substrate. No substrate, no numbers: nothing on this panel is ever simulated.</div>';
+    h += '<div class="memo">Not configured on this instance \u2014 set <span style="font-family:var(--mono)">CHARTERIQ_DATABASE_URL</span> (read-only credentials) to draw peer percentiles and retrodiction history from the curated Call Report substrate. No substrate, no numbers: nothing on this panel is ever simulated.</div>'
+      + '<div class="memo" style="font-size:11px">Running locally? Set it in the same PowerShell session before launching:<br><span style="font-family:var(--mono)">$env:CHARTERIQ_DATABASE_URL = "postgresql://foundry_ro:\u2026"</span><br><span style="font-family:var(--mono)">uvicorn app:app --port 8010</span><br>On Railway it lives in the service\u2019s Variables tab and applies automatically.</div>';
   } else if(!subStatus.reachable){
     h += `<div class="warnitem">Configured but unreachable: ${esc(subStatus.error||"")}</div>`;
   } else {
@@ -919,6 +920,15 @@ function retroSectionHtml(){
 function renderPeer(){
   const r = lastRes, el = document.getElementById("content");
   let h = '<div class="h2" style="font-weight:700">Peer Cohort</div>';
+  if(V31){
+    // Ruling (2026-07-16): no synthetic data. The chassis-era synthetic peer
+    // engine is retired from this rung; everything on this page draws from the
+    // CharterIQ substrate (real filed data) or the user's own uploads.
+    h += '<div class="memo">Everything on this page is real or absent \u2014 peer evidence comes from the CharterIQ Call Report substrate, retrodiction from filed history. Nothing here is simulated.</div>';
+    h += substratePanelHtml();
+    h += retroSectionHtml();
+    el.innerHTML = h; return;
+  }
   if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
