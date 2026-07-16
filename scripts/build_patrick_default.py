@@ -33,7 +33,7 @@ LOANS = [  # (name, row0, call_report_line key)
     ("Credit Card", 13, "loanCreditCard"),
     ("Small Business / C&I", 19, "loanCommercial"),
     ("Residential Mortgage", 25, "loanMortgage"),
-    ("Commercial Real Estate", 31, "loanOther"),
+    ("Commercial Real Estate", 31, "loanCRE"),
 ]
 DEPOSITS = [  # (name, row0, line key)
     ("Retail Demand", 38, "depDDA"),

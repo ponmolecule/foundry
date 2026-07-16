@@ -325,7 +325,7 @@
    },
    {
     "name": "Commercial Real Estate",
-    "call_report_line": "loanOther",
+    "call_report_line": "loanCRE",
     "opening_balance": 0.0,
     "originations_q": 6000000.0,
     "orig_growth_q": 0.0,

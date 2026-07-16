@@ -67,6 +67,7 @@ LINE_CODES = {
     "loanCommercial": ("RC-C", "4",  "RCON1766", "Commercial and industrial"),
     "Loans: Commercial & Industrial": ("RC-C", "4", "RCON1766", "Commercial and industrial"),
     "Loans: Commercial Real Estate": ("RC-C", "1.e", "RCONF160/F161", "CRE (nonfarm nonresidential)"),
+    "loanCRE": ("RC-C", "1.e", "RCONF160/F161", "CRE (nonfarm nonresidential)"),
     "loanConsumer": ("RC-C", "6.c/6.d", "RCONK137/K207", "Other consumer"),
     "Loans: Consumer": ("RC-C", "6.c/6.d", "RCONK137/K207", "Other consumer"),
     "loanCreditCard": ("RC-C", "6.a", "RCONB538", "Credit cards"),
