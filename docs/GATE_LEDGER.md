@@ -108,3 +108,9 @@
 - **T28b** — unmapped required slot (deposit rate) becomes a phrased question
 - **T28c** — the log is deterministic (stable hash)
 - **T28d** — doctrine rides in the artifact itself
+
+## T29 Icarus at entry: blockers stop nonsense; optimism enters WITH warnings
+- **T29a** — Icarus's mispriced savings (1.25% vs baseline 2.5%) enters WITH a warning
+- **T29b** — Icarus's optimistic card losses (1.9% vs baseline 4%) warned by name
+- **T29c** — arithmetic self-destruction and negative runoff are BLOCKERS
+- **T29d** — the clean golden passes the screen silently

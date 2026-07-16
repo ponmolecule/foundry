@@ -191,6 +191,12 @@ async def v31_fiw_import(file: UploadFile = File(...), current: str = Form("{}")
         validate_config_v2(merged)
     except (ValueError, ConfigErrorV2) as e:
         return JSONResponse({"error": str(e)}, status_code=422)
+    from foundry.entry_screen import entry_screen
+    screen = entry_screen(merged)
+    if screen["blockers"]:
+        return JSONResponse({"error": "entry screen refused the workbook:\n- "
+                              + "\n- ".join(screen["blockers"])}, status_code=422)
+    report["warnings"] = screen["warnings"]
     return JSONResponse({"cfg": merged, "report": report})
 
 
@@ -220,9 +226,16 @@ def v31_modet_finalize(body: dict, _=Depends(gate)):
         return JSONResponse({"error": "source inventory not found on this workspace — "
                               "re-upload the file through the recon step"}, status_code=422)
     try:
-        return JSONResponse(finalize(sess, inv, cur))
+        out = finalize(sess, inv, cur)
     except (ValueError, KeyError) as e:
         return JSONResponse({"error": str(e)}, status_code=422)
+    from foundry.entry_screen import entry_screen
+    screen = entry_screen(out["cfg"])
+    if screen["blockers"]:
+        return JSONResponse({"error": "entry screen refused the translation:\n- "
+                              + "\n- ".join(screen["blockers"])}, status_code=422)
+    out["warnings"] = screen["warnings"]
+    return JSONResponse(out)
 
 
 @app.get("/api/v31/fieldlib")

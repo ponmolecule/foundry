@@ -350,7 +350,7 @@ def main():
         need_v31 = ["window.V31", '"start","Start"', "renderStart", "openEngagement",
                     "/api/v31/engagements", "Saved engagements",
                     "Enter directly in the app", "Fill outside the app, then upload",
-                    "Two ways in, one model", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "mtUpload", "mtRender", "mtFinalize", "Day-1 arithmetic", "REGULATOR_OF"]
+                    "Two ways in, one model", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "mtUpload", "mtRender", "mtFinalize", "Entry screen", "Day-1 arithmetic", "REGULATOR_OF"]
         miss += [x for x in need_v31 if x not in html]
         for tok in ['"/v3.1"', '"/api/v31/engagement/{slug}"', '"/api/v31/fieldlib"', '"/api/v31/template"', '"/api/v31/fiw"', '"/api/v31/fiw/import"', '"/api/v31/modet/recon"', '"/api/v31/modet/finalize"', '"/v3"', '"/v2.2"', 'docs_url=None', '"/api/v2/freeze"', '"/api/v2/verify/{entry_id}"']:
             if tok not in app_src2:

@@ -1523,8 +1523,9 @@ async function uploadFIW(inp){
   if(!r.ok){ alert("Import refused (fail-closed):\n" + (j.error||r.status)); return; }
   cfg = j.cfg;
   const n = j.report.edit_count;
+  const warn = (j.report.warnings||[]).length ? "\n\nEntry-screen warnings:\n- " + j.report.warnings.join("\n- ") : "";
   const lines = j.report.edits.slice(0,8).map(e=>`\u2022 ${e.key}: ${e.from} \u2192 ${e.to}`).join("\n");
-  alert(n ? `Imported ${n} edit${n===1?"":"s"} from the workbook (untouched cells kept their values):\n${lines}${n>8?"\n\u2026":""}` : "No edits detected \u2014 the workbook matches its generation state; nothing changed.");
+  alert((n ? `Imported ${n} edit${n===1?"":"s"} from the workbook (untouched cells kept their values):\n${lines}${n>8?"\n\u2026":""}` : "No edits detected \u2014 the workbook matches its generation state; nothing changed.") + warn);
   document.getElementById("scenarioName").value = cfg.scenario_name || "";
   syncModules(); renderGlobals(); renderContent(); refresh();
 }
@@ -1588,6 +1589,8 @@ async function wizFinish(){
   const hasDep = Object.keys(wiz.picks).some(k=>k.startsWith("Deposits|") && wiz.picks[k]);
   if(!wiz.name.trim()){ alert("Name the institution first."); return; }
   if(!hasDep){ alert("Select at least one deposit product \u2014 a de novo funds before it lends."); return; }
+  if(wiz.initial_capital <= 0 || wiz.org_costs >= wiz.initial_capital){
+    alert("Entry screen: organizational costs meet or exceed the raise \u2014 Day-1 equity would be zero or negative. Fix the capital screen before creating the engagement."); return; }
   cfg.proposed_bank = wiz.name; cfg.client_legal_name = wiz.name + " (in organization)";
   cfg.hq = wiz.state || "TBD";
   cfg.scenario_name = wiz.name + " \u2014 engagement baseline";

@@ -569,9 +569,43 @@ def t28():
           any("interpolation" in d for d in log["doctrine"]))
 
 
+def t29():
+    print("T29 Icarus at entry: blockers stop nonsense; optimism enters WITH warnings")
+    import json as _json
+    from .entry_screen import entry_screen
+    cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    a = cfg["assumptions"]
+    a["deposit_products"] = [{"name": "MMDA / Savings", "call_report_line": "depSavings",
+        "opening_balance": 1e6, "growth_q": 0.05, "runoff_q": 0.0, "rate_type": "fixed",
+        "rate_paid_ann": 0.0125, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+    a["lending_products"] = [{"name": "Credit Card", "call_report_line": "loanCreditCard",
+        "opening_balance": 0, "originations_q": 1e6, "orig_growth_q": 0, "runoff_q": 0,
+        "rate_type": "fixed", "yield_ann": 0.18, "charge_off_ann": 0.019,
+        "provision_rate_ann": None, "reserve_rate_pct_bal": 0.03, "measurement": "amortized",
+        "fee_yield_ann": 0, "opex_pct_ann": 0, "opex_fixed_m": 0}]
+    sc = entry_screen(cfg)
+    check("T29a", "Icarus's mispriced savings (1.25% vs baseline 2.5%) enters WITH a warning",
+          not sc["blockers"] and any("MMDA" in w and "1.25%" in w for w in sc["warnings"]),
+          (sc["warnings"] or ["-"])[0][:80])
+    check("T29b", "Icarus's optimistic card losses (1.9% vs baseline 4%) warned by name",
+          any("Credit Card" in w and "optimism" in w for w in sc["warnings"]))
+    bad = _json.loads(_json.dumps(cfg))
+    bad["target_state"]["initial_capital"] = 2_000_000
+    bad["assumptions"]["org_costs_pre_open"] = 2_500_000
+    bad["assumptions"]["deposit_products"][0]["runoff_q"] = -0.2
+    sc2 = entry_screen(bad)
+    check("T29c", "arithmetic self-destruction and negative runoff are BLOCKERS",
+          len(sc2["blockers"]) == 2 and any("Day-1" in b for b in sc2["blockers"])
+          and any("mints balances" in b or "outside" in b for b in sc2["blockers"]))
+    clean = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    sc3 = entry_screen(clean)
+    check("T29d", "the clean golden passes the screen silently",
+          not sc3["blockers"] and not sc3["warnings"])
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
