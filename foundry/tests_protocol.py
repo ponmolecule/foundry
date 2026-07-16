@@ -346,9 +346,65 @@ def t22():
           "ASSM_LOANS" in wb2.sheetnames and not any("mortgage_banking" in (k or "") for k in keys2))
 
 
+def t23():
+    print("T23 FIW diff-import: only human edits apply; facts ignored; fail-closed")
+    import io as _io
+    import os as _os
+    import json as _json
+    import tempfile
+    from openpyxl import load_workbook as _lw
+    from .v2 import fiw as F
+    old_env = _os.environ.get("FOUNDRY_DATA_DIR")
+    tmp = tempfile.mkdtemp()
+    _os.environ["FOUNDRY_DATA_DIR"] = tmp
+    try:
+        cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+        cfg["assumptions"]["deposit_products"] = [{"name": "Retail Demand", "call_report_line": "depDDA",
+            "opening_balance": 8_930_000, "growth_q": 0.24, "runoff_q": 0.0, "rate_type": "fixed",
+            "rate_paid_ann": 0.005, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+        cfg["step_0"]["modules"] = ["balance_driven_deposits"]
+        data, gh = F.build_fiw(cfg)
+        F.persist_snapshot(cfg, gh)
+        wb = _lw(_io.BytesIO(data))
+        ws = wb["ASSM_DEPOSITS"]
+        for r in ws.iter_rows(min_row=2):
+            if r[0].value == "deposit.0.rate_paid_ann":
+                r[3].value = 0.0125          # human edit
+            if r[0].value == "deposit.0.call_report_line":
+                r[3].value = "Loans: Other"  # vandalized FACT — must be ignored
+        buf = _io.BytesIO(); wb.save(buf)
+        # in-app edit made AFTER generation must survive (workbook cell untouched)
+        current = _json.loads(_json.dumps(cfg))
+        current["assumptions"]["deposit_products"][0]["growth_q"] = 0.30
+        merged, rep = F.diff_import(buf.getvalue(), current)
+        d = merged["assumptions"]["deposit_products"][0]
+        check("T23a", "the one human edit applied", abs(d["rate_paid_ann"] - 0.0125) < 1e-12)
+        check("T23b", "untouched workbook cells do not clobber in-app edits since generation",
+              abs(d["growth_q"] - 0.30) < 1e-12)
+        check("T23c", "fact rows are ignored even when vandalized",
+              d["call_report_line"] == "depDDA")
+        check("T23d", "edit report names exactly the human change",
+              rep["edit_count"] == 1 and rep["edits"][0]["key"] == "deposit.0.rate_paid_ann")
+        try:
+            wb2 = _lw(_io.BytesIO(data))
+            for r in wb2["README"].iter_rows():
+                if r[0].value == "Generation hash":
+                    r[1].value = "abcdef000000"
+            b2 = _io.BytesIO(); wb2.save(b2)
+            F.diff_import(b2.getvalue(), current); failed = False
+        except ValueError:
+            failed = True
+        check("T23e", "unknown generation state fails closed", failed)
+    finally:
+        if old_env is None:
+            _os.environ.pop("FOUNDRY_DATA_DIR", None)
+        else:
+            _os.environ["FOUNDRY_DATA_DIR"] = old_env
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

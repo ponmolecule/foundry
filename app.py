@@ -10,7 +10,7 @@ No real client data behind this gate. Ever.
 Deploy: uvicorn app:app --host 0.0.0.0 --port $PORT
 """
 import os, secrets, json
-from fastapi import Request, FastAPI, HTTPException, Depends, UploadFile, File
+from fastapi import Request, FastAPI, HTTPException, Depends, UploadFile, File, Form
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from foundry.run import run
@@ -170,13 +170,28 @@ def v31_template(_=Depends(gate)):
 def v31_fiw(body: dict, _=Depends(gate)):
     """Per-engagement Foundry Input Workbook (INPUT_SPEC section 7)."""
     from fastapi.responses import Response
-    from foundry.v2.fiw import build_fiw
+    from foundry.v2.fiw import build_fiw, persist_snapshot
     cfg = body.get("cfg") or body
     data, gh = build_fiw(cfg)
+    persist_snapshot(cfg, gh)
     name = (cfg.get("proposed_bank") or "engagement").lower().replace(" ", "_")[:40]
     return Response(content=data,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="fiw_{name}_{gh}.xlsx"'})
+
+
+@app.post("/api/v31/fiw/import")
+async def v31_fiw_import(file: UploadFile = File(...), current: str = Form("{}"), _=Depends(gate)):
+    """Diff-import of a filled FIW: only human edits apply; fail-closed."""
+    from foundry.v2.fiw import diff_import
+    from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
+    data = await file.read()
+    try:
+        merged, report = diff_import(data, json.loads(current))
+        validate_config_v2(merged)
+    except (ValueError, ConfigErrorV2) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    return JSONResponse({"cfg": merged, "report": report})
 
 
 @app.get("/api/v31/fieldlib")

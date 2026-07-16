@@ -1419,6 +1419,22 @@ async function downloadFIW(){
   aEl.click(); URL.revokeObjectURL(aEl.href);
 }
 window.downloadFIW = downloadFIW;
+async function uploadFIW(inp){
+  const f = inp.files[0]; if(!f) return; inp.value = "";
+  const fd = new FormData();
+  fd.append("file", f);
+  fd.append("current", JSON.stringify(cfg));
+  const r = await fetch("/api/v31/fiw/import", {method:"POST", body: fd});
+  const j = await r.json();
+  if(!r.ok){ alert("Import refused (fail-closed):\n" + (j.error||r.status)); return; }
+  cfg = j.cfg;
+  const n = j.report.edit_count;
+  const lines = j.report.edits.slice(0,8).map(e=>`\u2022 ${e.key}: ${e.from} \u2192 ${e.to}`).join("\n");
+  alert(n ? `Imported ${n} edit${n===1?"":"s"} from the workbook (untouched cells kept their values):\n${lines}${n>8?"\n\u2026":""}` : "No edits detected \u2014 the workbook matches its generation state; nothing changed.");
+  document.getElementById("scenarioName").value = cfg.scenario_name || "";
+  syncModules(); renderGlobals(); renderContent(); refresh();
+}
+window.uploadFIW = uploadFIW;
 function wizStart(){
   wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
          cblr:true, initial_capital:60000000, org_costs:2500000, picks:{}};
@@ -1540,7 +1556,7 @@ function renderStart(){
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
-      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="uploadWorkbook(this)"></div>')
+      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>')
     + '</div>'
     + '</div>';
   h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 mapped into the configuration with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork. Mapping session: a later increment; available scripted today.</div></div>';

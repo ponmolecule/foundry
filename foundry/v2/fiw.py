@@ -152,3 +152,130 @@ def build_fiw(cfg):
     buf = io.BytesIO()
     wb.save(buf)
     return buf.getvalue(), gh
+
+
+# ---------------------------------------------------------------- snapshots
+import os
+
+
+def _snap_dir():
+    base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
+    d = os.path.join(base, "fiw")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def persist_snapshot(cfg, gh):
+    with open(os.path.join(_snap_dir(), gh + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh)
+
+
+def load_snapshot(gh):
+    p = os.path.join(_snap_dir(), gh + ".json")
+    if not os.path.exists(p):
+        return None
+    return json.load(open(p, encoding="utf-8"))
+
+
+# ---------------------------------------------------------------- diff import
+CONTROL_PATHS = {
+    "Institution": ("proposed_bank",),
+    "Legal name": ("client_legal_name",),
+    "Home state / market": ("hq",),
+    "Charter type": ("charter_profile", "charter_type"),
+    "Target opening": ("charter_profile", "target_opening"),
+    "Pre-opening period (months)": ("charter_profile", "pre_open_months"),
+    "CBLR election": ("charter_profile", "cblr_election"),
+    "Initial capital ($)": ("target_state", "initial_capital"),
+    "Pre-opening organizational costs ($)": ("assumptions", "org_costs_pre_open"),
+    "Scenario name": ("scenario_name",),
+}
+FAM_ARR = {"lending": "lending_products", "deposit": "deposit_products"}
+
+
+def _get(cfg, path):
+    o = cfg
+    for k in path:
+        if o is None:
+            return None
+        o = o.get(k) if isinstance(o, dict) else None
+    return o
+
+
+def _set(cfg, path, val):
+    o = cfg
+    for k in path[:-1]:
+        o = o.setdefault(k, {})
+    o[path[-1]] = val
+
+
+def diff_import(data, current_cfg):
+    """Filled FIW -> (merged cfg, edits report). Fail-closed on unknown
+    generation state; only cells that DIFFER from the snapshot are applied,
+    so untouched defaults keep their provenance and in-app edits made since
+    generation survive unless the workbook explicitly changed that cell."""
+    from openpyxl import load_workbook
+    wb = load_workbook(io.BytesIO(data), data_only=True)
+    if "README" not in wb.sheetnames:
+        raise ValueError("not a Foundry Input Workbook (no README sheet)")
+    gh = None
+    for r in wb["README"].iter_rows():
+        if r[0].value == "Generation hash":
+            gh = r[1].value
+    if not gh:
+        raise ValueError("no generation hash on README — cannot diff-import")
+    snap = load_snapshot(str(gh))
+    if snap is None:
+        raise ValueError(f"generation state {gh} not found on this workspace — "
+                          "the workbook was generated elsewhere or the data volume was cleared")
+    merged = json.loads(json.dumps(current_cfg))
+    edits = []
+
+    if "CONTROL" in wb.sheetnames:
+        for r in wb["CONTROL"].iter_rows(min_row=2):
+            label, val = r[0].value, r[1].value
+            path = CONTROL_PATHS.get(label)
+            if not path:
+                continue
+            old = _get(snap, path)
+            if label == "CBLR election":
+                val = str(val).strip().lower() in ("yes", "y", "true", "1")
+                if bool(val) == bool(old):
+                    continue
+            if val != old and not (val in ("", None) and old in ("", None)):
+                edits.append({"key": ".".join(str(x) for x in path), "from": old, "to": val})
+                _set(merged, path, val)
+
+    for sheet, fam in (("ASSM_LOANS", "lending"), ("ASSM_DEPOSITS", "deposit")):
+        if sheet not in wb.sheetnames:
+            continue
+        for r in wb[sheet].iter_rows(min_row=2):
+            key, val, units = r[0].value, r[3].value, (r[4].value or "")
+            if not key or "fact" in str(units):
+                continue
+            _, idx, field = key.split(".", 2)
+            idx = int(idx)
+            arr = snap["assumptions"].get(FAM_ARR[fam], [])
+            if idx >= len(arr):
+                continue
+            if "." in field:
+                a, b = field.split(".", 1)
+                old = (arr[idx].get(a) or {}).get(b)
+            else:
+                old = arr[idx].get(field)
+            newv = None if val in ("", None) else (float(val) if isinstance(val, (int, float)) else val)
+            if isinstance(old, (int, float)) and isinstance(newv, (int, float)):
+                changed = abs(float(old) - float(newv)) > 1e-12
+            else:
+                changed = (old or None) != (newv or None)
+            if changed:
+                tgt = merged["assumptions"].setdefault(FAM_ARR[fam], [])
+                if idx >= len(tgt):
+                    continue
+                if "." in field:
+                    a, b = field.split(".", 1)
+                    tgt[idx].setdefault(a, {})[b] = newv
+                else:
+                    tgt[idx][field] = newv
+                edits.append({"key": f"{fam}.{idx}.{field}", "from": old, "to": newv})
+    return merged, {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits)}
