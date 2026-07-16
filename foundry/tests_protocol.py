@@ -538,9 +538,40 @@ def t27():
           h(agg1) == h(agg2), f"{h(agg1)} vs {h(agg2)}")
 
 
+def t28():
+    print("T28 stage T-5: translation log first-class; gaps become questions")
+    import json as _json
+    from .modet import ingest, recon
+    from . import modet_map as M
+    csvp = "foundry/fixtures/modet/prairie_style_unit_economics.csv"
+    inv = ingest(open(csvp, "rb").read(), csvp)
+    rep = recon(inv)
+    cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    cfg["assumptions"]["deposit_products"] = [{"name": "Digital Deposits", "call_report_line": "depDDA",
+        "opening_balance": None, "growth_q": 0.0, "runoff_q": 0.0, "rate_type": "fixed",
+        "rate_paid_ann": None, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+    cfg["step_0"]["modules"] = ["balance_driven_deposits"]
+    sess = M.new_session(rep, cfg)
+    M.assign(sess, {"sheet": "(csv)", "row": 4, "label": "Deposit balance"},
+              "deposit.0.balance_path", converter="series_pin",
+              declared={"cadence": "monthly", "units": "dollars"})
+    out = M.finalize(sess, inv, cfg, rep)
+    log, qs = out["translation_log"], out["gap_questions"]
+    check("T28a", "log carries the source recon hash and one row per assignment",
+          log["source_report_hash"] == rep["report_hash"] and len(log["rows"]) == 1)
+    check("T28b", "unmapped required slot (deposit rate) becomes a phrased question",
+          any("Digital Deposits" in q and "rate paid" in q and q.endswith("authority?") for q in qs),
+          qs[0] if qs else "(none)")
+    out2 = M.finalize(sess, inv, cfg, rep)
+    check("T28c", "the log is deterministic (stable hash)",
+          log["log_hash"] == out2["translation_log"]["log_hash"])
+    check("T28d", "doctrine rides in the artifact itself",
+          any("interpolation" in d for d in log["doctrine"]))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

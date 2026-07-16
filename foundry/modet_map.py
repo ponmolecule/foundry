@@ -139,3 +139,50 @@ def apply_session(session, inventory, cfg):
                         "conversion": asg["converter"], "provenance": "user"})
     gaps = [s for s in slots_for(merged) if s["required"] and not s["filled"]]
     return merged, log, gaps
+
+
+# ---- stage T-5: finalize — the translation log as a first-class artifact ----
+FRIENDLY = {
+    "opening_balance": "opening balance", "growth_q": "quarterly balance growth",
+    "runoff_q": "quarterly runoff", "rate_paid_ann": "rate paid on balances",
+    "yield_ann": "average yield", "charge_off_ann": "net charge-off rate",
+    "reserve_rate_pct_bal": "ALLL reserve rate", "fee_yield_ann": "fee yield",
+    "originations_q": "quarterly originations", "provision_rate_ann": "provision rate",
+    "assumptions.tax_rate": "the tax rate",
+    "assumptions.securities_yield": "the securities portfolio yield",
+    "assumptions.cash_yield": "the yield on cash balances",
+    "assumptions.borrow_rate_ann": "the borrowing rate",
+}
+
+
+def _gap_question(slot_entry, cfg):
+    slot = slot_entry["slot"]
+    if slot.startswith("assumptions."):
+        return f"Nothing in the materials specifies {FRIENDLY.get(slot, slot)} — what should the model assume, and on whose authority?"
+    fam, idx, field = slot.split(".", 2)
+    arr = cfg["assumptions"]["lending_products" if fam == "lending" else "deposit_products"]
+    name = arr[int(idx)].get("name", f"{fam} product {idx}")
+    return (f"For {name}, the materials do not specify {FRIENDLY.get(field, field)} — "
+            f"what should the model assume, and on whose authority?")
+
+
+def finalize(session, inventory, cfg, recon_report=None):
+    """Stage T-5: apply the session and emit the deliverable trio —
+    merged config, translation log (first-class, deterministic), and gap
+    questions phrased for the completion conversation."""
+    import hashlib
+    merged, rows, gaps = apply_session(session, inventory, cfg)
+    log = {
+        "artifact": "translation_log",
+        "source_report_hash": session.get("source_hash"),
+        "assignments": len(session["assignments"]),
+        "rows": rows,
+        "unmapped_required": [g["slot"] for g in gaps],
+        "doctrine": ["every mapping human-confirmed (provenance: user)",
+                      "no unit or cadence was guessed anywhere upstream",
+                      "absent information became the questions below, not interpolation"],
+    }
+    log["log_hash"] = hashlib.sha256(
+        json.dumps(log, sort_keys=True, default=str).encode()).hexdigest()[:12]
+    questions = [_gap_question(g, merged) for g in gaps]
+    return {"cfg": merged, "translation_log": log, "gap_questions": questions}

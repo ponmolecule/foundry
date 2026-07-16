@@ -102,3 +102,9 @@
 - **T27d** — interest income reproduced (pinned yields)
 - **T27e** — charge-offs reproduced (pinned CO rates, compensated originations)
 - **T27f** — statement-series hash equality (the doc's metamorphic test, made precise)
+
+## T28 stage T-5: translation log first-class; gaps become questions
+- **T28a** — log carries the source recon hash and one row per assignment
+- **T28b** — unmapped required slot (deposit rate) becomes a phrased question
+- **T28c** — the log is deterministic (stable hash)
+- **T28d** — doctrine rides in the artifact itself
