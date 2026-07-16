@@ -134,7 +134,10 @@ def build_fiw(cfg):
         ("Initial capital ($)", (cfg.get("target_state") or {}).get("initial_capital", ""), "", True),
         ("Pre-opening organizational costs ($)", a.get("org_costs_pre_open", ""), "", True),
         ("Scenario name", cfg.get("scenario_name", ""), "", True),
-    ])
+    ] + [(f"Staged raise {i+1} — quarter", r.get("quarter", ""), "1..12", True)
+          for i, r in enumerate(a.get("capital_raises") or [])]
+      + [(f"Staged raise {i+1} — amount ($)", r.get("amount", ""), "", True)
+          for i, r in enumerate(a.get("capital_raises") or [])])
 
     if a.get("lending_products"):
         _family_sheet(wb.create_sheet("ASSM_LOANS"), "lending", a["lending_products"], LOAN_FIELDS + MB_FIELDS)
@@ -190,6 +193,13 @@ CONTROL_PATHS = {
     "Pre-opening organizational costs ($)": ("assumptions", "org_costs_pre_open"),
     "Scenario name": ("scenario_name",),
 }
+import re as _re
+_RAISE_ROW = _re.compile(r"^Staged raise (\d+) \u2014 (quarter|amount)", 0)
+
+
+def _raise_row_match(label):
+    m = _re.match(r"^Staged raise (\d+) — (quarter|amount)", str(label))
+    return (int(m.group(1)) - 1, m.group(2)) if m else None
 FAM_ARR = {"lending": "lending_products", "deposit": "deposit_products"}
 
 
@@ -234,6 +244,21 @@ def diff_import(data, current_cfg):
     if "CONTROL" in wb.sheetnames:
         for r in wb["CONTROL"].iter_rows(min_row=2):
             label, val = r[0].value, r[1].value
+            rr = _raise_row_match(label)
+            if rr is not None:
+                idx, field = rr
+                arr = (snap["assumptions"].get("capital_raises") or [])
+                old_v = arr[idx].get(field) if idx < len(arr) else None
+                new_v = int(val) if field == "quarter" and val not in ("", None) else (
+                          float(val) if val not in ("", None) else None)
+                if new_v != old_v and new_v is not None:
+                    tgt = merged["assumptions"].setdefault("capital_raises", [])
+                    while len(tgt) <= idx:
+                        tgt.append({"quarter": 1, "amount": 0})
+                    tgt[idx][field] = new_v
+                    edits.append({"key": f"capital_raises.{idx}.{field}",
+                                   "from": old_v, "to": new_v})
+                continue
             path = CONTROL_PATHS.get(label)
             if not path:
                 continue

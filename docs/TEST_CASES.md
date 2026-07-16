@@ -190,3 +190,28 @@ Sheet equity steps at that quarter by the amount (plus a small earnings kicker i
 later quarters); Capital & Ratios leverage jumps the same quarter; delete the row
 and everything returns exactly. Impossible raises (quarter 13, negative amounts)
 are refused with plain messages.
+
+## 16. Modeled capital placed against real peers — capital family only, coarse on purpose
+**Decided:** Once the substrate is connected, the Peer Cohort panel gains a "Place
+modeled capital vs real peers" button: the modeled bank's Q12 leverage ratio is
+placed against your database's real percentile rows (tier 1 and CET1), in the
+asset band derived from the MODELED Q12 total assets, at the latest covered
+quarter (2025 Q4). Placement is deliberately coarse — six buckets from "below
+p10" to "above p90," no invented decimal percentiles. Each row carries three
+honesty labels verbatim: that modeled leverage vs peer tier-1 are related-but-
+not-identical measures (an anchor, not a filing figure); your item-level-vs-
+legacy accuracy label; and your "approximate until refreshed" percentile caveat.
+Capital family only, per your preferential-use instruction — no other metric
+family renders here until its migration lands.
+**Check (after deployment + substrate variable):** run any bank → Peer Cohort →
+substrate panel → the button → a percentile table with placement tags and the
+caveats under each row. Without the substrate configured, the button doesn't
+exist and the endpoint refuses.
+
+## 17. The Excel workbook now carries staged raises, both directions
+**Decided:** Generated input workbooks include a "Staged raise N — quarter/amount"
+row pair per raise on the CONTROL sheet; editing one in Excel and re-uploading
+applies exactly that edit (gate-proven: one edit reported, the amount lands, the
+untouched quarter survives).
+**Check:** Add a raise in the sidebar → download the workbook → the raise rows
+appear; change the amount in Excel → upload → summary reports exactly one edit.

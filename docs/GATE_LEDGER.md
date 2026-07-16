@@ -144,3 +144,9 @@
 
 ## T34 staged capital raises: additive, exact, waterfall-absorbed, both engines
 - **T34d** — validator rejects quarter 13 and negative amounts
+
+## T35 peer placement + FIW raises round-trip
+- **T35a** — asset band derivation at the fenceposts
+- **T35b** — placement phrasing is coarse and correct
+- **T35c** — FIW CONTROL carries the staged raise rows
+- **T35d** — editing a raise in Excel round-trips as exactly one edit

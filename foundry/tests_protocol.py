@@ -807,9 +807,52 @@ def t34():
           any("1..12" in m for m in msgs) and any("positive" in m for m in msgs))
 
 
+def t35():
+    print("T35 peer placement + FIW raises round-trip")
+    from .charteriq_client import band_for_assets_mm, placement
+    check("T35a", "asset band derivation at the fenceposts",
+          band_for_assets_mm(199) == "under_200M" and band_for_assets_mm(200) == "200M_500M"
+          and band_for_assets_mm(1999) == "500M_2B" and band_for_assets_mm(60000) == "over_50B")
+    row = {"p10": 7.0, "p25": 8.5, "p50": 10.0, "p75": 12.0, "p90": 14.5}
+    check("T35b", "placement phrasing is coarse and correct",
+          placement(6.0, row) == "below p10" and placement(9.0, row) == "p25\u2013p50"
+          and placement(15.0, row) == "above p90")
+    import io as _io
+    import os as _os
+    import json as _json
+    import tempfile
+    from .v2 import fiw as F
+    from openpyxl import load_workbook as _lw
+    old_env = _os.environ.get("FOUNDRY_DATA_DIR")
+    _os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp()
+    try:
+        cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfg["assumptions"]["capital_raises"] = [{"quarter": 4, "amount": 10_000_000}]
+        data, gh = F.build_fiw(cfg)
+        F.persist_snapshot(cfg, gh)
+        wb = _lw(_io.BytesIO(data))
+        labels = [r[0].value for r in wb["CONTROL"].iter_rows()]
+        check("T35c", "FIW CONTROL carries the staged raise rows",
+              any("Staged raise 1" in str(l) for l in labels))
+        for r in wb["CONTROL"].iter_rows():
+            if str(r[0].value).startswith("Staged raise 1 — amount"):
+                r[1].value = 15_000_000   # the human ups the raise in Excel
+        buf = _io.BytesIO(); wb.save(buf)
+        merged, rep = F.diff_import(buf.getvalue(), cfg)
+        check("T35d", "editing a raise in Excel round-trips as exactly one edit",
+              rep["edit_count"] == 1
+              and merged["assumptions"]["capital_raises"][0]["amount"] == 15_000_000
+              and merged["assumptions"]["capital_raises"][0]["quarter"] == 4)
+    finally:
+        if old_env is None:
+            _os.environ.pop("FOUNDRY_DATA_DIR", None)
+        else:
+            _os.environ["FOUNDRY_DATA_DIR"] = old_env
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

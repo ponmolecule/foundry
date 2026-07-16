@@ -192,3 +192,24 @@ class CharterIQClient:
             raise ValueError(f"no overlapping quarterly history for cert {cert}")
         return {"series": {k: v[:n] for k, v in series.items()}, "quarters": n,
                 "accuracy": pulled["accuracy"]}
+
+
+def band_for_assets_mm(assets_mm):
+    """Asset band from modeled total assets ($MM) — the Deliverable-D proxy."""
+    if assets_mm < 200: return "under_200M"
+    if assets_mm < 500: return "200M_500M"
+    if assets_mm < 2000: return "500M_2B"
+    if assets_mm < 10000: return "2B_10B"
+    if assets_mm < 50000: return "10B_50B"
+    return "over_50B"
+
+
+def placement(value, pct_row):
+    """Where a modeled value sits against a percentile row -> a plain phrase.
+    Coarse by construction: five fenceposts, no false precision."""
+    if value < pct_row["p10"]: return "below p10"
+    if value < pct_row["p25"]: return "p10\u2013p25"
+    if value < pct_row["p50"]: return "p25\u2013p50"
+    if value < pct_row["p75"]: return "p50\u2013p75"
+    if value < pct_row["p90"]: return "p75\u2013p90"
+    return "above p90"

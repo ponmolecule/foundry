@@ -313,6 +313,40 @@ def v31_retro_substrate(body: dict, _=Depends(gate)):
         return JSONResponse({"error": f"substrate error: {str(e)[:300]}"}, status_code=502)
 
 
+@app.post("/api/v31/substrate/placement")
+def v31_substrate_placement(body: dict, _=Depends(gate)):
+    """Modeled capital ratios placed against real peer percentiles (capital
+    family only, per the substrate accuracy caveat). Latest covered quarter."""
+    from foundry.charteriq_client import CharterIQClient, band_for_assets_mm, placement
+    cl = CharterIQClient()
+    if not cl.configured():
+        return JSONResponse({"error": "substrate not configured"}, status_code=422)
+    try:
+        assets_k = float(body["q12_total_assets_k"])
+        lev = float(body["leverage_pct"])
+        band = band_for_assets_mm(assets_k / 1000.0)
+        rows, year, quarter = [], 2025, 4
+        for metric, modeled, note in (
+                ("tier1_ratio", lev, "modeled leverage vs peer tier 1 ratio — "
+                  "related but not identical measures; a placement anchor, not a filing figure"),
+                ("cet1_ratio", lev, "modeled bank is all-CET1 at this stage, so the "
+                  "leverage proxy doubles as the CET1 comparison")):
+            p = cl.get_peer_percentiles(metric, band, year, quarter)
+            if p:
+                p["modeled_value"] = modeled
+                p["placement"] = placement(modeled, p)
+                p["comparison_note"] = note
+                rows.append(p)
+        if not rows:
+            return JSONResponse({"error": f"no percentile rows for band {band} at "
+                                  f"{year}Q{quarter}"}, status_code=404)
+        return JSONResponse({"band": band, "year": year, "quarter": quarter, "rows": rows,
+                              "band_note": "band derived from the MODELED Q12 total assets; "
+                                            "UBPR peer codes arrive via Deliverable D"})
+    except Exception as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=502)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl
