@@ -156,3 +156,30 @@ def recon(inv):
 
 def recon_file(data, filename=""):
     return recon(ingest(data, filename))
+
+
+# ---- inventory persistence (stage T-6 plumbing) ----------------------------
+import os
+
+
+def _inv_dir():
+    base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
+    d = os.path.join(base, "modet")
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def persist_inventory(inv, report_hash):
+    slim = {"kind": inv["kind"], "sheets": [
+        {"name": s["name"], "_rows": [[(str(v) if isinstance(v, (bytes,)) else v)
+                                        for v in row] for row in s["_rows"]]}
+        for s in inv["sheets"]]}
+    with open(os.path.join(_inv_dir(), report_hash + ".json"), "w", encoding="utf-8") as f:
+        json.dump(slim, f, default=str)
+
+
+def load_inventory(report_hash):
+    p = os.path.join(_inv_dir(), report_hash + ".json")
+    if not os.path.exists(p):
+        return None
+    return json.load(open(p, encoding="utf-8"))

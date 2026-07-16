@@ -197,12 +197,32 @@ async def v31_fiw_import(file: UploadFile = File(...), current: str = Form("{}")
 @app.post("/api/v31/modet/recon")
 async def v31_modet_recon(file: UploadFile = File(...), _=Depends(gate)):
     """Mode T stage T-1: what does this file contain? (No interpretation.)"""
-    from foundry.modet import recon_file
+    from foundry.modet import ingest, recon, persist_inventory
     data = await file.read()
     try:
-        return JSONResponse(recon_file(data, file.filename or ""))
+        inv = ingest(data, file.filename or "")
+        rep = recon(inv)
+        persist_inventory(inv, rep["report_hash"])
+        return JSONResponse(rep)
     except Exception as e:
         return JSONResponse({"error": f"could not read file: {e}"}, status_code=422)
+
+
+@app.post("/api/v31/modet/finalize")
+def v31_modet_finalize(body: dict, _=Depends(gate)):
+    """Stage T-5 over the wire: session + current cfg -> merged cfg,
+    translation log, gap questions. Fail-closed on unknown inventory."""
+    from foundry.modet import load_inventory
+    from foundry.modet_map import finalize
+    sess, cur = body.get("session") or {}, body.get("cfg") or {}
+    inv = load_inventory(str(sess.get("source_hash", "")))
+    if inv is None:
+        return JSONResponse({"error": "source inventory not found on this workspace — "
+                              "re-upload the file through the recon step"}, status_code=422)
+    try:
+        return JSONResponse(finalize(sess, inv, cur))
+    except (ValueError, KeyError) as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
 
 
 @app.get("/api/v31/fieldlib")

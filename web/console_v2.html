@@ -937,7 +937,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
     else { renderOverview(); return; }
   }
-  if(V31 && currentTab==="start"){ if(wiz){ renderWizard(); } else { renderStart(); } return; }
+  if(V31 && currentTab==="start"){ if(mt){ mtRender(); } else if(wiz){ renderWizard(); } else { renderStart(); } return; }
   if(V3 && currentTab==="peer"){ if(lastRes){ renderPeer(); return; } }
   if(V3 && currentTab==="examiner"){ if(lastRes){ renderExaminer(); return; } }
   if(V3 && currentTab==="config"){ renderConfigTab(); return; }
@@ -1402,6 +1402,100 @@ window.downloadScenario=downloadScenario; window.uploadScenario=uploadScenario;
 window.downloadWorkbook=downloadWorkbook; window.uploadWorkbook=uploadWorkbook;
 window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFrozen;
 
+/* ---------- Mode T mapping session (stage T-6) ---------- */
+let mt = null;
+async function mtUpload(inp){
+  const f = inp.files[0]; if(!f) return; inp.value = "";
+  const fd = new FormData(); fd.append("file", f);
+  const r = await fetch("/api/v31/modet/recon", {method:"POST", body: fd});
+  const j = await r.json();
+  if(!r.ok){ alert("Could not read the file (fail-closed):\n" + (j.error||r.status)); return; }
+  mt = {report: j, fname: f.name, sel: null, assignments: [], result: null};
+  renderContent();
+}
+function mtSlots(){
+  const out = [];
+  (cfg.assumptions.deposit_products||[]).forEach((p,i)=>{
+    out.push({key:`deposit.${i}.balance_path`, label:`${p.name} \u2014 balance path (series)`, series:true});
+    ["rate_paid_ann","opening_balance","fee_yield_ann"].forEach(f=>out.push({key:`deposit.${i}.${f}`, label:`${p.name} \u2014 ${f}`}));
+  });
+  (cfg.assumptions.lending_products||[]).forEach((p,i)=>{
+    out.push({key:`lending.${i}.balance_path`, label:`${p.name} \u2014 balance path (series)`, series:true});
+    ["yield_ann","charge_off_ann","reserve_rate_pct_bal","originations_q","opening_balance"].forEach(f=>out.push({key:`lending.${i}.${f}`, label:`${p.name} \u2014 ${f}`}));
+  });
+  ["tax_rate","securities_yield","cash_yield","borrow_rate_ann"].forEach(g=>out.push({key:`assumptions.${g}`, label:`Global \u2014 ${g}`}));
+  return out;
+}
+function mtRender(){
+  const el = document.getElementById("content");
+  const rep = mt.report;
+  let h = `<div class="h2" style="font-weight:700">Bring your plan \u2014 mapping session</div>`;
+  h += `<div class="memo">${esc(mt.fname)}: ${rep.sheets.length} sheet(s), ${rep.candidate_count} candidate series found`
+    + (rep.hidden_sheets.length ? `, <b>${rep.hidden_sheets.length} hidden sheet(s) surfaced</b> (${esc(rep.hidden_sheets.join(", "))})` : "")
+    + `. Nothing below is assigned until you confirm it \u2014 units and cadence are yours to declare.</div>`;
+  if(mt.result){
+    h += '<div class="ovh3">Translation complete</div>';
+    h += `<div class="memo">${mt.result.translation_log.rows.length} mapping(s) applied (provenance: you). Log hash <span style="font-family:var(--mono)">${esc(mt.result.translation_log.log_hash)}</span>.</div>`;
+    if(mt.result.gap_questions.length){
+      h += '<div class="ovh3">The completion conversation</div>';
+      mt.result.gap_questions.forEach(q=>{ h += `<div class="memo" style="border-left:3px solid #DFA85A">${esc(q)}</div>`; });
+    }
+    h += '<div style="margin-top:12px"><button class="btn-gold" onclick="mt=null;setTab(\'products\')">Open the workspace</button></div>';
+    el.innerHTML = h; return;
+  }
+  h += '<div class="ovh3">1 \u00b7 Pick a candidate from the file</div><div class="card" style="max-height:260px;overflow:auto">';
+  rep.candidates.forEach((cd,i)=>{
+    h += `<label style="display:block;padding:2px;cursor:pointer"><input type="radio" name="mtc" ${mt.sel===i?"checked":""} onchange="mt.sel=${i};renderContent()"> `
+      + `<b>${esc(cd.label)}</b> <span style="color:#8FA3C0;font-size:11px">${esc(cd.sheet)} r${cd.row} \u00b7 ${cd.themes.join("/")}${cd.series_like?` \u00b7 series(${cd.numeric_cells})`:""}</span></label>`;
+  });
+  h += '</div>';
+  h += '<div class="ovh3">2 \u00b7 Assign it \u2014 and declare what the machine refused to guess</div><div class="card"><div class="fields">';
+  h += '<div class="fld"><label>Target slot</label><select id="mtSlot">' + mtSlots().map(s=>`<option value="${s.key}">${esc(s.label)}</option>`).join("") + '</select></div>';
+  h += '<div class="fld"><label>Declared units</label><select id="mtUnits"><option value="dollars">dollars</option><option value="thousands">$000s</option><option value="percent">percent</option><option value="bp">basis points</option><option value="rate">decimal rate</option></select></div>';
+  h += '<div class="fld"><label>Declared cadence (series)</label><select id="mtCad"><option value="monthly">monthly</option></select></div>';
+  h += '<div class="fld"><label>Value (scalar slots \u2014 type what you see)</label><input id="mtVal" placeholder="e.g., 1.5"></div>';
+  h += '</div><div style="margin-top:8px"><button class="btn-plain" onclick="mtAssign()">Confirm assignment</button></div></div>';
+  if(mt.assignments.length){
+    h += '<div class="ovh3">Confirmed (provenance: you)</div>';
+    mt.assignments.forEach((a2,i)=>{
+      h += `<div class="memo">${esc(a2.candidate.label)} \u2192 <b>${esc(a2.slot)}</b> (${esc(a2.converter)}) <a href="#" style="color:#B45454" onclick="mt.assignments.splice(${i},1);renderContent();return false">remove</a></div>`;
+    });
+  }
+  h += `<div style="display:flex;gap:9px;margin-top:12px"><button class="btn-gold" ${mt.assignments.length?"":"disabled"} onclick="mtFinalize()">Translate</button><button class="btn-plain" onclick="mt=null;renderContent()">Cancel</button></div>`;
+  el.innerHTML = h;
+}
+function mtAssign(){
+  if(mt.sel===null){ alert("Pick a candidate first."); return; }
+  const cd = mt.report.candidates[mt.sel];
+  const slot = document.getElementById("mtSlot").value;
+  const units = document.getElementById("mtUnits").value;
+  const isSeries = slot.endsWith(".balance_path");
+  let conv = "identity", params = {};
+  if(isSeries){ conv = "series_pin"; }
+  else {
+    const raw = parseFloat(document.getElementById("mtVal").value);
+    if(isNaN(raw)){ alert("Scalar slots need the value you see in the file \u2014 type it."); return; }
+    conv = units === "percent" ? "pct_to_rate" : (units === "bp" ? "bp_to_rate" : (units === "thousands" ? "units_thousands" : "identity"));
+    params = {value: raw};
+  }
+  mt.assignments.push({candidate: {sheet: cd.sheet, row: cd.row, label: cd.label},
+    slot, converter: conv, declared: {units, cadence: isSeries ? document.getElementById("mtCad").value : undefined},
+    params, provenance: "user"});
+  mt.sel = null; renderContent();
+}
+async function mtFinalize(){
+  const session = {source_hash: mt.report.report_hash, assignments: mt.assignments, status: "open"};
+  const r = await fetch("/api/v31/modet/finalize", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({session, cfg})});
+  const j = await r.json();
+  if(!r.ok){ alert("Translation refused (fail-closed):\n" + (j.error||r.status)); return; }
+  cfg = j.cfg; mt.result = j;
+  syncModules(); renderGlobals(); refresh(); renderContent();
+}
+window.mtUpload=mtUpload; window.mtAssign=mtAssign; window.mtFinalize=mtFinalize;
+window.mtSet = function(s){ mt = s; renderContent(); };
+window.mtState = function(){ return mt; };
+
 /* ---------- wizard (S1 identity / S2 capital / S3 products) ---------- */
 let wiz = null;
 const REGULATOR_OF = {national:"OCC", state_member:"Federal Reserve + state supervisor",
@@ -1559,7 +1653,9 @@ function renderStart(){
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>')
     + '</div>'
     + '</div>';
-  h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 mapped into the configuration with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork. Mapping session: a later increment; available scripted today.</div></div>';
+  h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 inspected, mapped with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork.</div>'
+    + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-gold" onclick="document.getElementById(\'mtFile\').click()">Upload a forecast\u2026</button><input id="mtFile" type="file" accept=".xlsx,.csv" style="display:none" onchange="mtUpload(this)"></div>')
+    + '</div>';
   if(!snapshotMode){
     h += '<div class="memo" style="margin:0 0 14px">Configuration as a file: '
       + '<a href="#" style="color:#DFA85A" onclick="downloadScenario();return false">download</a> \u00b7 '
