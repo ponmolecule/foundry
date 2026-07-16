@@ -396,10 +396,35 @@ const STRESS_FIELDS = [
   ["msr_value_haircut", "MSR value haircut (%)", "pct", "Downturn overlay (all stress scenarios): MSR capitalization values fall by this share."],
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
+const GLOBAL_GROUPS_V31 = [
+  ["Capital & tax", ["Initial capital", "Min leverage", "Tax rate"]],
+  ["Treasury (funding waterfall)", ["Cash floor", "Yield on cash", "Yield on securities", "Borrowing rate"]],
+  ["Operating expenses", ["Corporate overhead", "Overhead growth"]],
+  ["Other balance sheet", ["Premises", "Intangibles", "Other assets", "Other liabilities"]],
+];
 function renderGlobals(){
-  let h = '<div class="fields">';
-  GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
-  h += '</div>';
+  let h = '';
+  if(V31){
+    const used = new Set();
+    GLOBAL_GROUPS_V31.forEach(([gname, prefixes])=>{
+      const members = GLOBAL_FIELDS.filter(f=>prefixes.some(p=>f[0].startsWith(p)));
+      if(!members.length) return;
+      h += `<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">${esc(gname)}</div>`;
+      h += '<div class="fields">';
+      members.forEach(f=>{ used.add(f[0]); h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      h += '</div>';
+    });
+    const rest = GLOBAL_FIELDS.filter(f=>!used.has(f[0]));
+    if(rest.length){
+      h += '<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">Other</div><div class="fields">';
+      rest.forEach(f=>{ h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      h += '</div>';
+    }
+  } else {
+    h = '<div class="fields">';
+    GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+    h += '</div>';
+  }
   document.getElementById("globalsBox").innerHTML = h;
 
   let hs = '<div class="snote">Quarterly SOFR (annual %). Default path interpolated from the June 17, 2026 FOMC SEP fed funds medians (3.8% YE26, 3.6% YE27, 3.4% YE28, 3.1% longer run) + ~5bp SOFR basis. Edit freely; beyond Q12 the path glides 5bp/qtr to the longer-run value.</div>';
