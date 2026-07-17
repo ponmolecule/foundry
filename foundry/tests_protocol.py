@@ -1139,9 +1139,33 @@ def t41():
           any(isinstance(x, str) for x in r["capital"]["cblr_tiering"]["status"]))
 
 
+def t42():
+    print("T42 spot-check fixes: RC-C schedule real and tied; late flags classed severe")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.callreport import build_call_report
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cr = build_call_report(run_v2(cfg), cfg)
+    check("T42a", "RC-C exists with per-line rows and its total ties to RC gross loans",
+          "RC-C" in cr and cr["RC-C"]["tie_ok"]
+          and any(r["item"] == "12" for r in cr["RC-C"]["rows"]))
+    cfg2 = _json.loads(_json.dumps(cfg))
+    cfg2["assumptions"]["lending_products"] = [dict(cfg2["assumptions"]["lending_products"][0],
+        name="CRE tower", call_report_line="loanCRE", opening_balance=600_000_000)]
+    r2 = run_v2(cfg2)
+    cre_flag = next((f for f in r2.get("flags") or [] if f.get("id") == "CONC-CRE-RBC"), None)
+    check("T42b", "the CRE breach flag carries the severe CLASS (user report: 'as tame as it "
+                    "gets' — the advisory badge was a classification-timing bug)",
+          cre_flag is not None and cre_flag.get("sev") == "severe"
+          and cre_flag.get("cls") == "commercial_assumption_requiring_support")
+    cr2 = build_call_report(r2, cfg2)
+    check("T42c", "the crafted CRE product populates an RC-C 1.e row",
+          any(r["item"] == "1.e" and r["values"][-1] > 0 for r in cr2["RC-C"]["rows"]))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

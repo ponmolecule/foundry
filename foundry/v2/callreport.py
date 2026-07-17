@@ -217,6 +217,47 @@ def build_rce(res):
             "omitted": ["brokered-deposit memoranda detail, uninsured estimate — flagged, not computed"]}
 
 
+def build_rcc(res, cfg):
+    """RC-C Part I — Loans and Leases, by Call Report line, from product balances.
+    Held-for-investment per line; HFS shown as its own row; ties to RC 4.a."""
+    bs = res["financials"]["bs"]
+    n_ref = len(_q(bs["totalAssets"]))
+    per_line = {}
+    for p in res.get("products") or []:
+        ln = p.get("line")
+        if not ln or not str(ln).startswith("loan"):
+            continue
+        balv = p.get("bal") or []
+        balq = balv[1:13] if len(balv) == 13 else balv[:12]
+        acc = per_line.setdefault(ln, [0.0] * n_ref)
+        for t in range(min(n_ref, len(balq))):
+            acc[t] += balq[t] or 0.0
+    order = [("loanCommercial", "4",   "RCON1766", "Commercial and industrial loans"),
+              ("loanCRE",        "1.e", "RCONF160", "CRE: nonfarm nonresidential"),
+              ("loanMortgage",   "1.c", "RCON1797", "1-4 family residential first liens"),
+              ("loanConsumer",   "6.c", "RCONK137", "Other consumer loans"),
+              ("loanCreditCard", "6.a", "RCONB538", "Credit cards"),
+              ("loanOther",      "9",   "RCON1563", "Other loans")]
+    rows = []
+    for ln, item, code, label in order:
+        if ln in per_line and any(abs(v) > 1e-9 for v in per_line[ln]):
+            rows.append({"item": item, "code": code, "label": label,
+                          "values": [round(v, 2) for v in per_line[ln]]})
+    hfs = _q(bs.get("hfs") or [0.0] * 13)
+    if any(abs(v) > 1e-9 for v in hfs):
+        rows.append({"item": "memo", "code": "RCON5369", "label": "Loans held for sale (memo)",
+                      "values": [round(v, 2) for v in hfs]})
+    gross = _q(bs["grossLoans"])
+    total = [round(sum(r["values"][t] for r in rows), 2) for t in range(n_ref)]
+    rows.append({"item": "12", "code": "RCON2122",
+                  "label": "Total loans and leases (ties to RC 4.a)", "values": total})
+    return {"schedule": "RC-C Part I", "title": "Loans and Leases", "rows": rows,
+            "notes": ["per-line balances aggregate every product mapped to the line "
+                        "(zero lines suppressed, per the artifact's convention)",
+                       "total ties to Schedule RC gross loans within rounding"],
+            "tie_ok": all(abs(total[t] - gross[t]) < 1.0 for t in range(n_ref))}
+
+
 def build_rcr(res, cfg):
     bs, ratios = res["financials"]["bs"], res["financials"]["ratios"]
     a = cfg["assumptions"]
@@ -263,4 +304,5 @@ def build_rcr(res, cfg):
 
 def build_call_report(res, cfg):
     return {"RC": build_rc(res, cfg), "RI": build_ri(res),
-            "RC-E": build_rce(res), "RC-R": build_rcr(res, cfg)}
+            "RC-E": build_rce(res), "RC-C": build_rcc(res, cfg),
+            "RC-R": build_rcr(res, cfg)}

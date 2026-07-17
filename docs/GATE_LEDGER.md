@@ -184,3 +184,8 @@
 - **T41e** — missing C&D input is STATED (n/a), never a silent zero (D-P16b)
 - **T41f** — a crafted CRE concentration breaches and raises a severe flag
 - **T41g** — tiering statuses computed per quarter (strings present, branches live)
+
+## T42 spot-check fixes: RC-C schedule real and tied; late flags classed severe
+- **T42a** — RC-C exists with per-line rows and its total ties to RC gross loans
+- **T42b** — the CRE breach flag carries the severe CLASS (user report: 'as tame as it 
+- **T42c** — the crafted CRE product populates an RC-C 1.e row

@@ -765,6 +765,7 @@ function addFromTaxonomy(cat, idx){
   syncModules(); renderContent(); refresh();
 }
 window.addFromTaxonomy = addFromTaxonomy; window.TAX31 = TAX31; window.syncModules = syncModules;
+window.cfgRef = function(){ return cfg; }; window.doRefresh = function(){ refresh(); };
 window.v31FillSubs=v31FillSubs; window.v31ShowLine=v31ShowLine; window.v31AddProduct=v31AddProduct;
 
 function openModal(){
@@ -1104,7 +1105,7 @@ function renderExaminer(){
     const CR = lastRes.call_report;
     h += '<div class="ovh2">Call Report schedules (pro forma)</div>';
     h += '<div class="memo">Assembled from engine output, presentation only \u2014 every subtotal recomputed and tie-checked. Lines the model does not compute are omitted and listed, not zero-filled: a zero asserts a fact the model never computed.</div>';
-    ["RC","RI","RC-E","RC-R"].forEach(k=>{
+    ["RC","RI","RC-C","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
       h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
       h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:12},(_,q)=>`<th style="text-align:right">Q${q+1}</th>`).join("") + '</tr>';
@@ -1345,7 +1346,9 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       CN.rows.forEach(r=>{
         const th = Array.isArray(r.threshold) ? `${r.threshold[0]}\u2013${r.threshold[1]}%` : (r.threshold!=null?`\u2264 ${r.threshold}%`:"\u2014");
         const col = r.status==="BREACH" ? "#B45454" : (r.status==="outside band" ? "#8a6d3b" : "#1C2128");
-        h += `<tr><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
+        const rowBg = r.status==="BREACH" ? ' style="background:#F6E4E4"'
+                       : (r.status==="outside band" ? ' style="background:#F4EDDE"' : '');
+        h += `<tr${rowBg}><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
       });
       h += '</table>';
       h += `<div class="srcnote">${esc(CN.note)}.</div>`;

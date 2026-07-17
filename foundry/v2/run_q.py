@@ -645,7 +645,10 @@ def run_v2(cfg):
             row["status"] = "outside band" if (v < th[0] or v > th[1]) else "within"
         if row.get("status") == "BREACH" and row["sev"] == "severe":
             results.setdefault("flags", []).append({
-                "id": "CONC-" + row["name"][:12].strip().upper().replace(" ", "-"),
+                "id": "CONC-" + {"CRE / total risk-based capital": "CRE-RBC",
+                                    "Construction & land / total RBC": "CD-RBC",
+                                    "Single largest borrower / Tier 1": "LLL"}.get(
+                                       row["name"], row["name"][:10].strip().upper().replace(" ", "-")),
                 "sev": "severe",
                 "text": f"Concentration: {row['name']} at {v:.0f}% exceeds the "
                          f"{th:.0f}% supervisory criterion ({row['basis']})."})
@@ -678,5 +681,11 @@ def run_v2(cfg):
                           f"(raise − burn) is below the minimum Day-1 requirement "
                           f"${min_d1/1000:,.0f}k — INSUFFICIENT, review the capital plan."),
             })
+    # class-map any flags appended after the Overview pass (concentrations, pre-open):
+    # without this they fall through to the default 'advisory' badge regardless of severity
+    for f in results.get("flags") or []:
+        if "cls" not in f:
+            f["cls"] = ("commercial_assumption_requiring_support"
+                          if f.get("sev") == "severe" else "advisory")
     results["run_hash"] = _hash(results)
     return results
