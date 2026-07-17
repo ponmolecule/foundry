@@ -421,44 +421,8 @@ function renderGlobals(){
       members.forEach(f=>{ used.add(f[0]); h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
       h += '</div>';
       if(gname.startsWith("Capital")){
-        const raises = cfg.assumptions.capital_raises || [];
-        h += '<div class="cbl">Staged raises</div>';
-        raises.forEach((r,i)=>{
-          h += `<div class="crow">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
-            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-            + `</select><input type="number" style="width:96px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span>`
-            + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderGlobals();refresh();return false">+ add a raise</a>';
-        const po = (cfg.pre_opening = cfg.pre_opening || {});
-        const pex = (po.expenses = po.expenses || []);
-        h += '<div class="cbl">Pre-opening</div>';
-        pex.forEach((e,i)=>{
-          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
-        const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
-        h += '<div class="cbl">Scheduled borrowings</div>';
-        sbs.forEach((b,i)=>{
-          h += `<div class="crow"><input style="flex:1 1 64px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Q<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
-            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-            + `</select><input type="number" style="width:64px" title="draw $000s" value="${(b.amount||0)/1000}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:42px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:38px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">q</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="sbAdd();return false">+ add scheduled draw</a>';
-        h += `<div class="crow">Premises depreciation<input type="number" style="width:70px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
-        h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
       }
       if(gname.startsWith("Treasury")){
-        const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
-        h += '<div class="cbl">Securities books</div>';
-        h += `<div class="chint">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} &nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(0);return false">+ AFS</a>&nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(1);return false">+ HTM</a></div>`;
-        (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
-          h += `<div class="crow">AFS<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
-        });
-        (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
-          h += `<div class="crow">HTM<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
-        });
-        h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
       }
       if(gname.startsWith("Treasury")){
         h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
@@ -1986,11 +1950,124 @@ function renderStart(){
   h += '<div class="memo">The frozen reference banks. Both entry paths carry the same correctness obligation: a golden bank entered through either door must reproduce its exact hash \u2014 the gate that proves the doors are skins over one schema.</div>';
   el.innerHTML = h;
 }
+function structuresSectionsHtml(){
+  let h = '';
+  const A = cfg.assumptions;
+  // module activation DERIVED from presence (F-002, fixing D-P13's lamp-vs-stub lie)
+  const lamps = [
+    ["Pre-opening", !!(cfg.pre_opening && ((cfg.pre_opening.expenses||[]).length || cfg.pre_opening.min_day1_capital))],
+    ["Staged raises", !!(A.capital_raises||[]).length],
+    ["Scheduled borrowings", !!(A.scheduled_borrowings||[]).length],
+    ["Securities books", !!((A.securities_afs||[]).length + (A.securities_htm||[]).length)],
+    ["AOCI", !!A.aoci_sensitivity_annual],
+    ["Depreciation", !!A.premises_depreciation_annual],
+    ["NIE detail", !!A.nie_detail],
+    ["Interchange", !!(A.fee_modules&&A.fee_modules.interchange)],
+    ["Payments", !!(A.fee_modules&&(A.fee_modules.payments||[]).length)],
+    ["Service charges", !!(A.fee_modules&&A.fee_modules.service_charges)],
+    ["Trust", !!(A.fee_modules&&A.fee_modules.trust)],
+    ["BaaS", !!(A.fee_modules&&A.fee_modules.baas)],
+    ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
+  h += '<div class="ovh2">Modules — activation derived from presence, never asserted</div><div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11px;color:#C4CDDD">';
+  lamps.forEach(([n,on])=>{ h += `<span>${on?'<span style="color:#7FB07F">\u25cf</span>':'<span style="color:#4a5568">\u25cb</span>'} ${esc(n)}</span>`; });
+  h += '</div>';
+  h += '<div class="ovh2">Capital structure & pre-opening</div>';
+  {
+        const raises = cfg.assumptions.capital_raises || [];
+        h += '<div class="cbl">Staged raises</div>';
+        raises.forEach((r,i)=>{
+          h += `<div class="crow">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
+            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+            + `</select><input type="number" style="width:96px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span>`
+            + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<a href="#" class="cadd" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderContent();refresh();return false">+ add a raise</a>';
+        const po = (cfg.pre_opening = cfg.pre_opening || {});
+        const pex = (po.expenses = po.expenses || []);
+        h += '<div class="cbl">Pre-opening</div>';
+        pex.forEach((e,i)=>{
+          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
+        const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
+        h += '<div class="cbl">Scheduled borrowings</div>';
+        sbs.forEach((b,i)=>{
+          h += `<div class="crow"><input style="flex:1 1 64px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Q<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
+            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+            + `</select><input type="number" style="width:64px" title="draw $000s" value="${(b.amount||0)/1000}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:42px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:38px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">q</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<a href="#" class="cadd" onclick="sbAdd();return false">+ add scheduled draw</a>';
+        h += `<div class="crow">Premises depreciation<input type="number" style="width:70px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
+        h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
+
+  }
+  h += '<div class="ovh2">Securities books & AOCI</div>';
+  {
+        const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
+        h += '<div class="cbl">Securities books</div>';
+        h += `<div class="chint">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} &nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(0);return false">+ AFS</a>&nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(1);return false">+ HTM</a></div>`;
+        (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
+          h += `<div class="crow">AFS<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
+          h += `<div class="crow">HTM<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
+
+  }
+  h += '<div class="ovh2">Operating expense detail (Patrick NIE, F-071/072)</div>';
+  const ND = (A.nie_detail = A.nie_detail || null);
+  if(!A.nie_detail){
+    h += '<div class="chint">Off — the single corporate-overhead line governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div>';
+    h += '<a href="#" class="cadd" onclick="nieOn();return false">+ activate NIE detail</a>';
+  } else {
+    const nd = A.nie_detail;
+    h += '<div class="crow">FTE by year' + [0,1,2].map(y=>`<input type="number" style="width:52px" value="${(nd.fte_by_year||[0,0,0])[y]}" onchange="cfg.assumptions.nie_detail.fte_by_year[${y}]=parseFloat(this.value);refresh()">`).join("") + '<span class="cu">Y1/Y2/Y3</span></div>';
+    h += `<div class="crow">Loaded comp<input type="number" style="width:78px" value="${(nd.loaded_comp_annual||0)/1000}" onchange="cfg.assumptions.nie_detail.loaded_comp_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/FTE/yr</span> \u00b7 Other gross-up<input type="number" step="0.5" style="width:44px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.other_gross_up_rate=parseFloat(this.value)/100;refresh()"><span class="cu">% (sub\u00d7r/(1\u2212r))</span></div>`;
+    (nd.categories||[]).forEach((ct,i)=>{
+      h += `<div class="crow"><input style="flex:1 1 100px" value="${esc(ct.name||"")}" placeholder="Category" onchange="cfg.assumptions.nie_detail.categories[${i}].name=this.value;refresh()"><input type="number" style="width:70px" value="${(ct.per_quarter||0)/1000}" title="$000s/q" onchange="cfg.assumptions.nie_detail.categories[${i}].per_quarter=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/q</span><a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    h += '<a href="#" class="cadd" onclick="(cfg.assumptions.nie_detail.categories=cfg.assumptions.nie_detail.categories||[]).push({name:String(),per_quarter:0});renderContent();refresh();return false">+ add category</a>';
+    h += ' &nbsp;<a href="#" class="cx" onclick="cfg.assumptions.nie_detail=null;renderContent();refresh();return false">deactivate</a>';
+    if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
+  }
+  h += '<div class="ovh2">Fee modules (F-070/141/142/143 \u2014 growth-capable, D-P10 fixed)</div>';
+  const FM = (A.fee_modules = A.fee_modules || {});
+  const fmBtn = (key,label)=> FM[key] ? '' : `<a href="#" class="cadd" style="margin-right:12px" onclick="fmOn('${key}');return false">+ ${label}</a>`;
+  h += '<div>' + fmBtn('trust','Trust') + fmBtn('interchange','Interchange') + fmBtn('service_charges','Service charges') + fmBtn('baas','BaaS') + ((FM.payments||[]).length? '' : '<a href="#" class="cadd" onclick="fmRail();return false">+ Payment rails</a>') + '</div>';
+  if(FM.trust) h += `<div class="crow">Trust: AUM<input type="number" style="width:84px" value="${(FM.trust.aum_open||0)/1000000}" title="$M" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(this.value)*1000000;refresh()"><span class="cu">$M</span> growth<input type="number" step="0.5" style="width:44px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:44px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
+  if(FM.interchange){ const IC=FM.interchange;
+    h += `<div class="crow">Interchange: tx<input type="number" style="width:74px" value="${(IC.tx_count_q||0)/1000}" title="000s/q" onchange="cfg.assumptions.fee_modules.interchange.tx_count_q=parseFloat(this.value)*1000;refresh()"><span class="cu">k/q</span> growth<input type="number" step="0.5" style="width:44px" value="${((IC.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.interchange.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> ticket<input type="number" style="width:44px" value="${IC.avg_ticket||0}" onchange="cfg.assumptions.fee_modules.interchange.avg_ticket=parseFloat(this.value);refresh()"><span class="cu">$</span> rate<input type="number" step="0.05" style="width:46px" value="${((IC.interchange_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.interchange_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> net fees<input type="number" step="0.05" style="width:46px" value="${((IC.network_fee_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.network_fee_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.interchange;renderContent();refresh();return false">\u00d7</a></div>`; }
+  if(FM.service_charges){ const SV=FM.service_charges;
+    h += `<div class="crow">Service: accts<input type="number" style="width:70px" value="${SV.accounts||0}" onchange="cfg.assumptions.fee_modules.service_charges.accounts=parseFloat(this.value);refresh()"> growth<input type="number" step="0.5" style="width:44px" value="${((SV.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.service_charges.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" step="0.5" style="width:46px" value="${SV.fee_m||0}" onchange="cfg.assumptions.fee_modules.service_charges.fee_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh();return false">\u00d7</a></div>`; }
+  if(FM.baas){ const BB=FM.baas;
+    h += `<div class="crow">BaaS: programs<input type="number" style="width:48px" value="${BB.programs||0}" onchange="cfg.assumptions.fee_modules.baas.programs=parseFloat(this.value);refresh()"> accts/prog<input type="number" style="width:64px" value="${BB.accts_per_program||0}" onchange="cfg.assumptions.fee_modules.baas.accts_per_program=parseFloat(this.value);refresh()"> growth<input type="number" step="0.5" style="width:44px" value="${((BB.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.baas.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> rev<input type="number" step="0.001" style="width:56px" value="${BB.rev_per_acct_m||0}" onchange="cfg.assumptions.fee_modules.baas.rev_per_acct_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.baas;renderContent();refresh();return false">\u00d7</a></div>`; }
+  (FM.payments||[]).forEach((rail,i)=>{
+    h += `<div class="crow"><input style="width:66px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="number" style="width:70px" value="${(rail.vol_q||0)/1000}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(this.value)*1000;refresh()"><span class="cu">k tx/q</span> g<input type="number" step="0.5" style="width:40px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:50px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:50px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+  });
+  if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
+  if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
+  return h;
+}
+window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[20,30,40], loaded_comp_annual:150000, categories:[{name:"Core banking & tech", per_quarter:120000},{name:"Occupancy", per_quarter:60000},{name:"Legal & compliance", per_quarter:36000}], other_gross_up_rate:0.03}; renderContent(); refresh(); };
+window.fmOn = function(key){
+  const d = {trust:{aum_open:100000000, aum_growth_q:0.03, fee_bp_ann:50},
+              interchange:{tx_count_q:500000, growth_q:0.08, avg_ticket:40, interchange_rate:0.012, network_fee_rate:0.002},
+              service_charges:{accounts:10000, growth_q:0.05, fee_m:0.008*1000},
+              baas:{programs:2, accts_per_program:25000, growth_q:0.06, rev_per_acct_m:0.005*1000}};
+  cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
+  cfg.assumptions.fee_modules[key] = d[key]; renderContent(); refresh(); };
+window.fmRail = function(){
+  cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
+  (cfg.assumptions.fee_modules.payments = cfg.assumptions.fee_modules.payments || []).push(
+    {rail:"ACH", vol_q:250000, growth_q:0.05, fee_per_tx:0.10, cost_per_tx:0.05});
+  renderContent(); refresh(); };
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
   let h = '<div class="h2" style="font-weight:700">Configuration</div>';
   h += '<div class="memo" style="margin:0 0 14px">The engagement sequence as data: the ten-step arc from \u201cshould this be a bank at all\u201d to post-opening monitoring, read directly from the client configuration \u2014 the single front door (G3). Whatever a step needs lives in this one document; the engine runs from it and nothing else.</div>';
+  if(!snapshotMode) h += structuresSectionsHtml();
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
   const co = ((r.peer||{}).cohort)||null;
   const steps = [

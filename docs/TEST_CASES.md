@@ -320,3 +320,21 @@ loan RWA term 1000x and was caught by the crafted-breach gate before commit.
 thresholds, breaches in red) and Concentrations table (C&D row reads "NOT
 PROVIDED" until you supply construction_land_total). Examiner Book → RC-R
 Part II. Load a CRE-heavy config → severe CRE flag on Overview.
+
+## 24. Wave 3: income granularity + the configuration surface (F-002/036/070/071/072/141/142/143)
+**Decided:** (a) A shared income_modules helper both engines consume. NIE detail:
+FTE-step comp (Y1/Y2/Y3 headcount × loaded comp), category lines, Patrick's
+sub×r/(1−r) other-opex gross-up kept verbatim, and FDIC/OCC assessments accrued
+IN-ENGINE on the correct base — avg consolidated assets − avg tangible equity
+per 12 USC 1817(b)(2)(A) (the D-P14 fix), rates in REG_PARAMS. (b) Fee modules,
+every one growth-capable (D-P10 fix): trust (AUM rollforward × bp), interchange
+(count × ticket × rate − network fees), payment rails (real volumes; fee income
+AND rail costs booked — D-P11 fix), service charges, BaaS. (c) Per the user's
+sidebar ruling: the Configuration tab is now the master surface — 13 module
+activation lamps DERIVED from config presence (the honest version of Patrick's
+lamp that lied, D-P13), with the structural editors (pre-opening, raises,
+scheduled borrowings, securities books, NIE detail, fee modules) living there;
+the sidebar keeps only iteration knobs (rates, overhead, capital, SOFR, stress).
+**Check:** Configuration tab → lamps row + six structural sections; activate
+Trust ($100M AUM, 50bp) → fee income rises $125k/q; sidebar no longer carries
+Pre-opening / Staged raises / Securities books.

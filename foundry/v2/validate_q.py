@@ -123,6 +123,23 @@ def validate_config_v2(cfg):
         if vv is not None and (not isinstance(vv, (int, float)) or vv < lo
                                  or (hi is not None and vv > hi)):
             errs.append(f"{fld} must be {unit}")
+    nd = a.get("nie_detail")
+    if nd:
+        fby = nd.get("fte_by_year")
+        if not isinstance(fby, list) or len(fby) != 3 or any(
+                not isinstance(x, (int, float)) or x < 0 for x in fby):
+            errs.append("nie_detail.fte_by_year must be three non-negative counts [y1, y2, y3]")
+        gr = nd.get("other_gross_up_rate")
+        if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
+            errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
+    fm = a.get("fee_modules") or {}
+    tr_ = fm.get("trust")
+    if tr_ and (not isinstance(tr_.get("fee_bp_ann"), (int, float))
+                 or not (0 <= tr_["fee_bp_ann"] <= 500)):
+        errs.append("fee_modules.trust.fee_bp_ann must be basis points in [0, 500]")
+    for i, rail in enumerate(fm.get("payments") or []):
+        if not str(rail.get("rail", "")).strip():
+            errs.append(f"fee_modules.payments[{i}].rail is required (ACH, wires, RTP, FedNow, card)")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

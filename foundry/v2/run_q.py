@@ -681,6 +681,22 @@ def run_v2(cfg):
                           f"(raise − burn) is below the minimum Day-1 requirement "
                           f"${min_d1/1000:,.0f}k — INSUFFICIENT, review the capital plan."),
             })
+    from .income_modules import fee_module_series as _fms, nie_detail_series as _nds
+    _fd = _fms(cfg["assumptions"])
+    if any(abs(x) > 1e-9 for x in _fd["income"]) or any(abs(x) > 1e-9 for x in _fd["cost"]):
+        results["fee_detail"] = {k: [round(x / 1000.0, 2) for x in v] if isinstance(v, list)
+                                    else round(v / 1000.0, 2)
+                                  for k, v in _fd["detail"].items()}
+        results["fee_detail"]["_income_total"] = [round(x / 1000.0, 2) for x in _fd["income"]]
+        results["fee_detail"]["_cost_total"] = [round(x / 1000.0, 2) for x in _fd["cost"]]
+    if _nds(cfg["assumptions"]):
+        nd_s = _nds(cfg["assumptions"])
+        results["nie_detail_series"] = {"comp": [round(x / 1000.0, 2) for x in nd_s["comp"]],
+                                          "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
+                                          "gross_up_rate": nd_s["gross_up_rate"],
+                                          "note": ("FDIC on avg consolidated assets − avg tangible "
+                                                    "equity (12 USC 1817(b)(2)(A), D-P14 fix) + OCC "
+                                                    "on assets, accrued in-engine")}
     # class-map any flags appended after the Overview pass (concentrations, pre-open):
     # without this they fall through to the default 'advisory' badge regardless of severity
     for f in results.get("flags") or []:

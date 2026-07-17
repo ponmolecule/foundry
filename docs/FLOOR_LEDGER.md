@@ -5,7 +5,7 @@
 | F | Origin | Status | Evidence / gap |
 |---|---|---|---|
 | F-001 | P | PART | Wizard S1 captures client/regulator/date; engagement id + prepared-by + version echo on outputs incomplete |
-| F-002 | P | PART | Taxonomy picker + product presence = derived activation (satisfies D-P13 in spirit); Patrick's 24-toggle surface represented by product/module presence — documented equivalence needed |
+| F-002 | P | SAT | Configuration tab is the master surface: 13 module lamps DERIVED from presence (D-P13 fixed for real), structural editors (pre-open, raises, borrowings, books, NIE, fees) live there; sidebar = iteration knobs only (user design ruling 2026-07-16) |
 | F-003 | P | SAT | Full PCA well-cap set (CET1 6.5/T1 8/Total 10/Lev 5) + CBLR tiering in REG_PARAMS with 12 CFR citations; floor's 9/8 CBLR reconciled to the Apr 2026 final rule 8/7 (91 FR 22973) per the registry doctrine (T41a/d) |
 | F-004 | both | SAT | $000s throughout; declared |
 | F-005 | R | SAT | Config-as-JSON, engagement store, FIW round-trip, Prairie load pattern (D-R1 fixed) |
@@ -22,7 +22,7 @@
 | F-033 | R | SAT | OBS enters RWA at the 12 CFR 324.33 default 50% CCF; per-exposure maturity CCFs registered (20%/50%), applied when maturities exist — disclosed (T41) |
 | F-034 | R | SAT | Six presets + custom creation (parity) |
 | F-035 | R | SAT | parseProduct defaults + disclosure log (parity) + defaults-provenance ledger (TEST_CASES #10) |
-| F-036 | P | OPEN | Payments product module (per-tx fee/cost, real volumes) — D-P11 fix |
+| F-036 | P | SAT | Payment rails with real volumes + growth, fee income and rail costs both booked (D-P11 fixed; T44b) |
 | F-040 | R | SAT | fixed/float, index+spread (parity) |
 | F-041 | R | SAT | Editable SOFR path, FOMC SEP sourced, longer-run glide (parity); products consume it (D-P2 fixed by architecture) |
 | F-042 | both | SAT | Average-balance accrual (parity) |
@@ -37,9 +37,9 @@
 | F-061 | P | SAT | Scheduled draws (name/quarter/amount/rate/term), straight-line amortization, avg-balance interest, funding-side in the plug, both engines; RC 16 combines residual + scheduled (T40); D-P12 fixed |
 | F-062 | R | SAT | Cash-floor plug + fixed-point simultaneity (parity) |
 | F-063 | both | SAT | Static other-liab, disclosed |
-| F-070 | both | PART | Generic fee terms SAT; named module set (interchange/BaaS/trust/service) with growth drivers OPEN (D-P10 fix) |
-| F-071 | P | OPEN | NIE category granularity + FTE step model (D-R8) |
-| F-072 | P | OPEN | FDIC (correct base) + OCC assessments (D-P14 fix) |
+| F-070 | both | SAT | Named fee modules — interchange, payments, service charges, trust, BaaS, GOS(products) — every one growth-capable (D-P10 fixed; T44a/c) |
+| F-071 | P | SAT | nie_detail: FTE-step comp (per-year steps gate-checked), category lines, Patrick's sub×r/(1−r) gross-up kept verbatim; both engines (T43a) |
+| F-072 | P | SAT | FDIC on avg consolidated assets − avg tangible equity (12 USC 1817(b)(2)(A)) + OCC on assets, rates in REG_PARAMS w/ citations, hand-checked to the penny (T43c; D-P14 fixed) |
 | F-073 | R | SAT | Product opex vs corporate overhead split (parity) |
 | F-080 | R | SAT | NOL tax engine, DTA disclosed (parity; D-P3 fixed) |
 | F-081 | P | SAT | Equity = paid-in + retained + AOCI, tie-gated to zero every quarter, both engines; RC 23/24 + 26.a + 26.b tie to 27.a (T38b/g) |
@@ -65,12 +65,12 @@
 | F-135 | R | SAT | Methodology prose (parity) + BUILD_NOTES/ENGINE_SPEC/TEST_CASES lineage |
 | F-136 | R | SAT | Debounced live recompute, badge update, input preservation (parity) |
 | F-140 | P | DEF | BHC — pilot fence per PRODUCT_ONTOLOGY (Patrick's own stub-not-build) |
-| F-141 | P | OPEN | Trust as a real fee module w/ AUM growth (fixes D-P13) — BUILD per 2026-07-16 floor-overrides-ontology ruling |
-| F-142 | P | OPEN | Interchange detail (count x ticket x network split − network fees) |
-| F-143 | P | OPEN | BaaS module — BUILD per 2026-07-16 floor-overrides-ontology ruling (ontology fence lifted) |
+| F-141 | P | SAT | Trust: AUM rollforward w/ growth, avg-AUM bp fee; the activation lamp derives from module presence (T44a) |
+| F-142 | P | SAT | Interchange: count × ticket × rate − network fees, growth path (T44a/c) |
+| F-143 | P | SAT | BaaS: programs × accts/program × rev/acct/mo with growth (per the floor-overrides ruling) |
 | F-144 | P | SAT | Mortgage banking pipeline→HFS→GOS satisfied by F-054/055; mapped explicitly here |
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 41 SAT · 9 PART · 13 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Waves 1 (engine-additive) and 2-core (regulatory) closed.**
+**Scoreboard: 49 SAT · 7 PART · 6 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Waves 1-3 closed (engine, regulatory, income granularity).**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

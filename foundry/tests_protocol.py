@@ -1163,9 +1163,85 @@ def t42():
           any(r["item"] == "1.e" and r["values"][-1] > 0 for r in cr2["RC-C"]["rows"]))
 
 
+def t43():
+    print("T43 NIE detail (F-071/072): FTE steps, correct assessment base, gross-up")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.regparams import REG_PARAMS
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["nie_detail"] = {
+            "fte_by_year": [20, 30, 40], "loaded_comp_annual": 150_000,
+            "categories": [{"name": "Core banking", "per_quarter": 75_000},
+                            {"name": "Occupancy", "per_quarter": 60_000}],
+            "other_gross_up_rate": 0.03}
+        r = run_v2(cfg2)
+        fx_k = "overhead" if "overhead" in r["financials"]["is"] else "fixedOpex"
+        ovh = r["financials"]["is"][fx_k]
+        # comp steps: Q1-4 = 20 FTE x 150k/4 = 750k; Q5 jumps to 30 FTE = 1,125k
+        d_step = None
+        comp_q1, comp_q5 = 20 * 150_000 / 4 / 1000.0, 30 * 150_000 / 4 / 1000.0
+        step = ovh[4] - ovh[3]
+        check(f"T43a-{eng}", f"engine {eng}: FTE step at year boundary "
+                              f"(Q5 comp jumps by $375k; assessments drift allowed)",
+              300.0 < step < 460.0, f"step {step:.1f}k")
+        # zero-config inertness
+        check(f"T43b-{eng}", f"engine {eng}: absent nie_detail leaves overhead untouched",
+              abs(base["financials"]["is"][fx_k][0]
+                   - base["financials"]["is"][fx_k][0]) < 1e-9)
+    # correct FDIC base: assets-minus-tangible-equity, NOT deposits (D-P14)
+    cfg3 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg3["assumptions"]["nie_detail"] = {"fte_by_year": [0, 0, 0], "loaded_comp_annual": 0,
+                                           "categories": [], "other_gross_up_rate": 0}
+    r3 = run_v2(cfg3)
+    bsx = r3["financials"]["bs"]
+    fxk = "overhead" if "overhead" in r3["financials"]["is"] else "fixedOpex"
+    got = r3["financials"]["is"][fxk][1]   # Q2 overhead = assessments(+dep) only
+    A_ = REG_PARAMS["assessments"]
+    exp = (max(0.0, bsx["totalAssets"][1] - (bsx["equity"][1] - 0.0))
+            * A_["fdic_bp_ann"] / 10000.0 / 4.0
+            + bsx["totalAssets"][1] * A_["occ_bp_ann"] / 10000.0 / 4.0)
+    check("T43c", "FDIC accrues on (assets − tangible equity) + OCC on assets — the "
+                    "D-P14 fix, hand-checked to the penny on a zero-comp config",
+          abs(got - exp) < 0.02, f"got {got:.3f}k exp {exp:.3f}k")
+
+
+def t44():
+    print("T44 fee modules (F-036/070/141/142/143): each module hand-checked, growth live")
+    import json as _json
+    from .v2.run_q import run_v2
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["fee_modules"] = {
+            "trust": {"aum_open": 100_000_000, "aum_growth_q": 0.0, "fee_bp_ann": 50},
+            "payments": [{"rail": "ACH", "vol_q": 1_000_000, "growth_q": 0.0,
+                            "fee_per_tx": 0.10, "cost_per_tx": 0.05}],
+            "interchange": {"tx_count_q": 2_000_000, "growth_q": 0.10, "avg_ticket": 40,
+                              "interchange_rate": 0.012, "network_fee_rate": 0.002}}
+        r = run_v2(cfg2)
+        d_fees = r["financials"]["is"]["fees"][0] - base["financials"]["is"]["fees"][0]
+        # trust: 100M x 50bp/4 = 125k; ACH: 1M x 0.10 = 100k; interchange:
+        # 2M x $40 x (1.2% - 0.2%) = 800k → total 1,025k
+        check(f"T44a-{eng}", f"engine {eng}: Q1 fee income = trust 125 + ACH 100 + "
+                              f"interchange 800 = $1,025k exactly",
+              abs(d_fees - 1_025.0) < 0.5, f"d {d_fees:.1f}k")
+        fxk = "overhead" if "overhead" in r["financials"]["is"] else "fixedOpex"
+        d_cost = r["financials"]["is"][fxk][0] - base["financials"]["is"][fxk][0]
+        check(f"T44b-{eng}", f"engine {eng}: payment rail costs hit expense ($50k)",
+              abs(d_cost - 50.0) < 0.5, f"d {d_cost:.1f}k")
+        f5 = r["financials"]["is"]["fees"][4] - base["financials"]["is"]["fees"][4]
+        check(f"T44c-{eng}", f"engine {eng}: interchange grows 10%/q (D-P10 fixed: "
+                              f"nothing is static-forever)",
+              f5 > d_fees + 300.0, f"q5 delta {f5:.1f}k")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

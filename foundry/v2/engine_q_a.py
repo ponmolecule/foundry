@@ -109,6 +109,10 @@ def run_pf_a(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), 13):
             cap_t[_q] += float(_r["amount"])
+    from .income_modules import nie_detail_series, fee_module_series
+    from .regparams import REG_PARAMS as _RP
+    _nie_d = nie_detail_series(a)
+    _fees_m = fee_module_series(a)
     _sched = a.get("scheduled_borrowings") or []
     sched_t = [0.0] * 13
     for _sb in _sched:
@@ -311,13 +315,27 @@ def run_pf_a(cfg):
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
-        fees = sum(p["_fee"][q] for p in lend + dep + obs)
+        fees = sum(p["_fee"][q] for p in lend + dep + obs) + _fees_m["income"][q - 1]
         prod_ox = sum(p["_ox"][q] for p in lend + dep + obs)
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
         overhead = a["overhead_q"] * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
+        if _nie_d:
+            # Patrick's NIE granularity (F-071): FTE-step comp + category lines +
+            # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.
+            _avg_a_q = (bs["totalAssets"][q - 1] + 0.0) if q >= 1 else 0.0
+            # avg assets this quarter approximated as (prior end + tentative end)/2 is
+            # circular pre-plug; use prior end (disclosed) — assessments accrue on it
+            _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
+            _fdic = max(0.0, _avg_a_q - _tang_eq) * _RP["assessments"]["fdic_bp_ann"] / 10000.0 / 4.0
+            _occ = _avg_a_q * _RP["assessments"]["occ_bp_ann"] / 10000.0 / 4.0
+            _sub = (_nie_d["comp"][q - 1] + _nie_d["categories"][q - 1]
+                     + _fdic + _occ + dep_exp_t[q] + prod_ox)
+            _r = _nie_d["gross_up_rate"]
+            overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+        overhead += _fees_m["cost"][q - 1]
         nie = prod_ox + overhead
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac

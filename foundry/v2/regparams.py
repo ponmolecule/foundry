@@ -50,6 +50,12 @@ REG_PARAMS = {
         "commitments_le_1y": 0.20, "commitments_gt_1y": 0.50, "default": 0.50,
     },
     "tier2_alll_cap_pct_rwa": 0.0125,   # 12 CFR 324.20(d)(3)
+    "assessments": {
+        # FDIC base per 12 USC 1817(b)(2)(A): avg consolidated assets - avg tangible equity
+        # (D-P14 fix: NOT deposits). Rate is an engagement assumption inside the
+        # 12 CFR 327 schedule for a new small institution; OCC per 12 CFR 8.
+        "fdic_bp_ann": 5.0, "occ_bp_ann": 1.5,
+    },
     "cblr": {
         "requirement": 0.08,            # lowered from 0.09, eff. 2026-07-01
         "grace_floor": 0.07,            # must stay above this during grace

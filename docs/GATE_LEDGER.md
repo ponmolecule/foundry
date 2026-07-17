@@ -189,3 +189,8 @@
 - **T42a** — RC-C exists with per-line rows and its total ties to RC gross loans
 - **T42b** — the CRE breach flag carries the severe CLASS (user report: 'as tame as it 
 - **T42c** — the crafted CRE product populates an RC-C 1.e row
+
+## T43 NIE detail (F-071/072): FTE steps, correct assessment base, gross-up
+- **T43c** — FDIC accrues on (assets − tangible equity) + OCC on assets — the 
+
+## T44 fee modules (F-036/070/141/142/143): each module hand-checked, growth live

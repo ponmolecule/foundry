@@ -32,6 +32,10 @@ def run_pf_b(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), 13):
             cap_t[_q] += float(_r["amount"])
+    from .income_modules import nie_detail_series, fee_module_series
+    from .regparams import REG_PARAMS as _RP
+    _nie_d = nie_detail_series(a)
+    _fees_m = fee_module_series(a)
     _schedb = a.get("scheduled_borrowings") or []
     _sched_t = [0.0] * 13
     _sched_int = [0.0] * 12
@@ -115,9 +119,20 @@ def run_pf_b(cfg):
         int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
-        fees = sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
+        fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
+                 + _fees_m["income"][qi])
         opex_prod = sum((p.get("opex_fixed_m") or 0.0) * 3.0 for p in lend + dep + obs + afs_p + htm_p)
-        nie = opex_prod + a["overhead_q"] + _dep_exp[qi]
+        _ovh_b = a["overhead_q"] + _dep_exp[qi] + _fees_m["cost"][qi]
+        if _nie_d:
+            _pa = prev_assets
+            _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]
+            _pa_d = _pa if qi == 0 else out_bs["totalAssets"][qi - 1]
+            _fdic = max(0.0, _pa_d - _te) * _RP["assessments"]["fdic_bp_ann"] / 10000.0 / 4.0
+            _occ = _pa_d * _RP["assessments"]["occ_bp_ann"] / 10000.0 / 4.0
+            _sub = _nie_d["comp"][qi] + _nie_d["categories"][qi] + _fdic + _occ + _dep_exp[qi] + opex_prod
+            _r = _nie_d["gross_up_rate"]
+            _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0) + _fees_m["cost"][qi]
+        nie = opex_prod + _ovh_b
 
         gl_end = sum(p["_end"][qi] for p in lend)
         chargeoffs = sum(p["_avg"][qi] * _ov(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0
@@ -160,7 +175,7 @@ def run_pf_b(cfg):
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
                      ("nii", nii), ("provision", provision), ("fees", fees),
-                     ("opexProd", opex_prod), ("fixedOpex", a["overhead_q"] + _dep_exp[qi]),
+                     ("opexProd", opex_prod), ("fixedOpex", _ovh_b),
                      ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
             out_is[k].append(v)
 
