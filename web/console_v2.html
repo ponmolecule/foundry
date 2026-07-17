@@ -984,6 +984,7 @@ function renderPeer(){
     // CharterIQ substrate (real filed data) or the user's own uploads.
     h += '<div class="memo">Everything on this page is real or absent \u2014 peer evidence comes from the CharterIQ Call Report substrate, retrodiction from filed history. Nothing here is simulated.</div>';
     h += substratePanelHtml();
+    h += vintageSectionHtml();
     h += retroSectionHtml();
     el.innerHTML = h; return;
   }
