@@ -245,6 +245,17 @@ def results_workbook_v2(cfg, res):
         for k, arr in res["ratios"].items():
             if arr and any(x is not None for x in arr):
                 rt.append([present.RATIO_LABELS.get(k, k), k] + list(arr))
+    # FLOOR F-001: engagement cover sheet — every artifact answers who/what/which version
+    try:
+        ee = res.get("engagement_echo") if isinstance(res, dict) else None
+        if ee:
+            cv = wb.create_sheet("Engagement", 0)
+            for k, lbl in (("client", "Client"), ("engagement_id", "Engagement"),
+                            ("prepared_by", "Prepared by"), ("config_version", "Config version"),
+                            ("config_hash", "Config hash"), ("engine_version", "Engine")):
+                cv.append([lbl, ee.get(k)])
+    except Exception:
+        pass
     # FLOOR F-133: Call-Report-named schedule sheets, per-line references
     try:
         from .callreport import build_call_report

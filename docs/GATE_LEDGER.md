@@ -206,3 +206,9 @@
 ## T46 SENS (F-112) + schedule export (F-133)
 - **T46a** — the results workbook carries the five schedule sheets (F-133)
 - **T46b** — exported RC row 12 (total assets) ties to the engine, all quarters
+
+## T47 stragglers (F-001/031/032): metadata echo, institutional deposit lines, insurance
+- **T47a** — every run answers who/what/which version (F-001)
+- **T47b** — insurance estimate ABSENT is stated, never zero-filled (D-P7)
+- **T47c** — a brokered product flows to its own RC-E memo row (F-031, D-R9)
+- **T47d** — insured estimate = sum of insured_pct x balance for covered products; 

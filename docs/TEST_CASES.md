@@ -354,3 +354,20 @@ exports the five Call Report schedules with per-line codes, tie-checked.
 **Check:** Overview → Model checks panel + Quick stats; IS tab bottom → Annual
 Rollup; BS tab bottom → Year-End Balances; Stress tab bottom → SENS (run it);
 download the results workbook → five Schedule sheets.
+
+## 26. Stragglers closed (F-001/031/032)
+**Decided:** (a) engagement_echo rides every run — client, engagement id,
+prepared-by, config version and hash, engine version — rendered as the Examiner
+Book's header banner and the results workbook's Engagement cover sheet; the run
+date stamps client-side so the engine stays deterministic. (b) Three
+institutional deposit lines (brokered / sweep / institutional-listing) exist
+end to end: taxonomy shelf templates with sensible wholesale economics, RC-E
+rows at their memoranda item codes, the total still tying to RC 13.a with the
+convention stated in a schedule note. (c) Insurance bucketing is an ASSUMPTION
+(Patrick's D-P7 lesson): per-product insured_pct in [0,1]; the RC-E insurance
+estimate sums pct × balance over covered products, NAMES products lacking the
+assumption, and when nothing carries it the estimate is omitted with a stated
+reason — never a silent zero.
+**Check:** Add Brokered CDs from the taxonomy → RC-E shows the M.1.b row and
+the insurance memo; the Examiner Book opens with the engagement banner; the
+downloaded workbook's first sheet is the Engagement cover.

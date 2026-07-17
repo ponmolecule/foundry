@@ -4,7 +4,7 @@
 
 | F | Origin | Status | Evidence / gap |
 |---|---|---|---|
-| F-001 | P | PART | Wizard S1 captures client/regulator/date; engagement id + prepared-by + version echo on outputs incomplete |
+| F-001 | P | SAT | engagement_echo on every run (client / engagement id / prepared-by / config version+hash / engine); Examiner Book header banner; workbook Engagement cover sheet (T47a) |
 | F-002 | P | SAT | Configuration tab is the master surface: 13 module lamps DERIVED from presence (D-P13 fixed for real), structural editors (pre-open, raises, borrowings, books, NIE, fees) live there; sidebar = iteration knobs only (user design ruling 2026-07-16) |
 | F-003 | P | SAT | Full PCA well-cap set (CET1 6.5/T1 8/Total 10/Lev 5) + CBLR tiering in REG_PARAMS with 12 CFR citations; floor's 9/8 CBLR reconciled to the Apr 2026 final rule 8/7 (91 FR 22973) per the registry doctrine (T41a/d) |
 | F-004 | both | SAT | $000s throughout; declared |
@@ -17,8 +17,8 @@
 | F-021 | P | SAT | Cushion vs min Day-1, SUFFICIENT/INSUFFICIENT flag in results + display (T37d/e) |
 | F-022 | P | SAT | Burn expensed into opening RETAINED deficit, both engines; waterfall seeds the asset side (T37a-c) |
 | F-030 | R | SAT | Products→lines, per-line aggregation (RC/RC-E builders tie-checked) |
-| F-031 | P | PART | Roman's 5 loan + 3 deposit lines shipped; brokered/sweep/institutional deposit types absent (D-R9) |
-| F-032 | P | OPEN | Insurance bucketing (<$250K/≥$250K) as assumption (D-P7 fix) |
+| F-031 | P | SAT | depBrokered / depSweep / depInstitutional through the whole stack: taxonomy shelf templates, labels, RC-E memo-coded rows, total still ties to RC 13.a with the convention stated (T47c; D-R9 fixed) |
+| F-032 | P | SAT | Per-product insured_pct [0,1]; RC-E insured/uninsured ESTIMATE = Σ(pct×balance) over covered products, uncovered products NAMED, absent assumption stated never zero-filled (T47b/d; D-P7 fixed) |
 | F-033 | R | SAT | OBS enters RWA at the 12 CFR 324.33 default 50% CCF; per-exposure maturity CCFs registered (20%/50%), applied when maturities exist — disclosed (T41) |
 | F-034 | R | SAT | Six presets + custom creation (parity) |
 | F-035 | R | SAT | parseProduct defaults + disclosure log (parity) + defaults-provenance ledger (TEST_CASES #10) |
@@ -72,5 +72,5 @@
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 57 SAT · 3 PART · 2 OPEN · 1 DEF. Waves 1-4 closed. Remaining: F-032 insurance bucketing + F-121 live-peer bands (OPEN); F-001 metadata echo, F-031 deposit-taxonomy extension, F-145 card depth (PART); F-140 BHC (DEF).**
+**Scoreboard: 60 SAT · 1 PART · 1 OPEN · 1 DEF. Remaining: F-121 live-peer bands (the substrate centerpiece, held for the next data session by design); F-145 card-module depth (PART: interchange module carries the volume economics; utilization/rewards config awaits a ruling on engine semantics); F-140 BHC (DEF per Patrick's own fence).**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

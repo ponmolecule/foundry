@@ -691,6 +691,9 @@ function TAX31(){
       {name:"Retail Demand", line:"depDDA", fam:"deposit", tpl:D("Retail Demand","depDDA",{rate_paid_ann:0.005, _adds_m:3000000, _runoff_ann:0.05})},
       {name:"MMDA / Savings", line:"depSavings", fam:"deposit", tpl:D("MMDA / Savings","depSavings",{rate_paid_ann:0.025, _adds_m:2000000, _runoff_ann:0.08})},
       {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{rate_paid_ann:0.04, _adds_m:1000000, _runoff_ann:0})},
+      {name:"Brokered CDs", line:"depBrokered", fam:"deposit", tpl:D("Brokered CDs","depBrokered",{rate_paid_ann:0.048, _adds_m:2000000, _runoff_ann:0, insured_pct:1.0})},
+      {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:-0.004, _adds_m:1500000, _runoff_ann:0, insured_pct:1.0})},
+      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{rate_paid_ann:0.046, _adds_m:1000000, _runoff_ann:0, insured_pct:0.35})},
       {name:"Brokered", line:"depTime", fam:"deposit", tpl:D("Brokered","depTime",{rate_paid_ann:0.045, _adds_m:0, _runoff_ann:0})},
       {name:"Sweep / Program", line:"depDDA", fam:"deposit", tpl:D("Sweep / Program","depDDA",{rate_paid_ann:0.03, _adds_m:0, _runoff_ann:0.10})},
       {name:"Institutional", line:"depDDA", fam:"deposit", tpl:D("Institutional","depDDA",{rate_paid_ann:0.035, _adds_m:0, _runoff_ann:0.15})}]
@@ -1067,6 +1070,10 @@ function renderExaminer(){
       + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
       + `<div class="ftext" style="color:#B7C0D2">Proposed response: ${esc(x.proposed_response)}</div></div>`;
   });
+  if(V31 && lastRes && lastRes.engagement_echo){
+    const E = lastRes.engagement_echo;
+    h += `<div class="memo" style="font-size:11px;border-left:3px solid #DFA85A;padding-left:10px">${esc(E.client)} \u00b7 ${esc(E.engagement_id||"")} \u00b7 prepared by ${esc(E.prepared_by)} \u00b7 config ${esc(E.config_version||"")} <span style="font-family:var(--mono)">${esc((E.config_hash||"").slice(0,10))}</span> \u00b7 engine ${esc(E.engine_version||"")} \u00b7 ${new Date().toISOString().slice(0,10)}</div>`;
+  }
   if(V31 && lastRes && lastRes.pre_open){
     const PO = lastRes.pre_open;
     h += '<div class="ovh2">Pre-opening build</div>';
@@ -1091,6 +1098,14 @@ function renderExaminer(){
       h += '</table></div>';
       if(sc.omitted && sc.omitted.length) h += `<div class="memo" style="font-size:11px">Not modeled (omitted, not zeroed): ${esc(sc.omitted.join("; "))}.</div>`;
       if(sc.notes) sc.notes.forEach(nt=>{ h += `<div class="memo" style="font-size:11px">${esc(nt)}</div>`; });
+      if(k==="RC-E" && sc.insurance){
+        const I = sc.insurance;
+        if(I.provided){
+          h += `<div class="memo" style="font-size:11px">Insurance estimate (${esc(I.codes)}): insured Q12 <span style="font-family:var(--mono)">${I.insured_est[I.insured_est.length-1].toLocaleString()}</span> \u00b7 uninsured est Q12 <span style="font-family:var(--mono)">${I.uninsured_est[I.uninsured_est.length-1].toLocaleString()}</span> \u00b7 ${esc(I.coverage_note)}.</div>`;
+        } else {
+          h += `<div class="memo" style="font-size:11px">${esc(I.note)}.</div>`;
+        }
+      }
     });
   }
   el.innerHTML = h;

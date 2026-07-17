@@ -123,6 +123,10 @@ def validate_config_v2(cfg):
         if vv is not None and (not isinstance(vv, (int, float)) or vv < lo
                                  or (hi is not None and vv > hi)):
             errs.append(f"{fld} must be {unit}")
+    for i, dp in enumerate(a.get("deposit_products") or []):
+        ip = dp.get("insured_pct")
+        if ip is not None and (not isinstance(ip, (int, float)) or not (0 <= ip <= 1)):
+            errs.append(f"deposit_products[{i}].insured_pct must be a share in [0, 1]")
     nd = a.get("nie_detail")
     if nd:
         fby = nd.get("fte_by_year")

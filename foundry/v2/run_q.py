@@ -791,6 +791,15 @@ def run_v2(cfg):
                                           "note": ("FDIC on avg consolidated assets − avg tangible "
                                                     "equity (12 USC 1817(b)(2)(A), D-P14 fix) + OCC "
                                                     "on assets, accrued in-engine")}
+    results["engagement_echo"] = {
+        "client": cfg.get("client_legal_name") or cfg.get("proposed_bank") or "(unnamed)",
+        "engagement_id": cfg.get("engagement_id"),
+        "prepared_by": cfg.get("prepared_by") or "Foundry Modeling Workspace",
+        "config_version": cfg.get("config_version"),
+        "config_hash": results.get("config_hash"),
+        "engine_version": results.get("engine_version"),
+        "run_date": None,   # stamped client-side; the engine stays deterministic
+    }
     # class-map any flags appended after the Overview pass (concentrations, pre-open):
     # without this they fall through to the default 'advisory' badge regardless of severity
     for f in results.get("flags") or []:

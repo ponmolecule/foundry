@@ -1299,9 +1299,46 @@ def t46():
           all(abs((rows.get("12") or [0]*12)[t] - taq[t]) < 1.0 for t in range(12)))
 
 
+def t47():
+    print("T47 stragglers (F-001/031/032): metadata echo, institutional deposit lines, insurance")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.callreport import build_call_report
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    r = run_v2(cfg)
+    ee = r["engagement_echo"]
+    check("T47a", "every run answers who/what/which version (F-001)",
+          ee["client"] and ee["config_hash"] and ee["engine_version"])
+    cr = build_call_report(r, cfg)
+    ins = cr["RC-E"]["insurance"]
+    check("T47b", "insurance estimate ABSENT is stated, never zero-filled (D-P7)",
+          ins["provided"] is False and "not provided" in ins["note"])
+    cfg2 = _json.loads(_json.dumps(cfg))
+    cfg2["assumptions"]["deposit_products"].append(
+        {"name": "Brokered CDs", "opening_balance": 20_000_000, "rate_type": "fixed",
+          "rate_paid_ann": 0.048, "fee_yield_ann": 0, "opex_pct_ann": 0.001,
+          "opex_fixed_m": 0, "growth_q": 0.0, "runoff_q": 0.0,
+          "call_report_line": "depBrokered", "insured_pct": 1.0})
+    cfg2["assumptions"]["deposit_products"][0]["insured_pct"] = 0.9
+    r2 = run_v2(cfg2)
+    cr2 = build_call_report(r2, cfg2)
+    rce = {x["item"]: x for x in cr2["RC-E"]["rows"]}
+    check("T47c", "a brokered product flows to its own RC-E memo row (F-031, D-R9)",
+          "M.1.b" in rce and rce["M.1.b"]["values"][0] >= 19_999.0)
+    ins2 = cr2["RC-E"]["insurance"]
+    dda_bal = next(p for p in r2["products"] if p["name"] == "DDA")["bal"]
+    dda_q1 = dda_bal[1] if len(dda_bal) == 13 else dda_bal[0]
+    expect = 0.9 * dda_q1 + 1.0 * 20_000.0
+    check("T47d", "insured estimate = sum of insured_pct x balance for covered products; "
+                    "uncovered products NAMED in the note (F-032)",
+          ins2["provided"] and abs(ins2["insured_est"][0] - expect) < 1.0
+          and "NOT PROVIDED for: Savings" in ins2["coverage_note"],
+          f"got {ins2['insured_est'][0]:.1f} exp {expect:.1f}")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

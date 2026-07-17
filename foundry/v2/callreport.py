@@ -81,6 +81,9 @@ LINE_CODES = {
     "Loans: Credit Cards": ("RC-C", "6.a", "RCONB538", "Credit cards"),
     "Loans: Lease Financing": ("RC-C", "10", "RCON2165", "Lease financing receivables"),
     "depDDA": ("RC-E", "1", "RCONB549", "Transaction accounts"),
+    "depBrokered": ("RC-E", "M.1.b", "RCON2365", "Brokered deposits (memo)"),
+    "depSweep": ("RC-E", "M.1.h", "RCONMT87", "Sweep deposits (memo)"),
+    "depInstitutional": ("RC-E", "M.1.f", "RCONK220", "Listing-service / institutional (memo)"),
     "Deposits: Demand (DDA)": ("RC-E", "1", "RCONB549", "Transaction accounts"),
     "Deposits: Transaction (DDA)": ("RC-E", "1", "RCONB549", "Transaction accounts"),
     "depSavings": ("RC-E", "2/3", "RCONB550", "Savings and MMDA"),
@@ -191,8 +194,11 @@ def build_ri(res):
                           "extraordinary items, discontinued operations"]}
 
 
-def build_rce(res):
+def build_rce(res, cfg=None):
     lines = {"depDDA": ("Transaction accounts (demand)", []),
+             "depBrokered": ("Brokered deposits (memo M.1.b)", []),
+             "depSweep": ("Sweep deposits (memo M.1.h)", []),
+             "depInstitutional": ("Institutional & listing-service (memo M.1.f)", []),
               "depSavings": ("Nontransaction: savings and MMDA", []),
               "depTime": ("Nontransaction: time deposits", [])}
     n = 0
@@ -208,13 +214,55 @@ def build_rce(res):
         if not prods:
             continue
         vals = [sum(p["bal"][t + 1] for p in prods) for t in range(n)]
-        rows.append(_row({"depDDA": "1", "depSavings": "M.2.a", "depTime": "M.2.c"}[key],
-                          {"depDDA": "RCONB549", "depSavings": "RCON6810/0352", "depTime": "RCON6648/J473"}[key],
+        rows.append(_row({"depDDA": "1", "depSavings": "M.2.a", "depTime": "M.2.c",
+                      "depBrokered": "M.1.b", "depSweep": "M.1.h",
+                      "depInstitutional": "M.1.f"}[key],
+                          {"depDDA": "RCONB549", "depSavings": "RCON6810/0352", "depTime": "RCON6648/J473",
+                      "depBrokered": "RCON2365", "depSweep": "RCONMT87",
+                      "depInstitutional": "RCONK220"}[key],
                           label + f" ({len(prods)} product{'s' if len(prods) > 1 else ''})", vals))
     total = [sum(r["values"][t] for r in rows) for t in range(n)] if rows else []
     rows.append(_row("—", "RCON2200", "Total deposits (ties to RC 13.a)", total))
+    notes_rce = ["institutional lines (brokered/sweep/listing) are shown at their memo item "
+                   "codes but modeled as their own funding balances — they count once in the "
+                   "total, which ties to RC 13.a"]
     return {"schedule": "RC-E", "title": "Deposit Liabilities", "rows": rows,
-            "omitted": ["brokered-deposit memoranda detail, uninsured estimate — flagged, not computed"]}
+            "notes": notes_rce,
+            "insurance": (_rce_insurance(res, cfg) if cfg is not None else
+                             {"provided": False, "note": "config unavailable in this call path"})}
+
+
+def _rce_insurance(res, cfg):
+    """F-032 (D-P7 fix): insured/uninsured ESTIMATE from per-product insured_pct.
+    Products without the assumption are STATED, never silently bucketed."""
+    dps = (cfg["assumptions"].get("deposit_products") or [])
+    n = len(_q(res["financials"]["bs"]["totalAssets"]))
+    have, missing = [], []
+    for p in res.get("products") or []:
+        if not str(p.get("line") or "").startswith("dep"):
+            continue
+        src = next((d for d in dps if d.get("name") == p.get("name")), {})
+        ip = src.get("insured_pct")
+        balv = p.get("bal") or []
+        balq = balv[1:13] if len(balv) == 13 else balv[:12]
+        if ip is None:
+            missing.append(p.get("name"))
+        else:
+            have.append((float(ip), balq))
+    if not have:
+        return {"provided": False,
+                 "note": "insured_pct not provided on any deposit product — the estimate "
+                          "is omitted, not zero-filled (D-P7: bucketing is an assumption, "
+                          "and an absent assumption is stated)"}
+    insured = [sum(ip * (b[t] if t < len(b) else 0.0) for ip, b in have) for t in range(n)]
+    covered = [sum((b[t] if t < len(b) else 0.0) for _, b in have) for t in range(n)]
+    return {"provided": True,
+             "insured_est": [round(x, 2) for x in insured],
+             "uninsured_est": [round(covered[t] - insured[t], 2) for t in range(n)],
+             "coverage_note": ("estimate covers products carrying insured_pct"
+                                + (f"; NOT PROVIDED for: {', '.join(missing)}" if missing else
+                                    " (all deposit products)")),
+             "codes": "memo M.1 (uninsured est, RCON5597) / M.2 (insured)"}
 
 
 def build_rcc(res, cfg):
@@ -304,5 +352,5 @@ def build_rcr(res, cfg):
 
 def build_call_report(res, cfg):
     return {"RC": build_rc(res, cfg), "RI": build_ri(res),
-            "RC-E": build_rce(res), "RC-C": build_rcc(res, cfg),
+            "RC-E": build_rce(res, cfg), "RC-C": build_rcc(res, cfg),
             "RC-R": build_rcr(res, cfg)}
