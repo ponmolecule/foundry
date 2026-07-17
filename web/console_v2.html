@@ -57,6 +57,8 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 #globalsBox input,#globalsBox select{border:1px solid #B9C2D2;background:var(--paper);color:#1C2128;
   font-family:inherit;font-size:11px;font-weight:500;padding:3px 5px;border-radius:2px}
 #globalsBox input:focus{outline:1.5px solid var(--gold);border-color:var(--gold)}
+.fin tr.rowbreach td{background:#F6E1E1 !important}
+.fin tr.rowwarn td{background:#F4EDDA !important}
 .cbl{font-size:9.5px;color:#C4CDDD;text-transform:uppercase;letter-spacing:.04em;margin:7px 0 2px}
 .crow{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:#C4CDDD;flex-wrap:nowrap}
 .crow input{min-width:0}
@@ -1346,9 +1348,9 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       CN.rows.forEach(r=>{
         const th = Array.isArray(r.threshold) ? `${r.threshold[0]}\u2013${r.threshold[1]}%` : (r.threshold!=null?`\u2264 ${r.threshold}%`:"\u2014");
         const col = r.status==="BREACH" ? "#B45454" : (r.status==="outside band" ? "#8a6d3b" : "#1C2128");
-        const rowBg = r.status==="BREACH" ? ' style="background:#F6E4E4"'
-                       : (r.status==="outside band" ? ' style="background:#F4EDDE"' : '');
-        h += `<tr${rowBg}><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
+        const rowCls = r.status==="BREACH" ? ' class="rowbreach"'
+                        : (r.status==="outside band" ? ' class="rowwarn"' : '');
+        h += `<tr${rowCls}><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
       });
       h += '</table>';
       h += `<div class="srcnote">${esc(CN.note)}.</div>`;
