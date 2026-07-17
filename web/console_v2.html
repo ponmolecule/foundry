@@ -847,15 +847,15 @@ async function subCheck(){
   catch(e){ subStatus = {configured:false}; }
   renderContent();
 }
-async function retroSubstrate(){
-  const cert = prompt("FDIC certificate number of the bank to retrodict against:");
+async function retroSubstrate(givenCert){
+  const cert = givenCert || prompt("FDIC certificate number of the bank to retrodict against:");
   if(!cert) return;
   const r = await fetch("/api/v31/retro/substrate", {method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({cert: cert, cfg})});
   const j = await r.json();
   if(!r.ok){ alert("Substrate retrodiction refused (fail-closed):\n" + (j.error||r.status)); return; }
-  window.retroReport = j; renderContent();
+  window.retroReport = j; window.retroCert = cert; window.retroHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function substratePanelHtml(){
@@ -871,6 +871,12 @@ function substratePanelHtml(){
     h += `<div class="memo">Connected \u2014 ${subStatus.metrics_catalogued} metrics catalogued. Capital-family metrics are item-level FFIEC CDR; other families are legacy computations pending migration and are labeled as such wherever shown.</div>`;
     if(window.subPlacement){
       const P = window.subPlacement;
+      const stale = lastRes && window.subPlacementHash !== lastRes.run_hash;
+      if(stale){
+        h += '<div class="memo" style="color:#DFA85A">The model has moved since this placement \u2014 refreshing against the current run\u2026</div>';
+        if(!window._subPlaceRefreshing){ window._subPlaceRefreshing = true;
+          setTimeout(async()=>{ try{ await subPlace(); } finally { window._subPlaceRefreshing = false; } }, 50); }
+      }
       h += `<div class="ovh3" style="font-size:12px">Modeled capital vs real peers \u2014 ${esc(P.band)} band, ${P.year}Q${P.quarter}</div>`;
       h += '<table class="ovt"><tr><th>Peer metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
       P.rows.forEach(r=>{
@@ -894,7 +900,7 @@ async function subPlace(){
     body: JSON.stringify({q12_total_assets_k: ta[ta.length-1], leverage_pct: lev[lev.length-1]})});
   const j = await r.json();
   if(!r.ok){ alert("Placement refused (fail-closed):\n" + (j.error||r.status)); return; }
-  window.subPlacement = j; renderContent();
+  window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
 function retroSectionHtml(){
@@ -905,6 +911,9 @@ function retroSectionHtml(){
     h += '<button class="btn-plain" onclick="document.getElementById(\'retroFile\').click()">Upload actual history\u2026</button><input id="retroFile" type="file" accept=".csv,.json" style="display:none" onchange="retroUpload(this)"> <button class="btn-plain" onclick="retroSubstrate()">Pull from CharterIQ substrate\u2026</button>';
   } else {
     const R = window.retroReport;
+    if(lastRes && window.retroHash && window.retroHash !== lastRes.run_hash){
+      h += `<div class="memo" style="color:#DFA85A">The model has moved since this comparison. <a href="#" style="color:#DFA85A" onclick="retroSubstrate(window.retroCert);return false">Re-run against cert ${esc(String(window.retroCert||""))}</a> \u2014 or upload a fresh file.</div>`;
+    }
     h += `<div class="memo"><b>${R.summary.series_within_15pct_terminal} of ${R.summary.series_compared}</b> series land within 15% at the terminal quarter (worst miss ${R.summary.worst_terminal_error_pct}%). ${esc(R.summary.note)} Report <span style="font-family:var(--mono)">${esc(R.report_hash)}</span>.</div>`;
     R.series.forEach(s=>{
       h += `<div class="ovh3" style="font-size:12px">${esc(s.label)} \u2014 MAPE ${s.mape_pct}%, terminal ${s.terminal_error_pct}%</div>`;
