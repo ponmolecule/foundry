@@ -271,7 +271,9 @@ const LINE_LABELS = {loanCommercial:"Loans: Commercial & Industrial", loanConsum
   depDDA:"Deposits: Transaction (DDA)", depSavings:"Deposits: Savings & MMDA", depTime:"Deposits: Time",
   obs:"Off-Balance-Sheet Commitments"};
 const LOAN_KEYS = ["loanCommercial","loanConsumer","loanCreditCard","loanMortgage","loanOther"];
-const LINE_LABELS_V31 = Object.assign({}, LINE_LABELS, {loanCRE: "Loans: Commercial Real Estate"});
+const LINE_LABELS_V31 = Object.assign({}, LINE_LABELS, {loanCRE: "Loans: Commercial Real Estate",
+  depBrokered: "Deposits: Brokered", depSweep: "Deposits: Sweep (reciprocal/one-way)",
+  depInstitutional: "Deposits: Institutional & listing-service"});
 const TAXONOMY_V31 = {
   "Loans": [
     {name:"Consumer Installment", line:"loanConsumer", fam:"lending"},
@@ -282,10 +284,7 @@ const TAXONOMY_V31 = {
   "Deposits": [
     {name:"Retail Demand", line:"depDDA", fam:"deposit"},
     {name:"MMDA / Savings", line:"depSavings", fam:"deposit"},
-    {name:"Time Deposits / CDs", line:"depTime", fam:"deposit"},
-    {name:"Brokered", line:"depBrokered", fam:"deposit"},
-    {name:"Sweep / Program", line:"depSweep", fam:"deposit"},
-    {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit"}],
+    {name:"Time Deposits / CDs", line:"depTime", fam:"deposit"}],
   "Securities & Cash": {note:"Securities, cash and fed funds are computed by the funding waterfall — deposits fund loans, excess is invested, shortfalls borrow. Set the yields in Global Assumptions (left sidebar)."},
   "Other Assets / Liabilities": {note:"Premises, intangibles, other assets/liabilities and the borrowing rate live in Global Assumptions (left sidebar)."}
 };
@@ -693,10 +692,7 @@ function TAX31(){
       {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{rate_paid_ann:0.04, _adds_m:1000000, _runoff_ann:0})},
       {name:"Brokered CDs", line:"depBrokered", fam:"deposit", tpl:D("Brokered CDs","depBrokered",{rate_paid_ann:0.048, _adds_m:2000000, _runoff_ann:0, insured_pct:1.0})},
       {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:-0.004, _adds_m:1500000, _runoff_ann:0, insured_pct:1.0})},
-      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{rate_paid_ann:0.046, _adds_m:1000000, _runoff_ann:0, insured_pct:0.35})},
-      {name:"Brokered", line:"depTime", fam:"deposit", tpl:D("Brokered","depTime",{rate_paid_ann:0.045, _adds_m:0, _runoff_ann:0})},
-      {name:"Sweep / Program", line:"depDDA", fam:"deposit", tpl:D("Sweep / Program","depDDA",{rate_paid_ann:0.03, _adds_m:0, _runoff_ann:0.10})},
-      {name:"Institutional", line:"depDDA", fam:"deposit", tpl:D("Institutional","depDDA",{rate_paid_ann:0.035, _adds_m:0, _runoff_ann:0.15})}]
+      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{rate_paid_ann:0.046, _adds_m:1000000, _runoff_ann:0, insured_pct:0.35})}]
   };
   return TAX31_DATA;
 }
