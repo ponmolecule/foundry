@@ -298,3 +298,25 @@ system. Both features default-off, additive, gate-proven inert when absent.
 **Check:** Add an $8M Q2 draw at 4% for 8 quarters → BS shows the amortizing
 row; borrowing interest rises ~$40k in the draw quarter; RC 16 = residual +
 scheduled. Set premises depreciation 400 → premises fall $100k/q and NI drops.
+
+## 23. Wave 2 core: standardized capital, CBLR tiering, concentrations (F-003/033/090/091/100)
+**Decided:** (a) REG_PARAMS gains the PCA well-capitalized set, the standardized
+risk-weight map, CCFs, and the Tier-2 ALLL cap — all with 12 CFR citations; the
+floor document's 9%/8% CBLR calibration is RECONCILED to the April 2026 final
+rule (8% requirement / 7% grace floor, 91 FR 22973), which governs per the
+registry doctrine — the reconciliation is stated in the artifact, not silently
+chosen. (b) The standardized approach computes every run regardless of CBLR
+election — the election decides which framework GOVERNS, not which is visible.
+(c) RWA: cash at banks share weighted 20% (the D-P6 fix, via cash_at_banks_pct),
+securities as agency 20% (disclosed assumption), mortgage 50%, other loans 100%,
+non-deducted MSAs 250%, OBS at the 50% default CCF. CET1 = equity − intangibles
+− AOCI (opt-out default) − MSA excess; Tier 2 = min(ALLL, 1.25% RWA). (d) RC-R
+gains a real Part II. (e) Concentrations: nine ratios with cited criteria;
+missing inputs (C&D, largest borrower) are STATED as not provided — never a
+silent zero (D-P16b); severe breaches raise Overview flags. Unit lesson logged:
+product balances arrive in $000s — a double-conversion briefly understated the
+loan RWA term 1000x and was caught by the crafted-breach gate before commit.
+**Check:** Capital & Ratios tab → Standardized Capital table (four ratios vs
+thresholds, breaches in red) and Concentrations table (C&D row reads "NOT
+PROVIDED" until you supply construction_land_total). Examiner Book → RC-R
+Part II. Load a CRE-heavy config → severe CRE flag on Overview.

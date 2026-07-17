@@ -34,6 +34,22 @@ REG_PARAMS = {
         "OCC Bulletin 2026-15 (rescinds OCC Bulletin 2021-66)",
         "GAO major-rule report B-338364",
     ],
+    "pca_well_capitalized": {   # 12 CFR 6.4(b)(1) (OCC) / 12 CFR 324.403 (FDIC)
+        "cet1_rwa": 0.065, "tier1_rwa": 0.08, "total_rwa": 0.10, "leverage": 0.05,
+    },
+    "risk_weights": {           # 12 CFR 324.32 standardized approach
+        "cash_fed": 0.0,               # balances at Federal Reserve Banks
+        "bank_exposures": 0.20,        # deposits at / exposures to depository institutions
+        "agency_securities": 0.20,     # GSE/agency debt (modeling assumption: books are agency)
+        "resi_first_lien": 0.50,       # qualifying 1-4 family first lien
+        "corporate_consumer_cre": 1.00,
+        "classified": 1.50,            # substandard/doubtful (no classification concept modeled yet)
+        "msr_nondeducted": 2.50,       # 12 CFR 324.32(l) — below-threshold MSAs
+    },
+    "ccf": {                    # 12 CFR 324.33 credit conversion factors
+        "commitments_le_1y": 0.20, "commitments_gt_1y": 0.50, "default": 0.50,
+    },
+    "tier2_alll_cap_pct_rwa": 0.0125,   # 12 CFR 324.20(d)(3)
     "cblr": {
         "requirement": 0.08,            # lowered from 0.09, eff. 2026-07-01
         "grace_floor": 0.07,            # must stay above this during grace

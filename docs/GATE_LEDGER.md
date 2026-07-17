@@ -124,7 +124,7 @@
 - **T31c** — RI ties: interest income - expense - provision + noninterest net = pretax
 - **T31d** — RI ties: pretax - taxes = NET INCOME
 - **T31e** — RC-E total ties to RC 13.a
-- **T31f** — RC-R leverage equals the ratios tab; omissions and proxies disclosed
+- **T31f** — RC-R leverage equals the ratios tab; Part II standardized rows present 
 
 ## T32 retrodiction harness: known drift measured exactly; fail-closed labels
 - **T32a** — deposits drift recovered (~7.4% APE from the x1.08 fixture)
@@ -175,3 +175,12 @@
 
 ## T40 scheduled borrowings (FLOOR F-061, D-P12 fix): draw, amortize, bear interest
 - **T40d** — RC row 16 (Q2 column, post-_q normalization) = residual + scheduled draw
+
+## T41 Wave 2 (F-091/033/090/003/100): standardized RWA, CBLR tiering, concentrations
+- **T41a** — standardized block present with all four ratio series and PCA thresholds
+- **T41b** — RWA nonzero on the default config (D-P6 class of bug precluded)
+- **T41c** — Tier 2 respects the 1.25%-of-RWA ALLL cap every quarter
+- **T41d** — CBLR tiering carries the 2026 calibration (8%/7%) with the floor-doc 
+- **T41e** — missing C&D input is STATED (n/a), never a silent zero (D-P16b)
+- **T41f** — a crafted CRE concentration breaches and raises a severe flag
+- **T41g** — tiering statuses computed per quarter (strings present, branches live)

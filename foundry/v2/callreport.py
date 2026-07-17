@@ -229,21 +229,36 @@ def build_rcr(res, cfg):
         if "lever" in str(con.get("name", con.get("metric", ""))).lower():
             req = con.get("value")
     rows = [
-        _row("26", "RCOA8274", "Tier 1 capital (equity less intangibles — pro forma proxy)", t1),
-        _row("—", "RCON2170", "Total assets (quarter-end; average-assets basis not modeled)", bs["totalAssets"]),
+        _row("26", "RCOA8274", "Tier 1 capital (leverage basis: equity less intangibles)", t1),
+        _row("—", "RCON2170", "Total assets (quarter-end)", bs["totalAssets"]),
         _row("31", "RCOA7204", "Leverage ratio (%)", ratios["lev"]),
     ]
-    return {"schedule": "RC-R Part I", "title": "Regulatory Capital", "rows": rows,
+    st = (res.get("capital") or {}).get("standardized")
+    out = {"schedule": "RC-R Part I", "title": "Regulatory Capital", "rows": rows,
             "cblr": bool(ch.get("cblr_election")),
             "requirement_pct": (req * 100.0 if isinstance(req, (int, float)) and req < 1 else req),
-            "omitted": ["risk-weighted assets detail (Part II) — CBLR framework elected"
-                          if ch.get("cblr_election") else
-                          "risk-weighted assets detail (Part II) — not yet modeled",
-                          "AOCI opt-out, capital conservation buffer detail"],
-            "notes": ["Tier 1 proxied as equity capital less intangibles; deferred-tax and AOCI "
-                        "adjustments not modeled.",
-                        "Leverage shown on quarter-end assets; the regulatory average-assets basis "
-                        "is a disclosed simplification."]}
+            "omitted": ["capital conservation buffer detail"],
+            "notes": ["Leverage per the engine's average-assets, MSA-deducted derivation "
+                        "(12 CFR 3.22(d)); Tier 1 row here shows the leverage basis.",
+                        "Part II below computes the standardized approach whether or not CBLR "
+                        "is elected — the election decides which framework GOVERNS, not which "
+                        "is visible."]}
+    if st:
+        pad = [None]
+        out["part2"] = {
+            "title": "RC-R Part II — Standardized approach (12 CFR 324.32/.33)",
+            "rows": [
+                _row("A", "RCOAP793", "Common equity tier 1 capital", pad + st["cet1"]),
+                _row("B", "RCOA8274", "Tier 1 capital", pad + st["tier1"]),
+                _row("C", "RCOA5310", "Tier 2 capital (ALLL, capped 1.25% RWA)", pad + st["tier2"]),
+                _row("D", "RCOA3792", "Total capital", pad + st["total"]),
+                _row("E", "RCOAA223", "Total risk-weighted assets", pad + st["rwa"]),
+                _row("F", "RCOAP840", "CET1 ratio (%)", pad + st["ratios"]["cet1_rwa"]),
+                _row("G", "RCOA7206", "Tier 1 ratio (%)", pad + st["ratios"]["tier1_rwa"]),
+                _row("H", "RCOA7205", "Total capital ratio (%)", pad + st["ratios"]["total_rwa"]),
+            ],
+            "notes": st["notes"]}
+    return out
 
 
 def build_call_report(res, cfg):

@@ -489,6 +489,169 @@ def run_v2(cfg):
     }
     results["callreport"] = {k: list(v) for k, v in
                              {**RESULT_CODES_BS, **RESULT_CODES_IS, **LINE_CODES}.items()}
+    # ---- Wave 2 (FLOOR F-091/033/090/003/100): standardized capital + concentrations
+    RW, CCF = REG_PARAMS["risk_weights"], REG_PARAMS["ccf"]
+    PCA = REG_PARAMS["pca_well_capitalized"]
+    bsn = base["bs"]; a2 = cfg["assumptions"]
+    nq2 = 12
+    def _s(key):
+        v = bsn.get(key) or [0.0] * 13
+        return (v[1:13] if len(v) == 13 else v[:12])
+    LINE_W = {"loanMortgage": RW["resi_first_lien"]}
+    loans_w = [0.0] * nq2
+    for p in base.get("products") or []:
+        if p.get("family") == "lending" or (p.get("line") or "").startswith("loan"):
+            w = LINE_W.get(p.get("line"), RW["corporate_consumer_cre"])
+            balv = p.get("bal") or []
+            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            for t in range(min(nq2, len(balq))):
+                loans_w[t] += (balq[t] or 0.0) * w   # products arrive in $000s
+    hfsq = _s("hfs")
+    secq = [(_s("sec")[t] + _s("afsBook")[t] + _s("htmBook")[t]) for t in range(nq2)]
+    cashq, msrq, alllq = _s("cash"), _s("msr"), _s("alll")
+    obs_notional = [0.0] * nq2
+    for p in base.get("products") or []:
+        if (p.get("line") or "") == "obs" or p.get("family") == "obs":
+            balv = p.get("bal") or []
+            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            for t in range(min(nq2, len(balq))):
+                obs_notional[t] += balq[t] or 0.0
+    cab = float(a2.get("cash_at_banks_pct") or 0.0)
+    cap_rows = results["capital"]["rows"]
+    t1_dedq = cap_rows["tier1"]
+    msa_x = cap_rows["msa_excess"]
+    eqq, aociq = _s("equity"), _s("aoci")
+    intang = a2.get("intangibles", 0.0) / 1000.0
+    optout = (cfg.get("charter_profile") or {}).get("aoci_optout", True)
+    rwa_t, cet1_t, t1_t, t2_t, tot_t = [], [], [], [], []
+    for t in range(nq2):
+        rwa = (cashq[t] * cab * RW["bank_exposures"]
+               + secq[t] * RW["agency_securities"]
+               + loans_w[t] + hfsq[t] * RW["corporate_consumer_cre"]
+               + max(0.0, msrq[t] - msa_x[t]) * RW["msr_nondeducted"]
+               + obs_notional[t] * CCF["default"] * RW["corporate_consumer_cre"])
+        cet1 = eqq[t] - intang - (aociq[t] if optout else 0.0) - msa_x[t]
+        t1 = cet1
+        t2 = min(alllq[t], REG_PARAMS["tier2_alll_cap_pct_rwa"] * rwa)
+        rwa_t.append(rwa); cet1_t.append(cet1); t1_t.append(t1); t2_t.append(t2)
+        tot_t.append(t1 + t2)
+    def _r4(num, den):
+        return [round(num[t] / den[t] * 100, 2) if den[t] and den[t] > 0 else None
+                 for t in range(nq2)]
+    lev_t = (base.get("ratios") or {}).get("lev") or [None] * 13
+    lev_q = lev_t[1:13] if len(lev_t) == 13 else lev_t[:12]
+    P3 = REG_PARAMS["cblr"]
+    elected = (cfg.get("charter_profile") or {}).get("cblr_election", True)
+    cblr_status = []
+    for t in range(nq2):
+        lv = lev_q[t]
+        if lv is None:
+            cblr_status.append(None)
+        elif lv >= P3["requirement"] * 100:
+            cblr_status.append("meets requirement")
+        elif lv >= P3["grace_floor"] * 100:
+            cblr_status.append("grace period (floor 7%, max 4 consecutive quarters)")
+        else:
+            cblr_status.append("BELOW grace floor — standardized approach applies")
+    results["capital"]["standardized"] = {
+        "rwa": [round(x, 2) for x in rwa_t],
+        "cet1": [round(x, 2) for x in cet1_t],
+        "tier1": [round(x, 2) for x in t1_t],
+        "tier2": [round(x, 2) for x in t2_t],
+        "total": [round(x, 2) for x in tot_t],
+        "ratios": {"cet1_rwa": _r4(cet1_t, rwa_t), "tier1_rwa": _r4(t1_t, rwa_t),
+                    "total_rwa": _r4(tot_t, rwa_t), "leverage": lev_q},
+        "thresholds": {"cet1_rwa": PCA["cet1_rwa"] * 100, "tier1_rwa": PCA["tier1_rwa"] * 100,
+                        "total_rwa": PCA["total_rwa"] * 100, "leverage": PCA["leverage"] * 100},
+        "aoci_optout": bool(optout),
+        "notes": ["risk weights per 12 CFR 324.32; securities weighted as agency (20%) — "
+                    "a disclosed modeling assumption",
+                   f"cash at banks share {cab:.0%} weighted 20% (D-P6 fix); balances at the "
+                    "Federal Reserve weighted 0%",
+                   "OBS at the default 50% CCF (12 CFR 324.33); per-exposure maturities not yet modeled",
+                   "no classified-asset concept modeled; the 150% weight is registered but unused",
+                   "Tier 2 = min(ALLL, 1.25% RWA) per 12 CFR 324.20(d)(3)",
+                   "AOCI opt-out " + ("elected: AOCI excluded from CET1" if optout
+                                        else "not elected: AOCI included in CET1")],
+    }
+    results["capital"]["cblr_tiering"] = {
+        "elected": bool(elected), "requirement_pct": round(P3["requirement"] * 100, 2),
+        "grace_floor_pct": round(P3["grace_floor"] * 100, 2), "status": cblr_status,
+        "note": ("floor doc lists the pre-2026 9%/8% calibration; the April 2026 final rule "
+                  "(91 FR 22973) governs via REG_PARAMS: 8% requirement / 7% grace floor"),
+    }
+    # concentrations (Patrick CONC, F-100)
+    depq = _s("deposits"); borq = _s("borrow"); sbq = _s("borrowSched")
+    taq = _s("totalAssets"); glq = _s("grossLoans")
+    liabq = [taq[t] - eqq[t] for t in range(nq2)]
+    ci_bal = [0.0] * nq2; cons_bal = [0.0] * nq2; cre_bal = [0.0] * nq2
+    for p in base.get("products") or []:
+        ln = p.get("line") or ""
+        tgt = {"loanCommercial": ci_bal, "loanConsumer": cons_bal, "loanCreditCard": cons_bal,
+                "loanCRE": cre_bal}.get(ln)
+        if tgt is not None:
+            balv = p.get("bal") or []
+            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            for t in range(min(nq2, len(balq))):
+                tgt[t] += (balq[t] or 0.0)   # $000s already
+    cd_in = a2.get("construction_land_total")
+    lb_in = a2.get("single_largest_borrower")
+    nie_q = [ (base["is"]["prodOpex"][t] if "prodOpex" in base["is"] else base["is"].get("opexProd",[0]*12)[t])
+               + (base["is"]["overhead"][t] if "overhead" in base["is"] else base["is"].get("fixedOpex",[0]*12)[t])
+               for t in range(nq2)]
+    avg_a = cap_rows.get("avg_assets_net") or taq
+    def _pct(n_, d_):
+        return round(n_ / d_ * 100, 2) if d_ and d_ > 0 else None
+    q = nq2 - 1
+    conc_rows = [
+        {"name": "CRE / total risk-based capital", "value": _pct(cre_bal[q], tot_t[q]),
+          "threshold": 300.0, "kind": "max", "sev": "severe",
+          "basis": "interagency CRE guidance (2006), 12 CFR pt 365 app A"},
+        {"name": "Construction & land / total RBC", "value": (_pct(cd_in / 1000.0, tot_t[q])
+                                                                 if cd_in else None),
+          "threshold": 100.0, "kind": "max", "sev": "severe",
+          "basis": "interagency CRE guidance; requires the construction_land_total input"
+                    + ("" if cd_in else " — NOT PROVIDED (D-P16b: no silent zero)")},
+        {"name": "C&I / total loans", "value": _pct(ci_bal[q], glq[q]),
+          "threshold": None, "kind": "info", "sev": "mild", "basis": "portfolio mix"},
+        {"name": "Consumer (incl. card) / total loans", "value": _pct(cons_bal[q], glq[q]),
+          "threshold": None, "kind": "info", "sev": "mild", "basis": "portfolio mix"},
+        {"name": "Single largest borrower / Tier 1", "value": (_pct(lb_in / 1000.0, t1_t[q])
+                                                                  if lb_in else None),
+          "threshold": 15.0, "kind": "max", "sev": "severe",
+          "basis": "12 USC 84 lending limit (15% unsecured)"
+                    + ("" if lb_in else " — single_largest_borrower NOT PROVIDED")},
+        {"name": "Wholesale funding / total liabilities",
+          "value": _pct(borq[q] + sbq[q], liabq[q]), "threshold": 25.0, "kind": "max",
+          "sev": "mild", "basis": "supervisory wholesale-funding attention point"},
+        {"name": "Non-core funding / total assets",
+          "value": _pct(borq[q] + sbq[q], taq[q]), "threshold": 20.0, "kind": "max",
+          "sev": "mild", "basis": "UBPR non-core dependence framing"},
+        {"name": "Loans / deposits", "value": _pct(glq[q], depq[q]),
+          "threshold": [70.0, 90.0], "kind": "band", "sev": "mild",
+          "basis": "advisory band (Patrick CONC)"},
+        {"name": "NIE / average assets (burden)",
+          "value": _pct(sum(nie_q), sum(avg_a[:nq2]) / nq2 if avg_a else None)
+                    if avg_a else None,
+          "threshold": None, "kind": "info", "sev": "mild", "basis": "expense burden"},
+    ]
+    for row in conc_rows:
+        v, th, kd = row["value"], row["threshold"], row["kind"]
+        if v is None or th is None:
+            row["status"] = "n/a" if v is None else "info"
+        elif kd == "max":
+            row["status"] = "BREACH" if v > th else "within"
+        elif kd == "band":
+            row["status"] = "outside band" if (v < th[0] or v > th[1]) else "within"
+        if row.get("status") == "BREACH" and row["sev"] == "severe":
+            results.setdefault("flags", []).append({
+                "id": "CONC-" + row["name"][:12].strip().upper().replace(" ", "-"),
+                "sev": "severe",
+                "text": f"Concentration: {row['name']} at {v:.0f}% exceeds the "
+                         f"{th:.0f}% supervisory criterion ({row['basis']})."})
+    results["concentrations"] = {"as_of": "Q12", "rows": conc_rows,
+                                   "note": "thresholds resolve from REG_PARAMS/citations; "
+                                            "missing inputs are stated, never zero-filled"}
     po = cfg.get("pre_opening") or {}
     if po.get("expenses") or po.get("min_day1_capital"):
         burn = sum(float(e.get("total", 0.0)) for e in (po.get("expenses") or []))

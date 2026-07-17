@@ -6,7 +6,7 @@
 |---|---|---|---|
 | F-001 | P | PART | Wizard S1 captures client/regulator/date; engagement id + prepared-by + version echo on outputs incomplete |
 | F-002 | P | PART | Taxonomy picker + product presence = derived activation (satisfies D-P13 in spirit); Patrick's 24-toggle surface represented by product/module presence — documented equivalence needed |
-| F-003 | P | PART | REG_PARAMS carries CBLR; full five-threshold set with citations not yet enumerated |
+| F-003 | P | SAT | Full PCA well-cap set (CET1 6.5/T1 8/Total 10/Lev 5) + CBLR tiering in REG_PARAMS with 12 CFR citations; floor's 9/8 CBLR reconciled to the Apr 2026 final rule 8/7 (91 FR 22973) per the registry doctrine (T41a/d) |
 | F-004 | both | SAT | $000s throughout; declared |
 | F-005 | R | SAT | Config-as-JSON, engagement store, FIW round-trip, Prairie load pattern (D-R1 fixed) |
 | F-010 | P | SAT | Pre-opening phase (quarterly-converted; T37) |
@@ -19,7 +19,7 @@
 | F-030 | R | SAT | Products→lines, per-line aggregation (RC/RC-E builders tie-checked) |
 | F-031 | P | PART | Roman's 5 loan + 3 deposit lines shipped; brokered/sweep/institutional deposit types absent (D-R9) |
 | F-032 | P | OPEN | Insurance bucketing (<$250K/≥$250K) as assumption (D-P7 fix) |
-| F-033 | R | PART | OBS notional+fees SAT; CCF mechanics OPEN (with F-091) |
+| F-033 | R | SAT | OBS enters RWA at the 12 CFR 324.33 default 50% CCF; per-exposure maturity CCFs registered (20%/50%), applied when maturities exist — disclosed (T41) |
 | F-034 | R | SAT | Six presets + custom creation (parity) |
 | F-035 | R | SAT | parseProduct defaults + disclosure log (parity) + defaults-provenance ledger (TEST_CASES #10) |
 | F-036 | P | OPEN | Payments product module (per-tx fee/cost, real volumes) — D-P11 fix |
@@ -44,13 +44,13 @@
 | F-080 | R | SAT | NOL tax engine, DTA disclosed (parity; D-P3 fixed) |
 | F-081 | P | SAT | Equity = paid-in + retained + AOCI, tie-gated to zero every quarter, both engines; RC 23/24 + 26.a + 26.b tie to 27.a (T38b/g) |
 | F-082 | P | SAT | Staged raises, true quarter mapping, both engines, FIW carry (D-P8 fixed) — T34/T35 |
-| F-090 | both | PART | Leverage on averages per Roman (D-P5 avoided); CBLR 9%/8% two-tier reachable branches via REG_PARAMS OPEN |
-| F-091 | P | OPEN | Standardized RWA + four ratios + Tier2 cap (D-P6 fix); RC-R currently labeled proxy |
+| F-090 | both | SAT | CBLR tiering with reachable branches (meets / grace 7% floor / below), election honored, leverage on averages MSA-deducted; 2026 calibration governs with the reconciliation note (T41d/g; D-P4/5 fixed) |
+| F-091 | P | SAT | Standardized RWA (0/20/50/100/150/250 weights incl bank-exposure share of cash — D-P6 fixed), CET1/T1/T2 (ALLL capped 1.25% RWA)/Total, four ratios vs PCA thresholds, AOCI opt-out honored; RC-R Part II real rows; white-tab section (T41a-c, T31f) |
 | F-092 | R | SAT | 12 CFR 3.22(d) MSA threshold deduction (parity) |
 | F-093 | R | SAT | CBLR eligibility guards OBS>25%, $10B (parity flags) |
 | F-094 | R | SAT | Capital shortfall estimator w/ stated approximations (parity) |
 | F-095 | R | SAT | Non-modeled deduction notes carried (parity methodology) |
-| F-100 | P | OPEN | CONC panel: full 10-ratio concentration/diagnostic set with REG_PARAMS thresholds (incl. real C&D input — D-P16b) |
+| F-100 | P | SAT | Nine-ratio CONC panel (CRE/RBC 300, C&D/RBC 100 w/ real input honored, C&I mix, consumer mix, LLL 15%, wholesale, non-core, LTD band, burden); missing inputs STATED never zero-filled (D-P16b); severe breaches flag on Overview (T41e/f) |
 | F-110 | R | SAT | Stress = full re-runs, credit/rate/combined + four overlays (parity); Patrick's S1/S2 annual presentation shape OPEN (PART overall) |
 | F-111 | R | SAT | Breach callouts, matrices, stressed-out-earns-base honesty flag, calibration provenance (parity) |
 | F-112 | P | OPEN | SENS-style one-variable low/base/high sensitivity |
@@ -72,5 +72,5 @@
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 36 SAT · 12 PART · 15 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Wave 1 (engine-additive) closed.**
+**Scoreboard: 41 SAT · 9 PART · 13 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Waves 1 (engine-additive) and 2-core (regulatory) closed.**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

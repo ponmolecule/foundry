@@ -116,6 +116,13 @@ def validate_config_v2(cfg):
         if not isinstance(t_, int) or not (1 <= t_ <= 40):
             errs.append(f"scheduled_borrowings[{i}].term_q must be an integer 1-40 "
                          "(straight-line amortization term in quarters)")
+    for fld, lo, hi, unit in (("cash_at_banks_pct", 0.0, 1.0, "a share in [0,1]"),
+                                ("construction_land_total", 0.0, None, "a non-negative dollar amount"),
+                                ("single_largest_borrower", 0.0, None, "a non-negative dollar amount")):
+        vv = a.get(fld)
+        if vv is not None and (not isinstance(vv, (int, float)) or vv < lo
+                                 or (hi is not None and vv > hi)):
+            errs.append(f"{fld} must be {unit}")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

@@ -1316,6 +1316,41 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += rowPct('Tier 1 Leverage Ratio', rt.lev || rt.leverage);
     if(rt.alllPct) h += rowPct('ALLL / Gross Loans', rt.alllPct);
     h += '</table>';
+    const ST = lastRes && lastRes.capital && lastRes.capital.standardized;
+    if(ST){
+      h += '<div class="h2" style="margin-top:18px">Standardized Capital (12 CFR 324.32/.33)</div>';
+      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
+      const rows = [["Risk-weighted assets ($000s)", ST.rwa, null], ["CET1 capital", ST.cet1, null],
+        ["Tier 2 (ALLL, capped)", ST.tier2, null], ["Total capital", ST.total, null],
+        ["CET1 / RWA (%)", ST.ratios.cet1_rwa, ST.thresholds.cet1_rwa],
+        ["Tier 1 / RWA (%)", ST.ratios.tier1_rwa, ST.thresholds.tier1_rwa],
+        ["Total / RWA (%)", ST.ratios.total_rwa, ST.thresholds.total_rwa],
+        ["Leverage (%)", ST.ratios.leverage, ST.thresholds.leverage]];
+      rows.forEach(([lbl, arr, th])=>{
+        h += `<tr><td>${lbl}${th?` <span style="color:#8a94a6;font-size:10px">(well-cap \u2265 ${th}%)</span>`:""}</td>`
+          + arr.map(v=>{
+              const bad = th!=null && v!=null && v<th;
+              return `<td style="text-align:right;font-family:var(--mono)${bad?";color:#B45454;font-weight:700":""}">${v==null?"\u2014":(typeof v==="number"?v.toLocaleString(undefined,{maximumFractionDigits:2}):v)}</td>`;
+            }).join("") + '</tr>';
+      });
+      h += '</table>';
+      h += '<div class="srcnote">' + ST.notes.map(esc).join(' \u00b7 ') + '</div>';
+      const TG = lastRes.capital.cblr_tiering;
+      h += `<div class="srcnote">CBLR ${TG.elected?"elected":"not elected"} \u2014 requirement ${TG.requirement_pct}% / grace floor ${TG.grace_floor_pct}%: ${esc(TG.note)}</div>`;
+    }
+    const CN = lastRes && lastRes.concentrations;
+    if(CN){
+      h += '<div class="h2" style="margin-top:18px">Concentrations & Diagnostics (Q12)</div>';
+      h += '<table class="fin"><tr><th>Measure</th><th style="text-align:right">Value</th><th style="text-align:right">Criterion</th><th>Status</th><th>Basis</th></tr>';
+      CN.rows.forEach(r=>{
+        const th = Array.isArray(r.threshold) ? `${r.threshold[0]}\u2013${r.threshold[1]}%` : (r.threshold!=null?`\u2264 ${r.threshold}%`:"\u2014");
+        const col = r.status==="BREACH" ? "#B45454" : (r.status==="outside band" ? "#8a6d3b" : "#1C2128");
+        h += `<tr><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
+      });
+      h += '</table>';
+      h += `<div class="srcnote">${esc(CN.note)}.</div>`;
+    }
+  
     h += '<div class="memo">Leverage ratio approximated as end-of-quarter equity less intangibles, less mortgage servicing assets above the 25%-of-Tier-1 deduction threshold (12 CFR 3.22(d)), over average assets net of the same deduction. Below-threshold MSAs remain in capital (they would carry a 250% risk weight in a risk-based ratio, which this model does not compute). Efficiency ratio = noninterest expense / (net interest income + noninterest income); &ldquo;n/m&rdquo; where revenue is not positive.</div>';
     if(V3 && r.capital){
       const cap = r.capital, T3 = cap.thresholds, rows = cap.rows;
@@ -1416,7 +1451,8 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       });
       h += '</div>';
       h += '<div class="memo">Community Bank Leverage Ratio framework eligibility checks, computed by the engine on the base case (presentation only; election is a strategic decision \u2014 qualifying banks may opt out of risk-based capital reporting under 12 CFR 3.12). The stress tab shows leverage under adverse scenarios.</div>';
-    }
+    
+  }
     c.innerHTML = h; return;
   }
 
