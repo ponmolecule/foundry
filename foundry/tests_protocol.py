@@ -956,6 +956,14 @@ def t37():
     r3 = run_v2(cfg3)
     check("T37e", "an underwater plan flags INSUFFICIENT — REVIEW CAPITAL PLAN",
           not r3["pre_open"]["sufficient"] and "INSUFFICIENT" in r3["pre_open"]["flag"])
+    cfg5 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg5["pre_opening"] = {"min_day1_capital": 999_999_000_000}
+    r5 = run_v2(cfg5)
+    check("T37g", "min-Day-1 alone (no expenses) still computes the gate and flags INSUFFICIENT "
+                    "on the Overview (user report: 'nothing happened')",
+          "pre_open" in r5 and not r5["pre_open"]["sufficient"]
+          and any(f.get("id") == "PREOPEN-01" and f.get("sev") == "severe"
+                   for f in r5.get("flags") or []))
     bad = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
     bad["pre_opening"] = {"expenses": [{"category": "", "total": -5}]}
     msgs = [e["message"] if isinstance(e, dict) else str(e) for e in validate_errors_v2(bad)]

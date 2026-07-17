@@ -490,14 +490,14 @@ def run_v2(cfg):
     results["callreport"] = {k: list(v) for k, v in
                              {**RESULT_CODES_BS, **RESULT_CODES_IS, **LINE_CODES}.items()}
     po = cfg.get("pre_opening") or {}
-    if po.get("expenses"):
-        burn = sum(float(e.get("total", 0.0)) for e in po["expenses"])
+    if po.get("expenses") or po.get("min_day1_capital"):
+        burn = sum(float(e.get("total", 0.0)) for e in (po.get("expenses") or []))
         capital0 = cfg["target_state"]["initial_capital"]
         min_d1 = float(po.get("min_day1_capital") or 0.0)
         cushion = capital0 - burn
         results["pre_open"] = {
             "expenses": [{"category": e.get("category"), "total": float(e.get("total", 0.0))}
-                          for e in po["expenses"]],
+                          for e in (po.get("expenses") or [])],
             "burn_total": burn,
             "cushion": cushion,
             "min_day1_capital": min_d1,
@@ -508,5 +508,12 @@ def run_v2(cfg):
                              "deficit (Patrick I.9 convention); monthly schedules "
                              "convert to quarterly totals at import"),
         }
+        if not results["pre_open"]["sufficient"]:
+            results.setdefault("flags", []).append({
+                "id": "PREOPEN-01", "sev": "severe",
+                "text": (f"Pre-opening capital sufficiency: cushion ${cushion/1000:,.0f}k "
+                          f"(raise − burn) is below the minimum Day-1 requirement "
+                          f"${min_d1/1000:,.0f}k — INSUFFICIENT, review the capital plan."),
+            })
     results["run_hash"] = _hash(results)
     return results
