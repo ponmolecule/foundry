@@ -371,3 +371,20 @@ reason — never a silent zero.
 **Check:** Add Brokered CDs from the taxonomy → RC-E shows the M.1.b row and
 the insurance memo; the Examiner Book opens with the engagement banner; the
 downloaded workbook's first sheet is the Engagement cover.
+
+## 27. Configuration surface polish (user design review)
+**Decided:** (a) Internal engagement vocabulary (colleague names, floor IDs,
+defect codes) is scrubbed from every CLIENT-FACING string — app copy speaks the
+domain, not the engagement's internal ledger; the references live on in docs,
+commit messages, and gate labels where they belong. (b) The Configuration tab is
+a card grid (constrained widths, one card per structure) instead of a full-width
+dump; module lamps are grouped in the same order as the section cards beneath
+them. (c) A framing line states the Start-vs-Configuration contract: Start is
+one-time intake that WRITES the document; Configuration is the document's living
+surface; the sidebar is for iteration knobs. (d) "Check connection" lives in the
+substrate section header for every state, and a connection check NEVER auto-fires
+a placement query (the staleness auto-refresh now runs only on model changes) —
+one control, one function.
+**Check:** Config tab: cards, no "Patrick"/"F-###" anywhere, lamps grouped to
+match sections; Peer Cohort: Check connection in the header, and checking the
+connection with a stale placement does not re-query peers.

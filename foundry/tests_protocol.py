@@ -1250,7 +1250,7 @@ def t45():
                     "and both present (D-P18: integrity != viability)",
           ck["integrity_pass"]
           and {c["class"] for c in ck["rows"]} >= {"integrity", "viability"}
-          and "D-P18" in ck["doctrine"])
+          and "blesses failing banks" in ck["doctrine"])
     lev_row = next((c for c in ck["rows"] if c["id"] == "CK-4"), None)
     check("T45b", "the viability check tests exactly what its label claims "
                     "(leverage vs the chartering commitment, min shown)",

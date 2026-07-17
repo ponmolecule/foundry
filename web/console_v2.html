@@ -66,6 +66,14 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .crow .cx{color:#B45454;text-decoration:none;padding:0 2px}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
+.cfgwrap{max-width:1080px}
+.cfggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:14px;align-items:start}
+.cfgcard{background:#182640;border:1px solid #24334D;border-radius:8px;padding:14px 16px}
+.cfgcard .ovh2{margin:0 0 10px;border:none;border-left:3px solid #DFA85A;border-radius:0;background:transparent;padding:0 0 0 10px}
+.cfgcard .crow input[type=text],.cfgcard .crow input:not([type]){max-width:170px}
+.cfgcard .crow input[type=number]{max-width:96px}
+.cfglamps{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:#C4CDDD;margin:2px 0 4px}
+.cfglamps b{flex-basis:100%;color:#8FA3C0;font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
 .fld.wide{grid-column:1/-1}
 /* ------- content: faithful white number surfaces ------- */
 #content{padding:22px 30px 30px;overflow-x:auto;background:var(--paper);min-width:0;min-height:70vh}
@@ -853,7 +861,9 @@ let subStatus = null;
 async function subCheck(){
   try{ subStatus = await (await fetch("/api/v31/substrate/status")).json(); }
   catch(e){ subStatus = {configured:false}; }
+  window._noAutoPlace = true;          // a connection check is not a request to query peers
   renderContent();
+  window._noAutoPlace = false;
 }
 async function retroSubstrate(givenCert){
   const cert = givenCert || prompt("FDIC certificate number of the bank to retrodict against:");
@@ -867,9 +877,9 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function substratePanelHtml(){
-  let h = '<div class="ovh2">CharterIQ substrate</div>';
+  let h = '<div class="ovh2" style="display:flex;justify-content:space-between;align-items:center">CharterIQ substrate <button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="subCheck()">Check connection</button></div>';
   if(subStatus === null){
-    h += '<div class="memo">Substrate link not yet checked. <a href="#" style="color:#8a6d3b" onclick="subCheck();return false">Check now</a>.</div>';
+    h += '<div class="memo">Substrate link not yet checked.</div>';
   } else if(!subStatus.configured){
     h += '<div class="memo">Not configured on this instance \u2014 set <span style="font-family:var(--mono)">CHARTERIQ_DATABASE_URL</span> (read-only credentials) to draw peer percentiles and retrodiction history from the curated Call Report substrate. No substrate, no numbers: nothing on this panel is ever simulated.</div>'
       + '<div class="memo" style="font-size:11px">Running locally? Set it in the same PowerShell session before launching:<br><span style="font-family:var(--mono)">$env:CHARTERIQ_DATABASE_URL = "postgresql://foundry_ro:\u2026"</span><br><span style="font-family:var(--mono)">uvicorn app:app --port 8010</span><br>On Railway it lives in the service\u2019s Variables tab and applies automatically.</div>';
@@ -882,7 +892,7 @@ function substratePanelHtml(){
       const stale = lastRes && window.subPlacementHash !== lastRes.run_hash;
       if(stale){
         h += '<div class="memo" style="color:#DFA85A">The model has moved since this placement \u2014 refreshing against the current run\u2026</div>';
-        if(!window._subPlaceRefreshing){ window._subPlaceRefreshing = true;
+        if(!window._subPlaceRefreshing && !window._noAutoPlace){ window._subPlaceRefreshing = true;
           setTimeout(async()=>{ try{ await subPlace(); } finally { window._subPlaceRefreshing = false; } }, 50); }
       }
       h += `<div class="ovh3" style="font-size:12px">Modeled capital vs real peers \u2014 ${esc(P.band)} band, ${P.year}Q${P.quarter}</div>`;
@@ -1611,7 +1621,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += '</table>';
     h += '<div class="memo">Default calibration (2.5\u00d7 charge-offs, 1.5\u00d7 reserves, +300bp) is in the spirit of a severely adverse supervisory scenario, but it is a working assumption \u2014 regulators prescribe their own scenarios. All three stress scenarios also apply the downturn overlays: origination volume decline, gain-on-sale margin compression, MSR value haircut, and a sale-share reduction that keeps would-be-sold loans on the balance sheet when investor demand dries up (the funding-supply dynamic in Upstart&rsquo;s downside scenarios: volume roughly \u221240% in year one and balance-sheet retention roughly doubling when institutional buyers pull back). Capital shortfall estimate assumes added capital is invested in securities and ignores earnings feedback (slightly conservative).</div>';
     h += '<div class="h2" style="margin-top:16px;font-size:14px">One-Variable Sensitivity (SENS)</div>';
-    h += '<div class="srcnote">One variable, three full engine runs \u2014 distinct from scenario stress, which moves many things at once (Patrick SENS intent, F-112).</div>';
+    h += '<div class="srcnote">One variable, three full engine runs \u2014 distinct from scenario stress, which moves many things at once .</div>';
     h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:230px" value="assumptions.overhead_q"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
     h += '<div id="sensOut"></div>';
     c.innerHTML = h; return;
@@ -2033,10 +2043,23 @@ function structuresSectionsHtml(){
     ["Trust", !!(A.fee_modules&&A.fee_modules.trust)],
     ["BaaS", !!(A.fee_modules&&A.fee_modules.baas)],
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
-  h += '<div class="ovh2">Modules — activation derived from presence, never asserted</div><div style="display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11px;color:#C4CDDD">';
-  lamps.forEach(([n,on])=>{ h += `<span>${on?'<span style="color:#7FB07F">\u25cf</span>':'<span style="color:#4a5568">\u25cb</span>'} ${esc(n)}</span>`; });
-  h += '</div>';
-  h += '<div class="ovh2">Capital structure & pre-opening</div>';
+  const lampMap = Object.fromEntries(lamps);
+  const lampGroups = [
+    ["Capital & pre-opening", ["Pre-opening", "Staged raises", "Scheduled borrowings", "Depreciation"]],
+    ["Securities", ["Securities books", "AOCI"]],
+    ["Operating expense", ["NIE detail"]],
+    ["Fee modules", ["Interchange", "Payments", "Service charges", "Trust", "BaaS"]],
+    ["Products", ["Mortgage banking"]]];
+  h += '<div class="chint" style="margin:0 0 10px;font-size:11px">Start creates the engagement \u2014 a one-time intake that writes this document. This page is the engagement\u2019s living configuration: structures you set once and revisit deliberately. The sidebar holds the knobs you turn while iterating.</div>';
+  h += '<div class="cfgcard" style="margin-bottom:14px"><div class="ovh2">Modules \u2014 activation derived from presence, never asserted</div><div class="cfglamps">';
+  lampGroups.forEach(([g, names])=>{
+    h += `<b>${g}</b>`;
+    names.forEach(n=>{ const on = lampMap[n];
+      h += `<span>${on?'<span style="color:#7FB07F">\u25cf</span>':'<span style="color:#4a5568">\u25cb</span>'} ${esc(n)}</span>`; });
+  });
+  h += '</div></div>';
+  h += '<div class="cfggrid">';
+  h += '<div class="cfgcard"><div class="ovh2">Capital structure & pre-opening</div>';
   {
         const raises = cfg.assumptions.capital_raises || [];
         h += '<div class="cbl">Staged raises</div>';
@@ -2066,7 +2089,7 @@ function structuresSectionsHtml(){
         h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
 
   }
-  h += '<div class="ovh2">Securities books & AOCI</div>';
+  h += '</div><div class="cfgcard"><div class="ovh2">Securities books & AOCI</div>';
   {
         const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
         h += '<div class="cbl">Securities books</div>';
@@ -2080,7 +2103,7 @@ function structuresSectionsHtml(){
         h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
 
   }
-  h += '<div class="ovh2">Operating expense detail (Patrick NIE, F-071/072)</div>';
+  h += '</div><div class="cfgcard"><div class="ovh2">Operating Expense Detail</div>';
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
     h += '<div class="chint">Off — the single corporate-overhead line governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div>';
@@ -2096,7 +2119,7 @@ function structuresSectionsHtml(){
     h += ' &nbsp;<a href="#" class="cx" onclick="cfg.assumptions.nie_detail=null;renderContent();refresh();return false">deactivate</a>';
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
-  h += '<div class="ovh2">Fee modules (F-070/141/142/143 \u2014 growth-capable, D-P10 fixed)</div>';
+  h += '</div><div class="cfgcard"><div class="ovh2">Fee Modules</div>';
   const FM = (A.fee_modules = A.fee_modules || {});
   const fmBtn = (key,label)=> FM[key] ? '' : `<a href="#" class="cadd" style="margin-right:12px" onclick="fmOn('${key}');return false">+ ${label}</a>`;
   h += '<div>' + fmBtn('trust','Trust') + fmBtn('interchange','Interchange') + fmBtn('service_charges','Service charges') + fmBtn('baas','BaaS') + ((FM.payments||[]).length? '' : '<a href="#" class="cadd" onclick="fmRail();return false">+ Payment rails</a>') + '</div>';
@@ -2112,6 +2135,7 @@ function structuresSectionsHtml(){
   });
   if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
   if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
+  h += '</div></div>';
   return h;
 }
 window.runSens = async function(){
@@ -2144,7 +2168,7 @@ function renderConfigTab(){
   const r = lastRes || {};
   let h = '<div class="h2" style="font-weight:700">Configuration</div>';
   h += '<div class="memo" style="margin:0 0 14px">The engagement sequence as data: the ten-step arc from \u201cshould this be a bank at all\u201d to post-opening monitoring, read directly from the client configuration \u2014 the single front door (G3). Whatever a step needs lives in this one document; the engine runs from it and nothing else.</div>';
-  if(!snapshotMode) h += structuresSectionsHtml();
+  if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
   const co = ((r.peer||{}).cohort)||null;
   const steps = [

@@ -629,7 +629,7 @@ def run_v2(cfg):
           "sev": "mild", "basis": "UBPR non-core dependence framing"},
         {"name": "Loans / deposits", "value": _pct(glq[q], depq[q]),
           "threshold": [70.0, 90.0], "kind": "band", "sev": "mild",
-          "basis": "advisory band (Patrick CONC)"},
+          "basis": "advisory band"},
         {"name": "NIE / average assets (burden)",
           "value": _pct(sum(nie_q), sum(avg_a[:nq2]) / nq2 if avg_a else None)
                     if avg_a else None,
@@ -671,7 +671,7 @@ def run_v2(cfg):
             "flag": ("SUFFICIENT" if cushion >= min_d1
                        else "INSUFFICIENT — REVIEW CAPITAL PLAN"),
             "convention": ("organizational costs expensed into the opening retained "
-                             "deficit (Patrick I.9 convention); monthly schedules "
+                             "deficit; monthly schedules "
                              "convert to quarterly totals at import"),
         }
         if not results["pre_open"]["sufficient"]:
@@ -738,8 +738,9 @@ def run_v2(cfg):
         "doctrine": ("integrity (the arithmetic holds together) and viability (the plan "
                       "clears its commitments) are separate classes, both shown \u2014 "
                       "a coherent model of a failing bank passes integrity and fails "
-                      "viability (the D-P18 lesson: Patrick's default config loses money "
-                      "three straight years under '\u2705 All Pass')"),
+                      "viability \u2014 a plan can be arithmetically coherent and still "
+                      "not clear its commitments, and a checks panel that conflates the "
+                      "two blesses failing banks"),
     }
     nim_w = (base.get("ratios") or {}).get("nim") or [None] * 13
     roa_w = (base.get("ratios") or {}).get("roa") or [None] * 13
@@ -763,7 +764,7 @@ def run_v2(cfg):
                        lev_w[1:13] if len(lev_w) == 13 else lev_w[:12])][0],
     }
     results["quick_stats"] = {
-        "note": "Patrick's COVER dashboard shape: 8 metrics \u00d7 three years; the "
+        "note": "8 headline metrics \u00d7 three years; the "
                  "capital metric is CBLR-aware (leverage governs under election)",
         "rows": [
             {"label": "Total Assets (EOP, $000s)", "y": results["annual"]["total_assets_eop"]},
