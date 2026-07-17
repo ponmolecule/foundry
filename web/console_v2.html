@@ -57,6 +57,13 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 #globalsBox input,#globalsBox select{border:1px solid #B9C2D2;background:var(--paper);color:#1C2128;
   font-family:inherit;font-size:11px;font-weight:500;padding:3px 5px;border-radius:2px}
 #globalsBox input:focus{outline:1.5px solid var(--gold);border-color:var(--gold)}
+.cbl{font-size:9.5px;color:#C4CDDD;text-transform:uppercase;letter-spacing:.04em;margin:7px 0 2px}
+.crow{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:#C4CDDD;flex-wrap:nowrap}
+.crow input{min-width:0}
+.crow .cu{color:#8FA3C0;font-size:10px;white-space:nowrap}
+.crow .cx{color:#B45454;text-decoration:none;padding:0 2px}
+.cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
+.chint{font-size:10px;color:#8FA3C0;margin-top:3px}
 .fld.wide{grid-column:1/-1}
 /* ------- content: faithful white number surfaces ------- */
 #content{padding:22px 30px 30px;overflow-x:auto;background:var(--paper);min-width:0;min-height:70vh}
@@ -413,38 +420,36 @@ function renderGlobals(){
       h += '</div>';
       if(gname.startsWith("Capital")){
         const raises = cfg.assumptions.capital_raises || [];
-        h += '<div style="margin:6px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">STAGED RAISES</b>';
+        h += '<div class="cbl">Staged raises</div>';
         raises.forEach((r,i)=>{
-          h += `<div style="display:flex;gap:6px;align-items:center;margin-top:4px">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
+          h += `<div class="crow">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
             + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-            + `</select><input type="number" style="width:110px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span style="color:#8FA3C0">$000s</span>`
-            + `<a href="#" style="color:#B45454" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+            + `</select><input type="number" style="width:96px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span>`
+            + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
         });
-        h += '<div style="margin-top:5px"><a href="#" style="color:#8a6d3b" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderGlobals();refresh();return false">+ add a raise</a></div></div>';
-      }
-      if(gname.startsWith("Capital")){
+        h += '<a href="#" class="cadd" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderGlobals();refresh();return false">+ add a raise</a>';
         const po = (cfg.pre_opening = cfg.pre_opening || {});
         const pex = (po.expenses = po.expenses || []);
-        h += '<div style="margin:10px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">PRE-OPENING</b>';
+        h += '<div class="cbl">Pre-opening</div>';
         pex.forEach((e,i)=>{
-          h += `<div style="display:flex;gap:6px;align-items:center;margin-top:4px"><input style="width:150px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:90px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span style="color:#8FA3C0">$000s</span><a href="#" style="color:#B45454" onclick="cfg.pre_opening.expenses.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
         });
-        h += '<div style="margin-top:5px"><a href="#" style="color:#8a6d3b" onclick="poAdd();return false">+ add pre-open expense</a></div>';
-        h += `<div style="margin-top:5px;font-size:11px">Min Day-1 capital <input type="number" style="width:90px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"> $000s</div></div>`;
+        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
+        h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
       }
       if(gname.startsWith("Treasury")){
         const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
-        h += '<div style="margin:6px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">SECURITIES BOOKS</b>';
-        h += `<div style="margin-top:4px;color:#8FA3C0">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} <a href="#" style="color:#8a6d3b" onclick="secAdd(0);return false">+ AFS</a> <a href="#" style="color:#8a6d3b" onclick="secAdd(1);return false">+ HTM</a></div>`;
+        h += '<div class="cbl">Securities books</div>';
+        h += `<div class="chint">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} &nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(0);return false">+ AFS</a>&nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(1);return false">+ HTM</a></div>`;
         (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
-          h += `<div style="display:flex;gap:5px;align-items:center;margin-top:3px;font-size:11px">AFS <input style="width:88px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:70px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:48px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()">%<a href="#" style="color:#B45454" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+          h += `<div class="crow">AFS<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
         });
         (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
-          h += `<div style="display:flex;gap:5px;align-items:center;margin-top:3px;font-size:11px">HTM <input style="width:88px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:70px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:48px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()">%<a href="#" style="color:#B45454" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+          h += `<div class="crow">HTM<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
         });
-        h += `<div style="margin-top:5px;font-size:11px">AOCI sensitivity <input type="number" step="0.5" style="width:56px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()">% of AFS/yr <span style="color:#8FA3C0">(HTM immune by design)</span></div></div>`;
+        h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
       }
-      if(gname.startsWith("Treasury_marker_never")){
+      if(gname.startsWith("Treasury")){
         h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
       }
     });
