@@ -872,9 +872,50 @@ def t35():
             _os.environ["FOUNDRY_DATA_DIR"] = old_env
 
 
+def t36():
+    print("T36 vintage corridor: age re-clocking, suppression, survivorship, determinism")
+    from .charteriq_client import CharterIQClient, build_vintage_corridor
+    def fake_exec(sql, params):
+        if "FROM institutions" in sql:
+            # three banks: 2019 charter, 2021 charter, 2020 charter that failed
+            return [(1, 2019, None, None), (2, 2021, None, None), (3, 2020, 2022, "2022-05-01")]
+        if "FROM metrics" in sql:
+            rows = []
+            # bank 1: roa 1.0,1.1,1.2,1.3 starting 2019Q1 (ages 1..4)
+            for i, (y, q) in enumerate([(2019,1),(2019,2),(2019,3),(2019,4)]):
+                rows.append((1, "roa", y, q, 1.0 + 0.1*i))
+            # bank 2: roa 2.0,2.1 starting 2021Q1 (ages 1..2) + a pre-charter noise row
+            rows.append((2, "roa", 2020, 4, 99.0))
+            for i, (y, q) in enumerate([(2021,1),(2021,2)]):
+                rows.append((2, "roa", y, q, 2.0 + 0.1*i))
+            # bank 3: roa 3.0 only (age 1), then it failed
+            rows.append((3, "roa", 2020, 1, 3.0))
+            return rows
+        return []
+    cl = CharterIQClient(executor=fake_exec)
+    V = build_vintage_corridor(cl, 2018, 2023, metrics=["roa"], min_n=2, max_age_q=4)
+    ages = {a["age_q"]: a for a in V["corridor"]["roa"]["ages"]}
+    check("T36a", "age re-clocking: three different charter years land on the same age axis "
+                    "(age-1 pool = 1.0, 2.0, 3.0; pre-charter noise excluded)",
+          ages[1]["n"] == 3 and ages[1]["p50"] == 2.0 and ages[1]["p25"] == 1.0)
+    check("T36b", "truncation and survivorship shrink later ages (age-2 n=2, age-3 n=1)",
+          ages[2]["n"] == 2 and ages[3]["n"] == 1)
+    check("T36c", "below min_n the band is suppressed, not estimated",
+          ages[3]["suppressed"] and ages[3]["p50"] is None and not ages[2]["suppressed"])
+    check("T36d", "survivorship is counted and stated",
+          V["survivorship"]["failed"] == 1 and "not hidden" in V["survivorship"]["note"])
+    V2 = build_vintage_corridor(cl, 2018, 2023, metrics=["roa"], min_n=2, max_age_q=4)
+    check("T36e", "the corridor is deterministic and fingerprinted",
+          V["fingerprint"] == V2["fingerprint"] and len(V["fingerprint"]) == 12)
+    Vc = build_vintage_corridor(cl, 2018, 2023, metrics=["tier1_ratio"], min_n=2, max_age_q=2)
+    lbl = Vc["corridor"]["tier1_ratio"]["accuracy"]
+    check("T36f", "capital metrics carry the two-quality history label",
+          "legacy computation" in lbl and "2025Q4" in lbl)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

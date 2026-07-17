@@ -903,6 +903,55 @@ async function subPlace(){
   window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
+const VINTAGE_OVERLAY = {tier1_ratio:"lev", cet1_ratio:"lev", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
+async function vintageBuild(){
+  const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify({est_from:2018, est_to:2023})});
+  const j = await r.json();
+  if(!r.ok){ alert("Corridor refused (fail-closed):\n" + (j.error||r.status)); return; }
+  window.vintage = j; renderContent();
+}
+window.vintageBuild = vintageBuild;
+function vintageSectionHtml(){
+  let h = '<div class="ovh3">Vintage corridor \u2014 de novos at the same age</div>';
+  if(!(subStatus && subStatus.configured && subStatus.reachable)){
+    h += '<div class="memo">Arrives with the substrate connection: real recently-chartered banks, each re-clocked to its own opening quarter, so the model\u2019s Q10 is compared to their Q10 \u2014 not to mature banks.</div>';
+    return h;
+  }
+  if(!window.vintage){
+    h += '<div class="memo">Every cohort member\u2019s history is re-clocked to its own opening quarter; the band is what real de novos actually walked at each age. Pre-registered window; suppressed below minimum count; survivorship stated.</div>';
+    h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
+    return h;
+  }
+  const V = window.vintage;
+  h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
+  Object.entries(V.corridor).forEach(([metric, M])=>{
+    const mk = VINTAGE_OVERLAY[metric];
+    const modeled = (mk && lastRes) ? lastRes.financials.ratios[mk] : null;
+    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled leverage as the comparison \u2014 related, not identical)" : ""}</div>`;
+    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + '</tr>';
+    ["p75","p50","p25"].forEach(p=>{
+      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + '</tr>';
+    });
+    if(modeled){
+      h += '<tr><td style="color:#DFA85A">Modeled</td>' + M.ages.map(a=>{
+        const v = modeled[a.age_q-1];
+        if(v===undefined || a.p25===null) return '<td style="text-align:right">\u2014</td>';
+        const col = (v>a.p75||v<a.p25) ? "#DFA85A" : "#8FA3C0";
+        return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
+      }).join("") + '</tr>';
+      h += '<tr><td>Verdict</td>' + M.ages.map(a=>{
+        const v = modeled[a.age_q-1];
+        if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#8FA3C0">\u2014</td>';
+        const t = v>a.p75 ? "above" : (v<a.p25 ? "below" : "inside");
+        return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
+      }).join("") + '</tr>';
+    }
+    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#8FA3C0">${a.n}</td>`).join("") + '</tr></table></div>';
+    h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.</div>`;
+  });
+  return h;
+}
 function retroSectionHtml(){
   let h = "";
   h += '<div class="ovh3">Retrodiction \u2014 projection vs filed history</div>';
@@ -938,8 +987,8 @@ function renderPeer(){
     h += retroSectionHtml();
     el.innerHTML = h; return;
   }
-  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
-  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
   h += `<div class="ovwm">${esc(r.peer.watermark)}</div>`;
   const kc = [
@@ -967,6 +1016,7 @@ function renderPeer(){
   });
   h += '</table>';
   h += substratePanelHtml();
+  h += vintageSectionHtml();
   h += retroSectionHtml();
   el.innerHTML = h;
 }

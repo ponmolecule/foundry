@@ -138,7 +138,8 @@
 - **T33a** — read-only enforced: non-SELECT refused before any executor sees it
 - **T33b** — institution record shaped with the terminal-status honesty note
 - **T33c** — quarterly series ordered and accuracy-labeled per family
-- **T33d** — capital-family percentiles carry the recomputation caveat
+- **T33d** — capital-family percentiles from the surveyed schema (group_id + 
+- **T33g** — a partial retro map with one ratio series is accepted
 - **T33e** — retro pull fails closed without the series map, listing real metric names
 - **T33f** — queries are parameterized (no literals interpolated)
 
@@ -150,3 +151,11 @@
 - **T35b** — placement phrasing is coarse and correct
 - **T35c** — FIW CONTROL carries the staged raise rows
 - **T35d** — editing a raise in Excel round-trips as exactly one edit
+
+## T36 vintage corridor: age re-clocking, suppression, survivorship, determinism
+- **T36a** — age re-clocking: three different charter years land on the same age axis 
+- **T36b** — truncation and survivorship shrink later ages (age-2 n=2, age-3 n=1)
+- **T36c** — below min_n the band is suppressed, not estimated
+- **T36d** — survivorship is counted and stated
+- **T36e** — the corridor is deterministic and fingerprinted
+- **T36f** — capital metrics carry the two-quality history label

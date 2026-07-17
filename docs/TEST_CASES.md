@@ -215,3 +215,25 @@ applies exactly that edit (gate-proven: one edit reported, the amount lands, the
 untouched quarter survives).
 **Check:** Add a raise in the sidebar → download the workbook → the raise rows
 appear; change the amount in Excel → upload → summary reports exactly one edit.
+
+## 18. Vintage corridor: real de novos, re-clocked to their own birthdays
+**Decided:** The Peer Cohort page's third instrument. All banks chartered in a
+pre-registered window (2018-2023: 55 institutions) have their filed histories
+re-clocked so each bank's first post-charter quarter is its "age quarter 1";
+the corridor is the p25/p50/p75 band of what those banks actually posted at
+each age, and the modeled bank's trajectory overlays on the same age axis with
+an inside/above/below verdict per quarter. Sub-decisions: (a) age quarters with
+fewer than 8 contributing banks are SUPPRESSED, never estimated; (b) survivorship
+is stated in the header (failures and exits counted, with the note that later
+quarters contain only survivors, making the corridor flattering); (c) pre-charter
+data rows are excluded as noise; (d) capital metrics carry a two-quality label
+(history = legacy computation, item-level from 2025Q4) because the survey showed
+full tier1/cet1 history exists at legacy quality; (e) leverage_ratio sits out
+(2025-only coverage); (f) the corridor is fingerprinted and deterministic, and
+the modeled overlay recomputes at render time, so it can never go stale.
+**Why:** Comparing a two-year-old bank to mature banks is a category error; the
+persuasive exhibit is "the model walks inside the corridor real de novos walked."
+**Check (with substrate):** Peer Cohort → "Build corridor — 2018–2023 charters"
+→ per-metric age tables with p75/p50/p25 rows, the modeled row in amber where it
+leaves the band, verdicts, per-quarter n, the survivorship line, and suppressed
+quarters showing dashes. Edit the model → verdicts update instantly.

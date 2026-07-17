@@ -250,3 +250,81 @@ def placement(value, pct_row):
     if value < pct_row["p75"]: return "p50\u2013p75"
     if value < pct_row["p90"]: return "p75\u2013p90"
     return "above p90"
+
+
+# ------------------------------------------------------------- vintage corridor
+VINTAGE_METRICS = ["tier1_ratio", "cet1_ratio", "roa", "nim", "efficiency_ratio",
+                    "deposit_cost"]
+
+
+def _pctl(sorted_vals, p):
+    """Nearest-rank percentile on a pre-sorted list (no interpolation drama)."""
+    if not sorted_vals:
+        return None
+    k = max(0, min(len(sorted_vals) - 1, int(round(p / 100.0 * (len(sorted_vals) - 1)))))
+    return sorted_vals[k]
+
+
+class CharterIQClientVintageMixin:
+    pass
+
+
+def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_age_q=12):
+    """Age-aligned trajectory corridor for banks chartered in [est_from, est_to].
+
+    Each bank's clock restarts at its own charter: age quarter 1 is its first
+    reported quarter in or after est_year. Per metric per age quarter: p25/p50/
+    p75 across contributing banks, suppressed below min_n. Survivorship is
+    reported, never hidden. Deterministic; fingerprinted."""
+    import hashlib
+    import json as _json
+    metrics = metrics or VINTAGE_METRICS
+    rows = client._run(
+        "SELECT cert, est_year, end_year, fail_date FROM institutions "
+        "WHERE est_year BETWEEN %s AND %s", (int(est_from), int(est_to)))
+    members = [{"cert": r[0], "est_year": r[1], "end_year": r[2],
+                 "fail_date": str(r[3]) if r[3] else None} for r in rows]
+    if not members:
+        raise ValueError(f"no institutions chartered {est_from}-{est_to}")
+    certs = [m["cert"] for m in members]
+    mrows = client._run(
+        "SELECT cert, metric_name, year, quarter, value FROM metrics "
+        "WHERE cert = ANY(%s) AND metric_name = ANY(%s) "
+        "ORDER BY cert, metric_name, year, quarter", (certs, list(metrics)))
+    est = {m["cert"]: m["est_year"] for m in members}
+    # per (metric, cert): age-ordered values
+    series = {}
+    for cert, metric, year, quarter, value in mrows:
+        if value is None or year < est[cert]:
+            continue   # pre-charter rows (data noise) never count
+        series.setdefault((metric, cert), []).append(float(value))
+    corridor = {}
+    for metric in metrics:
+        ages = []
+        for age in range(1, max_age_q + 1):
+            vals = sorted(s[age - 1] for (m2, c2), s in series.items()
+                           if m2 == metric and len(s) >= age)
+            ages.append({"age_q": age, "n": len(vals),
+                          "p25": _pctl(vals, 25) if len(vals) >= min_n else None,
+                          "p50": _pctl(vals, 50) if len(vals) >= min_n else None,
+                          "p75": _pctl(vals, 75) if len(vals) >= min_n else None,
+                          "suppressed": len(vals) < min_n})
+        corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
+        if metric in ("tier1_ratio", "cet1_ratio"):
+            corridor[metric]["accuracy"] = ("history on the legacy computation; "
+                                              "item-level FFIEC CDR from 2025Q4 onward")
+    failed = [m for m in members if m["fail_date"]]
+    exited = [m for m in members if m["end_year"] and not m["fail_date"]]
+    definition = {"est_from": est_from, "est_to": est_to, "metrics": metrics,
+                   "min_n": min_n, "max_age_q": max_age_q}
+    fp = hashlib.sha256(_json.dumps({"def": definition,
+                                       "members": sorted(certs)},
+                                      sort_keys=True).encode()).hexdigest()[:12]
+    return {"definition": definition, "fingerprint": fp,
+            "cohort_size": len(members),
+            "survivorship": {"failed": len(failed), "exited_other": len(exited),
+                              "note": "later age quarters are populated only by banks "
+                                        "that survived to that age; the corridor is "
+                                        "therefore flattering, and exits are stated, "
+                                        "not hidden (attribution pending Deliverable A)"},
+            "corridor": corridor}

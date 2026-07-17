@@ -352,6 +352,23 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
         return JSONResponse({"error": str(e)[:300]}, status_code=502)
 
 
+@app.post("/api/v31/substrate/vintage")
+def v31_substrate_vintage(body: dict, _=Depends(gate)):
+    """Vintage corridor: age-aligned de novo trajectories from the substrate."""
+    from foundry.charteriq_client import CharterIQClient, build_vintage_corridor
+    cl = CharterIQClient()
+    if not cl.configured():
+        return JSONResponse({"error": "substrate not configured"}, status_code=422)
+    try:
+        est_from = int(body.get("est_from", 2018))
+        est_to = int(body.get("est_to", 2023))
+        return JSONResponse(build_vintage_corridor(cl, est_from, est_to))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"substrate error: {str(e)[:300]}"}, status_code=502)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl
