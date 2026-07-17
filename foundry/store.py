@@ -68,6 +68,16 @@ def load_engagement(slug):
     return cfg
 
 
+def delete_engagement(slug):
+    """Delete a saved engagement file. Returns the slug; raises if absent."""
+    from .configio import slugify
+    path = os.path.join(_dir(), slugify(slug) + ".json")
+    if not os.path.exists(path):
+        raise FileNotFoundError(slug)
+    os.remove(path)
+    return slugify(slug)
+
+
 def list_engagements():
     out = []
     for name in sorted(os.listdir(_dir())):

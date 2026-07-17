@@ -1336,9 +1336,32 @@ def t47():
           f"got {ins2['insured_est'][0]:.1f} exp {expect:.1f}")
 
 
+def t48():
+    print("T48 engagement store lifecycle: save-current, list, delete, absent-404")
+    import json as _json, os, tempfile
+    os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp(prefix="t48_")
+    import importlib
+    from foundry import store
+    importlib.reload(store)
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    meta = store.save_engagement(dict(cfg, client="Roman Replication WIP"), slug="roman-wip")
+    listed = [e["slug"] for e in store.list_engagements()]
+    check("T48a", "the live configuration saves without a wizard and lists",
+          "roman-wip" in listed)
+    gone = store.delete_engagement("roman-wip")
+    listed2 = [e["slug"] for e in store.list_engagements()]
+    check("T48b", "delete removes the file and the listing", gone == "roman-wip"
+          and "roman-wip" not in listed2)
+    try:
+        store.delete_engagement("never-existed")
+        check("T48c", "deleting an absent engagement raises (the endpoint maps it to 404)", False)
+    except FileNotFoundError:
+        check("T48c", "deleting an absent engagement raises (the endpoint maps it to 404)", True)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

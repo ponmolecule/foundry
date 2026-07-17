@@ -1732,6 +1732,21 @@ async function loadFrozen(id){
 }
 window.downloadScenario=downloadScenario; window.uploadScenario=uploadScenario;
 window.downloadWorkbook=downloadWorkbook; window.uploadWorkbook=uploadWorkbook;
+window.delEngagement = async function(slug){
+  if(!confirm(`Delete saved engagement "${slug}"? The file is removed; the built-in demo cases are unaffected.`)) return;
+  const r = await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}`, {method:"DELETE"});
+  if(!r.ok){ alert("Delete failed: " + ((await r.json()).error || r.status)); return; }
+  loadEngStore(true); setTimeout(renderContent, 250);
+};
+window.saveCurrentEng = async function(){
+  const name = prompt("Name this engagement (the live configuration will be saved exactly as it stands):");
+  if(!name) return;
+  const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name})});
+  const j = await r.json();
+  if(!r.ok){ alert("Save refused: " + (j.error || r.status)); return; }
+  loadEngStore(true); setTimeout(renderContent, 250);
+};
 window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFrozen;
 
 /* ---------- Mode T mapping session (stage T-6) ---------- */
@@ -2007,17 +2022,18 @@ function renderStart(){
       + '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div>';
   }
   h += '<div class="ovh3">Saved engagements</div>';
+  if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements persist as files on the workspace and survive restarts \u2014 but a REDEPLOY resets this container\u2019s disk unless a volume is mounted at FOUNDRY_DATA_DIR. For anything that matters, also keep the Excel round-trip download and a frozen run. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
   if(snapshotMode){
     h += '<div class="memo">The engagement store lives on the deployed workspace (Railway volume).</div>';
   } else if(engStore === null){
     loadEngStore(); h += '<div class="memo">Loading engagement store\u2026</div>';
   } else if(!(engStore.engagements||[]).length){
-    h += '<div class="memo">No saved engagements yet \u2014 engagements you save will appear here, and survive between sessions.</div>';
+    h += '<div class="memo">No saved engagements yet.</div>';
   } else {
     h += '<table class="ovt"><tr><th>Engagement</th><th>Reference</th><th></th></tr>';
     engStore.engagements.forEach(e=>{
       h += `<tr><td>${esc(e.name)}</td><td style="font-family:var(--mono);font-size:11px">${esc(e.slug)}</td>`
-        + `<td><button class="btn-plain" onclick="openEngagement('${e.slug}')">Open</button></td></tr>`;
+        + `<td><button class="btn-plain" onclick="openEngagement('${e.slug}')">Open</button> <a href="#" class="cx" title="Delete this saved engagement" onclick="delEngagement('${e.slug}');return false">\u00d7</a></td></tr>`;
     });
     h += '</table>';
   }

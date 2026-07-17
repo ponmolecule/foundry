@@ -145,6 +145,31 @@ def v31_engagements(_=Depends(gate)):
                           "schema_version": store.CONFIG_SCHEMA_VERSION})
 
 
+@app.delete("/api/v31/engagement/{slug}")
+def v31_engagement_delete(slug: str, _=Depends(gate)):
+    from foundry import store
+    try:
+        return JSONResponse({"deleted": store.delete_engagement(slug)})
+    except FileNotFoundError:
+        return JSONResponse({"error": "no such engagement"}, status_code=404)
+
+
+@app.post("/api/v31/engagement/save-current")
+def v31_engagement_save_current(body: dict, _=Depends(gate)):
+    """Promote the live configuration to a saved engagement — no wizard required."""
+    from foundry import store
+    cfg = body.get("config")
+    name = (body.get("name") or "").strip()
+    if not cfg or not name:
+        return JSONResponse({"error": "config and name required"}, status_code=422)
+    cfg.setdefault("proposed_bank", name)
+    cfg.setdefault("client", name)
+    try:
+        return JSONResponse(store.save_engagement(cfg, slug=name))
+    except store.SchemaVersionError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
 @app.get("/api/v31/engagement/{slug}")
 def v31_engagement(slug: str, _=Depends(gate)):
     from foundry import store

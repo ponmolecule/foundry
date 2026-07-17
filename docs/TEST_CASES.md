@@ -388,3 +388,16 @@ one control, one function.
 **Check:** Config tab: cards, no "Patrick"/"F-###" anywhere, lamps grouped to
 match sections; Peer Cohort: Check connection in the header, and checking the
 connection with a stale placement does not re-query peers.
+
+## 28. Engagement store lifecycle (user report: accidental save, no delete, unsaved work)
+**Decided:** (a) Saved engagements are deletable — an × per row with confirm,
+DELETE endpoint, file removed; deleting an absent slug is a 404, and the
+built-in demo cases don't live in the store so they can't be deleted. (b) The
+live configuration can be PROMOTED to a saved engagement without the wizard
+("Save current configuration as an engagement" + a name) — messing-around work,
+like a Roman-replication session, is now one click from safety. (c) The
+persistence copy tells the truth: files survive restarts but a REDEPLOY resets
+the container disk unless a volume is mounted at FOUNDRY_DATA_DIR; the copy
+recommends the Excel round-trip and frozen runs as the belt-and-suspenders.
+**Check:** Start tab → Save current configuration → name it → it lists; × →
+confirm → gone. The persistence note appears above the list.
