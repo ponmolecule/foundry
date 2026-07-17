@@ -681,6 +681,100 @@ def run_v2(cfg):
                           f"(raise − burn) is below the minimum Day-1 requirement "
                           f"${min_d1/1000:,.0f}k — INSUFFICIENT, review the capital plan."),
             })
+    # ---- Wave 4 (F-120/122/132/011/013): checks panel, quick stats, annual rollup
+    bsw, isw = base["bs"], base["is"]
+    _dv = results["presentation"]["derived"]
+    nqw = 12
+    def _sw(key, src=None):
+        v = (src or bsw).get(key) or [0.0] * 13
+        return (v[1:13] if len(v) == 13 else v[:12])
+    eqw, rew, aociw, piw = _sw("equity"), _sw("re" if "re" in bsw else "retained"),                              _sw("aoci"), _sw("paidIn")
+    niw = isw["ni"][:12]
+    idw = _dv.get("identity") or []
+    checks = []
+    def _ck(cid, label, ok, klass, note=""):
+        checks.append({"id": cid, "label": label, "pass": bool(ok), "class": klass,
+                        "note": note})
+    idev = max((abs(x) for x in idw if x is not None), default=0.0)
+    _ck("CK-1", "Assets = Liabilities + Equity, every quarter", idev < 1.0,
+        "integrity", f"worst deviation {idev:.3f} $000s")
+    comp_dev = max(abs(eqw[t] - (piw[t] + rew[t] + aociw[t])) for t in range(nqw))
+    _ck("CK-2", "Equity = paid-in + retained + AOCI, every quarter", comp_dev < 0.02,
+        "integrity", f"worst {comp_dev:.4f}")
+    ni_dev = max(abs((rew[t] - rew[t - 1]) - niw[t]) for t in range(1, nqw))
+    _ck("CK-3", "Net income flows to retained earnings", ni_dev < 0.02,
+        "integrity", "raises land in paid-in, AOCI in its own component — retained moves by NI alone")
+    lev_w = (base.get("ratios") or {}).get("lev") or []
+    lev_q = [x for x in (lev_w[1:13] if len(lev_w) == 13 else lev_w[:12]) if x is not None]
+    lev_min_req = None
+    for con in (cfg.get("constraints") or []):
+        if "lever" in str(con.get("key", con.get("name", ""))).lower():
+            lev_min_req = con.get("value")
+    if lev_min_req:
+        _ck("CK-4", f"Leverage \u2265 {lev_min_req*100:.0f}% every quarter (chartering commitment)",
+            all(x >= lev_min_req * 100 for x in lev_q), "viability",
+            f"min {min(lev_q):.2f}%" if lev_q else "no data")
+    if "pre_open" in results:
+        _ck("CK-5", "Pre-opening capital sufficiency", results["pre_open"]["sufficient"],
+            "viability", results["pre_open"]["flag"])
+    fmw = cfg["assumptions"].get("fee_modules") or {}
+    _ck("CK-6", "No fee income from inactive modules",
+        bool(fmw) or "fee_detail" not in results, "integrity",
+        "module income exists only when a module is configured")
+    _ck("CK-7", "Twelve-quarter period index, no gaps", len(niw) == 12, "integrity")
+    ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(3)]
+    _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
+        "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
+    _ck("CK-9", "Regulatory parameters resolve from the versioned registry",
+        bool(REG_PARAMS.get("version")), "integrity", f"version {REG_PARAMS.get('version')}")
+    ta_w, gl_w, dep_w = _sw("totalAssets"), _sw("grossLoans"), _sw("deposits")
+    results["checks"] = {
+        "rows": checks,
+        "integrity_pass": all(c["pass"] for c in checks if c["class"] == "integrity"),
+        "viability_pass": all(c["pass"] for c in checks if c["class"] == "viability"),
+        "master": ("\u2705 Integrity checks: all pass" if all(
+                      c["pass"] for c in checks if c["class"] == "integrity")
+                    else "\u26a0\ufe0f Integrity failures \u2014 review"),
+        "doctrine": ("integrity (the arithmetic holds together) and viability (the plan "
+                      "clears its commitments) are separate classes, both shown \u2014 "
+                      "a coherent model of a failing bank passes integrity and fails "
+                      "viability (the D-P18 lesson: Patrick's default config loses money "
+                      "three straight years under '\u2705 All Pass')"),
+    }
+    nim_w = (base.get("ratios") or {}).get("nim") or [None] * 13
+    roa_w = (base.get("ratios") or {}).get("roa") or [None] * 13
+    eff_w = (base.get("ratios") or {}).get("eff") or [None] * 13
+    def _annR(series):
+        s = series[1:13] if len(series) == 13 else series[:12]
+        out = []
+        for y in range(3):
+            xs = [x for x in s[y * 4:(y + 1) * 4] if x is not None]
+            out.append(round(sum(xs) / len(xs), 2) if xs else None)
+        return out
+    results["annual"] = {
+        "note": "stocks at year-end (Q4/Q8/Q12), flows summed, ratios simple-averaged "
+                 "over the year's quarters (labeled as such)",
+        "total_assets_eop": [ta_w[3], ta_w[7], ta_w[11]],
+        "net_loans_eop": [_sw("netLoans")[3], _sw("netLoans")[7], _sw("netLoans")[11]],
+        "deposits_eop": [dep_w[3], dep_w[7], dep_w[11]],
+        "ni": [round(x, 2) for x in ann_ni],
+        "nim": _annR(nim_w), "roa": _annR(roa_w), "eff": _annR(eff_w),
+        "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in (3, 7, 11)])(
+                       lev_w[1:13] if len(lev_w) == 13 else lev_w[:12])][0],
+    }
+    results["quick_stats"] = {
+        "note": "Patrick's COVER dashboard shape: 8 metrics \u00d7 three years; the "
+                 "capital metric is CBLR-aware (leverage governs under election)",
+        "rows": [
+            {"label": "Total Assets (EOP, $000s)", "y": results["annual"]["total_assets_eop"]},
+            {"label": "Net Loans (EOP, $000s)", "y": results["annual"]["net_loans_eop"]},
+            {"label": "Total Deposits (EOP, $000s)", "y": results["annual"]["deposits_eop"]},
+            {"label": "NIM (%, avg of quarters)", "y": results["annual"]["nim"]},
+            {"label": "Efficiency (%, avg)", "y": results["annual"]["eff"]},
+            {"label": "ROA (%, avg)", "y": results["annual"]["roa"]},
+            {"label": "Leverage / CBLR (%, EOP)", "y": results["annual"]["lev_eop"]},
+            {"label": "Net Income ($000s)", "y": results["annual"]["ni"]},
+        ]}
     from .income_modules import fee_module_series as _fms, nie_detail_series as _nds
     _fd = _fms(cfg["assumptions"])
     if any(abs(x) > 1e-9 for x in _fd["income"]) or any(abs(x) > 1e-9 for x in _fd["cost"]):

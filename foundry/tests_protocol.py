@@ -1239,9 +1239,69 @@ def t44():
               f5 > d_fees + 300.0, f"q5 delta {f5:.1f}k")
 
 
+def t45():
+    print("T45 Wave 4 surfaces (F-120/122/132/011/013): checks, quick stats, annual")
+    import json as _json
+    from .v2.run_q import run_v2
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    r = run_v2(cfg)
+    ck = r["checks"]
+    check("T45a", "integrity checks all pass on a golden fixture; classes are distinct "
+                    "and both present (D-P18: integrity != viability)",
+          ck["integrity_pass"]
+          and {c["class"] for c in ck["rows"]} >= {"integrity", "viability"}
+          and "D-P18" in ck["doctrine"])
+    lev_row = next((c for c in ck["rows"] if c["id"] == "CK-4"), None)
+    check("T45b", "the viability check tests exactly what its label claims "
+                    "(leverage vs the chartering commitment, min shown)",
+          lev_row is not None and "min" in (lev_row.get("note") or ""))
+    an = r["annual"]
+    ni_q = r["financials"]["is"]["ni"][:12]
+    check("T45c", "annual NI = sum of quarters, all three years, to the penny",
+          all(abs(an["ni"][y] - sum(ni_q[y*4:(y+1)*4])) < 0.02 for y in range(3)))
+    bsx = r["financials"]["bs"]
+    ta = bsx["totalAssets"][1:13] if len(bsx["totalAssets"]) == 13 else bsx["totalAssets"][:12]
+    check("T45d", "year-end stocks are exactly Q4/Q8/Q12",
+          an["total_assets_eop"] == [ta[3], ta[7], ta[11]])
+    qs = r["quick_stats"]["rows"]
+    check("T45e", "quick stats carry Patrick's 8-metric shape with a CBLR-aware capital row",
+          len(qs) == 8 and any("CBLR" in x["label"] for x in qs))
+    # a plan that breaches its leverage floor: viability FAILS while integrity PASSES
+    cfg2 = _json.loads(_json.dumps(cfg))
+    cfg2["target_state"]["initial_capital"] = 12_000_000
+    r2 = run_v2(cfg2)
+    ck2 = r2["checks"]
+    check("T45f", "an undercapitalized plan fails viability while integrity still passes "
+                    "— a coherent model of a failing bank, correctly told apart",
+          ck2["integrity_pass"] and not ck2["viability_pass"])
+
+
+def t46():
+    print("T46 SENS (F-112) + schedule export (F-133)")
+    import io as _io, json as _json
+    from .v2.run_q import run_v2
+    from .v2.excel_q import results_workbook_v2
+    from openpyxl import load_workbook as _lw
+    from .v2.parity import run_parity
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    res_v = run_v2(cfg)
+    res = run_parity(cfg)
+    buf = _io.BytesIO(); results_workbook_v2(cfg, res).save(buf)
+    wb = _lw(_io.BytesIO(buf.getvalue()), data_only=True)
+    names = wb.sheetnames
+    check("T46a", "the results workbook carries the five schedule sheets (F-133)",
+          all(f"Schedule {s}" in names for s in ("RC", "RI", "RC-C", "RC-E", "RC-R")))
+    ws = wb["Schedule RC"]
+    rows = {r[0]: list(r[3:15]) for r in ws.iter_rows(min_row=3, values_only=True) if r and r[0]}
+    ta = res_v["financials"]["bs"]["totalAssets"]
+    taq = ta[1:13] if len(ta) == 13 else ta[:12]
+    check("T46b", "exported RC row 12 (total assets) ties to the engine, all quarters",
+          all(abs((rows.get("12") or [0]*12)[t] - taq[t]) < 1.0 for t in range(12)))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -194,3 +194,15 @@
 - **T43c** — FDIC accrues on (assets − tangible equity) + OCC on assets — the 
 
 ## T44 fee modules (F-036/070/141/142/143): each module hand-checked, growth live
+
+## T45 Wave 4 surfaces (F-120/122/132/011/013): checks, quick stats, annual
+- **T45a** — integrity checks all pass on a golden fixture; classes are distinct 
+- **T45b** — the viability check tests exactly what its label claims 
+- **T45c** — annual NI = sum of quarters, all three years, to the penny
+- **T45d** — year-end stocks are exactly Q4/Q8/Q12
+- **T45e** — quick stats carry Patrick's 8-metric shape with a CBLR-aware capital row
+- **T45f** — an undercapitalized plan fails viability while integrity still passes 
+
+## T46 SENS (F-112) + schedule export (F-133)
+- **T46a** — the results workbook carries the five schedule sheets (F-133)
+- **T46b** — exported RC row 12 (total assets) ties to the engine, all quarters

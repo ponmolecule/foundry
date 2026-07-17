@@ -352,6 +352,51 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
         return JSONResponse({"error": str(e)[:300]}, status_code=502)
 
 
+@app.post("/api/v2/sens")
+def v2_sens(body: dict, _=Depends(gate)):
+    """SENS (FLOOR F-112): one-variable low/base/high sensitivity, three full runs."""
+    from foundry.v2.run_q import run_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    import copy as _copy
+    cfg = body.get("config")
+    var = body.get("variable")
+    lo, hi = body.get("low"), body.get("high")
+    if not cfg or not var or lo is None or hi is None:
+        return JSONResponse({"error": "config, variable, low, high required"}, status_code=422)
+    def _set(c, path, val):
+        parts = path.split(".")
+        o = c
+        for p in parts[:-1]:
+            o = o[int(p)] if p.isdigit() else o[p]
+        o[parts[-1]] = val
+    out = {}
+    try:
+        for name, val in (("low", lo), ("base", None), ("high", hi)):
+            c2 = _copy.deepcopy(cfg)
+            if val is not None:
+                _set(c2, var, val)
+            errs = validate_errors_v2(c2)
+            if errs:
+                return JSONResponse({"error": f"{name} case invalid",
+                                       "errors": errs[:3]}, status_code=422)
+            r = run_v2(c2)
+            rt = r["financials"]["ratios"]
+            def _q12(k):
+                s = rt.get(k) or []
+                s = [x for x in s if x is not None]
+                return s[-1] if s else None
+            out[name] = {"value": val, "nim_q12": _q12("nim"), "roa_q12": _q12("roa"),
+                          "lev_q12": _q12("lev"),
+                          "ni_cum": round(sum(r["financials"]["is"]["ni"][:12]), 1)}
+        out["variable"] = var
+        out["note"] = ("Patrick's SENS intent: one variable, three full engine runs \u2014 "
+                        "distinct from scenario stress, which moves many things at once")
+        return JSONResponse(out)
+    except (KeyError, IndexError, TypeError) as e:
+        return JSONResponse({"error": f"variable path not found: {var} ({e})"},
+                             status_code=422)
+
+
 @app.post("/api/v31/substrate/vintage")
 def v31_substrate_vintage(body: dict, _=Depends(gate)):
     """Vintage corridor: age-aligned de novo trajectories from the substrate."""

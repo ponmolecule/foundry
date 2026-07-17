@@ -1119,6 +1119,28 @@ function renderOverview(){
     const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
     h += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
   });
+  if(r.checks){
+    h += `<div class="ovh2">Model checks \u2014 ${esc(r.checks.master)}</div>`;
+    h += `<div class="memo" style="font-size:11px">${esc(r.checks.doctrine)}.</div>`;
+    ["integrity","viability"].forEach(kl=>{
+      const rows = r.checks.rows.filter(x=>x.class===kl);
+      if(!rows.length) return;
+      h += `<div class="ovh3" style="font-size:11px">${kl} checks</div><table class="ovt">`;
+      rows.forEach(x=>{
+        h += `<tr><td style="width:54px"><span class="ovtag ${x.pass?"ok":"bad"}">${x.pass?"PASS":"FAIL"}</span></td><td>${esc(x.label)}</td><td style="color:#8FA3C0;font-size:10px">${esc(x.note||"")}</td></tr>`;
+      });
+      h += '</table>';
+    });
+  }
+  if(r.quick_stats){
+    h += '<div class="ovh2">Quick stats \u2014 three years</div>';
+    h += `<div class="memo" style="font-size:11px">${esc(r.quick_stats.note)}.</div>`;
+    h += '<table class="ovt"><tr><th></th><th style="text-align:right">Year 1</th><th style="text-align:right">Year 2</th><th style="text-align:right">Year 3</th></tr>';
+    r.quick_stats.rows.forEach(x=>{
+      h += `<tr><td>${esc(x.label)}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+    });
+    h += '</table>';
+  }
   h += '<div class="ovh3">Constraint tests, every scenario</div>';
   h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
   (r.constraint_tests||[]).forEach(t=>{
@@ -1237,6 +1259,15 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       h += '</table>';
     }
     h += `<div class="memo">Cash is held at ${(G("assumptions.cash_target_pct_deposits")*100).toFixed(1)}% of deposits; excess funding is invested in securities; funding shortfalls are met with borrowings. Fair-value elected products are carried at DCF fair value within their Call Report lines and excluded from the ALLL.</div>`;
+    if(lastRes && lastRes.annual){
+      const AN = lastRes.annual;
+      h += '<div class="h2" style="margin-top:16px;font-size:14px">Year-End Balances</div>';
+      h += '<table class="fin"><tr><th></th><th>Y1 (Q4)</th><th>Y2 (Q8)</th><th>Y3 (Q12)</th></tr>';
+      [["Total assets", AN.total_assets_eop], ["Net loans", AN.net_loans_eop], ["Deposits", AN.deposits_eop], ["Leverage (%)", AN.lev_eop]].forEach(([l,arr])=>{
+        h += `<tr><td>${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      });
+      h += '</table>';
+    }
     c.innerHTML = h; return;
   }
 
@@ -1267,6 +1298,16 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     if(fin.is.nol) h += rowIS('Memo: NOL Carryforward (end)', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0], 'nol');
     h += '</table>';
     h += '<div class="memo">Taxes apply the statutory rate to pre-tax income net of accumulated NOL carryforwards; no deferred tax asset is booked (conservative). FV gains/losses include credit losses on fair-value elected loans, which carry no provision.</div>';
+    if(lastRes && lastRes.annual){
+      const AN = lastRes.annual;
+      h += '<div class="h2" style="margin-top:16px;font-size:14px">Annual Rollup (Y1/Y2/Y3)</div>';
+      h += `<div class="srcnote">${esc(AN.note)}.</div>`;
+      h += '<table class="fin"><tr><th></th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr>';
+      [["Net income ($000s)", AN.ni], ["NIM (%)", AN.nim], ["ROA (%)", AN.roa], ["Efficiency (%)", AN.eff]].forEach(([l,arr])=>{
+        h += `<tr><td>${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      });
+      h += '</table>';
+    }
     c.innerHTML = h; return;
   }
 
@@ -1549,6 +1590,10 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     });
     h += '</table>';
     h += '<div class="memo">Default calibration (2.5\u00d7 charge-offs, 1.5\u00d7 reserves, +300bp) is in the spirit of a severely adverse supervisory scenario, but it is a working assumption \u2014 regulators prescribe their own scenarios. All three stress scenarios also apply the downturn overlays: origination volume decline, gain-on-sale margin compression, MSR value haircut, and a sale-share reduction that keeps would-be-sold loans on the balance sheet when investor demand dries up (the funding-supply dynamic in Upstart&rsquo;s downside scenarios: volume roughly \u221240% in year one and balance-sheet retention roughly doubling when institutional buyers pull back). Capital shortfall estimate assumes added capital is invested in securities and ignores earnings feedback (slightly conservative).</div>';
+    h += '<div class="h2" style="margin-top:16px;font-size:14px">One-Variable Sensitivity (SENS)</div>';
+    h += '<div class="srcnote">One variable, three full engine runs \u2014 distinct from scenario stress, which moves many things at once (Patrick SENS intent, F-112).</div>';
+    h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:230px" value="assumptions.overhead_q"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
+    h += '<div id="sensOut"></div>';
     c.innerHTML = h; return;
   }
 
@@ -2049,6 +2094,18 @@ function structuresSectionsHtml(){
   if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
   return h;
 }
+window.runSens = async function(){
+  const v=document.getElementById('sensVar').value, lo=parseFloat(document.getElementById('sensLo').value), hi=parseFloat(document.getElementById('sensHi').value);
+  const el=document.getElementById('sensOut');
+  el.innerHTML='<span class="srcnote">running three cases\u2026</span>';
+  const r=await fetch('/api/v2/sens',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg,variable:v,low:lo,high:hi})});
+  const j=await r.json();
+  if(!r.ok){ el.innerHTML=`<span style="color:#B45454">${esc(j.error||'failed')}</span>`; return; }
+  let t='<table class="fin"><tr><th>Case</th><th>Value</th><th>NIM Q12</th><th>ROA Q12</th><th>Leverage Q12</th><th>Cum NI ($000s)</th></tr>';
+  ["low","base","high"].forEach(k=>{ const c2=j[k];
+    t+=`<tr><td>${k}</td><td style="font-family:var(--mono);text-align:right">${c2.value==null?"(config)":c2.value.toLocaleString()}</td><td style="font-family:var(--mono);text-align:right">${c2.nim_q12==null?"\u2014":c2.nim_q12.toFixed(2)}%</td><td style="font-family:var(--mono);text-align:right">${c2.roa_q12==null?"\u2014":c2.roa_q12.toFixed(2)}%</td><td style="font-family:var(--mono);text-align:right">${c2.lev_q12==null?"\u2014":c2.lev_q12.toFixed(2)}%</td><td style="font-family:var(--mono);text-align:right">${c2.ni_cum.toLocaleString()}</td></tr>`;});
+  el.innerHTML=t+'</table>'+`<div class="srcnote">${esc(j.note)}.</div>`;
+};
 window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[20,30,40], loaded_comp_annual:150000, categories:[{name:"Core banking & tech", per_quarter:120000},{name:"Occupancy", per_quarter:60000},{name:"Legal & compliance", per_quarter:36000}], other_gross_up_rate:0.03}; renderContent(); refresh(); };
 window.fmOn = function(key){
   const d = {trust:{aum_open:100000000, aum_growth_q:0.03, fee_bp_ann:50},

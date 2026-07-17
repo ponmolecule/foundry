@@ -245,4 +245,31 @@ def results_workbook_v2(cfg, res):
         for k, arr in res["ratios"].items():
             if arr and any(x is not None for x in arr):
                 rt.append([present.RATIO_LABELS.get(k, k), k] + list(arr))
+    # FLOOR F-133: Call-Report-named schedule sheets, per-line references
+    try:
+        from .callreport import build_call_report
+        _shim = res if "financials" in res else {
+            "financials": {"bs": res["bs"], "is": res["is"],
+                             "ratios": res.get("ratios") or {}},
+            "products": res.get("products") or [], "capital": res.get("capital")}
+        cr = build_call_report(_shim, cfg)
+        for sched in ("RC", "RI", "RC-C", "RC-E", "RC-R"):
+            if sched not in cr:
+                continue
+            ws = wb.create_sheet(f"Schedule {sched}")
+            ws.append([cr[sched].get("title", sched)])
+            ws.append(["Item", "Code", "Line"] + [f"Q{q}" for q in range(1, 13)])
+            for row in cr[sched]["rows"]:
+                ws.append([row["item"], row["code"], row["label"]] + list(row["values"]))
+            if sched == "RC-R" and cr[sched].get("part2"):
+                ws.append([])
+                ws.append([cr[sched]["part2"]["title"]])
+                for row in cr[sched]["part2"]["rows"]:
+                    ws.append([row["item"], row["code"], row["label"]] + list(row["values"]))
+            for note in (cr[sched].get("notes") or []):
+                ws.append([])
+                ws.append([f"note: {note}"])
+    except Exception:
+        pass   # schedules are additive; the workbook core never fails on them
+
     return wb

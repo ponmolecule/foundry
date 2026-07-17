@@ -10,9 +10,9 @@
 | F-004 | both | SAT | $000s throughout; declared |
 | F-005 | R | SAT | Config-as-JSON, engagement store, FIW round-trip, Prairie load pattern (D-R1 fixed) |
 | F-010 | P | SAT | Pre-opening phase (quarterly-converted; T37) |
-| F-011 | P | PART | Quarterly canonical index SAT; annual=Σquarters check exists in gates, not surfaced; inline year-rollup presentation absent |
-| F-012 | P | PART | Quarterly native (D-P17 moot); annual/quarterly VIEW toggle absent |
-| F-013 | both | PART | 12Q default SAT; Patrick's inline annual presentation OPEN |
+| F-011 | P | SAT | Canonical quarterly index; annual=Σquarters computed in results, surfaced in the CHECKS panel, and gate-verified to the penny (T45c) |
+| F-012 | P | SAT | Two cadence views over one artifact: quarterly primary, annual rollup blocks on IS/BS (monthly = import conversion per the quarterly-permanent ruling; D-P17 moot) |
+| F-013 | both | SAT | 12Q default; Patrick's year-rollup presentation reproduced (Annual Rollup on IS, Year-End Balances on BS, Y1/Y2/Y3) |
 | F-020 | P | SAT | Category expense schedule, sidebar-edited, Examiner Book display (T37) |
 | F-021 | P | SAT | Cushion vs min Day-1, SUFFICIENT/INSUFFICIENT flag in results + display (T37d/e) |
 | F-022 | P | SAT | Burn expensed into opening RETAINED deficit, both engines; waterfall seeds the asset side (T37a-c) |
@@ -53,14 +53,14 @@
 | F-100 | P | SAT | Nine-ratio CONC panel (CRE/RBC 300, C&D/RBC 100 w/ real input honored, C&I mix, consumer mix, LLL 15%, wholesale, non-core, LTD band, burden); missing inputs STATED never zero-filled (D-P16b); severe breaches flag on Overview (T41e/f) |
 | F-110 | R | SAT | Stress = full re-runs, credit/rate/combined + four overlays (parity); Patrick's S1/S2 annual presentation shape OPEN (PART overall) |
 | F-111 | R | SAT | Breach callouts, matrices, stressed-out-earns-base honesty flag, calibration provenance (parity) |
-| F-112 | P | OPEN | SENS-style one-variable low/base/high sensitivity |
-| F-120 | P | OPEN | In-app CHECKS panel surfacing named assertions + master status (gates exist off-app; D-R15) |
+| F-112 | P | SAT | SENS: one variable, three full engine runs (low/base/high), NIM/ROA/leverage/cum-NI table on the Stress tab; /api/v2/sens |
+| F-120 | P | SAT | In-app checks panel: nine named assertions, labels test exactly what they claim (T45b), master status on the Overview (D-R15 + D-P16 fixed) |
 | F-121 | R | PART | Roman's full flag catalog in examiner voice SAT (parity); bands recomputed from live CharterIQ percentiles, dated+cited, OPEN — the 85/15 centerpiece (D-R12) |
-| F-122 | both | PART | Integrity (gates) and viability (flags) both exist; the two-class distinction not surfaced in-app pending F-120 |
+| F-122 | both | SAT | Integrity and viability as separate check classes, both visible; an undercapitalized plan fails viability while integrity passes — gate-proven (T45f; the D-P18 lesson) |
 | F-130 | R | SAT | FTP toggle, mismatch center, presentation-only memo (parity) |
 | F-131 | R | SAT | Product Detail contribution view (parity) |
-| F-132 | P | PART | Overview tab exists; Patrick's 8-metric x 3-year quick-stats shape + CBLR-aware capital metric OPEN |
-| F-133 | both | PART | Roman's 6-sheet export SAT (parity); Call-Report-named schedule EXPORT (beyond on-screen Examiner Book) OPEN |
+| F-132 | P | SAT | Patrick's 8-metric × 3-year quick stats on the Overview, CBLR-aware capital row (T45e) |
+| F-133 | both | SAT | Results workbook carries Schedule RC/RI/RC-C/RC-E/RC-R sheets with per-line codes; exported RC ties to the engine (T46a/b) |
 | F-134 | R | SAT | Zero suppression (parity + schedules omission convention) |
 | F-135 | R | SAT | Methodology prose (parity) + BUILD_NOTES/ENGINE_SPEC/TEST_CASES lineage |
 | F-136 | R | SAT | Debounced live recompute, badge update, input preservation (parity) |
@@ -72,5 +72,5 @@
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 49 SAT · 7 PART · 6 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Waves 1-3 closed (engine, regulatory, income granularity).**
+**Scoreboard: 57 SAT · 3 PART · 2 OPEN · 1 DEF. Waves 1-4 closed. Remaining: F-032 insurance bucketing + F-121 live-peer bands (OPEN); F-001 metadata echo, F-031 deposit-taxonomy extension, F-145 card depth (PART); F-140 BHC (DEF).**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

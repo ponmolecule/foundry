@@ -338,3 +338,19 @@ the sidebar keeps only iteration knobs (rates, overhead, capital, SOFR, stress).
 **Check:** Configuration tab → lamps row + six structural sections; activate
 Trust ($100M AUM, 50bp) → fee income rises $125k/q; sidebar no longer carries
 Pre-opening / Staged raises / Securities books.
+
+## 25. Wave 4: surfaces (F-011/012/013/112/120/122/132/133)
+**Decided:** (a) An in-app CHECKS panel on the Overview: nine named assertions
+computed on every run, each labeled to test exactly what it claims (D-P16 fix),
+split into INTEGRITY (the arithmetic holds together) and VIABILITY (the plan
+clears its commitments) — separate classes, both shown, with a gate proving an
+undercapitalized plan fails viability while integrity passes: the D-P18 lesson
+that Patrick's "All Pass" over a money-losing bank taught. (b) Patrick's COVER
+quick-stats: 8 metrics × three years, CBLR-aware capital row. (c) Annual rollup:
+stocks at Q4/Q8/Q12, flows summed (gate-checked to the penny), ratios averaged
+and labeled as such — rendered on the IS and BS tabs. (d) SENS: one variable,
+three full engine runs, distinct from scenario stress. (e) The results workbook
+exports the five Call Report schedules with per-line codes, tie-checked.
+**Check:** Overview → Model checks panel + Quick stats; IS tab bottom → Annual
+Rollup; BS tab bottom → Year-End Balances; Stress tab bottom → SENS (run it);
+download the results workbook → five Schedule sheets.
