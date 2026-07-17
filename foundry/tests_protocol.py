@@ -909,8 +909,11 @@ def t36():
           V["fingerprint"] == V2["fingerprint"] and len(V["fingerprint"]) == 12)
     Vc = build_vintage_corridor(cl, 2018, 2023, metrics=["tier1_ratio"], min_n=2, max_age_q=2)
     lbl = Vc["corridor"]["tier1_ratio"]["accuracy"]
-    check("T36f", "capital metrics carry the two-quality history label",
-          "legacy computation" in lbl and "2025Q4" in lbl)
+    check("T36f", "capital history labeled as PROXY with the in-place repair schedule",
+          "PROXY" in lbl and "2025Q4" in lbl and "Milestone 2" in lbl)
+    from .charteriq_client import VINTAGE_METRICS
+    check("T36g", "cet1 excluded from the corridor (proxy duplicate of tier1 pre-2025Q4)",
+          "cet1_ratio" not in VINTAGE_METRICS and "tier1_ratio" in VINTAGE_METRICS)
 
 
 if __name__ == "__main__":

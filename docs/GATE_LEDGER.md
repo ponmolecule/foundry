@@ -158,4 +158,5 @@
 - **T36c** — below min_n the band is suppressed, not estimated
 - **T36d** — survivorship is counted and stated
 - **T36e** — the corridor is deterministic and fingerprinted
-- **T36f** — capital metrics carry the two-quality history label
+- **T36f** — capital history labeled as PROXY with the in-place repair schedule
+- **T36g** — cet1 excluded from the corridor (proxy duplicate of tier1 pre-2025Q4)

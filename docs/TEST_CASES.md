@@ -237,3 +237,19 @@ persuasive exhibit is "the model walks inside the corridor real de novos walked.
 → per-metric age tables with p75/p50/p25 rows, the modeled row in amber where it
 leaves the band, verdicts, per-quarter n, the survivorship line, and suppressed
 quarters showing dashes. Edit the model → verdicts update instantly.
+
+## 19. Capital-history provenance: proxy named as proxy, and Foundry stays off the raw items
+**Decided (on the substrate owner's provenance brief, 2026-07-16):** (a) cet1_ratio
+is removed from the vintage corridor — pre-2025Q4 history carries the identical
+proxy value under both cet1 and tier1 names, so two bands would be one proxy in
+two costumes; tier1 remains, labeled: "history through 2025Q3 is a regulatory-
+capital PROXY … item-derived from 2025Q4 … replaced in place by the Milestone 2
+backfill." The corridor inherits the corrected history automatically when the
+backfill lands — no Foundry change needed. (b) Foundry deliberately does NOT read
+call_report_items: recomputing metrics from raw items would duplicate computation
+logic that belongs on CharterIQ's ledger (the IP seam) and create a second writer
+of truth; foundry_ro's grants stay at the three curated tables. Open question for
+the owner: overrule (b) if Foundry should ever consume items directly.
+**Check:** Vintage corridor shows tier1_ratio (not cet1) with the PROXY label;
+placement still shows both capital rows for 2025Q4 (item-derived quarter) with
+the existing percentile caveats.

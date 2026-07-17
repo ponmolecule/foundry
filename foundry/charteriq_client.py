@@ -253,7 +253,13 @@ def placement(value, pct_row):
 
 
 # ------------------------------------------------------------- vintage corridor
-VINTAGE_METRICS = ["tier1_ratio", "cet1_ratio", "roa", "nim", "efficiency_ratio",
+# cet1_ratio deliberately absent: per the substrate owner's provenance brief
+# (2026-07-16), pre-2025Q4 capital history carries the same proxy value under
+# both cet1 and tier1 names (ticket 1.8.7) — showing both would be one proxy
+# in two costumes. Corridor carries tier1 alone until the Milestone 2 backfill
+# replaces proxy history with item-derived values (in place; corridor inherits
+# the correction automatically).
+VINTAGE_METRICS = ["tier1_ratio", "roa", "nim", "efficiency_ratio",
                     "deposit_cost"]
 
 
@@ -311,8 +317,12 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                           "suppressed": len(vals) < min_n})
         corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
         if metric in ("tier1_ratio", "cet1_ratio"):
-            corridor[metric]["accuracy"] = ("history on the legacy computation; "
-                                              "item-level FFIEC CDR from 2025Q4 onward")
+            corridor[metric]["accuracy"] = (
+                "history through 2025Q3 is a regulatory-capital PROXY "
+                "(cet1 and tier1 carry the same value by construction); "
+                "item-derived from 2025Q4; proxy history is replaced in place "
+                "by the Milestone 2 backfill — treat historical bands as "
+                "approximate until then")
     failed = [m for m in members if m["fail_date"]]
     exited = [m for m in members if m["end_year"] and not m["fail_date"]]
     definition = {"est_from": est_from, "est_to": est_to, "metrics": metrics,
