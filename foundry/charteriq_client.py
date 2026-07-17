@@ -322,7 +322,10 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                 "(cet1 and tier1 carry the same value by construction); "
                 "item-derived from 2025Q4; proxy history is replaced in place "
                 "by the Milestone 2 backfill — treat historical bands as "
-                "approximate until then")
+                "approximate until then. Values far above 100% mean RWA is "
+                "near zero (a young bank still in cash and Treasuries): read "
+                "early-quarter bands as altitude, not decimals — at near-nil "
+                "denominators the ratio is arithmetically unstable")
     failed = [m for m in members if m["fail_date"]]
     exited = [m for m in members if m["end_year"] and not m["fail_date"]]
     definition = {"est_from": est_from, "est_to": est_to, "metrics": metrics,
