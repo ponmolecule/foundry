@@ -29,6 +29,8 @@ RESULT_CODES_BS = {
     "paidIn":      ("RC", "23/24","RCON3230/3839", "Common stock and surplus (paid-in capital)"),
     "afsBook":     ("RC", "2.b",  "RCON1773",      "Available-for-sale securities (designated book)"),
     "htmBook":     ("RC", "2.a",  "RCONJJ34",      "Held-to-maturity securities (amortized cost)"),
+    "premises":    ("RC", "6",    "RCON2145",      "Premises and fixed assets (net of depreciation)"),
+    "borrowSched": ("RC", "16",   "RCON3190",      "Other borrowed money (scheduled FHLB/term draws)"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
 }
 
@@ -117,7 +119,8 @@ def _row(item, code, label, vals):
 def build_rc(res, cfg):
     bs, a = res["financials"]["bs"], cfg["assumptions"]
     n = len(bs["totalAssets"])
-    prem = [a.get("premises_equipment", 0) / 1000.0] * n
+    prem = (bs.get("premises") if bs.get("premises")
+             else [a.get("premises_equipment", 0) / 1000.0] * n)
     intang = [a.get("intangibles", 0) / 1000.0] * n
     oa = [a.get("other_assets", 0) / 1000.0] * n
     ol = [a.get("other_liabilities", 0) / 1000.0] * n
@@ -136,7 +139,10 @@ def build_rc(res, cfg):
         _row("11", "RCON2160", "Other assets", oa),
         _row("12", "RCON2170", "TOTAL ASSETS", bs["totalAssets"]),
         _row("13.a", "RCON2200", "Deposits in domestic offices", bs["deposits"]),
-        _row("16", "RCON3190", "Other borrowed money", bs["borrow"]),
+        _row("16", "RCON3190", "Other borrowed money (incl. scheduled term draws)",
+              [(bs["borrow"][t] if t < len(bs["borrow"]) else 0.0)
+               + (bs.get("borrowSched", [0.0] * 99)[t] if t < len(bs.get("borrowSched", [])) else 0.0)
+               for t in range(len(bs["borrow"]))]),
         _row("20", "RCON2930", "Other liabilities", ol),
         _row("23/24", "RCON3230/3839", "Common stock and surplus (paid-in)",
               bs.get("paidIn", [0.0] * len(bs["re"]))),

@@ -99,6 +99,23 @@ def validate_config_v2(cfg):
     if s is not None and (not isinstance(s, (int, float)) or not (-0.5 <= s <= 0.5)):
         errs.append("aoci_sensitivity_annual must be a rate in [-0.5, 0.5] "
                      "(annual change in AOCI as a share of the AFS book)")
+    d = a.get("premises_depreciation_annual")
+    if d is not None and (not isinstance(d, (int, float)) or d < 0):
+        errs.append("premises_depreciation_annual must be a non-negative dollar amount per year")
+    for i, sb in enumerate(a.get("scheduled_borrowings") or []):
+        if not str(sb.get("name", "")).strip():
+            errs.append(f"scheduled_borrowings[{i}].name is required")
+        if not isinstance(sb.get("quarter"), int) or not (1 <= sb["quarter"] <= 12):
+            errs.append(f"scheduled_borrowings[{i}].quarter must be an integer 1-12 (draw quarter)")
+        if not isinstance(sb.get("amount"), (int, float)) or sb["amount"] <= 0:
+            errs.append(f"scheduled_borrowings[{i}].amount must be a positive dollar amount")
+        r_ = sb.get("rate_ann")
+        if not isinstance(r_, (int, float)) or not (0 <= r_ <= 0.25):
+            errs.append(f"scheduled_borrowings[{i}].rate_ann must be a rate in [0, 0.25]")
+        t_ = sb.get("term_q")
+        if not isinstance(t_, int) or not (1 <= t_ <= 40):
+            errs.append(f"scheduled_borrowings[{i}].term_q must be an integer 1-40 "
+                         "(straight-line amortization term in quarters)")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

@@ -109,7 +109,24 @@ def run_pf_a(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), 13):
             cap_t[_q] += float(_r["amount"])
-    non_earn = a["premises_equipment"] + a["intangibles"] + a["other_assets"]
+    _sched = a.get("scheduled_borrowings") or []
+    sched_t = [0.0] * 13
+    for _sb in _sched:
+        _amt, _q0, _tq = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"])
+        for _q in range(_q0, 13):
+            sched_t[_q] += max(0.0, _amt * (1 - (_q - _q0) / _tq))
+    sched_int_t = [0.0] * 13
+    for _sb in _sched:
+        _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
+        for _q in range(_q0, 13):
+            _b0 = max(0.0, _amt * (1 - (_q - 1 - _q0) / _tq)) if _q > _q0 else 0.0
+            _b1 = max(0.0, _amt * (1 - (_q - _q0) / _tq))
+            sched_int_t[_q] += (_b0 + _b1) / 2.0 * _r / 4.0
+    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
+    prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
+    dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, 13)]
+    non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(13)]
+    non_earn = non_earn_t[0]
     cash_floor = a["cash_target_pct_deposits"]
     other_liab = a["other_liabilities"]
 
@@ -254,9 +271,10 @@ def run_pf_a(cfg):
         for p in obs:
             obs_n[q] += p["_bal"][q]
 
-    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0):
-        funding = dep_carry + other_liab + equity_end
-        investable = funding - net_loans_end - non_earn - msr_end - sec_books_end
+    ne_q = [0]
+    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None):
+        funding = dep_carry + other_liab + equity_end + sched_t[ne_q[0]]
+        investable = funding - net_loans_end - (non_earn if ne is None else ne) - msr_end - sec_books_end
         req_cash = cash_floor * dep_bal
         if investable >= req_cash:
             return req_cash, investable - req_cash, 0.0
@@ -271,7 +289,8 @@ def run_pf_a(cfg):
     net0 = gross[0] - alll_t[0]
     equity0 = capital + day_one
     sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p)
-    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0)
+    ne_q[0] = 0
+    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
 
     bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
                              "afsBook", "htmBook", "aoci", "paidIn")}
@@ -298,7 +317,7 @@ def run_pf_a(cfg):
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
-        overhead = a["overhead_q"] * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1)
+        overhead = a["overhead_q"] * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
         nie = prod_ox + overhead
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
@@ -312,10 +331,11 @@ def run_pf_a(cfg):
             afs_end_b = sum(p["_bal"][q] for p in afs_p)
             aoci_q = afs_end_b * _aoci_sens / 4.0
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
-            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end)
+            ne_q[0] = q
+            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end, non_earn_t[q])
             sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
-            borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / 4.0
+            borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / 4.0 + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
             taxable = max(0.0, pretax - nol)
@@ -338,7 +358,7 @@ def run_pf_a(cfg):
         bs["afsBook"][q] = afs_end_b
         bs["htmBook"][q] = sum(p["_bal"][q] for p in htm_p)
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
-        bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn + msr_t[q]
+        bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn_t[q] + msr_t[q]
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
@@ -404,5 +424,6 @@ def run_pf_a(cfg):
                    "borrow": bs["borrow"], "deposits": deps_c, "equity": bs["equity"],
                    "re": bs["re"], "totalAssets": bs["totalAssets"],
                    "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
-                   "aoci": bs["aoci"], "paidIn": bs["paidIn"]},
+                   "aoci": bs["aoci"], "paidIn": bs["paidIn"],
+                   "premises": prem_t, "borrowSched": sched_t},
             "is": {k: v[1:] for k, v in is_.items()}}

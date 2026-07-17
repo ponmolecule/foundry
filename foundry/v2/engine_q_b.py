@@ -32,7 +32,21 @@ def run_pf_b(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), 13):
             cap_t[_q] += float(_r["amount"])
-    non_earn = a["premises_equipment"] + a["intangibles"] + a["other_assets"]
+    _schedb = a.get("scheduled_borrowings") or []
+    _sched_t = [0.0] * 13
+    _sched_int = [0.0] * 12
+    for _sb in _schedb:
+        _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
+        for _q in range(_q0, 13):
+            _sched_t[_q] += max(0.0, _amt * (1 - (_q - _q0) / _tq))
+        for _q in range(_q0, 13):
+            _b0 = max(0.0, _amt * (1 - (_q - 1 - _q0) / _tq)) if _q > _q0 else 0.0
+            _b1 = max(0.0, _amt * (1 - (_q - _q0) / _tq))
+            _sched_int[_q - 1] += (_b0 + _b1) / 2.0 * _r / 4.0
+    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
+    _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
+    _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, 13)]
+    non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
     alloc = a["sweep_securities_alloc"]
     floor_pct = a["alll_floor_pct_loans"]
@@ -69,7 +83,7 @@ def run_pf_b(cfg):
     aoci_cum = 0.0
 
     def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end):
-        uses = gross_end - alll_end + sec_prod_end + non_earn
+        uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
         liquid = dep_end + other_liab + equity_end - uses
         borrow = 0.0
         if liquid < 0:
@@ -79,12 +93,14 @@ def run_pf_b(cfg):
 
     sec0 = sum(p["_beg"][0] for p in afs_p + htm_p)
     dep0 = sum(p["_beg"][0] for p in dep)
+    _ne = [non_earn]
+    _ne_q = [0]
     cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity)
     prev_assets = cash + sweep + sec0 + (gl0 - alll) + non_earn
 
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
                               "deposits", "borrowings", "equity", "retained", "aoci",
-                              "paidIn", "totalAssets")}
+                              "paidIn", "premises", "borrowSched", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
                               "provision", "fees", "opexProd", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
@@ -96,12 +112,12 @@ def run_pf_b(cfg):
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
         int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
         int_dep = sum(p["_avg"][qi] * _ov(p, "rate_paid_ann", q, p.get("rate_paid_ann") or 0.0) / 4.0 for p in dep)
-        int_borrow = borrow * a["borrow_rate_ann"] / 4.0               # beginning balance
+        int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
         fees = sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
         opex_prod = sum((p.get("opex_fixed_m") or 0.0) * 3.0 for p in lend + dep + obs + afs_p + htm_p)
-        nie = opex_prod + a["overhead_q"]
+        nie = opex_prod + a["overhead_q"] + _dep_exp[qi]
 
         gl_end = sum(p["_end"][qi] for p in lend)
         chargeoffs = sum(p["_avg"][qi] * _ov(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0
@@ -126,22 +142,25 @@ def run_pf_b(cfg):
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
+        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"]
+        _ne_q[0] = qi + 1
         c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end)
         net_loans = gl_end - alll_end
         afs_end = s2 + sum(p["_end"][qi] for p in afs_p)
         htm_end = sum(p["_end"][qi] for p in htm_p)
-        total_assets = c2 + afs_end + htm_end + net_loans + non_earn
+        total_assets = c2 + afs_end + htm_end + net_loans + _ne[0]
 
         for k, v in (("cash", c2), ("afs", afs_end), ("htm", htm_end), ("grossLoans", gl_end),
                      ("alll", alll_end), ("netLoans", net_loans), ("deposits", dep_end),
                      ("borrowings", b2), ("equity", equity_end), ("retained", re),
                      ("aoci", aoci_cum), ("paidIn", cap_t[qi]),
+                     ("premises", _prem_t[qi + 1]), ("borrowSched", _sched_t[qi + 1]),
                      ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
                      ("nii", nii), ("provision", provision), ("fees", fees),
-                     ("opexProd", opex_prod), ("fixedOpex", a["overhead_q"]),
+                     ("opexProd", opex_prod), ("fixedOpex", a["overhead_q"] + _dep_exp[qi]),
                      ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
             out_is[k].append(v)
 

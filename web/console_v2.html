@@ -435,6 +435,15 @@ function renderGlobals(){
           h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
         });
         h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
+        const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
+        h += '<div class="cbl">Scheduled borrowings</div>';
+        sbs.forEach((b,i)=>{
+          h += `<div class="crow"><input style="flex:1 1 64px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Q<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
+            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+            + `</select><input type="number" style="width:64px" title="draw $000s" value="${(b.amount||0)/1000}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:42px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:38px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">q</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<a href="#" class="cadd" onclick="sbAdd();return false">+ add scheduled draw</a>';
+        h += `<div class="crow">Premises depreciation<input type="number" style="width:70px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
         h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
       }
       if(gname.startsWith("Treasury")){
@@ -936,6 +945,11 @@ async function subPlace(){
   window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
+window.sbAdd = function(){
+  (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []).push(
+    {name: "FHLB advance", quarter: 2, amount: 8_000_000, rate_ann: 0.04, term_q: 8});
+  renderGlobals(); refresh();
+};
 window.secAdd = function(kind){
   const key = kind ? "securities_htm" : "securities_afs";
   (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
@@ -1225,7 +1239,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += rowBS('Total Loans & Leases (gross)', arr12(fin.bs.grossLoans, bsHasOpen), 'subtotal', 'grossLoans');
     h += rowBS('Less: Allowance for Loan Losses', arr12((fin.bs.alll||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'alll');
     h += rowBS('Net Loans & Leases', arr12(fin.bs.netLoans, bsHasOpen), 'subtotal', 'netLoans');
-    h += rowBS('Premises & Equipment', arr12(fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen));
+    h += rowBS('Premises & Equipment', arr12(fin.bs.premises || fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen), null, 'premises');
     h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen));
     if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen));
@@ -1237,6 +1251,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     });
     h += rowBS('Total Deposits', arr12(fin.bs.deposits, bsHasOpen), 'subtotal', 'deposits');
     h += rowBS('Borrowings', arr12(fin.bs.borrow || fin.bs.borrowings, bsHasOpen), null, 'borrow');
+    if(some(fin.bs.borrowSched)) h += rowBS('Scheduled Borrowings (FHLB/Term, amortizing)', arr12(fin.bs.borrowSched, bsHasOpen), null, 'borrowSched');
     h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen));
     h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal');
     h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;

@@ -1029,9 +1029,72 @@ def t38():
     check("T38g", "RC equity components tie to total equity", eq_tie < 1.0)
 
 
+def t39():
+    print("T39 depreciation (FLOOR F-053): premises decline, expense hits NI, floor at zero")
+    import json as _json
+    from .v2.run_q import run_v2
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["premises_depreciation_annual"] = 400_000
+        r = run_v2(cfg2)
+        pb, pr = base["financials"]["bs"], r["financials"]["bs"]
+        i0 = 1 if len(pr["premises"]) == 13 else 0
+        d1 = pr["premises"][i0] - pr["premises"][i0 + 1] if len(pr["premises"]) > i0 + 1 else None
+        check(f"T39a-{eng}", f"engine {eng}: premises decline by exactly $100k per quarter",
+              abs(d1 - 100.0) < 0.01, f"d {d1:.2f}k")
+        ib, ir = base["financials"]["is"], r["financials"]["is"]
+        dni = ib["ni"][0] - ir["ni"][0]
+        check(f"T39b-{eng}", f"engine {eng}: quarter-1 NI falls by the depreciation "
+                              f"(pre-tax $100k; taxes may shield part)",
+              50.0 <= dni <= 100.01, f"dNI {dni:.2f}k")
+        cfg3 = _json.loads(_json.dumps(cfg))
+        cfg3["assumptions"]["premises_depreciation_annual"] = 10_000_000_000
+        r3 = run_v2(cfg3)
+        check(f"T39c-{eng}", f"engine {eng}: premises floor at zero, never negative",
+              min(r3["financials"]["bs"]["premises"]) == 0.0)
+
+
+def t40():
+    print("T40 scheduled borrowings (FLOOR F-061, D-P12 fix): draw, amortize, bear interest")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.callreport import build_call_report
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["scheduled_borrowings"] = [
+            {"name": "FHLB advance", "quarter": 2, "amount": 8_000_000,
+              "rate_ann": 0.04, "term_q": 8}]
+        r = run_v2(cfg2)
+        sb = r["financials"]["bs"]["borrowSched"]
+        i0 = 1 if len(sb) == 13 else 0
+        check(f"T40a-{eng}", f"engine {eng}: zero before the draw, $8M at the draw quarter",
+              abs(sb[i0 + 0]) < 1e-9 and abs(sb[i0 + 1] - 8_000.0) < 0.01,
+              f"q1 {sb[i0]:.1f} q2 {sb[i0+1]:.1f}")
+        check(f"T40b-{eng}", f"engine {eng}: straight-line amortization ($1M/q), floored at zero",
+              abs(sb[i0 + 2] - 7_000.0) < 0.01 and abs(sb[-1]) < 0.02)
+        d_borr = (r["financials"]["is"]["intBorrow"][1] if "intBorrow" in r["financials"]["is"]
+                   else r["financials"]["is"]["borrExp"][1]) -                   (base["financials"]["is"]["intBorrow"][1] if "intBorrow" in base["financials"]["is"]
+                   else base["financials"]["is"]["borrExp"][1])
+        check(f"T40c-{eng}", f"engine {eng}: draw-quarter interest = avg(0,8M) x 4%/4 = $40k",
+              abs(d_borr - 40.0) < 2.0, f"d {d_borr:.2f}k")
+    cfgc = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfgc["assumptions"]["scheduled_borrowings"] = [
+        {"name": "FHLB", "quarter": 2, "amount": 8_000_000, "rate_ann": 0.04, "term_q": 8}]
+    rc = {r_["item"]: r_["values"] for r_ in
+           build_call_report(run_v2(cfgc), cfgc)["RC"]["rows"]}
+    _bsc = run_v2(cfgc)["financials"]["bs"]
+    check("T40d", "RC row 16 (Q2 column, post-_q normalization) = residual + scheduled draw",
+          abs(rc["16"][1] - (_bsc["borrow"][2] + 8_000.0)) < 1.0,
+          f"rc {rc['16'][1]:.1f} vs {_bsc['borrow'][2] + 8_000.0:.1f}")
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

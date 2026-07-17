@@ -29,12 +29,12 @@
 | F-050 | both | SAT | Rollforward floored at zero (parity) |
 | F-051 | both | SAT | ALLL + provision=ΔALLL+NCO, AC-only (parity) |
 | F-052 | P | SAT | Designated AFS/HTM books (both engines, HTM shock-immune per prior gate), AOCI = AFS x sens/4 accumulating into equity, BS tab + RC 2.a/2.b/26.b rows, sidebar editors (T38) |
-| F-053 | P | OPEN | Depreciation schedule (D-R7); other-assets base statement |
+| F-053 | P | SAT | Straight-line premises depreciation, expense in NIE, floored at zero, both engines; RC 6 from the live series (T39). Other-assets base: flat config value, disclosed |
 | F-054 | R | SAT | OTS warehouse, holdQtrs, half-quarter conventions, AC/FVO GOS timing, HFS no-ALLL (parity; HFS memoranda convention disclosed in schedules) |
 | F-055 | R | SAT | MSR full mechanics (parity) |
 | F-056 | R | SAT | FVO DCF, day-one to opening RE, FV P&L routing (parity) |
 | F-060 | both | SAT | Deposit rollforward; no decorative maturity inputs exist (D-P9 satisfied by absence) |
-| F-061 | P | OPEN | Borrowings as scheduled instruments (D-P12); waterfall borrowings are overnight-residual only |
+| F-061 | P | SAT | Scheduled draws (name/quarter/amount/rate/term), straight-line amortization, avg-balance interest, funding-side in the plug, both engines; RC 16 combines residual + scheduled (T40); D-P12 fixed |
 | F-062 | R | SAT | Cash-floor plug + fixed-point simultaneity (parity) |
 | F-063 | both | SAT | Static other-liab, disclosed |
 | F-070 | both | PART | Generic fee terms SAT; named module set (interchange/BaaS/trust/service) with growth drivers OPEN (D-P10 fix) |
@@ -72,5 +72,5 @@
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 34 SAT · 12 PART · 17 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology.**
+**Scoreboard: 36 SAT · 12 PART · 15 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology. Wave 1 (engine-additive) closed.**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

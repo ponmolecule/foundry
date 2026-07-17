@@ -283,3 +283,18 @@ RWA build (F-090/091, Wave 2) — leverage currently includes AOCI in equity.
 **Check:** Treasury cluster → + AFS book, set AOCI sensitivity −2% → Balance
 Sheet shows the designated books and a growing AOCI loss; equity components sum;
 Examiner Book RC shows 2.a/23-24/26.b; zero sensitivity → AOCI identically zero.
+
+## 22. Wave 1 close: depreciation + scheduled borrowings (F-053/061)
+**Decided:** (a) Premises depreciate straight-line from an annual dollar input,
+floored at zero; the expense lands in operating expense (reducing NI) — note
+Patrick's own workbook declines premises WITHOUT expensing, which we fix rather
+than replicate; RC row 6 and the white BS premises row read the live series.
+(b) Scheduled borrowings are instruments — name, draw quarter, amount, annual
+rate, term — amortizing straight-line, bearing interest on average balances,
+adding funding in the waterfall; RC row 16 combines residual (overnight) and
+scheduled draws; the D-P12 static-FHLB defect is fixed. Sidebar: Capital & tax
+cluster gains Scheduled borrowings and Premises depreciation on the design
+system. Both features default-off, additive, gate-proven inert when absent.
+**Check:** Add an $8M Q2 draw at 4% for 8 quarters → BS shows the amortizing
+row; borrowing interest rises ~$40k in the draw quarter; RC 16 = residual +
+scheduled. Set premises depreciation 400 → premises fall $100k/q and NI drops.
