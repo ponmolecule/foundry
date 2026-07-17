@@ -161,6 +161,9 @@ th.ref{color:#D9C79A}
 .ovcard .v.neg{color:#F87171}
 .ovcard .s{font-size:.75rem;color:#8C99AF;margin-top:.2rem}
 .ovh3{font-size:.85rem;color:#DFA85A;margin:1.5rem 0 .6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.ovh2{background:#182640;border:1px solid #24334D;border-left:3px solid #DFA85A;
+  border-radius:6px;padding:8px 12px;margin:18px 0 10px;color:#DFA85A;
+  font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
 .ovflag{border:1px solid #24334D;border-radius:8px;padding:.7rem .85rem;margin-bottom:.55rem;background:#182640}
 .ovflag .fid{font-family:var(--mono);font-size:10.5px;color:#8C99AF;margin-right:.5rem}
 .ovflag .ftext{margin-top:.4rem;font-size:13px;color:#EDF0F5;line-height:1.55}
@@ -859,7 +862,7 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function substratePanelHtml(){
-  let h = '<div class="ovh3">CharterIQ substrate</div>';
+  let h = '<div class="ovh2">CharterIQ substrate</div>';
   if(subStatus === null){
     h += '<div class="memo">Substrate link not yet checked. <a href="#" style="color:#8a6d3b" onclick="subCheck();return false">Check now</a>.</div>';
   } else if(!subStatus.configured){
@@ -913,7 +916,7 @@ async function vintageBuild(){
 }
 window.vintageBuild = vintageBuild;
 function vintageSectionHtml(){
-  let h = '<div class="ovh3">Vintage corridor \u2014 de novos at the same age</div>';
+  let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age</div>';
   if(!(subStatus && subStatus.configured && subStatus.reachable)){
     h += '<div class="memo">Arrives with the substrate connection: real recently-chartered banks, each re-clocked to its own opening quarter, so the model\u2019s Q10 is compared to their Q10 \u2014 not to mature banks.</div>';
     return h;
@@ -954,7 +957,7 @@ function vintageSectionHtml(){
 }
 function retroSectionHtml(){
   let h = "";
-  h += '<div class="ovh3">Retrodiction \u2014 projection vs filed history</div>';
+  h += '<div class="ovh2">Retrodiction \u2014 projection vs filed history</div>';
   if(!window.retroReport){
     h += '<div class="memo">Upload a bank\u2019s actual quarterly history (CSV rows \u2014 dollars in $000s: deposits / loans / assets / equity / net_income; ratios in %: leverage / roa / roe / nim / efficiency) and the current configuration\u2019s projection is scored against it \u2014 per-series error each quarter, MAPE, and the terminal-quarter miss the 85/15 conversation turns on.</div>';
     h += '<button class="btn-plain" onclick="document.getElementById(\'retroFile\').click()">Upload actual history\u2026</button><input id="retroFile" type="file" accept=".csv,.json" style="display:none" onchange="retroUpload(this)"> <button class="btn-plain" onclick="retroSubstrate()">Pull from CharterIQ substrate\u2026</button>';
@@ -1034,7 +1037,7 @@ function renderExaminer(){
   });
   if(V31 && lastRes && lastRes.call_report){
     const CR = lastRes.call_report;
-    h += '<div class="ovh3">Call Report schedules (pro forma)</div>';
+    h += '<div class="ovh2">Call Report schedules (pro forma)</div>';
     h += '<div class="memo">Assembled from engine output, presentation only \u2014 every subtotal recomputed and tie-checked. Lines the model does not compute are omitted and listed, not zero-filled: a zero asserts a fact the model never computed.</div>';
     ["RC","RI","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
