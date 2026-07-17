@@ -65,6 +65,8 @@ def run_pf_b(cfg):
     _burn = sum(float(e.get("total", 0.0)) for e in (_po.get("expenses") or []))
     re = -_burn                      # organizational costs: opening deficit in RE
     equity = capital + re
+    _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
+    aoci_cum = 0.0
 
     def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end):
         uses = gross_end - alll_end + sec_prod_end + non_earn
@@ -81,7 +83,8 @@ def run_pf_b(cfg):
     prev_assets = cash + sweep + sec0 + (gl0 - alll) + non_earn
 
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
-                              "deposits", "borrowings", "equity", "retained", "totalAssets")}
+                              "deposits", "borrowings", "equity", "retained", "aoci",
+                              "paidIn", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
                               "provision", "fees", "opexProd", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
@@ -117,7 +120,9 @@ def run_pf_b(cfg):
         tax = max(0.0, pretax) * a["tax_rate"]
         ni = pretax - tax
         re += ni
-        equity_end = cap_t[qi] + re
+        _afs_end = sum(p["_end"][qi] for p in afs_p) if afs_p else 0.0
+        aoci_cum += _afs_end * _aoci_sens / 4.0
+        equity_end = cap_t[qi] + re + aoci_cum
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
@@ -130,6 +135,7 @@ def run_pf_b(cfg):
         for k, v in (("cash", c2), ("afs", afs_end), ("htm", htm_end), ("grossLoans", gl_end),
                      ("alll", alll_end), ("netLoans", net_loans), ("deposits", dep_end),
                      ("borrowings", b2), ("equity", equity_end), ("retained", re),
+                     ("aoci", aoci_cum), ("paidIn", cap_t[qi]),
                      ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),

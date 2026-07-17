@@ -267,3 +267,19 @@ Default-off and gate-proven inert when absent.
 **Check:** Add a pre-open expense in the sidebar → opening equity and retained
 drop by the total; Examiner Book shows the category table, burn, cushion, and
 the flag; blank categories and negative totals are refused.
+
+## 21. Securities layer: AOCI on AFS, equity in components (FLOOR F-052/081)
+**Decided:** Designated AFS/HTM books (already engine citizens) gain the AOCI
+mechanism: quarterly AOCI = AFS book x annual sensitivity / 4, accumulating into
+equity — retained earnings untouched, HTM immune by design (that is what HTM
+means; a prior gate already proves rate shocks skip the HTM coupon). Equity now
+reports in components — paid-in, retained, AOCI — with a gate proving they sum
+to total equity to the penny in both engines. The white Balance Sheet gains the
+designated-book and AOCI rows (zero-suppressed); Schedule RC gains 2.a HTM,
+23/24 paid-in, and 26.b AOCI with both ties gate-checked. Sidebar Treasury
+cluster: + AFS / + HTM book editors and the AOCI sensitivity input. AOCI's
+capital treatment (opt-out election) is DISCLOSED as pending the standardized
+RWA build (F-090/091, Wave 2) — leverage currently includes AOCI in equity.
+**Check:** Treasury cluster → + AFS book, set AOCI sensitivity −2% → Balance
+Sheet shows the designated books and a growing AOCI loss; equity components sum;
+Examiner Book RC shows 2.a/23-24/26.b; zero sensitivity → AOCI identically zero.

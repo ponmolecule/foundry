@@ -430,6 +430,18 @@ function renderGlobals(){
         h += `<div style="margin-top:5px;font-size:11px">Min Day-1 capital <input type="number" style="width:90px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"> $000s</div></div>`;
       }
       if(gname.startsWith("Treasury")){
+        const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
+        h += '<div style="margin:6px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">SECURITIES BOOKS</b>';
+        h += `<div style="margin-top:4px;color:#8FA3C0">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} <a href="#" style="color:#8a6d3b" onclick="secAdd(0);return false">+ AFS</a> <a href="#" style="color:#8a6d3b" onclick="secAdd(1);return false">+ HTM</a></div>`;
+        (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
+          h += `<div style="display:flex;gap:5px;align-items:center;margin-top:3px;font-size:11px">AFS <input style="width:88px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:70px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:48px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()">%<a href="#" style="color:#B45454" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+        });
+        (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
+          h += `<div style="display:flex;gap:5px;align-items:center;margin-top:3px;font-size:11px">HTM <input style="width:88px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:70px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:48px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()">%<a href="#" style="color:#B45454" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+        });
+        h += `<div style="margin-top:5px;font-size:11px">AOCI sensitivity <input type="number" step="0.5" style="width:56px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()">% of AFS/yr <span style="color:#8FA3C0">(HTM immune by design)</span></div></div>`;
+      }
+      if(gname.startsWith("Treasury_marker_never")){
         h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
       }
     });
@@ -916,6 +928,13 @@ async function subPlace(){
   window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
+window.secAdd = function(kind){
+  const key = kind ? "securities_htm" : "securities_afs";
+  (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
+    {name: kind ? "Treasuries (HTM)" : "Agency MBS (AFS)", opening: 10_000_000,
+      purchases_q: 0, growth_q: 0, runoff_q: 0, yield_ann: kind ? 0.042 : 0.04});
+  renderGlobals(); refresh();
+};
 window.poAdd = function(){
   cfg.pre_opening = cfg.pre_opening || {};
   (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
@@ -1188,6 +1207,8 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
     h += rowBS('Securities (AFS/HTM)', arr12(fin.bs.sec || fin.bs.afs, bsHasOpen), null, 'sec');
     if(some(fin.bs.htm)) h += rowBS('&nbsp;&nbsp;of which held-to-maturity', arr12(fin.bs.htm, bsHasOpen), null, 'htm');
+    if(some(fin.bs.htmBook)) h += rowBS('Securities HTM (designated book, amortized cost)', arr12(fin.bs.htmBook, bsHasOpen), null, 'htmBook');
+    if(some(fin.bs.afsBook)) h += rowBS('Securities AFS (designated book, fair value)', arr12(fin.bs.afsBook, bsHasOpen), null, 'afsBook');
     LOAN_KEYS.forEach(k=>{
       const a = (F.loans_by_line||{})[k];
       if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen), null, k);
@@ -1213,6 +1234,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;
     h += rowBS('Capital Stock & Surplus', arr12(D.paidIn, bsHasOpen));
     h += rowBS('Retained Earnings (Deficit)', arr12(fin.bs.re || fin.bs.retained, bsHasOpen), null, 're');
+    if(some(fin.bs.aoci)) h += rowBS('Accumulated Other Comprehensive Income (Loss)', arr12(fin.bs.aoci, bsHasOpen), null, 'aoci');
     h += rowBS('Total Equity Capital', arr12(fin.bs.equity, bsHasOpen), 'subtotal', 'equity');
     h += rowBS('TOTAL LIABILITIES & EQUITY', arr12(D.totalLiabEq, bsHasOpen), 'grand');
     h += '</table>';

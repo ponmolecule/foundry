@@ -164,3 +164,8 @@
 ## T37 pre-opening phase (FLOOR F-010/020/021/022): burn to opening deficit, gate
 - **T37e** — an underwater plan flags INSUFFICIENT — REVIEW CAPITAL PLAN
 - **T37f** — validator rejects blank categories and negative totals
+
+## T38 securities layer (FLOOR F-052/081): AOCI on AFS, equity components tie
+- **T38e** — RC carries 2.a HTM, 23/24 paid-in, and 26.b AOCI rows; asset tie holds
+- **T38f** — RC asset tie holds with designated books present ($000s tol 1)
+- **T38g** — RC equity components tie to total equity

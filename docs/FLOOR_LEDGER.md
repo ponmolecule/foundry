@@ -28,7 +28,7 @@
 | F-042 | both | SAT | Average-balance accrual (parity) |
 | F-050 | both | SAT | Rollforward floored at zero (parity) |
 | F-051 | both | SAT | ALLL + provision=ΔALLL+NCO, AC-only (parity) |
-| F-052 | P | OPEN | AFS/HTM split + AOCI line (D-R6) |
+| F-052 | P | SAT | Designated AFS/HTM books (both engines, HTM shock-immune per prior gate), AOCI = AFS x sens/4 accumulating into equity, BS tab + RC 2.a/2.b/26.b rows, sidebar editors (T38) |
 | F-053 | P | OPEN | Depreciation schedule (D-R7); other-assets base statement |
 | F-054 | R | SAT | OTS warehouse, holdQtrs, half-quarter conventions, AC/FVO GOS timing, HFS no-ALLL (parity; HFS memoranda convention disclosed in schedules) |
 | F-055 | R | SAT | MSR full mechanics (parity) |
@@ -42,7 +42,7 @@
 | F-072 | P | OPEN | FDIC (correct base) + OCC assessments (D-P14 fix) |
 | F-073 | R | SAT | Product opex vs corporate overhead split (parity) |
 | F-080 | R | SAT | NOL tax engine, DTA disclosed (parity; D-P3 fixed) |
-| F-081 | P | PART | RE tracked; common/surplus/AOCI component split OPEN (needs F-052) |
+| F-081 | P | SAT | Equity = paid-in + retained + AOCI, tie-gated to zero every quarter, both engines; RC 23/24 + 26.a + 26.b tie to 27.a (T38b/g) |
 | F-082 | P | SAT | Staged raises, true quarter mapping, both engines, FIW carry (D-P8 fixed) — T34/T35 |
 | F-090 | both | PART | Leverage on averages per Roman (D-P5 avoided); CBLR 9%/8% two-tier reachable branches via REG_PARAMS OPEN |
 | F-091 | P | OPEN | Standardized RWA + four ratios + Tier2 cap (D-P6 fix); RC-R currently labeled proxy |
@@ -72,5 +72,5 @@
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 32 SAT · 13 PART · 18 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology.**
+**Scoreboard: 34 SAT · 12 PART · 17 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology.**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

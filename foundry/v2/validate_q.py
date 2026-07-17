@@ -95,6 +95,10 @@ def validate_config_v2(cfg):
         errs.append("no deposit module loaded — a bank needs a funding side")
 
     a = cfg["assumptions"]
+    s = a.get("aoci_sensitivity_annual")
+    if s is not None and (not isinstance(s, (int, float)) or not (-0.5 <= s <= 0.5)):
+        errs.append("aoci_sensitivity_annual must be a rate in [-0.5, 0.5] "
+                     "(annual change in AOCI as a share of the AFS book)")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

@@ -25,6 +25,11 @@ RESULT_CODES_BS = {
     "equity":      ("RC", "27.a", "RCON3210",      "Total bank equity capital"),
     "re":          ("RC", "26.a", "RCON3632",      "Retained earnings"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
+    "aoci":        ("RC", "26.b", "RCONB530",      "Accumulated other comprehensive income"),
+    "paidIn":      ("RC", "23/24","RCON3230/3839", "Common stock and surplus (paid-in capital)"),
+    "afsBook":     ("RC", "2.b",  "RCON1773",      "Available-for-sale securities (designated book)"),
+    "htmBook":     ("RC", "2.a",  "RCONJJ34",      "Held-to-maturity securities (amortized cost)"),
+    "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
 }
 
 # income-statement result keys -> (schedule, item, code, label)
@@ -118,7 +123,11 @@ def build_rc(res, cfg):
     ol = [a.get("other_liabilities", 0) / 1000.0] * n
     rows = [
         _row("1", "RCON0081/0071", "Cash and balances due from depository institutions", bs["cash"]),
-        _row("2.b", "RCON1773", "Available-for-sale debt securities (fair value)", bs["sec"]),
+        _row("2.a", "RCONJJ34", "Held-to-maturity securities (amortized cost)",
+              bs.get("htmBook", [0.0] * len(bs["totalAssets"]))),
+        _row("2.b", "RCON1773", "Available-for-sale debt securities (fair value)",
+              [bs["sec"][t] + bs.get("afsBook", [0.0] * len(bs["sec"]))[t]
+               for t in range(len(bs["sec"]))]),
         _row("4.b", "RCONB528", "Loans and leases held for investment", bs["grossLoans"]),
         _row("4.c", "RCON3123", "LESS: allowance for credit losses", [-x for x in bs["alll"]]),
         _row("4.d", "RCONB529", "Loans and leases, net", bs["netLoans"]),
@@ -129,7 +138,11 @@ def build_rc(res, cfg):
         _row("13.a", "RCON2200", "Deposits in domestic offices", bs["deposits"]),
         _row("16", "RCON3190", "Other borrowed money", bs["borrow"]),
         _row("20", "RCON2930", "Other liabilities", ol),
+        _row("23/24", "RCON3230/3839", "Common stock and surplus (paid-in)",
+              bs.get("paidIn", [0.0] * len(bs["re"]))),
         _row("26.a", "RCON3632", "Retained earnings", bs["re"]),
+        _row("26.b", "RCONB530", "Accumulated other comprehensive income",
+              bs.get("aoci", [0.0] * len(bs["re"]))),
         _row("27.a", "RCON3210", "Total bank equity capital", bs["equity"]),
     ]
     if any(x > 0 for x in bs["msr"]):
@@ -138,7 +151,7 @@ def build_rc(res, cfg):
         rows.append(_row("MEMO", "RCON5369", "Loans held for sale (memoranda — engine carries the "
                           "warehouse outside total assets; carry earns in RI)", bs["hfs"]))
     return {"schedule": "RC", "title": "Balance Sheet", "rows": rows,
-            "omitted": ["trading assets (RC 5)", "held-to-maturity securities (RC 2.a) — none modeled",
+            "omitted": ["trading assets (RC 5)",
                           "bank premises detail, foreclosed assets, subordinated debt"],
             "notes": ["Held-for-sale balances shown as memoranda: the engine's total-assets "
                         "composition excludes the warehouse (disclosed convention, tie-checked)."]}

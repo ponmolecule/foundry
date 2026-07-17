@@ -273,9 +273,15 @@ def run_pf_a(cfg):
     sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p)
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0)
 
-    bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets")}
+    bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
+                             "afsBook", "htmBook", "aoci", "paidIn")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
+    bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p)
+    bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p)
+    bs["aoci"][0], bs["paidIn"][0] = 0.0, cap_t[0]
+    _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
+    aoci_cum = 0.0
     bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
 
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
@@ -303,7 +309,9 @@ def run_pf_a(cfg):
 
         ni = 0.0
         for _ in range(60):
-            equity_end = cap_t[q] + re + ni
+            afs_end_b = sum(p["_bal"][q] for p in afs_p)
+            aoci_q = afs_end_b * _aoci_sens / 4.0
+            equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end)
             sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
@@ -324,7 +332,12 @@ def run_pf_a(cfg):
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
-        bs["netLoans"][q], bs["re"][q], bs["equity"][q] = net_loans_end, re, cap_t[q] + re
+        aoci_cum += aoci_q
+        bs["netLoans"][q], bs["re"][q] = net_loans_end, re
+        bs["equity"][q] = cap_t[q] + re + aoci_cum
+        bs["afsBook"][q] = afs_end_b
+        bs["htmBook"][q] = sum(p["_bal"][q] for p in htm_p)
+        bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
         bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn + msr_t[q]
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
@@ -389,5 +402,7 @@ def run_pf_a(cfg):
             "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,
                    "borrow": bs["borrow"], "deposits": deps_c, "equity": bs["equity"],
-                   "re": bs["re"], "totalAssets": bs["totalAssets"]},
+                   "re": bs["re"], "totalAssets": bs["totalAssets"],
+                   "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
+                   "aoci": bs["aoci"], "paidIn": bs["paidIn"]},
             "is": {k: v[1:] for k, v in is_.items()}}

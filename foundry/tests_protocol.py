@@ -667,7 +667,7 @@ def t31():
     n = len(rc["12"])
     check("T31g", "all schedule rows are uniform Q1..Q12 (openings normalized away)",
           n == 12 and all(len(r["values"]) == 12 for sch in cr.values() for r in sch["rows"]))
-    worst_rc = max(abs(rc["1"][t] + rc["2.b"][t] + rc["4.d"][t]
+    worst_rc = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.d"][t]
                         + (rc.get("RC-M 2.a", [0]*n)[t]) + rc["6"][t] + rc["10"][t] + rc["11"][t]
                         - rc["12"][t]) for t in range(n))
     check("T31a", "RC ties to the ENGINE's total (HFS memoranda per disclosed convention)",
@@ -964,9 +964,66 @@ def t37():
           and any("non-negative" in m for m in msgs))
 
 
+def t38():
+    print("T38 securities layer (FLOOR F-052/081): AOCI on AFS, equity components tie")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.callreport import build_call_report
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["assumptions"]["securities_afs"] = [
+            {"name": "Agency MBS (AFS)", "opening": 20_000_000, "purchases_q": 0,
+              "growth_q": 0.0, "runoff_q": 0.0, "yield_ann": 0.04}]
+        cfg2["assumptions"]["securities_htm"] = [
+            {"name": "Treasuries (HTM)", "opening": 10_000_000, "purchases_q": 0,
+              "growth_q": 0.0, "runoff_q": 0.0, "yield_ann": 0.042}]
+        cfg2["assumptions"]["aoci_sensitivity_annual"] = -0.02
+        r = run_v2(cfg2)
+        b2 = r["financials"]["bs"]
+        rk = "re" if "re" in b2 else "retained"
+        afk = "afsBook" if "afsBook" in b2 else "afs"
+        i1 = 1 if len(b2["equity"]) == 13 else 0
+        aoci1 = b2["aoci"][i1]
+        expect1 = b2[afk][i1] * -0.02 / 4.0
+        check(f"T38a-{eng}", f"engine {eng}: quarter-1 AOCI = AFS end x sens/4 exactly",
+              abs(aoci1 - expect1) < 0.02, f"aoci {aoci1:.2f}k vs {expect1:.2f}k")
+        n2 = len(b2["equity"])
+        worst = max(abs(b2["equity"][t] - (b2["paidIn"][t] + b2[rk][t] + b2["aoci"][t]))
+                     for t in range(n2))
+        check(f"T38b-{eng}", f"engine {eng}: equity == paid-in + retained + AOCI every quarter",
+              worst < 0.02, f"worst {worst:.4f}")
+        check(f"T38c-{eng}", f"engine {eng}: AOCI accumulates (Q-last more negative than Q1)",
+              b2["aoci"][-1] < aoci1 < 0)
+        cfg3 = _json.loads(_json.dumps(cfg2))
+        cfg3["assumptions"]["aoci_sensitivity_annual"] = 0.0
+        r3 = run_v2(cfg3)
+        check(f"T38d-{eng}", f"engine {eng}: zero sensitivity => zero AOCI, HTM immune by design",
+              all(abs(x) < 1e-9 for x in r3["financials"]["bs"]["aoci"]))
+    cfg4 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg4["assumptions"]["securities_afs"] = [{"name": "B", "opening": 8_000_000, "yield_ann": 0.04}]
+    cfg4["assumptions"]["securities_htm"] = [{"name": "H", "opening": 4_000_000, "yield_ann": 0.042}]
+    cfg4["assumptions"]["aoci_sensitivity_annual"] = -0.02
+    r4 = run_v2(cfg4)
+    cr = build_call_report(r4, cfg4)
+    rc = {r["item"]: r["values"] for r in cr["RC"]["rows"]}
+    check("T38e", "RC carries 2.a HTM, 23/24 paid-in, and 26.b AOCI rows; asset tie holds",
+          "2.a" in rc and "26.b" in rc and "23/24" in rc and rc["2.a"][0] == 4_000.0)
+    n3 = len(rc["12"])
+    worst_tie = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.d"][t]
+                         + rc.get("RC-M 2.a", [0]*n3)[t] + rc["6"][t] + rc["10"][t] + rc["11"][t]
+                         - rc["12"][t]) for t in range(n3))
+    check("T38f", "RC asset tie holds with designated books present ($000s tol 1)",
+          worst_tie < 1.0, f"worst {worst_tie:.4f}")
+    eq_tie = max(abs(rc["23/24"][t] + rc["26.a"][t] + rc["26.b"][t] - rc["27.a"][t])
+                  for t in range(n3))
+    check("T38g", "RC equity components tie to total equity", eq_tie < 1.0)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
