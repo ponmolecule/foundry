@@ -263,6 +263,11 @@ def run_pf_a(cfg):
         return req_cash, 0.0, req_cash - investable
 
     day_one = sum(p["_fvadj"][0] for p in lend if p["_is_fv"])
+    # pre-opening burn (Patrick I.9 convention, quarterly-converted at import):
+    # organizational costs are EXPENSED into the opening deficit, not capitalized
+    _po = cfg.get("pre_opening") or {}
+    _burn = sum(float(e.get("total", 0.0)) for e in (_po.get("expenses") or []))
+    day_one -= _burn
     net0 = gross[0] - alll_t[0]
     equity0 = capital + day_one
     sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p)

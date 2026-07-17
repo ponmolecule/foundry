@@ -253,3 +253,17 @@ the owner: overrule (b) if Foundry should ever consume items directly.
 **Check:** Vintage corridor shows tier1_ratio (not cet1) with the PROXY label;
 placement still shows both capital rows for 2025Q4 (item-derived quarter) with
 the existing percentile caveats.
+
+## 20. Pre-opening phase (FLOOR F-010/020/021/022)
+**Decided:** A pre_opening config block: expense categories with totals (monthly
+schedules convert to quarterly/total at import, per the quarterly-permanent
+ruling), plus a minimum Day-1 capital figure. The burn is EXPENSED into the
+opening retained-earnings deficit (Patrick's I.9 convention), in both engines;
+the funding waterfall seeds the asset side automatically. Results carry a
+pre_open block with the cushion (raise − burn) vs the minimum and a
+SUFFICIENT / INSUFFICIENT — REVIEW CAPITAL PLAN flag. Sidebar: Capital & tax
+cluster → PRE-OPENING editor. Display: Examiner Book, above the schedules.
+Default-off and gate-proven inert when absent.
+**Check:** Add a pre-open expense in the sidebar → opening equity and retained
+drop by the total; Examiner Book shows the category table, burn, cushion, and
+the flag; blank categories and negative totals are refused.

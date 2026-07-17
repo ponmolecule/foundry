@@ -9,13 +9,13 @@
 | F-003 | P | PART | REG_PARAMS carries CBLR; full five-threshold set with citations not yet enumerated |
 | F-004 | both | SAT | $000s throughout; declared |
 | F-005 | R | SAT | Config-as-JSON, engagement store, FIW round-trip, Prairie load pattern (D-R1 fixed) |
-| F-010 | P | OPEN | No pre-opening phase in the v2 engine |
+| F-010 | P | SAT | Pre-opening phase (quarterly-converted; T37) |
 | F-011 | P | PART | Quarterly canonical index SAT; annual=Σquarters check exists in gates, not surfaced; inline year-rollup presentation absent |
 | F-012 | P | PART | Quarterly native (D-P17 moot); annual/quarterly VIEW toggle absent |
 | F-013 | both | PART | 12Q default SAT; Patrick's inline annual presentation OPEN |
-| F-020 | P | OPEN | Pre-open expense schedule by category |
-| F-021 | P | OPEN | Capital sufficiency gate (SUFFICIENT flag into checks) |
-| F-022 | P | OPEN | Day-1 seed BS; org costs into opening deficit |
+| F-020 | P | SAT | Category expense schedule, sidebar-edited, Examiner Book display (T37) |
+| F-021 | P | SAT | Cushion vs min Day-1, SUFFICIENT/INSUFFICIENT flag in results + display (T37d/e) |
+| F-022 | P | SAT | Burn expensed into opening RETAINED deficit, both engines; waterfall seeds the asset side (T37a-c) |
 | F-030 | R | SAT | Products→lines, per-line aggregation (RC/RC-E builders tie-checked) |
 | F-031 | P | PART | Roman's 5 loan + 3 deposit lines shipped; brokered/sweep/institutional deposit types absent (D-R9) |
 | F-032 | P | OPEN | Insurance bucketing (<$250K/≥$250K) as assumption (D-P7 fix) |
@@ -65,12 +65,12 @@
 | F-135 | R | SAT | Methodology prose (parity) + BUILD_NOTES/ENGINE_SPEC/TEST_CASES lineage |
 | F-136 | R | SAT | Debounced live recompute, badge update, input preservation (parity) |
 | F-140 | P | DEF | BHC — pilot fence per PRODUCT_ONTOLOGY (Patrick's own stub-not-build) |
-| F-141 | P | OPEN | Trust as a real fee module w/ AUM growth (fixes the D-P13 lamp inconsistency) — or DEF w/ translation template; ruling needed |
+| F-141 | P | OPEN | Trust as a real fee module w/ AUM growth (fixes D-P13) — BUILD per 2026-07-16 floor-overrides-ontology ruling |
 | F-142 | P | OPEN | Interchange detail (count x ticket x network split − network fees) |
-| F-143 | P | OPEN | BaaS module — DEF-leaning (ontology M12, phase 2); ruling needed |
+| F-143 | P | OPEN | BaaS module — BUILD per 2026-07-16 floor-overrides-ontology ruling (ontology fence lifted) |
 | F-144 | P | SAT | Mortgage banking pipeline→HFS→GOS satisfied by F-054/055; mapped explicitly here |
 | F-145 | P | PART | Card engine M4 config depth (utilization/rewards) beyond shipped revolving mechanics |
 | F-146 | P | SAT | Peer benchmark superseded by live substrate (placement + corridor + retrodiction); his paste-in zone is the before picture |
 
-**Scoreboard: 28 SAT · 13 PART · 20 OPEN · 1 DEF (+2 ruling-needed).**
+**Scoreboard: 32 SAT · 13 PART · 18 OPEN · 1 DEF. Ruling 2026-07-16: floor overrides ontology.**
 **Defect coverage en route:** D-P3/5/8/9/13(spirit)/17 fixed or moot; D-R1/12(partial) fixed; D-P1 fixed by architecture (stress = re-runs). Remaining defects ride their F-rows.

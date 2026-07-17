@@ -489,5 +489,24 @@ def run_v2(cfg):
     }
     results["callreport"] = {k: list(v) for k, v in
                              {**RESULT_CODES_BS, **RESULT_CODES_IS, **LINE_CODES}.items()}
+    po = cfg.get("pre_opening") or {}
+    if po.get("expenses"):
+        burn = sum(float(e.get("total", 0.0)) for e in po["expenses"])
+        capital0 = cfg["target_state"]["initial_capital"]
+        min_d1 = float(po.get("min_day1_capital") or 0.0)
+        cushion = capital0 - burn
+        results["pre_open"] = {
+            "expenses": [{"category": e.get("category"), "total": float(e.get("total", 0.0))}
+                          for e in po["expenses"]],
+            "burn_total": burn,
+            "cushion": cushion,
+            "min_day1_capital": min_d1,
+            "sufficient": cushion >= min_d1,
+            "flag": ("SUFFICIENT" if cushion >= min_d1
+                       else "INSUFFICIENT — REVIEW CAPITAL PLAN"),
+            "convention": ("organizational costs expensed into the opening retained "
+                             "deficit (Patrick I.9 convention); monthly schedules "
+                             "convert to quarterly totals at import"),
+        }
     results["run_hash"] = _hash(results)
     return results

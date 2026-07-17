@@ -916,9 +916,57 @@ def t36():
           "cet1_ratio" not in VINTAGE_METRICS and "tier1_ratio" in VINTAGE_METRICS)
 
 
+def t37():
+    print("T37 pre-opening phase (FLOOR F-010/020/021/022): burn to opening deficit, gate")
+    import json as _json
+    from .v2.run_q import run_v2
+    from .v2.validate_q import validate_errors_v2
+    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
+        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
+        base = run_v2(cfg)
+        cfg2 = _json.loads(_json.dumps(cfg))
+        cfg2["pre_opening"] = {"expenses": [
+            {"category": "Organizational & legal", "total": 600_000},
+            {"category": "Consulting & advisory (incl. Klaros)", "total": 960_000},
+            {"category": "Core banking implementation", "total": 720_000},
+        ], "min_day1_capital": 20_000_000}
+        r = run_v2(cfg2)
+        eb, er = base["financials"]["bs"], r["financials"]["bs"]
+        has_open = len(eb["equity"]) == 13
+        # engine A exposes a true opening column (exact assertion); engine B's
+        # index 0 is Q1-end, so the delta includes one quarter's earnings drag
+        # on the missing money — correct economics, banded assertion
+        lo, hi = (2_279.99, 2_280.01) if has_open else (2_280.0, 2_280.0 * 1.03)
+        d_eq = eb["equity"][0] - er["equity"][0]
+        check(f"T37a-{eng}", f"engine {eng}: {'opening' if has_open else 'Q1-end'} equity drops "
+                              f"by the burn{'' if has_open else ' plus its earnings drag'}",
+              lo <= d_eq <= hi, f"d {d_eq:.2f}k")
+        rk = "re" if "re" in er else "retained"
+        d_re = eb[rk][0] - er[rk][0]
+        check(f"T37b-{eng}", f"engine {eng}: the deficit lands in retained earnings, not paid-in",
+              lo <= d_re <= hi, f"d {d_re:.2f}k")
+        check(f"T37c-{eng}", f"engine {eng}: the waterfall absorbs (assets down ~burn)",
+              2_100.0 < (eb["totalAssets"][0] - er["totalAssets"][0]) < 2_450.0)
+        check(f"T37d-{eng}", f"engine {eng}: sufficiency gate computes (cushion vs min Day-1)",
+              r["pre_open"]["sufficient"] and r["pre_open"]["flag"] == "SUFFICIENT"
+              and abs(r["pre_open"]["burn_total"] - 2_280_000) < 1)
+    cfg3 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg3["pre_opening"] = {"expenses": [{"category": "Everything", "total": 999_000_000_000}],
+                             "min_day1_capital": 20_000_000}
+    r3 = run_v2(cfg3)
+    check("T37e", "an underwater plan flags INSUFFICIENT — REVIEW CAPITAL PLAN",
+          not r3["pre_open"]["sufficient"] and "INSUFFICIENT" in r3["pre_open"]["flag"])
+    bad = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    bad["pre_opening"] = {"expenses": [{"category": "", "total": -5}]}
+    msgs = [e["message"] if isinstance(e, dict) else str(e) for e in validate_errors_v2(bad)]
+    check("T37f", "validator rejects blank categories and negative totals",
+          any("category is required" in m for m in msgs)
+          and any("non-negative" in m for m in msgs))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

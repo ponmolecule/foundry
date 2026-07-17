@@ -419,6 +419,16 @@ function renderGlobals(){
         });
         h += '<div style="margin-top:5px"><a href="#" style="color:#8a6d3b" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderGlobals();refresh();return false">+ add a raise</a></div></div>';
       }
+      if(gname.startsWith("Capital")){
+        const po = (cfg.pre_opening = cfg.pre_opening || {});
+        const pex = (po.expenses = po.expenses || []);
+        h += '<div style="margin:10px 2px 2px;font-size:12px"><b style="color:#DFA85A;font-size:10px;letter-spacing:.06em">PRE-OPENING</b>';
+        pex.forEach((e,i)=>{
+          h += `<div style="display:flex;gap:6px;align-items:center;margin-top:4px"><input style="width:150px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:90px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span style="color:#8FA3C0">$000s</span><a href="#" style="color:#B45454" onclick="cfg.pre_opening.expenses.splice(${i},1);renderGlobals();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<div style="margin-top:5px"><a href="#" style="color:#8a6d3b" onclick="poAdd();return false">+ add pre-open expense</a></div>';
+        h += `<div style="margin-top:5px;font-size:11px">Min Day-1 capital <input type="number" style="width:90px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"> $000s</div></div>`;
+      }
       if(gname.startsWith("Treasury")){
         h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span>Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
       }
@@ -906,6 +916,11 @@ async function subPlace(){
   window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
+window.poAdd = function(){
+  cfg.pre_opening = cfg.pre_opening || {};
+  (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
+  renderGlobals(); refresh();
+};
 const VINTAGE_OVERLAY = {tier1_ratio:"lev", cet1_ratio:"lev", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
 async function vintageBuild(){
   const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
@@ -1035,6 +1050,15 @@ function renderExaminer(){
       + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
       + `<div class="ftext" style="color:#B7C0D2">Proposed response: ${esc(x.proposed_response)}</div></div>`;
   });
+  if(V31 && lastRes && lastRes.pre_open){
+    const PO = lastRes.pre_open;
+    h += '<div class="ovh2">Pre-opening build</div>';
+    h += `<div class="memo">${esc(PO.convention)}.</div>`;
+    h += '<table class="ovt"><tr><th>Category</th><th style="text-align:right">Total ($000s)</th></tr>'
+      + PO.expenses.map(e=>`<tr><td>${esc(e.category)}</td><td style="font-family:var(--mono);text-align:right">${(e.total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>`).join("")
+      + `<tr><td><b>Total burn</b></td><td style="font-family:var(--mono);text-align:right"><b>${(PO.burn_total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</b></td></tr></table>`;
+    h += `<div class="memo">Capital cushion (raise \u2212 burn): <span style="font-family:var(--mono)">${(PO.cushion/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> vs minimum Day-1 <span style="font-family:var(--mono)">${(PO.min_day1_capital/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> \u2014 <b style="color:${PO.sufficient?'#7FB07F':'#B45454'}">${esc(PO.flag)}</b></div>`;
+  }
   if(V31 && lastRes && lastRes.call_report){
     const CR = lastRes.call_report;
     h += '<div class="ovh2">Call Report schedules (pro forma)</div>';

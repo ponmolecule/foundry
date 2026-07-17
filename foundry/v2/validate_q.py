@@ -95,6 +95,17 @@ def validate_config_v2(cfg):
         errs.append("no deposit module loaded — a bank needs a funding side")
 
     a = cfg["assumptions"]
+    po = cfg.get("pre_opening") or {}
+    for i, e in enumerate(po.get("expenses") or []):
+        if not str(e.get("category", "")).strip():
+            errs.append(f"pre_opening.expenses[{i}].category is required")
+        t = e.get("total")
+        if not isinstance(t, (int, float)) or t < 0:
+            errs.append(f"pre_opening.expenses[{i}].total must be a non-negative dollar amount")
+    if po.get("min_day1_capital") is not None:
+        m = po["min_day1_capital"]
+        if not isinstance(m, (int, float)) or m < 0:
+            errs.append("pre_opening.min_day1_capital must be a non-negative dollar amount")
     for i, r in enumerate(a.get("capital_raises") or []):
         q = r.get("quarter"); amt = r.get("amount")
         if not isinstance(q, int) or not (1 <= q <= 12):

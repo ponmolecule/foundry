@@ -160,3 +160,7 @@
 - **T36e** — the corridor is deterministic and fingerprinted
 - **T36f** — capital history labeled as PROXY with the in-place repair schedule
 - **T36g** — cet1 excluded from the corridor (proxy duplicate of tier1 pre-2025Q4)
+
+## T37 pre-opening phase (FLOOR F-010/020/021/022): burn to opening deficit, gate
+- **T37e** — an underwater plan flags INSUFFICIENT — REVIEW CAPITAL PLAN
+- **T37f** — validator rejects blank categories and negative totals

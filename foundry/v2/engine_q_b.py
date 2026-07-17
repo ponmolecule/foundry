@@ -61,8 +61,10 @@ def run_pf_b(cfg):
 
     gl0 = sum(p["_beg"][0] for p in lend)
     alll = gl0 * floor_pct
-    equity = capital
-    re = 0.0
+    _po = cfg.get("pre_opening") or {}
+    _burn = sum(float(e.get("total", 0.0)) for e in (_po.get("expenses") or []))
+    re = -_burn                      # organizational costs: opening deficit in RE
+    equity = capital + re
 
     def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end):
         uses = gross_end - alll_end + sec_prod_end + non_earn

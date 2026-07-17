@@ -29,3 +29,6 @@ storyboards only (static, flattened controls); new bakes get new hash-stamped na
 classification is a fact, not a menu; user-defined products are editable (pins are
 for imports); Add Product is the single door; build actions on the canvas, analytics
 settings in the sidebar with their family.
+
+## Ruling 2026-07-16: FLOOR overrides ONTOLOGY
+Where docs/FLOOR.md and docs/PRODUCT_ONTOLOGY.md conflict, the FLOOR wins. The ontology's phase-2 fences no longer gate floor items (F-141 Trust and F-143 BaaS move to the build queue; F-140 BHC keeps its deferral under the floor's own clause and Patrick's stub-not-build call).
