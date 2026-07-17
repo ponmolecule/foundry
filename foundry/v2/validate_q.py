@@ -123,6 +123,14 @@ def validate_config_v2(cfg):
         if vv is not None and (not isinstance(vv, (int, float)) or vv < lo
                                  or (hi is not None and vv > hi)):
             errs.append(f"{fld} must be {unit}")
+    for con in (cfg.get("constraints") or []):
+        if con.get("key") == "leverage_min":
+            lv = con.get("value")
+            if not isinstance(lv, (int, float)) or not (0.02 <= lv <= 0.25):
+                errs.append(f"constraints leverage_min = {lv!r} is outside the plausible "
+                             f"range [2%, 25%] — a chartering commitment is a fraction "
+                             f"(0.09 = 9%); this usually means a value landed in the "
+                             f"wrong field")
     for i, dp in enumerate(a.get("deposit_products") or []):
         ip = dp.get("insured_pct")
         if ip is not None and (not isinstance(ip, (int, float)) or not (0 <= ip <= 1)):
