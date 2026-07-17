@@ -917,7 +917,7 @@ function retroSectionHtml(){
     h += `<div class="memo"><b>${R.summary.series_within_15pct_terminal} of ${R.summary.series_compared}</b> series land within 15% at the terminal quarter (worst miss ${R.summary.worst_terminal_error_pct}%). ${esc(R.summary.note)} Report <span style="font-family:var(--mono)">${esc(R.report_hash)}</span>.</div>`;
     R.series.forEach(s=>{
       h += `<div class="ovh3" style="font-size:12px">${esc(s.label)} \u2014 MAPE ${s.mape_pct}%, terminal ${s.terminal_error_pct}%</div>`;
-      h += '<div style="overflow-x:auto"><table class="fin"><tr><th></th>' + s.rows.map(r=>`<th>Q${r.q}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + s.rows.map(r=>`<th style="text-align:right">Q${r.q}</th>`).join("") + '</tr>';
       h += '<tr><td>Projected</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.projected.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
       h += '<tr><td>Actual</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.actual.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
       h += '<tr><td>Error %</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right;color:${r.ape!==null&&r.ape>0.15?'#B45454':'#8FA3C0'}">${r.ape===null?'\u2014':(r.ape*100).toFixed(1)+'%'}</td>`).join("") + '</tr></table></div>';
@@ -988,7 +988,7 @@ function renderExaminer(){
     ["RC","RI","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
       h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
-      h += '<div style="overflow-x:auto"><table class="fin"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:12},(_,q)=>`<th style="text-align:right">Q${q+1}</th>`).join("") + '</tr>';
       sc.rows.forEach(r=>{
         h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
           + r.values.slice(0,12).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
