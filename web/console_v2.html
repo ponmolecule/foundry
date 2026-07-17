@@ -1152,8 +1152,8 @@ function renderOverview(){
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
   if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
   (r.flags||[]).forEach(f=>{
-    const cls = TAGMAP[f.cls] || "mut";
-    h += `<div class="ovflag"><span class="fid">${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}</span><div class="ftext">${esc(f.text)}</div></div>`;
+    const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
+    h += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
   });
   h += '<div class="ovh3">Constraint tests, every scenario</div>';
   h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
