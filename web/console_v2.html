@@ -929,7 +929,16 @@ window.poAdd = function(){
   (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
   renderGlobals(); refresh();
 };
-const VINTAGE_OVERLAY = {tier1_ratio:"lev", cet1_ratio:"lev", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
+const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
+window.vintageModeled = vintageModeled;
+function vintageModeled(mk){
+  if(!lastRes) return null;
+  if(mk === "__t1rwa"){
+    const ST = lastRes.capital && lastRes.capital.standardized;
+    return ST ? ST.ratios.tier1_rwa : null;   // like-for-like: risk-based vs risk-based
+  }
+  return lastRes.financials.ratios[mk];
+}
 async function vintageBuild(){
   const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
     headers:{"Content-Type":"application/json"}, body: JSON.stringify({est_from:2018, est_to:2023})});
@@ -953,8 +962,8 @@ function vintageSectionHtml(){
   h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
-    const modeled = (mk && lastRes) ? lastRes.financials.ratios[mk] : null;
-    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled leverage as the comparison \u2014 related, not identical)" : ""}</div>`;
+    const modeled = mk ? vintageModeled(mk) : null;
+    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + '</tr>';
     ["p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + '</tr>';
