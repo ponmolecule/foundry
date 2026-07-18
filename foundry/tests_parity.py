@@ -304,7 +304,7 @@ def main():
         # Iteration-1 contract: faithful replication of the predecessor HTML surface.
         # Tokens are drawn from the transcribed artifact, not from memory.
         need_controls = ["Products", "Balance Sheet", "Income Statement", "Ratios",
-                         "Product Detail", "Stress Testing", "Assumptions & Notes",
+                         "Product Detail", "Stress Testing", "Assumption Book",
                          "Pro Forma Balance Sheet", "Pro Forma Income Statement (quarterly)",
                          "Less: Allowance for Loan Losses", "TOTAL LIABILITIES & EQUITY",
                          "Total Loans & Leases (gross)", "Summary Ratios (annualized)",
