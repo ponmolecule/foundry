@@ -72,8 +72,12 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .cfgcard .ovh2{margin:0 0 10px;border:none;border-left:3px solid #DFA85A;border-radius:0;background:transparent;padding:0 0 0 10px}
 .cfgcard .crow input[type=text],.cfgcard .crow input:not([type]){max-width:170px}
 .cfgcard .crow input[type=number]{max-width:96px}
-.cfglamps{display:flex;flex-wrap:wrap;gap:5px 14px;font-size:11px;color:#C4CDDD;margin:2px 0 4px}
-.cfglamps b{flex-basis:100%;color:#8FA3C0;font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-top:4px}
+.cfglamps{display:flex;flex-wrap:wrap;gap:7px 8px;font-size:11px;color:#C4CDDD;margin:2px 0 4px}
+.cfglamps b{flex-basis:100%;color:#8FA3C0;font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent}
+.chip.on{border-color:#4E7A4E;color:#A9D3A9;background:rgba(127,176,127,.10);font-weight:600}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:#4a5568;flex:0 0 8px}
+.chip.on .dot{background:#7FB07F;box-shadow:0 0 5px rgba(127,176,127,.7)}
 .fld.wide{grid-column:1/-1}
 /* ------- content: faithful white number surfaces ------- */
 #content{padding:22px 30px 30px;overflow-x:auto;background:var(--paper);min-width:0;min-height:70vh}
@@ -877,7 +881,7 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function substratePanelHtml(){
-  let h = '<div class="ovh2" style="display:flex;justify-content:space-between;align-items:center">CharterIQ substrate <button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="subCheck()">Check connection</button></div>';
+  let h = '<div class="ovh2" style="display:flex;align-items:center;gap:12px">CharterIQ substrate <button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="subCheck()">Refresh substrate status</button></div>';
   if(subStatus === null){
     h += '<div class="memo">Substrate link not yet checked.</div>';
   } else if(!subStatus.configured){
@@ -2071,12 +2075,19 @@ function structuresSectionsHtml(){
   lampGroups.forEach(([g, names])=>{
     h += `<b>${g}</b>`;
     names.forEach(n=>{ const on = lampMap[n];
-      h += `<span>${on?'<span style="color:#7FB07F">\u25cf</span>':'<span style="color:#4a5568">\u25cb</span>'} ${esc(n)}</span>`; });
+      h += `<span class="chip${on?" on":""}"><span class="dot"></span>${esc(n)}${on?" \u00b7 on":""}</span>`; });
   });
   h += '</div></div>';
   h += '<div class="cfggrid">';
   h += '<div class="cfgcard"><div class="ovh2">Capital structure & pre-opening</div>';
   {
+        const po = (cfg.pre_opening = cfg.pre_opening || {});
+        const pex = (po.expenses = po.expenses || []);
+        h += '<div class="cbl">Pre-opening</div>';
+        pex.forEach((e,i)=>{
+          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        });
+        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
         const raises = cfg.assumptions.capital_raises || [];
         h += '<div class="cbl">Staged raises</div>';
         raises.forEach((r,i)=>{
@@ -2086,13 +2097,6 @@ function structuresSectionsHtml(){
             + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
         });
         h += '<a href="#" class="cadd" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderContent();refresh();return false">+ add a raise</a>';
-        const po = (cfg.pre_opening = cfg.pre_opening || {});
-        const pex = (po.expenses = po.expenses || []);
-        h += '<div class="cbl">Pre-opening</div>';
-        pex.forEach((e,i)=>{
-          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
         const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
         h += '<div class="cbl">Scheduled borrowings</div>';
         sbs.forEach((b,i)=>{
@@ -2189,7 +2193,7 @@ function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
   let h = '<div class="h2" style="font-weight:700">Configuration</div>';
-  h += '<div class="memo" style="margin:0 0 14px">The engagement sequence as data: the ten-step arc from \u201cshould this be a bank at all\u201d to post-opening monitoring, read directly from the client configuration \u2014 the single front door (G3). Whatever a step needs lives in this one document; the engine runs from it and nothing else.</div>';
+  h += '<div class="memo" style="margin:0 0 14px">This is the engagement\u2019s living configuration. Set structures and modules below \u2014 the engine activates steps and pages from presence, not assertion. Every step of the engagement sequence derives from this document.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
   const co = ((r.peer||{}).cohort)||null;
@@ -2208,12 +2212,12 @@ function renderConfigTab(){
     ["9", "Freeze & filing", "see Governance \u2014 run registry"],
     ["10", "Plan vs actual monitoring", null],
   ];
-  h += '<div class="ovh3">Engagement sequence</div>';
+  h += '<details class="cfgcard" style="margin-top:14px"><summary style="cursor:pointer;color:#DFA85A;font-size:12px;font-weight:600">Engagement sequence \u2014 each step reads from this document</summary>';
   h += '<table class="ovt"><tr><th>Step</th><th>Focus</th><th>In this configuration</th></tr>';
   steps.forEach(x=>{
     h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
   });
-  h += '</table>';
+  h += '</table></details>';
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
     document.getElementById("content").innerHTML = h; return;
