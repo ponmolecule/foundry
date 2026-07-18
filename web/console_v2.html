@@ -302,7 +302,11 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
 <div class="toolbar">
   <span id="tabs"></span>
   <span class="spacer"></span>
-  <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value">
+  <span style="position:relative;display:inline-flex;align-items:center">
+    <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value" style="padding-right:26px">
+    <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements" style="position:absolute;right:7px;color:#8FA3C0;text-decoration:none;font-size:10px">▼</a>
+    <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
+  </span>
   <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
@@ -2107,17 +2111,55 @@ async function loadEngStore(force){
 }
 async function openEngagement(slug){
   const r = await fetch("/api/v31/engagement/" + slug);
-  if(!r.ok){ const j = await r.json(); alert("Fail-closed: " + (j.error||r.status)); return; }
+  if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Could not open the engagement (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
     document.getElementById("scenarioName").value = cfg.scenario_name || "";
     renderGlobals(); refresh(); setTab("overview");
   } else {
-    alert("This engagement is a chassis (v1) configuration. It runs on the Console (link in the ribbon); wizard-built engagements will open there until the unified results view ships.");
+    appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
   }
 }
 window.openEngagement = openEngagement;
+async function toggleEngMenu(){
+  const m = document.getElementById("engMenu");
+  if(m.style.display !== "none"){ m.style.display = "none"; return; }
+  m.style.display = "block";
+  m.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:#8FA3C0">Loading saved engagements\u2026</div>';
+  await loadEngStore(true);
+  const list = (engStore && engStore.engagements) || [];
+  const cur = cfg.scenario_name || "";
+  let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Saved engagements</div>';
+  if(!list.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
+  list.forEach(e=>{
+    const active = (e.scenario_name||e.name) === cur;
+    h += `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:${active?"#DFA85A":"#DCE3EE"};font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#DFA85A":"#3A4C6E"};flex:0 0 6px"></span><span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`;
+  });
+  h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
+  h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+  m.innerHTML = h;
+}
+window.toggleEngMenu = toggleEngMenu;
+async function engMenuOpen(slug){
+  document.getElementById("engMenu").style.display = "none";
+  appStatus("busy", "Opening engagement\u2026");
+  await openEngagement(slug);
+  const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || slug;
+  appStatus("ok", `<b>Now working on \u201c${esc(name)}\u201d</b> \u2014 opened from the engagement store.`);
+}
+window.engMenuOpen = engMenuOpen;
+async function engMenuSave(){
+  document.getElementById("engMenu").style.display = "none";
+  await saveCurrentEng();
+  appStatus("ok", `<b>Saved.</b> \u201c${esc(cfg.scenario_name || "Unnamed")}\u201d is now in the engagement store \u2014 open it any time from this menu.`);
+}
+window.engMenuSave = engMenuSave;
+document.addEventListener("click", (ev)=>{
+  const m = document.getElementById("engMenu");
+  if(m && m.style.display !== "none" && !ev.target.closest("#engMenu") && !ev.target.closest("#engMenuBtn"))
+    m.style.display = "none";
+});
 function renderStart(){
   const el = document.getElementById("content");
   const snapshotMode = !!window.SNAPSHOT;
