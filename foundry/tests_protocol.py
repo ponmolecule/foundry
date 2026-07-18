@@ -1382,9 +1382,37 @@ def t49():
           not any(f["id"] == "NIE-REPLACES-OVERHEAD" for f in base.get("flags") or []))
 
 
+def t50():
+    print("T50 FIW import fail-closed (user: edited workbook, uploaded, 'got nothing')")
+    import json as _json, os, tempfile, importlib
+    os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp(prefix="t50a_")
+    from foundry.v2 import fiw as _fiw
+    importlib.reload(_fiw)
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    data, gh = _fiw.build_fiw(cfg)
+    # junk bytes must raise something catchable, never escape as a server 500 —
+    # the endpoint's broad except is the guarantee; here we pin the message path
+    try:
+        _fiw.diff_import(b"not a zip", cfg)
+        check("T50a", "junk bytes are refused", False)
+    except Exception as e:
+        check("T50a", "junk bytes are refused with a typed error (endpoint maps to 422)",
+              True, type(e).__name__)
+    # a workbook whose generation snapshot is GONE (older run / redeploy):
+    os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp(prefix="t50b_")
+    importlib.reload(_fiw)
+    try:
+        _fiw.diff_import(data, cfg)
+        check("T50b", "missing snapshot is refused", False)
+    except ValueError as e:
+        check("T50b", "the missing-snapshot refusal names the cause AND the way out "
+                        "(regenerate; nothing changed)",
+              "Regenerate" in str(e) and "older run" in str(e) and "nothing was changed" in str(e))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

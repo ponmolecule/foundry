@@ -237,7 +237,10 @@ def diff_import(data, current_cfg):
     snap = load_snapshot(str(gh))
     if snap is None:
         raise ValueError(f"generation state {gh} not found on this workspace — "
-                          "the workbook was generated elsewhere or the data volume was cleared")
+                          "the workbook came from an older run, another instance, or a redeploy "
+                          "cleared the workspace disk (snapshots live under FOUNDRY_DATA_DIR). "
+                          "Regenerate the input workbook from the current configuration and "
+                          "reapply your edits; nothing was changed.")
     merged = json.loads(json.dumps(current_cfg))
     edits = []
 

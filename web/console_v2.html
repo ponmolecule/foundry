@@ -1965,12 +1965,13 @@ async function downloadFIW(){
 }
 window.downloadFIW = downloadFIW;
 async function uploadFIW(inp){
+ try{
   const f = inp.files[0]; if(!f) return; inp.value = "";
   const fd = new FormData();
   fd.append("file", f);
   fd.append("current", JSON.stringify(cfg));
   const r = await fetch("/api/v31/fiw/import", {method:"POST", body: fd});
-  const j = await r.json();
+  let j; try{ j = await r.json(); }catch(e){ alert("Import failed: the server returned an unreadable response ("+r.status+"). Nothing was changed."); return; }
   if(!r.ok){ alert("Import refused (fail-closed):\n" + (j.error||r.status)); return; }
   cfg = j.cfg;
   const n = j.report.edit_count;
@@ -1979,6 +1980,7 @@ async function uploadFIW(inp){
   alert((n ? `Imported ${n} edit${n===1?"":"s"} from the workbook (untouched cells kept their values):\n${lines}${n>8?"\n\u2026":""}` : "No edits detected \u2014 the workbook matches its generation state; nothing changed.") + warn);
   document.getElementById("scenarioName").value = cfg.scenario_name || "";
   syncModules(); renderGlobals(); renderContent(); refresh();
+ }catch(e){ alert("Import failed: " + e.message + "\nNothing was changed."); }
 }
 window.uploadFIW = uploadFIW;
 function wizStart(){
@@ -2100,21 +2102,19 @@ function renderStart(){
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px"><button class="btn-gold" onclick="wizStart()">New engagement</button><button class="btn-plain" onclick="setTab(\'config\')">Open the workspace</button></div>')
     + '</div>'
     + '<div class="ovcard"><div class="k">Fill outside the app, then upload</div><div class="v" style="font-size:1rem">Take a workbook to your desk</div>'
-    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload</li><li>Import validates fail-closed; gaps become questions</li><li>Slim per-engagement workbook, pre-filled \u2014 next increment</li></ul></div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload; edits apply as a logged diff</li><li>Import validates fail-closed; gaps become questions</li><li>The workbook is tied to the run that generated it \u2014 regenerate after model changes; an older run\u2019s workbook refuses with guidance</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>')
+    + '</div>' 
     + '</div>'
     + '</div>';
   h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 inspected, mapped with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork.</div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-gold" onclick="document.getElementById(\'mtFile\').click()">Upload a forecast\u2026</button><input id="mtFile" type="file" accept=".xlsx,.csv" style="display:none" onchange="mtUpload(this)"></div>')
     + '</div>';
   if(!snapshotMode){
-    h += '<div class="memo" style="margin:0 0 14px">Configuration as a file: '
-      + '<a href="#" style="color:#DFA85A" onclick="downloadScenario();return false">download</a> \u00b7 '
-      + '<a href="#" style="color:#DFA85A" onclick="document.getElementById(\'upJson31\').click();return false">upload</a>'
-      + '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div>';
+    h += '<div class="ovcard" style="margin:0 0 14px"><div class="k">Configuration file \u00b7 .json</div><div class="v" style="font-size:1rem">The exact engagement state</div><div class="s">Download to archive or hand off; upload to restore bit-for-bit \u2014 this file IS the model.</div><div style="margin-top:9px"><a href="#" class="cadd" style="margin:0" onclick="downloadScenario();return false">download</a> \u00b7 <a href="#" class="cadd" style="margin:0" onclick="document.getElementById(\'upJson31\').click();return false">upload</a><input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div></div>';
   }
   h += '<div class="ovh3">Saved engagements</div>';
   if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements persist as files on the workspace and survive restarts \u2014 but a REDEPLOY resets this container\u2019s disk unless a volume is mounted at FOUNDRY_DATA_DIR. For anything that matters, also keep the Excel round-trip download and a frozen run. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
