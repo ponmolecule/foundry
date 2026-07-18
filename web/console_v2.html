@@ -66,8 +66,8 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .crow .cx{color:#B45454;text-decoration:none;padding:0 2px}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
-.cfgwrap{max-width:1460px}
-.cfggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px;align-items:stretch}
+.cfgwrap{max-width:none}
+.cfggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(540px,1fr));gap:20px;align-items:stretch}
 .cfgcard{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:18px 22px}
 .modpanel{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
@@ -2143,12 +2143,18 @@ function structuresSectionsHtml(){
   const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
   const FEE5 = [["Interchange","wave"],["Payments","stack"],["Service charges","doc"],["Trust","bank"],["BaaS","cube"]];
   const feeOnN = FEE5.filter(([n])=>lampMap[n]).length;
-  h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
-  h += `<div class="modcard${capOn?" sel":""}" onclick="modGo('card-cap')" title="Derived from presence \u2014 add a structure to activate"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.bank}</span><span class="ml">Capital &amp;<br>pre-opening</span></span><span class="sw${capOn?" on":""}"></span></div>`;
-  h += `<div class="modcard${secAociOn?" sel":""}" onclick="secAociToggle()" title="${secAociOn?"On \u2014 click to turn off (removes books, zeroes AOCI)":"Off \u2014 click to activate with a default AFS book"}"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.doc}</span><span class="ml">Securities<br>&amp; AOCI</span></span><span class="sw${secAociOn?" on":""}"></span></div>`;
-  h += `<div class="modcard${A.nie_detail?" sel":""}" onclick="${A.nie_detail?"nieOff()":"nieOn()"}" title="Toggle: replaces the corporate overhead line while on"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.calc}</span><span class="ml">Operating<br>expense</span></span><span class="sw${A.nie_detail?" on":""}"></span></div>`;
-  h += `<div class="modcard${feeOnN?" sel":""}" onclick="modGo('card-fee')"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.stack}</span><span class="ml">Fee modules<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span></span></span><span class="sw${feeOnN?" on":""}"></span></div>`;
-  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
+  const capN = (A.capital_raises||[]).length + ((cfg.pre_opening||{}).expenses||[]).length
+             + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0);
+  const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
+  h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div>';
+  h += '<div class="ovcards" style="margin:0">';
+  const tile = (label, on, cap, anchor)=>
+    `<div class="ovcard" style="cursor:pointer" onclick="modGo('${anchor}')"><div class="k">${label}</div><div class="v" style="color:${on?"#7FB07F":"#8C99AF"}">${on?"On":"Off"}</div><div style="font-size:.68rem;color:#8C99AF;margin-top:.25rem">${cap}</div></div>`;
+  h += tile("Capital &amp; pre-opening", capOn, `${capN} structure${capN===1?"":"s"} defined`, "card-cap");
+  h += tile("Securities &amp; AOCI", secAociOn, `${secN} book${secN===1?"":"s"}${lampMap["AOCI"]?" \u00b7 AOCI set":""}`, "card-sec");
+  h += tile("Operating expense", !!A.nie_detail, A.nie_detail?"NIE detail governs":"single overhead line governs", "card-nie");
+  h += `<div class="ovcard" style="cursor:pointer" onclick="modGo('card-fee')"><div class="k">Fee modules</div><div class="v" style="color:${feeOnN?"#7FB07F":"#8C99AF"}">${feeOnN} of 5</div><div class="minis" style="margin-top:.35rem">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</div></div>`;
+  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains. Activation lives in the cards below \u2014 these tiles report state.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
@@ -2222,13 +2228,13 @@ function structuresSectionsHtml(){
   h += `</div><div class="cfgcard" id="card-fee"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Fee modules</div><div class="cd">Enable fee modules to include their economics in the engagement.</div></span></div>`;
   const FM = (A.fee_modules = A.fee_modules || {});
   const fpill = (key, label, icon, on, onCb, offCb)=>
-    `<button class="fpill${on?" on":""}" onclick="${on?offCb:onCb}" title="${on?"On \u2014 click to remove":"Off \u2014 click to enable"}"><span style="color:${on?"#DFA85A":"#8FA3C0"}">${ICONS[icon]}</span>${label}<span class="fbadge">\u2713</span></button>`;
+    `<button class="fpill${on?" on":""}" onclick="${on?offCb:onCb}" title="${on?"On \u2014 click to remove (instant)":"Off \u2014 click to enable"}"><span style="color:${on?"#DFA85A":"#8FA3C0"}">${ICONS[icon]}</span>${label}<span class="fbadge">\u2713</span></button>`;
   h += '<div style="display:flex;flex-wrap:wrap;gap:9px">'
-    + fpill('interchange','Interchange','wave', !!FM.interchange, "fmOn('interchange')", "if(confirm('Remove the Interchange module?')){delete cfg.assumptions.fee_modules.interchange;renderContent();refresh()}")
-    + fpill('payments','Payments','stack', !!(FM.payments||[]).length, "fmRail()", "if(confirm('Remove all payment rails?')){cfg.assumptions.fee_modules.payments=[];renderContent();refresh()}")
-    + fpill('service_charges','Service charges','doc', !!FM.service_charges, "fmOn('service_charges')", "if(confirm('Remove the Service charges module?')){delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh()}")
-    + fpill('trust','Trust','bank', !!FM.trust, "fmOn('trust')", "if(confirm('Remove the Trust module?')){delete cfg.assumptions.fee_modules.trust;renderContent();refresh()}")
-    + fpill('baas','BaaS','cube', !!FM.baas, "fmOn('baas')", "if(confirm('Remove the BaaS module?')){delete cfg.assumptions.fee_modules.baas;renderContent();refresh()}")
+    + fpill('interchange','Interchange','wave', !!FM.interchange, "fmOn('interchange')", "delete cfg.assumptions.fee_modules.interchange;renderContent();refresh()")
+    + fpill('payments','Payments','stack', !!(FM.payments||[]).length, "fmRail()", "cfg.assumptions.fee_modules.payments=[];renderContent();refresh()")
+    + fpill('service_charges','Service charges','doc', !!FM.service_charges, "fmOn('service_charges')", "delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh()")
+    + fpill('trust','Trust','bank', !!FM.trust, "fmOn('trust')", "delete cfg.assumptions.fee_modules.trust;renderContent();refresh()")
+    + fpill('baas','BaaS','cube', !!FM.baas, "fmOn('baas')", "delete cfg.assumptions.fee_modules.baas;renderContent();refresh()")
     + '</div>';
   if(FM.trust) h += `<div class="crow">Trust: AUM<input type="number" style="width:84px" value="${(FM.trust.aum_open||0)/1000000}" title="$M" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(this.value)*1000000;refresh()"><span class="cu">$M</span> growth<input type="number" step="0.5" style="width:44px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:44px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
   if(FM.interchange){ const IC=FM.interchange;
@@ -2258,7 +2264,6 @@ window.runSens = async function(){
   el.innerHTML=t+'</table>'+`<div class="srcnote">${esc(j.note)}.</div>`;
 };
 window.nieOff = function(){
-  if(!confirm("Deactivate Operating Expense Detail? The corporate overhead line (sidebar) governs again; the module's inputs are discarded.")) return;
   cfg.assumptions.nie_detail = null; renderContent(); refresh();
 };
 window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[20,30,40], loaded_comp_annual:150000, categories:[{name:"Core banking & tech", per_quarter:120000},{name:"Occupancy", per_quarter:60000},{name:"Legal & compliance", per_quarter:36000}], other_gross_up_rate:0.03}; renderContent(); refresh(); };
@@ -2278,9 +2283,7 @@ function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
   const _eng = cfg.client_legal_name || cfg.proposed_bank || cfg.client || "Unnamed engagement";
-  let h = '<div class="cfghead"><span class="ttl">Configuration</span><span style="display:flex;align-items:center">'
-    + `<span class="eng">Engagement<b>${esc(_eng)}</b></span>`
-    + '<button class="btn-save" onclick="cfgSave()">Save</button></span></div>';
+  let h = '<div class="cfghead"><span class="ttl">Configuration</span></div>';
   h += '<div class="memo" style="margin:0 0 14px">This is the engagement\u2019s living configuration. Set structures and modules below \u2014 the engine activates steps and pages from presence, not assertion. Every step of the engagement sequence derives from this document.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
@@ -2306,7 +2309,7 @@ function renderConfigTab(){
     h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
   });
   h += '</table></details>';
-  h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span><span class="savedchip">${window._lastSavedAt ? "Last saved " + window._lastSavedAt.toLocaleTimeString() + " \u2713" : ""}</span></div>`;
+  h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
     document.getElementById("content").innerHTML = h; return;
