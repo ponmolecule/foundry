@@ -153,6 +153,7 @@ def build_fiw(cfg):
     _kv_sheet(lm, rows)
 
     buf = io.BytesIO()
+    _embed_state(wb, cfg)      # the workbook carries its own generation state
     wb.save(buf)
     return buf.getvalue(), gh
 
@@ -167,6 +168,29 @@ def _snap_dir():
     os.makedirs(d, exist_ok=True)
     return d
 
+
+STATE_SHEET = "STATE"
+_CHUNK = 30000
+
+def _embed_state(wb, cfg):
+    ws = wb.create_sheet(STATE_SHEET)
+    ws.sheet_state = "veryHidden"
+    blob = json.dumps(cfg, sort_keys=True)
+    for i in range(0, len(blob), _CHUNK):
+        ws.cell(row=i // _CHUNK + 1, column=1, value=blob[i:i + _CHUNK])
+
+def _read_embedded_state(wb):
+    if STATE_SHEET not in wb.sheetnames:
+        return None
+    parts = []
+    for r in wb[STATE_SHEET].iter_rows(min_col=1, max_col=1):
+        if r[0].value is None:
+            break
+        parts.append(str(r[0].value))
+    try:
+        return json.loads("".join(parts))
+    except Exception:
+        return None
 
 def persist_snapshot(cfg, gh):
     with open(os.path.join(_snap_dir(), gh + ".json"), "w", encoding="utf-8") as fh:
@@ -234,13 +258,17 @@ def diff_import(data, current_cfg):
             gh = r[1].value
     if not gh:
         raise ValueError("no generation hash on README — cannot diff-import")
-    snap = load_snapshot(str(gh))
+    snap = _read_embedded_state(wb)
+    base_src = "embedded"
+    if snap is None:                      # legacy workbook (pre self-contained format)
+        snap = load_snapshot(str(gh))
+        base_src = "workspace snapshot"
     if snap is None:
-        raise ValueError(f"generation state {gh} not found on this workspace — "
-                          "the workbook came from an older run, another instance, or a redeploy "
-                          "cleared the workspace disk (snapshots live under FOUNDRY_DATA_DIR). "
-                          "Regenerate the input workbook from the current configuration and "
-                          "reapply your edits; nothing was changed.")
+        raise ValueError(f"generation state {gh} not found — this workbook predates the "
+                          "self-contained format and its workspace snapshot is gone (older run, "
+                          "another instance, or a redeploy). Regenerate the input workbook from "
+                          "the current configuration and reapply your edits; nothing was changed. "
+                          "Workbooks generated from now on carry their own state and never hit this.")
     # THE WORKBOOK IS THE DOCUMENT: import rebases onto the workbook's own
     # generation state (the bank it describes), with the human's edits on top.
     # The open session never silently supplies the base — uploading a workbook
@@ -322,7 +350,8 @@ def diff_import(data, current_cfg):
                 else:
                     tgt[idx][field] = newv
                 edits.append({"key": f"{fam}.{idx}.{field}", "from": old, "to": newv})
-    rep = {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits)}
+    rep = {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits),
+            "base": base_src}
     if session_differed:
         rep["session_note"] = ("the open session differed from this workbook's engagement — "
                                 "the workbook's state now governs (the session's unsaved "

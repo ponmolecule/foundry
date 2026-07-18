@@ -326,8 +326,10 @@ def t22():
         "rate_paid_ann": 0.005, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
     data, gh = build_fiw(cfg)
     wb = _lw(_io.BytesIO(data))
-    check("T22a", "deposits-only FIW: no loan sheet (disclosure extends to paper)",
-          wb.sheetnames == ["README", "CONTROL", "ASSM_DEPOSITS", "LIMITS"], str(wb.sheetnames))
+    check("T22a", "deposits-only FIW: no loan sheet (disclosure extends to paper; "
+                    "STATE is the hidden self-containment sheet)",
+          wb.sheetnames == ["README", "CONTROL", "ASSM_DEPOSITS", "LIMITS", "STATE"]
+          and wb["STATE"].sheet_state == "veryHidden", str(wb.sheetnames))
     check("T22b", "generation hash on README matches the canonical hash",
           any(r[0].value == "Generation hash" and r[1].value == cfg_hash(cfg) for r in wb["README"].iter_rows()))
     dep = {(r[0].value): r[3].value for r in wb["ASSM_DEPOSITS"].iter_rows(min_row=2)}
@@ -391,16 +393,24 @@ def t23():
               d["call_report_line"] == "depDDA")
         check("T23d", "edit report names exactly the human change",
               rep["edit_count"] == 1 and rep["edits"][0]["key"] == "deposit.0.rate_paid_ann")
+        # SELF-CONTAINED semantics: a tampered README hash is IRRELEVANT when the
+        # embedded state is present — the workbook's own state governs. The refusal
+        # now belongs to legacy files only: strip STATE + unknown hash => fail closed.
+        wb2 = _lw(_io.BytesIO(data))
+        for r in wb2["README"].iter_rows():
+            if r[0].value == "Generation hash":
+                r[1].value = "abcdef000000"
+        b2 = _io.BytesIO(); wb2.save(b2)
+        _m2, _r2 = F.diff_import(b2.getvalue(), current)
+        check("T23e", "tampered hash is irrelevant when embedded state governs",
+              _r2.get("base") == "embedded")
+        del wb2["STATE"]
+        b3 = _io.BytesIO(); wb2.save(b3)
         try:
-            wb2 = _lw(_io.BytesIO(data))
-            for r in wb2["README"].iter_rows():
-                if r[0].value == "Generation hash":
-                    r[1].value = "abcdef000000"
-            b2 = _io.BytesIO(); wb2.save(b2)
-            F.diff_import(b2.getvalue(), current); failed = False
+            F.diff_import(b3.getvalue(), current); failed = False
         except ValueError:
             failed = True
-        check("T23e", "unknown generation state fails closed", failed)
+        check("T23f", "legacy file (no embedded state) with unknown hash fails closed", failed)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
@@ -1403,16 +1413,26 @@ def t50():
     except Exception as e:
         check("T50a", "junk bytes are refused with a typed error (endpoint maps to 422)",
               True, type(e).__name__)
-    # a workbook whose generation snapshot is GONE (older run / redeploy):
+    # SELF-CONTAINED WORKBOOK (the user's ruling: the ceremony was the bug):
+    # a fresh workbook survives a destroyed workspace — it carries its own state
     os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp(prefix="t50b_")
     importlib.reload(_fiw)
+    merged_sc, rep_sc = _fiw.diff_import(data, cfg)
+    check("T50b", "a fresh workbook imports with NO workspace snapshot (embedded state governs)",
+          rep_sc.get("base") == "embedded")
+    # a LEGACY workbook (no STATE sheet) with its snapshot gone still refuses with guidance
+    import io as _io2, openpyxl as _xl2
+    wbl = _xl2.load_workbook(_io2.BytesIO(data))
+    del wbl["STATE"]
+    bufl = _io2.BytesIO(); wbl.save(bufl)
     try:
-        _fiw.diff_import(data, cfg)
-        check("T50b", "missing snapshot is refused", False)
+        _fiw.diff_import(bufl.getvalue(), cfg)
+        check("T52", "legacy workbook without snapshot is refused", False)
     except ValueError as e:
-        check("T50b", "the missing-snapshot refusal names the cause AND the way out "
-                        "(regenerate; nothing changed)",
-              "Regenerate" in str(e) and "older run" in str(e) and "nothing was changed" in str(e))
+        check("T52", "the legacy refusal names the cause, the way out, and the fact that "
+                       "new workbooks never hit this",
+              "Regenerate" in str(e) and "nothing was changed" in str(e)
+              and "self-contained" in str(e))
     # T50c — the user's rename flow: Institution/Legal name edited in Excel must
     # flow into cfg, and a scenario label carrying the old bank's name follows
     # the rename as a LOGGED derived edit (the top-right identity window updates)

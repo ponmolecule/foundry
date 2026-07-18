@@ -2183,7 +2183,7 @@ function renderStart(){
     + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-gold" onclick="document.getElementById(\'mtFile\').click()">Upload a forecast\u2026</button><input id="mtFile" type="file" accept=".xlsx,.csv" style="display:none" onchange="mtUpload(this)"></div>')
     + '</div>';
   if(!snapshotMode){
-    h += '<div class="ovcard" style="margin:0 0 14px"><div class="k">Configuration file \u00b7 .json</div><div class="v" style="font-size:1rem">The exact engagement state</div><div class="s">Download to archive or hand off; upload to restore bit-for-bit \u2014 this file IS the model.</div><div style="margin-top:9px"><a href="#" class="cadd" style="margin:0" onclick="downloadScenario();return false">download</a> \u00b7 <a href="#" class="cadd" style="margin:0" onclick="document.getElementById(\'upJson31\').click();return false">upload</a><input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)"></div></div>';
+  
   }
   h += '<div class="ovh3">Saved engagements</div>';
   if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements persist as files on the workspace and survive restarts \u2014 but a REDEPLOY resets this container\u2019s disk unless a volume is mounted at FOUNDRY_DATA_DIR. For anything that matters, also keep the Excel round-trip download and a frozen run. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
@@ -2489,6 +2489,8 @@ function renderGovTab(){
     </div>`;
   }).catch(()=>{});
   h += '<div id="persistBlock"></div>';
+  h += '<div class="chint" style="margin:0 0 12px">Support &amp; archival: <a href="#" class="cadd" style="margin:0" onclick="downloadScenario();return false">export the raw configuration (.json)</a> \u2014 the machine-format document; analysts never need it (workbooks are self-contained).</div>';
+  h += '<input id="upJson31" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">';
   h += '<div class="memo" style="margin:0 0 18px">Freeze the runs that matter. A frozen run notarizes the exact configuration and the hashes it produced; Re-verify re-executes those frozen inputs through the deployed engine and must reproduce the hashes bit-for-bit (G4) \u2014 the \u201cregenerate exhibit 4 from the filing\u201d proof.</div>';
   h += '<div class="accent-label" style="color:#8A6D2F">Run registry</div>';
   if(snapshotMode){

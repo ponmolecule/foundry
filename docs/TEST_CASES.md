@@ -480,3 +480,17 @@ survive an untouched-workbook upload) is retired; parallel-editing sessions
 should round-trip through the .json channel, which remains the exact-state
 document. Gates: T23b rewritten to pin replacement + note; T50d pins products
 surviving an empty session, the mismatch note, and no note on round-trips.
+
+## 34. Self-contained workbooks; .json off the analyst's path (user: "this mess of a process")
+**Decided:** The input workbook embeds its own generation state in a hidden
+STATE sheet. Import prefers the embedded state; the server-side snapshot is a
+legacy fallback only. Consequences: workbooks survive redeploys, machine moves,
+and time — the "regenerate after redeploy" ritual and its refusal genre die
+structurally for all new workbooks; a tampered README hash is irrelevant when
+embedded state governs (T23e); legacy files without STATE keep the guided
+refusal (T23f, T52). The .json configuration channel is removed from the Start
+page — it serves machines (exact-state restore, API, support), not analysts —
+and survives as a small support/archival export link on Governance plus the
+unchanged endpoints. Deploy location (local vs Railway) now changes nothing
+for the Excel loop; the workspace volume matters only for the engagement store
+and freeze registry.
