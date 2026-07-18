@@ -1359,9 +1359,32 @@ def t48():
         check("T48c", "deleting an absent engagement raises (the endpoint maps it to 404)", True)
 
 
+def t49():
+    print("T49 zeroed-NIE-detail trap (user's securities-delta investigation)")
+    import json as _json
+    from .v2.run_q import run_v2
+    cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    base = run_v2(cfg)
+    cfg2 = _json.loads(_json.dumps(cfg))
+    cfg2["assumptions"]["nie_detail"] = {"fte_by_year": [0, 0, 0], "loaded_comp_annual": 0,
+                                           "categories": [], "other_gross_up_rate": 0}
+    z = run_v2(cfg2)
+    d = z["financials"]["bs"]["sec"][1] - base["financials"]["bs"]["sec"][1]
+    check("T49a", "the reproduced episode: zero-valued NIE detail lifts Q1 securities by "
+                    "exactly the vanished overhead net of assessments (~1,769 on pf_a)",
+          1_700.0 < d < 1_820.0, f"delta {d:.0f}k")
+    fl = next((f for f in z.get("flags") or [] if f["id"] == "NIE-REPLACES-OVERHEAD"), None)
+    check("T49b", "an all-zero active module with nonzero sidebar overhead flags SEVERE, "
+                    "naming the ignored amount and the way out",
+          fl is not None and fl["sev"] == "severe" and "1,800" in fl["text"]
+          and "deactivate" in fl["text"])
+    check("T49c", "no nie_detail => no replacement flag (absence stays silent)",
+          not any(f["id"] == "NIE-REPLACES-OVERHEAD" for f in base.get("flags") or []))
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

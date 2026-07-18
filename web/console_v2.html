@@ -2133,6 +2133,7 @@ function structuresSectionsHtml(){
     });
     h += '<a href="#" class="cadd" onclick="(cfg.assumptions.nie_detail.categories=cfg.assumptions.nie_detail.categories||[]).push({name:String(),per_quarter:0});renderContent();refresh();return false">+ add category</a>';
     h += ' &nbsp;<a href="#" class="cx" onclick="cfg.assumptions.nie_detail=null;renderContent();refresh();return false">deactivate</a>';
+    h += `<div class="chint" style="color:#DFA85A">Replaces the sidebar\u2019s Corporate overhead line while active \u2014 overhead of ${((cfg.assumptions.overhead_q||0)/1000).toLocaleString()} $000s/qtr is ignored. Zeroing these fields models a bank with no operating expenses; to compare against the plain overhead model, deactivate instead.</div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
   h += '</div><div class="cfgcard"><div class="ovh2">Fee Modules</div>';

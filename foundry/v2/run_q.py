@@ -801,6 +801,21 @@ def run_v2(cfg):
         "engine_version": results.get("engine_version"),
         "run_date": None,   # stamped client-side; the engine stays deterministic
     }
+    _nd_cfg = cfg["assumptions"].get("nie_detail")
+    if _nd_cfg is not None and (cfg["assumptions"].get("overhead_q") or 0) > 0:
+        _zeroed = (not any(_nd_cfg.get("fte_by_year") or [])
+                    and not (_nd_cfg.get("categories") or []))
+        results.setdefault("flags", []).append({
+            "id": "NIE-REPLACES-OVERHEAD",
+            "sev": "severe" if _zeroed else "mild",
+            "text": (f"Operating Expense Detail is ACTIVE and replaces the corporate "
+                      f"overhead line \u2014 the sidebar's "
+                      f"{cfg['assumptions']['overhead_q']/1000:,.0f} $000s/qtr is being "
+                      f"IGNORED while the module is present."
+                      + (" Every detail input is zero, so this plan currently models a "
+                          "bank with no operating expenses beyond assessments \u2014 "
+                          "deactivate the module (Configuration tab) or move the overhead "
+                          "into its categories." if _zeroed else ""))})
     # class-map any flags appended after the Overview pass (concentrations, pre-open):
     # without this they fall through to the default 'advisory' badge regardless of severity
     for f in results.get("flags") or []:

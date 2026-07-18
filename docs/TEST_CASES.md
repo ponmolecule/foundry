@@ -401,3 +401,18 @@ the container disk unless a volume is mounted at FOUNDRY_DATA_DIR; the copy
 recommends the Excel round-trip and frozen runs as the belt-and-suspenders.
 **Check:** Start tab → Save current configuration → name it → it lists; × →
 confirm → gone. The persistence note appears above the list.
+
+## 29. The zeroed-module trap (securities-delta investigation, resolved)
+**Decided:** Presence is semantics in this schema — an ACTIVE module with
+all-zero inputs is not the same plan as an absent module, and the user's
+apples-to-apples attempt (zeroing the NIE detail editor) silently replaced a
+1,800 $000s/qtr overhead line with ~12 of assessments, lifting Q1 securities by
+exactly the vanished expense (reproduced to the dollar: 50,514 vs 52,284).
+Guards: (a) an active NIE detail with nonzero sidebar overhead always flags that
+the overhead is being ignored — SEVERE when the module's inputs are all zero,
+naming the amount and the way out; (b) the Configuration card states the
+replacement in amber while the module is on. The engine semantics are unchanged
+— replacement is the correct behavior; the failure was silence.
+**Check:** Activate NIE detail, zero everything, keep overhead at 1,800 →
+severe flag on the Overview; the card shows the amber replacement note;
+deactivate → flag gone, securities return to the overhead-governed path.
