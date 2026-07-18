@@ -879,7 +879,7 @@ if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overvie
   TAB_DEFS.push(["gov","Governance"]);
   currentTab = "overview"; }
 if(V31){ TAB_DEFS.unshift(["start","Start"]); TAB_DEFS.unshift(["welcome","Welcome"]); currentTab = "welcome"; }
-const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes","start"]);
+const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes","start","welcome"]);
 if(V3){ const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios"; }
 function restoreCardSelects(){
   document.querySelectorAll('select[data-restore]').forEach(sel=>{
@@ -1279,7 +1279,8 @@ function renderContent(){
         <div style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px);transform:translateY(-96px)">
           <div style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#D8A85E">Welcome to Foundry</div>
           <div style="margin-top:1.5rem;font-size:clamp(44px,5vw,72px);line-height:1.1;font-weight:600;letter-spacing:-.025em;color:#E6E8EC">Financial modeling<br>for <span style="color:#D8A85E">de novo charter</span> work.</div>
-          <div style="margin-top:1.75rem;font-size:17px;line-height:1.625;color:#8A92A3;max-width:68ch">Design the bank, project three years on a deterministic engine, and file the schedules regulators recognize.</div>
+          <div style="margin-top:1.75rem;font-size:17px;line-height:1.625;color:#8A92A3;max-width:68ch">Design the bank, project three years on a deterministic engine, and generate regulator-mandated schedules to support charter applications.</div>
+          <div style="margin-top:2.25rem"><button onclick="setTab('start')" style="background:#D8A85E;color:#0A1830;border:none;border-radius:7px;padding:.875rem 1.5rem;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem" onmouseover="this.style.background='#e2b46a'" onmouseout="this.style.background='#D8A85E'">Enter platform <span style="font-size:15px">\u2192</span></button></div>
         </div>
       </div>
     </div>`;
