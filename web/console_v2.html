@@ -2107,9 +2107,16 @@ function cfgSave(){
 }
 window.cfgSave = cfgSave;
 window.modGo = function(anchor){ const el = document.getElementById(anchor); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); el.style.outline = "1.5px solid #DFA85A"; setTimeout(()=>{ el.style.outline = "none"; }, 1400); } };
-window.aociToggle = function(){
+window.secAociToggle = function(){
   const a = cfg.assumptions;
-  if(a.aoci_sensitivity_annual){ a.aoci_sensitivity_annual = 0; } else { window.modGo("card-sec"); return; }
+  const on = (a.securities_afs||[]).length + (a.securities_htm||[]).length > 0 || !!a.aoci_sensitivity_annual;
+  if(on){
+    if(!confirm("Turn off Securities & AOCI? All designated books are removed and AOCI sensitivity is set to zero.")) return;
+    a.securities_afs = []; a.securities_htm = []; a.aoci_sensitivity_annual = 0;
+  } else {
+    secAdd(0);   // activation seeds one default AFS book — same pattern as the other toggles
+    return;      // secAdd already re-renders and refreshes
+  }
   renderContent(); refresh();
 };
 
@@ -2138,7 +2145,7 @@ function structuresSectionsHtml(){
   const feeOnN = FEE5.filter(([n])=>lampMap[n]).length;
   h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
   h += `<div class="modcard${capOn?" sel":""}" onclick="modGo('card-cap')" title="Derived from presence \u2014 add a structure to activate"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.bank}</span><span class="ml">Capital &amp;<br>pre-opening</span></span><span class="sw${capOn?" on":""}"></span></div>`;
-  h += `<div class="modcard${secAociOn?" sel":""}" onclick="modGo('card-sec')" title="Derived from presence \u2014 add a book or set AOCI sensitivity"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.doc}</span><span class="ml">Securities<br>&amp; AOCI</span></span><span class="sw${secAociOn?" on":""}"></span></div>`;
+  h += `<div class="modcard${secAociOn?" sel":""}" onclick="secAociToggle()" title="${secAociOn?"On \u2014 click to turn off (removes books, zeroes AOCI)":"Off \u2014 click to activate with a default AFS book"}"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.doc}</span><span class="ml">Securities<br>&amp; AOCI</span></span><span class="sw${secAociOn?" on":""}"></span></div>`;
   h += `<div class="modcard${A.nie_detail?" sel":""}" onclick="${A.nie_detail?"nieOff()":"nieOn()"}" title="Toggle: replaces the corporate overhead line while on"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.calc}</span><span class="ml">Operating<br>expense</span></span><span class="sw${A.nie_detail?" on":""}"></span></div>`;
   h += `<div class="modcard${feeOnN?" sel":""}" onclick="modGo('card-fee')"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.stack}</span><span class="ml">Fee modules<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span></span></span><span class="sw${feeOnN?" on":""}"></span></div>`;
   h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
