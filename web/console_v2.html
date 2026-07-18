@@ -1265,12 +1265,16 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     else { renderOverview(); return; }
   }
   if(V31 && currentTab==="welcome"){
-    let h = `<div style="min-height:72vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px">
-      <div style="width:54px;height:54px;border-radius:14px;background:rgba(223,168,90,.14);box-shadow:inset 0 0 0 1px rgba(223,168,90,.4);display:flex;align-items:center;justify-content:center;color:#DFA85A;font-size:24px;font-weight:800;font-family:var(--mono)">F</div>
-      <div style="margin-top:14px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8FA3C0">Welcome to Foundry</div>
-      <div style="margin-top:14px;font-size:34px;line-height:1.2;font-weight:800;color:#EDF1F7;max-width:720px">Financial modeling for<br>de novo charter work.</div>
-      <div style="margin-top:18px;font-size:14.5px;line-height:1.65;color:#B9C4D6;max-width:640px">Design a proposed bank from its products up, project three years on a deterministic quarterly engine, test every assumption against real peer evidence, and hand regulators the schedules they expect \u2014 one configuration document, one engine of record, nothing asserted that the model cannot show.</div>
-      <div style="margin-top:26px;font-size:11.5px;color:#8FA3C0">Two engines in lockstep \u00b7 Call Report schedules built in \u00b7 Peer evidence, never invented \u00b7 Every run reproducible</div>
+    let h = `<div style="background:#0D1526;min-height:calc(100vh - 60px);margin:-16px -18px;padding:0">
+      <div style="display:flex;align-items:center;gap:10px;padding:26px 0 0 11%">
+        <span style="width:30px;height:30px;border-radius:8px;background:#D9A853;color:#14203A;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:15px">F</span>
+        <span style="font-size:16px;font-weight:700;color:#F2F5FA">Found<span style="color:#D9A853">ry</span></span>
+      </div>
+      <div style="padding:0 8% 0 11%;display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 170px)">
+        <div style="font-family:var(--mono);font-size:12px;font-weight:600;letter-spacing:.22em;color:#C8963E;text-transform:uppercase">Welcome to Foundry</div>
+        <div style="margin-top:26px;font-size:clamp(40px,4.6vw,64px);line-height:1.08;font-weight:800;color:#F2F5FA;letter-spacing:-.01em">Financial modeling<br>for <span style="color:#D9A853">de novo charter</span> work.</div>
+        <div style="margin-top:30px;font-size:17px;line-height:1.6;color:#93A1BC;max-width:600px">Design the bank, project three years on a deterministic engine, and file the schedules regulators recognize.</div>
+      </div>
     </div>`;
     document.getElementById("content").innerHTML = h; return;
   }
