@@ -74,6 +74,28 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .cfgcard .crow input[type=number]{max-width:96px}
 .cfglamps{display:flex;flex-wrap:wrap;gap:7px 8px;font-size:11px;color:#C4CDDD;margin:2px 0 4px}
 .cfglamps b{flex-basis:100%;color:#8FA3C0;font-weight:600;font-size:9.5px;text-transform:uppercase;letter-spacing:.05em;margin-top:6px}
+.cfghead{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}
+.cfghead .ttl{font-size:20px;font-weight:700;color:#EDF1F7}
+.cfghead .eng{font-size:11px;color:#8FA3C0;text-align:right;margin-right:14px}
+.cfghead .eng b{display:block;font-size:13px;color:#EDF1F7;font-weight:600}
+.btn-save{background:#DFA85A;color:#182640;border:none;border-radius:7px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer}
+.btn-save:hover{filter:brightness(1.08)}
+.modbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 6px}
+.modcard{display:flex;align-items:center;gap:10px;background:#182640;border:1px solid #24334D;border-radius:9px;padding:10px 14px;cursor:pointer;min-width:150px}
+.modcard:hover{border-color:#3A4C6E}
+.modcard .mi{width:30px;height:30px;border-radius:7px;background:rgba(223,168,90,.12);display:flex;align-items:center;justify-content:center;color:#DFA85A;flex:0 0 30px}
+.modcard .ml{font-size:12px;color:#DCE3EE;font-weight:600;line-height:1.25}
+.modcard .ml small{display:block;font-weight:400;color:#8FA3C0;font-size:10px}
+.sw{position:relative;width:34px;height:19px;border-radius:999px;background:#2B3A57;flex:0 0 34px;transition:background .15s}
+.sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#8FA3C0;transition:left .15s,background .15s}
+.sw.on{background:#DFA85A}
+.sw.on::after{left:17px;background:#182640}
+.cardhead{display:flex;align-items:center;gap:12px;margin:0 0 12px}
+.cardhead .mi{width:38px;height:38px;border-radius:50%;background:rgba(223,168,90,.12);display:flex;align-items:center;justify-content:center;color:#DFA85A;flex:0 0 38px}
+.cardhead .ct{font-size:14.5px;font-weight:700;color:#EDF1F7}
+.cardhead .cd{font-size:11px;color:#8FA3C0;margin-top:1px}
+.cfgfoot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:10.5px;color:#8FA3C0}
+.savedchip{color:#7FB07F}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent}
 .chip.on{border-color:#4E7A4E;color:#A9D3A9;background:rgba(127,176,127,.10);font-weight:600}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:#4a5568;flex:0 0 8px}
@@ -2045,6 +2067,30 @@ function renderStart(){
   h += '<div class="memo">The frozen reference banks. Both entry paths carry the same correctness obligation: a golden bank entered through either door must reproduce its exact hash \u2014 the gate that proves the doors are skins over one schema.</div>';
   el.innerHTML = h;
 }
+const ICONS = {
+  bank: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M2 6.5 8 2.5l6 4M3 7v5.5M6.3 7v5.5M9.7 7v5.5M13 7v5.5M2 13.5h12"/></svg>',
+  doc: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M4 1.8h5.5L12.6 5v9.2H4zM9.3 2v3.2h3.2M6 8h4.6M6 10.4h4.6"/></svg>',
+  wave: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M1.8 11.5 5.4 7.4l2.8 2.4 4.6-5.8M9.8 4h3v3"/></svg>',
+  calc: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="1.8" width="10" height="12.4" rx="1.4"/><path d="M5.4 4.6h5.2M5.6 8h.01M8 8h.01M10.4 8h.01M5.6 10.6h.01M8 10.6h.01M10.4 10.6h.01"/></svg>',
+  stack: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m8 2 6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>',
+  cube: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5zM2 5l6 3 6-3M8 8v6"/></svg>'};
+
+function cfgSave(){
+  const nm = (cfg.client_legal_name || cfg.proposed_bank || cfg.client || "").trim();
+  if(nm){ fetch("/api/v31/engagement/save-current", {method:"POST",
+      headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})})
+    .then(r=>{ if(r.ok){ window._lastSavedAt = new Date(); loadEngStore(true); renderContent(); }
+                else r.json().then(j=>alert("Save refused: " + (j.error||r.status))); }); }
+  else saveCurrentEng().then(()=>{ window._lastSavedAt = new Date(); renderContent(); });
+}
+window.cfgSave = cfgSave;
+window.modGo = function(anchor){ const el = document.getElementById(anchor); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); el.style.outline = "1.5px solid #DFA85A"; setTimeout(()=>{ el.style.outline = "none"; }, 1400); } };
+window.aociToggle = function(){
+  const a = cfg.assumptions;
+  if(a.aoci_sensitivity_annual){ a.aoci_sensitivity_annual = 0; } else { window.modGo("card-sec"); return; }
+  renderContent(); refresh();
+};
+
 function structuresSectionsHtml(){
   let h = '';
   const A = cfg.assumptions;
@@ -2064,22 +2110,21 @@ function structuresSectionsHtml(){
     ["BaaS", !!(A.fee_modules&&A.fee_modules.baas)],
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
   const lampMap = Object.fromEntries(lamps);
-  const lampGroups = [
-    ["Capital & pre-opening", ["Pre-opening", "Staged raises", "Scheduled borrowings", "Depreciation"]],
-    ["Securities", ["Securities books", "AOCI"]],
-    ["Operating expense", ["NIE detail"]],
-    ["Fee modules", ["Interchange", "Payments", "Service charges", "Trust", "BaaS"]],
-    ["Products", ["Mortgage banking"]]];
-  h += '<div class="chint" style="margin:0 0 10px;font-size:11px">Start creates the engagement \u2014 a one-time intake that writes this document. This page is the engagement\u2019s living configuration: structures you set once and revisit deliberately. The sidebar holds the knobs you turn while iterating.</div>';
-  h += '<div class="cfgcard" style="margin-bottom:14px"><div class="ovh2">Modules \u2014 activation derived from presence, never asserted</div><div class="cfglamps">';
-  lampGroups.forEach(([g, names])=>{
-    h += `<b>${g}</b>`;
-    names.forEach(n=>{ const on = lampMap[n];
-      h += `<span class="chip${on?" on":""}"><span class="dot"></span>${esc(n)}${on?" \u00b7 on":""}</span>`; });
-  });
-  h += '</div></div>';
+  const capOn = lampMap["Pre-opening"]||lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
+  const secOn = lampMap["Securities books"];
+  const feeOnN = ["Interchange","Payments","Service charges","Trust","BaaS"].filter(n=>lampMap[n]).length;
+  const nProd = (A.lending_products||[]).length + (A.deposit_products||[]).length + (A.obs_products||[]).length;
+  h += '<div class="chint" style="margin:0 0 8px">Modules \u2014 activation derived from presence, never asserted. Steps and pages appear from what this document contains.</div>';
+  h += '<div class="modbar">';
+  h += `<div class="modcard" onclick="modGo('card-cap')" title="Derived from presence \u2014 add a structure to activate"><span class="mi">${ICONS.bank}</span><span class="ml">Capital &amp; pre-opening<small>structures</small></span><span class="sw${capOn?" on":""}"></span></div>`;
+  h += `<div class="modcard" onclick="modGo('card-sec')" title="Derived from presence \u2014 add a book to activate"><span class="mi">${ICONS.doc}</span><span class="ml">Securities books<small>designated books</small></span><span class="sw${secOn?" on":""}"></span></div>`;
+  h += `<div class="modcard" onclick="aociToggle()" title="Toggle: off zeroes the sensitivity"><span class="mi">${ICONS.wave}</span><span class="ml">AOCI<small>rate sensitivity</small></span><span class="sw${lampMap["AOCI"]?" on":""}"></span></div>`;
+  h += `<div class="modcard" onclick="${A.nie_detail?"nieOff()":"nieOn()"}" title="Toggle: replaces the corporate overhead line while on"><span class="mi">${ICONS.calc}</span><span class="ml">Operating expense<small>NIE detail</small></span><span class="sw${lampMap["NIE detail"]?" on":""}"></span></div>`;
+  h += `<div class="modcard" onclick="modGo('card-fee')"><span class="mi">${ICONS.stack}</span><span class="ml">Fee modules<small>${feeOnN} of 5 on</small></span><span class="sw${feeOnN?" on":""}"></span></div>`;
+  h += `<div class="modcard" onclick="setTab('products')"><span class="mi">${ICONS.cube}</span><span class="ml">Products<small>${nProd} selected</small></span></div>`;
+  h += '</div>';
   h += '<div class="cfggrid">';
-  h += '<div class="cfgcard"><div class="ovh2">Capital structure & pre-opening</div>';
+  h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
         const po = (cfg.pre_opening = cfg.pre_opening || {});
         const pex = (po.expenses = po.expenses || []);
@@ -2109,7 +2154,7 @@ function structuresSectionsHtml(){
         h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
 
   }
-  h += '</div><div class="cfgcard"><div class="ovh2">Securities books & AOCI</div>';
+  h += `</div><div class="cfgcard" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
   {
         const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
         h += '<div class="cbl">Securities books</div>';
@@ -2123,7 +2168,7 @@ function structuresSectionsHtml(){
         h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
 
   }
-  h += '</div><div class="cfgcard"><div class="ovh2">Operating Expense Detail</div>';
+  h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, FTE-step comp, and assessments on the correct base.</div></span></div>`;
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
     h += '<div class="chint">Off — the single corporate-overhead line governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div>';
@@ -2141,7 +2186,7 @@ function structuresSectionsHtml(){
     h += `<div class="chint" style="color:#DFA85A">Replaces the sidebar\u2019s Corporate overhead line while active \u2014 overhead of ${((cfg.assumptions.overhead_q||0)/1000).toLocaleString()} $000s/qtr is ignored. Zeroing these fields models a bank with no operating expenses; to compare against the plain overhead model, deactivate instead.</div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
-  h += '</div><div class="cfgcard"><div class="ovh2">Fee Modules</div>';
+  h += `</div><div class="cfgcard" id="card-fee"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Fee modules</div><div class="cd">Enable fee modules to include their economics in the engagement.</div></span></div>`;
   const FM = (A.fee_modules = A.fee_modules || {});
   const fmBtn = (key,label)=> FM[key] ? '' : `<a href="#" class="cadd" style="margin-right:12px" onclick="fmOn('${key}');return false">+ ${label}</a>`;
   h += '<div>' + fmBtn('trust','Trust') + fmBtn('interchange','Interchange') + fmBtn('service_charges','Service charges') + fmBtn('baas','BaaS') + ((FM.payments||[]).length? '' : '<a href="#" class="cadd" onclick="fmRail();return false">+ Payment rails</a>') + '</div>';
@@ -2192,7 +2237,10 @@ window.fmRail = function(){
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
-  let h = '<div class="h2" style="font-weight:700">Configuration</div>';
+  const _eng = cfg.client_legal_name || cfg.proposed_bank || cfg.client || "Unnamed engagement";
+  let h = '<div class="cfghead"><span class="ttl">Configuration</span><span style="display:flex;align-items:center">'
+    + `<span class="eng">Engagement<b>${esc(_eng)}</b></span>`
+    + '<button class="btn-save" onclick="cfgSave()">Save</button></span></div>';
   h += '<div class="memo" style="margin:0 0 14px">This is the engagement\u2019s living configuration. Set structures and modules below \u2014 the engine activates steps and pages from presence, not assertion. Every step of the engagement sequence derives from this document.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
@@ -2218,6 +2266,7 @@ function renderConfigTab(){
     h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
   });
   h += '</table></details>';
+  h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span><span class="savedchip">${window._lastSavedAt ? "Last saved " + window._lastSavedAt.toLocaleTimeString() + " \u2713" : ""}</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
     document.getElementById("content").innerHTML = h; return;

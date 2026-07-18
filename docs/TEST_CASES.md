@@ -416,3 +416,19 @@ replacement in amber while the module is on. The engine semantics are unchanged
 **Check:** Activate NIE detail, zero everything, keep overhead at 1,800 →
 severe flag on the Overview; the card shows the amber replacement note;
 deactivate → flag gone, securities return to the overhead-governed path.
+
+## 30. Configuration surface, mockup-grade (user: "why wait?")
+**Decided:** The Configuration page adopts the mockup's design language inside
+Foundry's ratified palette: page header (title, engagement name, Save button
+wired to the store), a module toggle bar with icon cards and real switches,
+icon-medallion card headers with one-line descriptions, and a status footer
+("changes apply immediately · values in $000s" + last-saved chip). Honesty
+constraint the mockup didn't carry: presence-derived modules cannot be faked on
+by a switch — NIE, AOCI, and fee modules toggle for real (with their guards);
+aggregate structural groups (capital, securities) show derived state and
+scroll-focus their card, since an empty structure IS absence. The global
+left-nav chrome was deliberately NOT adopted — it would break the white-tab /
+dark-shell doctrine and the sidebar-knobs workflow.
+**Check:** Config tab: header with Save; six module cards with switches; NIE
+switch toggles on/off from the bar (confirm on off); Save updates the
+last-saved chip; capital/securities cards pulse on click-through.
