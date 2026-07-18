@@ -1457,9 +1457,22 @@ def t50():
           "session_note" not in report)
 
 
+def t51():
+    print("T51 workspace persistence honesty (volume mount, verifiable not asserted)")
+    import importlib, app as appmod
+    importlib.reload(appmod)
+    p = appmod.v31_persistence(_=None)   # the endpoint function, no HTTP layer needed
+    check("T51a", "persistence endpoint answers", isinstance(p, dict))
+    check("T51b", "reports path, env, mount, writability, counts, verdict",
+          all(k in p for k in ("data_dir","explicit_env","is_mounted_volume","writable","counts","verdict")))
+    check("T51c", "writability is probed, not asserted (workspace is writable here)", p["writable"] is True)
+    check("T51d", "the verdict names the redeploy consequence when ephemeral",
+          p["is_mounted_volume"] or "NOT redeploys" in p["verdict"])
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

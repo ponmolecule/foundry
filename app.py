@@ -191,6 +191,39 @@ def v31_template(_=Depends(gate)):
     return JSONResponse(_json.load(open(p, encoding="utf-8")))
 
 
+@app.get("/api/v31/persistence")
+def v31_persistence(_=Depends(gate)):
+    """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or
+    ephemeral container disk that a redeploy will clear? Verifiable, not asserted."""
+    import os
+    base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
+    os.makedirs(base, exist_ok=True)
+    explicit = "FOUNDRY_DATA_DIR" in os.environ
+    try:
+        parent = os.path.dirname(os.path.abspath(base)) or "/"
+        is_mount = os.stat(base).st_dev != os.stat(parent).st_dev or os.path.ismount(base)
+    except OSError:
+        is_mount = False
+    try:
+        probe = os.path.join(base, ".persistence_probe")
+        with open(probe, "w") as fh: fh.write("ok")
+        os.remove(probe); writable = True
+    except OSError:
+        writable = False
+    def _count(sub):
+        p = os.path.join(base, sub)
+        try: return len([f for f in os.listdir(p) if not f.startswith(".")])
+        except OSError: return 0
+    return {"data_dir": os.path.abspath(base), "explicit_env": explicit,
+            "is_mounted_volume": bool(is_mount), "writable": writable,
+            "counts": {"fiw_snapshots": _count("fiw"),
+                        "engagements": _count("engagements"),
+                        "freezes": _count("registry"),
+                        "forecast_inventories": _count("modet")},
+            "verdict": ("durable — mounted volume, writable" if is_mount and writable else
+                         "EPHEMERAL — survives restarts, NOT redeploys; mount a volume at this path" if writable else
+                         "NOT WRITABLE — nothing persists at all")}
+
 @app.post("/api/v31/fiw")
 def v31_fiw(body: dict, _=Depends(gate)):
     """Per-engagement Foundry Input Workbook (INPUT_SPEC section 7)."""
