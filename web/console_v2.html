@@ -67,7 +67,25 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
 .cfgwrap{max-width:none}
-.cfggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(540px,1fr));gap:20px;align-items:stretch}
+.cfgwrap input[type=number],.cfgwrap input[type=text],.cfgwrap input:not([type]),.cfgwrap select{
+  background:#0E1626;border:1px solid #33436199;border-radius:7px;color:#EDF1F7;
+  padding:7px 10px;font-size:12px;font-family:inherit;outline:none;transition:border-color .12s}
+.cfgwrap input:focus,.cfgwrap select:focus{border-color:#DFA85A}
+.cfgwrap select{appearance:none;-webkit-appearance:none;padding-right:22px;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><path d='M1 1l3.5 3.5L8 1' stroke='%238FA3C0' fill='none' stroke-width='1.4'/></svg>");
+  background-repeat:no-repeat;background-position:right 8px center}
+.cfgwrap .crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:#C4CDDD}
+.cfgwrap .cu{font-size:10.5px;color:#8FA3C0;letter-spacing:.01em}
+.cfgwrap .cx{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;
+  justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
+.cfgwrap .cx:hover{color:#F0A0A0;border-color:#B4545466;background:rgba(180,84,84,.10)}
+.cardhead .mi{width:46px;height:46px;flex:0 0 46px;background:rgba(223,168,90,.16);
+  box-shadow:inset 0 0 0 1px rgba(223,168,90,.35)}
+.cardhead .mi svg{width:20px;height:20px;stroke-width:1.7}
+.modcard .mi svg{width:17px;height:17px}
+.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px}
+.csub{font-size:13px;margin:2px 0 10px}
+.cfggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
 .cfgcard{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:18px 22px}
 .modpanel{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
@@ -2107,6 +2125,23 @@ function cfgSave(){
 }
 window.cfgSave = cfgSave;
 window.modGo = function(anchor){ const el = document.getElementById(anchor); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); el.style.outline = "1.5px solid #DFA85A"; setTimeout(()=>{ el.style.outline = "none"; }, 1400); } };
+window.capClear = function(){
+  cfg.assumptions.capital_raises = []; cfg.assumptions.scheduled_borrowings = [];
+  cfg.assumptions.premises_depreciation_annual = 0;
+  if(cfg.pre_opening){ cfg.pre_opening.expenses = []; cfg.pre_opening.min_day1_capital = 0; }
+  renderContent(); refresh();
+};
+window.secClear = function(){
+  cfg.assumptions.securities_afs = []; cfg.assumptions.securities_htm = [];
+  renderContent(); refresh();
+};
+window.aociFlip = function(){
+  cfg.assumptions.aoci_sensitivity_annual = cfg.assumptions.aoci_sensitivity_annual ? 0 : 0.005;
+  renderContent(); refresh();
+};
+window.feeClearAll = function(){
+  cfg.assumptions.fee_modules = {}; renderContent(); refresh();
+};
 window.secAociToggle = function(){
   const a = cfg.assumptions;
   const on = (a.securities_afs||[]).length + (a.securities_htm||[]).length > 0 || !!a.aoci_sensitivity_annual;
@@ -2146,15 +2181,21 @@ function structuresSectionsHtml(){
   const capN = (A.capital_raises||[]).length + ((cfg.pre_opening||{}).expenses||[]).length
              + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0);
   const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
-  h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div>';
-  h += '<div class="ovcards" style="margin:0">';
-  const tile = (label, on, cap, anchor)=>
-    `<div class="ovcard" style="cursor:pointer" onclick="modGo('${anchor}')"><div class="k">${label}</div><div class="v" style="color:${on?"#7FB07F":"#8C99AF"}">${on?"On":"Off"}</div><div style="font-size:.68rem;color:#8C99AF;margin-top:.25rem">${cap}</div></div>`;
-  h += tile("Capital &amp; pre-opening", capOn, `${capN} structure${capN===1?"":"s"} defined`, "card-cap");
-  h += tile("Securities &amp; AOCI", secAociOn, `${secN} book${secN===1?"":"s"}${lampMap["AOCI"]?" \u00b7 AOCI set":""}`, "card-sec");
-  h += tile("Operating expense", !!A.nie_detail, A.nie_detail?"NIE detail governs":"single overhead line governs", "card-nie");
-  h += `<div class="ovcard" style="cursor:pointer" onclick="modGo('card-fee')"><div class="k">Fee modules</div><div class="v" style="color:${feeOnN?"#7FB07F":"#8C99AF"}">${feeOnN} of 5</div><div class="minis" style="margin-top:.35rem">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</div></div>`;
-  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains. Activation lives in the cards below \u2014 these tiles report state.</div></div>';
+  h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
+  const swTile = (label, on, cb, icon, extra, titleTxt)=>
+    `<div class="modcard${on?" sel":""}" onclick="${cb}" title="${titleTxt}"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS[icon]}</span><span class="ml">${label}${extra||""}</span></span><span class="sw${on?" on":""}"></span></div>`;
+  h += swTile("Capital &amp;<br>pre-opening", capOn, capOn?"capClear()":"modGo('card-cap')", "bank", "",
+              capOn?"On \u2014 click to clear all capital structures (instant)":"Off \u2014 add a structure in the card below to activate");
+  h += swTile("Securities<br>books", secN>0, secN>0?"secClear()":"secAdd(0)", "doc", "",
+              secN>0?"On \u2014 click to remove all designated books (instant)":"Off \u2014 click to activate with a default AFS book");
+  h += swTile("AOCI", lampMap["AOCI"], "aociFlip()", "wave", "",
+              lampMap["AOCI"]?"On \u2014 click to zero the sensitivity":"Off \u2014 click to activate at 0.5%/yr");
+  h += swTile("Operating<br>expense", !!A.nie_detail, A.nie_detail?"nieOff()":"nieOn()", "calc", "",
+              A.nie_detail?"On \u2014 NIE detail replaces the overhead line; click to deactivate":"Off \u2014 click to activate NIE detail");
+  h += swTile("Fee modules", feeOnN>0, feeOnN>0?"feeClearAll()":"modGo('card-fee')", "stack",
+              `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
+              feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 enable modules in the card below");
+  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
