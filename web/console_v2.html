@@ -1260,7 +1260,9 @@ function renderOverview(){
   el.innerHTML = h;
 }
 function renderContent(){
-  document.querySelector("main > aside").style.display = (V31 && currentTab==="welcome") ? "none" : ""; setTimeout(restoreCardSelects, 0);
+  { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
+    document.querySelector("main > aside").style.display = _wel ? "none" : "";
+    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(restoreCardSelects, 0);
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
