@@ -380,8 +380,13 @@ def t23():
         merged, rep = F.diff_import(buf.getvalue(), current)
         d = merged["assumptions"]["deposit_products"][0]
         check("T23a", "the one human edit applied", abs(d["rate_paid_ann"] - 0.0125) < 1e-12)
-        check("T23b", "untouched workbook cells do not clobber in-app edits since generation",
-              abs(d["growth_q"] - 0.30) < 1e-12)
+        # SUPERSEDED by the workbook-is-the-document ruling (Allied Bank episode,
+        # TEST_CASES 33): the workbook's generation state governs; in-app edits
+        # made after generation are REPLACED on upload — and the report says so.
+        check("T23b", "the workbook's state governs: post-generation session edits are "
+                        "replaced on upload, and the report carries the session note",
+              abs(d["growth_q"] - cfg["assumptions"]["deposit_products"][0]["growth_q"]) < 1e-12
+              and "session_note" in rep and "workbook's state now governs" in rep["session_note"])
         check("T23c", "fact rows are ignored even when vandalized",
               d["call_report_line"] == "depDDA")
         check("T23d", "edit report names exactly the human change",
@@ -1431,6 +1436,25 @@ def t50():
     check("T50c", "scenario label follows the bank rename as a logged derived edit",
           merged.get("scenario_name") == "Allied Bank \u2014 Base Case"
           and len(_sn_edit) == 1 and "derived" in _sn_edit[0].get("note", ""))
+    # T50d — THE WORKBOOK IS THE DOCUMENT (the Allied Bank shell episode): a
+    # products-bearing workbook uploaded into a DIFFERENT open session must
+    # reconstitute the workbook's bank, not rename the session's empty shell;
+    # the report must say the session was replaced.
+    empty_session = _json.loads(_json.dumps(cfg2))
+    empty_session["assumptions"]["lending_products"] = []
+    empty_session["assumptions"]["deposit_products"] = []
+    merged2, report2 = _fiw.diff_import(buf.getvalue(), empty_session)
+    check("T50d", "workbook's products survive an empty open session (rebase onto snapshot)",
+          len(merged2["assumptions"]["lending_products"]) ==
+              len(cfg2["assumptions"]["lending_products"])
+          and len(merged2["assumptions"]["deposit_products"]) ==
+              len(cfg2["assumptions"]["deposit_products"])
+          and merged2.get("proposed_bank") == "Allied Bank")
+    check("T50d", "the report says the session was replaced, not merged",
+          "session_note" in report2 and "workbook's state now governs" in report2["session_note"])
+    # and the in-session round-trip carries NO note (session == snapshot base)
+    check("T50d", "in-session round-trip carries no session note",
+          "session_note" not in report)
 
 
 if __name__ == "__main__":

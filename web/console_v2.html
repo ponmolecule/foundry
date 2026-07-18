@@ -1997,7 +1997,8 @@ async function uploadFIW(inp){
   const n = j.report.edit_count;
   const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
   const lines = j.report.edits.slice(0,8).map(e=>`<div style="font-family:var(--mono);font-size:11px">\u2022 ${esc(e.key)}: ${esc(String(e.from))} \u2192 ${esc(String(e.to))}</div>`).join("");
-  const warn = (j.report.warnings||[]).length ? `<div style="margin-top:4px;color:#DFA85A">Entry-screen warnings: ${j.report.warnings.map(esc).join(" \u00b7 ")}</div>` : "";
+  const warn = ((j.report.warnings||[]).length ? `<div style="margin-top:4px;color:#DFA85A">Entry-screen warnings: ${j.report.warnings.map(esc).join(" \u00b7 ")}</div>` : "")
+    + (j.report.session_note ? `<div style="margin-top:4px;color:#DFA85A">${esc(j.report.session_note)}</div>` : "");
   appStatus("ok", (n
     ? `<b>Workbook imported \u2014 now working on \u201c${esc(name)}\u201d.</b> ${n} edit${n===1?"":"s"} applied; untouched cells kept their values.${lines}${n>8?"<div>\u2026</div>":""}`
     : `<b>Workbook read \u2014 no edits detected.</b> Every cell matches its generation state; nothing changed for \u201c${esc(name)}\u201d.`) + warn);

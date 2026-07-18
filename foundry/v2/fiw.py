@@ -241,8 +241,13 @@ def diff_import(data, current_cfg):
                           "cleared the workspace disk (snapshots live under FOUNDRY_DATA_DIR). "
                           "Regenerate the input workbook from the current configuration and "
                           "reapply your edits; nothing was changed.")
-    merged = json.loads(json.dumps(current_cfg))
+    # THE WORKBOOK IS THE DOCUMENT: import rebases onto the workbook's own
+    # generation state (the bank it describes), with the human's edits on top.
+    # The open session never silently supplies the base — uploading a workbook
+    # from another engagement reconstitutes THAT bank, and the report says so.
+    merged = json.loads(json.dumps(snap))
     edits = []
+    session_differed = json.dumps(current_cfg, sort_keys=True) != json.dumps(snap, sort_keys=True)
 
     if "CONTROL" in wb.sheetnames:
         for r in wb["CONTROL"].iter_rows(min_row=2):
@@ -317,4 +322,9 @@ def diff_import(data, current_cfg):
                 else:
                     tgt[idx][field] = newv
                 edits.append({"key": f"{fam}.{idx}.{field}", "from": old, "to": newv})
-    return merged, {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits)}
+    rep = {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits)}
+    if session_differed:
+        rep["session_note"] = ("the open session differed from this workbook's engagement — "
+                                "the workbook's state now governs (the session's unsaved "
+                                "differences were replaced, not merged)")
+    return merged, rep

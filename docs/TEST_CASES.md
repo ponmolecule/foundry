@@ -464,3 +464,19 @@ full fail-closed reason; the scenario-name field pulses on identity change.
 **Check:** Upload junk → red banner names the refusal; upload a round-trip
 workbook → banner reports edits or "no edits detected"; invalid .json → banner;
 probe stubs alert to THROW, proving no dialog path remains.
+
+## 33. The workbook is the document (supersedes the T23b edit-layer promise)
+**Decided:** FIW import rebases onto the workbook's own generation snapshot —
+the bank the workbook describes — with the human's Excel edits applied on top.
+The open session never silently supplies the base. When the open session
+differs from the workbook's engagement (different bank, or in-app edits made
+after generation), the workbook's state governs; the session's differences are
+REPLACED, not merged, and the import report + banner say so in amber. Origin:
+the Allied Bank episode — a products-bearing workbook uploaded into an empty
+default session renamed the empty shell instead of reconstituting the bank,
+because the old edit-layer semantics merged diffs into the session. Cost
+accepted knowingly: the old T23b promise (in-app edits after generation
+survive an untouched-workbook upload) is retired; parallel-editing sessions
+should round-trip through the .json channel, which remains the exact-state
+document. Gates: T23b rewritten to pin replacement + note; T50d pins products
+surviving an empty session, the mismatch note, and no note on round-trips.
