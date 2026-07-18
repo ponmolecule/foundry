@@ -63,7 +63,14 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .crow{display:flex;gap:6px;align-items:center;margin-top:4px;font-size:11px;color:#C4CDDD;flex-wrap:nowrap}
 .crow input{min-width:0}
 .crow .cu{color:#8FA3C0;font-size:10px;white-space:nowrap}
-.crow .cx{color:#B45454;text-decoration:none;padding:0 2px}
+.cx{width:22px;height:22px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;
+  color:#B45454;text-decoration:none;font-size:13px;font-weight:600;border:1px solid transparent;vertical-align:middle}
+.cx:hover{background:rgba(180,84,84,.14);border-color:#B4545466;color:#E08585}
+table.dtab{border-collapse:collapse;width:100%;margin:6px 0 14px}
+table.dtab th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#8FA3C0;text-align:left;
+  padding:7px 10px;border-bottom:1px solid #2B3A57}
+table.dtab td{font-size:11.5px;color:#C9D2E1;padding:7px 10px;border-bottom:1px solid #1D2A42}
+table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
 .cfgwrap{max-width:none}
@@ -294,7 +301,7 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
   <span id="tabs"></span>
   <span class="spacer"></span>
   <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value">
-  <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22)?'overview':'notes')">0 flags</button>
+  <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
 <main>
@@ -864,12 +871,12 @@ function ftpToggleHtml(){
 
 /* ---------------- tabs ---------------- */
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
-  ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumptions & Notes"]];
+  ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumption Book"]];
 if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overview","Overview"]);
   TAB_DEFS.push(["peer","Peer Cohort"]); TAB_DEFS.push(["examiner","Examiner Book"]);
   TAB_DEFS.push(["gov","Governance"]);
   currentTab = "overview"; }
-if(V31){ TAB_DEFS.unshift(["start","Start"]); currentTab = "start"; }
+if(V31){ TAB_DEFS.unshift(["start","Start"]); TAB_DEFS.unshift(["welcome","Welcome"]); currentTab = "welcome"; }
 const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes","start"]);
 if(V3){ const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios"; }
 function restoreCardSelects(){
@@ -1257,6 +1264,16 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
     else { renderOverview(); return; }
   }
+  if(V31 && currentTab==="welcome"){
+    let h = `<div style="min-height:72vh;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:40px 20px">
+      <div style="width:54px;height:54px;border-radius:14px;background:rgba(223,168,90,.14);box-shadow:inset 0 0 0 1px rgba(223,168,90,.4);display:flex;align-items:center;justify-content:center;color:#DFA85A;font-size:24px;font-weight:800;font-family:var(--mono)">F</div>
+      <div style="margin-top:14px;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#8FA3C0">Welcome to Foundry</div>
+      <div style="margin-top:14px;font-size:34px;line-height:1.2;font-weight:800;color:#EDF1F7;max-width:720px">Financial modeling for<br>de novo charter work.</div>
+      <div style="margin-top:18px;font-size:14.5px;line-height:1.65;color:#B9C4D6;max-width:640px">Design a proposed bank from its products up, project three years on a deterministic quarterly engine, test every assumption against real peer evidence, and hand regulators the schedules they expect \u2014 one configuration document, one engine of record, nothing asserted that the model cannot show.</div>
+      <div style="margin-top:26px;font-size:11.5px;color:#8FA3C0">Two engines in lockstep \u00b7 Call Report schedules built in \u00b7 Peer evidence, never invented \u00b7 Every run reproducible</div>
+    </div>`;
+    document.getElementById("content").innerHTML = h; return;
+  }
   if(V31 && currentTab==="start"){ if(mt){ mtRender(); } else if(wiz){ renderWizard(); } else { renderStart(); } return; }
   if(V3 && currentTab==="peer"){ if(lastRes){ renderPeer(); return; } }
   if(V3 && currentTab==="examiner"){ if(lastRes){ renderExaminer(); return; } }
@@ -1574,7 +1591,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
       const serv = (pd.servNet||[]).reduce((a,b)=>a+(b||0),0);
       const cat = CAT_OF[x.family] || x.family;
       const contrib = ftpOn ? x.contribution : (x.contribution - x.ftp);
-      h += `<tr><td>${esc(x.name)} <span class="chip ${cat}">${cat==="offbs"?"Off-BS":cat}</span></td>` +
+      h += `<tr><td style="position:relative;padding-right:78px">${esc(x.name)} <span class="chip ${cat}" style="position:absolute;right:8px;top:50%;transform:translateY(-50%)">${cat==="offbs"?"Off-BS":cat}</span></td>` +
         cellNum(x.q12_balance) + cellNum(x.interest_income) + cellNum(x.interest_expense) + cellNum(x.fees) +
         cellNum(x.gos_servicing - serv) + cellNum(serv) + cellNum(x.opex) + cellNum(x.credit_costs) +
         (ftpOn ? cellNum(x.ftp) : '') + cellNum(contrib) + '</tr>';
@@ -1706,7 +1723,7 @@ function renderContent(){ setTimeout(restoreCardSelects, 0);
         ["Tax sequencing", String((cfg.assumptions||{}).tax_semantics || "profile default"), "engine profile (see ENGINE_SPEC)", "config \u2192 tax_semantics"],
         ["Inverted-statement reserve rate", "1.5% of balances when statements hide it", "disclosed fit \u2014 translation only", "product card after translation"],
       ];
-      h += '<table class="fin"><tr><th>Default</th><th>Current value</th><th>Source</th><th>Change it in</th></tr>';
+      h += '<table class="dtab"><tr><th>Default</th><th>Current value</th><th>Source</th><th>Change it in</th></tr>';
       DEFS.forEach(d=>{ h += `<tr><td>${d[0]}</td><td>${d[1]}</td><td>${d[2]}</td><td>${d[3]}</td></tr>`; });
       h += '</table>';
     }
