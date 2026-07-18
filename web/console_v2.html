@@ -2440,7 +2440,7 @@ function renderGovTab(){
   let h = '<div class="h2">Governance</div>';
   fetch("/api/v31/persistence").then(r=>r.json()).then(p=>{
     const el = document.getElementById("persistBlock"); if(!el) return;
-    const good = p.is_mounted_volume && p.writable;
+    const good = (p.is_mounted_volume || (p.outside_deploy_tree && p.explicit_env)) && p.writable;
     el.innerHTML = `<div style="border:1px solid ${good?"#4E7A4E":"#8a6d3b"};border-radius:9px;padding:11px 14px;margin:0 0 14px;font-size:12px">
       <b style="color:${good?"#7FB07F":"#DFA85A"}">Workspace persistence: ${esc(p.verdict)}</b>
       <div style="color:#8FA3C0;margin-top:4px;font-family:var(--mono);font-size:11px">${esc(p.data_dir)} \u00b7 env ${p.explicit_env?"set":"default"} \u00b7 ${p.counts.fiw_snapshots} workbook snapshot${p.counts.fiw_snapshots===1?"":"s"} \u00b7 ${p.counts.engagements} saved engagement${p.counts.engagements===1?"":"s"} \u00b7 ${p.counts.freezes} frozen run${p.counts.freezes===1?"":"s"}</div>

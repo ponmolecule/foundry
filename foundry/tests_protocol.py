@@ -1466,8 +1466,9 @@ def t51():
     check("T51b", "reports path, env, mount, writability, counts, verdict",
           all(k in p for k in ("data_dir","explicit_env","is_mounted_volume","writable","counts","verdict")))
     check("T51c", "writability is probed, not asserted (workspace is writable here)", p["writable"] is True)
-    check("T51d", "the verdict names the redeploy consequence when ephemeral",
-          p["is_mounted_volume"] or "NOT redeploys" in p["verdict"])
+    check("T51d", "an unmounted verdict always names the clearing mechanism and the way out",
+          p["is_mounted_volume"] or ("volume" in p["verdict"] and
+              ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
 if __name__ == "__main__":

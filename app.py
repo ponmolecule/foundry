@@ -220,8 +220,13 @@ def v31_persistence(_=Depends(gate)):
                         "engagements": _count("engagements"),
                         "freezes": _count("registry"),
                         "forecast_inventories": _count("modet")},
+            "outside_deploy_tree": not os.path.abspath(base).startswith(os.getcwd() + os.sep),
             "verdict": ("durable — mounted volume, writable" if is_mount and writable else
-                         "EPHEMERAL — survives restarts, NOT redeploys; mount a volume at this path" if writable else
+                         ("durable by location on a host machine — explicit path outside the deploy tree; "
+                          "on a container platform this is STILL EPHEMERAL unless a volume is mounted here")
+                          if writable and explicit and not os.path.abspath(base).startswith(os.getcwd() + os.sep) else
+                         "EPHEMERAL — inside the deploy tree; a redeploy (or the deploy script replacing "
+                          "this folder) clears it; set FOUNDRY_DATA_DIR outside the tree or mount a volume" if writable else
                          "NOT WRITABLE — nothing persists at all")}
 
 @app.post("/api/v31/fiw")
