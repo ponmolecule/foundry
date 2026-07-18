@@ -432,3 +432,22 @@ dark-shell doctrine and the sidebar-knobs workflow.
 **Check:** Config tab: header with Save; six module cards with switches; NIE
 switch toggles on/off from the bar (confirm on off); Save updates the
 last-saved chip; capital/securities cards pulse on click-through.
+
+## 31. Full-GPT Configuration surface (user ruling: the left-nav was the red herring, not the design)
+**Decided:** The Configuration page adopts the mockup wholesale, minus two
+structures the user cut as redundant: the Products tile (products live on their
+own tab) and the separate AOCI tile (merged into Securities & AOCI). The module
+banner is a framed panel with four tiles — Capital & pre-opening, Securities &
+AOCI, Operating expense, Fee modules with five mini-icons — each with switch
+hardware and a selected-state ring; the info line beneath restates presence
+semantics. Cards fill the width in a two-column grid: the capital card uses the
+mockup's internal 2×2 layout with hairline dividers and per-section counters
+("0 raises added"), Securities & AOCI splits into two columns with the AOCI
+helper copy, the NIE off-state is the mockup's subhead + description +
+gold-outline Activate button, and fee modules are pill chips with gold check
+badges (click to enable; click again to remove, with confirm). Presence honesty
+holds: structural tiles show derived state and focus their card; only true
+toggles toggle.
+**Check:** Config tab: four tiles, no Products tile, mini fee icons; capital
+card in the 2×2 grid ending with Minimum Day-1 capital; fee pills gain gold
+checks as modules activate.

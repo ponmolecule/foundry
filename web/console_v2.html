@@ -66,9 +66,31 @@ aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .crow .cx{color:#B45454;text-decoration:none;padding:0 2px}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
-.cfgwrap{max-width:1080px}
-.cfggrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(460px,1fr));gap:14px;align-items:start}
-.cfgcard{background:#182640;border:1px solid #24334D;border-radius:8px;padding:14px 16px}
+.cfgwrap{max-width:1460px}
+.cfggrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(520px,1fr));gap:20px;align-items:stretch}
+.cfgcard{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:18px 22px}
+.modpanel{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:16px 20px;margin:0 0 8px}
+.modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
+.mp-info{display:flex;align-items:center;gap:7px;font-size:11px;color:#8FA3C0;margin:12px 0 0}
+.ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;row-gap:16px}
+.ccols>div{min-width:0}
+.csub{font-size:12.5px;color:#DCE3EE;font-weight:600;margin:0 0 8px}
+.cmut{font-size:10.5px;color:#8FA3C0;margin-top:6px}
+.pillbtn{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
+.pillbtn:hover{border-color:#DFA85A;color:#DFA85A}
+.btn-gold-o{background:transparent;border:1px solid #DFA85A;color:#DFA85A;border-radius:8px;padding:7px 15px;font-size:11.5px;font-weight:600;cursor:pointer}
+.btn-gold-o:hover{background:rgba(223,168,90,.10)}
+.vdiv{border-left:1px solid #24334D;padding-left:26px}
+.hline{border-top:1px solid #24334D;margin:14px 0;grid-column:1/-1}
+.fpill{display:inline-flex;align-items:center;gap:7px;border:1px solid #3A4C6E;border-radius:9px;padding:7px 13px;font-size:11.5px;color:#DCE3EE;cursor:pointer;background:transparent}
+.fpill:hover{border-color:#DFA85A}
+.fpill .fbadge{width:15px;height:15px;border-radius:50%;border:1.4px solid #4a5568;color:transparent;display:flex;align-items:center;justify-content:center;font-size:10px;flex:0 0 15px}
+.fpill.on .fbadge{background:#DFA85A;border-color:#DFA85A;color:#131E33;font-weight:800}
+.minis{display:flex;gap:6px;margin-top:7px}
+.minis span{width:26px;height:24px;border:1px solid #3A4C6E;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8FA3C0}
+.minis span.on{color:#DFA85A;border-color:#8a6d3b}
+.modcard{flex:1 1 0;justify-content:space-between}
+.modcard.sel{border-color:#DFA85A;box-shadow:0 0 0 1px rgba(223,168,90,.35)}
 .cfgcard .ovh2{margin:0 0 10px;border:none;border-left:3px solid #DFA85A;border-radius:0;background:transparent;padding:0 0 0 10px}
 .cfgcard .crow input[type=text],.cfgcard .crow input:not([type]){max-width:170px}
 .cfgcard .crow input[type=number]{max-width:96px}
@@ -2111,68 +2133,72 @@ function structuresSectionsHtml(){
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
   const lampMap = Object.fromEntries(lamps);
   const capOn = lampMap["Pre-opening"]||lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
-  const secOn = lampMap["Securities books"];
-  const feeOnN = ["Interchange","Payments","Service charges","Trust","BaaS"].filter(n=>lampMap[n]).length;
-  const nProd = (A.lending_products||[]).length + (A.deposit_products||[]).length + (A.obs_products||[]).length;
-  h += '<div class="chint" style="margin:0 0 8px">Modules \u2014 activation derived from presence, never asserted. Steps and pages appear from what this document contains.</div>';
-  h += '<div class="modbar">';
-  h += `<div class="modcard" onclick="modGo('card-cap')" title="Derived from presence \u2014 add a structure to activate"><span class="mi">${ICONS.bank}</span><span class="ml">Capital &amp; pre-opening<small>structures</small></span><span class="sw${capOn?" on":""}"></span></div>`;
-  h += `<div class="modcard" onclick="modGo('card-sec')" title="Derived from presence \u2014 add a book to activate"><span class="mi">${ICONS.doc}</span><span class="ml">Securities books<small>designated books</small></span><span class="sw${secOn?" on":""}"></span></div>`;
-  h += `<div class="modcard" onclick="aociToggle()" title="Toggle: off zeroes the sensitivity"><span class="mi">${ICONS.wave}</span><span class="ml">AOCI<small>rate sensitivity</small></span><span class="sw${lampMap["AOCI"]?" on":""}"></span></div>`;
-  h += `<div class="modcard" onclick="${A.nie_detail?"nieOff()":"nieOn()"}" title="Toggle: replaces the corporate overhead line while on"><span class="mi">${ICONS.calc}</span><span class="ml">Operating expense<small>NIE detail</small></span><span class="sw${lampMap["NIE detail"]?" on":""}"></span></div>`;
-  h += `<div class="modcard" onclick="modGo('card-fee')"><span class="mi">${ICONS.stack}</span><span class="ml">Fee modules<small>${feeOnN} of 5 on</small></span><span class="sw${feeOnN?" on":""}"></span></div>`;
-  h += `<div class="modcard" onclick="setTab('products')"><span class="mi">${ICONS.cube}</span><span class="ml">Products<small>${nProd} selected</small></span></div>`;
-  h += '</div>';
+  const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
+  const FEE5 = [["Interchange","wave"],["Payments","stack"],["Service charges","doc"],["Trust","bank"],["BaaS","cube"]];
+  const feeOnN = FEE5.filter(([n])=>lampMap[n]).length;
+  h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
+  h += `<div class="modcard${capOn?" sel":""}" onclick="modGo('card-cap')" title="Derived from presence \u2014 add a structure to activate"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.bank}</span><span class="ml">Capital &amp;<br>pre-opening</span></span><span class="sw${capOn?" on":""}"></span></div>`;
+  h += `<div class="modcard${secAociOn?" sel":""}" onclick="modGo('card-sec')" title="Derived from presence \u2014 add a book or set AOCI sensitivity"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.doc}</span><span class="ml">Securities<br>&amp; AOCI</span></span><span class="sw${secAociOn?" on":""}"></span></div>`;
+  h += `<div class="modcard${A.nie_detail?" sel":""}" onclick="${A.nie_detail?"nieOff()":"nieOn()"}" title="Toggle: replaces the corporate overhead line while on"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.calc}</span><span class="ml">Operating<br>expense</span></span><span class="sw${A.nie_detail?" on":""}"></span></div>`;
+  h += `<div class="modcard${feeOnN?" sel":""}" onclick="modGo('card-fee')"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS.stack}</span><span class="ml">Fee modules<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span></span></span><span class="sw${feeOnN?" on":""}"></span></div>`;
+  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
-        const po = (cfg.pre_opening = cfg.pre_opening || {});
-        const pex = (po.expenses = po.expenses || []);
-        h += '<div class="cbl">Pre-opening</div>';
-        pex.forEach((e,i)=>{
-          h += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="poAdd();return false">+ add pre-open expense</a>';
-        const raises = cfg.assumptions.capital_raises || [];
-        h += '<div class="cbl">Staged raises</div>';
-        raises.forEach((r,i)=>{
-          h += `<div class="crow">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
-            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-            + `</select><input type="number" style="width:96px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span>`
-            + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderContent();refresh();return false">+ add a raise</a>';
-        const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
-        h += '<div class="cbl">Scheduled borrowings</div>';
-        sbs.forEach((b,i)=>{
-          h += `<div class="crow"><input style="flex:1 1 64px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Q<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
-            + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-            + `</select><input type="number" style="width:64px" title="draw $000s" value="${(b.amount||0)/1000}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:42px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:38px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">q</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        h += '<a href="#" class="cadd" onclick="sbAdd();return false">+ add scheduled draw</a>';
-        h += `<div class="crow">Premises depreciation<input type="number" style="width:70px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
-        h += `<div class="crow">Min Day-1 capital<input type="number" style="width:84px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
-
+    const po = (cfg.pre_opening = cfg.pre_opening || {});
+    const pex = (po.expenses = po.expenses || []);
+    const raises = cfg.assumptions.capital_raises || [];
+    const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
+    let _r = '<div class="csub">Staged raises</div>';
+    raises.forEach((r,i)=>{
+      _r += `<div class="crow">Q<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
+        + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+        + `</select><input type="number" style="width:96px" value="${r.amount/1000}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span>`
+        + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    _r += '<button class="pillbtn" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderContent();refresh()">+ Add a raise</button>';
+    _r += `<div class="cmut">${raises.length} raise${raises.length===1?"":"s"} added</div>`;
+    let _b = '<div class="csub">Scheduled borrowings</div>';
+    sbs.forEach((b,i)=>{
+      _b += `<div class="crow"><input style="flex:1 1 64px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Q<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
+        + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+        + `</select><input type="number" style="width:64px" title="draw $000s" value="${(b.amount||0)/1000}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:42px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:38px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">q</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';
+    _b += `<div class="cmut">${sbs.length} borrowing${sbs.length===1?"":"s"} added</div>`;
+    let _p = '<div class="csub">Pre-opening</div>';
+    pex.forEach((e,i)=>{
+      _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="number" style="width:72px" value="${(e.total||0)/1000}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    _p += '<button class="pillbtn" onclick="poAdd()">+ Add pre-open expense</button>';
+    _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
+    let _d = '<div class="csub">Depreciation</div>';
+    _d += `<div class="crow">Premises depreciation<input type="number" style="width:70px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
+    h += `<div class="ccols"><div>${_r}</div><div class="vdiv">${_b}</div><div style="border-top:1px solid #24334D;padding-top:14px">${_p}</div><div class="vdiv" style="border-top:1px solid #24334D;padding-top:14px">${_d}</div></div>`;
+    h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="number" style="width:96px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
   }
   h += `</div><div class="cfgcard" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
   {
-        const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
-        h += '<div class="cbl">Securities books</div>';
-        h += `<div class="chint">${nafs} AFS \u00b7 ${nhtm} HTM designated book${(nafs+nhtm)===1?"":"s"} &nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(0);return false">+ AFS</a>&nbsp;<a href="#" class="cadd" style="margin-top:0" onclick="secAdd(1);return false">+ HTM</a></div>`;
-        (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
-          h += `<div class="crow">AFS<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
-          h += `<div class="crow">HTM<input style="flex:1 1 70px" value="${esc(b.name||"")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:64px" title="opening $000s" value="${(b.opening||0)/1000}" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><input type="number" step="0.1" style="width:44px" title="yield %" value="${((b.yield_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        });
-        h += `<div class="crow">AOCI sensitivity<input type="number" step="0.5" style="width:52px" title="annual % of AFS book" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
-
+    const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
+    let _sb = '<div class="csub">Securities books</div>';
+    _sb += `<div class="cmut" style="margin:0 0 8px">Books included \u00b7 ${nhtm} of ${nafs+nhtm} HTM designated</div>`;
+    (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
+      _sb += `<div class="crow"><input style="flex:1 1 88px" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="number" style="width:78px" value="${(b.opening||0)/1000}" title="opening $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><input type="number" step="0.1" style="width:46px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
+      _sb += `<div class="crow"><input style="flex:1 1 88px" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="number" style="width:78px" value="${(b.opening||0)/1000}" title="opening $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><input type="number" step="0.1" style="width:46px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    });
+    _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
+    let _ao = '<div class="csub">AOCI</div>';
+    _ao += `<div class="cmut" style="margin:0 0 6px">AOCI sensitivity</div>`;
+    _ao += `<div class="crow" style="margin:0"><input type="number" step="0.1" style="width:84px" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
+    _ao += '<div class="cmut">Positive values increase AOCI with rate rises.</div>';
+    h += `<div class="ccols"><div>${_sb}</div><div class="vdiv">${_ao}</div></div>`;
   }
   h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, FTE-step comp, and assessments on the correct base.</div></span></div>`;
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
-    h += '<div class="chint">Off — the single corporate-overhead line governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div>';
-    h += '<a href="#" class="cadd" onclick="nieOn();return false">+ activate NIE detail</a>';
+    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center"><div><div class="csub">Corporate overhead</div><div class="cmut" style="margin-top:2px">The single overhead line (sidebar) governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
   } else {
     const nd = A.nie_detail;
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 8px"><span class="chint" style="margin:0">Module active</span><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="nieOff()">Deactivate module</button></div>';
@@ -2188,8 +2214,15 @@ function structuresSectionsHtml(){
   }
   h += `</div><div class="cfgcard" id="card-fee"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Fee modules</div><div class="cd">Enable fee modules to include their economics in the engagement.</div></span></div>`;
   const FM = (A.fee_modules = A.fee_modules || {});
-  const fmBtn = (key,label)=> FM[key] ? '' : `<a href="#" class="cadd" style="margin-right:12px" onclick="fmOn('${key}');return false">+ ${label}</a>`;
-  h += '<div>' + fmBtn('trust','Trust') + fmBtn('interchange','Interchange') + fmBtn('service_charges','Service charges') + fmBtn('baas','BaaS') + ((FM.payments||[]).length? '' : '<a href="#" class="cadd" onclick="fmRail();return false">+ Payment rails</a>') + '</div>';
+  const fpill = (key, label, icon, on, onCb, offCb)=>
+    `<button class="fpill${on?" on":""}" onclick="${on?offCb:onCb}" title="${on?"On \u2014 click to remove":"Off \u2014 click to enable"}"><span style="color:${on?"#DFA85A":"#8FA3C0"}">${ICONS[icon]}</span>${label}<span class="fbadge">\u2713</span></button>`;
+  h += '<div style="display:flex;flex-wrap:wrap;gap:9px">'
+    + fpill('interchange','Interchange','wave', !!FM.interchange, "fmOn('interchange')", "if(confirm('Remove the Interchange module?')){delete cfg.assumptions.fee_modules.interchange;renderContent();refresh()}")
+    + fpill('payments','Payments','stack', !!(FM.payments||[]).length, "fmRail()", "if(confirm('Remove all payment rails?')){cfg.assumptions.fee_modules.payments=[];renderContent();refresh()}")
+    + fpill('service_charges','Service charges','doc', !!FM.service_charges, "fmOn('service_charges')", "if(confirm('Remove the Service charges module?')){delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh()}")
+    + fpill('trust','Trust','bank', !!FM.trust, "fmOn('trust')", "if(confirm('Remove the Trust module?')){delete cfg.assumptions.fee_modules.trust;renderContent();refresh()}")
+    + fpill('baas','BaaS','cube', !!FM.baas, "fmOn('baas')", "if(confirm('Remove the BaaS module?')){delete cfg.assumptions.fee_modules.baas;renderContent();refresh()}")
+    + '</div>';
   if(FM.trust) h += `<div class="crow">Trust: AUM<input type="number" style="width:84px" value="${(FM.trust.aum_open||0)/1000000}" title="$M" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(this.value)*1000000;refresh()"><span class="cu">$M</span> growth<input type="number" step="0.5" style="width:44px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:44px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
   if(FM.interchange){ const IC=FM.interchange;
     h += `<div class="crow">Interchange: tx<input type="number" style="width:74px" value="${(IC.tx_count_q||0)/1000}" title="000s/q" onchange="cfg.assumptions.fee_modules.interchange.tx_count_q=parseFloat(this.value)*1000;refresh()"><span class="cu">k/q</span> growth<input type="number" step="0.5" style="width:44px" value="${((IC.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.interchange.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> ticket<input type="number" style="width:44px" value="${IC.avg_ticket||0}" onchange="cfg.assumptions.fee_modules.interchange.avg_ticket=parseFloat(this.value);refresh()"><span class="cu">$</span> rate<input type="number" step="0.05" style="width:46px" value="${((IC.interchange_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.interchange_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> net fees<input type="number" step="0.05" style="width:46px" value="${((IC.network_fee_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.network_fee_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.interchange;renderContent();refresh();return false">\u00d7</a></div>`; }
