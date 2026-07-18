@@ -1259,7 +1259,8 @@ function renderOverview(){
   h += '<div class="memo" style="margin-top:14px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
   el.innerHTML = h;
 }
-function renderContent(){ setTimeout(restoreCardSelects, 0);
+function renderContent(){
+  document.querySelector("main > aside").style.display = (V31 && currentTab==="welcome") ? "none" : ""; setTimeout(restoreCardSelects, 0);
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
