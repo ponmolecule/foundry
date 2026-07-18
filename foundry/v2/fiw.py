@@ -274,6 +274,17 @@ def diff_import(data, current_cfg):
                 edits.append({"key": ".".join(str(x) for x in path), "from": old, "to": val})
                 _set(merged, path, val)
 
+    # identity follow-through: renaming the bank renames a scenario label that
+    # carried the old bank's name — derived, and logged like any other edit.
+    _old_pb = str(snap.get("proposed_bank") or "")
+    _new_pb = str(merged.get("proposed_bank") or "")
+    _sn = str(merged.get("scenario_name") or "")
+    if _new_pb and _new_pb != _old_pb and _old_pb and _sn.startswith(_old_pb):
+        _renamed = _new_pb + _sn[len(_old_pb):]
+        edits.append({"key": "scenario_name", "from": _sn, "to": _renamed,
+                       "note": "derived — scenario label followed the bank rename"})
+        merged["scenario_name"] = _renamed
+
     for sheet, fam in (("ASSM_LOANS", "lending"), ("ASSM_DEPOSITS", "deposit")):
         if sheet not in wb.sheetnames:
             continue

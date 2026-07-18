@@ -1408,6 +1408,29 @@ def t50():
         check("T50b", "the missing-snapshot refusal names the cause AND the way out "
                         "(regenerate; nothing changed)",
               "Regenerate" in str(e) and "older run" in str(e) and "nothing was changed" in str(e))
+    # T50c — the user's rename flow: Institution/Legal name edited in Excel must
+    # flow into cfg, and a scenario label carrying the old bank's name follows
+    # the rename as a LOGGED derived edit (the top-right identity window updates)
+    os.environ["FOUNDRY_DATA_DIR"] = tempfile.mkdtemp(prefix="t50c_")
+    importlib.reload(_fiw)
+    import io as _io, openpyxl as _xl
+    cfg2 = _json.loads(_json.dumps(cfg))
+    cfg2["proposed_bank"] = "De Novo Bank"; cfg2["client_legal_name"] = "De Novo Bank"
+    cfg2["scenario_name"] = "De Novo Bank \u2014 Base Case"
+    d2, gh2 = _fiw.build_fiw(cfg2); _fiw.persist_snapshot(cfg2, gh2)
+    wb = _xl.load_workbook(_io.BytesIO(d2))
+    for r in wb["CONTROL"].iter_rows(min_row=2):
+        if r[0].value in ("Institution", "Legal name"):
+            r[1].value = "Allied Bank"
+    buf = _io.BytesIO(); wb.save(buf)
+    merged, report = _fiw.diff_import(buf.getvalue(), cfg2)
+    check("T50c", "bank rename in the workbook lands in cfg (proposed_bank + legal name)",
+          merged.get("proposed_bank") == "Allied Bank"
+          and merged.get("client_legal_name") == "Allied Bank")
+    _sn_edit = [e for e in report["edits"] if e["key"] == "scenario_name"]
+    check("T50c", "scenario label follows the bank rename as a logged derived edit",
+          merged.get("scenario_name") == "Allied Bank \u2014 Base Case"
+          and len(_sn_edit) == 1 and "derived" in _sn_edit[0].get("note", ""))
 
 
 if __name__ == "__main__":
