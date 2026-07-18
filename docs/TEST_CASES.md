@@ -451,3 +451,16 @@ toggles toggle.
 **Check:** Config tab: four tiles, no Products tile, mini fee icons; capital
 card in the 2×2 grid ending with Minimum Day-1 capital; fee pills gain gold
 checks as modules activate.
+
+## 32. Intake status surface — alerts are banned from engagement-critical feedback
+**Decided:** All three intake channels (filled workbook, configuration JSON,
+client forecast) report through a persistent in-app status strip (processing →
+outcome, dismissible), never through alert()/confirm() dialogs. Rationale: the
+user experienced total silence on upload — browser dialog suppression (e.g.
+"prevent additional dialogs") can mute alert() entirely, so an app whose
+critical feedback is dialog-based has no feedback. Success banners announce the
+engagement identity ("now working on …") plus the edit diff; refusals carry the
+full fail-closed reason; the scenario-name field pulses on identity change.
+**Check:** Upload junk → red banner names the refusal; upload a round-trip
+workbook → banner reports edits or "no edits detected"; invalid .json → banner;
+probe stubs alert to THROW, proving no dialog path remains.

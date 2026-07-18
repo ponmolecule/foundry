@@ -306,6 +306,7 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
   <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
+<div id="appStatus" style="display:none"></div>
 <main>
   <aside>
     <div class="accent-label">Global Assumptions</div>
@@ -1773,12 +1774,15 @@ function downloadScenario(){
 }
 async function uploadScenario(input){
   const f = input.files[0]; if(!f) return;
+  appStatus("busy", `Reading configuration <b>${esc(f.name)}</b>\u2026`);
   try {
     const parsed = JSON.parse(await f.text());
     cfg = parsed;
+    const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
     document.getElementById("scenarioName").value = cfg.scenario_name || "";
     renderGlobals(); refresh(); renderContent();
-  } catch(e){ alert("Not a valid configuration JSON: " + e.message); }
+    appStatus("ok", `<b>Configuration restored \u2014 now working on \u201c${esc(name)}\u201d.</b> This file replaced the whole engagement state.`);
+  } catch(e){ appStatus("err", `<b>Not a valid configuration JSON</b> \u2014 ${esc(e.message)}. Nothing was changed.`); }
   input.value = "";
 }
 async function downloadWorkbook(){
@@ -1848,11 +1852,13 @@ window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFr
 let mt = null;
 async function mtUpload(inp){
   const f = inp.files[0]; if(!f) return; inp.value = "";
+  appStatus("busy", `Inspecting forecast <b>${esc(f.name)}</b>\u2026`);
   const fd = new FormData(); fd.append("file", f);
   const r = await fetch("/api/v31/modet/recon", {method:"POST", body: fd});
-  const j = await r.json();
-  if(!r.ok){ alert("Could not read the file (fail-closed):\n" + (j.error||r.status)); return; }
+  let j; try{ j = await r.json(); }catch(e){ appStatus("err", `<b>Could not read the file</b> \u2014 unreadable server response (${r.status}). Nothing was changed.`); return; }
+  if(!r.ok){ appStatus("err", `<b>Could not read the file (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   mt = {report: j, fname: f.name, sel: null, assignments: [], result: null};
+  appStatus("ok", `<b>Forecast \u201c${esc(f.name)}\u201d inspected.</b> Review the mapping below \u2014 every conversion is logged; gaps become questions, not guesses.`);
   renderContent();
 }
 function mtSlots(){
@@ -1964,23 +1970,43 @@ async function downloadFIW(){
   aEl.click(); URL.revokeObjectURL(aEl.href);
 }
 window.downloadFIW = downloadFIW;
+function appStatus(kind, html){
+  const el = document.getElementById("appStatus");
+  if(kind === null){ el.style.display = "none"; el.innerHTML = ""; return; }
+  const pal = {busy: ["#8FA3C0", "#182640", "\u23f3"],
+                ok:   ["#7FB07F", "#14251b", "\u2713"],
+                err:  ["#E08585", "#2a1616", "\u2715"]}[kind];
+  el.style.cssText = "display:flex;align-items:flex-start;gap:10px;padding:11px 16px;font-size:12.5px;"
+    + "border-bottom:1px solid " + pal[0] + "55;background:" + pal[1] + ";color:#DCE3EE;line-height:1.5";
+  el.innerHTML = `<span style="color:${pal[0]};font-weight:700">${pal[2]}</span><div style="flex:1">${html}</div>`
+    + (kind === "busy" ? "" : `<a href="#" class="cx" style="color:#8FA3C0" onclick="appStatus(null);return false">\u00d7</a>`);
+}
+window.appStatus = appStatus;
+
 async function uploadFIW(inp){
  try{
   const f = inp.files[0]; if(!f) return; inp.value = "";
+  appStatus("busy", `Processing workbook <b>${esc(f.name)}</b>\u2026`);
   const fd = new FormData();
   fd.append("file", f);
   fd.append("current", JSON.stringify(cfg));
   const r = await fetch("/api/v31/fiw/import", {method:"POST", body: fd});
-  let j; try{ j = await r.json(); }catch(e){ alert("Import failed: the server returned an unreadable response ("+r.status+"). Nothing was changed."); return; }
-  if(!r.ok){ alert("Import refused (fail-closed):\n" + (j.error||r.status)); return; }
+  let j; try{ j = await r.json(); }catch(e){ appStatus("err", `<b>Import failed</b> \u2014 the server returned an unreadable response (${r.status}). Nothing was changed.`); return; }
+  if(!r.ok){ appStatus("err", `<b>Import refused (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   cfg = j.cfg;
   const n = j.report.edit_count;
-  const warn = (j.report.warnings||[]).length ? "\n\nEntry-screen warnings:\n- " + j.report.warnings.join("\n- ") : "";
-  const lines = j.report.edits.slice(0,8).map(e=>`\u2022 ${e.key}: ${e.from} \u2192 ${e.to}`).join("\n");
-  alert((n ? `Imported ${n} edit${n===1?"":"s"} from the workbook (untouched cells kept their values):\n${lines}${n>8?"\n\u2026":""}` : "No edits detected \u2014 the workbook matches its generation state; nothing changed.") + warn);
-  document.getElementById("scenarioName").value = cfg.scenario_name || "";
+  const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
+  const lines = j.report.edits.slice(0,8).map(e=>`<div style="font-family:var(--mono);font-size:11px">\u2022 ${esc(e.key)}: ${esc(String(e.from))} \u2192 ${esc(String(e.to))}</div>`).join("");
+  const warn = (j.report.warnings||[]).length ? `<div style="margin-top:4px;color:#DFA85A">Entry-screen warnings: ${j.report.warnings.map(esc).join(" \u00b7 ")}</div>` : "";
+  appStatus("ok", (n
+    ? `<b>Workbook imported \u2014 now working on \u201c${esc(name)}\u201d.</b> ${n} edit${n===1?"":"s"} applied; untouched cells kept their values.${lines}${n>8?"<div>\u2026</div>":""}`
+    : `<b>Workbook read \u2014 no edits detected.</b> Every cell matches its generation state; nothing changed for \u201c${esc(name)}\u201d.`) + warn);
+  const sn = document.getElementById("scenarioName");
+  sn.value = cfg.scenario_name || "";
+  sn.style.transition = "box-shadow .3s"; sn.style.boxShadow = "0 0 0 2px #DFA85A";
+  setTimeout(()=>{ sn.style.boxShadow = ""; }, 1600);
   syncModules(); renderGlobals(); renderContent(); refresh();
- }catch(e){ alert("Import failed: " + e.message + "\nNothing was changed."); }
+ }catch(e){ appStatus("err", `<b>Import failed</b> \u2014 ${esc(e.message)}. Nothing was changed.`); }
 }
 window.uploadFIW = uploadFIW;
 function wizStart(){
