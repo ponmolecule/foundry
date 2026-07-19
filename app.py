@@ -191,6 +191,11 @@ def v31_template(_=Depends(gate)):
     return JSONResponse(_json.load(open(p, encoding="utf-8")))
 
 
+@app.get("/api/v31/challenge-thresholds")
+def v31_challenge_thresholds(_=Depends(gate)):
+    from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
+    return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS}
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or

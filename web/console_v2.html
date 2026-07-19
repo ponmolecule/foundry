@@ -1234,6 +1234,12 @@ function renderOverview(){
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
   if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
+  h += '<details style="margin:8px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
+  setTimeout(()=>{ fetch("/api/v31/challenge-thresholds").then(x=>x.json()).then(t=>{
+    const el = document.getElementById("threshLedger"); if(!el) return;
+    el.innerHTML = t.thresholds.map(th=>`<div style="display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #1D2A42"><span style="font-family:var(--mono);color:#DFA85A;flex:0 0 96px">${esc(th.id)}</span><span style="flex:1">${esc(th.rule)}</span><span style="color:#8FA3C0">${esc(th.trigger)}</span><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></div>`).join("")
+      + `<div style="margin-top:6px;color:#8FA3C0">${esc(t.provenance)}</div>`;
+  }).catch(()=>{}); }, 0);
   (r.flags||[]).forEach(f=>{
     const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
     h += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;

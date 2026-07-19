@@ -1491,9 +1491,21 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t53():
+    print("T53 challenge thresholds are data, visible, provenance-tagged")
+    import foundry.v2.challenge_q as ch, inspect
+    src = inspect.getsource(ch)
+    ids = [t["id"] for t in ch.CHALLENGE_THRESHOLDS]
+    check("T53a", "registry exists with all judged rules", len(ids) >= 6)
+    check("T53b", "every advertised id is one the module can emit",
+          all(f'"{i}"' in src for i in ids))
+    check("T53c", "provenance names the static lineage and the F-121 replacement",
+          "Roman" in ch.PROVENANCE and "F-121" in ch.PROVENANCE)
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

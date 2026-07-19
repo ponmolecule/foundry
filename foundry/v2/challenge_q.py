@@ -33,6 +33,20 @@ CO_BANDS = {
 }
 
 
+# Every threshold this module judges with, as data — visible in the app, not
+# buried in code. Static values inherited from Roman's challenge logic; F-121
+# replaces them with substrate-calibrated percentiles.
+CHALLENGE_THRESHOLDS = [
+    {"id": "FUND-HOT",    "rule": "Deposit rate paid, any product",        "trigger": "> 5.5% (Q1 annualized)", "sev": "severe"},
+    {"id": "FUND-DDA",    "rule": "Rate paid on transaction accounts",      "trigger": "> 2.0%",                  "sev": "mild"},
+    {"id": "FUND-GROWTH", "rule": "Deposit growth, any product",            "trigger": "> 25% / quarter",         "sev": "mild"},
+    {"id": "GROWTH-Y1",   "rule": "Year-1 balance-sheet growth",            "trigger": "> 25%",                   "sev": "mild"},
+    {"id": "CO-BAND",     "rule": "Annual net charge-offs vs loan type",    "trigger": "outside band \u2014 commercial 0.05\u20133.0%, consumer 0.5\u20138.0%, card 1.5\u201310%, mortgage 0.02\u20131.5%", "sev": "mild"},
+    {"id": "MSR-FEE",     "rule": "Mortgage servicing fee",                 "trigger": "outside 12.5\u201350 bp", "sev": "mild"},
+]
+PROVENANCE = "static \u2014 Roman-model lineage; pending substrate calibration (the F-121 replacement)"
+
+
 def _flag(flags, fid, sev, text):
     flags.append({"id": fid, "sev": sev, "text": text})
 
