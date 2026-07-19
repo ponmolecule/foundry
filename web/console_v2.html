@@ -84,8 +84,7 @@ table.dtab td{font-size:11.5px;color:#C9D2E1;padding:7px 10px;border-bottom:1px 
 table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
-.cfgwrap{max-width:none;margin:-16px -18px;padding:16px 22px 22px;
-  background:radial-gradient(ellipse 800px 600px at 100% 0%, rgba(216,168,94,.08), transparent 60%), #0A1830}
+.cfgwrap{max-width:none}
 .cfgwrap input[type=number],.cfgwrap input[type=text],.cfgwrap input:not([type]),.cfgwrap select{
   background:#0E1626;border:1px solid #33436199;border-radius:7px;color:#EDF1F7;
   padding:7px 10px;font-size:12px;font-family:inherit;outline:none;transition:border-color .12s}
@@ -101,13 +100,17 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500}
 .cfggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
-.cfgcard{background:linear-gradient(180deg,#141D28 0%,#111A25 100%);border:1px solid #344150;border-radius:10px;
-  padding:20px 24px 24px;min-height:198px;
-  box-shadow:0 1px 1px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.015)}
-.modpanel{background:#0C151F;border:1px solid #344150;border-radius:10px;padding:16px 20px;margin:0 0 8px}
+.cfgcard{background:#141E31;border:1px solid #26324B;border-radius:10px;
+  padding:20px 24px 24px;min-height:198px}
+.modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:7px;font-size:11px;color:#8FA3C0;margin:12px 0 0}
 .ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;row-gap:22px}
+.tacct{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:0;row-gap:0}
+.tacct>div{min-width:0;padding:0 28px 26px 0}
+.tacct>div:nth-child(even){border-left:1px solid rgba(148,163,184,.13);padding-left:28px;padding-right:0}
+.tacct>div:nth-child(n+3){border-top:1px solid rgba(148,163,184,.13);padding-top:18px}
+.tacct>div:nth-child(n+3){padding-bottom:34px}
 .ccols>div{min-width:0}
 .csub{font-size:15px;line-height:22px;color:#E8EDF5;font-weight:500;margin:0 0 12px}
 .cmut{font-size:12px;color:#9CA7B7;margin-top:7px}
@@ -138,10 +141,10 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .btn-save{background:#DFA85A;color:#182640;border:none;border-radius:7px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer}
 .btn-save:hover{filter:brightness(1.08)}
 .modbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 6px}
-.modcard{display:flex;align-items:center;gap:13px;background:#1A2438;border:1px solid #2A3752;border-radius:10px;padding:18px 18px;cursor:pointer;min-width:180px;min-height:64px}
+.modcard{display:flex;align-items:center;gap:13px;background:#1A2438;border:1px solid #2A3752;border-radius:10px;padding:20px 18px;cursor:pointer;min-width:190px;min-height:72px}
 .modcard:hover{border-color:#3A4C6E}
-.modcard .mi{width:38px;height:38px;border-radius:9px;background:rgba(242,184,75,.08);display:grid;place-items:center;color:#F2B84B;flex:0 0 38px}
-.modcard .ml{font-size:15px;color:#E8EDF5;font-weight:500;line-height:1.35}
+.modcard .mi{width:38px;height:38px;border-radius:9px;background:rgba(223,168,90,.10);display:grid;place-items:center;color:#DFA85A;flex:0 0 38px}
+.modcard .ml{font-size:17px;color:#E8EDF5;font-weight:500;line-height:1.35}
 .modcard .ml small{display:block;font-weight:400;color:#8FA3C0;font-size:10px}
 .sw{position:relative;width:34px;height:19px;border-radius:999px;background:#2B3A57;flex:0 0 34px;transition:background .15s}
 .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#8FA3C0;transition:left .15s,background .15s}
@@ -149,7 +152,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .sw.on::after{left:17px;background:#182640}
 .cardhead{display:flex;align-items:center;gap:14px;min-height:48px;
   border-bottom:1px solid rgba(148,163,184,.13);padding-bottom:16px;margin:0 0 18px}
-.cardhead .mi{width:48px;height:48px;border-radius:999px;background:rgba(242,184,75,.08);display:grid;place-items:center;color:#F2B84B;flex:0 0 48px}
+.cardhead .mi{width:48px;height:48px;border-radius:999px;background:rgba(223,168,90,.10);display:grid;place-items:center;color:#DFA85A;flex:0 0 48px}
 .cardhead .mi svg{width:24px;height:24px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
 .cardhead .ct{font-size:18px;line-height:24px;font-weight:500;color:#F2F4F7;letter-spacing:-.012em}
 .cardhead .cd{font-size:13px;line-height:20px;font-weight:400;color:#9CA7B7;margin-top:2px;max-width:480px}
@@ -2436,7 +2439,7 @@ function structuresSectionsHtml(){
     _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
     let _d = '<div class="csub">Depreciation</div>';
     _d += `<div class="crow">Premises depreciation<input type="number" style="width:92px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
-    h += `<div class="ccols" style="grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)"><div>${_r}</div><div class="vdiv">${_b}</div><div style="border-top:1px solid rgba(148,163,184,.13);padding-top:14px">${_p}</div><div class="vdiv" style="border-top:1px solid rgba(148,163,184,.13);padding-top:14px">${_d}</div></div>`;
+    h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="number" style="width:112px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
   }
   h += `</div><div class="cfgcard" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
