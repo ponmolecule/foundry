@@ -88,7 +88,9 @@ def list_engagements():
             with open(os.path.join(_dir(), name), encoding="utf-8") as f:
                 cfg = json.load(f)
             out.append({"slug": slug,
-                        "name": cfg.get("client") or cfg.get("proposed_bank") or slug,
+                        "name": cfg.get("scenario_name") or cfg.get("client")
+                                 or cfg.get("proposed_bank") or slug,
+                        "bank": cfg.get("client_legal_name") or cfg.get("proposed_bank") or "",
                         "config_schema_version": cfg.get("config_schema_version")})
         except Exception:
             out.append({"slug": slug, "name": slug + " (unreadable)",
