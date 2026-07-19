@@ -17,8 +17,10 @@
   --gold:#DFB367; --gold2:#D3A157; --champ:#EAD8BC; --champ2:#C59C5E; --mut:#96928C; --red:#b0413e; --grey:#666666;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--nvy);font-family:'Inter','Segoe UI',system-ui,Arial,sans-serif;color:var(--ink);font-size:13px;
-  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+html{font-family:Inter,"SF Pro Text",-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;
+  font-optical-sizing:auto;font-synthesis:none;text-rendering:geometricPrecision;
+  -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}
+body{background:var(--nvy);font-family:inherit;color:var(--ink);font-size:13px}
 /* ------- Foundry chrome (border regions) ------- */
 #ribbon{position:sticky;top:0;z-index:30;background:#0A1220;border-bottom:1px solid var(--nline);
   display:flex;gap:1.1rem;align-items:center;padding:.5rem 1.2rem;font-family:var(--mono);font-size:11px;color:var(--nmut);flex-wrap:wrap}
@@ -82,7 +84,9 @@ table.dtab td{font-size:11.5px;color:#C9D2E1;padding:7px 10px;border-bottom:1px 
 table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cadd{display:inline-block;margin-top:5px;color:#DFA85A;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#8FA3C0;margin-top:3px}
-.cfgwrap{max-width:none}
+.cfgwrap{max-width:none;margin:-16px -18px;padding:16px 22px 22px;
+  background:radial-gradient(900px 500px at 55% -10%, rgba(24,42,60,.28), transparent 65%),
+             linear-gradient(180deg,#060E18 0%,#08121C 100%)}
 .cfgwrap input[type=number],.cfgwrap input[type=text],.cfgwrap input:not([type]),.cfgwrap select{
   background:#0E1626;border:1px solid #33436199;border-radius:7px;color:#EDF1F7;
   padding:7px 10px;font-size:12px;font-family:inherit;outline:none;transition:border-color .12s}
@@ -91,31 +95,30 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
   background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='9' height='6'><path d='M1 1l3.5 3.5L8 1' stroke='%238FA3C0' fill='none' stroke-width='1.4'/></svg>");
   background-repeat:no-repeat;background-position:right 8px center}
 .cfgwrap .crow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:10px 0;font-size:12px;color:#C4CDDD}
-.cfgwrap .cu{font-size:10.5px;color:#8FA3C0;letter-spacing:.01em}
+.cfgwrap .cu{font-size:11px;color:#9CA7B7;letter-spacing:.01em}
 .cfgwrap .cx{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;
   justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
 .cfgwrap .cx:hover{color:#F0A0A0;border-color:#B4545466;background:rgba(180,84,84,.10)}
-.cardhead .mi{width:46px;height:46px;flex:0 0 46px;background:rgba(223,168,90,.16);
-  box-shadow:inset 0 0 0 1px rgba(223,168,90,.35)}
-.cardhead .mi svg{width:20px;height:20px;stroke-width:1.7}
 .modcard .mi svg{width:17px;height:17px}
-.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px}
+.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500}
 .csub{font-size:13px;margin:2px 0 10px}
 .cfggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
-.cfgcard{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:18px 22px}
-.modpanel{background:#131E33;border:1px solid #24334D;border-radius:12px;padding:16px 20px;margin:0 0 8px}
+.cfgcard{background:linear-gradient(180deg,#141D28 0%,#111A25 100%);border:1px solid #344150;border-radius:10px;
+  padding:18px 20px 20px;min-height:198px;
+  box-shadow:0 1px 1px rgba(0,0,0,.18), inset 0 1px 0 rgba(255,255,255,.015)}
+.modpanel{background:#0C151F;border:1px solid #344150;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:7px;font-size:11px;color:#8FA3C0;margin:12px 0 0}
 .ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:26px;row-gap:16px}
 .ccols>div{min-width:0}
 .csub{font-size:12.5px;color:#DCE3EE;font-weight:600;margin:0 0 8px}
-.cmut{font-size:10.5px;color:#8FA3C0;margin-top:6px}
+.cmut{font-size:11px;color:#9CA7B7;margin-top:6px}
 .pillbtn{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
 .pillbtn:hover{border-color:#DFA85A;color:#DFA85A}
 .btn-gold-o{background:transparent;border:1px solid #DFA85A;color:#DFA85A;border-radius:8px;padding:7px 15px;font-size:11.5px;font-weight:600;cursor:pointer}
 .btn-gold-o:hover{background:rgba(223,168,90,.10)}
-.vdiv{border-left:1px solid #24334D;padding-left:26px}
-.hline{border-top:1px solid #24334D;margin:14px 0;grid-column:1/-1}
+.vdiv{border-left:1px solid rgba(148,163,184,.13);padding-left:26px}
+.hline{border-top:1px solid rgba(148,163,184,.13);margin:14px 0;grid-column:1/-1}
 .fpill{display:inline-flex;align-items:center;gap:7px;border:1px solid #3A4C6E;border-radius:9px;padding:7px 13px;font-size:11.5px;color:#DCE3EE;cursor:pointer;background:transparent}
 .fpill:hover{border-color:#DFA85A}
 .fpill .fbadge{width:15px;height:15px;border-radius:50%;border:1.4px solid #4a5568;color:transparent;display:flex;align-items:center;justify-content:center;font-size:10px;flex:0 0 15px}
@@ -146,10 +149,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .sw::after{content:"";position:absolute;top:2.5px;left:3px;width:14px;height:14px;border-radius:50%;background:#8FA3C0;transition:left .15s,background .15s}
 .sw.on{background:#DFA85A}
 .sw.on::after{left:17px;background:#182640}
-.cardhead{display:flex;align-items:center;gap:12px;margin:0 0 12px}
-.cardhead .mi{width:38px;height:38px;border-radius:50%;background:rgba(223,168,90,.12);display:flex;align-items:center;justify-content:center;color:#DFA85A;flex:0 0 38px}
-.cardhead .ct{font-size:14.5px;font-weight:700;color:#EDF1F7}
-.cardhead .cd{font-size:11px;color:#8FA3C0;margin-top:1px}
+.cardhead{display:flex;align-items:center;gap:14px;margin:0 0 12px;min-height:48px}
+.cardhead .mi{width:48px;height:48px;border-radius:999px;background:rgba(242,184,75,.08);display:grid;place-items:center;color:#F2B84B;flex:0 0 48px}
+.cardhead .mi svg{width:24px;height:24px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+.cardhead .ct{font-size:18px;line-height:24px;font-weight:500;color:#F2F4F7;letter-spacing:-.012em}
+.cardhead .cd{font-size:13px;line-height:20px;font-weight:400;color:#9CA7B7;margin-top:2px;max-width:480px}
 .cfgfoot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:10.5px;color:#8FA3C0}
 .savedchip{color:#7FB07F}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent}
@@ -2433,7 +2437,7 @@ function structuresSectionsHtml(){
     _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
     let _d = '<div class="csub">Depreciation</div>';
     _d += `<div class="crow">Premises depreciation<input type="number" style="width:92px" title="annual $000s" value="${(cfg.assumptions.premises_depreciation_annual||0)/1000}" onchange="cfg.assumptions.premises_depreciation_annual=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s/yr</span></div>`;
-    h += `<div class="ccols" style="grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)"><div>${_r}</div><div class="vdiv">${_b}</div><div style="border-top:1px solid #24334D;padding-top:14px">${_p}</div><div class="vdiv" style="border-top:1px solid #24334D;padding-top:14px">${_d}</div></div>`;
+    h += `<div class="ccols" style="grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr)"><div>${_r}</div><div class="vdiv">${_b}</div><div style="border-top:1px solid rgba(148,163,184,.13);padding-top:14px">${_p}</div><div class="vdiv" style="border-top:1px solid rgba(148,163,184,.13);padding-top:14px">${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="number" style="width:112px" value="${(po.min_day1_capital||0)/1000}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span></div>`;
   }
   h += `</div><div class="cfgcard" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
