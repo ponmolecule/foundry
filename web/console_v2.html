@@ -47,7 +47,8 @@ main{display:grid;grid-template-columns:320px 1fr;align-items:start;background:v
 /* ------- sidebar: Foundry-tinged chrome, white inputs ------- */
 aside{border-right:1px solid var(--nline);padding:16px;overflow-y:auto;max-height:calc(100vh - 120px);background:var(--nvy);position:sticky;top:44px}
 @media(max-width:980px){aside{position:static;max-height:none}}
-body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility}
+body{-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;
+  font-family:'Inter',system-ui,'Segoe UI',Roboto,sans-serif}
 .accent-label{font-size:10px;color:var(--namber);margin:14px 0 6px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
 .accent-label:first-child{margin-top:0}
 aside .card{background:var(--nvy2);border:1px solid var(--nline);border-left:4px solid var(--namber);border-radius:3px;padding:10px 12px;margin-bottom:10px}
@@ -155,7 +156,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent}
 .chip.on{border-color:#4E7A4E;color:#A9D3A9;background:rgba(127,176,127,.10);font-weight:600}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:#4a5568;flex:0 0 8px}
-.chip.on .dot{background:#7FB07F;box-shadow:0 0 5px rgba(127,176,127,.7)}
+.chip.on .dot{background:#7FB07F}
 .fld.wide{grid-column:1/-1}
 /* ------- content: faithful white number surfaces ------- */
 #content{padding:22px 30px 30px;overflow-x:auto;background:var(--paper);min-width:0;min-height:70vh}
@@ -447,7 +448,54 @@ function paintChrome(){
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-function cellNum(x){ const n=+x; return `<td class="${n<0?"neg":""}">${fmt0(x)}</td>`; }
+function cellNum(x, title){ const n=+x; return `<td class="${n<0?"neg":""}"${title?` title="${title.replace(/"/g,"&quot;")}"`:""}>${fmt0(x)}</td>`; }
+const CALC_TEXT = {
+  cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each quarter.",
+  sec: "Securities are the surplus-funding plug: funding beyond loans, cash, and other assets is invested here at the securities yield.",
+  htm: "Held-to-maturity portion of the securities book (designated books; carried at amortized cost, AOCI-immune).",
+  grossLoans: "Each product rolls forward: prior balance + new originations \u2212 runoff/paydown \u2212 charge-offs; summed across loan products.",
+  alll: "Allowance = each amortized-cost product's reserve rate \u00d7 its ending balance, summed.",
+  netLoans: "Gross loans \u2212 allowance for loan losses.",
+  hfs: "Loans designated held for sale in the origination quarter, warehoused until sale; no allowance carried.",
+  msr: "Mortgage servicing right: capitalized at the cap rate on serviced principal when sold loans settle; amortized with portfolio runoff.",
+  premises: "Premises & equipment as assumed (sidebar), less accumulated premises depreciation if configured.",
+  totalAssets: "Sum of the asset lines above \u2014 hover shows this column's addition.",
+  deposits: "Each deposit product grows at its quarterly growth rate less runoff, from its opening balance.",
+  borrowings: "The funding-shortfall plug: drawn when deposits + capital can't fund assets at the cash floor; repaid first from surplus.",
+  schedBorrow: "Scheduled borrowings draw at their stated quarter and amortize over their term at their rate.",
+  otherLiab: "Other liabilities as assumed (sidebar); held flat.",
+  totalLiab: "Sum of the liability lines above.",
+  paidin: "Initial capital plus staged raises landing at the start of their stated quarter.",
+  retained: "Prior retained earnings + this quarter's net income; no dividends modeled.",
+  aoci: "AOCI moves by the configured sensitivity \u00d7 the AFS book as rates move; HTM is immune.",
+  equity: "Paid-in capital + retained earnings + AOCI.",
+  totalLiabEq: "Total liabilities + total equity \u2014 ties to total assets every quarter (integrity check).",
+  intInc: "Interest accrues on average balances at one quarter of each product's annual yield; floaters reprice at forecast SOFR + spread.",
+  intExp: "Deposit and borrowing interest on average balances at one quarter of the annual rates paid.",
+  nii: "Interest income \u2212 interest expense.",
+  provision: "Change in the allowance + net charge-offs on amortized-cost loans.",
+  feeInc: "Product fee yields on average balances + configured fee-module economics (interchange, service charges, trust, BaaS, rails).",
+  gos: "Gain on sale: sold originations \u00d7 the gain-on-sale margin, recognized at sale (or marked at origination under FVO).",
+  servicing: "Servicing fees on average serviced principal, net of MSR amortization.",
+  nie: "Corporate overhead growing at the overhead rate \u2014 or, when NIE detail is active, FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.",
+  pretax: "Net interest income \u2212 provision + noninterest income \u2212 noninterest expense (+ net fair-value gains where elected).",
+  tax: "Statutory rate on pre-tax income after applying accumulated NOL carryforwards; no deferred tax asset booked.",
+  netIncome: "Pre-tax income \u2212 tax.",
+  tier1: "Equity less intangibles and the above-threshold MSA deduction \u2014 the CBLR framework's numerator.",
+  leverage: "Tier 1 \u00f7 quarter-end total assets (MSA-deducted where applicable) \u2014 judged against the chartering commitment.",
+};
+let _noteTerms = {};
+function regNote(key, hasOpen, terms){ _noteTerms[key] = terms.map(([l,a])=>[l, arr12(a, hasOpen)]); }
+function noteFor(key, idx, v){
+  let t = CALC_TEXT[key] || "";
+  const terms = _noteTerms[key];
+  if(terms && idx != null){
+    const parts = terms.filter(([l,a])=>a && a[idx]!=null && Math.round(a[idx])!==0)
+                        .map(([l,a])=>`${l} ${fmt0(a[idx])}`);
+    if(parts.length) t += (t?"  \u2014  ":"") + "this column: " + parts.join("  +  ") + "  =  " + fmt0(v);
+  }
+  return t || null;
+}
 function fmtP(x,d=2){ return (x==null||isNaN(+x)) ? "n/m" : (+x).toFixed(d)+"%"; }
 function getPath(p){ return p.split(".").reduce((o,k)=> o==null?o : o[isNaN(+k)?k:+k], cfg); }
 function setPath(p, v){ const ks=p.split("."); let o=cfg; for(let i=0;i<ks.length-1;i++){ const k=isNaN(+ks[i])?ks[i]:+ks[i]; if(o[k]==null) o[k]={}; o=o[k]; }
@@ -925,23 +973,24 @@ function arr12(a, hasOpen){
 }
 function rowBS(label, arr, cls, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td>${label}</td>`;
-  arr.forEach(v=>{ h += v==null ? "<td></td>" : cellNum(v); });
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
+  arr.forEach((v,i)=>{ h += v==null ? "<td></td>" : cellNum(v, noteFor(refKey, i, v)); });
   return h + "</tr>";
 }
 function rowIS(label, arr, cls, tot, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td>${label}</td>`;
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
   let sum = 0;
-  arr.forEach(v=>{ if(v!=null) sum += v; h += v==null ? "<td></td>" : cellNum(v); });
+  arr.forEach((v,i)=>{ if(v!=null) sum += v; h += v==null ? "<td></td>" : cellNum(v, noteFor(refKey, i, v)); });
   h += cellNum(tot!==undefined && tot!==null ? tot : sum);
   return h + "</tr>";
 }
 function rowPct(label, arr, d, refKey){
   if(!arr) return "";
   const a = arr.length===13 ? arr.slice(1) : arr;
-  let h = "<tr>" + refCell(refKey) + `<td>${label}</td>`;
-  a.forEach(v=>{ h += `<td>${fmtP(v, d===undefined?2:d)}</td>`; });
+  const nt = CALC_TEXT[refKey] ? ` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"` : "";
+  let h = "<tr>" + refCell(refKey) + `<td${nt}>${label}</td>`;
+  a.forEach(v=>{ h += `<td${nt}>${fmtP(v, d===undefined?2:d)}</td>`; });
   return h + "</tr>";
 }
 function some(a){ return (a||[]).some(v=>v!=null && Math.abs(v)>0.5); }
@@ -1357,6 +1406,11 @@ function renderContent(){
   }
 
   if(currentTab==="bs"){
+    _noteTerms = {};
+    regNote('totalAssets', bsHasOpen, [["Cash", fin.bs.cash], ["Securities", fin.bs.sec || fin.bs.afs],
+      ["Net loans", fin.bs.netLoans], ["Held for sale", fin.bs.hfs], ["MSR", fin.bs.msr],
+      ["Premises", fin.bs.premises], ["Intangibles", fin.bs.intangibles], ["Other", fin.bs.otherAssets]]);
+    regNote('netLoans', bsHasOpen, [["Gross loans", fin.bs.grossLoans], ["\u2212 ALLL", (fin.bs.alll||[]).map(x=>-(x||0))]]);
     h += '<div class="h2">Pro Forma Balance Sheet' + (V21 ? '<span class="schedbadge">SCHEDULE RC</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
     h += `<tr class="section"><td colspan="${V21?15:14}">Assets</td></tr>`;
@@ -1418,6 +1472,12 @@ function renderContent(){
 
   if(currentTab==="is"){
     const T = F.is_totals || {};
+    _noteTerms = {};
+    const _neg = a => (a||[]).map(x=>-(x||0));
+    regNote('nii', false, [["Loan interest", fin.is.loanInt || fin.is.intLoans], ["Securities", fin.is.intSec],
+      ["Cash", fin.is.intCash || fin.is.cashInt], ["\u2212 Deposit interest", _neg(fin.is.intDep || fin.is.depExp)],
+      ["\u2212 Borrowing interest", _neg(fin.is.intBorrow || fin.is.borrExp)]]);
+    regNote('netIncome', false, [["Pre-tax", fin.is.pretax], ["\u2212 Tax", _neg(fin.is.tax)]]);
     h += '<div class="h2">Pro Forma Income Statement (quarterly)' + (V21 ? '<span class="schedbadge">SCHEDULE RI</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(false, true);
     h += rowIS('Interest Income: Loans', fin.is.loanInt || fin.is.intLoans, null, T.loanInt ?? T.intLoans, 'loanInt');
@@ -1552,11 +1612,11 @@ function renderContent(){
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Capital derivation ($000s)</th>';
       for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>Q${qq}</th>`;
       h += '</tr>';
-      h += rowBS('Tier 1 capital', rows.tier1);
+      h += rowBS('Tier 1 capital', rows.tier1, null, 'tier1');
       h += rowBS('\u2014 securitization gain-on-sale deduction (not modeled; parked decision \u2014 caveat register)', rows.sec_gos_deduction);
       h += rowBS('\u2014 MSA excess over 25% of Tier 1 (12 CFR 3.22(d), approximated)', rows.msa_excess.map(x=>-x));
       h += rowBS('Average assets, net of deductions', rows.avg_assets_net);
-      h += rowPct('Leverage ratio', rows.leverage.map(x=>x==null?null:x*100));
+      h += rowPct('Leverage ratio', rows.leverage.map(x=>x==null?null:x*100), undefined, 'leverage');
       h += rowPct('Statutory CBLR requirement', rows.leverage.map(()=>T3.statutory*100), 2);
       if(T3.chartering!=null) h += rowPct('Chartering-authority operating minimum (client commitment)', rows.leverage.map(()=>T3.chartering*100), 2);
       if(T3.management!=null) h += rowPct('Management capital target (buffer; breach is a warning, not a compliance event)', rows.leverage.map(()=>T3.management*100), 2);
