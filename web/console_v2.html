@@ -1084,7 +1084,7 @@ window.secAdd = function(kind){
   (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
     {name: kind ? "Treasuries (HTM)" : "Agency MBS (AFS)", opening: 10_000_000,
       purchases_q: 0, growth_q: 0, runoff_q: 0, yield_ann: kind ? 0.042 : 0.04});
-  renderGlobals(); refresh();
+  renderGlobals(); renderContent(); refresh();
 };
 window.poAdd = function(){
   cfg.pre_opening = cfg.pre_opening || {};
