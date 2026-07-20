@@ -670,7 +670,7 @@ function fieldsFor(fam, p, base){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
     h += F("New originations ($000s/qtr)", base+".originations_q", "k");
     h += F("Origination growth (%/qtr)", base+".orig_growth_q", "pct");
-    h += F("Runoff rate (%/qtr)", base+".runoff_q", "pct");
+    h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
     if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
@@ -690,6 +690,7 @@ function fieldsFor(fam, p, base){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
     h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "kq");
+    h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
     if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
