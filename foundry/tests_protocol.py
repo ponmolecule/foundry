@@ -1491,6 +1491,34 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t54():
+    print("T54 deposit grammar: absolute net-new inflows (Patrick's DEP roll)")
+    import json as _j
+    cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg = _j.loads(_j.dumps(cfg))
+    d0 = cfg["assumptions"]["deposit_products"][0]
+    d0["opening_balance"] = 0.0
+    d0["growth_q"] = 0.0
+    d0["runoff_q"] = 0.02
+    d0["new_deposits_q"] = 9_000_000.0   # Patrick: $3M/month x 3
+    from foundry.v2.run_q import run_v2
+    r = run_v2(cfg)
+    # hand roll: q1 = 0*(1-.02)+9M ; q2 = q1*(1-.02)+9M ; q3 likewise
+    exp = 0.0
+    for _ in range(3): exp = exp * 0.98 + 9_000_000.0
+    prod = [p for p in r["products"] if p["family"] == "deposit"][0]
+    got = prod["bal"][3]
+    check("T54a", "zero-opening bank grows on absolute inflows (pct-of-zero trap closed)",
+          got > 0)
+    check("T54b", f"Q3 balance matches the hand roll ({exp:,.0f} — payload reports $000s)",
+          abs(got * 1000.0 - exp) < 1000.0)
+    cfg2 = _j.loads(_j.dumps(cfg))
+    cfg2["assumptions"]["deposit_products"][0].pop("new_deposits_q")
+    r2 = run_v2(cfg2)
+    check("T54c", "field absent -> behavior identical to before the feature (additive default-off)",
+          [p for p in r2["products"] if p["family"] == "deposit"][0]["bal"][3] == 0.0)
+
+
 def t53():
     print("T53 challenge thresholds are data, visible, provenance-tagged")
     import foundry.v2.challenge_q as ch, inspect
@@ -1505,7 +1533,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -431,3 +431,22 @@ Format: **F-### [origin: P/R/both] — assertion Foundry v3 must satisfy — (de
 ---
 
 *End of floor document. Companion narrative: `patrick-vs-roman-comparison.md` (same evidence base, argumentative form).*
+
+
+**D-P19 — Deposit "Average maturity (months)" is a dead input.** ASSM_BS rows
+41/46/51/56/61/66 (all six deposit products; Time carries 24, Brokered 12) are
+referenced by zero formulas anywhere in the workbook — verified by a full-sheet
+formula scan for `ASSM_BS!$C$41/46/51/56/61/66`. Maturity drives no repricing,
+no scheduled rollover, no runoff: the roll uses the annual runoff rate alone.
+Same class as the nine-input macro framework (D-P12): an assumption surface
+that promises mechanics the model does not have. Foundry deliberately does not
+copy the field; if CD ladders matter, they enter as a real mechanic, not a label.
+
+## 35. One save, three doors; freeze is notarization, not storage
+All engagement saves route through one dialog-free function: name = the
+scenario name (top-right field), banner outcomes, no prompt() anywhere in the
+flow (the Start link, the chevron-menu action, and the Configuration Save
+button are the same door in three places). Freeze is distinguished in-app:
+notarized evidence (config + result hashes, immutable, re-verifiable), never a
+reusable profile — the Governance copy states it beside the button, and the
+freeze label is the scenario name automatically.

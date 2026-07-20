@@ -163,8 +163,11 @@ def run_pf_a(cfg):
     for p in dep + obs:
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
+            # absolute net-new inflows (Patrick's deposit grammar: dollars walk in
+            # regardless of the current balance; monthly figures convert at x3)
             end = max(0.0, beg * (1 + _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
-                                  - _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0)))
+                                  - _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0))
+                          + _ovq(p, "new_deposits_q", q, p.get("new_deposits_q") or 0.0))
             avg = (beg + end) / 2.0
             r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)

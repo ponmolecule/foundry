@@ -178,3 +178,14 @@ Monthly-chassis-native fair-value election remains deferred (the balance-driven
 family carries FV; the driver-based monthly paradigm does not, by decision
 recorded in the ledger reconciliation note). RWA ratios, journal-entry engine,
 prepayment MSR revaluation, multi-entity consolidation: unchanged non-goals.
+
+## Deposit grammar: absolute net-new inflows (Patrick parity)
+The deposit advance is `end = max(0, beg × (1 + growth_q − runoff_q) + new_deposits_q)`.
+`new_deposits_q` is an absolute dollar inflow per quarter (override-capable),
+matching the source model's DEP roll (`end = beg + new$ − runoff`), where new
+deposits arrive regardless of the current balance — the canonical de novo
+pattern (opening 0, dollars walk in) that percentage growth cannot express.
+Monthly figures from the source model convert at ×3 per quarter; runoff applies
+to the beginning balance once per quarter (coarser than the source's monthly
+application — a documented conversion, deliberate under the quarterly clock).
+Field absent ⇒ term is zero ⇒ behavior identical to pre-feature (gate T54c).

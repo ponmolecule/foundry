@@ -44,6 +44,7 @@ DEP_FIELDS = [
     ("call_report_line", "Call Report line", "fact — resolved, do not edit"),
     ("opening_balance", "Opening balance", "$"),
     ("growth_q", "Balance growth", "rate/qtr"),
+    ("new_deposits_q", "New deposits", "$/quarter (monthly x3)"),
     ("runoff_q", "Runoff", "rate/qtr"),
     ("rate_paid_ann", "Rate paid", "annual rate"),
     ("fee_yield_ann", "Fees", "annual % of avg balance"),

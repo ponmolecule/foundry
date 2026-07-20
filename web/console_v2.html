@@ -653,6 +653,7 @@ function fieldsFor(fam, p, base){
   } else if(fam==="deposit"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
+    h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "kq");
     if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
@@ -730,6 +731,7 @@ function ovFieldsFor(fam, p){
     f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
   } else if(fam==="deposit"){
     f.push(["growth_q","Growth (%/qtr)","pct"]);
+    f.push(["new_deposits_q","New deposits ($000s/qtr)","kq"]);
     f.push(["runoff_q","Runoff (%/qtr)","pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
@@ -1901,11 +1903,13 @@ async function loadRegistry(force){
   if(currentTab==="config") renderContent();
 }
 async function freezeRun(){
-  const label = prompt("Label for this frozen run:", cfg.scenario_name || "") ;
-  if(label===null) return;
+  const label = cfg.scenario_name || cfg.client_legal_name || "unlabeled run";
+  appStatus("busy", "Freezing \u2014 running and notarizing\u2026");
   const r = await fetch("/api/v2/freeze", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({cfg, label})});
-  if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
+  if(!r.ok){ appStatus("err", "<b>Freeze refused (fail-closed)</b> \u2014 the configuration has open validation questions; resolve them and refreeze. Nothing was recorded."); return; }
+  let j={}; try{ j = await r.json(); }catch(e){}
+  appStatus("ok", `<b>Frozen.</b> \u201c${esc(label)}\u201d is notarized in the registry${j.run_id?` as <span style="font-family:var(--mono)">${esc(String(j.run_id))}</span>`:""} \u2014 an immutable, re-verifiable record of this exact run. To save a reusable working profile instead, use Save (\u25be menu, top right).`);
   await loadRegistry(true);
 }
 async function verifyRun(id, btn){
@@ -1918,7 +1922,7 @@ async function verifyRun(id, btn){
 }
 async function loadFrozen(id){
   const r = await fetch("/api/v2/frozen/" + id + "/config");
-  if(!r.ok){ alert("Frozen run not found."); return; }
+  if(!r.ok){ appStatus("err", "<b>Frozen run not found</b> \u2014 the registry entry may predate this workspace."); return; }
   cfg = await r.json();
   document.getElementById("scenarioName").value = cfg.scenario_name || "";
   renderGlobals(); refresh(); setTab("products");
@@ -1928,16 +1932,19 @@ window.downloadWorkbook=downloadWorkbook; window.uploadWorkbook=uploadWorkbook;
 window.delEngagement = async function(slug){
   if(!confirm(`Delete saved engagement "${slug}"? The file is removed; the built-in demo cases are unaffected.`)) return;
   const r = await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}`, {method:"DELETE"});
-  if(!r.ok){ alert("Delete failed: " + ((await r.json()).error || r.status)); return; }
+  if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Delete failed</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
+  appStatus("ok", `<b>Deleted</b> \u201c${esc(slug)}\u201d from the engagement store.`);
   loadEngStore(true); setTimeout(renderContent, 250);
 };
 window.saveCurrentEng = async function(){
-  const name = prompt("Name this engagement (the live configuration will be saved exactly as it stands):");
-  if(!name) return;
+  const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "").trim();
+  if(!nm){ appStatus("err", "<b>Name it first</b> \u2014 type a scenario / client name in the top-right field, then save."); return; }
   const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name})});
-  const j = await r.json();
-  if(!r.ok){ alert("Save refused: " + (j.error || r.status)); return; }
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})});
+  let j={}; try{ j = await r.json(); }catch(e){}
+  if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
+  window._lastSavedAt = new Date();
+  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the \u25be menu, top right.`);
   loadEngStore(true); setTimeout(renderContent, 250);
 };
 window.freezeRun=freezeRun; window.verifyRun=verifyRun; window.loadFrozen=loadFrozen;
@@ -2626,6 +2633,7 @@ function renderGovTab(){
       h += '<div class="warnitem"><strong>Storage notice:</strong> ' + esc(regData.status.note || "registry storage is ephemeral on this deployment.") + '</div>';
     }
     h += '<div style="margin:10px 0"><button class="btn-gold" onclick="freezeRun()">Freeze current run</button></div>';
+    h += '<div class="memo" style="margin:2px 0 12px;font-size:11px">Freeze \u2260 Save. A <b>freeze</b> notarizes this exact run \u2014 config + result hashes, immutable, re-verifiable for examiners; it is evidence, not a workspace. To keep a <b>reusable working profile</b>, use Save (the \u25be menu top right, or the Save button on Configuration) \u2014 saved engagements are mutable and reopenable from anywhere.</div>';
     const es = regData.entries || [];
     if(!es.length){ h += '<div class="okbox">No frozen runs yet.</div>'; }
     else {
