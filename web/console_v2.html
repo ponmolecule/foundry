@@ -2406,7 +2406,7 @@ function cfgSave(){
 window.cfgSave = cfgSave;
 window.modGo = function(anchor){ const el = document.getElementById(anchor); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); el.style.outline = "1.5px solid #DFA85A"; setTimeout(()=>{ el.style.outline = "none"; }, 1400); } };
 window.capSeed = function(){
-  (cfg.assumptions.capital_raises = cfg.assumptions.capital_raises || []).push({quarter:4, amount:10_000_000});
+  (cfg.assumptions.capital_raises = cfg.assumptions.capital_raises || []).push({quarter:1, amount:10_000_000});
   renderContent(); refresh();
 };
 window.feeSeed = function(){ fmOn('interchange'); };
@@ -2495,11 +2495,11 @@ function structuresSectionsHtml(){
         + `</select><input type="text" inputmode="decimal" style="width:112px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
         + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
-    _r += '<button class="pillbtn" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:4,amount:10000000});renderContent();refresh()">+ Add a raise</button>';
+    _r += '<button class="pillbtn" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:1,amount:10000000});renderContent();refresh()">+ Add a raise</button>';
     _r += `<div class="cmut">${raises.length} raise${raises.length===1?"":"s"} added</div>`;
     let _b = '<div class="csub">Scheduled borrowings</div>';
     sbs.forEach((b,i)=>{
-      _b += `<div class="crow"><input style="flex:1 1 150px;min-width:130px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Qtr<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
+      _b += `<div class="crow" style="flex-wrap:nowrap;overflow-x:auto"><input style="flex:1 1 110px;min-width:90px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Qtr<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
         + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:92px" title="draw $000s" value="${fmtComma((b.amount||0)/1000)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:60px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:54px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">qtrs</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
