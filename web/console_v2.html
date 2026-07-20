@@ -2422,7 +2422,7 @@ function structuresSectionsHtml(){
   h += swTile("Fee modules", feeOnN>0, "fee", "stack",
               `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
               feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 click to activate with Interchange");
-  h += '</div><div class="mp-info"><span style="border:1px solid #4A5A75;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 18px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
+  h += '</div><div class="mp-info"><span style="border:1px solid #4A5A75;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 18px">i</span>Text entry boxes are activated based on what module(s) are enabled.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
