@@ -106,7 +106,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
   padding:20px 24px 24px;min-height:198px}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
-.mp-info{display:flex;align-items:center;gap:7px;font-size:11px;color:#8FA3C0;margin:12px 0 0}
+.mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
 .ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;row-gap:22px}
 .tacct{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:0;row-gap:0;margin-top:-18px}
 .tacct>div:nth-child(-n+2){padding-top:18px}
@@ -2422,7 +2422,7 @@ function structuresSectionsHtml(){
   h += swTile("Fee modules", feeOnN>0, "fee", "stack",
               `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
               feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 click to activate with Interchange");
-  h += '</div><div class="mp-info"><span style="border:1px solid #3A4C6E;border-radius:50%;width:14px;height:14px;display:inline-flex;align-items:center;justify-content:center;font-size:9px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
+  h += '</div><div class="mp-info"><span style="border:1px solid #4A5A75;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 18px">i</span>Steps and pages appear automatically from what this document contains.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
