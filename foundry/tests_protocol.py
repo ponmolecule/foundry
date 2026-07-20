@@ -328,8 +328,9 @@ def t22():
     wb = _lw(_io.BytesIO(data))
     check("T22a", "deposits-only FIW: no loan sheet (disclosure extends to paper; "
                     "STATE is the hidden self-containment sheet)",
-          wb.sheetnames == ["README", "CONTROL", "ASSM_DEPOSITS", "LIMITS", "STATE"]
-          and wb["STATE"].sheet_state == "veryHidden", str(wb.sheetnames))
+          wb.sheetnames == ["README", "CONTROL", "ASSM_DEPOSITS", "LIMITS", "SETTINGS", "STATE"]
+          and wb["STATE"].sheet_state == "veryHidden"
+          and wb["SETTINGS"].sheet_state == "visible", str(wb.sheetnames))
     check("T22b", "generation hash on README matches the canonical hash",
           any(r[0].value == "Generation hash" and r[1].value == cfg_hash(cfg) for r in wb["README"].iter_rows()))
     dep = {(r[0].value): r[3].value for r in wb["ASSM_DEPOSITS"].iter_rows(min_row=2)}
@@ -1491,6 +1492,35 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t56():
+    print("T56 SETTINGS sheet: every in-app input visible, none of it imported")
+    import json as _j, io as _io, openpyxl as _ox
+    from foundry.v2 import fiw as _fiw
+    cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    a = cfg["assumptions"]
+    a["scheduled_borrowings"] = [{"start_q": 2, "amount": 5_000_000, "term_q": 8, "rate_ann": 0.06}]
+    a["securities_afs"] = [{"name": "Agency MBS", "opening": 10_000_000, "yield_ann": 0.04}]
+    a["fee_modules"] = {"interchange": {"penetration": 0.5}}
+    out = _fiw.build_fiw(cfg)
+    data = out[0] if isinstance(out, tuple) else out
+    data = data.getvalue() if hasattr(data, "getvalue") else data
+    wb = _ox.load_workbook(_io.BytesIO(data))
+    check("T56a", "SETTINGS sheet exists and is visible", "SETTINGS" in wb.sheetnames
+          and wb["SETTINGS"].sheet_state == "visible")
+    txt = " ".join(str(c2.value) for r in wb["SETTINGS"].iter_rows() for c2 in r if c2.value is not None)
+    check("T56b", "states treasury, borrowings, securities, fee modules, stress",
+          "Cash floor" in txt and "Borrowing 1" in txt and "Agency MBS" in txt
+          and "interchange" in txt and "Stress parameters" in txt)
+    check("T56c", "declares itself not-imported", "NOT imported" in txt)
+    # editing a SETTINGS cell produces zero edits on import
+    wb["SETTINGS"]["B5"] = 0.99
+    buf2 = _io.BytesIO(); wb.save(buf2)
+    merged, rep = _fiw.diff_import(buf2.getvalue(), _j.loads(_j.dumps(cfg)))
+    check("T56d", "SETTINGS edits are ignored by the import (stated, never merged)",
+          rep["edit_count"] == 0
+          and merged["assumptions"]["cash_target_pct_deposits"] == cfg["assumptions"]["cash_target_pct_deposits"])
+
+
 def t54():
     print("T54 deposit grammar: absolute net-new inflows (Patrick's DEP roll)")
     import json as _j
@@ -1563,7 +1593,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -155,6 +155,7 @@ def build_fiw(cfg):
     _kv_sheet(lm, rows)
 
     buf = io.BytesIO()
+    _settings_sheet(wb, cfg)   # human-readable review of every in-app-configured input
     _embed_state(wb, cfg)      # the workbook carries its own generation state
     wb.save(buf)
     return buf.getvalue(), gh
@@ -173,6 +174,66 @@ def _snap_dir():
 
 STATE_SHEET = "STATE"
 _CHUNK = 30000
+
+def _settings_sheet(wb, cfg):
+    """SETTINGS: read-only statement of everything configured in-app — the
+    inputs that have no editable cells elsewhere in this workbook. A reviewer
+    sees every entered value; the import deliberately ignores this sheet."""
+    a = cfg.get("assumptions") or {}
+    ws = wb.create_sheet("SETTINGS")
+    ws.append(["SETTINGS — configured in-app (read-only)"])
+    ws["A1"].font = Font(bold=True, size=12)
+    ws.append(["Edits on this sheet are NOT imported. These inputs are configured in the app; "
+               "they are stated here so the workbook is a complete record of the engagement."])
+    ws.append([])
+    def sec(title): ws.append([title]); ws[f"A{ws.max_row}"].font = Font(bold=True)
+    def row(label, val, unit=""):
+        ws.append([f"  {label}", "" if val is None else val, unit])
+    sec("Treasury (funding waterfall)")
+    row("Cash floor (% of deposits)", a.get("cash_target_pct_deposits"), "rate")
+    row("Yield on cash", a.get("cash_yield"), "annual rate")
+    row("Yield on securities", a.get("securities_yield"), "annual rate")
+    row("Borrowing rate", a.get("borrow_rate_ann"), "annual rate")
+    sec("Overhead & other balance sheet")
+    row("Corporate overhead", a.get("overhead_q"), "$/quarter")
+    row("Overhead growth", a.get("overhead_growth_q"), "rate/qtr")
+    row("Premises & equipment", a.get("premises_equipment"), "$")
+    row("Premises depreciation", a.get("premises_depreciation_annual"), "$/year")
+    row("Intangibles", a.get("intangibles"), "$")
+    row("Other assets", a.get("other_assets"), "$")
+    row("Other liabilities", a.get("other_liabilities"), "$")
+    sec("Scheduled borrowings")
+    for i, b in enumerate(a.get("scheduled_borrowings") or [], 1):
+        row(f"Borrowing {i}", f"start Q{b.get('start_q')}, {b.get('amount')}, "
+                               f"{b.get('term_q')}q at {b.get('rate_ann')}", "")
+    if not (a.get("scheduled_borrowings") or []): row("(none)", "")
+    sec("Pre-opening expenses")
+    for e in ((cfg.get("pre_opening") or {}).get("expenses") or []):
+        row(e.get("label") or "expense", e.get("amount"), "$")
+    if not ((cfg.get("pre_opening") or {}).get("expenses") or []): row("(none)", "")
+    sec("Securities books")
+    for p in (a.get("securities_afs") or []): row(f"AFS — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
+    for p in (a.get("securities_htm") or []): row(f"HTM — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
+    if not ((a.get("securities_afs") or []) + (a.get("securities_htm") or [])): row("(none)", "")
+    row("AOCI sensitivity", a.get("aoci_sensitivity_annual"), "% of AFS/yr")
+    sec("NIE detail")
+    nd = a.get("nie_detail") or {}
+    for s in (nd.get("fte_steps") or []): row(f"FTE step Q{s.get('quarter')}", s.get("fte"), f"avg comp {s.get('avg_comp')}")
+    for cat in (nd.get("categories") or []): row(cat.get("name") or "category", cat.get("amount_q"), "$/quarter")
+    if not nd: row("(not active)", "")
+    sec("Fee modules")
+    fm = a.get("fee_modules") or {}
+    for k, v in fm.items():
+        if v: row(k, str(v)[:120], "")
+    if not any(fm.values()) if fm else True: row("(none active)", "")
+    sec("SOFR rate path (Q1..Q12)")
+    row("Path", ", ".join(str(x) for x in (a.get("rate_path_q") or [])), "annual")
+    row("Longer run", a.get("rate_path_longer_run"), "annual")
+    sec("Stress parameters")
+    for k, v in (cfg.get("stress_params") or {}).items(): row(k, v, "")
+    ws.column_dimensions["A"].width = 44
+    ws.column_dimensions["B"].width = 40
+
 
 def _embed_state(wb, cfg):
     ws = wb.create_sheet(STATE_SHEET)
