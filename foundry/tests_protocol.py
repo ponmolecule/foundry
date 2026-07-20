@@ -1492,6 +1492,58 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t58():
+    print("T58 Tier-1 accounts: identity, isolation, reset kit")
+    import os as _os, tempfile as _tf, json as _j, importlib
+    prev = _os.environ.get("FOUNDRY_DATA_DIR")
+    td = _tf.mkdtemp(prefix="t58-")
+    _os.environ["FOUNDRY_DATA_DIR"] = td
+    try:
+        from foundry import auth as _auth, store as _store
+        importlib.reload(_auth)
+        users = _auth.load_users()
+        check("T58a", "all eight accounts provisioned from the seed",
+              all(u in users for u in ("bgraham","kalt","malt","kmiller",
+                                          "phaggerty","rgoldstein","poloyede","jatala")))
+        check("T58a", "secrets are scrypt-hashed, never plaintext",
+              all("$" in users[u]["password"] and len(users[u]["recovery"]) == 5 for u in users))
+        # deterministic test users (the minted passwords live only in the handout)
+        users["alice"] = {"password": _auth.hash_secret("alice-pw-123"),
+                           "recovery": [_auth.hash_secret("AAAA-BBBB")], "deputy": False}
+        users["bob"] = {"password": _auth.hash_secret("bob-pw-12345"),
+                         "recovery": [], "deputy": True}
+        _auth.save_users(users)
+        check("T58b", "password login returns the identity",
+              _auth.authenticate("alice", "alice-pw-123") == "alice"
+              and _auth.authenticate("alice", "wrong") is None)
+        # isolation: alice saves; bob cannot see or load it
+        cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfg["scenario_name"] = "Alice Private Bank"
+        _store.save_engagement(cfg, slug="alice-private", user="alice")
+        check("T58c", "engagements are welded to their owner",
+              any(e["slug"] == "alice-private" for e in _store.list_engagements(user="alice"))
+              and not any(e["slug"] == "alice-private" for e in _store.list_engagements(user="bob")))
+        try:
+            _store.load_engagement("alice-private", user="bob"); leaked = True
+        except FileNotFoundError:
+            leaked = False
+        check("T58c", "cross-user load fails closed", not leaked)
+        check("T58d", "self-service password change",
+              _auth.change_password("alice", "alice-pw-123", "alice-new-pw1")
+              and _auth.authenticate("alice", "alice-new-pw1") == "alice")
+        check("T58e", "recovery burns the code and sets the password",
+              _auth.recover("alice", "AAAA-BBBB", "alice-rec-pw1")
+              and _auth.authenticate("alice", "alice-rec-pw1") == "alice"
+              and not _auth.recover("alice", "AAAA-BBBB", "again-pw-123"))
+        check("T58f", "deputy resets; non-deputy refused",
+              _auth.deputy_reset("bob", "alice", "temp-pw-1234")
+              and _auth.authenticate("alice", "temp-pw-1234") == "alice"
+              and not _auth.deputy_reset("alice", "bob", "hax-pw-12345"))
+    finally:
+        if prev is None: _os.environ.pop("FOUNDRY_DATA_DIR", None)
+        else: _os.environ["FOUNDRY_DATA_DIR"] = prev
+
+
 def t57():
     print("T57 duplicate-definition hygiene: the cascade-trap disease stays dead")
     import re
@@ -1644,7 +1696,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

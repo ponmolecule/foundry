@@ -11,7 +11,7 @@ Deploy: uvicorn app:app --host 0.0.0.0 --port $PORT
 """
 import os, secrets, json
 from fastapi import Request, FastAPI, HTTPException, Depends, UploadFile, File, Form
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, HTMLResponse
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from foundry.run import run
 from foundry.registry import ENGAGEMENTS, register_config
@@ -26,11 +26,19 @@ _cache = {}
 
 
 def gate(creds: HTTPBasicCredentials = Depends(security)):
+    """Tier-1 accounts: per-user credentials (scrypt) with the legacy env
+    credential still honored as its own user until the domain cutover.
+    Returns the authenticated username — endpoints use it to namespace."""
+    from foundry import auth as _auth
+    who = _auth.authenticate(creds.username, creds.password)
+    if who:
+        return who
     ok = (secrets.compare_digest(creds.username, USER)
           and secrets.compare_digest(creds.password, PASS))
     if not ok:
         raise HTTPException(401, "Unauthorized",
                             headers={"WWW-Authenticate": "Basic realm=Foundry"})
+    return USER
 
 
 @app.get("/api/engagements")
@@ -139,23 +147,23 @@ def console_v31(_=Depends(gate)):
 
 
 @app.get("/api/v31/engagements")
-def v31_engagements(_=Depends(gate)):
+def v31_engagements(user=Depends(gate)):
     from foundry import store
-    return JSONResponse({"engagements": store.list_engagements(),
+    return JSONResponse({"engagements": store.list_engagements(user=user),
                           "schema_version": store.CONFIG_SCHEMA_VERSION})
 
 
 @app.delete("/api/v31/engagement/{slug}")
-def v31_engagement_delete(slug: str, _=Depends(gate)):
+def v31_engagement_delete(slug: str, user=Depends(gate)):
     from foundry import store
     try:
-        return JSONResponse({"deleted": store.delete_engagement(slug)})
+        return JSONResponse({"deleted": store.delete_engagement(slug, user=user)})
     except FileNotFoundError:
         return JSONResponse({"error": "no such engagement"}, status_code=404)
 
 
 @app.post("/api/v31/engagement/save-current")
-def v31_engagement_save_current(body: dict, _=Depends(gate)):
+def v31_engagement_save_current(body: dict, user=Depends(gate)):
     """Promote the live configuration to a saved engagement — no wizard required."""
     from foundry import store
     cfg = body.get("config")
@@ -165,16 +173,16 @@ def v31_engagement_save_current(body: dict, _=Depends(gate)):
     cfg.setdefault("proposed_bank", name)
     cfg.setdefault("client", name)
     try:
-        return JSONResponse(store.save_engagement(cfg, slug=name))
+        return JSONResponse(store.save_engagement(cfg, slug=name, user=user))
     except store.SchemaVersionError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
 @app.get("/api/v31/engagement/{slug}")
-def v31_engagement(slug: str, _=Depends(gate)):
+def v31_engagement(slug: str, user=Depends(gate)):
     from foundry import store
     try:
-        return JSONResponse(store.load_engagement(slug))
+        return JSONResponse(store.load_engagement(slug, user=user))
     except FileNotFoundError:
         return JSONResponse({"error": "no such engagement"}, status_code=404)
     except store.SchemaVersionError as e:
@@ -195,6 +203,83 @@ def v31_template(_=Depends(gate)):
 def v31_challenge_thresholds(_=Depends(gate)):
     from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
     return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS}
+
+@app.get("/account")
+def account_page():
+    """Public page: password change (auth'd via Basic on the API call),
+    recovery with a one-time code, deputy reset. Unauthenticated by design —
+    it must be reachable when the password is lost."""
+    html = """<!doctype html><meta charset="utf-8"><title>Foundry — Account</title>
+<style>body{background:#0A1830;color:#E6E8EC;font-family:Inter,'Segoe UI',sans-serif;max-width:520px;margin:40px auto;padding:0 16px}
+h1{font-size:22px;font-weight:600}h2{font-size:15px;font-weight:600;margin:26px 0 8px;color:#D8A85E}
+input{display:block;width:100%;margin:6px 0;padding:9px 11px;background:#0E1626;border:1px solid #33436199;color:#EDF1F7;border-radius:7px;font-size:14px}
+button{margin-top:8px;padding:9px 16px;background:#D8A85E;color:#0A1830;border:none;border-radius:7px;font-weight:600;cursor:pointer}
+.msg{margin-top:10px;font-size:13px;min-height:18px}.ok{color:#7FB07F}.err{color:#E08585}
+p{font-size:13px;color:#9CA7B7;line-height:1.5}</style>
+<h1>Foundry — Account</h1>
+<h2>Change password</h2>
+<p>Signs in with your current credentials when you submit.</p>
+<input id="c_cur" type="password" placeholder="Current password">
+<input id="c_new" type="password" placeholder="New password (8+ characters)">
+<button onclick="chg()">Change password</button><div class="msg" id="c_msg"></div>
+<h2>Forgot password — recover with a one-time code</h2>
+<input id="r_user" placeholder="Username">
+<input id="r_code" placeholder="Recovery code (e.g. AB12-CD34)">
+<input id="r_new" type="password" placeholder="New password (8+ characters)">
+<button onclick="rec()">Recover</button><div class="msg" id="r_msg"></div>
+<h2>Deputy: reset a colleague's password</h2>
+<p>Deputies only. Signs in with <b>your</b> credentials when you submit.</p>
+<input id="d_user" placeholder="Colleague's username">
+<input id="d_tmp" placeholder="Temporary password to issue (8+ characters)">
+<button onclick="dep()">Issue temporary password</button><div class="msg" id="d_msg"></div>
+<script>
+async function post(url, body, msgId){
+  const el = document.getElementById(msgId);
+  el.className = "msg"; el.textContent = "\u2026";
+  try{
+    const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(body)});
+    const j = await r.json().catch(()=>({}));
+    if(r.ok){ el.className = "msg ok"; el.textContent = "Done."; return true; }
+    el.className = "msg err"; el.textContent = j.detail || j.error || ("Failed (" + r.status + ")");
+  }catch(e){ el.className = "msg err"; el.textContent = "Could not reach the server."; }
+  return false;
+}
+const v = id => document.getElementById(id).value;
+function chg(){ post("/api/auth/change-password", {current_password: v("c_cur"), new_password: v("c_new")}, "c_msg"); }
+function rec(){ post("/api/auth/recover", {username: v("r_user"), code: v("r_code"), new_password: v("r_new")}, "r_msg"); }
+function dep(){ post("/api/auth/reset-user", {username: v("d_user"), temp_password: v("d_tmp")}, "d_msg"); }
+</script>"""
+    return HTMLResponse(html)
+
+
+@app.post("/api/auth/change-password")
+def auth_change(body: dict, user=Depends(gate)):
+    from foundry import auth as _auth
+    if len(body.get("new_password") or "") < 8:
+        raise HTTPException(422, "New password must be at least 8 characters.")
+    if not _auth.change_password(user, body.get("current_password") or "", body["new_password"]):
+        raise HTTPException(403, "Current password did not verify.")
+    return {"ok": True, "user": user}
+
+@app.post("/api/auth/recover")
+def auth_recover(body: dict):
+    """Public by design: reachable when the password is lost. Verified by a
+    one-time recovery code, which burns on success."""
+    from foundry import auth as _auth
+    if len(body.get("new_password") or "") < 8:
+        raise HTTPException(422, "New password must be at least 8 characters.")
+    if not _auth.recover(body.get("username") or "", body.get("code") or "", body["new_password"]):
+        raise HTTPException(403, "Recovery code did not verify (codes are single-use).")
+    return {"ok": True}
+
+@app.post("/api/auth/reset-user")
+def auth_reset(body: dict, user=Depends(gate)):
+    from foundry import auth as _auth
+    if len(body.get("temp_password") or "") < 8:
+        raise HTTPException(422, "Temporary password must be at least 8 characters.")
+    if not _auth.deputy_reset(user, body.get("username") or "", body["temp_password"]):
+        raise HTTPException(403, "Only a deputy can reset, and the target must exist.")
+    return {"ok": True, "reset": body.get("username")}
 
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
@@ -512,11 +597,11 @@ def v31_fields(activations: str = "", _=Depends(gate)):
 
 
 @app.post("/api/v31/engagement")
-def v31_save_engagement(body: dict, _=Depends(gate)):
+def v31_save_engagement(body: dict, user=Depends(gate)):
     from foundry import store
     try:
         return JSONResponse(store.save_engagement(body.get("cfg") or body,
-                                                   slug=body.get("slug")))
+                                                   slug=body.get("slug"), user=user))
     except store.SchemaVersionError as e:
         return JSONResponse({"error": str(e)}, status_code=409)
 

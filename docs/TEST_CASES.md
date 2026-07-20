@@ -504,3 +504,17 @@ saves are unchanged and never silently overwritten — the working slot is
 footer chip reads "Autosaved HH:MM". No new buttons anywhere; Freeze remains
 ceremonial notarization. This retires the last way an analyst could lose work
 (tab close / refresh / crash between manual saves).
+
+## 37. Tier-1 accounts and the reset kit
+Per-user credentials (scrypt-hashed, seeded from foundry/auth_seed.json into
+$FOUNDRY_DATA_DIR/auth/users.json on first boot; the plaintext handout is
+generated once, outside the repo). Engagements are namespaced per user —
+engagements/{user}/ — and the chevron menu, saves, loads, and deletes are all
+welded to the authenticated identity; cross-user access fails closed (T58c).
+Reset kit for unattended operation: self-service password change, five
+single-use recovery codes per account (burn on use), and deputy reset
+(poloyede, jatala) — all on the public /account page, which must be reachable
+precisely when a password is lost. The legacy FOUNDRY_USER env credential
+remains valid as its own namespaced user until the domain cutover; unset the
+env vars to retire it. Registry, FIW snapshots, and forecast inventories stay
+workspace-shared by ruling (examiner evidence is shared work product).

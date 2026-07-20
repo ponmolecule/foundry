@@ -20,11 +20,15 @@ class SchemaVersionError(ValueError):
     bug is born."""
 
 
-def _dir():
+def _dir(user=None):
     base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
-    d = os.path.join(base, "engagements")
+    d = os.path.join(base, "engagements", _safe_user(user)) if user else os.path.join(base, "engagements")
     os.makedirs(d, exist_ok=True)
     return d
+
+
+def _safe_user(user):
+    return re.sub(r"[^a-z0-9_-]", "", str(user).lower()) or "shared"
 
 
 def slugify(name):
@@ -32,7 +36,7 @@ def slugify(name):
     return s or "engagement"
 
 
-def save_engagement(cfg, slug=None):
+def save_engagement(cfg, slug=None, user=None):
     """Stamp the schema version (if absent), persist, return metadata."""
     cfg2 = json.loads(json.dumps(cfg))  # deep copy via the same codec that stores it
     cfg2.setdefault("config_schema_version", CONFIG_SCHEMA_VERSION)
@@ -42,7 +46,7 @@ def save_engagement(cfg, slug=None):
             f"supported (expected {CONFIG_SCHEMA_VERSION!r}); refusing to save")
     slug = slugify(slug or cfg2.get("client") or cfg2.get("proposed_bank")
                    or cfg2.get("name") or "engagement")
-    path = os.path.join(_dir(), slug + ".json")
+    path = os.path.join(_dir(user), slug + ".json")
     # Insertion order is preserved verbatim: v1 engine results are sensitive
     # to config mapping order (float accumulation follows dict iteration), so
     # sort-normalizing here would silently change run hashes. Discovered by
@@ -53,9 +57,9 @@ def save_engagement(cfg, slug=None):
             "config_schema_version": cfg2["config_schema_version"]}
 
 
-def load_engagement(slug):
+def load_engagement(slug, user=None):
     """Fail-closed load: version must be present and supported."""
-    path = os.path.join(_dir(), slugify(slug) + ".json")
+    path = os.path.join(_dir(user), slugify(slug) + ".json")
     if not os.path.exists(path):
         raise FileNotFoundError(f"no engagement stored at {path}")
     with open(path, encoding="utf-8") as f:
@@ -68,24 +72,24 @@ def load_engagement(slug):
     return cfg
 
 
-def delete_engagement(slug):
+def delete_engagement(slug, user=None):
     """Delete a saved engagement file. Returns the slug; raises if absent."""
     from .configio import slugify
-    path = os.path.join(_dir(), slugify(slug) + ".json")
+    path = os.path.join(_dir(user), slugify(slug) + ".json")
     if not os.path.exists(path):
         raise FileNotFoundError(slug)
     os.remove(path)
     return slugify(slug)
 
 
-def list_engagements():
+def list_engagements(user=None):
     out = []
-    for name in sorted(os.listdir(_dir())):
+    for name in sorted(os.listdir(_dir(user))):
         if not name.endswith(".json"):
             continue
         slug = name[:-5]
         try:
-            with open(os.path.join(_dir(), name), encoding="utf-8") as f:
+            with open(os.path.join(_dir(user), name), encoding="utf-8") as f:
                 cfg = json.load(f)
             out.append({"slug": slug,
                         "name": cfg.get("scenario_name") or cfg.get("client")
