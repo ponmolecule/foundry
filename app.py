@@ -21,24 +21,54 @@ USER = os.environ.get("FOUNDRY_USER", "klaros")
 PASS = os.environ.get("FOUNDRY_PASS", "solstice-2026")
 
 app = FastAPI(title="Foundry", version="0.2.2", docs_url=None, redoc_url=None, openapi_url=None)
-security = HTTPBasic()
+security = HTTPBasic(auto_error=False)
+
+def _session_secret():
+    import os as _os
+    d = _os.path.join(_os.environ.get("FOUNDRY_DATA_DIR", _os.path.join(_os.getcwd(), "data")), "auth")
+    _os.makedirs(d, exist_ok=True)
+    p = _os.path.join(d, "session_secret")
+    if not _os.path.exists(p):
+        with open(p, "w") as fh: fh.write(secrets.token_hex(32))
+    with open(p) as fh: return fh.read().strip()
+
+def make_session(user, days=7):
+    import time, hmac, hashlib as _hl, base64 as _b64
+    exp = str(int(time.time()) + days * 86400)
+    msg = f"{user}|{exp}"
+    sig = hmac.new(_session_secret().encode(), msg.encode(), _hl.sha256).hexdigest()
+    return _b64.urlsafe_b64encode(f"{msg}|{sig}".encode()).decode()
+
+def verify_session(token):
+    import time, hmac, hashlib as _hl, base64 as _b64
+    try:
+        user, exp, sig = _b64.urlsafe_b64decode(token.encode()).decode().split("|")
+        good = hmac.new(_session_secret().encode(), f"{user}|{exp}".encode(), _hl.sha256).hexdigest()
+        if hmac.compare_digest(sig, good) and int(exp) > time.time():
+            return user
+    except Exception:
+        pass
+    return None
 _cache = {}
 
 
-def gate(creds: HTTPBasicCredentials = Depends(security)):
-    """Tier-1 accounts: per-user credentials (scrypt) with the legacy env
-    credential still honored as its own user until the domain cutover.
-    Returns the authenticated username — endpoints use it to namespace."""
-    from foundry import auth as _auth
-    who = _auth.authenticate(creds.username, creds.password)
-    if who:
-        return who
-    ok = (secrets.compare_digest(creds.username, USER)
-          and secrets.compare_digest(creds.password, PASS))
-    if not ok:
-        raise HTTPException(401, "Unauthorized",
-                            headers={"WWW-Authenticate": "Basic realm=Foundry"})
-    return USER
+def gate(request: Request, creds: HTTPBasicCredentials = Depends(security)):
+    """Session cookie (the Welcome-page login) OR Basic (scripts, probes, the
+    legacy env credential) — both return the authenticated username."""
+    tok = request.cookies.get("foundry_session")
+    if tok:
+        who = verify_session(tok)
+        if who:
+            return who
+    if creds is not None:
+        from foundry import auth as _auth
+        who = _auth.authenticate(creds.username, creds.password)
+        if who:
+            return who
+        if (secrets.compare_digest(creds.username, USER)
+                and secrets.compare_digest(creds.password, PASS)):
+            return USER
+    raise HTTPException(401, "Unauthorized")
 
 
 @app.get("/api/engagements")
@@ -134,7 +164,9 @@ def _build_stamp():
 
 @app.get("/v3.1")
 @app.get("/v31")
-def console_v31(_=Depends(gate)):
+def console_v31():
+    # Public shell: the Welcome page IS the login. Every data endpoint stays
+    # behind gate(); an unauthenticated visitor sees the hero + sign-in form.
     """Foundry v3.1 (input-spec rung): the v3 shell plus the input layer -
     Start screen (config-source selector), wizard, FIW. Engine untouched;
     /v2, /v2.1, /v3 are frozen rungs."""
@@ -251,6 +283,30 @@ function dep(){ post("/api/auth/reset-user", {username: v("d_user"), temp_passwo
 </script>"""
     return HTMLResponse(html)
 
+
+@app.post("/api/auth/login")
+def auth_login(body: dict):
+    from foundry import auth as _auth
+    u, p = (body.get("username") or "").strip(), body.get("password") or ""
+    who = _auth.authenticate(u, p)
+    if not who and secrets.compare_digest(u, USER) and secrets.compare_digest(p, PASS):
+        who = USER
+    if not who:
+        raise HTTPException(401, "Username or password did not verify.")
+    resp = JSONResponse({"ok": True, "user": who})
+    resp.set_cookie("foundry_session", make_session(who), max_age=7*86400,
+                     httponly=True, samesite="lax")
+    return resp
+
+@app.post("/api/auth/logout")
+def auth_logout():
+    resp = JSONResponse({"ok": True})
+    resp.delete_cookie("foundry_session")
+    return resp
+
+@app.get("/api/auth/whoami")
+def auth_whoami(user=Depends(gate)):
+    return {"user": user}
 
 @app.post("/api/auth/change-password")
 def auth_change(body: dict, user=Depends(gate)):
