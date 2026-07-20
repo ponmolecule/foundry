@@ -1501,6 +1501,8 @@ def t56():
     a["scheduled_borrowings"] = [{"start_q": 2, "amount": 5_000_000, "term_q": 8, "rate_ann": 0.06}]
     a["securities_afs"] = [{"name": "Agency MBS", "opening": 10_000_000, "yield_ann": 0.04}]
     a["fee_modules"] = {"interchange": {"penetration": 0.5}}
+    cfg["pre_opening"] = {"expenses": [{"category": "Legal & filings", "total": 500_000},
+                                         {"category": "Build-out", "total": 750_000}]}   # the UI's shape
     out = _fiw.build_fiw(cfg)
     data = out[0] if isinstance(out, tuple) else out
     data = data.getvalue() if hasattr(data, "getvalue") else data
@@ -1511,6 +1513,9 @@ def t56():
     check("T56b", "states treasury, borrowings, securities, fee modules, stress",
           "Cash floor" in txt and "Borrowing 1" in txt and "Agency MBS" in txt
           and "interchange" in txt and "Stress parameters" in txt)
+    check("T56b", "pre-opening expenses in the UI's OWN shape ({category,total}) render with values",
+          "Legal & filings" in txt and "500000" in txt.replace(",", "")
+          and "Build-out" in txt and "Total pre-opening burn" in txt and "1250000" in txt.replace(",", ""))
     check("T56c", "declares itself not-imported", "NOT imported" in txt)
     # editing a SETTINGS cell produces zero edits on import
     wb["SETTINGS"]["B5"] = 0.99

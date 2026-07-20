@@ -208,9 +208,14 @@ def _settings_sheet(wb, cfg):
                                f"{b.get('term_q')}q at {b.get('rate_ann')}", "")
     if not (a.get("scheduled_borrowings") or []): row("(none)", "")
     sec("Pre-opening expenses")
-    for e in ((cfg.get("pre_opening") or {}).get("expenses") or []):
-        row(e.get("label") or "expense", e.get("amount"), "$")
-    if not ((cfg.get("pre_opening") or {}).get("expenses") or []): row("(none)", "")
+    _po_ex = (cfg.get("pre_opening") or {}).get("expenses") or []
+    for e in _po_ex:
+        row(e.get("category") or e.get("label") or "expense",
+            e.get("total") if e.get("total") is not None else e.get("amount"), "$")
+    if _po_ex:
+        row("Total pre-opening burn", sum(float(e.get("total", e.get("amount", 0)) or 0) for e in _po_ex), "$ (reduces Day-1 capital)")
+    else:
+        row("(none)", "")
     sec("Securities books")
     for p in (a.get("securities_afs") or []): row(f"AFS — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
     for p in (a.get("securities_htm") or []): row(f"HTM — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
