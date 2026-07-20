@@ -1226,6 +1226,9 @@ function renderPeer(){
   }
   if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(r.peer.status === "pending"){
+    h += `<div class="memo" style="margin:0 0 14px">${esc(r.peer.note||"Peer evidence pending Call Report substrate calibration.")}</div>`;
+    h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
   h += `<div class="ovwm">${esc(r.peer.watermark)}</div>`;
   const kc = [
@@ -2227,6 +2230,7 @@ async function wizFinish(){
   _A.fee_modules = {}; delete _A.nie_detail;
   _A.aoci_sensitivity_annual = 0; _A.premises_depreciation_annual = 0;
   delete _A.org_costs_pre_open;
+  delete cfg.peer_query;
   cfg.proposed_bank = wiz.name; cfg.client_legal_name = wiz.name + " (in organization)";
   cfg.hq = wiz.state || "TBD";
   cfg.scenario_name = wiz.name + " \u2014 engagement baseline";
@@ -2618,7 +2622,7 @@ function renderConfigTab(){
     ["1", "Charter strategy & regulators", g("step_1") ? `${esc(g("step_1.charter")||"")} \u00b7 ${(g("step_1.regulators")||[]).join(", ")}` : null],
     ["2", "Target state", g("target_state") ? `initial capital ${fmt0((g("target_state.initial_capital")||0)/K)} ($000s)` : null],
     ["3", "Assumption book", (g("assumption_tags")||[]).length ? `${(g("assumption_tags")||[]).length} tagged assumptions` : null],
-    ["4", "Peer evidence", co ? `cohort ${esc(co.cohort_id||"")}${co.insufficient_evidence?" \u00b7 INSUFFICIENT":""}` : (g("peer_query")?"query present \u00b7 engine pending":null)],
+    ["4", "Peer evidence", co && co.cohort_id ? `cohort ${esc(co.cohort_id)}${co.insufficient_evidence?" \u00b7 INSUFFICIENT":""}` : (g("peer_query")?"pending Call Report substrate calibration":null)],
     ["5", "Projection engine", r.run_hash ? `engine of record \u00b7 run ${esc(r.run_hash)}` : null],
     ["6", "Constraints & commitments", (g("constraints")||[]).length ? `${(g("constraints")||[]).length} constraints, each with a source` : null],
     ["7", "Scenarios & stress", r.scenarios ? `${Object.keys(r.scenarios).length} scenarios, constraint-tested identically` : null],

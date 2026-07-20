@@ -249,11 +249,17 @@ def main():
             print("  FTP FAIL: contributions + center != consolidated pretax"); sys.exit(1)
         if not any(str(f.get("id","")).startswith("COUPLED") for f in r1.get("flags", [])):
             print("  FAIL: coupled-inconsistency rules produced no COUPLED flag on pf_a_base"); sys.exit(1)
+        # SUPERSEDED (dead-artifact purge): the v1 synthetic 43-bank cohort no
+        # longer feeds the v3.1 path — NO SYNTHETIC DATA. Peer evidence is an
+        # honest pending statement until substrate calibration; no fixture ids,
+        # no synthetic priors, no PEER-* flags derived from invented banks.
         pr = r1.get("peer") or {}
-        if not pr.get("prior_table") or "ILLUSTRATIVE" not in (pr.get("watermark") or ""):
-            print("  FAIL: peer evidence layer missing prior table or watermark"); sys.exit(1)
-        if not any(str(f.get("id","")).startswith("PEER-") for f in r1.get("flags", [])):
-            print("  FAIL: no PEER-* flag on pf_a_base despite cohort outliers"); sys.exit(1)
+        if pr.get("status") != "pending" or "synthetic" in str(pr).lower().replace("no synthetic",""):
+            print("  FAIL: peer layer must be an honest pending statement (no synthetic cohort)"); sys.exit(1)
+        if any(str(f.get("id","")).startswith("PEER-") for f in r1.get("flags", [])):
+            print("  FAIL: PEER-* flags from the invented cohort leaked into results"); sys.exit(1)
+        if "SOLSTICE-DIGCON" in str(r1.get("examiner_book", "")):
+            print("  FAIL: fixture cohort id leaked into the examiner book"); sys.exit(1)
         if not r1.get("examiner_book"):
             print("  FAIL: examiner book empty on pf_a_base"); sys.exit(1)
         cap = r1.get("capital") or {}
