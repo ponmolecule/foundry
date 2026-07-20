@@ -161,13 +161,30 @@ def run_pf_a(cfg):
         p["_alll"][0] = 0.0 if p["_is_fv"] else p["_bal"][0] * (p.get("reserve_rate_pct_bal") or 0.0)
 
     for p in dep + obs:
+        # term products: average maturity (months -> quarters, quarterly clock)
+        # drives cohort roll-OFF — deposits exit when their cohort matures.
+        # The opening balance is a seasoned even ladder (1/mq exits per quarter);
+        # each quarter's inflows form a cohort that exits whole at +mq.
+        _mq = int(round((p.get("avg_maturity_m") or 0.0) / 3.0))
+        _cohorts = {}          # born_q -> remaining balance
+        if _mq > 0 and (p["_bal"][0] or 0.0) > 0:
+            for _k in range(1, _mq + 1):
+                _cohorts[_k - _mq] = p["_bal"][0] / _mq   # ages 1.._mq
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
-            # absolute net-new inflows (Patrick's deposit grammar: dollars walk in
-            # regardless of the current balance; monthly figures convert at x3)
-            end = max(0.0, beg * (1 + _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
-                                  - _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0))
-                          + _ovq(p, "new_deposits_q", q, p.get("new_deposits_q") or 0.0))
+            growth_amt = beg * _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
+            runoff_rt = _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0)
+            new_abs = _ovq(p, "new_deposits_q", q, p.get("new_deposits_q") or 0.0)
+            if _mq > 0:
+                for _b in _cohorts: _cohorts[_b] *= max(0.0, 1 - runoff_rt)
+                matured = _cohorts.pop(q - _mq, 0.0)
+                inflow = max(0.0, growth_amt + new_abs)
+                if inflow > 0: _cohorts[q] = _cohorts.get(q, 0.0) + inflow
+                end = max(0.0, sum(_cohorts.values()))
+                _ = matured  # exits the balance sheet; no other effect
+            else:
+                end = max(0.0, beg * (1 + _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
+                                      - runoff_rt) + new_abs)
             avg = (beg + end) / 2.0
             r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)

@@ -45,6 +45,7 @@ DEP_FIELDS = [
     ("opening_balance", "Opening balance", "$"),
     ("growth_q", "Balance growth", "rate/qtr"),
     ("new_deposits_q", "New deposits", "$/quarter (monthly x3)"),
+    ("avg_maturity_m", "Average maturity", "months; 0 = no term roll-off"),
     ("runoff_q", "Runoff", "rate/qtr"),
     ("rate_paid_ann", "Rate paid", "annual rate"),
     ("fee_yield_ann", "Fees", "annual % of avg balance"),

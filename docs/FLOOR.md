@@ -439,8 +439,10 @@ referenced by zero formulas anywhere in the workbook — verified by a full-shee
 formula scan for `ASSM_BS!$C$41/46/51/56/61/66`. Maturity drives no repricing,
 no scheduled rollover, no runoff: the roll uses the annual runoff rate alone.
 Same class as the nine-input macro framework (D-P12): an assumption surface
-that promises mechanics the model does not have. Foundry deliberately does not
-copy the field; if CD ladders matter, they enter as a real mechanic, not a label.
+that promises mechanics the model does not have. Foundry implements the intent as a real
+mechanic instead: avg_maturity_m drives cohort roll-off on the quarterly clock
+(ENGINE_SPEC § Deposit maturity; gates T55a–c) — the defect remains a defect
+of the source workbook, where the label drives nothing.
 
 ## 35. One save, three doors; freeze is notarization, not storage
 All engagement saves route through one dialog-free function: name = the

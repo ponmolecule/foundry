@@ -1519,6 +1519,36 @@ def t54():
           [p for p in r2["products"] if p["family"] == "deposit"][0]["bal"][3] == 0.0)
 
 
+def t55():
+    print("T55 deposit maturity: cohort roll-off on the quarterly clock")
+    import json as _j
+    from foundry.v2.run_q import run_v2
+    base = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    # (a) CD ladder: opening 0, $9M/q inflows, 12-month maturity (4q), no runoff
+    cfg = _j.loads(_j.dumps(base))
+    d = cfg["assumptions"]["deposit_products"][0]
+    d.update({"opening_balance": 0.0, "growth_q": 0.0, "runoff_q": 0.0,
+               "new_deposits_q": 9_000_000.0, "avg_maturity_m": 12.0})
+    bal = [p for p in run_v2(cfg)["products"] if p["family"] == "deposit"][0]["bal"]
+    check("T55a", "ladder builds 9/18/27/36 then PLATEAUS as cohorts mature ($000s)",
+          [round(b) for b in bal[1:7]] == [9000, 18000, 27000, 36000, 36000, 36000])
+    # (b) seasoned book, no inflows: opening 40M at 12m maturity runs out evenly
+    cfg2 = _j.loads(_j.dumps(base))
+    d2 = cfg2["assumptions"]["deposit_products"][0]
+    d2.update({"opening_balance": 40_000_000.0, "growth_q": 0.0, "runoff_q": 0.0,
+                "new_deposits_q": 0.0, "avg_maturity_m": 12.0})
+    bal2 = [p for p in run_v2(cfg2)["products"] if p["family"] == "deposit"][0]["bal"]
+    check("T55b", "seasoned even ladder runs out 30/20/10/0",
+          [round(b) for b in bal2[1:5]] == [30000, 20000, 10000, 0])
+    # (c) absent/zero maturity -> exact pre-feature behavior
+    cfg3 = _j.loads(_j.dumps(base))
+    r3 = run_v2(cfg3)
+    r0 = run_v2(_j.loads(_j.dumps(base)))
+    check("T55c", "no maturity field -> path identical (additive default-off)",
+          [p for p in r3["products"] if p["family"]=="deposit"][0]["bal"]
+          == [p for p in r0["products"] if p["family"]=="deposit"][0]["bal"])
+
+
 def t53():
     print("T53 challenge thresholds are data, visible, provenance-tagged")
     import foundry.v2.challenge_q as ch, inspect
@@ -1533,7 +1563,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

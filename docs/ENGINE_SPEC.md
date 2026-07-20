@@ -189,3 +189,15 @@ Monthly figures from the source model convert at ×3 per quarter; runoff applies
 to the beginning balance once per quarter (coarser than the source's monthly
 application — a documented conversion, deliberate under the quarterly clock).
 Field absent ⇒ term is zero ⇒ behavior identical to pre-feature (gate T54c).
+
+## Deposit maturity: cohort roll-off (term products)
+`avg_maturity_m` (months) converts to quarters at ÷3 (rounded) on the
+permanently quarterly clock. When positive, the product's balance is
+cohort-tracked: each quarter's inflows (absolute + growth-derived) form a
+cohort that EXITS whole after mq quarters; the opening balance is treated as a
+seasoned even ladder (1/mq exits per quarter); runoff, if any, scales all
+outstanding cohorts proportionally. This implements the intent behind the
+source model's "Average maturity (months)" rows — which are dead inputs there
+(D-P19): under the source's formulas, a zero-runoff CD book accumulates
+forever. Field absent or zero ⇒ the simple advance, bit-identical to before
+(gate T55c). Ladder arithmetic pinned by hand in T55a/b.
