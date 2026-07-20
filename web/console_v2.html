@@ -326,7 +326,7 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
   <span id="tabs"></span>
   <span class="spacer"></span>
   <span style="position:relative;display:inline-flex;align-items:center">
-    <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value" style="padding-right:26px">
+    <input class="scenario-name" id="scenarioName" placeholder="Scenario / client name" onchange="cfg.scenario_name=this.value;scheduleAutosave()" style="padding-right:26px">
     <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements" style="position:absolute;right:7px;color:#8FA3C0;text-decoration:none;font-size:10px">▼</a>
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
@@ -435,9 +435,45 @@ async function boot(){
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
   document.getElementById("scenarioName").value = cfg.scenario_name;
+  // ambient persistence: if a working session exists on this workspace, resume it
+  try{
+    const rs = await fetch("/api/v31/engagements");
+    if(rs.ok){
+      const js = await rs.json();
+      const ws = (js.engagements||[]).find(e => (e.slug||"").startsWith("working-session"));
+      if(ws){
+        const rc = await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug));
+        if(rc.ok){
+          cfg = await rc.json();
+          const sn = document.getElementById("scenarioName");
+          if(sn) sn.value = cfg.scenario_name || "";
+          appStatus("ok", "<b>Resumed your working session</b> \u2014 autosaved state restored. Open a saved engagement from the \u25be menu to switch.");
+        }
+      }
+    }
+  }catch(e){}
   renderGlobals(); refresh();
 }
-function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); }
+function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); }
+/* ---------- ambient persistence: the working session always survives ---------- */
+const AUTOSAVE_NAME = "Working session (autosaved)";
+let _asTimer = null, _asBusy = false;
+function scheduleAutosave(){ if(window.SNAPSHOT) return; clearTimeout(_asTimer); _asTimer = setTimeout(autosaveNow, 2500); }
+async function autosaveNow(){
+  if(_asBusy || window.SNAPSHOT) return; _asBusy = true;
+  try{
+    const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({config: cfg, name: AUTOSAVE_NAME})});
+    if(r.ok){
+      window._lastSavedAt = new Date();
+      const chip = document.querySelector(".savedchip");
+      if(chip) chip.textContent = "Autosaved " + window._lastSavedAt.toLocaleTimeString() + " \u2713";
+    }
+  }catch(e){ /* silent — autosave never nags */ }
+  _asBusy = false;
+}
+window.scheduleAutosave = scheduleAutosave;
 async function preview(){
   if(V31){ syncModules(); }
   const my = ++seq;
@@ -725,7 +761,7 @@ function ovFieldsFor(fam, p){
   const f = [];
   if(fam==="lending"){
     f.push(["originations_q","Originations ($000s)","k"]);
-    f.push(["runoff_q","Runoff (%/qtr)","pct"]);
+    f.push(["runoff_q","Runoff / prepayment (%/qtr)","pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
     else f.push(["yield_ann","Yield (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
@@ -734,7 +770,7 @@ function ovFieldsFor(fam, p){
     f.push(["growth_q","Growth (%/qtr)","pct"]);
     f.push(["new_deposits_q","New deposits ($000s/qtr)","kq"]);
     f.push(["avg_maturity_m","Avg maturity (months)","num"]);
-    f.push(["runoff_q","Runoff (%/qtr)","pct"]);
+    f.push(["runoff_q","Runoff / prepayment (%/qtr)","pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);

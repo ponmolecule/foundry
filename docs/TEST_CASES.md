@@ -494,3 +494,13 @@ and survives as a small support/archival export link on Governance plus the
 unchanged endpoints. Deploy location (local vs Railway) now changes nothing
 for the Excel loop; the workspace volume matters only for the engagement store
 and freeze registry.
+## 36. Ambient persistence: the working session always survives
+Every change (any refresh, plus scenario-name edits) schedules a debounced
+(2.5s) background save of the live configuration to the reserved "Working
+session (autosaved)" store entry. On boot, if that entry exists, the app
+resumes it instead of the demo template and says so in the banner. Named
+saves are unchanged and never silently overwritten — the working slot is
+"whatever is open now", the chevron remains the one visible control, and the
+footer chip reads "Autosaved HH:MM". No new buttons anywhere; Freeze remains
+ceremonial notarization. This retires the last way an analyst could lose work
+(tab close / refresh / crash between manual saves).
