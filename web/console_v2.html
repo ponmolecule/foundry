@@ -2110,7 +2110,7 @@ const REGULATOR_OF = {national:"OCC", state_member:"Federal Reserve + state supe
 async function downloadFIW(){
   const r = await fetch("/api/v31/fiw", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({cfg})});
-  if(!r.ok){ alert("Workbook generation failed."); return; }
+  if(!r.ok){ appStatus("err", "<b>Workbook generation failed.</b>"); return; }
   const blob = await r.blob();
   const cd = r.headers.get("Content-Disposition")||"";
   const m = cd.match(/filename="([^"]+)"/);
@@ -2197,8 +2197,8 @@ function renderWizard(){
     const day1 = wiz.initial_capital - wiz.org_costs;
     const lev = day1 / Math.max(wiz.initial_capital, 1) * 100;
     h += '<div class="ovh3">Capital</div><div class="card"><div class="fields">'
-      + `<div class="fld"><label>Initial capital raise ($)</label><input type="number" value="${wiz.initial_capital}" onchange="wizSet('initial_capital',+this.value)"></div>`
-      + `<div class="fld"><label>Pre-opening organizational costs ($)</label><input type="number" value="${wiz.org_costs}" onchange="wizSet('org_costs',+this.value)"></div>`
+      + `<div class="fld"><label>Initial capital raise ($)</label><input type="text" inputmode="decimal" value="${fmtComma(wiz.initial_capital)}" onchange="wizSet('initial_capital',parseFloat(String(this.value).replace(/,/g,''))||0);fmtField(this)"></div>`
+      + `<div class="fld"><label>Pre-opening organizational costs ($)</label><input type="text" inputmode="decimal" value="${fmtComma(wiz.org_costs)}" onchange="wizSet('org_costs',parseFloat(String(this.value).replace(/,/g,''))||0);fmtField(this)"></div>`
       + '</div></div>';
     h += wizChip(`<b>Day-1 arithmetic:</b> ${fmtC(wiz.initial_capital)} raised \u2212 ${fmtC(wiz.org_costs)} organizational costs = <b>${fmtC(day1)}</b> opening equity (${lev.toFixed(1)}% of the raise). Staged follow-on raises are modeled \u2014 add them in the sidebar\u2019s Capital &amp; tax cluster after creation.`, day1 <= 0);
   }
@@ -2226,10 +2226,19 @@ function renderWizard(){
 function fmtC(x){ return "$" + (x/1e6).toFixed(1) + "M"; }
 async function wizFinish(){
   const hasDep = Object.keys(wiz.picks).some(k=>k.startsWith("Deposits|") && wiz.picks[k]);
-  if(!wiz.name.trim()){ alert("Name the institution first."); return; }
-  if(!hasDep){ alert("Select at least one deposit product \u2014 a de novo funds before it lends."); return; }
+  if(!wiz.name.trim()){ appStatus("err", "<b>Name the institution first.</b>"); return; }
+  if(!hasDep){ appStatus("err", "<b>Select at least one deposit product</b> \u2014 a de novo funds before it lends."); return; }
   if(wiz.initial_capital <= 0 || wiz.org_costs >= wiz.initial_capital){
-    alert("Entry screen: organizational costs meet or exceed the raise \u2014 Day-1 equity would be zero or negative. Fix the capital screen before creating the engagement."); return; }
+    appStatus("err", "<b>Entry screen:</b> organizational costs meet or exceed the raise \u2014 Day-1 equity would be zero or negative. Fix the capital screen before creating the engagement."); return; }
+  // a NEW engagement starts from a clean shell — never from whatever session was open
+  cfg = JSON.parse(JSON.stringify(TEMPLATE));
+  const _A = cfg.assumptions;
+  _A.lending_products = []; _A.deposit_products = []; _A.obs_exposures = [];
+  _A.capital_raises = []; _A.scheduled_borrowings = [];
+  _A.securities_afs = []; _A.securities_htm = [];
+  _A.fee_modules = {}; delete _A.nie_detail;
+  _A.aoci_sensitivity_annual = 0; _A.premises_depreciation_annual = 0;
+  delete _A.org_costs_pre_open;
   cfg.proposed_bank = wiz.name; cfg.client_legal_name = wiz.name + " (in organization)";
   cfg.hq = wiz.state || "TBD";
   cfg.scenario_name = wiz.name + " \u2014 engagement baseline";
@@ -2238,7 +2247,8 @@ async function wizFinish(){
     state: wiz.state, target_opening: wiz.opening, pre_open_months: wiz.pre_open_months,
     cblr_election: wiz.cblr, source: "wizard"};
   cfg.target_state.initial_capital = wiz.initial_capital;
-  cfg.assumptions.org_costs_pre_open = wiz.org_costs;
+  cfg.pre_opening = {expenses: wiz.org_costs > 0
+    ? [{category: "Organizational costs", total: wiz.org_costs}] : []};
   cfg.assumptions.deposit_products = []; cfg.assumptions.lending_products = [];
   Object.entries(wiz.picks).forEach(([k,on])=>{
     if(!on) return;

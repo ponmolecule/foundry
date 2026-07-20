@@ -138,7 +138,6 @@ def build_fiw(cfg):
         ("Pre-opening period (months)", ch.get("pre_open_months", ""), "", True),
         ("CBLR election", "yes" if ch.get("cblr_election") else "no", "community bank leverage framework", True),
         ("Initial capital ($)", (cfg.get("target_state") or {}).get("initial_capital", ""), "", True),
-        ("Pre-opening organizational costs ($)", a.get("org_costs_pre_open", ""), "", True),
         ("Scenario name", cfg.get("scenario_name", ""), "", True),
     ] + [(f"Staged raise {i+1} — quarter", r.get("quarter", ""), "1..12", True)
           for i, r in enumerate(a.get("capital_raises") or [])]
@@ -298,7 +297,6 @@ CONTROL_PATHS = {
     "Pre-opening period (months)": ("charter_profile", "pre_open_months"),
     "CBLR election": ("charter_profile", "cblr_election"),
     "Initial capital ($)": ("target_state", "initial_capital"),
-    "Pre-opening organizational costs ($)": ("assumptions", "org_costs_pre_open"),
     "Scenario name": ("scenario_name",),
 }
 import re as _re
