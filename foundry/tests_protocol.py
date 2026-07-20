@@ -1492,6 +1492,43 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t57():
+    print("T57 duplicate-definition hygiene: the cascade-trap disease stays dead")
+    import re
+    h = open("web/console_v2.html", encoding="utf-8").read()
+    # (a) CSS: no standalone selector defined twice at top level (outside @media)
+    bad_css = []
+    for m in re.finditer(r"<style[^>]*>(.*?)</style>", h, re.S):
+        css = m.group(1)
+        spans = []
+        for mm in re.finditer(r"@media[^{]*\{", css):
+            d, j = 1, mm.end()
+            while d and j < len(css):
+                if css[j] == "{": d += 1
+                elif css[j] == "}": d -= 1
+                j += 1
+            spans.append((mm.start(), j))
+        seen = {}
+        for mm in re.finditer(r"([^{}@]+)\{[^{}]*\}", css):
+            if any(a <= mm.start() < b for a, b in spans): continue
+            sel = mm.group(1).strip()
+            if "," in sel or not sel: continue
+            seen[sel] = seen.get(sel, 0) + 1
+        bad_css += [s for s, n in seen.items() if n > 1]
+    check("T57a", f"no standalone CSS selector defined twice at top level ({bad_css[:4]})",
+          not bad_css)
+    # (b) JS: no symbol DECLARED twice (window.X = X exports excluded)
+    i = h.rindex("<script>"); j = h.index("</script>", i)
+    js = h[i + 8:j]
+    decl = {}
+    for mm in re.finditer(r"^(?:function\s+(\w+)|const\s+(\w+)\s*=|let\s+(\w+)\s*=)", js, re.M):
+        n = next(g for g in mm.groups() if g)
+        decl[n] = decl.get(n, 0) + 1
+    bad_js = [n for n, k in decl.items() if k > 1]
+    check("T57b", f"no JS symbol declared twice (the fmtC class of collision) ({bad_js[:4]})",
+          not bad_js)
+
+
 def t56():
     print("T56 SETTINGS sheet: every in-app input visible, none of it imported")
     import json as _j, io as _io, openpyxl as _ox
@@ -1607,7 +1644,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -57,9 +57,7 @@ aside{border-right:1px solid var(--nline);padding:16px;overflow-y:auto;max-heigh
 aside .card{background:var(--nvy2);border:1px solid var(--nline);border-left:4px solid var(--namber);border-radius:3px;padding:10px 12px;margin-bottom:10px}
 aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px}
-.fld{display:flex;flex-direction:column;justify-content:flex-end}
-.fld label{flex:1 0 auto;display:flex;align-items:flex-end}
-.fld label{display:block;font-size:9.5px;color:#C4CDDD;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
+.fld{display:flex;flex-direction:column;justify-content:flex-end}.fld label{flex:1 0 auto;display:flex;align-items:flex-end;display:block;font-size:9.5px;color:#C4CDDD;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
 #content .fld label{color:#535B69;font-weight:600}
 .fld input,.fld select{width:100%;border:1px solid #B9C2D2;background:var(--paper);color:#1C2128;font-weight:500;padding:5px 6px;font-family:inherit;font-size:12px;border-radius:2px}
 .fld input:focus{outline:1.5px solid var(--gold);border-color:var(--gold)}
@@ -99,8 +97,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cfgwrap .cx{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;
   justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
 .cfgwrap .cx:hover{color:#F0A0A0;border-color:#B4545466;background:rgba(180,84,84,.10)}
-.modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
-.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500}
+.modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500;display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
 .cfggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
 .cfgcard{background:#141E31;border:1px solid #26324B;border-radius:10px;
   padding:20px 24px 24px;min-height:198px}
@@ -118,13 +115,10 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .tsec>div:last-child{padding-left:32px}
 .tsec::before{content:"";position:absolute;left:50%;top:0;bottom:56px;width:1px;background:rgba(148,163,184,.13)}
 .tacct>div{min-width:0;padding:0 28px 26px 0}
-.tacct>div:nth-child(even){border-left:1px solid rgba(148,163,184,.13);padding-left:28px;padding-right:0}
-.tacct>div:nth-child(n+3){border-top:1px solid rgba(148,163,184,.13);padding-top:18px}
-.tacct>div:nth-child(n+3){padding-bottom:34px}
+.tacct>div:nth-child(even){border-left:1px solid rgba(148,163,184,.13);padding-left:28px;padding-right:0}.tacct>div:nth-child(n+3){border-top:1px solid rgba(148,163,184,.13);padding-top:18px;padding-bottom:34px}
 .ccols>div{min-width:0}
 .csub{font-size:15px;line-height:22px;color:#E8EDF5;font-weight:500;margin:0 0 12px}
 .cmut{font-size:12px;color:#9CA7B7;margin-top:7px}
-.pillbtn{display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
 .pillbtn:hover{border-color:#DFA85A;color:#DFA85A}
 .btn-gold-o{background:transparent;border:1px solid #DFA85A;color:#DFA85A;border-radius:8px;padding:7px 15px;font-size:11.5px;font-weight:600;cursor:pointer}
 .btn-gold-o:hover{background:rgba(223,168,90,.10)}
@@ -136,8 +130,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .fpill.on .fbadge{background:#DFA85A;border-color:#DFA85A;color:#131E33;font-weight:800}
 .minis{display:flex;gap:6px;margin-top:7px}
 .minis span{width:26px;height:24px;border:1px solid #3A4C6E;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#8FA3C0}
-.minis span.on{color:#DFA85A;border-color:#8a6d3b}
-.modcard{flex:1 1 0;justify-content:space-between}
+.minis span.on{color:#DFA85A;border-color:#8a6d3b}.modcard{flex:1 1 0;justify-content:space-between;display:flex;align-items:center;gap:13px;background:#1A2438;border:1px solid #2A3752;border-radius:10px;padding:20px 18px;cursor:pointer;min-width:190px;min-height:72px}
 .modcard.sel{border-color:#DFA85A;box-shadow:0 0 0 1px rgba(223,168,90,.35)}
 .cfgcard .ovh2{margin:0 0 10px;border:none;border-left:3px solid #DFA85A;border-radius:0;background:transparent;padding:0 0 0 10px}
 .cfgcard .crow input[type=text],.cfgcard .crow input:not([type]){max-width:170px}
@@ -151,7 +144,6 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .btn-save{background:#DFA85A;color:#182640;border:none;border-radius:7px;padding:8px 18px;font-weight:700;font-size:12px;cursor:pointer}
 .btn-save:hover{filter:brightness(1.08)}
 .modbar{display:flex;flex-wrap:wrap;gap:10px;margin:0 0 6px}
-.modcard{display:flex;align-items:center;gap:13px;background:#1A2438;border:1px solid #2A3752;border-radius:10px;padding:20px 18px;cursor:pointer;min-width:190px;min-height:72px}
 .modcard:hover{border-color:#3A4C6E}
 .modcard .mi{width:38px;height:38px;border-radius:9px;background:rgba(223,168,90,.10);display:grid;place-items:center;color:#DFA85A;flex:0 0 38px}
 .modcard .ml{font-size:17px;color:#E8EDF5;font-weight:500;line-height:1.35}
@@ -167,8 +159,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cardhead .ct{font-size:18px;line-height:24px;font-weight:500;color:#F2F4F7;letter-spacing:-.012em}
 .cardhead .cd{font-size:13px;line-height:20px;font-weight:400;color:#9CA7B7;margin-top:2px;max-width:480px}
 .cfgfoot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:10.5px;color:#8FA3C0}
-.savedchip{color:#7FB07F}
-.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent}
+.savedchip{color:#7FB07F}.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #2B3A57;color:#8FA3C0;background:transparent;font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase;background:#C59C5E;color:#FFFFFF}
 .chip.on{border-color:#4E7A4E;color:#A9D3A9;background:rgba(127,176,127,.10);font-weight:600}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:#4a5568;flex:0 0 8px}
 .chip.on .dot{background:#7FB07F}
@@ -208,7 +199,6 @@ td.neg{color:var(--red)}
 .card-head{display:flex;align-items:center;gap:8px;cursor:pointer}
 .card-head .caret{color:var(--mut);font-size:10px}
 .card-head .pname{font-weight:700;font-size:13px;flex:1;color:#16233B}
-.chip{font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase;background:#C59C5E;color:#FFFFFF}
 .chip.asset{background:#33415C;color:#EDF0F5}
 .chip.liability{background:#16233B;color:#EDF0F5}
 .chip.offbs{background:#5C5546;color:#F2EDE2}
@@ -224,11 +214,9 @@ td.neg{color:var(--red)}
 .ftplabel{display:inline-flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin-bottom:12px;color:#1C2128;font-weight:500}
 /* modal */
 #modal-bg{position:fixed;inset:0;background:rgba(13,22,38,.72);display:none;z-index:40}
-#modal{position:fixed;top:11vh;left:50%;transform:translateX(-50%);width:540px;max-width:94vw;background:var(--paper);border-radius:4px;border-top:4px solid #16233B;box-shadow:0 14px 70px rgba(0,0,0,.55);padding:20px 22px;display:none;z-index:41;color:var(--ink)}
-#modal h3{font-weight:600;font-size:16px;margin-bottom:8px}
+#modal{position:fixed;top:11vh;left:50%;transform:translateX(-50%);width:540px;max-width:94vw;background:var(--paper);border-radius:4px;border-top:4px solid #16233B;box-shadow:0 14px 70px rgba(0,0,0,.55);padding:20px 22px;display:none;z-index:41;color:var(--ink)}#modal h3{font-weight:600;font-size:16px;margin-bottom:8px;font-size:17px;color:#16233B}
 #modal .accent-label{color:#8A6D2F}
 #modal .fld label{color:#535B69;font-weight:600}
-#modal h3{font-size:17px;color:#16233B}
 .preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
 .preset-btn{border:1px solid #C7CEDC;background:var(--paper);padding:10px 12px;font-family:inherit;cursor:pointer;border-radius:3px;color:var(--ink);text-align:left;display:flex;flex-direction:column;gap:2px}
 .preset-btn:hover{border-color:#16233B;background:#F3F5F9}
