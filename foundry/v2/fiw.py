@@ -71,6 +71,8 @@ def _kv_sheet(ws, rows):
         ws.append([label, value, note])
         if editable:
             ws.cell(ws.max_row, 2).fill = GOLD
+        if isinstance(value, (int, float)) and abs(value) >= 1000:
+            ws.cell(ws.max_row, 2).number_format = "#,##0"
     ws.column_dimensions["A"].width = 34
     ws.column_dimensions["B"].width = 26
     ws.column_dimensions["C"].width = 46
@@ -95,6 +97,8 @@ def _family_sheet(ws, fam, products, fields):
                        val if val is not None else "", funits])
             if "fact" not in funits:
                 ws.cell(ws.max_row, 4).fill = GOLD
+            if isinstance(val, (int, float)) and abs(val) >= 1000:
+                ws.cell(ws.max_row, 4).number_format = "#,##0"
     ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 30
@@ -189,6 +193,8 @@ def _settings_sheet(wb, cfg):
     def sec(title): ws.append([title]); ws[f"A{ws.max_row}"].font = Font(bold=True)
     def row(label, val, unit=""):
         ws.append([f"  {label}", "" if val is None else val, unit])
+        if isinstance(val, (int, float)) and abs(val) >= 1000:
+            ws.cell(row=ws.max_row, column=2).number_format = "#,##0"
     sec("Treasury (funding waterfall)")
     row("Cash floor (% of deposits)", a.get("cash_target_pct_deposits"), "rate")
     row("Yield on cash", a.get("cash_yield"), "annual rate")
@@ -204,8 +210,9 @@ def _settings_sheet(wb, cfg):
     row("Other liabilities", a.get("other_liabilities"), "$")
     sec("Scheduled borrowings")
     for i, b in enumerate(a.get("scheduled_borrowings") or [], 1):
-        row(f"Borrowing {i}", f"start Q{b.get('start_q')}, {b.get('amount')}, "
-                               f"{b.get('term_q')}q at {b.get('rate_ann')}", "")
+        row(b.get("name") or f"Borrowing {i}",
+            f"draws Q{b.get('quarter', b.get('start_q'))} \u00b7 {float(b.get('amount') or 0):,.0f} \u00b7 "
+            f"{b.get('term_q')}q amortizing at {b.get('rate_ann')}", "")
     if not (a.get("scheduled_borrowings") or []): row("(none)", "")
     sec("Pre-opening expenses")
     _po_ex = (cfg.get("pre_opening") or {}).get("expenses") or []
@@ -223,9 +230,18 @@ def _settings_sheet(wb, cfg):
     row("AOCI sensitivity", a.get("aoci_sensitivity_annual"), "% of AFS/yr")
     sec("NIE detail")
     nd = a.get("nie_detail") or {}
-    for s in (nd.get("fte_steps") or []): row(f"FTE step Q{s.get('quarter')}", s.get("fte"), f"avg comp {s.get('avg_comp')}")
-    for cat in (nd.get("categories") or []): row(cat.get("name") or "category", cat.get("amount_q"), "$/quarter")
-    if not nd: row("(not active)", "")
+    if nd:
+        if nd.get("fte_by_year") is not None:
+            row("FTE by year (Y1/Y2/Y3)", " / ".join(str(x) for x in nd.get("fte_by_year") or []), "headcount")
+        if nd.get("loaded_comp_annual") is not None:
+            row("Loaded comp per FTE", nd.get("loaded_comp_annual"), "$/year")
+        for cat in (nd.get("categories") or []):
+            row(cat.get("name") or "category",
+                cat.get("per_quarter") if cat.get("per_quarter") is not None else cat.get("amount_q"), "$/quarter")
+        if nd.get("other_gross_up_rate") is not None:
+            row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
+    else:
+        row("(not active)", "")
     sec("Fee modules")
     fm = a.get("fee_modules") or {}
     for k, v in fm.items():

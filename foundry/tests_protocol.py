@@ -1498,7 +1498,11 @@ def t56():
     from foundry.v2 import fiw as _fiw
     cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
     a = cfg["assumptions"]
-    a["scheduled_borrowings"] = [{"start_q": 2, "amount": 5_000_000, "term_q": 8, "rate_ann": 0.06}]
+    a["scheduled_borrowings"] = [{"name": "FHLB advance", "quarter": 2, "amount": 5_000_000,
+                                    "term_q": 8, "rate_ann": 0.06}]   # the UI's shape: 'quarter'
+    a["nie_detail"] = {"fte_by_year": [20, 30, 40], "loaded_comp_annual": 150_000,
+                        "categories": [{"name": "Occupancy", "per_quarter": 60_000}],
+                        "other_gross_up_rate": 0.03}                    # the UI's shape
     a["securities_afs"] = [{"name": "Agency MBS", "opening": 10_000_000, "yield_ann": 0.04}]
     a["fee_modules"] = {"interchange": {"penetration": 0.5}}
     cfg["pre_opening"] = {"expenses": [{"category": "Legal & filings", "total": 500_000},
@@ -1511,12 +1515,17 @@ def t56():
           and wb["SETTINGS"].sheet_state == "visible")
     txt = " ".join(str(c2.value) for r in wb["SETTINGS"].iter_rows() for c2 in r if c2.value is not None)
     check("T56b", "states treasury, borrowings, securities, fee modules, stress",
-          "Cash floor" in txt and "Borrowing 1" in txt and "Agency MBS" in txt
+          "Cash floor" in txt and "FHLB advance" in txt and "Agency MBS" in txt
           and "interchange" in txt and "Stress parameters" in txt)
     check("T56b", "pre-opening expenses in the UI's OWN shape ({category,total}) render with values",
           "Legal & filings" in txt and "500000" in txt.replace(",", "")
           and "Build-out" in txt and "Total pre-opening burn" in txt and "1250000" in txt.replace(",", ""))
     check("T56c", "declares itself not-imported", "NOT imported" in txt)
+    check("T56c", "NIE detail in the UI's OWN shape renders (FTE by year, comp, categories, gross-up)",
+          "20 / 30 / 40" in txt and "150000" in txt.replace(",", "")
+          and "Occupancy" in txt and "60000" in txt.replace(",", "") and "gross-up" in txt.lower())
+    check("T56c", "borrowing shows its QUARTER (canonical key), name, and terms",
+          "FHLB advance" in txt and "draws Q2" in txt and "8q" in txt)
     # editing a SETTINGS cell produces zero edits on import
     wb["SETTINGS"]["B5"] = 0.99
     buf2 = _io.BytesIO(); wb.save(buf2)

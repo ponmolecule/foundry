@@ -553,12 +553,18 @@ function setPath(p, v){ const ks=p.split("."); let o=cfg; for(let i=0;i<ks.lengt
   o[ks[ks.length-1]] = v; refresh(); }
 window.setPath=setPath;
 function setUnit(path, unit, v){
-  if(v===""){ setPath(path, null); return; }
-  let x = parseFloat(v); if(isNaN(x)) return;
+  if(v==="" || v==null){ setPath(path, null); return; }
+  let x = parseFloat(String(v).replace(/,/g, ""));   // commas welcome
+  if(isNaN(x)) return;
   if(unit==="pct") x/=100; if(unit==="k") x*=K; if(unit==="kq") x = x*K/3;
   setPath(path, x);
 }
 window.setUnit=setUnit;
+function fmtComma(n){ return (n==null||isNaN(+n)) ? "" : (+n).toLocaleString("en-US", {maximumFractionDigits: 6}); }
+window.fmtField = function(el){
+  const n = parseFloat(String(el.value).replace(/,/g, ""));
+  el.value = isNaN(n) ? "" : fmtComma(n);
+};
 function numInput(path, unit, extra){
   let v = getPath(path);
   let disp = "";
@@ -568,7 +574,11 @@ function numInput(path, unit, extra){
     else if(unit==="kq") disp = +(v*3/K).toFixed(6);
     else disp = v;
   }
-  return `<input type="number" step="any" value="${disp}" ${extra||""} onchange="setUnit('${path}','${unit||""}',this.value)">`;
+  if(unit==="pct")
+    return `<input type="number" step="any" value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
+  // money & counts: text inputs so thousands separators can live in them
+  return `<input type="text" inputmode="decimal" value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
+       + `onchange="setUnit('${path}','${unit||""}',this.value);fmtField(this)">`;
 }
 
 /* ---------------- sidebar: exactly three cards ---------------- */
