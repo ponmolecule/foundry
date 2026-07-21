@@ -2467,6 +2467,10 @@ document.addEventListener("click", (ev)=>{
       ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 ? secClear() : secAdd(0);
     } else if(act==="aoci"){ aociFlip(); }
     else if(act==="nie"){ A.nie_detail ? nieOff() : nieOn(); }
+    else if(act==="tax"){
+      if(A.tax_detail){ delete A.tax_detail; } else { A.tax_detail = {enabled:true}; }
+      renderContent(); refresh();
+    }
     else if(act==="fee"){
       const FM = A.fee_modules || {};
       const anyOn = FM.interchange||FM.service_charges||FM.trust||FM.baas||(FM.payments||[]).length;
@@ -2613,6 +2617,8 @@ function structuresSectionsHtml(){
               lampMap["AOCI"]?"On \u2014 click to zero the sensitivity":"Off \u2014 click to activate at 0.5%/yr");
   h += swTile("Operating<br>expense", !!A.nie_detail, "nie", "calc", "",
               A.nie_detail?"On \u2014 NIE detail replaces the overhead line; click to deactivate":"Off \u2014 click to activate NIE detail");
+  h += swTile("Tax<br>detail", !!A.tax_detail, "tax", "calc", "",
+              A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
   h += swTile("Fee modules", feeOnN>0, "fee", "stack",
               `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
               feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 click to activate with Interchange");
@@ -2778,10 +2784,8 @@ function renderConfigTab(){
     h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
     h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
     if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
-    h += `<button class="pillbtn" onclick="delete cfg.assumptions.tax_detail;renderContent();refresh()">Disable</button>`;
   } else {
-    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance).</div>`;
-    h += `<button class="pillbtn" onclick="cfg.assumptions.tax_detail={enabled:true};renderContent();refresh()">Enable</button>`;
+    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance). Activate with the Tax detail switch above.</div>`;
   }
   h += `</div>`;
   h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
