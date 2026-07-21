@@ -1157,11 +1157,6 @@ window.renderBands = async function(){
   if(smallN){
     h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #D8A85E;padding-left:10px">Small cohort (n below ${d.small_n_threshold}): percentiles approach member values \u2014 p10 \u2248 minimum, p90 \u2248 maximum. Read these as the <b>range of the named peers</b>, not a distribution.</div>`;
   }
-  // modeled trajectory for the corridor column (annualized ROA % where available)
-  const traj = {};
-  if(metric === "roa" && lastRes && lastRes.ratios && lastRes.ratios.roa){
-    (lastRes.quarters||[]).forEach((q,i)=>{ traj[i] = lastRes.ratios.roa[i]; });
-  }
   h += '<table class="ovt" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
        (smallN ? '<th>\u2248min (p10)</th><th>p25</th><th>Median</th><th>p75</th><th>\u2248max (p90)</th>'
                : '<th>p10</th><th>p25</th><th>Median</th><th>p75</th><th>p90</th>') + '</tr>';
@@ -1169,7 +1164,31 @@ window.renderBands = async function(){
     h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${b.p10.toFixed(3)}</td><td>${b.p25.toFixed(3)}</td><td>${b.p50.toFixed(3)}</td><td>${b.p75.toFixed(3)}</td><td>${b.p90.toFixed(3)}</td></tr>`;
   });
   h += '</table>';
-  h += `<div class="memo" style="margin-top:8px">Substrate quarters are calendar (2025Q1\u2026); the modeled bank runs on engagement quarters Q1\u2026Q12 \u2014 the corridor is a market backdrop, not a same-quarter join. Certified designation lands with the substrate's percentile-reconciliation gate.</div>`;
+  // THE JOIN: modeled annual ratios against the latest band — terminal-state
+  // calibration, the corridor's actual job. Trajectory judgment belongs to the
+  // Vintage Corridor; capital placement to the panel below.
+  const AKEY = {roa: "roa", nim: "nim", efficiency: "eff"};
+  const ann = (lastRes && lastRes.annual) ? lastRes.annual[AKEY[metric]] : null;
+  if(ann && ann.length){
+    const latest = d.bands[d.bands.length - 1];
+    const pos = v => v < latest.p10 ? "below p10" : v < latest.p25 ? "p10\u2013p25"
+               : v < latest.p50 ? "p25\u2013p50" : v < latest.p75 ? "p50\u2013p75"
+               : v < latest.p90 ? "p75\u2013p90" : "above p90";
+    const rangePos = v => v < latest.p10 ? "below the named peers' range"
+                    : v > latest.p90 ? "above the named peers' range" : "within the named peers' range";
+    h += `<div style="margin-top:12px;font-weight:600;font-size:13px;color:#C4CDDD">Modeled bank vs. this corridor (latest bands: ${esc(latest.quarter)})</div>`;
+    h += '<table class="ovt" style="width:100%;margin-top:4px"><tr><th>Model year</th><th>Value</th><th>Position</th></tr>';
+    ann.forEach((v, i) => {
+      const terminal = i === ann.length - 1;
+      const p = smallN ? rangePos(v) : pos(v);
+      h += `<tr${terminal ? ' style="font-weight:600"' : ' style="opacity:.62"'}><td>Y${i+1}${terminal ? " (terminal \u2014 the calibration row)" : ""}</td><td>${v.toFixed(2)}</td><td>${p}</td></tr>`;
+    });
+    h += '</table>';
+    h += `<div class="memo" style="margin-top:6px">Read the terminal year: that is the state you are asking a regulator to believe. Early-year losses are normal de novo economics \u2014 judge the path on the Vintage Corridor, not here.</div>`;
+  } else {
+    h += `<div class="memo" style="margin-top:10px">Run the model to see where its terminal-year ${esc(metric.toUpperCase())} lands in these bands.</div>`;
+  }
+  h += `<div class="memo" style="margin-top:8px">Substrate quarters are calendar (2025Q1\u2026); the corridor calibrates target-state assumptions and names peer evidence. Trajectory checking lives in the Vintage Corridor; capital placement in the panel below. Certified designation lands with the substrate's percentile-reconciliation gate.</div>`;
   body.innerHTML = h;
 };
 function substratePanelHtml(){
