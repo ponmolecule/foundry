@@ -246,6 +246,21 @@ class CharterIQClient:
                 near = sorted(m for m in avail if any(s in m for s in stems))[:8]
                 unresolved[series] = near
         if unresolved:
+            # Diagnose the analytical-surface case: a vocabulary of ratios and
+            # percentages with no level series at all. That is a substrate
+            # capability gap, not a configuration error — say so honestly
+            # instead of assigning env-var homework the reader cannot do.
+            analytical = sum(1 for m in avail if "_pct" in m or "_ratio" in m
+                              or "_to_" in m or m.endswith("_cost"))
+            if len(unresolved) >= 4 and analytical >= max(5, len(avail) // 3):
+                raise ValueError(
+                    "retrodiction needs balance-level series (deposits, loans, "
+                    "assets, equity, net income) that this substrate metrics "
+                    "surface does not yet expose — it carries analytical ratios "
+                    "(e.g. " + ", ".join(sorted(avail)[:3]) + "\u2026). The "
+                    "level-series request sits with the CharterIQ data thread; "
+                    "retrodiction lights up when they ship (or via "
+                    "CHARTERIQ_RETRO_MAP once names exist).")
             detail = "; ".join(f"{s}: no exact candidate (near: {n})"
                                 for s, n in unresolved.items())
             raise ValueError(

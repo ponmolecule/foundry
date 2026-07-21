@@ -819,6 +819,15 @@ def t33():
     auto2 = cl.auto_retro_map(["total_deposits_dollars", "total_loans_dollars",
                                  "total_assets_dollars", "total_equity_dollars",
                                  "net_income_dollars", "cet1_ratio", "roa", "nim"])
+    try:
+        cl.auto_retro_map(["brokered_dep_pct", "core_deposit_ratio", "deposit_cost",
+                             "ci_loan_pct", "afs_pct_assets", "liquid_asset_ratio",
+                             "oreo_to_assets", "ppnr_to_assets", "cet1_ratio", "roa"])
+        diag = ""
+    except ValueError as e:
+        diag = str(e)
+    check("T33e", "an all-analytical surface gets the capability-gap diagnosis, not env homework",
+          "does not yet expose" in diag and "CharterIQ data thread" in diag)
     check("T33e", "the substrate's _dollars convention resolves (ratios ride along)",
           auto2["deposits"] == "total_deposits_dollars"
           and auto2["net_income"] == "net_income_dollars"
