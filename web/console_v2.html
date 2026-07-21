@@ -1162,7 +1162,7 @@ window.renderBands = async function(){
   if(metric === "roa" && lastRes && lastRes.ratios && lastRes.ratios.roa){
     (lastRes.quarters||[]).forEach((q,i)=>{ traj[i] = lastRes.ratios.roa[i]; });
   }
-  h += '<table class="fin" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
+  h += '<table class="ovt" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
        (smallN ? '<th>\u2248min (p10)</th><th>p25</th><th>Median</th><th>p75</th><th>\u2248max (p90)</th>'
                : '<th>p10</th><th>p25</th><th>Median</th><th>p75</th><th>p90</th>') + '</tr>';
   d.bands.forEach(b=>{
