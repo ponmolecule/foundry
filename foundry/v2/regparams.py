@@ -66,4 +66,13 @@ REG_PARAMS = {
         "obs_share_max": 0.25,
         "trading_share_max": 0.05,
     },
+    "tax": {
+        # DTAs arising from NOL/credit carryforwards (net of VA and DTLs) are
+        # deducted from CET1 IN FULL — no threshold; the 10%/25% machinery
+        # applies only to temporary-difference DTAs. 12 CFR 3.22(a).
+        "dta_nol_cet1_deduction": 1.0,
+        # Post-TCJA federal NOLs: indefinite carryforward, utilization capped
+        # at 80% of taxable income per year. IRC 172(a)(2).
+        "nol_utilization_limit_pct": 0.80,
+    },
 }

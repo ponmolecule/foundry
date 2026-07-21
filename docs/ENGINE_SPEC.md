@@ -201,3 +201,27 @@ source model's "Average maturity (months)" rows — which are dead inputs there
 (D-P19): under the source's formulas, a zero-runoff CD book accumulates
 forever. Field absent or zero ⇒ the simple advance, bit-identical to before
 (gate T55c). Ladder arithmetic pinned by hand in T55a/b.
+
+
+## Tax detail module (NOL → DTA), presence-toggled
+Off (default): the legacy treatment — taxes shield 100% of pre-tax income
+against accumulated NOLs, no DTA booked; arithmetically identical to full
+GAAP recognition with a full valuation allowance, and identical in capital to
+book-then-deduct. On (`assumptions.tax_detail`): ASC 740 presentation —
+current tax on taxable income after an NOL shield capped at the utilization
+limit (default 80% per IRC §172(a)(2), REG_PARAMS.tax); gross DTA = NOL
+carryforward × statutory rate; valuation allowance modes auto (full while
+cumulative taxable income is negative — the de novo default posture,
+releasing on crossover), pct, none; deferred tax expense = −Δ net DTA;
+total tax = current + deferred. Balance sheet: net DTA is a non-earning asset.
+Capital: the net NOL-DTA is deducted from tier 1 IN FULL (12 CFR 3.22(a) —
+carryforward DTAs get no threshold; the 10%/25% machinery is
+temporary-difference-only and out of scope) and the deducted amount leaves the
+leverage denominator at its quarter-end value per RC-R convention — against
+the average-assets base this leaves a wedge of at most a few basis points
+versus the module-off ratio (observed max 5bp on pf_a), which is the correct
+regulatory arithmetic, not drift. Invariance theorems gated in T61: limit=1.0
+with auto VA reproduces the legacy path exactly on a cumulative-loss fixture;
+va=none uplifts equity by exactly the net DTA while leverage stays within the
+EOP wedge. Out of scope by design (the vanilla/bespoke boundary): temporary
+differences, jurisdiction stacking, Section 382 limits after ownership change.

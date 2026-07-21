@@ -1688,6 +1688,11 @@ function renderContent(){
     h += rowIS('Income Tax Expense', fin.is.tax, null, T.tax, 'tax');
     h += rowIS('NET INCOME (LOSS)', fin.is.ni, 'grand', T.ni, 'ni');
     h += rowIS('Memo: Net Charge-offs', fin.is.nco || fin.is.chargeoffs, null, T.nco ?? T.chargeoffs, 'nco');
+    if(fin.is.taxCurrent){
+      h += rowIS('\u2003of which: current tax', fin.is.taxCurrent, null, (fin.is.taxCurrent||[]).slice(-1)[0], 'tax');
+      h += rowIS('\u2003of which: deferred tax (\u0394 DTA)', fin.is.taxDeferred, null, (fin.is.taxDeferred||[]).slice(-1)[0], 'tax');
+      h += rowIS('Memo: DTA \u2014 NOL (net of VA)', fin.is.dtaNet, null, (fin.is.dtaNet||[]).slice(-1)[0], 'tax');
+    }
     if(fin.is.nol) h += rowIS('Memo: NOL Carryforward (end)', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0], 'nol');
     h += '</table>';
     h += '<div class="memo">Taxes apply the statutory rate to pre-tax income net of accumulated NOL carryforwards; no deferred tax asset is booked (conservative). FV gains/losses include credit losses on fair-value elected loans, which carry no provision.</div>';
@@ -2767,6 +2772,18 @@ function renderConfigTab(){
     h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
   });
   h += '</table></details>';
+  h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.gauge||ICONS.bank}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
+  if(cfg.assumptions.tax_detail){
+    const td = cfg.assumptions.tax_detail;
+    h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
+    h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
+    if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
+    h += `<button class="pillbtn" onclick="delete cfg.assumptions.tax_detail;renderContent();refresh()">Disable</button>`;
+  } else {
+    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance).</div>`;
+    h += `<button class="pillbtn" onclick="cfg.assumptions.tax_detail={enabled:true};renderContent();refresh()">Enable</button>`;
+  }
+  h += `</div>`;
   h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';

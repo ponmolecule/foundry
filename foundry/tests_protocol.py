@@ -1537,6 +1537,40 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t61():
+    print("T61 tax detail (NOL -> DTA): theorems, limits, VA modes")
+    import json as _j, copy as _cp
+    from foundry.v2 import run_q as _r
+    cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    off = _r.run_v2(cfg)["financials"]
+    cA = _cp.deepcopy(cfg); cA["assumptions"]["tax_detail"] = {"enabled": True, "nol_utilization_limit_pct": 1.0}
+    A = _r.run_v2(cA)["financials"]
+    check("T61a", "strict theorem: limit=1.0 + auto VA reproduces the legacy path exactly",
+          all(abs((x or 0) - (y or 0)) < 1e-6
+              for x, y in zip(off["bs"]["equity"][1:], A["bs"]["equity"][1:])))
+    cB = _cp.deepcopy(cfg); cB["assumptions"]["tax_detail"] = {"enabled": True}
+    B = _r.run_v2(cB)["financials"]["is"]
+    prof = [q for q in range(1, len(B["pretax"])) if (B["pretax"][q] or 0) > 0 and (B["nol"][q] or 0) > 0]
+    check("T61b", "default 80% limit: current tax appears in profitable quarters despite NOL (IRC 172)",
+          bool(prof) and all((B["taxCurrent"][q] or 0) > 0 for q in prof))
+    check("T61b", "auto VA holds full while cumulative taxable income is negative",
+          (B["dtaGross"][-1] or 0) > 0
+          and abs((B["dtaVA"][-1] or 0) - (B["dtaGross"][-1] or 0)) < 1e-6
+          and all((v or 0) == 0 for v in B["dtaNet"][1:]))
+    cC = _cp.deepcopy(cfg); cC["assumptions"]["tax_detail"] = {"enabled": True, "va_mode": "none",
+                                                                  "nol_utilization_limit_pct": 1.0}
+    C = _r.run_v2(cC)["financials"]
+    d_term = C["is"]["dtaNet"][-1]
+    check("T61c", "va=none: equity uplift equals the net DTA (deferred benefit booked)",
+          d_term > 0 and abs((C["bs"]["equity"][-1] - off["bs"]["equity"][-1]) - d_term) < 1.0)
+    wedge = max(abs((x or 0) - (y or 0))
+                for x, y in zip(off["ratios"]["lev"][1:], C["ratios"]["lev"][1:]))
+    check("T61c", f"leverage within the EOP-deduction wedge (max {wedge:.4f} pct pts; full "
+                    "CET1 deduction + denominator exclusion per 12 CFR 3.22/RC-R)", wedge < 0.06)
+    check("T61d", "off path carries no tax-detail series (goldens' shape untouched)",
+          "taxCurrent" not in off["is"] and "dta" not in off["bs"])
+
+
 def t60():
     print("T60 peer bands (F-121 consumption): fixture contract, fail-closed, corridors, small-n")
     import json as _j, copy as _cp
@@ -1796,7 +1830,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

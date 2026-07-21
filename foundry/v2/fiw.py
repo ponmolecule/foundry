@@ -241,6 +241,15 @@ def _settings_sheet(wb, cfg):
             row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
     else:
         row("(not active)", "")
+    sec("Tax detail (NOL \u2192 DTA)")
+    _tdx = a.get("tax_detail")
+    if _tdx:
+        row("Module", "active", "ASC 740 current/deferred split")
+        row("NOL utilization limit", _tdx.get("nol_utilization_limit_pct", 0.8), "of taxable income (IRC 172)")
+        row("Valuation allowance mode", _tdx.get("va_mode", "auto"), "")
+        row("CET1 treatment", "full deduction of net NOL-DTA", "12 CFR 3.22(a)")
+    else:
+        row("(not active)", "", "100% NOL shield, no DTA booked")
     sec("Fee modules")
     fm = a.get("fee_modules") or {}
     for k, v in fm.items():

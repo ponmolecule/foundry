@@ -332,6 +332,20 @@ def run_pf_a(cfg):
     is_ = {k: [None] * (Q + 1) for k in isk}
 
     re, nol = day_one, 0.0
+    # ---- tax_detail module (NOL -> DTA, ASC 740 presentation; OFF path is
+    # byte-identical to the legacy shield-everything treatment) ----
+    _td = a.get("tax_detail") or None
+    if _td is not None and _td.get("enabled") is False:
+        _td = None
+    if _td:
+        _td_lim = float(_td.get("nol_utilization_limit_pct",
+                                  _RP["tax"]["nol_utilization_limit_pct"]))
+        _td_va_mode = _td.get("va_mode", "auto")
+        _td_va_pct = float(_td.get("va_pct", 0.0))
+        for _k in ("taxCurrent", "taxDeferred", "dtaGross", "dtaVA", "dtaNet"):
+            is_[_k] = [None] * (Q + 1)
+        bs["dta"] = [0.0] * (Q + 1)
+    _cum_taxable, _dta_prev = 0.0, 0.0
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
@@ -365,25 +379,56 @@ def run_pf_a(cfg):
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
+        _dta_iter = _dta_prev
         for _ in range(60):
             afs_end_b = sum(p["_bal"][q] for p in afs_p)
             aoci_q = afs_end_b * _aoci_sens / 4.0
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             ne_q[0] = q
-            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end, non_earn_t[q])
+            c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
+                            non_earn_t[q] + (_dta_iter if _td else 0.0))
             sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
             borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / 4.0 + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
-            taxable = max(0.0, pretax - nol)
-            tax = taxable * a["tax_rate"]
+            if _td:
+                if pretax < 0:
+                    _shield = 0.0
+                    _current = 0.0
+                    _nol_end = nol - pretax
+                else:
+                    _shield = min(nol, _td_lim * pretax)
+                    _current = (pretax - _shield) * a["tax_rate"]
+                    _nol_end = nol - _shield
+                _dta_gross = _nol_end * a["tax_rate"]
+                if _td_va_mode == "auto":
+                    _va = _dta_gross if (_cum_taxable + pretax) < 0 else 0.0
+                elif _td_va_mode == "pct":
+                    _va = _dta_gross * _td_va_pct
+                else:
+                    _va = 0.0
+                _dta_net = _dta_gross - _va
+                _deferred = -(_dta_net - _dta_prev)
+                tax = _current + _deferred
+                _dta_iter = _dta_net
+            else:
+                taxable = max(0.0, pretax - nol)
+                tax = taxable * a["tax_rate"]
             new_ni = pretax - tax
             if abs(new_ni - ni) < 1e-4:
                 ni = new_ni
                 break
             ni = new_ni
-        if pretax < 0:
+        if _td:
+            nol = _nol_end
+            _cum_taxable += pretax
+            _dta_prev = _dta_net
+            bs["dta"][q] = _dta_net
+            for _k, _v in (("taxCurrent", _current), ("taxDeferred", _deferred),
+                            ("dtaGross", _dta_gross), ("dtaVA", _va), ("dtaNet", _dta_net)):
+                is_[_k][q] = _v
+        elif pretax < 0:
             nol += -pretax
         else:
             nol = max(0.0, nol - pretax)
@@ -396,7 +441,8 @@ def run_pf_a(cfg):
         bs["afsBook"][q] = afs_end_b
         bs["htmBook"][q] = sum(p["_bal"][q] for p in htm_p)
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
-        bs["totalAssets"][q] = c + s + sec_books_end + net_loans_end + non_earn_t[q] + msr_t[q]
+        bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + msr_t[q]
+                                  + (bs["dta"][q] if _td else 0.0))
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
@@ -419,9 +465,10 @@ def run_pf_a(cfg):
         ratios["nim"][q] = (is_["nii"][q] * 4 / avg_earn * 100) if avg_earn > 0 else None
         rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
         ratios["eff"][q] = ((is_["prodOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
-        t1 = bs["equity"][q] - a["intangibles"]
+        _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if _td else 0.0
+        t1 = bs["equity"][q] - a["intangibles"] - _dta_ded
         msr_x = max(0.0, msr_t[q] - 0.25 * max(0.0, t1))
-        ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x) * 100) if (avg_a - msr_x) > 0 else None
+        ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x - _dta_ded) * 100) if (avg_a - msr_x - _dta_ded) > 0 else None
         ratios["alllPct"][q] = (alll_t[q] / gross[q] * 100) if gross[q] > 0 else None
 
     products = []
