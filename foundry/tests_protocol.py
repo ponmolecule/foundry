@@ -800,16 +800,24 @@ def t33():
     finally:
         _os2.environ.pop("CHARTERIQ_RETRO_MAP", None)
     _os.environ.pop("CHARTERIQ_RETRO_MAP", None)
+    # SUPERSEDED twice, finally to the true contract (the user's local
+    # retrodiction proved it): a ratio-bearing surface AUTO-RESOLVES and RUNS
+    # without any env var; absence is reported, not fatal.
+    _orig_list, _orig_pull = cl.list_available_metrics, cl.get_bank_quarterly_series
+    cl.list_available_metrics = lambda cert: ["cet1_ratio", "leverage_ratio", "roa",
+                                                 "roe", "nim", "efficiency_ratio",
+                                                 "brokered_dep_pct", "deposit_cost"]
+    cl.get_bank_quarterly_series = lambda cert, metrics, quarters=None: {
+        "series": {m2: [{"year": 2024, "quarter": qq, "value": 1.0 + qq/10}
+                          for qq in (1, 2, 3, 4)] for m2 in metrics},
+        "accuracy": {m2: "exact" for m2 in metrics}}
     try:
-        cl.get_retro_actuals(12345); mapped = True
-    except ValueError as e:
-        mapped = False
-        msg = str(e)
-    # SUPERSEDED (self-configuring map): absent env now attempts exact-candidate
-    # auto-resolution against the bank's real metric list; a ratio-only bank
-    # resolves nothing and fails closed naming the unresolved series.
-    check("T33e", "retro pull fails closed when auto-resolution finds no exact candidates",
-          not mapped and "auto-resolution incomplete" in msg and "CHARTERIQ_RETRO_MAP" in msg)
+        r_auto = cl.get_retro_actuals(12345)
+    finally:
+        cl.list_available_metrics, cl.get_bank_quarterly_series = _orig_list, _orig_pull
+    check("T33e", "ratio-bearing surface auto-resolves and runs without the env var",
+          r_auto["map_source"] == "auto-resolved" and "deposits" in r_auto["absent_series"]
+          and r_auto["quarters"] == 4 and set(r_auto["series"]) >= {"leverage", "roa", "nim"})
     auto = cl.auto_retro_map(["total_deposits", "net_loans", "total_assets",
                                 "total_equity", "net_income", "cet1_ratio"])
     check("T33e", "auto-resolution completes on canonical names (env still overrides)",
@@ -819,14 +827,23 @@ def t33():
     auto2 = cl.auto_retro_map(["total_deposits_dollars", "total_loans_dollars",
                                  "total_assets_dollars", "total_equity_dollars",
                                  "net_income_dollars", "cet1_ratio", "roa", "nim"])
+    # the live surface's actual shape: analytical vocabulary WITH ratio series —
+    # resolves ratio-only and RUNS (T33g's contract; the user's local retrodiction
+    # proved it against my stricter over-diagnosis)
+    part = cl.auto_retro_map(["brokered_dep_pct", "core_deposit_ratio", "deposit_cost",
+                                "ci_loan_pct", "afs_pct_assets", "liquid_asset_ratio",
+                                "leverage_ratio", "efficiency_ratio",
+                                "oreo_to_assets", "ppnr_to_assets", "cet1_ratio", "roa"])
+    check("T33e", "an analytical surface with ratio series resolves ratio-only and proceeds",
+          part.get("roa") == "roa" and part.get("leverage") == "leverage_ratio"
+          and part.get("efficiency") == "efficiency_ratio" and "deposits" not in part)
     try:
-        cl.auto_retro_map(["brokered_dep_pct", "core_deposit_ratio", "deposit_cost",
-                             "ci_loan_pct", "afs_pct_assets", "liquid_asset_ratio",
-                             "oreo_to_assets", "ppnr_to_assets", "cet1_ratio", "roa"])
+        cl.auto_retro_map(["brokered_dep_pct", "deposit_cost", "ci_loan_pct",
+                             "afs_pct_assets", "oreo_to_assets", "ppnr_to_assets"])
         diag = ""
     except ValueError as e:
         diag = str(e)
-    check("T33e", "an all-analytical surface gets the capability-gap diagnosis, not env homework",
+    check("T33e", "only when NOTHING resolves: the capability-gap diagnosis, not env homework",
           "does not yet expose" in diag and "CharterIQ data thread" in diag)
     check("T33e", "the substrate's _dollars convention resolves (ratios ride along)",
           auto2["deposits"] == "total_deposits_dollars"

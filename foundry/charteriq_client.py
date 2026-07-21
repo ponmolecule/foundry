@@ -121,6 +121,8 @@ class CharterIQClient:
         sql += " ORDER BY year, quarter"
         out = {m: [] for m in metrics}
         for m, y, q, v in self._run(sql, tuple(params)):
+            if m not in out:
+                continue   # rows for unrequested metrics are ignored, not fatal
             out[m].append({"year": y, "quarter": q,
                             "value": float(v) if v is not None else None})
         return {"series": out,
@@ -234,25 +236,28 @@ class CharterIQClient:
         """Resolve the five series against the bank's actual metric names.
         Exact-candidate matching only; fails closed on any unresolved series."""
         avail = set(available)
-        required = ("deposits", "loans", "assets", "equity", "net_income")
         resolved, unresolved = {}, {}
         for series in RETRO_SERIES:
             hits = [cand for cand in self.RETRO_AUTO_CANDIDATES.get(series, [])
                     if cand in avail]
             if hits:
                 resolved[series] = hits[0]   # ordered preference, deterministic
-            elif series in required:
+            else:
                 stems = self.RETRO_NEAR_STEMS.get(series, [series.split("_")[0]])
                 near = sorted(m for m in avail if any(s in m for s in stems))[:8]
                 unresolved[series] = near
-        if unresolved:
-            # Diagnose the analytical-surface case: a vocabulary of ratios and
+        # The harness runs on WHATEVER resolves (ratio-only maps were always a
+        # legitimate configuration — T33g); absence is reported, not fatal.
+        if resolved:
+            return resolved
+        if True:
+            # Nothing resolved at all. Diagnose the analytical-surface case: a vocabulary of ratios and
             # percentages with no level series at all. That is a substrate
             # capability gap, not a configuration error — say so honestly
             # instead of assigning env-var homework the reader cannot do.
             analytical = sum(1 for m in avail if "_pct" in m or "_ratio" in m
                               or "_to_" in m or m.endswith("_cost"))
-            if len(unresolved) >= 4 and analytical >= max(5, len(avail) // 3):
+            if analytical >= max(5, len(avail) // 3):
                 raise ValueError(
                     "retrodiction needs balance-level series (deposits, loans, "
                     "assets, equity, net income) that this substrate metrics "
@@ -293,9 +298,11 @@ class CharterIQClient:
                 f"per-series row counts: {counts}; configured map: {m}. "
                 "If a mapped name looks like a placeholder, reset CHARTERIQ_RETRO_MAP "
                 "with real metric names and restart the server.")
+        absent = [s for s in RETRO_SERIES if s not in m]
         return {"series": {k: v[:n] for k, v in series.items()}, "quarters": n,
                 "accuracy": pulled["accuracy"],
-                "series_map": m, "map_source": "auto-resolved" if auto else "env"}
+                "series_map": m, "map_source": "auto-resolved" if auto else "env",
+                "absent_series": absent}
 
 
 def band_for_assets_mm(assets_mm):
