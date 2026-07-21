@@ -101,7 +101,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
   justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
 .cfgwrap .cx:hover{color:#F0A0A0;border-color:#B4545466;background:rgba(180,84,84,.10)}
 .modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500;display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
-.cfggrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px;align-items:stretch}
+.cfggrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:20px;align-items:stretch}
 .cfgcard{background:#141E31;border:1px solid #26324B;border-radius:10px;
   padding:20px 24px 24px;min-height:198px}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
@@ -1598,7 +1598,7 @@ function renderContent(){
     regNote('totalAssets', bsHasOpen, [["Cash", fin.bs.cash], ["Securities", fin.bs.sec || fin.bs.afs],
       ["Net loans", fin.bs.netLoans], ["Held for sale", fin.bs.hfs], ["MSR", fin.bs.msr],
       ["Premises", fin.bs.premises], ["Intangibles", fin.bs.intangibles], ["Other", fin.bs.otherAssets]]);
-    regNote('netLoans', bsHasOpen, [["Gross loans", fin.bs.grossLoans], ["\u2212 ALLL", (fin.bs.alll||[]).map(x=>-(x||0))]]);
+    regNote('netLoans', bsHasOpen, [["Gross loans", fin.bs.grossLoans], ["\u2212 "+(cfg.assumptions&&cfg.assumptions.credit_regime?'ACL':'ALLL'), (fin.bs.alll||[]).map(x=>-(x||0))]]);
     h += '<div class="h2">Pro Forma Balance Sheet' + (V21 ? '<span class="schedbadge">SCHEDULE RC</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
     h += `<tr class="section"><td colspan="${V21?15:14}">Assets</td></tr>`;
@@ -1688,6 +1688,11 @@ function renderContent(){
     h += rowIS('Income Tax Expense', fin.is.tax, null, T.tax, 'tax');
     h += rowIS('NET INCOME (LOSS)', fin.is.ni, 'grand', T.ni, 'ni');
     h += rowIS('Memo: Net Charge-offs', fin.is.nco || fin.is.chargeoffs, null, T.nco ?? T.chargeoffs, 'nco');
+    if(fin.is.provDayOne){
+      h += rowIS('\u2003of which: day-one provision (retained originations)', fin.is.provDayOne, null, (fin.is.provDayOne||[]).slice(-1)[0], 'prov');
+      h += rowIS('\u2003of which: reserve build/(release), existing book', fin.is.provBuild, null, (fin.is.provBuild||[]).slice(-1)[0], 'prov');
+      h += rowIS('\u2003of which: net charge-off replenishment', fin.is.provNCO, null, (fin.is.provNCO||[]).slice(-1)[0], 'prov');
+    }
     if(fin.is.taxCurrent){
       h += rowIS('\u2003of which: current tax', fin.is.taxCurrent, null, (fin.is.taxCurrent||[]).slice(-1)[0], 'tax');
       h += rowIS('\u2003of which: deferred tax (\u0394 DTA)', fin.is.taxDeferred, null, (fin.is.taxDeferred||[]).slice(-1)[0], 'tax');
@@ -1720,7 +1725,7 @@ function renderContent(){
     h += rowPct('Net Interest Margin (NIM)', rt.nim);
     h += rowPct('Efficiency Ratio', rt.eff);
     h += rowPct('Tier 1 Leverage Ratio', rt.lev || rt.leverage);
-    if(rt.alllPct) h += rowPct('ALLL / Gross Loans', rt.alllPct);
+    if(rt.alllPct) h += rowPct((cfg.assumptions&&cfg.assumptions.credit_regime?'ACL':'ALLL')+' / Gross Loans', rt.alllPct);
     h += '</table>';
     const ST = lastRes && lastRes.capital && lastRes.capital.standardized;
     if(ST){
@@ -2717,7 +2722,34 @@ function structuresSectionsHtml(){
   });
   if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
   if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
-  h += '</div></div>';
+  h += '</div>';
+  h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.gauge||ICONS.bank}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
+  if(cfg.assumptions.tax_detail){
+    const td = cfg.assumptions.tax_detail;
+    h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
+    h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
+    if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
+  } else {
+    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance). Activate with the Tax detail switch above.</div>`;
+  }
+  h += `</div>`;
+
+  h += `<div class="cfgcard" id="card-cecl"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Credit regime \u2014 CECL presentation</div><div class="cd">ASC 326 vocabulary and the day-one provision decomposition. Election is per product (measurement: amortized cost + ACL, or fair value option) \u2014 this card governs presentation, not the election.</div></span></div>`;
+  if(A.credit_regime){
+    const lp = (A.lending_products||[]);
+    const nAm = lp.filter(p=>p.measurement!=="fair_value").length;
+    const nFv = lp.filter(p=>p.measurement==="fair_value").length;
+    const nHfs = lp.filter(p=>p.mortgage_banking && (p.mortgage_banking.sale_pct_of_orig||0)>0).length;
+    h += `<div class="crow">Regime census: <b style="color:#DCE3EE">${nAm}</b>&nbsp;amortized cost + CECL ACL \u00b7 <b style="color:#DCE3EE">${nFv}</b>&nbsp;fair value option \u00b7 <b style="color:#DCE3EE">${nHfs}</b>&nbsp;with HFS warehouse</div>`;
+    h += `<div class="chint">Allowance labels read ACL (ASC 326); the provision decomposes on the Income Statement into day-one provision on retained originations, reserve build/(release) on the existing book, and net charge-off replenishment. Incurred loss is not offered: CECL is mandatory for HFI amortized-cost loans \u2014 a de novo adopts it from day one.</div>`;
+    h += `<button class="pillbtn" onclick="delete cfg.assumptions.credit_regime;renderContent();refresh()">Disable</button>`;
+  } else {
+    h += `<div class="csub">Not active \u2014 allowance labels read ALLL and the provision reports as a single line (arithmetic identical either way; the module is presentation and decomposition, not a different engine).</div>`;
+    h += `<button class="pillbtn" onclick="cfg.assumptions.credit_regime={enabled:true};renderContent();refresh()">Enable</button>`;
+  }
+  h += `</div>`;
+  h += '</div>';
+  h += '</div>';
   return h;
 }
 window.runSens = async function(){
@@ -2778,17 +2810,7 @@ function renderConfigTab(){
     h += `<tr><td style="font-family:var(--mono)">${x[0]}</td><td>${x[1]}</td><td>${x[2] ? x[2] : '<span class="ovtag mut">not yet in configuration</span>'}</td></tr>`;
   });
   h += '</table></details>';
-  h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.gauge||ICONS.bank}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
-  if(cfg.assumptions.tax_detail){
-    const td = cfg.assumptions.tax_detail;
-    h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
-    h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
-    if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
-  } else {
-    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance). Activate with the Tax detail switch above.</div>`;
-  }
-  h += `</div>`;
-  h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
+    h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#DFA85A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
     document.getElementById("content").innerHTML = h; return;

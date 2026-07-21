@@ -346,6 +346,17 @@ def run_pf_a(cfg):
             is_[_k] = [None] * (Q + 1)
         bs["dta"] = [0.0] * (Q + 1)
     _cum_taxable, _dta_prev = 0.0, 0.0
+    # ---- credit_regime module (ASC 326 presentation): decomposes the SAME
+    # provision into day-one (retained originations x lifetime EL rate),
+    # reserve build/(release) on the existing book, and NCO replenishment.
+    # No arithmetic changes anywhere - the decomposition is definitionally
+    # additive and the totals are gated byte-identical (T62). ----
+    _cr = a.get("credit_regime") or None
+    if _cr is not None and _cr.get("enabled") is False:
+        _cr = None
+    if _cr:
+        for _k in ("provDayOne", "provBuild", "provNCO"):
+            is_[_k] = [None] * (Q + 1)
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
@@ -373,6 +384,13 @@ def run_pf_a(cfg):
         nie = prod_ox + overhead
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
+        if _cr:
+            _day1 = sum((p.get("reserve_rate_pct_bal") or 0.0)
+                         * (p["_orig"][q] or 0.0) * (1.0 - (p.get("_sale") or 0.0))
+                         for p in lend if not p["_is_fv"])
+            is_["provDayOne"][q] = _day1
+            is_["provNCO"][q] = nco_ac
+            is_["provBuild"][q] = prov - _day1 - nco_ac
         net_loans_end = gross[q] - alll_t[q]
         sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
         book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)

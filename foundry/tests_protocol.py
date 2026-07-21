@@ -1537,6 +1537,28 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t62():
+    print("T62 credit regime (ASC 326 presentation): decomposition identity, totals invariance")
+    import json as _j, copy as _cp
+    from foundry.v2 import run_q as _r
+    cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    off = _r.run_v2(cfg)["financials"]
+    cA = _cp.deepcopy(cfg); cA["assumptions"]["credit_regime"] = {"enabled": True}
+    A = _r.run_v2(cA)["financials"]
+    check("T62a", "totals byte-identical on vs off (provision, ni, equity)",
+          all(abs((x or 0) - (y or 0)) < 1e-9 for x, y in zip(off["is"]["prov"][1:], A["is"]["prov"][1:]))
+          and all(abs((x or 0) - (y or 0)) < 1e-9 for x, y in zip(off["is"]["ni"][1:], A["is"]["ni"][1:]))
+          and all(abs((x or 0) - (y or 0)) < 1e-9 for x, y in zip(off["bs"]["equity"][1:], A["bs"]["equity"][1:])))
+    ai = A["is"]
+    check("T62b", "decomposition sums to the provision every quarter",
+          all(abs((ai["provDayOne"][q] + ai["provBuild"][q] + ai["provNCO"][q]) - ai["prov"][q]) < 0.05
+              for q in range(1, len(ai["prov"]))))   # components serialize at 2dp; identity holds at engine precision
+    check("T62c", "day-one provision positive while originations run (CECL growth drag visible)",
+          all((ai["provDayOne"][q] or 0) > 0 for q in range(1, len(ai["prov"]))))
+    check("T62d", "off path carries no decomposition keys (goldens' shape untouched)",
+          "provDayOne" not in off["is"])
+
+
 def t61():
     print("T61 tax detail (NOL -> DTA): theorems, limits, VA modes")
     import json as _j, copy as _cp
@@ -1830,7 +1852,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

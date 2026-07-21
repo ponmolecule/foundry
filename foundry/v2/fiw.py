@@ -241,6 +241,16 @@ def _settings_sheet(wb, cfg):
             row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
     else:
         row("(not active)", "")
+    sec("Credit regime (ASC 326)")
+    _crx = a.get("credit_regime")
+    if _crx:
+        row("Module", "active", "ACL vocabulary + day-one provision decomposition")
+        _lp = a.get("lending_products") or []
+        row("Amortized cost + CECL ACL", sum(1 for p in _lp if p.get("measurement") != "fair_value"), "per-product election")
+        row("Fair value option", sum(1 for p in _lp if p.get("measurement") == "fair_value"), "ASC 825, irrevocable at origination")
+        row("Incurred loss", "not offered", "CECL mandatory for HFI amortized-cost loans")
+    else:
+        row("(not active)", "", "ALLL vocabulary; single provision line")
     sec("Tax detail (NOL \u2192 DTA)")
     _tdx = a.get("tax_detail")
     if _tdx:

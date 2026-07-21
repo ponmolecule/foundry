@@ -225,3 +225,31 @@ with auto VA reproduces the legacy path exactly on a cumulative-loss fixture;
 va=none uplifts equity by exactly the net DTA while leverage stays within the
 EOP wedge. Out of scope by design (the vanilla/bespoke boundary): temporary
 differences, jurisdiction stacking, Section 382 limits after ownership change.
+
+
+## Credit regime module (ASC 326 presentation), presence-toggled
+Scrutiny corrections applied to the source design note before implementation:
+(1) "incurred loss" is not an available election — ASC 326 (CECL) is
+mandatory for HFI amortized-cost loans, and a de novo adopts it from day one
+(no transition provision exists because there is no incurred-loss baseline to
+transition from); the real regime choice is amortized cost + ACL versus the
+irrevocable ASC 825 fair value option, which is exactly the engine's
+per-product `measurement` field — the design note's REGIME flag was already
+shipped. (2) "HFS/AFS" conflates categories: AFS is a debt-securities
+classification (the engine's securities books, carried under the AOCI opt-out);
+loans held for sale default to LOCOM, which this engine simplifies to
+par-plus-gain warehouse mechanics (write-downs below cost are not modeled
+unless fair value is elected — stated flatly). The engine's standing reserve
+treatment is already CECL-shaped: the ACL is held at each product's lifetime
+expected loss rate applied to the ending amortized-cost balance, so the
+day-one provision drag on growth is inherent. What the module adds is
+presentation: ACL vocabulary (post-CECL Call Report usage), and a
+decomposition of the unchanged provision into day-one provision (retained
+originations × lifetime EL rate, HFS share excluded), reserve
+build/(release) on the existing book (residual, may be negative), and net
+charge-off replenishment. Totals are byte-identical module-on versus
+module-off (gate T62). HTM securities carry no ACL — assumed
+Treasury/agency, the zero-expected-loss position. Tier 2 inclusion caps for
+allowances (1.25% of standardized RWA) are inapplicable under CBLR and not
+modeled. Out of scope: granular CECL segmentation, macro overlays,
+reasonable-and-supportable forecast periods, AFS impairment mechanics.
