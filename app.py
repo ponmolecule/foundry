@@ -344,6 +344,22 @@ def auth_reset(body: dict, user=Depends(gate)):
         raise HTTPException(403, "Only a deputy can reset, and the target must exist.")
     return {"ok": True, "reset": body.get("username")}
 
+@app.get("/api/v31/peer-bands")
+def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate)):
+    """Substrate percentile bands (F-121 consumption path). cohort is 'broad'
+    or a comma-separated cert list (the Konrad shape)."""
+    from foundry.v2 import peer_bands as _pb
+    co = cohort if cohort == "broad" else [int(x) for x in cohort.split(",") if x.strip()]
+    try:
+        parsed, source = _pb.get_bands(metric, co)
+    except _pb.BandsError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": f"substrate unreachable: {e}"}, status_code=502)
+    parsed["source"] = source
+    parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
+    return JSONResponse(parsed)
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or

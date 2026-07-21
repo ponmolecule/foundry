@@ -1113,6 +1113,65 @@ async function retroSubstrate(givenCert){
   window.retroReport = j; window.retroCert = cert; window.retroHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
+function bandsSectionHtml(){
+  return `<div class="accent-label" style="margin-top:6px">Peer percentile corridor</div>
+  <div class="card" style="padding:14px 16px">
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+      <select id="pbMetric" onchange="renderBands()" style="min-width:150px">
+        <option value="roa">ROA (annual %)</option>
+        <option value="nim">NIM</option>
+        <option value="efficiency">Efficiency ratio</option>
+        <option value="tier1">Tier 1 / RWA</option>
+      </select>
+      <select id="pbCohort" onchange="renderBands()">
+        <option value="broad">Broad cohort (all identity-gated filers)</option>
+        <option value="curated">Curated certs\u2026</option>
+      </select>
+      <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));renderBands()" style="display:none;min-width:220px">
+    </div>
+    <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>
+  </div>`;
+}
+window.renderBands = async function(){
+  const body = document.getElementById("pbBody"); if(!body) return;
+  const metric = document.getElementById("pbMetric").value;
+  const mode = document.getElementById("pbCohort").value;
+  const certsEl = document.getElementById("pbCerts");
+  certsEl.style.display = mode === "curated" ? "inline-block" : "none";
+  let cohort = "broad";
+  if(mode === "curated"){
+    const certs = (cfgRef().peer_bands_certs||[]);
+    if(!certs.length){ body.innerHTML = '<div class="memo">Enter a cert list for the curated cohort (6\u201310 named peers is the working shape).</div>'; return; }
+    cohort = certs.join(",");
+  }
+  body.innerHTML = '<div class="memo">Loading bands\u2026</div>';
+  let d;
+  try{
+    const rr = await fetch(`/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`);
+    d = await rr.json();
+    if(!rr.ok){ body.innerHTML = `<div class="memo">${esc(d.error||"Bands unavailable.")}</div>`; return; }
+  }catch(e){ body.innerHTML = '<div class="memo">Could not reach the bands endpoint.</div>'; return; }
+  const prov = d.provenance||{};
+  let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 corrupt filer values quarantined at ingest, not flag-filtered.</div>`;
+  const smallN = d.small_n;
+  if(smallN){
+    h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #D8A85E;padding-left:10px">Small cohort (n below ${d.small_n_threshold}): percentiles approach member values \u2014 p10 \u2248 minimum, p90 \u2248 maximum. Read these as the <b>range of the named peers</b>, not a distribution.</div>`;
+  }
+  // modeled trajectory for the corridor column (annualized ROA % where available)
+  const traj = {};
+  if(metric === "roa" && lastRes && lastRes.ratios && lastRes.ratios.roa){
+    (lastRes.quarters||[]).forEach((q,i)=>{ traj[i] = lastRes.ratios.roa[i]; });
+  }
+  h += '<table class="fin" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
+       (smallN ? '<th>\u2248min (p10)</th><th>p25</th><th>Median</th><th>p75</th><th>\u2248max (p90)</th>'
+               : '<th>p10</th><th>p25</th><th>Median</th><th>p75</th><th>p90</th>') + '</tr>';
+  d.bands.forEach(b=>{
+    h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${b.p10.toFixed(3)}</td><td>${b.p25.toFixed(3)}</td><td>${b.p50.toFixed(3)}</td><td>${b.p75.toFixed(3)}</td><td>${b.p90.toFixed(3)}</td></tr>`;
+  });
+  h += '</table>';
+  h += `<div class="memo" style="margin-top:8px">Substrate quarters are calendar (2025Q1\u2026); the modeled bank runs on engagement quarters Q1\u2026Q12 \u2014 the corridor is a market backdrop, not a same-quarter join. Certified designation lands with the substrate's percentile-reconciliation gate.</div>`;
+  body.innerHTML = h;
+};
 function substratePanelHtml(){
   let h = '<div class="ovh2" style="display:flex;align-items:center;gap:12px">CharterIQ substrate <button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="subCheck()">Refresh substrate status</button></div>';
   if(subStatus === null){
@@ -1264,10 +1323,11 @@ function renderPeer(){
     // engine is retired from this rung; everything on this page draws from the
     // CharterIQ substrate (real filed data) or the user's own uploads.
     h += '<div class="memo">Everything on this page is real or absent \u2014 peer evidence comes from the CharterIQ Call Report substrate, retrodiction from filed history. Nothing here is simulated.</div>';
+    h += bandsSectionHtml();
     h += substratePanelHtml();
     h += vintageSectionHtml();
     h += retroSectionHtml();
-    el.innerHTML = h; return;
+    el.innerHTML = h; renderBands(); return;
   }
   if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }

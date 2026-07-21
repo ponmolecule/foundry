@@ -1492,6 +1492,46 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t60():
+    print("T60 peer bands (F-121 consumption): fixture contract, fail-closed, corridors, small-n")
+    import json as _j, copy as _cp
+    from foundry.v2 import peer_bands as _pb
+    broad, src = _pb.get_bands("roa", "broad")
+    check("T60a", "broad fixture parses; provisional source; provenance identity-gated",
+          src == "fixture (provisional)" and broad["provenance"]["basis"] == "identity-gated"
+          and broad["provenance"]["certified"] is False and len(broad["bands"]) == 5)
+    cur, _ = _pb.get_bands("roa", [7213, 628, 3511])   # order-insensitive cohort key
+    check("T60b", "curated cohort resolves regardless of cert order; n=3 flags small-n",
+          cur["small_n"] and all(b["n"] == 3 for b in cur["bands"]) and not broad["small_n"])
+    b0 = broad["bands"][0]
+    check("T60c", "corridor positioning is exact at the seams",
+          _pb.corridor_position(0.1, b0) == "below p10"
+          and _pb.corridor_position(1.2, b0) == "p50-p75"
+          and _pb.corridor_position(b0["p90"], b0) == "above p90"
+          and _pb.corridor_position(b0["p50"], b0) == "p50-p75")
+    bad = _cp.deepcopy({"metric": "roa", "cohort": "broad",
+                          "provenance": broad["provenance"], "bands": _cp.deepcopy(broad["bands"])})
+    del bad["bands"][2]["p25"]
+    try:
+        _pb.parse_bands_response(bad); ok = False
+    except _pb.BandsError as e:
+        ok = "missing percentile" in str(e)
+    check("T60d", "fail-closed on missing points", ok)
+    bad2 = _cp.deepcopy({"metric": "roa", "cohort": "broad",
+                           "provenance": broad["provenance"], "bands": _cp.deepcopy(broad["bands"])})
+    bad2["bands"][0]["p75"] = bad2["bands"][0]["p25"] - 1
+    try:
+        _pb.parse_bands_response(bad2); ok2 = False
+    except _pb.BandsError as e:
+        ok2 = "monotonic" in str(e)
+    check("T60d", "fail-closed on non-monotonic percentiles", ok2)
+    try:
+        _pb.get_bands("nim", "broad"); ok3 = False
+    except _pb.BandsError as e:
+        ok3 = "pending" in str(e)
+    check("T60e", "honest refusal for uncovered metrics (nim pends the endpoint)", ok3)
+
+
 def t59():
     print("T59 wizard-born configs (no peer_query) validate and run — the purge's loose end stays fixed")
     import json as _j
@@ -1711,7 +1751,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

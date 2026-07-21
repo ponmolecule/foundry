@@ -1,0 +1,61 @@
+{
+ "metric": "roa",
+ "cohort": [
+  628,
+  3511,
+  7213
+ ],
+ "provenance": {
+  "basis": "identity-gated",
+  "certified": false,
+  "computed_at": "2026-07-21T03:26:48.23619+00:00",
+  "quarantine_policy": "corrupt filer values excluded at ingest by per-family reconciliation gates; events logged per quarter (known: 2 banks 2020Q1 capital family)"
+ },
+ "bands": [
+  {
+   "quarter": "2025Q1",
+   "n": 3,
+   "p10": 0.9523,
+   "p25": 1.0861,
+   "p50": 1.3091,
+   "p75": 1.3687,
+   "p90": 1.4045
+  },
+  {
+   "quarter": "2025Q2",
+   "n": 3,
+   "p10": 0.9544,
+   "p25": 1.1302,
+   "p50": 1.4232,
+   "p75": 1.4373,
+   "p90": 1.4458
+  },
+  {
+   "quarter": "2025Q3",
+   "n": 3,
+   "p10": 0.9714,
+   "p25": 1.1279,
+   "p50": 1.3888,
+   "p75": 1.4084,
+   "p90": 1.4202
+  },
+  {
+   "quarter": "2025Q4",
+   "n": 3,
+   "p10": 0.9358,
+   "p25": 1.0874,
+   "p50": 1.3401,
+   "p75": 1.3816,
+   "p90": 1.4064
+  },
+  {
+   "quarter": "2026Q1",
+   "n": 3,
+   "p10": 1.0957,
+   "p25": 1.1744,
+   "p50": 1.3054,
+   "p75": 1.3656,
+   "p90": 1.4016
+  }
+ ]
+}
