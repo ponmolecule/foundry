@@ -816,6 +816,13 @@ def t33():
           auto == {"deposits": "total_deposits", "loans": "net_loans",
                     "assets": "total_assets", "equity": "total_equity",
                     "net_income": "net_income"})
+    auto2 = cl.auto_retro_map(["total_deposits_dollars", "total_loans_dollars",
+                                 "total_assets_dollars", "total_equity_dollars",
+                                 "net_income_dollars", "cet1_ratio", "roa", "nim"])
+    check("T33e", "the substrate's _dollars convention resolves (ratios ride along)",
+          auto2["deposits"] == "total_deposits_dollars"
+          and auto2["net_income"] == "net_income_dollars"
+          and auto2.get("roa") == "roa" and auto2.get("nim") == "nim")
     check("T33f", "queries are parameterized (no literals interpolated)",
           all("%s" in sql for sql, _ in calls if "WHERE" in sql))
 

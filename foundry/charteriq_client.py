@@ -193,17 +193,28 @@ class CharterIQClient:
     # (CHARTERIQ_RETRO_MAP) always wins; auto-resolution never guesses — a
     # series maps only when exactly one candidate exists in the bank's actual
     # metric list, and anything unresolved fails closed with the near-matches.
+    # Ordered preference lists; the substrate's observed convention is
+    # <name>_dollars for level series (net_income_dollars, cet1_dollars,
+    # liquid_assets_dollars are confirmed sightings) with singular stems.
     RETRO_AUTO_CANDIDATES = {
-        "deposits":   ["total_deposits", "deposits", "total_dep"],
-        "loans":      ["net_loans", "total_loans", "loans_net", "gross_loans"],
-        "assets":     ["total_assets", "assets"],
-        "equity":     ["total_equity", "equity", "total_equity_capital"],
-        "net_income": ["net_income", "ni_quarterly", "net_income_q"],
+        "deposits":   ["total_deposits_dollars", "deposits_dollars", "total_dep_dollars",
+                        "deposit_dollars", "total_deposits", "deposits"],
+        "loans":      ["total_loans_dollars", "net_loans_dollars", "loans_dollars",
+                        "gross_loans_dollars", "net_loans", "total_loans"],
+        "assets":     ["total_assets_dollars", "assets_dollars", "total_assets", "assets"],
+        "equity":     ["total_equity_dollars", "equity_dollars",
+                        "total_equity_capital_dollars", "total_equity", "equity"],
+        "net_income": ["net_income_dollars", "net_income", "ni_quarterly"],
         "leverage":   ["leverage_ratio", "tier1_leverage", "leverage"],
         "roa":        ["roa", "return_on_assets"],
         "roe":        ["roe", "return_on_equity"],
         "nim":        ["nim", "net_interest_margin"],
         "efficiency": ["efficiency_ratio", "efficiency", "eff_ratio"],
+    }
+    # Stems for near-match reporting when a required series stays unresolved.
+    RETRO_NEAR_STEMS = {
+        "deposits": ["deposit", "dep"], "loans": ["loan"], "assets": ["asset"],
+        "equity": ["equit", "capital"], "net_income": ["net_income", "income"],
     }
 
     def retro_map(self):
@@ -228,10 +239,11 @@ class CharterIQClient:
         for series in RETRO_SERIES:
             hits = [cand for cand in self.RETRO_AUTO_CANDIDATES.get(series, [])
                     if cand in avail]
-            if len(hits) == 1:
-                resolved[series] = hits[0]
+            if hits:
+                resolved[series] = hits[0]   # ordered preference, deterministic
             elif series in required:
-                near = sorted(m for m in avail if series.split("_")[0] in m)[:5]
+                stems = self.RETRO_NEAR_STEMS.get(series, [series.split("_")[0]])
+                near = sorted(m for m in avail if any(s in m for s in stems))[:8]
                 unresolved[series] = near
         if unresolved:
             detail = "; ".join(f"{s}: no exact candidate (near: {n})"
