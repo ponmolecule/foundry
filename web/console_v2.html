@@ -101,7 +101,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
   justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
 .cfgwrap .cx:hover{color:#F0A0A0;border-color:#B4545466;background:rgba(180,84,84,.10)}
 .modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500;display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #3A4C6E;color:#DCE3EE;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
-.cfggrid{display:grid;grid-template-columns:1.14fr 1.14fr 0.72fr;gap:14px;align-items:stretch}
+.cfggrid{display:grid;grid-template-columns:1.26fr 1.02fr 0.72fr;gap:14px;align-items:stretch}
 .cfgcard{background:#141E31;border:1px solid #26324B;border-radius:10px;
   padding:16px 16px 18px;min-height:198px}
 /* three-column density: one type-step down inside cards so entry rows keep to
@@ -127,7 +127,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .tacct>div:nth-child(-n+2){padding-top:18px}
 .tacct + .hline{margin-top:0}
 .cflex{display:flex;flex-direction:column}
-.tsec{position:relative;flex:1;display:grid;grid-template-columns:1fr 1fr;column-gap:0;margin-top:-18px;padding-top:18px}
+.tsec{position:relative;flex:1;display:grid;grid-template-columns:1.45fr 0.55fr;column-gap:0;margin-top:-18px;padding-top:18px}
 .tsec>div{min-width:0}
 .tsec>div:first-child{padding-right:32px}
 .tsec>div:last-child{padding-left:32px}
@@ -2772,10 +2772,10 @@ function structuresSectionsHtml(){
     h += `<div class="crow">Regime census: <b style="color:#DCE3EE">${nAm}</b>&nbsp;amortized cost + CECL ACL \u00b7 <b style="color:#DCE3EE">${nFv}</b>&nbsp;fair value option \u00b7 <b style="color:#DCE3EE">${nHfs}</b>&nbsp;with HFS warehouse</div>`;
     h += `<div class="cmut" style="margin-top:8px">Labels read ACL; the Income Statement splits the provision into day-one \u00b7 build/(release) \u00b7 NCO.</div>`;
     h += `<div class="chint">Incurred loss is not electable \u2014 CECL is mandatory from day one. Full treatment: ENGINE_SPEC.</div>`;
-    h += `<button class="pillbtn" onclick="delete cfg.assumptions.credit_regime;renderContent();refresh()">Disable</button>`;
+    h += `<button class="pillbtn" style="margin-top:12px" onclick="delete cfg.assumptions.credit_regime;renderContent();refresh()">Disable</button>`;
   } else {
     h += `<div class="cmut">Not active \u2014 allowance labels read ALLL and the provision reports as one line. Arithmetic is identical either way.</div>`;
-    h += `<button class="pillbtn" onclick="cfg.assumptions.credit_regime={enabled:true};renderContent();refresh()">Enable</button>`;
+    h += `<button class="pillbtn" style="margin-top:12px" onclick="cfg.assumptions.credit_regime={enabled:true};renderContent();refresh()">Enable</button>`;
   }
   h += `</div>`;
   h += '</div>';
