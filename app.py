@@ -124,7 +124,15 @@ def health():   # unauthenticated on purpose: deploy probes need it
 
 
 @app.get("/")
-def index(_=Depends(gate)):
+def index():
+    # The bare domain lands on the platform: Welcome page (sign-in) at /v3.1.
+    from fastapi.responses import RedirectResponse
+    return RedirectResponse("/v3.1", status_code=307)
+
+
+@app.get("/v1")
+def v1_console(_=Depends(gate)):
+    """The original v1 console, preserved as a frozen rung."""
     return FileResponse("web/index.html")
 
 
