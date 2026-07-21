@@ -2724,17 +2724,19 @@ function structuresSectionsHtml(){
   if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
   h += '</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.gauge||ICONS.bank}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
+  h += `<button class="fpill${cfg.assumptions.tax_detail?" on":""}" style="margin:0 0 10px" onclick="${cfg.assumptions.tax_detail?"delete cfg.assumptions.tax_detail":"cfg.assumptions.tax_detail={enabled:true}"};renderContent();refresh()" title="${cfg.assumptions.tax_detail?"On \u2014 click to disable (legacy treatment resumes)":"Off \u2014 click to enable"}"><span style="color:${cfg.assumptions.tax_detail?"#DFA85A":"#8FA3C0"}">${ICONS.doc}</span>NOL \u2192 DTA</button>`;
   if(cfg.assumptions.tax_detail){
     const td = cfg.assumptions.tax_detail;
     h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
     h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
     if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=parseFloat(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
   } else {
-    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance). Activate with the Tax detail switch above.</div>`;
+    h += `<div class="csub">Not active \u2014 taxes shield 100% of income against accumulated NOLs with no DTA booked (equivalent to a full valuation allowance). Toggle above to activate.</div>`;
   }
   h += `</div>`;
 
   h += `<div class="cfgcard" id="card-cecl"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Credit regime \u2014 CECL presentation</div><div class="cd">ASC 326 vocabulary and the day-one provision decomposition. Election is per product (measurement: amortized cost + ACL, or fair value option) \u2014 this card governs presentation, not the election.</div></span></div>`;
+  h += `<button class="fpill${A.credit_regime?" on":""}" style="margin:0 0 10px" onclick="${A.credit_regime?"delete cfg.assumptions.credit_regime":"cfg.assumptions.credit_regime={enabled:true}"};renderContent();refresh()" title="${A.credit_regime?"On \u2014 click to disable (ALLL vocabulary resumes)":"Off \u2014 click to enable"}"><span style="color:${A.credit_regime?"#DFA85A":"#8FA3C0"}">${ICONS.doc}</span>CECL presentation</button>`;
   if(A.credit_regime){
     const lp = (A.lending_products||[]);
     const nAm = lp.filter(p=>p.measurement!=="fair_value").length;
