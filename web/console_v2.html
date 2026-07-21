@@ -123,7 +123,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
 .ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;row-gap:22px}
-.tacct{display:grid;grid-template-columns:minmax(0,.85fr) minmax(0,1.15fr);column-gap:0;row-gap:0;margin-top:-18px}
+.tacct{display:grid;grid-template-columns:minmax(0,.76fr) minmax(0,1.24fr);column-gap:0;row-gap:0;margin-top:-18px}
 .tacct>div:nth-child(-n+2){padding-top:18px}
 .tacct + .hline{margin-top:0}
 .cflex{display:flex;flex-direction:column}
@@ -2665,7 +2665,7 @@ function structuresSectionsHtml(){
     raises.forEach((r,i)=>{
       _r += `<div class="crow">Qtr<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
         + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
-        + `</select><input type="text" inputmode="decimal" style="width:112px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
+        + `</select><input type="text" inputmode="decimal" style="width:84px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
         + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _r += '<button class="pillbtn" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:1,amount:10000000});renderContent();refresh()">+ Add a raise</button>';
@@ -2680,7 +2680,7 @@ function structuresSectionsHtml(){
     _b += `<div class="cmut">${sbs.length} borrowing${sbs.length===1?"":"s"} added</div>`;
     let _p = '<div class="csub">Pre-opening</div>';
     pex.forEach((e,i)=>{
-      _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:96px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:64px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _p += '<button class="pillbtn" onclick="poAdd()">+ Add pre-open expense</button>';
     _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
