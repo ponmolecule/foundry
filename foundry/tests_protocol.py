@@ -806,6 +806,7 @@ def t33():
     _orig_list, _orig_pull = cl.list_available_metrics, cl.get_bank_quarterly_series
     cl.list_available_metrics = lambda cert: ["cet1_ratio", "leverage_ratio", "roa",
                                                  "roe", "nim", "efficiency_ratio",
+                                                 "tce_dollars",
                                                  "brokered_dep_pct", "deposit_cost"]
     cl.get_bank_quarterly_series = lambda cert, metrics, quarters=None: {
         "series": {m2: [{"year": 2024, "quarter": qq, "value": 1.0 + qq/10}
@@ -817,7 +818,9 @@ def t33():
         cl.list_available_metrics, cl.get_bank_quarterly_series = _orig_list, _orig_pull
     check("T33e", "ratio-bearing surface auto-resolves and runs without the env var",
           r_auto["map_source"] == "auto-resolved" and "deposits" in r_auto["absent_series"]
-          and r_auto["quarters"] == 4 and set(r_auto["series"]) >= {"leverage", "roa", "nim"})
+          and r_auto["quarters"] == 4
+          and set(r_auto["series"]) >= {"leverage", "roa", "nim", "equity"}
+          and r_auto["series_map"]["equity"] == "tce_dollars")
     auto = cl.auto_retro_map(["total_deposits", "net_loans", "total_assets",
                                 "total_equity", "net_income", "cet1_ratio"])
     check("T33e", "auto-resolution completes on canonical names (env still overrides)",

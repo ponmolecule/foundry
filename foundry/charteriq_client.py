@@ -204,7 +204,8 @@ class CharterIQClient:
         "loans":      ["total_loans_dollars", "net_loans_dollars", "loans_dollars",
                         "gross_loans_dollars", "net_loans", "total_loans"],
         "assets":     ["total_assets_dollars", "assets_dollars", "total_assets", "assets"],
-        "equity":     ["total_equity_dollars", "equity_dollars",
+        "equity":     ["tce_dollars",   # CONFIRMED on the live surface (user's map)
+                        "total_equity_dollars", "equity_dollars",
                         "total_equity_capital_dollars", "total_equity", "equity"],
         "net_income": ["net_income_dollars", "net_income", "ni_quarterly"],
         "leverage":   ["leverage_ratio", "tier1_leverage", "leverage"],
