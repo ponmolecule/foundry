@@ -2468,12 +2468,17 @@ document.addEventListener("click", (ev)=>{
       const on = (A.capital_raises||[]).length + ((cfg.pre_opening||{}).expenses||[]).length
                + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0) > 0;
       on ? capClear() : capSeed();
-    } else if(act==="sec"){
-      ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 ? secClear() : secAdd(0);
-    } else if(act==="aoci"){ aociFlip(); }
-    else if(act==="nie"){ A.nie_detail ? nieOff() : nieOn(); }
+    } else if(act==="secaoci"){
+      const secOn = ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 || !!A.aoci_sensitivity_annual;
+      if(secOn){ secClear(); if(A.aoci_sensitivity_annual) aociFlip(); }
+      else { secAdd(0); }
+    } else if(act==="nie"){ A.nie_detail ? nieOff() : nieOn(); }
     else if(act==="tax"){
       if(A.tax_detail){ delete A.tax_detail; } else { A.tax_detail = {enabled:true}; }
+      renderContent(); refresh();
+    }
+    else if(act==="cecl"){
+      if(A.credit_regime){ delete A.credit_regime; } else { A.credit_regime = {enabled:true}; }
       renderContent(); refresh();
     }
     else if(act==="fee"){
@@ -2616,19 +2621,23 @@ function structuresSectionsHtml(){
   h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
   const swTile = (label, on, act, icon, extra, titleTxt)=>
     `<div class="modcard${on?" sel":""}" data-act="${act}" title="${titleTxt}"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS[icon]}</span><span class="ml">${label}${extra||""}</span></span><span class="sw${on?" on":""}"></span></div>`;
-  h += swTile("Capital &amp;<br>pre-opening", capOn, "cap", "bank", "",
+  // The strip mirrors the 2x3 card grid below 1:1 - same order (L->R, T->B),
+  // same labels, same icons as each card's medallion. AOCI folded into the
+  // Securities tile (its card twin already holds both).
+  const secAociTileOn = secN > 0 || !!lampMap["AOCI"];
+  h += swTile("Capital structure &amp;<br>pre-opening", capOn, "cap", "bank", "",
               capOn?"On \u2014 click to clear all capital structures (instant)":"Off \u2014 click to activate with a default Q4 raise");
-  h += swTile("Securities<br>books", secN>0, "sec", "doc", "",
-              secN>0?"On \u2014 click to remove all designated books (instant)":"Off \u2014 click to activate with a default AFS book");
-  h += swTile("AOCI", lampMap["AOCI"], "aoci", "wave", "",
-              lampMap["AOCI"]?"On \u2014 click to zero the sensitivity":"Off \u2014 click to activate at 0.5%/yr");
-  h += swTile("Operating<br>expense", !!A.nie_detail, "nie", "calc", "",
+  h += swTile("Securities books<br>&amp; AOCI", secAociTileOn, "secaoci", "doc", "",
+              secAociTileOn?"On \u2014 click to remove all designated books and zero AOCI (instant)":"Off \u2014 click to activate with a default AFS book");
+  h += swTile("Operating<br>expense detail", !!A.nie_detail, "nie", "calc", "",
               A.nie_detail?"On \u2014 NIE detail replaces the overhead line; click to deactivate":"Off \u2014 click to activate NIE detail");
-  h += swTile("Tax<br>detail", !!A.tax_detail, "tax", "calc", "",
-              A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
   h += swTile("Fee modules", feeOnN>0, "fee", "stack",
               `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
               feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 click to activate with Interchange");
+  h += swTile("Tax detail \u2014<br>NOL \u2192 DTA", !!A.tax_detail, "tax", "percent", "",
+              A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
+  h += swTile("Credit regime \u2014<br>CECL", !!A.credit_regime, "cecl", "shield", "",
+              A.credit_regime?"On \u2014 ACL vocabulary + provision decomposition; click to deactivate":"Off \u2014 click to activate the ASC 326 presentation");
   h += '</div><div class="mp-info"><span style="border:1px solid #4A5A75;border-radius:50%;width:18px;height:18px;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:0 0 18px">i</span>Text entry boxes are activated based on what module(s) are enabled.</div></div>';
   h += '<div class="cfggrid">';
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
