@@ -2470,8 +2470,8 @@ document.addEventListener("click", (ev)=>{
       on ? capClear() : capSeed();
     } else if(act==="secaoci"){
       const secOn = ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 || !!A.aoci_sensitivity_annual;
-      if(secOn){ secClear(); if(A.aoci_sensitivity_annual) aociFlip(); }
-      else { secAdd(0); }
+      if(secOn){ A.aoci_sensitivity_annual = 0; secClear(); }  // clear books AND sensitivity
+      else { secAdd(0); aociFlip(); }  // activate seeds BOTH: default AFS book + 0.5%/yr AOCI
     } else if(act==="nie"){ A.nie_detail ? nieOff() : nieOn(); }
     else if(act==="tax"){
       if(A.tax_detail){ delete A.tax_detail; } else { A.tax_detail = {enabled:true}; }
