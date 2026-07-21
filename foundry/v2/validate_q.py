@@ -13,7 +13,9 @@ class ConfigErrorV2(ValueError):
 TOP_REQUIRED = ["engagement_id", "schema_version", "client_legal_name", "proposed_bank",
                 "hq", "config_version", "config_frozen", "parity_profile",
                 "step_minus_1", "step_0", "step_0a", "step_1", "assumption_tags",
-                "constraints", "target_state", "peer_query", "assumptions"]
+                "constraints", "target_state", "assumptions"]
+# peer_query became OPTIONAL with the synthetic-cohort purge: the wizard no
+# longer writes it, and peer evidence pends substrate calibration either way.
 
 KNOWN_MODULES = {"balance_driven_deposits", "balance_driven_lending",
                  "balance_driven_obs", "mortgage_banking", "investment_portfolio"}

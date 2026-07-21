@@ -1492,6 +1492,21 @@ def t51():
               ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
 
 
+def t59():
+    print("T59 wizard-born configs (no peer_query) validate and run — the purge's loose end stays fixed")
+    import json as _j
+    from foundry.v2 import validate_q as _v, run_q as _r
+    cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    cfg.pop("peer_query", None)
+    errs = _v.validate_errors_v2(cfg)
+    check("T59a", f"no required-key error without peer_query ({[e for e in errs if 'peer_query' in str(e)][:1]})",
+          not any("peer_query" in str(e) for e in errs))
+    res = _r.run_v2(cfg)
+    rr = res.get("results", res)
+    check("T59b", "engine produces numbers with peer honestly absent",
+          isinstance(rr, dict) and rr.get("peer") is None)
+
+
 def t58():
     print("T58 Tier-1 accounts: identity, isolation, reset kit")
     import os as _os, tempfile as _tf, json as _j, importlib
@@ -1696,7 +1711,7 @@ def t53():
 
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
