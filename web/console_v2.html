@@ -1109,7 +1109,7 @@ async function retroSubstrate(givenCert){
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({cert: cert, cfg})});
   const j = await r.json();
-  if(!r.ok){ alert("Substrate retrodiction refused (fail-closed):\n" + (j.error||r.status)); return; }
+  if(!r.ok){ appStatus("err", "<b>Substrate retrodiction refused (fail-closed)</b> \u2014 " + esc(j.error||String(r.status))); return; }
   window.retroReport = j; window.retroCert = cert; window.retroHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
@@ -1225,14 +1225,14 @@ function substratePanelHtml(){
   return h;
 }
 async function subPlace(){
-  if(!lastRes){ alert("Run the model first."); return; }
+  if(!lastRes){ appStatus("err", "<b>Run the model first.</b>"); return; }
   const ta = lastRes.financials.bs.totalAssets;
   const lev = lastRes.financials.ratios.lev;
   const r = await fetch("/api/v31/substrate/placement", {method:"POST",
     headers:{"Content-Type":"application/json"},
     body: JSON.stringify({q12_total_assets_k: ta[ta.length-1], leverage_pct: lev[lev.length-1]})});
   const j = await r.json();
-  if(!r.ok){ alert("Placement refused (fail-closed):\n" + (j.error||r.status)); return; }
+  if(!r.ok){ appStatus("err", "<b>Placement refused (fail-closed)</b> \u2014 " + esc(j.error||String(r.status))); return; }
   window.subPlacement = j; window.subPlacementHash = lastRes && lastRes.run_hash; renderContent();
 }
 window.subPlace = subPlace;
@@ -1267,7 +1267,7 @@ async function vintageBuild(){
   const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
     headers:{"Content-Type":"application/json"}, body: JSON.stringify({est_from:2018, est_to:2023})});
   const j = await r.json();
-  if(!r.ok){ alert("Corridor refused (fail-closed):\n" + (j.error||r.status)); return; }
+  if(!r.ok){ appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(j.error||String(r.status))); return; }
   window.vintage = j; renderContent();
 }
 window.vintageBuild = vintageBuild;

@@ -805,8 +805,17 @@ def t33():
     except ValueError as e:
         mapped = False
         msg = str(e)
-    check("T33e", "retro pull fails closed without the series map, listing real metric names",
-          not mapped and "cet1_ratio" in msg and "CHARTERIQ_RETRO_MAP" in msg)
+    # SUPERSEDED (self-configuring map): absent env now attempts exact-candidate
+    # auto-resolution against the bank's real metric list; a ratio-only bank
+    # resolves nothing and fails closed naming the unresolved series.
+    check("T33e", "retro pull fails closed when auto-resolution finds no exact candidates",
+          not mapped and "auto-resolution incomplete" in msg and "CHARTERIQ_RETRO_MAP" in msg)
+    auto = cl.auto_retro_map(["total_deposits", "net_loans", "total_assets",
+                                "total_equity", "net_income", "cet1_ratio"])
+    check("T33e", "auto-resolution completes on canonical names (env still overrides)",
+          auto == {"deposits": "total_deposits", "loans": "net_loans",
+                    "assets": "total_assets", "equity": "total_equity",
+                    "net_income": "net_income"})
     check("T33f", "queries are parameterized (no literals interpolated)",
           all("%s" in sql for sql, _ in calls if "WHERE" in sql))
 

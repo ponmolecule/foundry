@@ -189,8 +189,25 @@ class CharterIQClient:
         return [r[0] for r in rows]
 
     # ---------------------------------------------------------- retrodiction
+    # Conservative exact-name candidates for auto-resolution. Env override
+    # (CHARTERIQ_RETRO_MAP) always wins; auto-resolution never guesses — a
+    # series maps only when exactly one candidate exists in the bank's actual
+    # metric list, and anything unresolved fails closed with the near-matches.
+    RETRO_AUTO_CANDIDATES = {
+        "deposits":   ["total_deposits", "deposits", "total_dep"],
+        "loans":      ["net_loans", "total_loans", "loans_net", "gross_loans"],
+        "assets":     ["total_assets", "assets"],
+        "equity":     ["total_equity", "equity", "total_equity_capital"],
+        "net_income": ["net_income", "ni_quarterly", "net_income_q"],
+        "leverage":   ["leverage_ratio", "tier1_leverage", "leverage"],
+        "roa":        ["roa", "return_on_assets"],
+        "roe":        ["roe", "return_on_equity"],
+        "nim":        ["nim", "net_interest_margin"],
+        "efficiency": ["efficiency_ratio", "efficiency", "eff_ratio"],
+    }
+
     def retro_map(self):
-        """The deployment-completed series map. Fails closed when absent."""
+        """Env-configured series map when present; None signals auto-resolve."""
         import json
         raw = os.environ.get("CHARTERIQ_RETRO_MAP", "")
         if not raw:
@@ -202,16 +219,38 @@ class CharterIQClient:
                               f"recognized: {RETRO_SERIES}")
         return known
 
+    def auto_retro_map(self, available):
+        """Resolve the five series against the bank's actual metric names.
+        Exact-candidate matching only; fails closed on any unresolved series."""
+        avail = set(available)
+        required = ("deposits", "loans", "assets", "equity", "net_income")
+        resolved, unresolved = {}, {}
+        for series in RETRO_SERIES:
+            hits = [cand for cand in self.RETRO_AUTO_CANDIDATES.get(series, [])
+                    if cand in avail]
+            if len(hits) == 1:
+                resolved[series] = hits[0]
+            elif series in required:
+                near = sorted(m for m in avail if series.split("_")[0] in m)[:5]
+                unresolved[series] = near
+        if unresolved:
+            detail = "; ".join(f"{s}: no exact candidate (near: {n})"
+                                for s, n in unresolved.items())
+            raise ValueError(
+                "retrodiction series auto-resolution incomplete — " + detail +
+                ". Set CHARTERIQ_RETRO_MAP (JSON mapping "
+                "deposits/loans/assets/equity/net_income to substrate metric "
+                "names) to complete the map explicitly.")
+        return resolved
+
     def get_retro_actuals(self, cert, since_year=None):
         """Actuals for the retrodiction harness, aligned to a bank's opening.
         Fails closed until CHARTERIQ_RETRO_MAP names the five series' metrics."""
         m = self.retro_map()
+        auto = False
         if m is None:
-            avail = self.list_available_metrics(cert)
-            raise ValueError(
-                "retrodiction series map not configured: set CHARTERIQ_RETRO_MAP "
-                "(JSON mapping deposits/loans/assets/equity/net_income to substrate "
-                f"metric names). This bank's available metrics: {avail}")
+            m = self.auto_retro_map(self.list_available_metrics(cert))
+            auto = True
         pulled = self.get_bank_quarterly_series(cert, list(m.values()))
         inv = {v: k for k, v in m.items()}
         series = {}
@@ -228,7 +267,8 @@ class CharterIQClient:
                 "If a mapped name looks like a placeholder, reset CHARTERIQ_RETRO_MAP "
                 "with real metric names and restart the server.")
         return {"series": {k: v[:n] for k, v in series.items()}, "quarters": n,
-                "accuracy": pulled["accuracy"]}
+                "accuracy": pulled["accuracy"],
+                "series_map": m, "map_source": "auto-resolved" if auto else "env"}
 
 
 def band_for_assets_mm(assets_mm):
