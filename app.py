@@ -181,8 +181,7 @@ def console_v31():
     from fastapi.responses import HTMLResponse
     html = open("web/console_v2.html", encoding="utf-8").read()
     html = html.replace("</head>", "<script>window.V31=true</script>\n</head>")
-    html = html.replace("one engine — the browser does no arithmetic",
-                         "one engine — build " + _build_stamp())
+    # topbar pill speaks product now; the build stamp stays out of client chrome
     return HTMLResponse(html)
 
 
