@@ -1955,6 +1955,31 @@ def t65():
           "refines the peer GROUP" in prov["policy"])
 
 
+def t66():
+    print("T66 save clarity: the autosaved working session labels as a DRAFT, never as the bank it carries")
+    import tempfile as _tf, os as _os2
+    _saved = _os2.environ.get("FOUNDRY_DATA_DIR")
+    _os2.environ["FOUNDRY_DATA_DIR"] = _tf.mkdtemp()
+    try:
+        from foundry import store as _st
+        # invalidate any cached dir
+        cfg = {"client": "Goldstein Bank", "proposed_bank": "Goldstein Bank",
+               "scenario_name": "Goldstein Bank \u2014 baseline",
+               "config_schema_version": _st.CONFIG_SCHEMA_VERSION}
+        _st.save_engagement(dict(cfg), slug="goldstein-bank")
+        _st.save_engagement(dict(cfg), slug="working-session-autosaved")
+        lst = {e["slug"]: e for e in _st.list_engagements()}
+        draft = lst.get("working-session-autosaved", {})
+        named = lst.get("goldstein-bank", {})
+        check("T66a", "autosave draft labels as 'Working session (autosaved)' despite carrying the bank config",
+              draft.get("name") == "Working session (autosaved)" and draft.get("is_draft") is True)
+        check("T66b", "a real named engagement keeps its name and is not flagged draft",
+              named.get("name") == "Goldstein Bank \u2014 baseline" and named.get("is_draft") is False)
+    finally:
+        if _saved is not None: _os2.environ["FOUNDRY_DATA_DIR"] = _saved
+        else: _os2.environ.pop("FOUNDRY_DATA_DIR", None)
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -1962,7 +1987,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

@@ -91,9 +91,17 @@ def list_engagements(user=None):
         try:
             with open(os.path.join(_dir(user), name), encoding="utf-8") as f:
                 cfg = json.load(f)
+            # The autosaved working session persists the LIVE config, whose name
+            # fields carry the bank being edited — so without this it would display
+            # under that bank's name and read as a second saved engagement. It is a
+            # draft, not an engagement: label it as such regardless of config fields.
+            is_draft = slug.startswith("working-session")
+            display = ("Working session (autosaved)" if is_draft else
+                       (cfg.get("scenario_name") or cfg.get("client")
+                        or cfg.get("proposed_bank") or slug))
             out.append({"slug": slug,
-                        "name": cfg.get("scenario_name") or cfg.get("client")
-                                 or cfg.get("proposed_bank") or slug,
+                        "name": display,
+                        "is_draft": is_draft,
                         "bank": cfg.get("client_legal_name") or cfg.get("proposed_bank") or "",
                         "config_schema_version": cfg.get("config_schema_version")})
         except Exception:

@@ -2628,12 +2628,27 @@ function renderStart(){
   } else if(!(engStore.engagements||[]).length){
     h += '<div class="memo">No saved engagements yet.</div>';
   } else {
-    h += '<table class="ovt"><tr><th>Engagement</th><th>Reference</th><th></th></tr>';
-    engStore.engagements.forEach(e=>{
-      h += `<tr><td>${esc(e.name)}</td><td style="font-family:var(--mono);font-size:11px">${esc(e.slug)}</td>`
-        + `<td><button class="btn-plain" onclick="openEngagement('${e.slug}')">Open</button> <a href="#" class="cx" title="Delete this saved engagement" onclick="delEngagement('${e.slug}');return false">\u00d7</a></td></tr>`;
-    });
-    h += '</table>';
+    const _all = engStore.engagements || [];
+    const _named = _all.filter(e => !e.is_draft && !(e.slug||"").startsWith("working-session"));
+    const _draft = _all.find(e => e.is_draft || (e.slug||"").startsWith("working-session"));
+    if(!_named.length){
+      h += '<div class="memo">No saved engagements yet \u2014 name the configuration and use \u201cSave current configuration as an engagement\u201d above.</div>';
+    } else {
+      h += '<table class="ovt"><tr><th>Engagement</th><th>Reference</th><th></th></tr>';
+      _named.forEach(e=>{
+        h += `<tr><td>${esc(e.name)}</td><td style="font-family:var(--mono);font-size:11px">${esc(e.slug)}</td>`
+          + `<td><button class="btn-plain" onclick="openEngagement('${e.slug}')">Open</button> <a href="#" class="cx" title="Delete this saved engagement" onclick="delEngagement('${e.slug}');return false">\u00d7</a></td></tr>`;
+      });
+      h += '</table>';
+    }
+    if(_draft){
+      h += '<div class="chint" style="margin:12px 0 6px;color:#C7975A;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em">Unsaved draft</div>';
+      h += '<table class="ovt"><tr><th>Draft</th><th>Reference</th><th></th></tr>';
+      h += `<tr><td>Working session (autosaved)<div style="font-size:10px;color:#8FA3C0">auto-kept scratch state \u2014 name &amp; save it above to make an engagement</div></td>`
+        + `<td style="font-family:var(--mono);font-size:11px">${esc(_draft.slug)}</td>`
+        + `<td><button class="btn-plain" onclick="openEngagement('${_draft.slug}')">Resume</button> <a href="#" class="cx" title="Discard the autosaved draft" onclick="delEngagement('${_draft.slug}');return false">\u00d7</a></td></tr>`;
+      h += '</table>';
+    }
   }
   h += '<div class="ovh3">Golden cases</div>';
   h += '<div class="memo">The frozen reference banks. Both entry paths carry the same correctness obligation: a golden bank entered through either door must reproduce its exact hash \u2014 the gate that proves the doors are skins over one schema.</div>';
