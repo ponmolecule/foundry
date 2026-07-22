@@ -172,7 +172,8 @@ def get_bands(metric, cohort):
             f"no substrate rows for metric '{metric}' / cohort '{cohort}'. "
             "The database is connected but has no distribution for this "
             "metric/cohort (a real coverage gap \u2014 e.g. a funding metric "
-            "pending M6a, or a cohort with no filed peers). Refusing rather "
+            "whose refresh is in progress, or a cohort with no filed peers). "
+            "Refusing rather "
             "than serving synthetic fixture data. To use fixtures for offline "
             "testing, set FOUNDRY_ALLOW_FIXTURE_BANDS=1 (never in production).")
     if not (db_configured or allow_fixtures):

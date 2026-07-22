@@ -639,7 +639,7 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
                                   f"{groups[:40]}"}, status_code=404)
         return JSONResponse({"band": band, "year": year, "quarter": quarter, "rows": rows,
                               "band_note": "band derived from the MODELED Q12 total assets; "
-                                            "UBPR peer codes arrive via Deliverable D"})
+                                            "national peer-group codes pending"})
     except Exception as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=502)
 

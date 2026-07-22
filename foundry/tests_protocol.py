@@ -788,9 +788,9 @@ def t33():
           and "legacy" in accuracy_label("nim"))
     pp = cl.get_peer_percentiles("cet1_ratio", "500M_2B", 2025, 4)
     check("T33d", "capital-family percentiles from the surveyed schema (group_id + "
-                    "peer_count); caveat states the TRUE refreshed status (M1/M2 done)",
+                    "peer_count); caveat states the refreshed status (no internal codenames)",
           pp["p50"] == 10.9 and pp["n"] == 412
-          and "true substrate" in pp["caveat"] and "2026Q1" in pp["caveat"]
+          and "current substrate" in pp["caveat"] and "2026Q1" in pp["caveat"]
           and "approximate" not in pp["caveat"])
     import os as _os2
     _os2.environ["CHARTERIQ_RETRO_MAP"] = '{"leverage": "leverage_ratio"}'
@@ -976,10 +976,12 @@ def t36():
     Vc = build_vintage_corridor(cl, 2018, 2023, metrics=["tier1_ratio"], min_n=2, max_age_q=2)
     lbl = Vc["corridor"]["tier1_ratio"]["accuracy"]
     check("T36f", "capital history labeled as PROXY with the in-place repair schedule",
-          "PROXY" in lbl and "2025Q4" in lbl and "Milestone 2" in lbl)
+          "PROXY" in lbl and "2025Q4" in lbl and "filed history" in lbl)
     from .charteriq_client import VINTAGE_METRICS
-    check("T36g", "cet1 excluded from the corridor (proxy duplicate of tier1 pre-2025Q4)",
-          "cet1_ratio" not in VINTAGE_METRICS and "tier1_ratio" in VINTAGE_METRICS)
+    check("T36g", "corridor holds only age-driven metrics: cet1 excluded (proxy dup of tier1), "
+                  "deposit_cost excluded (rate-environment-driven, not age-driven)",
+          "cet1_ratio" not in VINTAGE_METRICS and "tier1_ratio" in VINTAGE_METRICS
+          and "deposit_cost" not in VINTAGE_METRICS)
 
 
 def t37():
@@ -1879,7 +1881,7 @@ def t63():
           pl is not None and pl["corridor"] == "above p90" and pl["n"] and "R5" in pl["conservative_note"])
     # provenance is honest about the provisional tier and never leaks internal vocab
     check("T63f", "provenance states provisional tier, no internal names/floor ids",
-          "not yet certified" in prov and "Deliverable D" in prov
+          "not yet certified" in prov and "peer-group reconciliation" in prov
           and not any(nm in prov for nm in ("Roman", "Patrick", "Konrad", "Brian")))
     # FAIL-CLOSED: a metric with no fixture leaves the static row untouched, no crash
     rows2, prov2 = calibrate_thresholds(CHALLENGE_THRESHOLDS, 40_000_000)  # 40B band, no fixtures

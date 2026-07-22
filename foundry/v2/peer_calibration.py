@@ -53,7 +53,7 @@ FLAG_METRIC_MAP = {
 }
 VINTAGE_LABEL = {
     "substrate": "2026Q1 (substrate-grade)",
-    "funding_legacy": "2025Q4 (legacy; M6a pending)",
+    "funding_legacy": "2025Q4 (latest published; funding-metric refresh in progress)",
 }
 
 def calibrate_thresholds(static_thresholds, total_assets_000s):
@@ -108,7 +108,7 @@ def calibrate_thresholds(static_thresholds, total_assets_000s):
                 f"shown; distributions carry n per point (substrate floor n=3, small-n labeled "
                 f"not suppressed). Selection is pre-registered by projected asset size, not "
                 f"hand-picked. Placement is consistency evidence, not support. Provisional tier: "
-                f"UBPR reconciliation (Deliverable D) pending \u2014 not yet certified.")
+                f"national peer-group reconciliation pending \u2014 not yet certified.")
     else:
         prov = ("standard industry ranges \u2014 not yet calibrated to a peer cohort; "
                 "peer-percentile grounding attaches with the evidence layer")

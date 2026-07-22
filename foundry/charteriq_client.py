@@ -114,7 +114,7 @@ class CharterIQClient:
         if out.get("fail_date") is not None:
             out["fail_date"] = str(out["fail_date"])
         out["terminal_status_note"] = ("detection-only (end_year/fail_date); "
-                                         "attribution pending Deliverable A")
+                                         "cause-of-exit attribution pending")
         return out
 
     def get_bank_quarterly_series(self, cert, metrics, quarters=None):
@@ -151,8 +151,7 @@ class CharterIQClient:
             f"FROM institutions WHERE {' AND '.join(conds)} "
             "ORDER BY asset_size_mm DESC LIMIT %s", tuple(params + [limit]))
         return {"band": asset_band,
-                "note": "asset-band proxy; UBPR peer-group codes arrive via "
-                          "Deliverable D partial (ETA TBD)",
+                "note": "asset-band proxy; national peer-group codes pending",
                 "members": [{"cert": r[0], "name": r[1], "state": r[2],
                               "asset_size_mm": float(r[3]) if r[3] is not None else None,
                               "est_year": r[4], "charter_type": r[5]} for r in rows]}
@@ -184,8 +183,8 @@ class CharterIQClient:
                 "n": int(r[5]) if r[5] is not None else None,
                 "accuracy": accuracy_label(metric_name)}
         if metric_name in CAPITAL_METRICS:
-            out["caveat"] = ("capital family recomputed on the true substrate "
-                              "(M1/M2), identity-gated, current through 2026Q1")
+            out["caveat"] = ("capital family recomputed on the current substrate, "
+                              "identity-gated, current through 2026Q1")
         return out
 
     def list_available_metrics(self, cert=None):
@@ -341,8 +340,13 @@ def placement(value, pct_row):
 # in two costumes. Corridor carries tier1 alone until the Milestone 2 backfill
 # replaces proxy history with item-derived values (in place; corridor inherits
 # the correction automatically).
-VINTAGE_METRICS = ["tier1_ratio", "roa", "nim", "efficiency_ratio",
-                    "deposit_cost"]
+# Vintage corridor re-clocks each bank to its AGE and compares de novos at like
+# ages. Only age-driven metrics belong here. deposit_cost is deliberately EXCLUDED:
+# it is rate-environment-driven (calendar time), so two banks at the same age but
+# founded in different rate regimes diverge purely from WHEN they existed, not how
+# mature they are — age-clocking it would compare across rate environments. Deposit
+# cost keeps its point-in-time home in flag calibration and the bands corridor.
+VINTAGE_METRICS = ["tier1_ratio", "roa", "nim", "efficiency_ratio"]
 
 
 def _pctl(sorted_vals, p):
@@ -402,9 +406,9 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
             corridor[metric]["accuracy"] = (
                 "history through 2025Q3 is a regulatory-capital PROXY "
                 "(cet1 and tier1 carry the same value by construction); "
-                "item-derived from 2025Q4; proxy history is replaced in place "
-                "by the Milestone 2 backfill — treat historical bands as "
-                "approximate until then. Values far above 100% mean RWA is "
+                "item-derived from 2025Q4; the historical proxy is being replaced "
+                "with filed history \u2014 treat historical bands as approximate "
+                "until then. Values far above 100% mean RWA is "
                 "near zero (a young bank still in cash and Treasuries): read "
                 "early-quarter bands as altitude, not decimals — at near-nil "
                 "denominators the ratio is arithmetically unstable")
@@ -421,5 +425,5 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                               "note": "later age quarters are populated only by banks "
                                         "that survived to that age; the corridor is "
                                         "therefore flattering, and exits are stated, "
-                                        "not hidden (attribution pending Deliverable A)"},
+                                        "not hidden (cause-of-exit attribution pending)"},
             "corridor": corridor}

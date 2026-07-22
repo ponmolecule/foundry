@@ -1139,8 +1139,14 @@ function bandsSectionHtml(){
       </select>
       <select id="pbCohort" onchange="renderBands()">
         <option value="broad">Broad cohort (all identity-gated filers)</option>
+        <option value="under_200M">Under $200M assets</option>
+        <option value="200M_500M">$200M\u2013$500M assets</option>
+        <option value="500M_2B">$500M\u2013$2B assets</option>
+        <option value="2B_10B">$2B\u2013$10B assets</option>
         <option value="curated">Curated certs\u2026</option>
       </select>
+      <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#9FB0C8;margin-left:6px">
+        <input type="checkbox" id="pbLendingOnly" onchange="renderBands()"> lending peers only</label>
       <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));renderBands()" style="display:none;min-width:220px">
     </div>
     <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>
@@ -1152,11 +1158,20 @@ window.renderBands = async function(){
   const mode = document.getElementById("pbCohort").value;
   const certsEl = document.getElementById("pbCerts");
   certsEl.style.display = mode === "curated" ? "inline-block" : "none";
+  // the lending-peers-only toggle appears ONLY for the under_200M band — the one
+  // band whose tail is lifted by non-lending charters (trusts). Other bands are
+  // clean, so offering it there would imply a problem they don't have.
+  const lendWrap = document.getElementById("pbLendingWrap");
+  const lendOnly = document.getElementById("pbLendingOnly");
+  if(lendWrap) lendWrap.style.display = (mode === "under_200M") ? "inline-flex" : "none";
+  const useLending = (mode === "under_200M") && lendOnly && lendOnly.checked;
   let cohort = "broad";
   if(mode === "curated"){
     const certs = (cfgRef().peer_bands_certs||[]);
     if(!certs.length){ body.innerHTML = '<div class="memo">Enter a cert list for the curated cohort (6\u201310 named peers is the working shape).</div>'; return; }
     cohort = certs.join(",");
+  } else if(mode !== "broad"){
+    cohort = mode;   // an asset band group_id (under_200M, 200M_500M, ...)
   }
   body.innerHTML = '<div class="memo">Loading bands\u2026</div>';
   let d;
@@ -1165,7 +1180,11 @@ window.renderBands = async function(){
     // it aborts and shows a message. Backend also has a statement timeout.
     const _ctl = new AbortController();
     const _timer = setTimeout(()=>_ctl.abort(), 15000);
-    const rr = await fetch(`/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`, {signal:_ctl.signal});
+    // when the lending-only toggle is on, hit the charter-filtered endpoint
+    const url = useLending
+      ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(metric)}&band=under_200M`
+      : `/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`;
+    const rr = await fetch(url, {signal:_ctl.signal});
     clearTimeout(_timer);
     d = await rr.json();
     if(!rr.ok){ body.innerHTML = `<div class="memo">${esc(d.error||"Bands unavailable.")}</div>`; return; }
@@ -1178,6 +1197,15 @@ window.renderBands = async function(){
   const prov = d.provenance||{};
   let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 extract-raw (no winsorizing); extreme tails are real near-nil-denominator filers, refined by cohort hygiene not capping.</div>`;
   if(RISK_BASED_METRICS.has(metric)){ h += `<div class="memo" style="margin:0 0 10px;color:#8FA3C0;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
+  // charter-filter provenance: when the lending-only filter is active, state what
+  // was excluded and why (auditable, nothing hidden). On the raw under_200M view,
+  // note that the toggle exists so the distortion is labeled, not silent.
+  if(d.cohort_filter){
+    const cf = d.cohort_filter;
+    h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #6FA98C;padding-left:10px;font-size:10.5px"><b>Lending peers only</b> \u2014 ${cf.excluded_count} non-lending / thin-denominator ${cf.excluded_count===1?"filer":"filers"} excluded from the ${esc(cf.base_band)} band (${cf.lending_peers_kept} lending peers kept). Trusts and near-nil-RWA charters aren't lending-bank peers; raw values are unchanged, only the peer group is refined.</div>`;
+  } else if(mode === "under_200M"){
+    h += `<div class="memo" style="margin:0 0 10px;color:#C7975A;font-size:10.5px">This band includes non-lending charters (trust companies with near-nil RWA) that lift the high end. Toggle <b>lending peers only</b> above for a lending-bank comparison.</div>`;
+  }
   const smallN = d.small_n;
   if(smallN){
     h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #D8A85E;padding-left:10px">Small cohort (n below ${d.small_n_threshold}): percentiles approach member values \u2014 p10 \u2248 minimum, p90 \u2248 maximum. Read these as the <b>range of the named peers</b>, not a distribution.</div>`;
@@ -2489,12 +2517,24 @@ async function toggleEngMenu(){
   await loadEngStore(true);
   const list = (engStore && engStore.engagements) || [];
   const cur = cfg.scenario_name || "";
+  // The autosaved working session is a DRAFT, not a named engagement — separate it
+  // so the list reads honestly: deliberate saves above, the resumable scratch state
+  // below, clearly labeled. Previously both appeared as peer entries and you
+  // couldn't tell which you were editing.
+  const named = list.filter(e => !(e.slug||"").startsWith("working-session"));
+  const draft = list.find(e => (e.slug||"").startsWith("working-session"));
   let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Saved engagements</div>';
-  if(!list.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
-  list.forEach(e=>{
+  if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
+  named.forEach(e=>{
     const active = (e.scenario_name||e.name) === cur;
     h += `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:${active?"#DFA85A":"#DCE3EE"};font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#DFA85A":"#3A4C6E"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#8FA3C0;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`;
   });
+  if(draft){
+    const draftActive = !cur || (cfg.scenario_name||"") === "" || (draft.slug||"") === (window._openSlug||"");
+    h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
+    h += '<div style="padding:5px 10px 4px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Unsaved draft</div>';
+    h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#C7975A;font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#C7975A;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Working session (autosaved)</span><span style="display:block;font-size:10px;color:#8FA3C0">auto-kept scratch state \u2014 name &amp; save it to make an engagement</span></span></a>`;
+  }
   h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
   h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
   m.innerHTML = h;
@@ -2502,6 +2542,7 @@ async function toggleEngMenu(){
 window.toggleEngMenu = toggleEngMenu;
 async function engMenuOpen(slug){
   document.getElementById("engMenu").style.display = "none";
+  window._openSlug = slug;
   appStatus("busy", "Opening engagement\u2026");
   await openEngagement(slug);
   const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || slug;
