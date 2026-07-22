@@ -1481,8 +1481,9 @@ function renderOverview(){
   h += '<details style="margin:8px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
   setTimeout(()=>{ fetch("/api/v31/challenge-thresholds").then(x=>x.json()).then(t=>{
     const el = document.getElementById("threshLedger"); if(!el) return;
-    el.innerHTML = t.thresholds.map(th=>`<div style="display:flex;gap:10px;padding:3px 0;border-bottom:1px solid #1D2A42"><span style="font-family:var(--mono);color:#DFA85A;flex:0 0 96px">${esc(th.id)}</span><span style="flex:1">${esc(th.rule)}</span><span style="color:#8FA3C0">${esc(th.trigger)}</span><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></div>`).join("")
-      + `<div style="margin-top:6px;color:#8FA3C0">${esc(t.provenance)}</div>`;
+    el.innerHTML = `<table class="ovt" style="font-size:11px"><tr><th style="width:96px">ID</th><th>Rule</th><th>Trigger</th><th style="width:64px">Severity</th></tr>`
+      + t.thresholds.map(th=>`<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td><td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></td></tr>`).join("") + `</table>`
+      + `<div style="margin-top:6px;color:#8FA3C0;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);
   (r.flags||[]).forEach(f=>{
     const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
