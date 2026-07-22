@@ -1167,14 +1167,17 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function bandsSectionHtml(){
-  return `<div class="accent-label" style="margin-top:6px">Peer percentile corridor</div>
-  <div class="card" style="padding:14px 16px">
+  return `<div class="ovh2" style="color:#DFA85A;background:linear-gradient(180deg,#16233B,#1B2A47);padding:8px 14px;border-radius:4px 4px 0 0;border-bottom:2px solid #DFA85A;letter-spacing:.04em">PEER CORRIDOR</div>
+  <div class="card" style="padding:14px 16px;border-top:none;border-radius:0 0 4px 4px">
+    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers on a chosen metric and cohort \u2014 latest quarter. Green sits favorably vs peers, red unfavorably, by the metric's risk direction.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <select id="pbMetric" onchange="renderBands()" style="min-width:150px">
         <option value="roa">ROA (annual %)</option>
         <option value="nim">NIM</option>
         <option value="efficiency">Efficiency ratio</option>
         <option value="tier1">Tier 1 / RWA</option>
+        <option value="cet1">CET1</option>
+        <option value="net_charge_off_rate">Charge-off (net, ann.)</option>
       </select>
       <select id="pbCohort" onchange="renderBands()">
         <option value="broad">Broad cohort (all identity-gated filers)</option>
@@ -1258,31 +1261,70 @@ window.renderBands = async function(){
     h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${(+b.p10).toFixed(2)}</td><td>${(+b.p25).toFixed(2)}</td><td>${(+b.p50).toFixed(2)}</td><td>${(+b.p75).toFixed(2)}</td><td>${(+b.p90).toFixed(2)}</td></tr>`;
   });
   h += '</table>';
-  // THE JOIN: modeled annual ratios against the latest band — terminal-state
-  // calibration, the corridor's actual job. Trajectory judgment belongs to the
-  // Vintage Corridor; capital placement to the panel below.
+  // THE CONSOLIDATION: the modeled bank placed against the latest band, colored
+  // green (favorable vs peers) / red (unfavorable) / neutral (mid-pack) by the
+  // metric's risk direction. This is place-modeled's visual, now spanning every
+  // corridor metric. Latest quarter only. Trajectory judgment stays in the
+  // Vintage Corridor; nothing here touches it.
+  const latest = d.bands[d.bands.length - 1];
+  // resolve the modeled value for this metric from the run results
   const AKEY = {roa: "roa", nim: "nim", efficiency: "eff"};
-  const ann = (lastRes && lastRes.annual) ? lastRes.annual[AKEY[metric]] : null;
-  if(ann && ann.length){
-    const latest = d.bands[d.bands.length - 1];
-    const pos = v => v < latest.p10 ? "below p10" : v < latest.p25 ? "p10\u2013p25"
-               : v < latest.p50 ? "p25\u2013p50" : v < latest.p75 ? "p50\u2013p75"
-               : v < latest.p90 ? "p75\u2013p90" : "above p90";
-    const rangePos = v => v < latest.p10 ? "below the named peers' range"
-                    : v > latest.p90 ? "above the named peers' range" : "within the named peers' range";
-    h += `<div style="margin-top:12px;font-weight:600;font-size:13px;color:#C4CDDD">Modeled bank vs. this corridor (latest bands: ${esc(latest.quarter)})</div>`;
-    h += '<table class="ovt" style="width:100%;margin-top:4px"><tr><th>Model year</th><th>Value</th><th>Position</th></tr>';
-    ann.forEach((v, i) => {
-      const terminal = i === ann.length - 1;
-      const p = smallN ? rangePos(v) : pos(v);
-      h += `<tr${terminal ? ' style="font-weight:600"' : ' style="opacity:.62"'}><td>Y${i+1}${terminal ? " (terminal \u2014 the calibration row)" : ""}</td><td>${v.toFixed(2)}</td><td>${p}</td></tr>`;
-    });
-    h += '</table>';
-    h += `<div class="memo" style="margin-top:6px">Read the terminal year: that is the state you are asking a regulator to believe. Early-year losses are normal de novo economics \u2014 judge the path on the Vintage Corridor, not here.</div>`;
-  } else {
-    h += `<div class="memo" style="margin-top:10px">Run the model to see where its terminal-year ${esc(metric.toUpperCase())} lands in these bands.</div>`;
+  let modeledVal = null, modeledNote = "";
+  if(lastRes){
+    if(AKEY[metric]){
+      const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
+      modeledVal = (ann && ann.length) ? ann[ann.length - 1] : null;  // terminal year
+    } else if(metric === "tier1" || metric === "cet1"){
+      // de novo is all-CET1 (no AT1/Tier-2), so the modeled leverage/capital ratio
+      // is placed against BOTH the peer tier-1 and CET1 distributions. The
+      // standardized block carries modeled tier1/cet1 series; fall back to leverage.
+      const st = lastRes.capital && lastRes.capital.standardized;
+      const lev = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.lev;
+      const t = st && st[metric];
+      modeledVal = (t && t.length) ? t[t.length-1] : ((lev && lev.length) ? lev[lev.length-1] : null);
+    } else if(metric === "net_charge_off_rate"){
+      // the engine models a net charge-off flow but does not yet surface it as a
+      // rate series; placement lights up when it does. Band shows regardless.
+      modeledVal = null;
+      modeledNote = "The engine models net charge-offs internally but doesn't yet surface them as a placeable rate \u2014 the peer band is shown; the modeled placement lights up once the charge-off rate series is exposed.";
+    }
   }
-  h += `<div class="memo" style="margin-top:8px">Substrate quarters are calendar (2025Q1\u2026); the corridor calibrates target-state assumptions and names peer evidence. Trajectory checking lives in the Vintage Corridor; capital placement in the panel below. Certified designation lands with the substrate's percentile-reconciliation gate.</div>`;
+  const dir = METRIC_DIRECTION[metric] || "higher_good";
+  // percentile bucket + favorability
+  function placement(v){
+    const below = v < latest.p10, p10_25 = v>=latest.p10&&v<latest.p25,
+          p25_50 = v>=latest.p25&&v<latest.p50, p50_75 = v>=latest.p50&&v<latest.p75,
+          p75_90 = v>=latest.p75&&v<latest.p90, above = v>=latest.p90;
+    let bucket = below?"below p10":p10_25?"p10\u2013p25":p25_50?"p25\u2013p50":p50_75?"p50\u2013p75":p75_90?"p75\u2013p90":"above p90";
+    // favorability: for higher_good, high percentile = favorable; for lower_good, low = favorable
+    const highPct = p75_90 || above, lowPct = below || p10_25;
+    let fav;
+    if(dir === "higher_good") fav = highPct ? "good" : lowPct ? "bad" : "mid";
+    else                      fav = lowPct  ? "good" : highPct ? "bad" : "mid";
+    return {bucket, fav};
+  }
+  const COLOR = {good:"#6FA98C", bad:"#C77", mid:"#C7975A"};
+  const BG = {good:"rgba(111,169,140,.14)", bad:"rgba(204,119,119,.14)", mid:"rgba(199,151,94,.10)"};
+  const dirLabel = dir === "higher_good" ? "higher is better" : "lower is better";
+  h += `<div style="margin-top:14px;font-weight:600;font-size:13px;color:#DFA85A">Modeled bank vs. peers \u00b7 ${esc(latest.quarter)} \u00b7 <span style="font-weight:400;color:#8FA3C0;font-size:11px">${dirLabel}</span></div>`;
+  if(modeledVal !== null && modeledVal !== undefined){
+    const pl = placement(modeledVal);
+    h += `<div style="margin-top:6px;padding:12px 14px;border-radius:5px;border:1px solid ${COLOR[pl.fav]};background:${BG[pl.fav]}">
+      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
+        <span style="font-size:22px;font-weight:700;color:${COLOR[pl.fav]}">${modeledVal.toFixed(2)}${metric==='net_charge_off_rate'||dir==='higher_good'||metric==='efficiency'?'%':''}</span>
+        <span style="font-size:13px;color:#C4CDDD">sits <b style="color:${COLOR[pl.fav]}">${pl.bucket}</b> of peers</span>
+        <span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${COLOR[pl.fav]}">${pl.fav==='good'?'favorable':pl.fav==='bad'?'unfavorable':'mid-pack'}</span>
+      </div>
+      <div style="margin-top:8px;font-size:10px;color:#7E8DA6;font-family:var(--mono)">peer p10 ${(+latest.p10).toFixed(2)} \u00b7 p50 ${(+latest.p50).toFixed(2)} \u00b7 p90 ${(+latest.p90).toFixed(2)} \u00b7 n=${latest.n}</div>
+    </div>`;
+    h += `<div class="memo" style="margin-top:6px">Terminal-year modeled value against the most recent peer distribution. Color reflects where the bank sits relative to peers given that ${dirLabel} for this metric. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
+  } else if(modeledNote){
+    h += `<div class="memo" style="margin-top:6px">${esc(modeledNote)}</div>`;
+  } else {
+    h += `<div class="memo" style="margin-top:6px">Run the model to place its terminal-year ${esc(metric.toUpperCase())} against these peers.</div>`;
+  }
+  // the underlying band table stays available below the placement, for the detail-minded
+  h += `<div class="memo" style="margin-top:10px;font-size:10.5px;color:#7E8DA6">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
   body.innerHTML = h;
 };
 function substratePanelHtml(){
@@ -1356,6 +1398,15 @@ window.poAdd = function(){
 // is correct and expected, not missing data. leverage_ratio is the universal
 // capital metric across all banks.
 const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio","tier1","cet1","total_rbc"]);
+// Risk direction per metric: does a HIGH percentile mean the modeled bank is doing
+// WELL or POORLY? Drives the green/red placement. higher_good: ROA/NIM/capital
+// (more profit, more capital = better). lower_good: efficiency ratio (expense/revenue,
+// leaner is better) and net charge-off rate (fewer credit losses; negative = net
+// recovery = best). Used by placementColor().
+const METRIC_DIRECTION = {
+  roa: "higher_good", nim: "higher_good", tier1: "higher_good", cet1: "higher_good",
+  efficiency: "lower_good", net_charge_off_rate: "lower_good",
+};
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
 const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
 window.vintageModeled = vintageModeled;
