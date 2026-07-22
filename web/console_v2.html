@@ -530,6 +530,11 @@ async function preview(){
   if(r.status === 422){ lastErrs = (await r.json()).errors; lastRes = null; }
   else { lastRes = await r.json(); lastErrs = null; }
   paintChrome(); renderContent();
+  // populate substrate status on load so the Vintage Corridor (which gates on
+  // subStatus.reachable to show its Build button) works. This used to be triggered
+  // by the substrate panel's button, which was removed when the Peer Corridor
+  // absorbed that surface — so it must run at boot now, independently.
+  subCheck().then(()=>{ if(V31) renderContent(); });
 }
 function paintChrome(){
   document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : "fail-closed: configuration incomplete";
@@ -1167,8 +1172,7 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function bandsSectionHtml(){
-  return `<div class="ovh2" style="color:#DFA85A;background:linear-gradient(180deg,#16233B,#1B2A47);padding:8px 14px;border-radius:4px 4px 0 0;border-bottom:2px solid #DFA85A;letter-spacing:.04em">PEER CORRIDOR</div>
-  <div class="card" style="padding:14px 16px;border-top:none;border-radius:0 0 4px 4px">
+  return `<div class="ovh2">Peer corridor \u2014 modeled bank vs real peers</div>
     <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers \u2014 latest quarter. Pick one or more metrics; each is placed by row and colored green (favorable vs peers) or red (unfavorable) by its risk direction.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
       <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Metrics</span>
@@ -1190,8 +1194,7 @@ function bandsSectionHtml(){
         <input type="checkbox" id="pbLendingOnly" onchange="renderBands()"> lending peers only</label>
       <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));renderBands()" style="display:none;min-width:220px">
     </div>
-    <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>
-  </div>`;
+    <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>`;
 }
 // selected metrics (multi-select); ROA on by default
 window._pbMetrics = window._pbMetrics || ["roa"];
@@ -1255,10 +1258,14 @@ window.renderBands = async function(){
       return {v:(ann&&ann.length)?ann[ann.length-1]:null};
     }
     if(metric==="tier1"||metric==="cet1"){
-      const st = lastRes.capital && lastRes.capital.standardized;
+      // The de novo's standardized tier1/cet1 ratio is an ALTITUDE artifact —
+      // near-zero RWA in early quarters makes it ~49000%, nonsense to place against
+      // a ~20% peer band. The comparable, sane modeled capital figure is the
+      // LEVERAGE ratio (~16-20%), which is what the old place-modeled panel used
+      // and what a de novo (all-CET1) is actually judged on. Place leverage.
       const lev = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.lev;
-      const t = st && st[metric];
-      return {v:(t&&t.length)?t[t.length-1]:((lev&&lev.length)?lev[lev.length-1]:null)};
+      return {v:(lev&&lev.length)?lev[lev.length-1]:null,
+              note:"modeled leverage ratio (all-CET1 de novo) vs peer risk-based \u2014 related but not identical measures"};
     }
     if(metric==="net_charge_off_rate"){
       // engine models the flow but doesn't surface a placeable rate yet
@@ -1304,11 +1311,12 @@ window.renderBands = async function(){
     const fav = favOf(metric, m.v, latest);
     const bucket = bucketOf(m.v, latest);
     const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
+    const rowNote = m.note ? `<tr><td colspan="9" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px;border-bottom:1px solid #24334D">${esc(m.note)}</td></tr>` : `<tr><td colspan="9" style="padding:0;border-bottom:1px solid #24334D"></td></tr>`;
     rows += `<tr><td>${esc(label)}</td>`
       + `<td class="num" style="font-weight:700;color:${COLOR[fav]}">${m.v.toFixed(2)}${pct}</td>`
       + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
       + `<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(111,169,140,.16)':fav==='bad'?'rgba(204,119,119,.16)':'rgba(199,151,94,.14)'}">${bucket}</span></td>`
-      + `<td class="num">${latest.n}</td></tr>`;
+      + `<td class="num">${latest.n}</td></tr>` + rowNote;
   });
 
   let h = "";
@@ -1326,8 +1334,11 @@ window.renderBands = async function(){
   if(smallNany){
     h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Small cohort: percentiles approach member values \u2014 read as the range of the named peers, not a distribution.</div>`;
   }
-  // the row table
-  h += `<div style="font-weight:600;font-size:13px;color:#DFA85A;margin-bottom:4px">Modeled bank vs. peers${latestQ?` \u00b7 ${esc(latestQ)}`:""}</div>`;
+  // the row table — header names the cohort band and the quarter, both dynamic
+  const BAND_LABEL = {broad:"broad cohort", under_200M:"under $200M", "200M_500M":"$200M\u2013$500M",
+                      "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", curated:"curated certs"};
+  const bandName = useLending ? "under $200M (lending peers only)" : (BAND_LABEL[mode] || mode);
+  h += `<div style="font-weight:600;font-size:13px;color:#DFA85A;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
   h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
   h += rows;
   h += '</table>';
