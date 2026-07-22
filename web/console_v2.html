@@ -1483,12 +1483,11 @@ function renderOverview(){
     fetch("/api/v31/challenge-thresholds?total_assets_000s="+encodeURIComponent(_ta)).then(x=>x.json()).then(t=>{
     const el = document.getElementById("threshLedger"); if(!el) return;
     const peerTier = t.tier==="provisional_peer";
-    el.innerHTML = `<table class="ovt" style="font-size:11px"><tr><th style="width:96px">ID</th><th>Rule</th><th>Trigger</th><th style="width:64px">Severity</th></tr>`
-      + `<tr><th style="width:96px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th>Peer band (p10\u2013p90)</th>':''}<th style="width:64px">Severity</th></tr>`.replace('<tr>','') 
+    el.innerHTML = `<table class="ovt" style="font-size:11px"><tr><th style="width:88px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:150px">Peer band (p10\u2013p90)</th>':''}<th style="width:60px">Severity</th></tr>`
       + t.thresholds.map(th=>{
           const p = th.peer;
           const peerCell = peerTier ? (p
-            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8">${p.p10}\u2013<b style="color:#C4CDDD">${p.p50}</b>\u2013${p.p90}<br><span style="color:#6E7C93">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono)">${p.p10}\u2013<b style="color:#C4CDDD">${p.p50}</b>\u2013${p.p90}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
             : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
           return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></td></tr>`;
         }).join("") + `</table>`
