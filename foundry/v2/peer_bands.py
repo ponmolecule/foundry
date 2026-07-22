@@ -1,9 +1,12 @@
 """Peer percentile bands — the substrate consumption path (F-121).
 
 The CharterIQ substrate computes per-quarter percentile bands (p10/p25/p50/
-p75/p90) over identity-gated Call Report values: corrupt filer values were
-quarantined at ingest by per-family reconciliation gates, so exclusion happens
-before a value exists, not by post-hoc flag filtering. Bands arrive with
+p75/p90) over identity-gated Call Report values, EXTRACTED RAW: no winsorizing,
+no outlier trimming (verified against Klaros published values to two decimals,
+e.g. a trust company's tier1_ratio of 74283.33%). Extreme tails are real
+institutions with near-nil denominators (trusts, special-purpose charters),
+not corrupt values — so the remedy for a distorted tail is COHORT HYGIENE
+(exclude non-lending peers), never capping the raw data. Bands arrive with
 provenance (basis, certified, computed_at) and n per point. Until the live
 endpoint ships, checked-in fixtures — REAL substrate output, provisional until
 Deliverable D — serve the same shape; the response's `source` field says which.
@@ -123,7 +126,9 @@ def _db_bands(metric, cohort):
     return {"metric": metric, "cohort": cohort,
             "provenance": {"basis": "identity-gated", "certified": False,
                            "computed_at": None,
-                           "quarantine_policy": "per-family reconciliation gates at ingest"},
+                           "tail_policy": "extract-raw (no winsorizing); extreme "
+                           "tails are real near-nil-denominator filers, addressed by "
+                           "cohort hygiene not capping"},
             "bands": bands}
 
 

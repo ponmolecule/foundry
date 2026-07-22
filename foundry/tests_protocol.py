@@ -1926,6 +1926,33 @@ def t64():
 
 
 
+def t65():
+    print("T65 charter-filtered cohort (CHARTER_FILTERED_COHORT_SPEC): denominator floor + charter exclusion, auditable")
+    from foundry.v2.cohort_filter import filter_cohort, cohort_provenance
+    from foundry.v2.regparams import REG_PARAMS
+    # floors live in REG_PARAMS, not inline
+    check("T65a", "cohort-hygiene floors resolve from REG_PARAMS (not inline literals)",
+          REG_PARAMS["cohort_hygiene"]["rwa_floor_000s"] == 25000
+          and REG_PARAMS["cohort_hygiene"]["assets_floor_mm"] == 50)
+    members = [
+        {"cert": 101, "charter_type": "commercial bank", "rwa_000s": 120000, "assets_mm": 180},
+        {"cert": 103, "charter_type": "trust company",   "rwa_000s": 40,     "assets_mm": 90},
+        {"cert": 104, "charter_type": "commercial bank", "rwa_000s": 1200,   "assets_mm": 30},
+    ]
+    kept, dropped = filter_cohort(members, "tier1_ratio")
+    check("T65b", "trust excluded by charter, thin de novo by RWA floor, lending bank kept",
+          kept == [101] and len(dropped) == 2)
+    # exclusions are auditable (every drop carries a reason)
+    check("T65c", "every exclusion carries a reason (nothing hidden)",
+          all(r for _, r in dropped))
+    prov = cohort_provenance("tier1_ratio", "under_200M", len(kept), dropped)
+    check("T65d", "provenance states raw values unchanged + names the spec",
+          "extract-raw" in prov["policy"] and prov["spec"].startswith("CHARTER_FILTERED"))
+    # winsorization is explicitly NOT done — floors filter membership, values untouched
+    check("T65e", "filter refines the GROUP, not the data (no value capping present)",
+          "refines the peer GROUP" in prov["policy"])
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -1933,7 +1960,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

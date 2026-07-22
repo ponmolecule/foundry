@@ -75,4 +75,23 @@ REG_PARAMS = {
         # at 80% of taxable income per year. IRC 172(a)(2).
         "nol_utilization_limit_pct": 0.80,
     },
+    # Cohort-hygiene floors for examiner-facing peer bands (CHARTER_FILTERED_COHORT_SPEC,
+    # 2026-07-21). NOT a data edit and NOT winsorization — a COHORT filter for a
+    # specific comparison context. The raw substrate values stay raw; these floors
+    # define which bank-quarters qualify as meaningful LENDING-bank peers. Floors are
+    # stated round numbers one order of magnitude below the smallest genuine lending
+    # bank, per the spec — targeting the near-nil-denominator MECHANISM, not a charter
+    # type, so they catch de novos, special-purpose, and any future thin filer uniformly.
+    "cohort_hygiene": {
+        # risk-based ratios (tier1/cet1/total_rbc): require $25M RWA. Below this a
+        # small numerator swing yields triple-digit ratio swings.
+        "rwa_floor_000s": 25000,
+        # leverage / asset-scaled ratios: require $50M assets.
+        "assets_floor_mm": 50,
+        # efficiency / revenue-scaled: require a positive, non-trivial revenue base.
+        "revenue_floor_000s": 100,
+        "spec": "CHARTER_FILTERED_COHORT_SPEC 2026-07-21",
+        "basis": "cohort filter for examiner-facing lending-bank comparison; "
+                 "raw values unchanged; extract-raw remains authoritative",
+    },
 }

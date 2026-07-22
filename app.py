@@ -370,6 +370,46 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
     parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
     return JSONResponse(parsed)
 
+@app.get("/api/v31/peer-bands-lending")
+def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M",
+                            user=Depends(gate)):
+    """Charter-filtered, examiner-facing bands (CHARTER_FILTERED_COHORT_SPEC).
+    Resolves the asset band's membership, drops non-lending charters and near-nil-
+    denominator filers (cohort hygiene, NOT winsorization), then computes bands over
+    the filtered lending-peer cert list via the existing arbitrary-cohort path. Raw
+    substrate values are unchanged; only the peer group is refined."""
+    from foundry.v2 import peer_bands as _pb
+    from foundry.v2.cohort_filter import filter_cohort, cohort_provenance
+    from foundry.charteriq_client import CharterIQClient
+    cl = CharterIQClient()
+    if not cl.configured():
+        return JSONResponse({"error": "substrate not configured; charter-filtered "
+                             "cohort requires the live database"}, status_code=503)
+    try:
+        coh = cl.get_peer_cohort(band, limit=500)
+        members = []
+        for m in coh.get("members", []):
+            members.append({"cert": m.get("cert"),
+                            "charter_type": m.get("charter_type"),
+                            "assets_mm": m.get("asset_size_mm"),
+                            # rwa/revenue denominators fetched per-cert only if present;
+                            # absent -> the floor treats as unqualified (honest, not zero-filled)
+                            "rwa_000s": m.get("rwa_000s"),
+                            "revenue_000s": m.get("revenue_000s")})
+        kept, dropped = filter_cohort(members, metric)
+        if not kept:
+            return JSONResponse({"error": "no lending peers remain after cohort hygiene; "
+                                 "band may be dominated by non-lending charters"}, status_code=404)
+        parsed, source = _pb.get_bands(metric, kept)
+    except _pb.BandsError as e:
+        return JSONResponse({"error": str(e)}, status_code=404)
+    except Exception as e:
+        return JSONResponse({"error": f"charter-filtered cohort failed: {e}"}, status_code=502)
+    parsed["source"] = source
+    parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
+    parsed["cohort_filter"] = cohort_provenance(metric, band, len(kept), dropped)
+    return JSONResponse(parsed)
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or

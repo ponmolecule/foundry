@@ -1176,7 +1176,7 @@ window.renderBands = async function(){
     return;
   }
   const prov = d.provenance||{};
-  let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 corrupt filer values quarantined at ingest, not flag-filtered.</div>`;
+  let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 extract-raw (no winsorizing); extreme tails are real near-nil-denominator filers, refined by cohort hygiene not capping.</div>`;
   if(RISK_BASED_METRICS.has(metric)){ h += `<div class="memo" style="margin:0 0 10px;color:#8FA3C0;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
   const smallN = d.small_n;
   if(smallN){
