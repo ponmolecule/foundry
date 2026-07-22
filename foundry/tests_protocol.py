@@ -1980,6 +1980,20 @@ def t66():
         else: _os2.environ.pop("FOUNDRY_DATA_DIR", None)
 
 
+def t67():
+    print("T67 corridor bug fixes: metric aliases canonicalize; stored sub-cohorts don't crash on int()")
+    from foundry.v2 import peer_bands as _pb
+    # Bug 1: UI aliases map to DB metric_name
+    check("T67a", "metric aliases canonicalize (efficiency->efficiency_ratio, tier1->tier1_ratio)",
+          _pb._canonical_metric("efficiency") == "efficiency_ratio"
+          and _pb._canonical_metric("tier1") == "tier1_ratio"
+          and _pb._canonical_metric("roa") == "roa")
+    # Bug 2: asset-band cohorts are recognized as stored (endpoint won't int() them)
+    check("T67b", "stored asset-band cohorts recognized (no int() crash path)",
+          _pb._is_stored("under_200M") and _pb._is_stored("200M_500M")
+          and _pb._is_stored("broad") and not _pb._is_stored("628,3511"))
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -1987,7 +2001,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

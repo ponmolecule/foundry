@@ -91,6 +91,23 @@ def _is_stored(cohort):
     return isinstance(cohort, str) and cohort in _STORED_COHORTS
 
 
+# UI/dropdown metric aliases -> the substrate's metric_name column. The frontend
+# sends short labels ('efficiency', 'tier1'); the DB stores 'efficiency_ratio',
+# 'tier1_ratio'. Normalize at the boundary so a mismatch can't masquerade as a
+# coverage gap ('no substrate rows for efficiency' when the real name is
+# efficiency_ratio). Identity for names that already match.
+_METRIC_ALIASES = {
+    "efficiency": "efficiency_ratio",
+    "tier1": "tier1_ratio",
+    "cet1": "cet1_ratio",
+    "total_rbc": "total_rbc_ratio",
+    "leverage": "leverage_ratio",
+}
+
+def _canonical_metric(metric):
+    return _METRIC_ALIASES.get(metric, metric)
+
+
 def _db_bands(metric, cohort):
     """Read a stored cohort's bands from the peer_percentiles table via the single
     CHARTERIQ_DATABASE_URL client. Returns parsed dict or None (not configured /
@@ -100,6 +117,7 @@ def _db_bands(metric, cohort):
     if not cl.configured():
         return None
     gid = "all_universe" if cohort == "broad" else cohort
+    mname = _canonical_metric(metric)
     # peer_percentiles is a PER-BANK table (~18M rows): every bank in a group
     # carries the SAME group distribution, so one row per (year, quarter) is the
     # whole band. DISTINCT ON collapses the thousands of identical rows per
@@ -111,7 +129,7 @@ def _db_bands(metric, cohort):
             "SELECT DISTINCT ON (year, quarter) "
             "year, quarter, peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
             "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
-            "ORDER BY year, quarter", (metric, gid))
+            "ORDER BY year, quarter", (mname, gid))
     except Exception:
         # timeout, connection drop, or query error -> treat as 'no rows' so the
         # caller degrades to its honest fallback (refusal / static threshold),
@@ -180,7 +198,7 @@ def get_bands(metric, cohort):
         # fully offline (no DB, no explicit opt-in): fixtures are the only
         # possible source, but they are still labelled provisional loudly.
         pass
-    metric_safe = re.sub(r"[^a-z0-9_]", "", str(metric).lower())
+    metric_safe = re.sub(r"[^a-z0-9_]", "", str(_canonical_metric(metric)).lower())
     path = os.path.join(FIXTURE_DIR, f"bands_{metric_safe}_{_cohort_key(cohort)}.json")
     if not os.path.exists(path):
         raise BandsError(

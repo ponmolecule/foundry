@@ -356,10 +356,21 @@ def auth_reset(body: dict, user=Depends(gate)):
 
 @app.get("/api/v31/peer-bands")
 def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate)):
-    """Substrate percentile bands (F-121 consumption path). cohort is 'broad'
-    or a comma-separated cert list (the Konrad shape)."""
+    """Substrate percentile bands (F-121 consumption path). cohort is 'broad',
+    a stored asset-band group_id (under_200M, 200M_500M, ...), or a comma-separated
+    cert list (the Konrad shape)."""
     from foundry.v2 import peer_bands as _pb
-    co = cohort if cohort == "broad" else [int(x) for x in cohort.split(",") if x.strip()]
+    # resolve the cohort argument by shape: 'broad' or a stored band name pass
+    # through as strings (the DB path handles them); anything with commas/digits
+    # is an ad-hoc cert list. Guard the int() so an unknown string can never 500.
+    if cohort == "broad" or _pb._is_stored(cohort):
+        co = cohort
+    else:
+        try:
+            co = [int(x) for x in cohort.split(",") if x.strip()]
+        except ValueError:
+            return JSONResponse({"error": f"unrecognized cohort '{cohort}' — expected "
+                                 "'broad', an asset band, or a cert list"}, status_code=400)
     try:
         parsed, source = _pb.get_bands(metric, co)
     except _pb.BandsError as e:

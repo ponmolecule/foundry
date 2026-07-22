@@ -1316,7 +1316,7 @@ window.poAdd = function(){
 // risk-based-filer subset (~6,546 banks), not the full universe. A short n here
 // is correct and expected, not missing data. leverage_ratio is the universal
 // capital metric across all banks.
-const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio"]);
+const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio","tier1","cet1","total_rbc"]);
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
 const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
 window.vintageModeled = vintageModeled;
