@@ -986,22 +986,35 @@ function addFromTaxonomy(cat, idx){
   syncModules(); renderContent(); refresh();
 }
 // Multi-select variant: add the product but KEEP the modal open so several can be
-// picked in one visit. We deliberately do NOT call renderContent() here (it would
-// rebuild the page and destroy the open modal); the full render is deferred to
-// closeModal(). The button shows a running "added" count so repeats are clear.
+// picked in one visit. Clicking the SAME product again toggles it back off (removes
+// the one this button added) — click on, click off, like a checkbox. We do NOT call
+// renderContent() here (it would rebuild the page and destroy the open modal); the
+// full render is deferred to closeModal().
 function addFromTaxonomyMulti(cat, idx, btn){
   const s = TAX31()[cat][idx];
-  famArr(s.fam).push(materializeTemplate(s));
-  window._modalAdded = (window._modalAdded||0) + 1;
-  // per-button count feedback
-  btn._n = (btn._n||0) + 1;
-  btn.style.borderColor = "#7FB07F";
+  const arr = famArr(s.fam);
+  btn._added = btn._added || [];   // the product objects THIS button added
+  if(btn._added.length > 0){
+    // toggle OFF: remove the most recent one this button added
+    const victim = btn._added.pop();
+    const at = arr.indexOf(victim);
+    if(at !== -1) arr.splice(at, 1);
+    window._modalAdded = Math.max(0, (window._modalAdded||0) - 1);
+  } else {
+    // toggle ON: add one
+    const obj = materializeTemplate(s);
+    arr.push(obj); btn._added.push(obj);
+    window._modalAdded = (window._modalAdded||0) + 1;
+  }
+  // reflect state on the button
+  const n = btn._added.length;
+  btn.style.borderColor = n > 0 ? "#7FB07F" : "";
   let tag = btn.querySelector(".addtag");
   if(!tag){ tag = document.createElement("span"); tag.className = "addtag";
     tag.style.cssText = "margin-left:auto;color:#7FB07F;font-size:10px;font-weight:700;white-space:nowrap"; btn.appendChild(tag); }
-  tag.textContent = btn._n > 1 ? ("added \u00d7" + btn._n) : "added \u2713";
+  tag.textContent = n > 0 ? "added \u2713" : "";
   const c = document.getElementById("modalAddedCount");
-  if(c) c.textContent = window._modalAdded + (window._modalAdded === 1 ? " product added" : " products added");
+  if(c) c.textContent = window._modalAdded ? (window._modalAdded + (window._modalAdded === 1 ? " product added" : " products added")) : "";
 }
 window.addFromTaxonomyMulti = addFromTaxonomyMulti;
 window.addFromTaxonomy = addFromTaxonomy; window.TAX31 = TAX31; window.syncModules = syncModules;

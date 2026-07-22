@@ -187,8 +187,9 @@ def console_v31():
     # (usually a cached page or an un-rebuilt container). It reads the deployed
     # commit; if the screen's stamp doesn't match the commit just pushed, the
     # deploy or the browser cache is the culprit, not the code.
-    stamp_el = (f'<div style="position:fixed;bottom:4px;right:6px;z-index:9999;'
-                f'font:10px/1 monospace;color:#5A6B85;opacity:.7;'
+    stamp_el = (f'<div style="position:fixed;bottom:6px;right:8px;z-index:99999;'
+                f'font:11px/1.4 monospace;color:#C7975A;background:rgba(13,22,38,.85);'
+                f'padding:3px 8px;border-radius:3px;border:1px solid #2B3A57;'
                 f'pointer-events:none">build {stamp}</div>')
     html = html.replace("</body>", stamp_el + "</body>")
     # No-cache: the HTML shell must never be served stale, or a deploy looks like
