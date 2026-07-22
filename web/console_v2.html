@@ -1184,8 +1184,10 @@ window.renderBands = async function(){
   h += '<table class="ovt" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
        (smallN ? '<th>\u2248min (p10)</th><th>p25</th><th>Median</th><th>p75</th><th>\u2248max (p90)</th>'
                : '<th>p10</th><th>p25</th><th>Median</th><th>p75</th><th>p90</th>') + '</tr>';
-  d.bands.forEach(b=>{
-    h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${b.p10.toFixed(3)}</td><td>${b.p25.toFixed(3)}</td><td>${b.p50.toFixed(3)}</td><td>${b.p75.toFixed(3)}</td><td>${b.p90.toFixed(3)}</td></tr>`;
+  const _showBands = d.bands.slice(-8);   // most recent 8 quarters read as a corridor, not a full-history dump
+  if(d.bands.length > 8){ h += `<tr><td colspan="7" style="color:#6E7C93;font-size:10px">showing the most recent 8 of ${d.bands.length} quarters</td></tr>`; }
+  _showBands.forEach(b=>{
+    h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${(+b.p10).toFixed(2)}</td><td>${(+b.p25).toFixed(2)}</td><td>${(+b.p50).toFixed(2)}</td><td>${(+b.p75).toFixed(2)}</td><td>${(+b.p90).toFixed(2)}</td></tr>`;
   });
   h += '</table>';
   // THE JOIN: modeled annual ratios against the latest band — terminal-state
@@ -1235,6 +1237,7 @@ function substratePanelHtml(){
           setTimeout(async()=>{ try{ await subPlace(); } finally { window._subPlaceRefreshing = false; } }, 50); }
       }
       h += `<div class="ovh3" style="font-size:12px">Modeled capital vs real peers \u2014 ${esc(P.band)} band, ${P.year}Q${P.quarter}</div>`;
+      h += `<div class="memo" style="font-size:10px;margin:2px 0 6px">Capital family only: the modeled bank contributes one capital ratio (all-CET1 at this stage), placed against the peer tier-1 and CET1 distributions. Earnings/efficiency placement lives in the Peer Bands corridor above, against their own cohorts.</div>`;
       h += '<table class="ovt"><tr><th>Peer metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
       P.rows.forEach(r=>{
         h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(r.metric)}</td><td class="num">${r.modeled_value.toFixed(2)}%</td><td class="num">${r.p10.toFixed(1)}</td><td class="num">${r.p25.toFixed(1)}</td><td class="num">${r.p50.toFixed(1)}</td><td class="num">${r.p75.toFixed(1)}</td><td class="num">${r.p90.toFixed(1)}</td><td><span class="ovtag mut">${esc(r.placement)}</span></td><td class="num">${r.n===null?"\u2014":r.n}</td></tr>`;
@@ -1510,7 +1513,7 @@ function renderOverview(){
       + t.thresholds.map(th=>{
           const p = th.peer;
           const peerCell = peerTier ? (p
-            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono)">${p.p10}\u2013<b style="color:#C4CDDD">${p.p50}</b>\u2013${p.p90}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono)">${(+p.p10).toFixed(2)}\u2013<b style="color:#C4CDDD">${(+p.p50).toFixed(2)}</b>\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
             : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
           const fired = _fired(th.id);
           const yourCell = `<td style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
