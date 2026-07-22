@@ -97,11 +97,24 @@ def _db_bands(metric, cohort):
     if not cl.configured():
         return None
     gid = "all_universe" if cohort == "broad" else cohort
-    # assemble a per-quarter band series from whatever quarters the table holds
-    rows = cl._run(
-        "SELECT year, quarter, peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
-        "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
-        "ORDER BY year, quarter", (metric, gid))
+    # peer_percentiles is a PER-BANK table (~18M rows): every bank in a group
+    # carries the SAME group distribution, so one row per (year, quarter) is the
+    # whole band. DISTINCT ON collapses the thousands of identical rows per
+    # quarter to one each — mirroring the proven LIMIT-1 pattern in
+    # get_peer_percentiles, but across the quarter series. Without this the query
+    # scans and sorts millions of duplicate rows and hangs the request.
+    try:
+        rows = cl._run(
+            "SELECT DISTINCT ON (year, quarter) "
+            "year, quarter, peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
+            "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
+            "ORDER BY year, quarter", (metric, gid))
+    except Exception:
+        # timeout, connection drop, or query error -> treat as 'no rows' so the
+        # caller degrades to its honest fallback (refusal / static threshold),
+        # never a 500 that hangs the page. The failure is real; the response is
+        # graceful.
+        return None
     if not rows:
         return None
     bands = [{"quarter": f"{r[0]}Q{r[1]}", "p10": float(r[2]), "p25": float(r[3]),

@@ -66,7 +66,15 @@ class CharterIQClient:
             import psycopg2
             self._conn = psycopg2.connect(self._url)
             self._conn.set_session(readonly=True, autocommit=True)
+        # Statement timeout: a slow query must FAIL FAST, never hang the request
+        # and freeze the page. On timeout psycopg2 raises; callers fall back to
+        # the static threshold. Tunable via CHARTERIQ_STMT_TIMEOUT_MS (default 8s).
+        _to = os.environ.get("CHARTERIQ_STMT_TIMEOUT_MS", "8000")
         with self._conn.cursor() as cur:
+            try:
+                cur.execute("SET statement_timeout = %s", (int(_to),))
+            except Exception:
+                pass  # non-fatal; proceed without the guard rather than break
             cur.execute(sql, params)
             return cur.fetchall()
 

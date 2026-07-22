@@ -1161,10 +1161,20 @@ window.renderBands = async function(){
   body.innerHTML = '<div class="memo">Loading bands\u2026</div>';
   let d;
   try{
-    const rr = await fetch(`/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`);
+    // client-side timeout: even a network-level hang cannot freeze the page —
+    // it aborts and shows a message. Backend also has a statement timeout.
+    const _ctl = new AbortController();
+    const _timer = setTimeout(()=>_ctl.abort(), 15000);
+    const rr = await fetch(`/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`, {signal:_ctl.signal});
+    clearTimeout(_timer);
     d = await rr.json();
     if(!rr.ok){ body.innerHTML = `<div class="memo">${esc(d.error||"Bands unavailable.")}</div>`; return; }
-  }catch(e){ body.innerHTML = '<div class="memo">Could not reach the bands endpoint.</div>'; return; }
+  }catch(e){
+    body.innerHTML = (e && e.name==="AbortError")
+      ? '<div class="memo">The bands request timed out \u2014 the substrate is slow or unreachable. The flags still use their static thresholds; peer context is unavailable for now.</div>'
+      : '<div class="memo">Could not reach the bands endpoint.</div>';
+    return;
+  }
   const prov = d.provenance||{};
   let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 corrupt filer values quarantined at ingest, not flag-filtered.</div>`;
   const smallN = d.small_n;
