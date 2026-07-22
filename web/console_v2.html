@@ -1169,16 +1169,15 @@ window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function bandsSectionHtml(){
   return `<div class="ovh2" style="color:#DFA85A;background:linear-gradient(180deg,#16233B,#1B2A47);padding:8px 14px;border-radius:4px 4px 0 0;border-bottom:2px solid #DFA85A;letter-spacing:.04em">PEER CORRIDOR</div>
   <div class="card" style="padding:14px 16px;border-top:none;border-radius:0 0 4px 4px">
-    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers on a chosen metric and cohort \u2014 latest quarter. Green sits favorably vs peers, red unfavorably, by the metric's risk direction.</div>
+    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers \u2014 latest quarter. Pick one or more metrics; each is placed by row and colored green (favorable vs peers) or red (unfavorable) by its risk direction.</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
+      <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Metrics</span>
+      <span id="pbMetricChips" style="display:inline-flex;gap:6px;flex-wrap:wrap">
+        ${[["roa","ROA"],["nim","NIM"],["efficiency","Efficiency"],["tier1","Tier 1 / RWA"],["cet1","CET1"],["net_charge_off_rate","Charge-off"]].map(([v,l],i)=>`<button class="pbchip" data-metric="${v}" onclick="pbToggleMetric('${v}')" style="font-size:11px;padding:4px 11px;border-radius:3px;border:1px solid #2B3A57;background:${i===0?'#C59C5E':'transparent'};color:${i===0?'#16233B':'#9FB0C8'};font-weight:${i===0?'700':'400'};cursor:pointer">${l}</button>`).join("")}
+      </span>
+    </div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-      <select id="pbMetric" onchange="renderBands()" style="min-width:150px">
-        <option value="roa">ROA (annual %)</option>
-        <option value="nim">NIM</option>
-        <option value="efficiency">Efficiency ratio</option>
-        <option value="tier1">Tier 1 / RWA</option>
-        <option value="cet1">CET1</option>
-        <option value="net_charge_off_rate">Charge-off (net, ann.)</option>
-      </select>
+      <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Cohort</span>
       <select id="pbCohort" onchange="renderBands()">
         <option value="broad">Broad cohort (all identity-gated filers)</option>
         <option value="under_200M">Under $200M assets</option>
@@ -1194,15 +1193,30 @@ function bandsSectionHtml(){
     <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>
   </div>`;
 }
+// selected metrics (multi-select); ROA on by default
+window._pbMetrics = window._pbMetrics || ["roa"];
+window.pbToggleMetric = function(m){
+  const s = new Set(window._pbMetrics);
+  if(s.has(m)) s.delete(m); else s.add(m);
+  if(s.size === 0) s.add(m);   // never allow zero selected
+  window._pbMetrics = Array.from(s);
+  // reflect chip state
+  document.querySelectorAll(".pbchip").forEach(b=>{
+    const on = window._pbMetrics.includes(b.dataset.metric);
+    b.style.background = on ? "#C59C5E" : "transparent";
+    b.style.color = on ? "#16233B" : "#9FB0C8";
+    b.style.fontWeight = on ? "700" : "400";
+  });
+  renderBands();
+};
 window.renderBands = async function(){
   const body = document.getElementById("pbBody"); if(!body) return;
-  const metric = document.getElementById("pbMetric").value;
+  const metrics = (window._pbMetrics && window._pbMetrics.length) ? window._pbMetrics : ["roa"];
   const mode = document.getElementById("pbCohort").value;
   const certsEl = document.getElementById("pbCerts");
   certsEl.style.display = mode === "curated" ? "inline-block" : "none";
   // the lending-peers-only toggle appears ONLY for the under_200M band — the one
-  // band whose tail is lifted by non-lending charters (trusts). Other bands are
-  // clean, so offering it there would imply a problem they don't have.
+  // band whose tail is lifted by non-lending charters (trusts).
   const lendWrap = document.getElementById("pbLendingWrap");
   const lendOnly = document.getElementById("pbLendingOnly");
   if(lendWrap) lendWrap.style.display = (mode === "under_200M") ? "inline-flex" : "none";
@@ -1212,138 +1226,117 @@ window.renderBands = async function(){
     const certs = (cfgRef().peer_bands_certs||[]);
     if(!certs.length){ body.innerHTML = '<div class="memo">Enter a cert list for the curated cohort (6\u201310 named peers is the working shape).</div>'; return; }
     cohort = certs.join(",");
-  } else if(mode !== "broad"){
-    cohort = mode;   // an asset band group_id (under_200M, 200M_500M, ...)
-  }
+  } else if(mode !== "broad"){ cohort = mode; }
   body.innerHTML = '<div class="memo">Loading bands\u2026</div>';
-  let d;
-  try{
-    // client-side timeout: even a network-level hang cannot freeze the page —
-    // it aborts and shows a message. Backend also has a statement timeout.
+
+  // fetch one band per selected metric (latest quarter used for placement)
+  async function fetchBand(metric){
     const _ctl = new AbortController();
     const _timer = setTimeout(()=>_ctl.abort(), 15000);
-    // when the lending-only toggle is on, hit the charter-filtered endpoint
     const url = useLending
       ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(metric)}&band=under_200M`
       : `/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`;
-    const rr = await fetch(url, {signal:_ctl.signal});
-    clearTimeout(_timer);
-    d = await rr.json();
-    if(!rr.ok){ body.innerHTML = `<div class="memo">${esc(d.error||"Bands unavailable.")}</div>`; return; }
-  }catch(e){
-    body.innerHTML = (e && e.name==="AbortError")
-      ? '<div class="memo">The bands request timed out \u2014 the substrate is slow or unreachable. The flags still use their static thresholds; peer context is unavailable for now.</div>'
-      : '<div class="memo">Could not reach the bands endpoint.</div>';
-    return;
+    try{
+      const rr = await fetch(url, {signal:_ctl.signal}); clearTimeout(_timer);
+      const j = await rr.json();
+      return rr.ok ? {metric, d:j} : {metric, err:(j.error||"unavailable")};
+    }catch(e){ clearTimeout(_timer);
+      return {metric, err:(e&&e.name==="AbortError")?"request timed out":"could not reach the bands endpoint"};
+    }
   }
-  const prov = d.provenance||{};
-  let h = `<div class="memo" style="margin:0 0 10px"><b>${prov.certified?"Certified":"Provisional"}</b> \u00b7 ${esc(d.source||"")} \u00b7 basis: ${esc(prov.basis||"")} \u00b7 extract-raw (no winsorizing); extreme tails are real near-nil-denominator filers, refined by cohort hygiene not capping.</div>`;
-  if(RISK_BASED_METRICS.has(metric)){ h += `<div class="memo" style="margin:0 0 10px;color:#8FA3C0;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
-  // charter-filter provenance: when the lending-only filter is active, state what
-  // was excluded and why (auditable, nothing hidden). On the raw under_200M view,
-  // note that the toggle exists so the distortion is labeled, not silent.
-  if(d.cohort_filter){
-    const cf = d.cohort_filter;
-    h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #6FA98C;padding-left:10px;font-size:10.5px"><b>Lending peers only</b> \u2014 ${cf.excluded_count} non-lending / thin-denominator ${cf.excluded_count===1?"filer":"filers"} excluded from the ${esc(cf.base_band)} band (${cf.lending_peers_kept} lending peers kept). Trusts and near-nil-RWA charters aren't lending-bank peers; raw values are unchanged, only the peer group is refined.</div>`;
-  } else if(mode === "under_200M"){
-    h += `<div class="memo" style="margin:0 0 10px;color:#C7975A;font-size:10.5px">This band includes non-lending charters (trust companies with near-nil RWA) that lift the high end. Toggle <b>lending peers only</b> above for a lending-bank comparison.</div>`;
-  }
-  const smallN = d.small_n;
-  if(smallN){
-    h += `<div class="memo" style="margin:0 0 10px;border-left:3px solid #D8A85E;padding-left:10px">Small cohort (n below ${d.small_n_threshold}): percentiles approach member values \u2014 p10 \u2248 minimum, p90 \u2248 maximum. Read these as the <b>range of the named peers</b>, not a distribution.</div>`;
-  }
-  h += '<table class="ovt" style="width:100%"><tr><th>Quarter</th><th>n</th>' +
-       (smallN ? '<th>\u2248min (p10)</th><th>p25</th><th>Median</th><th>p75</th><th>\u2248max (p90)</th>'
-               : '<th>p10</th><th>p25</th><th>Median</th><th>p75</th><th>p90</th>') + '</tr>';
-  const _showBands = d.bands.slice(-8);   // most recent 8 quarters read as a corridor, not a full-history dump
-  if(d.bands.length > 8){ h += `<tr><td colspan="7" style="color:#6E7C93;font-size:10px">showing the most recent 8 of ${d.bands.length} quarters</td></tr>`; }
-  _showBands.forEach(b=>{
-    h += `<tr><td>${esc(b.quarter)}</td><td>${b.n}</td><td>${(+b.p10).toFixed(2)}</td><td>${(+b.p25).toFixed(2)}</td><td>${(+b.p50).toFixed(2)}</td><td>${(+b.p75).toFixed(2)}</td><td>${(+b.p90).toFixed(2)}</td></tr>`;
-  });
-  h += '</table>';
-  // THE CONSOLIDATION: the modeled bank placed against the latest band, colored
-  // green (favorable vs peers) / red (unfavorable) / neutral (mid-pack) by the
-  // metric's risk direction. This is place-modeled's visual, now spanning every
-  // corridor metric. Latest quarter only. Trajectory judgment stays in the
-  // Vintage Corridor; nothing here touches it.
-  const latest = d.bands[d.bands.length - 1];
-  // resolve the modeled value for this metric from the run results
-  const AKEY = {roa: "roa", nim: "nim", efficiency: "eff"};
-  let modeledVal = null, modeledNote = "";
-  if(lastRes){
+  const results = await Promise.all(metrics.map(fetchBand));
+
+  // resolve the modeled value for a metric from the run results
+  const AKEY = {roa:"roa", nim:"nim", efficiency:"eff"};
+  function modeledFor(metric){
+    if(!lastRes) return {v:null};
     if(AKEY[metric]){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
-      modeledVal = (ann && ann.length) ? ann[ann.length - 1] : null;  // terminal year
-    } else if(metric === "tier1" || metric === "cet1"){
-      // de novo is all-CET1 (no AT1/Tier-2), so the modeled leverage/capital ratio
-      // is placed against BOTH the peer tier-1 and CET1 distributions. The
-      // standardized block carries modeled tier1/cet1 series; fall back to leverage.
+      return {v:(ann&&ann.length)?ann[ann.length-1]:null};
+    }
+    if(metric==="tier1"||metric==="cet1"){
       const st = lastRes.capital && lastRes.capital.standardized;
       const lev = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.lev;
       const t = st && st[metric];
-      modeledVal = (t && t.length) ? t[t.length-1] : ((lev && lev.length) ? lev[lev.length-1] : null);
-    } else if(metric === "net_charge_off_rate"){
-      // the engine models a net charge-off flow but does not yet surface it as a
-      // rate series; placement lights up when it does. Band shows regardless.
-      modeledVal = null;
-      modeledNote = "The engine models net charge-offs internally but doesn't yet surface them as a placeable rate \u2014 the peer band is shown; the modeled placement lights up once the charge-off rate series is exposed.";
+      return {v:(t&&t.length)?t[t.length-1]:((lev&&lev.length)?lev[lev.length-1]:null)};
     }
+    if(metric==="net_charge_off_rate"){
+      // engine models the flow but doesn't surface a placeable rate yet
+      return {v:null, note:"engine doesn't surface a placeable rate yet"};
+    }
+    return {v:null};
   }
-  const dir = METRIC_DIRECTION[metric] || "higher_good";
-  // percentile bucket + favorability
-  function placement(v){
-    const below = v < latest.p10, p10_25 = v>=latest.p10&&v<latest.p25,
-          p25_50 = v>=latest.p25&&v<latest.p50, p50_75 = v>=latest.p50&&v<latest.p75,
-          p75_90 = v>=latest.p75&&v<latest.p90, above = v>=latest.p90;
-    let bucket = below?"below p10":p10_25?"p10\u2013p25":p25_50?"p25\u2013p50":p50_75?"p50\u2013p75":p75_90?"p75\u2013p90":"above p90";
-    // favorability: for higher_good, high percentile = favorable; for lower_good, low = favorable
-    const highPct = p75_90 || above, lowPct = below || p10_25;
-    let fav;
-    if(dir === "higher_good") fav = highPct ? "good" : lowPct ? "bad" : "mid";
-    else                      fav = lowPct  ? "good" : highPct ? "bad" : "mid";
-    return {bucket, fav};
-  }
+  const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio", tier1:"Tier 1 / RWA", cet1:"CET1", net_charge_off_rate:"Charge-off (net, ann.)"};
   const COLOR = {good:"#6FA98C", bad:"#C77", mid:"#C7975A"};
-  const BG = {good:"rgba(111,169,140,.14)", bad:"rgba(204,119,119,.14)", mid:"rgba(199,151,94,.10)"};
-  const dirLabel = dir === "higher_good" ? "higher is better" : "lower is better";
-  h += `<div style="margin-top:14px;font-weight:600;font-size:13px;color:#DFA85A">Modeled bank vs. peers \u00b7 ${esc(latest.quarter)} \u00b7 <span style="font-weight:400;color:#8FA3C0;font-size:11px">${dirLabel}</span></div>`;
-  if(modeledVal !== null && modeledVal !== undefined){
-    const pl = placement(modeledVal);
-    h += `<div style="margin-top:6px;padding:12px 14px;border-radius:5px;border:1px solid ${COLOR[pl.fav]};background:${BG[pl.fav]}">
-      <div style="display:flex;align-items:baseline;gap:10px;flex-wrap:wrap">
-        <span style="font-size:22px;font-weight:700;color:${COLOR[pl.fav]}">${modeledVal.toFixed(2)}${metric==='net_charge_off_rate'||dir==='higher_good'||metric==='efficiency'?'%':''}</span>
-        <span style="font-size:13px;color:#C4CDDD">sits <b style="color:${COLOR[pl.fav]}">${pl.bucket}</b> of peers</span>
-        <span style="margin-left:auto;font-size:10px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:${COLOR[pl.fav]}">${pl.fav==='good'?'favorable':pl.fav==='bad'?'unfavorable':'mid-pack'}</span>
-      </div>
-      <div style="margin-top:8px;font-size:10px;color:#7E8DA6;font-family:var(--mono)">peer p10 ${(+latest.p10).toFixed(2)} \u00b7 p50 ${(+latest.p50).toFixed(2)} \u00b7 p90 ${(+latest.p90).toFixed(2)} \u00b7 n=${latest.n}</div>
-    </div>`;
-    h += `<div class="memo" style="margin-top:6px">Terminal-year modeled value against the most recent peer distribution. Color reflects where the bank sits relative to peers given that ${dirLabel} for this metric. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
-  } else if(modeledNote){
-    h += `<div class="memo" style="margin-top:6px">${esc(modeledNote)}</div>`;
-  } else {
-    h += `<div class="memo" style="margin-top:6px">Run the model to place its terminal-year ${esc(metric.toUpperCase())} against these peers.</div>`;
+  function favOf(metric, v, latest){
+    const dir = METRIC_DIRECTION[metric] || "higher_good";
+    const highPct = v>=latest.p75, lowPct = v<latest.p25;
+    if(dir==="higher_good") return highPct?"good":lowPct?"bad":"mid";
+    return lowPct?"good":highPct?"bad":"mid";
   }
-  // the underlying band table stays available below the placement, for the detail-minded
-  h += `<div class="memo" style="margin-top:10px;font-size:10.5px;color:#7E8DA6">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
+  function bucketOf(v, b){
+    return v<b.p10?"below p10":v<b.p25?"p10\u2013p25":v<b.p50?"p25\u2013p50":v<b.p75?"p50\u2013p75":v<b.p90?"p75\u2013p90":"above p90";
+  }
+
+  // ---- render: one ROW per metric, old modeled-capital-vs-peers style ----
+  let anyRisk = false, latestQ = null, cohortFilter = null, provOne = null, smallNany = false;
+  let rows = "";
+  results.forEach(({metric, d, err})=>{
+    const label = METRIC_LABEL[metric] || metric;
+    if(err){
+      rows += `<tr><td>${esc(label)}</td><td colspan="8" style="color:#8FA3C0;font-size:11px">${esc(err)}</td></tr>`;
+      return;
+    }
+    if(RISK_BASED_METRICS.has(metric)) anyRisk = true;
+    if(d.cohort_filter) cohortFilter = d.cohort_filter;
+    if(!provOne) provOne = d.provenance||{};
+    if(d.small_n) smallNany = true;
+    const latest = d.bands[d.bands.length-1];
+    latestQ = latest.quarter;
+    const m = modeledFor(metric);
+    if(m.v===null || m.v===undefined){
+      const note = m.note ? ` \u00b7 <span style="color:#8FA3C0">${esc(m.note)}</span>` : "";
+      rows += `<tr><td>${esc(label)}</td><td class="num" style="color:#8FA3C0">\u2014</td>`
+        + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
+        + `<td style="color:#8FA3C0;font-size:11px">peer band only${note}</td><td class="num">${latest.n}</td></tr>`;
+      return;
+    }
+    const fav = favOf(metric, m.v, latest);
+    const bucket = bucketOf(m.v, latest);
+    const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
+    rows += `<tr><td>${esc(label)}</td>`
+      + `<td class="num" style="font-weight:700;color:${COLOR[fav]}">${m.v.toFixed(2)}${pct}</td>`
+      + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
+      + `<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(111,169,140,.16)':fav==='bad'?'rgba(204,119,119,.16)':'rgba(199,151,94,.14)'}">${bucket}</span></td>`
+      + `<td class="num">${latest.n}</td></tr>`;
+  });
+
+  let h = "";
+  // provenance (one line, from whichever metric returned first)
+  if(provOne){
+    h += `<div class="memo" style="margin:0 0 8px"><b>${provOne.certified?"Certified":"Provisional"}</b> \u00b7 extract-raw (no winsorizing); extreme tails are real near-nil-denominator filers, refined by cohort hygiene not capping.</div>`;
+  }
+  if(anyRisk){ h += `<div class="memo" style="margin:0 0 8px;color:#8FA3C0;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
+  // lending-filter commentary
+  if(cohortFilter){
+    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #6FA98C;padding-left:10px;font-size:10.5px"><b>Lending peers only</b> \u2014 ${cohortFilter.excluded_count} non-lending / thin-denominator ${cohortFilter.excluded_count===1?"filer":"filers"} excluded from the ${esc(cohortFilter.base_band)} band (${cohortFilter.lending_peers_kept} lending peers kept). Trusts and near-nil-RWA charters aren't lending-bank peers; raw values are unchanged, only the peer group is refined.</div>`;
+  } else if(mode === "under_200M"){
+    h += `<div class="memo" style="margin:0 0 8px;color:#C7975A;font-size:10.5px">This band includes non-lending charters (trust companies with near-nil RWA) that lift the high end. Toggle <b>lending peers only</b> above for a lending-bank comparison.</div>`;
+  }
+  if(smallNany){
+    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Small cohort: percentiles approach member values \u2014 read as the range of the named peers, not a distribution.</div>`;
+  }
+  // the row table
+  h += `<div style="font-weight:600;font-size:13px;color:#DFA85A;margin-bottom:4px">Modeled bank vs. peers${latestQ?` \u00b7 ${esc(latestQ)}`:""}</div>`;
+  h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
+  h += rows;
+  h += '</table>';
+  if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its terminal-year values against these peers.</div>`; }
+  // the retained commentaries
+  h += `<div class="memo" style="margin-top:10px">Terminal-year modeled value against the most recent peer distribution. Color reflects where the bank sits relative to peers given each metric's risk direction. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
+  h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#7E8DA6">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
   body.innerHTML = h;
 };
-function substratePanelHtml(){
-  let h = '<div class="ovh2" style="display:flex;align-items:center;gap:12px">CharterIQ substrate <button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="subCheck()">Refresh substrate status</button></div>';
-  if(subStatus === null){
-    h += '<div class="memo">Substrate link not yet checked.</div>';
-  } else if(!subStatus.configured){
-    h += '<div class="memo">Not configured on this instance \u2014 set <span style="font-family:var(--mono)">CHARTERIQ_DATABASE_URL</span> (read-only credentials) to draw peer percentiles and retrodiction history from the curated Call Report substrate. No substrate, no numbers: nothing on this panel is ever simulated.</div>'
-      + '<div class="memo" style="font-size:11px">Running locally? Set it in the same PowerShell session before launching:<br><span style="font-family:var(--mono)">$env:CHARTERIQ_DATABASE_URL = "postgresql://foundry_ro:\u2026"</span><br><span style="font-family:var(--mono)">uvicorn app:app --port 8010</span><br>On Railway it lives in the service\u2019s Variables tab and applies automatically.</div>';
-  } else if(!subStatus.reachable){
-    h += `<div class="warnitem">Configured but unreachable: ${esc(subStatus.error||"")}</div>`;
-  } else {
-    h += `<div class="memo">Connected \u2014 ${subStatus.metrics_catalogued} metrics catalogued. Capital-family metrics are item-level FFIEC CDR; other families are legacy computations pending migration and are labeled as such wherever shown.</div>`;
-    // The modeled-capital-vs-peers placement that used to live here has been
-    // consolidated INTO the Peer Corridor above (colored green/red placement,
-    // every metric, cohort-selectable). This panel is now substrate status only.
-  }
-  return h;
-}
 async function subPlace(){
   if(!lastRes){ appStatus("err", "<b>Run the model first.</b>"); return; }
   const ta = lastRes.financials.bs.totalAssets;
@@ -1480,16 +1473,16 @@ function renderPeer(){
     // CharterIQ substrate (real filed data) or the user's own uploads.
     h += '<div class="memo">Everything on this page is real or absent \u2014 peer evidence comes from the CharterIQ Call Report substrate, retrodiction from filed history. Nothing here is simulated.</div>';
     h += bandsSectionHtml();
-    h += substratePanelHtml();
+   
     h += vintageSectionHtml();
     h += retroSectionHtml();
     el.innerHTML = h; renderBands(); return;
   }
-  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
-  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+  if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   if(r.peer.status === "pending"){
     h += `<div class="memo" style="margin:0 0 14px">${esc(r.peer.note||"Peer evidence pending Call Report substrate calibration.")}</div>`;
-    h += substratePanelHtml(); h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
+    h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   const co = r.peer.cohort || {}, ts = co.terminal_summary || {};
   h += `<div class="ovwm">${esc(r.peer.watermark)}</div>`;
   const kc = [
@@ -1516,7 +1509,7 @@ function renderPeer(){
     h += `<tr><td style="font-family:var(--mono);font-size:11px">${esc(m.id)}</td><td>${esc(m.archetype)}</td><td class="num">${m["class"]}</td><td class="num">${m.distance}</td><td><span class="ovtag ${cls}">${esc(t)}</span></td></tr>`;
   });
   h += '</table>';
-  h += substratePanelHtml();
+ 
   h += vintageSectionHtml();
   h += retroSectionHtml();
   el.innerHTML = h;
