@@ -180,9 +180,22 @@ def console_v31():
     /v2, /v2.1, /v3 are frozen rungs."""
     from fastapi.responses import HTMLResponse
     html = open("web/console_v2.html", encoding="utf-8").read()
-    html = html.replace("</head>", "<script>window.V31=true</script>\n</head>")
-    # topbar pill speaks product now; the build stamp stays out of client chrome
-    return HTMLResponse(html)
+    stamp = _build_stamp()
+    html = html.replace("</head>", f"<script>window.V31=true;window.BUILD='{stamp}'</script>\n</head>")
+    # A small, unobtrusive build stamp so the user can confirm at a glance WHICH
+    # build they're looking at — the fix for "I deployed but nothing changed"
+    # (usually a cached page or an un-rebuilt container). It reads the deployed
+    # commit; if the screen's stamp doesn't match the commit just pushed, the
+    # deploy or the browser cache is the culprit, not the code.
+    stamp_el = (f'<div style="position:fixed;bottom:4px;right:6px;z-index:9999;'
+                f'font:10px/1 monospace;color:#5A6B85;opacity:.7;'
+                f'pointer-events:none">build {stamp}</div>')
+    html = html.replace("</body>", stamp_el + "</body>")
+    # No-cache: the HTML shell must never be served stale, or a deploy looks like
+    # a no-op because the browser reuses the old page (all UI lives in this file).
+    return HTMLResponse(html, headers={
+        "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Pragma": "no-cache", "Expires": "0"})
 
 
 @app.get("/api/v31/engagements")
