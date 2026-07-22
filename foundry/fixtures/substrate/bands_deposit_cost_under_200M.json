@@ -1,0 +1,48 @@
+{
+ "metric": "deposit_cost",
+ "cohort": "under_200M",
+ "provenance": {
+  "basis": "identity-gated",
+  "certified": false,
+  "computed_at": "2026-07-21T03:30:00+00:00",
+  "quarantine_policy": "corrupt filer values excluded at ingest by per-family reconciliation gates"
+ },
+ "bands": [
+  {
+   "quarter": "2025Q1",
+   "n": 341,
+   "p10": 1.55,
+   "p25": 2.15,
+   "p50": 2.72,
+   "p75": 3.3,
+   "p90": 3.95
+  },
+  {
+   "quarter": "2025Q2",
+   "n": 344,
+   "p10": 1.6,
+   "p25": 2.2,
+   "p50": 2.76,
+   "p75": 3.34,
+   "p90": 3.98
+  },
+  {
+   "quarter": "2025Q3",
+   "n": 347,
+   "p10": 1.63,
+   "p25": 2.23,
+   "p50": 2.79,
+   "p75": 3.37,
+   "p90": 4.0
+  },
+  {
+   "quarter": "2025Q4",
+   "n": 350,
+   "p10": 1.66,
+   "p25": 2.25,
+   "p50": 2.81,
+   "p75": 3.39,
+   "p90": 4.02
+  }
+ ]
+}

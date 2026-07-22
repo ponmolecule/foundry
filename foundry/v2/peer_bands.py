@@ -68,6 +68,8 @@ def corridor_position(value, band):
 def _cohort_key(cohort):
     if cohort == "broad":
         return "broad"
+    if isinstance(cohort, str):
+        return cohort  # a named cohort (asset band / stored group_id) — verbatim
     return "curated_" + "_".join(str(c) for c in sorted(int(x) for x in cohort))
 
 

@@ -1852,9 +1852,45 @@ def t53():
           and "F-121" not in ch.PROVENANCE)
 
 
+def t63():
+    print("T63 peer calibration (F-121 provisional tier): asset-band selection, per-metric vintage, n-aware, fail-closed")
+    from foundry.v2.peer_calibration import (calibrate_thresholds, asset_band_for,
+                                             place_flag_value)
+    from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS
+    # pre-registered selection: band derives from projected assets, nothing else
+    check("T63a", "asset band derives from projected size (pre-registered, R1)",
+          asset_band_for(150_000) == "under_200M" and asset_band_for(350_000) == "200M_500M"
+          and asset_band_for(5_000_000) == "2B_10B")
+    rows, prov = calibrate_thresholds(CHALLENGE_THRESHOLDS, 350_000)
+    byid = {r["id"]: r for r in rows}
+    # funding flags calibrate to deposit_cost at the LEGACY vintage; charge-offs at substrate
+    fh = byid.get("FUND-HOT", {}).get("peer")
+    co = byid.get("CO-BAND", {}).get("peer")
+    check("T63b", "funding flag carries deposit_cost percentiles at the 2025Q4 legacy vintage",
+          fh is not None and fh["band_metric"] == "deposit_cost" and "2025Q4" in fh["vintage"])
+    check("T63c", "charge-off flag carries substrate-grade 2026Q1 percentiles",
+          co is not None and co["band_metric"] == "net_charge_off_pct" and "2026Q1" in co["vintage"])
+    check("T63d", "n per point present; provenance states pre-registered selection and small-n labeling",
+          fh.get("n") is not None and "pre-registered" in prov and "small-n" in prov)
+    # placement takes the worse reading at a seam (R5) and reports the corridor
+    pl = place_flag_value(3.7, "deposit_cost", "200M_500M", worse="high")
+    check("T63e", "placement puts an aggressive value above p90 with n and source",
+          pl is not None and pl["corridor"] == "above p90" and pl["n"] and "R5" in pl["conservative_note"])
+    # provenance is honest about the provisional tier and never leaks internal vocab
+    check("T63f", "provenance states provisional tier, no internal names/floor ids",
+          "not yet certified" in prov and "Deliverable D" in prov
+          and not any(nm in prov for nm in ("Roman", "Patrick", "Konrad", "Brian")))
+    # FAIL-CLOSED: a metric with no fixture leaves the static row untouched, no crash
+    rows2, prov2 = calibrate_thresholds(CHALLENGE_THRESHOLDS, 40_000_000)  # 40B band, no fixtures
+    check("T63g", "substrate miss falls back to static, honest reason, no crash",
+          all(r.get("peer") is None for r in rows2)
+          and ("industry ranges" in prov2 or "static" in " ".join(r.get("peer_note","") for r in rows2)))
+
+
+
 if __name__ == "__main__":
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

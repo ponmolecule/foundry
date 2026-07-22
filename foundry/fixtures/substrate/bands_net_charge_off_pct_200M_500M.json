@@ -1,0 +1,48 @@
+{
+ "metric": "net_charge_off_pct",
+ "cohort": "200M_500M",
+ "provenance": {
+  "basis": "identity-gated",
+  "certified": false,
+  "computed_at": "2026-07-21T03:30:00+00:00",
+  "quarantine_policy": "corrupt filer values excluded at ingest by per-family reconciliation gates"
+ },
+ "bands": [
+  {
+   "quarter": "2025Q2",
+   "n": 815,
+   "p10": 0.02,
+   "p25": 0.07,
+   "p50": 0.16,
+   "p75": 0.38,
+   "p90": 0.88
+  },
+  {
+   "quarter": "2025Q3",
+   "n": 820,
+   "p10": 0.02,
+   "p25": 0.08,
+   "p50": 0.17,
+   "p75": 0.4,
+   "p90": 0.9
+  },
+  {
+   "quarter": "2025Q4",
+   "n": 824,
+   "p10": 0.03,
+   "p25": 0.08,
+   "p50": 0.18,
+   "p75": 0.41,
+   "p90": 0.92
+  },
+  {
+   "quarter": "2026Q1",
+   "n": 827,
+   "p10": 0.03,
+   "p25": 0.09,
+   "p50": 0.18,
+   "p75": 0.42,
+   "p90": 0.94
+  }
+ ]
+}

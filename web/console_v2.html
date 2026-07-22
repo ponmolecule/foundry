@@ -1479,10 +1479,19 @@ function renderOverview(){
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
   if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
   h += '<details style="margin:8px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
-  setTimeout(()=>{ fetch("/api/v31/challenge-thresholds").then(x=>x.json()).then(t=>{
+  setTimeout(()=>{ const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
+    fetch("/api/v31/challenge-thresholds?total_assets_000s="+encodeURIComponent(_ta)).then(x=>x.json()).then(t=>{
     const el = document.getElementById("threshLedger"); if(!el) return;
+    const peerTier = t.tier==="provisional_peer";
     el.innerHTML = `<table class="ovt" style="font-size:11px"><tr><th style="width:96px">ID</th><th>Rule</th><th>Trigger</th><th style="width:64px">Severity</th></tr>`
-      + t.thresholds.map(th=>`<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td><td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></td></tr>`).join("") + `</table>`
+      + `<tr><th style="width:96px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th>Peer band (p10\u2013p90)</th>':''}<th style="width:64px">Severity</th></tr>`.replace('<tr>','') 
+      + t.thresholds.map(th=>{
+          const p = th.peer;
+          const peerCell = peerTier ? (p
+            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8">${p.p10}\u2013<b style="color:#C4CDDD">${p.p50}</b>\u2013${p.p90}<br><span style="color:#6E7C93">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
+          return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}">${esc(th.sev)}</span></td></tr>`;
+        }).join("") + `</table>`
       + `<div style="margin-top:6px;color:#8FA3C0;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);
   (r.flags||[]).forEach(f=>{

@@ -239,9 +239,19 @@ def v31_template(_=Depends(gate)):
 
 
 @app.get("/api/v31/challenge-thresholds")
-def v31_challenge_thresholds(_=Depends(gate)):
+def v31_challenge_thresholds(total_assets_000s: float = 0.0, _=Depends(gate)):
+    """Static Roman-lineage bands by default; when total_assets_000s is passed,
+    attach asset-band peer percentiles (pre-registered selection, per-metric vintage,
+    n-aware). Fail-closed: substrate miss returns the static set untouched."""
     from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
-    return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS}
+    if total_assets_000s and total_assets_000s > 0:
+        try:
+            from foundry.v2.peer_calibration import calibrate_thresholds
+            rows, prov = calibrate_thresholds(CHALLENGE_THRESHOLDS, total_assets_000s)
+            return {"provenance": prov, "thresholds": rows, "tier": "provisional_peer"}
+        except Exception:
+            pass  # fail-closed to static
+    return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS, "tier": "static"}
 
 @app.get("/account")
 def account_page():
