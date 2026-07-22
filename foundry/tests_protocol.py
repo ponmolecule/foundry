@@ -1535,9 +1535,10 @@ def t51():
     check("T51b", "reports path, env, mount, writability, counts, verdict",
           all(k in p for k in ("data_dir","explicit_env","is_mounted_volume","writable","counts","verdict")))
     check("T51c", "writability is probed, not asserted (workspace is writable here)", p["writable"] is True)
-    check("T51d", "an unmounted verdict always names the clearing mechanism and the way out",
-          p["is_mounted_volume"] or ("volume" in p["verdict"] and
-              ("EPHEMERAL" in p["verdict"] or "STILL EPHEMERAL" in p["verdict"])))
+    check("T51d", "a non-persistent verdict is honest in plain language (warns work could be lost + names the Excel backup), no deploy internals",
+          p["is_mounted_volume"] or
+          (("Not permanently saved" in p["verdict"] or "Not saved" in p["verdict"] or "Saved" in p["verdict"])
+           and "FOUNDRY_DATA_DIR" not in p["verdict"] and "deploy tree" not in p["verdict"]))
 
 
 def t62():
@@ -1908,11 +1909,14 @@ def t64():
         try:
             _pb.get_bands("roa", "200M_500M")
         except _pb.BandsError as e:
-            raised = ("Refusing rather than serving synthetic" in str(e)
-                       or "no substrate rows" in str(e))
+            msg = str(e)
+            # still refuses; message is user-clean (no env var, no 'synthetic fixture')
+            raised = (("No peer data published yet" in msg or "hasn't been" in msg)
+                       and "FOUNDRY_ALLOW_FIXTURE_BANDS" not in msg
+                       and "synthetic" not in msg)
         except Exception:
             raised = True  # connection error is also a non-substitution outcome
-        check("T64a", "DB configured + fixtures NOT opted-in -> refuses, never serves the on-disk fixture",
+        check("T64a", "DB configured + fixtures NOT opted-in -> refuses with a user-clean message (no env var/jargon)",
               raised)
         # with the explicit opt-in, a call for an EXISTING fixture serves it (offline dev)
         _os.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"

@@ -186,14 +186,16 @@ def get_bands(metric, cohort):
     db_configured = bool(os.environ.get("CHARTERIQ_DATABASE_URL"))
     allow_fixtures = os.environ.get("FOUNDRY_ALLOW_FIXTURE_BANDS") == "1"
     if db_configured and not allow_fixtures:
+        import logging
+        logging.getLogger("foundry.peer_bands").info(
+            "peer bands miss: metric=%s cohort=%s (db connected, no row)",
+            _canonical_metric(metric), cohort)
         raise BandsError(
-            f"no substrate rows for metric '{metric}' / cohort '{cohort}'. "
-            "The database is connected but has no distribution for this "
-            "metric/cohort (a real coverage gap \u2014 e.g. a funding metric "
-            "whose refresh is in progress, or a cohort with no filed peers). "
-            "Refusing rather "
-            "than serving synthetic fixture data. To use fixtures for offline "
-            "testing, set FOUNDRY_ALLOW_FIXTURE_BANDS=1 (never in production).")
+            "No peer data published yet for this metric and cohort. The peer "
+            "database is connected, but this particular distribution hasn't been "
+            "populated \u2014 either the metric\'s data is still being refreshed, "
+            "or this cohort has too few filed peers to publish. "
+            "The flags fall back to their standard thresholds until it lands.")
     if not (db_configured or allow_fixtures):
         # fully offline (no DB, no explicit opt-in): fixtures are the only
         # possible source, but they are still labelled provisional loudly.

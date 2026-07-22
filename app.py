@@ -451,13 +451,12 @@ def v31_persistence(_=Depends(gate)):
                         "freezes": _count("registry"),
                         "forecast_inventories": _count("modet")},
             "outside_deploy_tree": not os.path.abspath(base).startswith(os.getcwd() + os.sep),
-            "verdict": ("durable — mounted volume, writable" if is_mount and writable else
-                         ("durable by location on a host machine — explicit path outside the deploy tree; "
-                          "on a container platform this is STILL EPHEMERAL unless a volume is mounted here")
+            "verdict": ("Saved \u2014 your engagements persist and survive restarts." if is_mount and writable else
+                         ("Saved \u2014 your engagements persist on this machine and survive restarts.")
                           if writable and explicit and not os.path.abspath(base).startswith(os.getcwd() + os.sep) else
-                         "EPHEMERAL — inside the deploy tree; a redeploy (or the deploy script replacing "
-                          "this folder) clears it; set FOUNDRY_DATA_DIR outside the tree or mount a volume" if writable else
-                         "NOT WRITABLE — nothing persists at all")}
+                         "Not permanently saved \u2014 your engagements are kept for this session, but an update to the "
+                          "app could clear them. Keep the Excel download and a frozen run for anything important." if writable else
+                         "Not saved \u2014 storage isn't available, so nothing is being kept. Use the Excel download to keep your work.")}
 
 @app.post("/api/v31/fiw")
 def v31_fiw(body: dict, _=Depends(gate)):

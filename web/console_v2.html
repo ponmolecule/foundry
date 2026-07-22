@@ -985,20 +985,40 @@ function addFromTaxonomy(cat, idx){
   famArr(s.fam).push(materializeTemplate(s));
   syncModules(); renderContent(); refresh();
 }
+// Multi-select variant: add the product but KEEP the modal open so several can be
+// picked in one visit. We deliberately do NOT call renderContent() here (it would
+// rebuild the page and destroy the open modal); the full render is deferred to
+// closeModal(). The button shows a running "added" count so repeats are clear.
+function addFromTaxonomyMulti(cat, idx, btn){
+  const s = TAX31()[cat][idx];
+  famArr(s.fam).push(materializeTemplate(s));
+  window._modalAdded = (window._modalAdded||0) + 1;
+  // per-button count feedback
+  btn._n = (btn._n||0) + 1;
+  btn.style.borderColor = "#7FB07F";
+  let tag = btn.querySelector(".addtag");
+  if(!tag){ tag = document.createElement("span"); tag.className = "addtag";
+    tag.style.cssText = "margin-left:auto;color:#7FB07F;font-size:10px;font-weight:700;white-space:nowrap"; btn.appendChild(tag); }
+  tag.textContent = btn._n > 1 ? ("added \u00d7" + btn._n) : "added \u2713";
+  const c = document.getElementById("modalAddedCount");
+  if(c) c.textContent = window._modalAdded + (window._modalAdded === 1 ? " product added" : " products added");
+}
+window.addFromTaxonomyMulti = addFromTaxonomyMulti;
 window.addFromTaxonomy = addFromTaxonomy; window.TAX31 = TAX31; window.syncModules = syncModules;
 window.cfgRef = function(){ return cfg; }; window.doRefresh = function(){ refresh(); };
 window.v31FillSubs=v31FillSubs; window.v31ShowLine=v31ShowLine; window.v31AddProduct=v31AddProduct;
 
 function openModal(){
   if(V31){
-    let mh = '<h3>Add a product</h3>';
+    window._modalAdded = 0;
+    let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
     [["Loans"],["Deposits"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
-        + TAX31()[cn].map((s,i)=>`<button class="preset-btn" onclick="addFromTaxonomy('${cn}',${i});closeModal();"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
+        + TAX31()[cn].map((s,i)=>`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
         + '</div>';
     });
     mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
-    mh += '<div class="modal-actions"><button class="btn-plain" onclick="closeModal()">Cancel</button></div>';
+    mh += '<div class="modal-actions"><span id="modalAddedCount" style="flex:1;font-size:11px;color:#7FB07F"></span><button class="btn-gold" onclick="closeModal()">Done</button></div>';
     document.getElementById("modal").innerHTML = mh;
     document.getElementById("modal-bg").style.display = "block";
     document.getElementById("modal").style.display = "block";
@@ -1010,7 +1030,13 @@ function openModal(){
   document.getElementById("modal-bg").style.display = "block";
   document.getElementById("modal").style.display = "block";
 }
-function closeModal(){ document.getElementById("modal-bg").style.display="none"; document.getElementById("modal").style.display="none"; }
+function closeModal(){
+  document.getElementById("modal-bg").style.display="none";
+  document.getElementById("modal").style.display="none";
+  // multi-add deferred the heavy render to avoid destroying the open modal;
+  // do it now so everything picked this visit appears at once.
+  if(window._modalAdded){ window._modalAdded = 0; syncModules(); renderContent(); refresh(); }
+}
 function fillLineOptions(){
   const cat = document.getElementById("cCat").value;
   document.getElementById("cLine").innerHTML = lineOptionsFor(cat).map(k=>`<option value="${k}">${esc(LINE_LABELS[k])}</option>`).join("");
@@ -2620,7 +2646,7 @@ function renderStart(){
   
   }
   h += '<div class="ovh3">Saved engagements</div>';
-  if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements persist as files on the workspace and survive restarts \u2014 but a REDEPLOY resets this container\u2019s disk unless a volume is mounted at FOUNDRY_DATA_DIR. For anything that matters, also keep the Excel round-trip download and a frozen run. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
+  if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements are kept on this workspace and survive restarts. For anything important, also keep the Excel round-trip download and a frozen run as your durable backup. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
   if(snapshotMode){
     h += '<div class="memo">The engagement store lives on the deployed workspace (Railway volume).</div>';
   } else if(engStore === null){
