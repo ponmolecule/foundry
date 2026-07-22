@@ -139,12 +139,34 @@ def get_bands(metric, cohort):
                                           data=payload, headers={"Content-Type": "application/json"})
             with urllib.request.urlopen(req, timeout=20) as r:
                 return parse_bands_response(json.loads(r.read().decode())), "substrate (research endpoint)"
-    # (3) fixtures — clearly provisional
+    # (3) fixtures — OPT-IN ONLY, never a silent production fallback.
+    # A silent synthetic fallback is a landmine: a coverage gap then looks
+    # identical to real data, and the system's honesty depends on someone
+    # noticing a tell. So: if a database connection EXISTS, a miss is a
+    # REFUSAL, not a substitution — the caller learns the truth (no rows for
+    # this metric/cohort) instead of receiving fabricated numbers. Fixtures
+    # are served only when explicitly allowed (FOUNDRY_ALLOW_FIXTURE_BANDS=1),
+    # for offline development, and never when a live DB is configured.
+    db_configured = bool(os.environ.get("CHARTERIQ_DATABASE_URL"))
+    allow_fixtures = os.environ.get("FOUNDRY_ALLOW_FIXTURE_BANDS") == "1"
+    if db_configured and not allow_fixtures:
+        raise BandsError(
+            f"no substrate rows for metric '{metric}' / cohort '{cohort}'. "
+            "The database is connected but has no distribution for this "
+            "metric/cohort (a real coverage gap \u2014 e.g. a funding metric "
+            "pending M6a, or a cohort with no filed peers). Refusing rather "
+            "than serving synthetic fixture data. To use fixtures for offline "
+            "testing, set FOUNDRY_ALLOW_FIXTURE_BANDS=1 (never in production).")
+    if not (db_configured or allow_fixtures):
+        # fully offline (no DB, no explicit opt-in): fixtures are the only
+        # possible source, but they are still labelled provisional loudly.
+        pass
     metric_safe = re.sub(r"[^a-z0-9_]", "", str(metric).lower())
     path = os.path.join(FIXTURE_DIR, f"bands_{metric_safe}_{_cohort_key(cohort)}.json")
     if not os.path.exists(path):
         raise BandsError(
-            f"bands unavailable for metric '{metric}' / this cohort — no database "
-            "connection resolved it and no provisional fixture covers it")
+            f"bands unavailable for metric '{metric}' / this cohort \u2014 no "
+            "database rows and no provisional fixture. This is an honest gap, "
+            "not an error to paper over.")
     with open(path, encoding="utf-8") as fh:
-        return parse_bands_response(json.load(fh)), "fixture (provisional)"
+        return parse_bands_response(json.load(fh)), "fixture (PROVISIONAL \u2014 NOT LIVE DATA)"

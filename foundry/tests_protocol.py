@@ -1599,8 +1599,8 @@ def t60():
     import json as _j, copy as _cp
     from foundry.v2 import peer_bands as _pb
     broad, src = _pb.get_bands("roa", "broad")
-    check("T60a", "broad fixture parses; provisional source; provenance identity-gated",
-          src == "fixture (provisional)" and broad["provenance"]["basis"] == "identity-gated"
+    check("T60a", "broad fixture parses; source SHOUTS not-live; provenance identity-gated",
+          src == "fixture (PROVISIONAL \u2014 NOT LIVE DATA)" and broad["provenance"]["basis"] == "identity-gated"
           and broad["provenance"]["certified"] is False and len(broad["bands"]) == 5)
     cur, _ = _pb.get_bands("roa", [7213, 628, 3511])   # order-insensitive cohort key
     check("T60b", "curated cohort resolves regardless of cert order; n=3 flags small-n",
@@ -1630,8 +1630,8 @@ def t60():
     try:
         _pb.get_bands("nim", "broad"); ok3 = False
     except _pb.BandsError as e:
-        ok3 = "no database connection resolved it" in str(e) and "no provisional fixture" in str(e)
-    check("T60e", "honest refusal for uncovered metrics (no DB, no fixture — states both)", ok3)
+        ok3 = "honest gap" in str(e)
+    check("T60e", "honest refusal for uncovered metrics (offline: no fixture -> honest gap)", ok3)
 
 
 def t59():
@@ -1888,10 +1888,52 @@ def t63():
           and ("industry ranges" in prov2 or "static" in " ".join(r.get("peer_note","") for r in rows2)))
 
 
+def t64():
+    print("T64 no-silent-synthetic: a connected DB REFUSES on a miss; fixtures are opt-in")
+    import os as _os
+    from foundry.v2 import peer_bands as _pb
+    # simulate a connected production environment with a metric the DB lacks:
+    # DB configured, fixture opt-in OFF -> must RAISE, never serve a fixture.
+    saved_url = _os.environ.get("CHARTERIQ_DATABASE_URL")
+    saved_optin = _os.environ.get("FOUNDRY_ALLOW_FIXTURE_BANDS")
+    try:
+        _os.environ["CHARTERIQ_DATABASE_URL"] = "postgresql://unreachable/none"
+        _os.environ.pop("FOUNDRY_ALLOW_FIXTURE_BANDS", None)
+        # roa/200M_500M HAS a fixture on disk; with DB configured + opt-in OFF,
+        # the code must still refuse rather than serve that fixture. The DB call
+        # will fail to connect -> _db_bands returns None -> refusal branch.
+        raised = False
+        try:
+            _pb.get_bands("roa", "200M_500M")
+        except _pb.BandsError as e:
+            raised = ("Refusing rather than serving synthetic" in str(e)
+                       or "no substrate rows" in str(e))
+        except Exception:
+            raised = True  # connection error is also a non-substitution outcome
+        check("T64a", "DB configured + fixtures NOT opted-in -> refuses, never serves the on-disk fixture",
+              raised)
+        # with the explicit opt-in, a call for an EXISTING fixture serves it (offline dev)
+        _os.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
+        _os.environ.pop("CHARTERIQ_DATABASE_URL", None)
+        parsed, src = _pb.get_bands("roa", "broad")   # bands_roa_broad.json exists
+        check("T64b", "explicit opt-in serves the fixture, labelled NOT LIVE DATA",
+              "NOT LIVE DATA" in src)
+    finally:
+        if saved_url is not None: _os.environ["CHARTERIQ_DATABASE_URL"] = saved_url
+        else: _os.environ.pop("CHARTERIQ_DATABASE_URL", None)
+        if saved_optin is not None: _os.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = saved_optin
+        else: _os.environ.pop("FOUNDRY_ALLOW_FIXTURE_BANDS", None)
+
+
 
 if __name__ == "__main__":
+    import os as _os_optin
+    # Offline test run: fixtures are the sanctioned source here (no live DB).
+    # In production this flag is unset, so a DB miss REFUSES instead of serving
+    # synthetic data — the whole point of the opt-in.
+    _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
