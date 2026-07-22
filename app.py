@@ -627,7 +627,7 @@ def v2_sens(body: dict, _=Depends(gate)):
                           "lev_q12": _q12("lev"),
                           "ni_cum": round(sum(r["financials"]["is"]["ni"][:12]), 1)}
         out["variable"] = var
-        out["note"] = ("Patrick's SENS intent: one variable, three full engine runs \u2014 "
+        out["note"] = ("One variable moved across three full engine runs \u2014 "
                         "distinct from scenario stress, which moves many things at once")
         return JSONResponse(out)
     except (KeyError, IndexError, TypeError) as e:

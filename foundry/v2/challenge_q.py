@@ -44,7 +44,8 @@ CHALLENGE_THRESHOLDS = [
     {"id": "CO-BAND",     "rule": "Annual net charge-offs vs loan type",    "trigger": "outside band \u2014 commercial 0.05\u20133.0%, consumer 0.5\u20138.0%, card 1.5\u201310%, mortgage 0.02\u20131.5%", "sev": "mild"},
     {"id": "MSR-FEE",     "rule": "Mortgage servicing fee",                 "trigger": "outside 12.5\u201350 bp", "sev": "mild"},
 ]
-PROVENANCE = "static \u2014 Roman-model lineage; pending substrate calibration (the F-121 replacement)"
+PROVENANCE = ("standard industry ranges \u2014 not yet calibrated to a peer cohort; "
+              "peer-percentile grounding attaches with the evidence layer")
 
 
 def _flag(flags, fid, sev, text):

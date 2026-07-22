@@ -1846,8 +1846,10 @@ def t53():
     check("T53a", "registry exists with all judged rules", len(ids) >= 6)
     check("T53b", "every advertised id is one the module can emit",
           all(f'"{i}"' in src for i in ids))
-    check("T53c", "provenance names the static lineage and the F-121 replacement",
-          "Roman" in ch.PROVENANCE and "F-121" in ch.PROVENANCE)
+    check("T53c", "provenance is honest (static, not-yet-peer-calibrated) WITHOUT internal vocabulary",
+          ("industry" in ch.PROVENANCE and "peer" in ch.PROVENANCE)
+          and not any(nm in ch.PROVENANCE for nm in ("Roman", "Patrick", "Konrad", "Brian"))
+          and "F-121" not in ch.PROVENANCE)
 
 
 if __name__ == "__main__":
