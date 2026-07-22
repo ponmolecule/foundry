@@ -1630,8 +1630,8 @@ def t60():
     try:
         _pb.get_bands("nim", "broad"); ok3 = False
     except _pb.BandsError as e:
-        ok3 = "pending" in str(e)
-    check("T60e", "honest refusal for uncovered metrics (nim pends the endpoint)", ok3)
+        ok3 = "no database connection resolved it" in str(e) and "no provisional fixture" in str(e)
+    check("T60e", "honest refusal for uncovered metrics (no DB, no fixture — states both)", ok3)
 
 
 def t59():

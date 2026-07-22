@@ -65,7 +65,7 @@ def calibrate_thresholds(static_thresholds, total_assets_000s):
     an unresolved metric leaves the static row untouched and records the reason.
     """
     band = asset_band_for(total_assets_000s)
-    cohort = band  # a stored group_id; the endpoint also accepts arbitrary cohorts
+    cohort = band  # a stored group_id -> served by the single CHARTERIQ_DATABASE_URL client
     rows, any_live, reasons = [], False, []
     for th in static_thresholds:
         row = dict(th)
