@@ -788,9 +788,10 @@ def t33():
           and "legacy" in accuracy_label("nim"))
     pp = cl.get_peer_percentiles("cet1_ratio", "500M_2B", 2025, 4)
     check("T33d", "capital-family percentiles from the surveyed schema (group_id + "
-                    "peer_count), caveat attached",
+                    "peer_count); caveat states the TRUE refreshed status (M1/M2 done)",
           pp["p50"] == 10.9 and pp["n"] == 412
-          and "approximate until refreshed" in pp["caveat"])
+          and "true substrate" in pp["caveat"] and "2026Q1" in pp["caveat"]
+          and "approximate" not in pp["caveat"])
     import os as _os2
     _os2.environ["CHARTERIQ_RETRO_MAP"] = '{"leverage": "leverage_ratio"}'
     try:

@@ -573,12 +573,16 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
         assets_k = float(body["q12_total_assets_k"])
         lev = float(body["leverage_pct"])
         band = band_for_assets_mm(assets_k / 1000.0)
-        rows, year, quarter = [], 2025, 4
+        # capital family is substrate-grade through 2026Q1 (M1/M2 complete); prior
+        # code pinned 2025Q4 under the now-retired legacy caveat
+        rows, year, quarter = [], 2026, 1
         for metric, modeled, note in (
                 ("tier1_ratio", lev, "modeled leverage vs peer tier 1 ratio — "
                   "related but not identical measures; a placement anchor, not a filing figure"),
-                ("cet1_ratio", lev, "modeled bank is all-CET1 at this stage, so the "
-                  "leverage proxy doubles as the CET1 comparison")):
+                ("cet1_ratio", lev, "modeled bank is all-CET1 at this stage (no AT1/Tier-2 "
+                  "instruments), so the modeled capital ratio is placed against BOTH the peer "
+                  "tier-1 and CET1 distributions — the peer distributions differ even though the "
+                  "modeled side is one number")):
             p = cl.get_peer_percentiles(metric, band, year, quarter)
             if p:
                 p["modeled_value"] = modeled

@@ -176,9 +176,8 @@ class CharterIQClient:
                 "n": int(r[5]) if r[5] is not None else None,
                 "accuracy": accuracy_label(metric_name)}
         if metric_name in CAPITAL_METRICS:
-            out["caveat"] = ("percentiles computed on the legacy substrate; "
-                              "capital-family recomputation pending Milestone 1 "
-                              "propagation — treat p50 as approximate until refreshed")
+            out["caveat"] = ("capital family recomputed on the true substrate "
+                              "(M1/M2), identity-gated, current through 2026Q1")
         return out
 
     def list_available_metrics(self, cert=None):
