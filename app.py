@@ -118,6 +118,26 @@ def results(engagement: str, _=Depends(gate)):
     return JSONResponse(_cache[engagement])
 
 
+@app.get("/api/debug/threads")
+def debug_threads(user=Depends(gate)):
+    """py-spy equivalent over HTTP: dump every thread's current stack via
+    sys._current_frames(). If a lending request is hung, its threadpool thread will
+    show a frame parked in psycopg2 connect()/recv()/execute() — telling us the exact
+    stall point (connect phase vs query phase vs socket read). Hit this in a SECOND
+    request while a lending request is hanging in a first."""
+    import sys, threading, traceback
+    frames = sys._current_frames()
+    names = {t.ident: t.name for t in threading.enumerate()}
+    dump = []
+    for tid, frame in frames.items():
+        stack = traceback.format_stack(frame)
+        # keep the deepest few frames — that's where the block is
+        dump.append({"thread": names.get(tid, str(tid)),
+                     "tid": tid,
+                     "stack_tail": [s.strip() for s in stack[-6:]]})
+    return {"thread_count": len(dump), "threads": dump}
+
+
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, DB reachability, AND the running process's own
