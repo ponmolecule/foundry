@@ -48,6 +48,42 @@ PROVENANCE = ("standard industry ranges \u2014 not yet calibrated to a peer coho
               "peer-percentile grounding attaches with the evidence layer")
 
 
+def co_band_breakout(cfg):
+    """Per-lending-product charge-off breakout for the challenge ledger. CO-BAND is
+    NOT a single scalar — each lending product has its own charge-off assumption judged
+    against its loan-type band — so instead of collapsing to one number (or an em dash),
+    expose one row per product: name, loan type, the model's charge_off_ann input, the
+    band edges, and whether the input sits inside/high/low. This is the input-assumption
+    view (what the plan claims), distinct from any output/result. Returns a list; empty
+    if there are no lending products."""
+    a = cfg.get("assumptions", {})
+    lend = a.get("lending_products") or []
+    out = []
+    for p in lend:
+        nm = p.get("name", "<?>")
+        ltype = _LINE_TYPE.get(p.get("call_report_line", ""), "other")
+        lo, hi = CO_BANDS[ltype]
+        co = p.get("charge_off_ann")
+        has_book = (p.get("opening_balance") or 0) + (p.get("originations_q") or 0) > 0
+        if co is None:
+            verdict = "no assumption"
+        elif co > hi:
+            verdict = "high"
+        elif co < lo and has_book:
+            verdict = "low"
+        else:
+            verdict = "inside"
+        out.append({
+            "name": nm,
+            "loan_type": ltype.replace("_", " "),
+            "plan_value": None if co is None else round(co * 100.0, 2),  # % for display
+            "band_lo": round(lo * 100.0, 2),
+            "band_hi": round(hi * 100.0, 2),
+            "verdict": verdict,
+        })
+    return out
+
+
 def _flag(flags, fid, sev, text):
     flags.append({"id": fid, "sev": sev, "text": text})
 

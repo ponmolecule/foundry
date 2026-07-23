@@ -1708,9 +1708,21 @@ function renderOverview(){
             : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
           // the model's own tested input value for this rule — the number that
           // determined firing. None (em dash) where the rule has no single scalar
-          // input (structural/coupled, or the config lacks the relevant products).
+          // input. CO-BAND is per-product: show each lending product's charge-off
+          // assumption vs its loan-type band, not one collapsed number.
           const mv = th.plan_value;
-          const modelCell = `<td style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#6E7C93;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
+          let modelCell;
+          if(th.id === "CO-BAND" && Array.isArray(t.co_breakout) && t.co_breakout.length){
+            const vcol = {high:"#F87171", low:"#DFA85A", inside:"#7FB07F", "no assumption":"#6E7C93"};
+            const lines = t.co_breakout.map(c=>{
+              const val = (c.plan_value===null||c.plan_value===undefined) ? "\u2014" : c.plan_value.toFixed(2)+"%";
+              const col = vcol[c.verdict] || "#FFFFFF";
+              return `<div style="white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:${col}">${val}</span> <span style="color:#8FA3C0;font-size:9.5px">${esc(c.name)} \u00b7 ${esc(c.loan_type)} band ${c.band_lo}\u2013${c.band_hi}% \u00b7 ${esc(c.verdict)}</span></div>`;
+            }).join("");
+            modelCell = `<td style="vertical-align:top">${lines}</td>`;
+          } else {
+            modelCell = `<td style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#6E7C93;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
+          }
           const fired = _fired(th.id);
           const yourCell = `<td style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
           return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="rule class, not a verdict">${esc(th.sev)}</span></td></tr>`;

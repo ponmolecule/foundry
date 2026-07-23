@@ -368,7 +368,15 @@ def v31_challenge_thresholds_post(body: dict, _=Depends(gate)):
             v = None
         row["plan_value"] = None if v is None else round(float(v), 2)
         row["plan_unit"] = "%" if v is not None else None
-    return {"provenance": prov, "thresholds": rows, "tier": tier}
+    # CO-BAND is per-product, not a single scalar — attach the per-lending-product
+    # charge-off breakout so the ledger can expand it into one row per product (input
+    # assumption vs that product's loan-type band) instead of an em dash.
+    try:
+        from foundry.v2.challenge_q import co_band_breakout
+        co_rows = co_band_breakout(cfg)
+    except Exception:
+        co_rows = []
+    return {"provenance": prov, "thresholds": rows, "tier": tier, "co_breakout": co_rows}
 
 @app.get("/account")
 def account_page():
