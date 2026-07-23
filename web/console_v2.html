@@ -634,10 +634,16 @@ function numInput(path, unit, extra){
   // data-focus carries the field's path so focus + caret can be restored after a
   // re-render (the engine preview rebuilds the card DOM ~350ms after an edit; without
   // this the field you tabbed into gets destroyed and the cursor vanishes).
+  // onfocus select() highlights the field's contents whenever focus enters — so
+  // tabbing into a cell holding 0 selects it, and the first keystroke overwrites
+  // (type 4 -> "4", not "40"). Firing on every focus (not once) means it also wins
+  // after any re-render that re-focuses the field. requestAnimationFrame defers the
+  // select past the browser's own post-focus caret placement.
+  const _sel = `onfocus="const el=this;requestAnimationFrame(()=>el.select())"`;
   if(unit==="pct")
-    return `<input type="number" step="any" data-focus="${path}" value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
+    return `<input type="number" step="any" data-focus="${path}" ${_sel} value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
   // money & counts: text inputs so thousands separators can live in them
-  return `<input type="text" inputmode="decimal" data-focus="${path}" value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
+  return `<input type="text" inputmode="decimal" data-focus="${path}" ${_sel} value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
        + `onchange="setUnit('${path}','${unit||""}',this.value);fmtField(this)">`;
 }
 
@@ -1706,13 +1712,14 @@ function renderContent(){
   // engine preview doesn't destroy the field the user just tabbed into.
   const _ae = document.activeElement;
   const _focusPath = (_ae && _ae.getAttribute && _ae.getAttribute("data-focus")) || null;
-  let _selStart = null, _selEnd = null;
-  if(_focusPath){ try{ _selStart = _ae.selectionStart; _selEnd = _ae.selectionEnd; }catch(e){} }
   const _restoreFocus = ()=>{
     if(!_focusPath) return;
     const el = document.querySelector(`[data-focus="${(window.CSS && CSS.escape) ? CSS.escape(_focusPath) : _focusPath}"]`);
     if(el){ el.focus();
-      if(_selStart !== null){ try{ el.setSelectionRange(_selStart, _selEnd); }catch(e){} } }
+      // Select all on restore rather than collapsing the caret to the front — a
+      // collapsed caret at position 0 is exactly the "cursor sits in front of the 0"
+      // problem. Selecting means the next keystroke overwrites cleanly.
+      try{ el.select(); }catch(e){} }
   };
   { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
     document.querySelector("main > aside").style.display = _wel ? "none" : "";
