@@ -305,8 +305,11 @@ table.ovt.ovt-grid{border:1px solid #2A3B58}
 table.ovt.ovt-grid th{text-align:center;border:1px solid #2A3B58;background:#141E30}
 table.ovt.ovt-grid td{border:1px solid #24334D}
 /* provenance hover: cells carrying a data-prov get a dotted underline affordance and
-   the native title tooltip; keeps the surface quiet until hovered. */
-.ovt [data-prov]{border-bottom:1px dotted #45597B;cursor:help}
+   the native title tooltip; keeps the surface quiet until hovered. Applies app-wide
+   (statement tables, ledgers, cards) so provenance reads consistently everywhere. */
+[data-prov]{cursor:help}
+[data-prov]:not(td):not(th){border-bottom:1px dotted #45597B}
+td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(69,89,123,.55)}
 .ovwm{border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);color:#FBBF24;
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:10px 14px;border-radius:6px;margin:6px 0 16px}
 #content.cover .card{background:#182640;border-color:#24334D;border-top-color:#DFA85A;box-shadow:none;color:#EDF0F5}
@@ -581,7 +584,7 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-function cellNum(x, title){ const n=+x; return `<td class="${n<0?"neg":""}"${title?` title="${title.replace(/"/g,"&quot;")}"`:""}>${fmt0(x)}</td>`; }
+function cellNum(x, title){ const n=+x; return `<td class="${n<0?"neg":""}"${title?` data-prov title="${title.replace(/"/g,"&quot;")}"`:""}>${fmt0(x)}</td>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each quarter.",
   sec: "Securities are the surplus-funding plug: funding beyond loans, cash, and other assets is invested here at the securities yield.",
@@ -1187,13 +1190,13 @@ function arr12(a, hasOpen){
 }
 function rowBS(label, arr, cls, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` data-prov title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
   arr.forEach((v,i)=>{ h += v==null ? "<td></td>" : cellNum(v, noteFor(refKey, i, v)); });
   return h + "</tr>";
 }
 function rowIS(label, arr, cls, tot, refKey){
   if(!arr) return "";
-  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${CALC_TEXT[refKey]?` data-prov title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
   let sum = 0;
   arr.forEach((v,i)=>{ if(v!=null) sum += v; h += v==null ? "<td></td>" : cellNum(v, noteFor(refKey, i, v)); });
   h += cellNum(tot!==undefined && tot!==null ? tot : sum);
@@ -1202,7 +1205,7 @@ function rowIS(label, arr, cls, tot, refKey){
 function rowPct(label, arr, d, refKey){
   if(!arr) return "";
   const a = arr.length===13 ? arr.slice(1) : arr;
-  const nt = CALC_TEXT[refKey] ? ` title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"` : "";
+  const nt = CALC_TEXT[refKey] ? ` data-prov title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"` : "";
   let h = "<tr>" + refCell(refKey) + `<td${nt}>${label}</td>`;
   a.forEach(v=>{ h += `<td${nt}>${fmtP(v, d===undefined?2:d)}</td>`; });
   return h + "</tr>";
@@ -2044,10 +2047,20 @@ function renderContent(){
         ["Total / RWA (%)", ST.ratios.total_rwa, ST.thresholds.total_rwa],
         ["Leverage (%)", ST.ratios.leverage, ST.thresholds.leverage]];
       rows.forEach(([lbl, arr, th])=>{
-        h += `<tr><td>${lbl}${th?` <span style="color:#8a94a6;font-size:10px">(well-cap \u2265 ${th}%)</span>`:""}</td>`
+        const capProv = {
+          "Risk-weighted assets ($000s)": "Standardized RWA: each asset class times its regulatory risk weight (12 CFR 324.32/.33), summed. $000s.",
+          "CET1 capital": "Common equity tier 1: common equity less regulatory deductions. $000s.",
+          "Tier 2 (ALLL, capped)": "Tier 2 capital — allowance for loan losses, capped at 1.25% of RWA. $000s.",
+          "Total capital": "CET1 + Tier 1 additional + Tier 2. $000s.",
+          "CET1 / RWA (%)": "CET1 capital divided by risk-weighted assets. Well-capitalized threshold shown.",
+          "Tier 1 / RWA (%)": "Tier 1 capital divided by risk-weighted assets.",
+          "Total / RWA (%)": "Total capital divided by risk-weighted assets.",
+          "Leverage (%)": "Tier 1 capital divided by average total assets (not risk-weighted).",
+        }[lbl] || "";
+        h += `<tr><td${capProv?` data-prov title="${capProv.replace(/"/g,"&quot;")}"`:""}>${lbl}${th?` <span style="color:#8a94a6;font-size:10px">(well-cap \u2265 ${th}%)</span>`:""}</td>`
           + arr.map(v=>{
               const bad = th!=null && v!=null && v<th;
-              return `<td style="text-align:right;font-family:var(--mono)${bad?";color:#B45454;font-weight:700":""}">${v==null?"\u2014":(typeof v==="number"?v.toLocaleString(undefined,{maximumFractionDigits:2}):v)}</td>`;
+              return `<td style="text-align:right;font-family:var(--mono)${bad?";color:#B45454;font-weight:700":""}"${capProv?` data-prov title="${capProv.replace(/"/g,"&quot;")}"`:""}>${v==null?"\u2014":(typeof v==="number"?v.toLocaleString(undefined,{maximumFractionDigits:2}):v)}</td>`;
             }).join("") + '</tr>';
       });
       h += '</table>';
@@ -2064,7 +2077,7 @@ function renderContent(){
         const col = r.status==="BREACH" ? "#B45454" : (r.status==="outside band" ? "#8a6d3b" : "#1C2128");
         const rowCls = r.status==="BREACH" ? ' class="rowbreach"'
                         : (r.status==="outside band" ? ' class="rowwarn"' : '');
-        h += `<tr${rowCls}><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
+        h += `<tr${rowCls}><td>${esc(r.name)}</td><td style="text-align:right;font-family:var(--mono)" data-prov title="${esc((r.name||'')+': '+(r.basis||'modeled Q12 value')+(r.threshold!=null?'. Criterion: '+(Array.isArray(r.threshold)?r.threshold[0]+'\u2013'+r.threshold[1]+'%':'\u2264 '+r.threshold+'%'):''))}">${r.value==null?"\u2014":r.value.toFixed(1)+"%"}</td><td style="text-align:right">${th}</td><td style="color:${col};font-weight:${r.status==="BREACH"?700:400}">${esc(r.status||"")}</td><td style="font-size:10px;color:#5a6472">${esc(r.basis)}</td></tr>`;
       });
       h += '</table>';
       h += `<div class="srcnote">${esc(CN.note)}.</div>`;
