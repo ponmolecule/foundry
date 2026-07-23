@@ -626,10 +626,13 @@ function numInput(path, unit, extra){
     else if(unit==="kq") disp = +(v*3/K).toFixed(6);
     else disp = v;
   }
+  // data-focus carries the field's path so focus + caret can be restored after a
+  // re-render (the engine preview rebuilds the card DOM ~350ms after an edit; without
+  // this the field you tabbed into gets destroyed and the cursor vanishes).
   if(unit==="pct")
-    return `<input type="number" step="any" value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
+    return `<input type="number" step="any" data-focus="${path}" value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
   // money & counts: text inputs so thousands separators can live in them
-  return `<input type="text" inputmode="decimal" value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
+  return `<input type="text" inputmode="decimal" data-focus="${path}" value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
        + `onchange="setUnit('${path}','${unit||""}',this.value);fmtField(this)">`;
 }
 
@@ -1693,9 +1696,22 @@ function renderOverview(){
   el.innerHTML = h;
 }
 function renderContent(){
+  // Preserve focus across the DOM rebuild: capture which field (by its data-focus
+  // path) is focused and where the caret sits, so a re-render triggered by the
+  // engine preview doesn't destroy the field the user just tabbed into.
+  const _ae = document.activeElement;
+  const _focusPath = (_ae && _ae.getAttribute && _ae.getAttribute("data-focus")) || null;
+  let _selStart = null, _selEnd = null;
+  if(_focusPath){ try{ _selStart = _ae.selectionStart; _selEnd = _ae.selectionEnd; }catch(e){} }
+  const _restoreFocus = ()=>{
+    if(!_focusPath) return;
+    const el = document.querySelector(`[data-focus="${(window.CSS && CSS.escape) ? CSS.escape(_focusPath) : _focusPath}"]`);
+    if(el){ el.focus();
+      if(_selStart !== null){ try{ el.setSelectionRange(_selStart, _selEnd); }catch(e){} } }
+  };
   { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
     document.querySelector("main > aside").style.display = _wel ? "none" : "";
-    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(restoreCardSelects, 0);
+    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(()=>{ restoreCardSelects(); _restoreFocus(); }, 0);
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
