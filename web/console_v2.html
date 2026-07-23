@@ -529,7 +529,12 @@ async function preview(){
   if(my !== seq) return;
   if(r.status === 422){ lastErrs = (await r.json()).errors; lastRes = null; }
   else { lastRes = await r.json(); lastErrs = null; }
-  paintChrome(); renderContent();
+  paintChrome();
+  // The products tab renders only input cards + static config memos — it shows no
+  // engine output — so a preview never needs to rebuild it. Rebuilding it anyway
+  // destroyed the field being typed in (the "flash" on tab). Skip the content
+  // rebuild while editing products; output tabs still re-render from lastRes.
+  if(!(V31 && currentTab==="products")) renderContent();
   // populate substrate status on load so the Vintage Corridor (which gates on
   // subStatus.reachable to show its Build button) works. This used to be triggered
   // by the substrate panel's button, which was removed when the Peer Corridor
@@ -1750,7 +1755,7 @@ function renderContent(){
   if(currentTab==="products" && V31){
     let h = "";
     h += '<div class="h2">Products</div>';
-    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives pre-filled with the engagement baseline assumptions for its type; with no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
+    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
     h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
     const secs = [["Loans","lending"],["Deposits","deposit"]];
     secs.forEach(([cn,fam])=>{
