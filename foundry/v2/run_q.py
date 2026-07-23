@@ -446,10 +446,10 @@ def run_v2(cfg):
     results["caveats"] = [
         "No trading book is modeled; the trading-assets qualification test is structurally zero.",
         "Funds-transfer pricing is presentation-only and never changes the income statement.",
-        "No deferred tax asset is booked; NOL carryforwards offset future taxable income only (conservative).",
+        "By default no deferred tax asset is booked \u2014 NOL carryforwards offset future taxable income only (conservative); the optional deferred-tax detail path books DTAs (gross, valuation allowance, net) under ASC 740 when elected.",
         "Securitization is not modeled (open decision, parked); the gain-on-sale capital deduction row is shown at zero for schedule completeness.",
         "The MSA deduction is approximated per 12 CFR 3.22(d) as excess over 25% of Tier 1 before threshold deductions.",
-        "Business-combination events (incl. the CBLR M&A no-grace transition) are out of scope; the condition is recorded but unreachable.",
+        "Business-combination events (incl. the CBLR M&A no-grace transition) are out of scope and not modeled.",
         "Ramped (non-parallel) rate shocks, matched-maturity FTP, and MSR prepayment revaluation remain parked open decisions.",
     ]
     results["reg_params"] = {k: REG_PARAMS[k] for k in ("version", "effective", "verified", "citations")}
