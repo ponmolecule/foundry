@@ -120,7 +120,23 @@ def results(engagement: str, _=Depends(gate)):
 
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
-    return {"ok": True, "engagements": list(ENGAGEMENTS)}
+    # Reports the live build stamp and whether the worker can reach the database —
+    # one URL that answers "which build is live?" and "is the DB reachable from the
+    # worker?" without auth. This is the ground-truth check for deploy/infra issues.
+    out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
+    try:
+        from foundry.charteriq_client import CharterIQClient
+        cl = CharterIQClient()
+        out["db_configured"] = cl.configured()
+        if cl.configured():
+            # trivial round trip — proves the worker can query at all
+            r = cl._run("SELECT 1")
+            out["db_reachable"] = bool(r)
+    except Exception as e:
+        out["db_configured"] = out.get("db_configured", None)
+        out["db_reachable"] = False
+        out["db_error"] = f"{type(e).__name__}: {e}"
+    return out
 
 
 @app.get("/")
@@ -162,6 +178,19 @@ def gated_openapi(_=Depends(gate)):
 
 
 def _build_stamp():
+    # Prefer a committed BUILD_STAMP file — Railway's deployed container usually has
+    # no .git dir, so `git rev-parse` returns "unknown" there (the whole reason a
+    # deploy was unverifiable). The file is written at bundle time and travels with
+    # the code, so the stamp is correct in prod. Git is the local-dev fallback.
+    import os
+    stamp_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "BUILD_STAMP")
+    try:
+        if os.path.exists(stamp_path):
+            s = open(stamp_path, encoding="utf-8").read().strip()
+            if s:
+                return s
+    except Exception:
+        pass
     import subprocess
     try:
         return subprocess.run(["git", "rev-parse", "--short", "HEAD"],
