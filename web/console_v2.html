@@ -1283,8 +1283,15 @@ window.renderBands = async function(){
       : `/api/v31/peer-bands?metric=${encodeURIComponent(pm)}&cohort=${encodeURIComponent(cohort)}`;
     try{
       const rr = await fetch(url, {signal:_ctl.signal}); clearTimeout(_timer);
-      const j = await rr.json();
-      return rr.ok ? {metric, d:j} : {metric, err:(j.error||"unavailable")};
+      let j = null;
+      try { j = await rr.json(); }
+      catch(_je){
+        // non-JSON body (e.g. an unhandled 500 HTML page) — surface the status so
+        // the failure is diagnosable instead of collapsing to "could not reach".
+        const txt = await rr.text().catch(()=>"" );
+        return {metric, err:`HTTP ${rr.status} (non-JSON): ${(txt||"").slice(0,120)}`};
+      }
+      return rr.ok ? {metric, d:j} : {metric, err:(j.error||`HTTP ${rr.status}`)};
     }catch(e){ clearTimeout(_timer);
       return {metric, err:(e&&e.name==="AbortError")?"request timed out":"could not reach the bands endpoint"};
     }

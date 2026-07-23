@@ -403,14 +403,19 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
     denominator filers (cohort hygiene, NOT winsorization), then computes bands over
     the filtered lending-peer cert list via the existing arbitrary-cohort path. Raw
     substrate values are unchanged; only the peer group is refined."""
-    from foundry.v2 import peer_bands as _pb
-    from foundry.v2.cohort_filter import filter_cohort, cohort_provenance
-    from foundry.charteriq_client import CharterIQClient
-    cl = CharterIQClient()
-    if not cl.configured():
-        return JSONResponse({"error": "substrate not configured; charter-filtered "
-                             "cohort requires the live database"}, status_code=503)
+    # EVERYTHING is inside the try — including imports and client construction — so no
+    # exception can escape as a non-JSON 500. A bare 500 with an HTML body is exactly
+    # what makes the frontend's rr.json() throw and report "could not reach the bands
+    # endpoint" instead of the real error. Every failure returns JSON with a stage tag.
+    stage = "import/setup"
     try:
+        from foundry.v2 import peer_bands as _pb
+        from foundry.v2.cohort_filter import filter_cohort, cohort_provenance
+        from foundry.charteriq_client import CharterIQClient
+        cl = CharterIQClient()
+        if not cl.configured():
+            return JSONResponse({"error": "substrate not configured; charter-filtered "
+                                 "cohort requires the live database"}, status_code=503)
         stage = "get_peer_cohort"
         coh = cl.get_peer_cohort(band, limit=500)
         cert_list = [m.get("cert") for m in coh.get("members", []) if m.get("cert") is not None]
