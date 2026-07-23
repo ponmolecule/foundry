@@ -1205,13 +1205,7 @@ async function retroSubstrate(givenCert){
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function bandsSectionHtml(){
   return `<div class="ovh2">Peer corridor \u2014 modeled bank vs real peers</div>
-    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers \u2014 latest quarter. Pick one or more metrics; each is placed by row and colored green (favorable vs peers) or red (unfavorable) by its risk direction.</div>
-    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:8px">
-      <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Metrics</span>
-      <span id="pbMetricChips" style="display:inline-flex;gap:6px;flex-wrap:wrap">
-        ${[["roa","ROA"],["nim","NIM"],["efficiency","Efficiency"],["tier1","Tier 1 / RWA"],["cet1","CET1"],["net_charge_off_rate","Charge-off"]].map(([v,l],i)=>`<button class="pbchip" data-metric="${v}" onclick="pbToggleMetric('${v}')" style="font-size:11px;padding:4px 11px;border-radius:3px;border:1px solid #2B3A57;background:${i===0?'#C59C5E':'transparent'};color:${i===0?'#16233B':'#9FB0C8'};font-weight:${i===0?'700':'400'};cursor:pointer">${l}</button>`).join("")}
-      </span>
-    </div>
+    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers \u2014 latest quarter. Each metric is placed by row and colored green (favorable vs peers) or red (unfavorable) by its risk direction.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Cohort</span>
       <select id="pbCohort" onchange="renderBands()">
@@ -1228,25 +1222,12 @@ function bandsSectionHtml(){
     </div>
     <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>`;
 }
-// selected metrics (multi-select); ROA on by default
-window._pbMetrics = window._pbMetrics || ["roa"];
-window.pbToggleMetric = function(m){
-  const s = new Set(window._pbMetrics);
-  if(s.has(m)) s.delete(m); else s.add(m);
-  if(s.size === 0) s.add(m);   // never allow zero selected
-  window._pbMetrics = Array.from(s);
-  // reflect chip state
-  document.querySelectorAll(".pbchip").forEach(b=>{
-    const on = window._pbMetrics.includes(b.dataset.metric);
-    b.style.background = on ? "#C59C5E" : "transparent";
-    b.style.color = on ? "#16233B" : "#9FB0C8";
-    b.style.fontWeight = on ? "700" : "400";
-  });
-  renderBands();
-};
+// The Peer Corridor always shows ALL metrics — every one is material to a de novo,
+// so there's no user selection to make. This is the fixed metric set, in display order.
+window._pbMetrics = ["roa","nim","efficiency","tier1","cet1","net_charge_off_rate"];
 window.renderBands = async function(){
   const body = document.getElementById("pbBody"); if(!body) return;
-  const metrics = (window._pbMetrics && window._pbMetrics.length) ? window._pbMetrics : ["roa"];
+  const metrics = window._pbMetrics;
   const mode = document.getElementById("pbCohort").value;
   const certsEl = document.getElementById("pbCerts");
   certsEl.style.display = mode === "curated" ? "inline-block" : "none";
