@@ -178,10 +178,18 @@ def get_bands(metric, cohort):
             except Exception:
                 bands = []
             if bands:
+                # small_n honesty MUST fire here too: for a curated cohort of a few
+                # certs, percentile_cont linearly interpolates between the members —
+                # with n=2 every "percentile" is just a point on the line between the
+                # two banks (p50 = their mean, p10/p90 never even reach min/max). That
+                # is a RANGE of named peers, not a distribution, and the UI rider must
+                # say so. Without this flag the ad-hoc path silently presented a
+                # 2-point interpolation as if it were a real percentile band.
+                small_n = any((b.get("n") or 0) < SMALL_N_THRESHOLD for b in bands)
                 return ({"metric": metric, "cohort": _cohort_key(cohort),
                          "provenance": {"basis": "identity-gated (ad-hoc cohort, SQL percentiles)",
                                         "certified": False, "computed_at": None},
-                         "bands": bands},
+                         "bands": bands, "small_n": small_n},
                         "substrate (db, ad-hoc cohort)")
         base = os.environ.get("CHARTERIQ_SUBSTRATE_URL")
         if base:
