@@ -336,13 +336,9 @@ class CharterIQClient:
         if hi is not None:
             inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
         fetch = cohort_cap * 2   # headroom for the Python charter drop
-        import sys as _sys
         _isql = ("SELECT cert, charter_type FROM institutions WHERE "
                  f"{' AND '.join(inst_conds)} ORDER BY asset_size_mm DESC LIMIT %s")
-        print(f"[LENDING-DB] step1 institutions query about to run: {_isql} "
-              f"params={tuple(inst_params + [fetch])}", flush=True); _sys.stderr.flush()
         rows = self._run(_isql, tuple(inst_params + [fetch]))
-        print(f"[LENDING-DB] step1 institutions RETURNED {len(rows)} rows", flush=True); _sys.stderr.flush()
         certs = []
         for cert, ct in rows:
             ctl = (ct or "").strip().lower()

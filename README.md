@@ -14,7 +14,7 @@ thin FastAPI/HTML shell. Fictitious client: Solstice Bank (in organization).
 ## Access (HTTP Basic auth)
     demo defaults (baked in, FICTITIOUS DATA ONLY):
         username: klaros
-        password: solstice-2026
+        password: (set via FOUNDRY_PASS env var)
     Override in Railway -> service -> Variables before sharing any URL:
         FOUNDRY_USER, FOUNDRY_PASS
     /api/health stays unauthenticated for deploy probes.

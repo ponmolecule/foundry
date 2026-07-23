@@ -118,52 +118,14 @@ def results(engagement: str, _=Depends(gate)):
     return JSONResponse(_cache[engagement])
 
 
-@app.get("/api/debug/threads")
-def debug_threads(user=Depends(gate)):
-    """py-spy equivalent over HTTP: dump every thread's current stack via
-    sys._current_frames(). If a lending request is hung, its threadpool thread will
-    show a frame parked in psycopg2 connect()/recv()/execute() — telling us the exact
-    stall point (connect phase vs query phase vs socket read). Hit this in a SECOND
-    request while a lending request is hanging in a first."""
-    import sys, threading, traceback
-    frames = sys._current_frames()
-    names = {t.ident: t.name for t in threading.enumerate()}
-    dump = []
-    for tid, frame in frames.items():
-        stack = traceback.format_stack(frame)
-        # keep the deepest few frames — that's where the block is
-        dump.append({"thread": names.get(tid, str(tid)),
-                     "tid": tid,
-                     "stack_tail": [s.strip() for s in stack[-6:]]})
-    return {"thread_count": len(dump), "threads": dump}
 
 
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
-    # Reports the live build stamp, DB reachability, AND the running process's own
-    # file truth — because the deployed app 404s on routes that provably exist in the
-    # GitHub app.py, which means the CONTAINER's app.py != GitHub's. This endpoint
-    # makes the running process report what IT actually sees (its cwd, whether its own
-    # source file contains a given route, how many routes it registered), so we can
-    # confirm the file mismatch without needing shell access to the container.
-    import os
+    # Reports the live build stamp, engagement list, and DB reachability — the fields a
+    # deploy probe needs. (Process self-inspection fields used during the deploy-desync
+    # investigation were removed pre-demo; they leaked container paths and route internals.)
     out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
-    try:
-        # what file is THIS module, and does it contain the debug route?
-        this_file = os.path.abspath(__file__)
-        src = open(this_file, encoding="utf-8").read()
-        out["running_file"] = this_file
-        out["cwd"] = os.getcwd()
-        out["self_has_debug_route"] = ("peer-bands-lending-debug" in src)
-        out["self_has_lending_bounded"] = ("get_lending_cohort_bands" in
-            open(os.path.join(os.path.dirname(this_file), "foundry", "charteriq_client.py"),
-                 encoding="utf-8").read()) if os.path.exists(
-            os.path.join(os.path.dirname(this_file), "foundry", "charteriq_client.py")) else None
-        out["route_count"] = len(app.routes)
-        out["lending_routes"] = sorted(r.path for r in app.routes
-                                        if getattr(r, "path", "") and "lending" in r.path)
-    except Exception as e:
-        out["self_inspect_error"] = f"{type(e).__name__}: {e}"
     try:
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
@@ -322,7 +284,7 @@ def v31_template(_=Depends(gate)):
 
 @app.get("/api/v31/challenge-thresholds")
 def v31_challenge_thresholds(total_assets_000s: float = 0.0, _=Depends(gate)):
-    """Static Roman-lineage bands by default; when total_assets_000s is passed,
+    """Static inherited challenge bands by default; when total_assets_000s is passed,
     attach asset-band peer percentiles (pre-registered selection, per-metric vintage,
     n-aware). Fail-closed: substrate miss returns the static set untouched.
 
@@ -522,140 +484,8 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
     parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
     return JSONResponse(parsed)
 
-@app.get("/api/v31/peer-bands-lending-debug")
-def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under_200M",
-                                  step: int = 1, ms: int = 0, user=Depends(gate)):
-    """Self-diagnosing probe. Runs the lending pipeline ONE step at a time, up to
-    `step`, and returns what that step produced. Because each step is a SEPARATE HTTP
-    request, a worker death (SIGKILL/segfault — uncatchable) on the fatal step still
-    lets every earlier step return 200 with its result. So we find the exact operation
-    that kills the worker by walking step=1,2,3,4 and seeing which is the last to
-    return JSON. Bare 502 at step=K, JSON at step=K-1 -> step K is the killer.
-
-    step 1: resolve the capped cert list (institutions query only)
-    step 2: + resolve the metric's latest quarter
-    step 3: + the bounded percentile query (the aggregate)
-    step 4: + ceiling/RWA-filtered percentile (the full thing)"""
-    out = {"metric": metric, "band": band, "step": step}
-    try:
-        from foundry.v2 import peer_bands as _pb
-        from foundry.v2.regparams import REG_PARAMS
-        from foundry.v2.cohort_filter import NON_LENDING_CHARTER_TYPES
-        from foundry.charteriq_client import CharterIQClient
-        cl = CharterIQClient()
-        if not cl.configured():
-            return JSONResponse({**out, "error": "not configured"}, status_code=503)
-
-        # STEP 0: does ANY access to the institutions table respond at all? The whole
-        # lending path is the only thing that touches `institutions`, and it has always
-        # 502'd — so this table access has never been proven in prod. A trivial COUNT
-        # isolates "can we read this table" from "is the filter/sort slow". _run already
-        # applies an 8s statement_timeout, so a hang returns a catchable error, not a
-        # bare edge-proxy 502.
-        if step == 0:
-            import time
-            out["configured_url_tail"] = (cl._url or "")[-40:] if getattr(cl, "_url", None) else None
-            # (A) FRESH connection — exactly what psql does. If this works but the
-            # persistent one doesn't, the bug is the reused/stale self._conn socket.
-            t0 = time.time()
-            try:
-                import psycopg2
-                fresh = psycopg2.connect(cl._url, connect_timeout=5)
-                fresh.set_session(readonly=True, autocommit=True)
-                with fresh.cursor() as cur:
-                    cur.execute("SET statement_timeout = %s", (int(ms or 5000),))
-                    cur.execute("SELECT COUNT(*) FROM institutions")
-                    out["fresh_conn_count"] = int(cur.fetchall()[0][0])
-                    # also report which DB/host this fresh conn is actually on
-                    cur.execute("SELECT current_database(), inet_server_addr()::text")
-                    db, host = cur.fetchall()[0]
-                    out["fresh_db"] = db
-                    out["fresh_host"] = host
-                fresh.close()
-                out["fresh_conn_ms"] = int((time.time() - t0) * 1000)
-            except Exception as e:
-                out["fresh_conn_error"] = f"{type(e).__name__}: {str(e)[:200]}"
-                out["fresh_conn_ms"] = int((time.time() - t0) * 1000)
-            # (B) the app's PERSISTENT connection path (_run) — the one that 502s.
-            t1 = time.time()
-            try:
-                r = cl._run("SELECT COUNT(*) FROM institutions")
-                out["persistent_conn_count"] = int(r[0][0]) if r else None
-                out["persistent_conn_ms"] = int((time.time() - t1) * 1000)
-            except Exception as e:
-                out["persistent_conn_error"] = f"{type(e).__name__}: {str(e)[:200]}"
-                out["persistent_conn_ms"] = int((time.time() - t1) * 1000)
-            return JSONResponse({**out, "reached": 0})
-
-        db_metric = _pb._canonical_metric(metric)
-        out["db_metric"] = db_metric
-        H = REG_PARAMS["cohort_hygiene"]
-        lo, hi = {"under_200M": (None, 200), "200M_500M": (200, 500),
-                   "500M_2B": (500, 2000), "2B_10B": (2000, 10000),
-                   "10B_50B": (10000, 50000), "over_50B": (50000, None),
-                   "all_universe": (None, None)}[band]
-
-        # STEP 1: capped cert list — mirror the working get_peer_cohort query, filter
-        # charter in Python (the <> ALL(list)/NULLS LAST SQL was the untested construct)
-        inst_conds = ["active = 1"]; inst_params = []   # active is integer, not boolean
-        if lo is not None: inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
-        if hi is not None: inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
-        rows = cl._run(
-            "SELECT cert, charter_type FROM institutions WHERE "
-            f"{' AND '.join(inst_conds)} ORDER BY asset_size_mm DESC LIMIT %s",
-            tuple(inst_params + [300]))
-        certs = []
-        for cert, ct in rows:
-            ctl = (ct or "").strip().lower()
-            if ctl and ctl in NON_LENDING_CHARTER_TYPES:
-                continue
-            certs.append(cert)
-            if len(certs) >= 150:
-                break
-        out["step1_cert_count"] = len(certs)
-        out["step1_sample"] = certs[:5]
-        if step <= 1:
-            return JSONResponse({**out, "reached": 1})
-
-        # STEP 2: latest quarter
-        latest = cl._run("SELECT year, quarter FROM metrics WHERE metric_name = %s "
-                         "ORDER BY year DESC, quarter DESC LIMIT 1", (db_metric,))
-        out["step2_latest"] = list(latest[0]) if latest else None
-        if step <= 2:
-            return JSONResponse({**out, "reached": 2})
-        ly, lq = int(latest[0][0]), int(latest[0][1])
-
-        # STEP 3: plain bounded percentile (no ceiling/RWA) — isolates the aggregate itself
-        rows = cl._run(
-            "SELECT COUNT(*) FROM metrics m WHERE m.metric_name = %s AND m.cert = ANY(%s) "
-            "AND m.year = %s AND m.quarter = %s AND m.value IS NOT NULL",
-            (db_metric, certs, ly, lq))
-        out["step3_row_count"] = int(rows[0][0]) if rows else 0
-        if step <= 3:
-            return JSONResponse({**out, "reached": 3})
-
-        # STEP 4: the full percentile aggregate
-        rows = cl._run(
-            "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY m.value), COUNT(*) "
-            "FROM metrics m WHERE m.metric_name = %s AND m.cert = ANY(%s) "
-            "AND m.year = %s AND m.quarter = %s AND m.value IS NOT NULL",
-            (db_metric, certs, ly, lq))
-        out["step4_p50"] = float(rows[0][0]) if rows and rows[0][0] is not None else None
-        out["step4_n"] = int(rows[0][1]) if rows else 0
-        return JSONResponse({**out, "reached": 4})
-    except Exception as e:
-        import traceback
-        return JSONResponse({**out, "error": f"{type(e).__name__}: {e}",
-                             "trace": traceback.format_exc()[-800:]}, status_code=502)
 
 
-@app.get("/api/v31/peer-bands-lending-ping")
-def v31_peer_bands_lending_ping(user=Depends(gate)):
-    """Diagnostic no-op: returns instantly, does NO database work. If the real
-    lending endpoint empty-502s but this returns fine, the failure is in the lending
-    query path (OOM/timeout/serialization), not the route/auth/infrastructure. If
-    THIS also empty-502s, the problem is upstream of the endpoint entirely."""
-    return JSONResponse({"ok": True, "note": "lending route reachable; no DB work done"})
 
 
 @app.get("/api/v31/peer-bands-lending")
@@ -671,25 +501,16 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
     whose failure modes were opaque (empty proxy 502s). Now it's one round trip, and any
     schema error surfaces as one clean caught exception naming the exact column."""
     stage = "setup"
-    def _log(msg):
-        # flushed, so it appears in Railway logs even if the request later hangs
-        # (Python buffers stdout when not a TTY; a hang would otherwise lose the line)
-        import sys as _sys
-        print(f"[LENDING] {msg}", flush=True); _sys.stderr.flush()
-    _log(f"ENTER metric={metric} band={band}")
     try:
         from foundry.v2 import peer_bands as _pb
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
-        _log("client constructed")
         if not cl.configured():
             return JSONResponse({"error": "substrate not configured; charter-filtered "
                                  "cohort requires the live database"}, status_code=503)
         db_metric = _pb._canonical_metric(metric)   # short corridor key -> DB metric_name
-        _log(f"canonical metric={db_metric}; calling get_lending_cohort_bands (DB work starts here)")
         stage = "get_lending_cohort_bands"
         bands = cl.get_lending_cohort_bands(db_metric, asset_band=band, latest_only=True)
-        _log(f"get_lending_cohort_bands RETURNED {len(bands) if bands else 0} bands")
         if not bands:
             return JSONResponse({"error": f"no lending peers in band '{band}' have a published "
                                  f"'{db_metric}' at the latest quarter (after charter/ceiling"
