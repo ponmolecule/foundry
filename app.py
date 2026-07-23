@@ -408,92 +408,45 @@ def v31_peer_bands_lending_ping(user=Depends(gate)):
 def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M",
                             user=Depends(gate)):
     """Charter-filtered, examiner-facing bands (CHARTER_FILTERED_COHORT_SPEC).
-    Resolves the asset band's membership, drops non-lending charters and near-nil-
-    denominator filers (cohort hygiene, NOT winsorization), then computes bands over
-    the filtered lending-peer cert list via the existing arbitrary-cohort path. Raw
-    substrate values are unchanged; only the peer group is refined."""
-    # EVERYTHING is inside the try — including imports and client construction — so no
-    # exception can escape as a non-JSON 500. A bare 500 with an HTML body is exactly
-    # what makes the frontend's rr.json() throw and report "could not reach the bands
-    # endpoint" instead of the real error. Every failure returns JSON with a stage tag.
-    stage = "import/setup"
+    Percentiles over the asset band, filtered to lending peers, in ONE query — the
+    database does the join (asset band + charter exclusion + ratio ceiling + RWA floor
+    for capital ratios). Raw substrate values unchanged; only the peer group is refined.
+
+    This is the simplified path: the previous version fetched the cohort, then per-cert
+    denominators and values, then filtered in Python across two tables — four queries
+    whose failure modes were opaque (empty proxy 502s). Now it's one round trip, and any
+    schema error surfaces as one clean caught exception naming the exact column."""
+    stage = "setup"
     try:
         from foundry.v2 import peer_bands as _pb
-        from foundry.v2.cohort_filter import filter_cohort, cohort_provenance
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
         if not cl.configured():
             return JSONResponse({"error": "substrate not configured; charter-filtered "
                                  "cohort requires the live database"}, status_code=503)
-        stage = "get_peer_cohort"
-        # 150 is plenty for a stable percentile band and keeps the downstream cert-list
-        # queries light — 500 was heavy enough (x4 queries) to OOM-kill the worker and
-        # produce an empty 502 from the edge proxy. Members come back largest-first, so
-        # the 150 kept are the most substantial banks in the band (the relevant peers).
-        coh = cl.get_peer_cohort(band, limit=150)
-        cert_list = [m.get("cert") for m in coh.get("members", []) if m.get("cert") is not None]
-        if not cert_list:
-            return JSONResponse({"error": f"asset band '{band}' returned no member institutions "
-                                 "(check the institutions table has rows in this size range)"},
-                                status_code=404)
-        # the frontend sends the corridor's SHORT metric key (tier1, efficiency, ...);
-        # the cohort filter and the value lookup both need the DB metric_name, so
-        # canonicalize ONCE here. Without this the RWA floor / ratio-ceiling silently
-        # don't match (they key on tier1_ratio, not tier1) and the filter is a no-op.
-        db_metric = _pb._canonical_metric(metric)
-        stage = "batch metric fetch"
-        rwa_by_cert = cl.get_metric_latest_by_cert("rwa_dollars", cert_list)
-        val_by_cert = cl.get_metric_latest_by_cert(db_metric, cert_list)
-        members = []
-        for m in coh.get("members", []):
-            c = m.get("cert")
-            members.append({"cert": c,
-                            "charter_type": m.get("charter_type"),
-                            "assets_mm": m.get("asset_size_mm"),
-                            "rwa_000s": rwa_by_cert.get(c),
-                            "value": val_by_cert.get(c)})
-        stage = "filter_cohort"
-        kept, dropped = filter_cohort(members, db_metric)
-        if not kept:
-            return JSONResponse({"error": "no lending peers remain after cohort hygiene "
-                                 "for this metric; the band may be dominated by non-lending "
-                                 "or near-nil-denominator filers",
-                                 "excluded_sample": [{"cert": c, "reason": r} for c, r in dropped[:5]]},
-                                status_code=404)
-        stage = "get_cohort_bands"
-        # compute bands directly over the filtered cert list, latest quarter only —
-        # the corridor reads bands[-1], so this is all it needs, and it keeps the
-        # request light enough not to OOM the worker. (Curated cohorts still go through
-        # get_bands, unchanged.)
-        bands = cl.get_cohort_bands(db_metric, kept, latest_only=True)
+        db_metric = _pb._canonical_metric(metric)   # short corridor key -> DB metric_name
+        stage = "get_lending_cohort_bands"
+        bands = cl.get_lending_cohort_bands(db_metric, asset_band=band, latest_only=True)
         if not bands:
-            return JSONResponse({"error": f"filtered lending cohort ({len(kept)} peers) "
-                                 "has no published values for this metric at the latest quarter"},
-                                status_code=404)
+            return JSONResponse({"error": f"no lending peers in band '{band}' have a published "
+                                 f"'{db_metric}' at the latest quarter (after charter/ceiling"
+                                 "/RWA hygiene)"}, status_code=404)
         small_n = any((b.get("n") or 0) < _pb.SMALL_N_THRESHOLD for b in bands)
         parsed = {"metric": metric, "cohort": f"lending:{band}",
-                  "provenance": {"basis": "identity-gated (charter-filtered lending cohort, "
-                                 "SQL percentiles)", "certified": False, "computed_at": None},
-                  "bands": bands, "small_n": small_n}
-        source = "substrate (db, lending cohort)"
-        parsed["source"] = source
-        parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
-        parsed["cohort_filter"] = cohort_provenance(metric, band, len(kept), dropped)
-        # serialize defensively: DB rows can carry Decimal (percentile_cont) or other
-        # non-JSON-native types. A serialization error on the return would previously
-        # escape OUTSIDE the try as a raw 502 with no body — exactly the empty-502
-        # symptom. json.loads(json.dumps(..., default=str)) coerces any stragglers so
-        # the response is always clean JSON.
+                  "provenance": {"basis": "charter-filtered lending cohort, one-query SQL "
+                                 "percentiles (asset band + charter exclusion + ratio ceiling "
+                                 "+ RWA floor for capital)", "certified": False},
+                  "bands": bands, "small_n": small_n,
+                  "source": "substrate (db, lending cohort)",
+                  "small_n_threshold": _pb.SMALL_N_THRESHOLD}
         import json as _json
         safe = _json.loads(_json.dumps(parsed, default=lambda o: float(o) if hasattr(o, "__float__") else str(o)))
         return JSONResponse(safe)
-    except _pb.BandsError as e:
-        return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
         import traceback
-        return JSONResponse({"error": f"charter-filtered cohort failed at {stage}: "
+        return JSONResponse({"error": f"lending cohort failed at {stage}: "
                              f"{type(e).__name__}: {e}",
-                             "trace": traceback.format_exc()[-500:]}, status_code=502)
+                             "trace": traceback.format_exc()[-600:]}, status_code=502)
 
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):

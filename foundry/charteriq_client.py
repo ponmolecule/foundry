@@ -238,6 +238,91 @@ class CharterIQClient:
             (metric_name, int(ly), int(lq), cert_ints))
         return {int(c): float(v) for c, v in rows if v is not None}
 
+    def get_lending_cohort_bands(self, metric_name, asset_band="under_200M", latest_only=True):
+        """The lending-filtered peer band, computed in ONE query — the database does the
+        join, no Python cert-list assembly. Percentiles over banks that are (a) in the
+        asset band, (b) not trust/special-purpose charters (where charter_type is
+        populated; blanks are KEPT so the ~2,454 un-backfilled certs aren't wrongly
+        dropped), (c) below the ratio sanity ceiling (the denominator-agnostic workhorse
+        that removes near-nil-denominator artifacts by their output), and (d) for capital
+        ratios, above the RWA floor. Floors/ceilings come from REG_PARAMS. Returns a list
+        of per-quarter band dicts, or [] if no rows.
+
+        This replaces the old four-query path (get_peer_cohort + 2x get_metric_latest_by_
+        cert + filter_cohort + get_cohort_bands) that assembled a filtered cert list in
+        Python — simpler, one round trip, and any schema error surfaces as one clean
+        caught exception naming the exact column rather than an empty proxy 502."""
+        from foundry.v2.regparams import REG_PARAMS
+        from foundry.v2.cohort_filter import NON_LENDING_CHARTER_TYPES
+        H = REG_PARAMS["cohort_hygiene"]
+        lo, hi = {"under_200M": (None, 200), "200M_500M": (200, 500),
+                   "500M_2B": (500, 2000), "2B_10B": (2000, 10000),
+                   "10B_50B": (10000, 50000), "over_50B": (50000, None),
+                   "all_universe": (None, None)}[asset_band]
+
+        # resolve latest quarter for the metric (bounds the aggregate cheaply)
+        yq_where, yq_params = "", []
+        if latest_only:
+            latest = self._run(
+                "SELECT year, quarter FROM metrics WHERE metric_name = %s "
+                "ORDER BY year DESC, quarter DESC LIMIT 1", (metric_name,))
+            if not latest:
+                return []
+            ly, lq = latest[0]
+            yq_where = " AND m.year = %s AND m.quarter = %s"
+            yq_params = [int(ly), int(lq)]
+
+        # WHERE fragments, all parameterized
+        where = ["m.metric_name = %s", "m.value IS NOT NULL"]
+        params = [metric_name]
+
+        # (a) asset band — institutions subquery (one source of truth for size + charter)
+        inst_conds = ["active = TRUE"]
+        inst_params = []
+        if lo is not None:
+            inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
+        if hi is not None:
+            inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
+        # (b) charter exclusion WHERE populated — blanks kept (NULL passes the filter)
+        charter_list = sorted(NON_LENDING_CHARTER_TYPES)
+        inst_conds.append("(charter_type IS NULL OR lower(charter_type) <> ALL(%s))")
+        inst_params.append(charter_list)
+        where.append(f"m.cert IN (SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)})")
+        params += inst_params
+
+        # (c) ceiling — the denominator-agnostic workhorse, inline
+        ceiling = H.get("ratio_ceilings", {}).get(metric_name)
+        if ceiling is not None:
+            where.append("m.value <= %s"); params.append(float(ceiling))
+
+        # (d) RWA floor — capital ratios only
+        if metric_name in ("tier1_ratio", "cet1_ratio", "total_rbc_ratio") and latest_only:
+            where.append("m.cert IN (SELECT cert FROM metrics WHERE metric_name = 'rwa_dollars' "
+                         "AND year = %s AND quarter = %s AND value >= %s)")
+            params += [int(ly), int(lq), H["rwa_floor_000s"]]
+
+        params += yq_params
+        sql = (
+            "SELECT m.year, m.quarter, "
+            "percentile_cont(0.10) WITHIN GROUP (ORDER BY m.value) AS p10, "
+            "percentile_cont(0.25) WITHIN GROUP (ORDER BY m.value) AS p25, "
+            "percentile_cont(0.50) WITHIN GROUP (ORDER BY m.value) AS p50, "
+            "percentile_cont(0.75) WITHIN GROUP (ORDER BY m.value) AS p75, "
+            "percentile_cont(0.90) WITHIN GROUP (ORDER BY m.value) AS p90, "
+            "COUNT(*) AS n "
+            f"FROM metrics m WHERE {' AND '.join(where)}{yq_where} "
+            "GROUP BY m.year, m.quarter ORDER BY m.year, m.quarter")
+        rows = self._run(sql, tuple(params))
+        bands = []
+        for y, q, p10, p25, p50, p75, p90, n in rows:
+            if p50 is None:
+                continue
+            bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
+                          "p10": float(p10), "p25": float(p25), "p50": float(p50),
+                          "p75": float(p75), "p90": float(p90),
+                          "n": int(n) if n is not None else None})
+        return bands
+
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
         """Real schema (surveyed 2026-07-16): per-bank rows carrying the group
         distribution; band lives in group_id, count in peer_count. Any one row
