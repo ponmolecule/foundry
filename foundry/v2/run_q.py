@@ -19,6 +19,21 @@ from .challenge_q import challenge_config
 from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
 
+
+def _peer_annotated_flags(cfg, base):
+    """challenge_config(cfg), then enrich each fired flag with peer-percentile
+    evidence where the metric resolves in the substrate. Fail-closed: any error
+    (no DB configured, band miss) returns the plain static flags unchanged, so a
+    substrate outage never suppresses or breaks a flag."""
+    flags = challenge_config(cfg)
+    try:
+        from .peer_calibration import peer_annotate, asset_band_for
+        ta = (base.get("bs", {}).get("totalAssets") or [None])[-1]
+        cohort = asset_band_for(ta) if ta else "broad"
+        return peer_annotate(flags, cfg, cohort=cohort)
+    except Exception:
+        return flags
+
 ENGINE_V2 = "foundry-engine 0.3.0 / v2-quarterly"
 
 STRESS_DEFAULTS = {"charge_off_mult": 2.5, "reserve_mult": 1.5, "rate_shock_bp": 300,
@@ -275,7 +290,7 @@ def run_v2(cfg):
                              "label": scen_labels[scen]}
                       for scen, r in scen_results.items()},
         "constraint_tests": _constraint_tests(cfg, scen_results),
-        "flags": challenge_config(cfg),
+        "flags": _peer_annotated_flags(cfg, base),
     }
     # faithful presentation aggregates: loans/deposits by Call Report line; memo arrays; IS totals
     by_line = {"loans": {}, "deps": {}}

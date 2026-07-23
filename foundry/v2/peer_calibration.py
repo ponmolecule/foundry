@@ -46,24 +46,27 @@ def asset_band_for(total_assets_000s):
 # is documentation the provenance surfaces; the substrate returns its own latest.
 # 'substrate' = reaches 2026Q1; 'funding_legacy' = lags to 2025Q4 until M6a.
 FLAG_METRIC_MAP = {
-    # --- resolvable today (metric served by the substrate) ---
-    "FUND-HOT":  ("deposit_cost",       "funding_legacy"),
-    "FUND-DDA":  ("deposit_cost",       "funding_legacy"),
-    "CO-BAND":   ("net_charge_off_pct", "substrate"),   # disclosure-ledger id
-    "BAND-CO":   ("net_charge_off_pct", "substrate"),   # emitted-flag id (BAND-CO-HI/LO)
-    # --- mapped to their target metric, pending substrate coverage (fail-closed until
-    #     the band resolves in prod; the metric name is the contract, not a promise it
-    #     exists yet — verify with the peer-metric audit before relying on these) ---
-    "FUND-GROWTH": ("deposit_growth",      "pending"),
-    "GOS-MARGIN-HI": ("gain_on_sale_margin", "pending"),
-    "GOS-WAREHOUSE": ("warehouse_hold_q",    "pending"),
-    "MSR-CAP":     ("msr_cap_rate",         "pending"),
-    "MSR-FEE":     ("servicing_fee_bp",     "pending"),
+    # --- CONFIRMED against prod substrate (peer_metric_audit, 2026Q1, 45 quarters) ---
+    # Clean like-for-like matches:
+    "FUND-HOT":  ("deposit_cost",            "substrate"),
+    "FUND-DDA":  ("deposit_cost",            "substrate"),
+    "PRICE-USURY":    ("loan_yield",         "substrate"),
+    "PRICE-LOWYIELD": ("loan_yield",         "substrate"),
+    "COUPLED-02":     ("loan_yield",         "substrate"),   # yield leg of the joint rule
+    "RES-THIN":       ("alll_to_loans",      "substrate"),
+    "PROV-BELOW-CO":  ("provision_to_avg_assets", "substrate"),
+    # Value-adding proxies (labeled where they surface — not exact same measure):
+    "FUND-GROWTH":    ("max_sustainable_growth", "proxy_growth"),  # pierces optimistic growth
+    "CO-BAND":        ("npl_ratio",          "proxy_credit"),      # disclosure-ledger id
+    "BAND-CO":        ("npl_ratio",          "proxy_credit"),      # emitted-flag id (BAND-CO-HI/LO)
+    # --- genuinely absent in substrate: stay fail-closed on static bars ---
+    # GOS-MARGIN-HI, GOS-WAREHOUSE, MSR-CAP, MSR-FEE (mortgage-banking niche, no peer metric)
 }
 VINTAGE_LABEL = {
     "substrate": "2026Q1 (substrate-grade)",
     "funding_legacy": "2025Q4 (latest published; funding-metric refresh in progress)",
-    "pending": "metric not yet served by the substrate — flag stays on its static bar",
+    "proxy_growth": "2026Q1 \u2014 sustainable-growth band (capacity proxy, not observed growth)",
+    "proxy_credit": "2026Q1 \u2014 NPL band (credit-quality proxy, not net charge-offs)",
 }
 
 def calibrate_thresholds(static_thresholds, total_assets_000s):
@@ -92,9 +95,10 @@ def calibrate_thresholds(static_thresholds, total_assets_000s):
             latest = parsed["bands"][-1] if parsed.get("bands") else None
             if latest:
                 n = latest.get("n")
+                _q = latest.get("quarter") or "latest"
                 row["peer"] = {
                     "band_metric": metric, "cohort": cohort,
-                    "vintage": VINTAGE_LABEL.get(tier, tier),
+                    "vintage": _q + (" (proxy)" if str(tier).startswith("proxy") else ""),
                     "p10": latest["p10"], "p25": latest["p25"], "p50": latest["p50"],
                     "p75": latest["p75"], "p90": latest["p90"], "n": n,
                     "source": source,
@@ -144,3 +148,123 @@ def place_flag_value(value, metric, cohort, worse="high"):
             "p50": band["p50"], "p90": band["p90"], "p10": band["p10"],
             "conservative_note": ("worse-reading governs at a seam per R5; direction="
                                    + worse)}
+
+
+# --------------------------------------------------------------------------
+# F-121 flag peer-annotation (post-pass over challenge_config output).
+# For each emitted flag whose id maps to a substrate metric that RESOLVES,
+# append a peer-percentile clause to its text. Fail-closed: an unresolved
+# metric leaves the flag's static text untouched. Never changes WHICH flags
+# fire (that stays challenge_config's deterministic static logic) — only
+# enriches the message of ones that already fired with peer evidence.
+# --------------------------------------------------------------------------
+
+def _corridor_to_pctlabel(pos):
+    """Human 'pNN of peers' phrasing from a corridor position."""
+    return {
+        "below p10": "below the 10th percentile of peers",
+        "p10-p25":   "in the 10th-25th percentile of peers",
+        "p25-p50":   "in the 25th-50th percentile of peers",
+        "p50-p75":   "in the 50th-75th percentile of peers",
+        "p75-p90":   "in the 75th-90th percentile of peers",
+        "above p90": "above the 90th percentile of peers",
+    }.get(pos, pos)
+
+
+# How to pull the client value each flag should be placed at, from the config.
+# Mirrors the value challenge_config already tested, so placement is consistent
+# with why the flag fired. Returns a float or None (skip annotation).
+def _flag_client_value(flag, cfg):
+    from .engine_q_a import rate_fn, _prod_rate
+    a = cfg.get("assumptions", {})
+    rate = rate_fn(a.get("rate_path_q"), a.get("rate_path_longer_run"))
+    lend = a.get("lending_products") or []
+    dep = a.get("deposit_products") or []
+    fid = flag.get("id", "")
+    # deposit-cost family: balance-weighted Q1 deposit rate (%)
+    if fid in ("FUND-HOT", "FUND-DDA"):
+        wd = sum((p.get("opening_balance") or 0) for p in dep)
+        if wd <= 0:
+            return None
+        wc = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in dep) / wd
+        return wc * 100.0
+    # loan-yield family: balance-weighted Q1 loan yield (%)
+    if fid in ("PRICE-USURY", "PRICE-LOWYIELD", "COUPLED-02"):
+        wl = sum((p.get("opening_balance") or 0) for p in lend)
+        if wl <= 0:
+            return None
+        wy = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in lend) / wl
+        return wy * 100.0
+    # reserve/loans: balance-weighted reserve rate (%)
+    if fid == "RES-THIN":
+        wl = sum((p.get("opening_balance") or 0) for p in lend)
+        if wl <= 0:
+            return None
+        wr = sum((p.get("opening_balance") or 0) * (p.get("reserve_rate_pct_bal") or 0) for p in lend) / wl
+        return wr * 100.0
+    # provision/avg assets proxy: balance-weighted provision rate (%)
+    if fid == "PROV-BELOW-CO":
+        wl = sum((p.get("opening_balance") or 0) for p in lend)
+        if wl <= 0:
+            return None
+        wp = sum((p.get("opening_balance") or 0) * (p.get("provision_rate_ann") or 0) for p in lend) / wl
+        return wp * 100.0
+    # deposit growth vs sustainable-growth band (%)
+    if fid == "FUND-GROWTH":
+        wd = sum((p.get("opening_balance") or 0) for p in dep)
+        if wd <= 0:
+            return None
+        wg = sum((p.get("opening_balance") or 0) * (p.get("growth_q") or 0) for p in dep) / wd
+        return wg * 100.0
+    # charge-off vs NPL proxy: balance-weighted charge-off (%)
+    if fid in ("BAND-CO-HI", "BAND-CO-LO"):
+        wl = sum((p.get("opening_balance") or 0) for p in lend)
+        if wl <= 0:
+            return None
+        wco = sum((p.get("opening_balance") or 0) * (p.get("charge_off_ann") or 0) for p in lend) / wl
+        return wco * 100.0
+    return None
+
+
+def peer_annotate(flags, cfg, cohort="broad"):
+    """Enrich already-fired flags with peer-percentile evidence where the metric
+    resolves. Returns a NEW list (originals untouched). Fail-closed everywhere."""
+    out = []
+    for flag in flags:
+        f = dict(flag)
+        fid = f.get("id", "")
+        # map both the exact id and the two-part prefix (BAND-CO-HI -> BAND-CO)
+        parts = fid.split("-")
+        two = "-".join(parts[:2]) if len(parts) >= 2 else fid
+        mapped = FLAG_METRIC_MAP.get(fid) or FLAG_METRIC_MAP.get(two)
+        if not mapped:
+            out.append(f); continue
+        metric, tier = mapped
+        val = _flag_client_value(flag, cfg)
+        if val is None:
+            out.append(f); continue
+        try:
+            parsed, source = get_bands(metric, cohort)
+        except Exception:
+            out.append(f); continue           # substrate miss -> static text stands
+        band = parsed["bands"][-1] if parsed.get("bands") else None
+        if not band:
+            out.append(f); continue
+        pos = corridor_position(val, band)
+        label = _corridor_to_pctlabel(pos)
+        proxy = ""
+        if tier == "proxy_growth":
+            proxy = " (vs sustainable-growth band \u2014 a capacity proxy)"
+        elif tier == "proxy_credit":
+            proxy = " (vs NPL band \u2014 a credit-quality proxy, not net charge-offs)"
+        n = band.get("n")
+        ntxt = f", n={n}" if n else ""
+        # vintage is the band's OWN quarter (honest: what the data actually is),
+        # not a hardcoded tier label. tier only distinguishes clean vs proxy.
+        real_q = band.get("quarter") or "latest"
+        f["peer"] = {"metric": metric, "position": pos, "band_metric": metric,
+                     "p50": band.get("p50"), "n": n, "tier": tier,
+                     "vintage": real_q + (" (proxy)" if tier.startswith("proxy") else "")}
+        f["text"] = f["text"] + f" Against real peers, this sits {label}{proxy}{ntxt}."
+        out.append(f)
+    return out
