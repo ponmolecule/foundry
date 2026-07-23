@@ -475,34 +475,38 @@ def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under
         # bare edge-proxy 502.
         if step == 0:
             import time
+            out["configured_url_tail"] = (cl._url or "")[-40:] if getattr(cl, "_url", None) else None
+            # (A) FRESH connection — exactly what psql does. If this works but the
+            # persistent one doesn't, the bug is the reused/stale self._conn socket.
             t0 = time.time()
             try:
-                # Use a DIRECT cursor so we can set a per-request timeout BELOW the edge
-                # proxy's (which appears shorter than _run's 8s default — hence the edge
-                # 502 instead of our catchable timeout). If a tight timeout turns the
-                # edge 502 into a clean QueryCanceled JSON, the table read is just SLOW
-                # (huge/unindexed seq scan), not crashing.
-                if ms and cl.configured():
-                    import psycopg2
-                    conn = psycopg2.connect(cl._url)
-                    conn.set_session(readonly=True, autocommit=True)
-                    with conn.cursor() as cur:
-                        cur.execute("SET statement_timeout = %s", (int(ms),))
-                        cur.execute("SELECT COUNT(*) FROM institutions")
-                        r = cur.fetchall()
-                    conn.close()
-                else:
-                    r = cl._run("SELECT COUNT(*) FROM institutions")
-                out["institutions_count"] = int(r[0][0]) if r else None
-                out["elapsed_ms"] = int((time.time() - t0) * 1000)
-                out["timeout_ms_used"] = ms or 8000
-                return JSONResponse({**out, "reached": 0})
+                import psycopg2
+                fresh = psycopg2.connect(cl._url, connect_timeout=5)
+                fresh.set_session(readonly=True, autocommit=True)
+                with fresh.cursor() as cur:
+                    cur.execute("SET statement_timeout = %s", (int(ms or 5000),))
+                    cur.execute("SELECT COUNT(*) FROM institutions")
+                    out["fresh_conn_count"] = int(cur.fetchall()[0][0])
+                    # also report which DB/host this fresh conn is actually on
+                    cur.execute("SELECT current_database(), inet_server_addr()::text")
+                    db, host = cur.fetchall()[0]
+                    out["fresh_db"] = db
+                    out["fresh_host"] = host
+                fresh.close()
+                out["fresh_conn_ms"] = int((time.time() - t0) * 1000)
             except Exception as e:
-                import traceback
-                out["elapsed_ms"] = int((time.time() - t0) * 1000)
-                out["timeout_ms_used"] = ms or 8000
-                return JSONResponse({**out, "step0_error": f"{type(e).__name__}: {e}",
-                                     "trace": traceback.format_exc()[-800:]}, status_code=502)
+                out["fresh_conn_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+                out["fresh_conn_ms"] = int((time.time() - t0) * 1000)
+            # (B) the app's PERSISTENT connection path (_run) — the one that 502s.
+            t1 = time.time()
+            try:
+                r = cl._run("SELECT COUNT(*) FROM institutions")
+                out["persistent_conn_count"] = int(r[0][0]) if r else None
+                out["persistent_conn_ms"] = int((time.time() - t1) * 1000)
+            except Exception as e:
+                out["persistent_conn_error"] = f"{type(e).__name__}: {str(e)[:200]}"
+                out["persistent_conn_ms"] = int((time.time() - t1) * 1000)
+            return JSONResponse({**out, "reached": 0})
 
         db_metric = _pb._canonical_metric(metric)
         out["db_metric"] = db_metric
