@@ -763,7 +763,7 @@ function fieldsFor(fam, p, base){
       h += M("Servicing runoff (%/qtr)", "msr_decay_q", "pct");
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', null);renderContent();refresh()">Remove originate-to-sell</button></div>`;
     } else if(isMortgage){
-      h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0.5,gain_on_sale_margin:0.0175,warehouse_hold_q:1,servicing_retained_pct:1.0,servicing_fee_bp_ann:25,msr_cap_rate_pct_upb:0.011,msr_decay_q:0.03});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
+      h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_q:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_m", "kq");
