@@ -612,16 +612,25 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
     whose failure modes were opaque (empty proxy 502s). Now it's one round trip, and any
     schema error surfaces as one clean caught exception naming the exact column."""
     stage = "setup"
+    def _log(msg):
+        # flushed, so it appears in Railway logs even if the request later hangs
+        # (Python buffers stdout when not a TTY; a hang would otherwise lose the line)
+        import sys as _sys
+        print(f"[LENDING] {msg}", flush=True); _sys.stderr.flush()
+    _log(f"ENTER metric={metric} band={band}")
     try:
         from foundry.v2 import peer_bands as _pb
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
+        _log("client constructed")
         if not cl.configured():
             return JSONResponse({"error": "substrate not configured; charter-filtered "
                                  "cohort requires the live database"}, status_code=503)
         db_metric = _pb._canonical_metric(metric)   # short corridor key -> DB metric_name
+        _log(f"canonical metric={db_metric}; calling get_lending_cohort_bands (DB work starts here)")
         stage = "get_lending_cohort_bands"
         bands = cl.get_lending_cohort_bands(db_metric, asset_band=band, latest_only=True)
+        _log(f"get_lending_cohort_bands RETURNED {len(bands) if bands else 0} bands")
         if not bands:
             return JSONResponse({"error": f"no lending peers in band '{band}' have a published "
                                  f"'{db_metric}' at the latest quarter (after charter/ceiling"

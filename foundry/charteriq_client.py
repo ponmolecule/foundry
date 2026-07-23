@@ -59,18 +59,17 @@ class CharterIQClient:
         return bool(self._executor or self._url)
 
     def _new_conn(self):
-        import psycopg2
-        # connect_timeout bounds the CONNECT phase (statement_timeout does NOT — a
-        # connect/socket stall was bypassing our 8s query guard and hanging past the
-        # edge proxy into a bodyless 502). TCP keepalives make a dead socket surface
-        # as an error quickly instead of blocking forever on recv.
+        import psycopg2, sys, time
         _ct = int(os.environ.get("CHARTERIQ_CONNECT_TIMEOUT_S", "5"))
+        print(f"[DBCONN] connecting (connect_timeout={_ct}s)...", flush=True); sys.stderr.flush()
+        _t0 = time.time()
         conn = psycopg2.connect(
             self._url,
             connect_timeout=_ct,
             keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
         )
         conn.set_session(readonly=True, autocommit=True)
+        print(f"[DBCONN] connected in {int((time.time()-_t0)*1000)}ms", flush=True); sys.stderr.flush()
         return conn
 
     def _default_executor(self, sql, params):
@@ -92,8 +91,14 @@ class CharterIQClient:
                         cur.execute("SET statement_timeout = %s", (int(_to),))
                     except Exception:
                         pass
+                    import sys as _s, time as _tm
+                    print(f"[DBQUERY] executing: {sql[:60]}", flush=True); _s.stderr.flush()
+                    _q0 = _tm.time()
                     cur.execute(sql, params)
-                    return cur.fetchall()
+                    rows = cur.fetchall()
+                    print(f"[DBQUERY] returned {len(rows)} rows in {int((_tm.time()-_q0)*1000)}ms",
+                          flush=True); _s.stderr.flush()
+                    return rows
             except (psycopg2.OperationalError, psycopg2.InterfaceError):
                 # connection-level failure: drop it and let attempt 2 reconnect fresh
                 try:
