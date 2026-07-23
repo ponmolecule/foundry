@@ -395,6 +395,15 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
     parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
     return JSONResponse(parsed)
 
+@app.get("/api/v31/peer-bands-lending-ping")
+def v31_peer_bands_lending_ping(user=Depends(gate)):
+    """Diagnostic no-op: returns instantly, does NO database work. If the real
+    lending endpoint empty-502s but this returns fine, the failure is in the lending
+    query path (OOM/timeout/serialization), not the route/auth/infrastructure. If
+    THIS also empty-502s, the problem is upstream of the endpoint entirely."""
+    return JSONResponse({"ok": True, "note": "lending route reachable; no DB work done"})
+
+
 @app.get("/api/v31/peer-bands-lending")
 def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M",
                             user=Depends(gate)):
@@ -467,15 +476,24 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                                  "SQL percentiles)", "certified": False, "computed_at": None},
                   "bands": bands, "small_n": small_n}
         source = "substrate (db, lending cohort)"
+        parsed["source"] = source
+        parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
+        parsed["cohort_filter"] = cohort_provenance(metric, band, len(kept), dropped)
+        # serialize defensively: DB rows can carry Decimal (percentile_cont) or other
+        # non-JSON-native types. A serialization error on the return would previously
+        # escape OUTSIDE the try as a raw 502 with no body — exactly the empty-502
+        # symptom. json.loads(json.dumps(..., default=str)) coerces any stragglers so
+        # the response is always clean JSON.
+        import json as _json
+        safe = _json.loads(_json.dumps(parsed, default=lambda o: float(o) if hasattr(o, "__float__") else str(o)))
+        return JSONResponse(safe)
     except _pb.BandsError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
+        import traceback
         return JSONResponse({"error": f"charter-filtered cohort failed at {stage}: "
-                             f"{type(e).__name__}: {e}"}, status_code=502)
-    parsed["source"] = source
-    parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
-    parsed["cohort_filter"] = cohort_provenance(metric, band, len(kept), dropped)
-    return JSONResponse(parsed)
+                             f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-500:]}, status_code=502)
 
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
