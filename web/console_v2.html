@@ -584,7 +584,7 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-function cellNum(x, title){ const n=+x; const t = title || "$000s \u2014 modeled value for this quarter."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
+function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the methodology note at the foot of the tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each quarter.",
   sec: "Securities are the surplus-funding plug: funding beyond loans, cash, and other assets is invested here at the securities yield.",
@@ -619,6 +619,29 @@ const CALC_TEXT = {
   netIncome: "Pre-tax income \u2212 tax.",
   tier1: "Equity less intangibles and the above-threshold MSA deduction \u2014 the CBLR framework's numerator.",
   leverage: "Tier 1 \u00f7 quarter-end total assets (MSA-deducted where applicable) \u2014 judged against the chartering commitment.",
+  // Per-product loan lines (Product tab \u2192 lending products). Each rolls its own book
+  // forward: opening balance (Product tab) + originations \u2212 runoff \u2212 charge-offs.
+  loanCommercial: "Commercial & Industrial book (Product tab): opening balance + quarterly originations \u2212 runoff \u2212 charge-offs, at the rates entered for the C&I product(s).",
+  loanConsumer: "Consumer loan book (Product tab): opening balance + originations \u2212 runoff \u2212 charge-offs, at the rates entered for the consumer product(s).",
+  loanCreditCard: "Credit-card book (Product tab): opening balance + originations \u2212 runoff \u2212 charge-offs, at the rates entered for the credit-card product(s).",
+  loanMortgage: "1\u20134 family residential book (Product tab): opening balance + originations \u2212 runoff \u2212 charge-offs (net of any held-for-sale), at the rates entered for the mortgage product(s).",
+  loanCRE: "Commercial real-estate book (Product tab): opening balance + originations \u2212 runoff \u2212 charge-offs, at the rates entered for the CRE product(s).",
+  loanOther: "Other loans (Product tab): opening balance + originations \u2212 runoff \u2212 charge-offs, at the rates entered for the product(s) on this line.",
+  // Per-product deposit lines (Product tab \u2192 deposit products).
+  depDDA: "Demand (DDA) deposits (Product tab): opening balance compounded at the entered quarterly growth rate, less runoff.",
+  depSavings: "Savings/MMDA deposits (Product tab): opening balance compounded at the entered quarterly growth rate, less runoff.",
+  depTime: "Time deposits (Product tab): opening balance compounded at the entered quarterly growth rate, less runoff.",
+  depBrokered: "Brokered deposits (Product tab), filed to RC-E memo: opening balance grown at the entered rate.",
+  depSweep: "Sweep deposits (Product tab): opening balance grown at the entered rate.",
+  depInstitutional: "Institutional deposits (Product tab): opening balance grown at the entered rate.",
+  // Currently-bare aggregate/assumption lines \u2014 pointed at their actual source.
+  htmBook: "Held-to-maturity designated securities book \u2014 carried at amortized cost (AOCI-immune).",
+  afsBook: "Available-for-sale designated securities book \u2014 carried at fair value; rate moves flow through AOCI.",
+  intangibles: "Intangible assets \u2014 the Intangibles assumption (sidebar), held flat across quarters.",
+  otherAssets: "Other assets \u2014 the Other Assets assumption (sidebar), held flat across quarters.",
+  paidInStock: "Capital stock & surplus \u2014 initial capital plus any staged raises (Target State / raises), landing at the start of their stated quarter.",
+  re: "Retained earnings \u2014 prior balance + this quarter's net income; no dividends modeled.",
+  borrow: "The funding-shortfall plug: drawn when deposits + capital can't fund assets at the cash floor; repaid first from surplus.",
 };
 let _noteTerms = {};
 function regNote(key, hasOpen, terms){ _noteTerms[key] = terms.map(([l,a])=>[l, arr12(a, hasOpen)]); }
@@ -630,8 +653,9 @@ function noteFor(key, idx, v){
                         .map(([l,a])=>`${l} ${fmt0(a[idx])}`);
     if(parts.length) t += (t?"  \u2014  ":"") + "this column: " + parts.join("  +  ") + "  =  " + fmt0(v);
   }
-  // never return null for a real value — fall back to a units note so EVERY cell traces.
-  if(!t) t = "$000s \u2014 modeled value for this quarter.";
+  // never return null for a real value — but be HONEST: if no formula is registered
+  // for this line, say so rather than pretending. Most lines DO have a formula above.
+  if(!t) t = "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the methodology note at the foot of the tab.";
   return t;
 }
 function fmtP(x,d=2){ return (x==null||isNaN(+x)) ? "n/m" : (+x).toFixed(d)+"%"; }
@@ -1928,9 +1952,9 @@ function renderContent(){
     h += rowBS('Less: Allowance for Loan Losses', arr12((fin.bs.alll||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'alll');
     h += rowBS('Net Loans & Leases', arr12(fin.bs.netLoans, bsHasOpen), 'subtotal', 'netLoans');
     h += rowBS('Premises & Equipment', arr12(fin.bs.premises || fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen), null, 'premises');
-    h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen));
+    h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen), null, 'intangibles');
     if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
-    h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen));
+    h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen), null, 'otherAssets');
     h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
     h += `<tr class="section"><td colspan="${V21?15:14}">Liabilities</td></tr>`;
     DEP_KEYS.forEach(k=>{
@@ -1940,14 +1964,14 @@ function renderContent(){
     h += rowBS('Total Deposits', arr12(fin.bs.deposits, bsHasOpen), 'subtotal', 'deposits');
     h += rowBS('Borrowings', arr12(fin.bs.borrow || fin.bs.borrowings, bsHasOpen), null, 'borrow');
     if(some(fin.bs.borrowSched)) h += rowBS('Scheduled Borrowings (FHLB/Term, amortizing)', arr12(fin.bs.borrowSched, bsHasOpen), null, 'borrowSched');
-    h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen));
-    h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal');
+    h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen), null, 'otherLiab');
+    h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal', 'totalLiab');
     h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;
-    h += rowBS('Capital Stock & Surplus', arr12(D.paidIn, bsHasOpen));
+    h += rowBS('Capital Stock & Surplus', arr12(D.paidIn, bsHasOpen), null, 'paidInStock');
     h += rowBS('Retained Earnings (Deficit)', arr12(fin.bs.re || fin.bs.retained, bsHasOpen), null, 're');
     if(some(fin.bs.aoci)) h += rowBS('Accumulated Other Comprehensive Income (Loss)', arr12(fin.bs.aoci, bsHasOpen), null, 'aoci');
     h += rowBS('Total Equity Capital', arr12(fin.bs.equity, bsHasOpen), 'subtotal', 'equity');
-    h += rowBS('TOTAL LIABILITIES & EQUITY', arr12(D.totalLiabEq, bsHasOpen), 'grand');
+    h += rowBS('TOTAL LIABILITIES & EQUITY', arr12(D.totalLiabEq, bsHasOpen), 'grand', 'totalLiabEq');
     h += '</table>';
     const hasMemo = some(F.obs_notional), hasFV = some(F.fv_adj_assets) || some(F.fv_adj_liabs);
     if(hasMemo || hasFV){
