@@ -44,6 +44,37 @@ class SubstrateNotConfigured(RuntimeError):
     pass
 
 
+# ---------------------------------------------------------------------------
+# Shared, bounded connection pool (one per URL, process-wide). The corridor
+# fires ~7 metric requests concurrently; without a pool each opened its own new
+# psycopg2 connection, storming the DB's connection limit and producing random
+# per-metric 502s (whichever lost the race). A ThreadedConnectionPool (built for
+# concurrent sync threads) caps total connections and reuses them.
+_POOLS = {}
+_POOL_LOCK = None
+
+def _get_pool(url):
+    global _POOL_LOCK
+    import threading
+    if _POOL_LOCK is None:
+        _POOL_LOCK = threading.Lock()
+    with _POOL_LOCK:
+        pool = _POOLS.get(url)
+        if pool is None:
+            from psycopg2.pool import ThreadedConnectionPool
+            _min = int(os.environ.get("CHARTERIQ_POOL_MIN", "1"))
+            _max = int(os.environ.get("CHARTERIQ_POOL_MAX", "8"))
+            _ct = int(os.environ.get("CHARTERIQ_CONNECT_TIMEOUT_S", "5"))
+            pool = ThreadedConnectionPool(
+                _min, _max, dsn=url,
+                connect_timeout=_ct,
+                keepalives=1, keepalives_idle=30, keepalives_interval=10,
+                keepalives_count=3,
+            )
+            _POOLS[url] = pool
+        return pool
+
+
 class CharterIQClient:
     """Thin semantic client. `executor` is injectable for tests: a callable
     (sql, params) -> list[tuple]. The default lazily opens a psycopg2
@@ -58,57 +89,51 @@ class CharterIQClient:
     def configured(self):
         return bool(self._executor or self._url)
 
-    def _new_conn(self):
-        import psycopg2, sys, time
-        _ct = int(os.environ.get("CHARTERIQ_CONNECT_TIMEOUT_S", "5"))
-        print(f"[DBCONN] connecting (connect_timeout={_ct}s)...", flush=True); sys.stderr.flush()
-        _t0 = time.time()
-        conn = psycopg2.connect(
-            self._url,
-            connect_timeout=_ct,
-            keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
-        )
-        conn.set_session(readonly=True, autocommit=True)
-        print(f"[DBCONN] connected in {int((time.time()-_t0)*1000)}ms", flush=True); sys.stderr.flush()
-        return conn
-
     def _default_executor(self, sql, params):
         if not self._url:
             raise SubstrateNotConfigured(
                 "CHARTERIQ_DATABASE_URL is not set on this instance")
         import psycopg2
         _to = os.environ.get("CHARTERIQ_STMT_TIMEOUT_MS", "8000")
-        # Try on the existing connection; if it's stale/dead (the reused socket went
-        # away — DB restart, idle cutoff, network blip), reconnect ONCE and retry.
-        # Without this, a dead persistent socket blocks on recv until the edge proxy
-        # times out -> opaque 502. psql never hit this because it always reconnects.
+        pool = _get_pool(self._url)
+        # Borrow a connection from the shared bounded pool, use it, return it. This is
+        # the fix for the concurrent-toggle 502 storm: the lending corridor fires ~7
+        # metric requests at once (Promise.all), each in its own threadpool thread.
+        # Without a pool, each opened its OWN new psycopg2 connection -> a 7-connection
+        # storm every toggle -> whichever lost the race against the DB connection limit
+        # or the connect timeout 502'd, and WHICH one was random. A bounded pool caps
+        # total connections and reuses them, so concurrency can't storm the DB.
+        conn = None
         for attempt in (1, 2):
             try:
-                if self._conn is None or getattr(self._conn, "closed", 1):
-                    self._conn = self._new_conn()
-                with self._conn.cursor() as cur:
+                conn = pool.getconn()
+                if getattr(conn, "closed", 0):
+                    # discard a dead conn and get a fresh one
+                    pool.putconn(conn, close=True); conn = pool.getconn()
+                conn.set_session(readonly=True, autocommit=True)
+                with conn.cursor() as cur:
                     try:
                         cur.execute("SET statement_timeout = %s", (int(_to),))
                     except Exception:
                         pass
-                    import sys as _s, time as _tm
-                    print(f"[DBQUERY] executing: {sql[:60]}", flush=True); _s.stderr.flush()
-                    _q0 = _tm.time()
                     cur.execute(sql, params)
                     rows = cur.fetchall()
-                    print(f"[DBQUERY] returned {len(rows)} rows in {int((_tm.time()-_q0)*1000)}ms",
-                          flush=True); _s.stderr.flush()
-                    return rows
+                pool.putconn(conn); conn = None
+                return rows
             except (psycopg2.OperationalError, psycopg2.InterfaceError):
-                # connection-level failure: drop it and let attempt 2 reconnect fresh
-                try:
-                    if self._conn is not None:
-                        self._conn.close()
-                except Exception:
-                    pass
-                self._conn = None
+                # connection-level failure: close this one out of the pool, retry once
+                if conn is not None:
+                    try: pool.putconn(conn, close=True)
+                    except Exception: pass
+                    conn = None
                 if attempt == 2:
                     raise
+            finally:
+                # never leak a borrowed connection back if we bailed mid-use
+                if conn is not None:
+                    try: pool.putconn(conn)
+                    except Exception: pass
+                    conn = None
 
     def _run(self, sql, params=()):
         if not re.match(r"^\s*SELECT\b", sql, re.I):
