@@ -55,13 +55,36 @@ FLAG_METRIC_MAP = {
     "COUPLED-02":     ("loan_yield",         "substrate"),   # yield leg of the joint rule
     "RES-THIN":       ("alll_to_loans",      "substrate"),
     "PROV-BELOW-CO":  ("provision_to_avg_assets", "substrate"),
-    # Value-adding proxies (labeled where they surface — not exact same measure):
+    # Value-adding proxy (labeled): sustainable-growth capacity, not observed growth.
     "FUND-GROWTH":    ("max_sustainable_growth", "proxy_growth"),  # pierces optimistic growth
-    "CO-BAND":        ("npl_ratio",          "proxy_credit"),      # disclosure-ledger id
-    "BAND-CO":        ("npl_ratio",          "proxy_credit"),      # emitted-flag id (BAND-CO-HI/LO)
+    # Charge-off: the REAL metrics (net_charge_off_rate / _ubpr) are being written to the
+    # substrate now. Encode them as a preference LIST — the first that resolves wins, so the
+    # flag AUTO-UPGRADES from the npl_ratio proxy to the real charge-off band the moment the
+    # columns land, with no code change. Tier is per-candidate so the label stays honest.
+    "CO-BAND":        [("net_charge_off_rate", "substrate"),
+                       ("net_charge_off_rate_ubpr", "substrate"),
+                       ("npl_ratio", "proxy_credit")],   # disclosure-ledger id
+    "BAND-CO":        [("net_charge_off_rate", "substrate"),
+                       ("net_charge_off_rate_ubpr", "substrate"),
+                       ("npl_ratio", "proxy_credit")],   # emitted-flag id (BAND-CO-HI/LO)
     # --- genuinely absent in substrate: stay fail-closed on static bars ---
     # GOS-MARGIN-HI, GOS-WAREHOUSE, MSR-CAP, MSR-FEE (mortgage-banking niche, no peer metric)
 }
+
+
+def _resolve_mapped(mapped):
+    """A FLAG_METRIC_MAP value is either a single (metric, tier) or a preference list
+    of them. Yield each (metric, tier) candidate in order so the caller can try the
+    real metric first and fall back to a proxy. Fail-closed: unknown shape -> nothing."""
+    if mapped is None:
+        return []
+    if isinstance(mapped, tuple):
+        return [mapped]
+    if isinstance(mapped, list):
+        return [m for m in mapped if isinstance(m, tuple)]
+    return []
+
+
 VINTAGE_LABEL = {
     "substrate": "2026Q1 (substrate-grade)",
     "funding_legacy": "2025Q4 (latest published; funding-metric refresh in progress)",
@@ -85,14 +108,26 @@ def calibrate_thresholds(static_thresholds, total_assets_000s):
         parts = th["id"].split("-")
         two = "-".join(parts[:2]) if len(parts) >= 2 else th["id"]
         mapped = (FLAG_METRIC_MAP.get(th["id"]) or FLAG_METRIC_MAP.get(two))
-        if not mapped or not mapped[0]:
+        candidates = _resolve_mapped(mapped)
+        if not candidates:
             row["peer"] = None
             row["peer_note"] = "structural check — no peer metric maps to this rule"
             rows.append(row); continue
-        metric, tier = mapped
+        # try candidates in order; first that resolves wins (real metric before proxy)
+        latest, metric, tier, source = None, None, None, None
+        last_reason = None
+        for cand_metric, cand_tier in candidates:
+            try:
+                parsed, src = get_bands(cand_metric, cohort)
+                b = parsed["bands"][-1] if parsed.get("bands") else None
+                if b:
+                    latest, metric, tier, source = b, cand_metric, cand_tier, src
+                    break
+            except BandsError as e:
+                last_reason = str(e)[:60]; continue
+            except Exception:
+                last_reason = "substrate unreachable"; continue
         try:
-            parsed, source = get_bands(metric, cohort)
-            latest = parsed["bands"][-1] if parsed.get("bands") else None
             if latest:
                 n = latest.get("n")
                 _q = latest.get("quarter") or "latest"
@@ -107,15 +142,19 @@ def calibrate_thresholds(static_thresholds, total_assets_000s):
                 any_live = True
             else:
                 row["peer"] = None
-                row["peer_note"] = "cohort resolved but carried no band for this quarter"
+                row["peer_note"] = (f"substrate miss — static threshold governs "
+                                    f"({last_reason})" if last_reason
+                                    else "cohort resolved but carried no band for this quarter")
+                if last_reason:
+                    reasons.append(candidates[0][0])
         except BandsError as e:
             row["peer"] = None
             row["peer_note"] = f"substrate miss — static threshold governs ({str(e)[:60]})"
-            reasons.append(metric)
+            if metric: reasons.append(metric)
         except Exception as e:
             row["peer"] = None
             row["peer_note"] = f"substrate unreachable — static threshold governs"
-            reasons.append(metric)
+            if metric: reasons.append(metric)
         rows.append(row)
     if any_live:
         prov = (f"asset-band peer cohort '{band}' \u2014 percentiles per metric at the vintage "
@@ -237,19 +276,26 @@ def peer_annotate(flags, cfg, cohort="broad"):
         parts = fid.split("-")
         two = "-".join(parts[:2]) if len(parts) >= 2 else fid
         mapped = FLAG_METRIC_MAP.get(fid) or FLAG_METRIC_MAP.get(two)
-        if not mapped:
+        candidates = _resolve_mapped(mapped)
+        if not candidates:
             out.append(f); continue
-        metric, tier = mapped
         val = _flag_client_value(flag, cfg)
         if val is None:
             out.append(f); continue
-        try:
-            parsed, source = get_bands(metric, cohort)
-        except Exception:
-            out.append(f); continue           # substrate miss -> static text stands
-        band = parsed["bands"][-1] if parsed.get("bands") else None
-        if not band:
-            out.append(f); continue
+        # try each candidate in preference order — the first that resolves wins, so a
+        # flag auto-upgrades from a proxy to the real metric the moment it lands.
+        band, metric, tier = None, None, None
+        for cand_metric, cand_tier in candidates:
+            try:
+                parsed, source = get_bands(cand_metric, cohort)
+            except Exception:
+                continue
+            b = parsed["bands"][-1] if parsed.get("bands") else None
+            if b:
+                band, metric, tier = b, cand_metric, cand_tier
+                break
+        if band is None:
+            out.append(f); continue           # no candidate resolved -> static text stands
         pos = corridor_position(val, band)
         label = _corridor_to_pctlabel(pos)
         proxy = ""
