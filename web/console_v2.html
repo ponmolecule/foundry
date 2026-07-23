@@ -1272,7 +1272,11 @@ window.renderBands = async function(){
   // fetch one band per metric (latest quarter used for placement)
   async function fetchBand(metric){
     const _ctl = new AbortController();
-    const _timer = setTimeout(()=>_ctl.abort(), 15000);
+    // the lending path does more DB work (cohort membership + denominator/value
+    // fetch + filter + band compute) than the stored/curated path, so give it more
+    // room before aborting — a slow multi-query response isn't "unreachable".
+    const _timeout = useLending ? 30000 : 15000;
+    const _timer = setTimeout(()=>_ctl.abort(), _timeout);
     const pm = PEER_METRIC[metric] || metric;
     const url = useLending
       ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(pm)}&band=under_200M`

@@ -411,15 +411,21 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
         return JSONResponse({"error": "substrate not configured; charter-filtered "
                              "cohort requires the live database"}, status_code=503)
     try:
+        stage = "get_peer_cohort"
         coh = cl.get_peer_cohort(band, limit=500)
         cert_list = [m.get("cert") for m in coh.get("members", []) if m.get("cert") is not None]
-        # batch-fetch the denominators / values the cohort filter needs, from the
-        # metrics table (one query each, no per-cert round trips):
-        #  - rwa_dollars -> the RWA floor for risk-based ratios (CBLR electors absent
-        #    by design, correctly excluded from a risk-based cohort)
-        #  - the metric's own value -> the denominator-agnostic ratio-ceiling guard
+        if not cert_list:
+            return JSONResponse({"error": f"asset band '{band}' returned no member institutions "
+                                 "(check the institutions table has rows in this size range)"},
+                                status_code=404)
+        # the frontend sends the corridor's SHORT metric key (tier1, efficiency, ...);
+        # the cohort filter and the value lookup both need the DB metric_name, so
+        # canonicalize ONCE here. Without this the RWA floor / ratio-ceiling silently
+        # don't match (they key on tier1_ratio, not tier1) and the filter is a no-op.
+        db_metric = _pb._canonical_metric(metric)
+        stage = "batch metric fetch"
         rwa_by_cert = cl.get_metric_latest_by_cert("rwa_dollars", cert_list)
-        val_by_cert = cl.get_metric_latest_by_cert(_pb._canonical_metric(metric), cert_list)
+        val_by_cert = cl.get_metric_latest_by_cert(db_metric, cert_list)
         members = []
         for m in coh.get("members", []):
             c = m.get("cert")
@@ -428,16 +434,21 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                             "assets_mm": m.get("asset_size_mm"),
                             "rwa_000s": rwa_by_cert.get(c),
                             "value": val_by_cert.get(c)})
-        kept, dropped = filter_cohort(members, metric)
+        stage = "filter_cohort"
+        kept, dropped = filter_cohort(members, db_metric)
         if not kept:
             return JSONResponse({"error": "no lending peers remain after cohort hygiene "
                                  "for this metric; the band may be dominated by non-lending "
-                                 "or near-nil-denominator filers"}, status_code=404)
-        parsed, source = _pb.get_bands(metric, kept)
+                                 "or near-nil-denominator filers",
+                                 "excluded_sample": [{"cert": c, "reason": r} for c, r in dropped[:5]]},
+                                status_code=404)
+        stage = "get_bands"
+        parsed, source = _pb.get_bands(db_metric, kept)
     except _pb.BandsError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
-        return JSONResponse({"error": f"charter-filtered cohort failed: {e}"}, status_code=502)
+        return JSONResponse({"error": f"charter-filtered cohort failed at {stage}: "
+                             f"{type(e).__name__}: {e}"}, status_code=502)
     parsed["source"] = source
     parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
     parsed["cohort_filter"] = cohort_provenance(metric, band, len(kept), dropped)
