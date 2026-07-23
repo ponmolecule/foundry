@@ -299,6 +299,14 @@ table.ovt{border-collapse:collapse;font-size:.83rem;color:#EDF0F5;margin-top:4px
 table.ovt th{color:#8C99AF;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #24334D;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
 table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align:top}
 table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
+/* Ruled-grid variant for the flag/threshold ledger: full cell borders + centered
+   headers. Scoped so the peer-comparison and vintage .ovt tables are unaffected. */
+table.ovt.ovt-grid{border:1px solid #2A3B58}
+table.ovt.ovt-grid th{text-align:center;border:1px solid #2A3B58;background:#141E30}
+table.ovt.ovt-grid td{border:1px solid #24334D}
+/* provenance hover: cells carrying a data-prov get a dotted underline affordance and
+   the native title tooltip; keeps the surface quiet until hovered. */
+.ovt [data-prov]{border-bottom:1px dotted #45597B;cursor:help}
 .ovwm{border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);color:#FBBF24;
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:10px 14px;border-radius:6px;margin:6px 0 16px}
 #content.cover .card{background:#182640;border-color:#24334D;border-top-color:#DFA85A;box-shadow:none;color:#EDF0F5}
@@ -1700,32 +1708,36 @@ function renderOverview(){
     const el = document.getElementById("threshLedger"); if(!el) return;
     const peerTier = t.tier==="provisional_peer";
     el.innerHTML = `<div style="font-size:10.5px;color:#8FA3C0;margin:0 0 6px">Severity is the rule\u2019s built-in class, not a verdict on this plan. \u201cYour plan\u201d shows whether the rule actually fired on the values entered.</div>`
-      + `<table class="ovt" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:172px;white-space:nowrap">Peer band (p10 \u00b7 median \u00b7 p90)</th>':''}<th style="width:84px;white-space:nowrap">Model input</th><th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
+      + `<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:172px;white-space:nowrap">Peer band (p10 \u00b7 median \u00b7 p90)</th>':''}<th style="width:84px;white-space:nowrap">Model input</th><th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
       + t.thresholds.map(th=>{
           const p = th.peer;
           const peerCell = peerTier ? (p
-            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:#FFFFFF">${(+p.p10).toFixed(2)}\u2013${(+p.p50).toFixed(2)}\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
-            : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
+            ? `<td data-prov title="Asset-band peer percentiles for this metric — ${esc(p.vintage)} cohort, n=${p.n}${p.small_n?', small sample':''}. p10\u2013median\u2013p90 of real peer banks." style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:#FFFFFF">${(+p.p10).toFixed(2)}\u2013${(+p.p50).toFixed(2)}\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            : `<td data-prov title="No peer band for this rule — it is a structural/coupled check, not a single peer-comparable metric." style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
           // the model's own tested input value for this rule — the number that
           // determined firing. None (em dash) where the rule has no single scalar
           // input. CO-BAND is per-product: show each lending product's charge-off
           // assumption vs its loan-type band, not one collapsed number.
           const mv = th.plan_value;
+          const provAttr = th.plan_prov ? ` data-prov title="${esc(th.plan_prov)}"` : '';
           let modelCell;
           if(th.id === "CO-BAND" && Array.isArray(t.co_breakout) && t.co_breakout.length){
             const vcol = {high:"#F87171", low:"#DFA85A", inside:"#7FB07F", "no assumption":"#6E7C93"};
             const lines = t.co_breakout.map(c=>{
               const val = (c.plan_value===null||c.plan_value===undefined) ? "\u2014" : c.plan_value.toFixed(2)+"%";
               const col = vcol[c.verdict] || "#FFFFFF";
-              return `<div style="white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:${col}">${val}</span> <span style="color:#8FA3C0;font-size:9.5px">${esc(c.name)} \u00b7 ${esc(c.loan_type)} band ${c.band_lo}\u2013${c.band_hi}% \u00b7 ${esc(c.verdict)}</span></div>`;
+              return `<div data-prov title="${esc(c.prov||'')}" style="white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:${col}">${val}</span> <span style="color:#8FA3C0;font-size:9.5px">${esc(c.name)} \u00b7 ${esc(c.loan_type)} band ${c.band_lo}\u2013${c.band_hi}% \u00b7 ${esc(c.verdict)}</span></div>`;
             }).join("");
             modelCell = `<td style="vertical-align:top">${lines}</td>`;
           } else {
-            modelCell = `<td style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#6E7C93;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
+            modelCell = `<td${provAttr} style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#6E7C93;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
           }
           const fired = _fired(th.id);
-          const yourCell = `<td style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
-          return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="rule class, not a verdict">${esc(th.sev)}</span></td></tr>`;
+          const fireProv = fired
+            ? "This rule fired: the model input crossed the trigger threshold. See the flag detail below for the specific reasoning."
+            : "This rule did not fire: the model input stayed within the acceptable range for this threshold.";
+          const yourCell = `<td data-prov title="${esc(fireProv)}" style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
+          return `<tr><td data-prov title="Rule identifier ${esc(th.id)} \u2014 from the challenge threshold ledger (Roman-lineage, peer-calibrated where a cohort exists)." style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td data-prov title="Threshold that trips this rule: ${esc(th.trigger)}" style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="Rule class (built-in severity), not a verdict on this plan.">${esc(th.sev)}</span></td></tr>`;
         }).join("") + `</table>`
       + `<div style="margin-top:6px;color:#8FA3C0;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);

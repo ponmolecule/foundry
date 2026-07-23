@@ -361,13 +361,29 @@ def v31_challenge_thresholds_post(body: dict, _=Depends(gate)):
         except Exception:
             pass
     # attach the model's tested input value per rule (None where there's no scalar)
+    # + a provenance string so each value can explain its own source on hover.
+    _PROV = {
+        "FUND-HOT":   "Balance-weighted Q1 deposit rate across all deposit products "
+                      "(each product's rate weighted by its opening balance).",
+        "FUND-DDA":   "Balance-weighted Q1 rate paid on transaction (DDA) products, "
+                      "weighted by opening balance.",
+        "FUND-GROWTH":"Balance-weighted quarterly deposit growth: sum(opening_balance x "
+                      "growth_q) / sum(opening_balance) across all deposit products.",
+        "GROWTH-Y1":  "Year-1 balance-sheet growth — no single scalar wired for placement.",
+        "CO-BAND":    "Per lending product: that product's annual net charge-off "
+                      "assumption vs its loan-type band. Shown per product, not blended.",
+        "MSR-FEE":    "Mortgage servicing fee is per mortgage-banking product; no single "
+                      "blended scalar.",
+    }
     for row in rows:
+        rid = row.get("id")
         try:
-            v = _flag_client_value({"id": row.get("id")}, cfg)
+            v = _flag_client_value({"id": rid}, cfg)
         except Exception:
             v = None
         row["plan_value"] = None if v is None else round(float(v), 2)
         row["plan_unit"] = "%" if v is not None else None
+        row["plan_prov"] = _PROV.get(rid)
     # CO-BAND is per-product, not a single scalar — attach the per-lending-product
     # charge-off breakout so the ledger can expand it into one row per product (input
     # assumption vs that product's loan-type band) instead of an em dash.

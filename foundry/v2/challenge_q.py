@@ -80,6 +80,9 @@ def co_band_breakout(cfg):
             "band_lo": round(lo * 100.0, 2),
             "band_hi": round(hi * 100.0, 2),
             "verdict": verdict,
+            "prov": (f"Annual net charge-off assumption entered for '{nm}' "
+                     f"({ltype.replace('_',' ')} loan), judged against the "
+                     f"{ltype.replace('_',' ')} band {round(lo*100,2)}\u2013{round(hi*100,2)}%."),
         })
     return out
 
