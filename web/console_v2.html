@@ -1224,7 +1224,12 @@ function bandsSectionHtml(){
 }
 // The Peer Corridor always shows ALL metrics — every one is material to a de novo,
 // so there's no user selection to make. This is the fixed metric set, in display order.
-window._pbMetrics = ["roa","nim","efficiency","tier1","cet1","net_charge_off_rate"];
+// Capital is the Tier 1 LEVERAGE ratio (Tier 1 / total assets), NOT Tier 1 / RWA:
+// Foundry models a CBLR bank and computes leverage only (no risk-weighted assets),
+// and leverage_ratio is the universal capital metric every bank files, so it's a
+// like-for-like peer comparison. Tier 1/RWA and CET1/RWA are deliberately NOT shown —
+// they'd compare a leverage numerator against a different (risk-based) denominator.
+window._pbMetrics = ["roa","nim","efficiency","leverage","net_charge_off_rate"];
 window.renderBands = async function(){
   const body = document.getElementById("pbBody"); if(!body) return;
   const metrics = window._pbMetrics;
@@ -1270,15 +1275,13 @@ window.renderBands = async function(){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
       return {v:(ann&&ann.length)?ann[ann.length-1]:null};
     }
-    if(metric==="tier1"||metric==="cet1"){
-      // The de novo's standardized tier1/cet1 ratio is an ALTITUDE artifact —
-      // near-zero RWA in early quarters makes it ~49000%, nonsense to place against
-      // a ~20% peer band. The comparable, sane modeled capital figure is the
-      // LEVERAGE ratio (~16-20%), which is what the old place-modeled panel used
-      // and what a de novo (all-CET1) is actually judged on. Place leverage.
+    if(metric==="leverage"){
+      // Tier 1 LEVERAGE ratio = Tier 1 capital / total assets. This is what the
+      // engine computes (the model adopts CBLR; risk-weighted assets are not
+      // computed), and it's placed against the peer LEVERAGE band — same
+      // denominator on both sides, the universal capital metric every bank files.
       const lev = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.lev;
-      return {v:(lev&&lev.length)?lev[lev.length-1]:null,
-              note:"modeled leverage ratio (all-CET1 de novo) vs peer risk-based \u2014 related but not identical measures"};
+      return {v:(lev&&lev.length)?lev[lev.length-1]:null};
     }
     if(metric==="net_charge_off_rate"){
       // engine models the flow but doesn't surface a placeable rate yet
@@ -1286,7 +1289,7 @@ window.renderBands = async function(){
     }
     return {v:null};
   }
-  const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio", tier1:"Tier 1 / RWA", cet1:"CET1", net_charge_off_rate:"Charge-off (net, ann.)"};
+  const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio", leverage:"Tier 1 leverage ratio", net_charge_off_rate:"Charge-off (net, ann.)"};
   const COLOR = {good:"#6FA98C", bad:"#C77", mid:"#C7975A"};
   function favOf(metric, v, latest){
     const dir = METRIC_DIRECTION[metric] || "higher_good";
@@ -1403,7 +1406,7 @@ const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio"
 // leaner is better) and net charge-off rate (fewer credit losses; negative = net
 // recovery = best). Used by placementColor().
 const METRIC_DIRECTION = {
-  roa: "higher_good", nim: "higher_good", tier1: "higher_good", cet1: "higher_good",
+  roa: "higher_good", nim: "higher_good", leverage: "higher_good",
   efficiency: "lower_good", net_charge_off_rate: "lower_good",
 };
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
