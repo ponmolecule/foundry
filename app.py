@@ -466,6 +466,27 @@ def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under
         cl = CharterIQClient()
         if not cl.configured():
             return JSONResponse({**out, "error": "not configured"}, status_code=503)
+
+        # STEP 0: does ANY access to the institutions table respond at all? The whole
+        # lending path is the only thing that touches `institutions`, and it has always
+        # 502'd — so this table access has never been proven in prod. A trivial COUNT
+        # isolates "can we read this table" from "is the filter/sort slow". _run already
+        # applies an 8s statement_timeout, so a hang returns a catchable error, not a
+        # bare edge-proxy 502.
+        if step == 0:
+            import time
+            t0 = time.time()
+            try:
+                r = cl._run("SELECT COUNT(*) FROM institutions")
+                out["institutions_count"] = int(r[0][0]) if r else None
+                out["elapsed_ms"] = int((time.time() - t0) * 1000)
+                return JSONResponse({**out, "reached": 0})
+            except Exception as e:
+                import traceback
+                out["elapsed_ms"] = int((time.time() - t0) * 1000)
+                return JSONResponse({**out, "step0_error": f"{type(e).__name__}: {e}",
+                                     "trace": traceback.format_exc()[-800:]}, status_code=502)
+
         db_metric = _pb._canonical_metric(metric)
         out["db_metric"] = db_metric
         H = REG_PARAMS["cohort_hygiene"]
