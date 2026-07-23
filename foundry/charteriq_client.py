@@ -263,20 +263,31 @@ class CharterIQClient:
                    "10B_50B": (10000, 50000), "over_50B": (50000, None),
                    "all_universe": (None, None)}[asset_band]
 
-        # (1) capped cert list — asset band + charter exclusion, largest banks first.
+        # (1) capped cert list. Mirror the WORKING get_peer_cohort query exactly (same
+        # columns, same ORDER BY) — it's proven against the live schema — then exclude
+        # non-lending charters in PYTHON. The earlier SQL charter filter used
+        # `lower(charter_type) <> ALL(%s)` + `NULLS LAST`, constructs get_peer_cohort
+        # never uses; keeping the SQL identical to the known-good query removes that as
+        # a failure source. Fetch a few extra rows so post-filter we still have ~cap.
         inst_conds = ["active = TRUE"]
         inst_params = []
         if lo is not None:
             inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
         if hi is not None:
             inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
-        inst_conds.append("(charter_type IS NULL OR lower(charter_type) <> ALL(%s))")
-        inst_params.append(sorted(NON_LENDING_CHARTER_TYPES))
-        cert_rows = self._run(
-            f"SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)} "
-            "ORDER BY asset_size_mm DESC NULLS LAST LIMIT %s",
-            tuple(inst_params + [cohort_cap]))
-        certs = [r[0] for r in cert_rows]
+        fetch = cohort_cap * 2   # headroom for the Python charter drop
+        rows = self._run(
+            "SELECT cert, charter_type FROM institutions WHERE "
+            f"{' AND '.join(inst_conds)} ORDER BY asset_size_mm DESC LIMIT %s",
+            tuple(inst_params + [fetch]))
+        certs = []
+        for cert, ct in rows:
+            ctl = (ct or "").strip().lower()
+            if ctl and ctl in NON_LENDING_CHARTER_TYPES:
+                continue           # drop trusts/special-purpose; blank charter kept
+            certs.append(cert)
+            if len(certs) >= cohort_cap:
+                break
         if not certs:
             return []
 

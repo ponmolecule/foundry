@@ -474,16 +474,23 @@ def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under
                    "10B_50B": (10000, 50000), "over_50B": (50000, None),
                    "all_universe": (None, None)}[band]
 
-        # STEP 1: capped cert list from institutions
+        # STEP 1: capped cert list — mirror the working get_peer_cohort query, filter
+        # charter in Python (the <> ALL(list)/NULLS LAST SQL was the untested construct)
         inst_conds = ["active = TRUE"]; inst_params = []
         if lo is not None: inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
         if hi is not None: inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
-        inst_conds.append("(charter_type IS NULL OR lower(charter_type) <> ALL(%s))")
-        inst_params.append(sorted(NON_LENDING_CHARTER_TYPES))
-        cert_rows = cl._run(
-            f"SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)} "
-            "ORDER BY asset_size_mm DESC NULLS LAST LIMIT %s", tuple(inst_params + [150]))
-        certs = [r[0] for r in cert_rows]
+        rows = cl._run(
+            "SELECT cert, charter_type FROM institutions WHERE "
+            f"{' AND '.join(inst_conds)} ORDER BY asset_size_mm DESC LIMIT %s",
+            tuple(inst_params + [300]))
+        certs = []
+        for cert, ct in rows:
+            ctl = (ct or "").strip().lower()
+            if ctl and ctl in NON_LENDING_CHARTER_TYPES:
+                continue
+            certs.append(cert)
+            if len(certs) >= 150:
+                break
         out["step1_cert_count"] = len(certs)
         out["step1_sample"] = certs[:5]
         if step <= 1:
