@@ -238,20 +238,23 @@ class CharterIQClient:
             (metric_name, int(ly), int(lq), cert_ints))
         return {int(c): float(v) for c, v in rows if v is not None}
 
-    def get_lending_cohort_bands(self, metric_name, asset_band="under_200M", latest_only=True):
-        """The lending-filtered peer band, computed in ONE query — the database does the
-        join, no Python cert-list assembly. Percentiles over banks that are (a) in the
-        asset band, (b) not trust/special-purpose charters (where charter_type is
-        populated; blanks are KEPT so the ~2,454 un-backfilled certs aren't wrongly
-        dropped), (c) below the ratio sanity ceiling (the denominator-agnostic workhorse
-        that removes near-nil-denominator artifacts by their output), and (d) for capital
-        ratios, above the RWA floor. Floors/ceilings come from REG_PARAMS. Returns a list
-        of per-quarter band dicts, or [] if no rows.
+    def get_lending_cohort_bands(self, metric_name, asset_band="under_200M",
+                                  latest_only=True, cohort_cap=150):
+        """Lending-filtered peer band, computed as TWO bounded queries so it can't
+        OOM the worker (the cause of the bare 502: percentile_cont over a `cert IN
+        (SELECT ... FROM institutions)` subquery fans out over thousands of small
+        banks and blows memory on the 18M-row metrics table — a SIGKILL no try/except
+        can catch). Instead:
 
-        This replaces the old four-query path (get_peer_cohort + 2x get_metric_latest_by_
-        cert + filter_cohort + get_cohort_bands) that assembled a filtered cert list in
-        Python — simpler, one round trip, and any schema error surfaces as one clean
-        caught exception naming the exact column rather than an empty proxy 502."""
+          1. resolve a CAPPED cert list from institutions (asset band + charter
+             exclusion), largest-first, LIMIT cohort_cap — one small indexed query.
+          2. percentile_cont over metrics WHERE cert = ANY(<=cap array) at the latest
+             quarter, plus the ratio ceiling and (for capital ratios) the RWA floor.
+
+        Both queries are bounded (<=150 certs, one quarter), so neither can balloon.
+        This is what the stored path does implicitly (pre-aggregated) and what curated
+        cohorts do (small cert list) — both of which return 200. Floors/ceilings from
+        REG_PARAMS. Returns per-quarter band dicts, or []."""
         from foundry.v2.regparams import REG_PARAMS
         from foundry.v2.cohort_filter import NON_LENDING_CHARTER_TYPES
         H = REG_PARAMS["cohort_hygiene"]
@@ -260,49 +263,44 @@ class CharterIQClient:
                    "10B_50B": (10000, 50000), "over_50B": (50000, None),
                    "all_universe": (None, None)}[asset_band]
 
-        # resolve latest quarter for the metric (bounds the aggregate cheaply)
-        yq_where, yq_params = "", []
-        if latest_only:
-            latest = self._run(
-                "SELECT year, quarter FROM metrics WHERE metric_name = %s "
-                "ORDER BY year DESC, quarter DESC LIMIT 1", (metric_name,))
-            if not latest:
-                return []
-            ly, lq = latest[0]
-            yq_where = " AND m.year = %s AND m.quarter = %s"
-            yq_params = [int(ly), int(lq)]
-
-        # WHERE fragments, all parameterized
-        where = ["m.metric_name = %s", "m.value IS NOT NULL"]
-        params = [metric_name]
-
-        # (a) asset band — institutions subquery (one source of truth for size + charter)
+        # (1) capped cert list — asset band + charter exclusion, largest banks first.
         inst_conds = ["active = TRUE"]
         inst_params = []
         if lo is not None:
             inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
         if hi is not None:
             inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
-        # (b) charter exclusion WHERE populated — blanks kept (NULL passes the filter)
-        charter_list = sorted(NON_LENDING_CHARTER_TYPES)
         inst_conds.append("(charter_type IS NULL OR lower(charter_type) <> ALL(%s))")
-        inst_params.append(charter_list)
-        where.append(f"m.cert IN (SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)})")
-        params += inst_params
+        inst_params.append(sorted(NON_LENDING_CHARTER_TYPES))
+        cert_rows = self._run(
+            f"SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)} "
+            "ORDER BY asset_size_mm DESC NULLS LAST LIMIT %s",
+            tuple(inst_params + [cohort_cap]))
+        certs = [r[0] for r in cert_rows]
+        if not certs:
+            return []
 
-        # (c) ceiling — the denominator-agnostic workhorse, inline
+        # (2) percentiles over the bounded cert array at the latest quarter.
+        where = ["m.metric_name = %s", "m.cert = ANY(%s)", "m.value IS NOT NULL"]
+        params = [metric_name, certs]
+        ly = lq = None
+        if latest_only:
+            latest = self._run(
+                "SELECT year, quarter FROM metrics WHERE metric_name = %s "
+                "ORDER BY year DESC, quarter DESC LIMIT 1", (metric_name,))
+            if not latest:
+                return []
+            ly, lq = int(latest[0][0]), int(latest[0][1])
+            where += ["m.year = %s", "m.quarter = %s"]
+            params += [ly, lq]
         ceiling = H.get("ratio_ceilings", {}).get(metric_name)
         if ceiling is not None:
             where.append("m.value <= %s"); params.append(float(ceiling))
-
-        # (d) RWA floor — capital ratios only
-        if metric_name in ("tier1_ratio", "cet1_ratio", "total_rbc_ratio") and latest_only:
+        if metric_name in ("tier1_ratio", "cet1_ratio", "total_rbc_ratio") and ly is not None:
             where.append("m.cert IN (SELECT cert FROM metrics WHERE metric_name = 'rwa_dollars' "
                          "AND year = %s AND quarter = %s AND value >= %s)")
-            params += [int(ly), int(lq), H["rwa_floor_000s"]]
-
-        params += yq_params
-        sql = (
+            params += [ly, lq, H["rwa_floor_000s"]]
+        rows = self._run(
             "SELECT m.year, m.quarter, "
             "percentile_cont(0.10) WITHIN GROUP (ORDER BY m.value) AS p10, "
             "percentile_cont(0.25) WITHIN GROUP (ORDER BY m.value) AS p25, "
@@ -310,9 +308,9 @@ class CharterIQClient:
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY m.value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY m.value) AS p90, "
             "COUNT(*) AS n "
-            f"FROM metrics m WHERE {' AND '.join(where)}{yq_where} "
-            "GROUP BY m.year, m.quarter ORDER BY m.year, m.quarter")
-        rows = self._run(sql, tuple(params))
+            f"FROM metrics m WHERE {' AND '.join(where)} "
+            "GROUP BY m.year, m.quarter ORDER BY m.year, m.quarter",
+            tuple(params))
         bands = []
         for y, q, p10, p25, p50, p75, p90, n in rows:
             if p50 is None:
