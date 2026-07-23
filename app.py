@@ -424,6 +424,84 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
     parsed["small_n_threshold"] = _pb.SMALL_N_THRESHOLD
     return JSONResponse(parsed)
 
+@app.get("/api/v31/peer-bands-lending-debug")
+def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under_200M",
+                                  step: int = 1, user=Depends(gate)):
+    """Self-diagnosing probe. Runs the lending pipeline ONE step at a time, up to
+    `step`, and returns what that step produced. Because each step is a SEPARATE HTTP
+    request, a worker death (SIGKILL/segfault — uncatchable) on the fatal step still
+    lets every earlier step return 200 with its result. So we find the exact operation
+    that kills the worker by walking step=1,2,3,4 and seeing which is the last to
+    return JSON. Bare 502 at step=K, JSON at step=K-1 -> step K is the killer.
+
+    step 1: resolve the capped cert list (institutions query only)
+    step 2: + resolve the metric's latest quarter
+    step 3: + the bounded percentile query (the aggregate)
+    step 4: + ceiling/RWA-filtered percentile (the full thing)"""
+    out = {"metric": metric, "band": band, "step": step}
+    try:
+        from foundry.v2 import peer_bands as _pb
+        from foundry.v2.regparams import REG_PARAMS
+        from foundry.v2.cohort_filter import NON_LENDING_CHARTER_TYPES
+        from foundry.charteriq_client import CharterIQClient
+        cl = CharterIQClient()
+        if not cl.configured():
+            return JSONResponse({**out, "error": "not configured"}, status_code=503)
+        db_metric = _pb._canonical_metric(metric)
+        out["db_metric"] = db_metric
+        H = REG_PARAMS["cohort_hygiene"]
+        lo, hi = {"under_200M": (None, 200), "200M_500M": (200, 500),
+                   "500M_2B": (500, 2000), "2B_10B": (2000, 10000),
+                   "10B_50B": (10000, 50000), "over_50B": (50000, None),
+                   "all_universe": (None, None)}[band]
+
+        # STEP 1: capped cert list from institutions
+        inst_conds = ["active = TRUE"]; inst_params = []
+        if lo is not None: inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
+        if hi is not None: inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
+        inst_conds.append("(charter_type IS NULL OR lower(charter_type) <> ALL(%s))")
+        inst_params.append(sorted(NON_LENDING_CHARTER_TYPES))
+        cert_rows = cl._run(
+            f"SELECT cert FROM institutions WHERE {' AND '.join(inst_conds)} "
+            "ORDER BY asset_size_mm DESC NULLS LAST LIMIT %s", tuple(inst_params + [150]))
+        certs = [r[0] for r in cert_rows]
+        out["step1_cert_count"] = len(certs)
+        out["step1_sample"] = certs[:5]
+        if step <= 1:
+            return JSONResponse({**out, "reached": 1})
+
+        # STEP 2: latest quarter
+        latest = cl._run("SELECT year, quarter FROM metrics WHERE metric_name = %s "
+                         "ORDER BY year DESC, quarter DESC LIMIT 1", (db_metric,))
+        out["step2_latest"] = list(latest[0]) if latest else None
+        if step <= 2:
+            return JSONResponse({**out, "reached": 2})
+        ly, lq = int(latest[0][0]), int(latest[0][1])
+
+        # STEP 3: plain bounded percentile (no ceiling/RWA) — isolates the aggregate itself
+        rows = cl._run(
+            "SELECT COUNT(*) FROM metrics m WHERE m.metric_name = %s AND m.cert = ANY(%s) "
+            "AND m.year = %s AND m.quarter = %s AND m.value IS NOT NULL",
+            (db_metric, certs, ly, lq))
+        out["step3_row_count"] = int(rows[0][0]) if rows else 0
+        if step <= 3:
+            return JSONResponse({**out, "reached": 3})
+
+        # STEP 4: the full percentile aggregate
+        rows = cl._run(
+            "SELECT percentile_cont(0.50) WITHIN GROUP (ORDER BY m.value), COUNT(*) "
+            "FROM metrics m WHERE m.metric_name = %s AND m.cert = ANY(%s) "
+            "AND m.year = %s AND m.quarter = %s AND m.value IS NOT NULL",
+            (db_metric, certs, ly, lq))
+        out["step4_p50"] = float(rows[0][0]) if rows and rows[0][0] is not None else None
+        out["step4_n"] = int(rows[0][1]) if rows else 0
+        return JSONResponse({**out, "reached": 4})
+    except Exception as e:
+        import traceback
+        return JSONResponse({**out, "error": f"{type(e).__name__}: {e}",
+                             "trace": traceback.format_exc()[-800:]}, status_code=502)
+
+
 @app.get("/api/v31/peer-bands-lending-ping")
 def v31_peer_bands_lending_ping(user=Depends(gate)):
     """Diagnostic no-op: returns instantly, does NO database work. If the real
