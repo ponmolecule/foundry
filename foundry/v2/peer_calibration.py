@@ -255,7 +255,15 @@ def _flag_client_value(flag, cfg):
             return None
         wg = sum((p.get("opening_balance") or 0) * (p.get("growth_q") or 0) for p in dep) / wd
         return wg * 100.0
-    # charge-off vs NPL proxy: balance-weighted charge-off (%)
+    # charge-off placement. BASIS GUARD: the peer band net_charge_off_rate is UBPR
+    # one-quarter-annualized (current-quarter net charge-offs x4 over loans). The modeled
+    # input charge_off_ann is ALREADY an ANNUAL rate — the engine divides it by 4 to get
+    # the quarterly flow (engine_q_a.py: charge_off_ann/4.0). So wco below is already
+    # annualized and places DIRECTLY against the annualized peer band. DO NOT multiply by
+    # 4 here — charge_off_ann is annual, not quarterly; a x4 would double-annualize and
+    # overstate the modeled value 4x. (If the fallback npl_ratio proxy resolves instead,
+    # note it's a stock level, not an annualized flow — a different basis, labeled as a
+    # proxy in the message.)
     if fid in ("BAND-CO-HI", "BAND-CO-LO"):
         wl = sum((p.get("opening_balance") or 0) for p in lend)
         if wl <= 0:

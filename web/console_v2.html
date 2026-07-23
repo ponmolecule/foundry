@@ -1312,8 +1312,13 @@ window.renderBands = async function(){
       return {v:(lev&&lev.length)?lev[lev.length-1]:null};
     }
     if(metric==="net_charge_off_rate"){
-      // engine models the flow but doesn't surface a placeable rate yet
-      return {v:null, note:"engine doesn't surface a placeable rate yet"};
+      // modeled net charge-off rate: engine surfaces financials.ratios.nco_rate,
+      // one-quarter annualized over average loans — SAME basis as the peer band
+      // (UBPR quarter-flow x4). Places like-for-like. Can be slightly negative when
+      // recoveries exceed charge-offs (a good quarter), which reads correctly as
+      // "best" since the metric is lower_good.
+      const s = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.nco_rate;
+      return {v:(s&&s.length)?s[s.length-1]:null};
     }
     return {v:null};
   }

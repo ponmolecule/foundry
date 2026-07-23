@@ -471,7 +471,7 @@ def run_pf_a(cfg):
     # ---- ratios (A.7): Tier 1 approx = equity - intangibles - MSA excess over the
     # 25%-of-Tier-1 threshold (12 CFR 3.22(d) simplification); deducted MSAs also
     # come out of average assets in the leverage denominator. ----
-    ratios = {k: [None] * (Q + 1) for k in ("roa", "roe", "nim", "eff", "lev", "alllPct")}
+    ratios = {k: [None] * (Q + 1) for k in ("roa", "roe", "nim", "eff", "lev", "alllPct", "nco_rate")}
     for q in range(1, Q + 1):
         avg_a = (bs["totalAssets"][q - 1] + bs["totalAssets"][q]) / 2.0
         avg_e = (bs["equity"][q - 1] + bs["equity"][q]) / 2.0
@@ -488,6 +488,12 @@ def run_pf_a(cfg):
         msr_x = max(0.0, msr_t[q] - 0.25 * max(0.0, t1))
         ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x - _dta_ded) * 100) if (avg_a - msr_x - _dta_ded) > 0 else None
         ratios["alllPct"][q] = (alll_t[q] / gross[q] * 100) if gross[q] > 0 else None
+        # net charge-off rate: current-quarter net charge-offs annualized (x4) over
+        # AVERAGE loans, matching the peer band's UBPR one-quarter-annualized basis
+        # exactly (so a modeled value places like-for-like). Can be slightly negative
+        # when recoveries exceed charge-offs — a genuinely good quarter, not an anomaly.
+        avg_loans = (gross[q - 1] + gross[q]) / 2.0
+        ratios["nco_rate"][q] = (is_["nco"][q] * 4 / avg_loans * 100) if avg_loans > 0 else None
 
     products = []
     for fam, plist in (("lending", lend), ("deposit", dep), ("obs", obs)):

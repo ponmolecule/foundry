@@ -975,11 +975,11 @@ def t36():
           V["fingerprint"] == V2["fingerprint"] and len(V["fingerprint"]) == 12)
     Vc = build_vintage_corridor(cl, 2018, 2023, metrics=["tier1_ratio"], min_n=2, max_age_q=2)
     lbl = Vc["corridor"]["tier1_ratio"]["accuracy"]
-    check("T36f", "capital history labeled as PROXY with the in-place repair schedule",
-          "PROXY" in lbl and "2025Q4" in lbl and "filed history" in lbl)
+    check("T36f", "capital history: proxy retired (cet1 now distinct), current bands filed-grade",
+          "distinct" in lbl and "retired" in lbl and "filed-history-grade" in lbl)
     from .charteriq_client import VINTAGE_METRICS
-    check("T36g", "corridor holds only age-driven metrics: cet1 excluded (proxy dup of tier1), "
-                  "deposit_cost excluded (rate-environment-driven, not age-driven)",
+    check("T36g", "corridor holds only age-driven metrics: cet1 excluded (tracks tier1 for "
+                  "de-novo all-common-equity), deposit_cost excluded (rate-environment-driven)",
           "cet1_ratio" not in VINTAGE_METRICS and "tier1_ratio" in VINTAGE_METRICS
           and "deposit_cost" not in VINTAGE_METRICS)
 

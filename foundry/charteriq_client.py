@@ -456,11 +456,11 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
         corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
         if metric in ("tier1_ratio", "cet1_ratio"):
             corridor[metric]["accuracy"] = (
-                "history through 2025Q3 is a regulatory-capital PROXY "
-                "(cet1 and tier1 carry the same value by construction); "
-                "item-derived from 2025Q4; the historical proxy is being replaced "
-                "with filed history \u2014 treat historical bands as approximate "
-                "until then. Values far above 100% mean RWA is "
+                "cet1 and tier1 are now item-derived and distinct (the earlier "
+                "'same value by construction' proxy is retired \u2014 the capital "
+                "backfill landed). Historical bands before the backfill may still be "
+                "approximate; current bands are filed-history-grade. "
+                "Values far above 100% mean RWA is "
                 "near zero (a young bank still in cash and Treasuries): read "
                 "early-quarter bands as altitude, not decimals — at near-nil "
                 "denominators the ratio is arithmetically unstable")
