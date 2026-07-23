@@ -88,8 +88,23 @@ REG_PARAMS = {
         "rwa_floor_000s": 25000,
         # leverage / asset-scaled ratios: require $50M assets.
         "assets_floor_mm": 50,
-        # efficiency / revenue-scaled: require a positive, non-trivial revenue base.
-        "revenue_floor_000s": 100,
+        # efficiency / revenue-scaled: revenue dollars are NOT cleanly stored in the
+        # substrate (only net figures — net_income/ppnr — exist, not gross NII+nonII),
+        # so a revenue FLOOR isn't cleanly computable. The ratio-ceiling below replaces
+        # it: a near-zero-denominator artifact is self-identifying by its OUTPUT (a
+        # 54,700% efficiency ratio is obviously an artifact) without needing the
+        # denominator at all — denominator-agnostic and more robust than a floor.
+        "revenue_floor_000s": 100,   # retained for provenance; superseded by ratio ceilings
+        # ratio-ceiling guard: exclude a bank-quarter whose RATIO VALUE exceeds a sanity
+        # ceiling — catches near-nil-denominator artifacts regardless of which
+        # denominator went to zero, no denominator lookup required. Per-metric because
+        # a plausible max differs (capital ratios can legitimately reach ~100% for a
+        # young all-equity bank; efficiency should never exceed a few hundred %).
+        "ratio_ceilings": {
+            "tier1_ratio": 1000.0, "cet1_ratio": 1000.0, "total_rbc_ratio": 1000.0,
+            "leverage_ratio": 500.0, "efficiency_ratio": 500.0,
+        },
+        "ratio_ceiling_default": None,   # None = no ceiling for metrics not listed (roa/nim)
         "spec": "CHARTER_FILTERED_COHORT_SPEC 2026-07-21",
         "basis": "cohort filter for examiner-facing lending-bank comparison; "
                  "raw values unchanged; extract-raw remains authoritative",

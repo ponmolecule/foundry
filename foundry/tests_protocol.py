@@ -1963,6 +1963,22 @@ def t65():
     # winsorization is explicitly NOT done — floors filter membership, values untouched
     check("T65e", "filter refines the GROUP, not the data (no value capping present)",
           "refines the peer GROUP" in prov["policy"])
+    # ratio-ceiling guard: denominator-agnostic artifact exclusion by OUTPUT value.
+    # efficiency has NO revenue floor (revenue not stored) — the ceiling is the guard.
+    eff_members = [
+        {"cert": 201, "charter_type": "commercial bank", "assets_mm": 150, "value": 65.0},
+        {"cert": 202, "charter_type": "commercial bank", "assets_mm": 150, "value": 54700.0},
+    ]
+    ekept, edropped = filter_cohort(eff_members, "efficiency_ratio")
+    check("T65f", "efficiency artifact (54700%) excluded by ratio ceiling, no revenue needed",
+          ekept == [201] and len(edropped) == 1
+          and "sanity ceiling" in edropped[0][1])
+    # ceilings live in REG_PARAMS, not inline; roa/nim have no ceiling (None -> kept)
+    roa_members = [{"cert": 301, "charter_type": "commercial bank", "assets_mm": 150, "value": 9999.0}]
+    rkept, _ = filter_cohort(roa_members, "roa")
+    check("T65g", "ratio ceilings resolve from REG_PARAMS; unlisted metrics (roa) have no ceiling",
+          REG_PARAMS["cohort_hygiene"]["ratio_ceilings"]["efficiency_ratio"] == 500.0
+          and rkept == [301])
 
 
 def t66():

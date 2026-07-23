@@ -197,6 +197,21 @@ class CharterIQClient:
                           "n": int(n) if n is not None else None})
         return bands
 
+    def get_metric_latest_by_cert(self, metric_name, certs):
+        """Latest-quarter value of `metric_name` for each cert in `certs`.
+        Returns {cert: value}. One query, used to populate cohort-filter denominators
+        (rwa_dollars) and the ratio value (for the ceiling guard) without a per-cert
+        round trip. Uses DISTINCT ON to take each cert's most recent quarter."""
+        if not certs:
+            return {}
+        cert_ints = [int(c) for c in certs]
+        rows = self._run(
+            "SELECT DISTINCT ON (cert) cert, value FROM metrics "
+            "WHERE metric_name = %s AND cert = ANY(%s) AND value IS NOT NULL "
+            "ORDER BY cert, year DESC, quarter DESC",
+            (metric_name, cert_ints))
+        return {int(c): float(v) for c, v in rows if v is not None}
+
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
         """Real schema (surveyed 2026-07-16): per-bank rows carrying the group
         distribution; band lives in group_id, count in peer_count. Any one row

@@ -412,19 +412,27 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                              "cohort requires the live database"}, status_code=503)
     try:
         coh = cl.get_peer_cohort(band, limit=500)
+        cert_list = [m.get("cert") for m in coh.get("members", []) if m.get("cert") is not None]
+        # batch-fetch the denominators / values the cohort filter needs, from the
+        # metrics table (one query each, no per-cert round trips):
+        #  - rwa_dollars -> the RWA floor for risk-based ratios (CBLR electors absent
+        #    by design, correctly excluded from a risk-based cohort)
+        #  - the metric's own value -> the denominator-agnostic ratio-ceiling guard
+        rwa_by_cert = cl.get_metric_latest_by_cert("rwa_dollars", cert_list)
+        val_by_cert = cl.get_metric_latest_by_cert(_pb._canonical_metric(metric), cert_list)
         members = []
         for m in coh.get("members", []):
-            members.append({"cert": m.get("cert"),
+            c = m.get("cert")
+            members.append({"cert": c,
                             "charter_type": m.get("charter_type"),
                             "assets_mm": m.get("asset_size_mm"),
-                            # rwa/revenue denominators fetched per-cert only if present;
-                            # absent -> the floor treats as unqualified (honest, not zero-filled)
-                            "rwa_000s": m.get("rwa_000s"),
-                            "revenue_000s": m.get("revenue_000s")})
+                            "rwa_000s": rwa_by_cert.get(c),
+                            "value": val_by_cert.get(c)})
         kept, dropped = filter_cohort(members, metric)
         if not kept:
-            return JSONResponse({"error": "no lending peers remain after cohort hygiene; "
-                                 "band may be dominated by non-lending charters"}, status_code=404)
+            return JSONResponse({"error": "no lending peers remain after cohort hygiene "
+                                 "for this metric; the band may be dominated by non-lending "
+                                 "or near-nil-denominator filers"}, status_code=404)
         parsed, source = _pb.get_bands(metric, kept)
     except _pb.BandsError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
