@@ -46,14 +46,24 @@ def asset_band_for(total_assets_000s):
 # is documentation the provenance surfaces; the substrate returns its own latest.
 # 'substrate' = reaches 2026Q1; 'funding_legacy' = lags to 2025Q4 until M6a.
 FLAG_METRIC_MAP = {
+    # --- resolvable today (metric served by the substrate) ---
     "FUND-HOT":  ("deposit_cost",       "funding_legacy"),
     "FUND-DDA":  ("deposit_cost",       "funding_legacy"),
     "CO-BAND":   ("net_charge_off_pct", "substrate"),   # disclosure-ledger id
     "BAND-CO":   ("net_charge_off_pct", "substrate"),   # emitted-flag id (BAND-CO-HI/LO)
+    # --- mapped to their target metric, pending substrate coverage (fail-closed until
+    #     the band resolves in prod; the metric name is the contract, not a promise it
+    #     exists yet — verify with the peer-metric audit before relying on these) ---
+    "FUND-GROWTH": ("deposit_growth",      "pending"),
+    "GOS-MARGIN-HI": ("gain_on_sale_margin", "pending"),
+    "GOS-WAREHOUSE": ("warehouse_hold_q",    "pending"),
+    "MSR-CAP":     ("msr_cap_rate",         "pending"),
+    "MSR-FEE":     ("servicing_fee_bp",     "pending"),
 }
 VINTAGE_LABEL = {
     "substrate": "2026Q1 (substrate-grade)",
     "funding_legacy": "2025Q4 (latest published; funding-metric refresh in progress)",
+    "pending": "metric not yet served by the substrate — flag stays on its static bar",
 }
 
 def calibrate_thresholds(static_thresholds, total_assets_000s):
