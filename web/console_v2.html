@@ -584,7 +584,8 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the methodology note at the foot of the tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
+function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the full Methodology note on the Assumption Book tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
+function methodFoot(){ return '<div class="memo" style="margin-top:16px;max-width:820px">Every figure here is engine-computed \u2014 balances roll forward with originations, runoff, and charge-offs; interest accrues on average balances at one-quarter of the annual rate. The full derivation is in the <a href="#" onclick="setTab(\'notes\');return false;" style="color:#7FB2E8">Methodology note on the Assumption Book tab</a>.</div>'; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each quarter.",
   sec: "Securities are the surplus-funding plug: funding beyond loans, cash, and other assets is invested here at the securities yield.",
@@ -655,7 +656,7 @@ function noteFor(key, idx, v){
   }
   // never return null for a real value — but be HONEST: if no formula is registered
   // for this line, say so rather than pretending. Most lines DO have a formula above.
-  if(!t) t = "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the methodology note at the foot of the tab.";
+  if(!t) t = "Engine-computed output for this quarter ($000s). Per-line formula not yet itemized \u2014 see the full Methodology note on the Assumption Book tab.";
   return t;
 }
 function fmtP(x,d=2){ return (x==null||isNaN(+x)) ? "n/m" : (+x).toFixed(d)+"%"; }
@@ -1991,6 +1992,7 @@ function renderContent(){
       });
       h += '</table>';
     }
+    h += methodFoot();
     c.innerHTML = h; return;
   }
 
@@ -2047,6 +2049,7 @@ function renderContent(){
       });
       h += '</table>';
     }
+    h += methodFoot();
     c.innerHTML = h; return;
   }
 
@@ -2272,6 +2275,7 @@ function renderContent(){
       h += rowBS('Operating costs', p.opex);
       h += '</table>';
     });
+    h += methodFoot();
     c.innerHTML = h; return;
   }
 
