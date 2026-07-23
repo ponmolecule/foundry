@@ -304,12 +304,12 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
 table.ovt.ovt-grid{border:1px solid #2A3B58}
 table.ovt.ovt-grid th{text-align:center;border:1px solid #2A3B58;background:#141E30}
 table.ovt.ovt-grid td{border:1px solid #24334D}
-/* provenance hover: cells carrying a data-prov get a dotted underline affordance and
-   the native title tooltip; keeps the surface quiet until hovered. Applies app-wide
-   (statement tables, ledgers, cards) so provenance reads consistently everywhere. */
-[data-prov]{cursor:help}
-[data-prov]:not(td):not(th){border-bottom:1px dotted #45597B}
-td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(69,89,123,.55)}
+/* provenance hover: cells carrying a data-prov get a quiet underline affordance and
+   the native title tooltip. Cursor stays the default text/cell cursor (no heavy help
+   arrow) — the underline alone signals "hover for source", Excel-formula-bar style. */
+[data-prov]{cursor:default}
+[data-prov]:not(td):not(th){border-bottom:1px dotted #3C4E6B}
+td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
 .ovwm{border:1px solid rgba(251,191,36,.5);background:rgba(251,191,36,.08);color:#FBBF24;
   font-family:var(--mono);font-size:11px;letter-spacing:.04em;padding:10px 14px;border-radius:6px;margin:6px 0 16px}
 #content.cover .card{background:#182640;border-color:#24334D;border-top-color:#DFA85A;box-shadow:none;color:#EDF0F5}
@@ -584,7 +584,7 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-function cellNum(x, title){ const n=+x; return `<td class="${n<0?"neg":""}"${title?` data-prov title="${title.replace(/"/g,"&quot;")}"`:""}>${fmt0(x)}</td>`; }
+function cellNum(x, title){ const n=+x; const t = title || "$000s \u2014 modeled value for this quarter."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each quarter.",
   sec: "Securities are the surplus-funding plug: funding beyond loans, cash, and other assets is invested here at the securities yield.",
@@ -630,7 +630,9 @@ function noteFor(key, idx, v){
                         .map(([l,a])=>`${l} ${fmt0(a[idx])}`);
     if(parts.length) t += (t?"  \u2014  ":"") + "this column: " + parts.join("  +  ") + "  =  " + fmt0(v);
   }
-  return t || null;
+  // never return null for a real value — fall back to a units note so EVERY cell traces.
+  if(!t) t = "$000s \u2014 modeled value for this quarter.";
+  return t;
 }
 function fmtP(x,d=2){ return (x==null||isNaN(+x)) ? "n/m" : (+x).toFixed(d)+"%"; }
 function getPath(p){ return p.split(".").reduce((o,k)=> o==null?o : o[isNaN(+k)?k:+k], cfg); }
@@ -1205,7 +1207,8 @@ function rowIS(label, arr, cls, tot, refKey){
 function rowPct(label, arr, d, refKey){
   if(!arr) return "";
   const a = arr.length===13 ? arr.slice(1) : arr;
-  const nt = CALC_TEXT[refKey] ? ` data-prov title="${CALC_TEXT[refKey].replace(/"/g,"&quot;")}"` : "";
+  const help = CALC_TEXT[refKey] || (label + " \u2014 ratio for this quarter.");
+  const nt = ` data-prov title="${help.replace(/"/g,"&quot;")}"`;
   let h = "<tr>" + refCell(refKey) + `<td${nt}>${label}</td>`;
   a.forEach(v=>{ h += `<td${nt}>${fmtP(v, d===undefined?2:d)}</td>`; });
   return h + "</tr>";
@@ -1959,8 +1962,8 @@ function renderContent(){
       const AN = lastRes.annual;
       h += '<div class="h2" style="margin-top:16px;font-size:14px">Year-End Balances</div>';
       h += '<table class="fin"><tr><th></th><th>Y1 (Q4)</th><th>Y2 (Q8)</th><th>Y3 (Q12)</th></tr>';
-      [["Total assets", AN.total_assets_eop], ["Net loans", AN.net_loans_eop], ["Deposits", AN.deposits_eop], ["Leverage (%)", AN.lev_eop]].forEach(([l,arr])=>{
-        h += `<tr><td>${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      [["Total assets", AN.total_assets_eop, "Year-end total assets ($000s), modeled."], ["Net loans", AN.net_loans_eop, "Year-end net loans ($000s): gross loans less allowance."], ["Deposits", AN.deposits_eop, "Year-end total deposits ($000s), modeled."], ["Leverage (%)", AN.lev_eop, "Year-end Tier 1 leverage ratio: Tier 1 capital / average assets."]].forEach(([l,arr,pv])=>{
+        h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
       h += '</table>';
     }
@@ -2015,8 +2018,8 @@ function renderContent(){
       h += '<div class="h2" style="margin-top:16px;font-size:14px">Annual Rollup (Y1/Y2/Y3)</div>';
       h += `<div class="srcnote">${esc(AN.note)}.</div>`;
       h += '<table class="fin"><tr><th></th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr>';
-      [["Net income ($000s)", AN.ni], ["NIM (%)", AN.nim], ["ROA (%)", AN.roa], ["Efficiency (%)", AN.eff]].forEach(([l,arr])=>{
-        h += `<tr><td>${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      [["Net income ($000s)", AN.ni, "Full-year net income ($000s): sum of that year's four quarters."], ["NIM (%)", AN.nim, "Full-year net interest margin: net interest income / average earning assets."], ["ROA (%)", AN.roa, "Full-year return on assets: net income / average assets."], ["Efficiency (%)", AN.eff, "Full-year efficiency ratio: noninterest expense / (net interest income + noninterest income)."]].forEach(([l,arr,pv])=>{
+        h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)${(typeof v==="number"&&v<0)?";color:#B45454":""}" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
       h += '</table>';
     }
@@ -2272,23 +2275,24 @@ function renderContent(){
     h += '<table class="fin"><tr><th>Metric ($000s unless noted)</th>';
     scens.forEach(s=>{ h += `<th>${esc(s.label)}</th>`; });
     h += '</tr>';
-    const mRow = (label, fn, cls)=>{ let rr = `<tr${cls?` class="${cls}"`:""}><td>${label}</td>`; scens.forEach(s=>{ rr += fn(s); }); return rr + '</tr>'; };
-    h += mRow('Cumulative net income (12 qtrs)', s=>cellNum(s.cum_ni), 'subtotal');
-    h += mRow('Net income, Q12', s=>cellNum(s.ni_q12));
-    h += mRow('Cumulative provision for loan losses', s=>cellNum(s.cum_prov));
-    h += mRow('Cumulative gains on sale (incl. MSR cap.)', s=>cellNum(s.cum_gos));
-    h += mRow('Cumulative net servicing income', s=>cellNum(s.cum_serv));
-    h += mRow('Cumulative FV gains (losses)', s=>cellNum(s.cum_fv));
-    h += mRow('Total assets, Q12', s=>cellNum(s.q12_total_assets));
-    h += mRow('Total equity, Q12', s=>cellNum(s.equity_q12));
-    h += mRow('Peak borrowings', s=>cellNum(s.peak_borrowings));
+    const mRow = (label, fn, cls, prv)=>{ let rr = `<tr${cls?` class="${cls}"`:""}><td${prv?` data-prov title="${prv.replace(/"/g,"&quot;")}"`:""}>${label}</td>`; scens.forEach(s=>{ rr += fn(s); }); return rr + '</tr>'; };
+    const _sp = (s)=>` (scenario: ${s.label})`;
+    h += mRow('Cumulative net income (12 qtrs)', s=>cellNum(s.cum_ni, 'Sum of net income across all 12 quarters'+_sp(s)+'. $000s.'), 'subtotal', 'Sum of the 12 quarterly net-income figures under each scenario.');
+    h += mRow('Net income, Q12', s=>cellNum(s.ni_q12, 'Net income in the terminal quarter'+_sp(s)+'. $000s.'), null, 'Terminal-quarter (Q12) net income under each scenario.');
+    h += mRow('Cumulative provision for loan losses', s=>cellNum(s.cum_prov, 'Sum of quarterly loan-loss provisions'+_sp(s)+'. Credit scenarios multiply charge-off and reserve rates. $000s.'), null, 'Cumulative provision = change in allowance + net charge-offs, summed over 12 quarters.');
+    h += mRow('Cumulative gains on sale (incl. MSR cap.)', s=>cellNum(s.cum_gos, 'Sum of gains on loan sales plus MSR capitalization'+_sp(s)+'. $000s.'), null, 'Sold originations x gain-on-sale margin, plus capitalized MSR value, summed.');
+    h += mRow('Cumulative net servicing income', s=>cellNum(s.cum_serv, 'Servicing fees net of MSR amortization, summed'+_sp(s)+'. $000s.'), null, 'Servicing fees on serviced principal, net of MSR amortization, summed.');
+    h += mRow('Cumulative FV gains (losses)', s=>cellNum(s.cum_fv, 'Fair-value gains/losses on FVO-elected products, summed'+_sp(s)+'. $000s.'), null, 'Mark-to-market on fair-value-elected loans (incl. credit + rate effects), summed.');
+    h += mRow('Total assets, Q12', s=>cellNum(s.q12_total_assets, 'Total assets at the terminal quarter'+_sp(s)+'. $000s.'), null, 'Terminal-quarter (Q12) total assets under each scenario.');
+    h += mRow('Total equity, Q12', s=>cellNum(s.equity_q12, 'Total equity at the terminal quarter'+_sp(s)+'. Initial capital + cumulative retained earnings. $000s.'), null, 'Initial capital plus cumulative retained earnings at Q12.');
+    h += mRow('Peak borrowings', s=>cellNum(s.peak_borrowings, 'Highest borrowings level across the 12 quarters'+_sp(s)+'. Funding shortfalls are met with borrowings. $000s.'), null, 'Maximum quarterly borrowings — the funding-shortfall plug — across the horizon.');
     h += mRow('Minimum Tier 1 leverage (quarter)', s=>{
       const ml = s.min_leverage==null ? null : s.min_leverage*100;
-      return `<td${ml!==null && ml<levMin ? ' class="neg"' : ''}>${ml===null?'n/m':ml.toFixed(2)+'% (Q'+s.min_leverage_q+')'}</td>`; }, 'subtotal');
-    h += mRow('ROA, Q12 (annualized)', s=>`<td>${fmtP(s.roa_q12)}</td>`);
-    h += mRow('NIM, Q12 (annualized)', s=>`<td>${fmtP(s.nim_q12)}</td>`);
-    h += mRow('NOL carryforward, end', s=>cellNum(s.nol_end));
-    h += mRow(`Est. capital add to hold \u2265${levMin}% leverage`, s=>cellNum(s.capital_shortfall_est), 'grand');
+      return `<td data-prov title="Lowest Tier 1 leverage across 12 quarters${_sp(s)}. Tier 1 / average assets. Commitment floor ${levMin}%."${ml!==null && ml<levMin ? ' class="neg"' : ''}>${ml===null?'n/m':ml.toFixed(2)+'% (Q'+s.min_leverage_q+')'}</td>`; }, 'subtotal', 'Lowest quarterly Tier 1 leverage ratio under each scenario; the quarter shown is the trough.');
+    h += mRow('ROA, Q12 (annualized)', s=>`<td data-prov title="Annualized return on assets at Q12${_sp(s)}. Q12 net income x4 / average assets.">${fmtP(s.roa_q12)}</td>`, null, 'Terminal-quarter net income annualized (x4) over average assets.');
+    h += mRow('NIM, Q12 (annualized)', s=>`<td data-prov title="Annualized net interest margin at Q12${_sp(s)}. Q12 net interest income x4 / average earning assets.">${fmtP(s.nim_q12)}</td>`, null, 'Terminal-quarter net interest income annualized over average earning assets.');
+    h += mRow('NOL carryforward, end', s=>cellNum(s.nol_end, 'Net operating loss carryforward remaining at horizon end'+_sp(s)+'. Offsets future taxable income. $000s.'), null, 'Accumulated NOL carryforward at the end of the projection.');
+    h += mRow(`Est. capital add to hold \u2265${levMin}% leverage`, s=>cellNum(s.capital_shortfall_est, 'Estimated additional opening capital to keep leverage above '+levMin+'%'+_sp(s)+'. Approximate; assumes added capital invested in securities. $000s.'), 'grand', 'Additional day-1 capital required so minimum leverage stays above the commitment floor.');
     h += '</table>';
     h += '<div class="h2" style="font-size:15px">Net Income by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario ($000s)</th>';
@@ -2307,7 +2311,7 @@ function renderContent(){
     scens.forEach(s=>{
       const lv = (s.lev_by_q||[]).slice(-12);
       let rr = `<tr><td>${esc(s.label)}</td>`;
-      lv.forEach(v=>{ rr += `<td${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
+      lv.forEach((v,qi)=>{ rr += `<td data-prov title="Tier 1 leverage ratio, Q${qi+1} (${esc(s.label)} scenario). Tier 1 capital / average assets. Floor ${levMin}%."${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
       h += rr + '</tr>';
     });
     h += '</table>';
