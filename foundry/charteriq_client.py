@@ -164,7 +164,7 @@ class CharterIQClient:
             params = (int(year), int(quarter))
         return [{"group_type": r[0], "group_id": r[1]} for r in self._run(sql + " ORDER BY 1, 2", params)]
 
-    def get_cohort_bands(self, metric_name, certs):
+    def get_cohort_bands(self, metric_name, certs, latest_only=False):
         """Compute per-quarter percentile bands over an ARBITRARY cert list directly
         in SQL (percentile_cont over the per-bank `metrics` table). This is what lets
         ad-hoc cohorts — charter-filtered lending peers, curated cert lists (the Konrad
@@ -172,10 +172,26 @@ class CharterIQClient:
         with NO separate research HTTP endpoint (CHARTERIQ_SUBSTRATE_URL). Returns a
         list of per-quarter band dicts ordered by (year, quarter), or [] if the cert
         list yields no rows. Raw values, no winsorizing — cohort hygiene happens by
-        WHICH certs are passed in, never by capping the data."""
+        WHICH certs are passed in, never by capping the data.
+
+        latest_only=True bounds the aggregate to the single most-recent quarter — the
+        lending corridor only reads bands[-1], so computing all 45 quarters is wasted
+        work that, over a large cert list, contributes to the worker OOM (empty 502).
+        """
         if not certs:
             return []
         cert_ints = [int(c) for c in certs]
+        where = "metric_name = %s AND cert = ANY(%s) AND value IS NOT NULL"
+        params = [metric_name, cert_ints]
+        if latest_only:
+            latest = self._run(
+                "SELECT year, quarter FROM metrics WHERE metric_name = %s "
+                "ORDER BY year DESC, quarter DESC LIMIT 1", (metric_name,))
+            if not latest:
+                return []
+            ly, lq = latest[0]
+            where += " AND year = %s AND quarter = %s"
+            params += [int(ly), int(lq)]
         rows = self._run(
             "SELECT year, quarter, "
             "percentile_cont(0.10) WITHIN GROUP (ORDER BY value) AS p10, "
@@ -184,9 +200,9 @@ class CharterIQClient:
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY value) AS p90, "
             "COUNT(*) AS n "
-            "FROM metrics WHERE metric_name = %s AND cert = ANY(%s) AND value IS NOT NULL "
+            f"FROM metrics WHERE {where} "
             "GROUP BY year, quarter ORDER BY year, quarter",
-            (metric_name, cert_ints))
+            tuple(params))
         bands = []
         for y, q, p10, p25, p50, p75, p90, n in rows:
             if p50 is None:
@@ -199,17 +215,27 @@ class CharterIQClient:
 
     def get_metric_latest_by_cert(self, metric_name, certs):
         """Latest-quarter value of `metric_name` for each cert in `certs`.
-        Returns {cert: value}. One query, used to populate cohort-filter denominators
-        (rwa_dollars) and the ratio value (for the ceiling guard) without a per-cert
-        round trip. Uses DISTINCT ON to take each cert's most recent quarter."""
+        Returns {cert: value}. Used to populate cohort-filter denominators (rwa_dollars)
+        and the ratio value (ceiling guard). Pins to the single most-recent (year,
+        quarter) present for the metric FIRST, then filters by cert — this avoids a
+        DISTINCT ON + full-history sort over the whole cert list, which on an ~18M-row
+        table spikes memory/time enough to get the worker OOM-killed (an empty 502 from
+        the edge proxy). One cheap indexed lookup instead."""
         if not certs:
             return {}
         cert_ints = [int(c) for c in certs]
+        # find the latest quarter this metric has data for (one tiny query)
+        latest = self._run(
+            "SELECT year, quarter FROM metrics WHERE metric_name = %s "
+            "ORDER BY year DESC, quarter DESC LIMIT 1", (metric_name,))
+        if not latest:
+            return {}
+        ly, lq = latest[0]
         rows = self._run(
-            "SELECT DISTINCT ON (cert) cert, value FROM metrics "
-            "WHERE metric_name = %s AND cert = ANY(%s) AND value IS NOT NULL "
-            "ORDER BY cert, year DESC, quarter DESC",
-            (metric_name, cert_ints))
+            "SELECT cert, value FROM metrics "
+            "WHERE metric_name = %s AND year = %s AND quarter = %s "
+            "AND cert = ANY(%s) AND value IS NOT NULL",
+            (metric_name, int(ly), int(lq), cert_ints))
         return {int(c): float(v) for c, v in rows if v is not None}
 
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):

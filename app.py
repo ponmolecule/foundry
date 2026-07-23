@@ -417,7 +417,11 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
             return JSONResponse({"error": "substrate not configured; charter-filtered "
                                  "cohort requires the live database"}, status_code=503)
         stage = "get_peer_cohort"
-        coh = cl.get_peer_cohort(band, limit=500)
+        # 150 is plenty for a stable percentile band and keeps the downstream cert-list
+        # queries light — 500 was heavy enough (x4 queries) to OOM-kill the worker and
+        # produce an empty 502 from the edge proxy. Members come back largest-first, so
+        # the 150 kept are the most substantial banks in the band (the relevant peers).
+        coh = cl.get_peer_cohort(band, limit=150)
         cert_list = [m.get("cert") for m in coh.get("members", []) if m.get("cert") is not None]
         if not cert_list:
             return JSONResponse({"error": f"asset band '{band}' returned no member institutions "
@@ -447,8 +451,22 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                                  "or near-nil-denominator filers",
                                  "excluded_sample": [{"cert": c, "reason": r} for c, r in dropped[:5]]},
                                 status_code=404)
-        stage = "get_bands"
-        parsed, source = _pb.get_bands(db_metric, kept)
+        stage = "get_cohort_bands"
+        # compute bands directly over the filtered cert list, latest quarter only —
+        # the corridor reads bands[-1], so this is all it needs, and it keeps the
+        # request light enough not to OOM the worker. (Curated cohorts still go through
+        # get_bands, unchanged.)
+        bands = cl.get_cohort_bands(db_metric, kept, latest_only=True)
+        if not bands:
+            return JSONResponse({"error": f"filtered lending cohort ({len(kept)} peers) "
+                                 "has no published values for this metric at the latest quarter"},
+                                status_code=404)
+        small_n = any((b.get("n") or 0) < _pb.SMALL_N_THRESHOLD for b in bands)
+        parsed = {"metric": metric, "cohort": f"lending:{band}",
+                  "provenance": {"basis": "identity-gated (charter-filtered lending cohort, "
+                                 "SQL percentiles)", "certified": False, "computed_at": None},
+                  "bands": bands, "small_n": small_n}
+        source = "substrate (db, lending cohort)"
     except _pb.BandsError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
