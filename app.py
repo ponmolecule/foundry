@@ -324,7 +324,10 @@ def v31_template(_=Depends(gate)):
 def v31_challenge_thresholds(total_assets_000s: float = 0.0, _=Depends(gate)):
     """Static Roman-lineage bands by default; when total_assets_000s is passed,
     attach asset-band peer percentiles (pre-registered selection, per-metric vintage,
-    n-aware). Fail-closed: substrate miss returns the static set untouched."""
+    n-aware). Fail-closed: substrate miss returns the static set untouched.
+
+    GET form (no config): peer bands only, no per-rule model value. The POST form
+    below adds the model's own input value per rule."""
     from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
     if total_assets_000s and total_assets_000s > 0:
         try:
@@ -334,6 +337,38 @@ def v31_challenge_thresholds(total_assets_000s: float = 0.0, _=Depends(gate)):
         except Exception:
             pass  # fail-closed to static
     return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS, "tier": "static"}
+
+
+@app.post("/api/v31/challenge-thresholds")
+def v31_challenge_thresholds_post(body: dict, _=Depends(gate)):
+    """Same ledger as the GET, PLUS the model's own input value for each rule — the
+    balance-weighted figure the challenge layer actually tested — so the user can see
+    WHY each rule did or didn't fire, not just whether it did. Honest by construction:
+    a rule with no single scalar input (structural/coupled rules, or a config lacking
+    the relevant products) reports plan_value=None and the table shows an em dash rather
+    than a fabricated number. Body: {cfg, total_assets_000s?}."""
+    from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
+    from foundry.v2.peer_calibration import _flag_client_value
+    cfg = body.get("cfg") or {}
+    ta = body.get("total_assets_000s") or 0.0
+    # start from the peer-calibrated rows (or static if the substrate misses)
+    tier = "static"; prov = PROVENANCE; rows = [dict(t) for t in CHALLENGE_THRESHOLDS]
+    if ta and ta > 0:
+        try:
+            from foundry.v2.peer_calibration import calibrate_thresholds
+            rows, prov = calibrate_thresholds(CHALLENGE_THRESHOLDS, ta)
+            tier = "provisional_peer"
+        except Exception:
+            pass
+    # attach the model's tested input value per rule (None where there's no scalar)
+    for row in rows:
+        try:
+            v = _flag_client_value({"id": row.get("id")}, cfg)
+        except Exception:
+            v = None
+        row["plan_value"] = None if v is None else round(float(v), 2)
+        row["plan_unit"] = "%" if v is not None else None
+    return {"provenance": prov, "thresholds": rows, "tier": tier}
 
 @app.get("/account")
 def account_page():

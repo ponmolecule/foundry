@@ -1696,19 +1696,24 @@ function renderOverview(){
       const emitted = _LEDGER_TO_FLAGS[ledgerId] || [ledgerId];
       return emitted.some(id=>_firedIds.has(id));
     };
-    fetch("/api/v31/challenge-thresholds?total_assets_000s="+encodeURIComponent(_ta)).then(x=>x.json()).then(t=>{
+    fetch("/api/v31/challenge-thresholds", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({cfg: cfgRef(), total_assets_000s: _ta})}).then(x=>x.json()).then(t=>{
     const el = document.getElementById("threshLedger"); if(!el) return;
     const peerTier = t.tier==="provisional_peer";
     el.innerHTML = `<div style="font-size:10.5px;color:#8FA3C0;margin:0 0 6px">Severity is the rule\u2019s built-in class, not a verdict on this plan. \u201cYour plan\u201d shows whether the rule actually fired on the values entered.</div>`
-      + `<table class="ovt" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:148px">Peer band (p10\u2013p90)</th>':''}<th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
+      + `<table class="ovt" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:172px;white-space:nowrap">Peer band (p10 \u00b7 median \u00b7 p90)</th>':''}<th style="width:84px;white-space:nowrap">Model input</th><th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
       + t.thresholds.map(th=>{
           const p = th.peer;
           const peerCell = peerTier ? (p
-            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono)">${(+p.p10).toFixed(2)}\u2013<b style="color:#C4CDDD">${(+p.p50).toFixed(2)}</b>\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            ? `<td style="vertical-align:top;font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:#FFFFFF">${(+p.p10).toFixed(2)}\u2013${(+p.p50).toFixed(2)}\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
             : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">${esc((th.peer_note||'structural'))}</td>`) : '';
+          // the model's own tested input value for this rule — the number that
+          // determined firing. None (em dash) where the rule has no single scalar
+          // input (structural/coupled, or the config lacks the relevant products).
+          const mv = th.plan_value;
+          const modelCell = `<td style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#6E7C93;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
           const fired = _fired(th.id);
           const yourCell = `<td style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
-          return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="rule class, not a verdict">${esc(th.sev)}</span></td></tr>`;
+          return `<tr><td style="font-family:var(--mono);color:#DFA85A;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td style="color:#DFA85A;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="rule class, not a verdict">${esc(th.sev)}</span></td></tr>`;
         }).join("") + `</table>`
       + `<div style="margin-top:6px;color:#8FA3C0;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);
