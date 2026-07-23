@@ -445,7 +445,7 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
 
 @app.get("/api/v31/peer-bands-lending-debug")
 def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under_200M",
-                                  step: int = 1, user=Depends(gate)):
+                                  step: int = 1, ms: int = 0, user=Depends(gate)):
     """Self-diagnosing probe. Runs the lending pipeline ONE step at a time, up to
     `step`, and returns what that step produced. Because each step is a SEPARATE HTTP
     request, a worker death (SIGKILL/segfault — uncatchable) on the fatal step still
@@ -477,13 +477,30 @@ def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under
             import time
             t0 = time.time()
             try:
-                r = cl._run("SELECT COUNT(*) FROM institutions")
+                # Use a DIRECT cursor so we can set a per-request timeout BELOW the edge
+                # proxy's (which appears shorter than _run's 8s default — hence the edge
+                # 502 instead of our catchable timeout). If a tight timeout turns the
+                # edge 502 into a clean QueryCanceled JSON, the table read is just SLOW
+                # (huge/unindexed seq scan), not crashing.
+                if ms and cl.configured():
+                    import psycopg2
+                    conn = psycopg2.connect(cl._url)
+                    conn.set_session(readonly=True, autocommit=True)
+                    with conn.cursor() as cur:
+                        cur.execute("SET statement_timeout = %s", (int(ms),))
+                        cur.execute("SELECT COUNT(*) FROM institutions")
+                        r = cur.fetchall()
+                    conn.close()
+                else:
+                    r = cl._run("SELECT COUNT(*) FROM institutions")
                 out["institutions_count"] = int(r[0][0]) if r else None
                 out["elapsed_ms"] = int((time.time() - t0) * 1000)
+                out["timeout_ms_used"] = ms or 8000
                 return JSONResponse({**out, "reached": 0})
             except Exception as e:
                 import traceback
                 out["elapsed_ms"] = int((time.time() - t0) * 1000)
+                out["timeout_ms_used"] = ms or 8000
                 return JSONResponse({**out, "step0_error": f"{type(e).__name__}: {e}",
                                      "trace": traceback.format_exc()[-800:]}, status_code=502)
 
