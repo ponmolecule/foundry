@@ -535,6 +535,13 @@ async function preview(){
   // destroyed the field being typed in (the "flash" on tab). Skip the content
   // rebuild while editing products; output tabs still re-render from lastRes.
   if(!(V31 && currentTab==="products")) renderContent();
+  // A late-landing preview must refresh the Peer Corridor if it's on screen — the
+  // corridor's modeled placements read lastRes, and without this an edit made just
+  // before switching tabs (within the 350ms preview debounce) could leave the
+  // corridor showing pre-edit numbers until the next manual re-render. renderContent
+  // above already re-runs renderBands for the peer tab, but this makes the refresh
+  // explicit and unconditional whenever the corridor element exists.
+  if(document.getElementById("pbBody") && typeof renderBands === "function") renderBands();
   // populate substrate status on load so the Vintage Corridor (which gates on
   // subStatus.reachable to show its Build button) works. This used to be triggered
   // by the substrate panel's button, which was removed when the Peer Corridor
