@@ -120,16 +120,35 @@ def results(engagement: str, _=Depends(gate)):
 
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
-    # Reports the live build stamp and whether the worker can reach the database —
-    # one URL that answers "which build is live?" and "is the DB reachable from the
-    # worker?" without auth. This is the ground-truth check for deploy/infra issues.
+    # Reports the live build stamp, DB reachability, AND the running process's own
+    # file truth — because the deployed app 404s on routes that provably exist in the
+    # GitHub app.py, which means the CONTAINER's app.py != GitHub's. This endpoint
+    # makes the running process report what IT actually sees (its cwd, whether its own
+    # source file contains a given route, how many routes it registered), so we can
+    # confirm the file mismatch without needing shell access to the container.
+    import os
     out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
+    try:
+        # what file is THIS module, and does it contain the debug route?
+        this_file = os.path.abspath(__file__)
+        src = open(this_file, encoding="utf-8").read()
+        out["running_file"] = this_file
+        out["cwd"] = os.getcwd()
+        out["self_has_debug_route"] = ("peer-bands-lending-debug" in src)
+        out["self_has_lending_bounded"] = ("get_lending_cohort_bands" in
+            open(os.path.join(os.path.dirname(this_file), "foundry", "charteriq_client.py"),
+                 encoding="utf-8").read()) if os.path.exists(
+            os.path.join(os.path.dirname(this_file), "foundry", "charteriq_client.py")) else None
+        out["route_count"] = len(app.routes)
+        out["lending_routes"] = sorted(r.path for r in app.routes
+                                        if getattr(r, "path", "") and "lending" in r.path)
+    except Exception as e:
+        out["self_inspect_error"] = f"{type(e).__name__}: {e}"
     try:
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
         out["db_configured"] = cl.configured()
         if cl.configured():
-            # trivial round trip — proves the worker can query at all
             r = cl._run("SELECT 1")
             out["db_reachable"] = bool(r)
     except Exception as e:
