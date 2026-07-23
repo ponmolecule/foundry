@@ -738,11 +738,13 @@ function fieldsFor(fam, p, base){
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
     if(p.measurement!=="fair_value") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
-    // Originate-to-sell (mortgage banking) fields are shown ONLY when the product
-    // actually carries a mortgage_banking block. Showing them on every lending
-    // product let a stray keystroke on e.g. a C&I loan auto-create a partial
-    // mortgage_banking object (setPath builds the path), which then failed
-    // validation and bricked every sheet. Now it's an explicit opt-in.
+    // Originate-to-sell (gain-on-sale, warehouse, MSR, servicing) is a residential
+    // MORTGAGE activity — the field shape (MSR cap rate, servicing runoff) only makes
+    // sense for 1-4 family loans sold to the secondary market. So the fields, and the
+    // enable option, appear ONLY for mortgage products (loanMortgage). Other loan
+    // types get nothing — no fields, no button — because it isn't a meaningful option
+    // for them, and that also prevents a stray keystroke minting a partial block.
+    const isMortgage = p.call_report_line === "loanMortgage";
     if(p.mortgage_banking){
       h += M("Originations sold (%)", "sale_pct_of_orig", "pct");
       h += M("Gain-on-sale margin (%)", "gain_on_sale_margin", "pct");
@@ -752,7 +754,7 @@ function fieldsFor(fam, p, base){
       h += M("MSR cap rate (% of UPB)", "msr_cap_rate_pct_upb", "pct");
       h += M("Servicing runoff (%/qtr)", "msr_decay_q", "pct");
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', null);renderContent();refresh()">Remove originate-to-sell</button></div>`;
-    } else {
+    } else if(isMortgage){
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0.5,gain_on_sale_margin:0.0175,warehouse_hold_q:1,servicing_retained_pct:1.0,servicing_fee_bp_ann:25,msr_cap_rate_pct_upb:0.011,msr_decay_q:0.03});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
