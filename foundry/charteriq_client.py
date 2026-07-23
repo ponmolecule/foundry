@@ -164,6 +164,39 @@ class CharterIQClient:
             params = (int(year), int(quarter))
         return [{"group_type": r[0], "group_id": r[1]} for r in self._run(sql + " ORDER BY 1, 2", params)]
 
+    def get_cohort_bands(self, metric_name, certs):
+        """Compute per-quarter percentile bands over an ARBITRARY cert list directly
+        in SQL (percentile_cont over the per-bank `metrics` table). This is what lets
+        ad-hoc cohorts — charter-filtered lending peers, curated cert lists (the Konrad
+        shape) — be served by the SAME database connection every other feature uses,
+        with NO separate research HTTP endpoint (CHARTERIQ_SUBSTRATE_URL). Returns a
+        list of per-quarter band dicts ordered by (year, quarter), or [] if the cert
+        list yields no rows. Raw values, no winsorizing — cohort hygiene happens by
+        WHICH certs are passed in, never by capping the data."""
+        if not certs:
+            return []
+        cert_ints = [int(c) for c in certs]
+        rows = self._run(
+            "SELECT year, quarter, "
+            "percentile_cont(0.10) WITHIN GROUP (ORDER BY value) AS p10, "
+            "percentile_cont(0.25) WITHIN GROUP (ORDER BY value) AS p25, "
+            "percentile_cont(0.50) WITHIN GROUP (ORDER BY value) AS p50, "
+            "percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75, "
+            "percentile_cont(0.90) WITHIN GROUP (ORDER BY value) AS p90, "
+            "COUNT(*) AS n "
+            "FROM metrics WHERE metric_name = %s AND cert = ANY(%s) AND value IS NOT NULL "
+            "GROUP BY year, quarter ORDER BY year, quarter",
+            (metric_name, cert_ints))
+        bands = []
+        for y, q, p10, p25, p50, p75, p90, n in rows:
+            if p50 is None:
+                continue
+            bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
+                          "p10": float(p10), "p25": float(p25), "p50": float(p50),
+                          "p75": float(p75), "p90": float(p90),
+                          "n": int(n) if n is not None else None})
+        return bands
+
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
         """Real schema (surveyed 2026-07-16): per-bank rows carrying the group
         distribution; band lives in group_id, count in peer_count. Any one row

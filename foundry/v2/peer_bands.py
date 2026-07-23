@@ -163,9 +163,26 @@ def get_bands(metric, cohort):
         parsed = _db_bands(metric, cohort)
         if parsed is not None:
             return parsed, "substrate (db)"
-    # (2) arbitrary cert-list cohort: only the research endpoint can compute an
-    #     ad-hoc distribution the table does not precompute
+    # (2) arbitrary cert-list cohort (charter-filtered lending peers, curated certs):
+    #     the peer_percentiles table has no precomputed row for an ad-hoc set, but the
+    #     per-bank `metrics` table does — so compute the distribution IN SQL over the
+    #     exact cert list via the SAME database connection. This is the substitute for
+    #     the research HTTP endpoint: no CHARTERIQ_SUBSTRATE_URL needed. The HTTP path
+    #     survives only as a fallback if the SQL method yields nothing AND the URL is set.
     else:
+        from foundry.charteriq_client import CharterIQClient
+        cl = CharterIQClient()
+        if cl.configured():
+            try:
+                bands = cl.get_cohort_bands(_canonical_metric(metric), list(cohort))
+            except Exception:
+                bands = []
+            if bands:
+                return ({"metric": metric, "cohort": _cohort_key(cohort),
+                         "provenance": {"basis": "identity-gated (ad-hoc cohort, SQL percentiles)",
+                                        "certified": False, "computed_at": None},
+                         "bands": bands},
+                        "substrate (db, ad-hoc cohort)")
         base = os.environ.get("CHARTERIQ_SUBSTRATE_URL")
         if base:
             import urllib.request
