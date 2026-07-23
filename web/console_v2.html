@@ -1320,6 +1320,13 @@ window.renderBands = async function(){
   const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio",
     tier1:"Tier 1 / RWA", total:"Total capital / RWA", lev:"Tier 1 leverage ratio",
     net_charge_off_rate:"Charge-off (net, ann.)"};
+  // Stock vs flow determines whether the modeled figure is a point-in-time snapshot
+  // (stock: capital ratios — annual == Q12) or a period figure (flow: income ratios —
+  // shown on the annual/Call-Report basis, which differs from any single quarter).
+  // Making this explicit is why Peer (annual-basis flows) and Vintage (per-age) can
+  // differ on a flow metric without either being wrong.
+  const METRIC_BASIS = {roa:"Flow", nim:"Flow", efficiency:"Flow",
+    tier1:"Stock", total:"Stock", lev:"Stock", net_charge_off_rate:"Flow"};
   const COLOR = {good:"#6FA98C", bad:"#C77", mid:"#C7975A"};
   function favOf(metric, v, latest){
     const dir = METRIC_DIRECTION[metric] || "higher_good";
@@ -1336,8 +1343,10 @@ window.renderBands = async function(){
   let rows = "";
   results.forEach(({metric, d, err})=>{
     const label = METRIC_LABEL[metric] || metric;
+    const basis = METRIC_BASIS[metric] || "";
+    const basisCell = `<td style="font-size:10px;color:#8FA3C0">${basis}</td>`;
     if(err){
-      rows += `<tr><td>${esc(label)}</td><td colspan="8" style="color:#8FA3C0;font-size:11px">${esc(err)}</td></tr>`;
+      rows += `<tr><td>${esc(label)}</td>${basisCell}<td colspan="8" style="color:#8FA3C0;font-size:11px">${esc(err)}</td></tr>`;
       return;
     }
     if(RISK_BASED_METRICS.has(metric)) anyRisk = true;
@@ -1349,7 +1358,7 @@ window.renderBands = async function(){
     const m = modeledFor(metric);
     if(m.v===null || m.v===undefined){
       const note = m.note ? ` \u00b7 <span style="color:#8FA3C0">${esc(m.note)}</span>` : "";
-      rows += `<tr><td>${esc(label)}</td><td class="num" style="color:#8FA3C0">\u2014</td>`
+      rows += `<tr><td>${esc(label)}</td>${basisCell}<td class="num" style="color:#8FA3C0">\u2014</td>`
         + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
         + `<td style="color:#8FA3C0;font-size:11px">peer band only${note}</td><td class="num">${latest.n}</td></tr>`;
       return;
@@ -1357,8 +1366,8 @@ window.renderBands = async function(){
     const fav = favOf(metric, m.v, latest);
     const bucket = bucketOf(m.v, latest);
     const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
-    const rowNote = m.note ? `<tr><td colspan="9" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px;border-bottom:1px solid #24334D">${esc(m.note)}</td></tr>` : `<tr><td colspan="9" style="padding:0;border-bottom:1px solid #24334D"></td></tr>`;
-    rows += `<tr><td>${esc(label)}</td>`
+    const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px;border-bottom:1px solid #24334D">${esc(m.note)}</td></tr>` : `<tr><td colspan="10" style="padding:0;border-bottom:1px solid #24334D"></td></tr>`;
+    rows += `<tr><td>${esc(label)}</td>${basisCell}`
       + `<td class="num" style="font-weight:700;color:${COLOR[fav]}">${m.v.toFixed(2)}${pct}</td>`
       + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
       + `<td><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(111,169,140,.16)':fav==='bad'?'rgba(204,119,119,.16)':'rgba(199,151,94,.14)'}">${bucket}</span></td>`
@@ -1385,7 +1394,7 @@ window.renderBands = async function(){
                       "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", curated:"curated certs"};
   const bandName = useLending ? "under $200M (lending peers only)" : (BAND_LABEL[mode] || mode);
   h += `<div style="font-weight:600;font-size:13px;color:#DFA85A;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
-  h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
+  h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th>Basis</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
   h += rows;
   h += '</table>';
   if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its terminal-year values against these peers.</div>`; }
@@ -1474,7 +1483,13 @@ function vintageSectionHtml(){
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;
-    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
+    // stock (point-in-time balance ratio) vs flow (per-period income ratio) — the
+    // same distinction the Peer corridor's Basis column carries, shown here in the
+    // header. Vintage places the modeled value at each AGE quarter; flow metrics are
+    // per-age-quarter figures, capital is a point-in-time stock.
+    const vBasis = (metric==="roa"||metric==="nim"||metric==="efficiency_ratio"||metric==="net_charge_off_rate") ? "Flow"
+                 : (metric==="tier1_ratio"||metric==="cet1_ratio"||metric==="leverage_ratio") ? "Stock" : "";
+    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${vBasis?` (${vBasis})`:""}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + '</tr>';
     ["p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + '</tr>';
