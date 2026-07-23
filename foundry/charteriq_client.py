@@ -58,25 +58,52 @@ class CharterIQClient:
     def configured(self):
         return bool(self._executor or self._url)
 
+    def _new_conn(self):
+        import psycopg2
+        # connect_timeout bounds the CONNECT phase (statement_timeout does NOT — a
+        # connect/socket stall was bypassing our 8s query guard and hanging past the
+        # edge proxy into a bodyless 502). TCP keepalives make a dead socket surface
+        # as an error quickly instead of blocking forever on recv.
+        _ct = int(os.environ.get("CHARTERIQ_CONNECT_TIMEOUT_S", "5"))
+        conn = psycopg2.connect(
+            self._url,
+            connect_timeout=_ct,
+            keepalives=1, keepalives_idle=30, keepalives_interval=10, keepalives_count=3,
+        )
+        conn.set_session(readonly=True, autocommit=True)
+        return conn
+
     def _default_executor(self, sql, params):
         if not self._url:
             raise SubstrateNotConfigured(
                 "CHARTERIQ_DATABASE_URL is not set on this instance")
-        if self._conn is None:
-            import psycopg2
-            self._conn = psycopg2.connect(self._url)
-            self._conn.set_session(readonly=True, autocommit=True)
-        # Statement timeout: a slow query must FAIL FAST, never hang the request
-        # and freeze the page. On timeout psycopg2 raises; callers fall back to
-        # the static threshold. Tunable via CHARTERIQ_STMT_TIMEOUT_MS (default 8s).
+        import psycopg2
         _to = os.environ.get("CHARTERIQ_STMT_TIMEOUT_MS", "8000")
-        with self._conn.cursor() as cur:
+        # Try on the existing connection; if it's stale/dead (the reused socket went
+        # away — DB restart, idle cutoff, network blip), reconnect ONCE and retry.
+        # Without this, a dead persistent socket blocks on recv until the edge proxy
+        # times out -> opaque 502. psql never hit this because it always reconnects.
+        for attempt in (1, 2):
             try:
-                cur.execute("SET statement_timeout = %s", (int(_to),))
-            except Exception:
-                pass  # non-fatal; proceed without the guard rather than break
-            cur.execute(sql, params)
-            return cur.fetchall()
+                if self._conn is None or getattr(self._conn, "closed", 1):
+                    self._conn = self._new_conn()
+                with self._conn.cursor() as cur:
+                    try:
+                        cur.execute("SET statement_timeout = %s", (int(_to),))
+                    except Exception:
+                        pass
+                    cur.execute(sql, params)
+                    return cur.fetchall()
+            except (psycopg2.OperationalError, psycopg2.InterfaceError):
+                # connection-level failure: drop it and let attempt 2 reconnect fresh
+                try:
+                    if self._conn is not None:
+                        self._conn.close()
+                except Exception:
+                    pass
+                self._conn = None
+                if attempt == 2:
+                    raise
 
     def _run(self, sql, params=()):
         if not re.match(r"^\s*SELECT\b", sql, re.I):
