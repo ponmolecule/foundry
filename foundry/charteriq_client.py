@@ -334,12 +334,16 @@ def placement(value, pct_row):
 
 
 # ------------------------------------------------------------- vintage corridor
-# cet1_ratio deliberately absent: per the substrate owner's provenance brief
-# (2026-07-16), pre-2025Q4 capital history carries the same proxy value under
-# both cet1 and tier1 names (ticket 1.8.7) — showing both would be one proxy
-# in two costumes. Corridor carries tier1 alone until the Milestone 2 backfill
-# replaces proxy history with item-derived values (in place; corridor inherits
-# the correction automatically).
+# cet1_ratio: the Milestone 2 backfill has LANDED (confirmed by the substrate
+# writer, 2026-07). Ticket 1.8.7 (cet1==tier1 proxy pre-2025Q4) is CLOSED — true
+# capital history was backfilled across all 45 quarters and cet1_ratio is now
+# item-derived from real CET1 capital and RWA via per-metric binding, genuinely
+# distinct from tier1_ratio. In the data ~2.4% of bank-quarters show cet1 != tier1;
+# the ~97% equal is correct real-world behavior (banks with no additional tier-1
+# instruments have CET1 == Tier 1 by definition — including de novos, which are all
+# common equity). So modeled CET1/RWA vs peer cet1_ratio is a verified like-for-like
+# pairing. The vintage corridor still carries tier1_ratio as its capital overlay by
+# design (one capital line at like-ages is enough); cet1 is available where wanted.
 # Vintage corridor re-clocks each bank to its AGE and compares de novos at like
 # ages. Only age-driven metrics belong here. deposit_cost is deliberately EXCLUDED:
 # it is rate-environment-driven (calendar time), so two banks at the same age but

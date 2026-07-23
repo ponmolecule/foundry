@@ -1224,12 +1224,19 @@ function bandsSectionHtml(){
 }
 // The Peer Corridor always shows ALL metrics — every one is material to a de novo,
 // so there's no user selection to make. This is the fixed metric set, in display order.
-// Capital is the Tier 1 LEVERAGE ratio (Tier 1 / total assets), NOT Tier 1 / RWA:
-// Foundry models a CBLR bank and computes leverage only (no risk-weighted assets),
-// and leverage_ratio is the universal capital metric every bank files, so it's a
-// like-for-like peer comparison. Tier 1/RWA and CET1/RWA are deliberately NOT shown —
-// they'd compare a leverage numerator against a different (risk-based) denominator.
-window._pbMetrics = ["roa","nim","efficiency","leverage","net_charge_off_rate"];
+//
+// Capital: the engine computes the full risk-based stack (RWA, CET1, Tier1, Tier2,
+// Total per 12 CFR 324.32), NOT leverage-only. Each capital row here places a real
+// modeled ratio against the peer band that is VERIFIABLY the same calculation:
+//   tier1  -> modeled ratios.tier1_rwa   vs peer tier1_ratio      (core risk-based)
+//   total  -> modeled ratios.total_rwa   vs peer total_rbc_ratio  (adds Tier 2 / ALLL)
+//   lev    -> modeled ratios.leverage    vs peer leverage_ratio   (/ total assets)
+// CET1/RWA is deliberately omitted: the engine hardcodes Tier1 = CET1 (a de novo is
+// all common equity, no additional tier-1), so modeled cet1_rwa can NEVER diverge from
+// tier1_rwa — a CET1 row would be a check that can't fire. (The peer cet1_ratio IS
+// distinct and verified since the Milestone 2 backfill; it's the MODELED side that
+// can't move it, so we don't show a permanently-equal duplicate.)
+window._pbMetrics = ["roa","nim","efficiency","tier1","total","lev","net_charge_off_rate"];
 window.renderBands = async function(){
   const body = document.getElementById("pbBody"); if(!body) return;
   const metrics = window._pbMetrics;
@@ -1250,13 +1257,19 @@ window.renderBands = async function(){
   } else if(mode !== "broad"){ cohort = mode; }
   body.innerHTML = '<div class="memo">Loading bands\u2026</div>';
 
-  // fetch one band per selected metric (latest quarter used for placement)
+  // corridor metric key -> the metric name the peer-bands endpoint expects
+  // (the endpoint's own alias map then maps these to DB metric_name).
+  const PEER_METRIC = {roa:"roa", nim:"nim", efficiency:"efficiency", tier1:"tier1",
+                       total:"total_rbc", lev:"leverage", net_charge_off_rate:"net_charge_off_rate"};
+
+  // fetch one band per metric (latest quarter used for placement)
   async function fetchBand(metric){
     const _ctl = new AbortController();
     const _timer = setTimeout(()=>_ctl.abort(), 15000);
+    const pm = PEER_METRIC[metric] || metric;
     const url = useLending
-      ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(metric)}&band=under_200M`
-      : `/api/v31/peer-bands?metric=${encodeURIComponent(metric)}&cohort=${encodeURIComponent(cohort)}`;
+      ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(pm)}&band=under_200M`
+      : `/api/v31/peer-bands?metric=${encodeURIComponent(pm)}&cohort=${encodeURIComponent(cohort)}`;
     try{
       const rr = await fetch(url, {signal:_ctl.signal}); clearTimeout(_timer);
       const j = await rr.json();
@@ -1275,11 +1288,19 @@ window.renderBands = async function(){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
       return {v:(ann&&ann.length)?ann[ann.length-1]:null};
     }
-    if(metric==="leverage"){
-      // Tier 1 LEVERAGE ratio = Tier 1 capital / total assets. This is what the
-      // engine computes (the model adopts CBLR; risk-weighted assets are not
-      // computed), and it's placed against the peer LEVERAGE band — same
-      // denominator on both sides, the universal capital metric every bank files.
+    // Risk-based capital ratios come from the engine's standardized block — the
+    // REAL modeled ratios (percent), not the dollar amounts. tier1_rwa and total_rwa
+    // are placed against tier1_ratio / total_rbc_ratio peer bands: same calculation
+    // both sides (risk-based numerator over RWA).
+    const ST = lastRes.capital && lastRes.capital.standardized;
+    const R = ST && ST.ratios;
+    if(metric==="tier1"){ const s=R&&R.tier1_rwa; return {v:(s&&s.length)?s[s.length-1]:null}; }
+    if(metric==="total"){ const s=R&&R.total_rwa; return {v:(s&&s.length)?s[s.length-1]:null}; }
+    if(metric==="lev"){
+      // Tier 1 leverage = Tier 1 / total assets — placed against the peer leverage_ratio
+      // band. Prefer the standardized block's leverage; fall back to the headline ratio.
+      const s = R && R.leverage;
+      if(s && s.length) return {v:s[s.length-1]};
       const lev = lastRes.financials && lastRes.financials.ratios && lastRes.financials.ratios.lev;
       return {v:(lev&&lev.length)?lev[lev.length-1]:null};
     }
@@ -1289,7 +1310,9 @@ window.renderBands = async function(){
     }
     return {v:null};
   }
-  const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio", leverage:"Tier 1 leverage ratio", net_charge_off_rate:"Charge-off (net, ann.)"};
+  const METRIC_LABEL = {roa:"ROA", nim:"NIM", efficiency:"Efficiency ratio",
+    tier1:"Tier 1 / RWA", total:"Total capital / RWA", lev:"Tier 1 leverage ratio",
+    net_charge_off_rate:"Charge-off (net, ann.)"};
   const COLOR = {good:"#6FA98C", bad:"#C77", mid:"#C7975A"};
   function favOf(metric, v, latest){
     const dir = METRIC_DIRECTION[metric] || "higher_good";
@@ -1399,14 +1422,14 @@ window.poAdd = function(){
 // risk-based-filer subset (~6,546 banks), not the full universe. A short n here
 // is correct and expected, not missing data. leverage_ratio is the universal
 // capital metric across all banks.
-const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio","tier1","cet1","total_rbc"]);
+const RISK_BASED_METRICS = new Set(["tier1_ratio","cet1_ratio","total_rbc_ratio","tier1","cet1","total_rbc","total"]);
 // Risk direction per metric: does a HIGH percentile mean the modeled bank is doing
 // WELL or POORLY? Drives the green/red placement. higher_good: ROA/NIM/capital
 // (more profit, more capital = better). lower_good: efficiency ratio (expense/revenue,
 // leaner is better) and net charge-off rate (fewer credit losses; negative = net
 // recovery = best). Used by placementColor().
 const METRIC_DIRECTION = {
-  roa: "higher_good", nim: "higher_good", leverage: "higher_good",
+  roa: "higher_good", nim: "higher_good", tier1: "higher_good", total: "higher_good", lev: "higher_good",
   efficiency: "lower_good", net_charge_off_rate: "lower_good",
 };
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
