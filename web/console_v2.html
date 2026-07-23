@@ -953,19 +953,25 @@ function TAX31(){
   const D = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
     growth_q:0, runoff_q:0, rate_type:"fixed", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
   TAX31_DATA = {
+    // Products ship INERT: zero balance, zero originations, zero yield/charge-off.
+    // A product contributes nothing until the user deliberately fills it, so every
+    // non-zero on the sheets traces to a decision the user made — never to a
+    // placeholder they forgot to change. Structural selectors (rate_type,
+    // measurement, call_report_line) keep sensible non-numeric defaults so the
+    // product is valid; only the substantive amounts are zero.
     "Loans": [
-      {name:"Consumer Installment", line:"loanConsumer", fam:"lending", tpl:L("Consumer Installment","loanConsumer",{originations_q:3000000, runoff_q:0.0375, yield_ann:0.08, charge_off_ann:0.015, reserve_rate_pct_bal:0.0125})},
-      {name:"Credit Card", line:"loanCreditCard", fam:"lending", tpl:L("Credit Card","loanCreditCard",{originations_q:1500000, runoff_q:0, yield_ann:0.18, charge_off_ann:0.04, reserve_rate_pct_bal:0.03})},
-      {name:"Small Business / C&I", line:"loanCommercial", fam:"lending", tpl:L("Small Business / C&I","loanCommercial",{originations_q:4500000, runoff_q:0.025, yield_ann:0.065, charge_off_ann:0.005, reserve_rate_pct_bal:0.0125})},
-      {name:"Residential Mortgage", line:"loanMortgage", fam:"lending", tpl:L("Residential Mortgage","loanMortgage",{originations_q:6000000, runoff_q:0.03, yield_ann:0.055, charge_off_ann:0.002, reserve_rate_pct_bal:0.005})},
-      {name:"Commercial Real Estate", line:"loanCRE", fam:"lending", tpl:L("Commercial Real Estate","loanCRE",{originations_q:6000000, runoff_q:0.02, yield_ann:0.06, charge_off_ann:0.003, reserve_rate_pct_bal:0.01})}],
+      {name:"Consumer Installment", line:"loanConsumer", fam:"lending", tpl:L("Consumer Installment","loanConsumer",{})},
+      {name:"Credit Card", line:"loanCreditCard", fam:"lending", tpl:L("Credit Card","loanCreditCard",{})},
+      {name:"Small Business / C&I", line:"loanCommercial", fam:"lending", tpl:L("Small Business / C&I","loanCommercial",{})},
+      {name:"Residential Mortgage", line:"loanMortgage", fam:"lending", tpl:L("Residential Mortgage","loanMortgage",{})},
+      {name:"Commercial Real Estate", line:"loanCRE", fam:"lending", tpl:L("Commercial Real Estate","loanCRE",{})}],
     "Deposits": [
-      {name:"Retail Demand", line:"depDDA", fam:"deposit", tpl:D("Retail Demand","depDDA",{rate_paid_ann:0.005, _adds_m:3000000, _runoff_ann:0.05})},
-      {name:"MMDA / Savings", line:"depSavings", fam:"deposit", tpl:D("MMDA / Savings","depSavings",{rate_paid_ann:0.025, _adds_m:2000000, _runoff_ann:0.08})},
-      {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{rate_paid_ann:0.04, _adds_m:1000000, _runoff_ann:0})},
-      {name:"Brokered CDs", line:"depBrokered", fam:"deposit", tpl:D("Brokered CDs","depBrokered",{rate_paid_ann:0.048, _adds_m:2000000, _runoff_ann:0, insured_pct:1.0})},
-      {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:-0.004, _adds_m:1500000, _runoff_ann:0, insured_pct:1.0})},
-      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{rate_paid_ann:0.046, _adds_m:1000000, _runoff_ann:0, insured_pct:0.35})}]
+      {name:"Retail Demand", line:"depDDA", fam:"deposit", tpl:D("Retail Demand","depDDA",{_adds_m:0, _runoff_ann:0})},
+      {name:"MMDA / Savings", line:"depSavings", fam:"deposit", tpl:D("MMDA / Savings","depSavings",{_adds_m:0, _runoff_ann:0})},
+      {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{_adds_m:0, _runoff_ann:0})},
+      {name:"Brokered CDs", line:"depBrokered", fam:"deposit", tpl:D("Brokered CDs","depBrokered",{_adds_m:0, _runoff_ann:0, insured_pct:1.0})},
+      {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:0, _adds_m:0, _runoff_ann:0, insured_pct:1.0})},
+      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{_adds_m:0, _runoff_ann:0, insured_pct:0.35})}]
   };
   return TAX31_DATA;
 }
