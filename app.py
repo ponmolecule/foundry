@@ -538,7 +538,7 @@ def v31_peer_bands_lending_debug(metric: str = "tier1_ratio", band: str = "under
 
         # STEP 1: capped cert list — mirror the working get_peer_cohort query, filter
         # charter in Python (the <> ALL(list)/NULLS LAST SQL was the untested construct)
-        inst_conds = ["active = TRUE"]; inst_params = []
+        inst_conds = ["active = 1"]; inst_params = []   # active is integer, not boolean
         if lo is not None: inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
         if hi is not None: inst_conds.append("asset_size_mm < %s"); inst_params.append(hi)
         rows = cl._run(

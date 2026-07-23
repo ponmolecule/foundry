@@ -173,7 +173,7 @@ class CharterIQClient:
                    "500M_2B": (500, 2000), "2B_10B": (2000, 10000),
                    "10B_50B": (10000, 50000), "over_50B": (50000, None),
                    "all_universe": (None, None)}[asset_band]
-        conds, params = ["active = TRUE"], []
+        conds, params = ["active = 1"], []   # active is integer (1=open), not boolean
         if lo is not None:
             conds.append("asset_size_mm >= %s"); params.append(lo)
         if hi is not None:
@@ -301,7 +301,10 @@ class CharterIQClient:
         # `lower(charter_type) <> ALL(%s)` + `NULLS LAST`, constructs get_peer_cohort
         # never uses; keeping the SQL identical to the known-good query removes that as
         # a failure source. Fetch a few extra rows so post-filter we still have ~cap.
-        inst_conds = ["active = TRUE"]
+        # `active` is an INTEGER column (1=open/active, 0=closed), NOT boolean —
+        # `active = TRUE` raises "operator does not exist: integer = boolean" in
+        # Postgres, which is what broke every institutions query on the lending path.
+        inst_conds = ["active = 1"]
         inst_params = []
         if lo is not None:
             inst_conds.append("asset_size_mm >= %s"); inst_params.append(lo)
