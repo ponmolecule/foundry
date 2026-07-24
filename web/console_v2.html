@@ -365,9 +365,10 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
 <div class="toolbar">
   <span id="tabs"></span>
   <span class="spacer"></span>
-  <span style="position:relative;display:inline-flex;align-items:center;gap:7px">
-    <span id="bankLabel" style="font-size:12px;font-weight:600;color:#DCE3EE;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"></span>
-    <input class="scenario-name" id="scenarioName" placeholder="Scenario name (optional)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()" style="padding-right:26px">
+  <span style="position:relative;display:inline-flex;align-items:center;gap:0">
+    <span id="bankLabel" title="Bank / engagement — click to rename" onclick="renameBank()" style="font-size:13px;font-weight:600;color:#DCE3EE;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer"></span>
+    <span id="scenSep" style="color:#5B6B88;margin:0 7px;font-size:12px">\u2014</span>
+    <input class="scenario-name" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()" style="padding-right:26px;font-size:12px;color:#AEB9CC;font-style:italic">
     <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements" style="position:absolute;right:7px;color:#8FA3C0;text-decoration:none;font-size:10px">▼</a>
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
@@ -764,9 +765,27 @@ function displayName(){
 window.displayName = displayName;
 function syncBankLabel(){
   const bl = document.getElementById("bankLabel");
-  if(bl && cfg) bl.textContent = (cfg.proposed_bank || cfg.client_legal_name || "").trim();
+  const sep = document.getElementById("scenSep");
+  const bank = cfg ? (cfg.proposed_bank || cfg.client_legal_name || "").trim() : "";
+  if(bl) bl.textContent = bank || "Unnamed engagement";
+  // the "—" separator only makes sense between a bank and a scenario; hide it when either is
+  // absent so the chevron never shows a dangling dash.
+  const scen = cfg ? (cfg.scenario_name || "").trim() : "";
+  if(sep) sep.style.display = (bank && scen) ? "" : "none";
 }
 window.syncBankLabel = syncBankLabel;
+function renameBank(){
+  if(!cfg) return;
+  const cur = (cfg.proposed_bank || cfg.client_legal_name || "").trim();
+  const nm = window.prompt("Bank / engagement name:", cur);
+  if(nm === null) return;                       // cancelled
+  const v = nm.trim();
+  if(!v) return;
+  cfg.proposed_bank = v;
+  if(!cfg.client_legal_name || cfg.client_legal_name === cur) cfg.client_legal_name = v;
+  syncBankLabel(); scheduleAutosave();
+}
+window.renameBank = renameBank;
 function syncNameChrome(){
   const sn = document.getElementById("scenarioName");
   if(sn && cfg) sn.value = (cfg.scenario_name || "");
