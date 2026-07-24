@@ -575,6 +575,28 @@ def t23():
               and "rate_paid_ann" not in _d0 and not _ve(mr1))
         check("T23n3", "the unchanged-value type flip emits a high-severity warning",
               any(w.get("severity") == "high" for w in rr1["warnings"]))
+
+        # T23o: rate_type/measurement ship as constrained dropdowns; the "Interpreted as" helper
+        # is a live formula referencing the product's rate_type cell (choice drives meaning).
+        cfgo = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        datao, gho = F.build_fiw(cfgo)
+        wbo = _lw(_io.BytesIO(datao))
+        _dvs = wbo["ASSM_DEPOSITS"].data_validations.dataValidation
+        _rt_dv = [d for d in _dvs if "fixed,float" in (d.formula1 or "")]
+        _ms_dv = [d for d in wbo["ASSM_LOANS"].data_validations.dataValidation
+                  if "amortized,fair_value" in (d.formula1 or "")]
+        check("T23o", "rate_type (fixed|float) and measurement (amortized|fair_value) ship as dropdowns",
+              bool(_rt_dv) and bool(_ms_dv))
+        # the helper on a deposit is a formula that references that product's rate_type cell
+        _helper_ok = False
+        for r in wbo["ASSM_DEPOSITS"].iter_rows(min_row=2):
+            if str(r[0].value).endswith("__RATE_BASELINE__"):
+                v = str(r[3].value or "")
+                if v.startswith("=IF(") and "float" in v and "$D$" in v:
+                    _helper_ok = True
+                    break
+        check("T23o2", "the 'Interpreted as' helper is a live formula keyed to the rate_type cell",
+              _helper_ok)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

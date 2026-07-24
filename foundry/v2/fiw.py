@@ -17,6 +17,7 @@ import hashlib
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
+from openpyxl.worksheet.datavalidation import DataValidation
 
 GOLD = PatternFill("solid", fgColor="FFF3D9")
 HDR = Font(bold=True)
@@ -42,7 +43,7 @@ DEP_FIELDS = [
     # The generator writes it; diff_import routes it into rate_paid_ann OR index_spread.
     ("__RATE__", "Rate paid / Spread over SOFR (% p.a.)",
      "fixed: annual rate (4.90% = 0.049).  float: spread over SOFR, may be negative"),
-    ("__RATE_BASELINE__", "Originally exported as", "fact — informational baseline, not imported"),
+    ("__RATE_BASELINE__", "Interpreted as (live)", "fact — informational, follows the Rate type dropdown, not imported"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
     ("opex_fixed_m", "Op cost fixed", "$/month"),
@@ -57,7 +58,7 @@ LEND_FIELDS = [
     ("rate_type", "Rate type", "fixed | float  (editable)"),
     ("__RATE__", "Yield / Spread over SOFR (% p.a.)",
      "fixed: annual yield (6.50% = 0.065).  float: spread over SOFR, may be negative"),
-    ("__RATE_BASELINE__", "Originally exported as", "fact — informational baseline, not imported"),
+    ("__RATE_BASELINE__", "Interpreted as (live)", "fact — informational, follows the Rate type dropdown, not imported"),
     ("measurement", "Measurement", "amortized | fair_value  (editable)"),
     ("discount_spread_ann", "DCF discount spread (fair_value only)", "annual rate"),
     ("charge_off_ann", "Net charge-offs", "annual rate"),
@@ -168,33 +169,26 @@ def _rate_of(p):
     return p.get("rate_paid_ann") if "rate_paid_ann" in p else p.get("yield_ann")
 
 
-def _rate_baseline_str(p):
-    """Human baseline of how the rate was exported — honest 'Originally exported as' marker.
-    Static: describes the value as generated, NOT how a later edit will be interpreted."""
-    v = _rate_of(p)
-    if v is None:
-        return "(none set)"
-    if p.get("rate_type") == "float":
-        return f"{v * 10000:+.0f} bp over SOFR"
-    return f"{v * 100:.3f}% fixed annual"
-
-
 def _family_sheet(ws, fam, products, fields):
     ws.append(["key", "Product", "Field", "Value", "Units / note"])
     for c in ws[1]:
         c.font = HDR
+    # data-validation dropdowns: rate_type (fixed|float) and measurement (amortized|fair_value).
+    dv_rt = DataValidation(type="list", formula1='"fixed,float"', allow_blank=False)
+    dv_ms = DataValidation(type="list", formula1='"amortized,fair_value"', allow_blank=False)
+    ws.add_data_validation(dv_rt)
+    ws.add_data_validation(dv_ms)
     for i, p in enumerate(products):
+        rt_row = None  # remember the rate_type cell's row for this product (for the live helper)
         for fkey, flabel, funits in fields:
             if fkey.startswith("mortgage_banking.") and not p.get("mortgage_banking"):
                 continue
-            # Branch gating: the fair-value discount spread only applies to FVO loans.
             if fkey == "discount_spread_ann" and p.get("measurement") != "fair_value":
                 continue
-            # Synthetic contextual rate cell + its baseline readback.
             if fkey == "__RATE__":
                 val = _rate_of(p)
             elif fkey == "__RATE_BASELINE__":
-                val = _rate_baseline_str(p)
+                val = None  # set below as a live formula, once rt_row is known
             elif "." in fkey:
                 a, b = fkey.split(".", 1)
                 val = (p.get(a) or {}).get(b)
@@ -204,15 +198,29 @@ def _family_sheet(ws, fam, products, fields):
                 val = LINE_LABELS.get(val, val)
             ws.append([f"{fam}.{i}.{fkey}", p.get("name", ""), flabel,
                        val if val is not None else "", funits])
+            row = ws.max_row
+            # attach the dropdown + remember the row for the discriminator cells
+            if fkey == "rate_type":
+                dv_rt.add(ws.cell(row, 4))
+                rt_row = row
+            elif fkey == "measurement":
+                dv_ms.add(ws.cell(row, 4))
+            elif fkey == "__RATE_BASELINE__" and rt_row is not None:
+                # LIVE helper: the choice in the rate_type dropdown immediately sets what the
+                # value cell means. Formula, informational only, never read on import.
+                ws.cell(row, 4).value = (
+                    f'=IF($D${rt_row}="float",'
+                    '"Spread over SOFR (annual %; may be negative)",'
+                    '"Rate paid / yield (annual %)")')
             if "fact" not in funits:
-                ws.cell(ws.max_row, 4).fill = GOLD
+                ws.cell(row, 4).fill = GOLD
             if isinstance(val, (int, float)) and abs(val) >= 1000:
-                ws.cell(ws.max_row, 4).number_format = "#,##0"
+                ws.cell(row, 4).number_format = "#,##0"
     ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["B"].width = 24
     ws.column_dimensions["C"].width = 30
-    ws.column_dimensions["D"].width = 18
-    ws.column_dimensions["E"].width = 34
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 40
 
 
 def _array_sheet(ws, arrkey, items, fields):

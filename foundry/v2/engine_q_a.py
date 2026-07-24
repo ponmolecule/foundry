@@ -35,9 +35,13 @@ def _ovq(p, field, q, base):
 
 
 def _prod_rate(p, t, rate):
+    # Read strictly gated by rate_type (the selector), never by field-presence: a product's
+    # inactive rate field may persist in the config, and the type — not which field happens to
+    # exist — decides what the engine reads. yield_ann for fixed lending, rate_paid_ann for fixed
+    # deposits; both fall back to each other only as a legacy convenience.
     if p.get("rate_type") == "float":
         return rate(t) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
-    if "yield_ann" in p:
+    if p.get("yield_ann") is not None:
         return _ovq(p, "yield_ann", t, p.get("yield_ann") or 0.0)
     return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
 
