@@ -220,7 +220,7 @@ def _fee_sheet(ws, fm):
         if k in ic:
             _row(f"fee_modules.interchange.{k}", "interchange", lab, ic.get(k), u)
     for i, rail in enumerate(fm.get("payments") or []):
-        _row(f"fee_modules.payments.{i}.rail", f"payments[{i}]", "Rail", rail.get("rail"), "fact — label")
+        _row(f"fee_modules.payments.{i}.rail", f"payments[{i}]", "Rail", rail.get("rail"), "label (editable: ACH, wires, RTP, FedNow, card)")
         for k, lab, u in (("vol_q", "Volume/qtr", "count"), ("growth_q", "Growth", "rate/qtr"),
                            ("fee_per_tx", "Fee per tx", "$"), ("cost_per_tx", "Cost per tx", "$")):
             if k in rail:

@@ -497,6 +497,56 @@ def t23():
         _errs = _ve(mk)
         check("T23k2", "the config with the user-added instrument has no validation errors",
               not _errs, f"{len(_errs)} errors" if _errs else "clean")
+
+        # T23l: payments is the one fee module that is a variable-length list (the others
+        # are fixed-shape singletons). A user must be able to ADD a rail — its label
+        # included — and have it validate. Guards the same 'fact-skipped label' bug in
+        # the fee sheet's rail field.
+        cfgf = _json.loads(_json.dumps(cfgx))
+        cfgf["assumptions"]["fee_modules"] = {"payments": [
+            {"rail": "ACH", "vol_q": 100000, "growth_q": 0.03, "fee_per_tx": 0.3, "cost_per_tx": 0.05}]}
+        dataf, ghf = F.build_fiw(cfgf); F.persist_snapshot(cfgf, ghf)
+        wbf = _lw(_io.BytesIO(dataf)); wsf = wbf["ASSM_FEES"]
+        for _row in (("fee_modules.payments.1.rail", "payments[1]", "Rail", "FedNow", "label (editable: ACH, wires, RTP, FedNow, card)"),
+                     ("fee_modules.payments.1.vol_q", "payments[1]", "Volume/qtr", 50000, "count"),
+                     ("fee_modules.payments.1.growth_q", "payments[1]", "Growth", 0.09, "rate/qtr"),
+                     ("fee_modules.payments.1.fee_per_tx", "payments[1]", "Fee per tx", 0.45, "$"),
+                     ("fee_modules.payments.1.cost_per_tx", "payments[1]", "Cost per tx", 0.08, "$")):
+            wsf.append(_row)
+        _bf = _io.BytesIO(); wbf.save(_bf)
+        mf, rf = F.diff_import(_bf.getvalue(), {})
+        _pays = mf["assumptions"]["fee_modules"]["payments"]
+        _rail_ok = (len(_pays) == 2 and _pays[1].get("rail") == "FedNow"
+                    and abs(_pays[1].get("vol_q", 0) - 50000) < 1e-6)
+        check("T23l", "a user-added payment rail round-trips with its label", _rail_ok)
+        check("T23l2", "the config with the added rail has no validation errors",
+              not _ve(mf), f"{len(_ve(mf))} errors" if _ve(mf) else "clean")
+
+        # T23m: adding a new element must round-trip for EVERY flat addable array, not
+        # just scheduled_borrowings — verified per-array so no untested path is assumed.
+        _add_specs = {
+            "ASSM_SEC_AFS": ("securities_afs", [("name", "AFS+", "label (editable)"),
+                ("opening", 3_000_000, "$"), ("runoff_q", 0.005, "rate/qtr"), ("yield_ann", 0.046, "annual rate")]),
+            "ASSM_SEC_HTM": ("securities_htm", [("name", "HTM+", "label (editable)"),
+                ("opening", 2_500_000, "$"), ("runoff_q", 0.004, "rate/qtr"), ("yield_ann", 0.048, "annual rate")]),
+            "ASSM_OBS": ("obs_exposures", [("name", "OBS+", "label (editable)"),
+                ("notional", 4_000_000, "$"), ("growth_q", 0.01, "rate/qtr"), ("fee_yield_ann", 0.003, "annual % of notional")]),
+            "ASSM_RAISES": ("capital_raises", [("quarter", 10, "quarter 1-12"), ("amount", 8_000_000, "$")]),
+            "ASSM_PREOPEN": ("pre_opening.expenses", [("category", "Roadshow", "text"), ("total", 300_000, "$")]),
+        }
+        _root_len = {"securities_afs": len(ax["securities_afs"]), "securities_htm": len(ax["securities_htm"]),
+                     "obs_exposures": len(ax["obs_exposures"]), "capital_raises": len(ax["capital_raises"]),
+                     "pre_opening.expenses": len(cfgx["pre_opening"]["expenses"])}
+        for _sh, (_arr, _flds) in _add_specs.items():
+            _wbm = _lw(_io.BytesIO(datax)); _wsm = _wbm[_sh]
+            _ix = _root_len[_arr]
+            for _f, _v, _u in _flds:
+                _wsm.append([f"{_arr}.{_ix}.{_f}", "(new)", _f, _v, _u])
+            _bm = _io.BytesIO(); _wbm.save(_bm)
+            _mm, _rm = F.diff_import(_bm.getvalue(), {})
+            _target = _mm["pre_opening"]["expenses"] if _arr == "pre_opening.expenses" else _mm["assumptions"][_arr]
+            check(f"T23m-{_sh}", f"adding an element to {_arr} round-trips and validates",
+                  len(_target) == _ix + 1 and not _ve(_mm))
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
