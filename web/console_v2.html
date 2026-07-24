@@ -1935,16 +1935,21 @@ function renderContent(){
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
     if(cfg && cfg._blank_canvas){
-      c.innerHTML = `<div class="h2" style="font-weight:700">Engagement overview</div>
-        <div style="max-width:640px;margin-top:28px;padding:34px 32px;border:1px dashed #33436199;border-radius:10px;background:#111C30;text-align:center">
-          <div style="font-size:15px;font-weight:600;color:#E6E8EC;margin-bottom:8px">Nothing modeled yet</div>
-          <div style="font-size:13px;line-height:1.65;color:#8FA3C0;margin-bottom:22px">This is a blank canvas. Create a bank to set your capital and charter, then add products \u2014 every figure on every sheet will trace to a value you entered. Nothing is pre-filled.</div>
-          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
-            <button class="btn-gold" onclick="setTab('start');wizStart()">Create a bank</button>
-            <button class="btn-plain" onclick="loadExampleBank()">Start from example bank</button>
-          </div>
-          <div style="font-size:11px;color:#6E7C93;margin-top:14px">&ldquo;Create a bank&rdquo; walks you through capital, charter, and CBLR. &ldquo;Example bank&rdquo; loads a fully-populated sample you can edit \u2014 handy for a first look at what a completed model produces.</div>
-        </div>`;
+      const shell = [
+        ["Readiness", "Overall readiness verdict once the model runs."],
+        ["Min leverage (base)", "Lowest quarterly leverage ratio across the base scenario."],
+        ["Breakeven", "First quarter the bank turns pre-tax positive."],
+        ["Assets, Q12", "Modeled total assets at the terminal quarter ($000s)."],
+        ["Deposits, Q12", "Modeled total deposits at Q12 ($000s)."],
+        ["Cumulative net income", "Net income summed across the 12 modeled quarters ($000s)."],
+      ];
+      let hh = '<div class="h2" style="font-weight:700">Engagement overview</div>';
+      hh += '<div class="ovcards">' + shell.map(x=>
+        `<div class="ovcard" style="opacity:.6"><div class="k">${x[0]}</div><div class="v" style="color:#5C6B85">\u2014</div><div class="s">${x[1]}</div></div>`).join("") + '</div>';
+      hh += '<div class="ovh3">Flags &amp; challenge results</div>';
+      hh += '<div class="ovflag"><span class="ovtag mut">awaiting inputs</span><div class="ftext">No model yet. This is the shape of what the overview will show once you begin \u2014 every figure will trace to a value you entered.</div></div>';
+      hh += `<div class="memo" style="margin-top:16px">To begin, go to the <a href="#" onclick="setTab('start');return false" style="color:#DFA85A;text-decoration:none">Start tab</a> \u2014 load the example bank, create a new engagement, or fill a workbook.</div>`;
+      c.innerHTML = hh;
       return;
     }
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
@@ -2956,23 +2961,32 @@ function renderStart(){
   const el = document.getElementById("content");
   const snapshotMode = !!window.SNAPSHOT;
   let h = '<div class="h2" style="font-weight:700">Start</div>';
-  h += '<div class="memo" style="margin:0 0 16px">Two ways in, one model. Both paths ask for exactly the same information and produce exactly the same result \u2014 pick whichever suits how you work. The only difference is when the checks run: in the app, as you type; with the workbook, when you upload it.</div>';
-  h += '<div class="ovcards" style="grid-template-columns:1fr 1fr">'
-    + '<div class="ovcard"><div class="k">Enter directly in the app</div><div class="v" style="font-size:1rem">Type here, see results instantly</div>'
-    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Edit assumptions; every change recomputes</li><li>Validation fires as you type</li><li>Guided setup: identity \u2192 capital \u2192 products; regulator resolved, not asked</li></ul></div>'
-    + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px"><button class="btn-gold" onclick="wizStart()">New engagement</button><button class="btn-plain" onclick="setTab(\'config\')">Open the workspace</button></div>')
+  h += '<div class="memo" style="margin:0 0 16px">Three ways in, one model \u2014 pick whichever suits how you work. Every path produces the same engine-computed result; the only difference is where you do the entry.</div>';
+  h += '<div class="ovcards" style="grid-template-columns:1fr 1fr 1fr">'
+    // 1 — Example bank (foolproof, done for you)
+    + '<div class="ovcard"><div class="k">Start from the example bank</div><div class="v" style="font-size:1rem">See a finished model instantly</div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>A fully-populated sample de novo bank</li><li>Every sheet, ratio, and schedule already computed</li><li>Edit any input to make it your own</li></ul></div>'
+    + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-gold" onclick="loadExampleBank()">Load the example bank</button></div>')
     + '</div>'
-    + '<div class="ovcard"><div class="k">Fill outside the app, then upload</div><div class="v" style="font-size:1rem">Take a workbook to your desk</div>'
-    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload; edits apply as a logged diff</li><li>Import validates fail-closed; gaps become questions</li><li>The workbook is tied to the run that generated it \u2014 regenerate after model changes; an older run\u2019s workbook refuses with guidance</li></ul></div>'
+    // 2 — Create your own (the wizard)
+    + '<div class="ovcard"><div class="k">Create a new engagement</div><div class="v" style="font-size:1rem">Build your bank from scratch</div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Guided setup: identity \u2192 capital \u2192 products</li><li>Regulator resolved from your charter, not asked</li><li>Validation fires as you type; every change recomputes</li></ul></div>'
+    + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn-gold" onclick="wizStart()">New engagement</button><button class="btn-plain" onclick="setTab(\'config\')">Open the workspace</button></div>')
+    + '</div>'
+    // 3 — Workbook round-trip
+    + '<div class="ovcard"><div class="k">Fill a workbook, then upload</div><div class="v" style="font-size:1rem">Take it to your desk in Excel</div>'
+    + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload; edits apply as a logged diff</li><li>Import validates fail-closed; gaps become questions</li><li>Each workbook is tied to the run that generated it</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()">Download input workbook</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>')
-    + '</div>' 
     + '</div>'
     + '</div>';
-  h += '<div class="ovcard" style="border-color:#DFA85A;margin-bottom:14px"><div class="k">Already have a forecast?</div><div class="v" style="font-size:1rem">Bring your plan</div><div class="s">The client\u2019s own model or projections, in whatever shape they exist \u2014 inspected, mapped with every conversion logged, and the gaps surfaced as questions rather than filled by guesswork.</div>'
-    + (snapshotMode ? '' : '<div style="margin-top:9px"><button class="btn-gold" onclick="document.getElementById(\'mtFile\').click()">Upload a forecast\u2026</button><input id="mtFile" type="file" accept=".xlsx,.csv" style="display:none" onchange="mtUpload(this)"></div>')
+  // Demoted, quiet: bring-your-own-forecast, marked In Development.
+  h += '<div class="ovcard" style="margin:14px 0;border-color:#2A3B57;background:#0E1930;opacity:.72">'
+    + '<div style="display:flex;align-items:center;gap:10px"><div class="k" style="margin:0">Already have a forecast?</div>'
+    + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">In development</span></div>'
+    + '<div class="s" style="margin-top:6px;max-width:70ch">Bring the client\u2019s own model in whatever shape it exists; Foundry would inspect it, map each series with every conversion logged, and surface gaps as questions rather than guesses. This path needs hands-on mapping and isn\u2019t ready for unattended use yet \u2014 it\u2019s coming.</div>'
     + '</div>';
   if(!snapshotMode){
   
