@@ -21,18 +21,8 @@ from openpyxl.styles import Font, PatternFill
 GOLD = PatternFill("solid", fgColor="FFF3D9")
 HDR = Font(bold=True)
 
-LOAN_FIELDS = [
-    ("call_report_line", "Call Report line", "fact — resolved, do not edit"),
-    ("opening_balance", "Opening balance (Day 1)", "$"),
-    ("originations_q", "New originations", "$/quarter (monthly x3)"),
-    ("orig_growth_q", "Origination growth", "rate/qtr"),
-    ("runoff_q", "Prepayment / paydown", "rate/qtr (annual /4)"),
-    ("yield_ann", "Average yield", "annual rate"),
-    ("charge_off_ann", "Net charge-offs", "annual rate"),
-    ("provision_rate_ann", "Provision rate (blank = NCO)", "annual rate"),
-    ("reserve_rate_pct_bal", "ALLL reserve", "% of balance"),
-    ("fee_yield_ann", "Fees", "annual % of avg balance"),
-]
+# LOAN_FIELDS was replaced by the branch-aware LEND_FIELDS below (v41): full field set
+# restored, single contextual rate cell (__RATE__) routed by rate_type at import.
 MB_FIELDS = [
     ("mortgage_banking.sale_pct_of_orig", "Originations sold", "share [0,1]"),
     ("mortgage_banking.gain_on_sale_margin", "Gain-on-sale margin", "share"),
@@ -46,9 +36,36 @@ DEP_FIELDS = [
     ("growth_q", "Balance growth", "rate/qtr"),
     ("new_deposits_q", "New deposits", "$/quarter (monthly x3)"),
     ("avg_maturity_m", "Average maturity", "months; 0 = no term roll-off"),
-    ("runoff_q", "Runoff / prepayment", "rate/qtr (annual / 4)"),
-    ("rate_paid_ann", "Rate paid", "annual rate"),
-    ("fee_yield_ann", "Fees", "annual % of avg balance"),
+    ("runoff_q", "Runoff", "rate/qtr (annual / 4)"),
+    ("rate_type", "Rate type", "fixed | float  (editable)"),
+    # __RATE__ is a synthetic column: one contextual cell whose meaning is set by rate_type.
+    # The generator writes it; diff_import routes it into rate_paid_ann OR index_spread.
+    ("__RATE__", "Rate paid / Spread over SOFR (% p.a.)",
+     "fixed: annual rate (4.90% = 0.049).  float: spread over SOFR, may be negative"),
+    ("__RATE_BASELINE__", "Originally exported as", "fact — informational baseline, not imported"),
+    ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
+    ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
+    ("opex_fixed_m", "Op cost fixed", "$/month"),
+    ("insured_pct", "Insured share", "share [0,1]"),
+]
+LEND_FIELDS = [
+    ("call_report_line", "Call Report line", "fact — resolved, do not edit"),
+    ("opening_balance", "Opening balance (Day 1)", "$"),
+    ("originations_q", "New originations", "$/quarter (monthly x3)"),
+    ("orig_growth_q", "Origination growth", "rate/qtr"),
+    ("runoff_q", "Prepayment / paydown", "rate/qtr (annual /4)"),
+    ("rate_type", "Rate type", "fixed | float  (editable)"),
+    ("__RATE__", "Yield / Spread over SOFR (% p.a.)",
+     "fixed: annual yield (6.50% = 0.065).  float: spread over SOFR, may be negative"),
+    ("__RATE_BASELINE__", "Originally exported as", "fact — informational baseline, not imported"),
+    ("measurement", "Measurement", "amortized | fair_value  (editable)"),
+    ("discount_spread_ann", "DCF discount spread (fair_value only)", "annual rate"),
+    ("charge_off_ann", "Net charge-offs", "annual rate"),
+    ("provision_rate_ann", "Provision rate (blank = NCO)", "annual rate"),
+    ("reserve_rate_pct_bal", "ALLL reserve", "% of balance"),
+    ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
+    ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
+    ("opex_fixed_m", "Op cost fixed", "$/month"),
 ]
 LINE_LABELS = {
     "loanCommercial": "Loans: Commercial & Industrial", "loanConsumer": "Loans: Consumer",
@@ -143,6 +160,25 @@ def _kv_sheet(ws, rows):
     ws.column_dimensions["C"].width = 46
 
 
+def _rate_of(p):
+    """The single contextual rate value for a product: rate_paid_ann/yield_ann when fixed,
+    index_spread when float. Returns None if the applicable field is absent."""
+    if p.get("rate_type") == "float":
+        return p.get("index_spread")
+    return p.get("rate_paid_ann") if "rate_paid_ann" in p else p.get("yield_ann")
+
+
+def _rate_baseline_str(p):
+    """Human baseline of how the rate was exported — honest 'Originally exported as' marker.
+    Static: describes the value as generated, NOT how a later edit will be interpreted."""
+    v = _rate_of(p)
+    if v is None:
+        return "(none set)"
+    if p.get("rate_type") == "float":
+        return f"{v * 10000:+.0f} bp over SOFR"
+    return f"{v * 100:.3f}% fixed annual"
+
+
 def _family_sheet(ws, fam, products, fields):
     ws.append(["key", "Product", "Field", "Value", "Units / note"])
     for c in ws[1]:
@@ -151,7 +187,15 @@ def _family_sheet(ws, fam, products, fields):
         for fkey, flabel, funits in fields:
             if fkey.startswith("mortgage_banking.") and not p.get("mortgage_banking"):
                 continue
-            if "." in fkey:
+            # Branch gating: the fair-value discount spread only applies to FVO loans.
+            if fkey == "discount_spread_ann" and p.get("measurement") != "fair_value":
+                continue
+            # Synthetic contextual rate cell + its baseline readback.
+            if fkey == "__RATE__":
+                val = _rate_of(p)
+            elif fkey == "__RATE_BASELINE__":
+                val = _rate_baseline_str(p)
+            elif "." in fkey:
                 a, b = fkey.split(".", 1)
                 val = (p.get(a) or {}).get(b)
             else:
@@ -289,7 +333,7 @@ def build_fiw(cfg):
           for i, r in enumerate(a.get("capital_raises") or [])])
 
     if a.get("lending_products"):
-        _family_sheet(wb.create_sheet("ASSM_LOANS"), "lending", a["lending_products"], LOAN_FIELDS + MB_FIELDS)
+        _family_sheet(wb.create_sheet("ASSM_LOANS"), "lending", a["lending_products"], LEND_FIELDS + MB_FIELDS)
     if a.get("deposit_products"):
         _family_sheet(wb.create_sheet("ASSM_DEPOSITS"), "deposit", a["deposit_products"], DEP_FIELDS)
 
@@ -570,6 +614,15 @@ def _apply_path(cfg, parts, val):
         parent[leaf] = val
 
 
+def _num_eq(a, b):
+    """Equal within Excel's round-trip precision. openpyxl/Excel carry ~15 sig digits, so a
+    value like 33333.333333333336 reads back as 33333.33333333334 — an absolute 1e-12 threshold
+    would call that a spurious edit. Relative tolerance absorbs the representation loss."""
+    if isinstance(a, (int, float)) and isinstance(b, (int, float)):
+        return abs(a - b) <= 1e-9 + 1e-9 * max(abs(a), abs(b))
+    return (a or None) == (b or None)
+
+
 def diff_import(data, current_cfg):
     """Filled FIW -> (merged cfg, edits report). Fail-closed on unknown
     generation state; only cells that DIFFER from the snapshot are applied,
@@ -602,6 +655,7 @@ def diff_import(data, current_cfg):
     # from another engagement reconstitutes THAT bank, and the report says so.
     merged = json.loads(json.dumps(snap))
     edits = []
+    warnings = []
     session_differed = json.dumps(current_cfg, sort_keys=True) != json.dumps(snap, sort_keys=True)
 
     if "CONTROL" in wb.sheetnames:
@@ -645,38 +699,120 @@ def diff_import(data, current_cfg):
                        "note": "derived — scenario label followed the bank rename"})
         merged["scenario_name"] = _renamed
 
+    def _norm_num(v):
+        """Normalize a cell value for comparison: numbers compare as floats (so 0.049,
+        4.9%, and float-epsilon representations don't create spurious 'changed')."""
+        if v in ("", None):
+            return None
+        if isinstance(v, (int, float)):
+            return float(v)
+        try:
+            return float(v)
+        except (TypeError, ValueError):
+            return v
+
+    # Deposit/loan sheets carry a synthetic contextual rate cell (__RATE__) whose meaning is
+    # set by rate_type, plus an informational baseline (__RATE_BASELINE__, a 'fact' row).
+    # We collect each product's rows first (so rate_type is known before routing __RATE__),
+    # then apply — routing the rate into rate_paid_ann/yield_ann OR index_spread and CLEARING
+    # the inactive field, per the discriminated-union contract.
     for sheet, fam in (("ASSM_LOANS", "lending"), ("ASSM_DEPOSITS", "deposit")):
         if sheet not in wb.sheetnames:
             continue
+        arr = snap["assumptions"].get(FAM_ARR[fam], [])
+        # gather rows by product index
+        by_idx = {}
         for r in wb[sheet].iter_rows(min_row=2):
             key, val, units = r[0].value, r[3].value, (r[4].value or "")
             if not key or "fact" in str(units):
                 continue
             _, idx, field = key.split(".", 2)
-            idx = int(idx)
-            arr = snap["assumptions"].get(FAM_ARR[fam], [])
+            by_idx.setdefault(int(idx), {})[field] = val
+
+        for idx, cells in by_idx.items():
             if idx >= len(arr):
                 continue
-            if "." in field:
-                a, b = field.split(".", 1)
-                old = (arr[idx].get(a) or {}).get(b)
-            else:
-                old = arr[idx].get(field)
-            newv = None if val in ("", None) else (float(val) if isinstance(val, (int, float)) else val)
-            if isinstance(old, (int, float)) and isinstance(newv, (int, float)):
-                changed = abs(float(old) - float(newv)) > 1e-12
-            else:
-                changed = (old or None) != (newv or None)
-            if changed:
-                tgt = merged["assumptions"].setdefault(FAM_ARR[fam], [])
-                if idx >= len(tgt):
+            base = arr[idx]
+            # --- identity heuristic (NOT proof; see PROTOCOL_GAPS): does this row still
+            # correspond to the exported product? Require the call-report line AND opening
+            # balance at this index to match the snapshot. If not, we cannot trust
+            # value-unchanged grading and fall back to a broad notice.
+            _line_lbl = LINE_LABELS.get(base.get("call_report_line"), base.get("call_report_line"))
+            _id_trusted = (cells.get("call_report_line") in (None, _line_lbl)
+                           and (("opening_balance" not in cells)
+                                or _norm_num(cells.get("opening_balance")) == _norm_num(base.get("opening_balance"))))
+
+            # rate_type after edits (falls back to snapshot)
+            new_rt = cells.get("rate_type") or base.get("rate_type")
+            old_rt = base.get("rate_type")
+
+            tgt = merged["assumptions"].setdefault(FAM_ARR[fam], [])
+            if idx >= len(tgt):
+                continue
+
+            for field, val in cells.items():
+                if field in ("__RATE_BASELINE__",):
                     continue
+                if field == "__RATE__":
+                    # route the one contextual value by the (possibly edited) rate_type,
+                    # and CLEAR the inactive field — but ONLY when something actually changed
+                    # (a clean re-import must be a no-op, or the hash drifts). "Changed" means
+                    # the rate value differs from the active field OR the rate_type flipped.
+                    rate_val = _norm_num(val)
+                    if new_rt == "float":
+                        old = base.get("index_spread")
+                        fld, inactive = "index_spread", ("rate_paid_ann", "yield_ann")
+                    else:
+                        fld = "rate_paid_ann" if fam == "deposit" else "yield_ann"
+                        old = base.get(fld)
+                        inactive = ("index_spread",)
+                    _rate_changed = not _num_eq(_norm_num(old), rate_val)
+                    _type_flipped = new_rt != old_rt
+                    if _rate_changed or _type_flipped:
+                        tgt[idx][fld] = rate_val
+                        for _ifld in inactive:
+                            tgt[idx].pop(_ifld, None)
+                        if _rate_changed:
+                            edits.append({"key": f"{fam}.{idx}.{fld}",
+                                           "from": old, "to": rate_val})
+                    continue
+                # ordinary field
                 if "." in field:
                     a, b = field.split(".", 1)
-                    tgt[idx].setdefault(a, {})[b] = newv
+                    old = (base.get(a) or {}).get(b)
                 else:
-                    tgt[idx][field] = newv
-                edits.append({"key": f"{fam}.{idx}.{field}", "from": old, "to": newv})
+                    old = base.get(field)
+                newv = _norm_num(val) if field not in ("rate_type", "measurement",
+                                                         "call_report_line", "name") else (
+                        None if val in ("", None) else val)
+                changed = not _num_eq(old, newv)
+                if changed:
+                    if "." in field:
+                        a, b = field.split(".", 1)
+                        tgt[idx].setdefault(a, {})[b] = newv
+                    else:
+                        tgt[idx][field] = newv
+                    edits.append({"key": f"{fam}.{idx}.{field}", "from": old, "to": newv})
+
+            # --- rate_type-change warning (graded, identity-aware) ---
+            if new_rt != old_rt:
+                rate_cell = _norm_num(cells.get("__RATE__"))
+                old_rate = (base.get("index_spread") if old_rt == "float"
+                            else (base.get("rate_paid_ann") if fam == "deposit" else base.get("yield_ann")))
+                pname = base.get("name", f"{fam}[{idx}]")
+                if not _id_trusted:
+                    warnings.append({"severity": "review",
+                        "message": f"row identity uncertain for {sheet} index {idx}; product "
+                                    "ordering may have changed — review ALL contextual rate values"})
+                elif rate_cell is not None and _norm_num(old_rate) == rate_cell:
+                    warnings.append({"severity": "high",
+                        "message": f"'{pname}': rate type changed {old_rt}->{new_rt} but the value "
+                                    f"{rate_cell} was left unchanged; it will now be read as "
+                                    f"{'a spread over SOFR' if new_rt=='float' else 'an absolute rate'}, "
+                                    "not the prior meaning — confirm this is intended"})
+                else:
+                    warnings.append({"severity": "notice",
+                        "message": f"'{pname}': rate type changed {old_rt}->{new_rt} (value also changed)"})
 
     # Flat assumption-array sheets (securities, OBS, scheduled borrowings, raises,
     # pre-opening expenses) and the fee-modules sheet. Same diff mechanic: read the
@@ -715,15 +851,15 @@ def diff_import(data, current_cfg):
             parts = str(key).split(".")
             old = _resolve_path(snap, parts)
             newv = _coerce(old, val)
-            changed = (abs(float(old) - float(newv)) > 1e-12
-                       if isinstance(old, (int, float)) and isinstance(newv, (int, float))
-                       else (old or None) != (newv or None))
+            changed = not _num_eq(old, newv)
             if changed and newv is not None:
                 _apply_path(merged, parts, newv)
                 edits.append({"key": str(key), "from": old, "to": newv})
 
     rep = {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits),
-            "base": base_src}
+            "base": base_src, "warnings": warnings,
+            "warning_count": len(warnings),
+            "high_severity_warnings": [w for w in warnings if w.get("severity") == "high"]}
     if session_differed:
         rep["session_note"] = ("the open session differed from this workbook's engagement — "
                                 "the workbook's state now governs (the session's unsaved "

@@ -334,8 +334,8 @@ def t22():
     check("T22b", "generation hash on README matches the canonical hash",
           any(r[0].value == "Generation hash" and r[1].value == cfg_hash(cfg) for r in wb["README"].iter_rows()))
     dep = {(r[0].value): r[3].value for r in wb["ASSM_DEPOSITS"].iter_rows(min_row=2)}
-    check("T22c", "values transcribed (rate 0.5%, opening $8.93M) and line rendered as label",
-          abs(dep["deposit.0.rate_paid_ann"] - 0.005) < 1e-12
+    check("T22c", "values transcribed (rate 0.5% via contextual cell, opening $8.93M) and line rendered as label",
+          abs(dep["deposit.0.__RATE__"] - 0.005) < 1e-12
           and abs(dep["deposit.0.opening_balance"] - 8_930_000) < 1e-6
           and dep["deposit.0.call_report_line"] == "Deposits: Transaction (DDA)")
     cfg["assumptions"]["lending_products"] = [{"name": "Credit Card", "call_report_line": "loanCreditCard",
@@ -372,7 +372,7 @@ def t23():
         wb = _lw(_io.BytesIO(data))
         ws = wb["ASSM_DEPOSITS"]
         for r in ws.iter_rows(min_row=2):
-            if r[0].value == "deposit.0.rate_paid_ann":
+            if r[0].value == "deposit.0.__RATE__":   # v41: contextual rate cell (fixed -> rate_paid_ann)
                 r[3].value = 0.0125          # human edit
             if r[0].value == "deposit.0.call_report_line":
                 r[3].value = "Loans: Other"  # vandalized FACT — must be ignored
@@ -547,6 +547,34 @@ def t23():
             _target = _mm["pre_opening"]["expenses"] if _arr == "pre_opening.expenses" else _mm["assumptions"][_arr]
             check(f"T23m-{_sh}", f"adding an element to {_arr} round-trips and validates",
                   len(_target) == _ix + 1 and not _ve(_mm))
+
+        # T23n: the single contextual rate cell (v41). Routing by rate_type, clear-the-other-
+        # field, clean round-trip stability, graded warnings.
+        cfgr = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfgr["assumptions"]["deposit_products"] = [
+            {"name": "Fix DDA", "call_report_line": "depDDA", "opening_balance": 20_000_000,
+             "growth_q": 0.03, "runoff_q": 0.0, "rate_type": "fixed", "rate_paid_ann": 0.001,
+             "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0},
+            {"name": "Float Sav", "call_report_line": "depSavings", "opening_balance": 30_000_000,
+             "growth_q": 0.04, "runoff_q": 0.0, "rate_type": "float", "index_spread": -0.004,
+             "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
+        cfgr["step_0"]["modules"] = ["balance_driven_deposits"]
+        datar, ghr = F.build_fiw(cfgr); F.persist_snapshot(cfgr, ghr)
+        mr0, rr0 = F.diff_import(datar, {})
+        check("T23n", "clean round-trip: no edits/warnings and the float deposit validates",
+              rr0["edit_count"] == 0 and rr0["warning_count"] == 0 and not _ve(mr0))
+        wbr = _lw(_io.BytesIO(datar)); wsr = wbr["ASSM_DEPOSITS"]
+        for r in wsr.iter_rows(min_row=2):
+            if r[0].value == "deposit.0.rate_type":
+                r[3].value = "float"
+        _br = _io.BytesIO(); wbr.save(_br)
+        mr1, rr1 = F.diff_import(_br.getvalue(), {})
+        _d0 = mr1["assumptions"]["deposit_products"][0]
+        check("T23n2", "fixed->float flip: value routed to index_spread, rate_paid_ann cleared, validates",
+              _d0.get("rate_type") == "float" and abs(_d0.get("index_spread", -9) - 0.001) < 1e-9
+              and "rate_paid_ann" not in _d0 and not _ve(mr1))
+        check("T23n3", "the unchanged-value type flip emits a high-severity warning",
+              any(w.get("severity") == "high" for w in rr1["warnings"]))
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

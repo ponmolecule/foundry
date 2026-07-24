@@ -102,3 +102,31 @@ decision since it would re-freeze goldens. ENGINE_SPEC §12 states the determini
 (2) PROCESS SLIP, recurrence of the PC-25b class: step-1 commit was created unconditionally
 after a red T18 (chain used echoed exits but no conditional). Standing rule reaffirmed and
 this fix lands by amending that commit only after green gates, run as separate steps.
+
+## FIW rate-field fix (v41) — residual limitations recorded at implementation
+
+Logged plainly alongside the deposit/loan single-cell rate fix so nothing is implied to be
+more robust than it is:
+
+(1) NO STABLE ROW IDENTITY. The FIW diff-import matches rows by array index
+(deposit.N.field), not by a durable identifier. The rate-type-change warning therefore uses a
+best-effort identity heuristic (row count unchanged AND multiple baseline attributes at that
+index match the snapshot), NOT proof. Without stable row identifiers, some reorderings of
+otherwise-similar products may remain undetectable — change attribution can be incomplete or
+inaccurate. This does NOT affect the core structural guarantee: every imported fixed/float
+product populates the applicable engine field and clears the other. Proper long-term fix: a
+hidden workbook-only row key (_export_row_key) used only for edit attribution, never added to
+the engine/canonical product schema. Deferred as its own item.
+
+(2) WARN-AND-ACKNOWLEDGE GATE IS REPORT-LEVEL ONLY. A high-severity reinterpretation
+(rate_type flipped, value left unchanged) is emitted in the import edit report, but a hard
+"must acknowledge before running" UI gate is NOT implemented in this fix (UI plumbing untraced).
+Follow-up item.
+
+(3) PATHOLOGICAL FIW INDEXING (carried from v40). Add-element round-trip verified only for the
+next-sequential index. Skipped/duplicate/out-of-order indices untested; _apply_path backfills
+empty dicts on a skipped index, which the validator likely rejects. Needs test cases + possibly
+a diff_import guard.
+
+(4) insured_pct UI-INVISIBILITY (carried). Wired engine field (callreport RC-E memo) with no
+editable console input; import-only today. Log as gap, not bug, pending intent confirmation.
