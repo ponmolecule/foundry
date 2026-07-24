@@ -2020,6 +2020,35 @@ def t67():
           and _pb._is_stored("broad") and not _pb._is_stored("628,3511"))
 
 
+def t68():
+    # Regression: the balance-sheet exhibit's Total liabilities must include the
+    # amortizing scheduled-borrowings line, not just the revolving `borrow` plug.
+    # Omitting it broke assets = liabilities + equity by exactly the scheduled
+    # balance in every quarter a term draw was outstanding (a bug that shipped
+    # because NO golden fixture exercised scheduled_borrowings). This guards it.
+    print("T68 balance identity holds with scheduled borrowings (present.py totalLiab)")
+    import json as _json
+    from foundry.v2.run_q import run_v2 as _run
+    _cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    _cfg["assumptions"]["scheduled_borrowings"] = [
+        {"name": "FHLB term", "quarter": 2, "amount": 8000000, "term_q": 6, "rate_ann": 0.045}]
+    _r = _run(_cfg)
+    _ident = _r["presentation"]["derived"]["identity"]
+    _sched = _r["financials"]["bs"].get("borrowSched") or []
+    check("T68a", "scheduled-borrowings series is actually populated (test is meaningful)",
+          any(abs(x) > 1 for x in _sched),
+          f"max sched {max((abs(x) for x in _sched), default=0):.0f}")
+    check("T68b", "assets = liabilities + equity to the penny in every quarter",
+          all(abs(x) < 0.02 for x in _ident),
+          f"max |break| {max((abs(x) for x in _ident), default=0):.2f}")
+    # And the normal (no scheduled borrowings) path stays intact.
+    _cfg2 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    _ident2 = _run(_cfg2)["presentation"]["derived"]["identity"]
+    check("T68c", "identity still holds with no scheduled borrowings (no regression)",
+          all(abs(x) < 0.02 for x in _ident2),
+          f"max |break| {max((abs(x) for x in _ident2), default=0):.2f}")
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -2027,7 +2056,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

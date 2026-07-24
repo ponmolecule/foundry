@@ -123,13 +123,18 @@ def derived_lines(res, cfg):
     other_liab = round(a["other_liabilities"] / 1000.0, 2)
     paid_in = round(cfg["target_state"]["initial_capital"] / 1000.0, 2)
     bor = bs.get("borrow") or bs.get("borrowings") or [0.0] * n
+    sched = bs.get("borrowSched") or [0.0] * n
     dep = bs["deposits"]
     eq = bs["equity"]
     out = {
         "nonEarn": [non_earn] * n,
         "otherLiab": [other_liab] * n,
         "paidIn": [paid_in] * n,
-        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + other_liab, 2) for i in range(n)],
+        # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
+        # plug AND the amortizing scheduled draws (`borrowSched`). Omitting the latter
+        # breaks the accounting identity by exactly the scheduled balance in every
+        # quarter a term draw is outstanding (assets carry its cash; liabilities didn't).
+        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + other_liab, 2) for i in range(n)],
     }
     out["totalLiabEq"] = [round(out["totalLiab"][i] + (eq[i] or 0), 2) for i in range(n)]
     out["identity"] = [round((bs["totalAssets"][i] or 0) - out["totalLiabEq"][i], 2) for i in range(n)]
