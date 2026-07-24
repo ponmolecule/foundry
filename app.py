@@ -257,6 +257,8 @@ def v31_engagement_save_current(body: dict, user=Depends(gate)):
     cfg.setdefault("client", name)
     try:
         return JSONResponse(store.save_engagement(cfg, slug=name, user=user))
+    except store.StructuralGapError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
     except store.SchemaVersionError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
 
@@ -856,6 +858,8 @@ def v31_save_engagement(body: dict, user=Depends(gate)):
     try:
         return JSONResponse(store.save_engagement(body.get("cfg") or body,
                                                    slug=body.get("slug"), user=user))
+    except store.StructuralGapError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
     except store.SchemaVersionError as e:
         return JSONResponse({"error": str(e)}, status_code=409)
 

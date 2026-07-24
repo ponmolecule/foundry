@@ -597,6 +597,28 @@ def t23():
                     break
         check("T23o2", "the 'Interpreted as' helper is a live formula keyed to the rate_type cell",
               _helper_ok)
+
+        # T23p: the persistence chokepoint hard-refuses the specific structural incompleteness
+        # (a rate_type selector pointing at an empty field) — the gap that let fiw_baseline_bank
+        # be stored un-importable. Clean configs still save; only this structural gap blocks.
+        from foundry import store as _store
+        _clean = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        _saved_ok = True
+        try:
+            _store.save_engagement(_clean, slug="t23p-clean")
+        except _store.StructuralGapError:
+            _saved_ok = False
+        check("T23p", "a clean config saves through the chokepoint", _saved_ok)
+        _broken = _json.loads(_json.dumps(_clean))
+        _broken["assumptions"]["deposit_products"][0]["rate_type"] = "float"
+        _broken["assumptions"]["deposit_products"][0].pop("index_spread", None)
+        _refused = False
+        try:
+            _store.save_engagement(_broken, slug="t23p-broken")
+        except _store.StructuralGapError:
+            _refused = True
+        check("T23p2", "a float product with no spread is hard-refused at save (fail-closed)",
+              _refused)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

@@ -224,3 +224,29 @@ def validate_config_v2(cfg):
     if errs:
         raise ConfigErrorV2("; ".join(errs))
     return cfg
+
+
+def structural_rate_gaps(cfg):
+    """The specific structural incompleteness that must never be persisted: a rate_type /
+    measurement selector pointing at an empty field. This is a mistake (a half-finished type
+    flip), not legitimate work-in-progress, so the save door hard-refuses it — the same
+    fail-closed rule freeze and download already enforce. Returns a list of human messages
+    (empty => clean). NARROWER than validate_config_v2: only these selector-vs-value gaps,
+    so genuine WIP with other open questions can still be saved."""
+    a = cfg.get("assumptions") or {}
+    gaps = []
+    for p in a.get("deposit_products") or []:
+        ctx = f"deposit '{p.get('name', '<?>')}': "
+        if p.get("rate_type") == "float" and p.get("index_spread") is None:
+            gaps.append(ctx + "rate type is floating but no spread over SOFR is set")
+        if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None:
+            gaps.append(ctx + "rate type is fixed but no rate paid is set")
+    for p in a.get("lending_products") or []:
+        ctx = f"loan '{p.get('name', '<?>')}': "
+        if p.get("rate_type") == "float" and p.get("index_spread") is None:
+            gaps.append(ctx + "rate type is floating but no spread over SOFR is set")
+        if p.get("rate_type") == "fixed" and p.get("yield_ann") is None:
+            gaps.append(ctx + "rate type is fixed but no yield is set")
+        if p.get("measurement") == "fair_value" and p.get("discount_spread_ann") is None:
+            gaps.append(ctx + "measurement is fair value but no DCF discount spread is set")
+    return gaps

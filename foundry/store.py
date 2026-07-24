@@ -20,6 +20,11 @@ class SchemaVersionError(ValueError):
     bug is born."""
 
 
+class StructuralGapError(ValueError):
+    """Raised when a save is refused because a rate_type / measurement selector points at an
+    empty field — the specific structural incompleteness that must never be persisted."""
+
+
 def _dir(user=None):
     base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
     d = os.path.join(base, "engagements", _safe_user(user)) if user else os.path.join(base, "engagements")
@@ -39,6 +44,16 @@ def slugify(name):
 def save_engagement(cfg, slug=None, user=None):
     """Stamp the schema version (if absent), persist, return metadata."""
     cfg2 = json.loads(json.dumps(cfg))  # deep copy via the same codec that stores it
+    # Fail-closed at the single persistence chokepoint: never store a config whose rate_type /
+    # measurement selector points at an empty field. That specific structural incompleteness is
+    # a half-finished type flip, not work-in-progress, and persisting it is how an engagement
+    # becomes un-importable later. Every save door funnels through here, so the gate can't be
+    # bypassed. (Broader validation stays with the caller; only this structural gap blocks save.)
+    from foundry.v2.validate_q import structural_rate_gaps
+    gaps = structural_rate_gaps(cfg2)
+    if gaps:
+        raise StructuralGapError("cannot save — resolve these rate settings first: "
+                                 + "; ".join(gaps))
     cfg2.setdefault("config_schema_version", CONFIG_SCHEMA_VERSION)
     if cfg2["config_schema_version"] != CONFIG_SCHEMA_VERSION:
         raise SchemaVersionError(
