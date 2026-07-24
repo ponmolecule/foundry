@@ -412,6 +412,66 @@ def t23():
         except ValueError:
             failed = True
         check("T23f", "legacy file (no embedded state) with unknown hash fails closed", failed)
+
+        # T23g-j: the seven previously-uneditable categories now round-trip through the
+        # FIW. Build a config carrying all of them, generate, edit one gold cell in each
+        # new sheet, re-import, and assert every edit applies and the version stamps exist.
+        cfgx = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        ax = cfgx["assumptions"]
+        ax["securities_afs"] = [{"name": "AFS", "opening": 10_000_000.0, "purchases_q": 0.0,
+                                  "growth_q": 0.0, "runoff_q": 0.006, "yield_ann": 0.043}]
+        ax["securities_htm"] = [{"name": "HTM", "opening": 8_000_000.0, "purchases_q": 0.0,
+                                  "growth_q": 0.0, "runoff_q": 0.006, "yield_ann": 0.047}]
+        ax["obs_exposures"] = [{"name": "Commitments", "notional": 12_000_000.0,
+                                 "growth_q": 0.01, "fee_yield_ann": 0.0025}]
+        ax["scheduled_borrowings"] = [{"name": "FHLB", "quarter": 1, "amount": 8_000_000.0,
+                                        "term_q": 8, "rate_ann": 0.045}]
+        ax["capital_raises"] = [{"quarter": 4, "amount": 15_000_000.0}]
+        ax["fee_modules"] = {"trust": {"aum_open": 50_000_000.0, "aum_growth_q": 0.03,
+                                        "fee_bp_ann": 80.0}}
+        cfgx["pre_opening"] = {"expenses": [{"category": "Legal", "total": 1_000_000.0}],
+                                "min_day1_capital": 40_000_000.0}
+        if "investment_portfolio" not in cfgx["step_0"].get("modules", []):
+            cfgx["step_0"]["modules"] = cfgx["step_0"].get("modules", []) + ["investment_portfolio", "balance_driven_obs"]
+        datax, ghx = F.build_fiw(cfgx)
+        F.persist_snapshot(cfgx, ghx)
+        wbx = _lw(_io.BytesIO(datax))
+        # version stamps present on README
+        readme_labels = {r[0].value for r in wbx["README"].iter_rows()}
+        check("T23g", "README carries both version stamps (build + git)",
+              "Model build stamp" in readme_labels and "Model git commit" in readme_labels)
+        # every new category sheet was emitted
+        for _sh in ("ASSM_SEC_AFS", "ASSM_SEC_HTM", "ASSM_OBS", "ASSM_BORROWINGS",
+                    "ASSM_RAISES", "ASSM_FEES", "ASSM_PREOPEN"):
+            check(f"T23h-{_sh}", f"{_sh} sheet generated", _sh in wbx.sheetnames)
+        # edit one gold cell in each new sheet
+        _targets = {
+            "ASSM_SEC_AFS": ("securities_afs.0.yield_ann", 0.055),
+            "ASSM_SEC_HTM": ("securities_htm.0.opening", 9_000_000),
+            "ASSM_OBS": ("obs_exposures.0.fee_yield_ann", 0.004),
+            "ASSM_BORROWINGS": ("scheduled_borrowings.0.rate_ann", 0.05),
+            "ASSM_RAISES": ("capital_raises.0.amount", 20_000_000),
+            "ASSM_FEES": ("fee_modules.trust.fee_bp_ann", 90),
+            "ASSM_PREOPEN": ("pre_opening.expenses.0.total", 1_200_000),
+        }
+        for _sh, (_k, _v) in _targets.items():
+            for r in wbx[_sh].iter_rows(min_row=2):
+                if r[0].value == _k:
+                    r[3].value = _v
+        _bx = _io.BytesIO(); wbx.save(_bx)
+        mergedx, repx = F.diff_import(_bx.getvalue(), {})
+        check("T23i", "all seven new-category edits detected on re-import",
+              repx["edit_count"] == 7)
+        _ax = mergedx["assumptions"]
+        _apx = mergedx["pre_opening"]["expenses"][0]["total"]
+        _all = (abs(_ax["securities_afs"][0]["yield_ann"] - 0.055) < 1e-9
+                and abs(_ax["securities_htm"][0]["opening"] - 9_000_000) < 1e-6
+                and abs(_ax["obs_exposures"][0]["fee_yield_ann"] - 0.004) < 1e-9
+                and abs(_ax["scheduled_borrowings"][0]["rate_ann"] - 0.05) < 1e-9
+                and abs(_ax["capital_raises"][0]["amount"] - 20_000_000) < 1e-6
+                and abs(_ax["fee_modules"]["trust"]["fee_bp_ann"] - 90) < 1e-6
+                and abs(_apx - 1_200_000) < 1e-6)
+        check("T23j", "every new-category edit landed in the merged config", _all)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
