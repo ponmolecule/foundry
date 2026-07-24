@@ -536,7 +536,7 @@ async function loadExampleBank(){
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
   delete cfg._blank_canvas;
-  const sn = document.getElementById("scenarioName"); if(sn) sn.value = cfg.scenario_name;
+  const sn = document.getElementById("scenarioName"); if(sn) sn.value = displayName();
   renderGlobals(); refresh(); markPristine();
   appStatus("ok", "<b>Loaded the example bank.</b> Every input is populated \u2014 edit freely, or clear it to start fresh.");
 }
@@ -550,7 +550,7 @@ async function boot(){
   cfg.stress_params = cfg.stress_params || {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300,
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
-  document.getElementById("scenarioName").value = cfg.scenario_name;
+  document.getElementById("scenarioName").value = displayName();
   // ambient persistence: if a working session exists on this workspace, resume it
   try{
     const rs = await fetch("/api/v31/engagements");
@@ -562,7 +562,7 @@ async function boot(){
         if(rc.ok){
           cfg = await rc.json();
           const sn = document.getElementById("scenarioName");
-          if(sn) sn.value = cfg.scenario_name || "";
+          if(sn) sn.value = displayName();
           appStatus("ok", "<b>Resumed your working session</b> \u2014 autosaved state restored. Open a saved engagement from the \u25be menu to switch.");
         }
       }
@@ -747,6 +747,15 @@ function getPath(p){ return p.split(".").reduce((o,k)=> o==null?o : o[isNaN(+k)?
 function setPath(p, v){ const ks=p.split("."); let o=cfg; for(let i=0;i<ks.length-1;i++){ const k=isNaN(+ks[i])?ks[i]:+ks[i]; if(o[k]==null) o[k]={}; o=o[k]; }
   o[ks[ks.length-1]] = v; refresh(); }
 window.setPath=setPath;
+// The chevron / top-right name field resolves the display name the SAME way the saved-engagement
+// section does (save-current uses scenario_name || client_legal_name || proposed_bank). Reading
+// scenario_name alone left the chevron blank after importing a bank that set proposed_bank but no
+// scenario name — even though the name was right there in the config. One resolver, so the chevron
+// and the engagement store can't disagree on the name.
+function displayName(){
+  return (cfg && (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank)) || "";
+}
+window.displayName = displayName;
 function setUnit(path, unit, v){
   if(v==="" || v==null){ setPath(path, null); return; }
   let x = parseFloat(String(v).replace(/,/g, ""));   // commas welcome
@@ -2551,7 +2560,7 @@ async function uploadScenario(input){
     const parsed = JSON.parse(await f.text());
     cfg = parsed;
     const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
-    document.getElementById("scenarioName").value = cfg.scenario_name || "";
+    document.getElementById("scenarioName").value = displayName();
     renderGlobals(); refresh(); renderContent();
     appStatus("ok", `<b>Configuration restored \u2014 now working on \u201c${esc(name)}\u201d.</b> This file replaced the whole engagement state.`);
   } catch(e){ appStatus("err", `<b>Not a valid configuration JSON</b> \u2014 ${esc(e.message)}. Nothing was changed.`); }
@@ -2568,7 +2577,7 @@ async function uploadWorkbook(input){
   const r = await fetch("/api/v2/parse-workbook", {method:"POST", body: await f.arrayBuffer()});
   const j = await r.json();
   if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
-  else { cfg = j; document.getElementById("scenarioName").value = cfg.scenario_name || "";
+  else { cfg = j; document.getElementById("scenarioName").value = displayName();
          renderGlobals(); refresh(); renderContent(); }
   input.value = "";
 }
@@ -2600,7 +2609,7 @@ async function loadFrozen(id){
   const r = await fetch("/api/v2/frozen/" + id + "/config");
   if(!r.ok){ appStatus("err", "<b>Frozen run not found</b> \u2014 the registry entry may predate this workspace."); return; }
   cfg = await r.json();
-  document.getElementById("scenarioName").value = cfg.scenario_name || "";
+  document.getElementById("scenarioName").value = displayName();
   renderGlobals(); refresh(); setTab("products");
 }
 window.downloadScenario=downloadScenario; window.uploadScenario=uploadScenario;
@@ -2789,7 +2798,7 @@ async function uploadFIW(inp){
     ? `<b>Workbook imported \u2014 now working on \u201c${esc(name)}\u201d.</b> ${n} edit${n===1?"":"s"} applied; untouched cells kept their values.${lines}${n>8?"<div>\u2026</div>":""}`
     : `<b>Workbook read \u2014 no edits detected.</b> Every cell matches its generation state; nothing changed for \u201c${esc(name)}\u201d.`) + warn);
   const sn = document.getElementById("scenarioName");
-  sn.value = cfg.scenario_name || "";
+  sn.value = displayName();
   sn.style.transition = "box-shadow .3s"; sn.style.boxShadow = "0 0 0 2px #DFA85A";
   setTimeout(()=>{ sn.style.boxShadow = ""; }, 1600);
   syncModules(); renderGlobals(); renderContent(); refresh();
@@ -2890,7 +2899,7 @@ async function wizFinish(){
     if(r.ok){ const j = await r.json(); engStore = null; }
   }catch(e){}
   wiz = null;
-  document.getElementById("scenarioName").value = cfg.scenario_name;
+  document.getElementById("scenarioName").value = displayName();
   renderGlobals(); refresh(); setTab("products");
 }
 window.wizStart=wizStart; window.wizSet=wizSet; window.wizPick=wizPick; window.wizFinish=wizFinish;
@@ -2908,7 +2917,7 @@ async function openEngagement(slug){
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
-    document.getElementById("scenarioName").value = cfg.scenario_name || "";
+    document.getElementById("scenarioName").value = displayName();
     renderGlobals(); refresh(); markPristine(); setTab("overview");
   } else {
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");

@@ -28,9 +28,11 @@ HDR = Font(bold=True)
 MB_FIELDS = [
     ("mortgage_banking.sale_pct_of_orig", "Originations sold", "share [0,1]"),
     ("mortgage_banking.gain_on_sale_margin", "Gain-on-sale margin", "share"),
+    ("mortgage_banking.warehouse_hold_q", "Warehouse period", "quarters held for sale"),
     ("mortgage_banking.servicing_retained_pct", "Servicing retained", "share of sold"),
     ("mortgage_banking.servicing_fee_bp_ann", "Servicing fee", "bp/yr"),
     ("mortgage_banking.msr_cap_rate_pct_upb", "MSR cap rate", "% of UPB"),
+    ("mortgage_banking.msr_decay_q", "Servicing runoff", "rate/qtr"),
 ]
 DEP_FIELDS = [
     ("call_report_line", "Call Report line", "fact — resolved, do not edit"),

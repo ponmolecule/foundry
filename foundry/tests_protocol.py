@@ -648,6 +648,43 @@ def t23():
         check("T23q2", "workbook units derive from the registry (opex monthly, new_deposits quarterly)",
               workbook_units("opex_fixed_m") == "$/month"
               and workbook_units("new_deposits_q") == "$/quarter")
+
+        # T23r: all seven originate-to-sell (mortgage_banking) fields emit in the workbook AND
+        # survive import — warehouse_hold_q and msr_decay_q were previously omitted from the sheet.
+        cfgm = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        _mbp = [p for p in cfgm["assumptions"]["lending_products"] if p.get("mortgage_banking")]
+        if _mbp:
+            datam, ghm = F.build_fiw(cfgm); F.persist_snapshot(cfgm, ghm)
+            _wbm = _lw(_io.BytesIO(datam))
+            _mb_rows = [str(r[2].value) for r in _wbm["ASSM_LOANS"].iter_rows(min_row=2)
+                        if r[0].value and "mortgage_banking." in str(r[0].value)]
+            check("T23r", "all 7 originate-to-sell fields (incl. Warehouse period, Servicing runoff) emit in the workbook",
+                  len(_mb_rows) == 7)
+            # edit warehouse_hold_q and msr_decay_q in the sheet; both must land
+            for r in _wbm["ASSM_LOANS"].iter_rows(min_row=2):
+                k = str(r[0].value)
+                if k.endswith("mortgage_banking.warehouse_hold_q"): r[3].value = 2
+                if k.endswith("mortgage_banking.msr_decay_q"): r[3].value = 0.05
+            _bm2 = _io.BytesIO(); _wbm.save(_bm2)
+            _mm2, _rm2 = F.diff_import(_bm2.getvalue(), {})
+            _mb2 = [p for p in _mm2["assumptions"]["lending_products"] if p.get("mortgage_banking")][0]["mortgage_banking"]
+            check("T23r2", "the two formerly-missing fields land on import",
+                  _mb2.get("warehouse_hold_q") == 2 and abs(_mb2.get("msr_decay_q", 0) - 0.05) < 1e-9)
+
+        # T23s: the workbook carries the bank identity and it lands in proposed_bank on import —
+        # the data contract the chevron's displayName() fallback depends on. (The chevron used to
+        # read scenario_name alone, so an imported bank with no scenario name showed blank.)
+        cfgn = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfgn["proposed_bank"] = "Trace Test Bank"
+        cfgn["scenario_name"] = ""
+        datan, ghn = F.build_fiw(cfgn); F.persist_snapshot(cfgn, ghn)
+        _wbn = _lw(_io.BytesIO(datan), data_only=True)
+        _carries = any(r[1] == "Trace Test Bank"
+                       for sh in ("CONTROL",) if sh in _wbn.sheetnames
+                       for r in _wbn[sh].iter_rows(values_only=True) if r)
+        _mn, _rn = F.diff_import(datan, {})
+        check("T23s", "workbook carries the bank name and it lands in proposed_bank on import",
+              _carries and _mn.get("proposed_bank") == "Trace Test Bank")
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
