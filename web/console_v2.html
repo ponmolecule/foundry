@@ -786,15 +786,14 @@ function numInput(path, unit, extra){
 
 /* ---------------- sidebar: exactly three cards ---------------- */
 const GLOBAL_FIELDS = [
-  ["Initial capital ($000s)", "target_state.initial_capital", "k"],
   ["Tax rate (%)", "assumptions.tax_rate", "pct"],
+  ["Min leverage ratio (%) \u2014 chartering commitment", "constraints.0.value", "pct"],
   ["Corporate overhead ($000s/qtr)", "assumptions.overhead_q", "k"],
   ["Overhead growth (%/qtr)", "assumptions.overhead_growth_q", "pct"],
   ["Cash floor (% of deposits)", "assumptions.cash_target_pct_deposits", "pct"],
   ["Yield on cash (annual %)", "assumptions.cash_yield", "pct"],
   ["Yield on securities (annual %)", "assumptions.securities_yield", "pct"],
   ["Borrowing rate (annual %)", "assumptions.borrow_rate_ann", "pct"],
-  ["Min leverage ratio (%) \u2014 chartering commitment", "constraints.0.value", "pct"],
   ["Premises & equipment ($000s)", "assumptions.premises_equipment", "k"],
   ["Intangibles ($000s)", "assumptions.intangibles", "k"],
   ["Other assets ($000s)", "assumptions.other_assets", "k"],
@@ -810,7 +809,7 @@ const STRESS_FIELDS = [
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
 const GLOBAL_GROUPS_V31 = [
-  ["Capital & tax", ["Initial capital", "Min leverage", "Tax rate"]],
+  ["Tax & leverage", ["Tax rate", "Min leverage"]],
   ["Treasury (funding waterfall)", ["Cash floor", "Yield on cash", "Yield on securities", "Borrowing rate"]],
   ["Operating expenses", ["Corporate overhead", "Overhead growth"]],
   ["Other balance sheet", ["Premises", "Intangibles", "Other assets", "Other liabilities"]],
@@ -1939,9 +1938,12 @@ function renderContent(){
       c.innerHTML = `<div class="h2" style="font-weight:700">Engagement overview</div>
         <div style="max-width:640px;margin-top:28px;padding:34px 32px;border:1px dashed #33436199;border-radius:10px;background:#111C30;text-align:center">
           <div style="font-size:15px;font-weight:600;color:#E6E8EC;margin-bottom:8px">Nothing modeled yet</div>
-          <div style="font-size:13px;line-height:1.65;color:#8FA3C0;margin-bottom:22px">This is a blank canvas. Set your assumptions in the sidebar and add products on the Products tab \u2014 every figure on every sheet will trace to a value you entered. Nothing is pre-filled.</div>
-          <button class="btn-gold" onclick="loadExampleBank()" style="margin-bottom:6px">Start from example bank</button>
-          <div style="font-size:11px;color:#6E7C93;margin-top:10px">Loads a fully-populated sample de novo bank you can edit \u2014 handy for a first look at what a completed model produces.</div>
+          <div style="font-size:13px;line-height:1.65;color:#8FA3C0;margin-bottom:22px">This is a blank canvas. Create a bank to set your capital and charter, then add products \u2014 every figure on every sheet will trace to a value you entered. Nothing is pre-filled.</div>
+          <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap">
+            <button class="btn-gold" onclick="setTab('start');wizStart()">Create a bank</button>
+            <button class="btn-plain" onclick="loadExampleBank()">Start from example bank</button>
+          </div>
+          <div style="font-size:11px;color:#6E7C93;margin-top:14px">&ldquo;Create a bank&rdquo; walks you through capital, charter, and CBLR. &ldquo;Example bank&rdquo; loads a fully-populated sample you can edit \u2014 handy for a first look at what a completed model produces.</div>
         </div>`;
       return;
     }
@@ -2748,7 +2750,7 @@ async function uploadFIW(inp){
 window.uploadFIW = uploadFIW;
 function wizStart(){
   wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
-         cblr:true, initial_capital:60000000, org_costs:2500000, picks:{}};
+         cblr:true, initial_capital:0, org_costs:0, picks:{}};
   renderContent();
 }
 function wizSet(k,v){ wiz[k]=v; renderContent(); }
