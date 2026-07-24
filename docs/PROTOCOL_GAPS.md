@@ -130,3 +130,21 @@ a diff_import guard.
 
 (4) insured_pct UI-INVISIBILITY (carried). Wired engine field (callreport RC-E memo) with no
 editable console input; import-only today. Log as gap, not bug, pending intent confirmation.
+
+## Two slugify implementations (hazard, partially mitigated v47)
+
+There are two slugify() functions with different behavior:
+- store.slugify (foundry/store.py): re.sub([^a-z0-9]+, "-"), NO length cap.
+- configio.slugify (foundry/configio.py): char-by-char, capped at [:40].
+
+The zombie-engagement bug came from this: save_engagement wrote engagement files with
+store.slugify (uncapped) while delete_engagement looked them up with configio.slugify (40-cap),
+so any engagement whose slug exceeded 40 chars could never be deleted. FIXED at v47 by making
+delete_engagement use store.slugify (matching save), guarded by T23t.
+
+RESIDUAL: registry.py still uses configio.slugify (40-cap) while store.py uses its own (uncapped).
+These are separate stores (registry vs engagement files), so they don't currently collide, but the
+two-implementation divergence is a latent trap — a future path that computes a slug with one and
+looks it up with the other repeats the bug. Proper fix: one canonical slugify. Deferred rather than
+done now because unifying changes slug output for one of the two stores and could orphan EXISTING
+on-disk files (a deliberate migration, not a safe ride-along on the zombie fix).

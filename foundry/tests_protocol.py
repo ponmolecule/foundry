@@ -685,6 +685,25 @@ def t23():
         _mn, _rn = F.diff_import(datan, {})
         check("T23s", "workbook carries the bank name and it lands in proposed_bank on import",
               _carries and _mn.get("proposed_bank") == "Trace Test Bank")
+
+        # T23t: an engagement must be deletable via the slug the LIST shows — regardless of name
+        # length. The zombie bug: save wrote the file with store.slugify (uncapped) but delete
+        # looked it up with configio.slugify (40-char cap), so long-named engagements could never
+        # be removed. Guard the save->list->delete round-trip for a >40-char name.
+        from foundry import store as _st
+        _long = "Nook & Cranny National Bank of the Greater Metropolitan Region"
+        _cfgz = {"proposed_bank": _long, "client": _long,
+                 "assumptions": {"deposit_products": [], "lending_products": []}}
+        _st.save_engagement(_cfgz, slug=_long)
+        _listed = [e for e in _st.list_engagements() if e.get("slug", "").startswith("nook-cranny")]
+        _zombie_free = False
+        if _listed:
+            try:
+                _st.delete_engagement(_listed[0]["slug"])
+                _zombie_free = True
+            except FileNotFoundError:
+                _zombie_free = False
+        check("T23t", "a long-named engagement deletes via its listed slug (no zombie)", _zombie_free)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

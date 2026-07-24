@@ -88,11 +88,24 @@ def load_engagement(slug, user=None):
 
 
 def delete_engagement(slug, user=None):
-    """Delete a saved engagement file. Returns the slug; raises if absent."""
-    from .configio import slugify
-    path = os.path.join(_dir(user), slugify(slug) + ".json")
+    """Delete a saved engagement file. Returns the slug; raises if absent.
+
+    Uses THIS module's slugify — the same one save_engagement writes filenames with — NOT
+    configio.slugify, which caps at 40 chars. The mismatch was the zombie-engagement bug: an
+    engagement whose slug exceeded 40 chars was written full-length by save but looked up
+    truncated by delete, so it could never be removed. slugify is idempotent, so passing either
+    a raw name or an already-slugified value resolves to the same file. As a belt-and-suspenders
+    guard, if the direct path is absent but a file with this exact slug exists on disk, remove it.
+    """
+    fname = slugify(slug) + ".json"
+    path = os.path.join(_dir(user), fname)
     if not os.path.exists(path):
-        raise FileNotFoundError(slug)
+        # tolerate a caller passing the on-disk slug verbatim (already the filename stem)
+        alt = os.path.join(_dir(user), str(slug) + ".json")
+        if os.path.exists(alt):
+            path = alt
+        else:
+            raise FileNotFoundError(slug)
     os.remove(path)
     return slugify(slug)
 
