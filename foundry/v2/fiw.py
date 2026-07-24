@@ -94,7 +94,7 @@ def _version_stamp():
 # LOAN_FIELDS/DEP_FIELDS: (config_key, human_label, units_note). "fact" in the note
 # marks a row read-only (never gold, never read back by diff_import).
 SEC_FIELDS = [
-    ("name", "Name", "fact — label"),
+    ("name", "Name", "label (editable)"),
     ("opening", "Opening balance", "$"),
     ("purchases_q", "Purchases / additions", "$/quarter"),
     ("growth_q", "Balance growth", "rate/qtr"),
@@ -102,13 +102,13 @@ SEC_FIELDS = [
     ("yield_ann", "Average yield", "annual rate"),
 ]
 OBS_FIELDS = [
-    ("name", "Name", "fact — label"),
+    ("name", "Name", "label (editable)"),
     ("notional", "Notional", "$"),
     ("growth_q", "Notional growth", "rate/qtr"),
     ("fee_yield_ann", "Fee yield", "annual % of notional"),
 ]
 SCHED_FIELDS = [
-    ("name", "Name", "fact — label"),
+    ("name", "Name", "label (editable)"),
     ("amount", "Draw amount", "$"),
     ("quarter", "Draw quarter", "quarter 1-12"),
     ("term_q", "Term to maturity", "quarters (bullet)"),

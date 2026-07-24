@@ -472,6 +472,31 @@ def t23():
                 and abs(_ax["fee_modules"]["trust"]["fee_bp_ann"] - 90) < 1e-6
                 and abs(_apx - 1_200_000) < 1e-6)
         check("T23j", "every new-category edit landed in the merged config", _all)
+
+        # T23k: a user ADDING a new instrument (a new array element beyond the snapshot)
+        # must round-trip in full — including its name — and the result must validate.
+        # Regression guard: the name/category field must NOT be 'fact'-skipped, or the
+        # added element imports nameless and the validator rejects the upload.
+        wbk = _lw(_io.BytesIO(datax))
+        wsk = wbk["ASSM_BORROWINGS"]
+        for _row in (("scheduled_borrowings.1.name", "FHLB C", "Name", "FHLB C", "label (editable)"),
+                     ("scheduled_borrowings.1.amount", "FHLB C", "Draw amount", 5_000_000, "$"),
+                     ("scheduled_borrowings.1.quarter", "FHLB C", "Draw quarter", 6, "quarter 1-12"),
+                     ("scheduled_borrowings.1.term_q", "FHLB C", "Term to maturity", 6, "quarters (bullet)"),
+                     ("scheduled_borrowings.1.rate_ann", "FHLB C", "Rate", 0.051, "annual rate")):
+            wsk.append(_row)
+        _bk = _io.BytesIO(); wbk.save(_bk)
+        mk, rk = F.diff_import(_bk.getvalue(), {})
+        _sbk = mk["assumptions"]["scheduled_borrowings"]
+        _added_ok = (len(_sbk) == 2 and _sbk[1].get("name") == "FHLB C"
+                     and abs(_sbk[1].get("amount", 0) - 5_000_000) < 1e-6
+                     and _sbk[1].get("quarter") == 6 and _sbk[1].get("term_q") == 6)
+        check("T23k", "a user-added new instrument round-trips in full (name included) and validates",
+              _added_ok)
+        from .v2.validate_q import validate_errors_v2 as _ve
+        _errs = _ve(mk)
+        check("T23k2", "the config with the user-added instrument has no validation errors",
+              not _errs, f"{len(_errs)} errors" if _errs else "clean")
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
