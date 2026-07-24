@@ -2983,10 +2983,13 @@ function renderStart(){
     + '</div>'
     + '</div>';
   // Demoted, quiet: bring-your-own-forecast, marked In Development.
-  h += '<div class="ovcard" style="margin:14px 0;border-color:#2A3B57;background:#0E1930;opacity:.72">'
-    + '<div style="display:flex;align-items:center;gap:10px"><div class="k" style="margin:0">Already have a forecast?</div>'
+  h += '<div class="ovcard" style="margin:14px 0;border-color:#2A3B57;background:#0E1930;opacity:.78">'
+    + '<div style="display:flex;align-items:center;gap:10px"><div class="k" style="margin:0">Already have a forecast? Bring the client\u2019s own plan</div>'
     + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">In development</span></div>'
-    + '<div class="s" style="margin-top:6px;max-width:70ch">Bring the client\u2019s own model in whatever shape it exists; Foundry would inspect it, map each series with every conversion logged, and surface gaps as questions rather than guesses. This path needs hands-on mapping and isn\u2019t ready for unattended use yet \u2014 it\u2019s coming.</div>'
+    + '<div class="s" style="margin-top:8px;max-width:78ch;line-height:1.62">Most clients arrive with a model already \u2014 a founder\u2019s spreadsheet, a board deck, a data-room export. Rather than make them start over, Foundry will meet that plan in whatever shape it exists and translate it into the model, completing the banking layer around their numbers.</div>'
+    + '<div class="s" style="margin-top:9px;max-width:78ch;line-height:1.62"><b style="color:#C7975A">The idea:</b> Foundry inspects the file \u2014 every sheet, hidden ones included \u2014 and produces a plain reconciliation of what it contains: candidate series matched by name, cadence detected, magnitudes summarized. Nothing is assumed. You confirm each mapping and declare units and cadence yourself; the machine refuses to guess a dollar from a decimal. Where a plan gives only statements, it works backward \u2014 deriving growth, yields, and losses from the outputs, each with the convention that produced it. Every conversion is logged as a first-class artifact.</div>'
+    + '<div class="s" style="margin-top:9px;max-width:78ch;line-height:1.62"><b style="color:#C7975A">And where the plan is silent</b> \u2014 no funding named for a book of assets, no reserve rate on a loan line \u2014 the gaps don\u2019t get filled by guesswork. They become the conversation: precise questions the practitioner answers, or accepts as peer defaults with a citation. A translation, not a black box.</div>'
+    + '<div class="s" style="margin-top:10px;font-style:italic;color:#6E7C93">This path takes hands-on mapping and isn\u2019t ready for unattended use yet. It\u2019s coming.</div>'
     + '</div>';
   if(!snapshotMode){
   
