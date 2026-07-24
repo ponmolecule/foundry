@@ -533,14 +533,34 @@ async function boot(){
     }
   }catch(e){}
   renderGlobals(); refresh();
+  markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
 }
 function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); }
-/* ---------- ambient persistence: the working session always survives ---------- */
+/* ---------- working draft: autosaved only after a real edit ----------
+   The draft must reflect deliberate work, never the pristine default nor a
+   just-opened engagement. We snapshot the config whenever a clean state is
+   loaded (boot, or opening a saved engagement) and only autosave once the live
+   config diverges from that snapshot. This makes "log in, touch nothing" leave
+   no draft, and kills the delete-then-reappears race (there is nothing non-
+   default to re-save). */
 const AUTOSAVE_NAME = "Working session (autosaved)";
-let _asTimer = null, _asBusy = false;
-function scheduleAutosave(){ if(window.SNAPSHOT) return; clearTimeout(_asTimer); _asTimer = setTimeout(autosaveNow, 2500); }
+let _asTimer = null, _asBusy = false, _pristineJSON = null;
+function markPristine(){ try{ _pristineJSON = JSON.stringify(cfg); }catch(e){ _pristineJSON = null; } }
+window.markPristine = markPristine;
+function isPristine(){
+  if(_pristineJSON == null) return false;      // unknown baseline -> don't suppress
+  try{ return JSON.stringify(cfg) === _pristineJSON; }catch(e){ return false; }
+}
+function scheduleAutosave(){
+  if(window.SNAPSHOT) return;
+  if(isPristine()) return;                     // no edit since load -> no draft
+  clearTimeout(_asTimer); _asTimer = setTimeout(autosaveNow, 2500);
+}
 async function autosaveNow(){
-  if(_asBusy || window.SNAPSHOT) return; _asBusy = true;
+  if(_asBusy || window.SNAPSHOT) return;
+  if(isPristine()) return;   // re-check at fire time: a timer armed before the baseline
+                             // was set must not save an untouched config
+  _asBusy = true;
   try{
     const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
       headers:{"Content-Type":"application/json"},
@@ -2789,7 +2809,7 @@ async function openEngagement(slug){
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
     document.getElementById("scenarioName").value = cfg.scenario_name || "";
-    renderGlobals(); refresh(); setTab("overview");
+    renderGlobals(); refresh(); markPristine(); setTab("overview");
   } else {
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
   }
