@@ -18,6 +18,7 @@ import hashlib
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
+from foundry.v2.cadence import workbook_units
 
 GOLD = PatternFill("solid", fgColor="FFF3D9")
 HDR = Font(bold=True)
@@ -35,8 +36,8 @@ DEP_FIELDS = [
     ("call_report_line", "Call Report line", "fact — resolved, do not edit"),
     ("opening_balance", "Opening balance", "$"),
     ("growth_q", "Balance growth", "rate/qtr"),
-    ("new_deposits_q", "New deposits", "$/quarter (monthly x3)"),
-    ("avg_maturity_m", "Average maturity", "months; 0 = no term roll-off"),
+    ("new_deposits_q", "New deposits", workbook_units("new_deposits_q")),
+    ("avg_maturity_m", "Average maturity", workbook_units("avg_maturity_m")),
     ("runoff_q", "Runoff", "rate/qtr (annual / 4)"),
     ("rate_type", "Rate type", "fixed | float  (editable)"),
     # __RATE__ is a synthetic column: one contextual cell whose meaning is set by rate_type.
@@ -46,13 +47,13 @@ DEP_FIELDS = [
     ("__RATE_BASELINE__", "Interpreted as (live)", "fact — informational, follows the Rate type dropdown, not imported"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
-    ("opex_fixed_m", "Op cost fixed", "$/month"),
+    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
     ("insured_pct", "Insured share", "share [0,1]"),
 ]
 LEND_FIELDS = [
     ("call_report_line", "Call Report line", "fact — resolved, do not edit"),
     ("opening_balance", "Opening balance (Day 1)", "$"),
-    ("originations_q", "New originations", "$/quarter (monthly x3)"),
+    ("originations_q", "New originations", workbook_units("originations_q")),
     ("orig_growth_q", "Origination growth", "rate/qtr"),
     ("runoff_q", "Prepayment / paydown", "rate/qtr (annual /4)"),
     ("rate_type", "Rate type", "fixed | float  (editable)"),
@@ -66,7 +67,7 @@ LEND_FIELDS = [
     ("reserve_rate_pct_bal", "ALLL reserve", "% of balance"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
-    ("opex_fixed_m", "Op cost fixed", "$/month"),
+    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
 ]
 LINE_LABELS = {
     "loanCommercial": "Loans: Commercial & Industrial", "loanConsumer": "Loans: Consumer",
@@ -289,7 +290,7 @@ def _fee_sheet(ws, fm):
             _row(f"fee_modules.trust.{k}", "trust", lab, tr.get(k), u)
     ba = fm.get("baas") or {}
     for k, lab, u in (("programs", "Programs", "count"), ("accts_per_program", "Accts/program", "count"),
-                       ("growth_q", "Growth", "rate/qtr"), ("rev_per_acct_m", "Rev per acct", "$/month")):
+                       ("growth_q", "Growth", "rate/qtr"), ("rev_per_acct_m", "Rev per acct", workbook_units("rev_per_acct_m"))):
         if k in ba:
             _row(f"fee_modules.baas.{k}", "baas", lab, ba.get(k), u)
     ws.column_dimensions["A"].hidden = True

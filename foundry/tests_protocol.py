@@ -619,6 +619,35 @@ def t23():
             _refused = True
         check("T23p2", "a float product with no spread is hard-refused at save (fail-closed)",
               _refused)
+
+        # T23q: the cadence registry is the single source of truth. (1) It must agree with what
+        # the engine actually does (the anti-recurrence guard); (2) the workbook units must derive
+        # from it (so app and Excel can't disagree on cadence).
+        from foundry.v2.cadence import FIELD_CADENCE, CADENCE_ENGINE_OP, workbook_units
+        _allsrc = "\n".join(open(f"foundry/v2/{m}.py", encoding="utf-8").read()
+                            for m in ("engine_q_a", "engine_q_b", "income_modules"))
+        def _engine_op(fld):
+            ops = set()
+            for line in _allsrc.split("\n"):
+                if f'"{fld}"' in line or f"'{fld}'" in line:
+                    if "* 3" in line or "*3" in line: ops.add("x3")
+                    elif "/ 3" in line or "/3" in line: ops.add("div3")
+                    elif "get(" in line: ops.add("asis")
+            return ops
+        _guard_ok = True
+        for _fld, (_cad, _u, _lbl) in FIELD_CADENCE.items():
+            _implied = CADENCE_ENGINE_OP.get(_cad)
+            if _implied is None:
+                continue
+            _actual = _engine_op(_fld)
+            if _actual and _implied not in _actual:
+                _guard_ok = False
+        check("T23q", "cadence registry agrees with the engine's actual conversion for every field",
+              _guard_ok)
+        # the workbook units for the two formerly-divergent fields now come from the registry
+        check("T23q2", "workbook units derive from the registry (opex monthly, new_deposits quarterly)",
+              workbook_units("opex_fixed_m") == "$/month"
+              and workbook_units("new_deposits_q") == "$/quarter")
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

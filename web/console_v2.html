@@ -109,8 +109,9 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cfggrid .cfgcard .crow{font-size:12px;gap:6px;margin:9px 0}
 .cfggrid .cfgcard .crow input,.cfggrid .cfgcard .crow select{flex-shrink:0}
 /* fee card: five module rows, the densest surface - tighter everything */
-#card-fee .crow{gap:4px;font-size:11px}
-#card-fee .crow b{min-width:0 !important}
+#card-fee .crow{gap:10px;font-size:11px;flex-wrap:wrap}
+#card-fee .crow b{min-width:0 !important;margin-right:4px}
+#card-fee .crow .cu{margin-right:12px}
 #card-fee .crow input{max-width:62px !important;padding:4px 5px;font-size:10.5px}
 #card-fee .cu{font-size:9px}
 .cfggrid .cfgcard .crow b{min-width:88px !important;font-weight:600}
@@ -750,9 +751,15 @@ function setUnit(path, unit, v){
   if(v==="" || v==null){ setPath(path, null); return; }
   let x = parseFloat(String(v).replace(/,/g, ""));   // commas welcome
   if(isNaN(x)) return;
-  if(unit==="pct") x/=100; if(unit==="k") x*=K; if(unit==="kq") x = x*K/3;
-  setPath(path, x);
+  // Cadence-aware scaling. "k" and "kmo" are both $000s (x1000); they differ only in the
+  // cadence LABEL (per-quarter vs per-month) — the ×3 monthly->quarterly conversion lives in
+  // the engine, NOT in a display unit. The retired "kq" wrongly baked ×3 into display, which
+  // tripled already-quarterly fields; kept as a back-compat alias mapping to plain "k".
+  if(unit==="pct") x/=100;
+  if(unit==="k"||unit==="kmo"||unit==="kq") x*=K;
+  setUnitPath(path, x);
 }
+function setUnitPath(path, x){ setPath(path, x); }
 window.setUnit=setUnit;
 function fmtComma(n){ return (n==null||isNaN(+n)) ? "" : (+n).toLocaleString("en-US", {maximumFractionDigits: 6}); }
 window.fmtField = function(el){
@@ -764,8 +771,7 @@ function numInput(path, unit, extra){
   let disp = "";
   if(v!=null){
     if(unit==="pct") disp = +(v*100).toFixed(6);
-    else if(unit==="k") disp = v/K;
-    else if(unit==="kq") disp = +(v*3/K).toFixed(6);
+    else if(unit==="k"||unit==="kmo"||unit==="kq") disp = +(v/K).toFixed(6);
     else disp = v;
   }
   // data-focus carries the field's path so focus + caret can be restored after a
@@ -908,24 +914,24 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_q:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_m", "kq");
+    h += F("Op cost fixed ($000s/month)", base+".opex_fixed_m", "kmo");
     if(p.measurement==="fair_value") h += F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct");
   } else if(fam==="deposit"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
-    h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "kq");
+    h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "k");
     h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
     if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_m", "kq");
+    h += F("Op cost fixed ($000s/month)", base+".opex_fixed_m", "kmo");
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
     h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_m", "kq");
+    h += F("Op cost fixed ($000s/month)", base+".opex_fixed_m", "kmo");
   }
   return h;
 }
@@ -3248,15 +3254,15 @@ function structuresSectionsHtml(){
     + fpill('payments','Payments','stack', !!(FM.payments||[]).length, "fmRail()", "cfg.assumptions.fee_modules.payments=[];renderContent();refresh()")
     + '</div>';
   if(FM.interchange){ const IC=FM.interchange;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Interchange</b> tx<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((IC.tx_count_q||0)/1000)}" title="000s/q" onchange="cfg.assumptions.fee_modules.interchange.tx_count_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">k/q</span> growth<input type="number" step="0.5" style="width:60px" value="${((IC.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.interchange.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> ticket<input type="number" style="width:60px" value="${IC.avg_ticket||0}" onchange="cfg.assumptions.fee_modules.interchange.avg_ticket=parseFloat(this.value);refresh()"><span class="cu">$</span> rate<input type="number" step="0.05" style="width:64px" value="${((IC.interchange_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.interchange_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> net fees<input type="number" step="0.05" style="width:64px" value="${((IC.network_fee_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.network_fee_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.interchange;renderContent();refresh();return false">\u00d7</a></div>`; }
+    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Interchange:</b> tx<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((IC.tx_count_q||0)/1000)}" title="000s/q" onchange="cfg.assumptions.fee_modules.interchange.tx_count_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">k/q</span> growth<input type="number" step="0.5" style="width:60px" value="${((IC.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.interchange.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> ticket<input type="number" style="width:60px" value="${IC.avg_ticket||0}" onchange="cfg.assumptions.fee_modules.interchange.avg_ticket=parseFloat(this.value);refresh()"><span class="cu">$</span> rate<input type="number" step="0.05" style="width:64px" value="${((IC.interchange_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.interchange_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> net fees<input type="number" step="0.05" style="width:64px" value="${((IC.network_fee_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.network_fee_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.interchange;renderContent();refresh();return false">\u00d7</a></div>`; }
 
   if(FM.service_charges){ const SV=FM.service_charges;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Service charges</b> accts<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma(SV.accounts||0)}" onchange="cfg.assumptions.fee_modules.service_charges.accounts=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> growth<input type="number" step="0.5" style="width:60px" value="${((SV.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.service_charges.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" step="0.5" style="width:64px" value="${SV.fee_m||0}" onchange="cfg.assumptions.fee_modules.service_charges.fee_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh();return false">\u00d7</a></div>`; }
-  if(FM.trust) h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Trust</b> AUM<input type="text" inputmode="decimal" style="width:110px" value="${fmtComma((FM.trust.aum_open||0)/1000000)}" title="$M" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(String(this.value).replace(/,/g,''))*1000000;refresh();fmtField(this)"><span class="cu">$M</span> growth<input type="number" step="0.5" style="width:60px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:60px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
+    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Service charges:</b> accts<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma(SV.accounts||0)}" onchange="cfg.assumptions.fee_modules.service_charges.accounts=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> growth<input type="number" step="0.5" style="width:60px" value="${((SV.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.service_charges.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" step="0.5" style="width:64px" value="${SV.fee_m||0}" onchange="cfg.assumptions.fee_modules.service_charges.fee_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh();return false">\u00d7</a></div>`; }
+  if(FM.trust) h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Trust:</b> AUM<input type="text" inputmode="decimal" style="width:110px" value="${fmtComma((FM.trust.aum_open||0)/1000000)}" title="$M" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(String(this.value).replace(/,/g,''))*1000000;refresh();fmtField(this)"><span class="cu">$M</span> growth<input type="number" step="0.5" style="width:60px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:60px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
   if(FM.baas){ const BB=FM.baas;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">BaaS</b> programs<input type="text" inputmode="decimal" style="width:64px" value="${fmtComma(BB.programs||0)}" onchange="cfg.assumptions.fee_modules.baas.programs=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> accts/prog<input type="text" inputmode="decimal" style="width:90px" value="${fmtComma(BB.accts_per_program||0)}" onchange="cfg.assumptions.fee_modules.baas.accts_per_program=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> growth<input type="number" step="0.5" style="width:60px" value="${((BB.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.baas.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> rev<input type="number" step="0.001" style="width:70px" value="${BB.rev_per_acct_m||0}" onchange="cfg.assumptions.fee_modules.baas.rev_per_acct_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.baas;renderContent();refresh();return false">\u00d7</a></div>`; }
+    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">BaaS:</b> programs<input type="text" inputmode="decimal" style="width:64px" value="${fmtComma(BB.programs||0)}" onchange="cfg.assumptions.fee_modules.baas.programs=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> accts/prog<input type="text" inputmode="decimal" style="width:90px" value="${fmtComma(BB.accts_per_program||0)}" onchange="cfg.assumptions.fee_modules.baas.accts_per_program=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"> growth<input type="number" step="0.5" style="width:60px" value="${((BB.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.baas.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> rev<input type="number" step="0.001" style="width:70px" value="${BB.rev_per_acct_m||0}" onchange="cfg.assumptions.fee_modules.baas.rev_per_acct_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.baas;renderContent();refresh();return false">\u00d7</a></div>`; }
   (FM.payments||[]).forEach((rail,i)=>{
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${i===0?"Payments":""}</b><input style="width:100px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((rail.vol_q||0)/1000)}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">k tx/q</span> growth<input type="number" step="0.5" style="width:56px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:70px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:70px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${i===0?"Payments:":""}</b><input style="width:100px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((rail.vol_q||0)/1000)}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">k tx/q</span> growth<input type="number" step="0.5" style="width:56px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:70px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:70px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
   });
   if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
   if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;

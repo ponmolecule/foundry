@@ -1,0 +1,265 @@
+CharterIQ Substrate — Schema Reference for Foundry
+Read-back token: CHARTERIQ_SCHEMA_V1 · generated from live DB 2026-07-21
+(PostgreSQL 18.4)
+The authoritative shape of the tables Foundry queries. Types are exact (from pg_dump ); the
+annotations capture what raw DDL cannot — the gotchas that cause silent-wrong results or
+errors. Read the gotchas first.
+
+
+
+⚠️ TYPE GOTCHAS — read before writing any query
+  1.    active is INTEGER (0/1), NOT boolean. WHERE active = TRUE fails (this caused a
+        502). Use WHERE active = 1 . Applies to institutions.active , flags.active .
+  2.    institutions.state is a 2-letter USPS code ('TX', 'CA' — never 'Texas'). Normalised
+        2026-07-21; uniformly 2-letter now. ( ffiec_por.state is separate, varchar(4) .)
+  3.    call_report_items.value_num is in USD THOUSANDS (usd_k). A value of
+        1,328,610,000 means $1.328 trillion. Check the unit column; ratio items carry a literal
+        '%' and live in value_text .
+  4.    metrics.value and peer_percentiles percentiles are already scaled to the metric's
+     natural unit (ratios in percent, e.g. roa 1.43 = 1.43%). Do not re-scale.
+  5. Time is (year, quarter) integer columns, not a date. Latest = year*10+quarter max,
+     or (year, quarter) tuple compare. A period string like '2026Q1' is display-only, not a
+     column.
+  6. No per-quarter total assets in institutions . institutions.asset_size_mm is a
+     STATIC present-day value repeated conceptually; for historical size use the semantic
+     view's total_assets_mm (from item 2170) or compute from call_report_items .
+  7. Survivor bias: for questions about a PAST quarter, do NOT filter institutions.active
+     = 1 — that drops banks that existed then and have since exited. Filter active only for
+     present-day questions.
+
+
+
+
+Table: institutions — one row per bank (cert)
+
+  sql
+  CREATE TABLE institutions (
+      cert                integer      PRIMARY KEY,     -- FDIC certificate #, the bank
+      name                text         NOT NULL,
+      city                text,
+      state               text,                    -- 2-letter USPS code (see gotc
+      charter_type        text,                    -- 'STATE'|'OCC'|'SOVER'|NULL
+                                                   -- NULL for ~2,454 ffiec_por-
+        active             integer NOT NULL DEFAULT 1, -- 1=active TODAY, 0=exit
+        asset_size_mm      double precision,       -- STATIC present-day size (got
+        est_year           integer,                -- established year; NULL for b
+        end_year           integer,                -- exit year; populated only fo
+        fail_date          text,                   -- ISO date, only for the ~17 f
+        profile_tag        text,                   -- '·'-delimited tags: 'COMMUNI
+                                                   -- 'FAILED · FRAUD', 'SPONSOR
+        demo_story         text,                   -- vestigial (unpopulated)
+        enforcement_action integer DEFAULT 0,      -- vestigial (always 0)
+        enforcement_date   text,                   -- vestigial
+        enforcement_agency text,                   -- vestigial
+        estymd             text,                   -- redundant w/ est_year (fake
+        created_at         timestamptz DEFAULT now(),
+        updated_at         timestamptz DEFAULT now()
+  );
+  -- indexes: (active), (profile_tag), (state)
+
+
+Row count ~6,587 (includes ~2,454 historical ffiec_por-backfill banks, most active=0 ).
+Current-filer universe ~4,353 active.
+
+Table: metrics — long format, one row per (cert, period, metric)
+
+  sql
+
+  CREATE TABLE metrics (
+      id           bigint PRIMARY KEY,
+      cert         integer NOT NULL,              -- FK -> institutions.cert
+      year         integer NOT NULL,
+      quarter      integer NOT NULL,              -- 1..4
+      metric_name text     NOT NULL,              -- see the metric catalogue bel
+      value        double precision,              -- already in the metric's natu
+      created_at timestamptz DEFAULT now(),
+      UNIQUE (cert, year, quarter, metric_name)
+  );
+  -- indexes: (cert), (cert, metric_name), (metric_name)
+Coverage 2015Q1–2026Q1. To get one bank's series: SELECT year, quarter, value FROM
+metrics WHERE cert=? AND metric_name=? ORDER BY year, quarter .
+
+
+Table: peer_percentiles — per-bank percentile placement + peer bands
+  sql
+
+  CREATE TABLE peer_percentiles (
+      id               bigint PRIMARY KEY,
+      cert             integer NOT NULL,
+      year             integer NOT NULL,
+      quarter          integer NOT NULL,
+      group_type       text     NOT NULL,         -- 'universe'|'asset_band'|'fai
+      group_id         text     NOT NULL,         -- see cohort values below
+      metric_name      text     NOT NULL,
+      value            double precision,          -- this bank's metric value
+      percentile_rank double precision,           -- this bank's rank within the
+      peer_p10         double precision,          -- cohort band edges
+      peer_p25         double precision,
+      peer_p50         double precision,
+      peer_p75         double precision,
+      peer_p90         double precision,
+      peer_count       integer,                   -- cohort n (100% populated; mi
+      created_at       timestamptz DEFAULT now(),
+      UNIQUE (cert, year, quarter, group_type, metric_name)
+  );
+  -- indexes: (cert, year, quarter), (metric_name, group_type, year, quarter)
+
+
+Cohort values ( group_type / group_id ):
+        universe / all_universe
+
+        asset_band / under_200M | 200M_500M | 500M_2B | 2B_10B | 10B_50B | over_50B
+        failed / all_failed
+
+        sponsor / all_sponsors
+
+
+No UBPR peer groups yet (Deliverable D not landed → certified stays provisional). Bands
+are raw (no winsorization); extreme-but-correct tails from near-zero-denominator filers are
+present — see the CHARTER_FILTERED_COHORT_SPEC for the examiner-facing filter.
+
+Table: composite_scores — one row per (cert, period)
+
+  sql
+ CREATE TABLE composite_scores (
+     id            bigint PRIMARY KEY,
+     cert          integer NOT NULL,
+     year          integer NOT NULL,
+     quarter       integer NOT NULL,
+     score         double precision NOT NULL,
+     band          text     NOT NULL,                -- 'RED'|'ORANGE'|'YELLOW'|'GRE
+     active_flags integer,
+     high_flags    integer,
+     medium_flags integer,
+     low_flags     integer,
+     created_at    timestamptz DEFAULT now(),
+     UNIQUE (cert, year, quarter)
+ );
+
+
+
+Table: flags — one row per (cert, period, flag_id)
+
+ sql
+
+ CREATE TABLE flags (
+     id               bigint PRIMARY KEY,
+     cert             integer NOT NULL,
+     year             integer NOT NULL,
+     quarter          integer NOT NULL,
+     flag_id          text    NOT NULL,
+     severity         text    NOT NULL,          -- 'HIGH'|'MEDIUM'|'LOW'
+     metric_name      text,
+     metric_value     double precision,
+     threshold_value double precision,
+     peer_percentile double precision,
+     description      text,
+     active           integer DEFAULT 1,         -- INTEGER 0/1 (gotcha 1)
+     first_fired      text,                       -- NOTE: stores a PERIOD label
+     resolved_date    text,
+     created_at       timestamptz DEFAULT now(),
+     UNIQUE (cert, year, quarter, flag_id)
+ );
+ -- indexes: (cert, active), (flag_id, year, quarter), (severity, active)
+Table: call_report_items — raw FFIEC items (partitioned)
+
+ sql
+
+ CREATE TABLE call_report_items (
+     idrssd       integer NOT NULL,              -- FFIEC RSSD id (NOT cert; cro
+     report_date date      NOT NULL,
+     mdrm_code    varchar(12) NOT NULL,           -- e.g. 'RCFD2170', 'RIAD4635'
+     value_num    numeric,                       -- USD THOUSANDS for dollar ite
+     value_text   text,                          -- text/percent items (ratios c
+     unit         varchar(16) NOT NULL,           -- 'usd_k' | 'pct' | 'text' ...
+     source       varchar(32) NOT NULL,
+     loaded_at    timestamptz NOT NULL DEFAULT now(),
+     regime       text GENERATED ALWAYS AS (     -- 'basel_iii' if >= 2015-03-31
+                    CASE WHEN report_date >= '2015-03-31' THEN 'basel_iii'
+                         ELSE 'basel_i_ii' END) STORED,
+     PRIMARY KEY (idrssd, report_date, mdrm_code)
+ ) PARTITION BY RANGE (report_date);            -- 72 quarterly partitions 2009Q
+ -- index: (mdrm_code, report_date)
+
+
+Keyed by idrssd , not cert . Crosswalk through ffiec_por .
+
+Table: ffiec_por — the idrssd ↔ cert crosswalk
+
+ sql
+
+ CREATE TABLE ffiec_por (
+     idrssd       integer NOT NULL,
+     report_date date      NOT NULL,
+     fdic_cert    integer,                        -- join key to metrics/institu
+     occ_charter integer,
+     name         text,
+     city         text,
+     state        varchar(4),
+     zip          varchar(12),
+     filing_type varchar(8),
+     last_updated text,
+     loaded_at    timestamptz NOT NULL DEFAULT now(),
+     PRIMARY KEY (idrssd, report_date)
+ );
+ -- index: (fdic_cert, report_date)
+To go from raw items to a bank: call_report_items.idrssd → ffiec_por.idrssd (same
+report_date) → fdic_cert → metrics/institutions.cert .
+
+
+
+
+Metric catalogue ( metrics.metric_name / peer_percentiles.metric_name )
+All reach 2026Q1 unless marked. Two-tier: substrate-grade (current) vs legacy (frozen at
+2025Q4, pending family migration).
+Capital (M2, current): cet1_ratio, tier1_ratio, total_rbc_ratio, leverage_ratio, capital_buffer,
+rwa_dollars, cet1_dollars, tier1_dollars, total_capital_dollars, cblr_elector, aoci_optout. Note:
+cet1/tier1/total_rbc/rwa absent for CBLR electors (lawful — use leverage_ratio for all-bank
+capital questions).
+Earnings (M4, current): roa, roe, nim, efficiency_ratio, ppnr_to_assets,
+nonint_income_to_assets, provision_to_avg_assets, net_income_dollars, ppnr_dollars.
+Concentration (M3, current): cre_rbc_ratio, construction_rbc_ratio, cre_to_loans,
+construction_to_loans, resi_to_loans, ci_to_loans, consumer_to_loans,
+agriculture_to_loans, ndfi_to_loans, multifamily_to_loans, nfnr_owner_to_loans,
+nfnr_investor_to_loans, cre_supervisory_dollars, construction_dollars, ndfi_dollars.
+Asset quality — charge-off (M5, current, NEW 2026-07-21):
+     net_charge_off_rate — DEFAULT. Net CO (gross − recoveries), UBPR one-quarter
+     annualized, over PERIOD-END total loans (RC-C 2122). Matches FDIC public / Klarify.
+     Higher = worse; can go slightly negative when recoveries exceed charge-offs (best).
+     net_charge_off_rate_ubpr — UBPR examiner convention, over AVERAGE loans (RC-
+     K 3360). Slightly higher than the default for a growing book.
+     gross_charge_off_rate, gross_charge_off_rate_ubpr.
+     Dollar aggregates (no percentile bands): net_charge_offs_dollars, charge_offs_dollars,
+     recoveries_dollars, provision_dollars.
+     Both rates ANNUALIZED — annualize a modeled quarterly flow (×4) before placing
+     against the band.
+
+Legacy (frozen at 2025Q4, pending M6a/M6b migration): deposit_cost,
+brokered_dep_pct, wholesale_funding_ratio, ltd_ratio, core_deposit_ratio,
+liquid_asset_ratio, loan_yield (funding); htm_pct_assets, afs_unrealized_pct_tier1,
+securities_yield, tce_ratio (securities); npa_ratio, npl_ratio, past_due_30_89_rate,
+reserve_coverage, alll_to_loans, texas_ratio (asset-quality ratios — NOTE: these will be
+migrated/superseded as M5 completes). A metric's latest period tells you which tier it is:
+ MAX(year*10+quarter)=20261 current, 20254 legacy.
+Canonical join recipes
+ sql
+
+ -- A metric with its peer band, latest quarter, for one bank + one cohort:
+ SELECT m.value, p.peer_p10, p.peer_p50, p.peer_p90, p.peer_count,
+        p.percentile_rank
+ FROM metrics m
+ JOIN peer_percentiles p USING (cert, year, quarter, metric_name)
+ WHERE m.cert = :cert AND m.metric_name = 'net_charge_off_rate'
+   AND p.group_type = 'asset_band' AND p.group_id = :band
+   AND m.year = 2026 AND m.quarter = 1;
+
+ -- Present-day active banks only (gotcha 1 & 7):
+ SELECT * FROM institutions WHERE active = 1;   -- NOT active = TRUE
+
+ -- Raw item -> bank:
+ SELECT c.mdrm_code, c.value_num, i.name
+ FROM call_report_items c
+ JOIN ffiec_por f ON f.idrssd = c.idrssd AND f.report_date = c.report_date
+ JOIN institutions i ON i.cert = f.fdic_cert
+ WHERE c.report_date = '2026-03-31' AND c.mdrm_code = 'RIAD4635';
+
