@@ -203,6 +203,32 @@ forever. Field absent or zero ⇒ the simple advance, bit-identical to before
 (gate T55c). Ladder arithmetic pinned by hand in T55a/b.
 
 
+## Scheduled borrowings: bullet term advance (FHLB), presence-toggled
+`scheduled_borrowings` models FHLB-style TERM ADVANCES as BULLETS: a draw of
+`amount` enters in quarter `quarter` and is held FLAT at the full balance for
+`term_q` quarters (outstanding q0 .. q0+term_q-1), then MATURES to zero. Interest
+is full-quarter on the outstanding principal each quarter it is alive
+(`amount * rate_ann / 4`); a term advance is a discrete lump-sum draw held flat,
+so — unlike balance-driven products — it is NOT averaged (beg+end)/2, and it
+accrues NO interest after maturity. Total interest over life =
+`amount * rate_ann/4 * term_q` (the banker hand-calc: $8M at 4% for 8 quarters =
+$640k). `term_q` is quarters-to-maturity, NOT an amortization term.
+
+This is a deliberate Foundry choice that matches NEITHER anchor artifact and
+corrects both. Patrick's workbook (ASSM_BS rows 83-85) carries the FHLB draw flat
+across every period via `=ASSM_BS!$C$83`, but its "Maturity (months)" input is a
+DEAD input (zero consuming formulas, verified by reference count — defect D-P20):
+his advance never matures. Roman's HTML/JS modeler carries no scheduled/term
+borrowing at all — its `borrow` is a residual funding plug only. Foundry adopts
+Patrick's input fields (draw, rate, term) but implements the real instrument: a
+bullet that actually matures. A prior Foundry build straight-line-amortized this
+line (balance 8,7,6,…,1 over the term, finishing one quarter past nominal term,
+half-quarter draw interest) — an independent mechanic faithful to neither anchor
+and wrong-shaped for an FHLB advance; superseded here. Field absent ⇒ no
+scheduled borrowing, engine unchanged. Both engines (A and B) compute this
+identically (parity gate). Bullet shape and interest pinned in T68d/e.
+
+
 ## Tax detail module (NOL → DTA), presence-toggled
 Off (default): the legacy treatment — taxes shield 100% of pre-tax income
 against accumulated NOLs, no DTA booked; arithmetically identical to full

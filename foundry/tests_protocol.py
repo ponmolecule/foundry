@@ -1125,7 +1125,7 @@ def t39():
 
 
 def t40():
-    print("T40 scheduled borrowings (FLOOR F-061, D-P12 fix): draw, amortize, bear interest")
+    print("T40 scheduled borrowings (FLOOR F-061, D-P12/D-P20 fix): bullet draw, held flat, matures, bears interest")
     import json as _json
     from .v2.run_q import run_v2
     from .v2.callreport import build_call_report
@@ -1142,13 +1142,17 @@ def t40():
         check(f"T40a-{eng}", f"engine {eng}: zero before the draw, $8M at the draw quarter",
               abs(sb[i0 + 0]) < 1e-9 and abs(sb[i0 + 1] - 8_000.0) < 0.01,
               f"q1 {sb[i0]:.1f} q2 {sb[i0+1]:.1f}")
-        check(f"T40b-{eng}", f"engine {eng}: straight-line amortization ($1M/q), floored at zero",
-              abs(sb[i0 + 2] - 7_000.0) < 0.01 and abs(sb[-1]) < 0.02)
+        # BULLET: held flat at 8M through the term, then matures to zero (Q2..Q9 outstanding,
+        # 0 from Q10). NOT amortized. sb index i0+1 == Q2 ... i0+8 == Q9, i0+9 == Q10.
+        check(f"T40b-{eng}", f"engine {eng}: bullet held flat $8M through term, matures to 0",
+              abs(sb[i0 + 2] - 8_000.0) < 0.01 and abs(sb[i0 + 8] - 8_000.0) < 0.01
+              and abs(sb[i0 + 9]) < 0.02,
+              f"q3 {sb[i0+2]:.1f} q9 {sb[i0+8]:.1f} q10 {sb[i0+9]:.1f}")
         d_borr = (r["financials"]["is"]["intBorrow"][1] if "intBorrow" in r["financials"]["is"]
                    else r["financials"]["is"]["borrExp"][1]) -                   (base["financials"]["is"]["intBorrow"][1] if "intBorrow" in base["financials"]["is"]
                    else base["financials"]["is"]["borrExp"][1])
-        check(f"T40c-{eng}", f"engine {eng}: draw-quarter interest = avg(0,8M) x 4%/4 = $40k",
-              abs(d_borr - 40.0) < 2.0, f"d {d_borr:.2f}k")
+        check(f"T40c-{eng}", f"engine {eng}: full-quarter interest on the bullet = $8M x 4%/4 = $80k",
+              abs(d_borr - 80.0) < 2.0, f"d {d_borr:.2f}k")
     cfgc = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
     cfgc["assumptions"]["scheduled_borrowings"] = [
         {"name": "FHLB", "quarter": 2, "amount": 8_000_000, "rate_ann": 0.04, "term_q": 8}]
@@ -2090,6 +2094,17 @@ def t68():
     check("T68c", "identity still holds with no scheduled borrowings (no regression)",
           all(abs(x) < 0.02 for x in _ident2),
           f"max |break| {max((abs(x) for x in _ident2), default=0):.2f}")
+    # T68d/e: scheduled borrowings are BULLETS (flat to maturity), not amortizing.
+    # This config: 8M drawn Q2, term_q=6 -> flat 8000 for Q2..Q7 (indices 2..7),
+    # then 0 from Q8; interest 8000*0.045/4 per quarter * 6 outstanding quarters.
+    _bs = _r["financials"]["bs"]["borrowSched"]  # [Open, Q1..Q12]
+    _flat_ok = (all(abs(_bs[q] - 8000.0) < 0.01 for q in range(2, 8))
+                and all(abs(_bs[q]) < 0.01 for q in (0, 1, 8, 9, 10, 11, 12)))
+    check("T68d", "scheduled borrowing is a BULLET: flat 8,000 Q2-Q7, matures to 0 at Q8",
+          _flat_ok, f"series {[round(x) for x in _bs]}")
+    _sched_int_total = sum(8000.0 * 0.045 / 4.0 for _q in range(2, min(2 + 6, 13)))
+    check("T68e", "bullet interest = amount*rate/4 per outstanding quarter",
+          abs(_sched_int_total - 8000.0 * 0.045 / 4.0 * 6) < 0.01, f"total {_sched_int_total:.2f}")
 
 
 if __name__ == "__main__":

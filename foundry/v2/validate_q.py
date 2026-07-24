@@ -117,7 +117,7 @@ def validate_config_v2(cfg):
         t_ = sb.get("term_q")
         if not isinstance(t_, int) or not (1 <= t_ <= 40):
             errs.append(f"scheduled_borrowings[{i}].term_q must be an integer 1-40 "
-                         "(straight-line amortization term in quarters)")
+                         "(quarters to maturity; bullet advance held flat, then matures)")
     for fld, lo, hi, unit in (("cash_at_banks_pct", 0.0, 1.0, "a share in [0,1]"),
                                 ("construction_land_total", 0.0, None, "a non-negative dollar amount"),
                                 ("single_largest_borrower", 0.0, None, "a non-negative dollar amount")):

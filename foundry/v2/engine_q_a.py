@@ -113,19 +113,26 @@ def run_pf_a(cfg):
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
+    # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
+    # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
+    # zero. This is what an FHLB term advance actually is, and it corrects both anchor
+    # artifacts: Patrick held it flat but never matured it (dead maturity input);
+    # Roman carries no such instrument. Interest is full-quarter on the outstanding
+    # principal (amount*rate/4) each quarter it is alive — a term advance is a discrete
+    # lump-sum draw, not a ramping balance, so it is NOT averaged like balance-driven
+    # products, and it accrues no interest after maturity. See ENGINE_SPEC "Scheduled
+    # borrowings". term_q = quarters to maturity (bullet), not an amortization term.
     _sched = a.get("scheduled_borrowings") or []
     sched_t = [0.0] * 13
     for _sb in _sched:
         _amt, _q0, _tq = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"])
-        for _q in range(_q0, 13):
-            sched_t[_q] += max(0.0, _amt * (1 - (_q - _q0) / _tq))
+        for _q in range(_q0, min(_q0 + _tq, 13)):
+            sched_t[_q] += _amt
     sched_int_t = [0.0] * 13
     for _sb in _sched:
         _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
-        for _q in range(_q0, 13):
-            _b0 = max(0.0, _amt * (1 - (_q - 1 - _q0) / _tq)) if _q > _q0 else 0.0
-            _b1 = max(0.0, _amt * (1 - (_q - _q0) / _tq))
-            sched_int_t[_q] += (_b0 + _b1) / 2.0 * _r / 4.0
+        for _q in range(_q0, min(_q0 + _tq, 13)):
+            sched_int_t[_q] += _amt * _r / 4.0
     _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
     prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
     dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, 13)]

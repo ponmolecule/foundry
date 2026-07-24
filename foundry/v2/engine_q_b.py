@@ -36,17 +36,18 @@ def run_pf_b(cfg):
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
+    # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
+    # quarters, then matures to zero; full-quarter interest on outstanding principal,
+    # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
+    # gate). See ENGINE_SPEC "Scheduled borrowings".
     _schedb = a.get("scheduled_borrowings") or []
     _sched_t = [0.0] * 13
     _sched_int = [0.0] * 12
     for _sb in _schedb:
         _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
-        for _q in range(_q0, 13):
-            _sched_t[_q] += max(0.0, _amt * (1 - (_q - _q0) / _tq))
-        for _q in range(_q0, 13):
-            _b0 = max(0.0, _amt * (1 - (_q - 1 - _q0) / _tq)) if _q > _q0 else 0.0
-            _b1 = max(0.0, _amt * (1 - (_q - _q0) / _tq))
-            _sched_int[_q - 1] += (_b0 + _b1) / 2.0 * _r / 4.0
+        for _q in range(_q0, min(_q0 + _tq, 13)):
+            _sched_t[_q] += _amt
+            _sched_int[_q - 1] += _amt * _r / 4.0
     _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
     _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
     _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, 13)]
