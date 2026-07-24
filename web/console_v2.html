@@ -1608,12 +1608,41 @@ function vintageModeled(mk){
   }
   return lastRes.financials.ratios[mk];
 }
+let _vintageBusy = false;
 async function vintageBuild(){
-  const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({est_from:2018, est_to:2023})});
-  const j = await r.json();
-  if(!r.ok){ appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(j.error||String(r.status))); return; }
-  window.vintage = j; renderContent();
+  if(_vintageBusy) return;          // no double-fires (which could storm the pool)
+  _vintageBusy = true;
+  window._vintageLoading = true; window._vintageError = null;
+  renderContent();                  // paint the loading state immediately
+  // Client-side timeout: the substrate query can be heavy, but it must never spin
+  // forever. Abort at 25s and surface a message instead of an infinite wait.
+  const ctrl = new AbortController();
+  const timer = setTimeout(()=>ctrl.abort(), 25000);
+  try{
+    const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({est_from:2018, est_to:2023}),
+      signal: ctrl.signal});
+    clearTimeout(timer);
+    let j; try{ j = await r.json(); }
+    catch(e){ throw new Error(`unreadable response (${r.status})`); }
+    if(!r.ok){
+      window._vintageError = (j && j.error) || `substrate error (${r.status})`;
+      appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(window._vintageError));
+    } else {
+      window.vintage = j;
+    }
+  }catch(e){
+    const aborted = (e && e.name === "AbortError");
+    window._vintageError = aborted
+      ? "the substrate did not respond within 25 seconds \u2014 it may be waking up or under load. Try again in a moment."
+      : ("could not reach the substrate \u2014 " + (e && e.message ? e.message : "network error"));
+    appStatus("err", "<b>Corridor unavailable</b> \u2014 " + esc(window._vintageError));
+  }finally{
+    clearTimeout(timer);
+    _vintageBusy = false; window._vintageLoading = false;
+    renderContent();
+  }
 }
 window.vintageBuild = vintageBuild;
 function vintageSectionHtml(){
@@ -1624,7 +1653,15 @@ function vintageSectionHtml(){
   }
   if(!window.vintage){
     h += '<div class="memo">Every cohort member\u2019s history is re-clocked to its own opening quarter; the band is what real de novos actually walked at each age. Pre-registered window; suppressed below minimum count; survivorship stated.</div>';
-    h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
+    if(window._vintageLoading){
+      h += '<div class="memo" style="color:#DFA85A">Building corridor from the substrate\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
+      h += '<button class="btn-plain" disabled style="opacity:.55;cursor:default">Building\u2026</button>';
+    } else {
+      if(window._vintageError){
+        h += `<div class="memo" style="border-left:3px solid #B45454;color:#E0A0A0">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
+      }
+      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
+    }
     return h;
   }
   const V = window.vintage;
