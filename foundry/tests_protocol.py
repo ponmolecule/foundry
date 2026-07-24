@@ -2020,6 +2020,49 @@ def t67():
           and _pb._is_stored("broad") and not _pb._is_stored("628,3511"))
 
 
+def t69():
+    # Regression: the RI (income statement) Call Report schedule must NOT double-count
+    # designated-securities-book interest. The engine nests bookInt inside secInt
+    # (sec_int = market-securities interest + book_int), so RI total interest income
+    # and line 1.d must use secInt alone. Adding bookInt again overstated total interest
+    # income by exactly bookInt every quarter — a bug that only surfaced with securities
+    # books populated (investment_portfolio module), which no fixture exercised.
+    print("T69 RI schedule does not double-count securities-book interest (callreport.build_ri)")
+    import json as _json
+    from foundry.v2.run_q import run_v2 as _run
+    from foundry.v2.callreport import build_ri as _bri
+    _cfg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    # populate securities books so bookInt is non-zero (the path that triggered the bug)
+    _cfg["assumptions"]["securities_afs"] = [
+        {"name": "AFS", "opening": 10000000.0, "purchases_q": 500000.0,
+         "growth_q": 0.0, "runoff_q": 0.007, "yield_ann": 0.044}]
+    _cfg["assumptions"]["securities_htm"] = [
+        {"name": "HTM", "opening": 8000000.0, "purchases_q": 0.0,
+         "growth_q": 0.0, "runoff_q": 0.007, "yield_ann": 0.047}]
+    _mods = _cfg["step_0"].get("modules") or []
+    if "investment_portfolio" not in _mods:
+        _cfg["step_0"]["modules"] = _mods + ["investment_portfolio"]
+    _r = _run(_cfg)
+    _s = _r["financials"]["is"]
+    _n = len(_s["ni"])
+    _book = _s.get("bookInt") or [0.0] * _n
+    _ri = _bri(_r)
+    _rows = {row["item"]: row["values"] for row in _ri["rows"]}
+    # the test is only meaningful if bookInt is actually non-zero
+    check("T69a", "securities-book interest is non-zero (test is meaningful)",
+          any(abs(x) > 1 for x in _book), f"max bookInt {max((abs(x) for x in _book), default=0):.1f}")
+    # true total interest income: secInt already includes bookInt once
+    _true = [(_s.get("loanInt") or [0]*_n)[i] + (_s.get("secInt") or [0]*_n)[i]
+             + (_s.get("cashInt") or [0]*_n)[i] for i in range(_n)]
+    _worst = max(abs(_rows["1.h"][i] - _true[i]) for i in range(_n))
+    check("T69b", "RI total interest income equals true total (no bookInt double-count)",
+          _worst < 0.02, f"max |RI 1.h - true| {_worst:.4f}")
+    # RI-derived NII must still tie to the engine's NII
+    _tie = [(_s.get("depExp") or [0]*_n)[i] + (_s.get("borrExp") or [0]*_n)[i] for i in range(_n)]
+    _wn = max(abs((_rows["1.h"][i] - _tie[i]) - (_s["nii"][i])) for i in range(_n))
+    check("T69c", "RI-derived NII ties to engine NII", _wn < 0.02, f"max |diff| {_wn:.4f}")
+
+
 def t68():
     # Regression: the balance-sheet exhibit's Total liabilities must include the
     # amortizing scheduled-borrowings line, not just the revolving `borrow` plug.
@@ -2056,7 +2099,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)

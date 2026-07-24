@@ -169,14 +169,19 @@ def build_rc(res, cfg):
 def build_ri(res):
     s = res["financials"]["is"]
     n = len(s["ni"])
-    tii = [s["loanInt"][t] + s["secInt"][t] + s["cashInt"][t] + s["bookInt"][t] for t in range(n)]
+    # secInt ALREADY includes the designated-securities-book interest (engine_q_a.py:
+    # sec_int = market-securities interest + book_int). bookInt is a nested "of which"
+    # component, NOT an additional line — adding it here double-counts HTM/AFS-book
+    # interest and overstates total interest income by exactly bookInt every quarter.
+    tii = [s["loanInt"][t] + s["secInt"][t] + s["cashInt"][t] for t in range(n)]
     tie = [s["depExp"][t] + s["borrExp"][t] for t in range(n)]
     nonint_inc = [s["fees"][t] + s["gos"][t] + s["servNet"][t] + s["fvPnl"][t] for t in range(n)]
     nonint_exp = [s["overhead"][t] + s["prodOpex"][t] for t in range(n)]
     rows = [
         _row("1.a", "RIAD4010", "Interest and fees on loans", s["loanInt"]),
         _row("1.c", "RIAD4115", "Interest on balances due from depository institutions", s["cashInt"]),
-        _row("1.d", "RIADB488/B489", "Interest on securities", [s["secInt"][t] + s["bookInt"][t] for t in range(n)]),
+        _row("1.d", "RIADB488/B489", "Interest on securities", s["secInt"]),
+        _row("1.d.(1)", "RIADB488/B489", "  of which: interest on designated securities books", s["bookInt"]),
         _row("1.h", "RIAD4107", "Total interest income", tii),
         _row("2.a", "RIAD4508/0093", "Interest on deposits", s["depExp"]),
         _row("2.b", "RIAD4185", "Interest on borrowed money", s["borrExp"]),
