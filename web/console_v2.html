@@ -504,13 +504,48 @@ async function whoami(){
   }catch(e){}
   return null;
 }
+// A brand-new user should see an empty canvas, not a pre-built demo bank. EMPTY_TEMPLATE
+// keeps the shape valid but zeros every editable input, drops all products and modules, and
+// marks itself blank so the overview shows "nothing modeled yet" instead of a fictional
+// breakeven. Leverage min stays 9% (the validator floor is 2%; 0 would be rejected).
+function buildEmptyTemplate(){
+  const t = JSON.parse(JSON.stringify(TEMPLATE));
+  t.client_legal_name = ""; t.proposed_bank = ""; t.hq = "TBD";
+  t.constraints = [{key:"leverage_min", value:0.09, text:"Tier 1 leverage floor.",
+                    source:"Engagement commitment (edit with citation)"}];
+  t.target_state = {initial_capital: 0, assets_yr3: 0};
+  if(t.step_0) t.step_0.modules = [];        // no modules => engine won't demand products
+  const a = t.assumptions;
+  a.deposit_products = []; a.lending_products = []; a.obs_exposures = [];
+  a.tax_rate = 0; a.cash_target_pct_deposits = 0; a.cash_yield = 0;
+  a.securities_yield = 0; a.borrow_rate_ann = 0; a.overhead_q = 0;
+  a.overhead_growth_q = 0; a.premises_equipment = 0; a.intangibles = 0;
+  a.other_assets = 0; a.other_liabilities = 0;
+  // rate path left as-is until the user populates it with the SOFR button (see below).
+  t._blank_canvas = true;
+  return t;
+}
+// Load today's fully-populated example bank on demand (the old default state).
+async function loadExampleBank(){
+  const r = await fetch(window.V31 ? "/api/v31/template" : "/api/v2/template").catch(()=>null);
+  cfg = (r && r.ok) ? await r.json() : JSON.parse(JSON.stringify(TEMPLATE));
+  cfg.proposed_bank = "De Novo Bank"; cfg.client_legal_name = "De Novo Bank";
+  cfg.scenario_name = "De Novo Bank — Base Case";
+  cfg.stress_params = cfg.stress_params || {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300,
+    origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
+  cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+  delete cfg._blank_canvas;
+  const sn = document.getElementById("scenarioName"); if(sn) sn.value = cfg.scenario_name;
+  renderGlobals(); refresh(); markPristine();
+  appStatus("ok", "<b>Loaded the example bank.</b> Every input is populated \u2014 edit freely, or clear it to start fresh.");
+}
+window.loadExampleBank = loadExampleBank;
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
-  const r = await fetch(window.V31 ? "/api/v31/template" : "/api/v2/template").catch(()=>null);
-  cfg = (r && r.ok) ? await r.json() : TEMPLATE;
-  cfg.proposed_bank = "De Novo Bank";
-  cfg.client_legal_name = "De Novo Bank";
-  cfg.scenario_name = "De Novo Bank — Base Case";
+  // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
+  // available on demand via the "Start from example bank" button (loadExampleBank).
+  cfg = buildEmptyTemplate();
+  cfg.scenario_name = "";
   cfg.stress_params = cfg.stress_params || {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300,
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
@@ -532,10 +567,15 @@ async function boot(){
       }
     }
   }catch(e){}
-  renderGlobals(); refresh();
+  renderGlobals();
+  if(cfg._blank_canvas){ renderContent(); }   // blank: show the empty-canvas state, don't run the engine
+  else { refresh(); }
   markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
 }
-function refresh(){ if(window.SNAPSHOT) return; clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); }
+function refresh(){ if(window.SNAPSHOT) return;
+  // First real interaction on a blank canvas turns it into a live model.
+  if(cfg && cfg._blank_canvas){ delete cfg._blank_canvas; }
+  clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); }
 /* ---------- working draft: autosaved only after a real edit ----------
    The draft must reflect deliberate work, never the pristine default nor a
    just-opened engagement. We snapshot the config whenever a clean state is
@@ -1895,6 +1935,16 @@ function renderContent(){
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
+    if(cfg && cfg._blank_canvas){
+      c.innerHTML = `<div class="h2" style="font-weight:700">Engagement overview</div>
+        <div style="max-width:640px;margin-top:28px;padding:34px 32px;border:1px dashed #33436199;border-radius:10px;background:#111C30;text-align:center">
+          <div style="font-size:15px;font-weight:600;color:#E6E8EC;margin-bottom:8px">Nothing modeled yet</div>
+          <div style="font-size:13px;line-height:1.65;color:#8FA3C0;margin-bottom:22px">This is a blank canvas. Set your assumptions in the sidebar and add products on the Products tab \u2014 every figure on every sheet will trace to a value you entered. Nothing is pre-filled.</div>
+          <button class="btn-gold" onclick="loadExampleBank()" style="margin-bottom:6px">Start from example bank</button>
+          <div style="font-size:11px;color:#6E7C93;margin-top:10px">Loads a fully-populated sample de novo bank you can edit \u2014 handy for a first look at what a completed model produces.</div>
+        </div>`;
+      return;
+    }
     if(lastErrs || !lastRes){ /* fall through to shared fail-closed/loading rendering */ }
     else { renderOverview(); return; }
   }
