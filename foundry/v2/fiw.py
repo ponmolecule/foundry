@@ -253,6 +253,48 @@ def _array_sheet(ws, arrkey, items, fields):
     ws.column_dimensions["E"].width = 30
 
 
+def _nie_sheet(ws, nd):
+    """Editable sheet for nie_detail — a heterogeneous structure (scalars + a fixed FTE ladder +
+    a categories array), so each leaf gets a dotted machine key that diff_import reads back via
+    the generic ARRAY_SHEETS reader. Same grammar as _fee_sheet. NIE detail drives total
+    non-interest expense (it REPLACES the corporate-overhead lump when present), so it earns a
+    first-class editable sheet like every other driving input — previously it was read-only on
+    SETTINGS with only FTE+comp shown."""
+    ws.append(["key", "Section", "Field", "Value", "Units / note"])
+    for c in ws[1]:
+        c.font = HDR
+
+    def _row(key, section, field, val, units):
+        ws.append([key, section, field, val if val is not None else "", units])
+        if "fact" not in units:
+            ws.cell(ws.max_row, 4).fill = GOLD
+        if isinstance(val, (int, float)) and abs(val) >= 1000:
+            ws.cell(ws.max_row, 4).number_format = "#,##0"
+
+    # FTE ladder (one row per modeled year) — the headcount that drives loaded comp.
+    fte = nd.get("fte_by_year") or []
+    for i, n in enumerate(fte):
+        _row(f"nie_detail.fte_by_year.{i}", "Staffing", f"FTE — year {i + 1}", n, "headcount")
+    # comp + gross-up scalars.
+    if nd.get("loaded_comp_annual") is not None:
+        _row("nie_detail.loaded_comp_annual", "Staffing", "Loaded comp per FTE",
+             nd.get("loaded_comp_annual"), "$/year (fully loaded)")
+    if nd.get("other_gross_up_rate") is not None:
+        _row("nie_detail.other_gross_up_rate", "Overhead", "Other gross-up rate",
+             nd.get("other_gross_up_rate"), "share of subtotal")
+    # category lines (array of {name, per_quarter}).
+    for i, cat in enumerate(nd.get("categories") or []):
+        _row(f"nie_detail.categories.{i}.name", f"Category {i + 1}", "Name",
+             cat.get("name"), "label (editable)")
+        _row(f"nie_detail.categories.{i}.per_quarter", f"Category {i + 1}", "Amount",
+             cat.get("per_quarter"), "$/quarter")
+    ws.column_dimensions["A"].hidden = True
+    ws.column_dimensions["B"].width = 18
+    ws.column_dimensions["C"].width = 24
+    ws.column_dimensions["D"].width = 18
+    ws.column_dimensions["E"].width = 28
+
+
 def _fee_sheet(ws, fm):
     """Editable sheet for fee_modules — a nested/heterogeneous structure, so each
     scalar leaf gets a dotted machine key. Payments is a list of rails; each rail's
@@ -374,6 +416,8 @@ def build_fiw(cfg):
         _array_sheet(wb.create_sheet("ASSM_RAISES"), "capital_raises", a["capital_raises"], RAISE_FIELDS)
     if a.get("fee_modules"):
         _fee_sheet(wb.create_sheet("ASSM_FEES"), a["fee_modules"])
+    if a.get("nie_detail"):
+        _nie_sheet(wb.create_sheet("ASSM_NIE"), a["nie_detail"])
     po = (cfg.get("pre_opening") or {}).get("expenses")
     if po:
         _array_sheet(wb.create_sheet("ASSM_PREOPEN"), "pre_opening.expenses", po, PREOPEN_FIELDS)
@@ -849,6 +893,7 @@ def diff_import(data, current_cfg):
         "ASSM_RAISES": ("capital_raises", 3),
         "ASSM_PREOPEN": ("pre_opening.expenses", 3),
         "ASSM_FEES": ("fee_modules", 3),
+        "ASSM_NIE": ("nie_detail", 3),
     }
     for sheet, (_root, valcol) in ARRAY_SHEETS.items():
         if sheet not in wb.sheetnames:

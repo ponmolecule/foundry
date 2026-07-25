@@ -746,6 +746,30 @@ def t23():
         )
         check("T23w", "console renders the obs family in the product tab + add flows (anti-regression)",
               _obs_wired)
+
+        # T23x: NIE detail gets a first-class editable ASSM_NIE sheet that round-trips (it drives
+        # total non-interest expense but was previously read-only on SETTINGS with partial data).
+        cfgnie = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfgnie["assumptions"]["nie_detail"] = {
+            "fte_by_year": [28, 45, 62], "loaded_comp_annual": 145000.0,
+            "categories": [{"name": "Technology", "per_quarter": 320000.0},
+                           {"name": "Occupancy", "per_quarter": 180000.0}],
+            "other_gross_up_rate": 0.15}
+        datan2, ghn2 = F.build_fiw(cfgnie); F.persist_snapshot(cfgnie, ghn2)
+        _wbn2 = _lw(_io.BytesIO(datan2))
+        _has_nie = "ASSM_NIE" in _wbn2.sheetnames
+        if _has_nie:
+            for r in _wbn2["ASSM_NIE"].iter_rows(min_row=2):
+                k = str(r[0].value)
+                if k == "nie_detail.categories.0.per_quarter": r[3].value = 400000
+                if k == "nie_detail.fte_by_year.0": r[3].value = 30
+            _bn2 = _io.BytesIO(); _wbn2.save(_bn2)
+            _mn2, _rn2 = F.diff_import(_bn2.getvalue(), {})
+            _nd2 = _mn2["assumptions"]["nie_detail"]
+            check("T23x", "ASSM_NIE editable sheet round-trips (category amount + FTE land)",
+                  _nd2["categories"][0]["per_quarter"] == 400000 and _nd2["fte_by_year"][0] == 30)
+        else:
+            check("T23x", "ASSM_NIE editable sheet exists", False)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

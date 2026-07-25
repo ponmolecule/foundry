@@ -365,10 +365,10 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
 <div class="toolbar">
   <span id="tabs"></span>
   <span class="spacer"></span>
-  <span style="position:relative;display:inline-flex;align-items:center;gap:0">
-    <span id="bankLabel" title="Bank / engagement — click to rename" onclick="renameBank()" style="font-size:13px;font-weight:600;color:#DCE3EE;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer"></span>
+  <span id="chevBox" style="position:relative;display:inline-flex;align-items:center;gap:0;border:1px solid var(--nline);background:var(--nvy3);border-radius:3px;padding:2px 8px 2px 10px">
+    <span id="bankLabel" title="Bank / engagement — click to rename" onclick="renameBank()" style="font-size:13px;font-weight:600;color:#DCE3EE;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer"></span>
     <span id="scenSep" style="color:#5B6B88;margin:0 7px;font-size:12px">\u2014</span>
-    <input class="scenario-name" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()" style="padding-right:26px;font-size:12px;color:#AEB9CC;font-style:italic">
+    <input class="scenario-name-inline" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()" style="border:none;background:transparent;padding:5px 24px 5px 0;font-size:12px;color:#AEB9CC;font-style:italic;width:150px;font-family:inherit;outline:none">
     <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements" style="position:absolute;right:7px;color:#8FA3C0;text-decoration:none;font-size:10px">▼</a>
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
@@ -839,8 +839,8 @@ function numInput(path, unit, extra){
 
 /* ---------------- sidebar: exactly three cards ---------------- */
 const GLOBAL_FIELDS = [
-  ["Tax rate (%)", "assumptions.tax_rate", "pct"],
   ["Min leverage ratio (%) \u2014 chartering commitment", "constraints.0.value", "pct"],
+  ["Tax rate (%)", "assumptions.tax_rate", "pct"],
   ["Corporate overhead ($000s/qtr)", "assumptions.overhead_q", "k"],
   ["Overhead growth (%/qtr)", "assumptions.overhead_growth_q", "pct"],
   ["Cash floor (% of deposits)", "assumptions.cash_target_pct_deposits", "pct"],
@@ -862,15 +862,52 @@ const STRESS_FIELDS = [
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
 const GLOBAL_GROUPS_V31 = [
-  ["Tax & leverage", ["Tax rate", "Min leverage"]],
+  ["Leverage & tax", ["Min leverage", "Tax rate"]],
   ["Treasury (funding waterfall)", ["Cash floor", "Yield on cash", "Yield on securities", "Borrowing rate"]],
   ["Operating expenses", ["Corporate overhead", "Overhead growth"]],
   ["Other balance sheet", ["Premises", "Intangibles", "Other assets", "Other liabilities"]],
 ];
+function setInitialCapital(v){
+  // input is in $000s; store raw dollars at target_state.initial_capital.
+  let x = parseFloat(String(v).replace(/,/g, ""));
+  if(isNaN(x) || x < 0) x = 0;
+  cfg.target_state = cfg.target_state || {};
+  cfg.target_state.initial_capital = x * K;
+  const el = document.getElementById("initCapTuner"); if(el) el.value = fmtComma(x);
+  scheduleAutosave(); refresh();
+}
+window.setInitialCapital = setInitialCapital;
+function bumpInitialCapital(deltaK){
+  // deltaK is in $000s (e.g. 5000 = $5M); clamp at zero.
+  cfg.target_state = cfg.target_state || {};
+  const curK = (cfg.target_state.initial_capital || 0) / K;
+  const nextK = Math.max(0, curK + deltaK);
+  cfg.target_state.initial_capital = nextK * K;
+  const el = document.getElementById("initCapTuner"); if(el) el.value = fmtComma(nextK);
+  scheduleAutosave(); refresh();
+}
+window.bumpInitialCapital = bumpInitialCapital;
 function renderGlobals(){
   let h = '';
   if(V31){
     const used = new Set();
+    // Standalone Day-1 capital tuner at the very top — centered, not in the two-up grid. Framed
+    // as an in-run adjustment with -/+ nudges so it reads as a knob to flex (scenario/what-if),
+    // which is why it's editable post-creation even though the raise is a Day-1 structural fact.
+    // The center is a real typeable field (capital ranges $20M-$200M+, no single step size fits);
+    // the -/+ are coarse ±$5M ($5,000K) nudges around it. All values in $000s.
+    {
+      const ic = ((cfg.target_state && cfg.target_state.initial_capital) || 0) / K;
+      h += '<div style="margin:2px 0 12px;text-align:center">'
+        + '<div class="snote" style="letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A;margin-bottom:5px">Initial Capital ($000s, in-run adjustment)</div>'
+        + '<div style="display:inline-flex;align-items:center;gap:8px">'
+        + '<button type="button" onclick="bumpInitialCapital(-5000)" title="\u2212$5,000K" style="width:28px;height:28px;border:1px solid #3A4C6E;background:#131E33;color:#DCE3EE;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">\u2212</button>'
+        + `<input id="initCapTuner" type="text" inputmode="decimal" value="${fmtComma(ic)}" onchange="setInitialCapital(this.value)" style="width:120px;text-align:center;padding:7px 8px;background:#0E1626;border:1px solid #33436199;color:#EDF1F7;border-radius:7px;font-size:14px;font-family:inherit;font-weight:600">`
+        + '<button type="button" onclick="bumpInitialCapital(5000)" title="+$5,000K" style="width:28px;height:28px;border:1px solid #3A4C6E;background:#131E33;color:#DCE3EE;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">+</button>'
+        + '</div>'
+        + '<div style="font-size:10px;color:#7B88A0;margin-top:4px">\u00b1 buttons nudge by $5,000K</div>'
+        + '</div>';
+    }
     GLOBAL_GROUPS_V31.forEach(([gname, prefixes])=>{
       const members = GLOBAL_FIELDS.filter(f=>prefixes.some(p=>f[0].startsWith(p)));
       if(!members.length) return;
