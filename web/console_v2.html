@@ -968,12 +968,7 @@ function renderGlobals(){
      + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ntext)">'
      + `<input type="checkbox"${_dfOn?" checked":""} onchange="cfg.stress_params=cfg.stress_params||{}; cfg.stress_params.dfast_severe=this.checked; scheduleAutosave(); refresh()"> `
      + '<b>Add DFAST severely-adverse scenario</b></label>'
-     + '<div style="margin-top:4px">Adds a fifth scenario applying the Federal Reserve\u2019s published severely-adverse loss rates by loan category (DFAST-2025: CRE 5.5%, C&I 5.8%, construction 10.5%, mortgage 2.5%, credit card 19.7% \u2014 9-quarter cumulative). Supervisory benchmark, not a forecast; it does not change the credit/rate/combined scenarios.</div>'
-     + (_dfOn ? ('<div style="margin-top:8px"><label style="color:var(--nmut)">Loss timing across the 9 quarters: </label>'
-         + '<select onchange="cfg.stress_params.dfast_spread=this.value; scheduleAutosave(); refresh()" style="background:var(--nvy3);color:var(--ntext);border:1px solid var(--nline);border-radius:3px;padding:3px 6px;font-family:inherit;font-size:11px">'
-         + `<option value="level"${(cfg.stress_params.dfast_spread||"level")==="level"?" selected":""}>Level (even each quarter)</option>`
-         + `<option value="front"${cfg.stress_params.dfast_spread==="front"?" selected":""}>Front-loaded (spike then fade \u2014 more realistic)</option>`
-         + '</select><div style="margin-top:3px;font-size:11px">Both reach the same 9-quarter total; front-loaded concentrates losses early, as in a real downturn.</div></div>') : '')
+     + '<div style="margin-top:4px">Adds two scenarios applying the Federal Reserve\u2019s published severely-adverse loss rates by loan category (DFAST-2025: CRE 5.5%, C&I 5.8%, construction 10.5%, mortgage 2.5%, credit card 19.7% \u2014 9-quarter cumulative), shown as two columns: <b>level</b> (losses even across the 9 quarters) and <b>front-loaded</b> (losses spike early then fade, as in a real downturn). Both reach the same 9-quarter total. Supervisory benchmark, not a forecast; neither changes the credit/rate/combined scenarios.</div>'
      + '</div>';
   document.getElementById("stressBox").innerHTML = hx;
 }
@@ -2537,7 +2532,7 @@ function renderContent(){
   }
 
   if(currentTab==="stress"){
-    const order = ["base","credit","rate","combined","dfast_severe"];
+    const order = ["base","credit","rate","combined","dfast_level","dfast_front"];
     const scens = order.map(k=>r.scenarios[k]).filter(Boolean);
     const levMin = G("constraints.0.value") * 100;
     h += '<div class="h2">Stress Testing \u2014 Scenario Comparison</div>';
@@ -2584,19 +2579,19 @@ function renderContent(){
     // the supervisor's severe rates, loan type by loan type.
     if(r.dfast_segments && r.dfast_segments.rows && r.dfast_segments.rows.length){
       const ds = r.dfast_segments;
-      h += '<div class="h2" style="font-size:15px">Charge-off by Segment \\u2014 Your Plan vs. Stress vs. DFAST</div>';
-      h += `<div class="memo" style="margin:0 0 10px">Annual charge-off rate per loan type: your own assumption, that rate under the credit multiplier (\\u00d7${ds.mult}), and the Federal Reserve\\u2019s severely-adverse rate for the category (${ds.version}). The DFAST column shows the annualized-equivalent for comparison and, in brackets, the headline 9-quarter cumulative loss. A blank DFAST cell means the Fed does not publish a single rate for that category, so that loan falls back to your own assumption \\u2014 no supervisory stress is invented.</div>`;
-      h += '<table class="fin"><tr><th>Loan segment</th><th>Your assumption</th><th>Credit scenario (\\u00d7'+ds.mult+')</th><th>DFAST severe (annual-equiv) [9Q cum]</th></tr>';
+      h += '<div class="h2" style="font-size:15px">Charge-off by Segment — Your Plan vs. Stress vs. DFAST <span style="color:var(--nmut);font-weight:400">('+ds.rows.length+' loan segment'+(ds.rows.length===1?'':'s')+')</span></div>';
+      h += `<div class="memo" style="margin:0 0 10px">Annual charge-off rate per loan type: your own assumption, that rate under the credit multiplier (×${ds.mult}), and the Federal Reserve’s severely-adverse rate for the category (${ds.version}). The DFAST column shows the annualized-equivalent for comparison and, in brackets, the headline 9-quarter cumulative loss. A blank DFAST cell means the Fed does not publish a single rate for that category, so that loan falls back to your own assumption — no supervisory stress is invented.</div>`;
+      h += '<table class="fin"><tr><th>Loan segment</th><th>Your assumption</th><th>Credit scenario (×'+ds.mult+')</th><th>DFAST severe (annual-equiv) [9Q cum]</th></tr>';
       ds.rows.forEach(row=>{
         const df = (row.dfast_co_ann_equiv!=null)
           ? `${fmtP(row.dfast_co_ann_equiv)} <span style="color:var(--nmut)">[${fmtP(row.dfast_cum9)} cum]</span>`
-          : '<span style="color:var(--nmut)">\\u2014 falls back to your rate</span>';
+          : '<span style="color:var(--nmut)">— falls back to your rate</span>';
         // highlight where DFAST is materially harsher than the client's stressed rate
         const harsher = row.dfast_co_ann_equiv!=null && row.dfast_co_ann_equiv > row.stressed_co_ann;
         h += `<tr><td>${esc(row.name||row.line||'')}</td><td>${fmtP(row.client_co_ann)}</td><td>${fmtP(row.stressed_co_ann)}</td><td${harsher?' class="neg"':''}>${df}</td></tr>`;
       });
       h += '</table>';
-      h += '<div class="memo" style="margin:8px 0 0;font-size:11px">Highlighted DFAST cells are where the supervisor\\u2019s severe rate exceeds your own \\u00d7'+ds.mult+' stressed rate \\u2014 i.e. where your plan\\u2019s loss assumption is softer than the supervisory benchmark. DFAST rates are 9-quarter cumulative supervisory benchmarks, not forecasts of this bank.</div>';
+      h += '<div class="memo" style="margin:8px 0 0;font-size:11px">Highlighted DFAST cells are where the supervisor’s severe rate exceeds your own ×'+ds.mult+' stressed rate — i.e. where your plan’s loss assumption is softer than the supervisory benchmark. DFAST rates are 9-quarter cumulative supervisory benchmarks, not forecasts of this bank.</div>';
     }
     h += '<div class="h2" style="font-size:15px">Net Income by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario ($000s)</th>';

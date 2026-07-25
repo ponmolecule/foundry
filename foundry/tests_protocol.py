@@ -819,14 +819,14 @@ def t23():
                            sort_keys=True, default=str)
             for s in ("base", "credit", "rate", "combined"))
         check("T-DFAST-1", "DFAST overlay is additive: base + existing scenarios unchanged when enabled",
-              _fin_same and _scen_same and "dfast_severe" not in _roff["scenarios"]
-              and "dfast_severe" in _ron["scenarios"])
+              _fin_same and _scen_same and "dfast_level" not in _roff["scenarios"]
+              and "dfast_level" in _ron["scenarios"] and "dfast_front" in _ron["scenarios"])
 
         # T-DFAST-2: mapped line accrues ~the registry rate over the 9Q window; unmapped line falls
         # back to the client's own rate (no fabricated stress).
         from foundry.v2.dfast_lossrates import dfast_rates as _dr
         _regc = _dr()["rates"]["loanCreditCard"]["rate"]
-        _scd = _sfd(_cfgon)["dfast_severe"][0]
+        _scd = _sfd(_cfgon)["dfast_level"][0]
         _cc = copy.deepcopy(_cfgon); _cc["scenario_overlays"] = _scd
         _rrd = _rpd(_cc)
         _pd = {p["name"]: p for p in _rrd["products"]}
@@ -840,7 +840,7 @@ def t23():
         # invisible (the whole point of surfacing it before deploy).
         _chtml = open("web/console_v2.html", encoding="utf-8").read()
         check("T-DFAST-3", "console surfaces DFAST scenario (order column + settings toggle)",
-              '"base","credit","rate","combined","dfast_severe"' in _chtml
+              '"base","credit","rate","combined","dfast_level","dfast_front"' in _chtml
               and "dfast_severe=this.checked" in _chtml)
 
         # T-DFAST-4: level and front-loaded spreads reach the same 9Q cumulative but differ in
@@ -856,7 +856,7 @@ def t23():
         _tc.setdefault("stress_params", {})["dfast_severe"] = True
         def _co9(mode):
             _tc["stress_params"]["dfast_spread"] = mode
-            _sc = _sfd(_tc)["dfast_severe"][0]
+            _sc = _sfd(_tc)[{"level":"dfast_level","front":"dfast_front"}[mode]][0]
             _cc = copy.deepcopy(_tc); _cc["scenario_overlays"] = _sc
             _co = _rpd(_cc)["products"][0]["co"]
             return _co, sum(_co[:9]) / (100000000 / 1000)

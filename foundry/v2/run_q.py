@@ -70,12 +70,15 @@ def scenarios_from(cfg):
             from foundry.v2.dfast_lossrates import dfast_rates
             _dfv = dfast_rates((cfg.get("stress_params") or {}).get("dfast_version"))
             _rates = {ln: d["rate"] for ln, d in _dfv["rates"].items()}
-            _spread = (cfg.get("stress_params") or {}).get("dfast_spread") or "level"
-            _slabel = "front-loaded" if _spread == "front" else "level"
-            scens["dfast_severe"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": _spread},
-                                     f"DFAST Severe ({_dfv['version']}, {_slabel})")
+            # Emit BOTH loss-timing distributions as separate scenarios so they can be compared
+            # side by side: level (even each quarter) and front-loaded (spike then fade). Same 9Q
+            # cumulative, different shape. Both are additive; neither touches the four base scenarios.
+            scens["dfast_level"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": "level"},
+                                    f"DFAST Severe ({_dfv['version']}, level)")
+            scens["dfast_front"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": "front"},
+                                    f"DFAST Severe ({_dfv['version']}, front-loaded)")
         except Exception:
-            pass  # registry unavailable -> scenario simply not offered; base behavior unchanged
+            pass  # registry unavailable -> scenarios simply not offered; base behavior unchanged
     return scens
 
 
