@@ -2087,7 +2087,7 @@ function renderContent(){
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
     h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
-    const secs = [["Loans","lending"],["Deposits","deposit"]];
+    const secs = [["Loans","lending"],["Deposits","deposit"],["Off-Balance-Sheet","obs"]];
     secs.forEach(([cn,fam])=>{
       const subs = TAX31()[cn] || [];
       h += `<div class="ovh3">${cn}</div>`;
@@ -2887,7 +2887,7 @@ function renderWizard(){
   if(wiz.step===3){
     let picked = 0, hasDep = false;
     h += '<div class="ovh3">Products</div>';
-    [["Loans"],["Deposits"]].forEach(([cn])=>{
+    [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       h += `<div class="card" style="margin-bottom:10px"><div class="accent-label">${cn}</div>`;
       TAX31()[cn].forEach((s,i)=>{
         const on = !!wiz.picks[cn+"|"+i];

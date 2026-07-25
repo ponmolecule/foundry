@@ -734,6 +734,18 @@ def t23():
             _rf = F_run(cfgf)
             check("T23v", "an FVO loan is recognized as fair-value in the run",
                   any(p.get("is_fv") for p in _rf.get("products", [])))
+
+        # T23w: the console's product-tab render and add flows must include the obs family in their
+        # hardcoded section lists — the OBS-doesn't-appear bug was a section list of only Loans and
+        # Deposits, so a clicked OBS product landed in the config with nowhere to render.
+        _html = open("web/console_v2.html", encoding="utf-8").read()
+        _obs_wired = (
+            '["Off-Balance-Sheet","obs"]' in _html          # products-tab render section
+            and _html.count('["Off-Balance-Sheet"]') >= 2   # add-modal + wizard loops
+            and '"Off-Balance-Sheet": [' in _html           # TAX31_DATA category
+        )
+        check("T23w", "console renders the obs family in the product tab + add flows (anti-regression)",
+              _obs_wired)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)
