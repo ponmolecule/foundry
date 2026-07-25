@@ -2580,15 +2580,20 @@ function renderContent(){
     if(r.dfast_segments && r.dfast_segments.rows && r.dfast_segments.rows.length){
       const ds = r.dfast_segments;
       h += '<div class="h2" style="font-size:15px">Charge-off by Segment — Your Plan vs. Stress vs. DFAST <span style="color:var(--nmut);font-weight:400">('+ds.rows.length+' loan segment'+(ds.rows.length===1?'':'s')+')</span></div>';
+      h += `<div class="memo" style="margin:0 0 6px;font-size:11px;color:var(--nmut)">Diagnostic: engine returned ${ds.rows.length} lending product(s); config has ${(cfg.assumptions.lending_products||[]).length} lending product(s). If these differ, the loaded config and the run are out of sync \u2014 reload.</div>`;
       h += `<div class="memo" style="margin:0 0 10px">Annual charge-off rate per loan type: your own assumption, that rate under the credit multiplier (×${ds.mult}), and the Federal Reserve’s severely-adverse rate for the category (${ds.version}). The DFAST column shows the annualized-equivalent for comparison and, in brackets, the headline 9-quarter cumulative loss. A blank DFAST cell means the Fed does not publish a single rate for that category, so that loan falls back to your own assumption — no supervisory stress is invented.</div>`;
       h += '<table class="fin"><tr><th>Loan segment</th><th>Your assumption</th><th>Credit scenario (×'+ds.mult+')</th><th>DFAST severe (annual-equiv) [9Q cum]</th></tr>';
       ds.rows.forEach(row=>{
-        const df = (row.dfast_co_ann_equiv!=null)
-          ? `${fmtP(row.dfast_co_ann_equiv)} <span style="color:var(--nmut)">[${fmtP(row.dfast_cum9)} cum]</span>`
+        // Defensive: coerce every rate through Number so a malformed/non-numeric value renders as
+        // 'n/m' rather than corrupting the cell and collapsing the table. (A prior build could
+        // truncate a row mid-cell; this makes that structurally impossible.)
+        const _n = v => (v==null || isNaN(+v)) ? null : +v;
+        const _cli = _n(row.client_co_ann), _str = _n(row.stressed_co_ann), _dfe = _n(row.dfast_co_ann_equiv), _d9 = _n(row.dfast_cum9);
+        const df = (_dfe!=null)
+          ? `${fmtP(_dfe)} <span style="color:var(--nmut)">[${fmtP(_d9)} cum]</span>`
           : '<span style="color:var(--nmut)">— falls back to your rate</span>';
-        // highlight where DFAST is materially harsher than the client's stressed rate
-        const harsher = row.dfast_co_ann_equiv!=null && row.dfast_co_ann_equiv > row.stressed_co_ann;
-        h += `<tr><td>${esc(row.name||row.line||'')}</td><td>${fmtP(row.client_co_ann)}</td><td>${fmtP(row.stressed_co_ann)}</td><td${harsher?' class="neg"':''}>${df}</td></tr>`;
+        const harsher = _dfe!=null && _str!=null && _dfe > _str;
+        h += `<tr><td>${esc(row.name||row.line||'')}</td><td>${fmtP(_cli)}</td><td>${fmtP(_str)}</td><td${harsher?' class="neg"':''}>${df}</td></tr>`;
       });
       h += '</table>';
       h += '<div class="memo" style="margin:8px 0 0;font-size:11px">Highlighted DFAST cells are where the supervisor’s severe rate exceeds your own ×'+ds.mult+' stressed rate — i.e. where your plan’s loss assumption is softer than the supervisory benchmark. DFAST rates are 9-quarter cumulative supervisory benchmarks, not forecasts of this bank.</div>';
