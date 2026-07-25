@@ -948,6 +948,13 @@ function renderGlobals(){
   document.getElementById("sofrBox").innerHTML = hs;
 
   let hx = '<div class="snote">Applied on the Stress Testing tab. Credit scenario uses the multipliers; rate scenario uses the parallel shock; combined applies both.</div><div class="fields">';
+  // Ensure stress defaults exist even for configs saved before these fields (or before DFAST)
+  // existed — otherwise the inputs render empty and the panel looks blank. Non-destructive:
+  // only fills missing keys, never overwrites a value the config already carries.
+  cfg.stress_params = Object.assign(
+    {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300, origination_volume_haircut:0.40,
+     gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25},
+    cfg.stress_params || {});
   STRESS_FIELDS.forEach(f=>{
     hx += `<div class="fld"><label>${esc(f[1])}</label>${numInput("stress_params."+f[0], f[2], `title="${esc(f[3])}"`)}</div>`;
   });
