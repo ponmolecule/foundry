@@ -834,6 +834,14 @@ def t23():
         _cons9 = sum(_pd["Cons"]["co"][:9]) / (50000000 / 1000)
         check("T-DFAST-2", "DFAST maps registry rate to mapped line; unmapped line falls back to client rate",
               0.16 < _card9 < _regc and abs(_cons9 - 0.03 * 9 / 4) < 0.01)
+
+        # T-DFAST-3: the console SURFACES the scenario — it's in the stress-tab scenario order and
+        # the stress settings carry the on/off toggle. Without this the engine capability is
+        # invisible (the whole point of surfacing it before deploy).
+        _chtml = open("web/console_v2.html", encoding="utf-8").read()
+        check("T-DFAST-3", "console surfaces DFAST scenario (order column + settings toggle)",
+              '"base","credit","rate","combined","dfast_severe"' in _chtml
+              and "dfast_severe=this.checked" in _chtml)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

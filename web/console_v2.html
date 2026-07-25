@@ -952,6 +952,17 @@ function renderGlobals(){
     hx += `<div class="fld"><label>${esc(f[1])}</label>${numInput("stress_params."+f[0], f[2], `title="${esc(f[3])}"`)}</div>`;
   });
   hx += '</div>';
+  // DFAST severe overlay — a fifth scenario that ADDS to the four above (never replaces the
+  // charge-off multiplier). It substitutes the Fed's published severely-adverse loss rate for
+  // each loan category. Off by default; the contrast between "your own losses x2.5" and
+  // "the supervisor's severe rates" is the point.
+  const _dfOn = !!(cfg.stress_params && cfg.stress_params.dfast_severe);
+  hx += '<div class="snote" style="margin-top:12px;border-top:1px solid var(--nline);padding-top:10px">'
+     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ntext)">'
+     + `<input type="checkbox"${_dfOn?" checked":""} onchange="cfg.stress_params=cfg.stress_params||{}; cfg.stress_params.dfast_severe=this.checked; scheduleAutosave(); refresh()"> `
+     + '<b>Add DFAST severely-adverse scenario</b></label>'
+     + '<div style="margin-top:4px">Adds a fifth scenario applying the Federal Reserve\u2019s published severely-adverse loss rates by loan category (DFAST-2025: CRE 5.5%, C&I 5.8%, construction 10.5%, mortgage 2.5%, credit card 19.7% \u2014 9-quarter cumulative). Supervisory benchmark, not a forecast; it does not change the credit/rate/combined scenarios.</div>'
+     + '</div>';
   document.getElementById("stressBox").innerHTML = hx;
 }
 
@@ -2514,7 +2525,7 @@ function renderContent(){
   }
 
   if(currentTab==="stress"){
-    const order = ["base","credit","rate","combined"];
+    const order = ["base","credit","rate","combined","dfast_severe"];
     const scens = order.map(k=>r.scenarios[k]).filter(Boolean);
     const levMin = G("constraints.0.value") * 100;
     h += '<div class="h2">Stress Testing \u2014 Scenario Comparison</div>';
