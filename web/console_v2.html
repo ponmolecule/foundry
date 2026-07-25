@@ -959,16 +959,15 @@ function renderGlobals(){
     hx += `<div class="fld"><label>${esc(f[1])}</label>${numInput("stress_params."+f[0], f[2], `title="${esc(f[3])}"`)}</div>`;
   });
   hx += '</div>';
-  // DFAST severe overlay — a fifth scenario that ADDS to the four above (never replaces the
-  // charge-off multiplier). It substitutes the Fed's published severely-adverse loss rate for
-  // each loan category. Off by default; the contrast between "your own losses x2.5" and
-  // "the supervisor's severe rates" is the point.
-  const _dfOn = !!(cfg.stress_params && cfg.stress_params.dfast_severe);
+  // DFAST is a first-class scenario shown prominently at the top of the Stress Testing tab
+  // (default on). No sidebar toggle needed; a hide control is offered for the rare
+  // deposit-only/unusual config where it adds nothing.
+  const _dfHidden = !!(cfg.stress_params && cfg.stress_params.dfast_severe === false);
   hx += '<div class="snote" style="margin-top:12px;border-top:1px solid var(--nline);padding-top:10px">'
-     + '<label style="display:flex;align-items:center;gap:8px;cursor:pointer;color:var(--ntext)">'
-     + `<input type="checkbox"${_dfOn?" checked":""} onchange="cfg.stress_params=cfg.stress_params||{}; cfg.stress_params.dfast_severe=this.checked; scheduleAutosave(); refresh()"> `
-     + '<b>Add DFAST severely-adverse scenario</b></label>'
-     + '<div style="margin-top:4px">Adds two scenarios applying the Federal Reserve\u2019s published severely-adverse loss rates by loan category (DFAST-2025: CRE 5.5%, C&I 5.8%, construction 10.5%, mortgage 2.5%, credit card 19.7% \u2014 9-quarter cumulative), shown as two columns: <b>level</b> (losses even across the 9 quarters) and <b>front-loaded</b> (losses spike early then fade, as in a real downturn). Both reach the same 9-quarter total. Supervisory benchmark, not a forecast; neither changes the credit/rate/combined scenarios.</div>'
+     + 'The <b>DFAST severely-adverse</b> scenario (Federal Reserve supervisory loss rates by loan category) is shown by default at the top of the <b>Stress Testing</b> tab, with its source and vintage. '
+     + '<label style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;color:var(--nmut);margin-top:6px">'
+     + `<input type="checkbox"${_dfHidden?" checked":""} onchange="cfg.stress_params=cfg.stress_params||{}; cfg.stress_params.dfast_severe=this.checked?false:true; scheduleAutosave(); refresh()"> `
+     + 'Hide the DFAST scenario</label>'
      + '</div>';
   document.getElementById("stressBox").innerHTML = hx;
 }
@@ -2532,10 +2531,27 @@ function renderContent(){
   }
 
   if(currentTab==="stress"){
-    const order = ["base","credit","rate","combined","dfast_level","dfast_front"];
+    const order = ["base","credit","rate","combined","dfast_severe"];
     const scens = order.map(k=>r.scenarios[k]).filter(Boolean);
     const levMin = G("constraints.0.value") * 100;
     h += '<div class="h2">Stress Testing \u2014 Scenario Comparison</div>';
+    // Prominent DFAST section at the top of the stress tab: the supervisory-severe scenario is a
+    // first-class result, not a sidebar afterthought. Source panel surfaces the loaded vintage,
+    // its citation, and a live link to the Federal Reserve source ("the pull").
+    if(r.dfast_segments){
+      const ds = r.dfast_segments;
+      h += '<div class="okbox" style="border-left:3px solid var(--gold,#D8A85E);background:var(--nvy3);margin:0 0 14px;padding:12px 14px">'
+        + '<div style="font-weight:600;color:var(--ntext);margin-bottom:4px">DFAST Severely-Adverse Scenario \u2014 supervisory benchmark</div>'
+        + '<div style="font-size:12px;color:var(--nmut);line-height:1.5">Applies the Federal Reserve\u2019s published severely-adverse loss rates by loan category to your projected balances \u2014 a supervisory benchmark, not a forecast of this bank. Losses are front-loaded across the 9-quarter horizon (spike then fade, as in a real downturn). It is additive: it does not change your Base, Credit, Rate, or Combined scenarios. The per-segment table below shows where your own loss assumptions sit relative to the supervisory rates.</div>'
+        + '<div style="font-size:11px;color:var(--nmut);margin-top:8px;padding-top:8px;border-top:1px solid var(--nline)">'
+        + '<b style="color:var(--ntext)">Source &amp; vintage:</b> '+esc(ds.version||'')+(ds.published?(' (published '+esc(ds.published)+')'):'')
+        + (ds.scenario_vintage?('<br>'+esc(ds.scenario_vintage)):'')
+        + (ds.verified?(' \u00b7 loaded/verified '+esc(ds.verified)):'')
+        + (ds.source_url?('<br><a href="'+esc(ds.source_url)+'" target="_blank" rel="noopener" style="color:var(--gold,#D8A85E)">View the Federal Reserve source \u2192</a>'):'')
+        + (ds.publications_index_url?(' \u00b7 <a href="'+esc(ds.publications_index_url)+'" target="_blank" rel="noopener" style="color:var(--gold,#D8A85E)">check for a newer release</a>'):'')
+        + '</div>'
+        + '</div>';
+    }
     h += '<div class="memo" style="margin:0 0 14px">Scenario parameters are set in the sidebar under Stress Scenario Settings. The rate shock shifts the entire SOFR path and cash/securities/borrowing rates in parallel; fixed-rate coupons do not reprice. Credit multipliers scale every product&rsquo;s charge-off and ALLL reserve rates.</div>';
     scens.forEach(s=>{
       const ml = s.min_leverage==null ? null : s.min_leverage*100;

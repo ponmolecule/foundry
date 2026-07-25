@@ -65,18 +65,19 @@ def scenarios_from(cfg):
     # It NEVER replaces the multiplier-based Credit Deterioration scenario; the two coexist and
     # the contrast is intentional. Absent the opt-in or the registry, the scenario set is
     # bit-identical to the prior four.
-    if (cfg.get("stress_params") or {}).get("dfast_severe"):
+    # DFAST severe overlay — a supervisory-severe scenario, ON BY DEFAULT (set
+    # stress_params.dfast_severe to False to hide it). A single column using the FRONT-LOADED
+    # loss shape: it never understates stress, and the level-vs-front distinction is negligible
+    # except for a bank balanced exactly on the leverage floor (verified: Calamity 0.35pp,
+    # Coverall 0.07pp) — two near-identical columns would mislead, so one is shown. Additive:
+    # never replaces the multiplier-based Credit Deterioration scenario; the contrast is the point.
+    if (cfg.get("stress_params") or {}).get("dfast_severe", True) is not False:
         try:
             from foundry.v2.dfast_lossrates import dfast_rates
             _dfv = dfast_rates((cfg.get("stress_params") or {}).get("dfast_version"))
             _rates = {ln: d["rate"] for ln, d in _dfv["rates"].items()}
-            # Emit BOTH loss-timing distributions as separate scenarios so they can be compared
-            # side by side: level (even each quarter) and front-loaded (spike then fade). Same 9Q
-            # cumulative, different shape. Both are additive; neither touches the four base scenarios.
-            scens["dfast_level"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": "level"},
-                                    f"DFAST Severe ({_dfv['version']}, level)")
-            scens["dfast_front"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": "front"},
-                                    f"DFAST Severe ({_dfv['version']}, front-loaded)")
+            scens["dfast_severe"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": "front"},
+                                     f"DFAST Severe ({_dfv['version']})")
         except Exception:
             pass  # registry unavailable -> scenarios simply not offered; base behavior unchanged
     return scens
@@ -304,10 +305,11 @@ def run_v2(cfg):
     # cumulative for like-for-like comparison). Attached only when DFAST is enabled; the DFAST
     # column is blank for lines the registry does not map (no fabricated stress).
     dfast_segments = None
-    if (cfg.get("stress_params") or {}).get("dfast_severe"):
+    if (cfg.get("stress_params") or {}).get("dfast_severe", True) is not False:
         try:
             from foundry.v2.dfast_lossrates import dfast_rates as _drs
-            _reg = _drs((cfg.get("stress_params") or {}).get("dfast_version"))["rates"]
+            _dfvfull = _drs((cfg.get("stress_params") or {}).get("dfast_version"))
+            _reg = _dfvfull["rates"]
             _com = (cfg.get("stress_params") or {}).get("charge_off_mult", STRESS_DEFAULTS["charge_off_mult"])
             rows = []
             for p in cfg["assumptions"].get("lending_products", []):
@@ -324,7 +326,13 @@ def run_v2(cfg):
                     "dfast_cum9": dfast_cum9,
                 })
             dfast_segments = {"mult": _com, "rows": rows,
-                              "version": _drs((cfg.get("stress_params") or {}).get("dfast_version"))["version"]}
+                              "version": _dfvfull["version"],
+                              "published": _dfvfull.get("published"),
+                              "scenario_vintage": _dfvfull.get("scenario_vintage"),
+                              "source_url": _dfvfull.get("source_url"),
+                              "publications_index_url": _dfvfull.get("publications_index_url"),
+                              "verified": _dfvfull.get("verified"),
+                              "citation": _dfvfull.get("citation")}
         except Exception:
             dfast_segments = None
     results = {

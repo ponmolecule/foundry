@@ -240,7 +240,7 @@ def main():
         r1, r2 = run_v2(cfg), run_v2(cfg)
         if r1 != r2 or r1["run_hash"] != r2["run_hash"]:
             print("  T-PRV FAIL: identical config produced different results"); sys.exit(1)
-        want = len(cfg["constraints"]) * len(SCENARIOS_V2)
+        want = len(cfg["constraints"]) * len(r1["scenarios"])
         if len(r1["constraint_tests"]) != want:
             print(f"  A.8 FAIL: {len(r1['constraint_tests'])} constraint tests, expected {want}"); sys.exit(1)
         if not all(abs(sum(x['contribution'] for x in [dict(row) for row in r1['ftp']['rows']])

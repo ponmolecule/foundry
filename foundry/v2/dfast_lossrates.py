@@ -46,6 +46,8 @@ DFAST_LOSSRATES = {
     "horizon_quarters": 9,
     "basis": "cumulative nine-quarter loss as percent of balance; portfolio-average per category",
     "published": "2025-06",
+    "source_url": "https://www.federalreserve.gov/publications/2025-june-supervisory-stress-test-methodology-modeled-loss-rates.htm",
+    "publications_index_url": "https://www.federalreserve.gov/publications/dodd-frank-act-stress-test-publications.htm",
     "scenario_vintage": "2024 Stress Test severely adverse scenario "
                         "(portfolio data as of 2023-12-31, scenario published Feb 2024)",
     "verified": "2026-07-25",
