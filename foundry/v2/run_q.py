@@ -49,7 +49,7 @@ def scenarios_from(cfg):
     downturn = {k: sp[k] for k in ("origination_volume_haircut", "gos_margin_compression",
                                    "msr_value_haircut", "sale_share_retention_shift")}
     bp = int(round((sp["rate_shock_bp"] or 0)))
-    return {
+    scens = {
         "base": ({}, "Base Case"),
         "credit": ({**downturn, "charge_off_mult": sp["charge_off_mult"],
                     "reserve_mult": sp["reserve_mult"]},
@@ -60,6 +60,21 @@ def scenarios_from(cfg):
                       "reserve_mult": sp["reserve_mult"], "rate_shock_bp": sp["rate_shock_bp"]},
                      "Combined"),
     }
+    # DFAST severe overlay — an ADDITIVE fifth scenario, gated on (a) an explicit opt-in
+    # (cfg["stress_params"]["dfast_severe"] truthy, default off) and (b) the registry importing.
+    # It NEVER replaces the multiplier-based Credit Deterioration scenario; the two coexist and
+    # the contrast is intentional. Absent the opt-in or the registry, the scenario set is
+    # bit-identical to the prior four.
+    if (cfg.get("stress_params") or {}).get("dfast_severe"):
+        try:
+            from foundry.v2.dfast_lossrates import dfast_rates
+            _dfv = dfast_rates((cfg.get("stress_params") or {}).get("dfast_version"))
+            _rates = {ln: d["rate"] for ln, d in _dfv["rates"].items()}
+            scens["dfast_severe"] = ({**downturn, "dfast_severe_rates": _rates},
+                                     f"DFAST Severe ({_dfv['version']})")
+        except Exception:
+            pass  # registry unavailable -> scenario simply not offered; base behavior unchanged
+    return scens
 
 
 SCENARIOS_V2 = {"base": {}, "credit": None, "rate": None, "combined": None}  # keys, for tests
@@ -76,8 +91,10 @@ def _merge_overlays(base_ov, scen_ov):
             out[k] = (out.get(k, 1) or 1) * v
         elif k == "rate_shock_bp":
             out[k] = (out.get(k, 0) or 0) + v
-        else:
+        elif isinstance(v, (int, float)):
             out[k] = max(out.get(k, 0) or 0, v)
+        else:
+            out[k] = v  # non-numeric override (e.g. dfast_severe_rates dict) passes through
     return out
 
 

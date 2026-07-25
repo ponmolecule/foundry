@@ -80,8 +80,20 @@ def _apply_overlays(lend, dep, a, ov):
         a["rate_path_longer_run"] = max(0.0, a["rate_path_longer_run"] + shock)
     co_m = ov.get("charge_off_mult", 1) or 1
     res_m = ov.get("reserve_mult", 1) or 1
+    # DFAST severe overlay: an ABSOLUTE per-call_report_line 9Q-cumulative loss rate that
+    # SUBSTITUTES for the product's own charge-off over the 9-quarter supervisory window, via
+    # a per-quarter override (quarters 1-9). This is a different mechanism from charge_off_mult
+    # (which scales) — they never both run for the same scenario. Unmapped lines are untouched
+    # here and fall back to the client's own rate. Level spread: per-quarter = cumulative / 9.
+    dfast = ov.get("dfast_severe_rates") or {}
     for p in lend:
-        p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
+        if dfast and p.get("call_report_line") in dfast:
+            cum9 = dfast[p["call_report_line"]]          # 9Q cumulative loss fraction
+            ann = 4.0 * cum9 / 9.0                        # annual rate s.t. (ann/4) x 9 quarters = cum9
+            sched = {str(q): ann for q in range(1, 10)}   # DFAST horizon = quarters 1-9
+            p.setdefault("overrides", {})["charge_off_ann"] = sched
+        else:
+            p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
         if p.get("reserve_rate_pct_bal") is not None:
             p["reserve_rate_pct_bal"] *= res_m
         p["originations_q"] = (p.get("originations_q") or 0.0) * (1 - (ov.get("origination_volume_haircut", 0) or 0))

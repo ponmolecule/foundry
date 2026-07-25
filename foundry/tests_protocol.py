@@ -791,6 +791,49 @@ def t23():
         _rg = _rv2y(cfgg)
         check("T23y", "GROWTH-Y1 fires when year-1 total-asset growth exceeds 25%",
               any(f.get("id") == "GROWTH-Y1" for f in _rg.get("flags", [])))
+
+        # T-DFAST-1: the DFAST severe overlay is ADDITIVE — enabling it leaves the base result and
+        # the existing four scenarios bit-identical; the fifth scenario appears only when opted in.
+        from foundry.v2.run_q import run_v2 as _rvd, scenarios_from as _sfd, run_parity as _rpd
+        _cfgd = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        _cfgd["assumptions"]["lending_products"] = [{
+            "name": "Card", "call_report_line": "loanCreditCard", "opening_balance": 100000000.0,
+            "originations_q": 0, "orig_growth_q": 0, "runoff_q": 0, "rate_type": "fixed",
+            "yield_ann": 0.12, "charge_off_ann": 0.02, "provision_rate_ann": 0.02,
+            "reserve_rate_pct_bal": 0.02, "measurement": "amortized", "fee_yield_ann": 0,
+            "opex_pct_ann": 0, "opex_fixed_m": 0},
+            {"name": "Cons", "call_report_line": "loanConsumer", "opening_balance": 50000000.0,
+            "originations_q": 0, "orig_growth_q": 0, "runoff_q": 0, "rate_type": "fixed",
+            "yield_ann": 0.09, "charge_off_ann": 0.03, "provision_rate_ann": 0.03,
+            "reserve_rate_pct_bal": 0.02, "measurement": "amortized", "fee_yield_ann": 0,
+            "opex_pct_ann": 0, "opex_fixed_m": 0}]
+        _roff = _rvd(copy.deepcopy(_cfgd))
+        _cfgon = copy.deepcopy(_cfgd); _cfgon.setdefault("stress_params", {})["dfast_severe"] = True
+        _ron = _rvd(_cfgon)
+        _fin_same = (_json.dumps(_roff["financials"], sort_keys=True, default=str)
+                     == _json.dumps(_ron["financials"], sort_keys=True, default=str))
+        _scen_same = all(
+            _json.dumps({k: _roff["scenarios"][s].get(k) for k in _roff["scenarios"][s] if k != "label"},
+                        sort_keys=True, default=str)
+            == _json.dumps({k: _ron["scenarios"][s].get(k) for k in _ron["scenarios"][s] if k != "label"},
+                           sort_keys=True, default=str)
+            for s in ("base", "credit", "rate", "combined"))
+        check("T-DFAST-1", "DFAST overlay is additive: base + existing scenarios unchanged when enabled",
+              _fin_same and _scen_same and "dfast_severe" not in _roff["scenarios"]
+              and "dfast_severe" in _ron["scenarios"])
+
+        # T-DFAST-2: mapped line accrues ~the registry rate over the 9Q window; unmapped line falls
+        # back to the client's own rate (no fabricated stress).
+        from foundry.v2.dfast_lossrates import dfast_rates as _dr
+        _regc = _dr()["rates"]["loanCreditCard"]["rate"]
+        _scd = _sfd(_cfgon)["dfast_severe"][0]
+        _cc = copy.deepcopy(_cfgon); _cc["scenario_overlays"] = _scd
+        _rrd = _rpd(_cc)
+        _pd = {p["name"]: p for p in _rrd["products"]}
+        _card9 = sum(_pd["Card"]["co"][:9]) / (100000000 / 1000)
+        _cons9 = sum(_pd["Cons"]["co"][:9]) / (50000000 / 1000)
+        check("T-DFAST-2", "DFAST maps registry rate to mapped line; unmapped line falls back to client rate",
+              0.16 < _card9 < _regc and abs(_cons9 - 0.03 * 9 / 4) < 0.01)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

@@ -106,6 +106,14 @@ Two tests gate the wiring; the overlay is not "done" until both pass:
 
 ## 6. Status
 - Registry: **built** (`foundry/v2/dfast_lossrates.py`), real 2025-published rates, cited.
-- Wiring (§3.2-3.4) + guard tests (§5): **specified here, not yet coded.**
-- Blocked on: nothing external. This is a self-contained Foundry-side build whenever prioritized.
-- Not to be marked shipped in ENGINE_SPEC until code + goldens + spec section exist.
+- Wiring (§3.2-3.4): **built.** `scenarios_from` emits the toggle-gated fifth scenario;
+  `_apply_overlays` applies the absolute per-line rate via a per-quarter charge-off override
+  (q1-9), never touching the multiplier path; `_merge_overlays` passes the rate dict through.
+- Guard tests (§5): **built and passing** as T-DFAST-1 (additive: base + four scenarios
+  bit-identical when enabled) and T-DFAST-2 (mapped line ~registry rate over 9Q; unmapped line
+  falls back to client rate). Protocol 325/325, parity 9/9.
+- Opt-in: `cfg["stress_params"]["dfast_severe"] = true` (default off). Absent the opt-in, the
+  scenario set and all results are identical to before.
+- Remaining (not blocking): surface the fifth scenario + the three-way per-segment view
+  (client base | x2.5 | DFAST) in the console; add an ENGINE_SPEC section to move it from
+  additive to formally shipped.
