@@ -403,6 +403,20 @@ def run_v2(cfg):
                 "text": f"Leverage below the management capital target ({mct*100:.1f}%) in "
                         f"Q{breach_qs[0]}\u2013Q{breach_qs[-1]} span ({len(breach_qs)} quarters). "
                         "Buffer breach is a warning, not a compliance event."})
+
+    # GROWTH-Y1 (challenge rule table, challenge_q.py): year-1 balance-sheet growth > 25%. It is a
+    # MODELED quantity (total assets from the funding waterfall, not a raw input), so it is computed
+    # here from the engine's balance sheet rather than in challenge_config, which sees inputs only.
+    # 25% matches the supervisory heuristic used for FUND-GROWTH; aggressive asset ramps are a
+    # classic de novo exam finding. Opening = totalAssets[0]; end of year 1 = totalAssets[4].
+    _ta = base["bs"]["totalAssets"]
+    if len(_ta) > 4 and _ta[0]:
+        _y1g = (_ta[4] - _ta[0]) / _ta[0]
+        if _y1g > 0.25:
+            results["flags"].append({"id": "GROWTH-Y1", "sev": "mild", "cls": "advisory",
+                "text": f"Year-1 balance-sheet growth of {_y1g:.0%} exceeds 25% \u2014 aggressive "
+                        "asset ramp for a de novo; examiners will ask what funds it and whether "
+                        "capital keeps pace."})
     # per-quarter qualification grid
     obs_arr = [0.0] * n2
     for p2 in (base.get("products") or []):

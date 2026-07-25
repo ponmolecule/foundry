@@ -770,6 +770,27 @@ def t23():
                   _nd2["categories"][0]["per_quarter"] == 400000 and _nd2["fte_by_year"][0] == 30)
         else:
             check("T23x", "ASSM_NIE editable sheet exists", False)
+
+        # T23y: GROWTH-Y1 — a fast-ramping bank (small opening books, heavy deposit growth +
+        # originations) grows total assets > 25% in year 1 and fires the flag. This is the flag
+        # the bad-bank testing found advertised-but-unimplemented; now wired in run_q from the
+        # modeled balance sheet (not challenge_config, which sees inputs only).
+        from foundry.v2.run_q import run_v2 as _rv2y
+        cfgg = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfgg["assumptions"]["deposit_products"] = [{
+            "name": "DDA", "call_report_line": "depDDA", "opening_balance": 20000000.0,
+            "rate_type": "fixed", "rate_paid_ann": 0.01, "growth_q": 0.25, "runoff_q": 0.0,
+            "fee_yield_ann": 0.0, "opex_pct_ann": 0.003, "opex_fixed_m": 0.0}]
+        cfgg["assumptions"]["lending_products"] = [{
+            "name": "C&I", "call_report_line": "loanCommercial", "opening_balance": 15000000.0,
+            "originations_q": 8000000.0, "orig_growth_q": 0.10, "runoff_q": 0.02, "rate_type": "fixed",
+            "yield_ann": 0.06, "charge_off_ann": 0.01, "provision_rate_ann": 0.01,
+            "reserve_rate_pct_bal": 0.012, "measurement": "amortized", "fee_yield_ann": 0.0,
+            "opex_pct_ann": 0.0075, "opex_fixed_m": 0.0}]
+        cfgg["target_state"]["initial_capital"] = 15000000.0
+        _rg = _rv2y(cfgg)
+        check("T23y", "GROWTH-Y1 fires when year-1 total-asset growth exceeds 25%",
+              any(f.get("id") == "GROWTH-Y1" for f in _rg.get("flags", [])))
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

@@ -133,6 +133,9 @@ def _cases():
     c = _base(); c["assumptions"]["deposit_products"] = [_dep(growth_q=0.30, rate_paid_ann=0.02)]
     c["assumptions"]["lending_products"] = [_lend()]
     add("FUND-GROWTH", "30%/qtr deposit growth is aggressive", c, "FUND-GROWTH")
+    # NOTE: GROWTH-Y1 is a MODELED-balance-sheet flag (computed in run_q from total assets, not
+    # from raw inputs), so it can't be exercised by this challenge_config-only harness. Its test
+    # lives in tests_protocol (T23y), which runs the full run_v2 pipeline.
 
     # SPREAD-VIAB: blended loan yield - deposit cost < 1%
     c = _base()
