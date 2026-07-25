@@ -438,6 +438,8 @@ const TAXONOMY_V31 = {
     {name:"Retail Demand", line:"depDDA", fam:"deposit"},
     {name:"MMDA / Savings", line:"depSavings", fam:"deposit"},
     {name:"Time Deposits / CDs", line:"depTime", fam:"deposit"}],
+  "Off-Balance-Sheet": [
+    {name:"Off-Balance-Sheet Commitment", line:"obs", fam:"obs"}],
   "Securities & Cash": {note:"Securities, cash and fed funds are computed by the funding waterfall — deposits fund loans, excess is invested, shortfalls borrow. Set the yields in Global Assumptions (left sidebar)."},
   "Other Assets / Liabilities": {note:"Premises, intangibles, other assets/liabilities and the borrowing rate live in Global Assumptions (left sidebar)."}
 };
@@ -976,6 +978,7 @@ function fieldsFor(fam, p, base){
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
     h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
+    h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
     h += F("Op cost fixed ($000s/month)", base+".opex_fixed_m", "kmo");
   }
   return h;
@@ -1139,6 +1142,8 @@ function v31AddProduct(){
   if(s.fam === "lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0.05,
     rate_type:"fixed", yield_ann:0.06, charge_off_ann:0.01, provision_rate_ann:null, reserve_rate_pct_bal:0.015,
     measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0, call_report_line:s.line};
+  else if(s.fam === "obs") p = {name, notional:0, growth_q:0, fee_yield_ann:0,
+    opex_pct_ann:0, opex_fixed_m:0, call_report_line:s.line};
   else p = {name, opening_balance:0, growth_q:0, runoff_q:0, rate_type:"fixed",
     rate_paid_ann:0.01, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0, call_report_line:s.line};
   famArr(s.fam).push(p);
@@ -1153,6 +1158,9 @@ function TAX31(){
     fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
   const D = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
     growth_q:0, runoff_q:0, rate_type:"fixed", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
+  // OBS ships inert like the rest: zero notional, zero growth/fees/opex. All 5 of Roman's fields.
+  const O = (name,line,t)=>Object.assign({name, call_report_line:line, notional:0,
+    growth_q:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_m:0}, t);
   TAX31_DATA = {
     // Products ship INERT: zero balance, zero originations, zero yield/charge-off.
     // A product contributes nothing until the user deliberately fills it, so every
@@ -1172,7 +1180,9 @@ function TAX31(){
       {name:"Time Deposits / CDs", line:"depTime", fam:"deposit", tpl:D("Time Deposits / CDs","depTime",{_adds_m:0, _runoff_ann:0})},
       {name:"Brokered CDs", line:"depBrokered", fam:"deposit", tpl:D("Brokered CDs","depBrokered",{_adds_m:0, _runoff_ann:0, insured_pct:1.0})},
       {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:0, _adds_m:0, _runoff_ann:0, insured_pct:1.0})},
-      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{_adds_m:0, _runoff_ann:0, insured_pct:0.35})}]
+      {name:"Institutional / Listing", line:"depInstitutional", fam:"deposit", tpl:D("Institutional / Listing","depInstitutional",{_adds_m:0, _runoff_ann:0, insured_pct:0.35})}],
+    "Off-Balance-Sheet": [
+      {name:"Off-Balance-Sheet Commitment", line:"obs", fam:"obs", tpl:O("Off-Balance-Sheet Commitment","obs",{})}]
   };
   return TAX31_DATA;
 }
@@ -1249,7 +1259,7 @@ function openModal(){
   if(V31){
     window._modalAdded = 0;
     let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
-    [["Loans"],["Deposits"]].forEach(([cn])=>{
+    [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
         + TAX31()[cn].map((s,i)=>`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
         + '</div>';
@@ -1293,7 +1303,7 @@ function addCustom(){
     measurement:"amortized", fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_m:0, call_report_line:line};
   else if(fam==="deposit") p = {name, opening_balance:0, growth_q:0.005, runoff_q:0.0, rate_type:"fixed",
     rate_paid_ann:0.01, fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_m:0, call_report_line:line};
-  else p = {name, notional:0, growth_q:0.005, fee_yield_ann:0.0, opex_fixed_m:0, call_report_line:line};
+  else p = {name, notional:0, growth_q:0.005, fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_m:0, call_report_line:line};
   famArr(fam).push(p);
   closeModal(); renderContent(); refresh();
 }

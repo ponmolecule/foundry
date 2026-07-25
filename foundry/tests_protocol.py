@@ -704,6 +704,36 @@ def t23():
             except FileNotFoundError:
                 _zombie_free = False
         check("T23t", "a long-named engagement deletes via its listed slug (no zombie)", _zombie_free)
+
+        from foundry.v2.run_q import run_v2 as F_run
+        # T23u: OBS carries all five of Roman's fields end-to-end (notional, growth, fees, opex%,
+        # opex fixed) — opex_pct_ann and workbook opex_fixed_m were previously missing.
+        cfgo = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        cfgo["assumptions"]["obs_exposures"] = [{
+            "name": "Test OBS", "notional": 20000000.0, "growth_q": 0.03,
+            "fee_yield_ann": 0.0075, "opex_pct_ann": 0.002, "opex_fixed_m": 5000.0,
+            "call_report_line": "obs"}]
+        datao, gho = F.build_fiw(cfgo); F.persist_snapshot(cfgo, gho)
+        _wbo = _lw(_io.BytesIO(datao), data_only=True)
+        _obs_fields = {str(r[0].value).split(".")[-1] for r in _wbo["ASSM_OBS"].iter_rows(min_row=2)
+                       if r[0].value and str(r[0].value).startswith("obs_exposures.")}
+        check("T23u", "OBS emits all 5 Roman fields in the workbook",
+              {"notional", "growth_q", "fee_yield_ann", "opex_pct_ann", "opex_fixed_m"} <= _obs_fields)
+        # opex_pct_ann applies to notional in the engine (not zero)
+        _ro = F_run(cfgo)
+        _obsp = [p for p in _ro.get("products", []) if p.get("family") == "obs"]
+        check("T23u2", "OBS opex_pct_ann drives opex off notional in the engine",
+              bool(_obsp) and _obsp[0]["opex"][0] > 0)
+
+        # T23v: a fair-value (FVO) loan is recognized and produces a fair-value adjustment.
+        cfgf = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        _ci = next((p for p in cfgf["assumptions"]["lending_products"]
+                    if p.get("call_report_line") == "loanCommercial"), None)
+        if _ci:
+            _ci["measurement"] = "fair_value"; _ci["discount_spread_ann"] = 0.025
+            _rf = F_run(cfgf)
+            check("T23v", "an FVO loan is recognized as fair-value in the run",
+                  any(p.get("is_fv") for p in _rf.get("products", [])))
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

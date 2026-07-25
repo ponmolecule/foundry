@@ -127,6 +127,8 @@ OBS_FIELDS = [
     ("notional", "Notional", "$"),
     ("growth_q", "Notional growth", "rate/qtr"),
     ("fee_yield_ann", "Fee yield", "annual % of notional"),
+    ("opex_pct_ann", "Op cost", "annual % of notional"),
+    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
 ]
 SCHED_FIELDS = [
     ("name", "Name", "label (editable)"),
