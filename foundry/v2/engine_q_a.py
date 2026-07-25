@@ -86,11 +86,20 @@ def _apply_overlays(lend, dep, a, ov):
     # (which scales) — they never both run for the same scenario. Unmapped lines are untouched
     # here and fall back to the client's own rate. Level spread: per-quarter = cumulative / 9.
     dfast = ov.get("dfast_severe_rates") or {}
+    dfast_spread = ov.get("dfast_spread") or "level"   # "level" | "front"
+    # Front-loaded weights over the 9Q window: losses cluster early in a real downturn then fade.
+    # Weights sum to 1.0; the per-quarter charge-off is w_q * cum9, converted to an annual rate
+    # (x4) the engine consumes. Level = equal 1/9 each quarter (reproduces cum9 over the window).
+    if dfast_spread == "front":
+        _w = [0.18, 0.16, 0.14, 0.12, 0.11, 0.09, 0.08, 0.07, 0.05]  # sums to 1.00, monotone fade
+    else:
+        _w = [1.0 / 9.0] * 9
     for p in lend:
         if dfast and p.get("call_report_line") in dfast:
             cum9 = dfast[p["call_report_line"]]          # 9Q cumulative loss fraction
-            ann = 4.0 * cum9 / 9.0                        # annual rate s.t. (ann/4) x 9 quarters = cum9
-            sched = {str(q): ann for q in range(1, 10)}   # DFAST horizon = quarters 1-9
+            # per-quarter charge-off rate q = w_q * cum9; engine reads an ANNUAL rate (co = bal*ann/4),
+            # so ann_q = 4 * w_q * cum9. Over the 9Q window sum(co) ~ cum9 * balance (constant bal).
+            sched = {str(q): 4.0 * _w[q - 1] * cum9 for q in range(1, 10)}
             p.setdefault("overrides", {})["charge_off_ann"] = sched
         else:
             p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m

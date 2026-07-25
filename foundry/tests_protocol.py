@@ -842,6 +842,31 @@ def t23():
         check("T-DFAST-3", "console surfaces DFAST scenario (order column + settings toggle)",
               '"base","credit","rate","combined","dfast_severe"' in _chtml
               and "dfast_severe=this.checked" in _chtml)
+
+        # T-DFAST-4: level and front-loaded spreads reach the same 9Q cumulative but differ in
+        # shape (front-loaded concentrates loss early); and the three-way per-segment view is
+        # attached when DFAST is enabled, with the console table to render it.
+        _tc = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+        _tc["assumptions"]["lending_products"] = [{
+            "name": "Card", "call_report_line": "loanCreditCard", "opening_balance": 100000000.0,
+            "originations_q": 0, "orig_growth_q": 0, "runoff_q": 0, "rate_type": "fixed",
+            "yield_ann": 0.12, "charge_off_ann": 0.02, "provision_rate_ann": 0.02,
+            "reserve_rate_pct_bal": 0.02, "measurement": "amortized", "fee_yield_ann": 0,
+            "opex_pct_ann": 0, "opex_fixed_m": 0}]
+        _tc.setdefault("stress_params", {})["dfast_severe"] = True
+        def _co9(mode):
+            _tc["stress_params"]["dfast_spread"] = mode
+            _sc = _sfd(_tc)["dfast_severe"][0]
+            _cc = copy.deepcopy(_tc); _cc["scenario_overlays"] = _sc
+            _co = _rpd(_cc)["products"][0]["co"]
+            return _co, sum(_co[:9]) / (100000000 / 1000)
+        _lco, _lcum = _co9("level")
+        _fco, _fcum = _co9("front")
+        _segs = _rvd(_tc).get("dfast_segments")
+        check("T-DFAST-4", "spread modes: same 9Q cumulative, front-loads earlier; per-segment view present",
+              abs(_lcum - _fcum) < 0.005 and _fco[0] > _lco[0] * 1.3
+              and _segs is not None and len(_segs.get("rows", [])) >= 1
+              and "Your Plan vs. Stress vs. DFAST" in _chtml)
     finally:
         if old_env is None:
             _os.environ.pop("FOUNDRY_DATA_DIR", None)

@@ -70,8 +70,10 @@ def scenarios_from(cfg):
             from foundry.v2.dfast_lossrates import dfast_rates
             _dfv = dfast_rates((cfg.get("stress_params") or {}).get("dfast_version"))
             _rates = {ln: d["rate"] for ln, d in _dfv["rates"].items()}
-            scens["dfast_severe"] = ({**downturn, "dfast_severe_rates": _rates},
-                                     f"DFAST Severe ({_dfv['version']})")
+            _spread = (cfg.get("stress_params") or {}).get("dfast_spread") or "level"
+            _slabel = "front-loaded" if _spread == "front" else "level"
+            scens["dfast_severe"] = ({**downturn, "dfast_severe_rates": _rates, "dfast_spread": _spread},
+                                     f"DFAST Severe ({_dfv['version']}, {_slabel})")
         except Exception:
             pass  # registry unavailable -> scenario simply not offered; base behavior unchanged
     return scens
@@ -292,6 +294,36 @@ def run_v2(cfg):
         scen_labels[scen] = label
 
     base = scen_results["base"]
+
+    # Three-way per-segment charge-off comparison (the contrast that sells the tool): for each
+    # lending product, the client's own annual charge-off rate, that rate x the credit multiplier,
+    # and the DFAST severe rate for the product's category (annualized-equivalent from the 9Q
+    # cumulative for like-for-like comparison). Attached only when DFAST is enabled; the DFAST
+    # column is blank for lines the registry does not map (no fabricated stress).
+    dfast_segments = None
+    if (cfg.get("stress_params") or {}).get("dfast_severe"):
+        try:
+            from foundry.v2.dfast_lossrates import dfast_rates as _drs
+            _reg = _drs((cfg.get("stress_params") or {}).get("dfast_version"))["rates"]
+            _com = (cfg.get("stress_params") or {}).get("charge_off_mult", STRESS_DEFAULTS["charge_off_mult"])
+            rows = []
+            for p in cfg["assumptions"].get("lending_products", []):
+                ln = p.get("call_report_line")
+                base_co = p.get("charge_off_ann") or 0.0
+                dfast_cum9 = _reg.get(ln, {}).get("rate")
+                rows.append({
+                    "name": p.get("name"), "line": ln,
+                    "client_co_ann": base_co,
+                    "stressed_co_ann": base_co * _com,
+                    # annualized-equivalent of the 9Q cumulative (cum9 * 4/9) for comparison to the
+                    # annual rates above; None when the line is unmapped (falls back to client).
+                    "dfast_co_ann_equiv": (dfast_cum9 * 4.0 / 9.0) if dfast_cum9 is not None else None,
+                    "dfast_cum9": dfast_cum9,
+                })
+            dfast_segments = {"mult": _com, "rows": rows,
+                              "version": _drs((cfg.get("stress_params") or {}).get("dfast_version"))["version"]}
+        except Exception:
+            dfast_segments = None
     results = {
         "engine_version": ENGINE_V2,
         "config_hash": config_hash,
@@ -308,6 +340,7 @@ def run_v2(cfg):
                       for scen, r in scen_results.items()},
         "constraint_tests": _constraint_tests(cfg, scen_results),
         "flags": _peer_annotated_flags(cfg, base),
+        "dfast_segments": dfast_segments,
     }
     # faithful presentation aggregates: loans/deposits by Call Report line; memo arrays; IS totals
     by_line = {"loans": {}, "deps": {}}

@@ -179,6 +179,47 @@ family carries FV; the driver-based monthly paradigm does not, by decision
 recorded in the ledger reconciliation note). RWA ratios, journal-entry engine,
 prepayment MSR revaluation, multi-entity consolidation: unchanged non-goals.
 
+## 13.7 DFAST severely-adverse overlay (`dfast_lossrates.py`, quarterly engine)
+An optional fifth scenario, `dfast_severe`, additive to the quarterly engine's four
+(`base`/`credit`/`rate`/`combined`) and off by default. It imports the Federal Reserve's
+published severely-adverse **modeled loss rates by loan category** (registry
+`foundry/v2/dfast_lossrates.py`, vintage `DFAST-2025`, cited to the June 2025 Supervisory
+Stress Test Methodology "Modeled Loss Rates" tables) and applies each category's 9-quarter
+cumulative rate to the matching product's projected balance through the existing per-product
+charge-off → provision → allowance → capital path. This is the "import, don't estimate" resolution
+of the macro-stress question: the macro→loss sensitivity Foundry's own 2015→ Call Report window
+cannot measure (recorded in `docs/MACRO_STRESS_SCOPING.md`) is sourced from DFAST rather than fit
+in-panel.
+
+**Mechanism.** Distinct from the credit scenario's `charge_off_mult` (which *scales* the client's
+own rate): the overlay *substitutes* an absolute per-`call_report_line` rate over the 9-quarter
+supervisory window via a per-quarter charge-off override (`overrides.charge_off_ann`, quarters 1–9),
+reverting to the client's rate after. The two mechanisms never both run for one scenario. Lines the
+registry does not map (e.g. other consumer) fall back to the client's own rate — no fabricated
+stress. Reserve/origination/mortgage-banking downturn overlays still apply.
+
+**Loss-timing spread (`dfast_spread`).** The 9-quarter cumulative rate is distributed across the
+window either `level` (equal 1/9 per quarter; default) or `front` (front-loaded weights
+`[.18,.16,.14,.12,.11,.09,.08,.07,.05]`, losses clustering early then fading, closer to a real
+downturn). Both reach the same cumulative; only the shape differs.
+
+**Conversion.** Per-quarter charge-off = `w_q × cum9`, expressed as the annual rate the engine
+consumes (`ann_q = 4 × w_q × cum9`). Registry rates are loss rates only, excluding the Fed's
+accounting adjustments to net income; the engine's own provision/allowance path performs that
+translation (no double-count).
+
+**Presentation.** Surfaced in the console as a fifth scenario column and a three-way per-segment
+charge-off table (client rate | credit-multiplier rate | DFAST severe), the contrast highlighting
+where a plan's loss assumptions sit below the supervisory benchmark. DFAST outputs are
+supervisory-calibrated **benchmarks, not forecasts** of the specific bank (portfolio-average
+category rates; a de novo lacks the FR Y-14 loan-level grids behind the Fed's finer sub-rates).
+
+**Governance.** Toggle-gated (`stress_params.dfast_severe`), registry versioned and cited, resolver
+refuses unknown vintages. Guard tests T-DFAST-1 (additive: base + four scenarios bit-identical
+whether enabled or not), T-DFAST-2 (mapped line accrues ~the registry rate; unmapped line falls
+back), T-DFAST-3 (console surfaces the scenario). Registry updates add a new vintage block, never
+edit history.
+
 ## Deposit grammar: absolute net-new inflows (Patrick parity)
 The deposit advance is `end = max(0, beg × (1 + growth_q − runoff_q) + new_deposits_q)`.
 `new_deposits_q` is an absolute dollar inflow per quarter (override-capable),
