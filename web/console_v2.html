@@ -2494,7 +2494,7 @@ function renderContent(){
     (r.products||[]).forEach(p=>{
       const tag = (p.rate_type==="float" ? ' \u2014 SOFR' + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
       h += `<div class="h2" style="font-size:15px">${esc(p.name)}${esc(tag)}</div>`;
-      h += '<table class="fin"><tr><th>$000s</th>';
+      h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>$000s</th>';
       for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
       h += '</tr>';
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
