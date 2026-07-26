@@ -852,7 +852,10 @@ async function preview(){
   // subStatus.reachable to show its Build button) works. This used to be triggered
   // by the substrate panel's button, which was removed when the Peer Corridor
   // absorbed that surface — so it must run at boot now, independently.
-  subCheck().then(()=>{ if(V31) renderContent(); });
+  // MUST honour the same products-tab guard as the preview rebuild above: without it
+  // this late-landing renderContent() rebuilds the DOM ~1s after a keystroke and
+  // destroys the field being typed in (the "type, pause, blink" the user reported).
+  subCheck().then(()=>{ if(V31 && currentTab!=="products") renderContent(); });
 }
 function paintChrome(){
   document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : "fail-closed: configuration incomplete";
@@ -1676,7 +1679,10 @@ async function subCheck(){
   try{ subStatus = await (await fetch("/api/v31/substrate/status")).json(); }
   catch(e){ subStatus = {configured:false}; }
   window._noAutoPlace = true;          // a connection check is not a request to query peers
-  renderContent();
+  // Do NOT rebuild the DOM while the user is editing on the products tab — that tab shows no
+  // substrate-dependent output, and a rebuild here destroys the field being typed in (the
+  // "type, pause, blink"). Other tabs still refresh so the Vintage/Peer Corridor picks up status.
+  if(!(V31 && currentTab==="products")) renderContent();
   window._noAutoPlace = false;
 }
 async function retroSubstrate(givenCert){
