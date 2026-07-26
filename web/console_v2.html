@@ -675,10 +675,6 @@ function normalizeCfg(c){
     (c.assumptions[k]||[]).forEach(p=>{
       if(p && p.opex_fixed_m != null && p.opex_fixed_q == null){ p.opex_fixed_q = (p.opex_fixed_m||0)*3; }
       if(p) delete p.opex_fixed_m;
-      // Presence guarantee: a config saved WITHOUT opex_fixed_q (e.g. an older Calamity file) must
-      // still carry the key explicitly, so the field renders and edits persist — an absent key is
-      // how the value silently vanished. Backfill 0 only when truly absent; never overwrite a value.
-      if(p && p.opex_fixed_q == null){ p.opex_fixed_q = 0; }
     });
   });
   return c;
@@ -3443,9 +3439,6 @@ async function openEngagement(slug){
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
-    normalizeCfg(cfg);   // load path was skipping this: apply the opex_fixed_m->_q migration and
-                         // the same field-presence guarantees every other entry point gets, so a
-                         // config saved without opex_fixed_q is repaired on load, not run as zero.
     rehydrateOriginal(cfg);
     syncNameChrome();
     renderGlobals(); refresh(); markPristine(); setTab("overview");
