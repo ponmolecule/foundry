@@ -558,6 +558,7 @@ def run_pf_a(cfg):
                 "rateQ": [_prod_rate(p, q, rate) * 100 for q in range(1, Q + 1)] if fam != "obs" else None,
                 "intInc": _s("_ii"), "intExp": _s("_ie"),
                 "origq": _s("_orig"), "soldOrig": _s("_sold"), "whCarry": _s("_whc"),
+                "whBal": _s("_wh"),
                 "servUPB": _s("_upb"), "msrCap": _s("_scap"), "msrAmort": _s("_samort"),
                 "msrBal": _s("_msr"), "alll": _s("_alll"),
                 "fv": ([p["_fv"][q] for q in range(1, Q + 1)] if p.get("_is_fv") else None),

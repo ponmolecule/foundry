@@ -150,7 +150,19 @@ def _ftp_view(res):
     rows, contrib_sum = [], 0.0
     for p in prods:
         n = len(p["avg"])
-        ftp = sum((p["avg"][q] or 0) * (p["ftp_rate"][q] or 0) / 4.0 for q in range(n))
+        # FTP is charged on average balances INCLUDING the held-for-sale warehouse: warehouse loans
+        # are funded assets on the balance sheet during the hold period, so they bear a funding
+        # charge like any other asset (matches the reference model). whBal is the raw warehouse
+        # (end-of-quarter); the FTP base uses the (beginning+end)/2 average, with the opening
+        # warehouse taken as 0 for q1. Products with no warehouse have whBal=None -> no change.
+        _wh = p.get("whBal")
+        def _wh_avg(q):
+            if not _wh:
+                return 0.0
+            beg = _wh[q - 1] if q >= 1 else 0.0
+            end = _wh[q] if q < len(_wh) else 0.0
+            return ((beg or 0.0) + (end or 0.0)) / 2.0
+        ftp = sum(((p["avg"][q] or 0) + _wh_avg(q)) * (p["ftp_rate"][q] or 0) / 4.0 for q in range(n))
         sign = -1.0 if p["family"] == "lending" else (1.0 if p["family"] == "deposit" else 0.0)
         comp = {k: sum((p[k][q] or 0) for q in range(n))
                 for k in ("interest", "fees", "opex", "co", "gos", "servNet")}

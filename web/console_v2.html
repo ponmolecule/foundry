@@ -1152,9 +1152,6 @@ function renderGlobals(){
       }
       if(gname.startsWith("Treasury")){
       }
-      if(gname.startsWith("Treasury")){
-        h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span style="color:#C4CDDD">Funds-transfer pricing <span style="color:#8FA3C0">(SOFR on avg balances)</span></span></label></div>`;
-      }
     });
     const rest = GLOBAL_FIELDS.filter(f=>!used.has(f[0]));
     if(rest.length){
@@ -1268,8 +1265,11 @@ function pstat(name){
   if(!lastRes) return "";
   const row = ((lastRes.ftp||{}).rows||[]).find(x=>x.name===name);
   if(!row) return "";
+  // Contribution respects the FTP toggle: FTP-on shows the funding-adjusted contribution, FTP-off
+  // strips the funding charge/credit (same convention as the Product Detail table).
+  const contrib = ftpOn ? row.contribution : (row.contribution - row.ftp);
   const cells = [["Q12 balance", row.q12_balance], ["12Q revenue", row.revenue],
-                 ["12Q contribution", row.contribution]];
+                 ["12Q contribution" + (ftpOn ? " (FTP)" : ""), contrib]];
   return `<div class="pstat" data-pstat="${esc(name)}">` + cells.map(([l,v])=>
     `<span><label>${l}</label><b class="${v<0?"neg":""}">${fmt0(v)}</b></span>`).join("") + '</div>';
 }
@@ -1605,10 +1605,23 @@ function addCustom(){
 window.openModal=openModal; window.closeModal=closeModal; window.fillLineOptions=fillLineOptions;
 window.addPreset=addPreset; window.addCustom=addCustom;
 
-function setFtp(v){ ftpOn = v; renderContent(); }
+function setFtp(v){
+  ftpOn = !!v;
+  // The FTP toggle lives on both the Products tab and the Product Detail tab, and both read the
+  // single ftpOn state — so they are inherently linked (flip one, the other reflects it). Update
+  // the live display: on the Products tab renderContent() is skipped to protect focused inputs, so
+  // refresh the summary numbers in place and sync any on-screen toggle checkboxes; elsewhere a full
+  // renderContent() is correct.
+  if(V31 && currentTab==="products"){
+    refreshProductStats();
+    document.querySelectorAll('input[type=checkbox][data-ftp]').forEach(cb=>{ cb.checked = ftpOn; });
+  } else {
+    renderContent();
+  }
+}
 window.setFtp=setFtp;
 function ftpToggleHtml(){
-  return `<label class="ftplabel"><input type="checkbox"${ftpOn?" checked":""} onchange="setFtp(this.checked)">`+
+  return `<label class="ftplabel"><input type="checkbox" data-ftp="1"${ftpOn?" checked":""} onchange="setFtp(this.checked)">`+
     `Funds-transfer pricing <span style="color:#8FA3C0">(SOFR on avg balances)</span></label>`;
 }
 
@@ -2918,7 +2931,7 @@ function renderContent(){
         ["SOFR forward path", rp.length ? (rp[0]*100).toFixed(2)+"% \u2192 "+(rp[rp.length-1]*100).toFixed(2)+"% over 12 quarters" : "\u2014", "June 17, 2026 FOMC SEP medians + ~5bp basis", "Sidebar \u2192 Rate path"],
         ["Rate glide beyond Q12", ((cfg.assumptions.rate_path_longer_run||0)*100).toFixed(2)+"% longer run, 5bp/qtr glide", "engine convention", "Sidebar \u2192 Rate path \u2192 Longer run"],
         ["Stress-test multipliers", "charge-offs \u00d7"+((cfg.stress_params||{}).charge_off_mult ?? "\u2014")+", rate shock "+(((cfg.stress_params||{}).rate_shock_bp ?? "\u2014"))+"bp", "engine convention (severe-but-plausible)", "Sidebar \u2192 Stress parameters"],
-        ["Funds-transfer pricing method", "SOFR on average balances (off by default)", "methodology election", "Sidebar \u2192 Treasury \u2192 FTP"],
+        ["Funds-transfer pricing method", "SOFR on average balances incl. warehouse (off by default)", "methodology election", "Product tab \u2192 FTP toggle"],
         ["Tax sequencing", String((cfg.assumptions||{}).tax_semantics || "profile default"), "engine profile (see ENGINE_SPEC)", "config \u2192 tax_semantics"],
         ["Inverted-statement reserve rate", "1.5% of balances when statements hide it", "disclosed fit \u2014 translation only", "product card after translation"],
       ];
