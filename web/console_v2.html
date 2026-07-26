@@ -258,6 +258,9 @@ td.neg{color:var(--red)}
 #content .fields{margin-top:8px}
 #content .fields.hidden{display:none}
 .ftplabel{display:inline-flex;align-items:center;gap:7px;font-size:12px;cursor:pointer;margin-bottom:12px;color:#1C2128;font-weight:500}
+/* In the Products toolbar the toggle sits beside the Add-Product button — drop its bottom margin
+   so align-items:center lines the two on a common centerline (the margin box would otherwise ride high). */
+.prod-toolbar .ftplabel{margin-bottom:0}
 /* modal */
 #modal-bg{position:fixed;inset:0;background:rgba(13,22,38,.72);display:none;z-index:40}
 #modal{position:fixed;top:11vh;left:50%;transform:translateX(-50%);width:540px;max-width:94vw;background:var(--paper);border-radius:4px;border-top:4px solid #16233B;box-shadow:0 14px 70px rgba(0,0,0,.55);padding:20px 22px;display:none;z-index:41;color:var(--ink)}#modal h3{font-weight:600;font-size:16px;margin-bottom:8px;font-size:17px;color:#16233B}
@@ -2418,7 +2421,7 @@ function renderContent(){
     let h = "";
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
-    h += '<div style="display:flex;align-items:center;gap:16px;margin:0 0 14px">';
+    h += '<div class="prod-toolbar" style="display:flex;align-items:center;gap:16px;margin:0 0 14px">';
     h += '<button class="btn-gold" onclick="openModal()">+ Add Product</button>';
     h += ftpToggleHtml();
     h += '</div>';
