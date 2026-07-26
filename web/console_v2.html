@@ -585,6 +585,10 @@ async function boot(){
   if(cfg._blank_canvas){ renderContent(); }   // blank: show the empty-canvas state, don't run the engine
   else { refresh(); }
   markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
+  // Substrate reachability is boot-time state (does the peer DB answer?) — it does NOT change while
+  // the user types. Check it ONCE here, not inside preview(): running it per-edit fired a network
+  // fetch + a full DOM rebuild on every keystroke, which is what made typing block and blink.
+  if(V31) subCheck();
 }
 function updateChangedChip(){
   // top-right badge: appears only when something differs; shows the change count.
@@ -848,14 +852,6 @@ async function preview(){
   // above already re-runs renderBands for the peer tab, but this makes the refresh
   // explicit and unconditional whenever the corridor element exists.
   if(document.getElementById("pbBody") && typeof renderBands === "function") renderBands();
-  // populate substrate status on load so the Vintage Corridor (which gates on
-  // subStatus.reachable to show its Build button) works. This used to be triggered
-  // by the substrate panel's button, which was removed when the Peer Corridor
-  // absorbed that surface — so it must run at boot now, independently.
-  // MUST honour the same products-tab guard as the preview rebuild above: without it
-  // this late-landing renderContent() rebuilds the DOM ~1s after a keystroke and
-  // destroys the field being typed in (the "type, pause, blink" the user reported).
-  subCheck().then(()=>{ if(V31 && currentTab!=="products") renderContent(); });
 }
 function paintChrome(){
   document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : "fail-closed: configuration incomplete";
