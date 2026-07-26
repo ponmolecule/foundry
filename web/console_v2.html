@@ -675,6 +675,10 @@ function normalizeCfg(c){
     (c.assumptions[k]||[]).forEach(p=>{
       if(p && p.opex_fixed_m != null && p.opex_fixed_q == null){ p.opex_fixed_q = (p.opex_fixed_m||0)*3; }
       if(p) delete p.opex_fixed_m;
+      // Presence guarantee: a config saved WITHOUT opex_fixed_q (e.g. an older Calamity file) must
+      // still carry the key explicitly, so the field renders and edits persist — an absent key is
+      // how the value silently vanished. Backfill 0 only when truly absent; never overwrite a value.
+      if(p && p.opex_fixed_q == null){ p.opex_fixed_q = 0; }
     });
   });
   return c;
@@ -3427,11 +3431,21 @@ async function loadEngStore(force){
   if(currentTab === "start") renderContent();
 }
 async function openEngagement(slug){
+  // Cancel any autosave armed while editing the OUTGOING engagement: without this, a timer
+  // scheduled on engagement A can fire a few seconds later — after cfg has already been swapped
+  // to engagement B — writing B's state (or a half-swapped state) into the shared autosave slot.
+  // That is how visiting a field-less config (e.g. one saved without opex_fixed_q) silently wiped
+  // the field from the engagement you switched back to. Clearing the timer here makes the switch
+  // atomic with respect to autosave.
+  clearTimeout(_asTimer); _asTimer = null;
   const r = await fetch("/api/v31/engagement/" + slug);
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Could not open the engagement (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
+    normalizeCfg(cfg);   // load path was skipping this: apply the opex_fixed_m->_q migration and
+                         // the same field-presence guarantees every other entry point gets, so a
+                         // config saved without opex_fixed_q is repaired on load, not run as zero.
     rehydrateOriginal(cfg);
     syncNameChrome();
     renderGlobals(); refresh(); markPristine(); setTab("overview");
