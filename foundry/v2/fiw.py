@@ -50,7 +50,7 @@ DEP_FIELDS = [
     ("__RATE_BASELINE__", "Interpreted as (live)", "fact — informational, follows the Rate type dropdown, not imported"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
-    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
+    ("opex_fixed_q", "Op cost fixed", workbook_units("opex_fixed_q")),
     ("insured_pct", "Insured share", "share [0,1]"),
 ]
 LEND_FIELDS = [
@@ -70,7 +70,7 @@ LEND_FIELDS = [
     ("reserve_rate_pct_bal", "ALLL reserve", "% of balance"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
-    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
+    ("opex_fixed_q", "Op cost fixed", workbook_units("opex_fixed_q")),
 ]
 LINE_LABELS = {
     "loanCommercial": "Loans: Commercial & Industrial", "loanConsumer": "Loans: Consumer",
@@ -129,7 +129,7 @@ OBS_FIELDS = [
     ("growth_q", "Notional growth", "rate/qtr"),
     ("fee_yield_ann", "Fee yield", "annual % of notional"),
     ("opex_pct_ann", "Op cost", "annual % of notional"),
-    ("opex_fixed_m", "Op cost fixed", workbook_units("opex_fixed_m")),
+    ("opex_fixed_q", "Op cost fixed", workbook_units("opex_fixed_q")),
 ]
 SCHED_FIELDS = [
     ("name", "Name", "label (editable)"),

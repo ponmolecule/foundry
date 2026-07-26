@@ -645,8 +645,8 @@ def t23():
         check("T23q", "cadence registry agrees with the engine's actual conversion for every field",
               _guard_ok)
         # the workbook units for the two formerly-divergent fields now come from the registry
-        check("T23q2", "workbook units derive from the registry (opex monthly, new_deposits quarterly)",
-              workbook_units("opex_fixed_m") == "$/month"
+        check("T23q2", "workbook units derive from the registry (opex quarterly, new_deposits quarterly)",
+              workbook_units("opex_fixed_q") == "$/quarter"
               and workbook_units("new_deposits_q") == "$/quarter")
 
         # T23r: all seven originate-to-sell (mortgage_banking) fields emit in the workbook AND
@@ -707,18 +707,18 @@ def t23():
 
         from foundry.v2.run_q import run_v2 as F_run
         # T23u: OBS carries all five of Roman's fields end-to-end (notional, growth, fees, opex%,
-        # opex fixed) — opex_pct_ann and workbook opex_fixed_m were previously missing.
+        # opex fixed). Fixed opex is now the canonical quarterly key opex_fixed_q.
         cfgo = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
         cfgo["assumptions"]["obs_exposures"] = [{
             "name": "Test OBS", "notional": 20000000.0, "growth_q": 0.03,
-            "fee_yield_ann": 0.0075, "opex_pct_ann": 0.002, "opex_fixed_m": 5000.0,
+            "fee_yield_ann": 0.0075, "opex_pct_ann": 0.002, "opex_fixed_q": 15000.0,
             "call_report_line": "obs"}]
         datao, gho = F.build_fiw(cfgo); F.persist_snapshot(cfgo, gho)
         _wbo = _lw(_io.BytesIO(datao), data_only=True)
         _obs_fields = {str(r[0].value).split(".")[-1] for r in _wbo["ASSM_OBS"].iter_rows(min_row=2)
                        if r[0].value and str(r[0].value).startswith("obs_exposures.")}
         check("T23u", "OBS emits all 5 Roman fields in the workbook",
-              {"notional", "growth_q", "fee_yield_ann", "opex_pct_ann", "opex_fixed_m"} <= _obs_fields)
+              {"notional", "growth_q", "fee_yield_ann", "opex_pct_ann", "opex_fixed_q"} <= _obs_fields)
         # opex_pct_ann applies to notional in the engine (not zero)
         _ro = F_run(cfgo)
         _obsp = [p for p in _ro.get("products", []) if p.get("family") == "obs"]

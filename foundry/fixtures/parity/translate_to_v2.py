@@ -30,7 +30,7 @@ def from_pf_a(name, fxk):
         base = {"name": p["name"], "opening_balance": p.get("bal0", 0)*K,
                 "rate_type": rate_type,
                 "fee_yield_ann": pct(p.get("feeRate", 0)),
-                "opex_pct_ann": pct(p.get("opexPct", 0.5)), "opex_fixed_m": p.get("opexFixed", 0)*K/3}
+                "opex_pct_ann": pct(p.get("opexPct", 0.5)), "opex_fixed_q": p.get("opexFixed", 0)*K}
         if rate_type == "float": base["index_spread"] = pct(p.get("spread"))
         if p["cat"] == "liability":
             base.update({"growth_q": pct(p.get("growth", 0.5)), "runoff_q": 0.0,
@@ -110,7 +110,7 @@ def from_pf_b(name, fxk):
             d = {"name": p["name"], "opening_balance": p.get("balance", 0)*K,
                  "growth_q": pct(p.get("growth", 0.5)), "runoff_q": pct(p.get("runoff", 0)),
                  "rate_type": "fixed", "rate_paid_ann": pct(p.get("rate", 0)),
-                 "fee_yield_ann": pct(p.get("fee", 0)), "opex_fixed_m": p.get("opex", 0)*K/3,
+                 "fee_yield_ann": pct(p.get("fee", 0)), "opex_fixed_q": p.get("opex", 0)*K,
                  "call_report_line": p["line"],
                  "overrides": {k: v for k, v in {"growth_q": vec("growth", 0.01),
                                                  "rate_paid_ann": vec("rate", 0.01)}.items() if v} or None}
@@ -129,7 +129,7 @@ def from_pf_b(name, fxk):
                  "charge_off_ann": pct(p.get("chargeoff", 0)),
                  "provision_rate_ann": pct(p.get("loss")) if p.get("loss") not in ("", None) else None,
                  "reserve_rate_pct_bal": None,  # pf_b: entity ALLL floor semantics
-                 "fee_yield_ann": pct(p.get("fee", 0)), "opex_fixed_m": p.get("opex", 0)*K/3,
+                 "fee_yield_ann": pct(p.get("fee", 0)), "opex_fixed_q": p.get("opex", 0)*K,
                  "measurement": "amortized", "call_report_line": p["line"],
                  "overrides": {k: v for k, v in {"yield_ann": vec("rate", 0.01),
                                                  "charge_off_ann": vec("chargeoff", 0.01),

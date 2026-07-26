@@ -34,6 +34,7 @@ def run_pf_b(cfg):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series, fee_module_series
     from .regparams import REG_PARAMS as _RP
+    from .engine_q_a import opex_fixed_q
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
@@ -122,7 +123,7 @@ def run_pf_b(cfg):
 
         fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
                  + _fees_m["income"][qi])
-        opex_prod = sum((p.get("opex_fixed_m") or 0.0) * 3.0 for p in lend + dep + obs + afs_p + htm_p)
+        opex_prod = sum(opex_fixed_q(p) for p in lend + dep + obs + afs_p + htm_p)
         _ovh_b = a["overhead_q"] + _dep_exp[qi] + _fees_m["cost"][qi]
         if _nie_d:
             _pa = prev_assets
@@ -219,7 +220,7 @@ def run_pf_b(cfg):
                 "interest": [p["_avg"][qi] * yv[qi] / 4.0 * (1 if fam == "lending" else -1)
                              for qi in range(Q)] if fam != "obs" else [0.0] * Q,
                 "fees": [p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for qi in range(Q)],
-                "opex": [(p.get("opex_fixed_m") or 0.0) * 3.0] * Q,
+                "opex": [opex_fixed_q(p)] * Q,
                 "co": [p["_avg"][qi] * cov[qi] / 4.0 for qi in range(Q)] if fam == "lending" else [0.0] * Q,
                 "gos": [0.0] * Q, "servNet": [0.0] * Q,
                 "ftp_rate": [ftp] * Q,

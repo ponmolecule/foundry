@@ -13,6 +13,19 @@ Q = 12
 FV_HORIZON = 60
 
 
+def opex_fixed_q(p):
+    """Fixed operating cost per QUARTER for a product.
+
+    Canonical key is `opex_fixed_q` (quarterly). Legacy configs stored `opex_fixed_m` (monthly,
+    which the engine used to multiply by 3); those are still read correctly here by converting
+    monthly -> quarterly. This read-time fallback is the safety net: even a config that was never
+    migrated is interpreted with the right magnitude. `opex_fixed_q` wins when both are present.
+    """
+    if "opex_fixed_q" in p and p["opex_fixed_q"] is not None:
+        return p["opex_fixed_q"] or 0.0
+    return (p.get("opex_fixed_m") or 0.0) * 3.0
+
+
 def rate_fn(path_q, longer_run):
     """Quarterly annual-rate lookup; glides 5bp/qtr toward longer_run past Q12."""
     def r(t):
@@ -223,7 +236,7 @@ def run_pf_a(cfg):
             p["_ii"].append(0.0)
             p["_ie"].append(avg * r / 4.0 if p in dep else 0.0)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + (p.get("opex_fixed_m") or 0.0) * 3.0)
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
 
     for p in lend:
         mb = p.get("mortgage_banking") or {}
@@ -241,7 +254,7 @@ def run_pf_a(cfg):
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + (p.get("opex_fixed_m") or 0.0) * 3.0)
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
         if p["_sale"] > 0:

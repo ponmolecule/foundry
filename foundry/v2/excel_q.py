@@ -17,18 +17,18 @@ from openpyxl import Workbook, load_workbook
 
 DEP_COLS = ["name", "opening_balance", "growth_q", "runoff_q", "rate_type",
             "rate_paid_ann", "index_spread", "fee_yield_ann", "opex_pct_ann",
-            "opex_fixed_m", "call_report_line"]
+            "opex_fixed_q", "call_report_line"]
 LEND_COLS = ["name", "opening_balance", "volume_mode", "originations_q", "orig_growth_q",
              "growth_q", "runoff_q", "rate_type", "yield_ann", "index_spread",
              "charge_off_ann", "provision_rate_ann", "reserve_rate_pct_bal",
              "measurement", "discount_spread_ann", "fee_yield_ann", "opex_pct_ann",
-             "opex_fixed_m", "call_report_line",
+             "opex_fixed_q", "call_report_line",
              "mb_sale_pct_of_orig", "mb_gain_on_sale_margin", "mb_warehouse_hold_q",
              "mb_servicing_retained_pct", "mb_servicing_fee_bp_ann",
              "mb_msr_cap_rate_pct_upb", "mb_msr_decay_q"]
-OBS_COLS = ["name", "notional", "growth_q", "fee_yield_ann", "opex_fixed_m"]
+OBS_COLS = ["name", "notional", "growth_q", "fee_yield_ann", "opex_fixed_q"]
 SEC_COLS = ["name", "opening", "purchases_q", "growth_q", "runoff_q", "yield_ann",
-            "fee_yield_ann", "opex_fixed_m"]
+            "fee_yield_ann", "opex_fixed_q"]
 JSON_TOP = ["step_minus_1", "step_0", "step_0a", "step_1", "assumption_tags",
             "constraints", "target_state", "peer_query", "scenario_overlays",
             "parity_expectation"]

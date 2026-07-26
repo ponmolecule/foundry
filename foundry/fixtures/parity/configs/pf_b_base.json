@@ -96,7 +96,7 @@
     "rate_type": "fixed",
     "rate_paid_ann": 0.001,
     "fee_yield_ann": 0.005,
-    "opex_fixed_m": 50000.0,
+    "opex_fixed_q": 150000.0,
     "call_report_line": "Deposits: Demand (DDA)",
     "overrides": null
    },
@@ -108,7 +108,7 @@
     "rate_type": "fixed",
     "rate_paid_ann": 0.03,
     "fee_yield_ann": 0.0005,
-    "opex_fixed_m": 25000.0,
+    "opex_fixed_q": 75000.0,
     "call_report_line": "Deposits: Savings & MMDA",
     "overrides": null
    }
@@ -127,7 +127,7 @@
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": null,
     "fee_yield_ann": 0.005,
-    "opex_fixed_m": 66666.66666666667,
+    "opex_fixed_q": 200000.0,
     "measurement": "amortized",
     "call_report_line": "Loans: Consumer",
     "overrides": null
@@ -145,7 +145,7 @@
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": null,
     "fee_yield_ann": 0.0034999999999999996,
-    "opex_fixed_m": 83333.33333333333,
+    "opex_fixed_q": 250000.0,
     "measurement": "amortized",
     "call_report_line": "Loans: Commercial & Industrial",
     "overrides": null
@@ -163,7 +163,7 @@
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": null,
     "fee_yield_ann": 0.03,
-    "opex_fixed_m": 100000.0,
+    "opex_fixed_q": 300000.0,
     "measurement": "amortized",
     "call_report_line": "Loans: Credit Cards",
     "overrides": null
@@ -181,7 +181,7 @@
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": null,
     "fee_yield_ann": 0.0025,
-    "opex_fixed_m": 50000.0,
+    "opex_fixed_q": 150000.0,
     "measurement": "amortized",
     "call_report_line": "Loans: 1\u20134 Family Residential",
     "overrides": null

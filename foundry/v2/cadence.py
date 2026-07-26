@@ -41,11 +41,11 @@ DISPLAY unit; it is replaced by explicit per-field cadence + scale here.
 # cadence the app shows.
 FIELD_CADENCE = {
     # --- deposit / loan flows -------------------------------------------------------------
-    # opex_fixed_m: genuinely MONTHLY (Patrick's convention; engine multiplies by 3). The APP
-    # shows it in $000s (÷1000) as "$000s/month"; the WORKBOOK writes the RAW stored value, so
-    # its label is "$/month". Same cadence (monthly, single-sourced here); different display
-    # SCALE per surface — each label is honest about its own scale. The ×3 to quarterly lives
-    # only in the engine.
+    # opex_fixed_q: fixed operating cost per QUARTER (canonical). App shows $000s/qtr (÷1000);
+    # workbook writes raw quarterly dollars, label "$/quarter". The engine reads it as-is (no ×3).
+    "opex_fixed_q":   ("quarterly", "k",   "$/quarter"),
+    # opex_fixed_m: LEGACY monthly key, retained ONLY so old workbooks/configs still import. The
+    # engine and normaliser convert monthly -> quarterly (×3). New exports never emit this.
     "opex_fixed_m":   ("monthly",   "kmo", "$/month"),
     # new_deposits_q: already QUARTERLY (engine reads as-is). App shows $000s/qtr (÷1000);
     # workbook writes the raw quarterly dollars, label "$/quarter". NO spurious ×3 anywhere.

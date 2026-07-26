@@ -63,7 +63,7 @@ def invert_statements(agg, base_cfg, notes=None):
         "name": "Deposits (inverted)", "call_report_line": "depDDA",
         "opening_balance": db[0], "growth_q": 0.0, "runoff_q": 0.0,
         "rate_type": "fixed", "rate_paid_ann": dep_rate[0],
-        "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0,
+        "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_q": 0.0,
         "overrides": {"growth_q": _pin(growth[1:]), "rate_paid_ann": _pin(dep_rate)},
     }]
 
@@ -81,7 +81,7 @@ def invert_statements(agg, base_cfg, notes=None):
         "runoff_q": 0.0, "rate_type": "fixed", "yield_ann": yld[0],
         "charge_off_ann": co_rate[0], "provision_rate_ann": None,
         "reserve_rate_pct_bal": 0.015, "measurement": "amortized",
-        "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0,
+        "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_q": 0.0,
         "overrides": {"originations_q": _pin(orig), "yield_ann": _pin(yld),
                        "charge_off_ann": _pin(co_rate)},
     }]
