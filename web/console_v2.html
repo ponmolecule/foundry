@@ -2077,7 +2077,19 @@ function vintageSectionHtml(){
   }
   const V = window.vintage;
   h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
-  h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Flow-metric basis: the modeled ROA, NIM and efficiency plotted here are each quarter's own figure (single-quarter, annualized), matching the Ratios tab at age 12. The peer bands for these come from filers' reported values, which are year-to-date annualized (cumulative income \u00d74/quarter). Both are period flows, but the windows differ (single quarter vs YTD) \u2014 they converge at year-ends and can diverge mid-year. Stock metrics (capital ratios) are point-in-time and unaffected.</div>`;
+  // Enumerated annualization-convention table — every metric, modeled basis vs peer basis, and whether
+  // they are like-for-like. Placed here so the basis of each row is unambiguous before any number is read.
+  h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">
+    <div style="font-weight:600;margin-bottom:5px">Annualization conventions \u2014 how to read each row</div>
+    <table class="ovt" style="width:100%;font-size:10px">
+      <tr><th style="text-align:left">Metric</th><th style="text-align:left">Type</th><th style="text-align:left">Modeled (your bank)</th><th style="text-align:left">Peer band (filers)</th><th style="text-align:left">Like-for-like?</th></tr>
+      <tr><td>tier1_ratio</td><td>Stock</td><td>Tier 1 / RWA, point-in-time (standardized)</td><td>Risk-based Tier 1 ratio, point-in-time</td><td style="color:#6FA98C">Yes \u2014 point-in-time, window-independent</td></tr>
+      <tr><td>roa</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>nim</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NII \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>efficiency_ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
+    </table>
+    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. For the flow metrics (roa, nim, efficiency), the modeled series is each quarter's own figure (matching the Ratios tab at age 12), while the peer band is year-to-date annualized as filed; the two converge at year-ends and can diverge mid-year. Both are genuine period flows \u2014 the difference is the window, not the method.</div>
+  </div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;
