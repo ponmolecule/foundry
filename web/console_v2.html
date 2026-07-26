@@ -853,7 +853,10 @@ async function preview(){
   // engine output — so a preview never needs to rebuild it. Rebuilding it anyway
   // destroyed the field being typed in (the "flash" on tab). Skip the content
   // rebuild while editing products; output tabs still re-render from lastRes.
+  // BUT the three per-product summary numbers (Q12 balance / revenue / contribution) read from
+  // lastRes and must still update — refresh just those in place so they don't look frozen.
   if(!(V31 && currentTab==="products")) renderContent();
+  else refreshProductStats();
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the
   // corridor's modeled placements read lastRes, and without this an edit made just
   // before switching tabs (within the 350ms preview debounce) could leave the
@@ -1267,8 +1270,24 @@ function pstat(name){
   if(!row) return "";
   const cells = [["Q12 balance", row.q12_balance], ["12Q revenue", row.revenue],
                  ["12Q contribution", row.contribution]];
-  return '<div class="pstat">' + cells.map(([l,v])=>
+  return `<div class="pstat" data-pstat="${esc(name)}">` + cells.map(([l,v])=>
     `<span><label>${l}</label><b class="${v<0?"neg":""}">${fmt0(v)}</b></span>`).join("") + '</div>';
+}
+// Surgically refresh only the per-product summary numbers (Q12 balance / 12Q revenue / 12Q
+// contribution) after a preview, WITHOUT rebuilding the product cards. The products tab skips the
+// full renderContent() during editing (to protect the focused input), but these three numbers read
+// from lastRes and must still reflect the latest edit — otherwise they look frozen. This updates the
+// .pstat innerHTML in place, leaving every input field (and its cursor) untouched.
+function refreshProductStats(){
+  if(!(V31 && currentTab==="products") || !lastRes) return;
+  document.querySelectorAll("[data-pstat]").forEach(el=>{
+    const name = el.getAttribute("data-pstat");
+    const html = pstat(name);
+    // pstat returns the whole <div class="pstat" ...>...</div>; swap just the inner cells.
+    const tmp = document.createElement("div"); tmp.innerHTML = html;
+    const fresh = tmp.firstElementChild;
+    if(fresh) el.innerHTML = fresh.innerHTML;
+  });
 }
 function prodCardHtml(fam, i){
   const p = famArr(fam)[i];
