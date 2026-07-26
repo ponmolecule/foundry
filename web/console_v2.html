@@ -182,6 +182,12 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .chip .dot{width:8px;height:8px;border-radius:50%;background:#4a5568;flex:0 0 8px}
 .chip.on .dot{background:#7FB07F}
 .fld.wide{grid-column:1/-1}
+/* two-line, centered sidebar labels: UPPERCASE primary + muted mixed-case qualifier */
+.fld2 label{text-align:center;line-height:1.25;text-transform:none;letter-spacing:.03em;font-weight:700;font-size:9.5px;color:#C4CDDD}
+.fld2 input,.fld2 select{text-align:center}
+.fld2 .fq{display:inline-block;margin-top:1px;font-weight:500;font-size:9px;letter-spacing:.02em;color:#8FA3C0;text-transform:none}
+.cover .fld2 label,.cover .fld2 .fq{color:#C4CDDD}
+.cover .fld2 .fq{color:#9FB0C8}
 /* ------- content: faithful white number surfaces ------- */
 #content{padding:22px 30px 30px;overflow-x:auto;background:var(--paper);min-width:0;min-height:70vh}
 .h2{font-weight:600;font-size:16px;letter-spacing:.01em;margin:6px 0 12px;color:#16233B;padding-bottom:7px;border-bottom:2px solid var(--gold)}
@@ -1039,19 +1045,21 @@ function numInput(path, unit, extra){
 }
 
 /* ---------------- sidebar: exactly three cards ---------------- */
+// Sidebar field labels are two-line: an UPPERCASE primary term and a mixed-case qualifier below,
+// rendered centered (see renderGlobals / .fld label styling). The "|" splits the two lines.
 const GLOBAL_FIELDS = [
-  ["Min leverage ratio (%) \u2014 chartering commitment", "constraints.0.value", "pct"],
-  ["Tax rate (%)", "assumptions.tax_rate", "pct"],
-  ["Corporate overhead ($000s/qtr)", "assumptions.overhead_q", "k"],
-  ["Overhead growth (%/qtr)", "assumptions.overhead_growth_q", "pct"],
-  ["Cash floor (% of deposits)", "assumptions.cash_target_pct_deposits", "pct"],
-  ["Yield on cash (annual %)", "assumptions.cash_yield", "pct"],
-  ["Yield on securities (annual %)", "assumptions.securities_yield", "pct"],
-  ["Borrowing rate (annual %)", "assumptions.borrow_rate_ann", "pct"],
-  ["Premises & equipment ($000s)", "assumptions.premises_equipment", "k"],
-  ["Intangibles ($000s)", "assumptions.intangibles", "k"],
-  ["Other assets ($000s)", "assumptions.other_assets", "k"],
-  ["Other liabilities ($000s)", "assumptions.other_liabilities", "k"],
+  ["MIN LEVERAGE RATIO (%)|Chartering Commitment", "constraints.0.value", "pct"],
+  ["TAX RATE|(%)", "assumptions.tax_rate", "pct"],
+  ["CORPORATE OVERHEAD|($000s/Qtr)", "assumptions.overhead_q", "k"],
+  ["OVERHEAD GROWTH|(%/Qtr)", "assumptions.overhead_growth_q", "pct"],
+  ["CASH FLOOR|(% of Deposits)", "assumptions.cash_target_pct_deposits", "pct"],
+  ["CASH YIELD|(Annual %)", "assumptions.cash_yield", "pct"],
+  ["SECURITIES YIELD|(Annual %)", "assumptions.securities_yield", "pct"],
+  ["BORROWING RATE|(Annual %)", "assumptions.borrow_rate_ann", "pct"],
+  ["PREMISES & EQUIPMENT|($000s)", "assumptions.premises_equipment", "k"],
+  ["INTANGIBLES|($000s)", "assumptions.intangibles", "k"],
+  ["OTHER ASSETS|($000s)", "assumptions.other_assets", "k"],
+  ["OTHER LIABILITIES|($000s)", "assumptions.other_liabilities", "k"],
 ];
 const STRESS_FIELDS = [
   ["charge_off_mult", "Charge-off multiplier (\u00d7)", "", "Credit scenario: all annual charge-off rates are multiplied by this factor."],
@@ -1063,10 +1071,10 @@ const STRESS_FIELDS = [
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
 const GLOBAL_GROUPS_V31 = [
-  ["Leverage & tax", ["Min leverage", "Tax rate"]],
-  ["Treasury (funding waterfall)", ["Cash floor", "Yield on cash", "Yield on securities", "Borrowing rate"]],
-  ["Operating expenses", ["Corporate overhead", "Overhead growth"]],
-  ["Other balance sheet", ["Premises", "Intangibles", "Other assets", "Other liabilities"]],
+  ["Leverage & tax", ["MIN LEVERAGE", "TAX RATE"]],
+  ["Treasury (funding waterfall)", ["CASH FLOOR", "CASH YIELD", "SECURITIES YIELD", "BORROWING RATE"]],
+  ["Operating expenses", ["CORPORATE OVERHEAD", "OVERHEAD GROWTH"]],
+  ["Other balance sheet", ["PREMISES", "INTANGIBLES", "OTHER ASSETS", "OTHER LIABILITIES"]],
 ];
 function setInitialCapital(v){
   // input is in $000s; store raw dollars at target_state.initial_capital.
@@ -1088,6 +1096,13 @@ function bumpInitialCapital(deltaK){
   scheduleAutosave(); refresh();
 }
 window.bumpInitialCapital = bumpInitialCapital;
+function twoLineLabel(s){
+  // "PRIMARY|qualifier" -> two centered lines (primary bold uppercase, qualifier muted below).
+  const parts = String(s).split("|");
+  const top = esc(parts[0]||"");
+  const sub = parts.length>1 ? `<span class="fq">${esc(parts.slice(1).join(" "))}</span>` : "";
+  return top + (sub ? "<br>" + sub : "");
+}
 function renderGlobals(){
   let h = '';
   if(V31){
@@ -1114,30 +1129,30 @@ function renderGlobals(){
       if(!members.length) return;
       h += `<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">${esc(gname)}</div>`;
       h += '<div class="fields">';
-      members.forEach(f=>{ used.add(f[0]); h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      members.forEach(f=>{ used.add(f[0]); h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
       h += '</div>';
       if(gname.startsWith("Capital")){
       }
       if(gname.startsWith("Treasury")){
       }
       if(gname.startsWith("Treasury")){
-        h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:flex-start;cursor:pointer"><input type="checkbox" style="margin-top:2px"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span style="color:#C4CDDD">Funds-transfer pricing \u2014 charge assets / credit liabilities at SOFR on average balances (shown on Product Detail)</span></label></div>`;
+        h += `<div style="margin:6px 2px 2px;font-size:12px"><label style="display:flex;gap:7px;align-items:center;cursor:pointer"><input type="checkbox"${ftpOn?" checked":""} onchange="setFtp(this.checked)"><span style="color:#C4CDDD">Funds-transfer pricing <span style="color:#8FA3C0">(SOFR on avg balances)</span></span></label></div>`;
       }
     });
     const rest = GLOBAL_FIELDS.filter(f=>!used.has(f[0]));
     if(rest.length){
       h += '<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">Other</div><div class="fields">';
-      rest.forEach(f=>{ h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      rest.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
       h += '</div>';
     }
   } else {
     h = '<div class="fields">';
-    GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld"><label>${esc(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+    GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
     h += '</div>';
   }
   document.getElementById("globalsBox").innerHTML = h;
 
-  let hs = '<div class="snote">Quarterly SOFR (annual %). Default path interpolated from the June 17, 2026 FOMC SEP fed funds medians (3.8% YE26, 3.6% YE27, 3.4% YE28, 3.1% longer run) + ~5bp SOFR basis. Edit freely; beyond Q12 the path glides 5bp/qtr to the longer-run value.</div>';
+  let hs = '<div class="snote">Quarterly SOFR (annual %), from the Jun 2026 FOMC SEP medians + ~5bp basis. Editable; past Q12 it glides 5bp/qtr to the longer-run value.</div>';
   hs += '<div class="fields" style="grid-template-columns:repeat(4,1fr)">';
   for(let q=1;q<=12;q++){
     hs += `<div class="fld"><label>Q${q}</label><input type="number" step="0.05" value="${+(cfg.assumptions.rate_path_q[q-1]*100).toFixed(3)}"
@@ -1569,19 +1584,40 @@ function setFtp(v){ ftpOn = v; renderContent(); }
 window.setFtp=setFtp;
 function ftpToggleHtml(){
   return `<label class="ftplabel"><input type="checkbox"${ftpOn?" checked":""} onchange="setFtp(this.checked)">`+
-    `Apply funds-transfer pricing (charge assets / credit liabilities at SOFR on average balances)</label>`;
+    `Funds-transfer pricing <span style="color:#8FA3C0">(SOFR on avg balances)</span></label>`;
 }
 
 /* ---------------- tabs ---------------- */
+// Non-V3 (bare console) keeps its original minimal set; V3/V31 use an explicit ordered list.
 const TAB_DEFS = [["products","Products"],["bs","Balance Sheet"],["is","Income Statement"],["ratios","Ratios"],
   ["detail","Product Detail"],["stress","Stress Testing"],["notes","Assumption Book"]];
-if(V3){ TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overview","Overview"]);
+if(V31){
+  // Explicit order requested by the engagement: Welcome first, Executive Summary sits after Stress.
+  TAB_DEFS.length = 0;
+  TAB_DEFS.push(
+    ["welcome","Welcome"],
+    ["start","Start/Reset"],
+    ["products","Product"],
+    ["config","Configuration"],
+    ["bs","Balance Sheet"],
+    ["is","Income Statement"],
+    ["detail","Product Detail"],
+    ["ratios","Capital & Ratios"],
+    ["stress","Stress Testing"],
+    ["overview","Executive Summary"],
+    ["notes","Assumption Book"],
+    ["peer","Peer Cohort"],
+    ["examiner","Examiner Book"],
+    ["gov","Governance"]);
+  currentTab = "welcome";
+} else if(V3){
+  TAB_DEFS.unshift(["config","Configuration"]); TAB_DEFS.unshift(["overview","Overview"]);
   TAB_DEFS.push(["peer","Peer Cohort"]); TAB_DEFS.push(["examiner","Examiner Book"]);
   TAB_DEFS.push(["gov","Governance"]);
-  currentTab = "overview"; }
-if(V31){ TAB_DEFS.unshift(["start","Start"]); TAB_DEFS.unshift(["welcome","Welcome"]); currentTab = "welcome"; }
+  currentTab = "overview";
+  const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios";
+}
 const DARKTABS = new Set(["overview","peer","examiner","config","gov","notes","start","welcome"]);
-if(V3){ const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios"; }
 function restoreCardSelects(){
   document.querySelectorAll('select[data-restore]').forEach(sel=>{
     try{
@@ -2864,7 +2900,7 @@ function renderContent(){
     }
     if(V3){
       h += '<div class="h2" style="font-weight:700">Assumption Book</div>';
-      h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#DFA85A" onclick="setTab('overview');return false">Overview</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
+      h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#DFA85A" onclick="setTab('overview');return false">Executive Summary</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
     } else {
       h += '<div class="h2">Reasonableness Flags</div>';
       if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';

@@ -316,7 +316,7 @@ def main():
                          "Total Loans & Leases (gross)", "Summary Ratios (annualized)",
                          "Efficiency Ratio", "Tier 1 Leverage Ratio", "NET INCOME (LOSS)",
                          "Per-Product Contributions", "Direct Contribution",
-                         "Apply funds-transfer pricing", "Treasury (FTP mismatch center)",
+                         "Funds-transfer pricing", "Treasury (FTP mismatch center)",
                          "Stress Testing \\u2014 Scenario Comparison", "Net Income by Quarter",
                          "Tier 1 Leverage Ratio by Quarter",
                          "Reasonableness Flags", "Defaults Applied", "Methodology",
@@ -353,7 +353,7 @@ def main():
                     "REPRODUCED", "loadFrozen"]
         miss += [x for x in need_v22 if x not in html]
         app_src2 = open("app.py", encoding="utf-8").read()
-        need_v31 = ["window.V31", '"start","Start"', "renderStart", "openEngagement",
+        need_v31 = ["window.V31", '"start","Start/Reset"', '"overview","Executive Summary"', "renderStart", "openEngagement",
                     "/api/v31/engagements", "Saved engagements",
                     "Start from the example bank", "Fill a workbook, then upload",
                     "Three ways in, one model", "loadExampleBank", "In development", "TAXONOMY_V31", "loanCRE", "addFromTaxonomy", "materializeTemplate", "syncModules", "wizStart", "renderWizard", "mtUpload", "mtRender", "mtFinalize", "Entry screen", "Defaults in effect (not from the client)", "FOMC SEP", "Retrodiction", "retroUpload", "/api/v31/retro", "CharterIQ substrate", "retroSubstrate", "Staged raises", "capital_raises", "subPlace", "Peer corridor", "METRIC_DIRECTION", "vintageBuild", "Vintage corridor", "/api/v31/substrate/vintage", "Pre-opening", "pre_opening", "Minimum Day-1 capital", "Securities books", "aoci_sensitivity_annual", "secAdd", "class=\"csub\"", "class=\"crow\"", "structuresSectionsHtml", "nie_detail", "fee_modules", "activation derived from presence", "Day-1 arithmetic", "REGULATOR_OF"]
