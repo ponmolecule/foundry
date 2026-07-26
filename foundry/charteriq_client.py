@@ -631,6 +631,7 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                           "p25": _pctl(vals, 25) if len(vals) >= min_n else None,
                           "p50": _pctl(vals, 50) if len(vals) >= min_n else None,
                           "p75": _pctl(vals, 75) if len(vals) >= min_n else None,
+                          "p90": _pctl(vals, 90) if len(vals) >= min_n else None,
                           "suppressed": len(vals) < min_n})
         corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
         if metric in ("tier1_ratio", "cet1_ratio"):

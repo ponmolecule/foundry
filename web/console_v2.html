@@ -2102,7 +2102,7 @@ function vintageSectionHtml(){
                  : (metric==="tier1_ratio"||metric==="cet1_ratio"||metric==="leverage_ratio") ? "Stock" : "";
     h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${vBasis?` (${vBasis})`:""}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + '</tr>';
-    ["p75","p50","p25"].forEach(p=>{
+    ["p90","p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + '</tr>';
     });
     if(modeled){
