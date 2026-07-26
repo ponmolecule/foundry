@@ -3007,7 +3007,7 @@ async function downloadFIW(){
   const m = cd.match(/filename="([^"]+)"/);
   const aEl = document.createElement("a");
   aEl.href = URL.createObjectURL(blob);
-  aEl.download = m ? m[1] : "foundry_input_workbook.xlsx";
+  aEl.download = m ? m[1] : _dlName("xlsx");
   aEl.click(); URL.revokeObjectURL(aEl.href);
 }
 window.downloadFIW = downloadFIW;
@@ -3294,9 +3294,17 @@ function renderStart(){
     + '<div class="ovcard"><div class="k">Fill a workbook, then upload</div><div class="v" style="font-size:1rem">Take it to your desk in Excel</div>'
     + '<div class="s"><ul style="margin:4px 0 0 16px;padding:0"><li>Download \u2192 complete in Excel \u2192 upload; edits apply as a logged diff</li><li>Import validates fail-closed; gaps become questions</li><li>Each workbook is tied to the run that generated it</li></ul></div>'
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
-      + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()">Download input workbook</button>'
+      + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()" title="Downloads your current inputs as a workbook, named for this bank and today\'s date">Download current inputs</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
-      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>')
+      + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>'
+      + (hasOriginal() ? (
+          '<div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--nline);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+          + (changedSinceUpload()
+              ? '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
+              : '<button id="chgChip" class="btn-plain" disabled style="opacity:.5;cursor:default">No changes since upload</button>')
+          + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()"' + (changedSinceUpload()?'':' disabled style="opacity:.5;cursor:default"') + '>Revert to Original</button>'
+          + '</div>'
+        ) : ''))
     + '</div>'
     + '</div>';
   // Demoted, quiet: bring-your-own-forecast, marked In Development.
