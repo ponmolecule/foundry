@@ -2009,7 +2009,7 @@ const METRIC_DIRECTION = {
   efficiency: "lower_good", net_charge_off_rate: "lower_good",
 };
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
-const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff"};
+const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
 window.vintageModeled = vintageModeled;
 function vintageModeled(mk){
   if(!lastRes) return null;
@@ -2087,8 +2087,9 @@ function vintageSectionHtml(){
       <tr><td>roa</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
       <tr><td>nim</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NII \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
       <tr><td>efficiency_ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>net_charge_off_rate</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>UBPR single-quarter, annualized \u00d74</td><td style="color:#6FA98C">Yes \u2014 both single-quarter</td></tr>
     </table>
-    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. For the flow metrics (roa, nim, efficiency), the modeled series is each quarter's own figure (matching the Ratios tab at age 12), while the peer band is year-to-date annualized as filed; the two converge at year-ends and can diverge mid-year. Both are genuine period flows \u2014 the difference is the window, not the method.</div>
+    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. For the earnings flows (roa, nim, efficiency), the modeled series is each quarter's own figure (matching the Ratios tab at age 12), while the peer band is year-to-date annualized as filed; the two converge at year-ends and can diverge mid-year. Both are genuine period flows \u2014 the difference is the window, not the method.</div>
   </div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];

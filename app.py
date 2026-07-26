@@ -840,7 +840,13 @@ def v31_substrate_vintage(body: dict, _=Depends(gate)):
     try:
         est_from = int(body.get("est_from", 2018))
         est_to = int(body.get("est_to", 2023))
-        return JSONResponse(build_vintage_corridor(cl, est_from, est_to))
+        # Optional metrics override. When omitted, build the default vintage set PLUS the
+        # single-quarter net charge-off rate (like-for-like: modeled and peer both one-quarter).
+        from foundry.charteriq_client import VINTAGE_METRICS
+        metrics = body.get("metrics")
+        if not metrics:
+            metrics = list(VINTAGE_METRICS) + ["net_charge_off_rate"]
+        return JSONResponse(build_vintage_corridor(cl, est_from, est_to, metrics=metrics))
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
