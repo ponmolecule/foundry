@@ -2196,6 +2196,9 @@ def t57():
             if any(a <= mm.start() < b for a, b in spans): continue
             sel = mm.group(1).strip()
             if "," in sel or not sel: continue
+            # @-rules (font-face, keyframes, etc.) are legitimately repeatable — multiple
+            # @font-face blocks (one per weight) are valid CSS, not a duplicate-selector bug.
+            if sel.endswith("font-face") or "keyframes" in sel: continue
             seen[sel] = seen.get(sel, 0) + 1
         bad_css += [s for s, n in seen.items() if n > 1]
     check("T57a", f"no standalone CSS selector defined twice at top level ({bad_css[:4]})",
