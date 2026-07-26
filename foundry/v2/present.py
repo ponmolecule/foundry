@@ -119,8 +119,20 @@ def derived_lines(res, cfg):
     bs, is_ = res["bs"], res["is"]
     n = len(bs["totalAssets"])
     a = cfg["assumptions"]
-    non_earn = round((a["premises_equipment"] + a["intangibles"] + a["other_assets"]) / 1000.0, 2)
     other_liab = round(a["other_liabilities"] / 1000.0, 2)
+    # Non-earning assets = premises + intangibles + other assets, PER QUARTER. The engine
+    # depreciates premises (bs["premises"] declines when premises_depreciation_annual is set),
+    # so a flat (premises+intangibles+other)/1000 overstated non-earning assets in every
+    # quarter after the first and broke the displayed asset side by the accumulated
+    # depreciation. Use the engine's real premises series; fall back to the flat opening
+    # value only if it was not emitted. (intangibles and other_assets are constant.)
+    _fixed_ne = round((a["intangibles"] + a["other_assets"]) / 1000.0, 2)
+    _prem_series = bs.get("premises")
+    if _prem_series:
+        non_earn_list = [round((_prem_series[i] or 0.0) + _fixed_ne, 2) for i in range(n)]
+    else:
+        non_earn_flat = round((a["premises_equipment"] + a["intangibles"] + a["other_assets"]) / 1000.0, 2)
+        non_earn_list = [non_earn_flat] * n
     # Paid-in capital = initial capital PLUS cumulative staged raises, per quarter. The
     # engine already computes this in bs["paidIn"] (cap_t, in $000s); pass it through so
     # "Capital Stock & Surplus" moves with raises and the equity section foots. Using a
@@ -138,7 +150,7 @@ def derived_lines(res, cfg):
     dep = bs["deposits"]
     eq = bs["equity"]
     out = {
-        "nonEarn": [non_earn] * n,
+        "nonEarn": non_earn_list,
         "otherLiab": [other_liab] * n,
         "paidIn": paid_in_list,
         # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
@@ -154,7 +166,8 @@ def derived_lines(res, cfg):
         return is_.get(k) or [0.0] * m
     out["totalIntInc"] = [round((g("loanInt")[i] if "loanInt" in is_ else g("intLoans")[i] or 0)
                                 + (g("secInt")[i] if "secInt" in is_ else g("intSec")[i] or 0)
-                                + (g("cashInt")[i] if "cashInt" in is_ else g("intCash")[i] or 0), 2)
+                                + (g("cashInt")[i] if "cashInt" in is_ else g("intCash")[i] or 0)
+                                + (g("bookInt")[i] or 0), 2)
                          for i in range(m)]
     out["totalIntExp"] = [round((g("depExp")[i] if "depExp" in is_ else g("intDep")[i] or 0)
                                 + (g("borrExp")[i] if "borrExp" in is_ else g("intBorrow")[i] or 0), 2)
