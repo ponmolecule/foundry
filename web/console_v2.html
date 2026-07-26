@@ -2418,7 +2418,10 @@ function renderContent(){
     let h = "";
     h += '<div class="h2">Products</div>';
     h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
-    h += '<button class="btn-gold" style="margin:0 0 14px" onclick="openModal()">+ Add Product</button>';
+    h += '<div style="display:flex;align-items:center;gap:16px;margin:0 0 14px">';
+    h += '<button class="btn-gold" onclick="openModal()">+ Add Product</button>';
+    h += ftpToggleHtml();
+    h += '</div>';
     const secs = [["Loans","lending"],["Deposits","deposit"],["Off-Balance-Sheet","obs"]];
     secs.forEach(([cn,fam])=>{
       const subs = TAX31()[cn] || [];
