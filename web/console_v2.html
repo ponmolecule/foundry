@@ -565,6 +565,7 @@ async function boot(){
         const rc = await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug));
         if(rc.ok){
           cfg = await rc.json();
+          rehydrateOriginal(cfg);
           const sn = document.getElementById("scenarioName");
           if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
           appStatus("ok", "<b>Resumed your working session</b> \u2014 autosaved state restored. Open a saved engagement from the \u25be menu to switch.");
@@ -626,10 +627,28 @@ function scheduleAutosave(){
    restores, and the baseline the "Changed since upload" indicator diffs against. */
 let _uploadedOriginal = null;    // {json, label, source} | null
 function freezeOriginal(source){
-  try{ _uploadedOriginal = {json: JSON.stringify(cfg),
-                            label: (cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name || "uploaded configuration"),
-                            source: source || "file"}; }
+  try{
+    // Never let the frozen copy contain a prior frozen copy (would nest and grow unboundedly).
+    const clean = JSON.parse(JSON.stringify(cfg)); delete clean._uploaded_original;
+    _uploadedOriginal = {json: JSON.stringify(clean),
+                         label: (clean.proposed_bank || clean.client_legal_name || clean.scenario_name || "uploaded configuration"),
+                         source: source || "file"}; }
   catch(e){ _uploadedOriginal = null; }
+}
+// Persist the frozen original inside the config under a reserved key, so it survives a reload
+// with the autosaved/saved engagement (the store round-trips it; the engine and validator ignore
+// unknown top-level keys). Called just before a save is serialised.
+function stampOriginalForSave(target){
+  if(_uploadedOriginal){ target._uploaded_original = _uploadedOriginal; }
+  else { delete target._uploaded_original; }
+  return target;
+}
+// On load, lift the frozen original back out of the config and remove the reserved key from the
+// live working copy — so it never pollutes the diff, a download, or a subsequent freeze.
+function rehydrateOriginal(loadedCfg){
+  const emb = loadedCfg && loadedCfg._uploaded_original;
+  if(emb && emb.json){ _uploadedOriginal = emb; }
+  if(loadedCfg) delete loadedCfg._uploaded_original;
 }
 function hasOriginal(){ return _uploadedOriginal != null; }
 function changedSinceUpload(){
@@ -696,7 +715,7 @@ async function autosaveNow(){
   try{
     const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({config: cfg, name: AUTOSAVE_NAME})});
+      body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: AUTOSAVE_NAME})});
     if(r.ok){
       window._lastSavedAt = new Date();
       const chip = document.querySelector(".savedchip");
@@ -2861,7 +2880,7 @@ window.saveCurrentEng = async function(){
   const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "").trim();
   if(!nm){ appStatus("err", "<b>Name it first</b> \u2014 type a scenario / client name in the top-right field, then save."); return; }
   const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})});
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: nm})});
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
@@ -3154,6 +3173,7 @@ async function openEngagement(slug){
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
+    rehydrateOriginal(cfg);
     syncNameChrome();
     renderGlobals(); refresh(); markPristine(); setTab("overview");
   } else {
