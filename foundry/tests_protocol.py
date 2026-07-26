@@ -334,9 +334,9 @@ def t22():
     check("T22b", "generation hash on README matches the canonical hash",
           any(r[0].value == "Generation hash" and r[1].value == cfg_hash(cfg) for r in wb["README"].iter_rows()))
     dep = {(r[0].value): r[3].value for r in wb["ASSM_DEPOSITS"].iter_rows(min_row=2)}
-    check("T22c", "values transcribed (rate 0.5% via contextual cell, opening $8.93M) and line rendered as label",
+    check("T22c", "values transcribed (rate 0.5% via contextual cell, opening 8,930 in $000s) and line rendered as label",
           abs(dep["deposit.0.__RATE__"] - 0.005) < 1e-12
-          and abs(dep["deposit.0.opening_balance"] - 8_930_000) < 1e-6
+          and abs(dep["deposit.0.opening_balance"] - 8_930) < 1e-6
           and dep["deposit.0.call_report_line"] == "Deposits: Transaction (DDA)")
     cfg["assumptions"]["lending_products"] = [{"name": "Credit Card", "call_report_line": "loanCreditCard",
         "opening_balance": 0, "originations_q": 1_500_000, "orig_growth_q": 0, "runoff_q": 0,
@@ -447,12 +447,12 @@ def t23():
         # edit one gold cell in each new sheet
         _targets = {
             "ASSM_SEC_AFS": ("securities_afs.0.yield_ann", 0.055),
-            "ASSM_SEC_HTM": ("securities_htm.0.opening", 9_000_000),
+            "ASSM_SEC_HTM": ("securities_htm.0.opening", 9_000),      # $000s -> $9M
             "ASSM_OBS": ("obs_exposures.0.fee_yield_ann", 0.004),
             "ASSM_BORROWINGS": ("scheduled_borrowings.0.rate_ann", 0.05),
-            "ASSM_RAISES": ("capital_raises.0.amount", 20_000_000),
+            "ASSM_RAISES": ("capital_raises.0.amount", 20_000),       # $000s -> $20M
             "ASSM_FEES": ("fee_modules.trust.fee_bp_ann", 90),
-            "ASSM_PREOPEN": ("pre_opening.expenses.0.total", 1_200_000),
+            "ASSM_PREOPEN": ("pre_opening.expenses.0.total", 1_200),  # $000s -> $1.2M
         }
         for _sh, (_k, _v) in _targets.items():
             for r in wbx[_sh].iter_rows(min_row=2):
@@ -761,7 +761,7 @@ def t23():
         if _has_nie:
             for r in _wbn2["ASSM_NIE"].iter_rows(min_row=2):
                 k = str(r[0].value)
-                if k == "nie_detail.categories.0.per_quarter": r[3].value = 400000
+                if k == "nie_detail.categories.0.per_quarter": r[3].value = 400   # $000s/qtr -> 400,000
                 if k == "nie_detail.fte_by_year.0": r[3].value = 30
             _bn2 = _io.BytesIO(); _wbn2.save(_bn2)
             _mn2, _rn2 = F.diff_import(_bn2.getvalue(), {})
@@ -1391,7 +1391,7 @@ def t35():
               any("Staged raise 1" in str(l) for l in labels))
         for r in wb["CONTROL"].iter_rows():
             if str(r[0].value).startswith("Staged raise 1 — amount"):
-                r[1].value = 15_000_000   # the human ups the raise in Excel
+                r[1].value = 15_000   # the human ups the raise in Excel; CONTROL is in $000s now
         buf = _io.BytesIO(); wb.save(buf)
         merged, rep = F.diff_import(buf.getvalue(), cfg)
         check("T35d", "editing a raise in Excel round-trips as exactly one edit",

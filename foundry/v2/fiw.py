@@ -19,6 +19,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill
 from openpyxl.worksheet.datavalidation import DataValidation
 from foundry.v2.cadence import workbook_units
+from foundry.v2 import wbunits
 
 GOLD = PatternFill("solid", fgColor="FFF3D9")
 HDR = Font(bold=True)
@@ -202,7 +203,8 @@ def _family_sheet(ws, fam, products, fields):
             if fkey == "call_report_line":
                 val = LINE_LABELS.get(val, val)
             ws.append([f"{fam}.{i}.{fkey}", p.get("name", ""), flabel,
-                       val if val is not None else "", funits])
+                       wbunits.to_workbook(val, funits) if val is not None else "",
+                       wbunits.export_label(funits)])
             row = ws.max_row
             # attach the dropdown + remember the row for the discriminator cells
             if fkey == "rate_type":
@@ -241,7 +243,8 @@ def _array_sheet(ws, arrkey, items, fields):
         for fkey, flabel, funits in fields:
             val = it.get(fkey)
             ws.append([f"{arrkey}.{i}.{fkey}", label, flabel,
-                       val if val is not None else "", funits])
+                       wbunits.to_workbook(val, funits) if val is not None else "",
+                       wbunits.export_label(funits)])
             if "fact" not in funits:
                 ws.cell(ws.max_row, 4).fill = GOLD
             if isinstance(val, (int, float)) and abs(val) >= 1000:
@@ -265,7 +268,9 @@ def _nie_sheet(ws, nd):
         c.font = HDR
 
     def _row(key, section, field, val, units):
-        ws.append([key, section, field, val if val is not None else "", units])
+        ws.append([key, section, field,
+                   wbunits.to_workbook(val, units) if val is not None else "",
+                   wbunits.export_label(units)])
         if "fact" not in units:
             ws.cell(ws.max_row, 4).fill = GOLD
         if isinstance(val, (int, float)) and abs(val) >= 1000:
@@ -304,7 +309,9 @@ def _fee_sheet(ws, fm):
         c.font = HDR
 
     def _row(key, module, field, val, units):
-        ws.append([key, module, field, val if val is not None else "", units])
+        ws.append([key, module, field,
+                   wbunits.to_workbook(val, units) if val is not None else "",
+                   wbunits.export_label(units)])
         if "fact" not in units:
             ws.cell(ws.max_row, 4).fill = GOLD
         if isinstance(val, (int, float)) and abs(val) >= 1000:
@@ -313,7 +320,7 @@ def _fee_sheet(ws, fm):
     ic = fm.get("interchange") or {}
     for k, lab, u in (("tx_count_q", "Transactions/qtr", "count"),
                        ("growth_q", "Growth", "rate/qtr"),
-                       ("avg_ticket", "Avg ticket", "$"),
+                       ("avg_ticket", "Avg ticket", "$/unit"),
                        ("interchange_rate", "Interchange rate", "share"),
                        ("network_fee_rate", "Network fee rate", "share")):
         if k in ic:
@@ -321,12 +328,12 @@ def _fee_sheet(ws, fm):
     for i, rail in enumerate(fm.get("payments") or []):
         _row(f"fee_modules.payments.{i}.rail", f"payments[{i}]", "Rail", rail.get("rail"), "label (editable: ACH, wires, RTP, FedNow, card)")
         for k, lab, u in (("vol_q", "Volume/qtr", "count"), ("growth_q", "Growth", "rate/qtr"),
-                           ("fee_per_tx", "Fee per tx", "$"), ("cost_per_tx", "Cost per tx", "$")):
+                           ("fee_per_tx", "Fee per tx", "$/tx"), ("cost_per_tx", "Cost per tx", "$/tx")):
             if k in rail:
                 _row(f"fee_modules.payments.{i}.{k}", f"payments[{i}]", lab, rail.get(k), u)
     sc = fm.get("service_charges") or {}
     for k, lab, u in (("accounts", "Accounts", "count"), ("growth_q", "Growth", "rate/qtr"),
-                       ("fee_m", "Fee per acct", "$/month")):
+                       ("fee_m", "Fee per acct", "$/account/month")):
         if k in sc:
             _row(f"fee_modules.service_charges.{k}", "service_charges", lab, sc.get(k), u)
     tr = fm.get("trust") or {}
@@ -335,7 +342,7 @@ def _fee_sheet(ws, fm):
         if k in tr:
             _row(f"fee_modules.trust.{k}", "trust", lab, tr.get(k), u)
     ba = fm.get("baas") or {}
-    for k, lab, u in (("programs", "Programs", "count"), ("accts_per_program", "Accts/program", "count"),
+    for k, lab, u in (("programs", "Programs", "programs"), ("accts_per_program", "Accts/program", "count"),
                        ("growth_q", "Growth", "rate/qtr"), ("rev_per_acct_m", "Rev per acct", workbook_units("rev_per_acct_m"))):
         if k in ba:
             _row(f"fee_modules.baas.{k}", "baas", lab, ba.get(k), u)
@@ -368,6 +375,15 @@ def build_fiw(cfg):
     rd.append(["This workbook contains only the sheets your products require. Upload it"])
     rd.append(["back through the same door it came from; the import validates everything"])
     rd.append(["and lists open questions rather than guessing."])
+    rd.append([])
+    rd.append(["Units — the same as the app"])
+    rd.append(["Every cell asks for exactly the number you would type in the app. Dollar"])
+    rd.append(["amounts are in THOUSANDS: type 12,000 to mean $12,000,000. The unit is stated"])
+    rd.append(["in each row's 'Units / note' column ($000s, $000s/quarter, $000s/month)."])
+    rd.append(["Per-unit prices (a $42 ticket, a 30-cent per-transaction fee) are plain dollars,"])
+    rd.append(["labelled $/unit or $/tx. Counts (accounts, transactions) are also in thousands,"])
+    rd.append(["labelled 000s. Rates are decimals (0.049 = 4.9%)."])
+    rd.append([f"Units convention: v{wbunits.WB_UNITS_VERSION} ($000s). Older workbooks in whole dollars still import correctly."])
     rd.column_dimensions["A"].width = 74
 
     ct = wb.create_sheet("CONTROL")
@@ -380,11 +396,11 @@ def build_fiw(cfg):
         ("Target opening", ch.get("target_opening", ""), "", True),
         ("Pre-opening period (months)", ch.get("pre_open_months", ""), "", True),
         ("CBLR election", "yes" if ch.get("cblr_election") else "no", "community bank leverage framework", True),
-        ("Initial capital ($)", (cfg.get("target_state") or {}).get("initial_capital", ""), "", True),
+        ("Initial capital ($000s)", wbunits.to_workbook((cfg.get("target_state") or {}).get("initial_capital", "") or None, "$") if (cfg.get("target_state") or {}).get("initial_capital", "") not in ("", None) else "", "", True),
         ("Scenario name", cfg.get("scenario_name", ""), "", True),
     ] + [(f"Staged raise {i+1} — quarter", r.get("quarter", ""), "1..12", True)
           for i, r in enumerate(a.get("capital_raises") or [])]
-      + [(f"Staged raise {i+1} — amount ($)", r.get("amount", ""), "", True)
+      + [(f"Staged raise {i+1} — amount ($000s)", wbunits.to_workbook(r.get("amount", "") or None, "$") if r.get("amount", "") not in ("", None) else "", "", True)
           for i, r in enumerate(a.get("capital_raises") or [])])
 
     if a.get("lending_products"):
@@ -580,6 +596,7 @@ CONTROL_PATHS = {
     "Target opening": ("charter_profile", "target_opening"),
     "Pre-opening period (months)": ("charter_profile", "pre_open_months"),
     "CBLR election": ("charter_profile", "cblr_election"),
+    "Initial capital ($000s)": ("target_state", "initial_capital"),
     "Initial capital ($)": ("target_state", "initial_capital"),
     "Scenario name": ("scenario_name",),
 }
@@ -721,6 +738,8 @@ def diff_import(data, current_cfg):
             rr = _raise_row_match(label)
             if rr is not None:
                 idx, field = rr
+                if field == "amount" and "$000s" in str(label):
+                    val = wbunits.from_workbook(val, "$000s")
                 arr = (snap["assumptions"].get("capital_raises") or [])
                 old_v = arr[idx].get(field) if idx < len(arr) else None
                 new_v = int(val) if field == "quarter" and val not in ("", None) else (
@@ -736,6 +755,8 @@ def diff_import(data, current_cfg):
             path = CONTROL_PATHS.get(label)
             if not path:
                 continue
+            if label in ("Initial capital ($000s)",) and "$000s" in str(label):
+                val = wbunits.from_workbook(val, "$000s")
             old = _get(snap, path)
             if label == "CBLR election":
                 val = str(val).strip().lower() in ("yes", "y", "true", "1")
@@ -784,7 +805,7 @@ def diff_import(data, current_cfg):
             if not key or "fact" in str(units):
                 continue
             _, idx, field = key.split(".", 2)
-            by_idx.setdefault(int(idx), {})[field] = val
+            by_idx.setdefault(int(idx), {})[field] = wbunits.from_workbook(val, units)
 
         for idx, cells in by_idx.items():
             if idx >= len(arr):
@@ -907,6 +928,7 @@ def diff_import(data, current_cfg):
             # key is a dotted path, e.g. securities_afs.0.opening,
             # fee_modules.payments.1.fee_per_tx, pre_opening.expenses.2.total
             parts = str(key).split(".")
+            val = wbunits.from_workbook(val, units)
             old = _resolve_path(snap, parts)
             newv = _coerce(old, val)
             changed = not _num_eq(old, newv)
