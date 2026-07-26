@@ -121,7 +121,18 @@ def derived_lines(res, cfg):
     a = cfg["assumptions"]
     non_earn = round((a["premises_equipment"] + a["intangibles"] + a["other_assets"]) / 1000.0, 2)
     other_liab = round(a["other_liabilities"] / 1000.0, 2)
-    paid_in = round(cfg["target_state"]["initial_capital"] / 1000.0, 2)
+    # Paid-in capital = initial capital PLUS cumulative staged raises, per quarter. The
+    # engine already computes this in bs["paidIn"] (cap_t, in $000s); pass it through so
+    # "Capital Stock & Surplus" moves with raises and the equity section foots. Using a
+    # flat initial_capital here ignored capital_raises and broke the equity subtotal by
+    # exactly the raised amount in every quarter a raise was outstanding. Fall back to the
+    # flat value only if the engine did not emit a paidIn series.
+    _paid_in_series = bs.get("paidIn")
+    if _paid_in_series:
+        paid_in_list = [round((_paid_in_series[i] or 0.0), 2) for i in range(n)]
+    else:
+        _paid_in_flat = round(cfg["target_state"]["initial_capital"] / 1000.0, 2)
+        paid_in_list = [_paid_in_flat] * n
     bor = bs.get("borrow") or bs.get("borrowings") or [0.0] * n
     sched = bs.get("borrowSched") or [0.0] * n
     dep = bs["deposits"]
@@ -129,7 +140,7 @@ def derived_lines(res, cfg):
     out = {
         "nonEarn": [non_earn] * n,
         "otherLiab": [other_liab] * n,
-        "paidIn": [paid_in] * n,
+        "paidIn": paid_in_list,
         # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
         # plug AND the amortizing scheduled draws (`borrowSched`). Omitting the latter
         # breaks the accounting identity by exactly the scheduled balance in every
