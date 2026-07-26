@@ -566,5 +566,6 @@ def run_pf_a(cfg):
                    "re": bs["re"], "totalAssets": bs["totalAssets"],
                    "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
                    "aoci": bs["aoci"], "paidIn": bs["paidIn"],
-                   "premises": prem_t, "borrowSched": sched_t},
+                   "premises": prem_t, "borrowSched": sched_t,
+                   **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}

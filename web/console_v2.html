@@ -2207,6 +2207,7 @@ function renderContent(){
     h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen), null, 'intangibles');
     if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen), null, 'otherAssets');
+    if(some(fin.bs.dta)) h += rowBS('Deferred Tax Assets (NOL, net of valuation allowance)', arr12(fin.bs.dta, bsHasOpen), null, 'dta');
     h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
     h += `<tr class="section"><td colspan="${V21?15:14}">Liabilities</td></tr>`;
     DEP_KEYS.forEach(k=>{

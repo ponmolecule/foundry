@@ -434,15 +434,24 @@ def run_v2(cfg):
     bs2 = base["bs"]; n2 = len(bs2["totalAssets"])
     intangk = cfg["assumptions"]["intangibles"] / 1000.0
     msr2 = bs2.get("msr") or [0.0] * n2
+    # DTA (NOL) is deducted from CET1/Tier 1 AND from average assets when the deferred-tax
+    # path is elected, exactly as the engine does (12 CFR 3.22(a)). bs["dta"] is present only
+    # when tax_detail is on; the reg param is the CET1 deduction fraction. Omitting this made
+    # the derivation drift from the engine leverage by ~6-7bp with tax_detail on, tripping the
+    # ">2bp does not reconcile" warning even though the engine leverage itself was correct.
+    _td_on = bool(cfg["assumptions"].get("tax_detail"))
+    _dta_series = bs2.get("dta") or [0.0] * n2
+    _dta_frac = REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
     lev2 = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
     q0 = 1 if n2 == 13 else 0
     tier1, msa_x, avg_net, lev_drv = [], [], [], []
     for i in range(q0, n2):
         eq = bs2["equity"][i] or 0.0
-        t1p = eq - intangk
-        mx = max(0.0, (msr2[i] or 0.0) - 0.25 * t1p)
+        dta_ded = ((_dta_series[i] or 0.0) * _dta_frac) if _td_on else 0.0
+        t1p = eq - intangk - dta_ded
+        mx = max(0.0, (msr2[i] or 0.0) - 0.25 * max(0.0, t1p))
         t1 = t1p - mx
-        aa = ((bs2["totalAssets"][i - 1] or 0.0) + (bs2["totalAssets"][i] or 0.0)) / 2.0 - mx
+        aa = ((bs2["totalAssets"][i - 1] or 0.0) + (bs2["totalAssets"][i] or 0.0)) / 2.0 - mx - dta_ded
         tier1.append(round(t1, 2)); msa_x.append(round(mx, 2)); avg_net.append(round(aa, 2))
         lev_drv.append(round(t1 / aa, 6) if aa else None)
     lev_eng = [None if x is None else round(x / 100.0, 6) for x in lev2[-len(lev_drv):]]
