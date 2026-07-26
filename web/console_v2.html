@@ -1826,11 +1826,21 @@ window.renderBands = async function(){
 
   // resolve the modeled value for a metric from the run results
   const AKEY = {roa:"roa", nim:"nim", efficiency:"eff"};
+  // Terminal-quarter (Q12) counterpart for the flow metrics, from the base scenario. This is the
+  // SAME number the Ratios tab shows (Q12 x4); we surface it alongside the terminal-year value so a
+  // user isn't confused when the peer-corridor figure (annual basis) differs from the Ratios tab.
+  const QKEY = {roa:"roa_q12", nim:"nim_q12"};
   function modeledFor(metric){
     if(!lastRes) return {v:null};
     if(AKEY[metric]){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
-      return {v:(ann&&ann.length)?ann[ann.length-1]:null};
+      const v = (ann&&ann.length)?ann[ann.length-1]:null;
+      let vq = null;
+      if(QKEY[metric]){
+        const b = (lastRes.scenarios||{}).base || {};
+        vq = (b[QKEY[metric]]!=null) ? b[QKEY[metric]] : null;
+      }
+      return {v:v, vq:vq};
     }
     // Risk-based capital ratios come from the engine's standardized block — the
     // REAL modeled ratios (percent), not the dollar amounts. tier1_rwa and total_rwa
@@ -1909,11 +1919,16 @@ window.renderBands = async function(){
     const bucket = bucketOf(m.v, latest);
     const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
     const _pQ = latestQ || "the latest quarter";
-    const modProv = `Modeled terminal-year (Q12) ${label} for your bank, computed by the engine from your entered assumptions.` + (m.note?(" "+m.note):"");
+    const modProv = `Modeled terminal-year (full year 3) ${label} for your bank, computed by the engine from your entered assumptions. Compared against the peer band, which is also on an annual (Call-Report) basis.` + (m.note?(" "+m.note):"");
     const bandProv = (pp)=>`${label} ${pp}th percentile of the ${useLending?"under $200M lending-peers":"selected"} cohort at ${_pQ}, from real FDIC/UBPR filers (n=${latest.n}) — peer data, not modeled.`;
+    // Secondary terminal-quarter (Q12) figure for flow metrics — the same number the Ratios tab
+    // shows — so the annual-basis peer comparison and the quarterly Ratios-tab value are both visible.
+    const q12Line = (m.vq!=null)
+      ? `<div style="font-size:9.5px;font-weight:400;color:#8FA3C0;margin-top:1px" data-prov title="Terminal-quarter (Q12) ${esc(label)}, annualized x4 — the figure shown on the Ratios tab. Differs from the terminal-year value above because it covers only the final quarter, not the full year.">Q12: ${m.vq.toFixed(2)}${pct}</div>`
+      : "";
     const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px;border-bottom:1px solid #24334D">${esc(m.note)}</td></tr>` : `<tr><td colspan="10" style="padding:0;border-bottom:1px solid #24334D"></td></tr>`;
     rows += `<tr><td>${esc(label)}</td>${basisCell}`
-      + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}</td>`
+      + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}${q12Line}</td>`
       + `<td class="num" data-prov title="${esc(bandProv(10))}">${(+latest.p10).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(25))}">${(+latest.p25).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(50))}">${(+latest.p50).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(75))}">${(+latest.p75).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(90))}">${(+latest.p90).toFixed(2)}</td>`
       + `<td data-prov title="Where your modeled value sits relative to the peer distribution, given this metric's risk direction (whether higher or lower is better)."><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(111,169,140,.16)':fav==='bad'?'rgba(204,119,119,.16)':'rgba(199,151,94,.14)'}">${bucket}</span></td>`
       + `<td class="num" data-prov title="Number of real peer banks in this cohort at ${esc(_pQ)}.">${latest.n}</td></tr>` + rowNote;
@@ -1944,7 +1959,7 @@ window.renderBands = async function(){
   h += '</table>';
   if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its terminal-year values against these peers.</div>`; }
   // the retained commentaries
-  h += `<div class="memo" style="margin-top:10px">Terminal-year modeled value against the most recent peer distribution. Color reflects where the bank sits relative to peers given each metric's risk direction. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
+  h += `<div class="memo" style="margin-top:10px">Modeled value against the most recent peer distribution. For flow metrics (ROA, NIM) the primary figure is the terminal <b>year</b> (full year 3) — the like-for-like basis for the peer band, which is also annual — and the smaller <b>Q12</b> line is the terminal quarter (the Ratios-tab figure); they differ because one covers the final year and the other the final quarter. Color reflects where the bank sits relative to peers given each metric's risk direction. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
   h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#7E8DA6">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
   body.innerHTML = h;
 };
@@ -2062,6 +2077,7 @@ function vintageSectionHtml(){
   }
   const V = window.vintage;
   h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
+  h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Flow-metric basis: the modeled ROA/NIM plotted here is each quarter's own figure (single-quarter, annualized), matching the Ratios tab's Q12 value at age 12. The peer bands come from filers' reported ROA/NIM, which are year-to-date annualized. Both are period flows, but the windows differ (single quarter vs YTD) — they converge at year-ends and can diverge mid-year. Stock metrics (capital ratios) are point-in-time and unaffected.</div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;
