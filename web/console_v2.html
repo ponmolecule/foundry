@@ -577,10 +577,26 @@ async function boot(){
   else { refresh(); }
   markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
 }
+function updateChangedChip(){
+  const chip = document.getElementById("chgChip"), rev = document.getElementById("revertBtn");
+  if(!chip || !rev) return;                 // not on the config page — nothing to update
+  const changed = changedSinceUpload();
+  if(changed){
+    chip.disabled = false; chip.style.opacity = ""; chip.style.cursor = "";
+    chip.style.borderColor = "#DFA85A"; chip.style.color = "#DFA85A";
+    chip.textContent = "\u25cf Changed since upload"; chip.setAttribute("onclick","showChangesSinceUpload()");
+    rev.disabled = false; rev.style.opacity = ""; rev.style.cursor = "";
+  } else {
+    chip.disabled = true; chip.style.opacity = ".5"; chip.style.cursor = "default";
+    chip.style.borderColor = ""; chip.style.color = "";
+    chip.textContent = "No changes since upload"; chip.removeAttribute("onclick");
+    rev.disabled = true; rev.style.opacity = ".5"; rev.style.cursor = "default";
+  }
+}
 function refresh(){ if(window.SNAPSHOT) return;
   // First real interaction on a blank canvas turns it into a live model.
   if(cfg && cfg._blank_canvas){ delete cfg._blank_canvas; }
-  clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); }
+  clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); updateChangedChip(); }
 /* ---------- working draft: autosaved only after a real edit ----------
    The draft must reflect deliberate work, never the pristine default nor a
    just-opened engagement. We snapshot the config whenever a clean state is
@@ -601,6 +617,77 @@ function scheduleAutosave(){
   if(isPristine()) return;                     // no edit since load -> no draft
   clearTimeout(_asTimer); _asTimer = setTimeout(autosaveNow, 2500);
 }
+
+/* ---- Frozen original (upload provenance & one-click recovery) --------------------------
+   Separate from _pristineJSON on purpose: _pristineJSON is re-baselined at various "clean"
+   moments (boot, opening a saved engagement) to suppress autosave, so it is NOT a safe
+   revert target. _uploadedOriginal is captured ONCE, at upload time, and never overwritten
+   by edits — the exact file the user brought. This is the state a "Revert to Original"
+   restores, and the baseline the "Changed since upload" indicator diffs against. */
+let _uploadedOriginal = null;    // {json, label, source} | null
+function freezeOriginal(source){
+  try{ _uploadedOriginal = {json: JSON.stringify(cfg),
+                            label: (cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name || "uploaded configuration"),
+                            source: source || "file"}; }
+  catch(e){ _uploadedOriginal = null; }
+}
+function hasOriginal(){ return _uploadedOriginal != null; }
+function changedSinceUpload(){
+  if(!_uploadedOriginal) return false;
+  try{ return JSON.stringify(cfg) !== _uploadedOriginal.json; }catch(e){ return false; }
+}
+// Plain-language change list: a shallow-ish walk of original vs current over the fields that
+// matter to a user. Not a general diff engine — it names the human-meaningful deltas.
+function changeListSinceUpload(){
+  if(!_uploadedOriginal) return [];
+  let orig; try{ orig = JSON.parse(_uploadedOriginal.json); }catch(e){ return []; }
+  const out = [];
+  const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
+  const A0 = (orig.assumptions||{}), A1 = (cfg.assumptions||{});
+  // initial capital
+  const ic0 = (orig.target_state||{}).initial_capital, ic1 = (cfg.target_state||{}).initial_capital;
+  if(ic0 !== ic1) out.push(`Initial capital: ${money(ic0)} \u2192 ${money(ic1)}`);
+  // pre-opening expenses (count + total) — the field that caused the incident
+  const po0 = ((orig.pre_opening||{}).expenses||[]), po1 = ((cfg.pre_opening||{}).expenses||[]);
+  const pot0 = po0.reduce((s,e)=>s+(e.total||0),0), pot1 = po1.reduce((s,e)=>s+(e.total||0),0);
+  if(po0.length !== po1.length || pot0 !== pot1)
+    out.push(`Pre-opening expenses: ${po0.length} item${po0.length===1?"":"s"} (${money(pot0)}) \u2192 ${po1.length} item${po1.length===1?"":"s"} (${money(pot1)})`);
+  // list-count deltas for the optional structures
+  const listField = (label, k) => {
+    const n0 = (A0[k]||[]).length, n1 = (A1[k]||[]).length;
+    if(n0 !== n1) out.push(`${label}: ${n0} \u2192 ${n1}`);
+  };
+  listField("Staged raises", "capital_raises");
+  listField("Scheduled borrowings", "scheduled_borrowings");
+  listField("Lending products", "lending_products");
+  listField("Deposit products", "deposit_products");
+  listField("Securities (AFS)", "securities_afs");
+  listField("Securities (HTM)", "securities_htm");
+  listField("Off-balance-sheet", "obs_exposures");
+  if(A0.premises_depreciation_annual !== A1.premises_depreciation_annual)
+    out.push(`Premises depreciation: ${money(A0.premises_depreciation_annual)} \u2192 ${money(A1.premises_depreciation_annual)} /yr`);
+  if(!!A0.tax_detail !== !!A1.tax_detail) out.push(`Deferred-tax detail: ${A0.tax_detail?"on":"off"} \u2192 ${A1.tax_detail?"on":"off"}`);
+  // catch-all: something changed we didn't itemise
+  if(out.length === 0 && changedSinceUpload()) out.push("Other input changes (see the workbook diff on re-import for the full list).");
+  return out;
+}
+window.revertToOriginal = function(){
+  if(!_uploadedOriginal) return;
+  const src = _uploadedOriginal.source === "file" ? "the file you uploaded"
+            : _uploadedOriginal.source;
+  if(!confirm(`Revert to ${src} (\u201c${_uploadedOriginal.label}\u201d)?\n\nThis discards every change you have made since the upload and restores the original inputs. It does not delete any file you have already downloaded.`)) return;
+  try{ cfg = JSON.parse(_uploadedOriginal.json); }catch(e){ return; }
+  if(typeof syncNameChrome === "function") syncNameChrome();
+  if(typeof syncModules === "function") syncModules();
+  renderGlobals(); renderContent(); refresh();
+  appStatus("ok", `<b>Reverted to ${esc(src)}.</b> Your edits since the upload were discarded; the original inputs are restored.`);
+};
+window.showChangesSinceUpload = function(){
+  const list = changeListSinceUpload();
+  if(!list.length){ appStatus("ok", "<b>No changes since upload</b> \u2014 the current inputs match the file you brought."); return; }
+  const rows = list.map(s=>`<div style="font-family:var(--mono);font-size:11.5px;margin:2px 0">\u2022 ${esc(s)}</div>`).join("");
+  appStatus("ok", `<b>Changed since upload of \u201c${esc(_uploadedOriginal.label)}\u201d:</b>${rows}<div style="margin-top:6px;color:#8FA3C0;font-size:11px">Use \u201cRevert to Original\u201d to discard these and restore the uploaded inputs.</div>`);
+};
 async function autosaveNow(){
   if(_asBusy || window.SNAPSHOT) return;
   if(isPristine()) return;   // re-check at fire time: a timer armed before the baseline
@@ -2691,9 +2778,14 @@ function dl(blob, filename){
   a.href = URL.createObjectURL(blob); a.download = filename; a.click();
   setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
 }
+function _dlName(ext){
+  const bank = (cfg.proposed_bank||cfg.client_legal_name||cfg.scenario_name||"configuration").replace(/[^A-Za-z0-9_-]+/g,"_");
+  const d = new Date(), z = n=>String(n).padStart(2,"0");
+  const stamp = `${d.getFullYear()}-${z(d.getMonth()+1)}-${z(d.getDate())}`;
+  return `${bank}_inputs_${stamp}.${ext}`;
+}
 function downloadScenario(){
-  dl(new Blob([JSON.stringify(cfg, null, 1)], {type:"application/json"}),
-     (cfg.proposed_bank||cfg.scenario_name||"configuration").replace(/[^A-Za-z0-9_-]+/g,"_") + ".json");
+  dl(new Blob([JSON.stringify(cfg, null, 1)], {type:"application/json"}), _dlName("json"));
 }
 async function uploadScenario(input){
   const f = input.files[0]; if(!f) return;
@@ -2701,6 +2793,7 @@ async function uploadScenario(input){
   try {
     const parsed = JSON.parse(await f.text());
     cfg = parsed;
+    freezeOriginal("the file you uploaded");
     const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
     syncNameChrome();
     renderGlobals(); refresh(); renderContent();
@@ -2712,7 +2805,7 @@ async function downloadWorkbook(){
   const r = await fetch("/api/v2/config-workbook", {method:"POST",
     headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
   if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
-  dl(await r.blob(), "foundry_v2_config.xlsx");
+  dl(await r.blob(), _dlName("xlsx"));
 }
 async function uploadWorkbook(input){
   const f = input.files[0]; if(!f) return;
@@ -2720,6 +2813,7 @@ async function uploadWorkbook(input){
   const j = await r.json();
   if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
   else { cfg = j; syncNameChrome();
+         freezeOriginal("the workbook you uploaded");
          renderGlobals(); refresh(); renderContent(); }
   input.value = "";
 }
@@ -2931,6 +3025,7 @@ async function uploadFIW(inp){
   let j; try{ j = await r.json(); }catch(e){ appStatus("err", `<b>Import failed</b> \u2014 the server returned an unreadable response (${r.status}). Nothing was changed.`); return; }
   if(!r.ok){ appStatus("err", `<b>Import refused (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   cfg = j.cfg;
+  freezeOriginal("the workbook you uploaded");
   const n = j.report.edit_count;
   const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
   const lines = j.report.edits.slice(0,8).map(e=>`<div style="font-family:var(--mono);font-size:11px">\u2022 ${esc(e.key)}: ${esc(String(e.from))} \u2192 ${esc(String(e.to))}</div>`).join("");
@@ -3543,7 +3638,17 @@ function renderConfigTab(){
     + '<button class="btn-plain" onclick="document.getElementById(\'upJson\').click()">Upload configuration\u2026</button>'
     + '<input id="upJson" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">'
     + '<span class="memo" style="margin:0">Download to archive or hand off; upload to load a charter candidate\u2019s parameter set into the workspace.</span>'
-    + '</div></div>';
+    + '</div>'
+    + (hasOriginal() ? (
+        '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--nline)">'
+        + (changedSinceUpload()
+            ? '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
+            : '<button id="chgChip" class="btn-plain" disabled style="opacity:.5;cursor:default">No changes since upload</button>')
+        + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()"' + (changedSinceUpload()?'':' disabled style="opacity:.5;cursor:default"') + '>Revert to Original</button>'
+        + '<span class="memo" style="margin:0">Recover the exact inputs you uploaded \u2014 revert restores them here; then download to get the original file back.</span>'
+        + '</div>'
+      ) : '')
+    + '</div>';
   h += '<div class="accent-label" style="color:#8A6D2F">Banker workbook (Excel)</div>';
   h += '<div class="card" style="margin-bottom:14px"><div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center">'
     + (snapshotMode ? '<span class="memo" style="margin:0">Available on the deployed workspace.</span>' :
