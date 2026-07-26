@@ -585,6 +585,24 @@ def v31_fiw(body: dict, _=Depends(gate)):
                     headers={"Content-Disposition": f'attachment; filename="fiw_{name}_{gh}.xlsx"'})
 
 
+@app.get("/api/v31/fiw/universal")
+def v31_fiw_universal(_=Depends(gate)):
+    """Universal template: a full-coverage FIW built from the bundled exhaustive config, so it
+    always matches the current engine and unit conventions. A scaffold/reference showing every
+    module's sheets and labels — not tied to any engagement."""
+    from fastapi.responses import Response
+    from foundry.v2.fiw import build_fiw
+    import json as _json
+    try:
+        cfg = _json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
+    except Exception:
+        return JSONResponse({"error": "universal template config missing"}, status_code=500)
+    data, gh = build_fiw(cfg)
+    return Response(content=data,
+                    media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="foundry_universal_template_{gh}.xlsx"'})
+
+
 @app.post("/api/v31/fiw/import")
 async def v31_fiw_import(file: UploadFile = File(...), current: str = Form("{}"), _=Depends(gate)):
     """Diff-import of a filled FIW: only human edits apply; fail-closed."""

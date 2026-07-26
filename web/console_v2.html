@@ -670,89 +670,91 @@ function rehydrateOriginal(loadedCfg){
 }
 function hasOriginal(){ return _uploadedOriginal != null; }
 function changedSinceUpload(){
+  // Derive "changed" from the itemised walk itself: if the walk finds no user-meaningful change,
+  // nothing changed — full stop. This makes the badge, chip, count, and revert all consistent, and
+  // makes render-injected system defaults (which the walk never inspects) structurally unable to
+  // register as a phantom change.
   if(!_uploadedOriginal) return false;
-  try{
-    // Compare on a normalised, key-sorted basis so lazy render defaults (stress_params,
-    // obs_exposures) and JSON key ordering can never register as a phantom change. Both the
-    // live cfg and the frozen baseline are put through the same normalisation + stable stringify.
-    const live = normalizeCfg(JSON.parse(JSON.stringify(cfg))); delete live._uploaded_original;
-    const base = normalizeCfg(JSON.parse(_uploadedOriginal.json)); delete base._uploaded_original;
-    return _stableStr(live) !== _stableStr(base);
-  }catch(e){ return false; }
-}
-function _stableStr(o){
-  return JSON.stringify(o, (k, v) => {
-    if(v && typeof v === "object" && !Array.isArray(v)){
-      return Object.keys(v).sort().reduce((a, key) => (a[key] = v[key], a), {});
-    }
-    return v;
-  });
+  try{ return changeCountSinceUpload() > 0; }catch(e){ return false; }
 }
 // Plain-language change list: a shallow-ish walk of original vs current over the fields that
 // matter to a user. Not a general diff engine — it names the human-meaningful deltas.
 function changeListSinceUpload(){
   if(!_uploadedOriginal) return [];
-  let orig; try{ orig = JSON.parse(_uploadedOriginal.json); }catch(e){ return []; }
+  let orig; try{ orig = normalizeCfg(JSON.parse(_uploadedOriginal.json)); }catch(e){ return []; }
+  const cur = normalizeCfg(JSON.parse(JSON.stringify(cfg)));
   const out = [];
-  const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";           // raw $ -> $000s
+  const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
   const pct   = v => (v==null?"\u2014":(v*100).toFixed(2).replace(/\.?0+$/,"")+"%");
-  const num   = v => (v==null?"\u2014":(+v).toLocaleString());
-  // classify a field key so we format its delta with the right unit
+  const num   = v => (v==null?"\u2014":(typeof v==="number"?(+v).toLocaleString():String(v)));
   const MONEY_KEYS = new Set(["initial_capital","opening_balance","originations_q","new_deposits_q",
     "amount","notional","opening","purchases_q","total","premises_equipment","intangibles",
-    "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_m","aum_open"]);
+    "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_m","aum_open","min_day1_capital"]);
   const RATE_KEYS = new Set(["growth_q","runoff_q","orig_growth_q","charge_off_ann","provision_rate_ann",
     "reserve_rate_pct_bal","fee_yield_ann","opex_pct_ann","yield_ann","rate_paid_ann","index_spread",
     "rate_ann","cash_target_pct_deposits","cash_yield","securities_yield","borrow_rate_ann",
-    "discount_spread_ann","tax_rate","interchange_rate","network_fee_rate","aum_growth_q"]);
+    "discount_spread_ann","tax_rate","interchange_rate","network_fee_rate","aum_growth_q","aum_growth",
+    "gain_on_sale_margin","sale_pct_of_orig","servicing_fee_bp_ann","msr_cap_rate_pct_upb","msr_decay_q",
+    "gos_margin_compression","msr_value_haircut","origination_volume_haircut","sale_share_retention_shift"]);
   const fmtFor = (key, v) => MONEY_KEYS.has(key) ? money(v) : (RATE_KEYS.has(key) ? pct(v) : num(v));
-  const label = k => k.replace(/_/g," ").replace(/\bann\b/,"(annual)").replace(/\bq\b/,"/qtr")
-                       .replace(/^./,c=>c.toUpperCase());
-  const near = (a,b) => (typeof a==="number"&&typeof b==="number") ? Math.abs(a-b) < 1e-9 : a===b;
+  const label = k => String(k).replace(/_/g," ").replace(/\bann\b/,"(annual)").replace(/\bq\b/,"/qtr")
+                       .replace(/\bpct\b/,"%").replace(/^./,c=>c.toUpperCase());
+  const near = (a,b) => (typeof a==="number"&&typeof b==="number") ? Math.abs(a-b) < 1e-9 : (a??"")===(b??"");
+  const isObj = v => v && typeof v==="object" && !Array.isArray(v);
+  // keys that are system/derived — never user intent, never itemised
+  const SKIP = new Set(["_uploaded_original","_blank_canvas","call_report_line","__RATE__","__RATE_BASELINE__"]);
 
-  // scalar diff over a flat object's fields
-  function diffScalars(o0, o1, prefix){
+  // Recursive scalar diff of two objects at a given display prefix. Recurses into nested objects
+  // (mortgage_banking, fee_modules internals, nie_detail, stress_params); named lists routed to diffList.
+  function deep(o0, o1, prefix){
     const keys = new Set([...Object.keys(o0||{}), ...Object.keys(o1||{})]);
     keys.forEach(k=>{
+      if(SKIP.has(k)) return;
       const v0=(o0||{})[k], v1=(o1||{})[k];
-      if(v0 && typeof v0==="object") return;        // handled elsewhere (lists/objects)
-      if(v1 && typeof v1==="object") return;
+      if(Array.isArray(v0) || Array.isArray(v1)){ return; }         // arrays handled by named diffList
+      if(isObj(v0) || isObj(v1)){ deep(v0||{}, v1||{}, `${prefix}${label(k)} \u00b7 `); return; }
       if(!near(v0,v1)) out.push(`${prefix}${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
     });
   }
-  // list-of-named-items diff (products, raises, securities…): adds, removes, per-field changes
   function diffList(labelName, arr0, arr1, nameKey){
     arr0=arr0||[]; arr1=arr1||[];
     const key = it => (nameKey && it && it[nameKey]!=null) ? String(it[nameKey]) : null;
-    const byName0 = {}, byName1 = {};
-    arr0.forEach((it,i)=>{ byName0[key(it) ?? ("#"+i)] = it; });
-    arr1.forEach((it,i)=>{ byName1[key(it) ?? ("#"+i)] = it; });
-    const names = new Set([...Object.keys(byName0), ...Object.keys(byName1)]);
-    names.forEach(nm=>{
-      const a=byName0[nm], b=byName1[nm];
+    const b0={}, b1={};
+    arr0.forEach((it,i)=>{ b0[key(it) ?? ("#"+i)]=it; });
+    arr1.forEach((it,i)=>{ b1[key(it) ?? ("#"+i)]=it; });
+    new Set([...Object.keys(b0),...Object.keys(b1)]).forEach(nm=>{
+      const a=b0[nm], b=b1[nm];
       const disp = nm.startsWith("#") ? `${labelName} ${(+nm.slice(1))+1}` : `${labelName} \u201c${nm}\u201d`;
       if(a && !b){ out.push(`Removed ${disp}`); return; }
       if(!a && b){ out.push(`Added ${disp}`); return; }
-      // both present — per-field scalar diff, prefixed with the item name
-      diffScalars(a, b, `${disp} \u00b7 `);
+      deep(a, b, `${disp} \u00b7 `);
     });
   }
 
   // identity
   ["proposed_bank","client_legal_name","scenario_name"].forEach(k=>{
-    if((orig[k]||"")!==(cfg[k]||"")) out.push(`${label(k)}: \u201c${orig[k]||"\u2014"}\u201d \u2192 \u201c${cfg[k]||"\u2014"}\u201d`);
+    if((orig[k]||"")!==(cur[k]||"")) out.push(`${label(k)}: \u201c${orig[k]||"\u2014"}\u201d \u2192 \u201c${cur[k]||"\u2014"}\u201d`);
   });
-  // target state (initial capital etc.)
-  diffScalars(orig.target_state, cfg.target_state, "");
-  // pre-opening (count + total, the incident field)
-  const po0=((orig.pre_opening||{}).expenses||[]), po1=((cfg.pre_opening||{}).expenses||[]);
+  deep(orig.target_state, cur.target_state, "");
+  // pre-opening summarised (count + total)
+  const po0=((orig.pre_opening||{}).expenses||[]), po1=((cur.pre_opening||{}).expenses||[]);
   const pot0=po0.reduce((s,e)=>s+(e.total||0),0), pot1=po1.reduce((s,e)=>s+(e.total||0),0);
   if(po0.length!==po1.length || !near(pot0,pot1))
     out.push(`Pre-opening expenses: ${po0.length} item${po0.length===1?"":"s"} (${money(pot0)}) \u2192 ${po1.length} item${po1.length===1?"":"s"} (${money(pot1)})`);
-  // global assumption scalars
-  diffScalars(orig.assumptions, cfg.assumptions, "");
-  // product & structure lists
-  const A0=orig.assumptions||{}, A1=cfg.assumptions||{};
+  // assumption scalars + nested objects (fee_modules, stress lives at top level — handled below)
+  const A0=orig.assumptions||{}, A1=cur.assumptions||{};
+  // scalars + nested objects under assumptions, EXCLUDING the named lists (routed to diffList)
+  const LISTS = new Set(["lending_products","deposit_products","capital_raises","scheduled_borrowings",
+                         "securities_afs","securities_htm","obs_exposures"]);
+  (function(){
+    const keys=new Set([...Object.keys(A0),...Object.keys(A1)]);
+    keys.forEach(k=>{ if(LISTS.has(k)||SKIP.has(k)) return;
+      const v0=A0[k],v1=A1[k];
+      if(Array.isArray(v0)||Array.isArray(v1)) return;
+      if(isObj(v0)||isObj(v1)){ deep(v0||{},v1||{},`${label(k)} \u00b7 `); return; }
+      if(!near(v0,v1)) out.push(`${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
+    });
+  })();
   diffList("Lending product", A0.lending_products, A1.lending_products, "name");
   diffList("Deposit product", A0.deposit_products, A1.deposit_products, "name");
   diffList("Staged raise", A0.capital_raises, A1.capital_raises, null);
@@ -764,8 +766,8 @@ function changeListSinceUpload(){
   [["tax_detail","Deferred-tax detail"],["credit_regime","Credit regime (CECL)"],["nie_detail","Operating-expense detail"]].forEach(([k,lab])=>{
     if(!!A0[k] !== !!A1[k]) out.push(`${lab}: ${A0[k]?"on":"off"} \u2192 ${A1[k]?"on":"off"}`);
   });
-  // last-resort catch-all (should rarely fire now)
-  if(out.length===0 && changedSinceUpload()) out.push("Inputs changed (fields not individually itemised).");
+  // top-level stress multipliers (user-editable on the stress tab; normalised on both sides)
+  deep(orig.stress_params, cur.stress_params, "Stress \u00b7 ");
   return out;
 }
 function changeCountSinceUpload(){ return changeListSinceUpload().length; }
@@ -777,7 +779,8 @@ window.revertToOriginal = function(){
   try{ cfg = JSON.parse(_uploadedOriginal.json); }catch(e){ return; }
   if(typeof syncNameChrome === "function") syncNameChrome();
   if(typeof syncModules === "function") syncModules();
-  renderGlobals(); renderContent(); refresh();
+  window._startChipShown = false;                 // force the Start-tab chip/revert to drop
+  renderGlobals(); renderContent(); refresh(); updateChangedChip();
   appStatus("ok", `<b>Reverted to ${esc(src)}.</b> Your edits since the upload were discarded; the original inputs are restored.`);
 };
 window.showChangesSinceUpload = function(){
@@ -2953,6 +2956,13 @@ window.delEngagement = async function(slug){
   const r = await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}`, {method:"DELETE"});
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Delete failed</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   appStatus("ok", `<b>Deleted</b> \u201c${esc(slug)}\u201d from the engagement store.`);
+  // If the deleted engagement is the one whose upload we're tracking (the working session), the
+  // frozen original goes with it — otherwise a "changed since upload" record would outlive the
+  // engagement it belonged to. Clearing it drops the chip/badge cleanly.
+  const curSlug = (cfg.scenario_name||cfg.client_legal_name||cfg.proposed_bank||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
+  if(slug==="working-session" || slug==="working-session-autosaved" || slug===curSlug || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
+    _uploadedOriginal = null; window._startChipShown = false; updateChangedChip();
+  }
   loadEngStore(true); setTimeout(renderContent, 250);
 };
 window.saveCurrentEng = async function(){
@@ -3090,6 +3100,19 @@ async function downloadFIW(){
   aEl.click(); URL.revokeObjectURL(aEl.href);
 }
 window.downloadFIW = downloadFIW;
+async function downloadUniversalTemplate(){
+  const r = await fetch("/api/v31/fiw/universal");
+  if(!r.ok){ appStatus("err", "<b>Could not generate the universal template.</b>"); return; }
+  const blob = await r.blob();
+  const cd = r.headers.get("Content-Disposition")||"";
+  const m = cd.match(/filename="([^"]+)"/);
+  const aEl = document.createElement("a");
+  aEl.href = URL.createObjectURL(blob);
+  aEl.download = m ? m[1] : "foundry_universal_template.xlsx";
+  aEl.click(); URL.revokeObjectURL(aEl.href);
+  appStatus("ok", "<b>Universal template downloaded.</b> It covers every module\u2019s sheets and labels \u2014 a blank scaffold to fill in Excel, not tied to any engagement.");
+}
+window.downloadUniversalTemplate = downloadUniversalTemplate;
 function appStatus(kind, html){
   const el = document.getElementById("appStatus");
   if(kind === null){ el.style.display = "none"; el.innerHTML = ""; return; }
@@ -3375,6 +3398,7 @@ function renderStart(){
     + (snapshotMode ? '' : '<div style="margin-top:9px;display:flex;gap:8px;flex-wrap:wrap">'
       + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()" title="Downloads your current inputs as a workbook, named for this bank and today\'s date">Download current inputs</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
+      + (V31 ? '<button class="btn-plain" onclick="downloadUniversalTemplate()" title="A blank full-coverage workbook showing every module\'s sheets and labels \u2014 a scaffold to fill in Excel, not tied to any engagement">Download universal template</button>' : '')
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>'
       + ((hasOriginal() && changedSinceUpload()) ? (
           '<div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--nline);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
