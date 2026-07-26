@@ -3132,7 +3132,7 @@ document.addEventListener("click", (ev)=>{
     const A = cfg.assumptions;
     const act = tile.getAttribute("data-act");
     if(act==="cap"){
-      const on = (A.capital_raises||[]).length + ((cfg.pre_opening||{}).expenses||[]).length
+      const on = (A.capital_raises||[]).length
                + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0) > 0;
       on ? capClear() : capSeed();
     } else if(act==="secaoci"){
@@ -3254,9 +3254,24 @@ window.capSeed = function(){
 };
 window.feeSeed = function(){ fmOn('interchange'); };
 window.capClear = function(){
-  cfg.assumptions.capital_raises = []; cfg.assumptions.scheduled_borrowings = [];
-  cfg.assumptions.premises_depreciation_annual = 0;
-  if(cfg.pre_opening){ cfg.pre_opening.expenses = []; cfg.pre_opening.min_day1_capital = 0; }
+  // Confirm before destroying non-empty capital data, and NEVER touch pre_opening here:
+  // pre-opening expenses are a day-one capital commitment entered in their own sub-column,
+  // not a staged capital action. Bundling them into this "clear" silently wiped a user's
+  // 11,500 organizational expense when they toggled the module — the deletion then rode into
+  // their export. The capital-module toggle now governs only raises, scheduled borrowings,
+  // and depreciation; pre-opening is managed on its own (per-expense x delete in the card).
+  const A = cfg.assumptions;
+  const nR = (A.capital_raises||[]).length, nB = (A.scheduled_borrowings||[]).length;
+  const hasDep = !!A.premises_depreciation_annual;
+  if(nR + nB + (hasDep?1:0) > 0){
+    const bits = [];
+    if(nR) bits.push(nR + " staged raise" + (nR===1?"":"s"));
+    if(nB) bits.push(nB + " scheduled borrowing" + (nB===1?"":"s"));
+    if(hasDep) bits.push("premises depreciation");
+    if(!confirm("Turn off Capital structure? This removes " + bits.join(", ")
+                + ". Pre-opening expenses are kept \u2014 edit those in the card below.")) return;
+  }
+  A.capital_raises = []; A.scheduled_borrowings = []; A.premises_depreciation_annual = 0;
   renderContent(); refresh();
 };
 window.secClear = function(){
@@ -3302,11 +3317,11 @@ function structuresSectionsHtml(){
     ["BaaS", !!(A.fee_modules&&A.fee_modules.baas)],
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
   const lampMap = Object.fromEntries(lamps);
-  const capOn = lampMap["Pre-opening"]||lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
+  const capOn = lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
   const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
   const FEE5 = [["Interchange","wave"],["Service charges","doc"],["Trust","bank"],["BaaS","cube"],["Payments","stack"]];
   const feeOnN = FEE5.filter(([n])=>lampMap[n]).length;
-  const capN = (A.capital_raises||[]).length + ((cfg.pre_opening||{}).expenses||[]).length
+  const capN = (A.capital_raises||[]).length
              + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0);
   const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
   h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
@@ -3317,7 +3332,7 @@ function structuresSectionsHtml(){
   // Securities tile (its card twin already holds both).
   const secAociTileOn = secN > 0 || !!lampMap["AOCI"];
   h += swTile("Capital structure &amp;<br>pre-opening", capOn, "cap", "bank", "",
-              capOn?"On \u2014 click to clear all capital structures (instant)":"Off \u2014 click to activate with a default Q4 raise");
+              capOn?"On \u2014 click to clear staged raises, scheduled borrowings and depreciation (pre-opening is kept; confirms first)":"Off \u2014 click to activate with a default Q4 raise");
   h += swTile("Securities books<br>&amp; AOCI", secAociTileOn, "secaoci", "doc", "",
               secAociTileOn?"On \u2014 click to remove all designated books and zero AOCI (instant)":"Off \u2014 click to activate with a default AFS book");
   h += swTile("Operating<br>expense", !!A.nie_detail, "nie", "calc", "",
