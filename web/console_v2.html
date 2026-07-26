@@ -333,8 +333,10 @@ table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align
 /* Inside .ovt tables the per-cell data-prov underline (box-shadow, line 347) stacks on top of the
    row's own border-bottom, producing a DOUBLED line — and on tall two-line rows the shadow sits at
    the content-box bottom (mid-row) while the border sits at the row bottom, so the two separate.
-   Suppress the shadow here; the table's border-bottom is the single, correct row separator. */
-table.ovt td[data-prov], table.ovt th[data-prov]{box-shadow:none}
+   Suppress the shadow here; the table's border-bottom is the single, correct row separator. This
+   covers nested elements too (e.g. the inner Q12 secondary <div data-prov> in the modeled cell),
+   which a td/th-only selector missed. */
+table.ovt [data-prov]{box-shadow:none}
 table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
 /* Ruled-grid variant for the flag/threshold ledger: full cell borders + centered
    headers. Scoped so the peer-comparison and vintage .ovt tables are unaffected. */
