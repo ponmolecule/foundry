@@ -634,6 +634,29 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                           "p90": _pctl(vals, 90) if len(vals) >= min_n else None,
                           "suppressed": len(vals) < min_n})
         corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
+        # Optional "later ages" bucket for net charge-off ONLY: de novo charge-offs season in after
+        # ~age 12, which the Q1-Q12 corridor cannot show. Bucket Q13-Q24 (years 4-6), computed as
+        # PER-BANK average within the bucket, then percentiles across banks (survivorship-aware:
+        # one value per bank, not per bank-quarter). Suppressed like any age when thin. Peer-history
+        # only — no modeled overlay extends here (the modeled bank exists only 12 quarters). The main
+        # corridor stays strictly Q1-Q12; this is a separate, opt-in summary the UI can toggle.
+        if metric == "net_charge_off_rate":
+            per_bank = []
+            for (m2, c2), s in series.items():
+                if m2 != metric:
+                    continue
+                window = s[12:24]  # ages 13..24 (0-indexed 12..23)
+                if window:
+                    per_bank.append(sum(window) / len(window))
+            per_bank.sort()
+            n_late = len(per_bank)
+            corridor[metric]["later"] = {
+                "label": "Q13\u2013Q24", "n": n_late, "suppressed": n_late < min_n,
+                "p25": _pctl(per_bank, 25) if n_late >= min_n else None,
+                "p50": _pctl(per_bank, 50) if n_late >= min_n else None,
+                "p75": _pctl(per_bank, 75) if n_late >= min_n else None,
+                "p90": _pctl(per_bank, 90) if n_late >= min_n else None,
+            }
         if metric in ("tier1_ratio", "cet1_ratio"):
             corridor[metric]["accuracy"] = (
                 "cet1 and tier1 are now item-derived and distinct (the earlier "

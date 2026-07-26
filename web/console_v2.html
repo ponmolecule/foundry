@@ -1926,7 +1926,7 @@ window.renderBands = async function(){
     const q12Line = (m.vq!=null)
       ? `<div style="font-size:9.5px;font-weight:400;color:#8FA3C0;margin-top:1px" data-prov title="Terminal-quarter (Q12) ${esc(label)}, annualized x4 — the figure shown on the Ratios tab. Differs from the terminal-year value above because it covers only the final quarter, not the full year.">Q12: ${m.vq.toFixed(2)}${pct}</div>`
       : "";
-    const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px;border-bottom:1px solid #24334D">${esc(m.note)}</td></tr>` : `<tr><td colspan="10" style="padding:0;border-bottom:1px solid #24334D"></td></tr>`;
+    const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
     rows += `<tr><td>${esc(label)}</td>${basisCell}`
       + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}${q12Line}</td>`
       + `<td class="num" data-prov title="${esc(bandProv(10))}">${(+latest.p10).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(25))}">${(+latest.p25).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(50))}">${(+latest.p50).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(75))}">${(+latest.p75).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(90))}">${(+latest.p90).toFixed(2)}</td>`
@@ -2011,6 +2011,8 @@ const METRIC_DIRECTION = {
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
 const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
 window.vintageModeled = vintageModeled;
+window._vintageLater = false;   // show the Q13-Q24 charge-off seasoning bucket (off by default)
+window.setVintageLater = function(v){ window._vintageLater = !!v; renderContent(); };
 function vintageModeled(mk){
   if(!lastRes) return null;
   if(mk === "__t1rwa"){
@@ -2101,9 +2103,23 @@ function vintageSectionHtml(){
     const vBasis = (metric==="roa"||metric==="nim"||metric==="efficiency_ratio"||metric==="net_charge_off_rate") ? "Flow"
                  : (metric==="tier1_ratio"||metric==="cet1_ratio"||metric==="leverage_ratio") ? "Stock" : "";
     h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${vBasis?` (${vBasis})`:""}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
-    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + '</tr>';
+    // Charge-off only: an opt-in "later ages" bucket (Q13-Q24) showing that de novo charge-offs
+    // season in AFTER the 12-quarter horizon. The main table stays strictly Q1-Q12; the bucket is
+    // an extra, toggled column of peer history (no modeled overlay). Demonstrates the flat-zero
+    // Q1-Q12 band is the vintage story, not a defect.
+    const showLater = (metric==="net_charge_off_rate" && M.later);
+    const later = window._vintageLater;
+    if(metric==="net_charge_off_rate"){
+      h += `<label class="ftplabel" style="font-size:10.5px;margin:2px 0 6px"><input type="checkbox"${later?" checked":""} onchange="setVintageLater(this.checked)"> show later ages (Q13\u2013Q24) \u2014 where de novo charge-offs season in`;
+      if(later && M.later) h += ` <span style="color:#8FA3C0">\u00b7 bucket n=${M.later.n}${M.later.suppressed?" (thin \u2014 suppressed)":""}</span>`;
+      h += `</label>`;
+    }
+    const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #24334D;color:#DFA85A">${esc(M.later.label)}</th>` : "";
+    const lateCell = (p)=> (showLater && later)
+      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #24334D;color:#DFA85A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
+    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
     ["p90","p75","p50","p25"].forEach(p=>{
-      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + '</tr>';
+      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
     });
     if(modeled){
       h += '<tr><td style="color:#DFA85A">Modeled</td>' + M.ages.map(a=>{
@@ -2111,16 +2127,16 @@ function vintageSectionHtml(){
         if(v===undefined || a.p25===null) return '<td style="text-align:right">\u2014</td>';
         const col = (v>a.p75||v<a.p25) ? "#DFA85A" : "#8FA3C0";
         return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
-      }).join("") + '</tr>';
+      }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #24334D;color:#8FA3C0" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';
       h += '<tr><td>Verdict</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
         if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#8FA3C0">\u2014</td>';
         const t = v>a.p75 ? "above" : (v<a.p25 ? "below" : "inside");
         return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
-      }).join("") + '</tr>';
+      }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#8FA3C0;border-left:2px solid #24334D">\u2014</td>' : "") + '</tr>';
     }
-    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#8FA3C0">${a.n}</td>`).join("") + '</tr></table></div>';
-    h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}</div>`;
+    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#8FA3C0">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#8FA3C0;border-left:2px solid #24334D">${M.later.n}</td>` : "") + '</tr></table></div>';
+    h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}${(showLater && later) ? " \u00b7 Q13\u2013Q24 bucket: per-bank average within the window, then percentiles across banks \u2014 peer history only, no modeled overlay." : ""}</div>`;
   });
   return h;
 }
