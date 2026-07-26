@@ -15,12 +15,17 @@ def _k(x):
     return round(x / 1000.0, 2)
 
 
-def _conv(tree, is_ratio=False):
+def _conv(tree, is_ratio=False, raw=False):
+    # ftp_rate is a per-quarter decimal rate CONSUMED to compute the dollar FTP charge (not a
+    # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
+    # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
-        return {k: _conv(v, is_ratio or k in ("ratios", "rateQ", "ftp_rate")) for k, v in tree.items()}
+        return {k: _conv(v, is_ratio or k in ("ratios", "rateQ"), raw or k == "ftp_rate")
+                for k, v in tree.items()}
     if isinstance(tree, list):
-        return [_conv(x, is_ratio) if isinstance(x, (dict, list))
-                else ((None if x is None else round(x, 2)) if is_ratio else _k(x))
+        return [_conv(x, is_ratio, raw) if isinstance(x, (dict, list))
+                else (x if raw
+                      else ((None if x is None else round(x, 2)) if is_ratio else _k(x)))
                 for x in tree]
     return tree
 
