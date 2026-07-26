@@ -373,6 +373,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
   <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
+  <button id="changeBadge" onclick="showChangesSinceUpload()" style="display:none;margin-left:6px;border:1px solid #DFA85A;background:rgba(223,168,90,.12);color:#DFA85A;border-radius:3px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer" title="Inputs changed since you uploaded — click to see the list">\u25cf 0 changes</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
 <div id="appStatus" style="display:none"></div>
@@ -579,19 +580,22 @@ async function boot(){
   markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
 }
 function updateChangedChip(){
-  const chip = document.getElementById("chgChip"), rev = document.getElementById("revertBtn");
-  if(!chip || !rev) return;                 // not on the config page — nothing to update
-  const changed = changedSinceUpload();
-  if(changed){
-    chip.disabled = false; chip.style.opacity = ""; chip.style.cursor = "";
-    chip.style.borderColor = "#DFA85A"; chip.style.color = "#DFA85A";
-    chip.textContent = "\u25cf Changed since upload"; chip.setAttribute("onclick","showChangesSinceUpload()");
-    rev.disabled = false; rev.style.opacity = ""; rev.style.cursor = "";
-  } else {
-    chip.disabled = true; chip.style.opacity = ".5"; chip.style.cursor = "default";
-    chip.style.borderColor = ""; chip.style.color = "";
-    chip.textContent = "No changes since upload"; chip.removeAttribute("onclick");
-    rev.disabled = true; rev.style.opacity = ".5"; rev.style.cursor = "default";
+  // top-right badge: appears only when something differs; shows the change count.
+  const badge = document.getElementById("changeBadge");
+  if(badge){
+    if(hasOriginal() && changedSinceUpload()){
+      const n = changeCountSinceUpload();
+      badge.textContent = "\u25cf " + n + " change" + (n===1?"":"s") + " since upload";
+      badge.style.display = "";
+    } else {
+      badge.style.display = "none";
+    }
+  }
+  // Start-tab chip + revert render only when changedSinceUpload() is true. When the changed-state
+  // flips (either direction) while the user is on the Start tab, re-render so they appear/disappear.
+  if(currentTab==="start" && typeof renderStart==="function"){
+    const nowChanged = hasOriginal() && changedSinceUpload();
+    if(nowChanged !== window._startChipShown){ window._startChipShown = nowChanged; renderStart(); }
   }
 }
 function refresh(){ if(window.SNAPSHOT) return;
@@ -661,35 +665,81 @@ function changeListSinceUpload(){
   if(!_uploadedOriginal) return [];
   let orig; try{ orig = JSON.parse(_uploadedOriginal.json); }catch(e){ return []; }
   const out = [];
-  const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
-  const A0 = (orig.assumptions||{}), A1 = (cfg.assumptions||{});
-  // initial capital
-  const ic0 = (orig.target_state||{}).initial_capital, ic1 = (cfg.target_state||{}).initial_capital;
-  if(ic0 !== ic1) out.push(`Initial capital: ${money(ic0)} \u2192 ${money(ic1)}`);
-  // pre-opening expenses (count + total) — the field that caused the incident
-  const po0 = ((orig.pre_opening||{}).expenses||[]), po1 = ((cfg.pre_opening||{}).expenses||[]);
-  const pot0 = po0.reduce((s,e)=>s+(e.total||0),0), pot1 = po1.reduce((s,e)=>s+(e.total||0),0);
-  if(po0.length !== po1.length || pot0 !== pot1)
+  const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";           // raw $ -> $000s
+  const pct   = v => (v==null?"\u2014":(v*100).toFixed(2).replace(/\.?0+$/,"")+"%");
+  const num   = v => (v==null?"\u2014":(+v).toLocaleString());
+  // classify a field key so we format its delta with the right unit
+  const MONEY_KEYS = new Set(["initial_capital","opening_balance","originations_q","new_deposits_q",
+    "amount","notional","opening","purchases_q","total","premises_equipment","intangibles",
+    "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_m","aum_open"]);
+  const RATE_KEYS = new Set(["growth_q","runoff_q","orig_growth_q","charge_off_ann","provision_rate_ann",
+    "reserve_rate_pct_bal","fee_yield_ann","opex_pct_ann","yield_ann","rate_paid_ann","index_spread",
+    "rate_ann","cash_target_pct_deposits","cash_yield","securities_yield","borrow_rate_ann",
+    "discount_spread_ann","tax_rate","interchange_rate","network_fee_rate","aum_growth_q"]);
+  const fmtFor = (key, v) => MONEY_KEYS.has(key) ? money(v) : (RATE_KEYS.has(key) ? pct(v) : num(v));
+  const label = k => k.replace(/_/g," ").replace(/\bann\b/,"(annual)").replace(/\bq\b/,"/qtr")
+                       .replace(/^./,c=>c.toUpperCase());
+  const near = (a,b) => (typeof a==="number"&&typeof b==="number") ? Math.abs(a-b) < 1e-9 : a===b;
+
+  // scalar diff over a flat object's fields
+  function diffScalars(o0, o1, prefix){
+    const keys = new Set([...Object.keys(o0||{}), ...Object.keys(o1||{})]);
+    keys.forEach(k=>{
+      const v0=(o0||{})[k], v1=(o1||{})[k];
+      if(v0 && typeof v0==="object") return;        // handled elsewhere (lists/objects)
+      if(v1 && typeof v1==="object") return;
+      if(!near(v0,v1)) out.push(`${prefix}${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
+    });
+  }
+  // list-of-named-items diff (products, raises, securities…): adds, removes, per-field changes
+  function diffList(labelName, arr0, arr1, nameKey){
+    arr0=arr0||[]; arr1=arr1||[];
+    const key = it => (nameKey && it && it[nameKey]!=null) ? String(it[nameKey]) : null;
+    const byName0 = {}, byName1 = {};
+    arr0.forEach((it,i)=>{ byName0[key(it) ?? ("#"+i)] = it; });
+    arr1.forEach((it,i)=>{ byName1[key(it) ?? ("#"+i)] = it; });
+    const names = new Set([...Object.keys(byName0), ...Object.keys(byName1)]);
+    names.forEach(nm=>{
+      const a=byName0[nm], b=byName1[nm];
+      const disp = nm.startsWith("#") ? `${labelName} ${(+nm.slice(1))+1}` : `${labelName} \u201c${nm}\u201d`;
+      if(a && !b){ out.push(`Removed ${disp}`); return; }
+      if(!a && b){ out.push(`Added ${disp}`); return; }
+      // both present — per-field scalar diff, prefixed with the item name
+      diffScalars(a, b, `${disp} \u00b7 `);
+    });
+  }
+
+  // identity
+  ["proposed_bank","client_legal_name","scenario_name"].forEach(k=>{
+    if((orig[k]||"")!==(cfg[k]||"")) out.push(`${label(k)}: \u201c${orig[k]||"\u2014"}\u201d \u2192 \u201c${cfg[k]||"\u2014"}\u201d`);
+  });
+  // target state (initial capital etc.)
+  diffScalars(orig.target_state, cfg.target_state, "");
+  // pre-opening (count + total, the incident field)
+  const po0=((orig.pre_opening||{}).expenses||[]), po1=((cfg.pre_opening||{}).expenses||[]);
+  const pot0=po0.reduce((s,e)=>s+(e.total||0),0), pot1=po1.reduce((s,e)=>s+(e.total||0),0);
+  if(po0.length!==po1.length || !near(pot0,pot1))
     out.push(`Pre-opening expenses: ${po0.length} item${po0.length===1?"":"s"} (${money(pot0)}) \u2192 ${po1.length} item${po1.length===1?"":"s"} (${money(pot1)})`);
-  // list-count deltas for the optional structures
-  const listField = (label, k) => {
-    const n0 = (A0[k]||[]).length, n1 = (A1[k]||[]).length;
-    if(n0 !== n1) out.push(`${label}: ${n0} \u2192 ${n1}`);
-  };
-  listField("Staged raises", "capital_raises");
-  listField("Scheduled borrowings", "scheduled_borrowings");
-  listField("Lending products", "lending_products");
-  listField("Deposit products", "deposit_products");
-  listField("Securities (AFS)", "securities_afs");
-  listField("Securities (HTM)", "securities_htm");
-  listField("Off-balance-sheet", "obs_exposures");
-  if(A0.premises_depreciation_annual !== A1.premises_depreciation_annual)
-    out.push(`Premises depreciation: ${money(A0.premises_depreciation_annual)} \u2192 ${money(A1.premises_depreciation_annual)} /yr`);
-  if(!!A0.tax_detail !== !!A1.tax_detail) out.push(`Deferred-tax detail: ${A0.tax_detail?"on":"off"} \u2192 ${A1.tax_detail?"on":"off"}`);
-  // catch-all: something changed we didn't itemise
-  if(out.length === 0 && changedSinceUpload()) out.push("Other input changes (see the workbook diff on re-import for the full list).");
+  // global assumption scalars
+  diffScalars(orig.assumptions, cfg.assumptions, "");
+  // product & structure lists
+  const A0=orig.assumptions||{}, A1=cfg.assumptions||{};
+  diffList("Lending product", A0.lending_products, A1.lending_products, "name");
+  diffList("Deposit product", A0.deposit_products, A1.deposit_products, "name");
+  diffList("Staged raise", A0.capital_raises, A1.capital_raises, null);
+  diffList("Scheduled borrowing", A0.scheduled_borrowings, A1.scheduled_borrowings, "name");
+  diffList("Security (AFS)", A0.securities_afs, A1.securities_afs, "name");
+  diffList("Security (HTM)", A0.securities_htm, A1.securities_htm, "name");
+  diffList("Off-balance-sheet", A0.obs_exposures, A1.obs_exposures, "name");
+  // module on/off
+  [["tax_detail","Deferred-tax detail"],["credit_regime","Credit regime (CECL)"],["nie_detail","Operating-expense detail"]].forEach(([k,lab])=>{
+    if(!!A0[k] !== !!A1[k]) out.push(`${lab}: ${A0[k]?"on":"off"} \u2192 ${A1[k]?"on":"off"}`);
+  });
+  // last-resort catch-all (should rarely fire now)
+  if(out.length===0 && changedSinceUpload()) out.push("Inputs changed (fields not individually itemised).");
   return out;
 }
+function changeCountSinceUpload(){ return changeListSinceUpload().length; }
 window.revertToOriginal = function(){
   if(!_uploadedOriginal) return;
   const src = _uploadedOriginal.source === "file" ? "the file you uploaded"
@@ -3297,12 +3347,10 @@ function renderStart(){
       + '<button class="btn-plain" onclick="V31 ? downloadFIW() : downloadWorkbook()" title="Downloads your current inputs as a workbook, named for this bank and today\'s date">Download current inputs</button>'
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>'
-      + (hasOriginal() ? (
+      + ((hasOriginal() && changedSinceUpload()) ? (
           '<div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--nline);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-          + (changedSinceUpload()
-              ? '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
-              : '<button id="chgChip" class="btn-plain" disabled style="opacity:.5;cursor:default">No changes since upload</button>')
-          + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()"' + (changedSinceUpload()?'':' disabled style="opacity:.5;cursor:default"') + '>Revert to Original</button>'
+          + '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
+          + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()">Revert to Original</button>'
           + '</div>'
         ) : ''))
     + '</div>'
