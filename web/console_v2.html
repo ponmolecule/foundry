@@ -2077,7 +2077,7 @@ function vintageSectionHtml(){
   }
   const V = window.vintage;
   h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
-  h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Flow-metric basis: the modeled ROA/NIM plotted here is each quarter's own figure (single-quarter, annualized), matching the Ratios tab's Q12 value at age 12. The peer bands come from filers' reported ROA/NIM, which are year-to-date annualized. Both are period flows, but the windows differ (single quarter vs YTD) — they converge at year-ends and can diverge mid-year. Stock metrics (capital ratios) are point-in-time and unaffected.</div>`;
+  h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">Flow-metric basis: the modeled ROA, NIM and efficiency plotted here are each quarter's own figure (single-quarter, annualized), matching the Ratios tab at age 12. The peer bands for these come from filers' reported values, which are year-to-date annualized (cumulative income \u00d74/quarter). Both are period flows, but the windows differ (single quarter vs YTD) \u2014 they converge at year-ends and can diverge mid-year. Stock metrics (capital ratios) are point-in-time and unaffected.</div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;

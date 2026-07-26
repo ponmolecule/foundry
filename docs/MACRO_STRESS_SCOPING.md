@@ -98,6 +98,31 @@ Per `DB_RESPONSE_macro_stress.md` (read-back token MACRO_STRESS_RESPONSE_V1):
    is blank for ~2,454 backfill (historical/exited) banks → ratio-ceiling guard is the
    denominator-agnostic backstop for those.
 
+### 5a. Annualization-convention divergence in the stored metrics (flagged — decide before assembling the panel)
+Confirmed with the database thread (JPM 2025 signature + arithmetic): the substrate stores its flow
+metrics on **two different annualization clocks**, and they are not interchangeable on a quarterly panel.
+- `roa`, `nim`, `efficiency` — **YTD-annualized**: cumulative (year-to-date) net income / net interest
+  income / expense, ×(4/quarter), over average assets (or earning assets). A running annualized average
+  that glides down over the year as it fills in — it dampens quarter-to-quarter variation.
+- `net_charge_off_rate` — **UBPR single-quarter**: the isolated quarter's flow (`YTD_q − YTD_{q-1}`) ×4.
+  Built this way deliberately to match Klarify; it preserves quarter-to-quarter variation.
+- The **modeled** side of every one of these (Foundry `financials.ratios.*`) is single-quarter.
+
+Consequence for the macro panel: if the outcome variable is `net_charge_off_rate` (clean single-quarter
+response) and `roa`/`nim` are used as controls, the outcome and the controls are on **different clocks** —
+the controls are YTD-smeared and will understate quarter-to-quarter co-movement with the macro vector.
+This does not affect the primary method (§4: sensitivity is imported from DFAST, not learned in-panel),
+but it directly affects the §6.4 enhancement experiment if earnings terms enter it. **Decision owed before
+the panel is built:** either (a) restrict the regression to the single-quarter charge-off outcome and its
+segment balances (no YTD earnings controls), or (b) have the earnings family (`roa`/`nim`/`efficiency`)
+rebuilt on the same one-quarter basis charge-off already uses, so outcome and controls share a clock.
+This is the convention divergence originally noted at M5; recorded here concretely because it is now on
+the path of the stress panel, not a general observation. The Vintage Corridor surfaces the same divergence
+harmlessly (a labeled note): modeled single-quarter vs peer YTD for roa/nim/efficiency — there the two are
+merely *displayed* side by side, not regressed together, so a note suffices; the panel is where it must be
+resolved, not merely disclosed.
+
+
 ## 6. Foundry-side build (this repo, when dependencies land)
 1. **Macro scenario input** — accept a macro path (baseline / adverse / severe) on the quarterly
    grid; at minimum let the rate scenario take a *path* and a *curve shape*, not just a parallel
