@@ -337,11 +337,10 @@ table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align
    covers nested elements too (e.g. the inner Q12 secondary <div data-prov> in the modeled cell),
    which a td/th-only selector missed. */
 table.ovt [data-prov]{box-shadow:none}
-/* Two-line rows (metric + Q12 secondary): draw the separator on the ROW, with the cells carrying no
-   bottom border, so under border-collapse the single line renders at the row's true bottom (below the
-   Q12 line) instead of each short cell drawing its own rule mid-height. Numbers keep top alignment. */
-table.ovt tr.pb-twoline td{border-bottom:none;vertical-align:top}
-table.ovt tr.pb-twoline{border-bottom:1px solid #1C2940}
+/* A metric row followed by its Q12 sub-row: suppress the metric row's own border so the ONLY separator
+   is the sub-row's border, which sits below the Q12 line — the pair reads as one unit, no rule between
+   the number and its Q12 figure. Both cells are single-line, so no height mismatch, no stray rule. */
+table.ovt tr.pb-hasq12 td{border-bottom:none}
 table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
 /* Ruled-grid variant for the flag/threshold ledger: full cell borders + centered
    headers. Scoped so the peer-comparison and vintage .ovt tables are unaffected. */
@@ -1933,17 +1932,20 @@ window.renderBands = async function(){
     const _pQ = latestQ || "the latest quarter";
     const modProv = `Modeled terminal-year (full year 3) ${label} for your bank, computed by the engine from your entered assumptions. Compared against the peer band, which is also on an annual (Call-Report) basis.` + (m.note?(" "+m.note):"");
     const bandProv = (pp)=>`${label} ${pp}th percentile of the ${useLending?"under $200M lending-peers":"selected"} cohort at ${_pQ}, from real FDIC/UBPR filers (n=${latest.n}) — peer data, not modeled.`;
-    // Secondary terminal-quarter (Q12) figure for flow metrics — the same number the Ratios tab
-    // shows — so the annual-basis peer comparison and the quarterly Ratios-tab value are both visible.
-    const q12Line = (m.vq!=null)
-      ? `<div style="font-size:9.5px;font-weight:400;color:#8FA3C0;margin-top:1px" data-prov title="Terminal-quarter (Q12) ${esc(label)}, annualized x4 — the figure shown on the Ratios tab. Differs from the terminal-year value above because it covers only the final quarter, not the full year.">Q12: ${m.vq.toFixed(2)}${pct}</div>`
+    // Secondary terminal-quarter (Q12) figure for flow metrics — the same number the Ratios tab shows.
+    // Rendered as its own full-width sub-row (NOT inside the modeled cell): a taller modeled cell made
+    // its border-bottom mismatch the shorter sibling cells, drawing a stray mid-row rule on ROA/NIM.
+    // As a separate row there is no height mismatch. The empty leading cells push it under the Modeled
+    // column so it still reads as a note on the modeled value.
+    const q12Row = (m.vq!=null)
+      ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#8FA3C0;padding-top:0" data-prov title="Terminal-quarter (Q12) ${esc(label)}, annualized x4 — the figure shown on the Ratios tab. Differs from the terminal-year value because it covers only the final quarter, not the full year.">Q12: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
       : "";
     const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
-    rows += `<tr${q12Line?' class="pb-twoline"':''}><td>${esc(label)}</td>${basisCell}`
-      + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}${q12Line}</td>`
+    rows += `<tr${(m.vq!=null)?' class="pb-hasq12"':''}><td>${esc(label)}</td>${basisCell}`
+      + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}</td>`
       + `<td class="num" data-prov title="${esc(bandProv(10))}">${(+latest.p10).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(25))}">${(+latest.p25).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(50))}">${(+latest.p50).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(75))}">${(+latest.p75).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(90))}">${(+latest.p90).toFixed(2)}</td>`
       + `<td data-prov title="Where your modeled value sits relative to the peer distribution, given this metric's risk direction (whether higher or lower is better)."><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(111,169,140,.16)':fav==='bad'?'rgba(204,119,119,.16)':'rgba(199,151,94,.14)'}">${bucket}</span></td>`
-      + `<td class="num" data-prov title="Number of real peer banks in this cohort at ${esc(_pQ)}.">${latest.n}</td></tr>` + rowNote;
+      + `<td class="num" data-prov title="Number of real peer banks in this cohort at ${esc(_pQ)}.">${latest.n}</td></tr>` + q12Row + rowNote;
   });
 
   let h = "";
