@@ -415,12 +415,20 @@ def run_pf_a(cfg):
         if _nie_d:
             # Patrick's NIE granularity (F-071): FTE-step comp + category lines +
             # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.
+            # Assessment RATES are engagement assumptions (12 CFR 327 schedule / 12 CFR 8):
+            # read from the config's nie_detail block when set, else the REG_PARAMS default.
+            _fdic_bp = _nie_d.get("fdic_bp_ann")
+            if _fdic_bp is None:
+                _fdic_bp = _RP["assessments"]["fdic_bp_ann"]
+            _occ_bp = _nie_d.get("occ_bp_ann")
+            if _occ_bp is None:
+                _occ_bp = _RP["assessments"]["occ_bp_ann"]
             _avg_a_q = (bs["totalAssets"][q - 1] + 0.0) if q >= 1 else 0.0
             # avg assets this quarter approximated as (prior end + tentative end)/2 is
             # circular pre-plug; use prior end (disclosed) — assessments accrue on it
             _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
-            _fdic = max(0.0, _avg_a_q - _tang_eq) * _RP["assessments"]["fdic_bp_ann"] / 10000.0 / 4.0
-            _occ = _avg_a_q * _RP["assessments"]["occ_bp_ann"] / 10000.0 / 4.0
+            _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / 4.0
+            _occ = _avg_a_q * float(_occ_bp) / 10000.0 / 4.0
             _sub = (_nie_d["comp"][q - 1] + _nie_d["categories"][q - 1]
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]

@@ -44,7 +44,11 @@ def nie_detail_series(a):
     comp = [fte[min((q - 1) // 4, 2)] * loaded / 4.0 for q in range(1, Q + 1)]
     cats = [float(sum(c.get("per_quarter", 0.0) for c in (nd.get("categories") or [])))] * Q
     return {"comp": comp, "categories": cats,
-             "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0)}
+             "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
+             # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
+             # the REG_PARAMS default, so an untouched config's assessments are byte-identical.
+             "fdic_bp_ann": (float(nd["fdic_bp_ann"]) if nd.get("fdic_bp_ann") is not None else None),
+             "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
 
 def fee_module_series(a):

@@ -287,6 +287,14 @@ def _nie_sheet(ws, nd):
     if nd.get("other_gross_up_rate") is not None:
         _row("nie_detail.other_gross_up_rate", "Overhead", "Other gross-up rate",
              nd.get("other_gross_up_rate"), "share of subtotal")
+    # regulatory assessment rates — engagement assumptions (12 CFR 327 FDIC / 12 CFR 8 OCC).
+    # Only emitted when overridden; a blank cell on re-import falls back to the REG_PARAMS default.
+    if nd.get("fdic_bp_ann") is not None:
+        _row("nie_detail.fdic_bp_ann", "Assessments", "FDIC assessment rate",
+             nd.get("fdic_bp_ann"), "bp/year (blank = 5.0 default)")
+    if nd.get("occ_bp_ann") is not None:
+        _row("nie_detail.occ_bp_ann", "Assessments", "OCC assessment rate",
+             nd.get("occ_bp_ann"), "bp/year (blank = 1.5 default)")
     # category lines (array of {name, per_quarter}).
     for i, cat in enumerate(nd.get("categories") or []):
         _row(f"nie_detail.categories.{i}.name", f"Category {i + 1}", "Name",
@@ -520,6 +528,10 @@ def _settings_sheet(wb, cfg):
                 cat.get("per_quarter") if cat.get("per_quarter") is not None else cat.get("amount_q"), "$/quarter")
         if nd.get("other_gross_up_rate") is not None:
             row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
+        if nd.get("fdic_bp_ann") is not None:
+            row("FDIC assessment rate", nd.get("fdic_bp_ann"), "bp/yr (default 5.0)")
+        if nd.get("occ_bp_ann") is not None:
+            row("OCC assessment rate", nd.get("occ_bp_ann"), "bp/yr (default 1.5)")
     else:
         row("(not active)", "")
     sec("Credit regime (ASC 326)")
