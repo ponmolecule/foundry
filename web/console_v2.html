@@ -716,19 +716,28 @@ function changeListSinceUpload(){
       if(!near(v0,v1)) out.push(`${prefix}${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
     });
   }
-  function diffList(labelName, arr0, arr1, nameKey){
+  // List diff by STABLE identity, not position — otherwise removing a non-last item shifts every
+  // later item's index and manufactures spurious per-field diffs (the staged-raise bug). keyFn maps
+  // an item to its identity; dispFn renders that identity for display.
+  function diffList(labelName, arr0, arr1, keyFn, dispFn){
     arr0=arr0||[]; arr1=arr1||[];
-    const key = it => (nameKey && it && it[nameKey]!=null) ? String(it[nameKey]) : null;
     const b0={}, b1={};
-    arr0.forEach((it,i)=>{ b0[key(it) ?? ("#"+i)]=it; });
-    arr1.forEach((it,i)=>{ b1[key(it) ?? ("#"+i)]=it; });
-    new Set([...Object.keys(b0),...Object.keys(b1)]).forEach(nm=>{
-      const a=b0[nm], b=b1[nm];
-      const disp = nm.startsWith("#") ? `${labelName} ${(+nm.slice(1))+1}` : `${labelName} \u201c${nm}\u201d`;
+    arr0.forEach((it,i)=>{ b0[keyFn(it,i)]=it; });
+    arr1.forEach((it,i)=>{ b1[keyFn(it,i)]=it; });
+    new Set([...Object.keys(b0),...Object.keys(b1)]).forEach(k=>{
+      const a=b0[k], b=b1[k];
+      const disp = dispFn(k, a||b);
       if(a && !b){ out.push(`Removed ${disp}`); return; }
       if(!a && b){ out.push(`Added ${disp}`); return; }
       deep(a, b, `${disp} \u00b7 `);
     });
+  }
+  // named lists: identity = the item's name (stable across reordering/removal); index only as a
+  // last resort for a genuinely unnamed item.
+  function namedList(labelName, a0, a1, nameKey){
+    diffList(labelName, a0, a1,
+      (it,i)=> (it && it[nameKey]!=null && it[nameKey]!=="") ? ("N:"+it[nameKey]) : ("#"+i),
+      (k)=> k.startsWith("N:") ? `${labelName} \u201c${k.slice(2)}\u201d` : `${labelName} ${(+k.slice(1))+1}`);
   }
 
   // identity
@@ -755,13 +764,17 @@ function changeListSinceUpload(){
       if(!near(v0,v1)) out.push(`${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
     });
   })();
-  diffList("Lending product", A0.lending_products, A1.lending_products, "name");
-  diffList("Deposit product", A0.deposit_products, A1.deposit_products, "name");
-  diffList("Staged raise", A0.capital_raises, A1.capital_raises, null);
-  diffList("Scheduled borrowing", A0.scheduled_borrowings, A1.scheduled_borrowings, "name");
-  diffList("Security (AFS)", A0.securities_afs, A1.securities_afs, "name");
-  diffList("Security (HTM)", A0.securities_htm, A1.securities_htm, "name");
-  diffList("Off-balance-sheet", A0.obs_exposures, A1.obs_exposures, "name");
+  namedList("Lending product", A0.lending_products, A1.lending_products, "name");
+  namedList("Deposit product", A0.deposit_products, A1.deposit_products, "name");
+  // raises have no name — identity is the quarter they land in ("the raise at Qtr 4"), so removing
+  // a non-last raise no longer shifts indices and manufactures phantom edits.
+  diffList("Staged raise", A0.capital_raises, A1.capital_raises,
+    (it,i)=> (it && it.quarter!=null) ? ("Q:"+it.quarter) : ("#"+i),
+    (k)=> k.startsWith("Q:") ? `Staged raise (Qtr ${k.slice(2)})` : `Staged raise ${(+k.slice(1))+1}`);
+  namedList("Scheduled borrowing", A0.scheduled_borrowings, A1.scheduled_borrowings, "name");
+  namedList("Security (AFS)", A0.securities_afs, A1.securities_afs, "name");
+  namedList("Security (HTM)", A0.securities_htm, A1.securities_htm, "name");
+  namedList("Off-balance-sheet", A0.obs_exposures, A1.obs_exposures, "name");
   // module on/off
   [["tax_detail","Deferred-tax detail"],["credit_regime","Credit regime (CECL)"],["nie_detail","Operating-expense detail"]].forEach(([k,lab])=>{
     if(!!A0[k] !== !!A1[k]) out.push(`${lab}: ${A0[k]?"on":"off"} \u2192 ${A1[k]?"on":"off"}`);
