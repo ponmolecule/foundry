@@ -828,9 +828,9 @@ def t23():
             == _json.dumps({k: _ron["scenarios"][s].get(k) for k in _ron["scenarios"][s] if k != "label"},
                            sort_keys=True, default=str)
             for s in ("base", "credit", "rate", "combined"))
-        check("T-DFAST-1", "DFAST additive + default-on: base+four identical on/off; present by default, hidden when set False",
+        check("T-DFAST-1", "DFAST additive + ALWAYS-ON: base+four bit-identical regardless; present by default and NOT suppressible (stale dfast_severe:false still shows it)",
               _fin_same2 and _scen_same2 and "dfast_severe" in _ron["scenarios"]
-              and "dfast_severe" not in _roff2["scenarios"])
+              and "dfast_severe" in _roff2["scenarios"])
 
         # T-DFAST-2: mapped line accrues ~the registry rate over the 9Q window; unmapped line falls
         # back to the client's own rate (no fabricated stress).

@@ -65,13 +65,12 @@ def scenarios_from(cfg):
     # It NEVER replaces the multiplier-based Credit Deterioration scenario; the two coexist and
     # the contrast is intentional. Absent the opt-in or the registry, the scenario set is
     # bit-identical to the prior four.
-    # DFAST severe overlay — a supervisory-severe scenario, ON BY DEFAULT (set
-    # stress_params.dfast_severe to False to hide it). A single column using the FRONT-LOADED
-    # loss shape: it never understates stress, and the level-vs-front distinction is negligible
-    # except for a bank balanced exactly on the leverage floor (verified: Calamity 0.35pp,
-    # Coverall 0.07pp) — two near-identical columns would mislead, so one is shown. Additive:
+    # DFAST severe overlay — a supervisory-severe scenario, ALWAYS SHOWN. A single column using
+    # the FRONT-LOADED loss shape: it never understates stress, and the level-vs-front distinction
+    # is negligible except for a bank balanced exactly on the leverage floor (verified: Calamity
+    # 0.35pp, Coverall 0.07pp) — two near-identical columns would mislead, so one is shown. Additive:
     # never replaces the multiplier-based Credit Deterioration scenario; the contrast is the point.
-    if (cfg.get("stress_params") or {}).get("dfast_severe", True) is not False:
+    if True:
         try:
             from foundry.v2.dfast_lossrates import dfast_rates
             _dfv = dfast_rates((cfg.get("stress_params") or {}).get("dfast_version"))
@@ -302,10 +301,10 @@ def run_v2(cfg):
     # Three-way per-segment charge-off comparison (the contrast that sells the tool): for each
     # lending product, the client's own annual charge-off rate, that rate x the credit multiplier,
     # and the DFAST severe rate for the product's category (annualized-equivalent from the 9Q
-    # cumulative for like-for-like comparison). Attached only when DFAST is enabled; the DFAST
-    # column is blank for lines the registry does not map (no fabricated stress).
+    # cumulative for like-for-like comparison). Always computed; the DFAST column is blank for
+    # lines the registry does not map (no fabricated stress).
     dfast_segments = None
-    if (cfg.get("stress_params") or {}).get("dfast_severe", True) is not False:
+    if True:
         try:
             from foundry.v2.dfast_lossrates import dfast_rates as _drs
             _dfvfull = _drs((cfg.get("stress_params") or {}).get("dfast_version"))
