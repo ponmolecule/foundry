@@ -630,8 +630,22 @@ function scheduleAutosave(){
    by edits — the exact file the user brought. This is the state a "Revert to Original"
    restores, and the baseline the "Changed since upload" indicator diffs against. */
 let _uploadedOriginal = null;    // {json, label, source} | null
+// Apply the same lazy defaults the render paths fill in (stress_params, obs_exposures), so the
+// frozen baseline matches the SETTLED config. Without this, the first render after upload adds
+// these fields to the live cfg and the baseline diff shows a phantom "1 change (not itemised)".
+function normalizeCfg(c){
+  if(!c) return c;
+  c.stress_params = Object.assign(
+    {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300, origination_volume_haircut:0.40,
+     gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25},
+    c.stress_params || {});
+  c.assumptions = c.assumptions || {};
+  c.assumptions.obs_exposures = c.assumptions.obs_exposures || [];
+  return c;
+}
 function freezeOriginal(source){
   try{
+    normalizeCfg(cfg);                                  // settle cfg before snapshotting
     // Never let the frozen copy contain a prior frozen copy (would nest and grow unboundedly).
     const clean = JSON.parse(JSON.stringify(cfg)); delete clean._uploaded_original;
     _uploadedOriginal = {json: JSON.stringify(clean),
@@ -657,7 +671,22 @@ function rehydrateOriginal(loadedCfg){
 function hasOriginal(){ return _uploadedOriginal != null; }
 function changedSinceUpload(){
   if(!_uploadedOriginal) return false;
-  try{ return JSON.stringify(cfg) !== _uploadedOriginal.json; }catch(e){ return false; }
+  try{
+    // Compare on a normalised, key-sorted basis so lazy render defaults (stress_params,
+    // obs_exposures) and JSON key ordering can never register as a phantom change. Both the
+    // live cfg and the frozen baseline are put through the same normalisation + stable stringify.
+    const live = normalizeCfg(JSON.parse(JSON.stringify(cfg))); delete live._uploaded_original;
+    const base = normalizeCfg(JSON.parse(_uploadedOriginal.json)); delete base._uploaded_original;
+    return _stableStr(live) !== _stableStr(base);
+  }catch(e){ return false; }
+}
+function _stableStr(o){
+  return JSON.stringify(o, (k, v) => {
+    if(v && typeof v === "object" && !Array.isArray(v)){
+      return Object.keys(v).sort().reduce((a, key) => (a[key] = v[key], a), {});
+    }
+    return v;
+  });
 }
 // Plain-language change list: a shallow-ish walk of original vs current over the fields that
 // matter to a user. Not a general diff engine — it names the human-meaningful deltas.
