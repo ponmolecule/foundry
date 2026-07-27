@@ -2579,7 +2579,7 @@ function renderOverview(){
     if(r.schema_version!=null) bits.push(`Config <b style="color:#C4CDDD">${esc(String(r.schema_version))}</b>`);
     if(r.config_hash) bits.push(`Run <b style="font-family:var(--mono);color:#C4CDDD">${esc(String(r.config_hash).slice(0,10))}</b>`);
     if(r.engine_version) bits.push(`Engine <b style="color:#C4CDDD">${esc(String(r.engine_version).replace(/^foundry-engine\s*/,""))}</b>`);
-    bits.push(`Peer snapshot <b style="color:#C4CDDD">${(_peerCohort && _peerCohort.snapshot_id)?esc(_peerCohort.snapshot_id):"pending"}</b>`);
+    bits.push(`Peer snapshot <b id="peerSnapBit" style="color:#C4CDDD">${(_peerCohort && _peerCohort.snapshot_id)?esc(_peerCohort.snapshot_id):"pending"}</b>`);
     bits.push(`Generated <b style="color:#C4CDDD">${new Date().toISOString().slice(0,16).replace("T"," ")}Z</b>`);
     h += `<div style="font-size:10.5px;color:#6E7C93;margin:-8px 0 12px;font-family:var(--mono)">${bits.join(' \u00b7 ')}</div>`;
   }
@@ -2698,6 +2698,19 @@ function renderOverview(){
     fetch("/api/v31/challenge-thresholds", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({cfg: cfgRef(), total_assets_000s: _ta})}).then(x=>x.json()).then(t=>{
     const el = document.getElementById("threshLedger"); if(!el) return;
     const peerTier = t.tier==="provisional_peer";
+    // The top-line "Peer snapshot" reads r.peer.cohort.snapshot_id, which the engine never populates
+    // (peer bands resolve through THIS calibrated endpoint, not through r.peer). So bind the top-line
+    // to the real resolved state: when the substrate calibrated, show the per-metric vintage (e.g.
+    // 2026Q1); only say "pending" when no band resolved. Purely a label fix — no numbers change.
+    try{
+      const _snap = document.getElementById("peerSnapBit");
+      if(_snap){
+        let _vint = null;
+        if(peerTier){ const _wb = (t.thresholds||[]).map(th=>th.peer && th.peer.vintage).filter(Boolean);
+          _vint = _wb.length ? _wb[0] : null; }
+        _snap.textContent = _vint || (peerTier ? "resolved" : "pending");
+      }
+    }catch(e){}
     el.innerHTML = `<div style="font-size:10.5px;color:#8FA3C0;margin:0 0 6px">Severity is the rule\u2019s built-in class, not a verdict on this plan. \u201cYour plan\u201d shows whether the rule actually fired on the values entered.</div>`
       + `<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:172px;white-space:nowrap">Peer band (p10 \u00b7 median \u00b7 p90)</th>':''}<th style="width:84px;white-space:nowrap">Model input</th><th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
       + t.thresholds.map(th=>{
@@ -2837,7 +2850,7 @@ function renderOverview(){
     h += `<tr><td>${esc(lbl)}</td><td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc(t.key)}</td>`+
       `<td class="num">${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td class="num">${(t.threshold*100).toFixed(1)}%</td>`+
       `<td><span class="ovtag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
-      `<td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc(t.source||"")}</td></tr>`;
+      `<td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc((t.source||"").replace(/\s*\(edit with citation\)\s*/i,"").trim())}</td></tr>`;
   });
   h += '</table>';
   h += '<div class="memo" style="margin-top:10px;font-size:10.5px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers.</div>';
@@ -2887,7 +2900,8 @@ function renderOverview(){
   // Download affordance — right on the Executive Summary, not just the ribbon. Exports the full exhibit
   // whose first sheets are this generated verdict + peer appendix (export parity).
   h += `<div style="margin-top:20px;padding-top:14px;border-top:1px solid #1E2C42;display:flex;align-items:center;gap:10px">
-    <button class="btn-gold" onclick="exportExcel()" title="Download the results exhibit — opens with this Executive Summary (verdict, issue families, sign-off, peer appendix), then the full schedules.">Download Executive Summary &amp; exhibit</button>
+    <button class="btn-gold" onclick="exportExecPdf()" title="Download this Executive Summary as a PDF — the verdict, drivers, sign-off items, and both finding streams as a clean client document.">Download Executive Summary (PDF)</button>
+    <button class="btn-plain" onclick="exportExcel()" style="margin-left:8px" title="Download the full results exhibit as Excel — this Executive Summary plus every schedule.">Excel exhibit</button>
     <span style="font-size:10.5px;color:#6E7C93">Excel workbook \u2014 opens with this verdict, bound to run ${esc(String(r.config_hash||"").slice(0,10))}.</span>
   </div>`;
   el.innerHTML = h;
@@ -4607,6 +4621,15 @@ async function exportExcel(){
   a.href = URL.createObjectURL(b); a.download = "proforma_exhibit.xlsx"; a.click();
 }
 window.exportExcel=exportExcel;
+async function exportExecPdf(){
+  const r = await fetch("/api/v2/exec-summary-pdf", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
+  if(r.status===422){ alert("Fail-closed: complete the open questions first."); return; }
+  if(r.status===503){ alert("PDF export isn't available on this server right now \u2014 use the Excel exhibit instead (top-right, or the button beside this one)."); return; }
+  if(!r.ok){ alert("Could not generate the PDF \u2014 the Excel exhibit remains available."); return; }
+  const b = await r.blob(); const a = document.createElement("a");
+  a.href = URL.createObjectURL(b); a.download = "executive_summary.pdf"; a.click();
+}
+window.exportExecPdf=exportExecPdf;
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot(); } else { currentTab = "welcome"; renderContent(); } });

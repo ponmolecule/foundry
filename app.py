@@ -1020,6 +1020,30 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
                              headers={"Content-Disposition": "attachment; filename=proforma_exhibit.xlsx"})
 
 
+@app.post("/api/v2/exec-summary-pdf")
+def v2_exec_summary_pdf(cfg: dict, _=Depends(gate)):
+    """Executive-summary PDF for the posted configuration. Isolated and defensive: the PDF toolkit is
+    imported lazily inside the composer, so a missing dependency yields a clean 503 here rather than
+    affecting app boot or any other route. The Excel exhibit (/api/v2/exhibit) is unaffected either way.
+    """
+    import io as _io
+    from fastapi.responses import StreamingResponse
+    from foundry.v2.parity import run_parity
+    from foundry.v2.validate_q import validate_errors_v2
+    errs = validate_errors_v2(cfg)
+    if errs:
+        return JSONResponse({"valid": False, "errors": errs}, status_code=422)
+    try:
+        from foundry.v2.exec_pdf import exec_summary_pdf
+        pdf_bytes = exec_summary_pdf(cfg, run_parity(cfg))
+    except RuntimeError as e:
+        # PDF toolkit unavailable in this deployment — tell the caller cleanly; the Excel export
+        # remains the working fallback. This path never crashes the app.
+        return JSONResponse({"valid": False, "error": f"PDF export unavailable: {e}"}, status_code=503)
+    return StreamingResponse(_io.BytesIO(pdf_bytes), media_type="application/pdf",
+                             headers={"Content-Disposition": "attachment; filename=executive_summary.pdf"})
+
+
 @app.post("/api/v2/config-workbook")
 def v2_config_workbook(cfg: dict, _=Depends(gate)):
     """Banker-native config workbook (A.14) for the posted configuration."""
