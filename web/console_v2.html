@@ -2594,10 +2594,11 @@ function renderOverview(){
   // TIER 3 — evidence begins with the INPUT REASONABLENESS REVIEW (lead, open)
   h += '<div class="ovh3" style="margin-top:20px">Input reasonableness review</div>';
   h += '<div id="reasonReview" style="font-size:11.5px;color:#C4CDDD">building examiner review\u2026</div>';
-  h += '<div class="ovh3" style="margin-top:20px">Evidence \u2014 flags &amp; challenge results</div>';
+  h += '<div class="ovh3" style="margin-top:20px">Challenge thresholds &amp; flag detail</div>';
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
   if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
+  h += '<div class="memo" style="font-size:10.5px;margin:2px 0 0">The rules the challenge layer judged against, and \u2014 below \u2014 the full per-flag detail behind the reasonableness review above.</div>';
   h += '<details style="margin:8px 0 14px"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
   setTimeout(()=>{ const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
     const _firedIds = new Set((r.flags||[]).map(f=>String(f.id||"")));
