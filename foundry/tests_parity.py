@@ -346,7 +346,7 @@ def main():
                     'class="ovwm"', "insufficient evidence",
                     "Engagement sequence", "renderPeer", "renderExaminer",
                     "Flags &amp; challenge results", "Constraint tests, every scenario",
-                    "renderOverview", "breakeven_q", '"config","Configuration"', '"gov","Governance"',
+                    "renderOverview", "Earnings durability", "_verdictBlock", "Decision drivers", '"config","Configuration"', '"gov","Governance"',
                     "Client configuration (JSON)", "Download configuration",
                     "Upload configuration", "config-workbook", "parse-workbook",
                     "Freeze current run", "Re-verify", "/api/v2/registry",

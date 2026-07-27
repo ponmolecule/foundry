@@ -2346,6 +2346,139 @@ function renderExaminer(){
   }
   el.innerHTML = h;
 }
+/* ============================================================================
+   Executive Summary v2 — deterministic verdict generation (see docs/EXEC_SUMMARY_REDESIGN.md)
+   Every string/number is assembled from a named model field. No free-composed prose, no absolute
+   claims. Precedence 0 (integrity/completeness) gates the viability verdict; constraint SOURCE drives
+   the noun; language is meets/does-not-meet, never viable/clean.
+   ============================================================================ */
+// The noun for a capital constraint, from its declared source.
+function _constraintNoun(src){
+  const s = String(src||"").toLowerCase();
+  if(s.includes("regulat")) return "capital requirement";
+  if(s.includes("charter")||s.includes("application")) return "capital commitment";
+  if(s.includes("board")||s.includes("management")||s.includes("target")) return "management capital target";
+  if(s.includes("commitment")) return "capital commitment";     // engagement commitment
+  return "engagement capital threshold";
+}
+// Precedence 0: can the model even support a verdict? Returns a call string or null (clear to proceed).
+function _precedenceZero(r){
+  if(!r || !r.financials) return "Assessment incomplete \u2014 required inputs unresolved";
+  const rows = ((r.checks||{}).rows)||[];
+  const integrityFail = rows.some(x=>x.class==="integrity" && x.pass===false);
+  if(integrityFail) return "Results unavailable \u2014 model integrity issue";
+  return null;
+}
+// The verdict call word, from constraint/flag STATE. meets/does-not-meet only.
+function _verdictCall(r){
+  const p0 = _precedenceZero(r); if(p0) return {call:p0, cls:"bad", gated:true};
+  const ct = (r.constraint_tests||[]);
+  const baseFails = ct.filter(t=>t.scenario==="base" && t.pass===false);
+  const stressFails = ct.filter(t=>t.scenario!=="base" && t.pass===false);
+  const severe = (r.flags||[]).some(f=>f.sev==="severe");
+  if(baseFails.length){
+    // find the failing base constraint's source-driven noun (leverage is the common one)
+    const src = (cfgRef().constraints||[]).find(c=>c.key===baseFails[0].key);
+    const noun = baseFails[0].key==="leverage_min" ? _constraintNoun(src&&src.source) : "stated constraints";
+    return {call:`Does not meet the stated ${noun}`, cls:"bad", noun};
+  }
+  if(stressFails.length) return {call:"Meets base constraints; vulnerable under stress", cls:"warn"};
+  if(severe) return {call:"Meets modeled constraints; material assumptions require support", cls:"warn"};
+  if((r.flags||[]).length) return {call:"Meets modeled constraints; review items remain", cls:"mut"};
+  return {call:"No modeled exceptions identified", cls:"ok"};
+}
+// Issue-family grouping (root cause, not raw flags). Returns [{family, sev, count, headline}] ranked
+// by: contains-severe first, then by count. Explainable order only — no weighted composite.
+function _issueFamilies(r){
+  const FAM = [
+    ["Opening capitalization & Day-1 funding", /CAP|EQUITY|FUND|BORROW|WHOLESALE|DAY1/i],
+    ["CRE economics & concentration", /CRE|CONCENTRATION|COMMERCIAL.REAL/i],
+    ["Deposit pricing & growth", /FUND-HOT|FUND-DDA|FUND-GROWTH|DEPOSIT|GROWTH-Y1/i],
+    ["Card pricing & credit losses", /CARD|CC-|BAND-CO/i],
+    ["Mortgage-banking execution", /MSR|GOS|WAREHOUSE|MORTGAGE/i],
+    ["Expense & staffing", /NIE|OPEX|OVERHEAD|COMP|FTE/i],
+    ["Evidence & citation gaps", /EVIDENCE|CITATION|SUPPORT/i],
+  ];
+  const flags = r.flags||[];
+  const used = new Set();
+  const out = [];
+  FAM.forEach(([name,re])=>{
+    const hits = flags.filter((f,i)=>!used.has(i) && re.test(String(f.id||"")+" "+String(f.text||"")));
+    if(hits.length){
+      hits.forEach(f=>used.add(flags.indexOf(f)));
+      const sev = hits.some(f=>f.sev==="severe") ? "severe" : "advisory";
+      out.push({family:name, sev, count:hits.length, headline:(hits.find(f=>f.sev==="severe")||hits[0]).text});
+    }
+  });
+  // any flags not matched -> a catch-all "Other assumptions" family
+  const rest = flags.filter((f,i)=>!used.has(i));
+  if(rest.length){
+    out.push({family:"Other assumptions & structure", sev:rest.some(f=>f.sev==="severe")?"severe":"advisory",
+              count:rest.length, headline:rest[0].text});
+  }
+  out.sort((a,b)=> (b.sev==="severe")-(a.sev==="severe") || b.count-a.count);
+  return out;
+}
+// Inline SVG leverage sparkline vs the commitment line.
+function _levSparkline(r){
+  const lev = (((r.financials||{}).ratios||{}).lev)||[];
+  const commit = ((cfgRef().constraints||[]).find(c=>c.key==="leverage_min")||{}).value;
+  const commitPct = commit==null ? null : commit*100;
+  const vals = lev.map(v=>v==null?null:+v);
+  const nums = vals.filter(v=>v!=null);
+  if(!nums.length) return "";
+  const W=880,H=90,L=40,R=856,T=14,B=78;
+  const hi = Math.max(commitPct||0, ...nums, 1);
+  const y = v => B - (v/hi)*(B-T);
+  const x = i => L + (R-L)*(i/Math.max(1,vals.length-1));
+  const pts = vals.map((v,i)=> v==null?null:`${x(i).toFixed(0)},${y(v).toFixed(1)}`).filter(Boolean).join(" ");
+  const minV = Math.min(...nums), minI = vals.indexOf(minV);
+  const commitLine = commitPct==null?"":`<line x1="${L}" y1="${y(commitPct).toFixed(1)}" x2="${R}" y2="${y(commitPct).toFixed(1)}" stroke="#DFA85A" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/><text x="${R+4}" y="${(y(commitPct)+3).toFixed(1)}" fill="#DFA85A" font-size="10" font-family="var(--mono)">${commitPct.toFixed(1)}%</text>`;
+  return `<svg viewBox="0 0 900 90" width="100%" height="90" style="margin-top:12px">
+    ${commitLine}
+    <line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="#1E2C42" stroke-width="1"/>
+    <polyline fill="none" stroke="#F87171" stroke-width="2" points="${pts}"/>
+    <circle cx="${x(minI).toFixed(0)}" cy="${y(minV).toFixed(1)}" r="3" fill="#F87171"/>
+    <text x="${x(minI).toFixed(0)}" y="${B+11}" fill="#8FA3C0" font-size="9" font-family="var(--mono)" text-anchor="middle">Q${minI+1} ${minV.toFixed(1)}%</text>
+  </svg>`;
+}
+// Assemble the verdict block HTML from the model result. All slots field-sourced; null slots omitted.
+function _verdictBlock(r){
+  const v = _verdictCall(r);
+  const b = (r.scenarios||{}).base||{};
+  const ct = (r.constraint_tests||[]);
+  const commit = (((cfgRef().constraints||[]).find(c=>c.key==="leverage_min")||{}).value)*100;
+  const scenTotal = new Set(ct.map(t=>t.scenario)).size;
+  const scenFail = new Set(ct.filter(t=>!t.pass).map(t=>t.scenario)).size;
+  let lines = "";
+  if(!v.gated){
+    // binding reason
+    if(b.min_leverage!=null && commit){
+      const allBreach = scenFail===scenTotal && scenTotal>0;
+      lines += `<p>Base leverage bottoms at <b>${(b.min_leverage*100).toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b> against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
+    }
+    // highest-priority finding (family headline, own text — never "driver")
+    const fam = _issueFamilies(r);
+    if(fam.length) lines += `<p>Highest-priority finding: ${esc(fam[0].headline)}</p>`;
+    // capital requirement, precisely scoped
+    const shortfall = b.capital_shortfall_est;
+    if(shortfall!=null && shortfall>0 && commit){
+      lines += `<p>Estimated additional opening capital to maintain the ${commit.toFixed(1)}% base-case threshold through Q12: <b>${_money000(shortfall)}</b> <span style="color:#6E7C93;font-style:italic">(estimate)</span>.</p>`;
+    }
+  }
+  const clsColor = {bad:"#F87171", warn:"#DFA85A", mut:"#C4CDDD", ok:"#7FB07F"}[v.cls]||"#DCE3EE";
+  return `<div class="verdict-block" style="background:linear-gradient(180deg,#12203A,#0F1826);border:1px solid #2A3A55;border-left:4px solid ${clsColor};border-radius:10px;padding:18px 20px;margin-bottom:6px">
+    <div style="font-size:20px;font-weight:800;color:${clsColor};letter-spacing:-.01em;margin-bottom:${lines?"8px":"0"}">${esc(v.call)}.</div>
+    ${lines}
+    ${_levSparkline(r)}
+  </div>`;
+}
+function _numWord(n){ return ["zero","one","two","three","four","five","six","seven","eight","nine","ten"][n]||String(n); }
+function _money000(v){ // v in $000s -> $X.XM or $XXXk
+  const m = v/1000;
+  return Math.abs(m)>=1 ? `$${m.toLocaleString(undefined,{maximumFractionDigits:1})}M` : `$${Math.round(v).toLocaleString()}k`;
+}
+
 function renderOverview(){
   const r = lastRes, el = document.getElementById("content");
   const ov = r.overview || {}, rd = ov.readiness || {};
@@ -2353,37 +2486,44 @@ function renderOverview(){
   const levMin = getPath("constraints.0.value") * 100;
   const fin = r.financials;
   const cum = base.cum_ni;
-  const kc = [
-    ["Readiness", esc(rd.status||"\u2014"), `${rd.open_items??0} open items \u00b7 ${rd.hard_stops??0} hard stops`, false,
-      "Overall readiness verdict from the model's checks: open items and hard stops are the count of unresolved gating issues across the plan."],
-    ["Min leverage (base)", base.min_leverage==null ? "n/m" : (base.min_leverage*100).toFixed(1)+"%",
-      `Q${base.min_leverage_q??"\u2014"} \u00b7 commitment ${levMin.toFixed(1)}%`, false,
-      "Lowest quarterly leverage ratio across the base scenario's 12 quarters (modeled Tier-1 capital / average assets). The quarter shown is where it bottoms; the commitment is your stated minimum."],
-    ["Breakeven", ov.breakeven_q ? "Q"+ov.breakeven_q : "beyond Q12", "pre-tax positive", false,
-      "First quarter the modeled bank turns pre-tax positive (pre-tax net income > 0), computed from the base scenario income statement."],
-    ["Assets, Q12", fmt0(fin.bs.totalAssets.slice(-1)[0]), "$000s", false,
-      "Modeled total assets at the terminal quarter (Q12), from the projected balance sheet. Units are $000s."],
-    ["Deposits, Q12", fmt0(fin.bs.deposits.slice(-1)[0]), "$000s", false,
-      "Modeled total deposits at Q12 — sum of all deposit products' projected balances at the terminal quarter. Units are $000s."],
-    ["Cumulative net income", fmt0(cum), "12 quarters \u00b7 $000s", cum<0,
-      "Sum of net income across all 12 modeled quarters (base scenario). Negative is normal for a de novo's ramp. Units are $000s."],
-  ];
-  if(r.peer && r.peer.cohort){
-    const co = r.peer.cohort, ts = co.terminal_summary || {};
-    kc.push(["Peer cohort", (co.n??"\u2014")+" banks",
-      `radius ${co.radius_original} \u2192 ${co.radius_final} \u00b7 eff. n ${co.effective_n}` + (co.insufficient_evidence?" \u00b7 INSUFFICIENT":""), false,
-      "Number of real peer banks selected for this cohort. The radius widened from its original to its final value to reach sufficient evidence; effective n is the evidence-weighted count."]);
-    kc.push(["Cohort survivorship", `${ts.failed??0} failed \u00b7 ${ts.acquired??0} acquired`, "retained in evidence base", false,
-      "Of the peer cohort, how many later failed or were acquired. These are deliberately KEPT in the evidence base (not survivor-filtered), so the comparison reflects real outcomes."]);
+  // Peer cohort summary (for the inline evidence line + tab link) — extracted, not rendered as cards.
+  const _peerCohort = (r.peer && r.peer.cohort) ? r.peer.cohort : null;
+  let h = '<div class="h2" style="font-weight:700;margin-bottom:14px">Executive Summary</div>';
+  // TIER 1 — the generated verdict + sparkline
+  h += _verdictBlock(r);
+  // TIER 1c — top issue families strip (adaptive; root-cause, not raw flags)
+  const _fams = _issueFamilies(r);
+  if(_fams.length){
+    h += '<div class="ovh3" style="margin-top:16px">Top issue families \u2014 what to focus on</div>';
+    h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
+      _fams.slice(0,3).map((f,i)=>`<div style="background:var(--panel,#0F1826);border:1px solid #1E2C42;border-left:3px solid ${f.sev==="severe"?"#F87171":"#DFA85A"};border-radius:8px;padding:11px 13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-weight:700;font-size:12px;color:#DCE3EE">${i+1}. ${esc(f.family)}</span><span class="ovtag ${f.sev==="severe"?"bad":"mut"}">${f.sev==="severe"?"severe":"advisory"}</span></div>
+        <div style="font-size:11px;color:#9FB0C8">${esc(f.headline)}</div>
+        <div style="font-size:10px;color:#6E7C93;margin-top:4px">${f.count} flag${f.count===1?"":"s"} in this family</div></div>`).join("") + '</div>';
   }
-  let h = '<div class="h2" style="font-weight:700">Engagement overview</div>';
-  h += '<div class="ovcards">' + kc.map(x=>
-    `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${prov(x[1], x[4])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
-  h += '<div class="ovh3">Flags &amp; challenge results</div>';
+  // TIER 2 — decision drivers (breakeven REMOVED; earnings durability added)
+  h += '<div class="ovh3" style="margin-top:18px">Decision drivers</div>';
+  const _y3ni = (r.quick_stats && (r.quick_stats.rows||[]).find(x=>/net income/i.test(x.label||"")));
+  const _y3 = _y3ni ? _y3ni.y[2] : null;
+  const _worst = Object.entries(r.scenarios||{}).filter(([k])=>k!=="base")
+    .map(([k,s])=>({k, lev:s.min_leverage})).filter(x=>x.lev!=null).sort((a,b)=>a.lev-b.lev)[0];
+  const _day1borrow = (((r.financials||{}).bs||{}).borrow||[])[0];
+  const dcards = [
+    ["Min base leverage", base.min_leverage==null?"n/m":(base.min_leverage*100).toFixed(2)+"%",
+      `Q${base.min_leverage_q??"\u2014"} \u00b7 vs ${levMin.toFixed(1)}%`, base.min_leverage!=null && base.min_leverage<levMin/100],
+    ["Worst stress outcome", _worst?(_worst.lev*100).toFixed(2)+"%":"n/m",
+      _worst?"min leverage \u00b7 "+esc((r.scenarios[_worst.k]||{}).label||_worst.k):"", _worst&&_worst.lev<levMin/100],
+    ["Opening wholesale funding", _day1borrow==null?"n/m":_money000(_day1borrow), "at Day 1", (_day1borrow||0)>0],
+    ["Earnings durability", _y3==null?"n/m":_money000(_y3), "Year-3 net income", (typeof _y3==="number"&&_y3<0)],
+  ];
+  h += '<div class="ovcards">' + dcards.map(x=>
+    `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${esc(x[1])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
+  // TIER 3 — evidence begins
+  h += '<div class="ovh3" style="margin-top:20px">Evidence \u2014 flags &amp; challenge results</div>';
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
   if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
-  h += '<details style="margin:8px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
+  h += '<details style="margin:8px 0 14px"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
   setTimeout(()=>{ const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
     const _firedIds = new Set((r.flags||[]).map(f=>String(f.id||"")));
     // Explicit map: ledger rule id -> the emitted flag id(s) that mean it fired.
@@ -2471,6 +2611,16 @@ function renderOverview(){
   });
   h += '</table>';
   h += '<div class="memo" style="margin-top:14px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
+  // Peer cohort — inline summary + comparability caveat + link to the interactive tab (per spec)
+  if(_peerCohort){
+    const co = _peerCohort, ts = co.terminal_summary || {};
+    h += '<div class="ovh3" style="margin-top:20px">Peer context</div>';
+    h += `<div class="memo" style="font-size:11.5px">Benchmarked against <b style="color:#DCE3EE">${co.n??"\u2014"} real de novo filers</b>` +
+      (co.effective_n!=null?` (effective n ${co.effective_n}` + (co.insufficient_evidence?", <span style=\"color:#DFA85A\">insufficient sample</span>":"") + `)`:``) +
+      `${(ts.failed!=null||ts.acquired!=null)?`, survivorship-included: ${ts.failed??0} failed \u00b7 ${ts.acquired??0} acquired, retained in the evidence base`:``}. ` +
+      `Current-quarter stock measures (leverage, capital ratios) are like-for-like; selected earnings measures are directional (modeled quarterly vs peer YTD conventions). ` +
+      `<a href="#" style="color:#DFA85A;text-decoration:none" onclick="setTab('peer');return false">View cohort basis &amp; methodology \u2192</a></div>`;
+  }
   el.innerHTML = h;
 }
 function renderContent(){
