@@ -736,7 +736,18 @@ function freezeOriginal(source){
 // with the autosaved/saved engagement (the store round-trips it; the engine and validator ignore
 // unknown top-level keys). Called just before a save is serialised.
 function stampOriginalForSave(target){
-  if(_uploadedOriginal){ target._uploaded_original = _uploadedOriginal; }
+  // Only stamp the frozen original into the saved config if it actually belongs to THIS engagement.
+  // Stamping a foreign original (a prior bank's baseline still live in _uploadedOriginal) is what
+  // baked a cross-engagement diff into saved configs; the identity check here stops that at the source.
+  let ok = false;
+  if(_uploadedOriginal && _uploadedOriginal.json){
+    try{
+      const embIdent = (JSON.parse(_uploadedOriginal.json).proposed_bank || JSON.parse(_uploadedOriginal.json).client_legal_name || "").trim();
+      const curIdent = (target.proposed_bank || target.client_legal_name || "").trim();
+      ok = !embIdent || !curIdent || embIdent === curIdent;
+    }catch(e){ ok = false; }
+  }
+  if(_uploadedOriginal && ok){ target._uploaded_original = _uploadedOriginal; }
   else { delete target._uploaded_original; }
   return target;
 }
@@ -744,7 +755,23 @@ function stampOriginalForSave(target){
 // live working copy — so it never pollutes the diff, a download, or a subsequent freeze.
 function rehydrateOriginal(loadedCfg){
   const emb = loadedCfg && loadedCfg._uploaded_original;
-  if(emb && emb.json){ _uploadedOriginal = emb; }
+  // An embedded original is only a valid baseline if it belongs to THIS engagement. A config saved
+  // while a prior engagement's original was still live could bake in the WRONG bank's baseline (e.g.
+  // Calamity's original stamped into a manually-created bank). That made the change list diff the new
+  // bank against the old one. Detect the mismatch by comparing the embedded original's own bank
+  // identity to the loaded config's, and drop it when they disagree — the engagement then baselines
+  // against itself (markPristine, called right after load) instead of a foreign bank.
+  let ok = false;
+  if(emb && emb.json){
+    try{
+      const embCfg = JSON.parse(emb.json);
+      const embIdent = (embCfg.proposed_bank || embCfg.client_legal_name || "").trim();
+      const curIdent = (loadedCfg.proposed_bank || loadedCfg.client_legal_name || "").trim();
+      // valid if identities match, or if we can't tell (no identity on either side — don't over-reject)
+      ok = !embIdent || !curIdent || embIdent === curIdent;
+    }catch(e){ ok = false; }
+  }
+  _uploadedOriginal = (emb && emb.json && ok) ? emb : null;
   if(loadedCfg) delete loadedCfg._uploaded_original;
 }
 function hasOriginal(){ return _uploadedOriginal != null; }
