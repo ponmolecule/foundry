@@ -2611,13 +2611,18 @@ function renderOverview(){
   const _worst = Object.entries(r.scenarios||{}).filter(([k])=>k!=="base")
     .map(([k,s])=>({k, lev:s.min_leverage})).filter(x=>x.lev!=null).sort((a,b)=>a.lev-b.lev)[0];
   const _day1borrow = (((r.financials||{}).bs||{}).borrow||[])[0];
+  const _breakeven = (r.overview||{}).breakeven_q;
+  const _cumni = base.cum_ni;
   const dcards = [
     ["Min base leverage", base.min_leverage==null?"n/m":(base.min_leverage*100).toFixed(2)+"%",
       `Q${base.min_leverage_q??"\u2014"} \u00b7 vs ${levMin.toFixed(1)}%`, base.min_leverage!=null && base.min_leverage<levMin/100],
     ["Worst stress outcome", _worst?(_worst.lev*100).toFixed(2)+"%":"n/m",
       _worst?"min leverage \u00b7 "+esc((r.scenarios[_worst.k]||{}).label||_worst.k):"", _worst&&_worst.lev<levMin/100],
+    ["Breakeven", (_breakeven==null||_breakeven<0)?"not in 12Q":("Q"+_breakeven),
+      "first profitable quarter", (_breakeven==null||_breakeven<0)],
     ["Opening wholesale funding", _day1borrow==null?"n/m":_money000(_day1borrow), "at Day 1", (_day1borrow||0)>0],
     ["Earnings durability", _y3==null?"n/m":_money000(_y3), "Year-3 net income", (typeof _y3==="number"&&_y3<0)],
+    ["Cumulative net income", _cumni==null?"n/m":_money000(_cumni), "12-quarter total", (typeof _cumni==="number"&&_cumni<0)],
   ];
   h += '<div class="ovcards">' + dcards.map(x=>
     `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${esc(x[1])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';

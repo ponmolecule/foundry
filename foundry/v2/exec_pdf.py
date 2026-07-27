@@ -249,21 +249,35 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
         t = Table(rows, colWidths=[2.9 * inch, 1.4 * inch, 1.4 * inch, 1.4 * inch], repeatRows=1)
         t.setStyle(tbl_style()); story.append(t)
 
-    # ---- Model checks (integrity + viability) ----
+    # ---- Model checks — integrity and viability are DIFFERENT questions, each under its own header:
+    #      integrity = does the arithmetic hold together; viability = does the plan clear its commitments.
     checks = res.get("checks")
     if checks and checks.get("rows"):
         story.append(Paragraph("Model checks \u2014 " + esc(checks.get("master", "")), h3))
         if checks.get("doctrine"):
             story.append(Paragraph(esc(checks["doctrine"]) + ".", introS))
-        rows = [hdr("Result", "Check", "Note")]
+        h4 = ParagraphStyle("H4", parent=body, fontName="Helvetica-Bold", fontSize=9.5,
+                            textColor=NAVY, spaceBefore=6, spaceAfter=2)
+        _CLASS_LABEL = {
+            "integrity": ("Integrity checks", "Does the arithmetic hold together \u2014 balance-sheet identities, accounting ties."),
+            "viability": ("Viability checks", "Does the modeled bank clear its commitments \u2014 capital, leverage, going-concern."),
+        }
         for kl in ("integrity", "viability"):
-            for x in [r0 for r0 in checks["rows"] if r0.get("class") == kl]:
+            krows = [r0 for r0 in checks["rows"] if r0.get("class") == kl]
+            if not krows:
+                continue
+            title, blurb = _CLASS_LABEL.get(kl, (kl.title() + " checks", ""))
+            story.append(Paragraph(title, h4))
+            if blurb:
+                story.append(Paragraph(blurb, introS))
+            rows = [hdr("Result", "Check", "Note")]
+            for x in krows:
                 passed = x.get("pass")
                 rp = Paragraph(f'<font color="{"#3B7A4B" if passed else "#B23B3B"}"><b>{"PASS" if passed else "FAIL"}</b></font>', cell)
                 rows.append([rp, Paragraph(esc(x.get("label", "")), cell),
                              Paragraph(esc(x.get("note", "")), cell)])
-        t = Table(rows, colWidths=[0.7 * inch, 3.1 * inch, 2.7 * inch], repeatRows=1)
-        t.setStyle(tbl_style()); story.append(t)
+            t = Table(rows, colWidths=[0.7 * inch, 3.1 * inch, 2.7 * inch], repeatRows=1)
+            t.setStyle(tbl_style()); story.append(t)
 
     story.append(Spacer(1, 12))
     story.append(Paragraph(
