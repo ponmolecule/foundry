@@ -1016,8 +1016,19 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
     buf = _io.BytesIO()
     results_workbook_v2(cfg, run_parity(cfg)).save(buf)
     buf.seek(0)
+    _slug = _engagement_slug(cfg)
     return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": "attachment; filename=proforma_exhibit.xlsx"})
+                             headers={"Content-Disposition": f'attachment; filename="{_slug}_proforma_exhibit.xlsx"'})
+
+
+def _engagement_slug(cfg: dict) -> str:
+    """Filesystem-safe engagement name for prefixing downloads (e.g. 'calamity_national_bank').
+    Falls back to 'engagement' when unnamed. Mirrors the slugging already used for FIW downloads."""
+    import re as _re
+    raw = (cfg.get("proposed_bank") or cfg.get("client_legal_name")
+           or cfg.get("scenario_name") or "engagement")
+    s = _re.sub(r"[^a-z0-9]+", "_", str(raw).lower()).strip("_")[:48]
+    return s or "engagement"
 
 
 @app.post("/api/v2/exec-summary-pdf")
@@ -1044,7 +1055,7 @@ def v2_exec_summary_pdf(cfg: dict, _=Depends(gate)):
         # remains the working fallback. This path never crashes the app.
         return JSONResponse({"valid": False, "error": f"PDF export unavailable: {e}"}, status_code=503)
     return StreamingResponse(_io.BytesIO(pdf_bytes), media_type="application/pdf",
-                             headers={"Content-Disposition": "attachment; filename=executive_summary.pdf"})
+                             headers={"Content-Disposition": f'attachment; filename="{_engagement_slug(cfg)}_executive_summary.pdf"'})
 
 
 @app.post("/api/v2/config-workbook")

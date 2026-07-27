@@ -4614,11 +4614,16 @@ function renderGovTab(){
   document.getElementById("content").innerHTML = h;
 }
 
+function _engSlug(){
+  const raw = (cfg && (cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name)) || "engagement";
+  const s = String(raw).toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"").slice(0,48);
+  return s || "engagement";
+}
 async function exportExcel(){
   const r = await fetch("/api/v2/exhibit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
   if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
   const b = await r.blob(); const a = document.createElement("a");
-  a.href = URL.createObjectURL(b); a.download = "proforma_exhibit.xlsx"; a.click();
+  a.href = URL.createObjectURL(b); a.download = _engSlug()+"_proforma_exhibit.xlsx"; a.click();
 }
 window.exportExcel=exportExcel;
 async function exportExecPdf(){
@@ -4627,7 +4632,7 @@ async function exportExecPdf(){
   if(r.status===503){ alert("PDF export isn't available on this server right now \u2014 use the Excel exhibit instead (top-right, or the button beside this one)."); return; }
   if(!r.ok){ alert("Could not generate the PDF \u2014 the Excel exhibit remains available."); return; }
   const b = await r.blob(); const a = document.createElement("a");
-  a.href = URL.createObjectURL(b); a.download = "executive_summary.pdf"; a.click();
+  a.href = URL.createObjectURL(b); a.download = _engSlug()+"_executive_summary.pdf"; a.click();
 }
 window.exportExecPdf=exportExecPdf;
 
