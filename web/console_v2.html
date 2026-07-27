@@ -598,12 +598,14 @@ async function boot(){
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
   syncNameChrome();
-  // ambient persistence: if a working session exists on this workspace, resume it
+  // crash recovery: if UNSAVED scratch work from a prior session survived (browser closed/crashed
+  // before it was named & saved), offer it back. Named engagements are not kept here anymore, so this
+  // only fires for genuinely unsaved work — its true last-resort purpose.
   try{
     const rs = await fetch("/api/v31/engagements");
     if(rs.ok){
       const js = await rs.json();
-      const ws = (js.engagements||[]).find(e => (e.slug||"").startsWith("working-session"));
+      const ws = (js.engagements||[]).find(e => _isRecoverySlug(e.slug));
       if(ws){
         const rc = await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug));
         if(rc.ok){
@@ -611,7 +613,7 @@ async function boot(){
           rehydrateOriginal(cfg);
           const sn = document.getElementById("scenarioName");
           if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
-          appStatus("ok", "<b>Resumed your working session</b> \u2014 autosaved state restored. Open a saved engagement from the \u25be menu to switch.");
+          appStatus("ok", "<b>Recovered unsaved work</b> \u2014 a previous session ended without saving. Name &amp; save it to keep it, or open a saved engagement from the \u25be menu.");
         }
       }
     }
@@ -655,7 +657,20 @@ function refresh(){ if(window.SNAPSHOT) return;
    config diverges from that snapshot. This makes "log in, touch nothing" leave
    no draft, and kills the delete-then-reappears race (there is nothing non-
    default to re-save). */
-const AUTOSAVE_NAME = "Working session (autosaved)";
+const AUTOSAVE_NAME = "Unsaved engagement crash recovery";
+// True when the live config is a SAVED, NAMED engagement (has an identity that maps to a stored slug)
+// rather than fresh unsaved scratch work. Crash-recovery autosave is suppressed for these, because a
+// saved engagement is protected by the cycle-away guard and must not pollute the shared recovery slot.
+function _hasSavedIdentity(){
+  const nm = _cfgIdent(cfg);
+  return !!(nm && String(nm).trim()) && !cfg._blank_canvas;
+}
+// Recognises the crash-recovery draft slug — both the current name and the legacy "working-session"
+// slug, so an existing autosaved draft from a prior build is still found and offered for recovery.
+function _isRecoverySlug(slug){
+  const s = String(slug || "");
+  return s.startsWith("working-session") || s.startsWith("unsaved-engagement-crash-recovery");
+}
 let _asTimer = null, _asBusy = false, _pristineJSON = null, _pristineIdent = null;
 // Identity of a config for baseline-matching: the engagement it represents. Used so the unsaved-work
 // guard can tell whether _pristineJSON actually corresponds to the currently-loaded engagement — a
@@ -891,17 +906,19 @@ async function autosaveNow(){
   if(_asBusy || window.SNAPSHOT) return;
   if(isPristine()) return;   // re-check at fire time: a timer armed before the baseline
                              // was set must not save an untouched config
+  // Crash-recovery ONLY: this net exists for UNSAVED, UNNAMED scratch work — a brand-new engagement
+  // you have not saved yet, so a browser crash / accidental close doesn't lose it. A NAMED engagement
+  // is a saved thing the cycle-away guard already protects; writing it into the shared recovery slot
+  // is what caused cross-engagement contamination (every edit overwrote one global slot). So: only
+  // capture when the config has no saved identity.
+  if(_hasSavedIdentity()) return;
   _asBusy = true;
   try{
     const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: AUTOSAVE_NAME})});
-    if(r.ok){
-      window._lastSavedAt = new Date();
-      const chip = document.querySelector(".savedchip");
-      if(chip) chip.textContent = "Autosaved " + window._lastSavedAt.toLocaleTimeString() + " \u2713";
-    }
-  }catch(e){ /* silent — autosave never nags */ }
+    if(r.ok){ window._lastSavedAt = new Date(); }
+  }catch(e){ /* silent — recovery net never nags */ }
   _asBusy = false;
 }
 window.scheduleAutosave = scheduleAutosave;
@@ -3166,7 +3183,7 @@ window.delEngagement = async function(slug){
   // frozen original goes with it — otherwise a "changed since upload" record would outlive the
   // engagement it belonged to. Clearing it drops the chip/badge cleanly.
   const curSlug = (cfg.scenario_name||cfg.client_legal_name||cfg.proposed_bank||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  if(slug==="working-session" || slug==="working-session-autosaved" || slug===curSlug || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
+  if(_isRecoverySlug(slug) || slug===curSlug || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
     _uploadedOriginal = null; window._startChipShown = false; updateChangedChip();
   }
   loadEngStore(true); setTimeout(renderContent, 250);
@@ -3581,8 +3598,8 @@ async function toggleEngMenu(){
   // so the list reads honestly: deliberate saves above, the resumable scratch state
   // below, clearly labeled. Previously both appeared as peer entries and you
   // couldn't tell which you were editing.
-  const named = list.filter(e => !(e.slug||"").startsWith("working-session"));
-  const draft = list.find(e => (e.slug||"").startsWith("working-session"));
+  const named = list.filter(e => !_isRecoverySlug(e.slug));
+  const draft = list.find(e => _isRecoverySlug(e.slug));
   let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Saved engagements</div>';
   if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
   named.forEach(e=>{
@@ -3593,7 +3610,7 @@ async function toggleEngMenu(){
     const draftActive = !cur || (cfg.scenario_name||"") === "" || (draft.slug||"") === (window._openSlug||"");
     h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
     h += '<div style="padding:5px 10px 4px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Unsaved draft</div>';
-    h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#C7975A;font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#C7975A;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Working session (autosaved)</span><span style="display:block;font-size:10px;color:#8FA3C0">auto-kept scratch state \u2014 name &amp; save it to make an engagement</span></span></a>`;
+    h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#C7975A;font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#C7975A;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Unsaved engagement (crash recovery)</span><span style="display:block;font-size:10px;color:#8FA3C0">last-resort recovery of unsaved work \u2014 name &amp; save it to keep it</span></span></a>`;
   }
   h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
   h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
@@ -3713,8 +3730,8 @@ function renderStart(){
     h += '<div class="memo">No saved engagements yet.</div>';
   } else {
     const _all = engStore.engagements || [];
-    const _named = _all.filter(e => !e.is_draft && !(e.slug||"").startsWith("working-session"));
-    const _draft = _all.find(e => e.is_draft || (e.slug||"").startsWith("working-session"));
+    const _named = _all.filter(e => !e.is_draft && !_isRecoverySlug(e.slug));
+    const _draft = _all.find(e => e.is_draft || _isRecoverySlug(e.slug));
     if(!_named.length){
       h += '<div class="memo">No saved engagements yet \u2014 name the configuration and use \u201cSave current configuration as an engagement\u201d above.</div>';
     } else {
@@ -3728,7 +3745,7 @@ function renderStart(){
     if(_draft){
       h += '<div class="chint" style="margin:12px 0 6px;color:#C7975A;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em">Unsaved draft</div>';
       h += '<table class="ovt"><tr><th>Draft</th><th>Reference</th><th></th></tr>';
-      h += `<tr><td>Working session (autosaved)<div style="font-size:10px;color:#8FA3C0">auto-kept scratch state \u2014 name &amp; save it above to make an engagement</div></td>`
+      h += `<tr><td>Unsaved engagement (crash recovery)<div style="font-size:10px;color:#8FA3C0">last-resort recovery of unsaved work \u2014 name &amp; save it above to keep it</div></td>`
         + `<td style="font-family:var(--mono);font-size:11px">${esc(_draft.slug)}</td>`
         + `<td><button class="btn-plain" onclick="openEngagement('${_draft.slug}')">Resume</button> <a href="#" class="cx" title="Discard the autosaved draft" onclick="delEngagement('${_draft.slug}');return false">\u00d7</a></td></tr>`;
       h += '</table>';
