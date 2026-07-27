@@ -131,6 +131,8 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .tacct + .hline{margin-top:0}
 .cflex{display:flex;flex-direction:column}
 .tsec{position:relative;flex:1;display:grid;grid-template-columns:1.24fr 0.76fr;column-gap:0;margin-top:-18px;padding-top:18px}
+.tstack{position:relative;flex:1;display:flex;flex-direction:column;margin-top:-18px;padding-top:18px}
+.tstack>div{min-width:0}
 .tsec>div{min-width:0}
 .tsec>div:first-child{padding-right:32px}
 .tsec>div:last-child{padding-left:32px;border-left:1px solid rgba(148,163,184,.13)}
@@ -2098,9 +2100,11 @@ window.sbAdd = function(){
 };
 window.secAdd = function(kind){
   const key = kind ? "securities_htm" : "securities_afs";
+  // Added inert: zero opening/yield and zero purchases/growth/runoff, so a book contributes nothing
+  // until the user fills it. Structural fields (name, book type) stay. Zero validates and runs fine.
   (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
-    {name: kind ? "Treasuries (HTM)" : "Agency MBS (AFS)", opening: 10_000_000,
-      purchases_q: 0, growth_q: 0, runoff_q: 0, yield_ann: kind ? 0.042 : 0.04});
+    {name: kind ? "Treasuries (HTM)" : "Agency MBS (AFS)", opening: 0,
+      purchases_q: 0, growth_q: 0, runoff_q: 0, yield_ann: 0});
   renderGlobals(); renderContent(); refresh();
 };
 window.poAdd = function(){
@@ -4409,7 +4413,7 @@ function structuresSectionsHtml(){
     _ao += `<div class="cmut" style="margin:0 0 6px">AOCI sensitivity</div>`;
     _ao += `<div class="crow" style="margin:0"><input type="number" step="0.1" style="width:96px" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=parseFloat(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
     _ao += '<div class="cmut">Positive values increase AOCI with rate rises.</div>';
-    h += `<div class="tsec"><div>${_sb}</div><div>${_ao}</div></div>`;
+    h += `<div class="tstack"><div>${_sb}</div><div class="hline" style="grid-column:auto;margin:14px 0"></div><div>${_ao}</div></div>`;
   }
   h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, FTE-step comp, and assessments on the correct base.</div></span></div>`;
   const ND = (A.nie_detail = A.nie_detail || null);
@@ -4503,18 +4507,19 @@ window.runSens = async function(){
 window.nieOff = function(){
   cfg.assumptions.nie_detail = null; renderContent(); refresh();
 };
-window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[20,30,40], loaded_comp_annual:150000, categories:[{name:"Core banking & tech", per_quarter:120000},{name:"Occupancy", per_quarter:60000},{name:"Legal & compliance", per_quarter:36000}], other_gross_up_rate:0.03}; renderContent(); refresh(); };
+window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[{name:"Core banking & tech", per_quarter:0},{name:"Occupancy", per_quarter:0},{name:"Legal & compliance", per_quarter:0}], other_gross_up_rate:0}; renderContent(); refresh(); };
 window.fmOn = function(key){
-  const d = {trust:{aum_open:100000000, aum_growth_q:0.03, fee_bp_ann:50},
-              interchange:{tx_count_q:500000, growth_q:0.08, avg_ticket:40, interchange_rate:0.012, network_fee_rate:0.002},
-              service_charges:{accounts:10000, growth_q:0.05, fee_m:0.008*1000},
-              baas:{programs:2, accts_per_program:25000, growth_q:0.06, rev_per_acct_m:0.005*1000}};
+  // Added inert: zero volumes/rates/counts so a fee module contributes nothing until filled.
+  const d = {trust:{aum_open:0, aum_growth_q:0, fee_bp_ann:0},
+              interchange:{tx_count_q:0, growth_q:0, avg_ticket:0, interchange_rate:0, network_fee_rate:0},
+              service_charges:{accounts:0, growth_q:0, fee_m:0},
+              baas:{programs:0, accts_per_program:0, growth_q:0, rev_per_acct_m:0}};
   cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
   cfg.assumptions.fee_modules[key] = d[key]; renderContent(); refresh(); };
 window.fmRail = function(){
   cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
   (cfg.assumptions.fee_modules.payments = cfg.assumptions.fee_modules.payments || []).push(
-    {rail:"ACH", vol_q:250000, growth_q:0.05, fee_per_tx:0.10, cost_per_tx:0.05});
+    {rail:"ACH", vol_q:0, growth_q:0, fee_per_tx:0, cost_per_tx:0});
   renderContent(); refresh(); };
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
