@@ -2713,33 +2713,18 @@ function renderOverview(){
       el.innerHTML = hh;
     });
   }, 0);
-  (r.flags||[]).forEach(f=>{
-    const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
-    h += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
-  });
-  if(r.checks){
-    h += `<div class="ovh2">Model checks \u2014 ${esc(r.checks.master)}</div>`;
-    h += `<div class="memo" style="font-size:11px">${esc(r.checks.doctrine)}.</div>`;
-    ["integrity","viability"].forEach(kl=>{
-      const rows = r.checks.rows.filter(x=>x.class===kl);
-      if(!rows.length) return;
-      h += `<div class="ovh3" style="font-size:11px">${kl} checks</div><table class="ovt">`;
-      rows.forEach(x=>{
-        h += `<tr><td style="width:54px"><span class="ovtag ${x.pass?"ok":"bad"}">${x.pass?"PASS":"FAIL"}</span></td><td>${esc(x.label)}</td><td style="color:#8FA3C0;font-size:10px">${esc(x.note||"")}</td></tr>`;
-      });
-      h += '</table>';
+  // Raw flag ledger — COLLAPSED (the issue-families strip up top is the primary view; this is the
+  // full per-flag detail on demand, per the spec's Tier-3 ordering).
+  if((r.flags||[]).length){
+    let fl = "";
+    (r.flags||[]).forEach(f=>{
+      const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
+      fl += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
     });
+    h += `<details style="margin:6px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Full flag ledger \u2014 all ${(r.flags||[]).length} findings</summary><div style="margin-top:6px">${fl}</div></details>`;
   }
-  if(r.quick_stats){
-    h += '<div class="ovh2">Quick stats \u2014 three years</div>';
-    h += `<div class="memo" style="font-size:11px">${esc(r.quick_stats.note)}.</div>`;
-    h += '<table class="ovt"><tr><th></th><th style="text-align:right">Year 1</th><th style="text-align:right">Year 2</th><th style="text-align:right">Year 3</th></tr>';
-    r.quick_stats.rows.forEach(x=>{
-      h += `<tr><td>${esc(x.label)}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
-    });
-    h += '</table>';
-  }
-  h += '<div class="ovh3">Constraint tests, every scenario</div>';
+  // Constraint tests, every scenario — OPEN (this is the scenario/constraint outcomes section).
+  h += '<div class="ovh3" style="margin-top:20px">Scenario &amp; constraint outcomes</div>';
   h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
   (r.constraint_tests||[]).forEach(t=>{
     const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;
@@ -2749,7 +2734,31 @@ function renderOverview(){
       `<td style="font-family:var(--mono);font-size:11px;color:#8C99AF">${esc(t.source||"")}</td></tr>`;
   });
   h += '</table>';
-  h += '<div class="memo" style="margin-top:14px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers. Peer-percentile grounding for these flags arrives with the evidence layer; today\u2019s versions are structural.</div>';
+  h += '<div class="memo" style="margin-top:10px;font-size:10.5px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers.</div>';
+  // Three-year financial summary — COLLAPSED
+  if(r.quick_stats){
+    let qs = `<div class="memo" style="font-size:11px">${esc(r.quick_stats.note)}.</div>`;
+    qs += '<table class="ovt"><tr><th></th><th style="text-align:right">Year 1</th><th style="text-align:right">Year 2</th><th style="text-align:right">Year 3</th></tr>';
+    r.quick_stats.rows.forEach(x=>{
+      qs += `<tr><td>${esc(x.label)}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+    });
+    qs += '</table>';
+    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Three-year financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
+  }
+  // Model integrity & viability checks — COLLAPSED
+  if(r.checks){
+    let ck = `<div class="memo" style="font-size:11px">${esc(r.checks.doctrine)}.</div>`;
+    ["integrity","viability"].forEach(kl=>{
+      const rows = r.checks.rows.filter(x=>x.class===kl);
+      if(!rows.length) return;
+      ck += `<div class="ovh3" style="font-size:11px">${kl} checks</div><table class="ovt">`;
+      rows.forEach(x=>{
+        ck += `<tr><td style="width:54px"><span class="ovtag ${x.pass?"ok":"bad"}">${x.pass?"PASS":"FAIL"}</span></td><td>${esc(x.label)}</td><td style="color:#8FA3C0;font-size:10px">${esc(x.note||"")}</td></tr>`;
+      });
+      ck += '</table>';
+    });
+    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Model checks \u2014 ${esc(r.checks.master)}</summary><div style="margin-top:6px">${ck}</div></details>`;
+  }
   // Peer cohort — inline summary + comparability caveat + link to the interactive tab (per spec)
   if(_peerCohort){
     const co = _peerCohort, ts = co.terminal_summary || {};
