@@ -3947,6 +3947,13 @@ async function wizFinish(){
   }catch(e){}
   wiz = null;
   syncNameChrome();
+  // A brand-new engagement is its OWN baseline. Without this, both the "changes since upload"
+  // notification and "Revert to Original" still pointed at the PREVIOUS engagement (e.g. a prior
+  // stress bank), so a fresh manual bank showed a diff full of the old bank's fields (old name -> new
+  // name, "removed Credit Card"...) and revert restored the old bank. freezeOriginal snapshots THIS
+  // config as the original; markPristine sets the unsaved-changes baseline to THIS config.
+  freezeOriginal("new engagement");
+  markPristine();
   renderGlobals(); refresh(); setTab("products");
 }
 window.wizStart=wizStart; window.wizSet=wizSet; window.wizPick=wizPick; window.wizFinish=wizFinish;
