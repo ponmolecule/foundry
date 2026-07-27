@@ -5,6 +5,9 @@ same judgment shown on screen, bound to the same immutable run. Every string/num
 a named result field — no free-composed prose, meets/does-not-meet language (never viable/clean),
 constraint SOURCE drives the noun, Precedence 0 (integrity/completeness) gates the verdict.
 
+SYNC INVARIANT: this file and the JS generator in web/console_v2.html MUST produce identical output.
+After editing either, run `python tools/verify_verdict_sync.py` to confirm they still agree.
+
 See docs/EXEC_SUMMARY_REDESIGN.md.
 """
 from __future__ import annotations

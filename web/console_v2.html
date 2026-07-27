@@ -2351,6 +2351,8 @@ function renderExaminer(){
    Every string/number is assembled from a named model field. No free-composed prose, no absolute
    claims. Precedence 0 (integrity/completeness) gates the viability verdict; constraint SOURCE drives
    the noun; language is meets/does-not-meet, never viable/clean.
+   SYNC INVARIANT: this generator and foundry/v2/verdict.py (used for the exported workbook) MUST
+   produce identical output. After editing either, run `python tools/verify_verdict_sync.py`.
    ============================================================================ */
 // The noun for a capital constraint, from its declared source.
 function _constraintNoun(src){
