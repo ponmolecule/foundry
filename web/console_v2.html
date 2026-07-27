@@ -1060,6 +1060,15 @@ const CALC_TEXT = {
   paidInStock: "Capital stock & surplus \u2014 initial capital plus any staged raises (Target State / raises), landing at the start of their stated quarter.",
   re: "Retained earnings \u2014 prior balance + this quarter's net income; no dividends modeled.",
   borrow: "The funding-shortfall plug: drawn when deposits + capital can't fund assets at the cash floor; repaid first from surplus.",
+  loanInt: "Interest income on loans: each loan product's average balance \u00d7 its all-in yield (base rate + spread, or fixed yield) for the quarter, summed across products.",
+  secInt: "Interest income on the securities book: average securities balance \u00d7 the securities yield (HTM books earn their own fixed coupon, immune to the rate shock).",
+  cashInt: "Interest income on cash & due from banks: the average cash balance held at the treasury floor \u00d7 the cash yield.",
+  depExp: "Interest expense on deposits: each deposit product's average balance \u00d7 its rate paid (fixed rate, or index + spread for floating), summed across products.",
+  borrExp: "Interest expense on borrowings: the average outstanding balance of the funding plug and any scheduled term advances \u00d7 their rates.",
+  prov: "Provision for loan losses: the quarter's change in the allowance plus net charge-offs restored to it \u2014 i.e. what it costs to both cover this quarter's charge-offs and re-set the allowance to each product's reserve rate \u00d7 ending balance.",
+  nco: "Net charge-offs: each loan product's annual charge-off rate \u00f7 4 applied to its balance that quarter, summed (memo line \u2014 already embedded in the allowance and provision above).",
+  overhead: "Corporate overhead: the assumed base overhead (sidebar) grown at its quarterly rate, plus staffing/occupancy/other lines from the operating-expense detail if configured.",
+  prodOpex: "Product operating costs: each product's opex, computed as its opex % \u00d7 average balance plus any fixed per-quarter opex, summed across products.",
 };
 let _noteTerms = {};
 function regNote(key, hasOpen, terms){ _noteTerms[key] = terms.map(([l,a])=>[l, arr12(a, hasOpen)]); }
@@ -3334,7 +3343,7 @@ function renderContent(){
     const rows = (r.ftp||{}).rows || [];
     h += '<div class="h2">Per-Product Contributions</div>';
     h += ftpToggleHtml();
-    h += '<table class="fin"><tr><th>Product (12-quarter totals, $000s)</th><th>Q12 Balance</th><th>Interest Inc.</th><th>Interest Exp.</th><th>Fees</th><th>Gains on Sale</th><th>Net Servicing</th><th>Op Costs</th><th>Net Charge-offs</th>' + (ftpOn ? '<th>FTP Charge/Credit</th>' : '') + '<th>Direct Contribution</th></tr>';
+    h += '<table class="fin"><tr><th>Product (12-quarter totals, $000s)</th><th>Q12 Balance</th><th>Interest Income</th><th>Interest Expense</th><th>Fees</th><th>Gains on Sale</th><th>Net Servicing</th><th>Op Costs</th><th>Net Charge-offs</th>' + (ftpOn ? '<th>FTP Charge/Credit</th>' : '') + '<th>Direct Contribution</th></tr>';
     let ftpNet = 0;
     rows.forEach(x=>{
       ftpNet += x.ftp;
