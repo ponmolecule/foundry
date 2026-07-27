@@ -2536,7 +2536,9 @@ function renderOverview(){
   ];
   h += '<div class="ovcards">' + dcards.map(x=>
     `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${esc(x[1])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
-  // TIER 3 — evidence begins
+  // TIER 3 — evidence begins with the INPUT REASONABLENESS REVIEW (lead, open)
+  h += '<div class="ovh3" style="margin-top:20px">Input reasonableness review</div>';
+  h += '<div id="reasonReview" style="font-size:11.5px;color:#C4CDDD">building examiner review\u2026</div>';
   h += '<div class="ovh3" style="margin-top:20px">Evidence \u2014 flags &amp; challenge results</div>';
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
@@ -2592,6 +2594,72 @@ function renderOverview(){
         }).join("") + `</table>`
       + `<div style="margin-top:6px;color:#8FA3C0;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);
+  // ---- Input reasonableness review: examiner rows generated from fired flags joined to live peer bands.
+  // Each row: Input · Value · generated Observation · Peer band (live p10-med-p90) · Comparability · Severity · Conclusion.
+  // Observations/conclusions are TEMPLATE-keyed to the flag class, never free-composed.
+  setTimeout(()=>{
+    const el = document.getElementById("reasonReview"); if(!el) return;
+    const flags = r.flags||[];
+    if(!flags.length){ el.innerHTML = '<div class="memo" style="font-size:11px">No assumptions fell outside their reasonableness bands. Inputs are jointly consistent and within typical ranges.</div>'; return; }
+    const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
+    // conclusion word from flag class (examiner posture), never a viability claim
+    const CONCL = {
+      likely_regulatory_objection:"Likely regulatory objection",
+      commercial_assumption_requiring_support:"Needs supporting evidence",
+      counsel_determination_required:"Counsel determination",
+      advisory:"Review item", satisfied:"Within range" };
+    const sevWord = f => f.sev==="severe" ? "High" : "Advisory";
+    const sevCls  = f => f.sev==="severe" ? "bad" : "mut";
+    // parse "Product: observation" — the product is the input, the rest is the observation (flag's own words)
+    const rows = flags.map(f=>{
+      const text = String(f.text||"");
+      const ci = text.indexOf(":");
+      const input = ci>0 ? text.slice(0,ci).trim() : (f.id||"assumption");
+      const obs   = ci>0 ? text.slice(ci+1).trim() : text;
+      return {id:f.id, input, obs, sev:f.sev, cls:f.cls,
+              concl: CONCL[f.cls]||"Review item", sevWord:sevWord(f), sevCls:sevCls(f)};
+    });
+    // fetch live peer bands (same endpoint the ledger uses) and attach where a rule maps to a metric
+    fetch("/api/v31/challenge-thresholds", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({cfg: cfgRef(), total_assets_000s: _ta})}).then(x=>x.json()).then(t=>{
+      const peerTier = t.tier==="provisional_peer";
+      // build id->peer lookup from the ledger rows
+      const peerById = {};
+      (t.thresholds||[]).forEach(th=>{ if(th.peer) peerById[th.id]=th.peer; });
+      // map a flag id to a ledger rule id for peer lookup (best-effort; blank when structural)
+      const FLAG_TO_RULE = {"FUND-HOT":"FUND-HOT","FUND-DDA":"FUND-DDA","FUND-GROWTH":"FUND-GROWTH",
+        "GROWTH-Y1":"GROWTH-Y1","BAND-CO-HI":"CO-BAND","BAND-CO-LO":"CO-BAND","MSR-FEE":"MSR-FEE"};
+      const comparability = (p)=> !p ? ["not comparable","#6E7C93"] :
+        (p.small_n ? ["insufficient sample","#DFA85A"] : ["like-for-like","#7FB07F"]);
+      let hh = '<div class="memo" style="font-size:10.5px;margin:2px 0 8px">Each fired assumption reviewed against its reasonableness band. Observations are the challenge layer\u2019s own findings; peer bands are live percentiles from real FDIC filers where a comparable metric exists. Severity is the finding\u2019s class, not a pass/fail of the model.</div>';
+      hh += '<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:150px">Input</th><th>Observation</th>'
+          + (peerTier?'<th style="width:150px">Peer band (p10\u00b7med\u00b7p90)</th><th style="width:96px">Comparability</th>':'')
+          + '<th style="width:58px">Severity</th><th style="width:130px">Conclusion</th></tr>';
+      rows.forEach(rw=>{
+        const rule = FLAG_TO_RULE[rw.id];
+        const p = rule ? peerById[rule] : null;
+        const [cmpLabel,cmpColor] = comparability(p);
+        const peerCell = peerTier ? (p
+          ? `<td style="vertical-align:top;font-family:var(--mono);font-size:10px;color:#9FB0C8;white-space:nowrap"><span style="color:#fff;font-weight:700">${(+p.p10).toFixed(2)}\u00b7${(+p.p50).toFixed(2)}\u00b7${(+p.p90).toFixed(2)}</span><br><span style="color:#6E7C93">${esc(p.vintage||"")} \u00b7 n=${p.n}${p.small_n?" \u00b7 small-n":""}</span></td>`
+          : `<td style="vertical-align:top;font-size:10px;color:#6E7C93">\u2014</td>`)
+          + `<td style="vertical-align:top;font-size:10px;color:${cmpColor}">${cmpLabel}</td>`
+          : '';
+        hh += `<tr><td style="vertical-align:top;font-weight:600;color:#DCE3EE">${esc(rw.input)}</td>`
+            + `<td style="vertical-align:top;color:#C4CDDD">${esc(rw.obs)}</td>`
+            + peerCell
+            + `<td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td>`
+            + `<td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`;
+      });
+      hh += '</table>';
+      el.innerHTML = hh;
+    }).catch(()=>{
+      // fail-closed: still show the examiner rows WITHOUT peer bands rather than nothing
+      let hh = '<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:150px">Input</th><th>Observation</th><th style="width:58px">Severity</th><th style="width:130px">Conclusion</th></tr>';
+      rows.forEach(rw=>{ hh += `<tr><td style="vertical-align:top;font-weight:600;color:#DCE3EE">${esc(rw.input)}</td><td style="vertical-align:top;color:#C4CDDD">${esc(rw.obs)}</td><td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td><td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`; });
+      hh += '</table><div class="memo" style="font-size:10px;margin-top:4px">Peer bands unavailable for this run \u2014 showing findings without peer comparison.</div>';
+      el.innerHTML = hh;
+    });
+  }, 0);
   (r.flags||[]).forEach(f=>{
     const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
     h += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
