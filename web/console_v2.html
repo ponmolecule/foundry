@@ -4045,7 +4045,13 @@ async function toggleEngMenu(){
   if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
   named.forEach(e=>{
     const active = (e.scenario_name||e.name) === cur;
-    h += `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:${active?"#DFA85A":"#DCE3EE"};font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#DFA85A":"#3A4C6E"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#8FA3C0;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`;
+    // Row = the open-action <a> (flex:1) + a delete × beside it. The × calls the existing
+    // delEngagement(slug) (same robust path as Start/Reset: confirm, DELETE, baseline cleanup,
+    // store refresh) with stopPropagation so a delete click never also opens the engagement.
+    h += `<div style="display:flex;align-items:center" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''">`
+      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 10px;border-radius:6px 0 0 6px;text-decoration:none;color:${active?"#DFA85A":"#DCE3EE"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#DFA85A":"#3A4C6E"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#8FA3C0;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
+      + `<a href="#" title="Delete this engagement" onclick="engMenuDelete('${e.slug}');return false" style="flex:0 0 auto;padding:7px 10px;color:#8592AC;text-decoration:none;font-size:13px;border-radius:0 6px 6px 0" onmouseover="this.style.color='#E08585'" onmouseout="this.style.color='#8592AC'">\u2715</a>`
+      + `</div>`;
   });
   if(draft){
     const draftActive = !cur || (cfg.scenario_name||"") === "" || (draft.slug||"") === (window._openSlug||"");
@@ -4067,6 +4073,18 @@ async function engMenuOpen(slug){
   appStatus("ok", `<b>Now working on \u201c${esc(name)}\u201d</b> \u2014 opened from the engagement store.`);
 }
 window.engMenuOpen = engMenuOpen;
+// Delete an engagement from inside the chevron. Reuses the existing delEngagement (confirm + DELETE +
+// baseline cleanup + store refresh), then re-renders the menu in place so the row disappears without
+// closing the dropdown — the user can delete several in a row. delEngagement early-returns if the
+// confirm is declined, in which case the menu is simply re-rendered unchanged.
+async function engMenuDelete(slug){
+  await delEngagement(slug);
+  // delEngagement refreshes engStore; re-open the menu so it reflects the new list. toggleEngMenu
+  // toggles, so force it open: set display none first, then call to re-render open.
+  const m = document.getElementById("engMenu");
+  if(m){ m.style.display = "none"; await toggleEngMenu(); }
+}
+window.engMenuDelete = engMenuDelete;
 async function engMenuSave(){
   document.getElementById("engMenu").style.display = "none";
   // Suggest a name (bank name leads, then legal, then scenario), but let the user NAME IT
