@@ -264,8 +264,11 @@ def results_workbook_v2(cfg, res):
             es.append(["", "Snapshot id", co.get("snapshot_id", "\u2014")])
             es.append(["", "Comparability", "Stock measures like-for-like; earnings measures directional (modeled quarterly vs peer YTD)."])
         else:
-            es.append(["", "Status", peer.get("status", "no cohort attached")])
-            es.append(["", "Note", peer.get("note", "Peer evidence attaches when the challenge layer is calibrated from the CharterIQ substrate.")])
+            # No resolved cohort object travels in the run result (peer bands resolve through the live
+            # calibration path, not r.peer.cohort). Rather than print a bare "Status: pending" that
+            # reads as unfinished in a client exhibit, state the methodology plainly.
+            es.append(["", "Peer calibration", "Applied in the live workspace against the CharterIQ Call Report substrate (asset-band cohorts, per-metric vintage)."])
+            es.append(["", "This exhibit", "Carries the assumption-level reasonableness review above. Open the Peer Cohort tab in the workspace for the resolved cohort, sample sizes, and percentile placements."])
     except Exception:
         pass  # fail-closed: a verdict-generation issue must not break the numeric exhibit
 

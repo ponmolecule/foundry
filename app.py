@@ -1028,14 +1028,17 @@ def v2_exec_summary_pdf(cfg: dict, _=Depends(gate)):
     """
     import io as _io
     from fastapi.responses import StreamingResponse
-    from foundry.v2.parity import run_parity
+    from foundry.v2.run_q import run_v2
     from foundry.v2.validate_q import validate_errors_v2
     errs = validate_errors_v2(cfg)
     if errs:
         return JSONResponse({"valid": False, "errors": errs}, status_code=422)
     try:
         from foundry.v2.exec_pdf import exec_summary_pdf
-        pdf_bytes = exec_summary_pdf(cfg, run_parity(cfg))
+        # run_v2 (NOT run_parity): the PDF must carry the full exec-summary content — flags, verdict,
+        # issue families, modeled challenges, constraint tests. run_parity returns numbers only (no
+        # flags), which produced an empty PDF for even a heavily-flagged bank.
+        pdf_bytes = exec_summary_pdf(cfg, run_v2(cfg))
     except RuntimeError as e:
         # PDF toolkit unavailable in this deployment — tell the caller cleanly; the Excel export
         # remains the working fallback. This path never crashes the app.
