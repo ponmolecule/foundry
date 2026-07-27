@@ -1543,13 +1543,18 @@ function v31AddProduct(){
   const s = TAXONOMY_V31[cat][+document.getElementById("txSub").value];
   const name = (document.getElementById("txName").value.trim() || s.name);
   let p;
-  if(s.fam === "lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0.05,
-    rate_type:"fixed", yield_ann:0.06, charge_off_ann:0.01, provision_rate_ann:null, reserve_rate_pct_bal:0.015,
+  // Products are added INERT: every numeric amount defaults to 0 so a product contributes nothing
+  // until the user deliberately fills it. Structural selectors (rate_type, measurement,
+  // call_report_line) keep sensible non-numeric defaults so the product is valid. This matches the
+  // TAX31 taxonomy-add path and prevents a placeholder yield/charge-off/runoff from silently entering
+  // the model if a category is toggled on and left unfilled.
+  if(s.fam === "lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0,
+    rate_type:"fixed", yield_ann:0, charge_off_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
     measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
   else if(s.fam === "obs") p = {name, notional:0, growth_q:0, fee_yield_ann:0,
     opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
   else p = {name, opening_balance:0, growth_q:0, runoff_q:0, rate_type:"fixed",
-    rate_paid_ann:0.01, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
+    rate_paid_ann:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
   famArr(s.fam).push(p);
   closeModal(); renderContent(); refresh();
 }
@@ -1702,12 +1707,14 @@ function addCustom(){
   const cat = document.getElementById("cCat").value, line = document.getElementById("cLine").value;
   const fam = FAM_OF[cat];
   let p;
-  if(fam==="lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0.005, runoff_q:0.05,
-    rate_type:"fixed", yield_ann:0.06, charge_off_ann:0.01, provision_rate_ann:null, reserve_rate_pct_bal:0.015,
-    measurement:"amortized", fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_q:0, call_report_line:line};
-  else if(fam==="deposit") p = {name, opening_balance:0, growth_q:0.005, runoff_q:0.0, rate_type:"fixed",
-    rate_paid_ann:0.01, fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_q:0, call_report_line:line};
-  else p = {name, notional:0, growth_q:0.005, fee_yield_ann:0.0, opex_pct_ann:0.005, opex_fixed_q:0, call_report_line:line};
+  // Inert defaults (see v31AddProduct): numeric amounts default to 0 so nothing enters the model until
+  // the user fills it; structural selectors keep valid non-numeric defaults.
+  if(fam==="lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0,
+    rate_type:"fixed", yield_ann:0, charge_off_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
+    measurement:"amortized", fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
+  else if(fam==="deposit") p = {name, opening_balance:0, growth_q:0, runoff_q:0.0, rate_type:"fixed",
+    rate_paid_ann:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
+  else p = {name, notional:0, growth_q:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
   famArr(fam).push(p);
   closeModal(); renderContent(); refresh();
 }
@@ -4392,10 +4399,10 @@ function structuresSectionsHtml(){
     let _sb = '<div class="csub">Securities books</div>';
     _sb += `<div class="cmut" style="margin:0 0 8px">Books included \u00b7 ${nhtm} of ${nafs+nhtm} HTM designated</div>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
-      _sb += `<div class="crow"><input style="flex:1 1 92px;min-width:88px" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:104px" value="${fmtComma((b.opening||0)/1000)}" title="opening $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:62px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      _sb += `<div class="crow"><input style="flex:1 1 92px;min-width:88px" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:104px" value="${fmtComma((b.opening||0)/1000)}" title="opening $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:62px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((b.purchases_q||0)/1000)}" title="purchases / additions per quarter, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">purch $000s/q</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_q||0)*100).toFixed(1)}" title="balance growth %/qtr" onchange="cfg.assumptions.securities_afs[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">grw %/q</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_q||0)*100).toFixed(1)}" title="runoff / maturities %/qtr" onchange="cfg.assumptions.securities_afs[${i}].runoff_q=parseFloat(this.value)/100;refresh()"><span class="cu">run %/q</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
-      _sb += `<div class="crow"><input style="flex:1 1 92px;min-width:88px" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:104px" value="${fmtComma((b.opening||0)/1000)}" title="opening $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:62px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      _sb += `<div class="crow"><input style="flex:1 1 92px;min-width:88px" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:104px" value="${fmtComma((b.opening||0)/1000)}" title="opening $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:62px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield %" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((b.purchases_q||0)/1000)}" title="purchases / additions per quarter, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">purch $000s/q</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_q||0)*100).toFixed(1)}" title="balance growth %/qtr" onchange="cfg.assumptions.securities_htm[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">grw %/q</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_q||0)*100).toFixed(1)}" title="runoff / maturities %/qtr" onchange="cfg.assumptions.securities_htm[${i}].runoff_q=parseFloat(this.value)/100;refresh()"><span class="cu">run %/q</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
     let _ao = '<div class="csub">AOCI</div>';
