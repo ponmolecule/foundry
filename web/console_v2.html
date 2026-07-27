@@ -3509,6 +3509,7 @@ async function uploadScenario(input){
   try {
     const parsed = JSON.parse(await f.text());
     cfg = parsed;
+    lastRes = null; lastErrs = null;   // invalidate prior result (see pstat name-match)
     freezeOriginal("the file you uploaded");
     const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
     syncNameChrome();
@@ -3561,6 +3562,7 @@ async function loadFrozen(id){
   const r = await fetch("/api/v2/frozen/" + id + "/config");
   if(!r.ok){ appStatus("err", "<b>Frozen run not found</b> \u2014 the registry entry may predate this workspace."); return; }
   cfg = await r.json();
+  lastRes = null; lastErrs = null;   // invalidate prior result (see pstat name-match)
   syncNameChrome();
   renderGlobals(); refresh(); markPristine(); setTab("products");
 }
@@ -3909,6 +3911,10 @@ async function wizFinish(){
     appStatus("err", "<b>Entry screen:</b> organizational costs meet or exceed the raise \u2014 Day-1 equity would be zero or negative. Fix the capital screen before creating the engagement."); return; }
   // a NEW engagement starts from a clean shell — never from whatever session was open
   cfg = JSON.parse(JSON.stringify(TEMPLATE));
+  // Invalidate any prior engagement's run result. pstat() matches per-product Q12 stats by NAME
+  // against lastRes.ftp.rows; without this clear, a fresh engagement's zero-balance products would
+  // show the PRIOR engagement's Q12 numbers wherever a product name collides, until the first run.
+  lastRes = null; lastErrs = null;
   const _A = cfg.assumptions;
   _A.lending_products = []; _A.deposit_products = []; _A.obs_exposures = [];
   _A.capital_raises = []; _A.scheduled_borrowings = [];
@@ -3971,6 +3977,7 @@ async function _openEngagementNow(slug){
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = cfg2;
+    lastRes = null; lastErrs = null;   // invalidate the outgoing engagement's result (see pstat name-match)
     rehydrateOriginal(cfg);
     syncNameChrome();
     renderGlobals(); refresh(); markPristine(); setTab("overview");
