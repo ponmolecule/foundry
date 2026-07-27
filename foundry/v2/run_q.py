@@ -26,6 +26,31 @@ def _peer_annotated_flags(cfg, base):
     (no DB configured, band miss) returns the plain static flags unchanged, so a
     substrate outage never suppresses or breaks a flag."""
     flags = challenge_config(cfg)
+    # Durbin $10B threshold-cross (needs the MODELED balance sheet, which challenge_config lacks):
+    # the small-issuer exemption behind any interchange assumption holds only while assets are under
+    # $10B. If the modeled path actually reaches $10B, the exemption no longer applies and the assumed
+    # unregulated interchange rate is overstated — that is a substantive finding, not a counsel memo.
+    try:
+        _has_ic = any(f.get("id") == "REG-DURBIN" for f in flags)
+        if _has_ic:
+            _ta_series = (base.get("bs", {}).get("totalAssets") or [])
+            _peak_ta = max([x for x in _ta_series if x is not None], default=0.0)  # $000s
+            if _peak_ta >= 10_000_000.0:  # $10B expressed in $000s
+                _q_cross = next((i for i, x in enumerate(_ta_series)
+                                 if x is not None and x >= 10_000_000.0), None)
+                for f in flags:
+                    if f.get("id") == "REG-DURBIN":
+                        f["sev"] = "severe"
+                        f["text"] = (
+                            f"Modeled assets reach ${_peak_ta/1_000_000:.1f}B"
+                            + (f" by Q{_q_cross}" if _q_cross is not None else "")
+                            + ", at or above the $10B Durbin threshold. The small-issuer exemption no "
+                            "longer applies, so the assumed unregulated debit interchange rate is "
+                            "overstated for the quarters at/above $10B \u2014 the rate cap applies. "
+                            "Re-price interchange above the threshold and confirm asset aggregation "
+                            "with counsel.")
+    except Exception:
+        pass  # threshold enrichment is additive; never let it break the base flag
     try:
         from .peer_calibration import peer_annotate, asset_band_for
         ta = (base.get("bs", {}).get("totalAssets") or [None])[-1]

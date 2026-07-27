@@ -207,18 +207,21 @@ def challenge_config(cfg):
 
     # ---- Durbin small-issuer counsel item: raises wherever interchange revenue is modeled ----
     # This is a counsel-determination item, not a value violation — its mere presence means the plan
-    # is assuming the Durbin small-issuer exemption (<$10B assets), which counsel should confirm
-    # (parent-affiliate asset aggregation, etc.). It must fire the same way whether interchange is
-    # configured in the modern location (fee_modules.interchange, where the console writes it) or the
-    # legacy top-level assumptions.interchange_rate. Presence — not a threshold — is the trigger.
+    # relies on the Durbin small-issuer exemption, under which issuers with LESS THAN $10B in assets
+    # earn unregulated (higher) debit interchange, while issuers at or above $10B are subject to the
+    # rate cap. challenge_config sees INPUTS only, so it cannot assert the bank's modeled asset size;
+    # it states the dependency and lets run_q escalate if the modeled balance sheet reaches $10B (the
+    # THRESHOLD-CROSS check lives there, where totalAssets exists). It must fire the same way whether
+    # interchange is configured in the modern location (fee_modules.interchange, where the console
+    # writes it) or the legacy top-level assumptions.interchange_rate. Presence is the trigger.
     _fm = a.get("fee_modules") or {}
     _ic = _fm.get("interchange") or {}
     _has_interchange = ("interchange_rate" in a) or bool(_ic) or ("interchange_rate" in _ic)
     if _has_interchange:
         _flag(flags, "REG-DURBIN", "mild",
-              "Interchange revenue assumes the Durbin small-issuer exemption (<$10B assets). "
-              "The projection stays under the threshold, but confirm treatment of parent-affiliate "
-              "asset aggregation with counsel.")
+              "Interchange revenue relies on the Durbin small-issuer exemption: unregulated debit "
+              "interchange applies only while assets stay under $10B; at or above $10B the rate cap "
+              "applies. Confirm the assumed rate and parent-affiliate asset aggregation with counsel.")
 
     return flags
 
