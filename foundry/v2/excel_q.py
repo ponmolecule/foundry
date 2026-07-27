@@ -195,6 +195,54 @@ def results_workbook_v2(cfg, res):
     cover.append(["Units", "$ thousands"])
     cover.append(["Note", "Identical configuration reproduces identical figures and this hash, forever."])
 
+    # Executive Summary sheet — opens the exhibit with the SAME generated judgment shown on screen,
+    # bound to this immutable run (export parity). Verdict prose + issue families + sign-off + peer
+    # appendix, all field-sourced. See foundry/v2/verdict.py. The parity-shaped `res` lacks the
+    # verdict inputs (constraint_tests/scenarios/flags/checks), so we compute the full result here;
+    # it is deterministic from cfg, so the exported verdict is identical to the on-screen one.
+    try:
+        from . import verdict as _verdict
+        vres = res
+        if not res.get("constraint_tests") or not res.get("flags"):
+            from .run_q import run_v2 as _run_v2
+            import copy as _copy
+            vres = _run_v2(_copy.deepcopy(cfg))
+        es = wb.create_sheet("Executive Summary")
+        es.append([cfg.get("proposed_bank", "Pro Forma") + " \u2014 Executive Summary"])
+        es.append(["Run identity", f"Config {cfg.get('schema_version')} \u00b7 Run {str(_cfg_hash(cfg))[:10]} \u00b7 Engine {vres.get('engine_version','')}"])
+        es.append([])
+        es.append(["Verdict"])
+        for line in _verdict.verdict_lines(cfg, vres):
+            es.append(["", line])
+        es.append([])
+        es.append(["Top issue families (root-cause groups, ranked)"])
+        es.append(["", "Family", "Severity", "Flags", "Headline finding"])
+        for f in _verdict.issue_families(vres):
+            es.append(["", f["family"], f["sev"], f["count"], f["headline"]])
+        es.append([])
+        es.append(["Required before sign-off"])
+        for i, a in enumerate(_verdict.sign_off_actions(vres), 1):
+            es.append(["", f"{i}. {a['text']}", "affects verdict" if a["affects_verdict"] else ""])
+        es.append([])
+        # Peer appendix — export-primary: the full cohort provenance travels with the file so the
+        # exported summary is self-sufficient and defensible offline (no live tab to link to).
+        peer = (vres.get("peer") or {})
+        co = peer.get("cohort")
+        es.append(["Peer cohort & methodology (appendix)"])
+        if co:
+            ts = co.get("terminal_summary") or {}
+            es.append(["", "Cohort size (n)", co.get("n")])
+            es.append(["", "Effective n", co.get("effective_n")])
+            es.append(["", "Radius (original \u2192 final)", f"{co.get('radius_original')} \u2192 {co.get('radius_final')}"])
+            es.append(["", "Survivorship", f"{ts.get('failed', 0)} failed \u00b7 {ts.get('acquired', 0)} acquired \u2014 retained in evidence base"])
+            es.append(["", "Snapshot id", co.get("snapshot_id", "\u2014")])
+            es.append(["", "Comparability", "Stock measures like-for-like; earnings measures directional (modeled quarterly vs peer YTD)."])
+        else:
+            es.append(["", "Status", peer.get("status", "no cohort attached")])
+            es.append(["", "Note", peer.get("note", "Peer evidence attaches when the challenge layer is calibrated from the CharterIQ substrate.")])
+    except Exception:
+        pass  # fail-closed: a verdict-generation issue must not break the numeric exhibit
+
     from .callreport import code_for_result, code_for_line
     from . import present
     derived = present.derived_lines(res, cfg)

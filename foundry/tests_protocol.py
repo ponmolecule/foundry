@@ -1826,6 +1826,11 @@ def t46():
     names = wb.sheetnames
     check("T46a", "the results workbook carries the five schedule sheets (F-133)",
           all(f"Schedule {s}" in names for s in ("RC", "RI", "RC-C", "RC-E", "RC-R")))
+    # Executive Summary sheet — export parity: the exhibit opens with the generated verdict prose.
+    check("T46a2", "the results workbook opens with an Executive Summary verdict sheet",
+          "Executive Summary" in names and
+          any("Verdict" == (r[0] if r else None)
+              for r in wb["Executive Summary"].iter_rows(values_only=True)))
     ws = wb["Schedule RC"]
     rows = {r[0]: list(r[3:15]) for r in ws.iter_rows(min_row=3, values_only=True) if r and r[0]}
     ta = res_v["financials"]["bs"]["totalAssets"]
