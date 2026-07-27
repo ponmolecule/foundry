@@ -2507,6 +2507,25 @@ function renderOverview(){
   // Peer cohort summary (for the inline evidence line + tab link) — extracted, not rendered as cards.
   const _peerCohort = (r.peer && r.peer.cohort) ? r.peer.cohort : null;
   let h = '<div class="h2" style="font-weight:700;margin-bottom:14px">Executive Summary</div>';
+  // Layer 0 — top utility line: bind the on-screen (and exported) summary to one immutable run.
+  {
+    const bits = [];
+    if(r.schema_version!=null) bits.push(`Config <b style="color:#C4CDDD">${esc(String(r.schema_version))}</b>`);
+    if(r.config_hash) bits.push(`Run <b style="font-family:var(--mono);color:#C4CDDD">${esc(String(r.config_hash).slice(0,10))}</b>`);
+    if(r.engine_version) bits.push(`Engine <b style="color:#C4CDDD">${esc(String(r.engine_version).replace(/^foundry-engine\s*/,""))}</b>`);
+    bits.push(`Peer snapshot <b style="color:#C4CDDD">${(_peerCohort && _peerCohort.snapshot_id)?esc(_peerCohort.snapshot_id):"pending"}</b>`);
+    bits.push(`Generated <b style="color:#C4CDDD">${new Date().toISOString().slice(0,16).replace("T"," ")}Z</b>`);
+    h += `<div style="font-size:10.5px;color:#6E7C93;margin:-8px 0 12px;font-family:var(--mono)">${bits.join(' \u00b7 ')}</div>`;
+  }
+  // Layer 0.5 — change since prior version (reuses the diff engine). Only when a prior baseline exists.
+  try{
+    if(typeof unsavedChangeList==="function" && _pristineIdent===_cfgIdent(cfgRef())){
+      const chg = unsavedChangeList();
+      if(chg.length){
+        h += `<div style="background:#12203A;border:1px solid #2A3A55;border-radius:6px;padding:8px 11px;margin:0 0 12px;font-size:11px;color:#AEB9CC"><b style="color:#DFA85A">${chg.length} change${chg.length===1?"":"s"} since last saved:</b> ${chg.slice(0,3).map(esc).join(" \u00b7 ")}${chg.length>3?` \u00b7 +${chg.length-3} more`:""}</div>`;
+      }
+    }
+  }catch(e){}
   // TIER 1 — the generated verdict + sparkline
   h += _verdictBlock(r);
   // TIER 1c — top issue families strip (adaptive; root-cause, not raw flags)
@@ -2536,6 +2555,31 @@ function renderOverview(){
   ];
   h += '<div class="ovcards">' + dcards.map(x=>
     `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${esc(x[1])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
+  // Required before sign-off — up to 3 generated statements, linked to the top issue families.
+  // Statements only (no owner/due-date/status): Foundry models banks, it is not a task tracker.
+  if(_fams.length){
+    const ACTION = {
+      "Opening capitalization & Day-1 funding":"Revise or support the opening capitalization and Day-1 funding plan.",
+      "CRE economics & concentration":"Reconcile CRE pricing, losses, reserves, and concentration assumptions.",
+      "Deposit pricing & growth":"Support the deposit-rate and growth strategy with pipeline and market evidence.",
+      "Card pricing & credit losses":"Support credit-card pricing and loss assumptions with product-level evidence.",
+      "Commercial & industrial credit":"Reconcile C&I pricing and loss assumptions.",
+      "Mortgage-banking execution":"Support the mortgage-banking gain-on-sale, warehouse, and MSR assumptions.",
+      "Expense & staffing":"Reconcile the operating-expense and staffing plan.",
+      "Cross-assumption consistency":"Resolve the internal contradictions flagged across coupled assumptions.",
+    };
+    const acts = _fams.slice(0,3).map(f=>({txt: ACTION[f.family]||`Review the ${f.family.toLowerCase()} assumptions.`, sev:f.sev}));
+    // does resolving change the verdict? true when a base constraint is failing (capital-linked families)
+    const verdictLinked = (r.constraint_tests||[]).some(t=>t.scenario==="base" && !t.pass);
+    h += '<div class="ovh3" style="margin-top:18px">Required before sign-off</div>';
+    h += '<div style="display:flex;flex-direction:column;gap:6px">' + acts.map((a,i)=>
+      `<div style="display:flex;align-items:flex-start;gap:9px;background:var(--panel,#0F1826);border:1px solid #1E2C42;border-radius:6px;padding:9px 12px">
+        <span style="color:#DFA85A;font-weight:700;font-size:12px">${i+1}.</span>
+        <span style="flex:1;font-size:12px;color:#DCE3EE">${esc(a.txt)}</span>
+        <span class="ovtag ${a.sev==="severe"?"bad":"mut"}">${a.sev==="severe"?"high":"review"}</span>
+        ${verdictLinked&&a.sev==="severe"?'<span class="ovtag" style="background:rgba(248,113,113,.12);color:#F87171" title="Resolving this can change the verdict">affects verdict</span>':''}
+      </div>`).join("") + '</div>';
+  }
   // TIER 3 — evidence begins with the INPUT REASONABLENESS REVIEW (lead, open)
   h += '<div class="ovh3" style="margin-top:20px">Input reasonableness review</div>';
   h += '<div id="reasonReview" style="font-size:11.5px;color:#C4CDDD">building examiner review\u2026</div>';
