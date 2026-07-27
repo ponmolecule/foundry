@@ -1399,11 +1399,11 @@ function prodCardHtml(fam, i){
   h += '</select></div>';
   }
   if(cat!=="offbs"){
-    h += `<div class="fld"><label>Rate type</label><select onchange="setPath('${base}.rate_type', this.value)">`+
+    h += `<div class="fld"><label>Rate type</label><select onchange="setPath('${base}.rate_type', this.value); renderContent()">`+
       `<option value="fixed"${p.rate_type==="fixed"?" selected":""}>Fixed</option>`+
       `<option value="float"${p.rate_type==="float"?" selected":""}>Floating (SOFR + spread)</option></select></div>`;
     if(fam==="lending"){
-      h += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement', this.value)">`+
+      h += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement', this.value); renderContent()">`+
         `<option value="amortized"${p.measurement!=="fair_value"?" selected":""}>Amortized cost</option>`+
         `<option value="fair_value"${p.measurement==="fair_value"?" selected":""}>Fair value (DCF, FV option)</option></select></div>`;
     }
