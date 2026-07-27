@@ -53,7 +53,7 @@ def _extract_js_module():
         "' modeled scenarios breach it':(scenFail>0?'; '+scenFail+' of '+scenTotal+' modeled scenarios breach it':''))+'.');}"
         "else{out.push('Base leverage holds above the stated '+commit.toFixed(1)+"
         "'% threshold in every modeled scenario (low of '+minPct.toFixed(2)+'% in Q'+b.min_leverage_q+').');}}"
-        "var fam=_issueFamilies(r);if(fam.length)out.push('Highest-priority finding: '+fam[0].headline);"
+        "var fam=_issueFamilies(r);if(fam.length)out.push('Most material assumption area: '+fam[0].family+' \\u2014 '+fam[0].concern+'.');"
         "var sf=b.capital_shortfall_est;if(sf!=null&&sf>0&&commit)"
         "out.push('Estimated additional opening capital to maintain the '+commit.toFixed(1)+"
         "'% base-case threshold through Q12: '+_money000(sf)+' (estimate).');return out;}};"

@@ -216,9 +216,9 @@ def results_workbook_v2(cfg, res):
             es.append(["", line])
         es.append([])
         es.append(["Top issue families (root-cause groups, ranked)"])
-        es.append(["", "Family", "Severity", "Flags", "Headline finding"])
+        es.append(["", "Family", "Severity", "Flags", "Concern (see input reasonableness review for specifics)"])
         for f in _verdict.issue_families(vres):
-            es.append(["", f["family"], f["sev"], f["count"], f["headline"]])
+            es.append(["", f["family"], f["sev"], f["count"], f["concern"]])
         es.append([])
         es.append(["Required before sign-off"])
         for i, a in enumerate(_verdict.sign_off_actions(vres), 1):

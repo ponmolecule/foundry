@@ -2389,7 +2389,7 @@ function _verdictCall(r){
   if((r.flags||[]).length) return {call:"Meets modeled constraints; review items remain", cls:"mut"};
   return {call:"No modeled exceptions identified", cls:"ok"};
 }
-// Issue-family grouping (root cause, not raw flags). Returns [{family, sev, count, headline}] ranked
+// Issue-family grouping (root cause, not raw flags). Returns [{family, sev, count, concern}] ranked
 // by: contains-severe first, then by count. Explainable order only — no weighted composite.
 // Classification is DETERMINISTIC and anchored, not loose substring matching: flags carry a product
 // prefix in their text ("Credit Card: ...", "Commercial Real Estate: ...") and a stable ID. Earlier
@@ -2420,7 +2420,10 @@ function _issueFamilies(r){
   ];
   function classify(f){
     const text = String(f.text||"");
-    const prefix = (text.split(":")[0]||"");           // product name sits before the first colon
+    // product name sits before the FIRST COLON. If there is no colon, there is no product prefix —
+    // an empty prefix (NOT the whole text), so we don't misfile a structural flag like COUPLED-01
+    // ("Deposit growth ... jointly with ...") under "Deposit" just because the word appears mid-sentence.
+    const prefix = text.includes(":") ? text.split(":")[0] : "";
     for(const [re,fam] of PRODUCT_FAMILY){ if(re.test(prefix)) return fam; }
     const id = String(f.id||"");
     for(const [re,fam] of ID_FAMILY){ if(re.test(id) || re.test(text)) return fam; }
@@ -2431,11 +2434,34 @@ function _issueFamilies(r){
     const fam = classify(f);
     (groups[fam] = groups[fam] || []).push(f);
   });
+  // The family "concern" is a NUMBER-FREE characterization of what these flags are about — never a raw
+  // flag's text, because flag text carries INPUT numbers ("28% yield", "3.5% charge-off"), and input
+  // numbers belong ONLY in the input reasonableness review, never in the prospects/verdict layer. Here
+  // we describe the NATURE of the concern (pricing, concentration, credit-loss coverage, funding...),
+  // derived from the flag ids/classes present, so the verdict and family strip stay input-number-free.
+  const _concernOf = (hits)=>{
+    const ids = hits.map(h=>String(h.id||""));
+    const has = re => ids.some(id=>re.test(id));
+    const parts = [];
+    if(has(/PRICE|USURY|LOWYIELD/)) parts.push("pricing");
+    if(has(/CONC/))                 parts.push("concentration");
+    if(has(/RES-THIN|PROV|BAND-CO|CO-/)) parts.push("credit-loss coverage");
+    if(has(/FUND|GROWTH/))          parts.push("deposit pricing & growth");
+    if(has(/SPREAD|VIAB|NIM/))      parts.push("net-interest margin");
+    if(has(/MSR|GOS|WAREHOUSE/))    parts.push("mortgage-banking execution");
+    if(has(/CAP|PREOPEN|LEVERAGE/)) parts.push("opening capitalization");
+    if(has(/COUPLED/))              parts.push("internal consistency");
+    if(has(/NIE|OPEX/))             parts.push("operating expense");
+    const uniq = [...new Set(parts)];
+    const noun = uniq.length ? uniq.slice(0,3).join(", ") : "assumption";
+    const n = hits.length;
+    return `${n} ${n===1?"assumption":"assumptions"} flagged on ${noun} \u2014 see the input reasonableness review for specifics`;
+  };
   const out = Object.entries(groups).map(([family, hits])=>({
     family,
     sev: hits.some(f=>f.sev==="severe") ? "severe" : "advisory",
     count: hits.length,
-    headline: (hits.find(f=>f.sev==="severe")||hits[0]).text,
+    concern: _concernOf(hits),
   }));
   out.sort((a,b)=> (b.sev==="severe")-(a.sev==="severe") || b.count-a.count);
   return out;
@@ -2486,9 +2512,11 @@ function _verdictBlock(r){
         lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (low of <b>${minPct.toFixed(2)}%</b> in Q${b.min_leverage_q}).</p>`;
       }
     }
-    // highest-priority finding (family headline, own text — never "driver")
+    // highest-priority area — NUMBER-FREE. Points to the most material family and defers the specific
+    // input values to the reasonableness review. Never quotes a raw input (that would put an input
+    // number in the prospects/verdict layer).
     const fam = _issueFamilies(r);
-    if(fam.length) lines += `<p>Highest-priority finding: ${esc(fam[0].headline)}</p>`;
+    if(fam.length) lines += `<p>Most material assumption area: <b>${esc(fam[0].family)}</b> \u2014 ${esc(fam[0].concern)}.</p>`;
     // capital requirement, precisely scoped
     const shortfall = b.capital_shortfall_est;
     if(shortfall!=null && shortfall>0 && commit){
@@ -2546,7 +2574,7 @@ function renderOverview(){
     h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
       _fams.slice(0,3).map((f,i)=>`<div style="background:var(--panel,#0F1826);border:1px solid #1E2C42;border-left:3px solid ${f.sev==="severe"?"#F87171":"#DFA85A"};border-radius:8px;padding:11px 13px">
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-weight:700;font-size:12px;color:#DCE3EE">${i+1}. ${esc(f.family)}</span><span class="ovtag ${f.sev==="severe"?"bad":"mut"}">${f.sev==="severe"?"severe":"advisory"}</span></div>
-        <div style="font-size:11px;color:#9FB0C8">${esc(f.headline)}</div>
+        <div style="font-size:11px;color:#9FB0C8">${esc(f.concern)}</div>
         <div style="font-size:10px;color:#6E7C93;margin-top:4px">${f.count} flag${f.count===1?"":"s"} in this family</div></div>`).join("") + '</div>';
   }
   // TIER 2 — decision drivers (breakeven REMOVED; earnings durability added)

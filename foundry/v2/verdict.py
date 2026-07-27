@@ -107,10 +107,11 @@ def verdict_lines(cfg: dict, res: dict) -> list[str]:
                 f"Base leverage holds above the stated {commit:.1f}% threshold in every modeled "
                 f"scenario (low of {min_pct:.2f}% in Q{base.get('min_leverage_q')})."
             )
-    # highest-priority finding — the top issue family's headline (a flag's own text)
+    # most material assumption area — NUMBER-FREE. Points to the top family and defers specific input
+    # values to the reasonableness review; never quotes a raw input in the prospects/verdict layer.
     fams = issue_families(res)
     if fams:
-        lines.append("Highest-priority finding: " + fams[0]["headline"])
+        lines.append(f"Most material assumption area: {fams[0]['family']} \u2014 {fams[0]['concern']}.")
     shortfall = base.get("capital_shortfall_est")
     if shortfall is not None and shortfall > 0 and commit:
         lines.append(
@@ -156,6 +157,39 @@ def _classify(f: dict) -> str:
     return "Other assumptions & structure"
 
 
+def _concern_of(hits: list) -> str:
+    """Number-free characterization of a family's flags. NEVER a raw flag's text — flag text carries
+    input numbers, and input numbers belong only in the input reasonableness review, never here."""
+    ids = [str(h.get("id") or "") for h in hits]
+
+    def has(rx):
+        return any(_re.search(rx, i) for i in ids)
+
+    parts = []
+    if has(r"PRICE|USURY|LOWYIELD"):
+        parts.append("pricing")
+    if has(r"CONC"):
+        parts.append("concentration")
+    if has(r"RES-THIN|PROV|BAND-CO|CO-"):
+        parts.append("credit-loss coverage")
+    if has(r"FUND|GROWTH"):
+        parts.append("deposit pricing & growth")
+    if has(r"SPREAD|VIAB|NIM"):
+        parts.append("net-interest margin")
+    if has(r"MSR|GOS|WAREHOUSE"):
+        parts.append("mortgage-banking execution")
+    if has(r"CAP|PREOPEN|LEVERAGE"):
+        parts.append("opening capitalization")
+    if has(r"COUPLED"):
+        parts.append("internal consistency")
+    if has(r"NIE|OPEX"):
+        parts.append("operating expense")
+    uniq = list(dict.fromkeys(parts))
+    noun = ", ".join(uniq[:3]) if uniq else "assumption"
+    n = len(hits)
+    return f"{n} {'assumption' if n == 1 else 'assumptions'} flagged on {noun} \u2014 see the input reasonableness review for specifics"
+
+
 def issue_families(res: dict) -> list[dict]:
     flags = res.get("flags") or []
     groups: dict[str, list] = {}
@@ -164,8 +198,7 @@ def issue_families(res: dict) -> list[dict]:
     out = []
     for fam, hits in groups.items():
         sev = "severe" if any(h.get("sev") == "severe" for h in hits) else "advisory"
-        headline = next((h for h in hits if h.get("sev") == "severe"), hits[0]).get("text")
-        out.append({"family": fam, "sev": sev, "count": len(hits), "headline": headline})
+        out.append({"family": fam, "sev": sev, "count": len(hits), "concern": _concern_of(hits)})
     out.sort(key=lambda d: (d["sev"] != "severe", -d["count"]))
     return out
 
