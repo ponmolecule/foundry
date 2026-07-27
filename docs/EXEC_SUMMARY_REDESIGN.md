@@ -1,3 +1,21 @@
+# STATUS (build complete for demo)
+
+All ADOPT/SIMPLIFY items below are BUILT and verified across multiple configs (clean, warning-heavy,
+and pathological), with JS and Python verdict generators confirmed byte-identical
+(`tools/verify_verdict_sync.py`). Two items remain honestly DEFERRED because they need data the model
+does not yet capture:
+ - Evidence readiness ("N of M assumptions supported") — needs a per-assumption evidence-status field.
+ - Real causal attribution for "driver" — language stays "highest-priority finding" until a
+   sensitivity/remediation test exists.
+
+Everything else — verdict block, Precedence 0, constraint-source wording, sparkline, issue families,
+Tier 1/2/3 hierarchy, earnings-durability swap, input reasonableness review with live peer bands and
+comparability labels, required-before-sign-off, top utility line, change-since-prior strip, peer
+summary + tab link, and export parity (verdict prose + peer appendix in the downloaded workbook) — is
+built and gated (protocol 328/328, parity 9/9, flags 18/18).
+
+---
+
 # Foundry — Executive Summary redesign v2 (reconciled, build spec)
 
 Reconciles the original component spec with GPT's review. Each item marked **[ADOPT]**,
