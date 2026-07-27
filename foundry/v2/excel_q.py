@@ -224,6 +224,32 @@ def results_workbook_v2(cfg, res):
         for i, a in enumerate(_verdict.sign_off_actions(vres), 1):
             es.append(["", f"{i}. {a['text']}", "affects verdict" if a["affects_verdict"] else ""])
         es.append([])
+        # Two evidence streams, kept absolutely separate (mirrors the on-screen exec summary):
+        #   (1) Are the assumptions credible? — input reasonableness (raw inputs vs bands)
+        #   (2) Does the modeled bank hold together? — modeled challenges (engine outputs vs standards)
+        _all_flags = vres.get("flags") or []
+        _input_flags = [f for f in _all_flags if f.get("source") != "modeled"]
+        _modeled_flags = [f for f in _all_flags if f.get("source") == "modeled"]
+        _modeled_chal = vres.get("modeled_challenges") or []
+        es.append(["Are the assumptions credible?  (input reasonableness \u2014 raw inputs vs real-peer bands)"])
+        es.append(["", "Finding ID", "Severity", "Observation (input assumption)"])
+        if _input_flags:
+            for f in _input_flags:
+                es.append(["", f.get("id"), f.get("sev"), f.get("text")])
+        else:
+            es.append(["", "\u2014", "\u2014", "No input assumption fell outside its reasonableness band."])
+        es.append([])
+        es.append(["Does the modeled bank hold together?  (modeled challenges \u2014 engine outputs vs standards)"])
+        es.append(["", "Finding ID", "Severity", "Modeled finding", "Modeled basis"])
+        _mrows = [(f.get("id"), f.get("sev"), f.get("text"), "") for f in _modeled_flags] + \
+                 [(m.get("id"), m.get("sev"), m.get("text"), m.get("basis", "")) for m in _modeled_chal]
+        if _mrows:
+            _mrows.sort(key=lambda t: t[1] != "severe")
+            for fid, sev, text, basis in _mrows:
+                es.append(["", fid, sev, text, basis])
+        else:
+            es.append(["", "\u2014", "\u2014", "No modeled-output exceptions across the projection.", ""])
+        es.append([])
         # Peer appendix — export-primary: the full cohort provenance travels with the file so the
         # exported summary is self-sufficient and defensible offline (no live tab to link to).
         peer = (vres.get("peer") or {})

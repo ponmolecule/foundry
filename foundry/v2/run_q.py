@@ -893,5 +893,25 @@ def run_v2(cfg):
         if "cls" not in f:
             f["cls"] = ("commercial_assumption_requiring_support"
                           if f.get("sev") == "severe" else "advisory")
+
+    # ---- Modeled challenges: findings derived from ENGINE OUTPUTS, kept absolutely separate from the
+    # input-reasonableness flags. See foundry/v2/modeled_challenges.py. These carry cls="modeled" and
+    # live in results["modeled_challenges"]; they are NOT mixed into results["flags"] (which is the
+    # input-reasonableness stream) so the exec summary can route each to its own section.
+    try:
+        from .modeled_challenges import modeled_challenges as _mc
+        results["modeled_challenges"] = _mc(results)
+    except Exception:
+        results["modeled_challenges"] = []
+
+    # Tag every input-reasonableness flag with source="input" so the surface can prove the separation.
+    # A small set of engine-output-derived flags already live in results["flags"] for historical
+    # reasons (GROWTH-Y1, CONC-*, CAP-BUFFER, PREOPEN-01, SPREAD-VIAB); tag those source="modeled" so
+    # they route to the modeled section too, and everything else source="input".
+    _MODELED_FLAG_IDS = {"GROWTH-Y1", "CONC-CRE-RBC", "CONC-CD-RBC", "CONC-LLL",
+                          "CAP-BUFFER", "PREOPEN-01", "SPREAD-VIAB"}
+    for f in results.get("flags") or []:
+        f["source"] = "modeled" if str(f.get("id", "")).split(":")[0] in _MODELED_FLAG_IDS else "input"
+
     results["run_hash"] = _hash(results)
     return results

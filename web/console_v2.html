@@ -2619,15 +2619,42 @@ function renderOverview(){
         ${verdictLinked&&a.sev==="severe"?'<span class="ovtag" style="background:rgba(248,113,113,.12);color:#F87171" title="Resolving this can change the verdict">affects verdict</span>':''}
       </div>`).join("") + '</div>';
   }
-  // TIER 3 — evidence begins with the INPUT REASONABLENESS REVIEW (lead, open)
-  h += '<div class="ovh3" style="margin-top:20px">Input reasonableness review</div>';
+  // ============================================================================================
+  // EVIDENCE — two streams, absolutely separate, each answering a different question:
+  //   (1) Are the ASSUMPTIONS credible?  -> input reasonableness (raw inputs vs bands). Owns input #s.
+  //   (2) Does the MODELED BANK hold together? -> modeled challenges (engine outputs vs standards).
+  // The reader should never confuse "this input is aggressive" with "the projected bank has a problem".
+  // ============================================================================================
+  const _inputFlags   = (r.flags||[]).filter(f=>f.source!=="modeled");
+  const _modeledFlags = (r.flags||[]).filter(f=>f.source==="modeled");
+  const _modeledChal  = r.modeled_challenges||[];
+  const _modeledAll   = _modeledFlags.concat(_modeledChal);
+
+  // ---- STREAM 1: Are the assumptions credible? --------------------------------------------------
+  h += '<div class="ovh3" style="margin-top:22px">Are the assumptions credible?</div>';
+  h += '<div class="memo" style="font-size:10.5px;margin:2px 0 6px">Each input assumption judged on its own terms against real-peer bands. This is about whether the <i>plan\u2019s inputs</i> are believable \u2014 not yet about what they add up to.</div>';
   h += '<div id="reasonReview" style="font-size:11.5px;color:#C4CDDD">building examiner review\u2026</div>';
-  h += '<div class="ovh3" style="margin-top:20px">Challenge thresholds &amp; flag detail</div>';
+  // methodology reference (the bands/rules the inputs were judged against) — collapsed, lives WITH
+  // stream 1 because thresholds are the standard the reasonableness check tests against.
+  h += '<details style="margin:8px 0 4px"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Reasonableness bands in effect \u2014 the standards these inputs were judged against</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
+
+  // ---- STREAM 2: Does the modeled bank hold together? -------------------------------------------
+  h += '<div class="ovh3" style="margin-top:22px">Does the modeled bank hold together?</div>';
+  h += '<div class="memo" style="font-size:10.5px;margin:2px 0 6px">Findings from the <i>engine\u2019s own projected outputs</i> \u2014 blended ratios, concentrations, capital and earnings trajectories from the Product-detail waterfall. This is about the bank the assumptions <i>produce</i>, judged against supervisory and economic standards. These numbers are modeled, never raw inputs.</div>';
+  if(!_modeledAll.length){
+    h += '<div class="ovflag"><span class="ovtag ok">holds</span><div class="ftext">No modeled-output exceptions. The projected balance sheet, capital, concentrations, and earnings stay within supervisory and economic tolerances across the projection.</div></div>';
+  } else {
+    // rank severe-first; each row shows the finding + its modeled basis (what output it read)
+    const _mrank = _modeledAll.slice().sort((a,b)=> (b.sev==="severe")-(a.sev==="severe"));
+    _mrank.forEach(m=>{
+      const cls = m.sev==="severe" ? "bad" : "mut";
+      const basis = m.basis ? `<div style="font-size:10px;color:#6E7C93;margin-top:3px">Modeled basis: ${esc(m.basis)}</div>` : "";
+      h += `<div class="ovflag"${m.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${m.sev==="severe"?' style="color:#F87171"':''}>${esc(m.id)}</span><span class="ovtag ${cls}">${m.sev==="severe"?"severe":"advisory"}</span><div class="ftext">${esc(m.text)}${basis}</div></div>`;
+    });
+  }
+
   const TAGMAP = {satisfied:"ok", advisory:"mut", likely_regulatory_objection:"bad",
     commercial_assumption_requiring_support:"warn", counsel_determination_required:"warn"};
-  if(!(r.flags||[]).length) h += '<div class="ovflag"><span class="ovtag ok">satisfied</span><div class="ftext">No flags. Assumptions are within typical ranges and jointly consistent.</div></div>';
-  h += '<div class="memo" style="font-size:10.5px;margin:2px 0 0">The rules the challenge layer judged against, and \u2014 below \u2014 the full per-flag detail behind the reasonableness review above.</div>';
-  h += '<details style="margin:8px 0 14px"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Thresholds in effect \u2014 what these checks judge with</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#C4CDDD">loading\u2026</div></details>';
   setTimeout(()=>{ const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
     const _firedIds = new Set((r.flags||[]).map(f=>String(f.id||"")));
     // Explicit map: ledger rule id -> the emitted flag id(s) that mean it fired.
@@ -2683,8 +2710,10 @@ function renderOverview(){
   // Observations/conclusions are TEMPLATE-keyed to the flag class, never free-composed.
   setTimeout(()=>{
     const el = document.getElementById("reasonReview"); if(!el) return;
-    const flags = r.flags||[];
-    if(!flags.length){ el.innerHTML = '<div class="memo" style="font-size:11px">No assumptions fell outside their reasonableness bands. Inputs are jointly consistent and within typical ranges.</div>'; return; }
+    // INPUT flags only — modeled-derived flags belong to the "Does the modeled bank hold together?"
+    // stream, never here. This is what keeps input numbers out of the modeled section and vice versa.
+    const flags = (r.flags||[]).filter(f=>f.source!=="modeled");
+    if(!flags.length){ el.innerHTML = '<div class="memo" style="font-size:11px">No input assumption fell outside its reasonableness band. The plan\u2019s inputs are jointly consistent and within typical ranges.</div>'; return; }
     const _ta=(((r.financials||{}).bs||{}).totalAssets||[]).slice(-1)[0]||0;
     // conclusion word from flag class (examiner posture), never a viability claim
     const CONCL = {
@@ -2766,18 +2795,15 @@ function renderOverview(){
       el.innerHTML = hh;
     });
   }, 0);
-  // Raw flag ledger — COLLAPSED (the issue-families strip up top is the primary view; this is the
-  // full per-flag detail on demand, per the spec's Tier-3 ordering).
-  if((r.flags||[]).length){
-    let fl = "";
-    (r.flags||[]).forEach(f=>{
-      const cls = f.sev === "severe" ? "bad" : (TAGMAP[f.cls] || "mut");
-      fl += `<div class="ovflag"${f.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${f.sev==="severe"?' style="color:#F87171"':''}>${esc(f.id)}</span><span class="ovtag ${cls}">${esc((f.cls||"advisory").replaceAll("_"," "))}${f.sev==="severe"?" \u00b7 severe":""}</span><div class="ftext">${esc(f.text)}</div></div>`;
-    });
-    h += `<details style="margin:6px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Full flag ledger \u2014 all ${(r.flags||[]).length} findings</summary><div style="margin-top:6px">${fl}</div></details>`;
-  }
-  // Constraint tests, every scenario — OPEN (this is the scenario/constraint outcomes section).
-  h += '<div class="ovh3" style="margin-top:20px">Scenario &amp; constraint outcomes</div>';
+  // (The old "Full flag ledger" is gone: it re-listed the same flags the reasonableness review and
+  // modeled-challenges streams already present, re-exposing input numbers a second time. Every finding
+  // now appears in exactly one place — input findings in stream 1, modeled findings in stream 2.)
+
+  // ---- THE EVIDENCE BEHIND IT — collapsed reference material (scenario runs, financials, checks) ---
+  h += '<div class="ovh3" style="margin-top:22px">The evidence behind it</div>';
+  h += '<div class="memo" style="font-size:10.5px;margin:2px 0 6px">The scenario runs, three-year financials, and integrity checks underlying the call above \u2014 open any for the detail.</div>';
+  // Scenario & constraint outcomes — OPEN (the modeled runs behind the verdict).
+  h += '<div class="ovh4" style="margin-top:8px;font-size:12px;font-weight:600;color:#B9C4D6">Scenario &amp; constraint outcomes</div>';
   h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
   (r.constraint_tests||[]).forEach(t=>{
     const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;

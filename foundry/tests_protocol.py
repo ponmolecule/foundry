@@ -1831,6 +1831,21 @@ def t46():
           "Executive Summary" in names and
           any("Verdict" == (r[0] if r else None)
               for r in wb["Executive Summary"].iter_rows(values_only=True)))
+    # Input/modeled separation — the credibility-critical boundary. Every flag carries source in
+    # {"input","modeled"}; modeled_challenges exist and are engine-output-derived; no finding id
+    # appears in both streams. Uses the warning-heavy fixture (fires flags of both kinds).
+    _sep = run_v2(_json.load(open("foundry/fixtures/parity/configs/pf_a_warning_heavy.json", encoding="utf-8")))
+    _srcs = {f.get("source") for f in (_sep.get("flags") or [])}
+    check("T46c", "every flag is tagged source input|modeled (input/modeled separation)",
+          _srcs.issubset({"input", "modeled"}) and None not in _srcs)
+    _input_ids = {f["id"] for f in (_sep.get("flags") or []) if f.get("source") != "modeled"}
+    _modeled_ids = {f["id"] for f in (_sep.get("flags") or []) if f.get("source") == "modeled"} \
+                   | {m["id"] for m in (_sep.get("modeled_challenges") or [])}
+    check("T46d", "input and modeled finding streams do not overlap (no finding shown twice)",
+          not (_input_ids & _modeled_ids))
+    check("T46e", "modeled_challenges are present and engine-output-derived (carry a modeled basis)",
+          isinstance(_sep.get("modeled_challenges"), list) and
+          all("basis" in m for m in (_sep.get("modeled_challenges") or [])))
     ws = wb["Schedule RC"]
     rows = {r[0]: list(r[3:15]) for r in ws.iter_rows(min_row=3, values_only=True) if r and r[0]}
     ta = res_v["financials"]["bs"]["totalAssets"]
