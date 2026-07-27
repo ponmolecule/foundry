@@ -4014,7 +4014,15 @@ async function _openEngagementNow(slug){
     lastRes = null; lastErrs = null;   // invalidate the outgoing engagement's result (see pstat name-match)
     rehydrateOriginal(cfg);
     syncNameChrome();
-    renderGlobals(); refresh(); markPristine(); setTab("overview");
+    // Preserve the tab the user was on when switching engagements — landing back on Executive Summary
+    // every time is disorienting when you're comparing the same view across banks. Only fall back to
+    // the Executive Summary when the current tab isn't a per-engagement content view (the Welcome and
+    // Start/Reset entry screens aren't "a place in the model" to stay on). Output tabs (bs/is/etc.)
+    // degrade to a "Running…" state under the null lastRes until refresh() lands the new run, exactly
+    // as the Executive Summary already did — so preserving is no riskier than the old forced default.
+    const _keep = !["welcome","start"].includes(currentTab)
+                  && TAB_DEFS.some(t=>t[0]===currentTab);
+    renderGlobals(); refresh(); markPristine(); setTab(_keep ? currentTab : "overview");
   } else {
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
   }
