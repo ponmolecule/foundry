@@ -205,6 +205,21 @@ def challenge_config(cfg):
                   f"{co:.2%} charge-offs, below the bottom of the typical range. The yield implies a "
                   f"borrower population the loss rate denies.")
 
+    # ---- Durbin small-issuer counsel item: raises wherever interchange revenue is modeled ----
+    # This is a counsel-determination item, not a value violation — its mere presence means the plan
+    # is assuming the Durbin small-issuer exemption (<$10B assets), which counsel should confirm
+    # (parent-affiliate asset aggregation, etc.). It must fire the same way whether interchange is
+    # configured in the modern location (fee_modules.interchange, where the console writes it) or the
+    # legacy top-level assumptions.interchange_rate. Presence — not a threshold — is the trigger.
+    _fm = a.get("fee_modules") or {}
+    _ic = _fm.get("interchange") or {}
+    _has_interchange = ("interchange_rate" in a) or bool(_ic) or ("interchange_rate" in _ic)
+    if _has_interchange:
+        _flag(flags, "REG-DURBIN", "mild",
+              "Interchange revenue assumes the Durbin small-issuer exemption (<$10B assets). "
+              "The projection stays under the threshold, but confirm treatment of parent-affiliate "
+              "asset aggregation with counsel.")
+
     return flags
 
 
