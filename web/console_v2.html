@@ -2389,33 +2389,51 @@ function _verdictCall(r){
 }
 // Issue-family grouping (root cause, not raw flags). Returns [{family, sev, count, headline}] ranked
 // by: contains-severe first, then by count. Explainable order only — no weighted composite.
+// Classification is DETERMINISTIC and anchored, not loose substring matching: flags carry a product
+// prefix in their text ("Credit Card: ...", "Commercial Real Estate: ...") and a stable ID. Earlier
+// this scanned free text with /CRE/ etc., which caught "CREdit Card" via the "Cre" substring and
+// misfiled every card flag under CRE. We now (1) read the product prefix before the first colon and
+// map it to a family, then (2) fall back to exact-ID / anchored-token rules for non-product flags.
 function _issueFamilies(r){
-  const FAM = [
-    ["Opening capitalization & Day-1 funding", /CAP|EQUITY|FUND|BORROW|WHOLESALE|DAY1/i],
-    ["CRE economics & concentration", /CRE|CONCENTRATION|COMMERCIAL.REAL/i],
-    ["Deposit pricing & growth", /FUND-HOT|FUND-DDA|FUND-GROWTH|DEPOSIT|GROWTH-Y1/i],
-    ["Card pricing & credit losses", /CARD|CC-|BAND-CO/i],
-    ["Mortgage-banking execution", /MSR|GOS|WAREHOUSE|MORTGAGE/i],
-    ["Expense & staffing", /NIE|OPEX|OVERHEAD|COMP|FTE/i],
-    ["Evidence & citation gaps", /EVIDENCE|CITATION|SUPPORT/i],
-  ];
   const flags = r.flags||[];
-  const used = new Set();
-  const out = [];
-  FAM.forEach(([name,re])=>{
-    const hits = flags.filter((f,i)=>!used.has(i) && re.test(String(f.id||"")+" "+String(f.text||"")));
-    if(hits.length){
-      hits.forEach(f=>used.add(flags.indexOf(f)));
-      const sev = hits.some(f=>f.sev==="severe") ? "severe" : "advisory";
-      out.push({family:name, sev, count:hits.length, headline:(hits.find(f=>f.sev==="severe")||hits[0]).text});
-    }
-  });
-  // any flags not matched -> a catch-all "Other assumptions" family
-  const rest = flags.filter((f,i)=>!used.has(i));
-  if(rest.length){
-    out.push({family:"Other assumptions & structure", sev:rest.some(f=>f.sev==="severe")?"severe":"advisory",
-              count:rest.length, headline:rest[0].text});
+  // product prefix (text before the first colon) -> family. Exact, unambiguous.
+  const PRODUCT_FAMILY = [
+    [/credit card/i,            "Card pricing & credit losses"],
+    [/commercial real estate/i, "CRE economics & concentration"],
+    [/construction|land/i,      "CRE economics & concentration"],
+    [/residential mortgage|jumbo mortgage|mortgage \(hfs\)/i, "Mortgage-banking execution"],
+    [/small business|c&i|c & i/i, "Commercial & industrial credit"],
+    [/retail demand|time deposit|cd|savings|money market|deposit/i, "Deposit pricing & growth"],
+    [/subsidized|community loan/i, "Mission & subsidized lending"],
+  ];
+  // ID / keyword rules for flags with no single product (concentration, capital, coupled, expense).
+  const ID_FAMILY = [
+    [/^CONC-|CONCENTRATION/i,        "CRE economics & concentration"],   // CRE/construction/borrower conc.
+    [/^CAP-|^PREOPEN|CAPITAL|LEVERAGE/i, "Opening capitalization & Day-1 funding"],
+    [/^FUND-|GROWTH-Y1/i,           "Deposit pricing & growth"],
+    [/^COUPLED/i,                   "Cross-assumption consistency"],
+    [/NIE|OPEX|OVERHEAD|STAFF|FTE/i,"Expense & staffing"],
+    [/EVIDENCE|CITATION/i,          "Evidence & citation gaps"],
+  ];
+  function classify(f){
+    const text = String(f.text||"");
+    const prefix = (text.split(":")[0]||"");           // product name sits before the first colon
+    for(const [re,fam] of PRODUCT_FAMILY){ if(re.test(prefix)) return fam; }
+    const id = String(f.id||"");
+    for(const [re,fam] of ID_FAMILY){ if(re.test(id) || re.test(text)) return fam; }
+    return "Other assumptions & structure";
   }
+  const groups = {};
+  flags.forEach(f=>{
+    const fam = classify(f);
+    (groups[fam] = groups[fam] || []).push(f);
+  });
+  const out = Object.entries(groups).map(([family, hits])=>({
+    family,
+    sev: hits.some(f=>f.sev==="severe") ? "severe" : "advisory",
+    count: hits.length,
+    headline: (hits.find(f=>f.sev==="severe")||hits[0]).text,
+  }));
   out.sort((a,b)=> (b.sev==="severe")-(a.sev==="severe") || b.count-a.count);
   return out;
 }
