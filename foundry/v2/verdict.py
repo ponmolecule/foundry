@@ -86,16 +86,24 @@ def verdict_lines(cfg: dict, res: dict) -> list[str]:
     scen_total = len({t.get("scenario") for t in ct})
     scen_fail = len({t.get("scenario") for t in ct if not t.get("pass")})
     if base.get("min_leverage") is not None and commit:
-        if scen_fail == scen_total and scen_total:
-            tail = f"; all {_numword(scen_total)} modeled scenarios breach it"
-        elif scen_fail:
-            tail = f"; {scen_fail} of {scen_total} modeled scenarios breach it"
+        min_pct = base["min_leverage"] * 100
+        breaches = scen_fail > 0 or min_pct < commit
+        if breaches:
+            if scen_fail == scen_total and scen_total:
+                tail = f"; all {_numword(scen_total)} modeled scenarios breach it"
+            elif scen_fail:
+                tail = f"; {scen_fail} of {scen_total} modeled scenarios breach it"
+            else:
+                tail = ""
+            lines.append(
+                f"Base leverage bottoms at {min_pct:.2f}% in Q{base.get('min_leverage_q')} "
+                f"against the stated {commit:.1f}% threshold{tail}."
+            )
         else:
-            tail = ""
-        lines.append(
-            f"Base leverage bottoms at {base['min_leverage']*100:.2f}% in Q{base.get('min_leverage_q')} "
-            f"against the stated {commit:.1f}% threshold{tail}."
-        )
+            lines.append(
+                f"Base leverage holds above the stated {commit:.1f}% threshold in every modeled "
+                f"scenario (low of {min_pct:.2f}% in Q{base.get('min_leverage_q')})."
+            )
     # highest-priority finding — the top issue family's headline (a flag's own text)
     fams = issue_families(res)
     if fams:
@@ -124,6 +132,7 @@ _PRODUCT_FAMILY = [
 _ID_FAMILY = [
     (_re.compile(r"^CONC-|CONCENTRATION", _re.I), "CRE economics & concentration"),
     (_re.compile(r"^CAP-|^PREOPEN|CAPITAL|LEVERAGE", _re.I), "Opening capitalization & Day-1 funding"),
+    (_re.compile(r"^SPREAD|VIAB|NIM|MARGIN.*NEG|NEGATIVE.*SPREAD", _re.I), "Net-interest margin & viability"),
     (_re.compile(r"^FUND-|GROWTH-Y1", _re.I), "Deposit pricing & growth"),
     (_re.compile(r"^COUPLED", _re.I), "Cross-assumption consistency"),
     (_re.compile(r"NIE|OPEX|OVERHEAD|STAFF|FTE", _re.I), "Expense & staffing"),

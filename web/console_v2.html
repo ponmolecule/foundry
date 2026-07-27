@@ -2410,6 +2410,7 @@ function _issueFamilies(r){
   const ID_FAMILY = [
     [/^CONC-|CONCENTRATION/i,        "CRE economics & concentration"],   // CRE/construction/borrower conc.
     [/^CAP-|^PREOPEN|CAPITAL|LEVERAGE/i, "Opening capitalization & Day-1 funding"],
+    [/^SPREAD|VIAB|NIM|MARGIN.*NEG|NEGATIVE.*SPREAD/i, "Net-interest margin & viability"],
     [/^FUND-|GROWTH-Y1/i,           "Deposit pricing & growth"],
     [/^COUPLED/i,                   "Cross-assumption consistency"],
     [/NIE|OPEX|OVERHEAD|STAFF|FTE/i,"Expense & staffing"],
@@ -2470,10 +2471,18 @@ function _verdictBlock(r){
   const scenFail = new Set(ct.filter(t=>!t.pass).map(t=>t.scenario)).size;
   let lines = "";
   if(!v.gated){
-    // binding reason
+    // binding reason — frame by whether leverage is actually a concern. When the plan breaches (or
+    // sits within a small margin of) the threshold, name the low point and the breach. When it clears
+    // comfortably, state that plainly rather than implying a problem the model didn't find.
     if(b.min_leverage!=null && commit){
-      const allBreach = scenFail===scenTotal && scenTotal>0;
-      lines += `<p>Base leverage bottoms at <b>${(b.min_leverage*100).toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b> against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
+      const minPct = b.min_leverage*100;
+      const breaches = scenFail>0 || minPct < commit;
+      if(breaches){
+        const allBreach = scenFail===scenTotal && scenTotal>0;
+        lines += `<p>Base leverage bottoms at <b>${minPct.toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b> against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
+      } else {
+        lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (low of <b>${minPct.toFixed(2)}%</b> in Q${b.min_leverage_q}).</p>`;
+      }
     }
     // highest-priority finding (family headline, own text — never "driver")
     const fam = _issueFamilies(r);
