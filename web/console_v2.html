@@ -2557,9 +2557,10 @@ function _verdictBlock(r){
       const breaches = scenFail>0 || minPct < commit;
       if(breaches){
         const allBreach = scenFail===scenTotal && scenTotal>0;
-        lines += `<p>Base leverage bottoms at <b>${minPct.toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b> against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
+        const _lowPhrase = (b.min_leverage_q === 1) ? `Base leverage opens at its lowest point, <b>${minPct.toFixed(2)}%</b> in <b>Q1</b>,` : `Base leverage bottoms at <b>${minPct.toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b>`;
+        lines += `<p>${_lowPhrase} against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
       } else {
-        lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (low of <b>${minPct.toFixed(2)}%</b> in Q${b.min_leverage_q}).</p>`;
+        lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (${(b.min_leverage_q === 1) ? `low of <b>${minPct.toFixed(2)}%</b> at opening (Q1)` : `low of <b>${minPct.toFixed(2)}%</b> in Q${b.min_leverage_q}`}).</p>`;
       }
     }
     // highest-priority area — NUMBER-FREE. Points to the most material family and defers the specific
@@ -3429,7 +3430,15 @@ function renderContent(){
     scens.forEach(s=>{
       const ml = s.min_leverage==null ? null : s.min_leverage*100;
       if(ml!==null && ml < levMin){
-        h += `<div class="warnitem severe"><strong>${esc(s.label)}:</strong> Tier 1 leverage falls to ${ml.toFixed(2)}% in Q${s.min_leverage_q} \u2014 below the ${levMin}% minimum. Estimated additional opening capital to stay above ${levMin}%: ${fmt0(s.capital_shortfall_est)} ($000s, approximate).</div>`;
+        // "falls to ... in QN" only describes a path that DECLINES into a later trough. When the
+        // minimum is the first projected quarter (Q1), that value is the OPENING low — leverage
+        // starts there and rises — so "falls to" is backwards. Choose the verb from the actual
+        // trough quarter (s.min_leverage_q), grounded in the path, not assumed.
+        const atOpen = (s.min_leverage_q === 1);
+        const phrase = atOpen
+          ? `Tier 1 leverage opens at ${ml.toFixed(2)}% in Q1 (its lowest point over the 12 quarters)`
+          : `Tier 1 leverage falls to ${ml.toFixed(2)}% by Q${s.min_leverage_q}`;
+        h += `<div class="warnitem severe"><strong>${esc(s.label)}:</strong> ${phrase} \u2014 below the ${levMin}% minimum. Estimated additional opening capital to stay above ${levMin}%: ${fmt0(s.capital_shortfall_est)} ($000s, approximate).</div>`;
       }
     });
     if(!scens.some(s=>s.min_leverage!=null && s.min_leverage*100 < levMin)){
