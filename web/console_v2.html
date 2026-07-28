@@ -2848,7 +2848,7 @@ function renderOverview(){
           + `<td style="vertical-align:top;font-size:10px;color:${cmpColor}">${cmpLabel}</td>`
           : '';
         hh += `<tr><td style="vertical-align:top;font-weight:600;color:#DCE3EE">${esc(rw.input)}</td>`
-            + `<td style="vertical-align:top;color:#C4CDDD">${esc(rw.obs)}</td>`
+            + `<td style="vertical-align:top;color:#C4CDDD">${boldMd(rw.obs)}</td>`
             + peerCell
             + `<td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td>`
             + `<td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`;
@@ -2858,7 +2858,7 @@ function renderOverview(){
     }).catch(()=>{
       // fail-closed: still show the examiner rows WITHOUT peer bands rather than nothing
       let hh = '<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:150px">Input</th><th>Observation</th><th style="width:58px">Severity</th><th style="width:130px">Conclusion</th></tr>';
-      rows.forEach(rw=>{ hh += `<tr><td style="vertical-align:top;font-weight:600;color:#DCE3EE">${esc(rw.input)}</td><td style="vertical-align:top;color:#C4CDDD">${esc(rw.obs)}</td><td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td><td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`; });
+      rows.forEach(rw=>{ hh += `<tr><td style="vertical-align:top;font-weight:600;color:#DCE3EE">${esc(rw.input)}</td><td style="vertical-align:top;color:#C4CDDD">${boldMd(rw.obs)}</td><td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td><td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`; });
       hh += '</table><div class="memo" style="font-size:10px;margin-top:4px">Peer bands unavailable for this run \u2014 showing findings without peer comparison.</div>';
       el.innerHTML = hh;
     });
