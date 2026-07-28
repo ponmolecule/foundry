@@ -718,13 +718,15 @@ def run_v2(cfg):
                     + ("" if lb_in else " — single_largest_borrower NOT PROVIDED")},
         {"name": "Wholesale funding / total liabilities",
           "value": _pct(borq[q] + sbq[q], liabq[q]), "threshold": 25.0, "kind": "max",
-          "sev": "mild", "basis": "supervisory wholesale-funding attention point"},
+          "sev": "mild", "basis": "Foundry planning band (25%), not a supervisory limit \u2014 "
+                    "wholesale reliance is a common exam focus but carries no fixed cap"},
         {"name": "Non-core funding / total assets",
           "value": _pct(borq[q] + sbq[q], taq[q]), "threshold": 20.0, "kind": "max",
-          "sev": "mild", "basis": "UBPR non-core dependence framing"},
+          "sev": "mild", "basis": "Foundry planning band (20%); UBPR reports non-core dependence "
+                    "but sets no threshold \u2014 the 20% line is Foundry's, not UBPR's"},
         {"name": "Loans / deposits", "value": _pct(glq[q], depq[q]),
           "threshold": [70.0, 90.0], "kind": "band", "sev": "mild",
-          "basis": "advisory band"},
+          "basis": "Foundry planning band (70\u201390%), not a supervisory limit"},
         {"name": "NIE / average assets (burden)",
           "value": _pct(sum(nie_q), sum(avg_a[:nq2]) / nq2 if avg_a else None)
                     if avg_a else None,
@@ -822,6 +824,21 @@ def run_v2(cfg):
         "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
     _ck("CK-9", "Regulatory parameters resolve from the versioned registry",
         bool(REG_PARAMS.get("version")), "integrity", f"version {REG_PARAMS.get('version')}")
+    # Concentration breaches are a first-order "does the bank hold together" question — surface every
+    # severe-criterion BREACH as a VIABILITY check (fails when breached), so it feeds the exec-summary
+    # viability section directly, not only the CONC- flag stream. Only rows with a real criterion and a
+    # severe classification qualify; info/mild rows and planning-band items do not gate viability.
+    _conc_seq = 0
+    for _cr in conc_rows:
+        if _cr.get("sev") == "severe" and _cr.get("status") == "BREACH":
+            _conc_seq += 1
+            _v = _cr.get("value")
+            _th = _cr.get("threshold")
+            _vtxt = f"{_v:.1f}%" if isinstance(_v, (int, float)) else "n/a"
+            _thtxt = f"{_th:.0f}%" if isinstance(_th, (int, float)) else str(_th)
+            _ck(f"CK-C{_conc_seq}", f"Concentration within limit \u2014 {_cr['name']}",
+                False, "viability",
+                f"BREACH: {_vtxt} vs \u2264 {_thtxt} ({_cr.get('basis','')})")
     ta_w, gl_w, dep_w = _sw("totalAssets"), _sw("grossLoans"), _sw("deposits")
     results["checks"] = {
         "rows": checks,
