@@ -306,19 +306,42 @@ def peer_annotate(flags, cfg, cohort="broad"):
             out.append(f); continue           # no candidate resolved -> static text stands
         pos = corridor_position(val, band)
         label = _corridor_to_pctlabel(pos)
-        proxy = ""
+        # Every claim names the metric that grounds it. A measured substrate metric is
+        # named plainly; a proxy is labeled AS a proxy and says what it stands in for, so
+        # the reader can decide how much weight to give it. This is the anti-fabrication
+        # guardrail: the clause cannot render without naming its evidence.
+        _METRIC_LABEL = {
+            "loan_yield": "peer loan yield (whole-book; not loan-type-specific)",
+            "deposit_cost": "peer cost of deposits",
+            "alll_to_loans": "peer ALLL-to-loans",
+            "provision_to_avg_assets": "peer provision to average assets",
+            "net_charge_off_rate": "peer net charge-off rate",
+            "net_charge_off_rate_ubpr": "peer net charge-off rate (UBPR avg-loans basis)",
+            "max_sustainable_growth": "modeled sustainable-growth capacity",
+            "npl_ratio": "peer non-performing-loan ratio",
+        }
+        metric_label = _METRIC_LABEL.get(metric, f"peer {metric}")
+        is_proxy = tier.startswith("proxy")
         if tier == "proxy_growth":
-            proxy = " (vs sustainable-growth band \u2014 a capacity proxy)"
+            proxy = " [PROXY: sustainable-growth capacity, not observed peer growth]"
         elif tier == "proxy_credit":
-            proxy = " (vs NPL band \u2014 a credit-quality proxy, not net charge-offs)"
+            proxy = " [PROXY: NPL ratio standing in for net charge-offs \u2014 a credit-quality " \
+                    "level, not a loss flow]"
+        elif is_proxy:
+            proxy = " [PROXY]"
+        else:
+            proxy = ""
         n = band.get("n")
         ntxt = f", n={n}" if n else ""
         # vintage is the band's OWN quarter (honest: what the data actually is),
         # not a hardcoded tier label. tier only distinguishes clean vs proxy.
         real_q = band.get("quarter") or "latest"
         f["peer"] = {"metric": metric, "position": pos, "band_metric": metric,
-                     "p50": band.get("p50"), "n": n, "tier": tier,
-                     "vintage": real_q + (" (proxy)" if tier.startswith("proxy") else "")}
-        f["text"] = f["text"] + f" Against real peers, this sits {label}{proxy}{ntxt}."
+                     "metric_label": metric_label, "is_proxy": is_proxy,
+                     "cohort": cohort, "p50": band.get("p50"), "n": n, "tier": tier,
+                     "vintage": real_q + (" (proxy)" if is_proxy else "")}
+        # Self-citing clause: metric named, cohort named, vintage named, n named, proxy flagged.
+        f["text"] = (f["text"] + f" Against peers, this sits {label} "
+                     f"(metric: {metric_label}; {cohort} cohort; {real_q}{ntxt}){proxy}.")
         out.append(f)
     return out
