@@ -3473,10 +3473,10 @@ function renderContent(){
       h += `<div class="memo" style="margin:0 0 10px">Annual charge-off rate per loan type: your own assumption, that rate under the credit multiplier (×${ds.mult}), and the Federal Reserve’s severely-adverse rate for the category (${ds.version}). The DFAST column shows the annualized-equivalent for comparison and, in brackets, the headline 9-quarter cumulative loss. A blank DFAST cell means the Fed does not publish a single rate for that category, so that loan falls back to your own assumption — no supervisory stress is invented.</div>`;
       h += '<table class="fin"><tr><th>Loan segment</th><th>Your assumption</th><th>Credit scenario (×'+ds.mult+')</th><th>DFAST severe (annual-equiv) [9Q cum]</th></tr>';
       ds.rows.forEach(row=>{
-        // Defensive: coerce every rate through Number so a malformed/non-numeric value renders as
-        // 'n/m' rather than corrupting the cell and collapsing the table. (A prior build could
-        // truncate a row mid-cell; this makes that structurally impossible.)
-        const _n = v => (v==null || isNaN(+v)) ? null : +v;
+        // client_co_ann / stressed_co_ann / dfast_* arrive from the engine as RAW FRACTIONS
+        // (0.14 = 14%). fmtP appends "%" WITHOUT multiplying by 100, so feed it the ×100 value —
+        // otherwise 0.14 renders as "0.14%" instead of "14.00%" (a 100× understatement).
+        const _n = v => (v==null || isNaN(+v)) ? null : +v * 100;
         const _cli = _n(row.client_co_ann), _str = _n(row.stressed_co_ann), _dfe = _n(row.dfast_co_ann_equiv), _d9 = _n(row.dfast_cum9);
         const df = (_dfe!=null)
           ? `${fmtP(_dfe)} <span style="color:var(--nmut)">[${fmtP(_d9)} cum]</span>`
