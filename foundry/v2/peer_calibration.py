@@ -304,54 +304,33 @@ def peer_annotate(flags, cfg, cohort="broad"):
         if band is None:
             out.append(f); continue           # no candidate resolved -> static text stands
         pos = corridor_position(val, band)
-        label = _corridor_to_pctlabel(pos)
-        # Every claim names the metric that grounds it. A measured substrate metric is
-        # named plainly; a proxy is labeled AS a proxy and says what it stands in for, so
-        # the reader can decide how much weight to give it. This is the anti-fabrication
-        # guardrail: the clause cannot render without naming its evidence.
-        _METRIC_LABEL = {
-            "loan_yield": "peer loan yield (whole-book; not loan-type-specific)",
-            "deposit_cost": "peer cost of deposits",
-            "alll_to_loans": "peer ALLL-to-loans",
-            "provision_to_avg_assets": "peer provision to average assets",
-            "net_charge_off_rate": "peer net charge-off rate",
-            "net_charge_off_rate_ubpr": "peer net charge-off rate (UBPR avg-loans basis)",
-            "max_sustainable_growth": "modeled sustainable-growth capacity",
-        }
-        metric_label = _METRIC_LABEL.get(metric, f"peer {metric}")
-        is_proxy = tier.startswith("proxy")
-        if tier == "proxy_growth":
-            proxy = " [PROXY: sustainable-growth capacity, not observed peer growth]"
-        elif is_proxy:
-            proxy = " [PROXY]"
-        else:
-            proxy = ""
         n = band.get("n")
-        # vintage is the band's OWN quarter (honest: what the data actually is),
-        # not a hardcoded tier label. tier only distinguishes clean vs proxy.
         real_q = band.get("quarter") or "latest"
-        # Selection basis: asset-band cohorts are chosen from the bank's PROJECTED (Q12,
-        # end-of-projection) total assets — disclosed so the reader knows the peer set
-        # reflects the modeled end-state size, not the filing-date size. Non-asset-band
-        # cohorts (e.g. 'broad') carry no size-selection basis.
         _ASSET_BANDS = {"under_200M", "200M_500M", "500M_2B", "2B_10B", "10B_50B", "over_50B"}
-        basis = " Cohort selected by projected (Q12) total assets." if cohort in _ASSET_BANDS else ""
+        # Compact display: SHORT CAPS metric name up front (prominent, per agreement), a
+        # lowercase qualifier where the metric's basis needs a caveat, then placement +
+        # cohort + vintage + n as terse tokens. One line, not five sentences.
+        _METRIC_DISPLAY = {
+            "loan_yield":              ("LOAN YIELD", " (whole-book, not loan-type-specific)"),
+            "deposit_cost":            ("COST OF DEPOSITS", ""),
+            "alll_to_loans":           ("ALLL / LOANS", ""),
+            "provision_to_avg_assets": ("PROVISION / AVG ASSETS", ""),
+            "net_charge_off_rate":     ("NET CHARGE-OFF RATE", ""),
+            "net_charge_off_rate_ubpr":("NET CHARGE-OFF RATE", " (UBPR avg-loans basis)"),
+            "max_sustainable_growth":  ("SUSTAINABLE-GROWTH CAPACITY", ""),
+        }
+        short, qual = _METRIC_DISPLAY.get(metric, (metric.upper(), ""))
+        is_proxy = tier.startswith("proxy")
+        ptag = " [PROXY]" if is_proxy else ""
+        by = " by Q12 assets" if cohort in _ASSET_BANDS else ""
+        ntxt = f", n={n}" if n else ""
         f["peer"] = {"metric": metric, "position": pos, "band_metric": metric,
-                     "metric_label": metric_label, "is_proxy": is_proxy,
+                     "metric_label": short + qual, "is_proxy": is_proxy,
                      "cohort": cohort, "cohort_basis": ("projected_q12_assets" if cohort in _ASSET_BANDS else None),
                      "p50": band.get("p50"), "n": n, "tier": tier,
                      "vintage": real_q + (" (proxy)" if is_proxy else "")}
-        # Self-citing clause, broken into short sentences: placement, then the metric it is
-        # measured against, then the cohort and its selection basis, then the vintage and n,
-        # then any proxy label.
-        parts = [f"Against peers, this sits {label}."]
-        parts.append(f"Measured against {metric_label}.")
-        _coh = f"Cohort: {cohort}.{basis}"
-        parts.append(_coh)
-        _vin = f"Vintage {real_q}" + (f", n={n}." if n else ".")
-        parts.append(_vin)
-        if proxy:
-            parts.append(proxy.strip())
-        f["text"] = f["text"] + " " + " ".join(parts)
+        # e.g. "  LOAN YIELD (whole-book) — above p90, 500M_2B cohort by Q12 assets, 2025Q4, n=442"
+        f["text"] = (f["text"] + f"  {short}{ptag}{qual} \u2014 {pos}, "
+                     f"{cohort} cohort{by}, {real_q}{ntxt}.")
         out.append(f)
     return out
