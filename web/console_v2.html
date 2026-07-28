@@ -3413,24 +3413,40 @@ function renderContent(){
     const scens = order.map(k=>r.scenarios[k]).filter(Boolean);
     const levMin = G("constraints.0.value") * 100;
     h += '<div class="h2">Stress Testing \u2014 Scenario Comparison</div>';
-    // Prominent DFAST section at the top of the stress tab: the supervisory-severe scenario is a
-    // first-class result, not a sidebar afterthought. Source panel surfaces the loaded vintage,
-    // its citation, and a live link to the Federal Reserve source ("the pull").
-    if(r.dfast_segments){
-      const ds = r.dfast_segments;
-      h += '<div class="okbox" style="border-left:3px solid var(--gold,#D8A85E);background:var(--nvy3);margin:0 0 14px;padding:12px 14px">'
-        + '<div style="font-weight:600;color:var(--ntext);margin-bottom:4px">DFAST Severely-Adverse Scenario \u2014 supervisory benchmark</div>'
-        + '<div style="font-size:12px;color:var(--nmut);line-height:1.5">Applies the Federal Reserve\u2019s published severely-adverse loss rates by loan category to your projected balances \u2014 a supervisory benchmark, not a forecast of this bank. Losses are front-loaded across the 9-quarter horizon (spike then fade, as in a real downturn). It is additive: it does not change your Base, Credit, Rate, or Combined scenarios. The per-segment table below shows where your own loss assumptions sit relative to the supervisory rates.</div>'
-        + '<div style="font-size:11px;color:var(--nmut);margin-top:8px;padding-top:8px;border-top:1px solid var(--nline)">'
-        + '<b style="color:var(--ntext)">Source &amp; vintage:</b> '+esc(ds.version||'')+(ds.published?(' (published '+esc(ds.published)+')'):'')
-        + (ds.scenario_vintage?('<br>'+esc(ds.scenario_vintage)):'')
-        + (ds.verified?(' \u00b7 loaded/verified '+esc(ds.verified)):'')
-        + (ds.source_url?('<br><a href="'+esc(ds.source_url)+'" target="_blank" rel="noopener" style="color:var(--gold,#D8A85E)">View the Federal Reserve source \u2192</a>'):'')
-        + (ds.publications_index_url?(' \u00b7 <a href="'+esc(ds.publications_index_url)+'" target="_blank" rel="noopener" style="color:var(--gold,#D8A85E)">check for a newer release</a>'):'')
-        + '</div>'
+    // What each scenario captures — explicit, so the composition is never a surprise (e.g. that the
+    // rate shock also carries the downturn volume haircuts). Values are read live from stress_params.
+    (function(){
+      const sp = (cfg && cfg.stress_params) || {};
+      const g = (k,d)=>{ const v=sp[k]; return (v==null||isNaN(+v))?d:+v; };
+      const coM=g("charge_off_mult",2.5), reM=g("reserve_mult",1.5), bp=Math.round(g("rate_shock_bp",300));
+      const oh=g("origination_volume_haircut",0.40), gos=g("gos_margin_compression",0.40),
+            msr=g("msr_value_haircut",0.20), ss=g("sale_share_retention_shift",0.25);
+      const pct=x=>Math.round(x*100)+'%';
+      // the downturn overlay rides on every stress scenario (not base) — stated once, referenced by each row
+      const downturn = `originations \u2212${pct(oh)}, gain-on-sale margin \u2212${pct(gos)}, MSR value \u2212${pct(msr)}, sale share \u2212${pct(ss)}`;
+      const rows = [
+        ["Base", "Your plan as entered. No overlay. The reference every other column is measured against.", "reference"],
+        ["Credit Deterioration", `Charge-offs \u00d7${coM} and ALLL reserve \u00d7${reM} on every product. <b>Plus</b> the downturn overlay.`, "stress"],
+        ["Rate Shock", `+${bp}bp parallel on the SOFR path and cash / securities / borrowing rates; fixed coupons hold, floaters reprice. <b>Plus</b> the downturn overlay.`, "stress"],
+        ["Combined", `Credit <b>and</b> rate together, on top of the downturn overlay. The worst-case column.`, "stress"],
+        ["DFAST Severe", `Supervisory severely-adverse loss rates by loan type replace your charge-offs (front-loaded over 9 quarters). <b>Plus</b> the downturn overlay.`, "stress"],
+      ];
+      let t = '<div class="memo" style="margin:0 0 6px;padding:12px 14px;line-height:1.5">'
+        + '<div style="font-weight:600;color:var(--ntext);margin-bottom:8px">What each scenario changes</div>'
+        + '<table style="width:100%;border-collapse:collapse;font-size:12px">';
+      rows.forEach(([name,desc,kind])=>{
+        const accent = kind==="reference" ? "var(--nmut)" : "var(--gold,#D8A85E)";
+        t += '<tr style="border-top:1px solid var(--nline)">'
+          + `<td style="padding:7px 10px 7px 0;white-space:nowrap;vertical-align:top;font-weight:600;color:var(--ntext);border-left:3px solid ${accent};padding-left:10px">${esc(name)}</td>`
+          + `<td style="padding:7px 0;vertical-align:top;color:var(--nmut)">${desc}</td></tr>`;
+      });
+      t += '</table>'
+        + `<div style="font-size:11px;color:var(--nmut);margin-top:9px;padding-top:8px;border-top:1px solid var(--nline)">`
+        + `<b style="color:var(--ntext)">Downturn overlay</b> (on every stressed column, not Base): ${downturn}. `
+        + `Set all values in the sidebar under Stress Scenario Settings.</div>`
         + '</div>';
-    }
-    h += '<div class="memo" style="margin:0 0 14px">Scenario parameters are set in the sidebar under Stress Scenario Settings. The rate shock shifts the entire SOFR path and cash/securities/borrowing rates in parallel; fixed-rate coupons do not reprice. Credit multipliers scale every product&rsquo;s charge-off and ALLL reserve rates.</div>';
+      h += t;
+    })();
     scens.forEach(s=>{
       const ml = s.min_leverage==null ? null : s.min_leverage*100;
       if(ml!==null && ml < levMin){

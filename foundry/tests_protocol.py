@@ -846,12 +846,12 @@ def t23():
               0.16 < _card9 < _regc and abs(_cons9 - 0.03 * 9 / 4) < 0.01)
 
         # T-DFAST-3: the console SURFACES the scenario — it's in the stress-tab scenario order and
-        # the stress settings carry the on/off toggle. Without this the engine capability is
-        # invisible (the whole point of surfacing it before deploy).
+        # named in the 'what each scenario changes' composition block at the top of the tab. Without
+        # this the engine capability is invisible (the whole point of surfacing it before deploy).
         _chtml = open("web/console_v2.html", encoding="utf-8").read()
-        check("T-DFAST-3", "console surfaces DFAST scenario (order column + settings toggle)",
+        check("T-DFAST-3", "console surfaces DFAST scenario (order column + composition row)",
               '"base","credit","rate","combined","dfast_severe"' in _chtml
-              and "DFAST Severely-Adverse Scenario" in _chtml)
+              and "DFAST Severe" in _chtml)
 
         # T-DFAST-4: level and front-loaded spreads reach the same 9Q cumulative but differ in
         # shape (front-loaded concentrates loss early); and the three-way per-segment view is
