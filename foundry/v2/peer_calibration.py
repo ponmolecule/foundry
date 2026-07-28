@@ -329,8 +329,11 @@ def peer_annotate(flags, cfg, cohort="broad"):
                      "cohort": cohort, "cohort_basis": ("projected_q12_assets" if cohort in _ASSET_BANDS else None),
                      "p50": band.get("p50"), "n": n, "tier": tier,
                      "vintage": real_q + (" (proxy)" if is_proxy else "")}
-        # e.g. "  LOAN YIELD (whole-book) — above p90, 500M_2B cohort by Q12 assets, 2025Q4, n=442"
-        f["text"] = (f["text"] + f"  {short}{ptag}{qual} \u2014 {pos}, "
+        # "Metric:" prefix + UPPERCASE name. Flag text is HTML-escaped in the console
+        # (esc()) and rendered as plain Paragraphs in the PDF, so markdown ** would show
+        # literal asterisks — uppercase is the surface-safe way to make the metric prominent.
+        # e.g. "  Metric: LOAN YIELD (whole-book) — above p90, 500M_2B cohort by Q12 assets, 2025Q4, n=442"
+        f["text"] = (f["text"] + f"  Metric: {short}{ptag}{qual} \u2014 {pos}, "
                      f"{cohort} cohort{by}, {real_q}{ntxt}.")
         out.append(f)
     return out
