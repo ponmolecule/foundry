@@ -108,8 +108,8 @@ def challenge_config(cfg):
         if co > hi:
             _flag(flags, "BAND-CO-HI", "severe",
                   f"{nm}: {co:.1%} annual charge-offs is above the typical range for "
-                  f"{ltype.replace('_', ' ')} loans (~{lo:.2%}–{hi:.1%}). Examiners will challenge "
-                  f"this or the pricing that supports it.")
+                  f"{ltype.replace('_', ' ')} loans (~{lo:.2%}–{hi:.1%}). Confirm the loss "
+                  f"assumption and the pricing that is expected to support it.")
         elif co < lo and (p.get("opening_balance") or 0) + (p.get("originations_q") or 0) > 0:
             _flag(flags, "BAND-CO-LO", "mild",
                   f"{nm}: {co:.2%} annual charge-offs is below the typical range for "
@@ -117,8 +117,8 @@ def challenge_config(cfg):
                   f"seasoning rarely outperforms industry loss experience.")
         if y1 > 0.25:
             _flag(flags, "PRICE-USURY", "severe",
-                  f"{nm}: {y1:.1%} yield is at or above typical state usury thresholds and will "
-                  f"draw fair-lending and UDAAP scrutiny.")
+                  f"{nm}: {y1:.1%} modeled loan yield is far above the normal range for this "
+                  f"loan type. Confirm the rate is real and that this pricing is supportable.")
         elif 0 < y1 < 0.02:
             _flag(flags, "PRICE-LOWYIELD", "mild",
                   f"{nm}: {y1:.2%} yield is below any plausible funding cost — check the input.")
@@ -141,7 +141,7 @@ def challenge_config(cfg):
             elif gm > 0.04:
                 _flag(flags, "GOS-MARGIN-HI", "mild",
                       f"{nm}: {gm:.2%} gain-on-sale margin is above typical secondary-market execution "
-                      f"(~0.5–4%). Examiners will ask for investor commitments supporting it.")
+                      f"(~0.5–4%). Support it with investor commitments or comparable execution.")
             if (mb.get("warehouse_hold_q") or 0) >= 3:
                 _flag(flags, "GOS-WAREHOUSE", "mild",
                       f"{nm}: a {mb['warehouse_hold_q']}-quarter warehouse period is long for held-for-sale "
@@ -162,15 +162,15 @@ def challenge_config(cfg):
         r1 = _prod_rate(p, 1, rate)
         if r1 > 0.055:
             _flag(flags, "FUND-HOT", "severe",
-                  f"{nm}: {r1:.2%} rate paid is well above market — reliance on rate-sensitive funding "
-                  f"is a classic de novo exam finding.")
+                  f"{nm}: {r1:.2%} rate paid is high for this funding type. Rate-sensitive "
+                  f"funding at this level warrants support for how it is sourced and retained.")
         if p.get("call_report_line") in _DDA_LINES and r1 > 0.02:
             _flag(flags, "FUND-DDA", "mild",
                   f"{nm}: paying {r1:.2%} on transaction accounts is unusual — confirm this is intended.")
         if (p.get("growth_q") or 0) > 0.25:
             _flag(flags, "FUND-GROWTH", "mild",
-                  f"{nm}: {p['growth_q']:.0%}/quarter deposit growth is aggressive — expect questions "
-                  f"about what funds it and what it costs.")
+                  f"{nm}: {p['growth_q']:.0%}/quarter deposit growth is high — support how it is "
+                  f"funded and at what cost.")
 
     # ---- blended spread viability ----
     w_y = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in lend)
@@ -192,8 +192,8 @@ def challenge_config(cfg):
         if wg > 0.08 and wc < mkt - 0.0075:
             _flag(flags, "COUPLED-01", "severe",
                   f"Deposit growth of {wg:.1%}/quarter is claimed jointly with a blended deposit cost "
-                  f"{mkt - wc:.2%} below the market rate. Cheap AND fast funding is the classic de novo "
-                  f"contradiction — provide channel evidence supporting both, or relax one.")
+                  f"{mkt - wc:.2%} below the market rate. Fast growth and below-market cost rarely hold "
+                  f"together — provide channel evidence supporting both, or relax one.")
     for p in lend:
         ltype = _LINE_TYPE.get(p.get("call_report_line", ""), "other")
         lo, _hi = CO_BANDS[ltype]

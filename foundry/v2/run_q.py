@@ -520,9 +520,8 @@ def run_v2(cfg):
         _y1g = (_ta[4] - _ta[0]) / _ta[0]
         if _y1g > 0.25:
             results["flags"].append({"id": "GROWTH-Y1", "sev": "mild", "cls": "advisory",
-                "text": f"Year-1 balance-sheet growth of {_y1g:.0%} exceeds 25% \u2014 aggressive "
-                        "asset ramp for a de novo; examiners will ask what funds it and whether "
-                        "capital keeps pace."})
+                "text": f"Year-1 balance-sheet growth of {_y1g:.0%} exceeds 25% \u2014 a fast asset "
+                        "ramp for a de novo. Support how it is funded and whether capital keeps pace."})
     # per-quarter qualification grid
     obs_arr = [0.0] * n2
     for p2 in (base.get("products") or []):
