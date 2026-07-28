@@ -989,6 +989,9 @@ function paintChrome(){
 
 /* ---------------- helpers ---------------- */
 function esc(s){ return String(s??"").replace(/[&<>"']/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+// Escape HTML first (safe), THEN turn **...** into real bold. Because escaping runs first,
+// no user/engine content can inject markup; only our own ** markers become <strong>.
+function boldMd(s){ return esc(s).replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>"); }
 // Provenance wrapper — the systematic hook for pervasive source tracing. Any rendered
 // value passed through prov(value, source) gets a dotted-underline affordance + a native
 // tooltip naming where the number came from. Coverage is meant to be the DEFAULT: a
@@ -2701,7 +2704,7 @@ function renderOverview(){
     _mrank.forEach(m=>{
       const cls = m.sev==="severe" ? "bad" : "mut";
       const basis = m.basis ? `<div style="font-size:10px;color:#6E7C93;margin-top:3px">Modeled basis: ${esc(m.basis)}</div>` : "";
-      h += `<div class="ovflag"${m.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${m.sev==="severe"?' style="color:#F87171"':''}>${esc(m.id)}</span><span class="ovtag ${cls}">${m.sev==="severe"?"severe":"advisory"}</span><div class="ftext">${esc(m.text)}${basis}</div></div>`;
+      h += `<div class="ovflag"${m.sev==="severe"?' style="border-left:3px solid #F87171"':''}><span class="fid"${m.sev==="severe"?' style="color:#F87171"':''}>${esc(m.id)}</span><span class="ovtag ${cls}">${m.sev==="severe"?"severe":"advisory"}</span><div class="ftext">${boldMd(m.text)}${basis}</div></div>`;
     });
   }
 
@@ -3536,7 +3539,7 @@ function renderContent(){
     } else {
       h += '<div class="h2">Reasonableness Flags</div>';
       if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';
-      r.flags.forEach(w=>{ h += `<div class="warnitem ${w.sev}">${esc(w.text)}</div>`; });
+      r.flags.forEach(w=>{ h += `<div class="warnitem ${w.sev}">${boldMd(w.text)}</div>`; });
     }
     if(V3 && (r.caveats||[]).length){
       h += '<div class="h2" style="margin-top:20px">Caveat register</div>';

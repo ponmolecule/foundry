@@ -59,6 +59,11 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
     def esc(s):
         return str(s).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
+    import re as _re
+    def boldmd(s):
+        # escape first (safe), then turn **...** into reportlab's <b> so the metric renders bold
+        return _re.sub(r"\*\*([^*]+)\*\*", r"<b>\1</b>", esc(s))
+
     def clean_src(s):
         import re
         return re.sub(r"\s*\(edit with citation\)\s*", "", str(s or "")).strip()
@@ -127,7 +132,7 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
         rows = [hdr("Finding", "Severity", "Observation")]
         for f in input_flags:
             rows.append([Paragraph(esc(f.get("id", "")), cell), sev_cell(f.get("sev", "")),
-                         Paragraph(esc(f.get("text", "")), cell)])
+                         Paragraph(boldmd(f.get("text", "")), cell)])
         t = Table(rows, colWidths=[1.15 * inch, 0.65 * inch, 4.7 * inch], repeatRows=1)
         t.setStyle(tbl_style()); story.append(t)
     else:
@@ -140,7 +145,7 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
     if modeled:
         rows = [hdr("Finding", "Severity", "Modeled observation")]
         for m in sorted(modeled, key=lambda x: x.get("sev") != "severe"):
-            obs = esc(m.get("text", ""))
+            obs = boldmd(m.get("text", ""))
             if m.get("basis"):
                 obs += f'<br/><font color="#6E7C93" size="7">Modeled basis: {esc(m["basis"])}</font>'
             rows.append([Paragraph(esc(m.get("id", "")), cell), sev_cell(m.get("sev", "")),
