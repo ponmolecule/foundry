@@ -3426,10 +3426,10 @@ function renderContent(){
       const downturn = `originations \u2212${pct(oh)}, gain-on-sale margin \u2212${pct(gos)}, MSR value \u2212${pct(msr)}, sale share \u2212${pct(ss)}`;
       const rows = [
         ["Base", "Your plan as entered. No overlay. The reference every other column is measured against.", "reference"],
-        ["Credit Deterioration", `Charge-offs \u00d7${coM} and ALLL reserve \u00d7${reM} on every product. <b>Plus</b> the downturn overlay.`, "stress"],
-        ["Rate Shock", `+${bp}bp parallel on the SOFR path and cash / securities / borrowing rates; fixed coupons hold, floaters reprice. <b>Plus</b> the downturn overlay.`, "stress"],
-        ["Combined", `Credit <b>and</b> rate together, on top of the downturn overlay. The worst-case column.`, "stress"],
-        ["DFAST Severe", `Supervisory severely-adverse loss rates by loan type replace your charge-offs (front-loaded over 9 quarters). <b>Plus</b> the downturn overlay.`, "stress"],
+        ["Credit Deterioration", `Charge-offs \u00d7${coM} and ALLL reserve \u00d7${reM} on every product. <b>Plus</b> the downturn haircuts.`, "stress"],
+        ["Rate Shock", `+${bp}bp parallel on the SOFR path and cash / securities / borrowing rates; fixed coupons hold, floaters reprice. <b>Plus</b> the downturn haircuts.`, "stress"],
+        ["Combined", `Credit <b>and</b> rate together, on top of the downturn haircuts. The worst-case column.`, "stress"],
+        ["DFAST Severe", `Supervisory severely-adverse loss rates by loan type replace your charge-offs (front-loaded over 9 quarters). <b>Plus</b> the downturn haircuts.`, "stress"],
       ];
       let t = '<div class="memo" style="margin:0 0 6px;padding:12px 14px;line-height:1.5">'
         + '<div style="font-weight:600;color:var(--ntext);margin-bottom:8px">What each scenario changes</div>'
@@ -3442,7 +3442,7 @@ function renderContent(){
       });
       t += '</table>'
         + `<div style="font-size:11px;color:var(--nmut);margin-top:9px;padding-top:8px;border-top:1px solid var(--nline)">`
-        + `<b style="color:var(--ntext)">Downturn overlay</b> (on every stressed column, not Base): ${downturn}. `
+        + `<b style="color:var(--ntext)">Downturn haircuts</b> (on every stressed column, not Base): ${downturn}. `
         + `Set all values in the sidebar under Stress Scenario Settings.</div>`
         + '</div>';
       h += t;
