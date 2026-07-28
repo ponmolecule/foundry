@@ -390,7 +390,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
   <span id="tabs"></span>
   <span class="spacer"></span>
   <span id="chevBox" style="position:relative;display:inline-flex;align-items:center;gap:0;border:1px solid var(--nline);background:var(--nvy3);border-radius:3px;padding:2px 8px 2px 10px">
-    <span id="bankLabel" title="Bank / engagement — click to rename" onclick="renameBank()" style="font-size:13px;font-weight:600;color:#DCE3EE;max-width:210px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer"></span>
+    <span id="bankLabel" title="Bank / engagement — click to rename" onclick="renameBank()" style="font-size:13px;font-weight:600;color:#DCE3EE;max-width:360px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer"></span>
     <span id="scenSep" style="color:#5B6B88;margin:0 7px;font-size:12px">—</span>
     <input class="scenario-name-inline" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()" style="border:none;background:transparent;padding:5px 24px 5px 0;font-size:12px;color:#AEB9CC;font-style:italic;width:150px;font-family:inherit;outline:none">
     <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements" style="position:absolute;right:7px;color:#8FA3C0;text-decoration:none;font-size:10px">▼</a>
@@ -615,7 +615,7 @@ async function boot(){
           rehydrateOriginal(cfg);
           const sn = document.getElementById("scenarioName");
           if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
-          appStatus("ok", "<b>Recovered unsaved work</b> \u2014 a previous session ended without saving. Name &amp; save it to keep it, or open a saved engagement from the \u25be menu.");
+          appStatus("ok", "<b>Recovered unsaved work</b> \u2014 a previous session ended without saving. Name &amp; save it to keep it, or open a saved engagement from the \u25bc menu beside the bank name, top right.");
         }
       }
     }
@@ -1111,7 +1111,11 @@ function syncBankLabel(){
   const bl = document.getElementById("bankLabel");
   const sep = document.getElementById("scenSep");
   const bank = cfg ? (cfg.proposed_bank || cfg.client_legal_name || "").trim() : "";
-  if(bl) bl.textContent = bank || "Unnamed engagement";
+  if(bl){
+    bl.textContent = bank || "Unnamed engagement";
+    // tooltip shows the FULL name so a long name that still hits the ellipsis stays readable on hover
+    bl.title = (bank ? bank + " \u2014 " : "") + "click to rename";
+  }
   // the "—" separator only makes sense between a bank and a scenario; hide it when either is
   // absent so the chevron never shows a dangling dash.
   const scen = cfg ? (cfg.scenario_name || "").trim() : "";
@@ -3625,7 +3629,7 @@ async function freezeRun(){
     body: JSON.stringify({cfg, label})});
   if(!r.ok){ appStatus("err", "<b>Freeze refused (fail-closed)</b> \u2014 the configuration has open validation questions; resolve them and refreeze. Nothing was recorded."); return; }
   let j={}; try{ j = await r.json(); }catch(e){}
-  appStatus("ok", `<b>Frozen.</b> \u201c${esc(label)}\u201d is notarized in the registry${j.run_id?` as <span style="font-family:var(--mono)">${esc(String(j.run_id))}</span>`:""} \u2014 an immutable, re-verifiable record of this exact run. To save a reusable working profile instead, use Save (\u25be menu, top right).`);
+  appStatus("ok", `<b>Frozen.</b> \u201c${esc(label)}\u201d is notarized in the registry${j.run_id?` as <span style="font-family:var(--mono)">${esc(String(j.run_id))}</span>`:""} \u2014 an immutable, re-verifiable record of this exact run. To save a reusable working profile instead, open the engagement menu (the \u25bc beside the bank name, top right) and choose \u201cSave current configuration as an engagement.\u201d`);
   await loadRegistry(true);
 }
 async function verifyRun(id, btn){
@@ -3668,7 +3672,7 @@ window.saveCurrentEng = async function(){
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
-  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the \u25be menu, top right.`);
+  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the engagement menu (the \u25bc beside the bank name, top right).`);
   loadEngStore(true); setTimeout(renderContent, 250);
 };
 
@@ -4630,7 +4634,7 @@ function renderGovTab(){
       h += '<div class="warnitem"><strong>Storage notice:</strong> ' + esc(regData.status.note || "registry storage is ephemeral on this deployment.") + '</div>';
     }
     h += '<div style="margin:10px 0"><button class="btn-gold" onclick="freezeRun()">Freeze current run</button></div>';
-    h += '<div class="memo" style="margin:2px 0 12px;font-size:11px">Freeze \u2260 Save. A <b>freeze</b> notarizes this exact run \u2014 config + result hashes, immutable, re-verifiable for examiners; it is evidence, not a workspace. To keep a <b>reusable working profile</b>, use Save (the \u25be menu top right, or the Save button on Configuration) \u2014 saved engagements are mutable and reopenable from anywhere.</div>';
+    h += '<div class="memo" style="margin:2px 0 12px;font-size:11px">Freeze \u2260 Save. A <b>freeze</b> notarizes this exact run \u2014 config + result hashes, immutable, re-verifiable for examiners; it is evidence, not a workspace. To keep a <b>reusable working profile</b>, use Save (the \u25bc engagement menu beside the bank name top right, or the Save button on Configuration) \u2014 saved engagements are mutable and reopenable from anywhere.</div>';
     const es = regData.entries || [];
     if(!es.length){ h += '<div class="okbox">No frozen runs yet.</div>'; }
     else {
