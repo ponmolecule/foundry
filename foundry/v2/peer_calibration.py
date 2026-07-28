@@ -57,16 +57,16 @@ FLAG_METRIC_MAP = {
     "PROV-BELOW-CO":  ("provision_to_avg_assets", "substrate"),
     # Value-adding proxy (labeled): sustainable-growth capacity, not observed growth.
     "FUND-GROWTH":    ("max_sustainable_growth", "proxy_growth"),  # pierces optimistic growth
-    # Charge-off: the REAL metrics (net_charge_off_rate / _ubpr) are being written to the
-    # substrate now. Encode them as a preference LIST — the first that resolves wins, so the
-    # flag AUTO-UPGRADES from the npl_ratio proxy to the real charge-off band the moment the
-    # columns land, with no code change. Tier is per-candidate so the label stays honest.
+    # Charge-off: the REAL metrics (net_charge_off_rate / _ubpr) went live in the substrate
+    # on 2026-07-21. The former npl_ratio fallback was justified only while charge-offs were
+    # absent; that justification has expired, so it is REMOVED. NPL is a credit-quality stock
+    # level, not a loss flow — substituting it measures a different thing. If neither real
+    # charge-off band resolves, the flag now falls back to its static band with NO peer clause
+    # (fail-closed), rather than grounding the claim in a different metric.
     "CO-BAND":        [("net_charge_off_rate", "substrate"),
-                       ("net_charge_off_rate_ubpr", "substrate"),
-                       ("npl_ratio", "proxy_credit")],   # disclosure-ledger id
+                       ("net_charge_off_rate_ubpr", "substrate")],   # disclosure-ledger id
     "BAND-CO":        [("net_charge_off_rate", "substrate"),
-                       ("net_charge_off_rate_ubpr", "substrate"),
-                       ("npl_ratio", "proxy_credit")],   # emitted-flag id (BAND-CO-HI/LO)
+                       ("net_charge_off_rate_ubpr", "substrate")],   # emitted-flag id (BAND-CO-HI/LO)
     # --- genuinely absent in substrate: stay fail-closed on static bars ---
     # GOS-MARGIN-HI, GOS-WAREHOUSE, MSR-CAP, MSR-FEE (mortgage-banking niche, no peer metric)
 }
@@ -89,7 +89,6 @@ VINTAGE_LABEL = {
     "substrate": "2026Q1 (substrate-grade)",
     "funding_legacy": "2025Q4 (latest published; funding-metric refresh in progress)",
     "proxy_growth": "2026Q1 \u2014 sustainable-growth band (capacity proxy, not observed growth)",
-    "proxy_credit": "2026Q1 \u2014 NPL band (credit-quality proxy, not net charge-offs)",
 }
 
 def calibrate_thresholds(static_thresholds, total_assets_000s):
@@ -261,9 +260,9 @@ def _flag_client_value(flag, cfg):
     # the quarterly flow (engine_q_a.py: charge_off_ann/4.0). So wco below is already
     # annualized and places DIRECTLY against the annualized peer band. DO NOT multiply by
     # 4 here — charge_off_ann is annual, not quarterly; a x4 would double-annualize and
-    # overstate the modeled value 4x. (If the fallback npl_ratio proxy resolves instead,
-    # note it's a stock level, not an annualized flow — a different basis, labeled as a
-    # proxy in the message.)
+    # overstate the modeled value 4x. (The npl_ratio fallback was removed 2026-07-27 now
+    # that net_charge_off_rate is live; charge-off flags fail-closed to their static band
+    # if the real metric doesn't resolve, rather than substituting a stock-level proxy.)
     if fid in ("BAND-CO-HI", "BAND-CO-LO"):
         wl = sum((p.get("opening_balance") or 0) for p in lend)
         if wl <= 0:
@@ -318,15 +317,11 @@ def peer_annotate(flags, cfg, cohort="broad"):
             "net_charge_off_rate": "peer net charge-off rate",
             "net_charge_off_rate_ubpr": "peer net charge-off rate (UBPR avg-loans basis)",
             "max_sustainable_growth": "modeled sustainable-growth capacity",
-            "npl_ratio": "peer non-performing-loan ratio",
         }
         metric_label = _METRIC_LABEL.get(metric, f"peer {metric}")
         is_proxy = tier.startswith("proxy")
         if tier == "proxy_growth":
             proxy = " [PROXY: sustainable-growth capacity, not observed peer growth]"
-        elif tier == "proxy_credit":
-            proxy = " [PROXY: NPL ratio standing in for net charge-offs \u2014 a credit-quality " \
-                    "level, not a loss flow]"
         elif is_proxy:
             proxy = " [PROXY]"
         else:
