@@ -327,16 +327,31 @@ def peer_annotate(flags, cfg, cohort="broad"):
         else:
             proxy = ""
         n = band.get("n")
-        ntxt = f", n={n}" if n else ""
         # vintage is the band's OWN quarter (honest: what the data actually is),
         # not a hardcoded tier label. tier only distinguishes clean vs proxy.
         real_q = band.get("quarter") or "latest"
+        # Selection basis: asset-band cohorts are chosen from the bank's PROJECTED (Q12,
+        # end-of-projection) total assets — disclosed so the reader knows the peer set
+        # reflects the modeled end-state size, not the filing-date size. Non-asset-band
+        # cohorts (e.g. 'broad') carry no size-selection basis.
+        _ASSET_BANDS = {"under_200M", "200M_500M", "500M_2B", "2B_10B", "10B_50B", "over_50B"}
+        basis = " Cohort selected by projected (Q12) total assets." if cohort in _ASSET_BANDS else ""
         f["peer"] = {"metric": metric, "position": pos, "band_metric": metric,
                      "metric_label": metric_label, "is_proxy": is_proxy,
-                     "cohort": cohort, "p50": band.get("p50"), "n": n, "tier": tier,
+                     "cohort": cohort, "cohort_basis": ("projected_q12_assets" if cohort in _ASSET_BANDS else None),
+                     "p50": band.get("p50"), "n": n, "tier": tier,
                      "vintage": real_q + (" (proxy)" if is_proxy else "")}
-        # Self-citing clause: metric named, cohort named, vintage named, n named, proxy flagged.
-        f["text"] = (f["text"] + f" Against peers, this sits {label} "
-                     f"(metric: {metric_label}; {cohort} cohort; {real_q}{ntxt}){proxy}.")
+        # Self-citing clause, broken into short sentences: placement, then the metric it is
+        # measured against, then the cohort and its selection basis, then the vintage and n,
+        # then any proxy label.
+        parts = [f"Against peers, this sits {label}."]
+        parts.append(f"Measured against {metric_label}.")
+        _coh = f"Cohort: {cohort}.{basis}"
+        parts.append(_coh)
+        _vin = f"Vintage {real_q}" + (f", n={n}." if n else ".")
+        parts.append(_vin)
+        if proxy:
+            parts.append(proxy.strip())
+        f["text"] = f["text"] + " " + " ".join(parts)
         out.append(f)
     return out
