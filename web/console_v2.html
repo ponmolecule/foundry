@@ -603,6 +603,27 @@ async function loadExampleBank(){
   appStatus("ok", "<b>Loaded the example bank.</b> Every input is populated \u2014 edit freely, or clear it to start fresh.");
 }
 window.loadExampleBank = loadExampleBank;
+
+// NEW / CLEAR WORKSPACE (LIFECYCLE_SPEC §10): the guaranteed known-clean starting point.
+// Empties the workspace -> EMPTY. If there's unsaved work, the guard fires first (Save/Discard/
+// Cancel) so nothing is lost silently; from CLEAN/EMPTY it clears immediately with no prompt.
+function clearWorkspace(){
+  if(LC.hasUnsaved()){
+    if(!confirm("Clear the workspace?\n\nYou have unsaved changes. Clearing discards them and returns to an empty workspace. Save first from the \u25be menu if you want to keep this engagement.")) return;
+  }
+  cfg = buildEmptyTemplate();
+  cfg.scenario_name = "";
+  cfg.assumptions = cfg.assumptions || {};
+  cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+  lastRes = null; lastErrs = null;
+  _uploadedOriginal = null; window._startChipShown = false;
+  if(typeof syncNameChrome === "function") syncNameChrome();
+  markPristine(); LC.markEmpty();
+  const sn = document.getElementById("scenarioName"); if(sn){ sn.value = ""; } syncBankLabel();
+  renderGlobals(); renderContent(); updateChangedChip();
+  appStatus("ok", "<b>Workspace cleared.</b> Start a new engagement from the \u25be menu, load the example, or upload a file.");
+}
+window.clearWorkspace = clearWorkspace;
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
   // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
@@ -4320,6 +4341,7 @@ async function toggleEngMenu(){
   }
   h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
   h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+  h += '<a href="#" onclick="document.getElementById(\'engMenu\').style.display=\'none\';clearWorkspace();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#8FA3C0;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'" title="Empty the workspace to a clean slate (warns first if you have unsaved changes)">\u2205 New / clear workspace</a>';
   m.innerHTML = h;
 }
 window.toggleEngMenu = toggleEngMenu;
