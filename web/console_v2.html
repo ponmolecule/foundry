@@ -3706,8 +3706,21 @@ window.delEngagement = async function(slug){
   // frozen original goes with it — otherwise a "changed since upload" record would outlive the
   // engagement it belonged to. Clearing it drops the chip/badge cleanly.
   const curSlug = (cfg.scenario_name||cfg.client_legal_name||cfg.proposed_bank||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"");
-  if(_isRecoverySlug(slug) || slug===curSlug || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
+  const _deletingOpen = (slug===curSlug);
+  if(_isRecoverySlug(slug) || _deletingOpen || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
     _uploadedOriginal = null; window._startChipShown = false; updateChangedChip();
+  }
+  if(_deletingOpen){
+    // Deleting the engagement you're looking at must clear the WORKSPACE too — otherwise the bank name
+    // beside the chevron and all its products stay loaded after the file is gone. Reset to the empty
+    // canvas (same shape as a fresh boot) so the deleted bank leaves no residue.
+    cfg = buildEmptyTemplate();
+    cfg.scenario_name = "";
+    cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+    lastRes = null; lastErrs = null;
+    syncNameChrome(); markPristine();
+    const sn = document.getElementById("scenarioName"); if(sn){ sn.value = ""; } syncBankLabel();
+    renderGlobals(); refresh();
   }
   await loadEngStore(true);   // await the fresh list BEFORE rendering, so the deleted row is gone
   renderContent();            // re-render now that engStore no longer contains the deleted engagement
@@ -4216,7 +4229,10 @@ async function engMenuSave(){
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  freezeOriginal("saved"); markPristine(); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
+  await loadEngStore(true);   // refresh the list so the saved engagement shows immediately
+  renderContent();
 }
 window.engMenuSave = engMenuSave;
 document.addEventListener("click", (ev)=>{
