@@ -409,7 +409,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
   <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
-  <button id="changeBadge" onclick="showChangesSinceUpload()" style="display:none;margin-left:6px;border:1px solid #DFA85A;background:rgba(223,168,90,.12);color:#DFA85A;border-radius:3px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer" title="Inputs changed since this engagement's baseline — click to see the list">● 0 changes</button>
+  <span id="changeBadge" style="display:none;margin-left:6px;color:#8FA3C0;font-size:11px;font-weight:500" title="Save state of the current engagement">Unsaved</span>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
 <div id="appStatus" style="display:none"></div>
@@ -647,23 +647,20 @@ async function boot(){
   if(V31) subCheck();
 }
 function updateChangedChip(){
-  // top-right badge: appears only when something differs; shows the change count.
+  // Quiet status label driven by the single lifecycle state engine (LIFECYCLE_SPEC step 3).
+  // Shows nothing when CLEAN/EMPTY, "Unsaved — not saved yet" for NEW-UNSAVED, and
+  // "● N changes since save/upload" for MODIFIED. It is a LABEL, not a click-to-diff button —
+  // the itemised change list now lives only in the leave-unsaved bar's "See changes".
   const badge = document.getElementById("changeBadge");
   if(badge){
-    if(hasOriginal() && changedSinceUpload()){
-      const n = changeCountSinceUpload();
-      const _src = (_uploadedOriginal && _uploadedOriginal.source) || "";
-      const _since = /upload|file|workbook/i.test(_src) ? "upload" : "creation";
-      badge.textContent = "\u25cf " + n + " change" + (n===1?"":"s") + " since " + _since;
-      badge.style.display = "";
-    } else {
-      badge.style.display = "none";
-    }
+    const txt = LC.badge();
+    if(txt){ badge.textContent = txt; badge.style.display = ""; }
+    else { badge.style.display = "none"; }
   }
-  // Start-tab chip + revert render only when changedSinceUpload() is true. When the changed-state
-  // flips (either direction) while the user is on the Start tab, re-render so they appear/disappear.
+  // Start-tab chip + revert render only when there are changes. Re-render on transitions so they
+  // appear/disappear as the state flips while the user is on the Start tab.
   if(currentTab==="start" && typeof renderStart==="function"){
-    const nowChanged = hasOriginal() && changedSinceUpload();
+    const nowChanged = LC.state()==="MODIFIED";
     if(nowChanged !== window._startChipShown){ window._startChipShown = nowChanged; renderStart(); }
   }
 }
@@ -915,9 +912,11 @@ function changedSinceUpload(){
 }
 // Plain-language change list: a shallow-ish walk of original vs current over the fields that
 // matter to a user. Not a general diff engine — it names the human-meaningful deltas.
+// Diffs against the SINGLE lifecycle baseline (LC.baseline) so the count matches LC.state().
 function changeListSinceUpload(){
-  if(!_uploadedOriginal) return [];
-  return _diffCfgAgainst(_uploadedOriginal.json);
+  if(LC.state() === "NEW-UNSAVED") return [];   // created-never-saved has no baseline to deviate from
+  if(LC.baseline == null) return [];
+  return _diffCfgAgainst(LC.baseline);
 }
 // Diff the live cfg against ANY baseline JSON string, returning the itemised human-readable list.
 // Extracted from the upload-only path so the cycle-away guard can diff against _pristineJSON (the
@@ -1031,15 +1030,15 @@ function changeCountSinceUpload(){ return changeListSinceUpload().length; }
 // because _pristineJSON is snapshotted on every load via markPristine(). Returns the itemised list
 // of changes since the config was last loaded/saved; empty when nothing meaningful changed.
 function unsavedChangeList(){
-  if(_pristineJSON == null) return [];
-  // Only trust the baseline if it belongs to the CURRENTLY loaded engagement. Some cfg-load paths
-  // don't re-baseline; diffing the live config against a baseline from a DIFFERENT engagement would
-  // report every differing field of two unrelated banks as a "change" (the 110-phantom-changes bug).
-  // On identity mismatch we cannot know what the user edited, so we report nothing rather than lie.
-  if(_pristineIdent !== _cfgIdent(cfg)) return [];
-  try{ return _diffCfgAgainst(_pristineJSON); }catch(e){ return []; }
+  // Itemised diff against the SINGLE lifecycle baseline (LIFECYCLE_SPEC). Used by the guard's
+  // "See changes". A NEW-UNSAVED (created, never saved) engagement has no prior clean state to
+  // diff against — its edits ARE the creation — so it reports no itemised list (matches the
+  // "no change count for NEW-UNSAVED" rule).
+  if(LC.state() === "NEW-UNSAVED") return [];
+  if(LC.baseline == null) return [];
+  try{ return _diffCfgAgainst(LC.baseline); }catch(e){ return []; }
 }
-function hasUnsavedWork(){ return unsavedChangeList().length > 0; }
+function hasUnsavedWork(){ return LC.hasUnsaved(); }
 window.hasUnsavedWork = hasUnsavedWork;
 window.revertToOriginal = function(){
   if(!_uploadedOriginal) return;
