@@ -2998,8 +2998,19 @@ function renderOverview(){
       const _snap = document.getElementById("peerSnapBit");
       if(_snap){
         let _vint = null;
-        if(peerTier){ const _wb = (t.thresholds||[]).map(th=>th.peer && th.peer.vintage).filter(Boolean);
-          _vint = _wb.length ? _wb[0] : null; }
+        if(peerTier){
+          // Vintages are PER METRIC: earnings/capital reach 2026Q1, funding metrics lag to 2025Q4.
+          // The top-line snapshot is a "how current is our peer data" indicator, so show the MOST
+          // RECENT vintage (max), matching the Peer Cohort tab's latest-band semantics — not the
+          // first threshold (which may be a lagging funding metric). Strips any "(proxy)" suffix and
+          // compares the bare YYYYQn tokens. Per-metric vintages remain visible in the rows below.
+          const _wb = (t.thresholds||[])
+            .map(th=>th.peer && th.peer.vintage)
+            .filter(Boolean)
+            .map(v=>String(v).replace(/\s*\(.*\)\s*/,"").trim())
+            .filter(v=>/^\d{4}Q[1-4]$/.test(v));
+          _vint = _wb.length ? _wb.sort().slice(-1)[0] : null;   // lexical sort works for YYYYQn
+        }
         _snap.textContent = _vint || (peerTier ? "resolved" : "pending");
       }
     }catch(e){}
