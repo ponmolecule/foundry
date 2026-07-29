@@ -409,7 +409,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
     <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#131E33;border:1px solid #3A4C6E;border-radius:9px;box-shadow:0 10px 28px rgba(0,0,0,.5);z-index:60;padding:6px"></div>
   </span>
   <button class="warnbadge" id="warnBadge" onclick="setTab((window.V3||window.V22||window.V31)?'overview':'notes')">0 flags</button>
-  <button id="changeBadge" onclick="showChangesSinceUpload()" style="display:none;margin-left:6px;border:1px solid #DFA85A;background:rgba(223,168,90,.12);color:#DFA85A;border-radius:3px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer" title="Inputs changed since you uploaded — click to see the list">● 0 changes</button>
+  <button id="changeBadge" onclick="showChangesSinceUpload()" style="display:none;margin-left:6px;border:1px solid #DFA85A;background:rgba(223,168,90,.12);color:#DFA85A;border-radius:3px;padding:3px 10px;font-size:11px;font-weight:600;cursor:pointer" title="Inputs changed since this engagement's baseline — click to see the list">● 0 changes</button>
   <button class="btn-gold" onclick="exportExcel()">Export to Excel</button>
 </div>
 <div id="appStatus" style="display:none"></div>
@@ -647,7 +647,9 @@ function updateChangedChip(){
   if(badge){
     if(hasOriginal() && changedSinceUpload()){
       const n = changeCountSinceUpload();
-      badge.textContent = "\u25cf " + n + " change" + (n===1?"":"s") + " since upload";
+      const _src = (_uploadedOriginal && _uploadedOriginal.source) || "";
+      const _since = /upload|file|workbook/i.test(_src) ? "upload" : "creation";
+      badge.textContent = "\u25cf " + n + " change" + (n===1?"":"s") + " since " + _since;
       badge.style.display = "";
     } else {
       badge.style.display = "none";
@@ -795,6 +797,15 @@ function changedSinceUpload(){
   // makes render-injected system defaults (which the walk never inspects) structurally unable to
   // register as a phantom change.
   if(!_uploadedOriginal) return false;
+  // Identity guard (same as unsavedChangeList): only trust the frozen original if it belongs to the
+  // CURRENTLY loaded engagement. Without this, creating a new engagement while a PRIOR engagement's
+  // frozen original was still live diffed the new bank against the old one and reported every
+  // differing field as a phantom "change since upload" (the 77-phantom-changes bug). On identity
+  // mismatch we cannot know what the user changed, so we report nothing rather than lie.
+  try{
+    const oIdent = _cfgIdent(JSON.parse(_uploadedOriginal.json));
+    if(oIdent !== _cfgIdent(cfg)) return false;
+  }catch(e){ return false; }
   try{ return changeCountSinceUpload() > 0; }catch(e){ return false; }
 }
 // Plain-language change list: a shallow-ish walk of original vs current over the fields that
