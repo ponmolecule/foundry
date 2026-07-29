@@ -3709,7 +3709,8 @@ window.delEngagement = async function(slug){
   if(_isRecoverySlug(slug) || slug===curSlug || (_uploadedOriginal && _uploadedOriginal.label && slug===(_uploadedOriginal.label.toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"")))){
     _uploadedOriginal = null; window._startChipShown = false; updateChangedChip();
   }
-  loadEngStore(true); setTimeout(renderContent, 250);
+  await loadEngStore(true);   // await the fresh list BEFORE rendering, so the deleted row is gone
+  renderContent();            // re-render now that engStore no longer contains the deleted engagement
 };
 window.saveCurrentEng = async function(){
   const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "").trim();
@@ -3725,7 +3726,8 @@ window.saveCurrentEng = async function(){
   // Save -> clean baseline -> later edits show as genuine "changes since save".
   freezeOriginal("saved"); markPristine(); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the engagement menu (the \u25bc beside the bank name, top right).`);
-  loadEngStore(true); setTimeout(renderContent, 250);
+  await loadEngStore(true);   // await the fresh list so the newly-saved engagement shows immediately
+  renderContent();
 };
 
 /* ---------- Cycle-away guard: don't silently discard unsaved edits ----------
