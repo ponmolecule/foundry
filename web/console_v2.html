@@ -599,6 +599,7 @@ async function loadExampleBank(){
   delete cfg._blank_canvas;
   const sn = document.getElementById("scenarioName"); if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
   renderGlobals(); refresh(); markPristine();
+  LC.land("example", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || "example bank"));  // CLEAN
   appStatus("ok", "<b>Loaded the example bank.</b> Every input is populated \u2014 edit freely, or clear it to start fresh.");
 }
 window.loadExampleBank = loadExampleBank;
@@ -636,6 +637,10 @@ async function boot(){
   if(cfg._blank_canvas){ renderContent(); }   // blank: show the empty-canvas state, don't run the engine
   else { refresh(); }
   markPristine();   // freshly loaded state is the baseline — not an edit worth autosaving
+  // Reflect boot outcome in the lifecycle state: a blank canvas is EMPTY; recovered unsaved work is
+  // treated as unsaved (origin 'created') so the badge/leave-bar protect it until the user saves it.
+  if(cfg._blank_canvas){ LC.markEmpty(); }
+  else { LC.land("created", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || "")); }
   // Substrate reachability is boot-time state (does the peer DB answer?) — it does NOT change while
   // the user types. Check it ONCE here, not inside preview(): running it per-edit fired a network
   // fetch + a full DOM rebuild on every keystroke, which is what made typing block and blink.
@@ -3737,6 +3742,7 @@ async function uploadScenario(input){
     const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
     syncNameChrome();
     renderGlobals(); refresh(); renderContent(); markPristine();
+    LC.land("upload", name);   // CLEAN against the uploaded file
     appStatus("ok", `<b>Configuration restored \u2014 now working on \u201c${esc(name)}\u201d.</b> This file replaced the whole engagement state.`);
   } catch(e){ appStatus("err", `<b>Not a valid configuration JSON</b> \u2014 ${esc(e.message)}. Nothing was changed.`); }
   input.value = "";
@@ -3754,7 +3760,8 @@ async function uploadWorkbook(input){
   if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
   else { cfg = j; syncNameChrome();
          freezeOriginal("the workbook you uploaded");
-         renderGlobals(); refresh(); renderContent(); markPristine(); }
+         renderGlobals(); refresh(); renderContent(); markPristine();
+         LC.land("workbook", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || "")); }  // CLEAN
   input.value = "";
 }
 async function loadRegistry(force){
@@ -3787,7 +3794,9 @@ async function loadFrozen(id){
   cfg = await r.json();
   lastRes = null; lastErrs = null;   // invalidate prior result (see pstat name-match)
   syncNameChrome();
-  renderGlobals(); refresh(); markPristine(); setTab("products");
+  renderGlobals(); refresh(); markPristine();
+  LC.land("open", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || "frozen run"));  // CLEAN
+  setTab("products");
 }
 window.downloadScenario=downloadScenario; window.uploadScenario=uploadScenario;
 window.downloadWorkbook=downloadWorkbook; window.uploadWorkbook=uploadWorkbook;
@@ -4061,6 +4070,7 @@ async function uploadFIW(inp){
   if(!r.ok){ appStatus("err", `<b>Import refused (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   cfg = j.cfg;
   freezeOriginal("the workbook you uploaded");
+  LC.land("workbook", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // CLEAN
   const n = j.report.edit_count;
   const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
   const lines = j.report.edits.slice(0,8).map(e=>`<div style="font-family:var(--mono);font-size:11px">\u2022 ${esc(e.key)}: ${esc(String(e.from))} \u2192 ${esc(String(e.to))}</div>`).join("");
@@ -4188,6 +4198,7 @@ async function wizFinish(){
   // config as the original; markPristine sets the unsaved-changes baseline to THIS config.
   freezeOriginal("new engagement");
   markPristine();
+  LC.land("created", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // NEW-UNSAVED
   renderGlobals(); refresh(); setTab("products");
 }
 window.wizStart=wizStart; window.wizSet=wizSet; window.wizPick=wizPick; window.wizFinish=wizFinish;
@@ -4229,7 +4240,9 @@ async function _openEngagementNow(slug){
     // as the Executive Summary already did — so preserving is no riskier than the old forced default.
     const _keep = !["welcome","start"].includes(currentTab)
                   && TAB_DEFS.some(t=>t[0]===currentTab);
-    renderGlobals(); refresh(); markPristine(); setTab(_keep ? currentTab : "overview");
+    renderGlobals(); refresh(); markPristine();
+    LC.land("open", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // CLEAN from the store
+    setTab(_keep ? currentTab : "overview");
   } else {
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
   }
@@ -4309,7 +4322,7 @@ async function engMenuSave(){
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
-  freezeOriginal("saved"); markPristine(); updateChangedChip();
+  freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
   await loadEngStore(true);   // refresh the list so the saved engagement shows immediately
   renderContent();
