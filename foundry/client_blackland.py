@@ -10,7 +10,7 @@ CLIENT = {
     "client_legal_name": "Blackland Bancshares, Inc.",
     "proposed_bank": "Blackland State Bank (in organization)",
     "hq": "McKinney, TX",
-    "prepared_by": "Klaros Group / Foundry engagement team",
+    "prepared_by": "Klaros Group Foundry engagement team",
     "config_version": "1.0",
     "config_frozen": "2026-07-02",
     "archetype": "community_commercial",

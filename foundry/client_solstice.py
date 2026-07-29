@@ -11,7 +11,7 @@ CLIENT = {
     "client_legal_name": "Solstice Financial, Inc.",
     "proposed_bank": "Solstice Bank (in organization)",
     "hq": "Austin, TX",
-    "prepared_by": "Klaros Group / Foundry engagement team",
+    "prepared_by": "Klaros Group Foundry engagement team",
     "config_version": "1.3",
     "config_frozen": "2026-06-19",
 

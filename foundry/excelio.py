@@ -280,7 +280,7 @@ DICTIONARY = [
  ("Engagement","client_legal_name","text","—","always","free text","Legal name of the organizing entity (the applicant company, not the bank).","Prairie Digital Financial, Inc."),
  ("Engagement","proposed_bank","text","—","always","free text","Name of the bank in organization. Also used to generate the engagement's URL slug.","Prairie Digital Bank (in organization)"),
  ("Engagement","hq","text","—","optional","City, ST","Headquarters city of the proposed bank.","Des Moines, IA"),
- ("Engagement","prepared_by","text","—","optional","free text","Team responsible for this configuration.","Klaros Group / Foundry engagement team"),
+ ("Engagement","prepared_by","text","—","optional","free text","Team responsible for this configuration.","Klaros Group Foundry engagement team"),
  ("Engagement","config_version","text","—","always","e.g. 1.0","Version of this configuration. Increment on any change after freeze; version history is part of the exam record.","1.0"),
  ("Engagement","config_frozen","date","YYYY-MM-DD","always","valid date","Date this configuration was frozen. Doubles as rules_as_of in the run manifest.","2026-07-05"),
  ("Engagement","archetype","text","—","always","digital_consumer / community_commercial","Business-model archetype; selects the examiner-book template family.","digital_consumer"),
