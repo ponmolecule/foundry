@@ -797,6 +797,12 @@ function changedSinceUpload(){
   // makes render-injected system defaults (which the walk never inspects) structurally unable to
   // register as a phantom change.
   if(!_uploadedOriginal) return false;
+  // A CREATED engagement freezes an inert skeleton (products ship zero-valued by design), so the
+  // user's normal setup edits would otherwise show as bogus "changes since creation" and light the
+  // revert button during ordinary setup. A created engagement has no meaningful "original" to
+  // deviate from until it is SAVED — at which point saveCurrentEng re-freezes with source "saved".
+  // So: suppress the badge while the baseline is the just-created skeleton.
+  if((_uploadedOriginal.source || "") === "new engagement") return false;
   // Identity guard (same as unsavedChangeList): only trust the frozen original if it belongs to the
   // CURRENTLY loaded engagement. Without this, creating a new engagement while a PRIOR engagement's
   // frozen original was still live diffed the new bank against the old one and reported every
@@ -952,7 +958,9 @@ window.showChangesSinceUpload = function(){
   const list = changeListSinceUpload();
   if(!list.length){ appStatus("ok", "<b>No changes since upload</b> \u2014 the current inputs match the file you brought."); return; }
   const rows = list.map(s=>`<div style="font-family:var(--mono);font-size:11.5px;margin:2px 0">\u2022 ${esc(s)}</div>`).join("");
-  appStatus("ok", `<b>Changed since upload of \u201c${esc(_uploadedOriginal.label)}\u201d:</b>${rows}<div style="margin-top:6px;color:#8FA3C0;font-size:11px">Use \u201cRevert to Original\u201d to discard these and restore the uploaded inputs.</div>`);
+  const _src = (_uploadedOriginal.source || "");
+  const _origWord = /upload|file|workbook/i.test(_src) ? "upload" : (_src === "saved" ? "save" : "baseline");
+  appStatus("ok", `<b>Changed since ${_origWord} of \u201c${esc(_uploadedOriginal.label)}\u201d:</b>${rows}<div style="margin-top:6px;color:#8FA3C0;font-size:11px">Use \u201cRevert to Original\u201d to discard these and restore the ${_origWord === "upload" ? "uploaded" : _origWord === "save" ? "saved" : "original"} inputs.</div>`);
 };
 async function autosaveNow(){
   if(_asBusy || window.SNAPSHOT) return;
@@ -3711,6 +3719,11 @@ window.saveCurrentEng = async function(){
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  // Re-baseline on save: the saved state becomes this engagement's new original (source "saved", so
+  // the badge is active from here — unlike the suppressed "new engagement" skeleton) and the pristine
+  // snapshot moves to the saved state so "unsaved work" clears. Now: create -> set up (no badge) ->
+  // Save -> clean baseline -> later edits show as genuine "changes since save".
+  freezeOriginal("saved"); markPristine(); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the engagement menu (the \u25bc beside the bank name, top right).`);
   loadEngStore(true); setTimeout(renderContent, 250);
 };
