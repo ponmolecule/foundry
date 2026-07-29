@@ -2866,7 +2866,7 @@ function renderOverview(){
     if(r.schema_version!=null) bits.push(`Config <b style="color:#C4CDDD">${esc(String(r.schema_version))}</b>`);
     if(r.config_hash) bits.push(`Run <b style="font-family:var(--mono);color:#C4CDDD">${esc(String(r.config_hash).slice(0,10))}</b>`);
     if(r.engine_version) bits.push(`Engine <b style="color:#C4CDDD">${esc(String(r.engine_version).replace(/^foundry-engine\s*/,""))}</b>`);
-    bits.push(`Peer snapshot <b id="peerSnapBit" style="color:#C4CDDD">${(_peerCohort && _peerCohort.snapshot_id)?esc(_peerCohort.snapshot_id):"pending"}</b>`);
+    bits.push(`Peer snapshot <b id="peerSnapBit" style="color:#C4CDDD">resolving\u2026</b>`);
     bits.push(`Generated <b style="color:#C4CDDD">${new Date().toISOString().slice(0,16).replace("T"," ")}Z</b>`);
     h += `<div style="font-size:10.5px;color:#6E7C93;margin:-8px 0 12px;font-family:var(--mono)">${bits.join(' \u00b7 ')}</div>`;
   }
