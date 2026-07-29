@@ -887,6 +887,15 @@ function rehydrateOriginal(loadedCfg){
   if(loadedCfg) delete loadedCfg._uploaded_original;
 }
 function hasOriginal(){ return _uploadedOriginal != null; }
+// True only when the frozen original came from an actual FILE upload (not a created engagement,
+// whose freezeOriginal source is "new engagement", nor a save, source "saved"). This gates the
+// upload-only "Reset to uploaded file" action per LIFECYCLE_SPEC §8.
+function hasUploadedOriginal(){
+  if(!_uploadedOriginal) return false;
+  const s = (_uploadedOriginal.source || "");
+  return /file|upload|workbook/i.test(s);
+}
+window.hasUploadedOriginal = hasUploadedOriginal;
 function changedSinceUpload(){
   // Derive "changed" from the itemised walk itself: if the walk finds no user-meaningful change,
   // nothing changed — full stop. This makes the badge, chip, count, and revert all consistent, and
@@ -1040,17 +1049,42 @@ function unsavedChangeList(){
 }
 function hasUnsavedWork(){ return LC.hasUnsaved(); }
 window.hasUnsavedWork = hasUnsavedWork;
+
+// REVERT TO LAST SAVE (LIFECYCLE_SPEC §8): one step back to the single clean baseline (the last
+// save / load). Discards edits since then. Available whenever the state is MODIFIED. Restores the
+// baselined config and re-marks CLEAN (the baseline is unchanged — we're returning TO it).
+window.revertToLastSave = function(){
+  if(LC.state() !== "MODIFIED") return;             // nothing to revert
+  if(LC.baseline == null) return;
+  if(!confirm("Revert to your last saved state?\n\nThis discards the changes you've made since then. Anything you've already saved or downloaded is untouched.")) return;
+  try{ cfg = JSON.parse(LC.baseline); }catch(e){ return; }
+  delete cfg._uploaded_original; delete cfg._blank_canvas;
+  if(typeof syncNameChrome === "function") syncNameChrome();
+  if(typeof syncModules === "function") syncModules();
+  window._startChipShown = false;
+  // baseline stays put; we've returned the live cfg to it -> CLEAN. markPristine keeps autosave quiet.
+  if(typeof markPristine === "function") markPristine();
+  renderGlobals(); renderContent(); refresh(); updateChangedChip();
+  appStatus("ok", "<b>Reverted to your last saved state.</b> Edits since then were discarded.");
+};
+
+// RESET TO UPLOADED FILE (LIFECYCLE_SPEC §8): all the way back to the original uploaded file —
+// discards every edit AND every save since the upload. UPLOAD-SOURCED engagements only (a created
+// or example bank has no uploaded original; the action simply isn't offered for them). Reloads the
+// parsed original the app still holds in _uploadedOriginal and re-lands it as the clean baseline.
 window.revertToOriginal = function(){
-  if(!_uploadedOriginal) return;
-  const src = _uploadedOriginal.source === "file" ? "the file you uploaded"
-            : _uploadedOriginal.source;
-  if(!confirm(`Revert to ${src} (\u201c${_uploadedOriginal.label}\u201d)?\n\nThis discards every change you have made since the upload and restores the original inputs. It does not delete any file you have already downloaded.`)) return;
+  if(!_uploadedOriginal){ return; }                 // no uploaded original -> action not applicable
+  const src = _uploadedOriginal.source === "file" ? "the file you uploaded" : _uploadedOriginal.source;
+  if(!confirm(`Reset all the way back to ${src} (\u201c${_uploadedOriginal.label}\u201d)?\n\nThis discards every change AND every save you've made since the upload, restoring the original inputs. It does not delete any file you already downloaded.`)) return;
   try{ cfg = JSON.parse(_uploadedOriginal.json); }catch(e){ return; }
   if(typeof syncNameChrome === "function") syncNameChrome();
   if(typeof syncModules === "function") syncModules();
-  window._startChipShown = false;                 // force the Start-tab chip/revert to drop
+  window._startChipShown = false;
+  // The uploaded file is the source of truth again -> re-land as CLEAN against it.
+  LC.land("upload", _uploadedOriginal.label || "");
+  if(typeof markPristine === "function") markPristine();
   renderGlobals(); renderContent(); refresh(); updateChangedChip();
-  appStatus("ok", `<b>Reverted to ${esc(src)}.</b> Your edits since the upload were discarded; the original inputs are restored.`);
+  appStatus("ok", `<b>Reset to ${esc(src)}.</b> Every edit and save since the upload was discarded; the original inputs are restored.`);
 };
 window.showChangesSinceUpload = function(){
   const list = changeListSinceUpload();
@@ -4387,10 +4421,10 @@ function renderStart(){
       + '<button class="btn-plain" onclick="document.getElementById(\'upXlsx31\').click()">Upload filled workbook\u2026</button>'
       + (V31 ? '<button class="btn-plain" onclick="downloadUniversalTemplate()" title="A blank full-coverage workbook showing every module\'s sheets and labels \u2014 a scaffold to fill in Excel, not tied to any engagement">Download universal template</button>' : '')
       + '<input id="upXlsx31" type="file" accept=".xlsx" style="display:none" onchange="V31 ? uploadFIW(this) : uploadWorkbook(this)"></div>'
-      + ((hasOriginal() && changedSinceUpload()) ? (
+      + ((LC.state()==="MODIFIED" || hasUploadedOriginal()) ? (
           '<div style="margin-top:9px;padding-top:9px;border-top:1px solid var(--nline);display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-          + '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
-          + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()">Revert to Original</button>'
+          + (LC.state()==="MODIFIED" ? '<button class="btn-plain" onclick="revertToLastSave()" title="Discard edits since your last saved state">Revert to last save</button>' : '')
+          + (hasUploadedOriginal() ? '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()" title="Discard every edit AND save since the upload, restoring the original file">Reset to uploaded file</button>' : '')
           + '</div>'
         ) : ''))
     + '</div>'
@@ -4731,13 +4765,11 @@ function renderConfigTab(){
     + '<input id="upJson" type="file" accept=".json,application/json" style="display:none" onchange="uploadScenario(this)">'
     + '<span class="memo" style="margin:0">Download to archive or hand off; upload to load a charter candidate\u2019s parameter set into the workspace.</span>'
     + '</div>'
-    + (hasOriginal() ? (
+    + ((LC.state()==="MODIFIED" || hasUploadedOriginal()) ? (
         '<div style="display:flex;gap:9px;flex-wrap:wrap;align-items:center;margin-top:10px;padding-top:10px;border-top:1px solid var(--nline)">'
-        + (changedSinceUpload()
-            ? '<button id="chgChip" class="btn-plain" style="border-color:#DFA85A;color:#DFA85A" onclick="showChangesSinceUpload()">\u25cf Changed since upload</button>'
-            : '<button id="chgChip" class="btn-plain" disabled style="opacity:.5;cursor:default">No changes since upload</button>')
-        + '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()"' + (changedSinceUpload()?'':' disabled style="opacity:.5;cursor:default"') + '>Revert to Original</button>'
-        + '<span class="memo" style="margin:0">Recover the exact inputs you uploaded \u2014 revert restores them here; then download to get the original file back.</span>'
+        + (LC.state()==="MODIFIED" ? '<button class="btn-plain" onclick="revertToLastSave()" title="Discard edits since your last saved state">Revert to last save</button>' : '')
+        + (hasUploadedOriginal() ? '<button id="revertBtn" class="btn-plain" onclick="revertToOriginal()" title="Discard every edit AND save since the upload, restoring the original file">Reset to uploaded file</button>' : '')
+        + (hasUploadedOriginal() ? '<span class="memo" style="margin:0">Reset restores the exact inputs you uploaded; then download to get the original file back.</span>' : '')
         + '</div>'
       ) : '')
     + '</div>';
