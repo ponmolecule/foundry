@@ -3987,6 +3987,9 @@ function guardSaveAsBack(){ document.getElementById("guard-saveas").style.displa
   document.getElementById("guard-actions").style.display="flex"; }
 window.guardSaveAsBack=guardSaveAsBack;
 async function guardSaveAsConfirm(){
+  if((typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas){
+    appStatus("err", "<b>Nothing to save yet.</b> The workspace is empty."); return;
+  }
   const nm = (document.getElementById("guard-name").value || "").trim();
   if(!nm){ appStatus("err","<b>Enter a name</b> to save this engagement."); return; }
   cfg.scenario_name = nm;
@@ -4405,7 +4408,13 @@ async function toggleEngMenu(){
     h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#C7975A;font-size:12px" onmouseover="this.style.background='#1B2A47'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#C7975A;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Unsaved engagement (crash recovery)</span><span style="display:block;font-size:10px;color:#8FA3C0">last-resort recovery of unsaved work \u2014 name &amp; save it to keep it</span></span></a>`;
   }
   h += '<div style="border-top:1px solid #24334D;margin:6px 0"></div>';
-  h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+  const _emptyWs = (typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas;
+  if(_emptyWs){
+    h += '<div style="display:block;padding:7px 10px;color:#5A6b85;font-size:12px" title="Create or upload an engagement first">+ Save current configuration here</div>'
+      + '<div style="padding:0 10px 6px;font-size:10px;color:#5A6b85">Nothing to save \u2014 the workspace is empty.</div>';
+  } else {
+    h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#7FB07F;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+  }
   h += '<a href="#" onclick="document.getElementById(\'engMenu\').style.display=\'none\';clearWorkspace();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#8FA3C0;font-size:12px" onmouseover="this.style.background=\'#1B2A47\'" onmouseout="this.style.background=\'\'" title="Empty the workspace to a clean slate (warns first if you have unsaved changes)">\u2205 New / clear workspace</a>';
   m.innerHTML = h;
 }
@@ -4433,6 +4442,13 @@ async function engMenuDelete(slug){
 window.engMenuDelete = engMenuDelete;
 async function engMenuSave(){
   document.getElementById("engMenu").style.display = "none";
+  // Refuse to save an EMPTY workspace. After deleting/clearing everything there is no configuration
+  // to persist; saving here would create a zombie shell engagement (user-found). A save must have a
+  // real config behind it — create or upload one first.
+  if((typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas){
+    appStatus("err", "<b>Nothing to save yet.</b> The workspace is empty \u2014 create a new engagement or upload one first, then save it.");
+    return;
+  }
   // Suggest a name (bank name leads, then legal, then scenario), but let the user NAME IT
   // THEMSELVES rather than silently saving under whatever the config carried.
   const suggested = (cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name || "").trim();
