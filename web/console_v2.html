@@ -4387,7 +4387,7 @@ async function _openEngagementNow(slug){
     // Start/Reset entry screens aren't "a place in the model" to stay on). Output tabs (bs/is/etc.)
     // degrade to a "Running…" state under the null lastRes until refresh() lands the new run, exactly
     // as the Executive Summary already did — so preserving is no riskier than the old forced default.
-    const _keep = !["welcome","start"].includes(currentTab)
+    const _keep = !["welcome"].includes(currentTab)  /* Start/Reset now persists across switches too; only Welcome (pre-engagement splash) does not */
                   && TAB_DEFS.some(t=>t[0]===currentTab);
     renderGlobals(); refresh(); markPristine();
     LC.land("open", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // CLEAN from the store
