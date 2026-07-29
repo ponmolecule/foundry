@@ -624,6 +624,15 @@ function clearWorkspace(){
   appStatus("ok", "<b>Workspace cleared.</b> Start a new engagement from the \u25be menu, load the example, or upload a file.");
 }
 window.clearWorkspace = clearWorkspace;
+
+// Dismiss the one-time landing nudge ([Not now]). Clears the flag and re-renders the Config tab so
+// the banner disappears; the quiet "Unsaved" badge remains as the standing reminder.
+function dismissLandingNudge(){
+  LC.nudgePending = false;
+  const el = document.getElementById("landingNudge");
+  if(el && el.parentNode) el.parentNode.removeChild(el);
+}
+window.dismissLandingNudge = dismissLandingNudge;
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
   // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
@@ -749,6 +758,7 @@ const LC = {
   origin: "empty",    // 'empty' | 'created' | 'upload' | 'workbook' | 'open' | 'example'
   label: "",          // human label of the baseline's source (bank name / file)
   saved: false,       // has THIS config been written to the store at least once?
+  nudgePending: false,// one-time "save it as an engagement now?" nudge, shown at top of Config after landing
 
   // Canonical serialisation for comparison. Strips the embedded-original key and
   // normalises so render-injected defaults never read as a change.
@@ -774,19 +784,23 @@ const LC = {
     this.saved = (origin === "open" || origin === "example") ? true
                : (origin === "upload" || origin === "workbook") ? false
                : false;
+    // One-time landing nudge: offer to save-as-engagement for a just-materialised config that isn't
+    // already in the store. Not for 'open' (already saved) or 'example' (built-in demo).
+    this.nudgePending = (origin === "upload" || origin === "workbook" || origin === "created");
   },
 
   // Explicit save happened: current state becomes the new clean baseline, now saved.
   markSaved(label){
     this.baseline = this._ser(cfg);
     this.saved = true;
+    this.nudgePending = false;             // saved -> the nudge's job is done
     if(label) this.label = label;
     // once saved, a formerly-created engagement behaves like any saved one
     if(this.origin === "created") this.origin = "open";
   },
 
   // Workspace cleared to empty canvas.
-  markEmpty(){ this.baseline = null; this.origin = "empty"; this.label = ""; this.saved = false; },
+  markEmpty(){ this.baseline = null; this.origin = "empty"; this.label = ""; this.saved = false; this.nudgePending = false; },
 
   // Is the live cfg identical to the baseline?
   isClean(){
@@ -4812,6 +4826,17 @@ function renderConfigTab(){
   const r = lastRes || {};
   const _eng = cfg.client_legal_name || cfg.proposed_bank || cfg.client || "Unnamed engagement";
   let h = '<div class="cfghead"><span class="ttl">Configuration</span></div>';
+  // One-time landing nudge (LIFECYCLE_SPEC §4): after a config lands (upload or create) but isn't
+  // saved, offer to save it as an engagement. Shows once; [Save] or [Not now] dismisses it; the
+  // quiet "Unsaved" badge carries the reminder afterward. Never for opened/example configs.
+  if(!snapshotMode && LC.nudgePending && !LC.saved){
+    const _bn = esc(cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name || "This engagement");
+    h += '<div id="landingNudge" style="margin:0 0 14px;padding:11px 14px;background:rgba(223,168,90,.10);border:1px solid #C7975A55;border-radius:8px;display:flex;gap:12px;align-items:center;flex-wrap:wrap">'
+      + '<span style="flex:1;min-width:200px;color:#E4D9C4;font-size:12.5px"><b style="color:#DFA85A">' + _bn + '</b> is ready. Save it as an engagement now?</span>'
+      + '<button class="btn-gold" style="font-size:11px;padding:5px 14px" onclick="LC.nudgePending=false;engMenuSave()">Save</button>'
+      + '<button class="btn-plain" style="font-size:11px;padding:5px 12px" onclick="dismissLandingNudge()">Not now</button>'
+      + '</div>';
+  }
   h += '<div class="memo" style="margin:0 0 14px">The engagement\u2019s living configuration \u2014 set structures and modules below; the engine activates steps and pages from presence, not assertion.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
