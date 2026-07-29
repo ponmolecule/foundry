@@ -690,6 +690,100 @@ function _isRecoverySlug(slug){
 let _asTimer = null, _asBusy = false, _pristineJSON = null, _pristineIdent = null;
 // Identity of a config for baseline-matching: the engagement it represents. Used so the unsaved-work
 // guard can tell whether _pristineJSON actually corresponds to the currently-loaded engagement — a
+/* ============================================================================
+   LIFECYCLE STATE ENGINE (LIFECYCLE_SPEC.md step 1)
+   ONE baseline, FOUR states. Everything about "is this saved / changed / new"
+   flows through here so the app's state is predictable and inspectable.
+
+   States:
+     EMPTY        - nothing loaded (LC.baseline === null and cfg is the empty canvas)
+     CLEAN        - live cfg matches the baseline exactly
+     MODIFIED     - edited since the baseline (baseline is a saved/loaded state)
+     NEW-UNSAVED  - created via wizard, never saved (origin==='created', no save yet)
+
+   The baseline is set at exactly two moments: LC.land() (a config materialises:
+   upload / open / example / create) and LC.markSaved() (explicit save). Nothing
+   else moves it. origin records how the current config entered the workspace so
+   the badge/nudge/revert can behave correctly without guessing.
+   ============================================================================ */
+const LC = {
+  baseline: null,     // JSON string of the last clean state, or null for EMPTY
+  origin: "empty",    // 'empty' | 'created' | 'upload' | 'workbook' | 'open' | 'example'
+  label: "",          // human label of the baseline's source (bank name / file)
+  saved: false,       // has THIS config been written to the store at least once?
+
+  // Canonical serialisation for comparison. Strips the embedded-original key and
+  // normalises so render-injected defaults never read as a change.
+  _ser(c){
+    try{
+      const clean = JSON.parse(JSON.stringify(c));
+      delete clean._uploaded_original; delete clean._blank_canvas;
+      if(typeof normalizeCfg === "function") normalizeCfg(clean);
+      return JSON.stringify(clean);
+    }catch(e){ return null; }
+  },
+
+  // A config "lands": it becomes the new clean baseline. origin drives later behaviour.
+  //  - upload/workbook/open/example  -> CLEAN, saved reflects whether it came from the store
+  //  - created                       -> NEW-UNSAVED (saved=false)
+  land(origin, label, opts){
+    opts = opts || {};
+    this.origin = origin || "open";
+    this.label = label || "";
+    this.baseline = this._ser(cfg);
+    // 'open' comes from the store (already saved); 'example' is a built-in (treat as saved-clean,
+    // never nagged); 'upload'/'workbook' have an external file; 'created' is not saved yet.
+    this.saved = (origin === "open" || origin === "example") ? true
+               : (origin === "upload" || origin === "workbook") ? false
+               : false;
+  },
+
+  // Explicit save happened: current state becomes the new clean baseline, now saved.
+  markSaved(label){
+    this.baseline = this._ser(cfg);
+    this.saved = true;
+    if(label) this.label = label;
+    // once saved, a formerly-created engagement behaves like any saved one
+    if(this.origin === "created") this.origin = "open";
+  },
+
+  // Workspace cleared to empty canvas.
+  markEmpty(){ this.baseline = null; this.origin = "empty"; this.label = ""; this.saved = false; },
+
+  // Is the live cfg identical to the baseline?
+  isClean(){
+    if(this.baseline == null) return true;   // EMPTY counts as clean (nothing to lose)
+    const now = this._ser(cfg);
+    return now != null && now === this.baseline;
+  },
+
+  // The single state answer.
+  state(){
+    if(this.baseline == null && (!cfg || cfg._blank_canvas)) return "EMPTY";
+    if(this.origin === "created" && !this.saved) return "NEW-UNSAVED";
+    return this.isClean() ? "CLEAN" : "MODIFIED";
+  },
+
+  // Does leaving now risk discarding work? (drives the leave-unsaved bar)
+  hasUnsaved(){
+    const s = this.state();
+    return s === "MODIFIED" || s === "NEW-UNSAVED";
+  },
+
+  // Badge text for the chevron area (quiet status label; "" = show nothing).
+  badge(){
+    const s = this.state();
+    if(s === "NEW-UNSAVED") return "Unsaved \u2014 not saved yet";
+    if(s === "MODIFIED"){
+      const n = (typeof changeCountSinceUpload === "function") ? changeCountSinceUpload() : 0;
+      const since = (this.origin === "upload" || this.origin === "workbook") ? "upload" : "save";
+      return "\u25cf " + n + " change" + (n===1?"":"s") + " since " + since;
+    }
+    return "";
+  }
+};
+window.LC = LC;   // inspectable from the console for debugging
+
 // baseline captured from a DIFFERENT engagement (some load paths don't re-baseline) must never be
 // diffed against the live one, or every field of two different banks reads as a "change".
 function _cfgIdent(c){
