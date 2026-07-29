@@ -761,7 +761,9 @@ const LC = {
 
   // The single state answer.
   state(){
-    if(this.baseline == null && (!cfg || cfg._blank_canvas)) return "EMPTY";
+    // EMPTY is authoritative from origin (markEmpty sets it): a null baseline with no origin, or an
+    // explicit empty origin, is EMPTY even if the _blank_canvas flag was stripped by refresh().
+    if(this.baseline == null && (this.origin === "empty" || !cfg || cfg._blank_canvas)) return "EMPTY";
     if(this.origin === "created" && !this.saved) return "NEW-UNSAVED";
     return this.isClean() ? "CLEAN" : "MODIFIED";
   },
@@ -3855,6 +3857,7 @@ window.delEngagement = async function(slug){
     cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
     lastRes = null; lastErrs = null;
     syncNameChrome(); markPristine();
+    LC.markEmpty();                                  // workspace is now EMPTY per the state engine
     const sn = document.getElementById("scenarioName"); if(sn){ sn.value = ""; } syncBankLabel();
     renderGlobals(); refresh();
   }
