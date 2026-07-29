@@ -589,6 +589,7 @@ function buildEmptyTemplate(){
 }
 // Load today's fully-populated example bank on demand (the old default state).
 async function loadExampleBank(){
+  if(!confirmDiscardUnsaved("Loading the example bank")){ return; }
   const r = await fetch(window.V31 ? "/api/v31/template" : "/api/v2/template").catch(()=>null);
   cfg = (r && r.ok) ? await r.json() : JSON.parse(JSON.stringify(TEMPLATE));
   cfg.proposed_bank = "De Novo Bank"; cfg.client_legal_name = "De Novo Bank";
@@ -633,6 +634,16 @@ function dismissLandingNudge(){
   if(el && el.parentNode) el.parentNode.removeChild(el);
 }
 window.dismissLandingNudge = dismissLandingNudge;
+
+// Leave-unsaved guard for DISCARDING actions (upload, load example, etc.): if the current workspace
+// holds unsaved work, confirm before replacing it. Returns true to proceed, false to cancel.
+// (LIFECYCLE_SPEC §7 — uploading over unsaved work must not silently discard it, the user-found bug.)
+function confirmDiscardUnsaved(actionLabel){
+  if(typeof LC === "undefined" || !LC.hasUnsaved()) return true;   // nothing to lose
+  const what = LC.state() === "NEW-UNSAVED" ? "the engagement you just created" : "your unsaved changes";
+  return confirm((actionLabel || "This") + " will discard " + what + " \u2014 which hasn't been saved.\n\nSave it first from the \u25be menu if you want to keep it, or continue to discard and proceed.");
+}
+window.confirmDiscardUnsaved = confirmDiscardUnsaved;
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
   // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
@@ -3828,6 +3839,7 @@ function downloadScenario(){
 }
 async function uploadScenario(input){
   const f = input.files[0]; if(!f) return;
+  if(!confirmDiscardUnsaved("Uploading a configuration")){ input.value=""; return; }
   appStatus("busy", `Reading configuration <b>${esc(f.name)}</b>\u2026`);
   try {
     const parsed = JSON.parse(await f.text());
@@ -3850,6 +3862,7 @@ async function downloadWorkbook(){
 }
 async function uploadWorkbook(input){
   const f = input.files[0]; if(!f) return;
+  if(!confirmDiscardUnsaved("Uploading a workbook")){ input.value=""; return; }
   const r = await fetch("/api/v2/parse-workbook", {method:"POST", body: await f.arrayBuffer()});
   const j = await r.json();
   if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
@@ -4159,6 +4172,7 @@ window.appStatus = appStatus;
 async function uploadFIW(inp){
  try{
   const f = inp.files[0]; if(!f) return; inp.value = "";
+  if(!confirmDiscardUnsaved("Uploading a workbook")){ return; }
   appStatus("busy", `Processing workbook <b>${esc(f.name)}</b>\u2026`);
   const fd = new FormData();
   fd.append("file", f);
@@ -4200,6 +4214,7 @@ async function uploadFIW(inp){
 }
 window.uploadFIW = uploadFIW;
 function wizStart(){
+  if(!confirmDiscardUnsaved("Starting a new engagement")){ return; }
   wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
          cblr:true, initial_capital:0, org_costs:0, picks:{}};
   renderContent();
