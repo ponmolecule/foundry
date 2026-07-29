@@ -3879,6 +3879,9 @@ async function guardSaveAsConfirm(){
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  LC.markSaved(nm);                                   // real save -> re-baseline the state engine to CLEAN
+  if(typeof markPristine==="function") markPristine();
+  if(typeof updateChangedChip==="function") updateChangedChip();
   if(typeof loadEngStore==="function") loadEngStore(true);
   appStatus("ok", `<b>Saved \u201c${esc(nm)}\u201d.</b>`);
   const slug=_guardPendingSlug; _guardPendingSlug=null; _guardHide();
