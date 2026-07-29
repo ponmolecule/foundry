@@ -1,97 +1,103 @@
 {
- "engagement_id": "ENG-NEW",
- "schema_version": "2.0",
- "client_legal_name": "De Novo Bank (in organization)",
- "proposed_bank": "De Novo Bank",
- "hq": "Parity fixture \u2014 n/a",
- "prepared_by": "Foundry v2 parity harness",
- "config_version": "1.0",
- "config_frozen": "2026-07-08",
- "parity_profile": "pf_a",
- "step_minus_1": {
-  "decision": "proceed_de_novo",
-  "alternatives_priced": {
-   "de_novo": "Parity fixture."
-  }
- },
- "step_0a": {
-  "entities": {
-   "bank": "Parity Fixture Bank A1 \u2014 single entity"
+  "engagement_id": "ENG-NEW",
+  "schema_version": "2.0",
+  "client_legal_name": "De Novo Bank (in organization)",
+  "proposed_bank": "De Novo Bank",
+  "hq": "Parity fixture \u2014 n/a",
+  "prepared_by": "Foundry v2 parity harness",
+  "config_version": "1.0",
+  "config_frozen": "2026-07-08",
+  "parity_profile": "pf_a",
+  "step_minus_1": {
+    "decision": "proceed_de_novo",
+    "alternatives_priced": {
+      "de_novo": "Parity fixture."
+    }
   },
-  "flags_from_map": [],
-  "map_approved": null
- },
- "step_1": {
-  "charter": "n/a (fixture)",
-  "regulators": [
-   "n/a"
+  "step_0a": {
+    "entities": {
+      "bank": "Parity Fixture Bank A1 \u2014 single entity"
+    },
+    "flags_from_map": [],
+    "map_approved": null
+  },
+  "step_1": {
+    "charter": "n/a (fixture)",
+    "regulators": [
+      "n/a"
+    ],
+    "rationale": "Parity fixture."
+  },
+  "assumption_tags": {},
+  "step_0": {
+    "one_sentence": "Parity fixture (predecessor A semantics).",
+    "earning_engine": "spread",
+    "modules": []
+  },
+  "constraints": [
+    {
+      "key": "leverage_min",
+      "value": 0.09,
+      "text": "Tier 1 leverage floor.",
+      "source": "Parity fixture (predecessor A default)"
+    }
   ],
-  "rationale": "Parity fixture."
- },
- "assumption_tags": {},
- "step_0": {
-  "one_sentence": "Parity fixture (predecessor A semantics).",
-  "earning_engine": "spread",
-  "modules": []
- },
- "constraints": [
-  {
-   "key": "leverage_min",
-   "value": 0.09,
-   "text": "Tier 1 leverage floor.",
-   "source": "Parity fixture (predecessor A default)"
+  "target_state": {
+    "initial_capital": 60000000.0,
+    "assets_yr3": 316408500.0
+  },
+  "peer_query": {
+    "consumer_loan_share": 0.4,
+    "fee_income_share": 0.2,
+    "core_funding_share": 0.9,
+    "digital_channel": 1.0
+  },
+  "assumptions": {
+    "rate_path_q": [
+      0.037000000000000005,
+      0.0385,
+      0.038,
+      0.0375,
+      0.037000000000000005,
+      0.0365,
+      0.036000000000000004,
+      0.0355,
+      0.035,
+      0.0345,
+      0.034,
+      0.0335
+    ],
+    "rate_path_longer_run": 0.0315,
+    "tax_semantics": "nol_carryforward_pf_a",
+    "tax_rate": 0.21,
+    "cash_target_pct_deposits": 0.05,
+    "cash_yield": 0.045,
+    "securities_yield": 0.04,
+    "borrow_rate_ann": 0.04,
+    "overhead_q": 1800000.0,
+    "overhead_growth_q": 0.01,
+    "premises_equipment": 1000000.0,
+    "intangibles": 0.0,
+    "other_assets": 2000000.0,
+    "other_liabilities": 1000000.0,
+    "deposit_products": [],
+    "lending_products": [],
+    "obs_exposures": []
+  },
+  "scenario_overlays": null,
+  "parity_expectation": null,
+  "scenario_name": "De Novo Bank \u2014 baseline assumptions (source: engagement workbook)",
+  "conversion_notes": [
+    "loans: monthly originations x3 -> quarterly; annual prepay /4 -> runoff_q; opening balances are Day-1 zero per source",
+    "Time Deposits / CDs: average maturity 24 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
+    "Brokered: average maturity 12 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
+    "deposits: flat $-adds converted by computing the source's monthly path (B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth pinned per quarter via overrides \u2014 path exact, not approximated",
+    "securities yield = AFS cell; HTM yield differs (4.2%) \u2014 single-book engine, AFS value used, HTM noted; other-assets-% (2% of assets) unsupported as a formula, template constant kept"
+  ],
+  "charter_profile": {
+    "charter_type": "state_nonmember",
+    "regulator": "FDIC",
+    "cblr_election": true,
+    "source": "template"
   }
- ],
- "target_state": {
-  "initial_capital": 60000000.0,
-  "assets_yr3": 316408500.0
- },
- "peer_query": {
-  "consumer_loan_share": 0.4,
-  "fee_income_share": 0.2,
-  "core_funding_share": 0.9,
-  "digital_channel": 1.0
- },
- "assumptions": {
-  "rate_path_q": [
-   0.037000000000000005,
-   0.0385,
-   0.038,
-   0.0375,
-   0.037000000000000005,
-   0.0365,
-   0.036000000000000004,
-   0.0355,
-   0.035,
-   0.0345,
-   0.034,
-   0.0335
-  ],
-  "rate_path_longer_run": 0.0315,
-  "tax_semantics": "nol_carryforward_pf_a",
-  "tax_rate": 0.21,
-  "cash_target_pct_deposits": 0.05,
-  "cash_yield": 0.045,
-  "securities_yield": 0.04,
-  "borrow_rate_ann": 0.04,
-  "overhead_q": 1800000.0,
-  "overhead_growth_q": 0.01,
-  "premises_equipment": 1000000.0,
-  "intangibles": 0.0,
-  "other_assets": 2000000.0,
-  "other_liabilities": 1000000.0,
-  "deposit_products": [],
-  "lending_products": [],
-  "obs_exposures": []
- },
- "scenario_overlays": null,
- "parity_expectation": null,
- "scenario_name": "De Novo Bank \u2014 baseline assumptions (source: engagement workbook)",
- "conversion_notes": [
-  "loans: monthly originations x3 -> quarterly; annual prepay /4 -> runoff_q; opening balances are Day-1 zero per source",
-  "Time Deposits / CDs: average maturity 24 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-  "Brokered: average maturity 12 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-  "deposits: flat $-adds converted by computing the source's monthly path (B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth pinned per quarter via overrides \u2014 path exact, not approximated",
-  "securities yield = AFS cell; HTM yield differs (4.2%) \u2014 single-book engine, AFS value used, HTM noted; other-assets-% (2% of assets) unsupported as a formula, template constant kept"
- ]
 }

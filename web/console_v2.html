@@ -1429,6 +1429,7 @@ function numInput(path, unit, extra){
 // rendered centered (see renderGlobals / .fld label styling). The "|" splits the two lines.
 const GLOBAL_FIELDS = [
   ["MIN LEVERAGE RATIO (%)|Chartering Commitment", "constraints.0.value", "pct"],
+  ["CBLR ELECTION|(Community Bank Leverage)", "charter_profile.cblr_election", "cblr"],
   ["TAX RATE|(%)", "assumptions.tax_rate", "pct"],
   ["CORP. OVERHEAD|($000s/Qtr)", "assumptions.overhead_q", "k"],
   ["OVERHEAD GROWTH|(%/Qtr)", "assumptions.overhead_growth_q", "pct"],
@@ -1451,7 +1452,7 @@ const STRESS_FIELDS = [
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
 const GLOBAL_GROUPS_V31 = [
-  ["Leverage & tax", ["MIN LEVERAGE", "TAX RATE"]],
+  ["Leverage & tax", ["MIN LEVERAGE", "CBLR ELECTION", "TAX RATE"]],
   ["Treasury (funding waterfall)", ["CASH FLOOR", "CASH YIELD", "SECURITIES YIELD", "BORROWING RATE"]],
   ["Operating expenses", ["CORP. OVERHEAD", "OVERHEAD GROWTH"]],
   ["Other balance sheet", ["PREMISES", "INTANGIBLES", "OTHER ASSETS", "OTHER LIABILITIES"]],
@@ -1483,6 +1484,29 @@ function twoLineLabel(s){
   const sub = parts.length>1 ? `<span class="fq">${esc(parts.slice(1).join(" "))}</span>` : "";
   return top + (sub ? "<br>" + sub : "");
 }
+// CBLR election renders as a yes/no select (boolean), not a numeric input. Reads/writes
+// charter_profile.cblr_election; default true (the engine's own default when absent).
+function cblrElected(){
+  const cp = cfg.charter_profile || {};
+  return cp.cblr_election !== false;   // absent or true => elected
+}
+function setCblrElection(v){
+  cfg.charter_profile = cfg.charter_profile || {};
+  cfg.charter_profile.cblr_election = (v === "y" || v === true);
+  scheduleAutosave(); refresh();
+}
+window.setCblrElection = setCblrElection;
+function fieldInput(path, unit){
+  if(unit === "cblr"){
+    const y = cblrElected();
+    return `<select data-focus="${path}" onchange="setCblrElection(this.value)" `
+         + `style="width:100%;padding:6px 8px;background:#0E1626;border:1px solid #33436199;color:#EDF1F7;border-radius:7px;font-size:12px;font-family:inherit">`
+         + `<option value="y"${y?" selected":""}>Yes \u2014 CBLR framework</option>`
+         + `<option value="n"${!y?" selected":""}>No \u2014 risk-based rules</option>`
+         + `</select>`;
+  }
+  return numInput(path, unit);
+}
 function renderGlobals(){
   let h = '';
   if(V31){
@@ -1509,7 +1533,7 @@ function renderGlobals(){
       if(!members.length) return;
       h += `<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">${esc(gname)}</div>`;
       h += '<div class="fields">';
-      members.forEach(f=>{ used.add(f[0]); h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      members.forEach(f=>{ used.add(f[0]); h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${fieldInput(f[1], f[2])}</div>`; });
       h += '</div>';
       if(gname.startsWith("Capital")){
       }
@@ -1519,12 +1543,12 @@ function renderGlobals(){
     const rest = GLOBAL_FIELDS.filter(f=>!used.has(f[0]));
     if(rest.length){
       h += '<div class="snote" style="margin:10px 0 4px;letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#DFA85A">Other</div><div class="fields">';
-      rest.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+      rest.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${fieldInput(f[1], f[2])}</div>`; });
       h += '</div>';
     }
   } else {
     h = '<div class="fields">';
-    GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${numInput(f[1], f[2])}</div>`; });
+    GLOBAL_FIELDS.forEach(f=>{ h += `<div class="fld fld2"><label>${twoLineLabel(f[0])}</label>${fieldInput(f[1], f[2])}</div>`; });
     h += '</div>';
   }
   document.getElementById("globalsBox").innerHTML = h;
