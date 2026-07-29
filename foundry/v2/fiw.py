@@ -928,6 +928,7 @@ def diff_import(data, current_cfg):
         "ASSM_FEES": ("fee_modules", 3),
         "ASSM_NIE": ("nie_detail", 3),
     }
+    _dropped_rows = []          # hand-added rows with content but no valid machine key
     for sheet, (_root, valcol) in ARRAY_SHEETS.items():
         if sheet not in wb.sheetnames:
             continue
@@ -936,6 +937,14 @@ def diff_import(data, current_cfg):
             val = r[valcol].value
             units = (r[4].value or "")
             if not key or "fact" in str(units):
+                # A row the user filled in (Item/Field/Value present) but with no machine key in
+                # column A is a NEW row added in Excel. diff_import keys off column A, so such a row
+                # is otherwise dropped SILENTLY. Detect it and warn loudly instead. (Stopgap: adding
+                # new instruments via the workbook is not yet supported — do it in the app's + Add
+                # controls, which create the machine key. Remove this branch when add-rows lands.)
+                _item = r[1].value; _field = r[2].value
+                if not key and (_item not in (None, "") or val not in (None, "")):
+                    _dropped_rows.append({"sheet": sheet, "item": _item, "field": _field, "value": val})
                 continue
             # key is a dotted path, e.g. securities_afs.0.opening,
             # fee_modules.payments.1.fee_per_tx, pre_opening.expenses.2.total
@@ -947,6 +956,24 @@ def diff_import(data, current_cfg):
             if changed and newv is not None:
                 _apply_path(merged, parts, newv)
                 edits.append({"key": str(key), "from": old, "to": newv})
+
+    if _dropped_rows:
+        # one high-severity warning, listing the affected sheets + row count, so the user is never
+        # surprised by a silently-lost instrument again.
+        _by_sheet = {}
+        for d in _dropped_rows:
+            _by_sheet.setdefault(d["sheet"], set()).add(str(d.get("item") or "(unnamed)"))
+        _detail = "; ".join(f"{s}: {', '.join(sorted(names))}" for s, names in _by_sheet.items())
+        warnings.append({
+            "severity": "high",
+            "code": "added_rows_ignored",
+            "message": ("Rows added directly in the workbook were NOT imported and had no effect: "
+                        + _detail + ". The input workbook edits existing line items; it cannot add new "
+                        "ones (they carry no internal key). Add new instruments in the app using the "
+                        "'+ Add' controls, then re-download the workbook if you want them in it."),
+            "rows": _dropped_rows,
+        })
+
 
     rep = {"generation_hash": str(gh), "edits": edits, "edit_count": len(edits),
             "base": base_src, "warnings": warnings,
