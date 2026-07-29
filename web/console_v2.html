@@ -1429,7 +1429,6 @@ function numInput(path, unit, extra){
 // rendered centered (see renderGlobals / .fld label styling). The "|" splits the two lines.
 const GLOBAL_FIELDS = [
   ["MIN LEVERAGE RATIO (%)|Chartering Commitment", "constraints.0.value", "pct"],
-  ["CBLR ELECTION|(Community Bank Leverage)", "charter_profile.cblr_election", "cblr"],
   ["TAX RATE|(%)", "assumptions.tax_rate", "pct"],
   ["CORP. OVERHEAD|($000s/Qtr)", "assumptions.overhead_q", "k"],
   ["OVERHEAD GROWTH|(%/Qtr)", "assumptions.overhead_growth_q", "pct"],
@@ -1452,7 +1451,7 @@ const STRESS_FIELDS = [
   ["sale_share_retention_shift", "Sale share reduction (%)", "pct", "Downturn overlay (all stress scenarios): this share of would-be-sold originations is retained on balance sheet instead."],
 ];
 const GLOBAL_GROUPS_V31 = [
-  ["Leverage & tax", ["MIN LEVERAGE", "CBLR ELECTION", "TAX RATE"]],
+  ["Leverage & tax", ["MIN LEVERAGE", "TAX RATE"]],
   ["Treasury (funding waterfall)", ["CASH FLOOR", "CASH YIELD", "SECURITIES YIELD", "BORROWING RATE"]],
   ["Operating expenses", ["CORP. OVERHEAD", "OVERHEAD GROWTH"]],
   ["Other balance sheet", ["PREMISES", "INTANGIBLES", "OTHER ASSETS", "OTHER LIABILITIES"]],
@@ -3483,7 +3482,9 @@ function renderContent(){
             }).join("") + '</tr>';
       });
       h += '</table>';
-      h += '<div class="srcnote">' + ST.notes.map(esc).join(' \u00b7 ') + '</div>';
+      h += '<div class="srcnote" style="display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:8px;font-size:10.5px;color:#8FA3C0;line-height:1.5">'
+         + ST.notes.map(nt=>`<span style="display:inline-flex;align-items:baseline;gap:6px;max-width:340px"><span style="color:#DFA85A;flex:none">\u2022</span><span>${esc(nt)}</span></span>`).join('')
+         + '</div>';
       const TG = lastRes.capital.cblr_tiering;
       h += `<div class="srcnote">CBLR ${TG.elected?"elected":"not elected"} \u2014 requirement ${TG.requirement_pct}% / grace floor ${TG.grace_floor_pct}%: ${esc(TG.note)}</div>`;
     }
