@@ -800,7 +800,7 @@ function changedSinceUpload(){
   // A CREATED engagement freezes an inert skeleton (products ship zero-valued by design), so the
   // user's normal setup edits would otherwise show as bogus "changes since creation" and light the
   // revert button during ordinary setup. A created engagement has no meaningful "original" to
-  // deviate from until it is SAVED — at which point saveCurrentEng re-freezes with source "saved".
+  // deviate from until it is SAVED — at which point the save (engMenuSave) re-freezes with source "saved".
   // So: suppress the badge while the baseline is the just-created skeleton.
   if((_uploadedOriginal.source || "") === "new engagement") return false;
   // Identity guard (same as unsavedChangeList): only trust the frozen original if it belongs to the
@@ -3676,7 +3676,7 @@ async function freezeRun(){
     body: JSON.stringify({cfg, label})});
   if(!r.ok){ appStatus("err", "<b>Freeze refused (fail-closed)</b> \u2014 the configuration has open validation questions; resolve them and refreeze. Nothing was recorded."); return; }
   let j={}; try{ j = await r.json(); }catch(e){}
-  appStatus("ok", `<b>Frozen.</b> \u201c${esc(label)}\u201d is notarized in the registry${j.run_id?` as <span style="font-family:var(--mono)">${esc(String(j.run_id))}</span>`:""} \u2014 an immutable, re-verifiable record of this exact run. To save a reusable working profile instead, open the engagement menu (the \u25bc beside the bank name, top right) and choose \u201cSave current configuration as an engagement.\u201d`);
+  appStatus("ok", `<b>Frozen.</b> \u201c${esc(label)}\u201d is notarized in the registry${j.run_id?` as <span style="font-family:var(--mono)">${esc(String(j.run_id))}</span>`:""} \u2014 an immutable, re-verifiable record of this exact run. To save a reusable working profile instead, open the engagement menu (the \u25bc beside the bank name, top right) and choose \u201cSave current configuration here.\u201d`);
   await loadRegistry(true);
 }
 async function verifyRun(id, btn){
@@ -3725,23 +3725,9 @@ window.delEngagement = async function(slug){
   await loadEngStore(true);   // await the fresh list BEFORE rendering, so the deleted row is gone
   renderContent();            // re-render now that engStore no longer contains the deleted engagement
 };
-window.saveCurrentEng = async function(){
-  const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "").trim();
-  if(!nm){ appStatus("err", "<b>Name it first</b> \u2014 type a scenario / client name in the top-right field, then save."); return; }
-  const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: nm})});
-  let j={}; try{ j = await r.json(); }catch(e){}
-  if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
-  window._lastSavedAt = new Date();
-  // Re-baseline on save: the saved state becomes this engagement's new original (source "saved", so
-  // the badge is active from here — unlike the suppressed "new engagement" skeleton) and the pristine
-  // snapshot moves to the saved state so "unsaved work" clears. Now: create -> set up (no badge) ->
-  // Save -> clean baseline -> later edits show as genuine "changes since save".
-  freezeOriginal("saved"); markPristine(); updateChangedChip();
-  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 reopen it any time from the engagement menu (the \u25bc beside the bank name, top right).`);
-  await loadEngStore(true);   // await the fresh list so the newly-saved engagement shows immediately
-  renderContent();
-};
+// (saveCurrentEng removed — the single user-facing save is engMenuSave via the chevron menu, which
+// prompts for a name; the cycle-away guard's own guardSaveAsConfirm handles save-on-switch. Both post
+// the full config to /save-current and re-baseline identically.)
 
 /* ---------- Cycle-away guard: don't silently discard unsaved edits ----------
    Works in every entry mode because it diffs live cfg against _pristineJSON (set on every load).
@@ -4310,7 +4296,7 @@ function renderStart(){
   
   }
   h += '<div class="ovh3">Saved engagements</div>';
-  if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements are kept on this workspace and survive restarts. For anything important, also keep the Excel round-trip download and a frozen run as your durable backup. <a href="#" class="cadd" style="margin-top:0" onclick="saveCurrentEng();return false">+ Save current configuration as an engagement</a></div>`;
+  if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements are kept on this workspace and survive restarts. To save the current configuration, open the engagement menu (the \u25bc beside the bank name, top right) and choose \u201cSave current configuration here\u201d \u2014 you'll be asked to name it. For anything important, also keep the Excel round-trip download and a frozen run as your durable backup.</div>`;
   if(snapshotMode){
     h += '<div class="memo">The engagement store lives on the deployed workspace (Railway volume).</div>';
   } else if(engStore === null){
@@ -4322,7 +4308,7 @@ function renderStart(){
     const _named = _all.filter(e => !e.is_draft && !_isRecoverySlug(e.slug));
     const _draft = _all.find(e => e.is_draft || _isRecoverySlug(e.slug));
     if(!_named.length){
-      h += '<div class="memo">No saved engagements yet \u2014 name the configuration and use \u201cSave current configuration as an engagement\u201d above.</div>';
+      h += '<div class="memo">No saved engagements yet \u2014 open the engagement menu (the \u25bc beside the bank name) and choose \u201cSave current configuration here\u201d to name and save one.</div>';
     } else {
       h += '<table class="ovt"><tr><th>Engagement</th><th>Reference</th><th></th></tr>';
       _named.forEach(e=>{
@@ -4354,15 +4340,7 @@ const ICONS = {
   stack: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="m8 2 6 3-6 3-6-3zM2 8l6 3 6-3M2 11l6 3 6-3"/></svg>',
   cube: '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4"><path d="M8 1.8 14 5v6l-6 3.2L2 11V5zM2 5l6 3 6-3M8 8v6"/></svg>'};
 
-function cfgSave(){
-  const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || cfg.client || "").trim();
-  if(nm){ fetch("/api/v31/engagement/save-current", {method:"POST",
-      headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})})
-    .then(r=>{ if(r.ok){ window._lastSavedAt = new Date(); loadEngStore(true); renderContent(); }
-                else r.json().then(j=>alert("Save refused: " + (j.error||r.status))); }); }
-  else saveCurrentEng().then(()=>{ window._lastSavedAt = new Date(); renderContent(); });
-}
-window.cfgSave = cfgSave;
+
 window.modGo = function(anchor){ const el = document.getElementById(anchor); if(el){ el.scrollIntoView({behavior:"smooth", block:"start"}); el.style.outline = "1.5px solid #DFA85A"; setTimeout(()=>{ el.style.outline = "none"; }, 1400); } };
 window.capSeed = function(){
   (cfg.assumptions.capital_raises = cfg.assumptions.capital_raises || []).push({quarter:1, amount:10_000_000});
