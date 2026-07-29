@@ -645,11 +645,26 @@ async function boot(){
       if(ws){
         const rc = await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug));
         if(rc.ok){
-          cfg = await rc.json();
-          rehydrateOriginal(cfg);
-          const sn = document.getElementById("scenarioName");
-          if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
-          appStatus("ok", "<b>Recovered unsaved work</b> \u2014 a previous session ended without saving. Name &amp; save it to keep it, or open a saved engagement from the \u25bc menu beside the bank name, top right.");
+          const draftCfg = await rc.json();
+          // Only offer recovery if the draft actually holds work. An empty/blank draft (e.g. left by
+          // a delete-open race in an older build) is a SHELL — discard it, never offer it.
+          const _hasWork = draftCfg && !draftCfg._blank_canvas && (
+            (draftCfg.scenario_name && draftCfg.scenario_name.trim()) ||
+            ((draftCfg.assumptions && draftCfg.assumptions.lending_products || []).length) ||
+            ((draftCfg.assumptions && draftCfg.assumptions.deposit_products || []).length) ||
+            ((draftCfg.assumptions && draftCfg.assumptions.obs_exposures || []).length));
+          if(!_hasWork){
+            try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
+          } else if(confirm("Recover unsaved work from your last session?\n\nA previous session ended without saving. Recover it, or Cancel to discard and start clean.")){
+            cfg = draftCfg;
+            rehydrateOriginal(cfg);
+            const sn = document.getElementById("scenarioName");
+            if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
+            LC.land("created", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));
+            appStatus("ok", "<b>Recovered unsaved work.</b> Name &amp; save it to keep it, or clear the workspace from the \u25be menu.");
+          } else {
+            try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
+          }
         }
       }
     }
@@ -1121,6 +1136,11 @@ async function autosaveNow(){
   if(_asBusy || window.SNAPSHOT) return;
   if(isPristine()) return;   // re-check at fire time: a timer armed before the baseline
                              // was set must not save an untouched config
+  // Never write a BLANK / EMPTY config to the recovery slot. After delete-open or New/Clear the
+  // workspace is the empty canvas; a timer armed on the outgoing engagement firing here would save
+  // that emptiness as "recoverable work" — the resumable EMPTY SHELL bug. The recovery net protects
+  // real in-progress work only, so a workspace with nothing in it has nothing to recover.
+  if(!cfg || cfg._blank_canvas || (typeof LC !== "undefined" && LC.state() === "EMPTY")) return;
   // Crash-recovery ONLY: this net exists for UNSAVED, UNNAMED scratch work — a brand-new engagement
   // you have not saved yet, so a browser crash / accidental close doesn't lose it. A NAMED engagement
   // is a saved thing the cycle-away guard already protects; writing it into the shared recovery slot
@@ -3873,6 +3893,14 @@ window.delEngagement = async function(slug){
     // Deleting the engagement you're looking at must clear the WORKSPACE too — otherwise the bank name
     // beside the chevron and all its products stay loaded after the file is gone. Reset to the empty
     // canvas (same shape as a fresh boot) so the deleted bank leaves no residue.
+    // ALSO: cancel any armed autosave and delete the crash-recovery draft slot. Otherwise a timer
+    // armed while editing the (now deleted) engagement could re-write the recovery slot with the
+    // just-emptied config, leaving a resumable EMPTY SHELL in the store (observed bug). The recovery
+    // net exists only to protect UNSAVED work; once you've deliberately deleted, there's nothing to
+    // recover, so the slot must go with it.
+    clearTimeout(_asTimer); _asTimer = null;
+    try{ await fetch("/api/v31/engagement/unsaved-engagement-crash-recovery", {method:"DELETE"}); }catch(e){}
+    try{ await fetch("/api/v31/engagement/working-session-autosaved", {method:"DELETE"}); }catch(e){}  // legacy slug
     cfg = buildEmptyTemplate();
     cfg.scenario_name = "";
     cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
@@ -4320,7 +4348,10 @@ async function toggleEngMenu(){
   // below, clearly labeled. Previously both appeared as peer entries and you
   // couldn't tell which you were editing.
   const named = list.filter(e => !_isRecoverySlug(e.slug));
-  const draft = list.find(e => _isRecoverySlug(e.slug));
+  // The crash-recovery draft is INVISIBLE (LIFECYCLE_SPEC §11): it is never a selectable engagement
+  // in the list — that was the source of the "resume a shell" bug. It's offered ONCE at boot if a
+  // prior session ended unsaved, and nowhere else. So the menu never renders a draft row.
+  const draft = null;
   let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#8FA3C0">Saved engagements</div>';
   if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#8FA3C0">None saved yet on this workspace.</div>';
   named.forEach(e=>{
@@ -4474,7 +4505,9 @@ function renderStart(){
   } else {
     const _all = engStore.engagements || [];
     const _named = _all.filter(e => !e.is_draft && !_isRecoverySlug(e.slug));
-    const _draft = _all.find(e => e.is_draft || _isRecoverySlug(e.slug));
+    // Crash-recovery draft is INVISIBLE (LIFECYCLE_SPEC §11) — never shown as a resumable row.
+    // Boot offers it once if a prior session ended unsaved; it appears nowhere in the lists.
+    const _draft = null;
     if(!_named.length){
       h += '<div class="memo">No saved engagements yet \u2014 open the engagement menu (the \u25bc beside the bank name) and choose \u201cSave current configuration here\u201d to name and save one.</div>';
     } else {
