@@ -344,7 +344,7 @@ def main():
                     "Caveat register", "management_capital_target", "sec_gos_deduction",
                     '"peer","Peer Cohort"', '"examiner","Examiner Book"',
                     'class="ovwm"', "insufficient evidence",
-                    "Engagement sequence", "renderPeer", "renderExaminer",
+                    "renderPeer", "renderExaminer",
                     "Are the assumptions credible", "Scenario &amp; constraint outcomes",
                     "Does the modeled bank hold together", "The evidence behind it",
                     "renderOverview", "Earnings durability", "_verdictBlock", "Decision drivers", '"config","Configuration"', '"gov","Governance"',
