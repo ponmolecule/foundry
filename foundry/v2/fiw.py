@@ -399,7 +399,7 @@ def build_fiw(cfg):
         ("Institution", cfg.get("proposed_bank", ""), "", True),
         ("Legal name", cfg.get("client_legal_name", ""), "", True),
         ("Home state / market", cfg.get("hq", ""), "", True),
-        ("Charter type", ch.get("charter_type", ""), "national | state_member | state_nonmember | thrift", True),
+        ("Charter type", ch.get("charter_type", ""), "national | national_trust | state_member | state_nonmember", True),
         ("Primary federal regulator", ch.get("regulator", ""), "fact — resolved from charter type", False),
         ("Target opening", ch.get("target_opening", ""), "", True),
         ("Pre-opening period (months)", ch.get("pre_open_months", ""), "", True),

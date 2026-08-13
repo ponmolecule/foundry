@@ -63,7 +63,7 @@ aside .card{background:var(--nvy2);border:1px solid var(--nline);border-left:4px
 aside .snote{font-size:10.5px;color:#CBD3E1;margin-bottom:8px;line-height:1.6}
 .fields{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px}
 .fld{display:flex;flex-direction:column;justify-content:flex-end}.fld label{flex:1 0 auto;display:flex;align-items:flex-end;display:block;font-size:9.5px;color:#C4CDDD;text-transform:uppercase;letter-spacing:.04em;margin-bottom:2px}
-#content .fld label{color:#535B69;font-weight:600}
+#content .fld label{color:#9BA8BE;font-weight:600}
 .fld input,.fld select{width:100%;border:1px solid #B9C2D2;background:var(--paper);color:#1C2128;font-weight:500;padding:5px 6px;font-family:inherit;font-size:12px;border-radius:2px}
 .fld input:focus{outline:1.5px solid var(--gold);border-color:var(--gold)}
 .cover .fld label{color:#C4CDDD;font-weight:600}
@@ -4168,8 +4168,9 @@ window.mtState = function(){ return mt; };
 
 /* ---------- wizard (S1 identity / S2 capital / S3 products) ---------- */
 let wiz = null;
-const REGULATOR_OF = {national:"OCC", state_member:"Federal Reserve + state supervisor",
+const REGULATOR_OF = {national:"OCC", national_trust:"OCC", state_member:"Federal Reserve + state supervisor",
   state_nonmember:"FDIC + state supervisor", thrift:"OCC (savings association)"};
+const US_STATES = ["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming","District of Columbia","Puerto Rico"];
 async function downloadFIW(){
   const r = await fetch("/api/v31/fiw", {method:"POST", headers:{"Content-Type":"application/json"},
     body: JSON.stringify({cfg})});
@@ -4269,9 +4270,11 @@ function renderWizard(){
     h += '<div class="ovh3">Identity</div><div class="card"><div class="fields">'
       + `<div class="fld"><label>Institution name</label><input value="${esc(wiz.name)}" onchange="wiz.name=this.value"></div>`
       + `<div class="fld"><label>Charter type</label><select onchange="wizSet('charter',this.value)">`
-      + Object.entries({national:"National bank", state_member:"State member bank", state_nonmember:"State nonmember bank", thrift:"Savings association"})
+      + Object.entries({national:"National bank", national_trust:"National trust bank", state_member:"State member bank", state_nonmember:"State nonmember bank"})
           .map(([k,v])=>`<option value="${k}"${wiz.charter===k?" selected":""}>${v}</option>`).join("") + '</select></div>'
-      + `<div class="fld"><label>Home state / market</label><input value="${esc(wiz.state)}" onchange="wiz.state=this.value"></div>`
+      + `<div class="fld"><label>Home state / market</label><select onchange="wiz.state=this.value">`
+      + `<option value=""${!wiz.state?" selected":""}>\u2014 select a state \u2014</option>`
+      + US_STATES.map(s=>`<option value="${esc(s)}"${wiz.state===s?" selected":""}>${esc(s)}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>Target opening date</label><input value="${esc(wiz.opening)}" placeholder="e.g., 2027-Q2" onchange="wiz.opening=this.value"></div>`
       + `<div class="fld"><label>Pre-opening period (months)</label><input type="number" value="${wiz.pre_open_months}" onchange="wizSet('pre_open_months',+this.value)"></div>`
       + `<div class="fld"><label>CBLR election</label><select onchange="wizSet('cblr',this.value==='y')"><option value="y"${wiz.cblr?" selected":""}>Yes — community bank leverage framework</option><option value="n"${!wiz.cblr?" selected":""}>No — generally applicable rules</option></select></div>`
