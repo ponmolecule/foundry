@@ -1607,9 +1607,34 @@ function updateRateCurvesFreshness(){
               : '<span style="color:#8FA3C0">\u25cf seed</span>';
 }
 async function updateAllCurves(){
-  const anyEdited = CURVE_ORDER.some(k=>{const c=cfg.assumptions.rate_curves[k];return c&&c.edited;});
-  if(anyEdited && !confirm("Some curves have manual edits. Updating will replace them with the latest published vintage. Continue?")) return;
-  alert("Live curve fetch (FRED) is not yet enabled in this build. Curves remain at their current values.");
+  const rc = cfg.assumptions.rate_curves || {};
+  const anyEdited = CURVE_ORDER.some(k=>rc[k]&&rc[k].edited);
+  if(anyEdited && !confirm("Some curves have manual edits. Updating will replace them with the latest published FRED vintage. Continue?")) return;
+  try{
+    const resp = await fetch("/api/curves/update", {method:"POST"});
+    if(!resp.ok){
+      const msg = resp.status===503 ? "Live curve updates aren't configured on the server yet. Curves unchanged."
+                : "Curve fetch failed. Your existing curves are unchanged.";
+      alert(msg); return;
+    }
+    const data = await resp.json();
+    if(!data.ok || !data.curves){ alert("Curve fetch returned no data. Curves unchanged."); return; }
+    // Pin fetched vintage-stamped values into the config. SOFR also updates the authoritative path.
+    let changed = false;
+    for(const k of CURVE_ORDER){
+      const nc = data.curves[k]; if(!nc) continue;
+      const old = cfg.assumptions.rate_curves[k] || {};
+      if(JSON.stringify(old.path_q)!==JSON.stringify(nc.path_q) || old.longer_run!==nc.longer_run) changed = true;
+      cfg.assumptions.rate_curves[k] = {vintage:nc.vintage, path_q:nc.path_q.slice(),
+                                        longer_run:nc.longer_run, edited:false};
+      if(k==="sofr"){ cfg.assumptions.rate_path_q = nc.path_q.slice();
+                      cfg.assumptions.rate_path_longer_run = nc.longer_run; }
+    }
+    if(!changed){ alert("Curves are already at the latest published vintage. Nothing changed."); return; }
+    scheduleAutosave(); renderGlobals(); refresh();
+  }catch(e){
+    alert("Couldn't reach the curve service. Your existing curves are unchanged.");
+  }
 }
 window.setCurveCell=setCurveCell; window.setCurveLR=setCurveLR;
 window.toggleRateCurves=toggleRateCurves; window.updateAllCurves=updateAllCurves;

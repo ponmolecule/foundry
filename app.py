@@ -120,6 +120,25 @@ def results(engagement: str, _=Depends(gate)):
 
 
 
+@app.post("/api/curves/update")
+def curves_update(_=Depends(gate)):
+    # Explicit, user-initiated fetch of the reference-rate curves (SOFR/EFFR/Prime) from FRED.
+    # Deterministic-on-a-vintage-basis: this is the ONLY network touch for rates, and it happens
+    # only on the "Update all curves" button. The client pins the returned vintage-stamped values
+    # into the config; runs never call this. On any failure we return a clear error and the client
+    # keeps its existing pinned curves — no fabricated data.
+    import os
+    key = os.environ.get("FRED_API_KEY", "")
+    if not key:
+        raise HTTPException(503, "FRED_API_KEY not configured on the server; curves cannot be updated.")
+    try:
+        from foundry.v2 import rate_fetch
+        curves = rate_fetch.fetch_curves(key)
+        return {"ok": True, "curves": curves}
+    except Exception as e:
+        raise HTTPException(502, f"curve fetch failed ({type(e).__name__}); existing curves retained.")
+
+
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, engagement list, and DB reachability — the fields a
