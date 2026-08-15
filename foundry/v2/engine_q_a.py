@@ -53,7 +53,14 @@ def _prod_rate(p, t, rate):
     # exist — decides what the engine reads. yield_ann for fixed lending, rate_paid_ann for fixed
     # deposits; both fall back to each other only as a legacy convenience.
     if p.get("rate_type") == "float":
-        return rate(t) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
+        # Multi-curve dispatch: a floating product may name an index (sofr|effr|prime). The curve
+        # set is carried as an attribute on the passed-in rate fn (set in the engine). When the
+        # product names no index, or names one with no curve available, fall back to the passed
+        # rate fn — which is SOFR — preserving pre-multi-curve behavior exactly (backward compat).
+        idx = p.get("index")
+        curves = getattr(rate, "_curves", None)
+        rfn = curves.get(idx) if (curves and idx in curves) else rate
+        return rfn(t) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
     if p.get("yield_ann") is not None:
         return _ovq(p, "yield_ann", t, p.get("yield_ann") or 0.0)
     return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
@@ -159,7 +166,8 @@ def run_pf_a(cfg):
 
     _cp = _curve_paths(a)
     rate_curves = {k: rate_fn(p, lr) for k, (p, lr) in _cp.items()}
-    rate = rate_curves["sofr"]     # default curve; _prod_rate dispatches per-product in step 3
+    rate = rate_curves["sofr"]     # default curve
+    rate._curves = rate_curves     # _prod_rate reads p['index'] off this to dispatch per-product
 
     capital = cfg["target_state"]["initial_capital"]
     # staged capital raises (additive, default-off): raises land at the START
