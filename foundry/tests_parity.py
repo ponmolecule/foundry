@@ -320,7 +320,7 @@ def main():
                          "Stress Testing \\u2014 Scenario Comparison", "Net Income by Quarter",
                          "Tier 1 Leverage Ratio by Quarter",
                          "Reasonableness Flags", "Defaults Applied", "Methodology",
-                         "Global Assumptions", "Interest Rate Forecast (SOFR)",
+                         "Global Assumptions", "Interest Rate Curves",
                          "Stress Scenario Settings", "stress_params",
                          "+ Add Product", "Add a product", "Call Report line",
                          "Floating (SOFR + spread)", "scenarioName", "Export to Excel",

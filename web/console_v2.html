@@ -418,8 +418,12 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
   <aside>
     <div class="accent-label">Global Assumptions</div>
     <div id="globalsBox" class="card"></div>
-    <div class="accent-label">Interest Rate Forecast (SOFR)</div>
-    <div id="sofrBox" class="card"></div>
+    <div class="accent-label" id="rateCurvesHdr" onclick="toggleRateCurves()" style="cursor:pointer;display:flex;align-items:center;gap:6px;user-select:none">
+      <span id="rateCurvesChev" style="display:inline-block;transition:transform .15s;font-size:9px">▸</span>
+      <span>Interest Rate Curves</span>
+      <span id="rateCurvesFresh" style="margin-left:auto;font-weight:400;text-transform:none;letter-spacing:0"></span>
+    </div>
+    <div id="sofrBox" class="card" style="display:none"></div>
     <div class="accent-label">Stress Scenario Settings</div>
     <div id="stressBox" class="card"></div>
   </aside>
@@ -1507,6 +1511,109 @@ function fieldInput(path, unit){
   }
   return numInput(path, unit);
 }
+// ===== Multi-reference-rate curves (SOFR / EFFR / Prime) =====
+// Curves are vintage-stamped, editable assumptions pinned in the config (deterministic on a vintage
+// basis). SOFR stays authoritative in rate_path_q for the engine's compat shim; the panel mirrors it
+// into rate_curves.sofr and edits write back to both. EFFR/Prime live only in rate_curves.
+let _rateCurvesOpen = false;
+const CURVE_ORDER = ["effr","sofr","prime"];
+const CURVE_LABEL = {effr:"EFFR", sofr:"SOFR", prime:"Prime"};
+const CURVE_SEED_OFF = {effr:-0.0005, sofr:0.0, prime:0.0292};  // conventional seed offsets off SOFR
+
+function ensureRateCurves(){
+  const a = cfg.assumptions; if(!a) return;
+  a.rate_curves = a.rate_curves || {};
+  const rc = a.rate_curves;
+  const sp = a.rate_path_q || [];
+  const slr = a.rate_path_longer_run || 0;
+  if(!rc.sofr){ rc.sofr = {vintage:"seed", path_q:sp.slice(), longer_run:slr, edited:false}; }
+  else { rc.sofr.path_q = sp.slice(); rc.sofr.longer_run = slr; }
+  for(const k of ["effr","prime"]){
+    if(!rc[k] || !Array.isArray(rc[k].path_q) || !rc[k].path_q.length){
+      rc[k] = {vintage:"seed", path_q:sp.map(x=>x+CURVE_SEED_OFF[k]), longer_run:slr+CURVE_SEED_OFF[k], edited:false};
+    }
+  }
+}
+
+function _curveVintageLabel(c){
+  if(!c) return "\u2014";
+  const v = c.vintage || "seed";
+  if(c.edited) return (v==="seed"?"seed":v)+" \u00b7 edited";
+  return v==="seed" ? "seed (convention)" : v;
+}
+
+function renderRateCurvesPanel(){
+  const rc = cfg.assumptions.rate_curves;
+  let h = '<div class="snote">Quarterly annual %. Floating products price off the curve named in the product spec (default SOFR). Editable; past Q12 each glides 5bp/qtr to its longer-run value.</div>';
+  h += '<table style="width:100%;border-collapse:collapse;font-size:11px">';
+  h += '<tr><th style="text-align:left;padding:3px 4px;color:#8FA3C0;font-weight:600"></th>';
+  for(const k of CURVE_ORDER){
+    const c = rc[k];
+    h += `<th style="text-align:center;padding:3px 4px"><div style="color:#D8A85E;font-weight:700">${CURVE_LABEL[k]}</div>`
+       + `<div style="font-weight:400;font-size:9px;color:${c&&c.edited?'#D8A85E':'#8FA3C0'}">${esc(_curveVintageLabel(c))}</div></th>`;
+  }
+  h += '</tr>';
+  for(let q=1;q<=12;q++){
+    h += `<tr><td style="padding:2px 4px;color:#8FA3C0">Q${q}</td>`;
+    for(const k of CURVE_ORDER){
+      const c = rc[k]; const val = +(((c.path_q[q-1])||0)*100).toFixed(3);
+      const edited = c._editedCells && c._editedCells[q-1];
+      h += `<td style="padding:1px 3px"><input type="number" step="0.05" value="${val}"
+        onchange="setCurveCell('${k}',${q-1},this.value)"
+        style="width:100%;text-align:right;padding:3px 5px;background:#0E1626;border:1px solid ${edited?'#D8A85E':'#33436155'};border-left:${edited?'2px solid #D8A85E':'1px solid #33436155'};color:#EDF1F7;border-radius:4px;font-size:11px"></td>`;
+    }
+    h += '</tr>';
+  }
+  h += '<tr><td style="padding:2px 4px;color:#8FA3C0;font-weight:700">LR</td>';
+  for(const k of CURVE_ORDER){
+    const c = rc[k]; const val = +(((c.longer_run)||0)*100).toFixed(3);
+    h += `<td style="padding:1px 3px"><input type="number" step="0.05" value="${val}"
+      onchange="setCurveLR('${k}',this.value)"
+      style="width:100%;text-align:right;padding:3px 5px;background:#0E1626;border:1px solid #33436155;color:#EDF1F7;border-radius:4px;font-size:11px;font-weight:700"></td>`;
+  }
+  h += '</tr></table>';
+  h += `<button onclick="updateAllCurves()" style="width:100%;margin-top:8px;padding:8px;background:#D8A85E;color:#0A1830;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">\u21bb Update all curves</button>`;
+  h += '<div style="display:flex;gap:12px;margin-top:6px;font-size:9px;color:#8FA3C0"><span>\u25cf Fresh</span><span>\u25cf Aging</span><span>\u25cf Stale</span><span style="margin-left:auto">FRED vintage</span></div>';
+  return h;
+}
+
+function setCurveCell(k, i, v){
+  const rc = cfg.assumptions.rate_curves, c = rc[k];
+  c.path_q[i] = (parseFloat(v)||0)/100;
+  c._editedCells = c._editedCells || {}; c._editedCells[i] = true; c.edited = true;
+  if(k==="sofr"){ cfg.assumptions.rate_path_q[i] = c.path_q[i]; }
+  scheduleAutosave(); refresh();
+}
+function setCurveLR(k, v){
+  const rc = cfg.assumptions.rate_curves, c = rc[k];
+  c.longer_run = (parseFloat(v)||0)/100; c.edited = true;
+  if(k==="sofr"){ cfg.assumptions.rate_path_longer_run = c.longer_run; }
+  scheduleAutosave(); refresh();
+}
+function toggleRateCurves(){
+  _rateCurvesOpen = !_rateCurvesOpen;
+  const box = document.getElementById("sofrBox");
+  const chev = document.getElementById("rateCurvesChev");
+  if(box) box.style.display = _rateCurvesOpen ? "block" : "none";
+  if(chev) chev.style.transform = _rateCurvesOpen ? "rotate(90deg)" : "rotate(0deg)";
+}
+function updateRateCurvesFreshness(){
+  const el = document.getElementById("rateCurvesFresh"); if(!el) return;
+  const rc = (cfg.assumptions||{}).rate_curves || {};
+  const anyEdited = CURVE_ORDER.some(k=>rc[k]&&rc[k].edited);
+  const anyReal = CURVE_ORDER.some(k=>rc[k]&&rc[k].vintage&&rc[k].vintage!=="seed");
+  el.innerHTML = anyEdited ? '<span style="color:#D8A85E">\u25cf edited</span>'
+              : anyReal ? '<span style="color:#5FB37A">\u25cf fresh</span>'
+              : '<span style="color:#8FA3C0">\u25cf seed</span>';
+}
+async function updateAllCurves(){
+  const anyEdited = CURVE_ORDER.some(k=>{const c=cfg.assumptions.rate_curves[k];return c&&c.edited;});
+  if(anyEdited && !confirm("Some curves have manual edits. Updating will replace them with the latest published vintage. Continue?")) return;
+  alert("Live curve fetch (FRED) is not yet enabled in this build. Curves remain at their current values.");
+}
+window.setCurveCell=setCurveCell; window.setCurveLR=setCurveLR;
+window.toggleRateCurves=toggleRateCurves; window.updateAllCurves=updateAllCurves;
+
 function renderGlobals(){
   let h = '';
   if(V31){
@@ -1553,16 +1660,9 @@ function renderGlobals(){
   }
   document.getElementById("globalsBox").innerHTML = h;
 
-  let hs = '<div class="snote">Quarterly SOFR (annual %), from the Jun 2026 FOMC SEP medians + ~5bp basis. Editable; past Q12 it glides 5bp/qtr to the longer-run value.</div>';
-  hs += '<div class="fields" style="grid-template-columns:repeat(4,1fr)">';
-  for(let q=1;q<=12;q++){
-    hs += `<div class="fld"><label>Q${q}</label><input type="number" step="0.05" value="${+(cfg.assumptions.rate_path_q[q-1]*100).toFixed(3)}"
-      onchange="cfg.assumptions.rate_path_q[${q-1}]=parseFloat(this.value)/100;refresh()"></div>`;
-  }
-  hs += `<div class="fld"><label>Longer run</label><input type="number" step="0.05" value="${+((cfg.assumptions.rate_path_longer_run||0)*100).toFixed(3)}"
-      onchange="cfg.assumptions.rate_path_longer_run=parseFloat(this.value)/100;refresh()"></div>`;
-  hs += '</div>';
-  document.getElementById("sofrBox").innerHTML = hs;
+  ensureRateCurves();
+  document.getElementById("sofrBox").innerHTML = renderRateCurvesPanel();
+  updateRateCurvesFreshness();
 
   let hx = '<div class="snote">Applied on the Stress Testing tab. Credit scenario uses the multipliers; rate scenario uses the parallel shock; combined applies both.</div><div class="fields">';
   // Ensure stress defaults exist even for configs saved before these fields (or before DFAST)
