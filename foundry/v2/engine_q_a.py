@@ -137,7 +137,29 @@ def run_pf_a(cfg):
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov)
-    rate = rate_fn(a["rate_path_q"], a["rate_path_longer_run"])
+
+    # Multi-curve rate set (SOFR / EFFR / Prime). Backward-compat shim: the SOFR curve is built from
+    # the legacy rate_path_q so index-less products (which dispatch to SOFR in _prod_rate) reproduce
+    # the pre-multi-curve numbers exactly. EFFR/Prime use their own explicit paths when present; when
+    # absent they fall back to a conventional offset off SOFR (a seed default, NOT a formula — once a
+    # real path is fetched/entered it is used verbatim). Offsets: EFFR ≈ SOFR − 5bp; Prime ≈ SOFR +
+    # ~2.92% (WSJ convention target+300bp, expressed off the ~8bp-below-target SOFR proxy).
+    def _curve_paths(a):
+        rc = a.get("rate_curves") or {}
+        sofr_p = (rc.get("sofr") or {}).get("path_q") or a["rate_path_q"]
+        sofr_lr = (rc.get("sofr") or {}).get("longer_run",
+                    a.get("rate_path_longer_run", 0.0)) if rc.get("sofr") else a.get("rate_path_longer_run", 0.0)
+        def _seed(off):
+            return ([x + off for x in sofr_p], sofr_lr + off)
+        effr = rc.get("effr") or {}
+        prime = rc.get("prime") or {}
+        effr_p, effr_lr = (effr.get("path_q"), effr.get("longer_run")) if effr.get("path_q") else _seed(-0.0005)
+        prime_p, prime_lr = (prime.get("path_q"), prime.get("longer_run")) if prime.get("path_q") else _seed(0.0292)
+        return {"sofr": (sofr_p, sofr_lr), "effr": (effr_p, effr_lr), "prime": (prime_p, prime_lr)}
+
+    _cp = _curve_paths(a)
+    rate_curves = {k: rate_fn(p, lr) for k, (p, lr) in _cp.items()}
+    rate = rate_curves["sofr"]     # default curve; _prod_rate dispatches per-product in step 3
 
     capital = cfg["target_state"]["initial_capital"]
     # staged capital raises (additive, default-off): raises land at the START
