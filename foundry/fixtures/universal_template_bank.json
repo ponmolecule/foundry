@@ -227,7 +227,8 @@
         "opex_pct_ann": 0.006,
         "opex_fixed_m": 10000.0,
         "rate_type": "float",
-        "index_spread": 0.13
+        "index_spread": 0.13,
+        "index": "prime"
       },
       {
         "name": "Residential Mortgage",
