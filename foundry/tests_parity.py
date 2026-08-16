@@ -323,7 +323,7 @@ def main():
                          "Global Assumptions", "Interest Rate Curves",
                          "Stress Scenario Settings", "stress_params",
                          "+ Add Product", "Add a product", "Call Report line",
-                         "Floating (SOFR + spread)", "scenarioName", "Export to Excel",
+                         "Floating (index + spread)", "scenarioName", "Export to Excel",
                          "obs_exposures", "Longer run"]
         # efficiency ratio must exist in the server label set (exhibit path)
         need_labels.append("Efficiency ratio")

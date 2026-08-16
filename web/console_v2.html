@@ -1724,7 +1724,7 @@ function fieldsFor(fam, p, base){
     h += F("New originations ($000s/qtr)", base+".originations_q", "k");
     h += F("Origination growth (%/qtr)", base+".orig_growth_q", "pct");
     h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
-    if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
+    if(p.rate_type==="float") h += F("Spread over "+((p.index||"sofr").toUpperCase())+" (annual %)", base+".index_spread", "pct");
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
@@ -1757,7 +1757,7 @@ function fieldsFor(fam, p, base){
     h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "k");
     h += F("Runoff (%/qtr)", base+".runoff_q", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
-    if(p.rate_type==="float") h += F("Spread over SOFR (annual %)", base+".index_spread", "pct");
+    if(p.rate_type==="float") h += F("Spread over "+((p.index||"sofr").toUpperCase())+" (annual %)", base+".index_spread", "pct");
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
@@ -1810,7 +1810,7 @@ function prodCardHtml(fam, i){
   h += `<div class="card-head" onclick="toggleOpen('${key}')">`;
   h += `<span class="caret">${isOpen(key) ? "\u25BC" : "\u25B6"}</span>`;
   h += `<span class="pname">${esc(p.name)}</span>`;
-  if(p.rate_type==="float") h += '<span class="chip">SOFR</span>';
+  if(p.rate_type==="float") h += `<span class="chip">${(p.index||"sofr").toUpperCase()}</span>`;
   if(p.measurement==="fair_value") h += '<span class="chip">FV</span>';
   h += `<span class="chip ${cat}">${cat==="offbs"?"Off-BS":cat}</span>`;
   h += `<button class="del" title="Delete product" onclick="event.stopPropagation();delProduct('${fam}',${i})">\u2715</button>`;
@@ -1831,7 +1831,14 @@ function prodCardHtml(fam, i){
   if(cat!=="offbs"){
     h += `<div class="fld"><label>Rate type</label><select onchange="setPath('${base}.rate_type', this.value); renderContent()">`+
       `<option value="fixed"${p.rate_type==="fixed"?" selected":""}>Fixed</option>`+
-      `<option value="float"${p.rate_type==="float"?" selected":""}>Floating (SOFR + spread)</option></select></div>`;
+      `<option value="float"${p.rate_type==="float"?" selected":""}>Floating (index + spread)</option></select></div>`;
+    if(p.rate_type==="float"){
+      const _idx = p.index || "sofr";
+      h += `<div class="fld"><label>Reference index</label><select onchange="setPath('${base}.index', this.value); renderContent()">`+
+        `<option value="sofr"${_idx==="sofr"?" selected":""}>SOFR</option>`+
+        `<option value="effr"${_idx==="effr"?" selected":""}>EFFR (Fed Funds)</option>`+
+        `<option value="prime"${_idx==="prime"?" selected":""}>Prime</option></select></div>`;
+    }
     if(fam==="lending"){
       h += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement', this.value); renderContent()">`+
         `<option value="amortized"${p.measurement!=="fair_value"?" selected":""}>Amortized cost</option>`+
@@ -1848,7 +1855,7 @@ function ovFieldsFor(fam, p){
   if(fam==="lending"){
     f.push(["originations_q","Originations ($000s)","k"]);
     f.push(["runoff_q","Runoff / prepayment (%/qtr)","pct"]);
-    if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
+    if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["yield_ann","Yield (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
     f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
@@ -1857,7 +1864,7 @@ function ovFieldsFor(fam, p){
     f.push(["new_deposits_q","New deposits ($000s/qtr)","kq"]);
     f.push(["avg_maturity_m","Avg maturity (months)","num"]);
     f.push(["runoff_q","Runoff (%/qtr)","pct"]);
-    if(p.rate_type==="float") f.push(["index_spread","Spread over SOFR (ann. %)","pct"]);
+    if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
   } else {
@@ -1954,6 +1961,11 @@ function v31AddProduct(){
   if(s.fam === "lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0,
     rate_type:"fixed", yield_ann:0, charge_off_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
     measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
+  // Credit cards price off Prime by convention (Prime + margin), so a new card defaults to a
+  // Prime-indexed floating product rather than a fixed yield — the user can still switch it.
+  if(s.fam === "lending" && s.line === "loanCreditCard"){
+    p.rate_type = "float"; p.index = "prime"; p.index_spread = 0.13; delete p.yield_ann;
+  }
   else if(s.fam === "obs") p = {name, notional:0, growth_q:0, fee_yield_ann:0,
     opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
   else p = {name, opening_balance:0, growth_q:0, runoff_q:0, rate_type:"fixed",
