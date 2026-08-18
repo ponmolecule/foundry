@@ -97,6 +97,13 @@ def validate_config_v2(cfg):
         errs.append("no deposit module loaded — a bank needs a funding side")
 
     a = cfg["assumptions"]
+    # Projection horizon (optional; defaults to 12 = the historical quarterly horizon). When set, it
+    # must be an integer number of quarters in a sane range so table layout and schedules stay bounded.
+    if "n_periods" in a and a["n_periods"] is not None:
+        _np = a["n_periods"]
+        if not isinstance(_np, int) or isinstance(_np, bool) or not (4 <= _np <= 28):
+            errs.append(f"assumptions.n_periods = {_np!r} out of range: "
+                        "must be an integer number of quarters between 4 and 28 (1-7 years)")
     s = a.get("aoci_sensitivity_annual")
     if s is not None and (not isinstance(s, (int, float)) or not (-0.5 <= s <= 0.5)):
         errs.append("aoci_sensitivity_annual must be a rate in [-0.5, 0.5] "
