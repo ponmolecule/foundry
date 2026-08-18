@@ -588,17 +588,21 @@ def run_v2(cfg):
     RW, CCF = REG_PARAMS["risk_weights"], REG_PARAMS["ccf"]
     PCA = REG_PARAMS["pca_well_capitalized"]
     bsn = base["bs"]; a2 = cfg["assumptions"]
-    nq2 = 12
+    # Reporting horizon derives from the engine's own vector length, not a hardcoded 12, so a longer
+    # projection horizon flows through automatically. Engine BS vectors are (Q+1)-long (slot 0 = open).
+    _probe = bsn.get("ta") or bsn.get("cash") or []
+    _NQ = (len(_probe) - 1) if len(_probe) >= 2 else 12
+    nq2 = _NQ
     def _s(key):
-        v = bsn.get(key) or [0.0] * 13
-        return (v[1:13] if len(v) == 13 else v[:12])
+        v = bsn.get(key) or [0.0] * (nq2 + 1)
+        return (v[1:nq2 + 1] if len(v) == nq2 + 1 else v[:nq2])
     LINE_W = {"loanMortgage": RW["resi_first_lien"]}
     loans_w = [0.0] * nq2
     for p in base.get("products") or []:
         if p.get("family") == "lending" or (p.get("line") or "").startswith("loan"):
             w = LINE_W.get(p.get("line"), RW["corporate_consumer_cre"])
             balv = p.get("bal") or []
-            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            balq = balv[1:nq2 + 1] if len(balv) == nq2 + 1 else balv[:nq2]
             for t in range(min(nq2, len(balq))):
                 loans_w[t] += (balq[t] or 0.0) * w   # products arrive in $000s
     hfsq = _s("hfs")
@@ -608,7 +612,7 @@ def run_v2(cfg):
     for p in base.get("products") or []:
         if (p.get("line") or "") == "obs" or p.get("family") == "obs":
             balv = p.get("bal") or []
-            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            balq = balv[1:nq2 + 1] if len(balv) == nq2 + 1 else balv[:nq2]
             for t in range(min(nq2, len(balq))):
                 obs_notional[t] += balq[t] or 0.0
     cab = float(a2.get("cash_at_banks_pct") or 0.0)
@@ -634,7 +638,7 @@ def run_v2(cfg):
         return [round(num[t] / den[t] * 100, 2) if den[t] and den[t] > 0 else None
                  for t in range(nq2)]
     lev_t = (base.get("ratios") or {}).get("lev") or [None] * 13
-    lev_q = lev_t[1:13] if len(lev_t) == 13 else lev_t[:12]
+    lev_q = lev_t[1:nq2 + 1] if len(lev_t) == nq2 + 1 else lev_t[:nq2]
     P3 = REG_PARAMS["cblr"]
     elected = (cfg.get("charter_profile") or {}).get("cblr_election", True)
     cblr_status = []
@@ -686,7 +690,7 @@ def run_v2(cfg):
                 "loanCRE": cre_bal}.get(ln)
         if tgt is not None:
             balv = p.get("bal") or []
-            balq = balv[1:13] if len(balv) == 13 else balv[:12]
+            balq = balv[1:nq2 + 1] if len(balv) == nq2 + 1 else balv[:nq2]
             for t in range(min(nq2, len(balq))):
                 tgt[t] += (balq[t] or 0.0)   # $000s already
     cd_in = a2.get("construction_land_total")

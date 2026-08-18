@@ -173,9 +173,9 @@ def run_pf_a(cfg):
     # staged capital raises (additive, default-off): raises land at the START
     # of their stated quarter; the waterfall absorbs the cash side via plug()
     _raises = cfg["assumptions"].get("capital_raises") or []
-    cap_t = [capital] * 13
+    cap_t = [capital] * (Q + 1)
     for _r in _raises:
-        for _q in range(int(_r["quarter"]), 13):
+        for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series, fee_module_series
     from .regparams import REG_PARAMS as _RP
@@ -191,20 +191,20 @@ def run_pf_a(cfg):
     # products, and it accrues no interest after maturity. See ENGINE_SPEC "Scheduled
     # borrowings". term_q = quarters to maturity (bullet), not an amortization term.
     _sched = a.get("scheduled_borrowings") or []
-    sched_t = [0.0] * 13
+    sched_t = [0.0] * (Q + 1)
     for _sb in _sched:
         _amt, _q0, _tq = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"])
-        for _q in range(_q0, min(_q0 + _tq, 13)):
+        for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_t[_q] += _amt
-    sched_int_t = [0.0] * 13
+    sched_int_t = [0.0] * (Q + 1)
     for _sb in _sched:
         _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
-        for _q in range(_q0, min(_q0 + _tq, 13)):
+        for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_int_t[_q] += _amt * _r / 4.0
     _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
-    prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
-    dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, 13)]
-    non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(13)]
+    prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
+    dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, Q + 1)]
+    non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(Q + 1)]
     non_earn = non_earn_t[0]
     cash_floor = a["cash_target_pct_deposits"]
     other_liab = a["other_liabilities"]

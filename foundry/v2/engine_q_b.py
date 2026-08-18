@@ -28,9 +28,9 @@ def run_pf_b(cfg):
 
     capital = cfg["target_state"]["initial_capital"]
     _raises = cfg["assumptions"].get("capital_raises") or []
-    cap_t = [capital] * 13
+    cap_t = [capital] * (Q + 1)
     for _r in _raises:
-        for _q in range(int(_r["quarter"]), 13):
+        for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series, fee_module_series
     from .regparams import REG_PARAMS as _RP
@@ -42,16 +42,16 @@ def run_pf_b(cfg):
     # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
     # gate). See ENGINE_SPEC "Scheduled borrowings".
     _schedb = a.get("scheduled_borrowings") or []
-    _sched_t = [0.0] * 13
+    _sched_t = [0.0] * (Q + 1)
     _sched_int = [0.0] * 12
     for _sb in _schedb:
         _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
-        for _q in range(_q0, min(_q0 + _tq, 13)):
+        for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             _sched_t[_q] += _amt
             _sched_int[_q - 1] += _amt * _r / 4.0
     _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
-    _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(13)]
-    _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, 13)]
+    _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
+    _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, Q + 1)]
     non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
     alloc = a["sweep_securities_alloc"]
