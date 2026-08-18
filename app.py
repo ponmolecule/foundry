@@ -120,6 +120,25 @@ def results(engagement: str, _=Depends(gate)):
 
 
 
+@app.post("/api/curves/refresh")
+def curves_refresh(_=Depends(gate)):
+    # Explicit "Refresh from FOMC": pull current target range + SEP medians + EFFR from FRED, return a
+    # snapshot the client pins into the engagement (with vintage stamps). Runs never call this; the
+    # snapshot makes the engagement reproducible. On failure, return a clear reason; client keeps its
+    # existing snapshot (nothing overwritten).
+    import os
+    key = os.environ.get("FRED_API_KEY", "")
+    if not key:
+        raise HTTPException(503, "FRED_API_KEY not configured on the server; cannot refresh from FOMC.")
+    try:
+        from foundry.v2 import rate_fetch
+        snap = rate_fetch.fetch_policy(key)
+        return {"ok": True, "snapshot": snap}
+    except Exception as e:
+        detail = f"{type(e).__name__}: {e}"
+        raise HTTPException(502, f"FOMC refresh failed — {detail}. Existing curves retained; nothing written.")
+
+
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, engagement list, and DB reachability — the fields a

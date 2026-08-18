@@ -1630,7 +1630,17 @@ function setCurveOffset(k, v){
   rc.offsets[k] = (parseFloat(v)||0)/100; rc.offsets_edited[k] = true;
   regenCurvesFromFOMC();
 }
-window.setFomcMedian=setFomcMedian; window.setCurveOffset=setCurveOffset;
+function setCurrentPolicy(which, v){
+  const rc = cfg.assumptions.rate_curves;
+  rc.current_policy = rc.current_policy || {};
+  rc.current_policy[which] = (parseFloat(v)||0)/100;
+  // keep half_band consistent with the entered range: half_band = top - mid
+  if(rc.current_policy.top!==undefined && rc.current_policy.mid!==undefined){
+    rc.half_band = Math.max(0, rc.current_policy.top - rc.current_policy.mid);
+  }
+  regenCurvesFromFOMC();
+}
+window.setCurrentPolicy=setCurrentPolicy;
 
 function _curveVintageLabel(c){
   if(!c) return "\u2014";
@@ -1642,9 +1652,20 @@ function _curveVintageLabel(c){
 function renderRateCurvesPanel(){
   const rc = cfg.assumptions.rate_curves;
   const fe = rc.fomc.edited;
-  let h = '<div class="snote">Three curves generated from the FOMC SEP fed funds medians (interpolated) plus each index\u2019s basis offset. Edit the medians, the offsets, or any cell directly \u2014 edits are flagged. Floating products price off the curve named in their spec.</div>';
+  let h = '<div class="snote">Three curves from the FOMC fed funds target-midpoint path (current policy for the near quarter, SEP medians for the forward anchors) plus each index basis. EFFR and SOFR anchor to the midpoint; Prime anchors to the top of the target range. Edits are flagged.</div>';
 
-  // FOMC median inputs (the shape source)
+  // Provenance: latest FOMC STATEMENT (every meeting) vs latest SEP (4x/yr) — kept distinct.
+  const cp = rc.current_policy || {};
+  h += '<div style="background:#0E1626;border:1px solid #33436155;border-radius:6px;padding:8px;margin-bottom:8px;font-size:10px">';
+  h += '<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:#8FA3C0">FOMC statement</span><span style="color:#D8A85E">'+esc(cp.statement_date||"\u2014")+'</span></div>';
+  h += '<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px">';
+  h += '<div><div style="font-size:8.5px;color:#8FA3C0">Target midpoint %</div><input type="number" step="0.125" value="'+(+((cp.mid||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'mid\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#131E33;border:1px solid #33436155;color:#EDF1F7;border-radius:4px;font-size:11px"></div>';
+  h += '<div><div style="font-size:8.5px;color:#8FA3C0">Range top %</div><input type="number" step="0.125" value="'+(+((cp.top||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'top\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#131E33;border:1px solid #33436155;color:#EDF1F7;border-radius:4px;font-size:11px"></div>';
+  h += '</div>';
+  h += '<div style="display:flex;justify-content:space-between"><span style="color:#8FA3C0">SEP vintage (forward anchors)</span><span style="color:#D8A85E">'+esc(cp.sep_date||"\u2014")+'</span></div>';
+  h += '</div>';
+
+  // FOMC median inputs (the forward shape source)
   h += `<div style="margin:6px 0 4px;font-size:9px;color:${fe?'#D8A85E':'#8FA3C0'};text-transform:uppercase;letter-spacing:.05em;font-weight:700">FOMC SEP fed funds medians${fe?' \u00b7 edited':''}</div>`;
   h += '<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px">';
   const _m = [["ye26","YE26"],["ye27","YE27"],["ye28","YE28"],["lr","LR"]];
@@ -1695,7 +1716,8 @@ function renderRateCurvesPanel(){
       style="width:100%;text-align:right;padding:3px 5px;background:#0E1626;border:1px solid #33436155;color:#EDF1F7;border-radius:4px;font-size:11px;font-weight:700"></td>`;
   }
   h += '</tr></table>';
-  h += `<button onclick="resetCurvesToFOMC()" style="width:100%;margin-top:8px;padding:8px;background:#1a2740;color:#D8A85E;border:1px solid #D8A85E55;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">\u21ba Reset to FOMC SEP default</button>`;
+  h += `<button onclick="refreshFromFOMC()" style="width:100%;margin-top:8px;padding:8px;background:#D8A85E;color:#0A1830;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">\u21bb Refresh from FOMC (FRED)</button>`;
+  h += `<button onclick="resetCurvesToFOMC()" style="width:100%;margin-top:6px;padding:8px;background:#1a2740;color:#D8A85E;border:1px solid #D8A85E55;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">\u21ba Reset to built-in default</button>`;
   h += '<div style="margin-top:6px;font-size:9px;color:#8FA3C0">Gold = edited from the FOMC default. Medians come from the quarterly FOMC dot plot (federalreserve.gov).</div>';
   return h;
 }
@@ -1711,6 +1733,39 @@ function resetCurvesToFOMC(){
   ensureRateCurves(); scheduleAutosave(); renderGlobals(); refresh();
 }
 window.resetCurvesToFOMC=resetCurvesToFOMC;
+
+async function refreshFromFOMC(){
+  const rc = cfg.assumptions.rate_curves;
+  const anyEdited = (rc.fomc&&rc.fomc.edited) || CURVE_ORDER.some(k=>rc[k]&&rc[k].edited) ||
+                    (rc.offsets_edited && Object.keys(rc.offsets_edited).length);
+  if(anyEdited && !confirm("Refresh will replace the current policy, SEP medians, and any curve edits with the latest FRED vintage. Continue?")) return;
+  try{
+    const resp = await fetch("/api/curves/refresh", {method:"POST"});
+    if(!resp.ok){
+      let detail=""; try{ const j=await resp.json(); detail=j&&j.detail?(" \u2014 "+j.detail):""; }catch(_){}
+      alert(resp.status===503
+        ? "FRED isn't configured on the server (FRED_API_KEY missing). Curves unchanged."
+        : "FOMC refresh FAILED"+detail+"\n\nNothing was written \u2014 your existing curves are unchanged.");
+      return;
+    }
+    const data = await resp.json();
+    if(!data.ok || !data.snapshot){ alert("Refresh returned no data. Curves unchanged."); return; }
+    const s = data.snapshot;
+    // Pin the snapshot into the model, then regenerate curves from it (vintage-stamped).
+    rc.current_policy = {mid:s.current_policy.mid, top:s.current_policy.top,
+                         statement_date:s.current_policy.statement_date, sep_date:s.current_policy.sep_date};
+    rc.fomc = {ye26:s.fomc.ye26, ye27:s.fomc.ye27, ye28:s.fomc.ye28, lr:s.fomc.lr, edited:false};
+    rc.half_band = Math.max(0, s.current_policy.top - s.current_policy.mid);
+    rc.offsets = Object.assign({}, CURVE_OFFSET_DEFAULT);   // reset offsets to convention on a fresh pull
+    rc.offsets_edited = {};
+    regenCurvesFromFOMC();
+    alert("Curves refreshed from FRED.\nFOMC statement: "+s.current_policy.statement_date+
+          "\nSEP vintage: "+s.current_policy.sep_date);
+  }catch(e){
+    alert("Couldn't reach the FRED refresh service. Your existing curves are unchanged.");
+  }
+}
+window.refreshFromFOMC=refreshFromFOMC;
 
 function setCurveCell(k, i, v){
   const rc = cfg.assumptions.rate_curves, c = rc[k];
