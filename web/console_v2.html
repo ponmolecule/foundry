@@ -1520,23 +1520,39 @@ function fieldInput(path, unit){
 let _rateCurvesOpen = false;
 const CURVE_ORDER = ["effr","sofr","prime"];
 const CURVE_LABEL = {effr:"EFFR", sofr:"SOFR", prime:"Prime"};
-// Basis offsets off the fed funds path (Roman: "+~5bp SOFR/EFFR basis"; Prime = +300bp WSJ convention).
+// Basis offsets over the FOMC fed funds TARGET-MIDPOINT path (the SEP median IS the target midpoint,
+// not EFFR — so EFFR is a DERIVED curve with a documented, editable basis, defaulting to 0bp).
+//   EFFR  = midpoint + effr_basis (default 0bp — EFFR prints near the midpoint; editable assumption)
+//   SOFR  = midpoint + sofr_basis (default +5bp — Roman's SOFR/EFFR basis)
+//   Prime = TOP OF TARGET RANGE + 300bp (WSJ convention is to the range top, not the midpoint).
+//           Top of range = midpoint + half_band; with a 25bp band, half_band = 12.5bp, so Prime's
+//           effective offset off the midpoint is +312.5bp. We store half_band explicitly so the
+//           top-of-range anchoring is correct and visible, not baked into a fudged +300.
 const CURVE_OFFSET_DEFAULT = {effr:0.0, sofr:0.0005, prime:0.0300};
-const FOMC_DEFAULT = {ye26:0.038, ye27:0.036, ye28:0.034, lr:0.031};  // June 17 2026 SEP medians
+const HALF_BAND_DEFAULT = 0.00125;   // half of the 25bp target range; Prime anchors to range top
+const FOMC_DEFAULT = {ye26:0.038, ye27:0.036, ye28:0.034, lr:0.031};  // June 17 2026 SEP medians (midpoints)
+// Current policy (latest FOMC decision) — separate from the SEP projections. Updated every meeting
+// (8x/yr), whereas the SEP updates only 4x/yr. Drives the near/Q0 anchor and the provenance display.
+const CURRENT_POLICY_DEFAULT = {mid:0.03875, top:0.0400, statement_date:"2026-06-17", sep_date:"2026-06-17"};
 
-// Piecewise-linear interpolation of the 4 medians into a 12-quarter fed funds path.
-// Anchors at the quarter ending each year (Q2=YE26, Q6=YE27, Q10=YE28); Q1 leads in at YE26;
-// past Q10 glide linearly toward the longer-run over 8 quarters.
-function interpFedFunds(m){
+// Piecewise-linear interpolation into a 12-quarter fed funds TARGET-MIDPOINT path.
+// Anchors: Q1 = current policy midpoint (latest FOMC decision — updates every meeting), then the SEP
+// medians at the quarter ending each year (Q2=YE26, Q6=YE27, Q10=YE28); past Q10 glide to longer-run.
+// Using current policy as the near anchor means a rate change at a NON-SEP meeting still moves the
+// curve (assessment §5) — Refresh is meaningful after every meeting, not only the four SEP meetings.
+function interpFedFunds(m, currentMid){
   const A = {2:m.ye26, 6:m.ye27, 10:m.ye28};
+  const q1 = (currentMid!==undefined && currentMid!==null) ? currentMid : m.ye26;
   const path = [];
   for(let q=1;q<=12;q++){
+    if(q===1){ path.push(q1); continue; }
     if(A[q]!==undefined){ path.push(A[q]); continue; }
-    if(q===1){ path.push(m.ye26); continue; }
     if(q<10){
-      const lo=Math.max(...Object.keys(A).map(Number).filter(a=>a<q));
-      const hi=Math.min(...Object.keys(A).map(Number).filter(a=>a>q));
-      path.push(+(A[lo]+(A[hi]-A[lo])*(q-lo)/(hi-lo)).toFixed(6));
+      // interpolate between the surrounding anchors, where Q1's anchor is the current midpoint
+      const anchorsQ = Object.assign({1:q1}, A);
+      const lo=Math.max(...Object.keys(anchorsQ).map(Number).filter(a=>a<q));
+      const hi=Math.min(...Object.keys(anchorsQ).map(Number).filter(a=>a>q));
+      path.push(+(anchorsQ[lo]+(anchorsQ[hi]-anchorsQ[lo])*(q-lo)/(hi-lo)).toFixed(6));
     } else {
       path.push(+(m.ye28+(m.lr-m.ye28)*(q-10)/8).toFixed(6));
     }
@@ -1544,60 +1560,62 @@ function interpFedFunds(m){
   return path;
 }
 
+function _genCurvesFromModel(rc){
+  // Generate all three curves from the model: current-policy Q1 anchor + SEP forward medians,
+  // then per-index basis. Prime uses TOP OF RANGE (midpoint + half_band) + its offset.
+  const cur = rc.current_policy || CURRENT_POLICY_DEFAULT;
+  const ff = interpFedFunds(rc.fomc, cur.mid);          // midpoint path
+  const lrff = rc.fomc.lr;
+  const halfBand = (rc.half_band!==undefined) ? rc.half_band : HALF_BAND_DEFAULT;
+  for(const k of CURVE_ORDER){
+    const off = (rc.offsets[k]!==undefined) ? rc.offsets[k] : CURVE_OFFSET_DEFAULT[k];
+    // Prime anchors to the top of the target range (midpoint + half_band); EFFR/SOFR to the midpoint.
+    const base = (k==="prime") ? ff.map(x=>x+halfBand) : ff;
+    const lrbase = (k==="prime") ? lrff+halfBand : lrff;
+    rc[k] = {vintage:"FOMC SEP", path_q:base.map(x=>+(x+off).toFixed(6)),
+             longer_run:+(lrbase+off).toFixed(6), edited:false, _editedCells:{}};
+  }
+}
+
 function ensureRateCurves(){
   const a = cfg.assumptions; if(!a) return;
   a.rate_curves = a.rate_curves || {};
   const rc = a.rate_curves;
-  // FOMC median anchors (the shape source) + per-curve offsets (the level source), both editable.
+  // FOMC median anchors (forward shape) + current policy (near anchor) + per-curve offsets, all editable.
   rc.fomc = rc.fomc || Object.assign({}, FOMC_DEFAULT, {edited:false});
+  rc.current_policy = rc.current_policy || Object.assign({}, CURRENT_POLICY_DEFAULT);
   rc.offsets = rc.offsets || Object.assign({}, CURVE_OFFSET_DEFAULT);
+  if(rc.half_band===undefined) rc.half_band = HALF_BAND_DEFAULT;
   rc.offsets_edited = rc.offsets_edited || {};
-  // If SOFR curve already exists (saved engagement, or a prior session), PRESERVE it — don't silently
-  // regenerate and change the user's numbers. Only generate the three curves from the medians when
-  // they're absent (a fresh engagement) or after an explicit median/offset edit or Reset.
+  // If SOFR curve already exists (saved engagement), PRESERVE it — don't silently regenerate and
+  // change the user's numbers. Generate only when absent (fresh) or after explicit edit/Reset.
   const haveSofr = rc.sofr && Array.isArray(rc.sofr.path_q) && rc.sofr.path_q.length===12;
   if(haveSofr){
-    // derive EFFR/Prime from the existing SOFR only if THEY are missing (back-compat for configs
-    // that had rate_path_q but never had the multi-curve object).
     for(const k of ["effr","prime"]){
       if(!rc[k] || !Array.isArray(rc[k].path_q) || rc[k].path_q.length!==12){
-        const d = (rc.offsets[k]||0) - (rc.offsets.sofr||0);   // offset relative to SOFR
+        const d = (rc.offsets[k]||0) - (rc.offsets.sofr||0) + (k==="prime"?(rc.half_band||0):0);
         rc[k] = {vintage:"FOMC SEP", path_q:rc.sofr.path_q.map(x=>+(x+d).toFixed(6)),
                  longer_run:+((rc.sofr.longer_run||0)+d).toFixed(6), edited:false, _editedCells:{}};
       }
     }
   } else if(Array.isArray(a.rate_path_q) && a.rate_path_q.length===12){
-    // Legacy config: had rate_path_q but no rate_curves.sofr — adopt that path as SOFR (preserve it).
     rc.sofr = {vintage:"FOMC SEP", path_q:a.rate_path_q.slice(), longer_run:a.rate_path_longer_run||0, edited:false, _editedCells:{}};
     for(const k of ["effr","prime"]){
-      const d = (rc.offsets[k]||0) - (rc.offsets.sofr||0);
+      const d = (rc.offsets[k]||0) - (rc.offsets.sofr||0) + (k==="prime"?(rc.half_band||0):0);
       rc[k] = {vintage:"FOMC SEP", path_q:rc.sofr.path_q.map(x=>+(x+d).toFixed(6)),
                longer_run:+(rc.sofr.longer_run+d).toFixed(6), edited:false, _editedCells:{}};
     }
   } else {
-    // Fresh engagement: generate all three from the FOMC medians + offsets.
-    const ff = interpFedFunds(rc.fomc), lrff = rc.fomc.lr;
-    for(const k of CURVE_ORDER){
-      const off = (rc.offsets[k]!==undefined) ? rc.offsets[k] : CURVE_OFFSET_DEFAULT[k];
-      rc[k] = {vintage:"FOMC SEP", path_q:ff.map(x=>+(x+off).toFixed(6)),
-               longer_run:+(lrff+off).toFixed(6), edited:false, _editedCells:{}};
-    }
+    _genCurvesFromModel(rc);
   }
-  // SOFR stays authoritative for the engine's compat shim
   cfg.assumptions.rate_path_q = rc.sofr.path_q.slice();
   cfg.assumptions.rate_path_longer_run = rc.sofr.longer_run;
 }
 
-// Regenerate all three curves from the current medians + offsets (called after a median/offset edit).
-// Per-cell manual edits are cleared on regenerate (the whole shape changed); the curve is re-derived.
+// Regenerate all three curves from the current model (after a median/offset/policy edit).
 function regenCurvesFromFOMC(){
   const rc = cfg.assumptions.rate_curves;
-  const ff = interpFedFunds(rc.fomc);
-  for(const k of CURVE_ORDER){
-    const off = (rc.offsets[k]!==undefined)?rc.offsets[k]:CURVE_OFFSET_DEFAULT[k];
-    rc[k] = {vintage:"FOMC SEP", path_q:ff.map(x=>+(x+off).toFixed(6)),
-             longer_run:+(rc.fomc.lr+off).toFixed(6), edited:false, _editedCells:{}};
-  }
+  _genCurvesFromModel(rc);
   cfg.assumptions.rate_path_q = rc.sofr.path_q.slice();
   cfg.assumptions.rate_path_longer_run = rc.sofr.longer_run;
   scheduleAutosave(); renderGlobals(); refresh();
