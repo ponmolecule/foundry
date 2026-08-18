@@ -135,7 +135,8 @@ def _scen_metrics(res, cfg, commit):
     lev = rt.get("lev") or rt.get("leverage") or []
     def tot(k):
         return round(sum(x for x in (is_.get(k) or []) if x is not None), 2)
-    q_off = 0 if len(lev) == 13 else 1
+    _np = int((cfg.get('assumptions') or {}).get('n_periods') or 12)
+    q_off = 0 if len(lev) == _np + 1 else 1
     min_lev, min_q = None, None
     for i, v in enumerate(lev):
         if v is not None and (min_lev is None or v < min_lev):
@@ -323,6 +324,10 @@ def run_v2(cfg):
     cfg = copy.deepcopy(cfg)
     validate_config_v2(cfg)
     config_hash = _hash(cfg)
+    # Single authoritative reporting horizon, threaded through the whole consumer layer (the T34 lesson:
+    # derive once from the config, never re-probe per function). _NP = number of projection periods;
+    # engine BS vectors are (_NP + 1) long (slot 0 = opening), IS/ratios are _NP long.
+    _NP = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
 
     scen_defs = scenarios_from(cfg)
     scen_results, scen_labels = {}, {}
@@ -479,7 +484,7 @@ def run_v2(cfg):
     _dta_series = bs2.get("dta") or [0.0] * n2
     _dta_frac = REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
     lev2 = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
-    q0 = 1 if n2 == 13 else 0
+    q0 = 1 if n2 == _NP + 1 else 0
     tier1, msa_x, avg_net, lev_drv = [], [], [], []
     for i in range(q0, n2):
         eq = bs2["equity"][i] or 0.0
@@ -637,7 +642,7 @@ def run_v2(cfg):
     def _r4(num, den):
         return [round(num[t] / den[t] * 100, 2) if den[t] and den[t] > 0 else None
                  for t in range(nq2)]
-    lev_t = (base.get("ratios") or {}).get("lev") or [None] * 13
+    lev_t = (base.get("ratios") or {}).get("lev") or [None] * (_NP + 1)
     lev_q = lev_t[1:nq2 + 1] if len(lev_t) == nq2 + 1 else lev_t[:nq2]
     P3 = REG_PARAMS["cblr"]
     elected = (cfg.get("charter_profile") or {}).get("cblr_election", True)
@@ -785,12 +790,12 @@ def run_v2(cfg):
     # ---- Wave 4 (F-120/122/132/011/013): checks panel, quick stats, annual rollup
     bsw, isw = base["bs"], base["is"]
     _dv = results["presentation"]["derived"]
-    nqw = 12
+    nqw = _NP
     def _sw(key, src=None):
-        v = (src or bsw).get(key) or [0.0] * 13
-        return (v[1:13] if len(v) == 13 else v[:12])
+        v = (src or bsw).get(key) or [0.0] * (_NP + 1)
+        return (v[1:_NP + 1] if len(v) == _NP + 1 else v[:_NP])
     eqw, rew, aociw, piw = _sw("equity"), _sw("re" if "re" in bsw else "retained"),                              _sw("aoci"), _sw("paidIn")
-    niw = isw["ni"][:12]
+    niw = isw["ni"][:_NP]
     idw = _dv.get("identity") or []
     checks = []
     def _ck(cid, label, ok, klass, note=""):
@@ -806,7 +811,7 @@ def run_v2(cfg):
     _ck("CK-3", "Net income flows to retained earnings", ni_dev < 0.02,
         "integrity", "raises land in paid-in, AOCI in its own component — retained moves by NI alone")
     lev_w = (base.get("ratios") or {}).get("lev") or []
-    lev_q = [x for x in (lev_w[1:13] if len(lev_w) == 13 else lev_w[:12]) if x is not None]
+    lev_q = [x for x in (lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP]) if x is not None]
     lev_min_req = None
     for con in (cfg.get("constraints") or []):
         if "lever" in str(con.get("key", con.get("name", ""))).lower():
@@ -822,7 +827,7 @@ def run_v2(cfg):
     _ck("CK-6", "No fee income from inactive modules",
         bool(fmw) or "fee_detail" not in results, "integrity",
         "module income exists only when a module is configured")
-    _ck("CK-7", "Twelve-quarter period index, no gaps", len(niw) == 12, "integrity")
+    _ck("CK-7", "Projection period index, no gaps", len(niw) == _NP, "integrity")
     ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(3)]
     _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
         "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
@@ -858,11 +863,11 @@ def run_v2(cfg):
                       "not clear its commitments, and a checks panel that conflates the "
                       "two blesses failing banks"),
     }
-    nim_w = (base.get("ratios") or {}).get("nim") or [None] * 13
-    roa_w = (base.get("ratios") or {}).get("roa") or [None] * 13
-    eff_w = (base.get("ratios") or {}).get("eff") or [None] * 13
+    nim_w = (base.get("ratios") or {}).get("nim") or [None] * (_NP + 1)
+    roa_w = (base.get("ratios") or {}).get("roa") or [None] * (_NP + 1)
+    eff_w = (base.get("ratios") or {}).get("eff") or [None] * (_NP + 1)
     def _annR(series):
-        s = series[1:13] if len(series) == 13 else series[:12]
+        s = series[1:_NP + 1] if len(series) == _NP + 1 else series[:_NP]
         out = []
         for y in range(3):
             xs = [x for x in s[y * 4:(y + 1) * 4] if x is not None]
@@ -871,13 +876,13 @@ def run_v2(cfg):
     results["annual"] = {
         "note": "stocks at year-end (Q4/Q8/Q12), flows summed, ratios simple-averaged "
                  "over the year's quarters (labeled as such)",
-        "total_assets_eop": [ta_w[3], ta_w[7], ta_w[11]],
-        "net_loans_eop": [_sw("netLoans")[3], _sw("netLoans")[7], _sw("netLoans")[11]],
-        "deposits_eop": [dep_w[3], dep_w[7], dep_w[11]],
+        "total_assets_eop": [ta_w[i] for i in range(3, _NP, 4)],
+        "net_loans_eop": [_sw("netLoans")[i] for i in range(3, _NP, 4)],
+        "deposits_eop": [dep_w[i] for i in range(3, _NP, 4)],
         "ni": [round(x, 2) for x in ann_ni],
         "nim": _annR(nim_w), "roa": _annR(roa_w), "eff": _annR(eff_w),
         "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in (3, 7, 11)])(
-                       lev_w[1:13] if len(lev_w) == 13 else lev_w[:12])][0],
+                       lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }
     results["quick_stats"] = {
         "note": "8 headline metrics \u00d7 three years; the "
