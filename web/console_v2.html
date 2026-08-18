@@ -1613,8 +1613,10 @@ async function updateAllCurves(){
   try{
     const resp = await fetch("/api/curves/update", {method:"POST"});
     if(!resp.ok){
-      const msg = resp.status===503 ? "Live curve updates aren't configured on the server yet. Curves unchanged."
-                : "Curve fetch failed. Your existing curves are unchanged.";
+      let detail = "";
+      try{ const j = await resp.json(); detail = j && j.detail ? (" — "+j.detail) : ""; }catch(_){}
+      const msg = resp.status===503 ? "Live curve updates aren't configured on the server yet (FRED_API_KEY missing). Curves unchanged."
+                : ("Curve fetch FAILED"+detail+"\n\nNothing was written — your existing curves are unchanged. The vintage shown has NOT advanced.");
       alert(msg); return;
     }
     const data = await resp.json();

@@ -136,7 +136,9 @@ def curves_update(_=Depends(gate)):
         curves = rate_fetch.fetch_curves(key)
         return {"ok": True, "curves": curves}
     except Exception as e:
-        raise HTTPException(502, f"curve fetch failed ({type(e).__name__}); existing curves retained.")
+        # Surface the real reason so failures are diagnosable (and never mistaken for success).
+        detail = f"{type(e).__name__}: {e}"
+        raise HTTPException(502, f"curve fetch failed — {detail}. Existing curves retained; nothing was written.")
 
 
 @app.get("/api/health")
@@ -145,6 +147,8 @@ def health():   # unauthenticated on purpose: deploy probes need it
     # deploy probe needs. (Process self-inspection fields used during the deploy-desync
     # investigation were removed pre-demo; they leaked container paths and route internals.)
     out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
+    import os as _os
+    out["fred_configured"] = bool(_os.environ.get("FRED_API_KEY", ""))
     try:
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
