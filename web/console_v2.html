@@ -4544,7 +4544,7 @@ window.uploadFIW = uploadFIW;
 function wizStart(){
   if(!confirmDiscardUnsaved("Starting a new engagement")){ return; }
   wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
-         cblr:true, initial_capital:0, org_costs:0, picks:{}};
+         cblr:true, n_periods:12, initial_capital:0, org_costs:0, picks:{}};
   renderContent();
 }
 function wizSet(k,v){ wiz[k]=v; renderContent(); }
@@ -4564,6 +4564,9 @@ function renderWizard(){
       + US_STATES.map(s=>`<option value="${esc(s)}"${wiz.state===s?" selected":""}>${esc(s)}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>Target opening date</label><input value="${esc(wiz.opening)}" placeholder="e.g., 2027-Q2" onchange="wiz.opening=this.value"></div>`
       + `<div class="fld"><label>Pre-opening period (months)</label><input type="number" value="${wiz.pre_open_months}" onchange="wizSet('pre_open_months',+this.value)"></div>`
+      + `<div class="fld"><label>Projection horizon</label><select onchange="wizSet('n_periods',+this.value)">`
+      + [[12,"3 years (12 quarters)"],[20,"5 years (20 quarters)"],[28,"7 years (28 quarters)"]]
+          .map(([v,lbl])=>`<option value="${v}"${(wiz.n_periods||12)===v?" selected":""}>${lbl}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>CBLR election</label><select onchange="wizSet('cblr',this.value==='y')"><option value="y"${wiz.cblr?" selected":""}>Yes — community bank leverage framework</option><option value="n"${!wiz.cblr?" selected":""}>No — generally applicable rules</option></select></div>`
       + '</div></div>';
     h += wizChip(`<b>Resolved, not asked:</b> primary federal regulator \u2014 <b>${REGULATOR_OF[wiz.charter]}</b>. Capital thresholds and risk weights come from the versioned regulatory parameter set; nothing regulatory is typed by hand.`);
@@ -4626,6 +4629,7 @@ async function wizFinish(){
   cfg.charter_profile = {charter_type: wiz.charter, regulator: REGULATOR_OF[wiz.charter],
     state: wiz.state, target_opening: wiz.opening, pre_open_months: wiz.pre_open_months,
     cblr_election: wiz.cblr, source: "wizard"};
+  cfg.assumptions.n_periods = wiz.n_periods || 12;
   cfg.target_state.initial_capital = wiz.initial_capital;
   cfg.pre_opening = {expenses: wiz.org_costs > 0
     ? [{category: "Organizational costs", total: wiz.org_costs}] : []};
