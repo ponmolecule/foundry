@@ -127,12 +127,13 @@ def workbook_from_config_v2(cfg):
     _write_products(wb.create_sheet("SecuritiesAFS"), SEC_COLS, a.get("securities_afs") or [])
     _write_products(wb.create_sheet("SecuritiesHTM"), SEC_COLS, a.get("securities_htm") or [])
 
+    _np = int((cfg.get('assumptions') or {}).get('n_periods') or 12)
     vec = wb.create_sheet("Vectors")
-    vec.append(["product", "field"] + [f"Q{q}" for q in range(1, 13)])
+    vec.append(["product", "field"] + [f"Q{q}" for q in range(1, _np + 1)])
     for fam in ("deposit_products", "lending_products", "obs_exposures"):
         for p in a.get(fam) or []:
             for f, m in (p.get("overrides") or {}).items():
-                row = [p["name"], f] + [m.get(str(q)) for q in range(1, 13)]
+                row = [p["name"], f] + [m.get(str(q)) for q in range(1, _np + 1)]
                 vec.append(row)
 
     dd = wb.create_sheet("DataDictionary")
@@ -174,7 +175,7 @@ def parse_workbook_v2(data):
         if p is None:
             continue
         ov = p.setdefault("overrides", {})
-        m = {str(q): r[1 + q] for q in range(1, 13) if r[1 + q] is not None}
+        m = {str(q): r[1 + q] for q in range(1, len(r) - 1) if r[1 + q] is not None}
         if m:
             ov[r[1]] = m
     cfg["assumptions"] = a
@@ -346,7 +347,8 @@ def results_workbook_v2(cfg, res):
                 continue
             ws = wb.create_sheet(f"Schedule {sched}")
             ws.append([cr[sched].get("title", sched)])
-            ws.append(["Item", "Code", "Line"] + [f"Q{q}" for q in range(1, 13)])
+            _rn = len(next((rw.get("values") for rw in cr[sched].get("rows", []) if rw.get("values")), [0]*12))
+            ws.append(["Item", "Code", "Line"] + [f"Q{q}" for q in range(1, _rn + 1)])
             for row in cr[sched]["rows"]:
                 ws.append([row["item"], row["code"], row["label"]] + list(row["values"]))
             if sched == "RC-R" and cr[sched].get("part2"):
