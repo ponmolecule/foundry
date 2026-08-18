@@ -36,12 +36,14 @@ def _g(base, growth, q):
 
 def nie_detail_series(a):
     """(comp_q, categories_q, gross_up_rate) or None when absent."""
+    Q = int(a.get("n_periods") or 12)
     nd = a.get("nie_detail")
     if not nd:
         return None
     fte = list(nd.get("fte_by_year") or [0, 0, 0])
     loaded = float(nd.get("loaded_comp_annual") or 0.0)
-    comp = [fte[min((q - 1) // 4, 2)] * loaded / 4.0 for q in range(1, Q + 1)]
+    _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
+    comp = [fte[min((q - 1) // 4, _lastyr)] * loaded / 4.0 for q in range(1, Q + 1)]
     cats = [float(sum(c.get("per_quarter", 0.0) for c in (nd.get("categories") or [])))] * Q
     return {"comp": comp, "categories": cats,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
@@ -52,7 +54,8 @@ def nie_detail_series(a):
 
 
 def fee_module_series(a):
-    """{"income": [...12], "cost": [...12], "detail": {...}} — zeros when absent."""
+    """{"income": [...Q], "cost": [...Q], "detail": {...}} — zeros when absent."""
+    Q = int(a.get("n_periods") or 12)
     fm = a.get("fee_modules") or {}
     inc = [0.0] * Q
     cost = [0.0] * Q

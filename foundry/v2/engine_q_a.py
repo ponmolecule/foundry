@@ -27,14 +27,15 @@ def opex_fixed_q(p):
 
 
 def rate_fn(path_q, longer_run):
-    """Quarterly annual-rate lookup; glides 5bp/qtr toward longer_run past Q12."""
+    """Quarterly annual-rate lookup; glides 5bp/qtr toward longer_run past the end of path_q."""
+    n = len(path_q)                     # horizon = length of the provided path (not a global)
     def r(t):
         if t < 1:
             t = 1
-        if t <= Q:
+        if t <= n:
             return path_q[t - 1]
-        last = path_q[Q - 1]
-        step = 0.0005 * (t - Q)
+        last = path_q[n - 1]
+        step = 0.0005 * (t - n)
         if last > longer_run:
             return max(longer_run, last - step)
         return min(longer_run, last + step)
@@ -135,6 +136,11 @@ def _apply_overlays(lend, dep, a, ov):
 
 def run_pf_a(cfg):
     a = {k: (list(v) if isinstance(v, list) else v) for k, v in cfg["assumptions"].items()}
+    # Authoritative projection horizon: read from config (default 12 = the historical quarterly horizon).
+    # This local Q shadows the module constant so every Q-reference below honors the chosen horizon; a
+    # config without n_periods reproduces the 12-period numbers byte-identically. rate_fn is already
+    # horizon-independent (it derives from len(path_q)), so the rate path glides past its end as needed.
+    Q = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
     dep = copy.deepcopy(a.get("deposit_products") or [])
