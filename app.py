@@ -120,35 +120,12 @@ def results(engagement: str, _=Depends(gate)):
 
 
 
-@app.post("/api/curves/update")
-def curves_update(_=Depends(gate)):
-    # Explicit, user-initiated fetch of the reference-rate curves (SOFR/EFFR/Prime) from FRED.
-    # Deterministic-on-a-vintage-basis: this is the ONLY network touch for rates, and it happens
-    # only on the "Update all curves" button. The client pins the returned vintage-stamped values
-    # into the config; runs never call this. On any failure we return a clear error and the client
-    # keeps its existing pinned curves — no fabricated data.
-    import os
-    key = os.environ.get("FRED_API_KEY", "")
-    if not key:
-        raise HTTPException(503, "FRED_API_KEY not configured on the server; curves cannot be updated.")
-    try:
-        from foundry.v2 import rate_fetch
-        curves = rate_fetch.fetch_curves(key)
-        return {"ok": True, "curves": curves}
-    except Exception as e:
-        # Surface the real reason so failures are diagnosable (and never mistaken for success).
-        detail = f"{type(e).__name__}: {e}"
-        raise HTTPException(502, f"curve fetch failed — {detail}. Existing curves retained; nothing was written.")
-
-
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, engagement list, and DB reachability — the fields a
     # deploy probe needs. (Process self-inspection fields used during the deploy-desync
     # investigation were removed pre-demo; they leaked container paths and route internals.)
     out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
-    import os as _os
-    out["fred_configured"] = bool(_os.environ.get("FRED_API_KEY", ""))
     try:
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
