@@ -3450,15 +3450,17 @@ function renderOverview(){
   });
   h += '</table>';
   h += '<div class="memo" style="margin-top:10px;font-size:10.5px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers.</div>';
-  // Three-year financial summary — COLLAPSED
+  // Annual financial summary — COLLAPSED
   if(r.quick_stats){
     let qs = `<div class="memo" style="font-size:11px">${esc(r.quick_stats.note)}.</div>`;
-    qs += '<table class="ovt"><tr><th></th><th style="text-align:right">Year 1</th><th style="text-align:right">Year 2</th><th style="text-align:right">Year 3</th></tr>';
+    const _qy = ((r.quick_stats.rows[0]||{}).y || []).length;   // year count from the data
+    qs += '<table class="ovt"><tr><th></th>' +
+          Array.from({length:_qy},(_,y)=>`<th style="text-align:right">Year ${y+1}</th>`).join("") + '</tr>';
     r.quick_stats.rows.forEach(x=>{
       qs += `<tr><td>${esc(x.label)}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
     });
     qs += '</table>';
-    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Three-year financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
+    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Annual financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
   }
   // Model integrity & viability checks — COLLAPSED
   if(r.checks){
@@ -3735,9 +3737,11 @@ function renderContent(){
     h += '<div class="memo">Taxes apply the statutory rate to pre-tax income net of accumulated NOL carryforwards; no deferred tax asset is booked (conservative). FV gains/losses include credit losses on fair-value elected loans, which carry no provision.</div>';
     if(lastRes && lastRes.annual){
       const AN = lastRes.annual;
-      h += '<div class="h2" style="margin-top:16px;font-size:14px">Annual Rollup (Y1/Y2/Y3)</div>';
+      const _nyr = (AN.ni || []).length;   // one column per project year
+      h += '<div class="h2" style="margin-top:16px;font-size:14px">Annual Rollup</div>';
       h += `<div class="srcnote">${esc(AN.note)}.</div>`;
-      h += '<table class="fin"><tr><th></th><th>Year 1</th><th>Year 2</th><th>Year 3</th></tr>';
+      h += '<table class="fin"><tr><th></th>' +
+           Array.from({length:_nyr},(_,y)=>`<th>Year ${y+1}</th>`).join("") + '</tr>';
       [["Net income ($000s)", AN.ni, "Full-year net income ($000s): sum of that year's four quarters."], ["NIM (%)", AN.nim, "Full-year net interest margin: net interest income / average earning assets."], ["ROA (%)", AN.roa, "Full-year return on assets: net income / average assets."], ["Efficiency (%)", AN.eff, "Full-year efficiency ratio: noninterest expense / (net interest income + noninterest income)."]].forEach(([l,arr,pv])=>{
         h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)${(typeof v==="number"&&v<0)?";color:#B45454":""}" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
