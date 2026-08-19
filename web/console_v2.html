@@ -2388,7 +2388,7 @@ function rowIS(label, arr, cls, tot, refKey){
 }
 function rowPct(label, arr, d, refKey){
   if(!arr) return "";
-  const a = arr.length===13 ? arr.slice(1) : arr;
+  const a = arr.length===NP()+1 ? arr.slice(1) : arr;
   const help = CALC_TEXT[refKey] || (label + " \u2014 ratio for this quarter.");
   const nt = ` data-prov title="${help.replace(/"/g,"&quot;")}"`;
   let h = "<tr>" + refCell(refKey) + `<td${nt}>${label}</td>`;
@@ -3606,7 +3606,7 @@ function renderContent(){
   if(!lastRes){
     c.innerHTML = '<div class="memo">Running…</div>'; return; }
   const r = lastRes, fin = r.financials, F = r.faithful || {}, D = (r.presentation||{}).derived || {};
-  const bsHasOpen = fin.bs.totalAssets.length===13;
+  const bsHasOpen = fin.bs.totalAssets.length===NP()+1;
   const G = (path)=>getPath(path);
   let h = "";
 
@@ -5127,7 +5127,7 @@ function structuresSectionsHtml(){
     h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${i===0?"Payments:":""}</b><input style="width:100px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((rail.vol_q||0)/1000)}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s tx/q</span> growth<input type="number" step="0.5" style="width:56px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:70px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:70px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
   });
   if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
-  if(lastRes && lastRes.fee_detail) h += `<div class="chint">Fee module income Q1\u2192Q12: ${lastRes.fee_detail._income_total[0].toLocaleString()} \u2192 ${lastRes.fee_detail._income_total[11].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`;
+  if(lastRes && lastRes.fee_detail){ const _ft=lastRes.fee_detail._income_total; h += `<div class="chint">Fee module income Q1\u2192Q${_ft.length}: ${_ft[0].toLocaleString()} \u2192 ${_ft[_ft.length-1].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`; }
   h += '</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
   h += `<button class="fpill${cfg.assumptions.tax_detail?" on":""}" style="margin:10px 0 12px" onclick="${cfg.assumptions.tax_detail?"delete cfg.assumptions.tax_detail":"cfg.assumptions.tax_detail={enabled:true}"};renderContent();refresh()" title="${cfg.assumptions.tax_detail?"On \u2014 click to disable (legacy treatment resumes)":"Off \u2014 click to enable"}"><span style="color:${cfg.assumptions.tax_detail?"#DFA85A":"#8FA3C0"}">${ICONS.percent}</span>NOL \u2192 DTA</button>`;
