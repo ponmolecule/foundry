@@ -828,7 +828,7 @@ def run_v2(cfg):
         bool(fmw) or "fee_detail" not in results, "integrity",
         "module income exists only when a module is configured")
     _ck("CK-7", "Projection period index, no gaps", len(niw) == _NP, "integrity")
-    ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(3)]
+    ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(_NP // 4)]
     _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
         "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
     _ck("CK-9", "Regulatory parameters resolve from the versioned registry",
@@ -869,7 +869,7 @@ def run_v2(cfg):
     def _annR(series):
         s = series[1:_NP + 1] if len(series) == _NP + 1 else series[:_NP]
         out = []
-        for y in range(3):
+        for y in range(_NP // 4):
             xs = [x for x in s[y * 4:(y + 1) * 4] if x is not None]
             out.append(round(sum(xs) / len(xs), 2) if xs else None)
         return out
@@ -881,7 +881,7 @@ def run_v2(cfg):
         "deposits_eop": [dep_w[i] for i in range(3, _NP, 4)],
         "ni": [round(x, 2) for x in ann_ni],
         "nim": _annR(nim_w), "roa": _annR(roa_w), "eff": _annR(eff_w),
-        "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in (3, 7, 11)])(
+        "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in range(3, _NP, 4)])(
                        lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }
     results["quick_stats"] = {
