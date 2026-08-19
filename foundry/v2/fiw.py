@@ -193,8 +193,14 @@ def _family_sheet(ws, fam, products, fields):
                 continue
             if fkey == "discount_spread_ann" and p.get("measurement") != "fair_value":
                 continue
+            _cre_bps = False
             if fkey == "__RATE__":
                 val = _rate_of(p)
+                # CRE float spreads are authored in BASIS POINTS (0.0025 -> 25). Convert on the way out;
+                # diff_import converts back (÷10000). Non-CRE and fixed rows are unchanged.
+                if p.get("line") == "loanCRE" and p.get("rate_type") == "float" and val is not None:
+                    val = round(val * 10000.0, 4)
+                    _cre_bps = True
             elif fkey == "__RATE_BASELINE__":
                 val = None  # set below as a live formula, once rt_row is known
             elif "." in fkey:
@@ -206,7 +212,8 @@ def _family_sheet(ws, fam, products, fields):
                 val = LINE_LABELS.get(val, val)
             ws.append([f"{fam}.{i}.{fkey}", p.get("name", ""), flabel,
                        wbunits.to_workbook(val, funits) if val is not None else "",
-                       wbunits.export_label(funits)])
+                       "Spread over index in BASIS POINTS (25 = 0.25%)" if _cre_bps
+                       else wbunits.export_label(funits)])
             row = ws.max_row
             # attach the dropdown + remember the row for the discriminator cells
             if fkey == "rate_type":
@@ -216,10 +223,14 @@ def _family_sheet(ws, fam, products, fields):
                 dv_ms.add(ws.cell(row, 4))
             elif fkey == "__RATE_BASELINE__" and rt_row is not None:
                 # LIVE helper: the choice in the rate_type dropdown immediately sets what the
-                # value cell means. Formula, informational only, never read on import.
+                # value cell means. Formula, informational only, never read on import. CRE float
+                # spreads are quoted in basis points; all other spreads in annual %.
+                _float_note = ('"Spread over SOFR (BASIS POINTS; 25 = 0.25%; may be negative)"'
+                               if p.get("line") == "loanCRE"
+                               else '"Spread over SOFR (annual %; may be negative)"')
                 ws.cell(row, 4).value = (
                     f'=IF($D${rt_row}="float",'
-                    '"Spread over SOFR (annual %; may be negative)",'
+                    f'{_float_note},'
                     '"Rate paid / yield (annual %)")')
             if "fact" not in funits:
                 ws.cell(row, 4).fill = GOLD
@@ -854,6 +865,11 @@ def diff_import(data, current_cfg):
                     if new_rt == "float":
                         old = base.get("index_spread")
                         fld, inactive = "index_spread", ("rate_paid_ann", "yield_ann")
+                        # CRE float spreads are entered in BASIS POINTS (25 = 0.25% = 0.0025).
+                        # Convert to the engine's annual-decimal here; everything downstream (change
+                        # detection, storage, engine) stays in decimal, so a clean re-import is a no-op.
+                        if base.get("line") == "loanCRE" and rate_val is not None:
+                            rate_val = round(rate_val / 10000.0, 8)
                     else:
                         fld = "rate_paid_ann" if fam == "deposit" else "yield_ann"
                         old = base.get(fld)

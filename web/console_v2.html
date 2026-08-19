@@ -1394,6 +1394,7 @@ function setUnit(path, unit, v){
   // the engine, NOT in a display unit. The retired "kq" wrongly baked ×3 into display, which
   // tripled already-quarterly fields; kept as a back-compat alias mapping to plain "k".
   if(unit==="pct") x/=100;
+  if(unit==="bps") x/=10000;
   if(unit==="k"||unit==="kmo"||unit==="kq") x*=K;
   setUnitPath(path, x);
 }
@@ -1409,6 +1410,7 @@ function numInput(path, unit, extra){
   let disp = "";
   if(v!=null){
     if(unit==="pct") disp = +(v*100).toFixed(6);
+    else if(unit==="bps") disp = +(v*10000).toFixed(4);
     else if(unit==="k"||unit==="kmo"||unit==="kq") disp = +(v/K).toFixed(6);
     else disp = v;
   }
@@ -1426,8 +1428,8 @@ function numInput(path, unit, extra){
   // to placeholder-zero fields keeps the "tab into 0, type 4, get 4" convenience without hijacking
   // the caret while editing a real value.
   const _sel = `onfocus="const el=this;requestAnimationFrame(()=>{if(/^0*(\\.0*)?$/.test(String(el.value).replace(/,/g,'')))el.select();})"`;
-  if(unit==="pct")
-    return `<input type="number" step="any" data-focus="${path}" ${_sel} value="${disp}" ${extra||""} onchange="setUnit('${path}','pct',this.value)">`;
+  if(unit==="pct" || unit==="bps")
+    return `<input type="number" step="any" data-focus="${path}" ${_sel} value="${disp}" ${extra||""} onchange="setUnit('${path}','${unit}',this.value)">`;
   // money & counts: text inputs so thousands separators can live in them
   return `<input type="text" inputmode="decimal" data-focus="${path}" ${_sel} value="${disp===""?"":fmtComma(disp)}" ${extra||""} `
        + `onchange="setUnit('${path}','${unit||""}',this.value);fmtField(this)">`;
@@ -1878,7 +1880,13 @@ function fieldsFor(fam, p, base){
     h += F("New originations ($000s/qtr)", base+".originations_q", "k");
     h += F("Origination growth (%/qtr)", base+".orig_growth_q", "pct");
     h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
-    if(p.rate_type==="float") h += F("Spread over "+((p.index||"sofr").toUpperCase())+" (annual %)", base+".index_spread", "pct");
+    if(p.rate_type==="float"){
+      const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
+      const _idx = (p.index||"sofr").toUpperCase();
+      h += _isCRE
+        ? F("Spread over "+_idx+" (bps)", base+".index_spread", "bps")
+        : F("Spread over "+_idx+" (annual %)", base+".index_spread", "pct");
+    }
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
@@ -1911,7 +1919,13 @@ function fieldsFor(fam, p, base){
     h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "k");
     h += F("Runoff (%/qtr)", base+".runoff_q", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
-    if(p.rate_type==="float") h += F("Spread over "+((p.index||"sofr").toUpperCase())+" (annual %)", base+".index_spread", "pct");
+    if(p.rate_type==="float"){
+      const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
+      const _idx = (p.index||"sofr").toUpperCase();
+      h += _isCRE
+        ? F("Spread over "+_idx+" (bps)", base+".index_spread", "bps")
+        : F("Spread over "+_idx+" (annual %)", base+".index_spread", "pct");
+    }
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
@@ -2035,7 +2049,8 @@ function setOv(fam, i, field, unit, q, raw){
   if(raw===""){ delete f[String(q)]; if(!Object.keys(f).length) delete ov[field]; }
   else {
     let x = parseFloat(raw); if(isNaN(x)) return;
-    if(unit==="pct") x/=100; if(unit==="k") x*=K;
+    if(unit==="pct") x/=100;
+  if(unit==="bps") x/=10000; if(unit==="k") x*=K;
     f[String(q)] = x;
   }
   refresh();
