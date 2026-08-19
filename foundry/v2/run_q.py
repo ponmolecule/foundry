@@ -885,7 +885,7 @@ def run_v2(cfg):
                        lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }
     results["quick_stats"] = {
-        "note": "8 headline metrics \u00d7 three years; the "
+        "note": "8 headline metrics \u00d7 project year; the "
                  "capital metric is CBLR-aware (leverage governs under election)",
         "rows": [
             {"label": "Total Assets (EOP, $000s)", "y": results["annual"]["total_assets_eop"]},
