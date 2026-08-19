@@ -518,6 +518,10 @@ const V31 = !!window.V31;
 const V3 = !!window.V3 || !!window.V22 || V31;
 const V21 = !!window.V21 || V3;
 let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
+// Projection horizon for table headers/columns — reads the configured n_periods (default 12). The
+// result vectors already carry this many periods; headers must match or they stall at Q12 while rows
+// extend (the bug this fixes).
+function NP(){ return (cfg && cfg.assumptions && +cfg.assumptions.n_periods) || 12; }
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
   if(!V21 || !lastRes || !lastRes.callreport || !key) return null;
@@ -2044,12 +2048,12 @@ function ovGridHtml(fam, i){
   if(ovOpen[key]){
     h += '<div class="ovgrid"><div class="ovtitle">Per-quarter overrides <span>blank cells use the baseline shown as placeholder</span></div>';
     h += '<table><tr><th style="text-align:left">Driver</th>';
-    for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
     h += '</tr>';
     ovFieldsFor(fam, p).forEach(([field,label,unit])=>{
       const base = ovDisp(p[field] != null ? p[field] : ((p.mortgage_banking||{})[field]), unit);
       h += `<tr><td>${esc(label)}</td>`;
-      for(let q=1;q<=12;q++){
+      for(let q=1;q<=NP();q++){
         const cur = ((p.overrides||{})[field]||{})[String(q)];
         h += `<td><input type="number" step="any" value="${cur==null?"":ovDisp(cur,unit)}" placeholder="${base}"
           onchange="setOv('${fam}',${i},'${field}','${unit}',${q},this.value)"></td>`;
@@ -2358,7 +2362,7 @@ function renderTabs(){
 function headerRow(withOpen, withTotal){
   let h = "<tr>" + (V21 ? '<th class="ref">Ref</th>' : "") + "<th>Line item ($000s)</th>";
   if(withOpen) h += "<th>Open</th>";
-  for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+  for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
   if(withTotal) h += "<th>Total</th>";
   return h + "</tr>";
 }
@@ -2927,10 +2931,10 @@ function renderExaminer(){
     ["RC","RI","RC-C","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
       h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
-      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:12},(_,q)=>`<th style="text-align:right">Q${q+1}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:NP()},(_,q)=>`<th style="text-align:right">Q${q+1}</th>`).join("") + '</tr>';
       sc.rows.forEach(r=>{
         h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
-          + r.values.slice(0,12).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
+          + r.values.slice(0,NP()).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
       });
       h += '</table></div>';
       if(sc.omitted && sc.omitted.length) h += `<div class="memo" style="font-size:11px">Not modeled (omitted, not zeroed): ${esc(sc.omitted.join("; "))}.</div>`;
@@ -3744,7 +3748,7 @@ function renderContent(){
     const rt = fin.ratios || {};
     h += '<div class="h2">Summary Ratios (annualized)' + (V21 ? '<span class="schedbadge">SCHEDULE RI-X</span>' : '') + '</div>';
     h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Ratio</th>';
-    for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
     h += '</tr>';
     h += rowPct('Return on Average Assets (ROA)', rt.roa);
     h += rowPct('Return on Average Equity (ROE)', rt.roe);
@@ -3756,7 +3760,7 @@ function renderContent(){
     const ST = lastRes && lastRes.capital && lastRes.capital.standardized;
     if(ST){
       h += '<div class="h2" style="margin-top:18px">Standardized Capital (12 CFR 324.32/.33)</div>';
-      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:12},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
+      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:NP()},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
       const rows = [["Risk-weighted assets ($000s)", ST.rwa, null], ["CET1 capital", ST.cet1, null],
         ["Tier 2 (ALLL, capped)", ST.tier2, null], ["Total capital", ST.total, null],
         ["CET1 / RWA (%)", ST.ratios.cet1_rwa, ST.thresholds.cet1_rwa],
@@ -3933,7 +3937,7 @@ function renderContent(){
       const tag = (p.rate_type==="float" ? ' \u2014 SOFR' + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
       h += `<div class="h2" style="font-size:15px">${esc(p.name)}${esc(tag)}</div>`;
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>$000s</th>';
-      for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+      for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
       h += '</tr>';
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
       h += rowBS('End-of-quarter balance', arr12(p.bal, false));
@@ -4078,7 +4082,7 @@ function renderContent(){
     }
     h += '<div class="h2" style="font-size:15px">Net Income by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario ($000s)</th>';
-    for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
     h += '<th>Total</th></tr>';
     scens.forEach(s=>{
       let tot=0, rr = `<tr><td>${esc(s.label)}</td>`;
@@ -4088,7 +4092,7 @@ function renderContent(){
     h += '</table>';
     h += '<div class="h2" style="font-size:15px">Tier 1 Leverage Ratio by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario</th>';
-    for(let q=1;q<=12;q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
     h += '</tr>';
     scens.forEach(s=>{
       const lv = (s.lev_by_q||[]).slice(-12);
@@ -5032,7 +5036,7 @@ function structuresSectionsHtml(){
     let _r = '<div class="csub">Staged raises</div>';
     raises.forEach((r,i)=>{
       _r += `<div class="crow">Qtr<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
-        + Array.from({length:12},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:76px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
         + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
@@ -5041,7 +5045,7 @@ function structuresSectionsHtml(){
     let _b = '<div class="csub">Scheduled borrowings</div>';
     sbs.forEach((b,i)=>{
       _b += `<div class="crow secrow"><input style="flex:0 1 96px;min-width:80px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Qtr<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
-        + Array.from({length:12},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:64px" title="draw $000s" value="${fmtComma((b.amount||0)/1000)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:48px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:42px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">qtrs</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';
