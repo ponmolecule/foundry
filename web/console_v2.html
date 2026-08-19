@@ -2368,8 +2368,9 @@ function headerRow(withOpen, withTotal){
 }
 function arr12(a, hasOpen){
   if(a==null) return null;
-  if(hasOpen) return a.length===13 ? a : [null].concat(a);
-  return a.length===13 ? a.slice(1) : a;
+  const full = NP() + 1;   // (opening slot + NP periods); was hardcoded 13 for a 12-quarter horizon
+  if(hasOpen) return a.length===full ? a : [null].concat(a);
+  return a.length===full ? a.slice(1) : a;
 }
 function rowBS(label, arr, cls, refKey){
   if(!arr) return "";
@@ -3677,7 +3678,9 @@ function renderContent(){
     if(lastRes && lastRes.annual){
       const AN = lastRes.annual;
       h += '<div class="h2" style="margin-top:16px;font-size:14px">Year-End Balances</div>';
-      h += '<table class="fin"><tr><th></th><th>Y1 (Q4)</th><th>Y2 (Q8)</th><th>Y3 (Q12)</th></tr>';
+      const _nyr = (AN.total_assets_eop || []).length;   // one column per project year
+      h += '<table class="fin"><tr><th></th>' +
+           Array.from({length:_nyr},(_,y)=>`<th>Y${y+1} (Q${(y+1)*4})</th>`).join("") + '</tr>';
       [["Total assets", AN.total_assets_eop, "Year-end total assets ($000s), modeled."], ["Net loans", AN.net_loans_eop, "Year-end net loans ($000s): gross loans less allowance."], ["Deposits", AN.deposits_eop, "Year-end total deposits ($000s), modeled."], ["Leverage (%)", AN.lev_eop, "Year-end Tier 1 leverage ratio: Tier 1 capital / average assets."]].forEach(([l,arr,pv])=>{
         h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
