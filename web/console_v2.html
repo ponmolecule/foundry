@@ -4569,8 +4569,8 @@ async function uploadFIW(inp){
 window.uploadFIW = uploadFIW;
 function wizStart(){
   if(!confirmDiscardUnsaved("Starting a new engagement")){ return; }
-  wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"", pre_open_months:9,
-         cblr:true, n_periods:12, initial_capital:0, org_costs:0, picks:{}};
+  wiz = {step:1, name:"", charter:"state_nonmember", state:"", opening:"",
+         cblr:true, n_periods:12, initial_capital:0, picks:{}};
   renderContent();
 }
 function wizSet(k,v){ wiz[k]=v; renderContent(); }
@@ -4589,7 +4589,6 @@ function renderWizard(){
       + `<option value=""${!wiz.state?" selected":""}>\u2014 select a state \u2014</option>`
       + US_STATES.map(s=>`<option value="${esc(s)}"${wiz.state===s?" selected":""}>${esc(s)}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>Target opening date</label><input value="${esc(wiz.opening)}" placeholder="e.g., 2027-Q2" onchange="wiz.opening=this.value"></div>`
-      + `<div class="fld"><label>Pre-opening period (months)</label><input type="number" value="${wiz.pre_open_months}" onchange="wizSet('pre_open_months',+this.value)"></div>`
       + `<div class="fld"><label>Projection horizon</label><select onchange="wizSet('n_periods',+this.value)">`
       + [[12,"3 years (12 quarters)"],[20,"5 years (20 quarters)"],[28,"7 years (28 quarters)"]]
           .map(([v,lbl])=>`<option value="${v}"${(wiz.n_periods||12)===v?" selected":""}>${lbl}</option>`).join("") + '</select></div>'
@@ -4598,13 +4597,10 @@ function renderWizard(){
     h += wizChip(`<b>Resolved, not asked:</b> primary federal regulator \u2014 <b>${REGULATOR_OF[wiz.charter]}</b>. Capital thresholds and risk weights come from the versioned regulatory parameter set; nothing regulatory is typed by hand.`);
   }
   if(wiz.step===2){
-    const day1 = wiz.initial_capital - wiz.org_costs;
-    const lev = day1 / Math.max(wiz.initial_capital, 1) * 100;
     h += '<div class="ovh3">Capital</div><div class="card"><div class="fields">'
       + `<div class="fld"><label>Initial capital raise ($000s)</label><input type="text" inputmode="decimal" value="${fmtComma(wiz.initial_capital/K)}" onchange="wizSet('initial_capital',(parseFloat(String(this.value).replace(/,/g,''))||0)*K);fmtField(this)"></div>`
-      + `<div class="fld"><label>Pre-opening organizational costs ($000s)</label><input type="text" inputmode="decimal" value="${fmtComma(wiz.org_costs/K)}" onchange="wizSet('org_costs',(parseFloat(String(this.value).replace(/,/g,''))||0)*K);fmtField(this)"></div>`
       + '</div></div>';
-    h += wizChip(`<b>Day-1 arithmetic:</b> ${fmtC(wiz.initial_capital)} raised \u2212 ${fmtC(wiz.org_costs)} organizational costs = <b>${fmtC(day1)}</b> opening equity (${lev.toFixed(1)}% of the raise). Staged follow-on raises are modeled \u2014 add them in the sidebar\u2019s Capital &amp; tax cluster after creation.`, day1 <= 0);
+    h += wizChip(`<b>${fmtC(wiz.initial_capital)}</b> initial capital raise. Enter pre-opening organizational costs after creation in the Pre-opening card; the model checks capital sufficiency (PREOPEN-01) against those costs on each run. Staged follow-on raises are modeled \u2014 add them in the sidebar\u2019s Capital &amp; tax cluster.`, wiz.initial_capital <= 0);
   }
   if(wiz.step===3){
     let picked = 0, hasDep = false;
@@ -4632,8 +4628,8 @@ async function wizFinish(){
   const hasDep = Object.keys(wiz.picks).some(k=>k.startsWith("Deposits|") && wiz.picks[k]);
   if(!wiz.name.trim()){ appStatus("err", "<b>Name the institution first.</b>"); return; }
   if(!hasDep){ appStatus("err", "<b>Select at least one deposit product</b> \u2014 a de novo funds before it lends."); return; }
-  if(wiz.initial_capital <= 0 || wiz.org_costs >= wiz.initial_capital){
-    appStatus("err", "<b>Entry screen:</b> organizational costs meet or exceed the raise \u2014 Day-1 equity would be zero or negative. Fix the capital screen before creating the engagement."); return; }
+  if(wiz.initial_capital <= 0){
+    appStatus("err", "<b>Entry screen:</b> enter an initial capital raise greater than zero before creating the engagement."); return; }
   // a NEW engagement starts from a clean shell — never from whatever session was open
   cfg = JSON.parse(JSON.stringify(TEMPLATE));
   // Invalidate any prior engagement's run result. pstat() matches per-product Q12 stats by NAME
@@ -4653,12 +4649,11 @@ async function wizFinish(){
   cfg.scenario_name = wiz.name + " \u2014 engagement baseline";
   cfg.step_minus_1 = cfg.step_minus_1 || {};
   cfg.charter_profile = {charter_type: wiz.charter, regulator: REGULATOR_OF[wiz.charter],
-    state: wiz.state, target_opening: wiz.opening, pre_open_months: wiz.pre_open_months,
+    state: wiz.state, target_opening: wiz.opening,
     cblr_election: wiz.cblr, source: "wizard"};
   cfg.assumptions.n_periods = wiz.n_periods || 12;
   cfg.target_state.initial_capital = wiz.initial_capital;
-  cfg.pre_opening = {expenses: wiz.org_costs > 0
-    ? [{category: "Organizational costs", total: wiz.org_costs}] : []};
+  cfg.pre_opening = {expenses: []};   // pre-opening costs are entered post-creation in the Pre-opening card
   cfg.assumptions.deposit_products = []; cfg.assumptions.lending_products = [];
   Object.entries(wiz.picks).forEach(([k,on])=>{
     if(!on) return;
