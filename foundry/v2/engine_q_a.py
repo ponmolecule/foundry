@@ -129,9 +129,12 @@ def _apply_overlays(lend, dep, a, ov):
         p["originations_q"] = (p.get("originations_q") or 0.0) * (1 - (ov.get("origination_volume_haircut", 0) or 0))
         mb = p.get("mortgage_banking")
         if mb:
-            mb["gain_on_sale_margin"] *= (1 - (ov.get("gos_margin_compression", 0) or 0))
-            mb["msr_cap_rate_pct_upb"] *= (1 - (ov.get("msr_value_haircut", 0) or 0))
-            mb["sale_pct_of_orig"] *= (1 - (ov.get("sale_share_retention_shift", 0) or 0))
+            if "gain_on_sale_margin" in mb:
+                mb["gain_on_sale_margin"] *= (1 - (ov.get("gos_margin_compression", 0) or 0))
+            if "msr_cap_rate_pct_upb" in mb:
+                mb["msr_cap_rate_pct_upb"] *= (1 - (ov.get("msr_value_haircut", 0) or 0))
+            if "sale_pct_of_orig" in mb:
+                mb["sale_pct_of_orig"] *= (1 - (ov.get("sale_share_retention_shift", 0) or 0))
 
 
 def run_pf_a(cfg):
@@ -143,6 +146,28 @@ def run_pf_a(cfg):
     Q = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
+    # Originate-to-sell normalization. The engine reads the sale config under the `mortgage_banking`
+    # key (historical name). A product may instead carry the product-neutral `originate_to_sell` block;
+    # normalize it into `mortgage_banking` so all downstream reads are unchanged. Backward-compat is
+    # exact: a product with `mortgage_banking` and no `originate_to_sell` is left byte-identical, and
+    # `sale_timing` defaults to "at_origination" (the historical behavior). MSR fields default to 0
+    # when absent (off-mortgage products), matching the prior `.get(...,0)` reads.
+    for _p in lend:
+        _ots = _p.get("originate_to_sell")
+        if _ots and not _p.get("mortgage_banking"):
+            _mb = {
+                "sale_pct_of_orig": _ots.get("sale_pct", _ots.get("sale_pct_of_orig", 0.0)) or 0.0,
+                "gain_on_sale_margin": _ots.get("gain_on_sale_margin", 0.0) or 0.0,
+                "warehouse_hold_q": int(_ots.get("warehouse_hold_q", 0) or 0),
+                "servicing_retained_pct": _ots.get("servicing_retained_pct", 0.0) or 0.0,
+                "servicing_fee_bp_ann": _ots.get("servicing_fee_bp_ann", 0.0) or 0.0,
+                "msr_cap_rate_pct_upb": _ots.get("msr_cap_rate_pct_upb", 0.0) or 0.0,
+                "msr_decay_q": _ots.get("msr_decay_q", 0.0) or 0.0,
+                # new: seasoning-based sale. "at_origination" reproduces historical behavior.
+                "sale_timing": _ots.get("sale_timing", "at_origination"),
+                "season_q": int(_ots.get("season_q", 0) or 0),
+            }
+            _p["mortgage_banking"] = _mb
     dep = copy.deepcopy(a.get("deposit_products") or [])
     obs = copy.deepcopy(a.get("obs_exposures") or [])
     afs_p = copy.deepcopy(a.get("securities_afs") or [])
@@ -277,6 +302,22 @@ def run_pf_a(cfg):
     for p in lend:
         mb = p.get("mortgage_banking") or {}
         h = int(mb.get("warehouse_hold_q", 0) or 0)
+        # Originate-to-sell timing. "at_origination" (default/historical): a fraction is designated for
+        # sale at origination and warehoused briefly (the mortgage/SBA path below via p["_sale"]).
+        # "after_seasoning": the account is HELD (earning, reserved) for season_q quarters, THEN a
+        # fraction of the seasoned cohort is sold at a gain. For after_seasoning nothing is sold at
+        # origination, so p["_sale"] stays 0 and the warehouse path stays dormant; the seasoned sale is
+        # handled by its own cohort tracker below and reduces the ending balance in the sale quarter.
+        _sale_timing = mb.get("sale_timing", "at_origination")
+        _season_sale = (_sale_timing == "after_seasoning") and (mb.get("sale_pct_of_orig", 0.0) or 0.0) > 0
+        if _season_sale:
+            p["_sale"] = 0.0                                   # nothing sold at origination
+            _sq = int(mb.get("season_q", 0) or 0)
+            _spct = mb.get("sale_pct_of_orig", 0.0) or 0.0
+            _smargin = mb.get("gain_on_sale_margin", 0.0) or 0.0
+            _scoh = []                                         # [balance, age] origination cohorts
+            if (p["_bal"][0] or 0.0) > 0:
+                _scoh.append([p["_bal"][0], 0])
         # Level-payment amortization for TERM products (structure=='term' with a maturity). Each cohort
         # (the opening book, then each quarter's retained originations) amortizes on a constant-payment
         # schedule over term_q quarters and is gone at maturity. When not a term product, _amort stays
@@ -322,6 +363,34 @@ def run_pf_a(cfg):
                 end = max(0.0, gross - co)
             else:
                 end = max(0.0, beg + retained - beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) - co)
+            # after_seasoning originate-to-sell: age cohorts; when one reaches season_q, sell sale_pct of
+            # its current balance. Each cohort decays by the product's runoff_q (so the cohort sum tracks
+            # the same paydown as the balance), then the sale removes principal and books a gain =
+            # sold_balance * gain_on_sale_margin. New origination enters as a fresh cohort. The sold
+            # amount is subtracted from `end` so the balance sheet reflects the sale.
+            _season_gain_q = 0.0
+            if _season_sale:
+                _ro = _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0)
+                _snext = []
+                _sold_amt = 0.0
+                for _b, _a in _scoh:
+                    _bcur = _b * max(0.0, 1 - _ro)             # decay this cohort like the balance
+                    _newage = _a + 1
+                    if _newage == _sq and _bcur > 0:           # held season_q full quarters -> sell now
+                        _sell = _bcur * _spct
+                        _sold_amt += _sell
+                        _season_gain_q += _sell * _smargin
+                        _keep = _bcur - _sell
+                        if _keep > 1e-9:
+                            _snext.append([_keep, _newage])
+                    elif _bcur > 1e-9:
+                        _snext.append([_bcur, _newage])
+                if retained > 0:
+                    _snext.append([retained, 0])
+                _scoh = _snext
+                end = max(0.0, end - _sold_amt)
+                p["_sold"][q] = p["_sold"][q] + _sold_amt      # report as sold volume this quarter
+                p.setdefault("_season_gos", []).append(_season_gain_q)
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
@@ -360,8 +429,10 @@ def run_pf_a(cfg):
                 p["_ii"][q] += wh_int
                 p["_gos"].append(gos)
         else:
+            _sgos = p.get("_season_gos") or []
             for q in range(1, Q + 1):
-                p["_wh"].append(0.0); p["_whc"].append(0.0); p["_gos"].append(0.0)
+                p["_wh"].append(0.0); p["_whc"].append(0.0)
+                p["_gos"].append(_sgos[q - 1] if q - 1 < len(_sgos) else 0.0)
         # servicing retained: MSR capitalized at settlement, amortized on decay
         srv = mb.get("servicing_retained_pct", 0.0) or 0.0
         if p["_sale"] > 0 and srv > 0:
