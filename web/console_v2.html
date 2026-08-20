@@ -2028,7 +2028,7 @@ function prodCardHtml(fam, i){
           `<option value="revolving"${_struct==="revolving"?" selected":""}>Revolving (line of credit)</option></select></div>`;
       }
       if(_struct==="term"){
-        h += F("Maturity / term (quarters)", base+".term_q", "num");
+        h += `<div class="fld"><label>Maturity / term (quarters)</label>${numInput(base+".term_q", "num")}</div>`;
         h += `<div class="fhint" style="font-size:10px;color:#8FA3C0;margin:-4px 0 6px">Level-payment amortization: the balance pays down on a constant-payment schedule and matures to zero at term.</div>`;
       }
       // SBA products (product_kind==='sba') can sell the guaranteed portion into the secondary market
