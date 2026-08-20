@@ -277,6 +277,19 @@ def run_pf_a(cfg):
     for p in lend:
         mb = p.get("mortgage_banking") or {}
         h = int(mb.get("warehouse_hold_q", 0) or 0)
+        # Level-payment amortization for TERM products (structure=='term' with a maturity). Each cohort
+        # (the opening book, then each quarter's retained originations) amortizes on a constant-payment
+        # schedule over term_q quarters and is gone at maturity. When not a term product, _amort stays
+        # False and the flat-runoff path below runs UNCHANGED (byte-identical for every existing config).
+        _amort = (p.get("structure") == "term") and int(p.get("term_q") or 0) > 0
+        if _amort:
+            _T = int(p["term_q"])
+            # cohorts: list of [remaining_balance, quarters_elapsed]. Opening book is a seasoned even
+            # ladder — treat it as one cohort at age 0 amortizing over its remaining term (approximation:
+            # the opening book amortizes over a full term from Day 1; refined seasoning is a later item).
+            _coh = []
+            if (p["_bal"][0] or 0.0) > 0:
+                _coh.append([p["_bal"][0], 0])
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
             r = _prod_rate(p, q, rate)
@@ -285,7 +298,30 @@ def run_pf_a(cfg):
                      (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1))
             retained = o * (1 - p["_sale"])
             p["_sold"].append(o * p["_sale"])
-            end = max(0.0, beg + retained - beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) - co)
+            if _amort:
+                # amortize every living cohort one quarter (level payment), then add this quarter's
+                # retained origination as a fresh cohort. Balance = sum of cohorts, less charge-offs.
+                _i = max(0.0, r) / 4.0
+                _next = []
+                for _bal, _age in _coh:
+                    _rem = _T - _age
+                    if _rem <= 0 or _bal <= 0:
+                        continue
+                    if _i > 0:
+                        _pay = _bal * _i / (1 - (1 + _i) ** (-_rem))
+                        _princ = _pay - _bal * _i
+                    else:
+                        _princ = _bal / _rem
+                    _nb = max(0.0, _bal - _princ)
+                    if _nb > 1e-9 and (_age + 1) < _T:
+                        _next.append([_nb, _age + 1])
+                if retained > 0:
+                    _next.append([retained, 0])
+                _coh = _next
+                gross = sum(_b for _b, _a in _coh)
+                end = max(0.0, gross - co)
+            else:
+                end = max(0.0, beg + retained - beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) - co)
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)

@@ -491,11 +491,12 @@ const LINE_LABELS_V31 = Object.assign({}, LINE_LABELS, {loanCRE: "Loans: Commerc
   depInstitutional: "Deposits: Institutional & listing-service"});
 const TAXONOMY_V31 = {
   "Loans": [
-    {name:"Consumer Installment", line:"loanConsumer", fam:"lending"},
+    {name:"Consumer", line:"loanConsumer", fam:"lending"},
     {name:"Credit Card", line:"loanCreditCard", fam:"lending"},
-    {name:"Small Business / C&I", line:"loanCommercial", fam:"lending"},
-    {name:"Residential Mortgage", line:"loanMortgage", fam:"lending"},
-    {name:"Commercial Real Estate", line:"loanCRE", fam:"lending"}],
+    {name:"Residential Mortgage / HELOC", line:"loanMortgage", fam:"lending"},
+    {name:"Commercial & Industrial", line:"loanCommercial", fam:"lending"},
+    {name:"Commercial Real Estate", line:"loanCRE", fam:"lending"},
+    {name:"SBA", line:"loanCommercial", fam:"lending", sba:true}],
   "Deposits": [
     {name:"Retail Demand", line:"depDDA", fam:"deposit"},
     {name:"MMDA / Savings", line:"depSavings", fam:"deposit"},
@@ -2028,6 +2029,13 @@ function prodCardHtml(fam, i){
       }
       if(_struct==="term"){
         h += F("Maturity / term (quarters)", base+".term_q", "num");
+        h += `<div class="fhint" style="font-size:10px;color:#8FA3C0;margin:-4px 0 6px">Level-payment amortization: the balance pays down on a constant-payment schedule and matures to zero at term.</div>`;
+      }
+      // SBA products (product_kind==='sba') can sell the guaranteed portion into the secondary market
+      // at a gain — this reuses the existing originate-to-sell (mortgage_banking) mechanic. Toggle only.
+      if(p.product_kind==="sba"){
+        const _sold = !!p.mortgage_banking;
+        h += `<div class="fld"><label>Guaranteed portion sold (secondary market)</label><select onchange="if(this.value==='y'){setPath('${base}.mortgage_banking',{sale_pct_of_orig:0.75,gain_on_sale_margin:0.05,warehouse_hold_q:1,servicing_retained_pct:1.0,servicing_fee_bp_ann:40,msr_cap_rate_pct_upb:0,msr_decay_q:0})}else{setPath('${base}.mortgage_banking',null)};renderContent();refresh()"><option value="n"${!_sold?" selected":""}>No \u2014 held on book (504-style)</option><option value="y"${_sold?" selected":""}>Yes \u2014 sold at gain (7(a)-style)</option></select></div>`;
       }
     }
     if(fam==="lending"){
@@ -2185,11 +2193,12 @@ function TAX31(){
     // measurement, call_report_line) keep sensible non-numeric defaults so the
     // product is valid; only the substantive amounts are zero.
     "Loans": [
-      {name:"Consumer Installment", line:"loanConsumer", fam:"lending", tpl:L("Consumer Installment","loanConsumer",{})},
-      {name:"Credit Card", line:"loanCreditCard", fam:"lending", tpl:L("Credit Card","loanCreditCard",{})},
-      {name:"Small Business / C&I", line:"loanCommercial", fam:"lending", tpl:L("Small Business / C&I","loanCommercial",{})},
-      {name:"Residential Mortgage", line:"loanMortgage", fam:"lending", tpl:L("Residential Mortgage","loanMortgage",{})},
-      {name:"Commercial Real Estate", line:"loanCRE", fam:"lending", tpl:L("Commercial Real Estate","loanCRE",{})}],
+      {name:"Consumer", line:"loanConsumer", fam:"lending", tpl:L("Consumer","loanConsumer",{})},
+      {name:"Credit Card", line:"loanCreditCard", fam:"lending", tpl:L("Credit Card","loanCreditCard",{structure:"revolving"})},
+      {name:"Residential Mortgage / HELOC", line:"loanMortgage", fam:"lending", tpl:L("Residential Mortgage / HELOC","loanMortgage",{})},
+      {name:"Commercial & Industrial", line:"loanCommercial", fam:"lending", tpl:L("Commercial & Industrial","loanCommercial",{})},
+      {name:"Commercial Real Estate", line:"loanCRE", fam:"lending", tpl:L("Commercial Real Estate","loanCRE",{structure:"term"})},
+      {name:"SBA", line:"loanCommercial", fam:"lending", tpl:L("SBA","loanCommercial",{product_kind:"sba", rate_type:"float", index:"prime", index_spread:0.0275})}],
     "Deposits": [
       {name:"Retail Demand", line:"depDDA", fam:"deposit", tpl:D("Retail Demand","depDDA",{_adds_m:0, _runoff_ann:0})},
       {name:"MMDA / Savings", line:"depSavings", fam:"deposit", tpl:D("MMDA / Savings","depSavings",{_adds_m:0, _runoff_ann:0})},
