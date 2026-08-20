@@ -2008,6 +2008,29 @@ function prodCardHtml(fam, i){
         `<option value="prime"${_idx==="prime"?" selected":""}>Prime</option></select></div>`;
     }
     if(fam==="lending"){
+      // Structure selector (revolving | term). Mirrors the rate_type conditional: choosing 'term'
+      // triggers the maturity field; 'revolving' triggers none (runoff_q handles paydown). Credit
+      // Card is revolving-only; CRE is term-only — those lock. Both structure and term_q are stored
+      // but the ENGINE DOES NOT READ THEM YET (proven inert: hash unchanged with them injected).
+      const _line = p.call_report_line || p.line;
+      const _lockRevolving = _line === "loanCreditCard";
+      const _lockTerm = _line === "loanCRE";
+      const _struct = p.structure || (_lockRevolving ? "revolving" : (_lockTerm ? "term" : ""));
+      if(_lockRevolving){
+        h += `<div class="fld"><label>Structure</label><input value="Revolving" disabled title="Credit card is revolving by nature"></div>`;
+      } else if(_lockTerm){
+        h += `<div class="fld"><label>Structure</label><input value="Term" disabled title="CRE is a term product"></div>`;
+      } else {
+        h += `<div class="fld"><label>Structure</label><select onchange="setPath('${base}.structure', this.value); renderContent()">`+
+          `<option value=""${!_struct?" selected":""}>\u2014 select \u2014</option>`+
+          `<option value="term"${_struct==="term"?" selected":""}>Term (amortizing, has maturity)</option>`+
+          `<option value="revolving"${_struct==="revolving"?" selected":""}>Revolving (line of credit)</option></select></div>`;
+      }
+      if(_struct==="term"){
+        h += F("Maturity / term (quarters)", base+".term_q", "num");
+      }
+    }
+    if(fam==="lending"){
       h += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement', this.value); renderContent()">`+
         `<option value="amortized"${p.measurement!=="fair_value"?" selected":""}>Amortized cost</option>`+
         `<option value="fair_value"${p.measurement==="fair_value"?" selected":""}>Fair value (DCF, FV option)</option></select></div>`;
