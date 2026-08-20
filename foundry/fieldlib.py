@@ -16,7 +16,7 @@ CharterIQ-certified peer values when the substrate gates open (standing decision
 
 # ---- Tier A/B: asked once, archetype-independent -------------------------
 TIER_A = ["institution_name", "charter_type", "state_market", "opening_date",
-          "pre_open_months", "cblr_election", "peer_archetype",
+          "cblr_election", "peer_archetype",
           "de_novo_period_years", "tax_rate_override"]
 TIER_B = ["initial_capital", "org_costs_pre_open", "pre_open_payroll_monthly",
           "staged_raises"]

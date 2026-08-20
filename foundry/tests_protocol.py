@@ -320,7 +320,7 @@ def t22():
     cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
     cfg["proposed_bank"] = "Testament Bank"
     cfg["charter_profile"] = {"charter_type": "national", "regulator": "OCC",
-                                "cblr_election": True, "pre_open_months": 9}
+                                "cblr_election": True}
     cfg["assumptions"]["deposit_products"] = [{"name": "Retail Demand", "call_report_line": "depDDA",
         "opening_balance": 8_930_000, "growth_q": 0.24, "runoff_q": 0.0, "rate_type": "fixed",
         "rate_paid_ann": 0.005, "fee_yield_ann": 0.0, "opex_pct_ann": 0.0, "opex_fixed_m": 0.0}]
