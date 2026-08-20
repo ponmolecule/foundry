@@ -2035,7 +2035,22 @@ function prodCardHtml(fam, i){
       // at a gain — this reuses the existing originate-to-sell (mortgage_banking) mechanic. Toggle only.
       if(p.product_kind==="sba"){
         const _sold = !!p.mortgage_banking;
-        h += `<div class="fld"><label>Guaranteed portion sold (secondary market)</label><select onchange="if(this.value==='y'){setPath('${base}.mortgage_banking',{sale_pct_of_orig:0.75,gain_on_sale_margin:0.05,warehouse_hold_q:1,servicing_retained_pct:1.0,servicing_fee_bp_ann:40,msr_cap_rate_pct_upb:0,msr_decay_q:0})}else{setPath('${base}.mortgage_banking',null)};renderContent();refresh()"><option value="n"${!_sold?" selected":""}>No \u2014 held on book (504-style)</option><option value="y"${_sold?" selected":""}>Yes \u2014 sold at gain (7(a)-style)</option></select></div>`;
+        h += `<div class="fld"><label>Guaranteed portion sold (secondary market)</label><select onchange="if(this.value==='y'){setPath('${base}.mortgage_banking',{sale_pct_of_orig:0.75,gain_on_sale_margin:0.05,warehouse_hold_q:1,servicing_retained_pct:1.0,servicing_fee_bp_ann:40,sale_timing:'at_origination'})}else{setPath('${base}.mortgage_banking',null)};renderContent();refresh()"><option value="n"${!_sold?" selected":""}>No \u2014 held on book (504-style)</option><option value="y"${_sold?" selected":""}>Yes \u2014 sold at gain (7(a)-style)</option></select></div>`;
+      }
+      // Originate-to-sell AFTER SEASONING (credit card / consumer installment): originate and hold the
+      // account (earning, reserved) for a seasoning period, then sell a fraction of the seasoned cohort
+      // at a gain. Distinct from the mortgage/SBA sell-at-origination path. Offered on consumer lines.
+      const _seasonable = (_line === "loanConsumer" || _line === "loanCreditCard");
+      if(_seasonable){
+        const _ots = p.originate_to_sell || null;
+        const _on = !!(_ots && _ots.sale_timing === "after_seasoning");
+        h += `<div class="fld"><label>Originate-to-sell (after seasoning)</label><select onchange="if(this.value==='y'){setPath('${base}.originate_to_sell',{sale_timing:'after_seasoning',season_q:4,sale_pct:0.5,gain_on_sale_margin:0.03})}else{setPath('${base}.originate_to_sell',null)};renderContent();refresh()"><option value="n"${!_on?" selected":""}>No \u2014 held to term / on book</option><option value="y"${_on?" selected":""}>Yes \u2014 hold, season, then sell</option></select></div>`;
+        if(_on){
+          h += `<div class="fld"><label>Seasoning before sale (quarters)</label>${numInput(base+".originate_to_sell.season_q", "num")}</div>`;
+          h += `<div class="fld"><label>Share sold at seasoning (%)</label>${numInput(base+".originate_to_sell.sale_pct", "pct")}</div>`;
+          h += `<div class="fld"><label>Gain-on-sale margin (%)</label>${numInput(base+".originate_to_sell.gain_on_sale_margin", "pct")}</div>`;
+          h += `<div class="fhint" style="font-size:10px;color:#8FA3C0;margin:-4px 0 6px">Accounts are held on book (earning, reserved) for the seasoning period, then the specified share is sold at a gain.</div>`;
+        }
       }
     }
     if(fam==="lending"){
