@@ -5523,6 +5523,7 @@ function renderOptimizeResult(d){
     });
   }
   h += `<div class="s" style="margin-top:10px;color:${d.nonunique?"#E0B080":"#8FA3C0"}">${esc(d.note||"")}</div>`;
+  if(d.solver) h += `<div class="s" style="margin-top:2px;color:#5F7291;font-size:10px">Solver: ${esc(d.solver)} \u00b7 ${d.seeds_run} seed${d.seeds_run>1?"s":""}</div>`;
   h += '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn-plain" onclick="adoptOptimize()">Adopt into model</button><button class="btn-plain" onclick="document.getElementById(\'optResult\').innerHTML=\'\'">Discard</button></div>';
   h += '</div>';
   out.innerHTML = h;
