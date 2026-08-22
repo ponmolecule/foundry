@@ -38,14 +38,16 @@ def _ratio_last(res, key):
 
 
 def _cet1_last(res):
-    # standardized CET1 ratio, final quarter, from the capital schedule
+    # CET1 RATIO (percent), final quarter. The real ratio lives in capital.standardized.ratios.cet1_rwa.
+    # NOTE: standardized.cet1 is the capital DOLLAR amount (numerator), NOT the ratio — do not use it.
     cap = res.get("capital") or {}
     std = cap.get("standardized") or {}
-    rows = std.get("rows") or std
-    for cand in ("cet1_ratio", "cet1", "cet1_pct"):
-        v = _last_num(rows.get(cand)) if isinstance(rows, dict) else None
-        if v is not None:
-            return v
+    ratios = std.get("ratios") or {}
+    if isinstance(ratios, dict):
+        for cand in ("cet1_rwa", "cet1_ratio", "cet1"):
+            v = _last_num(ratios.get(cand))
+            if v is not None:
+                return v
     return None
 
 

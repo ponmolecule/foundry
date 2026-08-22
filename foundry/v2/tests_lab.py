@@ -34,6 +34,16 @@ def main():
     # 4. engine byte-identical after all Lab operations
     ck("engine byte-identical (isolation)", _fh(json.load(open("foundry/fixtures/universal_template_bank.json"))) == "3fee151428f6991e")
 
+    # 4b. REGRESSION: CET1 must be a RATIO (0<v<100 pct), not a dollar amount, and must FALL as loans
+    # (and thus RWA) grow. This guards the bug where the extractor returned standardized.cet1 (dollars).
+    cet1_base = lab_core.metric_value(run_fn(cfg), "cet1")
+    c_small = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_q", 2000000)
+    c_big = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_q", 8000000)
+    cet1_small = lab_core.metric_value(run_fn(c_small), "cet1")
+    cet1_big = lab_core.metric_value(run_fn(c_big), "cet1")
+    ck("CET1 is a ratio (0<v<100) that falls as loans grow",
+       cet1_base is not None and 0 < cet1_base < 100 and cet1_big < cet1_small)
+
     # 5. sensitivity ranks by swing (tornado order) and returns a baseline
     levers = [f"assumptions.lending_products.{i}.yield_ann" for i,p in enumerate(cfg["assumptions"]["lending_products"]) if isinstance(p.get("yield_ann"),(int,float))]
     s = lab_core.sensitivity(cfg, run_fn, levers, "roa", pct=0.10)
