@@ -5021,9 +5021,10 @@ document.addEventListener("click", (ev)=>{
 // target metric) and Scenario (manual multi-lever what-if vs baseline). More modes layer in later.
 let _labMode = "goalseek";
 window._labMode = _labMode;
-const LAB_METRICS = [["eff","Efficiency ratio","%"],["roa","Return on assets","%"],["roe","Return on equity","%"],
-  ["nim","Net interest margin","%"],["lev","Leverage ratio","%"],["cet1","CET1 ratio","%"],
-  ["ni","Net income (final yr)","$000s"],["assets","Total assets (final yr)","$000s"]];
+const LAB_METRICS = [["eff","Efficiency ratio","%","lower"],["roa","Return on assets","%","higher"],["roe","Return on equity","%","higher"],
+  ["nim","Net interest margin","%","higher"],["lev","Leverage ratio","%","higher"],["cet1","CET1 ratio","%","higher"],
+  ["ni","Net income (final yr)","$000s","higher"],["assets","Total assets (final yr)","$000s","neutral"]];
+function _metricDir(id){ const m=LAB_METRICS.find(x=>x[0]===id); return m?(m[3]||"higher"):"higher"; }
 function setLabMode(m){ _labMode = m; renderLab(); }
 window.setLabMode = setLabMode;
 
@@ -5546,13 +5547,13 @@ function labFrontierHtml(){
   let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:960px">';
   h += '<div class="k" style="margin:0 0 4px">Efficient Frontier</div>';
   h += '<div class="s" style="margin-bottom:14px">Pick two objectives that pull against each other and two levers to sweep. The Lab plots every achievable combination and highlights the frontier \u2014 the settings where you can\u2019t improve one objective without giving up the other. If the two objectives don\u2019t actually compete over these levers, the frontier collapses to a single best point (that\u2019s real information, not a bug).</div>';
-  const mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("");
-  const moptsB = LAB_METRICS.map((m,i)=>`<option value="${m[0]}"${i===4?' selected':''}>${m[1]}</option>`).join("");  // default B to Leverage
+  h += '<div class="s" style="margin-bottom:10px;color:#8FA3C0">Each objective is driven toward its natural best (higher-is-better metrics up, lower-is-better metrics down). Axes are oriented so \u201cbetter\u201d is always toward the top-right.</div>';
+  const dirWord = d => d==="lower" ? " (lower is better)" : d==="neutral" ? "" : " (higher is better)";
+  const mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}${dirWord(m[3])}</option>`).join("");
+  const moptsB = LAB_METRICS.map((m,i)=>`<option value="${m[0]}"${i===4?' selected':''}>${m[1]}${dirWord(m[3])}</option>`).join("");  // default B to Leverage
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">';
-  h += '<div class="fld" style="width:100px"><label>Objective A</label><select id="frDirA"><option value="max">Max</option><option value="min">Min</option></select></div>';
-  h += '<div class="fld" style="min-width:170px"><label>&nbsp;</label><select id="frObjA">'+mopts+'</select></div>';
-  h += '<div class="fld" style="width:100px"><label>Objective B</label><select id="frDirB"><option value="max">Max</option><option value="min">Min</option></select></div>';
-  h += '<div class="fld" style="min-width:170px"><label>&nbsp;</label><select id="frObjB">'+moptsB+'</select></div>';
+  h += '<div class="fld" style="min-width:210px"><label>Objective A (horizontal)</label><select id="frObjA">'+mopts+'</select></div>';
+  h += '<div class="fld" style="min-width:210px"><label>Objective B (vertical)</label><select id="frObjB">'+moptsB+'</select></div>';
   h += '</div>';
   const lopts = levers.map(l=>`<option value="${esc(l.path)}">${esc(l.label)}</option>`).join("");
   const loptsY = levers.map((l,i)=>`<option value="${esc(l.path)}"${i===1?' selected':''}>${esc(l.label)}</option>`).join("");
@@ -5568,8 +5569,11 @@ function labFrontierHtml(){
 }
 
 async function runLabFrontier(){
-  const obj_a=document.getElementById("frObjA").value, dir_a=document.getElementById("frDirA").value;
-  const obj_b=document.getElementById("frObjB").value, dir_b=document.getElementById("frDirB").value;
+  const obj_a=document.getElementById("frObjA").value;
+  const obj_b=document.getElementById("frObjB").value;
+  const _toMaxMin = d => d==="lower" ? "min" : "max";   // neutral defaults to max
+  const dir_a=_toMaxMin(_metricDir(obj_a));
+  const dir_b=_toMaxMin(_metricDir(obj_b));
   const x_path=document.getElementById("frX").value, y_path=document.getElementById("frY").value;
   const n=parseInt(document.getElementById("frN").value,10);
   const out=document.getElementById("frResult");
@@ -5597,21 +5601,29 @@ function renderFrontier(d){
   let amin=Math.min(...as),amax=Math.max(...as),bmin=Math.min(...bs),bmax=Math.max(...bs);
   if(amin===amax){amin-=1;amax+=1;} if(bmin===bmax){bmin-=1;bmax+=1;}
   const W=760,H=460,padL=70,padB=54,padT=20,padR=20, cw=W-padL-padR, ch=H-padT-padB;
-  const sx=a=>padL+(a-amin)/(amax-amin)*cw;
-  const sy=b=>padT+ch-(b-bmin)/(bmax-bmin)*ch;
+  // AUTO-ORIENT so "better" is toward the top-right. Lower-is-better metrics get their axis reversed.
+  const aLowerBetter = _metricDir(d.obj_a)==="lower";
+  const bLowerBetter = _metricDir(d.obj_b)==="lower";
+  // x: normally low->left/high->right; if A is lower-is-better, flip so low(better)->right
+  const sx = a => aLowerBetter ? (padL + (amax-a)/(amax-amin)*cw) : (padL + (a-amin)/(amax-amin)*cw);
+  // y: normally low->bottom/high->top; if B is lower-is-better, flip so low(better)->top
+  const sy = b => bLowerBetter ? (padT + (b-bmin)/(bmax-bmin)*ch) : (padT + ch - (b-bmin)/(bmax-bmin)*ch);
   let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#0A1424;border:1px solid #2A3B57;border-radius:8px">`;
   // axes
   svg+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ch}" stroke="#3A4B67" stroke-width="1"/>`;
   svg+=`<line x1="${padL}" y1="${padT+ch}" x2="${padL+cw}" y2="${padT+ch}" stroke="#3A4B67" stroke-width="1"/>`;
-  // axis ticks (min/max)
-  svg+=`<text x="${padL}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10">${amin.toFixed(2)}</text>`;
-  svg+=`<text x="${padL+cw}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10" text-anchor="end">${amax.toFixed(2)}</text>`;
-  svg+=`<text x="${padL+cw/2}" y="${padT+ch+40}" fill="#B8C6DC" font-size="12" text-anchor="middle">${esc(la)} (${d.dir_a})</text>`;
-  svg+=`<text x="${padL-8}" y="${padT+8}" fill="#8FA3C0" font-size="10" text-anchor="end">${bmax.toFixed(2)}</text>`;
-  svg+=`<text x="${padL-8}" y="${padT+ch}" fill="#8FA3C0" font-size="10" text-anchor="end">${bmin.toFixed(2)}</text>`;
-  svg+=`<text x="18" y="${padT+ch/2}" fill="#B8C6DC" font-size="12" text-anchor="middle" transform="rotate(-90 18 ${padT+ch/2})">${esc(lb)} (${d.dir_b})</text>`;
-  // frontier line (sorted by a)
-  const fr=(d.frontier||[]).slice().sort((p,q)=>p.a-q.a);
+  // x tick labels follow orientation: left edge = worse end, right edge = better end
+  const xLeftVal = aLowerBetter ? amax : amin, xRightVal = aLowerBetter ? amin : amax;
+  svg+=`<text x="${padL}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10">${xLeftVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10" text-anchor="end">${xRightVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw/2}" y="${padT+ch+40}" fill="#B8C6DC" font-size="12" text-anchor="middle">${esc(la)} \u2192 better</text>`;
+  // y tick labels follow orientation: top = better end, bottom = worse end
+  const yTopVal = bLowerBetter ? bmin : bmax, yBotVal = bLowerBetter ? bmax : bmin;
+  svg+=`<text x="${padL-8}" y="${padT+8}" fill="#8FA3C0" font-size="10" text-anchor="end">${yTopVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL-8}" y="${padT+ch}" fill="#8FA3C0" font-size="10" text-anchor="end">${yBotVal.toFixed(2)}</text>`;
+  svg+=`<text x="18" y="${padT+ch/2}" fill="#B8C6DC" font-size="12" text-anchor="middle" transform="rotate(-90 18 ${padT+ch/2})">${esc(lb)} \u2192 better</text>`;
+  // frontier line — sort by SCREEN x so the polyline is clean regardless of axis flipping
+  const fr=(d.frontier||[]).slice().sort((p,q)=>sx(p.a)-sx(q.a));
   if(fr.length>1){
     let path="M "+fr.map(p=>sx(p.a).toFixed(1)+" "+sy(p.b).toFixed(1)).join(" L ");
     svg+=`<path d="${path}" fill="none" stroke="#7FE8A8" stroke-width="2" opacity="0.7"/>`;
