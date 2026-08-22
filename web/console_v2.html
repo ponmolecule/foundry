@@ -5624,7 +5624,8 @@ function renderFrontier(d){
   if(d.n_frontier<=1){
     note='<div class="s" style="color:#E0B080;margin-top:8px">These two objectives don\u2019t compete over these levers \u2014 one setting is best on both, so the frontier is a single point. Try objectives that genuinely trade off (e.g. a return measure vs. a capital measure), or different levers.</div>';
   } else {
-    note='<div class="s" style="margin-top:8px">The green frontier shows the '+d.n_frontier+' non-dominated settings out of '+d.n_points+' evaluated \u2014 each a real engine run. Moving along it, you trade '+esc(la)+' against '+esc(lb)+'; grey points are dominated (some other setting beats them on both).</div>';
+    const extra = (d.n_frontier_settings && d.n_frontier_settings>d.n_frontier) ? (' ('+d.n_frontier_settings+' lever settings map to these '+d.n_frontier+' distinct outcomes)') : '';
+    note='<div class="s" style="margin-top:8px">The green frontier shows the '+d.n_frontier+' non-dominated outcomes out of '+d.n_points+' evaluated \u2014 each a real engine run.'+extra+' Moving along it, you trade '+esc(la)+' against '+esc(lb)+'; grey points are dominated (some other setting beats them on both).</div>';
   }
   out.innerHTML='<div class="s" style="margin-bottom:8px"><b>'+esc(la)+'</b> vs <b>'+esc(lb)+'</b>, sweeping '+esc(_labelForPath(d.x_path))+' and '+esc(_labelForPath(d.y_path))+'.</div>'+svg+note;
 }
