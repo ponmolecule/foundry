@@ -704,6 +704,29 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/lab/frontier")
+def v31_lab_frontier(body: dict, _=Depends(gate)):
+    """Foundry Lab efficient frontier: two competing objectives over two levers, swept on a grid, with
+    the non-dominated (Pareto) set identified. Scratch only; each point a real engine run."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        oa = body.get("obj_a"); da = body.get("dir_a", "max")
+        ob = body.get("obj_b"); db = body.get("dir_b", "max")
+        x_path = body.get("x_path"); y_path = body.get("y_path")
+        n = max(3, min(15, int(body.get("n", 9))))
+        if not oa or not ob or not x_path or not y_path:
+            return JSONResponse({"error": "obj_a, obj_b, x_path, y_path required"}, status_code=422)
+        if oa == ob:
+            return JSONResponse({"error": "pick two different objectives"}, status_code=422)
+        return JSONResponse(lab_core.frontier(cfg, run_v2, oa, da, ob, db, x_path, y_path, n=n))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"frontier error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.post("/api/v31/lab/optimize")
 def v31_lab_optimize(body: dict, _=Depends(gate)):
     """Foundry Lab constrained optimizer: max/min an objective metric over multiple levers subject to
