@@ -615,6 +615,69 @@ async function loadExampleBank(){
 }
 window.loadExampleBank = loadExampleBank;
 
+// ---- Use Peer Assumptions (internal seeding toy) ----------------------------------------------
+async function fetchPeerSeed(){
+  const raw = (document.getElementById("peerCerts")||{}).value || "";
+  const certs = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n));
+  const out = document.getElementById("peerSeedResult");
+  if(!certs.length){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Enter at least one FDIC cert number.</div>'; return; }
+  const products = (((cfg||{}).assumptions||{}).lending_products) || [];
+  if(!products.length){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">No lending products to seed \u2014 add products first.</div>'; return; }
+  if(out) out.innerHTML = '<div class="memo">Fetching peer data\u2026</div>';
+  try{
+    const r = await fetch("/api/v31/peer-seed", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({certs, products})});
+    const d = await r.json();
+    renderPeerSeed(d, products);
+  }catch(e){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Peer lookup failed: '+esc(String(e))+'</div>'; }
+}
+window.fetchPeerSeed = fetchPeerSeed;
+
+function renderPeerSeed(d, products){
+  const out = document.getElementById("peerSeedResult");
+  if(!out) return;
+  if(!d || !d.available){
+    out.innerHTML = '<div class="memo" style="color:#C98A8A">'+esc((d&&d.note)||"Peer data unavailable.")+'</div>';
+    return;
+  }
+  const peers = (d.peers||[]).map(p=>esc(p.name)).join(", ");
+  let h = '<div class="memo" style="line-height:1.6">'+(d.blend?"Median blend of: ":"Adopting: ")+'<b>'+peers+'</b>. '+esc(d.scope_note||"")+'</div>';
+  const sugg = d.suggestions||{};
+  const idxs = Object.keys(sugg);
+  if(!idxs.length){ out.innerHTML = h + '<div class="memo" style="margin-top:8px;color:#C98A8A">No matching per-product data for these peers.</div>'; return; }
+  h += '<table class="fin" style="margin-top:10px"><tr><th>Product</th><th>Field</th><th style="text-align:right">Suggested</th><th>Provenance</th><th></th></tr>';
+  idxs.forEach(i=>{
+    const pname = esc((products[i]||{}).name || ("Product "+i));
+    Object.keys(sugg[i]).forEach(field=>{
+      const s = sugg[i][field];
+      h += '<tr><td>'+pname+'</td><td>'+esc(field)+'</td><td style="text-align:right">'+esc(String(s.value))+'</td>'
+        + '<td style="font-size:10px;color:#8FA3C0;max-width:34ch">'+esc(s.provenance||"")+'</td>'
+        + '<td><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="applyPeerSuggestion('+i+',\''+field+'\','+JSON.stringify(s.value)+')">Adopt</button></td></tr>';
+    });
+  });
+  h += '</table>';
+  h += '<div style="margin-top:8px"><button class="btn-plain" onclick="applyAllPeerSuggestions('+JSON.stringify(JSON.stringify(sugg)).slice(1,-1)+')">Adopt all</button></div>';
+  out.innerHTML = h;
+}
+
+function applyPeerSuggestion(i, field, value){
+  setPath("assumptions.lending_products."+i+"."+field, value);
+  appStatus("ok", "<b>Adopted peer value</b> for product "+i+" \u2014 "+esc(field)+". Review and edit as your own before filing.");
+  refresh();
+}
+window.applyPeerSuggestion = applyPeerSuggestion;
+
+function applyAllPeerSuggestions(suggJson){
+  let sugg; try{ sugg = JSON.parse(suggJson); }catch(e){ return; }
+  let n=0;
+  Object.keys(sugg).forEach(i=>Object.keys(sugg[i]).forEach(field=>{
+    setPath("assumptions.lending_products."+i+"."+field, sugg[i][field].value); n++;
+  }));
+  appStatus("ok", "<b>Adopted "+n+" peer values.</b> These are starting points \u2014 review and make them your own before filing.");
+  refresh();
+}
+window.applyAllPeerSuggestions = applyAllPeerSuggestions;
+
 // NEW / CLEAR WORKSPACE (LIFECYCLE_SPEC §10): the guaranteed known-clean starting point.
 // Empties the workspace -> EMPTY. If there's unsaved work, the guard fires first (Save/Discard/
 // Cancel) so nothing is lost silently; from CLEAN/EMPTY it clears immediately with no prompt.
@@ -4940,6 +5003,20 @@ function renderStart(){
     + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">In development</span></div>'
     + '<div class="s" style="margin-top:6px;max-width:74ch;line-height:1.6">Bring the client\u2019s own plan in whatever shape it exists \u2014 Foundry translates it into the model, mapping each series with every conversion logged and surfacing the gaps as questions rather than guesses. Coming soon.</div>'
     + '</div>';
+  // Quiet, tucked-away: Use Peer Assumptions (internal seeding toy). Collapsed by default.
+  if(!snapshotMode){
+    h += '<details class="ovcard" style="margin:14px 0;border-color:#2A3B57;background:#0E1930;opacity:.85">'
+      + '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none">'
+      + '<div class="k" style="margin:0">Use Peer Assumptions</div>'
+      + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">Internal</span></summary>'
+      + '<div class="s" style="margin-top:8px;max-width:78ch;line-height:1.6">Seed the current products from real peer Call Report data \u2014 an internal accelerator, not a client-facing auto-fill. Enter one or more FDIC cert numbers (one = adopt that peer; several = median blend). '
+      + 'Seeds <b>per-product balances and growth</b> from the peers\u2019 actual filings; <b>rates are the peers\u2019 blended book yield</b> (Call Reports don\u2019t report per-product yields); <b>maturity is never seeded</b> (not in the data, and a decision to own). Every value is a labelled suggestion you review before it enters the model.</div>'
+      + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+      + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#0A1424;border:1px solid #2A3B57;border-radius:6px;color:#DCE3EF;font-family:inherit;font-size:12px">'
+      + '<button class="btn-plain" onclick="fetchPeerSeed()">Fetch peer suggestions</button></div>'
+      + '<div id="peerSeedResult" style="margin-top:10px"></div>'
+      + '</details>';
+  }
   if(!snapshotMode){
   
   }
