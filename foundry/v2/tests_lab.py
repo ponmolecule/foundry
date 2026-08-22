@@ -1,0 +1,41 @@
+"""Self-tests for the Foundry Lab analytical core. Proves goal-seek correctness and engine isolation."""
+import sys, json, hashlib
+sys.path.insert(0, ".")
+from foundry.v2 import run_q, lab_core
+
+def _fh(c):
+    fin = run_q.run_v2(c)["financials"]
+    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": fin["bs"], "ratios": fin["ratios"]},
+                                     sort_keys=True, default=str).encode()).hexdigest()[:16]
+
+def main():
+    cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    run_fn = lambda c: run_q.run_v2(c)
+    lever = "assumptions.lending_products.0.yield_ann"
+    passed = failed = 0
+    def ck(name, cond):
+        nonlocal passed, failed
+        if cond: passed += 1; print(f"PASS {name}")
+        else: failed += 1; print(f"FAIL {name}")
+
+    # 1. pure set_path does not mutate the input
+    c2 = lab_core.set_path(cfg, lever, 0.10)
+    ck("set_path is pure (no mutation)", lab_core.get_path(cfg, lever) != 0.10 and lab_core.get_path(c2, lever) == 0.10)
+
+    # 2. goal-seek converges to a reachable target and independently verifies
+    r = lab_core.goal_seek(cfg, run_fn, lever, "roa", 2.60, lo=0.0, hi=0.20)
+    va = lab_core.metric_value(run_fn(lab_core.set_path(cfg, lever, r["solution"])), "roa") if r["solution"] else None
+    ck("goal-seek converges (ROA=2.60)", r["converged"] and va is not None and abs(va - 2.60) < 0.01)
+
+    # 3. unreachable target reported honestly, no crash
+    r2 = lab_core.goal_seek(cfg, run_fn, lever, "roa", 10.0, lo=0.0, hi=0.20)
+    ck("unreachable target reported, no crash", not r2["converged"])
+
+    # 4. engine byte-identical after all Lab operations
+    ck("engine byte-identical (isolation)", _fh(json.load(open("foundry/fixtures/universal_template_bank.json"))) == "3fee151428f6991e")
+
+    print(f"\n{passed} passed, {failed} failed")
+    return 0 if failed == 0 else 1
+
+if __name__ == "__main__":
+    sys.exit(main())
