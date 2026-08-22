@@ -291,3 +291,107 @@ def tradeoff_grid(cfg, run_fn, x_path, y_path, metric_id,
         z.append(row)
     return {"x_vals": x_vals, "y_vals": y_vals, "z": z, "metric": metric_id,
             "x_path": x_path, "y_path": y_path, "x0": x0, "y0": y0, "invalid_count": invalid}
+
+
+# ----------------------------------------------------------------------------------------------------
+# OPTIMIZER (Tier 4) — constrained optimization over multiple levers. Maximize/minimize an objective
+# metric subject to constraints (other metrics >=/<= bounds) and per-lever bounds. Black-box, so we use
+# differential evolution (global, derivative-free, robust to the engine's non-smoothness) with a penalty
+# formulation for constraints. Honest about non-uniqueness: we re-solve from independent seeds and report
+# whether they agree.
+# ----------------------------------------------------------------------------------------------------
+
+def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
+             seeds=2, maxiter=25, popsize=12):
+    """objective: metric_id to optimize. direction: 'max'|'min'. levers: list of
+    {path, lo, hi} bounds. constraints: list of {metric, op ('>=', '<='), value}.
+    Returns best solution, achieved objective, constraint satisfaction, and a non-uniqueness note.
+    Every evaluation is a real engine run on a scratch config; engine untouched."""
+    try:
+        from scipy.optimize import differential_evolution
+    except Exception:
+        return {"error": "scipy is not available in this environment"}
+    constraints = constraints or []
+    paths = [L["path"] for L in levers]
+    bounds = [(float(L["lo"]), float(L["hi"])) for L in levers]
+    sign = -1.0 if direction == "max" else 1.0    # DE minimizes; flip for max
+
+    # a big penalty scale relative to typical metric magnitude
+    PEN = 1e6
+
+    def evaluate(x):
+        c = cfg
+        for p, xv in zip(paths, x):
+            c = set_path(c, p, float(xv))
+        try:
+            res = run_fn(c)
+        except Exception:
+            return None, None, [False] * len(constraints)
+        obj = metric_value(res, objective)
+        if obj is None:
+            return None, None, [False] * len(constraints)
+        sat = []
+        penalty = 0.0
+        for con in constraints:
+            mv = metric_value(res, con["metric"])
+            if mv is None:
+                sat.append(False); penalty += PEN; continue
+            if con["op"] == ">=":
+                ok = mv >= con["value"]; short = max(0.0, con["value"] - mv)
+            else:
+                ok = mv <= con["value"]; short = max(0.0, mv - con["value"])
+            sat.append(ok)
+            penalty += 0.0 if ok else PEN * (1.0 + short)
+        return obj, penalty, sat
+
+    def cost(x):
+        obj, penalty, _ = evaluate(x)
+        if obj is None:
+            return PEN * 10          # invalid region: strongly discouraged
+        return sign * obj + penalty
+
+    solutions = []
+    for s in range(max(1, seeds)):
+        try:
+            r = differential_evolution(cost, bounds, maxiter=maxiter, popsize=popsize,
+                                       seed=s, tol=1e-6, polish=True, init="latinhypercube")
+            obj, penalty, sat = evaluate(r.x)
+            solutions.append({"x": list(r.x), "obj": obj, "feasible": all(sat) if constraints else True,
+                              "sat": sat})
+        except Exception as e:
+            solutions.append({"x": None, "obj": None, "feasible": False, "sat": [], "err": str(e)[:120]})
+
+    # pick the best FEASIBLE solution (or best objective if none feasible)
+    feasible = [s for s in solutions if s.get("feasible") and s.get("obj") is not None]
+    pool = feasible if feasible else [s for s in solutions if s.get("obj") is not None]
+    if not pool:
+        return {"error": "optimizer could not evaluate the objective anywhere in the search space",
+                "feasible": False}
+    best = max(pool, key=lambda s: s["obj"]) if direction == "max" else min(pool, key=lambda s: s["obj"])
+
+    # non-uniqueness check: do the feasible seeds agree on lever values?
+    nonunique = False
+    if len(feasible) >= 2:
+        for k in range(len(paths)):
+            vals = [f["x"][k] for f in feasible]
+            span = max(vals) - min(vals)
+            scale = max(1e-9, abs(best["x"][k]))
+            if span / scale > 0.10:          # >10% disagreement on a lever
+                nonunique = True; break
+
+    return {
+        "objective": objective, "direction": direction,
+        "solution": {paths[k]: float(best["x"][k]) for k in range(len(paths))},
+        "achieved": float(best["obj"]) if best["obj"] is not None else None,
+        "feasible": bool(best["feasible"]),
+        "constraint_status": [{"metric": constraints[i]["metric"], "op": constraints[i]["op"],
+                               "value": constraints[i]["value"], "met": bool(best["sat"][i])}
+                              for i in range(len(constraints))],
+        "nonunique": bool(nonunique),
+        "note": ("Multiple lever combinations reach a similar optimum \u2014 this is one of several; "
+                 "treat it as a direction, not the unique answer."
+                 if nonunique else
+                 "Feasible optimum found." if best["feasible"] else
+                 "No fully feasible solution found; showing the closest (some constraints unmet)."),
+        "seeds_run": len(solutions),
+    }

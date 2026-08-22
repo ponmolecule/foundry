@@ -45,6 +45,16 @@ def main():
     ok_shape = len(g["z"]) == 4 and all(len(r) == 4 for r in g["z"]) and g["invalid_count"] == 0
     ck("tradeoff grid shape + all-valid", ok_shape)
 
+    # 7. optimizer maximizes ROA by pushing yields up; returns JSON-serializable floats
+    import json as _json
+    olv = [{"path": levers[0], "lo": 0.03, "hi": 0.12}, {"path": levers[1], "lo": 0.03, "hi": 0.12}]
+    o = lab_core.optimize(cfg, run_fn, "roa", "max", olv, seeds=1, maxiter=8, popsize=6)
+    serializable = True
+    try: _json.dumps(o)
+    except Exception: serializable = False
+    ck("optimizer maximizes (yields high) + JSON-serializable",
+       o.get("achieved") is not None and all(v > 0.09 for v in o["solution"].values()) and serializable)
+
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
