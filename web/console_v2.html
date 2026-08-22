@@ -214,6 +214,16 @@ table.fin th:first-child,table.fin td:first-child,
 table.fin th.ref + th,table.fin td.ref + td{text-align:left}
 table.fin td:first-child,table.fin td.ref + td{color:#242A33;font-weight:500}
 table.fin tbody tr:nth-child(even) td,table.fin tr:nth-child(even) td{background:#E9EDF4}
+/* Dark-card table variant: for tables inside dark ovcards (Foundry Lab, peer-seed). Avoids the
+   light-mode zebra + dark text that renders as unreadable striped rows on a dark background. */
+table.fin-dark{border-collapse:collapse;width:100%}
+table.fin-dark th,table.fin-dark td{border:1px solid #2A3B57;padding:6px 10px;font-size:11.5px;
+  text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+table.fin-dark td{color:#DCE3EF;font-weight:500;background:transparent}
+table.fin-dark th{background:#152238;color:#E4ECF7;font-weight:600;font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;border:1px solid #2A3B57;border-bottom:2px solid #3A6BA8;padding:8px 10px}
+table.fin-dark th:first-child,table.fin-dark td:first-child{text-align:left}
+table.fin-dark tbody tr:nth-child(even) td,table.fin-dark tr:nth-child(even) td{background:rgba(58,107,168,.08)}
 table.fin tr:hover td{background:#DEE5EF}
 tr.section td{font-weight:600;background:#F5F2EB !important;color:#4A4133;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;
   font-size:10px;letter-spacing:.09em;border:1px solid #DCE1EA;border-bottom:2px solid #9AA7BC;padding-top:14px}
@@ -660,7 +670,7 @@ function renderPeerSeed(d, products){
   const sugg = d.suggestions||{};
   const idxs = Object.keys(sugg);
   if(!idxs.length){ out.innerHTML = h + '<div class="memo" style="margin-top:8px;color:#C98A8A">No matching per-product data for these peers.</div>'; return; }
-  h += '<table class="fin" style="margin-top:10px"><tr><th>Product</th><th>Field</th><th style="text-align:right">Suggested</th><th>Provenance</th><th></th></tr>';
+  h += '<table class="fin-dark" style="margin-top:10px"><tr><th>Product</th><th>Field</th><th style="text-align:right">Suggested</th><th>Provenance</th><th></th></tr>';
   idxs.forEach(i=>{
     const pname = esc((products[i]||{}).name || ("Product "+i));
     Object.keys(sugg[i]).forEach(field=>{
@@ -5102,7 +5112,7 @@ function labScenarioHtml(){
   h += '<div class="k" style="margin:0 0 4px">Scenario</div>';
   h += '<div class="s" style="margin-bottom:14px">Manually adjust one or more levers and see the effect on every metric, side by side with your current baseline \u2014 without committing the changes.</div>';
   if(!levers.length){ h += '<div class="memo">No adjustable levers found in this model.</div></div>'; return h; }
-  h += '<table class="fin" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
+  h += '<table class="fin-dark" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
     h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
@@ -5163,10 +5173,25 @@ function renderGoalSeekResult(d, lever, unit, metric, target){
 function adoptGoalSeek(){
   const A = window._gsAdopt; if(!A) return;
   setPath(A.lever, A.value);
-  appStatus("ok", "<b>Adopted</b> \u2014 "+esc(A.lever.split('.').pop())+" set to the solved value. This is an exploratory value; review it as your own.");
+  const where = _leverLocation(A.lever);
+  appStatus("ok", "<b>Adopted</b> \u2014 "+esc(_leverLabel(A.lever))+" set to the solved value"+(where?(" ("+esc(where)+")"):"")+". Exploratory \u2014 review it as your own.");
+  if(typeof renderGlobals==="function") renderGlobals();   // repaint the sidebar in the same beat (fixes the lag)
   refresh();
 }
 window.adoptGoalSeek = adoptGoalSeek;
+
+// Human label + location hint for an adopted lever path, so the toast tells the user WHERE it landed.
+function _leverLabel(path){
+  const found = (labLeverCatalog()||[]).find(l=>l.path===path);
+  return found ? found.label : path.split('.').pop();
+}
+function _leverLocation(path){
+  if(path==="assumptions.overhead_q" || path==="assumptions.overhead_growth_q") return "sidebar \u2014 Corp. Overhead";
+  if(path==="assumptions.initial_capital") return "sidebar";
+  if(path.indexOf("lending_products")>=0) return "Product tab";
+  if(path.indexOf("deposit_products")>=0) return "Product tab";
+  return "";
+}
 
 async function runLabScenario(){
   const levers = labLeverCatalog();
@@ -5190,7 +5215,7 @@ window.runLabScenario = runLabScenario;
 function renderScenarioResult(d){
   const out = document.getElementById("scnResult"); if(!out) return;
   if(!d || d.error){ out.innerHTML = '<div class="memo" style="color:#C98A8A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
-  let h = '<table class="fin" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Baseline</th><th style="text-align:right">Scenario</th><th style="text-align:right">Change</th></tr>';
+  let h = '<table class="fin-dark" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Baseline</th><th style="text-align:right">Scenario</th><th style="text-align:right">Change</th></tr>';
   LAB_METRICS.forEach(m=>{
     const b = d.baseline[m[0]], s = d.scenario[m[0]];
     if(b==null && s==null) return;
