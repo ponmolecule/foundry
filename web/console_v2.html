@@ -5064,7 +5064,7 @@ function renderLab(){
   let h = '<div class="h2" style="font-weight:700">Foundry Lab</div>';
   h += '<div class="memo" style="margin:0 0 16px;max-width:80ch">Solve for targets, test sensitivities, explore trade-offs. An exploration sandbox \u2014 it runs the real engine on scratch copies of your model and never changes your committed assumptions unless you adopt a result.</div>';
   // mode selector
-  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"],["sensitivity","Sensitivity"],["tradeoff","Trade-off"],["optimize","Optimizer"]];
+  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"],["sensitivity","Sensitivity"],["tradeoff","Trade-off"],["optimize","Optimizer"],["frontier","Efficient Frontier"]];
   h += '<div style="display:flex;gap:6px;margin-bottom:16px">';
   modes.forEach(m=>{
     const on = _labMode===m[0];
@@ -5078,6 +5078,7 @@ function renderLab(){
   else if(_labMode==="sensitivity") h += labSensitivityHtml();
   else if(_labMode==="tradeoff") h += labTradeoffHtml();
   else if(_labMode==="optimize") h += labOptimizeHtml();
+  else if(_labMode==="frontier") h += labFrontierHtml();
   h += '</div>';
   el.innerHTML = h;
  } catch(err){
@@ -5538,6 +5539,95 @@ function adoptOptimize(){
   refresh();
 }
 window.adoptOptimize = adoptOptimize;
+
+// ---- EFFICIENT FRONTIER ----
+function labFrontierHtml(){
+  const levers = labLeverCatalog();
+  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:960px">';
+  h += '<div class="k" style="margin:0 0 4px">Efficient Frontier</div>';
+  h += '<div class="s" style="margin-bottom:14px">Pick two objectives that pull against each other and two levers to sweep. The Lab plots every achievable combination and highlights the frontier \u2014 the settings where you can\u2019t improve one objective without giving up the other. If the two objectives don\u2019t actually compete over these levers, the frontier collapses to a single best point (that\u2019s real information, not a bug).</div>';
+  const mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("");
+  const moptsB = LAB_METRICS.map((m,i)=>`<option value="${m[0]}"${i===4?' selected':''}>${m[1]}</option>`).join("");  // default B to Leverage
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">';
+  h += '<div class="fld" style="width:100px"><label>Objective A</label><select id="frDirA"><option value="max">Max</option><option value="min">Min</option></select></div>';
+  h += '<div class="fld" style="min-width:170px"><label>&nbsp;</label><select id="frObjA">'+mopts+'</select></div>';
+  h += '<div class="fld" style="width:100px"><label>Objective B</label><select id="frDirB"><option value="max">Max</option><option value="min">Min</option></select></div>';
+  h += '<div class="fld" style="min-width:170px"><label>&nbsp;</label><select id="frObjB">'+moptsB+'</select></div>';
+  h += '</div>';
+  const lopts = levers.map(l=>`<option value="${esc(l.path)}">${esc(l.label)}</option>`).join("");
+  const loptsY = levers.map((l,i)=>`<option value="${esc(l.path)}"${i===1?' selected':''}>${esc(l.label)}</option>`).join("");
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
+  h += '<div class="fld" style="min-width:210px"><label>Sweep lever 1</label><select id="frX">'+lopts+'</select></div>';
+  h += '<div class="fld" style="min-width:210px"><label>Sweep lever 2</label><select id="frY">'+loptsY+'</select></div>';
+  h += '<div class="fld" style="width:90px"><label>Grid</label><select id="frN"><option>6</option><option selected>8</option><option>10</option><option>12</option></select></div>';
+  h += '<button class="btn-plain" onclick="runLabFrontier()" '+(levers.length>=2?'':'disabled')+'>Plot frontier</button>';
+  h += '</div>';
+  // default objective B to the second metric so A and B differ
+  h += '<div id="frResult" style="margin-top:14px"></div></div>';
+  return h;
+}
+
+async function runLabFrontier(){
+  const obj_a=document.getElementById("frObjA").value, dir_a=document.getElementById("frDirA").value;
+  const obj_b=document.getElementById("frObjB").value, dir_b=document.getElementById("frDirB").value;
+  const x_path=document.getElementById("frX").value, y_path=document.getElementById("frY").value;
+  const n=parseInt(document.getElementById("frN").value,10);
+  const out=document.getElementById("frResult");
+  if(obj_a===obj_b){ out.innerHTML='<div class="memo" style="color:#C98A8A">Pick two different objectives \u2014 a frontier needs two competing goals.</div>'; return; }
+  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#C98A8A">Pick two different sweep levers.</div>'; return; }
+  out.innerHTML='<div class="memo">Sweeping '+(n*n)+' engine runs\u2026</div>';
+  try{
+    const r=await fetch("/api/v31/lab/frontier",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cfg,obj_a,dir_a,obj_b,dir_b,x_path,y_path,n})});
+    const d=await r.json();
+    renderFrontier(d);
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Frontier failed: '+esc(String(e))+'</div>'; }
+}
+window.runLabFrontier = runLabFrontier;
+
+function renderFrontier(d){
+  const out=document.getElementById("frResult"); if(!out) return;
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#C98A8A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  const la=(LAB_METRICS.find(m=>m[0]===d.obj_a)||[])[1]||d.obj_a;
+  const lb=(LAB_METRICS.find(m=>m[0]===d.obj_b)||[])[1]||d.obj_b;
+  const pts=d.points||[];
+  if(!pts.length){ out.innerHTML='<div class="memo">No valid points \u2014 the levers may have produced invalid configs.</div>'; return; }
+  // scales
+  const as=pts.map(p=>p.a), bs=pts.map(p=>p.b);
+  let amin=Math.min(...as),amax=Math.max(...as),bmin=Math.min(...bs),bmax=Math.max(...bs);
+  if(amin===amax){amin-=1;amax+=1;} if(bmin===bmax){bmin-=1;bmax+=1;}
+  const W=760,H=460,padL=70,padB=54,padT=20,padR=20, cw=W-padL-padR, ch=H-padT-padB;
+  const sx=a=>padL+(a-amin)/(amax-amin)*cw;
+  const sy=b=>padT+ch-(b-bmin)/(bmax-bmin)*ch;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#0A1424;border:1px solid #2A3B57;border-radius:8px">`;
+  // axes
+  svg+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ch}" stroke="#3A4B67" stroke-width="1"/>`;
+  svg+=`<line x1="${padL}" y1="${padT+ch}" x2="${padL+cw}" y2="${padT+ch}" stroke="#3A4B67" stroke-width="1"/>`;
+  // axis ticks (min/max)
+  svg+=`<text x="${padL}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10">${amin.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw}" y="${padT+ch+16}" fill="#8FA3C0" font-size="10" text-anchor="end">${amax.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw/2}" y="${padT+ch+40}" fill="#B8C6DC" font-size="12" text-anchor="middle">${esc(la)} (${d.dir_a})</text>`;
+  svg+=`<text x="${padL-8}" y="${padT+8}" fill="#8FA3C0" font-size="10" text-anchor="end">${bmax.toFixed(2)}</text>`;
+  svg+=`<text x="${padL-8}" y="${padT+ch}" fill="#8FA3C0" font-size="10" text-anchor="end">${bmin.toFixed(2)}</text>`;
+  svg+=`<text x="18" y="${padT+ch/2}" fill="#B8C6DC" font-size="12" text-anchor="middle" transform="rotate(-90 18 ${padT+ch/2})">${esc(lb)} (${d.dir_b})</text>`;
+  // frontier line (sorted by a)
+  const fr=(d.frontier||[]).slice().sort((p,q)=>p.a-q.a);
+  if(fr.length>1){
+    let path="M "+fr.map(p=>sx(p.a).toFixed(1)+" "+sy(p.b).toFixed(1)).join(" L ");
+    svg+=`<path d="${path}" fill="none" stroke="#7FE8A8" stroke-width="2" opacity="0.7"/>`;
+  }
+  // dominated points (dim), then frontier points (bright)
+  pts.forEach(p=>{ if(!p.frontier) svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="3" fill="#3A4B67"/>`; });
+  fr.forEach(p=>{ svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="5" fill="#7FE8A8" stroke="#0A1424" stroke-width="1"><title>${esc(la)}=${p.a.toFixed(3)}, ${esc(lb)}=${p.b.toFixed(3)}</title></circle>`; });
+  svg+=`</svg>`;
+  let note;
+  if(d.n_frontier<=1){
+    note='<div class="s" style="color:#E0B080;margin-top:8px">These two objectives don\u2019t compete over these levers \u2014 one setting is best on both, so the frontier is a single point. Try objectives that genuinely trade off (e.g. a return measure vs. a capital measure), or different levers.</div>';
+  } else {
+    note='<div class="s" style="margin-top:8px">The green frontier shows the '+d.n_frontier+' non-dominated settings out of '+d.n_points+' evaluated \u2014 each a real engine run. Moving along it, you trade '+esc(la)+' against '+esc(lb)+'; grey points are dominated (some other setting beats them on both).</div>';
+  }
+  out.innerHTML='<div class="s" style="margin-bottom:8px"><b>'+esc(la)+'</b> vs <b>'+esc(lb)+'</b>, sweeping '+esc(_labelForPath(d.x_path))+' and '+esc(_labelForPath(d.y_path))+'.</div>'+svg+note;
+}
 
 function renderStart(){
   const el = document.getElementById("content");

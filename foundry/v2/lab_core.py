@@ -427,3 +427,58 @@ def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
         "seeds_run": len(solutions),
         "solver": ("scipy differential_evolution" if _have_scipy else "pure-Python differential evolution (scipy absent)"),
     }
+
+
+# ----------------------------------------------------------------------------------------------------
+# EFFICIENT FRONTIER (Tier 5) — two competing objectives over two decision levers. Sweep an n×n grid
+# (each point ONE real engine run yielding BOTH objectives), then identify the non-dominated (Pareto)
+# set. Honest scope: this is a SAMPLED frontier over the chosen two levers on a grid — not a proven-
+# continuous Pareto front. Resolution is the grid; every point is a real, traceable engine run.
+# ----------------------------------------------------------------------------------------------------
+
+def _dominates(p, q, dir_a, dir_b):
+    """Does point p dominate q? Normalize each objective to higher-is-better, then p dominates q iff
+    p is >= q on both and > on at least one."""
+    pa = p["a"] if dir_a == "max" else -p["a"]
+    pb = p["b"] if dir_b == "max" else -p["b"]
+    qa = q["a"] if dir_a == "max" else -q["a"]
+    qb = q["b"] if dir_b == "max" else -q["b"]
+    return (pa >= qa and pb >= qb) and (pa > qa or pb > qb)
+
+
+def frontier(cfg, run_fn, obj_a, dir_a, obj_b, dir_b, x_path, y_path, n=9):
+    """Two objectives (obj_a/dir_a, obj_b/dir_b) over two levers (x_path, y_path) swept on an n×n grid.
+    Returns every evaluated point (with its lever coords + both objective values) and a boolean flag
+    for whether each is on the non-dominated frontier. Ranges default to ±50% around current."""
+    x0 = get_path(cfg, x_path); y0 = get_path(cfg, y_path)
+    if not isinstance(x0, (int, float)) or not isinstance(y0, (int, float)):
+        return {"error": "both levers must be numeric"}
+    def _axis(v0):
+        lo, hi = (v0 * 0.5, v0 * 1.5) if v0 != 0 else (-1.0, 1.0)
+        if n == 1:
+            return [lo]
+        step = (hi - lo) / (n - 1)
+        return [lo + step * k for k in range(n)]
+    xs, ys = _axis(x0), _axis(y0)
+    points = []
+    for xv in xs:
+        for yv in ys:
+            try:
+                c = set_path(cfg, x_path, xv)
+                c = set_path(c, y_path, yv)
+                res = run_fn(c)
+                a = metric_value(res, obj_a); b = metric_value(res, obj_b)
+            except Exception:
+                a = b = None
+            if a is None or b is None:
+                continue
+            points.append({"x": xv, "y": yv, "a": a, "b": b})
+    # non-dominated flag
+    for p in points:
+        p["frontier"] = not any(_dominates(q, p, dir_a, dir_b) for q in points if q is not p)
+    front = [p for p in points if p["frontier"]]
+    # sort frontier by objective a for a clean line
+    front.sort(key=lambda p: p["a"])
+    return {"obj_a": obj_a, "dir_a": dir_a, "obj_b": obj_b, "dir_b": dir_b,
+            "x_path": x_path, "y_path": y_path, "points": points, "frontier": front,
+            "n_points": len(points), "n_frontier": len(front)}

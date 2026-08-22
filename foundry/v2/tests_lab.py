@@ -55,6 +55,21 @@ def main():
     ck("optimizer maximizes (yields high) + JSON-serializable",
        o.get("achieved") is not None and all(v > 0.09 for v in o["solution"].values()) and serializable)
 
+    # 8. frontier domination logic matches hand-computed Pareto set (both max)
+    pts = [{"a":1,"b":3},{"a":2,"b":2},{"a":3,"b":1},{"a":1,"b":1},{"a":2.5,"b":2.5}]
+    for p in pts: p["frontier"] = not any(lab_core._dominates(q,p,"max","max") for q in pts if q is not p)
+    front = sorted([(p["a"],p["b"]) for p in pts if p["frontier"]])
+    ck("frontier domination logic (Pareto set correct)", front == [(1,3),(2.5,2.5),(3,1)])
+
+    # 9. frontier over the real engine returns non-dominated points, JSON-serializable
+    fr = lab_core.frontier(cfg, run_fn, "roa","max","lev","max",
+                           "assumptions.lending_products.0.originations_q",
+                           "assumptions.deposit_products.0.growth_q", n=5)
+    fser = True
+    try: _json.dumps(fr)
+    except Exception: fser = False
+    ck("frontier real-engine + serializable", fr.get("n_frontier",0) >= 1 and fser)
+
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
