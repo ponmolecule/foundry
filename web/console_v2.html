@@ -5011,6 +5011,8 @@ document.addEventListener("click", (ev)=>{
 // target metric) and Scenario (manual multi-lever what-if vs baseline). More modes layer in later.
 let _labMode = "goalseek";
 window._labMode = _labMode;
+function setLabMode(m){ _labMode = m; renderLab(); }
+window.setLabMode = setLabMode;
 
 // Build the catalog of LIVE levers from the current config — only fields that actually exist, so the
 // tool never offers a lever that isn't in this model (the nie_detail-vs-overhead_q lesson).
@@ -5054,7 +5056,7 @@ function renderLab(){
   h += '<div style="display:flex;gap:6px;margin-bottom:16px">';
   modes.forEach(m=>{
     const on = _labMode===m[0];
-    h += `<button class="btn-plain" style="${on?'background:#1E3A5F;border-color:#3A6BA8;color:#DCE9F8':''}" onclick="_labMode='${m[0]}';renderLab()">${m[1]}</button>`;
+    h += `<button class="btn-plain" style="${on?'background:#1E3A5F;border-color:#3A6BA8;color:#DCE9F8':''}" onclick="setLabMode('${m[0]}')">${m[1]}</button>`;
   });
   h += '</div>';
   h += '<div id="labBody"></div>';
