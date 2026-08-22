@@ -769,8 +769,22 @@ def v31_lab_optimize(body: dict, _=Depends(gate)):
             return JSONResponse({"error": "objective and at least one lever are required"}, status_code=422)
         if len(levers) > 5:
             return JSONResponse({"error": "up to 5 levers at a time (optimizer cost)"}, status_code=422)
+        # Adaptive DE budget: differential evolution cost scales with dimensionality, and a heavy solve
+        # can exceed the hosting proxy's request timeout (returning an HTML error the client can't parse
+        # as JSON). Scale iterations/population down as lever count rises so the solve stays well under
+        # the timeout, while keeping 2 seeds for the non-uniqueness check. Tuned against measured timings.
+        nlev = len(levers)
+        if nlev <= 2:
+            seeds, maxiter, popsize = 2, 20, 10      # fast at low dimension; full strength
+        elif nlev == 3:
+            seeds, maxiter, popsize = 2, 15, 8
+        elif nlev == 4:
+            seeds, maxiter, popsize = 2, 12, 7
+        else:  # 5 levers
+            seeds, maxiter, popsize = 2, 10, 6       # ~24s measured; keeps 2-seed non-uniqueness check
         return JSONResponse(lab_core.optimize(cfg, run_v2, objective, direction, levers,
-                                              constraints=constraints, seeds=2, maxiter=20, popsize=10))
+                                              constraints=constraints, seeds=seeds,
+                                              maxiter=maxiter, popsize=popsize))
     except (ValueError, TypeError) as e:
         return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
     except Exception as e:
