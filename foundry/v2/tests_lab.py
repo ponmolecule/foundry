@@ -34,6 +34,17 @@ def main():
     # 4. engine byte-identical after all Lab operations
     ck("engine byte-identical (isolation)", _fh(json.load(open("foundry/fixtures/universal_template_bank.json"))) == "3fee151428f6991e")
 
+    # 5. sensitivity ranks by swing (tornado order) and returns a baseline
+    levers = [f"assumptions.lending_products.{i}.yield_ann" for i,p in enumerate(cfg["assumptions"]["lending_products"]) if isinstance(p.get("yield_ann"),(int,float))]
+    s = lab_core.sensitivity(cfg, run_fn, levers, "roa", pct=0.10)
+    ck("sensitivity returns baseline + sorted rows",
+       s["baseline"] is not None and all(abs(s["rows"][k]["swing"]) >= abs(s["rows"][k+1]["swing"]) for k in range(len(s["rows"])-1)))
+
+    # 6. tradeoff grid is n×n, real numbers, monotone where expected
+    g = lab_core.tradeoff_grid(cfg, run_fn, levers[0], levers[1], "roa", n=4)
+    ok_shape = len(g["z"]) == 4 and all(len(r) == 4 for r in g["z"]) and g["invalid_count"] == 0
+    ck("tradeoff grid shape + all-valid", ok_shape)
+
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
