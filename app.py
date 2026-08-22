@@ -704,6 +704,45 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/lab/sensitivity")
+def v31_lab_sensitivity(body: dict, _=Depends(gate)):
+    """Foundry Lab sensitivity (tornado): perturb each lever ±pct, rank by metric swing. Scratch only."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        levers = body.get("levers") or []
+        metric = body.get("metric")
+        pct = float(body.get("pct", 0.10))
+        if not levers or not metric:
+            return JSONResponse({"error": "levers and metric are required"}, status_code=422)
+        return JSONResponse(lab_core.sensitivity(cfg, run_v2, levers, metric, pct=pct))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"sensitivity error: {str(e)[:200]}"}, status_code=200)
+
+
+@app.post("/api/v31/lab/tradeoff")
+def v31_lab_tradeoff(body: dict, _=Depends(gate)):
+    """Foundry Lab trade-off grid: metric over an n×n grid of two levers. Scratch only. Each grid
+    point is a real engine run — the surface a 3D/contour plot renders."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        x_path = body.get("x_path"); y_path = body.get("y_path"); metric = body.get("metric")
+        n = int(body.get("n", 11))
+        if not x_path or not y_path or not metric:
+            return JSONResponse({"error": "x_path, y_path, metric required"}, status_code=422)
+        n = max(3, min(21, n))   # bound grid size (n×n engine runs)
+        return JSONResponse(lab_core.tradeoff_grid(cfg, run_v2, x_path, y_path, metric, n=n))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"tradeoff error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.post("/api/v31/lab/goal-seek")
 def v31_lab_goal_seek(body: dict, _=Depends(gate)):
     """Foundry Lab goal-seek: solve one lever for a target metric. Operates on the posted config

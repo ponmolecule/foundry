@@ -5064,7 +5064,7 @@ function renderLab(){
   let h = '<div class="h2" style="font-weight:700">Foundry Lab</div>';
   h += '<div class="memo" style="margin:0 0 16px;max-width:80ch">Solve for targets, test sensitivities, explore trade-offs. An exploration sandbox \u2014 it runs the real engine on scratch copies of your model and never changes your committed assumptions unless you adopt a result.</div>';
   // mode selector
-  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"]];
+  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"],["sensitivity","Sensitivity"],["tradeoff","Trade-off"]];
   h += '<div style="display:flex;gap:6px;margin-bottom:16px">';
   modes.forEach(m=>{
     const on = _labMode===m[0];
@@ -5075,6 +5075,8 @@ function renderLab(){
   h += '<div id="labBody">';
   if(_labMode==="goalseek") h += labGoalSeekHtml();
   else if(_labMode==="scenario") h += labScenarioHtml();
+  else if(_labMode==="sensitivity") h += labSensitivityHtml();
+  else if(_labMode==="tradeoff") h += labTradeoffHtml();
   h += '</div>';
   el.innerHTML = h;
  } catch(err){
@@ -5227,6 +5229,189 @@ function renderScenarioResult(d){
   });
   h += '</table><div class="s" style="margin-top:8px">Exploratory only \u2014 your committed model is unchanged.</div>';
   out.innerHTML = h;
+}
+
+// ---- SENSITIVITY (tornado) ----
+function labSensitivityHtml(){
+  const levers = labLeverCatalog();
+  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:900px">';
+  h += '<div class="k" style="margin:0 0 4px">Sensitivity</div>';
+  h += '<div class="s" style="margin-bottom:14px">Nudge every lever up and down by the same percentage and see which ones move your chosen metric most \u2014 a tornado chart, widest bar at the top.</div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
+  h += '<div class="fld" style="min-width:190px"><label>Metric</label><select id="snsMetric">';
+  LAB_METRICS.forEach(m=> h += `<option value="${m[0]}">${m[1]} (${m[2]})</option>`);
+  h += '</select></div>';
+  h += '<div class="fld" style="width:130px"><label>Perturbation ±%</label><input id="snsPct" type="number" step="any" value="10"></div>';
+  h += '<button class="btn-plain" onclick="runLabSensitivity()" '+(levers.length?'':'disabled')+'>Run</button>';
+  h += '</div><div id="snsResult" style="margin-top:14px"></div></div>';
+  return h;
+}
+
+async function runLabSensitivity(){
+  const metric = document.getElementById("snsMetric").value;
+  const pct = parseFloat(document.getElementById("snsPct").value)/100;
+  const levers = labLeverCatalog().map(l=>l.path);
+  const out = document.getElementById("snsResult");
+  if(isNaN(pct) || pct<=0){ out.innerHTML='<div class="memo" style="color:#C98A8A">Enter a positive percentage.</div>'; return; }
+  out.innerHTML = '<div class="memo">Running '+levers.length+' levers \u00d7 2 engine runs\u2026</div>';
+  try{
+    const r = await fetch("/api/v31/lab/sensitivity",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cfg,levers,metric,pct})});
+    const d = await r.json();
+    renderTornado(d);
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Sensitivity failed: '+esc(String(e))+'</div>'; }
+}
+window.runLabSensitivity = runLabSensitivity;
+
+function _labelForPath(path){ const f=(labLeverCatalog()||[]).find(l=>l.path===path); return f?f.label:path; }
+
+function renderTornado(d){
+  const out = document.getElementById("snsResult"); if(!out) return;
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#C98A8A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  const rows = (d.rows||[]).filter(r=>r.swing>0).slice(0,12);
+  if(!rows.length){ out.innerHTML='<div class="memo">No lever moved this metric measurably.</div>'; return; }
+  const base = d.baseline;
+  const maxSwing = Math.max(...rows.map(r=>r.swing));
+  const W=820, rowH=30, padL=250, padR=70, chartW=W-padL-padR, H=rows.length*rowH+40;
+  const mlabel=(LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric;
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;font-family:inherit">`;
+  // baseline center line
+  const cx = padL + chartW/2;
+  svg += `<line x1="${cx}" y1="20" x2="${cx}" y2="${H-20}" stroke="#3A6BA8" stroke-width="1" stroke-dasharray="3 3"/>`;
+  svg += `<text x="${cx}" y="14" fill="#8FA3C0" font-size="10" text-anchor="middle">baseline ${base!=null?base.toFixed(2):""}</text>`;
+  rows.forEach((r,i)=>{
+    const y = 26 + i*rowH;
+    const lo = Math.min(r.m_lo??base, r.m_hi??base), hi = Math.max(r.m_lo??base, r.m_hi??base);
+    const half = chartW/2 / (maxSwing||1);
+    const xLo = cx + (lo-base)*half, xHi = cx + (hi-base)*half;
+    svg += `<rect x="${Math.min(xLo,xHi)}" y="${y}" width="${Math.abs(xHi-xLo)}" height="${rowH-10}" rx="3" fill="#3A6BA8" opacity="0.85"/>`;
+    svg += `<text x="${padL-10}" y="${y+rowH-15}" fill="#DCE3EF" font-size="11" text-anchor="end">${esc(_labelForPath(r.path))}</text>`;
+    svg += `<text x="${W-padR+8}" y="${y+rowH-15}" fill="#7FE8A8" font-size="10">\u00b1${r.swing.toFixed(3)}</text>`;
+  });
+  svg += `</svg>`;
+  out.innerHTML = '<div class="s" style="margin-bottom:8px">How far <b>'+esc(mlabel)+'</b> swings when each lever moves \u00b1'+(d.pct*100).toFixed(0)+'%. Longer bar = more sensitive.</div>'+svg;
+}
+
+// ---- TRADE-OFF (rotatable 3D surface + contour) ----
+function labTradeoffHtml(){
+  const levers = labLeverCatalog();
+  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:960px">';
+  h += '<div class="k" style="margin:0 0 4px">Trade-off Explorer</div>';
+  h += '<div class="s" style="margin-bottom:14px">Pick two levers and a metric. The Lab sweeps both across a grid \u2014 every point a real engine run \u2014 and plots the resulting surface. Drag to rotate; the contour view below reads exact values.</div>';
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
+  const opts = levers.map(l=>`<option value="${esc(l.path)}">${esc(l.label)}</option>`).join("");
+  h += '<div class="fld" style="min-width:220px"><label>X lever</label><select id="toX">'+opts+'</select></div>';
+  const optsY = levers.map((l,idx)=>`<option value="${esc(l.path)}"${idx===1?' selected':''}>${esc(l.label)}</option>`).join("");
+  h += '<div class="fld" style="min-width:220px"><label>Y lever</label><select id="toY">'+optsY+'</select></div>';
+  h += '<div class="fld" style="min-width:170px"><label>Metric (height)</label><select id="toMetric">';
+  LAB_METRICS.forEach(m=> h += `<option value="${m[0]}">${m[1]}</option>`);
+  h += '</select></div>';
+  h += '<div class="fld" style="width:90px"><label>Grid</label><select id="toN"><option>7</option><option selected>9</option><option>11</option><option>13</option></select></div>';
+  h += '<button class="btn-plain" onclick="runLabTradeoff()" '+(levers.length>=2?'':'disabled')+'>Plot</button>';
+  h += '</div>';
+  h += '<div id="toResult" style="margin-top:14px"></div></div>';
+  return h;
+}
+
+async function runLabTradeoff(){
+  const x_path=document.getElementById("toX").value, y_path=document.getElementById("toY").value;
+  const metric=document.getElementById("toMetric").value, n=parseInt(document.getElementById("toN").value,10);
+  const out=document.getElementById("toResult");
+  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#C98A8A">Pick two different levers.</div>'; return; }
+  out.innerHTML='<div class="memo">Sweeping '+(n*n)+' engine runs\u2026</div>';
+  try{
+    const r=await fetch("/api/v31/lab/tradeoff",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cfg,x_path,y_path,metric,n})});
+    const d=await r.json();
+    renderTradeoff(d);
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Trade-off failed: '+esc(String(e))+'</div>'; }
+}
+window.runLabTradeoff = runLabTradeoff;
+
+function renderTradeoff(d){
+  const out=document.getElementById("toResult"); if(!out) return;
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#C98A8A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  const mlabel=(LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric;
+  out.innerHTML = '<div class="s" style="margin-bottom:8px"><b>'+esc(mlabel)+'</b> across '+esc(_labelForPath(d.x_path))+' (X) and '+esc(_labelForPath(d.y_path))+' (Y). Each cell is a real engine run.</div>'
+    + '<div id="toSurface" style="height:420px;background:#0A1424;border:1px solid #2A3B57;border-radius:8px"></div>'
+    + '<div id="toContour" style="margin-top:12px"></div>';
+  drawSurface3D(d);
+  drawContour(d);
+}
+
+// Minimal dependency-free 3D surface with drag-to-rotate (isometric projection of the z-grid).
+function drawSurface3D(d){
+  const host=document.getElementById("toSurface"); if(!host) return;
+  const zs=d.z, nx=d.x_vals.length, ny=d.y_vals.length;
+  let zmin=Infinity,zmax=-Infinity;
+  zs.forEach(r=>r.forEach(v=>{ if(v!=null){ if(v<zmin)zmin=v; if(v>zmax)zmax=v; }}));
+  const zr=(zmax-zmin)||1;
+  let rotX=-0.5, rotZ=0.7;   // radians
+  const W=host.clientWidth||820, H=420, cx=W/2, cy=H/2+40, scale=Math.min(W,H)/3.2, zScale=110;
+  function project(i,j,v){
+    // grid coords centered
+    let x=(i/(nx-1)-0.5), y=(j/(ny-1)-0.5), z=v==null?0:((v-zmin)/zr-0.5);
+    // rotate around Z then X
+    let x1=x*Math.cos(rotZ)-y*Math.sin(rotZ), y1=x*Math.sin(rotZ)+y*Math.cos(rotZ);
+    let y2=y1*Math.cos(rotX)-z*Math.sin(rotX), z2=y1*Math.sin(rotX)+z*Math.cos(rotX);
+    return [cx+x1*scale, cy - y2*scale - (v==null?0:((v-zmin)/zr))*0 - z2*zScale ];
+  }
+  function color(v){
+    if(v==null) return "#33415C";
+    const t=(v-zmin)/zr; // blue(low)->teal->green(high)
+    const r=Math.round(40+t*40), g=Math.round(90+t*140), b=Math.round(180-t*90);
+    return `rgb(${r},${g},${b})`;
+  }
+  function render(){
+    // build quads, sort back-to-front by average projected depth (painter's algorithm)
+    const quads=[];
+    for(let j=0;j<ny-1;j++) for(let i=0;i<nx-1;i++){
+      const v=[zs[j][i],zs[j][i+1],zs[j+1][i+1],zs[j+1][i]];
+      const pts=[project(i,j,v[0]),project(i+1,j,v[1]),project(i+1,j+1,v[2]),project(i,j+1,v[3])];
+      const avg=(v[0]+v[1]+v[2]+v[3])/4;
+      const depth=(j+i);
+      quads.push({pts,avg,depth});
+    }
+    quads.sort((a,b)=>a.depth-b.depth);
+    let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;cursor:grab" id="toSvg">`;
+    quads.forEach(q=>{
+      const p=q.pts.map(pt=>pt[0].toFixed(1)+","+pt[1].toFixed(1)).join(" ");
+      svg+=`<polygon points="${p}" fill="${color(q.avg)}" stroke="#0A1424" stroke-width="0.4" opacity="0.95"/>`;
+    });
+    // axis labels
+    svg+=`<text x="12" y="20" fill="#8FA3C0" font-size="11">${esc((LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric)}: ${zmin.toFixed(2)} \u2013 ${zmax.toFixed(2)}</text>`;
+    svg+=`<text x="12" y="${H-10}" fill="#5F7291" font-size="10">drag to rotate</text>`;
+    svg+=`</svg>`;
+    host.innerHTML=svg;
+    const el=document.getElementById("toSvg");
+    let dragging=false,lx=0,ly=0;
+    el.addEventListener("mousedown",e=>{dragging=true;lx=e.clientX;ly=e.clientY;el.style.cursor="grabbing";});
+    window.addEventListener("mouseup",()=>{dragging=false;if(el)el.style.cursor="grab";});
+    window.addEventListener("mousemove",e=>{ if(!dragging)return; rotZ+=(e.clientX-lx)*0.01; rotX+=(e.clientY-ly)*0.01; lx=e.clientX; ly=e.clientY; render(); });
+  }
+  render();
+}
+
+function drawContour(d){
+  const host=document.getElementById("toContour"); if(!host) return;
+  const zs=d.z, nx=d.x_vals.length, ny=d.y_vals.length;
+  let zmin=Infinity,zmax=-Infinity;
+  zs.forEach(r=>r.forEach(v=>{ if(v!=null){ if(v<zmin)zmin=v; if(v>zmax)zmax=v; }}));
+  const zr=(zmax-zmin)||1;
+  function color(v){ if(v==null)return "#33415C"; const t=(v-zmin)/zr; const r=Math.round(40+t*40),g=Math.round(90+t*140),b=Math.round(180-t*90); return `rgb(${r},${g},${b})`; }
+  const cell=Math.max(20,Math.min(46,Math.floor(560/nx)));
+  let h='<div class="s" style="margin-bottom:6px">Contour (exact values) \u2014 rows are Y high\u2192low, columns X low\u2192high</div>';
+  h+='<div style="overflow:auto"><table style="border-collapse:collapse">';
+  for(let j=ny-1;j>=0;j--){
+    h+='<tr>';
+    for(let i=0;i<nx;i++){
+      const v=zs[j][i];
+      h+=`<td title="${esc(_labelForPath(d.x_path))}=${d.x_vals[i].toPrecision(3)}, ${esc(_labelForPath(d.y_path))}=${d.y_vals[j].toPrecision(3)}" style="width:${cell}px;height:${cell}px;background:${color(v)};color:#08131F;font-size:9.5px;text-align:center;border:1px solid #0A1424">${v==null?"":v.toFixed(1)}</td>`;
+    }
+    h+='</tr>';
+  }
+  h+='</table></div>';
+  host.innerHTML=h;
 }
 
 function renderStart(){

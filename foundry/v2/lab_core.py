@@ -214,3 +214,80 @@ def goal_seek(cfg, run_fn, lever_path, metric_id, target,
         "status": "converged" if (residual is not None and abs(residual) <= max(tol, abs(target) * 1e-3))
                   else "did not fully converge within evaluation budget",
     }
+
+
+# ----------------------------------------------------------------------------------------------------
+# SENSITIVITY (Tier 2) — perturb each lever independently by ±pct, measure the metric swing, rank.
+# Produces tornado-chart data: for each lever, the metric at low and high, and the total swing.
+# ----------------------------------------------------------------------------------------------------
+
+def sensitivity(cfg, run_fn, lever_paths, metric_id, pct=0.10):
+    """For each lever, set it to (1-pct)*x0 and (1+pct)*x0, measure the metric at each, report the swing.
+    Returns baseline + a list sorted by absolute swing (largest first) = tornado order.
+    Robust to invalid probes (returns None for that side) and to non-numeric levers (skipped)."""
+    base_metric = metric_value(run_fn(cfg), metric_id)
+    rows = []
+    for path in lever_paths:
+        x0 = get_path(cfg, path)
+        if not isinstance(x0, (int, float)):
+            continue
+        lo_x, hi_x = x0 * (1 - pct), x0 * (1 + pct)
+        # if x0 is zero, ± percentage does nothing; use a small absolute step so the lever still moves
+        if x0 == 0:
+            lo_x, hi_x = -abs(pct), abs(pct)
+
+        def _safe(xv):
+            try:
+                return metric_value(run_fn(set_path(cfg, path, xv)), metric_id)
+            except Exception:
+                return None
+        m_lo, m_hi = _safe(lo_x), _safe(hi_x)
+        vals = [v for v in (m_lo, m_hi) if v is not None]
+        swing = (max(vals) - min(vals)) if len(vals) == 2 else 0.0
+        rows.append({"path": path, "x0": x0, "lo_x": lo_x, "hi_x": hi_x,
+                     "m_lo": m_lo, "m_hi": m_hi, "swing": swing})
+    rows.sort(key=lambda r: abs(r["swing"]), reverse=True)
+    return {"baseline": base_metric, "metric": metric_id, "pct": pct, "rows": rows}
+
+
+# ----------------------------------------------------------------------------------------------------
+# TRADE-OFF GRID (Tier 3) — evaluate a metric over a 2D grid of two levers. Each grid point is a real
+# engine run. Returns a surface (z[i][j]) plus axes, for a 3D surface / contour plot.
+# ----------------------------------------------------------------------------------------------------
+
+def tradeoff_grid(cfg, run_fn, x_path, y_path, metric_id,
+                  x_range=None, y_range=None, n=11):
+    """Evaluate metric over an n×n grid of (x_path, y_path). Ranges default to ±50% around current.
+    Returns {x_vals, y_vals, z[j][i] (rows=y, cols=x), metric, invalid_count}. Invalid points -> None."""
+    x0 = get_path(cfg, x_path)
+    y0 = get_path(cfg, y_path)
+    if not isinstance(x0, (int, float)) or not isinstance(y0, (int, float)):
+        return {"error": "both levers must be numeric"}
+    def _axis(v0, rng):
+        if rng is None:
+            lo, hi = (v0 * 0.5, v0 * 1.5) if v0 != 0 else (-1.0, 1.0)
+        else:
+            lo, hi = rng
+        if n == 1:
+            return [lo]
+        step = (hi - lo) / (n - 1)
+        return [lo + step * k for k in range(n)]
+    x_vals = _axis(x0, x_range)
+    y_vals = _axis(y0, y_range)
+    z = []
+    invalid = 0
+    for yv in y_vals:
+        row = []
+        for xv in x_vals:
+            try:
+                c = set_path(cfg, x_path, xv)
+                c = set_path(c, y_path, yv)
+                m = metric_value(run_fn(c), metric_id)
+            except Exception:
+                m = None
+            if m is None:
+                invalid += 1
+            row.append(m)
+        z.append(row)
+    return {"x_vals": x_vals, "y_vals": y_vals, "z": z, "metric": metric_id,
+            "x_path": x_path, "y_path": y_path, "x0": x0, "y0": y0, "invalid_count": invalid}
