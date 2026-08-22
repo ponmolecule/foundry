@@ -5011,6 +5011,9 @@ document.addEventListener("click", (ev)=>{
 // target metric) and Scenario (manual multi-lever what-if vs baseline). More modes layer in later.
 let _labMode = "goalseek";
 window._labMode = _labMode;
+const LAB_METRICS = [["eff","Efficiency ratio","%"],["roa","Return on assets","%"],["roe","Return on equity","%"],
+  ["nim","Net interest margin","%"],["lev","Leverage ratio","%"],["cet1","CET1 ratio","%"],
+  ["ni","Net income (final yr)","$000s"],["assets","Total assets (final yr)","$000s"]];
 function setLabMode(m){ _labMode = m; renderLab(); }
 window.setLabMode = setLabMode;
 
@@ -5038,11 +5041,10 @@ function labLeverCatalog(){
   return levers;
 }
 
-const LAB_METRICS = [["eff","Efficiency ratio","%"],["roa","Return on assets","%"],["roe","Return on equity","%"],
-  ["nim","Net interest margin","%"],["lev","Leverage ratio","%"],["cet1","CET1 ratio","%"],
-  ["ni","Net income (final yr)","$000s"],["assets","Total assets (final yr)","$000s"]];
+const LAB_METRICS_UNITS = null; // (LAB_METRICS declared at top of Lab block)
 
 function renderLab(){
+ try {
   const el = document.getElementById("content");
   if(!cfg || !((cfg.assumptions||{}).lending_products||[]).length){
     el.innerHTML = '<div class="h2" style="font-weight:700">Foundry Lab</div>'
@@ -5065,6 +5067,13 @@ function renderLab(){
   else if(_labMode==="scenario") h += labScenarioHtml();
   h += '</div>';
   el.innerHTML = h;
+ } catch(err){
+   const el = document.getElementById("content");
+   if(el) el.innerHTML = '<div class="h2" style="font-weight:700">Foundry Lab</div>'
+     + '<div class="memo" style="margin-top:12px;color:#E89A9A">The Lab hit an error while rendering: '
+     + esc(String(err && err.message || err)) + '. This has been contained \u2014 other tabs are unaffected.</div>';
+   try{ console.error("Foundry Lab render error:", err); }catch(_){}
+ }
 }
 window.renderLab = renderLab;
 
