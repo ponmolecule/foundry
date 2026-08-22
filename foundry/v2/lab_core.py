@@ -166,14 +166,23 @@ def goal_seek(cfg, run_fn, lever_path, metric_id, target,
         return {"converged": False, "status": "metric undefined at search bounds",
                 "solution": None, "residual": None, "evals": evals["n"]}
     if f_lo * f_hi > 0:
-        # no sign change bracketed -> target may be unreachable by this lever alone
+        # no sign change bracketed -> target may be unreachable by this lever alone. Report the
+        # achievable range we observed so the message is actionable, not just a hedge.
         cur = metric_value(run_fn(cfg), metric_id)
-        return {"converged": False,
-                "status": "target not reachable by this lever within a wide search range "
-                          "(the metric may not depend monotonically on this lever, or the target is "
-                          "outside its achievable range)",
+        m_lo = (f_lo + target) if f_lo is not None else None
+        m_hi = (f_hi + target) if f_hi is not None else None
+        rng = None
+        if m_lo is not None and m_hi is not None:
+            rng = (min(m_lo, m_hi), max(m_lo, m_hi))
+        msg = "target not reachable by this lever alone"
+        if rng is not None:
+            msg = ("this lever moves the metric between %.3f and %.3f across a wide range; "
+                   "target %.3f is outside that" % (rng[0], rng[1], target))
+        return {"converged": False, "status": msg,
                 "solution": None, "residual": None, "evals": evals["n"],
-                "current_metric": cur, "target": target}
+                "current_metric": cur, "target": target,
+                "achievable_min": (rng[0] if rng else None),
+                "achievable_max": (rng[1] if rng else None)}
 
     # bisection to tolerance
     a, b, fa = lo, hi, f_lo
