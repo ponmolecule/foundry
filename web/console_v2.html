@@ -5064,7 +5064,7 @@ function renderLab(){
   let h = '<div class="h2" style="font-weight:700">Foundry Lab</div>';
   h += '<div class="memo" style="margin:0 0 16px;max-width:80ch">Solve for targets, test sensitivities, explore trade-offs. An exploration sandbox \u2014 it runs the real engine on scratch copies of your model and never changes your committed assumptions unless you adopt a result.</div>';
   // mode selector
-  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"],["sensitivity","Sensitivity"],["tradeoff","Trade-off"]];
+  const modes = [["goalseek","Goal Seek"],["scenario","Scenario"],["sensitivity","Sensitivity"],["tradeoff","Trade-off"],["optimize","Optimizer"]];
   h += '<div style="display:flex;gap:6px;margin-bottom:16px">';
   modes.forEach(m=>{
     const on = _labMode===m[0];
@@ -5077,6 +5077,7 @@ function renderLab(){
   else if(_labMode==="scenario") h += labScenarioHtml();
   else if(_labMode==="sensitivity") h += labSensitivityHtml();
   else if(_labMode==="tradeoff") h += labTradeoffHtml();
+  else if(_labMode==="optimize") h += labOptimizeHtml();
   h += '</div>';
   el.innerHTML = h;
  } catch(err){
@@ -5413,6 +5414,129 @@ function drawContour(d){
   h+='</table></div>';
   host.innerHTML=h;
 }
+
+// ---- OPTIMIZER (constrained) ----
+function labOptimizeHtml(){
+  const levers = labLeverCatalog();
+  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:960px">';
+  h += '<div class="k" style="margin:0 0 4px">Optimizer</div>';
+  h += '<div class="s" style="margin-bottom:14px">Search for the lever settings that best hit an objective while respecting constraints. A global search (differential evolution) over the real engine \u2014 slower than the other modes (tens of seconds), and it honestly flags when the answer isn\u2019t unique.</div>';
+  // objective
+  h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">';
+  h += '<div class="fld" style="width:110px"><label>Goal</label><select id="optDir"><option value="max">Maximize</option><option value="min">Minimize</option></select></div>';
+  h += '<div class="fld" style="min-width:190px"><label>Objective metric</label><select id="optObj">';
+  LAB_METRICS.forEach(m=> h += `<option value="${m[0]}">${m[1]} (${m[2]})</option>`);
+  h += '</select></div></div>';
+  // levers to free (checkbox + bounds)
+  h += '<div class="s" style="margin:4px 0 6px;font-weight:600;color:#B8C6DC">Levers the optimizer may move (pick 1\u20135, set bounds):</div>';
+  h += '<table class="fin-dark" style="width:100%"><tr><th></th><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th></tr>';
+  levers.forEach((l,i)=>{
+    const cur = getPath(l.path);
+    const lo = (l.unit==="pct") ? (cur*0.5) : (cur*0.5);
+    const hi = (l.unit==="pct") ? (cur*1.5) : (cur*1.5);
+    const stepAttr = 'step="any"';
+    h += `<tr><td style="text-align:center"><input type="checkbox" id="optUse-${i}"></td>`
+      + `<td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
+      + `<td style="text-align:right"><input id="optLo-${i}" data-path="${esc(l.path)}" type="number" ${stepAttr} value="${lo}" style="width:100px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF"></td>`
+      + `<td style="text-align:right"><input id="optHi-${i}" type="number" ${stepAttr} value="${hi}" style="width:100px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF"></td></tr>`;
+  });
+  h += '</table>';
+  // constraints
+  h += '<div class="s" style="margin:14px 0 6px;font-weight:600;color:#B8C6DC">Constraints (optional):</div>';
+  h += '<div id="optConstraints"></div>';
+  h += '<button class="btn-plain" style="font-size:11px;padding:3px 10px;margin-top:6px" onclick="addOptConstraint()">+ Add constraint</button>';
+  h += '<div style="margin-top:14px"><button class="btn-plain" onclick="runLabOptimize()">Optimize</button></div>';
+  h += '<div id="optResult" style="margin-top:14px"></div></div>';
+  return h;
+}
+
+let _optConCount = 0;
+function addOptConstraint(){
+  const host = document.getElementById("optConstraints"); if(!host) return;
+  const id = _optConCount++;
+  let mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("");
+  const div = document.createElement("div");
+  div.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:6px";
+  div.innerHTML = `<select id="optCm-${id}" style="padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF">${mopts}</select>`
+    + `<select id="optCo-${id}" style="padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF"><option value=">=">\u2265</option><option value="<=">\u2264</option></select>`
+    + `<input id="optCv-${id}" type="number" step="any" placeholder="value" style="width:100px;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF">`
+    + `<button class="btn-plain" style="font-size:11px;padding:2px 8px" onclick="this.parentNode.remove()">\u00d7</button>`;
+  div.setAttribute("data-cid", id);
+  host.appendChild(div);
+}
+window.addOptConstraint = addOptConstraint;
+
+async function runLabOptimize(){
+  const levers = labLeverCatalog();
+  const chosen = [];
+  levers.forEach((l,i)=>{
+    if(document.getElementById("optUse-"+i)?.checked){
+      const lo = parseFloat(document.getElementById("optLo-"+i).value);
+      const hi = parseFloat(document.getElementById("optHi-"+i).value);
+      if(!isNaN(lo) && !isNaN(hi) && hi>lo) chosen.push({path:l.path, lo, hi});
+    }
+  });
+  const out = document.getElementById("optResult");
+  if(!chosen.length){ out.innerHTML='<div class="memo" style="color:#C98A8A">Pick at least one lever (check the box) with valid min < max.</div>'; return; }
+  if(chosen.length>5){ out.innerHTML='<div class="memo" style="color:#C98A8A">Pick at most 5 levers.</div>'; return; }
+  // gather constraints
+  const constraints = [];
+  document.querySelectorAll("#optConstraints [data-cid]").forEach(div=>{
+    const id = div.getAttribute("data-cid");
+    const m = document.getElementById("optCm-"+id)?.value;
+    const op = document.getElementById("optCo-"+id)?.value;
+    const v = parseFloat(document.getElementById("optCv-"+id)?.value);
+    if(m && op && !isNaN(v)) constraints.push({metric:m, op, value:v});
+  });
+  const objective = document.getElementById("optObj").value;
+  const direction = document.getElementById("optDir").value;
+  out.innerHTML = '<div class="memo">Optimizing \u2014 a global search over the engine, this can take 20\u201340 seconds\u2026</div>';
+  try{
+    const r = await fetch("/api/v31/lab/optimize",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({cfg,objective,direction,levers:chosen,constraints})});
+    const d = await r.json();
+    renderOptimizeResult(d);
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Optimize failed: '+esc(String(e))+'</div>'; }
+}
+window.runLabOptimize = runLabOptimize;
+
+function renderOptimizeResult(d){
+  const out = document.getElementById("optResult"); if(!out) return;
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#C98A8A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  const mlabel=(LAB_METRICS.find(m=>m[0]===d.objective)||[])[1]||d.objective;
+  window._optAdopt = d.solution;
+  const bandColor = d.feasible ? "#1E5A3A" : "#5A3A1E";
+  const bandBg = d.feasible ? "#0A1F14" : "#1F160A";
+  let h = `<div style="padding:12px;background:${bandBg};border:1px solid ${bandColor};border-radius:8px;line-height:1.7">`;
+  h += `<div style="font-size:13px;color:#DCE9F8">${d.direction==="max"?"Maximum":"Minimum"} <b>${esc(mlabel)}</b> found: <span style="font-size:17px;font-weight:700;color:#7FE8A8">${d.achieved!=null?d.achieved.toFixed(3):"\u2014"}</span></div>`;
+  h += '<div class="s" style="margin-top:8px">Lever settings:</div><table class="fin-dark" style="width:auto;min-width:420px;margin-top:4px"><tr><th>Lever</th><th style="text-align:right">Optimized value</th></tr>';
+  Object.keys(d.solution||{}).forEach(p=>{
+    const l = (labLeverCatalog()||[]).find(x=>x.path===p);
+    h += `<tr><td>${esc(l?l.label:p)}</td><td style="text-align:right">${_fmtLever(d.solution[p], l?l.unit:"")}</td></tr>`;
+  });
+  h += '</table>';
+  if((d.constraint_status||[]).length){
+    h += '<div class="s" style="margin-top:10px">Constraints:</div>';
+    d.constraint_status.forEach(c=>{
+      const ml=(LAB_METRICS.find(m=>m[0]===c.metric)||[])[1]||c.metric;
+      h += `<div style="font-size:11px;color:${c.met?"#7FE8A8":"#E89A9A"}">${c.met?"\u2713":"\u2717"} ${esc(ml)} ${c.op} ${c.value}</div>`;
+    });
+  }
+  h += `<div class="s" style="margin-top:10px;color:${d.nonunique?"#E0B080":"#8FA3C0"}">${esc(d.note||"")}</div>`;
+  h += '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn-plain" onclick="adoptOptimize()">Adopt into model</button><button class="btn-plain" onclick="document.getElementById(\'optResult\').innerHTML=\'\'">Discard</button></div>';
+  h += '</div>';
+  out.innerHTML = h;
+}
+
+function adoptOptimize(){
+  const sol = window._optAdopt; if(!sol) return;
+  let n=0;
+  Object.keys(sol).forEach(p=>{ setPath(p, sol[p]); n++; });
+  appStatus("ok", "<b>Adopted "+n+" optimized lever value"+(n>1?"s":"")+".</b> Exploratory \u2014 review as your own before filing.");
+  if(typeof renderGlobals==="function") renderGlobals();
+  refresh();
+}
+window.adoptOptimize = adoptOptimize;
 
 function renderStart(){
   const el = document.getElementById("content");

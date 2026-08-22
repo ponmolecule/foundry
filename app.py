@@ -704,6 +704,29 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/lab/optimize")
+def v31_lab_optimize(body: dict, _=Depends(gate)):
+    """Foundry Lab constrained optimizer: max/min an objective metric over multiple levers subject to
+    metric constraints. Differential evolution on scratch configs; engine untouched. Honest about
+    non-uniqueness and infeasibility."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        objective = body.get("objective"); direction = body.get("direction", "max")
+        levers = body.get("levers") or []; constraints = body.get("constraints") or []
+        if not objective or not levers:
+            return JSONResponse({"error": "objective and at least one lever are required"}, status_code=422)
+        if len(levers) > 5:
+            return JSONResponse({"error": "up to 5 levers at a time (optimizer cost)"}, status_code=422)
+        return JSONResponse(lab_core.optimize(cfg, run_v2, objective, direction, levers,
+                                              constraints=constraints, seeds=2, maxiter=20, popsize=10))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"optimize error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.post("/api/v31/lab/sensitivity")
 def v31_lab_sensitivity(body: dict, _=Depends(gate)):
     """Foundry Lab sensitivity (tornado): perturb each lever ±pct, rank by metric swing. Scratch only."""
