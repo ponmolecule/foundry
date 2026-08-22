@@ -719,6 +719,26 @@ def v31_substrate_status(_=Depends(gate)):
         return JSONResponse({"configured": True, "reachable": False, "error": str(e)[:200]})
 
 
+@app.post("/api/v31/peer-seed")
+def v31_peer_seed(body: dict, _=Depends(gate)):
+    """'Use Peer Assumptions' — INTERNAL convenience. Given peer certs (or a cohort) and the current
+    products, return provenance-stamped config SUGGESTIONS. Isolated from the engine: the response is a
+    plain suggestions dict the frontend applies into the editable config. Degrades gracefully."""
+    from foundry.charteriq_client import CharterIQClient
+    from foundry.v2.peer_seed import seed_from_peers
+    try:
+        certs = [int(c) for c in (body.get("certs") or [])]
+        products = body.get("products") or []
+        cl = CharterIQClient()
+        return JSONResponse(seed_from_peers(cl, certs, products, since_year=body.get("since_year")))
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"available": False, "note": f"bad request: {str(e)[:200]}",
+                             "peers": [], "suggestions": {}}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"available": False, "note": f"peer-seed error: {str(e)[:200]}",
+                             "peers": [], "suggestions": {}}, status_code=200)
+
+
 @app.get("/api/v31/substrate/peers")
 def v31_substrate_peers(metric: str, band: str, year: int, quarter: int, _=Depends(gate)):
     from foundry.charteriq_client import CharterIQClient, PEER_BANDS
