@@ -5059,35 +5059,50 @@ function renderLab(){
     h += `<button class="btn-plain" style="${on?'background:#1E3A5F;border-color:#3A6BA8;color:#DCE9F8':''}" onclick="setLabMode('${m[0]}')">${m[1]}</button>`;
   });
   h += '</div>';
-  h += '<div id="labBody"></div>';
+  // build the mode body inline (single innerHTML set — no second DOM lookup that could silently fail)
+  h += '<div id="labBody">';
+  if(_labMode==="goalseek") h += labGoalSeekHtml();
+  else if(_labMode==="scenario") h += labScenarioHtml();
+  h += '</div>';
   el.innerHTML = h;
-  if(_labMode==="goalseek") renderLabGoalSeek();
-  else if(_labMode==="scenario") renderLabScenario();
 }
 window.renderLab = renderLab;
 
-function renderLabGoalSeek(){
-  const body = document.getElementById("labBody"); if(!body) return;
+function labGoalSeekHtml(){
   const levers = labLeverCatalog();
   let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:900px">';
   h += '<div class="k" style="margin:0 0 4px">Goal Seek</div>';
   h += '<div class="s" style="margin-bottom:14px">Pick a target metric and the single lever to solve. The Lab searches for the lever value that hits your target, running the real engine to convergence.</div>';
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
-  // target metric
   h += '<div class="fld" style="min-width:190px"><label>Target metric</label><select id="gsMetric">';
   LAB_METRICS.forEach(m=> h += `<option value="${m[0]}">${m[1]} (${m[2]})</option>`);
   h += '</select></div>';
   h += '<div class="fld" style="width:120px"><label>Target value</label><input id="gsTarget" type="number" step="any" placeholder="e.g. 55"></div>';
-  // lever
   h += '<div class="fld" style="min-width:240px"><label>Solve for (lever)</label><select id="gsLever">';
   if(!levers.length) h += '<option value="">(no adjustable levers found)</option>';
   levers.forEach(l=> h += `<option value="${esc(l.path)}" data-unit="${l.unit}">${esc(l.label)}</option>`);
   h += '</select></div>';
   h += '<button class="btn-plain" onclick="runLabGoalSeek()" '+(levers.length?'':'disabled')+'>Solve</button>';
-  h += '</div>';
-  h += '<div id="gsResult" style="margin-top:14px"></div>';
-  h += '</div>';
-  body.innerHTML = h;
+  h += '</div><div id="gsResult" style="margin-top:14px"></div></div>';
+  return h;
+}
+
+function labScenarioHtml(){
+  const levers = labLeverCatalog();
+  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:900px">';
+  h += '<div class="k" style="margin:0 0 4px">Scenario</div>';
+  h += '<div class="s" style="margin-bottom:14px">Manually adjust one or more levers and see the effect on every metric, side by side with your current baseline \u2014 without committing the changes.</div>';
+  if(!levers.length){ h += '<div class="memo">No adjustable levers found in this model.</div></div>'; return h; }
+  h += '<table class="fin" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
+  levers.forEach((l,i)=>{
+    const cur = getPath(cfg, l.path);
+    h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
+      + `<td style="text-align:right"><input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="unchanged" style="width:120px;text-align:right;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF"></td></tr>`;
+  });
+  h += '</table>';
+  h += '<div style="margin-top:12px"><button class="btn-plain" onclick="runLabScenario()">Run scenario</button></div>';
+  h += '<div id="scnResult" style="margin-top:14px"></div></div>';
+  return h;
 }
 
 async function runLabGoalSeek(){
@@ -5143,26 +5158,6 @@ function adoptGoalSeek(){
   refresh();
 }
 window.adoptGoalSeek = adoptGoalSeek;
-
-function renderLabScenario(){
-  const body = document.getElementById("labBody"); if(!body) return;
-  const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#0E1930;border-color:#2A3B57;max-width:900px">';
-  h += '<div class="k" style="margin:0 0 4px">Scenario</div>';
-  h += '<div class="s" style="margin-bottom:14px">Manually adjust one or more levers and see the effect on every metric, side by side with your current baseline \u2014 without committing the changes.</div>';
-  if(!levers.length){ h += '<div class="memo">No adjustable levers found in this model.</div></div>'; body.innerHTML=h; return; }
-  h += '<table class="fin" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
-  levers.forEach((l,i)=>{
-    const cur = getPath(cfg, l.path);
-    h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
-      + `<td style="text-align:right"><input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="unchanged" style="width:120px;text-align:right;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF"></td></tr>`;
-  });
-  h += '</table>';
-  h += '<div style="margin-top:12px"><button class="btn-plain" onclick="runLabScenario()">Run scenario</button></div>';
-  h += '<div id="scnResult" style="margin-top:14px"></div>';
-  h += '</div>';
-  body.innerHTML = h;
-}
 
 async function runLabScenario(){
   const levers = labLeverCatalog();
