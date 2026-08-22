@@ -704,6 +704,33 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/lab/diag-cet1")
+def v31_lab_diag_cet1(body: dict, _=Depends(gate)):
+    """Diagnostic: for the posted config, return what the CET1 extractor sees — the ratios dict keys,
+    the raw cet1_rwa series, the standardized.cet1 (dollars) for contrast, and the extracted metric.
+    Lets us confirm whether CET1 is being read correctly on a real engagement without guessing."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        res = run_v2(cfg)
+        std = (res.get("capital") or {}).get("standardized") or {}
+        ratios = std.get("ratios") or {}
+        def _tail(x):
+            return x[-3:] if isinstance(x, list) else x
+        return JSONResponse({
+            "ratios_keys": list(ratios.keys()) if isinstance(ratios, dict) else None,
+            "cet1_rwa_tail": _tail(ratios.get("cet1_rwa")) if isinstance(ratios, dict) else None,
+            "cet1_dollars_tail": _tail(std.get("cet1")),
+            "leverage_tail": _tail(ratios.get("leverage")) if isinstance(ratios, dict) else None,
+            "extracted_cet1": lab_core.metric_value(res, "cet1"),
+            "extracted_roe": lab_core.metric_value(res, "roe"),
+            "extracted_lev": lab_core.metric_value(res, "lev"),
+        })
+    except Exception as e:
+        return JSONResponse({"error": f"diag error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.post("/api/v31/lab/frontier")
 def v31_lab_frontier(body: dict, _=Depends(gate)):
     """Foundry Lab efficient frontier: two competing objectives over two levers, swept on a grid, with

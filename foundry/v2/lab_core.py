@@ -40,13 +40,16 @@ def _ratio_last(res, key):
 def _cet1_last(res):
     # CET1 RATIO (percent), final quarter. The real ratio lives in capital.standardized.ratios.cet1_rwa.
     # NOTE: standardized.cet1 is the capital DOLLAR amount (numerator), NOT the ratio — do not use it.
+    # Only accept explicit RATIO keys, and sanity-check the magnitude: a CET1 ratio is a percentage
+    # (well under ~1000 even in extreme de novo cases); a value larger than that is a dollar amount
+    # leaking through, so we reject it (return None) rather than report a wrong number.
     cap = res.get("capital") or {}
     std = cap.get("standardized") or {}
     ratios = std.get("ratios") or {}
     if isinstance(ratios, dict):
-        for cand in ("cet1_rwa", "cet1_ratio", "cet1"):
+        for cand in ("cet1_rwa", "cet1_ratio"):
             v = _last_num(ratios.get(cand))
-            if v is not None:
+            if v is not None and abs(v) < 1000:
                 return v
     return None
 
