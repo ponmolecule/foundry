@@ -704,6 +704,48 @@ async def v31_retro(file: UploadFile = File(...), cfg: str = Form("{}"), _=Depen
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/lab/goal-seek")
+def v31_lab_goal_seek(body: dict, _=Depends(gate)):
+    """Foundry Lab goal-seek: solve one lever for a target metric. Operates on the posted config
+    (scratch), runs the real engine to convergence, returns diagnostics. Never persists or mutates."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        lever = body.get("lever"); metric = body.get("metric"); target = float(body.get("target"))
+        if not lever or not metric:
+            return JSONResponse({"error": "lever and metric are required"}, status_code=422)
+        result = lab_core.goal_seek(cfg, run_v2, lever, metric, target)
+        return JSONResponse(result)
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"goal-seek error: {str(e)[:200]}"}, status_code=200)
+
+
+@app.post("/api/v31/lab/scenario")
+def v31_lab_scenario(body: dict, _=Depends(gate)):
+    """Foundry Lab scenario: apply manual lever overrides to a scratch config, return baseline vs
+    scenario metrics. Never persists or mutates the committed model."""
+    from foundry.v2 import lab_core
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        overrides = body.get("overrides") or {}
+        base_res = run_v2(cfg)
+        baseline = {m: lab_core.metric_value(base_res, m) for m in lab_core.METRICS}
+        scratch = cfg
+        for path, val in overrides.items():
+            scratch = lab_core.set_path(scratch, path, val)
+        scen_res = run_v2(scratch)
+        scenario = {m: lab_core.metric_value(scen_res, m) for m in lab_core.METRICS}
+        return JSONResponse({"baseline": baseline, "scenario": scenario})
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"scenario error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.get("/api/v31/substrate/status")
 def v31_substrate_status(_=Depends(gate)):
     """Is the CharterIQ substrate configured and reachable? Honest either way."""
