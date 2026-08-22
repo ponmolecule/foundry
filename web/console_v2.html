@@ -5492,13 +5492,25 @@ async function runLabOptimize(){
   });
   const objective = document.getElementById("optObj").value;
   const direction = document.getElementById("optDir").value;
-  out.innerHTML = '<div class="memo">Optimizing \u2014 a global search over the engine, this can take 20\u201340 seconds\u2026</div>';
+  out.innerHTML = '<div class="memo">Optimizing \u2014 a global search over the engine. With '+chosen.length+' lever'+(chosen.length>1?'s':'')+' this can take up to ~25 seconds\u2026</div>';
   try{
     const r = await fetch("/api/v31/lab/optimize",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cfg,objective,direction,levers:chosen,constraints})});
+    // If the server (or hosting proxy) returned HTML instead of JSON — e.g. a gateway timeout on a heavy
+    // solve — r.json() would throw an opaque 'Unexpected token <'. Detect it and explain what to do.
+    const ctype = r.headers.get("content-type") || "";
+    if(!r.ok || ctype.indexOf("application/json") === -1){
+      const txt = await r.text();
+      if(txt.trim().slice(0,15).toLowerCase().indexOf("<!doctype") === 0 || r.status===502 || r.status===504){
+        out.innerHTML='<div class="memo" style="color:#E0B080;line-height:1.6">The optimize request didn\u2019t return in time (the server sent a gateway error, not a result). This happens when the search is too heavy for one request. Try <b>fewer levers</b> (2\u20133 is ideal) or a <b>narrower min/max range</b> on each, then run again.</div>';
+        return;
+      }
+      out.innerHTML='<div class="memo" style="color:#C98A8A">Optimize failed (HTTP '+r.status+'). '+esc(txt.slice(0,160))+'</div>';
+      return;
+    }
     const d = await r.json();
     renderOptimizeResult(d);
-  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Optimize failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#C98A8A">Optimize failed: '+esc(String(e))+'. If this persists, try fewer levers or a narrower range.</div>'; }
 }
 window.runLabOptimize = runLabOptimize;
 
