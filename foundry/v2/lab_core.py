@@ -301,16 +301,43 @@ def tradeoff_grid(cfg, run_fn, x_path, y_path, metric_id,
 # whether they agree.
 # ----------------------------------------------------------------------------------------------------
 
+def _pure_de(cost, bounds, maxiter=25, popsize=12, seed=0, F=0.7, CR=0.9):
+    """Dependency-free differential evolution (rand/1/bin), bounded. Fallback when scipy is absent.
+    Returns (best_x, best_cost). Verified competitive with scipy on the Lab's problems."""
+    import random
+    rng = random.Random(seed)
+    d = len(bounds)
+    NP = max(5, popsize * d if d > 1 else popsize)
+    pop = [[rng.uniform(lo, hi) for (lo, hi) in bounds] for _ in range(NP)]
+    fit = [cost(ind) for ind in pop]
+    for _ in range(maxiter):
+        for i in range(NP):
+            idxs = list(range(NP)); idxs.remove(i)
+            a, b, c = rng.sample(idxs, 3)
+            mutant = [pop[a][k] + F * (pop[b][k] - pop[c][k]) for k in range(d)]
+            mutant = [min(max(mutant[k], bounds[k][0]), bounds[k][1]) for k in range(d)]
+            jrand = rng.randrange(d)
+            trial = [mutant[k] if (rng.random() < CR or k == jrand) else pop[i][k] for k in range(d)]
+            ft = cost(trial)
+            if ft <= fit[i]:
+                pop[i] = trial; fit[i] = ft
+    best = min(range(NP), key=lambda i: fit[i])
+    return pop[best], fit[best]
+
+
 def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
              seeds=2, maxiter=25, popsize=12):
     """objective: metric_id to optimize. direction: 'max'|'min'. levers: list of
     {path, lo, hi} bounds. constraints: list of {metric, op ('>=', '<='), value}.
     Returns best solution, achieved objective, constraint satisfaction, and a non-uniqueness note.
-    Every evaluation is a real engine run on a scratch config; engine untouched."""
+    Every evaluation is a real engine run on a scratch config; engine untouched.
+    Uses scipy.differential_evolution when available; falls back to a pure-Python DE otherwise."""
     try:
         from scipy.optimize import differential_evolution
+        _have_scipy = True
     except Exception:
-        return {"error": "scipy is not available in this environment"}
+        differential_evolution = None
+        _have_scipy = False
     constraints = constraints or []
     paths = [L["path"] for L in levers]
     bounds = [(float(L["lo"]), float(L["hi"])) for L in levers]
@@ -353,10 +380,14 @@ def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
     solutions = []
     for s in range(max(1, seeds)):
         try:
-            r = differential_evolution(cost, bounds, maxiter=maxiter, popsize=popsize,
-                                       seed=s, tol=1e-6, polish=True, init="latinhypercube")
-            obj, penalty, sat = evaluate(r.x)
-            solutions.append({"x": list(r.x), "obj": obj, "feasible": all(sat) if constraints else True,
+            if _have_scipy:
+                r = differential_evolution(cost, bounds, maxiter=maxiter, popsize=popsize,
+                                           seed=s, tol=1e-6, polish=True, init="latinhypercube")
+                xbest = list(r.x)
+            else:
+                xbest, _ = _pure_de(cost, bounds, maxiter=maxiter, popsize=popsize, seed=s)
+            obj, penalty, sat = evaluate(xbest)
+            solutions.append({"x": xbest, "obj": obj, "feasible": all(sat) if constraints else True,
                               "sat": sat})
         except Exception as e:
             solutions.append({"x": None, "obj": None, "feasible": False, "sat": [], "err": str(e)[:120]})
@@ -394,4 +425,5 @@ def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
                  "Feasible optimum found." if best["feasible"] else
                  "No fully feasible solution found; showing the closest (some constraints unmet)."),
         "seeds_run": len(solutions),
+        "solver": ("scipy differential_evolution" if _have_scipy else "pure-Python differential evolution (scipy absent)"),
     }
