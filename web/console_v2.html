@@ -621,13 +621,26 @@ async function fetchPeerSeed(){
   const certs = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n));
   const out = document.getElementById("peerSeedResult");
   if(!certs.length){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Enter at least one FDIC cert number.</div>'; return; }
-  const products = (((cfg||{}).assumptions||{}).lending_products) || [];
-  if(!products.length){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">No lending products to seed \u2014 add products first.</div>'; return; }
+  let products = (((cfg||{}).assumptions||{}).lending_products) || [];
+  // No products yet? Seed against the STANDARD category set so the user gets "pick peers -> get a model"
+  // without first visiting the Product page. These scaffolds are created on adopt.
+  let scaffolded = false;
+  if(!products.length){
+    products = [
+      {name:"Consumer", call_report_line:"loanConsumer"},
+      {name:"Credit Card", call_report_line:"loanCreditCard"},
+      {name:"Residential Mortgage / HELOC", call_report_line:"loanMortgage"},
+      {name:"Commercial & Industrial", call_report_line:"loanCommercial"},
+      {name:"Commercial Real Estate", call_report_line:"loanCRE"},
+    ];
+    scaffolded = true;
+  }
   if(out) out.innerHTML = '<div class="memo">Fetching peer data\u2026</div>';
   try{
     const r = await fetch("/api/v31/peer-seed", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({certs, products})});
     const d = await r.json();
+    d._scaffolded = scaffolded; d._scaffoldProducts = products;
     renderPeerSeed(d, products);
   }catch(e){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Peer lookup failed: '+esc(String(e))+'</div>'; }
 }
@@ -640,6 +653,8 @@ function renderPeerSeed(d, products){
     out.innerHTML = '<div class="memo" style="color:#C98A8A">'+esc((d&&d.note)||"Peer data unavailable.")+'</div>';
     return;
   }
+  window._peerSeedData = {suggestions: d.suggestions||{}, products: products,
+                          scaffolded: !!d._scaffolded, scaffoldProducts: d._scaffoldProducts||products};   // hold for adopt
   const peers = (d.peers||[]).map(p=>esc(p.name)).join(", ");
   let h = '<div class="memo" style="line-height:1.6">'+(d.blend?"Median blend of: ":"Adopting: ")+'<b>'+peers+'</b>. '+esc(d.scope_note||"")+'</div>';
   const sugg = d.suggestions||{};
@@ -650,33 +665,56 @@ function renderPeerSeed(d, products){
     const pname = esc((products[i]||{}).name || ("Product "+i));
     Object.keys(sugg[i]).forEach(field=>{
       const s = sugg[i][field];
-      h += '<tr><td>'+pname+'</td><td>'+esc(field)+'</td><td style="text-align:right">'+esc(String(s.value))+'</td>'
+      h += '<tr id="pseed-'+i+'-'+field+'"><td>'+pname+'</td><td>'+esc(field)+'</td><td style="text-align:right">'+esc(String(s.value))+'</td>'
         + '<td style="font-size:10px;color:#8FA3C0;max-width:34ch">'+esc(s.provenance||"")+'</td>'
-        + '<td><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="applyPeerSuggestion('+i+',\''+field+'\','+JSON.stringify(s.value)+')">Adopt</button></td></tr>';
+        + '<td><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="adoptPeerCell('+i+',\''+field+'\')">Adopt</button></td></tr>';
     });
   });
   h += '</table>';
-  h += '<div style="margin-top:8px"><button class="btn-plain" onclick="applyAllPeerSuggestions('+JSON.stringify(JSON.stringify(sugg)).slice(1,-1)+')">Adopt all</button></div>';
+  h += '<div style="margin-top:8px;display:flex;gap:8px"><button class="btn-plain" onclick="adoptAllPeer()">Adopt all</button>'
+    + '<button class="btn-plain" onclick="refresh()">Done \u2014 recompute</button></div>';
   out.innerHTML = h;
 }
 
-function applyPeerSuggestion(i, field, value){
-  setPath("assumptions.lending_products."+i+"."+field, value);
-  appStatus("ok", "<b>Adopted peer value</b> for product "+i+" \u2014 "+esc(field)+". Review and edit as your own before filing.");
-  refresh();
-}
-window.applyPeerSuggestion = applyPeerSuggestion;
-
-function applyAllPeerSuggestions(suggJson){
-  let sugg; try{ sugg = JSON.parse(suggJson); }catch(e){ return; }
-  let n=0;
-  Object.keys(sugg).forEach(i=>Object.keys(sugg[i]).forEach(field=>{
-    setPath("assumptions.lending_products."+i+"."+field, sugg[i][field].value); n++;
+// If seeding created scaffold products (config had none), materialize them into the config once,
+// before writing any peer values into them.
+function _ensurePeerScaffold(){
+  const D = window._peerSeedData; if(!D || !D.scaffolded) return;
+  cfg.assumptions = cfg.assumptions || {};
+  const arr = cfg.assumptions.lending_products || (cfg.assumptions.lending_products = []);
+  if(arr.length) { D.scaffolded = false; return; }   // already materialized
+  (D.scaffoldProducts||[]).forEach(sp=>arr.push({
+    name: sp.name, call_report_line: sp.call_report_line, line: sp.call_report_line,
+    opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0, charge_off_ann:0,
+    rate_type:"fixed", yield_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
+    measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0
   }));
-  appStatus("ok", "<b>Adopted "+n+" peer values.</b> These are starting points \u2014 review and make them your own before filing.");
-  refresh();
+  D.scaffolded = false;   // only create once
 }
-window.applyAllPeerSuggestions = applyAllPeerSuggestions;
+
+// Adopt a single cell: write config, mark the row adopted IN PLACE (no full refresh -> panel stays).
+function adoptPeerCell(i, field){
+  const D = window._peerSeedData; if(!D) return;
+  const s = (D.suggestions[i]||{})[field]; if(!s) return;
+  _ensurePeerScaffold();
+  setPath("assumptions.lending_products."+i+"."+field, s.value);
+  const row = document.getElementById("pseed-"+i+"-"+field);
+  if(row){ row.style.opacity="0.5"; const btn=row.querySelector("button"); if(btn){ btn.textContent="\u2713 Adopted"; btn.disabled=true; } }
+}
+window.adoptPeerCell = adoptPeerCell;
+
+function adoptAllPeer(){
+  const D = window._peerSeedData; if(!D) return;
+  _ensurePeerScaffold();
+  let n=0;
+  Object.keys(D.suggestions).forEach(i=>Object.keys(D.suggestions[i]).forEach(field=>{
+    setPath("assumptions.lending_products."+i+"."+field, D.suggestions[i][field].value); n++;
+    const row=document.getElementById("pseed-"+i+"-"+field);
+    if(row){ row.style.opacity="0.5"; const btn=row.querySelector("button"); if(btn){ btn.textContent="\u2713 Adopted"; btn.disabled=true; } }
+  }));
+  appStatus("ok", "<b>Adopted "+n+" peer values.</b> Starting points \u2014 review and make them your own. Click \u2018Done \u2014 recompute\u2019 to apply.");
+}
+window.adoptAllPeer = adoptAllPeer;
 
 // NEW / CLEAR WORKSPACE (LIFECYCLE_SPEC §10): the guaranteed known-clean starting point.
 // Empties the workspace -> EMPTY. If there's unsaved work, the guard fires first (Save/Discard/
@@ -5009,7 +5047,7 @@ function renderStart(){
       + '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none">'
       + '<div class="k" style="margin:0">Use Peer Assumptions</div>'
       + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">Internal</span></summary>'
-      + '<div class="s" style="margin-top:8px;max-width:78ch;line-height:1.6">Seed the current products from real peer Call Report data \u2014 an internal accelerator, not a client-facing auto-fill. Enter one or more FDIC cert numbers (one = adopt that peer; several = median blend). '
+      + '<div class="s" style="margin-top:8px;max-width:78ch;line-height:1.6">Seed products from real peer Call Report data \u2014 an internal accelerator, not a client-facing auto-fill. Enter one or more FDIC cert numbers (one = adopt that peer; several = median blend). If you have no products yet, this creates the standard categories and seeds them; if you do, it seeds those. '
       + 'Seeds <b>per-product balances and growth</b> from the peers\u2019 actual filings; <b>rates are the peers\u2019 blended book yield</b> (Call Reports don\u2019t report per-product yields); <b>maturity is never seeded</b> (not in the data, and a decision to own). Every value is a labelled suggestion you review before it enters the model.</div>'
       + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
       + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#0A1424;border:1px solid #2A3B57;border-radius:6px;color:#DCE3EF;font-family:inherit;font-size:12px">'
