@@ -482,8 +482,22 @@ def frontier(cfg, run_fn, obj_a, dir_a, obj_b, dir_b, x_path, y_path, n=9):
     for p in points:
         p["frontier"] = not any(_dominates(q, p, dir_a, dir_b) for q in points if q is not p)
     front = [p for p in points if p["frontier"]]
-    # sort frontier by objective a for a clean line
+    # sort by objective a for a clean line
     front.sort(key=lambda p: p["a"])
+    # Deduplicate on the (a,b) OUTCOME: multiple lever settings can reach the same objective pair, and
+    # they render as stacked dots (making the count disagree with what's visible). Collapse to distinct
+    # outcomes, but record how many settings map to each (informative — several paths to one result).
+    seen = {}
+    distinct = []
+    for p in front:
+        key = (round(p["a"], 4), round(p["b"], 4))
+        if key in seen:
+            seen[key]["settings_count"] += 1
+        else:
+            q = dict(p); q["settings_count"] = 1
+            seen[key] = q
+            distinct.append(q)
     return {"obj_a": obj_a, "dir_a": dir_a, "obj_b": obj_b, "dir_b": dir_b,
-            "x_path": x_path, "y_path": y_path, "points": points, "frontier": front,
-            "n_points": len(points), "n_frontier": len(front)}
+            "x_path": x_path, "y_path": y_path, "points": points, "frontier": distinct,
+            "n_points": len(points), "n_frontier": len(distinct),
+            "n_frontier_settings": len(front)}
