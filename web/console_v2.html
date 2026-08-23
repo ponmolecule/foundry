@@ -3683,10 +3683,32 @@ function renderOverview(){
   h += `<div style="margin-top:20px;padding-top:14px;border-top:1px solid #1E2C42;display:flex;align-items:center;gap:10px">
     <button class="btn-gold" onclick="exportExecPdf()" title="Download this Executive Summary as a PDF — the verdict, drivers, sign-off items, and both finding streams as a clean client document.">Download Executive Summary (PDF)</button>
     <button class="btn-plain" onclick="exportExcel()" style="margin-left:8px" title="Download the full results exhibit as Excel — this Executive Summary plus every schedule.">Excel exhibit</button>
+    <button class="btn-plain" onclick="exportBptCover()" style="margin-left:8px" title="Download the Business Plan Tables cover sheet — engagement-specific tables (balance sheet, income statement, capital, per-product detail) following the standard template.">Business Plan Tables</button>
     <span style="font-size:10.5px;color:#6E7C93">Excel workbook \u2014 opens with this verdict, bound to run ${esc(String(r.config_hash||"").slice(0,10))}.</span>
   </div>`;
   el.innerHTML = h;
 }
+
+// Download the Business Plan Tables cover sheet (engagement-specific, per-product dynamic tables).
+async function exportBptCover(){
+  try{
+    const r = await fetch("/api/v31/bpt-cover", {method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({cfg: (typeof cfgRef==="function"?cfgRef():cfg)})});
+    const ctype = r.headers.get("content-type")||"";
+    if(!r.ok || ctype.indexOf("spreadsheet")===-1){
+      const t = await r.text();
+      appStatus("err", "Business Plan Tables export failed: "+esc(t.slice(0,160)));
+      return;
+    }
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url; link.download = "business_plan_tables.xlsx";
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  }catch(e){ appStatus("err", "Business Plan Tables export failed: "+esc(String(e))); }
+}
+window.exportBptCover = exportBptCover;
 function renderContent(){
   // Preserve focus across the DOM rebuild: capture which field (by its data-focus
   // path) is focused and where the caret sits, so a re-render triggered by the
