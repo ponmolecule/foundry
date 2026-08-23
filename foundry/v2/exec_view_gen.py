@@ -333,10 +333,10 @@ def build(cfg, res):
     bank_name = (proposed.get("name") if isinstance(proposed, dict) else proposed) or "Bank model"
     model = {
         "product": bank_name, "section": "Executive Summary",
-        "navTabs": [{"label": "Scenarios", "tab": "stress"},
-                    {"label": "Assumptions", "tab": "notes"},
-                    {"label": "Results", "tab": "is"},
-                    {"label": "Model Checks", "tab": "examiner"}],
+        "navTabs": [{"label": "Scenarios", "view": "scenarios"},
+                    {"label": "Assumptions", "view": "assumptions"},
+                    {"label": "Results", "view": "financials"},
+                    {"label": "Model Checks", "view": "coherence"}],
         "version": f"Engine {res.get('engine_version', '')}",
         "generated": "", "freshness": "Up to date",
         "runLine": f"Run {str(res.get('config_hash', ''))[:10]} \u00b7 {cfg_name} \u00b7 v2-quarterly "
