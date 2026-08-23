@@ -626,6 +626,31 @@ def v31_bpt_cover(body: dict, _=Depends(gate)):
         return JSONResponse({"error": f"cover-sheet build error: {str(e)[:200]}"}, status_code=200)
 
 
+@app.post("/api/v31/exec-view")
+def v31_exec_view(body: dict, _=Depends(gate)):
+    """New Executive Summary (data-driven design). Runs the engine on the posted config, injects the
+    real result into the approved dependency-free design template, and returns a complete self-contained
+    HTML document for display in a sandboxed iframe. Adapts per engagement (green/passing when healthy,
+    red/breaching when not). The classic Exec Summary is unaffected."""
+    from fastapi.responses import HTMLResponse
+    from foundry.v2 import exec_view_gen
+    from foundry.v2.run_q import run_v2
+    import os as _os
+    try:
+        cfg = body.get("cfg") or {}
+        if not cfg:
+            return JSONResponse({"error": "no config provided"}, status_code=422)
+        res = run_v2(cfg)
+        tmpl_path = _os.path.join(_os.path.dirname(__file__), "foundry", "v2", "assets",
+                                  "exec_view_template.html")
+        html = exec_view_gen.build_html(cfg, res, tmpl_path)
+        return HTMLResponse(content=html)
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"exec-view build error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.get("/api/v31/fiw/universal")
 def v31_fiw_universal(_=Depends(gate)):
     """Universal template: a full-coverage FIW built from the bundled exhaustive config, so it
