@@ -3323,7 +3323,7 @@ function _money000(v){ // v in $000s -> $X.XM or $XXXk
 // generators as the classic view; adds nothing to the engine. Toggled via
 // window._execView ('v2' | 'classic'); classic renderOverviewClassic is untouched.
 // ============================================================================
-window._execView = (typeof window._execView !== "undefined") ? window._execView : "v2";
+window._execView = (typeof window._execView !== "undefined") ? window._execView : "classic";
 function setExecView(v){ window._execView = v; renderOverview(); }
 window.setExecView = setExecView;
 
