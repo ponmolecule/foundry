@@ -62,8 +62,23 @@ def _day1(series):
     return None
 
 
+def _engagement_slug(cfg):
+    """A filename-safe engagement identifier: prefer engagement_id, else the bank name."""
+    import re
+    raw = cfg.get("engagement_id")
+    if not raw:
+        pb = cfg.get("proposed_bank")
+        raw = pb if isinstance(pb, str) else (pb.get("legal_name") or pb.get("name")) if isinstance(pb, dict) else None
+    if not raw:
+        raw = cfg.get("client_legal_name") or "engagement"
+    # keep letters, digits, dash, underscore; collapse the rest to single underscores
+    slug = re.sub(r"[^A-Za-z0-9]+", "_", str(raw)).strip("_")
+    return slug or "engagement"
+
+
 def build_bpt_cover(cfg, res):
-    """Return (xlsx_bytes, run_hash_short). Builds the Business Plan Tables workbook for this engagement."""
+    """Return (xlsx_bytes, filename). Builds the Business Plan Tables workbook for this engagement,
+    named <Engagement>_Foundry_Business_Plan_Table.xlsx."""
     a = cfg.get("assumptions", {})
     fin = res.get("financials", {})
     bs = fin.get("bs", {})
@@ -345,4 +360,5 @@ def build_bpt_cover(cfg, res):
 
     buf = io.BytesIO()
     wb.save(buf)
-    return buf.getvalue(), gh
+    filename = f"{_engagement_slug(cfg)}_Foundry_Business_Plan_Table.xlsx"
+    return buf.getvalue(), filename
