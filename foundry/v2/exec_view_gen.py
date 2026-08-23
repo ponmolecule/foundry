@@ -19,6 +19,92 @@ import json
 TONE = {"pass": "pass", "warn": "warn", "fail": "fail", "info": "info"}
 _RANK = {"severe": 3, "advisory": 2, "review": 1}
 
+# Family classification — mirrors Classic _issueFamilies (product-prefix then id/keyword).
+import re as _re
+_PRODUCT_FAMILY = [
+    (_re.compile(r"credit card", _re.I), "Card pricing & credit losses"),
+    (_re.compile(r"commercial real estate", _re.I), "CRE economics & concentration"),
+    (_re.compile(r"construction|land", _re.I), "CRE economics & concentration"),
+    (_re.compile(r"residential mortgage|jumbo mortgage|mortgage \(hfs\)", _re.I), "Mortgage-banking execution"),
+    (_re.compile(r"small business|c&i|c & i", _re.I), "Commercial & industrial credit"),
+    (_re.compile(r"retail demand|time deposit|cd|savings|money market|deposit", _re.I), "Deposit pricing & growth"),
+    (_re.compile(r"subsidized|community loan", _re.I), "Mission & subsidized lending"),
+]
+_ID_FAMILY = [
+    (_re.compile(r"^CONC-|CONCENTRATION", _re.I), "CRE economics & concentration"),
+    (_re.compile(r"^CAP-|^PREOPEN|CAPITAL|LEVERAGE", _re.I), "Opening capitalization & Day-1 funding"),
+    (_re.compile(r"^SPREAD|VIAB|NIM|MARGIN.*NEG|NEGATIVE.*SPREAD", _re.I), "Net-interest margin & viability"),
+    (_re.compile(r"^FUND-|GROWTH-Y1", _re.I), "Deposit pricing & growth"),
+    (_re.compile(r"^COUPLED", _re.I), "Cross-assumption consistency"),
+    (_re.compile(r"NIE|OPEX|OVERHEAD|STAFF|FTE", _re.I), "Expense & staffing"),
+    (_re.compile(r"EVIDENCE|CITATION", _re.I), "Evidence & citation gaps"),
+]
+_FAMILY_CONCERN = {
+    "Card pricing & credit losses": "Card yield, fee, and loss assumptions and how they hang together.",
+    "CRE economics & concentration": "CRE/construction pricing, losses, reserves, and concentration levels.",
+    "Mortgage-banking execution": "Gain-on-sale, warehouse, and MSR assumptions in the mortgage plan.",
+    "Commercial & industrial credit": "C&I pricing and loss assumptions.",
+    "Deposit pricing & growth": "Deposit rate and growth strategy and its funding support.",
+    "Opening capitalization & Day-1 funding": "Opening capital and Day-1 funding adequacy.",
+    "Net-interest margin & viability": "Whether the modeled margin sustains the plan.",
+    "Cross-assumption consistency": "Internal contradictions across coupled assumptions.",
+    "Expense & staffing": "Operating-expense and staffing plan coherence.",
+    "Mission & subsidized lending": "Subsidized/community lending economics.",
+    "Evidence & citation gaps": "Assumptions asserted without supporting evidence.",
+    "Other assumptions & structure": "Assumptions and structural items outside the main families.",
+}
+# short id for the filter/family nav
+_FAMILY_SLUG = {
+    "Card pricing & credit losses": "card", "CRE economics & concentration": "cre",
+    "Mortgage-banking execution": "mortgage", "Commercial & industrial credit": "ci",
+    "Deposit pricing & growth": "deposits", "Opening capitalization & Day-1 funding": "capital",
+    "Net-interest margin & viability": "nim", "Cross-assumption consistency": "coupled",
+    "Expense & staffing": "expense", "Mission & subsidized lending": "mission",
+    "Evidence & citation gaps": "evidence", "Other assumptions & structure": "other",
+}
+
+
+def _classify_family(f):
+    text = str(f.get("text", "")); fid = str(f.get("id", ""))
+    prefix = text.split(":")[0] if ":" in text else ""
+    for rx, fam in _PRODUCT_FAMILY:
+        if rx.search(prefix):
+            return fam
+    for rx, fam in _ID_FAMILY:
+        if rx.search(fid) or rx.search(text):
+            return fam
+    return "Other assumptions & structure"
+
+
+def _money000(v):
+    if v is None:
+        return "n/m"
+    try:
+        v = float(v)
+    except Exception:
+        return "n/m"
+    a = abs(v)
+    if a >= 1000:
+        return ("-" if v < 0 else "") + f"${a/1000:,.1f}M"
+    return ("-" if v < 0 else "") + f"${a:,.0f}K"
+
+
+def _resolve_thresholds(cfg, res):
+    """Call the challenge-thresholds logic server-side (same as /api/v31/challenge-thresholds POST)."""
+    try:
+        from foundry.v2.challenge_q import CHALLENGE_THRESHOLDS, PROVENANCE
+        ta = (((res.get("financials") or {}).get("bs") or {}).get("totalAssets") or [0])[-1] or 0
+        if ta and ta > 0:
+            try:
+                from foundry.v2.peer_calibration import calibrate_thresholds
+                rows, prov = calibrate_thresholds(CHALLENGE_THRESHOLDS, ta)
+                return {"provenance": prov, "thresholds": rows, "tier": "provisional_peer"}
+            except Exception:
+                pass
+        return {"provenance": PROVENANCE, "thresholds": CHALLENGE_THRESHOLDS, "tier": "static"}
+    except Exception:
+        return {"provenance": "", "thresholds": [], "tier": "static"}
+
 
 def _pct(x, dp=2):
     try:
@@ -221,87 +307,135 @@ def build(cfg, res):
             ],
         })
 
-    # ---- FAMILIES + FINDINGS from flags ----
+    # ---- FAMILIES + FINDINGS (Classic classification, per-family counts) ----
     flags = res.get("flags") or []
     sevmap = {"severe": "severe", "high": "severe", "advisory": "advisory", "mild": "advisory",
               "review": "review", "moderate": "review"}
-
-    def famof(f):
-        t = (f.get("text", "") + " " + f.get("id", "")).lower()
-        if any(k in t for k in ("cre", "concentration", "construction", "borrower")):
-            return ("cre", "CRE economics & concentration")
-        if any(k in t for k in ("deposit", "funding", "wholesale", "beta")):
-            return ("deposits", "Deposit pricing & funding")
-        if any(k in t for k in ("expense", "staffing", "fte", "overhead", "efficiency")):
-            return ("expense", "Operating expense & staffing")
-        if any(k in t for k in ("leverage", "capital", "scenario", "stress", "cet1")):
-            return ("capital", "Capital & stress resilience")
-        return ("other", "Other findings")
-
-    fams = {}
-    findings = []
+    fam_groups = {}
     for f in flags:
-        fid, fname = famof(f)
-        sev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
-        status = "resolved" if f.get("resolved") else "open"
-        if fid not in fams:
-            fams[fid] = {"id": fid, "name": fname, "severity": sev, "status": status,
-                         "concern": f.get("text", "")[:180]}
-        elif _RANK.get(sev, 0) > _RANK.get(fams[fid]["severity"], 0):
-            fams[fid]["severity"] = sev
-        findings.append({"title": f.get("id", "Finding"), "measured": "", "standard": "",
-                         "severity": sev, "family": fid, "status": status,
-                         "basis": f.get("source", "") or "Model finding", "reasoning": f.get("text", "")})
+        fam_groups.setdefault(_classify_family(f), []).append(f)
 
-    if n_breach and "capital" not in fams:
-        fams["capital"] = {"id": "capital", "name": "Capital & stress resilience", "severity": "severe",
-                           "status": "open",
-                           "concern": f"{n_breach} of {n_total} scenarios breach the {commit:.1f}% "
-                                      f"commitment; worst path {worst_val:.2f}%."}
+    families = []
+    findings = []
+    for fam, fl in fam_groups.items():
+        if any(sevmap.get(x.get("sev") or x.get("cls"), "advisory") == "severe" for x in fl):
+            sev = "severe"
+        elif any(sevmap.get(x.get("sev") or x.get("cls"), "advisory") == "advisory" for x in fl):
+            sev = "advisory"
+        else:
+            sev = "review"
+        slug = _FAMILY_SLUG.get(fam, "other")
+        families.append({"id": slug, "name": fam, "severity": sev, "status": "open",
+                         "concern": _FAMILY_CONCERN.get(fam, ""), "count": len(fl)})
+        for f in fl:
+            fsev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
+            findings.append({"title": f.get("id", "Finding"), "measured": "", "standard": "",
+                             "severity": fsev, "family": slug,
+                             "status": "resolved" if f.get("resolved") else "open",
+                             "basis": f.get("source", "") or "Model finding", "reasoning": f.get("text", "")})
+
+    if n_breach and not any(fm["id"] == "capital" for fm in families):
+        families.append({"id": "capital", "name": "Opening capitalization & Day-1 funding",
+                         "severity": "severe", "status": "open",
+                         "concern": f"{n_breach} of {n_total} scenarios breach the {commit:.1f}% commitment.",
+                         "count": n_breach})
         findings.append({"title": "Scenario breaches of the leverage commitment",
                          "measured": f"{n_breach} of {n_total}", "standard": "vs 0 expected",
                          "severity": "severe", "family": "capital", "status": "open",
                          "basis": f"Engagement commitment \u2265 {commit:.1f}%",
                          "reasoning": f"{n_breach} modeled overlays breach the leverage commitment."})
 
-    families = sorted(fams.values(), key=lambda x: -_RANK.get(x["severity"], 0))
-    fam_label = {"cre": "CRE", "capital": "Capital", "deposits": "Deposits",
-                 "expense": "Expense", "other": "Other"}
+    families.sort(key=lambda x: (-_RANK.get(x["severity"], 0), -x.get("count", 0)))
+    _short = {"cre": "CRE", "capital": "Capital", "deposits": "Deposits", "expense": "Expense",
+              "card": "Card", "mortgage": "Mortgage", "ci": "C&I", "coupled": "Coupled",
+              "nim": "NIM", "mission": "Mission", "evidence": "Evidence", "other": "Other"}
+    fam_label = {fm["id"]: _short.get(fm["id"], fm["name"][:8]) for fm in families}
+
+    # ---- resolved peer-band thresholds ----
+    thr = _resolve_thresholds(cfg, res)
+    peer_tier = thr.get("tier") == "provisional_peer"
+    peer_by_id = {th["id"]: th["peer"] for th in thr.get("thresholds", []) if th.get("peer")}
+
+    # ---- REASONABLENESS LEDGER (bands in effect) ----
+    _fired_ids = set(str(f.get("id", "")) for f in flags)
+    _LEDGER_TO_FLAGS = {"FUND-HOT": ["FUND-HOT"], "FUND-DDA": ["FUND-DDA"], "FUND-GROWTH": ["FUND-GROWTH"],
+                        "GROWTH-Y1": ["GROWTH-Y1"], "CO-BAND": ["BAND-CO-HI", "BAND-CO-LO"], "MSR-FEE": ["MSR-FEE"]}
+    ledger = []
+    for th in thr.get("thresholds", []):
+        emitted = _LEDGER_TO_FLAGS.get(th["id"], [th["id"]])
+        p = th.get("peer")
+        peer_str = (f"{float(p['p10']):.2f}\u00b7{float(p['p50']):.2f}\u00b7{float(p['p90']):.2f} "
+                    f"({p.get('vintage','')} n={p.get('n','')})") if (peer_tier and p) else ""
+        ledger.append({"id": th["id"], "rule": th.get("rule", ""), "trigger": th.get("trigger", ""),
+                       "peer": peer_str, "fired": any(e in _fired_ids for e in emitted),
+                       "severity": th.get("sev", "")})
+    ledger_prov = thr.get("provenance", "")
 
     # ---- COHERENCE (modeled 'does the bank hold together') ----
-    # Real source, matching Classic: flags emitted from modeled outputs + modeled_challenges.
-    # NOT raw input flags — these are findings about what the assumptions PRODUCE.
     coherence = []
-    modeled_flags = [f for f in flags if f.get("source") == "modeled"]
-    modeled_chal = res.get("modeled_challenges") or []
-    for f in modeled_flags:
+    for f in [x for x in flags if x.get("source") == "modeled"]:
         sev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
         coherence.append({"title": f.get("id", "Finding"),
                           "severity": "severe" if sev == "severe" else "advisory",
-                          "value": (f.get("text", "")[:90]),
-                          "basis": f.get("basis", "") or "Modeled output",
-                          "family": famof(f)[0]})
-    for m in modeled_chal:
+                          "value": f.get("text", ""), "basis": f.get("basis", "") or "Modeled output",
+                          "family": _FAMILY_SLUG.get(_classify_family(f), "capital")})
+    for m in (res.get("modeled_challenges") or []):
         if not isinstance(m, dict):
             continue
         sev = sevmap.get(m.get("sev") or m.get("cls") or "advisory", "advisory")
         coherence.append({"title": m.get("id") or m.get("title") or "Modeled challenge",
                           "severity": "severe" if sev == "severe" else "advisory",
-                          "value": (m.get("text", "") or m.get("value", ""))[:90] if isinstance(m.get("text", ""), str) else str(m.get("value", "")),
-                          "basis": m.get("basis", "") or "Modeled challenge",
-                          "family": "capital"})
+                          "value": (m.get("text") or str(m.get("value", ""))),
+                          "basis": m.get("basis", "") or "Modeled challenge", "family": "capital"})
 
-    # ---- ASSUMPTIONS ----
+    # ---- ASSUMPTIONS (rich: Input/Observation/Peer band/Comparability/Severity/Conclusion) ----
+    CONCL = {"likely_regulatory_objection": "Likely regulatory objection",
+             "commercial_assumption_requiring_support": "Needs supporting evidence",
+             "counsel_determination_required": "Counsel determination",
+             "advisory": "Review item", "satisfied": "Within range"}
+    FLAG_TO_RULE = {"FUND-HOT": "FUND-HOT", "FUND-DDA": "FUND-DDA", "FUND-GROWTH": "FUND-GROWTH",
+                    "GROWTH-Y1": "GROWTH-Y1", "BAND-CO-HI": "CO-BAND", "BAND-CO-LO": "CO-BAND", "MSR-FEE": "MSR-FEE"}
     assumptions = []
-    for f in flags[:6]:
-        fid, _ = famof(f)
-        sev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
-        assumptions.append({"name": f.get("id", "Assumption"), "observation": f.get("text", "")[:120],
-                            "severity": sev, "family": fid})
+    for f in [x for x in flags if x.get("source") != "modeled"]:
+        text = str(f.get("text", ""))
+        ci = text.find(":")
+        inp = text[:ci].strip() if ci > 0 else (f.get("id", "assumption"))
+        obs = text[ci + 1:].strip() if ci > 0 else text
+        fsev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
+        rule = FLAG_TO_RULE.get(f.get("id", ""))
+        p = peer_by_id.get(rule) if rule else None
+        if not peer_tier:
+            band, comp = "", ""
+        elif p:
+            band = f"{float(p['p10']):.2f}\u00b7{float(p['p50']):.2f}\u00b7{float(p['p90']):.2f}"
+            comp = "insufficient sample" if p.get("small_n") else "like-for-like"
+        else:
+            band, comp = "\u2014", "not comparable"
+        assumptions.append({"input": inp, "observation": obs, "band": band, "comparability": comp,
+                            "severity": "High" if fsev == "severe" else "Advisory", "sev_key": fsev,
+                            "conclusion": CONCL.get(f.get("cls"), "Review item"),
+                            "family": _FAMILY_SLUG.get(_classify_family(f), "other")})
+    peer_tier_flag = peer_tier
 
     # ---- SIGNOFF ----
-    signoff = [{"text": f"Reconcile {fam['name'].lower()}.", "severity": fam["severity"]}
-               for fam in families if fam["severity"] in ("severe", "review") and fam["status"] == "open"][:4]
+    ACTIONS = {
+        "Opening capitalization & Day-1 funding": "Revise or support the opening capitalization and Day-1 funding plan.",
+        "CRE economics & concentration": "Reconcile CRE pricing, losses, reserves, and concentration assumptions.",
+        "Deposit pricing & growth": "Support the deposit-rate and growth strategy with pipeline and market evidence.",
+        "Card pricing & credit losses": "Support credit-card pricing and loss assumptions with product-level evidence.",
+        "Commercial & industrial credit": "Reconcile C&I pricing and loss assumptions.",
+        "Mortgage-banking execution": "Support the mortgage-banking gain-on-sale, warehouse, and MSR assumptions.",
+        "Expense & staffing": "Reconcile the operating-expense and staffing plan.",
+        "Cross-assumption consistency": "Resolve the internal contradictions flagged across coupled assumptions.",
+    }
+    verdict_linked = any(t.get("scenario") == "base" and not t.get("pass") for t in (res.get("constraint_tests") or []))
+    signoff = []
+    for fam in families:
+        if fam["severity"] in ("severe", "review") and fam["status"] == "open":
+            signoff.append({"text": ACTIONS.get(fam["name"], f"Reconcile {fam['name'].lower()}."),
+                            "severity": fam["severity"],
+                            "affects_verdict": bool(verdict_linked and fam["severity"] == "severe")})
+    signoff = signoff[:3]
 
     # ---- FINANCIALS (annual summary from quick_stats) ----
     qs = res.get("quick_stats") or {}
@@ -326,6 +460,29 @@ def build(cfg, res):
     financials = {"periods": periods, "rows": fin_rows,
                   "note": (qs.get("note", "") + ". Income ratios are averaged over the year\u2019s quarters; "
                            "stock figures are year-end.") if qs.get("note") else ""}
+
+    # ---- DECISION DRIVERS (Classic 6-card set) ----
+    y3ni = None
+    for row in (qs.get("rows") or []):
+        if _re.search(r"net income", row.get("label", ""), _re.I):
+            ys = row.get("y", [])
+            y3ni = ys[2] if len(ys) > 2 else (ys[-1] if ys else None)
+            break
+    day1_borrow = (((res.get("financials") or {}).get("bs") or {}).get("borrow") or [None])[0]
+    drivers = [
+        {"k": "Min base leverage", "v": _pct(min_lev_pct) if min_lev_pct is not None else "n/m",
+         "s": f"Q{min_lev_q or '\u2014'} \u00b7 vs {commit:.1f}%", "neg": (min_lev_pct or 0) < commit},
+        {"k": "Worst stress outcome", "v": _pct(worst_val) if worst_val is not None else "n/m",
+         "s": f"min leverage \u00b7 {worst_label}", "neg": (worst_val or 0) < commit},
+        {"k": "Breakeven", "v": (f"Q{breakeven}" if breakeven and breakeven > 0 else "not in 12Q"),
+         "s": "first profitable quarter", "neg": (not breakeven or breakeven < 0)},
+        {"k": "Opening wholesale funding", "v": _money000(day1_borrow) if day1_borrow is not None else "n/m",
+         "s": "at Day 1", "neg": (day1_borrow or 0) > 0},
+        {"k": "Earnings durability", "v": _money000(y3ni) if y3ni is not None else "n/m",
+         "s": "Year-3 net income", "neg": (isinstance(y3ni, (int, float)) and y3ni < 0)},
+        {"k": "Cumulative net income", "v": _money000(cum_ni) if cum_ni is not None else "n/m",
+         "s": "12-quarter total", "neg": (isinstance(cum_ni, (int, float)) and cum_ni < 0)},
+    ]
 
     # ---- MODEL (run identity) ----
     cfg_name = cfg.get("scenario_name") or cfg.get("engagement_id") or ""
@@ -352,8 +509,15 @@ def build(cfg, res):
         "signoff": {"title": "REQUIRED BEFORE SIGN-OFF", "meta": f"{len(signoff)} open",
                     "foot": "Reconciliations between schedules that already exist in the model."},
         "assumptions": {"title": "ARE THE ASSUMPTIONS CREDIBLE?",
-                        "lede": "Each input judged against real-peer bands. Click a row for the finding.",
-                        "columns": ["ASSUMPTION", "OBSERVATION", "SEVERITY"]},
+                        "lede": "Each input assumption judged on its own terms against real-peer bands. This is about whether the plan\u2019s inputs are believable \u2014 not yet about what they add up to.",
+                        "columns": (["INPUT", "OBSERVATION", "PEER BAND (p10\u00b7med\u00b7p90)", "COMPARABILITY", "SEVERITY", "CONCLUSION"]
+                                    if peer_tier_flag else ["INPUT", "OBSERVATION", "SEVERITY", "CONCLUSION"]),
+                        "empty": "No input assumption fell outside its reasonableness band. The plan\u2019s inputs are jointly consistent and within typical ranges.",
+                        "ledgerTitle": "Reasonableness bands in effect \u2014 the standards these inputs were judged against",
+                        "ledgerColumns": ["RULE ID", "RULE", "TRIGGER", "PEER BAND", "YOUR PLAN", "SEVERITY"],
+                        "ledgerProv": ledger_prov},
+        "drivers": {"title": "DECISION DRIVERS"},
+        "families": {"title": "TOP ISSUE FAMILIES \u2014 WHAT TO FOCUS ON"},
         "coherence": {"title": "MODEL COHERENCE \u2014 DOES THE BANK HOLD TOGETHER?",
                       "lede": "Concentration and funding checks against the modeled outputs."},
         "evidence": {"title": "THE EVIDENCE BEHIND IT",
@@ -384,6 +548,7 @@ def build(cfg, res):
         "CONSTRAINT": constraint, "SCEN": scen_out, "FAMILIES": families, "FAM_LABEL": fam_label,
         "FINDINGS": findings, "ASSUMPTIONS": assumptions, "COHERENCE": coherence, "SIGNOFF": signoff,
         "COPY": copy, "FILTER_DEFS": filter_defs, "FINANCIALS": financials,
+        "DRIVERS": drivers, "LEDGER": ledger, "PEER_TIER": peer_tier_flag,
     }
 
 
@@ -393,7 +558,7 @@ def render_block(cfg, res):
     # SERIES first so METRICS/SCEN can reference it — but we inline series arrays, so order only cosmetic.
     order = ["MODEL", "VERDICT", "GAUGE", "SERIES", "METRICS", "CONSTRAINT", "SCEN",
              "FAMILIES", "FAM_LABEL", "FINDINGS", "ASSUMPTIONS", "COHERENCE", "SIGNOFF",
-             "COPY", "FILTER_DEFS", "FINANCIALS"]
+             "COPY", "FILTER_DEFS", "FINANCIALS", "DRIVERS", "LEDGER", "PEER_TIER"]
     return "\n".join(js(k, d[k]) for k in order)
 
 

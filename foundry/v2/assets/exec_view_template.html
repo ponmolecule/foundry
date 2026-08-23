@@ -67,6 +67,22 @@
   .metric{text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--gold);
     border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
   .metric-spark{margin-top:auto;padding-top:6px;width:100%}
+  .ovcards{display:grid;grid-template-columns:repeat(6,1fr);gap:10px}
+  @media(max-width:1100px){.ovcards{grid-template-columns:repeat(3,1fr)}}
+  .ovcard{background:var(--surface);border:1px solid var(--border);border-top:2px solid var(--gold);border-radius:3px;padding:11px 13px;display:flex;flex-direction:column;gap:3px}
+  .ovcard-k{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+  .ovcard-v{font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--text)}
+  .ovcard-v.neg{color:var(--fail)}
+  .ovcard-s{font-size:10.5px;color:var(--meta)}
+  table.wide{width:100%;border-collapse:collapse;font-size:12px}
+  table.wide th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
+  table.wide td{padding:8px 10px;border-bottom:1px solid var(--border-soft);color:var(--text2)}
+  table.wide td.pl0,table.wide th.pl0{padding-left:0}
+  .tinynote{font-size:10.5px;color:var(--meta);margin-top:8px;line-height:1.5}
+  details.ledger>summary{cursor:pointer;color:var(--gold);font-size:12px;padding:4px 0;list-style:none}
+  details.ledger>summary::-webkit-details-marker{display:none}
+  details.ledger>summary::before{content:"\25b8 ";color:var(--gold)}
+  details.ledger[open]>summary::before{content:"\25be "}
   .metric:hover{border-color:#CBC9C2;background:var(--interactive)}
   .metric-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .metric-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
@@ -332,18 +348,23 @@ function signoffPanel(){
 
 function assumptionsPanel(){
   var c = COPY.assumptions;
+  if(!ASSUMPTIONS.length){
+    return '<div class="card col gap8"><span class="kicker clickable" data-nav="assumptions" style="cursor:pointer">' + esc(c.title) + ' \u203a</span>' +
+      '<span class="lede">' + esc(c.empty) + '</span></div>';
+  }
+  var rows = ASSUMPTIONS.map(function(a){
+    return '<tr class="clickable" data-family="' + a.family + '">' +
+      '<td class="pl0" style="color:var(--text);font-weight:500;white-space:nowrap">' + esc(a.input) + '</td>' +
+      '<td style="line-height:1.45">' + esc(a.observation) + '</td>' +
+      '<td class="r"><span class="sev sev-' + (a.sev_key||"advisory") + '">' + esc(a.severity) + '</span></td>' +
+      '<td style="color:var(--meta);white-space:nowrap">' + esc(a.conclusion) + '</td>' +
+      '<td class="r chev" style="width:14px">\u203a</td></tr>';
+  }).join("");
   return '<div class="card col gap12"><div class="col gap4"><span class="kicker clickable" data-nav="assumptions" style="cursor:pointer">' + esc(c.title) + ' \u203a</span>' +
     '<span class="lede">' + esc(c.lede) + '</span></div><table><thead><tr>' +
-    '<th class="pl0">' + esc(c.columns[0]) + '</th><th>' + esc(c.columns[1]) + '</th>' +
-    '<th class="r">' + esc(c.columns[2]) + '</th><th></th></tr></thead><tbody>' +
-    ASSUMPTIONS.map(function(a){
-      return '<tr class="clickable" data-family="' + a.family + '">' +
-        '<td class="pl0" style="color:var(--text);font-weight:500">' + esc(a.name) + '</td>' +
-        '<td style="line-height:1.45">' + esc(a.observation) + '</td>' +
-        '<td class="r"><span class="sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span></td>' +
-        '<td class="r chev" style="width:14px">›</td></tr>';
-    }).join("") + '</tbody></table>' +
-    '<button class="link-btn" type="button" data-nav="assumptions" style="font-size:12.5px">View full assumption review \u2192</button></div>';
+    '<th class="pl0">INPUT</th><th>OBSERVATION</th><th class="r">SEVERITY</th><th>CONCLUSION</th><th></th></tr></thead><tbody>' +
+    rows + '</tbody></table>' +
+    '<button class="link-btn" type="button" data-nav="assumptions" style="font-size:12.5px">View full assumption review \u2014 with peer bands \u2192</button></div>';
 }
 
 function coherencePanel(){
@@ -388,10 +409,21 @@ function footerRow(){
 }
 
 function viewHome(){
-  return '<section class="col gap20">' + heroPanel() + metricCards() +
+  return '<section class="col gap20">' + heroPanel() + metricCards() + driversPanel() +
     '<div class="grid col2">' + attentionPanel() + signoffPanel() + '</div>' +
     '<div class="grid col2">' + assumptionsPanel() + coherencePanel() + '</div>' +
     evidencePanel() + financialsLauncher() + footerRow() + '</section>';
+}
+
+function driversPanel(){
+  if(typeof DRIVERS === "undefined" || !DRIVERS.length) return "";
+  var cards = DRIVERS.map(function(d){
+    return '<div class="ovcard"><div class="ovcard-k">' + esc(d.k) + '</div>' +
+      '<div class="ovcard-v' + (d.neg ? ' neg' : '') + '">' + esc(d.v) + '</div>' +
+      '<div class="ovcard-s">' + esc(d.s) + '</div></div>';
+  }).join("");
+  return '<div class="col gap10"><span class="kicker">' + esc((COPY.drivers && COPY.drivers.title) || "DECISION DRIVERS") + '</span>' +
+    '<div class="ovcards">' + cards + '</div></div>';
 }
 
 function financialsLauncher(){
@@ -493,22 +525,54 @@ function viewFamily(){
 
 function viewAssumptions(){
   var c = COPY.assumptions;
+  var peer = (typeof PEER_TIER !== "undefined") && PEER_TIER;
+  if(!ASSUMPTIONS.length){
+    return '<section class="col gap14">' + backBtn() + '<div class="detail" style="gap:16px">' +
+      '<div class="col gap10"><span class="eyebrow">ASSUMPTION REVIEW</span><h2>Are the assumptions credible</h2>' +
+      '<p class="detail-lede pretty">' + esc(c.empty) + '</p></div>' + ledgerBlock() + '</div></section>';
+  }
+  var cmpColor = function(cmp){ return cmp==="like-for-like" ? "var(--pass)" : cmp==="insufficient sample" ? "var(--gold)" : "var(--meta)"; };
+  var head = '<th class="pl0">INPUT</th><th>OBSERVATION</th>' +
+    (peer ? '<th>PEER BAND (p10\u00b7med\u00b7p90)</th><th>COMPARABILITY</th>' : '') +
+    '<th class="r">SEVERITY</th><th>CONCLUSION</th>';
   var rows = ASSUMPTIONS.map(function(a){
+    var peerCells = peer
+      ? '<td style="font-family:var(--mono);font-size:11px;color:var(--text2);white-space:nowrap">' + esc(a.band||"\u2014") + '</td>' +
+        '<td style="font-size:11px;color:' + cmpColor(a.comparability) + '">' + esc(a.comparability||"") + '</td>'
+      : '';
     return '<tr class="clickable" data-family="' + a.family + '">' +
-      '<td class="pl0" style="color:var(--text);font-weight:500">' + esc(a.name) + '</td>' +
-      '<td style="line-height:1.45">' + esc(a.observation) + '</td>' +
-      '<td class="r"><span class="sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span></td>' +
-      '<td class="r chev" style="width:14px">\u203a</td></tr>';
+      '<td class="pl0" style="color:var(--text);font-weight:500;white-space:nowrap;vertical-align:top">' + esc(a.input) + '</td>' +
+      '<td style="line-height:1.5;vertical-align:top">' + esc(a.observation) + '</td>' + peerCells +
+      '<td class="r" style="vertical-align:top"><span class="sev sev-' + (a.sev_key||"advisory") + '">' + esc(a.severity) + '</span></td>' +
+      '<td style="color:var(--text2);white-space:nowrap;vertical-align:top">' + esc(a.conclusion) + '</td></tr>';
   }).join("");
-  return '<section class="col gap14">' + backBtn() + '<div class="detail" style="gap:20px">' +
+  return '<section class="col gap14">' + backBtn() + '<div class="detail" style="gap:18px">' +
     '<div class="col gap10"><span class="eyebrow">ASSUMPTION REVIEW</span>' +
-    '<h2>' + esc(c.title.replace(/\?$/, "")) + '</h2>' +
-    '<p class="detail-lede pretty">' + esc(c.lede) + ' Every input assumption is judged on its own terms against real-peer bands \u2014 this is about whether the plan\u2019s inputs are believable.</p></div>' +
-    '<div class="card col gap12"><table><thead><tr>' +
-    '<th class="pl0">' + esc(c.columns[0]) + '</th><th>' + esc(c.columns[1]) + '</th>' +
-    '<th class="r">' + esc(c.columns[2]) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<h2>Are the assumptions credible</h2>' +
+    '<p class="detail-lede pretty">' + esc(c.lede) + '</p></div>' +
+    '<div class="card"><table class="wide"><thead><tr>' + head + '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    '<div class="tinynote">Observations are the challenge layer\u2019s own findings; peer bands are live percentiles from real FDIC filers where a comparable metric exists. Severity is the finding\u2019s class, not a pass/fail of the model.</div></div>' +
+    ledgerBlock() +
     '<button class="link-btn" type="button" data-nav="findings" style="font-size:12.5px">' + esc(COPY.findings.link) + '</button>' +
     '</div></section>';
+}
+
+function ledgerBlock(){
+  if(typeof LEDGER === "undefined" || !LEDGER.length) return "";
+  var c = COPY.assumptions;
+  var rows = LEDGER.map(function(l){
+    return '<tr><td class="pl0" style="font-family:var(--mono);color:var(--gold);vertical-align:top">' + esc(l.id) + '</td>' +
+      '<td style="vertical-align:top">' + esc(l.rule) + '</td>' +
+      '<td style="color:var(--gold);vertical-align:top">' + esc(l.trigger) + '</td>' +
+      '<td style="font-family:var(--mono);font-size:11px;color:var(--text2);vertical-align:top">' + esc(l.peer||"\u2014") + '</td>' +
+      '<td style="vertical-align:top">' + (l.fired ? '<span class="sev sev-severe">fired</span>' : '<span class="sev sev-review">not triggered</span>') + '</td>' +
+      '<td style="vertical-align:top"><span class="sev sev-' + (l.severity==="severe"?"severe":"advisory") + '">' + esc(l.severity) + '</span></td></tr>';
+  }).join("");
+  return '<details class="ledger"><summary>' + esc(c.ledgerTitle) + '</summary>' +
+    '<div class="card" style="margin-top:8px"><table class="wide"><thead><tr>' +
+    c.ledgerColumns.map(function(h,i){ return '<th' + (i===0?' class="pl0"':'') + '>' + esc(h) + '</th>'; }).join("") +
+    '</tr></thead><tbody>' + rows + '</tbody></table>' +
+    (c.ledgerProv ? '<div class="tinynote">' + esc(c.ledgerProv) + '</div>' : '') + '</div></details>';
 }
 
 function viewFinancials(){
