@@ -3631,9 +3631,18 @@ function renderOverview(){
     qs += '<table class="ovt"><tr><th></th>' +
           Array.from({length:_qy},(_,y)=>`<th style="text-align:right">Year ${y+1}</th>`).join("") + '</tr>';
     r.quick_stats.rows.forEach(x=>{
-      qs += `<tr><td>${esc(x.label)}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      // mark flow/income ratios (shown as full-year AVERAGES) with an asterisk so the footnote is clear
+      const _lbl = /\bavg\b/i.test(x.label||"") ? (esc(x.label) + ' <span style="color:#FFFFFF">*</span>') : esc(x.label);
+      qs += `<tr><td>${_lbl}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#B45454":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
     });
     qs += '</table>';
+    // BRIGHT, unmissable footnote — the reconciliation rule. Income ratios are averaged over the year's
+    // four quarters (so they will NOT equal any single quarter, including year-end); capital/stock ratios
+    // are the year-end (Q4/Q8/Q12) snapshot (so they DO equal that quarter on the Capital & Ratios tab).
+    qs += '<div style="margin-top:10px;padding:9px 12px;background:#12203A;border:1px solid #3A6BA8;border-radius:6px">'
+        + '<span style="color:#FFFFFF;font-weight:600;font-size:12px">* Income ratios (ROA, ROE, NIM, Efficiency) are shown as the average of the year\u2019s four quarters</span>'
+        + '<span style="color:#FFFFFF;font-size:12px"> \u2014 so they will not match any single quarter on the Capital &amp; Ratios tab. Capital / stock ratios (Leverage, CET1) are the year-end value (Q4 / Q8 / Q12) and will match that quarter exactly.</span>'
+        + '</div>';
     h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Annual financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
   }
   // Model integrity & viability checks — COLLAPSED
