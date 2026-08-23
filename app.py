@@ -616,10 +616,10 @@ def v31_bpt_cover(body: dict, _=Depends(gate)):
         if not cfg:
             return JSONResponse({"error": "no config provided"}, status_code=422)
         res = run_v2(cfg)
-        data, gh = build_bpt_cover(cfg, res)
+        data, fname = build_bpt_cover(cfg, res)
         return Response(content=data,
                         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                        headers={"Content-Disposition": f'attachment; filename="business_plan_tables_{gh}.xlsx"'})
+                        headers={"Content-Disposition": f'attachment; filename="{fname}"'})
     except (ValueError, TypeError) as e:
         return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
     except Exception as e:
