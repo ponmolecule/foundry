@@ -3701,9 +3701,14 @@ async function exportBptCover(){
       return;
     }
     const blob = await r.blob();
+    // use the server-provided engagement-specific filename from Content-Disposition
+    let fname = "Foundry_Business_Plan_Table.xlsx";
+    const cd = r.headers.get("content-disposition")||"";
+    const m = cd.match(/filename="?([^"]+)"?/i);
+    if(m && m[1]) fname = m[1];
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url; link.download = "business_plan_tables.xlsx";
+    link.href = url; link.download = fname;
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
     URL.revokeObjectURL(url);
   }catch(e){ appStatus("err", "Business Plan Tables export failed: "+esc(String(e))); }
