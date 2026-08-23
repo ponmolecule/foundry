@@ -64,8 +64,9 @@
   .gauge{display:flex;flex-direction:column;gap:10px;border-left:1px solid var(--border);padding-left:34px}
   .gauge-foot{font-size:11.5px;color:var(--muted);border-top:1px solid rgba(203,201,194,.60);padding-top:9px}
 
-  .metric{text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);
-    border-radius:11px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+  .metric{text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--gold);
+    border-radius:3px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
+  .metric-spark{margin-top:auto;padding-top:6px;width:100%}
   .metric:hover{border-color:#CBC9C2;background:var(--interactive)}
   .metric-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .metric-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
@@ -169,14 +170,38 @@ function cap(s){ return s.charAt(0).toUpperCase() + s.slice(1); }
 function statusLabel(s){ return s === "open" ? "Open" : "Resolved"; }
 
 function points(series, w, h, pad){
-  var min = Math.min.apply(null, series), max = Math.max.apply(null, series), span = (max - min) || 1;
-  return series.map(function(v, i){
-    var x = (i / (series.length - 1)) * w;
-    var y = pad + (1 - (v - min) / span) * (h - pad * 2);
-    return x.toFixed(1) + "," + y.toFixed(1);
+  var n = series.length; if(!n) return "";
+  var lo = Math.min.apply(null, series), hi = Math.max.apply(null, series);
+  var rng = (hi - lo) || 1;
+  return series.map(function(v,i){
+    var x = n===1 ? w/2 : pad + (i/(n-1))*(w - 2*pad);
+    var y = pad + (1 - (v - lo)/rng)*(h - 2*pad);
+    return x.toFixed(1)+","+y.toFixed(1);
   }).join(" ");
 }
-function areaPoints(series, w, h, pad){ return "0," + h + " " + points(series, w, h, pad) + " " + w + "," + h; }
+function areaPoints(series, w, h, pad){ return pad + "," + (h-pad) + " " + points(series, w, h, pad) + " " + (w-pad) + "," + (h-pad); }
+function sparkPointList(series, w, h, pad){
+  var n = series.length; if(!n) return [];
+  var lo = Math.min.apply(null, series), hi = Math.max.apply(null, series);
+  var rng = (hi - lo) || 1;
+  return series.map(function(v,i){
+    return { x: n===1 ? w/2 : pad + (i/(n-1))*(w - 2*pad),
+             y: pad + (1 - (v - lo)/rng)*(h - 2*pad) };
+  });
+}
+function sparkline(series, color, w, h, pad, stroke){
+  w = w || 240; h = h || 84; pad = pad || 12; stroke = stroke || 2.4;
+  var pts = sparkPointList(series, w, h, pad);
+  var dots = pts.map(function(p,i){
+    var last = i===pts.length-1;
+    return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="'+(last?4.5:3)+'" fill="'+(last?color:"var(--surface)")+'" stroke="'+color+'" stroke-width="'+(last?0:1.6)+'"></circle>';
+  }).join("");
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:'+h+'px;display:block" aria-hidden="true">' +
+    '<polygon points="' + areaPoints(series, w, h, pad) + '" fill="' + color + '" opacity=".08"></polygon>' +
+    '<polyline points="' + points(series, w, h, pad) + '" fill="none" stroke="' + color +
+    '" stroke-width="' + stroke + '" stroke-dasharray="0.5 5" stroke-linecap="round"></polyline>' +
+    dots + '</svg>';
+}
 function levelY(series, level, h, pad){
   var min = Math.min.apply(null, series), max = Math.max.apply(null, series), span = (max - min) || 1;
   return (pad + (1 - (level - min) / span) * (h - pad * 2)).toFixed(1);
@@ -264,11 +289,12 @@ function metricCards(){
   return '<div class="grid col5">' + METRICS.map(function(m){
     var c = tone(m.tone);
     return '<button class="metric" type="button" data-metric="' + m.id + '">' +
-      '<div class="metric-top"><span class="metric-label">' + esc(m.label) + '</span><span class="chev">›</span></div>' +
-      '<div class="metric-body"><div class="col" style="gap:5px">' +
+      '<div class="metric-top"><span class="metric-label">' + esc(m.label) + '</span><span class="chev">\u203a</span></div>' +
+      '<div class="col" style="gap:4px">' +
         '<span class="metric-value num" style="color:' + c + '">' + esc(m.value) + '</span>' +
         '<span class="metric-sub">' + esc(m.sub) + '</span><span class="metric-foot">' + esc(m.foot) + '</span></div>' +
-        sparkline(m.series, c, 110, 44, 6, 1.6) + '</div></button>';
+      '<div class="metric-spark">' + sparkline(m.series, c, 240, 84, 12, 2.4) + '</div>' +
+      '</button>';
   }).join("") + '</div>';
 }
 
