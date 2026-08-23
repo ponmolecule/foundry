@@ -209,7 +209,7 @@ def build(cfg, res):
         scen_out.append({
             "id": sid, "name": NAME.get(sid, sid.replace("_", " ").title()),
             "value": _pct(val), "pass": bool(ok), "source": SRC.get(sid, "Engagement commitment"),
-            "note": (f"{gap:+.0f} bp" if abs(gap) >= 1 else "at the line"),
+            "note": (_gap_txt(val, commit) + (" above" if gap >= 0 else " below")) if abs(gap) >= 0.01 else "at the line",
             "series": _scen_series(res, sid, lev),
             "blurb": (f"{NAME.get(sid, sid)} \u2014 leverage minimum {_pct(val)} against the "
                       f"{commit:.1f}% commitment ({'holds' if ok else 'breaches'})."),
@@ -268,16 +268,28 @@ def build(cfg, res):
     fam_label = {"cre": "CRE", "capital": "Capital", "deposits": "Deposits",
                  "expense": "Expense", "other": "Other"}
 
-    # ---- COHERENCE ----
+    # ---- COHERENCE (modeled 'does the bank hold together') ----
+    # Real source, matching Classic: flags emitted from modeled outputs + modeled_challenges.
+    # NOT raw input flags — these are findings about what the assumptions PRODUCE.
     coherence = []
-    conc = res.get("concentrations") or {}
-    if isinstance(conc, dict):
-        for k, vv in list(conc.items())[:6]:
-            if isinstance(vv, dict) and vv.get("value") is not None:
-                coherence.append({"title": k.replace("_", " ").title(),
-                                  "severity": "severe" if vv.get("breach") else "advisory",
-                                  "value": str(vv.get("value")), "basis": vv.get("basis", ""),
-                                  "family": "cre"})
+    modeled_flags = [f for f in flags if f.get("source") == "modeled"]
+    modeled_chal = res.get("modeled_challenges") or []
+    for f in modeled_flags:
+        sev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
+        coherence.append({"title": f.get("id", "Finding"),
+                          "severity": "severe" if sev == "severe" else "advisory",
+                          "value": (f.get("text", "")[:90]),
+                          "basis": f.get("basis", "") or "Modeled output",
+                          "family": famof(f)[0]})
+    for m in modeled_chal:
+        if not isinstance(m, dict):
+            continue
+        sev = sevmap.get(m.get("sev") or m.get("cls") or "advisory", "advisory")
+        coherence.append({"title": m.get("id") or m.get("title") or "Modeled challenge",
+                          "severity": "severe" if sev == "severe" else "advisory",
+                          "value": (m.get("text", "") or m.get("value", ""))[:90] if isinstance(m.get("text", ""), str) else str(m.get("value", "")),
+                          "basis": m.get("basis", "") or "Modeled challenge",
+                          "family": "capital"})
 
     # ---- ASSUMPTIONS ----
     assumptions = []
@@ -291,13 +303,40 @@ def build(cfg, res):
     signoff = [{"text": f"Reconcile {fam['name'].lower()}.", "severity": fam["severity"]}
                for fam in families if fam["severity"] in ("severe", "review") and fam["status"] == "open"][:4]
 
+    # ---- FINANCIALS (annual summary from quick_stats) ----
+    qs = res.get("quick_stats") or {}
+    fin_rows = []
+    periods = []
+    if qs.get("rows"):
+        nyears = len((qs["rows"][0] or {}).get("y", []))
+        periods = [f"Year {i+1}" for i in range(nyears)]
+        for row in qs["rows"]:
+            label = row.get("label", "")
+            is_stock = "EOP" in label or "$000s" in label
+            vals = []
+            for v in row.get("y", []):
+                if v is None:
+                    vals.append("\u2014")
+                elif isinstance(v, (int, float)):
+                    vals.append(f"{v:,.0f}" if abs(v) >= 100 else f"{v:,.2f}")
+                else:
+                    vals.append(str(v))
+            fin_rows.append({"label": label, "values": vals,
+                             "strong": is_stock and "Total Assets" in label})
+    financials = {"periods": periods, "rows": fin_rows,
+                  "note": (qs.get("note", "") + ". Income ratios are averaged over the year\u2019s quarters; "
+                           "stock figures are year-end.") if qs.get("note") else ""}
+
     # ---- MODEL (run identity) ----
     cfg_name = cfg.get("scenario_name") or cfg.get("engagement_id") or ""
     proposed = cfg.get("proposed_bank")
     bank_name = (proposed.get("name") if isinstance(proposed, dict) else proposed) or "Bank model"
     model = {
         "product": bank_name, "section": "Executive Summary",
-        "navTabs": ["Scenarios", "Assumptions", "Results", "Model Checks"],
+        "navTabs": [{"label": "Scenarios", "tab": "stress"},
+                    {"label": "Assumptions", "tab": "notes"},
+                    {"label": "Results", "tab": "is"},
+                    {"label": "Model Checks", "tab": "examiner"}],
         "version": f"Engine {res.get('engine_version', '')}",
         "generated": "", "freshness": "Up to date",
         "runLine": f"Run {str(res.get('config_hash', ''))[:10]} \u00b7 {cfg_name} \u00b7 v2-quarterly "
@@ -344,7 +383,7 @@ def build(cfg, res):
         "MODEL": model, "VERDICT": verdict, "GAUGE": gauge, "SERIES": series, "METRICS": metrics,
         "CONSTRAINT": constraint, "SCEN": scen_out, "FAMILIES": families, "FAM_LABEL": fam_label,
         "FINDINGS": findings, "ASSUMPTIONS": assumptions, "COHERENCE": coherence, "SIGNOFF": signoff,
-        "COPY": copy, "FILTER_DEFS": filter_defs,
+        "COPY": copy, "FILTER_DEFS": filter_defs, "FINANCIALS": financials,
     }
 
 
@@ -354,7 +393,7 @@ def render_block(cfg, res):
     # SERIES first so METRICS/SCEN can reference it — but we inline series arrays, so order only cosmetic.
     order = ["MODEL", "VERDICT", "GAUGE", "SERIES", "METRICS", "CONSTRAINT", "SCEN",
              "FAMILIES", "FAM_LABEL", "FINDINGS", "ASSUMPTIONS", "COHERENCE", "SIGNOFF",
-             "COPY", "FILTER_DEFS"]
+             "COPY", "FILTER_DEFS", "FINANCIALS"]
     return "\n".join(js(k, d[k]) for k in order)
 
 

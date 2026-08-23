@@ -6,22 +6,22 @@
 <title>Foundry — Executive Summary</title>
 <style>
   :root{
-    --shell:#050B16; --surface:#0F1D39; --elevated:#132445; --interactive:#182B52;
-    --border:rgba(34,56,97,.60); --border-hi:rgba(43,69,117,.75); --border-soft:rgba(34,56,97,.40);
-    --text:#E8EEF9; --text2:#A8B7D3; --muted:#7F91B2; --meta:#657795;
-    --pass:#31D0AA; --warn:#F3A74A; --fail:#FF6B5E; --info:#67A6FF;
+    --shell:#FBFAF7; --surface:#FFFFFF; --elevated:#F4F2ED; --interactive:#EDEAE2;
+    --border:rgba(203,201,194,.75); --border-hi:rgba(203,201,194,.80); --border-soft:rgba(203,201,194,.55);
+    --text:#17191C; --text2:#4A4640; --muted:#96928C; --meta:#96928C;
+    --pass:#B8892E; --warn:#C57F1A; --fail:#B0413E; --info:#3A6BA5;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--shell);color:var(--text);font-size:14px;
     font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
   .app{min-height:100vh;padding:0 0 44px;
     background:
-      radial-gradient(circle at 20% 15%,rgba(22,58,107,.20) 0%,rgba(22,58,107,0) 40%),
-      radial-gradient(circle at 75% 25%,rgba(15,91,115,.10) 0%,rgba(15,91,115,0) 35%),
-      linear-gradient(135deg,#081224 0%,#0B1630 45%,#102244 100%)}
-  .wrap{max-width:1560px;margin:0 auto;padding:24px 26px;display:flex;flex-direction:column;gap:20px}
+      radial-gradient(circle at 20% 15%,rgba(184,137,46,.10) 0%,rgba(184,137,46,0) 40%),
+      radial-gradient(circle at 75% 25%,rgba(184,137,46,.08) 0%,rgba(184,137,46,0) 35%),
+      linear-gradient(135deg,#FBFAF7 0%,#FBFAF7 45%,#F4F2ED 100%)}
+  .wrap{max-width:none;margin:0;padding:20px 24px;display:flex;flex-direction:column;gap:20px}
   a{color:var(--pass);text-decoration:none}
-  a:hover{color:#5FE3C4}
+  a:hover{color:#DFB367}
   button{font-family:inherit;color:inherit}
   h1,h2{margin:0;font-weight:600;letter-spacing:-.02em}
   p{margin:0}
@@ -40,7 +40,7 @@
   .tab:disabled{cursor:default}
   .runmeta{display:flex;align-items:center;gap:16px;font-size:11.5px;color:var(--meta)}
   .status-live{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--pass);
-    background:rgba(49,208,170,.12);border:1px solid rgba(49,208,170,.32);padding:5px 11px;border-radius:16px}
+    background:rgba(184,137,46,.12);border:1px solid rgba(184,137,46,.32);padding:5px 11px;border-radius:16px}
   .dot{width:6px;height:6px;border-radius:50%;background:var(--pass)}
 
   .card{background:var(--surface);border:1px solid var(--border);border-radius:11px;padding:18px 20px}
@@ -57,19 +57,19 @@
   .colwide{grid-template-columns:repeat(auto-fit,minmax(180px,1fr))}
 
   .hero{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:36px;align-items:center;
-    border:1px solid rgba(43,69,117,.65);border-radius:11px;padding:26px 30px;
+    border:1px solid rgba(203,201,194,.70);border-radius:11px;padding:26px 30px;
     background:
-      radial-gradient(circle at 15% 20%,rgba(22,58,107,.20),transparent 42%),
-      linear-gradient(110deg,#0D1A32 0%,#112342 55%,#101E38 100%)}
+      radial-gradient(circle at 15% 20%,rgba(184,137,46,.10),transparent 42%),
+      linear-gradient(110deg,#FFFFFF 0%,#F4F2ED 55%,#FFFFFF 100%)}
   .verdict{font-size:26px;font-weight:600;letter-spacing:-.02em;line-height:1.25}
   .verdict-note{font-size:14px;line-height:1.6;color:var(--text2);max-width:520px}
   .pill{font-size:11px;font-weight:600;letter-spacing:.03em;padding:5px 11px;border-radius:5px;white-space:nowrap}
   .gauge{display:flex;flex-direction:column;gap:10px;border-left:1px solid var(--border);padding-left:34px}
-  .gauge-foot{font-size:11.5px;color:var(--muted);border-top:1px solid rgba(34,56,97,.45);padding-top:9px}
+  .gauge-foot{font-size:11.5px;color:var(--muted);border-top:1px solid rgba(203,201,194,.60);padding-top:9px}
 
   .metric{text-align:left;cursor:pointer;background:var(--surface);border:1px solid var(--border);
     border-radius:11px;padding:16px 18px;display:flex;flex-direction:column;gap:9px}
-  .metric:hover{border-color:#2B4575;background:var(--interactive)}
+  .metric:hover{border-color:#CBC9C2;background:var(--interactive)}
   .metric-top{display:flex;justify-content:space-between;align-items:center;gap:8px}
   .metric-label{font-size:10px;font-weight:700;letter-spacing:.12em;color:var(--muted)}
   .metric-body{display:flex;justify-content:space-between;align-items:flex-end;gap:12px}
@@ -80,16 +80,16 @@
 
   .fam{text-align:left;cursor:pointer;background:var(--elevated);border:1px solid var(--border);
     border-radius:9px;padding:13px 14px;display:flex;flex-direction:column;gap:7px}
-  .fam:hover{border-color:#2B4575;background:var(--interactive)}
-  .rank{width:20px;height:20px;border-radius:50%;border:1px solid #2B4575;display:flex;align-items:center;
+  .fam:hover{border-color:#CBC9C2;background:var(--interactive)}
+  .rank{width:20px;height:20px;border-radius:50%;border:1px solid #CBC9C2;display:flex;align-items:center;
     justify-content:center;font-size:10.5px;color:var(--text2);flex:0 0 auto}
   .sev{font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:4px;white-space:nowrap}
-  .sev-severe{background:rgba(255,107,94,.12);color:var(--fail);border:1px solid rgba(255,107,94,.32)}
-  .sev-advisory{background:rgba(243,167,74,.12);color:var(--warn);border:1px solid rgba(243,167,74,.30)}
-  .sev-review{background:rgba(103,166,255,.12);color:var(--info);border:1px solid rgba(103,166,255,.30)}
-  .sev-pass{background:rgba(49,208,170,.12);color:var(--pass);border:1px solid rgba(49,208,170,.32)}
+  .sev-severe{background:rgba(176,65,62,.12);color:var(--fail);border:1px solid rgba(176,65,62,.32)}
+  .sev-advisory{background:rgba(197,127,26,.12);color:var(--warn);border:1px solid rgba(197,127,26,.30)}
+  .sev-review{background:rgba(58,107,165,.12);color:var(--info);border:1px solid rgba(58,107,165,.30)}
+  .sev-pass{background:rgba(184,137,46,.12);color:var(--pass);border:1px solid rgba(184,137,46,.32)}
   .concern{font-size:12px;color:var(--muted);line-height:1.5}
-  .check{width:16px;height:16px;border-radius:4px;border:1.5px solid #2B4575;flex:0 0 auto}
+  .check{width:16px;height:16px;border-radius:4px;border:1.5px solid #CBC9C2;flex:0 0 auto}
   .signoff-row{display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center}
 
   table{width:100%;border-collapse:collapse;font-size:12.5px}
@@ -97,19 +97,19 @@
     border-bottom:1px solid var(--border);border-top:1px solid var(--border);white-space:nowrap}
   td{padding:13px 10px;border-bottom:1px solid var(--border-soft);color:var(--text2)}
   tr.clickable{cursor:pointer}
-  tr.clickable:hover td{background:rgba(24,43,82,.55)}
+  tr.clickable:hover td{background:rgba(244,242,237,.85)}
   .pl0{padding-left:0}
   .name{padding-left:20px;color:var(--text);font-weight:500}
   .r{text-align:right}.c{text-align:center}
   .evidence-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:17px 20px 14px;flex-wrap:wrap}
   .ghost-btn{cursor:pointer;background:var(--elevated);border:1px solid var(--border-hi);border-radius:7px;
     padding:8px 14px;font-size:12px;color:var(--text2);font-weight:500}
-  .ghost-btn:hover{border-color:var(--pass);color:#fff}
+  .ghost-btn:hover{border-color:var(--pass);color:#17191C}
 
   .footer{display:flex;justify-content:space-between;align-items:center;gap:16px;flex-wrap:wrap;padding-top:4px}
   .dl{font-size:12px;font-weight:500;color:var(--text2);padding:8px 14px;border:1px solid var(--border-hi);
     border-radius:7px;background:var(--surface)}
-  .dl:hover{border-color:var(--pass);color:#fff;text-decoration:none}
+  .dl:hover{border-color:var(--pass);color:#17191C;text-decoration:none}
   .disclaimer{font-size:11px;color:var(--meta);max-width:640px}
 
   .back{align-self:flex-start;background:none;border:none;padding:0;cursor:pointer;font-size:12.5px;color:var(--pass);font-weight:500}
@@ -140,8 +140,8 @@
   .chip{cursor:pointer;font-size:12px;font-weight:500;padding:6px 12px;border-radius:6px;
     border:1px solid var(--border-hi);background:var(--surface);color:var(--text2)}
   .chip:hover{border-color:var(--pass)}
-  .chip[aria-pressed="true"]{background:rgba(49,208,170,.14);border-color:rgba(49,208,170,.40);color:var(--pass)}
-  .filter-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(34,56,97,.45);
+  .chip[aria-pressed="true"]{background:rgba(184,137,46,.14);border-color:rgba(184,137,46,.40);color:var(--pass)}
+  .filter-foot{display:flex;justify-content:space-between;align-items:center;border-top:1px solid rgba(203,201,194,.60);
     padding-top:10px;font-size:12px;color:var(--text2)}
   .link-btn{background:none;border:none;padding:0;cursor:pointer;font-size:12px;color:var(--pass);font-weight:500;align-self:flex-start}
   .empty{border:1px dashed var(--border-hi);border-radius:9px;padding:24px;text-align:center;font-size:13px;color:var(--meta)}
@@ -157,8 +157,8 @@
    ============================================================ */
 
 var THEME = {
-  pass:"#31D0AA", warn:"#F3A74A", fail:"#FF6B5E", info:"#67A6FF", ink:"#E8EEF9",
-  grid:"rgba(127,145,178,.12)", axis:"rgba(127,145,178,.18)", scaleTrack:"rgba(168,183,211,.45)"
+  pass:"#B8892E", warn:"#C57F1A", fail:"#B0413E", info:"#3A6BA5", ink:"#17191C",
+  grid:"rgba(150,146,140,.15)", axis:"rgba(150,146,140,.22)", scaleTrack:"rgba(203,201,194,.65)"
 };
 
 /*__FOUNDRY_DATA_INJECTION__*/
@@ -214,7 +214,7 @@ function topbar(){
       '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 3l5 5-5 5-5-5z" fill="#7C6CF0"></path>' +
       '<path d="M16 9l5 5-5 5-5-5z" fill="#8B7BF7"></path></svg><span>' + esc(MODEL.product) + '</span></div>' +
     '<nav class="tabs"><button class="tab active" type="button" data-nav="home">' + esc(MODEL.section) + '</button>' +
-      MODEL.navTabs.map(function(t){ return '<button class="tab" type="button" disabled>' + esc(t) + '</button>'; }).join("") +
+      MODEL.navTabs.map(function(t){ return '<button class="tab" type="button" onclick="(window.parent&&window.parent.setTab)&&window.parent.setTab(\'' + t.tab + '\')" title="Go to the ' + esc(t.label) + ' tab">' + esc(t.label) + '</button>'; }).join("") +
     '</nav></div>' +
     '<div class="runmeta"><span>' + esc(MODEL.version) + ' · ' + esc(MODEL.generated) + '</span>' +
     '<span class="status-live"><span class="dot"></span>' + esc(MODEL.freshness) + '</span></div></div>';
@@ -252,10 +252,10 @@ function heroPanel(){
       '<line x1="' + x0 + '" y1="26" x2="' + xr.toFixed(1) + '" y2="26" stroke="' + THEME.scaleTrack + '" stroke-width="2"></line>' +
       '<line x1="' + xr.toFixed(1) + '" y1="26" x2="' + xm.toFixed(1) + '" y2="26" stroke="' + markColor + '" stroke-width="2" stroke-dasharray="2 2"></line>' +
       '<line x1="' + xm.toFixed(1) + '" y1="26" x2="' + x1 + '" y2="26" stroke="' + THEME.axis + '" stroke-width="2" stroke-dasharray="3 4"></line>' +
-      '<circle cx="' + xr.toFixed(1) + '" cy="26" r="5" fill="#0B1630" stroke="#A8B7D3" stroke-width="2"></circle>' +
+      '<circle cx="' + xr.toFixed(1) + '" cy="26" r="5" fill="#FBFAF7" stroke="#96928C" stroke-width="2"></circle>' +
       '<circle cx="' + xm.toFixed(1) + '" cy="26" r="5" fill="' + markColor + '"></circle>' +
       '<text x="' + x0 + '" y="52" font-size="12" font-weight="600" fill="#A8B7D3" font-family="inherit">' + fmt(GAUGE.scaleMin) + '</text>' +
-      '<text x="' + (xr - 10).toFixed(1) + '" y="52" text-anchor="end" font-size="14" font-weight="600" fill="#E8EEF9" font-family="inherit">' + fmt(GAUGE.requirement.value) + '</text>' +
+      '<text x="' + (xr - 10).toFixed(1) + '" y="52" text-anchor="end" font-size="14" font-weight="600" fill="#17191C" font-family="inherit">' + fmt(GAUGE.requirement.value) + '</text>' +
       '<text x="' + (xr - 10).toFixed(1) + '" y="68" text-anchor="end" font-size="11" fill="#7F91B2" font-family="inherit">' + esc(GAUGE.requirement.label) + '</text>' +
       '<text x="' + (xm + 12).toFixed(1) + '" y="52" font-size="14" font-weight="600" fill="' + markColor + '" font-family="inherit">' + fmt(GAUGE.model.value) + '</text>' +
       '<text x="' + (xm + 12).toFixed(1) + '" y="68" font-size="11" fill="#7F91B2" font-family="inherit">' + esc(GAUGE.model.label) + '</text>' +
@@ -309,7 +309,7 @@ function signoffPanel(){
 
 function assumptionsPanel(){
   var c = COPY.assumptions;
-  return '<div class="card col gap12"><div class="col gap4"><span class="kicker">' + esc(c.title) + '</span>' +
+  return '<div class="card col gap12"><div class="col gap4"><span class="kicker clickable" data-nav="assumptions" style="cursor:pointer">' + esc(c.title) + ' \u203a</span>' +
     '<span class="lede">' + esc(c.lede) + '</span></div><table><thead><tr>' +
     '<th class="pl0">' + esc(c.columns[0]) + '</th><th>' + esc(c.columns[1]) + '</th>' +
     '<th class="r">' + esc(c.columns[2]) + '</th><th></th></tr></thead><tbody>' +
@@ -319,7 +319,8 @@ function assumptionsPanel(){
         '<td style="line-height:1.45">' + esc(a.observation) + '</td>' +
         '<td class="r"><span class="sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span></td>' +
         '<td class="r chev" style="width:14px">›</td></tr>';
-    }).join("") + '</tbody></table></div>';
+    }).join("") + '</tbody></table>' +
+    '<button class="link-btn" type="button" data-nav="assumptions" style="font-size:12.5px">View full assumption review \u2192</button></div>';
 }
 
 function coherencePanel(){
@@ -367,7 +368,23 @@ function viewHome(){
   return '<section class="col gap20">' + heroPanel() + metricCards() +
     '<div class="grid col2">' + attentionPanel() + signoffPanel() + '</div>' +
     '<div class="grid col2">' + assumptionsPanel() + coherencePanel() + '</div>' +
-    evidencePanel() + footerRow() + '</section>';
+    evidencePanel() + financialsLauncher() + footerRow() + '</section>';
+}
+
+function financialsLauncher(){
+  if(typeof FINANCIALS === "undefined" || !FINANCIALS.rows || !FINANCIALS.rows.length) return "";
+  var f = FINANCIALS;
+  // compact preview: first 3 rows, then a clear entry to the full page
+  var preview = f.rows.slice(0,3).map(function(r){
+    return '<div class="flex center" style="justify-content:space-between;gap:12px;padding:4px 0">' +
+      '<span style="color:var(--text2);font-size:12px">' + esc(r.label) + '</span>' +
+      '<span class="num" style="color:var(--text);font-size:12.5px">' + esc(r.values[r.values.length-1]) + '</span></div>';
+  }).join("");
+  return '<div class="card col gap12 clickable" data-nav="financials" style="cursor:pointer">' +
+    '<div class="flex center" style="justify-content:space-between"><span class="kicker">ANNUAL FINANCIAL SUMMARY</span>' +
+    '<span class="chev" style="color:var(--gold)">View all \u2192</span></div>' +
+    '<span class="lede">' + esc((f.periods||[]).length) + '-year headline financials \u2014 year-end balances and annual flows.</span>' +
+    '<div class="col">' + preview + '</div></div>';
 }
 
 /* ---- detail views ---- */
@@ -451,6 +468,47 @@ function viewFamily(){
     '</div></section>';
 }
 
+function viewAssumptions(){
+  var c = COPY.assumptions;
+  var rows = ASSUMPTIONS.map(function(a){
+    return '<tr class="clickable" data-family="' + a.family + '">' +
+      '<td class="pl0" style="color:var(--text);font-weight:500">' + esc(a.name) + '</td>' +
+      '<td style="line-height:1.45">' + esc(a.observation) + '</td>' +
+      '<td class="r"><span class="sev sev-' + a.severity + '">' + a.severity.toUpperCase() + '</span></td>' +
+      '<td class="r chev" style="width:14px">\u203a</td></tr>';
+  }).join("");
+  return '<section class="col gap14">' + backBtn() + '<div class="detail" style="gap:20px">' +
+    '<div class="col gap10"><span class="eyebrow">ASSUMPTION REVIEW</span>' +
+    '<h2>' + esc(c.title.replace(/\?$/, "")) + '</h2>' +
+    '<p class="detail-lede pretty">' + esc(c.lede) + ' Every input assumption is judged on its own terms against real-peer bands \u2014 this is about whether the plan\u2019s inputs are believable.</p></div>' +
+    '<div class="card col gap12"><table><thead><tr>' +
+    '<th class="pl0">' + esc(c.columns[0]) + '</th><th>' + esc(c.columns[1]) + '</th>' +
+    '<th class="r">' + esc(c.columns[2]) + '</th><th></th></tr></thead><tbody>' + rows + '</tbody></table></div>' +
+    '<button class="link-btn" type="button" data-nav="findings" style="font-size:12.5px">' + esc(COPY.findings.link) + '</button>' +
+    '</div></section>';
+}
+
+function viewFinancials(){
+  var f = (typeof FINANCIALS !== "undefined") ? FINANCIALS : null;
+  if(!f || !f.rows || !f.rows.length){
+    return '<section class="col gap14">' + backBtn() +
+      '<div class="detail"><span class="eyebrow">ANNUAL FINANCIAL SUMMARY</span>' +
+      '<p class="detail-lede">No annual financial summary is available for this run.</p></div></section>';
+  }
+  var head = '<th class="pl0">Line item ($000s)</th>' + f.periods.map(function(p){ return '<th class="r">' + esc(p) + '</th>'; }).join("");
+  var body = f.rows.map(function(row){
+    var cells = row.values.map(function(v){ return '<td class="r">' + esc(v) + '</td>'; }).join("");
+    var strong = row.strong ? ' style="font-weight:600;color:var(--text)"' : '';
+    return '<tr' + strong + '><td class="pl0"' + strong + '>' + esc(row.label) + '</td>' + cells + '</tr>';
+  }).join("");
+  return '<section class="col gap14">' + backBtn() + '<div class="detail" style="gap:18px">' +
+    '<div class="col gap10"><span class="eyebrow">ANNUAL FINANCIAL SUMMARY</span>' +
+    '<h2>Financial summary</h2>' +
+    '<p class="detail-lede pretty">' + esc(f.note || "Year-end balances; annual flows. Every figure is engine-computed from the assumptions.") + '</p></div>' +
+    '<div class="card"><table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table></div>' +
+    '</div></section>';
+}
+
 function matches(f){
   var s = state.filters;
   return (s.severity === "All" || s.severity.toLowerCase() === f.severity) &&
@@ -478,7 +536,7 @@ function viewFindings(){
 }
 
 /* ---- mount ---- */
-var VIEWS = { home:viewHome, metric:viewMetric, scenario:viewScenario, family:viewFamily, findings:viewFindings };
+var VIEWS = { home:viewHome, metric:viewMetric, scenario:viewScenario, family:viewFamily, findings:viewFindings, assumptions:viewAssumptions, financials:viewFinancials };
 
 function render(){
   document.getElementById("root").innerHTML =
