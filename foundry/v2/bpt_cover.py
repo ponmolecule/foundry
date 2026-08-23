@@ -81,8 +81,17 @@ def _flow_vals(series, periods):
 
 
 def _engagement_slug(cfg):
+    """A filename-safe identifier for THIS saved engagement/variation.
+
+    The Save-As dialog writes the user's chosen name into cfg.scenario_name (see guardSaveAsConfirm),
+    so that is the correct source: two variations of the same bank ('Nook & Cranny Bank' vs
+    'Nook & Cranny Bank_adopted_metrics') must produce distinct filenames. Fall back to engagement_id,
+    then the bank name, then a generic label.
+    """
     import re
-    raw = cfg.get("engagement_id")
+    raw = (cfg.get("scenario_name") or "").strip() or None
+    if not raw:
+        raw = cfg.get("engagement_id")
     if not raw:
         pb = cfg.get("proposed_bank")
         raw = pb if isinstance(pb, str) else (pb.get("legal_name") or pb.get("name")) if isinstance(pb, dict) else None
