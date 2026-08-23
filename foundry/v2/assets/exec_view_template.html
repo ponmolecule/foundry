@@ -210,24 +210,20 @@ function sparkline(series, color, w, h, pad, stroke){
   var pts = sparkPointList(series, w, h, pad);
   var dots = pts.map(function(p,i){
     var last = i===pts.length-1;
-    return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="'+(last?4.5:3)+'" fill="'+(last?color:"var(--surface)")+'" stroke="'+color+'" stroke-width="'+(last?0:1.6)+'"></circle>';
+    var r = last ? 5 : 4;
+    return '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="'+r+'" fill="'+color+'"></circle>' +
+           '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="'+(r-2)+'" fill="var(--surface)"></circle>' +
+           (last ? '<circle cx="'+p.x.toFixed(1)+'" cy="'+p.y.toFixed(1)+'" r="'+(r-3.2)+'" fill="'+color+'"></circle>' : '');
   }).join("");
   return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="xMidYMid meet" style="width:100%;height:'+h+'px;display:block" aria-hidden="true">' +
     '<polygon points="' + areaPoints(series, w, h, pad) + '" fill="' + color + '" opacity=".08"></polygon>' +
     '<polyline points="' + points(series, w, h, pad) + '" fill="none" stroke="' + color +
-    '" stroke-width="' + stroke + '" stroke-dasharray="0.5 5" stroke-linecap="round"></polyline>' +
+    '" stroke-width="' + stroke + '" stroke-linejoin="round" stroke-linecap="round"></polyline>' +
     dots + '</svg>';
 }
 function levelY(series, level, h, pad){
   var min = Math.min.apply(null, series), max = Math.max.apply(null, series), span = (max - min) || 1;
   return (pad + (1 - (level - min) / span) * (h - pad * 2)).toFixed(1);
-}
-function sparkline(series, color, w, h, pad, stroke){
-  return '<svg viewBox="0 0 ' + w + ' ' + h + '" preserveAspectRatio="none" style="width:' + w + 'px;height:' + h +
-    'px;flex:0 0 auto" aria-hidden="true">' +
-    '<polygon points="' + areaPoints(series, w, h, pad) + '" fill="' + color + '" opacity=".13"></polygon>' +
-    '<polyline points="' + points(series, w, h, pad) + '" fill="none" stroke="' + color + '" stroke-width="' + stroke +
-    '" vector-effect="non-scaling-stroke"></polyline></svg>';
 }
 function bigChart(series, color, threshold){
   var w = 900, h = 220, pad = 16, out = "";
