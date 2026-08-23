@@ -604,6 +604,28 @@ def v31_fiw(body: dict, _=Depends(gate)):
                     headers={"Content-Disposition": f'attachment; filename="fiw_{name}_{gh}.xlsx"'})
 
 
+@app.post("/api/v31/bpt-cover")
+def v31_bpt_cover(body: dict, _=Depends(gate)):
+    """Business Plan Tables cover sheet: engagement-specific workbook following the Highnote template,
+    populated from a fresh engine run of the posted config. Dynamic product/deposit rows."""
+    from fastapi.responses import Response
+    from foundry.v2.bpt_cover import build_bpt_cover
+    from foundry.v2.run_q import run_v2
+    try:
+        cfg = body.get("cfg") or {}
+        if not cfg:
+            return JSONResponse({"error": "no config provided"}, status_code=422)
+        res = run_v2(cfg)
+        data, gh = build_bpt_cover(cfg, res)
+        return Response(content=data,
+                        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        headers={"Content-Disposition": f'attachment; filename="business_plan_tables_{gh}.xlsx"'})
+    except (ValueError, TypeError) as e:
+        return JSONResponse({"error": f"bad request: {str(e)[:200]}"}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"cover-sheet build error: {str(e)[:200]}"}, status_code=200)
+
+
 @app.get("/api/v31/fiw/universal")
 def v31_fiw_universal(_=Depends(gate)):
     """Universal template: a full-coverage FIW built from the bundled exhaustive config, so it
