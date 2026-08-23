@@ -5225,8 +5225,13 @@ function labScenarioHtml(){
   h += '<table class="fin-dark" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
+    const ph = (l.unit==="pct") ? ((cur*100).toFixed(2)) : (l.unit==="k" ? Number(cur).toLocaleString() : String(cur));
+    const suffix = (l.unit==="pct") ? '<span style="color:#8FA3C0;margin-left:4px">%</span>'
+                 : (l.unit==="k") ? '<span style="color:#8FA3C0;margin-right:4px">$</span>' : '';
+    const pre = (l.unit==="k") ? suffix : '';
+    const post = (l.unit==="pct") ? suffix : '';
     h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
-      + `<td style="text-align:right"><input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="unchanged" style="width:120px;text-align:right;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF"></td></tr>`;
+      + `<td style="text-align:right;white-space:nowrap">${pre}<input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="${ph}" title="Enter in the same units shown under Current${l.unit==="pct"?" (percent, e.g. 20 = 20%)":""}" style="width:110px;text-align:right;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF">${post}</td></tr>`;
   });
   h += '</table>';
   h += '<div style="margin-top:12px"><button class="btn-plain" onclick="runLabScenario()">Run scenario</button></div>';
@@ -5258,6 +5263,15 @@ function _fmtLever(v, unit){
   if(unit==="pct") return (v*100).toFixed(3)+"%";
   if(unit==="k") return "$"+Number(v).toLocaleString();
   return String(v);
+}
+
+// Inverse of _fmtLever's scaling: converts a value the user typed in DISPLAY units
+// back to the STORED units the engine expects. pct is shown as % (x100), so a typed
+// "20" (meaning 20%) becomes 0.20. k and plain units are entered as-is.
+function _labInputToStored(v, unit){
+  if(v==null || isNaN(v)) return v;
+  if(unit==="pct") return v/100;
+  return v;
 }
 
 function renderGoalSeekResult(d, lever, unit, metric, target){
@@ -5308,7 +5322,7 @@ async function runLabScenario(){
   const overrides = {};
   levers.forEach((l,i)=>{
     const inp = document.getElementById("scn-"+i);
-    if(inp && inp.value!==""){ const v = parseFloat(inp.value); if(!isNaN(v)) overrides[l.path] = v; }
+    if(inp && inp.value!==""){ const v = parseFloat(inp.value); if(!isNaN(v)) overrides[l.path] = _labInputToStored(v, inp.getAttribute("data-unit")); }
   });
   const out = document.getElementById("scnResult");
   if(!Object.keys(overrides).length){ out.innerHTML = '<div class="memo" style="color:#C98A8A">Enter at least one scenario value.</div>'; return; }
@@ -5539,13 +5553,16 @@ function labOptimizeHtml(){
   h += '<table class="fin-dark" style="width:100%"><tr><th></th><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th></tr>';
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
-    const lo = (l.unit==="pct") ? (cur*0.5) : (cur*0.5);
-    const hi = (l.unit==="pct") ? (cur*1.5) : (cur*1.5);
+    // Prefill bounds in DISPLAY units so they match the Current column (pct shown x100).
+    const disp = (v)=> (l.unit==="pct") ? +(v*100).toFixed(4) : v;
+    const lo = disp(cur*0.5);
+    const hi = disp(cur*1.5);
+    const uSuffix = (l.unit==="pct") ? '<span style="color:#8FA3C0;margin-left:3px">%</span>' : '';
     const stepAttr = 'step="any"';
     h += `<tr><td style="text-align:center"><input type="checkbox" id="optUse-${i}"></td>`
       + `<td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
-      + `<td style="text-align:right"><input id="optLo-${i}" data-path="${esc(l.path)}" type="number" ${stepAttr} value="${lo}" style="width:100px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF"></td>`
-      + `<td style="text-align:right"><input id="optHi-${i}" type="number" ${stepAttr} value="${hi}" style="width:100px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF"></td></tr>`;
+      + `<td style="text-align:right;white-space:nowrap"><input id="optLo-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" ${stepAttr} value="${lo}" style="width:90px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF">${uSuffix}</td>`
+      + `<td style="text-align:right;white-space:nowrap"><input id="optHi-${i}" data-unit="${l.unit}" type="number" ${stepAttr} value="${hi}" style="width:90px;text-align:right;padding:4px;background:#0A1424;border:1px solid #2A3B57;border-radius:4px;color:#DCE3EF">${uSuffix}</td></tr>`;
   });
   h += '</table>';
   // constraints
@@ -5578,8 +5595,9 @@ async function runLabOptimize(){
   const chosen = [];
   levers.forEach((l,i)=>{
     if(document.getElementById("optUse-"+i)?.checked){
-      const lo = parseFloat(document.getElementById("optLo-"+i).value);
-      const hi = parseFloat(document.getElementById("optHi-"+i).value);
+      const loInp = document.getElementById("optLo-"+i), hiInp = document.getElementById("optHi-"+i);
+      const lo = _labInputToStored(parseFloat(loInp.value), loInp.getAttribute("data-unit"));
+      const hi = _labInputToStored(parseFloat(hiInp.value), hiInp.getAttribute("data-unit"));
       if(!isNaN(lo) && !isNaN(hi) && hi>lo) chosen.push({path:l.path, lo, hi});
     }
   });
