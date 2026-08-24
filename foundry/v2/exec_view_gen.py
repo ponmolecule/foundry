@@ -251,7 +251,7 @@ def build(cfg, res):
     # ---- METRICS ----
     def _tone(ok): return "pass" if ok else "fail"
     metrics = [
-        {"id": "lev", "label": "MIN BASE LEVERAGE",
+        {"id": "lev", "unit": "pct", "label": "MIN BASE LEVERAGE",
          "value": _pct(min_lev_pct) if min_lev_pct is not None else "\u2014",
          "sub": f"Q{min_lev_q}" if min_lev_q else "", "foot": f"Requirement \u2265 {commit:.1f}%",
          "tone": _tone((min_lev_pct or 0) >= commit), "series": series["lev"],
@@ -261,7 +261,7 @@ def build(cfg, res):
          "drivers": [["Cumulative net income", f"${(cum_ni or 0)/1000:.1f}M"],
                      ["Capital raise assumed", "None after Day 1"],
                      ["Projection horizon", f"{len(lev)} quarters"]]},
-        {"id": "stress", "label": "WORST STRESS OUTCOME",
+        {"id": "stress", "unit": "pct", "label": "WORST STRESS OUTCOME",
          "value": _pct(worst_val) if worst_val is not None else "\u2014",
          "sub": f"Min leverage \u00b7 {worst_label}",
          "foot": (_gap_txt(worst_val, commit) + (" above requirement" if worst_val >= commit else " below requirement")
@@ -272,12 +272,12 @@ def build(cfg, res):
                     f"{commit:.1f}%."),
          "drivers": [["Scenarios modeled", str(n_total)], ["Scenarios breaching", str(n_breach)],
                      ["Worst scenario", worst_label]]},
-        {"id": "breakeven", "label": "BREAKEVEN", "value": f"Q{breakeven}" if breakeven else "\u2014",
+        {"id": "breakeven", "unit": "money", "label": "BREAKEVEN", "value": f"Q{breakeven}" if breakeven else "\u2014",
          "sub": "First profitable quarter", "foot": "", "tone": "info", "series": series["ni"],
          "detail": (f"The plan reaches profitability in Q{breakeven}." if breakeven
                     else "Breakeven is not reached within the projection horizon."),
          "drivers": [["12-quarter net income", f"${(cum_ni or 0)/1000:.1f}M"]]},
-        {"id": "cumni", "label": "CUMULATIVE NET INCOME", "value": f"${(cum_ni or 0)/1000:.1f}M",
+        {"id": "cumni", "unit": "money", "label": "CUMULATIVE NET INCOME", "value": f"${(cum_ni or 0)/1000:.1f}M",
          "sub": f"{len(lev)}-quarter total", "foot": "Carries the capital build", "tone": "info",
          "series": series["cumni"],
          "detail": (f"Cumulative earnings of ${(cum_ni or 0)/1000:.1f}M over the projection; "
@@ -372,13 +372,28 @@ def build(cfg, res):
     ledger_prov = thr.get("provenance", "")
 
     # ---- COHERENCE (modeled 'does the bank hold together') ----
+    # Classic splits Model Checks into INTEGRITY (does the accounting tie out / completeness — gates the
+    # verdict) and VIABILITY (does the bank actually work — margin, earnings, reserve adequacy).
+    import re as _re2
+    _INTEGRITY_RX = _re2.compile(r"balance|tie|ties|complete|reconcil|capital structure|identity|foots?|schedule", _re2.I)
+    _VIABILITY_RX = _re2.compile(r"margin|nim|spread|reserve|allowance|charge.?off|earn|income|growth|viab|coverage|liquidity|funding", _re2.I)
+
+    def _check_kind(title, text):
+        blob = (str(title) + " " + str(text))
+        if _INTEGRITY_RX.search(blob):
+            return "integrity"
+        if _VIABILITY_RX.search(blob):
+            return "viability"
+        return "viability"  # default: most modeled challenges are viability-type
+
     coherence = []
     for f in [x for x in flags if x.get("source") == "modeled"]:
         sev = sevmap.get(f.get("sev") or f.get("cls") or "advisory", "advisory")
         coherence.append({"title": f.get("id", "Finding"),
                           "severity": "severe" if sev == "severe" else "advisory",
                           "value": f.get("text", ""), "basis": f.get("basis", "") or "Modeled output",
-                          "family": _FAMILY_SLUG.get(_classify_family(f), "capital")})
+                          "family": _FAMILY_SLUG.get(_classify_family(f), "capital"),
+                          "kind": _check_kind(f.get("id", ""), f.get("text", ""))})
     for m in (res.get("modeled_challenges") or []):
         if not isinstance(m, dict):
             continue
@@ -386,7 +401,24 @@ def build(cfg, res):
         coherence.append({"title": m.get("id") or m.get("title") or "Modeled challenge",
                           "severity": "severe" if sev == "severe" else "advisory",
                           "value": (m.get("text") or str(m.get("value", ""))),
-                          "basis": m.get("basis", "") or "Modeled challenge", "family": "capital"})
+                          "basis": m.get("basis", "") or "Modeled challenge", "family": "capital",
+                          "kind": _check_kind(m.get("id") or m.get("title") or "", m.get("text", ""))})
+
+    # CHECKS summary for the two Model Checks tiles.
+    def _check_summary(kind, label, desc):
+        items = [c for c in coherence if c.get("kind") == kind]
+        n_sev = sum(1 for c in items if c["severity"] == "severe")
+        n_adv = sum(1 for c in items if c["severity"] != "severe")
+        status = "fail" if n_sev else ("warn" if n_adv else "ok")
+        return {"kind": kind, "label": label, "desc": desc, "n": len(items),
+                "n_severe": n_sev, "n_advisory": n_adv, "status": status,
+                "items": items}
+    checks = [
+        _check_summary("integrity", "Integrity Check",
+                       "Does the accounting tie out \u2014 balance-sheet identity, completeness, and capital structure."),
+        _check_summary("viability", "Viability Check",
+                       "Does the modeled bank actually work \u2014 margin, earnings, and reserve adequacy."),
+    ]
 
     # ---- ASSUMPTIONS (rich: Input/Observation/Peer band/Comparability/Severity/Conclusion) ----
     CONCL = {"likely_regulatory_objection": "Likely regulatory objection",
@@ -548,7 +580,7 @@ def build(cfg, res):
         "CONSTRAINT": constraint, "SCEN": scen_out, "FAMILIES": families, "FAM_LABEL": fam_label,
         "FINDINGS": findings, "ASSUMPTIONS": assumptions, "COHERENCE": coherence, "SIGNOFF": signoff,
         "COPY": copy, "FILTER_DEFS": filter_defs, "FINANCIALS": financials,
-        "DRIVERS": drivers, "LEDGER": ledger, "PEER_TIER": peer_tier_flag,
+        "DRIVERS": drivers, "LEDGER": ledger, "PEER_TIER": peer_tier_flag, "CHECKS": checks,
     }
 
 
@@ -558,7 +590,7 @@ def render_block(cfg, res):
     # SERIES first so METRICS/SCEN can reference it — but we inline series arrays, so order only cosmetic.
     order = ["MODEL", "VERDICT", "GAUGE", "SERIES", "METRICS", "CONSTRAINT", "SCEN",
              "FAMILIES", "FAM_LABEL", "FINDINGS", "ASSUMPTIONS", "COHERENCE", "SIGNOFF",
-             "COPY", "FILTER_DEFS", "FINANCIALS", "DRIVERS", "LEDGER", "PEER_TIER"]
+             "COPY", "FILTER_DEFS", "FINANCIALS", "DRIVERS", "LEDGER", "PEER_TIER", "CHECKS"]
     return "\n".join(js(k, d[k]) for k in order)
 
 
