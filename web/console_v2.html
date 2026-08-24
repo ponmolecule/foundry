@@ -631,26 +631,18 @@ async function fetchPeerSeed(){
   const certs = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n));
   const out = document.getElementById("peerSeedResult");
   if(!certs.length){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Enter at least one FDIC cert number.</div>'; return; }
-  let products = (((cfg||{}).assumptions||{}).lending_products) || [];
-  // No products yet? Seed against the STANDARD category set so the user gets "pick peers -> get a model"
-  // without first visiting the Product page. These scaffolds are created on adopt.
-  let scaffolded = false;
+  const products = (((cfg||{}).assumptions||{}).lending_products) || [];
+  // Products must be selected first — peer assumptions are shaped from the engagement's products,
+  // and only peer field metrics available for those products are used. No auto-scaffolding.
   if(!products.length){
-    products = [
-      {name:"Consumer", call_report_line:"loanConsumer"},
-      {name:"Credit Card", call_report_line:"loanCreditCard"},
-      {name:"Residential Mortgage / HELOC", call_report_line:"loanMortgage"},
-      {name:"Commercial & Industrial", call_report_line:"loanCommercial"},
-      {name:"Commercial Real Estate", call_report_line:"loanCRE"},
-    ];
-    scaffolded = true;
+    if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Select your products first (Product tab) \u2014 there is nothing to pre-populate until at least one product exists.</div>';
+    return;
   }
   if(out) out.innerHTML = '<div class="memo">Fetching peer data\u2026</div>';
   try{
     const r = await fetch("/api/v31/peer-seed", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({certs, products})});
     const d = await r.json();
-    d._scaffolded = scaffolded; d._scaffoldProducts = products;
     renderPeerSeed(d, products);
   }catch(e){ if(out) out.innerHTML = '<div class="memo" style="color:#C98A8A">Peer lookup failed: '+esc(String(e))+'</div>'; }
 }
@@ -664,7 +656,7 @@ function renderPeerSeed(d, products){
     return;
   }
   window._peerSeedData = {suggestions: d.suggestions||{}, products: products,
-                          scaffolded: !!d._scaffolded, scaffoldProducts: d._scaffoldProducts||products};   // hold for adopt
+                          scaffolded: false, scaffoldProducts: products};   // hold for adopt (no auto-scaffold)
   const peers = (d.peers||[]).map(p=>esc(p.name)).join(", ");
   let h = '<div class="memo" style="line-height:1.6">'+(d.blend?"Median blend of: ":"Adopting: ")+'<b>'+peers+'</b>. '+esc(d.scope_note||"")+'</div>';
   const sugg = d.suggestions||{};
@@ -5817,17 +5809,27 @@ function renderStart(){
     + '</div>';
   // Quiet, tucked-away: Use Peer Assumptions (internal seeding toy). Collapsed by default.
   if(!snapshotMode){
+    var _peerProducts = (((cfg||{}).assumptions||{}).lending_products) || [];
+    var _hasProducts = _peerProducts.length > 0;
     h += '<details class="ovcard" style="margin:14px 0;border-color:#2A3B57;background:#0E1930;opacity:.85">'
       + '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none">'
       + '<div class="k" style="margin:0">Use Peer Assumptions</div>'
       + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0;border:1px solid #3A4E72;border-radius:99px;padding:2px 9px">Internal</span></summary>'
-      + '<div class="s" style="margin-top:8px;max-width:78ch;line-height:1.6">Seed products from real peer Call Report data \u2014 an internal accelerator, not a client-facing auto-fill. Enter one or more FDIC cert numbers (one = adopt that peer; several = median blend). If you have no products yet, this creates the standard categories and seeds them; if you do, it seeds those. '
-      + 'Seeds <b>per-product balances and growth</b> from the peers\u2019 actual filings; <b>rates are the peers\u2019 blended book yield</b> (Call Reports don\u2019t report per-product yields); <b>maturity is never seeded</b> (not in the data, and a decision to own). Every value is a labelled suggestion you review before it enters the model.</div>'
-      + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-      + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#0A1424;border:1px solid #2A3B57;border-radius:6px;color:#DCE3EF;font-family:inherit;font-size:12px">'
-      + '<button class="btn-plain" onclick="fetchPeerSeed()">Fetch peer suggestions</button></div>'
-      + '<div id="peerSeedResult" style="margin-top:10px"></div>'
-      + '</details>';
+      + '<div class="s" style="margin-top:8px;max-width:82ch;line-height:1.6">Pre-populate the model with assumptions drawn from real peer institutions\u2019 Call Report filings \u2014 an internal accelerator, not a client-facing auto-fill. '
+      + '<b>Select your products first.</b> Like the Bank Design Lab, this shapes its inputs from the products already in your engagement: each selected product is matched to its peer Call Report line, and <b>only the peer field metrics that are actually available for those products will be used</b> to pre-populate the model. '
+      + 'Peers report <b>per-product balances and growth</b> and a <b>blended book yield</b> and <b>cost of funds</b>; per-product yields and maturity are not in Call Report data and are never seeded. Enter one or more FDIC cert numbers (one = adopt that peer; several = median blend). Every seeded value is a labelled suggestion you review before it enters the model.</div>';
+    if(!_hasProducts){
+      h += '<div class="memo" style="margin-top:10px;color:#C7975A;border:1px solid #3A4E72;border-radius:6px;padding:10px 12px;background:#0A1424">'
+        + 'No products selected yet. Add your products on the <a href="#" onclick="setTab(\'products\');return false" style="color:#DFA85A;text-decoration:none">Product tab</a> first \u2014 peer assumptions are shaped from the products in your engagement, so there is nothing to pre-populate until at least one product exists.</div>';
+    } else {
+      var _lines = _peerProducts.map(function(p){ return esc(p.name || "(unnamed)"); }).join(", ");
+      h += '<div class="chint" style="margin-top:10px">Will seed these ' + _peerProducts.length + ' selected product' + (_peerProducts.length===1?"":"s") + ': <span style="color:#DCE3EF">' + _lines + '</span>. Fields without available peer data are left untouched.</div>'
+        + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
+        + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#0A1424;border:1px solid #2A3B57;border-radius:6px;color:#DCE3EF;font-family:inherit;font-size:12px">'
+        + '<button class="btn-plain" onclick="fetchPeerSeed()">Fetch peer suggestions</button></div>'
+        + '<div id="peerSeedResult" style="margin-top:10px"></div>';
+    }
+    h += '</details>';
   }
   if(!snapshotMode){
   
