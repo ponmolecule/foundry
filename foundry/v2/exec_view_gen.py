@@ -404,21 +404,32 @@ def build(cfg, res):
                           "basis": m.get("basis", "") or "Modeled challenge", "family": "capital",
                           "kind": _check_kind(m.get("id") or m.get("title") or "", m.get("text", ""))})
 
-    # CHECKS summary for the two Model Checks tiles.
-    def _check_summary(kind, label, desc):
-        items = [c for c in coherence if c.get("kind") == kind]
-        n_sev = sum(1 for c in items if c["severity"] == "severe")
-        n_adv = sum(1 for c in items if c["severity"] != "severe")
-        status = "fail" if n_sev else ("warn" if n_adv else "ok")
-        return {"kind": kind, "label": label, "desc": desc, "n": len(items),
-                "n_severe": n_sev, "n_advisory": n_adv, "status": status,
-                "items": items}
-    checks = [
-        _check_summary("integrity", "Integrity Check",
-                       "Does the accounting tie out \u2014 balance-sheet identity, completeness, and capital structure."),
-        _check_summary("viability", "Viability Check",
-                       "Does the modeled bank actually work \u2014 margin, earnings, and reserve adequacy."),
-    ]
+    # ---- MODEL CHECKS (from the engine's r.checks — same source Classic renders) ----
+    # Integrity = the arithmetic holds together; Viability = the plan clears its commitments.
+    # These are separate classes by design (a coherent model of a failing bank passes integrity,
+    # fails viability). Do NOT synthesize — take the engine's classed rows verbatim.
+    _rc = res.get("checks") or {}
+    _rows = _rc.get("rows") or []
+
+    def _check_group(kind, label):
+        items = [{"id": x.get("id"), "label": x.get("label", ""), "pass": bool(x.get("pass")),
+                  "note": x.get("note") or x.get("detail") or ""}
+                 for x in _rows if x.get("class") == kind]
+        n_fail = sum(1 for x in items if not x["pass"])
+        return {"kind": kind, "label": label, "items": items, "n": len(items),
+                "n_fail": n_fail, "n_pass": len(items) - n_fail,
+                "status": "fail" if n_fail else "ok"}
+
+    checks = {
+        "master": _rc.get("master", ""),
+        "doctrine": _rc.get("doctrine", ""),
+        "integrity_pass": bool(_rc.get("integrity_pass", True)),
+        "viability_pass": bool(_rc.get("viability_pass", True)),
+        "groups": [
+            _check_group("integrity", "Integrity Check"),
+            _check_group("viability", "Viability Check"),
+        ],
+    }
 
     # ---- ASSUMPTIONS (rich: Input/Observation/Peer band/Comparability/Severity/Conclusion) ----
     CONCL = {"likely_regulatory_objection": "Likely regulatory objection",
