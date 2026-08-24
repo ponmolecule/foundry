@@ -74,13 +74,10 @@
   .ovcard-v{font-size:19px;font-weight:600;letter-spacing:-.02em;color:var(--text)}
   .ovcard-v.neg{color:var(--fail)}
   .ovcard-s{font-size:10.5px;color:var(--meta)}
-  table.wide{width:100%;border-collapse:collapse;font-size:.83rem;color:#EDF0F5}
-  table.wide th{color:#8C99AF;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #24334D;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
-  table.wide td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;color:#EDF0F5;vertical-align:top}
+  table.wide{width:100%;border-collapse:collapse;font-size:12px}
+  table.wide th{text-align:left;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);padding:6px 10px;border-bottom:1px solid var(--border)}
+  table.wide td{padding:8px 10px;border-bottom:1px solid var(--border-soft);color:var(--text2)}
   table.wide td.pl0,table.wide th.pl0{padding-left:0}
-  table.grid{border:1px solid #2A3B58}
-  table.grid th{text-align:center;border:1px solid #2A3B58;background:#141E30}
-  table.grid td{border:1px solid #24334D}
   .tinynote{font-size:10.5px;color:var(--meta);margin-top:8px;line-height:1.5}
   details.ledger>summary{cursor:pointer;color:var(--gold);font-size:12px;padding:4px 0;list-style:none}
   details.ledger>summary::-webkit-details-marker{display:none}
@@ -109,12 +106,10 @@
   .check{width:16px;height:16px;border-radius:4px;border:1.5px solid #CBC9C2;flex:0 0 auto}
   .signoff-row{display:grid;grid-template-columns:18px 1fr auto;gap:12px;align-items:center}
 
-  table{width:100%;border-collapse:collapse;font-size:.83rem;color:#EDF0F5;margin-top:4px}
-  th{color:#8C99AF;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #24334D;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
-  td{padding:.45rem .6rem;border-bottom:1px solid #1C2940;vertical-align:top;color:#EDF0F5}
-  td.num,td.r{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono),ui-monospace,Menlo,monospace;font-size:.8rem}
-  th.r{text-align:right}
-  td.pl0,th.pl0{padding-left:0}
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{font-size:9.5px;font-weight:700;letter-spacing:.10em;color:var(--meta);text-align:left;padding:8px 10px;
+    border-bottom:1px solid var(--border);border-top:1px solid var(--border);white-space:nowrap}
+  td{padding:13px 10px;border-bottom:1px solid var(--border-soft);color:var(--text2)}
   tr.clickable{cursor:pointer}
   tr.clickable:hover td{background:rgba(244,242,237,.85)}
   .pl0{padding-left:0}
@@ -412,8 +407,7 @@ function footerRow(){
 function viewHome(){
   return '<section class="col gap20">' + heroPanel() + metricCards() + driversPanel() +
     '<div class="grid col2">' + attentionPanel() + signoffPanel() + '</div>' +
-    assumptionsPanel() +
-    coherencePanel() +
+    '<div class="grid col2">' + assumptionsPanel() + coherencePanel() + '</div>' +
     evidencePanel() + financialsLauncher() + footerRow() + '</section>';
 }
 
@@ -571,7 +565,7 @@ function ledgerBlock(){
       '<td style="vertical-align:top"><span class="sev sev-' + (l.severity==="severe"?"severe":"advisory") + '">' + esc(l.severity) + '</span></td></tr>';
   }).join("");
   return '<details class="ledger"><summary>' + esc(c.ledgerTitle) + '</summary>' +
-    '<div class="card" style="margin-top:8px"><table class="wide grid"><thead><tr>' +
+    '<div class="card" style="margin-top:8px"><table class="wide"><thead><tr>' +
     c.ledgerColumns.map(function(h,i){ return '<th' + (i===0?' class="pl0"':'') + '>' + esc(h) + '</th>'; }).join("") +
     '</tr></thead><tbody>' + rows + '</tbody></table>' +
     (c.ledgerProv ? '<div class="tinynote">' + esc(c.ledgerProv) + '</div>' : '') + '</div></details>';
@@ -670,19 +664,7 @@ function render(){
     '<div class="app">' + topbar() + '<div class="wrap">' + VIEWS[state.view]() + '</div></div>';
 }
 
-function navigate(view, arg){
-  state.view = view; state.arg = arg || null; render();
-  // The iframe is sized to its full content (no internal scrollbar) — the PARENT console scrolls.
-  // Scroll the parent so the top of this view is in view; fall back to own window if not embedded.
-  try{
-    if(window.frameElement && window.parent){
-      window.frameElement.scrollIntoView({block:"start"});
-      window.parent.scrollTo(0, Math.max(0, window.frameElement.getBoundingClientRect().top + window.parent.scrollY - 8));
-    } else {
-      window.scrollTo(0, 0);
-    }
-  }catch(_){ window.scrollTo(0, 0); }
-}
+function navigate(view, arg){ state.view = view; state.arg = arg || null; render(); window.scrollTo(0, 0); }
 
 document.addEventListener("click", function(e){
   var t = e.target.closest("[data-nav],[data-metric],[data-family],[data-scenario],[data-filter],[data-reset]");
