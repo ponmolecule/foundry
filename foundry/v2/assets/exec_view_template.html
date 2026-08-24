@@ -442,9 +442,21 @@ function evidencePanel(){
 }
 
 function footerRow(){
+  var FN = { "Executive summary (PDF)":"exportExecPdf", "Excel exhibit":"exportExcel", "Business plan tables":"exportBptCover" };
   return '<div class="footer"><div class="flex wrapx gap8">' +
-    MODEL.downloads.map(function(d){ return '<a class="dl" href="#">' + esc(d) + '</a>'; }).join("") +
+    MODEL.downloads.map(function(d){
+      var fn = FN[d] || "";
+      return '<a class="dl" href="#" data-export="' + esc(fn) + '">' + esc(d) + '</a>';
+    }).join("") +
     '</div><div class="disclaimer">' + esc(MODEL.runLine) + '</div></div>';
+}
+
+function _runExport(fn){
+  try{
+    var host = (window.parent && window.parent !== window) ? window.parent : window;
+    if(typeof host[fn] === "function"){ host[fn](); return true; }
+  }catch(_){}
+  return false;
 }
 
 function viewHome(){
@@ -742,6 +754,8 @@ function navigate(view, arg){
 }
 
 document.addEventListener("click", function(e){
+  var ex = e.target.closest("[data-export]");
+  if (ex){ e.preventDefault(); var fn = ex.getAttribute("data-export"); if(fn) _runExport(fn); return; }
   var t = e.target.closest("[data-nav],[data-metric],[data-family],[data-scenario],[data-filter],[data-reset]");
   if (!t) return;
   if (t.dataset.reset){ state.filters = { severity:"All", family:"All", status:"All" }; render(); return; }
