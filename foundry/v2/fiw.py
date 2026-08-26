@@ -81,7 +81,8 @@ LINE_LABELS = {
     "depDDA": "Deposits: Transaction (DDA)", "depSavings": "Deposits: Savings & MMDA",
     "depTime": "Deposits: Time", "depBrokered": "Deposits: Brokered",
     "depSweep": "Deposits: Sweep (reciprocal/one-way)",
-    "depInstitutional": "Deposits: Institutional & listing-service",
+    "depInstitutional": "Deposits: Institutional (operating)",
+    "depListing": "Deposits: Listing-service (rate-sensitive)",
 }
 
 
