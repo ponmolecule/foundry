@@ -184,8 +184,9 @@ LINE_LABELS = {
     "loanOther": "Loans: Other",
     "depDDA": "Deposits: Transaction (DDA)", "depSavings": "Deposits: Savings & MMDA",
     "depBrokered": "Deposits: Brokered", "depSweep": "Deposits: Sweep (reciprocal/one-way)",
-    "depInstitutional": "Deposits: Institutional & listing-service",
+    "depInstitutional": "Deposits: Institutional (operating)",
+    "depListing": "Deposits: Listing-service (rate-sensitive)",
     "depTime": "Deposits: Time", "obs": "Off-Balance-Sheet Commitments",
 }
 LOAN_KEYS = ["loanCommercial", "loanConsumer", "loanCreditCard", "loanMortgage", "loanOther"]
-DEP_KEYS = ["depDDA", "depSavings", "depTime", "depBrokered", "depSweep", "depInstitutional"]
+DEP_KEYS = ["depDDA", "depSavings", "depTime", "depBrokered", "depSweep", "depInstitutional", "depListing"]

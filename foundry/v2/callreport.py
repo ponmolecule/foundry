@@ -83,7 +83,8 @@ LINE_CODES = {
     "depDDA": ("RC-E", "1", "RCONB549", "Transaction accounts"),
     "depBrokered": ("RC-E", "M.1.b", "RCON2365", "Brokered deposits (memo)"),
     "depSweep": ("RC-E", "M.1.h", "RCONMT87", "Sweep deposits (memo)"),
-    "depInstitutional": ("RC-E", "M.1.f", "RCONK220", "Listing-service / institutional (memo)"),
+    "depInstitutional": ("RC-E", "M.1.f", "RCONK220", "Institutional / operating (memo)"),
+    "depListing": ("RC-E", "M.1.f", "RCONK220", "Listing-service (rate-sensitive; memo, reported with M.1.f)"),
     "Deposits: Demand (DDA)": ("RC-E", "1", "RCONB549", "Transaction accounts"),
     "Deposits: Transaction (DDA)": ("RC-E", "1", "RCONB549", "Transaction accounts"),
     "depSavings": ("RC-E", "2/3", "RCONB550", "Savings and MMDA"),
@@ -206,7 +207,8 @@ def build_rce(res, cfg=None):
     lines = {"depDDA": ("Transaction accounts (demand)", []),
              "depBrokered": ("Brokered deposits (memo M.1.b)", []),
              "depSweep": ("Sweep deposits (memo M.1.h)", []),
-             "depInstitutional": ("Institutional & listing-service (memo M.1.f)", []),
+             "depInstitutional": ("Institutional / operating (memo M.1.f)", []),
+             "depListing": ("Listing-service (rate-sensitive; memo M.1.f)", []),
               "depSavings": ("Nontransaction: savings and MMDA", []),
               "depTime": ("Nontransaction: time deposits", [])}
     n = 0
@@ -224,10 +226,10 @@ def build_rce(res, cfg=None):
         vals = [sum(p["bal"][t + 1] for p in prods) for t in range(n)]
         rows.append(_row({"depDDA": "1", "depSavings": "M.2.a", "depTime": "M.2.c",
                       "depBrokered": "M.1.b", "depSweep": "M.1.h",
-                      "depInstitutional": "M.1.f"}[key],
+                      "depInstitutional": "M.1.f", "depListing": "M.1.f"}[key],
                           {"depDDA": "RCONB549", "depSavings": "RCON6810/0352", "depTime": "RCON6648/J473",
                       "depBrokered": "RCON2365", "depSweep": "RCONMT87",
-                      "depInstitutional": "RCONK220"}[key],
+                      "depInstitutional": "RCONK220", "depListing": "RCONK220"}[key],
                           label + f" ({len(prods)} product{'s' if len(prods) > 1 else ''})", vals))
     total = [sum(r["values"][t] for r in rows) for t in range(n)] if rows else []
     rows.append(_row("—", "RCON2200", "Total deposits (ties to RC 13.a)", total))
