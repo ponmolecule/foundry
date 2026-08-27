@@ -2690,6 +2690,92 @@ def t70():
           _ck_by_id(_r_e, "CK-10")["class"] == "notice" and _ck_by_id(_r_e, "CK-11")["class"] == "notice")
 
 
+def t71():
+    # Step 1 (fee-driven-product generalization): a generic, additive fee-product
+    # mechanic (assumptions.fee_products, income_modules.py) alongside the five named
+    # fee_modules -- deliberately NOT a migration of the named five (ENGINE_SPEC 5.9
+    # documents that these formulas' exact float evaluation order is load-bearing;
+    # routing them through a new shared dispatcher risks moving a golden hash for no
+    # reason). New fee products (custody, settlement, trustee, conversion, or anything
+    # not yet named) are pure config from here: {key, basis, params}, zero new code.
+    #
+    # Three bases verified against all five shipped named modules' actual formulas (not
+    # assumed): balance (trust), account (service_charges, baas), transaction (payments'
+    # flat-fee shape AND interchange's ad-valorem shape, unified as
+    # income = vol*(fee_per_tx + avg_ticket*rate), cost = vol*(cost_per_tx +
+    # avg_ticket*cost_rate) so one basis subsumes both existing sub-shapes).
+    # NOT yet a domain-owner-confirmed closure claim -- performance/hurdle fees and
+    # discontinuous tiering are open falsification candidates, flagged, not resolved here.
+    print("T71 generic fee_products mechanic (Step 1): additive, profile-safe, hand-checked")
+    import json as _json
+    from foundry.v2.run_q import run_v2 as _run
+
+    # ---- T71a: the five named modules are BYTE-IDENTICAL after this change (the actual
+    # risk this step could have introduced). Reuses T44's exact hand-checked fixture.
+    _cfg44 = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    _cfg44["assumptions"]["fee_modules"] = {
+        "trust": {"aum_open": 100_000_000, "aum_growth_q": 0.0, "fee_bp_ann": 50},
+        "payments": [{"rail": "ACH", "vol_q": 1_000_000, "growth_q": 0.0, "fee_per_tx": 0.10, "cost_per_tx": 0.05}],
+        "interchange": {"tx_count_q": 2_000_000, "growth_q": 0.10, "avg_ticket": 40,
+                         "interchange_rate": 0.012, "network_fee_rate": 0.002}}
+    _r44 = _run(_cfg44)
+    check("T71a", "named fee_modules unaffected by the additive fee_products path (T44 fixture, exact)",
+          abs(_r44["financials"]["is"]["fees"][0] - 1025.0) < 0.05,
+          f"fees[0]={_r44['financials']['is']['fees'][0]:.1f} (expect 1025.0, matching T44a)")
+
+    # ---- T71b: balance-basis generic product, hand-checked exactly (custody proxy)
+    _base = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+    _cfg_b = _json.loads(_json.dumps(_base))
+    _cfg_b["assumptions"]["fee_products"] = [
+        {"key": "custody_fee", "basis": "balance",
+         "params": {"balance_open": 200_000_000.0, "growth_q": 0.02, "fee_bp_ann": 8.0}}]
+    _r_b = _run(_cfg_b)
+    _expect_custody = (200_000_000.0 + 200_000_000.0 * 1.02) / 2.0 * 8.0 / 10000.0 / 4.0 / 1000.0
+    check("T71b", "balance-basis fee_product (custody proxy) matches hand-check exactly",
+          abs(_r_b["financials"]["is"]["fees"][0] - _expect_custody) < 0.05,
+          f"got {_r_b['financials']['is']['fees'][0]:.2f}, expected {_expect_custody:.2f}")
+
+    # ---- T71c: transaction-basis generic product (settlement proxy) -- income lands in
+    # `fees`, cost lands in `overhead` (isolated via delta against a no-fee-product run,
+    # since overhead already carries the base config's own flat overhead_q)
+    _cfg_c0 = _json.loads(_json.dumps(_base))
+    _r_c0 = _run(_cfg_c0)
+    _cfg_c1 = _json.loads(_json.dumps(_base))
+    _cfg_c1["assumptions"]["fee_products"] = [
+        {"key": "settlement_fee", "basis": "transaction",
+         "params": {"vol_q": 1_500_000, "growth_q": 0.03, "fee_per_tx": 0.20, "cost_per_tx": 0.05}}]
+    _r_c1 = _run(_cfg_c1)
+    _income_delta = _r_c1["financials"]["is"]["fees"][0] - _r_c0["financials"]["is"]["fees"][0]
+    _cost_delta = _r_c1["financials"]["is"]["overhead"][0] - _r_c0["financials"]["is"]["overhead"][0]
+    check("T71c-income", "transaction-basis fee_product (settlement proxy): income = vol*fee_per_tx exactly",
+          abs(_income_delta - 300.0) < 0.05, f"delta={_income_delta:.2f}, expect 300.0")
+    check("T71c-cost", "transaction-basis fee_product cost lands in overhead exactly (vol*cost_per_tx)",
+          abs(_cost_delta - 75.0) < 0.05, f"delta={_cost_delta:.2f}, expect 75.0")
+
+    # ---- T71d: account-basis generic product (per-relationship fee proxy)
+    _cfg_d = _json.loads(_json.dumps(_base))
+    _cfg_d["assumptions"]["fee_products"] = [
+        {"key": "advisory_fee", "basis": "account",
+         "params": {"count": 400, "growth_q": 0.0, "fee_per_acct_m": 25.0}}]
+    _r_d = _run(_cfg_d)
+    _expect_acct = 400 * 25.0 * 3.0 / 1000.0
+    check("T71d", "account-basis fee_product (per-relationship proxy) matches hand-check exactly",
+          abs(_r_d["financials"]["is"]["fees"][0] - _expect_acct) < 0.05,
+          f"got {_r_d['financials']['is']['fees'][0]:.2f}, expected {_expect_acct:.2f}")
+
+    # ---- T71e: profile-safe -- the identical mechanism works under profile B without any
+    # profile-specific branching (fee_module_series is a pure function of `a`, called
+    # identically by both engine_q_a.py and engine_q_b.py; unlike Step 0's checks-array
+    # code, this function never touches a profile-specific field name).
+    _cfg_e = _json.load(open("foundry/fixtures/parity/configs/pf_b_base.json", encoding="utf-8"))
+    _cfg_e["assumptions"]["fee_products"] = [
+        {"key": "custody_fee", "basis": "balance",
+         "params": {"balance_open": 50_000_000.0, "growth_q": 0.01, "fee_bp_ann": 10.0}}]
+    _r_e = _run(_cfg_e)
+    check("T71e", "generic fee_products mechanic runs under profile B without KeyError",
+          "custody_fee" in _r_e.get("fee_detail", {}), "fee_detail carries the custody_fee key")
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -2697,7 +2783,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69(); t70()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69(); t70(); t71()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
