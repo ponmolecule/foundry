@@ -1547,8 +1547,6 @@ function numInput(path, unit, extra){
 const GLOBAL_FIELDS = [
   ["MIN LEVERAGE RATIO (%)|Chartering Commitment", "constraints.0.value", "pct"],
   ["TAX RATE|(%)", "assumptions.tax_rate", "pct"],
-  ["CORP. OVERHEAD|($000s/Qtr)", "assumptions.overhead_q", "k"],
-  ["OVERHEAD GROWTH|(%/Qtr)", "assumptions.overhead_growth_q", "pct"],
   ["CASH FLOOR|(% of Deposits)", "assumptions.cash_target_pct_deposits", "pct"],
   ["CASH YIELD|(Annual %)", "assumptions.cash_yield", "pct"],
   ["SECURITIES YIELD|(Annual %)", "assumptions.securities_yield", "pct"],
@@ -1570,7 +1568,6 @@ const STRESS_FIELDS = [
 const GLOBAL_GROUPS_V31 = [
   ["Leverage & tax", ["MIN LEVERAGE", "TAX RATE"]],
   ["Treasury (funding waterfall)", ["CASH FLOOR", "CASH YIELD", "SECURITIES YIELD", "BORROWING RATE"]],
-  ["Operating expenses", ["CORP. OVERHEAD", "OVERHEAD GROWTH"]],
   ["Other balance sheet", ["PREMISES", "INTANGIBLES", "OTHER ASSETS", "OTHER LIABILITIES"]],
 ];
 function setInitialCapital(v){
@@ -3754,7 +3751,35 @@ function renderOverviewClassic(){
 }
 
 // Download the Business Plan Tables cover sheet (engagement-specific, per-product dynamic tables).
+// Filing preflight: an intent gate (NOT a math/validity check). If the current run carries a
+// live SEVERE NIE-REPLACES-OVERHEAD flag — i.e. a zeroed Operating-Expense Detail module is
+// silently discarding a non-zero overhead the user set — don't hand out a filing-grade artifact
+// without the user seeing it and choosing. Engine/output are unchanged; this only asks "did you
+// mean this?" Returns true to proceed, false to abort. Keys off the real flag, not a re-derived rule.
+window._filingAck = window._filingAck || {};
+function _nieShadowFlag(){
+  if(!lastRes || !Array.isArray(lastRes.flags)) return null;
+  return lastRes.flags.find(f => f && f.id === "NIE-REPLACES-OVERHEAD" && f.sev === "severe") || null;
+}
+function _filingPreflight(artifactLabel){
+  const fl = _nieShadowFlag();
+  if(!fl) return true;                       // nothing to gate
+  // Build a plain-language confirmation. Two rounds: first offers a way out; if they insist, they file.
+  const msg = "Before filing the " + artifactLabel + ":\n\n" + (fl.text || "Operating Expense Detail is "
+    + "active and is replacing your overhead line.") + "\n\nFiling this hands an examiner a plan whose "
+    + "overhead is the assessment floor only. Fix it in Configuration (deactivate the module or enter a "
+    + "non-zero expense), or press OK to file anyway and record that you intended this.";
+  const proceed = window.confirm(msg);
+  if(proceed){
+    // Record the acknowledgment (intentional, timestamped) — not a silent click.
+    window._filingAck[artifactLabel] = { at: new Date().toISOString(), flag: fl.id };
+    try{ console.info("[filing] user acknowledged severe NIE-REPLACES-OVERHEAD and filed " + artifactLabel); }catch(_){}
+  }
+  return proceed;
+}
+
 async function exportBptCover(){
+  if(!_filingPreflight("Business Plan Tables")) return;
   try{
     const r = await fetch("/api/v31/bpt-cover", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({cfg: (typeof cfgRef==="function"?cfgRef():cfg)})});
@@ -5305,7 +5330,7 @@ function _leverLabel(path){
   return found ? found.label : path.split('.').pop();
 }
 function _leverLocation(path){
-  if(path==="assumptions.overhead_q" || path==="assumptions.overhead_growth_q") return "sidebar \u2014 Corp. Overhead";
+  if(path==="assumptions.overhead_q" || path==="assumptions.overhead_growth_q") return "Configuration \u2014 Operating expense";
   if(path==="assumptions.initial_capital") return "sidebar";
   if(path.indexOf("lending_products")>=0) return "Product tab";
   if(path.indexOf("deposit_products")>=0) return "Product tab";
@@ -6038,7 +6063,8 @@ function structuresSectionsHtml(){
   h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, FTE-step comp, and assessments on the correct base.</div></span></div>`;
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
-    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center"><div><div class="csub">Corporate overhead</div><div class="cmut" style="margin-top:2px">The single overhead line (sidebar) governs. Activate for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
+    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_q||0)/1000)}" title="$000s per quarter" onchange="cfg.assumptions.overhead_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s/qtr</span><input type="number" step="0.1" style="width:56px" value="${((A.overhead_growth_q||0)*100).toFixed(1)}" title="growth %/qtr" onchange="cfg.assumptions.overhead_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">grw %/qtr</span></div>`;
+    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center;margin-top:8px"><div><div class="cmut">This single overhead line governs. Activate detail for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base \u2014 which then <b>replaces</b> this line.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
   } else {
     const nd = A.nie_detail;
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 8px"><span class="chint" style="margin:0">Module active</span><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="nieOff()">Deactivate module</button></div>';
@@ -6246,6 +6272,7 @@ function _engSlug(){
   return s || "engagement";
 }
 async function exportExcel(){
+  if(!_filingPreflight("Excel exhibit")) return;
   const r = await fetch("/api/v2/exhibit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
   if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
   const b = await r.blob(); const a = document.createElement("a");
@@ -6253,6 +6280,7 @@ async function exportExcel(){
 }
 window.exportExcel=exportExcel;
 async function exportExecPdf(){
+  if(!_filingPreflight("Executive Summary PDF")) return;
   const r = await fetch("/api/v2/exec-summary-pdf", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
   if(r.status===422){ alert("Fail-closed: complete the open questions first."); return; }
   if(r.status===503){ alert("PDF export isn't available on this server right now \u2014 use the Excel exhibit instead (top-right, or the button beside this one)."); return; }

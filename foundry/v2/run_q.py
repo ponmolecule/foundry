@@ -930,7 +930,7 @@ def run_v2(cfg):
             "id": "NIE-REPLACES-OVERHEAD",
             "sev": "severe" if _zeroed else "mild",
             "text": (f"Operating Expense Detail is ACTIVE and replaces the corporate "
-                      f"overhead line \u2014 the sidebar's "
+                      f"overhead line \u2014 the Configuration overhead value of "
                       f"{cfg['assumptions']['overhead_q']/1000:,.0f} $000s/qtr is being "
                       f"IGNORED while the module is present."
                       + (" Every detail input is zero, so this plan currently models a "
