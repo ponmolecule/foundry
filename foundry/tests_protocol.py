@@ -2597,6 +2597,99 @@ def t68():
           abs(_sched_int_total - 8000.0 * 0.045 / 4.0 * 6) < 0.01, f"total {_sched_int_total:.2f}")
 
 
+def t70():
+    # Step 0 (fee-driven-product generalization build package): no check fired on a
+    # fee-only / non-spread balance sheet at all. SPREAD-VIAB (challenge_q.py) is a
+    # narrative flag, not a viability-class check, and only fires when both loans AND
+    # deposits are present; leverage (CK-4) is vacuously easy to clear on a near-all-equity,
+    # thin book (custody/trust-shaped), so it provides no signal either.
+    #
+    # CK-10 (profitability) and CK-11 (capital-survival) are added as class "notice", NOT
+    # "viability" — deliberately excluded from viability_pass's aggregate. These are
+    # factual observations an examiner would notice, not a platform-rendered charter
+    # verdict; Foundry surfaces the pro forma's facts, it doesn't adjudicate viability.
+    # viability_pass stays reserved for the plan's own stated commitments (leverage floor,
+    # pre-opening capital) — general economic judgment calls don't belong in that boolean.
+    # Both thresholds are literal/factual on purpose, not softened: CK-10 fires on a
+    # negative final quarter or any relapse after an earlier crossing (no slope tolerance);
+    # CK-11 fires only on actual insolvency, equity < 0 (no positive margin — confirmed
+    # this rarely diverges from CK-10 in this engine, which is fine: a factual insolvency
+    # flag that rarely fires is still doing its job).
+    #
+    # pf_b_base is a parity-only fixture (grep-verified: it appears once in tests_parity.py
+    # as a before/after delta base, never asserted for economic viability anywhere; every
+    # tests_protocol.py use pairs it with pf_a_base to prove a mechanic works identically
+    # under both profiles). CK-10 is computed for it like any config, but not asserted here
+    # — pinning it would be a category error per the fixture's own documented purpose.
+    print("T70 notice-class checks surface facts on fee-only / non-spread balance sheets (CK-10, CK-11)")
+    import json as _json
+    from foundry.v2.run_q import run_v2 as _run
+
+    def _mk(fee_modules, overhead_q, pre_opening=None):
+        _cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
+        _cfg["assumptions"]["fee_modules"] = fee_modules
+        _cfg["assumptions"]["overhead_q"] = overhead_q
+        if pre_opening:
+            _cfg["pre_opening"] = pre_opening
+        return _cfg
+
+    def _ck_by_id(_r, _cid):
+        return next((c for c in _r["checks"]["rows"] if c["id"] == _cid), None)
+
+    # ---- T70a: pf_a_base is the only fixture in this family with a documented,
+    # representative charter-style trajectory (11 losing quarters, breaks even Q12, no
+    # relapse). Both checks must hold — no regression on the one fixture this claim
+    # actually applies to.
+    _cfg_a = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    _r_a = _run(_cfg_a)
+    check("T70a-profitability", "pf_a_base clears CK-10 (reaches breakeven Q12, no regression)",
+          _ck_by_id(_r_a, "CK-10") is not None and _ck_by_id(_r_a, "CK-10")["pass"],
+          f"ni[-1]={_r_a['financials']['is']['ni'][-1]:.1f}")
+    check("T70a-survival", "pf_a_base clears CK-11 (equity never negative, no regression)",
+          _ck_by_id(_r_a, "CK-11") is not None and _ck_by_id(_r_a, "CK-11")["pass"])
+
+    # ---- T70b: pf_b_base — parity-only fixture (grep-verified role above). CK-10 is
+    # computed like any other config (the check itself is not fixture-aware — that would
+    # bake a test-suite distinction into production code), but NOT asserted here: pinning
+    # it as a required pass would be a category error against the fixture's own documented
+    # purpose. Its financials (is/bs/ratios) are independently proven unaffected by this
+    # change via the existing T-PAR suite's ±$1k/line/quarter reproduction — that is the
+    # correct place for that claim, not a second, weaker copy of it here.
+    _cfg_b = _json.load(open("foundry/fixtures/parity/configs/pf_b_base.json", encoding="utf-8"))
+    _r_b = _run(_cfg_b)
+    _p10_b = _ck_by_id(_r_b, "CK-10")
+    check("T70b-not-asserted", "pf_b_base: CK-10 computed but deliberately not pinned (parity-only role)",
+          _p10_b is not None, f"CK-10 pass={_p10_b['pass'] if _p10_b else None} (informational only)")
+
+    # ---- T70c: fee-only sustained-loss (Failure-1). Never crosses zero -> fails CK-10.
+    # Mild burn (~96% of paid-in retained) -> clears CK-11. Profitability alone catches
+    # this one; capital-survival correctly stays out of its way.
+    _cfg_c = _mk({"trust": {"aum_open": 150_000_000.0, "aum_growth_q": 0.0, "fee_bp_ann": 10.0}}, 750_000.0)
+    _r_c = _run(_cfg_c)
+    _ni_last = _r_c["financials"]["is"]["ni"][-1]
+    check("T70c-profitability", "fee-only sustained-loss config FAILS CK-10 (never turns positive)",
+          _ni_last < 0 and _ck_by_id(_r_c, "CK-10") is not None and not _ck_by_id(_r_c, "CK-10")["pass"],
+          f"ni[-1]={_ni_last:.1f}")
+    check("T70c-survival", "same config still CLEARS CK-11 (mild burn, equity stays positive)",
+          _ck_by_id(_r_c, "CK-11") is not None and _ck_by_id(_r_c, "CK-11")["pass"])
+    check("T70c-not-a-verdict", "viability_pass is UNCHANGED (still True) despite CK-10 failing \u2014 "
+                                "notices don't adjudicate viability",
+          _r_c["checks"]["viability_pass"] is True)
+
+    # ---- T70e: severe burn drives equity negative. Fails CK-11 (the literal floor). This
+    # particular config also breaches CK-4 (leverage) on its own -- confirmed BEFORE CK-11
+    # existed, so viability_pass being False here is CK-4's doing, not CK-11's; CK-11 firing
+    # is checked directly, not inferred from viability_pass (which is exactly the point:
+    # CK-11 no longer feeds that boolean at all).
+    _cfg_e = _mk({"trust": {"aum_open": 20_000_000.0, "aum_growth_q": 0.0, "fee_bp_ann": 8.0}}, 5_100_000.0)
+    _r_e = _run(_cfg_e)
+    check("T70e-survival", "severe-burn config FAILS CK-11 (equity goes negative)",
+          _ck_by_id(_r_e, "CK-11") is not None and not _ck_by_id(_r_e, "CK-11")["pass"],
+          f"min equity={min(_r_e['financials']['bs']['equity']):.0f}")
+    check("T70e-class", "CK-10 and CK-11 are both class \u2018notice\u2019, not \u2018viability\u2019",
+          _ck_by_id(_r_e, "CK-10")["class"] == "notice" and _ck_by_id(_r_e, "CK-11")["class"] == "notice")
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -2604,7 +2697,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69(); t70()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
