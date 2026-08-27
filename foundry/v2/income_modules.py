@@ -25,6 +25,31 @@ Fee modules (F-036/070/141/142/143, fixing D-P10/11/13):
               "rev_per_acct_m": $},
   }
   Every module carries a growth path (fixing D-P10's static-forever fees).
+
+Generic fee products (Step 1, fee-driven-product generalization): the five named
+modules above are frozen, byte-identical, untouched by this addition. New fee
+products (custody, settlement, trustee, conversion, or anything not yet named)
+are added as pure config, zero new code, via:
+  assumptions.fee_products = [
+    {"key": str, "basis": "balance" | "transaction" | "account", "params": {...}},
+    ...
+  ]
+  basis="balance":     params = {balance_open, growth_q, fee_bp_ann}
+                        income = avg(balance) * fee_bp_ann/10000/4  (same shape as `trust`)
+  basis="transaction":  params = {vol_q, growth_q, avg_ticket, fee_per_tx, rate,
+                                  cost_per_tx, cost_rate}
+                        income = vol * (fee_per_tx + avg_ticket*rate)
+                        cost   = vol * (cost_per_tx + avg_ticket*cost_rate)
+                        (subsumes both `payments`'s flat-fee shape and
+                        `interchange`'s ad-valorem shape as special cases)
+  basis="account":      params = {count, growth_q, fee_per_acct_m}
+                        income = count * fee_per_acct_m * 3  (same shape as
+                        `service_charges`/`baas`)
+  An unrecognized or absent basis contributes nothing (silent, not a crash) --
+  "presence, not assertion." Three bases only: NOT yet confirmed complete against
+  every real-world fee business (performance/hurdle fees and true discontinuous
+  tiering are open falsification candidates) -- extend this list, don't force a
+  bad fit into balance/transaction/account.
 """
 
 Q = 12
@@ -105,4 +130,39 @@ def fee_module_series(a):
               for q in range(1, Q + 1)]
         detail["baas"] = s
         inc = [inc[i] + s[i] for i in range(Q)]
+    for fp in (a.get("fee_products") or []):
+        key = fp.get("key") or "fee_product"
+        basis = fp.get("basis")
+        p = fp.get("params") or {}
+        if basis == "balance":
+            s = []
+            bal = float(p.get("balance_open") or 0.0)
+            for q in range(1, Q + 1):
+                bal_end = bal * (1 + float(p.get("growth_q") or 0.0))
+                s.append((bal + bal_end) / 2.0 * float(p.get("fee_bp_ann") or 0.0) / 10000.0 / 4.0)
+                bal = bal_end
+            detail[key] = s
+            inc = [inc[i] + s[i] for i in range(Q)]
+        elif basis == "transaction":
+            si, sc = [], []
+            for q in range(1, Q + 1):
+                vol = _g(float(p.get("vol_q") or 0.0), p.get("growth_q"), q)
+                notional = vol * float(p.get("avg_ticket") or 0.0)
+                si.append(vol * float(p.get("fee_per_tx") or 0.0)
+                          + notional * float(p.get("rate") or 0.0))
+                sc.append(vol * float(p.get("cost_per_tx") or 0.0)
+                          + notional * float(p.get("cost_rate") or 0.0))
+            detail[f"{key}_income"], detail[f"{key}_cost"] = si, sc
+            inc = [inc[i] + si[i] for i in range(Q)]
+            cost = [cost[i] + sc[i] for i in range(Q)]
+        elif basis == "account":
+            s = [_g(float(p.get("count") or 0.0), p.get("growth_q"), q)
+                  * float(p.get("fee_per_acct_m") or 0.0) * 3.0
+                  for q in range(1, Q + 1)]
+            detail[key] = s
+            inc = [inc[i] + s[i] for i in range(Q)]
+        # unknown/absent basis: silently contributes nothing rather than raising --
+        # consistent with "presence, not assertion" (an unrecognized basis is treated
+        # as not-yet-configured, not a crash), but the challenge layer should flag it
+        # (Step 2/4 concern, not this function's job).
     return {"income": inc, "cost": cost, "detail": detail}
