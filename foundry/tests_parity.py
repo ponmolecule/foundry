@@ -334,6 +334,13 @@ def main():
                     "blank cells use the baseline shown as placeholder",
                     "CBLR Framework Eligibility", "12 CFR 3.12", "overrides"]
         miss += [x for x in need_v21 if x not in html]
+        # Step 2 (fee-driven-product generalization), console_v2.html half: this only
+        # checks that the tokens exist in the HTML source -- it is a syntax/presence
+        # gate, NOT a behavioral one. It cannot confirm a click actually does the right
+        # thing; see the delivered manual verification checklist for that.
+        need_fee_products = ["window.addFeeProduct", "FEE_CATALOG_JS", "BASIS_FIELDS_JS",
+                              "cfg.assumptions.fee_products"]
+        miss += [x for x in need_fee_products if x not in html]
         app_src = open("app.py", encoding="utf-8").read()
         if '"/v2.1"' not in app_src or "window.V21=true" not in app_src:
             miss += ["/v2.1 route"]
