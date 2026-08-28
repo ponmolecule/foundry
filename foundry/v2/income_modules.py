@@ -78,6 +78,75 @@ def nie_detail_series(a):
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
 
+def fee_stream_q(stream, q, ctx):
+    """One fee stream's income for quarter q ($). Additive, per-product (six-axis model).
+
+    stream = {basis, driver:{source,ref,trajectory,params}, rate:{behavior,params},
+              timing:{start_period,end_period}, cost:{kind,params}}
+    ctx supplies resolvable drivers: own_balance (this product's avg balance for q),
+    and a map of already-computed stream outputs (for source=stream_ref) — kept minimal
+    here; cross-reference (stream_ref) and managed_notional land in later increments.
+
+    Closed basis set {balance, transaction, account, flat}; unknown basis => 0.0 (extensible:
+    a future basis is addable without breaking existing streams). Timing gates start/end.
+    """
+    if not stream:
+        return 0.0
+    tm = stream.get("timing") or {}
+    start = int(tm.get("start_period") or 1)
+    end = tm.get("end_period")
+    if q < start or (end is not None and q > int(end)):
+        return 0.0
+    basis = stream.get("basis")
+    drv = stream.get("driver") or {}
+    rt = stream.get("rate") or {}
+    params = drv.get("params") or {}
+    rate_params = rt.get("params") or {}
+
+    # --- driver quantity for this quarter ---
+    src = drv.get("source") or "constant"
+    traj = drv.get("trajectory") or "flat"
+    base = float(params.get("base") or 0.0)
+    if src == "own_balance":
+        qty = float((ctx or {}).get("own_balance") or 0.0)
+    elif src == "constant":
+        if traj == "proportional":
+            qty = _g(base, params.get("growth_q"), q)
+        elif traj == "explicit_schedule":
+            sched = params.get("schedule") or {}
+            qty = float(sched.get(str(q), base))
+        else:  # flat
+            qty = base
+    else:
+        qty = 0.0  # managed_notional / stream_ref resolved in a later increment
+
+    # --- rate for this quarter (Axis 4: flat only in this increment) ---
+    rate = float(rate_params.get("rate") or 0.0)
+
+    # --- basis application (Axis 1) ---
+    if basis == "balance":
+        # rate is annual bps-or-fraction on avg balance, quarterly
+        return qty * rate / 4.0
+    if basis == "transaction":
+        per_unit = float(rate_params.get("per_unit") or 0.0)
+        return qty * per_unit
+    if basis == "account":
+        per_period = float(rate_params.get("fee_per_period") or 0.0)
+        periods = float(rate_params.get("periods_per_q") or 1.0)
+        return qty * per_period * periods
+    if basis == "flat":
+        return float(rate_params.get("amount_per_period") or 0.0)
+    return 0.0  # unknown basis: extensible, never raises
+
+
+def product_fee_streams_q(p, q, ctx):
+    """Sum of a product's fee_streams for quarter q ($). Empty/absent => 0.0 (hash-safe)."""
+    streams = p.get("fee_streams") or []
+    if not streams:
+        return 0.0
+    return sum(fee_stream_q(s, q, ctx) for s in streams)
+
+
 def fee_module_series(a):
     """{"income": [...Q], "cost": [...Q], "detail": {...}} — zeros when absent."""
     Q = int(a.get("n_periods") or 12)
