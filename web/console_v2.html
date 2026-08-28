@@ -2033,6 +2033,37 @@ function fieldsFor(fam, p, base){
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
+  } else if(p.managed_notional || p._fee_product){
+    // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
+    // managed_notional + fee_streams shape (income_modules.py). AUC is an off-book stock;
+    // fees charge against it or against per-transaction / per-account drivers.
+    p.managed_notional = p.managed_notional || {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"};
+    p.fee_streams = p.fee_streams || [];
+    const mnb = base+".managed_notional";
+    h += '<div class="fld wide"><label style="color:#DFA85A">Assets under custody / management (off-book)</label></div>';
+    h += F("AUC day 1 ($000s)", mnb+".day1", "k");
+    h += F("AUC target ($000s)", mnb+".target", "k");
+    h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+    h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
+    (p.fee_streams||[]).forEach((st,si)=>{
+      const sb = base+".fee_streams."+si;
+      st.driver = st.driver || {}; st.rate = st.rate || {params:{}}; st.rate.params = st.rate.params || {};
+      st.timing = st.timing || {start_period:1};
+      const bl = (st.basis==="balance"?"Balance (AUC \u00d7 bp/yr)":st.basis==="transaction"?"Transaction (count \u00d7 $/unit)":st.basis==="account"?"Account (count \u00d7 $/period)":st.basis==="flat"?"Flat ($/quarter)":st.basis);
+      h += `<div class="fld wide"><label>Stream ${si+1} \u2014 ${esc(bl)} <a href="#" onclick="cfg.assumptions.obs_exposures[${i}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
+      if(st.basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(1);
+        h += `<div class="fld"><label>Rate (bp/yr on AUC)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${i}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
+      else if(st.basis==="transaction"){ h += F("Volume/qtr", sb+".driver.params.base", "n"); h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
+      else if(st.basis==="account"){ h += F("Accounts", sb+".driver.params.base", "n"); h += F("Fee ($/acct/mo)", sb+".rate.params.fee_per_period", "n"); }
+      else if(st.basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
+      h += F("Revenue start (quarter)", sb+".timing.start_period", "n");
+    });
+    h += '<div class="fld wide" style="margin-top:6px">';
+    ["balance","transaction","account","flat"].forEach(bz=>{
+      h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${i},\x27${bz}\x27)">+ ${bz} stream</button>`;
+    });
+    h += '</div>';
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
@@ -2408,6 +2439,8 @@ function openModal(){
         + '</div>';
     });
     mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
+    mh += '<div class="accent-label">Fee-based products</div><div class="memo" style="margin:-2px 0 8px">Pure non-interest revenue (custody, trustee, settlement, conversion, \u2026). Off-book; you name it and add fee streams.</div>';
+    mh += '<div class="preset-grid"><button class="preset-btn" onclick="addFeeProductV2()"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue</span></button></div>';
     mh += '<div class="modal-actions"><span id="modalAddedCount" style="flex:1;font-size:11px;color:#7FB07F"></span><button class="btn-gold" onclick="closeModal()">Done</button></div>';
     document.getElementById("modal").innerHTML = mh;
     document.getElementById("modal-bg").style.display = "block";
@@ -2453,6 +2486,25 @@ function addCustom(){
   closeModal(); renderContent(); refresh();
 }
 window.openModal=openModal; window.closeModal=closeModal; window.fillLineOptions=fillLineOptions;
+// --- First-class FEE PRODUCT (pure non-interest revenue, off-book). Creates an obs_exposure
+// carrying managed_notional + fee_streams (the engine shape in income_modules.py). ---
+window.addFeeProductV2 = function(){
+  cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+  cfg.assumptions.obs_exposures.push({
+    name: "Fee product", call_report_line: "obs", _fee_product: true,
+    managed_notional: {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
+    fee_streams: [], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0
+  });
+  closeModal && closeModal(); renderContent(); refresh();
+};
+window.addFeeStream = function(i, basis){
+  const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
+  p.fee_streams = p.fee_streams || [];
+  const src = (basis==="balance") ? "managed_notional" : "constant";
+  p.fee_streams.push({name:"", basis:basis, driver:{source:src, params:{base:0}},
+                      rate:{params:{}}, timing:{start_period:1}});
+  renderContent(); refresh();
+};
 window.addPreset=addPreset; window.addCustom=addCustom;
 
 function setFtp(v){
