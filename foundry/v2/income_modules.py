@@ -78,6 +78,47 @@ def nie_detail_series(a):
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
 
+def managed_notional_series(mn, Q):
+    """Roll an off-book notional stock (AUC/AUM) forward Q quarters.
+
+    mn = {day1, target?, ramp_periods?, trajectory, growth_q?, schedule?}
+    trajectory in {ramp_to_target, flat, proportional, explicit_schedule}.
+    Returns (avg_by_q, end_by_q) — avg is what balance-basis fees charge against;
+    end is the disclosed period-end AUC. Absent/empty => zeros (hash-safe).
+    """
+    if not mn:
+        return [0.0] * Q, [0.0] * Q
+    day1 = float(mn.get("day1") or 0.0)
+    traj = mn.get("trajectory") or "flat"
+    end = [0.0] * Q
+    prev = day1
+    if traj == "ramp_to_target":
+        target = float(mn.get("target") or 0.0)
+        ramp = int(mn.get("ramp_periods") or Q)
+        for q in range(1, Q + 1):
+            frac = min(1.0, q / ramp) if ramp > 0 else 1.0
+            end[q - 1] = day1 + (target - day1) * frac
+    elif traj == "proportional":
+        g = float(mn.get("growth_q") or 0.0)
+        for q in range(1, Q + 1):
+            end[q - 1] = day1 * (1 + g) ** q
+    elif traj == "explicit_schedule":
+        sched = mn.get("schedule") or {}
+        cur = day1
+        for q in range(1, Q + 1):
+            cur = cur + float(sched.get(str(q), 0.0))   # additive lumps
+            end[q - 1] = cur
+    else:  # flat
+        for q in range(1, Q + 1):
+            end[q - 1] = day1
+    avg = []
+    prev = day1
+    for q in range(1, Q + 1):
+        avg.append((prev + end[q - 1]) / 2.0)
+        prev = end[q - 1]
+    return avg, end
+
+
 def fee_stream_q(stream, q, ctx):
     """One fee stream's income for quarter q ($). Additive, per-product (six-axis model).
 
@@ -109,6 +150,10 @@ def fee_stream_q(stream, q, ctx):
     base = float(params.get("base") or 0.0)
     if src == "own_balance":
         qty = float((ctx or {}).get("own_balance") or 0.0)
+    elif src == "managed_notional":
+        # off-book stock (AUC/AUM) this product declares; rolled forward by the engine
+        # and passed in ctx. This is the custody/trustee balance-basis case.
+        qty = float((ctx or {}).get("managed_notional") or 0.0)
     elif src == "constant":
         if traj == "proportional":
             qty = _g(base, params.get("growth_q"), q)
@@ -118,7 +163,7 @@ def fee_stream_q(stream, q, ctx):
         else:  # flat
             qty = base
     else:
-        qty = 0.0  # managed_notional / stream_ref resolved in a later increment
+        qty = 0.0  # stream_ref (cross-reference) resolved in a later increment
 
     # --- rate for this quarter (Axis 4: flat only in this increment) ---
     rate = float(rate_params.get("rate") or 0.0)
