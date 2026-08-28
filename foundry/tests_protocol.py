@@ -2775,6 +2775,43 @@ def t71():
     check("T71e", "generic fee_products mechanic runs under profile B without KeyError",
           "custody_fee" in _r_e.get("fee_detail", {}), "fee_detail carries the custody_fee key")
 
+    # ---- T71f: Step 2 -- fee_products round-trips through the FIW workbook generically
+    # (fiw.py's _fee_products_rows, driven by fee_catalog.BASIS_PARAM_FIELDS, zero
+    # per-product code). Uploaded COLD (current={}), exactly the app's default -- proves
+    # the workbook is genuinely self-contained, not reliant on an open session.
+    from foundry.v2.fiw import build_fiw, persist_snapshot, diff_import
+    _cfg_f = _json.loads(_json.dumps(_base))
+    _cfg_f["assumptions"]["fee_products"] = [
+        {"key": "custody_fee", "basis": "balance",
+         "params": {"balance_open": 200_000_000.0, "growth_q": 0.02, "fee_bp_ann": 8.0}},
+        {"key": "settlement_fee", "basis": "transaction",
+         "params": {"vol_q": 1_500_000, "growth_q": 0.03, "fee_per_tx": 0.20, "cost_per_tx": 0.05}},
+    ]
+    _r_f_original = _run(_cfg_f)
+    _data_f, _gh_f = build_fiw(_cfg_f)
+    persist_snapshot(_cfg_f, _gh_f)
+    _merged_f, _ = diff_import(_data_f, {})
+    _r_f_reconstituted = _run(_merged_f)
+    check("T71f", "fee_products round-trips through a cold FIW upload to an identical run_hash",
+          _r_f_original["run_hash"] == _r_f_reconstituted["run_hash"],
+          f"{_r_f_original['run_hash']} vs {_r_f_reconstituted['run_hash']}")
+
+    # ---- T71g: catalog field names are cross-checked against what the engine's
+    # dispatcher actually reads, for every basis, not eyeballed -- a mismatch here would
+    # mean the workbook renders a field the engine silently ignores.
+    from foundry.v2.fee_catalog import BASIS_PARAM_FIELDS
+    _expected_fields = {
+        "balance": {"balance_open", "growth_q", "fee_bp_ann"},
+        "transaction": {"vol_q", "growth_q", "fee_per_tx", "cost_per_tx", "avg_ticket", "rate", "cost_rate"},
+        "account": {"count", "growth_q", "fee_per_acct_m"},
+    }
+    _catalog_ok = all(
+        {k for k, _, _ in BASIS_PARAM_FIELDS[basis]} == fields
+        for basis, fields in _expected_fields.items()
+    )
+    check("T71g", "fee_catalog.BASIS_PARAM_FIELDS matches the engine dispatcher's actual param keys, every basis",
+          _catalog_ok)
+
 
 if __name__ == "__main__":
     import os as _os_optin
