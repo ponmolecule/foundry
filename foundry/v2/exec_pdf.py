@@ -266,8 +266,9 @@ def exec_summary_pdf(cfg: dict, res: dict) -> bytes:
         _CLASS_LABEL = {
             "integrity": ("Integrity checks", "Does the arithmetic hold together \u2014 balance-sheet identities, accounting ties."),
             "viability": ("Viability checks", "Does the modeled bank clear its commitments \u2014 capital, leverage, going-concern."),
+            "notice": ("Notices", "Facts about the projection worth an examiner's attention \u2014 not a viability verdict."),
         }
-        for kl in ("integrity", "viability"):
+        for kl in ("integrity", "viability", "notice"):
             krows = [r0 for r0 in checks["rows"] if r0.get("class") == kl]
             if not krows:
                 continue

@@ -823,6 +823,39 @@ def run_v2(cfg):
     if "pre_open" in results:
         _ck("CK-5", "Pre-opening capital sufficiency", results["pre_open"]["sufficient"],
             "viability", results["pre_open"]["flag"])
+    # CK-10/CK-11 (fee-driven-product generalization, Step 0): the viability class had no
+    # check that fires for a fee-only / non-spread balance sheet. SPREAD-VIAB
+    # (challenge_q.py) is a narrative flag, not a viability-class check, and only fires
+    # when both loans AND deposits are present; leverage (CK-4) is vacuously easy to clear
+    # on a near-all-equity, thin book (custody/trust-shaped), so it provides no signal
+    # either.
+    #
+    # Class "notice", deliberately NOT "viability": these are factual observations about
+    # the projection an examiner would notice, not a platform-rendered charter verdict.
+    # Foundry surfaces what's worth a human's attention; it doesn't adjudicate viability.
+    # They are excluded from viability_pass's aggregate on purpose (that boolean is
+    # reserved for the plan's own stated commitments -- leverage floor, pre-opening
+    # capital -- not for general economic judgment calls). Both are literal, factual
+    # thresholds, deliberately not softened: CK-10 fires the instant net income is
+    # negative in the final quarter or relapses after an earlier crossing, no slope
+    # tolerance; CK-11 fires only on actual insolvency (equity < 0), no positive margin.
+    # If either fires, the numbers themselves already show why -- these are pointers to
+    # attention, not verdicts.
+    #
+    # Uses only `ni`, `equity`, `paidIn` — fields common to both engine profiles (profile B
+    # has no `prodOpex`/`overhead`; those names don't exist there and would KeyError).
+    _ck("CK-10", "Reaches non-negative net income within the filed horizon, no relapse "
+                 "(\u201cprofitable by year three,\u201d the charter-application benchmark)",
+        bool(niw) and niw[-1] >= 0 and not any(niw[t] < 0 for t in range(len(niw))
+                                                if any(niw[s] >= 0 for s in range(t))),
+        "notice",
+        f"ni[-1]={niw[-1]:.1f}" if niw else "no data")
+    _min_eq = min(eqw) if eqw else None
+    _ck("CK-11", "Cumulative burn stays within capital raised (equity never negative) \u2014 "
+                 "fires regardless of whether a spread book exists",
+        _min_eq is not None and _min_eq >= 0,
+        "notice",
+        f"min equity {_min_eq:,.0f}" if _min_eq is not None else "no data")
     fmw = cfg["assumptions"].get("fee_modules") or {}
     _ck("CK-6", "No fee income from inactive modules",
         bool(fmw) or "fee_detail" not in results, "integrity",
