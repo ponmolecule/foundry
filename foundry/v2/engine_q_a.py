@@ -208,7 +208,7 @@ def run_pf_a(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
-    from .income_modules import nie_detail_series, fee_module_series
+    from .income_modules import nie_detail_series, fee_module_series, product_fee_streams_q
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
@@ -296,7 +296,8 @@ def run_pf_a(cfg):
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
             p["_ie"].append(avg * r / 4.0 if p in dep else 0.0)
-            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0)
+            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0
+                             + product_fee_streams_q(p, q, {"own_balance": avg}))
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
 
     for p in lend:
@@ -394,7 +395,8 @@ def run_pf_a(cfg):
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
-            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0)
+            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0
+                             + product_fee_streams_q(p, q, {"own_balance": avg}))
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
