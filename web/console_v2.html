@@ -2034,6 +2034,7 @@ function fieldsFor(fam, p, base){
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
   } else if(p.managed_notional || p._fee_product){
+    const _fi = base.split(".").pop();   // array index (fieldsFor has no i in scope)
     // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
     // managed_notional + fee_streams shape (income_modules.py). AUC is an off-book stock;
     // fees charge against it or against per-transaction / per-account drivers.
@@ -2050,10 +2051,10 @@ function fieldsFor(fam, p, base){
       st.driver = st.driver || {}; st.rate = st.rate || {params:{}}; st.rate.params = st.rate.params || {};
       st.timing = st.timing || {start_period:1};
       const bl = (st.basis==="balance"?"Balance (AUC \u00d7 bp/yr)":st.basis==="transaction"?"Transaction (count \u00d7 $/unit)":st.basis==="account"?"Account (count \u00d7 $/period)":st.basis==="flat"?"Flat ($/quarter)":st.basis);
-      h += `<div class="fld wide"><label>Stream ${si+1} \u2014 ${esc(bl)} <a href="#" onclick="cfg.assumptions.obs_exposures[${i}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide"><label>Stream ${si+1} \u2014 ${esc(bl)} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       if(st.basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(1);
-        h += `<div class="fld"><label>Rate (bp/yr on AUC)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${i}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
+        h += `<div class="fld"><label>Rate (bp/yr on AUC)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
       else if(st.basis==="transaction"){ h += F("Volume/qtr", sb+".driver.params.base", "n"); h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
       else if(st.basis==="account"){ h += F("Accounts", sb+".driver.params.base", "n"); h += F("Fee ($/acct/mo)", sb+".rate.params.fee_per_period", "n"); }
       else if(st.basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
@@ -2061,7 +2062,7 @@ function fieldsFor(fam, p, base){
     });
     h += '<div class="fld wide" style="margin-top:6px">';
     ["balance","transaction","account","flat"].forEach(bz=>{
-      h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${i},\x27${bz}\x27)">+ ${bz} stream</button>`;
+      h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
     });
     h += '</div>';
   } else {
