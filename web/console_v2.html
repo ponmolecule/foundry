@@ -2033,6 +2033,37 @@ function fieldsFor(fam, p, base){
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
+  } else if(p.managed_notional || p._fee_product){
+    // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
+    // managed_notional + fee_streams shape (income_modules.py). AUC is an off-book stock;
+    // fees charge against it or against per-transaction / per-account drivers.
+    p.managed_notional = p.managed_notional || {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"};
+    p.fee_streams = p.fee_streams || [];
+    const mnb = base+".managed_notional";
+    h += '<div class="fld wide"><label style="color:#DFA85A">Assets under custody / management (off-book)</label></div>';
+    h += F("AUC day 1 ($000s)", mnb+".day1", "k");
+    h += F("AUC target ($000s)", mnb+".target", "k");
+    h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+    h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
+    (p.fee_streams||[]).forEach((st,si)=>{
+      const sb = base+".fee_streams."+si;
+      st.driver = st.driver || {}; st.rate = st.rate || {params:{}}; st.rate.params = st.rate.params || {};
+      st.timing = st.timing || {start_period:1};
+      const bl = (st.basis==="balance"?"Balance (AUC \u00d7 bp/yr)":st.basis==="transaction"?"Transaction (count \u00d7 $/unit)":st.basis==="account"?"Account (count \u00d7 $/period)":st.basis==="flat"?"Flat ($/quarter)":st.basis);
+      h += `<div class="fld wide"><label>Stream ${si+1} \u2014 ${esc(bl)} <a href="#" onclick="cfg.assumptions.obs_exposures[${i}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
+      if(st.basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(1);
+        h += `<div class="fld"><label>Rate (bp/yr on AUC)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${i}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
+      else if(st.basis==="transaction"){ h += F("Volume/qtr", sb+".driver.params.base", "n"); h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
+      else if(st.basis==="account"){ h += F("Accounts", sb+".driver.params.base", "n"); h += F("Fee ($/acct/mo)", sb+".rate.params.fee_per_period", "n"); }
+      else if(st.basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
+      h += F("Revenue start (quarter)", sb+".timing.start_period", "n");
+    });
+    h += '<div class="fld wide" style="margin-top:6px">';
+    ["balance","transaction","account","flat"].forEach(bz=>{
+      h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${i},\x27${bz}\x27)">+ ${bz} stream</button>`;
+    });
+    h += '</div>';
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
@@ -2408,6 +2439,8 @@ function openModal(){
         + '</div>';
     });
     mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
+    mh += '<div class="accent-label">Fee-based products</div><div class="memo" style="margin:-2px 0 8px">Pure non-interest revenue (custody, trustee, settlement, conversion, \u2026). Off-book; you name it and add fee streams.</div>';
+    mh += '<div class="preset-grid"><button class="preset-btn" onclick="addFeeProductV2()"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue</span></button></div>';
     mh += '<div class="modal-actions"><span id="modalAddedCount" style="flex:1;font-size:11px;color:#7FB07F"></span><button class="btn-gold" onclick="closeModal()">Done</button></div>';
     document.getElementById("modal").innerHTML = mh;
     document.getElementById("modal-bg").style.display = "block";
@@ -2453,6 +2486,25 @@ function addCustom(){
   closeModal(); renderContent(); refresh();
 }
 window.openModal=openModal; window.closeModal=closeModal; window.fillLineOptions=fillLineOptions;
+// --- First-class FEE PRODUCT (pure non-interest revenue, off-book). Creates an obs_exposure
+// carrying managed_notional + fee_streams (the engine shape in income_modules.py). ---
+window.addFeeProductV2 = function(){
+  cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+  cfg.assumptions.obs_exposures.push({
+    name: "Fee product", call_report_line: "obs", _fee_product: true,
+    managed_notional: {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
+    fee_streams: [], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0
+  });
+  closeModal && closeModal(); renderContent(); refresh();
+};
+window.addFeeStream = function(i, basis){
+  const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
+  p.fee_streams = p.fee_streams || [];
+  const src = (basis==="balance") ? "managed_notional" : "constant";
+  p.fee_streams.push({name:"", basis:basis, driver:{source:src, params:{base:0}},
+                      rate:{params:{}}, timing:{start_period:1}});
+  renderContent(); refresh();
+};
 window.addPreset=addPreset; window.addCustom=addCustom;
 
 function setFtp(v){
@@ -6106,6 +6158,35 @@ function structuresSectionsHtml(){
     h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${i===0?"Payments:":""}</b><input style="width:100px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((rail.vol_q||0)/1000)}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s tx/q</span> growth<input type="number" step="0.5" style="width:56px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:70px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:70px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
   });
   if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
+  // Generic fee_products (Step 2, fee-driven-product generalization). BEHAVIORALLY
+  // UNVERIFIED -- no browser available to test this block; see the verification
+  // checklist delivered alongside this change. FEE_CATALOG_JS/BASIS_FIELDS_JS below
+  // are a static mirror of foundry/v2/fee_catalog.py, not a fetch -- deliberate,
+  // documented duplication (see the comment on those constants) chosen as the more
+  // conservative option for code that could not be behaviorally verified before
+  // shipping; revisit toward a server-fetched catalog after a real browser session.
+  h += '<div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:8px">'
+    + Object.keys(FEE_CATALOG_JS).map(k=>{
+        const preset = FEE_CATALOG_JS[k];
+        return `<button class="fpill" onclick="window.addFeeProduct('${k}')" title="Add a ${esc(preset.label)} (${preset.basis}-basis)"><span style="color:#8FA3C0">${ICONS.stack}</span>+ ${esc(preset.label)}</button>`;
+      }).join('')
+    + '</div>';
+  (A.fee_products||[]).forEach((fp,i)=>{
+    fp.params = fp.params || {};
+    const bf = BASIS_FIELDS_JS[fp.basis] || [];
+    let row = `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${esc(fp.key||fp.basis||'Fee product')}:</b>`;
+    bf.forEach(([k,lab,unit,scale])=>{
+      const raw = fp.params[k] || 0;
+      const disp = scale===1000 ? fmtComma(raw/1000) : (scale==='pct' ? (raw*100).toFixed(1) : raw);
+      const parseExpr = scale===1000 ? "parseFloat(String(this.value).replace(/,/g,''))*1000"
+                        : scale==='pct' ? "parseFloat(this.value)/100" : "parseFloat(this.value)";
+      const inputType = scale===1000 ? 'type="text" inputmode="decimal"' : 'type="number" step="0.5"';
+      const fmtCall = scale===1000 ? ';fmtField(this)' : '';
+      row += ` ${esc(lab)}<input ${inputType} style="width:80px" value="${disp}" onchange="cfg.assumptions.fee_products[${i}].params.${k}=${parseExpr};refresh()${fmtCall}"><span class="cu">${esc(unit)}</span>`;
+    });
+    row += ` <a href="#" class="cx" onclick="cfg.assumptions.fee_products.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+    h += row;
+  });
   if(lastRes && lastRes.fee_detail){ const _ft=lastRes.fee_detail._income_total; h += `<div class="chint">Fee module income Q1\u2192Q${_ft.length}: ${_ft[0].toLocaleString()} \u2192 ${_ft[_ft.length-1].toLocaleString()} $000s \u00b7 rail costs land in operating expense.</div>`; }
   h += '</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
@@ -6168,6 +6249,51 @@ window.fmRail = function(){
   cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
   (cfg.assumptions.fee_modules.payments = cfg.assumptions.fee_modules.payments || []).push(
     {rail:"ACH", vol_q:0, growth_q:0, fee_per_tx:0, cost_per_tx:0});
+  renderContent(); refresh(); };
+// Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
+// NOT fetched from the server -- a deliberate, documented duplication, chosen over an
+// async fetch because this whole block is BEHAVIORALLY UNVERIFIED (no browser available
+// to test it) and a static mirror has fewer ways to silently fail than a network call
+// this session could not watch happen. If fee_catalog.py's presets or field lists
+// change, this block must be updated by hand to match -- exactly the kind of drift item
+// #17 exists to warn against, accepted here as the more conservative choice given the
+// verification constraint, not as a permanent design decision. Revisit toward
+// GET /api/v31/fee-catalog (not yet built) once this has been through a real browser.
+// Scale convention per field, 4th tuple element: 1000 = stored in raw dollars, shown in
+// $000s (matches fmtComma pattern used elsewhere in this file); 'pct' = stored as a
+// decimal rate, shown as a percentage; 1 = shown and stored raw, no conversion.
+const FEE_CATALOG_JS = {
+  custody:    {label:'Custody fee',         basis:'balance'},
+  trustee:    {label:'Trustee fee',         basis:'balance'},
+  settlement: {label:'Settlement fee',      basis:'transaction'},
+  conversion: {label:'Conversion (FX) fee', basis:'transaction'},
+};
+const BASIS_FIELDS_JS = {
+  balance: [
+    ['balance_open','Balance opening','$000s',1000],
+    ['growth_q','Growth','%/q','pct'],
+    ['fee_bp_ann','Fee','bp/yr',1]],
+  transaction: [
+    ['vol_q','Volume/qtr','000s tx/q',1000],
+    ['growth_q','Growth','%/q','pct'],
+    ['fee_per_tx','Flat fee/tx','$/tx',1],
+    ['cost_per_tx','Flat cost/tx','$/tx',1],
+    ['avg_ticket','Avg ticket','$/unit',1],
+    ['rate','Ad valorem rate','%','pct'],
+    ['cost_rate','Ad val. cost rate','%','pct']],
+  account: [
+    ['count','Accounts','count',1000],
+    ['growth_q','Growth','%/q','pct'],
+    ['fee_per_acct_m','Fee/acct','$/acct/mo',1]],
+};
+window.addFeeProduct = function(catalogKey){
+  // Added inert, matching fmOn's convention: zero params so a fee product contributes
+  // nothing until filled (income_modules.py's dispatcher treats absent/zero params as
+  // "not yet configured," not a crash -- see fee_catalog.py's docstring).
+  const preset = FEE_CATALOG_JS[catalogKey];
+  if(!preset) return;
+  cfg.assumptions.fee_products = cfg.assumptions.fee_products || [];
+  cfg.assumptions.fee_products.push({key: catalogKey, basis: preset.basis, params: {}});
   renderContent(); refresh(); };
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
