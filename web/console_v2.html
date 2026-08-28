@@ -2042,9 +2042,20 @@ function fieldsFor(fam, p, base){
     p.fee_streams = p.fee_streams || [];
     const mnb = base+".managed_notional";
     h += '<div class="fld wide"><label style="color:#DFA85A">Assets under custody / management (off-book)</label></div>';
-    h += F("AUC day 1 ($000s)", mnb+".day1", "k");
-    h += F("AUC target ($000s)", mnb+".target", "k");
-    h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+    // AUC source: manual ramp on this product, OR a shared Customer-Acquisition feed
+    // (defined in Configuration). Choosing a feed drives this product\x27s AUC from that
+    // feed and hides the manual fields.
+    const _feeds = Object.keys((cfg.assumptions&&cfg.assumptions.cac_feeds)||{});
+    const _srcOpts = [["","Manual (enter AUC ramp below)"]].concat(_feeds.map(f=>["feed:"+f,"Customer-Acquisition feed: "+f]));
+    const _curSrc = p.managed_notional_source ? ("feed:"+p.managed_notional_source) : "";
+    h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=cfg.assumptions.obs_exposures[${_fi}]; if(v.indexOf(\x27feed:\x27)===0){pp.managed_notional_source=v.slice(5);}else{delete pp.managed_notional_source;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
+    if(!p.managed_notional_source){
+      h += F("AUC day 1 ($000s)", mnb+".day1", "k");
+      h += F("AUC target ($000s)", mnb+".target", "k");
+      h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+    } else {
+      h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
+    }
     h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
     const SEL = (label, path, cur, opts) => {
       let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
@@ -6061,6 +6072,52 @@ window.secAociToggle = function(){
   renderContent(); refresh();
 };
 
+// ===== Customer Acquisition (CAC) feeds — bottom-up AUC that feeds fee products. =====
+// A feed = named { channels[], attrition_rate, intra_year_shape }. Fee products reference it
+// via managed_notional_source. Mirrors the engine\x27s cac_feeder.py (methods-not-channels).
+var CAC_METHODS = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit per-year"]];
+function cacFeedsSectionHtml(){
+  cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
+  const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
+  const feeds = cfg.assumptions.cac_feeds;
+  let h = '<div class="accent-label" style="color:#8A6D2F;margin-top:16px">Customer Acquisition (drives AUC for fee products)</div>';
+  h += '<div class="memo" style="margin:0 0 10px">Define a bottom-up AUC feed \u2014 acquisition channels minus attrition roll forward to an ending AUC each year. A fee product can then set its <b>AUC source</b> to this feed, so its assets-under-custody are traceable to marketing/BD spend. All $ in $000s.</div>';
+  const names = Object.keys(feeds);
+  if(!names.length){ h += '<div class="memo" style="margin:0 0 8px">No feeds yet.</div>'; }
+  names.forEach(fn=>{
+    const fd = feeds[fn]; fd.channels = fd.channels || [];
+    h += `<div class="card" style="margin-bottom:12px"><div class="fld wide"><label style="color:#DFA85A">Feed: ${esc(fn)} <a href="#" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false" style="color:#C77">\u00d7 remove feed</a></label></div>`;
+    h += F("Attrition rate (%/yr of existing book)", "assumptions.cac_feeds."+fn+".attrition_rate", "pct");
+    fd.channels.forEach((ch,ci)=>{
+      ch.params = ch.params || {}; const cb = "assumptions.cac_feeds."+fn+".channels."+ci;
+      const m = ch.method || "pool_conversion";
+      h += `<div class="fld wide" style="border-top:1px solid #333;margin-top:6px;padding-top:6px"><label>Channel ${ci+1} <a href="#" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false" style="color:#C77">\u00d7</a></label>`;
+      h += `<input placeholder="Channel name" value="${esc(ch.name||"")}" onchange="setPath(\x27${cb}.name\x27,this.value)"></div>`;
+      h += `<div class="fld"><label>Method</label><select onchange="setPath(\x27${cb}.method\x27,this.value);renderContent();refresh()">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
+      if(m==="pool_conversion"){ h += F("Pool (addressable customers)", cb+".params.pool", "n"); h += F("Conversion rate (%)", cb+".params.conversion_rate", "pct"); }
+      else if(m==="spend_cac"){ h += F("Annual spend ($000s)", cb+".params.spend", "k"); h += F("CAC ($ per customer)", cb+".params.cac", "n"); }
+      else if(m==="fte_productivity"){ h += F("Sales FTEs", cb+".params.ftes", "n"); h += F("New customers per FTE/yr", cb+".params.per_fte", "n"); }
+      else if(m==="explicit"){ const _csv=(ch.params.new_customers_by_year||[]).join(",");
+        h += `<div class="fld wide"><label>New customers by year (comma-sep)</label><input value="${esc(_csv)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(x=>parseFloat(x.trim())||0);refresh()"></div>`; }
+      h += F("Avg AUC per customer ($000s)", cb+".avg_auc_per_customer", "k");
+    });
+    h += `<div class="fld wide" style="margin-top:6px"><button class="btn-plain" style="font-size:11px" onclick="window.addCacChannel(\x27${esc(fn)}\x27)">+ channel</button></div>`;
+    h += '</div>';
+  });
+  h += '<div style="margin:6px 0 14px"><button class="btn-plain" onclick="window.addCacFeed()">+ Add acquisition feed</button></div>';
+  return h;
+}
+window.addCacFeed = function(){
+  cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
+  let n=1; while(cfg.assumptions.cac_feeds["feed_"+n]) n++;
+  cfg.assumptions.cac_feeds["feed_"+n]={channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear"};
+  renderContent(); refresh();
+};
+window.addCacChannel = function(fn){
+  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return; fd.channels=fd.channels||[];
+  fd.channels.push({name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0});
+  renderContent(); refresh();
+};
 function structuresSectionsHtml(){
   let h = '';
   const A = cfg.assumptions;
@@ -6363,6 +6420,7 @@ function renderConfigTab(){
   }
   h += '<div class="memo" style="margin:0 0 14px">The engagement\u2019s living configuration \u2014 set structures and modules below; the engine activates steps and pages from presence, not assertion.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
+  if(!snapshotMode) h += cacFeedsSectionHtml();
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
     h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
   if(V31){
