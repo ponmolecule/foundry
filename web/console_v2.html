@@ -2046,25 +2046,59 @@ function fieldsFor(fam, p, base){
     h += F("AUC target ($000s)", mnb+".target", "k");
     h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
     h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
+    const SEL = (label, path, cur, opts) => {
+      let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
+      return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
+    };
+    const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     (p.fee_streams||[]).forEach((st,si)=>{
       const sb = base+".fee_streams."+si;
-      st.driver = st.driver || {}; st.rate = st.rate || {params:{}}; st.rate.params = st.rate.params || {};
-      st.timing = st.timing || {start_period:1};
-      const bl = (st.basis==="balance"?"Balance (AUC \u00d7 bp/yr)":st.basis==="transaction"?"Transaction (count \u00d7 $/unit)":st.basis==="account"?"Account (count \u00d7 $/period)":st.basis==="flat"?"Flat ($/quarter)":st.basis);
-      h += `<div class="fld wide"><label>Stream ${si+1} \u2014 ${esc(bl)} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      st.driver = st.driver || {}; st.driver.params = st.driver.params || {};
+      st.rate = st.rate || {params:{}}; st.rate.params = st.rate.params || {};
+      st.timing = st.timing || {start_period:1}; st.cost = st.cost || {kind:"none",params:{}};
+      const basis = st.basis || "balance";
+      const src = st.driver.source || "constant";
+      const traj = st.driver.trajectory || "flat";
+      const rb = st.rate.behavior || "flat";
+      const ck = st.cost.kind || "none";
+      h += `<div class="fld wide" style="border-top:1px solid #333;margin-top:8px;padding-top:6px"><label style="color:#DFA85A">Stream ${si+1} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
-      if(st.basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(1);
-        h += `<div class="fld"><label>Rate (bp/yr on AUC)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
-      else if(st.basis==="transaction"){ h += F("Volume/qtr", sb+".driver.params.base", "n"); h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
-      else if(st.basis==="account"){ h += F("Accounts", sb+".driver.params.base", "n"); h += F("Fee ($/acct/mo)", sb+".rate.params.fee_per_period", "n"); }
-      else if(st.basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
+      // Axis 1: basis
+      h += SEL("Basis (what it's charged on)", sb+".basis", basis, [["balance","Balance \u2014 stock \u00d7 rate"],["transaction","Transaction \u2014 count \u00d7 $/unit"],["account","Account \u2014 count \u00d7 $/period"],["flat","Flat \u2014 $/quarter"],["event","Event \u2014 one-time $"]]);
+      // Axis 2: driver source
+      h += SEL("Driver source", sb+".driver.source", src, [["constant","Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]]);
+      if(src==="stream_ref"){ h += SEL("Reference stream", sb+".driver.ref", st.driver.ref||"", (streamNames.length?streamNames:[""]).map(n=>[n, n||"(name other streams first)"])); }
+      if(src==="bank_aggregate"){ h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]); }
+      // Axis 3: trajectory (for constant/sourced)
+      h += SEL("Trajectory (how the driver moves)", sb+".driver.trajectory", traj, [["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (\u00d7 source)"]]);
+      if(src==="constant" && traj!=="explicit_schedule"){ h += F("Base value", sb+".driver.params.base", "n"); }
+      if(traj==="proportional"){ h += F("Growth (%/qtr)", sb+".driver.params.growth_q", "pct"); }
+      if(traj==="derived"){ h += F("Multiple (\u00d7 source)", sb+".driver.params.multiple", "n"); h += F("or Percentage (of source, 0-1)", sb+".driver.params.pct", "n"); }
+      // Axis 4: rate behavior
+      h += SEL("Rate behavior", sb+".rate.behavior", rb, [["flat","Flat rate"],["annual_change","Annual change (%/yr)"],["scheduled","Scheduled (per-quarter)"],["tiered","Tiered (breakpoints)"]]);
+      // basis-specific rate/param fields
+      if(basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(2);
+        h += `<div class="fld"><label>Rate (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=parseFloat(this.value)/10000;refresh()"></div>`; }
+      else if(basis==="transaction"){ h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
+      else if(basis==="account"){ h += F("Fee ($/acct/period)", sb+".rate.params.fee_per_period", "n"); h += F("Periods/qtr", sb+".rate.params.periods_per_q", "n"); }
+      else if(basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
+      else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F("At period (quarter)", sb+".driver.params.at_period", "n"); }
+      if(rb==="annual_change"){ h += F("Annual rate change (%/yr, neg=pressure)", sb+".rate.params.annual_delta", "pct"); }
+      if(rb==="tiered"){ h += `<div class="fld wide" style="font-size:11px;color:#888">Tiered breakpoints entered as JSON: [{"up_to":1000000,"rate":0.01},{"up_to":null,"rate":0.005}]</div>`;
+        h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert(\x27Invalid JSON\x27)}"></div>`; }
+      // Axis 5: timing
       h += F("Revenue start (quarter)", sb+".timing.start_period", "n");
+      h += F("Revenue end (quarter, blank=never)", sb+".timing.end_period", "n");
+      h += F("Ramp-in (quarters, blank=step)", sb+".timing.ramp_in_periods", "n");
+      // Axis 6: cost side
+      h += SEL("Cost side", sb+".cost.kind", ck, [["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_revenue","% of revenue (rev-share)"]]);
+      if(ck==="per_unit"){ h += F("Cost ($/unit)", sb+".cost.params.cost_per_unit", "n"); }
+      if(ck==="pct_of_revenue"){ h += F("Cost (% of revenue, 0-1)", sb+".cost.params.pct", "n"); }
     });
     h += '<div class="fld wide" style="margin-top:6px">';
-    ["balance","transaction","account","flat"].forEach(bz=>{
+    ["balance","transaction","account","flat","event"].forEach(bz=>{
       h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
     });
-    h += '</div>';
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
@@ -2515,8 +2549,10 @@ window.addFeeStream = function(i, basis){
   const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
   p.fee_streams = p.fee_streams || [];
   const src = (basis==="balance") ? "managed_notional" : "constant";
-  p.fee_streams.push({name:"", basis:basis, driver:{source:src, params:{base:0}},
-                      rate:{params:{}}, timing:{start_period:1}});
+  p.fee_streams.push({name:"", basis:basis,
+                      driver:{source:src, trajectory:"flat", params:{base:0}},
+                      rate:{behavior:"flat", params:{}},
+                      timing:{start_period:1}, cost:{kind:"none", params:{}}});
   renderContent(); refresh();
 };
 window.addPreset=addPreset; window.addCustom=addCustom;
