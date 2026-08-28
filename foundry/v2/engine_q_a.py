@@ -208,7 +208,8 @@ def run_pf_a(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
-    from .income_modules import nie_detail_series, fee_module_series, product_fee_streams_q
+    from .income_modules import (nie_detail_series, fee_module_series, product_fee_streams_q,
+                                 managed_notional_series)
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
@@ -267,6 +268,9 @@ def run_pf_a(cfg):
         p["_alll"][0] = 0.0 if p["_is_fv"] else p["_bal"][0] * (p.get("reserve_rate_pct_bal") or 0.0)
 
     for p in dep + obs:
+        # managed notional (off-book AUC/AUM) for fee products; empty => zeros (hash-safe)
+        _mn_avg, _mn_end = managed_notional_series(p.get("managed_notional"), Q)
+        p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)
         # drives cohort roll-OFF — deposits exit when their cohort matures.
         # The opening balance is a seasoned even ladder (1/mq exits per quarter);
@@ -297,7 +301,8 @@ def run_pf_a(cfg):
             p["_ii"].append(0.0)
             p["_ie"].append(avg * r / 4.0 if p in dep else 0.0)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0
-                             + product_fee_streams_q(p, q, {"own_balance": avg}))
+                             + product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            "managed_notional": _mn_avg[q - 1]}))
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
 
     for p in lend:

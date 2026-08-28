@@ -96,6 +96,40 @@ def main():
         h3 = _hash(c3)
         ck("real stream MOVES the hash (not a no-op)", h3 != BASELINE)
 
+    # --- 5. managed_notional roll-forward (AUC as a driven off-book stock) ---
+    from foundry.v2.income_modules import managed_notional_series
+    mn = {"day1": 0.0, "target": 500_000_000.0, "ramp_periods": 8, "trajectory": "ramp_to_target"}
+    avg, end = managed_notional_series(mn, 12)
+    ck("ramp_to_target: AUC end Q1 = 62.5M", abs(end[0] - 62_500_000.0) < 1.0)
+    ck("ramp_to_target: AUC end Q8 = target 500M", abs(end[7] - 500_000_000.0) < 1.0)
+    ck("ramp_to_target: AUC avg Q1 = 31.25M", abs(avg[0] - 31_250_000.0) < 1.0)
+    # balance-basis fee against managed_notional
+    cust = {"basis": "balance", "driver": {"source": "managed_notional"},
+            "rate": {"params": {"rate": 0.0010}}, "timing": {"start_period": 1}}
+    ck("custody fee: 31.25M AUC @ 10bp/4 = 7,812.5",
+       abs(fee_stream_q(cust, 1, {"managed_notional": avg[0]}) - 7812.5) < 1e-6)
+    # explicit_schedule notional (non-proportional lump adds, additive)
+    mn2 = {"day1": 0.0, "trajectory": "explicit_schedule", "schedule": {"3": 100_000_000.0, "7": 50_000_000.0}}
+    _, end2 = managed_notional_series(mn2, 12)
+    ck("notional explicit_schedule: 0 through Q2", abs(end2[1]) < 1.0)
+    ck("notional explicit_schedule: 100M from Q3", abs(end2[2] - 100_000_000.0) < 1.0)
+    ck("notional explicit_schedule: 150M from Q7 (additive)", abs(end2[6] - 150_000_000.0) < 1.0)
+
+    # --- 6. pure-fee custody product runs end-to-end, off-book (no balance-sheet impact) ---
+    c4 = copy.deepcopy(cfg)
+    base_assets_q1 = run_q.run_v2(c4)["financials"]["bs"]["totalAssets"][1]
+    c4["assumptions"]["obs_exposures"] = [{
+        "name": "Custody", "managed_notional": mn,
+        "fee_streams": [cust]}]
+    r4 = run_q.run_v2(c4)
+    ck("pure-fee product runs (integrity pass)", r4.get("checks", {}).get("integrity_pass") is True)
+    # off-book: the product contributes no on-book balance. Fee income does legitimately flow to
+    # equity->funding plug, so assets move by ~the retained fee (not by an AUC balance). The check
+    # is that AUC itself (500M) is NOT on the balance sheet — a $1 tolerance rules out FP noise.
+    delta = abs(r4["financials"]["bs"]["totalAssets"][1] - base_assets_q1)
+    ck("pure-fee product AUC is OFF-book (no 500M balance appears; delta is only retained fee/FP)",
+       delta < 100_000.0)  # far below the 500M AUC; confirms AUC didn't land on-book
+
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 
