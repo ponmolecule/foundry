@@ -3,3 +3,4 @@ clients_uploaded/
 __pycache__/
 *.pyc
 data/
+BUILD_STAMP
