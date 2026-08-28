@@ -25,31 +25,6 @@ Fee modules (F-036/070/141/142/143, fixing D-P10/11/13):
               "rev_per_acct_m": $},
   }
   Every module carries a growth path (fixing D-P10's static-forever fees).
-
-Generic fee products (Step 1, fee-driven-product generalization): the five named
-modules above are frozen, byte-identical, untouched by this addition. New fee
-products (custody, settlement, trustee, conversion, or anything not yet named)
-are added as pure config, zero new code, via:
-  assumptions.fee_products = [
-    {"key": str, "basis": "balance" | "transaction" | "account", "params": {...}},
-    ...
-  ]
-  basis="balance":     params = {balance_open, growth_q, fee_bp_ann}
-                        income = avg(balance) * fee_bp_ann/10000/4  (same shape as `trust`)
-  basis="transaction":  params = {vol_q, growth_q, avg_ticket, fee_per_tx, rate,
-                                  cost_per_tx, cost_rate}
-                        income = vol * (fee_per_tx + avg_ticket*rate)
-                        cost   = vol * (cost_per_tx + avg_ticket*cost_rate)
-                        (subsumes both `payments`'s flat-fee shape and
-                        `interchange`'s ad-valorem shape as special cases)
-  basis="account":      params = {count, growth_q, fee_per_acct_m}
-                        income = count * fee_per_acct_m * 3  (same shape as
-                        `service_charges`/`baas`)
-  An unrecognized or absent basis contributes nothing (silent, not a crash) --
-  "presence, not assertion." Three bases only: NOT yet confirmed complete against
-  every real-world fee business (performance/hurdle fees and true discontinuous
-  tiering are open falsification candidates) -- extend this list, don't force a
-  bad fit into balance/transaction/account.
 """
 
 Q = 12
@@ -119,17 +94,56 @@ def managed_notional_series(mn, Q):
     return avg, end
 
 
+def _fee_rate_q(rt, q, base_qty):
+    """Axis 4 (rate behavior): flat | annual_change | scheduled | tiered.
+    Returns an EFFECTIVE rate for quarter q. For tiered, returns None and the caller
+    applies the tier schedule against base_qty directly (marginal breakpoints)."""
+    behavior = (rt or {}).get("behavior") or "flat"
+    rp = (rt or {}).get("params") or {}
+    r0 = float(rp.get("rate") or 0.0)
+    if behavior == "annual_change":
+        yr = (q - 1) // 4                       # 0 in year 1, 1 in year 2, ...
+        delta = float(rp.get("annual_delta") or 0.0)
+        return r0 * ((1.0 + delta) ** yr)
+    if behavior == "scheduled":
+        sched = rp.get("schedule") or {}         # {quarter: rate}
+        return float(sched.get(str(q), r0))
+    if behavior == "tiered":
+        return None                              # signal: apply tiers to base_qty
+    return r0                                     # flat
+
+
+def _apply_tiers(tiers, base_qty):
+    """Marginal breakpoint pricing: [{up_to: X or null, rate: r}, ...] applied cumulatively.
+    Returns the summed (portion * rate) across tiers. up_to=null/None means 'remainder'."""
+    out = 0.0
+    lo = 0.0
+    for t in (tiers or []):
+        up = t.get("up_to")
+        r = float(t.get("rate") or 0.0)
+        hi = base_qty if (up is None) else min(base_qty, float(up))
+        if hi > lo:
+            out += (hi - lo) * r
+        lo = hi
+        if up is not None and base_qty <= float(up):
+            break
+    return out
+
+
 def fee_stream_q(stream, q, ctx):
-    """One fee stream's income for quarter q ($). Additive, per-product (six-axis model).
+    """One fee stream's NET income for quarter q ($). Full six-axis GUT evaluator.
 
-    stream = {basis, driver:{source,ref,trajectory,params}, rate:{behavior,params},
-              timing:{start_period,end_period}, cost:{kind,params}}
-    ctx supplies resolvable drivers: own_balance (this product's avg balance for q),
-    and a map of already-computed stream outputs (for source=stream_ref) — kept minimal
-    here; cross-reference (stream_ref) and managed_notional land in later increments.
+    Axis 1 Basis:        balance | transaction | account | flat | event
+    Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate
+    Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
+    Axis 4 Rate:          flat | annual_change | scheduled | tiered
+    Axis 5 Timing:        start_period | end_period | ramp_in_periods
+    Axis 6 Cost:          none | per_unit | pct_of_revenue
 
-    Closed basis set {balance, transaction, account, flat}; unknown basis => 0.0 (extensible:
-    a future basis is addable without breaking existing streams). Timing gates start/end.
+    ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
+    quantity of already-evaluated streams, for stream_ref), and bank_aggregate (map: e.g.
+    total_deposits/total_assets, prior-quarter to avoid circularity).
+    Unknown basis/source/behavior degrade to 0/flat (extensible; never raises).
     """
     if not stream:
         return 0.0
@@ -144,52 +158,151 @@ def fee_stream_q(stream, q, ctx):
     params = drv.get("params") or {}
     rate_params = rt.get("params") or {}
 
-    # --- driver quantity for this quarter ---
+    # ---- Axis 2 + 3: driver quantity ----
     src = drv.get("source") or "constant"
     traj = drv.get("trajectory") or "flat"
     base = float(params.get("base") or 0.0)
-    if src == "own_balance":
-        qty = float((ctx or {}).get("own_balance") or 0.0)
-    elif src == "managed_notional":
-        # off-book stock (AUC/AUM) this product declares; rolled forward by the engine
-        # and passed in ctx. This is the custody/trustee balance-basis case.
-        qty = float((ctx or {}).get("managed_notional") or 0.0)
-    elif src == "constant":
+
+    def _source_base():
+        if src == "own_balance":
+            return float((ctx or {}).get("own_balance") or 0.0)
+        if src == "managed_notional":
+            return float((ctx or {}).get("managed_notional") or 0.0)
+        if src == "stream_ref":
+            ref = drv.get("ref")
+            return float(((ctx or {}).get("stream_qty") or {}).get(ref) or 0.0)
+        if src == "bank_aggregate":
+            ref = drv.get("ref")
+            return float(((ctx or {}).get("bank_aggregate") or {}).get(ref) or 0.0)
+        return base  # constant
+
+    sb = _source_base()
+    if src == "constant":
         if traj == "proportional":
             qty = _g(base, params.get("growth_q"), q)
         elif traj == "explicit_schedule":
-            sched = params.get("schedule") or {}
-            qty = float(sched.get(str(q), base))
-        else:  # flat
+            qty = float((params.get("schedule") or {}).get(str(q), base))
+        else:
             qty = base
     else:
-        qty = 0.0  # stream_ref (cross-reference) resolved in a later increment
+        # sourced quantity (own_balance/managed_notional/stream_ref/bank_aggregate)
+        if traj == "derived":
+            # a multiple or percentage of the source (settlement notional = turns x AUC)
+            mult = params.get("multiple")
+            pct = params.get("pct")
+            if mult is not None:
+                qty = sb * float(mult)
+            elif pct is not None:
+                qty = sb * float(pct)
+            else:
+                qty = sb
+        elif traj == "proportional":
+            qty = _g(sb, params.get("growth_q"), q)
+        else:
+            qty = sb  # flat/ramp_to_target already baked into the source stock
 
-    # --- rate for this quarter (Axis 4: flat only in this increment) ---
-    rate = float(rate_params.get("rate") or 0.0)
+    # expose this stream's driver quantity for downstream stream_ref consumers
+    nm = stream.get("name")
+    if nm and isinstance(ctx, dict):
+        ctx.setdefault("stream_qty", {})[nm] = qty
 
-    # --- basis application (Axis 1) ---
+    # ---- Axis 1 + 4: basis application with rate behavior ----
+    eff_rate = _fee_rate_q(rt, q, qty)
+    gross = 0.0
     if basis == "balance":
-        # rate is annual bps-or-fraction on avg balance, quarterly
-        return qty * rate / 4.0
-    if basis == "transaction":
-        per_unit = float(rate_params.get("per_unit") or 0.0)
-        return qty * per_unit
-    if basis == "account":
+        if eff_rate is None:  # tiered on balance
+            gross = _apply_tiers(rate_params.get("tiers"), qty) / 4.0
+        else:
+            gross = qty * eff_rate / 4.0
+    elif basis == "transaction":
+        if eff_rate is None:
+            gross = _apply_tiers(rate_params.get("tiers"), qty)
+        else:
+            per_unit = float(rate_params.get("per_unit") or 0.0)
+            gross = qty * per_unit
+    elif basis == "account":
         per_period = float(rate_params.get("fee_per_period") or 0.0)
         periods = float(rate_params.get("periods_per_q") or 1.0)
-        return qty * per_period * periods
-    if basis == "flat":
-        return float(rate_params.get("amount_per_period") or 0.0)
-    return 0.0  # unknown basis: extensible, never raises
+        gross = qty * per_period * periods
+    elif basis == "flat":
+        gross = float(rate_params.get("amount_per_period") or 0.0)
+    elif basis == "event":
+        at = params.get("at_period")
+        amt = float(rate_params.get("amount") or params.get("amount") or 0.0)
+        gross = amt if (at is not None and int(at) == q) else 0.0
+    else:
+        return 0.0  # unknown basis (extensible)
+
+    # ---- Axis 5: ramp-in phase (revenue phases in over K periods after start) ----
+    ramp_in = tm.get("ramp_in_periods")
+    if ramp_in:
+        k = int(ramp_in)
+        if k > 0:
+            gross *= min(1.0, (q - start + 1) / k)
+
+    # ---- Axis 6: cost side ----
+    cost = stream.get("cost") or {}
+    ck = cost.get("kind") or "none"
+    cp = cost.get("params") or {}
+    if ck == "per_unit" and basis == "transaction":
+        gross -= qty * float(cp.get("cost_per_unit") or 0.0)
+    elif ck == "pct_of_revenue":
+        gross -= gross * float(cp.get("pct") or 0.0)
+
+    return gross
+
+
+def fee_streams_order(streams):
+    """Topologically sort streams by stream_ref dependency. Raises ValueError on a cycle
+    (fail-closed, per the GUT's DAG requirement). Streams without a name or without
+    stream_ref deps are independent and come first."""
+    by_name = {}
+    for i, st in enumerate(streams):
+        nm = (st or {}).get("name")
+        if nm:
+            by_name[nm] = i
+    # edges: stream i depends on stream j if i's driver.source==stream_ref and ref==name(j)
+    deps = {i: set() for i in range(len(streams))}
+    for i, st in enumerate(streams):
+        drv = (st or {}).get("driver") or {}
+        if drv.get("source") == "stream_ref":
+            ref = drv.get("ref")
+            if ref in by_name and by_name[ref] != i:
+                deps[i].add(by_name[ref])
+    order, visiting, done = [], set(), set()
+    def visit(i):
+        if i in done:
+            return
+        if i in visiting:
+            raise ValueError("fee stream cycle detected (stream_ref forms a loop)")
+        visiting.add(i)
+        for j in deps[i]:
+            visit(j)
+        visiting.discard(i)
+        done.add(i)
+        order.append(i)
+    for i in range(len(streams)):
+        visit(i)
+    return order
 
 
 def product_fee_streams_q(p, q, ctx):
-    """Sum of a product's fee_streams for quarter q ($). Empty/absent => 0.0 (hash-safe)."""
+    """Sum a product's fee_streams for quarter q ($), evaluated in dependency order so
+    stream_ref consumers see their source's quantity. Empty/absent => 0.0 (hash-safe)."""
     streams = p.get("fee_streams") or []
     if not streams:
         return 0.0
-    return sum(fee_stream_q(s, q, ctx) for s in streams)
+    ctx = dict(ctx or {})
+    ctx.setdefault("stream_qty", {})
+    try:
+        order = fee_streams_order(streams)
+    except ValueError:
+        # fail-closed: a cyclic config contributes nothing rather than looping/guessing
+        raise
+    total = 0.0
+    for i in order:
+        total += fee_stream_q(streams[i], q, ctx)
+    return total
 
 
 def fee_module_series(a):
@@ -244,39 +357,4 @@ def fee_module_series(a):
               for q in range(1, Q + 1)]
         detail["baas"] = s
         inc = [inc[i] + s[i] for i in range(Q)]
-    for fp in (a.get("fee_products") or []):
-        key = fp.get("key") or "fee_product"
-        basis = fp.get("basis")
-        p = fp.get("params") or {}
-        if basis == "balance":
-            s = []
-            bal = float(p.get("balance_open") or 0.0)
-            for q in range(1, Q + 1):
-                bal_end = bal * (1 + float(p.get("growth_q") or 0.0))
-                s.append((bal + bal_end) / 2.0 * float(p.get("fee_bp_ann") or 0.0) / 10000.0 / 4.0)
-                bal = bal_end
-            detail[key] = s
-            inc = [inc[i] + s[i] for i in range(Q)]
-        elif basis == "transaction":
-            si, sc = [], []
-            for q in range(1, Q + 1):
-                vol = _g(float(p.get("vol_q") or 0.0), p.get("growth_q"), q)
-                notional = vol * float(p.get("avg_ticket") or 0.0)
-                si.append(vol * float(p.get("fee_per_tx") or 0.0)
-                          + notional * float(p.get("rate") or 0.0))
-                sc.append(vol * float(p.get("cost_per_tx") or 0.0)
-                          + notional * float(p.get("cost_rate") or 0.0))
-            detail[f"{key}_income"], detail[f"{key}_cost"] = si, sc
-            inc = [inc[i] + si[i] for i in range(Q)]
-            cost = [cost[i] + sc[i] for i in range(Q)]
-        elif basis == "account":
-            s = [_g(float(p.get("count") or 0.0), p.get("growth_q"), q)
-                  * float(p.get("fee_per_acct_m") or 0.0) * 3.0
-                  for q in range(1, Q + 1)]
-            detail[key] = s
-            inc = [inc[i] + s[i] for i in range(Q)]
-        # unknown/absent basis: silently contributes nothing rather than raising --
-        # consistent with "presence, not assertion" (an unrecognized basis is treated
-        # as not-yet-configured, not a crash), but the challenge layer should flag it
-        # (Step 2/4 concern, not this function's job).
     return {"income": inc, "cost": cost, "detail": detail}
