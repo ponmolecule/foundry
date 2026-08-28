@@ -2435,12 +2435,11 @@ function openModal(){
     let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
+        + (cn==="Off-Balance-Sheet" ? `<button class="preset-btn" onclick="addFeeProductV2()"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue (custody, trustee, \u2026)</span></button>` : "")
         + TAX31()[cn].map((s,i)=>`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
         + '</div>';
     });
     mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
-    mh += '<div class="accent-label">Fee-based products</div><div class="memo" style="margin:-2px 0 8px">Pure non-interest revenue (custody, trustee, settlement, conversion, \u2026). Off-book; you name it and add fee streams.</div>';
-    mh += '<div class="preset-grid"><button class="preset-btn" onclick="addFeeProductV2()"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue</span></button></div>';
     mh += '<div class="modal-actions"><span id="modalAddedCount" style="flex:1;font-size:11px;color:#7FB07F"></span><button class="btn-gold" onclick="closeModal()">Done</button></div>';
     document.getElementById("modal").innerHTML = mh;
     document.getElementById("modal-bg").style.display = "block";
@@ -2490,12 +2489,17 @@ window.openModal=openModal; window.closeModal=closeModal; window.fillLineOptions
 // carrying managed_notional + fee_streams (the engine shape in income_modules.py). ---
 window.addFeeProductV2 = function(){
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
+  const key = "fee_"+(cfg.assumptions.obs_exposures.length);
   cfg.assumptions.obs_exposures.push({
     name: "Fee product", call_report_line: "obs", _fee_product: true,
     managed_notional: {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
     fee_streams: [], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0
   });
-  closeModal && closeModal(); renderContent(); refresh();
+  // mirror addFromTaxonomy EXACTLY: sync modules, full render, refresh. Then close the modal
+  // AFTER the render (so the new card exists), and open it so the user lands on the params.
+  const _newIdx = cfg.assumptions.obs_exposures.length - 1;
+  try{ openMap && (openMap["obs_"+_newIdx] = true); }catch(e){}
+  syncModules(); closeModal && closeModal(); renderContent(); refresh();
 };
 window.addFeeStream = function(i, basis){
   const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
