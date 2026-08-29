@@ -81,7 +81,18 @@ def managed_notional_series(mn, Q):
         sched = mn.get("schedule") or {}
         cur = day1
         for q in range(1, Q + 1):
-            cur = cur + float(sched.get(str(q), 0.0))   # additive lumps
+            cur = cur + float(sched.get(str(q), 0.0))   # additive lumps (deltas)
+            end[q - 1] = cur
+    elif traj == "explicit_levels":
+        # ABSOLUTE per-period levels (already net of adds/attrition) — used as-is, NOT
+        # accumulated. This is the socket for an upstream feeder (e.g. the CAC AUC
+        # roll-forward) that emits ending-AUC levels directly. Missing quarter carries
+        # the prior level forward (hold), so a sparse schedule still yields a full series.
+        sched = mn.get("schedule") or {}
+        cur = day1
+        for q in range(1, Q + 1):
+            if str(q) in sched:
+                cur = float(sched[str(q)])
             end[q - 1] = cur
     else:  # flat
         for q in range(1, Q + 1):
