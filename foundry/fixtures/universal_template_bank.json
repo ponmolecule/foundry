@@ -1,505 +1,648 @@
 {
-  "assumption_tags": {},
-  "assumptions": {
-    "aoci_sensitivity_annual": 0.005,
-    "borrow_rate_ann": 0.04,
-    "capital_raises": [
-      {
-        "quarter": 4,
-        "amount": 15000000.0
-      },
-      {
-        "quarter": 8,
-        "amount": 10000000.0
-      }
-    ],
-    "cash_target_pct_deposits": 0.05,
-    "cash_yield": 0.045,
-    "credit_regime": {
-      "enabled": true
-    },
-    "deposit_products": [
-      {
-        "name": "Retail Demand",
-        "call_report_line": "depDDA",
-        "opening_balance": 20000000.0,
-        "growth_q": 0.03,
-        "runoff_q": 0.0,
-        "new_deposits_q": 9000000.0,
-        "avg_maturity_m": 0,
-        "rate_type": "fixed",
-        "rate_paid_ann": 0.001,
-        "fee_yield_ann": 0.002,
-        "opex_pct_ann": 0.001,
-        "opex_fixed_m": 8000.0,
-        "insured_pct": 0.92
-      },
-      {
-        "name": "MMDA / Savings",
-        "call_report_line": "depSavings",
-        "opening_balance": 30000000.0,
-        "growth_q": 0.04,
-        "runoff_q": 0.0,
-        "new_deposits_q": 12000000.0,
-        "avg_maturity_m": 0,
-        "rate_type": "float",
-        "index_spread": -0.01,
-        "fee_yield_ann": 0.0,
-        "opex_pct_ann": 0.001,
-        "opex_fixed_m": 6000.0,
-        "insured_pct": 0.88
-      },
-      {
-        "name": "Time Deposits / CDs",
-        "call_report_line": "depTime",
-        "opening_balance": 18000000.0,
-        "growth_q": 0.05,
-        "runoff_q": 0.0,
-        "new_deposits_q": 6000000.0,
-        "avg_maturity_m": 18,
-        "rate_type": "fixed",
-        "rate_paid_ann": 0.043,
-        "fee_yield_ann": 0.0,
-        "opex_pct_ann": 0.0008,
-        "opex_fixed_m": 3000.0,
-        "insured_pct": 0.95
-      },
-      {
-        "name": "Brokered",
-        "call_report_line": "depBrokered",
-        "opening_balance": 25000000.0,
-        "growth_q": 0.02,
-        "runoff_q": 0.0,
-        "new_deposits_q": 8000000.0,
-        "avg_maturity_m": 12,
-        "rate_type": "fixed",
-        "rate_paid_ann": 0.049,
-        "fee_yield_ann": 0.0,
-        "opex_pct_ann": 0.0004,
-        "opex_fixed_m": 2000.0,
-        "insured_pct": 1.0
-      },
-      {
-        "name": "Sweep / Program",
-        "call_report_line": "depSweep",
-        "opening_balance": 14000000.0,
-        "growth_q": 0.05,
-        "runoff_q": 0.0,
-        "new_deposits_q": 4000000.0,
-        "avg_maturity_m": 0,
-        "rate_type": "float",
-        "index_spread": -0.004,
-        "fee_yield_ann": 0.0,
-        "opex_pct_ann": 0.001,
-        "opex_fixed_m": 3500.0,
-        "insured_pct": 0.5
-      },
-      {
-        "name": "Institutional",
-        "call_report_line": "depInstitutional",
-        "opening_balance": 22000000.0,
-        "growth_q": 0.03,
-        "runoff_q": 0.0,
-        "new_deposits_q": 7000000.0,
-        "avg_maturity_m": 0,
-        "rate_type": "float",
-        "index_spread": -0.002,
-        "fee_yield_ann": 0.0,
-        "opex_pct_ann": 0.0007,
-        "opex_fixed_m": 5000.0,
-        "insured_pct": 0.3
-      }
-    ],
-    "fee_modules": {
-      "interchange": {
-        "tx_count_q": 750000,
-        "growth_q": 0.05,
-        "avg_ticket": 42.0,
-        "interchange_rate": 0.0125,
-        "network_fee_rate": 0.002
-      },
-      "payments": [
-        {
-          "rail": "ACH",
-          "vol_q": 300000,
-          "growth_q": 0.04,
-          "fee_per_tx": 0.3,
-          "cost_per_tx": 0.06
-        },
-        {
-          "rail": "wires",
-          "vol_q": 12000,
-          "growth_q": 0.03,
-          "fee_per_tx": 18.0,
-          "cost_per_tx": 3.0
-        },
-        {
-          "rail": "RTP",
-          "vol_q": 40000,
-          "growth_q": 0.08,
-          "fee_per_tx": 0.5,
-          "cost_per_tx": 0.1
-        }
-      ],
-      "service_charges": {
-        "accounts": 35000,
-        "growth_q": 0.03,
-        "fee_m": 11.0
-      },
-      "trust": {
-        "aum_open": 60000000.0,
-        "aum_growth_q": 0.04,
-        "fee_bp_ann": 80.0
-      },
-      "baas": {
-        "programs": 3,
-        "accts_per_program": 12000,
-        "growth_q": 0.06,
-        "rev_per_acct_m": 2.75
-      }
-    },
-    "intangibles": 0,
-    "lending_products": [
-      {
-        "name": "Commercial Real Estate",
-        "call_report_line": "loanCRE",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.005,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "amortized",
-        "fee_yield_ann": 0.003,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "fixed",
-        "yield_ann": 0.065
-      },
-      {
-        "name": "Small Business / C&I",
-        "call_report_line": "loanCommercial",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.005,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "amortized",
-        "fee_yield_ann": 0.003,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "float",
-        "index_spread": 0.03,
-        "yield_ann": null
-      },
-      {
-        "name": "Consumer Installment",
-        "call_report_line": "loanConsumer",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.02,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "amortized",
-        "fee_yield_ann": 0.003,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "fixed",
-        "yield_ann": 0.089
-      },
-      {
-        "name": "Credit Card",
-        "call_report_line": "loanCreditCard",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.035,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "amortized",
-        "fee_yield_ann": 0.01,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "float",
-        "index_spread": 0.13,
-        "index": "prime"
-      },
-      {
-        "name": "Residential Mortgage",
-        "call_report_line": "loanMortgage",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.002,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "amortized",
-        "fee_yield_ann": 0.003,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "fixed",
-        "yield_ann": 0.061,
-        "mortgage_banking": {
-          "sale_pct_of_orig": 0.75,
-          "gain_on_sale_margin": 0.025,
-          "warehouse_hold_q": 1,
-          "servicing_retained_pct": 0.8,
-          "servicing_fee_bp_ann": 25.0,
-          "msr_cap_rate_pct_upb": 0.012,
-          "msr_decay_q": 0.06
-        }
-      },
-      {
-        "name": "Small Business / C&I \u2014 fair value",
-        "call_report_line": "loanCommercial",
-        "opening_balance": 10000000.0,
-        "originations_q": 5000000.0,
-        "orig_growth_q": 0.02,
-        "runoff_q": 0.03,
-        "charge_off_ann": 0.005,
-        "provision_rate_ann": null,
-        "reserve_rate_pct_bal": 0.011,
-        "measurement": "fair_value",
-        "fee_yield_ann": 0.003,
-        "opex_pct_ann": 0.006,
-        "opex_fixed_m": 10000.0,
-        "rate_type": "float",
-        "index_spread": 0.03,
-        "yield_ann": null,
-        "discount_spread_ann": 0.025
-      }
-    ],
-    "nie_detail": {
-      "fte_by_year": [
-        28,
-        45,
-        62
-      ],
-      "loaded_comp_annual": 145000.0,
-      "categories": [
-        {
-          "name": "Technology & data",
-          "per_quarter": 320000.0
-        },
-        {
-          "name": "Occupancy & facilities",
-          "per_quarter": 180000.0
-        },
-        {
-          "name": "Professional & legal",
-          "per_quarter": 140000.0
-        },
-        {
-          "name": "Marketing",
-          "per_quarter": 95000.0
-        }
-      ],
-      "other_gross_up_rate": 0.15
-    },
-    "obs_exposures": [
-      {
-        "name": "Unused Commercial Commitments",
-        "notional": 20000000.0,
-        "growth_q": 0.03,
-        "fee_yield_ann": 0.0075,
-        "opex_pct_ann": 0.002,
-        "opex_fixed_m": 5000.0,
-        "call_report_line": "obs"
-      }
-    ],
-    "other_assets": 2000000,
-    "other_liabilities": 1000000,
-    "overhead_growth_q": 0.01,
-    "overhead_q": 1800000,
-    "premises_equipment": 1000000,
-    "rate_path_longer_run": 0.0315,
-    "rate_path_q": [
-      0.037000000000000005,
-      0.0385,
-      0.038,
-      0.0375,
-      0.037000000000000005,
-      0.0365,
-      0.036000000000000004,
-      0.0355,
-      0.035,
-      0.0345,
-      0.034,
-      0.0335
-    ],
-    "scheduled_borrowings": [
-      {
-        "name": "FHLB Term Advance A",
-        "quarter": 1,
-        "amount": 10000000.0,
-        "term_q": 8,
-        "rate_ann": 0.045
-      },
-      {
-        "name": "FHLB Term Advance B",
-        "quarter": 4,
-        "amount": 6000000.0,
-        "term_q": 4,
-        "rate_ann": 0.048
-      }
-    ],
-    "securities_afs": [
-      {
-        "name": "AFS UST Ladder",
-        "opening": 20000000.0,
-        "purchases_q": 1000000.0,
-        "growth_q": 0.0,
-        "runoff_q": 0.008,
-        "yield_ann": 0.043
-      },
-      {
-        "name": "AFS Agency MBS",
-        "opening": 12000000.0,
-        "purchases_q": 500000.0,
-        "growth_q": 0.0,
-        "runoff_q": 0.015,
-        "yield_ann": 0.049
-      }
-    ],
-    "securities_htm": [
-      {
-        "name": "HTM Municipal Ladder",
-        "opening": 10000000.0,
-        "purchases_q": 0.0,
-        "growth_q": 0.0,
-        "runoff_q": 0.006,
-        "yield_ann": 0.047
-      },
-      {
-        "name": "HTM Agency Debentures",
-        "opening": 8000000.0,
-        "purchases_q": 250000.0,
-        "growth_q": 0.0,
-        "runoff_q": 0.01,
-        "yield_ann": 0.045
-      }
-    ],
-    "securities_yield": 0.04,
-    "tax_detail": {
-      "book_dta": true,
-      "valuation_allowance_pct": 0.0
-    },
-    "tax_rate": 0.21,
-    "tax_semantics": "nol_carryforward_pf_a"
+ "assumption_tags": {},
+ "assumptions": {
+  "aoci_sensitivity_annual": 0.005,
+  "borrow_rate_ann": 0.04,
+  "capital_raises": [
+   {
+    "quarter": 4,
+    "amount": 15000000.0
+   },
+   {
+    "quarter": 8,
+    "amount": 10000000.0
+   }
+  ],
+  "cash_target_pct_deposits": 0.05,
+  "cash_yield": 0.045,
+  "credit_regime": {
+   "enabled": true
   },
-  "client_legal_name": "Nook & Cranny National Bank (de novo)",
-  "config_frozen": "2026-07-08",
-  "config_version": "1.0",
-  "constraints": [
-    {
-      "key": "leverage_min",
-      "source": "Parity fixture (predecessor A default)",
-      "text": "Tier 1 leverage floor.",
-      "value": 0.09
+  "deposit_products": [
+   {
+    "name": "Retail Demand",
+    "call_report_line": "depDDA",
+    "opening_balance": 20000000.0,
+    "growth_q": 0.03,
+    "runoff_q": 0.0,
+    "new_deposits_q": 9000000.0,
+    "avg_maturity_m": 0,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.001,
+    "fee_yield_ann": 0.002,
+    "opex_pct_ann": 0.001,
+    "opex_fixed_m": 8000.0,
+    "insured_pct": 0.92
+   },
+   {
+    "name": "MMDA / Savings",
+    "call_report_line": "depSavings",
+    "opening_balance": 30000000.0,
+    "growth_q": 0.04,
+    "runoff_q": 0.0,
+    "new_deposits_q": 12000000.0,
+    "avg_maturity_m": 0,
+    "rate_type": "float",
+    "index_spread": -0.01,
+    "fee_yield_ann": 0.0,
+    "opex_pct_ann": 0.001,
+    "opex_fixed_m": 6000.0,
+    "insured_pct": 0.88
+   },
+   {
+    "name": "Time Deposits / CDs",
+    "call_report_line": "depTime",
+    "opening_balance": 18000000.0,
+    "growth_q": 0.05,
+    "runoff_q": 0.0,
+    "new_deposits_q": 6000000.0,
+    "avg_maturity_m": 18,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.043,
+    "fee_yield_ann": 0.0,
+    "opex_pct_ann": 0.0008,
+    "opex_fixed_m": 3000.0,
+    "insured_pct": 0.95
+   },
+   {
+    "name": "Brokered",
+    "call_report_line": "depBrokered",
+    "opening_balance": 25000000.0,
+    "growth_q": 0.02,
+    "runoff_q": 0.0,
+    "new_deposits_q": 8000000.0,
+    "avg_maturity_m": 12,
+    "rate_type": "fixed",
+    "rate_paid_ann": 0.049,
+    "fee_yield_ann": 0.0,
+    "opex_pct_ann": 0.0004,
+    "opex_fixed_m": 2000.0,
+    "insured_pct": 1.0
+   },
+   {
+    "name": "Sweep / Program",
+    "call_report_line": "depSweep",
+    "opening_balance": 14000000.0,
+    "growth_q": 0.05,
+    "runoff_q": 0.0,
+    "new_deposits_q": 4000000.0,
+    "avg_maturity_m": 0,
+    "rate_type": "float",
+    "index_spread": -0.004,
+    "fee_yield_ann": 0.0,
+    "opex_pct_ann": 0.001,
+    "opex_fixed_m": 3500.0,
+    "insured_pct": 0.5
+   },
+   {
+    "name": "Institutional",
+    "call_report_line": "depInstitutional",
+    "opening_balance": 22000000.0,
+    "growth_q": 0.03,
+    "runoff_q": 0.0,
+    "new_deposits_q": 7000000.0,
+    "avg_maturity_m": 0,
+    "rate_type": "float",
+    "index_spread": -0.002,
+    "fee_yield_ann": 0.0,
+    "opex_pct_ann": 0.0007,
+    "opex_fixed_m": 5000.0,
+    "insured_pct": 0.3
+   }
+  ],
+  "intangibles": 0,
+  "lending_products": [
+   {
+    "name": "Commercial Real Estate",
+    "call_report_line": "loanCRE",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.005,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "amortized",
+    "fee_yield_ann": 0.003,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "fixed",
+    "yield_ann": 0.065
+   },
+   {
+    "name": "Small Business / C&I",
+    "call_report_line": "loanCommercial",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.005,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "amortized",
+    "fee_yield_ann": 0.003,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "float",
+    "index_spread": 0.03,
+    "yield_ann": null
+   },
+   {
+    "name": "Consumer Installment",
+    "call_report_line": "loanConsumer",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.02,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "amortized",
+    "fee_yield_ann": 0.003,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "fixed",
+    "yield_ann": 0.089
+   },
+   {
+    "name": "Credit Card",
+    "call_report_line": "loanCreditCard",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.035,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "amortized",
+    "fee_yield_ann": 0.01,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "float",
+    "index_spread": 0.13,
+    "index": "prime"
+   },
+   {
+    "name": "Residential Mortgage",
+    "call_report_line": "loanMortgage",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.002,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "amortized",
+    "fee_yield_ann": 0.003,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "fixed",
+    "yield_ann": 0.061,
+    "mortgage_banking": {
+     "sale_pct_of_orig": 0.75,
+     "gain_on_sale_margin": 0.025,
+     "warehouse_hold_q": 1,
+     "servicing_retained_pct": 0.8,
+     "servicing_fee_bp_ann": 25.0,
+     "msr_cap_rate_pct_upb": 0.012,
+     "msr_decay_q": 0.06
     }
+   },
+   {
+    "name": "Small Business / C&I \u2014 fair value",
+    "call_report_line": "loanCommercial",
+    "opening_balance": 10000000.0,
+    "originations_q": 5000000.0,
+    "orig_growth_q": 0.02,
+    "runoff_q": 0.03,
+    "charge_off_ann": 0.005,
+    "provision_rate_ann": null,
+    "reserve_rate_pct_bal": 0.011,
+    "measurement": "fair_value",
+    "fee_yield_ann": 0.003,
+    "opex_pct_ann": 0.006,
+    "opex_fixed_m": 10000.0,
+    "rate_type": "float",
+    "index_spread": 0.03,
+    "yield_ann": null,
+    "discount_spread_ann": 0.025
+   }
   ],
-  "conversion_notes": [
-    "loans: monthly originations x3 -> quarterly; annual prepay /4 -> runoff_q; opening balances are Day-1 zero per source",
-    "Time Deposits / CDs: average maturity 24 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-    "Brokered: average maturity 12 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-    "deposits: flat $-adds converted by computing the source's monthly path (B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth pinned per quarter via overrides \u2014 path exact, not approximated",
-    "securities yield = AFS cell; HTM yield differs (4.2%) \u2014 single-book engine, AFS value used, HTM noted; other-assets-% (2% of assets) unsupported as a formula, template constant kept"
-  ],
-  "engagement_id": "exhaustive-coverage",
-  "hq": "Parity fixture \u2014 n/a",
-  "parity_expectation": null,
-  "parity_profile": "pf_a",
-  "peer_query": {
-    "consumer_loan_share": 0.4,
-    "core_funding_share": 0.9,
-    "digital_channel": 1,
-    "fee_income_share": 0.2
+  "nie_detail": {
+   "fte_by_year": [
+    28,
+    45,
+    62
+   ],
+   "loaded_comp_annual": 145000.0,
+   "categories": [
+    {
+     "name": "Technology & data",
+     "per_quarter": 320000.0
+    },
+    {
+     "name": "Occupancy & facilities",
+     "per_quarter": 180000.0
+    },
+    {
+     "name": "Professional & legal",
+     "per_quarter": 140000.0
+    },
+    {
+     "name": "Marketing",
+     "per_quarter": 95000.0
+    }
+   ],
+   "other_gross_up_rate": 0.15
   },
-  "pre_opening": {
-    "expenses": [
-      {
-        "category": "Organizational & legal (charter application, counsel)",
-        "total": 1400000.0
+  "obs_exposures": [
+   {
+    "name": "Unused Commercial Commitments",
+    "notional": 20000000.0,
+    "growth_q": 0.03,
+    "fee_yield_ann": 0.0075,
+    "opex_pct_ann": 0.002,
+    "opex_fixed_m": 5000.0,
+    "call_report_line": "obs"
+   },
+   {
+    "name": "Service charges",
+    "call_report_line": "obs",
+    "_fee_product": true,
+    "fee_streams": [
+     {
+      "basis": "account",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 35000,
+        "growth_q": 0.03
+       }
       },
-      {
-        "category": "Core systems build & integration",
-        "total": 1100000.0
+      "rate": {
+       "params": {
+        "fee_per_period": 11.0,
+        "periods_per_q": 3.0
+       }
       },
-      {
-        "category": "Regulatory & application filing fees",
-        "total": 250000.0
-      },
-      {
-        "category": "Pre-opening staffing & recruiting",
-        "total": 900000.0
-      },
-      {
-        "category": "Premises build-out & equipment deposits",
-        "total": 650000.0
+      "timing": {
+       "start_period": 1
       }
-    ],
-    "min_day1_capital": 60000000.0
-  },
-  "prepared_by": "Foundry lineage/coverage build",
-  "proposed_bank": "Nook & Cranny National Bank",
-  "scenario_name": "Exhaustive coverage \u2014 every product, every branch",
-  "scenario_overlays": null,
-  "schema_version": "2.0",
-  "step_0": {
-    "earning_engine": "spread",
-    "modules": [
-      "balance_driven_deposits",
-      "balance_driven_lending",
-      "balance_driven_obs",
-      "mortgage_banking",
-      "investment_portfolio"
-    ],
-    "one_sentence": "Every product family, every dropdown branch, every optional module populated."
-  },
-  "step_0a": {
-    "entities": {
-      "bank": "Parity Fixture Bank A1 \u2014 single entity"
-    },
-    "flags_from_map": [],
-    "map_approved": null
-  },
-  "step_1": {
-    "charter": "n/a (fixture)",
-    "rationale": "Parity fixture.",
-    "regulators": [
-      "n/a"
+     }
     ]
-  },
-  "step_minus_1": {
-    "alternatives_priced": {
-      "de_novo": "Parity fixture."
+   },
+   {
+    "name": "Trust",
+    "call_report_line": "obs",
+    "_fee_product": true,
+    "managed_notional": {
+     "day1": 60000000.0,
+     "trajectory": "proportional",
+     "growth_q": 0.04
     },
-    "decision": "proceed_de_novo"
+    "fee_streams": [
+     {
+      "basis": "balance",
+      "driver": {
+       "source": "managed_notional"
+      },
+      "rate": {
+       "params": {
+        "rate": 0.008
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "BaaS",
+    "call_report_line": "obs",
+    "_fee_product": true,
+    "fee_streams": [
+     {
+      "basis": "account",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 36000,
+        "growth_q": 0.06
+       }
+      },
+      "rate": {
+       "params": {
+        "fee_per_period": 2.75,
+        "periods_per_q": 3.0
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "Payments",
+    "call_report_line": "obs",
+    "_fee_product": true,
+    "fee_streams": [
+     {
+      "basis": "transaction",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 300000,
+        "growth_q": 0.04
+       }
+      },
+      "rate": {
+       "params": {
+        "per_unit": 0.3
+       }
+      },
+      "cost": {
+       "kind": "per_unit",
+       "params": {
+        "cost_per_unit": 0.06
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     },
+     {
+      "basis": "transaction",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 12000,
+        "growth_q": 0.03
+       }
+      },
+      "rate": {
+       "params": {
+        "per_unit": 18.0
+       }
+      },
+      "cost": {
+       "kind": "per_unit",
+       "params": {
+        "cost_per_unit": 3.0
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     },
+     {
+      "basis": "transaction",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 40000,
+        "growth_q": 0.08
+       }
+      },
+      "rate": {
+       "params": {
+        "per_unit": 0.5
+       }
+      },
+      "cost": {
+       "kind": "per_unit",
+       "params": {
+        "cost_per_unit": 0.1
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     }
+    ]
+   },
+   {
+    "name": "Interchange",
+    "call_report_line": "obs",
+    "_fee_product": true,
+    "fee_streams": [
+     {
+      "basis": "transaction",
+      "driver": {
+       "source": "constant",
+       "trajectory": "proportional",
+       "params": {
+        "base": 750000,
+        "growth_q": 0.05
+       }
+      },
+      "rate": {
+       "behavior": "durbin_capped",
+       "params": {
+        "per_unit": 0.441,
+        "rate": 0.0125,
+        "avg_ticket": 42.0
+       }
+      },
+      "timing": {
+       "start_period": 1
+      }
+     }
+    ]
+   }
+  ],
+  "other_assets": 2000000,
+  "other_liabilities": 1000000,
+  "overhead_growth_q": 0.01,
+  "overhead_q": 1800000,
+  "premises_equipment": 1000000,
+  "rate_path_longer_run": 0.0315,
+  "rate_path_q": [
+   0.037000000000000005,
+   0.0385,
+   0.038,
+   0.0375,
+   0.037000000000000005,
+   0.0365,
+   0.036000000000000004,
+   0.0355,
+   0.035,
+   0.0345,
+   0.034,
+   0.0335
+  ],
+  "scheduled_borrowings": [
+   {
+    "name": "FHLB Term Advance A",
+    "quarter": 1,
+    "amount": 10000000.0,
+    "term_q": 8,
+    "rate_ann": 0.045
+   },
+   {
+    "name": "FHLB Term Advance B",
+    "quarter": 4,
+    "amount": 6000000.0,
+    "term_q": 4,
+    "rate_ann": 0.048
+   }
+  ],
+  "securities_afs": [
+   {
+    "name": "AFS UST Ladder",
+    "opening": 20000000.0,
+    "purchases_q": 1000000.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.008,
+    "yield_ann": 0.043
+   },
+   {
+    "name": "AFS Agency MBS",
+    "opening": 12000000.0,
+    "purchases_q": 500000.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.015,
+    "yield_ann": 0.049
+   }
+  ],
+  "securities_htm": [
+   {
+    "name": "HTM Municipal Ladder",
+    "opening": 10000000.0,
+    "purchases_q": 0.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.006,
+    "yield_ann": 0.047
+   },
+   {
+    "name": "HTM Agency Debentures",
+    "opening": 8000000.0,
+    "purchases_q": 250000.0,
+    "growth_q": 0.0,
+    "runoff_q": 0.01,
+    "yield_ann": 0.045
+   }
+  ],
+  "securities_yield": 0.04,
+  "tax_detail": {
+   "book_dta": true,
+   "valuation_allowance_pct": 0.0
   },
-  "stress_params": {
-    "charge_off_mult": 2.5,
-    "gos_margin_compression": 0.4,
-    "msr_value_haircut": 0.2,
-    "origination_volume_haircut": 0.4,
-    "rate_shock_bp": 300,
-    "reserve_mult": 1.5,
-    "sale_share_retention_shift": 0.25
-  },
-  "target_state": {
-    "assets_yr3": 316408500,
-    "initial_capital": 150000000.0
-  },
-  "charter_profile": {
-    "charter_type": "state_nonmember",
-    "regulator": "FDIC",
-    "cblr_election": true,
-    "source": "template"
+  "tax_rate": 0.21,
+  "tax_semantics": "nol_carryforward_pf_a"
+ },
+ "client_legal_name": "Nook & Cranny National Bank (de novo)",
+ "config_frozen": "2026-07-08",
+ "config_version": "1.0",
+ "constraints": [
+  {
+   "key": "leverage_min",
+   "source": "Parity fixture (predecessor A default)",
+   "text": "Tier 1 leverage floor.",
+   "value": 0.09
   }
+ ],
+ "conversion_notes": [
+  "loans: monthly originations x3 -> quarterly; annual prepay /4 -> runoff_q; opening balances are Day-1 zero per source",
+  "Time Deposits / CDs: average maturity 24 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
+  "Brokered: average maturity 12 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
+  "deposits: flat $-adds converted by computing the source's monthly path (B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth pinned per quarter via overrides \u2014 path exact, not approximated",
+  "securities yield = AFS cell; HTM yield differs (4.2%) \u2014 single-book engine, AFS value used, HTM noted; other-assets-% (2% of assets) unsupported as a formula, template constant kept"
+ ],
+ "engagement_id": "exhaustive-coverage",
+ "hq": "Parity fixture \u2014 n/a",
+ "parity_expectation": null,
+ "parity_profile": "pf_a",
+ "peer_query": {
+  "consumer_loan_share": 0.4,
+  "core_funding_share": 0.9,
+  "digital_channel": 1,
+  "fee_income_share": 0.2
+ },
+ "pre_opening": {
+  "expenses": [
+   {
+    "category": "Organizational & legal (charter application, counsel)",
+    "total": 1400000.0
+   },
+   {
+    "category": "Core systems build & integration",
+    "total": 1100000.0
+   },
+   {
+    "category": "Regulatory & application filing fees",
+    "total": 250000.0
+   },
+   {
+    "category": "Pre-opening staffing & recruiting",
+    "total": 900000.0
+   },
+   {
+    "category": "Premises build-out & equipment deposits",
+    "total": 650000.0
+   }
+  ],
+  "min_day1_capital": 60000000.0
+ },
+ "prepared_by": "Foundry lineage/coverage build",
+ "proposed_bank": "Nook & Cranny National Bank",
+ "scenario_name": "Exhaustive coverage \u2014 every product, every branch",
+ "scenario_overlays": null,
+ "schema_version": "2.0",
+ "step_0": {
+  "earning_engine": "spread",
+  "modules": [
+   "balance_driven_deposits",
+   "balance_driven_lending",
+   "balance_driven_obs",
+   "mortgage_banking",
+   "investment_portfolio"
+  ],
+  "one_sentence": "Every product family, every dropdown branch, every optional module populated."
+ },
+ "step_0a": {
+  "entities": {
+   "bank": "Parity Fixture Bank A1 \u2014 single entity"
+  },
+  "flags_from_map": [],
+  "map_approved": null
+ },
+ "step_1": {
+  "charter": "n/a (fixture)",
+  "rationale": "Parity fixture.",
+  "regulators": [
+   "n/a"
+  ]
+ },
+ "step_minus_1": {
+  "alternatives_priced": {
+   "de_novo": "Parity fixture."
+  },
+  "decision": "proceed_de_novo"
+ },
+ "stress_params": {
+  "charge_off_mult": 2.5,
+  "gos_margin_compression": 0.4,
+  "msr_value_haircut": 0.2,
+  "origination_volume_haircut": 0.4,
+  "rate_shock_bp": 300,
+  "reserve_mult": 1.5,
+  "sale_share_retention_shift": 0.25
+ },
+ "target_state": {
+  "assets_yr3": 316408500,
+  "initial_capital": 150000000.0
+ },
+ "charter_profile": {
+  "charter_type": "state_nonmember",
+  "regulator": "FDIC",
+  "cblr_election": true,
+  "source": "template"
+ }
 }

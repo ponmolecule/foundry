@@ -569,21 +569,29 @@ def run_pf_a(cfg):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
         fees = sum(p["_fee"][q] for p in lend + dep + obs) + _fees_m["income"][q - 1]
-        # Axis-7 (Durbin cap): if PRIOR-quarter assets >= $10B, debit interchange is capped
-        # to the regulated rate. Priced off prior-quarter assets to break the circular
-        # dependency (interchange -> NI -> equity -> assets -> cap). Zero adjustment below
-        # the threshold, so sub-$10B configs are byte-identical. 12 CFR 235.3-235.4.
-        _ic = (a.get("fee_modules") or {}).get("interchange")
-        if _ic:
-            _pa = (bs["totalAssets"][q - 1] / 1000.0) if q >= 1 else 0.0  # raw$ -> $000s
-            _at = float(_ic.get("avg_ticket") or 0.0)
-            _ar = float(_ic.get("interchange_rate") or 0.0)
-            _er = durbin_effective_rate(_ar, _at, _pa)
-            if _er < _ar - 1e-15:
-                _vol = _g(float(_ic.get("tx_count_q") or 0.0), _ic.get("growth_q"), q)
-                _overage = _vol * _at * (_ar - _er)
-                fees -= _overage
-                is_.setdefault("durbinCap", [None] * (Q + 1))[q] = _overage
+        # Axis-7 (Durbin cap), GUT-native: interchange is a fee_streams product whose stream
+        # declares rate.behavior == "durbin_capped". If PRIOR-quarter assets >= $10B, the
+        # gross interchange rate is capped to the regulated cap. Applied HERE in the P&L loop
+        # (not in fee_stream_q) because it needs prior-quarter total assets, which include
+        # fee feedback and only exist post-P&L. Priced off prior-quarter assets to break the
+        # interchange -> NI -> equity -> assets -> cap circularity. 12 CFR 235.3-235.4.
+        _pa_k = (bs["totalAssets"][q - 1] / 1000.0) if q >= 1 else 0.0  # raw$ -> $000s
+        for _p in lend + dep + obs:
+            for _st in (_p.get("fee_streams") or []):
+                if ((_st.get("rate") or {}).get("behavior")) != "durbin_capped":
+                    continue
+                _rp = (_st.get("rate") or {}).get("params") or {}
+                _at = float(_rp.get("avg_ticket") or 0.0)
+                _ar = float(_rp.get("rate") or 0.0)              # GROSS interchange rate
+                _er = durbin_effective_rate(_ar, _at, _pa_k)
+                if _er < _ar - 1e-15:
+                    _dp = _st.get("driver") or {}
+                    _dprm = _dp.get("params") or {}
+                    _vol = _g(float(_dprm.get("base") or 0.0), _dprm.get("growth_q"), q)
+                    _overage = _vol * _at * (_ar - _er)
+                    fees -= _overage
+                    is_.setdefault("durbinCap", [None] * (Q + 1))
+                    is_["durbinCap"][q] = (is_["durbinCap"][q] or 0.0) + _overage
         prod_ox = sum(p["_ox"][q] for p in lend + dep + obs)
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)
