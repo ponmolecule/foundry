@@ -210,6 +210,7 @@ def run_pf_a(cfg):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import (nie_detail_series, fee_module_series, product_fee_streams_q,
                                  managed_notional_series)
+    from .cac_feeder import cac_managed_notional
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
     _fees_m = fee_module_series(a)
@@ -269,7 +270,15 @@ def run_pf_a(cfg):
 
     for p in dep + obs:
         # managed notional (off-book AUC/AUM) for fee products; empty => zeros (hash-safe)
-        _mn_avg, _mn_end = managed_notional_series(p.get("managed_notional"), Q)
+        # managed_notional: inline on the product, OR sourced from a named CAC feed
+        # (assumptions.cac_feeds[name]) so multiple products share ONE customer-driven AUC.
+        _mn_cfg = p.get("managed_notional")
+        _src = p.get("managed_notional_source")
+        if _src:
+            _feed = (a.get("cac_feeds") or {}).get(_src)
+            if _feed is not None:
+                _mn_cfg = cac_managed_notional(_feed, Q)
+        _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q)
         p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)
         # drives cohort roll-OFF — deposits exit when their cohort matures.
