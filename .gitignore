@@ -3,3 +3,6 @@ clients_uploaded/
 __pycache__/
 *.pyc
 data/
+
+__pycache__/
+*.pyc
