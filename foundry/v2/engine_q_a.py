@@ -208,13 +208,12 @@ def run_pf_a(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
-    from .income_modules import (nie_detail_series, fee_module_series, product_fee_streams_q,
+    from .income_modules import (nie_detail_series, product_fee_streams_q,
                                  durbin_effective_rate, _g,
                                  managed_notional_series)
     from .cac_feeder import cac_managed_notional
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a)
-    _fees_m = fee_module_series(a)
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor
@@ -568,7 +567,7 @@ def run_pf_a(cfg):
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
-        fees = sum(p["_fee"][q] for p in lend + dep + obs) + _fees_m["income"][q - 1]
+        fees = sum(p["_fee"][q] for p in lend + dep + obs)
         # Axis-7 (Durbin cap), GUT-native: interchange is a fee_streams product whose stream
         # declares rate.behavior == "durbin_capped". If PRIOR-quarter assets >= $10B, the
         # gross interchange rate is capped to the regulated cap. Applied HERE in the P&L loop
@@ -619,7 +618,6 @@ def run_pf_a(cfg):
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
-        overhead += _fees_m["cost"][q - 1]
         # fee-stream operating costs (e.g. payment-rail network fees): external
         # pass-through costs added to NIE POST gross-up (they are not internal
         # expenses that carry overhead-on-overhead), matching legacy _fees_m cost.

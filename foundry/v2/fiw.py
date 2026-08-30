@@ -322,60 +322,6 @@ def _nie_sheet(ws, nd):
     ws.column_dimensions["E"].width = 28
 
 
-def _fee_sheet(ws, fm):
-    """Editable sheet for fee_modules — a nested/heterogeneous structure, so each
-    scalar leaf gets a dotted machine key. Payments is a list of rails; each rail's
-    fields key as 'fee_modules.payments.<i>.<field>'. diff_import reads these back.
-    """
-    ws.append(["key", "Module", "Field", "Value", "Units / note"])
-    for c in ws[1]:
-        c.font = HDR
-
-    def _row(key, module, field, val, units):
-        ws.append([key, module, field,
-                   wbunits.to_workbook(val, units) if val is not None else "",
-                   wbunits.export_label(units)])
-        if "fact" not in units:
-            ws.cell(ws.max_row, 4).fill = GOLD
-        if isinstance(val, (int, float)) and abs(val) >= 1000:
-            ws.cell(ws.max_row, 4).number_format = "#,##0"
-
-    ic = fm.get("interchange") or {}
-    for k, lab, u in (("tx_count_q", "Transactions/qtr", "count"),
-                       ("growth_q", "Growth", "rate/qtr"),
-                       ("avg_ticket", "Avg ticket", "$/unit"),
-                       ("interchange_rate", "Interchange rate", "share"),
-                       ("network_fee_rate", "Network fee rate", "share")):
-        if k in ic:
-            _row(f"fee_modules.interchange.{k}", "interchange", lab, ic.get(k), u)
-    for i, rail in enumerate(fm.get("payments") or []):
-        _row(f"fee_modules.payments.{i}.rail", f"payments[{i}]", "Rail", rail.get("rail"), "label (editable: ACH, wires, RTP, FedNow, card)")
-        for k, lab, u in (("vol_q", "Volume/qtr", "count"), ("growth_q", "Growth", "rate/qtr"),
-                           ("fee_per_tx", "Fee per tx", "$/tx"), ("cost_per_tx", "Cost per tx", "$/tx")):
-            if k in rail:
-                _row(f"fee_modules.payments.{i}.{k}", f"payments[{i}]", lab, rail.get(k), u)
-    sc = fm.get("service_charges") or {}
-    for k, lab, u in (("accounts", "Accounts", "count"), ("growth_q", "Growth", "rate/qtr"),
-                       ("fee_m", "Fee per acct", "$/account/month")):
-        if k in sc:
-            _row(f"fee_modules.service_charges.{k}", "service_charges", lab, sc.get(k), u)
-    tr = fm.get("trust") or {}
-    for k, lab, u in (("aum_open", "AUM opening", "$"), ("aum_growth_q", "AUM growth", "rate/qtr"),
-                       ("fee_bp_ann", "Fee", "bp/yr")):
-        if k in tr:
-            _row(f"fee_modules.trust.{k}", "trust", lab, tr.get(k), u)
-    ba = fm.get("baas") or {}
-    for k, lab, u in (("programs", "Programs", "programs"), ("accts_per_program", "Accts/program", "count"),
-                       ("growth_q", "Growth", "rate/qtr"), ("rev_per_acct_m", "Rev per acct", workbook_units("rev_per_acct_m"))):
-        if k in ba:
-            _row(f"fee_modules.baas.{k}", "baas", lab, ba.get(k), u)
-    ws.column_dimensions["A"].hidden = True
-    ws.column_dimensions["B"].width = 16
-    ws.column_dimensions["C"].width = 22
-    ws.column_dimensions["D"].width = 18
-    ws.column_dimensions["E"].width = 26
-
-
 def build_fiw(cfg):
     a = cfg["assumptions"]
     ch = cfg.get("charter_profile") or {}
@@ -452,8 +398,6 @@ def build_fiw(cfg):
                      a["scheduled_borrowings"], SCHED_FIELDS)
     if a.get("capital_raises"):
         _array_sheet(wb.create_sheet("ASSM_RAISES"), "capital_raises", a["capital_raises"], RAISE_FIELDS)
-    if a.get("fee_modules"):
-        _fee_sheet(wb.create_sheet("ASSM_FEES"), a.get("fee_modules") or {})
     if a.get("nie_detail"):
         _nie_sheet(wb.create_sheet("ASSM_NIE"), a["nie_detail"])
     po = (cfg.get("pre_opening") or {}).get("expenses")

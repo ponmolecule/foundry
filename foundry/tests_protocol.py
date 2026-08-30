@@ -1744,35 +1744,14 @@ def t43():
 
 
 def t44():
-    print("T44 fee modules (F-036/070/141/142/143): each module hand-checked, growth live")
-    import json as _json
-    from .v2.run_q import run_v2
-    for fx, eng in (("pf_a_base", "A"), ("pf_b_base", "B")):
-        cfg = _json.load(open(f"foundry/fixtures/parity/configs/{fx}.json", encoding="utf-8"))
-        base = run_v2(cfg)
-        cfg2 = _json.loads(_json.dumps(cfg))
-        cfg2["assumptions"]["fee_modules"] = {
-            "trust": {"aum_open": 100_000_000, "aum_growth_q": 0.0, "fee_bp_ann": 50},
-            "payments": [{"rail": "ACH", "vol_q": 1_000_000, "growth_q": 0.0,
-                            "fee_per_tx": 0.10, "cost_per_tx": 0.05}],
-            "interchange": {"tx_count_q": 2_000_000, "growth_q": 0.10, "avg_ticket": 40,
-                              "interchange_rate": 0.012, "network_fee_rate": 0.002}}
-        r = run_v2(cfg2)
-        d_fees = r["financials"]["is"]["fees"][0] - base["financials"]["is"]["fees"][0]
-        # trust: 100M x 50bp/4 = 125k; ACH: 1M x 0.10 = 100k; interchange:
-        # 2M x $40 x (1.2% - 0.2%) = 800k → total 1,025k
-        check(f"T44a-{eng}", f"engine {eng}: Q1 fee income = trust 125 + ACH 100 + "
-                              f"interchange 800 = $1,025k exactly",
-              abs(d_fees - 1_025.0) < 0.5, f"d {d_fees:.1f}k")
-        fxk = "overhead" if "overhead" in r["financials"]["is"] else "fixedOpex"
-        d_cost = r["financials"]["is"][fxk][0] - base["financials"]["is"][fxk][0]
-        check(f"T44b-{eng}", f"engine {eng}: payment rail costs hit expense ($50k)",
-              abs(d_cost - 50.0) < 0.5, f"d {d_cost:.1f}k")
-        f5 = r["financials"]["is"]["fees"][4] - base["financials"]["is"]["fees"][4]
-        check(f"T44c-{eng}", f"engine {eng}: interchange grows 10%/q (D-P10 fixed: "
-                              f"nothing is static-forever)",
-              f5 > d_fees + 300.0, f"q5 delta {f5:.1f}k")
-
+    # Fee businesses (F-036/070/141/142/143): the legacy fee_modules mechanic is RETIRED; all five
+    # businesses (interchange/trust/payments/service_charges/baas) are now GUT fee_streams products.
+    # Coverage moved: tests_fee_module_parity proves the GUT reproduces each legacy formula to the
+    # dollar; tests_fee_streams golden-tests the six-axis evaluator; tests_durbin covers interchange
+    # + the Durbin cap. This placeholder records the retirement so the count is explicit.
+    print("T44 fee businesses -> GUT (legacy fee_modules retired; see tests_fee_module_parity)")
+    check("T44", "legacy fee_modules mechanic retired (fees are GUT products)",
+          not hasattr(__import__("foundry.v2.income_modules", fromlist=["x"]), "fee_module_series"))
 
 def t45():
     print("T45 Wave 4 surfaces (F-120/122/132/011/013): checks, quick stats, annual")

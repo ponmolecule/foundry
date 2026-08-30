@@ -856,10 +856,11 @@ def run_v2(cfg):
         _min_eq is not None and _min_eq >= 0,
         "notice",
         f"min equity {_min_eq:,.0f}" if _min_eq is not None else "no data")
-    fmw = cfg["assumptions"].get("fee_modules") or {}
-    _ck("CK-6", "No fee income from inactive modules",
-        bool(fmw) or "fee_detail" not in results, "integrity",
-        "module income exists only when a module is configured")
+    # CK-6: the legacy fee_modules path is retired; fees are GUT products. This check now
+    # guards that no fee_modules config lingers (fees must flow through products).
+    _ck("CK-6", "No legacy fee_modules (fees are GUT products)",
+        not (cfg["assumptions"].get("fee_modules")), "integrity",
+        "fee income flows through fee_streams products, not the retired fee_modules path")
     _ck("CK-7", "Projection period index, no gaps", len(niw) == _NP, "integrity")
     ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(_NP // 4)]
     _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
@@ -930,14 +931,11 @@ def run_v2(cfg):
             {"label": "Leverage / CBLR (%, EOP)", "y": results["annual"]["lev_eop"]},
             {"label": "Net Income ($000s)", "y": results["annual"]["ni"]},
         ]}
-    from .income_modules import fee_module_series as _fms, nie_detail_series as _nds
-    _fd = _fms(cfg["assumptions"])
-    if any(abs(x) > 1e-9 for x in _fd["income"]) or any(abs(x) > 1e-9 for x in _fd["cost"]):
-        results["fee_detail"] = {k: [round(x / 1000.0, 2) for x in v] if isinstance(v, list)
-                                    else round(v / 1000.0, 2)
-                                  for k, v in _fd["detail"].items()}
-        results["fee_detail"]["_income_total"] = [round(x / 1000.0, 2) for x in _fd["income"]]
-        results["fee_detail"]["_cost_total"] = [round(x / 1000.0, 2) for x in _fd["cost"]]
+    from .income_modules import nie_detail_series as _nds
+    # Per-business fee reporting is native under the GUT: each fee business is its own product,
+    # and results["products"][i]["fees"] carries its per-quarter fee income at full granularity.
+    # No bespoke fee_detail re-decomposition needed (that existed only to unpack the legacy
+    # fee_modules bundle). One source of truth: the products.
     if _nds(cfg["assumptions"]):
         nd_s = _nds(cfg["assumptions"])
         results["nie_detail_series"] = {"comp": [round(x / 1000.0, 2) for x in nd_s["comp"]],
