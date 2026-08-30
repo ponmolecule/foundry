@@ -157,12 +157,12 @@ def fee_stream_q(stream, q, ctx):
     Unknown basis/source/behavior degrade to 0/flat (extensible; never raises).
     """
     if not stream:
-        return 0.0
+        return 0.0, 0.0
     tm = stream.get("timing") or {}
     start = int(tm.get("start_period") or 1)
     end = tm.get("end_period")
     if q < start or (end is not None and q > int(end)):
-        return 0.0
+        return 0.0, 0.0
     basis = stream.get("basis")
     drv = stream.get("driver") or {}
     rt = stream.get("rate") or {}
@@ -242,7 +242,7 @@ def fee_stream_q(stream, q, ctx):
         amt = float(rate_params.get("amount") or params.get("amount") or 0.0)
         gross = amt if (at is not None and int(at) == q) else 0.0
     else:
-        return 0.0  # unknown basis (extensible)
+        return 0.0, 0.0  # unknown basis (extensible)
 
     # ---- Axis 5: ramp-in phase (revenue phases in over K periods after start) ----
     ramp_in = tm.get("ramp_in_periods")
@@ -252,15 +252,24 @@ def fee_stream_q(stream, q, ctx):
             gross *= min(1.0, (q - start + 1) / k)
 
     # ---- Axis 6: cost side ----
+    # Two economically distinct cost types:
+    #  - per_unit  : an OPERATING cost (cost to process each unit, e.g. payment-rail
+    #    network fees). Reported GROSS -> routed to noninterest EXPENSE (overhead),
+    #    NOT netted against fee income. Netting would misstate Schedule RI (gross fee
+    #    income and gross opex are reported separately) and the efficiency ratio.
+    #  - pct_of_revenue : a CONTRA-REVENUE / revenue share (a cut of THIS fee owed
+    #    away). Correctly NETS against the fee, because it reduces the revenue itself.
+    # Returns (income, opcost): income is the fee line; opcost lands in overhead.
     cost = stream.get("cost") or {}
     ck = cost.get("kind") or "none"
     cp = cost.get("params") or {}
+    opcost = 0.0
     if ck == "per_unit" and basis == "transaction":
-        gross -= qty * float(cp.get("cost_per_unit") or 0.0)
+        opcost = qty * float(cp.get("cost_per_unit") or 0.0)   # -> overhead (gross)
     elif ck == "pct_of_revenue":
-        gross -= gross * float(cp.get("pct") or 0.0)
+        gross -= gross * float(cp.get("pct") or 0.0)           # -> nets (contra-revenue)
 
-    return gross
+    return gross, opcost
 
 
 def fee_streams_order(streams):
@@ -298,11 +307,13 @@ def fee_streams_order(streams):
 
 
 def product_fee_streams_q(p, q, ctx):
-    """Sum a product's fee_streams for quarter q ($), evaluated in dependency order so
-    stream_ref consumers see their source's quantity. Empty/absent => 0.0 (hash-safe)."""
+    """A product's fee_streams for quarter q, as (fee_income, operating_cost) in $.
+    Evaluated in dependency order so stream_ref consumers see their source's quantity.
+    operating_cost (per_unit costs) routes to overhead; pct_of_revenue already netted
+    into fee_income. Empty/absent => (0.0, 0.0) (hash-safe)."""
     streams = p.get("fee_streams") or []
     if not streams:
-        return 0.0
+        return 0.0, 0.0
     ctx = dict(ctx or {})
     ctx.setdefault("stream_qty", {})
     try:
@@ -310,10 +321,13 @@ def product_fee_streams_q(p, q, ctx):
     except ValueError:
         # fail-closed: a cyclic config contributes nothing rather than looping/guessing
         raise
-    total = 0.0
+    inc_total = 0.0
+    cost_total = 0.0
     for i in order:
-        total += fee_stream_q(streams[i], q, ctx)
-    return total
+        _inc, _cost = fee_stream_q(streams[i], q, ctx)
+        inc_total += _inc
+        cost_total += _cost
+    return inc_total, cost_total
 
 
 def durbin_regulated_rate(avg_ticket, reg_params=None):

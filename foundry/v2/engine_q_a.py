@@ -259,6 +259,7 @@ def run_pf_a(cfg):
         p["_bal"] = [p.get("opening_balance", p.get("notional", 0.0)) or 0.0]
         p["_avg"] = [None]
         p["_ii"] = [None]; p["_ie"] = [None]; p["_fee"] = [None]; p["_ox"] = [None]
+        p["_fcost"] = [None]
     for p in lend:
         p["_co"] = [None]; p["_alll"] = [0.0]; p["_orig"] = [None]
         p["_sold"] = [0.0]; p["_wh"] = [0.0]; p["_whc"] = [0.0]; p["_gos"] = [None]
@@ -310,10 +311,11 @@ def run_pf_a(cfg):
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
             p["_ie"].append(avg * r / 4.0 if p in dep else 0.0)
-            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0
-                             + product_fee_streams_q(p, q, {"own_balance": avg,
-                                                            "managed_notional": _mn_avg[q - 1]}))
+            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            "managed_notional": _mn_avg[q - 1]})
+            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0 + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
+            p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
 
     for p in lend:
         mb = p.get("mortgage_banking") or {}
@@ -410,9 +412,10 @@ def run_pf_a(cfg):
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
-            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0
-                             + product_fee_streams_q(p, q, {"own_balance": avg}))
+            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg})
+            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0 + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
+            p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
         if p["_sale"] > 0:
@@ -609,6 +612,10 @@ def run_pf_a(cfg):
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
         overhead += _fees_m["cost"][q - 1]
+        # fee-stream operating costs (e.g. payment-rail network fees): external
+        # pass-through costs added to NIE POST gross-up (they are not internal
+        # expenses that carry overhead-on-overhead), matching legacy _fees_m cost.
+        overhead += sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
         nie = prod_ox + overhead
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac

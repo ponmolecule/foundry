@@ -47,46 +47,46 @@ def main():
     s_bal = {"basis": "balance", "driver": {"source": "own_balance"},
              "rate": {"params": {"rate": 0.01}}, "timing": {"start_period": 1}}
     ck("balance basis: 1e6 @ 1%/yr => 2,500/q",
-       abs(fee_stream_q(s_bal, 1, {"own_balance": 1_000_000.0}) - 2500.0) < 1e-9)
+       abs(fee_stream_q(s_bal, 1, {"own_balance": 1_000_000.0})[0] - 2500.0) < 1e-9)
 
     # transaction basis: qty(constant 10,000) * per_unit(0.35) = 3,500
     s_tx = {"basis": "transaction", "driver": {"source": "constant", "params": {"base": 10_000.0}},
             "rate": {"params": {"per_unit": 0.35}}, "timing": {"start_period": 1}}
     ck("transaction basis: 10,000 tx @ 0.35 => 3,500",
-       abs(fee_stream_q(s_tx, 1, {}) - 3500.0) < 1e-9)
+       abs(fee_stream_q(s_tx, 1, {})[0] - 3500.0) < 1e-9)
 
     # account basis: qty(500 accts) * fee(4.0/mo) * 3 mo/q = 6,000
     s_ac = {"basis": "account", "driver": {"source": "constant", "params": {"base": 500.0}},
             "rate": {"params": {"fee_per_period": 4.0, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
     ck("account basis: 500 accts @ 4/mo * 3 => 6,000",
-       abs(fee_stream_q(s_ac, 1, {}) - 6000.0) < 1e-9)
+       abs(fee_stream_q(s_ac, 1, {})[0] - 6000.0) < 1e-9)
 
     # flat basis: fixed 12,500/q regardless of driver
     s_flat = {"basis": "flat", "rate": {"params": {"amount_per_period": 12_500.0}},
               "timing": {"start_period": 1}}
-    ck("flat basis: 12,500/q", abs(fee_stream_q(s_flat, 1, {}) - 12500.0) < 1e-9)
+    ck("flat basis: 12,500/q", abs(fee_stream_q(s_flat, 1, {})[0] - 12500.0) < 1e-9)
 
     # --- 3. TIMING: a stream starting period 5 produces 0 before, value at/after ---
     s_late = {"basis": "flat", "rate": {"params": {"amount_per_period": 1000.0}},
               "timing": {"start_period": 5}}
-    ck("timing: start_period 5 => 0 at q4", abs(fee_stream_q(s_late, 4, {})) < 1e-9)
-    ck("timing: start_period 5 => value at q5", abs(fee_stream_q(s_late, 5, {}) - 1000.0) < 1e-9)
+    ck("timing: start_period 5 => 0 at q4", abs(fee_stream_q(s_late, 4, {})[0]) < 1e-9)
+    ck("timing: start_period 5 => value at q5", abs(fee_stream_q(s_late, 5, {})[0] - 1000.0) < 1e-9)
 
     # end_period gating
     s_end = {"basis": "flat", "rate": {"params": {"amount_per_period": 1000.0}},
              "timing": {"start_period": 1, "end_period": 3}}
-    ck("timing: end_period 3 => 0 at q4", abs(fee_stream_q(s_end, 4, {})) < 1e-9)
+    ck("timing: end_period 3 => 0 at q4", abs(fee_stream_q(s_end, 4, {})[0]) < 1e-9)
 
     # explicit_schedule trajectory (the non-proportional case): lump in q7
     s_sched = {"basis": "balance", "driver": {"source": "constant", "trajectory": "explicit_schedule",
                "params": {"base": 0.0, "schedule": {"7": 50_000_000.0}}},
                "rate": {"params": {"rate": 0.004}}, "timing": {"start_period": 1}}
-    ck("explicit_schedule: 0 at q1", abs(fee_stream_q(s_sched, 1, {})) < 1e-9)
+    ck("explicit_schedule: 0 at q1", abs(fee_stream_q(s_sched, 1, {})[0]) < 1e-9)
     ck("explicit_schedule: 50e6 @ 40bp/4 at q7 => 50,000",
-       abs(fee_stream_q(s_sched, 7, {}) - 50_000.0) < 1e-9)
+       abs(fee_stream_q(s_sched, 7, {})[0] - 50_000.0) < 1e-9)
 
     # unknown basis is extensible (returns 0, never raises)
-    ck("unknown basis => 0 (extensible)", fee_stream_q({"basis": "nonesuch"}, 1, {}) == 0.0)
+    ck("unknown basis => 0 (extensible)", fee_stream_q({"basis": "nonesuch"}, 1, {})[0] == 0.0)
 
     # --- 4. INTEGRATION: a product with a real stream moves fees (engine end-to-end) ---
     c3 = copy.deepcopy(cfg)
@@ -107,7 +107,7 @@ def main():
     cust = {"basis": "balance", "driver": {"source": "managed_notional"},
             "rate": {"params": {"rate": 0.0010}}, "timing": {"start_period": 1}}
     ck("custody fee: 31.25M AUC @ 10bp/4 = 7,812.5",
-       abs(fee_stream_q(cust, 1, {"managed_notional": avg[0]}) - 7812.5) < 1e-6)
+       abs(fee_stream_q(cust, 1, {"managed_notional": avg[0]})[0] - 7812.5) < 1e-6)
     # explicit_schedule notional (non-proportional lump adds, additive)
     mn2 = {"day1": 0.0, "trajectory": "explicit_schedule", "schedule": {"3": 100_000_000.0, "7": 50_000_000.0}}
     _, end2 = managed_notional_series(mn2, 12)

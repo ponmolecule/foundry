@@ -2714,7 +2714,7 @@ def t71():
     _t = fee_stream_template("settlement"); _t["driver"]["params"]["base"] = 1000
     _t["rate"]["params"]["per_unit"] = 0.5
     check("T71e", "filled preset computes through the GUT (1000 x 0.5 = 500)",
-          abs(fee_stream_q(_t, 1, {}) - 500.0) < 1e-9)
+          abs(fee_stream_q(_t, 1, {})[0] - 500.0) < 1e-9)
 
 
 if __name__ == "__main__":
