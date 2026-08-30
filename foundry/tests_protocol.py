@@ -427,8 +427,6 @@ def t23():
         ax["scheduled_borrowings"] = [{"name": "FHLB", "quarter": 1, "amount": 8_000_000.0,
                                         "term_q": 8, "rate_ann": 0.045}]
         ax["capital_raises"] = [{"quarter": 4, "amount": 15_000_000.0}]
-        ax["fee_modules"] = {"trust": {"aum_open": 50_000_000.0, "aum_growth_q": 0.03,
-                                        "fee_bp_ann": 80.0}}
         cfgx["pre_opening"] = {"expenses": [{"category": "Legal", "total": 1_000_000.0}],
                                 "min_day1_capital": 40_000_000.0}
         if "investment_portfolio" not in cfgx["step_0"].get("modules", []):
@@ -442,7 +440,7 @@ def t23():
               "Model build stamp" in readme_labels and "Model git commit" in readme_labels)
         # every new category sheet was emitted
         for _sh in ("ASSM_SEC_AFS", "ASSM_SEC_HTM", "ASSM_OBS", "ASSM_BORROWINGS",
-                    "ASSM_RAISES", "ASSM_FEES", "ASSM_PREOPEN"):
+                    "ASSM_RAISES", "ASSM_PREOPEN"):
             check(f"T23h-{_sh}", f"{_sh} sheet generated", _sh in wbx.sheetnames)
         # edit one gold cell in each new sheet
         _targets = {
@@ -451,7 +449,6 @@ def t23():
             "ASSM_OBS": ("obs_exposures.0.fee_yield_ann", 0.004),
             "ASSM_BORROWINGS": ("scheduled_borrowings.0.rate_ann", 0.05),
             "ASSM_RAISES": ("capital_raises.0.amount", 20_000),       # $000s -> $20M
-            "ASSM_FEES": ("fee_modules.trust.fee_bp_ann", 90),
             "ASSM_PREOPEN": ("pre_opening.expenses.0.total", 1_200),  # $000s -> $1.2M
         }
         for _sh, (_k, _v) in _targets.items():
@@ -460,8 +457,8 @@ def t23():
                     r[3].value = _v
         _bx = _io.BytesIO(); wbx.save(_bx)
         mergedx, repx = F.diff_import(_bx.getvalue(), {})
-        check("T23i", "all seven new-category edits detected on re-import",
-              repx["edit_count"] == 7)
+        check("T23i", "all six new-category edits detected on re-import",
+              repx["edit_count"] == 6)
         _ax = mergedx["assumptions"]
         _apx = mergedx["pre_opening"]["expenses"][0]["total"]
         _all = (abs(_ax["securities_afs"][0]["yield_ann"] - 0.055) < 1e-9
@@ -469,7 +466,6 @@ def t23():
                 and abs(_ax["obs_exposures"][0]["fee_yield_ann"] - 0.004) < 1e-9
                 and abs(_ax["scheduled_borrowings"][0]["rate_ann"] - 0.05) < 1e-9
                 and abs(_ax["capital_raises"][0]["amount"] - 20_000_000) < 1e-6
-                and abs(_ax["fee_modules"]["trust"]["fee_bp_ann"] - 90) < 1e-6
                 and abs(_apx - 1_200_000) < 1e-6)
         check("T23j", "every new-category edit landed in the merged config", _all)
 
@@ -497,30 +493,6 @@ def t23():
         _errs = _ve(mk)
         check("T23k2", "the config with the user-added instrument has no validation errors",
               not _errs, f"{len(_errs)} errors" if _errs else "clean")
-
-        # T23l: payments is the one fee module that is a variable-length list (the others
-        # are fixed-shape singletons). A user must be able to ADD a rail — its label
-        # included — and have it validate. Guards the same 'fact-skipped label' bug in
-        # the fee sheet's rail field.
-        cfgf = _json.loads(_json.dumps(cfgx))
-        cfgf["assumptions"]["fee_modules"] = {"payments": [
-            {"rail": "ACH", "vol_q": 100000, "growth_q": 0.03, "fee_per_tx": 0.3, "cost_per_tx": 0.05}]}
-        dataf, ghf = F.build_fiw(cfgf); F.persist_snapshot(cfgf, ghf)
-        wbf = _lw(_io.BytesIO(dataf)); wsf = wbf["ASSM_FEES"]
-        for _row in (("fee_modules.payments.1.rail", "payments[1]", "Rail", "FedNow", "label (editable: ACH, wires, RTP, FedNow, card)"),
-                     ("fee_modules.payments.1.vol_q", "payments[1]", "Volume/qtr", 50000, "count"),
-                     ("fee_modules.payments.1.growth_q", "payments[1]", "Growth", 0.09, "rate/qtr"),
-                     ("fee_modules.payments.1.fee_per_tx", "payments[1]", "Fee per tx", 0.45, "$"),
-                     ("fee_modules.payments.1.cost_per_tx", "payments[1]", "Cost per tx", 0.08, "$")):
-            wsf.append(_row)
-        _bf = _io.BytesIO(); wbf.save(_bf)
-        mf, rf = F.diff_import(_bf.getvalue(), {})
-        _pays = mf["assumptions"]["fee_modules"]["payments"]
-        _rail_ok = (len(_pays) == 2 and _pays[1].get("rail") == "FedNow"
-                    and abs(_pays[1].get("vol_q", 0) - 50000) < 1e-6)
-        check("T23l", "a user-added payment rail round-trips with its label", _rail_ok)
-        check("T23l2", "the config with the added rail has no validation errors",
-              not _ve(mf), f"{len(_ve(mf))} errors" if _ve(mf) else "clean")
 
         # T23m: adding a new element must round-trip for EVERY flat addable array, not
         # just scheduled_borrowings — verified per-array so no untested path is assumed.
@@ -2226,7 +2198,10 @@ def t56():
                         "categories": [{"name": "Occupancy", "per_quarter": 60_000}],
                         "other_gross_up_rate": 0.03}                    # the UI's shape
     a["securities_afs"] = [{"name": "Agency MBS", "opening": 10_000_000, "yield_ann": 0.04}]
-    a["fee_modules"] = {"interchange": {"penetration": 0.5}}
+    a.setdefault("obs_exposures", []).append({"name": "Interchange", "call_report_line": "obs",
+        "_fee_product": True, "fee_streams": [{"basis": "transaction",
+        "driver": {"source": "constant", "trajectory": "flat", "params": {"base": 100000}},
+        "rate": {"params": {"per_unit": 0.005}}, "timing": {"start_period": 1}}]})
     cfg["pre_opening"] = {"expenses": [{"category": "Legal & filings", "total": 500_000},
                                          {"category": "Build-out", "total": 750_000}]}   # the UI's shape
     out = _fiw.build_fiw(cfg)
@@ -2238,7 +2213,7 @@ def t56():
     txt = " ".join(str(c2.value) for r in wb["SETTINGS"].iter_rows() for c2 in r if c2.value is not None)
     check("T56b", "states treasury, borrowings, securities, fee modules, stress",
           "Cash floor" in txt and "FHLB advance" in txt and "Agency MBS" in txt
-          and "interchange" in txt and "Stress parameters" in txt)
+          and "Interchange" in txt and "Stress parameters" in txt)
     check("T56b", "pre-opening expenses in the UI's OWN shape ({category,total}) render with values",
           "Legal & filings" in txt and "500000" in txt.replace(",", "")
           and "Build-out" in txt and "Total pre-opening burn" in txt and "1250000" in txt.replace(",", ""))
@@ -2605,8 +2580,19 @@ def t70():
     from foundry.v2.run_q import run_v2 as _run
 
     def _mk(fee_modules, overhead_q, pre_opening=None):
+        # fee_modules is retired; translate the legacy {trust:{...}} shape used by these
+        # fee-only viability cases into an equivalent GUT fee product (balance basis on a
+        # proportional managed_notional) so CK-10/CK-11 exercise the same economics.
         _cfg = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
-        _cfg["assumptions"]["fee_modules"] = fee_modules
+        _tr = (fee_modules or {}).get("trust") or {}
+        if _tr:
+            _cfg["assumptions"].setdefault("obs_exposures", []).append({
+                "name": "Trust", "call_report_line": "obs", "_fee_product": True,
+                "managed_notional": {"day1": _tr["aum_open"], "trajectory": "proportional",
+                                       "growth_q": _tr.get("aum_growth_q", 0.0)},
+                "fee_streams": [{"basis": "balance", "driver": {"source": "managed_notional"},
+                                  "rate": {"params": {"rate": _tr["fee_bp_ann"] / 10000.0}},
+                                  "timing": {"start_period": 1}}]})
         _cfg["assumptions"]["overhead_q"] = overhead_q
         if pre_opening:
             _cfg["pre_opening"] = pre_opening

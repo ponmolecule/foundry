@@ -511,11 +511,13 @@ def _settings_sheet(wb, cfg):
         row("CET1 treatment", "full deduction of net NOL-DTA", "12 CFR 3.22(a)")
     else:
         row("(not active)", "", "100% NOL shield, no DTA booked")
-    sec("Fee modules")
-    fm = a.get("fee_modules") or {}
-    for k, v in fm.items():
-        if v: row(k, str(v)[:120], "")
-    if not any(fm.values()) if fm else True: row("(none active)", "")
+    sec("Fee products (GUT)")
+    _fps = [p for p in (a.get("obs_exposures") or []) if p.get("_fee_product")]
+    for _fp in _fps:
+        _ns = len(_fp.get("fee_streams") or [])
+        _bases = ", ".join(sorted({(st.get("basis") or "?") for st in (_fp.get("fee_streams") or [])}))
+        row(_fp.get("name") or "(unnamed)", f"{_ns} stream(s): {_bases}", "")
+    if not _fps: row("(none active)", "")
     sec("SOFR rate path (Q1..Q12)")
     row("Path", ", ".join(str(x) for x in (a.get("rate_path_q") or [])), "annual")
     row("Longer run", a.get("rate_path_longer_run"), "annual")
@@ -887,7 +889,6 @@ def diff_import(data, current_cfg):
         "ASSM_BORROWINGS": ("scheduled_borrowings", 3),
         "ASSM_RAISES": ("capital_raises", 3),
         "ASSM_PREOPEN": ("pre_opening.expenses", 3),
-        "ASSM_FEES": ("fee_modules", 3),
         "ASSM_NIE": ("nie_detail", 3),
     }
     _dropped_rows = []          # hand-added rows with content but no valid machine key
