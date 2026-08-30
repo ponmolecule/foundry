@@ -322,11 +322,11 @@ def _nie_sheet(ws, nd):
     ws.column_dimensions["E"].width = 28
 
 
-def _fee_sheet(ws, fm, fee_products=None):
+def _fee_sheet(ws, fm):
     """Editable sheet for fee_modules — a nested/heterogeneous structure, so each
     scalar leaf gets a dotted machine key. Payments is a list of rails; each rail's
     fields key as 'fee_modules.payments.<i>.<field>'. diff_import reads these back.
-    Also renders assumptions.fee_products generically (see _fee_products_rows)."""
+    """
     ws.append(["key", "Module", "Field", "Value", "Units / note"])
     for c in ws[1]:
         c.font = HDR
@@ -374,34 +374,6 @@ def _fee_sheet(ws, fm, fee_products=None):
     ws.column_dimensions["C"].width = 22
     ws.column_dimensions["D"].width = 18
     ws.column_dimensions["E"].width = 26
-    _fee_products_rows(ws, _row, fee_products)
-
-
-def _fee_products_rows(ws, _row, fee_products):
-    """Generic rows for assumptions.fee_products (Step 2, fee-driven-product
-    generalization). Driven entirely by fee_catalog.BASIS_PARAM_FIELDS -- a new
-    fee product (custody, settlement, trustee, conversion, or anything not yet
-    named) needs zero new code here: whatever basis its config carries picks the
-    right field set automatically. Contrast with the five legacy fee_modules
-    blocks above, each of which is its own hardcoded branch -- that duplication
-    is frozen there deliberately (float-evaluation-order safety, see
-    income_modules.py's docstring), not repeated here for anything new."""
-    from .fee_catalog import BASIS_PARAM_FIELDS
-    for i, prod in enumerate(fee_products or []):
-        basis = prod.get("basis")
-        fields = BASIS_PARAM_FIELDS.get(basis)
-        _row(f"fee_products.{i}.key", f"fee_products[{i}]", "Key",
-             prod.get("key"), "label (editable: short machine-safe identifier)")
-        _row(f"fee_products.{i}.basis", f"fee_products[{i}]", "Basis",
-             basis, "label (balance | transaction | account -- see fee_catalog.py)")
-        if fields is None:
-            continue  # unrecognized basis: key/basis rows still round-trip; no param
-                       # rows to render since the field set is unknown -- "presence,
-                       # not assertion," not a crash.
-        params = prod.get("params") or {}
-        for k, lab, u in fields:
-            if k in params:
-                _row(f"fee_products.{i}.params.{k}", f"fee_products[{i}]", lab, params.get(k), u)
 
 
 def build_fiw(cfg):
@@ -480,8 +452,8 @@ def build_fiw(cfg):
                      a["scheduled_borrowings"], SCHED_FIELDS)
     if a.get("capital_raises"):
         _array_sheet(wb.create_sheet("ASSM_RAISES"), "capital_raises", a["capital_raises"], RAISE_FIELDS)
-    if a.get("fee_modules") or a.get("fee_products"):
-        _fee_sheet(wb.create_sheet("ASSM_FEES"), a.get("fee_modules") or {}, a.get("fee_products"))
+    if a.get("fee_modules"):
+        _fee_sheet(wb.create_sheet("ASSM_FEES"), a.get("fee_modules") or {})
     if a.get("nie_detail"):
         _nie_sheet(wb.create_sheet("ASSM_NIE"), a["nie_detail"])
     po = (cfg.get("pre_opening") or {}).get("expenses")

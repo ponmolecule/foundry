@@ -2691,126 +2691,30 @@ def t70():
 
 
 def t71():
-    # Step 1 (fee-driven-product generalization): a generic, additive fee-product
-    # mechanic (assumptions.fee_products, income_modules.py) alongside the five named
-    # fee_modules -- deliberately NOT a migration of the named five (ENGINE_SPEC 5.9
-    # documents that these formulas' exact float evaluation order is load-bearing;
-    # routing them through a new shared dispatcher risks moving a golden hash for no
-    # reason). New fee products (custody, settlement, trustee, conversion, or anything
-    # not yet named) are pure config from here: {key, basis, params}, zero new code.
-    #
-    # Three bases verified against all five shipped named modules' actual formulas (not
-    # assumed): balance (trust), account (service_charges, baas), transaction (payments'
-    # flat-fee shape AND interchange's ad-valorem shape, unified as
-    # income = vol*(fee_per_tx + avg_ticket*rate), cost = vol*(cost_per_tx +
-    # avg_ticket*cost_rate) so one basis subsumes both existing sub-shapes).
-    # NOT yet a domain-owner-confirmed closure claim -- performance/hurdle fees and
-    # discontinuous tiering are open falsification candidates, flagged, not resolved here.
-    print("T71 generic fee_products mechanic (Step 1): additive, profile-safe, hand-checked")
-    import json as _json
-    from foundry.v2.run_q import run_v2 as _run
-
-    # ---- T71a: the five named modules are BYTE-IDENTICAL after this change (the actual
-    # risk this step could have introduced). Reuses T44's exact hand-checked fixture.
-    _cfg44 = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
-    _cfg44["assumptions"]["fee_modules"] = {
-        "trust": {"aum_open": 100_000_000, "aum_growth_q": 0.0, "fee_bp_ann": 50},
-        "payments": [{"rail": "ACH", "vol_q": 1_000_000, "growth_q": 0.0, "fee_per_tx": 0.10, "cost_per_tx": 0.05}],
-        "interchange": {"tx_count_q": 2_000_000, "growth_q": 0.10, "avg_ticket": 40,
-                         "interchange_rate": 0.012, "network_fee_rate": 0.002}}
-    _r44 = _run(_cfg44)
-    check("T71a", "named fee_modules unaffected by the additive fee_products path (T44 fixture, exact)",
-          abs(_r44["financials"]["is"]["fees"][0] - 1025.0) < 0.05,
-          f"fees[0]={_r44['financials']['is']['fees'][0]:.1f} (expect 1025.0, matching T44a)")
-
-    # ---- T71b: balance-basis generic product, hand-checked exactly (custody proxy)
-    _base = _json.load(open("foundry/fixtures/patrick_default_v31.json", encoding="utf-8"))
-    _cfg_b = _json.loads(_json.dumps(_base))
-    _cfg_b["assumptions"]["fee_products"] = [
-        {"key": "custody_fee", "basis": "balance",
-         "params": {"balance_open": 200_000_000.0, "growth_q": 0.02, "fee_bp_ann": 8.0}}]
-    _r_b = _run(_cfg_b)
-    _expect_custody = (200_000_000.0 + 200_000_000.0 * 1.02) / 2.0 * 8.0 / 10000.0 / 4.0 / 1000.0
-    check("T71b", "balance-basis fee_product (custody proxy) matches hand-check exactly",
-          abs(_r_b["financials"]["is"]["fees"][0] - _expect_custody) < 0.05,
-          f"got {_r_b['financials']['is']['fees'][0]:.2f}, expected {_expect_custody:.2f}")
-
-    # ---- T71c: transaction-basis generic product (settlement proxy) -- income lands in
-    # `fees`, cost lands in `overhead` (isolated via delta against a no-fee-product run,
-    # since overhead already carries the base config's own flat overhead_q)
-    _cfg_c0 = _json.loads(_json.dumps(_base))
-    _r_c0 = _run(_cfg_c0)
-    _cfg_c1 = _json.loads(_json.dumps(_base))
-    _cfg_c1["assumptions"]["fee_products"] = [
-        {"key": "settlement_fee", "basis": "transaction",
-         "params": {"vol_q": 1_500_000, "growth_q": 0.03, "fee_per_tx": 0.20, "cost_per_tx": 0.05}}]
-    _r_c1 = _run(_cfg_c1)
-    _income_delta = _r_c1["financials"]["is"]["fees"][0] - _r_c0["financials"]["is"]["fees"][0]
-    _cost_delta = _r_c1["financials"]["is"]["overhead"][0] - _r_c0["financials"]["is"]["overhead"][0]
-    check("T71c-income", "transaction-basis fee_product (settlement proxy): income = vol*fee_per_tx exactly",
-          abs(_income_delta - 300.0) < 0.05, f"delta={_income_delta:.2f}, expect 300.0")
-    check("T71c-cost", "transaction-basis fee_product cost lands in overhead exactly (vol*cost_per_tx)",
-          abs(_cost_delta - 75.0) < 0.05, f"delta={_cost_delta:.2f}, expect 75.0")
-
-    # ---- T71d: account-basis generic product (per-relationship fee proxy)
-    _cfg_d = _json.loads(_json.dumps(_base))
-    _cfg_d["assumptions"]["fee_products"] = [
-        {"key": "advisory_fee", "basis": "account",
-         "params": {"count": 400, "growth_q": 0.0, "fee_per_acct_m": 25.0}}]
-    _r_d = _run(_cfg_d)
-    _expect_acct = 400 * 25.0 * 3.0 / 1000.0
-    check("T71d", "account-basis fee_product (per-relationship proxy) matches hand-check exactly",
-          abs(_r_d["financials"]["is"]["fees"][0] - _expect_acct) < 0.05,
-          f"got {_r_d['financials']['is']['fees'][0]:.2f}, expected {_expect_acct:.2f}")
-
-    # ---- T71e: profile-safe -- the identical mechanism works under profile B without any
-    # profile-specific branching (fee_module_series is a pure function of `a`, called
-    # identically by both engine_q_a.py and engine_q_b.py; unlike Step 0's checks-array
-    # code, this function never touches a profile-specific field name).
-    _cfg_e = _json.load(open("foundry/fixtures/parity/configs/pf_b_base.json", encoding="utf-8"))
-    _cfg_e["assumptions"]["fee_products"] = [
-        {"key": "custody_fee", "basis": "balance",
-         "params": {"balance_open": 50_000_000.0, "growth_q": 0.01, "fee_bp_ann": 10.0}}]
-    _r_e = _run(_cfg_e)
-    check("T71e", "generic fee_products mechanic runs under profile B without KeyError",
-          "custody_fee" in _r_e.get("fee_detail", {}), "fee_detail carries the custody_fee key")
-
-    # ---- T71f: Step 2 -- fee_products round-trips through the FIW workbook generically
-    # (fiw.py's _fee_products_rows, driven by fee_catalog.BASIS_PARAM_FIELDS, zero
-    # per-product code). Uploaded COLD (current={}), exactly the app's default -- proves
-    # the workbook is genuinely self-contained, not reliant on an open session.
-    from foundry.v2.fiw import build_fiw, persist_snapshot, diff_import
-    _cfg_f = _json.loads(_json.dumps(_base))
-    _cfg_f["assumptions"]["fee_products"] = [
-        {"key": "custody_fee", "basis": "balance",
-         "params": {"balance_open": 200_000_000.0, "growth_q": 0.02, "fee_bp_ann": 8.0}},
-        {"key": "settlement_fee", "basis": "transaction",
-         "params": {"vol_q": 1_500_000, "growth_q": 0.03, "fee_per_tx": 0.20, "cost_per_tx": 0.05}},
-    ]
-    _r_f_original = _run(_cfg_f)
-    _data_f, _gh_f = build_fiw(_cfg_f)
-    persist_snapshot(_cfg_f, _gh_f)
-    _merged_f, _ = diff_import(_data_f, {})
-    _r_f_reconstituted = _run(_merged_f)
-    check("T71f", "fee_products round-trips through a cold FIW upload to an identical run_hash",
-          _r_f_original["run_hash"] == _r_f_reconstituted["run_hash"],
-          f"{_r_f_original['run_hash']} vs {_r_f_reconstituted['run_hash']}")
-
-    # ---- T71g: catalog field names are cross-checked against what the engine's
-    # dispatcher actually reads, for every basis, not eyeballed -- a mismatch here would
-    # mean the workbook renders a field the engine silently ignores.
-    from foundry.v2.fee_catalog import BASIS_PARAM_FIELDS
-    _expected_fields = {
-        "balance": {"balance_open", "growth_q", "fee_bp_ann"},
-        "transaction": {"vol_q", "growth_q", "fee_per_tx", "cost_per_tx", "avg_ticket", "rate", "cost_rate"},
-        "account": {"count", "growth_q", "fee_per_acct_m"},
-    }
-    _catalog_ok = all(
-        {k for k, _, _ in BASIS_PARAM_FIELDS[basis]} == fields
-        for basis, fields in _expected_fields.items()
-    )
-    check("T71g", "fee_catalog.BASIS_PARAM_FIELDS matches the engine dispatcher's actual param keys, every basis",
-          _catalog_ok)
+    # Fee-product presets (GUT templates). The abandoned three-basis "fee_products"
+    # dispatcher was superseded by the six-axis GUT (fee_streams); fee_catalog is now
+    # trimmed to named presets that emit ready-to-edit GUT streams. This test asserts
+    # the presets are intact and produce valid GUT stream shapes. (The GUT engine itself
+    # is gated by tests_fee_streams; legacy-formula parity by tests_fee_module_parity.)
+    print("T71 fee-product presets -> GUT stream templates")
+    from foundry.v2.fee_catalog import FEE_PRODUCT_PRESETS, fee_stream_template
+    check("T71a", "four named presets preserved (custody/trustee/settlement/conversion)",
+          set(FEE_PRODUCT_PRESETS) == {"custody", "trustee", "settlement", "conversion"})
+    _cust = fee_stream_template("custody")
+    check("T71b", "custody preset -> balance-basis GUT stream on managed_notional",
+          _cust and _cust["basis"] == "balance"
+          and _cust["driver"]["source"] == "managed_notional"
+          and "rate" in _cust["rate"]["params"])
+    _sett = fee_stream_template("settlement")
+    check("T71c", "settlement preset -> transaction-basis GUT stream with per_unit slot",
+          _sett and _sett["basis"] == "transaction" and "per_unit" in _sett["rate"]["params"])
+    check("T71d", "unknown preset -> None (no crash)", fee_stream_template("nope") is None)
+    # a preset template, filled in, actually computes through the GUT evaluator
+    from foundry.v2.income_modules import fee_stream_q
+    _t = fee_stream_template("settlement"); _t["driver"]["params"]["base"] = 1000
+    _t["rate"]["params"]["per_unit"] = 0.5
+    check("T71e", "filled preset computes through the GUT (1000 x 0.5 = 500)",
+          abs(fee_stream_q(_t, 1, {}) - 500.0) < 1e-9)
 
 
 if __name__ == "__main__":
