@@ -6224,9 +6224,9 @@ function structuresSectionsHtml(){
         row += ` avgAUC<input type="number" style="width:84px" value="${(ch.avg_auc_per_customer||0)/1000}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].avg_auc_per_customer=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false">\u00d7</a></div>`;
         h += row;
       });
-      h += `<a href="#" class="cadd" style="margin-left:14px" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ add channel</a>`;
+      h += `<div style="padding-left:14px;margin:2px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ channel to this feed</a></div>`;
     });
-    h += '<a href="#" class="cadd" onclick="window.addCacFeed();return false">+ add acquisition feed</a>';
+    h += '<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="window.addCacFeed();return false">+ New acquisition feed</a></div>';
   }
   h += '</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
