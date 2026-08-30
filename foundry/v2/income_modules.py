@@ -121,7 +121,10 @@ def _fee_rate_q(rt, q, base_qty):
         return float(sched.get(str(q), r0))
     if behavior == "tiered":
         return None                              # signal: apply tiers to base_qty
-    return r0                                     # flat
+    # durbin_capped: normal income uses the stream's net per_unit (set at config time);
+    # the threshold overage on the GROSS rate is applied in the engine P&L loop where
+    # prior-quarter assets exist. Here it behaves like flat for the income path.
+    return r0                                     # flat / durbin_capped passthrough
 
 
 def _apply_tiers(tiers, base_qty):
