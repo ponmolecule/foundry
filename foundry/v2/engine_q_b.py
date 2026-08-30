@@ -32,11 +32,10 @@ def run_pf_b(cfg):
     for _r in _raises:
         for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
-    from .income_modules import nie_detail_series, fee_module_series
+    from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
     from .engine_q_a import opex_fixed_q
     _nie_d = nie_detail_series(a)
-    _fees_m = fee_module_series(a)
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
     # quarters, then matures to zero; full-quarter interest on outstanding principal,
     # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
@@ -122,9 +121,9 @@ def run_pf_b(cfg):
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
         fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
-                 + _fees_m["income"][qi])
+                 )
         opex_prod = sum(opex_fixed_q(p) for p in lend + dep + obs + afs_p + htm_p)
-        _ovh_b = a["overhead_q"] + _dep_exp[qi] + _fees_m["cost"][qi]
+        _ovh_b = a["overhead_q"] + _dep_exp[qi]
         if _nie_d:
             _pa = prev_assets
             _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]
@@ -133,7 +132,7 @@ def run_pf_b(cfg):
             _occ = _pa_d * _RP["assessments"]["occ_bp_ann"] / 10000.0 / 4.0
             _sub = _nie_d["comp"][qi] + _nie_d["categories"][qi] + _fdic + _occ + _dep_exp[qi] + opex_prod
             _r = _nie_d["gross_up_rate"]
-            _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0) + _fees_m["cost"][qi]
+            _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
         nie = opex_prod + _ovh_b
 
         gl_end = sum(p["_end"][qi] for p in lend)
