@@ -2110,7 +2110,7 @@ function fieldsFor(fam, p, base){
     // available. Each button adds a stream of that basis. display:block => one per line.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#DFA85A">Add a fee stream</label></div>';
     ["balance","transaction","account","flat","event"].forEach(bz=>{
-      h += `<button class="btn-plain" style="grid-column:1/-1;display:block;width:100%;text-align:left;font-size:11px;margin:3px 0" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
+      h += `<button class="btn-plain" style="grid-column:1/-1;display:block;width:220px;max-width:100%;margin:3px auto;text-align:center;font-size:11px" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
     });
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
