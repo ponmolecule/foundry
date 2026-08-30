@@ -2124,9 +2124,10 @@ function fieldsFor(fam, p, base){
         h += `</div>`;
       }
     });
-    ["balance","transaction","account","flat","event"].forEach(bz=>{
-      h += `<button class="btn-plain" style="font-size:11px;margin:2px 4px 2px 0" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
-    });
+    // One "+ add fee stream" button (defaults to a balance stream); the basis is changed
+    // inline via the row's dropdown. Five per-basis buttons wrapped into an ugly grid in the
+    // narrow card and made the user choose a basis before they could see the row.
+    h += `<button class="btn-plain" style="font-size:11px;margin:8px 0 2px" onclick="window.addFeeStream(${_fi},\x27balance\x27)">+ add fee stream</button>`;
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F("Growth (%/qtr)", base+".growth_q", "pct");
