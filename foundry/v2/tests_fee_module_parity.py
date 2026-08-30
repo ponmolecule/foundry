@@ -15,7 +15,7 @@ def main():
     gut = {"basis": "account", "driver": {"source": "constant", "trajectory": "proportional",
            "params": {"base": 35000, "growth_q": 0.03}},
            "rate": {"params": {"fee_per_period": 11.0, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
-    ck("service charges", all(abs(old[i] - fee_stream_q(gut, i + 1, {})) < 1e-6 for i in range(Q)))
+    ck("service charges", all(abs(old[i] - fee_stream_q(gut, i + 1, {})[0]) < 1e-6 for i in range(Q)))
     rails = [{"vol_q": 300000, "growth_q": 0.04, "fee_per_tx": 0.30},
              {"vol_q": 12000, "growth_q": 0.03, "fee_per_tx": 18.0},
              {"vol_q": 40000, "growth_q": 0.08, "fee_per_tx": 0.50}]
@@ -23,7 +23,7 @@ def main():
     gr = [{"basis": "transaction", "driver": {"source": "constant", "trajectory": "proportional",
            "params": {"base": r["vol_q"], "growth_q": r["growth_q"]}},
            "rate": {"params": {"per_unit": r["fee_per_tx"]}}, "timing": {"start_period": 1}} for r in rails]
-    ck("payments (3 rails)", all(abs(old[i] - sum(fee_stream_q(s, i + 1, {}) for s in gr)) < 1e-6 for i in range(Q)))
+    ck("payments (3 rails)", all(abs(old[i] - sum(fee_stream_q(s, i + 1, {})[0] for s in gr)) < 1e-6 for i in range(Q)))
     tr = {"aum_open": 60_000_000.0, "aum_growth_q": 0.04, "fee_bp_ann": 80.0}
     old = []; aum = tr["aum_open"]
     for q in range(1, Q + 1):
@@ -35,7 +35,7 @@ def main():
     gut = {"basis": "account", "driver": {"source": "constant", "trajectory": "proportional",
            "params": {"base": 36000, "growth_q": 0.06}},
            "rate": {"params": {"fee_per_period": 2.75, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
-    ck("baas", all(abs(old[i] - fee_stream_q(gut, i + 1, {})) < 1e-6 for i in range(Q)))
+    ck("baas", all(abs(old[i] - fee_stream_q(gut, i + 1, {})[0]) < 1e-6 for i in range(Q)))
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1
 if __name__ == "__main__":
