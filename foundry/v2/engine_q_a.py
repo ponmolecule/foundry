@@ -209,6 +209,7 @@ def run_pf_a(cfg):
         for _q in range(int(_r["quarter"]), Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import (nie_detail_series, fee_module_series, product_fee_streams_q,
+                                 durbin_effective_rate, _g,
                                  managed_notional_series)
     from .cac_feeder import cac_managed_notional
     from .regparams import REG_PARAMS as _RP
@@ -565,6 +566,21 @@ def run_pf_a(cfg):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
         fees = sum(p["_fee"][q] for p in lend + dep + obs) + _fees_m["income"][q - 1]
+        # Axis-7 (Durbin cap): if PRIOR-quarter assets >= $10B, debit interchange is capped
+        # to the regulated rate. Priced off prior-quarter assets to break the circular
+        # dependency (interchange -> NI -> equity -> assets -> cap). Zero adjustment below
+        # the threshold, so sub-$10B configs are byte-identical. 12 CFR 235.3-235.4.
+        _ic = (a.get("fee_modules") or {}).get("interchange")
+        if _ic:
+            _pa = (bs["totalAssets"][q - 1] / 1000.0) if q >= 1 else 0.0  # raw$ -> $000s
+            _at = float(_ic.get("avg_ticket") or 0.0)
+            _ar = float(_ic.get("interchange_rate") or 0.0)
+            _er = durbin_effective_rate(_ar, _at, _pa)
+            if _er < _ar - 1e-15:
+                _vol = _g(float(_ic.get("tx_count_q") or 0.0), _ic.get("growth_q"), q)
+                _overage = _vol * _at * (_ar - _er)
+                fees -= _overage
+                is_.setdefault("durbinCap", [None] * (Q + 1))[q] = _overage
         prod_ox = sum(p["_ox"][q] for p in lend + dep + obs)
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)

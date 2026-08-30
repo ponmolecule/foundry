@@ -18,6 +18,10 @@ PENDING_RULES = [
      "would_affect": ["MSA threshold deduction (12 CFR 3.22(d)) in the capital derivation",
                        "standardized RWA stack (pilot scope)"],
      "watch_opened": "2026-07-13"},
+    {"name": "Debit interchange cap reduction (Reg II proposal, Oct 2023; base component proposed to fall from $0.21 toward ~$0.144, with periodic adjustment)",
+     "status": "PROPOSED \u2014 not final; comments closed; final rule pending as of watch date",
+     "would_affect": ["durbin.cap_base_per_tx (regulated interchange cap constants)"],
+     "watch_opened": "2026-08-29"},
     {"name": "Stress-testing framework proposal (Oct 2025)",
      "status": "PROPOSED \u2014 pending",
      "would_affect": ["scenario framework context; no direct engine parameter"],
@@ -74,6 +78,16 @@ REG_PARAMS = {
         # Post-TCJA federal NOLs: indefinite carryforward, utilization capped
         # at 80% of taxable income per year. IRC 172(a)(2).
         "nol_utilization_limit_pct": 0.80,
+    },
+    "durbin": {
+        # Regulated debit interchange cap for issuers with >= $10B in consolidated
+        # assets (Durbin Amendment; Reg II). Small-issuer exemption applies BELOW
+        # $10B (unregulated rate); at/above $10B the cap binds. 12 CFR 235.3-235.4.
+        # Cap per transaction = base + ad_valorem x avg_ticket + fraud_adjustment.
+        "asset_threshold_000s": 10_000_000,   # $10B expressed in $000s
+        "cap_base_per_tx": 0.21,              # $0.21 base component, 12 CFR 235.3(b)(1)
+        "cap_ad_valorem": 0.0005,             # 0.05% of transaction value, 12 CFR 235.3(b)(2)
+        "cap_fraud_adjustment": 0.01,         # $0.01 fraud-prevention adjustment, 12 CFR 235.4
     },
     # Cohort-hygiene floors for examiner-facing peer bands (CHARTER_FILTERED_COHORT_SPEC,
     # 2026-07-21). NOT a data edit and NOT winsorization — a COHORT filter for a

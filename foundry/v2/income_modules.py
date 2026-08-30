@@ -316,6 +316,40 @@ def product_fee_streams_q(p, q, ctx):
     return total
 
 
+def durbin_regulated_rate(avg_ticket, reg_params=None):
+    """Axis-7 (conditional/threshold) — the regulated debit interchange rate that binds at/above
+    the $10B Durbin asset threshold, expressed as a FRACTION of transaction value (comparable to
+    the assumed unregulated interchange_rate). Regulated per-transaction cap =
+    base + ad_valorem*avg_ticket + fraud_adjustment; dividing by avg_ticket yields the effective
+    rate. Constants (and the pending Fed reduction) resolve from REG_PARAMS, never memory."""
+    if not avg_ticket or avg_ticket <= 0:
+        return 0.0
+    if reg_params is None:
+        from .regparams import REG_PARAMS as reg_params
+    d = reg_params.get("durbin") or {}
+    cap_per_tx = (float(d.get("cap_base_per_tx") or 0.0)
+                  + float(d.get("cap_ad_valorem") or 0.0) * float(avg_ticket)
+                  + float(d.get("cap_fraud_adjustment") or 0.0))
+    return cap_per_tx / float(avg_ticket)
+
+
+def durbin_effective_rate(assumed_rate, avg_ticket, prior_qtr_assets_000s, reg_params=None):
+    """The interchange rate that actually applies for a quarter, given PRIOR-quarter assets
+    (prior-quarter pricing sidesteps the circular dependency: interchange -> NI -> equity ->
+    assets -> cap). Below the $10B threshold: the assumed (unregulated) rate. At/above: the
+    LESSER of the assumed rate and the regulated cap (the cap only ever reduces, never raises).
+    Option-B timing: the cap binds in each quarter where prior-quarter assets >= threshold."""
+    if reg_params is None:
+        from .regparams import REG_PARAMS as reg_params
+    d = reg_params.get("durbin") or {}
+    thr = float(d.get("asset_threshold_000s") or 1e18)
+    a_rate = float(assumed_rate or 0.0)
+    if (prior_qtr_assets_000s or 0.0) >= thr:
+        cap_rate = durbin_regulated_rate(avg_ticket, reg_params)
+        return min(a_rate, cap_rate)
+    return a_rate
+
+
 def fee_module_series(a):
     """{"income": [...Q], "cost": [...Q], "detail": {...}} — zeros when absent."""
     Q = int(a.get("n_periods") or 12)
