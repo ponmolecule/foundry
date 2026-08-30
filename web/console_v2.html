@@ -5242,10 +5242,10 @@ document.addEventListener("click", (ev)=>{
       if(A.credit_regime){ delete A.credit_regime; } else { A.credit_regime = {enabled:true}; }
       renderContent(); refresh();
     }
-    else if(act==="fee"){
-      const FM = A.fee_modules || {};
-      const anyOn = FM.interchange||FM.service_charges||FM.trust||FM.baas||(FM.payments||[]).length;
-      anyOn ? feeClearAll() : feeSeed();
+    else if(act==="cac"){
+      if(Object.keys(A.cac_feeds||{}).length){ if(confirm("Remove all acquisition feeds?")) cfg.assumptions.cac_feeds={}; }
+      else { window.addCacFeed(); }
+      renderContent(); refresh();
     }
     return;
   }
@@ -6026,7 +6026,6 @@ window.capSeed = function(){
   (cfg.assumptions.capital_raises = cfg.assumptions.capital_raises || []).push({quarter:1, amount:10_000_000});
   renderContent(); refresh();
 };
-window.feeSeed = function(){ fmOn('interchange'); };
 window.capClear = function(){
   // Confirm before destroying non-empty capital data, and NEVER touch pre_opening here:
   // pre-opening expenses are a day-one capital commitment entered in their own sub-column,
@@ -6056,9 +6055,6 @@ window.aociFlip = function(){
   cfg.assumptions.aoci_sensitivity_annual = cfg.assumptions.aoci_sensitivity_annual ? 0 : 0.005;
   renderContent(); refresh();
 };
-window.feeClearAll = function(){
-  cfg.assumptions.fee_modules = {}; renderContent(); refresh();
-};
 window.secAociToggle = function(){
   const a = cfg.assumptions;
   const on = (a.securities_afs||[]).length + (a.securities_htm||[]).length > 0 || !!a.aoci_sensitivity_annual;
@@ -6076,37 +6072,14 @@ window.secAociToggle = function(){
 // A feed = named { channels[], attrition_rate, intra_year_shape }. Fee products reference it
 // via managed_notional_source. Mirrors the engine\x27s cac_feeder.py (methods-not-channels).
 var CAC_METHODS = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit per-year"]];
-function cacFeedsSectionHtml(){
-  cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
-  const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
-  const feeds = cfg.assumptions.cac_feeds;
-  let h = '<div class="accent-label" style="color:#8A6D2F;margin-top:16px">Customer Acquisition (drives AUC for fee products)</div>';
-  h += '<div class="memo" style="margin:0 0 10px">Define a bottom-up AUC feed \u2014 acquisition channels minus attrition roll forward to an ending AUC each year. A fee product can then set its <b>AUC source</b> to this feed, so its assets-under-custody are traceable to marketing/BD spend. All $ in $000s.</div>';
-  const names = Object.keys(feeds);
-  if(!names.length){ h += '<div class="memo" style="margin:0 0 8px">No feeds yet.</div>'; }
-  names.forEach(fn=>{
-    const fd = feeds[fn]; fd.channels = fd.channels || [];
-    h += `<div class="card" style="margin-bottom:12px"><div class="fld wide"><label style="color:#DFA85A">Feed: ${esc(fn)} <a href="#" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false" style="color:#C77">\u00d7 remove feed</a></label></div>`;
-    h += F("Attrition rate (%/yr of existing book)", "assumptions.cac_feeds."+fn+".attrition_rate", "pct");
-    fd.channels.forEach((ch,ci)=>{
-      ch.params = ch.params || {}; const cb = "assumptions.cac_feeds."+fn+".channels."+ci;
-      const m = ch.method || "pool_conversion";
-      h += `<div class="fld wide" style="border-top:1px solid #333;margin-top:6px;padding-top:6px"><label>Channel ${ci+1} <a href="#" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false" style="color:#C77">\u00d7</a></label>`;
-      h += `<input placeholder="Channel name" value="${esc(ch.name||"")}" onchange="setPath(\x27${cb}.name\x27,this.value)"></div>`;
-      h += `<div class="fld"><label>Method</label><select onchange="setPath(\x27${cb}.method\x27,this.value);renderContent();refresh()">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
-      if(m==="pool_conversion"){ h += F("Pool (addressable customers)", cb+".params.pool", "n"); h += F("Conversion rate (%)", cb+".params.conversion_rate", "pct"); }
-      else if(m==="spend_cac"){ h += F("Annual spend ($000s)", cb+".params.spend", "k"); h += F("CAC ($ per customer)", cb+".params.cac", "n"); }
-      else if(m==="fte_productivity"){ h += F("Sales FTEs", cb+".params.ftes", "n"); h += F("New customers per FTE/yr", cb+".params.per_fte", "n"); }
-      else if(m==="explicit"){ const _csv=(ch.params.new_customers_by_year||[]).join(",");
-        h += `<div class="fld wide"><label>New customers by year (comma-sep)</label><input value="${esc(_csv)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(x=>parseFloat(x.trim())||0);refresh()"></div>`; }
-      h += F("Avg AUC per customer ($000s)", cb+".avg_auc_per_customer", "k");
-    });
-    h += `<div class="fld wide" style="margin-top:6px"><button class="btn-plain" style="font-size:11px" onclick="window.addCacChannel(\x27${esc(fn)}\x27)">+ channel</button></div>`;
-    h += '</div>';
-  });
-  h += '<div style="margin:6px 0 14px"><button class="btn-plain" onclick="window.addCacFeed()">+ Add acquisition feed</button></div>';
-  return h;
-}
+window.renameCacFeed = function(oldName, newName){
+  newName = (newName||"").trim(); if(!newName || newName===oldName){ renderContent(); return; }
+  var CF = cfg.assumptions.cac_feeds || {};
+  if(CF[newName]){ alert("A feed by that name already exists."); renderContent(); return; }
+  CF[newName] = CF[oldName]; delete CF[oldName];
+  (cfg.assumptions.obs_exposures||[]).forEach(function(pp){ if(pp.managed_notional_source===oldName) pp.managed_notional_source=newName; });
+  renderContent(); refresh();
+};
 window.addCacFeed = function(){
   cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
   let n=1; while(cfg.assumptions.cac_feeds["feed_"+n]) n++;
@@ -6130,17 +6103,10 @@ function structuresSectionsHtml(){
     ["AOCI", !!A.aoci_sensitivity_annual],
     ["Depreciation", !!A.premises_depreciation_annual],
     ["NIE detail", !!A.nie_detail],
-    ["Interchange", !!(A.fee_modules&&A.fee_modules.interchange)],
-    ["Payments", !!(A.fee_modules&&(A.fee_modules.payments||[]).length)],
-    ["Service charges", !!(A.fee_modules&&A.fee_modules.service_charges)],
-    ["Trust", !!(A.fee_modules&&A.fee_modules.trust)],
-    ["BaaS", !!(A.fee_modules&&A.fee_modules.baas)],
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
   const lampMap = Object.fromEntries(lamps);
   const capOn = lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
   const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
-  const FEE5 = [["Interchange","wave"],["Service charges","doc"],["Trust","bank"],["BaaS","cube"],["Payments","stack"]];
-  const feeOnN = FEE5.filter(([n])=>lampMap[n]).length;
   const capN = (A.capital_raises||[]).length
              + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0);
   const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
@@ -6157,9 +6123,9 @@ function structuresSectionsHtml(){
               secAociTileOn?"On \u2014 click to remove all designated books and zero AOCI (instant)":"Off \u2014 click to activate with a default AFS book");
   h += swTile("Operating<br>expense", !!A.nie_detail, "nie", "calc", "",
               A.nie_detail?"On \u2014 NIE detail replaces the overhead line; click to deactivate":"Off \u2014 click to activate NIE detail");
-  h += swTile("Fee modules", feeOnN>0, "fee", "stack",
-              `<span class="minis">${FEE5.map(([n,ic])=>`<span class="${lampMap[n]?"on":""}" title="${n}${lampMap[n]?" \u00b7 on":""}">${ICONS[ic]}</span>`).join("")}</span>`,
-              feeOnN>0?"On \u2014 click to remove every fee module (instant)":"Off \u2014 click to activate with Interchange");
+  const cacN = Object.keys(A.cac_feeds||{}).length;
+  h += swTile("Customer acquisition", cacN>0, "cac", "stack", "",
+              cacN>0?("On - "+cacN+" acquisition feed"+(cacN>1?"s":"")):"Off - click to add an acquisition feed");
   h += swTile("Tax \u2014<br>NOL \u2192 DTA", !!A.tax_detail, "tax", "percent", "",
               A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
   h += swTile("Credit regime \u2014<br>CECL", !!A.credit_regime, "cecl", "shield", "",
@@ -6242,59 +6208,26 @@ function structuresSectionsHtml(){
     h += `<div class="chint" style="color:#DFA85A">Replaces the sidebar\u2019s Corporate overhead line while active \u2014 overhead of ${((cfg.assumptions.overhead_q||0)/1000).toLocaleString()} $000s/qtr is ignored. Zeroing these fields models a bank with no operating expenses; to compare against the plain overhead model, deactivate instead.</div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
-  h += `</div><div class="cfgcard" id="card-fee"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Fee modules</div><div class="cd">Enable fee modules to include their economics in the engagement.</div></span></div>`;
-  const FM = (A.fee_modules = A.fee_modules || {});
-  const fpill = (key, label, icon, on, onCb, offCb)=>
-    `<button class="fpill${on?" on":""}" onclick="${on?offCb:onCb}" title="${on?"On \u2014 click to remove (instant)":"Off \u2014 click to enable"}"><span style="color:${on?"#DFA85A":"#8FA3C0"}">${ICONS[icon]}</span>${label}<span class="fbadge">\u2713</span></button>`;
-  h += '<div style="display:flex;flex-wrap:wrap;gap:9px">'
-    + fpill('interchange','Interchange','wave', !!FM.interchange, "fmOn('interchange')", "delete cfg.assumptions.fee_modules.interchange;renderContent();refresh()")
-    + fpill('service_charges','Service charges','calc', !!FM.service_charges, "fmOn('service_charges')", "delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh()")
-    + fpill('trust','Trust','bank', !!FM.trust, "fmOn('trust')", "delete cfg.assumptions.fee_modules.trust;renderContent();refresh()")
-    + fpill('baas','BaaS','cube', !!FM.baas, "fmOn('baas')", "delete cfg.assumptions.fee_modules.baas;renderContent();refresh()")
-    + fpill('payments','Payments','stack', !!(FM.payments||[]).length, "fmRail()", "cfg.assumptions.fee_modules.payments=[];renderContent();refresh()")
-    + '</div>';
-  if(FM.interchange){ const IC=FM.interchange;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Interchange:</b> tx<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((IC.tx_count_q||0)/1000)}" title="000s/q" onchange="cfg.assumptions.fee_modules.interchange.tx_count_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s tx/q</span> growth<input type="number" step="0.5" style="width:60px" value="${((IC.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.interchange.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> ticket<input type="number" style="width:60px" value="${IC.avg_ticket||0}" onchange="cfg.assumptions.fee_modules.interchange.avg_ticket=parseFloat(this.value);refresh()"><span class="cu">$</span> rate<input type="number" step="0.05" style="width:64px" value="${((IC.interchange_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.interchange_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> net fees<input type="number" step="0.05" style="width:64px" value="${((IC.network_fee_rate||0)*100).toFixed(2)}" onchange="cfg.assumptions.fee_modules.interchange.network_fee_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.interchange;renderContent();refresh();return false">\u00d7</a></div>`; }
-
-  if(FM.service_charges){ const SV=FM.service_charges;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Service charges:</b> accts<input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((SV.accounts||0)/1000)}" onchange="cfg.assumptions.fee_modules.service_charges.accounts=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s accts</span> growth<input type="number" step="0.5" style="width:60px" value="${((SV.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.service_charges.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" step="0.5" style="width:64px" value="${SV.fee_m||0}" onchange="cfg.assumptions.fee_modules.service_charges.fee_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.service_charges;renderContent();refresh();return false">\u00d7</a></div>`; }
-  if(FM.trust) h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">Trust:</b> AUM<input type="text" inputmode="decimal" style="width:110px" value="${fmtComma((FM.trust.aum_open||0)/1000)}" title="$000s" onchange="cfg.assumptions.fee_modules.trust.aum_open=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">$000s</span> growth<input type="number" step="0.5" style="width:60px" value="${((FM.trust.aum_growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.trust.aum_growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> fee<input type="number" style="width:60px" value="${FM.trust.fee_bp_ann||0}" onchange="cfg.assumptions.fee_modules.trust.fee_bp_ann=parseFloat(this.value);refresh()"><span class="cu">bp/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.trust;renderContent();refresh();return false">\u00d7</a></div>`;
-  if(FM.baas){ const BB=FM.baas;
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">BaaS:</b> programs<input type="text" inputmode="decimal" style="width:64px" value="${fmtComma(BB.programs||0)}" onchange="cfg.assumptions.fee_modules.baas.programs=parseFloat(String(this.value).replace(/,/g,''));refresh();fmtField(this)"><span class="cu">programs</span> accts/prog<input type="text" inputmode="decimal" style="width:90px" value="${fmtComma((BB.accts_per_program||0)/1000)}" onchange="cfg.assumptions.fee_modules.baas.accts_per_program=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s accts</span> growth<input type="number" step="0.5" style="width:60px" value="${((BB.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.baas.growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%/q</span> rev<input type="number" step="0.001" style="width:70px" value="${BB.rev_per_acct_m||0}" onchange="cfg.assumptions.fee_modules.baas.rev_per_acct_m=parseFloat(this.value);refresh()"><span class="cu">$/acct/mo</span><a href="#" class="cx" onclick="delete cfg.assumptions.fee_modules.baas;renderContent();refresh();return false">\u00d7</a></div>`; }
-  (FM.payments||[]).forEach((rail,i)=>{
-    h += `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${i===0?"Payments:":""}</b><input style="width:100px" value="${esc(rail.rail||"")}" placeholder="Rail" onchange="cfg.assumptions.fee_modules.payments[${i}].rail=this.value;refresh()"><input type="text" inputmode="decimal" style="width:100px" value="${fmtComma((rail.vol_q||0)/1000)}" title="000s tx/q" onchange="cfg.assumptions.fee_modules.payments[${i}].vol_q=parseFloat(String(this.value).replace(/,/g,''))*1000;refresh();fmtField(this)"><span class="cu">000s tx/q</span> growth<input type="number" step="0.5" style="width:56px" value="${((rail.growth_q||0)*100).toFixed(1)}" onchange="cfg.assumptions.fee_modules.payments[${i}].growth_q=parseFloat(this.value)/100;refresh()"><span class="cu">%</span> fee<input type="number" step="0.01" style="width:70px" value="${rail.fee_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].fee_per_tx=parseFloat(this.value);refresh()"> cost<input type="number" step="0.01" style="width:70px" value="${rail.cost_per_tx||0}" onchange="cfg.assumptions.fee_modules.payments[${i}].cost_per_tx=parseFloat(this.value);refresh()"><a href="#" class="cx" onclick="cfg.assumptions.fee_modules.payments.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-  });
-  if((FM.payments||[]).length) h += '<a href="#" class="cadd" onclick="fmRail();return false">+ add rail</a>';
-  // Generic fee_products (Step 2, fee-driven-product generalization). BEHAVIORALLY
-  // UNVERIFIED -- no browser available to test this block; see the verification
-  // checklist delivered alongside this change. FEE_CATALOG_JS/BASIS_FIELDS_JS below
-  // are a static mirror of foundry/v2/fee_catalog.py, not a fetch -- deliberate,
-  // documented duplication (see the comment on those constants) chosen as the more
-  // conservative option for code that could not be behaviorally verified before
-  // shipping; revisit toward a server-fetched catalog after a real browser session.
-  h += '<div style="display:flex;flex-wrap:wrap;gap:9px;margin-top:8px">'
-    + Object.keys(FEE_CATALOG_JS).map(k=>{
-        const preset = FEE_CATALOG_JS[k];
-        return `<button class="fpill" onclick="window.addFeeProduct('${k}')" title="Add a ${esc(preset.label)} (${preset.basis}-basis)"><span style="color:#8FA3C0">${ICONS.stack}</span>+ ${esc(preset.label)}</button>`;
-      }).join('')
-    + '</div>';
-  (A.fee_products||[]).forEach((fp,i)=>{
-    fp.params = fp.params || {};
-    const bf = BASIS_FIELDS_JS[fp.basis] || [];
-    let row = `<div class="crow"><b style="color:#DCE3EE;min-width:118px">${esc(fp.key||fp.basis||'Fee product')}:</b>`;
-    bf.forEach(([k,lab,unit,scale])=>{
-      const raw = fp.params[k] || 0;
-      const disp = scale===1000 ? fmtComma(raw/1000) : (scale==='pct' ? (raw*100).toFixed(1) : raw);
-      const parseExpr = scale===1000 ? "parseFloat(String(this.value).replace(/,/g,''))*1000"
-                        : scale==='pct' ? "parseFloat(this.value)/100" : "parseFloat(this.value)";
-      const inputType = scale===1000 ? 'type="text" inputmode="decimal"' : 'type="number" step="0.5"';
-      const fmtCall = scale===1000 ? ';fmtField(this)' : '';
-      row += ` ${esc(lab)}<input ${inputType} style="width:80px" value="${disp}" onchange="cfg.assumptions.fee_products[${i}].params.${k}=${parseExpr};refresh()${fmtCall}"><span class="cu">${esc(unit)}</span>`;
+  h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
+  { const CF = (A.cac_feeds = A.cac_feeds || {}); const cfNames = Object.keys(CF);
+    const CACM = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit per-year"]];
+    if(!cfNames.length){ h += '<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>'; }
+    cfNames.forEach(function(fn){ const fd = CF[fn]; fd.channels = fd.channels || [];
+      h += `<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:150px" value="${esc(fn)}" onchange="window.renameCacFeed(\x27${esc(fn)}\x27,this.value)"> attrition<input type="number" step="0.5" style="width:56px" value="${((fd.attrition_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].attrition_rate=parseFloat(this.value)/100;refresh()"><span class="cu">%/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false">\u00d7</a></div>`;
+      fd.channels.forEach(function(ch,ci){ ch.params = ch.params || {}; const m = ch.method || "pool_conversion";
+        const P=function(k,expr){return "cfg.assumptions.cac_feeds[\x27"+fn+"\x27].channels["+ci+"].params."+k+"="+expr+";refresh()";};
+        let row = `<div class="crow" style="padding-left:14px"><input style="width:96px" placeholder="Channel" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].name=this.value;refresh()"><select onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].method=this.value;renderContent();refresh()">${CACM.map(function(o){return `<option value="${o[0]}"${o[0]===m?" selected":""}>${o[1]}</option>`;}).join('')}</select> `;
+        if(m==="pool_conversion"){ row += `pool<input type="number" style="width:74px" value="${ch.params.pool||0}" onchange="${P('pool','parseFloat(this.value)')}"> conv<input type="number" step="0.5" style="width:50px" value="${((ch.params.conversion_rate||0)*100).toFixed(1)}" onchange="${P('conversion_rate','parseFloat(this.value)/100')}"><span class="cu">%</span>`; }
+        else if(m==="spend_cac"){ row += `spend<input type="number" style="width:84px" value="${(ch.params.spend||0)/1000}" onchange="${P('spend','parseFloat(this.value)*1000')}"><span class="cu">$000s</span> CAC<input type="number" style="width:74px" value="${ch.params.cac||0}" onchange="${P('cac','parseFloat(this.value)')}"><span class="cu">$</span>`; }
+        else if(m==="fte_productivity"){ row += `FTEs<input type="number" step="0.5" style="width:54px" value="${ch.params.ftes||0}" onchange="${P('ftes','parseFloat(this.value)')}"> per-FTE<input type="number" style="width:64px" value="${ch.params.per_fte||0}" onchange="${P('per_fte','parseFloat(this.value)')}">`; }
+        else { row += `by-year<input style="width:140px" placeholder="50,75,100" value="${esc((ch.params.new_customers_by_year||[]).join(String.fromCharCode(44)))}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(function(x){return parseFloat(x.trim())||0;});refresh()">`; }
+        row += ` avgAUC<input type="number" style="width:84px" value="${(ch.avg_auc_per_customer||0)/1000}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].avg_auc_per_customer=parseFloat(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        h += row;
+      });
+      h += `<a href="#" class="cadd" style="margin-left:14px" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ add channel</a>`;
     });
-    row += ` <a href="#" class="cx" onclick="cfg.assumptions.fee_products.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-    h += row;
-  });
-  if(lastRes && lastRes.products){ const _fp=lastRes.products.filter(p=>p.fees && p.fees.some(x=>x)); if(_fp.length){ const _sum=q=>_fp.reduce((a,p)=>a+(p.fees[q]||0),0); const _n=_fp[0].fees.length; h += `<div class="chint">Fee-product income Q1\u2192Q${_n}: ${Math.round(_sum(0)).toLocaleString()} \u2192 ${Math.round(_sum(_n-1)).toLocaleString()} $000s \u00b7 ${_fp.length} fee products \u00b7 rail costs land in operating expense.</div>`; } }
+    h += '<a href="#" class="cadd" onclick="window.addCacFeed();return false">+ add acquisition feed</a>';
+  }
   h += '</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
   h += `<button class="fpill${cfg.assumptions.tax_detail?" on":""}" style="margin:10px 0 12px" onclick="${cfg.assumptions.tax_detail?"delete cfg.assumptions.tax_detail":"cfg.assumptions.tax_detail={enabled:true}"};renderContent();refresh()" title="${cfg.assumptions.tax_detail?"On \u2014 click to disable (legacy treatment resumes)":"Off \u2014 click to enable"}"><span style="color:${cfg.assumptions.tax_detail?"#DFA85A":"#8FA3C0"}">${ICONS.percent}</span>NOL \u2192 DTA</button>`;
@@ -6344,19 +6277,6 @@ window.nieOff = function(){
   cfg.assumptions.nie_detail = null; renderContent(); refresh();
 };
 window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[{name:"Core banking & tech", per_quarter:0},{name:"Occupancy", per_quarter:0},{name:"Legal & compliance", per_quarter:0}], other_gross_up_rate:0}; renderContent(); refresh(); };
-window.fmOn = function(key){
-  // Added inert: zero volumes/rates/counts so a fee module contributes nothing until filled.
-  const d = {trust:{aum_open:0, aum_growth_q:0, fee_bp_ann:0},
-              interchange:{tx_count_q:0, growth_q:0, avg_ticket:0, interchange_rate:0, network_fee_rate:0},
-              service_charges:{accounts:0, growth_q:0, fee_m:0},
-              baas:{programs:0, accts_per_program:0, growth_q:0, rev_per_acct_m:0}};
-  cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
-  cfg.assumptions.fee_modules[key] = d[key]; renderContent(); refresh(); };
-window.fmRail = function(){
-  cfg.assumptions.fee_modules = cfg.assumptions.fee_modules || {};
-  (cfg.assumptions.fee_modules.payments = cfg.assumptions.fee_modules.payments || []).push(
-    {rail:"ACH", vol_q:0, growth_q:0, fee_per_tx:0, cost_per_tx:0});
-  renderContent(); refresh(); };
 // Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
 // NOT fetched from the server -- a deliberate, documented duplication, chosen over an
 // async fetch because this whole block is BEHAVIORALLY UNVERIFIED (no browser available
@@ -6420,7 +6340,6 @@ function renderConfigTab(){
   }
   h += '<div class="memo" style="margin:0 0 14px">The engagement\u2019s living configuration \u2014 set structures and modules below; the engine activates steps and pages from presence, not assertion.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
-  if(!snapshotMode) h += cacFeedsSectionHtml();
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
     h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
   if(V31){
