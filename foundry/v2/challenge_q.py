@@ -214,9 +214,13 @@ def challenge_config(cfg):
     # THRESHOLD-CROSS check lives there, where totalAssets exists). It must fire the same way whether
     # interchange is configured in the modern location (fee_modules.interchange, where the console
     # writes it) or the legacy top-level assumptions.interchange_rate. Presence is the trigger.
-    _fm = a.get("fee_modules") or {}
-    _ic = _fm.get("interchange") or {}
-    _has_interchange = ("interchange_rate" in a) or bool(_ic) or ("interchange_rate" in _ic)
+    # Interchange now lives as a GUT fee_streams product whose stream declares
+    # rate.behavior == "durbin_capped" (legacy fee_modules.interchange retired). Presence of
+    # such a stream (or the legacy top-level assumptions.interchange_rate) is the trigger.
+    _has_interchange = ("interchange_rate" in a) or any(
+        ((st.get("rate") or {}).get("behavior") == "durbin_capped")
+        for pr in (a.get("obs_exposures") or [])
+        for st in (pr.get("fee_streams") or []))
     if _has_interchange:
         _flag(flags, "REG-DURBIN", "mild",
               "Interchange revenue relies on the Durbin small-issuer exemption: unregulated debit "
