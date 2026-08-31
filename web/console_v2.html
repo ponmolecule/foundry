@@ -2487,7 +2487,7 @@ function openModal(){
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
         + (cn==="Off-Balance-Sheet" ? `<button class="preset-btn" id="pfee_obs" onclick="addFeeProductMulti(this)"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue (custody, trustee, \u2026)</span></button>` : "")
-        + TAX31()[cn].map((s,i)=>`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
+        + TAX31()[cn].map((s,i)=>(s.tpl&&s.tpl._fee_product)?"":`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
         + '</div>';
     });
     mh += '<div class="accent-label">Securities &amp; Cash / Other</div><div class="memo">Computed by the funding waterfall and Global Assumptions \u2014 nothing to add here.</div>';
