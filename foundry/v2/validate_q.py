@@ -93,8 +93,16 @@ def validate_config_v2(cfg):
     unknown = [m for m in mods if m not in KNOWN_MODULES]
     if unknown:
         errs.append(f"unknown modules {unknown}; known: {sorted(KNOWN_MODULES)}")
-    if mods and not unknown and "balance_driven_deposits" not in mods:
-        errs.append("no deposit module loaded — a bank needs a funding side")
+    # A funding/revenue side is required, but deposits are not the ONLY valid one: a trust /
+    # custody / BaaS charter runs on off-balance-sheet fee income (balance_driven_obs) with
+    # little or no deposits. Block only when NEITHER a deposit module NOR an OBS/fee module is
+    # loaded (a config with modules but no revenue engine at all is the real misconfiguration).
+    # A deposit-less-but-fee-bearing engagement is permitted (fidelity: fee-first charters are
+    # real; the funding waterfall keeps the balance sheet alive off initial capital).
+    if mods and not unknown and "balance_driven_deposits" not in mods \
+            and "balance_driven_obs" not in mods:
+        errs.append("no funding or fee side loaded — a bank needs deposits or off-balance-sheet "
+                    "fee income (balance_driven_deposits or balance_driven_obs)")
 
     a = cfg["assumptions"]
     # Projection horizon (optional; defaults to 12 = the historical quarterly horizon). When set, it
