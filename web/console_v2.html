@@ -2403,7 +2403,11 @@ function TAX31(){
       {name:"Sweep Deposits", line:"depSweep", fam:"deposit", tpl:D("Sweep Deposits","depSweep",{rate_type:"float", index_spread:0, _adds_m:0, _runoff_ann:0, insured_pct:1.0})},
       {name:"Institutional (operating)", line:"depInstitutional", fam:"deposit", tpl:D("Institutional (operating)","depInstitutional",{_adds_m:0, _runoff_ann:0, insured_pct:0.35})}],
     "Off-Balance-Sheet": [
-      {name:"Off-Balance-Sheet Commitment", line:"obs", fam:"obs", tpl:O("Off-Balance-Sheet Commitment","obs",{})}]
+      {name:"Off-Balance-Sheet Commitment", line:"obs", fam:"obs", tpl:O("Off-Balance-Sheet Commitment","obs",{})},
+      {name:"Fee-based product (custody / trust / BaaS)", line:"obs", fam:"obs",
+       tpl:{name:"Fee product", call_report_line:"obs", _fee_product:true,
+            managed_notional:{day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
+            fee_streams:[], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0}}]
   };
   return TAX31_DATA;
 }
@@ -5026,8 +5030,18 @@ function renderWizard(){
 function fmtC(x){ return "$" + (x/1e6).toFixed(1) + "M"; }
 async function wizFinish(){
   const hasDep = Object.keys(wiz.picks).some(k=>k.startsWith("Deposits|") && wiz.picks[k]);
+  // A funding/revenue side is required, but deposits are not the only valid one: a trust /
+  // custody / BaaS charter runs on off-balance-sheet FEE income. So a fee-product pick counts
+  // (mirrors validate_q: deposits OR balance_driven_obs). A bare OBS *commitment* does NOT
+  // count \u2014 it is neither funding nor fee revenue \u2014 so we check the picked item is a fee product.
+  const hasFeePick = Object.keys(wiz.picks).some(k=>{
+    if(!wiz.picks[k] || !k.startsWith("Off-Balance-Sheet|")) return false;
+    const i = +k.split("|")[1];
+    const t = ((TAX31()["Off-Balance-Sheet"]||[])[i]||{}).tpl || {};
+    return !!t._fee_product;
+  });
   if(!wiz.name.trim()){ appStatus("err", "<b>Name the institution first.</b>"); return; }
-  if(!hasDep){ appStatus("err", "<b>Select at least one deposit product</b> \u2014 a de novo funds before it lends."); return; }
+  if(!hasDep && !hasFeePick){ appStatus("err", "<b>Select a funding or fee side</b> \u2014 at least one deposit product, or a fee-based product (trust, custody, BaaS). An off-balance-sheet commitment alone is neither funding nor fee revenue."); return; }
   if(wiz.initial_capital <= 0){
     appStatus("err", "<b>Entry screen:</b> enter an initial capital raise greater than zero before creating the engagement."); return; }
   // a NEW engagement starts from a clean shell — never from whatever session was open
