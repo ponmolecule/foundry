@@ -763,6 +763,7 @@ def run_pf_a(cfg):
                 "interest": [(p["_ii"][q] - p["_ie"][q]) for q in range(1, Q + 1)],
                 "fees": [p["_fee"][q] for q in range(1, Q + 1)],
                 "opex": [p["_ox"][q] for q in range(1, Q + 1)],
+                "passCost": [((p.get("_fcost") or [None]*(Q+1))[q] or 0.0) for q in range(1, Q + 1)],
                 "co": [(p["_co"][q] if "_co" in p else 0.0) for q in range(1, Q + 1)],
                 "gos": [(p["_gos"][q] if p.get("_gos") else 0.0) for q in range(1, Q + 1)],
                 "servNet": [(p["_snet"][q] if p.get("_snet") else 0.0) for q in range(1, Q + 1)],
