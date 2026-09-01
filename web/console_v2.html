@@ -6233,10 +6233,10 @@ function structuresSectionsHtml(){
       // Each category is a bordered block: line 1 = name + trajectory + remove; line 2 = value inputs.
       let row = `<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
       row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||"")}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()">`;
-      row += `<select style="width:160px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
       row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-      // line 2: value inputs, indented, on their own row so nothing collides
+      // line 2: trajectory (tightly coupled to what the amount means) + value inputs
       row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px">`;
+      row += `<select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
       if(traj==="explicit"){
         { const _np = NP(); const _have = (ct.schedule||[]).length;
           row += `<span class="cu">per-qtr</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per quarter; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/qtr \u00b7 ${_have}/${_np}</span>`; }
