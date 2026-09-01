@@ -6229,17 +6229,22 @@ function structuresSectionsHtml(){
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
       const traj = ct.trajectory || "flat";
       const TR = [["flat","Flat ($/q)"],["linear","Linear (base + growth)"],["explicit","Explicit (per-qtr list)"]];
-      let row = `<div class="crow" style="flex-wrap:wrap"><input style="flex:1 1 90px;min-width:80px" value="${esc(ct.name||"")}" placeholder="Category" onchange="${_cb}.name=this.value;refresh()">`;
-      row += `<select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
-      if(traj==="explicit"){
-        row += `<input style="flex:1 1 160px;min-width:140px" placeholder="e.g. 50,50,60,60 ($000s/qtr)" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per quarter" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()">`;
-      } else {
-        row += `<input type="text" inputmode="decimal" style="width:70px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="${traj==="linear"?"base $000s/q (q1)":"$000s/q"}" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s${traj==="linear"?" base":"/q"}</span>`;
-        if(traj==="linear"){
-          row += `<input type="number" step="0.5" style="width:56px" value="${((ct.growth_q||0)*100).toFixed(1)}" title="growth %/qtr" onchange="${_cb}.growth_q=_pf(this.value)/100;refresh()"><span class="cu">grw %/q</span>`;
-        }
-      }
+      // Each category is a bordered block: line 1 = name + trajectory + remove; line 2 = value inputs.
+      let row = `<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
+      row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||"")}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()">`;
+      row += `<select style="width:160px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
       row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      // line 2: value inputs, indented, on their own row so nothing collides
+      row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px">`;
+      if(traj==="explicit"){
+        row += `<span class="cu">per-qtr</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per quarter" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/qtr</span>`;
+      } else if(traj==="linear"){
+        row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="base $000s/q (quarter 1)" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/q</span>`;
+        row += `<span class="cu" style="margin-left:10px">growth</span><input type="number" step="0.5" style="width:60px" value="${((ct.growth_q||0)*100).toFixed(1)}" title="growth %/qtr" onchange="${_cb}.growth_q=_pf(this.value)/100;refresh()"><span class="cu">%/qtr</span>`;
+      } else {
+        row += `<span class="cu">amount</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="$000s per quarter" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/qtr</span>`;
+      }
+      row += `</div></div>`;
       h += row;
     });
     h += '<a href="#" class="cadd" onclick="(cfg.assumptions.nie_detail.categories=cfg.assumptions.nie_detail.categories||[]).push({name:String(),per_quarter:0});renderContent();refresh();return false">+ add category</a>';
