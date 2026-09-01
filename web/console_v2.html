@@ -2083,7 +2083,18 @@ function fieldsFor(fam, p, base){
       h += SEL("Rate behavior", sb+".rate.behavior", rb, [["flat","Flat rate"],["annual_change","Annual change (%/yr)"],["scheduled","Scheduled (per-quarter)"],["tiered","Tiered (breakpoints)"]]);
       if(basis==="balance"){ const _bp=((st.rate.params.rate||0)*10000).toFixed(2);
         h += `<div class="fld"><label>Rate (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=_pf(this.value)/10000;refresh()"></div>`; }
-      else if(basis==="transaction"){ h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
+      else if(basis==="transaction"){
+        const _dc = (st.rate.behavior==="durbin_capped");
+        if(!_dc){ h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n"); }
+        // Durbin debit-interchange cap: only relevant to transaction (interchange) streams.
+        h += `<div class="fld wide" style="margin-top:4px"><label style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" ${_dc?"checked":""} onchange="(function(cb){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];if(cb.checked){st2.rate.behavior=\x27durbin_capped\x27;st2.rate.params=st2.rate.params||{};if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior=\x27flat\x27;}renderContent();refresh();})(this)"> Apply Durbin debit-interchange cap (binds at \u2265 \$10B assets)</label></div>`;
+        if(_dc){
+          h += `<div class="fld"><label>Gross interchange rate (%/txn value)</label><input type="number" step="0.01" value="${((st.rate.params.rate||0)*100).toFixed(3)}" title="e.g. 1.25% debit interchange" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=_pf(this.value)/100;refresh()"></div>`;
+          h += `<div class="fld"><label>Avg ticket (\$/txn)</label><input type="number" step="1" value="${st.rate.params.avg_ticket||0}" title="average transaction size, sets the per-tx cap" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.avg_ticket=_pf(this.value);refresh()"></div>`;
+          h += `<div class="fld"><label>Net fee ($/unit, after network fee)</label><input type="number" step="0.001" value="${st.rate.params.per_unit||0}" title="the per-transaction fee you actually earn (gross rate x ticket, less network fee)" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.per_unit=_pf(this.value);refresh()"></div>`;
+          h += `<div class="fld wide" style="font-size:11px;color:#888">Below \$10B: you earn the net fee. At/above \$10B: the effective rate is capped to the regulated cap (\$0.21 + 0.05%\u00d7ticket + \$0.01), reducing interchange automatically.</div>`;
+        }
+      }
       else if(basis==="account"){ h += F("Fee ($/acct/period)", sb+".rate.params.fee_per_period", "n"); h += F("Periods/qtr", sb+".rate.params.periods_per_q", "n"); }
       else if(basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
       else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F("At period (quarter)", sb+".driver.params.at_period", "n"); }
