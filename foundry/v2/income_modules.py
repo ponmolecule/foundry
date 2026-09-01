@@ -44,7 +44,24 @@ def nie_detail_series(a):
     loaded = float(nd.get("loaded_comp_annual") or 0.0)
     _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
     comp = [fte[min((q - 1) // 4, _lastyr)] * loaded / 4.0 for q in range(1, Q + 1)]
-    cats = [float(sum(c.get("per_quarter", 0.0) for c in (nd.get("categories") or [])))] * Q
+    # Per-category quarterly series. Each category can be:
+    #   - flat (default): per_quarter repeated every quarter — BYTE-IDENTICAL to the legacy
+    #     behavior when only per_quarter is set (back-compat invariant).
+    #   - linear: per_quarter grown at growth_q each quarter (base = per_quarter at q1).
+    #   - explicit: an explicit per-quarter schedule list (padded/truncated to Q; missing = 0).
+    def _cat_series(c):
+        traj = c.get("trajectory") or "flat"
+        base = float(c.get("per_quarter", 0.0) or 0.0)
+        if traj == "explicit":
+            sched = list(c.get("schedule") or [])
+            return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
+                    for i in range(Q)]
+        if traj == "linear":
+            g = float(c.get("growth_q") or 0.0)
+            return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
+        return [base] * Q                      # flat (legacy)
+    _catlist = nd.get("categories") or []
+    cats = [float(sum(_cat_series(c)[i] for c in _catlist)) for i in range(Q)]
     return {"comp": comp, "categories": cats,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
              # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
