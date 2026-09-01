@@ -4385,6 +4385,7 @@ function renderContent(){
       }
       h += rowBS('Fee income', p.fees);
       h += rowBS('Operating costs', p.opex);
+      if(p.passCost && p.passCost.some(x=>x)) h += rowBS('Pass-through cost (\u2192 overhead)', p.passCost);
       h += '</table>';
     });
     h += methodFoot();
@@ -5083,7 +5084,7 @@ async function wizFinish(){
   freezeOriginal("new engagement");
   markPristine();
   LC.land("created", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // NEW-UNSAVED
-  renderGlobals(); refresh(); setTab("products");
+  renderGlobals(); refresh(); setTab("config");
 }
 window.wizStart=wizStart; window.wizSet=wizSet; window.wizPick=wizPick; window.wizFinish=wizFinish;
 
@@ -6237,7 +6238,8 @@ function structuresSectionsHtml(){
       // line 2: value inputs, indented, on their own row so nothing collides
       row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px">`;
       if(traj==="explicit"){
-        row += `<span class="cu">per-qtr</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per quarter" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/qtr</span>`;
+        { const _np = (cfg.assumptions.n_periods||12); const _have = (ct.schedule||[]).length;
+          row += `<span class="cu">per-qtr</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per quarter; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/qtr \u00b7 ${_have}/${_np}</span>`; }
       } else if(traj==="linear"){
         row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="base $000s/q (quarter 1)" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/q</span>`;
         row += `<span class="cu" style="margin-left:10px">growth</span><input type="number" step="0.5" style="width:60px" value="${((ct.growth_q||0)*100).toFixed(1)}" title="growth %/qtr" onchange="${_cb}.growth_q=_pf(this.value)/100;refresh()"><span class="cu">%/qtr</span>`;
