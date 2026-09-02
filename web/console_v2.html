@@ -2968,7 +2968,7 @@ window.secAdd = function(kind){
 window.poAdd = function(){
   cfg.pre_opening = cfg.pre_opening || {};
   (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
-  renderGlobals(); refresh();
+  renderContent(); refresh();
 };
 window.poPaste = function(txt, mode){
   cfg.pre_opening = cfg.pre_opening || {};
@@ -2999,7 +2999,7 @@ window.poPaste = function(txt, mode){
   else cfg.pre_opening.expenses = cfg.pre_opening.expenses.concat(parsed);
   appStatus("ok", parsed.length + " pre-opening item" + (parsed.length===1?"":"s") + " loaded.");
   cfg.pre_opening._pasteOpen = false;        // clear + collapse: the box is transient, rows are truth
-  renderGlobals(); refresh();
+  renderContent(); refresh();
 };
 // Risk-based capital ratios are filed only by banks that did NOT elect the
 // Community Bank Leverage Ratio (CBLR) framework. ~1,700 CBLR electors lawfully
@@ -6218,7 +6218,7 @@ function structuresSectionsHtml(){
     var _pasteOpen = !!(cfg.pre_opening && cfg.pre_opening._pasteOpen);
     if(!_pasteOpen){
       _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
-      _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};cfg.pre_opening._pasteOpen=true;renderGlobals();return false">\u2398 Paste from spreadsheet</a>';
+      _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};cfg.pre_opening._pasteOpen=true;renderContent();return false">\u2398 Paste from spreadsheet</a>';
       _p += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="poAdd();return false">+ add one manually</a>';
       _p += '</div>';
     } else {
@@ -6227,7 +6227,7 @@ function structuresSectionsHtml(){
       _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
       _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27replace\x27)">Load (replace)</button>';
       _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27append\x27)">Load (append)</button>';
-      _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderGlobals();return false">close</a>';
+      _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderContent();return false">close</a>';
       _p += '</div></div>';
     }
     _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
