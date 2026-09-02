@@ -6212,7 +6212,7 @@ function structuresSectionsHtml(){
       _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste from a spreadsheet \u2014 one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated):</div>';
-    _p += '<textarea id="poPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
+    _p += '<textarea id="poPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
     _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
     _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27replace\x27)">Load (replace)</button>';
     _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27append\x27)">Load (append)</button>';
