@@ -2998,6 +2998,7 @@ window.poPaste = function(txt, mode){
   if(mode==="replace") cfg.pre_opening.expenses = parsed;
   else cfg.pre_opening.expenses = cfg.pre_opening.expenses.concat(parsed);
   appStatus("ok", parsed.length + " pre-opening item" + (parsed.length===1?"":"s") + " loaded.");
+  cfg.pre_opening._pasteOpen = false;        // clear + collapse: the box is transient, rows are truth
   renderGlobals(); refresh();
 };
 // Risk-based capital ratios are filed only by banks that did NOT elect the
@@ -6212,13 +6213,23 @@ function structuresSectionsHtml(){
     pex.forEach((e,i)=>{
       _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
-    _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste from a spreadsheet \u2014 one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated):</div>';
-    _p += '<textarea id="poPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
-    _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
-    _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27replace\x27)">Load (replace)</button>';
-    _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27append\x27)">Load (append)</button>';
-    _p += '<button class="btn-plain" style="font-size:11px" onclick="poAdd()">+ add one manually</button>';
-    _p += '</div></div>';
+    // Progressive disclosure: the paste box is hidden until summoned, and clears + collapses on
+    // Load. The rows above are the single source of truth; the box is a transient input chute.
+    var _pasteOpen = !!(cfg.pre_opening && cfg.pre_opening._pasteOpen);
+    if(!_pasteOpen){
+      _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
+      _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};cfg.pre_opening._pasteOpen=true;renderGlobals();return false">\u2398 Paste from spreadsheet</a>';
+      _p += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="poAdd();return false">+ add one manually</a>';
+      _p += '</div>';
+    } else {
+      _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated), then Load. The box clears after.</div>';
+      _p += '<textarea id="poPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
+      _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
+      _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27replace\x27)">Load (replace)</button>';
+      _p += '<button class="pillbtn" onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27append\x27)">Load (append)</button>';
+      _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderGlobals();return false">close</a>';
+      _p += '</div></div>';
+    }
     _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
     let _d = '<div class="csub">Depreciation</div>';
     _d += `<div class="crow">Premises depreciation<input type="text" inputmode="decimal" style="width:92px" title="annual $000s" value="${fmtComma((cfg.assumptions.premises_depreciation_annual||0)/1000)}" onchange="cfg.assumptions.premises_depreciation_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/yr</span></div>`;
