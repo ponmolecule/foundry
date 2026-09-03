@@ -519,9 +519,9 @@ const TAXONOMY_V31 = {
   "Other Assets / Liabilities": {note:"Premises, intangibles, other assets/liabilities and the borrowing rate live in Global Assumptions (left sidebar)."}
 };
 const DEP_KEYS = ["depDDA","depSavings","depTime","depBrokered","depSweep","depInstitutional","depListing"];
-const PRESETS_V2 = [{"name": "DDA", "fam": "deposit", "line": "depDDA", "p": {"name": "DDA", "opening_balance": 25000000.0, "growth_q": 0.12, "runoff_q": 0.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.01, "opex_fixed_q": 150000, "call_report_line": "depDDA", "rate_paid_ann": 0.0025}}, {"name": "Savings", "fam": "deposit", "line": "depSavings", "p": {"name": "Savings", "opening_balance": 35000000.0, "growth_q": 0.14, "runoff_q": 0.0, "rate_type": "float", "fee_yield_ann": 0.001, "opex_pct_ann": 0.003, "opex_fixed_q": 50000, "call_report_line": "depSavings", "index_spread": -0.006999999999999999}}, {"name": "Personal Loans", "fam": "lending", "line": "loanConsumer", "p": {"name": "Personal Loans", "opening_balance": 10000000.0, "originations_q": 5000000.0, "orig_growth_q": 0.05, "runoff_q": 0.08, "rate_type": "fixed", "charge_off_ann": 0.04, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "fee_yield_ann": 0.005, "opex_pct_ann": 0.015, "opex_fixed_q": 100000, "call_report_line": "loanConsumer", "yield_ann": 0.11}}, {"name": "Commercial Loans", "fam": "lending", "line": "loanCommercial", "p": {"name": "Commercial Loans", "opening_balance": 15000000.0, "originations_q": 7500000.0, "orig_growth_q": 0.05, "runoff_q": 0.05, "rate_type": "float", "charge_off_ann": 0.0075, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.0125, "measurement": "amortized", "fee_yield_ann": 0.0034999999999999996, "opex_pct_ann": 0.0075, "opex_fixed_q": 150000, "call_report_line": "loanCommercial", "index_spread": 0.035}}, {"name": "Credit Cards", "fam": "lending", "line": "loanCreditCard", "p": {"name": "Credit Cards", "opening_balance": 5000000.0, "originations_q": 2000000.0, "orig_growth_q": 0.06, "runoff_q": 0.1, "rate_type": "fixed", "charge_off_ann": 0.055, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.08, "measurement": "amortized", "fee_yield_ann": 0.03, "opex_pct_ann": 0.04, "opex_fixed_q": 200000, "call_report_line": "loanCreditCard", "yield_ann": 0.18}}, {"name": "Mortgages", "fam": "lending", "line": "loanMortgage", "p": {"name": "Mortgages", "opening_balance": 20000000.0, "originations_q": 6000000.0, "orig_growth_q": 0.04, "runoff_q": 0.03, "rate_type": "fixed", "charge_off_ann": 0.0015, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.005, "measurement": "amortized", "fee_yield_ann": 0.0025, "opex_pct_ann": 0.004, "opex_fixed_q": 100000, "call_report_line": "loanMortgage", "yield_ann": 0.06, "mortgage_banking": {"sale_pct_of_orig": 0.5, "gain_on_sale_margin": 0.0175, "warehouse_hold_q": 1, "servicing_retained_pct": 1.0, "servicing_fee_bp_ann": 25.0, "msr_cap_rate_pct_upb": 0.011000000000000001, "msr_decay_q": 0.03}}}];
+const PRESETS_V2 = [{"name": "DDA", "fam": "deposit", "line": "depDDA", "p": {"name": "DDA", "opening_balance": 25000000.0, "growth_per_period": 0.12, "runoff_per_period": 0.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.01, "opex_fixed_per_period": 150000, "call_report_line": "depDDA", "rate_paid_ann": 0.0025}}, {"name": "Savings", "fam": "deposit", "line": "depSavings", "p": {"name": "Savings", "opening_balance": 35000000.0, "growth_per_period": 0.14, "runoff_per_period": 0.0, "rate_type": "float", "fee_yield_ann": 0.001, "opex_pct_ann": 0.003, "opex_fixed_per_period": 50000, "call_report_line": "depSavings", "index_spread": -0.006999999999999999}}, {"name": "Personal Loans", "fam": "lending", "line": "loanConsumer", "p": {"name": "Personal Loans", "opening_balance": 10000000.0, "originations_per_period": 5000000.0, "orig_growth_per_period": 0.05, "runoff_per_period": 0.08, "rate_type": "fixed", "charge_off_ann": 0.04, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "fee_yield_ann": 0.005, "opex_pct_ann": 0.015, "opex_fixed_per_period": 100000, "call_report_line": "loanConsumer", "yield_ann": 0.11}}, {"name": "Commercial Loans", "fam": "lending", "line": "loanCommercial", "p": {"name": "Commercial Loans", "opening_balance": 15000000.0, "originations_per_period": 7500000.0, "orig_growth_per_period": 0.05, "runoff_per_period": 0.05, "rate_type": "float", "charge_off_ann": 0.0075, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.0125, "measurement": "amortized", "fee_yield_ann": 0.0034999999999999996, "opex_pct_ann": 0.0075, "opex_fixed_per_period": 150000, "call_report_line": "loanCommercial", "index_spread": 0.035}}, {"name": "Credit Cards", "fam": "lending", "line": "loanCreditCard", "p": {"name": "Credit Cards", "opening_balance": 5000000.0, "originations_per_period": 2000000.0, "orig_growth_per_period": 0.06, "runoff_per_period": 0.1, "rate_type": "fixed", "charge_off_ann": 0.055, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.08, "measurement": "amortized", "fee_yield_ann": 0.03, "opex_pct_ann": 0.04, "opex_fixed_per_period": 200000, "call_report_line": "loanCreditCard", "yield_ann": 0.18}}, {"name": "Mortgages", "fam": "lending", "line": "loanMortgage", "p": {"name": "Mortgages", "opening_balance": 20000000.0, "originations_per_period": 6000000.0, "orig_growth_per_period": 0.04, "runoff_per_period": 0.03, "rate_type": "fixed", "charge_off_ann": 0.0015, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.005, "measurement": "amortized", "fee_yield_ann": 0.0025, "opex_pct_ann": 0.004, "opex_fixed_per_period": 100000, "call_report_line": "loanMortgage", "yield_ann": 0.06, "mortgage_banking": {"sale_pct_of_orig": 0.5, "gain_on_sale_margin": 0.0175, "warehouse_hold_q": 1, "servicing_retained_pct": 1.0, "servicing_fee_bp_ann": 25.0, "msr_cap_rate_pct_upb": 0.011000000000000001, "msr_decay_per_period": 0.03}}}];
 const METHODOLOGY_HTML = "<div class=\"mth-wrap\"><div class=\"mth-lead\">This model projects a de novo bank’s financials quarterly across the projection horizon. Every figure on every tab is engine-computed from the assumptions you set — nothing is hand-entered downstream. The sections below describe exactly how each number is derived, and, just as important, what the model deliberately does <em>not</em> do.</div><div class=\"mth-callout\"><div class=\"mth-cl-h\">Rule update — CBLR requirement</div>Effective 2026-07-01 the statutory CBLR requirement is <b>8%</b> (91 FR 22973). The 9% figure used in defaults is a client chartering commitment, not the rule.</div><div class=\"mth-grid\"><div class=\"mth-sec\"><h4><span class=\"mth-num\">1</span>Balances, interest &amp; the allowance</h4><p>All figures are in thousands of dollars. Loan balances roll forward each quarter as beginning balance plus new originations, less runoff and charge-offs; deposit balances grow at the specified quarterly rate.</p><p>Interest income and expense accrue on average balances at one-quarter of the annual rate; floating-rate products reprice each quarter at their chosen reference index (SOFR, EFFR, or Prime) plus the product spread; a product with no index named defaults to SOFR. The three curves are generated from the FOMC SEP fed funds medians (YE26, YE27, YE28, longer run), interpolated piecewise-linearly into a twelve-quarter path, plus each index&rsquo;s basis offset: EFFR at the fed funds level, SOFR at approximately +5 basis points, and Prime at +300 basis points by WSJ convention. The medians, the offsets, and any individual quarter are all editable and flagged when changed; there is no run-time fetch, so results are fully reproducible. Credit cards price off Prime by convention.</p><p>The allowance for loan losses is held at each amortized-cost product’s target reserve rate applied to the ending balance, and the provision equals the change in the allowance plus net charge-offs on amortized-cost loans.</p></div><div class=\"mth-sec\"><h4><span class=\"mth-num\">2</span>Originate-to-sell &amp; servicing</h4><p>Originate-to-sell activity is modeled per product: the specified share of each quarter’s originations is designated held for sale, warehoused on the balance sheet for the specified number of quarters (earning coupon interest for roughly half a quarter in the origination and sale quarters and full quarters in between, with no runoff or charge-offs assumed during the warehouse period), and sold at par plus the gain-on-sale margin.</p><p>Under amortized cost the gain is recognized in the quarter of sale; under the fair value option the warehouse is marked to expected sale price in the quarter of origination, which pulls the gain forward — the classic reason originate-to-sell lenders elect FVO. Held-for-sale balances appear as a separate loan line and carry no allowance.</p><p>When servicing is retained on sold loans, serviced principal accumulates in an off-balance-sheet servicing portfolio that runs off at the servicing decay rate; a mortgage servicing right is capitalized at the specified rate when loans settle (recognized as part of the gain on sale, creating a non-cash asset), amortized in proportion to portfolio runoff, and reported as a separate asset line. Servicing fees accrue on average serviced principal and are reported net of MSR amortization. The MSR is a simplified static-value model — no prepayment-driven revaluation outside the stress haircut.</p></div><div class=\"mth-sec\"><h4><span class=\"mth-num\">3</span>Capital &amp; leverage</h4><p>In the leverage ratio, mortgage servicing assets above 25% of Tier 1 (approximated as equity less intangibles) are deducted from both capital and assets per the threshold-deduction rule; below-threshold MSAs remain in capital.</p><p>The model assumes the bank adopts the Community Bank Leverage Ratio framework (leverage minimum defaults to the chartering commitment, editable) and flags CBLR eligibility limits (off-balance-sheet exposures above 25% of assets; $10B asset ceiling); risk-weighted assets and risk-based ratios are not computed.</p><p><span class='mth-tag'>Capital deductions not modeled:</span> after-tax gains on sale arising from securitization exposures are deducted from CET1 under 12 CFR 3.22(a) — this model treats all loan sales as whole-loan sales, so if sales are structured as securitizations with retained exposure, capital is overstated by cumulative after-tax gains. Deferred tax assets are not booked by default, which mirrors the full regulatory deduction of NOL-carryforward DTAs (GAAP equity would be higher; regulatory capital would not be); when the deferred-tax path is elected, the NOL DTA is deducted from CET1 in full per 12 CFR 3.22(a), so regulatory capital is unaffected either way. Securities are not marked to market, consistent with the AOCI opt-out election. Investments in the capital of unconsolidated financial institutions, if modeled as custom products, are not threshold-deducted.</p></div><div class=\"mth-sec\"><h4><span class=\"mth-num\">4</span>Fair value option</h4><p>Products elected to fair value are carried at a discounted cash flow estimate: the existing book is projected forward (runoff or deposit decay, charge-offs, and contractual or forecast floating interest on beginning-of-quarter balances) over a 60-quarter horizon with terminal repayment, and discounted at forecast SOFR plus the product’s discount spread.</p><p>Fair-value loans carry no allowance; credit losses and rate-driven revaluations flow through the net fair value gains (losses) line. Any day-one difference between fair value and balance is recognized in opening retained earnings; new balances added in later quarters are marked on addition.</p><p>Note that discounting a product at its own coupon spread yields fair value below par by roughly the present value of expected charge-offs — set the discount spread to the market yield spread net of expected credit losses if the intent is par at origination.</p></div><div class=\"mth-sec\"><h4><span class=\"mth-num\">5</span>Stress testing</h4><p>The stress testing module re-runs the full model under three scenarios: credit deterioration multiplies every product’s charge-off and ALLL reserve rates; the rate shock shifts the SOFR path and cash, securities, and borrowing rates in parallel while fixed-rate coupons stay put (so fair-value elected fixed-rate positions bear mark-to-market impact and floating-rate positions reprice); the combined scenario applies both. Stressed runs share all other assumptions with the base case.</p></div><div class=\"mth-sec\"><h4><span class=\"mth-num\">6</span>Balance-sheet solve, tax &amp; equity</h4><p>The balance sheet is balanced each quarter by holding cash at the specified floor as a percentage of contractual deposit balances, investing surplus funding in securities, and covering any shortfall with borrowings; because securities and borrowing levels depend on retained earnings, each quarter is solved iteratively to convergence.</p><p>This funding-shortfall borrowing is separate from any <em>scheduled</em> term borrowings you enter (e.g. FHLB advances). Those are modeled as bullet advances: the full draw is held flat from its draw quarter through maturity (the stated term in quarters), then repaid in full at maturity, with interest each quarter on the outstanding balance. They are not amortized, and they accrue no interest after maturity.</p><p>Taxes are computed at the statutory rate on pre-tax income after applying accumulated net operating loss carryforwards. By default no deferred tax asset is recognized; an optional deferred-tax detail path books DTAs under ASC 740 (with valuation allowance) when elected. Equity equals initial capital plus cumulative retained earnings; no dividends or additional capital raises are modeled.</p></div></div><div class=\"mth-scope\">This is an illustrative planning model — <b>a filed business plan requires interest-rate shock scenarios, capital stress, and month-one liquidity detail beyond this scope.</b></div></div>";
-const TEMPLATE = {"engagement_id": "ENG-NEW", "schema_version": "2.0", "client_legal_name": "Parity Fixture Bank A1", "proposed_bank": "Parity Fixture Bank A1 (in organization)", "hq": "TBD", "prepared_by": "Foundry Modeling Workspace", "config_version": "1.0", "config_frozen": "2026-07-08", "parity_profile": "pf_a", "step_minus_1": {"decision": "proceed_de_novo", "alternatives_priced": {"de_novo": "Template."}}, "step_0a": {"entities": {"bank": "Parity Fixture Bank A1 \u2014 single entity"}, "flags_from_map": [], "map_approved": null}, "step_1": {"charter": "n/a (fixture)", "regulators": ["n/a"], "rationale": "Template."}, "assumption_tags": {}, "step_0": {"one_sentence": "New applicant scoping template.", "earning_engine": "spread", "modules": ["balance_driven_deposits", "balance_driven_lending", "mortgage_banking"]}, "constraints": [{"key": "leverage_min", "value": 0.09, "text": "Tier 1 leverage floor.", "source": "Engagement commitment (edit with citation)"}], "target_state": {"initial_capital": 0, "assets_yr3": 0}, "peer_query": {"consumer_loan_share": 0.4, "fee_income_share": 0.2, "core_funding_share": 0.9, "digital_channel": 1.0}, "assumptions": {"rate_path_q": [0.037000000000000005, 0.0385, 0.038, 0.0375, 0.037000000000000005, 0.0365, 0.036000000000000004, 0.0355, 0.035, 0.0345, 0.034, 0.0335], "rate_path_longer_run": 0.0315, "tax_semantics": "nol_carryforward_pf_a", "tax_rate": 0.21, "cash_target_pct_deposits": 0.05, "cash_yield": 0.025, "securities_yield": 0.04, "borrow_rate_ann": 0.055, "overhead_q": 0, "overhead_growth_q": 0, "premises_equipment": 0, "intangibles": 0.0, "other_assets": 0, "other_liabilities": 0, "deposit_products": [{"name": "DDA", "opening_balance": 25000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.01, "opex_fixed_q": 150000, "growth_q": 0.12, "runoff_q": 0.0, "call_report_line": "depDDA", "rate_paid_ann": 0.0025}, {"name": "Savings", "opening_balance": 35000000.0, "rate_type": "float", "fee_yield_ann": 0.001, "opex_pct_ann": 0.003, "opex_fixed_q": 50000, "index_spread": -0.006999999999999999, "growth_q": 0.14, "runoff_q": 0.0, "call_report_line": "depSavings"}], "lending_products": [{"name": "Personal Loans", "opening_balance": 10000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.015, "opex_fixed_q": 100000, "originations_q": 5000000.0, "orig_growth_q": 0.05, "runoff_q": 0.08, "charge_off_ann": 0.04, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "call_report_line": "loanConsumer", "yield_ann": 0.11}, {"name": "Commercial Loans", "opening_balance": 15000000.0, "rate_type": "float", "fee_yield_ann": 0.0034999999999999996, "opex_pct_ann": 0.0075, "opex_fixed_q": 150000, "index_spread": 0.035, "originations_q": 7500000.0, "orig_growth_q": 0.05, "runoff_q": 0.05, "charge_off_ann": 0.0075, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.0125, "measurement": "amortized", "call_report_line": "loanCommercial"}, {"name": "Credit Cards", "opening_balance": 5000000.0, "rate_type": "fixed", "fee_yield_ann": 0.03, "opex_pct_ann": 0.04, "opex_fixed_q": 200000, "originations_q": 2000000.0, "orig_growth_q": 0.06, "runoff_q": 0.1, "charge_off_ann": 0.055, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.08, "measurement": "amortized", "call_report_line": "loanCreditCard", "yield_ann": 0.18}, {"name": "Mortgages", "opening_balance": 20000000.0, "rate_type": "fixed", "fee_yield_ann": 0.0025, "opex_pct_ann": 0.004, "opex_fixed_q": 100000, "originations_q": 6000000.0, "orig_growth_q": 0.04, "runoff_q": 0.03, "charge_off_ann": 0.0015, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.005, "measurement": "amortized", "call_report_line": "loanMortgage", "yield_ann": 0.06, "mortgage_banking": {"sale_pct_of_orig": 0.5, "gain_on_sale_margin": 0.0175, "warehouse_hold_q": 1, "servicing_retained_pct": 1.0, "servicing_fee_bp_ann": 25, "msr_cap_rate_pct_upb": 0.011000000000000001, "msr_decay_q": 0.03}}], "obs_exposures": []}, "scenario_overlays": null, "parity_expectation": null};
+const TEMPLATE = {"engagement_id": "ENG-NEW", "schema_version": "2.0", "client_legal_name": "Parity Fixture Bank A1", "proposed_bank": "Parity Fixture Bank A1 (in organization)", "hq": "TBD", "prepared_by": "Foundry Modeling Workspace", "config_version": "1.0", "config_frozen": "2026-07-08", "parity_profile": "pf_a", "step_minus_1": {"decision": "proceed_de_novo", "alternatives_priced": {"de_novo": "Template."}}, "step_0a": {"entities": {"bank": "Parity Fixture Bank A1 \u2014 single entity"}, "flags_from_map": [], "map_approved": null}, "step_1": {"charter": "n/a (fixture)", "regulators": ["n/a"], "rationale": "Template."}, "assumption_tags": {}, "step_0": {"one_sentence": "New applicant scoping template.", "earning_engine": "spread", "modules": ["balance_driven_deposits", "balance_driven_lending", "mortgage_banking"]}, "constraints": [{"key": "leverage_min", "value": 0.09, "text": "Tier 1 leverage floor.", "source": "Engagement commitment (edit with citation)"}], "target_state": {"initial_capital": 0, "assets_yr3": 0}, "peer_query": {"consumer_loan_share": 0.4, "fee_income_share": 0.2, "core_funding_share": 0.9, "digital_channel": 1.0}, "assumptions": {"rate_path_q": [0.037000000000000005, 0.0385, 0.038, 0.0375, 0.037000000000000005, 0.0365, 0.036000000000000004, 0.0355, 0.035, 0.0345, 0.034, 0.0335], "rate_path_longer_run": 0.0315, "tax_semantics": "nol_carryforward_pf_a", "tax_rate": 0.21, "cash_target_pct_deposits": 0.05, "cash_yield": 0.025, "securities_yield": 0.04, "borrow_rate_ann": 0.055, "overhead_per_period": 0, "overhead_growth_per_period": 0, "premises_equipment": 0, "intangibles": 0.0, "other_assets": 0, "other_liabilities": 0, "deposit_products": [{"name": "DDA", "opening_balance": 25000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.01, "opex_fixed_per_period": 150000, "growth_per_period": 0.12, "runoff_per_period": 0.0, "call_report_line": "depDDA", "rate_paid_ann": 0.0025}, {"name": "Savings", "opening_balance": 35000000.0, "rate_type": "float", "fee_yield_ann": 0.001, "opex_pct_ann": 0.003, "opex_fixed_per_period": 50000, "index_spread": -0.006999999999999999, "growth_per_period": 0.14, "runoff_per_period": 0.0, "call_report_line": "depSavings"}], "lending_products": [{"name": "Personal Loans", "opening_balance": 10000000.0, "rate_type": "fixed", "fee_yield_ann": 0.005, "opex_pct_ann": 0.015, "opex_fixed_per_period": 100000, "originations_per_period": 5000000.0, "orig_growth_per_period": 0.05, "runoff_per_period": 0.08, "charge_off_ann": 0.04, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.03, "measurement": "amortized", "call_report_line": "loanConsumer", "yield_ann": 0.11}, {"name": "Commercial Loans", "opening_balance": 15000000.0, "rate_type": "float", "fee_yield_ann": 0.0034999999999999996, "opex_pct_ann": 0.0075, "opex_fixed_per_period": 150000, "index_spread": 0.035, "originations_per_period": 7500000.0, "orig_growth_per_period": 0.05, "runoff_per_period": 0.05, "charge_off_ann": 0.0075, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.0125, "measurement": "amortized", "call_report_line": "loanCommercial"}, {"name": "Credit Cards", "opening_balance": 5000000.0, "rate_type": "fixed", "fee_yield_ann": 0.03, "opex_pct_ann": 0.04, "opex_fixed_per_period": 200000, "originations_per_period": 2000000.0, "orig_growth_per_period": 0.06, "runoff_per_period": 0.1, "charge_off_ann": 0.055, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.08, "measurement": "amortized", "call_report_line": "loanCreditCard", "yield_ann": 0.18}, {"name": "Mortgages", "opening_balance": 20000000.0, "rate_type": "fixed", "fee_yield_ann": 0.0025, "opex_pct_ann": 0.004, "opex_fixed_per_period": 100000, "originations_per_period": 6000000.0, "orig_growth_per_period": 0.04, "runoff_per_period": 0.03, "charge_off_ann": 0.0015, "provision_rate_ann": null, "reserve_rate_pct_bal": 0.005, "measurement": "amortized", "call_report_line": "loanMortgage", "yield_ann": 0.06, "mortgage_banking": {"sale_pct_of_orig": 0.5, "gain_on_sale_margin": 0.0175, "warehouse_hold_q": 1, "servicing_retained_pct": 1.0, "servicing_fee_bp_ann": 25, "msr_cap_rate_pct_upb": 0.011000000000000001, "msr_decay_per_period": 0.03}}], "obs_exposures": []}, "scenario_overlays": null, "parity_expectation": null};
 
 const FAM_OF = {asset:"lending", liability:"deposit", offbs:"obs"};
 const ARR_OF = {lending:"lending_products", deposit:"deposit_products", obs:"obs_exposures"};
@@ -609,8 +609,8 @@ function buildEmptyTemplate(){
   const a = t.assumptions;
   a.deposit_products = []; a.lending_products = []; a.obs_exposures = [];
   a.tax_rate = 0; a.cash_target_pct_deposits = 0; a.cash_yield = 0;
-  a.securities_yield = 0; a.borrow_rate_ann = 0; a.overhead_q = 0;
-  a.overhead_growth_q = 0; a.premises_equipment = 0; a.intangibles = 0;
+  a.securities_yield = 0; a.borrow_rate_ann = 0; a.overhead_per_period = 0;
+  a.overhead_growth_per_period = 0; a.premises_equipment = 0; a.intangibles = 0;
   a.other_assets = 0; a.other_liabilities = 0;
   // rate path left as-is until the user populates it with the SOFR button (see below).
   t._blank_canvas = true;
@@ -696,9 +696,9 @@ function _ensurePeerScaffold(){
   if(arr.length) { D.scaffolded = false; return; }   // already materialized
   (D.scaffoldProducts||[]).forEach(sp=>arr.push({
     name: sp.name, call_report_line: sp.call_report_line, line: sp.call_report_line,
-    opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0, charge_off_ann:0,
+    opening_balance:0, originations_per_period:0, orig_growth_per_period:0, runoff_per_period:0, charge_off_ann:0,
     rate_type:"fixed", yield_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
-    measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0
+    measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0
   }));
   D.scaffolded = false;   // only create once
 }
@@ -1008,12 +1008,12 @@ function normalizeCfg(c){
     c.stress_params || {});
   c.assumptions = c.assumptions || {};
   c.assumptions.obs_exposures = c.assumptions.obs_exposures || [];
-  // Migrate legacy monthly fixed-opex (opex_fixed_m) to the canonical quarterly key (opex_fixed_q).
-  // The engine reads opex_fixed_q directly; the ×3 here matches the engine's legacy fallback so an
-  // old config's opex magnitude is preserved exactly. opex_fixed_q wins if both are somehow present.
+  // Migrate legacy monthly fixed-opex (opex_fixed_m) to the canonical quarterly key (opex_fixed_per_period).
+  // The engine reads opex_fixed_per_period directly; the ×3 here matches the engine's legacy fallback so an
+  // old config's opex magnitude is preserved exactly. opex_fixed_per_period wins if both are somehow present.
   ["lending_products","deposit_products","obs_exposures","securities_afs","securities_htm"].forEach(k=>{
     (c.assumptions[k]||[]).forEach(p=>{
-      if(p && p.opex_fixed_m != null && p.opex_fixed_q == null){ p.opex_fixed_q = (p.opex_fixed_m||0)*3; }
+      if(p && p.opex_fixed_m != null && p.opex_fixed_per_period == null){ p.opex_fixed_per_period = (p.opex_fixed_m||0)*3; }
       if(p) delete p.opex_fixed_m;
     });
   });
@@ -1123,14 +1123,14 @@ function _diffCfgAgainst(baselineJSON){
   const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
   const pct   = v => (v==null?"\u2014":(v*100).toFixed(2).replace(/\.?0+$/,"")+"%");
   const num   = v => (v==null?"\u2014":(typeof v==="number"?(+v).toLocaleString():String(v)));
-  const MONEY_KEYS = new Set(["initial_capital","opening_balance","originations_q","new_deposits_q",
-    "amount","notional","opening","purchases_q","total","premises_equipment","intangibles",
-    "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_q","aum_open","min_day1_capital"]);
-  const RATE_KEYS = new Set(["growth_q","runoff_q","orig_growth_q","charge_off_ann","provision_rate_ann",
+  const MONEY_KEYS = new Set(["initial_capital","opening_balance","originations_per_period","new_deposits_per_period",
+    "amount","notional","opening","purchases_per_period","total","premises_equipment","intangibles",
+    "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_per_period","aum_open","min_day1_capital"]);
+  const RATE_KEYS = new Set(["growth_per_period","runoff_per_period","orig_growth_per_period","charge_off_ann","provision_rate_ann",
     "reserve_rate_pct_bal","fee_yield_ann","opex_pct_ann","yield_ann","rate_paid_ann","index_spread",
     "rate_ann","cash_target_pct_deposits","cash_yield","securities_yield","borrow_rate_ann",
     "discount_spread_ann","tax_rate","interchange_rate","network_fee_rate","aum_growth_q","aum_growth",
-    "gain_on_sale_margin","sale_pct_of_orig","servicing_fee_bp_ann","msr_cap_rate_pct_upb","msr_decay_q",
+    "gain_on_sale_margin","sale_pct_of_orig","servicing_fee_bp_ann","msr_cap_rate_pct_upb","msr_decay_per_period",
     "gos_margin_compression","msr_value_haircut","origination_volume_haircut","sale_share_retention_shift"]);
   const fmtFor = (key, v) => MONEY_KEYS.has(key) ? money(v) : (RATE_KEYS.has(key) ? pct(v) : num(v));
   const label = k => String(k).replace(/_/g," ").replace(/\bann\b/,"(annual)").replace(/\bq\b/,"/qtr")
@@ -1981,9 +1981,9 @@ function fieldsFor(fam, p, base){
   let h = "";
   if(fam==="lending"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F(`New originations ($000s/${PLAB()})`, base+".originations_q", "k");
-    h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_q", "pct");
-    h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_q", "pct");
+    h += F(`New originations ($000s/${PLAB()})`, base+".originations_per_period", "k");
+    h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_per_period", "pct");
+    h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_per_period", "pct");
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
       const _idx = (p.index||"sofr").toUpperCase();
@@ -2009,19 +2009,19 @@ function fieldsFor(fam, p, base){
       h += M("Servicing retained (% of sold)", "servicing_retained_pct", "pct");
       h += M("Servicing fee (bp/yr)", "servicing_fee_bp_ann", "");
       h += M("MSR cap rate (% of UPB)", "msr_cap_rate_pct_upb", "pct");
-      h += M(`Servicing runoff (%/${PLAB()})`, "msr_decay_q", "pct");
+      h += M(`Servicing runoff (%/${PLAB()})`, "msr_decay_per_period", "pct");
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', null);renderContent();refresh()">Remove originate-to-sell</button></div>`;
     } else if(isMortgage){
-      h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_q:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
+      h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_per_period:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
     if(p.measurement==="fair_value") h += F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct");
   } else if(fam==="deposit"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F(`Growth (%/${PLAB()})`, base+".growth_q", "pct");
-    h += F(`New deposits ($000s/${PLAB()})`, base+".new_deposits_q", "k");
-    h += F(`Runoff (%/${PLAB()})`, base+".runoff_q", "pct");
+    h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
+    h += F(`New deposits ($000s/${PLAB()})`, base+".new_deposits_per_period", "k");
+    h += F(`Runoff (%/${PLAB()})`, base+".runoff_per_period", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
@@ -2033,7 +2033,7 @@ function fieldsFor(fam, p, base){
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
   } else if(p.managed_notional || p._fee_product){
     const _fi = base.split(".").pop();   // array index (fieldsFor has no i in scope)
     // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
@@ -2085,7 +2085,7 @@ function fieldsFor(fam, p, base){
       // Axis 3: trajectory
       h += SEL("Trajectory (how the driver moves)", sb+".driver.trajectory", traj, [["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (\u00d7 source)"]]);
       if(src==="constant" && traj!=="explicit_schedule"){ h += F("Base value", sb+".driver.params.base", "n"); }
-      if(traj==="proportional"){ h += F(`Growth (%/${PLAB()})`, sb+".driver.params.growth_q", "pct"); }
+      if(traj==="proportional"){ h += F(`Growth (%/${PLAB()})`, sb+".driver.params.growth_per_period", "pct"); }
       if(traj==="derived"){ h += F("Multiple (\u00d7 source)", sb+".driver.params.multiple", "n"); h += F("or Percentage (of source, 0-1)", sb+".driver.params.pct", "n"); }
       // Axis 4: rate behavior
       h += SEL("Rate behavior", sb+".rate.behavior", rb, [["flat","Flat rate"],["annual_change","Annual change (%/yr)"],["scheduled","Scheduled (per-quarter)"],["tiered","Tiered (breakpoints)"]]);
@@ -2126,10 +2126,10 @@ function fieldsFor(fam, p, base){
     });
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
-    h += F(`Growth (%/${PLAB()})`, base+".growth_q", "pct");
+    h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
     h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
-    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
   }
   return h;
 }
@@ -2204,7 +2204,7 @@ function prodCardHtml(fam, i){
     }
     if(fam==="lending"){
       // Structure selector (revolving | term). Mirrors the rate_type conditional: choosing 'term'
-      // triggers the maturity field; 'revolving' triggers none (runoff_q handles paydown). Credit
+      // triggers the maturity field; 'revolving' triggers none (runoff_per_period handles paydown). Credit
       // Card is revolving-only; CRE is term-only — those lock. Both structure and term_q are stored
       // but the ENGINE DOES NOT READ THEM YET (proven inert: hash unchanged with them injected).
       const _line = p.call_report_line || p.line;
@@ -2261,22 +2261,22 @@ function prodCardHtml(fam, i){
 function ovFieldsFor(fam, p){
   const f = [];
   if(fam==="lending"){
-    f.push(["originations_q","Originations ($000s)","k"]);
-    f.push(["runoff_q",`Runoff / prepayment (%/${PLAB()})`,"pct"]);
+    f.push(["originations_per_period","Originations ($000s)","k"]);
+    f.push(["runoff_per_period",`Runoff / prepayment (%/${PLAB()})`,"pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["yield_ann","Yield (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
     f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
   } else if(fam==="deposit"){
-    f.push(["growth_q",`Growth (%/${PLAB()})`,"pct"]);
-    f.push(["new_deposits_q",`New deposits ($000s/${PLAB()})`,"kq"]);
+    f.push(["growth_per_period",`Growth (%/${PLAB()})`,"pct"]);
+    f.push(["new_deposits_per_period",`New deposits ($000s/${PLAB()})`,"kq"]);
     f.push(["avg_maturity_m","Avg maturity (months)","num"]);
-    f.push(["runoff_q",`Runoff (%/${PLAB()})`,"pct"]);
+    f.push(["runoff_per_period",`Runoff (%/${PLAB()})`,"pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
   } else {
-    f.push(["growth_q",`Growth (%/${PLAB()})`,"pct"]);
+    f.push(["growth_per_period",`Growth (%/${PLAB()})`,"pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
   }
   return f;
@@ -2367,18 +2367,18 @@ function v31AddProduct(){
   // call_report_line) keep sensible non-numeric defaults so the product is valid. This matches the
   // TAX31 taxonomy-add path and prevents a placeholder yield/charge-off/runoff from silently entering
   // the model if a category is toggled on and left unfilled.
-  if(s.fam === "lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0,
+  if(s.fam === "lending") p = {name, opening_balance:0, originations_per_period:0, orig_growth_per_period:0, runoff_per_period:0,
     rate_type:"fixed", yield_ann:0, charge_off_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
-    measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
+    measurement:"amortized", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:s.line};
   // Credit cards price off Prime by convention (Prime + margin), so a new card defaults to a
   // Prime-indexed floating product rather than a fixed yield — the user can still switch it.
   if(s.fam === "lending" && s.line === "loanCreditCard"){
     p.rate_type = "float"; p.index = "prime"; p.index_spread = 0.13; delete p.yield_ann;
   }
-  else if(s.fam === "obs") p = {name, notional:0, growth_q:0, fee_yield_ann:0,
-    opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
-  else p = {name, opening_balance:0, growth_q:0, runoff_q:0, rate_type:"fixed",
-    rate_paid_ann:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:s.line};
+  else if(s.fam === "obs") p = {name, notional:0, growth_per_period:0, fee_yield_ann:0,
+    opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:s.line};
+  else p = {name, opening_balance:0, growth_per_period:0, runoff_per_period:0, rate_type:"fixed",
+    rate_paid_ann:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:s.line};
   famArr(s.fam).push(p);
   closeModal(); renderContent(); refresh();
 }
@@ -2387,13 +2387,13 @@ function TAX31(){
   if(TAX31_DATA) return TAX31_DATA;
   // templates carry the engagement-baseline assumptions per sub-type
   const L = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
-    orig_growth_q:0, rate_type:"fixed", provision_rate_ann:null, measurement:"amortized",
-    fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0}, t);
+    orig_growth_per_period:0, rate_type:"fixed", provision_rate_ann:null, measurement:"amortized",
+    fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0}, t);
   const D = (name,line,t)=>Object.assign({name, call_report_line:line, opening_balance:0,
-    growth_q:0, runoff_q:0, rate_type:"fixed", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0}, t);
+    growth_per_period:0, runoff_per_period:0, rate_type:"fixed", fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0}, t);
   // OBS ships inert like the rest: zero notional, zero growth/fees/opex. All 5 of Roman's fields.
   const O = (name,line,t)=>Object.assign({name, call_report_line:line, notional:0,
-    growth_q:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0}, t);
+    growth_per_period:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0}, t);
   TAX31_DATA = {
     // Products ship INERT: zero balance, zero originations, zero yield/charge-off.
     // A product contributes nothing until the user deliberately fills it, so every
@@ -2420,7 +2420,7 @@ function TAX31(){
       {name:"Fee-based product (custody / trust / BaaS)", line:"obs", fam:"obs",
        tpl:{name:"Fee product", call_report_line:"obs", _fee_product:true,
             managed_notional:{day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
-            fee_streams:[], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0}}]
+            fee_streams:[], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0}}]
   };
   return TAX31_DATA;
 }
@@ -2440,8 +2440,8 @@ function materializeTemplate(s){
     delete p._adds_m; delete p._runoff_ann;
     const g = (qp[0] > 0 && qp[11] > 0) ? Math.pow(qp[11]/qp[0], 1/11) - 1 : 0;
     p.opening_balance = qp[0] / (1 + g);   // engine grows into Q1
-    p.growth_q = g;
-    p.runoff_q = 0;
+    p.growth_per_period = g;
+    p.runoff_per_period = 0;
   }
   return p;
 }
@@ -2539,12 +2539,12 @@ function addCustom(){
   let p;
   // Inert defaults (see v31AddProduct): numeric amounts default to 0 so nothing enters the model until
   // the user fills it; structural selectors keep valid non-numeric defaults.
-  if(fam==="lending") p = {name, opening_balance:0, originations_q:0, orig_growth_q:0, runoff_q:0,
+  if(fam==="lending") p = {name, opening_balance:0, originations_per_period:0, orig_growth_per_period:0, runoff_per_period:0,
     rate_type:"fixed", yield_ann:0, charge_off_ann:0, provision_rate_ann:null, reserve_rate_pct_bal:0,
-    measurement:"amortized", fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
-  else if(fam==="deposit") p = {name, opening_balance:0, growth_q:0, runoff_q:0.0, rate_type:"fixed",
-    rate_paid_ann:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
-  else p = {name, notional:0, growth_q:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_q:0, call_report_line:line};
+    measurement:"amortized", fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:line};
+  else if(fam==="deposit") p = {name, opening_balance:0, growth_per_period:0, runoff_per_period:0.0, rate_type:"fixed",
+    rate_paid_ann:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:line};
+  else p = {name, notional:0, growth_per_period:0, fee_yield_ann:0.0, opex_pct_ann:0, opex_fixed_per_period:0, call_report_line:line};
   famArr(fam).push(p);
   closeModal(); renderContent(); refresh();
 }
@@ -2562,7 +2562,7 @@ window.addFeeProductMulti = function(btn){
   } else {
     const obj = {name:"Fee product", call_report_line:"obs", _fee_product:true,
       managed_notional:{day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"},
-      fee_streams:[], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_q:0};
+      fee_streams:[], notional:0, fee_yield_ann:0, opex_pct_ann:0, opex_fixed_per_period:0};
     arr.push(obj); btn._added.push(obj);
     window._modalAdded = (window._modalAdded||0) + 1;
   }
@@ -2970,7 +2970,7 @@ window.secAdd = function(kind){
   // until the user fills it. Structural fields (name, book type) stay. Zero validates and runs fine.
   (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
     {name: kind ? "HTM" : "AFS", opening: 0,
-      purchases_q: 0, growth_q: 0, runoff_q: 0, yield_ann: 0});
+      purchases_per_period: 0, growth_per_period: 0, runoff_per_period: 0, yield_ann: 0});
   renderGlobals(); renderContent(); refresh();
 };
 window.poAdd = function(){
@@ -3033,7 +3033,7 @@ window.nieCatPaste = function(txt, type, growthPct){
       else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/,"").trim(); amtRaw=m2[2]; }
       var amt=parseFloat(String(amtRaw).replace(/[^0-9.\-]/g,"")); if(isNaN(amt)) return;
       var cat={name:item, per_quarter:amt*1000};
-      if(type==="linear"){ cat.trajectory="linear"; cat.growth_q=g; }
+      if(type==="linear"){ cat.trajectory="linear"; cat.growth_per_period=g; }
       added.push(cat);
     }
   });
@@ -4609,7 +4609,7 @@ function renderContent(){
     h += '<div class="memo">Default calibration (2.5\u00d7 charge-offs, 1.5\u00d7 reserves, +300bp) is in the spirit of a severely adverse supervisory scenario, but it is a working assumption \u2014 regulators prescribe their own scenarios. All three stress scenarios also apply the downturn overlays: origination volume decline, gain-on-sale margin compression, MSR value haircut, and a sale-share reduction that keeps would-be-sold loans on the balance sheet when investor demand dries up (the funding-supply dynamic in Upstart&rsquo;s downside scenarios: volume roughly \u221240% in year one and balance-sheet retention roughly doubling when institutional buyers pull back). Capital shortfall estimate assumes added capital is invested in securities and ignores earnings feedback (slightly conservative).</div>';
     h += '<div class="h2" style="margin-top:16px;font-size:14px">One-Variable Sensitivity (SENS)</div>';
     h += '<div class="srcnote">One variable, three full engine runs \u2014 distinct from scenario stress, which moves many things at once .</div>';
-    h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:230px" value="assumptions.overhead_q"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
+    h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:230px" value="assumptions.overhead_per_period"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
     h += '<div id="sensOut"></div>';
     c.innerHTML = h; return;
   }
@@ -4878,7 +4878,7 @@ function mtSlots(){
   });
   (cfg.assumptions.lending_products||[]).forEach((p,i)=>{
     out.push({key:`lending.${i}.balance_path`, label:`${p.name} \u2014 balance path (series)`, series:true});
-    ["yield_ann","charge_off_ann","reserve_rate_pct_bal","originations_q","opening_balance"].forEach(f=>out.push({key:`lending.${i}.${f}`, label:`${p.name} \u2014 ${f}`}));
+    ["yield_ann","charge_off_ann","reserve_rate_pct_bal","originations_per_period","opening_balance"].forEach(f=>out.push({key:`lending.${i}.${f}`, label:`${p.name} \u2014 ${f}`}));
   });
   ["tax_rate","securities_yield","cash_yield","borrow_rate_ann"].forEach(g=>out.push({key:`assumptions.${g}`, label:`Global \u2014 ${g}`}));
   return out;
@@ -5367,7 +5367,7 @@ function setLabMode(m){ _labMode = m; renderLab(); }
 window.setLabMode = setLabMode;
 
 // Build the catalog of LIVE levers from the current config — only fields that actually exist, so the
-// tool never offers a lever that isn't in this model (the nie_detail-vs-overhead_q lesson).
+// tool never offers a lever that isn't in this model (the nie_detail-vs-overhead_per_period lesson).
 function labLeverCatalog(){
   const levers = [];
   const a = ((cfg||{}).assumptions)||{};
@@ -5375,17 +5375,17 @@ function labLeverCatalog(){
     const nm = p.name || ("Product "+i);
     if(typeof p.yield_ann === "number") levers.push({path:`assumptions.lending_products.${i}.yield_ann`, label:`${nm}: fixed yield`, unit:"pct"});
     if(typeof p.index_spread === "number") levers.push({path:`assumptions.lending_products.${i}.index_spread`, label:`${nm}: index spread`, unit:"pct"});
-    if(typeof p.originations_q === "number") levers.push({path:`assumptions.lending_products.${i}.originations_q`, label:`${nm}: originations/qtr`, unit:"k"});
-    if(typeof p.orig_growth_q === "number") levers.push({path:`assumptions.lending_products.${i}.orig_growth_q`, label:`${nm}: origination growth`, unit:"pct"});
+    if(typeof p.originations_per_period === "number") levers.push({path:`assumptions.lending_products.${i}.originations_per_period`, label:`${nm}: originations/qtr`, unit:"k"});
+    if(typeof p.orig_growth_per_period === "number") levers.push({path:`assumptions.lending_products.${i}.orig_growth_per_period`, label:`${nm}: origination growth`, unit:"pct"});
     if(typeof p.charge_off_ann === "number") levers.push({path:`assumptions.lending_products.${i}.charge_off_ann`, label:`${nm}: charge-off rate`, unit:"pct"});
     if(typeof p.opening_balance === "number") levers.push({path:`assumptions.lending_products.${i}.opening_balance`, label:`${nm}: opening balance`, unit:"k"});
   });
   (a.deposit_products||[]).forEach((p,i)=>{
     const nm = p.name || ("Deposit "+i);
     if(typeof p.rate_paid_ann === "number") levers.push({path:`assumptions.deposit_products.${i}.rate_paid_ann`, label:`${nm}: rate paid`, unit:"pct"});
-    if(typeof p.growth_q === "number") levers.push({path:`assumptions.deposit_products.${i}.growth_q`, label:`${nm}: growth/qtr`, unit:"pct"});
+    if(typeof p.growth_per_period === "number") levers.push({path:`assumptions.deposit_products.${i}.growth_per_period`, label:`${nm}: growth/qtr`, unit:"pct"});
   });
-  if(typeof a.overhead_q === "number" && !a.nie_detail) levers.push({path:"assumptions.overhead_q", label:`Overhead per ${PLAB('full')}`, unit:"k"});
+  if(typeof a.overhead_per_period === "number" && !a.nie_detail) levers.push({path:"assumptions.overhead_per_period", label:`Overhead per ${PLAB('full')}`, unit:"k"});
   if(typeof a.initial_capital === "number") levers.push({path:"assumptions.initial_capital", label:"Initial capital", unit:"k"});
   return levers;
 }
@@ -5543,7 +5543,7 @@ function _leverLabel(path){
   return found ? found.label : path.split('.').pop();
 }
 function _leverLocation(path){
-  if(path==="assumptions.overhead_q" || path==="assumptions.overhead_growth_q") return "Configuration \u2014 Operating expense";
+  if(path==="assumptions.overhead_per_period" || path==="assumptions.overhead_growth_per_period") return "Configuration \u2014 Operating expense";
   if(path==="assumptions.initial_capital") return "sidebar";
   if(path.indexOf("lending_products")>=0) return "Product tab";
   if(path.indexOf("deposit_products")>=0) return "Product tab";
@@ -6289,10 +6289,10 @@ function structuresSectionsHtml(){
     let _sb = `<div class="csub">Securities books (per-${PLAB()})</div>`;
     _sb += `<div class="cmut" style="margin:0 0 8px">Books included \u00b7 ${nhtm} of ${nafs+nhtm} HTM designated</div>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
-      _sb += `<div class="crow secrow"><span class="cu" style="margin-right:4px">Name</span><input style="flex:1 1 90px;min-width:80px;max-width:200px" title="${esc(b.name||'AFS')}" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><span class="cu" style="margin-left:4px">Open. Bal</span><input type="text" inputmode="decimal" style="width:54px" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><span class="cu" style="margin-left:4px">Yield</span><input type="number" step="0.1" style="width:52px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><span class="cu" style="margin-left:4px">Purch.</span><input type="text" inputmode="decimal" style="width:52px" value="${fmtComma((b.purchases_q||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_q=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_q||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].growth_q=_pf(this.value)/100;refresh()"><span class="cu">grw</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_q||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].runoff_q=_pf(this.value)/100;refresh()"><span class="cu">runoff %</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      _sb += `<div class="crow secrow"><span class="cu" style="margin-right:4px">Name</span><input style="flex:1 1 90px;min-width:80px;max-width:200px" title="${esc(b.name||'AFS')}" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"><span class="cu" style="margin-left:4px">Open. Bal</span><input type="text" inputmode="decimal" style="width:54px" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><span class="cu" style="margin-left:4px">Yield</span><input type="number" step="0.1" style="width:52px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><span class="cu" style="margin-left:4px">Purch.</span><input type="text" inputmode="decimal" style="width:52px" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">grw</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="cu">runoff %</span><a href="#" class="cx" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     (cfg.assumptions.securities_htm||[]).forEach((b,i)=>{
-      _sb += `<div class="crow secrow"><span class="cu" style="margin-right:4px">Name</span><input style="flex:1 1 90px;min-width:80px;max-width:200px" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><span class="cu" style="margin-left:4px">Open. Bal</span><input type="text" inputmode="decimal" style="width:54px" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><span class="cu" style="margin-left:4px">Yield</span><input type="number" step="0.1" style="width:52px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><span class="cu" style="margin-left:4px">Purch.</span><input type="text" inputmode="decimal" style="width:52px" value="${fmtComma((b.purchases_q||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_q=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_q||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_q=_pf(this.value)/100;refresh()"><span class="cu">grw</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_q||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_q=_pf(this.value)/100;refresh()"><span class="cu">runoff %</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+      _sb += `<div class="crow secrow"><span class="cu" style="margin-right:4px">Name</span><input style="flex:1 1 90px;min-width:80px;max-width:200px" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"><span class="cu" style="margin-left:4px">Open. Bal</span><input type="text" inputmode="decimal" style="width:54px" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><span class="cu" style="margin-left:4px">Yield</span><input type="number" step="0.1" style="width:52px" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><span class="cu" style="margin-left:4px">Purch.</span><input type="text" inputmode="decimal" style="width:52px" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:58px" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">grw</span><input type="number" step="0.1" style="width:58px" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="cu">runoff %</span><a href="#" class="cx" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
     let _ao = '<div class="csub">AOCI</div>';
@@ -6320,7 +6320,7 @@ function structuresSectionsHtml(){
   }
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
-    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_q||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_q=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span><input type="number" step="0.1" style="width:56px" value="${((A.overhead_growth_q||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="cfg.assumptions.overhead_growth_q=_pf(this.value)/100;refresh()"><span class="cu">grw %/${PLAB()}</span></div>`;
+    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span><input type="number" step="0.1" style="width:56px" value="${((A.overhead_growth_per_period||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="cfg.assumptions.overhead_growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">grw %/${PLAB()}</span></div>`;
     h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center;margin-top:8px"><div><div class="cmut">This single overhead line governs. Activate detail for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base \u2014 which then <b>replaces</b> this line.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
   } else {
     const nd = A.nie_detail;
@@ -6348,7 +6348,7 @@ function structuresSectionsHtml(){
           row += `<span class="cu">per-${PLAB()}</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per ${PLAB('full')}; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/${PLAB()} \u00b7 ${_have}/${_np}</span>`; }
       } else if(traj==="linear"){
         row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="base $000s/${PLAB()} (period 1)" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
-        row += `<span class="cu" style="margin-left:10px">growth</span><input type="number" step="0.5" style="width:60px" value="${((ct.growth_q||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="${_cb}.growth_q=_pf(this.value)/100;refresh()"><span class="cu">%/${PLAB()}</span>`;
+        row += `<span class="cu" style="margin-left:10px">growth</span><input type="number" step="0.5" style="width:60px" value="${((ct.growth_per_period||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="${_cb}.growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">%/${PLAB()}</span>`;
       } else {
         row += `<span class="cu">amount</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((ct.per_quarter||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="${_cb}.per_quarter=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
       }
@@ -6467,11 +6467,11 @@ const FEE_CATALOG_JS = {
 const BASIS_FIELDS_JS = {
   balance: [
     ['balance_open','Balance opening','$000s',1000],
-    ['growth_q','Growth','%/q','pct'],
+    ['growth_per_period','Growth','%/q','pct'],
     ['fee_bp_ann','Fee','bp/yr',1]],
   transaction: [
     ['vol_q','Volume/qtr','000s tx/q',1000],
-    ['growth_q','Growth','%/q','pct'],
+    ['growth_per_period','Growth','%/q','pct'],
     ['fee_per_tx','Flat fee/tx','$/tx',1],
     ['cost_per_tx','Flat cost/tx','$/tx',1],
     ['avg_ticket','Avg ticket','$/unit',1],
@@ -6479,7 +6479,7 @@ const BASIS_FIELDS_JS = {
     ['cost_rate','Ad val. cost rate','%','pct']],
   account: [
     ['count','Accounts','count',1000],
-    ['growth_q','Growth','%/q','pct'],
+    ['growth_per_period','Growth','%/q','pct'],
     ['fee_per_acct_m','Fee/acct','$/acct/mo',1]],
 };
 window.addFeeProduct = function(catalogKey){
