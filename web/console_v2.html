@@ -3001,6 +3001,40 @@ window.poPaste = function(txt, mode){
   cfg.pre_opening._pasteOpen = false;        // clear + collapse: the box is transient, rows are truth
   renderContent(); refresh();
 };
+
+window.nieCatPaste = function(txt, type, growthPct){
+  var A = cfg.assumptions; A.nie_detail = A.nie_detail || {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0};
+  A.nie_detail.categories = A.nie_detail.categories || [];
+  var rows = String(txt||"").split(/\r?\n/);
+  var g = (type==="linear") ? (parseFloat(String(growthPct).replace(/[^0-9.\-]/g,""))||0)/100 : 0;
+  var added = [];
+  rows.forEach(function(line){
+    line = line.trim(); if(!line) return;
+    if(type==="explicit"){
+      // Item, Q1, Q2, Q3, ...  -> first field = name, rest = per-quarter $000s schedule
+      var parts = line.indexOf("\t")>=0 ? line.split("\t") : line.split(",");
+      if(parts.length < 2) return;
+      var nm = parts[0].trim();
+      var sched = parts.slice(1).map(function(x){ var n=parseFloat(String(x).replace(/[^0-9.\-]/g,"")); return (isNaN(n)?0:n)*1000; });
+      if(!nm && !sched.some(function(v){return v;})) return;
+      added.push({name:nm, trajectory:"explicit", schedule:sched});
+    } else {
+      // flat or linear: Item, Base amount (one number). Amount is the trailing numeric run.
+      var item, amtRaw;
+      if(line.indexOf("\t")>=0){ var tp=line.split("\t"); if(tp.length<2) return; amtRaw=tp[tp.length-1]; item=tp.slice(0,tp.length-1).join(" ").trim(); }
+      else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/,"").trim(); amtRaw=m2[2]; }
+      var amt=parseFloat(String(amtRaw).replace(/[^0-9.\-]/g,"")); if(isNaN(amt)) return;
+      var cat={name:item, per_quarter:amt*1000};
+      if(type==="linear"){ cat.trajectory="linear"; cat.growth_q=g; }
+      added.push(cat);
+    }
+  });
+  if(!added.length){ appStatus("err","No rows parsed. Flat/Linear: <b>Item, Amount</b> per line. Explicit: <b>Item, Q1, Q2, ...</b>. Amounts in $000s."); return; }
+  A.nie_detail.categories = A.nie_detail.categories.concat(added);   // always append
+  A.nie_detail._catPasteOpen = false;                                // clear + collapse
+  appStatus("ok", added.length + " " + type + " categor" + (added.length===1?"y":"ies") + " added.");
+  renderContent(); refresh();
+};
 // Risk-based capital ratios are filed only by banks that did NOT elect the
 // Community Bank Leverage Ratio (CBLR) framework. ~1,700 CBLR electors lawfully
 // report leverage_ratio only, so peer counts on these metrics reflect the
@@ -6309,6 +6343,25 @@ function structuresSectionsHtml(){
       h += row;
     });
     h += '<a href="#" class="cadd" onclick="(cfg.assumptions.nie_detail.categories=cfg.assumptions.nie_detail.categories||[]).push({name:String(),per_quarter:0});renderContent();refresh();return false">+ add category</a>';
+    // ---- Create-and-paste: click reveals a type-adaptive paste box; Load appends + collapses ----
+    { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
+      if(!_cpo){
+        h += ' \u00b7 <a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 paste categories</a>';
+      } else {
+        var _TT = [["flat","Flat ($/q)"],["linear","Linear (base + growth)"],["explicit","Explicit (per-qtr)"]];
+        h += '<div style="margin-top:8px;border-top:1px solid #2A3444;padding-top:8px">';
+        h += '<div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Type</span>';
+        h += '<select onchange="cfg.assumptions.nie_detail._catPasteType=this.value;renderContent()">'+_TT.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cpt?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
+        if(_cpt==="linear"){ h += '<span class="cu" style="margin-left:8px">growth</span><input id="nieCatGrowth" type="number" step="0.5" style="width:56px" value="0" title="growth %/qtr applied to all pasted linear items"><span class="cu">%/qtr</span>'; }
+        h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
+        var _ph = (_cpt==="explicit") ? "Occupancy, 50, 50, 60, 60&#10;Marketing, 20, 25, 30" : "Occupancy, 120&#10;Compensation, 400&#10;Insurance, 35";
+        var _hint = (_cpt==="explicit") ? "One <b>Item, Q1, Q2, ...</b> per line (per-quarter $000s; pads 0 / truncates to horizon)." : "One <b>Item, Amount</b> per line (base $000s per quarter; tab or comma separated).";
+        h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
+        h += '<textarea id="nieCatPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="'+_ph+'"></textarea>';
+        h += '<div style="margin-top:5px"><button class="pillbtn" onclick="nieCatPaste(document.getElementById(\x27nieCatPasteBox\x27).value, cfg.assumptions.nie_detail._catPasteType, (document.getElementById(\x27nieCatGrowth\x27)||{}).value)">Load (append)</button></div>';
+        h += '</div>';
+      }
+    }
 
     h += `<div class="chint" style="color:#DFA85A">Replaces the sidebar\u2019s Corporate overhead line while active \u2014 overhead of ${((cfg.assumptions.overhead_q||0)/1000).toLocaleString()} $000s/qtr is ignored. Zeroing these fields models a bank with no operating expenses; to compare against the plain overhead model, deactivate instead.</div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
