@@ -196,6 +196,40 @@ def run_pf_a(cfg):
     obs = copy.deepcopy(a.get("obs_exposures") or [])
     afs_p = copy.deepcopy(a.get("securities_afs") or [])
     htm_p = copy.deepcopy(a.get("securities_htm") or [])
+    # ---- Cadence field-name normalization (alias layer) ----
+    # The per-period balance-dynamics fields historically carried a "_q" suffix (growth_q,
+    # runoff_q, ...) from the quarterly-only era. Under selectable cadence that suffix is a false
+    # signal (the value is applied PER PERIOD, not per quarter). The canonical names are now
+    # "*_per_period". This alias makes the engine read EITHER name: for each product, if the new
+    # name is present it wins; otherwise the legacy "_q" value is copied to the new name. Both
+    # keys end up populated, so every downstream read (direct or via _ovq) works regardless of
+    # which the config used. Old configs stay byte-identical; new configs never show "_q".
+    _PP_FIELDS = ["growth", "runoff", "purchases", "new_deposits", "orig_growth",
+                  "originations", "opex_fixed", "fv_decay", "msr_decay"]
+    def _alias_pp(node):
+        # Recurse the whole product tree so per-period keys are normalized at ANY depth
+        # (top-level product, mortgage_banking, fee_streams[].driver.params, etc.). Mirroring
+        # both directions means every read (however nested) sees a value regardless of which
+        # name the config used. Completeness is by construction, not by enumerating read sites.
+        if isinstance(node, dict):
+            for _stem in _PP_FIELDS:
+                _new, _old = _stem + "_per_period", _stem + "_q"
+                if _new in node and node[_new] is not None:
+                    node[_old] = node[_new]
+                elif _old in node and node[_old] is not None:
+                    node[_new] = node[_old]
+            for _v in node.values():
+                _alias_pp(_v)
+        elif isinstance(node, list):
+            for _v in node:
+                _alias_pp(_v)
+    for _p in lend + dep + obs + afs_p + htm_p:
+        _alias_pp(_p)
+    # assumptions-level per-period field: overhead_growth
+    if a.get("overhead_growth_per_period") is not None:
+        a["overhead_growth_q"] = a["overhead_growth_per_period"]
+    elif a.get("overhead_growth_q") is not None:
+        a["overhead_growth_per_period"] = a["overhead_growth_q"]
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov)

@@ -76,6 +76,27 @@ def validate_errors_v2(cfg):
 
 def validate_config_v2(cfg):
     errs = []
+    # Cadence field-name aliasing (mirror of the engine): accept BOTH the legacy "_q" per-period
+    # field names and the canonical "_per_period" names, so a config authored with either passes.
+    # We mirror new->old before the required-field/range checks (which reference the "_q" names),
+    # so a new-name config validates without changing those checks. Mutates in place; harmless
+    # (the engine re-aliases anyway). Old-name configs are untouched.
+    _PP = ["growth", "runoff", "purchases", "new_deposits", "orig_growth", "originations",
+           "opex_fixed", "fv_decay", "msr_decay", "overhead_growth"]
+    def _alias(d):
+        if not isinstance(d, dict):
+            return
+        for _st in _PP:
+            _n, _o = _st + "_per_period", _st + "_q"
+            if _n in d and d[_n] is not None and _o not in d:
+                d[_o] = d[_n]
+    _a = cfg.get("assumptions") or {}
+    _alias(_a)
+    for _lst in ("lending_products", "deposit_products", "obs_exposures",
+                 "securities_afs", "securities_htm"):
+        for _p in (_a.get(_lst) or []):
+            _alias(_p)
+            _alias(_p.get("mortgage_banking"))
     for k in TOP_REQUIRED:
         if k not in cfg:
             errs.append(f"missing required top-level key '{k}'")
