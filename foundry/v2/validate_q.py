@@ -187,8 +187,11 @@ def validate_config_v2(cfg):
     missing = [k for k in ASSUMPTION_REQUIRED if k not in a]
     if missing:
         errs.append(f"missing required assumptions: {missing}")
-    if "rate_path_q" in a and (not isinstance(a["rate_path_q"], list) or len(a["rate_path_q"]) != 12):
-        errs.append("rate_path_q must be a 12-quarter list of annual rates")
+    # rate_path_q is a QUARTERLY-authored path (its natural resolution), independent of engine
+    # cadence — the engine interpolates it to the run cadence. Accept any sane quarterly length
+    # (4-28 quarters = 1-7 years); it need not equal the period count.
+    if "rate_path_q" in a and (not isinstance(a["rate_path_q"], list) or not (4 <= len(a["rate_path_q"]) <= 28)):
+        errs.append("rate_path_q must be a quarterly list of annual rates, length 4-28 (1-7 years)")
     _range_check(a, RANGES, "", errs)
 
     dep = a.get("deposit_products") or []

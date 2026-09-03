@@ -26,16 +26,36 @@ def opex_fixed_q(p):
     return (p.get("opex_fixed_m") or 0.0) * 3.0
 
 
-def rate_fn(path_q, longer_run):
-    """Quarterly annual-rate lookup; glides 5bp/qtr toward longer_run past the end of path_q."""
-    n = len(path_q)                     # horizon = length of the provided path (not a global)
+def rate_fn(path_q, longer_run, ppy=4):
+    """Annual-rate lookup for period index t, given a QUARTERLY-authored rate path.
+
+    The path is authored at quarterly anchors (its natural resolution — Fed policy is ~quarterly).
+    When the engine runs at a finer cadence (ppy=12 monthly), period t is mapped onto the quarterly
+    path by LINEAR INTERPOLATION between the surrounding quarterly anchors. Past the last anchor the
+    rate glides toward longer_run at 5bp per QUARTER (cadence-scaled to 5bp/(4/ppy*... ) i.e. per
+    quarter regardless of period size). At ppy=4 this is the identity of the legacy quarterly lookup
+    (period t == quarter t -> path_q[t-1]), so quarterly output is byte-identical.
+    """
+    n = len(path_q)                     # number of quarterly anchors
+    qs = 4.0 / float(ppy)               # quarters per engine period (1 at quarterly, 1/3 at monthly)
     def r(t):
         if t < 1:
             t = 1
-        if t <= n:
-            return path_q[t - 1]
+        # quarter-position of this period, 1-based to match the quarterly anchors.
+        # period t spans quarters; its representative quarter-position is (t-1)*qs + 1.
+        qpos = (t - 1) * qs + 1.0
+        if qpos <= n:
+            # linear interpolation between anchor floor(qpos) and floor(qpos)+1
+            lo = int(qpos)                      # 1-based index of the lower anchor
+            frac = qpos - lo
+            a_lo = path_q[lo - 1]
+            if lo >= n or frac == 0.0:
+                return a_lo                      # on an anchor, or at/after the last anchor
+            a_hi = path_q[lo]                    # next anchor
+            return a_lo + frac * (a_hi - a_lo)   # linear interpolation
+        # past the last anchor: glide toward longer_run at 5bp per QUARTER of overshoot
         last = path_q[n - 1]
-        step = 0.0005 * (t - n)
+        step = 0.0005 * (qpos - n)
         if last > longer_run:
             return max(longer_run, last - step)
         return min(longer_run, last + step)
@@ -200,7 +220,7 @@ def run_pf_a(cfg):
         return {"sofr": (sofr_p, sofr_lr), "effr": (effr_p, effr_lr), "prime": (prime_p, prime_lr)}
 
     _cp = _curve_paths(a)
-    rate_curves = {k: rate_fn(p, lr) for k, (p, lr) in _cp.items()}
+    rate_curves = {k: rate_fn(p, lr, ppy) for k, (p, lr) in _cp.items()}
     rate = rate_curves["sofr"]     # default curve
     rate._curves = rate_curves     # _prod_rate reads p['index'] off this to dispatch per-product
 
