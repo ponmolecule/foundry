@@ -230,6 +230,10 @@ def run_pf_a(cfg):
         a["overhead_growth_q"] = a["overhead_growth_per_period"]
     elif a.get("overhead_growth_q") is not None:
         a["overhead_growth_per_period"] = a["overhead_growth_q"]
+    if a.get("overhead_per_period") is not None:
+        a["overhead_q"] = a["overhead_per_period"]
+    elif a.get("overhead_q") is not None:
+        a["overhead_per_period"] = a["overhead_q"]
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov)
@@ -654,7 +658,7 @@ def run_pf_a(cfg):
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
-        overhead = a["overhead_q"] * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
+        overhead = (a.get("overhead_per_period", a.get("overhead_q")) or 0.0) * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
         if _nie_d:
             # Patrick's NIE granularity (F-071): FTE-step comp + category lines +
             # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.

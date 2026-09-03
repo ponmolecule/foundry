@@ -82,7 +82,7 @@ def validate_config_v2(cfg):
     # so a new-name config validates without changing those checks. Mutates in place; harmless
     # (the engine re-aliases anyway). Old-name configs are untouched.
     _PP = ["growth", "runoff", "purchases", "new_deposits", "orig_growth", "originations",
-           "opex_fixed", "fv_decay", "msr_decay", "overhead_growth"]
+           "opex_fixed", "fv_decay", "msr_decay", "overhead_growth", "overhead"]
     def _alias(d):
         if not isinstance(d, dict):
             return

@@ -23,9 +23,9 @@
     "name": "Retail Demand",
     "call_report_line": "depDDA",
     "opening_balance": 20000000.0,
-    "growth_q": 0.03,
-    "runoff_q": 0.0,
-    "new_deposits_q": 9000000.0,
+    "growth_per_period": 0.03,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 9000000.0,
     "avg_maturity_m": 0,
     "rate_type": "fixed",
     "rate_paid_ann": 0.001,
@@ -38,9 +38,9 @@
     "name": "MMDA / Savings",
     "call_report_line": "depSavings",
     "opening_balance": 30000000.0,
-    "growth_q": 0.04,
-    "runoff_q": 0.0,
-    "new_deposits_q": 12000000.0,
+    "growth_per_period": 0.04,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 12000000.0,
     "avg_maturity_m": 0,
     "rate_type": "float",
     "index_spread": -0.01,
@@ -53,9 +53,9 @@
     "name": "Time Deposits / CDs",
     "call_report_line": "depTime",
     "opening_balance": 18000000.0,
-    "growth_q": 0.05,
-    "runoff_q": 0.0,
-    "new_deposits_q": 6000000.0,
+    "growth_per_period": 0.05,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 6000000.0,
     "avg_maturity_m": 18,
     "rate_type": "fixed",
     "rate_paid_ann": 0.043,
@@ -68,9 +68,9 @@
     "name": "Brokered",
     "call_report_line": "depBrokered",
     "opening_balance": 25000000.0,
-    "growth_q": 0.02,
-    "runoff_q": 0.0,
-    "new_deposits_q": 8000000.0,
+    "growth_per_period": 0.02,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 8000000.0,
     "avg_maturity_m": 12,
     "rate_type": "fixed",
     "rate_paid_ann": 0.049,
@@ -83,9 +83,9 @@
     "name": "Sweep / Program",
     "call_report_line": "depSweep",
     "opening_balance": 14000000.0,
-    "growth_q": 0.05,
-    "runoff_q": 0.0,
-    "new_deposits_q": 4000000.0,
+    "growth_per_period": 0.05,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 4000000.0,
     "avg_maturity_m": 0,
     "rate_type": "float",
     "index_spread": -0.004,
@@ -98,9 +98,9 @@
     "name": "Institutional",
     "call_report_line": "depInstitutional",
     "opening_balance": 22000000.0,
-    "growth_q": 0.03,
-    "runoff_q": 0.0,
-    "new_deposits_q": 7000000.0,
+    "growth_per_period": 0.03,
+    "runoff_per_period": 0.0,
+    "new_deposits_per_period": 7000000.0,
     "avg_maturity_m": 0,
     "rate_type": "float",
     "index_spread": -0.002,
@@ -116,9 +116,9 @@
     "name": "Commercial Real Estate",
     "call_report_line": "loanCRE",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.005,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -133,9 +133,9 @@
     "name": "Small Business / C&I",
     "call_report_line": "loanCommercial",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.005,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -151,9 +151,9 @@
     "name": "Consumer Installment",
     "call_report_line": "loanConsumer",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.02,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -168,9 +168,9 @@
     "name": "Credit Card",
     "call_report_line": "loanCreditCard",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.035,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -186,9 +186,9 @@
     "name": "Residential Mortgage",
     "call_report_line": "loanMortgage",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.002,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -205,16 +205,16 @@
      "servicing_retained_pct": 0.8,
      "servicing_fee_bp_ann": 25.0,
      "msr_cap_rate_pct_upb": 0.012,
-     "msr_decay_q": 0.06
+     "msr_decay_per_period": 0.06
     }
    },
    {
     "name": "Small Business / C&I \u2014 fair value",
     "call_report_line": "loanCommercial",
     "opening_balance": 10000000.0,
-    "originations_q": 5000000.0,
-    "orig_growth_q": 0.02,
-    "runoff_q": 0.03,
+    "originations_per_period": 5000000.0,
+    "orig_growth_per_period": 0.02,
+    "runoff_per_period": 0.03,
     "charge_off_ann": 0.005,
     "provision_rate_ann": null,
     "reserve_rate_pct_bal": 0.011,
@@ -259,7 +259,7 @@
    {
     "name": "Unused Commercial Commitments",
     "notional": 20000000.0,
-    "growth_q": 0.03,
+    "growth_per_period": 0.03,
     "fee_yield_ann": 0.0075,
     "opex_pct_ann": 0.002,
     "opex_fixed_m": 5000.0,
@@ -277,7 +277,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 35000,
-        "growth_q": 0.03
+        "growth_per_period": 0.03
        }
       },
       "rate": {
@@ -299,7 +299,7 @@
     "managed_notional": {
      "day1": 60000000.0,
      "trajectory": "proportional",
-     "growth_q": 0.04
+     "growth_per_period": 0.04
     },
     "fee_streams": [
      {
@@ -330,7 +330,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 36000,
-        "growth_q": 0.06
+        "growth_per_period": 0.06
        }
       },
       "rate": {
@@ -357,7 +357,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 300000,
-        "growth_q": 0.04
+        "growth_per_period": 0.04
        }
       },
       "rate": {
@@ -382,7 +382,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 12000,
-        "growth_q": 0.03
+        "growth_per_period": 0.03
        }
       },
       "rate": {
@@ -407,7 +407,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 40000,
-        "growth_q": 0.08
+        "growth_per_period": 0.08
        }
       },
       "rate": {
@@ -439,7 +439,7 @@
        "trajectory": "proportional",
        "params": {
         "base": 750000,
-        "growth_q": 0.05
+        "growth_per_period": 0.05
        }
       },
       "rate": {
@@ -459,8 +459,8 @@
   ],
   "other_assets": 2000000,
   "other_liabilities": 1000000,
-  "overhead_growth_q": 0.01,
-  "overhead_q": 1800000,
+  "overhead_growth_per_period": 0.01,
+  "overhead_per_period": 1800000,
   "premises_equipment": 1000000,
   "rate_path_longer_run": 0.0315,
   "rate_path_q": [
@@ -497,17 +497,17 @@
    {
     "name": "AFS UST Ladder",
     "opening": 20000000.0,
-    "purchases_q": 1000000.0,
-    "growth_q": 0.0,
-    "runoff_q": 0.008,
+    "purchases_per_period": 1000000.0,
+    "growth_per_period": 0.0,
+    "runoff_per_period": 0.008,
     "yield_ann": 0.043
    },
    {
     "name": "AFS Agency MBS",
     "opening": 12000000.0,
-    "purchases_q": 500000.0,
-    "growth_q": 0.0,
-    "runoff_q": 0.015,
+    "purchases_per_period": 500000.0,
+    "growth_per_period": 0.0,
+    "runoff_per_period": 0.015,
     "yield_ann": 0.049
    }
   ],
@@ -515,17 +515,17 @@
    {
     "name": "HTM Municipal Ladder",
     "opening": 10000000.0,
-    "purchases_q": 0.0,
-    "growth_q": 0.0,
-    "runoff_q": 0.006,
+    "purchases_per_period": 0.0,
+    "growth_per_period": 0.0,
+    "runoff_per_period": 0.006,
     "yield_ann": 0.047
    },
    {
     "name": "HTM Agency Debentures",
     "opening": 8000000.0,
-    "purchases_q": 250000.0,
-    "growth_q": 0.0,
-    "runoff_q": 0.01,
+    "purchases_per_period": 250000.0,
+    "growth_per_period": 0.0,
+    "runoff_per_period": 0.01,
     "yield_ann": 0.045
    }
   ],
