@@ -105,13 +105,19 @@ def validate_config_v2(cfg):
                     "fee income (balance_driven_deposits or balance_driven_obs)")
 
     a = cfg["assumptions"]
-    # Projection horizon (optional; defaults to 12 = the historical quarterly horizon). When set, it
-    # must be an integer number of quarters in a sane range so table layout and schedules stay bounded.
+    # Projection horizon (optional). Bounded in YEARS (1-7) so table layout stays sane, but the
+    # period count depends on cadence: periods_per_year (ppy) 4=quarterly, 12=monthly, 1=annual.
+    # So the valid n_periods range is ppy*1 .. ppy*7.
+    _ppy = a.get("periods_per_year") or 4
+    if not isinstance(_ppy, int) or isinstance(_ppy, bool) or _ppy not in (1, 4, 12):
+        errs.append(f"assumptions.periods_per_year = {_ppy!r} invalid: must be 1 (annual), 4 (quarterly), or 12 (monthly)")
+        _ppy = 4
     if "n_periods" in a and a["n_periods"] is not None:
         _np = a["n_periods"]
-        if not isinstance(_np, int) or isinstance(_np, bool) or not (4 <= _np <= 28):
-            errs.append(f"assumptions.n_periods = {_np!r} out of range: "
-                        "must be an integer number of quarters between 4 and 28 (1-7 years)")
+        _lo, _hi = _ppy, _ppy * 7
+        if not isinstance(_np, int) or isinstance(_np, bool) or not (_lo <= _np <= _hi):
+            errs.append(f"assumptions.n_periods = {_np!r} out of range: with periods_per_year={_ppy} "
+                        f"must be an integer between {_lo} and {_hi} (1-7 years)")
     s = a.get("aoci_sensitivity_annual")
     if s is not None and (not isinstance(s, (int, float)) or not (-0.5 <= s <= 0.5)):
         errs.append("aoci_sensitivity_annual must be a rate in [-0.5, 0.5] "
