@@ -67,16 +67,16 @@ def _prod_rate(p, t, rate):
     return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
 
 
-def _fv_of(p, q, bal, rate, is_asset):
+def _fv_of(p, q, bal, rate, is_asset, ppyf=4.0):
     """DCF fair value of the existing book at end of quarter q."""
     if bal <= 0:
         return 0.0
     decay = (p.get("runoff_q", 0.0) if is_asset else p.get("fv_decay_q", 0.10)) or 0.0
-    co_rate = (p.get("charge_off_ann", 0.0) / 4.0) if is_asset else 0.0
+    co_rate = (p.get("charge_off_ann", 0.0) / ppyf) if is_asset else 0.0
     b, pv, df = bal, 0.0, 1.0
     for t in range(1, FV_HORIZON + 1):
-        rc = _prod_rate(p, q + t, rate) / 4.0
-        rd = (rate(q + t) + p.get("discount_spread_ann", 0.0)) / 4.0
+        rc = _prod_rate(p, q + t, rate) / ppyf
+        rd = (rate(q + t) + p.get("discount_spread_ann", 0.0)) / ppyf
         interest = b * rc
         principal = b * decay
         co = b * co_rate
@@ -144,6 +144,10 @@ def run_pf_a(cfg):
     # config without n_periods reproduces the 12-period numbers byte-identically. rate_fn is already
     # horizon-independent (it derives from len(path_q)), so the rate path glides past its end as needed.
     Q = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    # Cadence: periods per year (4=quarterly default, 12=monthly, 1=annual). With ppy=4 every
+    # /ppy below equals the legacy /4 exactly -> byte-identical (hash 3fee151428f6991e).
+    ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    ppyf = float(ppy)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
     # Originate-to-sell normalization. The engine reads the sale config under the `mortgage_banking`
@@ -233,8 +237,8 @@ def run_pf_a(cfg):
     for _sb in _sched:
         _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
-            sched_int_t[_q] += _amt * _r / 4.0
-    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
+            sched_int_t[_q] += _amt * _r / ppyf
+    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / ppyf
     prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
     dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, Q + 1)]
     non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(Q + 1)]
@@ -309,11 +313,11 @@ def run_pf_a(cfg):
             r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
-            p["_ie"].append(avg * r / 4.0 if p in dep else 0.0)
+            p["_ie"].append(avg * r / ppyf if p in dep else 0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "managed_notional": _mn_avg[q - 1]})
-            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / 4.0 + _pf_inc)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
+            p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_q(p))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
 
     for p in lend:
@@ -351,7 +355,7 @@ def run_pf_a(cfg):
         for q in range(1, Q + 1):
             beg = p["_bal"][q - 1]
             r = _prod_rate(p, q, rate)
-            co = beg * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0
+            co = beg * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / ppyf
             o = _ovq(p, "originations_q", q,
                      (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1))
             retained = o * (1 - p["_sale"])
@@ -359,7 +363,7 @@ def run_pf_a(cfg):
             if _amort:
                 # amortize every living cohort one quarter (level payment), then add this quarter's
                 # retained origination as a fresh cohort. Balance = sum of cohorts, less charge-offs.
-                _i = max(0.0, r) / 4.0
+                _i = max(0.0, r) / ppyf
                 _next = []
                 for _bal, _age in _coh:
                     _rem = _T - _age
@@ -410,10 +414,10 @@ def run_pf_a(cfg):
                 p.setdefault("_season_gos", []).append(_season_gain_q)
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
-            p["_ii"].append(avg * r / 4.0); p["_ie"].append(0.0)
+            p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg})
-            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / 4.0 + _pf_inc)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / 4.0 + opex_fixed_q(p))
+            p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_q(p))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
@@ -436,7 +440,7 @@ def run_pf_a(cfg):
                         w = 0.5
                     else:
                         w = 0.0
-                    wh_int += cohort * w * rq / 4.0
+                    wh_int += cohort * w * rq / ppyf
                     if q < j + h:
                         wh += cohort
                 if p["_is_fv"]:
@@ -466,7 +470,7 @@ def run_pf_a(cfg):
                 cap = add * cap_rate
                 amort = p["_msr"][q - 1] * decay
                 msr = max(0.0, p["_msr"][q - 1] + cap - amort)
-                sfee = ((upb_beg + upb) / 2.0) * fee_bp / 10000.0 / 4.0
+                sfee = ((upb_beg + upb) / 2.0) * fee_bp / 10000.0 / ppyf
                 p["_upb"].append(upb); p["_msr"].append(msr)
                 p["_scap"].append(cap); p["_samort"].append(amort)
                 p["_sfee"].append(sfee); p["_snet"].append(sfee - amort)
@@ -480,7 +484,7 @@ def run_pf_a(cfg):
         p["_fv"] = []; p["_fvadj"] = []
         for q in range(0, Q + 1):
             if p["_is_fv"]:
-                fv = _fv_of(p, q, p["_bal"][q], rate, True)
+                fv = _fv_of(p, q, p["_bal"][q], rate, True, ppyf)
                 p["_fv"].append(fv); p["_fvadj"].append(fv - p["_bal"][q])
             else:
                 p["_fv"].append(None); p["_fvadj"].append(0.0)
@@ -612,8 +616,8 @@ def run_pf_a(cfg):
             # avg assets this quarter approximated as (prior end + tentative end)/2 is
             # circular pre-plug; use prior end (disclosed) — assessments accrue on it
             _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
-            _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / 4.0
-            _occ = _avg_a_q * float(_occ_bp) / 10000.0 / 4.0
+            _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / ppyf
+            _occ = _avg_a_q * float(_occ_bp) / 10000.0 / ppyf
             _sub = (_nie_d["comp"][q - 1] + _nie_d["categories"][q - 1]
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
@@ -634,21 +638,21 @@ def run_pf_a(cfg):
             is_["provBuild"][q] = prov - _day1 - nco_ac
         net_loans_end = gross[q] - alll_t[q]
         sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
-        book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
+        book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / ppyf for p in afs_p + htm_p)
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
         _dta_iter = _dta_prev
         for _ in range(60):
             afs_end_b = sum(p["_bal"][q] for p in afs_p)
-            aoci_q = afs_end_b * _aoci_sens / 4.0
+            aoci_q = afs_end_b * _aoci_sens / ppyf
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
                             non_earn_t[q] + (_dta_iter if _td else 0.0))
-            sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / 4.0 + book_int
-            cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / 4.0
-            borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / 4.0 + sched_int_t[q]
+            sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / ppyf + book_int
+            cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
+            borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
             if _td:

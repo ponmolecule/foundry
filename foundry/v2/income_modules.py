@@ -34,7 +34,7 @@ def _g(base, growth, q):
     return base * (1 + (growth or 0.0)) ** (q - 1)
 
 
-def nie_detail_series(a):
+def nie_detail_series(a, ppy=4):
     """(comp_q, categories_q, gross_up_rate) or None when absent."""
     Q = int(a.get("n_periods") or 12)
     nd = a.get("nie_detail")
@@ -43,7 +43,7 @@ def nie_detail_series(a):
     fte = list(nd.get("fte_by_year") or [0, 0, 0])
     loaded = float(nd.get("loaded_comp_annual") or 0.0)
     _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
-    comp = [fte[min((q - 1) // 4, _lastyr)] * loaded / 4.0 for q in range(1, Q + 1)]
+    comp = [fte[min((q - 1) // ppy, _lastyr)] * loaded / float(ppy) for q in range(1, Q + 1)]
     # Per-category quarterly series. Each category can be:
     #   - flat (default): per_quarter repeated every quarter — BYTE-IDENTICAL to the legacy
     #     behavior when only per_quarter is set (back-compat invariant).
@@ -122,7 +122,7 @@ def managed_notional_series(mn, Q):
     return avg, end
 
 
-def _fee_rate_q(rt, q, base_qty):
+def _fee_rate_q(rt, q, base_qty, ppy=4):
     """Axis 4 (rate behavior): flat | annual_change | scheduled | tiered.
     Returns an EFFECTIVE rate for quarter q. For tiered, returns None and the caller
     applies the tier schedule against base_qty directly (marginal breakpoints)."""
@@ -130,7 +130,7 @@ def _fee_rate_q(rt, q, base_qty):
     rp = (rt or {}).get("params") or {}
     r0 = float(rp.get("rate") or 0.0)
     if behavior == "annual_change":
-        yr = (q - 1) // 4                       # 0 in year 1, 1 in year 2, ...
+        yr = (q - 1) // ppy                      # 0 in year 1, 1 in year 2, ...
         delta = float(rp.get("annual_delta") or 0.0)
         return r0 * ((1.0 + delta) ** yr)
     if behavior == "scheduled":
@@ -161,7 +161,7 @@ def _apply_tiers(tiers, base_qty):
     return out
 
 
-def fee_stream_q(stream, q, ctx):
+def fee_stream_q(stream, q, ctx, ppy=4):
     """One fee stream's NET income for quarter q ($). Full six-axis GUT evaluator.
 
     Axis 1 Basis:        balance | transaction | account | flat | event
@@ -238,13 +238,13 @@ def fee_stream_q(stream, q, ctx):
         ctx.setdefault("stream_qty", {})[nm] = qty
 
     # ---- Axis 1 + 4: basis application with rate behavior ----
-    eff_rate = _fee_rate_q(rt, q, qty)
+    eff_rate = _fee_rate_q(rt, q, qty, ppy)
     gross = 0.0
     if basis == "balance":
         if eff_rate is None:  # tiered on balance
-            gross = _apply_tiers(rate_params.get("tiers"), qty) / 4.0
+            gross = _apply_tiers(rate_params.get("tiers"), qty) / float(ppy)
         else:
-            gross = qty * eff_rate / 4.0
+            gross = qty * eff_rate / float(ppy)
     elif basis == "transaction":
         if eff_rate is None:
             gross = _apply_tiers(rate_params.get("tiers"), qty)
@@ -326,7 +326,7 @@ def fee_streams_order(streams):
     return order
 
 
-def product_fee_streams_q(p, q, ctx):
+def product_fee_streams_q(p, q, ctx, ppy=4):
     """A product's fee_streams for quarter q, as (fee_income, operating_cost) in $.
     Evaluated in dependency order so stream_ref consumers see their source's quantity.
     operating_cost (per_unit costs) routes to overhead; pct_of_revenue already netted
@@ -344,7 +344,7 @@ def product_fee_streams_q(p, q, ctx):
     inc_total = 0.0
     cost_total = 0.0
     for i in order:
-        _inc, _cost = fee_stream_q(streams[i], q, ctx)
+        _inc, _cost = fee_stream_q(streams[i], q, ctx, ppy)
         inc_total += _inc
         cost_total += _cost
     return inc_total, cost_total
