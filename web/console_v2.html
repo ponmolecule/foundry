@@ -535,6 +535,13 @@ let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
 // result vectors already carry this many periods; headers must match or they stall at Q12 while rows
 // extend (the bug this fixes).
 function NP(){ return (cfg && cfg.assumptions && +cfg.assumptions.n_periods) || 12; }
+// Cadence helpers: PPY() = periods per year (4 quarterly default); PLAB gives the period word/abbrev
+// so every per-period field label reads in the ACTIVE cadence (the safety guardrail for
+// "user brings numbers in the selected cadence"). Quarterly -> qtr/quarter (unchanged wording).
+function PPY(){ return (cfg && cfg.assumptions && +cfg.assumptions.periods_per_year) || 4; }
+function PLAB(kind){ var p=PPY();
+  var m={12:{ab:'mo',full:'month'},4:{ab:'qtr',full:'quarter'},1:{ab:'yr',full:'year'}};
+  var e=m[p]||m[4]; return kind==='full'?e.full:e.ab; }
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
   if(!V21 || !lastRes || !lastRes.callreport || !key) return null;
@@ -1974,9 +1981,9 @@ function fieldsFor(fam, p, base){
   let h = "";
   if(fam==="lending"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F("New originations ($000s/qtr)", base+".originations_q", "k");
-    h += F("Origination growth (%/qtr)", base+".orig_growth_q", "pct");
-    h += F("Runoff / prepayment (%/qtr)", base+".runoff_q", "pct");
+    h += F(`New originations ($000s/${PLAB()})`, base+".originations_q", "k");
+    h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_q", "pct");
+    h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_q", "pct");
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
       const _idx = (p.index||"sofr").toUpperCase();
@@ -2002,19 +2009,19 @@ function fieldsFor(fam, p, base){
       h += M("Servicing retained (% of sold)", "servicing_retained_pct", "pct");
       h += M("Servicing fee (bp/yr)", "servicing_fee_bp_ann", "");
       h += M("MSR cap rate (% of UPB)", "msr_cap_rate_pct_upb", "pct");
-      h += M("Servicing runoff (%/qtr)", "msr_decay_q", "pct");
+      h += M(`Servicing runoff (%/${PLAB()})`, "msr_decay_q", "pct");
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', null);renderContent();refresh()">Remove originate-to-sell</button></div>`;
     } else if(isMortgage){
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_q:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
     if(p.measurement==="fair_value") h += F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct");
   } else if(fam==="deposit"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F("Growth (%/qtr)", base+".growth_q", "pct");
-    h += F("New deposits ($000s/qtr)", base+".new_deposits_q", "k");
-    h += F("Runoff (%/qtr)", base+".runoff_q", "pct");
+    h += F(`Growth (%/${PLAB()})`, base+".growth_q", "pct");
+    h += F(`New deposits ($000s/${PLAB()})`, base+".new_deposits_q", "k");
+    h += F(`Runoff (%/${PLAB()})`, base+".runoff_q", "pct");
     h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
@@ -2026,7 +2033,7 @@ function fieldsFor(fam, p, base){
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
   } else if(p.managed_notional || p._fee_product){
     const _fi = base.split(".").pop();   // array index (fieldsFor has no i in scope)
     // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
@@ -2070,7 +2077,7 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide" style="border-top:1px solid #333;margin-top:8px;padding-top:6px"><label style="color:#DFA85A">Stream ${si+1} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       // Axis 1: basis
-      h += SEL("Basis (what it's charged on)", sb+".basis", basis, [["balance","Balance \u2014 stock \u00d7 rate"],["transaction","Transaction \u2014 count \u00d7 $/unit"],["account","Account \u2014 count \u00d7 $/period"],["flat","Flat \u2014 $/quarter"],["event","Event \u2014 one-time $"]]);
+      h += SEL("Basis (what it's charged on)", sb+".basis", basis, [["balance","Balance \u2014 stock \u00d7 rate"],["transaction","Transaction \u2014 count \u00d7 $/unit"],["account",`Account \u2014 count \u00d7 $/${PLAB()}`],["flat",`Flat \u2014 $/${PLAB()}`],["event","Event \u2014 one-time $"]]);
       // Axis 2: driver source
       h += SEL("Driver source", sb+".driver.source", src, [["constant","Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]]);
       if(src==="stream_ref"){ h += SEL("Reference stream", sb+".driver.ref", st.driver.ref||"", (streamNames.length?streamNames:[""]).map(n=>[n, n||"(name other streams first)"])); }
@@ -2078,7 +2085,7 @@ function fieldsFor(fam, p, base){
       // Axis 3: trajectory
       h += SEL("Trajectory (how the driver moves)", sb+".driver.trajectory", traj, [["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (\u00d7 source)"]]);
       if(src==="constant" && traj!=="explicit_schedule"){ h += F("Base value", sb+".driver.params.base", "n"); }
-      if(traj==="proportional"){ h += F("Growth (%/qtr)", sb+".driver.params.growth_q", "pct"); }
+      if(traj==="proportional"){ h += F(`Growth (%/${PLAB()})`, sb+".driver.params.growth_q", "pct"); }
       if(traj==="derived"){ h += F("Multiple (\u00d7 source)", sb+".driver.params.multiple", "n"); h += F("or Percentage (of source, 0-1)", sb+".driver.params.pct", "n"); }
       // Axis 4: rate behavior
       h += SEL("Rate behavior", sb+".rate.behavior", rb, [["flat","Flat rate"],["annual_change","Annual change (%/yr)"],["scheduled","Scheduled (per-quarter)"],["tiered","Tiered (breakpoints)"]]);
@@ -2096,9 +2103,9 @@ function fieldsFor(fam, p, base){
           h += `<div class="fld wide" style="font-size:11px;color:#888">Below \$10B: you earn the net fee. At/above \$10B: the effective rate is capped to the regulated cap (\$0.21 + 0.05%\u00d7ticket + \$0.01), reducing interchange automatically.</div>`;
         }
       }
-      else if(basis==="account"){ h += F("Fee ($/acct/period)", sb+".rate.params.fee_per_period", "n"); h += F("Periods/qtr", sb+".rate.params.periods_per_q", "n"); }
-      else if(basis==="flat"){ h += F("Amount ($/quarter)", sb+".rate.params.amount_per_period", "n"); }
-      else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F("At period (quarter)", sb+".driver.params.at_period", "n"); }
+      else if(basis==="account"){ h += F(`Fee ($/acct/${PLAB()})`, sb+".rate.params.fee_per_period", "n"); }
+      else if(basis==="flat"){ h += F(`Amount ($/${PLAB()})`, sb+".rate.params.amount_per_period", "n"); }
+      else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F(`At period (${PLAB('full')})`, sb+".driver.params.at_period", "n"); }
       if(rb==="annual_change"){ h += F("Annual rate change (%/yr, neg=pressure)", sb+".rate.params.annual_delta", "pct"); }
       if(rb==="tiered"){ h += `<div class="fld wide" style="font-size:11px;color:#888">Tiered breakpoints entered as JSON: [{"up_to":1000000,"rate":0.01},{"up_to":null,"rate":0.005}]</div>`;
         h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert(\x27Invalid JSON\x27)}"></div>`; }
@@ -2119,10 +2126,10 @@ function fieldsFor(fam, p, base){
     });
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
-    h += F("Growth (%/qtr)", base+".growth_q", "pct");
+    h += F(`Growth (%/${PLAB()})`, base+".growth_q", "pct");
     h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
-    h += F("Op cost fixed ($000s/qtr)", base+".opex_fixed_q", "kq");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_q", "kq");
   }
   return h;
 }
@@ -2254,21 +2261,21 @@ function ovFieldsFor(fam, p){
   const f = [];
   if(fam==="lending"){
     f.push(["originations_q","Originations ($000s)","k"]);
-    f.push(["runoff_q","Runoff / prepayment (%/qtr)","pct"]);
+    f.push(["runoff_q",`Runoff / prepayment (%/${PLAB()})`,"pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["yield_ann","Yield (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
     f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
   } else if(fam==="deposit"){
-    f.push(["growth_q","Growth (%/qtr)","pct"]);
-    f.push(["new_deposits_q","New deposits ($000s/qtr)","kq"]);
+    f.push(["growth_q",`Growth (%/${PLAB()})`,"pct"]);
+    f.push(["new_deposits_q",`New deposits ($000s/${PLAB()})`,"kq"]);
     f.push(["avg_maturity_m","Avg maturity (months)","num"]);
-    f.push(["runoff_q","Runoff (%/qtr)","pct"]);
+    f.push(["runoff_q",`Runoff (%/${PLAB()})`,"pct"]);
     if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
   } else {
-    f.push(["growth_q","Growth (%/qtr)","pct"]);
+    f.push(["growth_q",`Growth (%/${PLAB()})`,"pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
   }
   return f;
