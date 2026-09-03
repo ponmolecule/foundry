@@ -24,8 +24,8 @@ ASSUMPTION_REQUIRED = ["rate_path_q", "rate_path_longer_run", "tax_semantics", "
                        "cash_yield", "overhead_q", "premises_equipment", "intangibles",
                        "other_assets", "other_liabilities"]
 
-DEP_REQUIRED = ["name", "opening_balance", "growth_q", "rate_type"]
-LEND_REQUIRED = ["name", "opening_balance", "runoff_q", "rate_type",
+DEP_REQUIRED = ["name", "opening_balance", "growth_per_period", "rate_type"]
+LEND_REQUIRED = ["name", "opening_balance", "runoff_per_period", "rate_type",
                  "charge_off_ann", "measurement"]
 
 # (path, lo, hi, reason) — nonsense fails closed
@@ -38,8 +38,8 @@ PROD_RANGES = [
     ("yield_ann", 0.0, 0.60, "asset yield must be in [0, 0.60]"),
     ("charge_off_ann", 0.0, 0.40, "loss rate must be in [0, 0.40]"),
     ("provision_rate_ann", 0.0, 0.40, "provision rate must be in [0, 0.40]"),
-    ("runoff_q", 0.0, 1.0, "runoff must be a rate in [0, 1]; negative runoff mints balances"),
-    ("growth_q", -0.5, 1.0, "quarterly growth must be in [-0.5, 1.0]"),
+    ("runoff_per_period", 0.0, 1.0, "runoff must be a rate in [0, 1]; negative runoff mints balances"),
+    ("growth_per_period", -0.5, 1.0, "growth must be in [-0.5, 1.0]"),
 ]
 MB_RANGES = [
     ("sale_pct_of_orig", 0.0, 1.0, "sale share must be in [0, 1]"),
@@ -88,15 +88,19 @@ def validate_config_v2(cfg):
             return
         for _st in _PP:
             _n, _o = _st + "_per_period", _st + "_q"
-            if _n in d and d[_n] is not None and _o not in d:
-                d[_o] = d[_n]
-    _a = cfg.get("assumptions") or {}
-    _alias(_a)
-    for _lst in ("lending_products", "deposit_products", "obs_exposures",
-                 "securities_afs", "securities_htm"):
-        for _p in (_a.get(_lst) or []):
-            _alias(_p)
-            _alias(_p.get("mortgage_banking"))
+            if _n in d and d[_n] is not None:
+                d.setdefault(_o, d[_n])       # new present -> mirror to old
+            elif _o in d and d[_o] is not None:
+                d.setdefault(_n, d[_o])       # old present -> mirror to new
+    def _alias_rec(node):
+        if isinstance(node, dict):
+            _alias(node)
+            for _v in node.values():
+                _alias_rec(_v)
+        elif isinstance(node, list):
+            for _v in node:
+                _alias_rec(_v)
+    _alias_rec(cfg.get("assumptions") or {})
     for k in TOP_REQUIRED:
         if k not in cfg:
             errs.append(f"missing required top-level key '{k}'")
