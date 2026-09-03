@@ -6342,11 +6342,10 @@ function structuresSectionsHtml(){
       row += `</div></div>`;
       h += row;
     });
-    h += '<a href="#" class="cadd" onclick="(cfg.assumptions.nie_detail.categories=cfg.assumptions.nie_detail.categories||[]).push({name:String(),per_quarter:0});renderContent();refresh();return false">+ add category</a>';
     // ---- Create-and-paste: click reveals a type-adaptive paste box; Load appends + collapses ----
     { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
       if(!_cpo){
-        h += ' \u00b7 <a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 paste categories</a>';
+        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 paste categories</a>';
       } else {
         var _TT = [["flat","Flat ($/q)"],["linear","Linear (base + growth)"],["explicit","Explicit (per-qtr)"]];
         h += '<div style="margin-top:8px;border-top:1px solid #2A3444;padding-top:8px">';
@@ -6363,7 +6362,6 @@ function structuresSectionsHtml(){
       }
     }
 
-    h += `<div class="chint" style="color:#DFA85A">Replaces the sidebar\u2019s Corporate overhead line while active \u2014 overhead of ${((cfg.assumptions.overhead_q||0)/1000).toLocaleString()} $000s/qtr is ignored. Zeroing these fields models a bank with no operating expenses; to compare against the plain overhead model, deactivate instead.</div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
   h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
