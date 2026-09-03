@@ -252,9 +252,15 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             per_unit = float(rate_params.get("per_unit") or 0.0)
             gross = qty * per_unit
     elif basis == "account":
+        # fee_per_period is $/account/MONTH (a per-account fee has a fixed natural unit — it does
+        # not change meaning by cadence). Fill the engine period with the calendar-correct number
+        # of months: 12/ppy (quarterly=3 -> hash-identical; monthly=1; annual=12). This is a
+        # calendar fact, not a unit assumption, so it is safe to derive from cadence.
+        # Back-compat: if a legacy config still carries periods_per_q, honor it (it equals 12/ppy
+        # for the cadence it was authored in), so old quarterly configs stay byte-identical.
         per_period = float(rate_params.get("fee_per_period") or 0.0)
-        periods = float(rate_params.get("periods_per_q") or 1.0)
-        gross = qty * per_period * periods
+        months_per_period = float(rate_params.get("periods_per_q") or (12.0 / float(ppy)))
+        gross = qty * per_period * months_per_period
     elif basis == "flat":
         gross = float(rate_params.get("amount_per_period") or 0.0)
     elif basis == "event":
