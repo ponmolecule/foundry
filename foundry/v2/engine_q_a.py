@@ -781,9 +781,9 @@ def run_pf_a(cfg):
         avg_earn = ((gross[q - 1] + gross[q]) / 2.0 + (bs["sec"][q - 1] + bs["sec"][q]) / 2.0
                     + (bs["cash"][q - 1] + bs["cash"][q]) / 2.0)
         ni_q = is_["ni"][q]
-        ratios["roa"][q] = (ni_q * 4 / avg_a * 100) if avg_a > 0 else None
-        ratios["roe"][q] = (ni_q * 4 / avg_e * 100) if avg_e > 0 else None
-        ratios["nim"][q] = (is_["nii"][q] * 4 / avg_earn * 100) if avg_earn > 0 else None
+        ratios["roa"][q] = (ni_q * ppyf / avg_a * 100) if avg_a > 0 else None
+        ratios["roe"][q] = (ni_q * ppyf / avg_e * 100) if avg_e > 0 else None
+        ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_earn * 100) if avg_earn > 0 else None
         rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
         ratios["eff"][q] = ((is_["prodOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
         _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if _td else 0.0
@@ -796,7 +796,7 @@ def run_pf_a(cfg):
         # exactly (so a modeled value places like-for-like). Can be slightly negative
         # when recoveries exceed charge-offs — a genuinely good quarter, not an anomaly.
         avg_loans = (gross[q - 1] + gross[q]) / 2.0
-        ratios["nco_rate"][q] = (is_["nco"][q] * 4 / avg_loans * 100) if avg_loans > 0 else None
+        ratios["nco_rate"][q] = (is_["nco"][q] * ppyf / avg_loans * 100) if avg_loans > 0 else None
 
     products = []
     for fam, plist in (("lending", lend), ("deposit", dep), ("obs", obs)):
