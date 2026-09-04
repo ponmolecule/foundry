@@ -110,13 +110,16 @@ def code_for_line(line):
 # compute are OMITTED and listed in the footer — omission is honest; a zero
 # asserts a fact the model never computed (TEST_CASES.md #12).
 
-_CR_NP = 12   # authoritative reporting horizon; set by build_call_report from cfg.n_periods
+import threading as _threading
+_CR_TL = _threading.local()   # per-thread reporting horizon (concurrency-safe; AUDIT 4.4)
+def _crnp():
+    return getattr(_CR_TL, "np", 12)
 
 
 def _q(series):
     """Normalize to Q1..Q_NP: balance series carry a Q0 opening (_NP+1 points);
     flow series carry _NP. Schedules are uniformly quarterly columns."""
-    return list(series[1:_CR_NP + 1]) if len(series) == _CR_NP + 1 else list(series[:_CR_NP])
+    return list(series[1:_crnp() + 1]) if len(series) == _crnp() + 1 else list(series[:_crnp()])
 
 
 def _row(item, code, label, vals):
@@ -254,7 +257,7 @@ def _rce_insurance(res, cfg):
         src = next((d for d in dps if d.get("name") == p.get("name")), {})
         ip = src.get("insured_pct")
         balv = p.get("bal") or []
-        balq = balv[1:_CR_NP + 1] if len(balv) == _CR_NP + 1 else balv[:_CR_NP]
+        balq = balv[1:_crnp() + 1] if len(balv) == _crnp() + 1 else balv[:_crnp()]
         if ip is None:
             missing.append(p.get("name"))
         else:
@@ -286,7 +289,7 @@ def build_rcc(res, cfg):
         if not ln or not str(ln).startswith("loan"):
             continue
         balv = p.get("bal") or []
-        balq = balv[1:_CR_NP + 1] if len(balv) == _CR_NP + 1 else balv[:_CR_NP]
+        balq = balv[1:_crnp() + 1] if len(balv) == _crnp() + 1 else balv[:_crnp()]
         acc = per_line.setdefault(ln, [0.0] * n_ref)
         for t in range(min(n_ref, len(balq))):
             acc[t] += balq[t] or 0.0
@@ -301,7 +304,7 @@ def build_rcc(res, cfg):
         if ln in per_line and any(abs(v) > 1e-9 for v in per_line[ln]):
             rows.append({"item": item, "code": code, "label": label,
                           "values": [round(v, 2) for v in per_line[ln]]})
-    hfs = _q(bs.get("hfs") or [0.0] * (_CR_NP + 1))
+    hfs = _q(bs.get("hfs") or [0.0] * (_crnp() + 1))
     if any(abs(v) > 1e-9 for v in hfs):
         rows.append({"item": "memo", "code": "RCON5369", "label": "Loans held for sale (memo)",
                       "values": [round(v, 2) for v in hfs]})
@@ -361,8 +364,7 @@ def build_rcr(res, cfg):
 
 
 def build_call_report(res, cfg):
-    global _CR_NP
-    _CR_NP = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    _CR_TL.np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
     return {"RC": build_rc(res, cfg), "RI": build_ri(res),
             "RC-E": build_rce(res, cfg), "RC-C": build_rcc(res, cfg),
             "RC-R": build_rcr(res, cfg)}
