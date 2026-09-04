@@ -542,6 +542,13 @@ function PPY(){ return (cfg && cfg.assumptions && +cfg.assumptions.periods_per_y
 function PLAB(kind){ var p=PPY();
   var m={12:{ab:'mo',full:'month'},4:{ab:'qtr',full:'quarter'},1:{ab:'yr',full:'year'}};
   var e=m[p]||m[4]; return kind==='full'?e.full:e.ab; }
+// Period column label for output tables: "M1"/"Q1"/"Y1" per cadence (1-based period index).
+function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+i; }
+// Year-end helpers: which 1-based period indices are year-ends, and the year number.
+function PPY_YEARS(){ return Math.floor(NP()/PPY()); }              // number of full years
+function YEAR_END_PERIOD(y){ return y*PPY(); }                       // 1-based period that ends year y
+function YEAR_END_LABEL(y){ return "Y"+y+" ("+PERLAB(y*PPY())+")"; } // e.g. "Y1 (M12)" / "Y1 (Q4)"
+
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
   if(!V21 || !lastRes || !lastRes.callreport || !key) return null;
@@ -1808,7 +1815,7 @@ function renderRateCurvesPanel(){
   }
   h += '</tr>';
   for(let q=1;q<=12;q++){
-    h += `<tr><td style="padding:2px 4px;color:#8FA3C0">Q${q}</td>`;
+    h += `<tr><td style="padding:2px 4px;color:#8FA3C0">${PERLAB(q)}</td>`;
     for(const k of CURVE_ORDER){
       const c = rc[k]; const val = +(((c.path_q[q-1])||0)*100).toFixed(3);
       const edited = c._editedCells && c._editedCells[q-1];
@@ -2303,7 +2310,7 @@ function ovGridHtml(fam, i){
   if(ovOpen[key]){
     h += '<div class="ovgrid"><div class="ovtitle">Per-quarter overrides <span>blank cells use the baseline shown as placeholder</span></div>';
     h += '<table><tr><th style="text-align:left">Driver</th>';
-    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '</tr>';
     ovFieldsFor(fam, p).forEach(([field,label,unit])=>{
       const base = ovDisp(p[field] != null ? p[field] : ((p.mortgage_banking||{})[field]), unit);
@@ -2660,7 +2667,7 @@ function renderTabs(){
 function headerRow(withOpen, withTotal){
   let h = "<tr>" + (V21 ? '<th class="ref">Ref</th>' : "") + "<th>Line item ($000s)</th>";
   if(withOpen) h += "<th>Open</th>";
-  for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+  for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
   if(withTotal) h += "<th>Total</th>";
   return h + "</tr>";
 }
@@ -3168,7 +3175,7 @@ function vintageSectionHtml(){
     const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #24334D;color:#DFA85A">${esc(M.later.label)}</th>` : "";
     const lateCell = (p)=> (showLater && later)
       ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #24334D;color:#DFA85A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
-    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
+    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">${PPY()===12?"M":PPY()===1?"Y":"Q"}${a.age_q}</th>`).join("") + lateTh + '</tr>';
     ["p90","p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
     });
@@ -3205,7 +3212,7 @@ function retroSectionHtml(){
     h += `<div class="memo"><b>${R.summary.series_within_15pct_terminal} of ${R.summary.series_compared}</b> series land within 15% at the terminal quarter (worst miss ${R.summary.worst_terminal_error_pct}%). ${esc(R.summary.note)} Report <span style="font-family:var(--mono)">${esc(R.report_hash)}</span>.</div>`;
     R.series.forEach(s=>{
       h += `<div class="ovh3" style="font-size:12px">${esc(s.label)} \u2014 MAPE ${s.mape_pct}%, terminal ${s.terminal_error_pct}%</div>`;
-      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + s.rows.map(r=>`<th style="text-align:right">Q${r.q}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + s.rows.map(r=>`<th style="text-align:right">${PERLAB(r.q)}</th>`).join("") + '</tr>';
       h += '<tr><td>Projected</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.projected.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
       h += '<tr><td>Actual</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.actual.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
       h += '<tr><td>Error %</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right;color:${r.ape!==null&&r.ape>0.15?'#B45454':'#8FA3C0'}">${r.ape===null?'\u2014':(r.ape*100).toFixed(1)+'%'}</td>`).join("") + '</tr></table></div>';
@@ -3271,7 +3278,7 @@ function renderExaminer(){
   const qs = r.examiner_book || [];
   if(!qs.length) h += '<div class="okbox">No questions generated \u2014 add constraints or a peer_query.</div>';
   qs.forEach((x,i)=>{
-    h += `<div class="ovflag"><div style="font-weight:600;color:#EDF0F5">Q${i+1}. ${esc(x.q)}</div>`
+    h += `<div class="ovflag"><div style="font-weight:600;color:#EDF0F5">${PERLAB(i+1)}. ${esc(x.q)}</div>`
       + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
       + `<div class="ftext" style="color:#B7C0D2">Proposed response: ${esc(x.proposed_response)}</div></div>`;
   });
@@ -3295,7 +3302,7 @@ function renderExaminer(){
     ["RC","RI","RC-C","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
       h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
-      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:NP()},(_,q)=>`<th style="text-align:right">Q${q+1}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:NP()},(_,q)=>`<th style="text-align:right">${PERLAB(q+1)}</th>`).join("") + '</tr>';
       sc.rows.forEach(r=>{
         h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
           + r.values.slice(0,NP()).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
@@ -3455,7 +3462,7 @@ function _levSparkline(r){
     <line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="#1E2C42" stroke-width="1"/>
     <polyline fill="none" stroke="#F87171" stroke-width="2" points="${pts}"/>
     <circle cx="${x(minI).toFixed(0)}" cy="${y(minV).toFixed(1)}" r="3" fill="#F87171"/>
-    <text x="${x(minI).toFixed(0)}" y="${B+11}" fill="#8FA3C0" font-size="9" font-family="var(--mono)" text-anchor="middle">Q${minI+1} ${minV.toFixed(1)}%</text>
+    <text x="${x(minI).toFixed(0)}" y="${B+11}" fill="#8FA3C0" font-size="9" font-family="var(--mono)" text-anchor="middle">${PERLAB(minI+1)} ${minV.toFixed(1)}%</text>
   </svg>`;
 }
 // Assemble the verdict block HTML from the model result. All slots field-sourced; null slots omitted.
@@ -3476,10 +3483,10 @@ function _verdictBlock(r){
       const breaches = scenFail>0 || minPct < commit;
       if(breaches){
         const allBreach = scenFail===scenTotal && scenTotal>0;
-        const _lowPhrase = (b.min_leverage_q === 1) ? `Base leverage opens at its lowest point, <b>${minPct.toFixed(2)}%</b> in <b>Q1</b>,` : `Base leverage bottoms at <b>${minPct.toFixed(2)}%</b> in <b>Q${b.min_leverage_q}</b>`;
+        const _lowPhrase = (b.min_leverage_q === 1) ? `Base leverage opens at its lowest point, <b>${minPct.toFixed(2)}%</b> in <b>Q1</b>,` : `Base leverage bottoms at <b>${minPct.toFixed(2)}%</b> in <b>${PERLAB(b.min_leverage_q)}</b>`;
         lines += `<p>${_lowPhrase} against the stated <b>${commit.toFixed(1)}%</b> threshold${allBreach?`; <b>all ${_numWord(scenTotal)} modeled scenarios</b> breach it`:(scenFail>0?`; <b>${scenFail} of ${scenTotal} modeled scenarios</b> breach it`:"")}.</p>`;
       } else {
-        lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (${(b.min_leverage_q === 1) ? `low of <b>${minPct.toFixed(2)}%</b> at opening (Q1)` : `low of <b>${minPct.toFixed(2)}%</b> in Q${b.min_leverage_q}`}).</p>`;
+        lines += `<p>Base leverage holds above the stated <b>${commit.toFixed(1)}%</b> threshold in every modeled scenario (${(b.min_leverage_q === 1) ? `low of <b>${minPct.toFixed(2)}%</b> at opening (Q1)` : `low of <b>${minPct.toFixed(2)}%</b> in ${PERLAB(b.min_leverage_q)}`}).</p>`;
       }
     }
     // highest-priority area — NUMBER-FREE. Points to the most material family and defers the specific
@@ -3627,7 +3634,7 @@ function renderOverviewClassic(){
   const _cumni = base.cum_ni;
   const dcards = [
     ["Min base leverage", base.min_leverage==null?"n/m":(base.min_leverage*100).toFixed(2)+"%",
-      `Q${base.min_leverage_q??"\u2014"} \u00b7 vs ${levMin.toFixed(1)}%`, base.min_leverage!=null && base.min_leverage<levMin/100],
+      `${base.min_leverage_q==null?"\u2014":PERLAB(base.min_leverage_q)} \u00b7 vs ${levMin.toFixed(1)}%`, base.min_leverage!=null && base.min_leverage<levMin/100],
     ["Worst stress outcome", _worst?(_worst.lev*100).toFixed(2)+"%":"n/m",
       _worst?"min leverage \u00b7 "+esc((r.scenarios[_worst.k]||{}).label||_worst.k):"", _worst&&_worst.lev<levMin/100],
     ["Breakeven", (_breakeven==null||_breakeven<0)?("not in "+NP()+PLAB()):(PLAB().toUpperCase()+_breakeven),
@@ -4179,7 +4186,7 @@ function renderContent(){
       h += '<div class="h2" style="margin-top:16px;font-size:14px">Year-End Balances</div>';
       const _nyr = (AN.total_assets_eop || []).length;   // one column per project year
       h += '<table class="fin"><tr><th></th>' +
-           Array.from({length:_nyr},(_,y)=>`<th>Y${y+1} (Q${(y+1)*4})</th>`).join("") + '</tr>';
+           Array.from({length:_nyr},(_,y)=>`<th>${YEAR_END_LABEL(y+1)}</th>`).join("") + '</tr>';
       [["Total assets", AN.total_assets_eop, "Year-end total assets ($000s), modeled."], ["Net loans", AN.net_loans_eop, "Year-end net loans ($000s): gross loans less allowance."], ["Deposits", AN.deposits_eop, "Year-end total deposits ($000s), modeled."], ["Leverage (%)", AN.lev_eop, "Year-end Tier 1 leverage ratio: Tier 1 capital / average assets."]].forEach(([l,arr,pv])=>{
         h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
@@ -4252,7 +4259,7 @@ function renderContent(){
     const rt = fin.ratios || {};
     h += '<div class="h2">Summary Ratios (annualized)' + (V21 ? '<span class="schedbadge">SCHEDULE RI-X</span>' : '') + '</div>';
     h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Ratio</th>';
-    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '</tr>';
     h += rowPct('Return on Average Assets (ROA)', rt.roa);
     h += rowPct('Return on Average Equity (ROE)', rt.roe);
@@ -4264,7 +4271,7 @@ function renderContent(){
     const ST = lastRes && lastRes.capital && lastRes.capital.standardized;
     if(ST){
       h += '<div class="h2" style="margin-top:18px">Standardized Capital (12 CFR 324.32/.33)</div>';
-      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:NP()},(_,q)=>`<th>Q${q+1}</th>`).join("") + '</tr>';
+      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:NP()},(_,q)=>`<th>${PERLAB(q+1)}</th>`).join("") + '</tr>';
       const rows = [["Risk-weighted assets ($000s)", ST.rwa, null], ["CET1 capital", ST.cet1, null],
         ["Tier 2 (ALLL, capped)", ST.tier2, null], ["Total capital", ST.total, null],
         ["CET1 / RWA (%)", ST.ratios.cet1_rwa, ST.thresholds.cet1_rwa],
@@ -4342,7 +4349,7 @@ function renderContent(){
       h += `<div style="text-align:center"><svg viewBox="0 0 ${W} ${H}" style="display:block;margin:0 auto 16px;width:100%;max-width:1100px;border:1px solid #DCE1EA;border-radius:3px;background:#FFFFFF">
         ${yticks.map(v=>`<line x1="${L}" y1="${Y(v)}" x2="${W-18}" y2="${Y(v)}" stroke="#EEF1F6" stroke-width="1"/>`+
           `<text x="${L-6}" y="${Y(v)+3}" text-anchor="end" font-size="9.5" fill="#7C8698">${v.toFixed(0)}%</text>`).join("")}
-        ${lv.map((v,i)=>`<text x="${X(i)}" y="${H-9}" text-anchor="middle" font-size="9.5" fill="#7C8698">Q${i+1}</text>`).join("")}
+        ${lv.map((v,i)=>`<text x="${X(i)}" y="${H-9}" text-anchor="middle" font-size="9.5" fill="#7C8698">${PERLAB(i+1)}</text>`).join("")}
         ${hline(T3.statutory, "#b0413e", "5 3")}
         ${hline(T3.chartering, "#7A5A17", "3 3")}
         ${hline(T3.management, "#4A5568", "1 3")}
@@ -4354,7 +4361,7 @@ function renderContent(){
       </svg></div>`;
       /* derivation table */
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Capital derivation ($000s)</th>';
-      for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>Q${qq}</th>`;
+      for(let qq=1; qq<=rows.tier1.length; qq++) h += `<th>${PERLAB(qq)}</th>`;
       h += '</tr>';
       h += rowBS('Tier 1 capital', rows.tier1, null, 'tier1');
       h += rowBS('\u2014 securitization gain-on-sale deduction (not modeled; parked decision \u2014 caveat register)', rows.sec_gos_deduction);
@@ -4371,7 +4378,7 @@ function renderContent(){
       if(r.cblr_grid){
         h += '<div class="h2" style="font-size:15px;margin-top:8px">CBLR qualification tests \u2014 validated every period</div>';
         h += '<table class="fin"><tr><th>Criterion</th>';
-        for(let qq=1; qq<=r.cblr_grid.quarters; qq++) h += `<th>Q${qq}</th>`;
+        for(let qq=1; qq<=r.cblr_grid.quarters; qq++) h += `<th>${PERLAB(qq)}</th>`;
         h += '</tr>';
         r.cblr_grid.rows.forEach(row=>{
           let rr = `<tr><td>${esc(row.label)}${row.attested?' <span style="color:#96928C">(recorded condition)</span>':''}</td>`;
@@ -4441,7 +4448,7 @@ function renderContent(){
       const tag = (p.rate_type==="float" ? ' \u2014 SOFR' + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
       h += `<div class="h2" style="font-size:15px">${esc(p.name)}${esc(tag)}</div>`;
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>$000s</th>';
-      for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+      for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
       h += '</tr>';
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
       h += rowBS('End-of-quarter balance', arr12(p.bal, false));
@@ -4526,7 +4533,7 @@ function renderContent(){
         const atOpen = (s.min_leverage_q === 1);
         const phrase = atOpen
           ? `Tier 1 leverage opens at ${ml.toFixed(2)}% in Q1 (its lowest point over the 12 quarters)`
-          : `Tier 1 leverage falls to ${ml.toFixed(2)}% by Q${s.min_leverage_q}`;
+          : `Tier 1 leverage falls to ${ml.toFixed(2)}% by ${PERLAB(s.min_leverage_q)}`;
         h += `<div class="warnitem severe"><strong>${esc(s.label)}:</strong> ${phrase} \u2014 below the ${levMin}% minimum. Estimated additional opening capital to stay above ${levMin}%: ${fmt0(s.capital_shortfall_est)} ($000s, approximate).</div>`;
       }
     });
@@ -4587,7 +4594,7 @@ function renderContent(){
     }
     h += '<div class="h2" style="font-size:15px">Net Income by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario ($000s)</th>';
-    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '<th>Total</th></tr>';
     scens.forEach(s=>{
       let tot=0, rr = `<tr><td>${esc(s.label)}</td>`;
@@ -4597,12 +4604,12 @@ function renderContent(){
     h += '</table>';
     h += '<div class="h2" style="font-size:15px">Tier 1 Leverage Ratio by Quarter</div>';
     h += '<table class="fin"><tr><th>Scenario</th>';
-    for(let q=1;q<=NP();q++) h += `<th>Q${q}</th>`;
+    for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '</tr>';
     scens.forEach(s=>{
       const lv = (s.lev_by_q||[]).slice(-12);
       let rr = `<tr><td>${esc(s.label)}</td>`;
-      lv.forEach((v,qi)=>{ rr += `<td data-prov title="Tier 1 leverage ratio, Q${qi+1} (${esc(s.label)} scenario). Tier 1 capital / average assets. Floor ${levMin}%."${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
+      lv.forEach((v,qi)=>{ rr += `<td data-prov title="Tier 1 leverage ratio, ${PERLAB(qi+1)} (${esc(s.label)} scenario). Tier 1 capital / average assets. Floor ${levMin}%."${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
       h += rr + '</tr>';
     });
     h += '</table>';
