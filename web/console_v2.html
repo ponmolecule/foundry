@@ -551,7 +551,7 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 // Cadence-aware event timing. New monthly engagements store an explicit engine `period`
 // so a user may place a raise/borrowing in any month. Legacy `quarter` values retain
 // calendar-quarter semantics and display at that quarter's first engine period.
-function EVENTUNIT(){ return PPY()===12?"Month":PPY()===1?"Year":"Qtr"; }
+function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }
 function EVENTVAL(ev){
   ev=ev||{};
   if(ev.period!=null && ev.period!=="") return +ev.period;
