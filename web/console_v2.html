@@ -548,6 +548,18 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 function PPY_YEARS(){ return Math.floor(NP()/PPY()); }              // number of full years
 function YEAR_END_PERIOD(y){ return y*PPY(); }                       // 1-based period that ends year y
 function YEAR_END_LABEL(y){ return "Y"+y+" ("+PERLAB(y*PPY())+")"; } // e.g. "Y1 (M12)" / "Y1 (Q4)"
+// ---- Regulatory (Call Report / examiner) presentation is QUARTERLY BY LAW, regardless of the
+// engine cadence. These collapse a per-ENGINE-period series to quarters for such tabs.
+function REG_NQ(){ return Math.max(1, Math.round(NP() * 4 / PPY())); }   // number of quarters spanned
+function MO_PER_Q(){ return Math.max(1, Math.round(PPY() / 4)); }         // engine-periods per quarter (mo:3, qtr:1)
+// Collapse a per-period stock/balance series to quarter-END values (Call Report items are point-in-time).
+function REG_STOCK_Q(series){ if(!series) return []; var step=MO_PER_Q(), out=[];
+  for(var qi=1; qi<=REG_NQ(); qi++){ var idx=qi*step-1; out.push(idx<series.length?series[idx]:null); } return out; }
+// Collapse a per-period FLOW series to quarterly SUMS.
+function REG_FLOW_Q(series){ if(!series) return []; var step=MO_PER_Q(), out=[];
+  for(var qi=0; qi<REG_NQ(); qi++){ var s=0,any=false; for(var j=0;j<step;j++){var idx=qi*step+j; if(idx<series.length&&series[idx]!=null){s+=series[idx];any=true;}} out.push(any?s:null);} return out; }
+// Quarterly header label for regulatory tabs (always "Q1..Qn" no matter the engine cadence).
+function REG_QLAB(qi){ return "Q"+qi; }
 
 let currentTab = "products", openMap = {}, ovOpen = {}, timer = null, seq = 0;
 function refFor(key){
@@ -3302,10 +3314,10 @@ function renderExaminer(){
     ["RC","RI","RC-C","RC-E","RC-R"].forEach(k=>{
       const sc = CR[k]; if(!sc) return;
       h += `<div class="ovh3" style="font-size:12px">Schedule ${esc(sc.schedule)} \u2014 ${esc(sc.title)}${k==="RC-R" ? (sc.cblr ? " \u00b7 CBLR framework elected" : "") + (sc.requirement_pct ? ` \u00b7 chartering commitment ${sc.requirement_pct}%` : "") : ""}</div>`;
-      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:NP()},(_,q)=>`<th style="text-align:right">${PERLAB(q+1)}</th>`).join("") + '</tr>';
+      h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:REG_NQ()},(_,q)=>`<th style="text-align:right">${REG_QLAB(q+1)}</th>`).join("") + '</tr>';
       sc.rows.forEach(r=>{
         h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
-          + r.values.slice(0,NP()).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
+          + REG_STOCK_Q(r.values).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
       });
       h += '</table></div>';
       if(sc.omitted && sc.omitted.length) h += `<div class="memo" style="font-size:11px">Not modeled (omitted, not zeroed): ${esc(sc.omitted.join("; "))}.</div>`;
