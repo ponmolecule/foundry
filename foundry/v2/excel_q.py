@@ -128,6 +128,7 @@ def workbook_from_config_v2(cfg):
     _write_products(wb.create_sheet("SecuritiesHTM"), SEC_COLS, a.get("securities_htm") or [])
 
     _np = int((cfg.get('assumptions') or {}).get('n_periods') or 12)
+    _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     vec = wb.create_sheet("Vectors")
     _vpre = "M" if _ppy == 12 else ("Y" if _ppy == 1 else "Q")
     vec.append(["product", "field"] + [f"{_vpre}{q}" for q in range(1, _np + 1)])
