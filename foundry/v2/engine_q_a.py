@@ -116,8 +116,8 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
     shock = (ov.get("rate_shock_bp", 0) or 0) / 10000.0
     if shock:
         a["cash_yield"] = max(0.0, a["cash_yield"] + shock)
-        a["securities_yield"] = max(0.0, a["securities_yield"] + shock)
-        a["borrow_rate_ann"] = max(0.0, a["borrow_rate_ann"] + shock)
+        a["securities_yield"] = max(0.0, a.get("securities_yield", 0.0) + shock)
+        a["borrow_rate_ann"] = max(0.0, a.get("borrow_rate_ann", 0.0) + shock)
         a["rate_path_q"] = [max(0.0, x + shock) for x in a["rate_path_q"]]
         a["rate_path_longer_run"] = max(0.0, a["rate_path_longer_run"] + shock)
         # AUDIT 2.3: explicit multi-curve paths (sofr/effr/prime) are used INSTEAD of rate_path_q when
@@ -322,7 +322,7 @@ def run_pf_a(cfg):
     dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, Q + 1)]
     non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(Q + 1)]
     non_earn = non_earn_t[0]
-    cash_floor = a["cash_target_pct_deposits"]
+    cash_floor = a.get("cash_target_pct_deposits", 0.0)
     other_liab = a["other_liabilities"]
 
     # deliberate securities books (A.6): balance path with purchases and runoff;
@@ -736,9 +736,9 @@ def run_pf_a(cfg):
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
                             non_earn_t[q] + (_dta_iter if _td else 0.0))
-            sec_int = ((beg_s + s) / 2.0) * a["securities_yield"] / ppyf + book_int
+            sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
-            borr_exp = ((beg_b + b) / 2.0) * a["borrow_rate_ann"] / ppyf + sched_int_t[q]
+            borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
             if _td:
