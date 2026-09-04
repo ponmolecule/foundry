@@ -22,7 +22,10 @@ KNOWN_MODULES = {"balance_driven_deposits", "balance_driven_lending",
 
 ASSUMPTION_REQUIRED = ["rate_path_q", "rate_path_longer_run", "tax_semantics", "tax_rate",
                        "cash_yield", "overhead_q", "premises_equipment", "intangibles",
-                       "other_assets", "other_liabilities"]
+                       "other_assets", "other_liabilities",
+                       # AUDIT (validated=>executable): these are hard-read by the engine (a[...]);
+                       # omitting them from the required set let configs pass validation then KeyError.
+                       "cash_target_pct_deposits", "securities_yield", "borrow_rate_ann"]
 
 DEP_REQUIRED = ["name", "opening_balance", "growth_per_period", "rate_type"]
 LEND_REQUIRED = ["name", "opening_balance", "runoff_per_period", "rate_type",
@@ -83,11 +86,18 @@ def validate_config_v2(cfg):
     # (the engine re-aliases anyway). Old-name configs are untouched.
     _PP = ["growth", "runoff", "purchases", "new_deposits", "orig_growth", "originations",
            "opex_fixed", "fv_decay", "msr_decay", "overhead_growth", "overhead"]
+    _alias_conflicts = []
     def _alias(d):
         if not isinstance(d, dict):
             return
         for _st in _PP:
             _n, _o = _st + "_per_period", _st + "_q"
+            # AUDIT (val-alias): both legacy and canonical names present with DIFFERENT values is
+            # ambiguous — reject rather than silently pick one.
+            if (_n in d and isinstance(d[_n], (int, float)) and not isinstance(d[_n], bool)
+                    and _o in d and isinstance(d[_o], (int, float)) and not isinstance(d[_o], bool)
+                    and abs(d[_n] - d[_o]) > 1e-12):
+                _alias_conflicts.append(f"{_st}: both {_o}={d[_o]} and {_n}={d[_n]} present and differ")
             if _n in d and d[_n] is not None:
                 d.setdefault(_o, d[_n])       # new present -> mirror to old
             elif _o in d and d[_o] is not None:
@@ -101,6 +111,8 @@ def validate_config_v2(cfg):
             for _v in node:
                 _alias_rec(_v)
     _alias_rec(cfg.get("assumptions") or {})
+    if _alias_conflicts:
+        errs.append("conflicting legacy/canonical cadence fields — " + "; ".join(_alias_conflicts))
     for k in TOP_REQUIRED:
         if k not in cfg:
             errs.append(f"missing required top-level key '{k}'")
