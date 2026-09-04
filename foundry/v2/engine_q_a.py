@@ -458,9 +458,16 @@ def run_pf_a(cfg):
                         _next.append([_nb, _age + 1])
                 if retained > 0:
                     _next.append([retained, 0])
+                # AUDIT #7: apply charge-offs TO the cohort ledger (pro-rata), not just to the reported
+                # balance, so the identity sum(surviving cohort principal) == reported principal holds
+                # every quarter. Previously `end = gross - co` reduced the balance while cohorts kept
+                # the charged-off principal, letting it amortize forward (a slow drift over the term).
+                gross = sum(_b for _b, _a in _next)
+                if co > 0 and gross > 1e-9:
+                    _keep = max(0.0, (gross - co) / gross)     # fraction of principal surviving
+                    _next = [[_b * _keep, _a] for _b, _a in _next]
                 _coh = _next
-                gross = sum(_b for _b, _a in _coh)
-                end = max(0.0, gross - co)
+                end = max(0.0, sum(_b for _b, _a in _coh))
             else:
                 end = max(0.0, beg + retained - beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) - co)
             # after_seasoning originate-to-sell: age cohorts; when one reaches season_q, sell sale_pct of
