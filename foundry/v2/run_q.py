@@ -328,6 +328,7 @@ def run_v2(cfg):
     # derive once from the config, never re-probe per function). _NP = number of projection periods;
     # engine BS vectors are (_NP + 1) long (slot 0 = opening), IS/ratios are _NP long.
     _NP = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)  # 4=qtr,12=mo,1=yr
 
     scen_defs = scenarios_from(cfg)
     scen_results, scen_labels = {}, {}
@@ -862,7 +863,7 @@ def run_v2(cfg):
         not (cfg["assumptions"].get("fee_modules")), "integrity",
         "fee income flows through fee_streams products, not the retired fee_modules path")
     _ck("CK-7", "Projection period index, no gaps", len(niw) == _NP, "integrity")
-    ann_ni = [sum(niw[y * 4:(y + 1) * 4]) for y in range(_NP // 4)]
+    ann_ni = [sum(niw[y * _ppy:(y + 1) * _ppy]) for y in range(_NP // _ppy)]
     _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
         "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
     _ck("CK-9", "Regulatory parameters resolve from the versioned registry",
@@ -903,19 +904,19 @@ def run_v2(cfg):
     def _annR(series):
         s = series[1:_NP + 1] if len(series) == _NP + 1 else series[:_NP]
         out = []
-        for y in range(_NP // 4):
-            xs = [x for x in s[y * 4:(y + 1) * 4] if x is not None]
+        for y in range(_NP // _ppy):
+            xs = [x for x in s[y * _ppy:(y + 1) * _ppy] if x is not None]
             out.append(round(sum(xs) / len(xs), 2) if xs else None)
         return out
     results["annual"] = {
-        "note": "stocks at year-end (Q4/Q8/Q12), flows summed, ratios simple-averaged "
+        "note": "stocks at year-end (every periods_per_year-th period), flows summed, ratios simple-averaged "
                  "over the year's quarters (labeled as such)",
-        "total_assets_eop": [ta_w[i] for i in range(3, _NP, 4)],
-        "net_loans_eop": [_sw("netLoans")[i] for i in range(3, _NP, 4)],
-        "deposits_eop": [dep_w[i] for i in range(3, _NP, 4)],
+        "total_assets_eop": [ta_w[i] for i in range(_ppy - 1, _NP, _ppy)],
+        "net_loans_eop": [_sw("netLoans")[i] for i in range(_ppy - 1, _NP, _ppy)],
+        "deposits_eop": [dep_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "ni": [round(x, 2) for x in ann_ni],
         "nim": _annR(nim_w), "roa": _annR(roa_w), "eff": _annR(eff_w),
-        "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in range(3, _NP, 4)])(
+        "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in range(_ppy - 1, _NP, _ppy)])(
                        lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }
     results["quick_stats"] = {
