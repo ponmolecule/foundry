@@ -5093,7 +5093,7 @@ function renderWizard(){
       + US_STATES.map(s=>`<option value="${esc(s)}"${wiz.state===s?" selected":""}>${esc(s)}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>Target opening date</label><input value="${esc(wiz.opening)}" placeholder="e.g., 2027-Q2" onchange="wiz.opening=this.value"></div>`
       + `<div class="fld"><label>Projection cadence</label><select onchange="wizSet('ppy',+this.value)">`
-      + [[12,"Monthly"],[4,"Quarterly"],[1,"Annual"]]
+      + [[12,"Monthly"],[4,"Quarterly"]]
           .map(([v,lbl])=>`<option value="${v}"${(wiz.ppy||4)===v?" selected":""}>${lbl}</option>`).join("") + '</select></div>'
       + `<div class="fld"><label>Projection horizon</label><select onchange="wizSet('years',+this.value)">`
       + [[3,"3 years"],[5,"5 years"],[7,"7 years"]]
@@ -5405,7 +5405,7 @@ function labLeverCatalog(){
     if(typeof p.growth_per_period === "number") levers.push({path:`assumptions.deposit_products.${i}.growth_per_period`, label:`${nm}: growth/qtr`, unit:"pct"});
   });
   if(typeof a.overhead_per_period === "number" && !a.nie_detail) levers.push({path:"assumptions.overhead_per_period", label:`Overhead per ${PLAB('full')}`, unit:"k"});
-  if(typeof a.initial_capital === "number") levers.push({path:"assumptions.initial_capital", label:"Initial capital", unit:"k"});
+  if(cfg.target_state && typeof cfg.target_state.initial_capital === "number") levers.push({path:"target_state.initial_capital", label:"Initial capital", unit:"k"});
   return levers;
 }
 

@@ -131,12 +131,17 @@ def validate_config_v2(cfg):
 
     a = cfg["assumptions"]
     # Projection horizon (optional). Bounded in YEARS (1-7) so table layout stays sane, but the
-    # period count depends on cadence: periods_per_year (ppy) 4=quarterly, 12=monthly, 1=annual.
+    # period count depends on cadence: periods_per_year (ppy) 4=quarterly, 12=monthly (annual removed: cannot downsample to the quarterly Call Report floor).
     # So the valid n_periods range is ppy*1 .. ppy*7.
     _ppy = a.get("periods_per_year") or 4
-    if not isinstance(_ppy, int) or isinstance(_ppy, bool) or _ppy not in (1, 4, 12):
-        errs.append(f"assumptions.periods_per_year = {_ppy!r} invalid: must be 1 (annual), 4 (quarterly), or 12 (monthly)")
+    if not isinstance(_ppy, int) or isinstance(_ppy, bool) or _ppy not in (4, 12):
+        errs.append(f"assumptions.periods_per_year = {_ppy!r} invalid: must be 4 (quarterly) or 12 (monthly)")
         _ppy = 4
+    # AUDIT 1.3/3: Profile B (parity/override engine) is internally 12-quarter and not cadence-
+    # generalized. Fence it to quarterly until converted, rather than crash at run time.
+    if (cfg.get("parity_profile") == "pf_b") and _ppy != 4:
+        errs.append("Profile B (parity_profile=pf_b) supports quarterly only (periods_per_year=4); "
+                    "monthly/annual cadence is not yet available for Profile B")
     if "n_periods" in a and a["n_periods"] is not None:
         _np = a["n_periods"]
         _lo, _hi = _ppy, _ppy * 7
