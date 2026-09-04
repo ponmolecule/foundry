@@ -1660,7 +1660,9 @@ const CURVE_LABEL = {effr:"EFFR", sofr:"SOFR", prime:"Prime"};
 const CURVE_OFFSET_DEFAULT = {effr:0.0, sofr:0.0005, prime:0.0300};
 const HALF_BAND_DEFAULT = 0.00125;   // half of the 25bp target range; Prime anchors to range top
 const FOMC_DEFAULT = {ye26:0.038, ye27:0.036, ye28:0.034, lr:0.031};  // June 17 2026 SEP medians (midpoints)
-// Current policy (latest FOMC decision) — separate from the SEP projections. Updated every meeting
+// Current policy — a DATED STARTING ASSUMPTION (the SEP vintage below), NOT a live "latest" value.
+// The user should Refresh from FRED (button in the rate-curve card) to pull the current FOMC decision;
+// this default only seeds the field with a known vintage. Editable at any time.
 // (8x/yr), whereas the SEP updates only 4x/yr. Drives the near/Q0 anchor and the provenance display.
 const CURRENT_POLICY_DEFAULT = {mid:0.03875, top:0.0400, statement_date:"2026-06-17", sep_date:"2026-06-17"};
 
@@ -1781,7 +1783,7 @@ function _curveVintageLabel(c){
 function renderRateCurvesPanel(){
   const rc = cfg.assumptions.rate_curves;
   const fe = rc.fomc.edited;
-  let h = '<div class="snote">Three curves from the FOMC fed funds target-midpoint path (current policy for the near quarter, SEP medians for the forward anchors) plus each index basis. EFFR and SOFR anchor to the midpoint; Prime anchors to the top of the target range. Edits are flagged.</div>';
+  let h = `<div class="snote">Three curves from the FOMC fed funds target-midpoint path (current policy for the near quarter, SEP medians for the forward anchors) plus each index basis. EFFR and SOFR anchor to the midpoint; Prime anchors to the top of the target range. Edits are flagged. <b>Policy anchor vintage: ${esc((rc.current_policy||CURRENT_POLICY_DEFAULT).statement_date||'\u2014')}</b> \u2014 this is a starting assumption; use <b>Refresh from FRED</b> to pull the current decision.</div>`;
 
   // Provenance: latest FOMC STATEMENT (every meeting) vs latest SEP (4x/yr) — kept distinct.
   const cp = rc.current_policy || {};
