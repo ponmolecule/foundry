@@ -93,7 +93,19 @@ def _flag(flags, fid, sev, text):
 
 def challenge_config(cfg):
     a = cfg["assumptions"]
-    rate = rate_fn(a["rate_path_q"], a["rate_path_longer_run"])
+    ppy = int(a.get("periods_per_year") or 4)
+    ppq = max(1, ppy // 4)
+    def _growth_q_equiv(p):
+        # Canonical growth is per computational period; challenge thresholds are calendar-quarter
+        # reasonableness bands, so monthly growth is compounded to a three-month equivalent.
+        g = p.get("growth_per_period")
+        if g is None:
+            g = p.get("growth_q") or 0.0
+            if ppy == 12:
+                from .timebase import quarterly_value_to_period
+                g = quarterly_value_to_period("growth", g, ppy)
+        return (1.0 + float(g or 0.0)) ** ppq - 1.0
+    rate = rate_fn(a["rate_path_q"], a["rate_path_longer_run"], ppy)
     lend = a.get("lending_products") or []
     dep = a.get("deposit_products") or []
     flags = []
@@ -167,9 +179,10 @@ def challenge_config(cfg):
         if p.get("call_report_line") in _DDA_LINES and r1 > 0.02:
             _flag(flags, "FUND-DDA", "mild",
                   f"{nm}: paying {r1:.2%} on transaction accounts is unusual — confirm this is intended.")
-        if (p.get("growth_q") or 0) > 0.25:
+        _gq = _growth_q_equiv(p)
+        if _gq > 0.25:
             _flag(flags, "FUND-GROWTH", "mild",
-                  f"{nm}: {p['growth_q']:.0%}/quarter deposit growth is high — support how it is "
+                  f"{nm}: {_gq:.0%} equivalent calendar-quarter deposit growth is high — support how it is "
                   f"funded and at what cost.")
 
     # ---- blended spread viability ----
@@ -186,12 +199,12 @@ def challenge_config(cfg):
 
     # ---- coupled-inconsistency rules (A.12): jointly implausible ----
     if w_d > 0:
-        wg = sum((p.get("opening_balance") or 0) * (p.get("growth_q") or 0) for p in dep) / w_d
+        wg = sum((p.get("opening_balance") or 0) * _growth_q_equiv(p) for p in dep) / w_d
         wc = w_c / w_d
         mkt = rate(1)
         if wg > 0.08 and wc < mkt - 0.0075:
             _flag(flags, "COUPLED-01", "severe",
-                  f"Deposit growth of {wg:.1%}/quarter is claimed jointly with a blended deposit cost "
+                  f"Deposit growth of {wg:.1%}/calendar-quarter equivalent is claimed jointly with a blended deposit cost "
                   f"{mkt - wc:.2%} below the market rate. Fast growth and below-market cost rarely hold "
                   f"together — provide channel evidence supporting both, or relax one.")
     for p in lend:

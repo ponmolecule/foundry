@@ -115,6 +115,9 @@ _CR_TL = _threading.local()   # per-thread reporting horizon (concurrency-safe; 
 def _crnp():
     return getattr(_CR_TL, "np", 12)
 
+def _crppy():
+    return getattr(_CR_TL, "ppy", 4)
+
 
 def _q(series):
     """Normalize to Q1..Q_NP: balance series carry a Q0 opening (_NP+1 points);
@@ -124,6 +127,36 @@ def _q(series):
 
 def _row(item, code, label, vals):
     return {"item": item, "code": code, "label": label, "values": _q(vals)}
+
+
+def _collapse_quarters(vals, flow=False):
+    """Canonical Call Report cadence: quarterly regardless of engine cadence."""
+    v = list(vals or [])
+    ppq = max(1, _crppy() // 4)
+    if ppq == 1:
+        return v
+    out = []
+    for i in range(0, len(v), ppq):
+        chunk = [x for x in v[i:i + ppq] if x is not None]
+        if flow:
+            out.append(sum(chunk) if chunk else None)
+        else:
+            out.append(v[min(i + ppq - 1, len(v) - 1)] if v else None)
+    return out
+
+
+def _quarterize_schedule(sched, flow=False):
+    for r in sched.get("rows") or []:
+        r["values"] = _collapse_quarters(r.get("values"), flow=flow)
+    p2 = sched.get("part2")
+    if p2:
+        for r in p2.get("rows") or []:
+            r["values"] = _collapse_quarters(r.get("values"), flow=False)
+    ins = sched.get("insurance")
+    if isinstance(ins, dict) and ins.get("provided"):
+        for key in ("insured_est", "uninsured_est"):
+            ins[key] = _collapse_quarters(ins.get(key), flow=False)
+    return sched
 
 
 def build_rc(res, cfg):
@@ -147,7 +180,10 @@ def build_rc(res, cfg):
               [bs["grossLoans"][t] - (bs.get("hfs") or [0.0] * len(bs["grossLoans"]))[t]
                for t in range(len(bs["grossLoans"]))]),
         _row("4.c", "RCON3123", "LESS: allowance for credit losses", [-x for x in bs["alll"]]),
-        _row("4.d", "RCONB529", "Loans and leases, net", bs["netLoans"]),
+        _row("4.d", "RCONB529", "Loans and leases held for investment, net of ACL",
+              [bs["grossLoans"][t]
+               - (bs.get("hfs") or [0.0] * len(bs["grossLoans"]))[t]
+               - bs["alll"][t] for t in range(len(bs["grossLoans"]))]),
         _row("6", "RCON2145", "Premises and fixed assets", prem),
         _row("10", "RCON2143", "Intangible assets", intang),
         _row("11", "RCON2160", "Other assets", oa),
@@ -168,13 +204,13 @@ def build_rc(res, cfg):
     if any(x > 0 for x in bs["msr"]):
         rows.insert(8, _row("RC-M 2.a", "RCON6438", "Mortgage servicing assets (memoranda)", bs["msr"]))
     if any(x > 0 for x in bs["hfs"]):
-        rows.append(_row("MEMO", "RCON5369", "Loans held for sale (memoranda — HFS/warehouse is "
-                          "included in total assets and reported in Schedule RC line 4.a; carry earns in RI)", bs["hfs"]))
+        rows.append(_row("MEMO", "RCON5369", "Loans held for sale — included once in total assets "
+                          "and reported in Schedule RC line 4.a; warehouse carry earns in RI", bs["hfs"]))
     return {"schedule": "RC", "title": "Balance Sheet", "rows": rows,
             "omitted": ["trading assets (RC 5)",
                           "bank premises detail, foreclosed assets, subordinated debt"],
-            "notes": ["Held-for-sale balances shown as memoranda: the engine's total-assets "
-                        "composition excludes the warehouse (disclosed convention, tie-checked)."]}
+            "notes": ["Held-for-sale balances are included in total assets and are reported in RC 4.a; "
+                        "RC 4.d is HFI less ACL and therefore excludes HFS."]}
 
 
 def build_ri(res):
@@ -284,7 +320,7 @@ def _rce_insurance(res, cfg):
 
 def build_rcc(res, cfg):
     """RC-C Part I — Loans and Leases, by Call Report line, from product balances.
-    Held-for-investment per line; HFS shown as its own row; ties to RC 4.a."""
+    Held-for-investment per line; HFS shown separately; total ties to RC 4.a + RC 4.b."""
     bs = res["financials"]["bs"]
     n_ref = len(_q(bs["totalAssets"]))
     per_line = {}
@@ -315,7 +351,7 @@ def build_rcc(res, cfg):
     gross = _q(bs["grossLoans"])
     total = [round(sum(r["values"][t] for r in rows), 2) for t in range(n_ref)]
     rows.append({"item": "12", "code": "RCON2122",
-                  "label": "Total loans and leases (ties to RC 4.a)", "values": total})
+                  "label": "Total loans and leases (ties to RC 4.a + RC 4.b)", "values": total})
     return {"schedule": "RC-C Part I", "title": "Loans and Leases", "rows": rows,
             "notes": ["per-line balances aggregate every product mapped to the line "
                         "(zero lines suppressed, per the artifact's convention)",
@@ -328,14 +364,17 @@ def build_rcr(res, cfg):
     a = cfg["assumptions"]
     n = len(bs["equity"])
     intang = [a.get("intangibles", 0) / 1000.0] * n
-    t1 = [bs["equity"][t] - intang[t] for t in range(n)]
+    cap_rows = ((res.get("capital") or {}).get("rows") or {})
+    t1_calc = cap_rows.get("tier1") or []
+    t1 = ([None] + list(t1_calc) if len(t1_calc) == _crnp()
+          else [bs["equity"][t] - intang[t] for t in range(n)])
     ch = cfg.get("charter_profile") or {}
     req = None
     for con in (cfg.get("constraints") or []):
         if "lever" in str(con.get("name", con.get("metric", ""))).lower():
             req = con.get("value")
     rows = [
-        _row("26", "RCOA8274", "Tier 1 capital (leverage basis: equity less intangibles)", t1),
+        _row("26", "RCOA8274", "Tier 1 capital (canonical leverage basis, after applicable deductions)", t1),
         _row("—", "RCON2170", "Total assets (quarter-end)", bs["totalAssets"]),
         _row("31", "RCOA7204", "Leverage ratio (%)", ratios["lev"]),
     ]
@@ -369,6 +408,11 @@ def build_rcr(res, cfg):
 
 def build_call_report(res, cfg):
     _CR_TL.np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
-    return {"RC": build_rc(res, cfg), "RI": build_ri(res),
-            "RC-E": build_rce(res, cfg), "RC-C": build_rcc(res, cfg),
-            "RC-R": build_rcr(res, cfg)}
+    _CR_TL.ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    out = {"RC": build_rc(res, cfg), "RI": build_ri(res),
+           "RC-E": build_rce(res, cfg), "RC-C": build_rcc(res, cfg),
+           "RC-R": build_rcr(res, cfg)}
+    # One concept called “Call Report”: callers always receive quarterly schedules.
+    for k, s in out.items():
+        _quarterize_schedule(s, flow=(k == "RI"))
+    return out

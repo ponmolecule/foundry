@@ -21,7 +21,7 @@ KNOWN_MODULES = {"balance_driven_deposits", "balance_driven_lending",
                  "balance_driven_obs", "mortgage_banking", "investment_portfolio"}
 
 ASSUMPTION_REQUIRED = ["rate_path_q", "rate_path_longer_run", "tax_semantics", "tax_rate",
-                       "cash_yield", "overhead_q", "premises_equipment", "intangibles",
+                       "cash_yield", "premises_equipment", "intangibles",
                        "other_assets", "other_liabilities"]
 
 DEP_REQUIRED = ["name", "opening_balance", "growth_per_period", "rate_type"]
@@ -76,6 +76,11 @@ def validate_errors_v2(cfg):
 
 def validate_config_v2(cfg):
     errs = []
+    from .timebase import quarterly_value_to_period
+    _a0 = cfg.get("assumptions") or {}
+    _alias_ppy = _a0.get("periods_per_year") or 4
+    if not isinstance(_alias_ppy, int) or isinstance(_alias_ppy, bool) or _alias_ppy not in (4, 12):
+        _alias_ppy = 4
     # Cadence field-name aliasing (mirror of the engine): accept BOTH the legacy "_q" per-period
     # field names and the canonical "_per_period" names, so a config authored with either passes.
     # We mirror new->old before the required-field/range checks (which reference the "_q" names),
@@ -91,14 +96,15 @@ def validate_config_v2(cfg):
             _n, _o = _st + "_per_period", _st + "_q"
             # AUDIT (val-alias): both legacy and canonical names present with DIFFERENT values is
             # ambiguous — reject rather than silently pick one.
+            _converted_old = (quarterly_value_to_period(_st, d[_o], _alias_ppy)
+                              if _o in d and isinstance(d.get(_o), (int, float)) and not isinstance(d.get(_o), bool)
+                              else None)
             if (_n in d and isinstance(d[_n], (int, float)) and not isinstance(d[_n], bool)
-                    and _o in d and isinstance(d[_o], (int, float)) and not isinstance(d[_o], bool)
-                    and abs(d[_n] - d[_o]) > 1e-12):
+                    and _converted_old is not None
+                    and abs(d[_n] - _converted_old) > 1e-12):
                 _alias_conflicts.append(f"{_st}: both {_o}={d[_o]} and {_n}={d[_n]} present and differ")
-            if _n in d and d[_n] is not None:
-                d.setdefault(_o, d[_n])       # new present -> mirror to old
-            elif _o in d and d[_o] is not None:
-                d.setdefault(_n, d[_o])       # old present -> mirror to new
+            if (_n not in d or d[_n] is None) and _converted_old is not None:
+                d[_n] = _converted_old         # legacy quarter value -> equivalent engine-period value
     def _alias_rec(node):
         if isinstance(node, dict):
             _alias(node)
@@ -139,6 +145,8 @@ def validate_config_v2(cfg):
                     "fee income (balance_driven_deposits or balance_driven_obs)")
 
     a = cfg["assumptions"]
+    if a.get("overhead_per_period") is None and a.get("overhead_q") is None:
+        errs.append("missing required assumption: overhead_per_period (or legacy overhead_q)")
     # Projection horizon (optional). Bounded in YEARS (1-7) so table layout stays sane, but the
     # period count depends on cadence: periods_per_year (ppy) 4=quarterly, 12=monthly (annual removed: cannot downsample to the quarterly Call Report floor).
     # So the valid n_periods range is ppy*1 .. ppy*7.
@@ -164,11 +172,17 @@ def validate_config_v2(cfg):
     d = a.get("premises_depreciation_annual")
     if d is not None and (not isinstance(d, (int, float)) or d < 0):
         errs.append("premises_depreciation_annual must be a non-negative dollar amount per year")
+    # Calendar-quarter events are independent of computational cadence. Permit any quarter
+    # that actually exists in the configured horizon (1-7 years), rather than the legacy 12Q cap.
+    _nper = a.get("n_periods") if isinstance(a.get("n_periods"), int) else 12
+    _ppyear = a.get("periods_per_year") if isinstance(a.get("periods_per_year"), int) else 4
+    _max_model_q = max(1, int((_nper * 4 + _ppyear - 1) // _ppyear))
     for i, sb in enumerate(a.get("scheduled_borrowings") or []):
         if not str(sb.get("name", "")).strip():
             errs.append(f"scheduled_borrowings[{i}].name is required")
-        if not isinstance(sb.get("quarter"), int) or not (1 <= sb["quarter"] <= 12):
-            errs.append(f"scheduled_borrowings[{i}].quarter must be an integer 1-12 (draw quarter)")
+        if not isinstance(sb.get("quarter"), int) or not (1 <= sb["quarter"] <= _max_model_q):
+            errs.append(f"scheduled_borrowings[{i}].quarter must be an integer 1-{_max_model_q} "
+                        "(calendar/model draw quarter within the projection horizon)")
         if not isinstance(sb.get("amount"), (int, float)) or sb["amount"] <= 0:
             errs.append(f"scheduled_borrowings[{i}].amount must be a positive dollar amount")
         r_ = sb.get("rate_ann")
@@ -219,8 +233,9 @@ def validate_config_v2(cfg):
             errs.append("pre_opening.min_day1_capital must be a non-negative dollar amount")
     for i, r in enumerate(a.get("capital_raises") or []):
         q = r.get("quarter"); amt = r.get("amount")
-        if not isinstance(q, int) or not (1 <= q <= 12):
-            errs.append(f"capital_raises[{i}].quarter must be an integer 1..12")
+        if not isinstance(q, int) or not (1 <= q <= _max_model_q):
+            errs.append(f"capital_raises[{i}].quarter must be an integer 1..{_max_model_q} "
+                        "(calendar/model quarter within the projection horizon)")
         if not isinstance(amt, (int, float)) or amt <= 0:
             errs.append(f"capital_raises[{i}].amount must be a positive dollar amount")
     missing = [k for k in ASSUMPTION_REQUIRED if k not in a]

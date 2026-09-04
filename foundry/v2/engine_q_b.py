@@ -19,12 +19,21 @@ def _ov(p, field, q, base):
 
 def run_pf_b(cfg):
     import copy
-    a = cfg["assumptions"]
+    a = copy.deepcopy(cfg["assumptions"])
     lend = copy.deepcopy(a.get("lending_products") or [])
     dep = copy.deepcopy(a.get("deposit_products") or [])
     obs = copy.deepcopy(a.get("obs_exposures") or [])
     afs_p = copy.deepcopy(a.get("securities_afs") or [])
     htm_p = copy.deepcopy(a.get("securities_htm") or [])
+
+    # Profile B is intentionally quarterly-only, but it still participates in the
+    # same public scenario/rate contract as Profile A. Apply the common overlay and
+    # common floating-rate dispatch rather than silently ignoring them.
+    from .engine_q_a import (_apply_overlays, _build_rate_curve_set, _prod_rate, opex_fixed_q)
+    if cfg.get("scenario_overlays"):
+        _apply_overlays(lend, dep, a, cfg["scenario_overlays"], 4)
+    _curves = _build_rate_curve_set(a, cfg, 4)
+    _rate = _curves["sofr"]
 
     capital = cfg["target_state"]["initial_capital"]
     _raises = cfg["assumptions"].get("capital_raises") or []
@@ -34,7 +43,6 @@ def run_pf_b(cfg):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
-    from .engine_q_a import opex_fixed_q
     _nie_d = nie_detail_series(a)
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
     # quarters, then matures to zero; full-quarter interest on outstanding principal,
@@ -112,11 +120,11 @@ def run_pf_b(cfg):
 
     for qi in range(Q):
         q = qi + 1
-        int_loans = sum(p["_avg"][qi] * _ov(p, "yield_ann", q, p.get("yield_ann") or 0.0) / 4.0 for p in lend)
+        int_loans = sum(p["_avg"][qi] * _prod_rate(p, q, _rate) / 4.0 for p in lend)
         int_sec_prod = sum(p["_avg"][qi] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
         int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
-        int_dep = sum(p["_avg"][qi] * _ov(p, "rate_paid_ann", q, p.get("rate_paid_ann") or 0.0) / 4.0 for p in dep)
+        int_dep = sum(p["_avg"][qi] * _prod_rate(p, q, _rate) / 4.0 for p in dep)
         int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
@@ -154,7 +162,9 @@ def run_pf_b(cfg):
         re += ni
         _afs_end = sum(p["_end"][qi] for p in afs_p) if afs_p else 0.0
         aoci_cum += _afs_end * _aoci_sens / 4.0
-        equity_end = cap_t[qi] + re + aoci_cum
+        # qi is zero-based while cap_t is [opening,Q1..Q12]. A Q1 raise must
+        # therefore be present in period 1, not delayed to Q2.
+        equity_end = cap_t[qi + 1] + re + aoci_cum
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
@@ -169,7 +179,7 @@ def run_pf_b(cfg):
         for k, v in (("cash", c2), ("afs", afs_end), ("htm", htm_end), ("grossLoans", gl_end),
                      ("alll", alll_end), ("netLoans", net_loans), ("deposits", dep_end),
                      ("borrowings", b2), ("equity", equity_end), ("retained", re),
-                     ("aoci", aoci_cum), ("paidIn", cap_t[qi]),
+                     ("aoci", aoci_cum), ("paidIn", cap_t[qi + 1]),
                      ("premises", _prem_t[qi + 1]), ("borrowSched", _sched_t[qi + 1]),
                      ("totalAssets", total_assets)):
             out_bs[k].append(v)
@@ -201,12 +211,14 @@ def run_pf_b(cfg):
         for p in plist:
             def _r(field, dflt_key):
                 return [_ov(p, field, qi + 1, p.get(dflt_key) or 0.0) for qi in range(Q)]
-            yv = _r("yield_ann", "yield_ann") if fam == "lending" else _r("rate_paid_ann", "rate_paid_ann")
+            yv = ([_prod_rate(p, qi + 1, _rate) for qi in range(Q)]
+                  if fam in ("lending", "deposit") else [0.0] * Q)
             cov = _r("charge_off_ann", "charge_off_ann")
             products.append({
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
-                "rate_type": "fixed", "index_spread": None, "is_fv": False,
+                "rate_type": p.get("rate_type", "fixed"),
+                "index_spread": p.get("index_spread"), "is_fv": False,
                 "sale_pct": 0.0, "serv_retained": 0.0,
                 "rateQ": [v * 100 for v in yv] if fam != "obs" else None,
                 "intInc": ([p["_avg"][qi] * yv[qi] / 4.0 for qi in range(Q)] if fam == "lending" else [0.0] * Q),

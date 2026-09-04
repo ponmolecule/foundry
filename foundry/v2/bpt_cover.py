@@ -8,9 +8,12 @@ and expand to as many rows as it has products. Nothing is fabricated — a line 
 separately produce is left blank (not zero).
 
 Conventions:
-  Annual sheet    — stocks at year-end (Q4/Q8/Q12); flows summed over the year's four quarters.
-  Quarterly sheet — stocks at each quarter-end; flows for that single quarter. Both from the same
-                    length-12 engine series, so the two sheets reconcile by construction.
+  This is a regulator-facing BUSINESS-PLAN exhibit, not a mirror of the full computational
+  horizon. By default it presents the first 12 CALENDAR quarters (three years), even when the
+  engine runs monthly or projects beyond three years. ``charter_profile.submission_quarters``
+  may override that window for an engagement whose regulator requests a different horizon.
+  Annual sheet    — stocks at submission-year end; flows summed over each submission year.
+  Quarterly sheet — stocks at each submission quarter-end; flows summed within that quarter.
 """
 
 from openpyxl import Workbook
@@ -32,42 +35,61 @@ _PCT2 = '0.00%;(0.00%);-'
 _NUM = '#,##0.0'
 
 
-def _norm(series):
+def _expected_period_count(periods):
+    idxs = []
+    for p in periods:
+        if p.get("stock_idx") is not None:
+            idxs.append(p["stock_idx"])
+        idxs.extend(p.get("flow_idxs") or [])
+    return (max(idxs) + 1) if idxs else 0
+
+
+def _norm(series, periods, n_periods=None):
     s = list(series or [])
-    if len(s) == 13:
+    # Day-1/opening is present whenever the stock vector has n_periods+1 points,
+    # not only for the historical 12Q (13-point) horizon.
+    n = int(n_periods) if n_periods is not None else _expected_period_count(periods)
+    if n and len(s) == n + 1:
         return s[1:], s[0]
     return s, None
 
 
-def _annual_periods(ppy=4, n_periods=12):
+def _annual_periods(ppy=4, n_periods=12, submission_q=12):
     # AUDIT 4.3: cadence-aware. Engine runs in `ppy` periods/year; the BPT annual view aggregates
     # each YEAR: stock at year-end engine-period, flows summed over the year's engine-periods.
-    nyr = max(1, n_periods // ppy)
+    # Regulator-facing window: never silently expand just because the computational
+    # horizon is longer. 12 quarters = 3 years by default.
+    available_q = max(1, int(n_periods * 4 / ppy))
+    shown_q = min(int(submission_q), available_q)
+    nyr = max(1, (shown_q + 3) // 4)
     periods = [{"label": "Day 1", "day1": True}]
     for y in range(1, nyr + 1):
-        idxs = [(y - 1) * ppy + k for k in range(ppy)]      # engine-period indices in year y
-        periods.append({"label": f"Year {y}", "stock_idx": y * ppy - 1, "flow_idxs": idxs})
+        max_engine = min(n_periods, shown_q * max(1, ppy // 4))
+        idxs = [i for i in ((y - 1) * ppy + k for k in range(ppy)) if i < max_engine]
+        if not idxs:
+            continue
+        periods.append({"label": f"Year {y}", "stock_idx": idxs[-1], "flow_idxs": idxs})
     return periods
 
 
-def _quarterly_periods(ppy=4, n_periods=12):
+def _quarterly_periods(ppy=4, n_periods=12, submission_q=12):
     # AUDIT 4.3: the QUARTERLY regulatory view. mpq engine-periods per quarter (mo:3, qtr:1). A
     # quarter's stock = its last engine-period; its flow = sum over the quarter's engine-periods.
     mpq = max(1, round(ppy / 4))
-    nq = max(1, round(n_periods * 4 / ppy))
-    nyr = max(1, nq // 4)
+    nq = min(int(submission_q), max(1, round(n_periods * 4 / ppy)))
     periods = [{"label": "Day 1", "day1": True}]
-    for y in range(1, nyr + 1):
-        for q in range(1, 5):
-            qn = (y - 1) * 4 + q
-            base = (qn - 1) * mpq
-            idxs = [base + j for j in range(mpq)]
-            periods.append({"label": f"Y{y} Q{q}", "stock_idx": base + mpq - 1, "flow_idxs": idxs})
+    for qn in range(1, nq + 1):
+        y, q = (qn - 1) // 4 + 1, (qn - 1) % 4 + 1
+        base = (qn - 1) * mpq
+        idxs = [base + j for j in range(mpq) if base + j < n_periods]
+        if not idxs:
+            break
+        periods.append({"label": f"Y{y} Q{q}", "stock_idx": idxs[-1], "flow_idxs": idxs})
     return periods
 
 
-def _stock_vals(series, periods):
-    s, d1 = _norm(series)
+def _stock_vals(series, periods, n_periods=None):
+    s, d1 = _norm(series, periods, n_periods)
     out = []
     for p in periods:
         if p.get("day1"):
@@ -78,8 +100,8 @@ def _stock_vals(series, periods):
     return out
 
 
-def _flow_vals(series, periods):
-    s, _ = _norm(series)
+def _flow_vals(series, periods, n_periods=None):
+    s, _ = _norm(series, periods, n_periods)
     out = []
     for p in periods:
         if p.get("day1"):
@@ -122,6 +144,7 @@ def _bank_name(cfg):
 
 def _build_sheet(ws, cfg, res, periods, granularity):
     a = cfg.get("assumptions", {})
+    n_periods = int(a.get("n_periods") or 12)
     fin = res.get("financials", {})
     bs = fin.get("bs", {})
     is_ = fin.get("is", {})
@@ -199,7 +222,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
             _datarow(label, [None] * ncols, section=True); continue
         if key is None:
             _datarow(label, [None] * ncols, bold=bold); continue
-        vals = _stock_vals(bs.get(key), periods)
+        vals = _stock_vals(bs.get(key), periods, n_periods)
         if key == "alll":
             vals = [(-v if isinstance(v, (int, float)) else v) for v in vals]
         _datarow(label, vals, bold=bold)
@@ -212,7 +235,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     def _flow_sum(keys):
         cols = None
         for k in keys:
-            v = _flow_vals(is_.get(k), flow_cols)
+            v = _flow_vals(is_.get(k), flow_cols, n_periods)
             cols = v if cols is None else [(cols[i] or 0) + (v[i] or 0) for i in range(len(v))]
         return cols or [None] * len(flow_cols)
 
@@ -232,10 +255,10 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     _title("Table 3: Interest Income by Product Line ($ thousands)")
     _header("Interest Income by Product Line", flow_labels)
     for p in lend:
-        _datarow(p.get("name", "Loan Product"), _flow_vals(p.get("intInc"), flow_cols), indent=True)
+        _datarow(p.get("name", "Loan Product"), _flow_vals(p.get("intInc"), flow_cols, n_periods), indent=True)
     tot_loan_ii = None
     for p in lend:
-        v = _flow_vals(p.get("intInc"), flow_cols)
+        v = _flow_vals(p.get("intInc"), flow_cols, n_periods)
         tot_loan_ii = v if tot_loan_ii is None else [(tot_loan_ii[i] or 0) + (v[i] or 0) for i in range(len(v))]
     _datarow("Total Loans", tot_loan_ii or [None] * len(flow_cols), bold=True)
     _datarow("Cash & Securities", _flow_sum(["secInt", "cashInt"]))
@@ -247,7 +270,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
         name = p.get("name", f"Loan Product {idx}")
         _title(f"Table 4.{idx}: {name} \u2014 Characteristics")
         _header(f"{name}", flow_labels)
-        _datarow("Total Bank Originations ($ thousands)", _flow_vals(p.get("origq"), flow_cols))
+        _datarow("Total Bank Originations ($ thousands)", _flow_vals(p.get("origq"), flow_cols, n_periods))
         cfg_p = next((lp for lp in a.get("lending_products", []) if lp.get("name") == name), {})
         yld = cfg_p.get("yield_ann")
         _datarow("Average Asset Yield (%)",
@@ -263,7 +286,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     dep_in_res = [p for p in products if p.get("family") == "deposit"]
     if dep_in_res:
         for p in dep_in_res:
-            _datarow(p.get("name", "Deposit"), _flow_vals(p.get("intExp"), flow_cols), indent=True)
+            _datarow(p.get("name", "Deposit"), _flow_vals(p.get("intExp"), flow_cols, n_periods), indent=True)
     else:
         for dp in dep_products:
             _datarow(dp.get("name", "Deposit Source"), [None] * len(flow_cols), indent=True)
@@ -282,7 +305,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
         s = cap_ratios.get(key)
         if not isinstance(s, list):
             return [None] * ncols
-        vals = _stock_vals(s, periods)
+        vals = _stock_vals(s, periods, n_periods)
         return [(v / 100.0 if isinstance(v, (int, float)) else None) for v in vals]
 
     _datarow("Tier 1 Leverage Ratio", _cap_row("leverage"), fmt=_PCT)
@@ -296,7 +319,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     _header("Loan Loss Provision Expense", flow_labels)
     tot_co = None
     for p in lend:
-        v = _flow_vals(p.get("co"), flow_cols)
+        v = _flow_vals(p.get("co"), flow_cols, n_periods)
         _datarow(p.get("name", "Loan Product"), v, indent=True)
         tot_co = v if tot_co is None else [(tot_co[i] or 0) + (v[i] or 0) for i in range(len(v))]
     _datarow("Total", tot_co or [None] * len(flow_cols), bold=True)
@@ -325,10 +348,12 @@ def build_bpt_cover(cfg, res):
     ws_annual.title = "Business Plan Tables Annual"
     _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
-    _build_sheet(ws_annual, cfg, res, _annual_periods(_ppy, _np), "annual")
+    from .timebase import submission_quarters
+    _submission_q = submission_quarters(cfg)
+    _build_sheet(ws_annual, cfg, res, _annual_periods(_ppy, _np, _submission_q), "annual")
 
     ws_q = wb.create_sheet("Business Plan Tables Quarterly")
-    _build_sheet(ws_q, cfg, res, _quarterly_periods(_ppy, _np), "quarterly")
+    _build_sheet(ws_q, cfg, res, _quarterly_periods(_ppy, _np, _submission_q), "quarterly")
 
     buf = io.BytesIO()
     wb.save(buf)

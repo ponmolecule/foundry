@@ -311,7 +311,7 @@ def main():
         # Tokens are drawn from the transcribed artifact, not from memory.
         need_controls = ["Products", "Balance Sheet", "Income Statement", "Ratios",
                          "Product Detail", "Stress Testing", "Assumption Book",
-                         "Pro Forma Balance Sheet", "Pro Forma Income Statement (quarterly)",
+                         "Pro Forma Balance Sheet", "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})",
                          "Less: Allowance for Loan Losses", "TOTAL LIABILITIES & EQUITY",
                          "Total Loans & Leases (gross)", "Summary Ratios (annualized)",
                          "Efficiency Ratio", "Tier 1 Leverage Ratio", "NET INCOME (LOSS)",
@@ -392,7 +392,7 @@ def main():
               " per-quarter override grids, CBLR eligibility cards, all V21-gated;"
               " /v2.1 route serves the flag")
         print("T-PAR: UI parity checklist — faithful iteration-1 surface: predecessor tab set,"
-              " three-card sidebar with quarter-labeled SOFR path, Products tab + Add-Product"
+              " three-card sidebar with cadence-aware dated SOFR path, Products tab + Add-Product"
               " modal, line-level BS, contributions + per-product schedules, scenario"
               " comparison, flags/defaults/methodology, Excel export")
     except ImportError:

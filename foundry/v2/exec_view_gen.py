@@ -15,6 +15,7 @@ Shapes mirror foundry/v2/assets/exec_view_template.html exactly (named-key objec
   COPY (static strings), FILTER_DEFS (static).
 """
 import json
+from .timebase import period_label as _period_label, horizon_label as _horizon_label, cadence_noun as _cadence_noun
 
 TONE = {"pass": "pass", "warn": "warn", "fail": "fail", "info": "info"}
 _RANK = {"severe": 3, "advisory": 2, "review": 1}
@@ -154,6 +155,12 @@ SRC = {"dfast_severe": "Supervisory path"}
 
 def build(cfg, res):
     commit = _commit(cfg)
+    _a = cfg.get("assumptions") or {}
+    _ppy = int(_a.get("periods_per_year") or 4)
+    _nperiods = int(_a.get("n_periods") or 12)
+    _period_word = _cadence_noun(_ppy)
+    _horizon = _horizon_label(_nperiods, _ppy)
+    def _plab(p): return _period_label(p, _ppy)
     lev = _lev(res) or [0.0]
     base = (res.get("scenarios") or {}).get("base") or {}
     min_lev = base.get("min_leverage")
@@ -240,7 +247,7 @@ def build(cfg, res):
         "scaleMin": lo, "scaleMax": hi,
         "requirement": {"value": round(commit, 2), "label": "Requirement"},
         "model": {"value": round(min_lev_pct, 2) if min_lev_pct is not None else commit,
-                  "label": f"Model (Q{min_lev_q}) \u00b7 "
+                  "label": f"Model ({_plab(min_lev_q)}) \u00b7 "
                            + (f"{_gap_txt(min_lev_pct or 0, commit)} of headroom"
                               if (min_lev_pct or 0) >= commit
                               else f"{_gap_txt(min_lev_pct or 0, commit)} short")},
@@ -253,14 +260,14 @@ def build(cfg, res):
     metrics = [
         {"id": "lev", "unit": "pct", "label": "MIN BASE LEVERAGE",
          "value": _pct(min_lev_pct) if min_lev_pct is not None else "\u2014",
-         "sub": f"Q{min_lev_q}" if min_lev_q else "", "foot": f"Requirement \u2265 {commit:.1f}%",
+         "sub": _plab(min_lev_q) if min_lev_q else "", "foot": f"Requirement \u2265 {commit:.1f}%",
          "tone": _tone((min_lev_pct or 0) >= commit), "series": series["lev"],
          "detail": (f"Tier 1 leverage reaches its base-case minimum of {_pct(min_lev_pct)} in "
-                    f"Q{min_lev_q}, {'above' if (min_lev_pct or 0) >= commit else 'below'} the "
+                    f"{_plab(min_lev_q)}, {'above' if (min_lev_pct or 0) >= commit else 'below'} the "
                     f"{commit:.1f}% commitment."),
          "drivers": [["Cumulative net income", f"${(cum_ni or 0)/1000:.1f}M"],
                      ["Capital raise assumed", "None after Day 1"],
-                     ["Projection horizon", f"{len(lev)} quarters"]]},
+                     ["Projection horizon", _horizon]]},
         {"id": "stress", "unit": "pct", "label": "WORST STRESS OUTCOME",
          "value": _pct(worst_val) if worst_val is not None else "\u2014",
          "sub": f"Min leverage \u00b7 {worst_label}",
@@ -272,17 +279,17 @@ def build(cfg, res):
                     f"{commit:.1f}%."),
          "drivers": [["Scenarios modeled", str(n_total)], ["Scenarios breaching", str(n_breach)],
                      ["Worst scenario", worst_label]]},
-        {"id": "breakeven", "unit": "money", "label": "BREAKEVEN", "value": f"Q{breakeven}" if breakeven else "\u2014",
-         "sub": "First profitable quarter", "foot": "", "tone": "info", "series": series["ni"],
-         "detail": (f"The plan reaches profitability in Q{breakeven}." if breakeven
+        {"id": "breakeven", "unit": "money", "label": "BREAKEVEN", "value": _plab(breakeven) if breakeven else "\u2014",
+         "sub": f"First profitable {_period_word}", "foot": "", "tone": "info", "series": series["ni"],
+         "detail": (f"The plan reaches profitability in {_plab(breakeven)}." if breakeven
                     else "Breakeven is not reached within the projection horizon."),
-         "drivers": [["12-quarter net income", f"${(cum_ni or 0)/1000:.1f}M"]]},
+         "drivers": [[f"{_horizon.capitalize()} net income", f"${(cum_ni or 0)/1000:.1f}M"]]},
         {"id": "cumni", "unit": "money", "label": "CUMULATIVE NET INCOME", "value": f"${(cum_ni or 0)/1000:.1f}M",
-         "sub": f"{len(lev)}-quarter total", "foot": "Carries the capital build", "tone": "info",
+         "sub": f"{_horizon} total", "foot": "Carries the capital build", "tone": "info",
          "series": series["cumni"],
          "detail": (f"Cumulative earnings of ${(cum_ni or 0)/1000:.1f}M over the projection; "
                     f"the plan assumes no additional raise after Day 1."),
-         "drivers": [["Breakeven", f"Q{breakeven}" if breakeven else "\u2014"]]},
+         "drivers": [["Breakeven", _plab(breakeven) if breakeven else "\u2014"]]},
     ]
 
     constraint = {"name": "leverage_min", "threshold": round(commit, 2), "thresholdLabel": f"{commit:.1f}%"}
@@ -301,7 +308,7 @@ def build(cfg, res):
                       f"{commit:.1f}% commitment ({'holds' if ok else 'breaches'})."),
             "drivers": [
                 f"Leverage {'clears' if ok else 'falls below'} the commitment by {abs(gap):.0f} bp "
-                f"in the binding quarter.",
+                f"in the binding {_period_word}.",
                 ("No capital action is assumed after Day 1." if sid == "base"
                  else "Overlay applied to the base plan; no management action credited."),
             ],
@@ -501,7 +508,7 @@ def build(cfg, res):
             fin_rows.append({"label": label, "values": vals,
                              "strong": is_stock and "Total Assets" in label})
     financials = {"periods": periods, "rows": fin_rows,
-                  "note": (qs.get("note", "") + ". Income ratios are averaged over the year\u2019s quarters; "
+                  "note": (qs.get("note", "") + f". Income ratios are aggregated from the model\u2019s {_period_word}s; "
                            "stock figures are year-end.") if qs.get("note") else ""}
 
     # ---- DECISION DRIVERS (Classic 6-card set) ----
@@ -514,17 +521,17 @@ def build(cfg, res):
     day1_borrow = (((res.get("financials") or {}).get("bs") or {}).get("borrow") or [None])[0]
     drivers = [
         {"k": "Min base leverage", "v": _pct(min_lev_pct) if min_lev_pct is not None else "n/m",
-         "s": f"Q{min_lev_q or '\u2014'} \u00b7 vs {commit:.1f}%", "neg": (min_lev_pct or 0) < commit},
+         "s": f"{_plab(min_lev_q)} \u00b7 vs {commit:.1f}%", "neg": (min_lev_pct or 0) < commit},
         {"k": "Worst stress outcome", "v": _pct(worst_val) if worst_val is not None else "n/m",
          "s": f"min leverage \u00b7 {worst_label}", "neg": (worst_val or 0) < commit},
-        {"k": "Breakeven", "v": (f"Q{breakeven}" if breakeven and breakeven > 0 else "not in 12Q"),
-         "s": "first profitable quarter", "neg": (not breakeven or breakeven < 0)},
+        {"k": "Breakeven", "v": (_plab(breakeven) if breakeven and breakeven > 0 else f"not in {_horizon}"),
+         "s": f"first profitable {_period_word}", "neg": (not breakeven or breakeven < 0)},
         {"k": "Opening wholesale funding", "v": _money000(day1_borrow) if day1_borrow is not None else "n/m",
          "s": "at Day 1", "neg": (day1_borrow or 0) > 0},
         {"k": "Earnings durability", "v": _money000(y3ni) if y3ni is not None else "n/m",
          "s": "Year-3 net income", "neg": (isinstance(y3ni, (int, float)) and y3ni < 0)},
         {"k": "Cumulative net income", "v": _money000(cum_ni) if cum_ni is not None else "n/m",
-         "s": "12-quarter total", "neg": (isinstance(cum_ni, (int, float)) and cum_ni < 0)},
+         "s": f"{_horizon} total", "neg": (isinstance(cum_ni, (int, float)) and cum_ni < 0)},
     ]
 
     # ---- MODEL (run identity) ----
@@ -538,8 +545,10 @@ def build(cfg, res):
                     {"label": "Results", "view": "financials"},
                     {"label": "Model Checks", "view": "coherence"}],
         "version": f"Engine {res.get('engine_version', '')}",
+        "periodStartLabel": _plab(1), "periodEndLabel": _plab(_nperiods),
+        "horizonLabel": _horizon,
         "generated": "", "freshness": "Up to date",
-        "runLine": f"Run {str(res.get('config_hash', ''))[:10]} \u00b7 {cfg_name} \u00b7 v2-quarterly "
+        "runLine": f"Run {str(res.get('config_hash', ''))[:10]} \u00b7 {cfg_name} \u00b7 v2-cadence-aware "
                    f"\u00b7 Model metrics are for internal review; not independent auditor validation.",
         "downloads": ["Executive summary (PDF)", "Excel exhibit", "Business plan tables"],
     }
@@ -571,7 +580,7 @@ def build(cfg, res):
                      "lede": "Every finding across families. Narrow the list to read it \u2014 the summary itself is never filtered.",
                      "empty": "No findings match this combination.", "reset": "Reset",
                      "link": "See all findings across families \u2192"},
-        "metricDetail": {"seriesTitle": "TWELVE-QUARTER SERIES", "axisMid": "twelve quarters",
+        "metricDetail": {"seriesTitle": f"{_horizon.upper()} SERIES", "axisMid": _horizon,
                          "driversTitle": "ASSUMPTIONS THAT MOVE IT"},
         "scenarioDetail": {"eyebrow": "SCENARIO DETAIL", "chartTitle": "LEVERAGE PATH UNDER THIS SCENARIO",
                            "driversTitle": "WHAT DRIVES THE RESULT",

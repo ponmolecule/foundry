@@ -13,17 +13,25 @@ Q = 12
 FV_HORIZON_YEARS = 15   # DCF fair-value horizon in CALENDAR YEARS (was 60 quarters)
 
 
-def opex_fixed_q(p):
-    """Fixed operating cost per QUARTER for a product.
+def opex_fixed_period(p, ppy=4):
+    """Fixed product operating cost for ONE engine period.
 
-    Canonical key is `opex_fixed_q` (quarterly). Legacy configs stored `opex_fixed_m` (monthly,
-    which the engine used to multiply by 3); those are still read correctly here by converting
-    monthly -> quarterly. This read-time fallback is the safety net: even a config that was never
-    migrated is interpreted with the right magnitude. `opex_fixed_q` wins when both are present.
+    Canonical configs use ``opex_fixed_per_period``. Legacy ``opex_fixed_q`` and
+    ``opex_fixed_m`` values retain their original calendar meaning and are converted
+    to the selected cadence rather than blindly repeated every engine period.
     """
-    if "opex_fixed_q" in p and p["opex_fixed_q"] is not None:
-        return p["opex_fixed_q"] or 0.0
-    return (p.get("opex_fixed_m") or 0.0) * 3.0
+    if p.get("opex_fixed_per_period") is not None:
+        return float(p.get("opex_fixed_per_period") or 0.0)
+    if p.get("opex_fixed_q") is not None:
+        return float(p.get("opex_fixed_q") or 0.0) * 4.0 / float(ppy)
+    if p.get("opex_fixed_m") is not None:
+        return float(p.get("opex_fixed_m") or 0.0) * 12.0 / float(ppy)
+    return 0.0
+
+
+def opex_fixed_q(p):
+    """Backward-compatible quarterly wrapper used by Profile B / old callers."""
+    return opex_fixed_period(p, 4)
 
 
 def rate_fn(path_q, longer_run, ppy=4):
@@ -62,11 +70,118 @@ def rate_fn(path_q, longer_run, ppy=4):
     return r
 
 
+def dated_rate_fn(anchors, longer_run, cfg, ppy=4):
+    """Annual-rate lookup from explicit calendar-dated anchors.
+
+    `anchors` may be a mapping {ISO-date: rate} or a list of {date, rate}. The engine evaluates
+    each computational period at its real calendar period-end. Between anchors the rate is
+    linearly interpolated by calendar days; past the last anchor it glides toward longer-run at
+    5bp per calendar quarter. This is the canonical path for refreshed/generated curves.
+    """
+    from datetime import date as _date
+    from .timebase import model_period_end_date
+    pts = []
+    if isinstance(anchors, dict):
+        it = anchors.items()
+    else:
+        it = ((x.get("date"), x.get("rate")) for x in (anchors or []) if isinstance(x, dict))
+    for d, v in it:
+        try:
+            pts.append((_date.fromisoformat(str(d)[:10]), float(v)))
+        except Exception:
+            continue
+    pts.sort(key=lambda x: x[0])
+    if not pts:
+        raise ValueError("dated rate curve requires at least one valid anchor")
+    def r(t):
+        d = model_period_end_date(cfg, max(1, int(t)), int(ppy))
+        if d <= pts[0][0]:
+            return pts[0][1]
+        for (d0, v0), (d1, v1) in zip(pts, pts[1:]):
+            if d <= d1:
+                span = max(1, (d1 - d0).days)
+                f = (d - d0).days / span
+                return v0 + (v1 - v0) * f
+        d0, v0 = pts[-1]
+        q_over = max(0.0, (d - d0).days / 365.2425 * 4.0)
+        step = 0.0005 * q_over
+        lr = float(longer_run)
+        if v0 > lr:
+            return max(lr, v0 - step)
+        return min(lr, v0 + step)
+    return r
+
+
 def _ovq(p, field, q, base):
     m = (p.get("overrides") or {}).get(field) or {}
     v = m.get(str(q))
     return float(v) if v is not None else base
 
+
+
+def _build_rate_curve_set(a, cfg, ppy=4):
+    """Build SOFR/EFFR/Prime functions from one canonical rate-curve contract.
+
+    Precedence per curve: explicit dated anchors > explicitly edited/manual path > common
+    dated policy/SEP anchors > legacy quarterly path.  This keeps old fixtures stable while
+    ensuring generated curves are attached to the engagement calendar, not ordinal Q2/Q6/Q10.
+    """
+    rc = a.get("rate_curves") or {}
+    sofr_cfg = rc.get("sofr") or {}
+    legacy_sofr = sofr_cfg.get("path_q") or a.get("rate_path_q") or [0.0]
+    legacy_sofr_lr = sofr_cfg.get("longer_run", a.get("rate_path_longer_run", 0.0))
+    fomc = rc.get("fomc") or {}
+    cp = rc.get("current_policy") or {}
+    offsets = {"effr": 0.0, "sofr": 0.0005, "prime": 0.0300}
+    offsets.update(rc.get("offsets") or {})
+    half_band = float(rc.get("half_band") if rc.get("half_band") is not None
+                      else max(0.0, float(cp.get("top") or 0.0) - float(cp.get("mid") or 0.0)))
+
+    def _common_dated(name):
+        anchors = {}
+        off = float(offsets.get(name, 0.0) or 0.0)
+        for d, v in (fomc.get("anchors") or {}).items():
+            anchors[str(d)] = float(v) + off + (half_band if name == "prime" else 0.0)
+        sd = cp.get("observation_date") or cp.get("statement_date")
+        if sd:
+            if name == "prime" and cp.get("top") is not None:
+                anchors[str(sd)] = float(cp["top"]) + off
+            elif cp.get("mid") is not None:
+                anchors[str(sd)] = float(cp["mid"]) + off
+        if not anchors:
+            return None, None
+        lr0 = fomc.get("lr")
+        lr = (float(lr0) + off + (half_band if name == "prime" else 0.0)
+              if lr0 is not None else None)
+        return anchors, lr
+
+    def _curve(name, legacy_off):
+        c = rc.get(name) or {}
+        if c.get("dated_anchors"):
+            lr = c.get("longer_run", legacy_sofr_lr + legacy_off)
+            return dated_rate_fn(c["dated_anchors"], lr, cfg, ppy)
+        # A user-edited grid is an explicit engine-quarter path and intentionally wins over
+        # generated calendar anchors.  Generated legacy paths (edited false/absent) are migrated.
+        if c.get("edited") is True and c.get("path_q"):
+            return rate_fn(c["path_q"], c.get("longer_run", legacy_sofr_lr + legacy_off), ppy)
+        da, dlr = _common_dated(name)
+        if da:
+            if dlr is None:
+                dlr = c.get("longer_run", legacy_sofr_lr + legacy_off)
+            return dated_rate_fn(da, dlr, cfg, ppy)
+        if c.get("path_q"):
+            return rate_fn(c["path_q"], c.get("longer_run", legacy_sofr_lr + legacy_off), ppy)
+        if name == "sofr":
+            return rate_fn(legacy_sofr, legacy_sofr_lr, ppy)
+        # Backward-compatible seed when only legacy SOFR path exists.
+        return rate_fn([float(x) + legacy_off for x in legacy_sofr],
+                       legacy_sofr_lr + legacy_off, ppy)
+
+    curves = {"sofr": _curve("sofr", 0.0),
+              "effr": _curve("effr", -0.0005),
+              "prime": _curve("prime", 0.0292)}
+    curves["sofr"]._curves = curves
+    return curves
 
 def _prod_rate(p, t, rate):
     # Read strictly gated by rate_type (the selector), never by field-presence: a product's
@@ -132,6 +247,24 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
                     _c["path_q"] = [max(0.0, x + shock) for x in _c["path_q"]]
                 if _c.get("longer_run") is not None:
                     _c["longer_run"] = max(0.0, _c["longer_run"] + shock)
+                _da = _c.get("dated_anchors")
+                if isinstance(_da, dict):
+                    _c["dated_anchors"] = {d: max(0.0, float(v) + shock) for d, v in _da.items()}
+                elif isinstance(_da, list):
+                    for _pt in _da:
+                        if isinstance(_pt, dict) and _pt.get("rate") is not None:
+                            _pt["rate"] = max(0.0, float(_pt["rate"]) + shock)
+        # Generated curves may be derived from common dated policy/SEP metadata rather than
+        # per-curve arrays. Shock that source as well so the shared builder cannot bypass stress.
+        _f = _rc.get("fomc") or {}
+        if isinstance(_f.get("anchors"), dict):
+            _f["anchors"] = {d: max(0.0, float(v) + shock) for d, v in _f["anchors"].items()}
+        if _f.get("lr") is not None:
+            _f["lr"] = max(0.0, float(_f["lr"]) + shock)
+        _cp = _rc.get("current_policy") or {}
+        for _kk in ("mid", "top", "bottom"):
+            if _cp.get(_kk) is not None:
+                _cp[_kk] = max(0.0, float(_cp[_kk]) + shock)
     co_m = ov.get("charge_off_mult", 1) or 1
     res_m = ov.get("reserve_mult", 1) or 1
     # DFAST severe overlay: an ABSOLUTE per-call_report_line 9Q-cumulative loss rate that
@@ -156,13 +289,17 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
         _w = [x / _tot for x in _raw]                    # renormalize to sum 1.0
     else:
         _w = [1.0 / _win] * _win
+    from .present import canonical_line as _canonical_line
     for p in lend:
-        if dfast and p.get("call_report_line") in dfast:
-            cum9 = dfast[p["call_report_line"]]          # 9Q-cumulative loss fraction
+        _dkey = _canonical_line(p.get("call_report_line"))
+        if dfast and _dkey in dfast:
+            cum9 = dfast[_dkey]                          # 9Q-cumulative loss fraction
             # per-period charge-off = w_i * cum9; engine reads ANNUAL (co = bal*ann/ppy),
             # so ann_i = ppy * w_i * cum9. Sum over the window ~ cum9 * balance.
             sched = {str(i + 1): ppy * _w[i] * cum9 for i in range(_win)}
-            p.setdefault("overrides", {})["charge_off_ann"] = sched
+            if not isinstance(p.get("overrides"), dict):
+                p["overrides"] = {}
+            p["overrides"]["charge_off_ann"] = sched
         else:
             p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
         if p.get("reserve_rate_pct_bal") is not None:
@@ -189,6 +326,8 @@ def run_pf_a(cfg):
     # /ppy below equals the legacy /4 exactly -> byte-identical (hash 3fee151428f6991e).
     ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     ppyf = float(ppy)
+    from .timebase import (quarter_start_period, quarters_to_periods, months_to_periods,
+                           quarterly_value_to_period)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
     # Originate-to-sell normalization. The engine reads the sale config under the `mortgage_banking`
@@ -238,7 +377,7 @@ def run_pf_a(cfg):
                 if _new in node and node[_new] is not None:
                     node[_old] = node[_new]
                 elif _old in node and node[_old] is not None:
-                    node[_new] = node[_old]
+                    node[_new] = quarterly_value_to_period(_stem, node[_old], ppy)
             for _v in node.values():
                 _alias_pp(_v)
         elif isinstance(node, list):
@@ -250,38 +389,22 @@ def run_pf_a(cfg):
     if a.get("overhead_growth_per_period") is not None:
         a["overhead_growth_q"] = a["overhead_growth_per_period"]
     elif a.get("overhead_growth_q") is not None:
-        a["overhead_growth_per_period"] = a["overhead_growth_q"]
+        a["overhead_growth_per_period"] = quarterly_value_to_period(
+            "overhead_growth", a["overhead_growth_q"], ppy)
+        a["overhead_growth_q"] = a["overhead_growth_per_period"]
     if a.get("overhead_per_period") is not None:
         a["overhead_q"] = a["overhead_per_period"]
     elif a.get("overhead_q") is not None:
-        a["overhead_per_period"] = a["overhead_q"]
+        a["overhead_per_period"] = quarterly_value_to_period("overhead", a["overhead_q"], ppy)
+        a["overhead_q"] = a["overhead_per_period"]
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov, ppy)
 
-    # Multi-curve rate set (SOFR / EFFR / Prime). Backward-compat shim: the SOFR curve is built from
-    # the legacy rate_path_q so index-less products (which dispatch to SOFR in _prod_rate) reproduce
-    # the pre-multi-curve numbers exactly. EFFR/Prime use their own explicit paths when present; when
-    # absent they fall back to a conventional offset off SOFR (a seed default, NOT a formula — once a
-    # real path is fetched/entered it is used verbatim). Offsets: EFFR ≈ SOFR − 5bp; Prime ≈ SOFR +
-    # ~2.92% (WSJ convention target+300bp, expressed off the ~8bp-below-target SOFR proxy).
-    def _curve_paths(a):
-        rc = a.get("rate_curves") or {}
-        sofr_p = (rc.get("sofr") or {}).get("path_q") or a["rate_path_q"]
-        sofr_lr = (rc.get("sofr") or {}).get("longer_run",
-                    a.get("rate_path_longer_run", 0.0)) if rc.get("sofr") else a.get("rate_path_longer_run", 0.0)
-        def _seed(off):
-            return ([x + off for x in sofr_p], sofr_lr + off)
-        effr = rc.get("effr") or {}
-        prime = rc.get("prime") or {}
-        effr_p, effr_lr = (effr.get("path_q"), effr.get("longer_run")) if effr.get("path_q") else _seed(-0.0005)
-        prime_p, prime_lr = (prime.get("path_q"), prime.get("longer_run")) if prime.get("path_q") else _seed(0.0292)
-        return {"sofr": (sofr_p, sofr_lr), "effr": (effr_p, effr_lr), "prime": (prime_p, prime_lr)}
-
-    _cp = _curve_paths(a)
-    rate_curves = {k: rate_fn(p, lr, ppy) for k, (p, lr) in _cp.items()}
-    rate = rate_curves["sofr"]     # default curve
-    rate._curves = rate_curves     # _prod_rate reads p['index'] off this to dispatch per-product
+    # One shared multi-curve builder governs both profiles. Generated curves are dated;
+    # explicit manual path grids remain supported as intentional model-period assumptions.
+    rate_curves = _build_rate_curve_set(a, cfg, ppy)
+    rate = rate_curves["sofr"]
 
     capital = cfg["target_state"]["initial_capital"]
     # staged capital raises (additive, default-off): raises land at the START
@@ -289,7 +412,10 @@ def run_pf_a(cfg):
     _raises = cfg["assumptions"].get("capital_raises") or []
     cap_t = [capital] * (Q + 1)
     for _r in _raises:
-        for _q in range(int(_r["quarter"]), Q + 1):
+        # `quarter` is a MODEL-CALENDAR quarter, not an engine-period number.
+        # Q4 therefore starts in month 10 under monthly cadence.
+        _start = quarter_start_period(int(_r["quarter"]), ppy)
+        for _q in range(_start, Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import (nie_detail_series, product_fee_streams_q,
                                  durbin_effective_rate, _g,
@@ -309,12 +435,17 @@ def run_pf_a(cfg):
     _sched = a.get("scheduled_borrowings") or []
     sched_t = [0.0] * (Q + 1)
     for _sb in _sched:
-        _amt, _q0, _tq = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"])
+        _amt = float(_sb["amount"])
+        _q0 = quarter_start_period(int(_sb["quarter"]), ppy)
+        _tq = quarters_to_periods(int(_sb["term_q"]), ppy)
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_t[_q] += _amt
     sched_int_t = [0.0] * (Q + 1)
     for _sb in _sched:
-        _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
+        _amt = float(_sb["amount"])
+        _q0 = quarter_start_period(int(_sb["quarter"]), ppy)
+        _tq = quarters_to_periods(int(_sb["term_q"]), ppy)
+        _r = float(_sb["rate_ann"])
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_int_t[_q] += _amt * _r / ppyf
     _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / ppyf
@@ -362,13 +493,13 @@ def run_pf_a(cfg):
             _feed = (a.get("cac_feeds") or {}).get(_src)
             if _feed is not None:
                 _mn_cfg = cac_managed_notional(_feed, Q, ppy)
-        _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q)
+        _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q, ppy)
         p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)
         # drives cohort roll-OFF — deposits exit when their cohort matures.
         # The opening balance is a seasoned even ladder (1/mq exits per quarter);
         # each quarter's inflows form a cohort that exits whole at +mq.
-        _mq = int(round((p.get("avg_maturity_m") or 0.0) / 3.0))
+        _mq = months_to_periods((p.get("avg_maturity_m") or 0.0), ppy)
         _cohorts = {}          # born_q -> remaining balance
         if _mq > 0 and (p["_bal"][0] or 0.0) > 0:
             for _k in range(1, _mq + 1):
@@ -396,12 +527,12 @@ def run_pf_a(cfg):
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "managed_notional": _mn_avg[q - 1]}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_q(p))
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
 
     for p in lend:
         mb = p.get("mortgage_banking") or {}
-        h = int(mb.get("warehouse_hold_q", 0) or 0)
+        h = quarters_to_periods(int(mb.get("warehouse_hold_q", 0) or 0), ppy)
         # Originate-to-sell timing. "at_origination" (default/historical): a fraction is designated for
         # sale at origination and warehoused briefly (the mortgage/SBA path below via p["_sale"]).
         # "after_seasoning": the account is HELD (earning, reserved) for season_q quarters, THEN a
@@ -412,7 +543,7 @@ def run_pf_a(cfg):
         _season_sale = (_sale_timing == "after_seasoning") and (mb.get("sale_pct_of_orig", 0.0) or 0.0) > 0
         if _season_sale:
             p["_sale"] = 0.0                                   # nothing sold at origination
-            _sq = int(mb.get("season_q", 0) or 0)
+            _sq = quarters_to_periods(int(mb.get("season_q", 0) or 0), ppy)
             _spct = mb.get("sale_pct_of_orig", 0.0) or 0.0
             _smargin = mb.get("gain_on_sale_margin", 0.0) or 0.0
             _scoh = []                                         # [balance, age] origination cohorts
@@ -424,7 +555,7 @@ def run_pf_a(cfg):
         # False and the flat-runoff path below runs UNCHANGED (byte-identical for every existing config).
         _amort = (p.get("structure") == "term") and int(p.get("term_q") or 0) > 0
         if _amort:
-            _T = int(p["term_q"])
+            _T = quarters_to_periods(int(p["term_q"]), ppy)
             # cohorts: list of [remaining_balance, quarters_elapsed]. Opening book is a seasoned even
             # ladder — treat it as one cohort at age 0 amortizing over its remaining term (approximation:
             # the opening book amortizes over a full term from Day 1; refined seasoning is a later item).
@@ -503,7 +634,7 @@ def run_pf_a(cfg):
             p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
-            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_q(p))
+            p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
             p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
         # warehouse cohorts: half-quarter coupon at origination and sale
@@ -656,70 +787,61 @@ def run_pf_a(cfg):
             is_[_k] = [None] * (Q + 1)
 
     # ---- Durbin (Regulation II) covered-status calendar machinery ----
-    # See the extensive note at the cap-application site below. This precomputes, for each engine
-    # period q, the "governing year-end assets" in $000s that Reg II uses to decide whether the debit
-    # interchange cap is in force at q — or 0.0 if the cap is not yet effective at q. The engine's cap
-    # block reads durbin_effective_rate(gross, ticket, <this value>): a value >= the $10B threshold
-    # ($10,000,000 thousand) triggers the cap; a value below it (incl. 0.0) leaves interchange uncapped.
-    #
-    # Calendar anchor: target_opening ("YYYY-Qn") maps period 1 -> (year, quarter); each later period
-    # follows by offset. ppy periods/year means qtr_len = 4/ppy calendar-quarters per engine period
-    # (1 at quarterly; 1/3 at monthly, i.e. 3 monthly periods per calendar quarter).
-    def _parse_opening():
-        _raw = str(cfg.get("target_opening") or "").strip()
-        # accept "2027-Q2", "2027Q2", "2027-2"; fall back to (nominal year, Q1) when absent/unparseable
-        import re as _re
-        _m = _re.match(r"^\s*(\d{4})\D*([1-4])\s*$", _raw)
-        if _m:
-            return int(_m.group(1)), int(_m.group(2))
-        return 2000, 1   # nominal anchor: relative timing (year-end test + lag) is what matters
-    _open_y, _open_q = _parse_opening()
+    # Regulatory timing is anchored to the engagement calendar, not the computational cadence.
+    # For each model period, use the most recent *applicable* Dec-31 determination whose July-1
+    # effective date has passed. This permits both entry into and exit from covered status instead
+    # of treating an upward crossing as permanent.
+    from .timebase import parse_opening_quarter, model_period_calendar_quarter, model_period_year_month
 
-    def _period_cal(q):
-        # 1-based engine period q -> (calendar_year, calendar_quarter 1..4). At quarterly (ppy=4) each
-        # period is one calendar quarter. At monthly (ppy=12) three periods share a calendar quarter.
-        _cq_per_period = 4.0 / float(ppy)                 # calendar quarters advanced per engine period
-        _cq_index = int((q - 1) * _cq_per_period)         # 0-based calendar-quarter offset from open
-        _y = _open_y + (_open_q - 1 + _cq_index) // 4
-        _cq = (_open_q - 1 + _cq_index) % 4 + 1
-        return _y, _cq
+    def _period_calendar(q):
+        if ppy == 12:
+            _y, _m = model_period_year_month(cfg, q, ppy)
+            return _y, ((_m - 1) // 3 + 1), _m
+        _y, _cq = model_period_calendar_quarter(cfg, q, ppy)
+        return _y, _cq, (_cq - 1) * 3 + 3
 
-    def _is_cal_q4_end(q):
-        # True if engine period q is the LAST engine period of calendar Q4 (i.e. the calendar year-end
-        # measurement point). At quarterly: the period whose calendar quarter == 4. At monthly: the
-        # 3rd monthly period within calendar Q4 (the one that ends December).
-        _y, _cq = _period_cal(q)
-        if _cq != 4:
-            return False
-        # is this the last engine period still inside calendar Q4? (the next period rolls to a new year)
-        _yn, _ = _period_cal(q + 1)
-        return _yn != _y
+    def _is_calendar_year_end(q):
+        _y, _cq, _m = _period_calendar(q)
+        return (_m == 12) if ppy == 12 else (_cq == 4)
 
     def _durbin_year_end_assets_k(q):
-        # Reg II: at period q, the cap is in force iff the most recent APPLICABLE year-end already
-        # triggered it AND we are at/after its effective date (July 1 = start of calendar Q3) of the
-        # FOLLOWING year. Return that governing year-end's total assets ($000s) when in force, else 0.
-        _y, _cq = _period_cal(q)
-        # The cap can be effective in year Y from Q3 onward, governed by the Dec-31 year-end of Y-1.
-        # And it stays in force in all later years governed by whichever prior year-end last measured
-        # >= $10B (once covered, a bank stays covered until it falls back below and a full year passes;
-        # we model the standard "once year-end >= $10B, covered from next Q3 onward" — the common de
-        # novo case that only ever crosses upward within a 7-year horizon).
-        best = 0.0
-        for _qe in range(1, q):                      # only PAST year-ends are known (breaks circularity)
-            if not _is_cal_q4_end(_qe):
+        """Reg II small-issuer determination for engine period ``q`` ($000s).
+
+        Regulation II tests assets at the preceding Dec-31. A sub-$10B year-end
+        qualifies the issuer for the exemption in the succeeding calendar year. If an
+        issuer was exempt and that Dec-31 rises to >=$10B, the regulation gives until
+        July 1 of the succeeding year to comply. Once already non-exempt, a subsequent
+        >=$10B year-end keeps the cap in force from January 1. A later sub-$10B
+        year-end restores the exemption for the succeeding year.
+
+        Before the first modeled Dec-31 there is no historical determination in the
+        projection; the de-novo default is exempt. An engagement that needs a legacy
+        pre-opening determination should supply/model that history explicitly.
+        """
+        _y, _cq, _m = _period_calendar(q)
+        _ye = {}
+        for _qe in range(1, q):
+            if not _is_calendar_year_end(_qe):
                 continue
-            _ye_year, _ = _period_cal(_qe)            # this Q4-end measures calendar year _ye_year
-            # totalAssets is in RAW DOLLARS; the Reg II threshold (asset_threshold_000s = 10,000,000)
-            # is in $000s, so convert: raw / 1000 -> $000s. (Confirmed empirically: an $11B bank has
-            # totalAssets ~1.18e10 raw -> 1.18e7 $000s >= 1.0e7 threshold.)
-            _assets_k = (bs["totalAssets"][_qe] / 1000.0) if _qe < len(bs["totalAssets"]) else 0.0
-            # effective from Q3 of the FOLLOWING calendar year:
-            _eff_year = _ye_year + 1
-            _in_force = (_y > _eff_year) or (_y == _eff_year and _cq >= 3)
-            if _in_force:
-                best = max(best, _assets_k)           # governing (highest qualifying) year-end assets
-        return best
+            _yy, _, _ = _period_calendar(_qe)
+            _ye[_yy] = (bs["totalAssets"][_qe] / 1000.0
+                        if _qe < len(bs["totalAssets"]) else 0.0)
+        _prior_year = _y - 1
+        if _prior_year not in _ye:
+            return 0.0
+        _assets_k = _ye[_prior_year]
+        _thr = float((_RP.get("durbin") or {}).get("asset_threshold_000s") or 10_000_000.0)
+        if _assets_k < _thr:
+            # Exemption criterion is based on the preceding calendar year-end itself;
+            # a below-threshold determination restores exemption for this year.
+            return _assets_k
+        _prev_assets_k = _ye.get(_prior_year - 1)
+        _was_exempt = (_prev_assets_k is None) or (_prev_assets_k < _thr)
+        if _was_exempt and _m < 7:
+            # Change-in-status transition: newly non-exempt issuer must comply no later
+            # than July 1 of the succeeding year.
+            return 0.0
+        return _assets_k
 
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
@@ -749,7 +871,7 @@ def run_pf_a(cfg):
         # previous simplification (rolling "prior-quarter assets >= $10B -> cap next quarter"), which
         # re-priced too early and every period instead of once a year on the regulatory date.
         #
-        # CALENDAR ANCHOR: the engagement's target opening date (cfg["target_opening"], e.g. "2027-Q2")
+        # CALENDAR ANCHOR: the engagement's target opening date (charter_profile.target_opening (legacy top-level alias accepted))
         # maps engine period 1 to a real calendar (year, quarter); every later period follows by
         # offset. Quarter granularity is SUFFICIENT because both the measurement date (Q4-end) and the
         # effective date (Q3-start) are quarter boundaries. If no opening date is set, we fall back to
@@ -885,7 +1007,9 @@ def run_pf_a(cfg):
         elif pretax < 0:
             nol += -pretax
         else:
-            nol = max(0.0, nol - pretax)
+            # Consume only the NOL actually USED as a tax deduction. The current-period
+            # 80% limitation can make pretax income larger than the permissible shield.
+            nol = max(0.0, nol - (_shield if pretax > 0 else 0.0))
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b

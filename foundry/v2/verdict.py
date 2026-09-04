@@ -12,6 +12,8 @@ See docs/EXEC_SUMMARY_REDESIGN.md.
 """
 from __future__ import annotations
 
+from .timebase import period_label, horizon_label
+
 
 def _constraint_noun(src: str) -> str:
     s = str(src or "").lower()
@@ -84,6 +86,12 @@ def verdict_lines(cfg: dict, res: dict) -> list[str]:
         return lines
     base = (res.get("scenarios") or {}).get("base") or {}
     ct = res.get("constraint_tests") or []
+    cad = res.get("cadence") or {}
+    ppy = int(cad.get("periods_per_year") or 4)
+    np = int(cad.get("n_periods") or 12)
+    trough_label = period_label(base.get("min_leverage_q"), ppy)
+    hz = horizon_label(np, ppy)
+    submission = (res.get("cadence") or {}).get("submission_label") or "Q12"
     lev_con = next((c for c in (cfg.get("constraints") or []) if c.get("key") == "leverage_min"), None)
     commit = (lev_con.get("value") * 100) if lev_con and lev_con.get("value") is not None else None
     scen_total = len({t.get("scenario") for t in ct})
@@ -99,13 +107,13 @@ def verdict_lines(cfg: dict, res: dict) -> list[str]:
             else:
                 tail = ""
             lines.append(
-                f"Base leverage bottoms at {min_pct:.2f}% in Q{base.get('min_leverage_q')} "
+                f"Base leverage bottoms at {min_pct:.2f}% in {trough_label} "
                 f"against the stated {commit:.1f}% threshold{tail}."
             )
         else:
             lines.append(
                 f"Base leverage holds above the stated {commit:.1f}% threshold in every modeled "
-                f"scenario (low of {min_pct:.2f}% in Q{base.get('min_leverage_q')})."
+                f"scenario (low of {min_pct:.2f}% in {trough_label})."
             )
     # most material assumption area — NUMBER-FREE. Points to the top family and defers specific input
     # values to the reasonableness review; never quotes a raw input in the prospects/verdict layer.
@@ -116,7 +124,7 @@ def verdict_lines(cfg: dict, res: dict) -> list[str]:
     if shortfall is not None and shortfall > 0 and commit:
         lines.append(
             f"Estimated additional opening capital to maintain the {commit:.1f}% base-case threshold "
-            f"through Q12: {_money000(shortfall)} (estimate)."
+            f"through the regulator-facing {submission} submission window: {_money000(shortfall)} (estimate)."
         )
     return lines
 

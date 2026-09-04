@@ -18,6 +18,8 @@ from .regparams import REG_PARAMS, PENDING_RULES
 from .challenge_q import challenge_config
 from .callreport import RESULT_CODES_BS, RESULT_CODES_IS, LINE_CODES, code_for_line
 from . import present
+from .timebase import (period_label, horizon_label, cadence_noun,
+                       submission_end_period, submission_period_label)
 
 
 def _peer_annotated_flags(cfg, base):
@@ -36,30 +38,38 @@ def _peer_annotated_flags(cfg, base):
             _ta_series = (base.get("bs", {}).get("totalAssets") or [])
             _peak_ta = max([x for x in _ta_series if x is not None], default=0.0)  # $000s
             if _peak_ta >= 10_000_000.0:  # $10B expressed in $000s
-                _q_cross = next((i for i, x in enumerate(_ta_series)
-                                 if x is not None and x >= 10_000_000.0), None)
+                _p_cross = next((i for i, x in enumerate(_ta_series)
+                                 if i > 0 and x is not None and x >= 10_000_000.0), None)
+                _ppy0 = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+                _cross_label = period_label(_p_cross, _ppy0) if _p_cross else None
                 for f in flags:
                     if f.get("id") == "REG-DURBIN":
                         f["sev"] = "severe"
                         f["text"] = (
                             f"Modeled assets reach ${_peak_ta/1_000_000:.1f}B"
-                            + (f" by Q{_q_cross}" if _q_cross is not None else "")
-                            + ", at or above the $10B Durbin threshold. The small-issuer exemption no "
-                            "longer applies, so the assumed unregulated debit interchange rate is "
-                            "overstated for the quarters at/above $10B \u2014 the rate cap applies. "
-                            "Re-price interchange above the threshold and confirm asset aggregation "
-                            "with counsel.")
+                            + (f" by {_cross_label}" if _cross_label else "")
+                            + ", at or above the $10B Durbin small-issuer threshold. Coverage does "
+                            "not switch on merely because an intra-year period crosses $10B: Foundry "
+                            "applies the preceding-calendar-year-end determination on the applicable "
+                            "July 1 transition date. Review the resulting covered periods and confirm "
+                            "affiliate aggregation with counsel.")
     except Exception:
         pass  # threshold enrichment is additive; never let it break the base flag
     try:
         from .peer_calibration import peer_annotate, asset_band_for
-        ta = (base.get("bs", {}).get("totalAssets") or [None])[-1]
+        _a0 = cfg.get("assumptions") or {}
+        _ppy0 = int(_a0.get("periods_per_year") or 4)
+        _np0 = int(_a0.get("n_periods") or 12)
+        _sub0 = submission_end_period(cfg, _ppy0, _np0)
+        _tas = base.get("bs", {}).get("totalAssets") or []
+        _ti = _sub0 if len(_tas) == _np0 + 1 else _sub0 - 1
+        ta = _tas[_ti] if 0 <= _ti < len(_tas) else (_tas[-1] if _tas else None)
         cohort = asset_band_for(ta) if ta else "broad"
         return peer_annotate(flags, cfg, cohort=cohort)
     except Exception:
         return flags
 
-ENGINE_V2 = "foundry-engine 0.3.0 / v2-quarterly"
+ENGINE_V2 = "foundry-engine 0.3.1 / v2-cadence-aware"
 
 STRESS_DEFAULTS = {"charge_off_mult": 2.5, "reserve_mult": 1.5, "rate_shock_bp": 300,
                    "origination_volume_haircut": 0.40, "gos_margin_compression": 0.40,
@@ -129,37 +139,122 @@ def _merge_overlays(base_ov, scen_ov):
 
 
 def _scen_metrics(res, cfg, commit):
-    """The predecessor's scenMetrics, computed server-side ($000s)."""
+    """Scenario summary with explicit separation of submission-Q12 vs full horizon.
+
+    Fields retaining the historical ``*_q12`` names now mean the regulator-facing
+    submission endpoint (normally calendar Q12), not "whatever the final engine
+    period happens to be." Generic cumulative/minimum fields continue to span the
+    full computational horizon. Standard 12-quarter fixtures are unchanged.
+    """
     is_, bs = res["is"], res["bs"]
     rt = res.get("ratios") or {}
     lev = rt.get("lev") or rt.get("leverage") or []
-    def tot(k):
-        return round(sum(x for x in (is_.get(k) or []) if x is not None), 2)
-    _np = int((cfg.get('assumptions') or {}).get('n_periods') or 12)
-    q_off = 0 if len(lev) == _np + 1 else 1
+    a = cfg.get("assumptions") or {}
+    ppy = int(a.get("periods_per_year") or 4)
+    np = int(a.get("n_periods") or 12)
+    sub_p = submission_end_period(cfg, ppy, np)
+    flow_i = max(0, sub_p - 1)
+    stock_i = sub_p
+
+    def tot(k, limit=None):
+        vals = is_.get(k) or []
+        if limit is not None:
+            vals = vals[:limit]
+        return round(sum(x for x in vals if x is not None), 2)
+
+    # Existing scenario-table fields are regulator-facing Q1..Q12 metrics. On a
+    # monthly computational engine, sample quarter-end leverage rather than treating
+    # each month as a regulatory quarter. Preserve separate full-horizon minima below.
+    mpq = max(1, ppy // 4) if ppy >= 4 else 1
+    lev_has_open = len(lev) == np + 1
     min_lev, min_q = None, None
-    for i, v in enumerate(lev):
-        if v is not None and (min_lev is None or v < min_lev):
-            min_lev, min_q = v, i + q_off
+    for rq, ep in enumerate(range(mpq, sub_p + 1, mpq), start=1):
+        i = ep if lev_has_open else ep - 1
+        if 0 <= i < len(lev):
+            v = lev[i]
+            if v is not None and (min_lev is None or v < min_lev):
+                min_lev, min_q = v, rq
+    full_min_lev, full_min_p = None, None
+    for ep in range(1, np + 1):
+        i = ep if lev_has_open else ep - 1
+        if 0 <= i < len(lev):
+            v = lev[i]
+            if v is not None and (full_min_lev is None or v < full_min_lev):
+                full_min_lev, full_min_p = v, ep
     bor = bs.get("borrow") or bs.get("borrowings") or []
     intang = cfg["assumptions"]["intangibles"] / 1000.0
     cap_short = 0.0
     n = len(bs["totalAssets"])
-    for q in range(1, n):
+    dta = bs.get("dta") or [0.0] * n
+    msr = bs.get("msr") or [0.0] * n
+    dta_frac = REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
+    # Scenario-card shortfall is a submission-window diagnostic. Use the SAME
+    # Tier-1 deductions / net-average-assets denominator as the canonical leverage
+    # derivation so the card cannot disagree with the capital module.
+    for q in range(1, min(n, sub_p + 1)):
         avg_a = ((bs["totalAssets"][q - 1] or 0) + (bs["totalAssets"][q] or 0)) / 2.0
-        need = commit * 100 / 100 * avg_a - ((bs["equity"][q] or 0) - intang)
+        dta_ded = (dta[q] or 0.0) * dta_frac
+        t1_pre = (bs["equity"][q] or 0) - intang - dta_ded
+        msa_x = max(0.0, (msr[q] or 0.0) - 0.25 * max(0.0, t1_pre))
+        t1 = t1_pre - msa_x
+        avg_net = avg_a - dta_ded - msa_x
+        need = commit * avg_net - t1
         cap_short = max(cap_short, need)
-    return {"cum_ni": tot("ni"), "ni_q12": (is_.get("ni") or [None])[-1],
-            "cum_prov": tot("prov") or tot("provision"),
-            "cum_gos": tot("gos"), "cum_serv": tot("servNet"), "cum_fv": tot("fvPnl"),
-            "q12_total_assets": bs["totalAssets"][-1], "equity_q12": bs["equity"][-1],
-            "peak_borrowings": max((x for x in bor if x is not None), default=0.0),
-            "min_leverage": None if min_lev is None else round(min_lev / 100.0, 6),
-            "min_leverage_q": min_q,
-            "roa_q12": (rt.get("roa") or [None])[-1], "nim_q12": (rt.get("nim") or [None])[-1],
-            "nol_end": (is_.get("nol") or [None])[-1],
-            "capital_shortfall_est": round(max(0.0, cap_short), 2),
-            "ni_by_q": is_.get("ni"), "lev_by_q": lev}
+
+    def _at_flow(key):
+        arr = is_.get(key) or []
+        return arr[flow_i] if flow_i < len(arr) else (arr[-1] if arr else None)
+    def _at_ratio(key):
+        arr = rt.get(key) or []
+        # ratio arrays normally have one value per engine period; tolerate an opening slot.
+        if len(arr) == np + 1:
+            i = stock_i
+        else:
+            i = flow_i
+        return arr[i] if i < len(arr) else (arr[-1] if arr else None)
+    def _at_stock(key):
+        arr = bs.get(key) or []
+        i = stock_i if len(arr) == np + 1 else flow_i
+        return arr[i] if i < len(arr) else (arr[-1] if arr else None)
+
+    bor_period = bor[1:] if len(bor) == np + 1 else bor
+    lev_submission_q = []
+    for ep in range(mpq, sub_p + 1, mpq):
+        i = ep if lev_has_open else ep - 1
+        lev_submission_q.append(lev[i] if 0 <= i < len(lev) else None)
+    return {
+        # Historical names consumed by the regulator-facing 12-quarter scenario matrix.
+        "cum_ni": tot("ni", sub_p), "ni_q12": _at_flow("ni"),
+        "cum_prov": tot("prov", sub_p) or tot("provision", sub_p),
+        "cum_gos": tot("gos", sub_p), "cum_serv": tot("servNet", sub_p),
+        "cum_fv": tot("fvPnl", sub_p),
+        "q12_total_assets": _at_stock("totalAssets"), "equity_q12": _at_stock("equity"),
+        "submission_endpoint": submission_period_label(cfg, ppy, np),
+        "peak_borrowings": max((x for x in bor_period[:sub_p] if x is not None), default=0.0),
+        "min_leverage": None if min_lev is None else round(min_lev / 100.0, 6),
+        "min_leverage_q": min_q,
+        "min_leverage_label": (f"Q{min_q}" if min_q is not None else None),
+        "roa_q12": _at_ratio("roa"), "nim_q12": _at_ratio("nim"),
+        "capital_shortfall_est": round(max(0.0, cap_short), 2),
+
+        # Explicit full-computational-horizon counterparts. These prevent Q12 from
+        # being overloaded as a synonym for terminal when a model runs beyond 3 years.
+        "cum_ni_full": tot("ni"),
+        "cum_prov_full": tot("prov") or tot("provision"),
+        "cum_gos_full": tot("gos"), "cum_serv_full": tot("servNet"),
+        "cum_fv_full": tot("fvPnl"),
+        "terminal_total_assets": (bs.get("totalAssets") or [None])[-1],
+        "terminal_equity": (bs.get("equity") or [None])[-1],
+        "peak_borrowings_full": max((x for x in bor_period if x is not None), default=0.0),
+        "min_leverage_full": None if full_min_lev is None else round(full_min_lev / 100.0, 6),
+        "min_leverage_full_period": full_min_p,
+        "min_leverage_full_label": period_label(full_min_p, ppy) if full_min_p else None,
+        "terminal_roa": (rt.get("roa") or [None])[-1],
+        "terminal_nim": (rt.get("nim") or [None])[-1],
+        "nol_end": (is_.get("nol") or [None])[-1],
+        "ni_by_q": is_.get("ni"), "lev_by_q": lev,
+        "lev_submission_q": lev_submission_q,
+    }
 
 
 def _min_leverage(res):
@@ -168,33 +263,47 @@ def _min_leverage(res):
     return min(vals) / 100.0 if vals else None
 
 
-def _ftp_view(res, ppy=4):
-    """C.8 — product contributions at the path rate, treasury center as the
-    residual, reconciled EXACTLY to consolidated pre-tax income ($000s)."""
+def _ftp_view(res, cfg, ppy=4):
+    """Product profitability over the regulator-facing submission window.
+
+    The historical UI explicitly labels these as 12-quarter totals. Preserve that
+    regulatory convention even when the computational model extends beyond Q12;
+    for monthly cadence the same window is the first 36 engine months. Treasury
+    center remains the exact residual over the SAME window.
+    """
     prods = res.get("products") or []
     is_ = res["is"]
+    np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    sub_n = submission_end_period(cfg, int(ppy), np)
     rows, contrib_sum = [], 0.0
     for p in prods:
-        n = len(p["avg"])
-        # FTP is charged on average balances INCLUDING the held-for-sale warehouse: warehouse loans
-        # are funded assets on the balance sheet during the hold period, so they bear a funding
-        # charge like any other asset (matches the reference model). whBal is the raw warehouse
-        # (end-of-quarter); the FTP base uses the (beginning+end)/2 average, with the opening
-        # warehouse taken as 0 for q1. Products with no warehouse have whBal=None -> no change.
+        n = min(len(p.get("avg") or []), sub_n)
         _wh = p.get("whBal")
         def _wh_avg(q):
             if not _wh:
                 return 0.0
-            beg = _wh[q - 1] if q >= 1 else 0.0
-            end = _wh[q] if q < len(_wh) else 0.0
+            # whBal may carry an opening slot. Align q=0 with first modeled period.
+            if len(_wh) == np + 1:
+                beg = _wh[q] if q < len(_wh) else 0.0
+                end = _wh[q + 1] if q + 1 < len(_wh) else 0.0
+            else:
+                beg = _wh[q - 1] if q >= 1 and q - 1 < len(_wh) else 0.0
+                end = _wh[q] if q < len(_wh) else 0.0
             return ((beg or 0.0) + (end or 0.0)) / 2.0
-        ftp = sum(((p["avg"][q] or 0) + _wh_avg(q)) * (p["ftp_rate"][q] or 0) / float(ppy) for q in range(n))
+        ftp = sum(((p["avg"][q] or 0) + _wh_avg(q)) * (p["ftp_rate"][q] or 0) / float(ppy)
+                  for q in range(n))
         sign = -1.0 if p["family"] == "lending" else (1.0 if p["family"] == "deposit" else 0.0)
-        comp = {k: sum((p[k][q] or 0) for q in range(n))
+        comp = {k: sum((p[k][q] or 0) for q in range(min(n, len(p.get(k) or []))))
                 for k in ("interest", "fees", "opex", "co", "gos", "servNet")}
-        ii = sum((x or 0) for x in (p.get("intInc") or [])) or max(comp["interest"], 0.0)
-        ie = sum((x or 0) for x in (p.get("intExp") or [])) or max(-comp["interest"], 0.0)
-        bal_q12 = (p.get("bal") or [0])[-1] + ((p.get("whCarry") or [0])[-1] if p.get("whCarry") else 0.0)
+        ii = sum((x or 0) for x in (p.get("intInc") or [])[:n]) or max(comp["interest"], 0.0)
+        ie = sum((x or 0) for x in (p.get("intExp") or [])[:n]) or max(-comp["interest"], 0.0)
+        bal = p.get("bal") or [0.0]
+        bi = sub_n if len(bal) == np + 1 else max(0, sub_n - 1)
+        bal_q12 = bal[bi] if bi < len(bal) else bal[-1]
+        whc = p.get("whCarry") or []
+        if whc:
+            wi = sub_n if len(whc) == np + 1 else max(0, sub_n - 1)
+            bal_q12 += whc[wi] if wi < len(whc) else whc[-1]
         avg_bal = sum((p["avg"][q] or 0) for q in range(n)) / n if n else 0.0
         econ = comp["interest"] + comp["fees"] - comp["opex"] - comp["co"] + comp["gos"] + comp["servNet"]
         contrib = econ + sign * ftp
@@ -208,68 +317,108 @@ def _ftp_view(res, ppy=4):
                      "economics": round(econ, 2), "ftp": round(sign * ftp, 2),
                      "contribution": round(contrib, 2)})
         contrib_sum += contrib
-    pretax_total = sum(x for x in is_.get("pretax", []) if x is not None)
+    pretax_total = sum(x for x in (is_.get("pretax") or [])[:sub_n] if x is not None)
     treasury_center = pretax_total - contrib_sum
     return {"rows": rows,
+            "submission_endpoint": submission_period_label(cfg, int(ppy), np),
             "treasury_center": round(treasury_center, 2),
             "consolidated_pretax": round(pretax_total, 2),
-            "reconciliation_ok": True,  # by construction: center is the exact residual
-            "note": "Contributions charge assets / credit liabilities at the path rate; "
-                    "the treasury center holds the mismatch. Sum ties to pre-tax exactly."}
+            "reconciliation_ok": abs((contrib_sum + treasury_center) - pretax_total) < 0.01,
+            "note": "Contributions charge assets / credit liabilities at the path rate over the regulator-facing submission window; the treasury center holds the mismatch. Sum ties to pre-tax exactly."}
 
+
+
+def _cblr_state_machine(lev_q, qual_q, params=None):
+    """Canonical CBLR regulatory-quarter state machine.
+
+    ``lev_q`` and ``qual_q`` are already quarter-end series. The current quarter is
+    excluded from the previous-20-quarter grace lookback; monthly engine cadence must
+    be collapsed BEFORE this helper is called.
+    """
+    P = params or REG_PARAMS["cblr"]
+    req, floor = P["requirement"], P["grace_floor"]
+    states, grace_hist = [], []
+    consec = 0
+    for i, lv in enumerate(lev_q):
+        qualifies = bool(qual_q[i]) if i < len(qual_q) else False
+        if lv is None:
+            st = "BLOCKING"; consec = 0
+        elif qualifies and lv > req:
+            st = "ok"; consec = 0
+        elif lv <= floor:
+            st = "BLOCKING"; consec = 0
+        else:
+            prior20 = sum(1 for g in grace_hist
+                          if i - P["grace_window_q"] <= g <= i - 1)
+            consec += 1
+            st = ("grace" if consec <= P["grace_max_consecutive_q"]
+                  and prior20 < P["grace_limit_q"] else "EXHAUSTED")
+            if st == "grace":
+                grace_hist.append(i)
+        states.append(st)
+    return states
 
 def _cblr_checks(cfg, base):
-    """Community Bank Leverage Ratio framework eligibility (presentation checks)."""
-    bs = base["bs"]; n = len(bs["totalAssets"])
-    ta_q12 = bs["totalAssets"][-1] or 0.0
+    """Community Bank Leverage Ratio framework eligibility on REGULATORY quarters.
+
+    The computational cadence may be monthly, but CBLR qualification/grace is a
+    quarter-based regulatory state machine. Every three monthly engine periods are
+    therefore collapsed to one regulatory quarter before grace counts are advanced.
+    """
+    bs = base["bs"]
+    ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    mpq = ppy // 4
+    ta = bs["totalAssets"]
+    ta_proj = ta[1:] if len(ta) > 1 and len(ta) == int((cfg.get("assumptions") or {}).get("n_periods") or 12) + 1 else ta
     lev = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
-    lev_min = min((x for x in lev if x is not None), default=None)
-    obs_share = 0.0
+    lev_proj = lev[1:] if len(lev) == len(ta) else lev
+    qidx = [i for i in range(mpq - 1, min(len(ta_proj), len(lev_proj)), mpq)]
+    ta_q = [ta_proj[i] or 0.0 for i in qidx]
+    lev_q = [None if lev_proj[i] is None else lev_proj[i] / 100.0 for i in qidx]
+    obs_period = [0.0] * len(ta_proj)
     for p in (base.get("products") or []):
-        if p["family"] == "obs" and p.get("bal"):
-            arr = p["bal"]
-            m = len(arr)
-            for i in range(m):
-                ta = bs["totalAssets"][i + (n - m)]
-                if ta:
-                    obs_share = max(obs_share, arr[i] / ta)
+        if p.get("family") != "obs" or not p.get("bal"):
+            continue
+        arr = list(p["bal"])
+        if len(arr) == len(ta_proj) + 1:
+            arr = arr[1:]
+        for i, v in enumerate(arr[:len(obs_period)]):
+            obs_period[i] += v or 0.0
+    obs_q = [obs_period[i] for i in qidx]
+    obs_share_q = [(obs_q[i] / ta_q[i] if ta_q[i] else 0.0) for i in range(len(qidx))]
     P = REG_PARAMS["cblr"]
     req, floor = P["requirement"], P["grace_floor"]
-    # grace-period state per the 2026 rule: > requirement = compliant; (floor, req] = grace
-    # (max 4 consecutive, 8-of-20); <= floor = blocking. Evaluated on the base path.
-    lev_dec = [None if x is None else x / 100.0 for x in lev]
-    grace_q = [i for i, x in enumerate(lev_dec) if x is not None and floor < x <= req]
-    breach_q = [i for i, x in enumerate(lev_dec) if x is not None and x <= floor]
-    consec = 0
-    best_consec = 0
-    for x in lev_dec:
-        if x is not None and floor < x <= req:
-            consec += 1
-            best_consec = max(best_consec, consec)
-        else:
-            consec = 0
-    if breach_q:
-        grace_state = "BLOCKING: below 7% floor"
-    elif not grace_q:
-        grace_state = "ok"
-    elif best_consec > P["grace_max_consecutive_q"] or len(grace_q) > P["grace_limit_q"]:
+    attested = bool((cfg.get("attestations") or {}).get("not_advanced_approaches", True))
+    qual_q = [(ta_q[i] < P["assets_ceiling_usd"] / 1000.0
+               and obs_share_q[i] <= P["obs_share_max"]
+               and attested)
+              for i in range(len(qidx))]
+    states = _cblr_state_machine(lev_q, qual_q, P)
+    obs_share = max(obs_share_q, default=0.0)
+    lev_min = min((x for x in lev_q if x is not None), default=None)
+    ta_last = ta_q[-1] if ta_q else 0.0
+    if any(s == "BLOCKING" for s in states):
+        grace_state = "BLOCKING: qualifying criterion/floor failure"
+    elif any(s == "EXHAUSTED" for s in states):
         grace_state = "EXHAUSTED: grace limits exceeded"
+    elif any(s == "grace" for s in states):
+        grace_state = "in grace"
     else:
-        grace_state = f"in grace ({len(grace_q)}q used of {P['grace_limit_q']}/{P['grace_window_q']})"
+        grace_state = "ok"
     return [
-        {"check": "Total assets under $10B (Q12)", "value": round(ta_q12, 2),
-         "threshold": P["assets_ceiling_usd"] / 1000.0, "pass": ta_q12 < P["assets_ceiling_usd"] / 1000.0,
+        {"check": "Total assets under $10B (final regulatory quarter)", "value": round(ta_last, 2),
+         "threshold": P["assets_ceiling_usd"] / 1000.0, "pass": ta_last < P["assets_ceiling_usd"] / 1000.0,
          "units": "$000s"},
         {"check": "Off-balance-sheet exposures \u2264 25% of assets", "value": round(obs_share, 4),
          "threshold": P["obs_share_max"], "pass": obs_share <= P["obs_share_max"], "units": "share"},
         {"check": "Trading assets + liabilities \u2264 5% of assets", "value": 0.0,
          "threshold": P["trading_share_max"], "pass": True, "units": "share",
          "note": "structurally zero: this model carries no trading book (caveat register)"},
-        {"check": f"Leverage ratio above {req*100:.0f}% CBLR requirement (min quarter)",
-         "value": None if lev_min is None else round(lev_min / 100.0, 4),
-         "threshold": req, "pass": (lev_min is not None and lev_min / 100.0 > req), "units": "ratio"},
+        {"check": f"Leverage ratio above {req*100:.0f}% CBLR requirement (min regulatory quarter)",
+         "value": None if lev_min is None else round(lev_min, 4),
+         "threshold": req, "pass": (lev_min is not None and lev_min > req), "units": "ratio"},
         {"check": "Grace-period state (floor 7.0%; \u22644 consecutive, \u22648-of-20)",
-         "value": None, "threshold": None, "pass": not (breach_q or "EXHAUSTED" in grace_state),
+         "value": None, "threshold": None, "pass": not any(s in ("BLOCKING", "EXHAUSTED") for s in states),
          "units": "state", "state": grace_state},
     ]
 
@@ -283,18 +432,30 @@ def _capital_shortfall_estimate(cfg, scen_results):
     if commit is None:
         return None
     worst = 0.0
+    _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    _sub_end = submission_end_period(cfg, _ppy, _np)
     for res in scen_results.values():
-        bs = res["bs"]; n = len(bs["totalAssets"])
+        bs = res["bs"]; n = min(len(bs["totalAssets"]), _sub_end + 1)
         intang = cfg["assumptions"]["intangibles"] / 1000.0
+        dta = bs.get("dta") or [0.0] * n
+        msr = bs.get("msr") or [0.0] * n
+        dta_frac = REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
         for q in range(1, n):
             avg_a = ((bs["totalAssets"][q - 1] or 0) + (bs["totalAssets"][q] or 0)) / 2.0
-            t1 = (bs["equity"][q] or 0) - intang
-            need = commit * avg_a - t1
+            dta_ded = (dta[q] or 0.0) * dta_frac
+            t1_pre = (bs["equity"][q] or 0) - intang - dta_ded
+            msa_x = max(0.0, (msr[q] or 0.0) - 0.25 * max(0.0, t1_pre))
+            t1 = t1_pre - msa_x
+            avg_net = avg_a - dta_ded - msa_x
+            need = commit * avg_net - t1
             if need > worst:
                 worst = need
     return {"additional_capital_est": round(max(0.0, worst), 2), "units": "$000s",
-            "note": "Closed-form estimate at the worst scenario-quarter; ignores earnings on "
-                    "the added capital. The exact solve runs with the registered engagement."}
+            "submission_endpoint": submission_period_label(cfg, _ppy, _np),
+            "note": "Closed-form estimate at the worst regulatory submission-period point; "
+                    "uses the canonical Tier 1 deductions / net-assets denominator and ignores "
+                    "earnings on the added capital. The exact solve runs with the registered engagement."}
 
 
 def _constraint_tests(cfg, scen_results):
@@ -380,13 +541,18 @@ def run_v2(cfg):
     results = {
         "engine_version": ENGINE_V2,
         "config_hash": config_hash,
+        "cadence": {"periods_per_year": _ppy, "n_periods": _NP,
+                    "period_word": ("month" if _ppy == 12 else "quarter"),
+                    "horizon": horizon_label(_NP, _ppy),
+                    "submission_end_period": submission_end_period(cfg, _ppy, _NP),
+                    "submission_label": submission_period_label(cfg, _ppy, _NP)},
         "schema_version": cfg.get("schema_version"),
         "client": {"proposed_bank": cfg.get("proposed_bank"),
                    "config_version": cfg.get("config_version"),
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
-        "ftp": _ftp_view(base, _ppy),
+        "ftp": _ftp_view(base, cfg, _ppy),
         "scenarios": {scen: {**_scen_metrics(r, cfg, next((c2["value"] for c2 in cfg["constraints"]
                                                             if c2["key"] == "leverage_min"), 0.0)),
                              "label": scen_labels[scen]}
@@ -467,7 +633,9 @@ def run_v2(cfg):
     results["overview"] = {
         "readiness": {"status": "PASS" if hard_stops == 0 else "ATTENTION",
                        "open_items": len(results["flags"]), "hard_stops": hard_stops},
-        "breakeven_q": breakeven_q,
+        "breakeven_q": breakeven_q,  # legacy key retained for API compatibility
+        "breakeven_period": breakeven_q,
+        "breakeven_label": period_label(breakeven_q, _ppy) if breakeven_q else None,
     }
     results["capital_shortfall"] = _capital_shortfall_estimate(cfg, scen_results)
     # Capital module (v3): derivation rows reconciled to the engine's own leverage,
@@ -520,15 +688,18 @@ def run_v2(cfg):
     # MODELED quantity (total assets from the funding waterfall, not a raw input), so it is computed
     # here from the engine's balance sheet rather than in challenge_config, which sees inputs only.
     # 25% matches the supervisory heuristic used for FUND-GROWTH; aggressive asset ramps are a
-    # classic de novo exam finding. Opening = totalAssets[0]; end of year 1 = totalAssets[4].
+    # classic de novo exam finding. Opening = totalAssets[0]; end of year 1 is the
+    # `periods_per_year`-th projection period (Q4 quarterly, M12 monthly).
     _ta = base["bs"]["totalAssets"]
-    if len(_ta) > 4 and _ta[0]:
-        _y1g = (_ta[4] - _ta[0]) / _ta[0]
+    _y1i = _ppy
+    if len(_ta) > _y1i and _ta[0]:
+        _y1g = (_ta[_y1i] - _ta[0]) / _ta[0]
         if _y1g > 0.25:
             results["flags"].append({"id": "GROWTH-Y1", "sev": "mild", "cls": "advisory",
                 "text": f"Year-1 balance-sheet growth of {_y1g:.0%} exceeds 25% \u2014 a fast asset "
                         "ramp for a de novo. Support how it is funded and whether capital keeps pace."})
-    # per-quarter qualification grid
+    # Regulatory-quarter qualification grid. Monthly runs collapse M1-M3 -> Q1,
+    # M4-M6 -> Q2, etc.; grace limits NEVER advance once per engine month.
     obs_arr = [0.0] * n2
     for p2 in (base.get("products") or []):
         if p2["family"] == "obs" and p2.get("bal"):
@@ -536,28 +707,29 @@ def run_v2(cfg):
             for i, v in enumerate(arr2):
                 if v is not None:
                     obs_arr[i + off] += v
-    def _grid(vals, thr, kind):
-        return [{"pass": bool(pv), "value": vv} for pv, vv in vals] if kind else None
-    assets_row = [{"pass": (bs2["totalAssets"][i] or 0) < P2["assets_ceiling_usd"] / 1000.0,
-                   "value": None} for i in range(q0, n2)]
-    obs_row = [{"pass": (obs_arr[i] / bs2["totalAssets"][i] if bs2["totalAssets"][i] else 0) <= P2["obs_share_max"],
-                "value": round(obs_arr[i] / bs2["totalAssets"][i], 4) if bs2["totalAssets"][i] else 0.0}
-               for i in range(q0, n2)]
-    trading_row = [{"pass": True, "value": 0.0} for _ in range(q0, n2)]
-    grace_row = []
-    consec2 = 0
-    used2 = 0
-    for x in lev_eng:
-        if x is not None and P2["grace_floor"] < x <= P2["requirement"]:
-            consec2 += 1; used2 += 1
-            st = "grace" if (consec2 <= P2["grace_max_consecutive_q"] and used2 <= P2["grace_limit_q"]) else "EXHAUSTED"
-        elif x is not None and x <= P2["grace_floor"]:
-            consec2 = 0; st = "BLOCKING"
-        else:
-            consec2 = 0; st = "ok"
-        grace_row.append(st)
+    _mpq = _ppy // 4
+    _proj_ta = list(bs2["totalAssets"][q0:])
+    _proj_obs = list(obs_arr[q0:])
+    _qends = list(range(_mpq - 1, min(len(_proj_ta), len(lev_eng)), _mpq))
+    assets_row = []
+    obs_row = []
+    trading_row = []
+    _qual = []
+    _att = bool((cfg.get("attestations") or {}).get("not_advanced_approaches", True))
+    for _i in _qends:
+        _taq = _proj_ta[_i] or 0.0
+        _os = (_proj_obs[_i] / _taq) if _taq else 0.0
+        _ap = _taq < P2["assets_ceiling_usd"] / 1000.0
+        _op = _os <= P2["obs_share_max"]
+        assets_row.append({"pass": _ap, "value": round(_taq, 2)})
+        obs_row.append({"pass": _op, "value": round(_os, 4)})
+        trading_row.append({"pass": True, "value": 0.0})
+        _qual.append(_ap and _op and _att)
+    _lev_q_for_cblr = [lev_eng[i] for i in _qends]
+    grace_row = _cblr_state_machine(_lev_q_for_cblr, _qual, P2)
+    _cblr_q_states = grace_row
     results["cblr_grid"] = {
-        "quarters": len(assets_row),
+        "quarters": len(_qends),
         "rows": [
             {"label": "Total assets < $10B", "cells": assets_row, "units": "check"},
             {"label": "Qualifying off-BS exposures \u2264 25% of assets", "cells": obs_row, "units": "share"},
@@ -614,6 +786,12 @@ def run_v2(cfg):
     hfsq = _s("hfs")
     secq = [(_s("sec")[t] + _s("afsBook")[t] + _s("htmBook")[t]) for t in range(nq2)]
     cashq, msrq, alllq = _s("cash"), _s("msr"), _s("alll")
+    premq = _s("premises")
+    # General other assets are modeled as a flat non-earning balance in Profile A.
+    # They are NOT zero-risk simply because the engine does not subtype them; use the
+    # standardized 100% default bucket pending a more granular regulatory classification.
+    otherq = [float(a2.get("other_assets") or 0.0) / 1000.0] * nq2
+    dtaq = _s("dta") if bsn.get("dta") else [0.0] * nq2
     obs_notional = [0.0] * nq2
     for p in base.get("products") or []:
         if (p.get("line") or "") == "obs" or p.get("family") == "obs":
@@ -633,9 +811,12 @@ def run_v2(cfg):
         rwa = (cashq[t] * cab * RW["bank_exposures"]
                + secq[t] * RW["agency_securities"]
                + loans_w[t] + hfsq[t] * RW["corporate_consumer_cre"]
+               + premq[t] * RW["corporate_consumer_cre"]
+               + otherq[t] * RW["corporate_consumer_cre"]
                + max(0.0, msrq[t] - msa_x[t]) * RW["msr_nondeducted"]
                + obs_notional[t] * CCF["default"] * RW["corporate_consumer_cre"])
-        cet1 = eqq[t] - intang - (aociq[t] if optout else 0.0) - msa_x[t]
+        dta_ded = (dtaq[t] or 0.0) * REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
+        cet1 = eqq[t] - intang - (aociq[t] if optout else 0.0) - dta_ded - msa_x[t]
         t1 = cet1
         t2 = min(alllq[t], REG_PARAMS["tier2_alll_cap_pct_rwa"] * rwa)
         rwa_t.append(rwa); cet1_t.append(cet1); t1_t.append(t1); t2_t.append(t2)
@@ -647,17 +828,18 @@ def run_v2(cfg):
     lev_q = lev_t[1:nq2 + 1] if len(lev_t) == nq2 + 1 else lev_t[:nq2]
     P3 = REG_PARAMS["cblr"]
     elected = (cfg.get("charter_profile") or {}).get("cblr_election", True)
+    # Present a status for each engine period, but source it from the REGULATORY-
+    # quarter state machine above. Monthly M1-M3 therefore share Q1's status.
     cblr_status = []
     for t in range(nq2):
-        lv = lev_q[t]
-        if lv is None:
-            cblr_status.append(None)
-        elif lv >= P3["requirement"] * 100:
-            cblr_status.append("meets requirement")
-        elif lv >= P3["grace_floor"] * 100:
-            cblr_status.append("grace period (floor 7%, max 4 consecutive quarters)")
-        else:
-            cblr_status.append("BELOW grace floor — standardized approach applies")
+        qi = min(len(_cblr_q_states) - 1, t // _mpq) if _cblr_q_states else -1
+        st = _cblr_q_states[qi] if qi >= 0 else None
+        cblr_status.append({
+            "ok": "meets requirement",
+            "grace": "grace period (floor >7%, max 4 consecutive regulatory quarters)",
+            "EXHAUSTED": "grace exhausted — standardized approach applies",
+            "BLOCKING": "BELOW grace floor / nonqualifying — standardized approach applies",
+        }.get(st))
     results["capital"]["standardized"] = {
         "rwa": [round(x, 2) for x in rwa_t],
         "cet1": [round(x, 2) for x in cet1_t],
@@ -674,6 +856,7 @@ def run_v2(cfg):
                    f"cash at banks share {cab:.0%} weighted 20% (D-P6 fix); balances at the "
                     "Federal Reserve weighted 0%",
                    "OBS at the default 50% CCF (12 CFR 324.33); per-exposure maturities not yet modeled",
+                   "premises/fixed assets and unclassified general other assets are placed in the 100% standardized bucket; specialized other-asset subtypes require explicit classification",
                    "no classified-asset concept modeled; the 150% weight is registered but unused",
                    "Tier 2 = min(ALLL, 1.25% RWA) per 12 CFR 324.20(d)(3)",
                    "AOCI opt-out " + ("elected: AOCI excluded from CET1" if optout
@@ -707,7 +890,10 @@ def run_v2(cfg):
     avg_a = cap_rows.get("avg_assets_net") or taq
     def _pct(n_, d_):
         return round(n_ / d_ * 100, 2) if d_ and d_ > 0 else None
-    q = nq2 - 1
+    # Concentrations & Diagnostics is a regulator-facing submission exhibit: use
+    # the explicit submission endpoint (normally Q12), not the computational terminal.
+    _subp_conc = submission_end_period(cfg, _ppy, nq2)
+    q = max(0, min(nq2, _subp_conc) - 1)
     conc_rows = [
         {"name": "CRE / total risk-based capital", "value": _pct(cre_bal[q], tot_t[q]),
           "threshold": 300.0, "kind": "max", "sev": "severe",
@@ -738,7 +924,8 @@ def run_v2(cfg):
           "threshold": [70.0, 90.0], "kind": "band", "sev": "mild",
           "basis": "Foundry planning band (70\u201390%), not a supervisory limit"},
         {"name": "NIE / average assets (burden)",
-          "value": _pct(sum(nie_q), sum(avg_a[:nq2]) / nq2 if avg_a else None)
+          "value": _pct(sum(nie_q[:_subp_conc]),
+                        sum(avg_a[:_subp_conc]) / _subp_conc if avg_a and _subp_conc else None)
                     if avg_a else None,
           "threshold": None, "kind": "info", "sev": "mild", "basis": "expense burden"},
     ]
@@ -759,7 +946,7 @@ def run_v2(cfg):
                 "sev": "severe",
                 "text": f"Concentration: {row['name']} at {v:.0f}% exceeds the "
                          f"{th:.0f}% supervisory criterion ({row['basis']})."})
-    results["concentrations"] = {"as_of": "Q12", "rows": conc_rows,
+    results["concentrations"] = {"as_of": submission_period_label(cfg, _ppy, nq2), "rows": conc_rows,
                                    "note": "thresholds resolve from REG_PARAMS/citations; "
                                             "missing inputs are stated, never zero-filled"}
     po = cfg.get("pre_opening") or {}
@@ -803,10 +990,10 @@ def run_v2(cfg):
         checks.append({"id": cid, "label": label, "pass": bool(ok), "class": klass,
                         "note": note})
     idev = max((abs(x) for x in idw if x is not None), default=0.0)
-    _ck("CK-1", "Assets = Liabilities + Equity, every quarter", idev < 1.0,
+    _ck("CK-1", f"Assets = Liabilities + Equity, every {cadence_noun(_ppy)}", idev < 1.0,
         "integrity", f"worst deviation {idev:.3f} $000s")
     comp_dev = max(abs(eqw[t] - (piw[t] + rew[t] + aociw[t])) for t in range(nqw))
-    _ck("CK-2", "Equity = paid-in + retained + AOCI, every quarter", comp_dev < 0.02,
+    _ck("CK-2", f"Equity = paid-in + retained + AOCI, every {cadence_noun(_ppy)}", comp_dev < 0.02,
         "integrity", f"worst {comp_dev:.4f}")
     ni_dev = max(abs((rew[t] - rew[t - 1]) - niw[t]) for t in range(1, nqw))
     _ck("CK-3", "Net income flows to retained earnings", ni_dev < 0.02,
@@ -864,7 +1051,7 @@ def run_v2(cfg):
         "fee income flows through fee_streams products, not the retired fee_modules path")
     _ck("CK-7", "Projection period index, no gaps", len(niw) == _NP, "integrity")
     ann_ni = [sum(niw[y * _ppy:(y + 1) * _ppy]) for y in range(_NP // _ppy)]
-    _ck("CK-8", "Annual = sum of quarters (net income, all three years)", True,
+    _ck("CK-8", f"Annual = sum of {cadence_noun(_ppy, plural=True)} (net income, full modeled years)", True,
         "integrity", "computed identically; asserted by construction and re-checked in the gate suite")
     _ck("CK-9", "Regulatory parameters resolve from the versioned registry",
         bool(REG_PARAMS.get("version")), "integrity", f"version {REG_PARAMS.get('version')}")
@@ -910,7 +1097,7 @@ def run_v2(cfg):
         return out
     results["annual"] = {
         "note": "stocks at year-end (every periods_per_year-th period), flows summed, ratios simple-averaged "
-                 "over the year's quarters (labeled as such)",
+                 "over the year's engine periods (labeled as such)",
         "total_assets_eop": [ta_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "net_loans_eop": [_sw("netLoans")[i] for i in range(_ppy - 1, _NP, _ppy)],
         "deposits_eop": [dep_w[i] for i in range(_ppy - 1, _NP, _ppy)],
@@ -926,7 +1113,7 @@ def run_v2(cfg):
             {"label": "Total Assets (EOP, $000s)", "y": results["annual"]["total_assets_eop"]},
             {"label": "Net Loans (EOP, $000s)", "y": results["annual"]["net_loans_eop"]},
             {"label": "Total Deposits (EOP, $000s)", "y": results["annual"]["deposits_eop"]},
-            {"label": "NIM (%, avg of quarters)", "y": results["annual"]["nim"]},
+            {"label": f"NIM (%, avg of {cadence_noun(_ppy, plural=True)})", "y": results["annual"]["nim"]},
             {"label": "Efficiency (%, avg)", "y": results["annual"]["eff"]},
             {"label": "ROA (%, avg)", "y": results["annual"]["roa"]},
             {"label": "Leverage / CBLR (%, EOP)", "y": results["annual"]["lev_eop"]},
@@ -937,8 +1124,8 @@ def run_v2(cfg):
     # and results["products"][i]["fees"] carries its per-quarter fee income at full granularity.
     # No bespoke fee_detail re-decomposition needed (that existed only to unpack the legacy
     # fee_modules bundle). One source of truth: the products.
-    if _nds(cfg["assumptions"]):
-        nd_s = _nds(cfg["assumptions"])
+    if _nds(cfg["assumptions"], _ppy):
+        nd_s = _nds(cfg["assumptions"], _ppy)
         results["nie_detail_series"] = {"comp": [round(x / 1000.0, 2) for x in nd_s["comp"]],
                                           "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
                                           "gross_up_rate": nd_s["gross_up_rate"],

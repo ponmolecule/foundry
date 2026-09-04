@@ -1,39 +1,14 @@
-"""Field cadence registry — the SINGLE SOURCE OF TRUTH for how often each numeric input
-recurs, and therefore how it must be displayed and converted.
+"""User-facing cadence registry.
 
-WHY THIS EXISTS
-A field's cadence (monthly / quarterly / annual / a plain duration) was previously declared
-independently in THREE places that had to agree but were never linked:
-  1. the web app's per-field unit code (JS, in console_v2.html)
-  2. the FIW workbook's units-column label (Python, in fiw.py)
-  3. the engine's inline conversion (Python: `* 3.0` for monthly->quarterly, or read as-is)
-Nothing enforced agreement, so they drifted: `opex_fixed_m` (monthly) showed as $/month in
-Excel but $000s/qtr in the app, and `new_deposits_q` (already quarterly) was multiplied by 3
-in the app display — a spurious triple. Two surfaces, two different failures, one root cause.
+The registry declares the *natural unit* of recurring inputs.  Actual engine conversion is
+cadence-aware: a quarterly amount/rate remains a calendar-quarter concept whether the engine
+runs quarterly or monthly, and a month duration remains a month duration.  Conversion happens
+through :func:`engine_period_value` / ``timebase`` rather than by hiding ×3 or ÷3 inside display
+units.
 
-This registry makes cadence a single declared fact. The app and the workbook both derive their
-unit from here (so they cannot disagree), and a guard test (tests_protocol) cross-checks this
-table against what the engine ACTUALLY does, so a future field whose registry cadence and engine
-conversion diverge fails a gate instead of shipping a silent bug.
-
-THE ENGINE IS NOT CHANGED BY THIS MODULE. The engine keeps its own inline conversions; this
-registry only (a) drives the two user-facing surfaces and (b) is asserted against the engine.
-
-CADENCE VALUES
-  "monthly"    stored as a per-MONTH figure; the quarterly engine multiplies by 3 at read.
-  "quarterly"  stored as a per-QUARTER figure; the engine reads it as-is.
-  "annual"     stored as a per-YEAR rate (the many *_ann fields; engine divides as needed).
-  "duration_months"  a count of months (e.g. average maturity); NOT a flow — converted to a
-                     number of quarters by the engine (/3), shown honestly as "months".
-  "point"      a level/rate with no time recurrence (balances, %, shares).
-
-APP UNIT CODES (how console_v2.html's numInput renders/parses a value)
-  "pct"  x/=100 in, x*100 out            (a rate typed as a percent)
-  "k"    x*=1000 in, x/=1000 out         (dollars typed in $000s)
-  "kmo"  x*=1000 in, x/=1000 out         (dollars/MONTH typed in $000s/month) -- NEW, honest
-  "num"  no scaling                      (a plain count)
-The retired "kq" code (x*1000/3 in, x*3/1000 out) silently baked a monthly->quarterly ×3 into a
-DISPLAY unit; it is replaced by explicit per-field cadence + scale here.
+This module therefore coordinates UI/workbook labels and exposes a testable conversion API.
+Legacy keys remain accepted for backward compatibility; new code should prefer canonical
+``*_per_period`` fields when the user is deliberately authoring an engine-period assumption.
 """
 
 # field name -> (cadence, app_unit, workbook_units_label)
@@ -59,15 +34,35 @@ FIELD_CADENCE = {
     "fee_m":          ("monthly",   "num", "$/account/month"),
 }
 
-# Engine conversion each cadence implies, for the guard test to assert against the engine source.
-# "x3"  => the engine multiplies the stored value by 3 (monthly -> quarterly)
-# "asis"=> the engine reads the stored value unchanged (already quarterly)
-# "div3"=> the engine divides by 3 (a month-count -> quarter-count duration)
+# Kept as semantic metadata for compatibility; conversions are no longer fixed to a
+# quarterly engine.  Use engine_period_value() in tests and consumers.
 CADENCE_ENGINE_OP = {
-    "monthly":          "x3",
-    "quarterly":        "asis",
-    "duration_months":  "div3",
+    "monthly":          "calendar_month_to_engine_period",
+    "quarterly":        "calendar_quarter_to_engine_period",
+    "duration_months":  "calendar_month_duration_to_period_count",
 }
+
+
+def engine_period_value(field, value, ppy=4):
+    """Convert a registered field from its natural calendar unit to one engine period.
+
+    Amount flows preserve totals; growth rates preserve compounded calendar-quarter economics;
+    month durations become an integer engine-period count.  Point/annual fields are unchanged.
+    """
+    if value is None:
+        return value
+    cad = cadence(field)
+    if cad == "duration_months":
+        from .timebase import months_to_periods
+        return months_to_periods(float(value), int(ppy))
+    if cad == "monthly":
+        # A monthly amount recurs 12/ppy times per engine period.
+        return float(value) * (12.0 / float(ppy))
+    if cad == "quarterly":
+        from .timebase import quarterly_value_to_period
+        stem = field[:-2] if field.endswith("_q") else field
+        return quarterly_value_to_period(stem, float(value), int(ppy))
+    return value
 
 
 def app_unit(field, fallback="num"):

@@ -38,14 +38,19 @@ def load_users():
                 data = json.load(fh)
             with open(p, "w", encoding="utf-8") as fh:
                 json.dump(data, fh, indent=1)
+            try: os.chmod(p, 0o600)
+            except OSError: pass
         else:
             return {}
     with open(p, encoding="utf-8") as fh:
         return json.load(fh)
 
 def save_users(users):
-    with open(_users_path(), "w", encoding="utf-8") as fh:
+    p = _users_path()
+    with open(p, "w", encoding="utf-8") as fh:
         json.dump(users, fh, indent=1)
+    try: os.chmod(p, 0o600)
+    except OSError: pass
 
 def authenticate(username, password):
     """Password login. Returns the username on success, None otherwise."""

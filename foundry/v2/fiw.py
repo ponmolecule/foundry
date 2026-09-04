@@ -137,12 +137,12 @@ OBS_FIELDS = [
 SCHED_FIELDS = [
     ("name", "Name", "label (editable)"),
     ("amount", "Draw amount", "$"),
-    ("quarter", "Draw quarter", "quarter 1-12"),
+    ("quarter", "Draw quarter", "model calendar quarter within horizon"),
     ("term_q", "Term to maturity", "quarters (bullet)"),
     ("rate_ann", "Rate", "annual rate"),
 ]
 RAISE_FIELDS = [
-    ("quarter", "Raise quarter", "quarter 1-12"),
+    ("quarter", "Raise quarter", "model calendar quarter within horizon"),
     ("amount", "Raise amount", "$"),
 ]
 PREOPEN_FIELDS = [
@@ -270,7 +270,7 @@ def _array_sheet(ws, arrkey, items, fields):
     ws.column_dimensions["E"].width = 30
 
 
-def _nie_sheet(ws, nd):
+def _nie_sheet(ws, nd, ppy=4):
     """Editable sheet for nie_detail — a heterogeneous structure (scalars + a fixed FTE ladder +
     a categories array), so each leaf gets a dotted machine key that diff_import reads back via
     the generic ARRAY_SHEETS reader. Same grammar as _fee_sheet. NIE detail drives total
@@ -309,12 +309,18 @@ def _nie_sheet(ws, nd):
     if nd.get("occ_bp_ann") is not None:
         _row("nie_detail.occ_bp_ann", "Assessments", "OCC assessment rate",
              nd.get("occ_bp_ann"), "bp/year (blank = 1.5 default)")
-    # category lines (array of {name, per_quarter}).
+    # Category amounts are canonical per ENGINE period. Legacy per_quarter configs are
+    # converted for display rather than being repeated monthly.
+    from .timebase import quarterly_value_to_period
+    _unit = "$/month" if int(ppy) == 12 else "$/quarter"
     for i, cat in enumerate(nd.get("categories") or []):
         _row(f"nie_detail.categories.{i}.name", f"Category {i + 1}", "Name",
              cat.get("name"), "label (editable)")
-        _row(f"nie_detail.categories.{i}.per_quarter", f"Category {i + 1}", "Amount",
-             cat.get("per_quarter"), "$/quarter")
+        _amt = cat.get("per_period")
+        if _amt is None:
+            _amt = quarterly_value_to_period("opex_fixed", cat.get("per_quarter", 0.0) or 0.0, int(ppy))
+        _row(f"nie_detail.categories.{i}.per_period", f"Category {i + 1}", "Amount",
+             _amt, _unit)
     ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["B"].width = 18
     ws.column_dimensions["C"].width = 24
@@ -399,7 +405,7 @@ def build_fiw(cfg):
     if a.get("capital_raises"):
         _array_sheet(wb.create_sheet("ASSM_RAISES"), "capital_raises", a["capital_raises"], RAISE_FIELDS)
     if a.get("nie_detail"):
-        _nie_sheet(wb.create_sheet("ASSM_NIE"), a["nie_detail"])
+        _nie_sheet(wb.create_sheet("ASSM_NIE"), a["nie_detail"], int(a.get("periods_per_year") or 4))
     po = (cfg.get("pre_opening") or {}).get("expenses")
     if po:
         _array_sheet(wb.create_sheet("ASSM_PREOPEN"), "pre_opening.expenses", po, PREOPEN_FIELDS)
@@ -481,9 +487,13 @@ def _settings_sheet(wb, cfg):
             row("FTE by year (Y1/Y2/Y3)", " / ".join(str(x) for x in nd.get("fte_by_year") or []), "headcount")
         if nd.get("loaded_comp_annual") is not None:
             row("Loaded comp per FTE", nd.get("loaded_comp_annual"), "$/year")
+        from .timebase import quarterly_value_to_period as _qvpp
+        _ppyn = int(a.get("periods_per_year") or 4)
         for cat in (nd.get("categories") or []):
-            row(cat.get("name") or "category",
-                cat.get("per_quarter") if cat.get("per_quarter") is not None else cat.get("amount_q"), "$/quarter")
+            _amt = cat.get("per_period")
+            if _amt is None:
+                _amt = _qvpp("opex_fixed", cat.get("per_quarter", cat.get("amount_q", 0.0)) or 0.0, _ppyn)
+            row(cat.get("name") or "category", _amt, "$/month" if _ppyn == 12 else "$/quarter")
         if nd.get("other_gross_up_rate") is not None:
             row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
         if nd.get("fdic_bp_ann") is not None:
@@ -518,7 +528,7 @@ def _settings_sheet(wb, cfg):
         _bases = ", ".join(sorted({(st.get("basis") or "?") for st in (_fp.get("fee_streams") or [])}))
         row(_fp.get("name") or "(unnamed)", f"{_ns} stream(s): {_bases}", "")
     if not _fps: row("(none active)", "")
-    sec("SOFR rate path (Q1..Q12)")
+    sec("SOFR rate path (legacy quarterly anchors; dated curves preferred)")
     row("Path", ", ".join(str(x) for x in (a.get("rate_path_q") or [])), "annual")
     row("Longer run", a.get("rate_path_longer_run"), "annual")
     sec("Stress parameters")
@@ -914,10 +924,27 @@ def diff_import(data, current_cfg):
             parts = str(key).split(".")
             val = wbunits.from_workbook(val, units)
             old = _resolve_path(snap, parts)
+            # NIE exports use canonical per-period fields.  For a legacy snapshot, compare
+            # against the cadence-converted sibling so a clean round-trip remains a no-op;
+            # only a real human edit migrates the stored value to the canonical field.
+            _legacy_part = None
+            if sheet == "ASSM_NIE" and old is None and parts[-1] in ("per_period", "growth_per_period"):
+                from .timebase import quarterly_value_to_period
+                _legacy_part = "per_quarter" if parts[-1] == "per_period" else "growth_q"
+                _lp = parts[:-1] + [_legacy_part]
+                _lv = _resolve_path(snap, _lp)
+                if _lv is not None:
+                    _ppy = int((snap.get("assumptions") or {}).get("periods_per_year") or 4)
+                    _stem = "opex_fixed" if parts[-1] == "per_period" else "growth"
+                    old = quarterly_value_to_period(_stem, float(_lv), _ppy)
             newv = _coerce(old, val)
             changed = not _num_eq(old, newv)
             if changed and newv is not None:
                 _apply_path(merged, parts, newv)
+                if _legacy_part is not None:
+                    _parent = _resolve_path(merged, parts[:-1])
+                    if isinstance(_parent, dict):
+                        _parent.pop(_legacy_part, None)
                 edits.append({"key": str(key), "from": old, "to": newv})
 
     if _dropped_rows:

@@ -592,31 +592,18 @@ def t23():
         check("T23p2", "a float product with no spread is hard-refused at save (fail-closed)",
               _refused)
 
-        # T23q: the cadence registry is the single source of truth. (1) It must agree with what
-        # the engine actually does (the anti-recurrence guard); (2) the workbook units must derive
-        # from it (so app and Excel can't disagree on cadence).
-        from foundry.v2.cadence import FIELD_CADENCE, CADENCE_ENGINE_OP, workbook_units
-        _allsrc = "\n".join(open(f"foundry/v2/{m}.py", encoding="utf-8").read()
-                            for m in ("engine_q_a", "engine_q_b", "income_modules"))
-        def _engine_op(fld):
-            ops = set()
-            for line in _allsrc.split("\n"):
-                if f'"{fld}"' in line or f"'{fld}'" in line:
-                    if "* 3" in line or "*3" in line: ops.add("x3")
-                    elif "/ 3" in line or "/3" in line: ops.add("div3")
-                    elif "get(" in line: ops.add("asis")
-            return ops
-        _guard_ok = True
-        for _fld, (_cad, _u, _lbl) in FIELD_CADENCE.items():
-            _implied = CADENCE_ENGINE_OP.get(_cad)
-            if _implied is None:
-                continue
-            _actual = _engine_op(_fld)
-            if _actual and _implied not in _actual:
-                _guard_ok = False
-        check("T23q", "cadence registry agrees with the engine's actual conversion for every field",
-              _guard_ok)
-        # the workbook units for the two formerly-divergent fields now come from the registry
+        # T23q: cadence registry conversions are numeric/economic invariants, not source-code
+        # string patterns. Quarterly concepts must preserve their calendar-quarter economics
+        # when the computational cadence changes.
+        from foundry.v2.cadence import engine_period_value, workbook_units
+        _g_m = engine_period_value("new_deposits_q", 300.0, 12)
+        _o_m = engine_period_value("opex_fixed_q", 300.0, 12)
+        _dur_m = engine_period_value("avg_maturity_m", 24, 12)
+        _dur_q = engine_period_value("avg_maturity_m", 24, 4)
+        check("T23q", "cadence registry preserves calendar-unit economics across engine cadences",
+              abs(_g_m - 100.0) < 1e-9 and abs(_o_m - 100.0) < 1e-9
+              and _dur_m == 24 and _dur_q == 8)
+        # the workbook units for the two formerly-divergent fields derive from the registry
         check("T23q2", "workbook units derive from the registry (opex quarterly, new_deposits quarterly)",
               workbook_units("opex_fixed_q") == "$/quarter"
               and workbook_units("new_deposits_q") == "$/quarter")
@@ -733,13 +720,13 @@ def t23():
         if _has_nie:
             for r in _wbn2["ASSM_NIE"].iter_rows(min_row=2):
                 k = str(r[0].value)
-                if k == "nie_detail.categories.0.per_quarter": r[3].value = 400   # $000s/qtr -> 400,000
+                if k == "nie_detail.categories.0.per_period": r[3].value = 400   # $000s/engine period -> 400,000
                 if k == "nie_detail.fte_by_year.0": r[3].value = 30
             _bn2 = _io.BytesIO(); _wbn2.save(_bn2)
             _mn2, _rn2 = F.diff_import(_bn2.getvalue(), {})
             _nd2 = _mn2["assumptions"]["nie_detail"]
             check("T23x", "ASSM_NIE editable sheet round-trips (category amount + FTE land)",
-                  _nd2["categories"][0]["per_quarter"] == 400000 and _nd2["fte_by_year"][0] == 30)
+                  _nd2["categories"][0]["per_period"] == 400000 and _nd2["fte_by_year"][0] == 30)
         else:
             check("T23x", "ASSM_NIE editable sheet exists", False)
 
@@ -1122,11 +1109,11 @@ def t31():
     n = len(rc["12"])
     check("T31g", "all schedule rows are uniform Q1..Q12 (openings normalized away)",
           n == 12 and all(len(r["values"]) == 12 for sch in cr.values() for r in sch["rows"]))
-    worst_rc = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.d"][t]
+    worst_rc = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.a"][t] + rc["4.d"][t]
                         + (rc.get("RC-M 2.a", [0]*n)[t]) + rc["6"][t] + rc["10"][t] + rc["11"][t]
                         - rc["12"][t]) for t in range(n))
-    check("T31a", "RC ties to the ENGINE's total (HFS memoranda per disclosed convention)",
-          worst_rc < 1.0 and any("warehouse" in nt for nt in cr["RC"].get("notes", [])),
+    check("T31a", "RC ties to the ENGINE's total with HFS represented exactly once (4.a + 4.d HFI net)",
+          worst_rc < 1.0 and any("HFS" in nt for nt in cr["RC"].get("notes", [])),
           f"worst {worst_rc:.4f}")
     worst_lq = max(abs(rc["13.a"][t] + rc["16"][t] + rc["20"][t] + rc["27.a"][t] - rc["12"][t])
                     for t in range(n))
@@ -1315,15 +1302,18 @@ def t34():
         eb, ea_ = base["financials"]["bs"], r["financials"]["bs"]
         rk = "re" if "re" in eb else "retained"
         n2 = min(len(eb["equity"]), len(eb[rk]))
-        paid_b = [eb["equity"][t] - eb[rk][t] for t in range(n2)]
-        paid_r = [ea_["equity"][t] - ea_[rk][t] for t in range(n2)]
-        d3, d4 = paid_r[3] - paid_b[3], paid_r[4] - paid_b[4]
+        paid_b0 = [eb["equity"][t] - eb[rk][t] for t in range(n2)]
+        paid_r0 = [ea_["equity"][t] - ea_[rk][t] for t in range(n2)]
+        def _proj12(a): return list(a[1:13]) if len(a) == 13 else list(a[:12])
+        paid_b, paid_r = _proj12(paid_b0), _proj12(paid_r0)
+        d3, d4 = paid_r[2] - paid_b[2], paid_r[3] - paid_b[3]
         check(f"T34b-{eng}", f"engine {eng}: paid-in capital steps by exactly $10M at Q4 "
                               "(the raise itself; its earnings land in RE, correctly)",
               abs(d3) < 0.01 and abs(d4 - 10_000.0) < 0.01, f"dQ3 {d3:.2f}k, dQ4 {d4:.2f}k")
-        ta_b, ta_r = base["financials"]["bs"]["totalAssets"], r["financials"]["bs"]["totalAssets"]
+        ta_b0, ta_r0 = base["financials"]["bs"]["totalAssets"], r["financials"]["bs"]["totalAssets"]
+        ta_b, ta_r = _proj12(ta_b0), _proj12(ta_r0)
         check(f"T34c-{eng}", f"engine {eng}: the waterfall absorbs the cash (assets up ~$10M at Q4)",
-              9_500.0 < (ta_r[4] - ta_b[4]) < 10_500.0, f"dTA {ta_r[4]-ta_b[4]:.0f}k")
+              9_500.0 < (ta_r[3] - ta_b[3]) < 10_500.0, f"dTA {ta_r[3]-ta_b[3]:.0f}k")
     from .v2.validate_q import validate_errors_v2
     import json as _j
     bad = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
@@ -1526,7 +1516,7 @@ def t38():
     check("T38e", "RC carries 2.a HTM, 23/24 paid-in, and 26.b AOCI rows; asset tie holds",
           "2.a" in rc and "26.b" in rc and "23/24" in rc and rc["2.a"][0] == 4_000.0)
     n3 = len(rc["12"])
-    worst_tie = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.d"][t]
+    worst_tie = max(abs(rc["1"][t] + rc["2.a"][t] + rc["2.b"][t] + rc["4.a"][t] + rc["4.d"][t]
                          + rc.get("RC-M 2.a", [0]*n3)[t] + rc["6"][t] + rc["10"][t] + rc["11"][t]
                          - rc["12"][t]) for t in range(n3))
     check("T38f", "RC asset tie holds with designated books present ($000s tol 1)",

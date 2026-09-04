@@ -191,6 +191,7 @@ def results_workbook_v2(cfg, res):
     # Regulatory presentation is QUARTERLY BY LAW regardless of engine cadence. Collapse the
     # per-ENGINE-period series to quarters: stocks -> quarter-END value; flows -> quarterly SUM.
     _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
     _mpq = max(1, round(_ppy / 4))            # engine-periods per quarter (mo:3, qtr:1, yr: n/a)
     def _nq(n):                               # quarters spanned by n engine-periods
         return max(1, round(n * 4 / _ppy))
@@ -304,7 +305,7 @@ def results_workbook_v2(cfg, res):
     prods = res.get("products") or []
 
     def sheet_from_layout(ws, layout, fin, n, has_open, collapse=_q_stock):
-        _ncol = (n - 1 if has_open else n)
+        _ncol = (_np if has_open else n)
         cols = (["Open"] if has_open else []) + [f"Q{q}" for q in range(1, _nq(_ncol) + 1)]
         ws.append(["Line item ($000s)", "key", "Schedule", "Item", "Code"] + cols)
         for row in layout:
@@ -322,9 +323,9 @@ def results_workbook_v2(cfg, res):
                     c = code_for_line(p.get("line")) or ("", "", "", "")
                     arr = p["bal"]
                     _open = None
-                    if has_open and len(arr) == n + 1:
+                    if has_open and len(arr) == _np + 1:
                         _open, arr = arr[0], arr[1:]
-                    elif not has_open and len(arr) == n + 1:
+                    elif not has_open and len(arr) == _np + 1:
                         arr = arr[1:]
                     _c = collapse(list(arr))
                     ws.append(["    " + p["name"], "", c[0], c[1], c[2]] + ([_open] if has_open else []) + _c)
@@ -340,10 +341,15 @@ def results_workbook_v2(cfg, res):
             c = code_for_result(key) or ("", "", "", "")
             label = ("    " if row.get("indent") else "") + row["label"]
             vals = [None if x is None else (-x if row.get("negate") else x) for x in arr]
-            ws.append([label, key, c[0], c[1], c[2]] + collapse(vals))
+            if has_open and len(vals) == _np + 1:
+                _open, vals = vals[0], vals[1:]
+                shown = [_open] + collapse(vals)
+            else:
+                shown = collapse(vals)
+            ws.append([label, key, c[0], c[1], c[2]] + shown)
 
     n_bs = len(res["bs"]["totalAssets"])
-    sheet_from_layout(wb.create_sheet("Balance Sheet"), present.BS_LAYOUT, res["bs"], n_bs, n_bs == 13)
+    sheet_from_layout(wb.create_sheet("Balance Sheet"), present.BS_LAYOUT, res["bs"], n_bs, n_bs == _np + 1)
     n_is = len(res["is"]["ni"])
     sheet_from_layout(wb.create_sheet("Income Statement"), present.IS_LAYOUT, res["is"], n_is, False, collapse=_q_flow)
 
@@ -377,16 +383,17 @@ def results_workbook_v2(cfg, res):
                 continue
             ws = wb.create_sheet(f"Schedule {sched}")
             ws.append([cr[sched].get("title", sched)])
+            # build_call_report() is now the canonical quarterly bridge; do NOT
+            # collapse its already-quarterly rows a second time here.
             _rn = len(next((rw.get("values") for rw in cr[sched].get("rows", []) if rw.get("values")), [0]*12))
-            _coll = _q_flow if sched == "RI" else _q_stock   # RI = income flows; RC* = balance stocks
-            ws.append(["Item", "Code", "Line"] + [f"Q{q}" for q in range(1, _nq(_rn) + 1)])
+            ws.append(["Item", "Code", "Line"] + [f"Q{q}" for q in range(1, _rn + 1)])
             for row in cr[sched]["rows"]:
-                ws.append([row["item"], row["code"], row["label"]] + _coll(list(row["values"])))
+                ws.append([row["item"], row["code"], row["label"]] + list(row["values"]))
             if sched == "RC-R" and cr[sched].get("part2"):
                 ws.append([])
                 ws.append([cr[sched]["part2"]["title"]])
                 for row in cr[sched]["part2"]["rows"]:
-                    ws.append([row["item"], row["code"], row["label"]] + _q_stock(list(row["values"])))
+                    ws.append([row["item"], row["code"], row["label"]] + list(row["values"]))
             for note in (cr[sched].get("notes") or []):
                 ws.append([])
                 ws.append([f"note: {note}"])
