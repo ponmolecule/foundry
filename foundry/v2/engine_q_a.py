@@ -10,7 +10,7 @@ Deterministic, fail-closed, dollars in / dollars out. Pure Python.
 """
 
 Q = 12
-FV_HORIZON = 60
+FV_HORIZON_YEARS = 15   # DCF fair-value horizon in CALENDAR YEARS (was 60 quarters)
 
 
 def opex_fixed_q(p):
@@ -94,7 +94,8 @@ def _fv_of(p, q, bal, rate, is_asset, ppyf=4.0):
     decay = (p.get("runoff_q", 0.0) if is_asset else p.get("fv_decay_q", 0.10)) or 0.0
     co_rate = (p.get("charge_off_ann", 0.0) / ppyf) if is_asset else 0.0
     b, pv, df = bal, 0.0, 1.0
-    for t in range(1, FV_HORIZON + 1):
+    _fv_periods = int(round(FV_HORIZON_YEARS * ppyf))   # 15yr in the engine cadence
+    for t in range(1, _fv_periods + 1):
         rc = _prod_rate(p, q + t, rate) / ppyf
         rd = (rate(q + t) + p.get("discount_spread_ann", 0.0)) / ppyf
         interest = b * rc
@@ -110,7 +111,7 @@ def _fv_of(p, q, bal, rate, is_asset, ppyf=4.0):
     return pv
 
 
-def _apply_overlays(lend, dep, a, ov):
+def _apply_overlays(lend, dep, a, ov, ppy=4):
     """Downturn overlays: credit multipliers, rate shock, volume/GOS/MSR/sale-share."""
     shock = (ov.get("rate_shock_bp", 0) or 0) / 10000.0
     if shock:
@@ -143,16 +144,24 @@ def _apply_overlays(lend, dep, a, ov):
     # Front-loaded weights over the 9Q window: losses cluster early in a real downturn then fade.
     # Weights sum to 1.0; the per-quarter charge-off is w_q * cum9, converted to an annual rate
     # (x4) the engine consumes. Level = equal 1/9 each quarter (reproduces cum9 over the window).
+    # AUDIT #9b: the DFAST supervisory window is regulatorily 9 QUARTERS = 27 calendar months. Build
+    # the loss schedule over the cadence-correct number of ENGINE periods (9 quarterly, 27 monthly),
+    # and annualize by ppy (engine consumes charge_off_ann/ppy per period) — was hardcoded x4 over 9.
+    _win = int(round(9 * ppy / 4))                       # window length in engine periods (9q -> 27mo)
     if dfast_spread == "front":
-        _w = [0.18, 0.16, 0.14, 0.12, 0.11, 0.09, 0.08, 0.07, 0.05]  # sums to 1.00, monotone fade
+        # quarterly front-load shape, resampled to the window length so early-clustering is preserved
+        _wq = [0.18, 0.16, 0.14, 0.12, 0.11, 0.09, 0.08, 0.07, 0.05]
+        _raw = [_wq[int(i * 9 / _win)] for i in range(_win)]
+        _tot = sum(_raw)
+        _w = [x / _tot for x in _raw]                    # renormalize to sum 1.0
     else:
-        _w = [1.0 / 9.0] * 9
+        _w = [1.0 / _win] * _win
     for p in lend:
         if dfast and p.get("call_report_line") in dfast:
-            cum9 = dfast[p["call_report_line"]]          # 9Q cumulative loss fraction
-            # per-quarter charge-off rate q = w_q * cum9; engine reads an ANNUAL rate (co = bal*ann/4),
-            # so ann_q = 4 * w_q * cum9. Over the 9Q window sum(co) ~ cum9 * balance (constant bal).
-            sched = {str(q): 4.0 * _w[q - 1] * cum9 for q in range(1, 10)}
+            cum9 = dfast[p["call_report_line"]]          # 9Q-cumulative loss fraction
+            # per-period charge-off = w_i * cum9; engine reads ANNUAL (co = bal*ann/ppy),
+            # so ann_i = ppy * w_i * cum9. Sum over the window ~ cum9 * balance.
+            sched = {str(i + 1): ppy * _w[i] * cum9 for i in range(_win)}
             p.setdefault("overrides", {})["charge_off_ann"] = sched
         else:
             p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
@@ -248,7 +257,7 @@ def run_pf_a(cfg):
         a["overhead_per_period"] = a["overhead_q"]
     ov = cfg.get("scenario_overlays")
     if ov:
-        _apply_overlays(lend, dep, a, ov)
+        _apply_overlays(lend, dep, a, ov, ppy)
 
     # Multi-curve rate set (SOFR / EFFR / Prime). Backward-compat shim: the SOFR curve is built from
     # the legacy rate_path_q so index-less products (which dispatch to SOFR in _prod_rate) reproduce
@@ -352,7 +361,7 @@ def run_pf_a(cfg):
         if _src:
             _feed = (a.get("cac_feeds") or {}).get(_src)
             if _feed is not None:
-                _mn_cfg = cac_managed_notional(_feed, Q)
+                _mn_cfg = cac_managed_notional(_feed, Q, ppy)
         _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q)
         p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)

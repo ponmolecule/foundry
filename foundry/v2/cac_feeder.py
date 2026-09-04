@@ -92,7 +92,7 @@ def channel_spend(ch, year):
     return float(p.get("spend") or 0.0)  # explicit: optional flat spend
 
 
-def cac_auc_rollforward(cac_cfg, Q):
+def cac_auc_rollforward(cac_cfg, Q, ppy=4):
     """Annual customer/AUC roll-forward over ceil(Q/4) years, returned with a quarterly
     explicit-levels AUC series plus a per-year audit trail for defensibility.
 
@@ -117,7 +117,7 @@ def cac_auc_rollforward(cac_cfg, Q):
     beg_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     beg_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
     shape = (cac_cfg or {}).get("intra_year_shape") or "linear"
-    years = -(-int(Q) // 4)  # ceil
+    years = -(-int(Q) // ppy)  # ceil (periods/year = ppy)
 
     annual = []
     year_end_auc = []
@@ -161,23 +161,23 @@ def cac_auc_rollforward(cac_cfg, Q):
     prev_end = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     for y in range(1, years + 1):
         ye = year_end_auc[y - 1]
-        for qi in range(1, 5):
-            q = (y - 1) * 4 + qi
+        for qi in range(1, ppy + 1):
+            q = (y - 1) * ppy + qi
             if q > Q:
                 break
             if shape == "stepped":
                 auc_levels_q[q - 1] = ye
             else:  # linear: ramp from prior year-end to this year-end across the 4 quarters
-                auc_levels_q[q - 1] = prev_end + (ye - prev_end) * qi / 4.0
+                auc_levels_q[q - 1] = prev_end + (ye - prev_end) * qi / float(ppy)
         prev_end = ye
 
     return {"auc_levels_q": auc_levels_q, "year_end_auc": year_end_auc, "annual": annual}
 
 
-def cac_managed_notional(cac_cfg, Q):
+def cac_managed_notional(cac_cfg, Q, ppy=4):
     """Convenience: package the feeder's quarterly AUC levels as a managed_notional the fee
     engine consumes directly (trajectory=explicit_levels). This is the seam."""
-    r = cac_auc_rollforward(cac_cfg, Q)
+    r = cac_auc_rollforward(cac_cfg, Q, ppy)
     return {
         "day1": 0.0,
         "trajectory": "explicit_levels",
