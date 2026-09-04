@@ -182,6 +182,7 @@ def _scen_metrics(res, cfg, commit):
             if v is not None and (full_min_lev is None or v < full_min_lev):
                 full_min_lev, full_min_p = v, ep
     bor = bs.get("borrow") or bs.get("borrowings") or []
+    bor_sched = bs.get("borrowSched") or []
     intang = cfg["assumptions"]["intangibles"] / 1000.0
     cap_short = 0.0
     n = len(bs["totalAssets"])
@@ -217,7 +218,16 @@ def _scen_metrics(res, cfg, commit):
         i = stock_i if len(arr) == np + 1 else flow_i
         return arr[i] if i < len(arr) else (arr[-1] if arr else None)
 
-    bor_period = bor[1:] if len(bor) == np + 1 else bor
+    # Wholesale borrowings include both the residual funding plug and explicit scheduled
+    # term/FHLB advances. Diagnostics must not report zero wholesale funding merely because
+    # the scheduled advance displaced the residual plug.
+    _bor = bor[1:] if len(bor) == np + 1 else list(bor)
+    _sched = bor_sched[1:] if len(bor_sched) == np + 1 else list(bor_sched)
+    bor_period = [
+        (float(_bor[i] or 0.0) if i < len(_bor) else 0.0)
+        + (float(_sched[i] or 0.0) if i < len(_sched) else 0.0)
+        for i in range(np)
+    ]
     lev_submission_q = []
     for ep in range(mpq, sub_p + 1, mpq):
         i = ep if lev_has_open else ep - 1

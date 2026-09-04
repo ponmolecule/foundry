@@ -173,7 +173,7 @@
 
 ## T39 depreciation (FLOOR F-053): premises decline, expense hits NI, floor at zero
 
-## T40 scheduled borrowings (FLOOR F-061, D-P12 fix): draw, amortize, bear interest
+## T40 scheduled borrowings (FLOOR F-061, D-P12 fix): draw, hold bullet balance to maturity, bear interest
 - **T40d** — RC row 16 (Q2 column, post-_q normalization) = residual + scheduled draw
 
 ## T41 Wave 2 (F-091/033/090/003/100): standardized RWA, CBLR tiering, concentrations

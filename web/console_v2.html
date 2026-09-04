@@ -548,6 +548,21 @@ function methodologyHTML(){
 }
 // Period column label for output tables: "M1"/"Q1"/"Y1" per cadence (1-based period index).
 function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+i; }
+// Cadence-aware event timing. New monthly engagements store an explicit engine `period`
+// so a user may place a raise/borrowing in any month. Legacy `quarter` values retain
+// calendar-quarter semantics and display at that quarter's first engine period.
+function EVENTUNIT(){ return PPY()===12?"Month":PPY()===1?"Year":"Qtr"; }
+function EVENTVAL(ev){
+  ev=ev||{};
+  if(ev.period!=null && ev.period!=="") return +ev.period;
+  if(ev.quarter!=null && ev.quarter!=="") return PPY()===12 ? ((+ev.quarter-1)*3+1) : +ev.quarter;
+  return 1;
+}
+function SETEVENT(ev,v){
+  ev=ev||{}; v=+v;
+  if(PPY()===12 || PPY()===1){ ev.period=v; delete ev.quarter; }
+  else { ev.quarter=v; delete ev.period; }
+}
 // Regulator-facing submission horizon is a distinct concept from computational horizon.
 // Most charter plans use Q12; keep it explicit and overridable rather than treating Q12 as terminal.
 function SUBQ(){ return Math.max(1, Math.round(+((((cfg||{}).charter_profile||{}).submission_quarters)||12))); }
@@ -1231,11 +1246,11 @@ function _diffCfgAgainst(baselineJSON){
   })();
   namedList("Lending product", A0.lending_products, A1.lending_products, "name");
   namedList("Deposit product", A0.deposit_products, A1.deposit_products, "name");
-  // raises have no name — identity is the quarter they land in ("the raise at Qtr 4"), so removing
-  // a non-last raise no longer shifts indices and manufactures phantom edits.
+  // raises have no name — use explicit cadence-aware period identity when present,
+  // falling back to legacy calendar-quarter identity for older configs.
   diffList("Staged raise", A0.capital_raises, A1.capital_raises,
-    (it,i)=> (it && it.quarter!=null) ? ("Q:"+it.quarter) : ("#"+i),
-    (k)=> k.startsWith("Q:") ? `Staged raise (Qtr ${k.slice(2)})` : `Staged raise ${(+k.slice(1))+1}`);
+    (it,i)=> (it && it.period!=null) ? ("P:"+it.period) : ((it && it.quarter!=null) ? ("Q:"+it.quarter) : ("#"+i)),
+    (k)=> k.startsWith("P:") ? `Staged raise (${PERLAB(+k.slice(2))})` : (k.startsWith("Q:") ? `Staged raise (Qtr ${k.slice(2)})` : `Staged raise ${(+k.slice(1))+1}`));
   namedList("Scheduled borrowing", A0.scheduled_borrowings, A1.scheduled_borrowings, "name");
   namedList("Security (AFS)", A0.securities_afs, A1.securities_afs, "name");
   namedList("Security (HTM)", A0.securities_htm, A1.securities_htm, "name");
@@ -2893,9 +2908,16 @@ async function subPlace(){
 }
 window.subPlace = subPlace;
 window.sbAdd = function(){
-  (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []).push(
-    {name: "FHLB advance", quarter: 1, amount: 8_000_000, rate_ann: 0.04, term_q: 8});
+  const b={name: "FHLB advance", amount: 8_000_000, rate_ann: 0.04, term_q: 8};
+  if(PPY()===12 || PPY()===1) b.period=1; else b.quarter=1;
+  (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []).push(b);
   renderGlobals(); refresh();
+};
+window.raiseAdd = function(){
+  const r={amount:10_000_000};
+  if(PPY()===12 || PPY()===1) r.period=1; else r.quarter=1;
+  (cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push(r);
+  renderContent(); refresh();
 };
 window.secAdd = function(kind){
   const key = kind ? "securities_htm" : "securities_afs";
@@ -4088,7 +4110,7 @@ function renderContent(){
     });
     h += rowBS('Total Deposits', arr12(fin.bs.deposits, bsHasOpen), 'subtotal', 'deposits');
     h += rowBS('Borrowings', arr12(fin.bs.borrow || fin.bs.borrowings, bsHasOpen), null, 'borrow');
-    if(some(fin.bs.borrowSched)) h += rowBS('Scheduled Borrowings (FHLB/Term, amortizing)', arr12(fin.bs.borrowSched, bsHasOpen), null, 'borrowSched');
+    if(some(fin.bs.borrowSched)) h += rowBS('Scheduled Borrowings (FHLB/Term, bullet)', arr12(fin.bs.borrowSched, bsHasOpen), null, 'borrowSched');
     h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen), null, 'otherLiab');
     h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal', 'totalLiab');
     h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;
@@ -6176,17 +6198,19 @@ function structuresSectionsHtml(){
     const sbs = (cfg.assumptions.scheduled_borrowings = cfg.assumptions.scheduled_borrowings || []);
     let _r = '<div class="csub">Staged raises</div>';
     raises.forEach((r,i)=>{
-      _r += `<div class="crow">Qtr<select onchange="cfg.assumptions.capital_raises[${i}].quarter=+this.value;refresh()">`
-        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${r.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+      const _ev=EVENTVAL(r);
+      _r += `<div class="crow">${EVENTUNIT()}<select onchange="SETEVENT(cfg.assumptions.capital_raises[${i}],+this.value);refresh()">`
+        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${_ev===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:76px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
         + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
-    _r += '<button class="pillbtn" onclick="(cfg.assumptions.capital_raises=cfg.assumptions.capital_raises||[]).push({quarter:1,amount:10000000});renderContent();refresh()">+ Add a raise</button>';
+    _r += '<button class="pillbtn" onclick="raiseAdd()">+ Add a raise</button>';
     _r += `<div class="cmut">${raises.length} raise${raises.length===1?"":"s"} added</div>`;
     let _b = '<div class="csub">Scheduled borrowings</div>';
     sbs.forEach((b,i)=>{
-      _b += `<div class="crow secrow"><input style="flex:0 1 96px;min-width:80px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">Qtr<select onchange="cfg.assumptions.scheduled_borrowings[${i}].quarter=+this.value;refresh()">`
-        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${b.quarter===q+1?" selected":""}>${q+1}</option>`).join("")
+      const _ev=EVENTVAL(b);
+      _b += `<div class="crow secrow"><input style="flex:0 1 96px;min-width:80px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">${EVENTUNIT()}<select onchange="SETEVENT(cfg.assumptions.scheduled_borrowings[${i}],+this.value);refresh()">`
+        + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${_ev===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:64px" title="draw $000s" value="${fmtComma((b.amount||0)/1000)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:48px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:42px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">qtrs</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';

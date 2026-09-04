@@ -326,7 +326,7 @@ def run_pf_a(cfg):
     # /ppy below equals the legacy /4 exactly -> byte-identical (hash 3fee151428f6991e).
     ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     ppyf = float(ppy)
-    from .timebase import (quarter_start_period, quarters_to_periods, months_to_periods,
+    from .timebase import (quarters_to_periods, months_to_periods,
                            quarterly_value_to_period)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
@@ -406,15 +406,16 @@ def run_pf_a(cfg):
     rate_curves = _build_rate_curve_set(a, cfg, ppy)
     rate = rate_curves["sofr"]
 
+    from .timebase import event_start_period, quarters_to_periods
+
     capital = cfg["target_state"]["initial_capital"]
-    # staged capital raises (additive, default-off): raises land at the START
-    # of their stated quarter; the waterfall absorbs the cash side via plug()
+    # staged capital raises (additive, default-off): explicit `period` is cadence-aware;
+    # legacy `quarter` remains a calendar/model quarter and lands at its start.
+    # The funding waterfall absorbs the cash side via plug().
     _raises = cfg["assumptions"].get("capital_raises") or []
     cap_t = [capital] * (Q + 1)
     for _r in _raises:
-        # `quarter` is a MODEL-CALENDAR quarter, not an engine-period number.
-        # Q4 therefore starts in month 10 under monthly cadence.
-        _start = quarter_start_period(int(_r["quarter"]), ppy)
+        _start = event_start_period(_r, ppy)
         for _q in range(_start, Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import (nie_detail_series, product_fee_streams_q,
@@ -436,14 +437,14 @@ def run_pf_a(cfg):
     sched_t = [0.0] * (Q + 1)
     for _sb in _sched:
         _amt = float(_sb["amount"])
-        _q0 = quarter_start_period(int(_sb["quarter"]), ppy)
+        _q0 = event_start_period(_sb, ppy)
         _tq = quarters_to_periods(int(_sb["term_q"]), ppy)
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_t[_q] += _amt
     sched_int_t = [0.0] * (Q + 1)
     for _sb in _sched:
         _amt = float(_sb["amount"])
-        _q0 = quarter_start_period(int(_sb["quarter"]), ppy)
+        _q0 = event_start_period(_sb, ppy)
         _tq = quarters_to_periods(int(_sb["term_q"]), ppy)
         _r = float(_sb["rate_ann"])
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):

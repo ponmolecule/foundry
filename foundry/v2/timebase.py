@@ -25,6 +25,25 @@ def quarter_start_period(quarter: int, ppy: int) -> int:
     return (q - 1) * periods_per_quarter(ppy) + 1
 
 
+def event_start_period(event: dict, ppy: int) -> int:
+    """Resolve a scheduled event to a 1-based engine-period start.
+
+    New cadence-aware configs may store an explicit ``period`` (M#/Q# in the
+    selected computational cadence). Legacy configs store ``quarter`` and retain
+    calendar-quarter semantics. Explicit period wins when both are present so a
+    monthly user can schedule an event in any month without overloading the legacy
+    quarter field.
+    """
+    if event.get("period") not in (None, ""):
+        p = int(event["period"])
+        if p < 1:
+            raise ValueError("period must be >= 1")
+        return p
+    if event.get("quarter") not in (None, ""):
+        return quarter_start_period(int(event["quarter"]), ppy)
+    raise ValueError("scheduled event requires period or quarter")
+
+
 def quarters_to_periods(quarters: int | float, ppy: int) -> int:
     """Calendar-quarter duration -> engine-period duration."""
     q = float(quarters)

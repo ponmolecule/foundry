@@ -38,7 +38,7 @@ BS_LAYOUT = [
     {"t": "line", "key": "deposits", "label": "Total deposits", "subtotal": True},
     {"t": "line", "key": "borrow", "label": "Borrowed funds"},
     {"t": "line", "key": "borrowings", "label": "Borrowed funds"},
-    {"t": "line", "key": "borrowSched", "label": "Scheduled borrowings (FHLB/term draws, amortizing)"},
+    {"t": "line", "key": "borrowSched", "label": "Scheduled borrowings (FHLB/term draws, bullet)"},
     {"t": "line", "key": "otherLiab", "label": "Accrued expenses and other liabilities"},
     {"t": "line", "key": "totalLiab", "label": "Total liabilities", "subtotal": True},
     {"t": "spacer"},
@@ -154,7 +154,7 @@ def derived_lines(res, cfg):
         "otherLiab": [other_liab] * n,
         "paidIn": paid_in_list,
         # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
-        # plug AND the amortizing scheduled draws (`borrowSched`). Omitting the latter
+        # plug AND the bullet scheduled draws (`borrowSched`). Omitting the latter
         # breaks the accounting identity by exactly the scheduled balance in every
         # quarter a term draw is outstanding (assets carry its cash; liabilities didn't).
         "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + other_liab, 2) for i in range(n)],
