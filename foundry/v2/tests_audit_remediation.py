@@ -269,6 +269,12 @@ def main():
        and "End-of-quarter balance" not in html
        and "from its stated quarter" not in html
        and "from its draw quarter" not in html)
+    ck("J16 event UI uses requested Mth/Qtr static prefixes and full computational horizon",
+       'function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }' in html
+       and html.count('Array.from({length:NP()}') >= 2
+       and 'cfg.assumptions.n_periods = (wiz.years || 3) * (wiz.ppy || 4)' in html
+       and '[[12,"Monthly"],[4,"Quarterly"]]' in html
+       and '[[3,"3 years"],[5,"5 years"],[7,"7 years"]]' in html)
 
     # K. Security hardening ---------------------------------------------------------
     app_src = (ROOT/"app.py").read_text(encoding="utf-8")
