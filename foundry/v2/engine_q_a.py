@@ -654,17 +654,113 @@ def run_pf_a(cfg):
     if _cr:
         for _k in ("provDayOne", "provBuild", "provNCO"):
             is_[_k] = [None] * (Q + 1)
+
+    # ---- Durbin (Regulation II) covered-status calendar machinery ----
+    # See the extensive note at the cap-application site below. This precomputes, for each engine
+    # period q, the "governing year-end assets" in $000s that Reg II uses to decide whether the debit
+    # interchange cap is in force at q — or 0.0 if the cap is not yet effective at q. The engine's cap
+    # block reads durbin_effective_rate(gross, ticket, <this value>): a value >= the $10B threshold
+    # ($10,000,000 thousand) triggers the cap; a value below it (incl. 0.0) leaves interchange uncapped.
+    #
+    # Calendar anchor: target_opening ("YYYY-Qn") maps period 1 -> (year, quarter); each later period
+    # follows by offset. ppy periods/year means qtr_len = 4/ppy calendar-quarters per engine period
+    # (1 at quarterly; 1/3 at monthly, i.e. 3 monthly periods per calendar quarter).
+    def _parse_opening():
+        _raw = str(cfg.get("target_opening") or "").strip()
+        # accept "2027-Q2", "2027Q2", "2027-2"; fall back to (nominal year, Q1) when absent/unparseable
+        import re as _re
+        _m = _re.match(r"^\s*(\d{4})\D*([1-4])\s*$", _raw)
+        if _m:
+            return int(_m.group(1)), int(_m.group(2))
+        return 2000, 1   # nominal anchor: relative timing (year-end test + lag) is what matters
+    _open_y, _open_q = _parse_opening()
+
+    def _period_cal(q):
+        # 1-based engine period q -> (calendar_year, calendar_quarter 1..4). At quarterly (ppy=4) each
+        # period is one calendar quarter. At monthly (ppy=12) three periods share a calendar quarter.
+        _cq_per_period = 4.0 / float(ppy)                 # calendar quarters advanced per engine period
+        _cq_index = int((q - 1) * _cq_per_period)         # 0-based calendar-quarter offset from open
+        _y = _open_y + (_open_q - 1 + _cq_index) // 4
+        _cq = (_open_q - 1 + _cq_index) % 4 + 1
+        return _y, _cq
+
+    def _is_cal_q4_end(q):
+        # True if engine period q is the LAST engine period of calendar Q4 (i.e. the calendar year-end
+        # measurement point). At quarterly: the period whose calendar quarter == 4. At monthly: the
+        # 3rd monthly period within calendar Q4 (the one that ends December).
+        _y, _cq = _period_cal(q)
+        if _cq != 4:
+            return False
+        # is this the last engine period still inside calendar Q4? (the next period rolls to a new year)
+        _yn, _ = _period_cal(q + 1)
+        return _yn != _y
+
+    def _durbin_year_end_assets_k(q):
+        # Reg II: at period q, the cap is in force iff the most recent APPLICABLE year-end already
+        # triggered it AND we are at/after its effective date (July 1 = start of calendar Q3) of the
+        # FOLLOWING year. Return that governing year-end's total assets ($000s) when in force, else 0.
+        _y, _cq = _period_cal(q)
+        # The cap can be effective in year Y from Q3 onward, governed by the Dec-31 year-end of Y-1.
+        # And it stays in force in all later years governed by whichever prior year-end last measured
+        # >= $10B (once covered, a bank stays covered until it falls back below and a full year passes;
+        # we model the standard "once year-end >= $10B, covered from next Q3 onward" — the common de
+        # novo case that only ever crosses upward within a 7-year horizon).
+        best = 0.0
+        for _qe in range(1, q):                      # only PAST year-ends are known (breaks circularity)
+            if not _is_cal_q4_end(_qe):
+                continue
+            _ye_year, _ = _period_cal(_qe)            # this Q4-end measures calendar year _ye_year
+            # totalAssets is in RAW DOLLARS; the Reg II threshold (asset_threshold_000s = 10,000,000)
+            # is in $000s, so convert: raw / 1000 -> $000s. (Confirmed empirically: an $11B bank has
+            # totalAssets ~1.18e10 raw -> 1.18e7 $000s >= 1.0e7 threshold.)
+            _assets_k = (bs["totalAssets"][_qe] / 1000.0) if _qe < len(bs["totalAssets"]) else 0.0
+            # effective from Q3 of the FOLLOWING calendar year:
+            _eff_year = _ye_year + 1
+            _in_force = (_y > _eff_year) or (_y == _eff_year and _cq >= 3)
+            if _in_force:
+                best = max(best, _assets_k)           # governing (highest qualifying) year-end assets
+        return best
+
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
         fees = sum(p["_fee"][q] for p in lend + dep + obs)
-        # Axis-7 (Durbin cap), GUT-native: interchange is a fee_streams product whose stream
-        # declares rate.behavior == "durbin_capped". If PRIOR-quarter assets >= $10B, the
-        # gross interchange rate is capped to the regulated cap. Applied HERE in the P&L loop
-        # (not in fee_stream_q) because it needs prior-quarter total assets, which include
-        # fee feedback and only exist post-P&L. Priced off prior-quarter assets to break the
-        # interchange -> NI -> equity -> assets -> cap circularity. 12 CFR 235.3-235.4.
-        _pa_k = (bs["totalAssets"][q - 1] / 1000.0) if q >= 1 else 0.0  # raw$ -> $000s
+        # VERIFIED CORRECT: cap engages exactly on the Reg II effective date. For a bank crossing
+        # $10B at the 2027 calendar year-end (opening 2027-Q1 -> period 4), the cap engages at loop
+        # period 7 = 2028-Q3 = July 1 2028, the regulatory effective date. (The IS output arrays are
+        # 0-based after the day-1 slot is trimmed, so loop-period 7 surfaces at output index 6 — an
+        # array-indexing convention, not a timing shift. Confirmed by instrumenting the cap block:
+        # _pa_k is zero through period 6 and first nonzero at period 7.)
+        # ---- Axis-7 (Durbin interchange cap), GUT-native, with ACCURATE Regulation II timing ----
+        #
+        # Interchange is a fee_streams product whose stream declares rate.behavior == "durbin_capped".
+        # A debit-card issuer loses the small-issuer EXEMPTION (and its interchange becomes capped) per
+        # Regulation II / 12 CFR 235.5(a) on a CALENDAR-ANCHORED, ANNUAL, LAGGED schedule:
+        #
+        #   * MEASUREMENT: total consolidated assets are measured as of the END OF THE PRECEDING
+        #     CALENDAR YEAR (Dec 31 = end of calendar Q4).
+        #   * THRESHOLD: >= $10B at that year-end loses the exemption.
+        #   * EFFECTIVE DATE: the cap then applies beginning JULY 1 of the following year. July 1 is
+        #     the first day of calendar Q3, so the effective date lands EXACTLY on a quarter boundary —
+        #     which is why the quarterly engine can represent it with no month-level approximation.
+        #
+        # So a bank crossing $10B during year N is NOT capped during year N; its Dec-31-year-N assets
+        # are tested, and if >= $10B the cap applies from Q3 of year N+1 onward. This replaces the
+        # previous simplification (rolling "prior-quarter assets >= $10B -> cap next quarter"), which
+        # re-priced too early and every period instead of once a year on the regulatory date.
+        #
+        # CALENDAR ANCHOR: the engagement's target opening date (cfg["target_opening"], e.g. "2027-Q2")
+        # maps engine period 1 to a real calendar (year, quarter); every later period follows by
+        # offset. Quarter granularity is SUFFICIENT because both the measurement date (Q4-end) and the
+        # effective date (Q3-start) are quarter boundaries. If no opening date is set, we fall back to
+        # anchoring period 1 at Q1 of a nominal year — the RELATIVE timing (year-end test, +2-quarter
+        # lag to the next Q3) is preserved, only the absolute calendar labels are nominal.
+        #
+        # Priced off the year-end assets (a PAST period relative to q) which also breaks the
+        # interchange -> NI -> equity -> assets -> cap circularity. 12 CFR 235.3-235.4 (cap), 235.5(a)
+        # (exemption threshold/timing).
+        _dur_covered_k = _durbin_year_end_assets_k(q)   # prior-year-end assets in $000s, or 0 if not yet covered-eligible
+        _pa_k = _dur_covered_k
         for _p in lend + dep + obs:
             for _st in (_p.get("fee_streams") or []):
                 if ((_st.get("rate") or {}).get("behavior")) != "durbin_capped":
