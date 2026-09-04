@@ -119,6 +119,18 @@ def _apply_overlays(lend, dep, a, ov):
         a["borrow_rate_ann"] = max(0.0, a["borrow_rate_ann"] + shock)
         a["rate_path_q"] = [max(0.0, x + shock) for x in a["rate_path_q"]]
         a["rate_path_longer_run"] = max(0.0, a["rate_path_longer_run"] + shock)
+        # AUDIT 2.3: explicit multi-curve paths (sofr/effr/prime) are used INSTEAD of rate_path_q when
+        # present (see _curve_paths / _prod_rate). The parallel shock must reach them too, or
+        # floating-rate loans priced off an explicit curve silently escape the stress. Shock every
+        # active curve's path_q and longer_run.
+        _rc = a.get("rate_curves") or {}
+        for _idx in ("sofr", "effr", "prime"):
+            _c = _rc.get(_idx)
+            if isinstance(_c, dict):
+                if isinstance(_c.get("path_q"), list):
+                    _c["path_q"] = [max(0.0, x + shock) for x in _c["path_q"]]
+                if _c.get("longer_run") is not None:
+                    _c["longer_run"] = max(0.0, _c["longer_run"] + shock)
     co_m = ov.get("charge_off_mult", 1) or 1
     res_m = ov.get("reserve_mult", 1) or 1
     # DFAST severe overlay: an ABSOLUTE per-call_report_line 9Q-cumulative loss rate that
