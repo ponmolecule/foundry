@@ -22,10 +22,7 @@ KNOWN_MODULES = {"balance_driven_deposits", "balance_driven_lending",
 
 ASSUMPTION_REQUIRED = ["rate_path_q", "rate_path_longer_run", "tax_semantics", "tax_rate",
                        "cash_yield", "overhead_q", "premises_equipment", "intangibles",
-                       "other_assets", "other_liabilities",
-                       # AUDIT (validated=>executable): these are hard-read by the engine (a[...]);
-                       # omitting them from the required set let configs pass validation then KeyError.
-                       "cash_target_pct_deposits", "securities_yield", "borrow_rate_ann"]
+                       "other_assets", "other_liabilities"]
 
 DEP_REQUIRED = ["name", "opening_balance", "growth_per_period", "rate_type"]
 LEND_REQUIRED = ["name", "opening_balance", "runoff_per_period", "rate_type",
