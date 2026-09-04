@@ -3317,7 +3317,7 @@ function renderExaminer(){
       h += '<div style="overflow-x:auto"><table class="ovt"><tr><th>Item</th><th>Code</th><th>Line</th>' + Array.from({length:REG_NQ()},(_,q)=>`<th style="text-align:right">${REG_QLAB(q+1)}</th>`).join("") + '</tr>';
       sc.rows.forEach(r=>{
         h += `<tr><td>${esc(String(r.item))}</td><td style="font-family:var(--mono);font-size:10px">${esc(r.code)}</td><td>${esc(r.label)}</td>`
-          + REG_STOCK_Q(r.values).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
+          + (k==="RI"?REG_FLOW_Q(r.values):REG_STOCK_Q(r.values)).map(v=>`<td style="font-family:var(--mono);text-align:right">${(typeof v==="number")?v.toLocaleString(undefined,{maximumFractionDigits:(k==="RC-R"&&String(r.item)==="31")?2:0}):esc(String(v))}</td>`).join("") + '</tr>';
       });
       h += '</table></div>';
       if(sc.omitted && sc.omitted.length) h += `<div class="memo" style="font-size:11px">Not modeled (omitted, not zeroed): ${esc(sc.omitted.join("; "))}.</div>`;
