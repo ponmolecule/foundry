@@ -542,8 +542,8 @@ function viewMetric(){
     '<div class="col gap8"><div class="eyebrow">' + esc(t.seriesTitle) + '</div>' +
     '<svg viewBox="0 0 900 220" style="width:100%;height:230px" role="img" aria-label="' + esc(m.label) + '">' +
       bigChart(m.series, c, null) + '</svg>' +
-    '<div class="chart-axis num"><span>Q1 · ' + m.series[0] + '</span><span>' + esc(t.axisMid) + '</span>' +
-    '<span>Q12 · ' + m.series[m.series.length - 1] + '</span></div></div>' +
+    '<div class="chart-axis num"><span>' + esc(MODEL.periodStartLabel || 'Q1') + ' · ' + m.series[0] + '</span><span>' + esc(t.axisMid) + '</span>' +
+    '<span>' + esc(MODEL.periodEndLabel || 'Q12') + ' · ' + m.series[m.series.length - 1] + '</span></div></div>' +
     '<div class="col gap8" style="border-top:1px solid rgba(34,56,97,.45);padding-top:16px">' +
     '<div class="eyebrow">' + esc(t.driversTitle) + '</div>' +
     m.drivers.map(function(d){
@@ -573,8 +573,8 @@ function viewScenario(){
     '<div class="col gap8"><div class="eyebrow">' + esc(t.chartTitle) + '</div>' +
     '<svg viewBox="0 0 900 220" style="width:100%;height:230px" role="img" aria-label="' + esc(s.name) + ' leverage path">' +
       bigChart(s.series, col, CONSTRAINT.threshold) + '</svg>' +
-    '<div class="chart-axis num"><span>Q1</span><span style="color:' + THEME.fail + '">' +
-      esc(CONSTRAINT.thresholdLabel) + ' requirement</span><span>Q12 · ' + esc(s.value) + '</span></div></div>' +
+    '<div class="chart-axis num"><span>' + esc(MODEL.periodStartLabel || 'Q1') + '</span><span style="color:' + THEME.fail + '">' +
+      esc(CONSTRAINT.thresholdLabel) + ' requirement</span><span>' + esc(MODEL.periodEndLabel || 'Q12') + ' · ' + esc(s.value) + '</span></div></div>' +
     '<div class="col gap8" style="border-top:1px solid rgba(34,56,97,.45);padding-top:16px">' +
     '<div class="eyebrow">' + esc(t.driversTitle) + '</div>' +
     s.drivers.map(function(d){ return '<div class="driver pretty">' + esc(d) + '</div>'; }).join("") +

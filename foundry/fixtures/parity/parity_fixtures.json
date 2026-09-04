@@ -587,7 +587,7 @@
             10043.5,
             10432.66,
             10630.84,
-            10617.57
+            10620.22
           ]
         },
         "ratios": {
@@ -667,7 +667,8 @@
           "severe": 0
         }
       },
-      "fixture_hash": "b9d89b180b03"
+      "fixture_hash": "9fd8fc3855ab",
+      "rebaselined_2026_09_04": "Audit remediation: NOL carryforward now decreases by the IRC 172 deduction actually used (80% of positive pretax income), not by 100% of pretax income. Only the listed late-period NOL balances changed; tax/NI/equity remain governed by the already-correct 80% deduction."
     },
     "pf_a_combined_stress": {
       "inputs": {
@@ -2584,8 +2585,8 @@
             8431.09,
             8794.62,
             8978.6,
-            8965.21,
-            8733.7
+            8967.89,
+            8782.68
           ]
         },
         "ratios": {
@@ -2665,8 +2666,9 @@
           "severe": 0
         }
       },
-      "fixture_hash": "822daeaf6235",
-      "rebaselined": "2026-09-05: expected values updated for the IRC 172 80% NOL limit in the default tax path (audit 6.1). The original HTML/JS progenitor used 100% NOL (a modeling error); accuracy supersedes parity. Diff confined to tax->NI->RE->equity->sec plug at Q11/Q12 (~$10 on ~$64k). Engine is now more correct than the progenitor here."
+      "fixture_hash": "62703446d8e8",
+      "rebaselined": "2026-09-05: expected values updated for the IRC 172 80% NOL limit in the default tax path (audit 6.1). The original HTML/JS progenitor used 100% NOL (a modeling error); accuracy supersedes parity. Diff confined to tax->NI->RE->equity->sec plug at Q11/Q12 (~$10 on ~$64k). Engine is now more correct than the progenitor here.",
+      "rebaselined_2026_09_04": "Audit remediation: NOL carryforward now decreases by the IRC 172 deduction actually used (80% of positive pretax income), not by 100% of pretax income. Only the listed late-period NOL balances changed; tax/NI/equity remain governed by the already-correct 80% deduction."
     },
     "pf_a_fv_election": {
       "inputs": {
@@ -3429,7 +3431,7 @@
             "overrides": {},
             "name": "Mortgages",
             "category": "asset",
-            "line": "Loans: 1\u20134 Family Residential",
+            "line": "Loans: 1–4 Family Residential",
             "balance": 30000,
             "inputMode": "growth",
             "growth": 4,
@@ -3984,7 +3986,7 @@
             "overrides": {},
             "name": "Mortgages",
             "category": "asset",
-            "line": "Loans: 1\u20134 Family Residential",
+            "line": "Loans: 1–4 Family Residential",
             "balance": 30000,
             "inputMode": "growth",
             "growth": 4,
@@ -4528,7 +4530,7 @@
             "overrides": {},
             "name": "Mortgages",
             "category": "asset",
-            "line": "Loans: 1\u20134 Family Residential",
+            "line": "Loans: 1–4 Family Residential",
             "balance": 30000,
             "inputMode": "growth",
             "growth": 4,
@@ -5126,7 +5128,7 @@
             "overrides": {},
             "name": "Mortgages",
             "category": "asset",
-            "line": "Loans: 1\u20134 Family Residential",
+            "line": "Loans: 1–4 Family Residential",
             "balance": 30000,
             "inputMode": "growth",
             "growth": 4,

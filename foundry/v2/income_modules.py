@@ -1,12 +1,12 @@
 """Wave 3 (FLOOR F-036/070/071/072/141/142/143): income granularity.
 
-Pure functions from config to quarterly series ($ dollars), consumed by BOTH
+Pure functions from config to engine-period series ($ dollars), consumed by BOTH
 engines. Everything is additive and default-off: absent config => empty series.
 
 NIE detail (F-071/072, fixing D-P14 and D-R8):
   assumptions.nie_detail = {
     "fte_by_year": [y1, y2, y3], "loaded_comp_annual": $,
-    "categories": [{"name": str, "per_quarter": $}, ...],
+    "categories": [{"name": str, "per_period": $}, ...],  # legacy per_quarter accepted
     "other_gross_up_rate": r,           # Patrick's sub*r/(1-r) formulation, kept
   }
   Assessments are computed by the ENGINE (they need balances): FDIC on
@@ -44,22 +44,27 @@ def nie_detail_series(a, ppy=4):
     loaded = float(nd.get("loaded_comp_annual") or 0.0)
     _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
     comp = [fte[min((q - 1) // ppy, _lastyr)] * loaded / float(ppy) for q in range(1, Q + 1)]
-    # Per-category quarterly series. Each category can be:
-    #   - flat (default): per_quarter repeated every quarter — BYTE-IDENTICAL to the legacy
-    #     behavior when only per_quarter is set (back-compat invariant).
-    #   - linear: per_quarter grown at growth_q each quarter (base = per_quarter at q1).
-    #   - explicit: an explicit per-quarter schedule list (padded/truncated to Q; missing = 0).
+    # Per-category ENGINE-period series. Canonical UI fields are per_period and
+    # growth_per_period. Legacy per_quarter/growth_q retain their calendar-quarter
+    # meaning and are converted to the selected cadence.
     def _cat_series(c):
+        from .timebase import quarterly_value_to_period
         traj = c.get("trajectory") or "flat"
-        base = float(c.get("per_quarter", 0.0) or 0.0)
+        if c.get("per_period") is not None:
+            base = float(c.get("per_period") or 0.0)
+        else:
+            base = quarterly_value_to_period("opex_fixed", float(c.get("per_quarter", 0.0) or 0.0), ppy)
         if traj == "explicit":
             sched = list(c.get("schedule") or [])
             return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
                     for i in range(Q)]
         if traj == "linear":
-            g = float(c.get("growth_q") or 0.0)
+            if c.get("growth_per_period") is not None:
+                g = float(c.get("growth_per_period") or 0.0)
+            else:
+                g = quarterly_value_to_period("growth", float(c.get("growth_q") or 0.0), ppy)
             return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
-        return [base] * Q                      # flat (legacy)
+        return [base] * Q
     _catlist = nd.get("categories") or []
     cats = [float(sum(_cat_series(c)[i] for c in _catlist)) for i in range(Q)]
     return {"comp": comp, "categories": cats,
@@ -70,13 +75,13 @@ def nie_detail_series(a, ppy=4):
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
 
-def managed_notional_series(mn, Q):
-    """Roll an off-book notional stock (AUC/AUM) forward Q quarters.
+def managed_notional_series(mn, Q, ppy=4):
+    """Roll an off-book notional stock (AUC/AUM) forward Q engine periods.
 
-    mn = {day1, target?, ramp_periods?, trajectory, growth_q?, schedule?}
+    Canonical duration/growth fields are ramp_periods and growth_per_period. Legacy
+    ramp_quarters/growth_q retain calendar-quarter semantics and are cadence-converted.
     trajectory in {ramp_to_target, flat, proportional, explicit_schedule}.
-    Returns (avg_by_q, end_by_q) — avg is what balance-basis fees charge against;
-    end is the disclosed period-end AUC. Absent/empty => zeros (hash-safe).
+    Returns (avg_by_period, end_by_period). Absent/empty => zeros (hash-safe).
     """
     if not mn:
         return [0.0] * Q, [0.0] * Q
@@ -86,12 +91,20 @@ def managed_notional_series(mn, Q):
     prev = day1
     if traj == "ramp_to_target":
         target = float(mn.get("target") or 0.0)
-        ramp = int(mn.get("ramp_periods") or Q)
+        from .timebase import quarters_to_periods
+        if mn.get("ramp_periods") is not None:
+            ramp = int(mn.get("ramp_periods") or Q)
+        elif mn.get("ramp_quarters") is not None:
+            ramp = quarters_to_periods(int(mn.get("ramp_quarters") or 0), ppy)
+        else:
+            ramp = Q
         for q in range(1, Q + 1):
             frac = min(1.0, q / ramp) if ramp > 0 else 1.0
             end[q - 1] = day1 + (target - day1) * frac
     elif traj == "proportional":
-        g = float(mn.get("growth_q") or 0.0)
+        from .timebase import quarterly_value_to_period
+        g = (float(mn.get("growth_per_period") or 0.0) if mn.get("growth_per_period") is not None
+             else quarterly_value_to_period("growth", float(mn.get("growth_q") or 0.0), ppy))
         for q in range(1, Q + 1):
             end[q - 1] = day1 * (1 + g) ** q
     elif traj == "explicit_schedule":
@@ -162,7 +175,7 @@ def _apply_tiers(tiers, base_qty):
 
 
 def fee_stream_q(stream, q, ctx, ppy=4):
-    """One fee stream's NET income for quarter q ($). Full six-axis GUT evaluator.
+    """One fee stream's NET income for engine period q ($). Full six-axis GUT evaluator.
 
     Axis 1 Basis:        balance | transaction | account | flat | event
     Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate
@@ -194,6 +207,12 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     traj = drv.get("trajectory") or "flat"
     base = float(params.get("base") or 0.0)
 
+    def _driver_growth():
+        if params.get("growth_per_period") is not None:
+            return float(params.get("growth_per_period") or 0.0)
+        from .timebase import quarterly_value_to_period
+        return quarterly_value_to_period("growth", float(params.get("growth_q") or 0.0), ppy)
+
     def _source_base():
         if src == "own_balance":
             return float((ctx or {}).get("own_balance") or 0.0)
@@ -210,7 +229,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     sb = _source_base()
     if src == "constant":
         if traj == "proportional":
-            qty = _g(base, params.get("growth_q"), q)
+            qty = _g(base, _driver_growth(), q)
         elif traj == "explicit_schedule":
             qty = float((params.get("schedule") or {}).get(str(q), base))
         else:
@@ -228,7 +247,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             else:
                 qty = sb
         elif traj == "proportional":
-            qty = _g(sb, params.get("growth_q"), q)
+            qty = _g(sb, _driver_growth(), q)
         else:
             qty = sb  # flat/ramp_to_target already baked into the source stock
 
@@ -333,7 +352,7 @@ def fee_streams_order(streams):
 
 
 def product_fee_streams_q(p, q, ctx, ppy=4):
-    """A product's fee_streams for quarter q, as (fee_income, operating_cost) in $.
+    """A product's fee_streams for engine period q, as (fee_income, operating_cost) in $.
     Evaluated in dependency order so stream_ref consumers see their source's quantity.
     operating_cost (per_unit costs) routes to overhead; pct_of_revenue already netted
     into fee_income. Empty/absent => (0.0, 0.0) (hash-safe)."""

@@ -1,11 +1,12 @@
 """Foundry web shell. Thin FastAPI wrapper over the pure-Python engine.
 
-Multi-engagement, gated by HTTP Basic auth. Credentials come from
-environment variables (FOUNDRY_USER / FOUNDRY_PASS) with demo defaults;
-set real values in Railway before sharing the URL.
+Multi-engagement FastAPI shell. Authentication is provided by the persisted
+Foundry account store; an optional legacy Basic credential is enabled only when
+BOTH FOUNDRY_USER and FOUNDRY_PASS are explicitly configured.
 
-Basic auth is a demo placeholder, NOT Phase C0-grade authentication.
-No real client data behind this gate. Ever.
+The built-in account system is suitable for controlled internal deployments, but
+enterprise deployments should still terminate behind the organisation's SSO /
+identity and network controls.
 
 Deploy: uvicorn app:app --host 0.0.0.0 --port $PORT
 """
@@ -17,8 +18,25 @@ from foundry.run import run
 from foundry.registry import ENGAGEMENTS, register_config
 from foundry.configio import ConfigError
 
-USER = os.environ.get("FOUNDRY_USER", "klaros")
-PASS = os.environ.get("FOUNDRY_PASS", "solstice-2026")
+USER = os.environ.get("FOUNDRY_USER") or ""
+PASS = os.environ.get("FOUNDRY_PASS") or ""
+
+def _legacy_env_auth(username, password):
+    """Optional backwards-compatible Basic credential; disabled unless both env vars exist."""
+    if not USER or not PASS:
+        return None
+    if secrets.compare_digest(str(username or ""), USER) and secrets.compare_digest(str(password or ""), PASS):
+        return USER
+    return None
+
+def _cookie_secure():
+    return str(os.environ.get("FOUNDRY_COOKIE_SECURE", "1")).strip().lower() not in {"0", "false", "no", "off"}
+
+def _session_max_age():
+    try:
+        return max(900, int(os.environ.get("FOUNDRY_SESSION_SECONDS", "43200")))
+    except Exception:
+        return 43200
 
 app = FastAPI(title="Foundry", version="0.2.2", docs_url=None, redoc_url=None, openapi_url=None)
 security = HTTPBasic(auto_error=False)
@@ -30,11 +48,14 @@ def _session_secret():
     p = _os.path.join(d, "session_secret")
     if not _os.path.exists(p):
         with open(p, "w") as fh: fh.write(secrets.token_hex(32))
+        try: _os.chmod(p, 0o600)
+        except OSError: pass
     with open(p) as fh: return fh.read().strip()
 
-def make_session(user, days=7):
+def make_session(user, max_age=None):
     import time, hmac, hashlib as _hl, base64 as _b64
-    exp = str(int(time.time()) + days * 86400)
+    max_age = _session_max_age() if max_age is None else int(max_age)
+    exp = str(int(time.time()) + max_age)
     msg = f"{user}|{exp}"
     sig = hmac.new(_session_secret().encode(), msg.encode(), _hl.sha256).hexdigest()
     return _b64.urlsafe_b64encode(f"{msg}|{sig}".encode()).decode()
@@ -51,6 +72,44 @@ def verify_session(token):
     return None
 _cache = {}
 
+_LEGACY_BUILTIN_SLUGS = ("solstice", "blackland", "icarus")
+
+def _legacy_user_dir(user):
+    import re as _re
+    base = os.environ.get("FOUNDRY_DATA_DIR", os.path.join(os.getcwd(), "data"))
+    safe = _re.sub(r"[^a-z0-9_-]", "", str(user or "").lower()) or "anonymous"
+    d = os.path.join(base, "legacy_engagements", safe)
+    os.makedirs(d, exist_ok=True)
+    return d
+
+def _legacy_engagements_for(user):
+    """Shared demo fixtures + this user's legacy-v1 uploads only."""
+    out = {k: ENGAGEMENTS[k] for k in _LEGACY_BUILTIN_SLUGS if k in ENGAGEMENTS}
+    d = _legacy_user_dir(user)
+    for name in sorted(os.listdir(d)):
+        if not name.endswith(".json"):
+            continue
+        try:
+            with open(os.path.join(d, name), encoding="utf-8") as fh:
+                cfg = json.load(fh)
+            out[name[:-5]] = {"label": cfg.get("proposed_bank", name[:-5]).replace(" (in organization)", "") + " — uploaded",
+                              "config": cfg}
+        except Exception:
+            continue
+    return out
+
+def _legacy_register_for(user, cfg):
+    from foundry.configio import validate_config, slugify
+    validate_config(cfg)
+    existing = _legacy_engagements_for(user)
+    base = slugify(cfg["proposed_bank"].replace("(in organization)", ""))
+    slug, n = base, 2
+    while slug in existing:
+        slug = f"{base}-{n}"; n += 1
+    with open(os.path.join(_legacy_user_dir(user), slug + ".json"), "w", encoding="utf-8") as fh:
+        json.dump(cfg, fh, indent=1)
+    return slug
+
 
 def gate(request: Request, creds: HTTPBasicCredentials = Depends(security)):
     """Session cookie (the Welcome-page login) OR Basic (scripts, probes, the
@@ -65,29 +124,29 @@ def gate(request: Request, creds: HTTPBasicCredentials = Depends(security)):
         who = _auth.authenticate(creds.username, creds.password)
         if who:
             return who
-        if (secrets.compare_digest(creds.username, USER)
-                and secrets.compare_digest(creds.password, PASS)):
-            return USER
+        who = _legacy_env_auth(creds.username, creds.password)
+        if who:
+            return who
     raise HTTPException(401, "Unauthorized")
 
 
 @app.get("/api/engagements")
-def engagements(_=Depends(gate)):
-    return [{"slug": k, "label": v["label"]} for k, v in ENGAGEMENTS.items()]
+def engagements(user=Depends(gate)):
+    return [{"slug": k, "label": v["label"]} for k, v in _legacy_engagements_for(user).items()]
 
 
 @app.post("/api/engagements")
-async def upload_engagement(cfg: dict, _=Depends(gate)):
+async def upload_engagement(cfg: dict, user=Depends(gate)):
     try:
-        slug = register_config(cfg)
+        slug = _legacy_register_for(user, cfg)
     except ConfigError as e:
         raise HTTPException(422, str(e))
-    _cache.pop(slug, None)
-    return {"slug": slug, "label": ENGAGEMENTS[slug]["label"]}
+    _cache.pop((user, slug), None)
+    return {"slug": slug, "label": _legacy_engagements_for(user)[slug]["label"]}
 
 
 @app.post("/api/engagements/upload")
-async def upload_engagement_file(file: UploadFile = File(...), _=Depends(gate)):
+async def upload_engagement_file(file: UploadFile = File(...), user=Depends(gate)):
     """File upload door: .xlsx (banker-native) or .json. Both funnel into
     the same validate -> register -> run pipeline."""
     name = (file.filename or "").lower()
@@ -100,22 +159,24 @@ async def upload_engagement_file(file: UploadFile = File(...), _=Depends(gate)):
             cfg = json.loads(data)
         else:
             raise HTTPException(415, "upload a .xlsx or .json engagement configuration")
-        slug = register_config(cfg)
+        slug = _legacy_register_for(user, cfg)
     except ConfigError as e:
         raise HTTPException(422, str(e))
     except json.JSONDecodeError as e:
         raise HTTPException(422, f"invalid JSON: {e}")
-    _cache.pop(slug, None)
-    return {"slug": slug, "label": ENGAGEMENTS[slug]["label"]}
+    _cache.pop((user, slug), None)
+    return {"slug": slug, "label": _legacy_engagements_for(user)[slug]["label"]}
 
 
 @app.get("/api/results")
-def results(engagement: str, _=Depends(gate)):
-    if engagement not in ENGAGEMENTS:
+def results(engagement: str, user=Depends(gate)):
+    emap = _legacy_engagements_for(user)
+    if engagement not in emap:
         raise HTTPException(404, f"unknown engagement '{engagement}'")
-    if engagement not in _cache:
-        _cache[engagement] = run(ENGAGEMENTS[engagement]["config"])
-    return JSONResponse(_cache[engagement])
+    key = (user, engagement)
+    if key not in _cache:
+        _cache[key] = run(emap[engagement]["config"])
+    return JSONResponse(_cache[key])
 
 
 
@@ -144,7 +205,7 @@ def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, engagement list, and DB reachability — the fields a
     # deploy probe needs. (Process self-inspection fields used during the deploy-desync
     # investigation were removed pre-demo; they leaked container paths and route internals.)
-    out = {"ok": True, "build": _build_stamp(), "engagements": list(ENGAGEMENTS)}
+    out = {"ok": True, "build": _build_stamp(), "engagements": list(_LEGACY_BUILTIN_SLUGS)}
     try:
         from foundry.charteriq_client import CharterIQClient
         cl = CharterIQClient()
@@ -430,19 +491,20 @@ def auth_login(body: dict):
     from foundry import auth as _auth
     u, p = (body.get("username") or "").strip(), body.get("password") or ""
     who = _auth.authenticate(u, p)
-    if not who and secrets.compare_digest(u, USER) and secrets.compare_digest(p, PASS):
-        who = USER
+    if not who:
+        who = _legacy_env_auth(u, p)
     if not who:
         raise HTTPException(401, "Username or password did not verify.")
     resp = JSONResponse({"ok": True, "user": who})
-    resp.set_cookie("foundry_session", make_session(who), max_age=7*86400,
-                     httponly=True, samesite="lax")
+    _age = _session_max_age()
+    resp.set_cookie("foundry_session", make_session(who, _age), max_age=_age,
+                     httponly=True, secure=_cookie_secure(), samesite="strict", path="/")
     return resp
 
 @app.post("/api/auth/logout")
 def auth_logout():
     resp = JSONResponse({"ok": True})
-    resp.delete_cookie("foundry_session")
+    resp.delete_cookie("foundry_session", path="/", secure=_cookie_secure(), samesite="strict")
     return resp
 
 @app.get("/api/auth/whoami")
@@ -1033,7 +1095,7 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
                                   f"{year}Q{quarter}. Groups actually present: "
                                   f"{groups[:40]}"}, status_code=404)
         return JSONResponse({"band": band, "year": year, "quarter": quarter, "rows": rows,
-                              "band_note": "band derived from the MODELED Q12 total assets; "
+                              "band_note": "band derived from the modeled terminal-period total assets; "
                                             "national peer-group codes pending"})
     except Exception as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=502)
@@ -1238,7 +1300,7 @@ def v2_preview(cfg: dict, _=Depends(gate)):
 
 
 @app.post("/api/v2/engagements")
-def v2_register(cfg: dict, _=Depends(gate)):
+def v2_register(cfg: dict, user=Depends(gate)):
     """Freeze scenario (C.11): save the config, return slug + canonical hashes."""
     import os, re, json as _json
     from foundry.v2.run_q import run_v2
@@ -1246,12 +1308,15 @@ def v2_register(cfg: dict, _=Depends(gate)):
     errs = validate_errors_v2(cfg)
     if errs:
         return JSONResponse({"valid": False, "errors": errs}, status_code=422)
-    os.makedirs("clients_v2", exist_ok=True)
+    _user_key = re.sub(r"[^a-zA-Z0-9_.-]+", "_", str(user or "anonymous"))[:80] or "anonymous"
+    _dir = os.path.join("clients_v2", _user_key)
+    os.makedirs(_dir, exist_ok=True)
     slug = re.sub(r"[^a-z0-9]+", "-", (cfg.get("proposed_bank") or "engagement").lower()).strip("-")[:40]
     base = slug; i = 1
-    while os.path.exists(f"clients_v2/{slug}.json"):
+    while os.path.exists(os.path.join(_dir, slug + ".json")):
         i += 1; slug = f"{base}-{i}"
-    _json.dump(cfg, open(f"clients_v2/{slug}.json", "w", encoding="utf-8"), ensure_ascii=False, indent=1)
+    with open(os.path.join(_dir, slug + ".json"), "w", encoding="utf-8") as _fh:
+        _json.dump(cfg, _fh, ensure_ascii=False, indent=1)
     r = run_v2(cfg)
     return {"slug": slug, "config_hash": r["config_hash"], "run_hash": r["run_hash"]}
 

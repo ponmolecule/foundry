@@ -53,17 +53,19 @@ def _obs(series_id, api_key, http_get, limit=60):
 
 
 def fetch_policy(api_key, http_get=None):
-    """Return a snapshot dict for the curve model. Raises on any failure.
+    """Return an auditable policy/SEP snapshot. Raises on any failure.
 
-    {
-      "current_policy": {mid, top, statement_date, sep_date},
-      "fomc": {ye26, ye27, ye28, lr},        # SEP median midpoint anchors
-      "effr_observed": <float>,               # latest observed EFFR (for basis calibration)
-      "vintage": {sep, statement}
-    }
-    Note: FEDTARMD carries one observation per SEP-projected year. Mapping those to YE26/27/28 requires
-    reading the observation dates; this function returns the raw latest SEP anchors and their date, and
-    the caller maps them to the model's year slots. Kept deliberately explicit — no silent guessing.
+    The important distinction is explicit:
+      * `observation_date` is the FRED observation date of the current target range;
+        it is NOT asserted to be the FOMC statement/release date;
+      * SEP projection observations are *target dates*, not SEP release dates;
+      * `fomc.anchors` therefore stores dated year-end projection anchors;
+      * `retrieved_at` records when this snapshot was pulled;
+      * `source_vintage` is left null unless an authoritative SEP release date is supplied
+        elsewhere. We do not mislabel a projection target date as a source vintage.
+
+    Legacy ye26/ye27/ye28 slots are intentionally retired from the canonical payload. The
+    caller should use the dated `anchors` mapping and the engagement's actual calendar.
     """
     if not api_key:
         raise ValueError("FRED api_key is required")
@@ -76,50 +78,45 @@ def fetch_policy(api_key, http_get=None):
     top = up[0][1]
     bottom = lo[0][1]
     mid = round((top + bottom) / 2.0, 6)
-    statement_date = up[0][0]
+    observation_date = up[0][0]
 
     sep = _obs(SERIES["sep_median"], api_key, http_get)
     lr = _obs(SERIES["sep_lr"], api_key, http_get)
     if not sep or not lr:
         raise ValueError("could not read SEP median projections")
-    sep_date = sep[0][0]
+
+    # FEDTARMD observations are dated by the PROJECTION TARGET YEAR. Preserve those actual
+    # dates instead of assigning them to positional labels (YE26/YE27/YE28), which both caused
+    # the prior reversal bug and made the structure stale as calendar years roll forward.
+    anchors = {}
+    for d, v in sep:
+        try:
+            y = int(str(d)[:4])
+        except Exception:
+            continue
+        # One anchor per target year; _obs is newest-first, so first valid observation wins.
+        anchors.setdefault(f"{y:04d}-12-31", v)
+    if not anchors:
+        raise ValueError("SEP median series returned no dated projection anchors")
 
     effr = _obs(SERIES["effr"], api_key, http_get)
     effr_observed = effr[0][1] if effr else None
 
-    # AUDIT #7: FEDTARMD observations are dated by PROJECTION YEAR-END and fetched sort_order=desc
-    # (latest first), so positional mapping sep[0]->ye26 REVERSED the slope (assigned the furthest
-    # year to the nearest slot). Map by the observation's ACTUAL YEAR instead — robust regardless of
-    # order or which years FRED returns. Slots are the three consecutive projection years starting at
-    # the earliest year on/after the current calendar year.
     import datetime as _dt
-    _by_year = {}
-    for (_d, _v) in sep:
-        try:
-            _y = int(str(_d)[:4])
-            _by_year.setdefault(_y, _v)      # first (latest release) wins per year
-        except Exception:
-            pass
-    _this_year = _dt.date.today().year
-    _future = sorted(y for y in _by_year if y >= _this_year)
-    if _future:
-        _y0 = _future[0]
-        sep_points = [_by_year.get(_y0 + i) for i in range(3)]
-    else:
-        sep_points = [None, None, None]
-    # fill any missing slot forward (hold last known), else fall back to current midpoint
-    _last = mid
-    for _i in range(3):
-        if sep_points[_i] is None:
-            sep_points[_i] = _last
-        else:
-            _last = sep_points[_i]
-
+    retrieved = _dt.date.today().isoformat()
     return {
-        "current_policy": {"mid": mid, "top": top,
-                           "statement_date": statement_date, "sep_date": sep_date},
-        "fomc": {"ye26": sep_points[0], "ye27": sep_points[1],
-                 "ye28": sep_points[2], "lr": lr[0][1]},
+        "current_policy": {
+            "mid": mid, "top": top, "bottom": bottom,
+            "observation_date": observation_date,
+            "statement_date": None,
+        },
+        "fomc": {
+            "anchors": dict(sorted(anchors.items())),
+            "lr": lr[0][1],
+            # FRED's target-year observations do not identify the SEP publication date.
+            "source_vintage": None,
+        },
         "effr_observed": effr_observed,
-        "vintage": {"sep": sep_date, "statement": statement_date},
+        "retrieved_at": retrieved,
+        "vintage": {"policy_observation": observation_date, "statement": None, "sep": None},
     }

@@ -5,7 +5,7 @@ result so the view adapts to each engagement (green/passing when healthy, red/br
 design's rendering, view-switching, and filter logic are untouched — this only supplies DATA.
 
 Contract (mirrors the template's sample constants exactly):
-  SERIES   : {lev, stress, ni, cumni, whsl} — arrays of 12 quarterly numbers
+  SERIES   : {lev, stress, ni, cumni, whsl} — arrays of engine-period numbers
   METRICS[]: {id,label,value,sub,foot,color,series,detail,drivers:[[k,v],...]}
   SCEN[]   : {id,name,value,pass,source,note,series,blurb,drivers:[str,...]}
   FAMILIES[]: {id,name,sev,status,concern}
@@ -18,6 +18,7 @@ Contract (mirrors the template's sample constants exactly):
 Every number/label is derived from the engine result; nothing is hard-coded to the sample bank.
 """
 import json
+from .timebase import period_label as _period_label, horizon_label as _horizon_label, cadence_noun as _cadence_noun
 
 GREEN = "#31D0AA"; AMBER = "#F3A74A"; RED = "#FF6B5E"; BLUE = "#67A6FF"
 
@@ -55,6 +56,12 @@ def _commit(cfg):
 def build_exec_data(cfg, res):
     """Return a dict of JS-ready constants for injection into the design template."""
     commit = _commit(cfg)
+    _a = cfg.get("assumptions") or {}
+    _ppy = int(_a.get("periods_per_year") or 4)
+    _nperiods = int(_a.get("n_periods") or 12)
+    _horizon = _horizon_label(_nperiods, _ppy)
+    _period_word = _cadence_noun(_ppy)
+    def _plab(p): return _period_label(p, _ppy)
     lev = _lev_path(res)
     base = (res.get("scenarios") or {}).get("base") or {}
     min_lev = base.get("min_leverage")
@@ -71,14 +78,14 @@ def build_exec_data(cfg, res):
     worst_name, worst_val, _ = worst
 
     # ---- SERIES (real) ----
-    # stress path: use the worst scenario's per-quarter series if the engine exposes one; else scale lev.
+    # stress path: use the worst scenario's per-period series if the engine exposes one; else scale lev.
     def _scen_series(name):
         s = next((x for x in scen if x["scenario"] == name), None)
         if s and isinstance(s.get("path"), list) and s["path"]:
             return [round(float(v) * 100, 2) for v in s["path"]]
         return None
     stress_series = _scen_series(worst_name) or lev
-    # cumulative NI series (quarterly) if present, else a single-point fallback
+    # cumulative NI series (engine cadence) if present, else a single-point fallback
     cumni_series = None
     ni_q = ((res.get("financials") or {}).get("is") or {}).get("ni")
     if isinstance(ni_q, list) and ni_q:
@@ -121,15 +128,15 @@ def build_exec_data(cfg, res):
     metrics.append({
         "id": "lev", "label": "MIN BASE LEVERAGE",
         "value": _pct(min_lev_pct) if min_lev_pct is not None else "—",
-        "sub": f"Q{min_lev_q}" if min_lev_q else "",
+        "sub": _plab(min_lev_q) if min_lev_q else "",
         "foot": f"Requirement \u2265 {commit:.1f}%",
         "color": GREEN if (min_lev_pct or 0) >= commit else RED, "series": series["lev"],
         "detail": (f"Tier 1 leverage reaches its base-case minimum of {_pct(min_lev_pct)} "
-                   f"in Q{min_lev_q}, {'above' if (min_lev_pct or 0)>=commit else 'below'} the "
+                   f"in {_plab(min_lev_q)}, {'above' if (min_lev_pct or 0)>=commit else 'below'} the "
                    f"{commit:.1f}% commitment."),
         "drivers": [["Cumulative net income", f"${(cum_ni or 0)/1000:.1f}M"],
                     ["Capital raise assumed", "None after Day 1"],
-                    ["Projection horizon", f"{len(lev)} quarters"]],
+                    ["Projection horizon", _horizon]],
     })
     metrics.append({
         "id": "stress", "label": "WORST STRESS OUTCOME",
@@ -147,21 +154,21 @@ def build_exec_data(cfg, res):
     })
     metrics.append({
         "id": "breakeven", "label": "BREAKEVEN",
-        "value": f"Q{breakeven}" if breakeven else "—",
-        "sub": "First profitable quarter", "foot": "",
+        "value": _plab(breakeven) if breakeven else "—",
+        "sub": f"First profitable {_period_word}", "foot": "",
         "color": BLUE, "series": series["ni"],
-        "detail": (f"The plan reaches profitability in Q{breakeven}."
-                   if breakeven else "Breakeven quarter not reached in the horizon."),
-        "drivers": [["12-quarter net income", f"${(cum_ni or 0)/1000:.1f}M"]],
+        "detail": (f"The plan reaches profitability in {_plab(breakeven)}."
+                   if breakeven else f"Breakeven {_period_word} not reached in the horizon."),
+        "drivers": [[f"{_horizon.capitalize()} net income", f"${(cum_ni or 0)/1000:.1f}M"]],
     })
     # cumulative NI card
     metrics.append({
         "id": "cumni", "label": "CUMULATIVE NET INCOME",
-        "value": f"${(cum_ni or 0)/1000:.1f}M", "sub": f"{len(lev)}-quarter total",
+        "value": f"${(cum_ni or 0)/1000:.1f}M", "sub": f"{_horizon} total",
         "foot": "Carries the capital build", "color": BLUE, "series": series["cumni"],
         "detail": (f"Cumulative earnings of ${(cum_ni or 0)/1000:.1f}M over the projection; "
                    f"the plan assumes no capital raise after Day 1."),
-        "drivers": [["Breakeven", f"Q{breakeven}" if breakeven else "—"]],
+        "drivers": [["Breakeven", _plab(breakeven) if breakeven else "—"]],
     })
 
     # ---- SCEN (scenario detail) ----
@@ -186,7 +193,7 @@ def build_exec_data(cfg, res):
                       f"({'holds' if ok else 'breaches'})."),
             "drivers": [
                 f"Leverage {'clears' if ok else 'falls below'} the commitment by "
-                f"{abs(gap):.0f} bp in the binding quarter.",
+                f"{abs(gap):.0f} bp in the binding {_period_word}.",
                 ("No capital action is assumed after Day 1." if sid == "base"
                  else "Overlay applied to the base plan; no management action credited."),
             ],

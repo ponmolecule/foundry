@@ -190,3 +190,13 @@ LINE_LABELS = {
 }
 LOAN_KEYS = ["loanCommercial", "loanConsumer", "loanCreditCard", "loanMortgage", "loanOther"]
 DEP_KEYS = ["depDDA", "depSavings", "depTime", "depBrokered", "depSweep", "depInstitutional", "depListing"]
+LINE_ALIASES = {v: k for k, v in LINE_LABELS.items()}
+LINE_ALIASES.update({
+    "Loans: Credit Cards": "loanCreditCard",
+    "Loans: 1–4 Family Residential": "loanMortgage",
+    "Loans: Commercial Real Estate": "loanCRE",
+})
+
+def canonical_line(line):
+    """Canonical internal Call Report line key for legacy human-readable labels."""
+    return LINE_ALIASES.get(line, line)
