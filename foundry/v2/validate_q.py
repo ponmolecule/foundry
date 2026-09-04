@@ -233,6 +233,10 @@ def validate_config_v2(cfg):
                 errs.append(ctx + f"missing required field '{k}'")
         if p.get("rate_type") == "float" and "index_spread" not in p:
             errs.append(ctx + "floating rate requires 'index_spread'")
+        if p.get("rate_type") == "float" and p.get("index") is not None \
+                and p.get("index") not in ("sofr", "effr", "prime"):
+            errs.append(ctx + f"unknown floating index {p.get('index')!r}: must be one of "
+                        "sofr, effr, prime (unknown indexes silently fell back to SOFR)")
         if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None:
             errs.append(ctx + "fixed rate requires 'rate_paid_ann'")
         _range_check(p, PROD_RANGES, ctx, errs)
@@ -243,6 +247,10 @@ def validate_config_v2(cfg):
                 errs.append(ctx + f"missing required field '{k}'")
         if p.get("rate_type") == "float" and "index_spread" not in p:
             errs.append(ctx + "floating rate requires 'index_spread'")
+        if p.get("rate_type") == "float" and p.get("index") is not None \
+                and p.get("index") not in ("sofr", "effr", "prime"):
+            errs.append(ctx + f"unknown floating index {p.get('index')!r}: must be one of "
+                        "sofr, effr, prime (unknown indexes silently fell back to SOFR)")
         if p.get("rate_type") == "fixed" and p.get("yield_ann") is None:
             errs.append(ctx + "fixed rate requires 'yield_ann'")
         if p.get("measurement") == "fair_value" and p.get("discount_spread_ann") is None:
