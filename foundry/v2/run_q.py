@@ -168,7 +168,7 @@ def _min_leverage(res):
     return min(vals) / 100.0 if vals else None
 
 
-def _ftp_view(res):
+def _ftp_view(res, ppy=4):
     """C.8 — product contributions at the path rate, treasury center as the
     residual, reconciled EXACTLY to consolidated pre-tax income ($000s)."""
     prods = res.get("products") or []
@@ -188,7 +188,7 @@ def _ftp_view(res):
             beg = _wh[q - 1] if q >= 1 else 0.0
             end = _wh[q] if q < len(_wh) else 0.0
             return ((beg or 0.0) + (end or 0.0)) / 2.0
-        ftp = sum(((p["avg"][q] or 0) + _wh_avg(q)) * (p["ftp_rate"][q] or 0) / 4.0 for q in range(n))
+        ftp = sum(((p["avg"][q] or 0) + _wh_avg(q)) * (p["ftp_rate"][q] or 0) / float(ppy) for q in range(n))
         sign = -1.0 if p["family"] == "lending" else (1.0 if p["family"] == "deposit" else 0.0)
         comp = {k: sum((p[k][q] or 0) for q in range(n))
                 for k in ("interest", "fees", "opex", "co", "gos", "servNet")}
@@ -386,7 +386,7 @@ def run_v2(cfg):
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
-        "ftp": _ftp_view(base),
+        "ftp": _ftp_view(base, _ppy),
         "scenarios": {scen: {**_scen_metrics(r, cfg, next((c2["value"] for c2 in cfg["constraints"]
                                                             if c2["key"] == "leverage_min"), 0.0)),
                              "label": scen_labels[scen]}
