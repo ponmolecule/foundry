@@ -393,17 +393,22 @@ def optimize(cfg, run_fn, objective, direction, levers, constraints=None,
                 xbest, _ = _pure_de(cost, bounds, maxiter=maxiter, popsize=popsize, seed=s)
             obj, penalty, sat = evaluate(xbest)
             solutions.append({"x": xbest, "obj": obj, "feasible": all(sat) if constraints else True,
-                              "sat": sat})
+                              "sat": sat, "penalty": penalty})
         except Exception as e:
             solutions.append({"x": None, "obj": None, "feasible": False, "sat": [], "err": str(e)[:120]})
 
-    # pick the best FEASIBLE solution (or best objective if none feasible)
+    # AUDIT (Lab-opt): best FEASIBLE by objective; if none feasible, return CLOSEST-to-feasibility
+    # (min constraint violation), objective only as tie-break -- not best-objective-among-infeasible.
     feasible = [s for s in solutions if s.get("feasible") and s.get("obj") is not None]
-    pool = feasible if feasible else [s for s in solutions if s.get("obj") is not None]
-    if not pool:
+    evaluable = [s for s in solutions if s.get("obj") is not None]
+    if not evaluable:
         return {"error": "optimizer could not evaluate the objective anywhere in the search space",
                 "feasible": False}
-    best = max(pool, key=lambda s: s["obj"]) if direction == "max" else min(pool, key=lambda s: s["obj"])
+    if feasible:
+        best = max(feasible, key=lambda s: s["obj"]) if direction == "max" else min(feasible, key=lambda s: s["obj"])
+    else:
+        _osign = -1.0 if direction == "max" else 1.0
+        best = min(evaluable, key=lambda s: (s.get("penalty", float("inf")), _osign * (s["obj"] or 0.0)))
 
     # non-uniqueness check: do the feasible seeds agree on lever values?
     nonunique = False
