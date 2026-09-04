@@ -35,11 +35,14 @@ def run_pf_b(cfg):
     _curves = _build_rate_curve_set(a, cfg, 4)
     _rate = _curves["sofr"]
 
+    from .timebase import event_start_period
+
     capital = cfg["target_state"]["initial_capital"]
     _raises = cfg["assumptions"].get("capital_raises") or []
     cap_t = [capital] * (Q + 1)
     for _r in _raises:
-        for _q in range(int(_r["quarter"]), Q + 1):
+        _q0 = event_start_period(_r, 4)
+        for _q in range(_q0, Q + 1):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
@@ -52,7 +55,7 @@ def run_pf_b(cfg):
     _sched_t = [0.0] * (Q + 1)
     _sched_int = [0.0] * 12
     for _sb in _schedb:
-        _amt, _q0, _tq, _r = float(_sb["amount"]), int(_sb["quarter"]), int(_sb["term_q"]), float(_sb["rate_ann"])
+        _amt, _q0, _tq, _r = float(_sb["amount"]), event_start_period(_sb, 4), int(_sb["term_q"]), float(_sb["rate_ann"])
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             _sched_t[_q] += _amt
             _sched_int[_q - 1] += _amt * _r / 4.0

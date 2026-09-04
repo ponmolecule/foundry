@@ -137,12 +137,14 @@ OBS_FIELDS = [
 SCHED_FIELDS = [
     ("name", "Name", "label (editable)"),
     ("amount", "Draw amount", "$"),
-    ("quarter", "Draw quarter", "model calendar quarter within horizon"),
+    ("period", "Draw period", "engine period M#/Q# (cadence-aware; preferred for new configs)"),
+    ("quarter", "Legacy draw quarter", "calendar/model quarter (backward-compatible)"),
     ("term_q", "Term to maturity", "quarters (bullet)"),
     ("rate_ann", "Rate", "annual rate"),
 ]
 RAISE_FIELDS = [
-    ("quarter", "Raise quarter", "model calendar quarter within horizon"),
+    ("period", "Raise period", "engine period M#/Q# (cadence-aware; preferred for new configs)"),
+    ("quarter", "Legacy raise quarter", "calendar/model quarter (backward-compatible)"),
     ("amount", "Raise amount", "$"),
 ]
 PREOPEN_FIELDS = [
@@ -372,7 +374,9 @@ def build_fiw(cfg):
         ("CBLR election", "yes" if ch.get("cblr_election") else "no", "community bank leverage framework", True),
         ("Initial capital ($000s)", wbunits.to_workbook((cfg.get("target_state") or {}).get("initial_capital", "") or None, "$") if (cfg.get("target_state") or {}).get("initial_capital", "") not in ("", None) else "", "", True),
         ("Scenario name", cfg.get("scenario_name", ""), "", True),
-    ] + [(f"Staged raise {i+1} — quarter", r.get("quarter", ""), "1..12", True)
+    ] + [(f"Staged raise {i+1} — timing",
+           (f"{('M' if int(a.get('periods_per_year') or 4)==12 else 'Y' if int(a.get('periods_per_year') or 4)==1 else 'Q')}{r.get('period')}" if r.get("period") is not None else f"Q{r.get('quarter','')}"),
+           "cadence-aware engine period or legacy calendar quarter", True)
           for i, r in enumerate(a.get("capital_raises") or [])]
       + [(f"Staged raise {i+1} — amount ($000s)", wbunits.to_workbook(r.get("amount", "") or None, "$") if r.get("amount", "") not in ("", None) else "", "", True)
           for i, r in enumerate(a.get("capital_raises") or [])])
@@ -461,10 +465,16 @@ def _settings_sheet(wb, cfg):
     row("Other assets", a.get("other_assets"), "$")
     row("Other liabilities", a.get("other_liabilities"), "$")
     sec("Scheduled borrowings")
+    _ppy = int(a.get("periods_per_year") or 4)
     for i, b in enumerate(a.get("scheduled_borrowings") or [], 1):
+        if b.get("period") is not None:
+            _ep = int(b.get("period") or 1)
+            _lab = ("M" if _ppy == 12 else "Y" if _ppy == 1 else "Q") + str(_ep)
+        else:
+            _lab = "Q" + str(b.get("quarter", b.get("start_q")))
         row(b.get("name") or f"Borrowing {i}",
-            f"draws Q{b.get('quarter', b.get('start_q'))} \u00b7 {float(b.get('amount') or 0):,.0f} \u00b7 "
-            f"{b.get('term_q')}q amortizing at {b.get('rate_ann')}", "")
+            f"draws {_lab} · {float(b.get('amount') or 0):,.0f} · "
+            f"{b.get('term_q')}q bullet at {b.get('rate_ann')}", "")
     if not (a.get("scheduled_borrowings") or []): row("(none)", "")
     sec("Pre-opening expenses")
     _po_ex = (cfg.get("pre_opening") or {}).get("expenses") or []

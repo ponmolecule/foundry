@@ -180,9 +180,15 @@ def validate_config_v2(cfg):
     for i, sb in enumerate(a.get("scheduled_borrowings") or []):
         if not str(sb.get("name", "")).strip():
             errs.append(f"scheduled_borrowings[{i}].name is required")
-        if not isinstance(sb.get("quarter"), int) or not (1 <= sb["quarter"] <= _max_model_q):
-            errs.append(f"scheduled_borrowings[{i}].quarter must be an integer 1-{_max_model_q} "
-                        "(calendar/model draw quarter within the projection horizon)")
+        _ep = sb.get("period")
+        _eq = sb.get("quarter")
+        if _ep not in (None, ""):
+            if not isinstance(_ep, int) or not (1 <= _ep <= _nper):
+                errs.append(f"scheduled_borrowings[{i}].period must be an integer 1-{_nper} "
+                            "(engine draw period within the projection horizon)")
+        elif not isinstance(_eq, int) or not (1 <= _eq <= _max_model_q):
+            errs.append(f"scheduled_borrowings[{i}] requires period 1-{_nper} or legacy quarter "
+                        f"1-{_max_model_q} within the projection horizon")
         if not isinstance(sb.get("amount"), (int, float)) or sb["amount"] <= 0:
             errs.append(f"scheduled_borrowings[{i}].amount must be a positive dollar amount")
         r_ = sb.get("rate_ann")
@@ -232,10 +238,14 @@ def validate_config_v2(cfg):
         if not isinstance(m, (int, float)) or m < 0:
             errs.append("pre_opening.min_day1_capital must be a non-negative dollar amount")
     for i, r in enumerate(a.get("capital_raises") or []):
-        q = r.get("quarter"); amt = r.get("amount")
-        if not isinstance(q, int) or not (1 <= q <= _max_model_q):
-            errs.append(f"capital_raises[{i}].quarter must be an integer 1..{_max_model_q} "
-                        "(calendar/model quarter within the projection horizon)")
+        ep = r.get("period"); q = r.get("quarter"); amt = r.get("amount")
+        if ep not in (None, ""):
+            if not isinstance(ep, int) or not (1 <= ep <= _nper):
+                errs.append(f"capital_raises[{i}].period must be an integer 1..{_nper} "
+                            "(engine period within the projection horizon)")
+        elif not isinstance(q, int) or not (1 <= q <= _max_model_q):
+            errs.append(f"capital_raises[{i}] requires period 1..{_nper} or legacy quarter "
+                        f"1..{_max_model_q} within the projection horizon")
         if not isinstance(amt, (int, float)) or amt <= 0:
             errs.append(f"capital_raises[{i}].amount must be a positive dollar amount")
     missing = [k for k in ASSUMPTION_REQUIRED if k not in a]

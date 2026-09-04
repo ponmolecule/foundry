@@ -2508,7 +2508,7 @@ def t69():
 
 def t68():
     # Regression: the balance-sheet exhibit's Total liabilities must include the
-    # amortizing scheduled-borrowings line, not just the revolving `borrow` plug.
+    # scheduled-borrowings bullet line, not just the revolving `borrow` plug.
     # Omitting it broke assets = liabilities + equity by exactly the scheduled
     # balance in every quarter a term draw was outstanding (a bug that shipped
     # because NO golden fixture exercised scheduled_borrowings). This guards it.

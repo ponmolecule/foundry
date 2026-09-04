@@ -86,6 +86,30 @@ def main():
     ck("A9 monthly ISO opening preserves May", str(model_period_end_date(cd, 1, 12)) == "2027-05-31")
     ck("A10 M12 lands April 2028", str(model_period_end_date(cd, 12, 12)) == "2028-04-30")
 
+    # Explicit cadence-aware event periods allow monthly placement without overloading
+    # the backward-compatible `quarter` field. A Month-24 raise must land in Month 24.
+    ep0 = _monthly_a(); ep0["assumptions"]["capital_raises"] = []
+    ep1 = copy.deepcopy(ep0); ep1["assumptions"]["capital_raises"] = [{"period":24,"amount":12_000_000}]
+    er0, er1 = run_v2(ep0), run_v2(ep1)
+    ee0, ee1 = er0["financials"]["bs"]["equity"], er1["financials"]["bs"]["equity"]
+    ck("A11 explicit Month-24 raise does not land in Month 23", abs(ee1[23]-ee0[23]) < .01)
+    ck("A12 explicit Month-24 raise lands in Month 24", ee1[24]-ee0[24] > 11_900)
+
+    # A scheduled FHLB advance placed at M4 with a four-quarter term is a 12-month
+    # bullet: M4-M15 outstanding, M16 matured; interest = 12MM*6%/12 = 60k/month.
+    fb = _monthly_a(); fb["assumptions"]["capital_raises"] = []
+    fb["assumptions"]["scheduled_borrowings"] = [{
+        "name":"FHLB test", "period":4, "amount":12_000_000, "rate_ann":.06, "term_q":4
+    }]
+    fr = run_v2(fb); fbs=fr["financials"]["bs"]; fis=fr["financials"]["is"]
+    ck("A13 FHLB M4 draw starts in Month 4", max(abs(x) for x in fbs["borrowSched"][:4]) < .01 and abs(fbs["borrowSched"][4]-12_000)<.01)
+    ck("A14 FHLB four-quarter bullet remains through Month 15 and matures Month 16",
+       all(abs(fbs["borrowSched"][m]-12_000)<.01 for m in range(4,16)) and abs(fbs["borrowSched"][16])<.01)
+    ck("A15 FHLB monthly interest is exactly 60k while outstanding",
+       all(abs(fis["borrExp"][m-1]-60)<.01 for m in range(4,16)) and abs(fis["borrExp"][15])<.01)
+    ck("A16 wholesale peak includes scheduled FHLB when residual plug is zero",
+       abs(fr["scenarios"]["base"]["peak_borrowings"]-12_000)<.01 and max(fbs["borrow"])<.01)
+
     # B. Regulatory capital --------------------------------------------------------
     base = _load(PF_A); rb = run_v2(copy.deepcopy(base))
     big = copy.deepcopy(base); big["assumptions"]["other_assets"] += 100_000_000
@@ -227,6 +251,12 @@ def main():
        "Loan balances roll forward each {{period}}" in html and "function methodologyHTML()" in html and "h += methodologyHTML();" in html)
     ck("J9 generic financial descriptions use cadence-aware period text",
        "function calcText(key)" in html and "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})" in html)
+    ck("J10 raise/borrowing event selectors are cadence-aware rather than hard-coded Qtr",
+       "function EVENTUNIT()" in html and "function SETEVENT(ev,v)" in html and "${EVENTUNIT()}<select" in html)
+    ck("J11 monthly event UI stores explicit period instead of overloading quarter",
+       "ev.period=v; delete ev.quarter" in html)
+    ck("J12 FHLB presentation consistently says bullet, not amortizing",
+       "Scheduled Borrowings (FHLB/Term, bullet)" in html and "Scheduled Borrowings (FHLB/Term, amortizing)" not in html)
 
     # K. Security hardening ---------------------------------------------------------
     app_src = (ROOT/"app.py").read_text(encoding="utf-8")
