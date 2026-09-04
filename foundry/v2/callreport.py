@@ -141,7 +141,11 @@ def build_rc(res, cfg):
         _row("2.b", "RCON1773", "Available-for-sale debt securities (fair value)",
               [bs["sec"][t] + bs.get("afsBook", [0.0] * len(bs["sec"]))[t]
                for t in range(len(bs["sec"]))]),
-        _row("4.b", "RCONB528", "Loans and leases held for investment", bs["grossLoans"]),
+        _row("4.a", "RCON5369", "Loans and leases held for sale",
+              bs.get("hfs", [0.0] * len(bs["grossLoans"]))),
+        _row("4.b", "RCONB528", "Loans and leases held for investment",
+              [bs["grossLoans"][t] - (bs.get("hfs") or [0.0] * len(bs["grossLoans"]))[t]
+               for t in range(len(bs["grossLoans"]))]),
         _row("4.c", "RCON3123", "LESS: allowance for credit losses", [-x for x in bs["alll"]]),
         _row("4.d", "RCONB529", "Loans and leases, net", bs["netLoans"]),
         _row("6", "RCON2145", "Premises and fixed assets", prem),
@@ -164,8 +168,8 @@ def build_rc(res, cfg):
     if any(x > 0 for x in bs["msr"]):
         rows.insert(8, _row("RC-M 2.a", "RCON6438", "Mortgage servicing assets (memoranda)", bs["msr"]))
     if any(x > 0 for x in bs["hfs"]):
-        rows.append(_row("MEMO", "RCON5369", "Loans held for sale (memoranda — engine carries the "
-                          "warehouse outside total assets; carry earns in RI)", bs["hfs"]))
+        rows.append(_row("MEMO", "RCON5369", "Loans held for sale (memoranda — HFS/warehouse is "
+                          "included in total assets and reported in Schedule RC line 4.a; carry earns in RI)", bs["hfs"]))
     return {"schedule": "RC", "title": "Balance Sheet", "rows": rows,
             "omitted": ["trading assets (RC 5)",
                           "bank premises detail, foreclosed assets, subordinated debt"],
