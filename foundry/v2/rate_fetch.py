@@ -87,12 +87,33 @@ def fetch_policy(api_key, http_get=None):
     effr = _obs(SERIES["effr"], api_key, http_get)
     effr_observed = effr[0][1] if effr else None
 
-    # The three most recent distinct SEP horizon points (they share the SEP release date but project
-    # different years). Return them ordered; the caller maps to ye26/ye27/ye28.
-    # FRED returns them as separate observations dated by projection year-end.
-    sep_points = [v for (_, v) in sep[:4]]
-    while len(sep_points) < 3:
-        sep_points.append(sep_points[-1] if sep_points else mid)
+    # AUDIT #7: FEDTARMD observations are dated by PROJECTION YEAR-END and fetched sort_order=desc
+    # (latest first), so positional mapping sep[0]->ye26 REVERSED the slope (assigned the furthest
+    # year to the nearest slot). Map by the observation's ACTUAL YEAR instead — robust regardless of
+    # order or which years FRED returns. Slots are the three consecutive projection years starting at
+    # the earliest year on/after the current calendar year.
+    import datetime as _dt
+    _by_year = {}
+    for (_d, _v) in sep:
+        try:
+            _y = int(str(_d)[:4])
+            _by_year.setdefault(_y, _v)      # first (latest release) wins per year
+        except Exception:
+            pass
+    _this_year = _dt.date.today().year
+    _future = sorted(y for y in _by_year if y >= _this_year)
+    if _future:
+        _y0 = _future[0]
+        sep_points = [_by_year.get(_y0 + i) for i in range(3)]
+    else:
+        sep_points = [None, None, None]
+    # fill any missing slot forward (hold last known), else fall back to current midpoint
+    _last = mid
+    for _i in range(3):
+        if sep_points[_i] is None:
+            sep_points[_i] = _last
+        else:
+            _last = sep_points[_i]
 
     return {
         "current_policy": {"mid": mid, "top": top,
