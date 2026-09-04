@@ -2013,9 +2013,14 @@ def t61():
     off = _r.run_v2(cfg)["financials"]
     cA = _cp.deepcopy(cfg); cA["assumptions"]["tax_detail"] = {"enabled": True, "nol_utilization_limit_pct": 1.0}
     A = _r.run_v2(cA)["financials"]
-    check("T61a", "strict theorem: limit=1.0 + auto VA reproduces the legacy path exactly",
-          all(abs((x or 0) - (y or 0)) < 1e-6
-              for x, y in zip(off["bs"]["equity"][1:], A["bs"]["equity"][1:])))
+    # AUDIT 6.1: the DEFAULT path now applies the 80% NOL limit (IRC 172, tax-law, election-
+    # independent). So limit=1.0 detailed (100% NOL) is NO LONGER equal to the default path; it
+    # should utilize MORE NOL and therefore end with equity >= the default path (less/equal tax),
+    # strictly greater in at least one quarter where NOL and profit coexist.
+    _eqA = A["bs"]["equity"][1:]; _eqOff = off["bs"]["equity"][1:]
+    check("T61a", "limit=1.0 (100% NOL) utilizes >= default 80% path (equity no lower, strictly higher somewhere)",
+          all((x or 0) >= (y or 0) - 1e-6 for x, y in zip(_eqA, _eqOff))
+          and any((x or 0) > (y or 0) + 1e-6 for x, y in zip(_eqA, _eqOff)))
     cB = _cp.deepcopy(cfg); cB["assumptions"]["tax_detail"] = {"enabled": True}
     B = _r.run_v2(cB)["financials"]["is"]
     prof = [q for q in range(1, len(B["pretax"])) if (B["pretax"][q] or 0) > 0 and (B["nol"][q] or 0) > 0]

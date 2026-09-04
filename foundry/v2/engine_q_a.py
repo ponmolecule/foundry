@@ -746,7 +746,16 @@ def run_pf_a(cfg):
                 tax = _current + _deferred
                 _dta_iter = _dta_net
             else:
-                taxable = max(0.0, pretax - nol)
+                # AUDIT 6.1: post-2017 NOLs are limited to 80% of taxable income. This is TAX LAW and
+                # must apply regardless of whether detailed DTA accounting is enabled (the election
+                # affects accounting recognition, not what the tax code permits). Same limit param as
+                # the detailed path (_td_lim / REG_PARAMS nol_utilization_limit_pct).
+                _nol_lim_pct = float((_RP.get("tax") or {}).get("nol_utilization_limit_pct", 0.80))
+                if pretax > 0:
+                    _shield = min(nol, _nol_lim_pct * pretax)
+                    taxable = pretax - _shield
+                else:
+                    taxable = 0.0
                 tax = taxable * a["tax_rate"]
             new_ni = pretax - tax
             if abs(new_ni - ni) < 1e-4:
