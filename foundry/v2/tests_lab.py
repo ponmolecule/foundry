@@ -37,8 +37,8 @@ def main():
     # 4b. REGRESSION: CET1 must be a RATIO (0<v<100 pct), not a dollar amount, and must FALL as loans
     # (and thus RWA) grow. This guards the bug where the extractor returned standardized.cet1 (dollars).
     cet1_base = lab_core.metric_value(run_fn(cfg), "cet1")
-    c_small = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_q", 2000000)
-    c_big = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_q", 8000000)
+    c_small = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_per_period", 2000000)
+    c_big = lab_core.set_path(cfg, "assumptions.lending_products.0.originations_per_period", 8000000)
     cet1_small = lab_core.metric_value(run_fn(c_small), "cet1")
     cet1_big = lab_core.metric_value(run_fn(c_big), "cet1")
     ck("CET1 is a ratio (0<v<100) that falls as loans grow",
@@ -73,8 +73,8 @@ def main():
 
     # 9. frontier over the real engine returns non-dominated points, JSON-serializable
     fr = lab_core.frontier(cfg, run_fn, "roa","max","lev","max",
-                           "assumptions.lending_products.0.originations_q",
-                           "assumptions.deposit_products.0.growth_q", n=5)
+                           "assumptions.lending_products.0.originations_per_period",
+                           "assumptions.deposit_products.0.growth_per_period", n=5)
     fser = True
     try: _json.dumps(fr)
     except Exception: fser = False
