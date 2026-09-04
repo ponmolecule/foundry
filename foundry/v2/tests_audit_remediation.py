@@ -257,6 +257,18 @@ def main():
        "ev.period=v; delete ev.quarter" in html)
     ck("J12 FHLB presentation consistently says bullet, not amortizing",
        "Scheduled Borrowings (FHLB/Term, bullet)" in html and "Scheduled Borrowings (FHLB/Term, amortizing)" not in html)
+    ck("J13 browser calendar preserves literal ISO opening month at monthly cadence",
+       "function _openingModelStart()" in html and "PPY()===12 ? d.getUTCMonth()" in html
+       and "const st=_openingModelStart();" in html and "function _openingQuarterStart()" not in html)
+    ck("J14 Executive Summary labels submission totals explicitly rather than stale 12-quarter copy",
+       '"12-quarter total"' not in html and "Product (12-quarter totals" not in html
+       and "Q1–Q${SUBQ()} submission total" in html and "Q1–Q${SUBQ()} submission totals" in html)
+    ck("J15 generic monthly/quarterly wording has no known fixed-quarter remnants",
+       "Engine-computed output for this quarter" not in html
+       and '"first profitable quarter"' not in html
+       and "End-of-quarter balance" not in html
+       and "from its stated quarter" not in html
+       and "from its draw quarter" not in html)
 
     # K. Security hardening ---------------------------------------------------------
     app_src = (ROOT/"app.py").read_text(encoding="utf-8")
