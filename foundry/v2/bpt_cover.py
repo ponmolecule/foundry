@@ -39,20 +39,30 @@ def _norm(series):
     return s, None
 
 
-def _annual_periods():
+def _annual_periods(ppy=4, n_periods=12):
+    # AUDIT 4.3: cadence-aware. Engine runs in `ppy` periods/year; the BPT annual view aggregates
+    # each YEAR: stock at year-end engine-period, flows summed over the year's engine-periods.
+    nyr = max(1, n_periods // ppy)
     periods = [{"label": "Day 1", "day1": True}]
-    for y in range(1, 4):
-        qs = [(y - 1) * 4 + k for k in range(4)]
-        periods.append({"label": f"Year {y}", "stock_idx": y * 4 - 1, "flow_idxs": qs})
+    for y in range(1, nyr + 1):
+        idxs = [(y - 1) * ppy + k for k in range(ppy)]      # engine-period indices in year y
+        periods.append({"label": f"Year {y}", "stock_idx": y * ppy - 1, "flow_idxs": idxs})
     return periods
 
 
-def _quarterly_periods():
+def _quarterly_periods(ppy=4, n_periods=12):
+    # AUDIT 4.3: the QUARTERLY regulatory view. mpq engine-periods per quarter (mo:3, qtr:1). A
+    # quarter's stock = its last engine-period; its flow = sum over the quarter's engine-periods.
+    mpq = max(1, round(ppy / 4))
+    nq = max(1, round(n_periods * 4 / ppy))
+    nyr = max(1, nq // 4)
     periods = [{"label": "Day 1", "day1": True}]
-    for y in range(1, 4):
+    for y in range(1, nyr + 1):
         for q in range(1, 5):
-            idx = (y - 1) * 4 + (q - 1)
-            periods.append({"label": f"Y{y} Q{q}", "stock_idx": idx, "flow_idxs": [idx]})
+            qn = (y - 1) * 4 + q
+            base = (qn - 1) * mpq
+            idxs = [base + j for j in range(mpq)]
+            periods.append({"label": f"Y{y} Q{q}", "stock_idx": base + mpq - 1, "flow_idxs": idxs})
     return periods
 
 
@@ -313,10 +323,12 @@ def build_bpt_cover(cfg, res):
     wb = Workbook()
     ws_annual = wb.active
     ws_annual.title = "Business Plan Tables Annual"
-    _build_sheet(ws_annual, cfg, res, _annual_periods(), "annual")
+    _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
+    _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
+    _build_sheet(ws_annual, cfg, res, _annual_periods(_ppy, _np), "annual")
 
     ws_q = wb.create_sheet("Business Plan Tables Quarterly")
-    _build_sheet(ws_q, cfg, res, _quarterly_periods(), "quarterly")
+    _build_sheet(ws_q, cfg, res, _quarterly_periods(_ppy, _np), "quarterly")
 
     buf = io.BytesIO()
     wb.save(buf)
