@@ -328,6 +328,8 @@ def run_pf_a(cfg):
     ppyf = float(ppy)
     from .timebase import (quarters_to_periods, months_to_periods,
                            quarterly_value_to_period)
+    from .growth import growth_context_from_cfg
+    _growth_ctx = growth_context_from_cfg(cfg, ppy)
     import copy
     lend = copy.deepcopy(a.get("lending_products") or [])
     # Originate-to-sell normalization. The engine reads the sale config under the `mortgage_banking`
@@ -423,7 +425,7 @@ def run_pf_a(cfg):
                                  managed_notional_series)
     from .cac_feeder import cac_managed_notional
     from .regparams import REG_PARAMS as _RP
-    _nie_d = nie_detail_series(a, ppy)
+    _nie_d = nie_detail_series(a, ppy, _growth_ctx)
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor
@@ -494,7 +496,7 @@ def run_pf_a(cfg):
             _feed = (a.get("cac_feeds") or {}).get(_src)
             if _feed is not None:
                 _mn_cfg = cac_managed_notional(_feed, Q, ppy)
-        _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q, ppy)
+        _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q, ppy, _growth_ctx)
         p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)
         # drives cohort roll-OFF — deposits exit when their cohort matures.
@@ -526,7 +528,8 @@ def run_pf_a(cfg):
             p["_ii"].append(0.0)
             p["_ie"].append(avg * r / ppyf if p in dep else 0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
-                                                            "managed_notional": _mn_avg[q - 1]}, ppy)
+                                                            "managed_notional": _mn_avg[q - 1],
+                                                            "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
@@ -633,7 +636,8 @@ def run_pf_a(cfg):
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
-            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg}, ppy)
+            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
@@ -905,9 +909,16 @@ def run_pf_a(cfg):
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
-        overhead = (a.get("overhead_per_period", a.get("overhead_q")) or 0.0) * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
+        _ovh_base = (a.get("overhead_per_period", a.get("overhead_q")) or 0.0)
+        if a.get("overhead_growth_spec"):
+            from .growth import growth_multiplier
+            overhead = _ovh_base * growth_multiplier(
+                a.get("overhead_growth_spec"), current_period=q, start_period=1,
+                ppy=ppy, context=_growth_ctx, base_position="period1") + dep_exp_t[q]
+        else:
+            overhead = _ovh_base * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
         if _nie_d:
-            # Patrick's NIE granularity (F-071): FTE-step comp + category lines +
+            # Patrick's NIE granularity (F-071): workforce compensation + category lines +
             # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.
             # Assessment RATES are engagement assumptions (12 CFR 327 schedule / 12 CFR 8):
             # read from the config's nie_detail block when set, else the REG_PARAMS default.

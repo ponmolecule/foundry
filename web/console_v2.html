@@ -554,6 +554,52 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 // calendar-quarter semantics and display at that quarter's first engine period.
 function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }
 function EVENTSCHEDLABEL(){ return EVENTUNIT(); }
+// Canonical business-growth authoring controls. These are deliberately scoped to
+// assumptions whose *business growth cadence* can differ from computational cadence;
+// APRs/yields/spreads continue to use their natural financial-rate semantics.
+function GROWTH_PERIODS(){
+  return PPY()===12 ? [["month","Month"],["quarter","Quarter"],["year","Year"]]
+                    : [["quarter","Quarter"],["year","Year"]];
+}
+function setGrowthField(path, field, value, legacyRate){
+  // First edit of a legacy growth field must materialize the assumptions the UI is
+  // visibly showing; otherwise changing only the period/method could silently zero or
+  // reinterpret the old per-period rate.
+  var s=getPath(path);
+  if(!s || typeof s!=="object"){
+    var np=(PPY()===12?"month":"quarter");
+    s={rate:+(legacyRate||0),period:np,method:"smooth",anchor:"model_period"};
+  } else { s=Object.assign({},s); }
+  s[field]=value;
+  if(field==="period" && value==="year" && (!s.anchor || s.anchor==="model_period")) s.anchor="model_year";
+  if(field==="period" && value!=="year" && ["model_year","calendar_year","fiscal_year","hire_anniversary"].includes(s.anchor)) s.anchor="model_period";
+  setPath(path,s);
+}
+function growthSpecInline(path, spec, legacyRate, allowHire){
+  spec=spec||{};
+  var nativePeriod=(PPY()===12?"month":"quarter");
+  var rate=(spec.rate!=null?+spec.rate:+(legacyRate||0));
+  var period=spec.period||nativePeriod;
+  var method=spec.method||"smooth";
+  var anchor=spec.anchor||((period==="year")?"model_year":"model_period");
+  var lr=+(legacyRate||0);
+  var h=`<input type="number" step="0.1" style="width:58px" value="${(rate*100).toFixed(2)}" title="Growth rate for the selected assumption period" onchange="setGrowthField('${path}','rate',_pf(this.value)/100,${lr})"><span class="cu">% per</span>`;
+  h += `<select style="width:86px" onchange="setGrowthField('${path}','period',this.value,${lr});renderContent()">${GROWTH_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===period?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+  h += `<select style="width:78px" onchange="setGrowthField('${path}','method',this.value,${lr});renderContent()"><option value="smooth"${method==='smooth'?' selected':''}>Smooth</option><option value="step"${method==='step'?' selected':''}>Step</option></select>`;
+  if(method==="step" && period==="year"){
+    var A=[["model_year","Model year"],["calendar_year","Calendar year"],["fiscal_year","Fiscal year"]];
+    if(allowHire) A.unshift(["hire_anniversary","Hire anniversary"]);
+    h += `<span class="cu">at</span><select style="width:112px" onchange="setGrowthField('${path}','anchor',this.value,${lr});renderContent()">${A.map(o=>`<option value="${o[0]}"${o[0]===anchor?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+    if(anchor==="fiscal_year"){
+      var am=+(spec.anchor_month||1), MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+      // A quarterly engine cannot place a discrete annual step inside a calendar quarter.
+      // Keep imported non-aligned months visible but disabled, and author new quarterly
+      // fiscal anchors only on native quarter boundaries. Validation fails closed too.
+      h += `<select style="width:68px" title="Fiscal year start month" onchange="setGrowthField('${path}','anchor_month',+this.value,${lr})">${MN.map((m,i)=>{var n=i+1,dis=(PPY()===4 && ![1,4,7,10].includes(n));return `<option value="${n}"${am===n?' selected':''}${dis?' disabled':''}>${m}</option>`;}).join('')}</select>`;
+    }
+  }
+  return h;
+}
 function EVENTVAL(ev){
   ev=ev||{};
   if(ev.period!=null && ev.period!=="") return +ev.period;
@@ -1991,9 +2037,16 @@ function fieldsFor(fam, p, base){
     const _curSrc = p.managed_notional_source ? ("feed:"+p.managed_notional_source) : "";
     h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=cfg.assumptions.obs_exposures[${_fi}]; if(v.indexOf(\x27feed:\x27)===0){pp.managed_notional_source=v.slice(5);}else{delete pp.managed_notional_source;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
     if(!p.managed_notional_source){
+      const _mntraj=p.managed_notional.trajectory||"ramp_to_target";
+      h += SEL("AUC trajectory", mnb+".trajectory", _mntraj, [["ramp_to_target","Ramp to target"],["proportional","Growth"],["flat","Flat"]]);
       h += F("AUC day 1 ($000s)", mnb+".day1", "k");
-      h += F("AUC target ($000s)", mnb+".target", "k");
-      h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+      if(_mntraj==="ramp_to_target"){
+        h += F("AUC target ($000s)", mnb+".target", "k");
+        h += F("Ramp to target (quarters)", mnb+".ramp_periods", "n");
+      } else if(_mntraj==="proportional"){
+        const _mng=(p.managed_notional.growth_per_period!=null?p.managed_notional.growth_per_period:_qGrowthToPeriod(p.managed_notional.growth_q||0));
+        h += `<div class="fld wide"><label>AUC growth</label>${growthSpecInline(mnb+".growth_spec",p.managed_notional.growth_spec,_mng,false)}</div>`;
+      }
     } else {
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
     }
@@ -2025,7 +2078,9 @@ function fieldsFor(fam, p, base){
       // Axis 3: trajectory
       h += SEL("Trajectory (how the driver moves)", sb+".driver.trajectory", traj, [["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (\u00d7 source)"]]);
       if(src==="constant" && traj!=="explicit_schedule"){ h += F("Base value", sb+".driver.params.base", "n"); }
-      if(traj==="proportional"){ h += F(`Growth (%/${PLAB()})`, sb+".driver.params.growth_per_period", "pct"); }
+      if(traj==="proportional"){
+        h += `<div class="fld wide"><label>Driver growth</label>${growthSpecInline(sb+".driver.params.growth_spec",st.driver.params.growth_spec,(st.driver.params.growth_per_period!=null?st.driver.params.growth_per_period:_qGrowthToPeriod(st.driver.params.growth_q||0)),false)}</div>`;
+      }
       if(traj==="derived"){ h += F("Multiple (\u00d7 source)", sb+".driver.params.multiple", "n"); h += F("or Percentage (of source, 0-1)", sb+".driver.params.pct", "n"); }
       // Axis 4: rate behavior
       h += SEL("Rate behavior", sb+".rate.behavior", rb, [["flat","Flat rate"],["annual_change","Annual change (%/yr)"],["scheduled","Scheduled (per-quarter)"],["tiered","Tiered (breakpoints)"]]);
@@ -2982,17 +3037,35 @@ window.poPaste = function(txt, mode){
   renderContent(); refresh();
 };
 
+function _newNieDetail(){
+  return {categories:[], other_gross_up_rate:0,
+          workforce:{mode:"roles",roles:[],default_payroll_load_rate:0,
+                     default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}}};
+}
+function _ensureNieDetail(){
+  var A=cfg.assumptions; A.nie_detail=A.nie_detail||_newNieDetail();
+  A.nie_detail.categories=A.nie_detail.categories||[]; return A.nie_detail;
+}
+function _ensureWorkforce(){
+  var nd=_ensureNieDetail();
+  nd.workforce=nd.workforce||{roles:[],default_payroll_load_rate:0,
+    default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};
+  nd.workforce.mode="roles"; nd.workforce.roles=nd.workforce.roles||[];
+  nd.workforce.default_salary_growth_spec=nd.workforce.default_salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
+  return nd.workforce;
+}
 window.nieCatAdd = function(){
-  var A = cfg.assumptions;
-  A.nie_detail = A.nie_detail || {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0};
-  (A.nie_detail.categories = A.nie_detail.categories || []).push({name:"", per_period:0});
+  var nd = _ensureNieDetail();
+  nd.categories.push({name:"", per_period:0});
   renderContent(); refresh();
 };
-window.nieCatPaste = function(txt, type, growthPct){
-  var A = cfg.assumptions; A.nie_detail = A.nie_detail || {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0};
-  A.nie_detail.categories = A.nie_detail.categories || [];
+window.nieCatPaste = function(txt, type, growthPct, growthPeriod, growthMethod, growthAnchor, growthAnchorMonth){
+  var nd = _ensureNieDetail();
   var rows = String(txt||"").split(/\r?\n/);
-  var g = (type==="linear") ? (parseFloat(String(growthPct).replace(/[^0-9.\-]/g,""))||0)/100 : 0;
+  var isGrowth = (type==="linear" || type==="growth");
+  var g = isGrowth ? (parseFloat(String(growthPct).replace(/[^0-9.\-]/g,""))||0)/100 : 0;
+  var gp = growthPeriod || (PPY()===12?"month":"quarter"), gm=growthMethod||"smooth";
+  var ga = growthAnchor || (gp==="year"?"model_year":"model_period"), gam=+(growthAnchorMonth||1);
   var added = [];
   rows.forEach(function(line){
     line = line.trim(); if(!line) return;
@@ -3011,14 +3084,48 @@ window.nieCatPaste = function(txt, type, growthPct){
       else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/,"").trim(); amtRaw=m2[2]; }
       var amt=parseFloat(String(amtRaw).replace(/[^0-9.\-]/g,"")); if(isNaN(amt)) return;
       var cat={name:item, per_period:amt*1000};
-      if(type==="linear"){ cat.trajectory="linear"; cat.growth_per_period=g; }
+      if(isGrowth){ cat.trajectory="growth"; cat.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam}; }
       added.push(cat);
     }
   });
-  if(!added.length){ appStatus("err","No rows parsed. Flat/Linear: <b>Item, Amount</b> per line. Explicit: <b>Item, Q1, Q2, ...</b>. Amounts in $000s."); return; }
-  A.nie_detail.categories = A.nie_detail.categories.concat(added);   // always append
-  A.nie_detail._catPasteOpen = false;                                // clear + collapse
+  if(!added.length){ appStatus("err","No rows parsed. Flat/Growth: <b>Item, Amount</b> per line. Explicit: <b>Item, P1, P2, ...</b>. Amounts in $000s."); return; }
+  nd.categories = nd.categories.concat(added);   // always append
+  nd._catPasteOpen = false;                       // clear + collapse
+  delete nd._catPasteGrowthSpec;                  // transient batch defaults, not model truth
   appStatus("ok", added.length + " " + type + " categor" + (added.length===1?"y":"ies") + " added.");
+  renderContent(); refresh();
+};
+window.nieWorkforceAdd = function(){
+  var wf=_ensureWorkforce();
+  wf.roles.push({role:"",count:1,annual_comp:0,hire_period:1,salary_growth_spec:{rate:0}});
+  renderContent(); refresh();
+};
+window.nieWorkforcePaste = function(txt){
+  var wf=_ensureWorkforce(), rows=String(txt||"").split(/\r?\n/), added=[];
+  rows.forEach(function(line){
+    line=line.trim(); if(!line) return;
+    var role="", comp=0, hire=1, esc=0, count=1, end=null, load=null, p;
+    if(line.indexOf("\t")>=0){
+      p=line.split("\t").map(x=>x.trim()); if(p.length<4) return;
+      role=p[0]; comp=_pf(p[1]); hire=parseInt(String(p[2]).replace(/[^0-9]/g,""))||1; esc=_pf(p[3]);
+      if(p[4]!==undefined && p[4]!=="") count=_pf(p[4]);
+      if(p[5]!==undefined && p[5]!=="") end=parseInt(String(p[5]).replace(/[^0-9]/g,""))||null;
+      if(p[6]!==undefined && p[6]!=="") load=_pf(p[6])/100;
+    } else {
+      // CSV-friendly parser keeps commas inside salary amounts (e.g. 95,000).
+      var m=line.match(/^\s*(.*?)\s*,\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s*,\s*(?:[MQ]\s*)?([0-9]+)\s*,\s*([-+]?[0-9.]+)%?(?:\s*,\s*([0-9.]+))?(?:\s*,\s*(?:[MQ]\s*)?([0-9]+))?(?:\s*,\s*([-+]?[0-9.]+)%?)?\s*$/i);
+      if(!m) return;
+      role=m[1].trim(); comp=_pf(m[2]); hire=+m[3]; esc=_pf(m[4]);
+      if(m[5]!=null) count=_pf(m[5]); if(m[6]!=null) end=+m[6]; if(m[7]!=null) load=_pf(m[7])/100;
+    }
+    if(!role && !comp) return;
+    var r={role:role,count:count||0,annual_comp:comp,hire_period:hire,salary_growth_spec:{rate:esc/100}};
+    if(end!=null) r.end_period=end; if(load!=null) r.payroll_load_rate=load; added.push(r);
+  });
+  if(!added.length){ appStatus("err","No roles parsed. Use <b>Role, Annual comp, Hire period, Escalation %</b> (optional: Count, End period, Payroll load %). Tabs are safest for spreadsheet paste."); return; }
+  wf.roles=wf.roles.concat(added);
+  var nd=_ensureNieDetail(); nd._wfPasteOpen=false;
+  appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
   renderContent(); refresh();
 };
 // Risk-based capital ratios are filed only by banks that did NOT elect the
@@ -6293,7 +6400,7 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Other liabilities<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_liabilities||0)/1000)}" onchange="cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     }
   }
-  h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, FTE-step comp, and assessments on the correct base.</div></span></div>`;
+  h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, workforce compensation, category trajectories, and assessments on the correct base.</div></span></div>`;
   { const A3 = cfg.assumptions;
     h += `<div class="csub">Fixed assets</div>`;
     h += `<div class="crow" style="align-items:center">Premises &amp; equipment<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
@@ -6302,64 +6409,108 @@ function structuresSectionsHtml(){
   }
   const ND = (A.nie_detail = A.nie_detail || null);
   if(!A.nie_detail){
-    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span><input type="number" step="0.1" style="width:56px" value="${((A.overhead_growth_per_period||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="cfg.assumptions.overhead_growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">grw %/${PLAB()}</span></div>`;
-    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center;margin-top:8px"><div><div class="cmut">This single overhead line governs. Activate detail for FTE-step comp, category lines, and FDIC/OCC assessments on the correct base \u2014 which then <b>replaces</b> this line.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
+    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span></div>`;
+    h += `<div class="crow" style="align-items:center"><span class="cu">Growth</span>${growthSpecInline('assumptions.overhead_growth_spec',A.overhead_growth_spec,(A.overhead_growth_per_period!=null?A.overhead_growth_per_period:_qGrowthToPeriod(A.overhead_growth_q||0)),false)}</div>`;
+    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center;margin-top:8px"><div><div class="cmut">This single overhead line governs. Activate detail for workforce compensation, category lines, and FDIC/OCC assessments on the correct base — which then <b>replaces</b> this line.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
   } else {
     const nd = A.nie_detail;
     h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 8px"><span class="chint" style="margin:0">Module active</span><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="nieOff()">Deactivate module</button></div>';
-    h += '<div class="crow">FTE by year' + [0,1,2].map(y=>`<input type="text" inputmode="decimal" style="width:52px" value="${fmtComma((nd.fte_by_year||[0,0,0])[y])}" onchange="cfg.assumptions.nie_detail.fte_by_year[${y}]=_pf(this.value);refresh();fmtField(this)">`).join("") + '<span class="cu">Y1/Y2/Y3</span></div>';
-    h += `<div class="crow">Loaded comp<input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((nd.loaded_comp_annual||0)/1000)}" onchange="cfg.assumptions.nie_detail.loaded_comp_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/FTE/yr</span></div>`;
-    h += `<div class="crow">Other gross-up<input type="number" step="0.5" style="width:60px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">% (sub\u00d7r/(1\u2212r))</span></div>`;
-    // Regulatory assessment rates — engagement assumptions (12 CFR 327 for FDIC, 12 CFR 8 for OCC).
-    // Blank uses the REG_PARAMS default (FDIC 5.0 bp, OCC 1.5 bp); a typed value overrides per engagement.
-    h += `<div class="crow">FDIC assess.<input type="number" step="0.1" style="width:60px" placeholder="5.0" value="${nd.fdic_bp_ann!=null?nd.fdic_bp_ann:''}" title="Basis points/yr on avg consolidated assets \u2212 avg tangible equity (12 USC 1817(b)). Blank = 5.0 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.fdic_bp_ann;}else{cfg.assumptions.nie_detail.fdic_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=5.0)</span></div>`;
-    h += `<div class="crow">OCC assess.<input type="number" step="0.1" style="width:60px" placeholder="1.5" value="${nd.occ_bp_ann!=null?nd.occ_bp_ann:''}" title="Basis points/yr on average assets (12 CFR 8). Blank = 1.5 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.occ_bp_ann;}else{cfg.assumptions.nie_detail.occ_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=1.5)</span></div>`;
+
+    // Workforce is a role/cohort authoring mode that resolves to the same native-cadence
+    // NIE compensation series. Legacy FTE Y1/Y2/Y3 configs remain engine-compatible but
+    // are no longer the primary UI grammar.
+    h += '<div class="csub">Workforce compensation</div>';
+    const wf = nd.workforce || {};
+    const _legacyStaff = !wf.mode && ((nd.fte_by_year||[]).some(x=>+x) || +(nd.loaded_comp_annual||0));
+    if(_legacyStaff){
+      h += `<div class="memo" style="margin:4px 0 8px">Legacy staffing assumptions are still active for backward compatibility: FTE ${esc((nd.fte_by_year||[]).join('/'))}, loaded comp ${fmtComma((nd.loaded_comp_annual||0)/1000)} $000s/FTE/yr. Add or paste role/cohort workforce data below to supersede that three-year ladder.</div>`;
+    }
+    if(wf.mode==="roles" || (wf.roles||[]).length){
+      wf.roles = wf.roles || [];
+      wf.default_salary_growth_spec = wf.default_salary_growth_spec || {rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
+      h += `<div class="crow" style="align-items:center"><span class="cu">Default salary escalation</span>${growthSpecInline('assumptions.nie_detail.workforce.default_salary_growth_spec',wf.default_salary_growth_spec,0,true)}</div>`;
+      h += `<div class="crow">Default payroll load<input type="number" step="0.5" style="width:60px" value="${((wf.default_payroll_load_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation · benefits/payroll taxes</span></div>`;
+      (wf.roles||[]).forEach((wr,wi)=>{
+        wr.salary_growth_spec = wr.salary_growth_spec || {};
+        const _wb=`cfg.assumptions.nie_detail.workforce.roles[${wi}]`;
+        let row=`<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
+        row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 150px;min-width:120px" placeholder="Role / cohort" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()">`;
+        row += `<span class="cu">count</span><input type="number" step="0.25" style="width:54px" value="${wr.count!=null?wr.count:1}" onchange="${_wb}.count=_pf(this.value);refresh()">`;
+        row += `<span class="cu">hire ${EVENTUNIT()}</span><input type="number" min="1" step="1" style="width:58px" value="${wr.hire_period||1}" onchange="${_wb}.hire_period=Math.max(1,Math.round(_pf(this.value)));refresh()">`;
+        row += `<span class="cu">end</span><input type="number" min="1" step="1" style="width:58px" placeholder="—" value="${wr.end_period!=null?wr.end_period:''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.max(1,Math.round(_pf(v)))};refresh()">`;
+        row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.workforce.roles.splice(${wi},1);renderContent();refresh();return false">×</a></div>`;
+        row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px"><span class="cu">annual comp</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((wr.annual_comp||0)/1000)}" onchange="${_wb}.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/FTE</span>`;
+        row += `<span class="cu">escalation</span><input type="number" step="0.1" style="width:58px" value="${(((wr.salary_growth_spec||{}).rate||0)*100).toFixed(2)}" title="Rate override; period/method/anchor inherit the workforce defaults" onchange="${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};${_wb}.salary_growth_spec.rate=_pf(this.value)/100;refresh()"><span class="cu">%</span>`;
+        row += `<span class="cu">load override</span><input type="number" step="0.5" style="width:58px" placeholder="default" value="${wr.payroll_load_rate!=null?(wr.payroll_load_rate*100).toFixed(1):''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"><span class="cu">%</span></div></div>`;
+        h += row;
+      });
+    } else if(!_legacyStaff){
+      h += '<div class="cmut" style="margin:4px 0 6px">No workforce roles yet. Use one row per position or cohort; hire periods may extend beyond the current horizon.</div>';
+    }
+    const _wpo=!!nd._wfPasteOpen;
+    if(!_wpo){
+      h += '<div style="margin:6px 0 10px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add one manually</a></div>';
+    } else {
+      h += '<div style="margin:6px 0 10px;border-top:1px solid #2A3444;padding-top:8px"><div class="cmut" style="margin-bottom:4px">Paste <b>Role, Annual comp, Hire period, Escalation %</b>. Optional columns: Count, End period, Payroll load %. Spreadsheet/tab paste is preferred; annual comp is in dollars.</div>';
+      h += '<textarea id="nieWorkforcePasteBox" rows="5" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="CEO\t275000\tM1\t3.0&#10;Compliance Analyst\t95000\tM17\t4.0&#10;Relationship Manager\t120000\tM57\t3.5"></textarea>';
+      h += '<div style="margin-top:5px"><button class="pillbtn" onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
+    }
+
+    h += '<div class="csub" style="margin-top:10px">Operating expense categories</div>';
     (nd.categories||[]).forEach((ct,i)=>{
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
+      const _gp = `assumptions.nie_detail.categories.${i}.growth_spec`;
       const traj = ct.trajectory || "flat";
-      const TR = [["flat",`Flat ($/${PLAB()})`],["linear","Linear (base + growth)"],["explicit",`Explicit (per-${PLAB()} list)`]];
-      // Each category is a bordered block: line 1 = name + trajectory + remove; line 2 = value inputs.
+      const isGrowth = (traj==="linear" || traj==="growth");
+      const shownTraj = isGrowth ? "growth" : traj;
+      const TR = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()} list)`]];
       let row = `<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
       row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||"")}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()">`;
-      row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-      // line 2: trajectory (tightly coupled to what the amount means) + value inputs
+      row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
       row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px">`;
-      row += `<select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
+      row += `<select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===shownTraj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
       if(traj==="explicit"){
         { const _np = NP(); const _have = (ct.schedule||[]).length;
-          row += `<span class="cu">per-${PLAB()}</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per ${PLAB('full')}; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/${PLAB()} \u00b7 ${_have}/${_np}</span>`; }
-      } else if(traj==="linear"){
+          row += `<span class="cu">per-${PLAB()}</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per ${PLAB('full')}; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/${PLAB()} · ${_have}/${_np}</span>`; }
+      } else if(isGrowth){
         row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="base $000s/${PLAB()} (period 1)" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
-        row += `<span class="cu" style="margin-left:10px">growth</span><input type="number" step="0.5" style="width:60px" value="${((ct.growth_per_period||0)*100).toFixed(1)}" title="growth %/${PLAB()}" onchange="${_cb}.growth_per_period=_pf(this.value)/100;refresh()"><span class="cu">%/${PLAB()}</span>`;
+        row += growthSpecInline(_gp,ct.growth_spec,(ct.growth_per_period!=null?ct.growth_per_period:_qGrowthToPeriod(ct.growth_q||0)),false);
       } else {
         row += `<span class="cu">amount</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
       }
-      row += `</div></div>`;
-      h += row;
+      row += `</div></div>`; h += row;
     });
-    // ---- Create-and-paste: click reveals a type-adaptive paste box; Load appends + collapses ----
+    // Batch paste remains intentionally powerful: separate loads can share different growth
+    // assumptions (e.g. a 3% annual-step group, a 5% group, and a flat group).
     { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
       if(!_cpo){
         h += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
-        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 Paste categories</a>';
-        h += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add one manually</a>';
-        h += '</div>';
+        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">⎘ Paste categories</a>';
+        h += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add one manually</a></div>';
       } else {
-        var _TT = [["flat",`Flat ($/${PLAB()})`],["linear","Linear (base + growth)"],["explicit",`Explicit (per-${PLAB()})`]];
+        var _TT = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()})`]];
         h += '<div style="margin-top:8px;border-top:1px solid #2A3444;padding-top:8px">';
         h += '<div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Type</span>';
         h += '<select onchange="cfg.assumptions.nie_detail._catPasteType=this.value;renderContent()">'+_TT.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cpt?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-        if(_cpt==="linear"){ h += `<span class="cu" style="margin-left:8px">growth</span><input id="nieCatGrowth" type="number" step="0.5" style="width:56px" value="0" title="growth %/${PLAB()} applied to all pasted linear items"><span class="cu">%/${PLAB()}</span>`; }
+        if(_cpt==="growth"){
+          nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:(PPY()===12?"month":"quarter"),method:"smooth",anchor:"model_year"};
+          h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false)}`;
+        }
         h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
         var _ph = (_cpt==="explicit") ? "Occupancy, 50, 50, 60, 60&#10;Marketing, 20, 25, 30" : "Occupancy, 120&#10;Compensation, 400&#10;Insurance, 35";
-        var _hint = (_cpt==="explicit") ? "One <b>Item, Q1, Q2, ...</b> per line (per-quarter $000s; pads 0 / truncates to horizon)." : `One <b>Item, Amount</b> per line (base $000s per ${PLAB('full')}; tab or comma separated).`;
+        var _hint = (_cpt==="explicit") ? `One <b>Item, ${PERLAB(1)}, ${PERLAB(2)}, ...</b> per line (per-${PLAB('full')} $000s; pads 0 / truncates to horizon).` : `One <b>Item, Amount</b> per line (base $000s per ${PLAB('full')}; tab or comma separated).`;
         h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
         h += '<textarea id="nieCatPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="'+_ph+'"></textarea>';
-        h += '<div style="margin-top:5px"><button class="pillbtn" onclick="nieCatPaste(document.getElementById(\x27nieCatPasteBox\x27).value, cfg.assumptions.nie_detail._catPasteType, (document.getElementById(\x27nieCatGrowth\x27)||{}).value)">Load (append)</button></div>';
+        var _pg=nd._catPasteGrowthSpec||{};
+        h += `<div style="margin-top:5px"><button class="pillbtn" onclick="nieCatPaste(document.getElementById('nieCatPasteBox').value,cfg.assumptions.nie_detail._catPasteType,${(+(_pg.rate||0)*100)},'${_pg.period||''}','${_pg.method||''}','${_pg.anchor||''}',${+(_pg.anchor_month||1)})">Load (append)</button></div>`;
         h += '</div>';
       }
     }
 
+    h += '<div class="csub" style="margin-top:12px">Assessments &amp; other NIE</div>';
+    h += `<div class="crow">Other NIE gross-up<input type="number" step="0.5" style="width:60px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">% · applies to NIE subtotal as sub×r/(1−r), not payroll load</span></div>`;
+    h += `<div class="crow">FDIC assess.<input type="number" step="0.1" style="width:60px" placeholder="5.0" value="${nd.fdic_bp_ann!=null?nd.fdic_bp_ann:''}" title="Basis points/yr on avg consolidated assets − avg tangible equity (12 USC 1817(b)). Blank = 5.0 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.fdic_bp_ann;}else{cfg.assumptions.nie_detail.fdic_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=5.0)</span></div>`;
+    h += `<div class="crow">OCC assess.<input type="number" step="0.1" style="width:60px" placeholder="1.5" value="${nd.occ_bp_ann!=null?nd.occ_bp_ann:''}" title="Basis points/yr on average assets (12 CFR 8). Blank = 1.5 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.occ_bp_ann;}else{cfg.assumptions.nie_detail.occ_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=1.5)</span></div>`;
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
   }
   h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
@@ -6430,7 +6581,7 @@ window.runSens = async function(){
 window.nieOff = function(){
   cfg.assumptions.nie_detail = null; renderContent(); refresh();
 };
-window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0}; renderContent(); refresh(); };
+window.nieOn = function(){ cfg.assumptions.nie_detail = _newNieDetail(); renderContent(); refresh(); };
 // Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
 // NOT fetched from the server -- a deliberate, documented duplication, chosen over an
 // async fetch because this whole block is BEHAVIORALLY UNVERIFIED (no browser available

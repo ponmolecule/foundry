@@ -1,13 +1,14 @@
-"""Golden tests for the extended NIE category trajectories (flat | linear | explicit).
-Back-compat invariant: a category with only per_quarter behaves byte-identically to the legacy
-flat-repeated model. Run: python3 -m foundry.v2.tests_nie_categories"""
+"""Golden tests for NIE category trajectories (flat | growth | explicit).
+Legacy trajectory=linear remains readable as compounded growth. Back-compat invariant: a
+category with only per_quarter behaves byte-identically to the legacy flat-repeated model.
+Run: python3 -m foundry.v2.tests_nie_categories"""
 import sys
 sys.path.insert(0, ".")
 from foundry.v2.income_modules import nie_detail_series
 
-def _cats(nd, Q=12):
+def _cats(nd, Q=12, ppy=4, growth_context=None):
     nd = dict(nd); nd["n_periods"] = Q
-    return nie_detail_series({"nie_detail": nd, "n_periods": Q})["categories"]
+    return nie_detail_series({"nie_detail": nd, "n_periods": Q}, ppy, growth_context)["categories"]
 
 def main():
     P = F = 0
@@ -18,7 +19,7 @@ def main():
     ck("flat (legacy) sums per_quarter repeated",
        _cats({"categories":[{"per_quarter":100},{"per_quarter":50}]}) == [150.0]*12)
     lin = _cats({"categories":[{"per_quarter":100,"trajectory":"linear","growth_q":0.10}]})
-    ck("linear q1=base, q2=base*1.1, q3=base*1.21",
+    ck("legacy linear remains compounded growth: q1=base, q2=base*1.1, q3=base*1.21",
        abs(lin[0]-100)<1e-9 and abs(lin[1]-110)<1e-9 and abs(lin[2]-121)<1e-9)
     exp = _cats({"categories":[{"trajectory":"explicit","schedule":[10,20,30]}]})
     ck("explicit follows schedule, pads 0", exp[:3]==[10.0,20.0,30.0] and exp[3]==0.0 and exp[11]==0.0)
@@ -29,6 +30,15 @@ def main():
     ck("mixed categories sum per quarter",
        abs(mix[0]-115)<1e-9 and abs(mix[1]-125)<1e-9 and abs(mix[3]-180)<1e-9)
     ck("empty categories -> zeros", _cats({"categories":[]}) == [0.0]*12)
+    ann = _cats({"categories":[{"per_period":30000,"trajectory":"growth",
+        "growth_spec":{"rate":.03,"period":"year","method":"step","anchor":"model_year"}}]},
+        Q=24, ppy=12)
+    ck("canonical annual-step growth in monthly NIE holds M1-M12 then steps at M13",
+       ann[:12] == [30000.0]*12 and ann[12:] == [30900.0]*12)
+    sm = _cats({"categories":[{"per_period":30000,"trajectory":"growth",
+        "growth_spec":{"rate":.03,"period":"year","method":"smooth"}}]}, Q=13, ppy=12)
+    ck("canonical annual-smooth growth in monthly NIE reaches +3% at M13",
+       abs(sm[12]-30900.0)<1e-8 and sm[1]>sm[0])
     print(f"\n{P} passed, {F} failed")
     return 0 if F==0 else 1
 

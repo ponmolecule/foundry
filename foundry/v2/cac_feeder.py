@@ -36,7 +36,15 @@ this module changes no existing behavior.
 
 def _grow(base, rate, year):
     """Compound a base by an annual growth rate. year is 1-indexed (year 1 => base)."""
-    return float(base or 0.0) * (1.0 + float(rate or 0.0)) ** (year - 1)
+    # CAC remains explicitly annual and stepped by model year. Route that existing
+    # semantic through the shared resolver so annual growth has one canonical meaning
+    # across Foundry without changing any CAC economics or UI.
+    from .growth import growth_multiplier
+    spec = {"rate": float(rate or 0.0), "period": "year",
+            "method": "step", "anchor": "model_year"}
+    return float(base or 0.0) * growth_multiplier(
+        spec, current_period=int(year), start_period=1, ppy=1,
+        base_position="period1")
 
 
 def channel_new_customers(ch, year):
