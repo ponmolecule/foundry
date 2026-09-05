@@ -542,6 +542,7 @@ function PPY(){ return (cfg && cfg.assumptions && +cfg.assumptions.periods_per_y
 function PLAB(kind){ var p=PPY();
   var m={12:{ab:'mo',full:'month'},4:{ab:'qtr',full:'quarter'},1:{ab:'yr',full:'year'}};
   var e=m[p]||m[4]; return kind==='full'?e.full:e.ab; }
+function HORIZONLAB(){ var n=NP(), w=PLAB('full'); return n+' '+w+(n===1?'':'s'); }
 function methodologyHTML(){
   const period=PLAB('full'), periodPlural=period+'s';
   return METHODOLOGY_HTML.replaceAll('{{period}}',period).replaceAll('{{periodPlural}}',periodPlural);
@@ -552,6 +553,7 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 // so a user may place a raise/borrowing in any month. Legacy `quarter` values retain
 // calendar-quarter semantics and display at that quarter's first engine period.
 function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }
+function EVENTSCHEDLABEL(){ return "Scheduled "+EVENTUNIT(); }
 function EVENTVAL(ev){
   ev=ev||{};
   if(ev.period!=null && ev.period!=="") return +ev.period;
@@ -1700,12 +1702,16 @@ function _openingModelStart(){
   }
   return new Date(Date.UTC(2026,0,1));
 }
-function _modelQuarterEnd(q){
+function _modelPeriodEnd(p){
   const st=_openingModelStart();
+  const step=PPY()===12?1:(PPY()===4?3:12);
+  return new Date(Date.UTC(st.getUTCFullYear(), st.getUTCMonth()+step*p, 0));
+}
+function _modelQuarterEnd(q){
   // A model quarter is three engine months when cadence is monthly. Thus an ISO
   // opening in May yields model Q1 at Jul-31 (M3), not Jun-30 via quarter snapping.
   // Quarterly cadence remains anchored to the containing calendar quarter.
-  return new Date(Date.UTC(st.getUTCFullYear(), st.getUTCMonth()+3*q, 0));
+  return _modelPeriodEnd(q*MO_PER_Q());
 }
 function _interpDated(anchors, date, lr){
   const pts=Object.entries(anchors||{}).map(([d,v])=>[_parseISO(d),+v]).filter(x=>x[0]&&isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
@@ -3544,7 +3550,7 @@ function renderOverviewClassic(){
   const base = (r.scenarios||{}).base || {};
   const levMin = getPath("constraints.0.value") * 100;
   const fin = r.financials;
-  const cum = base.cum_ni;
+  const cum = (base.cum_ni_full ?? base.cum_ni);
   // Peer cohort summary (for the inline evidence line + tab link) — extracted, not rendered as cards.
   const _peerCohort = (r.peer && r.peer.cohort) ? r.peer.cohort : null;
   let h = _execToggle();
@@ -3587,17 +3593,17 @@ function renderOverviewClassic(){
     .map(([k,s])=>({k, lev:s.min_leverage})).filter(x=>x.lev!=null).sort((a,b)=>a.lev-b.lev)[0];
   const _day1borrow = (((r.financials||{}).bs||{}).borrow||[])[0];
   const _breakeven = (r.overview||{}).breakeven_q;
-  const _cumni = base.cum_ni;
+  const _cumni = (base.cum_ni_full ?? base.cum_ni);
   const dcards = [
     ["Min base leverage", base.min_leverage==null?"n/m":(base.min_leverage*100).toFixed(2)+"%",
       `${base.min_leverage_q==null?"\u2014":PERLAB(base.min_leverage_q)} \u00b7 vs ${levMin.toFixed(1)}%`, base.min_leverage!=null && base.min_leverage<levMin/100],
     ["Worst stress outcome", _worst?(_worst.lev*100).toFixed(2)+"%":"n/m",
       _worst?"min leverage \u00b7 "+esc((r.scenarios[_worst.k]||{}).label||_worst.k):"", _worst&&_worst.lev<levMin/100],
-    ["Breakeven", (_breakeven==null||_breakeven<0)?("not in "+NP()+PLAB()):(PLAB().toUpperCase()+_breakeven),
+    ["Breakeven", (_breakeven==null||_breakeven<0)?("not in "+HORIZONLAB()):PERLAB(_breakeven),
       `first profitable ${PLAB('full')}`, (_breakeven==null||_breakeven<0)],
     ["Opening wholesale funding", _day1borrow==null?"n/m":_money000(_day1borrow), "at Day 1", (_day1borrow||0)>0],
     ["Earnings durability", _y3==null?"n/m":_money000(_y3), "Year-3 net income", (typeof _y3==="number"&&_y3<0)],
-    ["Cumulative net income", _cumni==null?"n/m":_money000(_cumni), `Q1–Q${SUBQ()} submission total`, (typeof _cumni==="number"&&_cumni<0)],
+    ["Cumulative net income", _cumni==null?"n/m":_money000(_cumni), `${HORIZONLAB()} total`, (typeof _cumni==="number"&&_cumni<0)],
   ];
   h += '<div class="ovcards">' + dcards.map(x=>
     `<div class="ovcard"><div class="k">${x[0]}</div><div class="v${x[3]?" neg":""}">${esc(x[1])}</div><div class="s">${x[2]}</div></div>`).join("") + '</div>';
@@ -3991,7 +3997,7 @@ function renderContent(){
         ["Breakeven", `First ${PLAB('full')} the bank turns pre-tax positive.`],
         ["Assets, Q12", "Modeled total assets at the regulatory submission endpoint (normally Q12; $000s)."],
         ["Deposits, Q12", "Modeled total deposits at Q12 ($000s)."],
-        ["Cumulative net income", `Net income summed across the Q1–Q${SUBQ()} regulatory submission window ($000s).`],
+        ["Cumulative net income", `Net income summed across the full ${HORIZONLAB()} computational horizon ($000s).`],
       ];
       let hh = '<div class="h2" style="font-weight:700">Engagement overview</div>';
       hh += '<div class="ovcards">' + shell.map(x=>
@@ -4550,24 +4556,24 @@ function renderContent(){
       h += '</table>';
       h += '<div class="memo" style="margin:8px 0 0;font-size:11px">Highlighted DFAST cells are where the supervisor’s severe rate exceeds your own ×'+ds.mult+' stressed rate — i.e. where your plan’s loss assumption is softer than the supervisory benchmark. DFAST rates are 9-quarter cumulative supervisory benchmarks, not forecasts of this bank.</div>';
     }
-    h += '<div class="h2" style="font-size:15px">Net Income by Quarter</div>';
+    h += `<div class="h2" style="font-size:15px">Net Income by ${PLAB('full').replace(/^./,c=>c.toUpperCase())}</div>`;
     h += '<table class="fin"><tr><th>Scenario ($000s)</th>';
     for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '<th>Total</th></tr>';
     scens.forEach(s=>{
       let tot=0, rr = `<tr><td>${esc(s.label)}</td>`;
-      (s.ni_by_q||[]).forEach(v=>{ tot += v||0; rr += cellNum(v); });
+      (s.ni_by_period||s.ni_by_q||[]).forEach(v=>{ tot += v||0; rr += cellNum(v); });
       h += rr + cellNum(tot) + '</tr>';
     });
     h += '</table>';
-    h += '<div class="h2" style="font-size:15px">Tier 1 Leverage Ratio by Quarter</div>';
+    h += `<div class="h2" style="font-size:15px">Tier 1 Leverage Ratio by ${PLAB('full').replace(/^./,c=>c.toUpperCase())}</div>`;
     h += '<table class="fin"><tr><th>Scenario</th>';
     for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '</tr>';
     scens.forEach(s=>{
-      const lv = s.lev_submission_q || [];
+      const lv = s.lev_by_period || s.lev_by_q || [];
       let rr = `<tr><td>${esc(s.label)}</td>`;
-      lv.forEach((v,qi)=>{ rr += `<td data-prov title="Tier 1 leverage ratio, Q${qi+1} (${esc(s.label)} scenario). Tier 1 capital / average assets. Floor ${levMin}%."${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
+      lv.forEach((v,pi)=>{ rr += `<td data-prov title="Tier 1 leverage ratio, ${PERLAB(pi+1)} (${esc(s.label)} scenario). Tier 1 capital / average assets. Floor ${levMin}%."${v!=null && v<levMin ? ' class="neg"' : ''}>${fmtP(v,1)}</td>`; });
       h += rr + '</tr>';
     });
     h += '</table>';
@@ -6207,7 +6213,7 @@ function structuresSectionsHtml(){
     let _r = '<div class="csub">Staged raises</div>';
     raises.forEach((r,i)=>{
       const _ev=EVENTVAL(r);
-      _r += `<div class="crow">${EVENTUNIT()}<select onchange="SETEVENT(cfg.assumptions.capital_raises[${i}],+this.value);refresh()">`
+      _r += `<div class="crow">${EVENTSCHEDLABEL()}<select title="Scheduled model period" onchange="SETEVENT(cfg.assumptions.capital_raises[${i}],+this.value);refresh()">`
         + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${_ev===q+1?" selected":""}>${q+1}</option>`).join("")
         + `</select><input type="text" inputmode="decimal" style="width:76px" value="${fmtComma(r.amount/1000)}" title="$000s" onchange="cfg.assumptions.capital_raises[${i}].amount=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`
         + `<a href="#" class="cx" onclick="cfg.assumptions.capital_raises.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
@@ -6217,9 +6223,9 @@ function structuresSectionsHtml(){
     let _b = '<div class="csub">Scheduled borrowings</div>';
     sbs.forEach((b,i)=>{
       const _ev=EVENTVAL(b);
-      _b += `<div class="crow secrow"><input style="flex:0 1 96px;min-width:80px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">${EVENTUNIT()}<select onchange="SETEVENT(cfg.assumptions.scheduled_borrowings[${i}],+this.value);refresh()">`
+      _b += `<div class="crow secrow"><input style="flex:0 1 96px;min-width:80px" value="${esc(b.name||"")}" placeholder="Name" onchange="cfg.assumptions.scheduled_borrowings[${i}].name=this.value;refresh()">${EVENTSCHEDLABEL()}<select title="Scheduled model period" onchange="SETEVENT(cfg.assumptions.scheduled_borrowings[${i}],+this.value);refresh()">`
         + Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${_ev===q+1?" selected":""}>${q+1}</option>`).join("")
-        + `</select><input type="text" inputmode="decimal" style="width:64px" title="draw $000s" value="${fmtComma((b.amount||0)/1000)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:48px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><input type="number" style="width:42px" title="term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">qtrs</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        + `</select><input type="text" inputmode="decimal" style="width:64px" title="draw $000s" value="${fmtComma((b.amount||0)/1000)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].amount=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="number" step="0.1" style="width:48px" title="rate %" value="${((b.rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.scheduled_borrowings[${i}].rate_ann=_pf(this.value)/100;refresh()"><span class="cu">%</span><span class="cu">Term</span><input type="number" style="width:42px" title="contractual term (quarters)" value="${b.term_q||8}" onchange="cfg.assumptions.scheduled_borrowings[${i}].term_q=parseInt(this.value);refresh()"><span class="cu">qtrs</span><a href="#" class="cx" onclick="cfg.assumptions.scheduled_borrowings.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
     _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';
     _b += `<div class="cmut">${sbs.length} borrowing${sbs.length===1?"":"s"} added</div>`;

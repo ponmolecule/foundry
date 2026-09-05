@@ -166,7 +166,10 @@ def build(cfg, res):
     min_lev = base.get("min_leverage")
     min_lev_pct = (min_lev * 100) if isinstance(min_lev, (int, float)) else None
     min_lev_q = base.get("min_leverage_q")
-    cum_ni = base.get("cum_ni")  # $000s
+    # Generic Executive Summary cumulative earnings follow the full computational
+    # horizon. Regulator-facing scenario tables continue to use base["cum_ni"],
+    # which is intentionally limited to the submission window.
+    cum_ni = base.get("cum_ni_full", base.get("cum_ni"))  # $000s
     breakeven = (res.get("overview") or {}).get("breakeven_q")
     rd = (res.get("overview") or {}).get("readiness") or {}
 
