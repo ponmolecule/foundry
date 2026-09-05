@@ -553,7 +553,7 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 // so a user may place a raise/borrowing in any month. Legacy `quarter` values retain
 // calendar-quarter semantics and display at that quarter's first engine period.
 function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }
-function EVENTSCHEDLABEL(){ return "Scheduled "+EVENTUNIT(); }
+function EVENTSCHEDLABEL(){ return EVENTUNIT(); }
 function EVENTVAL(ev){
   ev=ev||{};
   if(ev.period!=null && ev.period!=="") return +ev.period;
@@ -2617,6 +2617,9 @@ function renderTabs(){
   document.getElementById("tabs").innerHTML = TAB_DEFS.map(([k,l])=>
     `<button class="tab${k===currentTab?" active":""}" onclick="setTab('${k}')">${l}</button>`).join(" ");
 }
+function finColspan(withOpen, withTotal){
+  return (V21 ? 1 : 0) + 1 + (withOpen ? 1 : 0) + NP() + (withTotal ? 1 : 0);
+}
 function headerRow(withOpen, withTotal){
   let h = "<tr>" + (V21 ? '<th class="ref">Ref</th>' : "") + "<th>Line item ($000s)</th>";
   if(withOpen) h += "<th>Open</th>";
@@ -2979,6 +2982,12 @@ window.poPaste = function(txt, mode){
   renderContent(); refresh();
 };
 
+window.nieCatAdd = function(){
+  var A = cfg.assumptions;
+  A.nie_detail = A.nie_detail || {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0};
+  (A.nie_detail.categories = A.nie_detail.categories || []).push({name:"", per_period:0});
+  renderContent(); refresh();
+};
 window.nieCatPaste = function(txt, type, growthPct){
   var A = cfg.assumptions; A.nie_detail = A.nie_detail || {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0};
   A.nie_detail.categories = A.nie_detail.categories || [];
@@ -4097,7 +4106,7 @@ function renderContent(){
     regNote('netLoans', bsHasOpen, [["Gross loans", fin.bs.grossLoans], ["\u2212 "+(cfg.assumptions&&cfg.assumptions.credit_regime?'ACL':'ALLL'), (fin.bs.alll||[]).map(x=>-(x||0))]]);
     h += '<div class="h2">Pro Forma Balance Sheet' + (V21 ? '<span class="schedbadge">SCHEDULE RC</span>' : '') + '</div>';
     h += '<table class="fin">' + headerRow(bsHasOpen, false);
-    h += `<tr class="section"><td colspan="${V21?15:14}">Assets</td></tr>`;
+    h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Assets</td></tr>`;
     h += rowBS('Cash & Due from Banks', arr12(fin.bs.cash, bsHasOpen), null, 'cash');
     h += rowBS('Securities (AFS/HTM)', arr12(fin.bs.sec || fin.bs.afs, bsHasOpen), null, 'sec');
     if(some(fin.bs.htm)) h += rowBS('&nbsp;&nbsp;of which held-to-maturity', arr12(fin.bs.htm, bsHasOpen), null, 'htm');
@@ -4117,7 +4126,7 @@ function renderContent(){
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen), null, 'otherAssets');
     if(some(fin.bs.dta)) h += rowBS('Deferred Tax Assets (NOL, net of valuation allowance)', arr12(fin.bs.dta, bsHasOpen), null, 'dta');
     h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
-    h += `<tr class="section"><td colspan="${V21?15:14}">Liabilities</td></tr>`;
+    h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Liabilities</td></tr>`;
     DEP_KEYS.forEach(k=>{
       const a = (F.deps_by_line||{})[k];
       if(some(a)) h += rowBS('&nbsp;&nbsp;' + esc(LINE_LABELS[k]), arr12(a, bsHasOpen), null, k);
@@ -4127,7 +4136,7 @@ function renderContent(){
     if(some(fin.bs.borrowSched)) h += rowBS('Scheduled Borrowings (FHLB/Term, bullet)', arr12(fin.bs.borrowSched, bsHasOpen), null, 'borrowSched');
     h += rowBS('Other Liabilities', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen), null, 'otherLiab');
     h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal', 'totalLiab');
-    h += `<tr class="section"><td colspan="${V21?15:14}">Equity</td></tr>`;
+    h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Equity</td></tr>`;
     h += rowBS('Capital Stock & Surplus', arr12(D.paidIn, bsHasOpen), null, 'paidInStock');
     h += rowBS('Retained Earnings (Deficit)', arr12(fin.bs.re || fin.bs.retained, bsHasOpen), null, 're');
     if(some(fin.bs.aoci)) h += rowBS('Accumulated Other Comprehensive Income (Loss)', arr12(fin.bs.aoci, bsHasOpen), null, 'aoci');
@@ -6331,7 +6340,10 @@ function structuresSectionsHtml(){
     // ---- Create-and-paste: click reveals a type-adaptive paste box; Load appends + collapses ----
     { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
       if(!_cpo){
-        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 paste categories</a>';
+        h += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
+        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">\u2398 Paste categories</a>';
+        h += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add one manually</a>';
+        h += '</div>';
       } else {
         var _TT = [["flat",`Flat ($/${PLAB()})`],["linear","Linear (base + growth)"],["explicit",`Explicit (per-${PLAB()})`]];
         h += '<div style="margin-top:8px;border-top:1px solid #2A3444;padding-top:8px">';
@@ -6418,7 +6430,7 @@ window.runSens = async function(){
 window.nieOff = function(){
   cfg.assumptions.nie_detail = null; renderContent(); refresh();
 };
-window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[{name:"Core banking & tech", per_period:0},{name:"Occupancy", per_period:0},{name:"Legal & compliance", per_period:0}], other_gross_up_rate:0}; renderContent(); refresh(); };
+window.nieOn = function(){ cfg.assumptions.nie_detail = {fte_by_year:[0,0,0], loaded_comp_annual:0, categories:[], other_gross_up_rate:0}; renderContent(); refresh(); };
 // Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
 // NOT fetched from the server -- a deliberate, documented duplication, chosen over an
 // async fetch because this whole block is BEHAVIORALLY UNVERIFIED (no browser available

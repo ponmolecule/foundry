@@ -76,6 +76,50 @@ console.log(JSON.stringify({{
     return json.loads(got)
 
 
+def _browser_nie_entry_probe(html: str):
+    """Execute the actual NIE activation/manual-add handlers under Node."""
+    add_src = html[html.index("window.nieCatAdd = function()"):
+                   html.index("window.nieCatPaste = function(txt, type, growthPct)")]
+    on_src = html[html.index("window.nieOn = function()"):
+                  html.index("// Static mirror of foundry/v2/fee_catalog.py")]
+    script = f"""
+global.window={{}};
+let cfg={{assumptions:{{}}}};
+function renderContent(){{}}
+function refresh(){{}}
+{add_src}
+{on_src}
+window.nieOn();
+const afterOn=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories));
+window.nieCatAdd();
+const afterAdd=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories));
+console.log(JSON.stringify({{afterOn,afterAdd}}));
+"""
+    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.strip().splitlines()[-1]
+    return json.loads(got)
+
+
+def _browser_fin_colspan_probe(html: str, n_periods: int, v21: bool = False):
+    """Execute the table-span helper with a native-cadence horizon."""
+    lo = html.index("function finColspan")
+    hi = html.index("function headerRow", lo)
+    funcs = html[lo:hi]
+    script = f"""
+const V21={str(bool(v21)).lower()};
+function NP(){{ return {int(n_periods)}; }}
+{funcs}
+console.log(JSON.stringify({{
+  noOpen:finColspan(false,false),
+  withOpen:finColspan(true,false),
+  withOpenTotal:finColspan(true,true)
+}}));
+"""
+    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.strip().splitlines()[-1]
+    return json.loads(got)
+
+
 def _browser_copy_probe(html: str, ppy: int, n_periods: int):
     """Execute the ACTUAL cadence-sensitive financial/help copy under Node."""
     hlo = html.index("function NP()")
@@ -397,8 +441,8 @@ def main():
        and ">Tier 1 Leverage Ratio by Quarter<" not in html)
     mlab = _browser_label_probe(html, 12, 36); qlab = _browser_label_probe(html, 4, 20)
     ck("J16 cadence helpers render month/M1/36 months vs quarter/Q1/20 quarters",
-       mlab == {"period":"month","p1":"M1","horizon":"36 months","event":"Mth","scheduled":"Scheduled Mth"}
-       and qlab == {"period":"quarter","p1":"Q1","horizon":"20 quarters","event":"Qtr","scheduled":"Scheduled Qtr"},
+       mlab == {"period":"month","p1":"M1","horizon":"36 months","event":"Mth","scheduled":"Mth"}
+       and qlab == {"period":"quarter","p1":"Q1","horizon":"20 quarters","event":"Qtr","scheduled":"Qtr"},
        f"monthly={mlab}, quarterly={qlab}")
     mcopy = _browser_copy_probe(html, 12, 36); qcopy = _browser_copy_probe(html, 4, 20)
     ck("J16b rendered financial/stress copy follows monthly vs quarterly cadence",
@@ -419,6 +463,26 @@ def main():
        html.count('title="Scheduled model period"') >= 2
        and 'title="contractual term (quarters)"' in html
        and 'Those are modeled as bullet advances: the full draw is held flat from its scheduled draw {{period}} through maturity (the stated term in quarters)' in html)
+    nie_entry = _browser_nie_entry_probe(html)
+    ck("J19 Operating Expense detail starts empty and supports one-at-a-time category entry",
+       nie_entry["afterOn"] == []
+       and nie_entry["afterAdd"] == [{"name":"", "per_period":0}]
+       and "Paste categories" in html and "+ Add one manually" in html
+       and "Core banking & tech" not in html
+       and 'categories:[{name:"Core banking & tech"' not in html,
+       str(nie_entry))
+    ck("J20 scheduled raise/borrowing row label is only the compact cadence token",
+       mlab["scheduled"] == "Mth" and qlab["scheduled"] == "Qtr"
+       and 'function EVENTSCHEDLABEL(){ return EVENTUNIT(); }' in html
+       and 'return "Scheduled "+EVENTUNIT()' not in html)
+    span36 = _browser_fin_colspan_probe(html, 36, False)
+    span20ref = _browser_fin_colspan_probe(html, 20, True)
+    ck("J21 Balance Sheet section bands span the complete native-cadence table width",
+       span36 == {"noOpen":37,"withOpen":38,"withOpenTotal":39}
+       and span20ref == {"noOpen":22,"withOpen":23,"withOpenTotal":24}
+       and html.count('colspan="${finColspan(bsHasOpen,false)}"') == 3
+       and 'colspan="${V21?15:14}"' not in html,
+       f"36m={span36}, 20q+ref={span20ref}")
 
     # K. Security hardening ---------------------------------------------------------
     app_src = (ROOT/"app.py").read_text(encoding="utf-8")
