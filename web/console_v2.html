@@ -2029,6 +2029,10 @@ function fieldsFor(fam, p, base){
     p.managed_notional = p.managed_notional || {day1:0, target:0, ramp_periods:8, trajectory:"ramp_to_target"};
     p.fee_streams = p.fee_streams || [];
     const mnb = base+".managed_notional";
+    const SEL = (label, path, cur, opts) => {
+      let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
+      return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
+    };
     h += '<div class="fld wide"><label style="color:#DFA85A">Assets under custody / management (off-book)</label></div>';
     // AUC source: manual ramp on this product, OR a shared Customer-Acquisition feed
     // (defined in Configuration). Choosing a feed drives this product\x27s AUC from that
@@ -2052,10 +2056,6 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
     }
     h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
-    const SEL = (label, path, cur, opts) => {
-      let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
-      return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
-    };
     const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     (p.fee_streams||[]).forEach((st,si)=>{
       const sb = base+".fee_streams."+si;

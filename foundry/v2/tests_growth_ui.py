@@ -60,6 +60,28 @@ console.log(JSON.stringify({{fresh,cat,nroles:wf.roles.length,maxhire:Math.max(.
     ck("manual managed AUC exposes only compact Ramp / Growth / Flat trajectory choices",
        'AUC trajectory' in html and '[["ramp_to_target","Ramp to target"],["proportional","Growth"],["flat","Flat"]]' in html
        and 'AUC growth</label>${growthSpecInline(mnb+".growth_spec"' in html)
+    # Execute the actual fee-product field renderer. A prior regression kept valid
+    # JavaScript syntax but threw at render time because SEL was used before initialization.
+    fa=html.index("function fieldsFor("); fb=html.index("function lineOptionsFor",fa)
+    fjs=html[fa:fb]
+    fp=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);}\n"
+        "function PLAB(){return 'Mth';}\n"
+        "function numInput(){return '<input>'; }\n"
+        "function growthSpecInline(){return '<growth>'; }\n"
+        "function _qGrowthToPeriod(x){return x||0;}\n"
+        + fjs +
+        "\nconst p={name:'Trust',_fee_product:true,managed_notional:{day1:100,target:200,ramp_periods:8,trajectory:'ramp_to_target'},fee_streams:[]};"
+        "\ncfg.assumptions.obs_exposures=[p];"
+        "\nconst out=fieldsFor('obs',p,'assumptions.obs_exposures.0');"
+        "\nconsole.log(JSON.stringify({ok:out.includes('AUC trajectory') && out.includes('Ramp to target')}));")
+    fr=subprocess.run(["node","-e",fp],text=True,capture_output=True)
+    fj={}
+    if fr.returncode==0 and fr.stdout.strip():
+        try: fj=json.loads(fr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Product tab renders a manual-AUC fee product without a runtime initialization error",
+       fr.returncode==0 and fj.get("ok") is True, fr.stderr.strip())
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
        '⎘ Paste categories' in html and '+ Add one manually' in html and '_catPasteGrowthSpec' in html)
     ck("pre-opening expenses are not given growth semantics",
