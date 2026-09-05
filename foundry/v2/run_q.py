@@ -262,6 +262,10 @@ def _scen_metrics(res, cfg, commit):
         "terminal_roa": (rt.get("roa") or [None])[-1],
         "terminal_nim": (rt.get("nim") or [None])[-1],
         "nol_end": (is_.get("nol") or [None])[-1],
+        # Full native-cadence paths. Retain the historical *_by_q aliases for
+        # backwards compatibility, but new presentation code should use the
+        # cadence-neutral names so monthly runs are not mistaken for quarters.
+        "ni_by_period": is_.get("ni"), "lev_by_period": lev,
         "ni_by_q": is_.get("ni"), "lev_by_q": lev,
         "lev_submission_q": lev_submission_q,
     }

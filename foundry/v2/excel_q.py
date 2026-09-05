@@ -188,30 +188,14 @@ def parse_workbook_v2(data):
 
 def results_workbook_v2(cfg, res):
     """A.15 — the exhibit. Every number ties to the parity-shaped results exactly."""
-    # Regulatory presentation is QUARTERLY BY LAW regardless of engine cadence. Collapse the
-    # per-ENGINE-period series to quarters: stocks -> quarter-END value; flows -> quarterly SUM.
+    # The core Pro Forma exhibit is a MANAGEMENT/model artifact and therefore follows the
+    # engine's native cadence. Regulatory Call Report schedules are added separately below
+    # through build_call_report(), which is the canonical quarterly bridge.
     _ppy = int((cfg.get("assumptions") or {}).get("periods_per_year") or 4)
     _np = int((cfg.get("assumptions") or {}).get("n_periods") or 12)
-    _mpq = max(1, round(_ppy / 4))            # engine-periods per quarter (mo:3, qtr:1, yr: n/a)
-    def _nq(n):                               # quarters spanned by n engine-periods
-        return max(1, round(n * 4 / _ppy))
-    def _q_stock(series):
-        if series is None: return series
-        if _mpq == 1: return list(series)
-        out = []
-        for qi in range(1, _nq(len(series)) + 1):
-            idx = qi * _mpq - 1
-            out.append(series[idx] if idx < len(series) else None)
-        return out
-    def _q_flow(series):
-        if series is None: return series
-        if _mpq == 1: return list(series)
-        out = []
-        for qi in range(_nq(len(series))):
-            chunk = [series[qi*_mpq+j] for j in range(_mpq)
-                     if qi*_mpq+j < len(series) and series[qi*_mpq+j] is not None]
-            out.append(sum(chunk) if chunk else None)
-        return out
+    _pre = "M" if _ppy == 12 else ("Y" if _ppy == 1 else "Q")
+    def _native(series):
+        return list(series) if series is not None else series
     wb = Workbook()
     cover = wb.active
     cover.title = "Cover"
@@ -304,9 +288,9 @@ def results_workbook_v2(cfg, res):
     derived = present.derived_lines(res, cfg)
     prods = res.get("products") or []
 
-    def sheet_from_layout(ws, layout, fin, n, has_open, collapse=_q_stock):
+    def sheet_from_layout(ws, layout, fin, n, has_open, collapse=_native):
         _ncol = (_np if has_open else n)
-        cols = (["Open"] if has_open else []) + [f"Q{q}" for q in range(1, _nq(_ncol) + 1)]
+        cols = (["Open"] if has_open else []) + [f"{_pre}{p}" for p in range(1, _ncol + 1)]
         ws.append(["Line item ($000s)", "key", "Schedule", "Item", "Code"] + cols)
         for row in layout:
             t = row["t"]
@@ -332,7 +316,7 @@ def results_workbook_v2(cfg, res):
                 continue
             if t == "identity":
                 ws.append([row["label"], "identity", "", "", ""] +
-                          ["OK" if (x is not None and abs(x) <= 0.02) else x for x in _q_stock(derived["identity"])])
+                          ["OK" if (x is not None and abs(x) <= 0.02) else x for x in _native(derived["identity"])])
                 continue
             key = row["key"]
             arr = fin.get(key, derived.get(key))
@@ -351,14 +335,14 @@ def results_workbook_v2(cfg, res):
     n_bs = len(res["bs"]["totalAssets"])
     sheet_from_layout(wb.create_sheet("Balance Sheet"), present.BS_LAYOUT, res["bs"], n_bs, n_bs == _np + 1)
     n_is = len(res["is"]["ni"])
-    sheet_from_layout(wb.create_sheet("Income Statement"), present.IS_LAYOUT, res["is"], n_is, False, collapse=_q_flow)
+    sheet_from_layout(wb.create_sheet("Income Statement"), present.IS_LAYOUT, res["is"], n_is, False)
 
     if res.get("ratios"):
         rt = wb.create_sheet("Ratios")
-        rt.append(["Ratio (%)", "key"] + [f"Q{q}" for q in range(1, _nq(n_is) + 1)])
+        rt.append(["Ratio (%)", "key"] + [f"{_pre}{p}" for p in range(1, n_is + 1)])
         for k, arr in res["ratios"].items():
             if arr and any(x is not None for x in arr):
-                rt.append([present.RATIO_LABELS.get(k, k), k] + _q_stock(list(arr)))
+                rt.append([present.RATIO_LABELS.get(k, k), k] + _native(arr))
     # FLOOR F-001: engagement cover sheet — every artifact answers who/what/which version
     try:
         ee = res.get("engagement_echo") if isinstance(res, dict) else None

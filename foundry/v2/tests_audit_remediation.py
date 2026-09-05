@@ -7,8 +7,9 @@ and security invariants that can remain wrong while old fixtures stay green.
 Run: python -m foundry.v2.tests_audit_remediation
 """
 from __future__ import annotations
-import copy, json, os, re, tempfile
+import copy, io, json, os, re, subprocess, tempfile
 from pathlib import Path
+from openpyxl import load_workbook
 
 ROOT = Path(__file__).resolve().parents[2]
 PF_A = ROOT / "foundry/fixtures/parity/configs/pf_a_base.json"
@@ -29,6 +30,75 @@ def _monthly_a():
 
 def _row(schedule, item):
     return next(r for r in schedule["rows"] if r.get("item") == item)
+
+
+def _browser_calendar_probe(html: str, ppy: int, opening: str):
+    """Execute the ACTUAL browser calendar/rate-curve helpers under Node.
+
+    This is intentionally behavioral rather than a source-string check: Test 6 is
+    specifically about the browser path preserving a literal monthly opening month.
+    """
+    lo = html.index("function _parseISO")
+    hi = html.index("function _interpDated", lo)
+    funcs = html[lo:hi]
+    script = f"""
+let cfg={{charter_profile:{{target_opening:{json.dumps(opening)}}}}};
+function PPY(){{ return {int(ppy)}; }}
+function MO_PER_Q(){{ return Math.max(1, Math.round(PPY()/4)); }}
+{funcs}
+const out={{
+  p1:_modelPeriodEnd(1).toISOString().slice(0,10),
+  block1:_modelQuarterEnd(1).toISOString().slice(0,10)
+}};
+console.log(JSON.stringify(out));
+"""
+    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.strip().splitlines()[-1]
+    return json.loads(got)
+
+
+def _browser_label_probe(html: str, ppy: int, n_periods: int):
+    """Execute canonical browser cadence-label helpers under the requested cadence."""
+    lo = html.index("function NP()")
+    hi = html.index("// Regulator-facing submission horizon", lo)
+    funcs = html[lo:hi]
+    script = f"""
+let cfg={{assumptions:{{periods_per_year:{int(ppy)},n_periods:{int(n_periods)}}}}};
+const METHODOLOGY_HTML='';
+{funcs}
+console.log(JSON.stringify({{
+  period:PLAB('full'), p1:PERLAB(1), horizon:HORIZONLAB(),
+  event:EVENTUNIT(), scheduled:EVENTSCHEDLABEL()
+}}));
+"""
+    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.strip().splitlines()[-1]
+    return json.loads(got)
+
+
+def _browser_copy_probe(html: str, ppy: int, n_periods: int):
+    """Execute the ACTUAL cadence-sensitive financial/help copy under Node."""
+    hlo = html.index("function NP()")
+    hhi = html.index("// Regulator-facing submission horizon", hlo)
+    helpers = html[hlo:hhi]
+    clo = html.index("const CALC_TEXT =")
+    chi = html.index("let _noteTerms", clo)
+    calc = html[clo:chi]
+    script = f"""
+let cfg={{assumptions:{{periods_per_year:{int(ppy)},n_periods:{int(n_periods)}}}}};
+const METHODOLOGY_HTML='';
+{helpers}
+{calc}
+console.log(JSON.stringify({{
+  paidin:calcText('paidin'),
+  leverage:calcText('leverage'),
+  schedBorrow:calcText('schedBorrow'),
+  stressTitle:'Tier 1 Leverage Ratio by '+PLAB('full').replace(/^./,c=>c.toUpperCase())
+}}));
+"""
+    got = subprocess.run(["node", "-e", script], cwd=ROOT, capture_output=True,
+                         text=True, check=True).stdout.strip().splitlines()[-1]
+    return json.loads(got)
 
 
 def main():
@@ -85,6 +155,14 @@ def main():
     cd = _monthly_a(); cd["charter_profile"] = {"target_opening": "2027-05-15"}
     ck("A9 monthly ISO opening preserves May", str(model_period_end_date(cd, 1, 12)) == "2027-05-31")
     ck("A10 M12 lands April 2028", str(model_period_end_date(cd, 12, 12)) == "2028-04-30")
+    html = (ROOT/"web/console_v2.html").read_text(encoding="utf-8")
+    bp_m = _browser_calendar_probe(html, 12, "2027-05-15")
+    bp_q = _browser_calendar_probe(html, 4, "2027-05-15")
+    ck("A10b browser monthly M1 ends May 31", bp_m["p1"] == "2027-05-31", str(bp_m))
+    ck("A10c browser monthly first three-month curve block ends July 31",
+       bp_m["block1"] == "2027-07-31", str(bp_m))
+    ck("A10d browser quarterly opening keeps containing-quarter end",
+       bp_q["p1"] == "2027-06-30" and bp_q["block1"] == "2027-06-30", str(bp_q))
 
     # Explicit cadence-aware event periods allow monthly placement without overloading
     # the backward-compatible `quarter` field. A Month-24 raise must land in Month 24.
@@ -148,22 +226,66 @@ def main():
     longc = copy.deepcopy(base); longc["assumptions"]["n_periods"] = 20
     ck("D6 explicit submission endpoint stays Q12 on 20Q model", submission_end_period(longc,4,20)==12 and submission_period_label(longc,4,20)=="Q12")
 
-    # Excel stock aggregation must use quarter end, not M2 / Day-1 offset.
+    # Pro Forma Exhibit core sheets are native cadence; Call Report schedules remain quarterly.
     mc = _monthly_a(); pr = run_parity(copy.deepcopy(mc)); wb = results_workbook_v2(mc, pr)
     ws = wb["Balance Sheet"]
+    bs_hdr = [c.value for c in ws[1]]
     ta_row = next(row for row in ws.iter_rows(values_only=True) if row and row[0] == "TOTAL ASSETS")
-    ck("D7 Excel Q1 stock = engine M3", abs(ta_row[6] - pr["bs"]["totalAssets"][3]) < .01,
-       f"Excel={ta_row[6]:.2f}, M3={pr['bs']['totalAssets'][3]:.2f}")
+    ck("D7 monthly Pro Forma Balance Sheet exposes Open + M1-M36",
+       bs_hdr[5:] == ["Open"] + [f"M{i}" for i in range(1,37)], str(bs_hdr[5:9])+" ... "+str(bs_hdr[-2:]))
+    ck("D8 monthly Pro Forma BS M1/M36 are native period-end stocks",
+       abs(ta_row[6] - pr["bs"]["totalAssets"][1]) < .01 and
+       abs(ta_row[-1] - pr["bs"]["totalAssets"][36]) < .01)
+    isws = wb["Income Statement"]; is_hdr=[c.value for c in isws[1]]
+    ni_row = next(row for row in isws.iter_rows(values_only=True) if row and row[0] == "NET INCOME (LOSS)")
+    ck("D9 monthly Pro Forma Income Statement exposes M1-M36 native flows",
+       is_hdr[5:] == [f"M{i}" for i in range(1,37)] and
+       abs(ni_row[5]-pr["is"]["ni"][0]) < .01 and abs(ni_row[-1]-pr["is"]["ni"][35]) < .01)
+    rtws=wb["Ratios"]; rt_hdr=[c.value for c in rtws[1]]
+    lev_row = next(row for row in rtws.iter_rows(values_only=True) if row and row[1] == "lev")
+    ck("D10 monthly Pro Forma Ratios exposes M1-M36 native ratios",
+       rt_hdr[2:] == [f"M{i}" for i in range(1,37)] and len(lev_row[2:]) == 36 and
+       abs(lev_row[2]-pr["ratios"]["lev"][0]) < .01 and abs(lev_row[-1]-pr["ratios"]["lev"][35]) < .01)
+    ri_ws=wb["Schedule RI"]; ri_hdr=[c.value for c in ri_ws[2]]
+    ck("D11 monthly Pro Forma Call Report schedules remain Q1-Q12",
+       ri_hdr[3:] == [f"Q{i}" for i in range(1,13)], str(ri_hdr[3:]))
+
+    qpr = run_parity(copy.deepcopy(base)); qwb = results_workbook_v2(base, qpr)
+    ck("D12 quarterly Pro Forma core sheets remain Q1-Q12",
+       [c.value for c in qwb["Balance Sheet"][1]][5:] == ["Open"]+[f"Q{i}" for i in range(1,13)] and
+       [c.value for c in qwb["Income Statement"][1]][5:] == [f"Q{i}" for i in range(1,13)] and
+       [c.value for c in qwb["Ratios"][1]][2:] == [f"Q{i}" for i in range(1,13)])
+
+    bpt_bytes, _ = bpt_cover.build_bpt_cover(mc, run_v2(copy.deepcopy(mc)))
+    bpt_wb = load_workbook(io.BytesIO(bpt_bytes), read_only=True, data_only=True)
+    ck("D13 monthly model Business Plan Tables remain Annual + Quarterly only",
+       bpt_wb.sheetnames == ["Business Plan Tables Annual", "Business Plan Tables Quarterly"],
+       str(bpt_wb.sheetnames))
+
     # Existing Q12-named scenario / concentration fields are submission metrics, not
     # accidental terminal metrics when computation extends beyond three years.
     lr = run_v2(copy.deepcopy(longc)); sb = lr["scenarios"]["base"]
     li = lr["financials"]["is"]["ni"]
     lta = lr["financials"]["bs"]["totalAssets"]
-    ck("D8 long model scenario cumulative NI stops at submission Q12",
+    ck("D14 long model scenario cumulative NI stops at submission Q12",
        abs(sb["cum_ni"]-sum(li[:12])) < .02 and abs(sb["cum_ni_full"]-sum(li[:20])) < .02)
-    ck("D9 long model Q12 assets are not computational terminal assets",
+    ck("D15 long model Q12 assets are not computational terminal assets",
        abs(sb["q12_total_assets"]-lta[12]) < .02 and abs(sb["terminal_total_assets"]-lta[20]) < .02)
-    ck("D10 concentration exhibit is explicitly Q12 on 20Q model", lr["concentrations"]["as_of"] == "Q12")
+    ck("D16 concentration exhibit is explicitly Q12 on 20Q model", lr["concentrations"]["as_of"] == "Q12")
+
+    from foundry.v2 import exec_view_gen
+    md = exec_view_gen.build(mc, run_v2(copy.deepcopy(mc)))
+    qd = exec_view_gen.build(base, run_v2(copy.deepcopy(base)))
+    ld = exec_view_gen.build(longc, lr)
+    def _cum_metric(d): return next(x for x in d["METRICS"] if x.get("id") == "cumni")
+    ck("D17 Executive Summary generic horizon labels follow cadence/horizon",
+       md["MODEL"]["horizonLabel"] == "36 months" and _cum_metric(md)["sub"] == "36 months total" and
+       qd["MODEL"]["horizonLabel"] == "12 quarters" and _cum_metric(qd)["sub"] == "12 quarters total" and
+       ld["MODEL"]["horizonLabel"] == "20 quarters" and _cum_metric(ld)["sub"] == "20 quarters total")
+    ck("D18 Executive Summary cumulative NI uses full 20Q computational horizon",
+       _cum_metric(ld)["value"] == f"${sb['cum_ni_full']/1000:.1f}M" and
+       abs(sb["cum_ni_full"]-sb["cum_ni"]) > .01,
+       f"full={sb['cum_ni_full']:.2f}, submission={sb['cum_ni']:.2f}, shown={_cum_metric(ld)['value']}")
 
     # E. Call Report canonical quarterly API ---------------------------------------
     mr = run_v2(copy.deepcopy(mc)); cr = build_call_report(mr, mc)
@@ -245,36 +367,58 @@ def main():
        'REG_FLOW_Q(r.values)' not in html and 'REG_STOCK_Q(r.values)' not in html)
     ck("J6 regulator submission horizon is distinct from computational horizon in UI",
        'function SUBQ()' in html and 'function SUBEND()' in html and 'AT_SUB(' in html)
-    ck("J7 stress leverage chart consumes regulatory-quarter series",
-       's.lev_submission_q || []' in html and '.slice(-12)' not in html)
+    ck("J7 stress leverage chart consumes full native-cadence series",
+       's.lev_by_period || s.lev_by_q || []' in html and 's.lev_submission_q || []' not in html
+       and len(mr["scenarios"]["base"]["lev_by_period"]) == 36)
     ck("J8 methodology period wording resolves from engagement cadence",
        "Loan balances roll forward each {{period}}" in html and "function methodologyHTML()" in html and "h += methodologyHTML();" in html)
     ck("J9 generic financial descriptions use cadence-aware period text",
        "function calcText(key)" in html and "Pro Forma Income Statement (${PPY()===12?'monthly':'quarterly'})" in html)
     ck("J10 raise/borrowing event selectors are cadence-aware rather than hard-coded Qtr",
-       "function EVENTUNIT()" in html and "function SETEVENT(ev,v)" in html and "${EVENTUNIT()}<select" in html)
+       "function EVENTUNIT()" in html and "function SETEVENT(ev,v)" in html and "${EVENTSCHEDLABEL()}<select" in html)
     ck("J11 monthly event UI stores explicit period instead of overloading quarter",
        "ev.period=v; delete ev.quarter" in html)
     ck("J12 FHLB presentation consistently says bullet, not amortizing",
        "Scheduled Borrowings (FHLB/Term, bullet)" in html and "Scheduled Borrowings (FHLB/Term, amortizing)" not in html)
-    ck("J13 browser calendar preserves literal ISO opening month at monthly cadence",
+    ck("J13 browser calendar has explicit native-period end helper",
        "function _openingModelStart()" in html and "PPY()===12 ? d.getUTCMonth()" in html
-       and "const st=_openingModelStart();" in html and "function _openingQuarterStart()" not in html)
-    ck("J14 Executive Summary labels submission totals explicitly rather than stale 12-quarter copy",
-       '"12-quarter total"' not in html and "Product (12-quarter totals" not in html
-       and "Q1–Q${SUBQ()} submission total" in html and "Q1–Q${SUBQ()} submission totals" in html)
+       and "function _modelPeriodEnd(p)" in html and "return _modelPeriodEnd(q*MO_PER_Q());" in html
+       and "function _openingQuarterStart()" not in html)
+    ck("J14 generic Executive Summary cumulative NI is full-horizon while regulatory Q12 remains explicit",
+       "base.cum_ni_full ?? base.cum_ni" in html and "${HORIZONLAB()} total" in html
+       and "Q1–Q${SUBQ()} submission totals" in html and "Product (Q1–Q${SUBQ()} submission totals" in html)
     ck("J15 generic monthly/quarterly wording has no known fixed-quarter remnants",
        "Engine-computed output for this quarter" not in html
        and '"first profitable quarter"' not in html
        and "End-of-quarter balance" not in html
        and "from its stated quarter" not in html
-       and "from its draw quarter" not in html)
-    ck("J16 event UI uses requested Mth/Qtr static prefixes and full computational horizon",
+       and "from its draw quarter" not in html
+       and ">Net Income by Quarter<" not in html
+       and ">Tier 1 Leverage Ratio by Quarter<" not in html)
+    mlab = _browser_label_probe(html, 12, 36); qlab = _browser_label_probe(html, 4, 20)
+    ck("J16 cadence helpers render month/M1/36 months vs quarter/Q1/20 quarters",
+       mlab == {"period":"month","p1":"M1","horizon":"36 months","event":"Mth","scheduled":"Scheduled Mth"}
+       and qlab == {"period":"quarter","p1":"Q1","horizon":"20 quarters","event":"Qtr","scheduled":"Scheduled Qtr"},
+       f"monthly={mlab}, quarterly={qlab}")
+    mcopy = _browser_copy_probe(html, 12, 36); qcopy = _browser_copy_probe(html, 4, 20)
+    ck("J16b rendered financial/stress copy follows monthly vs quarterly cadence",
+       "scheduled month" in mcopy["paidin"] and "month-end" in mcopy["leverage"]
+       and "scheduled draw month" in mcopy["schedBorrow"] and "term in quarters" in mcopy["schedBorrow"]
+       and mcopy["stressTitle"] == "Tier 1 Leverage Ratio by Month"
+       and "scheduled quarter" in qcopy["paidin"] and "quarter-end" in qcopy["leverage"]
+       and "scheduled draw quarter" in qcopy["schedBorrow"] and "term in quarters" in qcopy["schedBorrow"]
+       and qcopy["stressTitle"] == "Tier 1 Leverage Ratio by Quarter",
+       f"monthly={mcopy}, quarterly={qcopy}")
+    ck("J17 event UI uses requested Mth/Qtr cadence and full computational horizon",
        'function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }' in html
        and html.count('Array.from({length:NP()}') >= 2
        and 'cfg.assumptions.n_periods = (wiz.years || 3) * (wiz.ppy || 4)' in html
        and '[[12,"Monthly"],[4,"Quarterly"]]' in html
        and '[[3,"3 years"],[5,"5 years"],[7,"7 years"]]' in html)
+    ck("J18 scheduled-event wording distinguishes model period from contractual FHLB term",
+       html.count('title="Scheduled model period"') >= 2
+       and 'title="contractual term (quarters)"' in html
+       and 'Those are modeled as bullet advances: the full draw is held flat from its scheduled draw {{period}} through maturity (the stated term in quarters)' in html)
 
     # K. Security hardening ---------------------------------------------------------
     app_src = (ROOT/"app.py").read_text(encoding="utf-8")
