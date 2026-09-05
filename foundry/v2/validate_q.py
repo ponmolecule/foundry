@@ -77,6 +77,7 @@ def validate_errors_v2(cfg):
 def validate_config_v2(cfg):
     errs = []
     from .timebase import quarterly_value_to_period
+    from .growth import validate_growth_spec_for_cadence, growth_context_from_cfg
     _a0 = cfg.get("assumptions") or {}
     _alias_ppy = _a0.get("periods_per_year") or 4
     if not isinstance(_alias_ppy, int) or isinstance(_alias_ppy, bool) or _alias_ppy not in (4, 12):
@@ -159,6 +160,7 @@ def validate_config_v2(cfg):
     if (cfg.get("parity_profile") == "pf_b") and _ppy != 4:
         errs.append("Profile B (parity_profile=pf_b) supports quarterly only (periods_per_year=4); "
                     "monthly/annual cadence is not yet available for Profile B")
+    _growth_ctx = growth_context_from_cfg(cfg, _ppy)
     if "n_periods" in a and a["n_periods"] is not None:
         _np = a["n_periods"]
         _lo, _hi = _ppy, _ppy * 7
@@ -220,12 +222,72 @@ def validate_config_v2(cfg):
     nd = a.get("nie_detail")
     if nd:
         fby = nd.get("fte_by_year")
-        if not isinstance(fby, list) or len(fby) != 3 or any(
-                not isinstance(x, (int, float)) or x < 0 for x in fby):
+        if fby is not None and (not isinstance(fby, list) or len(fby) != 3 or any(
+                not isinstance(x, (int, float)) or x < 0 for x in fby)):
             errs.append("nie_detail.fte_by_year must be three non-negative counts [y1, y2, y3]")
         gr = nd.get("other_gross_up_rate")
         if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
+        for i, cat in enumerate(nd.get("categories") or []):
+            if cat.get("growth_spec"):
+                try:
+                    validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
+        wf = nd.get("workforce") or {}
+        if wf.get("default_payroll_load_rate") is not None:
+            rr = wf.get("default_payroll_load_rate")
+            if not isinstance(rr, (int, float)) or rr < 0 or rr > 2:
+                errs.append("nie_detail.workforce.default_payroll_load_rate must be in [0, 2]")
+        _wf_default_gs = None
+        if wf.get("default_salary_growth_spec"):
+            try:
+                _wf_default_gs = validate_growth_spec_for_cadence(
+                    wf.get("default_salary_growth_spec"), ppy=_ppy, context=_growth_ctx)
+            except (TypeError, ValueError) as e:
+                errs.append(f"nie_detail.workforce.default_salary_growth_spec invalid: {e}")
+        for i, role in enumerate(wf.get("roles") or []):
+            cnt = role.get("count", 1)
+            comp = role.get("annual_comp", role.get("base_salary_annual", 0))
+            hp = role.get("hire_period", 1)
+            ep = role.get("end_period")
+            load = role.get("payroll_load_rate")
+            if not isinstance(cnt, (int, float)) or cnt < 0:
+                errs.append(f"nie_detail.workforce.roles[{i}].count must be non-negative")
+            if not isinstance(comp, (int, float)) or comp < 0:
+                errs.append(f"nie_detail.workforce.roles[{i}].annual_comp must be non-negative")
+            if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1:
+                errs.append(f"nie_detail.workforce.roles[{i}].hire_period must be an integer >= 1")
+            if ep not in (None, "") and (not isinstance(ep, int) or isinstance(ep, bool) or ep < hp):
+                errs.append(f"nie_detail.workforce.roles[{i}].end_period must be blank or >= hire_period")
+            if load is not None and (not isinstance(load, (int, float)) or load < 0 or load > 2):
+                errs.append(f"nie_detail.workforce.roles[{i}].payroll_load_rate must be in [0, 2]")
+            if role.get("salary_growth_spec"):
+                try:
+                    _eff = dict(wf.get("default_salary_growth_spec") or {})
+                    _eff.update(role.get("salary_growth_spec") or {})
+                    validate_growth_spec_for_cadence(_eff, ppy=_ppy, context=_growth_ctx)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].salary_growth_spec invalid: {e}")
+    if a.get("overhead_growth_spec"):
+        try:
+            validate_growth_spec_for_cadence(a.get("overhead_growth_spec"), ppy=_ppy, context=_growth_ctx)
+        except (TypeError, ValueError) as e:
+            errs.append(f"overhead_growth_spec invalid: {e}")
+    for pi, prod in enumerate(a.get("obs_exposures") or []):
+        mn = prod.get("managed_notional") or {}
+        if mn.get("growth_spec"):
+            try:
+                validate_growth_spec_for_cadence(mn.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
+            except (TypeError, ValueError) as e:
+                errs.append(f"obs_exposures[{pi}].managed_notional.growth_spec invalid: {e}")
+        for si, st in enumerate(prod.get("fee_streams") or []):
+            gs0 = (((st.get("driver") or {}).get("params") or {}).get("growth_spec"))
+            if gs0:
+                try:
+                    validate_growth_spec_for_cadence(gs0, ppy=_ppy, context=_growth_ctx)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"obs_exposures[{pi}].fee_streams[{si}].driver.params.growth_spec invalid: {e}")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

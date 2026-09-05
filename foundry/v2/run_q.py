@@ -1134,12 +1134,14 @@ def run_v2(cfg):
             {"label": "Net Income ($000s)", "y": results["annual"]["ni"]},
         ]}
     from .income_modules import nie_detail_series as _nds
+    from .growth import growth_context_from_cfg as _growth_context_from_cfg
+    _growth_ctx = _growth_context_from_cfg(cfg, _ppy)
     # Per-business fee reporting is native under the GUT: each fee business is its own product,
     # and results["products"][i]["fees"] carries its per-quarter fee income at full granularity.
     # No bespoke fee_detail re-decomposition needed (that existed only to unpack the legacy
     # fee_modules bundle). One source of truth: the products.
-    if _nds(cfg["assumptions"], _ppy):
-        nd_s = _nds(cfg["assumptions"], _ppy)
+    if _nds(cfg["assumptions"], _ppy, _growth_ctx):
+        nd_s = _nds(cfg["assumptions"], _ppy, _growth_ctx)
         results["nie_detail_series"] = {"comp": [round(x / 1000.0, 2) for x in nd_s["comp"]],
                                           "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
                                           "gross_up_rate": nd_s["gross_up_rate"],
@@ -1158,6 +1160,7 @@ def run_v2(cfg):
     _nd_cfg = cfg["assumptions"].get("nie_detail")
     if _nd_cfg is not None and (cfg["assumptions"].get("overhead_q") or 0) > 0:
         _zeroed = (not any(_nd_cfg.get("fte_by_year") or [])
+                    and not (((_nd_cfg.get("workforce") or {}).get("roles")) or [])
                     and not (_nd_cfg.get("categories") or []))
         results.setdefault("flags", []).append({
             "id": "NIE-REPLACES-OVERHEAD",

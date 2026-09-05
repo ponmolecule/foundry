@@ -34,16 +34,24 @@ def _g(base, growth, q):
     return base * (1 + (growth or 0.0)) ** (q - 1)
 
 
-def nie_detail_series(a, ppy=4):
+def nie_detail_series(a, ppy=4, growth_context=None):
     """(comp_q, categories_q, gross_up_rate) or None when absent."""
     Q = int(a.get("n_periods") or 12)
     nd = a.get("nie_detail")
     if not nd:
         return None
-    fte = list(nd.get("fte_by_year") or [0, 0, 0])
-    loaded = float(nd.get("loaded_comp_annual") or 0.0)
-    _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
-    comp = [fte[min((q - 1) // ppy, _lastyr)] * loaded / float(ppy) for q in range(1, Q + 1)]
+    # New workforce authoring supersedes the legacy FTE Y1/Y2/Y3 ladder when roles
+    # are present. Legacy configs remain byte-identical because the old path is used
+    # unchanged when workforce is absent/empty.
+    _wf = nd.get("workforce") or {}
+    if _wf.get("mode") == "roles" or _wf.get("roles"):
+        from .workforce import workforce_comp_series
+        comp = workforce_comp_series(_wf, Q, ppy, growth_context=growth_context)
+    else:
+        fte = list(nd.get("fte_by_year") or [0, 0, 0])
+        loaded = float(nd.get("loaded_comp_annual") or 0.0)
+        _lastyr = len(fte) - 1        # beyond the provided years, hold the final year's FTE
+        comp = [fte[min((q - 1) // ppy, _lastyr)] * loaded / float(ppy) for q in range(1, Q + 1)]
     # Per-category ENGINE-period series. Canonical UI fields are per_period and
     # growth_per_period. Legacy per_quarter/growth_q retain their calendar-quarter
     # meaning and are converted to the selected cadence.
@@ -58,7 +66,11 @@ def nie_detail_series(a, ppy=4):
             sched = list(c.get("schedule") or [])
             return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
                     for i in range(Q)]
-        if traj == "linear":
+        if traj in ("linear", "growth"):
+            if c.get("growth_spec"):
+                from .growth import resolve_growth_series
+                return resolve_growth_series(base, c.get("growth_spec"), Q, ppy,
+                                             context=growth_context)
             if c.get("growth_per_period") is not None:
                 g = float(c.get("growth_per_period") or 0.0)
             else:
@@ -75,7 +87,7 @@ def nie_detail_series(a, ppy=4):
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
 
-def managed_notional_series(mn, Q, ppy=4):
+def managed_notional_series(mn, Q, ppy=4, growth_context=None):
     """Roll an off-book notional stock (AUC/AUM) forward Q engine periods.
 
     Canonical duration/growth fields are ramp_periods and growth_per_period. Legacy
@@ -102,11 +114,20 @@ def managed_notional_series(mn, Q, ppy=4):
             frac = min(1.0, q / ramp) if ramp > 0 else 1.0
             end[q - 1] = day1 + (target - day1) * frac
     elif traj == "proportional":
-        from .timebase import quarterly_value_to_period
-        g = (float(mn.get("growth_per_period") or 0.0) if mn.get("growth_per_period") is not None
-             else quarterly_value_to_period("growth", float(mn.get("growth_q") or 0.0), ppy))
-        for q in range(1, Q + 1):
-            end[q - 1] = day1 * (1 + g) ** q
+        if mn.get("growth_spec"):
+            from .growth import resolve_growth_series
+            # day1 is an opening stock immediately before P1. Smooth growth therefore
+            # earns one native period by P1; stepped annual growth remains flat until
+            # its first selected boundary.
+            end = resolve_growth_series(day1, mn.get("growth_spec"), Q, ppy,
+                                        context=growth_context, base_position="opening")
+            prev = day1
+        else:
+            from .timebase import quarterly_value_to_period
+            g = (float(mn.get("growth_per_period") or 0.0) if mn.get("growth_per_period") is not None
+                 else quarterly_value_to_period("growth", float(mn.get("growth_q") or 0.0), ppy))
+            for q in range(1, Q + 1):
+                end[q - 1] = day1 * (1 + g) ** q
     elif traj == "explicit_schedule":
         sched = mn.get("schedule") or {}
         cur = day1
@@ -213,6 +234,15 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         from .timebase import quarterly_value_to_period
         return quarterly_value_to_period("growth", float(params.get("growth_q") or 0.0), ppy)
 
+    def _driver_growth_multiplier():
+        if params.get("growth_spec"):
+            from .growth import growth_multiplier
+            return growth_multiplier(params.get("growth_spec"), current_period=q,
+                                     start_period=1, ppy=ppy,
+                                     context=(ctx or {}).get("growth_context"),
+                                     base_position="period1")
+        return (1.0 + _driver_growth()) ** (q - 1)
+
     def _source_base():
         if src == "own_balance":
             return float((ctx or {}).get("own_balance") or 0.0)
@@ -229,7 +259,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     sb = _source_base()
     if src == "constant":
         if traj == "proportional":
-            qty = _g(base, _driver_growth(), q)
+            qty = base * _driver_growth_multiplier()
         elif traj == "explicit_schedule":
             qty = float((params.get("schedule") or {}).get(str(q), base))
         else:
@@ -247,7 +277,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             else:
                 qty = sb
         elif traj == "proportional":
-            qty = _g(sb, _driver_growth(), q)
+            qty = sb * _driver_growth_multiplier()
         else:
             qty = sb  # flat/ramp_to_target already baked into the source stock
 

@@ -273,12 +273,11 @@ def _array_sheet(ws, arrkey, items, fields):
 
 
 def _nie_sheet(ws, nd, ppy=4):
-    """Editable sheet for nie_detail — a heterogeneous structure (scalars + a fixed FTE ladder +
-    a categories array), so each leaf gets a dotted machine key that diff_import reads back via
-    the generic ARRAY_SHEETS reader. Same grammar as _fee_sheet. NIE detail drives total
-    non-interest expense (it REPLACES the corporate-overhead lump when present), so it earns a
-    first-class editable sheet like every other driving input — previously it was read-only on
-    SETTINGS with only FTE+comp shown."""
+    """Editable NIE assumptions, including legacy staffing, role/cohort workforce,
+    category trajectories, and assessment/gross-up inputs.  New trajectory fields are
+    emitted only when present; legacy snapshots therefore retain their historical grammar.
+    Dotted machine keys are consumed by diff_import through the generic array-sheet path.
+    """
     ws.append(["key", "Section", "Field", "Value", "Units / note"])
     for c in ws[1]:
         c.font = HDR
@@ -292,42 +291,80 @@ def _nie_sheet(ws, nd, ppy=4):
         if isinstance(val, (int, float)) and abs(val) >= 1000:
             ws.cell(ws.max_row, 4).number_format = "#,##0"
 
-    # FTE ladder (one row per modeled year) — the headcount that drives loaded comp.
+    def _growth_rows(prefix, section, label, spec):
+        if not spec:
+            return
+        _row(prefix + ".rate", section, label + " — rate", spec.get("rate"), "rate")
+        _row(prefix + ".period", section, label + " — period", spec.get("period"), "month / quarter / year")
+        _row(prefix + ".method", section, label + " — method", spec.get("method"), "smooth / step")
+        if spec.get("anchor") is not None:
+            _row(prefix + ".anchor", section, label + " — step anchor", spec.get("anchor"),
+                 "model_year / calendar_year / fiscal_year / hire_anniversary")
+        if spec.get("anchor_month") is not None:
+            _row(prefix + ".anchor_month", section, label + " — anchor month", spec.get("anchor_month"), "1-12")
+
+    # Legacy three-year staffing is retained only for old configs that still carry it.
     fte = nd.get("fte_by_year") or []
     for i, n in enumerate(fte):
-        _row(f"nie_detail.fte_by_year.{i}", "Staffing", f"FTE — year {i + 1}", n, "headcount")
-    # comp + gross-up scalars.
+        _row(f"nie_detail.fte_by_year.{i}", "Legacy staffing", f"FTE — year {i + 1}", n, "headcount")
     if nd.get("loaded_comp_annual") is not None:
-        _row("nie_detail.loaded_comp_annual", "Staffing", "Loaded comp per FTE",
+        _row("nie_detail.loaded_comp_annual", "Legacy staffing", "Loaded comp per FTE",
              nd.get("loaded_comp_annual"), "$/year (fully loaded)")
+
+    # New shapeshifting workforce authoring: compact role/cohort records feed the same NIE series.
+    wf = nd.get("workforce") or {}
+    if wf:
+        _row("nie_detail.workforce.mode", "Workforce defaults", "Mode", wf.get("mode", "roles"), "roles")
+        _row("nie_detail.workforce.default_payroll_load_rate", "Workforce defaults", "Default payroll load",
+             wf.get("default_payroll_load_rate", 0.0), "rate")
+        _growth_rows("nie_detail.workforce.default_salary_growth_spec", "Workforce defaults",
+                     "Default salary escalation", wf.get("default_salary_growth_spec") or {})
+        for i, role in enumerate(wf.get("roles") or []):
+            sec = f"Workforce role {i + 1}"
+            root = f"nie_detail.workforce.roles.{i}"
+            _row(root + ".role", sec, "Role / cohort", role.get("role"), "label (editable)")
+            _row(root + ".count", sec, "Count", role.get("count", 1), "headcount")
+            _row(root + ".annual_comp", sec, "Annual base compensation", role.get("annual_comp"), "$/year per FTE")
+            _row(root + ".hire_period", sec, "Hire model period", role.get("hire_period", 1),
+                 "M# / Q# index (native cadence)")
+            if role.get("end_period") is not None:
+                _row(root + ".end_period", sec, "End model period", role.get("end_period"),
+                     "M# / Q# index (native cadence)")
+            if role.get("payroll_load_rate") is not None:
+                _row(root + ".payroll_load_rate", sec, "Payroll load override", role.get("payroll_load_rate"), "rate")
+            _growth_rows(root + ".salary_growth_spec", sec, "Salary escalation",
+                         role.get("salary_growth_spec") or {})
+
     if nd.get("other_gross_up_rate") is not None:
-        _row("nie_detail.other_gross_up_rate", "Overhead", "Other gross-up rate",
-             nd.get("other_gross_up_rate"), "share of subtotal")
-    # regulatory assessment rates — engagement assumptions (12 CFR 327 FDIC / 12 CFR 8 OCC).
-    # Only emitted when overridden; a blank cell on re-import falls back to the REG_PARAMS default.
+        _row("nie_detail.other_gross_up_rate", "Overhead", "Other NIE gross-up rate",
+             nd.get("other_gross_up_rate"), "share of NIE subtotal (not payroll load)")
     if nd.get("fdic_bp_ann") is not None:
         _row("nie_detail.fdic_bp_ann", "Assessments", "FDIC assessment rate",
              nd.get("fdic_bp_ann"), "bp/year (blank = 5.0 default)")
     if nd.get("occ_bp_ann") is not None:
         _row("nie_detail.occ_bp_ann", "Assessments", "OCC assessment rate",
              nd.get("occ_bp_ann"), "bp/year (blank = 1.5 default)")
-    # Category amounts are canonical per ENGINE period. Legacy per_quarter configs are
-    # converted for display rather than being repeated monthly.
+
     from .timebase import quarterly_value_to_period
     _unit = "$/month" if int(ppy) == 12 else "$/quarter"
     for i, cat in enumerate(nd.get("categories") or []):
-        _row(f"nie_detail.categories.{i}.name", f"Category {i + 1}", "Name",
-             cat.get("name"), "label (editable)")
+        sec = f"Category {i + 1}"
+        root = f"nie_detail.categories.{i}"
+        _row(root + ".name", sec, "Name", cat.get("name"), "label (editable)")
         _amt = cat.get("per_period")
         if _amt is None:
             _amt = quarterly_value_to_period("opex_fixed", cat.get("per_quarter", 0.0) or 0.0, int(ppy))
-        _row(f"nie_detail.categories.{i}.per_period", f"Category {i + 1}", "Amount",
-             _amt, _unit)
+        _row(root + ".per_period", sec, "Base amount", _amt, _unit)
+        if cat.get("trajectory") is not None:
+            _row(root + ".trajectory", sec, "Trajectory", cat.get("trajectory"), "flat / growth / explicit")
+        _growth_rows(root + ".growth_spec", sec, "Growth", cat.get("growth_spec") or {})
+        # Explicit schedules remain authored most naturally in-app/paste; state still preserves them.
+
     ws.column_dimensions["A"].hidden = True
-    ws.column_dimensions["B"].width = 18
-    ws.column_dimensions["C"].width = 24
+    ws.column_dimensions["B"].width = 23
+    ws.column_dimensions["C"].width = 32
     ws.column_dimensions["D"].width = 18
-    ws.column_dimensions["E"].width = 28
+    ws.column_dimensions["E"].width = 44
 
 
 def build_fiw(cfg):
@@ -493,19 +530,37 @@ def _settings_sheet(wb, cfg):
     sec("NIE detail")
     nd = a.get("nie_detail") or {}
     if nd:
-        if nd.get("fte_by_year") is not None:
-            row("FTE by year (Y1/Y2/Y3)", " / ".join(str(x) for x in nd.get("fte_by_year") or []), "headcount")
-        if nd.get("loaded_comp_annual") is not None:
-            row("Loaded comp per FTE", nd.get("loaded_comp_annual"), "$/year")
+        _wf = nd.get("workforce") or {}
+        if _wf and (_wf.get("mode") == "roles" or _wf.get("roles")):
+            row("Workforce mode", "role/cohort", "native-cadence compensation resolver")
+            row("Workforce roles/cohorts", len(_wf.get("roles") or []), "rows")
+            row("Default payroll load", _wf.get("default_payroll_load_rate", 0.0), "rate")
+            _dgs = _wf.get("default_salary_growth_spec") or {}
+            if _dgs:
+                row("Default salary escalation", _dgs.get("rate"),
+                    f"per {_dgs.get('period','year')} · {_dgs.get('method','step')} · {_dgs.get('anchor','model_year')}")
+            for _wr in (_wf.get("roles") or []):
+                row(_wr.get("role") or "workforce role",
+                    f"{_wr.get('count',1)} FTE · hire {('M' if int(a.get('periods_per_year') or 4)==12 else 'Q')}{_wr.get('hire_period',1)} · ${float(_wr.get('annual_comp') or 0):,.0f}/yr",
+                    "role/cohort")
+        else:
+            if nd.get("fte_by_year") is not None:
+                row("FTE by year (Y1/Y2/Y3)", " / ".join(str(x) for x in nd.get("fte_by_year") or []), "legacy headcount")
+            if nd.get("loaded_comp_annual") is not None:
+                row("Loaded comp per FTE", nd.get("loaded_comp_annual"), "$/year · legacy")
         from .timebase import quarterly_value_to_period as _qvpp
         _ppyn = int(a.get("periods_per_year") or 4)
         for cat in (nd.get("categories") or []):
             _amt = cat.get("per_period")
             if _amt is None:
                 _amt = _qvpp("opex_fixed", cat.get("per_quarter", cat.get("amount_q", 0.0)) or 0.0, _ppyn)
-            row(cat.get("name") or "category", _amt, "$/month" if _ppyn == 12 else "$/quarter")
+            _gs = cat.get("growth_spec") or {}
+            _u = "$/month" if _ppyn == 12 else "$/quarter"
+            if _gs:
+                _u += f" · growth {_gs.get('rate',0):.2%}/{_gs.get('period','model_period')} {_gs.get('method','smooth')}"
+            row(cat.get("name") or "category", _amt, _u)
         if nd.get("other_gross_up_rate") is not None:
-            row("Other gross-up rate", nd.get("other_gross_up_rate"), "rate")
+            row("Other NIE gross-up rate", nd.get("other_gross_up_rate"), "rate · applies to NIE subtotal, not payroll load")
         if nd.get("fdic_bp_ann") is not None:
             row("FDIC assessment rate", nd.get("fdic_bp_ann"), "bp/yr (default 5.0)")
         if nd.get("occ_bp_ann") is not None:

@@ -34,6 +34,8 @@ def run_pf_b(cfg):
         _apply_overlays(lend, dep, a, cfg["scenario_overlays"], 4)
     _curves = _build_rate_curve_set(a, cfg, 4)
     _rate = _curves["sofr"]
+    from .growth import growth_context_from_cfg
+    _growth_ctx = growth_context_from_cfg(cfg, 4)
 
     from .timebase import event_start_period
 
@@ -46,7 +48,7 @@ def run_pf_b(cfg):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
-    _nie_d = nie_detail_series(a)
+    _nie_d = nie_detail_series(a, 4, _growth_ctx)
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
     # quarters, then matures to zero; full-quarter interest on outstanding principal,
     # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
@@ -134,7 +136,13 @@ def run_pf_b(cfg):
         fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
                  )
         opex_prod = sum(opex_fixed_q(p) for p in lend + dep + obs + afs_p + htm_p)
-        _ovh_b = a["overhead_q"] + _dep_exp[qi]
+        if a.get("overhead_growth_spec"):
+            from .growth import growth_multiplier
+            _ovh_b = a["overhead_q"] * growth_multiplier(
+                a.get("overhead_growth_spec"), current_period=q, start_period=1,
+                ppy=4, context=_growth_ctx, base_position="period1") + _dep_exp[qi]
+        else:
+            _ovh_b = a["overhead_q"] + _dep_exp[qi]
         if _nie_d:
             _pa = prev_assets
             _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]

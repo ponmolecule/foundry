@@ -78,8 +78,8 @@ console.log(JSON.stringify({{
 
 def _browser_nie_entry_probe(html: str):
     """Execute the actual NIE activation/manual-add handlers under Node."""
-    add_src = html[html.index("window.nieCatAdd = function()"):
-                   html.index("window.nieCatPaste = function(txt, type, growthPct)")]
+    add_src = html[html.index("function _newNieDetail()"):
+                   html.index("window.nieCatPaste = function(")]
     on_src = html[html.index("window.nieOn = function()"):
                   html.index("// Static mirror of foundry/v2/fee_catalog.py")]
     script = f"""
@@ -404,7 +404,8 @@ def main():
     html = (ROOT/"web/console_v2.html").read_text(encoding="utf-8")
     exec_html = (ROOT/"foundry/v2/assets/exec_view_template.html").read_text(encoding="utf-8")
     ck("J1 preset insertion converts historical quarterly preset economics", "materializeQuarterlyPreset(pr.p)" in html)
-    ck("J2 NIE UI writes canonical growth_per_period", "cat.growth_per_period=g" in html)
+    ck("J2 NIE UI writes canonical growth_spec for new Growth trajectories",
+       'cat.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam}' in html)
     ck("J3 Executive chart uses cadence-aware endpoint labels", "MODEL.periodEndLabel" in exec_html)
     ck("J4 fee/catalog growth labels use active cadence", "`%/${PLAB()}`" in html)
     ck("J5 Call Report UI does not double-collapse canonical quarterly values",
