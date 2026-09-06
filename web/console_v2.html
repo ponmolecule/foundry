@@ -3352,19 +3352,18 @@ window.nieWorkforcePaste = function(txt){
     if(header){
       const p=_splitPasteRow(line,delim);
       role=hv(p,"role"); count=hv(p,"count")!==""?_pf(hv(p,"count")):1;
-      comp=_pf(hv(p,"annual_comp"));
-      // Workforce compensation is authored in whole dollars/FTE, matching the engine and FIW.
-      // Preserve backward compatibility with the old explicit "$000s/FTE" paste header only.
-      if(/000s/i.test(header.annual_comp.raw)) comp*=1000;
+      // Foundry's user-entry contract is $000s everywhere. Workforce compensation is
+      // no exception: a pasted 3,000 means $3,000,000 annual compensation.
+      comp=_pf(hv(p,"annual_comp"))*1000;
       startRaw=hv(p,"start")||"M1";
       if(hv(p,"end")!==""){end=parseInt(hv(p,"end").replace(/[^0-9]/g,""))||null;if(end!=null&&(end<1||end>84))return;}
       if(hv(p,"escalation")!=="") esc=_pf(hv(p,"escalation"));
       if(hv(p,"payroll_load")!=="") load=_pf(hv(p,"payroll_load"))/100;
     } else if(line.indexOf("\t")>=0){
-      // Backward-compatible headerless order retained: Role, Annual comp ($), Start,
+      // Backward-compatible headerless order retained: Role, Annual comp ($000s/FTE), Start,
       // Escalation %, [Count], [End], [Payroll load %]. New pastes should use headers.
       const p=line.split("\t").map(x=>x.trim()); if(p.length<4) return;
-      role=p[0]; comp=_pf(p[1]); startRaw=p[2]||"M1"; esc=_pf(p[3]);
+      role=p[0]; comp=_pf(p[1])*1000; startRaw=p[2]||"M1"; esc=_pf(p[3]);
       if(p[4]!==undefined && p[4]!=="") count=_pf(p[4]);
       if(p[5]!==undefined && p[5]!==""){end=parseInt(String(p[5]).replace(/[^0-9]/g,""))||null;if(end!=null&&(end<1||end>84))return;}
       if(p[6]!==undefined && p[6]!=="") load=_pf(p[6])/100;
@@ -3372,7 +3371,7 @@ window.nieWorkforcePaste = function(txt){
       // Legacy headerless CSV order, including unquoted thousands commas in compensation.
       var m=line.match(/^\s*(.*?)\s*,\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s*,\s*(.*?)\s*,\s*([-+]?[0-9.]+)%?(?:\s*,\s*([0-9.]+))?(?:\s*,\s*(?:[MQ]\s*)?([0-9]+))?(?:\s*,\s*([-+]?[0-9.]+)%?)?\s*$/i);
       if(!m) return;
-      role=m[1].trim(); comp=_pf(m[2]); startRaw=m[3]||"M1"; esc=_pf(m[4]);
+      role=m[1].trim(); comp=_pf(m[2])*1000; startRaw=m[3]||"M1"; esc=_pf(m[4]);
       if(m[5]!=null) count=_pf(m[5]); if(m[6]!=null){end=+m[6];if(end<1||end>84)return;} if(m[7]!=null) load=_pf(m[7])/100;
     }
     const st=_parseWorkforceStart(startRaw); if(!st) return;
@@ -3382,7 +3381,7 @@ window.nieWorkforcePaste = function(txt){
     if(st.activation) r.activation=st.activation; else r.hire_period=st.hire_period;
     if(end!=null) r.end_period=end; if(load!=null) r.payroll_load_rate=load; added.push(r);
   });
-  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Annual Comp ($/FTE), Start, End, Escalation %, Benefits/Payroll %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
+  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Annual Comp ($000s/FTE), Start, End, Escalation %, Benefits/Payroll %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
   wf.roles=wf.roles.concat(added);
   var nd=_ensureNieDetail(); nd._wfPasteOpen=false;
   appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
@@ -6798,9 +6797,9 @@ function structuresSectionsHtml(){
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
-      h += '<div class="wf-schema"><span>Role</span><span>Annual Comp<br>($/FTE)</span><span>Start</span><span>End</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
+      h += '<div class="wf-schema"><span>Role</span><span>Annual Comp<br>($000s/FTE)</span><span>Start</span><span>End</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
       h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Annual Comp, Start</b>. Other columns are optional and may be omitted when headers are present. Start may be M17/Q5 or a supported metric trigger.</div>';
-      h += '<textarea id="nieWorkforcePasteBox" rows="6" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tAnnual Comp ($/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;CEO\t275000\tM1\t\t3.0\t&#10;Compliance Analyst\t95000\tM17\t\t4.0\t&#10;Custody Officer\t120000\tEOP AUC [Custody] >= 1B\t\t3.5\t"></textarea>';
+      h += '<textarea id="nieWorkforcePasteBox" rows="6" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;CEO\t275\tM1\t\t3.0\t&#10;Compliance Analyst\t95\tM17\t\t4.0\t&#10;Custody Officer\t120\tEOP AUC [Custody] >= 1B\t\t3.5\t"></textarea>';
       h += '<div class="nie-actions"><button class="pillbtn" onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
     }
     if((wf.roles||[]).length){
@@ -6812,7 +6811,7 @@ function structuresSectionsHtml(){
         const _defEsc=(+(wf.default_salary_growth_spec||{}).rate||0)*100, _defLoad=(+(wf.default_payroll_load_rate||0))*100;
         let row='<div class="wf-role-card"><div class="wf-role-grid">';
         row += `<label class="wf-field"><span class="wf-field-label">Role${(wr.count!=null&&+wr.count!==1)?` · ${wr.count} legacy positions`:``}</span><input placeholder="Role / position" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label>`;
-                row += `<label class="wf-field"><span class="wf-field-label">Annual Comp</span><input type="text" inputmode="decimal" value="${fmtComma(wr.annual_comp||0)}" title="$/FTE per year" onchange="${_wb}.annual_comp=_pf(this.value);refresh();fmtField(this)"></label>`;
+                row += `<label class="wf-field"><span class="wf-field-label">Annual Comp</span><input type="text" inputmode="decimal" value="${fmtComma((wr.annual_comp||0)/1000)}" title="$000s/FTE" onchange="${_wb}.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)"></label>`;
         row += `<label class="wf-field"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
         if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
         row += `</div></label>`;

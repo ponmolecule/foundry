@@ -21,7 +21,7 @@ def main():
     mb=html.index("// Static mirror", ma)
     js += "\n" + html[ma:mb]
     roles="\n".join(
-        f"Role {i+1}\t{60000+i*1000}\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
+        f"Role {i+1}\t{60+i}\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
     )
     prefix=r'''
 const window=globalThis;
@@ -40,21 +40,22 @@ const cat=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories[0]));
 window.nieWorkforcePaste(__ROLES__);
 const wf=cfg.assumptions.nie_detail.workforce;
 const nroles=wf.roles.length, maxhire=Math.max(...wf.roles.map(r=>r.hire_period));
-window.nieWorkforcePaste("Custody Ops\t120000\tEOP AUC [Custody] >= 1B\t3.5");
+window.nieWorkforcePaste("Custody Ops\t120\tEOP AUC [Custody] >= 1B\t3.5");
 const trigger=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
-window.nieWorkforcePaste("Controller, $95,000, M36, 4.0");
+window.nieWorkforcePaste("Controller, 3,000, M36, 4.0");
 const csv=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
 window.nieWorkforcePaste("Role\tCount\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tPayroll Load %\nTreasurer\t2\t130\tM8\tM36\t\t27.5");
 const hdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
-window.nieWorkforcePaste("Role\tAnnual Comp ($/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %\nTreasurer 2\t145000\tM9\tM40\t3.5\t24");
+window.nieWorkforcePaste("Role\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %\nTreasurer 2\t145\tM9\tM40\t3.5\t24");
 const canon=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
-window.nieWorkforcePaste("Role\tAnnualSalary\tHireMonth\tAnnualEscalation\nCFO\t300,000\t12\t4.0");
+window.nieWorkforcePaste("Role\tAnnualSalary\tHireMonth\tAnnualEscalation\nCFO\t3,000\t12\t4.0");
 const compactHdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
-// Unit-parity audit: every bulk paste stores the same raw value as its manual field path.
-cfg.pre_opening.expenses=[]; window.poPaste("Legal\t300","replace"); const poAmt=cfg.pre_opening.expenses[0].total;
-window.faPaste("Asset\tCost\tInService\tUsefulLife\nServers\t300\tAt opening\t5","replace"); const faAmt=cfg.assumptions.fixed_assets.assets[0].cost;
-const ndParity=_ensureNieDetail(); ndParity.categories=[]; window.nieCatPaste("Insurance\t300","flat",0,"month","smooth","model_period",1); const catAmt=ndParity.categories[0].per_period;
-window.nieWorkforcePaste("Role\tAnnual Comp ($/FTE)\tStart\tEscalation %\nParity Role\t300000\tM1\t3"); const wfAmt=wf.roles[wf.roles.length-1].annual_comp;
+// Unit-parity audit: every bulk/manual user entry uses $000s. 3,000 means $3,000,000.
+const entered="3,000", manualAmt=_pf(entered)*1000;
+cfg.pre_opening.expenses=[]; window.poPaste("Legal\t3,000","replace"); const poAmt=cfg.pre_opening.expenses[0].total;
+window.faPaste("Asset\tCost\tInService\tUsefulLife\nServers\t3,000\tAt opening\t5","replace"); const faAmt=cfg.assumptions.fixed_assets.assets[0].cost;
+const ndParity=_ensureNieDetail(); ndParity.categories=[]; window.nieCatPaste("Insurance\t3,000","flat",0,"month","smooth","model_period",1); const catAmt=ndParity.categories[0].per_period;
+window.nieWorkforcePaste("Role\tAnnual Comp ($000s/FTE)\tStart\tEscalation %\nParity Role\t3,000\tM1\t3"); const wfAmt=wf.roles[wf.roles.length-1].annual_comp;
 window.nieWorkforceMetric(wf.roles.length-1,"mn::Wealth"); const mnMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
 window.nieWorkforceMetric(wf.roles.length-1,"net_income_py"); const pyMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
 cfg.assumptions.nie_detail.categories=[{name:'Saved detail',per_period:1}];
@@ -62,7 +63,7 @@ window.nieOff(); const simpleHasDraft=!!cfg.assumptions._nie_detail_draft && cfg
 window.nieOn(); const restored=(cfg.assumptions.nie_detail.categories||[])[0].name;
 cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
 window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
-console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,unitParity:{poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
+console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
 '''.replace('__ROLES__', json.dumps(roles))
     br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     bj={}
@@ -88,7 +89,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and trig.get("timing")=="same_period")
     csv=bj.get("csv") or {}
     ck("workforce CSV keeps thousands commas inside compensation",
-       csv.get("role")=="Controller" and abs(csv.get("annual_comp",0)-95000)<1e-9 and csv.get("hire_period")==36)
+       csv.get("role")=="Controller" and abs(csv.get("annual_comp",0)-3_000_000)<1e-9 and csv.get("hire_period")==36)
     hdr=bj.get("hdr") or {}
     ck("header-aware workforce paste uses the same canonical schema and units as manual entry",
        hdr.get("role")=="Treasurer" and hdr.get("count")==2 and abs(hdr.get("annual_comp",0)-130000)<1e-9
@@ -101,11 +102,11 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and canon.get("end_period")==40 and abs(canon.get("payroll_load_rate",0)-.24)<1e-12)
     compact=bj.get("compactHdr") or {}
     ck("compact spreadsheet headers AnnualSalary / HireMonth / AnnualEscalation are recognized",
-       compact.get("role")=="CFO" and abs(compact.get("annual_comp",0)-300000)<1e-9
+       compact.get("role")=="CFO" and abs(compact.get("annual_comp",0)-3_000_000)<1e-9
        and compact.get("hire_period")==12 and abs((compact.get("salary_growth_spec") or {}).get("rate",0)-.04)<1e-12)
     up=bj.get("unitParity") or {}
     ck("paste/manual unit semantics are aligned across every bulk-entry surface",
-       up=={"poAmt":300000,"faAmt":300000,"catAmt":300000,"wfAmt":300000}, str(up))
+       up=={"manualAmt":3000000,"poAmt":3000000,"faAmt":3000000,"catAmt":3000000,"wfAmt":3000000}, str(up))
     mn=bj.get("mnMetric") or {}; py=bj.get("pyMetric") or {}
     ck("metric choice folds managed-notional source into the metric and derives safe timing",
        mn.get("metric")=="managed_notional_end" and mn.get("source")=="Wealth" and mn.get("timing")=="same_period"
@@ -166,12 +167,17 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'blank=5.0' not in html and 'blank=1.5' not in html)
     ck("workforce paste guidance describes clipboard columns rather than asking users to type tabs",
        'you do not need to type tab characters' in html and 'Tabs preferred' not in html
-       and 'Annual Comp<br>($/FTE)' in html and '<span>Count</span>' not in html)
+       and 'Annual Comp<br>($000s/FTE)' in html and '<span>Count</span>' not in html)
     ck("manual workforce row treats one row as one position and reclaims Count space for compensation/start",
        '<span class="wf-field-label">Count</span>' not in html
-       and 'title="$/FTE per year"' in html and '.annual_comp=_pf(this.value);refresh();fmtField(this)' in html
+       and 'title="$000s/FTE"' in html and '.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)' in html
        and 'max="84" step="1" title="${EVENTUNIT()} number (1–84)"' in html
        and 'max="84" step="1" placeholder="—"' in html)
+    ck("every Load companion manual amount field uses the same $000s-to-raw-dollar conversion",
+       'cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000' in html
+       and 'cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000' in html
+       and '${_cb}.per_period=_pf(this.value)*1000' in html
+       and '${_wb}.annual_comp=_pf(this.value)*1000' in html)
     ck("trigger editor is metric + comparator + value with source/timing folded into metric semantics",
        'Managed-notional source product' not in html and 'Fixed value</option>' not in html
        and 'same period</option>' not in html and 'net_income_py' in html and 'mn::' in html)
