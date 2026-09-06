@@ -410,6 +410,8 @@ table.ovt [data-prov]{box-shadow:none}
    the number and its Q12 figure. Both cells are single-line, so no height mismatch, no stray rule. */
 table.ovt tr.pb-hasq12 td{border-bottom:none}
 table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:var(--mono);font-size:.8rem}
+/* Responsive welcome lift: tall displays get more air; laptop-height viewports stay clear of the brand/header. */
+.welcome-main{transform:translateY(calc(-1 * clamp(3rem, 8vh, 8rem)))}
 /* Ruled-grid variant for the flag/threshold ledger: full cell borders + centered
    headers. Scoped so the peer-comparison and vintage .ovt tables are unaffected. */
 table.ovt.ovt-grid{border:1px solid #2A3B58}
@@ -4337,7 +4339,7 @@ function renderContent(){
           <span style="width:28px;height:28px;border-radius:8px;background:#D8A85E;color:#0A1830;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">F</span>
           <span style="font-size:16px;font-weight:600;color:#E6E8EC">Klaros Found<span style="color:#D8A85E">ry</span></span>
         </div>
-        <div style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px);transform:translateY(-9rem)">
+        <div class="welcome-main" style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px)">
           <div style="font-family:'B612 Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#D8A85E">Welcome to Klaros Foundry</div>
           <div style="margin-top:1.1rem;font-size:clamp(40px,4.6vw,64px);line-height:1.1;font-weight:600;letter-spacing:-.025em;color:#E6E8EC">Financial modeling<br>for <span style="color:#D8A85E">De Novo Charter</span> work.</div>
           <div style="margin-top:1.15rem;font-size:17px;line-height:1.625;color:#8A92A3;max-width:100ch">Create financial projections and regulator-mandated schedules to support charter applications.</div>
@@ -5663,33 +5665,85 @@ window.setLabMode = setLabMode;
 function labLeverCatalog(){
   const levers = [];
   const a = ((cfg||{}).assumptions)||{};
+  const push = (path,label,unit)=>{
+    const v=getPath(path);
+    if(typeof v==="number" && Number.isFinite(v)) levers.push({path,label,unit:unit||""});
+  };
   (a.lending_products||[]).forEach((p,i)=>{
-    const nm = p.name || ("Product "+i);
-    if(typeof p.yield_ann === "number") levers.push({path:`assumptions.lending_products.${i}.yield_ann`, label:`${nm}: fixed yield`, unit:"pct"});
-    if(typeof p.index_spread === "number") levers.push({path:`assumptions.lending_products.${i}.index_spread`, label:`${nm}: index spread`, unit:"pct"});
-    if(typeof p.originations_per_period === "number") levers.push({path:`assumptions.lending_products.${i}.originations_per_period`, label:`${nm}: originations/${PLAB()}`, unit:"k"});
-    if(typeof p.orig_growth_per_period === "number") levers.push({path:`assumptions.lending_products.${i}.orig_growth_per_period`, label:`${nm}: origination growth`, unit:"pct"});
-    if(typeof p.charge_off_ann === "number") levers.push({path:`assumptions.lending_products.${i}.charge_off_ann`, label:`${nm}: charge-off rate`, unit:"pct"});
-    if(typeof p.opening_balance === "number") levers.push({path:`assumptions.lending_products.${i}.opening_balance`, label:`${nm}: opening balance`, unit:"k"});
+    const nm = p.name || ("Product "+(i+1));
+    if(typeof p.yield_ann === "number") push(`assumptions.lending_products.${i}.yield_ann`, `${nm}: fixed yield`, "pct");
+    if(typeof p.index_spread === "number") push(`assumptions.lending_products.${i}.index_spread`, `${nm}: index spread`, "pct");
+    if(typeof p.originations_per_period === "number") push(`assumptions.lending_products.${i}.originations_per_period`, `${nm}: originations/${PLAB()} ($000s)`, "k");
+    if(typeof p.orig_growth_per_period === "number") push(`assumptions.lending_products.${i}.orig_growth_per_period`, `${nm}: origination growth`, "pct");
+    if(typeof p.charge_off_ann === "number") push(`assumptions.lending_products.${i}.charge_off_ann`, `${nm}: charge-off rate`, "pct");
+    if(typeof p.opening_balance === "number") push(`assumptions.lending_products.${i}.opening_balance`, `${nm}: opening balance ($000s)`, "k");
   });
   (a.deposit_products||[]).forEach((p,i)=>{
-    const nm = p.name || ("Deposit "+i);
-    if(typeof p.rate_paid_ann === "number") levers.push({path:`assumptions.deposit_products.${i}.rate_paid_ann`, label:`${nm}: rate paid`, unit:"pct"});
-    if(typeof p.growth_per_period === "number") levers.push({path:`assumptions.deposit_products.${i}.growth_per_period`, label:`${nm}: growth/${PLAB()}`, unit:"pct"});
+    const nm = p.name || ("Deposit "+(i+1));
+    if(typeof p.rate_paid_ann === "number") push(`assumptions.deposit_products.${i}.rate_paid_ann`, `${nm}: rate paid`, "pct");
+    if(typeof p.growth_per_period === "number") push(`assumptions.deposit_products.${i}.growth_per_period`, `${nm}: growth/${PLAB()}`, "pct");
   });
-  if(typeof a.overhead_per_period === "number" && !a.nie_detail) levers.push({path:"assumptions.overhead_per_period", label:`Overhead per ${PLAB('full')}`, unit:"k"});
-  if(cfg.target_state && typeof cfg.target_state.initial_capital === "number") levers.push({path:"target_state.initial_capital", label:"Initial capital", unit:"k"});
+
+  // First-class Fee Products live in obs_exposures as managed_notional + fee_streams. Only expose
+  // continuous numeric assumptions consumed by the currently-selected GUT behavior. Discrete
+  // selectors, start/end periods, ramp durations and tier schedules deliberately stay out of DE.
+  (a.obs_exposures||[]).forEach((p,i)=>{
+    if(!p || !(p._fee_product || p.managed_notional || (p.fee_streams||[]).length)) return;
+    const pn=p.name || ("Fee product "+(i+1));
+    const pb=`assumptions.obs_exposures.${i}`;
+    const mn=p.managed_notional||{};
+    if(!p.managed_notional_source && p.managed_notional){
+      push(pb+".managed_notional.day1", `${pn}: AUC/AUM day 1 ($000s)`, "k");
+      const mt=mn.trajectory||"flat";
+      if(mt==="ramp_to_target") push(pb+".managed_notional.target", `${pn}: AUC/AUM target ($000s)`, "k");
+      if(mt==="proportional"){
+        if(mn.growth_spec && typeof mn.growth_spec.rate==="number") push(pb+".managed_notional.growth_spec.rate", `${pn}: AUC/AUM growth`, "pct");
+        else if(typeof mn.growth_per_period==="number") push(pb+".managed_notional.growth_per_period", `${pn}: AUC/AUM growth/${PLAB()}`, "pct");
+      }
+    }
+    (p.fee_streams||[]).forEach((st,si)=>{
+      if(!st) return;
+      const sn=st.name || ("Stream "+(si+1));
+      const pre=`${pn} — ${sn}`;
+      const sb=pb+`.fee_streams.${si}`;
+      const drv=st.driver||{}, dp=drv.params||{}, traj=drv.trajectory||"flat", src=drv.source||"constant";
+      const rt=st.rate||{}, rp=rt.params||{}, rb=rt.behavior||"flat", basis=st.basis||"balance";
+      const cost=st.cost||{}, cp=cost.params||{};
+      if(src==="constant" && traj!=="explicit_schedule") push(sb+".driver.params.base", `${pre}: driver base`, "");
+      if(traj==="proportional"){
+        if(dp.growth_spec && typeof dp.growth_spec.rate==="number") push(sb+".driver.params.growth_spec.rate", `${pre}: driver growth`, "pct");
+        else if(typeof dp.growth_per_period==="number") push(sb+".driver.params.growth_per_period", `${pre}: driver growth/${PLAB()}`, "pct");
+      }
+      if(traj==="derived"){
+        if(typeof dp.multiple==="number") push(sb+".driver.params.multiple", `${pre}: source multiple`, "");
+        else if(typeof dp.pct==="number") push(sb+".driver.params.pct", `${pre}: % of source`, "pct");
+      }
+      if(basis==="balance" && rb!=="tiered" && typeof rp.rate==="number") push(sb+".rate.params.rate", `${pre}: fee rate (bp/yr)`, "bps");
+      else if(basis==="transaction"){
+        if(rb==="durbin_capped" && typeof rp.rate==="number") push(sb+".rate.params.rate", `${pre}: gross interchange rate`, "pct");
+        if(rb==="durbin_capped" && typeof rp.avg_ticket==="number") push(sb+".rate.params.avg_ticket", `${pre}: average ticket ($)`, "");
+        if(typeof rp.per_unit==="number") push(sb+".rate.params.per_unit", `${pre}: fee per unit ($)`, "");
+      } else if(basis==="account") push(sb+".rate.params.fee_per_period", `${pre}: fee/account/${PLAB()} ($)`, "");
+      else if(basis==="flat") push(sb+".rate.params.amount_per_period", `${pre}: flat amount/${PLAB()} ($)`, "");
+      else if(basis==="event") push(sb+".rate.params.amount", `${pre}: event amount ($)`, "");
+      if(rb==="annual_change") push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");
+      if(cost.kind==="per_unit" && basis==="transaction") push(sb+".cost.params.cost_per_unit", `${pre}: cost per unit ($)`, "");
+      if(cost.kind==="pct_of_revenue") push(sb+".cost.params.pct", `${pre}: revenue-share cost`, "pct");
+    });
+  });
+
+  if(typeof a.overhead_per_period === "number" && !a.nie_detail) push("assumptions.overhead_per_period", `Overhead per ${PLAB('full')} ($000s)`, "k");
+  if(cfg.target_state && typeof cfg.target_state.initial_capital === "number") push("target_state.initial_capital", "Initial capital ($000s)", "k");
   return levers;
 }
-
 const LAB_METRICS_UNITS = null; // (LAB_METRICS declared at top of Lab block)
 
 function renderLab(){
  try {
   const el = document.getElementById("content");
-  if(!cfg || !((cfg.assumptions||{}).lending_products||[]).length){
+  if(!cfg || !labLeverCatalog().length){
     el.innerHTML = '<div class="h2" style="font-weight:700">Bank Design Lab</div>'
-      + '<div class="memo" style="margin-top:12px">Add products and run the model first \u2014 the Lab explores the model you\u2019ve built.</div>';
+      + '<div class="memo" style="margin-top:12px">Add a product with an adjustable numeric assumption first \u2014 the Lab explores the model you\u2019ve built.</div>';
     return;
   }
   let h = '<div class="h2" style="font-weight:700">Bank Design Lab</div>';
@@ -5750,11 +5804,13 @@ function labScenarioHtml(){
   h += '<table class="fin-dark" style="width:100%"><tr><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Scenario value</th></tr>';
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
-    const ph = (l.unit==="pct") ? ((cur*100).toFixed(2)) : (l.unit==="k" ? Number(cur).toLocaleString() : String(cur));
+    const _disp=_labStoredToDisplay(cur,l.unit);
+    const ph = (l.unit==="pct" || l.unit==="bps") ? Number(_disp).toFixed(2) : Number(_disp).toLocaleString();
     const suffix = (l.unit==="pct") ? '<span style="color:#8FA3C0;margin-left:4px">%</span>'
+                 : (l.unit==="bps") ? '<span style="color:#8FA3C0;margin-left:4px"> bp</span>'
                  : (l.unit==="k") ? '<span style="color:#8FA3C0;margin-right:4px">$</span>' : '';
     const pre = (l.unit==="k") ? suffix : '';
-    const post = (l.unit==="pct") ? suffix : '';
+    const post = (l.unit==="pct" || l.unit==="bps") ? suffix : '';
     h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
       + `<td style="text-align:right;white-space:nowrap">${pre}<input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="${ph}" title="Enter in the same units shown under Current${l.unit==="pct"?" (percent, e.g. 20 = 20%)":""}" style="width:110px;text-align:right;padding:5px;background:#0A1424;border:1px solid #2A3B57;border-radius:5px;color:#DCE3EF">${post}</td></tr>`;
   });
@@ -5783,19 +5839,29 @@ async function runLabGoalSeek(){
 }
 window.runLabGoalSeek = runLabGoalSeek;
 
+function _labStoredToDisplay(v, unit){
+  if(v==null || isNaN(v)) return v;
+  if(unit==="pct") return v*100;
+  if(unit==="bps") return v*10000;
+  if(unit==="k") return v/K;
+  return v;
+}
 function _fmtLever(v, unit){
-  if(v==null) return "\u2014";
-  if(unit==="pct") return (v*100).toFixed(3)+"%";
-  if(unit==="k") return "$"+Number(v).toLocaleString();
-  return String(v);
+  if(v==null) return "—";
+  const d=_labStoredToDisplay(v,unit);
+  if(unit==="pct") return Number(d).toFixed(3)+"%";
+  if(unit==="bps") return Number(d).toFixed(2)+" bp";
+  if(unit==="k") return "$"+Number(d).toLocaleString()+" ($000s)";
+  return String(d);
 }
 
-// Inverse of _fmtLever's scaling: converts a value the user typed in DISPLAY units
-// back to the STORED units the engine expects. pct is shown as % (x100), so a typed
-// "20" (meaning 20%) becomes 0.20. k and plain units are entered as-is.
+// Convert Lab display units back to the actual engine units. This mirrors Product-tab conventions:
+// percentage fields are typed as %, money fields as $000s, and balance-based fee rates as bp/yr.
 function _labInputToStored(v, unit){
   if(v==null || isNaN(v)) return v;
   if(unit==="pct") return v/100;
+  if(unit==="bps") return v/10000;
+  if(unit==="k") return v*K;
   return v;
 }
 
@@ -5839,6 +5905,7 @@ function _leverLocation(path){
   if(path==="assumptions.initial_capital") return "sidebar";
   if(path.indexOf("lending_products")>=0) return "Product tab";
   if(path.indexOf("deposit_products")>=0) return "Product tab";
+  if(path.indexOf("obs_exposures")>=0) return "Product tab — Fee Product";
   return "";
 }
 
@@ -6053,7 +6120,8 @@ function drawContour(d){
     h+='<tr>';
     for(let i=0;i<nx;i++){
       const v=zs[j][i];
-      h+=`<td title="${esc(_labelForPath(d.x_path))}=${d.x_vals[i].toPrecision(3)}, ${esc(_labelForPath(d.y_path))}=${d.y_vals[j].toPrecision(3)}" style="width:${cell}px;height:${cell}px;background:${color(v)};color:#08131F;font-size:9.5px;text-align:center;border:1px solid #0A1424">${v==null?"":v.toFixed(1)}</td>`;
+      const _lx=(labLeverCatalog()||[]).find(l=>l.path===d.x_path), _ly=(labLeverCatalog()||[]).find(l=>l.path===d.y_path);
+      h+=`<td title="${esc(_labelForPath(d.x_path))}=${esc(_fmtLever(d.x_vals[i],_lx?_lx.unit:""))}, ${esc(_labelForPath(d.y_path))}=${esc(_fmtLever(d.y_vals[j],_ly?_ly.unit:""))}" style="width:${cell}px;height:${cell}px;background:${color(v)};color:#08131F;font-size:9.5px;text-align:center;border:1px solid #0A1424">${v==null?"":v.toFixed(1)}</td>`;
     }
     h+='</tr>';
   }
@@ -6079,10 +6147,11 @@ function labOptimizeHtml(){
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
     // Prefill bounds in DISPLAY units so they match the Current column (pct shown x100).
-    const disp = (v)=> (l.unit==="pct") ? +(v*100).toFixed(4) : v;
+    const disp = (v)=> +Number(_labStoredToDisplay(v,l.unit)).toFixed(4);
     const lo = disp(cur*0.5);
     const hi = disp(cur*1.5);
-    const uSuffix = (l.unit==="pct") ? '<span style="color:#8FA3C0;margin-left:3px">%</span>' : '';
+    const uSuffix = (l.unit==="pct") ? '<span style="color:#8FA3C0;margin-left:3px">%</span>'
+                  : (l.unit==="bps") ? '<span style="color:#8FA3C0;margin-left:3px"> bp</span>' : '';
     const stepAttr = 'step="any"';
     h += `<tr><td style="text-align:center"><input type="checkbox" id="optUse-${i}"></td>`
       + `<td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
