@@ -425,7 +425,6 @@ def run_pf_a(cfg):
                                  managed_notional_series)
     from .cac_feeder import cac_managed_notional
     from .regparams import REG_PARAMS as _RP
-    _nie_d = nie_detail_series(a, ppy, _growth_ctx)
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor
@@ -497,6 +496,7 @@ def run_pf_a(cfg):
             if _feed is not None:
                 _mn_cfg = cac_managed_notional(_feed, Q, ppy)
         _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q, ppy, _growth_ctx)
+        p["_mn_avg"] = _mn_avg
         p["_mn_end"] = _mn_end
         # term products: average maturity (months -> quarters, quarterly clock)
         # drives cohort roll-OFF — deposits exit when their cohort matures.
@@ -848,6 +848,46 @@ def run_pf_a(cfg):
             return 0.0
         return _assets_k
 
+    # NIE categories are static native-cadence paths, but new workforce roles are
+    # resolved period-by-period so metric-triggered activation can safely consume either
+    # pre-workforce observables (same-period EOP AUC/AUM) or completed financial history
+    # (next-period activation for endogenous metrics such as efficiency ratio / net income).
+    _nie_d = nie_detail_series(a, ppy, _growth_ctx, defer_workforce=True)
+    _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
+    _wf_runtime = None
+    _wf_comp_native = []
+    if _wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []):
+        from .workforce import WorkforceRuntime
+        _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
+
+    # First-class managed-notional observables. Product names are the user-facing source
+    # identifiers; validation rejects ambiguous metric-trigger sources before the engine runs.
+    _mn_sources = {}
+    for _p in dep + obs:
+        if _p.get("managed_notional") or _p.get("managed_notional_source"):
+            _nm = str(_p.get("name") or "").strip()
+            if _nm:
+                _mn_sources.setdefault(_nm, []).append(_p.get("_mn_end") or [0.0] * Q)
+
+    def _activation_metric(metric, source, period):
+        """Metric registry view used only by workforce activation rules (1-based period)."""
+        _p = int(period)
+        if _p < 1 or _p > Q:
+            return None
+        if metric == "managed_notional_end":
+            _arrs = _mn_sources.get(str(source or "")) or []
+            return _arrs[0][_p - 1] if len(_arrs) == 1 else None
+        if metric == "net_income":
+            _v = is_["ni"][_p]
+            return float(_v) if _v is not None else None
+        if metric == "efficiency_ratio":
+            _vals = [is_[k][_p] for k in ("prodOpex", "overhead", "nii", "fees", "gos", "servNet")]
+            if any(v is None for v in _vals):
+                return None
+            _rev = float(is_["nii"][_p] + is_["fees"][_p] + is_["gos"][_p] + is_["servNet"][_p])
+            return ((float(is_["prodOpex"][_p]) + float(is_["overhead"][_p])) / _rev) if _rev > 0 else None
+        return None
+
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
@@ -934,7 +974,11 @@ def run_pf_a(cfg):
             _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
             _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / ppyf
             _occ = _avg_a_q * float(_occ_bp) / 10000.0 / ppyf
-            _sub = (_nie_d["comp"][q - 1] + _nie_d["categories"][q - 1]
+            _comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
+                       if _wf_runtime is not None else _nie_d["comp"][q - 1])
+            if _wf_runtime is not None:
+                _wf_comp_native.append(_comp_q)
+            _sub = (_comp_q + _nie_d["categories"][q - 1]
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
@@ -1072,7 +1116,7 @@ def run_pf_a(cfg):
         for p in plist:
             def _s(key):
                 return [p[key][q] for q in range(1, Q + 1)] if p.get(key) else None
-            products.append({
+            _pr = {
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
                 "rate_type": p.get("rate_type", "fixed"),
@@ -1099,8 +1143,16 @@ def run_pf_a(cfg):
                 "gos": [(p["_gos"][q] if p.get("_gos") else 0.0) for q in range(1, Q + 1)],
                 "servNet": [(p["_snet"][q] if p.get("_snet") else 0.0) for q in range(1, Q + 1)],
                 "ftp_rate": [rate(q) for q in range(1, Q + 1)],
-            })
-    return {"products": products,
+            }
+            # Promote the off-book stock from a private calculation helper to an auditable,
+            # native-cadence model output.  Only products that actually carry/supply managed
+            # notional receive these keys, preserving the historical output shape elsewhere.
+            if p.get("managed_notional") or p.get("managed_notional_source"):
+                _pr["managedNotionalAvg"] = list(p.get("_mn_avg") or [0.0] * Q)
+                _pr["managedNotionalEnd"] = list(p.get("_mn_end") or [0.0] * Q)
+                _pr["managedNotionalSource"] = p.get("managed_notional_source")
+            products.append(_pr)
+    _out = {"products": products,
             "ratios": {k: v[1:] for k, v in ratios.items()},
             "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,
@@ -1111,3 +1163,10 @@ def run_pf_a(cfg):
                    "premises": prem_t, "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if _wf_runtime is not None:
+        _out["workforce"] = {
+            "resolved_hire_periods": _wf_runtime.resolved_hires(),
+            "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
+            "comp": list(_wf_comp_native),
+        }
+    return _out

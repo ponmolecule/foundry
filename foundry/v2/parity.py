@@ -20,7 +20,8 @@ def _conv(tree, is_ratio=False, raw=False):
     # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
     # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
-        return {k: _conv(v, is_ratio or k in ("ratios", "rateQ"), raw or k == "ftp_rate")
+        return {k: _conv(v, is_ratio or k in ("ratios", "rateQ"),
+                         raw or k in ("ftp_rate", "resolved_hire_periods"))
                 for k, v in tree.items()}
     if isinstance(tree, list):
         return [_conv(x, is_ratio, raw) if isinstance(x, (dict, list))

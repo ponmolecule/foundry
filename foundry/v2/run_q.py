@@ -575,6 +575,16 @@ def run_v2(cfg):
         "flags": _peer_annotated_flags(cfg, base),
         "dfast_segments": dfast_segments,
     }
+    # Workforce activation diagnostics are surfaced only when role/cohort authoring is active.
+    # This keeps legacy result shapes unchanged while making derived hire periods auditable.
+    if base.get("workforce") is not None:
+        results["workforce"] = copy.deepcopy(base.get("workforce"))
+        results["workforce"]["comp_units"] = "$000s"
+    # run_parity reports monetary arrays in $000s; managed-notional EOP/average paths
+    # are therefore explicitly labeled here at the public run/API seam.
+    for _pout in (results.get("products") or []):
+        if "managedNotionalEnd" in _pout or "managedNotionalAvg" in _pout:
+            _pout["managedNotionalUnits"] = "$000s"
     # faithful presentation aggregates: loans/deposits by Call Report line; memo arrays; IS totals
     by_line = {"loans": {}, "deps": {}}
     fv_assets, fv_liabs, obs_notional = None, None, None
@@ -1142,7 +1152,10 @@ def run_v2(cfg):
     # fee_modules bundle). One source of truth: the products.
     if _nds(cfg["assumptions"], _ppy, _growth_ctx):
         nd_s = _nds(cfg["assumptions"], _ppy, _growth_ctx)
-        results["nie_detail_series"] = {"comp": [round(x / 1000.0, 2) for x in nd_s["comp"]],
+        _wf_comp = ((base.get("workforce") or {}).get("comp"))
+        results["nie_detail_series"] = {"comp": ([round(x, 2) for x in _wf_comp]
+                                                    if _wf_comp is not None
+                                                    else [round(x / 1000.0, 2) for x in nd_s["comp"]]),
                                           "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
                                           "gross_up_rate": nd_s["gross_up_rate"],
                                           "note": ("FDIC on avg consolidated assets − avg tangible "

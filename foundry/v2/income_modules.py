@@ -34,8 +34,13 @@ def _g(base, growth, q):
     return base * (1 + (growth or 0.0)) ** (q - 1)
 
 
-def nie_detail_series(a, ppy=4, growth_context=None):
-    """(comp_q, categories_q, gross_up_rate) or None when absent."""
+def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, workforce_metric_series=None):
+    """(comp_q, categories_q, gross_up_rate) or None when absent.
+
+    ``defer_workforce`` lets the main engine evaluate role activation period-by-period
+    against completed financial metrics.  Standalone callers can instead supply
+    ``workforce_metric_series`` for deterministic metric-triggered resolution.
+    """
     Q = int(a.get("n_periods") or 12)
     nd = a.get("nie_detail")
     if not nd:
@@ -45,8 +50,12 @@ def nie_detail_series(a, ppy=4, growth_context=None):
     # unchanged when workforce is absent/empty.
     _wf = nd.get("workforce") or {}
     if _wf.get("mode") == "roles" or _wf.get("roles"):
-        from .workforce import workforce_comp_series
-        comp = workforce_comp_series(_wf, Q, ppy, growth_context=growth_context)
+        if defer_workforce:
+            comp = [0.0] * Q
+        else:
+            from .workforce import workforce_comp_series
+            comp = workforce_comp_series(_wf, Q, ppy, growth_context=growth_context,
+                                          metric_series=workforce_metric_series)
     else:
         fte = list(nd.get("fte_by_year") or [0, 0, 0])
         loaded = float(nd.get("loaded_comp_annual") or 0.0)
