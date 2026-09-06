@@ -17,6 +17,9 @@ def main():
     a=html.index("function _clearLoaded(")
     b=html.index("// Risk-based capital ratios", a)
     js=html[a:b]
+    ma=html.index("window.nieOff = function(){")
+    mb=html.index("// Static mirror", ma)
+    js += "\n" + html[ma:mb]
     roles="\n".join(
         f"Role {i+1}\t{60000+i*1000}\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
     )
@@ -39,9 +42,14 @@ window.nieWorkforcePaste("Custody Ops\t120000\tEOP AUC [Custody] >= 1B\t3.5");
 const trigger=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
 window.nieWorkforcePaste("Controller, $95,000, M36, 4.0");
 const csv=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
+window.nieWorkforcePaste("Role\tCount\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tPayroll Load %\nTreasurer\t2\t130\tM8\tM36\t\t27.5");
+const hdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
+cfg.assumptions.nie_detail.categories=[{name:'Saved detail',per_period:1}];
+window.nieOff(); const simpleHasDraft=!!cfg.assumptions._nie_detail_draft && cfg.assumptions.nie_detail===null;
+window.nieOn(); const restored=(cfg.assumptions.nie_detail.categories||[])[0].name;
 cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
 window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
-console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
+console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
 '''.replace('__ROLES__', json.dumps(roles))
     br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     bj={}
@@ -52,7 +60,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,cleared:{po:cfg
        br.returncode==0 and bj.get("fresh",{}).get("categories")==[]
        and "fte_by_year" not in bj.get("fresh",{})
        and bj.get("fresh",{}).get("workforce",{}).get("mode")=="roles"
-       and "window.nieOn = function(){ cfg.assumptions.nie_detail = _newNieDetail();" in html, br.stderr.strip())
+       and bj.get("fresh",{}).get("fdic_bp_ann")==5.0 and bj.get("fresh",{}).get("occ_bp_ann")==1.5,
+       br.stderr.strip())
     gs=(bj.get("cat") or {}).get("growth_spec") or {}
     ck("category batch paste writes canonical 3%/year/step growth semantics",
        (bj.get("cat") or {}).get("trajectory")=="growth" and abs(gs.get("rate",0)-.03)<1e-12
@@ -67,6 +76,13 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,cleared:{po:cfg
     csv=bj.get("csv") or {}
     ck("workforce CSV keeps thousands commas inside compensation",
        csv.get("role")=="Controller" and abs(csv.get("annual_comp",0)-95000)<1e-9 and csv.get("hire_period")==36)
+    hdr=bj.get("hdr") or {}
+    ck("header-aware workforce paste uses the same canonical schema and units as manual entry",
+       hdr.get("role")=="Treasurer" and hdr.get("count")==2 and abs(hdr.get("annual_comp",0)-130000)<1e-9
+       and hdr.get("hire_period")==8 and hdr.get("end_period")==36
+       and "salary_growth_spec" not in hdr and abs(hdr.get("payroll_load_rate",0)-.275)<1e-12)
+    ck("Simple/Detailed mode switching preserves authored detail instead of deleting it",
+       bj.get("simpleHasDraft") is True and bj.get("restored")=="Saved detail")
     cleared=bj.get("cleared") or {}
     ck("Clear actions independently wipe pre-opening, workforce, and operating-expense loads",
        cleared=={"po":0,"wf":0,"cat":0}, str(cleared))
@@ -105,7 +121,20 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,cleared:{po:cfg
     ck("Product tab renders a manual-AUC fee product without a runtime initialization error",
        fr.returncode==0 and fj.get("ok") is True, fr.stderr.strip())
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
-       '⎘ Paste categories' in html and '+ Add one manually' in html and '_catPasteGrowthSpec' in html)
+       '⎘ Paste categories' in html and '+ Add category' in html and '_catPasteGrowthSpec' in html)
+    ck("Operating Expense presents mutually exclusive Simple/Detailed authoring modes and three detailed panels",
+       'Simple overhead</button>' in html and '>Detailed</button>' in html
+       and 'Workforce compensation' in html and 'Operating expense categories' in html
+       and 'Assessments &amp; other NIE' in html and 'class="nie-section"' in html)
+    ck("workforce UI makes default inheritance explicit and removes implementation-language load override",
+       'Roles inherit the workforce defaults unless a row explicitly overrides them.' in html
+       and 'Payroll Load</span>' in html and 'load override' not in html)
+    ck("assessment defaults are visible economic values rather than blank placeholders",
+       'fdic_bp_ann:5.0' in html and 'occ_bp_ann:1.5' in html
+       and 'blank=5.0' not in html and 'blank=1.5' not in html)
+    ck("workforce paste guidance describes clipboard columns rather than asking users to type tabs",
+       'you do not need to type tab characters' in html and 'Tabs preferred' not in html
+       and 'Annual Comp<br>($000s/FTE)' in html)
     ck("pre-opening expenses are not given growth semantics",
        'pre_opening.growth_spec' not in html and 'poPaste' in html)
     ga=html.index("function setGrowthField("); gb=html.index("function EVENTVAL",ga)
