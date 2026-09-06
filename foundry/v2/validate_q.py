@@ -174,6 +174,51 @@ def validate_config_v2(cfg):
     d = a.get("premises_depreciation_annual")
     if d is not None and (not isinstance(d, (int, float)) or d < 0):
         errs.append("premises_depreciation_annual must be a non-negative dollar amount per year")
+    # Fixed-asset schedule is opt-in; absence preserves the legacy flat premises path.
+    _fa = a.get("fixed_assets") or {}
+    _fa_nper = int(a.get("n_periods") or 12)
+    if _fa and _fa.get("mode") not in (None, "simple", "schedule"):
+        errs.append("fixed_assets.mode must be 'simple' or 'schedule'")
+    if _fa.get("mode") == "schedule":
+        for i, _asset in enumerate(_fa.get("assets") or []):
+            if not isinstance(_asset, dict):
+                errs.append(f"fixed_assets.assets[{i}] must be an object")
+                continue
+            if not str(_asset.get("name", "")).strip():
+                errs.append(f"fixed_assets.assets[{i}].name is required")
+            _method = str(_asset.get("method") or "straight_line")
+            if _method != "straight_line":
+                errs.append(f"fixed_assets.assets[{i}].method must be straight_line")
+            _res = _asset.get("residual_value", 0.0)
+            if not isinstance(_res, (int, float)) or _res < 0:
+                errs.append(f"fixed_assets.assets[{i}].residual_value must be a non-negative dollar amount")
+                _res = 0.0
+            _existing = (_asset.get("opening_gross_cost") is not None or
+                         _asset.get("opening_accumulated_depreciation") is not None)
+            if _existing:
+                _g = _asset.get("opening_gross_cost")
+                _ad = _asset.get("opening_accumulated_depreciation", 0.0)
+                _life = _asset.get("remaining_life_years")
+                if not isinstance(_g, (int, float)) or _g < 0:
+                    errs.append(f"fixed_assets.assets[{i}].opening_gross_cost must be non-negative")
+                if not isinstance(_ad, (int, float)) or _ad < 0 or (isinstance(_g, (int, float)) and _ad > _g):
+                    errs.append(f"fixed_assets.assets[{i}].opening_accumulated_depreciation must be between 0 and opening_gross_cost")
+                if isinstance(_g, (int, float)) and isinstance(_res, (int, float)) and _res > _g:
+                    errs.append(f"fixed_assets.assets[{i}].residual_value cannot exceed opening_gross_cost")
+                if not isinstance(_life, (int, float)) or _life <= 0:
+                    errs.append(f"fixed_assets.assets[{i}].remaining_life_years must be > 0")
+            else:
+                _cost = _asset.get("cost")
+                _isp = _asset.get("in_service_period", 0)
+                _life = _asset.get("useful_life_years")
+                if not isinstance(_cost, (int, float)) or _cost < 0:
+                    errs.append(f"fixed_assets.assets[{i}].cost must be a non-negative dollar amount")
+                if not isinstance(_isp, int) or isinstance(_isp, bool) or not (0 <= _isp <= _fa_nper):
+                    errs.append(f"fixed_assets.assets[{i}].in_service_period must be an integer 0..{_fa_nper} (0 = at opening)")
+                if not isinstance(_life, (int, float)) or _life <= 0:
+                    errs.append(f"fixed_assets.assets[{i}].useful_life_years must be > 0")
+                if isinstance(_cost, (int, float)) and isinstance(_res, (int, float)) and _res > _cost:
+                    errs.append(f"fixed_assets.assets[{i}].residual_value cannot exceed cost")
     # Calendar-quarter events are independent of computational cadence. Permit any quarter
     # that actually exists in the configured horizon (1-7 years), rather than the legacy 12Q cap.
     _nper = a.get("n_periods") if isinstance(a.get("n_periods"), int) else 12

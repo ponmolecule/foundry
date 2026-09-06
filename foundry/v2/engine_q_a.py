@@ -450,9 +450,26 @@ def run_pf_a(cfg):
         _r = float(_sb["rate_ann"])
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             sched_int_t[_q] += _amt * _r / ppyf
-    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / ppyf
-    prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
-    dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, Q + 1)]
+    # Fixed assets / CAPEX.  Legacy configs retain the historical flat annual
+    # depreciation path byte-for-byte.  Schedule mode promotes PP&E to an asset-level
+    # native-cadence resolver: CAPEX changes gross PP&E when placed in service and
+    # depreciation changes accumulated depreciation / net PP&E thereafter.
+    from .fixed_assets import fixed_asset_mode, fixed_asset_schedule
+    if fixed_asset_mode(a) == "schedule":
+        _fa = fixed_asset_schedule(a.get("fixed_assets"), Q, ppy)
+        prem_gross_t = _fa["gross"]
+        prem_accum_t = _fa["accumulated_depreciation"]
+        prem_t = _fa["net"]
+        dep_exp_t = _fa["depreciation_expense"]
+        capex_t = _fa["capex"]
+    else:
+        _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / ppyf
+        prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
+        dep_exp_t = [0.0] + [prem_t[q - 1] - prem_t[q] for q in range(1, Q + 1)]
+        prem_gross_t = [float(a["premises_equipment"])] * (Q + 1)
+        prem_accum_t = [max(0.0, prem_gross_t[q] - prem_t[q]) for q in range(Q + 1)]
+        capex_t = [0.0] * (Q + 1)
+        _fa = {"preopening_capex": 0.0, "asset_rows": []}
     non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(Q + 1)]
     non_earn = non_earn_t[0]
     cash_floor = a.get("cash_target_pct_deposits", 0.0)
@@ -1160,9 +1177,23 @@ def run_pf_a(cfg):
                    "re": bs["re"], "totalAssets": bs["totalAssets"],
                    "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
                    "aoci": bs["aoci"], "paidIn": bs["paidIn"],
-                   "premises": prem_t, "borrowSched": sched_t,
+                   "premises": prem_t,
+                   **({"premisesGross": prem_gross_t, "premisesAccumDep": prem_accum_t}
+                      if fixed_asset_mode(a) == "schedule" else {}),
+                   "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if fixed_asset_mode(a) == "schedule":
+        _out["fixed_assets"] = {
+            "mode": "schedule",
+            "preopening_capex": float(_fa.get("preopening_capex") or 0.0),
+            "assets": list(_fa.get("asset_rows") or []),
+            "gross": list(prem_gross_t),
+            "accumulated_depreciation": list(prem_accum_t),
+            "net": list(prem_t),
+            "depreciation_expense": list(dep_exp_t[1:]),
+            "capex": list(capex_t),
+        }
     if _wf_runtime is not None:
         _out["workforce"] = {
             "resolved_hire_periods": _wf_runtime.resolved_hires(),

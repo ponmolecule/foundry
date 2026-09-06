@@ -61,9 +61,22 @@ def run_pf_b(cfg):
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             _sched_t[_q] += _amt
             _sched_int[_q - 1] += _amt * _r / 4.0
-    _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
-    _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
-    _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, Q + 1)]
+    from .fixed_assets import fixed_asset_mode, fixed_asset_schedule
+    if fixed_asset_mode(a) == "schedule":
+        _fa = fixed_asset_schedule(a.get("fixed_assets"), Q, 4)
+        _prem_t = _fa["net"]
+        _prem_gross_t = _fa["gross"]
+        _prem_accum_t = _fa["accumulated_depreciation"]
+        _dep_exp = _fa["depreciation_expense"][1:]
+        _capex_t = _fa["capex"]
+    else:
+        _dep_q = float(a.get("premises_depreciation_annual") or 0.0) / 4.0
+        _prem_t = [max(0.0, a["premises_equipment"] - _dep_q * q) for q in range(Q + 1)]
+        _dep_exp = [_prem_t[q - 1] - _prem_t[q] for q in range(1, Q + 1)]
+        _prem_gross_t = [float(a["premises_equipment"])] * (Q + 1)
+        _prem_accum_t = [max(0.0, _prem_gross_t[q] - _prem_t[q]) for q in range(Q + 1)]
+        _capex_t = [0.0] * (Q + 1)
+        _fa = {"preopening_capex": 0.0, "asset_rows": []}
     non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
     alloc = a["sweep_securities_alloc"]
@@ -191,8 +204,8 @@ def run_pf_b(cfg):
                      ("alll", alll_end), ("netLoans", net_loans), ("deposits", dep_end),
                      ("borrowings", b2), ("equity", equity_end), ("retained", re),
                      ("aoci", aoci_cum), ("paidIn", cap_t[qi + 1]),
-                     ("premises", _prem_t[qi + 1]), ("borrowSched", _sched_t[qi + 1]),
-                     ("totalAssets", total_assets)):
+                     ("premises", _prem_t[qi + 1]),
+                     ("borrowSched", _sched_t[qi + 1]), ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
@@ -247,4 +260,16 @@ def run_pf_b(cfg):
                 "gos": [0.0] * Q, "servNet": [0.0] * Q,
                 "ftp_rate": [ftp] * Q,
             })
-    return {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
+    _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
+    if fixed_asset_mode(a) == "schedule":
+        _out["fixed_assets"] = {
+            "mode": "schedule",
+            "preopening_capex": float(_fa.get("preopening_capex") or 0.0),
+            "assets": list(_fa.get("asset_rows") or []),
+            "gross": list(_prem_gross_t),
+            "accumulated_depreciation": list(_prem_accum_t),
+            "net": list(_prem_t),
+            "depreciation_expense": list(_dep_exp),
+            "capex": list(_capex_t),
+        }
+    return _out
