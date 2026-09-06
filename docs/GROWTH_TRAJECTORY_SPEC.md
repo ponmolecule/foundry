@@ -117,12 +117,26 @@ model. New workforce configuration is a compact role/cohort table:
 
 ## UI principles
 
-- Preserve Operating Expense's batch-paste workflow. A pasted batch can share common Growth
-  defaults; users can load a 3% group, a 5% group, and a Flat group separately.
+- Operating Expense has two mutually exclusive authoring modes: **Simple overhead** and
+  **Detailed**. Simple carries one aggregate overhead path; Detailed builds the same economic
+  output from Workforce Compensation, Operating Expense Categories, and Assessments & Other
+  NIE. Switching modes is non-destructive in the browser: dormant detailed assumptions are
+  preserved while Simple is active.
+- Preserve Operating Expense's batch-paste workflow. A pasted category batch can share common
+  Growth defaults; users can load a 3% group, a 5% group, and a Flat group separately.
 - `Linear (base + growth)` is renamed to `Growth`; the old storage shape remains readable.
 - New Growth controls expose rate + period + Step/Smooth, with an anchor only when relevant.
-- Workforce supports Paste roles and Add one manually. Batch defaults reduce repeated columns;
-  row-level values may override them.
+- Workforce defaults are true inherited defaults. A blank role-level Escalation or Payroll
+  Load means "use the workforce default"; a populated row value is an explicit override.
+- Manual workforce entry and spreadsheet paste share one canonical conceptual record:
+  `Role | Count | Annual Comp | Start | End | Escalation | Payroll Load`.
+  Header-aware paste may omit optional columns or reorder them. The recommended compensation
+  header is `Annual Comp ($000s/FTE)`; generic `Annual Comp` remains raw-dollar compatible.
+  Headerless legacy paste order remains accepted for backward compatibility.
+- Spreadsheet guidance describes the user action (paste directly from Excel/Google Sheets or
+  CSV), not the transport delimiter. Users are never asked to type tab characters.
+- FDIC and OCC assessment defaults are displayed as actual values (5.0 bp/yr and 1.5 bp/yr)
+  rather than blank fields with hidden fallback semantics.
 - Specialized fee-product axes remain intact; only the existing `Proportional growth`
   trajectory becomes cadence-aware.
 

@@ -144,6 +144,36 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cfggrid .cfgcard select{padding:5px 20px 5px 7px;font-size:11px}
 .cfggrid .cfgcard .cu{font-size:9.5px}
 .cfggrid .cfgcard .cmut{font-size:11.5px;color:#9CA7B7;line-height:1.5}
+/* Operating-expense authoring: make the simple/detailed hierarchy visible without
+   exposing engine plumbing. Detailed NIE is split into three calm subpanels. */
+.nie-mode{display:flex;gap:6px;margin:2px 0 12px;padding:3px;background:#10192A;border:1px solid #26324B;border-radius:9px}
+.nie-mode button{flex:1;border:0;border-radius:6px;background:transparent;color:#8FA3C0;padding:7px 10px;font-size:11px;font-weight:600;cursor:pointer}
+.nie-mode button.on{background:#21304A;color:#F0F3F8;box-shadow:inset 0 0 0 1px #3A4C6E}
+.nie-mode button:hover{color:#DFA85A}
+.nie-section{border:1px solid rgba(148,163,184,.16);background:rgba(12,20,34,.36);border-radius:9px;padding:12px 12px 13px;margin:10px 0}
+.nie-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 10px}
+.nie-section-title{font-size:13px;font-weight:600;color:#E8EDF5}
+.nie-section-note{font-size:10.5px;line-height:1.45;color:#8FA3C0;margin-top:2px}
+.nie-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 2px}
+.nie-defaults{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(120px,.7fr);gap:10px;margin:4px 0 10px}
+.nie-default{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px 9px;min-width:0}
+.nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
+.nie-default-value{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.wf-role-card{border:1px solid rgba(148,163,184,.14);background:#111B2D;border-radius:8px;padding:9px 10px;margin:8px 0}
+.wf-role-grid{display:grid;grid-template-columns:minmax(118px,1.7fr) 52px minmax(86px,.8fr) minmax(115px,1.1fr) 60px 64px 78px 24px;gap:7px;align-items:end}
+.wf-field{min-width:0}
+.wf-field input,.wf-field select{width:100% !important;max-width:none !important;box-sizing:border-box}
+.wf-start-wrap{display:flex;gap:4px;align-items:center;min-width:0}
+.wf-start-wrap select{min-width:0}
+.wf-start-wrap input{width:54px !important;flex:0 0 54px}
+.wf-trigger-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(148,163,184,.10)}
+.wf-trigger-row .cu{font-size:9px}
+.wf-schema{display:grid;grid-template-columns:1.35fr .5fr 1fr 1fr .65fr .8fr .85fr;gap:4px;margin:5px 0 7px;padding:6px 7px;border-radius:6px;background:#10192A;border:1px solid rgba(148,163,184,.12)}
+.wf-schema span{font-size:8.5px;color:#9CA7B7;line-height:1.25}
+.nie-assess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.nie-assess-item{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px}
+.nie-assess-item .crow{margin:0 !important}
+@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:minmax(120px,1.5fr) 50px minmax(88px,.8fr) minmax(110px,1fr);}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load,.wf-role-grid .wf-delete{grid-row:2}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(4,1fr)}}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
@@ -3072,7 +3102,7 @@ window.nieWorkforceClear = function(){
 };
 
 function _newNieDetail(){
-  return {categories:[], other_gross_up_rate:0,
+  return {categories:[], other_gross_up_rate:0, fdic_bp_ann:5.0, occ_bp_ann:1.5,
           workforce:{mode:"roles",roles:[],default_payroll_load_rate:0,
                      default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}}};
 }
@@ -3182,24 +3212,70 @@ function _parseWorkforceStart(raw){
 }
 window.nieWorkforceAdd = function(){
   var wf=_ensureWorkforce();
-  wf.roles.push({role:"",count:1,annual_comp:0,hire_period:1,salary_growth_spec:{rate:0}});
+  // No role-level salary or payroll-load value on creation: blank means inherit the visible
+  // workforce defaults.  This keeps the UI and the resolver's merge semantics aligned.
+  wf.roles.push({role:"",count:1,annual_comp:0,hire_period:1});
   renderContent(); refresh();
 };
+function _splitPasteRow(line, delim){
+  if(delim==="\t") return String(line).split("\t").map(x=>x.trim());
+  const out=[]; let cur="", q=false, src=String(line||"");
+  for(let i=0;i<src.length;i++){
+    const ch=src[i];
+    if(ch==='"'){
+      if(q && src[i+1]==='"'){cur+='"';i++;} else q=!q;
+    } else if(ch===',' && !q){out.push(cur.trim());cur="";}
+    else cur+=ch;
+  }
+  out.push(cur.trim()); return out;
+}
+function _wfHeaderKey(raw){
+  const x=String(raw||"").toLowerCase().replace(/&/g,"and").replace(/[^a-z0-9]+/g," ").trim();
+  if(["role","position","cohort","role cohort"].includes(x)) return "role";
+  if(["count","fte","ftes","headcount","fte count"].includes(x)) return "count";
+  if(x.includes("annual comp")||x.includes("annual compensation")||x.includes("annual salary")||x.includes("annual base salary")||x==="salary"||x.includes("base salary")||x.includes("base compensation")) return "annual_comp";
+  if(["start","hire","hire period","start period","hire month","hire months","hire mth","hire quarter","hire qtr"].includes(x)) return "start";
+  if(["end","end period","end month","end quarter","termination","termination period"].includes(x)) return "end";
+  if(x.includes("escalation")||x==="growth"||x==="growth pct"||x==="growth percent") return "escalation";
+  if(x.includes("payroll load")||x.includes("payroll burden")||x==="benefits load"||x==="load"||x==="load pct"||x==="load percent") return "payroll_load";
+  return null;
+}
+function _wfHeaderMap(cols){
+  const m={}; let hits=0;
+  (cols||[]).forEach((v,i)=>{const k=_wfHeaderKey(v);if(k&&!m[k]){m[k]={i:i,raw:String(v||"")};hits++;}});
+  return (hits>=3 && m.role && m.annual_comp && m.start) ? m : null;
+}
 window.nieWorkforcePaste = function(txt){
-  var wf=_ensureWorkforce(), rows=String(txt||"").split(/\r?\n/), added=[];
-  rows.forEach(function(line){
-    line=line.trim(); if(!line) return;
-    var role="", comp=0, startRaw="M1", esc=0, count=1, end=null, load=null, p;
-    if(line.indexOf("\t")>=0){
-      p=line.split("\t").map(x=>x.trim()); if(p.length<4) return;
+  var wf=_ensureWorkforce(), lines=String(txt||"").split(/\r?\n/).filter(x=>String(x).trim()), added=[];
+  if(!lines.length){appStatus("err","Nothing to load.");return;}
+  const delim=lines.some(x=>x.indexOf("\t")>=0)?"\t":",";
+  const first=_splitPasteRow(lines[0],delim), header=_wfHeaderMap(first);
+  const data=header?lines.slice(1):lines;
+  function hv(cols,key){const h=header&&header[key];return h&&cols[h.i]!=null?String(cols[h.i]).trim():"";}
+  data.forEach(function(line){
+    line=String(line).trim(); if(!line) return;
+    var role="", comp=0, startRaw="M1", esc=null, count=1, end=null, load=null;
+    if(header){
+      const p=_splitPasteRow(line,delim);
+      role=hv(p,"role"); count=hv(p,"count")!==""?_pf(hv(p,"count")):1;
+      comp=_pf(hv(p,"annual_comp"));
+      // Canonical UI/FIW-facing header is $000s/FTE.  A generic "Annual Comp" header
+      // remains raw-dollar compatible for older external sheets.
+      if(/000s/i.test(header.annual_comp.raw)) comp*=1000;
+      startRaw=hv(p,"start")||"M1";
+      if(hv(p,"end")!=="") end=parseInt(hv(p,"end").replace(/[^0-9]/g,""))||null;
+      if(hv(p,"escalation")!=="") esc=_pf(hv(p,"escalation"));
+      if(hv(p,"payroll_load")!=="") load=_pf(hv(p,"payroll_load"))/100;
+    } else if(line.indexOf("\t")>=0){
+      // Backward-compatible headerless order retained: Role, Annual comp ($), Start,
+      // Escalation %, [Count], [End], [Payroll load %]. New pastes should use headers.
+      const p=line.split("\t").map(x=>x.trim()); if(p.length<4) return;
       role=p[0]; comp=_pf(p[1]); startRaw=p[2]||"M1"; esc=_pf(p[3]);
       if(p[4]!==undefined && p[4]!=="") count=_pf(p[4]);
       if(p[5]!==undefined && p[5]!=="") end=parseInt(String(p[5]).replace(/[^0-9]/g,""))||null;
       if(p[6]!==undefined && p[6]!=="") load=_pf(p[6])/100;
     } else {
-      // CSV-friendly parser preserves thousands commas inside compensation (e.g. 95,000)
-      // while allowing a compact Start expression. Spreadsheet/tab paste remains preferred
-      // for the most complex trigger text and is completely unambiguous.
+      // Legacy headerless CSV order, including unquoted thousands commas in compensation.
       var m=line.match(/^\s*(.*?)\s*,\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s*,\s*(.*?)\s*,\s*([-+]?[0-9.]+)%?(?:\s*,\s*([0-9.]+))?(?:\s*,\s*(?:[MQ]\s*)?([0-9]+))?(?:\s*,\s*([-+]?[0-9.]+)%?)?\s*$/i);
       if(!m) return;
       role=m[1].trim(); comp=_pf(m[2]); startRaw=m[3]||"M1"; esc=_pf(m[4]);
@@ -3207,11 +3283,12 @@ window.nieWorkforcePaste = function(txt){
     }
     const st=_parseWorkforceStart(startRaw); if(!st) return;
     if(!role && !comp) return;
-    var r={role:role,count:count||0,annual_comp:comp,salary_growth_spec:{rate:esc/100}};
+    var r={role:role,count:count||0,annual_comp:comp};
+    if(esc!=null) r.salary_growth_spec={rate:esc/100}; // otherwise inherit workforce default
     if(st.activation) r.activation=st.activation; else r.hire_period=st.hire_period;
     if(end!=null) r.end_period=end; if(load!=null) r.payroll_load_rate=load; added.push(r);
   });
-  if(!added.length){ appStatus("err","No roles parsed. Use <b>Role, Annual comp, Start, Escalation %</b>. Start may be M17/Q5 or a trigger such as <b>EOP AUC [Custody] >= 1B</b>, <b>Efficiency Ratio < 50%</b>, or <b>Net Income >= 2x PY</b>. Optional: Count, End period, Payroll load %. Tabs are safest."); return; }
+  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Count, Annual Comp ($000s/FTE), Start, End, Escalation %, Payroll Load %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
   wf.roles=wf.roles.concat(added);
   var nd=_ensureNieDetail(); nd._wfPasteOpen=false;
   appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
@@ -6490,85 +6567,114 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Other liabilities<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_liabilities||0)/1000)}" onchange="cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     }
   }
-  h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense detail</div><div class="cd">Overhead lines, workforce compensation, category trajectories, and assessments on the correct base.</div></span></div>`;
+  h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense</div><div class="cd">Choose a simple overhead path or detailed NIE authoring. The two modes are alternative ways to build the same expense output.</div></span></div>`;
   { const A3 = cfg.assumptions;
-    h += `<div class="csub">Fixed assets</div>`;
+    h += `<div class="nie-section" style="margin-top:0"><div class="nie-section-head"><div><div class="nie-section-title">Fixed assets</div><div class="nie-section-note">Applies in either operating-expense mode.</div></div></div>`;
     h += `<div class="crow" style="align-items:center">Premises &amp; equipment<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-    h += `<div class="crow" style="align-items:center">Intangibles<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s \u00b7 deducted from tangible equity</span></div>`;
-    h += `<div class="hline" style="margin:12px 0"></div>`;
+    h += `<div class="crow" style="align-items:center">Intangibles<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s · deducted from tangible equity</span></div></div>`;
   }
-  const ND = (A.nie_detail = A.nie_detail || null);
+  const _nieDetailed = !!A.nie_detail;
+  h += `<div class="nie-mode" role="group" aria-label="Operating expense authoring mode"><button class="${_nieDetailed?'':'on'}" onclick="nieOff()">Simple overhead</button><button class="${_nieDetailed?'on':''}" onclick="nieOn()">Detailed</button></div>`;
   if(!A.nie_detail){
-    h += `<div class="crow">Corp. overhead<input type="text" inputmode="decimal" style="width:74px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span></div>`;
+    h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Simple overhead</div><div class="nie-section-note">Use when the source model carries one aggregate operating-expense path. Detailed mode replaces this line with workforce, categories, and assessments.</div></div></div>`;
+    h += `<div class="crow">Overhead<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span></div>`;
     h += `<div class="crow" style="align-items:center"><span class="cu">Growth</span>${growthSpecInline('assumptions.overhead_growth_spec',A.overhead_growth_spec,(A.overhead_growth_per_period!=null?A.overhead_growth_per_period:_qGrowthToPeriod(A.overhead_growth_q||0)),false)}</div>`;
-    h += `<div class="ccols" style="grid-template-columns:1fr auto;align-items:center;margin-top:8px"><div><div class="cmut">This single overhead line governs. Activate detail for workforce compensation, category lines, and FDIC/OCC assessments on the correct base — which then <b>replaces</b> this line.</div></div><div><button class="btn-gold-o" onclick="nieOn()">Activate NIE detail</button></div></div>`;
+    h += `<div class="cmut">Switching modes preserves any detailed assumptions already authored; only the active mode feeds the model.</div></div>`;
   } else {
     const nd = A.nie_detail;
-    h += '<div style="display:flex;justify-content:space-between;align-items:center;margin:0 0 8px"><span class="chint" style="margin:0">Module active</span><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="nieOff()">Deactivate module</button></div>';
 
-    // Workforce is a role/cohort authoring mode that resolves to the same native-cadence
-    // NIE compensation series. Legacy FTE Y1/Y2/Y3 configs remain engine-compatible but
-    // are no longer the primary UI grammar.
-    h += '<div class="csub">Workforce compensation</div>';
+    // WORKFORCE COMPENSATION -------------------------------------------------
+    h += '<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Workforce compensation</div><div class="nie-section-note">Role/cohort payroll. Roles inherit the workforce defaults unless a row explicitly overrides them.</div></div></div>';
     const wf = nd.workforce || {};
     const _legacyStaff = !wf.mode && ((nd.fte_by_year||[]).some(x=>+x) || +(nd.loaded_comp_annual||0));
     if(_legacyStaff){
-      h += `<div class="memo" style="margin:4px 0 8px">Legacy staffing assumptions are still active for backward compatibility: FTE ${esc((nd.fte_by_year||[]).join('/'))}, loaded comp ${fmtComma((nd.loaded_comp_annual||0)/1000)} $000s/FTE/yr. Add or paste role/cohort workforce data below to supersede that three-year ladder.</div>`;
+      h += `<div class="memo" style="margin:4px 0 8px">Legacy staffing assumptions remain active for backward compatibility: FTE ${esc((nd.fte_by_year||[]).join('/'))}, loaded comp ${fmtComma((nd.loaded_comp_annual||0)/1000)} $000s/FTE/yr. Add or paste role/cohort data to supersede that three-year ladder.</div>`;
     }
     if(wf.mode==="roles" || (wf.roles||[]).length){
       wf.roles = wf.roles || [];
       wf.default_salary_growth_spec = wf.default_salary_growth_spec || {rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
-      h += `<div class="crow" style="align-items:center"><span class="cu">Default salary escalation</span>${growthSpecInline('assumptions.nie_detail.workforce.default_salary_growth_spec',wf.default_salary_growth_spec,0,true)}</div>`;
-      h += `<div class="crow">Default payroll load<input type="number" step="0.5" style="width:60px" value="${((wf.default_payroll_load_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation · benefits/payroll taxes</span></div>`;
+      const _defEscPct=(+(wf.default_salary_growth_spec.rate||0)*100), _defLoadPct=(+(wf.default_payroll_load_rate||0)*100);
+      h += `<div class="nie-defaults"><div class="nie-default"><span class="nie-default-label">Salary escalation default</span><div class="nie-default-value">${growthSpecInline('assumptions.nie_detail.workforce.default_salary_growth_spec',wf.default_salary_growth_spec,0,true)}</div></div>`;
+      h += `<div class="nie-default"><span class="nie-default-label">Payroll load default</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${_defLoadPct.toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation</span></div><div class="nie-section-note">Benefits / payroll taxes.</div></div></div>`;
+    }
+    const _wpo=!!nd._wfPasteOpen;
+    h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear all</a>':'') + '</div>';
+    if(_wpo){
+      h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
+      h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
+      h += '<div class="wf-schema"><span>Role</span><span>Count</span><span>Annual Comp<br>($000s/FTE)</span><span>Start</span><span>End</span><span>Escalation %</span><span>Payroll Load %</span></div>';
+      h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Annual Comp, Start</b>. Other columns are optional and may be omitted when headers are present. Start may be M17/Q5 or a supported metric trigger.</div>';
+      h += '<textarea id="nieWorkforcePasteBox" rows="6" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tCount\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tPayroll Load %&#10;CEO\t1\t275\tM1\t\t3.0\t&#10;Compliance Analyst\t1\t95\tM17\t\t4.0\t&#10;Custody Officer\t1\t120\tEOP AUC [Custody] >= 1B\t\t3.5\t"></textarea>';
+      h += '<div class="nie-actions"><button class="pillbtn" onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
+    }
+    if((wf.roles||[]).length){
       (wf.roles||[]).forEach((wr,wi)=>{
-        wr.salary_growth_spec = wr.salary_growth_spec || {};
         const _wb=`cfg.assumptions.nie_detail.workforce.roles[${wi}]`;
-        let row=`<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
-        row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 150px;min-width:120px" placeholder="Role / cohort" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()">`;
-        row += `<span class="cu">count</span><input type="number" step="0.25" style="width:54px" value="${wr.count!=null?wr.count:1}" onchange="${_wb}.count=_pf(this.value);refresh()">`;
         const _wa=wr.activation||null, _wt=!!_wa;
-        row += `<span class="cu">start</span><select style="width:112px" onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?" selected":""}>Fixed period</option><option value="metric"${_wt?" selected":""}>Metric trigger</option></select>`;
-        if(!_wt) row += `<span class="cu">${EVENTUNIT()}</span><input type="number" min="1" step="1" style="width:58px" value="${wr.hire_period||1}" onchange="${_wb}.hire_period=Math.max(1,Math.round(_pf(this.value)));refresh()">`;
-        row += `<span class="cu">end</span><input type="number" min="1" step="1" style="width:58px" placeholder="—" value="${wr.end_period!=null?wr.end_period:''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.max(1,Math.round(_pf(v)))};refresh()">`;
-        row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.workforce.roles.splice(${wi},1);renderContent();refresh();return false">×</a></div>`;
+        const _roleEsc=(wr.salary_growth_spec&&wr.salary_growth_spec.rate!=null)?(+wr.salary_growth_spec.rate*100):null;
+        const _roleLoad=(wr.payroll_load_rate!=null)?(+wr.payroll_load_rate*100):null;
+        const _defEsc=(+(wf.default_salary_growth_spec||{}).rate||0)*100, _defLoad=(+(wf.default_payroll_load_rate||0))*100;
+        let row='<div class="wf-role-card"><div class="wf-role-grid">';
+        row += `<label class="wf-field"><span class="wf-field-label">Role</span><input placeholder="Role / cohort" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Count</span><input type="number" step="0.25" value="${wr.count!=null?wr.count:1}" onchange="${_wb}.count=_pf(this.value);refresh()"></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Annual Comp</span><div class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((wr.annual_comp||0)/1000)}" onchange="${_wb}.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s/FTE</span></div></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
+        if(!_wt) row += `<input type="number" min="1" step="1" title="${EVENTUNIT()} number" value="${wr.hire_period||1}" onchange="${_wb}.hire_period=Math.max(1,Math.round(_pf(this.value)));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
+        row += `</div></label>`;
+        row += `<label class="wf-field wf-end"><span class="wf-field-label">End ${EVENTUNIT()}</span><input type="number" min="1" step="1" placeholder="—" value="${wr.end_period!=null?wr.end_period:''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.max(1,Math.round(_pf(v)))};refresh()"></label>`;
+        row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation</span><div class="sec-book-value"><input type="number" step="0.1" placeholder="Default ${_defEsc.toFixed(1)}" value="${_roleEsc!=null?_roleEsc.toFixed(2):''}" title="Blank inherits the workforce salary-escalation default" onchange="var v=this.value.trim();${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};if(v===''){delete ${_wb}.salary_growth_spec.rate;if(!Object.keys(${_wb}.salary_growth_spec).length)delete ${_wb}.salary_growth_spec}else{${_wb}.salary_growth_spec.rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
+        row += `<label class="wf-field wf-load"><span class="wf-field-label">Payroll Load</span><div class="sec-book-value"><input type="number" step="0.5" placeholder="Default ${_defLoad.toFixed(1)}" value="${_roleLoad!=null?_roleLoad.toFixed(1):''}" title="Blank inherits the workforce payroll-load default" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
+        row += `<a href="#" class="cx wf-delete" aria-label="Remove workforce role" onclick="cfg.assumptions.nie_detail.workforce.roles.splice(${wi},1);renderContent();refresh();return false">×</a></div>`;
         if(_wt){
           const _wm=_wa.metric||"managed_notional_end", _wrf=_wa.reference||"fixed", _wop=_wa.operator||">=";
           const _mopts=[["managed_notional_end","EOP AUC / AUM"],["efficiency_ratio","Efficiency ratio"],["net_income","Net income"]];
-          row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px"><span class="cu">trigger</span><select style="width:128px" onchange="nieWorkforceMetric(${wi},this.value)">${_mopts.map(o=>`<option value="${o[0]}"${o[0]===_wm?" selected":""}>${o[1]}</option>`).join("")}</select>`;
+          row += `<div class="wf-trigger-row"><span class="cu">Trigger</span><select style="width:128px" onchange="nieWorkforceMetric(${wi},this.value)">${_mopts.map(o=>`<option value="${o[0]}"${o[0]===_wm?' selected':''}>${o[1]}</option>`).join('')}</select>`;
           if(_wm==="managed_notional_end"){
             const _srcs=_mnTriggerProducts();
-            row += `<select style="width:120px" title="Managed-notional source product" onchange="${_wb}.activation.source=this.value;refresh()">${_srcs.map(p=>`<option value="${esc(p.name)}"${p.name===_wa.source?" selected":""}>${esc(p.name)}</option>`).join("")}</select>`;
+            row += `<select style="width:120px" title="Managed-notional source product" onchange="${_wb}.activation.source=this.value;refresh()">${_srcs.map(p=>`<option value="${esc(p.name)}"${p.name===_wa.source?' selected':''}>${esc(p.name)}</option>`).join('')}</select>`;
           }
-          row += `<select style="width:54px" onchange="${_wb}.activation.operator=this.value;refresh()">${[">=",">","<=","<"].map(o=>`<option value="${o}"${o===_wop?" selected":""}>${o}</option>`).join("")}</select>`;
-          row += `<select style="width:108px" onchange="${_wb}.activation.reference=this.value;renderContent();refresh()"><option value="fixed"${_wrf==="fixed"?" selected":""}>Fixed value</option><option value="prior_period"${_wrf==="prior_period"?" selected":""}>Prior period</option><option value="prior_year"${_wrf==="prior_year"?" selected":""}>Prior year</option></select>`;
+          row += `<select style="width:54px" onchange="${_wb}.activation.operator=this.value;refresh()">${[">=",">","<=","<"].map(o=>`<option value="${o}"${o===_wop?' selected':''}>${o}</option>`).join('')}</select>`;
+          row += `<select style="width:108px" onchange="${_wb}.activation.reference=this.value;renderContent();refresh()"><option value="fixed"${_wrf==='fixed'?' selected':''}>Fixed value</option><option value="prior_period"${_wrf==='prior_period'?' selected':''}>Prior period</option><option value="prior_year"${_wrf==='prior_year'?' selected':''}>Prior year</option></select>`;
           if(_wrf==="fixed"){
             if(_wm==="efficiency_ratio") row += `<input type="number" step="0.1" style="width:65px" value="${((+(_wa.value||0))*100).toFixed(2)}" onchange="${_wb}.activation.value=_pf(this.value)/100;refresh()"><span class="cu">%</span>`;
             else row += `<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma((+(_wa.value||0))/1000)}" onchange="${_wb}.activation.value=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`;
           } else {
             row += `<input type="number" min="0" step="0.1" style="width:58px" value="${_wa.multiplier!=null?_wa.multiplier:1}" onchange="${_wb}.activation.multiplier=Math.max(0,_pf(this.value));refresh()"><span class="cu">× reference</span>`;
           }
-          if(_wm==="managed_notional_end") row += `<select style="width:105px" title="Independent AUC/AUM can trigger in the current or following model period" onchange="${_wb}.activation.timing=this.value;refresh()"><option value="same_period"${(_wa.timing||"same_period")==="same_period"?" selected":""}>same period</option><option value="next_period"${_wa.timing==="next_period"?" selected":""}>next period</option></select>`;
+          if(_wm==="managed_notional_end") row += `<select style="width:105px" title="Independent AUC/AUM can trigger in the current or following model period" onchange="${_wb}.activation.timing=this.value;refresh()"><option value="same_period"${(_wa.timing||'same_period')==='same_period'?' selected':''}>same period</option><option value="next_period"${_wa.timing==='next_period'?' selected':''}>next period</option></select>`;
           else row += `<span class="cu" title="This metric is affected by workforce expense, so Foundry uses completed history to avoid circularity">completed period → next ${PLAB()}</span>`;
-          row += `</div>`;
+          row += '</div>';
         }
-        row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px"><span class="cu">annual comp</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((wr.annual_comp||0)/1000)}" onchange="${_wb}.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/FTE</span>`;
-        row += `<span class="cu">escalation</span><input type="number" step="0.1" style="width:58px" value="${(((wr.salary_growth_spec||{}).rate||0)*100).toFixed(2)}" title="Rate override; period/method/anchor inherit the workforce defaults" onchange="${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};${_wb}.salary_growth_spec.rate=_pf(this.value)/100;refresh()"><span class="cu">%</span>`;
-        row += `<span class="cu">load override</span><input type="number" step="0.5" style="width:58px" placeholder="default" value="${wr.payroll_load_rate!=null?(wr.payroll_load_rate*100).toFixed(1):''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"><span class="cu">%</span></div></div>`;
-        h += row;
+        row += '</div>'; h += row;
       });
     } else if(!_legacyStaff){
-      h += '<div class="cmut" style="margin:4px 0 6px">No workforce roles yet. Use one row per position or cohort; hire periods may extend beyond the current horizon.</div>';
+      h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles yet. Add one role/cohort or paste a spreadsheet; hire periods may extend beyond the current horizon.</div>';
     }
-    const _wpo=!!nd._wfPasteOpen;
-    if(!_wpo){
-      h += '<div style="margin:6px 0 10px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add one manually</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear all</a>':'') + '</div>';
-    } else {
-      h += '<div style="margin:6px 0 10px;border-top:1px solid #2A3444;padding-top:8px"><div class="cmut" style="margin-bottom:4px">Paste <b>Role, Annual comp, Start, Escalation %</b>. Start may be M17/Q5 or a trigger: <b>EOP AUC [Product] &gt;= 1B</b>, <b>Efficiency Ratio &lt; 50%</b>, <b>Net Income &gt;= 2x PY</b>. Optional columns: Count, End period, Payroll load %. Tabs preferred.</div>';
-      h += '<textarea id="nieWorkforcePasteBox" rows="5" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="CEO\t275000\tM1\t3.0&#10;Compliance Analyst\t95000\tM17\t4.0&#10;Custody Officer\t120000\tEOP AUC [Custody] >= 1B\t3.5"></textarea>';
-      h += '<div style="margin-top:5px;display:flex;gap:6px;align-items:center"><button class="pillbtn" onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
-    }
+    h += '</div>';
 
-    h += '<div class="csub" style="margin-top:10px">Operating expense categories</div>';
+    // OPERATING EXPENSE CATEGORIES ------------------------------------------
+    h += '<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Operating expense categories</div><div class="nie-section-note">Non-workforce recurring NIE. Batch loads can carry different growth assumptions without commingling them.</div></div></div>';
+    { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
+      h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">⎘ Paste categories</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add category</a>' + ((nd.categories||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieCatClear();return false">Clear all</a>':'') + '</div>';
+      if(_cpo){
+        var _TT = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()})`]];
+        h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
+        h += '<div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Type</span>';
+        h += '<select onchange="cfg.assumptions.nie_detail._catPasteType=this.value;renderContent()">'+_TT.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cpt?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
+        if(_cpt==="growth"){
+          nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:(PPY()===12?"month":"quarter"),method:"smooth",anchor:"model_year"};
+          h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false)}`;
+        }
+        h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
+        var _ph = (_cpt==="explicit") ? "Occupancy, 50, 50, 60, 60&#10;Marketing, 20, 25, 30" : "Occupancy, 120&#10;Compensation, 400&#10;Insurance, 35";
+        var _hint = (_cpt==="explicit") ? `One <b>Item, ${PERLAB(1)}, ${PERLAB(2)}, ...</b> per line (per-${PLAB('full')} $000s; pads 0 / truncates to horizon).` : `Paste <b>Item, Amount</b> rows from a spreadsheet or CSV (base $000s per ${PLAB('full')}).`;
+        h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
+        h += '<textarea id="nieCatPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="'+_ph+'"></textarea>';
+        var _pg=nd._catPasteGrowthSpec||{};
+        h += `<div class="nie-actions"><button class="pillbtn" onclick="nieCatPaste(document.getElementById('nieCatPasteBox').value,cfg.assumptions.nie_detail._catPasteType,${(+(_pg.rate||0)*100)},'${_pg.period||''}','${_pg.method||''}','${_pg.anchor||''}',${+(_pg.anchor_month||1)})">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieCatClear()"${(nd.categories||[]).length?'':' disabled'}>Clear</button></div>`;
+        h += '</div>';
+      }
+    }
     (nd.categories||[]).forEach((ct,i)=>{
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
       const _gp = `assumptions.nie_detail.categories.${i}.growth_spec`;
@@ -6576,56 +6682,30 @@ function structuresSectionsHtml(){
       const isGrowth = (traj==="linear" || traj==="growth");
       const shownTraj = isGrowth ? "growth" : traj;
       const TR = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()} list)`]];
-      let row = `<div style="border-top:1px solid #2A3444;margin-top:8px;padding-top:6px">`;
-      row += `<div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||"")}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()">`;
-      row += `<a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
-      row += `<div class="crow" style="align-items:center;margin:4px 0 0;padding-left:6px">`;
-      row += `<select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===shownTraj?" selected":""}>${o[1]}</option>`).join("")}</select>`;
+      let row = `<div class="wf-role-card"><div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||'')}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+      row += `<div class="crow" style="align-items:center;margin:6px 0 0"><select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===shownTraj?' selected':''}>${o[1]}</option>`).join('')}</select>`;
       if(traj==="explicit"){
-        { const _np = NP(); const _have = (ct.schedule||[]).length;
-          row += `<span class="cu">per-${PLAB()}</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(","))}" title="comma-separated $000s per ${PLAB('full')}; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/${PLAB()} · ${_have}/${_np}</span>`; }
+        const _np=NP(), _have=(ct.schedule||[]).length;
+        row += `<span class="cu">per-${PLAB()}</span><input style="flex:1 1 220px;min-width:180px" placeholder="e.g. 50,50,60,60" value="${esc((ct.schedule||[]).map(x=>(x||0)/1000).join(','))}" title="comma-separated $000s per ${PLAB('full')}; ${_np} values expected (short pads 0, extra ignored)" onchange="${_cb}.schedule=this.value.split(String.fromCharCode(44)).map(x=>(_pf(x)||0)*1000);refresh()"><span class="cu">$000s/${PLAB()} · ${_have}/${_np}</span>`;
       } else if(isGrowth){
         row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="base $000s/${PLAB()} (period 1)" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
         row += growthSpecInline(_gp,ct.growth_spec,(ct.growth_per_period!=null?ct.growth_per_period:_qGrowthToPeriod(ct.growth_q||0)),false);
       } else {
         row += `<span class="cu">amount</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
       }
-      row += `</div></div>`; h += row;
+      row += '</div></div>'; h += row;
     });
-    // Batch paste remains intentionally powerful: separate loads can share different growth
-    // assumptions (e.g. a 3% annual-step group, a 5% group, and a flat group).
-    { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
-      if(!_cpo){
-        h += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
-        h += '<a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">⎘ Paste categories</a>';
-        h += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add one manually</a>';
-        if((nd.categories||[]).length) h += '<a href="#" class="cadd" style="color:#C77" onclick="nieCatClear();return false">Clear all</a>';
-        h += '</div>';
-      } else {
-        var _TT = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()})`]];
-        h += '<div style="margin-top:8px;border-top:1px solid #2A3444;padding-top:8px">';
-        h += '<div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Type</span>';
-        h += '<select onchange="cfg.assumptions.nie_detail._catPasteType=this.value;renderContent()">'+_TT.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cpt?" selected":"")+'>'+o[1]+'</option>';}).join("")+'</select>';
-        if(_cpt==="growth"){
-          nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:(PPY()===12?"month":"quarter"),method:"smooth",anchor:"model_year"};
-          h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false)}`;
-        }
-        h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
-        var _ph = (_cpt==="explicit") ? "Occupancy, 50, 50, 60, 60&#10;Marketing, 20, 25, 30" : "Occupancy, 120&#10;Compensation, 400&#10;Insurance, 35";
-        var _hint = (_cpt==="explicit") ? `One <b>Item, ${PERLAB(1)}, ${PERLAB(2)}, ...</b> per line (per-${PLAB('full')} $000s; pads 0 / truncates to horizon).` : `One <b>Item, Amount</b> per line (base $000s per ${PLAB('full')}; tab or comma separated).`;
-        h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
-        h += '<textarea id="nieCatPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="'+_ph+'"></textarea>';
-        var _pg=nd._catPasteGrowthSpec||{};
-        h += `<div style="margin-top:5px;display:flex;gap:6px"><button class="pillbtn" onclick="nieCatPaste(document.getElementById('nieCatPasteBox').value,cfg.assumptions.nie_detail._catPasteType,${(+(_pg.rate||0)*100)},'${_pg.period||''}','${_pg.method||''}','${_pg.anchor||''}',${+(_pg.anchor_month||1)})">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieCatClear()"${(nd.categories||[]).length?'':' disabled'}>Clear</button></div>`;
-        h += '</div>';
-      }
-    }
+    h += '</div>';
 
-    h += '<div class="csub" style="margin-top:12px">Assessments &amp; other NIE</div>';
-    h += `<div class="crow">Other NIE gross-up<input type="number" step="0.5" style="width:60px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">% · applies to NIE subtotal as sub×r/(1−r), not payroll load</span></div>`;
-    h += `<div class="crow">FDIC assess.<input type="number" step="0.1" style="width:60px" placeholder="5.0" value="${nd.fdic_bp_ann!=null?nd.fdic_bp_ann:''}" title="Basis points/yr on avg consolidated assets − avg tangible equity (12 USC 1817(b)). Blank = 5.0 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.fdic_bp_ann;}else{cfg.assumptions.nie_detail.fdic_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=5.0)</span></div>`;
-    h += `<div class="crow">OCC assess.<input type="number" step="0.1" style="width:60px" placeholder="1.5" value="${nd.occ_bp_ann!=null?nd.occ_bp_ann:''}" title="Basis points/yr on average assets (12 CFR 8). Blank = 1.5 bp default." onchange="var v=this.value.trim();if(v===''){delete cfg.assumptions.nie_detail.occ_bp_ann;}else{cfg.assumptions.nie_detail.occ_bp_ann=parseFloat(v);}refresh()"><span class="cu">bp/yr (blank=1.5)</span></div>`;
-    if(lastRes && lastRes.nie_detail_series) h += `<div class="chint">${esc(lastRes.nie_detail_series.note)}.</div>`;
+    // ASSESSMENTS & OTHER NIE ------------------------------------------------
+    const _fdic=(nd.fdic_bp_ann!=null?+nd.fdic_bp_ann:5.0), _occ=(nd.occ_bp_ann!=null?+nd.occ_bp_ann:1.5);
+    h += '<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Assessments &amp; other NIE</div><div class="nie-section-note">Regulatory assessments and the non-payroll NIE gross-up. These are separate from workforce payroll load.</div></div></div><div class="nie-assess-grid">';
+    h += `<div class="nie-assess-item"><span class="wf-field-label">FDIC assessment</span><div class="nie-default-value"><input type="number" step="0.1" style="width:64px" value="${_fdic.toFixed(1)}" title="Basis points/yr on avg consolidated assets − avg tangible equity (12 USC 1817(b))." onchange="cfg.assumptions.nie_detail.fdic_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="nie-section-note">On avg assets less avg tangible equity.</div></div>`;
+    h += `<div class="nie-assess-item"><span class="wf-field-label">OCC assessment</span><div class="nie-default-value"><input type="number" step="0.1" style="width:64px" value="${_occ.toFixed(1)}" title="Basis points/yr on average assets (12 CFR 8)." onchange="cfg.assumptions.nie_detail.occ_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="nie-section-note">On average assets.</div></div>`;
+    h += `<div class="nie-assess-item"><span class="wf-field-label">Other NIE gross-up</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" title="Applies to the detailed NIE subtotal as sub×r/(1−r); this is not payroll load." onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">%</span></div><div class="nie-section-note">Applies to detailed NIE subtotal; not payroll load.</div></div>`;
+    h += '</div>';
+    if(lastRes && lastRes.nie_detail_series) h += `<div class="chint" style="margin-top:8px">${esc(lastRes.nie_detail_series.note)}.</div>`;
+    h += '</div>';
   }
   h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
   { const CF = (A.cac_feeds = A.cac_feeds || {}); const cfNames = Object.keys(CF);
@@ -6693,9 +6773,18 @@ window.runSens = async function(){
   el.innerHTML=t+'</table>'+`<div class="srcnote">${esc(j.note)}.</div>`;
 };
 window.nieOff = function(){
-  cfg.assumptions.nie_detail = null; renderContent(); refresh();
+  const A=cfg.assumptions;
+  // Simple vs Detailed are authoring modes, not delete operations. Preserve the rich
+  // detail as a dormant UI draft so a user can inspect the simple path and switch back
+  // without rebuilding roles/categories. The engine only reads A.nie_detail.
+  if(A.nie_detail) A._nie_detail_draft=A.nie_detail;
+  A.nie_detail=null; renderContent(); refresh();
 };
-window.nieOn = function(){ cfg.assumptions.nie_detail = _newNieDetail(); renderContent(); refresh(); };
+window.nieOn = function(){
+  const A=cfg.assumptions;
+  if(!A.nie_detail){ A.nie_detail=A._nie_detail_draft||_newNieDetail(); delete A._nie_detail_draft; }
+  renderContent(); refresh();
+};
 // Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
 // NOT fetched from the server -- a deliberate, documented duplication, chosen over an
 // async fetch because this whole block is BEHAVIORALLY UNVERIFIED (no browser available
