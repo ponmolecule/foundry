@@ -14,7 +14,7 @@ def main():
             f+=1; print("  FAIL ", name + (f" — {detail}" if detail else ""))
 
     html=Path("web/console_v2.html").read_text(encoding="utf-8")
-    a=html.index("function _newNieDetail()")
+    a=html.index("function _clearLoaded(")
     b=html.index("// Risk-based capital ratios", a)
     js=html[a:b]
     roles="\n".join(
@@ -22,19 +22,27 @@ def main():
     )
     prefix=r'''
 const window=globalThis;
-let cfg={assumptions:{}};
+let cfg={assumptions:{obs_exposures:[{name:'Custody',managed_notional:{day1:1}}]},pre_opening:{expenses:[]}};
+window.confirm=()=>true;
 function renderContent(){} function refresh(){} function appStatus(){}
 function _pf(x){ let n=parseFloat(String(x).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
 '''
-    suffix=f'''
+    suffix=r'''
 cfg.assumptions.nie_detail=_newNieDetail();
 const fresh=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail));
-window.nieCatPaste("Occupancy\\t30","growth",3,"year","step","model_year",1);
+window.nieCatPaste("Occupancy\t30","growth",3,"year","step","model_year",1);
 const cat=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories[0]));
-window.nieWorkforcePaste({json.dumps(roles)});
+window.nieWorkforcePaste(__ROLES__);
 const wf=cfg.assumptions.nie_detail.workforce;
-console.log(JSON.stringify({{fresh,cat,nroles:wf.roles.length,maxhire:Math.max(...wf.roles.map(r=>r.hire_period))}}));
-'''
+const nroles=wf.roles.length, maxhire=Math.max(...wf.roles.map(r=>r.hire_period));
+window.nieWorkforcePaste("Custody Ops\t120000\tEOP AUC [Custody] >= 1B\t3.5");
+const trigger=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
+window.nieWorkforcePaste("Controller, $95,000, M36, 4.0");
+const csv=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
+cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
+window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
+console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
+'''.replace('__ROLES__', json.dumps(roles))
     br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     bj={}
     if br.returncode==0 and br.stdout.strip():
@@ -51,6 +59,20 @@ console.log(JSON.stringify({{fresh,cat,nroles:wf.roles.length,maxhire:Math.max(.
        and gs.get("period")=="year" and gs.get("method")=="step")
     ck("one workforce paste compactly consumes 48 heterogeneous rows including M57",
        bj.get("nroles")==48 and bj.get("maxhire")==57)
+    trig=bj.get("trigger") or {}
+    ck("workforce paste accepts a compact named EOP-AUC trigger",
+       trig.get("metric")=="managed_notional_end" and trig.get("source")=="Custody"
+       and trig.get("operator")==">=" and abs(trig.get("value",0)-1_000_000_000)<1
+       and trig.get("timing")=="same_period")
+    csv=bj.get("csv") or {}
+    ck("workforce CSV keeps thousands commas inside compensation",
+       csv.get("role")=="Controller" and abs(csv.get("annual_comp",0)-95000)<1e-9 and csv.get("hire_period")==36)
+    cleared=bj.get("cleared") or {}
+    ck("Clear actions independently wipe pre-opening, workforce, and operating-expense loads",
+       cleared=={"po":0,"wf":0,"cat":0}, str(cleared))
+    ck("every bulk-entry Load surface renders an associated Clear button",
+       'poClear()' in html and 'nieWorkforceClear()' in html and 'nieCatClear()' in html
+       and html.count('>Clear</button>')>=3)
     ck("opening workforce paste UI does not activate/supersede legacy staffing",
        'onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false"' in html
        and 'onclick="var w=_ensureWorkforce();w._pasteOpen=true' not in html)

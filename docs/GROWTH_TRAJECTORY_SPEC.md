@@ -133,3 +133,95 @@ model. New workforce configuration is a compact role/cohort table:
 3. Regulatory quarter concepts and contractual quarter terms remain quarter-based.
 4. The resolver produces native-cadence absolute paths; downstream economics consume those
    paths rather than reinterpreting the user's growth cadence.
+
+## Workforce activation contract
+
+Growth and activation are separate concerns:
+
+- **Activation** determines when a role/cohort begins to exist.
+- **Growth** determines how compensation evolves after the resolved hire period.
+
+Existing rows with `hire_period` remain the simple/default grammar. A role may instead carry an
+optional metric activation rule:
+
+```json
+{
+  "activation": {
+    "type": "metric",
+    "metric": "managed_notional_end",
+    "source": "Custody",
+    "operator": ">=",
+    "reference": "fixed",
+    "value": 1000000000,
+    "timing": "same_period"
+  }
+}
+```
+
+Canonical fields:
+
+- `metric`: an approved modeled metric. Initial registry:
+  - `managed_notional_end` — end-of-period AUC/AUM / managed notional for a named product.
+  - `efficiency_ratio` — NIE / revenue, stored as a fraction for activation comparison.
+  - `net_income` — native-period net income dollars.
+- `source`: required only when a metric can exist in multiple named streams/products (currently
+  managed notional). Product names must resolve uniquely.
+- `operator`: `>=`, `>`, `<=`, or `<`.
+- `reference`:
+  - `fixed` — compare with `value`.
+  - `prior_period` — compare with the same metric one completed native period earlier, multiplied
+    by `multiplier`.
+  - `prior_year` — compare with the same metric one model year earlier (`periods_per_year` native
+    periods), multiplied by `multiplier`.
+- `timing`:
+  - `same_period` — only permitted for pre-workforce independent observables whose current-period
+    value is known before NIE is solved (EOP managed notional).
+  - `next_period` — uses a completed period and activates in the following period. Required for
+    endogenous financial metrics such as efficiency ratio and net income to avoid circularity.
+
+Activation is sticky: the first period whose rule is satisfied becomes the resolved hire period.
+From that point forward the role is ordinary workforce and uses the same salary escalation,
+payroll load and optional end-period machinery as a fixed-period hire.
+
+Examples:
+
+- `hire_period=36` — unconditional M36/Q36-style native-period hire.
+- `EOP AUC [Custody] >= $1.0B, same_period` — hire in the first native period meeting the threshold.
+  For the engagement testcase with a monotonic AUC path, this is exactly the client's rule:
+  count the N periods below the breakpoint, then hire in period N+1.
+- `efficiency_ratio < 50%, next_period` — observe the completed period; hire in the next one.
+- `net_income >= 2.0 × prior_year, next_period` — compare the completed period with the same native
+  period one year earlier and hire in the next one.
+
+This is intentionally **not** a general rules language. No arbitrary formulas, AND/OR expression
+trees, or iterative circular solver are introduced. New approved metrics can be added to the
+registry without changing the workforce schema.
+
+## First-class managed-notional observability
+
+Managed AUC/AUM was already rolled internally as average-period and end-of-period native-cadence
+series. Those series are now promoted to public product outputs when the product carries managed
+notional:
+
+- `managedNotionalAvg`
+- `managedNotionalEnd`
+- `managedNotionalSource`
+- Public `run_v2` output labels the converted paths as `$000s`; activation rules remain stored
+  in configuration-native dollars and are evaluated against the pre-conversion engine series.
+
+The CAC feeder also exposes the cadence-neutral alias `auc_end_by_period`; its historical
+`auc_levels_q` key remains available for compatibility. This makes EOP AUC/AUM a stable observable
+that workforce activation and future modules may reference without reimplementing the AUC rollforward.
+
+## Bulk-entry clear behavior
+
+Any bulk-entry surface with a Paste/Load action also exposes a **Clear** action beside Load for the
+dataset it owns. In this release that rule covers:
+
+- Pre-opening expenses.
+- Workforce roles/cohorts.
+- Operating-expense categories.
+
+Clear affects only the corresponding loaded dataset, closes its transient paste box, and leaves
+unrelated configuration untouched. When data exists, the browser asks for confirmation before the
+bulk delete.

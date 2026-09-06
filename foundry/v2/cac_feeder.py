@@ -114,7 +114,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
     }
 
     Returns {
-      auc_levels_q: [ ... len Q ... ],   # ABSOLUTE quarter-end AUC -> explicit_levels socket
+      auc_end_by_period: [ ... len Q ... ], # cadence-neutral ABSOLUTE period-end AUC
+      auc_levels_q: [ ... len Q ... ],        # legacy alias retained for compatibility
       year_end_auc: [ ... per year ... ],
       annual: [ per-year records with channel detail, CAC, attrition ],
     }
@@ -179,7 +180,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
                 auc_levels_q[q - 1] = prev_end + (ye - prev_end) * qi / float(ppy)
         prev_end = ye
 
-    return {"auc_levels_q": auc_levels_q, "year_end_auc": year_end_auc, "annual": annual}
+    return {"auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
+            "year_end_auc": year_end_auc, "annual": annual}
 
 
 def cac_managed_notional(cac_cfg, Q, ppy=4):
@@ -189,5 +191,5 @@ def cac_managed_notional(cac_cfg, Q, ppy=4):
     return {
         "day1": 0.0,
         "trajectory": "explicit_levels",
-        "schedule": {str(q + 1): r["auc_levels_q"][q] for q in range(int(Q))},
+        "schedule": {str(q + 1): r["auc_end_by_period"][q] for q in range(int(Q))},
     }

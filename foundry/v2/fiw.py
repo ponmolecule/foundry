@@ -325,8 +325,26 @@ def _nie_sheet(ws, nd, ppy=4):
             _row(root + ".role", sec, "Role / cohort", role.get("role"), "label (editable)")
             _row(root + ".count", sec, "Count", role.get("count", 1), "headcount")
             _row(root + ".annual_comp", sec, "Annual base compensation", role.get("annual_comp"), "$/year per FTE")
-            _row(root + ".hire_period", sec, "Hire model period", role.get("hire_period", 1),
-                 "M# / Q# index (native cadence)")
+            _act = role.get("activation") or {}
+            if _act:
+                _row(root + ".activation.type", sec, "Activation type", _act.get("type", "metric"), "metric")
+                _row(root + ".activation.metric", sec, "Activation metric", _act.get("metric"),
+                     "managed_notional_end / efficiency_ratio / net_income")
+                if _act.get("source") is not None:
+                    _row(root + ".activation.source", sec, "Metric source product", _act.get("source"), "product name")
+                _row(root + ".activation.operator", sec, "Comparator", _act.get("operator", ">="), ">= / > / <= / <")
+                _row(root + ".activation.reference", sec, "Reference", _act.get("reference", "fixed"),
+                     "fixed / prior_period / prior_year")
+                if _act.get("reference", "fixed") == "fixed":
+                    _row(root + ".activation.value", sec, "Trigger value", _act.get("value"),
+                         "metric-native units (ratio stored as fraction)")
+                else:
+                    _row(root + ".activation.multiplier", sec, "Reference multiplier", _act.get("multiplier", 1.0), "multiple")
+                _row(root + ".activation.timing", sec, "Activation timing", _act.get("timing"),
+                     "same_period / next_period")
+            else:
+                _row(root + ".hire_period", sec, "Hire model period", role.get("hire_period", 1),
+                     "M# / Q# index (native cadence)")
             if role.get("end_period") is not None:
                 _row(root + ".end_period", sec, "End model period", role.get("end_period"),
                      "M# / Q# index (native cadence)")
@@ -540,8 +558,16 @@ def _settings_sheet(wb, cfg):
                 row("Default salary escalation", _dgs.get("rate"),
                     f"per {_dgs.get('period','year')} · {_dgs.get('method','step')} · {_dgs.get('anchor','model_year')}")
             for _wr in (_wf.get("roles") or []):
+                _act = _wr.get("activation") or {}
+                if _act:
+                    _src = (f" [{_act.get('source')}]" if _act.get("source") else "")
+                    _ref = (f"{_act.get('value')}" if _act.get("reference", "fixed") == "fixed"
+                            else f"{_act.get('multiplier',1)}× {_act.get('reference')}")
+                    _start = f"trigger {_act.get('metric')}{_src} {_act.get('operator','>=')} {_ref}"
+                else:
+                    _start = f"hire {('M' if int(a.get('periods_per_year') or 4)==12 else 'Q')}{_wr.get('hire_period',1)}"
                 row(_wr.get("role") or "workforce role",
-                    f"{_wr.get('count',1)} FTE · hire {('M' if int(a.get('periods_per_year') or 4)==12 else 'Q')}{_wr.get('hire_period',1)} · ${float(_wr.get('annual_comp') or 0):,.0f}/yr",
+                    f"{_wr.get('count',1)} FTE · {_start} · ${float(_wr.get('annual_comp') or 0):,.0f}/yr",
                     "role/cohort")
         else:
             if nd.get("fte_by_year") is not None:

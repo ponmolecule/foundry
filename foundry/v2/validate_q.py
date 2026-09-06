@@ -246,20 +246,34 @@ def validate_config_v2(cfg):
                     wf.get("default_salary_growth_spec"), ppy=_ppy, context=_growth_ctx)
             except (TypeError, ValueError) as e:
                 errs.append(f"nie_detail.workforce.default_salary_growth_spec invalid: {e}")
+        _mn_trigger_sources = [str(p.get("name") or "").strip()
+                               for p in ((a.get("deposit_products") or []) + (a.get("obs_exposures") or []))
+                               if (p.get("managed_notional") or p.get("managed_notional_source"))
+                               and str(p.get("name") or "").strip()]
         for i, role in enumerate(wf.get("roles") or []):
             cnt = role.get("count", 1)
             comp = role.get("annual_comp", role.get("base_salary_annual", 0))
             hp = role.get("hire_period", 1)
             ep = role.get("end_period")
             load = role.get("payroll_load_rate")
+            activation = role.get("activation") or None
             if not isinstance(cnt, (int, float)) or cnt < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].count must be non-negative")
             if not isinstance(comp, (int, float)) or comp < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].annual_comp must be non-negative")
-            if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1:
-                errs.append(f"nie_detail.workforce.roles[{i}].hire_period must be an integer >= 1")
-            if ep not in (None, "") and (not isinstance(ep, int) or isinstance(ep, bool) or ep < hp):
-                errs.append(f"nie_detail.workforce.roles[{i}].end_period must be blank or >= hire_period")
+            if activation:
+                try:
+                    from .activation import validate_activation_rule
+                    validate_activation_rule(activation, available_sources=_mn_trigger_sources)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].activation invalid: {e}")
+                if ep not in (None, "") and (not isinstance(ep, int) or isinstance(ep, bool) or ep < 1):
+                    errs.append(f"nie_detail.workforce.roles[{i}].end_period must be blank or an integer >= 1")
+            else:
+                if not isinstance(hp, int) or isinstance(hp, bool) or hp < 1:
+                    errs.append(f"nie_detail.workforce.roles[{i}].hire_period must be an integer >= 1")
+                if ep not in (None, "") and (not isinstance(ep, int) or isinstance(ep, bool) or ep < hp):
+                    errs.append(f"nie_detail.workforce.roles[{i}].end_period must be blank or >= hire_period")
             if load is not None and (not isinstance(load, (int, float)) or load < 0 or load > 2):
                 errs.append(f"nie_detail.workforce.roles[{i}].payroll_load_rate must be in [0, 2]")
             if role.get("salary_growth_spec"):
