@@ -131,7 +131,7 @@ model. New workforce configuration is a compact one-position-per-row table:
   `Role | Annual Comp | Start | End | Escalation | Benefits/Payroll`.
   Each row is one position. Header-aware paste may omit optional columns or reorder them.
   Legacy `Count` / `Payroll Load` headers remain accepted on import but are no longer advertised. The recommended compensation
-  header is `Annual Comp ($000s/FTE)`; generic `Annual Comp` remains raw-dollar compatible.
+  header is `Annual Comp ($/FTE)` and manual/paste authoring both use whole dollars per FTE. The legacy explicit `Annual Comp ($000s/FTE)` header remains accepted for backward compatibility.
   Headerless legacy paste order remains accepted for backward compatibility.
 - Spreadsheet guidance describes the user action (paste directly from Excel/Google Sheets or
   CSV), not the transport delimiter. Users are never asked to type tab characters.
