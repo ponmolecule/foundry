@@ -142,6 +142,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,mnMet
     ck("workforce UI makes default inheritance explicit and removes implementation-language load override",
        'Roles inherit the workforce defaults unless a row explicitly overrides them.' in html
        and 'Benefits / Payroll</span>' in html and 'load override' not in html)
+    ck("workforce UI gives concise economic-aggregation guidance",
+       '<b>User note.</b> Aggregate roles until aggregation would change the economics.' in html
+       and 'This keeps large staffing plans compact without losing model fidelity.' in html)
     ck("assessment defaults are visible economic values rather than blank placeholders",
        'fdic_bp_ann:5.0' in html and 'occ_bp_ann:1.5' in html
        and 'blank=5.0' not in html and 'blank=1.5' not in html)

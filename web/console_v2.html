@@ -6777,6 +6777,7 @@ function structuresSectionsHtml(){
 
     // WORKFORCE COMPENSATION -------------------------------------------------
     h += '<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Workforce compensation</div><div class="nie-section-note">Role/position payroll. Roles inherit the workforce defaults unless a row explicitly overrides them.</div></div></div>';
+    h += '<div class="memo" style="margin:0 0 8px"><b>User note.</b> Aggregate roles until aggregation would change the economics. Combine positions with the same timing and compensation trajectory. Separate only when start, escalation, benefits/payroll, or triggers differ. This keeps large staffing plans compact without losing model fidelity.</div>';
     const wf = nd.workforce || {};
     const _legacyStaff = !wf.mode && ((nd.fte_by_year||[]).some(x=>+x) || +(nd.loaded_comp_annual||0));
     if(_legacyStaff){
