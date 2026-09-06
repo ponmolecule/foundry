@@ -575,6 +575,9 @@ def run_v2(cfg):
         "flags": _peer_annotated_flags(cfg, base),
         "dfast_segments": dfast_segments,
     }
+    if base.get("fixed_assets") is not None:
+        results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
+        results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
     # Workforce activation diagnostics are surfaced only when role/cohort authoring is active.
     # This keeps legacy result shapes unchanged while making derived hire periods auditable.
     if base.get("workforce") is not None:
@@ -974,23 +977,30 @@ def run_v2(cfg):
                                    "note": "thresholds resolve from REG_PARAMS/citations; "
                                             "missing inputs are stated, never zero-filled"}
     po = cfg.get("pre_opening") or {}
-    if po.get("expenses") or po.get("min_day1_capital"):
+    _fa_out = base.get("fixed_assets") or {}
+    _preopen_capex = float(_fa_out.get("preopening_capex") or 0.0) * 1000.0
+    if po.get("expenses") or po.get("min_day1_capital") or _preopen_capex:
         burn = sum(float(e.get("total", 0.0)) for e in (po.get("expenses") or []))
         capital0 = cfg["target_state"]["initial_capital"]
         min_d1 = float(po.get("min_day1_capital") or 0.0)
         cushion = capital0 - burn
+        cash_after_uses = capital0 - burn - _preopen_capex
         results["pre_open"] = {
             "expenses": [{"category": e.get("category"), "total": float(e.get("total", 0.0))}
                           for e in (po.get("expenses") or [])],
             "burn_total": burn,
+            "preopening_capex": _preopen_capex,
+            "cash_uses_total": burn + _preopen_capex,
+            "cash_after_preopening_uses": cash_after_uses,
             "cushion": cushion,
+            "equity_cushion": cushion,
             "min_day1_capital": min_d1,
             "sufficient": cushion >= min_d1,
             "flag": ("SUFFICIENT" if cushion >= min_d1
                        else "INSUFFICIENT — REVIEW CAPITAL PLAN"),
-            "convention": ("organizational costs expensed into the opening retained "
-                             "deficit; monthly schedules "
-                             "convert to quarterly totals at import"),
+            "convention": ("organizational costs are expensed into the opening retained deficit; "
+                             "pre-opening CAPEX is capitalized into fixed assets and consumes cash "
+                             "without reducing opening equity"),
         }
         if not results["pre_open"]["sufficient"]:
             results.setdefault("flags", []).append({

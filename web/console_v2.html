@@ -3117,6 +3117,57 @@ window.poClear = function(){
   cfg.pre_opening=cfg.pre_opening||{}; const xs=cfg.pre_opening.expenses||[];
   return _clearLoaded("pre-opening expenses",xs.length,function(){cfg.pre_opening.expenses=[];cfg.pre_opening._pasteOpen=false;});
 };
+function _fixedAssetState(){
+  const A=cfg.assumptions; A.fixed_assets=A.fixed_assets||{mode:"simple",assets:[]};
+  A.fixed_assets.assets=A.fixed_assets.assets||[]; return A.fixed_assets;
+}
+window.faSetMode=function(mode){
+  const fa=_fixedAssetState(); fa.mode=(mode==="schedule"?"schedule":"simple"); renderContent(); refresh();
+};
+window.faAdd=function(){
+  const fa=_fixedAssetState(); fa.mode="schedule";
+  fa.assets.push({name:"",cost:0,in_service_period:0,useful_life_years:5,method:"straight_line",residual_value:0});
+  renderContent(); refresh();
+};
+window.faClear=function(){
+  const fa=_fixedAssetState(), xs=fa.assets||[];
+  return _clearLoaded("fixed-asset / CAPEX rows",xs.length,function(){fa.assets=[];fa._pasteOpen=false;});
+};
+function _faCsvCells(line){
+  const out=[]; let cur="",q=false;
+  for(let i=0;i<line.length;i++){ const ch=line[i];
+    if(ch==='"'){ if(q&&line[i+1]==='"'){cur+='"';i++;} else q=!q; }
+    else if(ch===','&&!q){out.push(cur.trim());cur="";} else cur+=ch;
+  } out.push(cur.trim()); return out;
+}
+function _faPeriod(v){
+  const t=String(v==null?"":v).trim(); if(!t) return 0;
+  if(/^(at\s+opening|opening|pre[- ]?open)$/i.test(t)) return 0;
+  const m=t.match(/^[MQ]?(\d+)$/i); if(!m) return NaN;
+  const n=+m[1]; return (n>=0&&n<=NP())?n:NaN;
+}
+window.faPaste=function(txt,mode){
+  const fa=_fixedAssetState(); fa.mode="schedule";
+  const lines=String(txt||"").split(/\r?\n/).filter(x=>x.trim());
+  if(!lines.length){appStatus("err","No fixed-asset rows found.");return;}
+  const tabbed=lines[0].includes("\t"), cells=line=>tabbed?line.split("\t").map(x=>x.trim()):_faCsvCells(line);
+  const norm=x=>String(x||"").toLowerCase().replace(/[^a-z0-9]+/g," ").trim();
+  const aliases={name:["asset","asset class","item","name"],cost:["cost","value","amount"],start:["in service","placed in service","start","acq month","acquisition month"],life:["life","useful life","useful life years"],method:["method","depreciation method"],residual:["residual","residual value","salvage","salvage value"]};
+  const hdr=cells(lines[0]).map(norm); let hasHdr=hdr.some(x=>Object.values(aliases).flat().includes(x));
+  const idx={}; if(hasHdr){Object.keys(aliases).forEach(k=>{idx[k]=hdr.findIndex(x=>aliases[k].includes(x));});}
+  const parsed=[];
+  lines.slice(hasHdr?1:0).forEach(line=>{ const c=cells(line); if(!c.some(Boolean))return;
+    const get=(k,pos)=>hasHdr?(idx[k]>=0?c[idx[k]]:""):(c[pos]||"");
+    const name=get("name",0), cost=_pf(get("cost",1))*1000, start=_faPeriod(get("start",2)), life=_pf(get("life",3));
+    if(!name||isNaN(cost)||isNaN(start)||!life) return;
+    const method=(get("method",4)||"straight_line").toLowerCase().replace(/[ -]+/g,"_");
+    const residualRaw=get("residual",5), residual=residualRaw?_pf(residualRaw)*1000:0;
+    parsed.push({name:name,cost:cost,in_service_period:start,useful_life_years:life,method:method||"straight_line",residual_value:residual||0});
+  });
+  if(!parsed.length){appStatus("err","No valid asset rows found. Use Asset, Cost, In Service, Useful Life (cost in $000s; In Service = At opening or current-cadence period).");return;}
+  if(mode==="replace") fa.assets=parsed; else fa.assets=fa.assets.concat(parsed);
+  fa._pasteOpen=false; appStatus("ok",parsed.length+" fixed-asset row"+(parsed.length===1?"":"s")+" loaded."); renderContent(); refresh();
+};
 window.nieCatClear = function(){
   const nd=_ensureNieDetail(), xs=nd.categories||[];
   return _clearLoaded("operating-expense categories",xs.length,function(){nd.categories=[];nd._catPasteOpen=false;delete nd._catPasteGrowthSpec;});
@@ -6496,16 +6547,17 @@ window.capClear = function(){
   // and depreciation; pre-opening is managed on its own (per-expense x delete in the card).
   const A = cfg.assumptions;
   const nR = (A.capital_raises||[]).length, nB = (A.scheduled_borrowings||[]).length;
-  const hasDep = !!A.premises_depreciation_annual;
+  const _fa=A.fixed_assets||{}, hasDep = !!A.premises_depreciation_annual || (_fa.mode==="schedule" && (_fa.assets||[]).length>0);
   if(nR + nB + (hasDep?1:0) > 0){
     const bits = [];
     if(nR) bits.push(nR + " staged raise" + (nR===1?"":"s"));
     if(nB) bits.push(nB + " scheduled borrowing" + (nB===1?"":"s"));
-    if(hasDep) bits.push("premises depreciation");
+    if(hasDep) bits.push((_fa.mode==="schedule"?"fixed-asset schedule":"premises depreciation"));
     if(!confirm("Turn off Capital structure? This removes " + bits.join(", ")
                 + ". Pre-opening expenses are kept \u2014 edit those in the card below.")) return;
   }
   A.capital_raises = []; A.scheduled_borrowings = []; A.premises_depreciation_annual = 0;
+  if(A.fixed_assets && A.fixed_assets.mode==="schedule"){A.fixed_assets.assets=[];}
   renderContent(); refresh();
 };
 window.secClear = function(){
@@ -6582,14 +6634,14 @@ function structuresSectionsHtml(){
     ["Scheduled borrowings", !!(A.scheduled_borrowings||[]).length],
     ["Securities books", !!((A.securities_afs||[]).length + (A.securities_htm||[]).length)],
     ["AOCI", !!A.aoci_sensitivity_annual],
-    ["Depreciation", !!A.premises_depreciation_annual],
+    ["Depreciation", !!A.premises_depreciation_annual || !!((A.fixed_assets||{}).mode==="schedule" && (A.fixed_assets.assets||[]).length)],
     ["NIE detail", !!A.nie_detail],
     ["Mortgage banking", (A.lending_products||[]).some(p=>p.mortgage_banking)]];
   const lampMap = Object.fromEntries(lamps);
   const capOn = lampMap["Staged raises"]||lampMap["Scheduled borrowings"]||lampMap["Depreciation"];
   const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
-  const capN = (A.capital_raises||[]).length
-             + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0);
+  const capN = (A.capital_raises||[]).length + (A.scheduled_borrowings||[]).length
+             + (((A.fixed_assets||{}).mode==="schedule") ? ((A.fixed_assets.assets||[]).length) : (A.premises_depreciation_annual?1:0));
   const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
   h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
   const swTile = (label, on, act, icon, extra, titleTxt)=>
@@ -6640,7 +6692,7 @@ function structuresSectionsHtml(){
     });
     _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';
     _b += `<div class="cmut">${sbs.length} borrowing${sbs.length===1?"":"s"} added</div>`;
-    let _p = '<div class="csub">Pre-opening</div>';
+    let _p = '<div class="csub">Pre-opening expenses</div>';
     pex.forEach((e,i)=>{
       _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
     });
@@ -6663,9 +6715,26 @@ function structuresSectionsHtml(){
       _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderContent();return false">close</a>';
       _p += '</div></div>';
     }
-    _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added</div>`;
-    let _d = '<div class="csub">Depreciation</div>';
-    _d += `<div class="crow">Premises depreciation<input type="text" inputmode="decimal" style="width:92px" title="annual $000s" value="${fmtComma((cfg.assumptions.premises_depreciation_annual||0)/1000)}" onchange="cfg.assumptions.premises_depreciation_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/yr</span></div>`;
+    _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
+    const _fa=_fixedAssetState(), _faSchedule=_fa.mode==="schedule", _fax=_fa.assets||[];
+    let _d = '<div class="csub">Fixed assets / CAPEX</div>';
+    _d += `<div class="nie-mode" style="margin:0 0 8px"><button class="${_faSchedule?'':'on'}" onclick="faSetMode('simple')">Simple</button><button class="${_faSchedule?'on':''}" onclick="faSetMode('schedule')">Asset schedule</button></div>`;
+    if(!_faSchedule){
+      _d += `<div class="crow">Opening fixed assets<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
+      _d += `<div class="crow">Annual depreciation<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_depreciation_annual||0)/1000)}" onchange="cfg.assumptions.premises_depreciation_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/yr</span></div>`;
+      _d += '<div class="cmut">Use when the source model supplies one aggregate fixed-asset balance and depreciation line.</div>';
+    } else {
+      _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
+        _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+      });
+      if(!_fa._pasteOpen){
+        _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="_fixedAssetState()._pasteOpen=true;renderContent();return false">⎘ Paste assets</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="faAdd();return false">+ Add asset</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
+      } else {
+        _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button class="pillbtn" onclick="faPaste(document.getElementById(\x27faPasteBox\x27).value,\x27replace\x27)">Load (replace)</button><button class="pillbtn" onclick="faPaste(document.getElementById(\x27faPasteBox\x27).value,\x27append\x27)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_fixedAssetState()._pasteOpen=false;renderContent();return false">close</a></div>';
+      }
+      _d += `<div class="cmut">${_fax.length} asset${_fax.length===1?'':'s'} · straight-line by default. Opening rows are capitalized before M1/Q1; later rows become CAPEX in their placed-in-service period.</div>`;
+    }
+    _d += `<div class="crow" style="margin-top:8px">Intangibles<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="text" inputmode="decimal" style="width:112px" value="${fmtComma((po.min_day1_capital||0)/1000)}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
   }
@@ -6696,11 +6765,6 @@ function structuresSectionsHtml(){
     }
   }
   h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense</div><div class="cd">Choose a simple overhead path or detailed NIE authoring. The two modes are alternative ways to build the same expense output.</div></span></div>`;
-  { const A3 = cfg.assumptions;
-    h += `<div class="nie-section" style="margin-top:0"><div class="nie-section-head"><div><div class="nie-section-title">Fixed assets</div><div class="nie-section-note">Applies in either operating-expense mode.</div></div></div>`;
-    h += `<div class="crow" style="align-items:center">Premises &amp; equipment<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-    h += `<div class="crow" style="align-items:center">Intangibles<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s · deducted from tangible equity</span></div></div>`;
-  }
   const _nieMode = _operatingExpenseMode(A), _nieDetailed = _nieMode === "detailed";
   h += `<div class="nie-mode" role="group" aria-label="Operating expense authoring mode"><button class="${_nieMode==='simple'?'on':''}" onclick="nieOff()">Simple overhead</button><button class="${_nieDetailed?'on':''}" onclick="nieOn()">Detailed</button></div>`;
   if(!_nieDetailed){

@@ -61,9 +61,9 @@ Before projecting products, the engine lays down several deterministic schedules
 
 **Scheduled (term) borrowings `sched_t` and interest `sched_int_t`.** FHLB-style term advances are modeled as **bullet** draws: the full `amount` is held flat for `term_q` quarters (outstanding from `quarter` through `quarter+term_q-1`), then matures to zero. Interest is a full-quarter accrual on the outstanding principal (`amount × rate_ann / 4`) each quarter it is alive, and zero after maturity. A term advance is a discrete lump, so — unlike balance-driven products — it is **not** averaged.
 
-**Premises & depreciation.** `premises_equipment` depreciates straight-line by `premises_depreciation_annual/4` each quarter: `prem_t[q] = max(0, premises − dep_q·q)`. The quarterly depreciation expense `dep_exp_t[q]` is the period-over-period drop, and flows into overhead (§7).
+**Fixed assets / CAPEX & depreciation.** Two authoring paths converge on the same net-PP&E and depreciation series. Legacy **Simple** mode retains `premises_equipment` plus `premises_depreciation_annual` exactly. **Asset Schedule** mode resolves asset/class records (cost, placed-in-service period, useful life, straight-line method; existing opening assets are also supported) into native-cadence gross PP&E, accumulated depreciation, net PP&E, CAPEX, and depreciation expense. Pre-opening CAPEX is capitalized into opening PP&E and consumes funding; it is not included in the organizational-expense burn. See `docs/FIXED_ASSETS_SPEC.md`.
 
-**Non-earning assets `non_earn_t[q]` = premises + intangibles + other_assets** (premises declining as above).
+**Non-earning assets `non_earn_t[t]` = net fixed assets + intangibles + other_assets** at each native model period.
 
 **Securities books (AFS/HTM).** Each security's balance path rolls forward: `bal[q] = max(0, bal[q-1]·(1 + growth_q − runoff_q) + purchases_q)`. Average balance is `(bal[q-1]+bal[q])/2`. HTM income accrues at the security's own fixed coupon and is **not** touched by the rate shock — that is what HTM means (§9).
 

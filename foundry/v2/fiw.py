@@ -151,6 +151,17 @@ PREOPEN_FIELDS = [
     ("category", "Category", "text"),
     ("total", "Total", "$"),
 ]
+FIXED_ASSET_FIELDS = [
+    ("name", "Asset / class", "text"),
+    ("cost", "Cost", "$"),
+    ("in_service_period", "Placed in service", "model period; 0 = at opening"),
+    ("useful_life_years", "Useful life", "years"),
+    ("method", "Depreciation method", "text"),
+    ("residual_value", "Residual value", "$"),
+    ("opening_gross_cost", "Opening gross cost (existing asset)", "$"),
+    ("opening_accumulated_depreciation", "Opening accumulated depreciation", "$"),
+    ("remaining_life_years", "Remaining life (existing asset)", "years"),
+]
 
 
 def cfg_hash(cfg):
@@ -468,6 +479,10 @@ def build_fiw(cfg):
     po = (cfg.get("pre_opening") or {}).get("expenses")
     if po:
         _array_sheet(wb.create_sheet("ASSM_PREOPEN"), "pre_opening.expenses", po, PREOPEN_FIELDS)
+    _fa = a.get("fixed_assets") or {}
+    if _fa.get("mode") == "schedule" and (_fa.get("assets") or []):
+        _array_sheet(wb.create_sheet("ASSM_FIXED_ASSETS"), "fixed_assets.assets",
+                     _fa.get("assets") or [], FIXED_ASSET_FIELDS)
 
     buf = io.BytesIO()
     _settings_sheet(wb, cfg)   # human-readable review of every in-app-configured input
@@ -514,8 +529,14 @@ def _settings_sheet(wb, cfg):
     sec("Overhead & other balance sheet")
     row("Corporate overhead", a.get("overhead_q"), "$/quarter")
     row("Overhead growth", a.get("overhead_growth_q"), "rate/qtr")
-    row("Premises & equipment", a.get("premises_equipment"), "$")
-    row("Premises depreciation", a.get("premises_depreciation_annual"), "$/year")
+    _fa = a.get("fixed_assets") or {}
+    if _fa.get("mode") == "schedule":
+        row("Fixed-asset authoring", "Asset schedule", "native-cadence straight-line resolver")
+        row("Fixed-asset rows", len(_fa.get("assets") or []), "assets/classes")
+    else:
+        row("Fixed-asset authoring", "Simple", "legacy opening PP&E + annual depreciation")
+        row("Premises & equipment", a.get("premises_equipment"), "$")
+        row("Premises depreciation", a.get("premises_depreciation_annual"), "$/year")
     row("Intangibles", a.get("intangibles"), "$")
     row("Other assets", a.get("other_assets"), "$")
     row("Other liabilities", a.get("other_liabilities"), "$")
@@ -990,6 +1011,7 @@ def diff_import(data, current_cfg):
         "ASSM_BORROWINGS": ("scheduled_borrowings", 3),
         "ASSM_RAISES": ("capital_raises", 3),
         "ASSM_PREOPEN": ("pre_opening.expenses", 3),
+        "ASSM_FIXED_ASSETS": ("fixed_assets.assets", 3),
         "ASSM_NIE": ("nie_detail", 3),
     }
     _dropped_rows = []          # hand-added rows with content but no valid machine key
