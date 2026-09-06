@@ -180,6 +180,10 @@ On boot, **only if** a prior session ended with unsaved work:
 
 > **"Recover unsaved work from your last session? [Recover] [Discard]"**
 
+A successful explicit engagement save retires the shared crash-recovery draft immediately.
+Boot also removes a stale recovery draft that is byte-equivalent (after lifecycle normalization)
+to an already-saved engagement. Saved work must never be presented later as unsaved work.
+
 That one boot prompt is the only time it is ever visible. A saved, clean
 engagement open at crash time produces **no** prompt (nothing was unsaved).
 
