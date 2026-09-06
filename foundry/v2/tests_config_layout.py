@@ -31,6 +31,8 @@ def main():
     ck("Securities book name is responsive rather than hard-wired to 48px",
        '.sec-book-name{width:100% !important;min-width:0 !important;max-width:none !important}' in html
        and '.sec-book-name{flex:0 0 48px' not in html)
+    ck("Securities Name and Opening balance fields are compact but not squeezed",
+       '.sec-book-line-top{grid-template-columns:minmax(70px,90px) minmax(108px,126px);justify-content:start}' in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1

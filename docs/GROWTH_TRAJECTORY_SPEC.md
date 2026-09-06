@@ -78,7 +78,7 @@ run correctly.
 ## Workforce authoring
 
 The current `FTE Y1/Y2/Y3` construct is legacy-compatible but no longer the primary authoring
-model. New workforce configuration is a compact role/cohort table:
+model. New workforce configuration is a compact one-position-per-row table:
 
 ```json
 {
@@ -93,7 +93,6 @@ model. New workforce configuration is a compact role/cohort table:
     "roles": [
       {
         "role": "Compliance Analyst",
-        "count": 2,
         "annual_comp": 95000,
         "hire_period": 17,
         "end_period": null,
@@ -105,12 +104,12 @@ model. New workforce configuration is a compact role/cohort table:
 }
 ```
 
-- One row may represent one position or a cohort (`count > 1`).
+- New authoring treats one row as one position. The legacy `count` field remains readable for backward compatibility but is not exposed in the primary UI.
 - `hire_period` and optional `end_period` are native model periods and can extend beyond the
   current horizon; out-of-horizon rows simply contribute zero during the run.
 - Compensation is annualized and divided by `periods_per_year` only after its trajectory is
   resolved.
-- Payroll load is workforce-specific (`salary * (1 + load)`).
+- `default_payroll_load_rate` is workforce-specific (`salary * (1 + load)`). The UI calls this **Benefits & payroll** because it represents benefits, payroll taxes and employer burden added on top of base compensation.
 - Existing NIE `other_gross_up_rate` remains a separate subtotal-level mechanism using
   `sub * r/(1-r)` and is **not** reinterpreted as payroll benefits.
 - A 48-role spreadsheet is therefore a 48-row paste, not 48 bespoke configuration cards.
@@ -129,8 +128,9 @@ model. New workforce configuration is a compact role/cohort table:
 - Workforce defaults are true inherited defaults. A blank role-level Escalation or Payroll
   Load means "use the workforce default"; a populated row value is an explicit override.
 - Manual workforce entry and spreadsheet paste share one canonical conceptual record:
-  `Role | Count | Annual Comp | Start | End | Escalation | Payroll Load`.
-  Header-aware paste may omit optional columns or reorder them. The recommended compensation
+  `Role | Annual Comp | Start | End | Escalation | Benefits/Payroll`.
+  Each row is one position. Header-aware paste may omit optional columns or reorder them.
+  Legacy `Count` / `Payroll Load` headers remain accepted on import but are no longer advertised. The recommended compensation
   header is `Annual Comp ($000s/FTE)`; generic `Annual Comp` remains raw-dollar compatible.
   Headerless legacy paste order remains accepted for backward compatibility.
 - Spreadsheet guidance describes the user action (paste directly from Excel/Google Sheets or
@@ -179,7 +179,9 @@ Canonical fields:
   - `efficiency_ratio` — NIE / revenue, stored as a fraction for activation comparison.
   - `net_income` — native-period net income dollars.
 - `source`: required only when a metric can exist in multiple named streams/products (currently
-  managed notional). Product names must resolve uniquely.
+  managed notional). Product names must resolve uniquely. In the browser, source is folded into
+  the metric choice (for example, `EOP AUC / AUM — Custody`) so the trigger editor remains
+  **metric + comparator + value** rather than exposing a separate one-option source dropdown.
 - `operator`: `>=`, `>`, `<=`, or `<`.
 - `reference`:
   - `fixed` — compare with `value`.
@@ -192,6 +194,8 @@ Canonical fields:
     value is known before NIE is solved (EOP managed notional).
   - `next_period` — uses a completed period and activates in the following period. Required for
     endogenous financial metrics such as efficiency ratio and net income to avoid circularity.
+  Browser authoring derives this timing automatically from metric dependency safety rather than
+  asking the user to choose it.
 
 Activation is sticky: the first period whose rule is satisfied becomes the resolved hire period.
 From that point forward the role is ordinary workforce and uses the same salary escalation,
