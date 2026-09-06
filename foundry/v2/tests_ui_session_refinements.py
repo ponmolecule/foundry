@@ -55,8 +55,10 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("boot suppresses an already-saved duplicate recovery draft instead of warning",
        "_duplicateOfSaved" in html and "LC._ser(savedCfg) === LC._ser(draftCfg)" in html)
 
-    ck("login hero content is shifted materially upward from its prior centered position",
-       'min-height:calc(100vh - 190px);transform:translateY(-9rem)' in html)
+    ck("login hero lift is responsive: airy on tall displays without colliding on laptop-height viewports",
+       'class="welcome-main"' in html
+       and '.welcome-main{transform:translateY(calc(-1 * clamp(3rem, 8vh, 8rem)))}' in html
+       and 'translateY(-9rem)' not in html)
     ck("superfluous HTM-designation counter is removed",
        "HTM designated" not in html and "Books included" not in html)
 
