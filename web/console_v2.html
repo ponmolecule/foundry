@@ -932,7 +932,21 @@ async function boot(){
             ((draftCfg.assumptions && draftCfg.assumptions.lending_products || []).length) ||
             ((draftCfg.assumptions && draftCfg.assumptions.deposit_products || []).length) ||
             ((draftCfg.assumptions && draftCfg.assumptions.obs_exposures || []).length));
-          if(!_hasWork){
+          // Older builds could leave the crash-recovery copy behind even after an explicit save.
+          // If a named stored engagement contains the exact same settled config, this is not unsaved
+          // work at all; retire the stale draft silently instead of alarming the user on next login.
+          let _duplicateOfSaved = false;
+          if(_hasWork){
+            const ident = _cfgIdent(draftCfg).trim();
+            const candidates = (js.engagements||[]).filter(e => !_isRecoverySlug(e.slug) && (!ident || (e.name||"").trim()===ident));
+            for(const e of candidates){
+              try{
+                const sr = await fetch("/api/v31/engagement/" + encodeURIComponent(e.slug));
+                if(sr.ok){ const savedCfg = await sr.json(); if(LC._ser(savedCfg) === LC._ser(draftCfg)){ _duplicateOfSaved=true; break; } }
+              }catch(err){}
+            }
+          }
+          if(!_hasWork || _duplicateOfSaved){
             try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
           } else if(confirm("Recover unsaved work from your last session?\n\nA previous session ended without saving. Recover it, or Cancel to discard and start clean.")){
             cfg = draftCfg;
@@ -1004,6 +1018,16 @@ function _isRecoverySlug(slug){
   const s = String(slug || "");
   return s.startsWith("working-session") || s.startsWith("unsaved-engagement-crash-recovery");
 }
+// A successful explicit save makes any shared crash-recovery draft obsolete. Remove both
+// the current and legacy recovery slugs so a later login cannot offer already-saved work
+// as if it were unsaved. Best-effort: cleanup never turns a successful save into a failure.
+async function _purgeRecoveryDrafts(){
+  clearTimeout(_asTimer); _asTimer = null;
+  for(const slug of ["unsaved-engagement-crash-recovery", "working-session-autosaved"]){
+    try{ await fetch("/api/v31/engagement/" + encodeURIComponent(slug), {method:"DELETE"}); }catch(e){}
+  }
+}
+window._purgeRecoveryDrafts = _purgeRecoveryDrafts;
 let _asTimer = null, _asBusy = false, _pristineJSON = null, _pristineIdent = null;
 // Identity of a config for baseline-matching: the engagement it represents. Used so the unsaved-work
 // guard can tell whether _pristineJSON actually corresponds to the currently-loaded engagement — a
@@ -4313,7 +4337,7 @@ function renderContent(){
           <span style="width:28px;height:28px;border-radius:8px;background:#D8A85E;color:#0A1830;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">F</span>
           <span style="font-size:16px;font-weight:600;color:#E6E8EC">Klaros Found<span style="color:#D8A85E">ry</span></span>
         </div>
-        <div style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px)">
+        <div style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px);transform:translateY(-9rem)">
           <div style="font-family:'B612 Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#D8A85E">Welcome to Klaros Foundry</div>
           <div style="margin-top:1.1rem;font-size:clamp(40px,4.6vw,64px);line-height:1.1;font-weight:600;letter-spacing:-.025em;color:#E6E8EC">Financial modeling<br>for <span style="color:#D8A85E">De Novo Charter</span> work.</div>
           <div style="margin-top:1.15rem;font-size:17px;line-height:1.625;color:#8A92A3;max-width:100ch">Create financial projections and regulator-mandated schedules to support charter applications.</div>
@@ -5099,6 +5123,7 @@ async function guardSaveAsConfirm(){
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  await _purgeRecoveryDrafts();                        // saved work must not reappear as crash recovery on next login
   LC.markSaved(nm);                                   // real save -> re-baseline the state engine to CLEAN
   if(typeof markPristine==="function") markPristine();
   if(typeof updateChangedChip==="function") updateChangedChip();
@@ -5580,6 +5605,7 @@ async function engMenuSave(){
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  await _purgeRecoveryDrafts();                        // explicit save retires any stale unsaved-work recovery draft
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
   await loadEngStore(true);   // refresh the list so the saved engagement shows immediately
@@ -5599,7 +5625,7 @@ document.addEventListener("click", (ev)=>{
       const secOn = ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 || !!A.aoci_sensitivity_annual;
       if(secOn){ A.aoci_sensitivity_annual = 0; secClear(); }  // clear books AND sensitivity
       else { secAdd(0); aociFlip(); }  // activate seeds BOTH: default AFS book + 0.5%/yr AOCI
-    } else if(act==="nie"){ A.nie_detail ? nieOff() : nieOn(); }
+    } else if(act==="nie"){ opexToggle(); }
     else if(act==="tax"){
       if(A.tax_detail){ delete A.tax_detail; } else { A.tax_detail = {enabled:true}; }
       renderContent(); refresh();
@@ -6457,10 +6483,30 @@ window.addCacChannel = function(fn){
   fd.channels.push({name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0});
   renderContent(); refresh();
 };
+function _operatingExpenseMode(A){
+  A = A || ((cfg||{}).assumptions||{});
+  if(A.nie_detail) return "detailed";
+  if(A._operating_expense_mode === "simple") return "simple";
+  if(A._operating_expense_mode === "off") return "off";
+  const gs=A.overhead_growth_spec||{};
+  const hasSimple = !!(+A.overhead_per_period || +A.overhead_growth_per_period || +A.overhead_growth_q || +gs.rate);
+  return hasSimple ? "simple" : "off";
+}
+window._operatingExpenseMode = _operatingExpenseMode;
+window.opexToggle = function(){
+  const A=cfg.assumptions;
+  const mode=_operatingExpenseMode(A);
+  if(mode==="off"){ window.nieOn(); return; }          // strip activation keeps the historical Detailed default
+  if(A.nie_detail) A._nie_detail_draft=A.nie_detail;   // turning the module off is non-destructive
+  A.nie_detail=null; A._operating_expense_mode="off";
+  renderContent(); refresh();
+};
+
 function structuresSectionsHtml(){
   let h = '';
   const A = cfg.assumptions;
-  // module activation DERIVED from presence (F-002, fixing D-P13's lamp-vs-stub lie)
+  // Module strip reflects the active authoring path. Most modules derive from authored presence;
+  // Operating Expense also records the explicit Simple/Detailed mode so a zero-valued Simple path can still be active.
   const lamps = [
     ["Pre-opening", !!(cfg.pre_opening && ((cfg.pre_opening.expenses||[]).length || cfg.pre_opening.min_day1_capital))],
     ["Staged raises", !!(A.capital_raises||[]).length],
@@ -6487,8 +6533,9 @@ function structuresSectionsHtml(){
               capOn?"On \u2014 click to clear staged raises, scheduled borrowings and depreciation (pre-opening is kept; confirms first)":"Off \u2014 click to activate with a default Q4 raise");
   h += swTile("Securities books<br>&amp; AOCI", secAociTileOn, "secaoci", "doc", "",
               secAociTileOn?"On \u2014 click to remove all designated books and zero AOCI (instant)":"Off \u2014 click to activate with a default AFS book");
-  h += swTile("Operating<br>expense", !!A.nie_detail, "nie", "calc", "",
-              A.nie_detail?"On \u2014 NIE detail replaces the overhead line; click to deactivate":"Off \u2014 click to activate NIE detail");
+  const _opexModeTile = _operatingExpenseMode(A), _opexOn = _opexModeTile !== "off";
+  h += swTile("Operating<br>expense", _opexOn, "nie", "calc", "",
+              _opexOn?("On \u2014 "+(_opexModeTile==="detailed"?"Detailed NIE":"Simple overhead")+"; click to deactivate"):("Off \u2014 click to activate Detailed NIE"));
   const cacN = Object.keys(A.cac_feeds||{}).length;
   h += swTile("Customer acquisition", cacN>0, "cac", "stack", "",
               cacN>0?("On - "+cacN+" acquisition feed"+(cacN>1?"s":"")):"Off - click to add an acquisition feed");
@@ -6555,9 +6602,7 @@ function structuresSectionsHtml(){
   }
   h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
   {
-    const nafs = (cfg.assumptions.securities_afs||[]).length, nhtm = (cfg.assumptions.securities_htm||[]).length;
     let _sb = `<div class="csub">Securities books (per-${PLAB()})</div>`;
-    _sb += `<div class="cmut" style="margin:0 0 8px">Books included \u00b7 ${nhtm} of ${nafs+nhtm} HTM designated</div>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
       _sb += `<div class="sec-book-editor" data-book-kind="AFS"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'AFS')}" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove AFS book" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
@@ -6587,9 +6632,9 @@ function structuresSectionsHtml(){
     h += `<div class="crow" style="align-items:center">Premises &amp; equipment<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     h += `<div class="crow" style="align-items:center">Intangibles<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A3.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s · deducted from tangible equity</span></div></div>`;
   }
-  const _nieDetailed = !!A.nie_detail;
-  h += `<div class="nie-mode" role="group" aria-label="Operating expense authoring mode"><button class="${_nieDetailed?'':'on'}" onclick="nieOff()">Simple overhead</button><button class="${_nieDetailed?'on':''}" onclick="nieOn()">Detailed</button></div>`;
-  if(!A.nie_detail){
+  const _nieMode = _operatingExpenseMode(A), _nieDetailed = _nieMode === "detailed";
+  h += `<div class="nie-mode" role="group" aria-label="Operating expense authoring mode"><button class="${_nieMode==='simple'?'on':''}" onclick="nieOff()">Simple overhead</button><button class="${_nieDetailed?'on':''}" onclick="nieOn()">Detailed</button></div>`;
+  if(!_nieDetailed){
     h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Simple overhead</div><div class="nie-section-note">Use when the source model carries one aggregate operating-expense path. Detailed mode replaces this line with workforce, categories, and assessments.</div></div></div>`;
     h += `<div class="crow">Overhead<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span></div>`;
     h += `<div class="crow" style="align-items:center"><span class="cu">Growth</span>${growthSpecInline('assumptions.overhead_growth_spec',A.overhead_growth_spec,(A.overhead_growth_per_period!=null?A.overhead_growth_per_period:_qGrowthToPeriod(A.overhead_growth_q||0)),false)}</div>`;
@@ -6784,15 +6829,16 @@ window.runSens = async function(){
 };
 window.nieOff = function(){
   const A=cfg.assumptions;
-  // Simple vs Detailed are authoring modes, not delete operations. Preserve the rich
-  // detail as a dormant UI draft so a user can inspect the simple path and switch back
-  // without rebuilding roles/categories. The engine only reads A.nie_detail.
+  // Simple and Detailed are both ACTIVE operating-expense authoring modes. Moving to
+  // Simple must therefore keep the module-strip toggle on; only opexToggle() turns the
+  // whole Operating Expense module off. Detailed assumptions are preserved as a draft.
   if(A.nie_detail) A._nie_detail_draft=A.nie_detail;
-  A.nie_detail=null; renderContent(); refresh();
+  A.nie_detail=null; A._operating_expense_mode="simple"; renderContent(); refresh();
 };
 window.nieOn = function(){
   const A=cfg.assumptions;
   if(!A.nie_detail){ A.nie_detail=A._nie_detail_draft||_newNieDetail(); delete A._nie_detail_draft; }
+  A._operating_expense_mode="detailed";
   renderContent(); refresh();
 };
 // Static mirror of foundry/v2/fee_catalog.py (FEE_PRODUCT_CATALOG, BASIS_PARAM_FIELDS).
