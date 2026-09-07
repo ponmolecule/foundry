@@ -43,6 +43,11 @@ fd.channels.forEach(ch=>_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k)));
 const seeded={m0:Object.keys(fd.channels[0].driver_specs).sort(),m1:Object.keys(fd.channels[1].driver_specs).sort()};
 window.cacDriverTrajectory('growth',0,'pool','explicit');
 window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
+const poolLoaded=[...fd.channels[0].driver_specs.pool.values];
+window.cacExplicitClose('growth',0,'pool'); const poolClosed=_cacExplicitIsClosed('growth',0,'pool');
+window.cacExplicitOpen('growth',0,'pool'); const poolOpen=!_cacExplicitIsClosed('growth',0,'pool');
+window.cacScheduleClear('growth',0,'pool'); const poolCleared=[...fd.channels[0].driver_specs.pool.values];
+window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
 const unitProbe={pool:_cacStored('2,500','number'),spend:_cacStored('1,250','k'),cac:_cacStored('1,250','price'),auc:_cacStored('500','k')};
 window.cacDriverSource('growth',1,'spend','link');
 const spendLink=fd.channels[1].driver_specs.spend;
@@ -50,7 +55,7 @@ window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolClosed,poolOpen,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -62,7 +67,11 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLi
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
        and sd.get("m1")==["avg_auc_per_customer","cac","spend"], br.stderr.strip())
     ck("explicit CAC values load through a pastebox instead of one cell per period",
-       (bj.get("pool") or {}).get("values")==[1000,2500,3000])
+       bj.get("poolLoaded")==[1000,2500,3000] and (bj.get("pool") or {}).get("values")==[1000,2500,3000])
+    ck("CAC Explicit Close is UI-only and can be reopened without changing schedule values",
+       bj.get("poolClosed") is True and bj.get("poolOpen") is True and bj.get("poolLoaded")==[1000,2500,3000])
+    ck("CAC Explicit Clear removes the loaded schedule without changing trajectory mode",
+       bj.get("poolCleared")==[] and (bj.get("pool") or {}).get("mode")=="explicit")
     sl=(bj.get("spendLink") or {}).get("link") or {}
     ck("Spend can link generically to an Operating Expense series by stable ID",
        sl.get("kind")=="operating_expense_category" and sl.get("series_id")=="opex-bd" and sl.get("aggregation")=="sum")
@@ -89,9 +98,12 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLi
        and 'unit:"$000s / year",kind:"k"' in html
        and 'lab:"Cost per customer acquired",unit:"$ / customer",kind:"price"' in html
        and 'lab:"Addressable pool",unit:"customers",kind:"number"' in html)
-    ck("every CAC Explicit primitive uses a visible pastebox",
+    ck("every CAC Explicit primitive uses a visible pastebox with Clear and Close actions",
        "cacSchedulePaste(" in html and "Paste a row or column from Excel/Sheets" in html
-       and "cacFeedExplicitPaste(" in html and "Load (replace)" in html)
+       and "cacFeedExplicitPaste(" in html and "Load (replace)" in html
+       and "cacScheduleClear(" in html and "cacExplicitClose(" in html
+       and "cacFeedExplicitClear(" in html and "cacFeedExplicitClose(" in html
+       and ">Clear</button>" in html and ">Close</button>" in html and "Edit schedule" in html)
     ck("CAC Explicit keeps source cadence but removes meaningless Step/Smooth interpolation",
        "CAC does not interpolate between source points" in html and "cacScheduleResolution" not in html)
     ck("feed retains beginning book and within-year AUC resolution controls",
