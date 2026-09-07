@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 3
+GUIDE_SCHEMA_VERSION = 4
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -224,58 +224,45 @@ def fee_guide_manifest():
 
 
 def _guide_output_schema():
-    """JSON Schema used for Anthropic Structured Outputs.
+    """Compact JSON Schema used for Anthropic Structured Outputs.
 
-    The stream union constrains basis/rate compatibility before the response
-    reaches Foundry's local validator. Local validation remains authoritative.
+    Keep the transport schema deliberately shallow. Foundry's local validator remains
+    authoritative for semantic compatibility (for example, which rate behaviors are
+    valid for a given basis). This avoids compiling five near-duplicate ``anyOf``
+    branches on the first Guide Me request, which can create unnecessary latency at
+    web-proxy boundaries.
     """
-    common_props = {
-        "name": {"type": "string"},
-        "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
-        "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
-        "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
-    }
-    required = [
-        "name", "basis", "driver_source", "driver_trajectory",
-        "coefficient_kind", "coefficient_period", "coefficient_trajectory",
-        "flat_amount_trajectory", "rate_behavior", "cost_kind",
-    ]
-
-    def variant(basis):
-        props = dict(common_props)
-        props["basis"] = {"type": "string", "const": basis}
-        props["rate_behavior"] = {
-            "type": "string", "enum": sorted(_ALLOWED_RATE_BY_BASIS[basis])
-        }
-        if basis == "transaction":
-            props["coefficient_kind"] = {
+    stream_schema = {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "name": {"type": "string"},
+            "basis": {"type": "string", "enum": sorted(_FEE_BASES)},
+            "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
+            "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
+            "coefficient_kind": {
                 "type": ["string", "null"], "enum": ["multiple", "pct", None]
-            }
-            props["coefficient_period"] = {
+            },
+            "coefficient_period": {
                 "type": ["string", "null"], "enum": ["month", "quarter", "year", None]
-            }
-            props["coefficient_trajectory"] = {
+            },
+            "coefficient_trajectory": {
                 "type": ["string", "null"],
                 "enum": ["flat", "growth", "explicit_schedule", None],
-            }
-        else:
-            props["coefficient_kind"] = {"type": "null"}
-            props["coefficient_period"] = {"type": "null"}
-            props["coefficient_trajectory"] = {"type": "null"}
-        if basis == "flat":
-            props["flat_amount_trajectory"] = {
-                "type": "string", "enum": ["flat", "growth", "explicit_schedule"]
-            }
-        else:
-            props["flat_amount_trajectory"] = {"type": "null"}
-        return {
-            "type": "object",
-            "additionalProperties": False,
-            "properties": props,
-            "required": required,
-        }
-
-    stream_schema = {"anyOf": [variant(x) for x in sorted(_FEE_BASES)]}
+            },
+            "flat_amount_trajectory": {
+                "type": ["string", "null"],
+                "enum": ["flat", "growth", "explicit_schedule", None],
+            },
+            "rate_behavior": {"type": "string", "enum": sorted(_FEE_RATE_BEHAVIORS)},
+            "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
+        },
+        "required": [
+            "name", "basis", "driver_source", "driver_trajectory",
+            "coefficient_kind", "coefficient_period", "coefficient_trajectory",
+            "flat_amount_trajectory", "rate_behavior", "cost_kind",
+        ],
+    }
     return {
         "type": "object",
         "additionalProperties": False,
@@ -581,6 +568,10 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None):
         "max_tokens": 2200,
         "system": _system_prompt(),
         "messages": [{"role": "user", "content": desc}],
+        # Sonnet 5 enables adaptive thinking by default. Guide Me is a closed-schema
+        # translator, so thinking only adds latency and can push first-use schema
+        # compilation beyond reverse-proxy request windows.
+        "thinking": {"type": "disabled"},
         "output_config": {
             "format": {
                 "type": "json_schema",

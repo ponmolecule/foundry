@@ -2703,8 +2703,16 @@ window.runFeeGuide = async function(){
   if(box) box.innerHTML='<div class="memo">Mapping your description to the current Foundry fee schema…</div>';
   try{
     const r=await fetch("/api/v31/fee-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc})});
-    const j=await r.json().catch(()=>({}));
-    if(!r.ok) throw new Error(j.error||("Guide Me failed ("+r.status+")"));
+    const raw=await r.text();
+    let j={}; try{ j=raw?JSON.parse(raw):{}; }catch(_e){ j={}; }
+    if(!r.ok){
+      let msg=j.error||"";
+      if(j.detail) msg += (msg?" ":"")+j.detail;
+      if(!msg && r.status===502) msg="Guide Me gateway error (502). The server/proxy did not return an application error while waiting for Anthropic.";
+      if(!msg && r.status===504) msg="Guide Me timed out waiting for Anthropic (504).";
+      if(!msg) msg="Guide Me failed ("+r.status+")";
+      throw new Error(msg);
+    }
     let h='';
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[];
     if(j.status==="needs_clarification" || j.status==="unsupported"){
