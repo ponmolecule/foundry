@@ -304,8 +304,32 @@ def validate_config_v2(cfg):
             activation = role.get("activation") or None
             if not isinstance(cnt, (int, float)) or cnt < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].count must be non-negative")
+            if role.get("count_spec"):
+                try:
+                    from .series import normalize_series_spec, resolve_entered_series
+                    _cs = normalize_series_spec(role.get("count_spec"), default_value=float(cnt or 0.0))
+                    if _cs.get("source") != "entered":
+                        raise ValueError("workforce count_spec must be entered")
+                    resolve_entered_series(_cs, max(1, int(a.get("n_periods") or 12)), _ppy,
+                                            context=_growth_ctx, default_value=float(cnt or 0.0))
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].count_spec invalid: {e}")
             if not isinstance(comp, (int, float)) or comp < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].annual_comp must be non-negative")
+            if role.get("compensation_spec"):
+                try:
+                    from .series import normalize_series_spec, resolve_entered_series
+                    _cps = normalize_series_spec(role.get("compensation_spec"), default_value=float(comp or 0.0))
+                    if _cps.get("source") != "entered":
+                        raise ValueError(
+                            "workforce compensation_spec must be entered; no compatible Link/Derived source is whitelisted")
+                    _cp_arr = resolve_entered_series(
+                        _cps, max(1, int(a.get("n_periods") or 12)), _ppy,
+                        context=_growth_ctx, default_value=float(comp or 0.0))
+                    if any(float(v) < 0 for v in _cp_arr):
+                        raise ValueError("compensation values must be non-negative")
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].compensation_spec invalid: {e}")
             if activation:
                 try:
                     from .activation import validate_activation_rule
@@ -433,6 +457,65 @@ def validate_config_v2(cfg):
         mb = p.get("mortgage_banking")
         if mb:
             _range_check(mb, MB_RANGES, ctx + "mortgage_banking.", errs)
+
+    # Generic Customer Acquisition / Foundry-Series validation.  This executes only the
+    # deterministic assumption-side customer/AUC roll-forward, not the financial engine,
+    # so invalid links, unsupported acquisition equations, or circular workforce links
+    # fail closed before a run can silently omit/misstate customer economics.
+    for _fn, _feed in (a.get("cac_feeds") or {}).items():
+        try:
+            from .cac_feeder import cac_auc_rollforward
+            cac_auc_rollforward(_feed, max(1, int(a.get("n_periods") or 12)), _ppy,
+                                assumptions=a, growth_context=_growth_ctx)
+        except (TypeError, ValueError) as e:
+            errs.append(f"cac_feeds[{_fn!r}] invalid: {e}")
+
+    # Stable Series identities are the cross-module contract.  Legacy configs may omit
+    # them, but any identity that exists must be globally unique and owned by the module
+    # that authors the economics.  Nested Count specs reuse the role's count series_id.
+    _series_ids = []
+    _nd_ids = a.get("nie_detail") or {}
+    for _j, _r in enumerate(_nd_ids.get("categories") or []):
+        _r = _r or {}
+        _sid = str(_r.get("series_id") or "").strip()
+        if _sid: _series_ids.append(_sid)
+        _own = str(_r.get("owner_module") or "").strip()
+        if _own and _own != "operating_expense":
+            errs.append(f"nie_detail.categories[{_j}].owner_module must be operating_expense")
+    for _j, _r in enumerate((((_nd_ids.get("workforce") or {}).get("roles")) or [])):
+        _r = _r or {}
+        _sid = str(_r.get("series_id") or "").strip()
+        if _sid: _series_ids.append(_sid)
+        _csid = str(((_r.get("count_spec") or {}).get("series_id")) or "").strip()
+        if _sid and _csid and _sid != _csid:
+            errs.append(f"nie_detail.workforce.roles[{_j}].count_spec.series_id must match the role count series_id")
+        _comp_sid = str(_r.get("compensation_series_id") or ((_r.get("compensation_spec") or {}).get("series_id")) or "").strip()
+        if _comp_sid: _series_ids.append(_comp_sid)
+        _cpsid = str(((_r.get("compensation_spec") or {}).get("series_id")) or "").strip()
+        if _comp_sid and _cpsid and _comp_sid != _cpsid:
+            errs.append(f"nie_detail.workforce.roles[{_j}].compensation_spec.series_id must match compensation_series_id")
+        _own = str(_r.get("owner_module") or "").strip()
+        if _own and _own != "operating_expense.workforce":
+            errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
+    for _fn, _feed in (a.get("cac_feeds") or {}).items():
+        for _k, _sp in ((_feed or {}).get("driver_specs") or {}).items():
+            _sid = str((_sp or {}).get("series_id") or "").strip()
+            if _sid: _series_ids.append(_sid)
+            _own = str((_sp or {}).get("owner_module") or "").strip()
+            if _own and _own != "customer_acquisition":
+                errs.append(f"cac_feeds[{_fn!r}].driver_specs[{_k!r}].owner_module must be customer_acquisition")
+        for _ci, _ch in enumerate((_feed or {}).get("channels") or []):
+            for _k, _sp in ((_ch or {}).get("driver_specs") or {}).items():
+                _sid = str((_sp or {}).get("series_id") or "").strip()
+                if _sid: _series_ids.append(_sid)
+                _own = str((_sp or {}).get("owner_module") or "").strip()
+                if _own and _own != "customer_acquisition":
+                    errs.append(f"cac_feeds[{_fn!r}].channels[{_ci}].driver_specs[{_k!r}].owner_module must be customer_acquisition")
+            for _k, _sid0 in ((_ch or {}).get("derived_series_ids") or {}).items():
+                _sid = str(_sid0 or "").strip()
+                if _sid: _series_ids.append(_sid)
+    if len(_series_ids) != len(set(_series_ids)):
+        errs.append("Foundry linked-series series_id values must be unique")
 
     ts = cfg["target_state"]
     if not ts.get("initial_capital") or ts["initial_capital"] <= 0:

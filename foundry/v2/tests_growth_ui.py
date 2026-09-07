@@ -187,19 +187,18 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("assessment defaults are visible economic values rather than blank placeholders",
        'fdic_bp_ann:5.0' in html and 'occ_bp_ann:1.5' in html
        and 'blank=5.0' not in html and 'blank=1.5' not in html)
-    ck("workforce paste guidance describes clipboard columns rather than asking users to type tabs",
+    ck("workforce paste guidance describes clipboard columns and restores optional Count",
        'you do not need to type tab characters' in html and 'Tabs preferred' not in html
-       and 'Annual Comp<br>($000s/FTE)' in html and '<span>Count</span>' not in html)
-    ck("manual workforce row treats one row as one position and reclaims Count space for compensation/start",
-       '<span class="wf-field-label">Count</span>' not in html
-       and 'title="$000s/FTE"' in html and '.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)' in html
-       and 'max="84" step="1" title="${EVENTUNIT()} number (1–84)"' in html
-       and 'max="84" step="1" placeholder="—"' in html)
+       and 'Annual Comp<br>($000s/FTE)' in html and '<span>Count</span>' in html)
+    ck("workforce Count is restored as a trajectory-capable population series",
+       'Count · ${_cm===' in html and 'nieWorkforceCountMode' in html and 'Count trajectory' in html
+       and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
+       and '$000s/FTE/year' in html and 'nieWorkforceCompValue' in html and 'Compensation trajectory' in html)
     ck("every Load companion manual amount field uses the same $000s-to-raw-dollar conversion",
        'cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000' in html
        and 'cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000' in html
        and '${_cb}.per_period=_pf(this.value)*1000' in html
-       and '${_wb}.annual_comp=_pf(this.value)*1000' in html)
+       and 'nieWorkforceCompValue(${wi},this.value)' in html)
     ck("trigger editor is metric + comparator + value with source/timing folded into metric semantics",
        'Managed-notional source product' not in html and 'Fixed value</option>' not in html
        and 'same period</option>' not in html and 'net_income_py' in html and 'mn::' in html)

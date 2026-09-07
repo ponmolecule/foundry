@@ -43,12 +43,34 @@ def _conv_fixed_assets(fa):
         out["assets"] = rows
     return out
 
+
+
+def _conv_workforce(wf):
+    """Convert the mixed workforce audit block without corrupting headcount.
+
+    Compensation is monetary and becomes $000s. Count/headcount, hire periods, IDs and
+    labels remain in their natural units.
+    """
+    if not isinstance(wf, dict):
+        return wf
+    out = dict(wf)
+    if isinstance(wf.get("comp"), list):
+        out["comp"] = [_k(x) for x in wf["comp"]]
+    if isinstance(wf.get("counts"), list):
+        out["counts"] = [
+            [None if x is None else round(float(x), 6) for x in row]
+            if isinstance(row, list) else row
+            for row in wf["counts"]
+        ]
+    return out
+
 def _conv(tree, is_ratio=False, raw=False):
     # ftp_rate is a per-quarter decimal rate CONSUMED to compute the dollar FTP charge (not a
     # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
     # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
         return {k: (_conv_fixed_assets(v) if k == "fixed_assets" else
+                    _conv_workforce(v) if k == "workforce" else
                     _conv(v, is_ratio or k in ("ratios", "rateQ"),
                           raw or k in ("ftp_rate", "resolved_hire_periods")))
                 for k, v in tree.items()}

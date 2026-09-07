@@ -583,9 +583,11 @@ def run_v2(cfg):
     _cac_cfgs = ((cfg.get("assumptions") or {}).get("cac_feeds") or {})
     if _cac_cfgs:
         from .cac_feeder import cac_auc_rollforward
+        from .growth import growth_context_from_cfg
+        _cac_growth_ctx = growth_context_from_cfg(cfg, _ppy)
         _cac_out = {}
         for _nm, _fcfg in _cac_cfgs.items():
-            _cr = cac_auc_rollforward(_fcfg, _NP, _ppy)
+            _cr = cac_auc_rollforward(_fcfg, _NP, _ppy, assumptions=(cfg.get("assumptions") or {}), growth_context=_cac_growth_ctx)
             _annual = []
             for _r in _cr.get("annual") or []:
                 _x = copy.deepcopy(_r)
@@ -614,6 +616,7 @@ def run_v2(cfg):
     if base.get("workforce") is not None:
         results["workforce"] = copy.deepcopy(base.get("workforce"))
         results["workforce"]["comp_units"] = "$000s"
+        results["workforce"]["count_units"] = "FTE/headcount"
     # run_parity reports monetary arrays in $000s; managed-notional EOP/average paths
     # are therefore explicitly labeled here at the public run/API seam.
     for _pout in (results.get("products") or []):

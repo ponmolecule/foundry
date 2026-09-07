@@ -364,6 +364,35 @@ def v31_template(_=Depends(gate)):
     return JSONResponse(_json.load(open(p, encoding="utf-8")))
 
 
+@app.get("/api/v31/fee-guide/status")
+def v31_fee_guide_status(_=Depends(gate)):
+    """Guide Me is optional and server-side only; never expose the API key."""
+    return JSONResponse({
+        "configured": bool(os.environ.get("ANTHROPIC_API_KEY", "")),
+        "model": os.environ.get("FOUNDRY_GUIDE_MODEL") or "claude-sonnet-5",
+        "grounding": "Foundry fee-engine manifest only; no tools/retrieval/engagement data supplied",
+    })
+
+
+@app.post("/api/v31/fee-guide")
+def v31_fee_guide(body: dict, _=Depends(gate)):
+    """Translate user prose into a validated Foundry Fee Product dial plan.
+
+    Claude is not given the engagement config, files, URLs, tools, or retrieval. The
+    returned schema is validated against the current fee evaluator before it is shown.
+    """
+    from foundry.v2.fee_guide import guide_fee_product
+    try:
+        return JSONResponse(guide_fee_product(body.get("description") or ""))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    except RuntimeError as e:
+        msg = str(e)
+        if "ANTHROPIC_API_KEY" in msg:
+            return JSONResponse({"error": "Guide Me is not configured on this server."}, status_code=503)
+        return JSONResponse({"error": "Guide Me could not produce a validated Foundry plan.", "detail": msg[:500]}, status_code=502)
+
+
 @app.get("/api/v31/challenge-thresholds")
 def v31_challenge_thresholds(total_assets_000s: float = 0.0, _=Depends(gate)):
     """Static inherited challenge bands by default; when total_assets_000s is passed,

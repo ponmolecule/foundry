@@ -63,7 +63,8 @@ run correctly.
 3. Fee-stream proportional driver quantities (`driver.params.growth_spec`).
 4. Managed-notional proportional trajectories (`managed_notional.growth_spec`).
 5. Workforce compensation escalation.
-6. CAC feeder annual growth internally, without changing its user-facing annual semantics.
+6. Customer Acquisition operands through the generic Foundry Series resolver (Flat / Growth / Explicit / Link).
+7. Workforce Count trajectories in addition to compensation escalation.
 
 ### Deliberately excluded
 
@@ -73,7 +74,7 @@ run correctly.
   unnecessarily disruptive.
 - Fee-rate `annual_change`: it is already explicitly annual pricing behavior and remains its own
   rate-axis concept.
-- Explicit schedules: exact paths always win over inferred growth.
+- Explicit schedules: exact paths always win over inferred growth; they are authored locally on the driver that owns the path.
 
 ## Workforce authoring
 
@@ -104,7 +105,7 @@ model. New workforce configuration is a compact one-position-per-row table:
 }
 ```
 
-- New authoring treats one row as one position. The legacy `count` field remains readable for backward compatibility but is not exposed in the primary UI.
+- New authoring treats one row as one **economically homogeneous population**. `Count` is exposed again, now as a proper time-varying Foundry Series (Flat / Growth / Explicit). A scalar legacy `count` remains exact when no `count_spec` is authored.
 - `hire_period` and optional `end_period` are native model periods and can extend beyond the
   current horizon; out-of-horizon rows simply contribute zero during the run.
 - Compensation is annualized and divided by `periods_per_year` only after its trajectory is
@@ -112,7 +113,7 @@ model. New workforce configuration is a compact one-position-per-row table:
 - `default_payroll_load_rate` is workforce-specific (`salary * (1 + load)`). The UI calls this **Benefits & payroll** because it represents benefits, payroll taxes and employer burden added on top of base compensation.
 - Existing NIE `other_gross_up_rate` remains a separate subtotal-level mechanism using
   `sub * r/(1-r)` and is **not** reinterpreted as payroll benefits.
-- A 48-role spreadsheet is therefore a 48-row paste, not 48 bespoke configuration cards.
+- Aggregate until aggregation changes the economics. A population of identical roles can stay one row with a Count trajectory; split rows when timing, compensation, escalation, benefits/load, or activation differs.
 
 ## UI principles
 
@@ -128,9 +129,9 @@ model. New workforce configuration is a compact one-position-per-row table:
 - Workforce defaults are true inherited defaults. A blank role-level Escalation or Payroll
   Load means "use the workforce default"; a populated row value is an explicit override.
 - Manual workforce entry and spreadsheet paste share one canonical conceptual record:
-  `Role | Annual Comp | Start | End | Escalation | Benefits/Payroll`.
-  Each row is one position. Header-aware paste may omit optional columns or reorder them.
-  Legacy `Count` / `Payroll Load` headers remain accepted on import but are no longer advertised. The recommended compensation
+  `Role / Population | Count | Annual Comp | Start | End | Escalation | Benefits/Payroll`.
+  Count defaults to 1 when omitted and may carry its own Flat / Growth / Explicit trajectory. Header-aware paste may omit optional columns or reorder them.
+  Legacy `Payroll Load` headers remain accepted on import. The recommended compensation
   header is `Annual Comp ($000s/FTE)`. All user-authored compensation values use Foundry's standard $000s convention, whether typed manually or pasted; `3,000` means $3,000,000.
   Headerless legacy paste order remains accepted for backward compatibility.
 - Spreadsheet guidance describes the user action (paste directly from Excel/Google Sheets or
@@ -214,6 +215,15 @@ Examples:
 This is intentionally **not** a general rules language. No arbitrary formulas, AND/OR expression
 trees, or iterative circular solver are introduced. New approved metrics can be added to the
 registry without changing the workforce schema.
+
+## Cross-module Series / Link contract
+
+Growth is now one trajectory choice inside the broader Foundry Series abstraction. A series may be
+entered locally (Flat / Growth / Explicit) or safely linked to a series owned by another module.
+Links use stable `series_id` identifiers rather than display names. Consumers inherit the owner's
+trajectory instead of duplicating it. Current safe links include Operating Expense category → CAC
+Spend and Workforce Count → CAC FTE productivity. Unsupported, missing, ambiguous, or circular
+links fail closed. See `docs/FOUNDRY_SERIES_ARCHITECTURE.md`.
 
 ## First-class managed-notional observability
 

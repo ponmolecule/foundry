@@ -87,6 +87,7 @@ global.window={{}};
 let cfg={{assumptions:{{}}}};
 function renderContent(){{}}
 function refresh(){{}}
+function _seriesId(prefix){{ return prefix+"-test"; }}
 {add_src}
 {on_src}
 window.nieOn();
@@ -467,7 +468,10 @@ def main():
     nie_entry = _browser_nie_entry_probe(html)
     ck("J19 Operating Expense detail starts empty and supports one-at-a-time category entry",
        nie_entry["afterOn"] == []
-       and nie_entry["afterAdd"] == [{"name":"", "per_period":0}]
+       and len(nie_entry["afterAdd"]) == 1
+       and nie_entry["afterAdd"][0].get("name") == ""
+       and nie_entry["afterAdd"][0].get("per_period") == 0
+       and str(nie_entry["afterAdd"][0].get("series_id") or "").startswith("opex-")
        and "Paste categories" in html and "+ Add one manually" in html
        and "Core banking & tech" not in html
        and 'categories:[{name:"Core banking & tech"' not in html,
