@@ -16,6 +16,7 @@ import os
 import re
 import urllib.error
 import urllib.request
+import tempfile
 
 from .income_modules import (
     _FEE_BASES,
@@ -33,17 +34,86 @@ ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
 
 
+def _foundry_data_dir():
+    return os.environ.get("FOUNDRY_DATA_DIR") or os.path.join(os.getcwd(), "data")
+
+
+def anthropic_key_file_path():
+    """Return the server-local secret file used by Foundry Guide Me.
+
+    The path may be overridden for managed deployments, otherwise it lives on the
+    same persistent data volume as Foundry authentication/session state. The file
+    is never served to the browser or included in deployment bundles.
+    """
+    override = str(os.environ.get("FOUNDRY_ANTHROPIC_KEY_FILE") or "").strip()
+    if override:
+        return os.path.abspath(os.path.expanduser(override))
+    return os.path.join(_foundry_data_dir(), "secrets", "anthropic_api_key")
+
+
+def store_anthropic_api_key(api_key):
+    """Persist an Anthropic key server-side with restrictive permissions.
+
+    This is intended for the authenticated admin setup endpoint. It deliberately
+    stores only the secret itself -- no engagement/model data and no browser-readable
+    configuration artifact.
+    """
+    key = str(api_key or "").strip()
+    if len(key) < 20 or any(ch.isspace() for ch in key):
+        raise ValueError("Enter a valid Anthropic API key")
+    path = anthropic_key_file_path()
+    parent = os.path.dirname(path)
+    os.makedirs(parent, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(prefix=".anthropic_api_key.", dir=parent, text=True)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as fh:
+            fh.write(key + "\n")
+        try:
+            os.chmod(tmp, 0o600)
+        except OSError:
+            pass
+        os.replace(tmp, path)
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+    finally:
+        if os.path.exists(tmp):
+            try:
+                os.unlink(tmp)
+            except OSError:
+                pass
+    return path
+
+
 def resolve_anthropic_api_key():
     """Resolve the server-side Anthropic credential without exposing it to the client.
 
-    Foundry historically supported two server configuration paths: the standard
-    ``ANTHROPIC_API_KEY`` environment variable and ``config.settings.ANTHROPIC_API_KEY``.
-    Guide Me must reuse that existing server configuration rather than require a
-    second/parallel secret setup. Environment wins when both are present.
+    Resolution order is intentionally deployment-safe:
+      1. ANTHROPIC_API_KEY (standard shared deployment secret)
+      2. FOUNDRY_ANTHROPIC_API_KEY (Foundry-specific deployment secret)
+      3. Foundry's persistent server-side secret file
+      4. config.settings fallback for co-located/legacy deployments
+
+    Foundry never copies a credential from another application's source tree and
+    never ships a credential in a release bundle.
     """
     key = str(os.environ.get("ANTHROPIC_API_KEY") or "").strip()
     if key:
         return key, "environment"
+
+    key = str(os.environ.get("FOUNDRY_ANTHROPIC_API_KEY") or "").strip()
+    if key:
+        return key, "foundry_environment"
+
+    path = anthropic_key_file_path()
+    try:
+        with open(path, encoding="utf-8") as fh:
+            key = str(fh.read() or "").strip()
+        if key:
+            return key, "foundry_secret_file"
+    except (OSError, UnicodeError):
+        pass
 
     try:
         settings_mod = importlib.import_module("config.settings")
@@ -52,8 +122,6 @@ def resolve_anthropic_api_key():
 
     if settings_mod is not None:
         value = getattr(settings_mod, "ANTHROPIC_API_KEY", "")
-        # Be compatible with SecretStr-like settings objects without depending on
-        # pydantic or another configuration package.
         if hasattr(value, "get_secret_value"):
             try:
                 value = value.get_secret_value()
@@ -75,7 +143,6 @@ def resolve_anthropic_api_key():
             return key, "config.settings.settings"
 
     return "", None
-
 
 def anthropic_config_status():
     key, source = resolve_anthropic_api_key()
