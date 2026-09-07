@@ -66,6 +66,70 @@ def main():
               "timing": {"start_period": 1}}
     ck("flat basis: 12,500/q", abs(fee_stream_q(s_flat, 1, {})[0] - 12500.0) < 1e-9)
 
+    # Flat amount trajectory: one economically coherent recurring stream can vary through time.
+    escrow_schedule = {str(i+1): v for i, v in enumerate([150_000, 200_000, 250_000, 300_000, 350_000, 400_000, 450_000])}
+    s_flat_explicit = {"basis": "flat", "rate": {"params": {"flat_amount": {
+        "value": 150_000.0, "period": "year", "trajectory": "explicit_schedule",
+        "schedule": escrow_schedule}}}, "timing": {"start_period": 1}}
+    annual_q = [sum(fee_stream_q(s_flat_explicit, q, {}, ppy=4)[0] for q in range(y*4+1, y*4+5)) for y in range(7)]
+    annual_m = [sum(fee_stream_q(s_flat_explicit, q, {}, ppy=12)[0] for q in range(y*12+1, y*12+13)) for y in range(7)]
+    want_escrow = [150_000, 200_000, 250_000, 300_000, 350_000, 400_000, 450_000]
+    ck("flat explicit annual escrow schedule exact in quarterly cadence", all(abs(a-b)<1e-9 for a,b in zip(annual_q,want_escrow)))
+    ck("flat explicit annual escrow schedule exact in monthly cadence", all(abs(a-b)<1e-9 for a,b in zip(annual_m,want_escrow)))
+    ck("flat explicit amount is cadence-stable by model year", all(abs(a-b)<1e-9 for a,b in zip(annual_q,annual_m)))
+    ck("flat explicit schedule carries last amount forward", abs(fee_stream_q(s_flat_explicit, 29, {}, ppy=4)[0] - 112_500.0) < 1e-9)
+
+    # Existing natural-period Flat contract is unchanged when trajectory is absent.
+    legacy_natural = {"basis":"flat","rate":{"params":{"flat_amount":{"value":120_000.0,"period":"year"}}},"timing":{"start_period":1}}
+    ck("legacy flat_amount without trajectory retains exact quarterly economics", abs(fee_stream_q(legacy_natural,1,{},ppy=4)[0]-30_000.0)<1e-9)
+    ck("legacy flat_amount without trajectory retains exact monthly economics", abs(fee_stream_q(legacy_natural,1,{},ppy=12)[0]-10_000.0)<1e-9)
+
+    bad_flat = {"basis":"flat","rate":{"params":{"flat_amount":{"value":1,"period":"year","trajectory":"wiggle"}}}}
+    try:
+        fee_stream_q(bad_flat,1,{},ppy=4); bad_flat_raised=False
+    except ValueError:
+        bad_flat_raised=True
+    ck("unsupported flat amount trajectory fails closed", bad_flat_raised)
+
+    empty_flat = {"basis":"flat","rate":{"params":{"flat_amount":{"value":0,"period":"year","trajectory":"explicit_schedule","schedule":{}}}}}
+    try:
+        fee_stream_q(empty_flat,1,{},ppy=4); empty_flat_raised=False
+    except ValueError:
+        empty_flat_raised=True
+    ck("empty Flat explicit schedule fails closed", empty_flat_raised)
+
+    s_flat_growth = {"basis":"flat","rate":{"params":{"flat_amount":{
+        "value":100_000.0,"period":"year","trajectory":"growth",
+        "growth_spec":{"rate":0.10,"period":"year","method":"step","anchor":"model_year"}}}},"timing":{"start_period":1}}
+    gy1_q=sum(fee_stream_q(s_flat_growth,q,{},ppy=4)[0] for q in range(1,5))
+    gy2_q=sum(fee_stream_q(s_flat_growth,q,{},ppy=4)[0] for q in range(5,9))
+    gy1_m=sum(fee_stream_q(s_flat_growth,q,{},ppy=12)[0] for q in range(1,13))
+    gy2_m=sum(fee_stream_q(s_flat_growth,q,{},ppy=12)[0] for q in range(13,25))
+    ck("flat amount Growth uses standard annual step semantics", abs(gy1_q-100_000)<1e-9 and abs(gy2_q-110_000)<1e-9)
+    ck("flat amount Growth is cadence-stable", abs(gy1_q-gy1_m)<1e-9 and abs(gy2_q-gy2_m)<1e-9)
+
+    # Full-engine integration: the one-stream escrow schedule lands on fee income in both cadences.
+    def _escrow_engine_annual(ppy):
+        c = copy.deepcopy(cfg)
+        a = c["assumptions"]
+        a["periods_per_year"] = ppy
+        a["n_periods"] = 7 * ppy
+        a["obs_exposures"] = [p for p in (a.get("obs_exposures") or []) if not p.get("_fee_product")]
+        base_c = copy.deepcopy(c)
+        a["obs_exposures"].append({
+            "name":"Escrow","call_report_line":"obs","_fee_product":True,
+            "managed_notional":{"day1":0,"trajectory":"flat"},
+            "fee_streams":[dict(s_flat_explicit, name="Escrow add-on")],
+        })
+        with_fee = run_q.run_v2(c)["financials"]["is"]["fees"]
+        without_fee = run_q.run_v2(base_c)["financials"]["is"]["fees"]
+        delta = [x-y for x,y in zip(with_fee, without_fee)]
+        return [sum(delta[y*ppy:(y+1)*ppy]) * 1000.0 for y in range(7)]
+    eng_q = _escrow_engine_annual(4)
+    eng_m = _escrow_engine_annual(12)
+    ck("full engine posts escrow schedule to quarterly fee income", all(abs(a-b)<50 for a,b in zip(eng_q,want_escrow)))
+    ck("full engine posts escrow schedule to monthly fee income", all(abs(a-b)<50 for a,b in zip(eng_m,want_escrow)))
+
     # --- 3. TIMING: a stream starting period 5 produces 0 before, value at/after ---
     s_late = {"basis": "flat", "rate": {"params": {"amount_per_period": 1000.0}},
               "timing": {"start_period": 5}}

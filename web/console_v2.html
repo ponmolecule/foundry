@@ -2048,6 +2048,26 @@ function _feeEnsureNaturalCoeff(i,si){
   let kind=(dp.pct!=null?"pct":"multiple"), value=(kind==="pct"?+(dp.pct||0):+(dp.multiple||0));
   dp.coefficient={kind:kind,value:value,period:"year",trajectory:"flat"}; return dp.coefficient;
 }
+function _feeFlatAmountScheduleText(schedule){
+  const vals=Object.keys(schedule||{}).map(k=>[+k,+schedule[k]]).filter(x=>Number.isFinite(x[0])&&Number.isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
+  return vals.map(x=>(x[1]/1000)).join(", ");
+}
+function _feeEnsureFlatAmount(i,si){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.rate=st.rate||{behavior:"flat",params:{}}; st.rate.params=st.rate.params||{};
+  const rp=st.rate.params; if(rp.flat_amount) return rp.flat_amount;
+  const per=(PPY()===12?"month":"quarter");
+  rp.flat_amount={value:+(rp.amount_per_period||0),period:per,trajectory:"flat"};
+  return rp.flat_amount;
+}
+function _feeSetFlatAmountSchedule(i,si,text){
+  const fa=_feeEnsureFlatAmount(i,si);
+  const vals=String(text||"").split(/[\t,;\n]+/).map(x=>x.trim()).filter(Boolean);
+  const out={}; vals.forEach((v,j)=>{out[String(j+1)]=_pf(v)*1000;});
+  fa.schedule=out; refresh();
+}
+function _feeClearFlatAmountSchedule(i,si){
+  const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; refresh();
+}
 function fieldsFor(fam, p, base){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   const M = (label, key, unit) => F(label, base+".mortgage_banking."+key, unit);
@@ -2218,9 +2238,15 @@ function fieldsFor(fam, p, base){
         h += `<div class="fld"><label>Per</label><select onchange="var rp=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params;rp.unit_fee=rp.unit_fee||{value:${_uval*1000}};rp.unit_fee.period=this.value;refresh()"><option value="month"${_uper==="month"?" selected":""}>Month</option><option value="quarter"${_uper==="quarter"?" selected":""}>Quarter</option><option value="year"${_uper==="year"?" selected":""}>Year</option></select></div>`;
       }
       else if(basis==="flat"){
-        const _fa=st.rate.params.flat_amount, _fper=_fa&&_fa.period?_fa.period:(PPY()===12?"month":"quarter"), _fval=_fa?((+_fa.value||0)/1000):((+st.rate.params.amount_per_period||0)/1000);
-        h += `<div class="fld"><label>Amount ($000s)</label><input type="number" step="0.001" value="${_fval}" onchange="var rp=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params;rp.flat_amount=rp.flat_amount||{period:'${_fper}'};rp.flat_amount.value=_pf(this.value)*1000;refresh()"></div>`;
-        h += `<div class="fld"><label>Per</label><select onchange="var rp=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params;rp.flat_amount=rp.flat_amount||{value:${_fval*1000}};rp.flat_amount.period=this.value;refresh()"><option value="month"${_fper==="month"?" selected":""}>Month</option><option value="quarter"${_fper==="quarter"?" selected":""}>Quarter</option><option value="year"${_fper==="year"?" selected":""}>Year</option></select></div>`;
+        const _fa=st.rate.params.flat_amount, _fper=_fa&&_fa.period?_fa.period:(PPY()===12?"month":"quarter"), _fval=_fa?((+_fa.value||0)/1000):((+st.rate.params.amount_per_period||0)/1000), _ftraj=_fa&&_fa.trajectory?_fa.trajectory:"flat";
+        h += `<div class="fld"><label>Amount path</label><select onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.trajectory=this.value;renderContent();refresh()"><option value="flat"${_ftraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ftraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ftraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
+        h += `<div class="fld"><label>Per</label><select onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.period=this.value;renderContent();refresh()"><option value="month"${_fper==="month"?" selected":""}>Month</option><option value="quarter"${_fper==="quarter"?" selected":""}>Quarter</option><option value="year"${_fper==="year"?" selected":""}>Year</option></select></div>`;
+        if(_ftraj==="flat" || _ftraj==="growth") h += `<div class="fld"><label>${_ftraj==="growth"?"Starting amount":"Amount"} ($000s)</label><input type="number" step="0.001" value="${_fval}" onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.value=_pf(this.value)*1000;refresh()"></div>`;
+        if(_ftraj==="growth") h += `<div class="fld wide"><label>Amount growth</label>${growthSpecInline(sb+".rate.params.flat_amount.growth_spec",_fa&&_fa.growth_spec,null,false)}</div>`;
+        if(_ftraj==="explicit_schedule"){
+          const _fid=`feeFlatAmountPaste_${_fi}_${si}`, _loaded=_feeFlatAmountScheduleText(_fa&&_fa.schedule);
+          h += `<div class="fld wide"><label>Amount schedule ($000s per ${_fper==="year"?"year":(_fper==="quarter"?"quarter":"month")})</label><textarea id="${_fid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column, e.g. 150&#9;200&#9;250&#9;300"></textarea><div class="nie-actions" style="margin-top:4px"><button class="pillbtn" onclick="_feeSetFlatAmountSchedule(${_fi},${si},document.getElementById('${_fid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearFlatAmountSchedule(${_fi},${si})">Clear</button><span class="memo" style="margin:0">${esc(_loaded||'No values loaded')}</span></div><span class="memo" style="margin:3px 0 0">Paste amounts in $000s. Each value applies to one selected natural period; the last loaded amount carries forward.</span></div>`;
+        }
       }
       else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F(`At period (${PLAB('full')})`, sb+".driver.params.at_period", "n"); }
       if(rb==="annual_change"){ h += F("Annual rate change (%/yr, neg=pressure)", sb+".rate.params.annual_delta", "pct"); }
@@ -5978,8 +6004,11 @@ function labLeverCatalog(){
         if(rp.unit_fee && typeof rp.unit_fee.value==="number") push(sb+".rate.params.unit_fee.value", `${pre}: fee/account/${rp.unit_fee.period||"year"} ($000s)`, "k");
         else push(sb+".rate.params.fee_per_period", `${pre}: fee/account/month (legacy $)`, "");
       } else if(basis==="flat"){
-        if(rp.flat_amount && typeof rp.flat_amount.value==="number") push(sb+".rate.params.flat_amount.value", `${pre}: flat amount/${rp.flat_amount.period||"year"} ($000s)`, "k");
-        else push(sb+".rate.params.amount_per_period", `${pre}: flat amount/${PLAB()} (legacy $)`, "");
+        if(rp.flat_amount){
+          const fat=rp.flat_amount.trajectory||"flat";
+          if(fat!=="explicit_schedule" && typeof rp.flat_amount.value==="number") push(sb+".rate.params.flat_amount.value", `${pre}: flat amount/${rp.flat_amount.period||"year"} ($000s)`, "k");
+          if(fat==="growth" && rp.flat_amount.growth_spec && typeof rp.flat_amount.growth_spec.rate==="number") push(sb+".rate.params.flat_amount.growth_spec.rate", `${pre}: flat amount growth`, "pct");
+        } else push(sb+".rate.params.amount_per_period", `${pre}: flat amount/${PLAB()} (legacy $)`, "");
       }
       else if(basis==="event") push(sb+".rate.params.amount", `${pre}: event amount ($)`, "");
       if(rb==="annual_change") push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");

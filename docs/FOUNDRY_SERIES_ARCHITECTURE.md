@@ -139,3 +139,6 @@ and AUC/customer average.
 6. Explicit paths are properties of individual drivers, not reasons to reproduce source workbook
    grids.
 7. New engagement names should normally require configuration, not engine branches.
+## Fee Product recurring Flat Amount
+
+Fee Product Flat-basis Amount follows the common trajectory grammar without changing basis semantics. `rate.params.flat_amount` may be Flat, Growth, or Explicit and carries a natural Month / Quarter / Year period. Explicit authoring uses a pastebox and stores raw dollars while the UI consistently accepts `$000s`. Legacy `amount_per_period` and legacy `flat_amount` objects without a trajectory retain their exact prior economics.

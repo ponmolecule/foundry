@@ -21,3 +21,14 @@ An LLM necessarily retains pretrained knowledge in its model weights; Foundry th
 
 ## Output contract
 Claude returns a constrained plan containing only current Foundry IDs (basis, source, trajectory, coefficient semantics, rate behavior, cost kind). Foundry validates that plan, then *locally* renders the exact click-by-click field instructions. Claude's prose is not used to mutate configuration.
+## Flat recurring-amount trajectories
+
+The Flat fee basis represents a recurring fixed-dollar fee. Its recurring **Amount** is trajectory-capable without changing the economic basis:
+
+- `Flat` — one recurring amount held constant;
+- `Growth` — a starting recurring amount grown by a standard Foundry growth specification;
+- `Explicit schedule` — a pasted Month / Quarter / Year amount path, with each entry stated in `$000s` and the last loaded amount carried forward.
+
+The amount path is distinct from **Rate behavior**. Flat-basis Rate behavior remains `flat`; changing the recurring dollar amount is authored through **Amount path**, not by inventing a rate schedule. Guide Me exposes this mechanic through `flat_amount_trajectory` and may map an escalating escrow/retainer schedule to one Flat stream.
+
+Example: an annual escrow schedule of `150, 200, 250, 300, 350, 400, 450` means `$150,000` through `$450,000` per year. The same natural-year economics must reconcile in quarterly and monthly engine cadence.

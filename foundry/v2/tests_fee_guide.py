@@ -19,6 +19,7 @@ def main():
     m=fee_guide_manifest()
     ck("manifest is closed over current five fee bases", {x["id"] for x in m["bases"]}=={"balance","transaction","account","flat","event"})
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
+    ck("manifest exposes Flat amount trajectories", m.get("flat_amount_trajectories")==["flat","growth","explicit_schedule"])
 
     # Guide Me credential resolution is server-only and must work even though
     # Foundry is deployed separately from CharterIQ. Environment wins, then a
@@ -62,8 +63,8 @@ def main():
     good={
       "status":"plan","product_label":"Custody services","managed_notional_source":"customer_acquisition_feed",
       "streams":[
-        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
-        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
+        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"}
       ],"questions":[],"unsupported_mechanics":[]}
     def fake_open(req, timeout=0):
         seen["url"]=req.full_url; seen["headers"]={k.lower():v for k,v in req.header_items()}; seen["payload"]=json.loads(req.data.decode())
@@ -79,17 +80,20 @@ def main():
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()
     ck("structured schema requires closed mixed-result fields", sch.get("additionalProperties") is False and "unsupported_mechanics" in sch.get("required",[]))
+    ck("structured schema carries Flat amount trajectory", "flat_amount_trajectory" in json.dumps(sch))
 
     mixed={
-      "status":"unsupported","product_label":"Settlement escrow","managed_notional_source":"ask",
+      "status":"needs_clarification","product_label":"Settlement escrow","managed_notional_source":"ask",
       "streams":[
-        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
+        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Escrow fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
       ],
       "questions":["What annual settlement-turn values should be used through Y3 and after normalization?","Should AUC come from Manual assumptions or a Customer-Acquisition feed?"],
-      "unsupported_mechanics":["The recurring escrow amount changes each year, while the current Flat basis supports only a flat periodic amount."]
+      "unsupported_mechanics":[]
     }
     mout=render_guide_plan(mixed)
-    ck("mixed supported/unsupported request preserves supported stream mapping", mout["status"]=="unsupported" and len(mout["stream_guides"])==1 and len(mout["unsupported_mechanics"])==1)
+    ck("mixed settlement + escalating escrow maps both supported streams", mout["status"]=="needs_clarification" and len(mout["stream_guides"])==2 and not mout["unsupported_mechanics"])
+    ck("escalating escrow maps to one Flat explicit amount trajectory", any("Amount path to “Explicit Schedule”" in step for step in mout["stream_guides"][1]["steps"]))
     ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
 
     user_case = "I have another stream of revenue: Settlement turns multiplied by Average AUC per annum, ramping up to Y3, then normalizing as the book matures. A flat settlement rate of 0.03% and an escrow fee starting at 150,000, which increases by 50,000 every year through Y7. Revenue starts in month 1"
@@ -98,7 +102,7 @@ def main():
         seen_case["payload"]=json.loads(req.data.decode())
         return _Resp({"content":[{"type":"text","text":json.dumps(mixed)}]})
     case_out=guide_fee_product(user_case,api_key="test-key",model="claude-sonnet-5",http_open=fake_case)
-    ck("settlement + escalating escrow prompt returns structured mixed result", case_out["status"]=="unsupported" and len(case_out["stream_guides"])==1 and len(case_out["unsupported_mechanics"])==1)
+    ck("settlement + escalating escrow prompt maps both streams and asks only needed questions", case_out["status"]=="needs_clarification" and len(case_out["stream_guides"])==2 and not case_out["unsupported_mechanics"])
     ck("exact multi-stream regression uses schema-constrained output", (((seen_case.get("payload") or {}).get("output_config") or {}).get("format") or {}).get("type")=="json_schema")
 
     bad=json.loads(json.dumps(good)); bad["streams"][0]["basis"]="royalty_magic"
@@ -130,6 +134,7 @@ def main():
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
+    ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
     appsrc=open("app.py",encoding="utf-8").read()
     ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide")' in appsrc and "Depends(gate)" in appsrc and "ANTHROPIC_API_KEY" in appsrc)
     import app as appmod
