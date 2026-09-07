@@ -341,12 +341,26 @@ def validate_config_v2(cfg):
             except (TypeError, ValueError) as e:
                 errs.append(f"obs_exposures[{pi}].managed_notional.growth_spec invalid: {e}")
         for si, st in enumerate(prod.get("fee_streams") or []):
+            from .income_modules import _validate_fee_stream_shape, _fee_coefficient_value
+            try:
+                _validate_fee_stream_shape(st)
+                coef = (((st.get("driver") or {}).get("params") or {}).get("coefficient"))
+                if coef is not None:
+                    _fee_coefficient_value(coef, 1, _ppy, {"growth_context": _growth_ctx})
+            except (TypeError, ValueError) as e:
+                errs.append(f"obs_exposures[{pi}].fee_streams[{si}] invalid: {e}")
             gs0 = (((st.get("driver") or {}).get("params") or {}).get("growth_spec"))
             if gs0:
                 try:
                     validate_growth_spec_for_cadence(gs0, ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
                     errs.append(f"obs_exposures[{pi}].fee_streams[{si}].driver.params.growth_spec invalid: {e}")
+            cgs = ((((st.get("driver") or {}).get("params") or {}).get("coefficient") or {}).get("growth_spec"))
+            if cgs:
+                try:
+                    validate_growth_spec_for_cadence(cgs, ppy=_ppy, context=_growth_ctx)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"obs_exposures[{pi}].fee_streams[{si}].driver.params.coefficient.growth_spec invalid: {e}")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():
