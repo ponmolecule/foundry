@@ -2680,13 +2680,22 @@ window.runFeeGuide = async function(){
     const j=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(j.error||("Guide Me failed ("+r.status+")"));
     let h='';
+    const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[];
     if(j.status==="needs_clarification" || j.status==="unsupported"){
-      h += `<div style="padding:10px 12px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><b>${j.status==="unsupported"?"Foundry cannot map this cleanly yet.":"One thing needs clarification."}</b>`;
-      if((j.questions||[]).length) h += `<ul style="margin:7px 0 0 18px;padding:0">${_feeGuideEscLines(j.questions)}</ul>`;
+      h += `<div style="padding:10px 12px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><b>${j.status==="unsupported"?"Part of this description is not supported by the current fee schema.":"A few details need clarification."}</b>`;
+      if(_unsupported.length) h += `<div class="memo" style="margin-top:7px;font-weight:700">Unsupported mechanic${_unsupported.length===1?"":"s"}</div><ul style="margin:4px 0 0 18px;padding:0">${_feeGuideEscLines(_unsupported)}</ul>`;
+      if(_questions.length) h += `<div class="memo" style="margin-top:7px;font-weight:700">Clarify</div><ul style="margin:4px 0 0 18px;padding:0">${_feeGuideEscLines(_questions)}</ul>`;
       h += '</div>';
+      if(_guides.length){
+        h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Supported portion Foundry can map now</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
+        _guides.forEach((sg,i)=>{
+          h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #D9DEE6;border-radius:5px"><div style="font-weight:700;color:#8A6D2F">Mapped stream ${i+1}: ${esc(sg.name||"Fee stream")}</div><ol style="margin:7px 0 0 19px;padding:0;font-size:12px;line-height:1.45">${_feeGuideEscLines(sg.steps)}</ol></div>`;
+        });
+      }
+      h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
     } else {
       h += `<div style="padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Suggested Foundry mapping</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
-      (j.stream_guides||[]).forEach((sg,i)=>{
+      _guides.forEach((sg,i)=>{
         h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #D9DEE6;border-radius:5px"><div style="font-weight:700;color:#8A6D2F">Stream ${i+1}: ${esc(sg.name||"Fee stream")}</div><ol style="margin:7px 0 0 19px;padding:0;font-size:12px;line-height:1.45">${_feeGuideEscLines(sg.steps)}</ol></div>`;
       });
       h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
