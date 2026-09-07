@@ -265,7 +265,11 @@ def resolve_series_value_for_year(spec: Mapping[str, Any] | None, year: int,
     """Resolve a series operand to one model-year value for annual domain equations (CAC).
 
     Entered flat/growth/explicit-annual specs preserve the historical CAC semantics exactly.
-    Linked series (or finer explicit cadences) are reduced with explicit aggregation semantics.
+    For an entered Explicit CAC operand, source cadence belongs to the annual domain equation:
+    quarterly/monthly source *flows* sum and source levels/rates average directly.  There is no
+    need to interpolate those values through the model cadence first.  ``resolution`` therefore
+    remains meaningful for native-cadence level series such as Workforce Count, but has no role
+    in CAC's annual equation.  Linked series are still reduced from their owning native series.
     """
     raw = dict(spec or {})
     s = normalize_series_spec(raw, default_value=default_value)
@@ -276,8 +280,17 @@ def resolve_series_value_for_year(spec: Mapping[str, Any] | None, year: int,
         return float(s["base"]) * growth_multiplier(
             s["growth_spec"], current_period=y, start_period=1, ppy=1,
             context=context, base_position="period1")
-    if s["source"] == "entered" and s["trajectory"] == "explicit" and s["cadence"] == "year":
-        return _explicit_value(s["values"], y - 1, s["extend"])
+    if s["source"] == "entered" and s["trajectory"] == "explicit" and s["cadence"] != "model_period":
+        # CAC and other annual domain equations already have an explicit aggregation contract.
+        # Reduce source periods directly instead of first manufacturing model-period values.
+        # That prevents a quarterly flow in a monthly model from being repeated three times,
+        # and makes Step/Smooth interpolation irrelevant at this seam.
+        source_freq = _FREQ[s["cadence"]]
+        lo = (y - 1) * source_freq
+        vals = [_explicit_value(s["values"], lo + i, s["extend"])
+                for i in range(source_freq)]
+        agg = str(raw.get("aggregation") or "average").lower()
+        return annual_value(vals, 1, source_freq, agg)
 
     n = int(n_periods or max(y * ppy, ppy))
     arr = resolve_series_spec(s, assumptions or {}, n, ppy, context=context,

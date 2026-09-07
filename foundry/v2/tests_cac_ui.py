@@ -15,6 +15,9 @@ def main():
     a=html.index("var CAC_METHODS =")
     b=html.index("function _operatingExpenseMode", a)
     js=html[a:b]
+    ha=html.index("function _seriesPasteNumbers")
+    hb=html.index("function _newNieDetail", ha)
+    helpers=html[ha:hb]
     prefix=r'''
 const window=globalThis;
 let cfg={assumptions:{periods_per_year:12,n_periods:84,obs_exposures:[],nie_detail:{
@@ -29,7 +32,7 @@ function _seriesSourcePeriods(cadence){const f={year:1,quarter:4,month:12}[caden
 function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
 function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
-function renderContent(){} function refresh(){} function _pf(x){let n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
+function renderContent(){} function refresh(){} function appStatus(){} function _pf(x){let n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
 function fmtComma(x){return String(x)} function esc(x){return String(x)} function _seriesId(p){return p+'-test'}
 window.confirm=()=>true;window.alert=()=>{};
 '''
@@ -39,16 +42,17 @@ const fd=cfg.assumptions.cac_feeds.growth;
 fd.channels.forEach(ch=>_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k)));
 const seeded={m0:Object.keys(fd.channels[0].driver_specs).sort(),m1:Object.keys(fd.channels[1].driver_specs).sort()};
 window.cacDriverTrajectory('growth',0,'pool','explicit');
-window.cacScheduleValue('growth',0,'pool',1,'2,500','number');
+window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
+const unitProbe={pool:_cacStored('2,500','number'),spend:_cacStored('1,250','k'),cac:_cacStored('1,250','price'),auc:_cacStored('500','k')};
 window.cacDriverSource('growth',1,'spend','link');
 const spendLink=fd.channels[1].driver_specs.spend;
 window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLink,fteLink,method:fd.channels[0].method}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
 '''
-    br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
+    br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
     if br.returncode==0 and br.stdout.strip():
         try: bj=json.loads(br.stdout.strip().splitlines()[-1])
@@ -57,8 +61,8 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLi
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
        and sd.get("m1")==["avg_auc_per_customer","cac","spend"], br.stderr.strip())
-    ck("explicit schedule is local to one primitive and derives horizon dynamically",
-       len((bj.get("pool") or {}).get("values") or [])==7)
+    ck("explicit CAC values load through a pastebox instead of one cell per period",
+       (bj.get("pool") or {}).get("values")==[1000,2500,3000])
     sl=(bj.get("spendLink") or {}).get("link") or {}
     ck("Spend can link generically to an Operating Expense series by stable ID",
        sl.get("kind")=="operating_expense_category" and sl.get("series_id")=="opex-bd" and sl.get("aggregation")=="sum")
@@ -79,11 +83,17 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,spendLi
        "New customers = Pool × Conversion" in html and "New customers = Spend ÷ CAC" in html
        and "New customers = FTE Count × Productivity" in html
        and "Channel names are labels only" in html)
-    ck("monetary CAC authoring follows Foundry $000s convention",
-       'unit:"$000s / year",kind:"k"' in html
-       and 'lab:"Cost per customer acquired",unit:"$000s / customer",kind:"k"' in html)
-    ck("explicit schedule editor is compact/local and no longer a full-width year grid",
-       "Explicit is local to this primitive." in html and "source cadence" in html.lower())
+    up=bj.get("unitProbe") or {}
+    ck("CAC units distinguish balances/spend from per-unit prices and natural counts",
+       up=={"pool":2500,"spend":1250000,"cac":1250,"auc":500000}
+       and 'unit:"$000s / year",kind:"k"' in html
+       and 'lab:"Cost per customer acquired",unit:"$ / customer",kind:"price"' in html
+       and 'lab:"Addressable pool",unit:"customers",kind:"number"' in html)
+    ck("every CAC Explicit primitive uses a visible pastebox",
+       "cacSchedulePaste(" in html and "Paste a row or column from Excel/Sheets" in html
+       and "cacFeedExplicitPaste(" in html and "Load (replace)" in html)
+    ck("CAC Explicit keeps source cadence but removes meaningless Step/Smooth interpolation",
+       "CAC does not interpolate between source points" in html and "cacScheduleResolution" not in html)
     ck("feed retains beginning book and within-year AUC resolution controls",
        "Beginning customers" in html and "Beginning AUC" in html and "AUC within each model year" in html)
 
