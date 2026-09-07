@@ -282,8 +282,7 @@
       },
       "rate": {
        "params": {
-        "fee_per_period": 11.0,
-        "periods_per_q": 3.0
+        "fee_per_period": 11.0
        }
       },
       "timing": {
@@ -335,8 +334,7 @@
       },
       "rate": {
        "params": {
-        "fee_per_period": 2.75,
-        "periods_per_q": 3.0
+        "fee_per_period": 2.75
        }
       },
       "timing": {

@@ -204,6 +204,189 @@ def _apply_tiers(tiers, base_qty):
     return out
 
 
+_FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
+_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate"}
+_FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
+_FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped"}
+_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue"}
+_FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
+
+
+def _fee_amount_per_engine_period(value, period, ppy):
+    """Convert a value stated per natural Month/Quarter/Year to one engine period.
+
+    Legacy fields deliberately bypass this helper so absence of the new explicit marker
+    preserves their historic meaning.
+    """
+    v = float(value or 0.0)
+    per = str(period or "").strip().lower()
+    if per == "year":
+        return v / float(ppy)
+    if per == "quarter":
+        return v * 4.0 / float(ppy)
+    if per == "month":
+        return v * 12.0 / float(ppy)
+    if per == "model_period":
+        return v
+    raise ValueError(f"unsupported natural period: {period!r}")
+
+
+def _fee_natural_period_index(q, period, ppy):
+    """1-based natural-period index containing engine period q.
+
+    Explicit coefficient schedules are keyed in their stated natural period, e.g. a
+    Year schedule {1: 1.5, 2: 2.4, ...} means Year 1 / Year 2 regardless of engine cadence.
+    """
+    per = str(period or "").strip().lower()
+    if per == "year":
+        return (int(q) - 1) // int(ppy) + 1
+    if per == "quarter":
+        # Quarterly/monthly are the supported model cadences. Annual is tolerated for
+        # internal evaluation by treating one engine period as four quarters.
+        if int(ppy) == 12:
+            return (int(q) - 1) // 3 + 1
+        if int(ppy) == 4:
+            return int(q)
+        if int(ppy) == 1:
+            return (int(q) - 1) * 4 + 1
+    if per == "month":
+        if int(ppy) == 12:
+            return int(q)
+        # A quarter cannot faithfully distinguish three different monthly schedule
+        # values. Fail closed rather than silently choosing one.
+        if int(ppy) == 4:
+            raise ValueError("monthly coefficient schedule is not representable in quarterly cadence")
+        if int(ppy) == 1:
+            raise ValueError("monthly coefficient schedule is not representable in annual cadence")
+    if per == "model_period":
+        return int(q)
+    raise ValueError(f"unsupported natural period: {period!r}")
+
+
+def _fee_schedule_value(schedule, idx, default):
+    """Carry the most recent explicit natural-period coefficient level forward."""
+    cur = float(default or 0.0)
+    points = []
+    for k, v in (schedule or {}).items():
+        try:
+            points.append((int(k), float(v)))
+        except (TypeError, ValueError):
+            continue
+    for k, v in sorted(points):
+        if k > int(idx):
+            break
+        cur = v
+    return cur
+
+
+def _fee_coefficient_value(spec, q, ppy, ctx=None):
+    """Resolve an explicit derived-flow coefficient into one engine-period coefficient.
+
+    `spec.period` states the coefficient's natural flow unit (e.g. 4 turns / Year).
+    This path is opt-in. Legacy `multiple` / `pct` fields remain raw per engine period.
+    """
+    spec = dict(spec or {})
+    kind = str(spec.get("kind") or "").strip().lower()
+    if kind not in {"multiple", "pct"}:
+        raise ValueError(f"unsupported fee coefficient kind: {kind!r}")
+    period = str(spec.get("period") or "").strip().lower()
+    if period not in _FEE_NATURAL_PERIODS:
+        raise ValueError(f"unsupported fee coefficient period: {period!r}")
+    traj = str(spec.get("trajectory") or "flat").strip().lower()
+    if traj not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError(f"unsupported fee coefficient trajectory: {traj!r}")
+    val = float(spec.get("value") or 0.0)
+    if traj == "growth":
+        gs = spec.get("growth_spec")
+        if not gs:
+            raise ValueError("fee coefficient growth trajectory requires growth_spec")
+        from .growth import growth_multiplier
+        val *= growth_multiplier(gs, current_period=int(q), start_period=1, ppy=int(ppy),
+                                 context=(ctx or {}).get("growth_context"), base_position="period1")
+    elif traj == "explicit_schedule":
+        idx = _fee_natural_period_index(q, period, ppy)
+        val = _fee_schedule_value(spec.get("schedule") or {}, idx, val)
+    return _fee_amount_per_engine_period(val, period, ppy)
+
+
+def _validate_fee_stream_shape(stream):
+    """Fail closed on unsupported GUT vocabulary at the evaluator boundary."""
+    st = stream or {}
+    basis = st.get("basis")
+    if basis not in _FEE_BASES:
+        raise ValueError(f"unsupported fee basis: {basis!r}")
+    drv = st.get("driver") or {}
+    src = drv.get("source") or "constant"
+    traj = drv.get("trajectory") or "flat"
+    if src not in _FEE_SOURCES:
+        raise ValueError(f"unsupported fee driver source: {src!r}")
+    if traj not in _FEE_TRAJECTORIES:
+        raise ValueError(f"unsupported fee driver trajectory: {traj!r}")
+    rt = st.get("rate") or {}
+    rb = rt.get("behavior") or "flat"
+    if rb not in _FEE_RATE_BEHAVIORS:
+        raise ValueError(f"unsupported fee rate behavior: {rb!r}")
+    # Fail closed on basis/rate combinations the evaluator does not actually apply.
+    # Without this guard, e.g. annual_change on an account/flat stream would be accepted
+    # but silently ignored by the basis-specific calculation below.
+    allowed_rate_behaviors = {
+        "balance": {"flat", "annual_change", "scheduled", "tiered"},
+        "transaction": {"flat", "tiered", "durbin_capped"},
+        "account": {"flat"},
+        "flat": {"flat"},
+        "event": {"flat"},
+    }
+    if rb not in allowed_rate_behaviors[basis]:
+        raise ValueError(f"fee rate behavior {rb!r} is unsupported for basis {basis!r}")
+    cost = st.get("cost") or {}
+    ck = cost.get("kind") or "none"
+    if ck not in _FEE_COST_KINDS:
+        raise ValueError(f"unsupported fee cost kind: {ck!r}")
+    if ck == "per_unit" and basis != "transaction":
+        raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
+    coef = (drv.get("params") or {}).get("coefficient")
+    if coef is not None:
+        if traj != "derived":
+            raise ValueError("fee coefficient requires driver.trajectory='derived'")
+        # Natural-period coefficients describe flows. Feeding them to balance basis would
+        # divide once in the coefficient and again in the stock-rate basis (/ppy^2).
+        if basis != "transaction":
+            raise ValueError("natural-period fee coefficient is supported only on transaction basis")
+        c = dict(coef or {})
+        if str(c.get("kind") or "").strip().lower() not in {"multiple", "pct"}:
+            raise ValueError(f"unsupported fee coefficient kind: {c.get('kind')!r}")
+        if str(c.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS:
+            raise ValueError(f"unsupported fee coefficient period: {c.get('period')!r}")
+        if str(c.get("trajectory") or "flat").strip().lower() not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported fee coefficient trajectory: {c.get('trajectory')!r}")
+        if str(c.get("trajectory") or "flat").strip().lower() == "growth" and not c.get("growth_spec"):
+            raise ValueError("fee coefficient growth trajectory requires growth_spec")
+        if str(c.get("trajectory") or "flat").strip().lower() == "explicit_schedule" and not isinstance(c.get("schedule") or {}, dict):
+            raise ValueError("fee coefficient explicit_schedule requires a mapping")
+        try:
+            float(c.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("fee coefficient value must be numeric")
+    rp = (rt.get("params") or {})
+    if basis == "account" and rp.get("unit_fee") is not None:
+        uf = rp.get("unit_fee") or {}
+        if str(uf.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+            raise ValueError(f"unsupported account fee period: {uf.get('period')!r}")
+        try:
+            float(uf.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("account unit_fee value must be numeric")
+    if basis == "flat" and rp.get("flat_amount") is not None:
+        fa = rp.get("flat_amount") or {}
+        if str(fa.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+            raise ValueError(f"unsupported flat amount period: {fa.get('period')!r}")
+        try:
+            float(fa.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("flat_amount value must be numeric")
+    return True
+
+
 def fee_stream_q(stream, q, ctx, ppy=4):
     """One fee stream's NET income for engine period q ($). Full six-axis GUT evaluator.
 
@@ -217,10 +400,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
     quantity of already-evaluated streams, for stream_ref), and bank_aggregate (map: e.g.
     total_deposits/total_assets, prior-quarter to avoid circularity).
-    Unknown basis/source/behavior degrade to 0/flat (extensible; never raises).
+    Unsupported basis/source/trajectory/rate/cost values fail closed with ValueError.
     """
     if not stream:
         return 0.0, 0.0
+    _validate_fee_stream_shape(stream)
     tm = stream.get("timing") or {}
     start = int(tm.get("start_period") or 1)
     end = tm.get("end_period")
@@ -276,15 +460,21 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     else:
         # sourced quantity (own_balance/managed_notional/stream_ref/bank_aggregate)
         if traj == "derived":
-            # a multiple or percentage of the source (settlement notional = turns x AUC)
-            mult = params.get("multiple")
-            pct = params.get("pct")
-            if mult is not None:
-                qty = sb * float(mult)
-            elif pct is not None:
-                qty = sb * float(pct)
+            # Explicit natural-period coefficient = FLOW semantics (e.g. 4 turns / Year,
+            # 24% of AUC / Year), periodized BEFORE a transaction fee/spread is applied.
+            # Absence of the marker preserves legacy raw `multiple`/`pct` behavior exactly.
+            coef = params.get("coefficient")
+            if coef is not None:
+                qty = sb * _fee_coefficient_value(coef, q, ppy, ctx)
             else:
-                qty = sb
+                mult = params.get("multiple")
+                pct = params.get("pct")
+                if mult is not None:
+                    qty = sb * float(mult)
+                elif pct is not None:
+                    qty = sb * float(pct)
+                else:
+                    qty = sb
         elif traj == "proportional":
             qty = sb * _driver_growth_multiplier()
         else:
@@ -310,23 +500,30 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             per_unit = float(rate_params.get("per_unit") or 0.0)
             gross = qty * per_unit
     elif basis == "account":
-        # fee_per_period is $/account/MONTH (a per-account fee has a fixed natural unit — it does
-        # not change meaning by cadence). Fill the engine period with the calendar-correct number
-        # of months: 12/ppy (quarterly=3 -> hash-identical; monthly=1; annual=12). This is a
-        # calendar fact, not a unit assumption, so it is safe to derive from cadence.
-        # Back-compat: if a legacy config still carries periods_per_q, honor it (it equals 12/ppy
-        # for the cadence it was authored in), so old quarterly configs stay byte-identical.
-        per_period = float(rate_params.get("fee_per_period") or 0.0)
-        months_per_period = float(rate_params.get("periods_per_q") or (12.0 / float(ppy)))
-        gross = qty * per_period * months_per_period
+        # New explicit natural-unit contract. Legacy `fee_per_period` remains $/account/MONTH
+        # when the marker is absent; `periods_per_q` is intentionally ignored/retired so cadence
+        # is always derived from ppy rather than a stale quarterly-authored override.
+        unit_fee = rate_params.get("unit_fee")
+        if unit_fee is not None:
+            fee_one_engine_period = _fee_amount_per_engine_period(
+                (unit_fee or {}).get("value"), (unit_fee or {}).get("period"), ppy)
+        else:
+            fee_one_engine_period = float(rate_params.get("fee_per_period") or 0.0) * (12.0 / float(ppy))
+        gross = qty * fee_one_engine_period
     elif basis == "flat":
-        gross = float(rate_params.get("amount_per_period") or 0.0)
+        flat_amount = rate_params.get("flat_amount")
+        if flat_amount is not None:
+            gross = _fee_amount_per_engine_period(
+                (flat_amount or {}).get("value"), (flat_amount or {}).get("period"), ppy)
+        else:
+            # Legacy contract: amount_per_period is already an engine-period amount.
+            gross = float(rate_params.get("amount_per_period") or 0.0)
     elif basis == "event":
         at = params.get("at_period")
         amt = float(rate_params.get("amount") or params.get("amount") or 0.0)
         gross = amt if (at is not None and int(at) == q) else 0.0
     else:
-        return 0.0, 0.0  # unknown basis (extensible)
+        raise ValueError(f"unsupported fee basis: {basis!r}")
 
     # ---- Axis 5: ramp-in phase (revenue phases in over K periods after start) ----
     ramp_in = tm.get("ramp_in_periods")

@@ -28,7 +28,16 @@ def main():
                          "driver":{"source":"managed_notional","trajectory":"flat","params":{}},
                          "rate":{"behavior":"annual_change","params":{"rate":0.0012,"annual_delta":-0.02}},
                          "timing":{"start_period":1,"end_period":60,"ramp_in_periods":3},
-                         "cost":{"kind":"pct_of_revenue","params":{"pct":0.10}}}]},
+                         "cost":{"kind":"pct_of_revenue","params":{"pct":0.10}}},
+                        {"name":"Settlement","basis":"transaction",
+                         "driver":{"source":"managed_notional","trajectory":"derived","params":{"coefficient":{"kind":"multiple","value":4.0,"period":"year","trajectory":"flat"}}},
+                         "rate":{"behavior":"flat","params":{"per_unit":0.0005}},"timing":{"start_period":1},"cost":{"kind":"none","params":{}}},
+                        {"name":"Retainer","basis":"account",
+                         "driver":{"source":"constant","trajectory":"flat","params":{"base":10}},
+                         "rate":{"behavior":"flat","params":{"unit_fee":{"value":12000,"period":"year"}}},"timing":{"start_period":1},"cost":{"kind":"none","params":{}}},
+                        {"name":"Escrow","basis":"flat",
+                         "driver":{"source":"constant","trajectory":"flat","params":{}},
+                         "rate":{"behavior":"flat","params":{"flat_amount":{"value":120000,"period":"year"}}},"timing":{"start_period":1},"cost":{"kind":"none","params":{}}}]},
         {"name":"Payments","_fee_product":True,
          "managed_notional":{"day1":0,"trajectory":"flat"},
          "fee_streams":[{"name":"Interchange","basis":"transaction",
@@ -59,6 +68,11 @@ console.log(JSON.stringify({paths:L.map(x=>x.path), labels:L.map(x=>x.label), un
         "assumptions.obs_exposures.0.fee_streams.0.rate.params.rate",
         "assumptions.obs_exposures.0.fee_streams.0.rate.params.annual_delta",
         "assumptions.obs_exposures.0.fee_streams.0.cost.params.pct"}.issubset(paths), r.stderr.strip())
+    ck("Lab catalog discovers natural-period fee coefficient/account/flat levers",
+       {"assumptions.obs_exposures.0.fee_streams.1.driver.params.coefficient.value",
+        "assumptions.obs_exposures.0.fee_streams.1.rate.params.per_unit",
+        "assumptions.obs_exposures.0.fee_streams.2.rate.params.unit_fee.value",
+        "assumptions.obs_exposures.0.fee_streams.3.rate.params.flat_amount.value"}.issubset(paths))
     ck("Lab catalog discovers transaction driver/rate/cost levers",
        {"assumptions.obs_exposures.1.fee_streams.0.driver.params.base",
         "assumptions.obs_exposures.1.fee_streams.0.driver.params.growth_spec.rate",
@@ -72,7 +86,10 @@ console.log(JSON.stringify({paths:L.map(x=>x.path), labels:L.map(x=>x.label), un
     ck("balance fee rate is expressed in bp and Lab $000s/bp display conversions mirror Product inputs",
        units.get("assumptions.obs_exposures.0.fee_streams.0.rate.params.rate")=="bps"
        and abs(j.get("money",0)-10000)<1e-9 and abs(j.get("moneyBack",0)-10_000_000)<1e-9
-       and abs(j.get("bp",0)-12)<1e-9 and abs(j.get("bpBack",0)-.0012)<1e-12)
+       and abs(j.get("bp",0)-12)<1e-9 and abs(j.get("bpBack",0)-.0012)<1e-12
+       and units.get("assumptions.obs_exposures.0.fee_streams.1.rate.params.per_unit")=="pct"
+       and units.get("assumptions.obs_exposures.0.fee_streams.2.rate.params.unit_fee.value")=="k"
+       and units.get("assumptions.obs_exposures.0.fee_streams.3.rate.params.flat_amount.value")=="k")
     ck("Fee-only models are no longer blocked by a lending-product prerequisite",
        "!labLeverCatalog().length" in html and "!((cfg.assumptions||{}).lending_products||[]).length" not in html[html.index("function renderLab()") : html.index("window.renderLab = renderLab")])
 

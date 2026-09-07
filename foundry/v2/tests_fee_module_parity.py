@@ -14,7 +14,7 @@ def main():
     old = [_g(sv["accounts"], sv["growth_q"], q) * sv["fee_m"] * 3.0 for q in range(1, Q + 1)]
     gut = {"basis": "account", "driver": {"source": "constant", "trajectory": "proportional",
            "params": {"base": 35000, "growth_q": 0.03}},
-           "rate": {"params": {"fee_per_period": 11.0, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
+           "rate": {"params": {"fee_per_period": 11.0}}, "timing": {"start_period": 1}}
     ck("service charges", all(abs(old[i] - fee_stream_q(gut, i + 1, {})[0]) < 1e-6 for i in range(Q)))
     rails = [{"vol_q": 300000, "growth_q": 0.04, "fee_per_tx": 0.30},
              {"vol_q": 12000, "growth_q": 0.03, "fee_per_tx": 18.0},
@@ -34,7 +34,7 @@ def main():
     old = [_g(b["programs"] * b["accts_per_program"], b["growth_q"], q) * b["rev_per_acct_m"] * 3.0 for q in range(1, Q + 1)]
     gut = {"basis": "account", "driver": {"source": "constant", "trajectory": "proportional",
            "params": {"base": 36000, "growth_q": 0.06}},
-           "rate": {"params": {"fee_per_period": 2.75, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
+           "rate": {"params": {"fee_per_period": 2.75}}, "timing": {"start_period": 1}}
     ck("baas", all(abs(old[i] - fee_stream_q(gut, i + 1, {})[0]) < 1e-6 for i in range(Q)))
     print(f"\n{passed} passed, {failed} failed")
     return 0 if failed == 0 else 1

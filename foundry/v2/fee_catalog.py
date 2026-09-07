@@ -70,5 +70,5 @@ def fee_stream_template(preset_key):
     elif basis == "transaction":
         stream["rate"]["params"] = {"per_unit": 0.0}
     elif basis == "account":
-        stream["rate"]["params"] = {"fee_per_period": 0.0, "periods_per_q": 3.0}
+        stream["rate"]["params"] = {"fee_per_period": 0.0}
     return stream

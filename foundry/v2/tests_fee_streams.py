@@ -57,7 +57,7 @@ def main():
 
     # account basis: qty(500 accts) * fee(4.0/mo) * 3 mo/q = 6,000
     s_ac = {"basis": "account", "driver": {"source": "constant", "params": {"base": 500.0}},
-            "rate": {"params": {"fee_per_period": 4.0, "periods_per_q": 3.0}}, "timing": {"start_period": 1}}
+            "rate": {"params": {"fee_per_period": 4.0}}, "timing": {"start_period": 1}}
     ck("account basis: 500 accts @ 4/mo * 3 => 6,000",
        abs(fee_stream_q(s_ac, 1, {})[0] - 6000.0) < 1e-9)
 
@@ -85,8 +85,13 @@ def main():
     ck("explicit_schedule: 50e6 @ 40bp/4 at q7 => 50,000",
        abs(fee_stream_q(s_sched, 7, {})[0] - 50_000.0) < 1e-9)
 
-    # unknown basis is extensible (returns 0, never raises)
-    ck("unknown basis => 0 (extensible)", fee_stream_q({"basis": "nonesuch"}, 1, {})[0] == 0.0)
+    # unsupported schema must fail closed rather than silently dropping revenue
+    try:
+        fee_stream_q({"basis": "nonesuch"}, 1, {})
+        _bad_raised = False
+    except ValueError:
+        _bad_raised = True
+    ck("unknown basis fails closed", _bad_raised)
 
     # --- 4. INTEGRATION: a product with a real stream moves fees (engine end-to-end) ---
     c3 = copy.deepcopy(cfg)

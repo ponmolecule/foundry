@@ -150,6 +150,28 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Product tab renders a manual-AUC fee product without a runtime initialization error",
        fr.returncode==0 and fj.get("ok") is True, fr.stderr.strip())
+    # Natural-period Fee Product authoring: render the actual transaction/account/flat paths.
+    ha=html.index("function _feeCoeffScheduleText("); hb=html.index("function fieldsFor(",ha)
+    hjs=html[ha:hb]
+    fp2=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+         "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"
+         + hjs + fjs +
+         "\nconst p={name:'Custody',_fee_product:true,managed_notional:{day1:120000000,trajectory:'flat'},fee_streams:["
+         "{name:'Settlement',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'multiple',value:4,period:'year',trajectory:'explicit_schedule',schedule:{'1':1.5,'2':2.4}}}},rate:{behavior:'flat',params:{per_unit:.0005}},cost:{kind:'none',params:{}}},"
+         "{name:'Retainer',basis:'account',driver:{source:'constant',trajectory:'flat',params:{base:10}},rate:{behavior:'flat',params:{unit_fee:{value:12000,period:'year'}}},cost:{kind:'none',params:{}}},"
+         "{name:'Escrow',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:120000,period:'year'}}},cost:{kind:'none',params:{}}}]};"
+         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Flow coefficient')&&out.includes('Fee (% of throughput)')&&out.includes('Fee ($000s/account)')&&out.includes('Amount ($000s)')&&out.includes('Values by year')}));")
+    fr2=subprocess.run(["node","-e",fp2],text=True,capture_output=True)
+    fj2={}
+    if fr2.returncode==0 and fr2.stdout.strip():
+        try: fj2=json.loads(fr2.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Product tab renders natural-period flow/account/flat fee controls without runtime error",
+       fr2.returncode==0 and fj2.get("ok") is True, fr2.stderr.strip())
+    ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
+       'Coefficient path' in html and 'Use natural-period flow' in html
+       and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
        '⎘ Paste categories' in html and '+ Add category' in html and '_catPasteGrowthSpec' in html)
     ck("Operating Expense presents mutually exclusive Simple/Detailed authoring modes and three detailed panels",

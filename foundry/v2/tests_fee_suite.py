@@ -50,7 +50,7 @@ def main():
     # A1 service_charges: account basis, accounts x fee_m x 3 months, grows 3%/q
     sc = [{"name":"SC","call_report_line":"obs","_fee_product":True,"fee_streams":[
         {"basis":"account","driver":{"source":"constant","trajectory":"proportional","params":{"base":35000,"growth_q":0.03}},
-         "rate":{"params":{"fee_per_period":11.0,"periods_per_q":3.0}},"timing":{"start_period":1}}]}]
+         "rate":{"params":{"fee_per_period":11.0}},"timing":{"start_period":1}}]}]
     f,_ = isolate(sc)
     exp_q1 = 35000 * 11.0 * 3.0 / 1000.0 * 1.03   # Q1 = base grown one quarter (proportional)
     ck("A1 service_charges account-basis Q1", abs(f[1]-exp_q1) < 0.5, f"got {f[1]:.1f}, expect {exp_q1:.1f}")
@@ -79,7 +79,7 @@ def main():
     # A4 baas: account basis, programs x accts x rev x 3
     ba = [{"name":"BA","call_report_line":"obs","_fee_product":True,"fee_streams":[
         {"basis":"account","driver":{"source":"constant","trajectory":"proportional","params":{"base":3*12000,"growth_q":0.0}},
-         "rate":{"params":{"fee_per_period":2.75,"periods_per_q":3.0}},"timing":{"start_period":1}}]}]
+         "rate":{"params":{"fee_per_period":2.75}},"timing":{"start_period":1}}]}]
     f,_ = isolate(ba)
     exp = 36000 * 2.75 * 3.0 / 1000.0
     ck("A4 baas account-basis Q1", abs(f[1]-exp) < 0.5, f"got {f[1]:.1f}, expect {exp:.1f}")
