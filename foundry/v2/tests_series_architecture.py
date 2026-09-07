@@ -82,6 +82,14 @@ def main():
     mr=cac_auc_rollforward({"channels":[monthly_ch],"attrition_rate":0},12,12,assumptions={})
     ck("CAC explicit monthly Spend sums into annual equation while CAC level averages",
        _eq(mr["annual"][0]["total_spend"],120000) and _eq(mr["annual"][0]["new_cust"],100))
+    quarterly_ch={"name":"Quarterly source","method":"spend_cac","params":{},"avg_auc_per_customer":1,
+        "driver_specs":{
+          "spend":{"source":"entered","trajectory":"explicit","cadence":"quarter","values":[30000]*4,"aggregation":"sum","resolution":"smooth"},
+          "cac":{"source":"entered","trajectory":"explicit","cadence":"quarter","values":[1200]*4,"aggregation":"average","resolution":"step"},
+          "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
+    qr=cac_auc_rollforward({"channels":[quarterly_ch],"attrition_rate":0},12,12,assumptions={})
+    ck("CAC quarterly Explicit values reduce directly without Step/Smooth or monthly triple-counting",
+       _eq(qr["annual"][0]["total_spend"],120000) and _eq(qr["annual"][0]["new_cust"],100))
 
     # Rename display label; stable series_id keeps link intact.
     renamed=copy.deepcopy(assumptions); renamed["nie_detail"]["categories"][0]["name"]="Partnership Growth"

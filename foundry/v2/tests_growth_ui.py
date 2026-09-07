@@ -172,6 +172,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
        'Coefficient path' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
+    ck("Fee Product explicit coefficient path also uses a pastebox/load workflow",
+       'feeCoeffPaste_' in html and 'Paste a row or column, e.g. 1.5&#9;2.4&#9;3.2&#9;2.8' in html
+       and '_feeSetCoeffSchedule(${_fi},${si},document.getElementById' in html)
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
        '⎘ Paste categories' in html and '+ Add category' in html and '_catPasteGrowthSpec' in html)
     ck("Operating Expense presents mutually exclusive Simple/Detailed authoring modes and three detailed panels",
@@ -194,6 +197,13 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        'Count · ${_cm===' in html and 'nieWorkforceCountMode' in html and 'Count trajectory' in html
        and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
        and '$000s/FTE/year' in html and 'nieWorkforceCompValue' in html and 'Compensation trajectory' in html)
+    ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
+       'nieWorkforceCountPaste' in html and 'nieWorkforceCompPaste' in html
+       and 'nieCatSchedulePaste' in html and 'Load (replace)' in html
+       and 'Paste Count values from a row or column' in html and 'Paste Compensation values' in html)
+    ck("Hold/Interpolate appears only where coarse source levels need native-cadence resolution",
+       'Between source points' in html and '>Hold</option>' in html and '>Interpolate</option>' in html
+       and '_seriesResolutionUseful(_cad)' in html)
     ck("every Load companion manual amount field uses the same $000s-to-raw-dollar conversion",
        'cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000' in html
        and 'cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000' in html
