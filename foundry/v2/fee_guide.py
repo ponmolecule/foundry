@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 1
+GUIDE_SCHEMA_VERSION = 2
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -222,6 +222,74 @@ def fee_guide_manifest():
     }
 
 
+def _guide_output_schema():
+    """JSON Schema used for Anthropic Structured Outputs.
+
+    The stream union constrains basis/rate compatibility before the response
+    reaches Foundry's local validator. Local validation remains authoritative.
+    """
+    common_props = {
+        "name": {"type": "string"},
+        "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
+        "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
+        "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
+    }
+    required = [
+        "name", "basis", "driver_source", "driver_trajectory",
+        "coefficient_kind", "coefficient_period", "coefficient_trajectory",
+        "rate_behavior", "cost_kind",
+    ]
+
+    def variant(basis):
+        props = dict(common_props)
+        props["basis"] = {"type": "string", "const": basis}
+        props["rate_behavior"] = {
+            "type": "string", "enum": sorted(_ALLOWED_RATE_BY_BASIS[basis])
+        }
+        if basis == "transaction":
+            props["coefficient_kind"] = {
+                "type": ["string", "null"], "enum": ["multiple", "pct", None]
+            }
+            props["coefficient_period"] = {
+                "type": ["string", "null"], "enum": ["month", "quarter", "year", None]
+            }
+            props["coefficient_trajectory"] = {
+                "type": ["string", "null"],
+                "enum": ["flat", "growth", "explicit_schedule", None],
+            }
+        else:
+            props["coefficient_kind"] = {"type": "null"}
+            props["coefficient_period"] = {"type": "null"}
+            props["coefficient_trajectory"] = {"type": "null"}
+        return {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": props,
+            "required": required,
+        }
+
+    stream_schema = {"anyOf": [variant(x) for x in sorted(_FEE_BASES)]}
+    return {
+        "type": "object",
+        "additionalProperties": False,
+        "properties": {
+            "status": {"type": "string", "enum": ["plan", "needs_clarification", "unsupported"]},
+            "product_label": {"type": "string"},
+            "managed_notional_source": {
+                "type": "string",
+                "enum": ["manual", "customer_acquisition_feed", "not_needed", "ask"],
+            },
+            "streams": {"type": "array", "items": stream_schema},
+            "questions": {"type": "array", "items": {"type": "string"}},
+            "unsupported_mechanics": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": [
+            "status", "product_label", "managed_notional_source",
+            "streams", "questions", "unsupported_mechanics",
+        ],
+    }
+
+
 def _system_prompt():
     manifest = json.dumps(fee_guide_manifest(), sort_keys=True, separators=(",", ":"))
     return f"""You are Foundry Fee Guide, a constrained schema translator.
@@ -229,41 +297,31 @@ def _system_prompt():
 You are NOT a banking adviser and must not use external facts, market conventions, web knowledge,
 or unstated assumptions. The only actionable vocabulary you may use is the Foundry engine manifest
 below. Your job is to translate the user's description into the dials already supported by Foundry.
-If the description is ambiguous, ask a clarification question. If a requested mechanic cannot be
-represented by the manifest, return status=unsupported. Never invent a rate, volume, timing value,
-product taxonomy, reporting line, or business assumption.
+Never invent a rate, volume, timing value, product taxonomy, reporting line, or business assumption.
 
 FOUNDRY_ENGINE_MANIFEST={manifest}
 
-Return ONLY one JSON object with this exact shape:
-{{
-  "status": "plan" | "needs_clarification" | "unsupported",
-  "product_label": "short label using only words from the user's description",
-  "managed_notional_source": "manual" | "customer_acquisition_feed" | "not_needed" | "ask",
-  "streams": [
-    {{
-      "name": "short stream label using only words from the user's description",
-      "basis": "one manifest basis id",
-      "driver_source": "one manifest driver source id",
-      "driver_trajectory": "one manifest trajectory id",
-      "coefficient_kind": null | "multiple" | "pct",
-      "coefficient_period": null | "month" | "quarter" | "year",
-      "coefficient_trajectory": null | "flat" | "growth" | "explicit_schedule",
-      "rate_behavior": "one rate behavior allowed for that basis",
-      "cost_kind": "one manifest cost id"
-    }}
-  ],
-  "questions": ["clarification questions only; empty when status=plan"]
-}}
-
-Rules:
+The API constrains your response to Foundry's JSON schema. Populate it under these rules:
+- status=plan only when every requested mechanic maps cleanly and no clarification is needed.
+- status=needs_clarification when the mechanic is supported but the user's description omits a
+  choice/value needed to select the correct Foundry path. Put targeted questions in questions.
+- status=unsupported when any requested mechanic cannot be represented by the manifest. For a mixed
+  request, STILL put every supported stream in streams and list only the unsupported pieces in
+  unsupported_mechanics. Do not discard a supported stream just because another one is unsupported.
+- Keep unsupported_mechanics empty unless status=unsupported. Keep questions empty when status=plan.
+- Treat separate revenue equations as separate streams; do not collapse them into one stream.
 - Do not output numeric values from your own knowledge. Numbers explicitly supplied by the user are
-  still not needed in this plan; the local Foundry UI will tell them where to enter those numbers.
+  not needed in the mapping object; the local Foundry UI tells the user where to enter them.
+- If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
+  author that path, ask for those values/rule rather than inventing them.
 - For fee/spread on annualized throughput derived from AUC/AUM, use transaction + managed_notional +
   derived with an explicit coefficient kind/period.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
-- Use flat only for a recurring fixed amount; event only for a one-time amount.
+- Use flat only for a recurring fixed amount; event only for a one-time amount. Obey the manifest's
+  rate_behavior_by_basis exactly: if a recurring flat amount changes through time and Flat supports
+  only a flat behavior, identify that changing-amount mechanic as unsupported rather than pretending
+  a schedule exists.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
 
@@ -324,7 +382,7 @@ def _dummy_stream(item):
 def validate_guide_plan(plan):
     if not isinstance(plan, dict):
         raise ValueError("Guide Me response must be an object")
-    allowed_plan = {"status", "product_label", "managed_notional_source", "streams", "questions"}
+    allowed_plan = {"status", "product_label", "managed_notional_source", "streams", "questions", "unsupported_mechanics"}
     extra_plan = set(plan) - allowed_plan
     if extra_plan:
         raise ValueError(f"Guide Me returned unsupported top-level fields: {sorted(extra_plan)}")
@@ -384,12 +442,26 @@ def validate_guide_plan(plan):
     questions = plan.get("questions") or []
     if not isinstance(questions, list):
         raise ValueError("Guide Me questions must be a list")
+    unsupported = plan.get("unsupported_mechanics") or []
+    if not isinstance(unsupported, list):
+        raise ValueError("Guide Me unsupported_mechanics must be a list")
+    out_questions = [str(q)[:500] for q in questions[:8]]
+    out_unsupported = [str(x)[:500] for x in unsupported[:8]]
+    if status == "plan" and (out_questions or out_unsupported):
+        raise ValueError("Guide Me plan status cannot contain questions or unsupported mechanics")
+    if status == "needs_clarification" and not out_questions:
+        raise ValueError("Guide Me clarification status requires at least one question")
+    if status == "needs_clarification" and out_unsupported:
+        raise ValueError("Guide Me clarification status cannot contain unsupported mechanics")
+    if status == "unsupported" and not out_unsupported:
+        raise ValueError("Guide Me unsupported status requires at least one unsupported mechanic")
     return {
         "status": status,
         "product_label": str(plan.get("product_label") or "Fee product")[:160],
         "managed_notional_source": mns,
         "streams": out_streams,
-        "questions": [str(q)[:500] for q in questions[:8]],
+        "questions": out_questions,
+        "unsupported_mechanics": out_unsupported,
     }
 
 
@@ -481,12 +553,24 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None):
         "max_tokens": 2200,
         "system": _system_prompt(),
         "messages": [{"role": "user", "content": desc}],
+        "output_config": {
+            "format": {
+                "type": "json_schema",
+                "schema": _guide_output_schema(),
+            }
+        },
         # Intentionally NO tools, web search, retrieval, URLs, files, or engagement config.
     }
     raw = _anthropic_request(payload, key, http_open=http_open)
     blocks = raw.get("content") or []
     text = "".join(str(b.get("text") or "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
-    plan = _extract_json(text)
+    try:
+        plan = _extract_json(text)
+    except (ValueError, json.JSONDecodeError) as e:
+        raise RuntimeError(
+            "Guide Me could not read Claude's structured response. Please retry the same description; "
+            "if it recurs, the configured Claude model may not support structured outputs."
+        ) from e
     out = render_guide_plan(plan)
     out["model"] = mdl
     out["grounding"] = "Foundry fee-engine manifest only; no tools/retrieval/engagement data supplied"

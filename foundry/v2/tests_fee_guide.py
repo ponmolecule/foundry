@@ -1,7 +1,7 @@
 """Grounding/fail-closed gate for Fee Product Guide Me."""
 import io, json, os, sys, types, tempfile, stat
 sys.path.insert(0, ".")
-from foundry.v2.fee_guide import anthropic_config_status, anthropic_key_file_path, fee_guide_manifest, guide_fee_product, resolve_anthropic_api_key, store_anthropic_api_key, validate_guide_plan
+from foundry.v2.fee_guide import _guide_output_schema, anthropic_config_status, anthropic_key_file_path, fee_guide_manifest, guide_fee_product, render_guide_plan, resolve_anthropic_api_key, store_anthropic_api_key, validate_guide_plan
 
 class _Resp:
     def __init__(self, obj): self._b=json.dumps(obj).encode()
@@ -64,7 +64,7 @@ def main():
       "streams":[
         {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
         {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
-      ],"questions":[]}
+      ],"questions":[],"unsupported_mechanics":[]}
     def fake_open(req, timeout=0):
         seen["url"]=req.full_url; seen["headers"]={k.lower():v for k,v in req.header_items()}; seen["payload"]=json.loads(req.data.decode())
         return _Resp({"content":[{"type":"text","text":json.dumps(good)}]})
@@ -75,6 +75,31 @@ def main():
     pl=seen.get("payload") or {}
     ck("Claude request supplies no tools or retrieval", "tools" not in pl and "url" not in pl and "files" not in pl)
     ck("Claude receives only manifest/system + user's description", pl.get("messages")==[{"role":"user","content":"Custody on AUC plus settlement turns."}] and "FOUNDRY_ENGINE_MANIFEST=" in pl.get("system",""))
+    fmt=((pl.get("output_config") or {}).get("format") or {})
+    ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
+    sch=_guide_output_schema()
+    ck("structured schema requires closed mixed-result fields", sch.get("additionalProperties") is False and "unsupported_mechanics" in sch.get("required",[]))
+
+    mixed={
+      "status":"unsupported","product_label":"Settlement escrow","managed_notional_source":"ask",
+      "streams":[
+        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
+      ],
+      "questions":["What annual settlement-turn values should be used through Y3 and after normalization?","Should AUC come from Manual assumptions or a Customer-Acquisition feed?"],
+      "unsupported_mechanics":["The recurring escrow amount changes each year, while the current Flat basis supports only a flat periodic amount."]
+    }
+    mout=render_guide_plan(mixed)
+    ck("mixed supported/unsupported request preserves supported stream mapping", mout["status"]=="unsupported" and len(mout["stream_guides"])==1 and len(mout["unsupported_mechanics"])==1)
+    ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
+
+    user_case = "I have another stream of revenue: Settlement turns multiplied by Average AUC per annum, ramping up to Y3, then normalizing as the book matures. A flat settlement rate of 0.03% and an escrow fee starting at 150,000, which increases by 50,000 every year through Y7. Revenue starts in month 1"
+    seen_case={}
+    def fake_case(req, timeout=0):
+        seen_case["payload"]=json.loads(req.data.decode())
+        return _Resp({"content":[{"type":"text","text":json.dumps(mixed)}]})
+    case_out=guide_fee_product(user_case,api_key="test-key",model="claude-sonnet-5",http_open=fake_case)
+    ck("settlement + escalating escrow prompt returns structured mixed result", case_out["status"]=="unsupported" and len(case_out["stream_guides"])==1 and len(case_out["unsupported_mechanics"])==1)
+    ck("exact multi-stream regression uses schema-constrained output", (((seen_case.get("payload") or {}).get("output_config") or {}).get("format") or {}).get("type")=="json_schema")
 
     bad=json.loads(json.dumps(good)); bad["streams"][0]["basis"]="royalty_magic"
     try: validate_guide_plan(bad); raised=False
@@ -104,6 +129,7 @@ def main():
     html=open("web/console_v2.html",encoding="utf-8").read()
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
+    ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
     appsrc=open("app.py",encoding="utf-8").read()
     ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide")' in appsrc and "Depends(gate)" in appsrc and "ANTHROPIC_API_KEY" in appsrc)
     import app as appmod
