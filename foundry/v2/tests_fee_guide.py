@@ -1,7 +1,7 @@
 """Grounding/fail-closed gate for Fee Product Guide Me."""
-import io, json, sys
+import io, json, os, sys, types
 sys.path.insert(0, ".")
-from foundry.v2.fee_guide import fee_guide_manifest, guide_fee_product, validate_guide_plan
+from foundry.v2.fee_guide import anthropic_config_status, fee_guide_manifest, guide_fee_product, resolve_anthropic_api_key, validate_guide_plan
 
 class _Resp:
     def __init__(self, obj): self._b=json.dumps(obj).encode()
@@ -19,6 +19,30 @@ def main():
     m=fee_guide_manifest()
     ck("manifest is closed over current five fee bases", {x["id"] for x in m["bases"]}=={"balance","transaction","account","flat","event"})
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
+
+    # Guide Me must reuse Foundry's existing server-side Anthropic configuration
+    # contract: environment first, then config.settings fallback. Never expose key.
+    saved_env=os.environ.pop("ANTHROPIC_API_KEY", None)
+    saved_config=sys.modules.get("config")
+    saved_settings=sys.modules.get("config.settings")
+    pkg=types.ModuleType("config"); pkg.__path__=[]
+    sm=types.ModuleType("config.settings"); sm.ANTHROPIC_API_KEY="settings-key"
+    sys.modules["config"]=pkg; sys.modules["config.settings"]=sm
+    try:
+        key,source=resolve_anthropic_api_key()
+        ck("Guide Me reuses config.settings Anthropic key", key=="settings-key" and source=="config.settings")
+        st=anthropic_config_status()
+        ck("Guide Me status recognizes server-settings credential without exposing it", st.get("configured") is True and st.get("credential_source")=="config.settings" and "key" not in st)
+        os.environ["ANTHROPIC_API_KEY"]="env-key"
+        key2,source2=resolve_anthropic_api_key()
+        ck("environment Anthropic key takes precedence over settings fallback", key2=="env-key" and source2=="environment")
+    finally:
+        if saved_env is None: os.environ.pop("ANTHROPIC_API_KEY", None)
+        else: os.environ["ANTHROPIC_API_KEY"]=saved_env
+        if saved_config is None: sys.modules.pop("config", None)
+        else: sys.modules["config"]=saved_config
+        if saved_settings is None: sys.modules.pop("config.settings", None)
+        else: sys.modules["config.settings"]=saved_settings
 
     seen={}
     good={
