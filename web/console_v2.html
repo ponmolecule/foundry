@@ -2702,17 +2702,28 @@ window.runFeeGuide = async function(){
   if(btn){btn.disabled=true;btn.textContent="Mapping…";}
   if(box) box.innerHTML='<div class="memo">Mapping your description to the current Foundry fee schema…</div>';
   try{
-    const r=await fetch("/api/v31/fee-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc})});
-    const raw=await r.text();
-    let j={}; try{ j=raw?JSON.parse(raw):{}; }catch(_e){ j={}; }
-    if(!r.ok){
-      let msg=j.error||"";
-      if(j.detail) msg += (msg?" ":"")+j.detail;
-      if(!msg && r.status===502) msg="Guide Me gateway error (502). The server/proxy did not return an application error while waiting for Anthropic.";
-      if(!msg && r.status===504) msg="Guide Me timed out waiting for Anthropic (504).";
-      if(!msg) msg="Guide Me failed ("+r.status+")";
-      throw new Error(msg);
+    // Queue the Anthropic call and return immediately. Long model latency must never
+    // sit inside one browser→Foundry request because deployment proxies may terminate it.
+    const sr=await fetch("/api/v31/fee-guide/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc})});
+    const sraw=await sr.text();
+    let sj={}; try{ sj=sraw?JSON.parse(sraw):{}; }catch(_e){ sj={}; }
+    if(!sr.ok) throw new Error(sj.error||("Guide Me could not start ("+sr.status+")"));
+    const jobId=sj.job_id;
+    if(!jobId) throw new Error("Guide Me did not return a job id.");
+
+    let j=null;
+    for(let attempt=0; attempt<180; attempt++){
+      await new Promise(resolve=>setTimeout(resolve,1000));
+      const pr=await fetch("/api/v31/fee-guide/jobs/"+encodeURIComponent(jobId),{cache:"no-store"});
+      const praw=await pr.text();
+      let ps={}; try{ ps=praw?JSON.parse(praw):{}; }catch(_e){ ps={}; }
+      if(!pr.ok) throw new Error(ps.error||("Guide Me status check failed ("+pr.status+")"));
+      if(ps.status==="done"){ j=ps.result||{}; break; }
+      if(ps.status==="error") throw new Error(ps.error||"Guide Me could not complete the mapping.");
+      if(box && attempt>0 && attempt%5===0) box.innerHTML='<div class="memo">Still mapping… Foundry is waiting for Anthropic in the background. You can leave this request open without holding a proxy connection.</div>';
     }
+    if(!j) throw new Error("Guide Me did not complete within 3 minutes. The server job may still be running; retry after checking Anthropic connectivity.");
+
     let h='';
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[];
     if(j.status==="needs_clarification" || j.status==="unsupported"){
