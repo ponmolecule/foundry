@@ -10,6 +10,7 @@ Anything outside the engine vocabulary fails closed.
 """
 from __future__ import annotations
 
+import importlib
 import json
 import os
 import re
@@ -30,6 +31,59 @@ GUIDE_SCHEMA_VERSION = 1
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
+
+
+def resolve_anthropic_api_key():
+    """Resolve the server-side Anthropic credential without exposing it to the client.
+
+    Foundry historically supported two server configuration paths: the standard
+    ``ANTHROPIC_API_KEY`` environment variable and ``config.settings.ANTHROPIC_API_KEY``.
+    Guide Me must reuse that existing server configuration rather than require a
+    second/parallel secret setup. Environment wins when both are present.
+    """
+    key = str(os.environ.get("ANTHROPIC_API_KEY") or "").strip()
+    if key:
+        return key, "environment"
+
+    try:
+        settings_mod = importlib.import_module("config.settings")
+    except Exception:
+        settings_mod = None
+
+    if settings_mod is not None:
+        value = getattr(settings_mod, "ANTHROPIC_API_KEY", "")
+        # Be compatible with SecretStr-like settings objects without depending on
+        # pydantic or another configuration package.
+        if hasattr(value, "get_secret_value"):
+            try:
+                value = value.get_secret_value()
+            except Exception:
+                value = ""
+        key = str(value or "").strip()
+        if key:
+            return key, "config.settings"
+
+        settings_obj = getattr(settings_mod, "settings", None)
+        value = getattr(settings_obj, "ANTHROPIC_API_KEY", "") if settings_obj is not None else ""
+        if hasattr(value, "get_secret_value"):
+            try:
+                value = value.get_secret_value()
+            except Exception:
+                value = ""
+        key = str(value or "").strip()
+        if key:
+            return key, "config.settings.settings"
+
+    return "", None
+
+
+def anthropic_config_status():
+    key, source = resolve_anthropic_api_key()
+    return {
+        "configured": bool(key),
+        "credential_source": source,
+        "model": os.environ.get("FOUNDRY_GUIDE_MODEL") or DEFAULT_MODEL,
+    }
 
 _BASIS_LABELS = {
     "balance": "Balance — stock × annual rate",
@@ -348,9 +402,12 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None):
         raise ValueError("Describe the fee product you are trying to model")
     if len(desc) > 6000:
         raise ValueError("Guide Me description is limited to 6,000 characters")
-    key = api_key if api_key is not None else os.environ.get("ANTHROPIC_API_KEY", "")
+    if api_key is not None:
+        key = str(api_key or "").strip()
+    else:
+        key, _source = resolve_anthropic_api_key()
     if not key:
-        raise RuntimeError("ANTHROPIC_API_KEY is not configured")
+        raise RuntimeError("Anthropic credentials are not configured (checked ANTHROPIC_API_KEY and config.settings.ANTHROPIC_API_KEY)")
     mdl = model or os.environ.get("FOUNDRY_GUIDE_MODEL") or DEFAULT_MODEL
     payload = {
         "model": mdl,
