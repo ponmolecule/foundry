@@ -575,6 +575,37 @@ def run_v2(cfg):
         "flags": _peer_annotated_flags(cfg, base),
         "dfast_segments": dfast_segments,
     }
+    # Customer-acquisition feeds are authored upstream of fee products.  Surface their
+    # annual customer/AUC roll-forward as an audit view whenever feeds are present so a
+    # user can reconcile source-model customer-base schedules without reverse-engineering
+    # fee-product managed-notional output.  Monetary fields follow the public API's $000s
+    # convention; customer counts/rates/CAC-per-customer remain natural units.
+    _cac_cfgs = ((cfg.get("assumptions") or {}).get("cac_feeds") or {})
+    if _cac_cfgs:
+        from .cac_feeder import cac_auc_rollforward
+        _cac_out = {}
+        for _nm, _fcfg in _cac_cfgs.items():
+            _cr = cac_auc_rollforward(_fcfg, _NP, _ppy)
+            _annual = []
+            for _r in _cr.get("annual") or []:
+                _x = copy.deepcopy(_r)
+                for _k in ("beg_auc", "new_auc", "auc_lost", "end_auc", "total_spend"):
+                    _x[_k] = float(_x.get(_k) or 0.0) / 1000.0
+                for _ch in _x.get("channels") or []:
+                    _ch["new_auc"] = float(_ch.get("new_auc") or 0.0) / 1000.0
+                    _ch["spend"] = float(_ch.get("spend") or 0.0) / 1000.0
+                _annual.append(_x)
+            _cac_out[_nm] = {
+                "annual": _annual,
+                "yearEndAUC": [float(v or 0.0) / 1000.0 for v in (_cr.get("year_end_auc") or [])],
+                "aucEndByPeriod": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_period") or [])],
+                "moneyUnits": "$000s",
+                "customerUnits": "count",
+                "rateUnits": "decimal",
+                "cacUnits": "$ per acquired customer",
+            }
+        results["customer_acquisition"] = _cac_out
+
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"

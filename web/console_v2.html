@@ -6645,7 +6645,75 @@ window.secAociToggle = function(){
 // ===== Customer Acquisition (CAC) feeds — bottom-up AUC that feeds fee products. =====
 // A feed = named { channels[], attrition_rate, intra_year_shape }. Fee products reference it
 // via managed_notional_source. Mirrors the engine\x27s cac_feeder.py (methods-not-channels).
-var CAC_METHODS = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit per-year"]];
+var CAC_METHODS = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit customers"]];
+function CACYEARS(){ return Math.max(1,Math.ceil(NP()/PPY())); }
+function _cacPow(base,g,y){ return (+base||0)*Math.pow(1+(+g||0),Math.max(0,(+y||1)-1)); }
+function _cacMeta(method){
+  if(method==="pool_conversion") return [
+    {k:"pool",lab:"Addressable pool",unit:"customers",kind:"number"},
+    {k:"conversion_rate",lab:"Conversion rate",unit:"%",kind:"pct"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+  if(method==="spend_cac") return [
+    {k:"spend",lab:"Acquisition / BD spend",unit:"$000s",kind:"k"},
+    {k:"cac",lab:"Cost per customer acquired",unit:"$ / customer",kind:"number"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+  if(method==="fte_productivity") return [
+    {k:"ftes",lab:"Acquisition FTEs",unit:"FTE",kind:"number"},
+    {k:"per_fte",lab:"New customers / FTE",unit:"customers / FTE",kind:"number"},
+    {k:"comp_per_fte",lab:"Compensation / FTE",unit:"$000s",kind:"k"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+  return [
+    {k:"new_customers",lab:"New customers",unit:"customers",kind:"number"},
+    {k:"spend",lab:"Acquisition spend (optional)",unit:"$000s",kind:"k"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+}
+function _cacLegacyVal(ch,key,y){
+  ch=ch||{}; const p=ch.params||{};
+  if(key==="avg_auc_per_customer") return _cacPow(ch.avg_auc_per_customer,ch.avg_auc_growth,y);
+  if(key==="new_customers") { const a=p.new_customers_by_year||[]; return +(a[y-1]||0); }
+  const gm={pool:"pool_growth",conversion_rate:"conversion_growth",spend:"spend_growth",cac:"cac_growth",ftes:"ftes_growth",per_fte:"per_fte_growth",comp_per_fte:"comp_growth"};
+  return _cacPow(p[key],p[gm[key]],y);
+}
+function _cacEnsureSpec(ch,key){
+  ch.driver_specs=ch.driver_specs||{};
+  if(!ch.driver_specs[key]){
+    const vals=[]; for(let y=1;y<=CACYEARS();y++) vals.push(_cacLegacyVal(ch,key,y));
+    ch.driver_specs[key]={mode:"explicit",cadence:"year",values:vals,extend:"hold"};
+  } else {
+    const sp=ch.driver_specs[key], vals=sp.values=sp.values||[];
+    while(vals.length<CACYEARS()) vals.push(vals.length?vals[vals.length-1]:_cacLegacyVal(ch,key,vals.length+1));
+  }
+  return ch.driver_specs[key];
+}
+window.cacUseAnnual = function(fn){
+  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
+  fd.authoring_mode="annual_schedule"; fd.driver_specs=fd.driver_specs||{};
+  if(!fd.driver_specs.attrition_rate){ fd.driver_specs.attrition_rate={mode:"explicit",cadence:"year",values:Array.from({length:CACYEARS()},()=>+(fd.attrition_rate||0)),extend:"hold"}; }
+  (fd.channels||[]).forEach(ch=>_cacMeta(ch.method||"pool_conversion").forEach(m=>_cacEnsureSpec(ch,m.k)));
+  renderContent(); refresh();
+};
+window.cacUseSimple = function(fn){
+  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
+  if(!confirm("Return this feed to simple Year-1 assumptions? Its explicit annual schedules will be removed.")) return;
+  delete fd.driver_specs; (fd.channels||[]).forEach(ch=>delete ch.driver_specs); fd.authoring_mode="simple";
+  renderContent(); refresh();
+};
+window.cacSetAnnual = function(fn,ci,key,yi,val,kind){
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci], sp=_cacEnsureSpec(ch,key);
+  let v=_pf(val); if(kind==="pct") v/=100; else if(kind==="k") v*=1000;
+  sp.values[yi]=v; refresh();
+};
+window.cacSetAttrAnnual = function(fn,yi,val){
+  const fd=cfg.assumptions.cac_feeds[fn]; fd.driver_specs=fd.driver_specs||{};
+  const sp=fd.driver_specs.attrition_rate=fd.driver_specs.attrition_rate||{mode:"explicit",cadence:"year",values:[],extend:"hold"};
+  while(sp.values.length<CACYEARS()) sp.values.push(+(fd.attrition_rate||0));
+  sp.values[yi]=_pf(val)/100; refresh();
+};
+window.cacMethodChange = function(fn,ci,m){
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci]; ch.method=m;
+  const fd=cfg.assumptions.cac_feeds[fn]; if(fd.authoring_mode==="annual_schedule") _cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
+  renderContent(); refresh();
+};
 window.renameCacFeed = function(oldName, newName){
   newName = (newName||"").trim(); if(!newName || newName===oldName){ renderContent(); return; }
   var CF = cfg.assumptions.cac_feeds || {};
@@ -6657,12 +6725,13 @@ window.renameCacFeed = function(oldName, newName){
 window.addCacFeed = function(){
   cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
   let n=1; while(cfg.assumptions.cac_feeds["feed_"+n]) n++;
-  cfg.assumptions.cac_feeds["feed_"+n]={channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear"};
+  cfg.assumptions.cac_feeds["feed_"+n]={channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear",authoring_mode:"simple"};
   renderContent(); refresh();
 };
 window.addCacChannel = function(fn){
   const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return; fd.channels=fd.channels||[];
-  fd.channels.push({name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0});
+  const ch={name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0}; fd.channels.push(ch);
+  if(fd.authoring_mode==="annual_schedule") _cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k));
   renderContent(); refresh();
 };
 function _operatingExpenseMode(A){
@@ -6959,21 +7028,69 @@ function structuresSectionsHtml(){
   }
   h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
   { const CF = (A.cac_feeds = A.cac_feeds || {}); const cfNames = Object.keys(CF);
-    const CACM = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit per-year"]];
     if(!cfNames.length){ h += '<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>'; }
     cfNames.forEach(function(fn){ const fd = CF[fn]; fd.channels = fd.channels || [];
-      h += `<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:150px" value="${esc(fn)}" onchange="window.renameCacFeed(\x27${esc(fn)}\x27,this.value)"> attrition<input type="number" step="0.5" style="width:56px" value="${((fd.attrition_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].attrition_rate=_pf(this.value)/100;refresh()"><span class="cu">%/yr</span><a href="#" class="cx" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false">\u00d7</a></div>`;
+      const annualMode = fd.authoring_mode==="annual_schedule" || !!fd.driver_specs || fd.channels.some(ch=>!!ch.driver_specs);
+      h += `<div style="border:1px solid #2A3444;border-radius:7px;padding:9px;margin:8px 0 10px">`;
+      h += `<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:150px" value="${esc(fn)}" onchange="window.renameCacFeed(\x27${esc(fn)}\x27,this.value)">`;
+      h += ` <span class="cu">Beginning customers</span><input type="number" style="width:70px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].beginning_customers=_pf(this.value);refresh()">`;
+      h += ` <span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`;
+      h += `<a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false">\u00d7</a></div>`;
+      h += `<div class="crow" style="align-items:center"><span class="cu">Within-year resolution</span><select onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].intra_year_shape=this.value;refresh()"><option value="linear"${(fd.intra_year_shape||"linear")==="linear"?" selected":""}>Smooth ramp</option><option value="stepped"${fd.intra_year_shape==="stepped"?" selected":""}>Step to annual level</option></select>`;
+      if(!annualMode){
+        h += ` <span class="cu">Attrition</span><input type="number" step="0.5" style="width:56px" value="${((fd.attrition_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].attrition_rate=_pf(this.value)/100;refresh()"><span class="cu">%/yr</span>`;
+        h += `<button class="pillbtn" style="margin-left:auto" onclick="window.cacUseAnnual(\x27${esc(fn)}\x27)">Use annual source schedule</button>`;
+      } else {
+        h += `<span class="cu" style="margin-left:auto">Annual source schedule active \u00b7 ${CACYEARS()} model year${CACYEARS()===1?'':'s'}</span><button class="pillbtn" onclick="window.cacUseSimple(\x27${esc(fn)}\x27)">Return to simple</button>`;
+      }
+      h += `</div>`;
+      h += `<div class="chint" style="margin:5px 0 8px">Channels are user-named. Foundry only knows acquisition methods; add as many channels as the source model requires. Annual source schedules are resolved to the selected monthly/quarterly projection cadence downstream.</div>`;
+
       fd.channels.forEach(function(ch,ci){ ch.params = ch.params || {}; const m = ch.method || "pool_conversion";
         const P=function(k,expr){return "cfg.assumptions.cac_feeds[\x27"+fn+"\x27].channels["+ci+"].params."+k+"="+expr+";refresh()";};
-        let row = `<div class="crow" style="padding-left:14px"><input style="width:96px" placeholder="Channel" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].name=this.value;refresh()"><select onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].method=this.value;renderContent();refresh()">${CACM.map(function(o){return `<option value="${o[0]}"${o[0]===m?" selected":""}>${o[1]}</option>`;}).join('')}</select> `;
-        if(m==="pool_conversion"){ row += `pool<input type="number" style="width:74px" value="${ch.params.pool||0}" onchange="${P('pool','_pf(this.value)')}"> conv<input type="number" step="0.5" style="width:50px" value="${((ch.params.conversion_rate||0)*100).toFixed(1)}" onchange="${P('conversion_rate','_pf(this.value)/100')}"><span class="cu">%</span>`; }
-        else if(m==="spend_cac"){ row += `spend<input type="number" style="width:84px" value="${(ch.params.spend||0)/1000}" onchange="${P('spend','_pf(this.value)*1000')}"><span class="cu">$000s</span> CAC<input type="number" style="width:74px" value="${ch.params.cac||0}" onchange="${P('cac','_pf(this.value)')}"><span class="cu">$</span>`; }
-        else if(m==="fte_productivity"){ row += `FTEs<input type="number" step="0.5" style="width:54px" value="${ch.params.ftes||0}" onchange="${P('ftes','_pf(this.value)')}"> per-FTE<input type="number" style="width:64px" value="${ch.params.per_fte||0}" onchange="${P('per_fte','_pf(this.value)')}">`; }
-        else { row += `by-year<input style="width:140px" placeholder="50,75,100" value="${esc((ch.params.new_customers_by_year||[]).join(String.fromCharCode(44)))}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(function(x){return parseFloat(x.trim())||0;});refresh()">`; }
-        row += ` avgAUC<input type="number" style="width:84px" value="${(ch.avg_auc_per_customer||0)/1000}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].avg_auc_per_customer=_pf(this.value)*1000;refresh()"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false">\u00d7</a></div>`;
+        let row = `<div class="crow" style="padding-left:14px"><input style="width:116px" placeholder="Channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].name=this.value;refresh()"><select onchange="window.cacMethodChange(\x27${esc(fn)}\x27,${ci},this.value)">${CAC_METHODS.map(function(o){return `<option value="${o[0]}"${o[0]===m?" selected":""}>${o[1]}</option>`;}).join('')}</select> `;
+        if(!annualMode){
+          if(m==="pool_conversion"){ row += `pool<input type="number" style="width:74px" value="${ch.params.pool||0}" onchange="${P('pool','_pf(this.value)')}"> conv<input type="number" step="0.5" style="width:50px" value="${((ch.params.conversion_rate||0)*100).toFixed(1)}" onchange="${P('conversion_rate','_pf(this.value)/100')}"><span class="cu">%</span>`; }
+          else if(m==="spend_cac"){ row += `spend<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((ch.params.spend||0)/1000)}" onchange="${P('spend','_pf(this.value)*1000')};fmtField(this)"><span class="cu">$000s</span> CAC<input type="number" style="width:74px" value="${ch.params.cac||0}" onchange="${P('cac','_pf(this.value)')}"><span class="cu">$ / cust.</span>`; }
+          else if(m==="fte_productivity"){ row += `FTEs<input type="number" step="0.5" style="width:54px" value="${ch.params.ftes||0}" onchange="${P('ftes','_pf(this.value)')}"> per-FTE<input type="number" style="width:64px" value="${ch.params.per_fte||0}" onchange="${P('per_fte','_pf(this.value)')}">`; }
+          else { row += `by-year<input style="width:140px" placeholder="50,75,100" value="${esc((ch.params.new_customers_by_year||[]).join(String.fromCharCode(44)))}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(function(x){return parseFloat(x.trim())||0;});refresh()">`; }
+          row += ` avgAUC<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((ch.avg_auc_per_customer||0)/1000)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].avg_auc_per_customer=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`;
+        } else row += `<span class="cu">drivers entered in annual schedule below</span>`;
+        row += `<a href="#" class="cx" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false">\u00d7</a></div>`;
         h += row;
       });
-      h += `<div style="padding-left:14px;margin:2px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ channel to this feed</a></div>`;
+      h += `<div style="padding-left:14px;margin:2px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ acquisition channel</a></div>`;
+
+      if(annualMode){
+        h += `<div style="overflow-x:auto;border-top:1px solid #2A3444;padding-top:8px"><table style="border-collapse:collapse;min-width:${Math.max(620,230+CACYEARS()*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Annual source driver</th>`;
+        for(let y=1;y<=CACYEARS();y++) h += `<th style="padding:4px 5px;color:#9FB0C8">Year ${y}</th>`;
+        h += `<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
+        const _as=(((fd.driver_specs||{}).attrition_rate||{}).values||[]);
+        h += `<tr><td style="padding:4px 6px;color:#DCE3EE">Book attrition rate</td>`;
+        for(let y=0;y<CACYEARS();y++){ const _av=(_as[y]!=null?_as[y]:(_as.length?_as[_as.length-1]:(fd.attrition_rate||0))); h += `<td style="padding:3px"><input type="number" step="0.1" style="width:72px" value="${((+_av||0)*100).toFixed(2)}" onchange="window.cacSetAttrAnnual(\x27${esc(fn)}\x27,${y},this.value)"></td>`; }
+        h += `<td class="cu">% / yr</td></tr>`;
+        fd.channels.forEach(function(ch,ci){
+          _cacMeta(ch.method||"pool_conversion").forEach(function(meta,mi){ const sp=((ch.driver_specs||{})[meta.k]||{}), vals=sp.values||[];
+            h += `<tr${mi===0?' style="border-top:1px solid #253043"':''}><td style="padding:4px 6px"><b style="color:#DFA85A">${esc(ch.name||('Channel '+(ci+1)))}</b> <span style="color:#8FA3C0">\u00b7 ${esc(meta.lab)}</span></td>`;
+            for(let y=0;y<CACYEARS();y++){ let _raw=(vals[y]!=null?vals[y]:(vals.length?vals[vals.length-1]:_cacLegacyVal(ch,meta.k,y+1))), v=+_raw||0; if(meta.kind==="pct") v*=100; else if(meta.kind==="k") v/=1000;
+              h += `<td style="padding:3px"><input type="text" inputmode="decimal" style="width:72px" value="${meta.kind==='k'?fmtComma(v):(meta.kind==='pct'?v.toFixed(2):v)}" onchange="window.cacSetAnnual(\x27${esc(fn)}\x27,${ci},\x27${meta.k}\x27,${y},this.value,\x27${meta.kind}\x27);${meta.kind==='k'?'fmtField(this)':''}"></td>`; }
+            h += `<td class="cu">${esc(meta.unit)}</td></tr>`;
+          });
+        });
+        h += `</tbody></table></div>`;
+      }
+      const _ca = lastRes && lastRes.customer_acquisition && lastRes.customer_acquisition[fn];
+      if(_ca && (_ca.annual||[]).length){
+        const ar=_ca.annual;
+        h += `<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward</div><table style="border-collapse:collapse;min-width:${Math.max(620,230+ar.length*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output</th>`;
+        ar.forEach((r,i)=>h+=`<th style="padding:4px 5px;color:#9FB0C8">Year ${i+1}</th>`); h+=`<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
+        const rr=(lab,key,unit,fmt)=>{ h+=`<tr><td style="padding:4px 6px;color:#DCE3EE">${lab}</td>`; ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):v.toLocaleString(undefined,{maximumFractionDigits:1})}</td>`;}); h+=`<td class="cu">${unit}</td></tr>`; };
+        rr("New customers acquired","new_cust","customers"); rr("Customers lost to attrition","cust_lost","customers"); rr("Ending bank customers","end_cust","customers");
+        rr("New AUC added","new_auc","$000s",v=>fmtComma(v)); rr("AUC lost to attrition","auc_lost","$000s",v=>fmtComma(v)); rr("Ending AUC","end_auc","$000s",v=>fmtComma(v));
+        rr("Blended CAC","blended_cac","$ / acquired customer",v=>v?Math.round(v).toLocaleString():"—");
+        h += `</tbody></table></div>`;
+      }
+      h += `</div>`;
     });
     h += '<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="window.addCacFeed();return false">+ New acquisition feed</a></div>';
   }
