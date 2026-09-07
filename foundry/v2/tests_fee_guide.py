@@ -2,6 +2,7 @@
 import io, json, os, sys, types, tempfile, stat
 sys.path.insert(0, ".")
 from foundry.v2.fee_guide import _guide_output_schema, anthropic_config_status, anthropic_key_file_path, fee_guide_manifest, guide_fee_product, render_guide_plan, resolve_anthropic_api_key, store_anthropic_api_key, validate_guide_plan
+from foundry.v2.fee_guide_jobs import submit_fee_guide_job, get_fee_guide_job, _run_job
 
 class _Resp:
     def __init__(self, obj): self._b=json.dumps(obj).encode()
@@ -137,10 +138,36 @@ def main():
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
-    ck("Guide Me UI distinguishes bare gateway/proxy 502 from application errors", "Guide Me gateway error (502)" in html and "j.detail" in html)
+    ck("Guide Me UI submits background jobs instead of holding one Anthropic request open", '/api/v31/fee-guide/jobs' in html and 'Still mapping… Foundry is waiting for Anthropic in the background' in html and 'fetch("/api/v31/fee-guide",' not in html)
     ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
+    # Async job wrapper: persistent status is shared across web workers, user-bound,
+    # and the long Anthropic wait happens outside the browser request.
+    saved_job_dir=os.environ.get("FOUNDRY_DATA_DIR")
+    try:
+        with tempfile.TemporaryDirectory() as td:
+            os.environ["FOUNDRY_DATA_DIR"]=td
+            job=submit_fee_guide_job("alice","custody fee",runner=lambda d:{"status":"plan","stream_guides":[],"description_seen":d},start_worker=False)
+            ck("Guide Me job submission returns immediately with pending id", job.get("status")=="pending" and len(job.get("job_id",''))==32)
+            pending=get_fee_guide_job("alice",job["job_id"])
+            ck("Guide Me polling reads persistent pending job", pending.get("status")=="pending")
+            try:
+                get_fee_guide_job("bob",job["job_id"]); isolated=False
+            except KeyError:
+                isolated=True
+            ck("Guide Me jobs are bound to authenticated user", isolated)
+            _run_job(job["job_id"],"alice","custody fee",runner=lambda d:{"status":"plan","stream_guides":[],"description_seen":d})
+            done=get_fee_guide_job("alice",job["job_id"])
+            ck("Guide Me background worker persists completed result", done.get("status")=="done" and (done.get("result") or {}).get("description_seen")=="custody fee")
+            job2=submit_fee_guide_job("alice","bad",runner=lambda d: (_ for _ in ()).throw(RuntimeError("Claude API error 429: test")),start_worker=False)
+            _run_job(job2["job_id"],"alice","bad",runner=lambda d: (_ for _ in ()).throw(RuntimeError("Claude API error 429: test")))
+            err=get_fee_guide_job("alice",job2["job_id"])
+            ck("Guide Me background worker preserves actionable upstream category", err.get("status")=="error" and err.get("error_kind")=="rate_limited")
+    finally:
+        if saved_job_dir is None: os.environ.pop("FOUNDRY_DATA_DIR",None)
+        else: os.environ["FOUNDRY_DATA_DIR"]=saved_job_dir
+
     appsrc=open("app.py",encoding="utf-8").read()
-    ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide")' in appsrc and "Depends(gate)" in appsrc and "ANTHROPIC_API_KEY" in appsrc)
+    ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide/jobs")' in appsrc and '@app.get("/api/v31/fee-guide/jobs/{job_id}")' in appsrc and "Depends(gate)" in appsrc)
     ck("Guide Me server classifies upstream auth/rate-limit/timeout failures", "Claude API error 401" in appsrc and "Claude API error 429" in appsrc and "timed out waiting for Anthropic" in appsrc)
     import app as appmod
     from foundry import auth as authmod

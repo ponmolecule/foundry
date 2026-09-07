@@ -404,6 +404,27 @@ def v31_fee_guide_configure(body: dict, user=Depends(gate)):
     return JSONResponse({"configured": bool(status.get("configured")), "credential_source": status.get("credential_source")})
 
 
+@app.post("/api/v31/fee-guide/jobs")
+def v31_fee_guide_submit(body: dict, user=Depends(gate)):
+    """Queue Guide Me work and return immediately so reverse proxies never wait on Anthropic."""
+    from foundry.v2.fee_guide_jobs import submit_fee_guide_job
+    try:
+        job = submit_fee_guide_job(user, body.get("description") or "")
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    return JSONResponse(job, status_code=202)
+
+
+@app.get("/api/v31/fee-guide/jobs/{job_id}")
+def v31_fee_guide_job_status(job_id: str, user=Depends(gate)):
+    """Return a fast, user-bound Guide Me job status/result poll."""
+    from foundry.v2.fee_guide_jobs import get_fee_guide_job
+    try:
+        return JSONResponse(get_fee_guide_job(user, job_id))
+    except KeyError:
+        return JSONResponse({"error": "Guide Me job not found"}, status_code=404)
+
+
 @app.post("/api/v31/fee-guide")
 def v31_fee_guide(body: dict, _=Depends(gate)):
     """Translate user prose into a validated Foundry Fee Product dial plan.

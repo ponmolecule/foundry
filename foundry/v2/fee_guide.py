@@ -550,7 +550,7 @@ def _anthropic_request(payload, api_key, timeout=25, http_open=None):
         raise RuntimeError(f"Claude API request failed: {e}") from e
 
 
-def guide_fee_product(description, api_key=None, model=None, http_open=None):
+def guide_fee_product(description, api_key=None, model=None, http_open=None, request_timeout=25):
     desc = str(description or "").strip()
     if not desc:
         raise ValueError("Describe the fee product you are trying to model")
@@ -580,7 +580,7 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None):
         },
         # Intentionally NO tools, web search, retrieval, URLs, files, or engagement config.
     }
-    raw = _anthropic_request(payload, key, http_open=http_open)
+    raw = _anthropic_request(payload, key, timeout=request_timeout, http_open=http_open)
     blocks = raw.get("content") or []
     text = "".join(str(b.get("text") or "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
     try:

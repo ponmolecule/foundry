@@ -32,3 +32,13 @@ The Flat fee basis represents a recurring fixed-dollar fee. Its recurring **Amou
 The amount path is distinct from **Rate behavior**. Flat-basis Rate behavior remains `flat`; changing the recurring dollar amount is authored through **Amount path**, not by inventing a rate schedule. Guide Me exposes this mechanic through `flat_amount_trajectory` and may map an escalating escrow/retainer schedule to one Flat stream.
 
 Example: an annual escrow schedule of `150, 200, 250, 300, 350, 400, 450` means `$150,000` through `$450,000` per year. The same natural-year economics must reconcile in quarterly and monthly engine cadence.
+## Proxy-safe execution
+
+Guide Me must never hold a browser-to-Foundry request open while Anthropic generates a plan.
+The UI submits a short authenticated job request, receives a job ID immediately, and polls a
+short status endpoint. The Anthropic call runs server-side outside the browser request window.
+Job status is persisted under `FOUNDRY_DATA_DIR`, bound to the authenticated user, and expires
+after a short retention window. The submitted description is not persisted in the job file.
+
+This separation is required because reverse proxies may terminate long synchronous requests even
+when Anthropic is healthy. Proxy timeouts therefore cannot be treated as model failures.
