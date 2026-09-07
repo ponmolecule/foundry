@@ -81,6 +81,9 @@ def main():
     sch=_guide_output_schema()
     ck("structured schema requires closed mixed-result fields", sch.get("additionalProperties") is False and "unsupported_mechanics" in sch.get("required",[]))
     ck("structured schema carries Flat amount trajectory", "flat_amount_trajectory" in json.dumps(sch))
+    sch_text=json.dumps(sch)
+    ck("structured schema avoids high-latency basis anyOf expansion", '"anyOf"' not in sch_text)
+    ck("Guide Me disables Sonnet adaptive thinking for low-latency translation", pl.get("thinking")=={"type":"disabled"})
 
     mixed={
       "status":"needs_clarification","product_label":"Settlement escrow","managed_notional_source":"ask",
@@ -134,9 +137,11 @@ def main():
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
+    ck("Guide Me UI distinguishes bare gateway/proxy 502 from application errors", "Guide Me gateway error (502)" in html and "j.detail" in html)
     ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
     appsrc=open("app.py",encoding="utf-8").read()
     ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide")' in appsrc and "Depends(gate)" in appsrc and "ANTHROPIC_API_KEY" in appsrc)
+    ck("Guide Me server classifies upstream auth/rate-limit/timeout failures", "Claude API error 401" in appsrc and "Claude API error 429" in appsrc and "timed out waiting for Anthropic" in appsrc)
     import app as appmod
     from foundry import auth as authmod
     saved_user=appmod.USER; saved_loader=authmod.load_users

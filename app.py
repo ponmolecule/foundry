@@ -422,6 +422,26 @@ def v31_fee_guide(body: dict, _=Depends(gate)):
             return JSONResponse({
                 "error": "Guide Me is not configured for this Foundry service. A server operator can configure it from the Guide Me window, or set ANTHROPIC_API_KEY / FOUNDRY_ANTHROPIC_API_KEY on the Foundry service."
             }, status_code=503)
+        if "Claude API error 401" in msg or "Claude API error 403" in msg:
+            return JSONResponse({
+                "error": "Anthropic rejected the configured Guide Me credential. Re-save a valid Anthropic API key in Guide Me server setup.",
+                "detail": msg[:500],
+            }, status_code=502)
+        if "Claude API error 429" in msg:
+            return JSONResponse({
+                "error": "Anthropic rate-limited Guide Me. Please retry this mapping shortly.",
+                "detail": msg[:500],
+            }, status_code=503)
+        if "Claude API error 529" in msg or "overloaded" in msg.lower():
+            return JSONResponse({
+                "error": "Anthropic is temporarily overloaded. Please retry Guide Me shortly.",
+                "detail": msg[:500],
+            }, status_code=503)
+        if "timed out" in msg.lower() or "timeout" in msg.lower():
+            return JSONResponse({
+                "error": "Guide Me timed out waiting for Anthropic. Please retry the same description.",
+                "detail": msg[:500],
+            }, status_code=504)
         return JSONResponse({"error": "Guide Me could not produce a validated Foundry plan.", "detail": msg[:500]}, status_code=502)
 
 
