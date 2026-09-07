@@ -364,13 +364,44 @@ def v31_template(_=Depends(gate)):
     return JSONResponse(_json.load(open(p, encoding="utf-8")))
 
 
+def _can_manage_fee_guide_secret(user):
+    """Only a server operator or privileged Foundry account may change server secrets."""
+    if USER and user == USER:
+        return True
+    try:
+        from foundry import auth as _auth
+        rec = (_auth.load_users() or {}).get(user) or {}
+        return bool(rec.get("admin") or rec.get("deputy"))
+    except Exception:
+        return False
+
+
 @app.get("/api/v31/fee-guide/status")
-def v31_fee_guide_status(_=Depends(gate)):
+def v31_fee_guide_status(user=Depends(gate)):
     """Guide Me is optional and server-side only; never expose the API key."""
     from foundry.v2.fee_guide import anthropic_config_status
     status = anthropic_config_status()
+    status["can_manage"] = _can_manage_fee_guide_secret(user)
     status["grounding"] = "Foundry fee-engine manifest only; no tools/retrieval/engagement data supplied"
     return JSONResponse(status)
+
+
+@app.post("/api/v31/fee-guide/configure")
+def v31_fee_guide_configure(body: dict, user=Depends(gate)):
+    """Store the Guide Me Anthropic key on Foundry's persistent server volume.
+
+    The key is never returned to the browser, logged, written to engagement config,
+    or packaged with a deployment artifact. Environment secrets continue to win.
+    """
+    if not _can_manage_fee_guide_secret(user):
+        return JSONResponse({"error": "Only a Foundry server operator or privileged account can configure Guide Me."}, status_code=403)
+    from foundry.v2.fee_guide import store_anthropic_api_key, anthropic_config_status
+    try:
+        store_anthropic_api_key(body.get("api_key") or "")
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+    status = anthropic_config_status()
+    return JSONResponse({"configured": bool(status.get("configured")), "credential_source": status.get("credential_source")})
 
 
 @app.post("/api/v31/fee-guide")
@@ -389,7 +420,7 @@ def v31_fee_guide(body: dict, _=Depends(gate)):
         msg = str(e)
         if "credentials are not configured" in msg:
             return JSONResponse({
-                "error": "Guide Me is not configured on this server. Foundry checked both the ANTHROPIC_API_KEY environment variable and the existing config.settings.ANTHROPIC_API_KEY server setting."
+                "error": "Guide Me is not configured for this Foundry service. A server operator can configure it from the Guide Me window, or set ANTHROPIC_API_KEY / FOUNDRY_ANTHROPIC_API_KEY on the Foundry service."
             }, status_code=503)
         return JSONResponse({"error": "Guide Me could not produce a validated Foundry plan.", "detail": msg[:500]}, status_code=502)
 

@@ -1,7 +1,7 @@
 """Grounding/fail-closed gate for Fee Product Guide Me."""
-import io, json, os, sys, types
+import io, json, os, sys, types, tempfile, stat
 sys.path.insert(0, ".")
-from foundry.v2.fee_guide import anthropic_config_status, fee_guide_manifest, guide_fee_product, resolve_anthropic_api_key, validate_guide_plan
+from foundry.v2.fee_guide import anthropic_config_status, anthropic_key_file_path, fee_guide_manifest, guide_fee_product, resolve_anthropic_api_key, store_anthropic_api_key, validate_guide_plan
 
 class _Resp:
     def __init__(self, obj): self._b=json.dumps(obj).encode()
@@ -20,25 +20,39 @@ def main():
     ck("manifest is closed over current five fee bases", {x["id"] for x in m["bases"]}=={"balance","transaction","account","flat","event"})
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
 
-    # Guide Me must reuse Foundry's existing server-side Anthropic configuration
-    # contract: environment first, then config.settings fallback. Never expose key.
-    saved_env=os.environ.pop("ANTHROPIC_API_KEY", None)
+    # Guide Me credential resolution is server-only and must work even though
+    # Foundry is deployed separately from CharterIQ. Environment wins, then a
+    # persistent Foundry secret file, then legacy/co-located config.settings.
+    saved_env={k:os.environ.get(k) for k in ("ANTHROPIC_API_KEY","FOUNDRY_ANTHROPIC_API_KEY","FOUNDRY_DATA_DIR","FOUNDRY_ANTHROPIC_KEY_FILE")}
     saved_config=sys.modules.get("config")
     saved_settings=sys.modules.get("config.settings")
+    for k in ("ANTHROPIC_API_KEY","FOUNDRY_ANTHROPIC_API_KEY","FOUNDRY_ANTHROPIC_KEY_FILE"):
+        os.environ.pop(k, None)
     pkg=types.ModuleType("config"); pkg.__path__=[]
     sm=types.ModuleType("config.settings"); sm.ANTHROPIC_API_KEY="settings-key"
     sys.modules["config"]=pkg; sys.modules["config.settings"]=sm
     try:
-        key,source=resolve_anthropic_api_key()
-        ck("Guide Me reuses config.settings Anthropic key", key=="settings-key" and source=="config.settings")
-        st=anthropic_config_status()
-        ck("Guide Me status recognizes server-settings credential without exposing it", st.get("configured") is True and st.get("credential_source")=="config.settings" and "key" not in st)
-        os.environ["ANTHROPIC_API_KEY"]="env-key"
-        key2,source2=resolve_anthropic_api_key()
-        ck("environment Anthropic key takes precedence over settings fallback", key2=="env-key" and source2=="environment")
+        with tempfile.TemporaryDirectory() as td:
+            os.environ["FOUNDRY_DATA_DIR"]=td
+            key,source=resolve_anthropic_api_key()
+            ck("Guide Me retains co-located config.settings fallback", key=="settings-key" and source=="config.settings")
+            store_anthropic_api_key("sk-ant-test-server-key-1234567890")
+            keyf,sourcef=resolve_anthropic_api_key()
+            ck("Guide Me reads persistent Foundry server secret", keyf=="sk-ant-test-server-key-1234567890" and sourcef=="foundry_secret_file")
+            mode=stat.S_IMODE(os.stat(anthropic_key_file_path()).st_mode)
+            ck("Guide Me persistent secret is owner-only", mode==0o600, oct(mode))
+            st=anthropic_config_status()
+            ck("Guide Me status recognizes persistent secret without exposing it", st.get("configured") is True and st.get("credential_source")=="foundry_secret_file" and "key" not in st)
+            os.environ["FOUNDRY_ANTHROPIC_API_KEY"]="foundry-env-key"
+            keyfe,sourcefe=resolve_anthropic_api_key()
+            ck("Foundry-specific environment secret beats persistent file", keyfe=="foundry-env-key" and sourcefe=="foundry_environment")
+            os.environ["ANTHROPIC_API_KEY"]="shared-env-key"
+            key2,source2=resolve_anthropic_api_key()
+            ck("standard environment secret has highest precedence", key2=="shared-env-key" and source2=="environment")
     finally:
-        if saved_env is None: os.environ.pop("ANTHROPIC_API_KEY", None)
-        else: os.environ["ANTHROPIC_API_KEY"]=saved_env
+        for k,v in saved_env.items():
+            if v is None: os.environ.pop(k, None)
+            else: os.environ[k]=v
         if saved_config is None: sys.modules.pop("config", None)
         else: sys.modules["config"]=saved_config
         if saved_settings is None: sys.modules.pop("config.settings", None)
@@ -92,6 +106,22 @@ def main():
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     appsrc=open("app.py",encoding="utf-8").read()
     ck("Guide Me API is authenticated and server-side", '@app.post("/api/v31/fee-guide")' in appsrc and "Depends(gate)" in appsrc and "ANTHROPIC_API_KEY" in appsrc)
+    import app as appmod
+    from foundry import auth as authmod
+    saved_user=appmod.USER; saved_loader=authmod.load_users
+    try:
+        appmod.USER="legacy-operator"
+        ck("legacy server operator may configure Guide Me", appmod._can_manage_fee_guide_secret("legacy-operator"))
+        appmod.USER=""
+        authmod.load_users=lambda: {"admin":{"admin":True},"deputy":{"deputy":True},"ordinary":{}}
+        ck("privileged Foundry accounts may configure Guide Me", appmod._can_manage_fee_guide_secret("admin") and appmod._can_manage_fee_guide_secret("deputy"))
+        ck("ordinary authenticated account cannot configure Guide Me", not appmod._can_manage_fee_guide_secret("ordinary"))
+        denied=appmod.v31_fee_guide_configure({"api_key":"sk-ant-test-server-key-1234567890"}, user="ordinary")
+        ck("configuration endpoint rejects ordinary account", getattr(denied,"status_code",None)==403)
+    finally:
+        appmod.USER=saved_user; authmod.load_users=saved_loader
+    ck("Guide Me one-time configuration endpoint is privilege-gated", '@app.post("/api/v31/fee-guide/configure")' in appsrc and "_can_manage_fee_guide_secret" in appsrc and "store_anthropic_api_key" in appsrc)
+    ck("Guide Me setup UI uses a password field and never renders stored key", 'id="feeGuideApiKey" type="password"' in html and "Save server key" in html and "The key is stored server-side and is not displayed" in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
