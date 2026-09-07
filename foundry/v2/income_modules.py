@@ -290,6 +290,43 @@ def _fee_schedule_value(schedule, idx, default):
     return cur
 
 
+def _fee_flat_amount_value(spec, q, ppy, ctx=None):
+    """Resolve a recurring Flat-basis amount into one engine-period dollar amount.
+
+    ``spec.value`` is stated in the selected natural ``period`` (Month / Quarter / Year).
+    ``trajectory`` controls how that recurring amount itself changes through time:
+
+    - flat: hold ``value`` constant;
+    - growth: grow ``value`` using a standard Foundry ``growth_spec``;
+    - explicit_schedule: use natural-period schedule points, carrying the last value forward.
+
+    This contract is opt-in through ``rate.params.flat_amount``.  Legacy
+    ``amount_per_period`` continues to bypass this helper so old configs remain exact.
+    """
+    spec = dict(spec or {})
+    period = str(spec.get("period") or "").strip().lower()
+    if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
+        raise ValueError(f"unsupported flat amount period: {period!r}")
+    traj = str(spec.get("trajectory") or "flat").strip().lower()
+    if traj not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError(f"unsupported flat amount trajectory: {traj!r}")
+    val = float(spec.get("value") or 0.0)
+    if traj == "growth":
+        gs = spec.get("growth_spec")
+        if not gs:
+            raise ValueError("flat amount growth trajectory requires growth_spec")
+        from .growth import growth_multiplier
+        val *= growth_multiplier(gs, current_period=int(q), start_period=1, ppy=int(ppy),
+                                 context=(ctx or {}).get("growth_context"), base_position="period1")
+    elif traj == "explicit_schedule":
+        schedule = spec.get("schedule") or {}
+        if not isinstance(schedule, dict):
+            raise ValueError("flat amount explicit_schedule requires a mapping")
+        idx = _fee_natural_period_index(q, period, ppy)
+        val = _fee_schedule_value(schedule, idx, val)
+    return _fee_amount_per_engine_period(val, period, ppy)
+
+
 def _fee_coefficient_value(spec, q, ppy, ctx=None):
     """Resolve an explicit derived-flow coefficient into one engine-period coefficient.
 
@@ -391,6 +428,15 @@ def _validate_fee_stream_shape(stream):
         fa = rp.get("flat_amount") or {}
         if str(fa.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
             raise ValueError(f"unsupported flat amount period: {fa.get('period')!r}")
+        ftraj = str(fa.get("trajectory") or "flat").strip().lower()
+        if ftraj not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported flat amount trajectory: {ftraj!r}")
+        if ftraj == "growth" and not fa.get("growth_spec"):
+            raise ValueError("flat amount growth trajectory requires growth_spec")
+        if ftraj == "explicit_schedule":
+            fsched = fa.get("schedule")
+            if not isinstance(fsched, dict) or not fsched:
+                raise ValueError("flat amount explicit_schedule requires at least one schedule value")
         try:
             float(fa.get("value") or 0.0)
         except (TypeError, ValueError):
@@ -524,8 +570,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     elif basis == "flat":
         flat_amount = rate_params.get("flat_amount")
         if flat_amount is not None:
-            gross = _fee_amount_per_engine_period(
-                (flat_amount or {}).get("value"), (flat_amount or {}).get("period"), ppy)
+            gross = _fee_flat_amount_value(flat_amount, q, ppy, ctx)
         else:
             # Legacy contract: amount_per_period is already an engine-period amount.
             gross = float(rate_params.get("amount_per_period") or 0.0)

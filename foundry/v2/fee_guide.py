@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 2
+GUIDE_SCHEMA_VERSION = 3
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -209,12 +209,13 @@ def fee_guide_manifest():
         "rate_behaviors": [{"id": x, "label": _RATE_LABELS[x]} for x in sorted(_FEE_RATE_BEHAVIORS)],
         "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
         "natural_periods": sorted(_FEE_NATURAL_PERIODS - {"model_period"}),
+        "flat_amount_trajectories": ["flat", "growth", "explicit_schedule"],
         "rate_behavior_by_basis": {k: sorted(v) for k, v in _ALLOWED_RATE_BY_BASIS.items()},
         "special_rules": [
             "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
             "A derived flow coefficient kind is multiple (turns × source) or pct (% of source).",
             "Account fees may be stated per month, quarter, or year.",
-            "Flat amounts may be stated per month, quarter, or year.",
+            "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
             "The guide never chooses numeric assumptions. It tells the user which Foundry field should receive each assumption they already have.",
@@ -237,7 +238,7 @@ def _guide_output_schema():
     required = [
         "name", "basis", "driver_source", "driver_trajectory",
         "coefficient_kind", "coefficient_period", "coefficient_trajectory",
-        "rate_behavior", "cost_kind",
+        "flat_amount_trajectory", "rate_behavior", "cost_kind",
     ]
 
     def variant(basis):
@@ -261,6 +262,12 @@ def _guide_output_schema():
             props["coefficient_kind"] = {"type": "null"}
             props["coefficient_period"] = {"type": "null"}
             props["coefficient_trajectory"] = {"type": "null"}
+        if basis == "flat":
+            props["flat_amount_trajectory"] = {
+                "type": "string", "enum": ["flat", "growth", "explicit_schedule"]
+            }
+        else:
+            props["flat_amount_trajectory"] = {"type": "null"}
         return {
             "type": "object",
             "additionalProperties": False,
@@ -318,10 +325,10 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   derived with an explicit coefficient kind/period.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
-- Use flat only for a recurring fixed amount; event only for a one-time amount. Obey the manifest's
-  rate_behavior_by_basis exactly: if a recurring flat amount changes through time and Flat supports
-  only a flat behavior, identify that changing-amount mechanic as unsupported rather than pretending
-  a schedule exists.
+- Use flat for a recurring fixed-dollar amount and set flat_amount_trajectory to flat, growth, or
+  explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
+  through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
+- Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
 
@@ -367,7 +374,14 @@ def _dummy_stream(item):
     elif basis == "account":
         rate["params"]["unit_fee"] = {"value": 0, "period": "year"}
     elif basis == "flat":
-        rate["params"]["flat_amount"] = {"value": 0, "period": "year"}
+        fat = item.get("flat_amount_trajectory") or "flat"
+        rate["params"]["flat_amount"] = {"value": 0, "period": "year", "trajectory": fat}
+        if fat == "growth":
+            rate["params"]["flat_amount"]["growth_spec"] = {
+                "rate": 0, "period": "year", "method": "smooth", "anchor": "model_year"
+            }
+        elif fat == "explicit_schedule":
+            rate["params"]["flat_amount"]["schedule"] = {"1": 0}
     elif basis == "event":
         rate["params"]["amount"] = 0
     return {
@@ -402,7 +416,8 @@ def validate_guide_plan(plan):
         if not isinstance(raw, dict):
             raise ValueError("Guide Me stream must be an object")
         allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "coefficient_kind",
-                          "coefficient_period", "coefficient_trajectory", "rate_behavior", "cost_kind"}
+                          "coefficient_period", "coefficient_trajectory", "flat_amount_trajectory",
+                          "rate_behavior", "cost_kind"}
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
             raise ValueError(f"Guide Me returned unsupported stream fields: {sorted(extra_stream)}")
@@ -414,6 +429,7 @@ def validate_guide_plan(plan):
             "coefficient_kind": raw.get("coefficient_kind"),
             "coefficient_period": raw.get("coefficient_period"),
             "coefficient_trajectory": raw.get("coefficient_trajectory"),
+            "flat_amount_trajectory": raw.get("flat_amount_trajectory"),
             "rate_behavior": str(raw.get("rate_behavior") or ""),
             "cost_kind": str(raw.get("cost_kind") or "none"),
         }
@@ -437,6 +453,11 @@ def validate_guide_plan(plan):
                 raise ValueError("Guide Me returned unsupported coefficient trajectory")
         elif any(item[k] is not None for k in ("coefficient_period", "coefficient_trajectory")):
             raise ValueError("Guide Me returned coefficient metadata without a coefficient")
+        if item["basis"] == "flat":
+            if item["flat_amount_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
+                raise ValueError("Guide Me returned unsupported flat amount trajectory")
+        elif item["flat_amount_trajectory"] is not None:
+            raise ValueError("Guide Me returned flat amount trajectory on a non-flat basis")
         _validate_fee_stream_shape(_dummy_stream(item))
         out_streams.append(item)
     questions = plan.get("questions") or []
@@ -487,7 +508,14 @@ def _stream_steps(item):
     elif item["basis"] == "account":
         steps.append("Enter the amount in “Fee ($000s/account)” and choose its natural Month / Quarter / Year period.")
     elif item["basis"] == "flat":
-        steps.append("Enter the recurring amount in “Amount ($000s)” and choose its natural Month / Quarter / Year period.")
+        fat = item.get("flat_amount_trajectory") or "flat"
+        steps.append(f"Set Amount path to “{fat.replace('_schedule',' schedule').replace('_',' ').title()}”.")
+        if fat == "explicit_schedule":
+            steps.append("Choose the natural Month / Quarter / Year period, then paste the recurring amount schedule into “Amount schedule ($000s)” and click Load (replace).")
+        elif fat == "growth":
+            steps.append("Enter the starting recurring amount in “Starting amount ($000s)”, choose its natural period, and enter the stated Amount growth assumption.")
+        else:
+            steps.append("Enter the recurring amount in “Amount ($000s)” and choose its natural Month / Quarter / Year period.")
     elif item["basis"] == "event":
         steps.append("Enter the one-time “Amount ($)” and the model period when the event occurs.")
     steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
