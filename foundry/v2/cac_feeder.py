@@ -1,40 +1,18 @@
-"""Customer-Acquisition AUC Feeder (upstream of the fee engine).
+"""Customer-Acquisition AUC feeder (upstream of the fee engine).
 
-Computes a bottom-up, customer-driven AUC roll-forward and emits it as an
-`explicit_levels` managed_notional (absolute per-period levels) that the fee engine's
-Grand Unified Theory consumes — so every fee stream inherits a driver traceable to
-marketing/BD spend and productivity.
+Foundry models causal equations, not a source workbook's grid. A feed contains any number of
+user-named acquisition channels; the engine knows only a small closed set of acquisition
+equations (Pool × Conversion, Spend ÷ CAC, FTE Count × Productivity, Explicit Customers).
+Channel names are presentation-only.
 
-ARCHITECTURE (per FOUNDRY_CAC_AUC_FEEDER_SPEC.md): this module sits UPSTREAM of the GUT and
-does NOT live inside it. It produces an AUC schedule; the GUT consumes that schedule. The seam
-is `managed_notional` with trajectory `explicit_levels` (absolute levels, NOT the additive
-`explicit_schedule`). Verified in-session: feeding a feeder's levels into the additive socket
-inflates AUC cumulatively — hence the dedicated `explicit_levels` socket, which this module
-targets.
+Every equation operand may use the generic Foundry Series contract: enter a Flat / Growth /
+Explicit trajectory, or Link to a compatible series owned elsewhere. Links use stable series IDs,
+so CAC may consume (for example) Operating Expense spend or Workforce Count without duplicating
+the source trajectory. Source cadence is independent of projection cadence.
 
-ANTI-SPRAWL DESIGN (mirrors the GUT's shapes-not-products): the feeder knows a small closed set
-of acquisition METHODS, not a fixed list of named channels. A channel is a user-named bundle:
-{name, method, params, avg_auc_per_customer}. New channel types are new configurations, not new
-code — exactly as new fee businesses are new bundles of stream shapes.
-
-Acquisition methods (closed, extensible set):
-  pool_conversion : new_customers = pool x conversion_rate
-  spend_cac       : new_customers = spend / CAC
-  fte_productivity: new_customers = FTEs x new_accounts_per_FTE
-  explicit        : new_customers = an explicit customer schedule
-
-Channel names are presentation only.  Each economic driver can use the generic ``driver_specs``
-contract (flat / growth / explicit annual schedule), so a source model with one annual column or
-seven annual columns is configuration, not a new channel type.
-
-ROLL-FORWARD (annual source states; resolved to the engine's selected cadence at the end):
-  Beginning AUC (0 in Year 1; prior-year ending thereafter)
-  + New AUC   (sum over channels: new_customers x avg_auc_per_customer)
-  - AUC lost to attrition (customers_lost x avg ticket of existing book)
-  = Ending AUC   -> feeds managed_notional.explicit_levels
-
-All functions are pure (config -> series).  ``engine_q_a`` consumes named feeds through
-``managed_notional_source``; ``run_q`` also surfaces the annual roll-forward as an audit view.
+The annual customer/AUC roll-forward is a domain equation and audit view, not an authoring
+spreadsheet. Its resolved AUC path is emitted as managed-notional explicit levels for downstream
+Fee Products. Unsupported methods/links and circular dependencies fail closed.
 """
 
 
@@ -52,86 +30,44 @@ def _grow(base, rate, year):
 
 
 
-_VALID_DRIVER_MODES = {"flat", "growth", "explicit"}
-_VALID_DRIVER_CADENCES = {"year"}
+def resolve_driver_spec(spec, year, *, assumptions=None, Q=None, ppy=4, growth_context=None):
+    """Resolve one generic Foundry-series operand at an annual CAC equation point.
 
-def resolve_driver_spec(spec, year):
-    """Resolve one generic customer-base driver at an annual source point.
-
-    New authoring is opt-in and versioned by presence of ``driver_specs``.  Legacy scalar
-    fields + ``*_growth`` retain their exact historical meaning when no spec is present.
-
-    Supported shapes today:
-      flat     {mode: flat, value: x}
-      growth   {mode: growth, base: x, growth_spec: {...}}
-      explicit {mode: explicit, cadence: year, values: [...], extend: hold|zero|error}
-
-    ``cadence`` is explicit in the schema even though the current customer-base roll-forward
-    consumes annual source states.  That keeps the authoring contract extensible to future
-    monthly/quarterly source models without baking engagement-specific year counts into it.
+    Legacy ``mode`` specs remain valid.  New specs may instead link to a compatible
+    Foundry series owned by another module; the link declares how the native series is
+    reduced to an annual operand (sum/average/end/start).
     """
     if spec is None:
         return None
-    if not isinstance(spec, dict):
-        raise ValueError("customer-base driver spec must be an object")
-    mode = str(spec.get("mode") or "flat").lower()
-    if mode not in _VALID_DRIVER_MODES:
-        raise ValueError(f"unsupported customer-base driver mode {mode!r}")
-    cadence = str(spec.get("cadence") or "year").lower()
-    if cadence not in _VALID_DRIVER_CADENCES:
-        raise ValueError(f"unsupported customer-base driver cadence {cadence!r}")
-    y = int(year)
-    if y < 1:
-        raise ValueError("customer-base driver year must be >= 1")
-
-    if mode == "flat":
-        return float(spec.get("value") or 0.0)
-
-    if mode == "growth":
-        from .growth import growth_multiplier
-        base = float(spec.get("base") or 0.0)
-        gs = spec.get("growth_spec") or {"rate": 0.0, "period": "year",
-                                         "method": "step", "anchor": "model_year"}
-        return base * growth_multiplier(gs, current_period=y, start_period=1, ppy=1,
-                                        base_position="period1")
-
-    vals = spec.get("values") or []
-    if not isinstance(vals, (list, tuple)):
-        raise ValueError("explicit customer-base driver values must be a list")
-    i = y - 1
-    if i < len(vals):
-        v = vals[i]
-        if v is None:
-            raise ValueError(f"explicit customer-base driver has a blank value in year {y}")
-        return float(v)
-    extend = str(spec.get("extend") or "hold").lower()
-    if extend == "hold":
-        return float(vals[-1]) if vals else 0.0
-    if extend == "zero":
-        return 0.0
-    if extend == "error":
-        raise ValueError(f"explicit customer-base driver has no value for year {y}")
-    raise ValueError(f"unsupported explicit driver extension {extend!r}")
+    from .series import resolve_series_value_for_year
+    return resolve_series_value_for_year(
+        spec, int(year), assumptions or {}, n_periods=Q, ppy=int(ppy),
+        context=growth_context, default_value=0.0)
 
 
-def _driver(owner, key, year, *, legacy_base=0.0, legacy_growth=0.0):
-    """Resolve a named driver from ``owner.driver_specs`` or legacy scalar+growth fields."""
+def _driver(owner, key, year, *, legacy_base=0.0, legacy_growth=0.0, series_context=None):
+    """Resolve a named operand from ``owner.driver_specs`` or legacy scalar+growth fields."""
     specs = (owner or {}).get("driver_specs") or {}
     if key in specs:
-        return resolve_driver_spec(specs.get(key), year)
+        sc = series_context or {}
+        return resolve_driver_spec(specs.get(key), year,
+                                   assumptions=sc.get("assumptions"), Q=sc.get("Q"),
+                                   ppy=sc.get("ppy", 4), growth_context=sc.get("growth_context"))
     return _grow(legacy_base, legacy_growth, year)
 
 
-def _channel_param(ch, key, year, growth_key=None):
+def _channel_param(ch, key, year, growth_key=None, series_context=None):
     p = (ch or {}).get("params") or {}
     return _driver(ch, key, year, legacy_base=p.get(key),
-                   legacy_growth=p.get(growth_key or (key + "_growth")))
+                   legacy_growth=p.get(growth_key or (key + "_growth")),
+                   series_context=series_context)
 
-def channel_new_customers(ch, year):
-    """New customers acquired by one channel in a given year (1-indexed). Method-dispatched.
 
-    Channel *names* are never interpreted by the engine.  A generic ``driver_specs`` map may
-    override any method driver with flat/growth/explicit annual source values.
+def channel_new_customers(ch, year, series_context=None):
+    """New customers acquired by one user-named channel in a model year.
+
+    The engine knows acquisition equations, never channel names.  Every equation operand
+    may be entered locally or linked to a compatible Foundry series owned elsewhere.
     """
     if not ch:
         return 0.0
@@ -139,61 +75,62 @@ def channel_new_customers(ch, year):
     p = ch.get("params") or {}
     specs = ch.get("driver_specs") or {}
     if method == "pool_conversion":
-        pool = _channel_param(ch, "pool", year, "pool_growth")
-        conv = _channel_param(ch, "conversion_rate", year, "conversion_growth")
+        pool = _channel_param(ch, "pool", year, "pool_growth", series_context)
+        conv = _channel_param(ch, "conversion_rate", year, "conversion_growth", series_context)
         return pool * conv
     if method == "spend_cac":
-        spend = _channel_param(ch, "spend", year, "spend_growth")
-        cac = _channel_param(ch, "cac", year, "cac_growth")
+        spend = _channel_param(ch, "spend", year, "spend_growth", series_context)
+        cac = _channel_param(ch, "cac", year, "cac_growth", series_context)
         return spend / cac if cac > 0 else 0.0
     if method == "fte_productivity":
-        ftes = _channel_param(ch, "ftes", year, "ftes_growth")
-        per = _channel_param(ch, "per_fte", year, "per_fte_growth")
+        ftes = _channel_param(ch, "ftes", year, "ftes_growth", series_context)
+        per = _channel_param(ch, "per_fte", year, "per_fte_growth", series_context)
         return ftes * per
     if method == "explicit":
         if "new_customers" in specs:
-            return float(resolve_driver_spec(specs.get("new_customers"), year) or 0.0)
+            return float(_driver(ch, "new_customers", year, series_context=series_context) or 0.0)
         arr = p.get("new_customers_by_year") or []
         i = year - 1
         return float(arr[i]) if 0 <= i < len(arr) else 0.0
     raise ValueError(f"unsupported customer-acquisition method {method!r}")
 
 
-def channel_avg_auc(ch, year):
+def channel_avg_auc(ch, year, series_context=None):
     """Average AUC per customer acquired by this channel in the given year."""
     if not ch:
         return 0.0
     return _driver(ch, "avg_auc_per_customer", year,
                    legacy_base=ch.get("avg_auc_per_customer"),
-                   legacy_growth=ch.get("avg_auc_growth"))
+                   legacy_growth=ch.get("avg_auc_growth"), series_context=series_context)
 
 
-def channel_spend(ch, year):
-    """Acquisition spend attributed to this channel in the given year, for CAC computation."""
+def channel_spend(ch, year, series_context=None):
+    """Acquisition spend attributed to this channel in the given year, for CAC audit."""
     if not ch:
         return 0.0
     method = ch.get("method")
     p = ch.get("params") or {}
     specs = ch.get("driver_specs") or {}
     if method == "spend_cac":
-        return _channel_param(ch, "spend", year, "spend_growth")
+        return _channel_param(ch, "spend", year, "spend_growth", series_context)
     if method == "fte_productivity":
-        ftes = _channel_param(ch, "ftes", year, "ftes_growth")
-        comp = _channel_param(ch, "comp_per_fte", year, "comp_growth")
+        ftes = _channel_param(ch, "ftes", year, "ftes_growth", series_context)
+        comp = _channel_param(ch, "comp_per_fte", year, "comp_growth", series_context)
         return ftes * comp
     if method == "pool_conversion":
         cpc = (_driver(ch, "cost_per_customer", year,
-                       legacy_base=p.get("cost_per_customer"), legacy_growth=0.0)
+                       legacy_base=p.get("cost_per_customer"), legacy_growth=0.0,
+                       series_context=series_context)
                if ("cost_per_customer" in specs or p.get("cost_per_customer") is not None) else 0.0)
-        return channel_new_customers(ch, year) * cpc if cpc else 0.0
+        return channel_new_customers(ch, year, series_context) * cpc if cpc else 0.0
     if method == "explicit":
         if "spend" in specs:
-            return float(resolve_driver_spec(specs.get("spend"), year) or 0.0)
+            return float(_driver(ch, "spend", year, series_context=series_context) or 0.0)
         return float(p.get("spend") or 0.0)
     raise ValueError(f"unsupported customer-acquisition method {method!r}")
 
 
-def cac_auc_rollforward(cac_cfg, Q, ppy=4):
+def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):
     """Annual customer/AUC roll-forward over ceil(Q/ppy) years, returned with a native-cadence
     explicit-levels AUC series plus a per-year audit trail for defensibility.
 
@@ -214,6 +151,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
     }
     """
     channels = (cac_cfg or {}).get("channels") or []
+    series_context = {"assumptions": assumptions or {}, "Q": int(Q), "ppy": int(ppy),
+                      "growth_context": growth_context}
     legacy_attr = float((cac_cfg or {}).get("attrition_rate") or 0.0)
     legacy_ticket_override = (cac_cfg or {}).get("attrition_avg_ticket")
     beg_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
@@ -228,9 +167,9 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
         new_auc = 0.0
         ch_detail = []
         for ch in channels:
-            nc = channel_new_customers(ch, y)
-            na = nc * channel_avg_auc(ch, y)
-            sp = channel_spend(ch, y)
+            nc = channel_new_customers(ch, y, series_context)
+            na = nc * channel_avg_auc(ch, y, series_context)
+            sp = channel_spend(ch, y, series_context)
             new_cust += nc
             new_auc += na
             ch_detail.append({
@@ -239,11 +178,11 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
             })
         # Attrition on the existing book (beginning), not on this year's new adds.
         # Attrition itself may be an explicit annual source-model driver.
-        attr = _driver(cac_cfg or {}, "attrition_rate", y, legacy_base=legacy_attr, legacy_growth=0.0)
+        attr = _driver(cac_cfg or {}, "attrition_rate", y, legacy_base=legacy_attr, legacy_growth=0.0, series_context=series_context)
         cust_lost = beg_cust * attr
         _ticket_specs = ((cac_cfg or {}).get("driver_specs") or {})
         if "attrition_avg_ticket" in _ticket_specs:
-            avg_ticket = float(resolve_driver_spec(_ticket_specs.get("attrition_avg_ticket"), y) or 0.0)
+            avg_ticket = float(resolve_driver_spec(_ticket_specs.get("attrition_avg_ticket"), y, assumptions=assumptions, Q=Q, ppy=ppy, growth_context=growth_context) or 0.0)
         elif legacy_ticket_override is not None:
             avg_ticket = float(legacy_ticket_override)
         else:
@@ -279,14 +218,38 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4):
                 auc_levels_q[q - 1] = prev_end + (ye - prev_end) * qi / float(ppy)
         prev_end = ye
 
+    # Materialize module-owned Derived Series metadata.  The Series layer never evaluates
+    # these equations; CAC owns the closed acquisition/roll-forward equations above and
+    # publishes their resolved values with stable IDs when the authoring layer supplied them.
+    derived_series = {}
+    for ci, ch in enumerate(channels):
+        ids = (ch or {}).get("derived_series_ids") or {}
+        for semantic, field in (("new_customers", "new_customers"), ("new_auc", "new_auc")):
+            sid = str(ids.get(semantic) or "").strip()
+            if not sid:
+                continue
+            vals = [float((yr.get("channels") or [])[ci].get(field) or 0.0) for yr in annual]
+            derived_series[sid] = {
+                "source": "derived", "series_id": sid, "owner_module": "customer_acquisition",
+                "semantic_type": semantic, "cadence": "year", "values": vals,
+                "derived": {"kind": f"cac.{(ch or {}).get('method')}.{semantic}"},
+            }
+    feed_sid = str((cac_cfg or {}).get("series_id") or "").strip()
+    if feed_sid:
+        derived_series[feed_sid] = {
+            "source": "derived", "series_id": feed_sid, "owner_module": "customer_acquisition",
+            "semantic_type": "auc_end", "cadence": "model_period", "values": list(auc_levels_q),
+            "derived": {"kind": "cac.customer_auc_rollforward"},
+        }
+
     return {"auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
-            "year_end_auc": year_end_auc, "annual": annual}
+            "year_end_auc": year_end_auc, "annual": annual, "derived_series": derived_series}
 
 
-def cac_managed_notional(cac_cfg, Q, ppy=4):
+def cac_managed_notional(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):
     """Convenience: package the feeder's native-cadence AUC levels as a managed_notional the fee
     engine consumes directly (trajectory=explicit_levels). This is the seam."""
-    r = cac_auc_rollforward(cac_cfg, Q, ppy)
+    r = cac_auc_rollforward(cac_cfg, Q, ppy, assumptions=assumptions, growth_context=growth_context)
     return {
         "day1": 0.0,
         "trajectory": "explicit_levels",

@@ -64,30 +64,9 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # Per-category ENGINE-period series. Canonical UI fields are per_period and
     # growth_per_period. Legacy per_quarter/growth_q retain their calendar-quarter
     # meaning and are converted to the selected cadence.
-    def _cat_series(c):
-        from .timebase import quarterly_value_to_period
-        traj = c.get("trajectory") or "flat"
-        if c.get("per_period") is not None:
-            base = float(c.get("per_period") or 0.0)
-        else:
-            base = quarterly_value_to_period("opex_fixed", float(c.get("per_quarter", 0.0) or 0.0), ppy)
-        if traj == "explicit":
-            sched = list(c.get("schedule") or [])
-            return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
-                    for i in range(Q)]
-        if traj in ("linear", "growth"):
-            if c.get("growth_spec"):
-                from .growth import resolve_growth_series
-                return resolve_growth_series(base, c.get("growth_spec"), Q, ppy,
-                                             context=growth_context)
-            if c.get("growth_per_period") is not None:
-                g = float(c.get("growth_per_period") or 0.0)
-            else:
-                g = quarterly_value_to_period("growth", float(c.get("growth_q") or 0.0), ppy)
-            return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
-        return [base] * Q
     _catlist = nd.get("categories") or []
-    cats = [float(sum(_cat_series(c)[i] for c in _catlist)) for i in range(Q)]
+    cats = [float(sum(nie_category_series(c, Q, ppy, growth_context=growth_context)[i]
+                      for c in _catlist)) for i in range(Q)]
     return {"comp": comp, "categories": cats,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
              # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
@@ -95,6 +74,38 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
              "fdic_bp_ann": (float(nd["fdic_bp_ann"]) if nd.get("fdic_bp_ann") is not None else None),
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
 
+
+
+def nie_category_series(c, Q, ppy=4, growth_context=None):
+    """Resolve one Operating Expense category to its native-period dollar flow.
+
+    Public helper for safe cross-module Foundry-series links.  It is intentionally the
+    same resolver used by ``nie_detail_series`` so a linked CAC spend path cannot drift
+    from the expense actually modeled on the income statement.
+    """
+    from .timebase import quarterly_value_to_period
+    Q, ppy = int(Q), int(ppy)
+    c = c or {}
+    traj = c.get("trajectory") or "flat"
+    if c.get("per_period") is not None:
+        base = float(c.get("per_period") or 0.0)
+    else:
+        base = quarterly_value_to_period("opex_fixed", float(c.get("per_quarter", 0.0) or 0.0), ppy)
+    if traj == "explicit":
+        sched = list(c.get("schedule") or [])
+        return [float(sched[i]) if i < len(sched) and sched[i] is not None else 0.0
+                for i in range(Q)]
+    if traj in ("linear", "growth"):
+        if c.get("growth_spec"):
+            from .growth import resolve_growth_series
+            return resolve_growth_series(base, c.get("growth_spec"), Q, ppy,
+                                         context=growth_context)
+        if c.get("growth_per_period") is not None:
+            g = float(c.get("growth_per_period") or 0.0)
+        else:
+            g = quarterly_value_to_period("growth", float(c.get("growth_q") or 0.0), ppy)
+        return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
+    return [base] * Q
 
 def managed_notional_series(mn, Q, ppy=4, growth_context=None):
     """Roll an off-book notional stock (AUC/AUM) forward Q engine periods.

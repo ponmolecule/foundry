@@ -334,8 +334,39 @@ def _nie_sheet(ws, nd, ppy=4):
             sec = f"Workforce role {i + 1}"
             root = f"nie_detail.workforce.roles.{i}"
             _row(root + ".role", sec, "Role / cohort", role.get("role"), "label (editable)")
-            _row(root + ".count", sec, "Count", role.get("count", 1), "headcount")
-            _row(root + ".annual_comp", sec, "Annual base compensation", role.get("annual_comp"), "$/year per FTE")
+            _cs = role.get("count_spec") or {}
+            if _cs:
+                _ct = _cs.get("trajectory") or _cs.get("mode") or "flat"
+                _row(root + ".count_spec.trajectory", sec, "Count trajectory", _ct, "flat / growth / explicit")
+                if _ct == "flat":
+                    _row(root + ".count_spec.value", sec, "Count", _cs.get("value", role.get("count", 1)), "headcount")
+                elif _ct == "growth":
+                    _row(root + ".count_spec.base", sec, "Count — base", _cs.get("base", role.get("count", 1)), "headcount")
+                    _growth_rows(root + ".count_spec.growth_spec", sec, "Count growth", _cs.get("growth_spec") or {})
+                elif _ct == "explicit":
+                    _row(root + ".count_spec.cadence", sec, "Count schedule cadence", _cs.get("cadence", "year"), "year / quarter / month")
+                    _row(root + ".count_spec.resolution", sec, "Count schedule resolution", _cs.get("resolution", "step"), "step / smooth")
+                    for _j, _v in enumerate(_cs.get("values") or []):
+                        _row(root + f".count_spec.values.{_j}", sec, f"Count schedule — source period {_j + 1}", _v, "headcount")
+            else:
+                _row(root + ".count", sec, "Count", role.get("count", 1), "headcount (legacy scalar)")
+
+            _cps = role.get("compensation_spec") or {}
+            if _cps:
+                _cpt = _cps.get("trajectory") or _cps.get("mode") or "flat"
+                _row(root + ".compensation_spec.trajectory", sec, "Compensation trajectory", _cpt, "flat / growth / explicit")
+                if _cpt == "flat":
+                    _row(root + ".compensation_spec.value", sec, "Annual compensation / FTE", _cps.get("value", role.get("annual_comp", 0)), "$/year per FTE")
+                elif _cpt == "growth":
+                    _row(root + ".compensation_spec.base", sec, "Compensation — base", _cps.get("base", role.get("annual_comp", 0)), "$/year per FTE")
+                    _growth_rows(root + ".compensation_spec.growth_spec", sec, "Compensation growth", _cps.get("growth_spec") or {})
+                elif _cpt == "explicit":
+                    _row(root + ".compensation_spec.cadence", sec, "Compensation schedule cadence", _cps.get("cadence", "year"), "year / quarter / month")
+                    _row(root + ".compensation_spec.resolution", sec, "Compensation schedule resolution", _cps.get("resolution", "step"), "step / smooth")
+                    for _j, _v in enumerate(_cps.get("values") or []):
+                        _row(root + f".compensation_spec.values.{_j}", sec, f"Compensation schedule — source period {_j + 1}", _v, "$/year per FTE")
+            else:
+                _row(root + ".annual_comp", sec, "Annual base compensation", role.get("annual_comp"), "$/year per FTE (legacy)")
             _act = role.get("activation") or {}
             if _act:
                 _row(root + ".activation.type", sec, "Activation type", _act.get("type", "metric"), "metric")
@@ -361,8 +392,9 @@ def _nie_sheet(ws, nd, ppy=4):
                      "M# / Q# index (native cadence)")
             if role.get("payroll_load_rate") is not None:
                 _row(root + ".payroll_load_rate", sec, "Payroll load override", role.get("payroll_load_rate"), "rate")
-            _growth_rows(root + ".salary_growth_spec", sec, "Salary escalation",
-                         role.get("salary_growth_spec") or {})
+            if not _cps:
+                _growth_rows(root + ".salary_growth_spec", sec, "Salary escalation",
+                             role.get("salary_growth_spec") or {})
 
     if nd.get("other_gross_up_rate") is not None:
         _row("nie_detail.other_gross_up_rate", "Overhead", "Other NIE gross-up rate",

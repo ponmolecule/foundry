@@ -508,10 +508,19 @@ def run_pf_a(cfg):
         # (assumptions.cac_feeds[name]) so multiple products share ONE customer-driven AUC.
         _mn_cfg = p.get("managed_notional")
         _src = p.get("managed_notional_source")
-        if _src:
+        _src_id = p.get("managed_notional_source_id")
+        _feed = None
+        if _src_id:
+            _hits = [f for f in (a.get("cac_feeds") or {}).values()
+                     if str((f or {}).get("series_id") or "") == str(_src_id)]
+            if len(_hits) > 1:
+                raise ValueError(f"managed_notional_source_id {_src_id!r} is ambiguous")
+            if _hits:
+                _feed = _hits[0]
+        if _feed is None and _src:
             _feed = (a.get("cac_feeds") or {}).get(_src)
-            if _feed is not None:
-                _mn_cfg = cac_managed_notional(_feed, Q, ppy)
+        if _feed is not None:
+            _mn_cfg = cac_managed_notional(_feed, Q, ppy, assumptions=a, growth_context=_growth_ctx)
         _mn_avg, _mn_end = managed_notional_series(_mn_cfg, Q, ppy, _growth_ctx)
         p["_mn_avg"] = _mn_avg
         p["_mn_end"] = _mn_end
@@ -873,9 +882,11 @@ def run_pf_a(cfg):
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
     _wf_comp_native = []
+    _wf_count_native = None
     if _wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []):
         from .workforce import WorkforceRuntime
         _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
+        _wf_count_native = [[] for _ in _wf_runtime.rows]
 
     # First-class managed-notional observables. Product names are the user-facing source
     # identifiers; validation rejects ambiguous metric-trigger sources before the engine runs.
@@ -995,6 +1006,8 @@ def run_pf_a(cfg):
                        if _wf_runtime is not None else _nie_d["comp"][q - 1])
             if _wf_runtime is not None:
                 _wf_comp_native.append(_comp_q)
+                for _wi, _cv in enumerate(_wf_runtime.count_for_period(q)):
+                    _wf_count_native[_wi].append(_cv)
             _sub = (_comp_q + _nie_d["categories"][q - 1]
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
@@ -1164,10 +1177,12 @@ def run_pf_a(cfg):
             # Promote the off-book stock from a private calculation helper to an auditable,
             # native-cadence model output.  Only products that actually carry/supply managed
             # notional receive these keys, preserving the historical output shape elsewhere.
-            if p.get("managed_notional") or p.get("managed_notional_source"):
+            if p.get("managed_notional") or p.get("managed_notional_source") or p.get("managed_notional_source_id"):
                 _pr["managedNotionalAvg"] = list(p.get("_mn_avg") or [0.0] * Q)
                 _pr["managedNotionalEnd"] = list(p.get("_mn_end") or [0.0] * Q)
                 _pr["managedNotionalSource"] = p.get("managed_notional_source")
+                if p.get("managed_notional_source_id"):
+                    _pr["managedNotionalSourceId"] = p.get("managed_notional_source_id")
             products.append(_pr)
     _out = {"products": products,
             "ratios": {k: v[1:] for k, v in ratios.items()},
@@ -1198,6 +1213,8 @@ def run_pf_a(cfg):
         _out["workforce"] = {
             "resolved_hire_periods": _wf_runtime.resolved_hires(),
             "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
+            "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
+            "counts": list(_wf_count_native or []),
             "comp": list(_wf_comp_native),
         }
     return _out

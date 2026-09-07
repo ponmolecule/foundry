@@ -160,7 +160,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
 .nie-default-value{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
 .wf-role-card{border:1px solid rgba(148,163,184,.14);background:#111B2D;border-radius:8px;padding:9px 10px;margin:8px 0}
-.wf-role-grid{display:grid;grid-template-columns:minmax(125px,1.55fr) minmax(112px,.95fr) minmax(150px,1.25fr) 48px 72px 94px 24px;gap:7px;align-items:end}
+.wf-role-grid{display:grid;grid-template-columns:minmax(125px,1.45fr) 78px minmax(105px,.9fr) minmax(145px,1.2fr) 48px 72px 94px 24px;gap:7px;align-items:end}
 .wf-field{min-width:0}
 .wf-field input,.wf-field select{width:100% !important;max-width:none !important;box-sizing:border-box}
 .wf-start-wrap{display:flex;gap:4px;align-items:center;min-width:0}
@@ -174,7 +174,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-assess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .nie-assess-item{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px}
 .nie-assess-item .crow{margin:0 !important}
-@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:minmax(125px,1.4fr) minmax(105px,1fr) minmax(145px,1.25fr) 24px;}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-row:2}.wf-role-grid .wf-delete{grid-column:4;grid-row:1}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:minmax(125px,1.4fr) 76px minmax(105px,1fr) minmax(145px,1.25fr) 24px;}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-row:2}.wf-role-grid .wf-delete{grid-column:5;grid-row:1}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
@@ -2123,10 +2123,12 @@ function fieldsFor(fam, p, base){
     // AUC source: manual ramp on this product, OR a shared Customer-Acquisition feed
     // (defined in Configuration). Choosing a feed drives this product\x27s AUC from that
     // feed and hides the manual fields.
-    const _feeds = Object.keys((cfg.assumptions&&cfg.assumptions.cac_feeds)||{});
+    const _feedMap=(cfg.assumptions&&cfg.assumptions.cac_feeds)||{};
+    const _feeds = Object.keys(_feedMap);
+    _feeds.forEach(f=>{const fd=_feedMap[f];if(fd&&!fd.series_id)fd.series_id=_seriesId("cac-auc");if(fd&&!fd.owner_module)fd.owner_module="customer_acquisition";});
     const _srcOpts = [["","Manual (enter AUC ramp below)"]].concat(_feeds.map(f=>["feed:"+f,"Customer-Acquisition feed: "+f]));
     const _curSrc = p.managed_notional_source ? ("feed:"+p.managed_notional_source) : "";
-    h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=cfg.assumptions.obs_exposures[${_fi}]; if(v.indexOf(\x27feed:\x27)===0){pp.managed_notional_source=v.slice(5);}else{delete pp.managed_notional_source;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
+    h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=cfg.assumptions.obs_exposures[${_fi}]; if(v.indexOf(\x27feed:\x27)===0){var nm=v.slice(5),fd=((cfg.assumptions||{}).cac_feeds||{})[nm];pp.managed_notional_source=nm;if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}else{delete pp.managed_notional_source;delete pp.managed_notional_source_id;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
     if(!p.managed_notional_source){
       const _mntraj=p.managed_notional.trajectory||"ramp_to_target";
       h += SEL("AUC trajectory", mnb+".trajectory", _mntraj, [["ramp_to_target","Ramp to target"],["proportional","Growth"],["flat","Flat"]]);
@@ -2141,7 +2143,7 @@ function fieldsFor(fam, p, base){
     } else {
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
     }
-    h += '<div class="fld wide"><label style="color:#DFA85A">Fee streams</label></div>';
+    h += `<div class="fld wide" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:4px"><label style="color:#DFA85A;margin:0;flex:1">Fee streams</label><button class="btn-gold" style="font-size:11px;padding:5px 12px" onclick="openFeeGuide(${_fi});return false">Guide Me</button><span class="memo" style="margin:0">Describe the economics; Foundry maps them to its own fee dials.</span></div>`;
     const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     (p.fee_streams||[]).forEach((st,si)=>{
       const sb = base+".fee_streams."+si;
@@ -2607,6 +2609,54 @@ window.addFromTaxonomyMulti = addFromTaxonomyMulti;
 window.addFromTaxonomy = addFromTaxonomy; window.TAX31 = TAX31; window.syncModules = syncModules;
 window.cfgRef = function(){ return cfg; }; window.doRefresh = function(){ refresh(); };
 window.v31FillSubs=v31FillSubs; window.v31ShowLine=v31ShowLine; window.v31AddProduct=v31AddProduct;
+
+function _feeGuideEscLines(lines){
+  return (lines||[]).map(x=>`<li style="margin:4px 0">${esc(x)}</li>`).join("");
+}
+window.openFeeGuide = function(productIndex){
+  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex]||{};
+  const nm=p.name||"Fee product";
+  let h=`<h3>Guide Me — ${esc(nm)}</h3>`;
+  h += '<div class="memo" style="margin:0 0 10px">Describe how the product earns fees in ordinary language. Guide Me is given only what you type here plus Foundry\'s current fee-engine vocabulary — not your engagement configuration, files, web access, or external tools.</div>';
+  h += '<div class="fld" style="margin:0"><label>What are you trying to model?</label><textarea id="feeGuideDesc" rows="7" style="width:100%;box-sizing:border-box;resize:vertical;padding:9px 10px;border:1px solid #B8C0CC;border-radius:4px;font:12px/1.45 inherit" placeholder="Example: We earn a custody fee on AUC, settlement fees based on annual turns of AUC, and a fixed annual escrow fee. AUC comes from the customer-acquisition model."></textarea></div>';
+  h += '<div class="memo" style="margin:7px 0 0">Do not include client-identifying or confidential narrative that is unnecessary to describe the mechanics. Guide Me never chooses assumptions for you; it only tells you which Foundry dials match the mechanics you describe.</div>';
+  h += '<div id="feeGuideResult" style="margin-top:12px"></div>';
+  h += '<div class="modal-actions"><button class="btn-plain" onclick="closeModal()">Close</button><button id="feeGuideBtn" class="btn-gold" onclick="runFeeGuide()">Map to Foundry</button></div>';
+  window._feeGuideProductIndex=productIndex;
+  document.getElementById("modal").innerHTML=h;
+  document.getElementById("modal-bg").style.display="block";
+  document.getElementById("modal").style.display="block";
+  setTimeout(()=>{const t=document.getElementById("feeGuideDesc");if(t)t.focus();},0);
+};
+window.runFeeGuide = async function(){
+  const desc=(document.getElementById("feeGuideDesc")||{}).value||"";
+  const box=document.getElementById("feeGuideResult"), btn=document.getElementById("feeGuideBtn");
+  if(!desc.trim()){ if(box)box.innerHTML='<div class="memo" style="color:#A14A4A">Describe the fee mechanics first.</div>'; return; }
+  if(btn){btn.disabled=true;btn.textContent="Mapping…";}
+  if(box) box.innerHTML='<div class="memo">Mapping your description to the current Foundry fee schema…</div>';
+  try{
+    const r=await fetch("/api/v31/fee-guide",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc})});
+    const j=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(j.error||("Guide Me failed ("+r.status+")"));
+    let h='';
+    if(j.status==="needs_clarification" || j.status==="unsupported"){
+      h += `<div style="padding:10px 12px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><b>${j.status==="unsupported"?"Foundry cannot map this cleanly yet.":"One thing needs clarification."}</b>`;
+      if((j.questions||[]).length) h += `<ul style="margin:7px 0 0 18px;padding:0">${_feeGuideEscLines(j.questions)}</ul>`;
+      h += '</div>';
+    } else {
+      h += `<div style="padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Suggested Foundry mapping</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
+      (j.stream_guides||[]).forEach((sg,i)=>{
+        h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #D9DEE6;border-radius:5px"><div style="font-weight:700;color:#8A6D2F">Stream ${i+1}: ${esc(sg.name||"Fee stream")}</div><ol style="margin:7px 0 0 19px;padding:0;font-size:12px;line-height:1.45">${_feeGuideEscLines(sg.steps)}</ol></div>`;
+      });
+      h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
+    }
+    if(box) box.innerHTML=h;
+  }catch(e){
+    if(box) box.innerHTML=`<div style="padding:9px 11px;border:1px solid #D7AAAA;background:#FFF3F3;border-radius:5px;color:#7E3333">${esc(e.message||String(e))}</div>`;
+  }finally{
+    if(btn){btn.disabled=false;btn.textContent="Map to Foundry";}
+  }
+};
 
 function openModal(){
   if(V31){
@@ -3230,6 +3280,12 @@ window.nieWorkforceClear = function(){
   });
 };
 
+function _seriesId(prefix){ return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
+function MODELYEARS(){ return Math.max(1,Math.ceil(NP()/PPY())); }
+function _seriesSourcePeriods(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return Math.max(1,Math.ceil(NP()*f/PPY()));}
+function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
+function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
+function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 function _newNieDetail(){
   return {categories:[], other_gross_up_rate:0, fdic_bp_ann:5.0, occ_bp_ann:1.5,
           workforce:{mode:"roles",roles:[],default_payroll_load_rate:0,
@@ -3249,7 +3305,7 @@ function _ensureWorkforce(){
 }
 window.nieCatAdd = function(){
   var nd = _ensureNieDetail();
-  nd.categories.push({name:"", per_period:0});
+  nd.categories.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", per_period:0});
   renderContent(); refresh();
 };
 window.nieCatPaste = function(txt, type, growthPct, growthPeriod, growthMethod, growthAnchor, growthAnchorMonth){
@@ -3269,14 +3325,14 @@ window.nieCatPaste = function(txt, type, growthPct, growthPeriod, growthMethod, 
       var nm = parts[0].trim();
       var sched = parts.slice(1).map(function(x){ var n=parseFloat(String(x).replace(/[^0-9.\-]/g,"")); return (isNaN(n)?0:n)*1000; });
       if(!nm && !sched.some(function(v){return v;})) return;
-      added.push({name:nm, trajectory:"explicit", schedule:sched});
+      added.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:nm, trajectory:"explicit", schedule:sched});
     } else {
       // flat or linear: Item, Base amount (one number). Amount is the trailing numeric run.
       var item, amtRaw;
       if(line.indexOf("\t")>=0){ var tp=line.split("\t"); if(tp.length<2) return; amtRaw=tp[tp.length-1]; item=tp.slice(0,tp.length-1).join(" ").trim(); }
       else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/,"").trim(); amtRaw=m2[2]; }
       var amt=parseFloat(String(amtRaw).replace(/[^0-9.\-]/g,"")); if(isNaN(amt)) return;
-      var cat={name:item, per_period:amt*1000};
+      var cat={series_id:_seriesId("opex"),owner_module:"operating_expense",name:item, per_period:amt*1000};
       if(isGrowth){ cat.trajectory="growth"; cat.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam}; }
       added.push(cat);
     }
@@ -3354,11 +3410,21 @@ function _parseWorkforceStart(raw){
 }
 window.nieWorkforceAdd = function(){
   var wf=_ensureWorkforce();
-  // No role-level salary or payroll-load value on creation: blank means inherit the visible
-  // workforce defaults.  This keeps the UI and the resolver's merge semantics aligned.
-  wf.roles.push({role:"",count:1,annual_comp:0,hire_period:1});
+  // One row represents one economically homogeneous population. Count is explicit again,
+  // with an optional Foundry-Series trajectory rather than forcing one row per person.
+  wf.roles.push({series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:"",count:1,annual_comp:0,hire_period:1});
   renderContent(); refresh();
 };
+window.nieWorkforceCountMode=function(i,mode){const wf=_ensureWorkforce(),r=wf.roles[i];if(!r)return;if(!r.series_id)r.series_id=_seriesId("wf-count");if(!r.owner_module)r.owner_module="operating_expense.workforce";const old=r.count_spec||{},cur=+(old.base!=null?old.base:(old.value!=null?old.value:((old.values||[])[0]!=null?(old.values||[])[0]:r.count)))||0;let sp={series_id:r.series_id,owner_module:"operating_expense.workforce",semantic_type:"count",source:"entered",trajectory:mode};if(mode==="flat")sp.value=cur;else if(mode==="growth")sp={...sp,base:cur,growth_spec:old.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"}};else{sp={...sp,cadence:old.cadence||"year",values:(old.values||[]).slice(),extend:"hold",resolution:old.resolution||"step"};_resizeSeriesValues(sp,cur);}r.count=cur;r.count_spec=sp;renderContent();refresh();};
+window.nieWorkforceCountValue=function(i,val){const r=_ensureWorkforce().roles[i];if(!r)return;const v=Math.max(0,_pf(val));r.count=v;const sp=r.count_spec;if(sp){const m=sp.trajectory||sp.mode;if(m==="growth")sp.base=v;else if(m==="explicit"){sp.values=sp.values||[];sp.values[0]=v;}else sp.value=v;}refresh();};
+window.nieWorkforceCountSchedule=function(i,y,val){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.values=r.count_spec.values||[];r.count_spec.values[y]=Math.max(0,_pf(val));if(y===0)r.count=r.count_spec.values[0];refresh();};
+window.nieWorkforceCountCadence=function(i,cad){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.cadence=cad;_resizeSeriesValues(r.count_spec,r.count||0);renderContent();refresh();};
+window.nieWorkforceCountResolution=function(i,res){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.resolution=res;refresh();};
+window.nieWorkforceCompMode=function(i,mode){const r=_ensureWorkforce().roles[i];if(!r)return;if(!r.compensation_series_id)r.compensation_series_id=_seriesId("wf-comp");if(!r.owner_module)r.owner_module="operating_expense.workforce";const old=r.compensation_spec||{},cur=+(old.base!=null?old.base:(old.value!=null?old.value:((old.values||[])[0]!=null?(old.values||[])[0]:r.annual_comp)))||0;let sp={series_id:r.compensation_series_id,owner_module:"operating_expense.workforce",semantic_type:"annual_compensation_per_fte",source:"entered",trajectory:mode};if(mode==="flat")sp.value=cur;else if(mode==="growth")sp={...sp,base:cur,growth_spec:old.growth_spec||r.salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};else{sp={...sp,cadence:old.cadence||"year",values:(old.values||[]).slice(),extend:"hold",resolution:old.resolution||"step"};_resizeSeriesValues(sp,cur);}r.annual_comp=cur;r.compensation_spec=sp;renderContent();refresh();};
+window.nieWorkforceCompValue=function(i,val){const r=_ensureWorkforce().roles[i];if(!r)return;const v=Math.max(0,_pf(val))*1000;r.annual_comp=v;const sp=r.compensation_spec;if(sp){const m=sp.trajectory||sp.mode;if(m==="growth")sp.base=v;else if(m==="explicit"){sp.values=sp.values||[];sp.values[0]=v;}else sp.value=v;}refresh();};
+window.nieWorkforceCompSchedule=function(i,j,val){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.values=r.compensation_spec.values||[];r.compensation_spec.values[j]=Math.max(0,_pf(val))*1000;if(j===0)r.annual_comp=r.compensation_spec.values[0];refresh();};
+window.nieWorkforceCompCadence=function(i,cad){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.cadence=cad;_resizeSeriesValues(r.compensation_spec,r.annual_comp||0);renderContent();refresh();};
+window.nieWorkforceCompResolution=function(i,res){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.resolution=res;refresh();};
 function _splitPasteRow(line, delim){
   if(delim==="\t") return String(line).split("\t").map(x=>x.trim());
   const out=[]; let cur="", q=false, src=String(line||"");
@@ -3425,12 +3491,12 @@ window.nieWorkforcePaste = function(txt){
     }
     const st=_parseWorkforceStart(startRaw); if(!st) return;
     if(!role && !comp) return;
-    var r={role:role,count:count||0,annual_comp:comp};
+    var r={series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:role,count:count||0,annual_comp:comp};
     if(esc!=null) r.salary_growth_spec={rate:esc/100}; // otherwise inherit workforce default
     if(st.activation) r.activation=st.activation; else r.hire_period=st.hire_period;
     if(end!=null) r.end_period=end; if(load!=null) r.payroll_load_rate=load; added.push(r);
   });
-  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Annual Comp ($000s/FTE), Start, End, Escalation %, Benefits/Payroll %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
+  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Count, Annual Comp ($000s/FTE), Start, End, Escalation %, Benefits/Payroll %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
   wf.roles=wf.roles.concat(added);
   var nd=_ensureNieDetail(); nd._wfPasteOpen=false;
   appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
@@ -6642,30 +6708,36 @@ window.secAociToggle = function(){
   renderContent(); refresh();
 };
 
-// ===== Customer Acquisition (CAC) feeds — bottom-up AUC that feeds fee products. =====
-// A feed = named { channels[], attrition_rate, intra_year_shape }. Fee products reference it
-// via managed_notional_source. Mirrors the engine\x27s cac_feeder.py (methods-not-channels).
-var CAC_METHODS = [["pool_conversion","Pool \u00d7 conversion"],["spend_cac","Spend \u00f7 CAC"],["fte_productivity","FTEs \u00d7 productivity"],["explicit","Explicit customers"]];
-function CACYEARS(){ return Math.max(1,Math.ceil(NP()/PPY())); }
+// ===== Customer Acquisition (CAC) feeds — causal equations over generic Foundry Series. =====
+// A feed owns acquisition equations and the customer/AUC roll-forward.  Each equation operand
+// is either entered here (Flat / Growth / Explicit) or linked to a compatible series owned by
+// another module.  CAC never owns an Operating Expense or Workforce trajectory it merely consumes.
+var CAC_METHODS = [["pool_conversion","Pool × conversion"],["spend_cac","Spend ÷ CAC"],["fte_productivity","FTEs × productivity"],["explicit","Explicit customers"]];
+function CACYEARS(){ return MODELYEARS(); }
 function _cacPow(base,g,y){ return (+base||0)*Math.pow(1+(+g||0),Math.max(0,(+y||1)-1)); }
+function _ensureLinkableSeriesIds(){
+  const nd=(cfg.assumptions||{}).nie_detail||{};
+  (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
+  (((nd.workforce||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
+}
 function _cacMeta(method){
   if(method==="pool_conversion") return [
     {k:"pool",lab:"Addressable pool",unit:"customers",kind:"number"},
     {k:"conversion_rate",lab:"Conversion rate",unit:"%",kind:"pct"},
-    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
   if(method==="spend_cac") return [
-    {k:"spend",lab:"Acquisition / BD spend",unit:"$000s",kind:"k"},
-    {k:"cac",lab:"Cost per customer acquired",unit:"$ / customer",kind:"number"},
-    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+    {k:"spend",lab:"Acquisition spend",unit:"$000s / year",kind:"k",linkKind:"operating_expense_category",aggregation:"sum"},
+    {k:"cac",lab:"Cost per customer acquired",unit:"$000s / customer",kind:"k"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
   if(method==="fte_productivity") return [
-    {k:"ftes",lab:"Acquisition FTEs",unit:"FTE",kind:"number"},
-    {k:"per_fte",lab:"New customers / FTE",unit:"customers / FTE",kind:"number"},
-    {k:"comp_per_fte",lab:"Compensation / FTE",unit:"$000s",kind:"k"},
-    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+    {k:"ftes",lab:"Acquisition FTE count",unit:"FTE",kind:"number",linkKind:"workforce_role_count",aggregation:"average"},
+    {k:"per_fte",lab:"New customers / FTE",unit:"customers / FTE / year",kind:"number"},
+    {k:"comp_per_fte",lab:"Compensation / FTE (for CAC memo)",unit:"$000s / FTE / year",kind:"k"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
   return [
-    {k:"new_customers",lab:"New customers",unit:"customers",kind:"number"},
-    {k:"spend",lab:"Acquisition spend (optional)",unit:"$000s",kind:"k"},
-    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s",kind:"k"}];
+    {k:"new_customers",lab:"New customers",unit:"customers / year",kind:"number"},
+    {k:"spend",lab:"Acquisition spend (optional)",unit:"$000s / year",kind:"k",linkKind:"operating_expense_category",aggregation:"sum"},
+    {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
 }
 function _cacLegacyVal(ch,key,y){
   ch=ch||{}; const p=ch.params||{};
@@ -6676,64 +6748,80 @@ function _cacLegacyVal(ch,key,y){
 }
 function _cacEnsureSpec(ch,key){
   ch.driver_specs=ch.driver_specs||{};
-  if(!ch.driver_specs[key]){
-    const vals=[]; for(let y=1;y<=CACYEARS();y++) vals.push(_cacLegacyVal(ch,key,y));
-    ch.driver_specs[key]={mode:"explicit",cadence:"year",values:vals,extend:"hold"};
-  } else {
-    const sp=ch.driver_specs[key], vals=sp.values=sp.values||[];
-    while(vals.length<CACYEARS()) vals.push(vals.length?vals[vals.length-1]:_cacLegacyVal(ch,key,vals.length+1));
-  }
-  return ch.driver_specs[key];
+  if(!ch.driver_specs[key]) ch.driver_specs[key]={series_id:_seriesId("cac"),owner_module:"customer_acquisition",source:"entered",mode:"flat",value:_cacLegacyVal(ch,key,1)};
+  const sp=ch.driver_specs[key]; if(!sp.source)sp.source="entered";if(!sp.series_id)sp.series_id=_seriesId("cac");if(!sp.owner_module)sp.owner_module="customer_acquisition"; return sp;
 }
-window.cacUseAnnual = function(fn){
-  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
-  fd.authoring_mode="annual_schedule"; fd.driver_specs=fd.driver_specs||{};
-  if(!fd.driver_specs.attrition_rate){ fd.driver_specs.attrition_rate={mode:"explicit",cadence:"year",values:Array.from({length:CACYEARS()},()=>+(fd.attrition_rate||0)),extend:"hold"}; }
-  (fd.channels||[]).forEach(ch=>_cacMeta(ch.method||"pool_conversion").forEach(m=>_cacEnsureSpec(ch,m.k)));
-  renderContent(); refresh();
+function _cacFeedSpec(fd,key,legacy){
+  if(!fd.series_id)fd.series_id=_seriesId("cac-auc");if(!fd.owner_module)fd.owner_module="customer_acquisition";
+  fd.driver_specs=fd.driver_specs||{};
+  if(!fd.driver_specs[key])fd.driver_specs[key]={series_id:_seriesId("cac"),owner_module:"customer_acquisition",source:"entered",mode:"flat",value:+legacy||0};
+  const sp=fd.driver_specs[key];if(!sp.source)sp.source="entered";if(!sp.series_id)sp.series_id=_seriesId("cac");if(!sp.owner_module)sp.owner_module="customer_acquisition";return sp;
+}
+function _cacEnsureDerivedIds(ch){ch.derived_series_ids=ch.derived_series_ids||{};if(!ch.derived_series_ids.new_customers)ch.derived_series_ids.new_customers=_seriesId("cac-newcust");if(!ch.derived_series_ids.new_auc)ch.derived_series_ids.new_auc=_seriesId("cac-newauc");return ch.derived_series_ids;}
+function _cacMode(sp){ return (sp&&sp.source==="link")?"link":String((sp&&(sp.mode||sp.trajectory))||"flat"); }
+function _cacDisplay(v,kind){v=+v||0;if(kind==="pct")return (v*100).toFixed(2);if(kind==="k")return fmtComma(v/1000);return v;}
+function _cacStored(v,kind){let x=_pf(v);if(kind==="pct")x/=100;else if(kind==="k")x*=1000;return x;}
+function _cacEnteredCurrent(ch,key){const sp=_cacEnsureSpec(ch,key),m=_cacMode(sp);if(m==="growth")return +(sp.base||0);if(m==="explicit")return +((sp.values||[])[0]||0);return +(sp.value||0);}
+function _cacLinkOptions(meta){
+  _ensureLinkableSeriesIds(); const nd=(cfg.assumptions||{}).nie_detail||{},out=[];
+  if(meta.linkKind==="operating_expense_category") (nd.categories||[]).forEach(x=>out.push({id:x.series_id,kind:meta.linkKind,label:"Operating Expense · "+(x.name||"Unnamed category"),aggregation:"sum"}));
+  if(meta.linkKind==="workforce_role_count") (((nd.workforce||{}).roles)||[]).forEach(x=>out.push({id:x.series_id,kind:meta.linkKind,label:"Workforce Count · "+(x.role||"Unnamed population"),aggregation:"average",disabled:!!x.activation}));
+  return out;
+}
+window._cacScheduleOpen=window._cacScheduleOpen||{};
+function _cacSchedKey(fn,ci,key){return fn+"::"+ci+"::"+key;}
+window.cacToggleSchedule=function(fn,ci,key){const k=_cacSchedKey(fn,ci,key);window._cacScheduleOpen[k]=!window._cacScheduleOpen[k];renderContent();};
+window.cacDriverSource=function(fn,ci,key,source){
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),old=_cacEnsureSpec(ch,key),cur=_cacEnteredCurrent(ch,key);
+  if(source==="link"){
+    const opts=_cacLinkOptions(meta||{}).filter(x=>!x.disabled); if(!opts.length){alert("No compatible Foundry series is available to link yet.");renderContent();return;}
+    const o=opts[0],id=old.series_id||_seriesId("cac");ch.driver_specs[key]={series_id:id,owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};
+  } else ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"entered",mode:"flat",value:cur};
+  renderContent();refresh();
 };
-window.cacUseSimple = function(fn){
-  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
-  if(!confirm("Return this feed to simple Year-1 assumptions? Its explicit annual schedules will be removed.")) return;
-  delete fd.driver_specs; (fd.channels||[]).forEach(ch=>delete ch.driver_specs); fd.authoring_mode="simple";
-  renderContent(); refresh();
+window.cacDriverLink=function(fn,ci,key,val){
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),o=_cacLinkOptions(meta||{}).find(x=>x.id===val);
+  if(!o||o.disabled)return; ch.driver_specs=ch.driver_specs||{};const old=_cacEnsureSpec(ch,key); ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};refresh();
 };
-window.cacSetAnnual = function(fn,ci,key,yi,val,kind){
-  const ch=cfg.assumptions.cac_feeds[fn].channels[ci], sp=_cacEnsureSpec(ch,key);
-  let v=_pf(val); if(kind==="pct") v/=100; else if(kind==="k") v*=1000;
-  sp.values[yi]=v; refresh();
+window.cacDriverTrajectory=function(fn,ci,key,mode){
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci],old=_cacEnsureSpec(ch,key),cur=_cacEnteredCurrent(ch,key); let sp;
+  const ident={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",semantic_type:key};
+  if(mode==="growth")sp={...ident,source:"entered",mode:"growth",base:cur,growth_spec:{rate:0,period:"year",method:"step",anchor:"model_year"}};
+  else if(mode==="explicit"){const vals=[];for(let y=1;y<=CACYEARS();y++)vals.push(_cacLegacyVal(ch,key,y)||cur);sp={...ident,source:"entered",mode:"explicit",cadence:"year",values:vals,extend:"hold",resolution:"step",aggregation:(key==="spend"||key==="new_customers")?"sum":"average"};window._cacScheduleOpen[_cacSchedKey(fn,ci,key)]=true;}
+  else sp={...ident,source:"entered",mode:"flat",value:cur};
+  ch.driver_specs[key]=sp;renderContent();refresh();
 };
-window.cacSetAttrAnnual = function(fn,yi,val){
-  const fd=cfg.assumptions.cac_feeds[fn]; fd.driver_specs=fd.driver_specs||{};
-  const sp=fd.driver_specs.attrition_rate=fd.driver_specs.attrition_rate||{mode:"explicit",cadence:"year",values:[],extend:"hold"};
-  while(sp.values.length<CACYEARS()) sp.values.push(+(fd.attrition_rate||0));
-  sp.values[yi]=_pf(val)/100; refresh();
-};
-window.cacMethodChange = function(fn,ci,m){
-  const ch=cfg.assumptions.cac_feeds[fn].channels[ci]; ch.method=m;
-  const fd=cfg.assumptions.cac_feeds[fn]; if(fd.authoring_mode==="annual_schedule") _cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
-  renderContent(); refresh();
-};
-window.renameCacFeed = function(oldName, newName){
-  newName = (newName||"").trim(); if(!newName || newName===oldName){ renderContent(); return; }
-  var CF = cfg.assumptions.cac_feeds || {};
-  if(CF[newName]){ alert("A feed by that name already exists."); renderContent(); return; }
-  CF[newName] = CF[oldName]; delete CF[oldName];
-  (cfg.assumptions.obs_exposures||[]).forEach(function(pp){ if(pp.managed_notional_source===oldName) pp.managed_notional_source=newName; });
-  renderContent(); refresh();
-};
-window.addCacFeed = function(){
-  cfg.assumptions = cfg.assumptions || {}; cfg.assumptions.cac_feeds = cfg.assumptions.cac_feeds || {};
-  let n=1; while(cfg.assumptions.cac_feeds["feed_"+n]) n++;
-  cfg.assumptions.cac_feeds["feed_"+n]={channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear",authoring_mode:"simple"};
-  renderContent(); refresh();
-};
-window.addCacChannel = function(fn){
-  const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return; fd.channels=fd.channels||[];
-  const ch={name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0}; fd.channels.push(ch);
-  if(fd.authoring_mode==="annual_schedule") _cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k));
-  renderContent(); refresh();
-};
+window.cacDriverValue=function(fn,ci,key,val,kind,field){const ch=cfg.assumptions.cac_feeds[fn].channels[ci],sp=_cacEnsureSpec(ch,key);sp[field||"value"]=_cacStored(val,kind);refresh();};
+window.cacDriverGrowth=function(fn,ci,key,field,val){const sp=_cacEnsureSpec(cfg.assumptions.cac_feeds[fn].channels[ci],key);sp.growth_spec=sp.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};if(field==="rate")sp.growth_spec.rate=_pf(val)/100;else{sp.growth_spec[field]=val;if(field==="period"){sp.growth_spec.anchor=val==="year"?"model_year":"model_period";if(val!=="year"&&sp.growth_spec.method==="step")sp.growth_spec.method="smooth";}}refresh();};
+window.cacScheduleValue=function(fn,ci,key,yi,val,kind){const sp=_cacEnsureSpec(cfg.assumptions.cac_feeds[fn].channels[ci],key);sp.values=sp.values||[];_resizeSeriesValues(sp,0);sp.values[yi]=_cacStored(val,kind);refresh();};
+window.cacScheduleCadence=function(fn,ci,key,cad){const sp=_cacEnsureSpec(cfg.assumptions.cac_feeds[fn].channels[ci],key);sp.cadence=cad;_resizeSeriesValues(sp,sp.values&&sp.values.length?sp.values[0]:0);renderContent();refresh();};
+window.cacScheduleResolution=function(fn,ci,key,res){const sp=_cacEnsureSpec(cfg.assumptions.cac_feeds[fn].channels[ci],key);sp.resolution=res;refresh();};
+window.cacFeedTrajectory=function(fn,mode){const fd=cfg.assumptions.cac_feeds[fn],old=_cacFeedSpec(fd,"attrition_rate",fd.attrition_rate||0),cur=old.mode==="explicit"?+((old.values||[])[0]||0):+(old.base!=null?old.base:old.value||0),id={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",semantic_type:"attrition_rate"};if(mode==="growth")fd.driver_specs.attrition_rate={...id,source:"entered",mode:"growth",base:cur,growth_spec:{rate:0,period:"year",method:"step",anchor:"model_year"}};else if(mode==="explicit")fd.driver_specs.attrition_rate={...id,source:"entered",mode:"explicit",cadence:"year",values:Array.from({length:CACYEARS()},()=>cur),extend:"hold",resolution:"step",aggregation:"average"};else fd.driver_specs.attrition_rate={...id,source:"entered",mode:"flat",value:cur};renderContent();refresh();};
+window.cacFeedValue=function(fn,val,field,yi){const fd=cfg.assumptions.cac_feeds[fn],sp=_cacFeedSpec(fd,"attrition_rate",fd.attrition_rate||0);if(field==="rate"){sp.growth_spec=sp.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};sp.growth_spec.rate=_pf(val)/100;}else if(field==="explicit"){sp.values=sp.values||[];sp.values[yi]=_pf(val)/100;}else sp.value=_pf(val)/100;refresh();};
+function _cacDriverHtml(fn,ci,ch,meta){
+  const sp=_cacEnsureSpec(ch,meta.k),mode=_cacMode(sp),opts=meta.linkKind?_cacLinkOptions(meta):[],canLink=!!meta.linkKind;
+  let x=`<div style="border-top:1px solid #253043;padding:7px 0 5px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#DCE3EE">${esc(meta.lab)}</span>`;
+  if(canLink)x+=`<select style="width:96px" onchange="cacDriverSource('${esc(fn)}',${ci},'${meta.k}',this.value)"><option value="entered"${mode!=="link"?' selected':''}>Enter</option><option value="link"${mode==='link'?' selected':''}>Link</option></select>`;
+  else x+=`<span class="cu" style="width:84px">Enter</span>`;
+  if(mode==="link"){
+    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select style="min-width:210px;max-width:320px" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · metric-triggered':''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
+  } else {
+    x+=`<select style="width:98px" onchange="cacDriverTrajectory('${esc(fn)}',${ci},'${meta.k}',this.value)">${[["flat","Flat"],["growth","Growth"],["explicit","Explicit"]].map(o=>`<option value="${o[0]}"${o[0]===mode?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+    if(mode==="growth"){
+      const gs=sp.growth_spec||{},base=+(sp.base||0);x+=`<input type="text" inputmode="decimal" style="width:78px" value="${_cacDisplay(base,meta.kind)}" onchange="cacDriverValue('${esc(fn)}',${ci},'${meta.k}',this.value,'${meta.kind}','base');${meta.kind==='k'?'fmtField(this)':''}"><span class="cu">${esc(meta.unit)}</span><input type="number" step="0.1" style="width:56px" value="${((+gs.rate||0)*100).toFixed(2)}" onchange="cacDriverGrowth('${esc(fn)}',${ci},'${meta.k}','rate',this.value)"><span class="cu">%</span><select style="width:76px" onchange="cacDriverGrowth('${esc(fn)}',${ci},'${meta.k}','period',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(gs.period||'year')===v?' selected':''}>/${v}</option>`).join('')}</select>`;
+    } else if(mode==="explicit"){
+      x+=`<button class="pillbtn" onclick="cacToggleSchedule('${esc(fn)}',${ci},'${meta.k}')">${window._cacScheduleOpen[_cacSchedKey(fn,ci,meta.k)]?'Hide':'Edit'} schedule</button><span class="cu">${(sp.values||[]).length||0} ${sp.cadence||'year'} source periods</span>`;
+    } else x+=`<input type="text" inputmode="decimal" style="width:92px" value="${_cacDisplay(sp.value,meta.kind)}" onchange="cacDriverValue('${esc(fn)}',${ci},'${meta.k}',this.value,'${meta.kind}','value');${meta.kind==='k'?'fmtField(this)':''}"><span class="cu">${esc(meta.unit)}</span>`;
+  }
+  x+=`</div>`;
+  if(mode==="explicit"&&window._cacScheduleOpen[_cacSchedKey(fn,ci,meta.k)]){const cad=sp.cadence||"year";_resizeSeriesValues(sp,sp.values&&sp.values.length?sp.values[0]:0);const vals=sp.values||[];x+=`<div style="display:flex;flex-wrap:wrap;gap:5px;margin:6px 0 2px 184px;align-items:flex-end"><label class="wf-field" style="width:92px"><span class="wf-field-label">Source cadence</span><select onchange="cacScheduleCadence('${esc(fn)}',${ci},'${meta.k}',this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===cad?' selected':''}>${c}</option>`).join('')}</select></label><label class="wf-field" style="width:92px"><span class="wf-field-label">Resolution</span><select onchange="cacScheduleResolution('${esc(fn)}',${ci},'${meta.k}',this.value)"><option value="step"${(sp.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${sp.resolution==='smooth'?' selected':''}>Smooth</option></select></label>`;for(let y=0;y<vals.length;y++){let v=vals[y]!=null?vals[y]:(vals.length?vals[vals.length-1]:0);x+=`<label class="wf-field" style="width:78px"><span class="wf-field-label">${_seriesPeriodLabel(cad,y)}</span><input type="text" inputmode="decimal" value="${_cacDisplay(v,meta.kind)}" onchange="cacScheduleValue('${esc(fn)}',${ci},'${meta.k}',${y},this.value,'${meta.kind}');${meta.kind==='k'?'fmtField(this)':''}"></label>`;}x+=`</div><div class="cmut" style="margin-left:184px">Explicit is local to this primitive. Flow primitives (Spend / Explicit Customers) aggregate by sum; level/rate primitives aggregate by average when the source cadence is finer than the annual acquisition equation.</div>`;}
+  return x+`</div>`;
+}
+window.cacMethodChange=function(fn,ci,m){const ch=cfg.assumptions.cac_feeds[fn].channels[ci];ch.method=m;_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));renderContent();refresh();};
+window.renameCacFeed=function(oldName,newName){newName=(newName||"").trim();if(!newName||newName===oldName){renderContent();return;}var CF=cfg.assumptions.cac_feeds||{};if(CF[newName]){alert("A feed by that name already exists.");renderContent();return;}CF[newName]=CF[oldName];delete CF[oldName];(cfg.assumptions.obs_exposures||[]).forEach(function(pp){if(pp.managed_notional_source===oldName){pp.managed_notional_source=newName;const fd=CF[newName];if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}});renderContent();refresh();};
+window.addCacFeed=function(){cfg.assumptions=cfg.assumptions||{};cfg.assumptions.cac_feeds=cfg.assumptions.cac_feeds||{};let n=1;while(cfg.assumptions.cac_feeds["feed_"+n])n++;cfg.assumptions.cac_feeds["feed_"+n]={series_id:_seriesId("cac-auc"),owner_module:"customer_acquisition",channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear"};renderContent();refresh();};
+window.addCacChannel=function(fn){const fd=cfg.assumptions.cac_feeds[fn];if(!fd)return;fd.channels=fd.channels||[];const ch={name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0,driver_specs:{},derived_series_ids:{new_customers:_seriesId("cac-newcust"),new_auc:_seriesId("cac-newauc")}};fd.channels.push(ch);_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k));renderContent();refresh();};
+
 function _operatingExpenseMode(A){
   A = A || ((cfg||{}).assumptions||{});
   if(A.nie_detail) return "detailed";
@@ -6925,8 +7013,8 @@ function structuresSectionsHtml(){
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
-      h += '<div class="wf-schema"><span>Role</span><span>Annual Comp<br>($000s/FTE)</span><span>Start</span><span>End</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
-      h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Annual Comp, Start</b>. Other columns are optional and may be omitted when headers are present. Start may be M17/Q5 or a supported metric trigger.</div>';
+      h += '<div class="wf-schema"><span>Role</span><span>Count</span><span>Annual Comp<br>($000s/FTE)</span><span>Start</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
+      h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Annual Comp, Start</b>. Count and other columns are optional; blank Count defaults to 1. Start may be M17/Q5 or a supported metric trigger.</div>';
       h += '<textarea id="nieWorkforcePasteBox" rows="6" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;CEO\t275\tM1\t\t3.0\t&#10;Compliance Analyst\t95\tM17\t\t4.0\t&#10;Custody Officer\t120\tEOP AUC [Custody] >= 1B\t\t3.5\t"></textarea>';
       h += '<div class="nie-actions"><button class="pillbtn" onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
     }
@@ -6938,15 +7026,23 @@ function structuresSectionsHtml(){
         const _roleLoad=(wr.payroll_load_rate!=null)?(+wr.payroll_load_rate*100):null;
         const _defEsc=(+(wf.default_salary_growth_spec||{}).rate||0)*100, _defLoad=(+(wf.default_payroll_load_rate||0))*100;
         let row='<div class="wf-role-card"><div class="wf-role-grid">';
-        row += `<label class="wf-field"><span class="wf-field-label">Role${(wr.count!=null&&+wr.count!==1)?` · ${wr.count} legacy positions`:``}</span><input placeholder="Role / position" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label>`;
-                row += `<label class="wf-field"><span class="wf-field-label">Annual Comp</span><input type="text" inputmode="decimal" value="${fmtComma((wr.annual_comp||0)/1000)}" title="$000s/FTE" onchange="${_wb}.annual_comp=_pf(this.value)*1000;refresh();fmtField(this)"></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Role / population</span><input placeholder="Role / economically homogeneous population" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label>`;
+        const _cm=(wr.count_spec&&(wr.count_spec.trajectory||wr.count_spec.mode))||"flat", _cv=(_cm==="growth"?+(wr.count_spec.base||wr.count||1):(_cm==="explicit"?+(((wr.count_spec.values||[])[0])||wr.count||1):+(wr.count_spec&&wr.count_spec.value!=null?wr.count_spec.value:(wr.count!=null?wr.count:1))));
+        const _cps=wr.compensation_spec||null, _cpm=(_cps&&(_cps.trajectory||_cps.mode))||"growth", _cpv=(_cpm==="growth"?+((_cps&&_cps.base)!=null?_cps.base:(wr.annual_comp||0)):(_cpm==="explicit"?+(((_cps&&_cps.values)||[])[0]||wr.annual_comp||0):+((_cps&&_cps.value)!=null?_cps.value:(wr.annual_comp||0))));
+        row += `<label class="wf-field"><span class="wf-field-label">Count · ${_cm==='flat'?'Flat':(_cm==='growth'?'Growth':'Explicit')}</span><div style="display:flex;gap:3px"><input type="number" min="0" step="0.1" style="width:44px" value="${_cv}" onchange="nieWorkforceCountValue(${wi},this.value)"><select style="width:30px;padding:2px" title="Count trajectory" onchange="nieWorkforceCountMode(${wi},this.value)"><option value="flat"${_cm==='flat'?' selected':''}>—</option><option value="growth"${_cm==='growth'?' selected':''}>↗</option><option value="explicit"${_cm==='explicit'?' selected':''}>⋯</option></select></div></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Compensation · ${_cpm==='flat'?'Flat':(_cpm==='growth'?'Growth':'Explicit')}</span><div style="display:flex;gap:3px"><input type="text" inputmode="decimal" style="width:68px" value="${fmtComma(_cpv/1000)}" title="$000s/FTE/year" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select style="width:30px;padding:2px" title="Compensation trajectory" onchange="nieWorkforceCompMode(${wi},this.value)"><option value="flat"${_cpm==='flat'?' selected':''}>—</option><option value="growth"${_cpm==='growth'?' selected':''}>↗</option><option value="explicit"${_cpm==='explicit'?' selected':''}>⋯</option></select></div></label>`;
         row += `<label class="wf-field"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
         if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
         row += `</div></label>`;
         row += `<label class="wf-field wf-end"><span class="wf-field-label">End ${EVENTUNIT()}</span><input type="number" min="1" max="84" step="1" placeholder="—" value="${wr.end_period!=null?Math.min(84,wr.end_period):''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.min(84,Math.max(1,Math.round(_pf(v))))};refresh()"></label>`;
-        row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation</span><div class="sec-book-value"><input type="number" step="0.1" placeholder="Default ${_defEsc.toFixed(1)}" value="${_roleEsc!=null?_roleEsc.toFixed(2):''}" title="Blank inherits the workforce salary-escalation default" onchange="var v=this.value.trim();${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};if(v===''){delete ${_wb}.salary_growth_spec.rate;if(!Object.keys(${_wb}.salary_growth_spec).length)delete ${_wb}.salary_growth_spec}else{${_wb}.salary_growth_spec.rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
+        if(!_cps) row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Legacy escalation</span><div class="sec-book-value"><input type="number" step="0.1" placeholder="Default ${_defEsc.toFixed(1)}" value="${_roleEsc!=null?_roleEsc.toFixed(2):''}" title="Legacy row: blank inherits the workforce salary-escalation default. Choosing a Compensation trajectory migrates this row to Foundry Series." onchange="var v=this.value.trim();${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};if(v===''){delete ${_wb}.salary_growth_spec.rate;if(!Object.keys(${_wb}.salary_growth_spec).length)delete ${_wb}.salary_growth_spec}else{${_wb}.salary_growth_spec.rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
+        else row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Series source</span><span class="cmut" style="margin:5px 0 0">Enter · trajectory below</span></label>`;
         row += `<label class="wf-field wf-load"><span class="wf-field-label">Benefits / Payroll</span><div class="sec-book-value"><input type="number" step="0.5" placeholder="Default ${_defLoad.toFixed(1)}" value="${_roleLoad!=null?_roleLoad.toFixed(1):''}" title="Blank inherits the workforce default; this percentage is added on top of base compensation" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
         row += `<a href="#" class="cx wf-delete" aria-label="Remove workforce role" onclick="cfg.assumptions.nie_detail.workforce.roles.splice(${wi},1);renderContent();refresh();return false">×</a></div>`;
+        if(_cm==="growth"){wr.count_spec.growth_spec=wr.count_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};row += `<div class="crow" style="margin:7px 0 0 0"><span class="cu">Count trajectory</span>${growthSpecInline('assumptions.nie_detail.workforce.roles.'+wi+'.count_spec.growth_spec',wr.count_spec.growth_spec,0,true)}<span class="cmut" style="margin:0">One row = one economically homogeneous population; Count is its equation of motion.</span></div>`;}
+        if(_cm==="explicit"){const _cad=wr.count_spec.cadence||"year";_resizeSeriesValues(wr.count_spec,_cv);const _vs=wr.count_spec.values||[];row += `<div class="crow" style="margin:7px 0 0;align-items:flex-end;flex-wrap:wrap"><span class="cu">Count schedule</span><select onchange="nieWorkforceCountCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select><select onchange="nieWorkforceCountResolution(${wi},this.value)"><option value="step"${(wr.count_spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${wr.count_spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`;for(let _y=0;_y<_vs.length;_y++)row+=`<label class="wf-field" style="width:62px"><span class="wf-field-label">${_seriesPeriodLabel(_cad,_y)}</span><input type="number" min="0" step="0.1" value="${_vs[_y]}" onchange="nieWorkforceCountSchedule(${wi},${_y},this.value)"></label>`;row += `<span class="cmut" style="margin:0">Explicit schedule is local to Count; cadence is source resolution, not model cadence.</span></div>`;}
+        if(_cps&&_cpm==="growth"){wr.compensation_spec.growth_spec=wr.compensation_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};row += `<div class="crow" style="margin:7px 0 0 0"><span class="cu">Compensation trajectory</span>${growthSpecInline('assumptions.nie_detail.workforce.roles.'+wi+'.compensation_spec.growth_spec',wr.compensation_spec.growth_spec,0,true)}<span class="cmut" style="margin:0">Annual compensation/FTE; payroll periodization happens once downstream.</span></div>`;}
+        if(_cps&&_cpm==="explicit"){const _cad=wr.compensation_spec.cadence||"year";_resizeSeriesValues(wr.compensation_spec,_cpv);const _vs=wr.compensation_spec.values||[];row += `<div class="crow" style="margin:7px 0 0;align-items:flex-end;flex-wrap:wrap"><span class="cu">Compensation schedule</span><select onchange="nieWorkforceCompCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select><select onchange="nieWorkforceCompResolution(${wi},this.value)"><option value="step"${(wr.compensation_spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${wr.compensation_spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`;for(let _y=0;_y<_vs.length;_y++)row+=`<label class="wf-field" style="width:72px"><span class="wf-field-label">${_seriesPeriodLabel(_cad,_y)}</span><input type="number" min="0" step="0.1" value="${fmtComma((_vs[_y]||0)/1000)}" onchange="nieWorkforceCompSchedule(${wi},${_y},this.value)"></label>`;row += `<span class="cmut" style="margin:0">Explicit schedule is local to Compensation.</span></div>`;}
         if(_wt){
           const _wm=_wa.metric||"managed_notional_end", _wrf=_wa.reference||"fixed", _wop=_wa.operator||">=";
           const _srcs=_mnTriggerProducts(), _mopts=[];
@@ -7026,75 +7122,45 @@ function structuresSectionsHtml(){
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint" style="margin-top:8px">${esc(lastRes.nie_detail_series.note)}.</div>`;
     h += '</div>';
   }
-  h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Bottom-up AUC feeds \u2014 acquisition channels minus attrition roll forward to an ending AUC. A fee product (Product tab) sets its <b>AUC source</b> to a feed. Fees are modeled as products, not here.</div></span></div>`;
-  { const CF = (A.cac_feeds = A.cac_feeds || {}); const cfNames = Object.keys(CF);
-    if(!cfNames.length){ h += '<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>'; }
-    cfNames.forEach(function(fn){ const fd = CF[fn]; fd.channels = fd.channels || [];
-      const annualMode = fd.authoring_mode==="annual_schedule" || !!fd.driver_specs || fd.channels.some(ch=>!!ch.driver_specs);
-      h += `<div style="border:1px solid #2A3444;border-radius:7px;padding:9px;margin:8px 0 10px">`;
-      h += `<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:150px" value="${esc(fn)}" onchange="window.renameCacFeed(\x27${esc(fn)}\x27,this.value)">`;
-      h += ` <span class="cu">Beginning customers</span><input type="number" style="width:70px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].beginning_customers=_pf(this.value);refresh()">`;
-      h += ` <span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`;
-      h += `<a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27];renderContent();refresh();return false">\u00d7</a></div>`;
-      h += `<div class="crow" style="align-items:center"><span class="cu">Within-year resolution</span><select onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].intra_year_shape=this.value;refresh()"><option value="linear"${(fd.intra_year_shape||"linear")==="linear"?" selected":""}>Smooth ramp</option><option value="stepped"${fd.intra_year_shape==="stepped"?" selected":""}>Step to annual level</option></select>`;
-      if(!annualMode){
-        h += ` <span class="cu">Attrition</span><input type="number" step="0.5" style="width:56px" value="${((fd.attrition_rate||0)*100).toFixed(1)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].attrition_rate=_pf(this.value)/100;refresh()"><span class="cu">%/yr</span>`;
-        h += `<button class="pillbtn" style="margin-left:auto" onclick="window.cacUseAnnual(\x27${esc(fn)}\x27)">Use annual source schedule</button>`;
-      } else {
-        h += `<span class="cu" style="margin-left:auto">Annual source schedule active \u00b7 ${CACYEARS()} model year${CACYEARS()===1?'':'s'}</span><button class="pillbtn" onclick="window.cacUseSimple(\x27${esc(fn)}\x27)">Return to simple</button>`;
-      }
-      h += `</div>`;
-      h += `<div class="chint" style="margin:5px 0 8px">Channels are user-named. Foundry only knows acquisition methods; add as many channels as the source model requires. Annual source schedules are resolved to the selected monthly/quarterly projection cadence downstream.</div>`;
+  h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Build customers and AUC from causal acquisition equations. Each driver owns its own trajectory or links to a Foundry series owned elsewhere; CAC does not duplicate budgets or headcount assumptions.</div></span></div>`;
+  { const CF=(A.cac_feeds=A.cac_feeds||{}); const cfNames=Object.keys(CF); _ensureLinkableSeriesIds();
+    if(!cfNames.length)h+='<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>';
+    cfNames.forEach(function(fn){const fd=CF[fn];fd.channels=fd.channels||[];
+      h+=`<div style="border:1px solid #2A3444;border-radius:7px;padding:10px;margin:8px 0 10px">`;
+      h+=`<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Beginning customers</span><input type="number" style="width:68px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=_pf(this.value);refresh()"><span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div>`;
+      h+=`<div class="crow" style="align-items:center"><span class="cu">AUC within each model year</span><select onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].intra_year_shape=this.value;refresh()"><option value="linear"${(fd.intra_year_shape||'linear')==='linear'?' selected':''}>Smooth toward year-end</option><option value="stepped"${fd.intra_year_shape==='stepped'?' selected':''}>Step to year-end</option></select><span class="cmut" style="margin:0">This resolves the annual customer-book roll-forward to the model's monthly/quarterly cadence.</span></div>`;
+      h+=`<div class="memo" style="margin:7px 0 8px"><b>How to use this.</b> Pick the acquisition equation, then give each primitive the Foundry Series contract: <b>Enter</b> (Flat / Growth / Explicit), <b>Link</b> where another module owns the assumption, or <b>Derived</b> only when the owning module exposes a closed equation output. No arbitrary formulas.</div>`;
 
-      fd.channels.forEach(function(ch,ci){ ch.params = ch.params || {}; const m = ch.method || "pool_conversion";
-        const P=function(k,expr){return "cfg.assumptions.cac_feeds[\x27"+fn+"\x27].channels["+ci+"].params."+k+"="+expr+";refresh()";};
-        let row = `<div class="crow" style="padding-left:14px"><input style="width:116px" placeholder="Channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].name=this.value;refresh()"><select onchange="window.cacMethodChange(\x27${esc(fn)}\x27,${ci},this.value)">${CAC_METHODS.map(function(o){return `<option value="${o[0]}"${o[0]===m?" selected":""}>${o[1]}</option>`;}).join('')}</select> `;
-        if(!annualMode){
-          if(m==="pool_conversion"){ row += `pool<input type="number" style="width:74px" value="${ch.params.pool||0}" onchange="${P('pool','_pf(this.value)')}"> conv<input type="number" step="0.5" style="width:50px" value="${((ch.params.conversion_rate||0)*100).toFixed(1)}" onchange="${P('conversion_rate','_pf(this.value)/100')}"><span class="cu">%</span>`; }
-          else if(m==="spend_cac"){ row += `spend<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((ch.params.spend||0)/1000)}" onchange="${P('spend','_pf(this.value)*1000')};fmtField(this)"><span class="cu">$000s</span> CAC<input type="number" style="width:74px" value="${ch.params.cac||0}" onchange="${P('cac','_pf(this.value)')}"><span class="cu">$ / cust.</span>`; }
-          else if(m==="fte_productivity"){ row += `FTEs<input type="number" step="0.5" style="width:54px" value="${ch.params.ftes||0}" onchange="${P('ftes','_pf(this.value)')}"> per-FTE<input type="number" style="width:64px" value="${ch.params.per_fte||0}" onchange="${P('per_fte','_pf(this.value)')}">`; }
-          else { row += `by-year<input style="width:140px" placeholder="50,75,100" value="${esc((ch.params.new_customers_by_year||[]).join(String.fromCharCode(44)))}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].params.new_customers_by_year=this.value.split(String.fromCharCode(44)).map(function(x){return parseFloat(x.trim())||0;});refresh()">`; }
-          row += ` avgAUC<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((ch.avg_auc_per_customer||0)/1000)}" onchange="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels[${ci}].avg_auc_per_customer=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span>`;
-        } else row += `<span class="cu">drivers entered in annual schedule below</span>`;
-        row += `<a href="#" class="cx" onclick="cfg.assumptions.cac_feeds[\x27${esc(fn)}\x27].channels.splice(${ci},1);renderContent();refresh();return false">\u00d7</a></div>`;
-        h += row;
+      // Attrition is a feed-level primitive, not an engagement-specific annual row.
+      const asp=_cacFeedSpec(fd,'attrition_rate',fd.attrition_rate||0),am=_cacMode(asp);
+      h+=`<div style="border:1px solid #253043;border-radius:6px;padding:7px 8px;margin:6px 0 9px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#DCE3EE">Existing-book attrition</span><span class="cu" style="width:84px">Enter</span><select style="width:98px" onchange="cacFeedTrajectory('${esc(fn)}',this.value)">${[['flat','Flat'],['growth','Growth'],['explicit','Explicit']].map(o=>`<option value="${o[0]}"${o[0]===am?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+      if(am==='growth'){const gs=asp.growth_spec||{};h+=`<input type="number" step="0.1" style="width:66px" value="${((+asp.base||0)*100).toFixed(2)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].driver_specs.attrition_rate.base=_pf(this.value)/100;refresh()"><span class="cu">% base</span><input type="number" step="0.1" style="width:58px" value="${((+gs.rate||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'rate')"><span class="cu">% growth/yr</span>`;}
+      else if(am==='explicit'){h+=`<span class="cu">Annual values</span><div style="display:flex;flex-wrap:wrap;gap:5px;flex:1">`;const vals=asp.values||[];for(let y=0;y<CACYEARS();y++){const v=vals[y]!=null?vals[y]:(vals.length?vals[vals.length-1]:0);h+=`<label class="wf-field" style="width:72px"><span class="wf-field-label">Y${y+1}</span><input type="number" step="0.1" value="${((+v||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'explicit',${y})"></label>`;}h+=`</div>`;}
+      else h+=`<input type="number" step="0.1" style="width:72px" value="${((+asp.value||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'flat')"><span class="cu">% / year</span>`;
+      h+=`</div></div>`;
+
+      fd.channels.forEach(function(ch,ci){ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
+        h+=`<div class="wf-role-card" style="margin:8px 0"><div class="crow" style="align-items:center;margin:0 0 4px"><span class="cu">Acquisition channel</span><input style="width:160px" placeholder="User-defined channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].channels[${ci}].name=this.value;refresh()"><span class="cu">How are customers acquired?</span><select onchange="cacMethodChange('${esc(fn)}',${ci},this.value)">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?' selected':''}>${o[1]}</option>`).join('')}</select><a href="#" class="cx" style="margin-left:auto" onclick="cfg.assumptions.cac_feeds['${esc(fn)}'].channels.splice(${ci},1);renderContent();refresh();return false">×</a></div>`;
+        const eq={pool_conversion:'New customers = Pool × Conversion',spend_cac:'New customers = Spend ÷ CAC',fte_productivity:'New customers = FTE Count × Productivity',explicit:'New customers = Explicit customer series'}[m];
+        h+=`<div class="chint" style="margin:0 0 4px">${eq}. Channel names are labels only; the engine knows the equation, not “Affiliate,” “BD,” or any other engagement-specific name.</div>`;
+        _cacMeta(m).forEach(meta=>h+=_cacDriverHtml(fn,ci,ch,meta));
+        h+=`</div>`;
       });
-      h += `<div style="padding-left:14px;margin:2px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="window.addCacChannel(\x27${esc(fn)}\x27);return false">+ acquisition channel</a></div>`;
+      h+=`<div style="margin:3px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="addCacChannel('${esc(fn)}');return false">+ acquisition channel</a></div>`;
 
-      if(annualMode){
-        h += `<div style="overflow-x:auto;border-top:1px solid #2A3444;padding-top:8px"><table style="border-collapse:collapse;min-width:${Math.max(620,230+CACYEARS()*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Annual source driver</th>`;
-        for(let y=1;y<=CACYEARS();y++) h += `<th style="padding:4px 5px;color:#9FB0C8">Year ${y}</th>`;
-        h += `<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
-        const _as=(((fd.driver_specs||{}).attrition_rate||{}).values||[]);
-        h += `<tr><td style="padding:4px 6px;color:#DCE3EE">Book attrition rate</td>`;
-        for(let y=0;y<CACYEARS();y++){ const _av=(_as[y]!=null?_as[y]:(_as.length?_as[_as.length-1]:(fd.attrition_rate||0))); h += `<td style="padding:3px"><input type="number" step="0.1" style="width:72px" value="${((+_av||0)*100).toFixed(2)}" onchange="window.cacSetAttrAnnual(\x27${esc(fn)}\x27,${y},this.value)"></td>`; }
-        h += `<td class="cu">% / yr</td></tr>`;
-        fd.channels.forEach(function(ch,ci){
-          _cacMeta(ch.method||"pool_conversion").forEach(function(meta,mi){ const sp=((ch.driver_specs||{})[meta.k]||{}), vals=sp.values||[];
-            h += `<tr${mi===0?' style="border-top:1px solid #253043"':''}><td style="padding:4px 6px"><b style="color:#DFA85A">${esc(ch.name||('Channel '+(ci+1)))}</b> <span style="color:#8FA3C0">\u00b7 ${esc(meta.lab)}</span></td>`;
-            for(let y=0;y<CACYEARS();y++){ let _raw=(vals[y]!=null?vals[y]:(vals.length?vals[vals.length-1]:_cacLegacyVal(ch,meta.k,y+1))), v=+_raw||0; if(meta.kind==="pct") v*=100; else if(meta.kind==="k") v/=1000;
-              h += `<td style="padding:3px"><input type="text" inputmode="decimal" style="width:72px" value="${meta.kind==='k'?fmtComma(v):(meta.kind==='pct'?v.toFixed(2):v)}" onchange="window.cacSetAnnual(\x27${esc(fn)}\x27,${ci},\x27${meta.k}\x27,${y},this.value,\x27${meta.kind}\x27);${meta.kind==='k'?'fmtField(this)':''}"></td>`; }
-            h += `<td class="cu">${esc(meta.unit)}</td></tr>`;
-          });
-        });
-        h += `</tbody></table></div>`;
+      const _ca=lastRes&&lastRes.customer_acquisition&&lastRes.customer_acquisition[fn];
+      if(_ca&&(_ca.annual||[]).length){const ar=_ca.annual;
+        h+=`<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward · audit view</div><table style="border-collapse:collapse;min-width:${Math.max(620,230+ar.length*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output</th>`;
+        ar.forEach((r,i)=>h+=`<th style="padding:4px 5px;color:#9FB0C8">Year ${i+1}</th>`);h+=`<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
+        const rr=(lab,key,unit,fmt)=>{h+=`<tr><td style="padding:4px 6px;color:#DCE3EE">${lab}</td>`;ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):v.toLocaleString(undefined,{maximumFractionDigits:1})}</td>`;});h+=`<td class="cu">${unit}</td></tr>`;};
+        rr('New customers acquired','new_cust','customers');rr('Customers lost to attrition','cust_lost','customers');rr('Ending bank customers','end_cust','customers');rr('New AUC added','new_auc','$000s',v=>fmtComma(v));rr('AUC lost to attrition','auc_lost','$000s',v=>fmtComma(v));rr('Ending AUC','end_auc','$000s',v=>fmtComma(v));rr('Blended CAC','blended_cac','$ / acquired customer',v=>v?Math.round(v).toLocaleString():'—');
+        h+=`</tbody></table></div>`;
       }
-      const _ca = lastRes && lastRes.customer_acquisition && lastRes.customer_acquisition[fn];
-      if(_ca && (_ca.annual||[]).length){
-        const ar=_ca.annual;
-        h += `<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward</div><table style="border-collapse:collapse;min-width:${Math.max(620,230+ar.length*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output</th>`;
-        ar.forEach((r,i)=>h+=`<th style="padding:4px 5px;color:#9FB0C8">Year ${i+1}</th>`); h+=`<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
-        const rr=(lab,key,unit,fmt)=>{ h+=`<tr><td style="padding:4px 6px;color:#DCE3EE">${lab}</td>`; ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):v.toLocaleString(undefined,{maximumFractionDigits:1})}</td>`;}); h+=`<td class="cu">${unit}</td></tr>`; };
-        rr("New customers acquired","new_cust","customers"); rr("Customers lost to attrition","cust_lost","customers"); rr("Ending bank customers","end_cust","customers");
-        rr("New AUC added","new_auc","$000s",v=>fmtComma(v)); rr("AUC lost to attrition","auc_lost","$000s",v=>fmtComma(v)); rr("Ending AUC","end_auc","$000s",v=>fmtComma(v));
-        rr("Blended CAC","blended_cac","$ / acquired customer",v=>v?Math.round(v).toLocaleString():"—");
-        h += `</tbody></table></div>`;
-      }
-      h += `</div>`;
+      h+=`</div>`;
     });
-    h += '<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="window.addCacFeed();return false">+ New acquisition feed</a></div>';
+    h+='<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="addCacFeed();return false">+ New acquisition feed</a></div>';
   }
-  h += '</div>';
+  h+='</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
   h += `<button class="fpill${cfg.assumptions.tax_detail?" on":""}" style="margin:10px 0 12px" onclick="${cfg.assumptions.tax_detail?"delete cfg.assumptions.tax_detail":"cfg.assumptions.tax_detail={enabled:true}"};renderContent();refresh()" title="${cfg.assumptions.tax_detail?"On \u2014 click to disable (legacy treatment resumes)":"Off \u2014 click to enable"}"><span style="color:${cfg.assumptions.tax_detail?"#DFA85A":"#8FA3C0"}">${ICONS.percent}</span>NOL \u2192 DTA</button>`;
   if(cfg.assumptions.tax_detail){
