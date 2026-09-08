@@ -125,6 +125,13 @@ def main():
        and rep.get("edit_count")==1, str(rep.get("edit_count")))
 
     html=__import__("pathlib").Path("web/console_v2.html").read_text(encoding="utf-8")
+    ck("on-screen Balance Sheet renders gross, accumulated depreciation, and net PP&E",
+       "Premises & Equipment, gross" in html
+       and "Less: Accumulated Depreciation" in html
+       and "Premises & Equipment, net" in html
+       and "fin.bs.premisesGross" in html
+       and "fin.bs.premisesAccumDep" in html)
+
     ck("Configuration separates pre-opening expenses from Fixed assets / CAPEX",
        '<div class="csub">Pre-opening expenses</div>' in html and '<div class="csub">Fixed assets / CAPEX</div>' in html
        and '>Asset schedule</button>' in html)
