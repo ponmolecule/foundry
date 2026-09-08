@@ -172,6 +172,35 @@ def main():
        all(x.get("flat_amount_trajectory") is None for x in tr["streams"])
        and not any("Amount path" in step for g in tr["stream_guides"] for step in g["steps"]))
 
+    # r43 live regression: "flat Annual Retainer" can make Claude mark the Account
+    # count trajectory flat even while it correctly emits annual EOP count metadata.
+    # The retainer's flatness belongs to pricing_trajectory, not driver_trajectory.
+    trustee_driver_confused=json.loads(json.dumps(trustee_plan))
+    trustee_driver_confused["streams"][0]["driver_trajectory"]="flat"
+    # A sourced Balance stock multiplier can also receive redundant driver-level
+    # period metadata from the translator; it is non-economic and should be stripped.
+    trustee_driver_confused["streams"][1]["driver_period"]="year"
+    trustee_driver_confused["streams"][1]["driver_resolution"]="smooth"
+    tdc=render_guide_plan(trustee_driver_confused)
+    ck("flat retainer cannot overwrite explicit mandate-count trajectory",
+       tdc["streams"][0]["driver_trajectory"]=="explicit_schedule"
+       and any("Count path to “Explicit schedule”" in x for x in tdc["stream_guides"][0]["steps"]))
+    ck("balance stock multiplier strips redundant upstream driver level metadata",
+       tdc["streams"][1]["driver_period"] is None and tdc["streams"][1]["driver_resolution"] is None)
+
+    exact_trustee_prompt = """I have another stream to capture: RESERVE & COLLATERAL TRUSTEE FEES, composed of a flat
+Annual Retainer per Mandate ($): $20,000 flat for each of the projection horizons (7 years)
+Mandates at Period-End (FY end) of 2,4,7,10,13,15,17 for the 7 years, respectively
+Flat reserves as % of Avg AUC of 30%
+Trustee Fee Rate (% p.a. on reserves) of 0.12% flat across all 7 years
+And a Revenue Start Month at Month 13, reflecting a phased rollout approach for stablecoin reserve management, deferred beyond the first operating year."""
+    def fake_trustee_driver_confused(req, timeout=0):
+        return _Resp({"content":[{"type":"text","text":json.dumps(trustee_driver_confused)}]})
+    exact_tdc=guide_fee_product(exact_trustee_prompt,api_key="test-key",model="claude-sonnet-5",http_open=fake_trustee_driver_confused)
+    ck("exact trustee prompt survives flat-price vs explicit-count translator confusion",
+       exact_tdc["streams"][0]["driver_trajectory"]=="explicit_schedule"
+       and exact_tdc["streams"][1]["stock_multiplier_trajectory"]=="flat")
+
     trustee_wrong=json.loads(json.dumps(trustee_plan))
     trustee_wrong["streams"][0]["driver_trajectory"]="flat"
     trustee_wrong["streams"][0]["driver_period"]="not_applicable"
