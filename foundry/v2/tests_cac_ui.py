@@ -18,6 +18,11 @@ def main():
     ha=html.index("function _seriesPasteNumbers")
     hb=html.index("function _newNieDetail", ha)
     helpers=html[ha:hb]
+    # Scalar Explicit schedules share the canonical fail-closed parser/controller,
+    # defined with the Fee helpers but used by CAC/Workforce/Opex as well.
+    ca=html.index("function _seriesExplicitValues")
+    cb=html.index("function _feeParseExplicitValues", ca)
+    helpers += "\n" + html[ca:cb]
     prefix=r'''
 const window=globalThis;
 let cfg={assumptions:{periods_per_year:12,n_periods:84,obs_exposures:[],nie_detail:{

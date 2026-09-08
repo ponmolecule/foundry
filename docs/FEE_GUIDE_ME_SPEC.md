@@ -42,3 +42,31 @@ after a short retention window. The submitted description is not persisted in th
 
 This separation is required because reverse proxies may terminate long synchronous requests even
 when Anthropic is healthy. Proxy timeouts therefore cannot be treated as model failures.
+
+## Transaction-stream causal contract
+
+A transaction / throughput stream represents one revenue equation, not one stream per assumption.
+For coefficient-driven transaction economics, Foundry's native equation is:
+
+`source quantity × flow coefficient = throughput`
+
+`throughput × fee/spread = revenue`
+
+Accordingly, a source-model volume/AUC percentage (or turns/multiple) and the fee/spread earned on
+that throughput belong in the **same transaction stream** when they are factors in the same revenue
+equation. Guide Me must not split those factors into separate revenue streams. If a required
+fee/spread or revenue-start assumption is missing, Guide Me asks a clarification question rather
+than inventing a value or creating a second stream.
+
+Guide Me instructions must also mirror the active authoring control:
+- `Flat` coefficient trajectory — use the single Flow % / Turns field;
+- `Growth` — use the starting Flow % / Turns field plus growth controls;
+- `Explicit schedule` — use the schedule pastebox and do not instruct the user to populate the
+  inactive single-value field.
+
+The displayed trajectory noun should follow the economics: `Volume % trajectory` for `% of source`
+and `Turns trajectory` for a multiple/turns coefficient.
+
+For a `Flat — periodic amount` basis, the amount path is the economic input. Guide Me therefore
+omits schema-placeholder instructions for driver source, driver trajectory, and rate behavior and
+focuses on Amount path, natural period, amount/schedule, cost side, and timing.

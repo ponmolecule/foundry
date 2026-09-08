@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 4
+GUIDE_SCHEMA_VERSION = 5
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -214,6 +214,8 @@ def fee_guide_manifest():
         "special_rules": [
             "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
             "A derived flow coefficient kind is multiple (turns × source) or pct (% of source).",
+            "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
+            "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account fees may be stated per month, quarter, or year.",
             "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
             "per_unit cost is valid only for transaction basis.",
@@ -308,11 +310,18 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   request, STILL put every supported stream in streams and list only the unsupported pieces in
   unsupported_mechanics. Do not discard a supported stream just because another one is unsupported.
 - Keep unsupported_mechanics empty unless status=unsupported. Keep questions empty when status=plan.
-- Treat separate revenue equations as separate streams; do not collapse them into one stream.
+- Treat separate REVENUE EQUATIONS as separate streams, but do not mistake separate factors in ONE
+  revenue equation for separate streams. A transaction stream natively represents:
+  sourced quantity × flow coefficient = throughput; throughput × fee/spread = revenue.
+  Therefore a user's volume/AUC percentage (or turns) and the spread charged on that resulting
+  throughput belong in ONE transaction stream, not two.
 - Do not output numeric values from your own knowledge. Numbers explicitly supplied by the user are
   not needed in the mapping object; the local Foundry UI tells the user where to enter them.
 - If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
   author that path, ask for those values/rule rather than inventing them.
+- If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
+  that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
+  says revenue begins in a specified month/period but omits the actual start period, ask for it.
 - For fee/spread on annualized throughput derived from AUC/AUM, use transaction + managed_notional +
   driver_trajectory=derived with an explicit coefficient kind/period. The turns/multiple path belongs
   in coefficient_trajectory; never place that path in driver_trajectory.
@@ -492,27 +501,55 @@ def validate_guide_plan(plan):
 
 
 def _stream_steps(item):
-    """Deterministically render exact UI instructions from validated engine IDs."""
+    """Deterministically render exact UI instructions from validated engine IDs.
+
+    Instructions deliberately mirror the controls that are actually active. Flat periodic
+    streams omit dormant driver/rate axes; transaction coefficient instructions distinguish
+    Flat/Growth/Explicit so Guide Me never tells a user to populate an inactive single-value field.
+    """
+    basis = item["basis"]
     steps = [
-        f"Add a {item['basis']} stream and name it “{item['name']}”.",
-        f"Set Basis to “{_BASIS_LABELS[item['basis']]}”.",
-        f"Set Driver source to “{_SOURCE_LABELS[item['driver_source']]}”.",
-        f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.",
+        f"Add a {basis} stream and name it “{item['name']}”.",
+        f"Set Basis to “{_BASIS_LABELS[basis]}”.",
     ]
+
+    # Flat periodic amounts are self-contained: driver and rate controls are schema placeholders,
+    # not economic assumptions. Do not teach the user to manipulate dormant axes.
+    if basis != "flat":
+        steps.append(f"Set Driver source to “{_SOURCE_LABELS[item['driver_source']]}”.")
+        steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
+
     if item.get("coefficient_kind"):
-        steps.append("Under Flow coefficient, choose “× source” if the assumption is turns/multiple, or “% of source” if it is a percentage; use the selection shown below.")
-        steps.append(f"Choose Flow coefficient = “{'× source' if item['coefficient_kind']=='multiple' else '% of source'}”, Per = “{item['coefficient_period'].title()}”, and Coefficient path = “{item['coefficient_trajectory'].replace('_',' ').title()}”.")
-        steps.append("Enter your source-model turns/multiple or flow percentage in the corresponding field; Foundry handles cadence conversion.")
-    if item["basis"] == "balance":
+        is_pct = item["coefficient_kind"] == "pct"
+        noun = "Volume %" if is_pct else "Turns"
+        field = "Flow %" if is_pct else "Turns / multiple"
+        selector = "% of source" if is_pct else "× source"
+        period = item["coefficient_period"].title()
+        traj = item["coefficient_trajectory"]
+        traj_label = traj.replace("_", " ").title()
+        steps.append(f"Set Flow coefficient to “{selector}” and Per to “{period}”.")
+        steps.append(f"Set {noun} trajectory to “{traj_label}”.")
+        if traj == "explicit_schedule":
+            steps.append(
+                f"Paste the source-model {noun.lower()} schedule into “{noun} schedule by {item['coefficient_period']}” and click Load (replace). "
+                f"The single “{field}” field is not used for Explicit Schedule."
+            )
+        elif traj == "growth":
+            steps.append(f"Enter the starting assumption in “Starting {field}”, then enter the stated {noun.lower()} growth assumption.")
+        else:
+            steps.append(f"Enter the assumption in “{field}”.")
+        steps.append("Foundry interprets the coefficient in the selected natural period and converts it to the model cadence.")
+
+    if basis == "balance":
         steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
-    elif item["basis"] == "transaction":
+    elif basis == "transaction":
         if item.get("coefficient_kind"):
-            steps.append("Enter the fee/spread in “Fee (% of throughput)”.")
+            steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
         else:
             steps.append("Enter the fee in “Fee ($/unit)”.")
-    elif item["basis"] == "account":
+    elif basis == "account":
         steps.append("Enter the amount in “Fee ($000s/account)” and choose its natural Month / Quarter / Year period.")
-    elif item["basis"] == "flat":
+    elif basis == "flat":
         fat = item.get("flat_amount_trajectory") or "flat"
         steps.append(f"Set Amount path to “{fat.replace('_schedule',' schedule').replace('_',' ').title()}”.")
         if fat == "explicit_schedule":
@@ -521,9 +558,11 @@ def _stream_steps(item):
             steps.append("Enter the starting recurring amount in “Starting amount ($000s)”, choose its natural period, and enter the stated Amount growth assumption.")
         else:
             steps.append("Enter the recurring amount in “Amount ($000s)” and choose its natural Month / Quarter / Year period.")
-    elif item["basis"] == "event":
+    elif basis == "event":
         steps.append("Enter the one-time “Amount ($)” and the model period when the event occurs.")
-    steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
+
+    if basis != "flat":
+        steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
     steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")
     return steps
