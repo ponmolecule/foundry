@@ -108,6 +108,10 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        "CAC does not interpolate between source points" in html and "cacScheduleResolution" not in html)
     ck("feed retains beginning book and within-year AUC resolution controls",
        "Beginning customers" in html and "Beginning AUC" in html and "AUC within each model year" in html)
+    ck("calculated customer-base audit view is a thin fully gridded table",
+       'class="cac-audit-grid"' in html
+       and "table.cac-audit-grid th,table.cac-audit-grid td{border:1px solid" in html
+       and "Calculated customer-base roll-forward · audit view" in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1

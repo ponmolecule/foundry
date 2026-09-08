@@ -314,7 +314,8 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
 - If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
   author that path, ask for those values/rule rather than inventing them.
 - For fee/spread on annualized throughput derived from AUC/AUM, use transaction + managed_notional +
-  derived with an explicit coefficient kind/period.
+  driver_trajectory=derived with an explicit coefficient kind/period. The turns/multiple path belongs
+  in coefficient_trajectory; never place that path in driver_trajectory.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
 - Use flat for a recurring fixed-dollar amount and set flat_amount_trajectory to flat, growth, or
@@ -447,6 +448,14 @@ def validate_guide_plan(plan):
                 raise ValueError("Guide Me returned unsupported coefficient period")
             if item["coefficient_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
                 raise ValueError("Guide Me returned unsupported coefficient trajectory")
+            # A natural-period flow coefficient (turns/multiple or pct of source) is, by
+            # definition, the derivation of the sourced quantity. The coefficient owns its
+            # own flat/growth/explicit path; the upstream AUC/other source remains a stock.
+            # Structured Outputs cannot express this cross-field implication without bringing
+            # back the large anyOf grammar we deliberately removed. Canonicalize the redundant
+            # driver trajectory here rather than rejecting an otherwise valid mapping. This is
+            # structural normalization only -- it invents no economic value or path.
+            item["driver_trajectory"] = "derived"
         elif any(item[k] is not None for k in ("coefficient_period", "coefficient_trajectory")):
             raise ValueError("Guide Me returned coefficient metadata without a coefficient")
         if item["basis"] == "flat":

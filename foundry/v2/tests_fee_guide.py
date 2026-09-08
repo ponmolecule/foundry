@@ -104,14 +104,26 @@ def main():
     ck("escalating escrow maps to one Flat explicit amount trajectory", any("Amount path to “Explicit Schedule”" in step for step in mout["stream_guides"][1]["steps"]))
     ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
 
-    user_case = "I have another stream of revenue: Settlement turns multiplied by Average AUC per annum, ramping up to Y3, then normalizing as the book matures. A flat settlement rate of 0.03% and an escrow fee starting at 150,000, which increases by 50,000 every year through Y7. Revenue starts in month 1"
+    # Live r31 regression: Claude can redundantly put the turns schedule on the sourced
+    # driver trajectory even though a natural-period flow coefficient necessarily owns
+    # that path. Guide Me must canonicalize this structural mismatch to Derived rather
+    # than surfacing the engine validator error to the user.
+    coefficient_misplaced=json.loads(json.dumps(mixed))
+    coefficient_misplaced["streams"][0]["driver_trajectory"]="explicit_schedule"
+    user_case = "I have another stream of revenue: Settlement turns multiplied by Average AUC per annum, ramping up to Y3, then normalizing as the book matures. Add a flat settlement rate of 0.03%. Add an escrow fee starting at 150,000, increasing by 50,000 each year through Y7."
     seen_case={}
     def fake_case(req, timeout=0):
         seen_case["payload"]=json.loads(req.data.decode())
-        return _Resp({"content":[{"type":"text","text":json.dumps(mixed)}]})
+        return _Resp({"content":[{"type":"text","text":json.dumps(coefficient_misplaced)}]})
     case_out=guide_fee_product(user_case,api_key="test-key",model="claude-sonnet-5",http_open=fake_case)
-    ck("settlement + escalating escrow prompt maps both streams and asks only needed questions", case_out["status"]=="needs_clarification" and len(case_out["stream_guides"])==2 and not case_out["unsupported_mechanics"])
+    ck("exact settlement + escrow prompt canonicalizes coefficient driver to derived",
+       case_out["status"]=="needs_clarification" and len(case_out["stream_guides"])==2
+       and case_out["streams"][0]["driver_trajectory"]=="derived" and not case_out["unsupported_mechanics"])
     ck("exact multi-stream regression uses schema-constrained output", (((seen_case.get("payload") or {}).get("output_config") or {}).get("format") or {}).get("type")=="json_schema")
+    normalized=render_guide_plan(coefficient_misplaced)
+    ck("fee coefficient canonicalizes sourced driver trajectory to derived",
+       normalized["streams"][0]["driver_trajectory"]=="derived"
+       and any("Trajectory to “Derived (× source)”" in step for step in normalized["stream_guides"][0]["steps"]))
 
     bad=json.loads(json.dumps(good)); bad["streams"][0]["basis"]="royalty_magic"
     try: validate_guide_plan(bad); raised=False
