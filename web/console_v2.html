@@ -4784,7 +4784,17 @@ function renderContent(){
     h += rowBS('Total Loans & Leases (gross)', arr12(fin.bs.grossLoans, bsHasOpen), 'subtotal', 'grossLoans');
     h += rowBS('Less: Allowance for Loan Losses', arr12((fin.bs.alll||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'alll');
     h += rowBS('Net Loans & Leases', arr12(fin.bs.netLoans, bsHasOpen), 'subtotal', 'netLoans');
-    h += rowBS('Premises & Equipment', arr12(fin.bs.premises || fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen), null, 'premises');
+    // Fixed-asset statement detail: gross PP&E and accumulated depreciation are
+    // disclosure companions to the existing net premises balance.  Render all three
+    // when the engine supplies the detail; retain the historical net-only fallback
+    // for older/imported result payloads.
+    if(fin.bs.premisesGross && fin.bs.premisesAccumDep){
+      h += rowBS('Premises & Equipment, gross', arr12(fin.bs.premisesGross, bsHasOpen), null, 'premisesGross');
+      h += rowBS('Less: Accumulated Depreciation', arr12((fin.bs.premisesAccumDep||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'premisesAccumDep');
+      h += rowBS('Premises & Equipment, net', arr12(fin.bs.premises, bsHasOpen), 'subtotal', 'premises');
+    } else {
+      h += rowBS('Premises & Equipment', arr12(fin.bs.premises || fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen), null, 'premises');
+    }
     h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen), null, 'intangibles');
     if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen), null, 'otherAssets');
