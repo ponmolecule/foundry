@@ -240,19 +240,24 @@ def _guide_output_schema():
             "basis": {"type": "string", "enum": sorted(_FEE_BASES)},
             "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
             "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
+            # Anthropic Structured Outputs currently rejects an enum on a
+            # nullable type-array in some API paths (for example
+            # type=["string","null"] with enum=["multiple",...,null]).
+            # Keep the transport grammar simple and string-only; the sentinel is
+            # normalized back to None before Foundry's semantic validator runs.
             "coefficient_kind": {
-                "type": ["string", "null"], "enum": ["multiple", "pct", None]
+                "type": "string", "enum": ["multiple", "pct", "not_applicable"]
             },
             "coefficient_period": {
-                "type": ["string", "null"], "enum": ["month", "quarter", "year", None]
+                "type": "string", "enum": ["month", "quarter", "year", "not_applicable"]
             },
             "coefficient_trajectory": {
-                "type": ["string", "null"],
-                "enum": ["flat", "growth", "explicit_schedule", None],
+                "type": "string",
+                "enum": ["flat", "growth", "explicit_schedule", "not_applicable"],
             },
             "flat_amount_trajectory": {
-                "type": ["string", "null"],
-                "enum": ["flat", "growth", "explicit_schedule", None],
+                "type": "string",
+                "enum": ["flat", "growth", "explicit_schedule", "not_applicable"],
             },
             "rate_behavior": {"type": "string", "enum": sorted(_FEE_RATE_BEHAVIORS)},
             "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
@@ -316,6 +321,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
+- For coefficient_kind, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable" when that field does not apply to the stream.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
 
@@ -408,15 +414,18 @@ def validate_guide_plan(plan):
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
             raise ValueError(f"Guide Me returned unsupported stream fields: {sorted(extra_stream)}")
+        def _transport_optional(value):
+            return None if value in (None, "not_applicable") else value
+
         item = {
             "name": str(raw.get("name") or "Fee stream")[:120],
             "basis": str(raw.get("basis") or ""),
             "driver_source": str(raw.get("driver_source") or ""),
             "driver_trajectory": str(raw.get("driver_trajectory") or ""),
-            "coefficient_kind": raw.get("coefficient_kind"),
-            "coefficient_period": raw.get("coefficient_period"),
-            "coefficient_trajectory": raw.get("coefficient_trajectory"),
-            "flat_amount_trajectory": raw.get("flat_amount_trajectory"),
+            "coefficient_kind": _transport_optional(raw.get("coefficient_kind")),
+            "coefficient_period": _transport_optional(raw.get("coefficient_period")),
+            "coefficient_trajectory": _transport_optional(raw.get("coefficient_trajectory")),
+            "flat_amount_trajectory": _transport_optional(raw.get("flat_amount_trajectory")),
             "rate_behavior": str(raw.get("rate_behavior") or ""),
             "cost_kind": str(raw.get("cost_kind") or "none"),
         }

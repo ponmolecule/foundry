@@ -64,8 +64,8 @@ def main():
     good={
       "status":"plan","product_label":"Custody services","managed_notional_source":"customer_acquisition_feed",
       "streams":[
-        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
-        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"}
+        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
       ],"questions":[],"unsupported_mechanics":[]}
     def fake_open(req, timeout=0):
         seen["url"]=req.full_url; seen["headers"]={k.lower():v for k,v in req.header_items()}; seen["payload"]=json.loads(req.data.decode())
@@ -84,12 +84,16 @@ def main():
     ck("structured schema carries Flat amount trajectory", "flat_amount_trajectory" in json.dumps(sch))
     sch_text=json.dumps(sch)
     ck("structured schema avoids high-latency basis anyOf expansion", '"anyOf"' not in sch_text)
+    stream_props=sch["properties"]["streams"]["items"]["properties"]
+    nullable_fields=("coefficient_kind","coefficient_period","coefficient_trajectory","flat_amount_trajectory")
+    ck("structured schema uses string sentinel instead of nullable enum type arrays", all(stream_props[k].get("type")=="string" and "not_applicable" in stream_props[k].get("enum",[]) for k in nullable_fields))
+    ck("structured schema contains no union type arrays", not any(isinstance(v.get("type"),list) for v in stream_props.values()))
     ck("Guide Me disables Sonnet adaptive thinking for low-latency translation", pl.get("thinking")=={"type":"disabled"})
 
     mixed={
       "status":"needs_clarification","product_label":"Settlement escrow","managed_notional_source":"ask",
       "streams":[
-        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":None,"rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
         {"name":"Escrow fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
       ],
       "questions":["What annual settlement-turn values should be used through Y3 and after normalization?","Should AUC come from Manual assumptions or a Customer-Acquisition feed?"],
