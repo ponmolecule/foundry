@@ -211,13 +211,18 @@ def fee_guide_manifest():
         "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
         "natural_periods": sorted(_FEE_NATURAL_PERIODS - {"model_period"}),
         "flat_amount_trajectories": ["flat", "growth", "explicit_schedule"],
+        "level_trajectories": ["flat", "growth", "explicit_schedule"],
+        "level_resolutions": ["step", "smooth"],
         "rate_behavior_by_basis": {k: sorted(v) for k, v in _ALLOWED_RATE_BY_BASIS.items()},
         "special_rules": [
             "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
             "A derived flow coefficient kind is multiple (turns × source) or pct (% of source).",
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
-            "Account fees may be stated per month, quarter, or year.",
+            "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
+            "Account fees may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule pricing trajectories.",
+            "A balance stream may derive a stock as a percentage of another sourced stock (for example reserves = % of AUC). This is a stock multiplier, not a transaction flow coefficient, and may use flat, growth, or explicit_schedule.",
+            "Balance annual fee rates may use flat, growth, or explicit_schedule pricing trajectories.",
             "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
             "pct_of_revenue is contra-revenue: it reduces fee income. pct_of_revenue_opex preserves gross fee income and routes the calculated cost to noninterest expense.",
             "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
@@ -245,6 +250,14 @@ def _guide_output_schema():
             "basis": {"type": "string", "enum": sorted(_FEE_BASES)},
             "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
             "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
+            "driver_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
+            "driver_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
+            "stock_multiplier_trajectory": {"type": "string", "enum": ["flat", "growth", "explicit_schedule", "not_applicable"]},
+            "stock_multiplier_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
+            "stock_multiplier_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
+            "pricing_trajectory": {"type": "string", "enum": ["flat", "growth", "explicit_schedule", "not_applicable"]},
+            "pricing_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
+            "pricing_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
             # Anthropic Structured Outputs currently rejects an enum on a
             # nullable type-array in some API paths (for example
             # type=["string","null"] with enum=["multiple",...,null]).
@@ -269,6 +282,9 @@ def _guide_output_schema():
         },
         "required": [
             "name", "basis", "driver_source", "driver_trajectory",
+            "driver_period", "driver_resolution",
+            "stock_multiplier_trajectory", "stock_multiplier_period", "stock_multiplier_resolution",
+            "pricing_trajectory", "pricing_period", "pricing_resolution",
             "coefficient_kind", "coefficient_period", "coefficient_trajectory",
             "flat_amount_trajectory", "rate_behavior", "cost_kind",
         ],
@@ -330,12 +346,27 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   in coefficient_trajectory; never place that path in driver_trajectory.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
+  Account count paths use driver_trajectory: flat, proportional (for Growth), or explicit_schedule.
+  When the user supplies END-OF-PERIOD account/mandate counts, use driver_trajectory=explicit_schedule,
+  set driver_period to the source cadence, and set driver_resolution to step or smooth only when the
+  user's description specifies that resolution. If the resolution is economically required but omitted,
+  ask whether the EOP levels should Step or Smooth; never invent rounding.
+- If a balance is described as a percentage of another stock (for example reserves as % of Avg AUC),
+  use balance + the sourced stock + driver_trajectory=derived + stock_multiplier_trajectory. This is a
+  STOCK multiplier and must never be represented as a transaction flow coefficient. Stock multiplier
+  paths may be flat, growth, or explicit_schedule; explicit paths also name source period and resolution.
+- For balance annual rates and account per-unit fees, pricing_trajectory may be flat, growth, or
+  explicit_schedule. pricing_period is the account fee's natural billing period; for an explicit balance
+  rate path it is the source schedule cadence. Never use Flat amount trajectory for account or balance.
 - Use flat for a recurring fixed-dollar amount and set flat_amount_trajectory to flat, growth, or
   explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
 - Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex). Never substitute one for the other.
-- For coefficient_kind, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable" when that field does not apply to the stream.
+- For driver_period, driver_resolution, stock_multiplier_trajectory, stock_multiplier_period,
+  stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
+  coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
+  when that field does not apply to the stream.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
 
@@ -355,10 +386,42 @@ def _extract_json(text):
         raise ValueError("Guide Me returned non-JSON output")
 
 
+def _dummy_growth_spec():
+    return {"rate": 0, "period": "year", "method": "smooth", "anchor": "model_year"}
+
+
+def _dummy_level_path(trajectory, period=None, resolution=None):
+    spec = {"value": 0, "trajectory": trajectory or "flat"}
+    if trajectory == "growth":
+        spec["growth_spec"] = _dummy_growth_spec()
+    elif trajectory == "explicit_schedule":
+        spec.update({
+            "period": period or "year",
+            "resolution": resolution or "step",
+            "schedule": {"1": 0},
+        })
+    return spec
+
+
 def _dummy_stream(item):
     basis = item["basis"]
     traj = item["driver_trajectory"]
     driver = {"source": item["driver_source"], "trajectory": traj, "params": {}}
+
+    if basis == "account" and traj == "explicit_schedule":
+        driver["params"]["level_schedule"] = {
+            "period": item["driver_period"],
+            "resolution": item["driver_resolution"],
+            "schedule": {"1": 0},
+        }
+    if item.get("stock_multiplier_trajectory") is not None:
+        sm = _dummy_level_path(
+            item["stock_multiplier_trajectory"],
+            item.get("stock_multiplier_period"),
+            item.get("stock_multiplier_resolution"),
+        )
+        sm["kind"] = "pct"
+        driver["params"]["stock_multiplier"] = sm
     if item.get("coefficient_kind") is not None:
         driver["params"]["coefficient"] = {
             "kind": item["coefficient_kind"],
@@ -367,26 +430,33 @@ def _dummy_stream(item):
             "trajectory": item["coefficient_trajectory"] or "flat",
         }
         if item.get("coefficient_trajectory") == "growth":
-            # Satisfy evaluator shape validation without selecting an economic growth assumption.
-            driver["params"]["coefficient"]["growth_spec"] = {
-                "rate": 0, "period": "year", "method": "smooth", "anchor": "model_year"
-            }
+            driver["params"]["coefficient"]["growth_spec"] = _dummy_growth_spec()
         elif item.get("coefficient_trajectory") == "explicit_schedule":
-            driver["params"]["coefficient"]["schedule"] = {}
+            driver["params"]["coefficient"]["schedule"] = {"1": 0}
+
     rate = {"behavior": item["rate_behavior"], "params": {}}
     if basis == "balance":
+        pt = item.get("pricing_trajectory") or "flat"
+        rate["behavior"] = "flat"
         rate["params"]["rate"] = 0
+        rate["params"]["rate_path"] = _dummy_level_path(
+            pt, item.get("pricing_period"), item.get("pricing_resolution")
+        )
     elif basis == "transaction":
         rate["params"]["per_unit"] = 0
     elif basis == "account":
-        rate["params"]["unit_fee"] = {"value": 0, "period": "year"}
+        pt = item.get("pricing_trajectory") or "flat"
+        uf = _dummy_level_path(pt, item.get("pricing_period"), item.get("pricing_resolution"))
+        uf["period"] = item.get("pricing_period") or "year"
+        if pt == "explicit_schedule":
+            # Billing period and path cadence are the same in Guide Me's compact contract.
+            uf["path_period"] = item.get("pricing_period") or "year"
+        rate["params"]["unit_fee"] = uf
     elif basis == "flat":
         fat = item.get("flat_amount_trajectory") or "flat"
         rate["params"]["flat_amount"] = {"value": 0, "period": "year", "trajectory": fat}
         if fat == "growth":
-            rate["params"]["flat_amount"]["growth_spec"] = {
-                "rate": 0, "period": "year", "method": "smooth", "anchor": "model_year"
-            }
+            rate["params"]["flat_amount"]["growth_spec"] = _dummy_growth_spec()
         elif fat == "explicit_schedule":
             rate["params"]["flat_amount"]["schedule"] = {"1": 0}
     elif basis == "event":
@@ -422,9 +492,11 @@ def validate_guide_plan(plan):
     for raw in streams:
         if not isinstance(raw, dict):
             raise ValueError("Guide Me stream must be an object")
-        allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "coefficient_kind",
-                          "coefficient_period", "coefficient_trajectory", "flat_amount_trajectory",
-                          "rate_behavior", "cost_kind"}
+        allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "driver_period",
+                          "driver_resolution", "stock_multiplier_trajectory", "stock_multiplier_period",
+                          "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
+                          "pricing_resolution", "coefficient_kind", "coefficient_period",
+                          "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind"}
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
             raise ValueError(f"Guide Me returned unsupported stream fields: {sorted(extra_stream)}")
@@ -436,6 +508,14 @@ def validate_guide_plan(plan):
             "basis": str(raw.get("basis") or ""),
             "driver_source": str(raw.get("driver_source") or ""),
             "driver_trajectory": str(raw.get("driver_trajectory") or ""),
+            "driver_period": _transport_optional(raw.get("driver_period")),
+            "driver_resolution": _transport_optional(raw.get("driver_resolution")),
+            "stock_multiplier_trajectory": _transport_optional(raw.get("stock_multiplier_trajectory")),
+            "stock_multiplier_period": _transport_optional(raw.get("stock_multiplier_period")),
+            "stock_multiplier_resolution": _transport_optional(raw.get("stock_multiplier_resolution")),
+            "pricing_trajectory": _transport_optional(raw.get("pricing_trajectory")),
+            "pricing_period": _transport_optional(raw.get("pricing_period")),
+            "pricing_resolution": _transport_optional(raw.get("pricing_resolution")),
             "coefficient_kind": _transport_optional(raw.get("coefficient_kind")),
             "coefficient_period": _transport_optional(raw.get("coefficient_period")),
             "coefficient_trajectory": _transport_optional(raw.get("coefficient_trajectory")),
@@ -451,8 +531,69 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me invented unsupported trajectory {item['driver_trajectory']!r}")
         if item["rate_behavior"] not in _FEE_RATE_BEHAVIORS:
             raise ValueError(f"Guide Me invented unsupported rate behavior {item['rate_behavior']!r}")
+        if item["rate_behavior"] not in _ALLOWED_RATE_BY_BASIS.get(item["basis"], set()):
+            raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
         if item["cost_kind"] not in _FEE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
+        if item["basis"] == "account" and item["driver_trajectory"] == "explicit_schedule":
+            if item["driver_period"] not in {"month", "quarter", "year"}:
+                raise ValueError("Guide Me account explicit count path requires driver_period")
+            if item["driver_resolution"] not in {"step", "smooth"}:
+                raise ValueError("Guide Me account explicit count path requires step or smooth resolution")
+        elif item["driver_period"] is not None or item["driver_resolution"] is not None:
+            raise ValueError("Guide Me returned driver level metadata outside an explicit account count path")
+
+        smt = item["stock_multiplier_trajectory"]
+        if smt is not None:
+            if item["basis"] != "balance" or item["driver_trajectory"] != "derived" or item["driver_source"] == "constant":
+                raise ValueError("Guide Me stock multiplier requires a sourced derived balance stream")
+            if smt not in {"flat", "growth", "explicit_schedule"}:
+                raise ValueError("Guide Me returned unsupported stock multiplier trajectory")
+            if smt == "explicit_schedule":
+                if item["stock_multiplier_period"] not in {"month", "quarter", "year"}:
+                    raise ValueError("Guide Me explicit stock multiplier requires a source period")
+                if item["stock_multiplier_resolution"] not in {"step", "smooth"}:
+                    raise ValueError("Guide Me explicit stock multiplier requires step or smooth resolution")
+            else:
+                item["stock_multiplier_period"] = None
+                item["stock_multiplier_resolution"] = None
+        elif item["stock_multiplier_period"] is not None or item["stock_multiplier_resolution"] is not None:
+            raise ValueError("Guide Me returned stock multiplier metadata without a stock multiplier")
+
+        pt = item["pricing_trajectory"]
+        if item["basis"] in {"balance", "account"}:
+            # Backward compatibility: pre-r42 Guide Me plans had no pricing_trajectory field;
+            # their balance/account pricing was necessarily Flat. Structured Outputs in r42+
+            # carry the field explicitly, but old stored/fake plans remain valid.
+            if pt is None:
+                pt = item["pricing_trajectory"] = "flat"
+            if pt not in {"flat", "growth", "explicit_schedule"}:
+                raise ValueError("Guide Me balance/account stream requires a pricing trajectory")
+            if item["basis"] == "account":
+                # Account fee period is a real economic unit. New Guide Me should provide it
+                # when the user's description does; legacy plans may leave it for the user.
+                if item["pricing_period"] is not None and item["pricing_period"] not in {"month", "quarter", "year"}:
+                    raise ValueError("Guide Me account pricing returned an unsupported natural billing period")
+                if pt == "explicit_schedule":
+                    if item["pricing_period"] not in {"month", "quarter", "year"}:
+                        raise ValueError("Guide Me explicit account pricing requires a natural period")
+                    if item["pricing_resolution"] not in {"step", "smooth"}:
+                        raise ValueError("Guide Me explicit account pricing requires step or smooth resolution")
+                else:
+                    item["pricing_resolution"] = None
+            else:
+                if pt == "explicit_schedule":
+                    if item["pricing_period"] not in {"month", "quarter", "year"}:
+                        raise ValueError("Guide Me explicit balance-rate pricing requires a source period")
+                    if item["pricing_resolution"] not in {"step", "smooth"}:
+                        raise ValueError("Guide Me explicit balance-rate pricing requires step or smooth resolution")
+                else:
+                    # Schedule cadence/resolution are redundant for a flat/growth annualized rate.
+                    item["pricing_period"] = None
+                    item["pricing_resolution"] = None
+        elif any(item[k] is not None for k in ("pricing_trajectory", "pricing_period", "pricing_resolution")):
+            raise ValueError("Guide Me returned pricing-path metadata on an unsupported basis")
+
         has_coef = item["coefficient_kind"] is not None
         if has_coef:
             if item["coefficient_kind"] not in {"multiple", "pct"}:
@@ -475,7 +616,29 @@ def validate_guide_plan(plan):
             if item["flat_amount_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
                 raise ValueError("Guide Me returned unsupported flat amount trajectory")
         elif item["flat_amount_trajectory"] is not None:
-            raise ValueError("Guide Me returned flat amount trajectory on a non-flat basis")
+            # Structured-output translators can redundantly populate the legacy Flat-amount
+            # axis even when the stream is correctly represented by the richer Account/Balance
+            # path fields. Normalize only when those basis-native fields already prove the
+            # intended mechanic; otherwise fail closed so a Flat schedule cannot silently stand
+            # in for a missing count/stock/rate path.
+            account_native = (
+                item["basis"] == "account"
+                and (
+                    item["driver_trajectory"] in {"explicit_schedule", "proportional"}
+                    or item.get("pricing_trajectory") in {"growth", "explicit_schedule"}
+                )
+            )
+            balance_native = (
+                item["basis"] == "balance"
+                and (
+                    item.get("stock_multiplier_trajectory") is not None
+                    or item.get("pricing_trajectory") in {"growth", "explicit_schedule"}
+                )
+            )
+            if account_native or balance_native:
+                item["flat_amount_trajectory"] = None
+            else:
+                raise ValueError("Guide Me returned flat amount trajectory on a non-flat basis")
         _validate_fee_stream_shape(_dummy_stream(item))
         out_streams.append(item)
     questions = plan.get("questions") or []
@@ -505,23 +668,48 @@ def validate_guide_plan(plan):
 
 
 def _stream_steps(item):
-    """Deterministically render exact UI instructions from validated engine IDs.
-
-    Instructions deliberately mirror the controls that are actually active. Flat periodic
-    streams omit dormant driver/rate axes; transaction coefficient instructions distinguish
-    Flat/Growth/Explicit so Guide Me never tells a user to populate an inactive single-value field.
-    """
+    """Deterministically render exact UI instructions from validated engine IDs."""
     basis = item["basis"]
     steps = [
         f"Add a {basis} stream and name it “{item['name']}”.",
         f"Set Basis to “{_BASIS_LABELS[basis]}”.",
     ]
 
-    # Flat periodic amounts are self-contained: driver and rate controls are schema placeholders,
-    # not economic assumptions. Do not teach the user to manipulate dormant axes.
+    # Flat periodic amounts are self-contained. Other bases expose their causal driver.
     if basis != "flat":
         steps.append(f"Set Driver source to “{_SOURCE_LABELS[item['driver_source']]}”.")
+
+    if basis == "account" and item["driver_source"] == "constant":
+        traj = item["driver_trajectory"]
+        if traj == "explicit_schedule":
+            steps.append("Set Count path to “Explicit schedule”.")
+            steps.append(
+                f"Set Count schedule period to “{item['driver_period'].title()}” and Resolution to “{item['driver_resolution'].title()}”."
+            )
+            steps.append(
+                f"Paste the period-end account/mandate counts into “Period-end count schedule by {item['driver_period']}” and click Load (replace). "
+                "Foundry treats them as level endpoints; Smooth linearly interpolates between endpoints and Step holds the prior endpoint until the next one. Foundry does not round the interpolated counts."
+            )
+        elif traj == "proportional":
+            steps.append("Set Count path to “Growth”, enter the Starting count, and enter the stated Count growth assumption.")
+        else:
+            steps.append("Set Count path to “Flat” and enter the account/mandate count in “Count / mandates”.")
+    elif basis != "flat":
         steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
+
+    smt = item.get("stock_multiplier_trajectory")
+    if smt is not None:
+        label = smt.replace("_schedule", " schedule").replace("_", " ").title()
+        steps.append("Under Stock derivation, use “% of source balance”.")
+        steps.append(f"Set Stock % trajectory to “{label}”.")
+        if smt == "explicit_schedule":
+            steps.append(
+                f"Set Schedule period to “{item['stock_multiplier_period'].title()}” and Resolution to “{item['stock_multiplier_resolution'].title()}”, then paste the stock-percent schedule into “Stock % schedule by {item['stock_multiplier_period']}” and click Load (replace)."
+            )
+        elif smt == "growth":
+            steps.append("Enter the Starting Stock % of source and the stated Stock % growth assumption.")
+        else:
+            steps.append("Enter the stock percentage in “Stock % of source”.")
 
     if item.get("coefficient_kind"):
         is_pct = item["coefficient_kind"] == "pct"
@@ -545,14 +733,39 @@ def _stream_steps(item):
         steps.append("Foundry interprets the coefficient in the selected natural period and converts it to the model cadence.")
 
     if basis == "balance":
-        steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
+        pt = item.get("pricing_trajectory") or "flat"
+        steps.append("Set Rate behavior to “Series rate path”.")
+        steps.append(f"Set Rate path to “{pt.replace('_schedule',' schedule').replace('_',' ').title()}”.")
+        if pt == "explicit_schedule":
+            steps.append(
+                f"Set Schedule period to “{item['pricing_period'].title()}” and Resolution to “{item['pricing_resolution'].title()}”, then paste the annualized fee-rate schedule into “Rate schedule (bp/yr) by {item['pricing_period']}” and click Load (replace)."
+            )
+        elif pt == "growth":
+            steps.append("Enter the Starting Rate (bp/yr on balance) and the stated Rate growth assumption.")
+        else:
+            steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
     elif basis == "transaction":
         if item.get("coefficient_kind"):
             steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
         else:
             steps.append("Enter the fee in “Fee ($/unit)”.")
+        steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
     elif basis == "account":
-        steps.append("Enter the amount in “Fee ($000s/account)” and choose its natural Month / Quarter / Year period.")
+        pt = item.get("pricing_trajectory") or "flat"
+        if item.get("pricing_period"):
+            steps.append(f"Set Fee is per to “{item['pricing_period'].title()}”.")
+        else:
+            steps.append("Choose Fee is per = Month / Quarter / Year to match the source-model fee unit.")
+        steps.append(f"Set Fee path to “{pt.replace('_schedule',' schedule').replace('_',' ').title()}”.")
+        if pt == "explicit_schedule":
+            steps.append(
+                f"Paste the per-account fee schedule into “Fee schedule ($000s/account) by {item['pricing_period']}” and click Load (replace); use the stated Step/Smooth resolution."
+            )
+        elif pt == "growth":
+            steps.append("Enter the Starting Fee ($000s/account) and the stated Fee growth assumption.")
+        else:
+            steps.append("Enter the fee in “Fee ($000s/account)”.")
+        steps.append("Leave Rate behavior at “Flat”; the Fee path owns Flat / Growth / Explicit pricing changes.")
     elif basis == "flat":
         fat = item.get("flat_amount_trajectory") or "flat"
         steps.append(f"Set Amount path to “{fat.replace('_schedule',' schedule').replace('_',' ').title()}”.")
@@ -564,9 +777,8 @@ def _stream_steps(item):
             steps.append("Enter the recurring amount in “Amount ($000s)” and choose its natural Month / Quarter / Year period.")
     elif basis == "event":
         steps.append("Enter the one-time “Amount ($)” and the model period when the event occurs.")
-
-    if basis != "flat":
         steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
+
     steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")
     return steps

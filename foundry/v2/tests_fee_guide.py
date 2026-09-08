@@ -21,6 +21,7 @@ def main():
     ck("manifest is closed over current five fee bases", {x["id"] for x in m["bases"]}=={"balance","transaction","account","flat","event"})
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
     ck("manifest exposes Flat amount trajectories", m.get("flat_amount_trajectories")==["flat","growth","explicit_schedule"])
+    ck("manifest exposes level paths and Step/Smooth resolution", m.get("level_trajectories")==["flat","growth","explicit_schedule"] and set(m.get("level_resolutions",[]))=={"step","smooth"})
     ck("manifest distinguishes revenue share from operating cost % of revenue",
        {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","pct_of_revenue","pct_of_revenue_opex"}
        and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[])))
@@ -90,7 +91,9 @@ def main():
     sch_text=json.dumps(sch)
     ck("structured schema avoids high-latency basis anyOf expansion", '"anyOf"' not in sch_text)
     stream_props=sch["properties"]["streams"]["items"]["properties"]
-    nullable_fields=("coefficient_kind","coefficient_period","coefficient_trajectory","flat_amount_trajectory")
+    ck("structured schema carries account-level, stock-multiplier, and pricing paths",
+       all(k in stream_props for k in ("driver_period","driver_resolution","stock_multiplier_trajectory","pricing_trajectory","pricing_period")))
+    nullable_fields=("driver_period","driver_resolution","stock_multiplier_trajectory","stock_multiplier_period","stock_multiplier_resolution","pricing_trajectory","pricing_period","pricing_resolution","coefficient_kind","coefficient_period","coefficient_trajectory","flat_amount_trajectory")
     ck("structured schema uses string sentinel instead of nullable enum type arrays", all(stream_props[k].get("type")=="string" and "not_applicable" in stream_props[k].get("enum",[]) for k in nullable_fields))
     ck("structured schema contains no union type arrays", not any(isinstance(v.get("type"),list) for v in stream_props.values()))
     ck("Guide Me disables Sonnet adaptive thinking for low-latency translation", pl.get("thinking")=={"type":"disabled"})
@@ -126,6 +129,61 @@ def main():
     ck("explicit coefficient Guide Me never tells user to fill inactive single Flow %",
        any("single “Flow %” field is not used" in x for x in cvsteps)
        and not any(x.endswith("“Flow %”.") for x in cvsteps))
+    trustee_plan={
+      "status":"plan","product_label":"Reserve & Collateral Trustee Fees","managed_notional_source":"customer_acquisition_feed",
+      "streams":[
+        {"name":"Annual Retainer per Mandate","basis":"account","driver_source":"constant","driver_trajectory":"explicit_schedule",
+         "driver_period":"year","driver_resolution":"smooth",
+         "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
+         "pricing_trajectory":"flat","pricing_period":"year","pricing_resolution":"not_applicable",
+         "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Trustee Fee on Reserves","basis":"balance","driver_source":"managed_notional","driver_trajectory":"derived",
+         "driver_period":"not_applicable","driver_resolution":"not_applicable",
+         "stock_multiplier_trajectory":"flat","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
+         "pricing_trajectory":"flat","pricing_period":"not_applicable","pricing_resolution":"not_applicable",
+         "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
+      ],"questions":[],"unsupported_mechanics":[]
+    }
+    tg=render_guide_plan(trustee_plan); t1=tg["stream_guides"][0]["steps"]; t2=tg["stream_guides"][1]["steps"]
+    ck("trustee product maps to Account retainer + Balance reserve fee within five-stream ontology",
+       len(tg["stream_guides"])==2 and tg["streams"][0]["basis"]=="account" and tg["streams"][1]["basis"]=="balance")
+    ck("Guide Me maps FY-end mandates to Explicit EOP counts with Smooth resolution",
+       any("Count path to “Explicit schedule”" in x for x in t1) and any("Resolution to “Smooth”" in x for x in t1)
+       and any("does not round" in x for x in t1))
+    ck("Guide Me maps reserves as stock % of AUC, not transaction flow",
+       any("% of source balance" in x for x in t2) and any("Stock % trajectory to “Flat”" in x for x in t2)
+       and not any("Flow coefficient" in x for x in t2))
+    ck("Guide Me keeps trustee rate on same Balance stream with Series rate path",
+       any("Rate behavior to “Series rate path”" in x for x in t2) and any("Rate path to “Flat”" in x for x in t2))
+    ck("Guide Me never misuses Flat amount trajectory for trustee Account/Balance streams",
+       not any("Amount path" in x for x in (t1+t2)))
+
+    # r41 live failure shape: Claude could redundantly populate the old Flat-amount
+    # trajectory while also returning the correct Account/Balance-native path. That
+    # redundancy must not resurrect the old "flat amount trajectory on a non-flat basis"
+    # error; the local canonicalizer strips it only when the native path is complete.
+    trustee_redundant=json.loads(json.dumps(trustee_plan))
+    trustee_redundant["streams"][0]["flat_amount_trajectory"]="explicit_schedule"
+    trustee_redundant["streams"][1]["flat_amount_trajectory"]="flat"
+    tr=render_guide_plan(trustee_redundant)
+    ck("trustee mapping canonicalizes redundant Flat amount metadata on Account/Balance",
+       all(x.get("flat_amount_trajectory") is None for x in tr["streams"])
+       and not any("Amount path" in step for g in tr["stream_guides"] for step in g["steps"]))
+
+    trustee_wrong=json.loads(json.dumps(trustee_plan))
+    trustee_wrong["streams"][0]["driver_trajectory"]="flat"
+    trustee_wrong["streams"][0]["driver_period"]="not_applicable"
+    trustee_wrong["streams"][0]["driver_resolution"]="not_applicable"
+    trustee_wrong["streams"][0]["flat_amount_trajectory"]="explicit_schedule"
+    try: validate_guide_plan(trustee_wrong); trustee_wrong_raised=False
+    except ValueError: trustee_wrong_raised=True
+    ck("Flat amount cannot silently substitute for a missing Account count path", trustee_wrong_raised)
+    sys_contract=(seen.get("payload") or {}).get("system","")
+    ck("Guide Me system contract distinguishes stock % of AUC from transaction % flow",
+       "STOCK multiplier" in sys_contract and "must never be represented as a transaction flow coefficient" in sys_contract)
+
     opcost_plan={
       "status":"plan","product_label":"Service","managed_notional_source":"not_needed",
       "streams":[{"name":"Service fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat",
