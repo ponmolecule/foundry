@@ -178,6 +178,12 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'oninput="_feeCoeffPasteInput(' in html
        and 'class="pillbtn" disabled onclick="_feeSetCoeffSchedule' in html
        and '_feeClearCoeffSchedule(${_fi},${si})' in html)
+    ck("Flat fee explicit amount path uses the same live-validating pastebox workflow",
+       'feeFlatAmountPaste_' in html
+       and 'oninput="_feeFlatAmountPasteInput(' in html
+       and 'id="${_fid}_load" class="pillbtn" disabled onclick="_feeSetFlatAmountSchedule' in html
+       and '_feeClearFlatAmountSchedule(${_fi},${si})' in html
+       and 'function _feeExplicitPasteInput(id)' in html)
     # Execute the exact transaction-coefficient paste workflow that regressed in r33.
     paste_js=(
         "const cfg={assumptions:{obs_exposures:[{fee_streams:[{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}}]}]}};\n"
@@ -200,6 +206,32 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and pj.get("loaded")==[8,10,12,10,10,10,9]
        and pj.get("rendered")==2 and pj.get("refreshed")==2
        and pj.get("cleared") is True and pj.get("invalid") is True, pr.stderr.strip())
+    # Regression: use Settlement then Escrow pasteboxes sequentially in the same Fee Product.
+    dual_paste_js=(
+        "const cfg={assumptions:{obs_exposures:[{fee_streams:["
+        "{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}},"
+        "{rate:{behavior:'flat',params:{flat_amount:{value:150000,period:'year',trajectory:'explicit_schedule',schedule:{}}}}}"
+        "]}]}};\n"
+        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;} function PPY(){return 12;}\n"
+        "const els={}; function mk(id){const b={disabled:true,classList:{ready:false,toggle(k,v){this.ready=v;}}}; const t={value:'',classList:{toggle(){}}}; els[id]=t; els[id+'_load']=b; return [t,b];}\n"
+        "const [settle,settleBtn]=mk('feeCoeffPaste_0_0'); const [escrow,escrowBtn]=mk('feeFlatAmountPaste_0_1'); const document={getElementById:(id)=>els[id]||null};\n"
+        "function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"
+        + hjs +
+        "\nsettle.value='8,10,12,10,10,10,9'; _feeCoeffPasteInput('feeCoeffPaste_0_0'); const settleEnabled=!settleBtn.disabled && settleBtn.classList.ready===true; _feeSetCoeffSchedule(0,0,settle.value);"
+        " escrow.value='150,200,250,300,350,400,450'; _feeFlatAmountPasteInput('feeFlatAmountPaste_0_1'); const escrowEnabled=!escrowBtn.disabled && escrowBtn.classList.ready===true; _feeSetFlatAmountSchedule(0,1,escrow.value);"
+        " const turns=Object.values(cfg.assumptions.obs_exposures[0].fee_streams[0].driver.params.coefficient.schedule); const amounts=Object.values(cfg.assumptions.obs_exposures[0].fee_streams[1].rate.params.flat_amount.schedule);"
+        " console.log(JSON.stringify({settleEnabled,escrowEnabled,turns,amounts,rendered,refreshed,independent:settleBtn!==escrowBtn}));"
+    )
+    dpr=subprocess.run(["node","-e",dual_paste_js],text=True,capture_output=True)
+    dpj={}
+    if dpr.returncode==0 and dpr.stdout.strip():
+        try: dpj=json.loads(dpr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Settlement then Escrow explicit pasteboxes activate and load independently",
+       dpr.returncode==0 and dpj.get("settleEnabled") is True and dpj.get("escrowEnabled") is True
+       and dpj.get("turns")==[8,10,12,10,10,10,9]
+       and dpj.get("amounts")==[150000,200000,250000,300000,350000,400000,450000]
+       and dpj.get("rendered")==2 and dpj.get("refreshed")==2 and dpj.get("independent") is True, dpr.stderr.strip())
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
        '⎘ Paste categories' in html and '+ Add category' in html and '_catPasteGrowthSpec' in html)
     ck("Operating Expense presents mutually exclusive Simple/Detailed authoring modes and three detailed panels",
