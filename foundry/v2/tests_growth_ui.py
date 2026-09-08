@@ -161,7 +161,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
          "{name:'Settlement',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'multiple',value:4,period:'year',trajectory:'explicit_schedule',schedule:{'1':1.5,'2':2.4}}}},rate:{behavior:'flat',params:{per_unit:.0005}},cost:{kind:'none',params:{}}},"
          "{name:'Retainer',basis:'account',driver:{source:'constant',trajectory:'flat',params:{base:10}},rate:{behavior:'flat',params:{unit_fee:{value:12000,period:'year'}}},cost:{kind:'none',params:{}}},"
          "{name:'Escrow',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:120000,period:'year'}}},cost:{kind:'none',params:{}}}]};"
-         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Flow coefficient')&&out.includes('Fee (% of throughput)')&&out.includes('Fee ($000s/account)')&&out.includes('Amount ($000s)')&&out.includes('Values by year')}));")
+         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Flow coefficient')&&out.includes('Fee (% of throughput)')&&out.includes('Fee ($000s/account)')&&out.includes('Amount ($000s)')&&out.includes('Turns schedule by year')}));")
     fr2=subprocess.run(["node","-e",fp2],text=True,capture_output=True)
     fj2={}
     if fr2.returncode==0 and fr2.stdout.strip():
@@ -169,8 +169,22 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Product tab renders natural-period flow/account/flat fee controls without runtime error",
        fr2.returncode==0 and fj2.get("ok") is True, fr2.stderr.strip())
+    # Explicit coefficient schedules own the value path; the single-value input must not compete visually.
+    fp3=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+         "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"
+         + hjs + fjs +
+         "\nconst p={name:'Conversion',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:["
+         "{name:'Conversion fee',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'pct',value:.12,period:'year',trajectory:'explicit_schedule',schedule:{'1':.12,'2':.10}}}},rate:{behavior:'flat',params:{per_unit:.0008}},cost:{kind:'none',params:{}}}]};"
+         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({pctTraj:out.includes('Volume % trajectory'),pctSchedule:out.includes('Volume % schedule by year'),singleHidden:!out.includes('<label>Flow %</label>')}));")
+    fr3=subprocess.run(["node","-e",fp3],text=True,capture_output=True); fj3={}
+    if fr3.returncode==0 and fr3.stdout.strip():
+        try: fj3=json.loads(fr3.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("explicit transaction schedule hides inactive single Flow % and uses economic labels",
+       fr3.returncode==0 and fj3.get("pctTraj") and fj3.get("pctSchedule") and fj3.get("singleHidden"), fr3.stderr.strip())
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
-       'Coefficient path' in html and 'Use natural-period flow' in html
+       'const _coefNoun=_ckind==="pct"?"Volume %":"Turns"' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
     ck("Fee Product explicit coefficient path uses live-validating pastebox/load workflow",
        'feeCoeffPaste_' in html and 'comma, tab, semicolon, or new line' in html

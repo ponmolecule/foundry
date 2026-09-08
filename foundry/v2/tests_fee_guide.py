@@ -73,10 +73,12 @@ def main():
     out=guide_fee_product("Custody on AUC plus settlement turns.",api_key="test-key",model="test-model",http_open=fake_open)
     ck("Guide Me returns validated multi-stream plan", out["status"]=="plan" and len(out["stream_guides"])==2)
     ck("AUC feed ownership is explained without duplicating AUC", "Customer-Acquisition feed" in out["product_setup"])
-    ck("transaction flow instructions expose natural-period coefficient", any("Per = “Year”" in s for s in out["stream_guides"][1]["steps"]))
+    ck("transaction flow instructions expose natural-period coefficient", any("Per to “Year”" in s for s in out["stream_guides"][1]["steps"]))
     pl=seen.get("payload") or {}
     ck("Claude request supplies no tools or retrieval", "tools" not in pl and "url" not in pl and "files" not in pl)
     ck("Claude receives only manifest/system + user's description", pl.get("messages")==[{"role":"user","content":"Custody on AUC plus settlement turns."}] and "FOUNDRY_ENGINE_MANIFEST=" in pl.get("system",""))
+    ck("Guide Me system contract keeps flow coefficient and fee/spread in one transaction revenue equation",
+       "throughput × fee/spread = revenue" in pl.get("system","") and "belong in ONE transaction stream, not two" in pl.get("system",""))
     fmt=((pl.get("output_config") or {}).get("format") or {})
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()
@@ -102,6 +104,25 @@ def main():
     mout=render_guide_plan(mixed)
     ck("mixed settlement + escalating escrow maps both supported streams", mout["status"]=="needs_clarification" and len(mout["stream_guides"])==2 and not mout["unsupported_mechanics"])
     ck("escalating escrow maps to one Flat explicit amount trajectory", any("Amount path to “Explicit Schedule”" in step for step in mout["stream_guides"][1]["steps"]))
+    escrow_steps=mout["stream_guides"][1]["steps"]
+    ck("Flat periodic Guide Me omits dormant driver/rate axes",
+       not any("Driver source" in x or x.startswith("Set Trajectory") or "Rate behavior" in x for x in escrow_steps))
+
+    conversion={
+      "status":"plan","product_label":"Conversion service","managed_notional_source":"customer_acquisition_feed",
+      "streams":[
+        {"name":"Conversion Service Fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived",
+         "coefficient_kind":"pct","coefficient_period":"year","coefficient_trajectory":"explicit_schedule",
+         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
+      ],"questions":[],"unsupported_mechanics":[]
+    }
+    cv=render_guide_plan(conversion); cvsteps=cv["stream_guides"][0]["steps"]
+    ck("conversion volume percentage + spread maps to one transaction stream",
+       len(cv["stream_guides"])==1 and any("Volume % trajectory" in x and "Explicit Schedule" in x for x in cvsteps)
+       and any("Fee (% of throughput)" in x and "not a separate fee stream" in x for x in cvsteps))
+    ck("explicit coefficient Guide Me never tells user to fill inactive single Flow %",
+       any("single “Flow %” field is not used" in x for x in cvsteps)
+       and not any(x.endswith("“Flow %”.") for x in cvsteps))
     ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
 
     # Live r31 regression: Claude can redundantly put the turns schedule on the sourced
