@@ -194,6 +194,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Product tab renders natural-period flow/account/flat fee controls without runtime error",
        fr2.returncode==0 and fj2.get("ok") is True, fr2.stderr.strip())
+    ck("Fee streams use a stronger visual separator for quick stream delineation",
+       ".fee-stream-block{border-top:2px solid #3E4B61;margin-top:14px;padding-top:10px}" in html
+       and '<div class="fld wide fee-stream-block">' in html
+       and 'border-top:1px solid #333;margin-top:8px;padding-top:6px' not in html)
     # Trustee authoring: Account EOP count levels + sourced Balance stock % + Series rate path.
     fp2b=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{Growth:{series_id:'cac:Growth:customers'}}}};\n"
           "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
