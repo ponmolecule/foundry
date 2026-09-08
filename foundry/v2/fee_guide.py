@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 5
+GUIDE_SCHEMA_VERSION = 6
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -346,11 +346,16 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   in coefficient_trajectory; never place that path in driver_trajectory.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
+  Account has TWO INDEPENDENT trajectories: driver_trajectory controls the COUNT path, while
+  pricing_trajectory controls the FEE PER ACCOUNT/MANDATE. Words such as "flat annual retainer"
+  describe pricing_trajectory=flat; they MUST NOT overwrite an explicit count path.
   Account count paths use driver_trajectory: flat, proportional (for Growth), or explicit_schedule.
-  When the user supplies END-OF-PERIOD account/mandate counts, use driver_trajectory=explicit_schedule,
-  set driver_period to the source cadence, and set driver_resolution to step or smooth only when the
-  user's description specifies that resolution. If the resolution is economically required but omitted,
-  ask whether the EOP levels should Step or Smooth; never invent rounding.
+  When the user supplies END-OF-PERIOD account/mandate counts, ALWAYS use
+  driver_trajectory=explicit_schedule, set driver_period to the source cadence, and set
+  driver_resolution to step or smooth only when the user's description specifies that resolution.
+  A flat retainer plus changing EOP counts therefore means pricing_trajectory=flat AND
+  driver_trajectory=explicit_schedule. If the resolution is economically required but omitted, ask
+  whether the EOP levels should Step or Smooth; never invent rounding.
 - If a balance is described as a percentage of another stock (for example reserves as % of Avg AUC),
   use balance + the sourced stock + driver_trajectory=derived + stock_multiplier_trajectory. This is a
   STOCK multiplier and must never be represented as a transaction flow coefficient. Stock multiplier
@@ -535,13 +540,34 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
         if item["cost_kind"] not in _FEE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
-        if item["basis"] == "account" and item["driver_trajectory"] == "explicit_schedule":
-            if item["driver_period"] not in {"month", "quarter", "year"}:
-                raise ValueError("Guide Me account explicit count path requires driver_period")
-            if item["driver_resolution"] not in {"step", "smooth"}:
-                raise ValueError("Guide Me account explicit count path requires step or smooth resolution")
+        # Account count-level metadata belongs only to an Explicit EOP count path. Structured
+        # translators can confuse a *flat retainer price* with a flat *count* trajectory even
+        # while correctly supplying the annual count period/resolution. Because driver_period +
+        # driver_resolution have no other Account meaning, a complete valid pair is structural
+        # evidence of the Explicit count path and can be canonicalized without inventing values.
+        if item["basis"] == "account":
+            has_driver_meta = item["driver_period"] is not None or item["driver_resolution"] is not None
+            if has_driver_meta:
+                if item["driver_period"] not in {"month", "quarter", "year"}:
+                    raise ValueError("Guide Me account explicit count path requires driver_period")
+                if item["driver_resolution"] not in {"step", "smooth"}:
+                    raise ValueError("Guide Me account explicit count path requires step or smooth resolution")
+                if item["driver_source"] == "constant" and item["driver_trajectory"] in {"flat", "proportional", "explicit_schedule"}:
+                    item["driver_trajectory"] = "explicit_schedule"
+                elif item["driver_trajectory"] != "explicit_schedule":
+                    raise ValueError("Guide Me returned account count metadata on an incompatible driver")
+            elif item["driver_trajectory"] == "explicit_schedule":
+                raise ValueError("Guide Me account explicit count path requires driver_period and step or smooth resolution")
         elif item["driver_period"] is not None or item["driver_resolution"] is not None:
-            raise ValueError("Guide Me returned driver level metadata outside an explicit account count path")
+            # A sourced Balance stream with a first-class stock multiplier owns its path on the
+            # stock-multiplier axis. Claude can redundantly attach the same source-period metadata
+            # to the upstream managed-notional driver; it carries no economics there, so strip it.
+            if (item["basis"] == "balance" and item["driver_trajectory"] == "derived"
+                    and item["driver_source"] != "constant" and item["stock_multiplier_trajectory"] is not None):
+                item["driver_period"] = None
+                item["driver_resolution"] = None
+            else:
+                raise ValueError("Guide Me returned driver level metadata outside an explicit account count path")
 
         smt = item["stock_multiplier_trajectory"]
         if smt is not None:
