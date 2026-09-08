@@ -25,7 +25,13 @@ def main():
     )
     prefix=r'''
 const window=globalThis;
-let cfg={assumptions:{obs_exposures:[{name:'Custody',managed_notional:{day1:1}},{name:'Wealth',managed_notional:{day1:1}}]},pre_opening:{expenses:[]}};
+let cfg={assumptions:{
+  cac_feeds:{growth:{series_id:'cac-feed-growth',owner_module:'customer_acquisition'},wealth:{series_id:'cac-feed-wealth',owner_module:'customer_acquisition'}},
+  obs_exposures:[
+    {name:'Custody',managed_notional_source:'growth',managed_notional_source_id:'cac-feed-growth'},
+    {name:'Settlement',managed_notional_source:'growth',managed_notional_source_id:'cac-feed-growth'},
+    {name:'Wealth Fees',managed_notional_source:'wealth',managed_notional_source_id:'cac-feed-wealth'}
+  ]},pre_opening:{expenses:[]}};
 window.confirm=()=>true;
 function renderContent(){} function refresh(){} function appStatus(){}
 function NP(){return 84;}
@@ -56,14 +62,15 @@ cfg.pre_opening.expenses=[]; window.poPaste("Legal\t3,000","replace"); const poA
 window.faPaste("Asset\tCost\tInService\tUsefulLife\nServers\t3,000\tAt opening\t5","replace"); const faAmt=cfg.assumptions.fixed_assets.assets[0].cost;
 const ndParity=_ensureNieDetail(); ndParity.categories=[]; window.nieCatPaste("Insurance\t3,000","flat",0,"month","smooth","model_period",1); const catAmt=ndParity.categories[0].per_period;
 window.nieWorkforcePaste("Role\tAnnual Comp ($000s/FTE)\tStart\tEscalation %\nParity Role\t3,000\tM1\t3"); const wfAmt=wf.roles[wf.roles.length-1].annual_comp;
-window.nieWorkforceMetric(wf.roles.length-1,"mn::Wealth"); const mnMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
+window.nieWorkforceMetric(wf.roles.length-1,"mn::cac-feed-wealth"); const mnMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
+const aucSources=_aucTriggerSources().map(x=>({key:x.key,label:x.label,aliases:x.aliases.slice().sort()}));
 window.nieWorkforceMetric(wf.roles.length-1,"net_income_py"); const pyMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
 cfg.assumptions.nie_detail.categories=[{name:'Saved detail',per_period:1}];
 window.nieOff(); const simpleHasDraft=!!cfg.assumptions._nie_detail_draft && cfg.assumptions.nie_detail===null;
 window.nieOn(); const restored=(cfg.assumptions.nie_detail.categories||[])[0].name;
 cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
 window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
-console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
+console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,aucSources,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
 '''.replace('__ROLES__', json.dumps(roles))
     br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     bj={}
@@ -84,7 +91,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        bj.get("nroles")==48 and bj.get("maxhire")==57)
     trig=bj.get("trigger") or {}
     ck("workforce paste accepts a compact named EOP-AUC trigger",
-       trig.get("metric")=="managed_notional_end" and trig.get("source")=="Custody"
+       trig.get("metric")=="managed_notional_end" and trig.get("source")=="cac-feed-growth"
        and trig.get("operator")==">=" and abs(trig.get("value",0)-1_000_000_000)<1
        and trig.get("timing")=="same_period")
     csv=bj.get("csv") or {}
@@ -108,9 +115,14 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("paste/manual unit semantics are aligned across every bulk-entry surface",
        up=={"manualAmt":3000000,"poAmt":3000000,"faAmt":3000000,"catAmt":3000000,"wfAmt":3000000}, str(up))
     mn=bj.get("mnMetric") or {}; py=bj.get("pyMetric") or {}
-    ck("metric choice folds managed-notional source into the metric and derives safe timing",
-       mn.get("metric")=="managed_notional_end" and mn.get("source")=="Wealth" and mn.get("timing")=="same_period"
+    ck("metric choice binds EOP AUC to the stable CAC-feed Series ID and derives safe timing",
+       mn.get("metric")=="managed_notional_end" and mn.get("source")=="cac-feed-wealth" and mn.get("timing")=="same_period"
        and py.get("metric")=="net_income" and py.get("reference")=="prior_year" and py.get("timing")=="next_period")
+    srcs=bj.get("aucSources") or []
+    ck("workforce AUC trigger choices deduplicate fee products onto underlying CAC sources",
+       len(srcs)==2 and srcs[0].get("key")=="cac-feed-growth"
+       and set(srcs[0].get("aliases") or [])=={"Custody","Settlement","growth"}
+       and srcs[1].get("key")=="cac-feed-wealth")
     ck("Simple/Detailed mode switching preserves authored detail instead of deleting it",
        bj.get("simpleHasDraft") is True and bj.get("restored")=="Saved detail")
     cleared=bj.get("cleared") or {}
@@ -122,6 +134,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("opening workforce paste UI does not activate/supersede legacy staffing",
        'onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false"' in html
        and 'onclick="var w=_ensureWorkforce();w._pasteOpen=true' not in html)
+    ck("workforce activation results are surfaced in the operating-expense UI",
+       "Workforce activation tracking · latest run" in html and "resolved_hire_periods" in html
+       and "End-horizon active count" in html)
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'Driver growth</label>${growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)

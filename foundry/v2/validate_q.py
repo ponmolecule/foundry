@@ -291,10 +291,8 @@ def validate_config_v2(cfg):
                     wf.get("default_salary_growth_spec"), ppy=_ppy, context=_growth_ctx)
             except (TypeError, ValueError) as e:
                 errs.append(f"nie_detail.workforce.default_salary_growth_spec invalid: {e}")
-        _mn_trigger_sources = [str(p.get("name") or "").strip()
-                               for p in ((a.get("deposit_products") or []) + (a.get("obs_exposures") or []))
-                               if (p.get("managed_notional") or p.get("managed_notional_source"))
-                               and str(p.get("name") or "").strip()]
+        from .activation import managed_notional_source_catalog
+        _mn_trigger_catalog = managed_notional_source_catalog(a)
         for i, role in enumerate(wf.get("roles") or []):
             cnt = role.get("count", 1)
             comp = role.get("annual_comp", role.get("base_salary_annual", 0))
@@ -333,7 +331,7 @@ def validate_config_v2(cfg):
             if activation:
                 try:
                     from .activation import validate_activation_rule
-                    validate_activation_rule(activation, available_sources=_mn_trigger_sources)
+                    validate_activation_rule(activation, source_catalog=_mn_trigger_catalog)
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.workforce.roles[{i}].activation invalid: {e}")
                 if ep not in (None, "") and (not isinstance(ep, int) or isinstance(ep, bool) or ep < 1):

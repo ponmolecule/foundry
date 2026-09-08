@@ -373,7 +373,8 @@ def _nie_sheet(ws, nd, ppy=4):
                 _row(root + ".activation.metric", sec, "Activation metric", _act.get("metric"),
                      "managed_notional_end / efficiency_ratio / net_income")
                 if _act.get("source") is not None:
-                    _row(root + ".activation.source", sec, "Metric source product", _act.get("source"), "product name")
+                    _row(root + ".activation.source", sec, "Metric source Series", _act.get("source"),
+                         "stable AUC/AUM Series ID; legacy product/feed name aliases accepted")
                 _row(root + ".activation.operator", sec, "Comparator", _act.get("operator", ">="), ">= / > / <= / <")
                 _row(root + ".activation.reference", sec, "Reference", _act.get("reference", "fixed"),
                      "fixed / prior_period / prior_year")

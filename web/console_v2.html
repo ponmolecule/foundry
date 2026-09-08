@@ -3554,19 +3554,41 @@ window.nieCatPaste = function(txt, type, growthPct, growthPeriod, growthMethod, 
   renderContent(); refresh();
 };
 
-function _mnTriggerProducts(){
-  return ((cfg.assumptions||{}).obs_exposures||[]).filter(p=>p && (p.managed_notional||p.managed_notional_source) && String(p.name||"").trim());
+function _aucTriggerSources(){
+  const a=cfg.assumptions||{}, feeds=a.cac_feeds||{}, out=[], byKey={};
+  // Customer Acquisition owns the canonical AUC Series.  Fee products consuming that
+  // Series are aliases only; they are not separate workforce-trigger sources.
+  Object.keys(feeds).forEach(nm=>{
+    const fd=feeds[nm]||{}; if(!fd.series_id)fd.series_id=_seriesId("cac-auc");
+    const key=fd.series_id, x={key:key,label:nm,aliases:[nm],kind:"cac_feed"};
+    byKey[key]=x; out.push(x);
+  });
+  const products=(a.deposit_products||[]).concat(a.obs_exposures||[]);
+  products.forEach((p,pi)=>{
+    if(!p||!(p.managed_notional||p.managed_notional_source||p.managed_notional_source_id))return;
+    const nm=String(p.name||"").trim(), sid=String(p.managed_notional_source_id||"").trim(), sn=String(p.managed_notional_source||"").trim();
+    if(sid&&byKey[sid]){if(nm&&!byKey[sid].aliases.includes(nm))byKey[sid].aliases.push(nm);if(sn&&!byKey[sid].aliases.includes(sn))byKey[sid].aliases.push(sn);return;}
+    if(sn){const hit=out.find(x=>x.aliases.includes(sn));if(hit){if(nm&&!hit.aliases.includes(nm))hit.aliases.push(nm);return;}}
+    if(p.managed_notional){const key=`managed-product:${pi}:${nm}`;out.push({key:key,label:nm||`Managed notional ${pi+1}`,aliases:nm?[nm]:[],kind:"managed_product"});}
+  });
+  return out;
+}
+function _aucTriggerKey(source){
+  source=String(source||"").trim();const xs=_aucTriggerSources();
+  const direct=xs.find(x=>x.key===source);if(direct)return direct.key;
+  const hits=[...new Set(xs.filter(x=>(x.aliases||[]).includes(source)).map(x=>x.key))];
+  return hits.length===1?hits[0]:source;
 }
 function _defaultActivation(metric,source){
   metric=metric||"managed_notional_end";
-  const isMN=metric==="managed_notional_end", src=isMN?(source||((_mnTriggerProducts()[0]||{}).name||"")):undefined;
+  const isMN=metric==="managed_notional_end", src=isMN?(source||((_aucTriggerSources()[0]||{}).key||"")):undefined;
   const r={type:"metric",metric:metric,operator:isMN?">=":"<",reference:"fixed",value:0,timing:isMN?"same_period":"next_period",multiplier:1};
   if(src) r.source=src; return r;
 }
 window.nieWorkforceStartMode = function(i,mode){
   const wf=_ensureWorkforce(), r=wf.roles[i]; if(!r) return;
   if(mode==="metric"){
-    const src=(_mnTriggerProducts()[0]||{}).name||"";
+    const src=(_aucTriggerSources()[0]||{}).key||"";
     r.activation=src?_defaultActivation("managed_notional_end",src):_defaultActivation("efficiency_ratio");
     delete r.hire_period;
   } else { delete r.activation; r.hire_period=Math.min(84,r.hire_period||1); }
@@ -3600,7 +3622,9 @@ function _parseWorkforceStart(raw){
   const t=String(raw||"").trim(); let m;
   if((m=t.match(/^[MQ]?\s*(\d+)$/i))){ const n=parseInt(m[1]); return (n>=1&&n<=84)?{hire_period:n}:null; }
   if((m=t.match(/^EOP\s+(?:AUC|AUM)(?:\s*\[([^\]]+)\])?\s*(>=|>|<=|<)\s*(.+)$/i))){
-    const ps=_mnTriggerProducts(), src=(m[1]||"").trim() || (ps.length===1?ps[0].name:"");
+    const ps=_aucTriggerSources(), token=(m[1]||"").trim();
+    const hits=token?ps.filter(x=>x.key===token||x.label===token||(x.aliases||[]).includes(token)):[];
+    const src=token?(hits.length===1?hits[0].key:""):(ps.length===1?ps[0].key:"");
     const v=_parseMagnitude(m[3]); if(!src||v==null) return null;
     return {activation:{type:"metric",metric:"managed_notional_end",source:src,operator:m[2],reference:"fixed",value:v,timing:"same_period",multiplier:1}};
   }
@@ -7001,7 +7025,12 @@ function _cacLinkOptions(meta){
 window.cacDriverSource=function(fn,ci,key,source){
   const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),old=_cacEnsureSpec(ch,key),cur=_cacEnteredCurrent(ch,key);
   if(source==="link"){
-    const opts=_cacLinkOptions(meta||{}).filter(x=>!x.disabled); if(!opts.length){alert("No compatible Foundry series is available to link yet.");renderContent();return;}
+    const opts=_cacLinkOptions(meta||{}).filter(x=>!x.disabled); if(!opts.length){
+      if((meta||{}).linkKind==="operating_expense_category") alert("Acquisition spend can link only to an Operating expense category, and none exists yet. Add the relevant Opex category (for example Marketing / Business Development), or keep Acquisition spend entered directly in Customer Acquisition.");
+      else if((meta||{}).linkKind==="workforce_role_count") alert("No fixed/entered Workforce Count series is available to link. Metric-triggered workforce cannot drive Customer Acquisition because that would create a circular dependency.");
+      else alert("No compatible Foundry series is available to link yet.");
+      renderContent();return;
+    }
     const o=opts[0],id=old.series_id||_seriesId("cac");ch.driver_specs[key]={series_id:id,owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};
   } else ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"entered",mode:"flat",value:cur};
   renderContent();refresh();
@@ -7301,10 +7330,10 @@ function structuresSectionsHtml(){
         if(_cps&&_cpm==="explicit"){const _cad=wr.compensation_spec.cadence||"year",_vs=wr.compensation_spec.values||[],_rid=`wfCompPaste_${wi}`;row += `<div style="margin:7px 0 0;border-left:2px solid #334158;padding-left:9px"><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:0 0 5px"><span class="cu">Compensation schedule</span><label class="wf-field" style="width:104px"><span class="wf-field-label">Source cadence</span><select onchange="nieWorkforceCompCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select></label>`;if(_seriesResolutionUseful(_cad))row += `<label class="wf-field" style="width:132px"><span class="wf-field-label">Between source points</span><select onchange="nieWorkforceCompResolution(${wi},this.value)"><option value="step"${(wr.compensation_spec.resolution||'step')==='step'?' selected':''}>Hold</option><option value="smooth"${wr.compensation_spec.resolution==='smooth'?' selected':''}>Interpolate</option></select></label>`;row += `<span class="cmut" style="margin:15px 0 0">$000s / FTE / year</span></div><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Paste Compensation values, e.g. 95&#9;105&#9;115" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCompPaste(${wi},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceCompClear(${wi})"${_vs.length?'':' disabled'}>Clear</button><span class="cmut" style="margin:0">${esc(_seriesPasteSummary(_vs,v=>fmtComma((v||0)/1000)))}</span></div><div class="cmut" style="margin-top:4px">${_seriesResolutionUseful(_cad)?'Hold keeps annual compensation at each source value; Interpolate ramps between source compensation anchors.':'Source cadence already matches model cadence, so no interpolation choice is needed.'}</div></div>`;}
         if(_wt){
           const _wm=_wa.metric||"managed_notional_end", _wrf=_wa.reference||"fixed", _wop=_wa.operator||">=";
-          const _srcs=_mnTriggerProducts(), _mopts=[];
-          _srcs.forEach(p=>_mopts.push(["mn::"+p.name,"EOP AUC / AUM — "+p.name]));
+          const _srcs=_aucTriggerSources(), _mopts=[];
+          _srcs.forEach(p=>_mopts.push(["mn::"+p.key,"EOP AUC / AUM — "+p.label]));
           _mopts.push(["efficiency_ratio","Efficiency ratio"],["net_income","Net income"],["net_income_py","Net income vs prior year"]);
-          const _mkey=_wm==="managed_notional_end"?("mn::"+(_wa.source||((_srcs[0]||{}).name||""))):(_wm==="net_income"&&_wrf==="prior_year"?"net_income_py":_wm);
+          const _mkey=_wm==="managed_notional_end"?("mn::"+_aucTriggerKey(_wa.source||((_srcs[0]||{}).key||""))):(_wm==="net_income"&&_wrf==="prior_year"?"net_income_py":_wm);
           if(!_mopts.some(o=>o[0]===_mkey)) _mopts.push([_mkey,_wm.replace(/_/g," ")+(_wrf!=="fixed"?" vs "+_wrf.replace(/_/g," "):"")]);
           row += `<div class="wf-trigger-row"><span class="cu">Trigger</span><select style="width:176px" onchange="nieWorkforceMetric(${wi},this.value)">${_mopts.map(o=>`<option value="${esc(o[0])}"${o[0]===_mkey?' selected':''}>${esc(o[1])}</option>`).join('')}</select>`;
           row += `<select style="width:54px" onchange="${_wb}.activation.operator=this.value;refresh()">${[">=",">","<=","<"].map(o=>`<option value="${o}"${o===_wop?' selected':''}>${o}</option>`).join('')}</select>`;
@@ -7318,6 +7347,24 @@ function structuresSectionsHtml(){
         }
         row += '</div>'; h += row;
       });
+      const _wres=(lastRes||{}).workforce||null;
+      if(_wres){
+        const _ids=_wres.series_ids||[], _hires=_wres.resolved_hire_periods||[], _counts=_wres.counts||[];
+        const _ptag=PPY()===12?'M':(PPY()===4?'Q':'Y');
+        h += '<div style="margin-top:10px;border-top:1px solid rgba(148,163,184,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce activation tracking · latest run</div>';
+        h += '<div class="cmut" style="margin:0 0 6px">Resolved by the engine from the modeled trigger path. “Not triggered” means the threshold was not crossed within the current projection horizon.</div>';
+        h += '<table class="ovt ovt-grid" style="font-size:10.5px"><tr><th>Role / population</th><th>Start rule</th><th>Resolved start</th><th style="text-align:right">End-horizon active count</th></tr>';
+        (wf.roles||[]).forEach((wr,wi)=>{
+          let ri=wr.series_id?_ids.indexOf(String(wr.series_id)):-1;if(ri<0&&wi<_hires.length)ri=wi;
+          const hire=ri>=0?_hires[ri]:null, cp=(ri>=0&&Array.isArray(_counts[ri]))?_counts[ri]:[];
+          const endCount=cp.length?+cp[cp.length-1]:0, isTrig=!!wr.activation;
+          const src=isTrig&&wr.activation.metric==='managed_notional_end'?(_aucTriggerSources().find(x=>x.key===_aucTriggerKey(wr.activation.source))||{}).label:null;
+          const rule=isTrig?(wr.activation.metric==='managed_notional_end'?`EOP AUC / AUM${src?' — '+src:''} ${wr.activation.operator||'>='} ${fmtComma((+(wr.activation.value||0))/1000)} $000s`:String(wr.activation.metric||'metric').replace(/_/g,' ')):`Fixed ${_ptag}${wr.hire_period||1}`;
+          const resolved=ri<0?'Awaiting rerun':(hire?`${isTrig?'Triggered':'Active'} ${_ptag}${hire}`:(isTrig?'Not triggered':'—'));
+          h += `<tr><td>${esc(wr.role||'Unnamed population')}</td><td>${esc(rule)}</td><td>${esc(resolved)}</td><td style="text-align:right;font-family:var(--mono)">${endCount.toFixed(2).replace(/\.00$/,'')}</td></tr>`;
+        });
+        h += '</table></div>';
+      }
     } else if(!_legacyStaff){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles yet. Add one position or paste a spreadsheet; hire periods may extend beyond the current horizon.</div>';
     }
