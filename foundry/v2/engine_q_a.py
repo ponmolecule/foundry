@@ -1193,8 +1193,14 @@ def run_pf_a(cfg):
                    "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
                    "aoci": bs["aoci"], "paidIn": bs["paidIn"],
                    "premises": prem_t,
-                   **({"premisesGross": prem_gross_t, "premisesAccumDep": prem_accum_t}
-                      if fixed_asset_mode(a) == "schedule" else {}),
+                   # Presentation series are emitted in BOTH Simple and Asset-schedule
+                   # authoring modes.  Simple mode already computes gross PP&E and
+                   # accumulated depreciation above; suppressing those vectors made the
+                   # Balance Sheet hide accumulated depreciation even though net PP&E
+                   # reflected it.  These are disclosure-only companions to `premises`;
+                   # no accounting arithmetic consumes them.
+                   "premisesGross": prem_gross_t,
+                   "premisesAccumDep": prem_accum_t,
                    "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}

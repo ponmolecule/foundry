@@ -30,6 +30,11 @@ RESULT_CODES_BS = {
     "afsBook":     ("RC", "2.b",  "RCON1773",      "Available-for-sale securities (designated book)"),
     "htmBook":     ("RC", "2.a",  "RCONJJ34",      "Held-to-maturity securities (amortized cost)"),
     "premises":    ("RC", "6",    "RCON2145",      "Premises and fixed assets (net of depreciation)"),
+    # Gross PP&E and accumulated depreciation are Foundry statement-detail rows.
+    # Schedule RC item 6 reports the NET balance only, so these deliberately carry
+    # no regulatory schedule/code rather than fabricating an FFIEC mapping.
+    "premisesGross":    ("—", "detail", "—", "Premises and fixed assets, gross (presentation detail)"),
+    "premisesAccumDep": ("—", "detail", "—", "Accumulated depreciation (presentation detail)"),
     "borrowSched": ("RC", "16",   "RCON3190",      "Other borrowed money (scheduled FHLB/term draws)"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
 }
