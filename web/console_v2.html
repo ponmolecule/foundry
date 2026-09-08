@@ -48,6 +48,14 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .btn-gold{background:#D8A85E;color:#0A1830;border:none;padding:8px 16px;font-family:inherit;font-weight:600;font-size:12px;cursor:pointer;border-radius:7px}
 .btn-gold:hover{background:#e2b46a}
 .btn-plain{background:var(--paper);border:1px solid var(--hair);color:var(--ink);padding:7px 13px;font-size:12px;cursor:pointer;border-radius:3px;font-family:inherit}
+/* Fee-stream basis chooser: each tile owns an explanatory info affordance. */
+.fee-basis-tile{grid-column:1/-1;position:relative;width:220px;max-width:100%;margin:3px auto}
+.fee-basis-tile>.btn-plain{display:block;width:100%;padding-right:34px;text-align:center;font-size:11px}
+.fee-basis-info{position:absolute;right:7px;top:5px;width:18px;height:18px;border:1px solid #8390A5;border-radius:50%;background:var(--paper);color:#59677C;font-family:Georgia,serif;font-size:12px;font-weight:700;font-style:italic;line-height:16px;text-align:center;padding:0;cursor:pointer;z-index:2}
+.fee-basis-info:hover,.fee-basis-info:focus{border-color:#C08A3E;color:#C08A3E;outline:none}
+.fee-basis-popover{display:none;position:absolute;z-index:40;right:0;top:calc(100% + 5px);width:330px;max-width:min(330px,calc(100vw - 48px));padding:10px 12px;background:#FFFFFF;border:1px solid #B9C2D2;border-radius:5px;box-shadow:0 8px 24px rgba(10,24,48,.16);color:#293241;font-size:11.5px;line-height:1.5;text-align:left}
+.fee-basis-popover.open{display:block}
+.fee-basis-popover b{display:block;color:#C08A3E;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
 section#content:not(.cover) .accent-label{color:#C08A3E}
 .warnbadge{background:var(--nvy3);border:1px solid var(--nline);border-left:4px solid var(--namber);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;border-radius:3px;color:var(--ntext)}
@@ -2047,6 +2055,23 @@ function _feeCoeffScheduleText(schedule, kind){
   const vals=Object.keys(schedule||{}).map(k=>[+k,+schedule[k]]).filter(x=>Number.isFinite(x[0])&&Number.isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
   return vals.map(x=>(kind==="pct"?(x[1]*100):x[1])).join(", ");
 }
+const _FEE_BASIS_HELP={
+  balance:{title:"Balance stream",text:"Use when revenue is earned as a rate on a balance/notional stock, e.g. custody fee = AUC × annual bps."},
+  transaction:{title:"Transaction stream",text:"Use when revenue depends on throughput/volume, e.g. AUC × settlement turns × settlement fee %, or AUC × conversion % × conversion spread."},
+  account:{title:"Account stream",text:"Use when revenue is count × fee per account/customer/unit, e.g. 20,000 accounts × $5/month."},
+  flat:{title:"Flat stream",text:"Use when revenue is a periodic fixed dollar amount independent of volume, e.g. $150k/year escrow fee."},
+  event:{title:"Event stream",text:"Use when revenue is a one-time amount occurring in a specific period, e.g. a $500k implementation/setup fee in Month 4."}
+};
+function _feeBasisInfoToggle(basis,btn){
+  const tile=btn&&btn.parentElement, pop=tile&&tile.querySelector?tile.querySelector('.fee-basis-popover'):null; if(!pop)return;
+  const open=!pop.classList.contains('open');
+  const host=tile.parentElement; if(host&&host.querySelectorAll)host.querySelectorAll('.fee-basis-popover.open').forEach(x=>{if(x!==pop)x.classList.remove('open');});
+  pop.classList.toggle('open',open); btn.setAttribute('aria-expanded',open?'true':'false');
+}
+function _feeBasisTileHtml(basis,productIndex){
+  const info=_FEE_BASIS_HELP[basis]||{title:basis,text:''};
+  return `<div class="fee-basis-tile"><button class="btn-plain" onclick="window.addFeeStream(${productIndex},'${basis}')">+ ${basis} stream</button><button type="button" class="fee-basis-info" aria-label="About ${esc(info.title)}" aria-expanded="false" onclick="event.stopPropagation();_feeBasisInfoToggle('${basis}',this)">i</button><div class="fee-basis-popover" role="note"><b>${esc(info.title)}</b>${esc(info.text)}</div></div>`;
+}
 // Canonical controller for every scalar Series explicit-schedule pastebox.
 // Comma is a schedule delimiter when it is the only delimiter; when rows/tabs/semicolons
 // are present, thousands-formatted cells such as 1,250 remain one numeric cell. Any
@@ -2327,12 +2352,9 @@ function fieldsFor(fam, p, base){
       if(ck==="per_unit"){ h += F("Cost ($/unit)", sb+".cost.params.cost_per_unit", "n"); }
       if(ck==="pct_of_revenue"){ h += F("Cost (% of revenue, 0-1)", sb+".cost.params.pct", "n"); }
     });
-    // The five GUT stream bases, shown as a vertical stack so the user sees every stream type
-    // available. Each button adds a stream of that basis. display:block => one per line.
+    // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#DFA85A">Add a fee stream</label></div>';
-    ["balance","transaction","account","flat","event"].forEach(bz=>{
-      h += `<button class="btn-plain" style="grid-column:1/-1;display:block;width:220px;max-width:100%;margin:3px auto;text-align:center;font-size:11px" onclick="window.addFeeStream(${_fi},\x27${bz}\x27)">+ ${bz} stream</button>`;
-    });
+    ["balance","transaction","account","flat","event"].forEach(bz=>{ h += _feeBasisTileHtml(bz,_fi); });
   } else {
     h += F("Notional ($000s)", base+".notional", "k");
     h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
