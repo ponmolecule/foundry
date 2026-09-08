@@ -80,6 +80,7 @@ IS_LAYOUT = [
     {"t": "line", "key": "fvPnl", "label": "Net gains (losses) on fair-value-option instruments", "indent": 1},
     {"t": "section", "label": "NONINTEREST EXPENSE"},
     {"t": "line", "key": "prodOpex", "label": "Product operating expense", "indent": 1},
+    {"t": "line", "key": "feeOpex", "label": "Fee product operating costs", "indent": 1},
     {"t": "line", "key": "opexProd", "label": "Product operating expense", "indent": 1},
     {"t": "line", "key": "overhead", "label": "Salaries, occupancy, and other overhead", "indent": 1},
     {"t": "line", "key": "fixedOpex", "label": "Salaries, occupancy, and other overhead", "indent": 1},
@@ -175,6 +176,7 @@ def derived_lines(res, cfg):
                                 + (g("borrExp")[i] if "borrExp" in is_ else g("intBorrow")[i] or 0), 2)
                           for i in range(m)]
     out["nie"] = [round((g("prodOpex")[i] if "prodOpex" in is_ else g("opexProd")[i] or 0)
+                        + (g("feeOpex")[i] or 0)
                         + (g("overhead")[i] if "overhead" in is_ else g("fixedOpex")[i] or 0), 2)
                   for i in range(m)]
     return out

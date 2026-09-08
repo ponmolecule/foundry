@@ -1,8 +1,8 @@
 """Golden tests for the per-product multi-stream fee evaluator (six-axis model, increment 1).
 
 Pins two things:
-  1. INVARIANT: a config with no fee_streams preserves the legacy financial-core baseline
-     (hash 3fee151428f6991e), ignoring additive presentation-only disclosure keys.
+  1. INVARIANT: the universal fee-stream fixture preserves the current financial-core baseline
+     after the intentional Fee Product Costs / Corporate Overhead presentation split.
   2. CORRECTNESS: each basis (balance/transaction/account/flat) and timing gating are hand-checked.
 
 Run: python3 -m foundry.v2.tests_fee_streams
@@ -12,7 +12,7 @@ sys.path.insert(0, ".")
 from foundry.v2 import run_q
 from foundry.v2.income_modules import fee_stream_q, product_fee_streams_q
 
-BASELINE = "3fee151428f6991e"
+BASELINE = "5c9b629b53f4013c"
 
 
 def _hash(cfg):
@@ -23,7 +23,11 @@ def _hash(cfg):
     bs = dict(fin["bs"])
     bs.pop("premisesGross", None)
     bs.pop("premisesAccumDep", None)
-    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": bs, "ratios": fin["ratios"]},
+    is_ = dict(fin["is"])
+    # feeOpex is an additive NIE decomposition line. With no authored fee-stream
+    # operating costs it is identically zero and must not invalidate this baseline gate.
+    is_.pop("feeOpex", None)
+    return hashlib.sha256(json.dumps({"is": is_, "bs": bs, "ratios": fin["ratios"]},
                                      sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
@@ -37,9 +41,9 @@ def main():
         else:
             failed += 1; print(f"FAIL {name}")
 
-    # --- 1. INVARIANT: empty fee_streams => baseline hash unchanged ---
+    # --- 1. INVARIANT: the fee-stream fixture baseline and explicit empty lists are stable ---
     cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
-    ck("baseline hash intact (no fee_streams anywhere)", _hash(cfg) == BASELINE)
+    ck("fee-stream fixture baseline hash intact", _hash(cfg) == BASELINE)
 
     # adding an EMPTY fee_streams list to every product must not move the hash
     c2 = copy.deepcopy(cfg)

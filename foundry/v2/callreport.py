@@ -60,6 +60,7 @@ RESULT_CODES_IS = {
     "servNet":   ("RI", "5.f",   "RIADB492", "Net servicing fees"),
     "fvPnl":     ("RI", "5.l",   "RIADHT69", "FV option net gains (losses)"),
     "prodOpex":  ("RI", "7",     "RIAD4093", "Noninterest expense (product)"),
+    "feeOpex":   ("RI", "7",     "RIAD4093", "Noninterest expense (fee product costs)"),
     "overhead":  ("RI", "7",     "RIAD4093", "Noninterest expense (overhead)"),
     "opexProd":  ("RI", "7",     "RIAD4093", "Noninterest expense (product)"),
     "fixedOpex": ("RI", "7",     "RIAD4093", "Noninterest expense (overhead)"),
@@ -228,7 +229,7 @@ def build_ri(res):
     tii = [s["loanInt"][t] + s["secInt"][t] + s["cashInt"][t] for t in range(n)]
     tie = [s["depExp"][t] + s["borrExp"][t] for t in range(n)]
     nonint_inc = [s["fees"][t] + s["gos"][t] + s["servNet"][t] + s["fvPnl"][t] for t in range(n)]
-    nonint_exp = [s["overhead"][t] + s["prodOpex"][t] for t in range(n)]
+    nonint_exp = [s["overhead"][t] + s["prodOpex"][t] + (s.get("feeOpex") or [0.0] * n)[t] for t in range(n)]
     rows = [
         _row("1.a", "RIAD4010", "Interest and fees on loans", s["loanInt"]),
         _row("1.c", "RIAD4115", "Interest on balances due from depository institutions", s["cashInt"]),

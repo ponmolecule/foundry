@@ -788,7 +788,7 @@ def run_pf_a(cfg):
     bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
 
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
-           "gos", "servNet", "fvPnl", "prodOpex", "overhead", "pretax", "tax", "ni", "nco", "nol")
+           "gos", "servNet", "fvPnl", "prodOpex", "feeOpex", "overhead", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
 
     re, nol = day_one, 0.0
@@ -926,11 +926,11 @@ def run_pf_a(cfg):
             _v = is_["ni"][_p]
             return float(_v) if _v is not None else None
         if metric == "efficiency_ratio":
-            _vals = [is_[k][_p] for k in ("prodOpex", "overhead", "nii", "fees", "gos", "servNet")]
+            _vals = [is_[k][_p] for k in ("prodOpex", "feeOpex", "overhead", "nii", "fees", "gos", "servNet")]
             if any(v is None for v in _vals):
                 return None
             _rev = float(is_["nii"][_p] + is_["fees"][_p] + is_["gos"][_p] + is_["servNet"][_p])
-            return ((float(is_["prodOpex"][_p]) + float(is_["overhead"][_p])) / _rev) if _rev > 0 else None
+            return ((float(is_["prodOpex"][_p]) + float(is_["feeOpex"][_p]) + float(is_["overhead"][_p])) / _rev) if _rev > 0 else None
         return None
 
     for q in range(1, Q + 1):
@@ -1029,11 +1029,13 @@ def run_pf_a(cfg):
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
-        # fee-stream operating costs (e.g. payment-rail network fees): external
-        # pass-through costs added to NIE POST gross-up (they are not internal
-        # expenses that carry overhead-on-overhead), matching legacy _fees_m cost.
-        overhead += sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
-        nie = prod_ox + overhead
+        # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
+        # operating-cost % of fee revenue) are external product costs. They remain
+        # POST gross-up, but are surfaced as their own NIE line instead of being
+        # buried inside Corporate Overhead. This reclassification does not change
+        # total NIE or net income.
+        fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
+        nie = prod_ox + fee_opex + overhead
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
         if _cr:
@@ -1127,7 +1129,7 @@ def run_pf_a(cfg):
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
-                     ("prodOpex", prod_ox), ("overhead", overhead), ("pretax", pretax),
+                     ("prodOpex", prod_ox), ("feeOpex", fee_opex), ("overhead", overhead), ("pretax", pretax),
                      ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)):
             is_[k][q] = v
 
@@ -1145,7 +1147,7 @@ def run_pf_a(cfg):
         ratios["roe"][q] = (ni_q * ppyf / avg_e * 100) if avg_e > 0 else None
         ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_earn * 100) if avg_earn > 0 else None
         rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
-        ratios["eff"][q] = ((is_["prodOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
+        ratios["eff"][q] = ((is_["prodOpex"][q] + is_["feeOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
         _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if _td else 0.0
         t1 = bs["equity"][q] - a["intangibles"] - _dta_ded
         msr_x = max(0.0, msr_t[q] - 0.25 * max(0.0, t1))
