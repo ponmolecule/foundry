@@ -269,6 +269,12 @@ table.fin-dark th{background:#152238;color:#E4ECF7;font-weight:600;font-size:10p
   text-transform:uppercase;border:1px solid #2A3B57;border-bottom:2px solid #3A6BA8;padding:8px 10px}
 table.fin-dark th:first-child,table.fin-dark td:first-child{text-align:left}
 table.fin-dark tbody tr:nth-child(even) td,table.fin-dark tr:nth-child(even) td{background:rgba(58,107,168,.08)}
+/* CAC calculated roll-forward audit: compact dark table with a true thin-cell grid. */
+table.cac-audit-grid{border-collapse:collapse;border:1px solid rgba(159,176,200,.30)}
+table.cac-audit-grid th,table.cac-audit-grid td{border:1px solid rgba(159,176,200,.24);padding:4px 6px;white-space:nowrap}
+table.cac-audit-grid th{color:#9FB0C8;font-weight:600;background:rgba(159,176,200,.035)}
+table.cac-audit-grid td{color:#DCE3EE}
+table.cac-audit-grid th:first-child,table.cac-audit-grid td:first-child{text-align:left}
 table.fin tr:hover td{background:#DEE5EF}
 tr.section td{font-weight:600;background:#F5F2EB !important;color:#4A4133;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;
   font-size:10px;letter-spacing:.09em;border:1px solid #DCE1EA;border-bottom:2px solid #9AA7BC;padding-top:14px}
@@ -7305,7 +7311,7 @@ function structuresSectionsHtml(){
 
       const _ca=lastRes&&lastRes.customer_acquisition&&lastRes.customer_acquisition[fn];
       if(_ca&&(_ca.annual||[]).length){const ar=_ca.annual;
-        h+=`<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward · audit view</div><table style="border-collapse:collapse;min-width:${Math.max(620,230+ar.length*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output</th>`;
+        h+=`<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward · audit view</div><table class="cac-audit-grid" style="min-width:${Math.max(620,230+ar.length*90)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output</th>`;
         ar.forEach((r,i)=>h+=`<th style="padding:4px 5px;color:#9FB0C8">Year ${i+1}</th>`);h+=`<th style="text-align:left;padding:4px 6px;color:#697B96">Unit</th></tr></thead><tbody>`;
         const rr=(lab,key,unit,fmt)=>{h+=`<tr><td style="padding:4px 6px;color:#DCE3EE">${lab}</td>`;ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):v.toLocaleString(undefined,{maximumFractionDigits:1})}</td>`;});h+=`<td class="cu">${unit}</td></tr>`;};
         rr('New customers acquired','new_cust','customers');rr('Customers lost to attrition','cust_lost','customers');rr('Ending bank customers','end_cust','customers');rr('New AUC added','new_auc','$000s',v=>fmtComma(v));rr('AUC lost to attrition','auc_lost','$000s',v=>fmtComma(v));rr('Ending AUC','end_auc','$000s',v=>fmtComma(v));rr('Blended CAC','blended_cac','$ / acquired customer',v=>v?Math.round(v).toLocaleString():'—');
