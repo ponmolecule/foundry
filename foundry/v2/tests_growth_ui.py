@@ -172,9 +172,34 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
        'Coefficient path' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
-    ck("Fee Product explicit coefficient path also uses a pastebox/load workflow",
-       'feeCoeffPaste_' in html and 'Paste a row or column, e.g. 1.5&#9;2.4&#9;3.2&#9;2.8' in html
-       and '_feeSetCoeffSchedule(${_fi},${si},document.getElementById' in html)
+    ck("Fee Product explicit coefficient path uses live-validating pastebox/load workflow",
+       'feeCoeffPaste_' in html and 'comma, tab, semicolon, or new line' in html
+       and 'placeholder="e.g. 8, 10, 12, 10, 10, 10, 9"' in html
+       and 'oninput="_feeCoeffPasteInput(' in html
+       and 'class="pillbtn" disabled onclick="_feeSetCoeffSchedule' in html
+       and '_feeClearCoeffSchedule(${_fi},${si})' in html)
+    # Execute the exact transaction-coefficient paste workflow that regressed in r33.
+    paste_js=(
+        "const cfg={assumptions:{obs_exposures:[{fee_streams:[{driver:{params:{coefficient:{kind:'multiple',schedule:{}}}}}]}]}};\n"
+        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;}\n"
+        "const ta={value:'',classList:{toggle(){}}}, btn={disabled:true,classList:{toggle(k,v){this.ready=v;}}};\n"
+        "const document={getElementById:(id)=>id.endsWith('_load')?btn:ta};\n"
+        + hjs +
+        "\nta.value='8,10,12,10,10,10,9'; _feeCoeffPasteInput('feeCoeffPaste_0_0'); const enabled=!btn.disabled && btn.classList.ready===true;"
+        " _feeSetCoeffSchedule(0,0,ta.value); const c=cfg.assumptions.obs_exposures[0].fee_streams[0].driver.params.coefficient;"
+        " const loaded=Object.values(c.schedule); _feeClearCoeffSchedule(0,0);"
+        " console.log(JSON.stringify({enabled,loaded,rendered,refreshed,cleared:Object.keys(c.schedule).length===0,invalid:_feeParseExplicitValues('8,banana,12').length===0}));"
+    )
+    pr=subprocess.run(["node","-e",paste_js],text=True,capture_output=True)
+    pj={}
+    if pr.returncode==0 and pr.stdout.strip():
+        try: pj=json.loads(pr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("transaction coefficient comma paste enables Load and loads exact turns schedule",
+       pr.returncode==0 and pj.get("enabled") is True
+       and pj.get("loaded")==[8,10,12,10,10,10,9]
+       and pj.get("rendered")==2 and pj.get("refreshed")==2
+       and pj.get("cleared") is True and pj.get("invalid") is True, pr.stderr.strip())
     ck("operating-expense paste retains separate batch defaults and manual-add workflow",
        '⎘ Paste categories' in html and '+ Add category' in html and '_catPasteGrowthSpec' in html)
     ck("Operating Expense presents mutually exclusive Simple/Detailed authoring modes and three detailed panels",

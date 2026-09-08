@@ -195,6 +195,8 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .csub{font-size:15px;line-height:22px;color:#E8EDF5;font-weight:500;margin:0 0 12px}
 .cmut{font-size:12px;color:#9CA7B7;margin-top:7px}
 .pillbtn:hover{border-color:#DFA85A;color:#DFA85A}
+.pillbtn:disabled{opacity:.38;cursor:not-allowed;border-color:#3A4C6E;color:#7F8CA3}
+.pillbtn.fee-load-ready{border-color:#DFA85A;color:#DFA85A;background:rgba(223,168,90,.08)}
 .btn-gold-o{background:transparent;border:1px solid #DFA85A;color:#DFA85A;border-radius:8px;padding:7px 15px;font-size:11.5px;font-weight:600;cursor:pointer}
 .btn-gold-o:hover{background:rgba(223,168,90,.10)}
 .vdiv{border-left:1px solid rgba(148,163,184,.13);padding-left:26px}
@@ -2045,11 +2047,34 @@ function _feeCoeffScheduleText(schedule, kind){
   const vals=Object.keys(schedule||{}).map(k=>[+k,+schedule[k]]).filter(x=>Number.isFinite(x[0])&&Number.isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
   return vals.map(x=>(kind==="pct"?(x[1]*100):x[1])).join(", ");
 }
+function _feeParseExplicitValues(text){
+  const toks=String(text||"").split(/[\t,;\n]+/).map(x=>x.trim()).filter(Boolean);
+  if(!toks.length) return [];
+  const vals=[];
+  for(const tok of toks){
+    const n=Number(tok.replace(/%$/,""));
+    if(!Number.isFinite(n)) return [];
+    vals.push(n);
+  }
+  return vals;
+}
+function _feeCoeffPasteInput(id){
+  const ta=document.getElementById(id), btn=document.getElementById(id+"_load");
+  if(!ta||!btn) return;
+  const ok=_feeParseExplicitValues(ta.value).length>0;
+  btn.disabled=!ok;
+  btn.classList.toggle("fee-load-ready",ok);
+}
 function _feeSetCoeffSchedule(i,si,text){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
-  const vals=String(text||"").split(/[\t,;\n]+/).map(x=>x.trim()).filter(Boolean);
-  const out={}; vals.forEach((v,j)=>{let n=_pf(v); if(c.kind==="pct") n/=100; out[String(j+1)]=n;});
-  c.schedule=out; refresh();
+  const vals=_feeParseExplicitValues(text);
+  if(!vals.length) return;
+  const out={}; vals.forEach((n,j)=>{if(c.kind==="pct") n/=100; out[String(j+1)]=n;});
+  c.schedule=out; renderContent(); refresh();
+}
+function _feeClearCoeffSchedule(i,si){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
+  c.schedule={}; renderContent(); refresh();
 }
 function _feeEnsureNaturalCoeff(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
@@ -2210,7 +2235,7 @@ function fieldsFor(fam, p, base){
           h += `<div class="fld"><label>Per</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.period=this.value;renderContent();refresh()"><option value="year"${_cper==="year"?" selected":""}>Year</option><option value="quarter"${_cper==="quarter"?" selected":""}>Quarter</option><option value="month"${_cper==="month"?" selected":""}>Month</option></select></div>`;
           h += `<div class="fld"><label>Coefficient path</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.trajectory=this.value;renderContent();refresh()"><option value="flat"${_ctraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ctraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ctraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
           if(_ctraj==="growth") h += `<div class="fld wide"><label>Coefficient growth</label>${growthSpecInline(sb+".driver.params.coefficient.growth_spec",_coef.growth_spec,null,false)}</div>`;
-          if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Values by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (1, 2, 3…)</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column, e.g. 1.5&#9;2.4&#9;3.2&#9;2.8"></textarea><div class="nie-actions" style="margin-top:4px"><button class="pillbtn" onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><span class="memo" style="margin:0">${esc(_feeCoeffScheduleText(_coef.schedule,_ckind)||'No values loaded')}</span></div><span class="memo" style="margin:3px 0 0">Each pasted value applies for one stated natural period; the last value carries forward.</span></div>`;}
+          if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Values by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 8, 10, 12, 10, 10, 10, 9" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button><span class="memo" style="margin:0">${esc(_feeCoeffScheduleText(_coef.schedule,_ckind)||'No values loaded')}</span></div><span class="memo" style="margin:3px 0 0">Each pasted value applies for one stated natural period; the last value carries forward.</span></div>`;}
         } else {
           h += F("Legacy multiple (raw / model period)", sb+".driver.params.multiple", "n"); h += F("Legacy % of source (raw / model period, 0-1)", sb+".driver.params.pct", "n");
           h += `<div class="fld wide"><span class="memo" style="margin:0">Legacy semantics preserved. New flow assumptions should use an explicit natural period.</span><button class="btn-plain" style="margin-top:5px" onclick="_feeEnsureNaturalCoeff(${_fi},${si});renderContent();refresh()">Use natural-period flow</button></div>`;
