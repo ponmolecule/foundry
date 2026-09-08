@@ -2058,13 +2058,16 @@ function _feeParseExplicitValues(text){
   }
   return vals;
 }
-function _feeCoeffPasteInput(id){
+function _feeExplicitPasteInput(id){
   const ta=document.getElementById(id), btn=document.getElementById(id+"_load");
   if(!ta||!btn) return;
-  const ok=_feeParseExplicitValues(ta.value).length>0;
+  const vals=_feeParseExplicitValues(ta.value);
+  const ok=vals.length>0;
   btn.disabled=!ok;
   btn.classList.toggle("fee-load-ready",ok);
 }
+function _feeCoeffPasteInput(id){ _feeExplicitPasteInput(id); }
+function _feeFlatAmountPasteInput(id){ _feeExplicitPasteInput(id); }
 function _feeSetCoeffSchedule(i,si,text){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
   const vals=_feeParseExplicitValues(text);
@@ -2094,13 +2097,14 @@ function _feeEnsureFlatAmount(i,si){
   return rp.flat_amount;
 }
 function _feeSetFlatAmountSchedule(i,si,text){
+  const vals=_feeParseExplicitValues(text);
+  if(!vals.length) return;
   const fa=_feeEnsureFlatAmount(i,si);
-  const vals=String(text||"").split(/[\t,;\n]+/).map(x=>x.trim()).filter(Boolean);
-  const out={}; vals.forEach((v,j)=>{out[String(j+1)]=_pf(v)*1000;});
-  fa.schedule=out; refresh();
+  const out={}; vals.forEach((v,j)=>{out[String(j+1)]=v*1000;});
+  fa.schedule=out; renderContent(); refresh();
 }
 function _feeClearFlatAmountSchedule(i,si){
-  const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; refresh();
+  const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; renderContent(); refresh();
 }
 function fieldsFor(fam, p, base){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
@@ -2279,7 +2283,7 @@ function fieldsFor(fam, p, base){
         if(_ftraj==="growth") h += `<div class="fld wide"><label>Amount growth</label>${growthSpecInline(sb+".rate.params.flat_amount.growth_spec",_fa&&_fa.growth_spec,null,false)}</div>`;
         if(_ftraj==="explicit_schedule"){
           const _fid=`feeFlatAmountPaste_${_fi}_${si}`, _loaded=_feeFlatAmountScheduleText(_fa&&_fa.schedule);
-          h += `<div class="fld wide"><label>Amount schedule ($000s per ${_fper==="year"?"year":(_fper==="quarter"?"quarter":"month")})</label><textarea id="${_fid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column, e.g. 150&#9;200&#9;250&#9;300"></textarea><div class="nie-actions" style="margin-top:4px"><button class="pillbtn" onclick="_feeSetFlatAmountSchedule(${_fi},${si},document.getElementById('${_fid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearFlatAmountSchedule(${_fi},${si})">Clear</button><span class="memo" style="margin:0">${esc(_loaded||'No values loaded')}</span></div><span class="memo" style="margin:3px 0 0">Paste amounts in $000s. Each value applies to one selected natural period; the last loaded amount carries forward.</span></div>`;
+          h += `<div class="fld wide"><label>Amount schedule ($000s per ${_fper==="year"?"year":(_fper==="quarter"?"quarter":"month")})</label><textarea id="${_fid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column, e.g. 150, 200, 250, 300" oninput="_feeFlatAmountPasteInput('${_fid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_fid}_load" class="pillbtn" disabled onclick="_feeSetFlatAmountSchedule(${_fi},${si},document.getElementById('${_fid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearFlatAmountSchedule(${_fi},${si})"${Object.keys((_fa&&_fa.schedule)||{}).length?'':' disabled'}>Clear</button><span class="memo" style="margin:0">${esc(_loaded||'No values loaded')}</span></div><span class="memo" style="margin:3px 0 0">Paste amounts in $000s. Each value applies to one selected natural period; the last loaded amount carries forward.</span></div>`;
         }
       }
       else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F(`At period (${PLAB('full')})`, sb+".driver.params.at_period", "n"); }
