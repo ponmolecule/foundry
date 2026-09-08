@@ -131,7 +131,8 @@ def run_pf_b(cfg):
 
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
                               "deposits", "borrowings", "equity", "retained", "aoci",
-                              "paidIn", "premises", "borrowSched", "totalAssets")}
+                              "paidIn", "premises", "premisesGross", "premisesAccumDep",
+                              "borrowSched", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
                               "provision", "fees", "opexProd", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
@@ -205,6 +206,11 @@ def run_pf_b(cfg):
                      ("borrowings", b2), ("equity", equity_end), ("retained", re),
                      ("aoci", aoci_cum), ("paidIn", cap_t[qi + 1]),
                      ("premises", _prem_t[qi + 1]),
+                     # Match Profile A's presentation contract: gross PP&E and
+                     # accumulated depreciation are visible regardless of whether the
+                     # user authored fixed assets in Simple or schedule mode.
+                     ("premisesGross", _prem_gross_t[qi + 1]),
+                     ("premisesAccumDep", _prem_accum_t[qi + 1]),
                      ("borrowSched", _sched_t[qi + 1]), ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),

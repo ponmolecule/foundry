@@ -34,6 +34,34 @@ def main():
     ck("existing asset preserves opening gross and accumulated depreciation", s3["gross"][0]==800000 and s3["accumulated_depreciation"][0]==300000 and s3["net"][0]==500000)
     ck("existing asset depreciates remaining NBV across remaining life", abs(s3["depreciation_expense"][1]-31250)<1e-9 and abs(s3["net"][16])<1e-9)
 
+    # Simple-mode disclosure: the Balance Sheet must show gross PP&E and accumulated
+    # depreciation even when the user did not opt into the asset-level schedule.  Net
+    # PP&E and total assets remain the same accounting series as before.
+    simple=_base_cfg(); simple=copy.deepcopy(simple)
+    sa=simple["assumptions"]; sa["periods_per_year"]=12; sa["n_periods"]=12
+    sa["premises_equipment"]=1200000; sa["premises_depreciation_annual"]=120000
+    sa.pop("fixed_assets",None)
+    sr=run_pf_a(copy.deepcopy(simple))
+    ck("Simple Profile A exposes gross and accumulated depreciation",
+       "premisesGross" in sr["bs"] and "premisesAccumDep" in sr["bs"]
+       and sr["bs"]["premisesGross"][1]==1200000
+       and abs(sr["bs"]["premisesAccumDep"][1]-10000)<1e-9
+       and abs(sr["bs"]["premises"][1]-1190000)<1e-9)
+
+    simple_public=run_v2(copy.deepcopy(simple))
+    spbs=simple_public["financials"]["bs"]
+    ck("public Balance Sheet payload surfaces Simple accumulated depreciation",
+       "premisesGross" in spbs and "premisesAccumDep" in spbs
+       and abs(spbs["premisesAccumDep"][1]-10.0)<1e-9
+       and abs(spbs["premises"][1]-1190.0)<1e-9)
+
+    simple_rp=run_parity(copy.deepcopy(simple))
+    simple_wb=results_workbook_v2(simple,simple_rp)
+    simple_labels={str(row[0].value).strip():row for row in simple_wb["Balance Sheet"].iter_rows(min_row=2) if len(row)>0 and row[0].value}
+    _ad_row=simple_labels.get("Less: accumulated depreciation")
+    ck("results workbook surfaces accumulated depreciation in Simple mode",
+       _ad_row is not None and _ad_row[6].value == -10.0, str(_ad_row[6].value if _ad_row else None))
+
     # Engine accounting: CAPEX is capitalized, not burned through opening retained earnings.
     cfg=_base_cfg(); cfg=copy.deepcopy(cfg)
     a=cfg["assumptions"]; a["periods_per_year"]=12; a["n_periods"]=36
@@ -46,6 +74,17 @@ def main():
     ck("scheduled depreciation feeds NIE", r["is"]["overhead"][0] >= 10000)
 
     import json, pathlib
+    cfgb_simple=json.loads((pathlib.Path(__file__).parents[1]/"fixtures"/"parity"/"configs"/"pf_b_base.json").read_text())
+    cfgb_simple["assumptions"]["premises_equipment"]=1200000
+    cfgb_simple["assumptions"]["premises_depreciation_annual"]=120000
+    cfgb_simple["assumptions"].pop("fixed_assets",None)
+    rbs=run_pf_b(copy.deepcopy(cfgb_simple))
+    ck("Simple Profile B exposes gross and accumulated depreciation",
+       "premisesGross" in rbs["bs"] and "premisesAccumDep" in rbs["bs"]
+       and rbs["bs"]["premisesGross"][0]==1200000
+       and abs(rbs["bs"]["premisesAccumDep"][0]-30000)<1e-9
+       and abs(rbs["bs"]["premises"][0]-1170000)<1e-9)
+
     cfgb=json.loads((pathlib.Path(__file__).parents[1]/"fixtures"/"parity"/"configs"/"pf_b_base.json").read_text())
     cfgb["assumptions"]["premises_equipment"]=0; cfgb["assumptions"]["premises_depreciation_annual"]=0
     cfgb["assumptions"]["fixed_assets"]={"mode":"schedule","assets":[{"name":"Branch buildout","cost":400000,"in_service_period":0,"useful_life_years":4}]}

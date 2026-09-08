@@ -5,7 +5,12 @@ from foundry.v2 import run_q, lab_core
 
 def _fh(c):
     fin = run_q.run_v2(c)["financials"]
-    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": fin["bs"], "ratios": fin["ratios"]},
+    # Lab isolation is about economic mutation.  Ignore only additive Balance Sheet
+    # disclosure companions that reconcile to the existing net premises series.
+    bs = dict(fin["bs"])
+    bs.pop("premisesGross", None)
+    bs.pop("premisesAccumDep", None)
+    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": bs, "ratios": fin["ratios"]},
                                      sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 def main():

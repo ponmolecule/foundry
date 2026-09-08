@@ -1,7 +1,8 @@
 """Golden tests for the per-product multi-stream fee evaluator (six-axis model, increment 1).
 
 Pins two things:
-  1. INVARIANT: a config with no fee_streams is byte-identical to baseline (hash 3fee151428f6991e).
+  1. INVARIANT: a config with no fee_streams preserves the legacy financial-core baseline
+     (hash 3fee151428f6991e), ignoring additive presentation-only disclosure keys.
   2. CORRECTNESS: each basis (balance/transaction/account/flat) and timing gating are hand-checked.
 
 Run: python3 -m foundry.v2.tests_fee_streams
@@ -16,7 +17,13 @@ BASELINE = "3fee151428f6991e"
 
 def _hash(cfg):
     fin = run_q.run_v2(cfg)["financials"]
-    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": fin["bs"], "ratios": fin["ratios"]},
+    # Gross PP&E / accumulated depreciation are additive statement disclosures that
+    # reconcile to the pre-existing net `premises` series.  They must not invalidate
+    # this fee-module economic-invariance gate when surfaced in the output payload.
+    bs = dict(fin["bs"])
+    bs.pop("premisesGross", None)
+    bs.pop("premisesAccumDep", None)
+    return hashlib.sha256(json.dumps({"is": fin["is"], "bs": bs, "ratios": fin["ratios"]},
                                      sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 
