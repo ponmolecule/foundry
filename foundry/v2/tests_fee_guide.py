@@ -155,6 +155,10 @@ def main():
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
     ck("Guide Me UI submits background jobs instead of holding one Anthropic request open", '/api/v31/fee-guide/jobs' in html and 'Still mapping… Foundry is waiting for Anthropic in the background' in html and 'fetch("/api/v31/fee-guide",' not in html)
+    ck("Guide Me modal remains escapable after long clarification output", 'max-height:84vh;overflow-y:auto' in html and 'fee-guide-actions{position:sticky' in html)
+    ck("Guide Me exposes always-visible top and footer exits", 'class="modal-close-x"' in html and '>Back to Fee Product</button>' in html and 'onclick="closeFeeGuide();return false"' in html)
+    ck("closing Guide Me cancels client polling without mutating the fee product", 'window._feeGuideRunToken=(window._feeGuideRunToken||0)+1' in html and 'runToken!==window._feeGuideRunToken || !window._feeGuideActive' in html)
+    ck("Escape key closes an open Guide Me/general modal", 'e.key==="Escape"' in html and 'e.preventDefault(); closeModal();' in html)
     ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
     # Async job wrapper: persistent status is shared across web workers, user-bound,
     # and the long Anthropic wait happens outside the browser request.

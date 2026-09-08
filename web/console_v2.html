@@ -336,7 +336,10 @@ td.neg{color:var(--red)}
 .prod-toolbar .ftplabel{margin-bottom:0}
 /* modal */
 #modal-bg{position:fixed;inset:0;background:rgba(13,22,38,.72);display:none;z-index:40}
-#modal{position:fixed;top:11vh;left:50%;transform:translateX(-50%);width:540px;max-width:94vw;background:var(--paper);border-radius:4px;border-top:4px solid #16233B;box-shadow:0 14px 70px rgba(0,0,0,.55);padding:20px 22px;display:none;z-index:41;color:var(--ink)}#modal h3{font-weight:600;font-size:16px;margin-bottom:8px;font-size:17px;color:#16233B}
+#modal{position:fixed;top:8vh;left:50%;transform:translateX(-50%);width:540px;max-width:94vw;max-height:84vh;overflow-y:auto;box-sizing:border-box;background:var(--paper);border-radius:4px;border-top:4px solid #16233B;box-shadow:0 14px 70px rgba(0,0,0,.55);padding:20px 22px;display:none;z-index:41;color:var(--ink)}#modal h3{font-weight:600;font-size:16px;margin-bottom:8px;font-size:17px;color:#16233B}
+#modal .modal-close-x{position:sticky;top:-12px;float:right;z-index:3;width:30px;height:30px;margin:-8px -10px 0 8px;border:1px solid #C7CEDC;border-radius:4px;background:#FFF;color:#535B69;font:700 18px/1 inherit;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+#modal .modal-close-x:hover{background:#F3F5F9;color:#16233B;border-color:#9EA8B8}
+#modal .fee-guide-actions{position:sticky;bottom:-20px;z-index:2;margin:12px -22px -20px;padding:10px 22px 14px;background:linear-gradient(to bottom,rgba(255,253,248,.94),#FFFDF8 28%);border-top:1px solid #E4E7EC}
 #modal .accent-label{color:#8A6D2F}
 #modal .fld label{color:#535B69;font-weight:600}
 .preset-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin-bottom:8px}
@@ -2648,13 +2651,16 @@ function _feeGuideEscLines(lines){
 window.openFeeGuide = function(productIndex){
   const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex]||{};
   const nm=p.name||"Fee product";
-  let h=`<h3>Guide Me — ${esc(nm)}</h3>`;
+  let h='<button class="modal-close-x" type="button" aria-label="Close Guide Me" title="Back to Fee Product" onclick="closeFeeGuide();return false">&times;</button>';
+  h += `<h3>Guide Me — ${esc(nm)}</h3>`;
   h += '<div class="memo" style="margin:0 0 10px">Describe how the product earns fees in ordinary language. Guide Me is given only what you type here plus Foundry\'s current fee-engine vocabulary — not your engagement configuration, files, web access, or external tools.</div>';
   h += '<div class="fld" style="margin:0"><label>What are you trying to model?</label><textarea id="feeGuideDesc" rows="7" style="width:100%;box-sizing:border-box;resize:vertical;padding:9px 10px;border:1px solid #B8C0CC;border-radius:4px;font:12px/1.45 inherit" placeholder="Example: We earn a custody fee on AUC, settlement fees based on annual turns of AUC, and a fixed annual escrow fee. AUC comes from the customer-acquisition model."></textarea></div>';
   h += '<div class="memo" style="margin:7px 0 0">Do not include client-identifying or confidential narrative that is unnecessary to describe the mechanics. Guide Me never chooses assumptions for you; it only tells you which Foundry dials match the mechanics you describe.</div>';
   h += '<div id="feeGuideResult" style="margin-top:12px"></div>';
-  h += '<div class="modal-actions"><button class="btn-plain" onclick="closeModal()">Close</button><button id="feeGuideBtn" class="btn-gold" onclick="runFeeGuide()">Map to Foundry</button></div>';
+  h += '<div class="modal-actions fee-guide-actions"><button class="btn-plain" onclick="closeFeeGuide();return false">Back to Fee Product</button><button id="feeGuideBtn" class="btn-gold" onclick="runFeeGuide()">Map to Foundry</button></div>';
   window._feeGuideProductIndex=productIndex;
+  window._feeGuideActive=true;
+  window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
   document.getElementById("modal").innerHTML=h;
   document.getElementById("modal-bg").style.display="block";
   document.getElementById("modal").style.display="block";
@@ -2701,12 +2707,20 @@ window.configureFeeGuideKey = async function(){
     if(msg) msg.textContent=e.message||String(e);
   }
 };
+window.closeFeeGuide = function(){
+  window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
+  window._feeGuideActive=false;
+  window._feeGuideProductIndex=null;
+  closeModal();
+};
 window.runFeeGuide = async function(){
   const desc=(document.getElementById("feeGuideDesc")||{}).value||"";
   const box=document.getElementById("feeGuideResult"), btn=document.getElementById("feeGuideBtn");
   if(!desc.trim()){ if(box)box.innerHTML='<div class="memo" style="color:#A14A4A">Describe the fee mechanics first.</div>'; return; }
   if(btn){btn.disabled=true;btn.textContent="Mapping…";}
   if(box) box.innerHTML='<div class="memo">Mapping your description to the current Foundry fee schema…</div>';
+  const runToken=(window._feeGuideRunToken||0)+1;
+  window._feeGuideRunToken=runToken;
   try{
     // Queue the Anthropic call and return immediately. Long model latency must never
     // sit inside one browser→Foundry request because deployment proxies may terminate it.
@@ -2719,7 +2733,9 @@ window.runFeeGuide = async function(){
 
     let j=null;
     for(let attempt=0; attempt<180; attempt++){
+      if(runToken!==window._feeGuideRunToken || !window._feeGuideActive) return;
       await new Promise(resolve=>setTimeout(resolve,1000));
+      if(runToken!==window._feeGuideRunToken || !window._feeGuideActive) return;
       const pr=await fetch("/api/v31/fee-guide/jobs/"+encodeURIComponent(jobId),{cache:"no-store"});
       const praw=await pr.text();
       let ps={}; try{ ps=praw?JSON.parse(praw):{}; }catch(_e){ ps={}; }
@@ -2783,12 +2799,22 @@ function openModal(){
   document.getElementById("modal").style.display = "block";
 }
 function closeModal(){
+  if(window._feeGuideActive){
+    window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
+    window._feeGuideActive=false;
+    window._feeGuideProductIndex=null;
+  }
   document.getElementById("modal-bg").style.display="none";
   document.getElementById("modal").style.display="none";
   // multi-add deferred the heavy render to avoid destroying the open modal;
   // do it now so everything picked this visit appears at once.
   if(window._modalAdded){ window._modalAdded = 0; syncModules(); renderContent(); refresh(); }
 }
+document.addEventListener("keydown",function(e){
+  if(e.key==="Escape" && document.getElementById("modal").style.display==="block"){
+    e.preventDefault(); closeModal();
+  }
+});
 function fillLineOptions(){
   const cat = document.getElementById("cCat").value;
   document.getElementById("cLine").innerHTML = lineOptionsFor(cat).map(k=>`<option value="${k}">${esc(LINE_LABELS[k])}</option>`).join("");
