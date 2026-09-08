@@ -153,6 +153,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "function numInput(){return '<input>'; }\n"
         "function growthSpecInline(){return '<growth>'; }\n"
         "function _qGrowthToPeriod(x){return x||0;}\n"
+        "function _feeBasisTileHtml(){return '<tile>'; }\n"
         + fjs +
         "\nconst p={name:'Trust',_fee_product:true,managed_notional:{day1:100,target:200,ramp_periods:8,trajectory:'ramp_to_target'},fee_streams:[]};"
         "\ncfg.assumptions.obs_exposures=[p];"
@@ -198,6 +199,34 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("explicit transaction schedule hides inactive single Flow % and uses economic labels",
        fr3.returncode==0 and fj3.get("pctTraj") and fj3.get("pctSchedule") and fj3.get("singleHidden"), fr3.stderr.strip())
+    ck("Fee Product basis tiles expose circled info affordances for all five stream ontologies",
+       'class="fee-basis-info"' in html and 'class="fee-basis-popover"' in html
+       and '["balance","transaction","account","flat","event"].forEach(bz=>{ h += _feeBasisTileHtml(bz,_fi); })' in html)
+    _fee_help = [
+        "Use when revenue is earned as a rate on a balance/notional stock, e.g. custody fee = AUC × annual bps.",
+        "Use when revenue depends on throughput/volume, e.g. AUC × settlement turns × settlement fee %, or AUC × conversion % × conversion spread.",
+        "Use when revenue is count × fee per account/customer/unit, e.g. 20,000 accounts × $5/month.",
+        "Use when revenue is a periodic fixed dollar amount independent of volume, e.g. $150k/year escrow fee.",
+        "Use when revenue is a one-time amount occurring in a specific period, e.g. a $500k implementation/setup fee in Month 4.",
+    ]
+    ck("Fee Product basis info copy preserves the five canonical use-when definitions and examples",
+       all(x in html for x in _fee_help))
+    # Execute the actual info-toggle helper: one tile opens and an already-open sibling closes.
+    ia=html.index("const _FEE_BASIS_HELP="); ib=html.index("function _seriesExplicitValues(",ia)
+    ijs=html[ia:ib]
+    info_js=(
+        "function esc(x){return String(x==null?'':x);}\n" + ijs +
+        "function classes(open){return {open:!!open,contains(k){return k==='open'&&this.open;},toggle(k,v){if(k==='open')this.open=!!v;},remove(k){if(k==='open')this.open=false;}};}\n"
+        "const p1={classList:classes(false)},p2={classList:classes(true)}; const host={querySelectorAll(){return [p2];}};\n"
+        "const tile={parentElement:host,querySelector(){return p1;}}; const btn={parentElement:tile,setAttribute(k,v){this[k]=v;}};\n"
+        "_feeBasisInfoToggle('balance',btn); const markup=_feeBasisTileHtml('transaction',3);\n"
+        "console.log(JSON.stringify({opened:p1.classList.open,closedSibling:!p2.classList.open,expanded:btn['aria-expanded']==='true',markup:markup.includes('Transaction stream')&&markup.includes('settlement turns')}));")
+    ir=subprocess.run(["node","-e",info_js],text=True,capture_output=True); ij={}
+    if ir.returncode==0 and ir.stdout.strip():
+        try: ij=json.loads(ir.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Fee Product basis info click opens its definition and closes an open sibling",
+       ir.returncode==0 and ij.get("opened") and ij.get("closedSibling") and ij.get("expanded") and ij.get("markup"), ir.stderr.strip())
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
        'const _coefNoun=_ckind==="pct"?"Volume %":"Turns"' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
