@@ -21,6 +21,9 @@ def main():
     ck("manifest is closed over current five fee bases", {x["id"] for x in m["bases"]}=={"balance","transaction","account","flat","event"})
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
     ck("manifest exposes Flat amount trajectories", m.get("flat_amount_trajectories")==["flat","growth","explicit_schedule"])
+    ck("manifest distinguishes revenue share from operating cost % of revenue",
+       {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","pct_of_revenue","pct_of_revenue_opex"}
+       and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[])))
 
     # Guide Me credential resolution is server-only and must work even though
     # Foundry is deployed separately from CharterIQ. Environment wins, then a
@@ -123,6 +126,15 @@ def main():
     ck("explicit coefficient Guide Me never tells user to fill inactive single Flow %",
        any("single “Flow %” field is not used" in x for x in cvsteps)
        and not any(x.endswith("“Flow %”.") for x in cvsteps))
+    opcost_plan={
+      "status":"plan","product_label":"Service","managed_notional_source":"not_needed",
+      "streams":[{"name":"Service fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat",
+                  "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+                  "flat_amount_trajectory":"flat","rate_behavior":"flat","cost_kind":"pct_of_revenue_opex"}],
+      "questions":[],"unsupported_mechanics":[]}
+    opg=render_guide_plan(opcost_plan)
+    ck("Guide Me can map operating cost % of revenue to NIE distinct from revenue share",
+       any("Operating cost (% of revenue)" in x for x in opg["stream_guides"][0]["steps"]))
     ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
 
     # Live r31 regression: Claude can redundantly put the turns schedule on the sourced

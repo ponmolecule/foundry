@@ -946,6 +946,7 @@ def run_v2(cfg):
     cd_in = a2.get("construction_land_total")
     lb_in = a2.get("single_largest_borrower")
     nie_q = [ (base["is"]["prodOpex"][t] if "prodOpex" in base["is"] else base["is"].get("opexProd",[0]*12)[t])
+               + (base["is"].get("feeOpex") or [0.0]*nq2)[t]
                + (base["is"]["overhead"][t] if "overhead" in base["is"] else base["is"].get("fixedOpex",[0]*12)[t])
                for t in range(nq2)]
     avg_a = cap_rows.get("avg_assets_net") or taq

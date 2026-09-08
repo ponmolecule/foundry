@@ -1613,6 +1613,7 @@ const CALC_TEXT = {
   nco: "Net charge-offs: each loan product's annual charge-off rate divided by the number of periods per year, applied to its balance that {{period}}, summed (memo line — already embedded in the allowance and provision above).",
   overhead: "Corporate overhead: the assumed base overhead (sidebar) grown at its per-period rate, plus staffing/occupancy/other lines from the operating-expense detail if configured.",
   prodOpex: "Product operating costs: each product's opex, computed as its opex % × average balance plus any fixed per-period opex, summed across products.",
+  feeOpex: "Fee Product Costs: operating costs authored inside fee streams, including per-unit processing costs and operating costs stated as a percentage of gross fee revenue. Revenue-share costs are contra-revenue and do not appear here.",
 };
 function calcText(key){
   const period=PLAB('full'), periodPlural=period+'s';
@@ -2348,9 +2349,14 @@ function fieldsFor(fam, p, base){
       h += F(`Revenue end (${PLAB('full')}, blank=never)`, sb+".timing.end_period", "n");
       h += F(`Ramp-in (${PLAB('full')}s, blank=step)`, sb+".timing.ramp_in_periods", "n");
       // Axis 6: cost side
-      h += SEL("Cost side", sb+".cost.kind", ck, [["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_revenue","% of revenue (rev-share)"]]);
+      h += SEL("Cost side", sb+".cost.kind", ck, [["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]]);
       if(ck==="per_unit"){ h += F("Cost ($/unit)", sb+".cost.params.cost_per_unit", "n"); }
-      if(ck==="pct_of_revenue"){ h += F("Cost (% of revenue, 0-1)", sb+".cost.params.pct", "n"); }
+      if(ck==="pct_of_revenue" || ck==="pct_of_revenue_opex"){
+        const _cpct=(((st.cost.params||{}).pct||0)*100).toFixed(4);
+        const _clab=ck==="pct_of_revenue"?"Revenue share (% of gross fee revenue)":"Operating cost (% of gross fee revenue)";
+        h += `<div class="fld"><label>${_clab}</label><input type="number" step="0.01" min="0" max="100" value="${_cpct}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].cost.params.pct=_pf(this.value)/100;refresh()"></div>`;
+        h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":"Operating cost preserves gross fee income and reports the calculated amount in Noninterest Expense: Fee Product Costs."}</span></div>`;
+      }
     });
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#DFA85A">Add a fee stream</label></div>';
@@ -4942,6 +4948,7 @@ function renderContent(){
     if(some(fin.is.servNet)) h += rowIS('Net Servicing Income (fees less MSR amortization)', fin.is.servNet, null, T.servNet, 'servNet');
     if(some(fin.is.fvPnl)) h += rowIS('Net Gains (Losses) on Fair Value Instruments', fin.is.fvPnl, null, T.fvPnl, 'fvPnl');
     h += rowIS('Noninterest Expense: Product Operating Costs', fin.is.prodOpex || fin.is.opexProd, null, T.prodOpex ?? T.opexProd, 'prodOpex');
+    if(some(fin.is.feeOpex)) h += rowIS('Noninterest Expense: Fee Product Costs', fin.is.feeOpex, null, T.feeOpex, 'feeOpex');
     h += rowIS('Noninterest Expense: Corporate Overhead', fin.is.overhead || fin.is.fixedOpex, null, T.overhead ?? T.fixedOpex, 'overhead');
     h += rowIS('Total Noninterest Expense', D.nie, 'subtotal');
     h += rowIS('Income (Loss) Before Taxes', fin.is.pretax, 'subtotal', T.pretax, 'pretax');
@@ -6180,7 +6187,7 @@ function labLeverCatalog(){
       else if(basis==="event") push(sb+".rate.params.amount", `${pre}: event amount ($)`, "");
       if(rb==="annual_change") push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");
       if(cost.kind==="per_unit" && basis==="transaction") push(sb+".cost.params.cost_per_unit", `${pre}: cost per unit ($)`, "");
-      if(cost.kind==="pct_of_revenue") push(sb+".cost.params.pct", `${pre}: revenue-share cost`, "pct");
+      if(cost.kind==="pct_of_revenue" || cost.kind==="pct_of_revenue_opex") push(sb+".cost.params.pct", `${pre}: ${cost.kind==="pct_of_revenue"?"revenue share":"operating cost % of revenue"}`, "pct");
     });
   });
 

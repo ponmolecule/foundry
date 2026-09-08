@@ -219,7 +219,7 @@ _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
 _FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped"}
-_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue"}
+_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 
 
@@ -392,6 +392,13 @@ def _validate_fee_stream_shape(stream):
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
+    if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
+        try:
+            _pct = float((cost.get("params") or {}).get("pct") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError(f"fee cost kind {ck!r} requires numeric pct")
+        if _pct < 0.0 or _pct > 1.0:
+            raise ValueError(f"fee cost kind {ck!r} pct must be between 0 and 1")
     coef = (drv.get("params") or {}).get("coefficient")
     if coef is not None:
         if traj != "derived":
@@ -452,7 +459,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
     Axis 4 Rate:          flat | annual_change | scheduled | tiered
     Axis 5 Timing:        start_period | end_period | ramp_in_periods
-    Axis 6 Cost:          none | per_unit | pct_of_revenue
+    Axis 6 Cost:          none | per_unit | pct_of_revenue | pct_of_revenue_opex
 
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
     quantity of already-evaluated streams, for stream_ref), and bank_aggregate (map: e.g.
@@ -589,22 +596,26 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             gross *= min(1.0, (q - start + 1) / k)
 
     # ---- Axis 6: cost side ----
-    # Two economically distinct cost types:
+    # Three economically distinct cost types:
     #  - per_unit  : an OPERATING cost (cost to process each unit, e.g. payment-rail
-    #    network fees). Reported GROSS -> routed to noninterest EXPENSE (overhead),
+    #    network fees). Reported GROSS -> routed to noninterest EXPENSE (fee product costs),
     #    NOT netted against fee income. Netting would misstate Schedule RI (gross fee
     #    income and gross opex are reported separately) and the efficiency ratio.
     #  - pct_of_revenue : a CONTRA-REVENUE / revenue share (a cut of THIS fee owed
     #    away). Correctly NETS against the fee, because it reduces the revenue itself.
-    # Returns (income, opcost): income is the fee line; opcost lands in overhead.
+    #  - pct_of_revenue_opex : an OPERATING expense stated as a percentage of gross
+    #    fee revenue. Gross fee income remains intact and the cost routes to NIE.
+    # Returns (income, opcost): income is the fee line; opcost lands in fee-product NIE.
     cost = stream.get("cost") or {}
     ck = cost.get("kind") or "none"
     cp = cost.get("params") or {}
     opcost = 0.0
     if ck == "per_unit" and basis == "transaction":
-        opcost = qty * float(cp.get("cost_per_unit") or 0.0)   # -> overhead (gross)
+        opcost = qty * float(cp.get("cost_per_unit") or 0.0)   # -> fee-product NIE (gross)
     elif ck == "pct_of_revenue":
         gross -= gross * float(cp.get("pct") or 0.0)           # -> nets (contra-revenue)
+    elif ck == "pct_of_revenue_opex":
+        opcost = gross * float(cp.get("pct") or 0.0)           # -> fee-product NIE; gross income preserved
 
     return gross, opcost
 

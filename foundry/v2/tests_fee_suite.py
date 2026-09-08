@@ -40,6 +40,15 @@ def isolate(products, cac_feeds=None, extra=None):
     return [with_f[q] - base[q] for q in range(len(with_f))], r
 
 
+def is_delta(key, products, cac_feeds=None, extra=None):
+    """Income-statement contribution of products for one named line."""
+    _, rw = fees_with(products, cac_feeds, extra)
+    _, rb = fees_with([], None, extra)
+    a = rw["financials"]["is"].get(key) or []
+    b = rb["financials"]["is"].get(key) or [0.0] * len(a)
+    return [(a[q] or 0.0) - (b[q] or 0.0) for q in range(len(a))]
+
+
 def main():
     Q = 12
     print("FEE SUITE — end-to-end, every capability\n")
@@ -68,13 +77,17 @@ def main():
     exp = avg1 * 0.008 / 4 / 1000.0
     ck("A2 trust bp-on-avg-AUM Q1", abs(f[1]-exp) < 1.0, f"got {f[1]:.1f}, expect {exp:.1f}")
 
-    # A3 payments: transaction basis, cost -> overhead (fee line is GROSS)
+    # A3 payments: transaction basis, per-unit cost -> Fee Product Costs (fee line is GROSS)
     pay = [{"name":"PAY","call_report_line":"obs","_fee_product":True,"fee_streams":[
         {"basis":"transaction","driver":{"source":"constant","trajectory":"proportional","params":{"base":300000,"growth_q":0.0}},
          "rate":{"params":{"per_unit":0.30}},"cost":{"kind":"per_unit","params":{"cost_per_unit":0.06}},"timing":{"start_period":1}}]}]
     f, r = isolate(pay)
     exp = 300000 * 0.30 / 1000.0   # gross fee income (cost is in overhead, not netted)
     ck("A3 payments GROSS fee (cost NOT netted) Q1", abs(f[1]-exp) < 0.5, f"got {f[1]:.1f}, expect {exp:.1f}")
+    pc = is_delta("feeOpex", pay)
+    exp_cost = 300000 * 0.06 / 1000.0
+    ck("A3b per-unit fee cost surfaces in Fee Product Costs NIE", abs(pc[0]-exp_cost) < 0.5,
+       f"got {pc[0]:.1f}, expect {exp_cost:.1f}")
 
     # A4 baas: account basis, programs x accts x rev x 3
     ba = [{"name":"BA","call_report_line":"obs","_fee_product":True,"fee_streams":[
@@ -182,14 +195,26 @@ def main():
     ck("D1 mixed (CAC + non-CAC) integrity passes", rm.get("checks",{}).get("integrity_pass") is True)
     ck("D1b mixed total = sum of parts", fm[4] > 0)
 
-    # D2 cost routing: per_unit -> overhead (gross fees), pct_of_revenue -> nets into fees
-    # per_unit already checked (A3 gross). Here: pct_of_revenue reduces the fee line.
+    # D2 cost routing: per_unit/pct_of_revenue_opex -> NIE; pct_of_revenue -> contra-revenue.
+    # per_unit already checked (A3 gross + Fee Product Costs). Here: revenue share nets the fee.
     net = [{"name":"Rev","call_report_line":"obs","_fee_product":True,"fee_streams":[
         {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100000}},
          "rate":{"params":{"per_unit":1.0}},"cost":{"kind":"pct_of_revenue","params":{"pct":0.30}},"timing":{"start_period":1}}]}]
     f,_ = isolate(net)
     exp = 100000 * 1.0 * (1-0.30) / 1000.0   # 30% rev-share NETS against the fee
     ck("D2 pct_of_revenue NETS against fee", abs(f[1]-exp) < 0.5, f"got {f[1]:.1f}, expect {exp:.1f}")
+
+    op = [{"name":"OpCost","call_report_line":"obs","_fee_product":True,"fee_streams":[
+        {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100000}},
+         "rate":{"params":{"per_unit":1.0}},"cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.30}},"timing":{"start_period":1}}]}]
+    f,_ = isolate(op)
+    oc = is_delta("feeOpex", op)
+    ck("D2b operating % cost preserves GROSS fee income", abs(f[1]-100.0) < 0.5, f"got {f[1]:.1f}, expect 100.0")
+    ck("D2c operating % cost routes 30% of gross fee revenue to NIE", abs(oc[0]-30.0) < 0.5, f"got {oc[0]:.1f}, expect 30.0")
+    pt = is_delta("pretax", op)
+    ck("D2d operating % cost changes pretax by gross revenue less operating cost", abs(pt[0]-70.0) < 0.5, f"got {pt[0]:.1f}, expect 70.0")
+    net_oc = is_delta("feeOpex", net)
+    ck("D2e revenue-share mode remains contra-revenue with no Fee Product Costs NIE", abs(net_oc[0]) < 1e-9, f"got {net_oc[0]:.4f}")
 
     # D3 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]

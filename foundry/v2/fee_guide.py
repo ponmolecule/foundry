@@ -183,7 +183,8 @@ _RATE_LABELS = {
 _COST_LABELS = {
     "none": "None (pure margin)",
     "per_unit": "Cost per unit",
-    "pct_of_revenue": "% of revenue / revenue share",
+    "pct_of_revenue": "Revenue share (% of revenue)",
+    "pct_of_revenue_opex": "Operating cost (% of revenue)",
 }
 _ALLOWED_RATE_BY_BASIS = {
     "balance": {"flat", "annual_change", "scheduled", "tiered"},
@@ -218,6 +219,8 @@ def fee_guide_manifest():
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account fees may be stated per month, quarter, or year.",
             "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
+            "pct_of_revenue is contra-revenue: it reduces fee income. pct_of_revenue_opex preserves gross fee income and routes the calculated cost to noninterest expense.",
+            "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
             "The guide never chooses numeric assumptions. It tells the user which Foundry field should receive each assumption they already have.",
@@ -331,6 +334,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
+- Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex). Never substitute one for the other.
 - For coefficient_kind, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable" when that field does not apply to the stream.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
