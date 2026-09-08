@@ -164,7 +164,7 @@ optional metric activation rule:
   "activation": {
     "type": "metric",
     "metric": "managed_notional_end",
-    "source": "Custody",
+    "source": "cac-feed-growth",
     "operator": ">=",
     "reference": "fixed",
     "value": 1000000000,
@@ -176,13 +176,15 @@ optional metric activation rule:
 Canonical fields:
 
 - `metric`: an approved modeled metric. Initial registry:
-  - `managed_notional_end` — end-of-period AUC/AUM / managed notional for a named product.
+  - `managed_notional_end` — end-of-period AUC/AUM / managed notional for a canonical source Series.
   - `efficiency_ratio` — NIE / revenue, stored as a fraction for activation comparison.
   - `net_income` — native-period net income dollars.
-- `source`: required only when a metric can exist in multiple named streams/products (currently
-  managed notional). Product names must resolve uniquely. In the browser, source is folded into
-  the metric choice (for example, `EOP AUC / AUM — Custody`) so the trigger editor remains
-  **metric + comparator + value** rather than exposing a separate one-option source dropdown.
+- `source`: required only when a metric can exist in multiple source Series (currently managed
+  notional). Customer Acquisition feeds are canonical and use their stable `series_id`; fee-product
+  names are backward-compatible aliases only when they resolve to exactly one underlying AUC/AUM
+  Series. In the browser, source is folded into the metric choice (for example,
+  `EOP AUC / AUM — growth`) so the trigger editor remains **metric + comparator + value** rather
+  than exposing a separate source dropdown. A fee product is not required for a CAC/AUC trigger.
 - `operator`: `>=`, `>`, `<=`, or `<`.
 - `reference`:
   - `fixed` — compare with `value`.

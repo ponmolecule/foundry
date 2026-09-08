@@ -93,6 +93,9 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     ck("CAC explains causal ownership instead of duplicating budgets/headcount",
        "CAC does not duplicate budgets or headcount assumptions" in html
        and "trajectory owned by source" in html)
+    ck("Acquisition Spend link explains the required upstream Opex source instead of reporting a generic broken link",
+       "Acquisition spend can link only to an Operating expense category" in html
+       and "keep Acquisition spend entered directly in Customer Acquisition" in html)
     ck("acquisition equations remain the closed vocabulary while channel names are user-defined",
        "New customers = Pool × Conversion" in html and "New customers = Spend ÷ CAC" in html
        and "New customers = FTE Count × Productivity" in html

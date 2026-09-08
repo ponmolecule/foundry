@@ -6,7 +6,9 @@ import json
 import sys
 from pathlib import Path
 
-from .activation import validate_activation_rule
+from .activation import (managed_notional_source_catalog,
+                         resolve_managed_notional_source,
+                         validate_activation_rule)
 from .workforce import WorkforceRuntime, workforce_comp_series
 
 
@@ -75,6 +77,33 @@ def main():
         dup=True
     ck("ambiguous duplicate managed-notional source names fail closed", dup)
 
+    shared_a={"cac_feeds":{"growth":{"series_id":"cac-feed-growth"}},"obs_exposures":[
+        {"name":"Fee product","managed_notional_source":"growth","managed_notional_source_id":"cac-feed-growth"},
+        {"name":"Fee product","managed_notional_source":"growth","managed_notional_source_id":"cac-feed-growth"},
+    ]}
+    shared_catalog=managed_notional_source_catalog(shared_a)
+    shared_ok=True
+    try:
+        validate_activation_rule({"metric":"managed_notional_end","source":"Fee product","operator":">=",
+                                  "reference":"fixed","value":1,"timing":"same_period"},
+                                 source_catalog=shared_catalog)
+    except ValueError:
+        shared_ok=False
+    ck("duplicate fee-product names are harmless when they alias one underlying CAC AUC Series",
+       shared_ok and resolve_managed_notional_source("Fee product",shared_catalog)=="cac-feed-growth")
+
+    split_a={"cac_feeds":{"growth":{"series_id":"cac-feed-growth"},"wealth":{"series_id":"cac-feed-wealth"}},
+             "obs_exposures":[
+                 {"name":"Fee product","managed_notional_source":"growth","managed_notional_source_id":"cac-feed-growth"},
+                 {"name":"Fee product","managed_notional_source":"wealth","managed_notional_source_id":"cac-feed-wealth"},
+             ]}
+    split_bad=False
+    try:
+        resolve_managed_notional_source("Fee product",managed_notional_source_catalog(split_a))
+    except ValueError:
+        split_bad=True
+    ck("legacy display-name alias still fails closed when it genuinely names different AUC sources", split_bad)
+
     # End-to-end engine/API case on the actual named managed-notional product.
     from .run_q import run_v2
     cfg=json.loads(Path("foundry/fixtures/parity/configs/pf_a_base.json").read_text())
@@ -112,6 +141,43 @@ def main():
     ndcomp=(rr.get("nie_detail_series") or {}).get("comp") or []
     ck("public NIE detail compensation reflects resolved contingent workforce, not a zero placeholder",
        len(ndcomp)>=4 and ndcomp[:2]==[0.0,0.0] and abs(ndcomp[2]-10.0)<1e-9, str(ndcomp[:4]))
+
+    # The canonical architecture does not require any Fee Product at all.  Workforce can
+    # observe the Customer Acquisition AUC Series directly by stable Series ID.
+    direct=json.loads(Path("foundry/fixtures/parity/configs/pf_a_base.json").read_text())
+    da=direct["assumptions"]
+    da["periods_per_year"]=12; da["n_periods"]=12
+    # Preserve the fixture's ordinary non-fee OBS rows, but require zero fee products.
+    da["obs_exposures"]=[p for p in (da.get("obs_exposures") or []) if not p.get("_fee_product")]
+    da["cac_feeds"]={"growth":{"series_id":"cac-feed-growth","owner_module":"customer_acquisition",
+        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,"intra_year_shape":"linear",
+        "channels":[{"name":"Direct","method":"explicit","params":{"new_customers_by_year":[12]},
+                     "avg_auc_per_customer":50_000_000.0}]}}
+    da["nie_detail"]={"categories":[],"other_gross_up_rate":0,
+        "workforce":{"mode":"roles","default_payroll_load_rate":0,
+                     "default_salary_growth_spec":{"rate":0,"period":"year","method":"step","anchor":"hire_anniversary"},
+                     "roles":[{"role":"Direct CAC ops","count":1,"annual_comp":120000,
+                               "activation":{"type":"metric","metric":"managed_notional_end","source":"cac-feed-growth",
+                                             "operator":">=","reference":"fixed","value":300_000_000.0,
+                                             "timing":"same_period"}}]}}
+    dr=run_v2(direct)
+    dhires=(dr.get("workforce") or {}).get("resolved_hire_periods") or []
+    ck("workforce AUC trigger consumes CAC feed directly with zero fee products",
+       dhires==[6] and not [p for p in (dr.get("products") or []) if p.get("_fee_product")], str(dhires))
+
+    legacy_split=copy.deepcopy(direct)
+    la=legacy_split["assumptions"]
+    la["obs_exposures"]=[
+        {"name":"Fee product","call_report_line":"obs","_fee_product":True,
+         "managed_notional_source":"growth","managed_notional_source_id":"cac-feed-growth","fee_streams":[]},
+        {"name":"Fee product","call_report_line":"obs","_fee_product":True,
+         "managed_notional_source":"growth","managed_notional_source_id":"cac-feed-growth","fee_streams":[]},
+    ]
+    la["nie_detail"]["workforce"]["roles"][0]["activation"]["source"]="Fee product"
+    lr=run_v2(legacy_split)
+    lhires=(lr.get("workforce") or {}).get("resolved_hire_periods") or []
+    ck("end-to-end legacy duplicate Fee product names resolve through their one shared CAC source",
+       lhires==[6], str(lhires))
 
     # CAC retains its legacy key but also exposes a cadence-neutral EOP alias.
     from .cac_feeder import cac_auc_rollforward

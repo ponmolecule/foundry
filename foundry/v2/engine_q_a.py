@@ -423,7 +423,8 @@ def run_pf_a(cfg):
     from .income_modules import (nie_detail_series, product_fee_streams_q,
                                  durbin_effective_rate, _g,
                                  managed_notional_series)
-    from .cac_feeder import cac_managed_notional
+    from .cac_feeder import cac_managed_notional, cac_auc_rollforward
+    from .activation import managed_notional_source_catalog, resolve_managed_notional_source
     from .regparams import REG_PARAMS as _RP
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
@@ -888,14 +889,26 @@ def run_pf_a(cfg):
         _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
         _wf_count_native = [[] for _ in _wf_runtime.rows]
 
-    # First-class managed-notional observables. Product names are the user-facing source
-    # identifiers; validation rejects ambiguous metric-trigger sources before the engine runs.
+    # First-class managed-notional observables for workforce activation.
+    #
+    # CAC/AUC is owned by Customer Acquisition, not by whichever fee product happens to
+    # consume it.  New activation rules therefore bind to the CAC feed's stable Series ID.
+    # Product display names remain backward-compatible aliases through the source catalog,
+    # including the case where several fee products share the same underlying feed.
+    _mn_catalog = managed_notional_source_catalog(a)
     _mn_sources = {}
-    for _p in dep + obs:
-        if _p.get("managed_notional") or _p.get("managed_notional_source"):
+    for _feed_name, _feed_cfg in (a.get("cac_feeds") or {}).items():
+        _feed_key = str((_feed_cfg or {}).get("series_id") or _feed_name or "").strip()
+        if not _feed_key:
+            continue
+        _cacr = cac_auc_rollforward(_feed_cfg or {}, Q, ppy, assumptions=a, growth_context=_growth_ctx)
+        _mn_sources[_feed_key] = list(_cacr.get("auc_end_by_period") or [0.0] * Q)
+    # Standalone managed-notional products remain valid trigger sources.  Sourced products
+    # are deliberately omitted here: their canonical path is already the CAC feed above.
+    for _pi, _p in enumerate(dep + obs):
+        if _p.get("managed_notional") and not (_p.get("managed_notional_source") or _p.get("managed_notional_source_id")):
             _nm = str(_p.get("name") or "").strip()
-            if _nm:
-                _mn_sources.setdefault(_nm, []).append(_p.get("_mn_end") or [0.0] * Q)
+            _mn_sources[f"managed-product:{_pi}:{_nm}"] = list(_p.get("_mn_end") or [0.0] * Q)
 
     def _activation_metric(metric, source, period):
         """Metric registry view used only by workforce activation rules (1-based period)."""
@@ -903,8 +916,12 @@ def run_pf_a(cfg):
         if _p < 1 or _p > Q:
             return None
         if metric == "managed_notional_end":
-            _arrs = _mn_sources.get(str(source or "")) or []
-            return _arrs[0][_p - 1] if len(_arrs) == 1 else None
+            try:
+                _key = resolve_managed_notional_source(str(source or ""), _mn_catalog)
+            except ValueError:
+                return None
+            _arr = _mn_sources.get(_key)
+            return _arr[_p - 1] if _arr is not None and _p <= len(_arr) else None
         if metric == "net_income":
             _v = is_["ni"][_p]
             return float(_v) if _v is not None else None
