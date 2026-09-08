@@ -56,6 +56,7 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .fee-basis-popover{display:none;position:absolute;z-index:40;right:0;top:calc(100% + 5px);width:330px;max-width:min(330px,calc(100vw - 48px));padding:10px 12px;background:#FFFFFF;border:1px solid #B9C2D2;border-radius:5px;box-shadow:0 8px 24px rgba(10,24,48,.16);color:#293241;font-size:11.5px;line-height:1.5;text-align:left}
 .fee-basis-popover.open{display:block}
 .fee-basis-popover b{display:block;color:#C08A3E;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
+.fee-stream-block{border-top:2px solid #3E4B61;margin-top:14px;padding-top:10px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
 section#content:not(.cover) .accent-label{color:#C08A3E}
 .warnbadge{background:var(--nvy3);border:1px solid var(--nline);border-left:4px solid var(--namber);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;border-radius:3px;color:var(--ntext)}
@@ -2305,7 +2306,7 @@ function fieldsFor(fam, p, base){
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
-      h += `<div class="fld wide" style="border-top:1px solid #333;margin-top:8px;padding-top:6px"><label style="color:#DFA85A">Stream ${si+1} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide fee-stream-block"><label style="color:#DFA85A">Stream ${si+1} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       // Axis 1: basis
       h += SEL("Basis (what it's charged on)", sb+".basis", basis, [["balance","Balance — stock × annual rate"],["transaction","Transaction / throughput — volume × fee or spread"],["account","Account — count × fee"],["flat","Flat — periodic amount"],["event","Event — one-time amount"]]);
