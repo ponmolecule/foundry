@@ -27,6 +27,10 @@ The control contract is:
 Audited scalar families:
 - Fee Product transaction coefficient schedules;
 - Fee Product Flat recurring-amount schedules;
+- Fee Product Account count schedules;
+- Fee Product Balance stock-% schedules;
+- Fee Product Balance rate schedules;
+- Fee Product Account per-unit fee schedules;
 - CAC driver schedules;
 - CAC existing-book attrition schedules;
 - Workforce Count schedules;

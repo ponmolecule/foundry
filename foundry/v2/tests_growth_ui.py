@@ -138,7 +138,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        "Workforce activation tracking · latest run" in html and "resolved_hire_periods" in html
        and "End-horizon active count" in html)
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
-       'Driver growth</label>${growthSpecInline(sb+".driver.params.growth_spec"' in html
+       'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)
     ck("fee cost UI separates revenue share from operating-cost % and uses percent-entry semantics",
        '["pct_of_revenue","Revenue share (% of revenue)"]' in html
@@ -194,6 +194,21 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Product tab renders natural-period flow/account/flat fee controls without runtime error",
        fr2.returncode==0 and fj2.get("ok") is True, fr2.stderr.strip())
+    # Trustee authoring: Account EOP count levels + sourced Balance stock % + Series rate path.
+    fp2b=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{Growth:{series_id:'cac:Growth:customers'}}}};\n"
+          "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+          "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0;}\n"
+          + hjs + fjs +
+          "\nconst p={name:'Trustee',_fee_product:true,managed_notional_source:'Growth',managed_notional_source_id:'cac:Growth:customers',managed_notional:{day1:0,trajectory:'flat'},fee_streams:["
+          "{name:'Retainer',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'year',resolution:'smooth',schedule:{'1':2,'2':4}}}},rate:{behavior:'flat',params:{unit_fee:{value:200000,period:'year',trajectory:'flat'}}},cost:{kind:'none',params:{}},timing:{start_period:13}},"
+          "{name:'Reserve trustee',basis:'balance',driver:{source:'managed_notional',trajectory:'derived',params:{stock_multiplier:{kind:'pct',value:.30,trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.0012,trajectory:'flat'}}},cost:{kind:'none',params:{}},timing:{start_period:13}}]};"
+          "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({ok:out.includes('Count path')&&out.includes('Period-end count schedule by year')&&out.includes('Smooth')&&out.includes('Stock % of source')&&out.includes('Stock % trajectory')&&out.includes('Rate path')&&out.includes('Rate (bp/yr on balance)')}));")
+    fr2b=subprocess.run(["node","-e",fp2b],text=True,capture_output=True); fj2b={}
+    if fr2b.returncode==0 and fr2b.stdout.strip():
+        try: fj2b=json.loads(fr2b.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Product tab renders trustee Account/Balance authoring without runtime error",
+       fr2b.returncode==0 and fj2b.get("ok") is True, fr2b.stderr.strip())
     # Explicit coefficient schedules own the value path; the single-value input must not compete visually.
     fp3=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
          "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
@@ -245,6 +260,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'oninput="_feeCoeffPasteInput(' in html
        and 'class="pillbtn" disabled onclick="_feeSetCoeffSchedule' in html
        and '_feeClearCoeffSchedule(${_fi},${si})' in html)
+    ck("Account/Balance trustee paths expose Flat/Growth/Explicit and Step/Smooth controls",
+       'feeAccountLevelPaste_' in html and 'feeStockPctPaste_' in html and 'feeBalanceRatePaste_' in html and 'feeAccountFeePaste_' in html
+       and 'Stock % trajectory' in html and 'Count schedule period' in html and 'Foundry does not round interpolated counts' in html)
     ck("Flat fee explicit amount path uses the same live-validating pastebox workflow",
        'feeFlatAmountPaste_' in html
        and 'oninput="_feeFlatAmountPasteInput(' in html

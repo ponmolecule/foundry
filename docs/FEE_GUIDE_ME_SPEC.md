@@ -70,3 +70,22 @@ and `Turns trajectory` for a multiple/turns coefficient.
 For a `Flat — periodic amount` basis, the amount path is the economic input. Guide Me therefore
 omits schema-placeholder instructions for driver source, driver trajectory, and rate behavior and
 focuses on Amount path, natural period, amount/schedule, cost side, and timing.
+
+## Account EOP counts and derived-stock Balance streams
+
+Guide Me must preserve the five-stream ontology when translating trustee/reserve-style economics:
+
+- `mandates × annual retainer` is one **Account** stream. Explicit FY-end mandate counts map to an
+  Explicit count path at the stated natural cadence. Step/Smooth must come from the user/source
+  model; Guide Me never invents rounding.
+- `Avg AUC × reserve % × trustee rate` is one **Balance** stream. Reserve % is a **stock multiplier**
+  on the sourced AUC, never a transaction `% of source` flow coefficient. The trustee rate remains
+  pricing on that derived reserve balance.
+- Count, stock-multiplier, and Account/Balance pricing paths use the same Flat / Growth / Explicit
+  grammar where applicable.
+- Revenue Start Month is ordinary timing. No month number has special engine behavior.
+- A redundant legacy Flat-amount trajectory on a correctly mapped Account/Balance stream may be
+  normalized away, but Flat amount may never substitute for a missing basis-native path.
+
+If a required value or EOP resolution is missing, Guide Me asks a targeted clarification rather than
+inventing it.

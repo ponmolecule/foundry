@@ -34,16 +34,18 @@ def main():
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
     paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 11, str(len(paste_lines)))
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 15, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Seven scalar schedule families: Fee coefficient, Flat amount, CAC driver, CAC attrition,
-    # Workforce Count, Workforce Compensation, and individual Operating Expense schedule.
+    # Eleven scalar schedule families: six Fee Product paths (transaction coefficient, Flat amount,
+    # Account count, Balance stock %, Balance rate, Account fee), plus CAC driver/attrition,
+    # Workforce Count/Compensation, and individual Operating Expense schedule.
     scalar_markers = [
-        "feeCoeffPaste_", "feeFlatAmountPaste_", "cacPaste_", "cacAttritionPaste_",
+        "feeCoeffPaste_", "feeFlatAmountPaste_", "feeAccountLevelPaste_", "feeStockPctPaste_",
+        "feeBalanceRatePaste_", "feeAccountFeePaste_", "cacPaste_", "cacAttritionPaste_",
         "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_",
     ]
-    ck("all seven scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all eleven scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -55,6 +57,10 @@ def main():
     scalar_load_fragments = [
         'id="${_cid}_load" class="pillbtn" disabled',
         'id="${_fid}_load" class="pillbtn" disabled',
+        'id="${_lid}_load" class="pillbtn" disabled',
+        'id="${_smid}_load" class="pillbtn" disabled',
+        'id="${_rid}_load" class="pillbtn" disabled onclick="_feeSetBalanceRateSchedule',
+        'id="${_ufid}_load" class="pillbtn" disabled',
         'id="${boxId}_load" class="pillbtn" disabled',
         'id="${_aid}_load" class="pillbtn" disabled',
         'id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCountPaste',
@@ -65,8 +71,9 @@ def main():
        all(x in html for x in scalar_load_fragments))
 
     clear_markers = [
-        "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "cacScheduleClear",
-        "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
+        "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "_feeClearAccountLevelSchedule",
+        "_feeClearStockMultiplierSchedule", "_feeClearBalanceRateSchedule", "_feeClearAccountFeeSchedule",
+        "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
         "nieCatScheduleClear",
     ]
     ck("every scalar Explicit schedule family has an isolated Clear action", all(x in html for x in clear_markers))
@@ -109,7 +116,7 @@ const parse={
  pct:_seriesExplicitValues('12%;10%;8%').map(x=>[x.value,x.pct]),
  invalid:_seriesExplicitValues('8,banana,12').length
 };
-const scalarIds=['feeCoeffPaste_0_0','feeFlatAmountPaste_0_1','wfCountPaste_0','wfCompPaste_0','opexSchedulePaste_0','cacPaste_series_a','cacAttritionPaste_series_b'];
+const scalarIds=['feeCoeffPaste_0_0','feeFlatAmountPaste_0_1','feeAccountLevelPaste_0_2','feeStockPctPaste_0_3','feeBalanceRatePaste_0_3','feeAccountFeePaste_0_2','wfCountPaste_0','wfCompPaste_0','opexSchedulePaste_0','cacPaste_series_a','cacAttritionPaste_series_b'];
 scalarIds.forEach(id=>mk(id));
 els[scalarIds[0]].value='8,10,12'; _seriesExplicitPasteInput(scalarIds[0]);
 const firstOnly=scalarIds.map(id=>!els[id+'_load'].disabled);
@@ -142,9 +149,9 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
     ck("canonical scalar parser preserves percentage-cell semantics", parse.get("pct") == [[12,True],[10,True],[8,True]])
     ck("canonical scalar parser fails closed on any invalid token", parse.get("invalid") == 0)
     ck("typing in one scalar pastebox activates only its own Load button",
-       obj.get("firstOnly") == [True,False,False,False,False,False,False])
+       obj.get("firstOnly") == [True,False,False,False,False,False,False,False,False,False,False])
     ck("sequential scalar pasteboxes remain independently active",
-       obj.get("firstTwo") == [True,True,False,False,False,False,False])
+       obj.get("firstTwo") == [True,True,False,False,False,False,False,False,False,False,False])
     ck("invalid scalar input cannot activate Load", obj.get("invalidDisabled") is True)
     ck("clearing one scalar editor does not disable another loaded editor", obj.get("clearAOnly") is True)
     si = obj.get("structuredIsolation") or {}

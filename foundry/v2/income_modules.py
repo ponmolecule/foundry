@@ -176,19 +176,26 @@ def managed_notional_series(mn, Q, ppy=4, growth_context=None):
     return avg, end
 
 
-def _fee_rate_q(rt, q, base_qty, ppy=4):
-    """Axis 4 (rate behavior): flat | annual_change | scheduled | tiered.
-    Returns an EFFECTIVE rate for quarter q. For tiered, returns None and the caller
-    applies the tier schedule against base_qty directly (marginal breakpoints)."""
+def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None):
+    """Axis 4 (rate behavior), including opt-in Series-style rate paths.
+
+    Legacy ``annual_change`` / model-period ``scheduled`` / ``tiered`` behavior is
+    preserved exactly.  New balance-rate authoring may opt into ``params.rate_path``
+    with Flat / Growth / Explicit natural-period level semantics.
+    """
     behavior = (rt or {}).get("behavior") or "flat"
     rp = (rt or {}).get("params") or {}
+    if rp.get("rate_path") is not None:
+        if behavior != "flat":
+            raise ValueError("fee rate_path requires rate.behavior='flat'")
+        return _fee_level_path_value(rp.get("rate_path"), q, ppy, ctx, rp.get("rate") or 0.0)
     r0 = float(rp.get("rate") or 0.0)
     if behavior == "annual_change":
         yr = (q - 1) // ppy                      # 0 in year 1, 1 in year 2, ...
         delta = float(rp.get("annual_delta") or 0.0)
         return r0 * ((1.0 + delta) ** yr)
     if behavior == "scheduled":
-        sched = rp.get("schedule") or {}         # {quarter: rate}
+        sched = rp.get("schedule") or {}         # {model period: rate}
         return float(sched.get(str(q), r0))
     if behavior == "tiered":
         return None                              # signal: apply tiers to base_qty
@@ -288,6 +295,82 @@ def _fee_schedule_value(schedule, idx, default):
             break
         cur = v
     return cur
+
+
+def _fee_level_schedule_value(spec, q, ppy, default=0.0):
+    """Resolve explicit natural-period END-OF-PERIOD levels to an engine-period average.
+
+    Fee levels such as mandate counts, reserve percentages, and annualized fee rates are
+    stocks/levels, not flows.  To keep economics cadence-stable, Foundry first resolves
+    their EOP path on a conceptual monthly grid, then averages those monthly levels into
+    the model period (month / quarter / year).  Thus the same annual EOP schedule produces
+    the same annual fee economics in monthly and quarterly models.
+
+    ``step`` holds the prior EOP level until the next endpoint month; ``smooth`` linearly
+    interpolates between endpoints. No rounding is applied. The first supplied anchor is
+    held through its first natural period because no earlier opening anchor was supplied.
+    """
+    spec = dict(spec or {})
+    period = str(spec.get("period") or "").strip().lower()
+    if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
+        raise ValueError(f"unsupported fee level schedule period: {period!r}")
+    resolution = str(spec.get("resolution") or "step").strip().lower()
+    if resolution not in {"step", "smooth"}:
+        raise ValueError(f"unsupported fee level schedule resolution: {resolution!r}")
+    schedule = spec.get("schedule") or {}
+    if not isinstance(schedule, dict) or not schedule:
+        raise ValueError("fee level explicit_schedule requires at least one schedule value")
+
+    ppy = int(ppy)
+    if ppy not in (1, 4, 12):
+        raise ValueError(f"unsupported cadence periods_per_year={ppy}")
+    width_months = {"year": 12, "quarter": 3, "month": 1}[period]
+    engine_width_months = 12 // ppy
+
+    def _month_level(month_index):
+        idx = (int(month_index) - 1) // width_months + 1
+        cur = _fee_schedule_value(schedule, idx, default)
+        if idx <= 1:
+            return cur
+        prev = _fee_schedule_value(schedule, idx - 1, default)
+        pos = (int(month_index) - 1) % width_months + 1
+        if resolution == "step":
+            return cur if pos == width_months else prev
+        frac = pos / float(width_months)
+        return prev + (cur - prev) * frac
+
+    first_month = (int(q) - 1) * engine_width_months + 1
+    vals = [_month_level(first_month + j) for j in range(engine_width_months)]
+    return sum(vals) / float(len(vals))
+
+
+def _fee_level_path_value(spec, q, ppy, ctx=None, default=0.0):
+    """Resolve a scalar level path (Flat / Growth / Explicit) without periodization.
+
+    Used for economic *levels* such as account counts, stock multipliers, and annualized
+    fee-rate assumptions.  Explicit schedules are natural-period END-OF-PERIOD anchors
+    and may resolve Step or Smooth.  Unlike flow coefficients and recurring dollar
+    amounts, level values are not divided by the model cadence.
+    """
+    spec = dict(spec or {})
+    traj = str(spec.get("trajectory") or "flat").strip().lower()
+    if traj not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError(f"unsupported fee level trajectory: {traj!r}")
+    val = float(spec.get("value") if spec.get("value") is not None else default or 0.0)
+    if traj == "growth":
+        gs = spec.get("growth_spec")
+        if not gs:
+            raise ValueError("fee level growth trajectory requires growth_spec")
+        from .growth import growth_multiplier
+        val *= growth_multiplier(gs, current_period=int(q), start_period=1, ppy=int(ppy),
+                                 context=(ctx or {}).get("growth_context"), base_position="period1")
+    elif traj == "explicit_schedule":
+        ls = dict(spec)
+        # Some level paths (notably account unit fees) separate the billing unit from
+        # the trajectory's source cadence.  Default to `period` for simple paths.
+        ls["period"] = str(spec.get("path_period") or spec.get("period") or "year")
+        val = _fee_level_schedule_value(ls, q, ppy, val)
+    return val
 
 
 def _fee_flat_amount_value(spec, q, ppy, ctx=None):
@@ -400,6 +483,8 @@ def _validate_fee_stream_shape(stream):
         if _pct < 0.0 or _pct > 1.0:
             raise ValueError(f"fee cost kind {ck!r} pct must be between 0 and 1")
     coef = (drv.get("params") or {}).get("coefficient")
+    level_schedule = (drv.get("params") or {}).get("level_schedule")
+    stock_multiplier = (drv.get("params") or {}).get("stock_multiplier")
     if coef is not None:
         if traj != "derived":
             raise ValueError("fee coefficient requires driver.trajectory='derived'")
@@ -422,15 +507,82 @@ def _validate_fee_stream_shape(stream):
             float(c.get("value") or 0.0)
         except (TypeError, ValueError):
             raise ValueError("fee coefficient value must be numeric")
+    if level_schedule is not None:
+        if traj != "explicit_schedule":
+            raise ValueError("fee level_schedule requires driver.trajectory='explicit_schedule'")
+        if src != "constant":
+            raise ValueError("fee level_schedule is supported only for constant/entered drivers")
+        ls = dict(level_schedule or {})
+        if str(ls.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+            raise ValueError(f"unsupported fee level schedule period: {ls.get('period')!r}")
+        if str(ls.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
+            raise ValueError(f"unsupported fee level schedule resolution: {ls.get('resolution')!r}")
+        if not isinstance(ls.get("schedule"), dict) or not ls.get("schedule"):
+            raise ValueError("fee level explicit_schedule requires at least one schedule value")
+    if stock_multiplier is not None:
+        if basis != "balance" or traj != "derived" or src == "constant":
+            raise ValueError("fee stock_multiplier requires a sourced balance driver with trajectory='derived'")
+        sm = dict(stock_multiplier or {})
+        if str(sm.get("kind") or "").strip().lower() != "pct":
+            raise ValueError(f"unsupported fee stock multiplier kind: {sm.get('kind')!r}")
+        smtraj = str(sm.get("trajectory") or "flat").strip().lower()
+        if smtraj not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported fee stock multiplier trajectory: {smtraj!r}")
+        try:
+            float(sm.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("fee stock multiplier value must be numeric")
+        if smtraj == "growth" and not sm.get("growth_spec"):
+            raise ValueError("fee stock multiplier growth trajectory requires growth_spec")
+        if smtraj == "explicit_schedule":
+            if str(sm.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+                raise ValueError(f"unsupported fee stock multiplier period: {sm.get('period')!r}")
+            if str(sm.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
+                raise ValueError(f"unsupported fee stock multiplier resolution: {sm.get('resolution')!r}")
+            if not isinstance(sm.get("schedule"), dict) or not sm.get("schedule"):
+                raise ValueError("fee stock multiplier explicit_schedule requires at least one schedule value")
     rp = (rt.get("params") or {})
+    if rp.get("rate_path") is not None:
+        if basis != "balance" or rb != "flat":
+            raise ValueError("fee rate_path is supported only on balance basis with rate.behavior='flat'")
+        rpath = dict(rp.get("rate_path") or {})
+        rtraj = str(rpath.get("trajectory") or "flat").strip().lower()
+        if rtraj not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported fee rate trajectory: {rtraj!r}")
+        try:
+            float(rpath.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("fee rate path value must be numeric")
+        if rtraj == "growth" and not rpath.get("growth_spec"):
+            raise ValueError("fee rate growth trajectory requires growth_spec")
+        if rtraj == "explicit_schedule":
+            if str(rpath.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+                raise ValueError(f"unsupported fee rate path period: {rpath.get('period')!r}")
+            if str(rpath.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
+                raise ValueError(f"unsupported fee rate path resolution: {rpath.get('resolution')!r}")
+            if not isinstance(rpath.get("schedule"), dict) or not rpath.get("schedule"):
+                raise ValueError("fee rate explicit_schedule requires at least one schedule value")
     if basis == "account" and rp.get("unit_fee") is not None:
         uf = rp.get("unit_fee") or {}
         if str(uf.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
             raise ValueError(f"unsupported account fee period: {uf.get('period')!r}")
+        utraj = str(uf.get("trajectory") or "flat").strip().lower()
+        if utraj not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported account fee trajectory: {utraj!r}")
         try:
             float(uf.get("value") or 0.0)
         except (TypeError, ValueError):
             raise ValueError("account unit_fee value must be numeric")
+        if utraj == "growth" and not uf.get("growth_spec"):
+            raise ValueError("account fee growth trajectory requires growth_spec")
+        if utraj == "explicit_schedule":
+            upath = str(uf.get("path_period") or uf.get("period") or "").strip().lower()
+            if upath not in _FEE_NATURAL_PERIODS - {"model_period"}:
+                raise ValueError(f"unsupported account fee path period: {upath!r}")
+            if str(uf.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
+                raise ValueError(f"unsupported account fee resolution: {uf.get('resolution')!r}")
+            if not isinstance(uf.get("schedule"), dict) or not uf.get("schedule"):
+                raise ValueError("account fee explicit_schedule requires at least one schedule value")
     if basis == "flat" and rp.get("flat_amount") is not None:
         fa = rp.get("flat_amount") or {}
         if str(fa.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
@@ -518,7 +670,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         if traj == "proportional":
             qty = base * _driver_growth_multiplier()
         elif traj == "explicit_schedule":
-            qty = float((params.get("schedule") or {}).get(str(q), base))
+            if params.get("level_schedule") is not None:
+                qty = _fee_level_schedule_value(params.get("level_schedule"), q, ppy, base)
+            else:
+                # Legacy contract: explicit schedule keys are model-period numbers.
+                qty = float((params.get("schedule") or {}).get(str(q), base))
         else:
             qty = base
     else:
@@ -528,7 +684,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             # 24% of AUC / Year), periodized BEFORE a transaction fee/spread is applied.
             # Absence of the marker preserves legacy raw `multiple`/`pct` behavior exactly.
             coef = params.get("coefficient")
-            if coef is not None:
+            stock_multiplier = params.get("stock_multiplier")
+            if stock_multiplier is not None:
+                sm = dict(stock_multiplier or {})
+                qty = sb * _fee_level_path_value(sm, q, ppy, ctx, 0.0)
+            elif coef is not None:
                 qty = sb * _fee_coefficient_value(coef, q, ppy, ctx)
             else:
                 mult = params.get("multiple")
@@ -550,7 +710,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         ctx.setdefault("stream_qty", {})[nm] = qty
 
     # ---- Axis 1 + 4: basis application with rate behavior ----
-    eff_rate = _fee_rate_q(rt, q, qty, ppy)
+    eff_rate = _fee_rate_q(rt, q, qty, ppy, ctx)
     gross = 0.0
     if basis == "balance":
         if eff_rate is None:  # tiered on balance
@@ -569,8 +729,10 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         # is always derived from ppy rather than a stale quarterly-authored override.
         unit_fee = rate_params.get("unit_fee")
         if unit_fee is not None:
+            uf = dict(unit_fee or {})
+            fee_level = _fee_level_path_value(uf, q, ppy, ctx, uf.get("value") or 0.0)
             fee_one_engine_period = _fee_amount_per_engine_period(
-                (unit_fee or {}).get("value"), (unit_fee or {}).get("period"), ppy)
+                fee_level, uf.get("period"), ppy)
         else:
             fee_one_engine_period = float(rate_params.get("fee_per_period") or 0.0) * (12.0 / float(ppy))
         gross = qty * fee_one_engine_period

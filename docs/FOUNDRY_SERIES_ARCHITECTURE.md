@@ -142,3 +142,20 @@ and AUC/customer average.
 ## Fee Product recurring Flat Amount
 
 Fee Product Flat-basis Amount follows the common trajectory grammar without changing basis semantics. `rate.params.flat_amount` may be Flat, Growth, or Explicit and carries a natural Month / Quarter / Year period. Explicit authoring uses a pastebox and stores raw dollars while the UI consistently accepts `$000s`. Legacy `amount_per_period` and legacy `flat_amount` objects without a trajectory retain their exact prior economics.
+
+## 8. Fee Product Account and derived-stock paths
+
+The five fee bases remain the ontology; richer source trajectories do not create new bases.
+
+- **Account** represents `count × fee per account/mandate/relationship`. Count may be Flat, Growth,
+  or Explicit. Explicit counts are natural-period **end-of-period levels** with Step or Smooth
+  resolution. Smooth is linear interpolation and is not rounded by the canonical engine. When the
+  model cadence is coarser than the source-level semantics, Foundry resolves the level path on a
+  conceptual monthly grid and averages it into the model period so economics remain cadence-stable.
+- **Balance** may derive a stock from another stock with a stock multiplier, e.g.
+  `Reserves = 30% × Avg AUC`. This is a stock transformation, not a transaction-flow coefficient.
+  The stock multiplier may be Flat, Growth, or Explicit.
+- Account per-unit pricing and Balance annualized pricing may each be Flat, Growth, or Explicit.
+  Revenue start/end/ramp is a separate timing gate and never rewrites the underlying level path.
+
+Legacy fee configurations without these opt-in path objects retain their existing economics.

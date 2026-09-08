@@ -141,6 +141,83 @@ def main():
     ck("full engine posts escrow schedule to quarterly fee income", all(abs(a-b)<50 for a,b in zip(eng_q,want_escrow)))
     ck("full engine posts escrow schedule to monthly fee income", all(abs(a-b)<50 for a,b in zip(eng_m,want_escrow)))
 
+    # Trustee-fee canonical representation: Account retainer + Balance fee on derived reserves.
+    # Annual mandate counts are END-OF-PERIOD levels; Smooth interpolation is intentionally
+    # unrounded. Revenue timing gates the fee, not the underlying level trajectory.
+    mandate_stream = {
+        "basis":"account", "name":"Annual retainer per mandate",
+        "driver":{"source":"constant","trajectory":"explicit_schedule","params":{"level_schedule":{
+            "period":"year","resolution":"smooth","schedule":{"1":2,"2":4,"3":7,"4":10,"5":13,"6":15,"7":17}}}},
+        "rate":{"behavior":"flat","params":{"unit_fee":{
+            "value":200_000.0,"period":"year","trajectory":"flat"}}},
+        "timing":{"start_period":13}, "cost":{"kind":"none","params":{}}
+    }
+    m13 = fee_stream_q(mandate_stream,13,{},ppy=12)[0]
+    m24 = fee_stream_q(mandate_stream,24,{},ppy=12)[0]
+    ck("account EOP Smooth uses unrounded monthly interpolation", abs(m13-(2.0+(4.0-2.0)/12.0)*200_000.0/12.0)<1e-9)
+    ck("account EOP Smooth lands exactly on next annual endpoint", abs(m24-4.0*200_000.0/12.0)<1e-9)
+    mandate_q = copy.deepcopy(mandate_stream); mandate_q["timing"]["start_period"] = 5
+    y2_m = sum(fee_stream_q(mandate_stream,q,{},ppy=12)[0] for q in range(13,25))
+    y2_q = sum(fee_stream_q(mandate_q,q,{},ppy=4)[0] for q in range(5,9))
+    ck("account EOP Smooth annual retainer is monthly/quarterly cadence-stable", abs(y2_m-y2_q)<1e-9)
+    ck("account revenue start gates M12 without rewriting count path", abs(fee_stream_q(mandate_stream,12,{},ppy=12)[0])<1e-9)
+
+    reserve_stream = {
+        "basis":"balance", "name":"Trustee fee on reserves",
+        "driver":{"source":"managed_notional","trajectory":"derived","params":{"stock_multiplier":{
+            "kind":"pct","value":0.30,"trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"rate_path":{
+            "value":0.0012,"trajectory":"flat"}}},
+        "timing":{"start_period":13}, "cost":{"kind":"none","params":{}}
+    }
+    reserve_m13 = fee_stream_q(reserve_stream,13,{"managed_notional":1_000_000_000.0},ppy=12)[0]
+    ck("balance stock multiplier applies reserve % before annual trustee rate", abs(reserve_m13-30_000.0)<1e-9)
+    zero_reserve = copy.deepcopy(reserve_stream); zero_reserve["driver"]["params"]["stock_multiplier"]["value"] = 0.0
+    zero_rate = copy.deepcopy(reserve_stream); zero_rate["rate"]["params"]["rate_path"]["value"] = 0.0
+    ck("zero Reserve % cleanly zeros reserve-based trustee revenue", abs(fee_stream_q(zero_reserve,13,{"managed_notional":1_000_000_000.0},ppy=12)[0])<1e-9)
+    ck("zero Trustee Fee % cleanly zeros reserve-based trustee revenue", abs(fee_stream_q(zero_rate,13,{"managed_notional":1_000_000_000.0},ppy=12)[0])<1e-9)
+
+    # Flat / Growth / Explicit paths are supported on the new inner level/pricing axes.
+    reserve_growth = copy.deepcopy(reserve_stream)
+    reserve_growth["driver"]["params"]["stock_multiplier"] = {
+        "kind":"pct","value":0.20,"trajectory":"growth",
+        "growth_spec":{"rate":0.10,"period":"year","method":"step","anchor":"model_year"}}
+    reserve_growth["timing"]={"start_period":1}
+    g1=fee_stream_q(reserve_growth,1,{"managed_notional":1_000_000.0},ppy=12)[0]
+    g13=fee_stream_q(reserve_growth,13,{"managed_notional":1_000_000.0},ppy=12)[0]
+    ck("balance stock % Growth path uses shared growth semantics", abs(g13/g1-1.10)<1e-9)
+    reserve_explicit = copy.deepcopy(reserve_stream)
+    reserve_explicit["driver"]["params"]["stock_multiplier"]={
+        "kind":"pct","value":0.20,"trajectory":"explicit_schedule","period":"year","resolution":"step",
+        "schedule":{"1":0.20,"2":0.30}}
+    reserve_explicit["rate"]["params"]["rate_path"]={
+        "value":0.0010,"trajectory":"explicit_schedule","period":"year","resolution":"step",
+        "schedule":{"1":0.0010,"2":0.0012}}
+    reserve_explicit["timing"]={"start_period":1}
+    ck("balance stock % and rate Explicit paths resolve natural-year endpoints",
+       abs(fee_stream_q(reserve_explicit,24,{"managed_notional":1_000_000.0},ppy=12)[0]-(1_000_000*0.30*0.0012/12))<1e-9)
+
+    # Full-engine trustee product: the two canonical streams post together to fee income.
+    trustee_cfg = copy.deepcopy(cfg)
+    ta = trustee_cfg["assumptions"]
+    ta["periods_per_year"] = 12
+    ta["n_periods"] = 36
+    ta["obs_exposures"] = [p for p in (ta.get("obs_exposures") or []) if not p.get("_fee_product")]
+    trustee_base = copy.deepcopy(trustee_cfg)
+    ta["obs_exposures"].append({
+        "name":"Reserve & Collateral Trustee Fees", "call_report_line":"obs", "_fee_product":True,
+        "managed_notional":{"day1":1_000_000_000.0,"trajectory":"flat"},
+        "fee_streams":[copy.deepcopy(mandate_stream), copy.deepcopy(reserve_stream)],
+    })
+    trustee_with = run_q.run_v2(trustee_cfg)["financials"]["is"]["fees"]
+    trustee_without = run_q.run_v2(trustee_base)["financials"]["is"]["fees"]
+    trustee_delta = [(a-b)*1000.0 for a,b in zip(trustee_with, trustee_without)]
+    expected_y2 = y2_m + 12 * 30_000.0
+    ck("full engine posts Account retainer + reserve Balance fee to monthly fee income",
+       abs(sum(trustee_delta[12:24])-expected_y2)<100.0)
+    ck("full engine trustee revenue start gates first operating year",
+       all(abs(x)<1e-6 for x in trustee_delta[:12]))
+
     # --- 3. TIMING: a stream starting period 5 produces 0 before, value at/after ---
     s_late = {"basis": "flat", "rate": {"params": {"amount_per_period": 1000.0}},
               "timing": {"start_period": 5}}
