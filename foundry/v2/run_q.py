@@ -1216,19 +1216,25 @@ def run_v2(cfg):
         "run_date": None,   # stamped client-side; the engine stays deterministic
     }
     _nd_cfg = cfg["assumptions"].get("nie_detail")
-    if _nd_cfg is not None and (cfg["assumptions"].get("overhead_q") or 0) > 0:
+    _ohfs = cfg["assumptions"].get("overhead_flow_spec") or {}
+    _oh_value = float(_ohfs.get("value") or 0.0) if _ohfs else 0.0
+    _legacy_oh = float(cfg["assumptions"].get("overhead_q") or 0.0)
+    if _nd_cfg is not None and (_oh_value > 0 or _legacy_oh > 0):
         _zeroed = (not any(_nd_cfg.get("fte_by_year") or [])
                     and not (((_nd_cfg.get("workforce") or {}).get("roles")) or [])
                     and not (_nd_cfg.get("categories") or []))
+        if _ohfs:
+            _oh_desc = f"{_oh_value/1000:,.0f} $000s/{_ohfs.get('period') or 'period'}"
+        else:
+            _oh_desc = f"{_legacy_oh/1000:,.0f} $000s/qtr"
         results.setdefault("flags", []).append({
             "id": "NIE-REPLACES-OVERHEAD",
             "sev": "severe" if _zeroed else "mild",
             "text": (f"Operating Expense Detail is ACTIVE and replaces the corporate "
-                      f"overhead line \u2014 the Configuration overhead value of "
-                      f"{cfg['assumptions']['overhead_q']/1000:,.0f} $000s/qtr is being "
+                      f"overhead line — the Configuration overhead value of {_oh_desc} is being "
                       f"IGNORED while the module is present."
                       + (" Every detail input is zero, so this plan currently models a "
-                          "bank with no operating expenses beyond assessments \u2014 "
+                          "bank with no operating expenses beyond assessments — "
                           "deactivate the module (Configuration tab) or move the overhead "
                           "into its categories." if _zeroed else ""))})
     # class-map any flags appended after the Overview pass (concentrations, pre-open):

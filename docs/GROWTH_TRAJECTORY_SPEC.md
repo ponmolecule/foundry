@@ -37,16 +37,56 @@ Examples in a monthly model:
 - 3% / year / step / model_year -> M1–M12 flat; M13 +3%; M13–M24 flat.
 - 3% / quarter / step -> M1–M3 flat; M4 +3%; etc.
 
-A step period that is shorter than the computational period is invalid (for example, a monthly
-step inside a quarterly model). Likewise, a fiscal-year step in a quarterly model must land on
-a native calendar-quarter boundary. Foundry must not invent intra-quarter timing that the engine
-cannot represent.
+For generic **level** trajectories, a step period shorter than the computational period is invalid
+(for example, a monthly level step inside a quarterly model). Likewise, a fiscal-year level step in
+a quarterly model must land on a native calendar-quarter boundary. Foundry must not invent
+intra-quarter level timing the engine cannot represent. Configuration recurring **flows** are the
+narrow exception documented below: they resolve on a conceptual monthly flow grid and are summed
+into the computational period, so intra-quarter flow changes remain representable without changing
+quarter-end level semantics elsewhere.
+
+## Configuration recurring-flow amount contract
+
+Growth cadence and amount cadence are separate facts.  Configuration Operating Expense therefore
+uses a narrow recurring-flow contract for **Simple overhead** and **Detailed Opex categories**:
+
+```json
+{
+  "trajectory": "growth",
+  "value": 360000,
+  "period": "year",
+  "growth_spec": {
+    "rate": 0.03,
+    "period": "year",
+    "method": "step",
+    "anchor": "model_year"
+  }
+}
+```
+
+- `value + period` states the recurring flow amount (`month`, `quarter`, or `year`).
+- `growth_spec.rate + growth_spec.period` independently states the growth assumption.
+- `method` and `anchor` state how/when that growth resolves; they do not define the amount unit.
+- Explicit Opex schedules use the same `period` field, and each schedule value is a **flow total for
+  that source period**.
+- Foundry normalizes these recurring flows on a conceptual monthly grid and then sums into the
+  engine cadence.  This permits a quarterly engine to represent, for example, a fiscal-year Opex
+  step in February without pretending the whole quarter changed on January 1.
+
+Hard invariant: `360/year == 90/quarter == 30/month` when the remaining growth semantics are the
+same.  The user chooses the business unit; projection cadence only implements it.
+
+This contract is intentionally limited to Configuration recurring Operating Expense flows in this
+release.  It does **not** redefine Product-tab loan/deposit growth, runoff, APR/yield, or other
+already cadence-aware/conventional financial-rate mechanics.
 
 ## Backward compatibility
 
 `growth_spec` is opt-in. Existing fields keep their exact meaning when no spec is present:
 
-- NIE `trajectory=linear` + `growth_per_period` remains per-engine-period compounding.
+- Legacy NIE `per_period` / `per_quarter` + `trajectory=linear|growth` remains readable with its
+  exact historical native-cadence economics when no `flow_spec` is present.  Browser migration
+  freezes that native cadence into an explicit Month/Quarter natural period before new edits.
 - legacy `growth_q` remains a calendar-quarter assumption converted through `timebase.py`.
 - managed-notional and fee-stream legacy growth fields remain unchanged.
 - legacy NIE `fte_by_year` + `loaded_comp_annual` remains supported and byte-identical.
@@ -58,8 +98,9 @@ run correctly.
 
 ### Uses the shared growth resolver
 
-1. Detailed operating-expense categories (`nie_detail.categories`).
-2. Simple corporate overhead (`overhead_growth_spec`).
+1. Detailed operating-expense categories (`nie_detail.categories[*].flow_spec`) — amount period
+   and growth period are independently explicit.
+2. Simple corporate overhead (`overhead_flow_spec`) — same recurring-flow contract.
 3. Fee-stream proportional driver quantities (`driver.params.growth_spec`).
 4. Managed-notional proportional trajectories (`managed_notional.growth_spec`).
 5. Workforce compensation escalation.
@@ -74,7 +115,9 @@ run correctly.
   unnecessarily disruptive.
 - Fee-rate `annual_change`: it is already explicitly annual pricing behavior and remains its own
   rate-axis concept.
-- Explicit schedules: exact paths always win over inferred growth; they are authored locally on the driver that owns the path.
+- Explicit schedules outside Configuration Opex: exact paths always win over inferred growth and
+  retain the owning driver's existing source-cadence contract.  Configuration Opex Explicit uses
+  `flow_spec.period` because its values are recurring source-period flow totals.
 
 ## Workforce authoring
 
@@ -122,6 +165,10 @@ model. New workforce configuration is a compact one-position-per-row table:
   output from Workforce Compensation, Operating Expense Categories, and Assessments & Other
   NIE. Switching modes is non-destructive in the browser: dormant detailed assumptions are
   preserved while Simple is active.
+- Configuration Opex Flat/Growth amounts always show an explicit `Per Month / Quarter / Year`.
+  Growth separately shows `% per Month / Quarter / Year`; Step/Smooth and anchor answer different
+  questions and never infer either unit. Explicit category schedules likewise state their source
+  period. Equivalent natural-unit representations must resolve to identical economics.
 - Preserve Operating Expense's batch-paste workflow. A pasted category batch can share common
   Growth defaults; users can load a 3% group, a 5% group, and a Flat group separately.
 - `Linear (base + growth)` is renamed to `Growth`; the old storage shape remains readable.

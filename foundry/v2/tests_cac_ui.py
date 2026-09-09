@@ -116,7 +116,7 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     ck("linked Explicit Acquisition Spend exposes the complete read-only source schedule",
        "cac-link-readonly" in (bj.get("spendPreviewExplicit") or "")
        and "10 · 12 · 14" in (bj.get("spendPreviewExplicit") or "")
-       and "3/84 values" in (bj.get("spendPreviewExplicit") or "")
+       and "3 source values" in (bj.get("spendPreviewExplicit") or "")
        and "read-only here; edit the source in Operating Expense" in (bj.get("spendPreviewExplicit") or ""))
     ck("acquisition equations remain the closed vocabulary while channel names are user-defined",
        "New customers = Pool × Conversion" in html and "New customers = Spend ÷ CAC" in html

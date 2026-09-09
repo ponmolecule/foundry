@@ -146,8 +146,8 @@ def validate_config_v2(cfg):
                     "fee income (balance_driven_deposits or balance_driven_obs)")
 
     a = cfg["assumptions"]
-    if a.get("overhead_per_period") is None and a.get("overhead_q") is None:
-        errs.append("missing required assumption: overhead_per_period (or legacy overhead_q)")
+    if a.get("overhead_flow_spec") is None and a.get("overhead_per_period") is None and a.get("overhead_q") is None:
+        errs.append("missing required assumption: overhead_flow_spec, overhead_per_period, or legacy overhead_q")
     # Projection horizon (optional). Bounded in YEARS (1-7) so table layout stays sane, but the
     # period count depends on cadence: periods_per_year (ppy) 4=quarterly, 12=monthly (annual removed: cannot downsample to the quarterly Call Report floor).
     # So the valid n_periods range is ppy*1 .. ppy*7.
@@ -274,7 +274,13 @@ def validate_config_v2(cfg):
         if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
         for i, cat in enumerate(nd.get("categories") or []):
-            if cat.get("growth_spec"):
+            if cat.get("flow_spec") is not None:
+                try:
+                    from .periodic_flows import validate_periodic_flow_spec
+                    validate_periodic_flow_spec(cat.get("flow_spec"), ppy=_ppy, context=_growth_ctx)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.categories[{i}].flow_spec invalid: {e}")
+            elif cat.get("growth_spec"):
                 try:
                     validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
@@ -350,7 +356,13 @@ def validate_config_v2(cfg):
                     validate_growth_spec_for_cadence(_eff, ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.workforce.roles[{i}].salary_growth_spec invalid: {e}")
-    if a.get("overhead_growth_spec"):
+    if a.get("overhead_flow_spec") is not None:
+        try:
+            from .periodic_flows import validate_periodic_flow_spec
+            validate_periodic_flow_spec(a.get("overhead_flow_spec"), ppy=_ppy, context=_growth_ctx)
+        except (TypeError, ValueError) as e:
+            errs.append(f"overhead_flow_spec invalid: {e}")
+    elif a.get("overhead_growth_spec"):
         try:
             validate_growth_spec_for_cadence(a.get("overhead_growth_spec"), ppy=_ppy, context=_growth_ctx)
         except (TypeError, ValueError) as e:

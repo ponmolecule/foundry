@@ -408,19 +408,28 @@ def _nie_sheet(ws, nd, ppy=4):
              nd.get("occ_bp_ann"), "bp/year (blank = 1.5 default)")
 
     from .timebase import quarterly_value_to_period
-    _unit = "$/month" if int(ppy) == 12 else "$/quarter"
+    _legacy_unit = "$/month" if int(ppy) == 12 else "$/quarter"
     for i, cat in enumerate(nd.get("categories") or []):
         sec = f"Category {i + 1}"
         root = f"nie_detail.categories.{i}"
         _row(root + ".name", sec, "Name", cat.get("name"), "label (editable)")
-        _amt = cat.get("per_period")
-        if _amt is None:
-            _amt = quarterly_value_to_period("opex_fixed", cat.get("per_quarter", 0.0) or 0.0, int(ppy))
-        _row(root + ".per_period", sec, "Base amount", _amt, _unit)
-        if cat.get("trajectory") is not None:
-            _row(root + ".trajectory", sec, "Trajectory", cat.get("trajectory"), "flat / growth / explicit")
-        _growth_rows(root + ".growth_spec", sec, "Growth", cat.get("growth_spec") or {})
-        # Explicit schedules remain authored most naturally in-app/paste; state still preserves them.
+        fs = cat.get("flow_spec") or {}
+        if fs:
+            _row(root + ".flow_spec.trajectory", sec, "Trajectory", fs.get("trajectory", "flat"), "flat / growth / explicit")
+            _row(root + ".flow_spec.period", sec, "Amount / schedule period", fs.get("period"), "month / quarter / year")
+            if fs.get("trajectory", "flat") != "explicit":
+                _row(root + ".flow_spec.value", sec, "Base amount", fs.get("value", 0.0), f"$/{fs.get('period') or 'period'}")
+            if fs.get("trajectory") == "growth":
+                _growth_rows(root + ".flow_spec.growth_spec", sec, "Growth", fs.get("growth_spec") or {})
+            # Explicit schedules remain authored most naturally in-app/paste; STATE preserves values.
+        else:
+            _amt = cat.get("per_period")
+            if _amt is None:
+                _amt = quarterly_value_to_period("opex_fixed", cat.get("per_quarter", 0.0) or 0.0, int(ppy))
+            _row(root + ".per_period", sec, "Base amount", _amt, _legacy_unit)
+            if cat.get("trajectory") is not None:
+                _row(root + ".trajectory", sec, "Trajectory", cat.get("trajectory"), "flat / growth / explicit (legacy)")
+            _growth_rows(root + ".growth_spec", sec, "Growth", cat.get("growth_spec") or {})
 
     ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["B"].width = 23
@@ -560,8 +569,20 @@ def _settings_sheet(wb, cfg):
     row("Yield on securities", a.get("securities_yield"), "annual rate")
     row("Borrowing rate", a.get("borrow_rate_ann"), "annual rate")
     sec("Overhead & other balance sheet")
-    row("Corporate overhead", a.get("overhead_q"), "$/quarter")
-    row("Overhead growth", a.get("overhead_growth_q"), "rate/qtr")
+    _oh = a.get("overhead_flow_spec") or {}
+    if _oh:
+        row("Corporate overhead", _oh.get("value"), f"$/{_oh.get('period') or 'period'}")
+        _ogs = _oh.get("growth_spec") or {}
+        row("Overhead growth", _ogs.get("rate"), f"rate/{_ogs.get('period') or 'period'}; {_ogs.get('method') or 'smooth'}")
+    else:
+        _ppy = int(a.get("periods_per_year") or 4)
+        if a.get("overhead_per_period") is not None:
+            _per = "month" if _ppy == 12 else ("year" if _ppy == 1 else "quarter")
+            row("Corporate overhead", a.get("overhead_per_period"), f"$/{_per} (legacy native cadence)")
+            row("Overhead growth", a.get("overhead_growth_per_period"), f"rate/{_per} (legacy native cadence)")
+        else:
+            row("Corporate overhead", a.get("overhead_q"), "$/quarter (legacy)")
+            row("Overhead growth", a.get("overhead_growth_q"), "rate/qtr (legacy)")
     _fa = a.get("fixed_assets") or {}
     if _fa.get("mode") == "schedule":
         row("Fixed-asset authoring", "Asset schedule", "native-cadence straight-line resolver")

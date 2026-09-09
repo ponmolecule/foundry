@@ -634,11 +634,20 @@ function EVENTSCHEDLABEL(){ return EVENTUNIT(); }
 // Canonical business-growth authoring controls. These are deliberately scoped to
 // assumptions whose *business growth cadence* can differ from computational cadence;
 // APRs/yields/spreads continue to use their natural financial-rate semantics.
-function GROWTH_PERIODS(){
+function GROWTH_PERIODS(allNatural){
+  if(allNatural) return [["month","Month"],["quarter","Quarter"],["year","Year"]];
   return PPY()===12 ? [["month","Month"],["quarter","Quarter"],["year","Year"]]
                     : [["quarter","Quarter"],["year","Year"]];
 }
+function FLOW_PERIODS(){ return [["month","Month"],["quarter","Quarter"],["year","Year"]]; }
+function _nativeFlowPeriod(){ return PPY()===12?"month":"quarter"; }
 function setGrowthField(path, field, value, legacyRate){
+  // Rendering legacy Opex is intentionally read-only/non-mutating. On the first actual
+  // Opex growth edit, materialize the complete visible flow contract before touching its
+  // nested growth_spec so value/period cannot disappear or silently reset to zero.
+  if(path==="assumptions.overhead_flow_spec.growth_spec" && !(cfg.assumptions.overhead_flow_spec)) _ensureSimpleOpexFlow();
+  var _m=String(path||"").match(/^assumptions\.nie_detail\.categories\.(\d+)\.flow_spec\.growth_spec$/);
+  if(_m){ var _ct=((((cfg||{}).assumptions||{}).nie_detail||{}).categories||[])[+_m[1]]; if(_ct && !_ct.flow_spec) _ensureNieCatFlow(_ct); }
   // First edit of a legacy growth field must materialize the assumptions the UI is
   // visibly showing; otherwise changing only the period/method could silently zero or
   // reinterpret the old per-period rate.
@@ -652,7 +661,7 @@ function setGrowthField(path, field, value, legacyRate){
   if(field==="period" && value!=="year" && ["model_year","calendar_year","fiscal_year","hire_anniversary"].includes(s.anchor)) s.anchor="model_period";
   setPath(path,s);
 }
-function growthSpecInline(path, spec, legacyRate, allowHire){
+function growthSpecInline(path, spec, legacyRate, allowHire, allNatural){
   spec=spec||{};
   var nativePeriod=(PPY()===12?"month":"quarter");
   var rate=(spec.rate!=null?+spec.rate:+(legacyRate||0));
@@ -661,7 +670,7 @@ function growthSpecInline(path, spec, legacyRate, allowHire){
   var anchor=spec.anchor||((period==="year")?"model_year":"model_period");
   var lr=+(legacyRate||0);
   var h=`<input type="number" step="0.1" style="width:58px" value="${(rate*100).toFixed(2)}" title="Growth rate for the selected assumption period" onchange="setGrowthField('${path}','rate',_pf(this.value)/100,${lr})"><span class="cu">% per</span>`;
-  h += `<select style="width:86px" onchange="setGrowthField('${path}','period',this.value,${lr});renderContent()">${GROWTH_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===period?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+  h += `<select style="width:86px" onchange="setGrowthField('${path}','period',this.value,${lr});renderContent()">${GROWTH_PERIODS(!!allNatural).map(o=>`<option value="${o[0]}"${o[0]===period?' selected':''}>${o[1]}</option>`).join('')}</select>`;
   h += `<select style="width:78px" onchange="setGrowthField('${path}','method',this.value,${lr});renderContent()"><option value="smooth"${method==='smooth'?' selected':''}>Smooth</option><option value="step"${method==='step'?' selected':''}>Step</option></select>`;
   if(method==="step" && period==="year"){
     var A=[["model_year","Model year"],["calendar_year","Calendar year"],["fiscal_year","Fiscal year"]];
@@ -669,10 +678,10 @@ function growthSpecInline(path, spec, legacyRate, allowHire){
     h += `<span class="cu">at</span><select style="width:112px" onchange="setGrowthField('${path}','anchor',this.value,${lr});renderContent()">${A.map(o=>`<option value="${o[0]}"${o[0]===anchor?' selected':''}>${o[1]}</option>`).join('')}</select>`;
     if(anchor==="fiscal_year"){
       var am=+(spec.anchor_month||1), MN=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-      // A quarterly engine cannot place a discrete annual step inside a calendar quarter.
-      // Keep imported non-aligned months visible but disabled, and author new quarterly
-      // fiscal anchors only on native quarter boundaries. Validation fails closed too.
-      h += `<select style="width:68px" title="Fiscal year start month" onchange="setGrowthField('${path}','anchor_month',+this.value,${lr})">${MN.map((m,i)=>{var n=i+1,dis=(PPY()===4 && ![1,4,7,10].includes(n));return `<option value="${n}"${am===n?' selected':''}${dis?' disabled':''}>${m}</option>`;}).join('')}</select>`;
+      // Generic level trajectories cannot invent an intra-quarter step. Configuration
+      // recurring flows are different: allNatural=true resolves on a conceptual monthly
+      // flow grid and then sums into quarters, so any fiscal boundary month is representable.
+      h += `<select style="width:68px" title="Fiscal year start month" onchange="setGrowthField('${path}','anchor_month',+this.value,${lr})">${MN.map((m,i)=>{var n=i+1,dis=(PPY()===4 && !allNatural && ![1,4,7,10].includes(n));return `<option value="${n}"${am===n?' selected':''}${dis?' disabled':''}>${m}</option>`;}).join('')}</select>`;
     }
   }
   return h;
@@ -3722,6 +3731,71 @@ function _newNieDetail(){
           workforce:{mode:"roles",roles:[],default_payroll_load_rate:0,
                      default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}}};
 }
+function _legacyGrowthSpec(spec, legacyRate){
+  const p=_nativeFlowPeriod();
+  if(spec && typeof spec==="object" && spec.rate!=null){
+    const out=Object.assign({},spec);
+    // In the legacy contract, model_period meant the engagement's computational cadence.
+    // Once materialized into a natural-period flow, freeze that meaning explicitly so a
+    // quarterly legacy assumption does not become monthly on the canonical monthly grid.
+    if(!out.period || out.period==="model_period") out.period=p;
+    return out;
+  }
+  return {rate:+(legacyRate||0),period:p,method:"smooth",anchor:"model_period"};
+}
+function _viewSimpleOpexFlow(){
+  const A=cfg.assumptions;
+  if(A.overhead_flow_spec && typeof A.overhead_flow_spec==="object") return Object.assign({trajectory:"growth",period:_nativeFlowPeriod(),growth_spec:{rate:0,period:"year",method:"step",anchor:"model_year"}},A.overhead_flow_spec);
+  const per=_nativeFlowPeriod();
+  const v=(A.overhead_per_period!=null)?(+A.overhead_per_period||0):((+A.overhead_q||0)*(4/PPY()));
+  const legacy=(A.overhead_growth_per_period!=null)?+A.overhead_growth_per_period:_qGrowthToPeriod(A.overhead_growth_q||0);
+  return {trajectory:"growth",value:v,period:per,growth_spec:_legacyGrowthSpec(A.overhead_growth_spec,legacy)};
+}
+function _ensureSimpleOpexFlow(){
+  const A=cfg.assumptions;
+  if(A.overhead_flow_spec && typeof A.overhead_flow_spec==="object"){
+    A.overhead_flow_spec.trajectory="growth";
+    A.overhead_flow_spec.period=A.overhead_flow_spec.period||_nativeFlowPeriod();
+    A.overhead_flow_spec.growth_spec=A.overhead_flow_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};
+    return A.overhead_flow_spec;
+  }
+  A.overhead_flow_spec=_viewSimpleOpexFlow();
+  return A.overhead_flow_spec;
+}
+function _viewNieCatFlow(ct){
+  ct=ct||{};
+  if(ct.flow_spec && typeof ct.flow_spec==="object") return Object.assign({period:_nativeFlowPeriod()},ct.flow_spec);
+  const per=_nativeFlowPeriod(), rawTraj=ct.trajectory||"flat", traj=(rawTraj==="linear"?"growth":rawTraj);
+  let fs={trajectory:traj,period:per};
+  if(traj==="explicit") fs.values=(ct.schedule||[]).slice();
+  else {
+    fs.value=(ct.per_period!=null)?(+ct.per_period||0):((+ct.per_quarter||0)*(4/PPY()));
+    if(traj==="growth"){
+      const legacy=(ct.growth_per_period!=null)?+ct.growth_per_period:_qGrowthToPeriod(ct.growth_q||0);
+      fs.growth_spec=_legacyGrowthSpec(ct.growth_spec,legacy);
+    }
+  }
+  return fs;
+}
+function _ensureNieCatFlow(ct){
+  ct=ct||{};
+  if(ct.flow_spec && typeof ct.flow_spec==="object"){
+    ct.flow_spec.period=ct.flow_spec.period||_nativeFlowPeriod();
+    return ct.flow_spec;
+  }
+  ct.flow_spec=_viewNieCatFlow(ct);
+  return ct.flow_spec;
+}
+window.nieCatTrajectory=function(i,traj){
+  const nd=_ensureNieDetail(),ct=(nd.categories||[])[i];if(!ct)return;const fs=_ensureNieCatFlow(ct);
+  traj=(traj==="linear"?"growth":traj);
+  if(traj==="explicit"){ if(!Array.isArray(fs.values))fs.values=[]; delete fs.value; delete fs.growth_spec; }
+  else { if(fs.value==null)fs.value=0; delete fs.values; if(traj==="growth")fs.growth_spec=fs.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"}; else delete fs.growth_spec; }
+  fs.trajectory=traj; ct.trajectory=traj; renderContent();refresh();
+};
+window.nieCatFlowValue=function(i,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;const fs=_ensureNieCatFlow(ct);fs.value=_pf(v)*1000;renderContent();refresh();};
+window.nieCatFlowPeriod=function(i,p){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;_ensureNieCatFlow(ct).period=p;renderContent();refresh();};
+window.nieCatSchedulePeriod=function(i,p){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;_ensureNieCatFlow(ct).period=p;renderContent();refresh();};
 function _ensureNieDetail(){
   var A=cfg.assumptions; A.nie_detail=A.nie_detail||_newNieDetail();
   A.nie_detail.categories=A.nie_detail.categories||[]; return A.nie_detail;
@@ -3736,44 +3810,48 @@ function _ensureWorkforce(){
 }
 window.nieCatAdd = function(){
   var nd = _ensureNieDetail();
-  nd.categories.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", per_period:0});
+  nd.categories.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", flow_spec:{trajectory:"flat",value:0,period:_nativeFlowPeriod()}});
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.opex=true;
   renderContent(); refresh();
 };
-window.nieCatPaste = function(txt, type, growthPct, growthPeriod, growthMethod, growthAnchor, growthAnchorMonth){
+window.nieCatPaste = function(txt, type, flowPeriod, growthPct, growthPeriod, growthMethod, growthAnchor, growthAnchorMonth){
   var nd = _ensureNieDetail();
   var rows = String(txt||"").split(/\r?\n/);
   var isGrowth = (type==="linear" || type==="growth");
+  var fp = flowPeriod || _nativeFlowPeriod();
   var g = isGrowth ? (parseFloat(String(growthPct).replace(/[^0-9.\-]/g,""))||0)/100 : 0;
-  var gp = growthPeriod || (PPY()===12?"month":"quarter"), gm=growthMethod||"smooth";
+  var gp = growthPeriod || "year", gm=growthMethod||"step";
   var ga = growthAnchor || (gp==="year"?"model_year":"model_period"), gam=+(growthAnchorMonth||1);
   var added = [];
   rows.forEach(function(line){
     line = line.trim(); if(!line) return;
     if(type==="explicit"){
-      // Item, P1, P2, P3, ...  -> first field = name, rest = per-engine-period $000s schedule
+      // Item, P1, P2, ... -> natural-period flow totals in the selected source period.
       var parts = line.indexOf("\t")>=0 ? line.split("\t") : line.split(",");
       if(parts.length < 2) return;
       var nm = parts[0].trim();
       var sched = parts.slice(1).map(function(x){ var n=parseFloat(String(x).replace(/[^0-9.\-]/g,"")); return (isNaN(n)?0:n)*1000; });
       if(!nm && !sched.some(function(v){return v;})) return;
-      added.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:nm, trajectory:"explicit", schedule:sched});
+      added.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:nm, trajectory:"explicit",
+                  flow_spec:{trajectory:"explicit",period:fp,values:sched}});
     } else {
-      // flat or linear: Item, Base amount (one number). Amount is the trailing numeric run.
+      // Flat/Growth: Item, Base amount. The amount's natural period is explicit and
+      // independent of the model cadence.
       var item, amtRaw;
       if(line.indexOf("\t")>=0){ var tp=line.split("\t"); if(tp.length<2) return; amtRaw=tp[tp.length-1]; item=tp.slice(0,tp.length-1).join(" ").trim(); }
-      else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/,"").trim(); amtRaw=m2[2]; }
+      else { var m2=line.match(/^(.*?)[,\s]+([$\s]*[0-9][0-9,]*(?:\.[0-9]+)?)\s*$/); if(!m2) return; item=m2[1].replace(/,\s*$/," ").trim(); amtRaw=m2[2]; }
       var amt=parseFloat(String(amtRaw).replace(/[^0-9.\-]/g,"")); if(isNaN(amt)) return;
-      var cat={series_id:_seriesId("opex"),owner_module:"operating_expense",name:item, per_period:amt*1000};
-      if(isGrowth){ cat.trajectory="growth"; cat.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam}; }
-      added.push(cat);
+      var fs={trajectory:(isGrowth?"growth":"flat"),value:amt*1000,period:fp};
+      if(isGrowth) fs.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam};
+      added.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:item,
+                  trajectory:(isGrowth?"growth":"flat"),flow_spec:fs});
     }
   });
   if(!added.length){ appStatus("err","No rows parsed. Flat/Growth: <b>Item, Amount</b> per line. Explicit: <b>Item, P1, P2, ...</b>. Amounts in $000s."); return; }
-  nd.categories = nd.categories.concat(added);   // always append
-  nd._catPasteOpen = false;                       // close transient paste chute after load
+  nd.categories = nd.categories.concat(added);
+  nd._catPasteOpen = false;
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.opex=true;
-  delete nd._catPasteGrowthSpec;                  // transient batch defaults, not model truth
+  delete nd._catPasteGrowthSpec;
   appStatus("ok", added.length + " " + type + " categor" + (added.length===1?"y":"ies") + " added.");
   renderContent(); refresh();
 };
@@ -3888,8 +3966,8 @@ window.nieWorkforceCountPaste=function(i,txt){const r=_ensureWorkforce().roles[i
 window.nieWorkforceCountClear=function(i){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.values=[];appStatus("ok","Count schedule cleared. Load replacement values before running the model.");renderContent();refresh();};
 window.nieWorkforceCompPaste=function(i,txt){const r=_ensureWorkforce().roles[i],raw=_seriesExplicitValues(txt);if(!r||!r.compensation_spec)return;if(!raw.length){appStatus("err","No valid numeric Compensation schedule found to load.");return;}r.compensation_spec.values=raw.map(x=>Math.max(0,x.value)*1000);r.compensation_spec.extend="hold";r.annual_comp=r.compensation_spec.values[0];appStatus("ok",r.compensation_spec.values.length+" Compensation value"+(r.compensation_spec.values.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
 window.nieWorkforceCompClear=function(i){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.values=[];appStatus("ok","Compensation schedule cleared. Load replacement values before running the model.");renderContent();refresh();};
-window.nieCatSchedulePaste=function(i,txt){const nd=_ensureNieDetail(),ct=(nd.categories||[])[i],raw=_seriesExplicitValues(txt);if(!ct)return;if(!raw.length){appStatus("err","No valid numeric Operating Expense schedule found to load.");return;}ct.schedule=raw.map(x=>x.value*1000);ct.trajectory="explicit";appStatus("ok",ct.schedule.length+" Operating Expense value"+(ct.schedule.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
-window.nieCatScheduleClear=function(i){const nd=_ensureNieDetail(),ct=(nd.categories||[])[i];if(!ct)return;ct.schedule=[];ct.trajectory="explicit";appStatus("ok","Operating Expense schedule cleared. Load replacement values before running the model.");renderContent();refresh();};
+window.nieCatSchedulePaste=function(i,txt){const nd=_ensureNieDetail(),ct=(nd.categories||[])[i],raw=_seriesExplicitValues(txt);if(!ct)return;if(!raw.length){appStatus("err","No valid numeric Operating Expense schedule found to load.");return;}const fs=_ensureNieCatFlow(ct);fs.trajectory="explicit";fs.values=raw.map(x=>x.value*1000);delete fs.value;delete fs.growth_spec;ct.trajectory="explicit";appStatus("ok",fs.values.length+" Operating Expense value"+(fs.values.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
+window.nieCatScheduleClear=function(i){const nd=_ensureNieDetail(),ct=(nd.categories||[])[i];if(!ct)return;const fs=_ensureNieCatFlow(ct);fs.trajectory="explicit";fs.values=[];delete fs.value;delete fs.growth_spec;ct.trajectory="explicit";appStatus("ok","Operating Expense schedule cleared. Load replacement values before running the model.");renderContent();refresh();};
 function _splitPasteRow(line, delim){
   if(delim==="\t") return String(line).split("\t").map(x=>x.trim());
   const out=[]; let cur="", q=false, src=String(line||"");
@@ -5549,7 +5627,9 @@ function renderContent(){
     h += '<div class="memo">Default calibration (2.5\u00d7 charge-offs, 1.5\u00d7 reserves, +300bp) is in the spirit of a severely adverse supervisory scenario, but it is a working assumption \u2014 regulators prescribe their own scenarios. All three stress scenarios also apply the downturn overlays: origination volume decline, gain-on-sale margin compression, MSR value haircut, and a sale-share reduction that keeps would-be-sold loans on the balance sheet when investor demand dries up (the funding-supply dynamic in Upstart&rsquo;s downside scenarios: volume roughly \u221240% in year one and balance-sheet retention roughly doubling when institutional buyers pull back). Capital shortfall estimate assumes added capital is invested in securities and ignores earnings feedback (slightly conservative).</div>';
     h += '<div class="h2" style="margin-top:16px;font-size:14px">One-Variable Sensitivity (SENS)</div>';
     h += '<div class="srcnote">One variable, three full engine runs \u2014 distinct from scenario stress, which moves many things at once .</div>';
-    h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:230px" value="assumptions.overhead_per_period"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
+    const _sensOpexPath = (cfg.assumptions.overhead_flow_spec && typeof cfg.assumptions.overhead_flow_spec.value === "number")
+      ? "assumptions.overhead_flow_spec.value" : "assumptions.overhead_per_period";
+    h += `<div style="display:flex;gap:8px;align-items:center;font-size:12px;margin:8px 0">Variable <input id="sensVar" style="width:260px" value="${_sensOpexPath}"> low <input id="sensLo" type="number" style="width:100px" value="1200000"> high <input id="sensHi" type="number" style="width:100px" value="2600000"> <button class="btn-plain" onclick="runSens()">Run</button></div>`;
     h += '<div id="sensOut"></div>';
     c.innerHTML = h; return;
   }
@@ -6393,7 +6473,13 @@ function labLeverCatalog(){
     });
   });
 
-  if(typeof a.overhead_per_period === "number" && !a.nie_detail) push("assumptions.overhead_per_period", `Overhead per ${PLAB('full')} ($000s)`, "k");
+  if(!a.nie_detail){
+    const ofs=a.overhead_flow_spec;
+    if(ofs && ofs.trajectory!=="explicit" && typeof ofs.value==="number")
+      push("assumptions.overhead_flow_spec.value", `Operating expense / ${ofs.period||"period"} ($000s)`, "k");
+    else if(typeof a.overhead_per_period === "number")
+      push("assumptions.overhead_per_period", `Overhead per ${PLAB('full')} ($000s, legacy)`, "k");
+  }
   if(cfg.target_state && typeof cfg.target_state.initial_capital === "number") push("target_state.initial_capital", "Initial capital ($000s)", "k");
   return levers;
 }
@@ -6562,7 +6648,7 @@ function _leverLabel(path){
   return found ? found.label : path.split('.').pop();
 }
 function _leverLocation(path){
-  if(path==="assumptions.overhead_per_period" || path==="assumptions.overhead_growth_per_period") return "Configuration \u2014 Operating expense";
+  if(path.indexOf("assumptions.overhead_flow_spec")===0 || path==="assumptions.overhead_per_period" || path==="assumptions.overhead_growth_per_period") return "Configuration \u2014 Operating expense";
   if(path==="assumptions.initial_capital") return "sidebar";
   if(path.indexOf("lending_products")>=0) return "Product tab";
   if(path.indexOf("deposit_products")>=0) return "Product tab";
@@ -7323,17 +7409,18 @@ function _cacLinkedSourcePreview(fn,ci,meta,sp){
   if(meta.linkKind==="operating_expense_category"){
     const src=_cacOpexSourceById(lk.series_id);
     if(!src)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected Operating Expense Series could not be resolved.</div>`;
-    const traj=src.trajectory||"flat", isGrowth=(traj==="growth"||traj==="linear"), shown=isGrowth?"Growth":(traj==="explicit"?"Explicit":"Flat");
-    const per=+(src.per_period!=null?src.per_period:(src.per_quarter||0)*(4/PPY()))||0;
+    const _legacyTraj=src.trajectory||"flat",_legacyGrowth=(_legacyTraj==="growth"||_legacyTraj==="linear"),_native=(PPY()===12?"month":"quarter");
+    const fs=(src.flow_spec&&typeof src.flow_spec==="object")?src.flow_spec:{trajectory:(_legacyTraj==="linear"?"growth":_legacyTraj),period:_native,value:(src.per_period!=null?+src.per_period:(+src.per_quarter||0)*(4/PPY())),values:(src.schedule||[]),growth_spec:(src.growth_spec||{rate:(src.growth_per_period!=null?+src.growth_per_period:_qGrowthToPeriod(src.growth_q||0)),period:_native,method:"smooth",anchor:"model_period"})};
+    const traj=fs.trajectory||"flat",isGrowth=traj==="growth",shown=isGrowth?"Growth":(traj==="explicit"?"Explicit":"Flat"),fp=fs.period||_native;
     let detail='';
     if(traj==="explicit"){
-      const vals=(src.schedule||[]).map(v=>fmtComma((+v||0)/1000));
-      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">${shown} · $000s/${PLAB()} · ${vals.length}/${NP()} values</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.join(' · '))}</div>`;
+      const vals=(fs.values||[]).map(v=>fmtComma((+v||0)/1000));
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">${shown} · $000s/${esc(fp)} · ${vals.length} source values</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.join(' · '))}</div>`;
     } else if(isGrowth){
-      const gs=src.growth_spec||{},rate=(+(gs.rate!=null?gs.rate:(src.growth_per_period!=null?src.growth_per_period:_qGrowthToPeriod(src.growth_q||0)))||0)*100;
-      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Growth · base ${fmtComma(per/1000)} $000s/${PLAB()} · ${rate.toFixed(2)}%/${esc(gs.period||PLAB('full'))}${gs.method?' · '+esc(gs.method):''}</span></div>`;
+      const gs=fs.growth_spec||{},rate=(+(gs.rate||0))*100;
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Growth · base ${fmtComma((+fs.value||0)/1000)} $000s/${esc(fp)} · ${rate.toFixed(2)}%/${esc(gs.period||'year')}${gs.method?' · '+esc(gs.method):''}</span></div>`;
     } else {
-      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Flat · ${fmtComma(per/1000)} $000s/${PLAB()}</span></div>`;
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Flat · ${fmtComma((+fs.value||0)/1000)} $000s/${esc(fp)}</span></div>`;
     }
     const latest=_cacLinkedLatestAnnual(fn,ci,meta.k);
     if(latest.length)detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">${latest.map((v,i)=>'Y'+(i+1)+' '+fmtComma(v)).join(' · ')} · $000s/year</span></div>`;
@@ -7409,7 +7496,7 @@ function _operatingExpenseMode(A){
   if(A._operating_expense_mode === "simple") return "simple";
   if(A._operating_expense_mode === "off") return "off";
   const gs=A.overhead_growth_spec||{};
-  const hasSimple = !!(+A.overhead_per_period || +A.overhead_growth_per_period || +A.overhead_growth_q || +gs.rate);
+  const hasSimple = !!(A.overhead_flow_spec || +A.overhead_per_period || +A.overhead_growth_per_period || +A.overhead_growth_q || +gs.rate);
   return hasSimple ? "simple" : "off";
 }
 window._operatingExpenseMode = _operatingExpenseMode;
@@ -7578,10 +7665,11 @@ function structuresSectionsHtml(){
   const _nieMode = _operatingExpenseMode(A), _nieDetailed = _nieMode === "detailed";
   h += `<div class="nie-mode" role="group" aria-label="Operating expense authoring mode"><button class="${_nieMode==='simple'?'on':''}" onclick="nieOff()">Simple overhead</button><button class="${_nieDetailed?'on':''}" onclick="nieOn()">Detailed</button></div>`;
   if(!_nieDetailed){
-    h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Simple overhead</div><div class="nie-section-note">Use when the source model carries one aggregate operating-expense path. Detailed mode replaces this line with workforce, categories, and assessments.</div></div></div>`;
-    h += `<div class="crow">Overhead<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A.overhead_per_period||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="cfg.assumptions.overhead_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span></div>`;
-    h += `<div class="crow" style="align-items:center"><span class="cu">Growth</span>${growthSpecInline('assumptions.overhead_growth_spec',A.overhead_growth_spec,(A.overhead_growth_per_period!=null?A.overhead_growth_per_period:_qGrowthToPeriod(A.overhead_growth_q||0)),false)}</div>`;
-    h += `<div class="cmut">Switching modes preserves any detailed assumptions already authored; only the active mode feeds the model.</div></div>`;
+    const _oh=_viewSimpleOpexFlow();
+    h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Simple overhead</div><div class="nie-section-note">Use when the source model carries one aggregate operating-expense path. The amount period and growth period are independent; model cadence only resolves the assumption.</div></div></div>`;
+    h += `<div class="crow" style="align-items:center">Overhead<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((+_oh.value||0)/1000)}" title="Recurring overhead amount in the selected natural period" onchange="_ensureSimpleOpexFlow().value=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s /</span><select style="width:88px" onchange="_ensureSimpleOpexFlow().period=this.value;renderContent();refresh()">${FLOW_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===_oh.period?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+    h += `<div class="crow" style="align-items:center"><span class="cu">Growth</span>${growthSpecInline('assumptions.overhead_flow_spec.growth_spec',_oh.growth_spec,0,false,true)}</div>`;
+    h += `<div class="cmut">Equivalent inputs such as 360/year, 90/quarter, or 30/month resolve to the same recurring expense economics. Switching modes preserves any detailed assumptions already authored; only the active mode feeds the model.</div></div>`;
   } else {
     const nd = A.nie_detail;
 
@@ -7690,41 +7778,38 @@ function structuresSectionsHtml(){
     { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
       h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">⎘ Paste categories</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add category</a>' + ((nd.categories||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieCatClear();return false">Clear all</a>':'') + '</div>';
       if(_cpo){
-        var _TT = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()})`]];
+        var _TT = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]], _cfp=nd._catPastePeriod||_nativeFlowPeriod();
         h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
         h += '<div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Type</span>';
         h += '<select onchange="cfg.assumptions.nie_detail._catPasteType=this.value;renderContent()">'+_TT.map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cpt?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
+        h += '<span class="cu" style="margin-left:8px">Amount / schedule per</span><select onchange="cfg.assumptions.nie_detail._catPastePeriod=this.value;renderContent()">'+FLOW_PERIODS().map(function(o){return '<option value="'+o[0]+'"'+(o[0]===_cfp?' selected':'')+'>'+o[1]+'</option>';}).join('')+'</select>';
         if(_cpt==="growth"){
-          nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:(PPY()===12?"month":"quarter"),method:"smooth",anchor:"model_year"};
-          h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false)}`;
+          nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:"year",method:"step",anchor:"model_year"};
+          h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false,true)}`;
         }
         h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
-        var _ph = (_cpt==="explicit") ? "Occupancy, 50, 50, 60, 60&#10;Marketing, 20, 25, 30" : "Occupancy, 120&#10;Compensation, 400&#10;Insurance, 35";
-        var _hint = (_cpt==="explicit") ? `One <b>Item, ${PERLAB(1)}, ${PERLAB(2)}, ...</b> per line (per-${PLAB('full')} $000s; pads 0 / truncates to horizon).` : `Paste <b>Item, Amount</b> rows from a spreadsheet or CSV (base $000s per ${PLAB('full')}).`;
+        var _ph = (_cpt==="explicit") ? "Occupancy, 360, 370.8, 381.924&#10;Marketing, 120, 150, 180" : "Occupancy, 360&#10;Technology, 240&#10;Insurance, 35";
+        var _hint = (_cpt==="explicit") ? `One <b>Item, P1, P2, ...</b> per line; each value is a $000s <b>${_cfp}</b> flow total. Foundry periodizes it to the model cadence.` : `Paste <b>Item, Amount</b> rows; each amount is $000s per <b>${_cfp}</b>, independent of model cadence.`;
         h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
         h += '<textarea id="nieCatPasteBox" rows="4" oninput="_structuredPasteInput(\x27nieCatPasteBox\x27)" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="'+_ph+'"></textarea>';
         var _pg=nd._catPasteGrowthSpec||{};
-        h += `<div class="nie-actions"><button id="nieCatPasteBox_load" class="pillbtn" disabled onclick="nieCatPaste(document.getElementById('nieCatPasteBox').value,cfg.assumptions.nie_detail._catPasteType,${(+(_pg.rate||0)*100)},'${_pg.period||''}','${_pg.method||''}','${_pg.anchor||''}',${+(_pg.anchor_month||1)})">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieCatClear()"${(nd.categories||[]).length?'':' disabled'}>Clear</button></div>`;
+        h += `<div class="nie-actions"><button id="nieCatPasteBox_load" class="pillbtn" disabled onclick="nieCatPaste(document.getElementById('nieCatPasteBox').value,cfg.assumptions.nie_detail._catPasteType,'${_cfp}',${(+(_pg.rate||0)*100)},'${_pg.period||''}','${_pg.method||''}','${_pg.anchor||''}',${+(_pg.anchor_month||1)})">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieCatClear()"${(nd.categories||[]).length?'':' disabled'}>Clear</button></div>`;
         h += '</div>';
       }
     }
     (nd.categories||[]).forEach((ct,i)=>{
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
-      const _gp = `assumptions.nie_detail.categories.${i}.growth_spec`;
-      const traj = ct.trajectory || "flat";
-      const isGrowth = (traj==="linear" || traj==="growth");
-      const shownTraj = isGrowth ? "growth" : traj;
-      const TR = [["flat",`Flat ($/${PLAB()})`],["growth","Growth"],["explicit",`Explicit (per-${PLAB()} list)`]];
+      const fs = _viewNieCatFlow(ct), traj=fs.trajectory||"flat", _fp=fs.period||_nativeFlowPeriod();
+      const TR = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]];
       let row = `<div class="wf-role-card"><div class="crow" style="align-items:center;margin:0"><input style="flex:1 1 120px;min-width:100px" value="${esc(ct.name||'')}" placeholder="Category name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
-      row += `<div class="crow" style="align-items:center;margin:6px 0 0"><select style="width:150px" onchange="${_cb}.trajectory=this.value;renderContent();refresh()">${TR.map(o=>`<option value="${o[0]}"${o[0]===shownTraj?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+      row += `<div class="crow" style="align-items:center;margin:6px 0 0"><select style="width:108px" onchange="nieCatTrajectory(${i},this.value)">${TR.map(o=>`<option value="${o[0]}"${o[0]===traj?' selected':''}>${o[1]}</option>`).join('')}</select>`;
       if(traj==="explicit"){
-        const _np=NP(), _have=(ct.schedule||[]).length, _rid=`nieCatExplicitPaste_${i}`;
-        row += `<div style="flex:1 1 360px;min-width:260px"><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:6px" placeholder="Paste $000s/${PLAB()} values, e.g. 50&#9;50&#9;60&#9;60" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieCatSchedulePaste(${i},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieCatScheduleClear(${i})"${(ct.schedule||[]).length?'':' disabled'}>Clear</button><span class="cu">$000s/${PLAB()} · ${_have}/${_np}</span><span class="cmut" style="margin:0">${esc(_seriesPasteSummary((ct.schedule||[]),v=>fmtComma((v||0)/1000)))}</span></div></div>`;
-      } else if(isGrowth){
-        row += `<span class="cu">base</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="base $000s/${PLAB()} (period 1)" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
-        row += growthSpecInline(_gp,ct.growth_spec,(ct.growth_per_period!=null?ct.growth_per_period:_qGrowthToPeriod(ct.growth_q||0)),false);
+        const _vals=fs.values||[], _have=_vals.length, _expected=_seriesSourcePeriods(_fp), _rid=`nieCatExplicitPaste_${i}`;
+        row += `<span class="cu">schedule per</span><select style="width:88px" onchange="nieCatSchedulePeriod(${i},this.value)">${FLOW_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===_fp?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+        row += `<div style="flex:1 1 330px;min-width:250px"><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:6px" placeholder="Paste $000s/${_fp} flow totals" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieCatSchedulePaste(${i},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieCatScheduleClear(${i})"${_vals.length?'':' disabled'}>Clear</button><span class="cu">$000s/${_fp} · ${_have}/${_expected}</span><span class="cmut" style="margin:0">${esc(_seriesPasteSummary(_vals,v=>fmtComma((v||0)/1000)))}</span></div></div>`;
       } else {
-        row += `<span class="cu">amount</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma(((ct.per_period!=null?ct.per_period:(ct.per_quarter||0)*(4/PPY()))||0)/1000)}" title="$000s per ${PLAB('full')}" onchange="${_cb}.per_period=_pf(this.value)*1000;delete ${_cb}.per_quarter;refresh();fmtField(this)"><span class="cu">$000s/${PLAB()}</span>`;
+        row += `<span class="cu">${traj==="growth"?'base':'amount'}</span><input type="text" inputmode="decimal" style="width:80px" value="${fmtComma((+fs.value||0)/1000)}" title="Recurring $000s in the selected natural period" onchange="nieCatFlowValue(${i},this.value);fmtField(this)"><span class="cu">$000s /</span><select style="width:88px" onchange="nieCatFlowPeriod(${i},this.value)">${FLOW_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===_fp?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+        if(traj==="growth"){ fs.growth_spec=fs.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"}; row += growthSpecInline(`assumptions.nie_detail.categories.${i}.flow_spec.growth_spec`,fs.growth_spec,0,false,true); }
       }
       row += '</div></div>'; h += row;
     });

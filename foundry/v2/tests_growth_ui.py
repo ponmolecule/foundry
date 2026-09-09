@@ -36,12 +36,13 @@ window.confirm=()=>true;
 function renderContent(){} function refresh(){} function appStatus(){}
 function NP(){return 84;}
 function PPY(){return 12;}
+function _nativeFlowPeriod(){return PPY()===12?"month":"quarter";}
 function _pf(x){ let n=parseFloat(String(x).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }
 '''
     suffix=r'''
 cfg.assumptions.nie_detail=_newNieDetail();
 const fresh=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail));
-window.nieCatPaste("Occupancy\t30","growth",3,"year","step","model_year",1);
+window.nieCatPaste("Occupancy\t30","growth","month",3,"year","step","model_year",1);
 const cat=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories[0]));
 window.nieWorkforcePaste(__ROLES__);
 const wf=cfg.assumptions.nie_detail.workforce;
@@ -60,7 +61,7 @@ const compactHdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
 const entered="3,000", manualAmt=_pf(entered)*1000;
 cfg.pre_opening.expenses=[]; window.poPaste("Legal\t3,000","replace"); const poAmt=cfg.pre_opening.expenses[0].total;
 window.faPaste("Asset\tCost\tInService\tUsefulLife\nServers\t3,000\tAt opening\t5","replace"); const faAmt=cfg.assumptions.fixed_assets.assets[0].cost;
-const ndParity=_ensureNieDetail(); ndParity.categories=[]; window.nieCatPaste("Insurance\t3,000","flat",0,"month","smooth","model_period",1); const catAmt=ndParity.categories[0].per_period;
+const ndParity=_ensureNieDetail(); ndParity.categories=[]; window.nieCatPaste("Insurance\t3,000","flat","month",0,"month","smooth","model_period",1); const catAmt=ndParity.categories[0].flow_spec.value;
 window.nieWorkforcePaste("Role\tAnnual Comp ($000s/FTE)\tStart\tEscalation %\nParity Role\t3,000\tM1\t3"); const wfAmt=wf.roles[wf.roles.length-1].annual_comp;
 window.nieWorkforceMetric(wf.roles.length-1,"mn::cac-feed-wealth"); const mnMetric=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
 const aucSources=_aucTriggerSources().map(x=>({key:x.key,label:x.label,aliases:x.aliases.slice().sort()}));
@@ -83,9 +84,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and bj.get("fresh",{}).get("workforce",{}).get("mode")=="roles"
        and bj.get("fresh",{}).get("fdic_bp_ann")==5.0 and bj.get("fresh",{}).get("occ_bp_ann")==1.5,
        br.stderr.strip())
-    gs=(bj.get("cat") or {}).get("growth_spec") or {}
-    ck("category batch paste writes canonical 3%/year/step growth semantics",
-       (bj.get("cat") or {}).get("trajectory")=="growth" and abs(gs.get("rate",0)-.03)<1e-12
+    fs=(bj.get("cat") or {}).get("flow_spec") or {}; gs=fs.get("growth_spec") or {}
+    ck("category batch paste writes explicit amount period plus canonical 3%/year/step growth semantics",
+       fs.get("trajectory")=="growth" and fs.get("period")=="month" and abs(gs.get("rate",0)-.03)<1e-12
        and gs.get("period")=="year" and gs.get("method")=="step")
     ck("one workforce paste compactly consumes 48 heterogeneous rows including M57",
        bj.get("nroles")==48 and bj.get("maxhire")==57)
@@ -330,6 +331,15 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        'Simple overhead</button>' in html and '>Detailed</button>' in html
        and 'Workforce compensation' in html and 'Operating expense categories' in html
        and 'Assessments &amp; other NIE' in html and 'class="nie-section"' in html)
+    ck("Operating Expense renderer exposes natural amount/schedule periods instead of native-cadence-only amounts",
+       'Equivalent inputs such as 360/year, 90/quarter, or 30/month' in html
+       and 'Amount / schedule per' in html and 'nieCatFlowPeriod(${i},this.value)' in html
+       and 'nieCatSchedulePeriod(${i},this.value)' in html
+       and "growthSpecInline('assumptions.overhead_flow_spec.growth_spec',_oh.growth_spec,0,false,true)" in html)
+    ck("Lab and one-variable sensitivity consume the new Simple-Opex value when present",
+       'assumptions.overhead_flow_spec.value' in html
+       and 'Operating expense / ${ofs.period||"period"} ($000s)' in html
+       and 'path.indexOf("assumptions.overhead_flow_spec")===0' in html)
     ck("workforce UI makes default inheritance explicit and removes implementation-language load override",
        'Roles inherit the workforce defaults unless a row explicitly overrides them.' in html
        and 'Benefits / Payroll</span>' in html and 'load override' not in html)
@@ -361,7 +371,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("every Load companion manual amount field uses the same $000s-to-raw-dollar conversion",
        'cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000' in html
        and 'cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000' in html
-       and '${_cb}.per_period=_pf(this.value)*1000' in html
+       and 'nieCatFlowValue(${i},this.value)' in html and 'FLOW_PERIODS()' in html
        and 'nieWorkforceCompValue(${wi},this.value)' in html)
     ck("trigger editor is metric + comparator + value with source/timing folded into metric semantics",
        'Managed-notional source product' not in html and 'Fixed value</option>' not in html
@@ -381,8 +391,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("legacy first-edit preserves the visible rate while materializing new growth semantics",
        abs(gj.get("rate",0)-.03)<1e-12 and gj.get("period")=="year"
        and gj.get("method")=="smooth" and gj.get("anchor")=="model_year", gr.stderr.strip())
-    ck("quarterly fiscal-year authoring disables non-quarter boundary months",
-       "PPY()===4 && ![1,4,7,10].includes(n)" in html and "dis?' disabled':''" in html)
+    ck("generic quarterly level growth still disables non-quarter fiscal boundaries while natural-period Opex can resolve them",
+       "PPY()===4 && !allNatural && ![1,4,7,10].includes(n)" in html and "dis?' disabled':''" in html
+       and "growthSpecInline('assumptions.overhead_flow_spec.growth_spec',_oh.growth_spec,0,false,true)" in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
