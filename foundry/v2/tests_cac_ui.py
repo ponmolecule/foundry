@@ -47,6 +47,7 @@ const fd=cfg.assumptions.cac_feeds.growth;
 fd.channels.forEach(ch=>_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k)));
 const seeded={m0:Object.keys(fd.channels[0].driver_specs).sort(),m1:Object.keys(fd.channels[1].driver_specs).sort()};
 window.cacDriverTrajectory('growth',0,'pool','explicit');
+const poolDefaultClosed=_cacExplicitIsClosed('growth',0,'pool');
 window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
 const poolLoaded=[...fd.channels[0].driver_specs.pool.values];
 window.cacExplicitClose('growth',0,'pool'); const poolClosed=_cacExplicitIsClosed('growth',0,'pool');
@@ -60,7 +61,7 @@ window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolClosed,poolOpen,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -71,6 +72,7 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
        and sd.get("m1")==["avg_auc_per_customer","cac","spend"], br.stderr.strip())
+    ck("CAC Explicit paste editors are closed by default", bj.get("poolDefaultClosed") is True)
     ck("explicit CAC values load through a pastebox instead of one cell per period",
        bj.get("poolLoaded")==[1000,2500,3000] and (bj.get("pool") or {}).get("values")==[1000,2500,3000])
     ck("CAC Explicit Close is UI-only and can be reopened without changing schedule values",
@@ -120,6 +122,10 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        'class="cac-audit-grid"' in html
        and "table.cac-audit-grid th,table.cac-audit-grid td{border:1px solid" in html
        and "Calculated customer-base roll-forward · audit view" in html)
+    ck("customer-base audit view uses integer display and labels monetary balances as $000s in the header",
+       'const _auditInt=v=>Math.round(v).toLocaleString("en-US")' in html
+       and 'Calculated output · monetary balances in $000s' in html
+       and 'maximumFractionDigits:1' not in html[html.index("Calculated customer-base roll-forward · audit view"):html.index("Calculated customer-base roll-forward · audit view")+2200])
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
