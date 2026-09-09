@@ -146,6 +146,16 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        'const _auditInt=v=>Math.round(v).toLocaleString("en-US")' in html
        and 'Calculated output · monetary balances in $000s' in html
        and 'maximumFractionDigits:1' not in html[html.index("Calculated customer-base roll-forward · audit view"):html.index("Calculated customer-base roll-forward · audit view")+2200])
+    ck("Customer Acquisition tile has the same compact expand/collapse pattern as other long Config sections",
+       'window.cacSectionSetOpen=function(isOpen)' in html
+       and "_cfgSectionIsOpen('customeracq'" in html
+       and "${_cacOpen?'Collapse':'Expand'}" in html
+       and 'expand to inspect or edit' in html)
+    ck("CAC hierarchy uses distinct feed containers with visibly nested acquisition-channel cards",
+       'class="cac-feed-card"' in html and 'class="cac-channel-card"' in html
+       and '.cac-feed-card{border:1px solid rgba(223,168,90,.30)' in html
+       and '.cac-channel-card:before' in html
+       and 'Acquisition channels below are visually nested' in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1

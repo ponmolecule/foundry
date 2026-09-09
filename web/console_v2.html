@@ -176,6 +176,13 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
 .nie-default-value{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
 .wf-role-card{border:1px solid rgba(148,163,184,.14);background:#111B2D;border-radius:8px;padding:9px 10px;margin:8px 0}
+.cac-feed-card{border:1px solid rgba(223,168,90,.30);background:linear-gradient(180deg,rgba(17,27,45,.96),rgba(13,21,34,.92));border-radius:10px;padding:11px 12px;margin:10px 0 12px;box-shadow:inset 0 0 0 1px rgba(223,168,90,.07)}
+.cac-feed-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.cac-feed-title{color:#E7C27B;font-weight:600;letter-spacing:.02em}
+.cac-feed-summary{font-size:10.5px;color:#9CA7B7;margin-top:4px}
+.cac-feed-body{margin-top:8px;padding-top:8px;border-top:1px solid rgba(148,163,184,.13)}
+.cac-channel-card{border:1px solid rgba(148,163,184,.22);background:#111B2D;border-radius:8px;padding:9px 10px;margin:9px 0 0 14px;position:relative}
+.cac-channel-card:before{content:"";position:absolute;left:-9px;top:12px;bottom:12px;width:2px;border-radius:2px;background:rgba(223,168,90,.36)}
 .wf-role-grid{display:grid;grid-template-columns:minmax(125px,1.45fr) 78px minmax(105px,.9fr) minmax(145px,1.2fr) 48px 72px 94px 24px;gap:7px;align-items:end}
 .wf-field{min-width:0}
 .wf-series-details{margin:7px 0 0;border-top:1px solid rgba(148,163,184,.12);padding-top:6px}
@@ -7529,6 +7536,7 @@ function _nieSectionIsOpen(key,hasRows){
   return Object.prototype.hasOwnProperty.call(window._nieSectionOpen,key) ? !!window._nieSectionOpen[key] : !hasRows;
 }
 window.nieSectionSetOpen=function(key,isOpen){window._nieSectionOpen[key]=!!isOpen;renderContent();};
+window.cacSectionSetOpen=function(isOpen){window._cfgSectionOpen.customeracq=!!isOpen;renderContent();};
 
 function _operatingExpenseMode(A){
   A = A || ((cfg||{}).assumptions||{});
@@ -7889,12 +7897,14 @@ function structuresSectionsHtml(){
     if(lastRes && lastRes.nie_detail_series) h += `<div class="chint" style="margin-top:8px">${esc(lastRes.nie_detail_series.note)}.</div>`;
     h += '</div>';
   }
-  h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Build customers and AUC from causal acquisition equations. Each driver owns its own trajectory or links to a Foundry series owned elsewhere; CAC does not duplicate budgets or headcount assumptions.</div></span></div>`;
-  { const CF=(A.cac_feeds=A.cac_feeds||{}); const cfNames=Object.keys(CF); _ensureLinkableSeriesIds();
+  const _cacCard=(A.cac_feeds=A.cac_feeds||{}), _cacFeedCount=Object.keys(_cacCard).length, _cacChannelCount=Object.values(_cacCard).reduce((n,fd)=>n+(((fd||{}).channels||[]).length),0), _cacOpen=_cfgSectionIsOpen('customeracq',_cacFeedCount||_cacChannelCount);
+  h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Build customers and AUC from causal acquisition equations. Each driver owns its own trajectory or links to a Foundry series owned elsewhere; CAC does not duplicate budgets or headcount assumptions.</div>${(!_cacOpen&&(_cacFeedCount||_cacChannelCount))?`<div class="nie-section-summary">${_cacFeedCount} feed${_cacFeedCount===1?'':'s'} · ${_cacChannelCount} acquisition channel${_cacChannelCount===1?'':'s'} loaded · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cacSectionSetOpen(${_cacOpen?'false':'true'})">${_cacOpen?'Collapse':'Expand'}</button></div>`;
+  { const CF=_cacCard; const cfNames=Object.keys(CF); _ensureLinkableSeriesIds();
+    if(_cacOpen){
     if(!cfNames.length)h+='<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>';
     cfNames.forEach(function(fn){const fd=CF[fn];fd.channels=fd.channels||[];
-      h+=`<div style="border:1px solid #2A3444;border-radius:7px;padding:10px;margin:8px 0 10px">`;
-      h+=`<div class="crow" style="align-items:center"><b style="color:#DFA85A;min-width:44px">Feed</b><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Beginning customers</span><input type="number" style="width:68px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=_pf(this.value);refresh()"><span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div>`;
+      h+=`<div class="cac-feed-card">`;
+      h+=`<div class="cac-feed-head crow" style="align-items:center"><span class="cac-feed-title">Feed</span><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Beginning customers</span><input type="number" style="width:68px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=_pf(this.value);refresh()"><span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div><div class="cac-feed-summary">Feed-level assumptions and audit roll-forward. Acquisition channels below are visually nested because they contribute incremental customers and AUC to this feed.</div><div class="cac-feed-body">`;
       h+=`<div class="crow" style="align-items:center"><span class="cu">AUC within each model year</span><select onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].intra_year_shape=this.value;refresh()"><option value="linear"${(fd.intra_year_shape||'linear')==='linear'?' selected':''}>Smooth toward year-end</option><option value="stepped"${fd.intra_year_shape==='stepped'?' selected':''}>Step to year-end</option></select><span class="cmut" style="margin:0">This resolves the annual customer-book roll-forward to the model's monthly/quarterly cadence.</span></div>`;
       h+=`<div class="memo" style="margin:7px 0 8px"><b>How to use this.</b> Pick the acquisition equation, then give each primitive the Foundry Series contract: <b>Enter</b> (Flat / Growth / Explicit), <b>Link</b> where another module owns the assumption, or <b>Derived</b> only when the owning module exposes a closed equation output. No arbitrary formulas.</div>`;
       h+=`<div class="cmut" style="margin:0 0 8px"><b>Units:</b> customer/FTE counts are natural units; Spend, AUC/customer and Compensation are entered in <b>$000s</b>; per-customer CAC is a per-unit price entered in <b>plain dollars</b>. The label beside each field is authoritative.</div>`;
@@ -7908,7 +7918,7 @@ function structuresSectionsHtml(){
       h+=`</div></div>`;
 
       fd.channels.forEach(function(ch,ci){ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
-        h+=`<div class="wf-role-card" style="margin:8px 0"><div class="crow" style="align-items:center;margin:0 0 4px"><span class="cu">Acquisition channel</span><input style="width:160px" placeholder="User-defined channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].channels[${ci}].name=this.value;refresh()"><span class="cu">How are customers acquired?</span><select onchange="cacMethodChange('${esc(fn)}',${ci},this.value)">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?' selected':''}>${o[1]}</option>`).join('')}</select><a href="#" class="cx" style="margin-left:auto" onclick="cfg.assumptions.cac_feeds['${esc(fn)}'].channels.splice(${ci},1);renderContent();refresh();return false">×</a></div>`;
+        h+=`<div class="cac-channel-card"><div class="crow" style="align-items:center;margin:0 0 4px"><span class="cu">Acquisition channel</span><input style="width:160px" placeholder="User-defined channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].channels[${ci}].name=this.value;refresh()"><span class="cu">How are customers acquired?</span><select onchange="cacMethodChange('${esc(fn)}',${ci},this.value)">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?' selected':''}>${o[1]}</option>`).join('')}</select><a href="#" class="cx" style="margin-left:auto" onclick="cfg.assumptions.cac_feeds['${esc(fn)}'].channels.splice(${ci},1);renderContent();refresh();return false">×</a></div>`;
         const eq={pool_conversion:'New customers = Pool × Conversion',spend_cac:'New customers = Spend ÷ CAC',fte_productivity:'New customers = FTE Count × Productivity',explicit:'New customers = Explicit customer series'}[m];
         h+=`<div class="chint" style="margin:0 0 4px">${eq}. Channel names are labels only; the engine knows the equation, not “Affiliate,” “BD,” or any other engagement-specific name.</div>`;
         _cacMeta(m).forEach(meta=>h+=_cacDriverHtml(fn,ci,ch,meta));
@@ -7925,9 +7935,10 @@ function structuresSectionsHtml(){
         rr('New customers acquired','new_cust','customers');rr('Customers lost to attrition','cust_lost','customers');rr('Ending bank customers','end_cust','customers');rr('New AUC added','new_auc','$000s');rr('AUC lost to attrition','auc_lost','$000s');rr('Ending AUC','end_auc','$000s');rr('Blended CAC','blended_cac','$ / acquired customer',v=>v?_auditInt(v):'—');
         h+=`</tbody></table></div>`;
       }
-      h+=`</div>`;
+      h+=`</div></div>`;
     });
     h+='<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="addCacFeed();return false">+ New acquisition feed</a></div>';
+    }
   }
   h+='</div>';
   h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
