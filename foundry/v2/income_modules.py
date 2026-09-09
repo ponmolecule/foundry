@@ -66,22 +66,34 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # growth_per_period. Legacy per_quarter/growth_q retain their calendar-quarter
     # meaning and are converted to the selected cadence.
     _catlist = nd.get("categories") or []
-    _cat_series = [nie_category_series(c, Q, ppy, growth_context=growth_context) for c in _catlist]
+    _cat_economic = [nie_category_series(c, Q, ppy, growth_context=growth_context) for c in _catlist]
+
+    # Recognition timing is a separate axis from the economic expense trajectory.  Rebucket the
+    # entered economic path into the period where NIE is recognized before any cash-settlement
+    # accounting is computed.  Endogenous linked components cannot yet be forecast across future
+    # calendar blocks, so custom recognition for those components fails closed below.
+    from .opex_extensions import (resolve_linked_components, resolve_recognition,
+                                  normalize_recognition, resolve_settlement, normalize_settlement)
+    _cat_series = [resolve_recognition(arr, c.get("recognition"), ppy, context=growth_context)
+                   for c, arr in zip(_catlist, _cat_economic)]
     cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
 
-    # Optional advanced Opex mechanics.  Primary category recognition remains the normal
-    # flow_spec/legacy path above. Linked components are evaluated later in the engine after the
-    # whitelisted upstream revenue metrics for that period are known. Custom settlement is limited
-    # to the pre-resolvable entered category path; a linked revenue component with prepaid/accrual
-    # timing would require forecasting a future endogenous driver and therefore fails closed.
-    from .opex_extensions import resolve_linked_components, resolve_settlement, normalize_settlement
+    # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
+    # whitelisted upstream revenue metrics for that period are known. Custom recognition/settlement
+    # is limited to the pre-resolvable entered category path; forecasting a future endogenous linked
+    # charge across calendar blocks is a different contract and therefore fails closed.
     _linked = []
     _sett_pre = [0.0] * Q
     _sett_acc = [0.0] * Q
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
         _lc = resolve_linked_components(_c, Q, ppy, context=growth_context)
+        _rec = normalize_recognition(_c.get("recognition"))
         _sett = normalize_settlement(_c.get("settlement"))
+        if _lc and _rec["mode"] not in {"trajectory", "monthly"}:
+            raise ValueError(
+                f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom recognition "
+                "cannot be combined with linked revenue components; use recognition=trajectory")
         if _lc and _sett["mode"] not in {"recognition", "monthly"}:
             raise ValueError(
                 f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom settlement "

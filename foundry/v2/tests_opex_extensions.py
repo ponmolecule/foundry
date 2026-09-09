@@ -1,5 +1,5 @@
 import copy, json, sys
-from foundry.v2.opex_extensions import resolve_settlement
+from foundry.v2.opex_extensions import resolve_recognition, resolve_settlement
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
 
@@ -18,6 +18,26 @@ def base_cfg(ppy=12):
     return c
 
 def main():
+    # Generic recognition timing: preserve the economic trajectory total but rebucket NIE.
+    econ=[10_000.0]*12
+    ann_rec=resolve_recognition(econ, {'mode':'annual','recognition_month':1}, 12,
+                                context=GrowthContext(2026,1))
+    ck('annual January recognition puts full 120k NIE in January',
+       ann_rec[0]==120_000 and sum(ann_rec[1:])==0 and sum(ann_rec)==sum(econ))
+    semi_rec=resolve_recognition(econ, {'mode':'semiannual','recognition_months':[3,9]}, 12,
+                                 context=GrowthContext(2026,1))
+    ck('semiannual Mar/Sep recognition puts 60k in each selected month',
+       semi_rec[2]==60_000 and semi_rec[8]==60_000 and sum(semi_rec)==120_000
+       and sum(x for i,x in enumerate(semi_rec) if i not in (2,8))==0)
+    qrec=resolve_recognition(econ, {'mode':'quarterly','recognition_months':[3,6,9,12]}, 12,
+                              context=GrowthContext(2026,1))
+    ck('quarterly recognition preserves 30k per quarter at configured month',
+       [qrec[i] for i in (2,5,8,11)]==[30_000]*4 and sum(qrec)==120_000)
+    ann_q=resolve_recognition([30_000.0]*4, {'mode':'annual','recognition_month':1}, 4,
+                              context=GrowthContext(2026,1))
+    ck('quarterly engine annual recognition preserves same 120k economics',
+       ann_q==[120_000,0,0,0])
+
     # Generic settlement math: annual January prepay and Mar/Sep semiannual timing.
     rec=[10_000.0]*12
     ann=resolve_settlement(rec, {'mode':'annual','payment_month':1}, 12,
@@ -55,6 +75,41 @@ def main():
     ck('annual prepaid category surfaces prepaid asset balance', abs(r['bs']['prepaidOpex'][1]-110_000)<1e-6 and abs(r['bs']['prepaidOpex'][12])<1e-6)
     ck('annual prepaid category creates no accrued balance', max(r['bs']['accruedOpex'])<1e-9)
 
+    # Recognition is the P&L axis; settlement remains independently configurable.
+    c=base_cfg(12); a=c['assumptions']
+    a['nie_detail']['categories']=[{
+        'name':'Annual January expense',
+        'flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+        'recognition':{'mode':'annual','recognition_month':1}
+    }]
+    r=run_pf_a(c)
+    ck('annual January recognition hits NIE only in January',
+       abs(r['is']['otherOpex'][0]-120_000)<1e-6 and max(abs(x) for x in r['is']['otherOpex'][1:])<1e-6)
+    ck('same-as-recognition settlement creates no timing balance',
+       max(r['bs']['prepaidOpex'])<1e-9 and max(r['bs']['accruedOpex'])<1e-9)
+
+    c=base_cfg(12); a=c['assumptions']
+    a['nie_detail']['categories']=[{
+        'name':'Semiannual expense',
+        'flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+        'recognition':{'mode':'semiannual','recognition_months':[3,9]}
+    }]
+    r=run_pf_a(c)
+    ck('Mar/Sep recognition hits NIE twice yearly without 84-value force-fit',
+       abs(r['is']['otherOpex'][2]-60_000)<1e-6 and abs(r['is']['otherOpex'][8]-60_000)<1e-6
+       and abs(sum(r['is']['otherOpex'])-120_000)<1e-6)
+
+    c=base_cfg(12); a=c['assumptions']
+    a['nie_detail']['categories']=[{
+        'name':'Recognize Jan pay Dec',
+        'flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+        'recognition':{'mode':'annual','recognition_month':1},
+        'settlement':{'mode':'annual','payment_month':12}
+    }]
+    r=run_pf_a(c)
+    ck('recognition-before-settlement produces accrued Opex liability',
+       r['bs']['accruedOpex'][1] > 119_999 and abs(r['bs']['accruedOpex'][12])<1e-6)
+
     # OCC: annual bp input becomes a semiannual assessment fixed off the half-year measurement base.
     c=base_cfg(4); a=c['assumptions']; a['nie_detail']['occ_bp_ann']=20.0
     r=run_pf_a(c)
@@ -77,6 +132,15 @@ def main():
     try: run_pf_a(c)
     except ValueError: bad=True
     ck('custom settlement + linked revenue fails closed', bad)
+
+    c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{
+        'name':'Bad recognition combo','flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+        'linked_components':[{'driver':'fee_income','rate_spec':{'trajectory':'flat','value':.1}}],
+        'recognition':{'mode':'annual','recognition_month':1}}]
+    bad=False
+    try: run_pf_a(c)
+    except ValueError: bad=True
+    ck('custom recognition + linked revenue fails closed', bad)
 
     print(f'\n{P} passed, {F} failed')
     return 0 if F==0 else 1
