@@ -146,9 +146,12 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'Operating cost (% of gross fee revenue)' in html
        and '.cost.params.pct=_pf(this.value)/100' in html
        and 'Noninterest Expense: Fee Product Costs' in html)
-    ck("Income Statement surfaces Fee Product Costs separately from Corporate Overhead",
-       "rowIS('Noninterest Expense: Fee Product Costs', fin.is.feeOpex" in html
-       and "rowIS('Noninterest Expense: Corporate Overhead'" in html)
+    ck("Income Statement surfaces Fee Product Costs inside the explicit NIE breakout",
+       "rowIS('Fee product operating costs', fin.is.feeOpex" in html
+       and "rowIS('Workforce compensation', fin.is.workforceComp" in html
+       and "rowIS('Other operating expense', fin.is.otherOpex" in html
+       and "rowIS('Depreciation expense', fin.is.depreciationExpense" in html
+       and "rowIS('Noninterest Expense: Corporate Overhead'" not in html)
     ck("manual managed AUC exposes only compact Ramp / Growth / Flat trajectory choices",
        'AUC trajectory' in html and '[["ramp_to_target","Ramp to target"],["proportional","Growth"],["flat","Flat"]]' in html
        and 'AUC growth</label>${growthSpecInline(mnb+".growth_spec"' in html)
