@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 6
+GUIDE_SCHEMA_VERSION = 7
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -165,6 +165,7 @@ _SOURCE_LABELS = {
     "managed_notional": "Managed notional (AUC/AUM)",
     "stream_ref": "Another stream",
     "bank_aggregate": "Bank aggregate",
+    "cost_pool": "Cost pool — linked eligible expenses",
 }
 _TRAJECTORY_LABELS = {
     "flat": "Flat",
@@ -179,6 +180,7 @@ _RATE_LABELS = {
     "scheduled": "Scheduled",
     "tiered": "Tiered",
     "durbin_capped": "Durbin capped",
+    "cost_recovery": "Cost recovery — recovery + markup",
 }
 _COST_LABELS = {
     "none": "None (pure margin)",
@@ -188,7 +190,7 @@ _COST_LABELS = {
 }
 _ALLOWED_RATE_BY_BASIS = {
     "balance": {"flat", "annual_change", "scheduled", "tiered"},
-    "transaction": {"flat", "tiered", "durbin_capped"},
+    "transaction": {"flat", "tiered", "durbin_capped", "cost_recovery"},
     "account": {"flat"},
     "flat": {"flat"},
     "event": {"flat"},
@@ -228,6 +230,9 @@ def fee_guide_manifest():
             "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
+            "A cost_pool driver means an observational native-period expense flow composed upstream from eligible Operating Expense and/or fixed-start Workforce expense Series. It never re-posts those expenses.",
+            "Cost-pool fees use transaction basis + cost_pool + cost_recovery. recovery_pct and markup are separate auditable pricing assumptions; do not collapse them into per_unit or a derived natural-period coefficient.",
+            "Cost-pool component allocation percentages determine which upstream costs enter the eligible pool and are distinct from the downstream recovery percentage.",
             "The guide never chooses numeric assumptions. It tells the user which Foundry field should receive each assumption they already have.",
         ],
     }
@@ -345,6 +350,14 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   driver_trajectory=derived with an explicit coefficient kind/period. The turns/multiple path belongs
   in coefficient_trajectory; never place that path in driver_trajectory.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
+- For reimbursement/cost-plus/service-fee mechanics charged on modeled eligible expenses, use
+  transaction + cost_pool + driver_trajectory=flat + rate_behavior=cost_recovery + cost_kind=none.
+  Cost pool composition is upstream and observational: it references existing Operating Expense and/or
+  fixed-start Workforce expense Series and must not re-post them. Never use a natural-period flow
+  coefficient for recovery percentage. Keep eligible-pool allocation, recovery percentage, and markup
+  as distinct assumptions. Use pricing_trajectory for the MARKUP path (flat, growth, or explicit_schedule).
+  If the user does not identify which modeled expenses are eligible, or does not provide allocation/recovery/markup
+  assumptions needed to author the mechanic, ask targeted clarification questions instead of inventing them.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
   Account has TWO INDEPENDENT trajectories: driver_trajectory controls the COUNT path, while
   pricing_trajectory controls the FEE PER ACCOUNT/MANDATE. Words such as "flat annual retainer"
@@ -448,7 +461,17 @@ def _dummy_stream(item):
             pt, item.get("pricing_period"), item.get("pricing_resolution")
         )
     elif basis == "transaction":
-        rate["params"]["per_unit"] = 0
+        if item["rate_behavior"] == "cost_recovery":
+            # Guide Me maps the mechanic only; a concrete pool ref and numeric assumptions are
+            # chosen in the local UI. Dummy values exist solely to exercise the real validator.
+            driver["ref"] = "__guide_cost_pool__"
+            rate["params"]["recovery_pct"] = 0
+            rate["params"]["markup"] = _dummy_level_path(
+                item.get("pricing_trajectory") or "flat",
+                item.get("pricing_period"), item.get("pricing_resolution")
+            )
+        else:
+            rate["params"]["per_unit"] = 0
     elif basis == "account":
         pt = item.get("pricing_trajectory") or "flat"
         uf = _dummy_level_path(pt, item.get("pricing_period"), item.get("pricing_resolution"))
@@ -587,14 +610,15 @@ def validate_guide_plan(plan):
             raise ValueError("Guide Me returned stock multiplier metadata without a stock multiplier")
 
         pt = item["pricing_trajectory"]
-        if item["basis"] in {"balance", "account"}:
+        is_cost_recovery = (item["basis"] == "transaction" and item["rate_behavior"] == "cost_recovery")
+        if item["basis"] in {"balance", "account"} or is_cost_recovery:
             # Backward compatibility: pre-r42 Guide Me plans had no pricing_trajectory field;
-            # their balance/account pricing was necessarily Flat. Structured Outputs in r42+
-            # carry the field explicitly, but old stored/fake plans remain valid.
+            # their balance/account pricing was necessarily Flat. Cost recovery also defaults
+            # structurally to a Flat markup path; no numeric markup is invented here.
             if pt is None:
                 pt = item["pricing_trajectory"] = "flat"
             if pt not in {"flat", "growth", "explicit_schedule"}:
-                raise ValueError("Guide Me balance/account stream requires a pricing trajectory")
+                raise ValueError("Guide Me stream requires a supported pricing trajectory")
             if item["basis"] == "account":
                 # Account fee period is a real economic unit. New Guide Me should provide it
                 # when the user's description does; legacy plans may leave it for the user.
@@ -607,7 +631,7 @@ def validate_guide_plan(plan):
                         raise ValueError("Guide Me explicit account pricing requires step or smooth resolution")
                 else:
                     item["pricing_resolution"] = None
-            else:
+            elif item["basis"] == "balance":
                 if pt == "explicit_schedule":
                     if item["pricing_period"] not in {"month", "quarter", "year"}:
                         raise ValueError("Guide Me explicit balance-rate pricing requires a source period")
@@ -615,6 +639,17 @@ def validate_guide_plan(plan):
                         raise ValueError("Guide Me explicit balance-rate pricing requires step or smooth resolution")
                 else:
                     # Schedule cadence/resolution are redundant for a flat/growth annualized rate.
+                    item["pricing_period"] = None
+                    item["pricing_resolution"] = None
+            else:
+                # Cost-recovery pricing_trajectory is the dimensionless markup path. Natural
+                # period/resolution are needed only for an explicit markup schedule.
+                if pt == "explicit_schedule":
+                    if item["pricing_period"] not in {"month", "quarter", "year"}:
+                        raise ValueError("Guide Me explicit cost-recovery markup requires a source period")
+                    if item["pricing_resolution"] not in {"step", "smooth"}:
+                        raise ValueError("Guide Me explicit cost-recovery markup requires step or smooth resolution")
+                else:
                     item["pricing_period"] = None
                     item["pricing_resolution"] = None
         elif any(item[k] is not None for k in ("pricing_trajectory", "pricing_period", "pricing_resolution")):
@@ -638,6 +673,19 @@ def validate_guide_plan(plan):
             item["driver_trajectory"] = "derived"
         elif any(item[k] is not None for k in ("coefficient_period", "coefficient_trajectory")):
             raise ValueError("Guide Me returned coefficient metadata without a coefficient")
+        if item["rate_behavior"] == "cost_recovery":
+            if item["basis"] != "transaction" or item["driver_source"] != "cost_pool":
+                raise ValueError("Guide Me cost_recovery requires transaction basis with cost_pool source")
+            # Cost pools are already native-period flows; a trajectory/coefficient here would
+            # periodize the same dollars again.
+            item["driver_trajectory"] = "flat"
+            if item["cost_kind"] != "none":
+                raise ValueError("Guide Me cost_recovery must use cost_kind none; upstream expenses are already posted")
+            if item["coefficient_kind"] is not None:
+                raise ValueError("Guide Me cost_recovery must not use a natural-period flow coefficient")
+        elif item["driver_source"] == "cost_pool":
+            raise ValueError("Guide Me cost_pool source requires cost_recovery pricing")
+
         if item["basis"] == "flat":
             if item["flat_amount_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
                 raise ValueError("Guide Me returned unsupported flat amount trajectory")
@@ -771,11 +819,25 @@ def _stream_steps(item):
         else:
             steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
     elif basis == "transaction":
-        if item.get("coefficient_kind"):
-            steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
+        if item["rate_behavior"] == "cost_recovery":
+            steps.append("Choose or create the eligible Cost pool. Add only source-model Operating Expense and/or fixed-start Workforce expense Series that belong in the pool; set each component's Eligible / allocated % from the source assumptions.")
+            steps.append("Set Rate behavior to “Cost recovery — recovery + markup”.")
+            steps.append("Enter the stated Recovery (% of eligible cost pool). This is downstream reimbursement and is separate from each pool component's allocation percentage.")
+            pt = item.get("pricing_trajectory") or "flat"
+            steps.append(f"Set Markup path to “{pt.replace('_schedule',' schedule').replace('_',' ').title()}”.")
+            if pt == "explicit_schedule":
+                steps.append(f"Set markup Schedule period to “{item['pricing_period'].title()}” and Resolution to “{item['pricing_resolution'].title()}”, then paste the markup percentage schedule and click Load (replace).")
+            elif pt == "growth":
+                steps.append("Enter the starting Markup % and the stated markup growth assumption.")
+            else:
+                steps.append("Enter the stated Markup %.")
+            steps.append("Foundry treats the cost pool as a native-period dollar flow: fee income = eligible cost pool × recovery % × (1 + markup %). It does not annualize the pool and does not re-post the linked expenses.")
         else:
-            steps.append("Enter the fee in “Fee ($/unit)”.")
-        steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
+            if item.get("coefficient_kind"):
+                steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
+            else:
+                steps.append("Enter the fee in “Fee ($/unit)”.")
+            steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
     elif basis == "account":
         pt = item.get("pricing_trajectory") or "flat"
         if item.get("pricing_period"):
@@ -805,7 +867,10 @@ def _stream_steps(item):
         steps.append("Enter the one-time “Amount ($)” and the model period when the event occurs.")
         steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
 
-    steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
+    if item["rate_behavior"] == "cost_recovery":
+        steps.append("Cost side remains “None — upstream costs already posted”.")
+    else:
+        steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")
     return steps
 

@@ -355,6 +355,16 @@ def validate_config_v2(cfg):
             validate_growth_spec_for_cadence(a.get("overhead_growth_spec"), ppy=_ppy, context=_growth_ctx)
         except (TypeError, ValueError) as e:
             errs.append(f"overhead_growth_spec invalid: {e}")
+    # Cost pools are shared observational sources composed from upstream expense Series.
+    # Resolve them during validation so bad IDs/allocations/metric-triggered Workforce
+    # dependencies fail before the financial engine can run.
+    try:
+        from .cost_pools import cost_pool_series_map
+        cost_pool_series_map(a, max(1, int(a.get("n_periods") or 12)), _ppy,
+                             growth_context=_growth_ctx)
+    except (TypeError, ValueError) as e:
+        errs.append(f"cost_pools invalid: {e}")
+
     for pi, prod in enumerate(a.get("obs_exposures") or []):
         mn = prod.get("managed_notional") or {}
         if mn.get("growth_spec"):
@@ -366,6 +376,11 @@ def validate_config_v2(cfg):
             from .income_modules import _validate_fee_stream_shape, _fee_coefficient_value
             try:
                 _validate_fee_stream_shape(st)
+                if ((st.get("driver") or {}).get("source") == "cost_pool"):
+                    from .cost_pools import resolve_cost_pool_ref
+                    _linked_pool = resolve_cost_pool_ref((st.get("driver") or {}).get("ref"), a)
+                    if not ((_linked_pool or {}).get("components") or []):
+                        raise ValueError("referenced cost_pool requires at least one eligible expense component")
                 coef = (((st.get("driver") or {}).get("params") or {}).get("coefficient"))
                 if coef is not None:
                     _fee_coefficient_value(coef, 1, _ppy, {"growth_context": _growth_ctx})
@@ -489,6 +504,8 @@ def validate_config_v2(cfg):
             errs.append(f"nie_detail.workforce.roles[{_j}].count_spec.series_id must match the role count series_id")
         _comp_sid = str(_r.get("compensation_series_id") or ((_r.get("compensation_spec") or {}).get("series_id")) or "").strip()
         if _comp_sid: _series_ids.append(_comp_sid)
+        _expense_sid = str(_r.get("expense_series_id") or "").strip()
+        if _expense_sid: _series_ids.append(_expense_sid)
         _cpsid = str(((_r.get("compensation_spec") or {}).get("series_id")) or "").strip()
         if _comp_sid and _cpsid and _comp_sid != _cpsid:
             errs.append(f"nie_detail.workforce.roles[{_j}].compensation_spec.series_id must match compensation_series_id")
@@ -512,6 +529,13 @@ def validate_config_v2(cfg):
             for _k, _sid0 in ((_ch or {}).get("derived_series_ids") or {}).items():
                 _sid = str(_sid0 or "").strip()
                 if _sid: _series_ids.append(_sid)
+    try:
+        from .cost_pools import cost_pool_catalog
+        for _pool_meta in cost_pool_catalog(a):
+            _sid = str(_pool_meta.get("series_id") or "").strip()
+            if _sid: _series_ids.append(_sid)
+    except (TypeError, ValueError):
+        pass  # the structural cost-pool validation above already reports the actionable error
     if len(_series_ids) != len(set(_series_ids)):
         errs.append("Foundry linked-series series_id values must be unique")
 
