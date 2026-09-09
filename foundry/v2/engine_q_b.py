@@ -134,7 +134,7 @@ def run_pf_b(cfg):
                               "paidIn", "premises", "premisesGross", "premisesAccumDep",
                               "borrowSched", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
-                              "provision", "fees", "opexProd", "fixedOpex", "pretax", "tax",
+                              "provision", "fees", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
 
     for qi in range(Q):
@@ -157,6 +157,10 @@ def run_pf_b(cfg):
                 ppy=4, context=_growth_ctx, base_position="period1") + _dep_exp[qi]
         else:
             _ovh_b = a["overhead_q"] + _dep_exp[qi]
+        # Disclosure-only decomposition; see Profile A for the same contract.
+        _workforce_comp = 0.0
+        _depreciation_expense = _dep_exp[qi]
+        _other_opex = _ovh_b - _depreciation_expense
         if _nie_d:
             _pa = prev_assets
             _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]
@@ -166,6 +170,8 @@ def run_pf_b(cfg):
             _sub = _nie_d["comp"][qi] + _nie_d["categories"][qi] + _fdic + _occ + _dep_exp[qi] + opex_prod
             _r = _nie_d["gross_up_rate"]
             _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+            _workforce_comp = _nie_d["comp"][qi]
+            _other_opex = _ovh_b - _workforce_comp - _depreciation_expense
         nie = opex_prod + _ovh_b
 
         gl_end = sum(p["_end"][qi] for p in lend)
@@ -216,8 +222,9 @@ def run_pf_b(cfg):
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
                      ("nii", nii), ("provision", provision), ("fees", fees),
-                     ("opexProd", opex_prod), ("fixedOpex", _ovh_b),
-                     ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
+                     ("opexProd", opex_prod), ("workforceComp", _workforce_comp),
+                     ("otherOpex", _other_opex), ("depreciationExpense", _depreciation_expense),
+                     ("fixedOpex", _ovh_b), ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
             out_is[k].append(v)
 
         alll = alll_end

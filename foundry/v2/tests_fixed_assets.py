@@ -72,6 +72,9 @@ def main():
     ck("engine exposes gross/accumulated/net fixed-asset series", "premisesGross" in r["bs"] and "premisesAccumDep" in r["bs"] and abs(r["bs"]["premises"][0]-600000)<1e-9)
     ck("pre-opening CAPEX does not reduce opening retained earnings", abs(r["bs"]["re"][0] + 100000)<1e-6, str(r["bs"]["re"][0]))
     ck("scheduled depreciation feeds NIE", r["is"]["overhead"][0] >= 10000)
+    ck("Income Statement exposes depreciation separately without changing overhead",
+       abs(r["is"]["depreciationExpense"][0]-10000)<1e-9
+       and abs((r["is"]["workforceComp"][0]+r["is"]["otherOpex"][0]+r["is"]["depreciationExpense"][0])-r["is"]["overhead"][0])<1e-9)
 
     import json, pathlib
     cfgb_simple=json.loads((pathlib.Path(__file__).parents[1]/"fixtures"/"parity"/"configs"/"pf_b_base.json").read_text())
@@ -91,6 +94,9 @@ def main():
     rb=run_pf_b(copy.deepcopy(cfgb))
     ck("Profile B consumes the same fixed-asset schedule contract",
        abs(rb["bs"]["premises"][0]-375000)<1e-6 and (rb.get("fixed_assets") or {}).get("mode")=="schedule")
+    ck("Profile B Income Statement also separates depreciation",
+       abs(rb["is"]["depreciationExpense"][0]-25000)<1e-9
+       and abs((rb["is"]["workforceComp"][0]+rb["is"]["otherOpex"][0]+rb["is"]["depreciationExpense"][0])-rb["is"]["fixedOpex"][0])<1e-9)
 
     rp=run_parity(copy.deepcopy(cfg))
     wb_res=results_workbook_v2(cfg,rp)
@@ -98,6 +104,11 @@ def main():
     ck("results workbook exposes gross, accumulated depreciation, and net PP&E in schedule mode",
        "Premises and fixed assets, gross" in bs_labels and "Less: accumulated depreciation" in bs_labels
        and "Premises and fixed assets, net of accumulated depreciation" in bs_labels)
+    is_labels={str(row[0].value).strip():row for row in wb_res["Income Statement"].iter_rows(min_row=2) if len(row)>0 and row[0].value}
+    ck("results workbook breaks out workforce, other Opex, and depreciation",
+       "Workforce compensation" in is_labels and "Other operating expense" in is_labels
+       and "Depreciation expense" in is_labels
+       and "Salaries, occupancy, and other overhead" not in is_labels)
 
     errs=validate_errors_v2(cfg)
     ck("fixed-asset schedule validates cleanly", not errs, str(errs[:3]))

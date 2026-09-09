@@ -61,6 +61,12 @@ RESULT_CODES_IS = {
     "fvPnl":     ("RI", "5.l",   "RIADHT69", "FV option net gains (losses)"),
     "prodOpex":  ("RI", "7",     "RIAD4093", "Noninterest expense (product)"),
     "feeOpex":   ("RI", "7",     "RIAD4093", "Noninterest expense (fee product costs)"),
+    # Foundry statement-detail decomposition of corporate overhead. Workforce compensation
+    # aligns to RI 7.a; the other two are intentionally marked presentation detail because
+    # Foundry's modeled buckets do not claim a one-to-one regulatory sub-line mapping.
+    "workforceComp":      ("RI", "7.a", "RIAD4135", "Salaries and employee benefits"),
+    "otherOpex":          ("—", "detail", "—", "Other operating expense (presentation detail; included in RI 7)"),
+    "depreciationExpense":("—", "detail", "—", "Depreciation expense (presentation detail; included in RI 7)"),
     "overhead":  ("RI", "7",     "RIAD4093", "Noninterest expense (overhead)"),
     "opexProd":  ("RI", "7",     "RIAD4093", "Noninterest expense (product)"),
     "fixedOpex": ("RI", "7",     "RIAD4093", "Noninterest expense (overhead)"),

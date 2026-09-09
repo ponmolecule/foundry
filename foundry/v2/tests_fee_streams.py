@@ -24,9 +24,10 @@ def _hash(cfg):
     bs.pop("premisesGross", None)
     bs.pop("premisesAccumDep", None)
     is_ = dict(fin["is"])
-    # feeOpex is an additive NIE decomposition line. With no authored fee-stream
-    # operating costs it is identically zero and must not invalidate this baseline gate.
-    is_.pop("feeOpex", None)
+    # feeOpex and the corporate-overhead detail rows are additive NIE presentation
+    # decompositions. They do not change the economic baseline guarded by this hash.
+    for _k in ("feeOpex", "workforceComp", "otherOpex", "depreciationExpense"):
+        is_.pop(_k, None)
     return hashlib.sha256(json.dumps({"is": is_, "bs": bs, "ratios": fin["ratios"]},
                                      sort_keys=True, default=str).encode()).hexdigest()[:16]
 
