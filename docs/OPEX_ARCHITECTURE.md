@@ -24,18 +24,23 @@ must resolve to equivalent economics independent of engine cadence.
 
 A category may add one or more linked components under **Advanced**. A linked component is:
 
-`upstream noninterest-revenue Series × entered dimensionless rate Series`
+`typed upstream Series × entered dimensionless rate Series`
 
-The initial safe upstream driver registry is deliberately narrow:
+The safe upstream registry remains deliberately narrow:
 
 - fee income
 - gain on sale
 - net servicing fees
 - total noninterest income
+- transaction Fee Stream quantity / throughput, referenced by stable `quantity_series_id`
 
-These metrics are upstream of Operating Expense and avoid an endogenous Opex circularity.
-The linked rate is stored separately from the driver and is auditable. The architecture does
-not accept arbitrary formulas or workbook cell references.
+Transaction Fee Stream quantity is the same native-period flow resolved by the Fee Product engine
+before pricing is applied. Operating Expense observes that Series read-only; it does not recompute,
+own, or alter the fee driver. Balance/account stream quantities are intentionally not exposed under
+this contract because their dimensional semantics differ. These drivers are upstream of Operating
+Expense and avoid an endogenous Opex circularity. The linked rate is stored separately from the
+driver and is auditable. The architecture does not accept arbitrary formulas or workbook cell
+references.
 
 A common generic shape is therefore:
 
@@ -46,8 +51,15 @@ expense contracts without adding engagement-specific expense types.
 
 ## Recognition versus cash settlement
 
-Expense recognition remains the amount posted to Noninterest Expense. Optional settlement
-controls only when cash is paid:
+Recognition timing determines when the economic expense trajectory hits Noninterest Expense:
+
+- Same as trajectory (default)
+- Monthly
+- Quarterly
+- Semiannual
+- Annual
+
+Cash settlement is a separate axis controlling when the recognized expense is paid:
 
 - Same as recognition (default)
 - Monthly

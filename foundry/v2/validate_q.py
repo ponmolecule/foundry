@@ -273,6 +273,12 @@ def validate_config_v2(cfg):
         gr = nd.get("other_gross_up_rate")
         if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
+        try:
+            from .opex_extensions import fee_stream_quantity_catalog
+            _fee_qty_ids = {x["series_id"] for x in fee_stream_quantity_catalog(a)}
+        except (TypeError, ValueError) as e:
+            _fee_qty_ids = set()
+            errs.append(f"fee-stream quantity Series catalog invalid: {e}")
         for i, cat in enumerate(nd.get("categories") or []):
             if cat.get("flow_spec") is not None:
                 try:
@@ -289,6 +295,9 @@ def validate_config_v2(cfg):
                 from .opex_extensions import (normalize_linked_component, normalize_recognition,
                                               normalize_settlement)
                 _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
+                for _x in _lc:
+                    if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
+                        raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
                 _rt = normalize_recognition(cat.get("recognition"))
                 _st = normalize_settlement(cat.get("settlement"))
                 if _lc and _rt["mode"] not in {"trajectory", "monthly"}:
@@ -553,6 +562,13 @@ def validate_config_v2(cfg):
             for _k, _sid0 in ((_ch or {}).get("derived_series_ids") or {}).items():
                 _sid = str(_sid0 or "").strip()
                 if _sid: _series_ids.append(_sid)
+    try:
+        from .opex_extensions import fee_stream_quantity_catalog
+        for _meta in fee_stream_quantity_catalog(a):
+            _sid = str(_meta.get("series_id") or "").strip()
+            if _sid: _series_ids.append(_sid)
+    except (TypeError, ValueError):
+        pass
     try:
         from .cost_pools import cost_pool_catalog
         for _pool_meta in cost_pool_catalog(a):

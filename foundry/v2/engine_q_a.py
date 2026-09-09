@@ -431,6 +431,10 @@ def run_pf_a(cfg):
     # their upstream Opex/Workforce owners and pass only the current-period quantity into
     # fee streams; no expense is posted here or by the downstream fee link.
     _cost_pool_series = cost_pool_series_map(a, Q, ppy, growth_context=_growth_ctx)
+    # Stable read-only transaction-stream quantity Series for generic downstream observers
+    # such as Operating Expense linked components. Populated by fee_stream_q during product
+    # evaluation; never recomputed downstream.
+    _fee_stream_qty_series = {}
 
     def _cost_pool_ctx(period):
         qi = int(period) - 1
@@ -566,6 +570,7 @@ def run_pf_a(cfg):
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
+                                                            "capture_stream_qty": _fee_stream_qty_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
@@ -675,6 +680,7 @@ def run_pf_a(cfg):
             p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "cost_pool": _cost_pool_ctx(q),
+                                                            "capture_stream_qty": _fee_stream_qty_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
@@ -1068,7 +1074,9 @@ def run_pf_a(cfg):
                 for _wi, _cv in enumerate(_wf_runtime.count_for_period(q)):
                     _wf_count_native[_wi].append(_cv)
             _linked_opex = sum(linked_component_amount(
-                _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv})
+                _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
+                             "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
+                                                       for sid, arr in _fee_stream_qty_series.items()}})
                 for _lc in (_nie_d.get("linked_components") or []))
             _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
@@ -1258,6 +1266,7 @@ def run_pf_a(cfg):
                     _pr["managedNotionalSourceId"] = p.get("managed_notional_source_id")
             products.append(_pr)
     _out = {"products": products,
+            "fee_stream_quantities": {k: list(v) for k, v in _fee_stream_qty_series.items()},
             "ratios": {k: v[1:] for k, v in ratios.items()},
             "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,

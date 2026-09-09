@@ -79,7 +79,7 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
 
     # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
-    # whitelisted upstream revenue metrics for that period are known. Custom recognition/settlement
+    # whitelisted upstream metrics for that period are known. Custom recognition/settlement
     # is limited to the pre-resolvable entered category path; forecasting a future endogenous linked
     # charge across calendar blocks is a different contract and therefore fails closed.
     _linked = []
@@ -851,10 +851,20 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         else:
             qty = sb  # flat/ramp_to_target already baked into the source stock
 
-    # expose this stream's driver quantity for downstream stream_ref consumers
+    # Expose this stream's driver quantity for downstream stream_ref consumers and, when
+    # explicitly requested by the engine, as a stable read-only cross-module Series. The latter
+    # is observational only: Opex may consume the resolved quantity but never owns/recalculates it.
     nm = stream.get("name")
     if nm and isinstance(ctx, dict):
         ctx.setdefault("stream_qty", {})[nm] = qty
+    if isinstance(ctx, dict):
+        sid = str(stream.get("quantity_series_id") or "").strip()
+        cap = ctx.get("capture_stream_qty")
+        if sid and isinstance(cap, dict):
+            arr = cap.setdefault(sid, [])
+            while len(arr) < int(q):
+                arr.append(0.0)
+            arr[int(q) - 1] = float(qty or 0.0)
 
     # ---- Axis 1 + 4: basis application with rate behavior ----
     eff_rate = _fee_rate_q(rt, q, qty, ppy, ctx)

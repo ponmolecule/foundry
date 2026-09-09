@@ -566,6 +566,8 @@ def run_v2(cfg):
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
+        "fee_stream_quantities": {"series": copy.deepcopy(base.get("fee_stream_quantities") or {}),
+                                  "units": "$000s / engine period"},
         "ftp": _ftp_view(base, cfg, _ppy),
         "scenarios": {scen: {**_scen_metrics(r, cfg, next((c2["value"] for c2 in cfg["constraints"]
                                                             if c2["key"] == "leverage_min"), 0.0)),
