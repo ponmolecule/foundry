@@ -32,6 +32,7 @@ BS_LAYOUT = [
     {"t": "line", "key": "premisesGross", "label": "Premises and fixed assets, gross"},
     {"t": "line", "key": "premisesAccumDep", "label": "Less: accumulated depreciation", "negate": True, "indent": 1},
     {"t": "line", "key": "premises", "label": "Premises and fixed assets, net of accumulated depreciation", "subtotal": True},
+    {"t": "line", "key": "prepaidOpex", "label": "Prepaid operating expenses"},
     {"t": "line", "key": "nonEarn", "label": "Premises, equipment, and other assets"},
     {"t": "total", "key": "totalAssets", "label": "TOTAL ASSETS"},
     {"t": "spacer"},
@@ -41,6 +42,7 @@ BS_LAYOUT = [
     {"t": "line", "key": "borrow", "label": "Borrowed funds"},
     {"t": "line", "key": "borrowings", "label": "Borrowed funds"},
     {"t": "line", "key": "borrowSched", "label": "Scheduled borrowings (FHLB/term draws, bullet)"},
+    {"t": "line", "key": "accruedOpex", "label": "Accrued operating expenses"},
     {"t": "line", "key": "otherLiab", "label": "Accrued expenses and other liabilities"},
     {"t": "line", "key": "totalLiab", "label": "Total liabilities", "subtotal": True},
     {"t": "spacer"},
@@ -124,6 +126,8 @@ def derived_lines(res, cfg):
     n = len(bs["totalAssets"])
     a = cfg["assumptions"]
     other_liab = round(a["other_liabilities"] / 1000.0, 2)
+    _prepaid = list(bs.get("prepaidOpex") or [0.0] * n)
+    _accrued = list(bs.get("accruedOpex") or [0.0] * n)
     # Non-earning assets = premises + intangibles + other assets, PER QUARTER. The engine
     # depreciates premises (bs["premises"] declines when premises_depreciation_annual is set),
     # so a flat (premises+intangibles+other)/1000 overstated non-earning assets in every
@@ -155,13 +159,15 @@ def derived_lines(res, cfg):
     eq = bs["equity"]
     out = {
         "nonEarn": non_earn_list,
+        "prepaidOpex": [round((_prepaid[i] or 0.0), 2) for i in range(n)],
+        "accruedOpex": [round((_accrued[i] or 0.0), 2) for i in range(n)],
         "otherLiab": [other_liab] * n,
         "paidIn": paid_in_list,
         # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
         # plug AND the bullet scheduled draws (`borrowSched`). Omitting the latter
         # breaks the accounting identity by exactly the scheduled balance in every
         # quarter a term draw is outstanding (assets carry its cash; liabilities didn't).
-        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + other_liab, 2) for i in range(n)],
+        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + other_liab + (_accrued[i] or 0.0), 2) for i in range(n)],
     }
     out["totalLiabEq"] = [round(out["totalLiab"][i] + (eq[i] or 0), 2) for i in range(n)]
     out["identity"] = [round((bs["totalAssets"][i] or 0) - out["totalLiabEq"][i], 2) for i in range(n)]

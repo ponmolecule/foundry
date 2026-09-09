@@ -12,7 +12,7 @@ sys.path.insert(0, ".")
 from foundry.v2 import run_q
 from foundry.v2.income_modules import fee_stream_q, product_fee_streams_q
 
-BASELINE = "5c9b629b53f4013c"
+BASELINE = "299f0385b823fc07"
 
 
 def _hash(cfg):

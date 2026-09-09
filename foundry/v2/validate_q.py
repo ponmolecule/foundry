@@ -285,6 +285,14 @@ def validate_config_v2(cfg):
                     validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
+            try:
+                from .opex_extensions import normalize_linked_component, normalize_settlement
+                _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
+                _st = normalize_settlement(cat.get("settlement"))
+                if _lc and _st["mode"] not in {"recognition", "monthly"}:
+                    raise ValueError("custom settlement cannot be combined with linked revenue components")
+            except (TypeError, ValueError) as e:
+                errs.append(f"nie_detail.categories[{i}] advanced Opex invalid: {e}")
         wf = nd.get("workforce") or {}
         if wf.get("default_payroll_load_rate") is not None:
             rr = wf.get("default_payroll_load_rate")

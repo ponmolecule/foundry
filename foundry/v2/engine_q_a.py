@@ -767,8 +767,9 @@ def run_pf_a(cfg):
             obs_n[q] += p["_bal"][q]
 
     ne_q = [0]
-    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None):
-        funding = dep_carry + other_liab + equity_end + sched_t[ne_q[0]]
+    def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None,
+             extra_liab=0.0):
+        funding = dep_carry + other_liab + float(extra_liab or 0.0) + equity_end + sched_t[ne_q[0]]
         investable = funding - net_loans_end - (non_earn if ne is None else ne) - msr_end - sec_books_end
         req_cash = cash_floor * dep_bal
         if investable >= req_cash:
@@ -788,7 +789,7 @@ def run_pf_a(cfg):
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
 
     bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
-                             "afsBook", "htmBook", "aoci", "paidIn")}
+                             "afsBook", "htmBook", "aoci", "paidIn", "prepaidOpex", "accruedOpex")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
     bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p)
@@ -892,6 +893,18 @@ def run_pf_a(cfg):
     # (next-period activation for endogenous metrics such as efficiency ratio / net income).
     _nie_d = nie_detail_series(a, ppy, _growth_ctx, defer_workforce=True)
     from .income_modules import simple_overhead_series
+    from .opex_extensions import linked_component_amount
+    # Opex settlement timing is balance-sheet plumbing, not expense recognition. Entered
+    # category paths can create prepaid/accrued balances; linked revenue components currently
+    # settle with recognition and therefore contribute no timing balance.
+    _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
+    _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
+    # OCC is a semiannual assessment. The user-entered bp/year remains the pricing assumption;
+    # we apply one-half of that annualized rate to the Dec-31 / Jun-30 measurement base, accrue
+    # the resulting half-year assessment over its six covered months, and settle in Mar/Sep.
+    _occ_half_key = None
+    _occ_half_amt = 0.0
+    _occ_signed_balance = 0.0  # + prepaid asset, - accrued liability
     _simple_overhead = simple_overhead_series(a, Q, ppy, _growth_ctx)
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
@@ -1031,14 +1044,33 @@ def run_pf_a(cfg):
             # circular pre-plug; use prior end (disclosed) — assessments accrue on it
             _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
             _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / ppyf
-            _occ = _avg_a_q * float(_occ_bp) / 10000.0 / ppyf
+
+            # OCC semiannual timing: Dec-31 base -> Jan-Jun assessment due Mar 31;
+            # Jun-30 base -> Jul-Dec assessment due Sep 30. The entered annual bp is used as
+            # an annualized simplifying rate; each semiannual assessment is base * bp / 2.
+            _cy, _cq, _cm = _period_calendar(q)
+            _half = 1 if _cm <= 6 else 2
+            _hk = (_cy, _half)
+            if _hk != _occ_half_key:
+                _occ_half_key = _hk
+                _occ_half_amt = _avg_a_q * float(_occ_bp) / 10000.0 / 2.0
+            _months_here = 1 if ppy == 12 else 3
+            _occ = _occ_half_amt * (_months_here / 6.0)
+            _pay_month = 3 if _half == 1 else 9
+            _period_months = [((_cm - 1 + _j) % 12) + 1 for _j in range(_months_here)]
+            _occ_cash = _occ_half_amt if _pay_month in _period_months else 0.0
+            _occ_signed_balance += _occ_cash - _occ
+
             _comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
                        if _wf_runtime is not None else _nie_d["comp"][q - 1])
             if _wf_runtime is not None:
                 _wf_comp_native.append(_comp_q)
                 for _wi, _cv in enumerate(_wf_runtime.count_for_period(q)):
                     _wf_count_native[_wi].append(_cv)
-            _sub = (_comp_q + _nie_d["categories"][q - 1]
+            _linked_opex = sum(linked_component_amount(
+                _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv})
+                for _lc in (_nie_d.get("linked_components") or []))
+            _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
@@ -1051,6 +1083,8 @@ def run_pf_a(cfg):
         # total NIE or net income.
         fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
         nie = prod_ox + fee_opex + overhead
+        _prepaid_opex_q = (_opex_static_pre[q - 1] if q - 1 < len(_opex_static_pre) else 0.0) + max(0.0, _occ_signed_balance)
+        _accrued_opex_q = (_opex_static_acc[q - 1] if q - 1 < len(_opex_static_acc) else 0.0) + max(0.0, -_occ_signed_balance)
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
         if _cr:
@@ -1073,7 +1107,8 @@ def run_pf_a(cfg):
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
-                            non_earn_t[q] + (_dta_iter if _td else 0.0))
+                            non_earn_t[q] + _prepaid_opex_q + (_dta_iter if _td else 0.0),
+                            _accrued_opex_q)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
             borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
@@ -1139,7 +1174,8 @@ def run_pf_a(cfg):
         bs["afsBook"][q] = afs_end_b
         bs["htmBook"][q] = sum(p["_bal"][q] for p in htm_p)
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
-        bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + msr_t[q]
+        bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
+        bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q]
                                   + (bs["dta"][q] if _td else 0.0))
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
@@ -1229,6 +1265,7 @@ def run_pf_a(cfg):
                    "re": bs["re"], "totalAssets": bs["totalAssets"],
                    "afsBook": bs["afsBook"], "htmBook": bs["htmBook"],
                    "aoci": bs["aoci"], "paidIn": bs["paidIn"],
+                   "prepaidOpex": bs["prepaidOpex"], "accruedOpex": bs["accruedOpex"],
                    "premises": prem_t,
                    # Presentation series are emitted in BOTH Simple and Asset-schedule
                    # authoring modes.  Simple mode already computes gross PP&E and

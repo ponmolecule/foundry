@@ -1697,11 +1697,14 @@ def t43():
     fxk = "overhead" if "overhead" in r3["financials"]["is"] else "fixedOpex"
     got = r3["financials"]["is"][fxk][1]   # Q2 overhead = assessments(+dep) only
     A_ = REG_PARAMS["assessments"]
+    # Q2 FDIC uses the current quarter's disclosed prior-period base, while OCC stays on
+    # the single H1 measurement base established for the Jan-Jun assessment (Dec-31 /
+    # first modeled opening base).  It must NOT rebase the H1 assessment in Q2.
     exp = (max(0.0, bsx["totalAssets"][1] - (bsx["equity"][1] - 0.0))
             * A_["fdic_bp_ann"] / 10000.0 / 4.0
-            + bsx["totalAssets"][1] * A_["occ_bp_ann"] / 10000.0 / 4.0)
-    check("T43c", "FDIC accrues on (assets − tangible equity) + OCC on assets — the "
-                    "D-P14 fix, hand-checked to the penny on a zero-comp config",
+            + bsx["totalAssets"][0] * A_["occ_bp_ann"] / 10000.0 / 4.0)
+    check("T43c", "FDIC accrues on its period base; OCC keeps one semiannual measurement "
+                    "base across H1 rather than rebasing every quarter",
           abs(got - exp) < 0.02, f"got {got:.3f}k exp {exp:.3f}k")
 
 
