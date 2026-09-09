@@ -167,6 +167,10 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-section-toggle:hover{border-color:#DFA85A;color:#DFA85A}
 .nie-section-summary{font-size:10.5px;color:#9CA7B7;margin:1px 0 0}
 .nie-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 2px}
+.cac-link-preview{margin:7px 0 2px 184px;border-left:2px solid #334158;padding:7px 9px;background:rgba(17,27,45,.55);border-radius:0 6px 6px 0}
+.cac-link-preview-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cac-link-preview-row .wf-field-label{margin:0;min-width:118px}
+.cac-link-readonly{width:100%;box-sizing:border-box;overflow-x:auto;white-space:nowrap;background:#0F1828;color:#C7D2E4;border:1px solid #334158;border-radius:4px;padding:6px 7px;font-family:var(--mono);font-size:10.5px;line-height:1.45}
 .nie-defaults{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(120px,.7fr);gap:10px;margin:4px 0 10px}
 .nie-default{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px 9px;min-width:0}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
@@ -3568,11 +3572,13 @@ window.secAdd = function(kind){
   renderGlobals(); renderContent(); refresh();
 };
 window.poAdd = function(){
+  window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.preopening=true;
   cfg.pre_opening = cfg.pre_opening || {};
   (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
   renderContent(); refresh();
 };
 window.poPaste = function(txt, mode){
+  window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.preopening=true;
   cfg.pre_opening = cfg.pre_opening || {};
   cfg.pre_opening.expenses = cfg.pre_opening.expenses || [];
   var rows = String(txt||"").split(/\r?\n/);
@@ -3618,9 +3624,11 @@ function _fixedAssetState(){
   A.fixed_assets.assets=A.fixed_assets.assets||[]; return A.fixed_assets;
 }
 window.faSetMode=function(mode){
+  window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
   const fa=_fixedAssetState(); fa.mode=(mode==="schedule"?"schedule":"simple"); renderContent(); refresh();
 };
 window.faAdd=function(){
+  window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
   const fa=_fixedAssetState(); fa.mode="schedule";
   fa.assets.push({name:"",cost:0,in_service_period:0,useful_life_years:5,method:"straight_line",residual_value:0});
   renderContent(); refresh();
@@ -3643,6 +3651,7 @@ function _faPeriod(v){
   const n=+m[1]; return (n>=0&&n<=NP())?n:NaN;
 }
 window.faPaste=function(txt,mode){
+  window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
   const fa=_fixedAssetState(); fa.mode="schedule";
   const lines=String(txt||"").split(/\r?\n/).filter(x=>x.trim());
   if(!lines.length){appStatus("err","No fixed-asset rows found.");return;}
@@ -7259,7 +7268,7 @@ window.cacDriverSource=function(fn,ci,key,source){
 };
 window.cacDriverLink=function(fn,ci,key,val){
   const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),o=_cacLinkOptions(meta||{}).find(x=>x.id===val);
-  if(!o||o.disabled)return; ch.driver_specs=ch.driver_specs||{};const old=_cacEnsureSpec(ch,key); ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};refresh();
+  if(!o||o.disabled)return; ch.driver_specs=ch.driver_specs||{};const old=_cacEnsureSpec(ch,key); ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};renderContent();refresh();
 };
 window.cacDriverTrajectory=function(fn,ci,key,mode){
   const ch=cfg.assumptions.cac_feeds[fn].channels[ci],old=_cacEnsureSpec(ch,key),cur=_cacEnteredCurrent(ch,key); let sp;
@@ -7296,6 +7305,58 @@ window.cacFeedExplicitClear=function(fn){const fd=cfg.assumptions.cac_feeds[fn],
 window.cacFeedExplicitClose=function(fn){window.cacExplicitClose(fn,-1,"attrition_rate");};
 window.cacFeedExplicitOpen=function(fn){window.cacExplicitOpen(fn,-1,"attrition_rate");};
 window.cacFeedExplicitPaste=function(fn,txt){const fd=cfg.assumptions.cac_feeds[fn],sp=_cacFeedSpec(fd,"attrition_rate",fd.attrition_rate||0),raw=_seriesExplicitValues(txt);if(!raw.length){appStatus("err","No numeric attrition values found to load.");return;}sp.values=raw.map(x=>x.value/100);sp.extend="hold";appStatus("ok",sp.values.length+" attrition value"+(sp.values.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
+function _cacOpexSourceById(seriesId){
+  const nd=((cfg||{}).assumptions||{}).nie_detail||{};
+  return (nd.categories||[]).find(x=>x&&x.series_id===seriesId)||null;
+}
+function _cacWorkforceSourceById(seriesId){
+  const nd=((cfg||{}).assumptions||{}).nie_detail||{},roles=(((nd.workforce||{}).roles)||[]);
+  return roles.find(x=>x&&x.series_id===seriesId)||null;
+}
+function _cacLinkedLatestAnnual(fn,ci,key){
+  if(key!=="spend" || typeof lastRes==="undefined" || !lastRes)return [];
+  const fd=((lastRes.customer_acquisition||{})[fn]||{}),yrs=fd.annual||[];
+  return yrs.map(y=>+((((y||{}).channels||[])[ci]||{}).spend||0));
+}
+function _cacLinkedSourcePreview(fn,ci,meta,sp){
+  const lk=(sp||{}).link||{};
+  if(meta.linkKind==="operating_expense_category"){
+    const src=_cacOpexSourceById(lk.series_id);
+    if(!src)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected Operating Expense Series could not be resolved.</div>`;
+    const traj=src.trajectory||"flat", isGrowth=(traj==="growth"||traj==="linear"), shown=isGrowth?"Growth":(traj==="explicit"?"Explicit":"Flat");
+    const per=+(src.per_period!=null?src.per_period:(src.per_quarter||0)*(4/PPY()))||0;
+    let detail='';
+    if(traj==="explicit"){
+      const vals=(src.schedule||[]).map(v=>fmtComma((+v||0)/1000));
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">${shown} · $000s/${PLAB()} · ${vals.length}/${NP()} values</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.join(' · '))}</div>`;
+    } else if(isGrowth){
+      const gs=src.growth_spec||{},rate=(+(gs.rate!=null?gs.rate:(src.growth_per_period!=null?src.growth_per_period:_qGrowthToPeriod(src.growth_q||0)))||0)*100;
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Growth · base ${fmtComma(per/1000)} $000s/${PLAB()} · ${rate.toFixed(2)}%/${esc(gs.period||PLAB('full'))}${gs.method?' · '+esc(gs.method):''}</span></div>`;
+    } else {
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Flat · ${fmtComma(per/1000)} $000s/${PLAB()}</span></div>`;
+    }
+    const latest=_cacLinkedLatestAnnual(fn,ci,meta.k);
+    if(latest.length)detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">${latest.map((v,i)=>'Y'+(i+1)+' '+fmtComma(v)).join(' · ')} · $000s/year</span></div>`;
+    return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(src.name||'Operating Expense')}</b> · read-only here; edit the source in Operating Expense.</div>${detail}</div>`;
+  }
+  if(meta.linkKind==="workforce_role_count"){
+    const src=_cacWorkforceSourceById(lk.series_id);
+    if(!src)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected Workforce Count Series could not be resolved.</div>`;
+    const cs=src.count_spec||null, traj=String((cs&&(cs.trajectory||cs.mode))||"flat"); let detail='';
+    if(traj==="explicit"){
+      const vals=(cs.values||[]).map(v=>fmtComma(+v||0)),cad=cs.cadence||"year";
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Explicit · FTE · ${vals.length} ${esc(cad)} value${vals.length===1?'':'s'}${cs.resolution?' · '+esc(cs.resolution):''}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.join(' · '))}</div>`;
+    } else if(traj==="growth"){
+      const gs=cs.growth_spec||{},base=+(cs.base!=null?cs.base:src.count||0),rate=(+(gs.rate||0))*100;
+      detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Growth · base ${fmtComma(base)} FTE · ${rate.toFixed(2)}%/${esc(gs.period||'year')}${gs.method?' · '+esc(gs.method):''}</span></div>`;
+    } else {
+      const v=+(cs&&cs.value!=null?cs.value:src.count||0);detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Flat · ${fmtComma(v)} FTE</span></div>`;
+    }
+    return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(src.role||'Workforce population')}</b> · read-only here; edit the source in Workforce compensation.</div>${detail}</div>`;
+  }
+  return '';
+}
+
 function _cacDriverHtml(fn,ci,ch,meta){
   const sp=_cacEnsureSpec(ch,meta.k),mode=_cacMode(sp),opts=meta.linkKind?_cacLinkOptions(meta):[],canLink=!!meta.linkKind;
   let x=`<div style="border-top:1px solid #253043;padding:7px 0 5px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#DCE3EE">${esc(meta.lab)}</span>`;
@@ -7313,6 +7374,7 @@ function _cacDriverHtml(fn,ci,ch,meta){
     } else x+=`<input type="text" inputmode="decimal" style="width:92px" value="${_cacDisplay(sp.value,meta.kind)}" onchange="cacDriverValue('${esc(fn)}',${ci},'${meta.k}',this.value,'${meta.kind}','value');${meta.kind==='k'||meta.kind==='price'?'fmtField(this)':''}"><span class="cu">${esc(meta.unit)}</span>`;
   }
   x+=`</div>`;
+  if(mode==="link")x+=_cacLinkedSourcePreview(fn,ci,meta,sp);
   if(mode==="explicit"&&!_cacExplicitIsClosed(fn,ci,meta.k)){
     const cad=sp.cadence||"year",vals=sp.values||[],expected=_seriesSourcePeriods(cad),boxId=('cacPaste_'+String(sp.series_id||fn+'_'+ci+'_'+meta.k)).replace(/[^A-Za-z0-9_]/g,'_');
     const placeholder=meta.kind==="pct"?"2.0\t2.5\t3.0":(meta.kind==="k"?"500\t550\t600":(meta.kind==="price"?"1,250\t1,300\t1,350":"1000\t1200\t1500"));
@@ -7328,6 +7390,12 @@ window.cacMethodChange=function(fn,ci,m){const ch=cfg.assumptions.cac_feeds[fn].
 window.renameCacFeed=function(oldName,newName){newName=(newName||"").trim();if(!newName||newName===oldName){renderContent();return;}var CF=cfg.assumptions.cac_feeds||{};if(CF[newName]){alert("A feed by that name already exists.");renderContent();return;}CF[newName]=CF[oldName];delete CF[oldName];(cfg.assumptions.obs_exposures||[]).forEach(function(pp){if(pp.managed_notional_source===oldName){pp.managed_notional_source=newName;const fd=CF[newName];if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}});renderContent();refresh();};
 window.addCacFeed=function(){cfg.assumptions=cfg.assumptions||{};cfg.assumptions.cac_feeds=cfg.assumptions.cac_feeds||{};let n=1;while(cfg.assumptions.cac_feeds["feed_"+n])n++;cfg.assumptions.cac_feeds["feed_"+n]={series_id:_seriesId("cac-auc"),owner_module:"customer_acquisition",channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,intra_year_shape:"linear"};renderContent();refresh();};
 window.addCacChannel=function(fn){const fd=cfg.assumptions.cac_feeds[fn];if(!fd)return;fd.channels=fd.channels||[];const ch={name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0,driver_specs:{},derived_series_ids:{new_customers:_seriesId("cac-newcust"),new_auc:_seriesId("cac-newauc")}};fd.channels.push(ch);_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k));renderContent();refresh();};
+
+window._cfgSectionOpen=window._cfgSectionOpen||{};
+function _cfgSectionIsOpen(key,hasContent){
+  return Object.prototype.hasOwnProperty.call(window._cfgSectionOpen,key) ? !!window._cfgSectionOpen[key] : !hasContent;
+}
+window.cfgSectionSetOpen=function(key,isOpen){window._cfgSectionOpen[key]=!!isOpen;renderContent();};
 
 window._nieSectionOpen=window._nieSectionOpen||{};
 function _nieSectionIsOpen(key,hasRows){
@@ -7423,49 +7491,60 @@ function structuresSectionsHtml(){
     });
     _b += '<button class="pillbtn" onclick="sbAdd()">+ Add scheduled borrowing</button>';
     _b += `<div class="cmut">${sbs.length} borrowing${sbs.length===1?"":"s"} added</div>`;
-    let _p = '<div class="csub">Pre-opening expenses</div>';
-    pex.forEach((e,i)=>{
-      _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div>`;
-    });
-    // Progressive disclosure: the paste box is hidden until summoned, and clears + collapses on
-    // Load. The rows above are the single source of truth; the box is a transient input chute.
-    var _pasteOpen = !!(cfg.pre_opening && cfg.pre_opening._pasteOpen);
-    if(!_pasteOpen){
-      _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
-      _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};cfg.pre_opening._pasteOpen=true;renderContent();return false">\u2398 Paste from spreadsheet</a>';
-      _p += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="poAdd();return false">+ Add one manually</a>';
-      if(pex.length) _p += '<a href="#" class="cadd" style="color:#C77" onclick="poClear();return false">Clear all</a>';
-      _p += '</div>';
+    const _poHasRows=pex.length>0, _poOpen=_cfgSectionIsOpen("preopening",_poHasRows);
+    let _p = `<div class="csub" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>Pre-opening expenses</span><button class="nie-section-toggle" onclick="cfgSectionSetOpen('preopening',${_poOpen?'false':'true'})">${_poOpen?'Collapse':'Expand'}</button></div>`;
+    if(!_poOpen){
+      _p += `<div class="nie-section-summary">${pex.length} expense${pex.length===1?'':'s'} loaded · expand to inspect or edit</div>`;
     } else {
-      _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated), then Load. The box clears after.</div>';
-      _p += '<textarea id="poPasteBox" rows="4" oninput="_structuredPasteInput(\x27poPasteBox\x27)" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
-      _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
-      _p += '<button id="poPasteBox_load" class="pillbtn" disabled onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27replace\x27)">Load (replace)</button>';
-      _p += '<button id="poPasteBox_append" class="pillbtn" disabled onclick="poPaste(document.getElementById(\x27poPasteBox\x27).value,\x27append\x27)">Load (append)</button>';
-      _p += '<button class="pillbtn" style="color:#C77" onclick="poClear()"' + (pex.length?'':' disabled') + '>Clear</button>';
-      _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderContent();return false">close</a>';
-      _p += '</div></div>';
-    }
-    _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
-    const _fa=_fixedAssetState(), _faSchedule=_fa.mode==="schedule", _fax=_fa.assets||[];
-    let _d = '<div class="csub">Fixed assets / CAPEX</div>';
-    _d += `<div class="nie-mode" style="margin:0 0 8px"><button class="${_faSchedule?'':'on'}" onclick="faSetMode('simple')">Simple</button><button class="${_faSchedule?'on':''}" onclick="faSetMode('schedule')">Asset schedule</button></div>`;
-    if(!_faSchedule){
-      _d += `<div class="crow">Opening fixed assets<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-      _d += `<div class="crow">Annual depreciation<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_depreciation_annual||0)/1000)}" onchange="cfg.assumptions.premises_depreciation_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/yr</span></div>`;
-      _d += '<div class="cmut">Use when the source model supplies one aggregate fixed-asset balance and depreciation line.</div>';
-    } else {
-      _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
-        _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+      pex.forEach((e,i)=>{
+        _p += `<div class="crow"><input style="flex:1 1 90px" value="${esc(e.category||"")}" placeholder="Category" onchange="cfg.pre_opening.expenses[${i}].category=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" value="${fmtComma((e.total||0)/1000)}" title="$000s total" onchange="cfg.pre_opening.expenses[${i}].total=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" onclick="cfg.pre_opening.expenses.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
       });
-      if(!_fa._pasteOpen){
-        _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="_fixedAssetState()._pasteOpen=true;renderContent();return false">⎘ Paste assets</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="faAdd();return false">+ Add asset</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
+      // Progressive disclosure: the paste box is hidden until summoned, and clears + collapses on
+      // Load. The rows above are the single source of truth; the box is a transient input chute.
+      var _pasteOpen = !!(cfg.pre_opening && cfg.pre_opening._pasteOpen);
+      if(!_pasteOpen){
+        _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
+        _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};window._cfgSectionOpen.preopening=true;cfg.pre_opening._pasteOpen=true;renderContent();return false">⎘ Paste from spreadsheet</a>';
+        _p += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="poAdd();return false">+ Add one manually</a>';
+        if(pex.length) _p += '<a href="#" class="cadd" style="color:#C77" onclick="poClear();return false">Clear all</a>';
+        _p += '</div>';
       } else {
-        _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" oninput="_structuredPasteInput(\x27faPasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button id="faPasteBox_load" class="pillbtn" disabled onclick="faPaste(document.getElementById(\x27faPasteBox\x27).value,\x27replace\x27)">Load (replace)</button><button id="faPasteBox_append" class="pillbtn" disabled onclick="faPaste(document.getElementById(\x27faPasteBox\x27).value,\x27append\x27)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_fixedAssetState()._pasteOpen=false;renderContent();return false">close</a></div>';
+        _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated), then Load. The box clears after.</div>';
+        _p += '<textarea id="poPasteBox" rows="4" oninput="_structuredPasteInput(\x27poPasteBox\x27)" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
+        _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
+        _p += '<button id="poPasteBox_load" class="pillbtn" disabled onclick="poPaste(document.getElementById(\'poPasteBox\').value,\'replace\')">Load (replace)</button>';
+        _p += '<button id="poPasteBox_append" class="pillbtn" disabled onclick="poPaste(document.getElementById(\'poPasteBox\').value,\'append\')">Load (append)</button>';
+        _p += '<button class="pillbtn" style="color:#C77" onclick="poClear()"' + (pex.length?'':' disabled') + '>Clear</button>';
+        _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderContent();return false">close</a>';
+        _p += '</div></div>';
       }
-      _d += `<div class="cmut">${_fax.length} asset${_fax.length===1?'':'s'} · straight-line by default. Opening rows are capitalized before M1/Q1; later rows become CAPEX in their placed-in-service period.</div>`;
+      _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
     }
-    _d += `<div class="crow" style="margin-top:8px">Intangibles<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
+    const _fa=_fixedAssetState(), _faSchedule=_fa.mode==="schedule", _fax=_fa.assets||[];
+    const _faHasContent=_faSchedule?_fax.length>0:!!(+cfg.assumptions.premises_equipment||+cfg.assumptions.premises_depreciation_annual||+cfg.assumptions.intangibles);
+    const _faOpen=_cfgSectionIsOpen("fixedassets",_faHasContent);
+    let _d = `<div class="csub" style="display:flex;align-items:center;justify-content:space-between;gap:8px"><span>Fixed assets / CAPEX</span><button class="nie-section-toggle" onclick="cfgSectionSetOpen('fixedassets',${_faOpen?'false':'true'})">${_faOpen?'Collapse':'Expand'}</button></div>`;
+    if(!_faOpen){
+      _d += `<div class="nie-section-summary">${_faSchedule?(_fax.length+' asset'+(_fax.length===1?'':'s')+' loaded'):'Aggregate fixed assets configured'} · expand to inspect or edit</div>`;
+    } else {
+      _d += `<div class="nie-mode" style="margin:0 0 8px"><button class="${_faSchedule?'':'on'}" onclick="faSetMode('simple')">Simple</button><button class="${_faSchedule?'on':''}" onclick="faSetMode('schedule')">Asset schedule</button></div>`;
+      if(!_faSchedule){
+        _d += `<div class="crow">Opening fixed assets<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_equipment||0)/1000)}" onchange="cfg.assumptions.premises_equipment=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
+        _d += `<div class="crow">Annual depreciation<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.premises_depreciation_annual||0)/1000)}" onchange="cfg.assumptions.premises_depreciation_annual=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s/yr</span></div>`;
+        _d += '<div class="cmut">Use when the source model supplies one aggregate fixed-asset balance and depreciation line.</div>';
+      } else {
+        _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
+          _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+        });
+        if(!_fa._pasteOpen){
+          _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="window._cfgSectionOpen.fixedassets=true;_fixedAssetState()._pasteOpen=true;renderContent();return false">⎘ Paste assets</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="faAdd();return false">+ Add asset</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
+        } else {
+          _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" oninput="_structuredPasteInput(\x27faPasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button id="faPasteBox_load" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'replace\')">Load (replace)</button><button id="faPasteBox_append" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'append\')">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_fixedAssetState()._pasteOpen=false;renderContent();return false">close</a></div>';
+        }
+        _d += `<div class="cmut">${_fax.length} asset${_fax.length===1?'':'s'} · straight-line by default. Opening rows are capitalized before M1/Q1; later rows become CAPEX in their placed-in-service period.</div>`;
+      }
+      _d += `<div class="crow" style="margin-top:8px">Intangibles<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
+    }
     h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="text" inputmode="decimal" style="width:112px" value="${fmtComma((po.min_day1_capital||0)/1000)}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
   }
