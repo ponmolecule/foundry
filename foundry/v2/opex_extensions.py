@@ -4,13 +4,15 @@ This module deliberately models reusable economic mechanics, not engagement labe
 
 * A category's primary entered recurring amount remains ``flow_spec``.
 * Optional ``linked_components`` add whitelisted upstream revenue drivers × dimensionless rates.
+* Optional ``recognition`` controls when the economic expense trajectory hits NIE.
 * Optional ``settlement`` controls when recognized expense is paid. Recognition remains NIE;
   timing differences become prepaid assets (payment ahead of recognition) or accrued liabilities
   (recognition ahead of payment).
 
-Custom settlement is intentionally limited to pre-resolvable entered expense paths. Linked
-revenue components default to settlement=same_as_recognition; forecasting and prepaying a future
-endogenous revenue-linked charge is a different contract and fails closed here.
+Custom recognition and settlement are intentionally limited to pre-resolvable entered expense
+paths. Linked revenue components default to recognition=same_as_trajectory and
+settlement=same_as_recognition; forecasting/rebucketing a future endogenous revenue-linked charge
+is a different contract and fails closed here.
 """
 from __future__ import annotations
 
@@ -89,6 +91,84 @@ def _calendar_months(n_months: int, context=None):
         out.append((idx // 12, idx % 12 + 1))
     return out
 
+
+
+def normalize_recognition(spec: Mapping[str, Any] | None) -> dict:
+    """Normalize generic recurring Opex recognition timing.
+
+    ``trajectory`` leaves the economic expense path unchanged. Calendar modes rebucket each
+    calendar block's economic expense total into the configured recognition month inside that
+    block. This is intentionally generic: no expense labels or engagement dates are hard-coded.
+    """
+    s = dict(spec or {})
+    mode = str(s.get("mode") or "trajectory").strip().lower()
+    if mode not in {"trajectory", "monthly", "quarterly", "semiannual", "annual"}:
+        raise ValueError("Opex recognition.mode must be trajectory/monthly/quarterly/semiannual/annual")
+    out = {"mode": mode}
+    if mode == "annual":
+        m = int(s.get("recognition_month") or 1)
+        if not 1 <= m <= 12:
+            raise ValueError("annual Opex recognition recognition_month must be 1..12")
+        out["recognition_month"] = m
+    elif mode == "semiannual":
+        ms = list(s.get("recognition_months") or [3, 9])
+        if len(ms) != 2 or any(int(m) < 1 or int(m) > 12 for m in ms):
+            raise ValueError("semiannual Opex recognition requires two recognition_months in 1..12")
+        out["recognition_months"] = [int(ms[0]), int(ms[1])]
+    elif mode == "quarterly":
+        ms = list(s.get("recognition_months") or [3, 6, 9, 12])
+        if len(ms) != 4 or any(int(m) < 1 or int(m) > 12 for m in ms):
+            raise ValueError("quarterly Opex recognition requires four recognition_months in 1..12")
+        out["recognition_months"] = [int(m) for m in ms]
+    return out
+
+
+def resolve_recognition(economic: list[float], recognition: Mapping[str, Any] | None,
+                        ppy: int, *, context=None) -> list[float]:
+    """Rebucket an economic Opex trajectory into the periods where NIE is recognized.
+
+    The input remains the canonical economic expense path. Annual/semiannual/quarterly modes
+    preserve the total expense in each calendar block and place that block total in the selected
+    calendar month. This prevents users from force-fitting seven annual assumptions into 84
+    monthly values merely to express recognition timing.
+    """
+    r = normalize_recognition(recognition)
+    econ = [float(x or 0.0) for x in economic]
+    if r["mode"] in {"trajectory", "monthly"}:
+        return econ[:]
+
+    monthly = _monthly_from_engine(econ, int(ppy))
+    cal = _calendar_months(len(monthly), context)
+    recognized = [0.0] * len(monthly)
+    groups = {}
+    for i, (y, m) in enumerate(cal):
+        if r["mode"] == "annual":
+            key = (y, 1)
+        elif r["mode"] == "semiannual":
+            key = (y, 1 if m <= 6 else 2)
+        else:  # quarterly
+            key = (y, (m - 1) // 3 + 1)
+        groups.setdefault(key, []).append(i)
+
+    for (y, block), idxs in groups.items():
+        amount = sum(monthly[i] for i in idxs)
+        if r["mode"] == "annual":
+            rm = r["recognition_month"]
+        else:
+            rm = r["recognition_months"][block - 1]
+        hits = [i for i in idxs if cal[i] == (y, rm)]
+        if hits:
+            recognized[hits[0]] += amount
+        # As with settlement, do not invent a recognition event outside a partial modeled
+        # calendar block. The user can use Same as trajectory or an Explicit economic path for
+        # bespoke partial-period history.
+
+    width = 12 // int(ppy)
+    out = []
+    for i in range(len(econ)):
+        lo, hi = i * width, (i + 1) * width
+        out.append(sum(recognized[lo:hi]))
+    return out
 
 def normalize_settlement(spec: Mapping[str, Any] | None) -> dict:
     s = dict(spec or {})

@@ -286,9 +286,13 @@ def validate_config_v2(cfg):
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
             try:
-                from .opex_extensions import normalize_linked_component, normalize_settlement
+                from .opex_extensions import (normalize_linked_component, normalize_recognition,
+                                              normalize_settlement)
                 _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
+                _rt = normalize_recognition(cat.get("recognition"))
                 _st = normalize_settlement(cat.get("settlement"))
+                if _lc and _rt["mode"] not in {"trajectory", "monthly"}:
+                    raise ValueError("custom recognition cannot be combined with linked revenue components")
                 if _lc and _st["mode"] not in {"recognition", "monthly"}:
                     raise ValueError("custom settlement cannot be combined with linked revenue components")
             except (TypeError, ValueError) as e:
