@@ -18,8 +18,8 @@ def main():
     cfg=json.loads(Path("foundry/fixtures/parity/configs/pf_a_base.json").read_text())
     cfg["assumptions"]["periods_per_year"]=12
     cfg["assumptions"]["nie_detail"]={
-        "categories":[{"name":"Occupancy","per_period":30000,"trajectory":"growth",
-                       "growth_spec":{"rate":.03,"period":"year","method":"step","anchor":"model_year"}}],
+        "categories":[{"name":"Occupancy","flow_spec":{"trajectory":"growth","value":360000,"period":"year",
+                       "growth_spec":{"rate":.03,"period":"year","method":"step","anchor":"model_year"}}}],
         "other_gross_up_rate":0,
         "workforce":{"mode":"roles","default_payroll_load_rate":.25,
                      "default_salary_growth_spec":{"rate":.04,"period":"year","method":"step","anchor":"hire_anniversary"},
@@ -37,24 +37,28 @@ def main():
     need={"nie_detail.workforce.roles.0.hire_period","nie_detail.workforce.roles.0.annual_comp",
           "nie_detail.workforce.roles.1.activation.metric","nie_detail.workforce.roles.1.activation.source",
           "nie_detail.workforce.roles.1.activation.value","nie_detail.workforce.roles.1.activation.timing",
-          "nie_detail.workforce.default_salary_growth_spec.anchor","nie_detail.categories.0.growth_spec.rate",
+          "nie_detail.workforce.default_salary_growth_spec.anchor","nie_detail.categories.0.flow_spec.period",
+          "nie_detail.categories.0.flow_spec.value","nie_detail.categories.0.flow_spec.growth_spec.rate",
           "nie_detail.workforce.roles.0.count_spec.trajectory","nie_detail.workforce.roles.0.count_spec.values.1"}
     ck("ASSM_NIE exposes workforce + growth leaves", need.issubset(keys), str(sorted(need-set(keys))))
     keys["nie_detail.workforce.roles.0.hire_period"][3].value=19
-    keys["nie_detail.categories.0.growth_spec.rate"][3].value=.05
+    keys["nie_detail.categories.0.flow_spec.growth_spec.rate"][3].value=.05
+    keys["nie_detail.categories.0.flow_spec.period"][3].value="quarter"
     keys["nie_detail.workforce.roles.1.activation.value"][3].value=750000000
     keys["nie_detail.workforce.roles.0.count_spec.values.1"][3].value=5
     buf=io.BytesIO(); wb.save(buf)
     merged,rep=diff_import(buf.getvalue(), copy.deepcopy(cfg))
     nd=merged["assumptions"]["nie_detail"]
     ck("FIW workforce hire-period edit lands", nd["workforce"]["roles"][0]["hire_period"]==19)
-    ck("FIW category growth-rate edit lands", abs(nd["categories"][0]["growth_spec"]["rate"]-.05)<1e-12)
+    ck("FIW category natural-period + growth-rate edits land",
+       nd["categories"][0]["flow_spec"]["period"]=="quarter"
+       and abs(nd["categories"][0]["flow_spec"]["growth_spec"]["rate"]-.05)<1e-12)
     ck("FIW workforce Count schedule edit lands", nd["workforce"]["roles"][0]["count_spec"]["values"][1]==5)
     act=nd["workforce"]["roles"][1]["activation"]
     ck("FIW metric-trigger fields round-trip as structured workforce activation",
        act.get("metric")=="managed_notional_end" and act.get("source")=="Custody"
        and abs(act.get("value",0)-750000000)<1 and act.get("timing")=="same_period")
-    ck("FIW reports only the four intended edits", rep.get("edit_count")==4, str(rep.get("edit_count")))
+    ck("FIW reports only the five intended edits", rep.get("edit_count")==5, str(rep.get("edit_count")))
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
 

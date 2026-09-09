@@ -84,9 +84,13 @@ def _browser_nie_entry_probe(html: str):
                   html.index("// Static mirror of foundry/v2/fee_catalog.py")]
     script = f"""
 global.window={{}};
-let cfg={{assumptions:{{}}}};
+let cfg={{assumptions:{{periods_per_year:4}}}};
 function renderContent(){{}}
 function refresh(){{}}
+function PPY(){{ return +(cfg.assumptions.periods_per_year||4); }}
+function _nativeFlowPeriod(){{ return PPY()===12?"month":"quarter"; }}
+function _qGrowthToPeriod(v){{ return +v||0; }}
+function _pf(x){{ let n=parseFloat(String(x).replace(/[^0-9.\-]/g,'')); return isNaN(n)?0:n; }}
 function _seriesId(prefix){{ return prefix+"-test"; }}
 {add_src}
 {on_src}
@@ -405,8 +409,9 @@ def main():
     html = (ROOT/"web/console_v2.html").read_text(encoding="utf-8")
     exec_html = (ROOT/"foundry/v2/assets/exec_view_template.html").read_text(encoding="utf-8")
     ck("J1 preset insertion converts historical quarterly preset economics", "materializeQuarterlyPreset(pr.p)" in html)
-    ck("J2 NIE UI writes canonical growth_spec for new Growth trajectories",
-       'cat.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam}' in html)
+    ck("J2 NIE UI writes canonical natural-period flow_spec for new Growth trajectories",
+       'var fs={trajectory:(isGrowth?"growth":"flat"),value:amt*1000,period:fp};' in html
+       and 'if(isGrowth) fs.growth_spec={rate:g,period:gp,method:gm,anchor:ga,anchor_month:gam};' in html)
     ck("J3 Executive chart uses cadence-aware endpoint labels", "MODEL.periodEndLabel" in exec_html)
     ck("J4 fee/catalog growth labels use active cadence", "`%/${PLAB()}`" in html)
     ck("J5 Call Report UI does not double-collapse canonical quarterly values",
@@ -470,7 +475,8 @@ def main():
        nie_entry["afterOn"] == []
        and len(nie_entry["afterAdd"]) == 1
        and nie_entry["afterAdd"][0].get("name") == ""
-       and nie_entry["afterAdd"][0].get("per_period") == 0
+       and nie_entry["afterAdd"][0].get("flow_spec",{}).get("value") == 0
+       and nie_entry["afterAdd"][0].get("flow_spec",{}).get("period") == "quarter"
        and str(nie_entry["afterAdd"][0].get("series_id") or "").startswith("opex-")
        and "Paste categories" in html and "+ Add one manually" in html
        and "Core banking & tech" not in html

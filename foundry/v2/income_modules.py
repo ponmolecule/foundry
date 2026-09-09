@@ -6,7 +6,8 @@ engines. Everything is additive and default-off: absent config => empty series.
 NIE detail (F-071/072, fixing D-P14 and D-R8):
   assumptions.nie_detail = {
     "fte_by_year": [y1, y2, y3], "loaded_comp_annual": $,
-    "categories": [{"name": str, "per_period": $}, ...],  # legacy per_quarter accepted
+    "categories": [{"name": str, "flow_spec": {trajectory, value/values, period, ...}}, ...],
+    # legacy per_period/per_quarter categories remain readable unchanged
     "other_gross_up_rate": r,           # Patrick's sub*r/(1-r) formulation, kept
   }
   Assessments are computed by the ENGINE (they need balances): FDIC on
@@ -79,6 +80,11 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
 def nie_category_series(c, Q, ppy=4, growth_context=None):
     """Resolve one Operating Expense category to its native-period dollar flow.
 
+    New Configuration authoring uses ``flow_spec`` so the amount owns its natural
+    Month / Quarter / Year unit independently of computational cadence.  Legacy
+    ``per_period`` / ``per_quarter`` configs retain their exact historic behavior when
+    ``flow_spec`` is absent.
+
     Public helper for safe cross-module Foundry-series links.  It is intentionally the
     same resolver used by ``nie_detail_series`` so a linked CAC spend path cannot drift
     from the expense actually modeled on the income statement.
@@ -86,6 +92,10 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
     from .timebase import quarterly_value_to_period
     Q, ppy = int(Q), int(ppy)
     c = c or {}
+    if c.get("flow_spec") is not None:
+        from .periodic_flows import resolve_periodic_flow
+        return resolve_periodic_flow(c.get("flow_spec"), Q, ppy, context=growth_context)
+
     traj = c.get("trajectory") or "flat"
     if c.get("per_period") is not None:
         base = float(c.get("per_period") or 0.0)
@@ -106,6 +116,34 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
             g = quarterly_value_to_period("growth", float(c.get("growth_q") or 0.0), ppy)
         return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
     return [base] * Q
+
+
+def simple_overhead_series(a, Q, ppy=4, growth_context=None):
+    """Resolve the Configuration Simple-overhead recurring flow, excluding depreciation.
+
+    ``overhead_flow_spec`` is the opt-in natural-period contract.  In its absence the
+    historical per-engine-period fields are preserved exactly for backward compatibility.
+    """
+    a = a or {}
+    Q, ppy = int(Q), int(ppy)
+    if a.get("overhead_flow_spec") is not None:
+        from .periodic_flows import resolve_periodic_flow
+        return resolve_periodic_flow(a.get("overhead_flow_spec"), Q, ppy, context=growth_context)
+
+    from .timebase import quarterly_value_to_period
+    if a.get("overhead_per_period") is not None:
+        base = float(a.get("overhead_per_period") or 0.0)
+    else:
+        base = quarterly_value_to_period("overhead", float(a.get("overhead_q") or 0.0), ppy)
+    if a.get("overhead_growth_spec"):
+        from .growth import resolve_growth_series
+        return resolve_growth_series(base, a.get("overhead_growth_spec"), Q, ppy,
+                                     context=growth_context)
+    if a.get("overhead_growth_per_period") is not None:
+        g = float(a.get("overhead_growth_per_period") or 0.0)
+    else:
+        g = quarterly_value_to_period("overhead_growth", float(a.get("overhead_growth_q") or 0.0), ppy)
+    return [base * ((1.0 + g) ** (q - 1)) for q in range(1, Q + 1)]
 
 def managed_notional_series(mn, Q, ppy=4, growth_context=None):
     """Roll an off-book notional stock (AUC/AUM) forward Q engine periods.

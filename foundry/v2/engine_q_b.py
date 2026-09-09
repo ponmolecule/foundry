@@ -36,6 +36,8 @@ def run_pf_b(cfg):
     _rate = _curves["sofr"]
     from .growth import growth_context_from_cfg
     _growth_ctx = growth_context_from_cfg(cfg, 4)
+    from .income_modules import simple_overhead_series
+    _simple_overhead = simple_overhead_series(a, Q, 4, _growth_ctx)
 
     from .timebase import event_start_period
 
@@ -150,13 +152,7 @@ def run_pf_b(cfg):
         fees = (sum(p["_avg"][qi] * (p.get("fee_yield_ann") or 0.0) / 4.0 for p in lend + dep + obs + afs_p + htm_p)
                  )
         opex_prod = sum(opex_fixed_q(p) for p in lend + dep + obs + afs_p + htm_p)
-        if a.get("overhead_growth_spec"):
-            from .growth import growth_multiplier
-            _ovh_b = a["overhead_q"] * growth_multiplier(
-                a.get("overhead_growth_spec"), current_period=q, start_period=1,
-                ppy=4, context=_growth_ctx, base_position="period1") + _dep_exp[qi]
-        else:
-            _ovh_b = a["overhead_q"] + _dep_exp[qi]
+        _ovh_b = _simple_overhead[qi] + _dep_exp[qi]
         # Disclosure-only decomposition; see Profile A for the same contract.
         _workforce_comp = 0.0
         _depreciation_expense = _dep_exp[qi]

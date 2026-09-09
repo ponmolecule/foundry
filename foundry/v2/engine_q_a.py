@@ -891,6 +891,8 @@ def run_pf_a(cfg):
     # pre-workforce observables (same-period EOP AUC/AUM) or completed financial history
     # (next-period activation for endogenous metrics such as efficiency ratio / net income).
     _nie_d = nie_detail_series(a, ppy, _growth_ctx, defer_workforce=True)
+    from .income_modules import simple_overhead_series
+    _simple_overhead = simple_overhead_series(a, Q, ppy, _growth_ctx)
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
     _wf_comp_native = []
@@ -1005,14 +1007,7 @@ def run_pf_a(cfg):
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
-        _ovh_base = (a.get("overhead_per_period", a.get("overhead_q")) or 0.0)
-        if a.get("overhead_growth_spec"):
-            from .growth import growth_multiplier
-            overhead = _ovh_base * growth_multiplier(
-                a.get("overhead_growth_spec"), current_period=q, start_period=1,
-                ppy=ppy, context=_growth_ctx, base_position="period1") + dep_exp_t[q]
-        else:
-            overhead = _ovh_base * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
+        overhead = _simple_overhead[q - 1] + dep_exp_t[q]
         # Presentation-only decomposition of corporate overhead.  The legacy/simple
         # overhead assumption does not identify compensation separately, so it remains
         # in Other operating expense; when NIE detail/workforce exists we can surface

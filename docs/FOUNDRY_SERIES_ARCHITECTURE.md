@@ -41,6 +41,22 @@ that actually has that path. It does not turn the entire module into a seven-col
 Legacy scalar/growth fields remain readable. The absence of a new Series spec preserves their
 historical economics.
 
+## 1A. Periodic flow units in Configuration
+
+For recurring Configuration Operating Expense, source cadence is an economic unit rather than an
+engine property.  A periodic flow carries `value + period` (or Explicit `values + period`) and is
+resolved centrally before downstream economics consume it.  Therefore `$360k/year`, `$90k/quarter`,
+and `$30k/month` are the same flow assumption, independent of whether the engine computes monthly
+or quarterly.
+
+Growth is orthogonal: `3%/year` remains `3%/year` whether the base is authored per month or per year.
+Step/Smooth and anchor govern the trajectory, not the amount unit.  Legacy Opex without the new
+`flow_spec` keeps its exact old native-cadence behavior; once materialized for new authoring, that
+legacy cadence is frozen explicitly rather than re-inferred from a later model cadence.
+
+This is deliberately a Configuration-Opex refinement, not a global rewrite of Product-tab
+loan/deposit cadence mechanics.
+
 ## 2. Equations
 
 Each domain owns a small closed vocabulary of defensible equations. For Customer Acquisition the
@@ -135,7 +151,8 @@ and AUC/customer average.
 2. A linked series has one owner; consumers do not duplicate its trajectory assumptions.
 3. Display-name changes do not break stable-ID links.
 4. Unsupported or circular links fail closed.
-5. Source cadence and projection cadence are separate concepts.
+5. Source cadence and projection cadence are separate concepts; for recurring Configuration
+   flows, equivalent Month/Quarter/Year natural-unit inputs resolve to identical economics.
 6. Explicit paths are properties of individual drivers, not reasons to reproduce source workbook
    grids.
 7. New engagement names should normally require configuration, not engine branches.
