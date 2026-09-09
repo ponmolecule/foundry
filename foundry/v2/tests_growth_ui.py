@@ -339,8 +339,13 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("workforce paste guidance describes clipboard columns and restores optional Count",
        'you do not need to type tab characters' in html and 'Tabs preferred' not in html
        and 'Annual Comp<br>($000s/FTE)' in html and '<span>Count</span>' in html)
-    ck("workforce Count is restored as a trajectory-capable population series",
-       'Count · ${_cm===' in html and 'nieWorkforceCountMode' in html and 'Count trajectory' in html
+    ck("workforce main row stays compact while advanced Count/Compensation paths remain available",
+       '<span class="wf-field-label">Count</span>' in html
+       and '<span class="wf-field-label">Annual Comp</span>' in html
+       and '<span class="wf-field-label">Escalation</span>' in html
+       and 'Legacy escalation' not in html and '>↗</option>' not in html and '>⋯</option>' not in html
+       and 'Advanced trajectories' in html and 'Count path' in html and 'Compensation path' in html
+       and 'nieWorkforceCountMode' in html and 'nieWorkforceCompMode' in html and 'nieWorkforceCompLegacy' in html
        and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
        and '$000s/FTE/year' in html and 'nieWorkforceCompValue' in html and 'Compensation trajectory' in html)
     ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
