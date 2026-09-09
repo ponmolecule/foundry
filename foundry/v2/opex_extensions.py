@@ -3,14 +3,14 @@
 This module deliberately models reusable economic mechanics, not engagement labels.
 
 * A category's primary entered recurring amount remains ``flow_spec``.
-* Optional ``linked_components`` add whitelisted upstream revenue drivers × dimensionless rates.
+* Optional ``linked_components`` add whitelisted typed upstream drivers × dimensionless rates.
 * Optional ``recognition`` controls when the economic expense trajectory hits NIE.
 * Optional ``settlement`` controls when recognized expense is paid. Recognition remains NIE;
   timing differences become prepaid assets (payment ahead of recognition) or accrued liabilities
   (recognition ahead of payment).
 
 Custom recognition and settlement are intentionally limited to pre-resolvable entered expense
-paths. Linked revenue components default to recognition=same_as_trajectory and
+paths. Linked endogenous components default to recognition=same_as_trajectory and
 settlement=same_as_recognition; forecasting/rebucketing a future endogenous revenue-linked charge
 is a different contract and fails closed here.
 """
@@ -27,17 +27,55 @@ SAFE_REVENUE_DRIVERS = {
     "noninterest_income",
 }
 
+FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
+
+
+def fee_stream_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
+    """Catalog linkable transaction-stream quantities by stable Series ID.
+
+    Transaction basis is intentionally the first supported cross-module fee quantity because its
+    driver quantity is a native-period flow. Balance/account quantities have different dimensional
+    contracts and are not exposed to generic Opex until their coefficient/rate semantics are typed.
+    """
+    a = assumptions or {}
+    out = []
+    for fam, key in (("Lending", "lending_products"), ("Deposit", "deposit_products"),
+                     ("Fee Product", "obs_exposures")):
+        for pi, prod in enumerate(a.get(key) or []):
+            pname = str((prod or {}).get("name") or f"{fam} {pi + 1}")
+            for si, st in enumerate((prod or {}).get("fee_streams") or []):
+                st = st or {}
+                if str(st.get("basis") or "").lower() != "transaction":
+                    continue
+                sid = str(st.get("quantity_series_id") or "").strip()
+                if not sid:
+                    continue
+                out.append({"series_id": sid, "product": pname,
+                            "stream": str(st.get("name") or f"Stream {si + 1}"),
+                            "family": fam, "unit_semantic": "native_period_flow"})
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("fee-stream quantity_series_id values must be unique")
+    return out
+
 
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    if drv not in SAFE_REVENUE_DRIVERS:
+    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER}
+    if drv not in allowed:
         raise ValueError(
-            f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(SAFE_REVENUE_DRIVERS))}")
+            f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
     rs = dict(c.get("rate_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0})
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
-    return {"driver": drv, "rate_spec": rs}
+    out = {"driver": drv, "rate_spec": rs}
+    if drv == FEE_STREAM_QUANTITY_DRIVER:
+        sid = str(c.get("series_id") or "").strip()
+        if not sid:
+            raise ValueError("fee_stream_quantity Opex link requires series_id")
+        out["series_id"] = sid
+    return out
 
 
 def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int, ppy: int,
@@ -46,7 +84,10 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
     for raw in list((category or {}).get("linked_components") or []):
         c = normalize_linked_component(raw)
         rates = resolve_entered_series(c["rate_spec"], int(n_periods), int(ppy), context=context)
-        out.append({"driver": c["driver"], "rates": [float(x or 0.0) for x in rates]})
+        row = {"driver": c["driver"], "rates": [float(x or 0.0) for x in rates]}
+        if c.get("series_id"):
+            row["series_id"] = c["series_id"]
+        out.append(row)
     return out
 
 
@@ -66,6 +107,12 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         base = (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
                 + float(metrics.get("servicing_net") or 0.0))
+    elif drv == FEE_STREAM_QUANTITY_DRIVER:
+        sid = str(component.get("series_id") or "")
+        qmap = metrics.get("fee_stream_quantities") or {}
+        if sid not in qmap:
+            raise ValueError(f"linked fee-stream quantity Series {sid!r} is unavailable in this engine run")
+        base = float(qmap.get(sid) or 0.0)
     else:  # normalize_linked_component already fail-closes; defensive only.
         raise ValueError(f"unsupported Opex linked driver {drv!r}")
     return base * rate

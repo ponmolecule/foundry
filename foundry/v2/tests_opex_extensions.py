@@ -1,7 +1,10 @@
 import copy, json, sys
-from foundry.v2.opex_extensions import resolve_recognition, resolve_settlement
+from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
+                                          normalize_linked_component, linked_component_amount)
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
+from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
+from foundry.v2.run_q import run_v2
 
 P=F=0
 def ck(name, ok, detail=''):
@@ -62,6 +65,53 @@ def main():
     expected0=10_000 + r['is']['fees'][0]*0.10
     ck('linked Opex component = entered base + fee income × rate', abs(r['is']['otherOpex'][0]-expected0)<1e-6,
        (r['is']['otherOpex'][0],expected0))
+
+
+    # Fee-stream quantity is a first-class observational Opex driver, distinct from fee income.
+    c=base_cfg(12); a=c['assumptions']
+    a['obs_exposures'].append({
+        'name':'Settlement business','call_report_line':'obs','_fee_product':True,
+        'fee_streams':[{
+            'name':'Settlement fee','quantity_series_id':'fee-qty-settlement','basis':'transaction',
+            'driver':{'source':'constant','trajectory':'flat','params':{'base':1_000_000.0}},
+            'rate':{'behavior':'flat','params':{'per_unit':0.001}},
+            'timing':{'start_period':1},'cost':{'kind':'none','params':{}}
+        }]})
+    a['nie_detail']['categories']=[{
+        'name':'Settlement processing expense',
+        'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+        'linked_components':[{'driver':'fee_stream_quantity','series_id':'fee-qty-settlement',
+                              'rate_spec':{'source':'entered','trajectory':'flat','value':0.02}}]
+    }]
+    r=run_pf_a(c)
+    settlement_product=next(x for x in r['products'] if x.get('name')=='Settlement business')
+    ck('fee-stream quantity link uses pre-pricing throughput, not fee income',
+       abs(r['is']['otherOpex'][0]-20_000.0)<1e-6 and abs(settlement_product['fees'][0]-1_000.0)<1e-6,
+       (r['is']['otherOpex'][0],settlement_product['fees'][0]))
+    ck('fee-stream quantity is surfaced as stable native-period Series',
+       r.get('fee_stream_quantities',{}).get('fee-qty-settlement')==[1_000_000.0]*12)
+    comp=normalize_linked_component({'driver':'fee_stream_quantity','series_id':'fee-qty-settlement',
+                                     'rate_spec':{'trajectory':'flat','value':.02}})
+    comp['rates']=[.02]
+    ck('linked quantity primitive is observational quantity × dimensionless rate',
+       abs(linked_component_amount(comp,0,{'fee_stream_quantities':{'fee-qty-settlement':1_000_000}})-20_000)<1e-9)
+
+    vc=copy.deepcopy(c); vc['assumptions']['n_periods']=36
+    try:
+        validate_config_v2(vc); valid_link=True
+    except ConfigErrorV2:
+        valid_link=False
+    ck('validation accepts existing stable fee-stream quantity Series reference', valid_link)
+    badc=copy.deepcopy(vc); badc['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['series_id']='missing-fee-qty'
+    bad=False
+    try: validate_config_v2(badc)
+    except ConfigErrorV2 as e: bad=('does not exist' in str(e))
+    ck('validation fails closed on missing fee-stream quantity Series reference', bad)
+
+    public=run_v2(vc)
+    qser=(((public.get('fee_stream_quantities') or {}).get('series') or {}).get('fee-qty-settlement') or [])
+    ck('public run exposes linked fee-stream quantity in $000s per engine period',
+       len(qser)==36 and abs(qser[0]-1000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='$000s / engine period')
 
     # Custom settlement creates BS timing balances but does not alter recognized NIE.
     c=base_cfg(12); a=c['assumptions']

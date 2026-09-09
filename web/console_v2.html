@@ -3174,7 +3174,7 @@ window.addFeeStream = function(i, basis){
   const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
   p.fee_streams = p.fee_streams || [];
   const src = (basis==="balance") ? "managed_notional" : "constant";
-  p.fee_streams.push({name:"", basis:basis,
+  p.fee_streams.push({name:"", basis:basis, quantity_series_id:_seriesId("fee-qty"),
                       driver:{source:src, trajectory:"flat", params:{base:0}},
                       rate:{behavior:"flat", params:{}},
                       timing:{start_period:1}, cost:{kind:"none", params:{}}});
@@ -3798,7 +3798,7 @@ window.nieCatFlowPeriod=function(i,p){const ct=((_ensureNieDetail().categories||
 window.nieCatSchedulePeriod=function(i,p){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;_ensureNieCatFlow(ct).period=p;renderContent();refresh();};
 window.nieCatAdvanced=function(i,open){window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=!!open;renderContent();};
 window.nieCatAddLinked=function(i){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.push({driver:"fee_income",rate_spec:{source:"entered",trajectory:"flat",value:0}});window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();};
-window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].driver=v;refresh();};
+window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;const lc=ct.linked_components[j];if(String(v).indexOf("fee_stream_quantity::")===0){lc.driver="fee_stream_quantity";lc.series_id=String(v).slice("fee_stream_quantity::".length);}else{lc.driver=v;delete lc.series_id;}renderContent();refresh();};
 window.nieCatLinkedRate=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_spec=ct.linked_components[j].rate_spec||{source:"entered",trajectory:"flat",value:0};ct.linked_components[j].rate_spec.source="entered";ct.linked_components[j].rate_spec.trajectory="flat";ct.linked_components[j].rate_spec.value=_pf(v)/100;refresh();};
 window.nieCatRemoveLinked=function(i,j){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.splice(j,1);renderContent();refresh();};
 window.nieCatRecognitionMode=function(i,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.recognition=ct.recognition||{};ct.recognition.mode=v;if(v==="annual"&&ct.recognition.recognition_month==null)ct.recognition.recognition_month=1;if(v==="semiannual"&&(!Array.isArray(ct.recognition.recognition_months)||ct.recognition.recognition_months.length!==2))ct.recognition.recognition_months=[3,9];if(v==="quarterly"&&(!Array.isArray(ct.recognition.recognition_months)||ct.recognition.recognition_months.length!==4))ct.recognition.recognition_months=[3,6,9,12];renderContent();refresh();};
@@ -7297,6 +7297,37 @@ function _ensureLinkableSeriesIds(){
   const nd=(cfg.assumptions||{}).nie_detail||{};
   (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
   (((nd.workforce||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.expense_series_id)x.expense_series_id=_seriesId("wf-exp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
+  [["Lending",(cfg.assumptions||{}).lending_products||[]],["Deposit",(cfg.assumptions||{}).deposit_products||[]],["Fee Product",(cfg.assumptions||{}).obs_exposures||[]]].forEach(pair=>{
+    (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&st.basis==="transaction"&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
+  });
+}
+function _opexLinkedDriverOptions(){
+  _ensureLinkableSeriesIds();
+  const out=[
+    {value:"fee_income",driver:"fee_income",label:"Fee income"},
+    {value:"gain_on_sale",driver:"gain_on_sale",label:"Gain on sale"},
+    {value:"servicing_net",driver:"servicing_net",label:"Net servicing fees"},
+    {value:"noninterest_income",driver:"noninterest_income",label:"Total noninterest income"}
+  ];
+  [["Lending",(cfg.assumptions||{}).lending_products||[]],["Deposit",(cfg.assumptions||{}).deposit_products||[]],["Fee Product",(cfg.assumptions||{}).obs_exposures||[]]].forEach(pair=>{
+    (pair[1]||[]).forEach((p,pi)=>{const pn=(p&&p.name)||pair[0]+" "+(pi+1);((p||{}).fee_streams||[]).forEach((st,si)=>{
+      if(!st||st.basis!=="transaction"||!st.quantity_series_id)return;
+      const sn=st.name||"Stream "+(si+1),sid=String(st.quantity_series_id);
+      out.push({value:"fee_stream_quantity::"+sid,driver:"fee_stream_quantity",series_id:sid,label:"Throughput / notional · "+pn+" › "+sn,product:pn,stream:sn,streamObj:st});
+    });});
+  });
+  return out;
+}
+function _opexLinkedDriverValue(lc){return (lc&&lc.driver)==="fee_stream_quantity"?("fee_stream_quantity::"+String(lc.series_id||"")):String((lc&&lc.driver)||"fee_income");}
+function _opexLinkedSourcePreview(lc){
+  if(!lc||lc.driver!=="fee_stream_quantity")return "";
+  const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
+  if(!opt)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected fee-stream quantity Series could not be resolved.</div>`;
+  const st=opt.streamObj||{},drv=st.driver||{},traj=drv.trajectory||"flat";
+  let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Transaction quantity · ${esc(drv.source||'source')} · ${esc(traj)} · read-only here</span></div>`;
+  const ser=((((typeof lastRes!=="undefined"&&lastRes)||{}).fee_stream_quantities||{}).series||{})[lc.series_id]||[];
+  if(ser.length){const lab=PPY()===12?'M':'Q';detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">$000s / ${PPY()===12?'month':'quarter'}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(ser.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
+  return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(opt.product)} › ${esc(opt.stream)}</b> · upstream fee-stream throughput; edit the source in Fee Product.</div>${detail}</div>`;
 }
 function _cacMeta(method){
   if(method==="pool_conversion") return [
@@ -7824,9 +7855,9 @@ function structuresSectionsHtml(){
       const _adv=!!((window._nieCatAdvancedOpen||{})[i]),_lcs=ct.linked_components||[],_rec=ct.recognition||{mode:'trajectory'},_rm=_rec.mode||'trajectory',_sett=ct.settlement||{mode:'recognition'},_sm=_sett.mode||'recognition';
       row += `<div class="nie-actions" style="margin-top:6px"><a href="#" class="cadd" onclick="nieCatAdvanced(${i},${_adv?'false':'true'});return false">${_adv?'Hide advanced':'Advanced'}${(_lcs.length||_rm!=='trajectory'||_sm!=='recognition')?' · configured':''}</a></div>`;
       if(_adv){
-        const _drv=[['fee_income','Fee income'],['gain_on_sale','Gain on sale'],['servicing_net','Net servicing fees'],['noninterest_income','Total noninterest income']];
-        row += `<div style="margin-top:7px;padding:7px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">Linked expense components</div><div class="nie-section-note">Optional additive expense = selected upstream noninterest-revenue Series × rate. Opex never links to itself or to circular earnings metrics.</div>`;
-        _lcs.forEach((lc,j)=>{const _rv=(((lc||{}).rate_spec||{}).value||0)*100;row += `<div class="crow" style="align-items:center;margin-top:5px"><span class="cu">Driver</span><select style="min-width:180px" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${o[0]}"${o[0]===(lc.driver||'fee_income')?' selected':''}>${o[1]}</option>`).join('')}</select><span class="cu">×</span><input type="number" step="0.1" style="width:70px" value="${_rv.toFixed(2)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span><a href="#" class="cx" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>`;});
+        const _drv=_opexLinkedDriverOptions();
+        row += `<div style="margin-top:7px;padding:7px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">Linked expense components</div><div class="nie-section-note">Optional additive expense = selected upstream Series × dimensionless rate. Transaction-stream throughput is observational and read-only; Opex never recalculates or owns the fee driver.</div>`;
+        _lcs.forEach((lc,j)=>{const _rv=(((lc||{}).rate_spec||{}).value||0)*100,_dv=_opexLinkedDriverValue(lc);row += `<div class="crow" style="align-items:center;margin-top:5px"><span class="cu">Driver</span><select style="min-width:260px;max-width:420px" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select><span class="cu">×</span><input type="number" step="0.1" style="width:70px" value="${_rv.toFixed(2)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span><a href="#" class="cx" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>${_opexLinkedSourcePreview(lc)}`;});
         row += `<div class="nie-actions"><a href="#" class="cadd" onclick="nieCatAddLinked(${i});return false">+ Add linked component</a></div></div>`;
         const _months=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         const _ropts=[['trajectory','Same as trajectory'],['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Semiannual'],['annual','Annual']];
