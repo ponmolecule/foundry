@@ -38,8 +38,9 @@ function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","
 function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 function renderContent(){} function refresh(){} function appStatus(){} function _pf(x){let n=parseFloat(String(x).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n;}
-function fmtComma(x){return String(x)} function esc(x){return String(x)} function _seriesId(p){return p+'-test'}
+function fmtComma(x){return String(x)} function esc(x){return String(x)} function _seriesId(p){return p+'-test'} function PLAB(full){return full?'month':'M'} function _qGrowthToPeriod(x){return x}
 window.confirm=()=>true;window.alert=()=>{};
+let lastRes={customer_acquisition:{growth:{annual:[{channels:[{}, {spend:120}]},{channels:[{}, {spend:135}]}]}}};
 '''
     suffix=r'''
 const fd=cfg.assumptions.cac_feeds.growth;
@@ -57,11 +58,15 @@ window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
 const unitProbe={pool:_cacStored('2,500','number'),spend:_cacStored('1,250','k'),cac:_cacStored('1,250','price'),auc:_cacStored('500','k')};
 window.cacDriverSource('growth',1,'spend','link');
 const spendLink=fd.channels[1].driver_specs.spend;
+const spendPreviewFlat=_cacLinkedSourcePreview('growth',1,_cacMeta(fd.channels[1].method).find(x=>x.k==='spend'),spendLink);
+cfg.assumptions.nie_detail.categories[0].trajectory='explicit'; cfg.assumptions.nie_detail.categories[0].schedule=[10000,12000,14000];
+const spendPreviewExplicit=_cacLinkedSourcePreview('growth',1,_cacMeta(fd.channels[1].method).find(x=>x.k==='spend'),spendLink);
 window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
+const ftePreview=_cacLinkedSourcePreview('growth',0,_cacMeta(fd.channels[0].method).find(x=>x.k==='ftes'),fteLink);
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,fteLink,method:fd.channels[0].method,unitProbe}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,fteLink,ftePreview,method:fd.channels[0].method,unitProbe}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -85,6 +90,10 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     fl=(bj.get("fteLink") or {}).get("link") or {}
     ck("FTE productivity can link generically to Workforce Count by stable ID",
        bj.get("method")=="fte_productivity" and fl.get("kind")=="workforce_role_count" and fl.get("series_id")=="wf-rm")
+    ck("linked Workforce Count is also inspectable rather than opaque",
+       "Relationship Managers" in (bj.get("ftePreview") or "")
+       and "Linked source path" in (bj.get("ftePreview") or "")
+       and "Flat · 3 FTE" in (bj.get("ftePreview") or ""))
 
     ck("spreadsheet-style global annual input grid is removed",
        "Use annual source schedule" not in html and "Annual source driver" not in html
@@ -98,6 +107,17 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     ck("Acquisition Spend link explains the required upstream Opex source instead of reporting a generic broken link",
        "Acquisition spend can link only to an Operating expense category" in html
        and "keep Acquisition spend entered directly in Customer Acquisition" in html)
+    ck("linked Acquisition Spend exposes the upstream source path instead of hiding it",
+       "Business Development" in (bj.get("spendPreviewFlat") or "")
+       and "Linked source path" in (bj.get("spendPreviewFlat") or "")
+       and "Flat" in (bj.get("spendPreviewFlat") or "")
+       and "Latest run · resolved pull" in (bj.get("spendPreviewFlat") or "")
+       and "Y1 120" in (bj.get("spendPreviewFlat") or ""))
+    ck("linked Explicit Acquisition Spend exposes the complete read-only source schedule",
+       "cac-link-readonly" in (bj.get("spendPreviewExplicit") or "")
+       and "10 · 12 · 14" in (bj.get("spendPreviewExplicit") or "")
+       and "3/84 values" in (bj.get("spendPreviewExplicit") or "")
+       and "read-only here; edit the source in Operating Expense" in (bj.get("spendPreviewExplicit") or ""))
     ck("acquisition equations remain the closed vocabulary while channel names are user-defined",
        "New customers = Pool × Conversion" in html and "New customers = Spend ÷ CAC" in html
        and "New customers = FTE Count × Productivity" in html

@@ -41,6 +41,13 @@ def main():
     ck("Loaded Workforce/Opex sections default collapsed while empty sections remain open",
        'function _nieSectionIsOpen(key,hasRows)' in html and ': !hasRows;' in html
        and 'window._nieSectionOpen.workforce=true' in html and 'window._nieSectionOpen.opex=true' in html)
+    ck("Pre-opening expense and Fixed Assets/CAPEX have compact Expand/Collapse controls",
+       "cfgSectionSetOpen('preopening'" in html and "cfgSectionSetOpen('fixedassets'" in html
+       and '>Pre-opening expenses</span><button class="nie-section-toggle"' in html
+       and '>Fixed assets / CAPEX</span><button class="nie-section-toggle"' in html)
+    ck("Loaded pre-opening/fixed-asset sections default collapsed and authoring actions reopen them",
+       'function _cfgSectionIsOpen(key,hasContent)' in html and ': !hasContent;' in html
+       and 'window._cfgSectionOpen.preopening=true' in html and 'window._cfgSectionOpen.fixedassets=true' in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1

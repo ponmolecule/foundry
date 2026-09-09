@@ -157,7 +157,9 @@ def main():
        "Noninterest Expense: Corporate Overhead" not in _is_block)
 
     ck("Configuration separates pre-opening expenses from Fixed assets / CAPEX",
-       '<div class="csub">Pre-opening expenses</div>' in html and '<div class="csub">Fixed assets / CAPEX</div>' in html
+       '>Pre-opening expenses</span><button class="nie-section-toggle"' in html
+       and '>Fixed assets / CAPEX</span><button class="nie-section-toggle"' in html
+       and "cfgSectionSetOpen('preopening'" in html and "cfgSectionSetOpen('fixedassets'" in html
        and '>Asset schedule</button>' in html)
     ck("fixed-asset bulk entry has Paste/Add/Clear authoring",
        'Paste assets' in html and '+ Add asset' in html and 'faClear()' in html)
