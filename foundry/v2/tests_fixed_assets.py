@@ -143,6 +143,19 @@ def main():
        and "fin.bs.premisesGross" in html
        and "fin.bs.premisesAccumDep" in html)
 
+    ck("on-screen Income Statement renders the promised NIE breakout",
+       "rowIS('Workforce compensation', fin.is.workforceComp" in html
+       and "rowIS('Other operating expense', fin.is.otherOpex" in html
+       and "rowIS('Depreciation expense', fin.is.depreciationExpense" in html
+       and "rowIS('Product operating expense', fin.is.prodOpex || fin.is.opexProd" in html
+       and "rowIS('Fee product operating costs', fin.is.feeOpex" in html
+       and "rowIS('Total noninterest expense', D.nie, 'subtotal')" in html)
+    _is_start=html.index('if(currentTab==="is")')
+    _is_end=html.index('if(currentTab==="ratios")', _is_start) if 'if(currentTab==="ratios")' in html[_is_start:] else len(html)
+    _is_block=html[_is_start:_is_end]
+    ck("on-screen Income Statement no longer collapses detail into Corporate Overhead",
+       "Noninterest Expense: Corporate Overhead" not in _is_block)
+
     ck("Configuration separates pre-opening expenses from Fixed assets / CAPEX",
        '<div class="csub">Pre-opening expenses</div>' in html and '<div class="csub">Fixed assets / CAPEX</div>' in html
        and '>Asset schedule</button>' in html)
