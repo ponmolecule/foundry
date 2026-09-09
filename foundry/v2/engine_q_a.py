@@ -799,7 +799,7 @@ def run_pf_a(cfg):
     bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
 
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
-           "gos", "servNet", "fvPnl", "prodOpex", "feeOpex", "overhead", "pretax", "tax", "ni", "nco", "nol")
+           "gos", "servNet", "fvPnl", "prodOpex", "feeOpex", "workforceComp", "otherOpex", "depreciationExpense", "overhead", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
 
     re, nol = day_one, 0.0
@@ -1013,6 +1013,13 @@ def run_pf_a(cfg):
                 ppy=ppy, context=_growth_ctx, base_position="period1") + dep_exp_t[q]
         else:
             overhead = _ovh_base * (1 + a.get("overhead_growth_q", 0.0)) ** (q - 1) + dep_exp_t[q]
+        # Presentation-only decomposition of corporate overhead.  The legacy/simple
+        # overhead assumption does not identify compensation separately, so it remains
+        # in Other operating expense; when NIE detail/workforce exists we can surface
+        # compensation explicitly.  Depreciation is always known independently.
+        workforce_comp = 0.0
+        depreciation_expense = dep_exp_t[q]
+        other_opex = overhead - depreciation_expense
         if _nie_d:
             # Patrick's NIE granularity (F-071): workforce compensation + category lines +
             # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.
@@ -1040,6 +1047,8 @@ def run_pf_a(cfg):
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+            workforce_comp = _comp_q
+            other_opex = overhead - workforce_comp - depreciation_expense
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
         # operating-cost % of fee revenue) are external product costs. They remain
         # POST gross-up, but are surfaced as their own NIE line instead of being
@@ -1140,7 +1149,10 @@ def run_pf_a(cfg):
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
-                     ("prodOpex", prod_ox), ("feeOpex", fee_opex), ("overhead", overhead), ("pretax", pretax),
+                     ("prodOpex", prod_ox), ("feeOpex", fee_opex),
+                     ("workforceComp", workforce_comp), ("otherOpex", other_opex),
+                     ("depreciationExpense", depreciation_expense),
+                     ("overhead", overhead), ("pretax", pretax),
                      ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)):
             is_[k][q] = v
 

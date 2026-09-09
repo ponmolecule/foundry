@@ -141,6 +141,11 @@ def main():
     ndcomp=(rr.get("nie_detail_series") or {}).get("comp") or []
     ck("public NIE detail compensation reflects resolved contingent workforce, not a zero placeholder",
        len(ndcomp)>=4 and ndcomp[:2]==[0.0,0.0] and abs(ndcomp[2]-10.0)<1e-9, str(ndcomp[:4]))
+    isf=rr["financials"]["is"]
+    ck("Income Statement surfaces workforce compensation separately from other operating expense",
+       len(isf.get("workforceComp") or [])>=4 and isf["workforceComp"][:2]==[0.0,0.0]
+       and abs(isf["workforceComp"][2]-10.0)<1e-9
+       and all(abs((isf["workforceComp"][i]+isf["otherOpex"][i]+isf["depreciationExpense"][i])-isf["overhead"][i])<1e-9 for i in range(4)))
 
     # The canonical architecture does not require any Fee Product at all.  Workforce can
     # observe the Customer Acquisition AUC Series directly by stable Series ID.
