@@ -185,6 +185,15 @@ def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None):
     """
     behavior = (rt or {}).get("behavior") or "flat"
     rp = (rt or {}).get("params") or {}
+    if behavior == "cost_recovery":
+        # Dimensionless markup on a native-period cost flow.  This is deliberately a
+        # level path, not an annualized fee rate and not a natural-period coefficient.
+        # ``markup_pct`` is accepted as the compact scalar form; new UI authoring uses
+        # the Series-capable ``markup`` object.
+        if rp.get("markup") is not None:
+            return _fee_level_path_value(
+                rp.get("markup"), q, ppy, ctx, rp.get("markup_pct") or 0.0)
+        return float(rp.get("markup_pct") or 0.0)
     if rp.get("rate_path") is not None:
         if behavior != "flat":
             raise ValueError("fee rate_path requires rate.behavior='flat'")
@@ -223,9 +232,9 @@ def _apply_tiers(tiers, base_qty):
 
 
 _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
-_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate"}
+_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
-_FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped"}
+_FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
 _FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 
@@ -462,7 +471,7 @@ def _validate_fee_stream_shape(stream):
     # but silently ignored by the basis-specific calculation below.
     allowed_rate_behaviors = {
         "balance": {"flat", "annual_change", "scheduled", "tiered"},
-        "transaction": {"flat", "tiered", "durbin_capped"},
+        "transaction": {"flat", "tiered", "durbin_capped", "cost_recovery"},
         "account": {"flat"},
         "flat": {"flat"},
         "event": {"flat"},
@@ -473,6 +482,60 @@ def _validate_fee_stream_shape(stream):
     ck = cost.get("kind") or "none"
     if ck not in _FEE_COST_KINDS:
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
+    if src == "cost_pool":
+        if basis != "transaction":
+            raise ValueError("fee cost_pool source is supported only on transaction basis")
+        if traj != "flat":
+            raise ValueError("fee cost_pool source follows its native-period flow and requires driver.trajectory='flat'")
+        if not str(drv.get("ref") or "").strip():
+            raise ValueError("fee cost_pool source requires driver.ref")
+        if rb != "cost_recovery":
+            raise ValueError("fee cost_pool source requires rate.behavior='cost_recovery'")
+    if rb == "cost_recovery":
+        if basis != "transaction" or src != "cost_pool":
+            raise ValueError("fee rate behavior 'cost_recovery' requires transaction basis with driver.source='cost_pool'")
+        if ck != "none":
+            raise ValueError("cost_recovery streams must use cost.kind='none'; linked source expenses are observational and already posted upstream")
+        try:
+            recovery = float((rt.get("params") or {}).get("recovery_pct") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("cost_recovery requires numeric recovery_pct")
+        if recovery < 0.0 or recovery > 1.0:
+            raise ValueError("cost_recovery recovery_pct must be between 0 and 1")
+        crp = rt.get("params") or {}
+        try:
+            scalar_markup = float(crp.get("markup_pct") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("cost_recovery markup_pct must be numeric")
+        if scalar_markup < -1.0:
+            raise ValueError("cost_recovery markup_pct must be >= -1")
+        if crp.get("markup") is not None:
+            mp = dict(crp.get("markup") or {})
+            mtraj = str(mp.get("trajectory") or "flat").strip().lower()
+            if mtraj not in {"flat", "growth", "explicit_schedule"}:
+                raise ValueError(f"unsupported cost_recovery markup trajectory: {mtraj!r}")
+            try:
+                mval = float(mp.get("value") or 0.0)
+            except (TypeError, ValueError):
+                raise ValueError("cost_recovery markup value must be numeric")
+            if mval < -1.0:
+                raise ValueError("cost_recovery markup value must be >= -1")
+            if mtraj == "growth" and not mp.get("growth_spec"):
+                raise ValueError("cost_recovery markup growth trajectory requires growth_spec")
+            if mtraj == "explicit_schedule":
+                if str(mp.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+                    raise ValueError(f"unsupported cost_recovery markup period: {mp.get('period')!r}")
+                if str(mp.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
+                    raise ValueError(f"unsupported cost_recovery markup resolution: {mp.get('resolution')!r}")
+                sched = mp.get("schedule")
+                if not isinstance(sched, dict) or not sched:
+                    raise ValueError("cost_recovery explicit markup requires at least one schedule value")
+                try:
+                    vals = [float(v) for v in sched.values()]
+                except (TypeError, ValueError):
+                    raise ValueError("cost_recovery markup schedule values must be numeric")
+                if any(v < -1.0 for v in vals):
+                    raise ValueError("cost_recovery markup schedule values must be >= -1")
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
     if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
@@ -607,15 +670,16 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     """One fee stream's NET income for engine period q ($). Full six-axis GUT evaluator.
 
     Axis 1 Basis:        balance | transaction | account | flat | event
-    Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate
+    Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate | cost_pool
     Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
-    Axis 4 Rate:          flat | annual_change | scheduled | tiered
+    Axis 4 Rate:          flat | annual_change | scheduled | tiered | durbin_capped | cost_recovery
     Axis 5 Timing:        start_period | end_period | ramp_in_periods
     Axis 6 Cost:          none | per_unit | pct_of_revenue | pct_of_revenue_opex
 
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
-    quantity of already-evaluated streams, for stream_ref), and bank_aggregate (map: e.g.
-    total_deposits/total_assets, prior-quarter to avoid circularity).
+    quantity of already-evaluated streams, for stream_ref), bank_aggregate (map: e.g.
+    total_deposits/total_assets, prior-quarter to avoid circularity), and cost_pool
+    (map: stable pool ID -> native-period eligible expense flow).
     Unsupported basis/source/trajectory/rate/cost values fail closed with ValueError.
     """
     if not stream:
@@ -663,6 +727,12 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         if src == "bank_aggregate":
             ref = drv.get("ref")
             return float(((ctx or {}).get("bank_aggregate") or {}).get(ref) or 0.0)
+        if src == "cost_pool":
+            ref = str(drv.get("ref") or "").strip()
+            pools = (ctx or {}).get("cost_pool") or {}
+            if not ref or ref not in pools:
+                raise ValueError(f"fee cost_pool source {ref!r} is unavailable in evaluator context")
+            return float(pools[ref] or 0.0)
         return base  # constant
 
     sb = _source_base()
@@ -678,7 +748,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         else:
             qty = base
     else:
-        # sourced quantity (own_balance/managed_notional/stream_ref/bank_aggregate)
+        # sourced quantity (own_balance/managed_notional/stream_ref/bank_aggregate/cost_pool)
         if traj == "derived":
             # Explicit natural-period coefficient = FLOW semantics (e.g. 4 turns / Year,
             # 24% of AUC / Year), periodized BEFORE a transaction fee/spread is applied.
@@ -718,7 +788,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         else:
             gross = qty * eff_rate / float(ppy)
     elif basis == "transaction":
-        if eff_rate is None:
+        if (rt.get("behavior") or "flat") == "cost_recovery":
+            recovery = float(rate_params.get("recovery_pct") or 0.0)
+            markup = float(eff_rate or 0.0)
+            gross = qty * recovery * (1.0 + markup)
+        elif eff_rate is None:
             gross = _apply_tiers(rate_params.get("tiers"), qty)
         else:
             per_unit = float(rate_params.get("per_unit") or 0.0)

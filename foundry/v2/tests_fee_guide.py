@@ -42,9 +42,9 @@ def main():
             os.environ["FOUNDRY_DATA_DIR"]=td
             key,source=resolve_anthropic_api_key()
             ck("Guide Me retains co-located config.settings fallback", key=="settings-key" and source=="config.settings")
-            store_anthropic_api_key("sk-ant-test-server-key-1234567890")
+            store_anthropic_api_key("anthropic-test-server-key-1234567890")
             keyf,sourcef=resolve_anthropic_api_key()
-            ck("Guide Me reads persistent Foundry server secret", keyf=="sk-ant-test-server-key-1234567890" and sourcef=="foundry_secret_file")
+            ck("Guide Me reads persistent Foundry server secret", keyf=="anthropic-test-server-key-1234567890" and sourcef=="foundry_secret_file")
             mode=stat.S_IMODE(os.stat(anthropic_key_file_path()).st_mode)
             ck("Guide Me persistent secret is owner-only", mode==0o600, oct(mode))
             st=anthropic_config_status()
@@ -319,7 +319,7 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
         authmod.load_users=lambda: {"admin":{"admin":True},"deputy":{"deputy":True},"ordinary":{}}
         ck("privileged Foundry accounts may configure Guide Me", appmod._can_manage_fee_guide_secret("admin") and appmod._can_manage_fee_guide_secret("deputy"))
         ck("ordinary authenticated account cannot configure Guide Me", not appmod._can_manage_fee_guide_secret("ordinary"))
-        denied=appmod.v31_fee_guide_configure({"api_key":"sk-ant-test-server-key-1234567890"}, user="ordinary")
+        denied=appmod.v31_fee_guide_configure({"api_key":"anthropic-test-server-key-1234567890"}, user="ordinary")
         ck("configuration endpoint rejects ordinary account", getattr(denied,"status_code",None)==403)
     finally:
         appmod.USER=saved_user; authmod.load_users=saved_loader

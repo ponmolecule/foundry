@@ -84,6 +84,34 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
             for q in range(1, n + 1)]
 
 
+def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int,
+                                   ppy: int = 4, *, growth_context=None,
+                                   default_payroll_load_rate: float = 0.0,
+                                   default_salary_growth_spec: Mapping[str, Any] | None = None) -> list[float]:
+    """Resolve one role/population's native-period payroll expense flow.
+
+    This is the observational cross-module seam used by cost pools.  It intentionally
+    composes Count × annual compensation × payroll load and periodizes once, exactly as
+    the Workforce runtime does.  Metric-triggered roles fail closed here because a fee
+    sourced from payroll can itself affect financial metrics used to activate Workforce;
+    that feedback loop needs an explicit dependency design before it can be supported.
+    """
+    row = dict(role or {})
+    if row.get("activation"):
+        raise ValueError(
+            "cost pools cannot link to a metric-triggered workforce role expense; "
+            "use a fixed/entered activation window or break the circular dependency")
+    wf = {
+        "mode": "roles",
+        "default_payroll_load_rate": float(default_payroll_load_rate or 0.0),
+        "default_salary_growth_spec": dict(default_salary_growth_spec or {
+            "rate": 0.0, "period": "year", "method": "step", "anchor": "hire_anniversary"
+        }),
+        "roles": [row],
+    }
+    return workforce_comp_series(wf, int(n_periods), int(ppy), growth_context=growth_context)
+
+
 class WorkforceRuntime:
     """Stateful workforce resolver used by the engine period-by-period.
 

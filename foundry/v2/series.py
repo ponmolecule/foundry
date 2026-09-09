@@ -114,7 +114,7 @@ def normalize_series_spec(spec: Mapping[str, Any] | None, *, default_value: floa
 
 def _default_link_aggregation(kind: str) -> str:
     # Expense/spend is a flow; workforce count is a level/population.
-    if kind == "operating_expense_category":
+    if kind in {"operating_expense_category", "workforce_role_expense"}:
         return "sum"
     if kind == "workforce_role_count":
         return "average"
@@ -210,10 +210,10 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                           n_periods: int, ppy: int = 4, *, context=None, _stack=None) -> list[float]:
     """Resolve a whitelisted cross-module link.
 
-    Links are intentionally narrow and causal.  CAC may consume static Operating Expense
-    category flows or fixed/entered Workforce count levels.  Metric-triggered workforce
-    counts are rejected because CAC can itself drive metrics/AUC used by those triggers,
-    which would introduce a circular dependency.
+    Links are intentionally narrow and causal. CAC may consume static Operating Expense
+    category flows or fixed/entered Workforce count levels; cost pools may also observe
+    fixed-start Workforce expense flows. Metric-triggered workforce links are rejected
+    where downstream economics can feed the same metrics and create circularity.
     """
     kind = str(link.get("kind") or "").strip()
     ident = str(link.get("series_id") or link.get("name") or "").strip()
@@ -236,6 +236,24 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                 "CAC cannot link to a metric-triggered workforce count; use a fixed/entered count path "
                 "or break the circular dependency")
         return workforce_role_count_series(row, int(n_periods), int(ppy), growth_context=context)
+    if kind == "workforce_role_expense":
+        from .workforce import workforce_role_expense_series
+        wf = nd.get("workforce") or {}
+        sid = str(link.get("series_id") or "").strip()
+        name = str(link.get("name") or "").strip()
+        rows = wf.get("roles") or []
+        if sid:
+            hits = [r for r in rows if str((r or {}).get("expense_series_id") or "").strip() == sid]
+        else:
+            hits = [r for r in rows if str((r or {}).get("role") or "").strip() == name]
+        if len(hits) != 1:
+            ident = sid or name
+            raise ValueError(
+                f"linked {kind} series {ident!r} resolved to {len(hits)} matches; expected exactly one")
+        return workforce_role_expense_series(
+            hits[0], int(n_periods), int(ppy), growth_context=context,
+            default_payroll_load_rate=float(wf.get("default_payroll_load_rate") or 0.0),
+            default_salary_growth_spec=wf.get("default_salary_growth_spec"))
     raise ValueError(f"unsupported Foundry linked-series kind {kind!r}")
 
 

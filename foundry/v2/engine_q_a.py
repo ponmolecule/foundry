@@ -424,8 +424,17 @@ def run_pf_a(cfg):
                                  durbin_effective_rate, _g,
                                  managed_notional_series)
     from .cac_feeder import cac_managed_notional, cac_auc_rollforward
+    from .cost_pools import cost_pool_series_map
     from .activation import managed_notional_source_catalog, resolve_managed_notional_source
     from .regparams import REG_PARAMS as _RP
+    # Cost pools are observational native-period expense flows. Resolve them once from
+    # their upstream Opex/Workforce owners and pass only the current-period quantity into
+    # fee streams; no expense is posted here or by the downstream fee link.
+    _cost_pool_series = cost_pool_series_map(a, Q, ppy, growth_context=_growth_ctx)
+
+    def _cost_pool_ctx(period):
+        qi = int(period) - 1
+        return {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()}
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor
@@ -556,6 +565,7 @@ def run_pf_a(cfg):
             p["_ie"].append(avg * r / ppyf if p in dep else 0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "managed_notional": _mn_avg[q - 1],
+                                                            "cost_pool": _cost_pool_ctx(q),
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
@@ -664,6 +674,7 @@ def run_pf_a(cfg):
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            "cost_pool": _cost_pool_ctx(q),
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
