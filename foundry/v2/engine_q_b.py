@@ -51,6 +51,11 @@ def run_pf_b(cfg):
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a, 4, _growth_ctx)
+    from .opex_extensions import linked_component_amount
+    _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
+    _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
+    _occ_half_amt = 0.0
+    _occ_signed_balance = 0.0
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
     # quarters, then matures to zero; full-quarter interest on outstanding principal,
     # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
@@ -115,9 +120,9 @@ def run_pf_b(cfg):
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
 
-    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end):
+    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0):
         uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
-        liquid = dep_end + other_liab + equity_end - uses
+        liquid = dep_end + other_liab + float(extra_liab or 0.0) + equity_end - uses
         borrow = 0.0
         if liquid < 0:
             borrow = -liquid
@@ -134,7 +139,7 @@ def run_pf_b(cfg):
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
                               "deposits", "borrowings", "equity", "retained", "aoci",
                               "paidIn", "premises", "premisesGross", "premisesAccumDep",
-                              "borrowSched", "totalAssets")}
+                              "borrowSched", "prepaidOpex", "accruedOpex", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
                               "provision", "fees", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
@@ -161,14 +166,30 @@ def run_pf_b(cfg):
             _pa = prev_assets
             _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]
             _pa_d = _pa if qi == 0 else out_bs["totalAssets"][qi - 1]
-            _fdic = max(0.0, _pa_d - _te) * _RP["assessments"]["fdic_bp_ann"] / 10000.0 / 4.0
-            _occ = _pa_d * _RP["assessments"]["occ_bp_ann"] / 10000.0 / 4.0
-            _sub = _nie_d["comp"][qi] + _nie_d["categories"][qi] + _fdic + _occ + _dep_exp[qi] + opex_prod
+            _fdic_bp = (_nie_d.get("fdic_bp_ann") if _nie_d.get("fdic_bp_ann") is not None
+                        else _RP["assessments"]["fdic_bp_ann"])
+            _occ_bp = (_nie_d.get("occ_bp_ann") if _nie_d.get("occ_bp_ann") is not None
+                       else _RP["assessments"]["occ_bp_ann"])
+            _fdic = max(0.0, _pa_d - _te) * float(_fdic_bp) / 10000.0 / 4.0
+            # Quarterly Profile B: Q1/Q2 share the Dec-31 semiannual assessment; Q3/Q4
+            # share the Jun-30 assessment. Payment occurs in Q1 (Mar) and Q3 (Sep).
+            if qi in (0, 2):
+                _occ_half_amt = _pa_d * float(_occ_bp) / 10000.0 / 2.0
+            _occ = _occ_half_amt / 2.0
+            _occ_cash = _occ_half_amt if qi in (0, 2) else 0.0
+            _occ_signed_balance += _occ_cash - _occ
+            _linked_opex = sum(linked_component_amount(
+                _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0})
+                for _lc in (_nie_d.get("linked_components") or []))
+            _sub = (_nie_d["comp"][qi] + _nie_d["categories"][qi] + _linked_opex
+                    + _fdic + _occ + _dep_exp[qi] + opex_prod)
             _r = _nie_d["gross_up_rate"]
             _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
             _workforce_comp = _nie_d["comp"][qi]
             _other_opex = _ovh_b - _workforce_comp - _depreciation_expense
         nie = opex_prod + _ovh_b
+        _prepaid_opex_q = (_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0) + max(0.0, _occ_signed_balance)
+        _accrued_opex_q = (_opex_static_acc[qi] if qi < len(_opex_static_acc) else 0.0) + max(0.0, -_occ_signed_balance)
 
         gl_end = sum(p["_end"][qi] for p in lend)
         chargeoffs = sum(p["_avg"][qi] * _ov(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0
@@ -195,9 +216,9 @@ def run_pf_b(cfg):
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
-        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"]
+        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"] + _prepaid_opex_q
         _ne_q[0] = qi + 1
-        c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end)
+        c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end, _accrued_opex_q)
         net_loans = gl_end - alll_end
         afs_end = s2 + sum(p["_end"][qi] for p in afs_p)
         htm_end = sum(p["_end"][qi] for p in htm_p)
@@ -213,7 +234,8 @@ def run_pf_b(cfg):
                      # user authored fixed assets in Simple or schedule mode.
                      ("premisesGross", _prem_gross_t[qi + 1]),
                      ("premisesAccumDep", _prem_accum_t[qi + 1]),
-                     ("borrowSched", _sched_t[qi + 1]), ("totalAssets", total_assets)):
+                     ("borrowSched", _sched_t[qi + 1]), ("prepaidOpex", _prepaid_opex_q),
+                     ("accruedOpex", _accrued_opex_q), ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),

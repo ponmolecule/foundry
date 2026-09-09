@@ -169,6 +169,11 @@ def main():
         cfg = json.loads(Path("foundry/fixtures/parity/configs/pf_a_base.json").read_text())
         aa = cfg["assumptions"]
         aa.update(_assumptions(ppy, ppy))
+        # Isolate the observational cost-pool contract from balance-sheet-sensitive
+        # regulatory assessments: fee income legitimately changes assets, which can
+        # change FDIC/OCC assessments without re-posting the linked upstream expense.
+        aa["nie_detail"]["fdic_bp_ann"] = 0.0
+        aa["nie_detail"]["occ_bp_ann"] = 0.0
         aa["obs_exposures"] = []
         base = copy.deepcopy(cfg)
         aa["obs_exposures"] = [{

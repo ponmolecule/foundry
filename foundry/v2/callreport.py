@@ -35,6 +35,8 @@ RESULT_CODES_BS = {
     # no regulatory schedule/code rather than fabricating an FFIEC mapping.
     "premisesGross":    ("—", "detail", "—", "Premises and fixed assets, gross (presentation detail)"),
     "premisesAccumDep": ("—", "detail", "—", "Accumulated depreciation (presentation detail)"),
+    "prepaidOpex": ("RC", "11", "RCON2160", "Prepaid operating expenses (included in other assets)"),
+    "accruedOpex": ("RC", "20", "RCON2930", "Accrued operating expenses (included in other liabilities)"),
     "borrowSched": ("RC", "16",   "RCON3190",      "Other borrowed money (scheduled FHLB/term draws)"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
 }
@@ -177,8 +179,10 @@ def build_rc(res, cfg):
     prem = (bs.get("premises") if bs.get("premises")
              else [a.get("premises_equipment", 0) / 1000.0] * n)
     intang = [a.get("intangibles", 0) / 1000.0] * n
-    oa = [a.get("other_assets", 0) / 1000.0] * n
-    ol = [a.get("other_liabilities", 0) / 1000.0] * n
+    _pre = bs.get("prepaidOpex") or [0.0] * n
+    _acc = bs.get("accruedOpex") or [0.0] * n
+    oa = [a.get("other_assets", 0) / 1000.0 + (_pre[i] or 0.0) / 1000.0 for i in range(n)]
+    ol = [a.get("other_liabilities", 0) / 1000.0 + (_acc[i] or 0.0) / 1000.0 for i in range(n)]
     rows = [
         _row("1", "RCON0081/0071", "Cash and balances due from depository institutions", bs["cash"]),
         _row("2.a", "RCONJJ34", "Held-to-maturity securities (amortized cost)",

@@ -1202,10 +1202,14 @@ def run_v2(cfg):
                                                     if _wf_comp is not None
                                                     else [round(x / 1000.0, 2) for x in nd_s["comp"]]),
                                           "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
+                                          "linked_component_count": len(nd_s.get("linked_components") or []),
+                                          "prepaid_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("prepaidOpex") or [])],
+                                          "accrued_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("accruedOpex") or [])],
                                           "gross_up_rate": nd_s["gross_up_rate"],
-                                          "note": ("FDIC on avg consolidated assets − avg tangible "
-                                                    "equity (12 USC 1817(b)(2)(A), D-P14 fix) + OCC "
-                                                    "on assets, accrued in-engine")}
+                                          "note": ("FDIC on avg consolidated assets − avg tangible equity; "
+                                                    "OCC uses the entered annualized bp rate on Dec/Jun asset bases, "
+                                                    "recognized over each covered half-year and settled Mar/Sep. "
+                                                    "Custom Opex settlement differences surface as prepaid/accrued balances")}
     results["engagement_echo"] = {
         "client": cfg.get("client_legal_name") or cfg.get("proposed_bank") or "(unnamed)",
         "engagement_id": cfg.get("engagement_id"),

@@ -66,9 +66,36 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # growth_per_period. Legacy per_quarter/growth_q retain their calendar-quarter
     # meaning and are converted to the selected cadence.
     _catlist = nd.get("categories") or []
-    cats = [float(sum(nie_category_series(c, Q, ppy, growth_context=growth_context)[i]
-                      for c in _catlist)) for i in range(Q)]
-    return {"comp": comp, "categories": cats,
+    _cat_series = [nie_category_series(c, Q, ppy, growth_context=growth_context) for c in _catlist]
+    cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
+
+    # Optional advanced Opex mechanics.  Primary category recognition remains the normal
+    # flow_spec/legacy path above. Linked components are evaluated later in the engine after the
+    # whitelisted upstream revenue metrics for that period are known. Custom settlement is limited
+    # to the pre-resolvable entered category path; a linked revenue component with prepaid/accrual
+    # timing would require forecasting a future endogenous driver and therefore fails closed.
+    from .opex_extensions import resolve_linked_components, resolve_settlement, normalize_settlement
+    _linked = []
+    _sett_pre = [0.0] * Q
+    _sett_acc = [0.0] * Q
+    _sett_cash = [0.0] * Q
+    for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
+        _lc = resolve_linked_components(_c, Q, ppy, context=growth_context)
+        _sett = normalize_settlement(_c.get("settlement"))
+        if _lc and _sett["mode"] not in {"recognition", "monthly"}:
+            raise ValueError(
+                f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom settlement "
+                "cannot be combined with linked revenue components; use settlement=recognition")
+        if _lc:
+            _linked.extend({**x, "category_index": _ci} for x in _lc)
+        _sr = resolve_settlement(_arr, _sett, ppy, context=growth_context)
+        for _i in range(Q):
+            _sett_pre[_i] += _sr["prepaid"][_i]
+            _sett_acc[_i] += _sr["accrued"][_i]
+            _sett_cash[_i] += _sr["cash"][_i]
+    return {"comp": comp, "categories": cats, "linked_components": _linked,
+             "settlement_prepaid": _sett_pre, "settlement_accrued": _sett_acc,
+             "settlement_cash": _sett_cash,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
              # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
              # the REG_PARAMS default, so an untouched config's assessments are byte-identical.
