@@ -1,6 +1,8 @@
 import copy, json, sys
 from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
-                                          normalize_linked_component, linked_component_amount)
+                                          normalize_linked_component, linked_component_amount,
+                                          effective_opex_commencement)
+from foundry.v2.income_modules import nie_category_series
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
 from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
@@ -45,12 +47,32 @@ def main():
     ctx_base=resolve_recognition(econ, {'mode':'annual','first_period':3}, 12,
                                  context=GrowthContext(2026,1))
     ck('ordinal recognition is invariant to client-calendar start month/year', ctx_shift==ctx_base)
-    long_econ=[10_000.0]*36
-    late=resolve_recognition(long_econ, {'mode':'annual','first_period':15}, 12,
+    long_econ=[10_000.0]*60
+    late=resolve_recognition(long_econ, {'mode':'annual','first_period':35}, 12,
                              context=GrowthContext(2026,1))
-    ck('first recognition period is not capped to M12',
-       late[:12]==[10_000.0]*12 and late[14]==120_000.0 and sum(late[12:24])==120_000.0
-       and late[26]==120_000.0)
+    ck('late first recognition is literal and not capped to M12',
+       sum(late[:34])==0 and late[34]==120_000.0 and late[46]==120_000.0)
+    late_cat={'name':'Late annual expense',
+              'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year'},
+              'recognition':{'mode':'annual','first_period':35}}
+    ck('r59 late first-recognition config infers economic commencement at M35',
+       effective_opex_commencement(late_cat,12)==35)
+    late_econ=nie_category_series(late_cat,60,12,growth_context=GrowthContext(2026,1))
+    ck('inferred M35 commencement zeros economic trajectory before M35',
+       sum(late_econ[:34])==0 and late_econ[34]==10_000.0 and late_econ[45]==10_000.0)
+    phased_cat={'name':'Late phased annual expense',
+                'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year','start_period':25},
+                'recognition':{'mode':'annual','first_period':35}}
+    phased_econ=nie_category_series(phased_cat,48,12,growth_context=GrowthContext(2026,1))
+    phased=resolve_recognition(phased_econ,phased_cat['recognition'],12,start_period=25)
+    ck('explicit commencement M25 supports first annual recognition M35 within that cycle',
+       sum(phased[:34])==0 and phased[34]==120_000.0 and phased[46]==120_000.0)
+    try:
+        resolve_recognition([10_000.0]*48, {'mode':'annual','first_period':35}, 12, start_period=1)
+        bad_phase=False
+    except ValueError:
+        bad_phase=True
+    ck('explicit M1 commencement fails closed when first annual recognition is M35', bad_phase)
 
     # Generic settlement math on model-period ordinals.
     rec=[10_000.0]*12

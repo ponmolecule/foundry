@@ -64,6 +64,14 @@ def main():
         a=resolve_periodic_flow(ex_y,n,ppy); b=resolve_periodic_flow(ex_q,n,ppy); c=resolve_periodic_flow(ex_m,n,ppy)
         ck(f"explicit annual/quarter/month flow schedules reconcile at ppy={ppy}", a==b==c)
 
+    late_flat=resolve_periodic_flow({"trajectory":"flat","value":120_000,"period":"year","start_period":35},60,12)
+    ck("recurring-flow commencement M35 is literal",
+       sum(late_flat[:34])==0 and late_flat[34:46]==[10_000.0]*12)
+    late_explicit=resolve_periodic_flow({"trajectory":"explicit","period":"year","values":[120_000,240_000],"start_period":35},60,12)
+    ck("explicit annual schedule starts at authored M35 rather than model M1",
+       sum(late_explicit[:34])==0 and late_explicit[34:46]==[10_000.0]*12
+       and late_explicit[46:58]==[20_000.0]*12)
+
     # Legacy fallback remains exact: no flow_spec means native-engine-period semantics.
     legacy={"per_period":30_000,"trajectory":"growth","growth_spec":gs_step}
     lg=nie_category_series(legacy,24,12)
