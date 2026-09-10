@@ -79,6 +79,14 @@ def validate_periodic_flow_spec(spec: Mapping[str, Any] | None, *, ppy: int = 4,
         raise ValueError(f"unsupported recurring-flow trajectory {traj!r}")
     period = normalize_period(raw.get("period"))
     out = {"trajectory": traj, "period": period}
+    if raw.get("start_period") is not None:
+        try:
+            start_period = int(raw.get("start_period"))
+            if float(raw.get("start_period")) != float(start_period) or start_period < 1:
+                raise ValueError
+        except (TypeError, ValueError):
+            raise ValueError("recurring-flow start_period must be a positive integer model-period ordinal")
+        out["start_period"] = start_period
     if traj == "explicit":
         vals = raw.get("values")
         if vals is None:
@@ -114,17 +122,25 @@ def resolve_periodic_flow(spec: Mapping[str, Any] | None, n_periods: int, ppy: i
     ppy = int(ppy)
     width = _months_per_engine_period(ppy)
     n_months = n * width
+    start_period = int(s.get("start_period") or 1)
+    start_month = (start_period - 1) * width + 1
+    if start_month > n_months:
+        return [0.0] * n
 
     if s["trajectory"] == "explicit":
-        months = _explicit_months(s["values"], s["period"], n_months)
-        return _aggregate_months(months, n, ppy)
+        active_months = _explicit_months(s["values"], s["period"], n_months - start_month + 1)
+        months = [0.0] * (start_month - 1) + active_months
+        return _aggregate_months(months[:n_months], n, ppy)
 
     base_month = monthly_equivalent(s["value"], s["period"])
+    months = [0.0] * n_months
     if s["trajectory"] == "flat":
-        months = [base_month] * n_months
+        for m in range(start_month - 1, n_months):
+            months[m] = base_month
     else:
         gs = s["growth_spec"]
-        months = [base_month * growth_multiplier(
-            gs, current_period=m, start_period=1, ppy=12,
-            context=context, base_position="period1") for m in range(1, n_months + 1)]
+        for m in range(start_month, n_months + 1):
+            months[m - 1] = base_month * growth_multiplier(
+                gs, current_period=m, start_period=start_month, ppy=12,
+                context=context, base_position="period1")
     return _aggregate_months(months, n, ppy)

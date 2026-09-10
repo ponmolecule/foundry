@@ -135,6 +135,11 @@ def _timing_interval(mode: str, ppy: int) -> int:
     return max(1, ppy // per_year)
 
 
+def timing_interval(mode: str, ppy: int) -> int:
+    """Public ordinal recurrence interval helper for validators and UI-adjacent tests."""
+    return _timing_interval(str(mode), int(ppy))
+
+
 def _legacy_month_to_engine_period(month: int, ppy: int) -> int:
     """Compatibility bridge for r53-r58 calendar-shaped timing specs.
 
@@ -169,6 +174,30 @@ def _first_period_from_spec(s: Mapping[str, Any], mode: str, ppy: int, *, settle
         vals = list(s.get(many) or [])
         if vals:
             return _legacy_month_to_engine_period(int(vals[0]), ppy)
+    return 1
+
+
+def effective_opex_commencement(category: Mapping[str, Any] | None, ppy: int = 12) -> int:
+    """Return the category's economic commencement as a native model-period ordinal.
+
+    New configs may author ``flow_spec.start_period`` explicitly.  For r59 configs that used a
+    late ``recognition.first_period`` without a separate commencement, preserve the user's literal
+    intent by treating a first recognition beyond the first recurrence cycle as an implied
+    commencement at that same period.  Ordinary first-year phases (for example annual at M3)
+    continue to mean a model-year phase and therefore commence at M1.
+    """
+    c = dict(category or {})
+    fs = dict(c.get("flow_spec") or {})
+    if fs.get("start_period") is not None:
+        start = int(fs.get("start_period"))
+        if start < 1:
+            raise ValueError("Opex flow_spec.start_period must be >= 1")
+        return start
+    r = normalize_recognition(c.get("recognition"), int(ppy))
+    if r["mode"] not in {"trajectory", "monthly"}:
+        interval = _timing_interval(r["mode"], int(ppy))
+        if int(r["first_period"]) > interval:
+            return int(r["first_period"])
     return 1
 
 
@@ -221,18 +250,55 @@ def _rebucket_ordinal(values: list[float], mode: str, first_period: int, ppy: in
     return out
 
 
+def _rebucket_recognition(values: list[float], mode: str, first_period: int, ppy: int,
+                            *, start_period: int) -> list[float]:
+    """Rebucket economic expense cycles anchored to their literal commencement.
+
+    ``start_period`` is when the economic expense begins. ``first_period`` is the first P&L
+    recognition event and must fall inside that first recurrence cycle.  Each following cycle is
+    recognized at the same ordinal offset.  Nothing is recognized before commencement or before
+    the first recognition event.
+    """
+    arr = [float(x or 0.0) for x in values]
+    interval = _timing_interval(mode, int(ppy))
+    start = int(start_period)
+    first = int(first_period)
+    if start < 1:
+        raise ValueError("Opex recognition commencement must be >= 1")
+    if first < start or first >= start + interval:
+        raise ValueError(
+            f"Opex recognition first_period={first} must fall in the first {mode} cycle "
+            f"starting at period {start} (allowed {start}..{start + interval - 1})")
+    out = [0.0] * len(arr)
+    phase = first - start
+    for lo in range(start - 1, len(arr), interval):
+        hi = min(len(arr), lo + interval)
+        event = lo + phase
+        if event >= hi:
+            continue
+        out[event] = float(sum(arr[lo:hi]))
+    return out
+
+
 def resolve_recognition(economic: list[float], recognition: Mapping[str, Any] | None,
-                        ppy: int, *, context=None) -> list[float]:
+                        ppy: int, *, context=None, start_period=None) -> list[float]:
     """Rebucket an economic Opex trajectory into ordinal recognition events.
 
     ``context`` is accepted for call-site compatibility but deliberately ignored: generic Opex
-    recognition is based on M1/Q1-style model ordinals, not calendar months.
+    recognition is based on M1/Q1-style model ordinals, not calendar months.  ``start_period``
+    identifies economic commencement.  When absent, an r59-style late first recognition (beyond
+    the first recurrence interval) is migrated by inferring commencement at that first event.
     """
     r = normalize_recognition(recognition, int(ppy))
     econ = [float(x or 0.0) for x in economic]
     if r["mode"] in {"trajectory", "monthly"}:
         return econ[:]
-    return _rebucket_ordinal(econ, r["mode"], r["first_period"], int(ppy))
+    interval = _timing_interval(r["mode"], int(ppy))
+    if start_period is None:
+        start = int(r["first_period"]) if int(r["first_period"]) > interval else 1
+    else:
+        start = int(start_period)
+    return _rebucket_recognition(econ, r["mode"], r["first_period"], int(ppy), start_period=start)
 
 
 def normalize_settlement(spec: Mapping[str, Any] | None, ppy: int = 12) -> dict:

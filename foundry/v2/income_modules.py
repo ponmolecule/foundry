@@ -73,9 +73,12 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # computed.  Endogenous linked components cannot yet be forecast across future recurrence
     # blocks, so custom recognition for those components fails closed below.
     from .opex_extensions import (resolve_linked_components, resolve_recognition,
-                                  normalize_recognition, resolve_settlement, normalize_settlement)
-    _cat_series = [resolve_recognition(arr, c.get("recognition"), ppy, context=growth_context)
-                   for c, arr in zip(_catlist, _cat_economic)]
+                                  normalize_recognition, resolve_settlement, normalize_settlement,
+                                  effective_opex_commencement)
+    _cat_starts = [effective_opex_commencement(c, ppy) for c in _catlist]
+    _cat_series = [resolve_recognition(arr, c.get("recognition"), ppy, context=growth_context,
+                                       start_period=start)
+                   for c, arr, start in zip(_catlist, _cat_economic, _cat_starts)]
     cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
 
     # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
@@ -135,7 +138,16 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
     c = c or {}
     if c.get("flow_spec") is not None:
         from .periodic_flows import resolve_periodic_flow
-        return resolve_periodic_flow(c.get("flow_spec"), Q, ppy, context=growth_context)
+        from .opex_extensions import effective_opex_commencement
+        fs = dict(c.get("flow_spec") or {})
+        # r59 allowed a late first-recognition ordinal without a separate commencement field.
+        # Infer the literal commencement for those configs, while an explicitly authored
+        # flow_spec.start_period always wins.
+        if fs.get("start_period") is None:
+            start = effective_opex_commencement(c, ppy)
+            if start > 1:
+                fs["start_period"] = start
+        return resolve_periodic_flow(fs, Q, ppy, context=growth_context)
 
     traj = c.get("trajectory") or "flat"
     if c.get("per_period") is not None:
