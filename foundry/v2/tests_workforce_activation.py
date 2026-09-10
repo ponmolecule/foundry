@@ -104,6 +104,21 @@ def main():
         split_bad=True
     ck("legacy display-name alias still fails closed when it genuinely names different AUC sources", split_bad)
 
+    manual_a={"obs_exposures":[{"name":"Fee product","managed_notional":{"series_id":"managed-auc-stable","day1":1}}]}
+    manual_catalog=managed_notional_source_catalog(manual_a)
+    manual_key=resolve_managed_notional_source("Fee product", manual_catalog)
+    manual_a["obs_exposures"][0]["name"]="Custody Fees"
+    renamed_catalog=managed_notional_source_catalog(manual_a)
+    renamed_ok=True
+    try:
+        validate_activation_rule({"metric":"managed_notional_end","source":manual_key,"operator":">=",
+                                  "reference":"fixed","value":1,"timing":"same_period"},
+                                 source_catalog=renamed_catalog)
+    except ValueError:
+        renamed_ok=False
+    ck("standalone Fee Product AUC keeps a stable activation identity across display-name edits",
+       manual_key=="managed-auc-stable" and renamed_ok)
+
     # End-to-end engine/API case on the actual named managed-notional product.
     from .run_q import run_v2
     cfg=json.loads(Path("foundry/fixtures/parity/configs/pf_a_base.json").read_text())

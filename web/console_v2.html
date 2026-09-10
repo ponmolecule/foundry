@@ -2622,7 +2622,7 @@ function prodCardHtml(fam, i){
   h += '</div>';
   h += pstat(p.name);
   h += `<div class="fields${isOpen(key) ? "" : " hidden"}">`;
-  h += `<div class="fld wide"><label>Name</label><input value="${esc(p.name)}" onchange="setPath('${base}.name', this.value)"></div>`;
+  h += `<div class="fld wide"><label>Name</label><input value="${esc(p.name)}" onchange="renameProduct('${fam}',${i},this.value)"></div>`;
   if(V31){
     // Classification is a fact of the product, not a menu (INPUT_SPEC P3).
     h += `<div class="fld wide"><label>Call Report line</label>`
@@ -3887,7 +3887,11 @@ function _aucTriggerSources(){
     const nm=String(p.name||"").trim(), sid=String(p.managed_notional_source_id||"").trim(), sn=String(p.managed_notional_source||"").trim();
     if(sid&&byKey[sid]){if(nm&&!byKey[sid].aliases.includes(nm))byKey[sid].aliases.push(nm);if(sn&&!byKey[sid].aliases.includes(sn))byKey[sid].aliases.push(sn);return;}
     if(sn){const hit=out.find(x=>x.aliases.includes(sn));if(hit){if(nm&&!hit.aliases.includes(nm))hit.aliases.push(nm);return;}}
-    if(p.managed_notional){const key=`managed-product:${pi}:${nm}`;out.push({key:key,label:nm||`Managed notional ${pi+1}`,aliases:nm?[nm]:[],kind:"managed_product"});}
+    if(p.managed_notional){
+      if(!p.managed_notional.series_id)p.managed_notional.series_id=_seriesId("managed-auc");
+      const legacy=`managed-product:${pi}:${nm}`,key=String(p.managed_notional.series_id||legacy);
+      const aliases=nm?[nm,legacy]:[legacy];out.push({key:key,label:nm||`Managed notional ${pi+1}`,aliases:aliases,kind:"managed_product"});
+    }
   });
   return out;
 }
@@ -3897,6 +3901,20 @@ function _aucTriggerKey(source){
   const hits=[...new Set(xs.filter(x=>(x.aliases||[]).includes(source)).map(x=>x.key))];
   return hits.length===1?hits[0]:source;
 }
+function _canonicalizeLegacyWorkforceAucTriggers(){
+  const roles=((((cfg||{}).assumptions||{}).nie_detail||{}).workforce||{}).roles||[];
+  const valid=new Set(_aucTriggerSources().map(x=>x.key));
+  roles.forEach(r=>{
+    const a=(r||{}).activation;if(!a||a.metric!=="managed_notional_end"||!a.source)return;
+    const key=_aucTriggerKey(a.source);if(valid.has(key))a.source=key;
+  });
+}
+window.renameProduct=function(fam,i,newName){
+  _canonicalizeLegacyWorkforceAucTriggers();
+  const arr=famArr(fam),p=arr&&arr[i];if(!p)return;
+  p.name=String(newName||"").trim();renderContent();refresh();
+};
+
 function _defaultActivation(metric,source){
   metric=metric||"managed_notional_end";
   const isMN=metric==="managed_notional_end", src=isMN?(source||((_aucTriggerSources()[0]||{}).key||"")):undefined;
