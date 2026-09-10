@@ -1,7 +1,7 @@
 import copy, json, sys
 from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
                                           normalize_linked_component, linked_component_amount,
-                                          effective_opex_commencement)
+                                          recognition_spec_for_category)
 from foundry.v2.income_modules import nie_category_series
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
@@ -23,7 +23,7 @@ def base_cfg(ppy=12):
     return c
 
 def main():
-    # Generic recognition timing: preserve the economic trajectory total but rebucket NIE.
+    # Generic recognition timing: first occurrence is literal and anchors recurrence.
     econ=[10_000.0]*12
     ann_rec=resolve_recognition(econ, {'mode':'annual','first_period':1}, 12,
                                 context=GrowthContext(2026,1))
@@ -31,16 +31,20 @@ def main():
        ann_rec[0]==120_000 and sum(ann_rec[1:])==0 and sum(ann_rec)==sum(econ))
     semi_rec=resolve_recognition(econ, {'mode':'semiannual','first_period':3}, 12,
                                  context=GrowthContext(2026,1))
-    ck('semiannual ordinal recognition at M3 repeats at M9',
-       semi_rec[2]==60_000 and semi_rec[8]==60_000 and sum(semi_rec)==120_000
-       and sum(x for i,x in enumerate(semi_rec) if i not in (2,8))==0)
+    ck('semiannual first recognition M3 anchors M3/M9 and nothing hits before M3',
+       semi_rec[:2]==[0,0] and semi_rec[2]==60_000 and semi_rec[8]==40_000
+       and sum(semi_rec)==100_000)
     qrec=resolve_recognition(econ, {'mode':'quarterly','first_period':3}, 12,
                               context=GrowthContext(2026,1))
-    ck('quarterly ordinal recognition at M3 repeats every three periods',
-       [qrec[i] for i in (2,5,8,11)]==[30_000]*4 and sum(qrec)==120_000)
+    ck('quarterly first recognition M3 repeats every three periods from M3',
+       [qrec[i] for i in (2,5,8,11)]==[30_000,30_000,30_000,10_000]
+       and sum(qrec[:2])==0 and sum(qrec)==100_000)
+    monthly_late=resolve_recognition(econ, {'mode':'monthly','first_period':4}, 12)
+    ck('monthly timing can also start literally after M1',
+       monthly_late[:3]==[0,0,0] and monthly_late[3:]==[10_000.0]*9)
     ann_q=resolve_recognition([30_000.0]*4, {'mode':'annual','first_period':1}, 4,
                               context=GrowthContext(2026,1))
-    ck('quarterly engine annual recognition preserves same 120k economics',
+    ck('quarterly engine annual recognition preserves same 120k economics from Q1',
        ann_q==[120_000,0,0,0])
     ctx_shift=resolve_recognition(econ, {'mode':'annual','first_period':3}, 12,
                                   context=GrowthContext(2031,8))
@@ -50,29 +54,29 @@ def main():
     long_econ=[10_000.0]*60
     late=resolve_recognition(long_econ, {'mode':'annual','first_period':35}, 12,
                              context=GrowthContext(2026,1))
-    ck('late first recognition is literal and not capped to M12',
-       sum(late[:34])==0 and late[34]==120_000.0 and late[46]==120_000.0)
-    late_cat={'name':'Late annual expense',
-              'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year'},
-              'recognition':{'mode':'annual','first_period':35}}
-    ck('r59 late first-recognition config infers economic commencement at M35',
-       effective_opex_commencement(late_cat,12)==35)
-    late_econ=nie_category_series(late_cat,60,12,growth_context=GrowthContext(2026,1))
-    ck('inferred M35 commencement zeros economic trajectory before M35',
-       sum(late_econ[:34])==0 and late_econ[34]==10_000.0 and late_econ[45]==10_000.0)
-    phased_cat={'name':'Late phased annual expense',
-                'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year','start_period':25},
-                'recognition':{'mode':'annual','first_period':35}}
-    phased_econ=nie_category_series(phased_cat,48,12,growth_context=GrowthContext(2026,1))
-    phased=resolve_recognition(phased_econ,phased_cat['recognition'],12,start_period=25)
-    ck('explicit commencement M25 supports first annual recognition M35 within that cycle',
-       sum(phased[:34])==0 and phased[34]==120_000.0 and phased[46]==120_000.0)
-    try:
-        resolve_recognition([10_000.0]*48, {'mode':'annual','first_period':35}, 12, start_period=1)
-        bad_phase=False
-    except ValueError:
-        bad_phase=True
-    ck('explicit M1 commencement fails closed when first annual recognition is M35', bad_phase)
+    ck('Annual + first recognition M35 means M35/M47/M59 with nothing before M35',
+       sum(late[:34])==0 and late[34]==120_000.0 and late[46]==120_000.0
+       and late[58]==20_000.0 and sum(late[35:46])==0)
+
+    # r60 compatibility: remove the short-lived separate commencement axis without losing intent.
+    legacy_r60={'name':'Legacy delayed monthly expense',
+                'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year','start_period':35},
+                'recognition':{'mode':'trajectory'}}
+    migrated=recognition_spec_for_category(legacy_r60,12)
+    ck('r60 Expense begins M35 migrates to Monthly first recognition M35',
+       migrated=={'mode':'monthly','first_period':35})
+    legacy_custom={'name':'Legacy annual expense',
+                   'flow_spec':{'trajectory':'flat','value':120_000.0,'period':'year','start_period':25},
+                   'recognition':{'mode':'annual','first_period':35}}
+    migrated_custom=recognition_spec_for_category(legacy_custom,12)
+    ck('r60 start_period cannot override an explicitly authored first recognition',
+       migrated_custom=={'mode':'annual','first_period':35})
+    legacy_econ=nie_category_series(legacy_custom,48,12,growth_context=GrowthContext(2026,1))
+    ck('r61 economic trajectory ignores removed r60 start_period axis',
+       legacy_econ[:12]==[10_000.0]*12)
+    legacy_rec=resolve_recognition(legacy_econ,migrated_custom,12)
+    ck('legacy custom annual timing now follows the simple M35/M47 contract',
+       sum(legacy_rec[:34])==0 and legacy_rec[34]==120_000.0 and legacy_rec[46]==20_000.0)
 
     # Generic settlement math on model-period ordinals.
     rec=[10_000.0]*12
@@ -176,7 +180,7 @@ def main():
     ck('same-as-recognition settlement creates no timing balance',
        max(r['bs']['prepaidOpex'])<1e-9 and max(r['bs']['accruedOpex'])<1e-9)
 
-    c=base_cfg(12); a=c['assumptions']
+    c=base_cfg(12); a=c['assumptions']; a['n_periods']=14
     a['nie_detail']['categories']=[{
         'name':'Semiannual expense',
         'flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},

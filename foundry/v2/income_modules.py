@@ -74,11 +74,10 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # blocks, so custom recognition for those components fails closed below.
     from .opex_extensions import (resolve_linked_components, resolve_recognition,
                                   normalize_recognition, resolve_settlement, normalize_settlement,
-                                  effective_opex_commencement)
-    _cat_starts = [effective_opex_commencement(c, ppy) for c in _catlist]
-    _cat_series = [resolve_recognition(arr, c.get("recognition"), ppy, context=growth_context,
-                                       start_period=start)
-                   for c, arr, start in zip(_catlist, _cat_economic, _cat_starts)]
+                                  recognition_spec_for_category)
+    _cat_recognition_specs = [recognition_spec_for_category(c, ppy) for c in _catlist]
+    _cat_series = [resolve_recognition(arr, rec, ppy, context=growth_context)
+                   for arr, rec in zip(_cat_economic, _cat_recognition_specs)]
     cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
 
     # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
@@ -91,11 +90,13 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
         _lc = resolve_linked_components(_c, Q, ppy, context=growth_context)
-        _rec = normalize_recognition(_c.get("recognition"), ppy)
+        _rec = recognition_spec_for_category(_c, ppy)
         _sett = normalize_settlement(_c.get("settlement"), ppy)
-        if _lc and _rec["mode"] not in {"trajectory", "monthly"}:
+        _linked_recognition_ok = (_rec["mode"] == "trajectory" or
+                                  (_rec["mode"] == "monthly" and int(_rec.get("first_period") or 1) == 1))
+        if _lc and not _linked_recognition_ok:
             raise ValueError(
-                f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom recognition "
+                f"Operating Expense category {_c.get('name') or _ci + 1!r}: delayed/custom recognition "
                 "cannot be combined with linked revenue components; use recognition=trajectory")
         if _lc and _sett["mode"] not in {"recognition", "monthly"}:
             raise ValueError(
@@ -138,15 +139,10 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
     c = c or {}
     if c.get("flow_spec") is not None:
         from .periodic_flows import resolve_periodic_flow
-        from .opex_extensions import effective_opex_commencement
+        # r61 deliberately does not treat flow_spec.start_period as a second Opex timing axis.
+        # Saved r60 configs are migrated through recognition_spec_for_category instead.
         fs = dict(c.get("flow_spec") or {})
-        # r59 allowed a late first-recognition ordinal without a separate commencement field.
-        # Infer the literal commencement for those configs, while an explicitly authored
-        # flow_spec.start_period always wins.
-        if fs.get("start_period") is None:
-            start = effective_opex_commencement(c, ppy)
-            if start > 1:
-                fs["start_period"] = start
+        fs.pop("start_period", None)
         return resolve_periodic_flow(fs, Q, ppy, context=growth_context)
 
     traj = c.get("trajectory") or "flat"

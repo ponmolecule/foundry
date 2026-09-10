@@ -7,6 +7,14 @@ commits; management_capital_target leaves financials byte-identical (config_hash
 design). Standing rule: the canonical preview config is pf_a_ots_msr with management target
 0.10, changed only on client instruction, and any change is called out in the reply.
 
+
+## r61 — Simplified literal Opex recognition start
+- Removes r60's separate `flow_spec.start_period` / “Expense begins” axis from Operating Expense authoring.
+- Recognition timing is once again a single contract: cadence + literal `first_period`. Nothing hits NIE before that event, and recurrence is anchored there (for example Annual + M35 -> M35, M47, M59...).
+- Monthly timing now also accepts a first recognition ordinal, so a delayed monthly expense needs no separate commencement concept.
+- The entered Flat/Growth/Explicit trajectory remains the economic amount path; recognition rebuckets forward recurrence blocks beginning at the first event.
+- One-way r60 compatibility: saved `flow_spec.start_period` values are translated into the recognition contract where unambiguous, then the browser removes the obsolete field. Explicitly authored `recognition.first_period` wins.
+
 ## r60 — Opex literal commencement / late-recognition correction
 - Fixes r59's semantic mismatch where a late `recognition.first_period` could leave earlier economic expense recognized on its original trajectory.
 - Adds `flow_spec.start_period` as the canonical model-period ordinal for Operating Expense commencement; recurring flows are zero before commencement and growth is anchored at commencement.

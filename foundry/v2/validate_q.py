@@ -292,26 +292,18 @@ def validate_config_v2(cfg):
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
             try:
-                from .opex_extensions import (normalize_linked_component, normalize_recognition,
-                                              normalize_settlement, effective_opex_commencement,
-                                              timing_interval)
+                from .opex_extensions import (normalize_linked_component, normalize_settlement,
+                                              recognition_spec_for_category)
                 _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
                 for _x in _lc:
                     if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
                         raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
-                _rt = normalize_recognition(cat.get("recognition"), _ppy)
+                _rt = recognition_spec_for_category(cat, _ppy)
                 _st = normalize_settlement(cat.get("settlement"), _ppy)
-                _commence = effective_opex_commencement(cat, _ppy)
-                if _rt["mode"] not in {"trajectory", "monthly"}:
-                    _iv = timing_interval(_rt["mode"], _ppy)
-                    _first = int(_rt["first_period"])
-                    if _first < _commence or _first >= _commence + _iv:
-                        raise ValueError(
-                            f"first recognition period {_first} must fall in the first {_rt['mode']} "
-                            f"cycle after expense commencement {_commence} "
-                            f"(allowed {_commence}..{_commence + _iv - 1})")
-                if _lc and _rt["mode"] not in {"trajectory", "monthly"}:
-                    raise ValueError("custom recognition cannot be combined with linked revenue components")
+                _linked_recognition_ok = (_rt["mode"] == "trajectory" or
+                                          (_rt["mode"] == "monthly" and int(_rt.get("first_period") or 1) == 1))
+                if _lc and not _linked_recognition_ok:
+                    raise ValueError("delayed/custom recognition cannot be combined with linked revenue components")
                 if _lc and _st["mode"] not in {"recognition", "monthly"}:
                     raise ValueError("custom settlement cannot be combined with linked revenue components")
             except (TypeError, ValueError) as e:
