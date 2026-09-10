@@ -25,6 +25,7 @@ def main():
     helpers += "\n" + html[ca:cb]
     prefix=r'''
 const window=globalThis;
+const document={querySelectorAll:()=>[]};
 let cfg={assumptions:{periods_per_year:12,n_periods:84,obs_exposures:[],nie_detail:{
   categories:[{series_id:'opex-bd',name:'Business Development',trajectory:'flat',per_period:10000}],
   workforce:{mode:'roles',roles:[{series_id:'wf-rm',role:'Relationship Managers',count:3,annual_comp:175000,hire_period:1}]}
@@ -65,8 +66,20 @@ window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
 const ftePreview=_cacLinkedSourcePreview('growth',0,_cacMeta(fd.channels[0].method).find(x=>x.k==='ftes'),fteLink);
+const firstChannel=fd.channels[0],secondChannel=fd.channels[1];_cacEnsureDerivedIds(firstChannel);_cacEnsureDerivedIds(secondChannel);const firstSeries=firstChannel.derived_series_ids.new_customers;
+window._cacExplicitClosed[_cacExplicitUiKey('growth',0,'per_fte')]=false;
+window._cacChannelDrag={feed:'growth',index:0};
+window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'growth',1);
+const reordered={names:fd.channels.map(x=>x.name),movedSameObject:fd.channels[1]===firstChannel,seriesPreserved:fd.channels[1].derived_series_ids.new_customers===firstSeries,explicitStateMoved:_cacExplicitIsClosed('growth',1,'per_fte')===false};
+window._cacChannelDrag={feed:'growth',index:1};
+window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'0'}}},'growth',0);
+const reorderedUp={names:fd.channels.map(x=>x.name),movedSameObject:fd.channels[0]===firstChannel,seriesPreserved:fd.channels[0].derived_series_ids.new_customers===firstSeries,explicitStateMoved:_cacExplicitIsClosed('growth',0,'per_fte')===false};
+cfg.assumptions.cac_feeds.other={channels:[{name:'Other feed channel',method:'explicit',driver_specs:{},derived_series_ids:{new_customers:'other-nc',new_auc:'other-na'}}]};
+window._cacChannelDrag={feed:'growth',index:0};
+window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'other',0);
+const crossFeedGuard={growthNames:fd.channels.map(x=>x.name),otherNames:cfg.assumptions.cac_feeds.other.channels.map(x=>x.name)};
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,fteLink,ftePreview,method:fd.channels[0].method,unitProbe}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,reordered,reorderedUp,crossFeedGuard}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -156,6 +169,27 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        and '.cac-feed-card{border:1px solid rgba(223,168,90,.30)' in html
        and '.cac-channel-card:before' in html
        and 'Acquisition channels below are visually nested' in html)
+    ck("Acquisition channels expose a dedicated mouse drag handle and drop affordance",
+       'class="cac-channel-drag-handle"' in html
+       and 'draggable="true" aria-label="Drag acquisition channel to reorder"' in html
+       and 'ondragover="cacChannelDragOver(' in html
+       and 'ondrop="cacChannelDrop(' in html
+       and '.cac-channel-card.drop-before' in html and '.cac-channel-card.drop-after' in html)
+    ro=bj.get("reordered") or {}
+    ck("dragging an acquisition channel reorders the actual channel object with Series identity intact",
+       ro.get("names")==["Relationship-led","Partner referrals"]
+       and ro.get("movedSameObject") is True and ro.get("seriesPreserved") is True)
+    ck("CAC drag reorder carries Explicit editor state with the moved channel",
+       ro.get("explicitStateMoved") is True)
+    ru=bj.get("reorderedUp") or {}
+    ck("acquisition channels can be dragged upward as well as downward without losing identity",
+       ru.get("names")==["Partner referrals","Relationship-led"]
+       and ru.get("movedSameObject") is True and ru.get("seriesPreserved") is True
+       and ru.get("explicitStateMoved") is True)
+    cg=bj.get("crossFeedGuard") or {}
+    ck("CAC drag reorder is feed-scoped and cannot silently move a channel across feeds",
+       cg.get("growthNames")==["Partner referrals","Relationship-led"]
+       and cg.get("otherNames")==["Other feed channel"])
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
