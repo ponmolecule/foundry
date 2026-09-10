@@ -12,12 +12,12 @@ checks=[
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
  ('linked fee throughput is inspection-only and shows latest resolved pull', 'upstream fee-stream throughput; edit the source in Fee Product' in html and 'Latest run · resolved pull' in html),
  ('linked Opex multiplier preserves sub-basis-point precision in the editor', 'nieCatLinkedRate' in html and 'step="any"' in html and '_numInput(_rv,12)' in html and '_rv.toFixed(2)' not in html),
- ('Opex UI exposes generic recognition timing', 'Recognition timing' in html and 'Same as trajectory' in html and 'recognize in' in html and 'Semiannual' in html and 'Annual' in html),
- ('recognition copy separates economic trajectory from NIE timing', 'Controls when the economic expense trajectory hits Noninterest Expense' in html),
- ('Opex UI exposes generic cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'Semiannual' in html and 'Annual' in html),
+ ('Opex UI exposes ordinal recognition timing', 'Recognition timing' in html and 'Same as trajectory' in html and 'first recognition' in html and 'then every' in html and 'Semiannual' in html and 'Annual' in html),
+ ('recognition copy separates economic trajectory from NIE timing', 'Controls when the economic expense trajectory hits Noninterest Expense' in html and 'model-period ordinals only' in html),
+ ('Opex UI exposes ordinal cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'first payment' in html and 'Semiannual' in html and 'Annual' in html),
  ('settlement copy explains prepaid/accrued accounting consequence', 'prepaid assets or accrued operating-expense liabilities' in html),
- ('OCC UI discloses semiannual Dec/Jun base and Mar/Sep settlement', 'Semiannual: Dec/Jun asset base' in html and 'settled Mar/Sep' not in html and 'paid Mar/Sep' in html),
- ('Opex item header gives the expense name full-width authoring space', 'class=\"opex-item-head\"' in html and 'class=\"opex-item-name\"' in html and 'placeholder=\"Expense item name\"' in html),
+ ('OCC UI uses ordinal semiannual payment timing', 'Semiannual ordinal cycle' in html and 'occ_payment_first_period' in html and 'Client calendar dates are translated' in html),
+ ('Opex item header gives the expense name a medium-width authoring field', 'class=\"opex-item-head\"' in html and 'minmax(220px,420px)' in html and 'minmax(220px,1fr)' not in html and 'placeholder=\"Expense item name\"' in html),
  ('Opex categories expose mouse drag-reorder with insertion markers', 'class=\"opex-drag-handle\"' in html and 'nieCatDragStart(event,${i})' in html and 'nieCatDrop(event,${i})' in html and '.opex-item-card.drop-before:before' in html),
 ]
 p=f=0

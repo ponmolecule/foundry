@@ -298,14 +298,22 @@ def validate_config_v2(cfg):
                 for _x in _lc:
                     if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
                         raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
-                _rt = normalize_recognition(cat.get("recognition"))
-                _st = normalize_settlement(cat.get("settlement"))
+                _rt = normalize_recognition(cat.get("recognition"), _ppy)
+                _st = normalize_settlement(cat.get("settlement"), _ppy)
                 if _lc and _rt["mode"] not in {"trajectory", "monthly"}:
                     raise ValueError("custom recognition cannot be combined with linked revenue components")
                 if _lc and _st["mode"] not in {"recognition", "monthly"}:
                     raise ValueError("custom settlement cannot be combined with linked revenue components")
             except (TypeError, ValueError) as e:
                 errs.append(f"nie_detail.categories[{i}] advanced Opex invalid: {e}")
+        if nd.get("occ_payment_first_period") is not None:
+            _op = nd.get("occ_payment_first_period")
+            try:
+                _opi = int(_op)
+                if float(_op) != float(_opi) or _opi < 1:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errs.append("nie_detail.occ_payment_first_period must be a positive integer model-period ordinal")
         wf = nd.get("workforce") or {}
         if wf.get("default_payroll_load_rate") is not None:
             rr = wf.get("default_payroll_load_rate")

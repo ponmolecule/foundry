@@ -69,9 +69,9 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _cat_economic = [nie_category_series(c, Q, ppy, growth_context=growth_context) for c in _catlist]
 
     # Recognition timing is a separate axis from the economic expense trajectory.  Rebucket the
-    # entered economic path into the period where NIE is recognized before any cash-settlement
-    # accounting is computed.  Endogenous linked components cannot yet be forecast across future
-    # calendar blocks, so custom recognition for those components fails closed below.
+    # entered economic path into ordinal model periods before any cash-settlement accounting is
+    # computed.  Endogenous linked components cannot yet be forecast across future recurrence
+    # blocks, so custom recognition for those components fails closed below.
     from .opex_extensions import (resolve_linked_components, resolve_recognition,
                                   normalize_recognition, resolve_settlement, normalize_settlement)
     _cat_series = [resolve_recognition(arr, c.get("recognition"), ppy, context=growth_context)
@@ -81,15 +81,15 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
     # whitelisted upstream metrics for that period are known. Custom recognition/settlement
     # is limited to the pre-resolvable entered category path; forecasting a future endogenous linked
-    # charge across calendar blocks is a different contract and therefore fails closed.
+    # charge across recurrence blocks is a different contract and therefore fails closed.
     _linked = []
     _sett_pre = [0.0] * Q
     _sett_acc = [0.0] * Q
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
         _lc = resolve_linked_components(_c, Q, ppy, context=growth_context)
-        _rec = normalize_recognition(_c.get("recognition"))
-        _sett = normalize_settlement(_c.get("settlement"))
+        _rec = normalize_recognition(_c.get("recognition"), ppy)
+        _sett = normalize_settlement(_c.get("settlement"), ppy)
         if _lc and _rec["mode"] not in {"trajectory", "monthly"}:
             raise ValueError(
                 f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom recognition "
@@ -112,7 +112,9 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
              # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
              # the REG_PARAMS default, so an untouched config's assessments are byte-identical.
              "fdic_bp_ann": (float(nd["fdic_bp_ann"]) if nd.get("fdic_bp_ann") is not None else None),
-             "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None)}
+             "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None),
+             "occ_payment_first_period": (int(nd["occ_payment_first_period"])
+                                          if nd.get("occ_payment_first_period") is not None else None)}
 
 
 
