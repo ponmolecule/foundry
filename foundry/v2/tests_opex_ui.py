@@ -1,4 +1,7 @@
 import sys
+import json
+import re
+import subprocess
 from pathlib import Path
 
 html=Path('web/console_v2.html').read_text()
@@ -13,10 +16,43 @@ checks=[
  ('Opex UI exposes generic cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'Semiannual' in html and 'Annual' in html),
  ('settlement copy explains prepaid/accrued accounting consequence', 'prepaid assets or accrued operating-expense liabilities' in html),
  ('OCC UI discloses semiannual Dec/Jun base and Mar/Sep settlement', 'Semiannual: Dec/Jun asset base' in html and 'settled Mar/Sep' not in html and 'paid Mar/Sep' in html),
+ ('Opex item header gives the expense name full-width authoring space', 'class=\"opex-item-head\"' in html and 'class=\"opex-item-name\"' in html and 'placeholder=\"Expense item name\"' in html),
+ ('Opex categories expose mouse drag-reorder with insertion markers', 'class=\"opex-drag-handle\"' in html and 'nieCatDragStart(event,${i})' in html and 'nieCatDrop(event,${i})' in html and '.opex-item-card.drop-before:before' in html),
 ]
 p=f=0
 for name,ok in checks:
     if ok: p+=1; print('  PASS ',name)
     else: f+=1; print('  FAIL ',name)
+# Execute the actual reorder handler in isolation: moving item A after C must preserve
+# the category objects (and therefore their stable Series IDs) and the advanced-open state.
+clear_m=re.search(r"function _nieCatClearDropMarkers\(\)\{.*?\}\n", html, re.S)
+drop_m=re.search(r"window\.nieCatDrop=function\(ev,targetIndex\)\{.*?\};\n", html, re.S)
+if clear_m and drop_m:
+    js = r"""
+const cfg={assumptions:{nie_detail:{categories:[
+  {name:'A',series_id:'sid-a'}, {name:'B',series_id:'sid-b'}, {name:'C',series_id:'sid-c'}
+]}}};
+const document={querySelectorAll:()=>[]};
+function _ensureNieDetail(){return cfg.assumptions.nie_detail;}
+let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;}
+window=globalThis; window._nieCatAdvancedOpen={0:true,2:true}; window._nieCatDragIndex=0;
+""" + clear_m.group(0) + drop_m.group(0) + r"""
+const card={dataset:{dropAfter:'1'}};
+nieCatDrop({preventDefault(){},currentTarget:card},2);
+console.log(JSON.stringify({order:cfg.assumptions.nie_detail.categories.map(x=>x.series_id),open:window._nieCatAdvancedOpen,rendered,refreshed}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1])
+            ok=(got.get('order')==['sid-b','sid-c','sid-a'] and got.get('open')=={'1':True,'2':True} and got.get('rendered')==1 and got.get('refreshed')==1)
+        except Exception:
+            pass
+else:
+    ok=False
+if ok: p+=1; print('  PASS ', 'Opex drag reorder moves objects without losing stable identity/open state')
+else: f+=1; print('  FAIL ', 'Opex drag reorder moves objects without losing stable identity/open state')
+
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)
