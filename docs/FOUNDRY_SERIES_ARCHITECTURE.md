@@ -138,9 +138,13 @@ Example:
 An Explicit schedule opens locally on the operand that needs it. The module does not expose a
 spreadsheet-wide Year-1…Year-N input surface.
 
-The channel outputs are module-owned Derived series and feed one common customer/AUC roll-forward;
-the resolved AUC then becomes a canonical managed-notional series for downstream Fee Products.
-Fee Products prefer that stable AUC `series_id`, while legacy name-based references remain readable.
+The channel outputs are module-owned Derived series and feed one common customer/AUC roll-forward.
+AUC is resolved first on a **canonical monthly period-end grid**, regardless of whether the selected
+engine/presentation cadence is monthly or quarterly. Quarterly native balances are sampled from
+canonical M3/M6/M9/M12; the monthly path remains available for downstream calculations whose
+economics depend on each month's exposure. The resolved AUC then becomes a canonical managed-notional
+series for downstream Fee Products. Fee Products prefer that stable AUC `series_id`, while legacy
+name-based references remain readable.
 For explicit source cadence finer than the acquisition equation cadence, flow operands such as Spend
 and Explicit Customers sum; level/rate operands such as CAC, Pool, Conversion, Count, Productivity,
 and AUC/customer average.

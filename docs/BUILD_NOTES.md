@@ -9,6 +9,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r63 — Canonical monthly CAC/AUC cadence foundation
+- Customer Acquisition now resolves period-end AUC on a canonical monthly grid in both monthly and quarterly models.
+- Quarterly native AUC remains a quarter-end balance view, sampled from canonical M3/M6/M9/M12, so existing balance consumers preserve their native-cadence contract.
+- The canonical monthly AUC path is retained in CAC results/Derived Series metadata for cadence-sensitive downstream calculations instead of forcing quarter-end AUC to stand in for the three monthly exposure observations.
+- Regression coverage proves that an annualized rate applied to monthly period-end AUC produces identical quarterly totals when the monthly expense is aggregated, and that monthly/quarterly CAC runs share the same canonical monthly AUC path.
+- This release does not yet expose AUC in the Operating Expense link picker; it establishes the cadence-safe upstream Series foundation first.
+
 ## r62 — Acquisition-channel drag reorder
 - Adds a dedicated mouse drag handle to each Customer Acquisition channel, matching the direct-manipulation pattern introduced for Operating Expense items.
 - Reorders the actual channel object within its current Feed, so driver specs, derived Series IDs, and all channel economics move intact.
