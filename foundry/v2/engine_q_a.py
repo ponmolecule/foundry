@@ -1053,20 +1053,23 @@ def run_pf_a(cfg):
             _tang_eq = (bs["equity"][q - 1] - a["intangibles"])
             _fdic = max(0.0, _avg_a_q - _tang_eq) * float(_fdic_bp) / 10000.0 / ppyf
 
-            # OCC semiannual timing: Dec-31 base -> Jan-Jun assessment due Mar 31;
-            # Jun-30 base -> Jul-Dec assessment due Sep 30. The entered annual bp is used as
-            # an annualized simplifying rate; each semiannual assessment is base * bp / 2.
-            _cy, _cq, _cm = _period_calendar(q)
-            _half = 1 if _cm <= 6 else 2
-            _hk = (_cy, _half)
-            if _hk != _occ_half_key:
-                _occ_half_key = _hk
+            # OCC semiannual timing is canonicalized to model-period ordinals.  The client/
+            # ingestion layer may know that an assessment is due on a calendar date; the engine
+            # stores only the translated first payment period (M#/Q#) and repeats every half-year.
+            # Recognition is spread evenly across each ordinal half-year block.
+            _occ_half_interval = max(1, int(ppy) // 2)
+            _occ_half = (q - 1) // _occ_half_interval
+            if _occ_half != _occ_half_key:
+                _occ_half_key = _occ_half
                 _occ_half_amt = _avg_a_q * float(_occ_bp) / 10000.0 / 2.0
-            _months_here = 1 if ppy == 12 else 3
-            _occ = _occ_half_amt * (_months_here / 6.0)
-            _pay_month = 3 if _half == 1 else 9
-            _period_months = [((_cm - 1 + _j) % 12) + 1 for _j in range(_months_here)]
-            _occ_cash = _occ_half_amt if _pay_month in _period_months else 0.0
+            _occ = _occ_half_amt / float(_occ_half_interval)
+            _occ_first_pay = int(_nie_d.get("occ_payment_first_period") or (3 if ppy == 12 else 1))
+            _occ_first_pay = max(1, _occ_first_pay)
+            _occ_pay_phase = (_occ_first_pay - 1) % _occ_half_interval
+            _occ_pay_start_half = (_occ_first_pay - 1) // _occ_half_interval
+            _occ_cash = (_occ_half_amt if (_occ_half >= _occ_pay_start_half
+                                            and ((q - 1) % _occ_half_interval) == _occ_pay_phase)
+                         else 0.0)
             _occ_signed_balance += _occ_cash - _occ
 
             _comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)

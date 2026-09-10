@@ -118,184 +118,152 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
     return base * rate
 
 
-def _monthly_from_engine(recognition: list[float], ppy: int) -> list[float]:
+def _timing_interval(mode: str, ppy: int) -> int:
+    """Return recurrence interval in native engine periods.
+
+    Timing is ordinal, never calendar-labeled.  A monthly model therefore represents an
+    annual recurrence as every 12 model periods; a quarterly model represents it as every 4.
+    """
     ppy = int(ppy)
-    if ppy not in (4, 12):
+    if ppy not in (1, 4, 12):
+        raise ValueError(f"unsupported cadence periods_per_year={ppy}")
+    per_year = {"monthly": 12, "quarterly": 4, "semiannual": 2, "annual": 1}.get(mode)
+    if per_year is None:
+        raise ValueError(f"unsupported timing mode={mode}")
+    if ppy % per_year:
+        raise ValueError(f"{mode} timing is finer than model cadence periods_per_year={ppy}")
+    return max(1, ppy // per_year)
+
+
+def _legacy_month_to_engine_period(month: int, ppy: int) -> int:
+    """Compatibility bridge for r53-r58 calendar-shaped timing specs.
+
+    Legacy month numbers are translated once into the engine-period position that contained
+    that month under the old Jan-based UI convention.  New configs never need month names.
+    """
+    month = int(month)
+    ppy = int(ppy)
+    if not 1 <= month <= 12:
+        raise ValueError("legacy timing month must be 1..12")
+    if ppy not in (1, 4, 12):
         raise ValueError(f"unsupported cadence periods_per_year={ppy}")
     width = 12 // ppy
-    out = []
-    for x in recognition:
-        out.extend([float(x or 0.0) / width] * width)
-    return out
+    return (month - 1) // width + 1
 
 
-def _calendar_months(n_months: int, context=None):
-    sy = int(getattr(context, "start_year", 2026) if context is not None else 2026)
-    sm = int(getattr(context, "start_month", 1) if context is not None else 1)
-    out = []
-    for i in range(int(n_months)):
-        idx = sy * 12 + sm - 1 + i
-        out.append((idx // 12, idx % 12 + 1))
-    return out
+def _first_period_from_spec(s: Mapping[str, Any], mode: str, ppy: int, *, settlement=False) -> int:
+    key = "first_payment_period" if settlement else "first_period"
+    if s.get(key) is not None:
+        first = int(s.get(key))
+        if first < 1:
+            raise ValueError(f"Opex {'settlement' if settlement else 'recognition'} {key} must be >= 1")
+        return first
+
+    # Backward compatibility for the calendar-shaped r53-r58 schema.  Those fields are input
+    # aliases only; the canonical output from normalize_* is ordinal.
+    one = "payment_month" if settlement else "recognition_month"
+    many = "payment_months" if settlement else "recognition_months"
+    if s.get(one) is not None:
+        return _legacy_month_to_engine_period(int(s.get(one)), ppy)
+    if s.get(many):
+        vals = list(s.get(many) or [])
+        if vals:
+            return _legacy_month_to_engine_period(int(vals[0]), ppy)
+    return 1
 
 
+def normalize_recognition(spec: Mapping[str, Any] | None, ppy: int = 12) -> dict:
+    """Normalize recurring Opex recognition onto an ordinal model-period contract.
 
-def normalize_recognition(spec: Mapping[str, Any] | None) -> dict:
-    """Normalize generic recurring Opex recognition timing.
-
-    ``trajectory`` leaves the economic expense path unchanged. Calendar modes rebucket each
-    calendar block's economic expense total into the configured recognition month inside that
-    block. This is intentionally generic: no expense labels or engagement dates are hard-coded.
+    ``first_period`` is an absolute 1-based model-period ordinal (M#, Q#, or Y# depending on
+    engine cadence).  The recurrence interval is derived from ``mode``.  No Jan-Dec calendar is
+    part of the canonical representation.
     """
     s = dict(spec or {})
     mode = str(s.get("mode") or "trajectory").strip().lower()
     if mode not in {"trajectory", "monthly", "quarterly", "semiannual", "annual"}:
         raise ValueError("Opex recognition.mode must be trajectory/monthly/quarterly/semiannual/annual")
     out = {"mode": mode}
-    if mode == "annual":
-        m = int(s.get("recognition_month") or 1)
-        if not 1 <= m <= 12:
-            raise ValueError("annual Opex recognition recognition_month must be 1..12")
-        out["recognition_month"] = m
-    elif mode == "semiannual":
-        ms = list(s.get("recognition_months") or [3, 9])
-        if len(ms) != 2 or any(int(m) < 1 or int(m) > 12 for m in ms):
-            raise ValueError("semiannual Opex recognition requires two recognition_months in 1..12")
-        out["recognition_months"] = [int(ms[0]), int(ms[1])]
-    elif mode == "quarterly":
-        ms = list(s.get("recognition_months") or [3, 6, 9, 12])
-        if len(ms) != 4 or any(int(m) < 1 or int(m) > 12 for m in ms):
-            raise ValueError("quarterly Opex recognition requires four recognition_months in 1..12")
-        out["recognition_months"] = [int(m) for m in ms]
+    if mode not in {"trajectory", "monthly"}:
+        _timing_interval(mode, int(ppy))
+        out["first_period"] = _first_period_from_spec(s, mode, int(ppy), settlement=False)
+    return out
+
+
+def _rebucket_ordinal(values: list[float], mode: str, first_period: int, ppy: int) -> list[float]:
+    """Move each recurrence-block total to its ordinal event period.
+
+    Blocks before ``first_period`` remain on their original trajectory.  This gives a meaningful,
+    non-destructive interpretation when the first event is M15/Q6/etc rather than artificially
+    capping the authoring control to the first model year.  A final partial block is rebucketed
+    only if its event period is actually inside the modeled horizon.
+    """
+    arr = [float(x or 0.0) for x in values]
+    interval = _timing_interval(mode, int(ppy))
+    first = int(first_period)
+    phase = (first - 1) % interval
+    first_block = (first - 1) // interval
+    out = arr[:]
+    n = len(arr)
+    block = first_block
+    while block * interval < n:
+        lo = block * interval
+        hi = min(n, lo + interval)
+        event = lo + phase
+        if event >= hi:
+            block += 1
+            continue
+        amount = sum(arr[lo:hi])
+        for i in range(lo, hi):
+            out[i] = 0.0
+        out[event] = amount
+        block += 1
     return out
 
 
 def resolve_recognition(economic: list[float], recognition: Mapping[str, Any] | None,
                         ppy: int, *, context=None) -> list[float]:
-    """Rebucket an economic Opex trajectory into the periods where NIE is recognized.
+    """Rebucket an economic Opex trajectory into ordinal recognition events.
 
-    The input remains the canonical economic expense path. Annual/semiannual/quarterly modes
-    preserve the total expense in each calendar block and place that block total in the selected
-    calendar month. This prevents users from force-fitting seven annual assumptions into 84
-    monthly values merely to express recognition timing.
+    ``context`` is accepted for call-site compatibility but deliberately ignored: generic Opex
+    recognition is based on M1/Q1-style model ordinals, not calendar months.
     """
-    r = normalize_recognition(recognition)
+    r = normalize_recognition(recognition, int(ppy))
     econ = [float(x or 0.0) for x in economic]
     if r["mode"] in {"trajectory", "monthly"}:
         return econ[:]
+    return _rebucket_ordinal(econ, r["mode"], r["first_period"], int(ppy))
 
-    monthly = _monthly_from_engine(econ, int(ppy))
-    cal = _calendar_months(len(monthly), context)
-    recognized = [0.0] * len(monthly)
-    groups = {}
-    for i, (y, m) in enumerate(cal):
-        if r["mode"] == "annual":
-            key = (y, 1)
-        elif r["mode"] == "semiannual":
-            key = (y, 1 if m <= 6 else 2)
-        else:  # quarterly
-            key = (y, (m - 1) // 3 + 1)
-        groups.setdefault(key, []).append(i)
 
-    for (y, block), idxs in groups.items():
-        amount = sum(monthly[i] for i in idxs)
-        if r["mode"] == "annual":
-            rm = r["recognition_month"]
-        else:
-            rm = r["recognition_months"][block - 1]
-        hits = [i for i in idxs if cal[i] == (y, rm)]
-        if hits:
-            recognized[hits[0]] += amount
-        # As with settlement, do not invent a recognition event outside a partial modeled
-        # calendar block. The user can use Same as trajectory or an Explicit economic path for
-        # bespoke partial-period history.
-
-    width = 12 // int(ppy)
-    out = []
-    for i in range(len(econ)):
-        lo, hi = i * width, (i + 1) * width
-        out.append(sum(recognized[lo:hi]))
-    return out
-
-def normalize_settlement(spec: Mapping[str, Any] | None) -> dict:
+def normalize_settlement(spec: Mapping[str, Any] | None, ppy: int = 12) -> dict:
     s = dict(spec or {})
     mode = str(s.get("mode") or "recognition").strip().lower()
     if mode not in {"recognition", "monthly", "quarterly", "semiannual", "annual"}:
         raise ValueError("Opex settlement.mode must be recognition/monthly/quarterly/semiannual/annual")
     out = {"mode": mode, "opening_balance": float(s.get("opening_balance") or 0.0)}
-    if mode == "annual":
-        m = int(s.get("payment_month") or 1)
-        if not 1 <= m <= 12:
-            raise ValueError("annual Opex settlement payment_month must be 1..12")
-        out["payment_month"] = m
-    elif mode == "semiannual":
-        ms = list(s.get("payment_months") or [3, 9])
-        if len(ms) != 2 or any(int(m) < 1 or int(m) > 12 for m in ms):
-            raise ValueError("semiannual Opex settlement requires two payment_months in 1..12")
-        out["payment_months"] = [int(ms[0]), int(ms[1])]
-    elif mode == "quarterly":
-        ms = list(s.get("payment_months") or [3, 6, 9, 12])
-        if len(ms) != 4 or any(int(m) < 1 or int(m) > 12 for m in ms):
-            raise ValueError("quarterly Opex settlement requires four payment_months in 1..12")
-        out["payment_months"] = [int(m) for m in ms]
+    if mode not in {"recognition", "monthly"}:
+        _timing_interval(mode, int(ppy))
+        out["first_payment_period"] = _first_period_from_spec(s, mode, int(ppy), settlement=True)
     return out
 
 
 def resolve_settlement(recognition: list[float], settlement: Mapping[str, Any] | None,
                        ppy: int, *, context=None) -> dict:
-    """Return cash payments plus end-period prepaid/accrued balances.
+    """Return cash payments plus end-period prepaid/accrued balances on ordinal timing.
 
-    Positive signed balance means prepaid asset; negative means accrued liability.
-    Annual/semiannual/quarterly settlement pays the full recognition total for the relevant
-    calendar block in the configured payment month inside that block.
+    Positive signed balance means prepaid asset; negative means accrued liability.  Generic cash
+    timing intentionally ignores calendar context for the same reason recognition does.
     """
-    s = normalize_settlement(settlement)
+    s = normalize_settlement(settlement, int(ppy))
     rec = [float(x or 0.0) for x in recognition]
     if s["mode"] in {"recognition", "monthly"}:
         return {"cash": rec[:], "prepaid": [0.0] * len(rec), "accrued": [0.0] * len(rec)}
 
-    monthly = _monthly_from_engine(rec, int(ppy))
-    cal = _calendar_months(len(monthly), context)
-    payments = [0.0] * len(monthly)
-
-    # Group modeled recognition into economic settlement blocks.
-    groups = {}
-    for i, (y, m) in enumerate(cal):
-        if s["mode"] == "annual":
-            key = (y, 1)
-        elif s["mode"] == "semiannual":
-            key = (y, 1 if m <= 6 else 2)
-        else:  # quarterly
-            key = (y, (m - 1) // 3 + 1)
-        groups.setdefault(key, []).append(i)
-
-    for (y, block), idxs in groups.items():
-        amount = sum(monthly[i] for i in idxs)
-        if s["mode"] == "annual":
-            pm = s["payment_month"]
-        elif s["mode"] == "semiannual":
-            pm = s["payment_months"][block - 1]
-        else:
-            pm = s["payment_months"][block - 1]
-        hits = [i for i in idxs if cal[i] == (y, pm)]
-        if hits:
-            payments[hits[0]] += amount
-        # If the payment month is outside the modeled portion of a partial block, no synthetic
-        # payment is invented. The resulting accrued/prepaid balance is explicit and may be offset
-        # with settlement.opening_balance when a projection begins mid-contract.
-
+    payments = _rebucket_ordinal(rec, s["mode"], s["first_payment_period"], int(ppy))
     signed = float(s.get("opening_balance") or 0.0)
-    signed_month = []
-    for r, p in zip(monthly, payments):
+    prepaid, accrued = [], []
+    for r, p in zip(rec, payments):
         signed += p - r
-        signed_month.append(signed)
-
-    width = 12 // int(ppy)
-    cash, prepaid, accrued = [], [], []
-    for i in range(len(rec)):
-        lo, hi = i * width, (i + 1) * width
-        cash.append(sum(payments[lo:hi]))
-        bal = signed_month[hi - 1]
-        prepaid.append(max(0.0, bal))
-        accrued.append(max(0.0, -bal))
-    return {"cash": cash, "prepaid": prepaid, "accrued": accrued}
+        prepaid.append(max(0.0, signed))
+        accrued.append(max(0.0, -signed))
+    return {"cash": payments, "prepaid": prepaid, "accrued": accrued}
