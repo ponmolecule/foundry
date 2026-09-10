@@ -89,7 +89,7 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _sett_acc = [0.0] * Q
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
-        _lc = resolve_linked_components(_c, Q, ppy, context=growth_context)
+        _lc = resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a)
         _rec = recognition_spec_for_category(_c, ppy)
         _sett = normalize_settlement(_c.get("settlement"), ppy)
         _linked_recognition_ok = (_rec["mode"] == "trajectory" or

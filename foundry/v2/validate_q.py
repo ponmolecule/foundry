@@ -274,11 +274,13 @@ def validate_config_v2(cfg):
         if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
         try:
-            from .opex_extensions import fee_stream_quantity_catalog
+            from .opex_extensions import fee_stream_quantity_catalog, customer_acquisition_auc_catalog
             _fee_qty_ids = {x["series_id"] for x in fee_stream_quantity_catalog(a)}
+            _auc_ids = {x["series_id"] for x in customer_acquisition_auc_catalog(a)}
         except (TypeError, ValueError) as e:
             _fee_qty_ids = set()
-            errs.append(f"fee-stream quantity Series catalog invalid: {e}")
+            _auc_ids = set()
+            errs.append(f"Opex linked Series catalog invalid: {e}")
         for i, cat in enumerate(nd.get("categories") or []):
             if cat.get("flow_spec") is not None:
                 try:
@@ -293,11 +295,16 @@ def validate_config_v2(cfg):
                     errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
             try:
                 from .opex_extensions import (normalize_linked_component, normalize_settlement,
-                                              recognition_spec_for_category)
+                                              recognition_spec_for_category, auc_link_creates_cycle)
                 _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
                 for _x in _lc:
                     if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
                         raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
+                    if _x.get("driver") == "customer_acquisition_auc":
+                        if _x.get("series_id") not in _auc_ids:
+                            raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
+                        if auc_link_creates_cycle(a, cat, _x.get("series_id")):
+                            raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
                 _rt = recognition_spec_for_category(cat, _ppy)
                 _st = normalize_settlement(cat.get("settlement"), _ppy)
                 _linked_recognition_ok = (_rt["mode"] == "trajectory" or

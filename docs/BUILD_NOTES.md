@@ -9,6 +9,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r64 — AUC-linked Operating Expense
+- Operating Expense Linked Components can now consume a Customer Acquisition feed's stable period-end AUC Series directly.
+- The multiplier remains ordinary percentage authoring; for the stock-linked AUC driver it also owns an explicit natural period (Month / Quarter / Year). No bespoke bps or fraud-loss expense type was added.
+- Annual/quarterly AUC multipliers accrue against the canonical monthly AUC path introduced in r63, then aggregate to the selected presentation cadence. A quarterly model therefore does not substitute quarter-end AUC for intra-quarter exposure.
+- Validation fails closed when the referenced AUC Series does not exist or when the same Opex category is already upstream of that CAC feed through Acquisition Spend, preventing Opex → CAC → AUC → Opex circularity.
+- Regression coverage includes the source-model fraud provision pattern `period-end AUC × annual percentage rate`, monthly/quarterly cadence equivalence, missing-Series validation, and circular-link rejection.
+
 ## r63 — Canonical monthly CAC/AUC cadence foundation
 - Customer Acquisition now resolves period-end AUC on a canonical monthly grid in both monthly and quarterly models.
 - Quarterly native AUC remains a quarter-end balance view, sampled from canonical M3/M6/M9/M12, so existing balance consumers preserve their native-cadence contract.

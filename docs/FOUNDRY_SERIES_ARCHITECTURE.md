@@ -149,6 +149,14 @@ For explicit source cadence finer than the acquisition equation cadence, flow op
 and Explicit Customers sum; level/rate operands such as CAC, Pool, Conversion, Count, Productivity,
 and AUC/customer average.
 
+Operating Expense may observe a CAC feed's stable **period-end AUC** Series as a linked component.
+This remains the ordinary `upstream Series × multiplier` mechanic rather than a bespoke expense type.
+Because AUC is a stock, its multiplier owns a natural Month / Quarter / Year period. For example, a
+`0.01% / Year` fraud-loss provision accrues each canonical month as `month-end AUC × 0.01% / 12`;
+a quarterly presentation sums those three monthly accruals. A category already feeding the selected
+CAC feed through Acquisition Spend may not link back to that feed's AUC, because that would create
+`Opex → CAC → AUC → Opex` circularity.
+
 ## 7. Release invariants
 
 1. Existing configurations with no new Series/Link fields preserve baseline economics.
