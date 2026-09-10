@@ -124,6 +124,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        len(srcs)==2 and srcs[0].get("key")=="cac-feed-growth"
        and set(srcs[0].get("aliases") or [])=={"Custody","Settlement","growth"}
        and srcs[1].get("key")=="cac-feed-wealth")
+    ck("Fee Product name edits canonicalize legacy Workforce AUC aliases before rename",
+       "_canonicalizeLegacyWorkforceAucTriggers();" in html
+       and "onchange=\"renameProduct('${fam}',${i},this.value)\"" in html
+       and 'p.managed_notional.series_id=_seriesId("managed-auc")' in html)
     ck("Simple/Detailed mode switching preserves authored detail instead of deleting it",
        bj.get("simpleHasDraft") is True and bj.get("restored")=="Saved detail")
     cleared=bj.get("cleared") or {}

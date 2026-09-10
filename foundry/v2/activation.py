@@ -131,11 +131,17 @@ def managed_notional_source_catalog(assumptions: Mapping[str, Any] | None) -> li
             _add(key, (entries.get(key) or {}).get("label") or src_name, nm, kind="cac_feed")
             _add(key, (entries.get(key) or {}).get("label") or src_name, src_name, kind="cac_feed")
         elif p.get("managed_notional"):
-            # Standalone product AUC has no stable Series identity yet.  Keep it usable,
-            # but give each product a distinct internal key so duplicate names remain
-            # ambiguous when referenced through the legacy display-name alias.
-            key = f"managed-product:{idx}:{nm}"
+            # Standalone/manual AUC is a first-class observable too.  Newer configs carry
+            # a stable Series ID on the managed-notional object so product display-name
+            # edits cannot invalidate Workforce activation rules.  The historical
+            # managed-product:<index>:<name> token remains an alias for old configs.
+            mn = p.get("managed_notional") or {}
+            sid = str(mn.get("series_id") or "").strip()
+            legacy_key = f"managed-product:{idx}:{nm}"
+            key = sid or legacy_key
             _add(key, nm or f"Managed notional {idx + 1}", nm, kind="managed_product")
+            if sid:
+                _add(key, nm or f"Managed notional {idx + 1}", legacy_key, kind="managed_product")
 
     out = []
     for e in entries.values():

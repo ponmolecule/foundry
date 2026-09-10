@@ -940,7 +940,9 @@ def run_pf_a(cfg):
     for _pi, _p in enumerate(dep + obs):
         if _p.get("managed_notional") and not (_p.get("managed_notional_source") or _p.get("managed_notional_source_id")):
             _nm = str(_p.get("name") or "").strip()
-            _mn_sources[f"managed-product:{_pi}:{_nm}"] = list(_p.get("_mn_end") or [0.0] * Q)
+            _mn = _p.get("managed_notional") or {}
+            _key = str(_mn.get("series_id") or "").strip() or f"managed-product:{_pi}:{_nm}"
+            _mn_sources[_key] = list(_p.get("_mn_end") or [0.0] * Q)
 
     def _activation_metric(metric, source, period):
         """Metric registry view used only by workforce activation rules (1-based period)."""
