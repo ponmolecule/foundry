@@ -11,6 +11,7 @@ checks=[
  ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
  ('linked fee throughput is inspection-only and shows latest resolved pull', 'upstream fee-stream throughput; edit the source in Fee Product' in html and 'Latest run · resolved pull' in html),
+ ('linked Opex multiplier preserves sub-basis-point precision in the editor', 'nieCatLinkedRate' in html and 'step="any"' in html and '_numInput(_rv,12)' in html and '_rv.toFixed(2)' not in html),
  ('Opex UI exposes generic recognition timing', 'Recognition timing' in html and 'Same as trajectory' in html and 'recognize in' in html and 'Semiannual' in html and 'Annual' in html),
  ('recognition copy separates economic trajectory from NIE timing', 'Controls when the economic expense trajectory hits Noninterest Expense' in html),
  ('Opex UI exposes generic cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'Semiannual' in html and 'Annual' in html),

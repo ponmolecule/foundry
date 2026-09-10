@@ -95,6 +95,11 @@ def main():
     comp['rates']=[.02]
     ck('linked quantity primitive is observational quantity × dimensionless rate',
        abs(linked_component_amount(comp,0,{'fee_stream_quantities':{'fee-qty-settlement':1_000_000}})-20_000)<1e-9)
+    tiny=normalize_linked_component({'driver':'fee_stream_quantity','series_id':'fee-qty-settlement',
+                                     'rate_spec':{'source':'entered','trajectory':'flat','value':0.000001}})
+    tiny['rates']=[0.000001]
+    ck('linked Opex multiplier retains 0.0001 percent as a nonzero 1e-6 decimal rate',
+       abs(linked_component_amount(tiny,0,{'fee_stream_quantities':{'fee-qty-settlement':1_000_000}})-1.0)<1e-12)
 
     vc=copy.deepcopy(c); vc['assumptions']['n_periods']=36
     try:
