@@ -3,7 +3,7 @@
 This module deliberately models reusable economic mechanics, not engagement labels.
 
 * A category's primary entered recurring amount remains ``flow_spec``.
-* Optional ``linked_components`` add whitelisted typed upstream drivers × dimensionless rates.
+* Optional ``linked_components`` add whitelisted typed upstream drivers × multipliers; stock-linked AUC rates carry an explicit natural period.
 * Optional ``recognition`` controls when the economic expense trajectory hits NIE.
 * Optional ``settlement`` controls when recognized expense is paid. Recognition remains NIE;
   timing differences become prepaid assets (payment ahead of recognition) or accrued liabilities
@@ -28,6 +28,66 @@ SAFE_REVENUE_DRIVERS = {
 }
 
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
+CAC_AUC_DRIVER = "customer_acquisition_auc"
+_RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
+
+
+def customer_acquisition_auc_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
+    """Catalog CAC-owned period-end AUC Series by stable Series ID.
+
+    CAC is the canonical owner of these balances.  Opex may observe them, but never
+    recalculates customer acquisition or managed notional itself.
+    """
+    a = assumptions or {}
+    out = []
+    for name, raw in (a.get("cac_feeds") or {}).items():
+        feed = raw or {}
+        sid = str(feed.get("series_id") or "").strip()
+        if not sid:
+            continue
+        out.append({"series_id": sid, "feed": str(name or sid),
+                    "unit_semantic": "period_end_balance",
+                    "canonical_cadence": "month"})
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("CAC AUC series_id values must be unique")
+    return out
+
+
+def auc_link_creates_cycle(assumptions: Mapping[str, Any] | None,
+                           category: Mapping[str, Any] | None, auc_series_id: str) -> bool:
+    """True when this Opex category is already upstream of the selected CAC feed.
+
+    The current causal path that can create this loop is:
+      Opex category -> CAC acquisition spend -> AUC -> same Opex category.
+    """
+    a = assumptions or {}
+    cat = category or {}
+    cat_sid = str(cat.get("series_id") or "").strip()
+    cat_name = str(cat.get("name") or "").strip()
+    if not (cat_sid or cat_name):
+        return False
+    target = None
+    for name, raw in (a.get("cac_feeds") or {}).items():
+        feed = raw or {}
+        if str(feed.get("series_id") or "").strip() == str(auc_series_id or "").strip():
+            target = feed
+            break
+    if target is None:
+        return False
+    for ch in target.get("channels") or []:
+        for spec in ((ch or {}).get("driver_specs") or {}).values():
+            sp = spec or {}
+            if str(sp.get("source") or "").lower() != "link":
+                continue
+            link = sp.get("link") or {}
+            if str(link.get("kind") or "") != "operating_expense_category":
+                continue
+            link_sid = str(link.get("series_id") or "").strip()
+            link_name = str(link.get("name") or "").strip()
+            if (cat_sid and link_sid == cat_sid) or (not link_sid and cat_name and link_name == cat_name):
+                return True
+    return False
 
 
 def fee_stream_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
@@ -62,7 +122,7 @@ def fee_stream_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[d
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER}
+    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER}
     if drv not in allowed:
         raise ValueError(
             f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
@@ -70,23 +130,43 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
     out = {"driver": drv, "rate_spec": rs}
-    if drv == FEE_STREAM_QUANTITY_DRIVER:
+    if drv in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER}:
         sid = str(c.get("series_id") or "").strip()
         if not sid:
-            raise ValueError("fee_stream_quantity Opex link requires series_id")
+            raise ValueError(f"{drv} Opex link requires series_id")
         out["series_id"] = sid
+    if drv == CAC_AUC_DRIVER:
+        period = str(c.get("rate_period") or rs.get("period") or "year").strip().lower()
+        if period not in _RATE_PERIODS:
+            raise ValueError("AUC-linked Opex rate period must be month/quarter/year")
+        out["rate_period"] = period
     return out
 
 
 def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int, ppy: int,
-                              *, context=None) -> list[dict]:
+                              *, context=None, assumptions: Mapping[str, Any] | None = None) -> list[dict]:
     out = []
     for raw in list((category or {}).get("linked_components") or []):
         c = normalize_linked_component(raw)
-        rates = resolve_entered_series(c["rate_spec"], int(n_periods), int(ppy), context=context)
+        if c["driver"] == CAC_AUC_DRIVER:
+            if assumptions is not None and auc_link_creates_cycle(assumptions, category, c["series_id"]):
+                raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
+            n_months = (int(n_periods) * 12 + int(ppy) - 1) // int(ppy)
+            monthly_rates = resolve_entered_series(c["rate_spec"], n_months, 12, context=context)
+            months_per_period = 12 // int(ppy)
+            # Native rates are diagnostic only for this stock-linked driver; the actual amount
+            # is accrued from the canonical monthly rate path below. Sampling avoids rejecting a
+            # legitimate monthly explicit rate schedule merely because presentation is quarterly.
+            rates = [monthly_rates[min(i * months_per_period, len(monthly_rates) - 1)]
+                     if monthly_rates else 0.0 for i in range(int(n_periods))]
+        else:
+            rates = resolve_entered_series(c["rate_spec"], int(n_periods), int(ppy), context=context)
         row = {"driver": c["driver"], "rates": [float(x or 0.0) for x in rates]}
         if c.get("series_id"):
             row["series_id"] = c["series_id"]
+        if c["driver"] == CAC_AUC_DRIVER:
+            row["monthly_rates"] = [float(x or 0.0) for x in monthly_rates]
+            row["rate_period"] = c.get("rate_period") or "year"
         out.append(row)
     return out
 
@@ -113,6 +193,25 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         if sid not in qmap:
             raise ValueError(f"linked fee-stream quantity Series {sid!r} is unavailable in this engine run")
         base = float(qmap.get(sid) or 0.0)
+    elif drv == CAC_AUC_DRIVER:
+        sid = str(component.get("series_id") or "")
+        amap = metrics.get("customer_acquisition_auc_monthly") or {}
+        if sid not in amap:
+            raise ValueError(f"linked CAC AUC Series {sid!r} is unavailable in this engine run")
+        ppy = int(metrics.get("periods_per_year") or 12)
+        if ppy not in (1, 4, 12) or 12 % ppy:
+            raise ValueError(f"unsupported cadence periods_per_year={ppy} for AUC-linked Opex")
+        months_per_period = 12 // ppy
+        lo = i * months_per_period
+        hi = min(len(amap[sid]), lo + months_per_period)
+        monthly_rates = component.get("monthly_rates") or []
+        period = str(component.get("rate_period") or "year")
+        divisor = float(_RATE_PERIODS.get(period) or 12)
+        total = 0.0
+        for mi in range(lo, hi):
+            mr = float(monthly_rates[mi] if mi < len(monthly_rates) else rate)
+            total += float(amap[sid][mi] or 0.0) * mr / divisor
+        return total
     else:  # normalize_linked_component already fail-closes; defensive only.
         raise ValueError(f"unsupported Opex linked driver {drv!r}")
     return base * rate

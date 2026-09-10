@@ -155,6 +155,60 @@ def main():
     ck('public run exposes linked fee-stream quantity in $000s per engine period',
        len(qser)==36 and abs(qser[0]-1000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='$000s / engine period')
 
+    # CAC/AUC is a stock-linked Opex driver. Annual multipliers accrue on the canonical
+    # monthly period-end AUC path, then aggregate to native presentation cadence.
+    def fraud_cfg(ppy):
+        fc=base_cfg(ppy); fa=fc['assumptions']
+        fa['cac_feeds']={'fraud_base':{
+            'series_id':'cac-auc-fraud','owner_module':'customer_acquisition',
+            'beginning_auc':0,'beginning_customers':0,'attrition_rate':0,'intra_year_shape':'linear',
+            'channels':[{'name':'Organic','method':'pool_conversion',
+                         'params':{'pool':12,'pool_growth':0,'conversion_rate':1.0,'conversion_growth':0},
+                         'avg_auc_per_customer':1_000_000,'avg_auc_growth':0}]}}
+        fa['nie_detail']['categories']=[{
+            'name':'Provision for Fraud & Operational Losses','series_id':'opex-fraud',
+            'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+            'linked_components':[{'driver':'customer_acquisition_auc','series_id':'cac-auc-fraud',
+                                  'rate_period':'year',
+                                  'rate_spec':{'source':'entered','trajectory':'flat','value':0.0001}}]}]
+        return fc
+
+    fm=fraud_cfg(12); rm=run_pf_a(fm)
+    fq=fraud_cfg(4); rq=run_pf_a(fq)
+    ck('AUC-linked annual multiplier accrues against monthly period-end AUC',
+       abs(rm['is']['otherOpex'][0]-(1_000_000*.0001/12))<1e-6 and
+       abs(rm['is']['otherOpex'][11]-(12_000_000*.0001/12))<1e-6)
+    ck('quarterly AUC-linked Opex sums canonical monthly accruals, not Q-end AUC proxy',
+       abs(rq['is']['otherOpex'][0]-((1_000_000+2_000_000+3_000_000)*.0001/12))<1e-6)
+    ck('AUC-linked fraud expense is cadence-equivalent by quarter',
+       all(abs(rq['is']['otherOpex'][q]-sum(rm['is']['otherOpex'][q*3:(q+1)*3]))<1e-6 for q in range(4)))
+    ck('AUC-linked fraud expense preserves annual total across monthly/quarterly models',
+       abs(sum(rm['is']['otherOpex'])-sum(rq['is']['otherOpex']))<1e-6)
+    vfm=copy.deepcopy(fm); vfm['assumptions']['n_periods']=36
+    try:
+        validate_config_v2(vfm); auc_valid=True
+    except ConfigErrorV2:
+        auc_valid=False
+    ck('validation accepts existing CAC AUC Series reference', auc_valid)
+    bad_auc=copy.deepcopy(vfm); bad_auc['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['series_id']='missing-auc'
+    bad=False
+    try: validate_config_v2(bad_auc)
+    except ConfigErrorV2 as e: bad=('does not exist' in str(e))
+    ck('validation fails closed on missing CAC AUC Series reference', bad)
+
+    cyc=fraud_cfg(12); cyc['assumptions']['n_periods']=36
+    feed=cyc['assumptions']['cac_feeds']['fraud_base']
+    feed['channels']=[{'name':'Paid acquisition','method':'spend_cac','params':{},'avg_auc_per_customer':1_000_000,
+                       'driver_specs':{
+                           'spend':{'source':'link','series_id':'cac-spend','owner_module':'customer_acquisition',
+                                    'link':{'kind':'operating_expense_category','series_id':'opex-fraud','aggregation':'sum'}},
+                           'cac':{'source':'entered','trajectory':'flat','value':1000},
+                           'avg_auc_per_customer':{'source':'entered','trajectory':'flat','value':1_000_000}}}]
+    cyc_bad=False
+    try: validate_config_v2(cyc)
+    except ConfigErrorV2 as e: cyc_bad=('circular dependency' in str(e))
+    ck('AUC-linked Opex fails closed when the same category drives that CAC feed', cyc_bad)
+
     # Custom settlement creates BS timing balances but does not alter recognized NIE.
     c=base_cfg(12); a=c['assumptions']
     a['nie_detail']['categories']=[{
