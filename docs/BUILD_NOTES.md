@@ -8,6 +8,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 0.10, changed only on client instruction, and any change is called out in the reply.
 
 
+
+## r62 — Acquisition-channel drag reorder
+- Adds a dedicated mouse drag handle to each Customer Acquisition channel, matching the direct-manipulation pattern introduced for Operating Expense items.
+- Reorders the actual channel object within its current Feed, so driver specs, derived Series IDs, and all channel economics move intact.
+- Preserves per-channel Explicit editor open/closed state when indices change.
+- Drag/drop is intentionally Feed-scoped: moving a channel into a different Feed remains an explicit model edit rather than a visual reorder that silently changes the customer/AUC roll-forward.
+
 ## r61 — Simplified literal Opex recognition start
 - Removes r60's separate `flow_spec.start_period` / “Expense begins” axis from Operating Expense authoring.
 - Recognition timing is once again a single contract: cadence + literal `first_period`. Nothing hits NIE before that event, and recurrence is anchored there (for example Annual + M35 -> M35, M47, M59...).
