@@ -131,8 +131,13 @@ def channel_spend(ch, year, series_context=None):
 
 
 def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):
-    """Annual customer/AUC roll-forward over ceil(Q/ppy) years, returned with a native-cadence
-    explicit-levels AUC series plus a per-year audit trail for defensibility.
+    """Annual customer/AUC roll-forward over ceil(Q/ppy) years.
+
+    AUC is always resolved first on Foundry's canonical monthly grid, then sampled to the
+    selected engine cadence for native balance consumers.  This preserves the intra-year
+    exposure path in quarterly models instead of manufacturing it from quarter-end points.
+    The native-cadence series remains available for existing downstream consumers, while
+    ``auc_end_by_month`` is the canonical balance path for cadence-sensitive calculations.
 
     cac_cfg = {
       channels: [ {name, method, params, avg_auc_per_customer, avg_auc_growth}, ... ],
@@ -144,8 +149,9 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
     }
 
     Returns {
-      auc_end_by_period: [ ... len Q ... ], # cadence-neutral ABSOLUTE period-end AUC
-      auc_levels_q: [ ... len Q ... ],        # legacy alias retained for compatibility
+      auc_end_by_month: [ ... 12 * model years ... ], # canonical monthly period-end AUC
+      auc_end_by_period: [ ... len Q ... ],           # native engine-cadence period-end AUC
+      auc_levels_q: [ ... len Q ... ],                # legacy alias retained for compatibility
       year_end_auc: [ ... per year ... ],
       annual: [ per-year records with channel detail, CAC, attrition ],
     }
@@ -203,20 +209,30 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
         year_end_auc.append(end_auc)
         beg_auc, beg_cust = end_auc, end_cust
 
-    # Annual ending levels -> native-cadence ABSOLUTE levels (intra-year resolution).
-    auc_levels_q = [0.0] * int(Q)
+    # Annual ending levels -> canonical MONTHLY ABSOLUTE levels first.  The canonical grid is
+    # deliberately independent of presentation/engine cadence.  Quarterly models therefore
+    # retain M1/M2/M3 information and only sample M3/M6/M9/M12 for native quarter-end balances.
+    # A downstream flow based on monthly AUC can consume/aggregate ``auc_end_by_month`` instead
+    # of incorrectly applying a quarterly rate to the quarter-end stock.
+    auc_end_by_month = [0.0] * (years * 12)
     prev_end = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     for y in range(1, years + 1):
         ye = year_end_auc[y - 1]
-        for qi in range(1, ppy + 1):
-            q = (y - 1) * ppy + qi
-            if q > Q:
-                break
+        for mi in range(1, 13):
+            m = (y - 1) * 12 + mi
             if shape == "stepped":
-                auc_levels_q[q - 1] = ye
-            else:  # linear: ramp from prior year-end to this year-end across the 4 quarters
-                auc_levels_q[q - 1] = prev_end + (ye - prev_end) * qi / float(ppy)
+                auc_end_by_month[m - 1] = ye
+            else:  # linear: ramp from prior year-end to this year-end across 12 canonical months
+                auc_end_by_month[m - 1] = prev_end + (ye - prev_end) * mi / 12.0
         prev_end = ye
+
+    if int(ppy) == 12:
+        auc_levels_q = list(auc_end_by_month[:int(Q)])
+    elif int(ppy) == 4:
+        # Q1/Q2/Q3/Q4 period-end balances are canonical M3/M6/M9/M12.
+        auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
+    else:
+        raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
 
     # Materialize module-owned Derived Series metadata.  The Series layer never evaluates
     # these equations; CAC owns the closed acquisition/roll-forward equations above and
@@ -239,10 +255,12 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
         derived_series[feed_sid] = {
             "source": "derived", "series_id": feed_sid, "owner_module": "customer_acquisition",
             "semantic_type": "auc_end", "cadence": "model_period", "values": list(auc_levels_q),
+            "canonical_cadence": "month", "canonical_values": list(auc_end_by_month),
             "derived": {"kind": "cac.customer_auc_rollforward"},
         }
 
-    return {"auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
+    return {"auc_end_by_month": auc_end_by_month,
+            "auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
             "year_end_auc": year_end_auc, "annual": annual, "derived_series": derived_series}
 
 

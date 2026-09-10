@@ -603,6 +603,7 @@ def run_v2(cfg):
                 "annual": _annual,
                 "yearEndAUC": [float(v or 0.0) / 1000.0 for v in (_cr.get("year_end_auc") or [])],
                 "aucEndByPeriod": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_period") or [])],
+                "aucEndByMonth": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_month") or [])],
                 "moneyUnits": "$000s",
                 "customerUnits": "count",
                 "rateUnits": "decimal",

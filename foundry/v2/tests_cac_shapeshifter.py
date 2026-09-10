@@ -94,6 +94,19 @@ def main():
        all(_eq(mo["year_end_auc"][i],qu["year_end_auc"][i]) for i in range(7)))
     ck("monthly period-end series lands exactly on each annual ending AUC",
        all(_eq(mo["auc_end_by_period"][(i+1)*12-1],mo["year_end_auc"][i]) for i in range(7)))
+    ck("canonical monthly AUC path is identical in monthly and quarterly models",
+       len(qu["auc_end_by_month"]) == 84 and
+       all(_eq(mo["auc_end_by_period"][i], qu["auc_end_by_month"][i]) for i in range(84)))
+    ck("quarterly AUC is sampled from canonical month-end M3/M6/M9/M12",
+       all(_eq(qu["auc_end_by_period"][q], qu["auc_end_by_month"][(q+1)*3-1]) for q in range(28)))
+    # A monthly balance-linked annualized rate must aggregate identically whether the
+    # presentation engine is monthly or quarterly.  This is the exact seam needed by
+    # future AUC-linked Opex (e.g. annual fraud provision rate on period-end AUC).
+    annual_rate = 0.0001
+    mo_exp = [v * annual_rate / 12.0 for v in mo["auc_end_by_month"]]
+    qu_exp = [sum(qu["auc_end_by_month"][q*3:(q+1)*3]) * annual_rate / 12.0 for q in range(28)]
+    ck("monthly AUC-linked expense aggregates exactly to quarterly presentation",
+       all(_eq(sum(mo_exp[q*3:(q+1)*3]), qu_exp[q]) for q in range(28)))
 
     # 7) Explicit schedules can intentionally extend by holding the last authored value.
     hold = copy.deepcopy(scheduled)
@@ -121,6 +134,11 @@ def main():
        ca.get("moneyUnits")=="$000s" and _eq(ca["annual"][0]["end_auc"],mo["annual"][0]["end_auc"]/1000.0))
     ck("public customer counts remain natural counts",
        ca.get("customerUnits")=="count" and _eq(ca["annual"][0]["end_cust"],mo["annual"][0]["end_cust"]))
+    cfgq=copy.deepcopy(cfg); cfgq["assumptions"]["periods_per_year"]=4; cfgq["assumptions"]["n_periods"]=28
+    outq=run_q.run_v2(cfgq); caq=((outq.get("customer_acquisition") or {}).get("growth") or {})
+    ck("quarterly public result retains canonical monthly AUC path",
+       len(caq.get("aucEndByMonth") or [])==84 and
+       all(_eq(caq["aucEndByMonth"][i], ca.get("aucEndByPeriod")[i]) for i in range(84)))
 
     print(f"\n{P} passed, {F} failed")
     return 0 if F == 0 else 1
