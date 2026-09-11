@@ -32,7 +32,9 @@ checks=[
  ('legacy r67 exclusive cost-pool config remains renderable but is not newly authored', 'Legacy r67 cost-pool-only compatibility mode' in html and 'nieCatCalculationKind' in html),
  ('new Opex categories are prepended and focused instead of appearing off-screen at the bottom', 'nd.categories.unshift' in html and 'data-opex-index="${i}"' in html and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html),
  ('prepending an Opex category reindexes existing Advanced open state', 'const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={}' in html and 'nextOpen[(+k||0)+1]=true' in html),
- ('Opex cost-pool authoring uses bounded stacked/grid layout for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-source-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and 'width:100% !important' in html and 'text-overflow:ellipsis' in html),
+ ('Opex cost-pool authoring uses bounded stacked/grid layout for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-attached-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and 'width:100% !important' in html and 'text-overflow:ellipsis' in html),
+ ('new typed Opex cost-pool authoring hides the global pool registry until explicit reuse', 'Link existing shared pool…' in html and 'Explicitly reuse another in-use pool' in html and 'Old orphaned pools are intentionally hidden' in html and '_opexReusableCostPools' in html),
+ ('Opex-owned pools have explicit ownership metadata and orphan cleanup', 'authoring_owner_module:"operating_expense"' in html and '_cleanupOwnedPoolOnDetach' in html and 'authoring_owner_component_id' in html),
 ]
 p=f=0
 for name,ok in checks:
@@ -69,36 +71,101 @@ else:
 if ok: p+=1; print('  PASS ', 'Opex drag reorder moves objects without losing stable identity/open state')
 else: f+=1; print('  FAIL ', 'Opex drag reorder moves objects without losing stable identity/open state')
 
-# Execute the additive cost-pool authoring action in isolation. A new Opex cost-pool component
-# must start with a genuinely fresh empty pool even if an older/orphaned shared pool still exists;
-# reuse of an old shared pool is an explicit selection, never an implicit default.
-add_cp=re.search(r"window\.nieCatAddCostPoolCharge=function\(i\)\{.*?\n", html, re.S)
-if add_cp:
+# Execute the actual Opex-owned cost-pool lifecycle. A new component must own a fresh
+# empty pool; removing the sole consumer must clean up that owned pool; a second new
+# component must get another fresh pool, not stale values from an orphan. The global
+# registry may still contain old legacy orphans, but they are not implicitly reused.
+block=re.search(r"window\._opexCostPoolReuseOpen=window\._opexCostPoolReuseOpen\|\|\{\};.*?window\.nieCatCostPoolComponentAdd=function\(i,j\)\{.*?\};\n", html, re.S)
+if block:
     js=r"""
-const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',name:'Platform',flow_spec:{trajectory:'flat',value:123,period:'year'}}]},cost_pools:[{series_id:'pool-old',owner_module:'cost_pool',name:'Cost pool 1',components:[{kind:'assumption_cost_base',flow_spec:{value:999}}]}]}};
+const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',name:'Platform',flow_spec:{trajectory:'flat',value:123,period:'year'}}]},cost_pools:[{series_id:'pool-old',owner_module:'cost_pool',name:'Legacy orphan',components:[{kind:'assumption_cost_base',flow_spec:{value:999}}]}],obs_exposures:[]}};
 window=globalThis;let rendered=0,refreshed=0,seq=0;function renderContent(){rendered++;}function refresh(){refreshed++;}
 function _ensureNieDetail(){return cfg.assumptions.nie_detail;}function _feeCostPools(){return cfg.assumptions.cost_pools;}
-function _seriesId(){seq++;return 'pool-new-'+seq;}
-"""+add_cp.group(0)+r"""
+function _seriesId(prefix){seq++;return prefix+'-'+seq;}
+function _feeCostPoolByRef(ref){return _feeCostPools().find(p=>p&&String(p.series_id||'')===String(ref||''))||null;}
+function _costPoolUsage(ref){let opex=0;for(const ct of cfg.assumptions.nie_detail.categories||[])for(const lc of ct.linked_components||[])if(lc&&lc.driver==='cost_pool_charge'&&String(lc.ref||'')===String(ref||''))opex++;return {fee:[],opex:Array(opex).fill(0),total:opex};}
+"""+block.group(0)+r"""
 nieCatAddCostPoolCharge(0);
-console.log(JSON.stringify({cfg,rendered,refreshed}));
+let ct=cfg.assumptions.nie_detail.categories[0],first=ct.linked_components[0],firstRef=first.ref,firstPool=_feeCostPoolByRef(firstRef);
+firstPool.components.push({kind:'assumption_cost_base',flow_spec:{value:777}});
+nieCatRemoveLinked(0,0);
+const removedOwned=!_feeCostPoolByRef(firstRef);
+nieCatAddCostPoolCharge(0);
+ct=cfg.assumptions.nie_detail.categories[0];const second=ct.linked_components[0],secondPool=_feeCostPoolByRef(second.ref);
+const reusable=_opexReusableCostPools(second.ref).map(p=>p.series_id);
+console.log(JSON.stringify({flow:ct.flow_spec.value,firstRef,secondRef:second.ref,removedOwned,secondEmpty:secondPool&&secondPool.components.length===0,legacyStill:_feeCostPoolByRef('pool-old')!=null,reusable,pools:_feeCostPools().map(p=>p.series_id),componentId:second.component_id}));
 """
     pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
-            got=json.loads(pr.stdout.strip().splitlines()[-1]); a=got['cfg']['assumptions']; ct=a['nie_detail']['categories'][0]; lc=ct['linked_components'][0]; pools=a.get('cost_pools') or []
-            fresh=next((x for x in pools if x.get('series_id')==lc.get('ref')),None)
-            ok=(ct['flow_spec']['value']==123 and 'calculation' not in ct and
-                lc.get('driver')=='cost_pool_charge' and lc.get('ref')=='pool-new-1' and lc.get('ref')!='pool-old' and lc.get('recovery_pct')==1 and
-                (lc.get('markup') or {}).get('value')==0 and len(pools)==2 and fresh is not None and fresh.get('components')==[] and
-                pools[0].get('components',[{}])[0].get('flow_spec',{}).get('value')==999 and
-                got.get('rendered')==1 and got.get('refreshed')==1)
+            got=json.loads(pr.stdout.strip().splitlines()[-1])
+            ok=(got.get('flow')==123 and got.get('removedOwned') is True and got.get('secondEmpty') is True and got.get('legacyStill') is True and got.get('firstRef')!=got.get('secondRef') and got.get('reusable')==[] and bool(got.get('componentId')))
         except Exception:
             pass
 else: ok=False
-if ok: p+=1; print('  PASS ', 'new Opex cost-pool component creates a fresh empty pool and never revives stale pool inputs implicitly')
-else: f+=1; print('  FAIL ', 'new Opex cost-pool component creates a fresh empty pool and never revives stale pool inputs implicitly')
+if ok: p+=1; print('  PASS ', 'Opex-owned pool lifecycle is fresh, cleans sole-use pools, and hides legacy orphans from implicit reuse')
+else: f+=1; print('  FAIL ', 'Opex-owned pool lifecycle is fresh, cleans sole-use pools, and hides legacy orphans from implicit reuse')
+
+# Explicit reuse is separate from new authoring. Linking an in-use shared pool should
+# switch only after the user chooses it, and should clean the previous private pool.
+if block:
+    js=r"""
+const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',name:'Platform',linked_components:[]}]},cost_pools:[{series_id:'pool-shared',owner_module:'cost_pool',name:'Shared fee pool',components:[{kind:'assumption_cost_base',flow_spec:{value:555}}]}],obs_exposures:[{fee_streams:[{driver:{source:'cost_pool',ref:'pool-shared'}}]}]}};
+window=globalThis;let seq=0;function renderContent(){}function refresh(){}function _ensureNieDetail(){return cfg.assumptions.nie_detail;}function _feeCostPools(){return cfg.assumptions.cost_pools;}function _seriesId(prefix){seq++;return prefix+'-'+seq;}
+function _feeCostPoolByRef(ref){return _feeCostPools().find(p=>p&&String(p.series_id||'')===String(ref||''))||null;}
+function _costPoolUsage(ref){let fee=0,opex=0;for(const p of cfg.assumptions.obs_exposures||[])for(const st of p.fee_streams||[])if((st.driver||{}).source==='cost_pool'&&String((st.driver||{}).ref||'')===String(ref||''))fee++;for(const ct of cfg.assumptions.nie_detail.categories||[])for(const lc of ct.linked_components||[])if(lc&&lc.driver==='cost_pool_charge'&&String(lc.ref||'')===String(ref||''))opex++;return {fee:Array(fee).fill(0),opex:Array(opex).fill(0),total:fee+opex};}
+"""+block.group(0)+r"""
+nieCatAddCostPoolCharge(0);const privateRef=cfg.assumptions.nie_detail.categories[0].linked_components[0].ref;
+const before=_opexReusableCostPools(privateRef).map(p=>p.series_id);
+nieCatCostPoolComponentSelect(0,0,'pool-shared');
+const lc=cfg.assumptions.nie_detail.categories[0].linked_components[0];
+console.log(JSON.stringify({before,ref:lc.ref,privateGone:_feeCostPoolByRef(privateRef)==null,sharedStill:_feeCostPoolByRef('pool-shared')!=null,sharedValue:_feeCostPoolByRef('pool-shared').components[0].flow_spec.value}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]);ok=(got.get('before')==['pool-shared'] and got.get('ref')=='pool-shared' and got.get('privateGone') is True and got.get('sharedStill') is True and got.get('sharedValue')==555)
+        except Exception: pass
+else: ok=False
+if ok: p+=1; print('  PASS ', 'existing shared pool reuse is explicit and preserves the shared pool while cleaning the replaced private pool')
+else: f+=1; print('  FAIL ', 'existing shared pool reuse is explicit and preserves the shared pool while cleaning the replaced private pool')
+
+
+# Render the actual typed Opex cost-pool editor with an attached private pool, one old orphan,
+# and one in-use shared pool. The default card must not expose either registry entry; opening the
+# explicit reuse affordance may show the in-use shared pool but still must hide the orphan.
+editor=re.search(r"function _opexCostPoolEditorHtml\(i,ct,calc,j\)\{.*?\n\}\nfunction _opexTimingInterval", html, re.S)
+if editor:
+    fn=editor.group(0).rsplit('\nfunction _opexTimingInterval',1)[0]
+    js=r"""
+window=globalThis; window._opexCostPoolReuseOpen={};
+const pools=[
+ {series_id:'pool-own',name:'Private platform pool',components:[],authoring_owner_module:'operating_expense',authoring_owner_series_id:'opex-1',authoring_owner_component_id:'comp-1'},
+ {series_id:'pool-orphan',name:'OLD ORPHAN SHOULD NOT APPEAR',components:[]},
+ {series_id:'pool-shared',name:'Reusable fee pool',components:[]}
+];
+function _feeCostPools(){return pools;} function _feeCostPoolByRef(r){return pools.find(p=>p.series_id===r)||null;} function _feeCostPoolIndex(r){return pools.findIndex(p=>p.series_id===r);}
+function _opexCostPoolReuseKey(i,j){return i+':'+j;} function _costPoolUsage(r){return r==='pool-own'?{total:1}:r==='pool-shared'?{total:1}:{total:0};}
+function _costPoolOwnedByOpexComponent(p,ct,lc){return p.series_id==='pool-own'&&ct.series_id==='opex-1'&&lc.component_id==='comp-1';}
+function _opexReusableCostPools(current){return pools.filter(p=>p.series_id!==current&&_costPoolUsage(p.series_id).total>0);} function _feeCostPoolSourceOptions(){return [];} function PPY(){return 12;}
+function esc(x){return String(x==null?'':x);} function fmtComma(x){return String(x);} function growthSpecInline(){return '';} const lastRes={};
+"""+fn+r"""
+const ct={series_id:'opex-1'}; const calc={driver:'cost_pool_charge',component_id:'comp-1',ref:'pool-own',recovery_pct:1,markup:{value:0,period:'year',trajectory:'flat',resolution:'step'}};
+const closed=_opexCostPoolEditorHtml(0,ct,calc,0);
+window._opexCostPoolReuseOpen['0:0']=true; const open=_opexCostPoolEditorHtml(0,ct,calc,0);
+console.log(JSON.stringify({closedHasOrphan:closed.includes('OLD ORPHAN'),closedHasShared:closed.includes('Reusable fee pool'),closedHasOwn:closed.includes('Private platform pool'),openHasOrphan:open.includes('OLD ORPHAN'),openHasShared:open.includes('Reusable fee pool')}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]);ok=(got.get('closedHasOrphan') is False and got.get('closedHasShared') is False and got.get('closedHasOwn') is True and got.get('openHasOrphan') is False and got.get('openHasShared') is True)
+        except Exception: pass
+else: ok=False
+if ok: p+=1; print('  PASS ', 'typed Opex pool editor hides the global registry by default and reveals only in-use pools on explicit reuse')
+else: f+=1; print('  FAIL ', 'typed Opex pool editor hides the global registry by default and reveals only in-use pools on explicit reuse')
 
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)
