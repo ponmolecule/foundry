@@ -110,3 +110,6 @@ component columns on Product P&L rows. Still a thin client: every number from
 /api/v2/preview. UI-parity checklist extended to the faithful surface. Iterations
 2 (JSX layer) and 3 (peer evidence surface, examiner book, engagement lifecycle,
 config roster in v2 UI; warehouse swap remains its own track) are queued.
+
+## r67 addendum — posting-direction-neutral cost pools
+The r67 change is an additive generalization rather than a new Reg W-specific ontology. The existing Fee Product consumer remains available for revenue-side cost recovery; Operating Expense is now a second consumer for expense-side intercompany charges. Cost-pool components remain non-posting inputs, while the selected downstream consumer owns the single accounting posting. Existing entered Opex categories and prior Fee Product configurations retain their semantics. Dependency validation fails closed on self-referential Opex/cost-pool and Opex/CAC/AUC/cost-pool cycles. Profile B now supports the Opex consumer; first-class Profile B Fee Product cost-pool pricing remains a separate known limitation and was not silently broadened in this release.

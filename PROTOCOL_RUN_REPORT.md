@@ -72,3 +72,8 @@ reproduced solstice_golden_v4 / blackland_golden_v1 bit-identically — that
 verification is also the B.8 schema-promotion attestation).
 Goldens: solstice_golden_v4 fa969b37747c -> v5 0ff7ac65dd0b;
 blackland_golden_v1 740bf4dd6830 -> v2 54d956a50692.
+
+## r67 verification addendum — Operating Expense cost-pool consumer
+The release adds Operating Expense as a second downstream consumer of the shared cost-pool / cost-recovery primitive while retaining Fee Product revenue consumption. Focused regression coverage verifies the source Platform Services expense case ($346,500 Year-1 NIE from $300,000 fixed annual cost, 3% escalation, 0.006% p.a. of Average AUC, 100% recovery, and 5% markup), monthly/quarterly cadence parity, Profile B Opex consumption, dormant entered-flow preservation, missing-pool rejection, downstream self-cycle rejection, and Opex -> CAC/AUC -> pool -> Opex cycle rejection. The Fee Product cost-recovery suite remains unchanged in economic direction and green.
+
+Pre-release full-matrix gate: 30/30 historical test entry points passed. Key suites include 70/70 cost-recovery checks, 58/58 Opex-extension checks, 24/24 Opex UI checks, 21/21 paste-surface hardening checks, 88/88 audit-remediation checks, 9/9 parity fixtures, and 331/331 protocol checks. The first matrix run correctly failed only the paste-surface inventory count after two legitimate Opex cost-pool schedule editors were added; the inventory was expanded to enumerate those controls explicitly, its full behavioral contract passed, and the complete 30-entry matrix then passed from zero.

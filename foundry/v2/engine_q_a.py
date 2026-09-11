@@ -1088,6 +1088,7 @@ def run_pf_a(cfg):
                                                        for sid, arr in _fee_stream_qty_series.items()},
                              "customer_acquisition_auc_monthly": _auc_month_sources,
                              "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                             "cost_pool": _cost_pool_ctx(q),
                              "periods_per_year": ppy})
                 for _lc in (_nie_d.get("linked_components") or []))
             _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex

@@ -34,18 +34,20 @@ def main():
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
     paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 17, str(len(paste_lines)))
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 19, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Thirteen scalar schedule families: eight Fee Product paths (transaction coefficient, Flat amount,
-    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base), plus CAC
+    # Fifteen scalar schedule families: eight Fee Product paths (transaction coefficient, Flat amount,
+    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base),
+    # two Operating Expense cost-pool paths (entered cost base and cost-recovery markup), plus CAC
     # driver/attrition, Workforce Count/Compensation, and individual Operating Expense schedule.
     scalar_markers = [
         "feeCoeffPaste_", "feeFlatAmountPaste_", "feeAccountLevelPaste_", "feeStockPctPaste_",
-        "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_", "cacPaste_", "cacAttritionPaste_",
+        "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_",
+        "nieCostBasePaste_", "nieCostPoolMarkupPaste_", "cacPaste_", "cacAttritionPaste_",
         "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_",
     ]
-    ck("all thirteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all fifteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -63,6 +65,8 @@ def main():
         'id="${_ufid}_load" class="pillbtn" disabled',
         'id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostRecoveryMarkupSchedule',
         "id=\"${_eid}_load\" class=\"pillbtn\" disabled onclick='_feeSetCostPoolEnteredSchedule",
+        "id=\"${eid}_load\" class=\"pillbtn\" disabled onclick='_feeSetCostPoolEnteredSchedule",
+        'id="${mid}_load" class="pillbtn" disabled onclick="nieCatCostPoolSetMarkupSchedule',
         'id="${boxId}_load" class="pillbtn" disabled',
         'id="${_aid}_load" class="pillbtn" disabled',
         'id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCountPaste',
@@ -75,7 +79,8 @@ def main():
     clear_markers = [
         "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "_feeClearAccountLevelSchedule",
         "_feeClearStockMultiplierSchedule", "_feeClearBalanceRateSchedule", "_feeClearAccountFeeSchedule",
-        "_feeClearCostRecoveryMarkupSchedule", "_feeClearCostPoolEnteredSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
+        "_feeClearCostRecoveryMarkupSchedule", "_feeClearCostPoolEnteredSchedule",
+        "nieCatCostPoolClearMarkupSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
         "nieCatScheduleClear",
     ]
     ck("every scalar Explicit schedule family has an isolated Clear action", all(x in html for x in clear_markers))

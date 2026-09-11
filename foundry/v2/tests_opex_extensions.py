@@ -5,6 +5,7 @@ from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
 from foundry.v2.income_modules import nie_category_series
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
+from foundry.v2.engine_q_b import run_pf_b
 from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
 from foundry.v2.run_q import run_v2
 
@@ -327,6 +328,102 @@ def main():
     ck('OCC first payment can be translated to Q2 then repeats every two quarters',
        r2['bs']['accruedOpex'][1] > 0 and abs(r2['bs']['accruedOpex'][2])<1e-5
        and r2['bs']['accruedOpex'][3] > 0 and abs(r2['bs']['accruedOpex'][4])<1e-5)
+
+    # A cost pool can be consumed by Operating Expense as the final posting direction.
+    # This is the expense-side twin of Fee Product cost recovery: the pool stays non-posting,
+    # while the recovered/marked-up charge posts once to NIE.
+    def platform_services_cfg(ppy):
+        pc=base_cfg(ppy); pa=pc['assumptions']
+        pa['capital_raises']=[]
+        pa['cac_feeds']={'platform':{
+            'series_id':'cac-auc-platform','owner_module':'customer_acquisition',
+            'beginning_auc':0.0,'beginning_customers':0.0,'attrition_rate':0.0,
+            'intra_year_shape':'linear','channels':[{
+                'name':'Explicit adds','method':'explicit',
+                'params':{'new_customers_by_year':[1.0],'spend':0.0},
+                'avg_auc_per_customer':1_000_000_000.0}]}}
+        pa['cost_pools']=[{
+            'series_id':'pool-platform','owner_module':'cost_pool','name':'Platform services eligible cost',
+            'components':[
+                {'kind':'assumption_cost_base','series_id':'cost-base-fixed','name':'Fixed service cost',
+                 'allocation_pct':1.0,
+                 'flow_spec':{'trajectory':'growth','value':300_000.0,'period':'year',
+                              'base_position':'period1','growth_spec':{'rate':.03,'period':'year',
+                                                                     'method':'step','anchor':'model_year'}}},
+                {'kind':'balance_derived_cost','series_id':'cost-base-variable','name':'Average-AUC variable cost',
+                 'allocation_pct':1.0,'source_kind':'managed_notional','source_series_id':'cac-auc-platform',
+                 'measure':'period_average','rate_period':'year',
+                 'rate_spec':{'source':'entered','trajectory':'flat','value':.00006}},
+            ]}]
+        pa['nie_detail']['categories']=[{
+            'series_id':'opex-platform','owner_module':'operating_expense',
+            'name':'Intercompany - Platform Services',
+            # A stale entered draft is deliberately present: calculation.kind owns the active economics.
+            'flow_spec':{'trajectory':'flat','value':999_999.0,'period':'year'},
+            'calculation':{'kind':'cost_pool','ref':'pool-platform','recovery_pct':1.0,
+                           'markup':{'value':.05,'period':'year','trajectory':'flat','resolution':'step'}},
+        }]
+        return pc
+
+    pm=platform_services_cfg(12)
+    prm=run_pf_a(pm)
+    expected=[26_468.75,26_906.25,27_343.75,27_781.25,28_218.75,28_656.25,
+              29_093.75,29_531.25,29_968.75,30_406.25,30_843.75,31_281.25]
+    ck('cost-pool Opex posts the source Platform Services monthly charge exactly once to NIE',
+       all(abs(x-y)<1e-6 for x,y in zip(prm['is']['otherOpex'][:12],expected))
+       and abs(sum(prm['is']['otherOpex'][:12])-346_500.0)<1e-6,
+       prm['is']['otherOpex'][:12])
+    ck('cost-pool Opex ignores hidden entered-flow draft while cost_pool is the active calculation source',
+       abs(prm['is']['otherOpex'][0]-26_468.75)<1e-6)
+
+    pq=platform_services_cfg(4)
+    prq=run_pf_a(pq)
+    expected_q=[80_718.75,84_656.25,88_593.75,92_531.25]
+    ck('cost-pool Opex preserves exact monthly economics in quarterly presentation',
+       all(abs(x-y)<1e-6 for x,y in zip(prq['is']['otherOpex'][:4],expected_q))
+       and abs(sum(prq['is']['otherOpex'][:4])-346_500.0)<1e-6)
+    pf_b=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json'))
+    pba=pf_b['assumptions']; pba['n_periods']=12; pba['periods_per_year']=4; pba['capital_raises']=[]
+    for key in ('cac_feeds','cost_pools','nie_detail'):
+        pba[key]=copy.deepcopy(pq['assumptions'][key])
+    pba['premises_equipment']=0; pba['premises_depreciation_annual']=0; pba.pop('fixed_assets',None)
+    prb=run_pf_b(pf_b)
+    ck('Profile B can consume the same shared cost pool as Operating Expense',
+       all(abs(x-y)<1e-6 for x,y in zip(prb['is']['otherOpex'][:4],expected_q))
+       and abs(sum(prb['is']['otherOpex'][:4])-346_500.0)<1e-6)
+    try:
+        validate_config_v2(pm); pool_opex_valid=True
+    except ConfigErrorV2 as e:
+        print('cost-pool Opex validation error',e); pool_opex_valid=False
+    ck('validation accepts Operating Expense as a downstream cost-pool consumer', pool_opex_valid)
+
+    missing_pool=copy.deepcopy(pm)
+    missing_pool['assumptions']['nie_detail']['categories'][0]['calculation']['ref']='missing-pool'
+    bad=False
+    try: validate_config_v2(missing_pool)
+    except ConfigErrorV2 as e: bad='missing-pool' in str(e)
+    ck('cost-pool Opex fails closed on a missing pool reference', bad)
+
+    circular=copy.deepcopy(pm)
+    circular['assumptions']['cost_pools'][0]['components'].insert(0,{
+        'kind':'operating_expense_category','series_id':'opex-platform','allocation_pct':1.0})
+    bad=False
+    try: validate_config_v2(circular)
+    except ConfigErrorV2 as e: bad='circular dependency' in str(e)
+    ck('cost-pool Opex fails closed when the pool includes its own downstream Opex category', bad)
+
+    auc_loop=copy.deepcopy(pm)
+    auc_loop['assumptions']['cac_feeds']['platform']['channels']=[{
+        'name':'Paid acquisition','method':'spend_cac','params':{},'avg_auc_per_customer':1_000_000_000.0,
+        'driver_specs':{
+            'spend':{'source':'link','series_id':'cac-spend-platform','owner_module':'customer_acquisition',
+                     'link':{'kind':'operating_expense_category','series_id':'opex-platform','aggregation':'sum'}},
+            'cac':{'source':'entered','trajectory':'flat','value':1_000.0},
+            'avg_auc_per_customer':{'source':'entered','trajectory':'flat','value':1_000_000_000.0}}}]
+    bad=False
+    try: validate_config_v2(auc_loop)
+    except ConfigErrorV2 as e: bad=('cost-pool-calculated Operating Expense category' in str(e) or 'circular dependency' in str(e))
+    ck('cost-pool Opex fails closed on Opex → CAC/AUC → cost-pool → same Opex loop', bad)
 
     # Fail closed: custom settlement + endogenous linked revenue component.
     c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{

@@ -29,6 +29,7 @@ SAFE_REVENUE_DRIVERS = {
 
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
+COST_POOL_CHARGE_DRIVER = "cost_pool_charge"
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 
 
@@ -150,6 +151,49 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     return out
 
 
+def normalize_opex_calculation(category: Mapping[str, Any] | None) -> dict:
+    """Normalize the category's active calculation source.
+
+    Existing configs have no ``calculation`` object and therefore remain ordinary entered Opex.
+    A cost-pool category is a downstream posting consumer: the pool itself stays non-posting,
+    while the recovered/marked-up charge is posted once to this Operating Expense category.
+    """
+    raw = dict((category or {}).get("calculation") or {})
+    kind = str(raw.get("kind") or "entered").strip().lower()
+    if kind in {"", "entered", "trajectory"}:
+        return {"kind": "entered"}
+    if kind != "cost_pool":
+        raise ValueError("Operating Expense calculation.kind must be entered or cost_pool")
+    ref = str(raw.get("ref") or "").strip()
+    if not ref:
+        raise ValueError("cost-pool Operating Expense requires calculation.ref")
+    from .cost_recovery import validate_cost_recovery_terms
+    validate_cost_recovery_terms(raw)
+    return {**raw, "kind": "cost_pool", "ref": ref}
+
+
+def resolve_cost_pool_calculation(category: Mapping[str, Any] | None, n_periods: int, ppy: int,
+                                  *, context=None, assumptions: Mapping[str, Any] | None = None) -> dict | None:
+    """Compile an Opex cost-pool calculation into the common linked-amount runtime shape."""
+    calc = normalize_opex_calculation(category)
+    if calc["kind"] != "cost_pool":
+        return None
+    if assumptions is not None:
+        from .cost_pools import resolve_cost_pool_ref
+        pool = resolve_cost_pool_ref(calc["ref"], assumptions)
+        if not ((pool or {}).get("components") or []):
+            raise ValueError("referenced cost_pool requires at least one eligible expense component")
+    from .cost_recovery import cost_recovery_markup_value
+    markups = [cost_recovery_markup_value(calc, q, int(ppy), growth_context=context)
+               for q in range(1, int(n_periods) + 1)]
+    return {
+        "driver": COST_POOL_CHARGE_DRIVER,
+        "ref": calc["ref"],
+        "recovery_pct": float(calc.get("recovery_pct") or 0.0),
+        "rates": [float(x or 0.0) for x in markups],
+    }
+
+
 def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int, ppy: int,
                               *, context=None, assumptions: Mapping[str, Any] | None = None) -> list[dict]:
     out = []
@@ -185,6 +229,14 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
     i = int(period_index)
     rates = component.get("rates") or []
     rate = float(rates[i] if i < len(rates) else 0.0)
+    if drv == COST_POOL_CHARGE_DRIVER:
+        ref = str(component.get("ref") or "")
+        pools = metrics.get("cost_pool") or {}
+        if ref not in pools:
+            raise ValueError(f"linked cost-pool Series {ref!r} is unavailable in this engine run")
+        from .cost_recovery import cost_recovery_amount
+        return cost_recovery_amount(
+            float(pools.get(ref) or 0.0), float(component.get("recovery_pct") or 0.0), rate)
     if drv == "fee_income":
         base = float(metrics.get("fee_income") or 0.0)
     elif drv == "gain_on_sale":
