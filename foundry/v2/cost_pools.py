@@ -123,10 +123,18 @@ def cost_pool_balance_source_catalog(assumptions: Mapping[str, Any] | None) -> l
         sid = str(feed.get("series_id") or "").strip()
         if not sid:
             continue
+        count_sid = str(feed.get("customer_count_series_id") or "").strip()
+        if count_sid and count_sid == sid:
+            raise ValueError(
+                f"CAC feed {name!r} uses the same series_id for AUC and customer count; "
+                "balance semantics require distinct stable Series IDs")
         out.append({
             "source_kind": "managed_notional",
             "series_id": sid,
             "name": str(name or sid),
+            "feed": str(name or sid),
+            "owner_module": "customer_acquisition",
+            "semantic_type": "auc_end",
             "measure_semantic": "canonical_monthly_balance",
         })
     ids = [x["series_id"] for x in out]
@@ -337,17 +345,23 @@ def _canonical_managed_notional_monthly_end(
         raise ValueError(f"unsupported cadence periods_per_year={ppy} for balance-derived cost")
     n_months = int(n_periods) * (12 // ppy)
 
-    hits: list[tuple[str, Mapping[str, Any]]] = []
-    for name, raw in (a.get("cac_feeds") or {}).items():
-        feed = raw or {}
-        sid = str(feed.get("series_id") or "").strip()
-        if sid == ident or (not sid and str(name or "").strip() == ident):
-            hits.append((str(name or ident), feed))
+    # Fail with a semantic error rather than allowing a customer-count Series to masquerade
+    # as a monetary balance.  r69 introduced first-class CAC count Series alongside AUC; the
+    # two identities are intentionally distinct even when they share the same feed label.
+    count_hits = [str(name or ident) for name, raw in (a.get("cac_feeds") or {}).items()
+                  if str((raw or {}).get("customer_count_series_id") or "").strip() == ident]
+    if count_hits:
+        raise ValueError(
+            f"managed-notional balance source {ident!r} is a CAC customer-count Series "
+            f"({', '.join(count_hits)}); expected the feed's canonical AUC / managed-notional series_id")
+
+    catalog = cost_pool_balance_source_catalog(a)
+    hits = [m for m in catalog if str(m.get("series_id") or "").strip() == ident]
     if len(hits) != 1:
         raise ValueError(
-            f"managed-notional balance source {ident!r} resolved to {len(hits)} canonical monthly sources; expected exactly one")
-
-    _, feed = hits[0]
+            f"managed-notional balance source {ident!r} resolved to {len(hits)} canonical monthly AUC sources; expected exactly one")
+    feed_name = str(hits[0].get("feed") or hits[0].get("name") or "")
+    feed = ((a.get("cac_feeds") or {}).get(feed_name) or {})
     from .cac_feeder import cac_auc_rollforward
     r = cac_auc_rollforward(feed, int(n_periods), ppy, assumptions=a, growth_context=growth_context)
     monthly = [float(x or 0.0) for x in (r.get("auc_end_by_month") or [])[:n_months]]
@@ -363,6 +377,12 @@ def _balance_derived_series(comp: Mapping[str, Any], assumptions: Mapping[str, A
     if source_kind not in _BALANCE_SOURCE_KINDS:
         raise ValueError(
             f"unsupported balance-derived cost source_kind {source_kind!r}; expected managed_notional")
+    source_semantic = str(comp.get("source_semantic") or "").strip().lower()
+    if source_semantic and source_semantic != "auc_end":
+        raise ValueError("balance-derived cost source_semantic must be auc_end")
+    source_owner = str(comp.get("source_owner_module") or "").strip().lower()
+    if source_owner and source_owner != "customer_acquisition":
+        raise ValueError("balance-derived cost source_owner_module must be customer_acquisition")
     source_sid = str(comp.get("source_series_id") or "").strip()
     beginning, monthly_end = _canonical_managed_notional_monthly_end(
         assumptions, source_sid, n_periods, ppy, growth_context=growth_context)
