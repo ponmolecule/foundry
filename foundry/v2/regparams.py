@@ -58,7 +58,10 @@ REG_PARAMS = {
         # FDIC base per 12 USC 1817(b)(2)(A): avg consolidated assets - avg tangible equity
         # (D-P14 fix: NOT deposits). Rate is an engagement assumption inside the
         # 12 CFR 327 schedule for a new small institution; OCC per 12 CFR 8.
-        "fdic_bp_ann": 5.0, "occ_bp_ann": 1.5,
+        "fdic_bp_ann": 5.0,
+        # Historical reference for the explicitly enabled legacy OCC shortcut. Modern
+        # Detailed Opex does NOT fall back to this value; missing OCC config means off.
+        "occ_bp_ann": 1.5,
     },
     "cblr": {
         "requirement": 0.08,            # lowered from 0.09, eff. 2026-07-01

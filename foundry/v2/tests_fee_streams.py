@@ -2,7 +2,7 @@
 
 Pins two things:
   1. INVARIANT: the universal fee-stream fixture preserves the current financial-core baseline
-     after the intentional Fee Product Costs / Corporate Overhead presentation split.
+     after the intentional r78 removal of the implicit simplified-OCC fallback.
   2. CORRECTNESS: each basis (balance/transaction/account/flat) and timing gating are hand-checked.
 
 Run: python3 -m foundry.v2.tests_fee_streams
@@ -12,7 +12,7 @@ sys.path.insert(0, ".")
 from foundry.v2 import run_q
 from foundry.v2.income_modules import fee_stream_q, product_fee_streams_q
 
-BASELINE = "299f0385b823fc07"
+BASELINE = "6f446fe0b4197f28"
 
 
 def _hash(cfg):

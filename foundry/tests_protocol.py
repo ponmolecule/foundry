@@ -1688,24 +1688,29 @@ def t43():
         check(f"T43b-{eng}", f"engine {eng}: absent nie_detail leaves overhead untouched",
               abs(base["financials"]["is"][fx_k][0]
                    - base["financials"]["is"][fx_k][0]) < 1e-9)
-    # correct FDIC base: assets-minus-tangible-equity, NOT deposits (D-P14)
+    # Correct FDIC base: assets-minus-tangible-equity, NOT deposits (D-P14). r78 also
+    # closes the silent-OCC gap: missing simplified-OCC config must mean zero OCC.
     cfg3 = _json.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
     cfg3["assumptions"]["nie_detail"] = {"fte_by_year": [0, 0, 0], "loaded_comp_annual": 0,
                                            "categories": [], "other_gross_up_rate": 0}
     r3 = run_v2(cfg3)
     bsx = r3["financials"]["bs"]
     fxk = "overhead" if "overhead" in r3["financials"]["is"] else "fixedOpex"
-    got = r3["financials"]["is"][fxk][1]   # Q2 overhead = assessments(+dep) only
+    got = r3["financials"]["is"][fxk][1]
     A_ = REG_PARAMS["assessments"]
-    # Q2 FDIC uses the current quarter's disclosed prior-period base, while OCC stays on
-    # the single H1 measurement base established for the Jan-Jun assessment (Dec-31 /
-    # first modeled opening base).  It must NOT rebase the H1 assessment in Q2.
-    exp = (max(0.0, bsx["totalAssets"][1] - (bsx["equity"][1] - 0.0))
-            * A_["fdic_bp_ann"] / 10000.0 / 4.0
-            + bsx["totalAssets"][0] * A_["occ_bp_ann"] / 10000.0 / 4.0)
-    check("T43c", "FDIC accrues on its period base; OCC keeps one semiannual measurement "
-                    "base across H1 rather than rebasing every quarter",
+    exp = max(0.0, bsx["totalAssets"][1] - (bsx["equity"][1] - 0.0)) * A_["fdic_bp_ann"] / 10000.0 / 4.0
+    check("T43c", "FDIC accrues on its period base while absent simplified OCC contributes zero",
           abs(got - exp) < 0.02, f"got {got:.3f}k exp {exp:.3f}k")
+
+    # Backward compatibility: a pre-r78 saved model that actually persisted an OCC rate
+    # remains active even though it has no new enable flag.
+    cfg4 = _json.loads(_json.dumps(cfg3))
+    cfg4["assumptions"]["nie_detail"]["occ_bp_ann"] = A_["occ_bp_ann"]
+    r4 = run_v2(cfg4)
+    got4 = r4["financials"]["is"][fxk][1]
+    exp4 = exp + r4["financials"]["bs"]["totalAssets"][0] * A_["occ_bp_ann"] / 10000.0 / 4.0
+    check("T43d", "legacy saved OCC rate remains an explicit backward-compatible shortcut",
+          abs(got4 - exp4) < 0.02, f"got {got4:.3f}k exp {exp4:.3f}k")
 
 
 def t44():

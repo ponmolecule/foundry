@@ -82,7 +82,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        br.returncode==0 and bj.get("fresh",{}).get("categories")==[]
        and "fte_by_year" not in bj.get("fresh",{})
        and bj.get("fresh",{}).get("workforce",{}).get("mode")=="roles"
-       and bj.get("fresh",{}).get("fdic_bp_ann")==5.0 and bj.get("fresh",{}).get("occ_bp_ann")==1.5,
+       and bj.get("fresh",{}).get("fdic_bp_ann")==5.0
+       and bj.get("fresh",{}).get("occ_simplified_enabled") is False
+       and bj.get("fresh",{}).get("occ_bp_ann") is None,
        br.stderr.strip())
     fs=(bj.get("cat") or {}).get("flow_spec") or {}; gs=fs.get("growth_spec") or {}
     ck("category batch paste writes explicit amount period plus canonical 3%/year/step growth semantics",
@@ -350,8 +352,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("workforce UI gives concise economic-aggregation guidance",
        '<b>User note.</b> Aggregate roles until timing, escalation, benefits/payroll, or triggers differ.' in html
        and 'This keeps large staffing plans compact without losing model fidelity.' not in html)
-    ck("assessment defaults are visible economic values rather than blank placeholders",
-       'fdic_bp_ann:5.0' in html and 'occ_bp_ann:1.5' in html
+    ck("Detailed Opex keeps FDIC visible but makes simplified OCC explicit opt-in",
+       'fdic_bp_ann:5.0' in html and 'occ_simplified_enabled:false' in html
+       and 'Legacy / simplified OCC assessment' in html and 'Off — no simplified OCC expense posts.' in html
+       and 'nieOccSimplifiedToggle' in html and 'first cash payment' in html
        and 'blank=5.0' not in html and 'blank=1.5' not in html)
     ck("workforce paste guidance describes clipboard columns and restores optional Count",
        'you do not need to type tab characters' in html and 'Tabs preferred' not in html

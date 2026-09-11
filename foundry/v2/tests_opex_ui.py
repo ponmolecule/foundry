@@ -26,7 +26,7 @@ checks=[
  ('Monthly recognition also exposes a first model period', "if(_rm!=='trajectory')" in html and 'then every ${iv}' in html),
  ('Opex UI exposes ordinal cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'first payment' in html and 'Semiannual' in html and 'Annual' in html),
  ('settlement copy explains prepaid/accrued accounting consequence', 'prepaid assets or accrued operating-expense liabilities' in html),
- ('OCC UI uses ordinal semiannual payment timing', 'Semiannual ordinal cycle' in html and 'occ_payment_first_period' in html and 'Client calendar dates are translated' in html),
+ ('legacy simplified OCC is explicit opt-in and hides timing when off', 'Legacy / simplified OCC assessment' in html and 'nieOccSimplifiedToggle' in html and 'Off — no simplified OCC expense posts.' in html and 'first cash payment' in html),
  ('Opex item header gives the expense name a medium-width authoring field', 'class=\"opex-item-head\"' in html and re.search(r'\.opex-item-head\{[^}]*grid-template-columns:24px minmax\(220px,420px\) 24px',html) is not None and 'placeholder=\"Expense item name\"' in html),
  ('Opex categories expose mouse drag-reorder with insertion markers', 'class=\"opex-drag-handle\"' in html and 'nieCatDragStart(event,${i})' in html and 'nieCatDrop(event,${i})' in html and '.opex-item-card.drop-before:before' in html),
  ('new Opex authoring does not expose r67 exclusive calculation-mode selector', 'Calculation</span><select' not in html and 'nieCatAddCostPoolCharge' in html),
@@ -287,6 +287,42 @@ else:
     ok=False
 if ok: p+=1; print('  PASS ', 'AUC-linked Opex preview visibly switches between EOP and period-average consumed Series')
 else: f+=1; print('  FAIL ', 'AUC-linked Opex preview visibly switches between EOP and period-average consumed Series')
+
+# Execute the simplified OCC toggle itself: modern Detailed Opex starts disabled;
+# enabling materializes visible legacy rate/timing while disabling preserves those
+# draft settings without posting the shortcut.
+toggle_m=re.search(r"window\.nieOccSimplifiedToggle = function\(on\)\{.*?\n\};", html, re.S)
+if toggle_m:
+    js=r"""
+window=globalThis;
+const cfg={assumptions:{nie_detail:{categories:[],fdic_bp_ann:5.0,occ_simplified_enabled:false}}};
+function _ensureNieDetail(){return cfg.assumptions.nie_detail;}
+function PPY(){return 12;} function renderContent(){} function refresh(){}
+"""+toggle_m.group(0)+r"""
+nieOccSimplifiedToggle(true);
+const enabled=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail));
+nieOccSimplifiedToggle(false);
+const disabled=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail));
+console.log(JSON.stringify({enabled,disabled}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]); en=got.get('enabled',{}); dis=got.get('disabled',{})
+            ok=(en.get('occ_simplified_enabled') is True
+                and abs(en.get('occ_bp_ann',0)-1.5)<1e-12
+                and en.get('occ_payment_first_period')==3
+                and dis.get('occ_simplified_enabled') is False
+                and abs(dis.get('occ_bp_ann',0)-1.5)<1e-12
+                and dis.get('occ_payment_first_period')==3)
+        except Exception:
+            pass
+else:
+    ok=False
+if ok: p+=1; print('  PASS ', 'simplified OCC toggle is explicit opt-in and preserves disabled draft settings')
+else: f+=1; print('  FAIL ', 'simplified OCC toggle is explicit opt-in and preserves disabled draft settings')
+
 
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)

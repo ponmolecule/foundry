@@ -403,9 +403,13 @@ def _nie_sheet(ws, nd, ppy=4):
     if nd.get("fdic_bp_ann") is not None:
         _row("nie_detail.fdic_bp_ann", "Assessments", "FDIC assessment rate",
              nd.get("fdic_bp_ann"), "bp/year (blank = 5.0 default)")
-    if nd.get("occ_bp_ann") is not None:
-        _row("nie_detail.occ_bp_ann", "Assessments", "OCC assessment rate",
-             nd.get("occ_bp_ann"), "bp/year (blank = 1.5 default)")
+    _occ_enabled = (bool(nd.get("occ_simplified_enabled")) if "occ_simplified_enabled" in nd
+                    else nd.get("occ_bp_ann") is not None)
+    _row("nie_detail.occ_simplified_enabled", "Assessments", "Legacy / simplified OCC",
+         _occ_enabled, "explicit opt-in; absence in modern configs means off")
+    if _occ_enabled and nd.get("occ_bp_ann") is not None:
+        _row("nie_detail.occ_bp_ann", "Assessments", "Simplified OCC assessment rate",
+             nd.get("occ_bp_ann"), "bp/year · legacy shortcut")
 
     from .timebase import quarterly_value_to_period
     _legacy_unit = "$/month" if int(ppy) == 12 else "$/quarter"
@@ -664,8 +668,11 @@ def _settings_sheet(wb, cfg):
             row("Other NIE gross-up rate", nd.get("other_gross_up_rate"), "rate · applies to NIE subtotal, not payroll load")
         if nd.get("fdic_bp_ann") is not None:
             row("FDIC assessment rate", nd.get("fdic_bp_ann"), "bp/yr (default 5.0)")
-        if nd.get("occ_bp_ann") is not None:
-            row("OCC assessment rate", nd.get("occ_bp_ann"), "bp/yr (default 1.5)")
+        _occ_enabled = (bool(nd.get("occ_simplified_enabled")) if "occ_simplified_enabled" in nd
+                        else nd.get("occ_bp_ann") is not None)
+        row("Legacy / simplified OCC", _occ_enabled, "explicit opt-in")
+        if _occ_enabled and nd.get("occ_bp_ann") is not None:
+            row("Simplified OCC assessment rate", nd.get("occ_bp_ann"), "bp/yr · legacy shortcut")
     else:
         row("(not active)", "")
     sec("Credit regime (ASC 326)")

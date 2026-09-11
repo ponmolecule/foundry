@@ -121,9 +121,14 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
              "settlement_prepaid": _sett_pre, "settlement_accrued": _sett_acc,
              "settlement_cash": _sett_cash,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),
-             # Assessment-rate overrides (engagement assumptions). None -> engine falls back to
-             # the REG_PARAMS default, so an untouched config's assessments are byte-identical.
+             # FDIC retains its established default/fallback contract. Simplified OCC is different:
+             # modern Detailed Opex must be inert unless the user explicitly enables the shortcut.
+             # Backward compatibility: pre-r78 saved models had no enable flag but persisted
+             # occ_bp_ann, so the presence of that rate continues to mean "enabled" for those files.
              "fdic_bp_ann": (float(nd["fdic_bp_ann"]) if nd.get("fdic_bp_ann") is not None else None),
+             "occ_simplified_enabled": (bool(nd.get("occ_simplified_enabled"))
+                                        if "occ_simplified_enabled" in nd
+                                        else nd.get("occ_bp_ann") is not None),
              "occ_bp_ann": (float(nd["occ_bp_ann"]) if nd.get("occ_bp_ann") is not None else None),
              "occ_payment_first_period": (int(nd["occ_payment_first_period"])
                                           if nd.get("occ_payment_first_period") is not None else None)}

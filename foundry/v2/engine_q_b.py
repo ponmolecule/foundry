@@ -182,23 +182,25 @@ def run_pf_b(cfg):
             _pa_d = _pa if qi == 0 else out_bs["totalAssets"][qi - 1]
             _fdic_bp = (_nie_d.get("fdic_bp_ann") if _nie_d.get("fdic_bp_ann") is not None
                         else _RP["assessments"]["fdic_bp_ann"])
-            _occ_bp = (_nie_d.get("occ_bp_ann") if _nie_d.get("occ_bp_ann") is not None
-                       else _RP["assessments"]["occ_bp_ann"])
+            _occ_enabled = bool(_nie_d.get("occ_simplified_enabled"))
+            _occ_bp = float(_nie_d.get("occ_bp_ann") or 0.0) if _occ_enabled else 0.0
             _fdic = max(0.0, _pa_d - _te) * float(_fdic_bp) / 10000.0 / 4.0
             # Quarterly Profile B uses the same ordinal semiannual OCC contract as Profile A:
             # one two-quarter assessment block, with the first payment period translated into Q#.
-            _occ_half_interval = 2
-            _occ_half = qi // _occ_half_interval
-            if qi % _occ_half_interval == 0:
-                _occ_half_amt = _pa_d * float(_occ_bp) / 10000.0 / 2.0
-            _occ = _occ_half_amt / float(_occ_half_interval)
-            _occ_first_pay = max(1, int(_nie_d.get("occ_payment_first_period") or 1))
-            _occ_pay_phase = (_occ_first_pay - 1) % _occ_half_interval
-            _occ_pay_start_half = (_occ_first_pay - 1) // _occ_half_interval
-            _occ_cash = (_occ_half_amt if (_occ_half >= _occ_pay_start_half
-                                            and (qi % _occ_half_interval) == _occ_pay_phase)
-                         else 0.0)
-            _occ_signed_balance += _occ_cash - _occ
+            _occ = 0.0
+            if _occ_enabled:
+                _occ_half_interval = 2
+                _occ_half = qi // _occ_half_interval
+                if qi % _occ_half_interval == 0:
+                    _occ_half_amt = _pa_d * _occ_bp / 10000.0 / 2.0
+                _occ = _occ_half_amt / float(_occ_half_interval)
+                _occ_first_pay = max(1, int(_nie_d.get("occ_payment_first_period") or 1))
+                _occ_pay_phase = (_occ_first_pay - 1) % _occ_half_interval
+                _occ_pay_start_half = (_occ_first_pay - 1) // _occ_half_interval
+                _occ_cash = (_occ_half_amt if (_occ_half >= _occ_pay_start_half
+                                                and (qi % _occ_half_interval) == _occ_pay_phase)
+                             else 0.0)
+                _occ_signed_balance += _occ_cash - _occ
             _linked_opex = sum(linked_component_amount(
                 _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                           "customer_acquisition_auc_monthly": _auc_month_sources,
