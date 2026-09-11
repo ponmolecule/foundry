@@ -123,10 +123,18 @@ def fee_stream_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[d
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER}
+    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, COST_POOL_CHARGE_DRIVER}
     if drv not in allowed:
         raise ValueError(
             f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
+    if drv == COST_POOL_CHARGE_DRIVER:
+        ref = str(c.get("ref") or "").strip()
+        if not ref:
+            raise ValueError("cost-pool Opex component requires ref")
+        from .cost_recovery import validate_cost_recovery_terms
+        validate_cost_recovery_terms(c)
+        return {**c, "driver": drv, "ref": ref,
+                "recovery_pct": float(c.get("recovery_pct") or 0.0)}
     rs = dict(c.get("rate_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0})
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
@@ -199,6 +207,19 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
     out = []
     for raw in list((category or {}).get("linked_components") or []):
         c = normalize_linked_component(raw)
+        if c["driver"] == COST_POOL_CHARGE_DRIVER:
+            if assumptions is not None:
+                from .cost_pools import resolve_cost_pool_ref
+                pool = resolve_cost_pool_ref(c["ref"], assumptions)
+                if not ((pool or {}).get("components") or []):
+                    raise ValueError("referenced cost_pool requires at least one eligible expense component")
+            from .cost_recovery import cost_recovery_markup_value
+            markups = [cost_recovery_markup_value(c, q, int(ppy), growth_context=context)
+                       for q in range(1, int(n_periods) + 1)]
+            out.append({"driver": COST_POOL_CHARGE_DRIVER, "ref": c["ref"],
+                        "recovery_pct": float(c.get("recovery_pct") or 0.0),
+                        "rates": [float(x or 0.0) for x in markups]})
+            continue
         if c["driver"] == CAC_AUC_DRIVER:
             if assumptions is not None and auc_link_creates_cycle(assumptions, category, c["series_id"]):
                 raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")

@@ -358,10 +358,10 @@ def main():
         pa['nie_detail']['categories']=[{
             'series_id':'opex-platform','owner_module':'operating_expense',
             'name':'Intercompany - Platform Services',
-            # A stale entered draft is deliberately present: calculation.kind owns the active economics.
-            'flow_spec':{'trajectory':'flat','value':999_999.0,'period':'year'},
-            'calculation':{'kind':'cost_pool','ref':'pool-platform','recovery_pct':1.0,
-                           'markup':{'value':.05,'period':'year','trajectory':'flat','resolution':'step'}},
+            'flow_spec':{'trajectory':'flat','value':0.0,'period':'year'},
+            'linked_components':[{
+                'driver':'cost_pool_charge','ref':'pool-platform','recovery_pct':1.0,
+                'markup':{'value':.05,'period':'year','trajectory':'flat','resolution':'step'}}],
         }]
         return pc
 
@@ -373,8 +373,12 @@ def main():
        all(abs(x-y)<1e-6 for x,y in zip(prm['is']['otherOpex'][:12],expected))
        and abs(sum(prm['is']['otherOpex'][:12])-346_500.0)<1e-6,
        prm['is']['otherOpex'][:12])
-    ck('cost-pool Opex ignores hidden entered-flow draft while cost_pool is the active calculation source',
-       abs(prm['is']['otherOpex'][0]-26_468.75)<1e-6)
+    additive=platform_services_cfg(12)
+    additive['assumptions']['nie_detail']['categories'][0]['flow_spec']['value']=12_000.0
+    pra=run_pf_a(additive)
+    ck('typed cost-pool charge composes additively with the ordinary entered Opex base',
+       abs(pra['is']['otherOpex'][0]-27_468.75)<1e-6
+       and abs(sum(pra['is']['otherOpex'][:12])-358_500.0)<1e-6)
 
     pq=platform_services_cfg(4)
     prq=run_pf_a(pq)
@@ -398,7 +402,7 @@ def main():
     ck('validation accepts Operating Expense as a downstream cost-pool consumer', pool_opex_valid)
 
     missing_pool=copy.deepcopy(pm)
-    missing_pool['assumptions']['nie_detail']['categories'][0]['calculation']['ref']='missing-pool'
+    missing_pool['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['ref']='missing-pool'
     bad=False
     try: validate_config_v2(missing_pool)
     except ConfigErrorV2 as e: bad='missing-pool' in str(e)
@@ -409,7 +413,7 @@ def main():
         'kind':'operating_expense_category','series_id':'opex-platform','allocation_pct':1.0})
     bad=False
     try: validate_config_v2(circular)
-    except ConfigErrorV2 as e: bad='circular dependency' in str(e)
+    except ConfigErrorV2 as e: bad=('circular dependency' in str(e) or 'cost-pool charge' in str(e))
     ck('cost-pool Opex fails closed when the pool includes its own downstream Opex category', bad)
 
     auc_loop=copy.deepcopy(pm)
@@ -422,8 +426,21 @@ def main():
             'avg_auc_per_customer':{'source':'entered','trajectory':'flat','value':1_000_000_000.0}}}]
     bad=False
     try: validate_config_v2(auc_loop)
-    except ConfigErrorV2 as e: bad=('cost-pool-calculated Operating Expense category' in str(e) or 'circular dependency' in str(e))
+    except ConfigErrorV2 as e: bad=('cost-pool-calculated Operating Expense category' in str(e) or 'circular dependency' in str(e) or 'cost-pool charge' in str(e))
     ck('cost-pool Opex fails closed on Opex → CAC/AUC → cost-pool → same Opex loop', bad)
+
+    # r67 compatibility: old exclusive calculation.kind configs remain stable on load/run,
+    # but r68 authoring no longer creates this shape.
+    legacy_r67=platform_services_cfg(12)
+    lcat=legacy_r67['assumptions']['nie_detail']['categories'][0]
+    lcat.pop('linked_components',None)
+    lcat['flow_spec']={'trajectory':'flat','value':999_999.0,'period':'year'}
+    lcat['calculation']={'kind':'cost_pool','ref':'pool-platform','recovery_pct':1.0,
+                         'markup':{'value':.05,'period':'year','trajectory':'flat','resolution':'step'}}
+    prl=run_pf_a(legacy_r67)
+    ck('legacy r67 exclusive cost-pool Opex remains backward-compatible without reactivating dormant entered base',
+       abs(prl['is']['otherOpex'][0]-26_468.75)<1e-6
+       and abs(sum(prl['is']['otherOpex'][:12])-346_500.0)<1e-6)
 
     # Fail closed: custom settlement + endogenous linked revenue component.
     c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{

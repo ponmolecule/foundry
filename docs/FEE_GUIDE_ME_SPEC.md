@@ -71,6 +71,15 @@ For a `Flat — periodic amount` basis, the amount path is the economic input. G
 omits schema-placeholder instructions for driver source, driver trajectory, and rate behavior and
 focuses on Amount path, natural period, amount/schedule, cost side, and timing.
 
+
+## CAC-owned Account counts
+
+When an Account stream is driven by Customer Acquisition, Guide Me maps the driver to
+`Customer Acquisition client count` and asks the user to select the owning CAC feed. CAC owns the
+client-count trajectory and intra-year resolution; Guide Me must not ask for, or fabricate, a second
+Flat/Growth/Explicit count path or Step/Smooth setting inside the Fee Product. The per-account fee
+itself remains an ordinary independent pricing path and may be Flat, Growth, or Explicit.
+
 ## Account EOP counts and derived-stock Balance streams
 
 Guide Me must preserve the five-stream ontology when translating trustee/reserve-style economics:

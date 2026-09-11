@@ -225,11 +225,14 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
     nd = (assumptions or {}).get("nie_detail") or {}
     if kind == "operating_expense_category":
         from .income_modules import nie_category_series
-        from .opex_extensions import normalize_opex_calculation
+        from .opex_extensions import normalize_opex_calculation, COST_POOL_CHARGE_DRIVER
         row = _find_by_id_or_name(nd.get("categories") or [], link, kind)
-        if normalize_opex_calculation(row).get("kind") == "cost_pool":
+        legacy_cp = normalize_opex_calculation(row).get("kind") == "cost_pool"
+        component_cp = any(str((x or {}).get("driver") or "").strip().lower() == COST_POOL_CHARGE_DRIVER
+                           for x in (row.get("linked_components") or []))
+        if legacy_cp or component_cp:
             raise ValueError(
-                "a cost-pool-calculated Operating Expense category cannot be reused as an upstream "
+                "an Operating Expense category containing a cost-pool charge cannot be reused as an upstream "
                 "linked cost; link the underlying source costs instead")
         return nie_category_series(row, int(n_periods), int(ppy), growth_context=context)
     if kind == "workforce_role_count":

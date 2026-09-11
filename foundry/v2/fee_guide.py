@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 7
+GUIDE_SCHEMA_VERSION = 8
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -166,6 +166,7 @@ _SOURCE_LABELS = {
     "stream_ref": "Another stream",
     "bank_aggregate": "Bank aggregate",
     "cost_pool": "Cost pool — eligible cost base",
+    "customer_acquisition_count": "Customer Acquisition client count",
 }
 _TRAJECTORY_LABELS = {
     "flat": "Flat",
@@ -222,6 +223,7 @@ def fee_guide_manifest():
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
+            "When an Account fee is driven by Customer Acquisition client count, use customer_acquisition_count. CAC owns the customer-book path; do not create a second flat/growth/explicit count path or Step/Smooth assumption in the Fee Product.",
             "Account fees may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule pricing trajectories.",
             "A balance stream may derive a stock as a percentage of another sourced stock (for example reserves = % of AUC). This is a stock multiplier, not a transaction flow coefficient, and may use flat, growth, or explicit_schedule.",
             "Balance annual fee rates may use flat, growth, or explicit_schedule pricing trajectories.",
@@ -360,6 +362,10 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   Account has TWO INDEPENDENT trajectories: driver_trajectory controls the COUNT path, while
   pricing_trajectory controls the FEE PER ACCOUNT/MANDATE. Words such as "flat annual retainer"
   describe pricing_trajectory=flat; they MUST NOT overwrite an explicit count path.
+  If the user explicitly says the client/account count comes from Customer Acquisition/CAC, use
+  driver_source=customer_acquisition_count and driver_trajectory=flat. CAC already owns the count
+  path and its within-year resolution, so do NOT ask for another flat/growth/explicit count path,
+  driver_period, or driver_resolution in the Fee Product.
   Account count paths use driver_trajectory: flat, proportional (for Growth), or explicit_schedule.
   When the user supplies END-OF-PERIOD account/mandate counts, ALWAYS use
   driver_trajectory=explicit_schedule, set driver_period to the source cadence, and set
@@ -423,6 +429,10 @@ def _dummy_stream(item):
     basis = item["basis"]
     traj = item["driver_trajectory"]
     driver = {"source": item["driver_source"], "trajectory": traj, "params": {}}
+    if item["driver_source"] == "customer_acquisition_count":
+        # Guide Me chooses the mechanic, not a concrete local Series. The UI supplies the
+        # actual CAC feed reference; this placeholder only exercises the real shape validator.
+        driver["ref"] = "__guide_cac_customer_count__"
 
     if basis == "account" and traj == "explicit_schedule":
         driver["params"]["level_schedule"] = {
@@ -566,7 +576,15 @@ def validate_guide_plan(plan):
         # while correctly supplying the annual count period/resolution. Because driver_period +
         # driver_resolution have no other Account meaning, a complete valid pair is structural
         # evidence of the Explicit count path and can be canonicalized without inventing values.
-        if item["basis"] == "account":
+        if item["driver_source"] == "customer_acquisition_count":
+            if item["basis"] != "account":
+                raise ValueError("Guide Me Customer Acquisition client count requires account basis")
+            # CAC owns this level path. Any count-path metadata emitted by the translator is
+            # redundant and must not create a second economic assumption in the Fee Product.
+            item["driver_trajectory"] = "flat"
+            item["driver_period"] = None
+            item["driver_resolution"] = None
+        elif item["basis"] == "account":
             has_driver_meta = item["driver_period"] is not None or item["driver_resolution"] is not None
             if has_driver_meta:
                 if item["driver_period"] not in {"month", "quarter", "year"}:
@@ -766,6 +784,9 @@ def _stream_steps(item):
             steps.append("Set Count path to “Growth”, enter the Starting count, and enter the stated Count growth assumption.")
         else:
             steps.append("Set Count path to “Flat” and enter the account/mandate count in “Count / mandates”.")
+    elif basis == "account" and item["driver_source"] == "customer_acquisition_count":
+        steps.append("Select the owning Customer Acquisition feed under “Client-count source”.")
+        steps.append("Leave the Count path sourced from Customer Acquisition; do not enter a second count schedule, growth path, or Step/Smooth assumption in the Fee Product.")
     elif basis != "flat":
         steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
 

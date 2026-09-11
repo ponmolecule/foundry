@@ -11,8 +11,9 @@ so CAC may consume (for example) Operating Expense spend or Workforce Count with
 the source trajectory. Source cadence is independent of projection cadence.
 
 The annual customer/AUC roll-forward is a domain equation and audit view, not an authoring
-spreadsheet. Its resolved AUC path is emitted as managed-notional explicit levels for downstream
-Fee Products. Unsupported methods/links and circular dependencies fail closed.
+spreadsheet. Its resolved AUC path is emitted as managed-notional explicit levels and its resolved
+customer-book count is published as a separate stable Series for downstream Account Fee streams.
+Unsupported methods/links and circular dependencies fail closed.
 """
 
 
@@ -168,6 +169,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
 
     annual = []
     year_end_auc = []
+    year_end_customers = []
     for y in range(1, years + 1):
         new_cust = 0.0
         new_auc = 0.0
@@ -207,6 +209,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "channels": ch_detail,
         })
         year_end_auc.append(end_auc)
+        year_end_customers.append(end_cust)
         beg_auc, beg_cust = end_auc, end_cust
 
     # Annual ending levels -> canonical MONTHLY ABSOLUTE levels first.  The canonical grid is
@@ -226,11 +229,33 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
                 auc_end_by_month[m - 1] = prev_end + (ye - prev_end) * mi / 12.0
         prev_end = ye
 
+    # Customer counts are a separate canonical level Series owned by CAC. They use the same
+    # within-year shape as AUC so downstream Account Fee streams never recreate a second customer
+    # forecast.  ``customer_level_by_period`` averages the canonical month-end count levels inside
+    # a quarter, matching the existing Account-fee level contract and preserving cadence parity.
+    customer_end_by_month = [0.0] * (years * 12)
+    prev_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
+    for y in range(1, years + 1):
+        ye = year_end_customers[y - 1]
+        for mi in range(1, 13):
+            m = (y - 1) * 12 + mi
+            if shape == "stepped":
+                customer_end_by_month[m - 1] = ye
+            else:
+                customer_end_by_month[m - 1] = prev_cust + (ye - prev_cust) * mi / 12.0
+        prev_cust = ye
+
     if int(ppy) == 12:
         auc_levels_q = list(auc_end_by_month[:int(Q)])
+        customer_end_by_period = list(customer_end_by_month[:int(Q)])
+        customer_level_by_period = list(customer_end_by_month[:int(Q)])
     elif int(ppy) == 4:
         # Q1/Q2/Q3/Q4 period-end balances are canonical M3/M6/M9/M12.
         auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
+        customer_end_by_period = [customer_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
+        customer_level_by_period = [
+            sum(customer_end_by_month[q * 3:(q + 1) * 3]) / 3.0 for q in range(int(Q))
+        ]
     else:
         raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
 
@@ -258,10 +283,50 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "canonical_cadence": "month", "canonical_values": list(auc_end_by_month),
             "derived": {"kind": "cac.customer_auc_rollforward"},
         }
+    count_sid = str((cac_cfg or {}).get("customer_count_series_id") or "").strip()
+    if count_sid:
+        derived_series[count_sid] = {
+            "source": "derived", "series_id": count_sid, "owner_module": "customer_acquisition",
+            "semantic_type": "customer_count_level", "cadence": "model_period",
+            "values": list(customer_level_by_period), "canonical_cadence": "month",
+            "canonical_values": list(customer_end_by_month),
+            "derived": {"kind": "cac.customer_count_rollforward"},
+        }
 
     return {"auc_end_by_month": auc_end_by_month,
             "auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
-            "year_end_auc": year_end_auc, "annual": annual, "derived_series": derived_series}
+            "year_end_auc": year_end_auc,
+            "customer_end_by_month": customer_end_by_month,
+            "customer_end_by_period": customer_end_by_period,
+            "customer_level_by_period": customer_level_by_period,
+            "year_end_customers": year_end_customers,
+            "annual": annual, "derived_series": derived_series}
+
+
+def cac_customer_count_catalog(assumptions):
+    """Catalog CAC-owned customer-count Series by stable Series ID."""
+    out = []
+    for name, raw in ((assumptions or {}).get("cac_feeds") or {}).items():
+        feed = raw or {}
+        sid = str(feed.get("customer_count_series_id") or "").strip()
+        if not sid:
+            continue
+        out.append({"series_id": sid, "feed": str(name or sid),
+                    "unit_semantic": "customer_count_level", "canonical_cadence": "month"})
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("CAC customer_count_series_id values must be unique")
+    return out
+
+
+def cac_customer_count_series_map(assumptions, Q, ppy=4, *, growth_context=None):
+    """Resolve each CAC feed's customer-book level for downstream Account Fee streams."""
+    out = {}
+    for meta in cac_customer_count_catalog(assumptions):
+        feed = ((assumptions or {}).get("cac_feeds") or {}).get(meta["feed"]) or {}
+        r = cac_auc_rollforward(feed, Q, ppy, assumptions=assumptions, growth_context=growth_context)
+        out[meta["series_id"]] = [float(x or 0.0) for x in r.get("customer_level_by_period") or []]
+    return out
 
 
 def cac_managed_notional(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):

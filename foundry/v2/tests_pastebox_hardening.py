@@ -66,7 +66,7 @@ def main():
         'id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostRecoveryMarkupSchedule',
         "id=\"${_eid}_load\" class=\"pillbtn\" disabled onclick='_feeSetCostPoolEnteredSchedule",
         "id=\"${eid}_load\" class=\"pillbtn\" disabled onclick='_feeSetCostPoolEnteredSchedule",
-        'id="${mid}_load" class="pillbtn" disabled onclick="nieCatCostPoolSetMarkupSchedule',
+        'id="${mid}_load" class="pillbtn" disabled onclick="${typed?',
         'id="${boxId}_load" class="pillbtn" disabled',
         'id="${_aid}_load" class="pillbtn" disabled',
         'id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCountPaste',
@@ -74,7 +74,9 @@ def main():
         'id="${_rid}_load" class="pillbtn" disabled onclick="nieCatSchedulePaste',
     ]
     ck("every scalar schedule Load button is textarea-scoped and initially disabled",
-       all(x in html for x in scalar_load_fragments))
+       all(x in html for x in scalar_load_fragments)
+       and "nieCatCostPoolComponentSetMarkupSchedule" in html
+       and "nieCatCostPoolSetMarkupSchedule" in html)
 
     clear_markers = [
         "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "_feeClearAccountLevelSchedule",

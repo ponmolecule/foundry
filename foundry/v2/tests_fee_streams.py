@@ -73,6 +73,18 @@ def main():
     ck("account basis: 500 accts @ 4/mo * 3 => 6,000",
        abs(fee_stream_q(s_ac, 1, {})[0] - 6000.0) < 1e-9)
 
+    s_cac_count = {"basis":"account",
+                   "driver":{"source":"customer_acquisition_count","ref":"cac-count-1","trajectory":"flat","params":{}},
+                   "rate":{"behavior":"flat","params":{"unit_fee":{"value":5000.0,"period":"year","trajectory":"flat"}}},
+                   "timing":{"start_period":1}}
+    ck("account basis can consume CAC-owned client count at $5,000/client/year",
+       abs(fee_stream_q(s_cac_count,1,{"customer_acquisition_count":{"cac-count-1":10}},ppy=12)[0]-4166.666666666667)<1e-9)
+    try:
+        fee_stream_q(s_cac_count,1,{"customer_acquisition_count":{}},ppy=12); missing_cac_count=False
+    except ValueError:
+        missing_cac_count=True
+    ck("CAC-owned client-count fee fails closed when the referenced Series is unavailable", missing_cac_count)
+
     # flat basis: fixed 12,500/q regardless of driver
     s_flat = {"basis": "flat", "rate": {"params": {"amount_per_period": 12_500.0}},
               "timing": {"start_period": 1}}

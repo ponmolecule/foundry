@@ -83,6 +83,7 @@ Examples:
 - CAC Spend may link to an Operating Expense category.
 - CAC FTE Count may link to a Workforce population's Count series.
 - Fee Product managed notional may consume the Customer Acquisition AUC output.
+- Account Fee streams may consume the Customer Acquisition customer-count output.
 
 The owning module remains the single source of truth for trajectory. If CAC links to `Operating
 Expense / Business Development`, CAC does not create a second growth assumption for that spend.
@@ -139,6 +140,14 @@ An Explicit schedule opens locally on the operand that needs it. The module does
 spreadsheet-wide Year-1…Year-N input surface.
 
 The channel outputs are module-owned Derived series and feed one common customer/AUC roll-forward.
+The feed publishes stable Derived Series for both AUC and total customer count. Customer count is
+resolved on the same canonical monthly grid and remains owned by CAC: downstream consumers must not
+create a second Flat/Growth/Explicit client forecast. An Account Fee stream may consume the stable
+customer-count Series directly; monthly billing uses the monthly level, while quarterly billing uses
+the arithmetic mean of the three canonical monthly levels so equivalent per-client pricing preserves
+annual economics across cadences. The fee's per-account price trajectory remains independently owned
+by the Fee Product.
+
 AUC is resolved first on a **canonical monthly period-end grid**, regardless of whether the selected
 engine/presentation cadence is monthly or quarterly. Quarterly native balances are sampled from
 canonical M3/M6/M9/M12; the monthly path remains available for downstream calculations whose

@@ -9,6 +9,16 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r68 — Composable Opex cost-pool charge + CAC customer-count Series
+- Restores the pre-r67 Operating Expense composition model: a cost-pool / cost-recovery charge is now a typed additive Opex component rather than a mutually exclusive calculation mode. An Opex category may therefore combine its ordinary entered recurring amount, ordinary linked components, and one or more cost-pool charges.
+- Preserves r67 saved-model economics as a read-only compatibility shape. Legacy `calculation.kind = cost_pool` categories remain exclusive so dormant entered drafts do not suddenly reactivate, but new authoring no longer creates that shape.
+- Keeps the shared cost-pool primitive direction-neutral. Fee Products may continue to consume a pool for revenue; Opex may consume the same primitive for NIE. Pool components remain non-posting inputs and the downstream consumer owns the single accounting posting.
+- Customer Acquisition now publishes a stable customer-count Series beside its AUC Series. CAC remains the single owner of the client-count trajectory and intra-year shape; downstream Fee Products consume the resolved count rather than recreating Flat/Growth/Explicit count assumptions.
+- Account Fee streams may select `Customer Acquisition client count` as their driver and apply ordinary per-account pricing. For example, 10 CAC-derived clients at `$5,000 / client / year` produce `$50,000` annual fee revenue; 20 clients produce `$100,000`. Monthly and quarterly engines resolve the same annual economics from the canonical monthly customer-count path.
+- Guide Me recognizes the CAC-owned client-count source and deliberately suppresses redundant count-path / Step-Smooth instructions. The user selects the owning CAC feed, while fee-price trajectory remains independently authorable.
+- Dependency/Series guards continue to reject downstream Opex charges as upstream cost-pool sources, and CAC customer-count Series IDs now participate in global stable-ID validation.
+- Profile B's broader first-class Fee Product limitation remains unchanged; r68 does not claim to port all Fee Product mechanics to Profile B.
+
 ## r67 — Operating Expense cost-pool / cost-plus consumer
 - Extends the shared cost-pool / cost-recovery mechanic to Operating Expense without removing or changing the Fee Product revenue use case. The accounting destination now owns authoring: revenue-side charges remain Fee Products; expense-side charges are configured in the Operating Expense tile.
 - Adds an Operating Expense `Calculation` choice between the existing entered-recurring-expense path and `Cost pool / cost-plus`. Existing categories with no calculation object preserve their entered-expense semantics. Switching methods keeps the dormant entered draft rather than destroying it.
