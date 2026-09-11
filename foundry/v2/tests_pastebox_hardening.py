@@ -176,17 +176,52 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
        and any("feeGuideDesc" in ln for ln in nonpaste)
        and any("feePricingMemo_" in ln and "model-free-text" in ln for ln in nonpaste), str(len(nonpaste)))
 
-    # r71 presentation hardening: every model-authoring paste surface gets a Close/Edit affordance
-    # unless that surface already owns a purpose-built Close action. Closing is DOM presentation
-    # state only: it must not clear or rewrite the loaded schedule.
-    ck("all dynamic model-authoring pasteboxes inherit presentation-only Close/Edit control",
+    # r72 presentation hardening: every model-authoring paste surface gets a Close/Edit affordance
+    # unless that surface already owns a purpose-built Close action. Close must collapse the whole
+    # local paste editor body, not merely hide the textarea, and must never clear schedule data.
+    ck("all dynamic model-authoring pasteboxes inherit functional presentation-only Close/Edit control",
        "function _decoratePasteSurfaces(root)" in html
        and "textarea[id][oninput]" in html
        and "nativeClose" in html
-       and "Paste box closed · loaded schedule is unchanged." in html
+       and "Paste editor closed · loaded schedule is unchanged." in html
+       and "paste-surface-collapsed" in html
+       and "scope.classList.toggle('paste-surface-collapsed',closed)" in html
        and "window._pasteSurfaceClosed" in html
        and "_decoratePasteSurfaces();" in html
        and "feeGuideDesc" in html and "model-free-text" in html)
+
+    # Execute the generic Close/Edit state machine with a tiny DOM stub. This catches the r71 bug
+    # where Close only set textarea.hidden and left the surrounding editor controls visible.
+    block=re.search(r"window\._pasteSurfaceClosed=window\._pasteSurfaceClosed\|\|\{\};.*?window\._decoratePasteSurfaces=_decoratePasteSurfaces;", html, re.S)
+    ok=False
+    if block:
+        js=r"""
+window=globalThis;
+const classes=new Set();
+const classList={contains:(x)=>false,remove:(x)=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}};
+let ctl=null,note=null;
+const scope={dataset:{},classList,
+  querySelectorAll:()=>[],
+  querySelector:(sel)=>sel.includes('paste-surface-toggle')?ctl:(sel.includes('paste-surface-closed-note')?note:null),
+  appendChild:(el)=>{note=el;return el;}
+};
+const ta={id:'probePaste',classList:{contains:()=>false},parentElement:scope,insertAdjacentElement:(where,el)=>{ctl=el;}};
+function mkEl(){return {className:'',dataset:{},innerHTML:'',remove(){if(this===ctl)ctl=null;if(this===note)note=null;}};}
+const document={querySelectorAll:(sel)=>[ta],createElement:()=>mkEl(),getElementById:(id)=>id==='probePaste'?ta:null};
+"""+block.group(0)+r"""
+_pasteSurfaceClose('probePaste');
+const closed=classes.has('paste-surface-collapsed') && !!note && !ctl;
+_pasteSurfaceOpen('probePaste');
+const reopened=!classes.has('paste-surface-collapsed') && !note && !!ctl;
+console.log(JSON.stringify({closed,reopened,state:Object.keys(window._pasteSurfaceClosed)}));
+"""
+        pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+        if pr.returncode==0 and pr.stdout.strip():
+            try:
+                got=json.loads(pr.stdout.strip().splitlines()[-1]); ok=(got.get('closed') is True and got.get('reopened') is True and got.get('state')==[])
+            except Exception:
+                pass
+    ck("generic Close collapses the entire paste editor and Edit reopens it without mutating model state", ok)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
