@@ -48,6 +48,10 @@ def run_pf_b(cfg):
         _auc_beginning_sources[_feed_key] = float((_feed_cfg or {}).get("beginning_auc") or 0.0)
     from .income_modules import simple_overhead_series
     _simple_overhead = simple_overhead_series(a, Q, 4, _growth_ctx)
+    # Cost pools are shared non-posting native-period flows. Profile B does not yet use
+    # first-class Fee Product cost-pool pricing, but Operating Expense is a valid consumer.
+    from .cost_pools import cost_pool_series_map
+    _cost_pool_series = cost_pool_series_map(a, Q, 4, growth_context=_growth_ctx)
 
     from .timebase import event_start_period
 
@@ -199,6 +203,7 @@ def run_pf_b(cfg):
                 _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                           "customer_acquisition_auc_monthly": _auc_month_sources,
                           "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                          "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
                           "periods_per_year": 4})
                 for _lc in (_nie_d.get("linked_components") or []))
             _sub = (_nie_d["comp"][qi] + _nie_d["categories"][qi] + _linked_opex

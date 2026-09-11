@@ -282,37 +282,42 @@ def validate_config_v2(cfg):
             _auc_ids = set()
             errs.append(f"Opex linked Series catalog invalid: {e}")
         for i, cat in enumerate(nd.get("categories") or []):
-            if cat.get("flow_spec") is not None:
-                try:
-                    from .periodic_flows import validate_periodic_flow_spec
-                    validate_periodic_flow_spec(cat.get("flow_spec"), ppy=_ppy, context=_growth_ctx)
-                except (TypeError, ValueError) as e:
-                    errs.append(f"nie_detail.categories[{i}].flow_spec invalid: {e}")
-            elif cat.get("growth_spec"):
-                try:
-                    validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
-                except (TypeError, ValueError) as e:
-                    errs.append(f"nie_detail.categories[{i}].growth_spec invalid: {e}")
             try:
-                from .opex_extensions import (normalize_linked_component, normalize_settlement,
-                                              recognition_spec_for_category, auc_link_creates_cycle)
-                _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
-                for _x in _lc:
-                    if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
-                        raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
-                    if _x.get("driver") == "customer_acquisition_auc":
-                        if _x.get("series_id") not in _auc_ids:
-                            raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
-                        if auc_link_creates_cycle(a, cat, _x.get("series_id")):
-                            raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
+                from .opex_extensions import (normalize_opex_calculation, normalize_linked_component,
+                                              normalize_settlement, recognition_spec_for_category,
+                                              auc_link_creates_cycle)
+                _calc = normalize_opex_calculation(cat)
+                _cost_pool_active = (_calc.get("kind") == "cost_pool")
+                if _cost_pool_active:
+                    from .cost_pools import resolve_cost_pool_ref
+                    _pool = resolve_cost_pool_ref(_calc.get("ref"), a)
+                    if not ((_pool or {}).get("components") or []):
+                        raise ValueError("referenced cost_pool requires at least one eligible expense component")
+                    _lc = []
+                else:
+                    if cat.get("flow_spec") is not None:
+                        from .periodic_flows import validate_periodic_flow_spec
+                        validate_periodic_flow_spec(cat.get("flow_spec"), ppy=_ppy, context=_growth_ctx)
+                    elif cat.get("growth_spec"):
+                        validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
+                    _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
+                    for _x in _lc:
+                        if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
+                            raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
+                        if _x.get("driver") == "customer_acquisition_auc":
+                            if _x.get("series_id") not in _auc_ids:
+                                raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
+                            if auc_link_creates_cycle(a, cat, _x.get("series_id")):
+                                raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
                 _rt = recognition_spec_for_category(cat, _ppy)
                 _st = normalize_settlement(cat.get("settlement"), _ppy)
                 _linked_recognition_ok = (_rt["mode"] == "trajectory" or
                                           (_rt["mode"] == "monthly" and int(_rt.get("first_period") or 1) == 1))
-                if _lc and not _linked_recognition_ok:
-                    raise ValueError("delayed/custom recognition cannot be combined with linked revenue components")
-                if _lc and _st["mode"] not in {"recognition", "monthly"}:
-                    raise ValueError("custom settlement cannot be combined with linked revenue components")
+                _active_linked = (_cost_pool_active or bool(_lc))
+                if _active_linked and not _linked_recognition_ok:
+                    raise ValueError("delayed/custom recognition cannot be combined with linked/cost-pool components")
+                if _active_linked and _st["mode"] not in {"recognition", "monthly"}:
+                    raise ValueError("custom settlement cannot be combined with linked/cost-pool components")
             except (TypeError, ValueError) as e:
                 errs.append(f"nie_detail.categories[{i}] advanced Opex invalid: {e}")
         if nd.get("occ_payment_first_period") is not None:

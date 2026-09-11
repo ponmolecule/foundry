@@ -225,7 +225,12 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
     nd = (assumptions or {}).get("nie_detail") or {}
     if kind == "operating_expense_category":
         from .income_modules import nie_category_series
+        from .opex_extensions import normalize_opex_calculation
         row = _find_by_id_or_name(nd.get("categories") or [], link, kind)
+        if normalize_opex_calculation(row).get("kind") == "cost_pool":
+            raise ValueError(
+                "a cost-pool-calculated Operating Expense category cannot be reused as an upstream "
+                "linked cost; link the underlying source costs instead")
         return nie_category_series(row, int(n_periods), int(ppy), growth_context=context)
     if kind == "workforce_role_count":
         from .workforce import workforce_role_count_series

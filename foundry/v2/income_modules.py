@@ -72,9 +72,9 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     # entered economic path into ordinal model periods before any cash-settlement accounting is
     # computed.  Endogenous linked components cannot yet be forecast across future recurrence
     # blocks, so custom recognition for those components fails closed below.
-    from .opex_extensions import (resolve_linked_components, resolve_recognition,
-                                  normalize_recognition, resolve_settlement, normalize_settlement,
-                                  recognition_spec_for_category)
+    from .opex_extensions import (resolve_linked_components, resolve_cost_pool_calculation,
+                                  resolve_recognition, normalize_recognition, resolve_settlement,
+                                  normalize_settlement, recognition_spec_for_category)
     _cat_recognition_specs = [recognition_spec_for_category(c, ppy) for c in _catlist]
     _cat_series = [resolve_recognition(arr, rec, ppy, context=growth_context)
                    for arr, rec in zip(_cat_economic, _cat_recognition_specs)]
@@ -89,20 +89,25 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _sett_acc = [0.0] * Q
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
-        _lc = resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a)
+        _cp = resolve_cost_pool_calculation(_c, Q, ppy, context=growth_context, assumptions=a)
+        _lc = ([] if _cp is not None else
+               resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a))
         _rec = recognition_spec_for_category(_c, ppy)
         _sett = normalize_settlement(_c.get("settlement"), ppy)
         _linked_recognition_ok = (_rec["mode"] == "trajectory" or
                                   (_rec["mode"] == "monthly" and int(_rec.get("first_period") or 1) == 1))
-        if _lc and not _linked_recognition_ok:
+        _active_linked = (_cp is not None or bool(_lc))
+        if _active_linked and not _linked_recognition_ok:
             raise ValueError(
                 f"Operating Expense category {_c.get('name') or _ci + 1!r}: delayed/custom recognition "
-                "cannot be combined with linked revenue components; use recognition=trajectory")
-        if _lc and _sett["mode"] not in {"recognition", "monthly"}:
+                "cannot be combined with linked/cost-pool components; use recognition=trajectory")
+        if _active_linked and _sett["mode"] not in {"recognition", "monthly"}:
             raise ValueError(
                 f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom settlement "
-                "cannot be combined with linked revenue components; use settlement=recognition")
-        if _lc:
+                "cannot be combined with linked/cost-pool components; use settlement=recognition")
+        if _cp is not None:
+            _linked.append({**_cp, "category_index": _ci})
+        elif _lc:
             _linked.extend({**x, "category_index": _ci} for x in _lc)
         _sr = resolve_settlement(_arr, _sett, ppy, context=growth_context)
         for _i in range(Q):
@@ -137,6 +142,12 @@ def nie_category_series(c, Q, ppy=4, growth_context=None):
     from .timebase import quarterly_value_to_period
     Q, ppy = int(Q), int(ppy)
     c = c or {}
+    from .opex_extensions import normalize_opex_calculation
+    if normalize_opex_calculation(c).get("kind") == "cost_pool":
+        # The eligible cost pool is resolved separately and the final recovery/markup charge
+        # is posted later in the engine. Hidden entered-flow draft fields are intentionally
+        # inactive while this calculation source is selected.
+        return [0.0] * Q
     if c.get("flow_spec") is not None:
         from .periodic_flows import resolve_periodic_flow
         # r61 deliberately does not treat flow_spec.start_period as a second Opex timing axis.
@@ -285,14 +296,11 @@ def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None):
     behavior = (rt or {}).get("behavior") or "flat"
     rp = (rt or {}).get("params") or {}
     if behavior == "cost_recovery":
-        # Dimensionless markup on a native-period cost flow.  This is deliberately a
-        # level path, not an annualized fee rate and not a natural-period coefficient.
-        # ``markup_pct`` is accepted as the compact scalar form; new UI authoring uses
-        # the Series-capable ``markup`` object.
-        if rp.get("markup") is not None:
-            return _fee_level_path_value(
-                rp.get("markup"), q, ppy, ctx, rp.get("markup_pct") or 0.0)
-        return float(rp.get("markup_pct") or 0.0)
+        # Shared cost-recovery terms are posting-direction agnostic: the same markup
+        # resolver is used by Fee Product revenue and Operating Expense consumers.
+        from .cost_recovery import cost_recovery_markup_value
+        return cost_recovery_markup_value(
+            rp, q, ppy, growth_context=(ctx or {}).get("growth_context"))
     if rp.get("rate_path") is not None:
         if behavior != "flat":
             raise ValueError("fee rate_path requires rate.behavior='flat'")
@@ -595,46 +603,8 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee rate behavior 'cost_recovery' requires transaction basis with driver.source='cost_pool'")
         if ck != "none":
             raise ValueError("cost_recovery streams must use cost.kind='none'; linked source expenses are observational and already posted upstream")
-        try:
-            recovery = float((rt.get("params") or {}).get("recovery_pct") or 0.0)
-        except (TypeError, ValueError):
-            raise ValueError("cost_recovery requires numeric recovery_pct")
-        if recovery < 0.0 or recovery > 1.0:
-            raise ValueError("cost_recovery recovery_pct must be between 0 and 1")
-        crp = rt.get("params") or {}
-        try:
-            scalar_markup = float(crp.get("markup_pct") or 0.0)
-        except (TypeError, ValueError):
-            raise ValueError("cost_recovery markup_pct must be numeric")
-        if scalar_markup < -1.0:
-            raise ValueError("cost_recovery markup_pct must be >= -1")
-        if crp.get("markup") is not None:
-            mp = dict(crp.get("markup") or {})
-            mtraj = str(mp.get("trajectory") or "flat").strip().lower()
-            if mtraj not in {"flat", "growth", "explicit_schedule"}:
-                raise ValueError(f"unsupported cost_recovery markup trajectory: {mtraj!r}")
-            try:
-                mval = float(mp.get("value") or 0.0)
-            except (TypeError, ValueError):
-                raise ValueError("cost_recovery markup value must be numeric")
-            if mval < -1.0:
-                raise ValueError("cost_recovery markup value must be >= -1")
-            if mtraj == "growth" and not mp.get("growth_spec"):
-                raise ValueError("cost_recovery markup growth trajectory requires growth_spec")
-            if mtraj == "explicit_schedule":
-                if str(mp.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
-                    raise ValueError(f"unsupported cost_recovery markup period: {mp.get('period')!r}")
-                if str(mp.get("resolution") or "step").strip().lower() not in {"step", "smooth"}:
-                    raise ValueError(f"unsupported cost_recovery markup resolution: {mp.get('resolution')!r}")
-                sched = mp.get("schedule")
-                if not isinstance(sched, dict) or not sched:
-                    raise ValueError("cost_recovery explicit markup requires at least one schedule value")
-                try:
-                    vals = [float(v) for v in sched.values()]
-                except (TypeError, ValueError):
-                    raise ValueError("cost_recovery markup schedule values must be numeric")
-                if any(v < -1.0 for v in vals):
-                    raise ValueError("cost_recovery markup schedule values must be >= -1")
+        from .cost_recovery import validate_cost_recovery_terms
+        validate_cost_recovery_terms(rt.get("params") or {})
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
     if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
@@ -900,7 +870,8 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         if (rt.get("behavior") or "flat") == "cost_recovery":
             recovery = float(rate_params.get("recovery_pct") or 0.0)
             markup = float(eff_rate or 0.0)
-            gross = qty * recovery * (1.0 + markup)
+            from .cost_recovery import cost_recovery_amount
+            gross = cost_recovery_amount(qty, recovery, markup)
         elif eff_rate is None:
             gross = _apply_tiers(rate_params.get("tiers"), qty)
         else:

@@ -1,15 +1,14 @@
-"""Shared eligible-cost pools for cost-recovery fee products.
+"""Shared eligible-cost pools for cost-recovery revenue or expense consumers.
 
-A cost pool is a *non-posting pricing source*.  It can combine three economic shapes:
+A cost pool is a *non-posting calculation source*.  It can combine three economic shapes:
 
 * linked modeled costs already owned/posted by Operating Expense or Workforce;
 * entered recurring cost-base assumptions used only for pricing; and
 * balance-derived cost components (currently canonical managed-notional/AUC balances)
   multiplied by a natural-period rate.
 
-Every component resolves to a native engine-period dollar *flow*.  The downstream fee
-stream therefore applies recovery and markup directly; it must not annualize or periodize
-the pool again.
+Every component resolves to a native engine-period dollar *flow*.  The downstream consumer
+therefore applies recovery and markup directly; it must not annualize or periodize the pool again.
 
 Canonical examples::
 
@@ -37,10 +36,10 @@ Canonical examples::
       }
     ]
 
-``allocation_pct`` answers the upstream eligibility/allocation question.  A fee stream's
-``recovery_pct`` is a separate downstream pricing assumption.  Entered and balance-derived
-components are non-posting: they construct a pricing cost base but never create an Operating
-Expense merely because a fee references them.
+``allocation_pct`` answers the upstream eligibility/allocation question.  A downstream
+consumer's ``recovery_pct`` is a separate pricing assumption. Entered and balance-derived
+components are non-posting: they construct an eligible cost base. A Fee Product consumer may
+post revenue; an Operating Expense consumer may post the final recovered/marked-up charge once.
 """
 from __future__ import annotations
 
@@ -180,6 +179,23 @@ def _pool_downstream_fee_streams(pool: Mapping[str, Any], assumptions: Mapping[s
     return out
 
 
+def _pool_downstream_opex_categories(pool: Mapping[str, Any], assumptions: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    """Operating Expense categories whose active calculation consumes this pool."""
+    pid = str((pool or {}).get("series_id") or "").strip()
+    pname = str((pool or {}).get("name") or "").strip()
+    cats = (((assumptions or {}).get("nie_detail") or {}).get("categories") or [])
+    out: list[Mapping[str, Any]] = []
+    for cat0 in cats:
+        cat = cat0 or {}
+        calc = dict(cat.get("calculation") or {})
+        if str(calc.get("kind") or "entered").strip().lower() != "cost_pool":
+            continue
+        ref = str(calc.get("ref") or "").strip()
+        if (pid and ref == pid) or (not pid and pname and ref == pname):
+            out.append(cat)
+    return out
+
+
 def _category_by_link(assumptions: Mapping[str, Any] | None, sid: str = "", name: str = "") -> Mapping[str, Any] | None:
     cats = (((assumptions or {}).get("nie_detail") or {}).get("categories") or [])
     sid = str(sid or "").strip(); name = str(name or "").strip()
@@ -262,8 +278,9 @@ def _validate_no_dependency_cycle(pool: Mapping[str, Any], assumptions: Mapping[
       Opex -> CAC -> AUC -> pool -> fee revenue -> same Opex
     """
     a = assumptions or {}
-    downstream = _pool_downstream_fee_streams(pool, a)
-    if not downstream:  # an unused pool cannot close a downstream fee loop
+    downstream_fees = _pool_downstream_fee_streams(pool, a)
+    downstream_opex = _pool_downstream_opex_categories(pool, a)
+    if not downstream_fees and not downstream_opex:
         return
 
     candidate_categories: list[Mapping[str, Any]] = []
@@ -282,7 +299,10 @@ def _validate_no_dependency_cycle(pool: Mapping[str, Any], assumptions: Mapping[
         if id(cat) in seen:
             continue
         seen.add(id(cat))
-        if _opex_depends_on_downstream_fee(cat, downstream):
+        if any(cat is x for x in downstream_opex):
+            raise ValueError(
+                "cost pool would create a circular dependency through its downstream Operating Expense category")
+        if _opex_depends_on_downstream_fee(cat, downstream_fees):
             raise ValueError(
                 "cost pool would create a circular dependency through fee revenue/quantity and Operating Expense")
 

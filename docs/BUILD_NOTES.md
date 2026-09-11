@@ -9,6 +9,16 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r67 — Operating Expense cost-pool / cost-plus consumer
+- Extends the shared cost-pool / cost-recovery mechanic to Operating Expense without removing or changing the Fee Product revenue use case. The accounting destination now owns authoring: revenue-side charges remain Fee Products; expense-side charges are configured in the Operating Expense tile.
+- Adds an Operating Expense `Calculation` choice between the existing entered-recurring-expense path and `Cost pool / cost-plus`. Existing categories with no calculation object preserve their entered-expense semantics. Switching methods keeps the dormant entered draft rather than destroying it.
+- A cost-pool-calculated Opex category posts only the final recovered / marked-up charge to NIE: `eligible cost pool × recovery % × (1 + markup %)`. Entered, balance-derived, and linked components inside the pool remain non-posting calculation inputs, so the intercompany charge is not double counted.
+- Reuses r66's canonical balance-measure contract unchanged. Expense-side cost pools can therefore combine entered Flat/Growth/Explicit cost bases with `Period average` / `Period end` AUC-linked costs and Month / Quarter / Year natural-period rates.
+- The source Platform Services case now authors naturally as Operating Expense: $300,000 Year-1 fixed cost, 3% annual escalation, 0.006% p.a. of Average AUC, 100% recovery, and 5% markup produces $346,500 of Year-1 NIE and the same monthly values as the source workbook.
+- Cost pools remain shareable across downstream consumers. Deletion is blocked while a pool is referenced by any Fee Product or Operating Expense category; cost-pool-calculated Opex categories are not offered as upstream pool sources because the final downstream charge is not a reusable underlying cost.
+- Dependency guards now cover Opex -> pool -> same Opex and Opex -> CAC/AUC -> pool -> same Opex loops. Profile B can consume shared cost pools through Operating Expense; its broader first-class Fee Product cost-pool limitation remains separate.
+- Fee Product cost-recovery regression coverage remains green, confirming that the revenue-side implementation was preserved rather than migrated.
+
 ## r66 — AUC measure normalization / Reg W source-index correction
 - Corrects the Reg W source-workbook regression index: forecast Year 1 uses `(1 + escalation)^0`, Year 2 uses `^1`, so the canonical Month-1 sample is $1,320 rather than $1,332. The alternate `prior_period` growth-base semantic remains available but is no longer labeled source parity.
 - Adds a shared balance-measure contract: balance owners publish canonical monthly period-end observations; consumers explicitly derive `period_end` or `period_average = (prior month-end + current month-end) / 2`.
