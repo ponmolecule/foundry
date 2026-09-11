@@ -9,6 +9,17 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r65 — Generic eligible-cost components / cost-plus pricing
+- Extends the existing cost-pool / cost-recovery mechanic instead of adding a Reg W-specific fee type. Cost pools can now combine linked modeled Operating Expense / Workforce costs, entered recurring non-posting cost-base assumptions, and balance-derived non-posting cost components.
+- Entered cost-base assumptions reuse Foundry's natural-period Flat / Growth / Explicit flow contract. Growth can explicitly declare that its entered base belongs to the prior growth period, allowing source models that escalate once into forecast Year 1 to be represented without manually pre-escalating the input.
+- Balance-derived cost supports period-end or period-average canonical managed-notional/AUC, a Series-style multiplier, and Month / Quarter / Year natural periods. Quarterly models accrue from the canonical monthly AUC path and sum the three monthly amounts rather than substituting quarter-end AUC.
+- Adds exact source-workbook parity for `(fixed annual eligible cost + monthly-average AUC × annual variable rate) × (1 + markup)`, including the workbook's first-forecast-year escalation convention. The literal sample resolves to $1,332 in Month 1; a base explicitly declared current in Year 1 resolves to $1,320.
+- Preserves allocation, recovery, and markup as distinct concepts. Entered and balance-derived eligible costs are pricing sources only and never post NIE; linked costs remain observational and are never reposted.
+- Adds dependency-cycle detection for direct Opex → pool → fee → Opex loops and Opex → CAC → AUC → pool → fee → Opex loops while preserving valid one-way CAC → AUC → pool → fee chains.
+- Surfaces resolved cost-pool Series in the run audit payload (`$000s / engine period`) and in the Fee Product latest-run UI, alongside resulting fee revenue when unambiguous. Reg W / §23B / arm's-length context remains optional product/memo language rather than engine ontology.
+- Stable-Series validation now includes CAC feed AUC identities and cost-pool-owned component identities, closing a pre-existing global-ID collision gap discovered while wiring the new balance-linked component.
+- Regression coverage includes literal source-formula parity, later-year escalation, rising/falling/flat AUC, first-period average-AUC convention, monthly/quarterly parity, no-repost behavior, cycle rejection, UI authoring, callback execution, and resolved-cost audit output.
+
 ## r64 — AUC-linked Operating Expense
 - Operating Expense Linked Components can now consume a Customer Acquisition feed's stable period-end AUC Series directly.
 - The multiplier remains ordinary percentage authoring; for the stock-linked AUC driver it also owns an explicit natural period (Month / Quarter / Year). No bespoke bps or fraud-loss expense type was added.

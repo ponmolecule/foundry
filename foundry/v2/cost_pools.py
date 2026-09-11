@@ -1,11 +1,17 @@
-"""Shared cost-pool sources for fee products and other downstream consumers.
+"""Shared eligible-cost pools for cost-recovery fee products.
 
-A cost pool is a *derived observational source*: it composes expense series owned by
-Operating Expense / Workforce, but never owns or re-posts those expenses.  The pool
-resolves to native engine-period dollar flows so downstream fee math must not annualize
-or periodize the quantity again.
+A cost pool is a *non-posting pricing source*.  It can combine three economic shapes:
 
-Canonical shape::
+* linked modeled costs already owned/posted by Operating Expense or Workforce;
+* entered recurring cost-base assumptions used only for pricing; and
+* balance-derived cost components (currently canonical managed-notional/AUC balances)
+  multiplied by a natural-period rate.
+
+Every component resolves to a native engine-period dollar *flow*.  The downstream fee
+stream therefore applies recovery and markup directly; it must not annualize or periodize
+the pool again.
+
+Canonical examples::
 
     assumptions.cost_pools = [
       {
@@ -17,25 +23,40 @@ Canonical shape::
            "allocation_pct": 1.0},
           {"kind": "workforce_role_expense", "series_id": "wf-exp-platform-ops",
            "allocation_pct": 0.4},
+          {"kind": "assumption_cost_base", "series_id": "cost-base-fixed",
+           "name": "Fixed service cost base", "allocation_pct": 1.0,
+           "flow_spec": {"trajectory": "growth", "value": 1200000, "period": "year",
+                         "growth_spec": {"rate": 0.03, "period": "year",
+                                         "method": "step", "anchor": "model_year"}}},
+          {"kind": "balance_derived_cost", "series_id": "cost-base-auc-variable",
+           "name": "Variable managed-notional cost", "allocation_pct": 1.0,
+           "source_kind": "managed_notional", "source_series_id": "cac-auc-primary",
+           "measure": "period_average", "rate_period": "year",
+           "rate_spec": {"source": "entered", "trajectory": "flat", "value": 0.012}},
         ],
       }
     ]
 
-``allocation_pct`` answers the upstream eligibility/allocation question.  A fee
-stream's ``recovery_pct`` is a distinct downstream pricing assumption and must not be
-used to compose the pool.
+``allocation_pct`` answers the upstream eligibility/allocation question.  A fee stream's
+``recovery_pct`` is a separate downstream pricing assumption.  Entered and balance-derived
+components are non-posting: they construct a pricing cost base but never create an Operating
+Expense merely because a fee references them.
 """
 from __future__ import annotations
 
 from typing import Any, Mapping, Sequence
 
-_VALID_COMPONENT_KINDS = {"operating_expense_category", "workforce_role_expense"}
+_LINKED_COMPONENT_KINDS = {"operating_expense_category", "workforce_role_expense"}
+_VALID_COMPONENT_KINDS = _LINKED_COMPONENT_KINDS | {"assumption_cost_base", "balance_derived_cost"}
+_RATE_PERIOD_MONTHS = {"month": 1, "quarter": 3, "year": 12}
+_BALANCE_MEASURES = {"period_end", "period_average"}
+_BALANCE_SOURCE_KINDS = {"managed_notional"}
 
 
 def _pools(assumptions: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
     raw = (assumptions or {}).get("cost_pools") or []
     if isinstance(raw, Mapping):
-        # Defensive compatibility for hand-authored/name-keyed drafts.  New UI writes a list
+        # Defensive compatibility for hand-authored/name-keyed drafts. New UI writes a list
         # because the stable series_id, not a display-name dictionary key, is the identity.
         out = []
         for name, pool in raw.items():
@@ -68,6 +89,54 @@ def cost_pool_catalog(assumptions: Mapping[str, Any] | None) -> list[dict[str, s
     return out
 
 
+def cost_pool_component_series_ids(assumptions: Mapping[str, Any] | None) -> list[str]:
+    """Stable identities owned by new non-posting cost-pool components.
+
+    Legacy linked components use ``series_id`` for the *upstream* source and are therefore
+    excluded here. New authored/derived components own their own series identity.
+    """
+    out: list[str] = []
+    for pi, pool in enumerate(_pools(assumptions)):
+        for ci, raw in enumerate((pool or {}).get("components") or []):
+            comp = raw or {}
+            if str(comp.get("kind") or "") not in {"assumption_cost_base", "balance_derived_cost"}:
+                continue
+            sid = str(comp.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"cost_pools[{pi}].components[{ci}] requires stable series_id")
+            out.append(sid)
+    if len(out) != len(set(out)):
+        raise ValueError("cost-pool component series_id values must be unique")
+    return out
+
+
+def cost_pool_balance_source_catalog(assumptions: Mapping[str, Any] | None) -> list[dict[str, str]]:
+    """Canonical balance sources with sufficient monthly detail for cost accruals.
+
+    r63 made Customer Acquisition AUC a canonical monthly balance Series even when the model
+    presents quarterly.  Those Series can therefore support exact monthly period-end or
+    period-average cost accruals. Other balance families should join this registry only after
+    they publish an equally explicit canonical monthly path; we do not interpolate unknown
+    intra-quarter economics merely to make a source selectable.
+    """
+    out: list[dict[str, str]] = []
+    for name, raw in ((assumptions or {}).get("cac_feeds") or {}).items():
+        feed = raw or {}
+        sid = str(feed.get("series_id") or "").strip()
+        if not sid:
+            continue
+        out.append({
+            "source_kind": "managed_notional",
+            "series_id": sid,
+            "name": str(name or sid),
+            "measure_semantic": "canonical_monthly_balance",
+        })
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("cost-pool managed-notional source series_id values must be unique")
+    return out
+
+
 def resolve_cost_pool_ref(ref: str | None, assumptions: Mapping[str, Any] | None) -> Mapping[str, Any]:
     """Resolve a cost pool by stable series_id; unique display-name fallback is legacy-only."""
     ident = str(ref or "").strip()
@@ -85,45 +154,286 @@ def resolve_cost_pool_ref(ref: str | None, assumptions: Mapping[str, Any] | None
     raise ValueError(f"cost_pool ref {ident!r} resolved to {len(by_name)} matches; expected exactly one")
 
 
+def _iter_fee_streams(assumptions: Mapping[str, Any] | None):
+    a = assumptions or {}
+    for key in ("lending_products", "deposit_products", "obs_exposures"):
+        for product in a.get(key) or []:
+            for stream in (product or {}).get("fee_streams") or []:
+                yield stream or {}
+
+
+def _pool_downstream_fee_streams(pool: Mapping[str, Any], assumptions: Mapping[str, Any] | None) -> list[Mapping[str, Any]]:
+    """Fee streams whose native quantity is this pool.
+
+    Stable pool ID is authoritative. Unique-name matching is retained only for legacy drafts,
+    mirroring ``resolve_cost_pool_ref``.
+    """
+    pid = str((pool or {}).get("series_id") or "").strip()
+    pname = str((pool or {}).get("name") or "").strip()
+    out: list[Mapping[str, Any]] = []
+    for st in _iter_fee_streams(assumptions):
+        drv = (st or {}).get("driver") or {}
+        if str(drv.get("source") or "").strip().lower() != "cost_pool":
+            continue
+        ref = str(drv.get("ref") or "").strip()
+        if (pid and ref == pid) or (not pid and pname and ref == pname):
+            out.append(st)
+    return out
+
+
+def _category_by_link(assumptions: Mapping[str, Any] | None, sid: str = "", name: str = "") -> Mapping[str, Any] | None:
+    cats = (((assumptions or {}).get("nie_detail") or {}).get("categories") or [])
+    sid = str(sid or "").strip(); name = str(name or "").strip()
+    if sid:
+        hits = [c or {} for c in cats if str((c or {}).get("series_id") or "").strip() == sid]
+    else:
+        hits = [c or {} for c in cats if name and str((c or {}).get("name") or "").strip() == name]
+    return hits[0] if len(hits) == 1 else None
+
+
+def _auc_upstream_opex_categories(assumptions: Mapping[str, Any] | None, auc_series_id: str) -> list[Mapping[str, Any]]:
+    """Operating Expense categories that feed acquisition economics for one AUC Series."""
+    a = assumptions or {}
+    target = None
+    for _name, raw in (a.get("cac_feeds") or {}).items():
+        feed = raw or {}
+        if str(feed.get("series_id") or "").strip() == str(auc_series_id or "").strip():
+            target = feed; break
+    if target is None:
+        return []
+    out: list[Mapping[str, Any]] = []
+    seen: set[int] = set()
+
+    # Follow only operands that actually affect the AUC roll-forward. Driver_specs may also
+    # contain spend/audit operands that are unused by a channel's selected acquisition equation;
+    # those must not manufacture a false cycle.
+    relevant: list[tuple[Mapping[str, Any], set[str]]] = [
+        (target, {"attrition_rate", "attrition_avg_ticket"}),
+    ]
+    method_keys = {
+        "pool_conversion": {"pool", "conversion_rate", "avg_auc_per_customer"},
+        "spend_cac": {"spend", "cac", "avg_auc_per_customer"},
+        "fte_productivity": {"ftes", "per_fte", "avg_auc_per_customer"},
+        "explicit": {"new_customers", "avg_auc_per_customer"},
+    }
+    for ch0 in target.get("channels") or []:
+        ch = ch0 or {}
+        relevant.append((ch, method_keys.get(str(ch.get("method") or ""), set())))
+
+    for owner, keys in relevant:
+        specs = (owner or {}).get("driver_specs") or {}
+        for key in keys:
+            sp = specs.get(key) or {}
+            if str(sp.get("source") or "").strip().lower() != "link":
+                continue
+            link = sp.get("link") or {}
+            if str(link.get("kind") or "").strip() != "operating_expense_category":
+                continue
+            cat = _category_by_link(a, str(link.get("series_id") or ""), str(link.get("name") or ""))
+            if cat is not None and id(cat) not in seen:
+                seen.add(id(cat)); out.append(cat)
+    return out
+
+
+def _opex_depends_on_downstream_fee(category: Mapping[str, Any], downstream: Sequence[Mapping[str, Any]]) -> bool:
+    """Whether an Opex category observes fee output/quantity produced from this same pool."""
+    if not downstream:
+        return False
+    quantity_ids = {str((st or {}).get("quantity_series_id") or "").strip()
+                    for st in downstream if str((st or {}).get("quantity_series_id") or "").strip()}
+    for raw in (category or {}).get("linked_components") or []:
+        comp = raw or {}
+        drv = str(comp.get("driver") or "").strip().lower()
+        # These aggregates include every fee stream, including the downstream cost-recovery fee.
+        if drv in {"fee_income", "noninterest_income"}:
+            return True
+        if drv == "fee_stream_quantity":
+            sid = str(comp.get("series_id") or "").strip()
+            if sid and sid in quantity_ids:
+                return True
+    return False
+
+
+def _validate_no_dependency_cycle(pool: Mapping[str, Any], assumptions: Mapping[str, Any] | None) -> None:
+    """Fail closed only when this pool participates in an actual observable dependency loop.
+
+    Valid: CAC -> AUC -> eligible cost pool -> fee revenue.
+    Invalid examples:
+      Opex -> pool -> fee revenue -> same Opex
+      Opex -> CAC -> AUC -> pool -> fee revenue -> same Opex
+    """
+    a = assumptions or {}
+    downstream = _pool_downstream_fee_streams(pool, a)
+    if not downstream:  # an unused pool cannot close a downstream fee loop
+        return
+
+    candidate_categories: list[Mapping[str, Any]] = []
+    for comp in (pool or {}).get("components") or []:
+        c = comp or {}
+        kind = str(c.get("kind") or "").strip()
+        if kind == "operating_expense_category":
+            cat = _category_by_link(a, str(c.get("series_id") or ""), str(c.get("name") or ""))
+            if cat is not None:
+                candidate_categories.append(cat)
+        elif kind == "balance_derived_cost" and str(c.get("source_kind") or "managed_notional").strip().lower() == "managed_notional":
+            candidate_categories.extend(_auc_upstream_opex_categories(a, str(c.get("source_series_id") or "")))
+
+    seen: set[int] = set()
+    for cat in candidate_categories:
+        if id(cat) in seen:
+            continue
+        seen.add(id(cat))
+        if _opex_depends_on_downstream_fee(cat, downstream):
+            raise ValueError(
+                "cost pool would create a circular dependency through fee revenue/quantity and Operating Expense")
+
+
+def _allocation(comp: Mapping[str, Any], i: int) -> float:
+    raw_alloc = comp.get("allocation_pct")
+    if raw_alloc is None:
+        raw_alloc = comp.get("weight", 1.0)  # compatibility with early hand-authored drafts
+    try:
+        alloc = float(raw_alloc)
+    except (TypeError, ValueError):
+        raise ValueError(f"cost pool component {i} allocation_pct must be numeric")
+    if alloc < 0.0 or alloc > 1.0:
+        raise ValueError(f"cost pool component {i} allocation_pct must be between 0 and 1")
+    return alloc
+
+
+def _canonical_managed_notional_monthly_end(
+        assumptions: Mapping[str, Any] | None, source_series_id: str,
+        n_periods: int, ppy: int, *, growth_context=None) -> tuple[float, list[float]]:
+    """Resolve one canonical monthly managed-notional balance path.
+
+    The first return value is the balance immediately before modeled month 1.  It supplies
+    the unambiguous first-month period-average convention: (beginning balance + M1 EOP) / 2.
+    """
+    a = assumptions or {}
+    ident = str(source_series_id or "").strip()
+    if not ident:
+        raise ValueError("balance-derived cost component requires source_series_id")
+    ppy = int(ppy)
+    if ppy not in (1, 4, 12) or 12 % ppy:
+        raise ValueError(f"unsupported cadence periods_per_year={ppy} for balance-derived cost")
+    n_months = int(n_periods) * (12 // ppy)
+
+    hits: list[tuple[str, Mapping[str, Any]]] = []
+    for name, raw in (a.get("cac_feeds") or {}).items():
+        feed = raw or {}
+        sid = str(feed.get("series_id") or "").strip()
+        if sid == ident or (not sid and str(name or "").strip() == ident):
+            hits.append((str(name or ident), feed))
+    if len(hits) != 1:
+        raise ValueError(
+            f"managed-notional balance source {ident!r} resolved to {len(hits)} canonical monthly sources; expected exactly one")
+
+    _, feed = hits[0]
+    from .cac_feeder import cac_auc_rollforward
+    r = cac_auc_rollforward(feed, int(n_periods), ppy, assumptions=a, growth_context=growth_context)
+    monthly = [float(x or 0.0) for x in (r.get("auc_end_by_month") or [])[:n_months]]
+    if len(monthly) != n_months:
+        raise ValueError(
+            f"managed-notional balance source {ident!r} produced {len(monthly)} canonical months; expected {n_months}")
+    return float(feed.get("beginning_auc") or 0.0), monthly
+
+
+def _balance_derived_series(comp: Mapping[str, Any], assumptions: Mapping[str, Any] | None,
+                            n_periods: int, ppy: int, *, growth_context=None) -> list[float]:
+    source_kind = str(comp.get("source_kind") or "managed_notional").strip().lower()
+    if source_kind not in _BALANCE_SOURCE_KINDS:
+        raise ValueError(
+            f"unsupported balance-derived cost source_kind {source_kind!r}; expected managed_notional")
+    source_sid = str(comp.get("source_series_id") or "").strip()
+    beginning, monthly_end = _canonical_managed_notional_monthly_end(
+        assumptions, source_sid, n_periods, ppy, growth_context=growth_context)
+
+    measure = str(comp.get("measure") or "period_average").strip().lower()
+    if measure not in _BALANCE_MEASURES:
+        raise ValueError("balance-derived cost measure must be period_end or period_average")
+
+    rate_period = str(comp.get("rate_period") or "year").strip().lower()
+    if rate_period not in _RATE_PERIOD_MONTHS:
+        raise ValueError("balance-derived cost rate_period must be month/quarter/year")
+    rate_spec = dict(comp.get("rate_spec") or {
+        "source": "entered", "trajectory": "flat", "value": 0.0})
+    if str(rate_spec.get("source") or "entered").strip().lower() != "entered":
+        raise ValueError("balance-derived cost rate_spec must be an entered dimensionless Series")
+
+    from .series import resolve_entered_series
+    monthly_rate = resolve_entered_series(
+        rate_spec, len(monthly_end), 12, context=growth_context, default_value=0.0)
+    divisor = float(_RATE_PERIOD_MONTHS[rate_period])
+    monthly_cost: list[float] = []
+    prev = float(beginning)
+    for mi, eop in enumerate(monthly_end):
+        base = eop if measure == "period_end" else (prev + eop) / 2.0
+        monthly_cost.append(base * float(monthly_rate[mi] or 0.0) / divisor)
+        prev = eop
+
+    width = 12 // int(ppy)
+    return [float(sum(monthly_cost[i * width:(i + 1) * width]))
+            for i in range(int(n_periods))]
+
+
 def cost_pool_series(pool: Mapping[str, Any] | None, assumptions: Mapping[str, Any] | None,
                      n_periods: int, ppy: int = 4, *, growth_context=None) -> list[float]:
-    """Resolve one cost pool to native-period dollar *flows*.
+    """Resolve one eligible-cost pool to native-period dollar *flows*.
 
-    Every component is observational: resolving the source does not post an expense.
-    The expense remains owned by the linked Operating Expense / Workforce series.
+    No component posts expense here. Linked modeled costs remain owned by their source module;
+    entered and balance-derived components are pricing-base assumptions only.
     """
     pool = pool or {}
     n, ppy = int(n_periods), int(ppy)
+    _validate_no_dependency_cycle(pool, assumptions)
     comps = pool.get("components") or []
     if not isinstance(comps, list):
         raise ValueError("cost pool components must be a list")
     total = [0.0] * n
-    seen_components: set[tuple[str, str]] = set()
+    seen_linked: set[tuple[str, str]] = set()
+    seen_owned_ids: set[str] = set()
     from .series import resolve_linked_series
+
     for i, comp in enumerate(comps):
         comp = comp or {}
         kind = str(comp.get("kind") or "").strip()
         if kind not in _VALID_COMPONENT_KINDS:
             raise ValueError(f"cost pool component {i} has unsupported kind {kind!r}")
-        sid = str(comp.get("series_id") or "").strip()
-        if not sid:
-            raise ValueError(f"cost pool component {i} requires series_id")
-        token = (kind, sid)
-        if token in seen_components:
-            raise ValueError(f"cost pool component {i} duplicates {kind}:{sid}")
-        seen_components.add(token)
-        raw_alloc = comp.get("allocation_pct")
-        if raw_alloc is None:
-            raw_alloc = comp.get("weight", 1.0)  # compatibility with early hand-authored drafts
-        try:
-            alloc = float(raw_alloc)
-        except (TypeError, ValueError):
-            raise ValueError(f"cost pool component {i} allocation_pct must be numeric")
-        if alloc < 0.0 or alloc > 1.0:
-            raise ValueError(f"cost pool component {i} allocation_pct must be between 0 and 1")
-        arr = resolve_linked_series(
-            assumptions or {}, {"kind": kind, "series_id": sid, "aggregation": "sum"},
-            n, ppy, context=growth_context)
+        alloc = _allocation(comp, i)
+
+        if kind in _LINKED_COMPONENT_KINDS:
+            sid = str(comp.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"cost pool component {i} requires series_id")
+            token = (kind, sid)
+            if token in seen_linked:
+                raise ValueError(f"cost pool component {i} duplicates {kind}:{sid}")
+            seen_linked.add(token)
+            arr = resolve_linked_series(
+                assumptions or {}, {"kind": kind, "series_id": sid, "aggregation": "sum"},
+                n, ppy, context=growth_context)
+        elif kind == "assumption_cost_base":
+            sid = str(comp.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"cost pool component {i} assumption_cost_base requires stable series_id")
+            if sid in seen_owned_ids:
+                raise ValueError(f"cost pool component {i} duplicates cost-pool component series_id {sid!r}")
+            seen_owned_ids.add(sid)
+            fs = comp.get("flow_spec")
+            if fs is None:
+                raise ValueError(f"cost pool component {i} assumption_cost_base requires flow_spec")
+            from .periodic_flows import resolve_periodic_flow
+            arr = resolve_periodic_flow(fs, n, ppy, context=growth_context)
+        else:  # balance_derived_cost
+            sid = str(comp.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"cost pool component {i} balance_derived_cost requires stable series_id")
+            if sid in seen_owned_ids:
+                raise ValueError(f"cost pool component {i} duplicates cost-pool component series_id {sid!r}")
+            seen_owned_ids.add(sid)
+            arr = _balance_derived_series(
+                comp, assumptions, n, ppy, growth_context=growth_context)
+
         if len(arr) != n:
             raise ValueError(f"cost pool component {i} resolved to {len(arr)} periods; expected {n}")
         for q in range(n):
@@ -136,6 +446,8 @@ def cost_pool_series_map(assumptions: Mapping[str, Any] | None, n_periods: int,
     """Resolve all pools once per run, keyed by stable ID plus unique legacy name aliases."""
     pools = _pools(assumptions)
     catalog = cost_pool_catalog(assumptions)
+    # Validate component-owned identities across pools as well as within each pool.
+    cost_pool_component_series_ids(assumptions)
     out: dict[str, list[float]] = {}
     name_counts: dict[str, int] = {}
     for x in catalog:

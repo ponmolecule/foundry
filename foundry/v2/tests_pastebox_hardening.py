@@ -33,19 +33,19 @@ def main():
 
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
-    paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 16, str(len(paste_lines)))
+    paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 17, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Twelve scalar schedule families: seven Fee Product paths (transaction coefficient, Flat amount,
-    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup), plus CAC
+    # Thirteen scalar schedule families: eight Fee Product paths (transaction coefficient, Flat amount,
+    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base), plus CAC
     # driver/attrition, Workforce Count/Compensation, and individual Operating Expense schedule.
     scalar_markers = [
         "feeCoeffPaste_", "feeFlatAmountPaste_", "feeAccountLevelPaste_", "feeStockPctPaste_",
-        "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "cacPaste_", "cacAttritionPaste_",
+        "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_", "cacPaste_", "cacAttritionPaste_",
         "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_",
     ]
-    ck("all twelve scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all thirteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -62,6 +62,7 @@ def main():
         'id="${_rid}_load" class="pillbtn" disabled onclick="_feeSetBalanceRateSchedule',
         'id="${_ufid}_load" class="pillbtn" disabled',
         'id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostRecoveryMarkupSchedule',
+        "id=\"${_eid}_load\" class=\"pillbtn\" disabled onclick='_feeSetCostPoolEnteredSchedule",
         'id="${boxId}_load" class="pillbtn" disabled',
         'id="${_aid}_load" class="pillbtn" disabled',
         'id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCountPaste',
@@ -74,7 +75,7 @@ def main():
     clear_markers = [
         "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "_feeClearAccountLevelSchedule",
         "_feeClearStockMultiplierSchedule", "_feeClearBalanceRateSchedule", "_feeClearAccountFeeSchedule",
-        "_feeClearCostRecoveryMarkupSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
+        "_feeClearCostRecoveryMarkupSchedule", "_feeClearCostPoolEnteredSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
         "nieCatScheduleClear",
     ]
     ck("every scalar Explicit schedule family has an isolated Clear action", all(x in html for x in clear_markers))
@@ -159,11 +160,14 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
     ck("structured bulk activation is scoped to the box being edited",
        si == {"faLoad":True,"faAppend":True,"poLoad":False,"wfLoad":False,"opLoad":False,"scalarStill":True}, str(si))
 
-    # The only non-paste textarea should be Guide Me's natural-language prompt.
+    # Free-text textareas must be explicitly classified so a model schedule cannot silently bypass
+    # the pastebox contract. Guide Me and the optional pricing/regulatory memo are narrative text.
     all_textareas = [ln for ln in html.splitlines() if "<textarea" in ln]
     nonpaste = [ln for ln in all_textareas if "oninput=" not in ln]
     ck("no model-authoring textarea silently bypasses the pastebox contract",
-       len(nonpaste) == 1 and "feeGuideDesc" in nonpaste[0], str(len(nonpaste)))
+       len(nonpaste) == 2
+       and any("feeGuideDesc" in ln for ln in nonpaste)
+       and any("feePricingMemo_" in ln and "model-free-text" in ln for ln in nonpaste), str(len(nonpaste)))
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1

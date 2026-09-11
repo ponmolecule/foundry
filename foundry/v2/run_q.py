@@ -611,6 +611,25 @@ def run_v2(cfg):
             }
         results["customer_acquisition"] = _cac_out
 
+    # Cost pools are non-posting pricing sources, but their resolved native-period amounts are
+    # useful audit evidence. Surface stable-ID series once per run so the authoring UI can show
+    # exactly what the downstream recovery/markup fee observed.
+    _cp_cfgs = ((cfg.get("assumptions") or {}).get("cost_pools") or [])
+    if _cp_cfgs:
+        from .cost_pools import cost_pool_catalog, cost_pool_series_map
+        from .growth import growth_context_from_cfg as _cp_growth_context_from_cfg
+        _cp_ctx = _cp_growth_context_from_cfg(cfg, _ppy)
+        _cp_map = cost_pool_series_map(cfg.get("assumptions") or {}, _NP, _ppy, growth_context=_cp_ctx)
+        _cp_catalog = cost_pool_catalog(cfg.get("assumptions") or {})
+        results["cost_pools"] = {
+            "series": {m["series_id"]: [round(float(v or 0.0) / 1000.0, 6)
+                                         for v in _cp_map.get(m["series_id"], [])]
+                       for m in _cp_catalog},
+            "names": {m["series_id"]: m["name"] for m in _cp_catalog},
+            "units": "$000s / engine period",
+            "posting_semantic": "non_posting_pricing_source",
+        }
+
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
