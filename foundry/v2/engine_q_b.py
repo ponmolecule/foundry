@@ -38,12 +38,14 @@ def run_pf_b(cfg):
     _growth_ctx = growth_context_from_cfg(cfg, 4)
     from .cac_feeder import cac_auc_rollforward
     _auc_month_sources = {}
+    _auc_beginning_sources = {}
     for _feed_name, _feed_cfg in (a.get("cac_feeds") or {}).items():
         _feed_key = str((_feed_cfg or {}).get("series_id") or _feed_name or "").strip()
         if not _feed_key:
             continue
         _cacr = cac_auc_rollforward(_feed_cfg or {}, Q, 4, assumptions=a, growth_context=_growth_ctx)
         _auc_month_sources[_feed_key] = list(_cacr.get("auc_end_by_month") or [])
+        _auc_beginning_sources[_feed_key] = float((_feed_cfg or {}).get("beginning_auc") or 0.0)
     from .income_modules import simple_overhead_series
     _simple_overhead = simple_overhead_series(a, Q, 4, _growth_ctx)
 
@@ -196,6 +198,7 @@ def run_pf_b(cfg):
             _linked_opex = sum(linked_component_amount(
                 _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                           "customer_acquisition_auc_monthly": _auc_month_sources,
+                          "customer_acquisition_auc_beginning": _auc_beginning_sources,
                           "periods_per_year": 4})
                 for _lc in (_nie_d.get("linked_components") or []))
             _sub = (_nie_d["comp"][qi] + _nie_d["categories"][qi] + _linked_opex

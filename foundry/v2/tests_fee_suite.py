@@ -8,7 +8,8 @@ Run: python3 -m foundry.v2.tests_fee_suite
 import sys, json, copy
 sys.path.insert(0, ".")
 from foundry.v2 import run_q, cac_feeder
-from foundry.v2.income_modules import durbin_effective_rate, _g
+from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series
+from foundry.v2.engine_q_a import run_pf_a
 
 _P = _F = 0
 def ck(name, cond, detail=""):
@@ -159,12 +160,16 @@ def main():
         "fee_streams":[{"basis":"balance","driver":{"source":"managed_notional"},
             "rate":{"params":{"rate":0.0014}},"timing":{"start_period":1}}]}]
     f, r = isolate(cust, cac_feeds=feed)
-    # verify against the feeder's own AUC series: fee = 14bp/yr on AVG AUC
+    # Verify against the canonical monthly AUC exposure: fee = 14bp/yr on AVG AUC.
+    # For quarterly presentation, average the three monthly midpoint exposures; do not rebuild
+    # exposure from two quarter-end balances.
     mn = cac_feeder.cac_managed_notional(feed["retail"], Q)
-    sched = {int(k):v for k,v in mn["schedule"].items()}
-    prev = mn.get("day1",0.0); exp_fees = []
-    for q in range(1,Q+1):
-        end = sched[q]; avg = (prev+end)/2; exp_fees.append(avg*0.0014/4/1000.0); prev = end
+    monthly_end = mn["canonical_monthly_end"]
+    prev = mn.get("day1",0.0); monthly_avg = []
+    for end in monthly_end:
+        monthly_avg.append((prev+end)/2.0); prev=end
+    q_avg = [sum(monthly_avg[q*3:(q+1)*3])/3.0 for q in range(Q)]
+    exp_fees = [avg*0.0014/4/1000.0 for avg in q_avg]
     # the engine fee series should match the feeder-derived series (allowing the 1q start alignment)
     got = [round(x,1) for x in f[1:Q+1]]
     want = [round(x,1) for x in exp_fees]
@@ -185,6 +190,62 @@ def main():
     # settlement at 7bp should be exactly half of custody at 14bp (same AUC) => total ~ 1.5x custody-only
     ck("C2 two products share one feed (7bp = half of 14bp)", abs(f2[4] - f[4]*1.5) < 2.0,
        f"custody-only Q4 {f[4]:.1f}, both Q4 {f2[4]:.1f} (expect ~1.5x)")
+
+    # C3/C4 regression: the CAC -> Fee Product bridge must preserve the true opening AUC and
+    # canonical monthly exposure. A stepped path makes the old native-endpoint approximation
+    # visibly wrong: beginning 0.9m, then M1/M2/M3 EOP 3.3m gives monthly averages
+    # 2.1m / 3.3m / 3.3m, hence a Q1 average exposure of 2.9m (not 2.1m, and not 1.65m).
+    stepped_feed = {"retail":{"series_id":"cac-stepped","attrition_rate":0.0,
+        "beginning_auc":900_000.0,"beginning_customers":0,"intra_year_shape":"stepped",
+        "channels":[{"name":"Explicit adds","method":"explicit",
+                     "params":{"new_customers_by_year":[1.0],"spend":0.0},
+                     "avg_auc_per_customer":2_400_000.0}]}}
+    stepped_mn = cac_feeder.cac_managed_notional(stepped_feed["retail"], 4, 4)
+    stepped_avg, stepped_end = managed_notional_series(stepped_mn, 4, 4)
+    ck("C3 CAC bridge preserves beginning AUC and canonical monthly average exposure",
+       stepped_mn.get("day1")==900_000.0 and abs(stepped_avg[0]-2_900_000.0)<1e-9
+       and abs(stepped_end[0]-3_300_000.0)<1e-9)
+
+    raw_cfg = base_cfg(); raw_cfg["assumptions"]["periods_per_year"] = 4; raw_cfg["assumptions"]["n_periods"] = 4
+    raw_cfg["assumptions"]["cac_feeds"] = stepped_feed
+    raw_cfg["assumptions"]["obs_exposures"] += [{"name":"Custody stepped","call_report_line":"obs","_fee_product":True,
+        "managed_notional_source":"retail","managed_notional_source_id":"cac-stepped",
+        "fee_streams":[{"basis":"balance","driver":{"source":"managed_notional"},
+                        "rate":{"params":{"rate":0.0014}},"timing":{"start_period":1}}]}]
+    raw = run_pf_a(raw_cfg)
+    stepped_prod = next(p for p in raw["products"] if p.get("name")=="Custody stepped")
+    ck("C4 ordinary Fee Product custody fee uses canonical monthly Average AUC in quarterly cadence",
+       abs(stepped_prod["managedNotionalAvg"][0]-2_900_000.0)<1e-9
+       and abs(stepped_prod["fees"][0]-(2_900_000.0*.0014/4.0))<1e-9)
+
+    monthly_cfg = copy.deepcopy(raw_cfg)
+    monthly_cfg["assumptions"]["periods_per_year"] = 12; monthly_cfg["assumptions"]["n_periods"] = 12
+    monthly_raw = run_pf_a(monthly_cfg)
+    monthly_prod = next(p for p in monthly_raw["products"] if p.get("name")=="Custody stepped")
+    ck("C4b CAC-fed custody annual economics are monthly/quarterly cadence-equivalent",
+       abs(sum(monthly_prod["fees"])-sum(stepped_prod["fees"]))<1e-9)
+
+    # The same managed-notional socket drives AUC-derived transaction streams, so verify the
+    # canonical average survives through a natural-period throughput coefficient as well.
+    tx_cfg = copy.deepcopy(raw_cfg)
+    tx_cfg["assumptions"]["obs_exposures"][-1]["name"] = "Settlement stepped"
+    tx_cfg["assumptions"]["obs_exposures"][-1]["fee_streams"] = [{
+        "basis":"transaction",
+        "driver":{"source":"managed_notional","trajectory":"derived","params":{"coefficient":{"kind":"multiple","value":4.0,"period":"year","trajectory":"flat"}}},
+        "rate":{"params":{"per_unit":0.0005}},"timing":{"start_period":1}}]
+    tx_raw = run_pf_a(tx_cfg)
+    tx_prod = next(p for p in tx_raw["products"] if p.get("name")=="Settlement stepped")
+    # 4 turns/year becomes 1 turn in a quarterly period; throughput therefore equals 2.9m.
+    ck("C5 AUC-derived transaction throughput uses the same canonical Average AUC exposure",
+       abs(tx_prod["managedNotionalAvg"][0]-2_900_000.0)<1e-9
+       and abs(tx_prod["fees"][0]-(2_900_000.0*.0005))<1e-9)
+
+    tx_monthly_cfg = copy.deepcopy(tx_cfg)
+    tx_monthly_cfg["assumptions"]["periods_per_year"] = 12; tx_monthly_cfg["assumptions"]["n_periods"] = 12
+    tx_monthly_raw = run_pf_a(tx_monthly_cfg)
+    tx_monthly_prod = next(p for p in tx_monthly_raw["products"] if p.get("name")=="Settlement stepped")
+    ck("C5b AUC-derived transaction annual economics are monthly/quarterly cadence-equivalent",
+       abs(sum(tx_monthly_prod["fees"])-sum(tx_prod["fees"]))<1e-9)
 
     # ============ GROUP D: coexistence + GUT mechanics ============
     print("\nD. Coexistence + cost routing + fail-safe")

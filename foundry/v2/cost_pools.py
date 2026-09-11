@@ -49,7 +49,6 @@ from typing import Any, Mapping, Sequence
 _LINKED_COMPONENT_KINDS = {"operating_expense_category", "workforce_role_expense"}
 _VALID_COMPONENT_KINDS = _LINKED_COMPONENT_KINDS | {"assumption_cost_base", "balance_derived_cost"}
 _RATE_PERIOD_MONTHS = {"month": 1, "quarter": 3, "year": 12}
-_BALANCE_MEASURES = {"period_end", "period_average"}
 _BALANCE_SOURCE_KINDS = {"managed_notional"}
 
 
@@ -348,9 +347,11 @@ def _balance_derived_series(comp: Mapping[str, Any], assumptions: Mapping[str, A
     beginning, monthly_end = _canonical_managed_notional_monthly_end(
         assumptions, source_sid, n_periods, ppy, growth_context=growth_context)
 
-    measure = str(comp.get("measure") or "period_average").strip().lower()
-    if measure not in _BALANCE_MEASURES:
-        raise ValueError("balance-derived cost measure must be period_end or period_average")
+    from .balance_measures import normalize_balance_measure, monthly_balance_measure_series
+    try:
+        measure = normalize_balance_measure(comp.get("measure"), default="period_average")
+    except ValueError as e:
+        raise ValueError("balance-derived cost measure must be period_end or period_average") from e
 
     rate_period = str(comp.get("rate_period") or "year").strip().lower()
     if rate_period not in _RATE_PERIOD_MONTHS:
@@ -364,12 +365,9 @@ def _balance_derived_series(comp: Mapping[str, Any], assumptions: Mapping[str, A
     monthly_rate = resolve_entered_series(
         rate_spec, len(monthly_end), 12, context=growth_context, default_value=0.0)
     divisor = float(_RATE_PERIOD_MONTHS[rate_period])
-    monthly_cost: list[float] = []
-    prev = float(beginning)
-    for mi, eop in enumerate(monthly_end):
-        base = eop if measure == "period_end" else (prev + eop) / 2.0
-        monthly_cost.append(base * float(monthly_rate[mi] or 0.0) / divisor)
-        prev = eop
+    monthly_base = monthly_balance_measure_series(beginning, monthly_end, measure)
+    monthly_cost = [base * float(monthly_rate[mi] or 0.0) / divisor
+                    for mi, base in enumerate(monthly_base)]
 
     width = 12 // int(ppy)
     return [float(sum(monthly_cost[i * width:(i + 1) * width]))

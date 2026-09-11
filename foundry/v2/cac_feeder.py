@@ -265,11 +265,16 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
 
 
 def cac_managed_notional(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):
-    """Convenience: package the feeder's native-cadence AUC levels as a managed_notional the fee
-    engine consumes directly (trajectory=explicit_levels). This is the seam."""
+    """Package a CAC-owned AUC path for the Fee Product engine.
+
+    The managed-notional consumer needs both the true opening stock and the canonical monthly
+    period-end path.  Retaining those observations lets downstream Fee Products derive period-
+    average exposure without reconstructing a quarter from two quarter-end points.
+    """
     r = cac_auc_rollforward(cac_cfg, Q, ppy, assumptions=assumptions, growth_context=growth_context)
     return {
-        "day1": 0.0,
+        "day1": float((cac_cfg or {}).get("beginning_auc") or 0.0),
         "trajectory": "explicit_levels",
         "schedule": {str(q + 1): r["auc_end_by_period"][q] for q in range(int(Q))},
+        "canonical_monthly_end": list(r.get("auc_end_by_month") or []),
     }

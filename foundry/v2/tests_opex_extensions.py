@@ -184,6 +184,60 @@ def main():
        all(abs(rq['is']['otherOpex'][q]-sum(rm['is']['otherOpex'][q*3:(q+1)*3]))<1e-6 for q in range(4)))
     ck('AUC-linked fraud expense preserves annual total across monthly/quarterly models',
        abs(sum(rm['is']['otherOpex'])-sum(rq['is']['otherOpex']))<1e-6)
+
+    # AUC measure normalization: legacy r64/r65 configs omitted a measure and meant monthly EOP.
+    legacy_norm = normalize_linked_component({'driver':'customer_acquisition_auc','series_id':'cac-auc-fraud',
+                                               'rate_period':'year',
+                                               'rate_spec':{'source':'entered','trajectory':'flat','value':0.0001}})
+    ck('legacy AUC-linked Opex with no measure migrates as Period end', legacy_norm.get('measure')=='period_end')
+
+    # Period-average Opex uses the same canonical monthly balance contract as Reg W cost pools.
+    # Beginning 0.9m and a linear ramp to 3.3m gives M1/M2/M3 EOP 1.1/1.3/1.5m and
+    # monthly average exposure 1.0/1.2/1.4m.
+    def avg_auc_opex_cfg(ppy):
+        c=base_cfg(ppy); a=c['assumptions']
+        a['cac_feeds']={'avg_base':{
+            'series_id':'cac-auc-avg','owner_module':'customer_acquisition',
+            'beginning_auc':900_000.0,'beginning_customers':0,'attrition_rate':0,'intra_year_shape':'linear',
+            'channels':[{'name':'Explicit adds','method':'explicit',
+                         'params':{'new_customers_by_year':[1.0],'spend':0.0},
+                         'avg_auc_per_customer':2_400_000.0}]}}
+        a['nie_detail']['categories']=[{
+            'name':'Average-AUC linked expense','series_id':'opex-avg-auc',
+            'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+            'linked_components':[{'driver':'customer_acquisition_auc','series_id':'cac-auc-avg',
+                                  'measure':'period_average','rate_period':'year',
+                                  'rate_spec':{'source':'entered','trajectory':'flat','value':0.0001}}]}]
+        return c
+
+    am=avg_auc_opex_cfg(12); arm=run_pf_a(am)
+    aq=avg_auc_opex_cfg(4); arq=run_pf_a(aq)
+    ck('Period-average AUC-linked Opex uses true opening balance in M1',
+       abs(arm['is']['otherOpex'][0]-(1_000_000*.0001/12))<1e-6)
+    ck('quarterly Period-average AUC-linked Opex sums monthly average-AUC accruals',
+       abs(arq['is']['otherOpex'][0]-((1_000_000+1_200_000+1_400_000)*.0001/12))<1e-6)
+    ck('Period-average AUC-linked Opex is cadence-equivalent by quarter',
+       all(abs(arq['is']['otherOpex'][q]-sum(arm['is']['otherOpex'][q*3:(q+1)*3]))<1e-6 for q in range(4)))
+
+    # Profile B shares the same Opex balance-measure contract even though its product engine is separate.
+    pb=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json'))
+    pba=pb['assumptions']; pba['cac_feeds']=copy.deepcopy(aq['assumptions']['cac_feeds'])
+    pba['nie_detail']=copy.deepcopy(aq['assumptions']['nie_detail'])
+    pbr=run_v2(pb)
+    ck('Profile B Opex honors the same canonical Period-average AUC contract',
+       abs(pbr['financials']['is']['otherOpex'][0]-0.03)<1e-9)
+
+    bad_measure=avg_auc_opex_cfg(12)
+    bad_measure['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['measure']='daily_average'
+    measure_failed=False
+    try: validate_config_v2(bad_measure)
+    except ConfigErrorV2 as e: measure_failed=('period_end or period_average' in str(e))
+    ck('AUC-linked Opex fails closed on unsupported balance measure', measure_failed)
+
+    html=open('web/console_v2.html').read()
+    ck('Opex UI exposes Period average / Period end selector and preserves EOP migration default',
+       'nieCatLinkedMeasure' in html and '>Period average</option>' in html and '>Period end</option>' in html
+       and 'lc.measure=lc.measure||"period_end"' in html)
     vfm=copy.deepcopy(fm); vfm['assumptions']['n_periods']=36
     try:
         validate_config_v2(vfm); auc_valid=True

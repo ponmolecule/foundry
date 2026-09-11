@@ -143,18 +143,24 @@ AUC is resolved first on a **canonical monthly period-end grid**, regardless of 
 engine/presentation cadence is monthly or quarterly. Quarterly native balances are sampled from
 canonical M3/M6/M9/M12; the monthly path remains available for downstream calculations whose
 economics depend on each month's exposure. The resolved AUC then becomes a canonical managed-notional
-series for downstream Fee Products. Fee Products prefer that stable AUC `series_id`, while legacy
-name-based references remain readable.
+series for downstream Fee Products. The stock owner publishes EOP observations; consumers choose the
+measure they need. `period_average` is derived canonically as `(prior month-end + current month-end) / 2`,
+and a quarterly period average is built from the three underlying monthly average exposures rather than
+from two quarter-end points. Fee Products prefer the stable AUC `series_id`, while legacy name-based
+references remain readable.
 For explicit source cadence finer than the acquisition equation cadence, flow operands such as Spend
 and Explicit Customers sum; level/rate operands such as CAC, Pool, Conversion, Count, Productivity,
 and AUC/customer average.
 
-Operating Expense may observe a CAC feed's stable **period-end AUC** Series as a linked component.
-This remains the ordinary `upstream Series × multiplier` mechanic rather than a bespoke expense type.
-Because AUC is a stock, its multiplier owns a natural Month / Quarter / Year period. For example, a
-`0.01% / Year` fraud-loss provision accrues each canonical month as `month-end AUC × 0.01% / 12`;
-a quarterly presentation sums those three monthly accruals. A category already feeding the selected
-CAC feed through Acquisition Spend may not link back to that feed's AUC, because that would create
+Operating Expense may observe a CAC feed's stable AUC Series as a linked component. The consumer
+explicitly chooses **Period end** or **Period average**; missing measure on an r64/r65 configuration
+migrates as Period end so existing economics do not change. This remains the ordinary
+`upstream Series × multiplier` mechanic rather than a bespoke expense type. Because AUC is a stock,
+its multiplier owns a natural Month / Quarter / Year period. For example, a `0.01% / Year` EOP-based
+fraud-loss provision accrues each canonical month as `month-end AUC × 0.01% / 12`, while an average-AUC
+expense first derives the monthly `(prior EOP + current EOP) / 2` exposure. Quarterly presentation sums
+the three monthly accruals in either case. A category already feeding the selected CAC feed through
+Acquisition Spend may not link back to that feed's AUC, because that would create
 `Opex → CAC → AUC → Opex` circularity.
 
 ## 7. Release invariants
