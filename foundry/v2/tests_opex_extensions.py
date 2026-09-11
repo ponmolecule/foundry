@@ -311,7 +311,31 @@ def main():
     ck('recognition-before-settlement produces accrued Opex liability',
        r['bs']['accruedOpex'][1] > 119_999 and abs(r['bs']['accruedOpex'][12])<1e-6)
 
+    # r78 OCC contract: modern Detailed Opex is inert unless the simplified shortcut is
+    # explicitly enabled. Pre-r78 saved models that persisted occ_bp_ann remain active.
+    c0=base_cfg(4); a0=c0['assumptions']; a0['nie_detail'].pop('occ_bp_ann',None); a0['nie_detail'].pop('occ_simplified_enabled',None)
+    r0=run_pf_a(c0)
+    c0z=base_cfg(4); r0z=run_pf_a(c0z)
+    ck('modern Detailed Opex with no OCC config posts no simplified OCC expense',
+       all(abs(x-y)<1e-9 for x,y in zip(r0['is']['otherOpex'],r0z['is']['otherOpex']))
+       and max(abs(x) for x in r0['bs']['prepaidOpex'])<1e-9
+       and max(abs(x) for x in r0['bs']['accruedOpex'])<1e-9)
+    c0d=base_cfg(4); a0d=c0d['assumptions']; a0d['nie_detail']['occ_bp_ann']=20.0; a0d['nie_detail']['occ_simplified_enabled']=False
+    r0d=run_pf_a(c0d)
+    ck('explicitly disabled simplified OCC ignores a retained legacy rate',
+       all(abs(x-y)<1e-9 for x,y in zip(r0d['is']['otherOpex'],r0z['is']['otherOpex'])))
+    cb=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json')); ab=cb['assumptions']
+    ab['nie_detail']={'categories':[],'other_gross_up_rate':0,'fdic_bp_ann':0,
+                      'workforce':{'mode':'roles','roles':[]}}
+    rb0=run_pf_b(cb)
+    cbz=copy.deepcopy(cb); cbz['assumptions']['nie_detail']['occ_bp_ann']=0.0; rb0z=run_pf_b(cbz)
+    cbd=copy.deepcopy(cb); cbd['assumptions']['nie_detail']['occ_bp_ann']=20.0; cbd['assumptions']['nie_detail']['occ_simplified_enabled']=False; rb0d=run_pf_b(cbd)
+    ck('Profile B also keeps simplified OCC off when absent or explicitly disabled',
+       all(abs(x-y)<1e-9 for x,y in zip(rb0['is']['otherOpex'],rb0z['is']['otherOpex']))
+       and all(abs(x-y)<1e-9 for x,y in zip(rb0d['is']['otherOpex'],rb0z['is']['otherOpex'])))
+
     # OCC: annual bp input becomes a semiannual assessment fixed off the half-year measurement base.
+    # No enable flag intentionally emulates a pre-r78 saved model and must stay backward-compatible.
     c=base_cfg(4); a=c['assumptions']; a['nie_detail']['occ_bp_ann']=20.0
     r=run_pf_a(c)
     opening_assets=r['bs']['totalAssets'][0]

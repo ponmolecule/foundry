@@ -1061,16 +1061,13 @@ def run_pf_a(cfg):
         depreciation_expense = dep_exp_t[q]
         other_opex = overhead - depreciation_expense
         if _nie_d:
-            # Patrick's NIE granularity (F-071): workforce compensation + category lines +
-            # assessments on the CORRECT base (D-P14 fix) + his sub*r/(1-r) gross-up.
-            # Assessment RATES are engagement assumptions (12 CFR 327 schedule / 12 CFR 8):
-            # read from the config's nie_detail block when set, else the REG_PARAMS default.
+            # Detailed NIE: FDIC retains its established regulatory-default shortcut. Simplified
+            # OCC is legacy/opt-in only from r78 onward; absence must never create expense.
             _fdic_bp = _nie_d.get("fdic_bp_ann")
             if _fdic_bp is None:
                 _fdic_bp = _RP["assessments"]["fdic_bp_ann"]
-            _occ_bp = _nie_d.get("occ_bp_ann")
-            if _occ_bp is None:
-                _occ_bp = _RP["assessments"]["occ_bp_ann"]
+            _occ_enabled = bool(_nie_d.get("occ_simplified_enabled"))
+            _occ_bp = float(_nie_d.get("occ_bp_ann") or 0.0) if _occ_enabled else 0.0
             _avg_a_q = (bs["totalAssets"][q - 1] + 0.0) if q >= 1 else 0.0
             # avg assets this quarter approximated as (prior end + tentative end)/2 is
             # circular pre-plug; use prior end (disclosed) — assessments accrue on it
@@ -1081,20 +1078,22 @@ def run_pf_a(cfg):
             # ingestion layer may know that an assessment is due on a calendar date; the engine
             # stores only the translated first payment period (M#/Q#) and repeats every half-year.
             # Recognition is spread evenly across each ordinal half-year block.
-            _occ_half_interval = max(1, int(ppy) // 2)
-            _occ_half = (q - 1) // _occ_half_interval
-            if _occ_half != _occ_half_key:
-                _occ_half_key = _occ_half
-                _occ_half_amt = _avg_a_q * float(_occ_bp) / 10000.0 / 2.0
-            _occ = _occ_half_amt / float(_occ_half_interval)
-            _occ_first_pay = int(_nie_d.get("occ_payment_first_period") or (3 if ppy == 12 else 1))
-            _occ_first_pay = max(1, _occ_first_pay)
-            _occ_pay_phase = (_occ_first_pay - 1) % _occ_half_interval
-            _occ_pay_start_half = (_occ_first_pay - 1) // _occ_half_interval
-            _occ_cash = (_occ_half_amt if (_occ_half >= _occ_pay_start_half
-                                            and ((q - 1) % _occ_half_interval) == _occ_pay_phase)
-                         else 0.0)
-            _occ_signed_balance += _occ_cash - _occ
+            _occ = 0.0
+            if _occ_enabled:
+                _occ_half_interval = max(1, int(ppy) // 2)
+                _occ_half = (q - 1) // _occ_half_interval
+                if _occ_half != _occ_half_key:
+                    _occ_half_key = _occ_half
+                    _occ_half_amt = _avg_a_q * _occ_bp / 10000.0 / 2.0
+                _occ = _occ_half_amt / float(_occ_half_interval)
+                _occ_first_pay = int(_nie_d.get("occ_payment_first_period") or (3 if ppy == 12 else 1))
+                _occ_first_pay = max(1, _occ_first_pay)
+                _occ_pay_phase = (_occ_first_pay - 1) % _occ_half_interval
+                _occ_pay_start_half = (_occ_first_pay - 1) // _occ_half_interval
+                _occ_cash = (_occ_half_amt if (_occ_half >= _occ_pay_start_half
+                                                and ((q - 1) % _occ_half_interval) == _occ_pay_phase)
+                             else 0.0)
+                _occ_signed_balance += _occ_cash - _occ
 
             _comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
                        if _wf_runtime is not None else _nie_d["comp"][q - 1])
