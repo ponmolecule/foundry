@@ -203,6 +203,8 @@ def run_pf_b(cfg):
                 _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                           "customer_acquisition_auc_monthly": _auc_month_sources,
                           "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                          "fee_stream_quantity_history": {},
+                          "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
                           "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
                           "periods_per_year": 4})
                 for _lc in (_nie_d.get("linked_components") or []))

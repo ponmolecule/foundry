@@ -8,6 +8,11 @@ html=Path('web/console_v2.html').read_text()
 checks=[
  ('Opex advanced control is progressive disclosure', 'Hide advanced' in html and '>Advanced' in html),
  ('Opex UI exposes additive expense components', 'Additive expense components' in html and '+ Add linked component' in html and '+ New cost-pool / cost-recovery component' in html),
+ ('Opex Advanced exposes generalized tiered / banded linked components', '+ Tiered / banded component' in html and 'Tiered / banded linked component' in html and 'Band schedule' in html),
+ ('tiered Opex exposes composite upstream balance terms rather than regulator-specific drivers', all(x in html for x in ['Total Assets · bank balance sheet','AUC / managed notional · ','Balance quantity · ','Weight / multiplier']) and 'OCC' not in html[html.find('function _opexPiecewiseTermOptions'):html.find('function _opexPiecewiseEditorHtml')]),
+ ('tiered Opex makes event timing and observation lag explicit', 'Event cadence' in html and 'Observation lag' in html and 'First event' in html and 'piecewise_linked' in html),
+ ('tiered Opex band table preserves literal lower/upper/base/rate authoring', all(x in html for x in ['Lower bound ($000s)','Upper bound ($000s)','Base amount ($000s)','Marginal rate (decimal)','final band is open-ended'])),
+ ('balance Fee streams receive stable quantity Series IDs for downstream tiered Opex', '["transaction","balance"].includes(st.basis)' in html and 'fee_stream_balance_quantity::' in html),
  ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
  ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly AUC' in html),

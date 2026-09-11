@@ -30,6 +30,8 @@ SAFE_REVENUE_DRIVERS = {
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
 COST_POOL_CHARGE_DRIVER = "cost_pool_charge"
+PIECEWISE_LINKED_DRIVER = "piecewise_linked"
+_PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 
 
@@ -120,10 +122,190 @@ def fee_stream_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[d
     return out
 
 
+
+def fee_balance_quantity_creates_cycle(assumptions: Mapping[str, Any] | None,
+                                       category: Mapping[str, Any] | None,
+                                       quantity_series_id: str) -> bool:
+    """Conservatively detect Opex -> CAC -> balance Fee quantity -> same Opex loops."""
+    a = assumptions or {}
+    sid = str(quantity_series_id or "").strip()
+    if not sid:
+        return False
+    for key in ("lending_products", "deposit_products", "obs_exposures"):
+        for prod in a.get(key) or []:
+            hit = any(str((st or {}).get("quantity_series_id") or "").strip() == sid
+                      and str((st or {}).get("basis") or "").lower() == "balance"
+                      for st in ((prod or {}).get("fee_streams") or []))
+            if not hit:
+                continue
+            auc_sid = str((prod or {}).get("managed_notional_source_id") or "").strip()
+            if auc_sid and auc_link_creates_cycle(a, category, auc_sid):
+                return True
+    return False
+
+
+def fee_stream_balance_quantity_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
+    """Catalog stable driver-quantity Series for Balance fee streams.
+
+    The quantity is owned by the Fee Product stream (for example managed notional × a
+    stock multiplier).  Opex may observe that balance as an upstream level without
+    re-authoring the underlying assumptions.  Transaction quantities retain their
+    separate flow contract in :func:`fee_stream_quantity_catalog`.
+    """
+    a = assumptions or {}
+    out = []
+    for fam, key in (("Lending", "lending_products"), ("Deposit", "deposit_products"),
+                     ("Fee Product", "obs_exposures")):
+        for pi, prod in enumerate(a.get(key) or []):
+            pname = str((prod or {}).get("name") or f"{fam} {pi + 1}")
+            for si, st in enumerate((prod or {}).get("fee_streams") or []):
+                st = st or {}
+                if str(st.get("basis") or "").lower() != "balance":
+                    continue
+                sid = str(st.get("quantity_series_id") or "").strip()
+                if not sid:
+                    continue
+                out.append({"series_id": sid, "product": pname,
+                            "stream": str(st.get("name") or f"Stream {si + 1}"),
+                            "family": fam, "unit_semantic": "balance_level"})
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("balance fee-stream quantity_series_id values must be unique")
+    return out
+
+
+def _normalize_observation_lag(raw: Mapping[str, Any] | None) -> dict:
+    lag = dict(raw or {})
+    try:
+        value = int(lag.get("value") or 0)
+    except (TypeError, ValueError) as e:
+        raise ValueError("piecewise-linked observation lag value must be a non-negative integer") from e
+    if value < 0:
+        raise ValueError("piecewise-linked observation lag value must be a non-negative integer")
+    period = str(lag.get("period") or "model_period").strip().lower()
+    if period not in {"model_period", "month", "quarter", "year"}:
+        raise ValueError("piecewise-linked observation lag period must be model_period/month/quarter/year")
+    return {"value": value, "period": period}
+
+
+def _normalize_piecewise_timing(raw: Mapping[str, Any] | None) -> dict:
+    t = dict(raw or {})
+    mode = str(t.get("mode") or "monthly").strip().lower()
+    if mode not in {"monthly", "quarterly", "semiannual", "annual"}:
+        raise ValueError("piecewise-linked timing.mode must be monthly/quarterly/semiannual/annual")
+    try:
+        first = int(t.get("first_period") or 1)
+    except (TypeError, ValueError) as e:
+        raise ValueError("piecewise-linked timing.first_period must be a positive integer") from e
+    if first < 1:
+        raise ValueError("piecewise-linked timing.first_period must be a positive integer")
+    return {"mode": mode, "first_period": first}
+
+
+def _normalize_piecewise_terms(raw_terms) -> list[dict]:
+    terms = list(raw_terms or [])
+    if not terms:
+        raise ValueError("piecewise-linked Opex component requires at least one driver term")
+    out = []
+    from .balance_measures import normalize_balance_measure
+    for i, raw in enumerate(terms):
+        t = dict(raw or {})
+        src = str(t.get("source") or "").strip().lower()
+        if src not in _PIECEWISE_TERM_SOURCES:
+            raise ValueError(f"piecewise-linked term {i + 1} has unsupported source {src!r}")
+        try:
+            weight = float(t.get("weight") if t.get("weight") is not None else 1.0)
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"piecewise-linked term {i + 1} weight must be numeric") from e
+        row = {"source": src, "weight": weight}
+        if src in {"customer_acquisition_auc", "fee_stream_balance_quantity"}:
+            sid = str(t.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"piecewise-linked term {i + 1} requires series_id")
+            row["series_id"] = sid
+        if src == "customer_acquisition_auc":
+            try:
+                row["measure"] = normalize_balance_measure(t.get("measure"), default="period_end")
+            except ValueError as e:
+                raise ValueError("piecewise-linked AUC term measure must be period_end or period_average") from e
+        out.append(row)
+    return out
+
+
+def _normalize_piecewise_bands(raw_bands) -> list[dict]:
+    bands = list(raw_bands or [])
+    if not bands:
+        raise ValueError("piecewise-linked Opex component requires at least one band")
+    out = []
+    prev_upper = None
+    for i, raw in enumerate(bands):
+        b = dict(raw or {})
+        try:
+            lower = float(b.get("lower_bound") or 0.0)
+            base = float(b.get("base_amount") or 0.0)
+            rate = float(b.get("marginal_rate") or 0.0)
+            upper = None if b.get("upper_bound") in (None, "") else float(b.get("upper_bound"))
+        except (TypeError, ValueError) as e:
+            raise ValueError(f"piecewise-linked band {i + 1} contains a non-numeric value") from e
+        if upper is not None and upper < lower:
+            raise ValueError(f"piecewise-linked band {i + 1} upper_bound must be >= lower_bound")
+        if i == 0 and abs(lower) > 1e-9:
+            raise ValueError("piecewise-linked first band lower_bound must be 0")
+        if prev_upper is not None and abs(lower - prev_upper) > max(1e-7, abs(prev_upper) * 1e-12):
+            raise ValueError("piecewise-linked bands must be contiguous; each lower_bound must equal the prior upper_bound")
+        if prev_upper is None and i > 0:
+            raise ValueError("piecewise-linked open-ended band must be last")
+        out.append({"lower_bound": lower, "upper_bound": upper,
+                    "base_amount": base, "marginal_rate": rate})
+        prev_upper = upper
+    if out[-1]["upper_bound"] is not None:
+        raise ValueError("piecewise-linked final band must be open-ended")
+    return out
+
+
+def _lag_to_engine_periods(lag: Mapping[str, Any], ppy: int) -> int:
+    ppy = int(ppy)
+    if ppy not in (1, 4, 12):
+        raise ValueError(f"unsupported cadence periods_per_year={ppy}")
+    value = int(lag.get("value") or 0)
+    period = str(lag.get("period") or "model_period")
+    if period == "model_period":
+        return value
+    months = value * {"month": 1, "quarter": 3, "year": 12}[period]
+    months_per_engine_period = 12 // ppy
+    if months % months_per_engine_period:
+        raise ValueError(
+            f"piecewise-linked observation lag {value} {period}(s) is finer than the {ppy}-period/year model cadence")
+    return months // months_per_engine_period
+
+
+def validate_piecewise_linked_cadence(component: Mapping[str, Any], ppy: int) -> None:
+    """Validate event cadence and natural observation lag against model cadence."""
+    c = normalize_linked_component(component) if str((component or {}).get("driver") or "") == PIECEWISE_LINKED_DRIVER else component
+    _timing_interval((c.get("timing") or {}).get("mode") or "monthly", int(ppy))
+    _lag_to_engine_periods(c.get("observation_lag") or {}, int(ppy))
+
+
+def apply_piecewise_schedule(value: float, bands) -> float:
+    """Apply an explicit base + marginal-rate band table without smoothing boundaries.
+
+    Each row owns its literal base amount.  Foundry intentionally does not derive a row's
+    base from the prior row because source schedules may round/rebase at breakpoints.
+    """
+    x = float(value or 0.0)
+    bb = _normalize_piecewise_bands(bands)
+    for b in bb:
+        lo, hi = b["lower_bound"], b["upper_bound"]
+        if x + 1e-12 < lo:
+            continue
+        if hi is None or x <= hi + 1e-12:
+            return float(b["base_amount"]) + float(b["marginal_rate"]) * (x - lo)
+    raise ValueError(f"piecewise-linked driver value {x} does not fall inside the configured bands")
+
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, COST_POOL_CHARGE_DRIVER}
+    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, COST_POOL_CHARGE_DRIVER, PIECEWISE_LINKED_DRIVER}
     if drv not in allowed:
         raise ValueError(
             f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
@@ -135,6 +317,17 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
         validate_cost_recovery_terms(c)
         return {**c, "driver": drv, "ref": ref,
                 "recovery_pct": float(c.get("recovery_pct") or 0.0)}
+    if drv == PIECEWISE_LINKED_DRIVER:
+        out = {"driver": drv,
+               "component_id": str(c.get("component_id") or "").strip(),
+               "name": str(c.get("name") or "Tiered / banded component"),
+               "terms": _normalize_piecewise_terms(c.get("terms")),
+               "bands": _normalize_piecewise_bands(c.get("bands")),
+               "timing": _normalize_piecewise_timing(c.get("timing")),
+               "observation_lag": _normalize_observation_lag(c.get("observation_lag"))}
+        if any(t["source"] == "bank_total_assets" for t in out["terms"]) and out["observation_lag"]["value"] == 0:
+            raise ValueError("piecewise-linked Total Assets term requires a positive observation lag to avoid circularity")
+        return out
     rs = dict(c.get("rate_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0})
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
@@ -220,6 +413,11 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                         "recovery_pct": float(c.get("recovery_pct") or 0.0),
                         "rates": [float(x or 0.0) for x in markups]})
             continue
+        if c["driver"] == PIECEWISE_LINKED_DRIVER:
+            # Validate cadence compatibility up front; evaluation itself remains period-local.
+            validate_piecewise_linked_cadence(c, int(ppy))
+            out.append(c)
+            continue
         if c["driver"] == CAC_AUC_DRIVER:
             if assumptions is not None and auc_link_creates_cycle(assumptions, category, c["series_id"]):
                 raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
@@ -244,6 +442,63 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
     return out
 
 
+
+def _piecewise_event_due(component: Mapping[str, Any], period_index: int, ppy: int) -> bool:
+    t = _normalize_piecewise_timing(component.get("timing"))
+    interval = _timing_interval(t["mode"], int(ppy))
+    ordinal = int(period_index) + 1
+    first = int(t["first_period"])
+    return ordinal >= first and (ordinal - first) % interval == 0
+
+
+def _piecewise_term_value(term: Mapping[str, Any], observation_ordinal: int, metrics: Mapping[str, Any]) -> float:
+    src = str(term.get("source") or "")
+    ppy = int(metrics.get("periods_per_year") or 12)
+    if src == "bank_total_assets":
+        hist = list(metrics.get("bank_total_assets_end_by_period") or [])
+        if observation_ordinal < 0 or observation_ordinal >= len(hist):
+            raise ValueError(f"piecewise-linked Total Assets observation period {observation_ordinal} is unavailable")
+        return float(hist[observation_ordinal] or 0.0)
+    if src == "customer_acquisition_auc":
+        sid = str(term.get("series_id") or "")
+        amap = metrics.get("customer_acquisition_auc_monthly") or {}
+        if sid not in amap:
+            raise ValueError(f"piecewise-linked CAC AUC Series {sid!r} is unavailable in this engine run")
+        beginning = float((metrics.get("customer_acquisition_auc_beginning") or {}).get(sid) or 0.0)
+        if observation_ordinal == 0:
+            return beginning
+        if observation_ordinal < 0:
+            raise ValueError("piecewise-linked CAC AUC observation precedes the opening balance")
+        months = list(amap[sid] or [])
+        months_per_period = 12 // ppy
+        lo = (observation_ordinal - 1) * months_per_period
+        hi = min(len(months), lo + months_per_period)
+        if lo >= len(months) or hi <= lo:
+            raise ValueError(f"piecewise-linked CAC AUC observation period {observation_ordinal} is unavailable")
+        measure = str(term.get("measure") or "period_end")
+        if measure == "period_end":
+            return float(months[hi - 1] or 0.0)
+        from .balance_measures import monthly_balance_measure_series
+        measured = monthly_balance_measure_series(beginning, months, "period_average")
+        return sum(float(x or 0.0) for x in measured[lo:hi]) / float(hi - lo)
+    if src == "fee_stream_balance_quantity":
+        sid = str(term.get("series_id") or "")
+        hist = (metrics.get("fee_stream_quantity_history") or {}).get(sid)
+        known = set(metrics.get("fee_stream_quantity_known_ids") or [])
+        if hist is None and sid not in known:
+            raise ValueError(f"piecewise-linked balance-stream quantity Series {sid!r} is unavailable in this engine run")
+        if observation_ordinal <= 0:
+            raise ValueError("piecewise-linked balance-stream quantity has no modeled opening observation")
+        idx = observation_ordinal - 1
+        # A stable Fee-stream quantity can legitimately be zero before its stream's start
+        # (or after its end).  The evaluator only captures active periods, so a validated,
+        # known Series with no captured value at this ordinal resolves to zero rather than
+        # becoming spuriously unavailable to a downstream observer.
+        if hist is None or idx >= len(hist):
+            return 0.0
+        return float(hist[idx] or 0.0)
+    raise ValueError(f"unsupported piecewise-linked term source {src!r}")
+
 def linked_component_amount(component: Mapping[str, Any], period_index: int,
                             metrics: Mapping[str, float]) -> float:
     drv = str(component.get("driver") or "")
@@ -258,6 +513,17 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         from .cost_recovery import cost_recovery_amount
         return cost_recovery_amount(
             float(pools.get(ref) or 0.0), float(component.get("recovery_pct") or 0.0), rate)
+    if drv == PIECEWISE_LINKED_DRIVER:
+        ppy = int(metrics.get("periods_per_year") or 12)
+        if not _piecewise_event_due(component, i, ppy):
+            return 0.0
+        lag_periods = _lag_to_engine_periods(
+            _normalize_observation_lag(component.get("observation_lag")), ppy)
+        observation_ordinal = (i + 1) - lag_periods
+        total = 0.0
+        for term in component.get("terms") or []:
+            total += float(term.get("weight") if term.get("weight") is not None else 1.0) * _piecewise_term_value(term, observation_ordinal, metrics)
+        return apply_piecewise_schedule(total, component.get("bands"))
     if drv == "fee_income":
         base = float(metrics.get("fee_income") or 0.0)
     elif drv == "gain_on_sale":

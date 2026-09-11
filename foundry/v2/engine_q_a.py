@@ -435,6 +435,12 @@ def run_pf_a(cfg):
     # such as Operating Expense linked components. Populated by fee_stream_q during product
     # evaluation; never recomputed downstream.
     _fee_stream_qty_series = {}
+    _fee_stream_qty_known_ids = {
+        str((st or {}).get("quantity_series_id") or "").strip()
+        for _prod in (lend + dep + obs)
+        for st in ((_prod or {}).get("fee_streams") or [])
+        if str((st or {}).get("quantity_series_id") or "").strip()
+    }
     # CAC owns the customer-book forecast once. Account Fee streams consume that stable Series
     # with an explicit annual-count / monthly-EOP / period-average measure instead of re-authoring
     # a second count path.
@@ -1102,6 +1108,9 @@ def run_pf_a(cfg):
                                                        for sid, arr in _fee_stream_qty_series.items()},
                              "customer_acquisition_auc_monthly": _auc_month_sources,
                              "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                             "fee_stream_quantity_history": _fee_stream_qty_series,
+                             "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
+                             "bank_total_assets_end_by_period": bs["totalAssets"],
                              "cost_pool": _cost_pool_ctx(q),
                              "periods_per_year": ppy})
                 for _lc in (_nie_d.get("linked_components") or []))
