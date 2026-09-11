@@ -7,7 +7,7 @@ from pathlib import Path
 html=Path('web/console_v2.html').read_text()
 checks=[
  ('Opex advanced control is progressive disclosure', 'Hide advanced' in html and '>Advanced' in html),
- ('Opex UI exposes additive expense components', 'Additive expense components' in html and '+ Add linked component' in html and '+ Add cost-pool / cost-recovery component' in html),
+ ('Opex UI exposes additive expense components', 'Additive expense components' in html and '+ Add linked component' in html and '+ New cost-pool / cost-recovery component' in html),
  ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
  ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly EOP AUC' in html),
@@ -32,7 +32,7 @@ checks=[
  ('legacy r67 exclusive cost-pool config remains renderable but is not newly authored', 'Legacy r67 cost-pool-only compatibility mode' in html and 'nieCatCalculationKind' in html),
  ('new Opex categories are prepended and focused instead of appearing off-screen at the bottom', 'nd.categories.unshift' in html and 'data-opex-index="${i}"' in html and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html),
  ('prepending an Opex category reindexes existing Advanced open state', 'const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={}' in html and 'nextOpen[(+k||0)+1]=true' in html),
- ('Opex cost-pool authoring is bounded and responsive for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-toolbar' in html and 'opex-cost-pool-actions' in html and '.opex-cost-pool-editor .crow' in html and 'flex-wrap:wrap !important' in html),
+ ('Opex cost-pool authoring uses bounded stacked/grid layout for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-source-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and 'width:100% !important' in html and 'text-overflow:ellipsis' in html),
 ]
 p=f=0
 for name,ok in checks:
@@ -69,15 +69,16 @@ else:
 if ok: p+=1; print('  PASS ', 'Opex drag reorder moves objects without losing stable identity/open state')
 else: f+=1; print('  FAIL ', 'Opex drag reorder moves objects without losing stable identity/open state')
 
-# Execute the new additive cost-pool authoring action in isolation. It must preserve the ordinary
-# entered expense trajectory and add a typed component without creating calculation.kind.
+# Execute the additive cost-pool authoring action in isolation. A new Opex cost-pool component
+# must start with a genuinely fresh empty pool even if an older/orphaned shared pool still exists;
+# reuse of an old shared pool is an explicit selection, never an implicit default.
 add_cp=re.search(r"window\.nieCatAddCostPoolCharge=function\(i\)\{.*?\n", html, re.S)
 if add_cp:
     js=r"""
-const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',name:'Platform',flow_spec:{trajectory:'flat',value:123,period:'year'}}]},cost_pools:[]}};
-window=globalThis;let rendered=0,refreshed=0;function renderContent(){rendered++;}function refresh(){refreshed++;}
+const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',name:'Platform',flow_spec:{trajectory:'flat',value:123,period:'year'}}]},cost_pools:[{series_id:'pool-old',owner_module:'cost_pool',name:'Cost pool 1',components:[{kind:'assumption_cost_base',flow_spec:{value:999}}]}]}};
+window=globalThis;let rendered=0,refreshed=0,seq=0;function renderContent(){rendered++;}function refresh(){refreshed++;}
 function _ensureNieDetail(){return cfg.assumptions.nie_detail;}function _feeCostPools(){return cfg.assumptions.cost_pools;}
-function _seriesId(){return 'pool-new';}
+function _seriesId(){seq++;return 'pool-new-'+seq;}
 """+add_cp.group(0)+r"""
 nieCatAddCostPoolCharge(0);
 console.log(JSON.stringify({cfg,rendered,refreshed}));
@@ -86,16 +87,18 @@ console.log(JSON.stringify({cfg,rendered,refreshed}));
     ok=False
     if pr.returncode==0 and pr.stdout.strip():
         try:
-            got=json.loads(pr.stdout.strip().splitlines()[-1]); a=got['cfg']['assumptions']; ct=a['nie_detail']['categories'][0]; lc=ct['linked_components'][0]
+            got=json.loads(pr.stdout.strip().splitlines()[-1]); a=got['cfg']['assumptions']; ct=a['nie_detail']['categories'][0]; lc=ct['linked_components'][0]; pools=a.get('cost_pools') or []
+            fresh=next((x for x in pools if x.get('series_id')==lc.get('ref')),None)
             ok=(ct['flow_spec']['value']==123 and 'calculation' not in ct and
-                lc.get('driver')=='cost_pool_charge' and lc.get('ref')=='pool-new' and lc.get('recovery_pct')==1 and
-                (lc.get('markup') or {}).get('value')==0 and len(a.get('cost_pools') or [])==1 and
+                lc.get('driver')=='cost_pool_charge' and lc.get('ref')=='pool-new-1' and lc.get('ref')!='pool-old' and lc.get('recovery_pct')==1 and
+                (lc.get('markup') or {}).get('value')==0 and len(pools)==2 and fresh is not None and fresh.get('components')==[] and
+                pools[0].get('components',[{}])[0].get('flow_spec',{}).get('value')==999 and
                 got.get('rendered')==1 and got.get('refreshed')==1)
         except Exception:
             pass
 else: ok=False
-if ok: p+=1; print('  PASS ', 'Opex cost-pool authoring preserves entered base and creates additive typed component')
-else: f+=1; print('  FAIL ', 'Opex cost-pool authoring preserves entered base and creates additive typed component')
+if ok: p+=1; print('  PASS ', 'new Opex cost-pool component creates a fresh empty pool and never revives stale pool inputs implicitly')
+else: f+=1; print('  FAIL ', 'new Opex cost-pool component creates a fresh empty pool and never revives stale pool inputs implicitly')
 
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)
