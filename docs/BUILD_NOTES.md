@@ -11,6 +11,12 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r75 — Opex cost-pool removal placement polish
+- UI-only refinement to the typed Operating Expense cost-pool editor. The existing `Remove cost-pool component` action is preserved but moved from a detached trailing link into the cost-pool component title bar, right-aligned and visually secondary.
+- The detached `× remove cost-pool component` link is removed so each typed cost-pool component exposes a single removal affordance attached to the object it affects.
+- Pool ownership, orphan cleanup, explicit sharing, recovery/markup economics, AUC measures, and accounting postings are unchanged.
+- Regression coverage asserts the header placement and the absence of the old detached trailing link.
+
 ## r74 — Opex cost-pool containment and ownership-state repair
 - Repairs the remaining Operating Expense cost-pool authoring defects reported in live validation without changing cost-pool arithmetic, Average-AUC resolution, recovery/markup economics, or posting semantics.
 - Hard-bounds the Operating Expense card and cost-pool editor as CSS grid items. The Opex use of the shared CAC/AUC preview explicitly removes the generic 184px left offset, and long Series/select text is contained or internally scrollable instead of increasing the document width. A Chromium regression using a 1,000px viewport reproduces r73 at 1,629px document width and holds the r74 fixture to 985px.
