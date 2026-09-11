@@ -21,7 +21,7 @@ checks=[
  ('Opex UI exposes ordinal cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'first payment' in html and 'Semiannual' in html and 'Annual' in html),
  ('settlement copy explains prepaid/accrued accounting consequence', 'prepaid assets or accrued operating-expense liabilities' in html),
  ('OCC UI uses ordinal semiannual payment timing', 'Semiannual ordinal cycle' in html and 'occ_payment_first_period' in html and 'Client calendar dates are translated' in html),
- ('Opex item header gives the expense name a medium-width authoring field', 'class=\"opex-item-head\"' in html and 'minmax(220px,420px)' in html and 'minmax(220px,1fr)' not in html and 'placeholder=\"Expense item name\"' in html),
+ ('Opex item header gives the expense name a medium-width authoring field', 'class=\"opex-item-head\"' in html and re.search(r'\.opex-item-head\{[^}]*grid-template-columns:24px minmax\(220px,420px\) 24px',html) is not None and 'placeholder=\"Expense item name\"' in html),
  ('Opex categories expose mouse drag-reorder with insertion markers', 'class=\"opex-drag-handle\"' in html and 'nieCatDragStart(event,${i})' in html and 'nieCatDrop(event,${i})' in html and '.opex-item-card.drop-before:before' in html),
  ('new Opex authoring does not expose r67 exclusive calculation-mode selector', 'Calculation</span><select' not in html and 'nieCatAddCostPoolCharge' in html),
  ('Opex cost-pool charge is an additive typed component', 'driver:"cost_pool_charge"' in html and 'The entered recurring amount above remains active' in html and 'Cost-pool / cost-recovery component' in html),
@@ -30,6 +30,9 @@ checks=[
  ('typed Opex cost-pool consumer exposes recovery and markup terms', 'nieCatCostPoolComponentRecovery' in html and 'Recovery (% of eligible cost pool)' in html and 'nieCatCostPoolComponentMarkupTrajectory' in html and 'Markup path' in html and 'Operating Expense = eligible cost pool × recovery % × (1 + markup %)' in html),
  ('shared pool deletion protects both revenue and additive Opex consumers', 'function _costPoolUsage(ref)' in html and 'driver==="cost_pool_charge"' in html and 'shared cost pool has' in html),
  ('legacy r67 exclusive cost-pool config remains renderable but is not newly authored', 'Legacy r67 cost-pool-only compatibility mode' in html and 'nieCatCalculationKind' in html),
+ ('new Opex categories are prepended and focused instead of appearing off-screen at the bottom', 'nd.categories.unshift' in html and 'data-opex-index="${i}"' in html and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html),
+ ('prepending an Opex category reindexes existing Advanced open state', 'const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={}' in html and 'nextOpen[(+k||0)+1]=true' in html),
+ ('Opex cost-pool authoring is bounded and responsive for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-toolbar' in html and 'opex-cost-pool-actions' in html and '.opex-cost-pool-editor .crow' in html and 'flex-wrap:wrap !important' in html),
 ]
 p=f=0
 for name,ok in checks:

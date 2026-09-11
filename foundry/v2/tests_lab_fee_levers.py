@@ -92,6 +92,10 @@ console.log(JSON.stringify({paths:L.map(x=>x.path), labels:L.map(x=>x.label), un
        and units.get("assumptions.obs_exposures.0.fee_streams.3.rate.params.flat_amount.value")=="k")
     ck("Fee-only models are no longer blocked by a lending-product prerequisite",
        "!labLeverCatalog().length" in html and "!((cfg.assumptions||{}).lending_products||[]).length" not in html[html.index("function renderLab()") : html.index("window.renderLab = renderLab")])
+    ck("Sensitivity tornado keeps long lever names readable outside a fixed SVG label gutter",
+       'class="lab-tornado-row"' in html and 'class="lab-tornado-label"' in html
+       and '.lab-tornado-label' in html and 'overflow-wrap:anywhere' in html
+       and 'const W=820, rowH=30, padL=250' not in html)
 
     # Backend proof: the generic dotted-path Lab core already handles Fee Product paths and the
     # real engine responds economically to a changed fee rate.

@@ -298,3 +298,6 @@ Simplifications stated where they occur above: the leverage denominator uses the
 ---
 
 *This document describes the engine as it computes today (`foundry-engine 0.3.0`). It supersedes the earlier `foundry-engine 0.2.1` calculation write-up — the projection core is the same shape, but the quarterly-opex convention, warehouse-inclusive FTP, DTA/credit-regime decompositions, DFAST severe overlay, scheduled bullet borrowings, and the current CBLR 8%/7% grace framework are all newer.*
+
+## r71 authoring-UI note — no calculation change
+r71 changes presentation and authoring ergonomics only. New Operating Expense categories appear at the top of the category stack; cost-pool editors are bounded responsively; model-authoring paste/Explicit textareas gain a presentation-only Close/Edit affordance; and Bank Design Lab sensitivity labels wrap outside the tornado bar geometry. These changes do not alter Operating Expense formulas, cost-pool recovery/markup arithmetic, AUC measures, Fee Product calculations, cadence resolution, Series ownership, or accounting posting.
