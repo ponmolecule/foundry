@@ -227,10 +227,20 @@ def main():
 
     # Balance-source catalog advertises only canonical monthly sources, not generic quarterly
     # balances whose intra-quarter path Foundry would have to invent.
+    sfm["cac_feeds"]["Primary managed notional"]["customer_count_series_id"] = "cac-count-platform"
     bcat = cost_pool_balance_source_catalog(sfm)
-    ck("cost-pool balance source catalog exposes canonical monthly managed-notional Series",
+    ck("cost-pool balance source catalog exposes only hard-typed canonical monthly AUC Series",
        bcat == [{"source_kind": "managed_notional", "series_id": "cac-auc-platform",
-                "name": "Primary managed notional", "measure_semantic": "canonical_monthly_balance"}])
+                "name": "Primary managed notional", "feed": "Primary managed notional",
+                "owner_module": "customer_acquisition", "semantic_type": "auc_end",
+                "measure_semantic": "canonical_monthly_balance"}]
+       and all(x.get("series_id") != "cac-count-platform" for x in bcat))
+
+    wrong_count_source = copy.deepcopy(sfm)
+    wrong_count_source["cost_pools"][0]["components"][1]["source_series_id"] = "cac-count-platform"
+    try: cost_pool_series(wrong_count_source["cost_pools"][0], wrong_count_source, 12, 12); count_as_auc_failed = False
+    except ValueError as e: count_as_auc_failed = "customer-count Series" in str(e) and "canonical AUC" in str(e)
+    ck("balance-derived cost rejects CAC customer-count Series even when it belongs to the same feed", count_as_auc_failed)
 
     # Rising, flat, and falling AUC must all preserve monthly economics when presentation is quarterly.
     shape_parity = True
@@ -563,9 +573,11 @@ def main():
        "feeCostPoolEnteredTrajectory" in html and "feeCostPoolEnteredPeriod" in html and "_feeSetCostPoolEnteredSchedule" in html)
     ck("Fee Product UI exposes explicit first-period vs prior-growth-period base timing",
        "feeCostPoolEnteredBasePosition" in html and "Prior growth period (escalate once into model)" in html)
-    ck("Fee Product UI supports non-posting balance-derived eligible costs",
+    ck("Fee Product UI supports hard-typed non-posting AUC-derived eligible costs with source preview",
        "+ balance-linked cost" in html and "Balance-linked cost · non-posting" in html
-       and "Period average" in html and "canonical monthly balance path" in html)
+       and "Period average" in html and "canonical monthly balance path" in html
+       and "Selected balance Series" in html and "before multiplier" in html
+       and "Client-count Series are not valid balance sources" in html)
     ck("Fee Product UI keeps pricing basis distinct from driver source", "Basis (calculation)" in html and "Basis (what it\'s charged on)" not in html)
     ck("Fee Product UI separates pool allocation from downstream recovery", "Eligible / allocated" in html and "Recovery (% of eligible cost pool)" in html)
     ck("Fee Product UI exposes Series-style Markup path", "Markup path" in html and "Markup schedule (%)" in html)
@@ -613,20 +625,26 @@ def main():
        and no2.get("vals") == [1_200_000, 1_500_000], nr2.stderr.strip())
 
     node3 = (
-        "const cfg={assumptions:{cost_pools:[{series_id:'pool-b',owner_module:'cost_pool',name:'Balance pool',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{Wealth:{series_id:'cac-auc-ui',beginning_auc:900000,channels:[]}}}};\n"
-        "function _pf(x){return +(String(x).replace(/,/g,''))||0;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} function appStatus(){} function alert(){} function fmtComma(x){return String(x);}\n"
+        "const cfg={assumptions:{cost_pools:[{series_id:'pool-b',owner_module:'cost_pool',name:'Balance pool',components:[]}],nie_detail:{categories:[],workforce:{roles:[]}},obs_exposures:[],cac_feeds:{Wealth:{series_id:'cac-auc-ui',customer_count_series_id:'cac-count-ui',beginning_auc:0,channels:[]}}}};\n"
+        "function esc(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} let statusMsg=''; function appStatus(_k,m){statusMsg=String(m||'');} function alert(){} function fmtComma(x){return String(x);} const lastRes={customer_acquisition:{Wealth:{aucEndByMonth:[83333.333,166666.667,250000],customerEndByMonth:[70,140,210],customerAverageByPeriod:[35,105,175]}}};\n"
         + hjs +
-        "\nfeeCostPoolAddBalance('pool-b'); feeCostPoolBalanceMeasure('pool-b',0,'period_average'); feeCostPoolBalanceRate('pool-b',0,'1.2'); feeCostPoolBalanceRatePeriod('pool-b',0,'year'); const c=cfg.assumptions.cost_pools[0].components[0]; console.log(JSON.stringify(c));"
+        "\nfeeCostPoolAddBalance('pool-b'); feeCostPoolBalanceMeasure('pool-b',0,'period_average'); feeCostPoolBalanceRate('pool-b',0,'1.2'); feeCostPoolBalanceRatePeriod('pool-b',0,'year'); const c=cfg.assumptions.cost_pools[0].components[0]; const preview=_feeCostPoolBalancePreviewHtml(c.source_series_id,c.measure); feeCostPoolBalanceSource('pool-b',0,'cac-count-ui'); console.log(JSON.stringify({c:c,preview:preview,status:statusMsg}));"
     )
     nr3 = subprocess.run(["node", "-e", node3], text=True, capture_output=True)
     no3 = {}
     if nr3.returncode == 0 and nr3.stdout.strip():
         try: no3 = json.loads(nr3.stdout.strip().splitlines()[-1])
         except Exception: pass
-    ck("balance-linked cost UI callbacks persist source, average measure, annual rate, and non-posting kind",
-       nr3.returncode == 0 and no3.get("kind") == "balance_derived_cost"
-       and no3.get("source_series_id") == "cac-auc-ui" and no3.get("measure") == "period_average"
-       and no3.get("rate_period") == "year" and _eq((no3.get("rate_spec") or {}).get("value"), .012),
+    c3 = no3.get("c") or {}
+    ck("balance-linked cost UI hard-binds AUC semantics, previews the selected measure, and rejects client-count IDs",
+       nr3.returncode == 0 and c3.get("kind") == "balance_derived_cost"
+       and c3.get("source_series_id") == "cac-auc-ui" and c3.get("source_semantic") == "auc_end"
+       and c3.get("source_owner_module") == "customer_acquisition" and c3.get("measure") == "period_average"
+       and c3.get("rate_period") == "year" and _eq((c3.get("rate_spec") or {}).get("value"), .012)
+       and "M1 41666.6665" in str(no3.get("preview") or "") and "M2 125000" in str(no3.get("preview") or "")
+       and "M1 35" not in str(no3.get("preview") or "")
+       and "before multiplier" in str(no3.get("preview") or "")
+       and "Client-count Series are not valid balance sources" in str(no3.get("status") or ""),
        nr3.stderr.strip())
 
     print(f"\n{P} passed, {F} failed")
