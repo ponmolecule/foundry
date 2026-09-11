@@ -7747,11 +7747,15 @@ function _opexLinkedSourcePreview(lc){
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
   if(!opt)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected upstream Series could not be resolved.</div>`;
   if(lc.driver==="customer_acquisition_auc"){
-    const ca=(((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{},native=ca.aucEndByPeriod||[],monthly=ca.aucEndByMonth||[];
-    const bm=(lc.measure||"period_end"),bmLabel=bm==="period_average"?"period average":"period end";
-    let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Customer Acquisition · canonical monthly EOP AUC · read-only here</span></div>`;
-    if(native.length){const lab=PPY()===12?'M':(PPY()===4?'Q':'Y');detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · source EOP</span><span class="cu">$000s · consumer measure: ${esc(bmLabel)}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(native.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
-    if(monthly.length)detail+=`<div class="cmut" style="margin-top:5px">Expense accrual derives ${esc(bmLabel)} from the retained monthly AUC path${bm==="period_average"?' using (prior month-end + current month-end) / 2':''}, then aggregates monthly accruals to presentation cadence.</div>`;
+    const ca=(((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{},monthly=(ca.aucEndByMonth||[]).map(v=>+v||0);
+    const fd=((((cfg||{}).assumptions||{}).cac_feeds||{})[opt.feed]||{}),begin=(+fd.beginning_auc||0)/1000;
+    const bm=(lc.measure||"period_end"),bmLabel=bm==="period_average"?"Period-average AUC":"Period-end AUC";
+    let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Customer Acquisition · canonical monthly AUC · read-only here</span></div>`;
+    if(monthly.length){
+      const vals=monthly.map((v,k)=>bm==="period_average"?(((k?monthly[k-1]:begin)+v)/2):v);
+      detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · ${bmLabel}</span><span class="cu">$000s balance · resolved consumer measure</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.map((v,k)=>'M'+(k+1)+' '+fmtComma(v)).join(' · '))}</div>`;
+      detail+=`<div class="cmut" style="margin-top:5px">Expense accrual consumes this canonical monthly ${esc(bmLabel)} series${bm==="period_average"?' using (prior month-end + current month-end) / 2':''}, applies the linked rate at its natural period, then aggregates monthly accruals to presentation cadence.</div>`;
+    }else detail+=`<div class="cmut" style="margin-top:5px">Run the model to preview the resolved ${esc(bmLabel)} Series consumed by this expense.</div>`;
     return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(opt.feed)}</b> · upstream AUC owned by Customer Acquisition.</div>${detail}</div>`;
   }
   const st=opt.streamObj||{},drv=st.driver||{},traj=drv.trajectory||"flat";

@@ -10,8 +10,9 @@ checks=[
  ('Opex UI exposes additive expense components', 'Additive expense components' in html and '+ Add linked component' in html and '+ New cost-pool / cost-recovery component' in html),
  ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
- ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly EOP AUC' in html),
+ ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly AUC' in html),
  ('AUC-linked Opex exposes explicit balance measure plus natural rate period', 'nieCatLinkedMeasure' in html and all(x in html for x in ['Period average','Period end','Month','Quarter','Year']) and 'Existing r64/r65 links with no saved measure remain Period end' in html),
+ ('AUC-linked Opex preview exposes the resolved consumer measure rather than raw EOP for both selector states', 'Latest run · ${bmLabel}' in html and '$000s balance · resolved consumer measure' in html and "bm===\"period_average\"?(((k?monthly[k-1]:begin)+v)/2):v" in html),
  ('linked fee throughput is inspection-only and shows latest resolved pull', 'upstream fee-stream throughput; edit the source in Fee Product' in html and 'Latest run · resolved pull' in html),
  ('linked Opex multiplier preserves sub-basis-point precision in the editor', 'nieCatLinkedRate' in html and 'step="any"' in html and '_numInput(_rv,12)' in html and '_rv.toFixed(2)' not in html),
  ('Opex UI exposes ordinal recognition timing', 'Recognition timing' in html and 'Same as trajectory' in html and 'first recognition' in html and 'then every' in html and 'Semiannual' in html and 'Annual' in html),
@@ -248,6 +249,39 @@ function _feeCostPools(){return cfg.assumptions.cost_pools;}
             except Exception: pass
 if ok: p+=1; print('  PASS ', 'Detailed-mode migration hygiene prunes leaked Opex-owned orphans only')
 else: f+=1; print('  FAIL ', 'Detailed-mode migration hygiene prunes leaked Opex-owned orphans only')
+
+
+# Execute the actual AUC preview helper with a deliberately rising balance path. Flipping
+# Period end -> Period average must change the exposed Series, including the opening-AUC
+# convention, rather than merely changing a label over the same EOP values.
+preview_m=re.search(r"function _opexLinkedSourcePreview\(lc\)\{.*?\n\}", html, re.S)
+if preview_m:
+    js=r"""
+const cfg={assumptions:{cac_feeds:{Wealth:{series_id:'auc-1',beginning_auc:0}}}};
+const lastRes={customer_acquisition:{Wealth:{aucEndByMonth:[83333.333,166666.667,250000]}}};
+function _opexLinkedDriverOptions(){return [{value:'customer_acquisition_auc::auc-1',driver:'customer_acquisition_auc',series_id:'auc-1',feed:'Wealth'}];}
+function _opexLinkedDriverValue(lc){return 'customer_acquisition_auc::'+String(lc.series_id||'');}
+function esc(x){return String(x);} function fmtComma(x){return Number(x).toFixed(4).replace(/\.0000$/,'');}
+"""+preview_m.group(0)+r"""
+const eop=_opexLinkedSourcePreview({driver:'customer_acquisition_auc',series_id:'auc-1',measure:'period_end'});
+const avg=_opexLinkedSourcePreview({driver:'customer_acquisition_auc',series_id:'auc-1',measure:'period_average'});
+console.log(JSON.stringify({eop,avg}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1])
+            eop,avg=got.get('eop',''),got.get('avg','')
+            ok=('M1 83333.3330' in eop and 'M2 166666.6670' in eop and
+                'M1 41666.6665' in avg and 'M2 125000' in avg and
+                'Period-end AUC' in eop and 'Period-average AUC' in avg and eop!=avg)
+        except Exception:
+            pass
+else:
+    ok=False
+if ok: p+=1; print('  PASS ', 'AUC-linked Opex preview visibly switches between EOP and period-average consumed Series')
+else: f+=1; print('  FAIL ', 'AUC-linked Opex preview visibly switches between EOP and period-average consumed Series')
 
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)
