@@ -76,8 +76,12 @@ focuses on Amount path, natural period, amount/schedule, cost side, and timing.
 
 When an Account stream is driven by Customer Acquisition, Guide Me maps the driver to
 `Customer Acquisition client count` and asks the user to select the owning CAC feed. CAC owns the
-client-count trajectory and intra-year resolution; Guide Me must not ask for, or fabricate, a second
-Flat/Growth/Explicit count path or Step/Smooth setting inside the Fee Product. The per-account fee
+client-count trajectory and its own intra-year resolution, independently from AUC; Guide Me must not
+ask for, or fabricate, a second Flat/Growth/Explicit count path or Step/Smooth setting inside the Fee
+Product. The downstream Account stream must instead state which customer measure it consumes:
+`Annual / model-year customer count`, `Monthly period-end active clients`, or `Period-average active
+clients`. If the user's description does not determine that choice, Guide Me asks the targeted
+clarification rather than inferring it from the fee period or the AUC shape. The per-account fee
 itself remains an ordinary independent pricing path and may be Flat, Growth, or Explicit.
 
 ## Account EOP counts and derived-stock Balance streams

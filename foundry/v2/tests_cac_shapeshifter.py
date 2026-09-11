@@ -151,16 +151,19 @@ def main():
     ck("quarterly public result retains canonical monthly AUC path",
        len(caq.get("aucEndByMonth") or [])==84 and
        all(_eq(caq["aucEndByMonth"][i], ca.get("aucEndByPeriod")[i]) for i in range(84)))
-    ck("public result surfaces canonical customer-count path and billing levels",
-       len(caq.get("customerEndByMonth") or [])==84 and len(caq.get("customerLevelByPeriod") or [])==28)
+    ck("public result surfaces canonical customer-count path and explicit downstream measures",
+       len(caq.get("customerEndByMonth") or [])==84 and len(caq.get("customerLevelByPeriod") or [])==28
+       and len(caq.get("customerAverageByPeriod") or [])==28 and len(caq.get("customerAnnualCountByPeriod") or [])==28
+       and caq.get("aucIntraYearShape")=="linear" and caq.get("customerIntraYearShape")=="linear")
 
     # 10) A Fee Product can consume the CAC-owned customer book directly without re-authoring
-    # another count path. A flat $5,000/client/year fee must preserve annual economics across
-    # monthly and quarterly presentation. Use stepped CAC here because the source mechanic is
-    # explicitly "the number of clients for that year".
+    # another count path. The downstream stream must name WHICH customer semantic it consumes.
+    # "annual_count" applies the model-year count to the full annual price; active-client measures
+    # instead observe CAC's independently-authored client stock path.
     platform_feed={
         "series_id":"cac-auc-platform","customer_count_series_id":"cac-count-platform",
-        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,"intra_year_shape":"stepped",
+        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,"intra_year_shape":"linear",
+        "customer_intra_year_shape":"linear",
         "channels":[{"name":"Client adds","method":"explicit",
                      "params":{"new_customers_by_year":[10,10],"spend":0},
                      "avg_auc_per_customer":1}]}
@@ -168,7 +171,7 @@ def main():
         "name":"Platform Integration & API access",
         "basis":"account",
         "driver":{"source":"customer_acquisition_count","ref":"cac-count-platform",
-                  "trajectory":"flat","params":{}},
+                  "measure":"annual_count","trajectory":"flat","params":{}},
         "rate":{"behavior":"flat","params":{"unit_fee":{"value":5000.0,"period":"year","trajectory":"flat"}}},
         "cost":{"kind":"none","params":{}},"timing":{"start_period":1}}
     def _platform_cfg(ppy):
@@ -188,6 +191,62 @@ def main():
     ck("CAC-count Account fee preserves annual economics across monthly and quarterly engines",
        _eq(sum(fq[:4]),50.0,.05) and _eq(sum(fq[4:8]),100.0,.05) and
        _eq(sum(fm[:12]),sum(fq[:4]),.05) and _eq(sum(fm[12:24]),sum(fq[4:8]),.05), fq)
+
+    # The 38-client case that exposed r68's opacity: all three supported measures are explicit and
+    # intentionally produce different economics while remaining cadence-stable.
+    probe_feed={
+        "series_id":"cac-auc-probe","customer_count_series_id":"cac-count-probe",
+        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,
+        "intra_year_shape":"linear","customer_intra_year_shape":"linear",
+        "channels":[{"name":"Client adds","method":"explicit",
+                     "params":{"new_customers_by_year":[38],"spend":0},
+                     "avg_auc_per_customer":1}]}
+    def _probe_cfg(ppy,measure):
+        pc=json.load(open("foundry/fixtures/universal_template_bank.json"))
+        pa=pc["assumptions"]; pa["periods_per_year"]=ppy; pa["n_periods"]=ppy; pa["capital_raises"]=[]
+        pa["cac_feeds"]={"probe":copy.deepcopy(probe_feed)}
+        st=copy.deepcopy(platform_stream); st["driver"]["ref"]="cac-count-probe"; st["driver"]["measure"]=measure
+        pa["obs_exposures"]=[{"name":"Platform","_fee_product":True,"fee_streams":[st]}]
+        return pc
+    def _fee_delta(cfg):
+        base=copy.deepcopy(cfg); base["assumptions"]["obs_exposures"]=[]
+        r=run_q.run_v2(cfg); b=run_q.run_v2(base)
+        return [x-y for x,y in zip(r["financials"]["is"]["fees"],b["financials"]["is"]["fees"])]
+    am=_fee_delta(_probe_cfg(12,"annual_count")); aq=_fee_delta(_probe_cfg(4,"annual_count"))
+    em=_fee_delta(_probe_cfg(12,"period_end")); eq=_fee_delta(_probe_cfg(4,"period_end"))
+    xm=_fee_delta(_probe_cfg(12,"period_average")); xq=_fee_delta(_probe_cfg(4,"period_average"))
+    ck("38-client annual-count fee applies all 38 clients to the full model-year price",
+       _eq(am[0],15.83,.011) and _eq(sum(am),190.0,.05) and _eq(sum(aq),190.0,.05), am)
+    ck("38-client monthly-EOP fee can intentionally ramp active clients through the year",
+       _eq(em[0],1.32,.011) and _eq(sum(em),102.9166666667,.05)
+       and _eq(sum(eq),sum(em),.05), em)
+    ck("38-client period-average fee accrues on average active-client exposure",
+       _eq(xm[0],.66,.011) and _eq(sum(xm),95.0,.05)
+       and _eq(sum(xq),sum(xm),.05), xm)
+
+    # AUC and active-client within-year shapes must be independently authorable.
+    split=copy.deepcopy(probe_feed); split["intra_year_shape"]="linear"; split["customer_intra_year_shape"]="stepped"
+    sr=cac_auc_rollforward(split,12,12)
+    ck("CAC client timing is independent from AUC timing",
+       _eq(sr["auc_end_by_month"][0],sr["year_end_auc"][0]/12.0)
+       and _eq(sr["customer_end_by_month"][0],38.0)
+       and sr["auc_end_by_month"][0] != sr["year_end_auc"][0])
+
+    bad_shape=copy.deepcopy(probe_feed); bad_shape["customer_intra_year_shape"]="opaque"
+    try: cac_auc_rollforward(bad_shape,12,12); bad_shape_raised=False
+    except ValueError: bad_shape_raised=True
+    ck("unsupported client within-year shape fails closed", bad_shape_raised)
+
+    opening=copy.deepcopy(probe_feed); opening["beginning_customers"]=10
+    orr=cac_auc_rollforward(opening,12,12)
+    ck("period-average active clients retain the true opening customer book",
+       _eq(orr["customer_average_by_period"][0],(10.0+orr["customer_end_by_month"][0])/2.0))
+
+    # Saved r68 streams with no measure retain their old canonical-month EOP behavior.
+    legacy_cfg=_probe_cfg(12,"period_end"); del legacy_cfg["assumptions"]["obs_exposures"][0]["fee_streams"][0]["driver"]["measure"]
+    legacy=_fee_delta(legacy_cfg)
+    ck("r68 CAC-count streams without measure preserve prior EOP-level economics",
+       all(_eq(a,b,.0001) for a,b in zip(legacy,em)))
 
     print(f"\n{P} passed, {F} failed")
     return 0 if F == 0 else 1

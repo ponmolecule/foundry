@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 8
+GUIDE_SCHEMA_VERSION = 9
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -168,6 +168,11 @@ _SOURCE_LABELS = {
     "cost_pool": "Cost pool — eligible cost base",
     "customer_acquisition_count": "Customer Acquisition client count",
 }
+_CUSTOMER_COUNT_MEASURE_LABELS = {
+    "annual_count": "Annual / model-year customer count",
+    "period_end": "Monthly period-end active clients",
+    "period_average": "Period-average active clients",
+}
 _TRAJECTORY_LABELS = {
     "flat": "Flat",
     "proportional": "Proportional growth",
@@ -216,6 +221,10 @@ def fee_guide_manifest():
         "flat_amount_trajectories": ["flat", "growth", "explicit_schedule"],
         "level_trajectories": ["flat", "growth", "explicit_schedule"],
         "level_resolutions": ["step", "smooth"],
+        "customer_count_measures": [
+            {"id": x, "label": _CUSTOMER_COUNT_MEASURE_LABELS[x]}
+            for x in ("annual_count", "period_end", "period_average")
+        ],
         "rate_behavior_by_basis": {k: sorted(v) for k, v in _ALLOWED_RATE_BY_BASIS.items()},
         "special_rules": [
             "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
@@ -223,7 +232,7 @@ def fee_guide_manifest():
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
-            "When an Account fee is driven by Customer Acquisition client count, use customer_acquisition_count. CAC owns the customer-book path; do not create a second flat/growth/explicit count path or Step/Smooth assumption in the Fee Product.",
+            "When an Account fee is driven by Customer Acquisition client count, use customer_acquisition_count. CAC owns the customer-book path; the Fee Product must explicitly choose annual_count, period_end, or period_average and must not create a second flat/growth/explicit count path or Step/Smooth assumption.",
             "Account fees may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule pricing trajectories.",
             "A balance stream may derive a stock as a percentage of another sourced stock (for example reserves = % of AUC). This is a stock multiplier, not a transaction flow coefficient, and may use flat, growth, or explicit_schedule.",
             "Balance annual fee rates may use flat, growth, or explicit_schedule pricing trajectories.",
@@ -259,6 +268,7 @@ def _guide_output_schema():
             "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
             "driver_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
             "driver_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
+            "customer_count_measure": {"type": "string", "enum": ["annual_count", "period_end", "period_average", "not_applicable"]},
             "stock_multiplier_trajectory": {"type": "string", "enum": ["flat", "growth", "explicit_schedule", "not_applicable"]},
             "stock_multiplier_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
             "stock_multiplier_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
@@ -364,8 +374,13 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   describe pricing_trajectory=flat; they MUST NOT overwrite an explicit count path.
   If the user explicitly says the client/account count comes from Customer Acquisition/CAC, use
   driver_source=customer_acquisition_count and driver_trajectory=flat. CAC already owns the count
-  path and its within-year resolution, so do NOT ask for another flat/growth/explicit count path,
-  driver_period, or driver_resolution in the Fee Product.
+  path and its independently-authored within-year resolution, so do NOT ask for another
+  flat/growth/explicit count path, driver_period, or driver_resolution in the Fee Product. Instead
+  set customer_count_measure explicitly: annual_count when the user says the year's customer count
+  itself is multiplied by the full annual per-client fee; period_end when the fee uses canonical
+  monthly period-end active clients; period_average when the fee accrues on average active-client
+  exposure. If the description does not distinguish those economics, ask which measure applies;
+  never infer it from the AUC shape or from the fee's billing period.
   Account count paths use driver_trajectory: flat, proportional (for Growth), or explicit_schedule.
   When the user supplies END-OF-PERIOD account/mandate counts, ALWAYS use
   driver_trajectory=explicit_schedule, set driver_period to the source cadence, and set
@@ -385,7 +400,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
 - Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex). Never substitute one for the other.
-- For driver_period, driver_resolution, stock_multiplier_trajectory, stock_multiplier_period,
+- For driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
   stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
   coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
   when that field does not apply to the stream.
@@ -433,6 +448,7 @@ def _dummy_stream(item):
         # Guide Me chooses the mechanic, not a concrete local Series. The UI supplies the
         # actual CAC feed reference; this placeholder only exercises the real shape validator.
         driver["ref"] = "__guide_cac_customer_count__"
+        driver["measure"] = item.get("customer_count_measure") or "period_end"
 
     if basis == "account" and traj == "explicit_schedule":
         driver["params"]["level_schedule"] = {
@@ -529,7 +545,7 @@ def validate_guide_plan(plan):
         if not isinstance(raw, dict):
             raise ValueError("Guide Me stream must be an object")
         allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "driver_period",
-                          "driver_resolution", "stock_multiplier_trajectory", "stock_multiplier_period",
+                          "driver_resolution", "customer_count_measure", "stock_multiplier_trajectory", "stock_multiplier_period",
                           "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
                           "pricing_resolution", "coefficient_kind", "coefficient_period",
                           "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind"}
@@ -546,6 +562,7 @@ def validate_guide_plan(plan):
             "driver_trajectory": str(raw.get("driver_trajectory") or ""),
             "driver_period": _transport_optional(raw.get("driver_period")),
             "driver_resolution": _transport_optional(raw.get("driver_resolution")),
+            "customer_count_measure": _transport_optional(raw.get("customer_count_measure")),
             "stock_multiplier_trajectory": _transport_optional(raw.get("stock_multiplier_trajectory")),
             "stock_multiplier_period": _transport_optional(raw.get("stock_multiplier_period")),
             "stock_multiplier_resolution": _transport_optional(raw.get("stock_multiplier_resolution")),
@@ -579,12 +596,20 @@ def validate_guide_plan(plan):
         if item["driver_source"] == "customer_acquisition_count":
             if item["basis"] != "account":
                 raise ValueError("Guide Me Customer Acquisition client count requires account basis")
-            # CAC owns this level path. Any count-path metadata emitted by the translator is
-            # redundant and must not create a second economic assumption in the Fee Product.
+            # CAC owns the trajectory, but the downstream fee must name the semantic it consumes.
+            # A plan may not hide this choice; clarification responses may leave it unresolved while
+            # asking the user the targeted measure question.
+            if item.get("customer_count_measure") not in {"annual_count", "period_end", "period_average"}:
+                if status == "plan":
+                    raise ValueError("Guide Me CAC client-count plan requires an explicit customer_count_measure")
+                item["customer_count_measure"] = None
             item["driver_trajectory"] = "flat"
             item["driver_period"] = None
             item["driver_resolution"] = None
-        elif item["basis"] == "account":
+        else:
+            if item.get("customer_count_measure") is not None:
+                raise ValueError("Guide Me returned customer_count_measure without Customer Acquisition client-count source")
+        if item["driver_source"] != "customer_acquisition_count" and item["basis"] == "account":
             has_driver_meta = item["driver_period"] is not None or item["driver_resolution"] is not None
             if has_driver_meta:
                 if item["driver_period"] not in {"month", "quarter", "year"}:
@@ -786,7 +811,10 @@ def _stream_steps(item):
             steps.append("Set Count path to “Flat” and enter the account/mandate count in “Count / mandates”.")
     elif basis == "account" and item["driver_source"] == "customer_acquisition_count":
         steps.append("Select the owning Customer Acquisition feed under “Client-count source”.")
-        steps.append("Leave the Count path sourced from Customer Acquisition; do not enter a second count schedule, growth path, or Step/Smooth assumption in the Fee Product.")
+        measure = item.get("customer_count_measure")
+        if measure in _CUSTOMER_COUNT_MEASURE_LABELS:
+            steps.append(f"Set Client-count measure to “{_CUSTOMER_COUNT_MEASURE_LABELS[measure]}”.")
+        steps.append("Leave the within-year customer path sourced from Customer Acquisition; do not enter a second count schedule, growth path, or Step/Smooth assumption in the Fee Product.")
     elif basis != "flat":
         steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
 

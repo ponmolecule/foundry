@@ -140,13 +140,25 @@ An Explicit schedule opens locally on the operand that needs it. The module does
 spreadsheet-wide Year-1…Year-N input surface.
 
 The channel outputs are module-owned Derived series and feed one common customer/AUC roll-forward.
-The feed publishes stable Derived Series for both AUC and total customer count. Customer count is
-resolved on the same canonical monthly grid and remains owned by CAC: downstream consumers must not
-create a second Flat/Growth/Explicit client forecast. An Account Fee stream may consume the stable
-customer-count Series directly; monthly billing uses the monthly level, while quarterly billing uses
-the arithmetic mean of the three canonical monthly levels so equivalent per-client pricing preserves
-annual economics across cadences. The fee's per-account price trajectory remains independently owned
-by the Fee Product.
+The feed publishes stable Derived Series for both AUC and total customer count. AUC and active-client
+counts are distinct stocks and therefore own distinct within-year shape controls. A saved r68 feed
+without `customer_intra_year_shape` inherits its AUC shape for compatibility; new authoring makes the
+choice explicit. Downstream consumers must not create a second Flat/Growth/Explicit client forecast.
+
+An Account Fee stream consuming the stable customer-count Series must explicitly choose the customer
+measure it needs:
+
+- `annual_count` — repeat CAC's ending customer count for the model year across that year; use when
+  the economic equation is literally annual/model-year clients × full annual per-client fee.
+- `period_end` — consume CAC's canonical monthly period-end active-client levels. Quarterly engines
+  average the three monthly EOP observations before applying an annual fee so projection cadence does
+  not rewrite the economics. This is also the backward-compatible meaning of an r68 stream with no
+  saved measure.
+- `period_average` — derive `(prior month-end + current month-end) / 2` active-client exposure on the
+  canonical monthly grid, then aggregate those exposures to the selected engine cadence.
+
+The fee's per-account price trajectory remains independently owned by the Fee Product. The customer
+measure does not inherit from AUC shape, and Fee Products never author CAC's Step/Smooth path.
 
 AUC is resolved first on a **canonical monthly period-end grid**, regardless of whether the selected
 engine/presentation cadence is monthly or quarterly. Quarterly native balances are sampled from

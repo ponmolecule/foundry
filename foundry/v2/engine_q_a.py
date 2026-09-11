@@ -423,7 +423,7 @@ def run_pf_a(cfg):
     from .income_modules import (nie_detail_series, product_fee_streams_q,
                                  durbin_effective_rate, _g,
                                  managed_notional_series)
-    from .cac_feeder import cac_managed_notional, cac_auc_rollforward, cac_customer_count_series_map
+    from .cac_feeder import cac_managed_notional, cac_auc_rollforward, cac_customer_count_measure_series_map
     from .cost_pools import cost_pool_series_map
     from .activation import managed_notional_source_catalog, resolve_managed_notional_source
     from .regparams import REG_PARAMS as _RP
@@ -435,9 +435,10 @@ def run_pf_a(cfg):
     # such as Operating Expense linked components. Populated by fee_stream_q during product
     # evaluation; never recomputed downstream.
     _fee_stream_qty_series = {}
-    # CAC owns the customer-book forecast once. Account Fee streams may consume the resolved
-    # customer-count level by stable Series ID instead of re-authoring a second count path.
-    _cac_customer_count_series = cac_customer_count_series_map(
+    # CAC owns the customer-book forecast once. Account Fee streams consume that stable Series
+    # with an explicit annual-count / monthly-EOP / period-average measure instead of re-authoring
+    # a second count path.
+    _cac_customer_count_series = cac_customer_count_measure_series_map(
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
 
     def _cost_pool_ctx(period):
@@ -446,7 +447,10 @@ def run_pf_a(cfg):
 
     def _cac_customer_count_ctx(period):
         qi = int(period) - 1
-        return {k: float(v[qi] or 0.0) for k, v in _cac_customer_count_series.items()}
+        return {
+            k: {measure: float(values[qi] or 0.0) for measure, values in by_measure.items()}
+            for k, by_measure in _cac_customer_count_series.items()
+        }
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor

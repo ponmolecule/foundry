@@ -84,6 +84,18 @@ def main():
     except ValueError:
         missing_cac_count=True
     ck("CAC-owned client-count fee fails closed when the referenced Series is unavailable", missing_cac_count)
+    nested_ctx={"customer_acquisition_count":{"cac-count-1":{
+        "annual_count":38.0,"period_end":3.1666666666666665,"period_average":1.5833333333333333}}}
+    for measure,want in (("annual_count",15833.333333333334),("period_end",1319.4444444444443),("period_average",659.7222222222222)):
+        st=copy.deepcopy(s_cac_count); st["driver"]["measure"]=measure
+        ck(f"CAC client-count measure {measure} resolves explicitly",
+           abs(fee_stream_q(st,1,nested_ctx,ppy=12)[0]-want)<1e-9)
+    bad_measure=copy.deepcopy(s_cac_count); bad_measure["driver"]["measure"]="mystery"
+    try:
+        fee_stream_q(bad_measure,1,nested_ctx,ppy=12); bad_measure_raised=False
+    except ValueError:
+        bad_measure_raised=True
+    ck("unknown CAC client-count measure fails closed", bad_measure_raised)
 
     # flat basis: fixed 12,500/q regardless of driver
     s_flat = {"basis": "flat", "rate": {"params": {"amount_per_period": 12_500.0}},
