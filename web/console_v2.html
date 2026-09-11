@@ -185,7 +185,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-drag-handle{width:24px;height:26px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none}
 .opex-drag-handle:hover{color:#DFA85A}.opex-drag-handle:active{cursor:grabbing}
 /* r72: cost-pool authoring uses a bounded stacked/grid layout; long Series names cannot widen Opex. */
-.opex-cost-pool-editor,.opex-cost-pool-card,.opex-cost-pool-component{min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+/* r74: the detailed Opex card is a grid item; force its min-content width to zero so
+   no cost-pool child can widen the entire Configuration canvas. */
+#card-nie,.nie-section,.opex-item-card{min-width:0;max-width:100%;box-sizing:border-box}
+#card-nie{overflow-x:hidden}
+.opex-cost-pool-editor,.opex-cost-pool-card,.opex-cost-pool-component{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;contain:inline-size}
 .opex-cost-pool-editor{padding:10px !important;background:rgba(13,21,34,.48)}
 .opex-cost-pool-source-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-top:8px;min-width:0}
 .opex-cost-pool-source-wrap{min-width:0}
@@ -211,7 +215,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-cost-pool-editor input,.opex-cost-pool-editor select,.opex-cost-pool-editor textarea{max-width:100%;min-width:0;box-sizing:border-box}
 .opex-cost-pool-editor .wf-field{max-width:100%;min-width:0}
 .opex-cost-pool-editor .wf-field-label,.opex-cost-pool-editor .cu,.opex-cost-pool-editor .memo{overflow-wrap:anywhere;word-break:normal}
-.opex-cost-pool-editor .cac-link-readonly{width:100%;max-width:100%;box-sizing:border-box;overflow-x:auto;white-space:nowrap}
+.opex-cost-pool-editor .cac-link-preview{margin-left:0 !important;width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+.opex-cost-pool-editor .cac-link-preview-row{min-width:0;max-width:100%}
+.opex-cost-pool-editor .cac-link-readonly{display:block;width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:auto;white-space:nowrap}
+.opex-cost-pool-editor .opex-cost-pool-grid select,.opex-cost-pool-editor .opex-cost-pool-grid input{width:100% !important;min-width:0 !important;max-width:100% !important}
+.opex-cost-pool-editor .opex-cost-pool-head label,.opex-cost-pool-editor .opex-cost-pool-component-head label{min-width:0;max-width:100%}
 /* r72: Close/Edit collapses the entire paste editor body, not only the textarea. */
 .paste-surface-toggle{display:inline-flex;align-items:center;gap:5px;margin:4px 0 0;font-size:10px;color:#8FA3C0}
 .paste-surface-toggle button{border:0;background:transparent;padding:0;color:#8FA3C0;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
@@ -3832,7 +3840,7 @@ window.faPaste=function(txt,mode){
 };
 window.nieCatClear = function(){
   const nd=_ensureNieDetail(), xs=nd.categories||[];
-  return _clearLoaded("operating-expense categories",xs.length,function(){nd.categories=[];nd._catPasteOpen=false;delete nd._catPasteGrowthSpec;});
+  return _clearLoaded("operating-expense categories",xs.length,function(){const removed=xs.slice();nd.categories=[];_purgeDeletedOpexOwnedPools(removed);removed.forEach(_clearOpexCostPoolUiStateForCategory);nd._catPasteOpen=false;delete nd._catPasteGrowthSpec;window._nieCatAdvancedOpen={};});
 };
 window.nieWorkforceClear = function(){
   const nd=_ensureNieDetail(), wf=nd.workforce||{}, xs=wf.roles||[];
@@ -3950,13 +3958,28 @@ window.nieCatDragOver=function(ev,i){if(window._nieCatDragIndex==null)return;if(
 window.nieCatDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
 window.nieCatDrop=function(ev,targetIndex){if(ev)ev.preventDefault();const nd=_ensureNieDetail(),arr=nd.categories||[],from=window._nieCatDragIndex!=null?+window._nieCatDragIndex:+((ev&&ev.dataTransfer&&ev.dataTransfer.getData('text/plain'))||-1);const card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_nieCatClearDropMarkers();if(from<0||from>=arr.length||targetIndex<0||targetIndex>=arr.length||from===targetIndex){window._nieCatDragIndex=null;return;}const open=window._nieCatAdvancedOpen||{},openObjs=arr.filter((ct,idx)=>!!open[idx]);const moved=arr.splice(from,1)[0];let at=targetIndex;if(from<targetIndex)at-=1;if(after)at+=1;at=Math.max(0,Math.min(arr.length,at));arr.splice(at,0,moved);const nextOpen={};arr.forEach((ct,idx)=>{if(openObjs.indexOf(ct)>=0)nextOpen[idx]=true;});window._nieCatAdvancedOpen=nextOpen;window._nieCatDragIndex=null;renderContent();refresh();};
 window.nieCatDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.opex-item-card'):null;if(card)card.classList.remove('dragging');_nieCatClearDropMarkers();window._nieCatDragIndex=null;};
+window.nieCatDelete=function(i){
+  const nd=_ensureNieDetail(),arr=nd.categories||[],ct=arr[i];if(!ct)return;
+  const open=window._nieCatAdvancedOpen||{},openObjs=arr.filter((x,idx)=>idx!==i&&!!open[idx]);
+  arr.splice(i,1);_purgeDeletedOpexOwnedPools([ct]);_clearOpexCostPoolUiStateForCategory(ct);
+  const nextOpen={};arr.forEach((x,idx)=>{if(openObjs.indexOf(x)>=0)nextOpen[idx]=true;});window._nieCatAdvancedOpen=nextOpen;
+  renderContent();refresh();
+};
 window.nieCatAddLinked=function(i){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.push({driver:"fee_income",rate_spec:{source:"entered",trajectory:"flat",value:0}});window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();};
 window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;const lc=ct.linked_components[j],sv=String(v);if(sv.indexOf("fee_stream_quantity::")===0){lc.driver="fee_stream_quantity";lc.series_id=sv.slice("fee_stream_quantity::".length);delete lc.rate_period;delete lc.measure;}else if(sv.indexOf("customer_acquisition_auc::")===0){lc.driver="customer_acquisition_auc";lc.series_id=sv.slice("customer_acquisition_auc::".length);lc.rate_period=lc.rate_period||"year";lc.measure=lc.measure||"period_end";}else{lc.driver=v;delete lc.series_id;delete lc.rate_period;delete lc.measure;}renderContent();refresh();};
 window.nieCatLinkedRate=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_spec=ct.linked_components[j].rate_spec||{source:"entered",trajectory:"flat",value:0};ct.linked_components[j].rate_spec.source="entered";ct.linked_components[j].rate_spec.trajectory="flat";ct.linked_components[j].rate_spec.value=_pf(v)/100;refresh();};
 window.nieCatLinkedRatePeriod=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_period=v;renderContent();refresh();};
 window.nieCatLinkedMeasure=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].measure=(v==="period_average"?"period_average":"period_end");renderContent();refresh();};
 window._opexCostPoolReuseOpen=window._opexCostPoolReuseOpen||{};
-function _opexCostPoolReuseKey(i,j){return String(i)+":"+String(j);}
+function _opexCostPoolReuseKey(i,j){
+  const ct=(((_ensureNieDetail()||{}).categories)||[])[i]||{},lc=((ct.linked_components||[])[j])||{};
+  const owner=String(ct.series_id||("opex-index-"+i)),component=String(lc.component_id||lc.ref||("component-index-"+j));
+  return owner+"::"+component;
+}
+function _clearOpexCostPoolUiStateForCategory(ct){
+  const sid=String((ct||{}).series_id||"");if(!sid)return;const p=sid+"::";
+  Object.keys(window._opexCostPoolReuseOpen||{}).forEach(k=>{if(String(k).indexOf(p)===0)delete window._opexCostPoolReuseOpen[k];});
+}
 function _newOpexOwnedCostPool(ct,componentId){
   const pools=_feeCostPools();let n=1,names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
   const p={series_id:_seriesId("cost-pool"),owner_module:"cost_pool",name:"Cost pool "+n,components:[],authoring_owner_module:"operating_expense",authoring_owner_series_id:String((ct||{}).series_id||""),authoring_owner_component_id:String(componentId||"")};pools.push(p);return p;
@@ -3969,15 +3992,39 @@ function _costPoolOwnedByOpexComponent(pool,ct,lc){
     && String(pool.authoring_owner_component_id||"")===String(lc.component_id||"");
 }
 function _deleteCostPoolRecord(ref){const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref||""));if(at>=0)pools.splice(at,1);}
+function _costPoolDirectConsumerCount(ref){
+  ref=String(ref||"");let n=0;
+  ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{if(((st.driver||{}).source)==="cost_pool"&&String((st.driver||{}).ref||"")===ref)n++;}));
+  (((cfg.assumptions||{}).nie_detail||{}).categories||[]).forEach(ct=>{const calc=(ct||{}).calculation||{};if(calc.kind==="cost_pool"&&String(calc.ref||"")===ref)n++;(ct&&ct.linked_components||[]).forEach(lc=>{if(lc&&lc.driver==="cost_pool_charge"&&String(lc.ref||"")===ref)n++;});});
+  return n;
+}
+function _purgeDeletedOpexOwnedPools(categories){
+  const owners=new Set((categories||[]).map(ct=>String((ct||{}).series_id||"")).filter(Boolean));if(!owners.size)return;
+  const pools=_feeCostPools();for(let k=pools.length-1;k>=0;k--){const p=pools[k]||{},ref=String(p.series_id||"");if(String(p.authoring_owner_module||"")!=="operating_expense"||!owners.has(String(p.authoring_owner_series_id||"")))continue;if(_costPoolDirectConsumerCount(ref)===0)pools.splice(k,1);}
+}
+function _pruneOrphanedOpexOwnedPools(){
+  // Migration hygiene for r72/r73: only prune pools that explicitly declare
+  // Operating Expense authoring ownership and have no live consumer. Run this
+  // only while Detailed Opex is active so a preserved Simple-mode draft is not
+  // treated as abandoned configuration.
+  const pools=_feeCostPools();let removed=0;
+  for(let k=pools.length-1;k>=0;k--){
+    const p=pools[k]||{},ref=String(p.series_id||"");
+    if(String(p.authoring_owner_module||"")!=="operating_expense")continue;
+    if(!ref||_costPoolDirectConsumerCount(ref)!==0)continue;
+    pools.splice(k,1);removed++;
+  }
+  return removed;
+}
 function _cleanupOwnedPoolOnDetach(ct,lc){
   if(!lc||lc.driver!=="cost_pool_charge"||!lc.ref)return false;
   const p=_feeCostPoolByRef(lc.ref);if(!p||!_costPoolOwnedByOpexComponent(p,ct,lc))return false;
-  const u=_costPoolUsage(lc.ref);if(u.total!==1)return false;
+  if(_costPoolDirectConsumerCount(lc.ref)!==1)return false;
   _deleteCostPoolRecord(lc.ref);return true;
 }
 function _opexReusableCostPools(currentRef){
   currentRef=String(currentRef||"");
-  return _feeCostPools().filter(p=>{const ref=String((p||{}).series_id||"");return !!ref&&ref!==currentRef&&_costPoolUsage(ref).total>0;});
+  return _feeCostPools().filter(p=>{const ref=String((p||{}).series_id||"");return !!ref&&ref!==currentRef&&_costPoolDirectConsumerCount(ref)>0;});
 }
 window.nieCatCostPoolReuseToggle=function(i,j,open){const k=_opexCostPoolReuseKey(i,j);if(open)window._opexCostPoolReuseOpen[k]=true;else delete window._opexCostPoolReuseOpen[k];renderContent();};
 window.nieCatRemoveLinked=function(i,j){
@@ -3989,6 +4036,7 @@ window.nieCatAddCostPoolCharge=function(i){
   const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];
   const cid=_seriesId("opex-cost-pool-component"),p=_newOpexOwnedCostPool(ct,cid);
   ct.linked_components.push({driver:"cost_pool_charge",component_id:cid,ref:p.series_id,recovery_pct:1,markup:{value:0,period:"year",trajectory:"flat",resolution:"step"}});
+  const j=ct.linked_components.length-1;delete window._opexCostPoolReuseOpen[_opexCostPoolReuseKey(i,j)];
   window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();
 };
 function _ensureNieCostPoolComponent(i,j){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return null;const lc=ct.linked_components[j];if(lc.driver!=="cost_pool_charge")return null;if(lc.recovery_pct==null)lc.recovery_pct=1;if(!lc.markup)lc.markup={value:0,period:"year",trajectory:"flat",resolution:"step"};if(!lc.markup.trajectory)lc.markup.trajectory="flat";if(!lc.markup.period)lc.markup.period="year";if(!lc.markup.resolution)lc.markup.resolution="step";return lc;}
@@ -4058,11 +4106,11 @@ function _opexCostPoolEditorHtml(i,ct,calc,j){
   const markupResolutionCall=typed?`nieCatCostPoolComponentMarkupResolution(${i},${j},this.value)`:`nieCatCostPoolMarkupResolution(${i},this.value)`;
   h += `<div class="opex-cost-pool-editor" style="margin:7px 0;padding:8px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">${typed?"Cost-pool / cost-recovery component":"Legacy r67 cost-pool-only compatibility mode"}</div><div class="nie-section-note">${typed?"Additive component: build or select an eligible cost pool, then apply recovery and markup. The resulting charge is added to this category’s ordinary entered expense and other linked components; pool inputs remain non-posting.":"This saved r67 category keeps its original exclusive cost-pool economics. New r68 authoring uses an additive cost-pool component instead."}</div>`;
   if(typed){
-    const rk=_opexCostPoolReuseKey(i,j),reuseOpen=!!window._opexCostPoolReuseOpen[rk],ru=_opexReusableCostPools(ref),usage=pool?_costPoolUsage(ref):{total:0};
-    const owned=pool?_costPoolOwnedByOpexComponent(pool,ct,calc):false,status=pool?(usage.total>1?`Shared · ${usage.total} downstream consumers`:(owned?'Private to this Operating Expense component':'Attached pool')):'No pool attached';
+    const rk=_opexCostPoolReuseKey(i,j),reuseOpen=!!window._opexCostPoolReuseOpen[rk],ru=_opexReusableCostPools(ref),consumerCount=pool?_costPoolDirectConsumerCount(ref):0;
+    const owned=pool?_costPoolOwnedByOpexComponent(pool,ct,calc):false,status=pool?(consumerCount>1?`Shared · ${consumerCount} downstream consumers`:(owned?'Private to this Operating Expense component':'Attached pool')):'No pool attached';
     h += `<div class="opex-cost-pool-attached-row"><div class="opex-cost-pool-attached-copy"><span class="wf-field-label">Attached cost pool</span><strong>${esc(pool?(pool.name||'Unnamed cost pool'):'None')}</strong><span class="cmut">${esc(status)}</span></div><div class="opex-cost-pool-attached-actions">${pool?`<button class="btn-plain" onclick="nieCatCostPoolReuseToggle(${i},${j},${reuseOpen?'false':'true'});return false">${reuseOpen?'Cancel shared-pool link':'Link existing shared pool…'}</button>`:`<button class="btn-plain" onclick="${addCall};return false">+ Create fresh pool</button>`}</div></div>`;
     if(reuseOpen){
-      h += `<div class="opex-cost-pool-reuse"><div class="wf-field-label">Explicitly reuse another in-use pool</div>${ru.length?`<select class="opex-cost-pool-source" onchange="if(this.value)nieCatCostPoolComponentSelect(${i},${j},this.value)"><option value="">Choose an existing shared pool…</option>${ru.map(cp=>{const u=_costPoolUsage(cp.series_id||cp.name||'');return `<option value="${esc(cp.series_id||cp.name||'')}">${esc(cp.name||'Unnamed cost pool')} · ${u.total} consumer${u.total===1?'':'s'}</option>`;}).join('')}</select>`:`<div class="memo">No other in-use cost pools are available to share. Old orphaned pools are intentionally hidden.</div>`}<div class="memo">Nothing is reused unless you choose a pool here. A new Operating Expense component never inherits an old pool automatically.</div></div>`;
+      h += `<div class="opex-cost-pool-reuse"><div class="wf-field-label">Explicitly reuse another in-use pool</div>${ru.length?`<select class="opex-cost-pool-source" onchange="if(this.value)nieCatCostPoolComponentSelect(${i},${j},this.value)"><option value="">Choose an existing shared pool…</option>${ru.map(cp=>{const n=_costPoolDirectConsumerCount(cp.series_id||cp.name||'');return `<option value="${esc(cp.series_id||cp.name||'')}">${esc(cp.name||'Unnamed cost pool')} · ${n} consumer${n===1?'':'s'}</option>`;}).join('')}</select>`:`<div class="memo">No other in-use cost pools are available to share. Old orphaned pools are intentionally hidden.</div>`}<div class="memo">Nothing is reused unless you choose a pool here. A new Operating Expense component never inherits an old pool automatically.</div></div>`;
     }
   }else{
     h += `<div class="opex-cost-pool-source-row"><label class="wf-field opex-cost-pool-source-wrap"><span class="wf-field-label">Shared cost pool source</span><select class="opex-cost-pool-source" onchange="${selectCall}">${pools.length?pools.map(cp=>`<option value="${esc(cp.series_id||cp.name||'')}"${String(cp.series_id||cp.name||'')===ref?' selected':''}>${esc(cp.name||'Unnamed cost pool')}</option>`).join(''):'<option value="">No cost pools yet</option>'}</select></label><button class="btn-plain" onclick="${addCall};return false">+ Create fresh pool</button></div>`;
@@ -4070,7 +4118,7 @@ function _opexCostPoolEditorHtml(i,ct,calc,j){
   if(pool){
     const cpid=String(pool.series_id||""),cpi=_feeCostPoolIndex(cpid),own=String((ct||{}).series_id||"");pool.components=pool.components||[];
     const allopts=_feeCostPoolSourceOptions(),cpopts=allopts.filter(o=>!(o.kind==='operating_expense_category'&&String(o.series_id)===own));
-    const pu=_costPoolUsage(cpid),shared=(pu.total>1),poolLabel=(typed&&!shared?'Cost pool for this expense':'Shared cost pool');
+    const shared=(_costPoolDirectConsumerCount(cpid)>1),poolLabel=(typed&&!shared?'Cost pool for this expense':'Shared cost pool');
     h += `<div class="wf-role-card opex-cost-pool-card"><div class="opex-cost-pool-head"><label class="wf-field"><span class="wf-field-label">${poolLabel}</span><input class="opex-cost-pool-name" value="${esc(pool.name||'')}"${typed&&shared?' readonly title="This pool is shared. Rename it from its original owning context."':''} onchange='feeCostPoolRename(${JSON.stringify(cpid)},this.value)'></label>${typed?'':`<button class="btn-plain" style="color:#C77" onclick='${deleteCall.replace("REF",JSON.stringify(cpid))};return false'>Delete pool</button>`}</div><div class="opex-cost-pool-add-actions"><button class="btn-plain" onclick='feeCostPoolAddEntered(${JSON.stringify(cpid)});return false'>+ Entered cost base</button><button class="btn-plain" onclick='feeCostPoolAddBalance(${JSON.stringify(cpid)});return false'>+ Balance-linked cost</button><button class="btn-plain" onclick="${addLinkedCall};return false">+ Linked modeled cost</button></div>`;
     if(!pool.components.length)h += `<div class="memo">No eligible-cost components yet. Add a linked modeled cost, an entered non-posting cost base, or a balance-linked cost.</div>`;
     pool.components.forEach((cc,ci)=>{
@@ -4138,7 +4186,7 @@ window.nieCatAdd = function(){
   const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={};
   Object.keys(prevOpen).forEach(k=>{if(prevOpen[k])nextOpen[(+k||0)+1]=true;});
   window._nieCatAdvancedOpen=nextOpen;
-  nd.categories.unshift({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", flow_spec:{trajectory:"flat",value:0,period:_nativeFlowPeriod()}});
+  nd.categories.unshift({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"",flow_spec:{trajectory:"flat",value:0,period:_nativeFlowPeriod()},linked_components:[]});
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.opex=true;
   renderContent(); refresh();
   if(typeof document!=="undefined")setTimeout(()=>{const el=document.querySelector('.opex-item-card[data-opex-index="0"] .opex-item-name');if(el){try{el.scrollIntoView({block:"nearest",behavior:"smooth"});}catch(_){ }try{el.focus();el.select();}catch(_){ }}},0);
@@ -8105,6 +8153,7 @@ function structuresSectionsHtml(){
     h += `<div class="cmut">Equivalent inputs such as 360/year, 90/quarter, or 30/month resolve to the same recurring expense economics. Switching modes preserves any detailed assumptions already authored; only the active mode feeds the model.</div></div>`;
   } else {
     const nd = A.nie_detail;
+    _pruneOrphanedOpexOwnedPools();
 
     // WORKFORCE COMPENSATION -------------------------------------------------
     const wf = nd.workforce || {};
@@ -8235,7 +8284,7 @@ function structuresSectionsHtml(){
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
       const fs = _viewNieCatFlow(ct), traj=fs.trajectory||"flat", _fp=fs.period||_nativeFlowPeriod();
       const TR = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]],_legacyCostPool=(ct.calculation&&ct.calculation.kind==="cost_pool");
-      let row = `<div class="wf-role-card opex-item-card" data-opex-index="${i}" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+      let row = `<div class="wf-role-card opex-item-card" data-opex-index="${i}" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="nieCatDelete(${i});return false">×</a></div>`;
       if(_legacyCostPool){
         row += _opexCostPoolEditorHtml(i,ct,ct.calculation);
       } else {
