@@ -274,18 +274,21 @@ def validate_config_v2(cfg):
         if gr is not None and (not isinstance(gr, (int, float)) or not (0 <= gr < 0.5)):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
         try:
-            from .opex_extensions import fee_stream_quantity_catalog, customer_acquisition_auc_catalog
+            from .opex_extensions import (fee_stream_quantity_catalog, fee_stream_balance_quantity_catalog,
+                                          customer_acquisition_auc_catalog)
             _fee_qty_ids = {x["series_id"] for x in fee_stream_quantity_catalog(a)}
+            _fee_bal_ids = {x["series_id"] for x in fee_stream_balance_quantity_catalog(a)}
             _auc_ids = {x["series_id"] for x in customer_acquisition_auc_catalog(a)}
         except (TypeError, ValueError) as e:
             _fee_qty_ids = set()
+            _fee_bal_ids = set()
             _auc_ids = set()
             errs.append(f"Opex linked Series catalog invalid: {e}")
         for i, cat in enumerate(nd.get("categories") or []):
             try:
                 from .opex_extensions import (normalize_opex_calculation, normalize_linked_component,
                                               normalize_settlement, recognition_spec_for_category,
-                                              auc_link_creates_cycle)
+                                              auc_link_creates_cycle, fee_balance_quantity_creates_cycle)
                 _calc = normalize_opex_calculation(cat)
                 _cost_pool_active = (_calc.get("kind") == "cost_pool")
                 if _cost_pool_active:
@@ -314,6 +317,22 @@ def validate_config_v2(cfg):
                             _pool = resolve_cost_pool_ref(_x.get("ref"), a)
                             if not ((_pool or {}).get("components") or []):
                                 raise ValueError("referenced cost_pool requires at least one eligible expense component")
+                        if _x.get("driver") == "piecewise_linked":
+                            from .opex_extensions import validate_piecewise_linked_cadence
+                            validate_piecewise_linked_cadence(_x, _ppy)
+                            for _term in (_x.get("terms") or []):
+                                if _term.get("source") == "customer_acquisition_auc":
+                                    if _term.get("series_id") not in _auc_ids:
+                                        raise ValueError(f"piecewise-linked CAC AUC Series {_term.get('series_id')!r} does not exist")
+                                    if auc_link_creates_cycle(a, cat, _term.get("series_id")):
+                                        raise ValueError("piecewise-linked Opex would create a circular dependency through Customer Acquisition")
+                                if _term.get("source") == "fee_stream_balance_quantity":
+                                    if _term.get("series_id") not in _fee_bal_ids:
+                                        raise ValueError(f"piecewise-linked balance-stream quantity Series {_term.get('series_id')!r} does not exist")
+                                    if str(a.get("parity_profile") or "pf_a") == "pf_b":
+                                        raise ValueError("Profile B does not expose first-class Fee Product balance quantities to piecewise-linked Opex")
+                                    if fee_balance_quantity_creates_cycle(a, cat, _term.get("series_id")):
+                                        raise ValueError("piecewise-linked Opex would create a circular dependency through Fee Product balance quantity / Customer Acquisition")
                 _rt = recognition_spec_for_category(cat, _ppy)
                 _st = normalize_settlement(cat.get("settlement"), _ppy)
                 _linked_recognition_ok = (_rt["mode"] == "trajectory" or
@@ -600,8 +619,8 @@ def validate_config_v2(cfg):
                 _sid = str(_sid0 or "").strip()
                 if _sid: _series_ids.append(_sid)
     try:
-        from .opex_extensions import fee_stream_quantity_catalog
-        for _meta in fee_stream_quantity_catalog(a):
+        from .opex_extensions import fee_stream_quantity_catalog, fee_stream_balance_quantity_catalog
+        for _meta in fee_stream_quantity_catalog(a) + fee_stream_balance_quantity_catalog(a):
             _sid = str(_meta.get("series_id") or "").strip()
             if _sid: _series_ids.append(_sid)
     except (TypeError, ValueError):

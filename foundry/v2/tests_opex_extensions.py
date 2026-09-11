@@ -1,8 +1,8 @@
 import copy, json, sys
 from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
-                                          normalize_linked_component, linked_component_amount,
-                                          recognition_spec_for_category)
-from foundry.v2.income_modules import nie_category_series
+                                          normalize_linked_component, linked_component_amount, apply_piecewise_schedule,
+                                          fee_stream_balance_quantity_catalog, recognition_spec_for_category)
+from foundry.v2.income_modules import nie_category_series, fee_stream_q
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
 from foundry.v2.engine_q_b import run_pf_b
@@ -441,6 +441,109 @@ def main():
     ck('legacy r67 exclusive cost-pool Opex remains backward-compatible without reactivating dormant entered base',
        abs(prl['is']['otherOpex'][0]-26_468.75)<1e-6
        and abs(sum(prl['is']['otherOpex'][:12])-346_500.0)<1e-6)
+
+    # Generic tiered / banded linked Opex: literal base + marginal-rate schedules over
+    # composable upstream balance terms.  These fixtures intentionally mirror a regulator-style
+    # schedule without introducing any regulator name or engagement label into the runtime.
+    general_bands=[
+        {'lower_bound':0.0,'upper_bound':2_000_000.0,'base_amount':2_086.0,'marginal_rate':0.0},
+        {'lower_bound':2_000_000.0,'upper_bound':20_000_000.0,'base_amount':2_086.0,'marginal_rate':0.000082447},
+        {'lower_bound':20_000_000.0,'upper_bound':100_000_000.0,'base_amount':3_570.0,'marginal_rate':0.000065956},
+        {'lower_bound':100_000_000.0,'upper_bound':200_000_000.0,'base_amount':8_846.0,'marginal_rate':0.000042869},
+        {'lower_bound':200_000_000.0,'upper_bound':1_000_000_000.0,'base_amount':13_132.0,'marginal_rate':0.000041111},
+        {'lower_bound':1_000_000_000.0,'upper_bound':None,'base_amount':46_020.0,'marginal_rate':0.000039571},
+    ]
+    trust_bands=[
+        {'lower_bound':0.0,'upper_bound':1_000_000_000.0,'base_amount':15_961.0,'marginal_rate':0.0},
+        {'lower_bound':1_000_000_000.0,'upper_bound':10_000_000_000.0,'base_amount':15_961.0,'marginal_rate':0.000003179},
+        {'lower_bound':10_000_000_000.0,'upper_bound':None,'base_amount':44_572.0,'marginal_rate':0.000000529},
+    ]
+    ck('piecewise schedule preserves literal source breakpoint bases instead of smoothing them',
+       abs(apply_piecewise_schedule(20_000_000.0,general_bands)-3_570.046)<1e-9
+       and abs(apply_piecewise_schedule(20_000_001.0,general_bands)-3_570.000065956)<1e-9)
+
+    gen_comp=normalize_linked_component({
+        'driver':'piecewise_linked','name':'General tiered assessment',
+        'terms':[{'source':'bank_total_assets','weight':1.0}],
+        'bands':general_bands,'timing':{'mode':'semiannual','first_period':9},
+        'observation_lag':{'value':1,'period':'month'}})
+    trust_comp=normalize_linked_component({
+        'driver':'piecewise_linked','name':'Composite balance assessment',
+        'terms':[{'source':'customer_acquisition_auc','series_id':'auc-tiered','measure':'period_end','weight':1.0},
+                 {'source':'fee_stream_balance_quantity','series_id':'reserve-tiered','weight':1.0}],
+        'bands':trust_bands,'timing':{'mode':'semiannual','first_period':9},
+        'observation_lag':{'value':1,'period':'month'}})
+    tier_metrics={
+        'periods_per_year':12,
+        'bank_total_assets_end_by_period':[150_000_000.0,160_000_000.0,170_000_000.0,180_000_000.0,
+                                           190_000_000.0,200_000_000.0,210_000_000.0,220_000_000.0,250_000_000.0],
+        'customer_acquisition_auc_beginning':{'auc-tiered':100_000_000.0},
+        'customer_acquisition_auc_monthly':{'auc-tiered':[200_000_000.0,300_000_000.0,400_000_000.0,500_000_000.0,
+                                                          600_000_000.0,700_000_000.0,800_000_000.0,900_000_000.0]},
+        'fee_stream_quantity_history':{'reserve-tiered':[25_000_000.0,50_000_000.0,75_000_000.0,100_000_000.0,
+                                                         125_000_000.0,150_000_000.0,175_000_000.0,200_000_000.0]},
+    }
+    expected_general=13_132.0+0.000041111*(250_000_000.0-200_000_000.0)
+    expected_trust=15_961.0+0.000003179*((900_000_000.0+200_000_000.0)-1_000_000_000.0)
+    ck('piecewise component uses the prior-month Total Assets observation on the configured event',
+       abs(linked_component_amount(gen_comp,8,tier_metrics)-expected_general)<1e-9
+       and linked_component_amount(gen_comp,7,tier_metrics)==0.0)
+    ck('piecewise composite driver sums independent upstream balance terms before applying bands',
+       abs(linked_component_amount(trust_comp,8,tier_metrics)-expected_trust)<1e-9)
+    prestart_metrics=copy.deepcopy(tier_metrics)
+    prestart_metrics['fee_stream_quantity_history']={}
+    prestart_metrics['fee_stream_quantity_known_ids']={'reserve-tiered'}
+    expected_prestart=15_961.0  # 900MM AUC + zero inactive reserve quantity remains below the first trust breakpoint.
+    ck('validated Balance Fee quantity Series resolves to zero before stream activation instead of becoming unavailable',
+       abs(linked_component_amount(trust_comp,8,prestart_metrics)-expected_prestart)<1e-9)
+    ck('two generic tiered components reproduce the combined source-formula shape without regulator-specific runtime logic',
+       abs((linked_component_amount(gen_comp,8,tier_metrics)+linked_component_amount(trust_comp,8,tier_metrics))
+           -(expected_general+expected_trust))<1e-9)
+    tier_metrics_15=copy.deepcopy(tier_metrics)
+    tier_metrics_15['bank_total_assets_end_by_period'] += [260_000_000.0,270_000_000.0,280_000_000.0,290_000_000.0,300_000_000.0,310_000_000.0]
+    ck('semiannual tiered timing recurs six model months after the first event',
+       linked_component_amount(gen_comp,14,tier_metrics_15)>0.0
+       and linked_component_amount(gen_comp,13,tier_metrics_15)==0.0)
+
+    reserve_stream={
+        'basis':'balance','name':'Reserve balance','quantity_series_id':'reserve-tiered',
+        'driver':{'source':'managed_notional','trajectory':'derived','params':{'stock_multiplier':{'kind':'pct','value':0.30,'trajectory':'flat'}}},
+        'rate':{'behavior':'flat','params':{'rate_path':{'value':0.0012,'trajectory':'flat'}}},
+        'timing':{'start_period':1},'cost':{'kind':'none','params':{}}}
+    capctx={'managed_notional':1_000_000_000.0,'capture_stream_qty':{}}
+    fee_stream_q(reserve_stream,1,capctx,ppy=12)
+    ck('Balance Fee stream publishes its modeled driver balance as a stable observational quantity',
+       capctx['capture_stream_qty'].get('reserve-tiered')==[300_000_000.0])
+    cat_assumptions={'obs_exposures':[{'name':'Trust product','fee_streams':[reserve_stream]}]}
+    ck('tiered Opex source catalog exposes Balance Fee stream quantities by stable Series ID',
+       fee_stream_balance_quantity_catalog(cat_assumptions)[0]['series_id']=='reserve-tiered')
+
+    tier_cfg=base_cfg(12); ta=tier_cfg['assumptions']; ta['n_periods']=12; ta['capital_raises']=[]
+    ta['nie_detail']['categories']=[{
+        'series_id':'opex-tiered','owner_module':'operating_expense','name':'Tiered assessment',
+        'flow_spec':{'trajectory':'flat','value':0.0,'period':'year'},
+        'linked_components':[{
+            'driver':'piecewise_linked','component_id':'tiered-assets','name':'Asset-based band table',
+            'terms':[{'source':'bank_total_assets','weight':1.0}],
+            'bands':copy.deepcopy(general_bands),
+            'timing':{'mode':'semiannual','first_period':9},
+            'observation_lag':{'value':1,'period':'month'}}]}]
+    try:
+        validate_config_v2(tier_cfg); tier_valid=True
+    except ConfigErrorV2 as e:
+        print('tiered validation error',e); tier_valid=False
+    ck('validation accepts generic tiered/banded Opex under Advanced',tier_valid)
+    tier_run=run_pf_a(tier_cfg)
+    tier_expected=apply_piecewise_schedule(tier_run['bs']['totalAssets'][8],general_bands)
+    ck('full engine posts the tiered component once on its configured event using prior-period assets',
+       abs(tier_run['is']['otherOpex'][8]-tier_expected)<1e-6
+       and all(abs(tier_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
+
+    bad_lag=copy.deepcopy(tier_cfg); bad_lag['assumptions']['periods_per_year']=4; bad_lag['assumptions']['n_periods']=4
+    bad=False
+    try: validate_config_v2(bad_lag)
+    except ConfigErrorV2 as e: bad='finer than' in str(e)
+    ck('tiered component fails closed when a one-month observation lag cannot be represented at quarterly cadence',bad)
 
     # Fail closed: custom settlement + endogenous linked revenue component.
     c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{
