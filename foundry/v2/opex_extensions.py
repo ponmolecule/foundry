@@ -136,6 +136,13 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             raise ValueError(f"{drv} Opex link requires series_id")
         out["series_id"] = sid
     if drv == CAC_AUC_DRIVER:
+        from .balance_measures import normalize_balance_measure
+        try:
+            # Migration contract: r64/r65 AUC-linked Opex had no selector and meant canonical
+            # monthly EOP.  Missing measure must therefore remain period_end.
+            out["measure"] = normalize_balance_measure(c.get("measure"), default="period_end")
+        except ValueError as e:
+            raise ValueError("AUC-linked Opex measure must be period_end or period_average") from e
         period = str(c.get("rate_period") or rs.get("period") or "year").strip().lower()
         if period not in _RATE_PERIODS:
             raise ValueError("AUC-linked Opex rate period must be month/quarter/year")
@@ -167,6 +174,7 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
         if c["driver"] == CAC_AUC_DRIVER:
             row["monthly_rates"] = [float(x or 0.0) for x in monthly_rates]
             row["rate_period"] = c.get("rate_period") or "year"
+            row["measure"] = c.get("measure") or "period_end"
         out.append(row)
     return out
 
@@ -198,6 +206,11 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amap = metrics.get("customer_acquisition_auc_monthly") or {}
         if sid not in amap:
             raise ValueError(f"linked CAC AUC Series {sid!r} is unavailable in this engine run")
+        beginning_map = metrics.get("customer_acquisition_auc_beginning") or {}
+        beginning = float(beginning_map.get(sid) or 0.0)
+        from .balance_measures import monthly_balance_measure_series
+        measure = str(component.get("measure") or "period_end")
+        monthly_base = monthly_balance_measure_series(beginning, amap[sid], measure)
         ppy = int(metrics.get("periods_per_year") or 12)
         if ppy not in (1, 4, 12) or 12 % ppy:
             raise ValueError(f"unsupported cadence periods_per_year={ppy} for AUC-linked Opex")
@@ -210,7 +223,7 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         total = 0.0
         for mi in range(lo, hi):
             mr = float(monthly_rates[mi] if mi < len(monthly_rates) else rate)
-            total += float(amap[sid][mi] or 0.0) * mr / divisor
+            total += float(monthly_base[mi] or 0.0) * mr / divisor
         return total
     else:  # normalize_linked_component already fail-closes; defensive only.
         raise ValueError(f"unsupported Opex linked driver {drv!r}")

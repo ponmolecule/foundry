@@ -9,11 +9,21 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r66 — AUC measure normalization / Reg W source-index correction
+- Corrects the Reg W source-workbook regression index: forecast Year 1 uses `(1 + escalation)^0`, Year 2 uses `^1`, so the canonical Month-1 sample is $1,320 rather than $1,332. The alternate `prior_period` growth-base semantic remains available but is no longer labeled source parity.
+- Adds a shared balance-measure contract: balance owners publish canonical monthly period-end observations; consumers explicitly derive `period_end` or `period_average = (prior month-end + current month-end) / 2`.
+- Fixes the CAC -> Fee Product bridge so the true `beginning_auc` is retained instead of being reset to zero.
+- CAC-sourced Fee Products now derive native-period Average AUC from canonical monthly exposures. Quarterly custody/trust fees and AUC-derived transaction streams no longer approximate a quarter from two quarter-end points; stepped/nonlinear paths therefore preserve monthly economics.
+- Operating Expense AUC links now expose `Period average` / `Period end`. Existing r64/r65 configs with no saved measure continue to mean `Period end`, preserving prior economics. Both measures accrue from canonical monthly balances before aggregation to presentation cadence.
+- Workforce AUC activation remains explicitly EOP because threshold activation is a point-in-time observable, not a period exposure. CAC itself continues to publish EOP balances; the measure choice belongs to the consumer.
+- Regression coverage includes nonzero opening AUC, stepped/nonlinear quarterly paths, custody/balance fees, AUC-derived transaction throughput, Opex Period-average/EOP migration behavior, Reg W YearIndex 0/1 parity, invalid-measure fail-closed behavior, and monthly/quarterly cadence equivalence.
+
+
 ## r65 — Generic eligible-cost components / cost-plus pricing
 - Extends the existing cost-pool / cost-recovery mechanic instead of adding a Reg W-specific fee type. Cost pools can now combine linked modeled Operating Expense / Workforce costs, entered recurring non-posting cost-base assumptions, and balance-derived non-posting cost components.
 - Entered cost-base assumptions reuse Foundry's natural-period Flat / Growth / Explicit flow contract. Growth can explicitly declare that its entered base belongs to the prior growth period, allowing source models that escalate once into forecast Year 1 to be represented without manually pre-escalating the input.
 - Balance-derived cost supports period-end or period-average canonical managed-notional/AUC, a Series-style multiplier, and Month / Quarter / Year natural periods. Quarterly models accrue from the canonical monthly AUC path and sum the three monthly amounts rather than substituting quarter-end AUC.
-- Adds exact source-workbook parity for `(fixed annual eligible cost + monthly-average AUC × annual variable rate) × (1 + markup)`, including the workbook's first-forecast-year escalation convention. The literal sample resolves to $1,332 in Month 1; a base explicitly declared current in Year 1 resolves to $1,320.
+- Added a source-workbook parity fixture for `(fixed annual eligible cost + monthly-average AUC × annual variable rate) × (1 + markup)`. The original r65 fixture misidentified an AC-column Year-2 formula (`^1`) as the first forecast month and therefore asserted $1,332; r66 corrects the source index to Month-1 `^0` and $1,320.
 - Preserves allocation, recovery, and markup as distinct concepts. Entered and balance-derived eligible costs are pricing sources only and never post NIE; linked costs remain observational and are never reposted.
 - Adds dependency-cycle detection for direct Opex → pool → fee → Opex loops and Opex → CAC → AUC → pool → fee → Opex loops while preserving valid one-way CAC → AUC → pool → fee chains.
 - Surfaces resolved cost-pool Series in the run audit payload (`$000s / engine period`) and in the Fee Product latest-run UI, alongside resulting fee revenue when unambiguous. Reg W / §23B / arm's-length context remains optional product/memo language rather than engine ontology.

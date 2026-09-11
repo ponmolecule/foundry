@@ -206,6 +206,18 @@ def managed_notional_series(mn, Q, ppy=4, growth_context=None):
         return [0.0] * Q, [0.0] * Q
     day1 = float(mn.get("day1") or 0.0)
     traj = mn.get("trajectory") or "flat"
+
+    # A CAC-sourced managed-notional path carries canonical monthly EOP observations.  Derive
+    # native-period average exposure from those monthly balances rather than approximating a
+    # quarter from two quarter-end observations.  Standalone/legacy managed-notional configs
+    # continue through the historical native-period trajectory logic below.
+    canonical_monthly_end = mn.get("canonical_monthly_end")
+    if canonical_monthly_end is not None:
+        from .balance_measures import native_balance_measure_series
+        end = native_balance_measure_series(day1, canonical_monthly_end, Q, ppy, "period_end")
+        avg = native_balance_measure_series(day1, canonical_monthly_end, Q, ppy, "period_average")
+        return avg, end
+
     end = [0.0] * Q
     prev = day1
     if traj == "ramp_to_target":

@@ -137,9 +137,9 @@ def main():
     # Literal workbook formula for each month:
     # ((FixedAnnual * (1+Escalation)^YearIndex / 12)
     #   + (AvgAUC * VariableAnnualRate / 12)) * (1+Markup)
-    # The workbook's first forecast month uses YearIndex=1, so the supplied fixed base is
-    # the PRIOR growth-period amount. That is intentionally distinct from Foundry's default
-    # recurring-flow contract, where an entered Growth base is already current in period 1.
+    # Source columns establish the annual index explicitly: Month 1 uses YearIndex=0;
+    # Month 14 (AC) is in forecast Year 2 and uses YearIndex=1.  Therefore the supplied fixed
+    # base is already the Year-1 amount, matching Foundry's period1 recurring-flow contract.
     def source_formula_assumptions(ppy=12, n=None, *, shape="rising"):
         n = int(n or ppy)
         if shape == "rising":
@@ -168,7 +168,7 @@ def main():
                     {"kind": "assumption_cost_base", "series_id": "cost-base-fixed",
                      "name": "Fixed service cost", "allocation_pct": 1.0,
                      "flow_spec": {"trajectory": "growth", "value": 1_200.0, "period": "year",
-                                   "base_position": "prior_period",
+                                   "base_position": "period1",
                                    "growth_spec": {"rate": .10, "period": "year",
                                                    "method": "step", "anchor": "model_year"}}},
                     {"kind": "balance_derived_cost", "series_id": "cost-base-variable",
@@ -184,46 +184,46 @@ def main():
     sfp = sfm["cost_pools"][0]
     sfa = cost_pool_series(sfp, sfm, 12, 12)
     # M1 AUC EOP = 1.1m, beginning AUC = 0.9m => average = 1.0m.
-    # Fixed = 1200 * 1.10 / 12 = 110; variable = 1m * 1.20% / 12 = 1000.
-    ck("source formula first month uses beginning AUC + M1 EOP for period-average AUC",
-       _eq(sfa[0], 1_110.0))
+    # Fixed = 1200 * (1.10^0) / 12 = 100; variable = 1m * 1.20% / 12 = 1000.
+    ck("source formula M1 uses YearIndex=0 and beginning AUC + M1 EOP for period-average AUC",
+       _eq(sfa[0], 1_100.0))
     sf_fee, sf_opex = fee_stream_q(
         _stream("pool-source-formula", recovery=1.0, markup=.20), 1,
         {"cost_pool": {"pool-source-formula": sfa[0]}}, ppy=12)
-    ck("exact source-formula parity: fixed escalated cost + average-AUC variable cost + markup",
-       _eq(sf_fee, 1_332.0) and _eq(sf_opex, 0.0))
+    ck("exact source-formula parity: YearIndex=0 fixed cost + average-AUC variable cost + markup",
+       _eq(sf_fee, 1_320.0) and _eq(sf_opex, 0.0))
 
-    # Make the source-model timing distinction auditable. If the same 1,200 base is declared
-    # as already current in forecast Year 1, the first month is 1,100 pool / 1,320 fee instead.
-    sf_current = copy.deepcopy(sfm)
-    sf_current["cost_pools"][0]["components"][0]["flow_spec"]["base_position"] = "period1"
-    cur_pool = cost_pool_series(sf_current["cost_pools"][0], sf_current, 12, 12)
-    cur_fee = fee_stream_q(_stream("pool-source-formula", recovery=1.0, markup=.20), 1,
-                           {"cost_pool": {"pool-source-formula": cur_pool[0]}}, ppy=12)[0]
-    ck("entered fixed-cost timing is explicit rather than silently assuming workbook YearIndex",
-       _eq(cur_pool[0], 1_100.0) and _eq(cur_fee, 1_320.0))
+    # Keep the alternate authoring semantic auditable without confusing it with workbook parity.
+    # Declaring the same 1,200 as a prior-period base intentionally escalates once into Year 1.
+    sf_prior = copy.deepcopy(sfm)
+    sf_prior["cost_pools"][0]["components"][0]["flow_spec"]["base_position"] = "prior_period"
+    prior_pool = cost_pool_series(sf_prior["cost_pools"][0], sf_prior, 12, 12)
+    prior_fee = fee_stream_q(_stream("pool-source-formula", recovery=1.0, markup=.20), 1,
+                             {"cost_pool": {"pool-source-formula": prior_pool[0]}}, ppy=12)[0]
+    ck("prior-period fixed-cost authoring remains available but is not source-workbook parity",
+       _eq(prior_pool[0], 1_110.0) and _eq(prior_fee, 1_332.0))
 
-    # Year 2 should apply the second 10% escalation to the original 1,200 annual base.
+    # Year 2 should apply the first 10% escalation to the original 1,200 annual base.
     sf24 = source_formula_assumptions(12, 24)
     sf24["cac_feeds"]["Primary managed notional"]["channels"][0]["params"]["new_customers_by_year"] = [1.0, 0.0]
     sf24a = cost_pool_series(sf24["cost_pools"][0], sf24, 24, 12)
     # Isolate the fixed component to assert the exact annual escalation timing transparently.
     fixed_only = copy.deepcopy(sf24); fixed_only["cost_pools"][0]["components"] = [fixed_only["cost_pools"][0]["components"][0]]
     fixed24 = cost_pool_series(fixed_only["cost_pools"][0], fixed_only, 24, 12)
-    ck("source-formula fixed base escalates once into Year 1 and twice into Year 2",
-       _eq(fixed24[0], 110.0) and _eq(fixed24[12], 121.0)
-       and _eq(sum(fixed24[:12]), 1_320.0) and _eq(sum(fixed24[12:24]), 1_452.0))
+    ck("source-formula fixed base uses ^0 in Year 1 and ^1 in Year 2",
+       _eq(fixed24[0], 100.0) and _eq(fixed24[12], 110.0)
+       and _eq(sum(fixed24[:12]), 1_200.0) and _eq(sum(fixed24[12:24]), 1_320.0))
 
     sfq = source_formula_assumptions(4, 4)
     sfqa = cost_pool_series(sfq["cost_pools"][0], sfq, 4, 4)
     ck("quarterly source-formula cost pool sums canonical monthly accruals",
-       _eq(sfqa[0], sum(sfa[:3])) and _eq(sfqa[0], 3_930.0))
+       _eq(sfqa[0], sum(sfa[:3])) and _eq(sfqa[0], 3_900.0))
     # Q1 quarter-end AUC is 1.5m. The forbidden proxy would be 1.5m * 1.2% / 4 = 4,500
-    # variable cost, while exact monthly-average accrual is 3,600 variable + 330 fixed = 3,930.
+    # variable cost, while exact monthly-average accrual is 3,600 variable + 300 fixed = 3,900.
     ck("quarterly average-AUC economics do not collapse to quarter-end AUC × annual rate / 4",
-       not _eq(sfqa[0], (1_500_000.0 * .012 / 4.0) + (1_200.0 * 1.10 / 4.0)))
+       not _eq(sfqa[0], (1_500_000.0 * .012 / 4.0) + (1_200.0 / 4.0)))
     ck("source-formula annual economics are monthly/quarterly cadence-equivalent",
-       _eq(sum(sfa), sum(sfqa)) and _eq(sum(sfa), 26_520.0))
+       _eq(sum(sfa), sum(sfqa)) and _eq(sum(sfa), 26_400.0))
 
     # Balance-source catalog advertises only canonical monthly sources, not generic quarterly
     # balances whose intra-quarter path Foundry would have to invent.
@@ -426,16 +426,16 @@ def main():
     def _affiliate_fees(raw):
         return next(p["fees"] for p in raw["products"] if p.get("name") == "Affiliate platform services")
     sfm_raw_fee = _affiliate_fees(sfm_raw); sfq_raw_fee = _affiliate_fees(sfq_raw)
-    ck("full engine reproduces literal source formula including first-month 1,332 fee dollars",
-       _eq(sfm_raw_fee[0], 1_332.0, 1e-6) and _eq(sfq_raw_fee[0], 3_930.0 * 1.20, 1e-6))
+    ck("full engine reproduces literal source formula including first-month YearIndex=0 fee dollars",
+       _eq(sfm_raw_fee[0], 1_320.0, 1e-6) and _eq(sfq_raw_fee[0], 3_900.0 * 1.20, 1e-6))
     ck("full-engine source formula is cadence-equivalent over the year before presentation rounding",
-       _eq(sum(sfm_raw_fee), 31_824.0, 1e-5) and _eq(sum(sfq_raw_fee), 31_824.0, 1e-5))
+       _eq(sum(sfm_raw_fee), 31_680.0, 1e-5) and _eq(sum(sfq_raw_fee), 31_680.0, 1e-5))
     ck("source-formula cost-pool components do not post Fee Product operating expense",
        _eq(sum(sfm_fin["is"]["feeOpex"]) - sum(sfm_base["is"]["feeOpex"]), 0.0, 1e-8)
        and _eq(sum(sfq_fin["is"]["feeOpex"]) - sum(sfq_base["is"]["feeOpex"]), 0.0, 1e-8))
     ck("public audit output surfaces resolved eligible cost without changing its non-posting semantic",
-       sfm_public.get("cost_pools", {}).get("series", {}).get("pool-source-formula", [None])[0] == 1.11
-       and sfq_public.get("cost_pools", {}).get("series", {}).get("pool-source-formula", [None])[0] == 3.93
+       sfm_public.get("cost_pools", {}).get("series", {}).get("pool-source-formula", [None])[0] == 1.1
+       and sfq_public.get("cost_pools", {}).get("series", {}).get("pool-source-formula", [None])[0] == 3.9
        and sfm_public.get("cost_pools", {}).get("posting_semantic") == "non_posting_pricing_source"
        and sfm_public.get("cost_pools", {}).get("units") == "$000s / engine period")
 

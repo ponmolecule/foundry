@@ -930,6 +930,7 @@ def run_pf_a(cfg):
     _mn_catalog = managed_notional_source_catalog(a)
     _mn_sources = {}
     _auc_month_sources = {}
+    _auc_beginning_sources = {}
     for _feed_name, _feed_cfg in (a.get("cac_feeds") or {}).items():
         _feed_key = str((_feed_cfg or {}).get("series_id") or _feed_name or "").strip()
         if not _feed_key:
@@ -937,6 +938,7 @@ def run_pf_a(cfg):
         _cacr = cac_auc_rollforward(_feed_cfg or {}, Q, ppy, assumptions=a, growth_context=_growth_ctx)
         _mn_sources[_feed_key] = list(_cacr.get("auc_end_by_period") or [0.0] * Q)
         _auc_month_sources[_feed_key] = list(_cacr.get("auc_end_by_month") or [])
+        _auc_beginning_sources[_feed_key] = float((_feed_cfg or {}).get("beginning_auc") or 0.0)
     # Standalone managed-notional products remain valid trigger sources.  Sourced products
     # are deliberately omitted here: their canonical path is already the CAC feed above.
     for _pi, _p in enumerate(dep + obs):
@@ -1085,6 +1087,7 @@ def run_pf_a(cfg):
                              "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                                        for sid, arr in _fee_stream_qty_series.items()},
                              "customer_acquisition_auc_monthly": _auc_month_sources,
+                             "customer_acquisition_auc_beginning": _auc_beginning_sources,
                              "periods_per_year": ppy})
                 for _lc in (_nie_d.get("linked_components") or []))
             _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
