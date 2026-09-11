@@ -608,6 +608,8 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee customer_acquisition_count source follows the CAC-owned count path and requires driver.trajectory='flat'")
         if not str(drv.get("ref") or "").strip():
             raise ValueError("fee customer_acquisition_count source requires driver.ref")
+        from .cac_feeder import normalize_customer_count_measure
+        normalize_customer_count_measure(drv.get("measure"), default="period_end")
     if rb == "cost_recovery":
         if basis != "transaction" or src != "cost_pool":
             raise ValueError("fee rate behavior 'cost_recovery' requires transaction basis with driver.source='cost_pool'")
@@ -818,7 +820,19 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             counts = (ctx or {}).get("customer_acquisition_count") or {}
             if not ref or ref not in counts:
                 raise ValueError(f"fee customer_acquisition_count source {ref!r} is unavailable in evaluator context")
-            return float(counts[ref] or 0.0)
+            raw = counts[ref]
+            # r69 evaluator contexts carry all CAC-owned customer measures. Direct unit callers
+            # from r68 may still supply a scalar, which remains valid and is interpreted as the
+            # already-resolved period quantity. Saved r68 streams omit ``measure``; period_end is
+            # deliberately the compatibility default because it reproduces r68's canonical-month
+            # EOP customer-level economics exactly.
+            if isinstance(raw, dict):
+                from .cac_feeder import normalize_customer_count_measure
+                measure = normalize_customer_count_measure(drv.get("measure"), default="period_end")
+                if measure not in raw:
+                    raise ValueError(f"fee customer_acquisition_count measure {measure!r} is unavailable for source {ref!r}")
+                return float(raw[measure] or 0.0)
+            return float(raw or 0.0)
         return base  # constant
 
     sb = _source_base()

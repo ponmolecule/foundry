@@ -146,7 +146,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
       attrition_avg_ticket: $ | None,    # override; default = beginning AUC / beginning customers
       beginning_auc: $,                  # usually 0 (no Day-1 pre-commitment)
       beginning_customers: n,            # usually 0
-      intra_year_shape: "linear"|"stepped",  # how a year's net change spreads across its 4 quarters
+      intra_year_shape: "linear"|"stepped",  # legacy/current AUC within-year shape
+      customer_intra_year_shape: "linear"|"stepped",  # active-client shape; defaults to AUC shape for r68 compatibility
     }
 
     Returns {
@@ -164,7 +165,17 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
     legacy_ticket_override = (cac_cfg or {}).get("attrition_avg_ticket")
     beg_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     beg_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
-    shape = (cac_cfg or {}).get("intra_year_shape") or "linear"
+    # AUC and active-customer counts are distinct stocks.  r68 coupled their within-year
+    # resolution through ``intra_year_shape``; keep that as the AUC field and use it only as
+    # the compatibility fallback for saved r68 feeds that predate an explicit customer shape.
+    auc_shape = (cac_cfg or {}).get("intra_year_shape") or "linear"
+    customer_shape = (cac_cfg or {}).get("customer_intra_year_shape")
+    if customer_shape is None:
+        customer_shape = auc_shape
+    if auc_shape not in {"linear", "stepped"}:
+        raise ValueError("CAC intra_year_shape must be linear or stepped")
+    if customer_shape not in {"linear", "stepped"}:
+        raise ValueError("CAC customer_intra_year_shape must be linear or stepped")
     years = -(-int(Q) // ppy)  # ceil (periods/year = ppy)
 
     annual = []
@@ -223,23 +234,23 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
         ye = year_end_auc[y - 1]
         for mi in range(1, 13):
             m = (y - 1) * 12 + mi
-            if shape == "stepped":
+            if auc_shape == "stepped":
                 auc_end_by_month[m - 1] = ye
             else:  # linear: ramp from prior year-end to this year-end across 12 canonical months
                 auc_end_by_month[m - 1] = prev_end + (ye - prev_end) * mi / 12.0
         prev_end = ye
 
-    # Customer counts are a separate canonical level Series owned by CAC. They use the same
-    # within-year shape as AUC so downstream Account Fee streams never recreate a second customer
-    # forecast.  ``customer_level_by_period`` averages the canonical month-end count levels inside
-    # a quarter, matching the existing Account-fee level contract and preserving cadence parity.
+    # Customer counts are a separate canonical level Series owned by CAC. Their within-year
+    # shape is explicit and independent from AUC.  Saved r68 feeds without the new field inherit
+    # the AUC shape above so their economics do not move.  The canonical stock observations are
+    # month-end active-customer counts.
     customer_end_by_month = [0.0] * (years * 12)
     prev_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
     for y in range(1, years + 1):
         ye = year_end_customers[y - 1]
         for mi in range(1, 13):
             m = (y - 1) * 12 + mi
-            if shape == "stepped":
+            if customer_shape == "stepped":
                 customer_end_by_month[m - 1] = ye
             else:
                 customer_end_by_month[m - 1] = prev_cust + (ye - prev_cust) * mi / 12.0
@@ -247,17 +258,36 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
 
     if int(ppy) == 12:
         auc_levels_q = list(auc_end_by_month[:int(Q)])
-        customer_end_by_period = list(customer_end_by_month[:int(Q)])
-        customer_level_by_period = list(customer_end_by_month[:int(Q)])
     elif int(ppy) == 4:
         # Q1/Q2/Q3/Q4 period-end balances are canonical M3/M6/M9/M12.
         auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
-        customer_end_by_period = [customer_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
+    else:
+        raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
+
+    # Publish three explicit downstream customer measures.  ``period_end`` intentionally means
+    # canonical MONTHLY EOP observations; quarterly engines average the three constituent monthly
+    # EOP levels before applying an annual per-client price.  That is exactly r68's prior
+    # customer_level_by_period contract and therefore preserves saved-model economics while making
+    # the semantic visible. ``period_average`` uses the same canonical stock-measure convention as
+    # AUC: (prior month-end + current month-end) / 2, aggregated across native periods.
+    from .balance_measures import native_balance_measure_series
+    customer_end_by_period = native_balance_measure_series(
+        float((cac_cfg or {}).get("beginning_customers") or 0.0),
+        customer_end_by_month, int(Q), int(ppy), "period_end")
+    customer_average_by_period = native_balance_measure_series(
+        float((cac_cfg or {}).get("beginning_customers") or 0.0),
+        customer_end_by_month, int(Q), int(ppy), "period_average")
+    # Preserve the r68 public name as an alias of canonical-month EOP exposure.
+    if int(ppy) == 12:
+        customer_level_by_period = list(customer_end_by_month[:int(Q)])
+    else:
         customer_level_by_period = [
             sum(customer_end_by_month[q * 3:(q + 1) * 3]) / 3.0 for q in range(int(Q))
         ]
-    else:
-        raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
+    customer_annual_count_by_period = [
+        float(year_end_customers[min(len(year_end_customers) - 1, i // int(ppy))] or 0.0)
+        for i in range(int(Q))
+    ] if year_end_customers else [0.0] * int(Q)
 
     # Materialize module-owned Derived Series metadata.  The Series layer never evaluates
     # these equations; CAC owns the closed acquisition/roll-forward equations above and
@@ -290,6 +320,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "semantic_type": "customer_count_level", "cadence": "model_period",
             "values": list(customer_level_by_period), "canonical_cadence": "month",
             "canonical_values": list(customer_end_by_month),
+            "available_measures": ["annual_count", "period_end", "period_average"],
             "derived": {"kind": "cac.customer_count_rollforward"},
         }
 
@@ -299,6 +330,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "customer_end_by_month": customer_end_by_month,
             "customer_end_by_period": customer_end_by_period,
             "customer_level_by_period": customer_level_by_period,
+            "customer_average_by_period": customer_average_by_period,
+            "customer_annual_count_by_period": customer_annual_count_by_period,
             "year_end_customers": year_end_customers,
             "annual": annual, "derived_series": derived_series}
 
@@ -326,6 +359,40 @@ def cac_customer_count_series_map(assumptions, Q, ppy=4, *, growth_context=None)
         feed = ((assumptions or {}).get("cac_feeds") or {}).get(meta["feed"]) or {}
         r = cac_auc_rollforward(feed, Q, ppy, assumptions=assumptions, growth_context=growth_context)
         out[meta["series_id"]] = [float(x or 0.0) for x in r.get("customer_level_by_period") or []]
+    return out
+
+
+CUSTOMER_COUNT_MEASURES = {"annual_count", "period_end", "period_average"}
+
+
+def normalize_customer_count_measure(value, *, default="period_end"):
+    """Normalize the explicit semantic consumed by an Account Fee stream.
+
+    ``period_end`` is the r68-compatible default so saved streams retain their exact outputs.
+    New authoring surfaces always write a measure explicitly.
+    """
+    measure = str(value or default).strip().lower()
+    if measure not in CUSTOMER_COUNT_MEASURES:
+        raise ValueError("CAC customer-count measure must be annual_count, period_end, or period_average")
+    return measure
+
+
+def cac_customer_count_measure_series_map(assumptions, Q, ppy=4, *, growth_context=None):
+    """Resolve every CAC customer-count measure by stable Series ID.
+
+    The returned shape is ``{series_id: {measure: [native-period values]}}``.  This keeps the
+    CAC feed as the sole owner of the customer-book forecast while forcing downstream Account
+    Fee streams to state which customer semantic they consume.
+    """
+    out = {}
+    for meta in cac_customer_count_catalog(assumptions):
+        feed = ((assumptions or {}).get("cac_feeds") or {}).get(meta["feed"]) or {}
+        r = cac_auc_rollforward(feed, Q, ppy, assumptions=assumptions, growth_context=growth_context)
+        out[meta["series_id"]] = {
+            "annual_count": [float(x or 0.0) for x in r.get("customer_annual_count_by_period") or []],
+            "period_end": [float(x or 0.0) for x in r.get("customer_level_by_period") or []],
+            "period_average": [float(x or 0.0) for x in r.get("customer_average_by_period") or []],
+        }
     return out
 
 

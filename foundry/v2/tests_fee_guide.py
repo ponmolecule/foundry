@@ -22,9 +22,10 @@ def main():
     ck("manifest exposes natural periods but not legacy model_period", set(m["natural_periods"])=={"month","quarter","year"})
     ck("manifest exposes Flat amount trajectories", m.get("flat_amount_trajectories")==["flat","growth","explicit_schedule"])
     ck("manifest exposes level paths and Step/Smooth resolution", m.get("level_trajectories")==["flat","growth","explicit_schedule"] and set(m.get("level_resolutions",[]))=={"step","smooth"})
-    ck("manifest exposes CAC-owned client count as a reusable Account driver",
+    ck("manifest exposes CAC-owned client count and explicit customer measures",
        any(x.get("id")=="customer_acquisition_count" for x in m.get("driver_sources",[]))
-       and any("CAC owns the customer-book path" in x for x in m.get("special_rules",[])))
+       and {x.get("id") for x in m.get("customer_count_measures",[])}=={"annual_count","period_end","period_average"}
+       and any("Fee Product must explicitly choose" in x for x in m.get("special_rules",[])))
     ck("manifest distinguishes revenue share from operating cost % of revenue",
        {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","pct_of_revenue","pct_of_revenue_opex"}
        and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[])))
@@ -168,16 +169,18 @@ def main():
       "streams":[{
         "name":"Platform Integration & API access","basis":"account",
         "driver_source":"customer_acquisition_count","driver_trajectory":"flat",
-        "driver_period":"not_applicable","driver_resolution":"not_applicable",
+        "driver_period":"not_applicable","driver_resolution":"not_applicable","customer_count_measure":"annual_count",
         "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
         "pricing_trajectory":"flat","pricing_period":"year","pricing_resolution":"not_applicable",
         "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}],
       "questions":[],"unsupported_mechanics":[]}
     pg=render_guide_plan(platform_plan); ps=pg["stream_guides"][0]["steps"]
-    ck("Guide Me maps CAC-derived clients directly to Account driver without a second count forecast",
+    ck("Guide Me maps CAC-derived annual clients to an explicit Account count measure",
        pg["streams"][0]["driver_source"]=="customer_acquisition_count"
+       and pg["streams"][0]["customer_count_measure"]=="annual_count"
        and any("Client-count source" in x for x in ps)
+       and any("Annual / model-year customer count" in x for x in ps)
        and any("do not enter a second count schedule" in x for x in ps)
        and not any("Count schedule period" in x or "Count growth" in x for x in ps))
 
@@ -190,6 +193,11 @@ def main():
        pr["streams"][0]["driver_trajectory"]=="flat"
        and pr["streams"][0]["driver_period"] is None
        and pr["streams"][0]["driver_resolution"] is None)
+
+    missing_measure=json.loads(json.dumps(platform_plan)); missing_measure["streams"][0].pop("customer_count_measure",None)
+    try: validate_guide_plan(missing_measure); missing_measure_raised=False
+    except ValueError: missing_measure_raised=True
+    ck("Guide Me plan cannot hide CAC customer-count measure choice", missing_measure_raised)
 
     # r41 live failure shape: Claude could redundantly populate the old Flat-amount
     # trajectory while also returning the correct Account/Balance-native path. That
@@ -303,9 +311,11 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
 
     html=open("web/console_v2.html",encoding="utf-8").read()
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
-    ck("Account Fee UI can consume CAC client count without duplicating count authoring",
+    ck("Account Fee UI can consume CAC client count with an explicit downstream measure",
        "Customer Acquisition client count" in html and "Client-count source" in html
-       and "Follows Customer Acquisition" in html and "do not create a second count forecast here" in html)
+       and "Client-count measure" in html and "Annual / model-year customer count" in html
+       and "Monthly period-end active clients" in html and "Period-average active clients" in html
+       and "Follows Customer Acquisition" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
     ck("Guide Me UI submits background jobs instead of holding one Anthropic request open", '/api/v31/fee-guide/jobs' in html and 'Still mapping… Foundry is waiting for Anthropic in the background' in html and 'fetch("/api/v31/fee-guide",' not in html)

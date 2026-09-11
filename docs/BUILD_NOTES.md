@@ -9,6 +9,15 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+
+## r69 — Explicit CAC customer-count semantics
+- Separates Customer Acquisition's active-client within-year shape from the AUC within-year shape. New feeds author both explicitly; saved r68 feeds without `customer_intra_year_shape` continue to inherit the AUC shape so existing economics remain unchanged.
+- Account Fee streams sourced from CAC now expose an explicit customer-count measure: `annual_count`, `period_end`, or `period_average`. The fee price path remains independently owned by the Fee Product.
+- `annual_count` repeats CAC's model-year ending customer count through that year and is appropriate when the source equation applies the year's client count to the full annual per-client fee. `period_end` uses canonical monthly EOP active clients; `period_average` uses `(prior month-end + current month-end) / 2`. Quarterly engines aggregate the canonical monthly measure to preserve cadence economics.
+- Saved r68 CAC-count fee streams with no measure retain their former canonical-month EOP behavior through the `period_end` compatibility default; no existing stream is silently converted to annual-count semantics.
+- Guide Me must name the customer measure when it returns a CAC-driven Account-fee plan and asks a clarification when the user's description does not resolve annual count versus active-client exposure. It never infers the count measure from AUC shape.
+- Regression coverage includes the 38-client case that exposed the r68 opacity: with a smooth client ramp and a `$5,000 / client / year` price, `annual_count` yields `$190,000` Year-1 revenue, canonical-month `period_end` yields `$102,916.67`, and `period_average` yields `$95,000`; each interpretation is cadence-stable by construction.
+
 ## r68 — Composable Opex cost-pool charge + CAC customer-count Series
 - Restores the pre-r67 Operating Expense composition model: a cost-pool / cost-recovery charge is now a typed additive Opex component rather than a mutually exclusive calculation mode. An Opex category may therefore combine its ordinary entered recurring amount, ordinary linked components, and one or more cost-pool charges.
 - Preserves r67 saved-model economics as a read-only compatibility shape. Legacy `calculation.kind = cost_pool` categories remain exclusive so dormant entered drafts do not suddenly reactivate, but new authoring no longer creates that shape.
