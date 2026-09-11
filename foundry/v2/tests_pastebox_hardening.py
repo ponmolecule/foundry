@@ -186,6 +186,7 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
        and "Paste editor closed · loaded schedule is unchanged." in html
        and "paste-surface-collapsed" in html
        and "scope.classList.toggle('paste-surface-collapsed',closed)" in html
+       and "paste-surface-toggle,.paste-surface-closed-note" in html
        and "window._pasteSurfaceClosed" in html
        and "_decoratePasteSurfaces();" in html
        and "feeGuideDesc" in html and "model-free-text" in html)
@@ -200,8 +201,9 @@ window=globalThis;
 const classes=new Set();
 const classList={contains:(x)=>false,remove:(x)=>classes.delete(x),toggle:(x,on)=>{if(on)classes.add(x);else classes.delete(x);}};
 let ctl=null,note=null;
+const generatedButton={textContent:'Close',closest:(sel)=>ctl&&sel.includes('paste-surface-toggle')?ctl:null};
 const scope={dataset:{},classList,
-  querySelectorAll:()=>[],
+  querySelectorAll:()=>ctl?[generatedButton]:[],
   querySelector:(sel)=>sel.includes('paste-surface-toggle')?ctl:(sel.includes('paste-surface-closed-note')?note:null),
   appendChild:(el)=>{note=el;return el;}
 };
@@ -209,8 +211,10 @@ const ta={id:'probePaste',classList:{contains:()=>false},parentElement:scope,ins
 function mkEl(){return {className:'',dataset:{},innerHTML:'',remove(){if(this===ctl)ctl=null;if(this===note)note=null;}};}
 const document={querySelectorAll:(sel)=>[ta],createElement:()=>mkEl(),getElementById:(id)=>id==='probePaste'?ta:null};
 """+block.group(0)+r"""
+_decoratePasteSurfaces();
+const initial=!!ctl;
 _pasteSurfaceClose('probePaste');
-const closed=classes.has('paste-surface-collapsed') && !!note && !ctl;
+const closed=initial && classes.has('paste-surface-collapsed') && !!note && !ctl;
 _pasteSurfaceOpen('probePaste');
 const reopened=!classes.has('paste-surface-collapsed') && !note && !!ctl;
 console.log(JSON.stringify({closed,reopened,state:Object.keys(window._pasteSurfaceClosed)}));

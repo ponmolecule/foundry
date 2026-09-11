@@ -190,6 +190,12 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-cost-pool-source-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-top:8px;min-width:0}
 .opex-cost-pool-source-wrap{min-width:0}
 .opex-cost-pool-source{display:block;width:100% !important;min-width:0 !important;max-width:100% !important;box-sizing:border-box;text-overflow:ellipsis}
+.opex-cost-pool-attached-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-top:8px;padding:8px 9px;border:1px solid rgba(148,163,184,.20);border-radius:6px;background:rgba(13,21,34,.34);min-width:0}
+.opex-cost-pool-attached-copy{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;min-width:0}
+.opex-cost-pool-attached-copy strong{max-width:100%;overflow-wrap:anywhere}
+.opex-cost-pool-attached-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.opex-cost-pool-reuse{margin-top:7px;padding:8px 9px;border:1px dashed rgba(148,163,184,.24);border-radius:6px;min-width:0}
+.opex-cost-pool-reuse select{display:block;width:100%;max-width:100%;min-width:0;box-sizing:border-box;margin-top:5px}
 .opex-cost-pool-card{padding:10px 11px !important;margin:9px 0 0 !important;border-color:rgba(148,163,184,.24) !important}
 .opex-cost-pool-head{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;min-width:0;padding-bottom:8px;border-bottom:1px solid rgba(148,163,184,.13)}
 .opex-cost-pool-name{width:100% !important;min-width:0 !important;max-width:420px !important;box-sizing:border-box}
@@ -222,7 +228,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .lab-tornado-track:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #3A6BA8}
 .lab-tornado-bar{position:absolute;top:2px;height:16px;border-radius:3px;background:#3A6BA8;opacity:.85}
 .lab-tornado-swing{color:#7FE8A8;font-size:10px;white-space:nowrap}
-@media(max-width:900px){.lab-tornado-head,.lab-tornado-row{grid-template-columns:minmax(0,1fr) 66px}.lab-tornado-label{grid-column:1/-1;text-align:left;margin-top:3px}.lab-tornado-head .lab-tornado-label{display:none}.lab-tornado-head .lab-tornado-track{grid-column:1}.lab-tornado-track{grid-column:1}.lab-tornado-swing{grid-column:2}.opex-cost-pool-source-row,.opex-cost-pool-head{grid-template-columns:1fr}.opex-cost-pool-head .btn-plain{justify-self:start}.opex-cost-pool-allocation{justify-content:flex-start}}
+@media(max-width:900px){.lab-tornado-head,.lab-tornado-row{grid-template-columns:minmax(0,1fr) 66px}.lab-tornado-label{grid-column:1/-1;text-align:left;margin-top:3px}.lab-tornado-head .lab-tornado-label{display:none}.lab-tornado-head .lab-tornado-track{grid-column:1}.lab-tornado-track{grid-column:1}.lab-tornado-swing{grid-column:2}.opex-cost-pool-source-row,.opex-cost-pool-head,.opex-cost-pool-attached-row{grid-template-columns:1fr}.opex-cost-pool-head .btn-plain{justify-self:start}.opex-cost-pool-attached-actions{justify-content:flex-start}.opex-cost-pool-allocation{justify-content:flex-start}}
 .cac-feed-card{border:1px solid rgba(223,168,90,.30);background:linear-gradient(180deg,rgba(17,27,45,.96),rgba(13,21,34,.92));border-radius:10px;padding:11px 12px;margin:10px 0 12px;box-shadow:inset 0 0 0 1px rgba(223,168,90,.07)}
 .cac-feed-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cac-feed-title{color:#E7C27B;font-weight:600;letter-spacing:.02em}
@@ -3949,11 +3955,52 @@ window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categori
 window.nieCatLinkedRate=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_spec=ct.linked_components[j].rate_spec||{source:"entered",trajectory:"flat",value:0};ct.linked_components[j].rate_spec.source="entered";ct.linked_components[j].rate_spec.trajectory="flat";ct.linked_components[j].rate_spec.value=_pf(v)/100;refresh();};
 window.nieCatLinkedRatePeriod=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_period=v;renderContent();refresh();};
 window.nieCatLinkedMeasure=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].measure=(v==="period_average"?"period_average":"period_end");renderContent();refresh();};
-window.nieCatRemoveLinked=function(i,j){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.splice(j,1);renderContent();refresh();};
-window.nieCatAddCostPoolCharge=function(i){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];const pools=_feeCostPools();let n=1;const names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;const p={series_id:_seriesId("cost-pool"),owner_module:"cost_pool",name:"Cost pool "+n,components:[]};pools.push(p);ct.linked_components.push({driver:"cost_pool_charge",ref:p.series_id,recovery_pct:1,markup:{value:0,period:"year",trajectory:"flat",resolution:"step"}});window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();};
+window._opexCostPoolReuseOpen=window._opexCostPoolReuseOpen||{};
+function _opexCostPoolReuseKey(i,j){return String(i)+":"+String(j);}
+function _newOpexOwnedCostPool(ct,componentId){
+  const pools=_feeCostPools();let n=1,names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
+  const p={series_id:_seriesId("cost-pool"),owner_module:"cost_pool",name:"Cost pool "+n,components:[],authoring_owner_module:"operating_expense",authoring_owner_series_id:String((ct||{}).series_id||""),authoring_owner_component_id:String(componentId||"")};pools.push(p);return p;
+}
+function _costPoolOwnedByOpexComponent(pool,ct,lc){
+  if(!pool||!ct||!lc)return false;
+  return String(pool.authoring_owner_module||"")==="operating_expense"
+    && String(pool.authoring_owner_series_id||"")===String(ct.series_id||"")
+    && !!String(lc.component_id||"")
+    && String(pool.authoring_owner_component_id||"")===String(lc.component_id||"");
+}
+function _deleteCostPoolRecord(ref){const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref||""));if(at>=0)pools.splice(at,1);}
+function _cleanupOwnedPoolOnDetach(ct,lc){
+  if(!lc||lc.driver!=="cost_pool_charge"||!lc.ref)return false;
+  const p=_feeCostPoolByRef(lc.ref);if(!p||!_costPoolOwnedByOpexComponent(p,ct,lc))return false;
+  const u=_costPoolUsage(lc.ref);if(u.total!==1)return false;
+  _deleteCostPoolRecord(lc.ref);return true;
+}
+function _opexReusableCostPools(currentRef){
+  currentRef=String(currentRef||"");
+  return _feeCostPools().filter(p=>{const ref=String((p||{}).series_id||"");return !!ref&&ref!==currentRef&&_costPoolUsage(ref).total>0;});
+}
+window.nieCatCostPoolReuseToggle=function(i,j,open){const k=_opexCostPoolReuseKey(i,j);if(open)window._opexCostPoolReuseOpen[k]=true;else delete window._opexCostPoolReuseOpen[k];renderContent();};
+window.nieCatRemoveLinked=function(i,j){
+  const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];
+  const lc=ct.linked_components[j];if(lc&&lc.driver==="cost_pool_charge")_cleanupOwnedPoolOnDetach(ct,lc);
+  ct.linked_components.splice(j,1);delete window._opexCostPoolReuseOpen[_opexCostPoolReuseKey(i,j)];renderContent();refresh();
+};
+window.nieCatAddCostPoolCharge=function(i){
+  const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];
+  const cid=_seriesId("opex-cost-pool-component"),p=_newOpexOwnedCostPool(ct,cid);
+  ct.linked_components.push({driver:"cost_pool_charge",component_id:cid,ref:p.series_id,recovery_pct:1,markup:{value:0,period:"year",trajectory:"flat",resolution:"step"}});
+  window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();
+};
 function _ensureNieCostPoolComponent(i,j){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return null;const lc=ct.linked_components[j];if(lc.driver!=="cost_pool_charge")return null;if(lc.recovery_pct==null)lc.recovery_pct=1;if(!lc.markup)lc.markup={value:0,period:"year",trajectory:"flat",resolution:"step"};if(!lc.markup.trajectory)lc.markup.trajectory="flat";if(!lc.markup.period)lc.markup.period="year";if(!lc.markup.resolution)lc.markup.resolution="step";return lc;}
-window.nieCatCostPoolComponentSelect=function(i,j,ref){const c=_ensureNieCostPoolComponent(i,j);if(!c)return;c.ref=String(ref||"");renderContent();refresh();};
-window.nieCatCostPoolComponentAdd=function(i,j){const pools=_feeCostPools();let n=1,names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;const p={series_id:_seriesId("cost-pool"),owner_module:"cost_pool",name:"Cost pool "+n,components:[]};pools.push(p);const c=_ensureNieCostPoolComponent(i,j);if(c)c.ref=p.series_id;renderContent();refresh();};
+window.nieCatCostPoolComponentSelect=function(i,j,ref){
+  const ct=((_ensureNieDetail().categories||[])[i]),c=_ensureNieCostPoolComponent(i,j);if(!ct||!c)return;
+  ref=String(ref||"");if(!ref||ref===String(c.ref||"")){delete window._opexCostPoolReuseOpen[_opexCostPoolReuseKey(i,j)];renderContent();return;}
+  _cleanupOwnedPoolOnDetach(ct,c);c.ref=ref;delete window._opexCostPoolReuseOpen[_opexCostPoolReuseKey(i,j)];renderContent();refresh();
+};
+window.nieCatCostPoolComponentAdd=function(i,j){
+  const ct=((_ensureNieDetail().categories||[])[i]),c=_ensureNieCostPoolComponent(i,j);if(!ct||!c)return;
+  _cleanupOwnedPoolOnDetach(ct,c);if(!c.component_id)c.component_id=_seriesId("opex-cost-pool-component");const p=_newOpexOwnedCostPool(ct,c.component_id);c.ref=p.series_id;delete window._opexCostPoolReuseOpen[_opexCostPoolReuseKey(i,j)];renderContent();refresh();
+};
 window.nieCatCostPoolComponentRecovery=function(i,j,v){const c=_ensureNieCostPoolComponent(i,j);if(!c)return;c.recovery_pct=Math.max(0,Math.min(1,_pf(v)/100));refresh();};
 window.nieCatCostPoolComponentMarkupTrajectory=function(i,j,v){const c=_ensureNieCostPoolComponent(i,j);if(!c)return;c.markup.trajectory=v;if(v==="growth"&&!c.markup.growth_spec)c.markup.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};if(v==="explicit_schedule"&&!c.markup.schedule)c.markup.schedule={};renderContent();refresh();};
 window.nieCatCostPoolComponentMarkupValue=function(i,j,v){const c=_ensureNieCostPoolComponent(i,j);if(!c)return;c.markup.value=_pf(v)/100;refresh();};
@@ -3962,7 +4009,7 @@ window.nieCatCostPoolComponentMarkupResolution=function(i,j,v){const c=_ensureNi
 window.nieCatCostPoolComponentSetMarkupSchedule=function(i,j,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const c=_ensureNieCostPoolComponent(i,j),out={};if(!c)return;vals.forEach((v,k)=>out[String(k+1)]=v/100);c.markup.schedule=out;renderContent();refresh();};
 window.nieCatCostPoolComponentClearMarkupSchedule=function(i,j){const c=_ensureNieCostPoolComponent(i,j);if(!c)return;c.markup.schedule={};renderContent();refresh();};
 window.nieCatCostPoolComponentAddLinked=function(i,j){const ct=((_ensureNieDetail().categories||[])[i]),calc=_ensureNieCostPoolComponent(i,j),p=_feeCostPoolByRef(calc&&calc.ref);if(!ct||!p)return;p.components=p.components||[];const own=String(ct.series_id||""),used=new Set(p.components.map(c=>String(c.kind||"")+"::"+String(c.series_id||""))),opts=_feeCostPoolSourceOptions().filter(o=>!(o.kind==="operating_expense_category"&&String(o.series_id)===own)&&!used.has(o.value));if(!opts.length){appStatus("err","No additional compatible upstream cost Series is available for this pool.");return;}const o=opts[0];p.components.push({kind:o.kind,series_id:o.series_id,allocation_pct:1});renderContent();refresh();};
-window.nieCatCostPoolComponentDelete=function(i,j,ref){const u=_costPoolUsage(ref);if(u.total>1){alert("This shared cost pool has "+u.total+" downstream consumers. Repoint the other consumers before deleting it.");return;}const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref));if(at>=0)pools.splice(at,1);const ct=((_ensureNieDetail().categories||[])[i]);if(ct&&Array.isArray(ct.linked_components))ct.linked_components.splice(j,1);renderContent();refresh();};
+window.nieCatCostPoolComponentDelete=function(i,j,ref){nieCatRemoveLinked(i,j);};
 function _ensureNieCostPoolCalc(i){
   const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return null;
   let calc=ct.calculation;if(!calc||calc.kind!=="cost_pool"){calc={kind:"cost_pool",ref:"",recovery_pct:1,markup:{value:0,period:"year",trajectory:"flat",resolution:"step"}};ct.calculation=calc;}
@@ -4010,11 +4057,21 @@ function _opexCostPoolEditorHtml(i,ct,calc,j){
   const markupPeriodCall=typed?`nieCatCostPoolComponentMarkupPeriod(${i},${j},this.value)`:`nieCatCostPoolMarkupPeriod(${i},this.value)`;
   const markupResolutionCall=typed?`nieCatCostPoolComponentMarkupResolution(${i},${j},this.value)`:`nieCatCostPoolMarkupResolution(${i},this.value)`;
   h += `<div class="opex-cost-pool-editor" style="margin:7px 0;padding:8px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">${typed?"Cost-pool / cost-recovery component":"Legacy r67 cost-pool-only compatibility mode"}</div><div class="nie-section-note">${typed?"Additive component: build or select an eligible cost pool, then apply recovery and markup. The resulting charge is added to this category’s ordinary entered expense and other linked components; pool inputs remain non-posting.":"This saved r67 category keeps its original exclusive cost-pool economics. New r68 authoring uses an additive cost-pool component instead."}</div>`;
-  h += `<div class="opex-cost-pool-source-row"><label class="wf-field opex-cost-pool-source-wrap"><span class="wf-field-label">Shared cost pool source</span><select class="opex-cost-pool-source" title="Choose an existing shared pool only when you intentionally want to reuse its assumptions" onchange="${selectCall}">${pools.length?pools.map(cp=>`<option value="${esc(cp.series_id||cp.name||'')}"${String(cp.series_id||cp.name||'')===ref?' selected':''}>${esc(cp.name||'Unnamed cost pool')}</option>`).join(''):'<option value="">No cost pools yet</option>'}</select></label><button class="btn-plain" onclick="${addCall};return false">+ Create fresh pool</button></div><div class="memo" style="margin-top:4px">New Opex cost-pool components start with a fresh empty pool. Select another pool above only to reuse it deliberately.</div>`;
+  if(typed){
+    const rk=_opexCostPoolReuseKey(i,j),reuseOpen=!!window._opexCostPoolReuseOpen[rk],ru=_opexReusableCostPools(ref),usage=pool?_costPoolUsage(ref):{total:0};
+    const owned=pool?_costPoolOwnedByOpexComponent(pool,ct,calc):false,status=pool?(usage.total>1?`Shared · ${usage.total} downstream consumers`:(owned?'Private to this Operating Expense component':'Attached pool')):'No pool attached';
+    h += `<div class="opex-cost-pool-attached-row"><div class="opex-cost-pool-attached-copy"><span class="wf-field-label">Attached cost pool</span><strong>${esc(pool?(pool.name||'Unnamed cost pool'):'None')}</strong><span class="cmut">${esc(status)}</span></div><div class="opex-cost-pool-attached-actions">${pool?`<button class="btn-plain" onclick="nieCatCostPoolReuseToggle(${i},${j},${reuseOpen?'false':'true'});return false">${reuseOpen?'Cancel shared-pool link':'Link existing shared pool…'}</button>`:`<button class="btn-plain" onclick="${addCall};return false">+ Create fresh pool</button>`}</div></div>`;
+    if(reuseOpen){
+      h += `<div class="opex-cost-pool-reuse"><div class="wf-field-label">Explicitly reuse another in-use pool</div>${ru.length?`<select class="opex-cost-pool-source" onchange="if(this.value)nieCatCostPoolComponentSelect(${i},${j},this.value)"><option value="">Choose an existing shared pool…</option>${ru.map(cp=>{const u=_costPoolUsage(cp.series_id||cp.name||'');return `<option value="${esc(cp.series_id||cp.name||'')}">${esc(cp.name||'Unnamed cost pool')} · ${u.total} consumer${u.total===1?'':'s'}</option>`;}).join('')}</select>`:`<div class="memo">No other in-use cost pools are available to share. Old orphaned pools are intentionally hidden.</div>`}<div class="memo">Nothing is reused unless you choose a pool here. A new Operating Expense component never inherits an old pool automatically.</div></div>`;
+    }
+  }else{
+    h += `<div class="opex-cost-pool-source-row"><label class="wf-field opex-cost-pool-source-wrap"><span class="wf-field-label">Shared cost pool source</span><select class="opex-cost-pool-source" onchange="${selectCall}">${pools.length?pools.map(cp=>`<option value="${esc(cp.series_id||cp.name||'')}"${String(cp.series_id||cp.name||'')===ref?' selected':''}>${esc(cp.name||'Unnamed cost pool')}</option>`).join(''):'<option value="">No cost pools yet</option>'}</select></label><button class="btn-plain" onclick="${addCall};return false">+ Create fresh pool</button></div>`;
+  }
   if(pool){
     const cpid=String(pool.series_id||""),cpi=_feeCostPoolIndex(cpid),own=String((ct||{}).series_id||"");pool.components=pool.components||[];
     const allopts=_feeCostPoolSourceOptions(),cpopts=allopts.filter(o=>!(o.kind==='operating_expense_category'&&String(o.series_id)===own));
-    h += `<div class="wf-role-card opex-cost-pool-card"><div class="opex-cost-pool-head"><label class="wf-field"><span class="wf-field-label">Shared cost pool</span><input class="opex-cost-pool-name" value="${esc(pool.name||'')}" onchange='feeCostPoolRename(${JSON.stringify(cpid)},this.value)'></label><button class="btn-plain" style="color:#C77" onclick='${deleteCall.replace("REF",JSON.stringify(cpid))};return false'>Delete pool</button></div><div class="opex-cost-pool-add-actions"><button class="btn-plain" onclick='feeCostPoolAddEntered(${JSON.stringify(cpid)});return false'>+ Entered cost base</button><button class="btn-plain" onclick='feeCostPoolAddBalance(${JSON.stringify(cpid)});return false'>+ Balance-linked cost</button><button class="btn-plain" onclick="${addLinkedCall};return false">+ Linked modeled cost</button></div>`;
+    const pu=_costPoolUsage(cpid),shared=(pu.total>1),poolLabel=(typed&&!shared?'Cost pool for this expense':'Shared cost pool');
+    h += `<div class="wf-role-card opex-cost-pool-card"><div class="opex-cost-pool-head"><label class="wf-field"><span class="wf-field-label">${poolLabel}</span><input class="opex-cost-pool-name" value="${esc(pool.name||'')}"${typed&&shared?' readonly title="This pool is shared. Rename it from its original owning context."':''} onchange='feeCostPoolRename(${JSON.stringify(cpid)},this.value)'></label>${typed?'':`<button class="btn-plain" style="color:#C77" onclick='${deleteCall.replace("REF",JSON.stringify(cpid))};return false'>Delete pool</button>`}</div><div class="opex-cost-pool-add-actions"><button class="btn-plain" onclick='feeCostPoolAddEntered(${JSON.stringify(cpid)});return false'>+ Entered cost base</button><button class="btn-plain" onclick='feeCostPoolAddBalance(${JSON.stringify(cpid)});return false'>+ Balance-linked cost</button><button class="btn-plain" onclick="${addLinkedCall};return false">+ Linked modeled cost</button></div>`;
     if(!pool.components.length)h += `<div class="memo">No eligible-cost components yet. Add a linked modeled cost, an entered non-posting cost base, or a balance-linked cost.</div>`;
     pool.components.forEach((cc,ci)=>{
       const alloc=((cc.allocation_pct==null?1:+cc.allocation_pct)*100);
@@ -5303,7 +5360,13 @@ function _decoratePasteSurfaces(root){
   boxes.forEach(ta=>{
     const id=String(ta.id||'');if(!id||id==='feeGuideDesc'||ta.classList.contains('model-free-text'))return;
     const scope=ta.parentElement||ta;scope.dataset.pasteSurface=id;
-    const nativeClose=Array.from(scope.querySelectorAll('button,a')).some(el=>/^close$/i.test(String(el.textContent||'').trim()));
+    // Generated Close/Edit controls must never count as a domain-native Close control.
+    // r72 accidentally saw its own inserted Close button on the second decoration pass,
+    // opted out of the generic controller, and immediately undid the collapse.
+    const nativeClose=Array.from(scope.querySelectorAll('button,a')).some(el=>{
+      const generated=(el.closest&&el.closest('.paste-surface-toggle,.paste-surface-closed-note'));
+      return !generated && /^close$/i.test(String(el.textContent||'').trim());
+    });
     let ctl=scope.querySelector(`.paste-surface-toggle[data-for="${id}"]`),note=scope.querySelector(`.paste-surface-closed-note[data-for="${id}"]`);
     if(nativeClose){scope.classList.remove('paste-surface-collapsed');if(ctl)ctl.remove();if(note)note.remove();return;}
     const closed=!!window._pasteSurfaceClosed[id];
@@ -5311,11 +5374,11 @@ function _decoratePasteSurfaces(root){
     if(closed){
       if(ctl)ctl.remove();
       if(!note){note=document.createElement('div');note.className='paste-surface-closed-note';note.dataset.for=id;scope.appendChild(note);}
-      note.innerHTML=`<span>Paste editor closed · loaded schedule is unchanged.</span><button type="button" class="pillbtn" onclick="_pasteSurfaceOpen('${id.replace(/'/g,"\\'")}')">Edit</button>`;
+      note.innerHTML=`<span>Paste editor closed · loaded schedule is unchanged.</span><button type="button" class="pillbtn" data-paste-surface-generated="1" onclick="_pasteSurfaceOpen('${id.replace(/'/g,"\\'")}')">Edit</button>`;
     }else{
       if(note)note.remove();
       if(!ctl){ctl=document.createElement('span');ctl.className='paste-surface-toggle';ctl.dataset.for=id;ta.insertAdjacentElement('afterend',ctl);}
-      ctl.innerHTML=`<button type="button" onclick="_pasteSurfaceClose('${id.replace(/'/g,"\\'")}')">Close</button>`;
+      ctl.innerHTML=`<button type="button" data-paste-surface-generated="1" onclick="_pasteSurfaceClose('${id.replace(/'/g,"\\'")}')">Close</button>`;
     }
   });
 }

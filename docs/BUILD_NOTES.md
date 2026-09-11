@@ -93,6 +93,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Backward-compatible migration: an r59-style late first recognition beyond the initial recurrence interval, with no explicit `flow_spec.start_period`, infers commencement at that same first-recognition period. Thus Annual + first recognition M35 begins at M35 and repeats M47/M59... rather than recognizing earlier periods.
 - UI exposes `Expense begins M#/Q#` separately from Recognition timing.
 
+## r73 — Opex pool ownership / explicit sharing + real paste collapse
+- Corrects r72's paste-surface self-detection bug. The generic decorator had inserted its own `Close` button, then treated that generated button as a domain-native Close control on the next decoration pass and immediately canceled the collapse. Generated Close/Edit controls are now excluded from native-close detection. Close collapses the local editor body while preserving loaded schedule values; Edit reopens it.
+- New additive Opex cost-pool components now create a pool with explicit authoring ownership metadata (`operating_expense` category + component identity). If that private pool loses its sole consumer, the orphaned pool record is cleaned up rather than lingering in the global registry.
+- The typed Opex editor no longer exposes the global cost-pool registry in an always-visible selector. It shows only the pool attached to the current expense. Reuse is behind an explicit `Link existing shared pool…` action; only pools already in use elsewhere are offered, and unreferenced legacy orphan pools are intentionally hidden.
+- Explicitly linking an existing shared pool cleans up the replaced private pool when safe, while preserving the shared pool and its assumptions. Removing a shared-pool Opex component detaches the consumer without deleting the shared pool.
+- Cost-pool arithmetic, AUC measures, recovery/markup, cadence logic, Fee Product consumers, and accounting postings are unchanged. This release changes authoring ownership/state and paste-surface behavior only.
+
 ## r71 — Authoring UI hardening
 - Operating Expense `+ Add category` now prepends the new category to the visible stack instead of appending it off-screen. Existing Advanced-panel state is reindexed and the new name field is scrolled/focused so authoring starts where the user clicked.
 - Opex cost-pool authoring is bounded by responsive containers. Long cost-pool names, Series/source labels, action buttons, component fields, and AUC/cost previews wrap or scroll inside the Opex card rather than widening the Configuration canvas.
