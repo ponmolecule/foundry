@@ -423,7 +423,7 @@ def run_pf_a(cfg):
     from .income_modules import (nie_detail_series, product_fee_streams_q,
                                  durbin_effective_rate, _g,
                                  managed_notional_series)
-    from .cac_feeder import cac_managed_notional, cac_auc_rollforward
+    from .cac_feeder import cac_managed_notional, cac_auc_rollforward, cac_customer_count_series_map
     from .cost_pools import cost_pool_series_map
     from .activation import managed_notional_source_catalog, resolve_managed_notional_source
     from .regparams import REG_PARAMS as _RP
@@ -435,10 +435,18 @@ def run_pf_a(cfg):
     # such as Operating Expense linked components. Populated by fee_stream_q during product
     # evaluation; never recomputed downstream.
     _fee_stream_qty_series = {}
+    # CAC owns the customer-book forecast once. Account Fee streams may consume the resolved
+    # customer-count level by stable Series ID instead of re-authoring a second count path.
+    _cac_customer_count_series = cac_customer_count_series_map(
+        a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
 
     def _cost_pool_ctx(period):
         qi = int(period) - 1
         return {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()}
+
+    def _cac_customer_count_ctx(period):
+        qi = int(period) - 1
+        return {k: float(v[qi] or 0.0) for k, v in _cac_customer_count_series.items()}
     # Scheduled (term) borrowings are modeled as BULLET advances: the full draw is
     # held flat for `term_q` quarters (outstanding q0 .. q0+term_q-1), then matures to
     # zero. This is what an FHLB term advance actually is, and it corrects both anchor
@@ -570,6 +578,7 @@ def run_pf_a(cfg):
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
@@ -680,6 +689,7 @@ def run_pf_a(cfg):
             p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             "cost_pool": _cost_pool_ctx(q),
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)

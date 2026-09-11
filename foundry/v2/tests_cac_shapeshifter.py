@@ -84,6 +84,7 @@ def main():
             "avg_auc_per_customer":{"mode":"explicit","cadence":"year","values":[100000,110000,120000,130000,140000,150000,160000]},
         }}],
         "driver_specs":{"attrition_rate":{"mode":"explicit","cadence":"year","values":[0,.02,.03,.04,.04,.05,.05]}},
+        "series_id":"cac-auc-seven","customer_count_series_id":"cac-count-seven",
         "beginning_auc":0,"beginning_customers":0,"intra_year_shape":"linear"}
     mo = cac_auc_rollforward(seven, 84, 12)
     qu = cac_auc_rollforward(seven, 28, 4)
@@ -99,6 +100,17 @@ def main():
        all(_eq(mo["auc_end_by_period"][i], qu["auc_end_by_month"][i]) for i in range(84)))
     ck("quarterly AUC is sampled from canonical month-end M3/M6/M9/M12",
        all(_eq(qu["auc_end_by_period"][q], qu["auc_end_by_month"][(q+1)*3-1]) for q in range(28)))
+    ck("canonical monthly customer-count path is identical in monthly and quarterly models",
+       len(qu["customer_end_by_month"]) == 84 and
+       all(_eq(mo["customer_end_by_period"][i], qu["customer_end_by_month"][i]) for i in range(84)))
+    ck("quarterly customer EOP is sampled from canonical M3/M6/M9/M12",
+       all(_eq(qu["customer_end_by_period"][q], qu["customer_end_by_month"][(q+1)*3-1]) for q in range(28)))
+    ck("quarterly Account-fee customer level averages the three canonical monthly levels",
+       all(_eq(qu["customer_level_by_period"][q],
+               sum(qu["customer_end_by_month"][q*3:(q+1)*3])/3.0) for q in range(28)))
+    ck("CAC publishes customer-count Derived Series beside AUC",
+       "cac-count-seven" in mo["derived_series"] and
+       mo["derived_series"]["cac-count-seven"]["semantic_type"] == "customer_count_level")
     # A monthly balance-linked annualized rate must aggregate identically whether the
     # presentation engine is monthly or quarterly.  This is the exact seam needed by
     # future AUC-linked Opex (e.g. annual fraud provision rate on period-end AUC).
@@ -139,6 +151,43 @@ def main():
     ck("quarterly public result retains canonical monthly AUC path",
        len(caq.get("aucEndByMonth") or [])==84 and
        all(_eq(caq["aucEndByMonth"][i], ca.get("aucEndByPeriod")[i]) for i in range(84)))
+    ck("public result surfaces canonical customer-count path and billing levels",
+       len(caq.get("customerEndByMonth") or [])==84 and len(caq.get("customerLevelByPeriod") or [])==28)
+
+    # 10) A Fee Product can consume the CAC-owned customer book directly without re-authoring
+    # another count path. A flat $5,000/client/year fee must preserve annual economics across
+    # monthly and quarterly presentation. Use stepped CAC here because the source mechanic is
+    # explicitly "the number of clients for that year".
+    platform_feed={
+        "series_id":"cac-auc-platform","customer_count_series_id":"cac-count-platform",
+        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,"intra_year_shape":"stepped",
+        "channels":[{"name":"Client adds","method":"explicit",
+                     "params":{"new_customers_by_year":[10,10],"spend":0},
+                     "avg_auc_per_customer":1}]}
+    platform_stream={
+        "name":"Platform Integration & API access",
+        "basis":"account",
+        "driver":{"source":"customer_acquisition_count","ref":"cac-count-platform",
+                  "trajectory":"flat","params":{}},
+        "rate":{"behavior":"flat","params":{"unit_fee":{"value":5000.0,"period":"year","trajectory":"flat"}}},
+        "cost":{"kind":"none","params":{}},"timing":{"start_period":1}}
+    def _platform_cfg(ppy):
+        pc=json.load(open("foundry/fixtures/universal_template_bank.json"))
+        pa=pc["assumptions"]; pa["periods_per_year"]=ppy; pa["n_periods"]=2*ppy; pa["capital_raises"]=[]
+        pa["cac_feeds"]={"platform":copy.deepcopy(platform_feed)}
+        pa["obs_exposures"]=[{"name":"Platform","_fee_product":True,
+                              "fee_streams":[copy.deepcopy(platform_stream)]}]
+        return pc
+    pm=_platform_cfg(12); pq=_platform_cfg(4)
+    bm=copy.deepcopy(pm); bq=copy.deepcopy(pq); bm["assumptions"]["obs_exposures"]=[]; bq["assumptions"]["obs_exposures"]=[]
+    rm=run_q.run_v2(pm); rq=run_q.run_v2(pq); rbm=run_q.run_v2(bm); rbq=run_q.run_v2(bq)
+    fm=[x-y for x,y in zip(rm["financials"]["is"]["fees"],rbm["financials"]["is"]["fees"])]
+    fq=[x-y for x,y in zip(rq["financials"]["is"]["fees"],rbq["financials"]["is"]["fees"])]
+    ck("CAC-count Account fee produces $50k in Year 1 and $100k in Year 2",
+       _eq(sum(fm[:12]),50.0,.05) and _eq(sum(fm[12:24]),100.0,.05), fm)
+    ck("CAC-count Account fee preserves annual economics across monthly and quarterly engines",
+       _eq(sum(fq[:4]),50.0,.05) and _eq(sum(fq[4:8]),100.0,.05) and
+       _eq(sum(fm[:12]),sum(fq[:4]),.05) and _eq(sum(fm[12:24]),sum(fq[4:8]),.05), fq)
 
     print(f"\n{P} passed, {F} failed")
     return 0 if F == 0 else 1

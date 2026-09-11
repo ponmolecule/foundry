@@ -89,6 +89,9 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _sett_acc = [0.0] * Q
     _sett_cash = [0.0] * Q
     for _ci, (_c, _arr) in enumerate(zip(_catlist, _cat_series)):
+        # r67 compatibility: legacy calculation.kind=cost_pool remains an exclusive source so
+        # saved r67 configs do not suddenly reactivate a dormant entered draft. New r68 authoring
+        # never creates that shape; cost-pool charges are ordinary additive typed components.
         _cp = resolve_cost_pool_calculation(_c, Q, ppy, context=growth_context, assumptions=a)
         _lc = ([] if _cp is not None else
                resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a))
@@ -339,7 +342,7 @@ def _apply_tiers(tiers, base_qty):
 
 
 _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
-_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool"}
+_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
 _FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex"}
@@ -598,6 +601,13 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee cost_pool source requires driver.ref")
         if rb != "cost_recovery":
             raise ValueError("fee cost_pool source requires rate.behavior='cost_recovery'")
+    if src == "customer_acquisition_count":
+        if basis != "account":
+            raise ValueError("fee customer_acquisition_count source is supported only on account basis")
+        if traj != "flat":
+            raise ValueError("fee customer_acquisition_count source follows the CAC-owned count path and requires driver.trajectory='flat'")
+        if not str(drv.get("ref") or "").strip():
+            raise ValueError("fee customer_acquisition_count source requires driver.ref")
     if rb == "cost_recovery":
         if basis != "transaction" or src != "cost_pool":
             raise ValueError("fee rate behavior 'cost_recovery' requires transaction basis with driver.source='cost_pool'")
@@ -739,7 +749,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     """One fee stream's NET income for engine period q ($). Full six-axis GUT evaluator.
 
     Axis 1 Basis:        balance | transaction | account | flat | event
-    Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate | cost_pool
+    Axis 2 Driver source: constant | own_balance | managed_notional | stream_ref | bank_aggregate | cost_pool | customer_acquisition_count
     Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
     Axis 4 Rate:          flat | annual_change | scheduled | tiered | durbin_capped | cost_recovery
     Axis 5 Timing:        start_period | end_period | ramp_in_periods
@@ -747,8 +757,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
     quantity of already-evaluated streams, for stream_ref), bank_aggregate (map: e.g.
-    total_deposits/total_assets, prior-quarter to avoid circularity), and cost_pool
-    (map: stable pool ID -> native-period eligible expense flow).
+    total_deposits/total_assets, prior-quarter to avoid circularity), cost_pool (map: stable
+    pool ID -> native-period eligible expense flow), and customer_acquisition_count (map: stable
+    CAC customer-count Series ID -> resolved native-period customer-book level).
     Unsupported basis/source/trajectory/rate/cost values fail closed with ValueError.
     """
     if not stream:
@@ -802,6 +813,12 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             if not ref or ref not in pools:
                 raise ValueError(f"fee cost_pool source {ref!r} is unavailable in evaluator context")
             return float(pools[ref] or 0.0)
+        if src == "customer_acquisition_count":
+            ref = str(drv.get("ref") or "").strip()
+            counts = (ctx or {}).get("customer_acquisition_count") or {}
+            if not ref or ref not in counts:
+                raise ValueError(f"fee customer_acquisition_count source {ref!r} is unavailable in evaluator context")
+            return float(counts[ref] or 0.0)
         return base  # constant
 
     sb = _source_base()

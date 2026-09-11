@@ -44,10 +44,22 @@ references.
 
 A common generic shape is therefore:
 
-`entered recurring base + linked driver × rate`
+`entered recurring base + Σ(typed additive components)`
 
-This covers many vendor, platform, servicing, administrative, and other mixed fixed/variable
-expense contracts without adding engagement-specific expense types.
+Typed additive components include ordinary `upstream Series × rate` links and a shared
+`cost_pool_charge` component. A cost-pool charge resolves a referenced eligible-cost pool, applies
+its recovery percentage and markup path, and contributes the resulting downstream charge to NIE.
+The pool itself is direction-neutral and non-posting: the same primitive may be consumed by a Fee
+Product when the modeled bank earns the charge. Its linked, entered, and balance-derived pool
+components remain calculation inputs rather than separate Opex postings.
+
+New authoring follows this additive model. The short-lived r67 `calculation.kind = cost_pool` shape is
+read only for backward compatibility: it retains its original exclusive semantics so a dormant
+entered-expense draft saved in r67 does not unexpectedly become active. New configurations do not
+create that shape.
+
+This covers many vendor, platform, servicing, administrative, shared-service, and other mixed
+fixed/variable expense contracts without adding engagement-specific expense types.
 
 ## Recognition versus cash settlement
 

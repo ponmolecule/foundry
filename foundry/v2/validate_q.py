@@ -309,6 +309,11 @@ def validate_config_v2(cfg):
                                 raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
                             if auc_link_creates_cycle(a, cat, _x.get("series_id")):
                                 raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
+                        if _x.get("driver") == "cost_pool_charge":
+                            from .cost_pools import resolve_cost_pool_ref
+                            _pool = resolve_cost_pool_ref(_x.get("ref"), a)
+                            if not ((_pool or {}).get("components") or []):
+                                raise ValueError("referenced cost_pool requires at least one eligible expense component")
                 _rt = recognition_spec_for_category(cat, _ppy)
                 _st = normalize_settlement(cat.get("settlement"), _ppy)
                 _linked_recognition_ok = (_rt["mode"] == "trajectory" or
@@ -436,6 +441,12 @@ def validate_config_v2(cfg):
                     _linked_pool = resolve_cost_pool_ref((st.get("driver") or {}).get("ref"), a)
                     if not ((_linked_pool or {}).get("components") or []):
                         raise ValueError("referenced cost_pool requires at least one eligible expense component")
+                if ((st.get("driver") or {}).get("source") == "customer_acquisition_count"):
+                    from .cac_feeder import cac_customer_count_catalog
+                    _count_ids = {x["series_id"] for x in cac_customer_count_catalog(a)}
+                    _count_ref = str((st.get("driver") or {}).get("ref") or "").strip()
+                    if _count_ref not in _count_ids:
+                        raise ValueError(f"CAC customer-count Series {_count_ref!r} does not exist")
                 coef = (((st.get("driver") or {}).get("params") or {}).get("coefficient"))
                 if coef is not None:
                     _fee_coefficient_value(coef, 1, _ppy, {"growth_context": _growth_ctx})
@@ -570,6 +581,8 @@ def validate_config_v2(cfg):
     for _fn, _feed in (a.get("cac_feeds") or {}).items():
         _feed_sid = str((_feed or {}).get("series_id") or "").strip()
         if _feed_sid: _series_ids.append(_feed_sid)
+        _count_sid = str((_feed or {}).get("customer_count_series_id") or "").strip()
+        if _count_sid: _series_ids.append(_count_sid)
         for _k, _sp in ((_feed or {}).get("driver_specs") or {}).items():
             _sid = str((_sp or {}).get("series_id") or "").strip()
             if _sid: _series_ids.append(_sid)
