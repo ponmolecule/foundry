@@ -10,6 +10,15 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+
+## r74 — Opex cost-pool containment and ownership-state repair
+- Repairs the remaining Operating Expense cost-pool authoring defects reported in live validation without changing cost-pool arithmetic, Average-AUC resolution, recovery/markup economics, or posting semantics.
+- Hard-bounds the Operating Expense card and cost-pool editor as CSS grid items. The Opex use of the shared CAC/AUC preview explicitly removes the generic 184px left offset, and long Series/select text is contained or internally scrollable instead of increasing the document width. A Chromium regression using a 1,000px viewport reproduces r73 at 1,629px document width and holds the r74 fixture to 985px.
+- Keys `Link existing shared pool…` disclosure state by stable Opex category Series ID plus component ID rather than row indexes. Prepending a new expense can therefore no longer inherit an older row's open pool-sharing disclosure.
+- Deleting or clearing an Operating Expense category now cleans any Opex-owned private pool whose last consumer disappeared. Detailed-mode migration hygiene also removes orphaned Opex-owned pools leaked by r72/r73 while preserving live/shared pools and non-Opex pools.
+- New Opex cost-pool authoring remains private-by-default: the attached pool is the only pool shown. Reuse remains an explicit sharing action and only live in-use pools are offered.
+- Regression coverage distinguishes legacy/global pools, live shared pools, private Opex-owned pools, orphan cleanup, stable disclosure identity, fresh new-entry state, and hard horizontal containment.
+
 ## r69 — Explicit CAC customer-count semantics
 - Separates Customer Acquisition's active-client within-year shape from the AUC within-year shape. New feeds author both explicitly; saved r68 feeds without `customer_intra_year_shape` continue to inherit the AUC shape so existing economics remain unchanged.
 - Account Fee streams sourced from CAC now expose an explicit customer-count measure: `annual_count`, `period_end`, or `period_average`. The fee price path remains independently owned by the Fee Product.

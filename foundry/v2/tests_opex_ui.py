@@ -32,9 +32,11 @@ checks=[
  ('legacy r67 exclusive cost-pool config remains renderable but is not newly authored', 'Legacy r67 cost-pool-only compatibility mode' in html and 'nieCatCalculationKind' in html),
  ('new Opex categories are prepended and focused instead of appearing off-screen at the bottom', 'nd.categories.unshift' in html and 'data-opex-index="${i}"' in html and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html),
  ('prepending an Opex category reindexes existing Advanced open state', 'const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={}' in html and 'nextOpen[(+k||0)+1]=true' in html),
- ('Opex cost-pool authoring uses bounded stacked/grid layout for long source/pool labels', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-attached-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and 'width:100% !important' in html and 'text-overflow:ellipsis' in html),
+ ('Opex cost-pool authoring is hard-contained inside the Operating Expense card', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-attached-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and '#card-nie{overflow-x:hidden}' in html and 'contain:inline-size' in html and '.opex-cost-pool-editor .cac-link-preview{margin-left:0 !important' in html),
  ('new typed Opex cost-pool authoring hides the global pool registry until explicit reuse', 'Link existing shared pool…' in html and 'Explicitly reuse another in-use pool' in html and 'Old orphaned pools are intentionally hidden' in html and '_opexReusableCostPools' in html),
  ('Opex-owned pools have explicit ownership metadata and orphan cleanup', 'authoring_owner_module:"operating_expense"' in html and '_cleanupOwnedPoolOnDetach' in html and 'authoring_owner_component_id' in html),
+ ('Opex shared-pool disclosure state is keyed by stable category/component identity', 'return owner+"::"+component' in html and 'lc.component_id||lc.ref' in html),
+ ('deleting/clearing Opex categories and active Detailed render purge Opex-owned orphan pools', 'nieCatDelete=function' in html and '_purgeDeletedOpexOwnedPools([ct])' in html and '_purgeDeletedOpexOwnedPools(removed)' in html and 'function _pruneOrphanedOpexOwnedPools()' in html and '_pruneOrphanedOpexOwnedPools();' in html),
 ]
 p=f=0
 for name,ok in checks:
@@ -141,20 +143,22 @@ if editor:
     fn=editor.group(0).rsplit('\nfunction _opexTimingInterval',1)[0]
     js=r"""
 window=globalThis; window._opexCostPoolReuseOpen={};
+const ct0={series_id:'opex-1',linked_components:[{driver:'cost_pool_charge',component_id:'comp-1',ref:'pool-own'}]};
+const cfg={assumptions:{nie_detail:{categories:[ct0]},obs_exposures:[]}};
 const pools=[
  {series_id:'pool-own',name:'Private platform pool',components:[],authoring_owner_module:'operating_expense',authoring_owner_series_id:'opex-1',authoring_owner_component_id:'comp-1'},
  {series_id:'pool-orphan',name:'OLD ORPHAN SHOULD NOT APPEAR',components:[]},
  {series_id:'pool-shared',name:'Reusable fee pool',components:[]}
 ];
-function _feeCostPools(){return pools;} function _feeCostPoolByRef(r){return pools.find(p=>p.series_id===r)||null;} function _feeCostPoolIndex(r){return pools.findIndex(p=>p.series_id===r);}
-function _opexCostPoolReuseKey(i,j){return i+':'+j;} function _costPoolUsage(r){return r==='pool-own'?{total:1}:r==='pool-shared'?{total:1}:{total:0};}
+function _ensureNieDetail(){return cfg.assumptions.nie_detail;} function _opexCostPoolReuseKey(i,j){const ct=(_ensureNieDetail().categories||[])[i]||{},lc=(ct.linked_components||[])[j]||{};return String(ct.series_id||('opex-index-'+i))+'::'+String(lc.component_id||lc.ref||('component-index-'+j));} function _feeCostPools(){return pools;} function _feeCostPoolByRef(r){return pools.find(p=>p.series_id===r)||null;} function _feeCostPoolIndex(r){return pools.findIndex(p=>p.series_id===r);}
+function _costPoolDirectConsumerCount(r){return r==='pool-own'?1:r==='pool-shared'?1:0;}
 function _costPoolOwnedByOpexComponent(p,ct,lc){return p.series_id==='pool-own'&&ct.series_id==='opex-1'&&lc.component_id==='comp-1';}
-function _opexReusableCostPools(current){return pools.filter(p=>p.series_id!==current&&_costPoolUsage(p.series_id).total>0);} function _feeCostPoolSourceOptions(){return [];} function PPY(){return 12;}
+function _opexReusableCostPools(current){return pools.filter(p=>p.series_id!==current&&_costPoolDirectConsumerCount(p.series_id)>0);} function _feeCostPoolSourceOptions(){return [];} function PPY(){return 12;}
 function esc(x){return String(x==null?'':x);} function fmtComma(x){return String(x);} function growthSpecInline(){return '';} const lastRes={};
 """+fn+r"""
 const ct={series_id:'opex-1'}; const calc={driver:'cost_pool_charge',component_id:'comp-1',ref:'pool-own',recovery_pct:1,markup:{value:0,period:'year',trajectory:'flat',resolution:'step'}};
 const closed=_opexCostPoolEditorHtml(0,ct,calc,0);
-window._opexCostPoolReuseOpen['0:0']=true; const open=_opexCostPoolEditorHtml(0,ct,calc,0);
+window._opexCostPoolReuseOpen['opex-1::comp-1']=true; const open=_opexCostPoolEditorHtml(0,ct,calc,0);
 console.log(JSON.stringify({closedHasOrphan:closed.includes('OLD ORPHAN'),closedHasShared:closed.includes('Reusable fee pool'),closedHasOwn:closed.includes('Private platform pool'),openHasOrphan:open.includes('OLD ORPHAN'),openHasShared:open.includes('Reusable fee pool')}));
 """
     pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
@@ -166,6 +170,83 @@ console.log(JSON.stringify({closedHasOrphan:closed.includes('OLD ORPHAN'),closed
 else: ok=False
 if ok: p+=1; print('  PASS ', 'typed Opex pool editor hides the global registry by default and reveals only in-use pools on explicit reuse')
 else: f+=1; print('  FAIL ', 'typed Opex pool editor hides the global registry by default and reveals only in-use pools on explicit reuse')
+
+
+# Stable disclosure state must not bleed from an old row index into a newly inserted
+# category/component that lands at the same i:j coordinates.
+key_m=re.search(r"function _opexCostPoolReuseKey\(i,j\)\{.*?\n\}", html, re.S)
+if key_m:
+    js=r"""
+window=globalThis;
+const old={series_id:'opex-old',linked_components:[{driver:'cost_pool_charge',component_id:'comp-old',ref:'pool-old'}]};
+const fresh={series_id:'opex-new',linked_components:[{driver:'cost_pool_charge',component_id:'comp-new',ref:'pool-new'}]};
+const cfg={assumptions:{nie_detail:{categories:[old]}}}; function _ensureNieDetail(){return cfg.assumptions.nie_detail;}
+"""+key_m.group(0)+r"""
+window._opexCostPoolReuseOpen={}; const oldKey=_opexCostPoolReuseKey(0,0); window._opexCostPoolReuseOpen[oldKey]=true;
+cfg.assumptions.nie_detail.categories.unshift(fresh); const newKey=_opexCostPoolReuseKey(0,0);
+console.log(JSON.stringify({oldKey,newKey,newOpen:!!window._opexCostPoolReuseOpen[newKey]}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]);ok=(got.get('oldKey')=='opex-old::comp-old' and got.get('newKey')=='opex-new::comp-new' and got.get('newOpen') is False)
+        except Exception: pass
+else: ok=False
+if ok: p+=1; print('  PASS ', 'Opex shared-pool disclosure cannot bleed by row index into a new category')
+else: f+=1; print('  FAIL ', 'Opex shared-pool disclosure cannot bleed by row index into a new category')
+
+# Deleting an entire Opex category must clean private pools created for that category;
+# r73 only cleaned them when the cost-pool component itself was removed first.
+purge_m=re.search(r"function _costPoolDirectConsumerCount\(ref\)\{.*?\n\}\nfunction _purgeDeletedOpexOwnedPools\(categories\)\{.*?\n\}", html, re.S)
+del_m=re.search(r"window\.nieCatDelete=function\(i\)\{.*?\n\};", html, re.S)
+if purge_m and del_m:
+    js=r"""
+window=globalThis;
+const owned={series_id:'pool-own',name:'Private',authoring_owner_module:'operating_expense',authoring_owner_series_id:'opex-1',authoring_owner_component_id:'comp-1',components:[{kind:'assumption_cost_base'}]};
+const globalPool={series_id:'pool-global',name:'Global',components:[]};
+const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-1',linked_components:[{driver:'cost_pool_charge',component_id:'comp-1',ref:'pool-own'}]}]},cost_pools:[owned,globalPool],obs_exposures:[]}};
+function _ensureNieDetail(){return cfg.assumptions.nie_detail;} function _feeCostPools(){return cfg.assumptions.cost_pools;} function _clearOpexCostPoolUiStateForCategory(){} function renderContent(){} function refresh(){}
+"""+purge_m.group(0)+"\n"+del_m.group(0)+r"""
+nieCatDelete(0); console.log(JSON.stringify({categories:cfg.assumptions.nie_detail.categories.length,pools:cfg.assumptions.cost_pools.map(p=>p.series_id)}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]);ok=(got.get('categories')==0 and got.get('pools')==['pool-global'])
+        except Exception: pass
+else: ok=False
+if ok: p+=1; print('  PASS ', 'deleting an Opex category purges its orphaned private cost pool but preserves unrelated pools')
+else: f+=1; print('  FAIL ', 'deleting an Opex category purges its orphaned private cost pool but preserves unrelated pools')
+
+
+# Migration hygiene: pools leaked by r72/r73 already have Opex ownership metadata.
+# When Detailed Opex is active they should be pruned only if no live consumer remains;
+# shared/in-use pools and non-Opex pools must survive.
+block=re.search(r"function _costPoolDirectConsumerCount\(ref\)\{.*?function _cleanupOwnedPoolOnDetach", html, re.S)
+ok=False
+if block:
+    js=block.group(0).rsplit('function _cleanupOwnedPoolOnDetach',1)[0]
+    js += r"""
+const cfg={assumptions:{nie_detail:{categories:[{series_id:'opex-live',linked_components:[{driver:'cost_pool_charge',ref:'pool-live'}]}]},obs_exposures:[],cost_pools:[
+ {series_id:'pool-ghost',authoring_owner_module:'operating_expense',authoring_owner_series_id:'opex-deleted',components:[{kind:'assumption_cost_base'}]},
+ {series_id:'pool-live',authoring_owner_module:'operating_expense',authoring_owner_series_id:'opex-live',components:[]},
+ {series_id:'pool-global',owner_module:'cost_pool',components:[]}
+]}};
+function _feeCostPools(){return cfg.assumptions.cost_pools;}
+"""
+    prune=re.search(r"function _pruneOrphanedOpexOwnedPools\(\)\{.*?\n\}", html, re.S)
+    if prune:
+        js += prune.group(0)+"\n_pruneOrphanedOpexOwnedPools();\nconsole.log(JSON.stringify(cfg.assumptions.cost_pools.map(x=>x.series_id)));\n"
+        cp=subprocess.run(['node','-e',js],capture_output=True,text=True)
+        if cp.returncode==0:
+            try:
+                refs=json.loads(cp.stdout.strip())
+                ok=refs==['pool-live','pool-global']
+            except Exception: pass
+if ok: p+=1; print('  PASS ', 'Detailed-mode migration hygiene prunes leaked Opex-owned orphans only')
+else: f+=1; print('  FAIL ', 'Detailed-mode migration hygiene prunes leaked Opex-owned orphans only')
 
 print(f'\n{p} passed, {f} failed')
 sys.exit(0 if f==0 else 1)
