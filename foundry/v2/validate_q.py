@@ -405,9 +405,9 @@ def validate_config_v2(cfg):
             validate_growth_spec_for_cadence(a.get("overhead_growth_spec"), ppy=_ppy, context=_growth_ctx)
         except (TypeError, ValueError) as e:
             errs.append(f"overhead_growth_spec invalid: {e}")
-    # Cost pools are shared observational sources composed from upstream expense Series.
-    # Resolve them during validation so bad IDs/allocations/metric-triggered Workforce
-    # dependencies fail before the financial engine can run.
+    # Cost pools are shared non-posting pricing sources. Resolve them during validation so
+    # bad IDs, natural-period contracts, canonical-balance links, allocations, or dependency
+    # cycles fail before the financial engine can run.
     try:
         from .cost_pools import cost_pool_series_map
         cost_pool_series_map(a, max(1, int(a.get("n_periods") or 12)), _ppy,
@@ -563,6 +563,8 @@ def validate_config_v2(cfg):
         if _own and _own != "operating_expense.workforce":
             errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
     for _fn, _feed in (a.get("cac_feeds") or {}).items():
+        _feed_sid = str((_feed or {}).get("series_id") or "").strip()
+        if _feed_sid: _series_ids.append(_feed_sid)
         for _k, _sp in ((_feed or {}).get("driver_specs") or {}).items():
             _sid = str((_sp or {}).get("series_id") or "").strip()
             if _sid: _series_ids.append(_sid)
@@ -587,10 +589,11 @@ def validate_config_v2(cfg):
     except (TypeError, ValueError):
         pass
     try:
-        from .cost_pools import cost_pool_catalog
+        from .cost_pools import cost_pool_catalog, cost_pool_component_series_ids
         for _pool_meta in cost_pool_catalog(a):
             _sid = str(_pool_meta.get("series_id") or "").strip()
             if _sid: _series_ids.append(_sid)
+        _series_ids.extend(cost_pool_component_series_ids(a))
     except (TypeError, ValueError):
         pass  # the structural cost-pool validation above already reports the actionable error
     if len(_series_ids) != len(set(_series_ids)):

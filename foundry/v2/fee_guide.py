@@ -165,7 +165,7 @@ _SOURCE_LABELS = {
     "managed_notional": "Managed notional (AUC/AUM)",
     "stream_ref": "Another stream",
     "bank_aggregate": "Bank aggregate",
-    "cost_pool": "Cost pool — linked eligible expenses",
+    "cost_pool": "Cost pool — eligible cost base",
 }
 _TRAJECTORY_LABELS = {
     "flat": "Flat",
@@ -230,9 +230,9 @@ def fee_guide_manifest():
             "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
-            "A cost_pool driver means an observational native-period expense flow composed upstream from eligible Operating Expense and/or fixed-start Workforce expense Series. It never re-posts those expenses.",
+            "A cost_pool driver means a native-period non-posting pricing cost base. It may combine eligible Operating Expense / fixed-start Workforce expense Series, entered recurring cost-base assumptions, and balance-derived costs from a canonical monthly managed-notional/AUC Series. Linked components are observational; entered and balance-derived components do not create an expense.",
             "Cost-pool fees use transaction basis + cost_pool + cost_recovery. recovery_pct and markup are separate auditable pricing assumptions; do not collapse them into per_unit or a derived natural-period coefficient.",
-            "Cost-pool component allocation percentages determine which upstream costs enter the eligible pool and are distinct from the downstream recovery percentage.",
+            "Cost-pool component allocation percentages determine what enters the eligible pool and are distinct from the downstream recovery percentage. Use an entered cost-base component when the source supplies a pricing cost assumption that is not itself a Foundry expense line; use a balance-derived component when eligible cost is a balance measure × natural-period rate. Period-average managed notional is resolved from the canonical monthly balance path, not a quarter-end proxy.",
             "The guide never chooses numeric assumptions. It tells the user which Foundry field should receive each assumption they already have.",
         ],
     }
@@ -352,12 +352,10 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - For reimbursement/cost-plus/service-fee mechanics charged on modeled eligible expenses, use
   transaction + cost_pool + driver_trajectory=flat + rate_behavior=cost_recovery + cost_kind=none.
-  Cost pool composition is upstream and observational: it references existing Operating Expense and/or
-  fixed-start Workforce expense Series and must not re-post them. Never use a natural-period flow
+  Cost pool composition is non-posting: it may reference existing Operating Expense and/or fixed-start Workforce expense Series, or use an entered assumption-driven cost base when the source model supplies the cost base directly. Linked expenses must not be re-posted; entered cost-base assumptions must not create an expense. Never use a natural-period flow
   coefficient for recovery percentage. Keep eligible-pool allocation, recovery percentage, and markup
   as distinct assumptions. Use pricing_trajectory for the MARKUP path (flat, growth, or explicit_schedule).
-  If the user does not identify which modeled expenses are eligible, or does not provide allocation/recovery/markup
-  assumptions needed to author the mechanic, ask targeted clarification questions instead of inventing them.
+  If the user does not identify the eligible modeled expenses or an entered cost-base assumption, or does not provide allocation/recovery/markup assumptions needed to author the mechanic, ask targeted clarification questions instead of inventing them.
 - Use account only when the user's mechanic is count × fee per account/mandate/relationship.
   Account has TWO INDEPENDENT trajectories: driver_trajectory controls the COUNT path, while
   pricing_trajectory controls the FEE PER ACCOUNT/MANDATE. Words such as "flat annual retainer"
@@ -820,7 +818,7 @@ def _stream_steps(item):
             steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
     elif basis == "transaction":
         if item["rate_behavior"] == "cost_recovery":
-            steps.append("Choose or create the eligible Cost pool. Add only source-model Operating Expense and/or fixed-start Workforce expense Series that belong in the pool; set each component's Eligible / allocated % from the source assumptions.")
+            steps.append("Choose or create the eligible Cost pool. Add linked Operating Expense / fixed-start Workforce Series when those costs are modeled in Foundry; use ‘+ entered cost base’ for a non-posting recurring cost assumption; use ‘+ balance-linked cost’ when eligible cost is a managed-notional/AUC balance measure × natural-period rate. Set each component’s Eligible / allocated % from the source assumptions.")
             steps.append("Set Rate behavior to “Cost recovery — recovery + markup”.")
             steps.append("Enter the stated Recovery (% of eligible cost pool). This is downstream reimbursement and is separate from each pool component's allocation percentage.")
             pt = item.get("pricing_trajectory") or "flat"
@@ -831,7 +829,7 @@ def _stream_steps(item):
                 steps.append("Enter the starting Markup % and the stated markup growth assumption.")
             else:
                 steps.append("Enter the stated Markup %.")
-            steps.append("Foundry treats the cost pool as a native-period dollar flow: fee income = eligible cost pool × recovery % × (1 + markup %). It does not annualize the pool and does not re-post the linked expenses.")
+            steps.append("Foundry treats the cost pool as a native-period dollar flow: fee income = eligible cost pool × recovery % × (1 + markup %). It does not annualize the pool. Linked expenses remain owned upstream; entered and balance-derived cost-base components are pricing-only and do not post expense.")
         else:
             if item.get("coefficient_kind"):
                 steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
@@ -868,7 +866,7 @@ def _stream_steps(item):
         steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
 
     if item["rate_behavior"] == "cost_recovery":
-        steps.append("Cost side remains “None — upstream costs already posted”.")
+        steps.append("Cost side remains None: the cost pool is non-posting here. Linked expenses are already owned upstream; entered cost-base assumptions are pricing-only.")
     else:
         steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")

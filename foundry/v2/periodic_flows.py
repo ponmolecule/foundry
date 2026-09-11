@@ -24,6 +24,7 @@ from .growth import growth_multiplier, validate_growth_spec_for_cadence
 
 _PERIOD_FREQ = {"year": 1, "quarter": 4, "month": 12}
 _VALID_TRAJECTORIES = {"flat", "growth", "explicit"}
+_VALID_BASE_POSITIONS = {"period1", "prior_period"}
 
 
 def normalize_period(period: Any) -> str:
@@ -78,8 +79,13 @@ def validate_periodic_flow_spec(spec: Mapping[str, Any] | None, *, ppy: int = 4,
     if traj not in _VALID_TRAJECTORIES:
         raise ValueError(f"unsupported recurring-flow trajectory {traj!r}")
     period = normalize_period(raw.get("period"))
-    out = {"trajectory": traj, "period": period}
+    base_position = str(raw.get("base_position") or "period1").strip().lower()
+    if base_position not in _VALID_BASE_POSITIONS:
+        raise ValueError("recurring-flow base_position must be period1 or prior_period")
+    out = {"trajectory": traj, "period": period, "base_position": base_position}
     if traj == "explicit":
+        if base_position != "period1":
+            raise ValueError("recurring-flow base_position=prior_period requires trajectory=growth")
         vals = raw.get("values")
         if vals is None:
             vals = raw.get("schedule")
@@ -97,6 +103,8 @@ def validate_periodic_flow_spec(spec: Mapping[str, Any] | None, *, ppy: int = 4,
             # summed into the quarter rather than sampled at quarter-end.
             out["growth_spec"] = validate_growth_spec_for_cadence(
                 gs, ppy=12, context=context)
+        elif base_position != "period1":
+            raise ValueError("recurring-flow base_position=prior_period requires trajectory=growth")
     return out
 
 
@@ -124,6 +132,13 @@ def resolve_periodic_flow(spec: Mapping[str, Any] | None, n_periods: int, ppy: i
         months = [base_month] * n_months
     else:
         gs = s["growth_spec"]
+        # Some source models author the base amount for the immediately preceding natural
+        # growth period (for example, a current-year annual service cost whose first forecast
+        # year is escalated once).  Preserve the authored amount and its timing explicitly
+        # instead of forcing users to pre-escalate it by hand.  Default behavior remains the
+        # historical contract: the base is already the value in model period 1.
+        if s.get("base_position") == "prior_period":
+            base_month *= (1.0 + float(gs.get("rate") or 0.0))
         months = [base_month * growth_multiplier(
             gs, current_period=m, start_period=1, ppy=12,
             context=context, base_position="period1") for m in range(1, n_months + 1)]
