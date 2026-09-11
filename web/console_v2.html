@@ -184,6 +184,32 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-item-name{width:100% !important;max-width:none !important;min-width:0 !important;box-sizing:border-box;font-size:12px !important;padding:6px 8px !important}
 .opex-drag-handle{width:24px;height:26px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none}
 .opex-drag-handle:hover{color:#DFA85A}.opex-drag-handle:active{cursor:grabbing}
+/* r71: cost-pool authoring must stay inside the Opex card even when Series/pool names are long. */
+.opex-cost-pool-editor,.opex-cost-pool-card,.opex-cost-pool-component{min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden}
+.opex-cost-pool-editor .crow,.opex-cost-pool-toolbar,.opex-cost-pool-fields{flex-wrap:wrap !important;min-width:0;max-width:100%}
+.opex-cost-pool-editor input,.opex-cost-pool-editor select,.opex-cost-pool-editor textarea{max-width:100%;min-width:0;box-sizing:border-box}
+.opex-cost-pool-editor .wf-field{max-width:100%;min-width:0}
+.opex-cost-pool-editor .wf-field-label,.opex-cost-pool-editor .cu,.opex-cost-pool-editor .memo{overflow-wrap:anywhere;word-break:normal}
+.opex-cost-pool-toolbar>input{flex:1 1 220px;width:auto !important;min-width:160px !important;max-width:340px !important}
+.opex-cost-pool-actions{display:flex;gap:6px;flex:1 1 360px;justify-content:flex-end;flex-wrap:wrap;min-width:0}
+.opex-cost-pool-source{flex:1 1 260px;min-width:180px !important;max-width:100% !important}
+.opex-cost-pool-editor .cac-link-readonly{width:100%;max-width:100%;box-sizing:border-box;overflow-x:auto}
+/* r71: generic presentation-only collapse for model-authoring paste / Explicit textareas. */
+.paste-surface-toggle{display:inline-flex;align-items:center;gap:5px;margin:4px 0 0;font-size:10px;color:#8FA3C0}
+.paste-surface-toggle button{border:0;background:transparent;padding:0;color:#8FA3C0;font:inherit;cursor:pointer;text-decoration:underline;text-underline-offset:2px}
+.paste-surface-toggle button:hover{color:#DFA85A}
+.paste-surface-closed-note{display:flex;align-items:center;gap:7px;flex-wrap:wrap;margin:4px 0 0;padding:5px 7px;border:1px dashed rgba(148,163,184,.24);border-radius:5px;color:#8FA3C0;font-size:10px}
+/* r71: tornado labels live in responsive HTML rows, not a clipped fixed SVG gutter. */
+.lab-tornado{width:100%;max-width:900px}
+.lab-tornado-head,.lab-tornado-row{display:grid;grid-template-columns:minmax(210px,34%) minmax(220px,1fr) 74px;gap:10px;align-items:center}
+.lab-tornado-head{margin:2px 0 5px;color:#8FA3C0;font-size:10px}
+.lab-tornado-row{min-height:34px;margin:3px 0}
+.lab-tornado-label{min-width:0;text-align:right;color:#DCE3EF;font-size:11px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+.lab-tornado-track{position:relative;height:20px;min-width:0;border-radius:4px;background:rgba(42,59,87,.30);overflow:hidden}
+.lab-tornado-track:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #3A6BA8}
+.lab-tornado-bar{position:absolute;top:2px;height:16px;border-radius:3px;background:#3A6BA8;opacity:.85}
+.lab-tornado-swing{color:#7FE8A8;font-size:10px;white-space:nowrap}
+@media(max-width:900px){.lab-tornado-head,.lab-tornado-row{grid-template-columns:minmax(0,1fr) 66px}.lab-tornado-label{grid-column:1/-1;text-align:left;margin-top:3px}.lab-tornado-head .lab-tornado-label{display:none}.lab-tornado-head .lab-tornado-track{grid-column:1}.lab-tornado-track{grid-column:1}.lab-tornado-swing{grid-column:2}.opex-cost-pool-actions{justify-content:flex-start}}
 .cac-feed-card{border:1px solid rgba(223,168,90,.30);background:linear-gradient(180deg,rgba(17,27,45,.96),rgba(13,21,34,.92));border-radius:10px;padding:11px 12px;margin:10px 0 12px;box-shadow:inset 0 0 0 1px rgba(223,168,90,.07)}
 .cac-feed-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cac-feed-title{color:#E7C27B;font-weight:600;letter-spacing:.02em}
@@ -2474,7 +2500,7 @@ function fieldsFor(fam, p, base){
             const _alloc=((cc.allocation_pct==null?1:+cc.allocation_pct)*100);
             if((cc.kind||"")==="assumption_cost_base"){
               const _fs=cc.flow_spec||{trajectory:"flat",value:0,period:"year"},_ft=_fs.trajectory||"flat",_fp=_fs.period||"year",_eid=`feeCostBasePaste_${_fi}_${si}_${ci}`;
-              h += `<div style="border:1px solid rgba(223,168,90,.20);border-radius:7px;padding:8px 9px;margin:7px 0;background:rgba(223,168,90,.035)"><div class="crow" style="align-items:center;margin:0 0 6px"><span class="cu" style="color:#DFA85A">Entered cost base · non-posting</span><input style="min-width:220px;max-width:340px" value="${esc(cc.name||'Entered eligible cost base')}" onchange='feeCostPoolEnteredName(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu" style="margin-left:auto">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
+              h += `<div class="opex-cost-pool-component" style="border:1px solid rgba(223,168,90,.20);border-radius:7px;padding:8px 9px;margin:7px 0;background:rgba(223,168,90,.035)"><div class="crow opex-cost-pool-fields" style="align-items:center;margin:0 0 6px"><span class="cu" style="color:#DFA85A">Entered cost base · non-posting</span><input style="min-width:220px;max-width:340px" value="${esc(cc.name||'Entered eligible cost base')}" onchange='feeCostPoolEnteredName(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu" style="margin-left:auto">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
               h += `<div class="crow" style="align-items:end;margin:0"><label class="wf-field" style="width:110px"><span class="wf-field-label">Amount path</span><select onchange='feeCostPoolEnteredTrajectory(${JSON.stringify(_cpid)},${ci},this.value)'><option value="flat"${_ft==="flat"?" selected":""}>Flat</option><option value="growth"${_ft==="growth"?" selected":""}>Growth</option><option value="explicit"${_ft==="explicit"?" selected":""}>Explicit</option></select></label><label class="wf-field" style="width:100px"><span class="wf-field-label">Per</span><select onchange='feeCostPoolEnteredPeriod(${JSON.stringify(_cpid)},${ci},this.value)'><option value="month"${_fp==="month"?" selected":""}>Month</option><option value="quarter"${_fp==="quarter"?" selected":""}>Quarter</option><option value="year"${_fp==="year"?" selected":""}>Year</option></select></label>`;
               if(_ft!=="explicit")h += `<label class="wf-field" style="width:145px"><span class="wf-field-label">${_ft==="growth"?"Starting ":""}cost base ($000s)</span><input type="number" step="0.001" value="${(+(_fs.value||0)/1000)}" onchange='feeCostPoolEnteredValue(${JSON.stringify(_cpid)},${ci},this.value)'></label>`;
               h += `</div>`;
@@ -2483,12 +2509,12 @@ function fieldsFor(fam, p, base){
               h += `<div class="memo" style="margin-top:5px">Pricing assumption only: this amount enters the eligible cost pool but does <b>not</b> create or duplicate an Operating Expense.</div></div>`;
             } else if((cc.kind||"")==="balance_derived_cost"){
               const _bopts=_feeCostPoolBalanceOptions(),_bsid=String(cc.source_series_id||""),_bm=cc.measure||"period_average",_brp=cc.rate_period||"year",_br=((cc.rate_spec||{}).value||0)*100;let _bsel=_bopts.slice();if(_bsid&&!_bsel.some(o=>o.series_id===_bsid))_bsel.unshift({series_id:_bsid,label:"Missing / incompatible balance source: "+_bsid});
-              h += `<div style="border:1px solid rgba(90,168,223,.20);border-radius:7px;padding:8px 9px;margin:7px 0;background:rgba(90,168,223,.035)"><div class="crow" style="align-items:center;margin:0 0 6px"><span class="cu">Balance-linked cost · non-posting</span><input style="min-width:220px;max-width:340px" value="${esc(cc.name||'Balance-linked eligible cost')}" onchange='feeCostPoolBalanceName(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu" style="margin-left:auto">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
-              h += `<div class="crow" style="align-items:end;margin:0"><label class="wf-field" style="min-width:240px"><span class="wf-field-label">Balance source</span><select onchange='feeCostPoolBalanceSource(${JSON.stringify(_cpid)},${ci},this.value)'>${_bsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_bsid?" selected":""}>${esc(o.label)}</option>`).join('')}</select></label><label class="wf-field" style="width:145px"><span class="wf-field-label">Measure</span><select onchange='feeCostPoolBalanceMeasure(${JSON.stringify(_cpid)},${ci},this.value)'><option value="period_average"${_bm==="period_average"?" selected":""}>Period average</option><option value="period_end"${_bm==="period_end"?" selected":""}>Period end</option></select></label><label class="wf-field" style="width:125px"><span class="wf-field-label">Multiplier (%)</span><input type="number" step="0.0001" value="${_br}" onchange='feeCostPoolBalanceRate(${JSON.stringify(_cpid)},${ci},this.value)'></label><label class="wf-field" style="width:95px"><span class="wf-field-label">Per</span><select onchange='feeCostPoolBalanceRatePeriod(${JSON.stringify(_cpid)},${ci},this.value)'><option value="month"${_brp==="month"?" selected":""}>Month</option><option value="quarter"${_brp==="quarter"?" selected":""}>Quarter</option><option value="year"${_brp==="year"?" selected":""}>Year</option></select></label></div>`;
+              h += `<div class="opex-cost-pool-component" style="border:1px solid rgba(90,168,223,.20);border-radius:7px;padding:8px 9px;margin:7px 0;background:rgba(90,168,223,.035)"><div class="crow opex-cost-pool-fields" style="align-items:center;margin:0 0 6px"><span class="cu">Balance-linked cost · non-posting</span><input style="min-width:220px;max-width:340px" value="${esc(cc.name||'Balance-linked eligible cost')}" onchange='feeCostPoolBalanceName(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu" style="margin-left:auto">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
+              h += `<div class="crow" style="align-items:end;margin:0"><label class="wf-field opex-cost-pool-source"><span class="wf-field-label">Balance source</span><select onchange='feeCostPoolBalanceSource(${JSON.stringify(_cpid)},${ci},this.value)'>${_bsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_bsid?" selected":""}>${esc(o.label)}</option>`).join('')}</select></label><label class="wf-field" style="width:145px"><span class="wf-field-label">Measure</span><select onchange='feeCostPoolBalanceMeasure(${JSON.stringify(_cpid)},${ci},this.value)'><option value="period_average"${_bm==="period_average"?" selected":""}>Period average</option><option value="period_end"${_bm==="period_end"?" selected":""}>Period end</option></select></label><label class="wf-field" style="width:125px"><span class="wf-field-label">Multiplier (%)</span><input type="number" step="0.0001" value="${_br}" onchange='feeCostPoolBalanceRate(${JSON.stringify(_cpid)},${ci},this.value)'></label><label class="wf-field" style="width:95px"><span class="wf-field-label">Per</span><select onchange='feeCostPoolBalanceRatePeriod(${JSON.stringify(_cpid)},${ci},this.value)'><option value="month"${_brp==="month"?" selected":""}>Month</option><option value="quarter"${_brp==="quarter"?" selected":""}>Quarter</option><option value="year"${_brp==="year"?" selected":""}>Year</option></select></label></div>`;
               h += _feeCostPoolBalancePreviewHtml(_bsid,_bm);
               h += `<div class="memo" style="margin-top:5px">Uses the source's canonical monthly balance path. <b>Period average</b> = (prior month-end + current month-end) / 2; quarterly models sum the three monthly cost accruals rather than using a quarter-end proxy. Pricing assumption only; no expense is posted here.</div></div>`;
             } else {
-              const _v=String((cc.kind||''))+"::"+String((cc.series_id||'')),_used=new Set(_pool.components.filter((x,j)=>j!==ci&&!["assumption_cost_base","balance_derived_cost"].includes((x||{}).kind)).map(x=>String((x||{}).kind||'')+"::"+String((x||{}).series_id||'')));let _opts=_cpopts.filter(o=>!_used.has(o.value));if(_v!=="::"&&!_opts.some(o=>o.value===_v))_opts.unshift({value:_v,label:"Missing / incompatible source: "+String(cc.series_id||'')});h += `<div class="crow" style="align-items:center"><select style="min-width:260px" onchange='feeCostPoolComponentSource(${JSON.stringify(_cpid)},${ci},this.value)'>${_opts.map(o=>`<option value="${esc(o.value)}"${o.value===_v?" selected":""}>${esc(o.label)}</option>`).join('')}</select><span class="cu">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
+              const _v=String((cc.kind||''))+"::"+String((cc.series_id||'')),_used=new Set(_pool.components.filter((x,j)=>j!==ci&&!["assumption_cost_base","balance_derived_cost"].includes((x||{}).kind)).map(x=>String((x||{}).kind||'')+"::"+String((x||{}).series_id||'')));let _opts=_cpopts.filter(o=>!_used.has(o.value));if(_v!=="::"&&!_opts.some(o=>o.value===_v))_opts.unshift({value:_v,label:"Missing / incompatible source: "+String(cc.series_id||'')});h += `<div class="crow opex-cost-pool-fields" style="align-items:center"><select class="opex-cost-pool-source" onchange='feeCostPoolComponentSource(${JSON.stringify(_cpid)},${ci},this.value)'>${_opts.map(o=>`<option value="${esc(o.value)}"${o.value===_v?" selected":""}>${esc(o.label)}</option>`).join('')}</select><span class="cu">Eligible / allocated</span><input type="number" min="0" max="100" step="0.1" style="width:72px" value="${_alloc.toFixed(2)}" onchange='feeCostPoolComponentAllocation(${JSON.stringify(_cpid)},${ci},this.value)'><span class="cu">%</span><a href="#" class="cx" onclick='feeCostPoolRemoveComponent(${JSON.stringify(_cpid)},${ci});return false'>×</a></div>`;
             }
           });
           h += `<div class="memo" style="margin-top:5px">Component allocation determines what enters the eligible cost pool. Linked components observe already-posted costs; entered and balance-derived components are non-posting pricing assumptions. Recovery below separately determines how much of the eligible pool is charged/reimbursed.</div>`;
@@ -3970,12 +3996,12 @@ function _opexCostPoolEditorHtml(i,ct,calc,j){
   const markupValueCall=typed?`nieCatCostPoolComponentMarkupValue(${i},${j},this.value)`:`nieCatCostPoolMarkupValue(${i},this.value)`;
   const markupPeriodCall=typed?`nieCatCostPoolComponentMarkupPeriod(${i},${j},this.value)`:`nieCatCostPoolMarkupPeriod(${i},this.value)`;
   const markupResolutionCall=typed?`nieCatCostPoolComponentMarkupResolution(${i},${j},this.value)`:`nieCatCostPoolMarkupResolution(${i},this.value)`;
-  h += `<div style="margin:7px 0;padding:8px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">${typed?"Cost-pool / cost-recovery component":"Legacy r67 cost-pool-only compatibility mode"}</div><div class="nie-section-note">${typed?"Additive component: build or select an eligible cost pool, then apply recovery and markup. The resulting charge is added to this category’s ordinary entered expense and other linked components; pool inputs remain non-posting.":"This saved r67 category keeps its original exclusive cost-pool economics. New r68 authoring uses an additive cost-pool component instead."}</div>`;
-  h += `<div class="crow" style="align-items:center;margin-top:7px"><span class="cu">Cost pool source</span><select style="min-width:240px" onchange="${selectCall}">${pools.length?pools.map(cp=>`<option value="${esc(cp.series_id||cp.name||'')}"${String(cp.series_id||cp.name||'')===ref?' selected':''}>${esc(cp.name||'Unnamed cost pool')}</option>`).join(''):'<option value="">No cost pools yet</option>'}</select><button class="btn-plain" onclick="${addCall};return false">+ New cost pool</button></div>`;
+  h += `<div class="opex-cost-pool-editor" style="margin:7px 0;padding:8px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">${typed?"Cost-pool / cost-recovery component":"Legacy r67 cost-pool-only compatibility mode"}</div><div class="nie-section-note">${typed?"Additive component: build or select an eligible cost pool, then apply recovery and markup. The resulting charge is added to this category’s ordinary entered expense and other linked components; pool inputs remain non-posting.":"This saved r67 category keeps its original exclusive cost-pool economics. New r68 authoring uses an additive cost-pool component instead."}</div>`;
+  h += `<div class="crow opex-cost-pool-fields" style="align-items:center;margin-top:7px"><span class="cu">Cost pool source</span><select class="opex-cost-pool-source" onchange="${selectCall}">${pools.length?pools.map(cp=>`<option value="${esc(cp.series_id||cp.name||'')}"${String(cp.series_id||cp.name||'')===ref?' selected':''}>${esc(cp.name||'Unnamed cost pool')}</option>`).join(''):'<option value="">No cost pools yet</option>'}</select><button class="btn-plain" onclick="${addCall};return false">+ New cost pool</button></div>`;
   if(pool){
     const cpid=String(pool.series_id||""),cpi=_feeCostPoolIndex(cpid),own=String((ct||{}).series_id||"");pool.components=pool.components||[];
     const allopts=_feeCostPoolSourceOptions(),cpopts=allopts.filter(o=>!(o.kind==='operating_expense_category'&&String(o.series_id)===own));
-    h += `<div class="wf-role-card" style="margin:8px 0"><div class="crow" style="align-items:center;margin:0 0 5px"><span class="cu">Shared cost pool</span><input style="width:250px" value="${esc(pool.name||'')}" onchange='feeCostPoolRename(${JSON.stringify(cpid)},this.value)'><button class="btn-plain" style="margin-left:auto" onclick="${addLinkedCall};return false">+ linked cost</button><button class="btn-plain" onclick='feeCostPoolAddEntered(${JSON.stringify(cpid)});return false'>+ entered cost base</button><button class="btn-plain" onclick='feeCostPoolAddBalance(${JSON.stringify(cpid)});return false'>+ balance-linked cost</button><button class="btn-plain" onclick='${deleteCall.replace("REF",JSON.stringify(cpid))};return false'>Delete pool</button></div>`;
+    h += `<div class="wf-role-card opex-cost-pool-card" style="margin:8px 0"><div class="crow opex-cost-pool-toolbar" style="align-items:center;margin:0 0 5px"><span class="cu">Shared cost pool</span><input value="${esc(pool.name||'')}" onchange='feeCostPoolRename(${JSON.stringify(cpid)},this.value)'><span class="opex-cost-pool-actions"><button class="btn-plain" onclick="${addLinkedCall};return false">+ linked cost</button><button class="btn-plain" onclick='feeCostPoolAddEntered(${JSON.stringify(cpid)});return false'>+ entered cost base</button><button class="btn-plain" onclick='feeCostPoolAddBalance(${JSON.stringify(cpid)});return false'>+ balance-linked cost</button><button class="btn-plain" onclick='${deleteCall.replace("REF",JSON.stringify(cpid))};return false'>Delete pool</button></span></div>`;
     if(!pool.components.length)h += `<div class="memo">No eligible-cost components yet. Add a linked modeled cost, an entered non-posting cost base, or a balance-linked cost.</div>`;
     pool.components.forEach((cc,ci)=>{
       const alloc=((cc.allocation_pct==null?1:+cc.allocation_pct)*100);
@@ -4036,9 +4062,16 @@ function _ensureWorkforce(){
 }
 window.nieCatAdd = function(){
   var nd = _ensureNieDetail();
-  nd.categories.push({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", flow_spec:{trajectory:"flat",value:0,period:_nativeFlowPeriod()}});
+  // New authoring belongs where the user is looking: prepend it instead of silently
+  // creating an off-screen card at the bottom. Preserve Advanced open-state by object
+  // position, shifting prior indexes by one.
+  const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={};
+  Object.keys(prevOpen).forEach(k=>{if(prevOpen[k])nextOpen[(+k||0)+1]=true;});
+  window._nieCatAdvancedOpen=nextOpen;
+  nd.categories.unshift({series_id:_seriesId("opex"),owner_module:"operating_expense",name:"", flow_spec:{trajectory:"flat",value:0,period:_nativeFlowPeriod()}});
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.opex=true;
   renderContent(); refresh();
+  if(typeof document!=="undefined")setTimeout(()=>{const el=document.querySelector('.opex-item-card[data-opex-index="0"] .opex-item-name');if(el){try{el.scrollIntoView({block:"nearest",behavior:"smooth"});}catch(_){ }try{el.focus();el.select();}catch(_){ }}},0);
 };
 window.nieCatPaste = function(txt, type, flowPeriod, growthPct, growthPeriod, growthMethod, growthAnchor, growthAnchorMonth){
   var nd = _ensureNieDetail();
@@ -5246,6 +5279,33 @@ async function exportBptCover(){
   }catch(e){ appStatus("err", "Business Plan Tables export failed: "+esc(String(e))); }
 }
 window.exportBptCover = exportBptCover;
+// r71: one presentation-only Close/Edit contract for model-authoring paste surfaces.
+// It never clears schedule data. Existing purpose-built Close controls remain authoritative;
+// this decorator only fills gaps, including dynamically-rendered Explicit editors.
+window._pasteSurfaceClosed=window._pasteSurfaceClosed||{};
+window._pasteSurfaceClose=function(id){window._pasteSurfaceClosed[String(id||'')]=true;_decoratePasteSurfaces();};
+window._pasteSurfaceOpen=function(id){delete window._pasteSurfaceClosed[String(id||'')];_decoratePasteSurfaces();setTimeout(()=>{const el=document.getElementById(id);if(el)try{el.focus();}catch(_){}},0);};
+function _decoratePasteSurfaces(root){
+  root=root||document;const boxes=Array.from(root.querySelectorAll('textarea[id][oninput]'));
+  boxes.forEach(ta=>{
+    const id=String(ta.id||'');if(!id||id==='feeGuideDesc'||ta.classList.contains('model-free-text'))return;
+    const scope=ta.parentElement||ta;const nativeClose=Array.from(scope.querySelectorAll('button,a')).some(el=>/^close$/i.test(String(el.textContent||'').trim()));
+    let ctl=scope.querySelector(`.paste-surface-toggle[data-for="${id}"]`),note=scope.querySelector(`.paste-surface-closed-note[data-for="${id}"]`);
+    if(nativeClose){if(ctl)ctl.remove();if(note)note.remove();ta.hidden=false;return;}
+    const closed=!!window._pasteSurfaceClosed[id];
+    ta.hidden=closed;
+    if(closed){
+      if(ctl)ctl.remove();
+      if(!note){note=document.createElement('div');note.className='paste-surface-closed-note';note.dataset.for=id;ta.insertAdjacentElement('afterend',note);}
+      note.innerHTML=`<span>Paste box closed · loaded schedule is unchanged.</span><button type="button" class="pillbtn" onclick="_pasteSurfaceOpen('${id.replace(/'/g,"\\'")}')">Edit</button>`;
+    }else{
+      if(note)note.remove();
+      if(!ctl){ctl=document.createElement('span');ctl.className='paste-surface-toggle';ctl.dataset.for=id;ta.insertAdjacentElement('afterend',ctl);}
+      ctl.innerHTML=`<button type="button" onclick="_pasteSurfaceClose('${id.replace(/'/g,"\\'")}')">Close</button>`;
+    }
+  });
+}
+window._decoratePasteSurfaces=_decoratePasteSurfaces;
 function renderContent(){
   // Preserve focus across the DOM rebuild: capture which field (by its data-focus
   // path) is focused and where the caret sits, so a re-render triggered by the
@@ -5263,7 +5323,7 @@ function renderContent(){
   };
   { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
     document.querySelector("main > aside").style.display = _wel ? "none" : "";
-    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(()=>{ restoreCardSelects(); _restoreFocus(); }, 0);
+    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(()=>{ restoreCardSelects(); _restoreFocus(); _decoratePasteSurfaces(); }, 0);
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
@@ -6976,25 +7036,19 @@ function renderTornado(d){
   const rows = (d.rows||[]).filter(r=>r.swing>0).slice(0,12);
   if(!rows.length){ out.innerHTML='<div class="memo">No lever moved this metric measurably.</div>'; return; }
   const base = d.baseline;
-  const maxSwing = Math.max(...rows.map(r=>r.swing));
-  const W=820, rowH=30, padL=250, padR=70, chartW=W-padL-padR, H=rows.length*rowH+40;
+  const maxSwing = Math.max(...rows.map(r=>r.swing)) || 1;
   const mlabel=(LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric;
-  let svg = `<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;font-family:inherit">`;
-  // baseline center line
-  const cx = padL + chartW/2;
-  svg += `<line x1="${cx}" y1="20" x2="${cx}" y2="${H-20}" stroke="#3A6BA8" stroke-width="1" stroke-dasharray="3 3"/>`;
-  svg += `<text x="${cx}" y="14" fill="#8FA3C0" font-size="10" text-anchor="middle">baseline ${base!=null?base.toFixed(2):""}</text>`;
-  rows.forEach((r,i)=>{
-    const y = 26 + i*rowH;
-    const lo = Math.min(r.m_lo??base, r.m_hi??base), hi = Math.max(r.m_lo??base, r.m_hi??base);
-    const half = chartW/2 / (maxSwing||1);
-    const xLo = cx + (lo-base)*half, xHi = cx + (hi-base)*half;
-    svg += `<rect x="${Math.min(xLo,xHi)}" y="${y}" width="${Math.abs(xHi-xLo)}" height="${rowH-10}" rx="3" fill="#3A6BA8" opacity="0.85"/>`;
-    svg += `<text x="${padL-10}" y="${y+rowH-15}" fill="#DCE3EF" font-size="11" text-anchor="end">${esc(_labelForPath(r.path))}</text>`;
-    svg += `<text x="${W-padR+8}" y="${y+rowH-15}" fill="#7FE8A8" font-size="10">\u00b1${r.swing.toFixed(3)}</text>`;
+  let chart='<div class="lab-tornado">';
+  chart += `<div class="lab-tornado-head"><div class="lab-tornado-label">Lever</div><div class="lab-tornado-track" style="background:transparent;overflow:visible"><span style="position:absolute;left:50%;transform:translateX(-50%);white-space:nowrap">baseline ${base!=null?base.toFixed(2):""}</span></div><div>Metric swing</div></div>`;
+  rows.forEach(r=>{
+    const lo=Math.min(r.m_lo??base,r.m_hi??base),hi=Math.max(r.m_lo??base,r.m_hi??base);
+    const dlo=(lo-base),dhi=(hi-base);
+    const left=Math.max(0,Math.min(100,50+(Math.min(dlo,dhi)/maxSwing)*50));
+    const right=Math.max(0,Math.min(100,50+(Math.max(dlo,dhi)/maxSwing)*50));
+    chart += `<div class="lab-tornado-row"><div class="lab-tornado-label" title="${esc(_labelForPath(r.path))}">${esc(_labelForPath(r.path))}</div><div class="lab-tornado-track"><div class="lab-tornado-bar" style="left:${left.toFixed(3)}%;width:${Math.max(.25,right-left).toFixed(3)}%"></div></div><div class="lab-tornado-swing">±${r.swing.toFixed(3)}</div></div>`;
   });
-  svg += `</svg>`;
-  out.innerHTML = '<div class="s" style="margin-bottom:8px">How far <b>'+esc(mlabel)+'</b> swings when each lever moves \u00b1'+(d.pct*100).toFixed(0)+'%. Longer bar = more sensitive.</div>'+svg;
+  chart += '</div>';
+  out.innerHTML = '<div class="s" style="margin-bottom:8px">How far <b>'+esc(mlabel)+'</b> swings when each lever moves ±'+(d.pct*100).toFixed(0)+'%. Longer bar = more sensitive.</div>'+chart;
 }
 
 // ---- TRADE-OFF (rotatable 3D surface + contour) ----
@@ -8104,7 +8158,7 @@ function structuresSectionsHtml(){
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
       const fs = _viewNieCatFlow(ct), traj=fs.trajectory||"flat", _fp=fs.period||_nativeFlowPeriod();
       const TR = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]],_legacyCostPool=(ct.calculation&&ct.calculation.kind==="cost_pool");
-      let row = `<div class="wf-role-card opex-item-card" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+      let row = `<div class="wf-role-card opex-item-card" data-opex-index="${i}" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="cfg.assumptions.nie_detail.categories.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
       if(_legacyCostPool){
         row += _opexCostPoolEditorHtml(i,ct,ct.calculation);
       } else {

@@ -176,6 +176,18 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
        and any("feeGuideDesc" in ln for ln in nonpaste)
        and any("feePricingMemo_" in ln and "model-free-text" in ln for ln in nonpaste), str(len(nonpaste)))
 
+    # r71 presentation hardening: every model-authoring paste surface gets a Close/Edit affordance
+    # unless that surface already owns a purpose-built Close action. Closing is DOM presentation
+    # state only: it must not clear or rewrite the loaded schedule.
+    ck("all dynamic model-authoring pasteboxes inherit presentation-only Close/Edit control",
+       "function _decoratePasteSurfaces(root)" in html
+       and "textarea[id][oninput]" in html
+       and "nativeClose" in html
+       and "Paste box closed · loaded schedule is unchanged." in html
+       and "window._pasteSurfaceClosed" in html
+       and "_decoratePasteSurfaces();" in html
+       and "feeGuideDesc" in html and "model-free-text" in html)
+
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

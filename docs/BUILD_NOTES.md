@@ -92,3 +92,10 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Recognition cycles are anchored to economic commencement. `first_period` must fall inside the first recurrence cycle, then repeats at the selected cadence.
 - Backward-compatible migration: an r59-style late first recognition beyond the initial recurrence interval, with no explicit `flow_spec.start_period`, infers commencement at that same first-recognition period. Thus Annual + first recognition M35 begins at M35 and repeats M47/M59... rather than recognizing earlier periods.
 - UI exposes `Expense begins M#/Q#` separately from Recognition timing.
+
+## r71 — Authoring UI hardening
+- Operating Expense `+ Add category` now prepends the new category to the visible stack instead of appending it off-screen. Existing Advanced-panel state is reindexed and the new name field is scrolled/focused so authoring starts where the user clicked.
+- Opex cost-pool authoring is bounded by responsive containers. Long cost-pool names, Series/source labels, action buttons, component fields, and AUC/cost previews wrap or scroll inside the Opex card rather than widening the Configuration canvas.
+- Model-authoring paste / Explicit textareas share a presentation-only Close/Edit controller when they do not already own a native Close action. Closing a paste surface never clears or rewrites its loaded schedule; narrative free-text fields remain outside this contract.
+- Bank Design Lab Sensitivity no longer places lever names in a fixed-width SVG left gutter. Lever names render in responsive wrapped HTML rows beside the centered-baseline tornado bars, preserving full engagement-specific labels at narrow widths.
+- This release is UI-only. No engine, Series-resolution, cadence, AUC, Fee Product, cost-pool, or accounting-posting economics change.
