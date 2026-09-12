@@ -34,20 +34,20 @@ def main():
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
     paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 19, str(len(paste_lines)))
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 20, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Fifteen scalar schedule families: eight Fee Product paths (transaction coefficient, Flat amount,
-    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base),
+    # Sixteen scalar schedule families: nine Fee Product paths (transaction coefficient, Flat amount,
+    # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base, Fee Product cost factor),
     # two Operating Expense cost-pool paths (entered cost base and cost-recovery markup), plus CAC
     # driver/attrition, Workforce Count/Compensation, and individual Operating Expense schedule.
     scalar_markers = [
         "feeCoeffPaste_", "feeFlatAmountPaste_", "feeAccountLevelPaste_", "feeStockPctPaste_",
         "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_",
         "nieCostBasePaste_", "nieCostPoolMarkupPaste_", "cacPaste_", "cacAttritionPaste_",
-        "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_",
+        "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_", "feeCostFactorPaste_",
     ]
-    ck("all fifteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all sixteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -81,7 +81,7 @@ def main():
     clear_markers = [
         "_feeClearCoeffSchedule", "_feeClearFlatAmountSchedule", "_feeClearAccountLevelSchedule",
         "_feeClearStockMultiplierSchedule", "_feeClearBalanceRateSchedule", "_feeClearAccountFeeSchedule",
-        "_feeClearCostRecoveryMarkupSchedule", "_feeClearCostPoolEnteredSchedule",
+        "_feeClearCostRecoveryMarkupSchedule", "_feeClearCostPoolEnteredSchedule", "_feeClearCostFactorSchedule",
         "nieCatCostPoolClearMarkupSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
         "nieCatScheduleClear",
     ]

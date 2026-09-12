@@ -484,6 +484,58 @@ def _fee_level_path_value(spec, q, ppy, ctx=None, default=0.0):
     return val
 
 
+def _fee_cost_factor_value(spec, q, ppy, ctx=None, default=0.0):
+    """Resolve a Fee Product cost factor without cadence periodization.
+
+    Cost factors multiply a quantity or an already-periodized gross fee amount.  Their
+    natural ``period`` describes the authored path cadence (Month / Quarter / Year); it
+    never means divide the factor by periods-per-year.  This is intentionally different
+    from recurring dollar flows.
+
+    Explicit ``step`` schedules apply each authored factor throughout its entire natural
+    period (e.g. a Year-2 factor applies to every monthly engine period in model year 2).
+    ``smooth`` treats authored values as natural-period endpoints and interpolates toward
+    the current endpoint.
+    """
+    spec = dict(spec or {})
+    traj = str(spec.get("trajectory") or "flat").strip().lower()
+    if traj not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError(f"unsupported fee cost factor trajectory: {traj!r}")
+    period = str(spec.get("period") or "year").strip().lower()
+    if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
+        raise ValueError(f"unsupported fee cost factor period: {period!r}")
+    resolution = str(spec.get("resolution") or "step").strip().lower()
+    if resolution not in {"step", "smooth"}:
+        raise ValueError(f"unsupported fee cost factor resolution: {resolution!r}")
+    val = float(spec.get("value") if spec.get("value") is not None else default or 0.0)
+    if traj == "growth":
+        gs = dict(spec.get("growth_spec") or {})
+        if not gs:
+            raise ValueError("fee cost factor growth trajectory requires growth_spec")
+        gs["period"] = period
+        gs["method"] = resolution
+        if period != "year" and gs.get("anchor") in {"model_year", "calendar_year", "fiscal_year", "hire_anniversary"}:
+            gs["anchor"] = "model_period"
+        elif period == "year" and not gs.get("anchor"):
+            gs["anchor"] = "model_year"
+        from .growth import growth_multiplier
+        val *= growth_multiplier(gs, current_period=int(q), start_period=1, ppy=int(ppy),
+                                 context=(ctx or {}).get("growth_context"), base_position="period1")
+    elif traj == "explicit_schedule":
+        schedule = spec.get("schedule") or {}
+        if not isinstance(schedule, dict) or not schedule:
+            raise ValueError("fee cost factor explicit_schedule requires at least one schedule value")
+        idx = _fee_natural_period_index(q, period, ppy)
+        if resolution == "step":
+            val = _fee_schedule_value(schedule, idx, val)
+        else:
+            # Smooth uses natural-period endpoint semantics, matching other level paths.
+            val = _fee_level_schedule_value({
+                "period": period, "resolution": "smooth", "schedule": schedule
+            }, q, ppy, val)
+    return val
+
+
 def _fee_flat_amount_value(spec, q, ppy, ctx=None):
     """Resolve a recurring Flat-basis amount into one engine-period dollar amount.
 
@@ -611,9 +663,43 @@ def _validate_fee_stream_shape(stream):
         validate_cost_recovery_terms(rt.get("params") or {})
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
-    if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
+    _cp = cost.get("params") or {}
+    _factor_path = _cp.get("factor_path")
+    if _factor_path is not None and ck == "none":
+        raise ValueError("fee cost factor_path requires an active fee cost kind")
+    if _factor_path is not None:
+        fp = dict(_factor_path or {})
+        traj = str(fp.get("trajectory") or "flat").strip().lower()
+        period = str(fp.get("period") or "year").strip().lower()
+        resolution = str(fp.get("resolution") or "step").strip().lower()
+        if traj not in {"flat", "growth", "explicit_schedule"}:
+            raise ValueError(f"unsupported fee cost factor trajectory: {traj!r}")
+        if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
+            raise ValueError(f"unsupported fee cost factor period: {period!r}")
+        if resolution not in {"step", "smooth"}:
+            raise ValueError(f"unsupported fee cost factor resolution: {resolution!r}")
         try:
-            _pct = float((cost.get("params") or {}).get("pct") or 0.0)
+            fval = float(fp.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("fee cost factor value must be numeric")
+        if ck in {"pct_of_revenue", "pct_of_revenue_opex"} and not 0.0 <= fval <= 1.0:
+            raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
+        if traj == "growth" and not fp.get("growth_spec"):
+            raise ValueError("fee cost factor growth trajectory requires growth_spec")
+        if traj == "explicit_schedule":
+            schedule = fp.get("schedule")
+            if not isinstance(schedule, dict) or not schedule:
+                raise ValueError("fee cost factor explicit_schedule requires at least one schedule value")
+            if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
+                try:
+                    vals = [float(v) for v in schedule.values()]
+                except (TypeError, ValueError):
+                    raise ValueError("fee percentage cost factor schedule values must be numeric")
+                if any(v < 0.0 or v > 1.0 for v in vals):
+                    raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
+    if ck in {"pct_of_revenue", "pct_of_revenue_opex"} and _factor_path is None:
+        try:
+            _pct = float(_cp.get("pct") or 0.0)
         except (TypeError, ValueError):
             raise ValueError(f"fee cost kind {ck!r} requires numeric pct")
         if _pct < 0.0 or _pct > 1.0:
@@ -949,12 +1035,19 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     ck = cost.get("kind") or "none"
     cp = cost.get("params") or {}
     opcost = 0.0
+    factor_path = cp.get("factor_path")
     if ck == "per_unit" and basis == "transaction":
-        opcost = qty * float(cp.get("cost_per_unit") or 0.0)   # -> fee-product NIE (gross)
+        unit_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("cost_per_unit") or 0.0)
+                     if factor_path is not None else float(cp.get("cost_per_unit") or 0.0))
+        opcost = qty * unit_cost   # -> fee-product NIE (gross)
     elif ck == "pct_of_revenue":
-        gross -= gross * float(cp.get("pct") or 0.0)           # -> nets (contra-revenue)
+        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("pct") or 0.0)
+               if factor_path is not None else float(cp.get("pct") or 0.0))
+        gross -= gross * pct           # -> nets (contra-revenue)
     elif ck == "pct_of_revenue_opex":
-        opcost = gross * float(cp.get("pct") or 0.0)           # -> fee-product NIE; gross income preserved
+        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("pct") or 0.0)
+               if factor_path is not None else float(cp.get("pct") or 0.0))
+        opcost = gross * pct           # -> fee-product NIE; gross income preserved
 
     return gross, opcost
 

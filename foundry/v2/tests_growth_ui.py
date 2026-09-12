@@ -147,11 +147,12 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)
-    ck("fee cost UI separates revenue share from operating-cost % and uses percent-entry semantics",
+    ck("fee cost UI separates revenue share from operating cost and exposes trajectory/period/resolution",
        '["pct_of_revenue","Revenue share (% of revenue)"]' in html
        and '["pct_of_revenue_opex","Operating cost (% of revenue)"]' in html
-       and 'Operating cost (% of gross fee revenue)' in html
-       and '.cost.params.pct=_pf(this.value)/100' in html
+       and 'Cost factor path' in html and '>Period</label>' in html and '>Resolution</label>' in html
+       and '_feeCostFactorValue' in html and '_feeSetCostFactorSchedule' in html
+       and 'the factor itself is not divided by model cadence' in html
        and 'Noninterest Expense: Fee Product Costs' in html)
     ck("Income Statement surfaces Fee Product Costs inside the explicit NIE breakout",
        "rowIS('Fee product operating costs', fin.is.feeOpex" in html

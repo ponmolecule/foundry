@@ -8,7 +8,7 @@ Run: python3 -m foundry.v2.tests_fee_suite
 import sys, json, copy
 sys.path.insert(0, ".")
 from foundry.v2 import run_q, cac_feeder
-from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series
+from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series, fee_stream_q
 from foundry.v2.engine_q_a import run_pf_a
 
 _P = _F = 0
@@ -276,6 +276,29 @@ def main():
     ck("D2d operating % cost changes pretax by gross revenue less operating cost", abs(pt[0]-70.0) < 0.5, f"got {pt[0]:.1f}, expect 70.0")
     net_oc = is_delta("feeOpex", net)
     ck("D2e revenue-share mode remains contra-revenue with no Fee Product Costs NIE", abs(net_oc[0]) < 1e-9, f"got {net_oc[0]:.4f}")
+
+    # D2f-r82: cost-factor paths are levels, not flows. A Year/Step factor applies unchanged
+    # to every monthly cost base in that model year and is never divided by 12.
+    sched_op = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
+        "rate":{"params":{"per_unit":1.0}},
+        "cost":{"kind":"pct_of_revenue_opex","params":{"factor_path":{"value":0.20,"trajectory":"explicit_schedule",
+            "period":"year","resolution":"step","schedule":{"1":0.20,"2":0.30}}}},"timing":{"start_period":1}}
+    i1,c1 = fee_stream_q(sched_op,1,{},12); i12,c12 = fee_stream_q(sched_op,12,{},12); i13,c13 = fee_stream_q(sched_op,13,{},12)
+    ck("D2f annual Step cost factor applies flat to every month and is not /12",
+       abs(c1-20.0)<1e-9 and abs(c12-20.0)<1e-9 and abs(c13-30.0)<1e-9,
+       f"M1={c1:.4f}, M12={c12:.4f}, M13={c13:.4f}")
+
+    sched_unit = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
+        "rate":{"params":{"per_unit":1.0}},
+        "cost":{"kind":"per_unit","params":{"factor_path":{"value":0.06,"trajectory":"explicit_schedule",
+            "period":"year","resolution":"step","schedule":{"1":0.06,"2":0.09}}}},"timing":{"start_period":1}}
+    _,u1 = fee_stream_q(sched_unit,1,{},12); _,u13 = fee_stream_q(sched_unit,13,{},12)
+    ck("D2g per-unit cost supports the same generic factor trajectory", abs(u1-6.0)<1e-9 and abs(u13-9.0)<1e-9,
+       f"M1={u1:.4f}, M13={u13:.4f}")
+
+    legacy_i, legacy_c = fee_stream_q({"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
+        "rate":{"params":{"per_unit":1.0}},"cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.30}},"timing":{"start_period":1}},1,{},12)
+    ck("D2h legacy scalar cost factor remains exact", abs(legacy_i-100.0)<1e-9 and abs(legacy_c-30.0)<1e-9)
 
     # D3 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]
