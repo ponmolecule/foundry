@@ -277,28 +277,40 @@ def main():
     net_oc = is_delta("feeOpex", net)
     ck("D2e revenue-share mode remains contra-revenue with no Fee Product Costs NIE", abs(net_oc[0]) < 1e-9, f"got {net_oc[0]:.4f}")
 
-    # D2f-r82: cost-factor paths are levels, not flows. A Year/Step factor applies unchanged
-    # to every monthly cost base in that model year and is never divided by 12.
+    # D2f-r83: the original scalar cost and the new multiplier are separate layers.
+    # A Year/Step multiplier applies unchanged to each monthly cost base and is never /12.
     sched_op = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
         "rate":{"params":{"per_unit":1.0}},
-        "cost":{"kind":"pct_of_revenue_opex","params":{"factor_path":{"value":0.20,"trajectory":"explicit_schedule",
-            "period":"year","resolution":"step","schedule":{"1":0.20,"2":0.30}}}},"timing":{"start_period":1}}
+        "cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.30,
+            "multiplier_path":{"value":1.20,"trajectory":"explicit_schedule",
+                "period":"year","resolution":"step","schedule":{"1":1.20,"2":1.50}}}},"timing":{"start_period":1}}
     i1,c1 = fee_stream_q(sched_op,1,{},12); i12,c12 = fee_stream_q(sched_op,12,{},12); i13,c13 = fee_stream_q(sched_op,13,{},12)
-    ck("D2f annual Step cost factor applies flat to every month and is not /12",
-       abs(c1-20.0)<1e-9 and abs(c12-20.0)<1e-9 and abs(c13-30.0)<1e-9,
+    ck("D2f base 30% cost times annual Step multiplier remains two-layer and is not /12",
+       abs(c1-36.0)<1e-9 and abs(c12-36.0)<1e-9 and abs(c13-45.0)<1e-9,
        f"M1={c1:.4f}, M12={c12:.4f}, M13={c13:.4f}")
 
     sched_unit = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
         "rate":{"params":{"per_unit":1.0}},
-        "cost":{"kind":"per_unit","params":{"factor_path":{"value":0.06,"trajectory":"explicit_schedule",
-            "period":"year","resolution":"step","schedule":{"1":0.06,"2":0.09}}}},"timing":{"start_period":1}}
+        "cost":{"kind":"per_unit","params":{"cost_per_unit":2.0,
+            "multiplier_path":{"value":3.0,"trajectory":"explicit_schedule",
+                "period":"year","resolution":"step","schedule":{"1":3.0,"2":4.5}}}},"timing":{"start_period":1}}
     _,u1 = fee_stream_q(sched_unit,1,{},12); _,u13 = fee_stream_q(sched_unit,13,{},12)
-    ck("D2g per-unit cost supports the same generic factor trajectory", abs(u1-6.0)<1e-9 and abs(u13-9.0)<1e-9,
-       f"M1={u1:.4f}, M13={u13:.4f}")
+    ck("D2g per-unit base cost supports the same separate multiplier trajectory",
+       abs(u1-600.0)<1e-9 and abs(u13-900.0)<1e-9, f"M1={u1:.4f}, M13={u13:.4f}")
 
     legacy_i, legacy_c = fee_stream_q({"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
         "rate":{"params":{"per_unit":1.0}},"cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.30}},"timing":{"start_period":1}},1,{},12)
-    ck("D2h legacy scalar cost factor remains exact", abs(legacy_i-100.0)<1e-9 and abs(legacy_c-30.0)<1e-9)
+    ck("D2h legacy scalar cost remains exact with implicit multiplier 1.0",
+       abs(legacy_i-100.0)<1e-9 and abs(legacy_c-30.0)<1e-9)
+
+    # Read compatibility for the short-lived replacement-path representation shipped in r82.
+    r82_saved = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
+        "rate":{"params":{"per_unit":1.0}},
+        "cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.30,
+            "factor_path":{"value":0.20,"trajectory":"explicit_schedule","period":"year","resolution":"step",
+                "schedule":{"1":0.20,"2":0.30}}}},"timing":{"start_period":1}}
+    _,r82c1 = fee_stream_q(r82_saved,1,{},12); _,r82c13 = fee_stream_q(r82_saved,13,{},12)
+    ck("D2i saved replacement factor_path remains read-compatible", abs(r82c1-20.0)<1e-9 and abs(r82c13-30.0)<1e-9)
 
     # D3 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]
