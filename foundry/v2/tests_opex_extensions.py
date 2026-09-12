@@ -8,6 +8,7 @@ from foundry.v2.engine_q_a import run_pf_a
 from foundry.v2.engine_q_b import run_pf_b
 from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
 from foundry.v2.run_q import run_v2
+from foundry.v2.audit_workbook import calculation_audit_workbook
 
 P=F=0
 def ck(name, ok, detail=''):
@@ -562,6 +563,18 @@ def main():
     ck('full engine posts the tiered component once on its configured event using prior-period assets',
        abs(tier_run['is']['otherOpex'][8]-tier_expected)<1e-6
        and all(abs(tier_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
+
+    tier_audit=calculation_audit_workbook(tier_cfg, run_v2(tier_cfg))
+    ows=tier_audit['Operating Expense']
+    tier_audit_row=None
+    for r in range(1,ows.max_row+1):
+        if ows.cell(r,3).value=='tiered-assets':
+            tier_audit_row=r; break
+    audit_vals=[] if tier_audit_row is None else [ows.cell(tier_audit_row,c).value for c in range(5,17)]
+    ck('calculation audit workbook exposes the tiered Opex component at native cadence for source-model reconciliation',
+       tier_audit_row is not None
+       and all(abs(float(audit_vals[k] or 0.0))<1e-9 for k in range(8))
+       and abs(float(audit_vals[8] or 0.0)-(tier_expected/1000.0))<1e-6)
 
     dormant_rec=copy.deepcopy(tier_cfg)
     dormant_rec['assumptions']['nie_detail']['categories'][0]['recognition']={'mode':'annual','first_period':2}

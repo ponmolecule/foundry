@@ -288,6 +288,16 @@ def main():
     ck("D2f base 30% cost times annual Step multiplier remains two-layer and is not /12",
        abs(c1-36.0)<1e-9 and abs(c12-36.0)<1e-9 and abs(c13-45.0)<1e-9,
        f"M1={c1:.4f}, M12={c12:.4f}, M13={c13:.4f}")
+    from foundry.v2.audit_workbook import _fee_cost_rows
+    audit_cfg={"assumptions":{"periods_per_year":12,"n_periods":24,"obs_exposures":[{
+        "name":"Audit fee product","fee_streams":[{**copy.deepcopy(sched_op),"name":"Audit stream"}]}]}}
+    audit_cost_rows=_fee_cost_rows(audit_cfg,{"products":[]},24,12)
+    audit_mult=next((r for r in audit_cost_rows if r[1]=="Cost multiplier"),None)
+    audit_eff=next((r for r in audit_cost_rows if r[1]=="Effective cost factor"),None)
+    ck("D2fa calculation audit exposes base-times-multiplier cost path separately",
+       audit_mult is not None and audit_eff is not None
+       and abs(audit_mult[4][0]-1.20)<1e-9 and abs(audit_mult[4][12]-1.50)<1e-9
+       and abs(audit_eff[4][0]-0.36)<1e-9 and abs(audit_eff[4][12]-0.45)<1e-9)
 
     sched_unit = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
         "rate":{"params":{"per_unit":1.0}},

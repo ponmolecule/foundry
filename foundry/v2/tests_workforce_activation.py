@@ -161,6 +161,12 @@ def main():
        len(isf.get("workforceComp") or [])>=4 and isf["workforceComp"][:2]==[0.0,0.0]
        and abs(isf["workforceComp"][2]-10.0)<1e-9
        and all(abs((isf["workforceComp"][i]+isf["otherOpex"][i]+isf["depreciationExpense"][i])-isf["overhead"][i])<1e-9 for i in range(4)))
+    from .audit_workbook import calculation_audit_workbook
+    awb=calculation_audit_workbook(cfg,rr)
+    wrows=list(awb["Workforce"].iter_rows(values_only=True))
+    payroll=[r for r in wrows if len(r)>1 and r[0]=="Custody ops" and str(r[1]).startswith("Payroll expense")]
+    ck("calculation audit workbook exposes role-level workforce payroll at native cadence",
+       bool(payroll) and abs((payroll[0][6] or 0)-10.0)<1e-9, str(payroll[:1]))
 
     # The canonical architecture does not require any Fee Product at all.  Workforce can
     # observe the Customer Acquisition AUC Series directly by stable Series ID.
@@ -184,6 +190,13 @@ def main():
     dhires=(dr.get("workforce") or {}).get("resolved_hire_periods") or []
     ck("workforce AUC trigger consumes CAC feed directly with zero fee products",
        dhires==[6] and not [p for p in (dr.get("products") or []) if p.get("_fee_product")], str(dhires))
+    dawb=calculation_audit_workbook(direct,dr)
+    arows=list(dawb["CAC - AUC"].iter_rows(values_only=True))
+    eop=[r for r in arows if len(r)>2 and r[0]=="growth" and r[1]=="AUC period end"]
+    avg=[r for r in arows if len(r)>2 and r[0]=="growth" and r[1]=="AUC period average"]
+    ck("calculation audit workbook exposes CAC AUC EOP and average paths separately",
+       bool(eop) and bool(avg) and len(eop[0])==len(avg[0]) and eop[0][4]!=avg[0][4],
+       f"eop={eop[:1]} avg={avg[:1]}")
 
     legacy_split=copy.deepcopy(direct)
     la=legacy_split["assumptions"]

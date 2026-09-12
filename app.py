@@ -1442,6 +1442,26 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
                              headers={"Content-Disposition": f'attachment; filename="{_slug}_proforma_exhibit.xlsx"'})
 
 
+@app.post("/api/v2/calculation-audit")
+def v2_calculation_audit(cfg: dict, _=Depends(gate)):
+    """Granular multi-sheet calculation workbook for source-model reconciliation."""
+    import io as _io
+    from fastapi.responses import StreamingResponse
+    from foundry.v2.audit_workbook import calculation_audit_workbook
+    from foundry.v2.run_q import run_v2
+    from foundry.v2.validate_q import validate_errors_v2
+    errs = validate_errors_v2(cfg)
+    if errs:
+        return JSONResponse({"valid": False, "errors": errs}, status_code=422)
+    results = run_v2(cfg)
+    buf = _io.BytesIO()
+    calculation_audit_workbook(cfg, results).save(buf)
+    buf.seek(0)
+    _slug = _engagement_slug(cfg)
+    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                             headers={"Content-Disposition": f'attachment; filename="{_slug}_calculation_audit.xlsx"'})
+
+
 def _engagement_slug(cfg: dict) -> str:
     """Filesystem-safe engagement name for prefixing downloads (e.g. 'calamity_national_bank').
     Falls back to 'engagement' when unnamed. Mirrors the slugging already used for FIW downloads."""

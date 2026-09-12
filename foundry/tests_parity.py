@@ -183,6 +183,20 @@ def main():
         if not (ok and not xls_fail):
             print("  XLS FAIL: results workbook does not tie to engine output"); sys.exit(1)
         print("T-PAR: results workbook — every balance-sheet cell ties to engine output (MSR fixture)")
+        from foundry.v2.audit_workbook import calculation_audit_workbook
+        from foundry.v2.run_q import run_v2 as _run_v2_audit
+        audit_res = _run_v2_audit(cfg)
+        abuf = _io.BytesIO(); calculation_audit_workbook(cfg, audit_res).save(abuf)
+        awb = _lw(_io.BytesIO(abuf.getvalue()), data_only=True)
+        required_audit = {"Index", "Income Statement", "Balance Sheet", "Operating Expense",
+                          "Workforce", "CAC - AUC", "Product Calculations", "Fee Product Costs",
+                          "Fee Stream Quantities", "Cost Pools", "All Series"}
+        if not required_audit.issubset(set(awb.sheetnames)):
+            print(f"  AUDIT XLS FAIL: missing sheets {sorted(required_audit-set(awb.sheetnames))}"); sys.exit(1)
+        all_paths = {r[2] for r in awb["All Series"].iter_rows(values_only=True) if len(r) > 2 and r[2]}
+        if "financials.is.otherOpex" not in all_paths or "financials.bs.totalAssets" not in all_paths:
+            print("  AUDIT XLS FAIL: catch-all series sheet omitted core financial series"); sys.exit(1)
+        print("T-PAR: calculation audit workbook — multi-sheet export includes core statements, granular audit tabs, and catch-all public Series")
     except ImportError:
         pass
 
@@ -324,7 +338,8 @@ def main():
                          "Global Assumptions", "Interest Rate Curves",
                          "Stress Scenario Settings", "stress_params",
                          "+ Add Product", "Add a product", "Call Report line",
-                         "Floating (index + spread)", "scenarioName", "Export to Excel",
+                         "Floating (index + spread)", "scenarioName", "Export ▾",
+                         "Calculation Audit Workbook (.xlsx)", "/api/v2/calculation-audit",
                          "obs_exposures", "Longer run"]
         # efficiency ratio must exist in the server label set (exhibit path)
         need_labels.append("Efficiency ratio")
