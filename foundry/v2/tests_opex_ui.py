@@ -8,37 +8,40 @@ html=Path('web/console_v2.html').read_text()
 checks=[
  ('Opex advanced control is progressive disclosure', 'Hide advanced' in html and '>Advanced' in html),
  ('Opex UI exposes additive expense components', 'Additive expense components' in html and '+ Add linked component' in html and '+ New cost-pool / cost-recovery component' in html),
- ('Opex Advanced exposes generalized tiered / banded linked components', '+ Tiered / banded component' in html and 'Tiered / banded linked component' in html and 'Band schedule' in html),
+ ('Opex Advanced exposes generalized tiered / banded components', '+ Tiered / banded component' in html and '>Tiered / banded component</span>' in html and 'Band schedule' in html),
  ('tiered Opex exposes composite upstream balance terms rather than regulator-specific drivers', all(x in html for x in ['Total Assets · bank balance sheet','AUC / managed notional · ','Balance quantity · ','Weight / multiplier']) and 'OCC' not in html[html.find('function _opexPiecewiseTermOptions'):html.find('function _opexPiecewiseEditorHtml')]),
  ('tiered Opex makes event timing and observation lag explicit', 'Event cadence' in html and 'Observation lag' in html and 'First event' in html and 'piecewise_linked' in html),
- ('tiered Opex band table preserves literal lower/upper/base/rate authoring', all(x in html for x in ['Lower bound ($000s)','Upper bound ($000s)','Base amount ($000s)','Marginal rate (decimal)','final band is open-ended'])),
- ('tiered Opex UX separates timing, composite driver, and band schedule into delineated sections', 'opex-piecewise-section' in html and 'Choose when the component evaluates and which prior observation it reads.' in html and 'Build the balance evaluated by the band schedule.' in html and 'Amounts are in $000s.' in html),
+ ('tiered Opex band table preserves literal lower/upper/band-base/rate authoring', all(x in html for x in ['Lower bound ($000s)','Upper bound ($000s)','Band base fee ($000s)','Marginal rate (decimal)','final band is open-ended'])),
+ ('tiered Opex UX separates timing, composite driver, and band schedule into delineated sections', 'opex-piecewise-section' in html and 'Set the event cadence and observation lag.' in html and 'Build the balance used by the band schedule.' in html and 'Amounts are in $000s.' in html),
  ('tiered Opex timing controls share a purpose-built aligned grid', 'class="opex-piecewise-timing-grid"' in html and 'First event model period' in html and re.search(r'\.opex-piecewise-timing-grid\{[^}]*grid-template-columns:minmax\(190px,1\.2fr\) minmax\(140px,\.8fr\) minmax\(165px,\.9fr\)[^}]*align-items:end',html) is not None),
  ('tiered Opex band inputs use compact one-row columns with same-row remove action', 'class="opex-piecewise-band-row"' in html and 'class="btn-plain opex-piecewise-remove" onclick="nieCatPiecewiseRemoveBand' in html and re.search(r'\.opex-piecewise-band-head,\.opex-piecewise-band-row\{[^}]*grid-template-columns:minmax\(0,112px\) minmax\(0,112px\) minmax\(0,112px\) minmax\(0,128px\) auto',html) is not None),
+ ('tiered Opex terminology distinguishes the band fee from the recurring expense', 'Band base fee' in html and 'aria-label="Band base fee ($000s)"' in html),
+ ('Advanced Opex authoring removes release-number archaeology from user-facing helper copy', all(x not in html for x in ['Existing r64/r65 links with no saved measure remain Period end','Legacy r67 cost-pool-only compatibility mode','This saved r67 category','New r68 authoring'])),
+ ('recurring recognition and settlement are hidden when no entered recurring amount consumes them', 'function _opexHasEnteredRecurringExpense' in html and 'if(_hasEnteredRecurring){' in html and 'Recurring expense recognition' in html and 'Recurring expense cash settlement' in html),
  ('balance Fee streams receive stable quantity Series IDs for downstream tiered Opex', '["transaction","balance"].includes(st.basis)' in html and 'fee_stream_balance_quantity::' in html),
  ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
  ('Opex can link to transaction-stream throughput by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Throughput / notional' in html and 'quantity_series_id' in html),
  ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly AUC' in html),
- ('AUC-linked Opex exposes explicit balance measure plus natural rate period', 'nieCatLinkedMeasure' in html and all(x in html for x in ['Period average','Period end','Month','Quarter','Year']) and 'Existing r64/r65 links with no saved measure remain Period end' in html),
+ ('AUC-linked Opex exposes explicit balance measure plus natural rate period', 'nieCatLinkedMeasure' in html and all(x in html for x in ['Period average','Period end','Month','Quarter','Year']) and "_bm=(lc&&lc.measure)||'period_end'" in html),
  ('AUC-linked Opex preview exposes the resolved consumer measure rather than raw EOP for both selector states', 'Latest run · ${bmLabel}' in html and '$000s balance · resolved consumer measure' in html and "bm===\"period_average\"?(((k?monthly[k-1]:begin)+v)/2):v" in html),
  ('linked fee throughput is inspection-only and shows latest resolved pull', 'upstream fee-stream throughput; edit the source in Fee Product' in html and 'Latest run · resolved pull' in html),
  ('linked Opex multiplier preserves sub-basis-point precision in the editor', 'nieCatLinkedRate' in html and 'step="any"' in html and '_numInput(_rv,12)' in html and '_rv.toFixed(2)' not in html),
- ('Opex UI exposes ordinal recognition timing', 'Recognition timing' in html and 'Same as trajectory' in html and 'first recognition' in html and 'then every' in html and 'Semiannual' in html and 'Annual' in html),
- ('recognition copy makes first occurrence literal and ordinal', 'literal first model-period occurrence' in html and 'Nothing hits Noninterest Expense before that period' in html and 'never Jan–Dec' in html),
+ ('Opex UI scopes ordinal recognition to the entered recurring expense', 'Recurring expense recognition' in html and 'Same as trajectory' in html and 'first recognition' in html and 'then every' in html and 'if(_hasEnteredRecurring)' in html),
+ ('recognition copy is concise and explicit about ownership', 'Applies only to the recurring expense entered above.' in html and 'Recurring expense recognition' in html),
  ('Opex UI removes the short-lived separate commencement axis', 'Expense begins' not in html and 'nieCatFlowStart' not in html and '_migrateOpexR60Start' in html),
  ('Monthly recognition also exposes a first model period', "if(_rm!=='trajectory')" in html and 'then every ${iv}' in html),
- ('Opex UI exposes ordinal cash settlement', 'Cash settlement' in html and 'Same as recognition' in html and 'first payment' in html and 'Semiannual' in html and 'Annual' in html),
- ('settlement copy explains prepaid/accrued accounting consequence', 'prepaid assets or accrued operating-expense liabilities' in html),
+ ('Opex UI keeps recurring-expense cash settlement distinct from recognition', 'Recurring expense cash settlement' in html and 'Same as recognition' in html and 'first payment' in html and 'Semiannual' in html and 'Annual' in html),
+ ('settlement copy explains prepaid/accrued accounting consequence concisely', 'timing differences create prepaid or accrued Opex' in html),
  ('legacy simplified OCC is explicit opt-in and hides timing when off', 'Legacy / simplified OCC assessment' in html and 'nieOccSimplifiedToggle' in html and 'Off — no simplified OCC expense posts.' in html and 'first cash payment' in html),
  ('Opex item header gives the expense name a medium-width authoring field', 'class=\"opex-item-head\"' in html and re.search(r'\.opex-item-head\{[^}]*grid-template-columns:24px minmax\(220px,420px\) 24px',html) is not None and 'placeholder=\"Expense item name\"' in html),
  ('Opex categories expose mouse drag-reorder with insertion markers', 'class=\"opex-drag-handle\"' in html and 'nieCatDragStart(event,${i})' in html and 'nieCatDrop(event,${i})' in html and '.opex-item-card.drop-before:before' in html),
  ('new Opex authoring does not expose r67 exclusive calculation-mode selector', 'Calculation</span><select' not in html and 'nieCatAddCostPoolCharge' in html),
- ('Opex cost-pool charge is an additive typed component', 'driver:"cost_pool_charge"' in html and 'The entered recurring amount above remains active' in html and 'Cost-pool / cost-recovery component' in html),
+ ('Opex cost-pool charge is an additive typed component', 'driver:"cost_pool_charge"' in html and 'Add modeled expense components to the recurring expense entered above.' in html and 'Cost-pool / cost-recovery component' in html),
  ('Opex cost-pool editor authors all three generic pool component types', 'nieCatCostPoolComponentAddLinked' in html and '+ entered cost base' in html and '+ balance-linked cost' in html and 'Balance-linked cost · non-posting' in html),
  ('Opex cost-pool balance driver is visibly typed as pre-multiplier AUC, not client count or cost output', '_feeCostPoolBalancePreviewHtml(bsid,bm)' in html and 'Selected balance Series' in html and '$000s balance · before multiplier' in html and 'Client-count Series are not valid balance sources' in html),
  ('typed Opex cost-pool consumer exposes recovery and markup terms', 'nieCatCostPoolComponentRecovery' in html and 'Recovery (% of eligible cost pool)' in html and 'nieCatCostPoolComponentMarkupTrajectory' in html and 'Markup path' in html and 'Operating Expense = eligible cost pool × recovery % × (1 + markup %)' in html),
  ('shared pool deletion protects both revenue and additive Opex consumers', 'function _costPoolUsage(ref)' in html and 'driver==="cost_pool_charge"' in html and 'shared cost pool has' in html),
- ('legacy r67 exclusive cost-pool config remains renderable but is not newly authored', 'Legacy r67 cost-pool-only compatibility mode' in html and 'nieCatCalculationKind' in html),
+ ('legacy exclusive cost-pool config remains renderable without release-number UI archaeology', 'Legacy cost-pool-only mode' in html and 'nieCatCalculationKind' in html and 'Legacy r67 cost-pool-only compatibility mode' not in html),
  ('new Opex categories are prepended and focused instead of appearing off-screen at the bottom', 'nd.categories.unshift' in html and 'data-opex-index="${i}"' in html and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html),
  ('prepending an Opex category reindexes existing Advanced open state', 'const prevOpen=window._nieCatAdvancedOpen||{},nextOpen={}' in html and 'nextOpen[(+k||0)+1]=true' in html),
  ('Opex cost-pool authoring is hard-contained inside the Operating Expense card', 'class="opex-cost-pool-editor"' in html and 'opex-cost-pool-attached-row' in html and 'opex-cost-pool-head' in html and 'opex-cost-pool-add-actions' in html and 'opex-cost-pool-grid' in html and '#card-nie{overflow-x:hidden}' in html and 'contain:inline-size' in html and '.opex-cost-pool-editor .cac-link-preview{margin-left:0 !important' in html),
@@ -52,6 +55,35 @@ p=f=0
 for name,ok in checks:
     if ok: p+=1; print('  PASS ',name)
     else: f+=1; print('  FAIL ',name)
+
+
+# Execute the actual visibility predicate. Zero/empty entered trajectories must hide base-owned
+# timing controls, while any nonzero flat/growth/explicit/legacy entered path must expose them.
+flow_m=re.search(r"function _viewNieCatFlow\(ct\)\{.*?\n\}\n(?=function _opexHasEnteredRecurringExpense)", html, re.S)
+active_m=re.search(r"function _opexHasEnteredRecurringExpense\(ct\)\{.*?\n\}", html, re.S)
+if flow_m and active_m:
+    js=r"""
+window=globalThis; function PPY(){return 12;} function _nativeFlowPeriod(){return 'month';}
+function _qGrowthToPeriod(x){return x;} function _legacyGrowthSpec(){return {};}
+"""+flow_m.group(0)+"\n"+active_m.group(0)+r"""
+const cases=[
+  _opexHasEnteredRecurringExpense({flow_spec:{trajectory:'flat',value:0,period:'month'}}),
+  _opexHasEnteredRecurringExpense({flow_spec:{trajectory:'flat',value:1000,period:'month'}}),
+  _opexHasEnteredRecurringExpense({flow_spec:{trajectory:'growth',value:0,period:'year'}}),
+  _opexHasEnteredRecurringExpense({flow_spec:{trajectory:'explicit',values:[0,0,0],period:'month'}}),
+  _opexHasEnteredRecurringExpense({flow_spec:{trajectory:'explicit',values:[0,2500,0],period:'month'}}),
+  _opexHasEnteredRecurringExpense({trajectory:'flat',per_quarter:2500})
+];
+console.log(JSON.stringify(cases));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try: ok=(json.loads(pr.stdout.strip().splitlines()[-1])==[False,True,False,False,True,True])
+        except Exception: pass
+else: ok=False
+if ok: p+=1; print('  PASS ', 'recurring-expense timing visibility follows actual entered economics, not component presence')
+else: f+=1; print('  FAIL ', 'recurring-expense timing visibility follows actual entered economics, not component presence')
 # Execute the actual reorder handler in isolation: moving item A after C must preserve
 # the category objects (and therefore their stable Series IDs) and the advanced-open state.
 clear_m=re.search(r"function _nieCatClearDropMarkers\(\)\{.*?\}\n", html, re.S)

@@ -63,7 +63,7 @@ fixed/variable expense contracts without adding engagement-specific expense type
 
 ## Recognition versus cash settlement
 
-Recognition timing determines when the economic expense trajectory hits Noninterest Expense:
+Category-level recognition belongs to the **entered recurring expense trajectory only**:
 
 - Same as trajectory (default)
 - Monthly
@@ -71,7 +71,7 @@ Recognition timing determines when the economic expense trajectory hits Noninter
 - Semiannual
 - Annual
 
-Cash settlement is a separate axis controlling when the recognized expense is paid:
+Cash settlement is a separate axis for that same entered recurring expense:
 
 - Same as recognition (default)
 - Monthly
@@ -84,10 +84,12 @@ Payment timing differences produce balance-sheet timing balances:
 - payment before recognition -> Prepaid operating expenses (asset)
 - recognition before payment -> Accrued operating expenses (liability)
 
-Custom settlement is currently limited to pre-resolvable entered expense paths. A linked
-endogenous revenue component settles with recognition. Prepaying a future revenue-linked
-charge would require a separate forecasting contract, so Foundry fails closed rather than
-inventing one.
+Additive components do not inherit these category timing controls. A self-timed component such as
+`tiered / banded` owns its own observation lag, event cadence, and first event period; ordinary linked
+components retain their native same-period timing. Mixed categories are therefore compositional: a
+recurring entered expense may use its own recognition/settlement schedule while additive components
+continue on their own timing contracts. The authoring UI hides recurring-expense timing controls when
+the entered trajectory is economically zero, while preserving any stored settings for later reuse.
 
 ## OCC simplifying-rate treatment
 
