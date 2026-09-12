@@ -575,6 +575,13 @@ def main():
        tier_audit_row is not None
        and all(abs(float(audit_vals[k] or 0.0))<1e-9 for k in range(8))
        and abs(float(audit_vals[8] or 0.0)-(tier_expected/1000.0))<1e-6)
+    drows=[r for r in tier_audit['Opex Component Detail'].iter_rows(values_only=True)
+           if len(r)>24 and r[2]=='tiered-assets' and r[4]==9 and r[6] is True]
+    ck('calculation audit workbook exposes tiered driver observation, active-band inputs, and raw-dollar expense',
+       bool(drows) and drows[0][7]==8
+       and abs(float(drows[0][14])-float(tier_run['bs']['totalAssets'][8]))<1e-6
+       and abs(float(drows[0][16])-float(tier_run['bs']['totalAssets'][8]))<1e-6
+       and abs(float(drows[0][24])-float(tier_expected))<1e-6, str(drows[:1]))
 
     dormant_rec=copy.deepcopy(tier_cfg)
     dormant_rec['assumptions']['nie_detail']['categories'][0]['recognition']={'mode':'annual','first_period':2}

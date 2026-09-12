@@ -188,8 +188,9 @@ def main():
         audit_res = _run_v2_audit(cfg)
         abuf = _io.BytesIO(); calculation_audit_workbook(cfg, audit_res).save(abuf)
         awb = _lw(_io.BytesIO(abuf.getvalue()), data_only=True)
-        required_audit = {"Index", "Income Statement", "Balance Sheet", "Operating Expense",
-                          "Workforce", "CAC - AUC", "Product Calculations", "Fee Product Costs",
+        required_audit = {"Index", "Config Snapshot", "Series Provenance", "Income Statement", "Balance Sheet",
+                          "Operating Expense", "Opex Component Detail", "Workforce", "CAC - AUC", "CAC Channels",
+                          "CAC Annual Rollforward", "CAC Monthly Canonical", "Product Calculations", "Fee Product Costs",
                           "Fee Stream Quantities", "Cost Pools", "All Series"}
         if not required_audit.issubset(set(awb.sheetnames)):
             print(f"  AUDIT XLS FAIL: missing sheets {sorted(required_audit-set(awb.sheetnames))}"); sys.exit(1)
