@@ -198,6 +198,34 @@ def main():
        bool(eop) and bool(avg) and len(eop[0])==len(avg[0]) and eop[0][4]!=avg[0][4],
        f"eop={eop[:1]} avg={avg[:1]}")
 
+    # Reconciliation-grade CAC diagnostics must expose the exact annual operands rather than
+    # forcing a reviewer to infer them from rounded UI displays. This reproduces the hidden-
+    # precision pattern that can create small source-workbook differences in later years.
+    prec=copy.deepcopy(direct); pa=prec["assumptions"]; pa["n_periods"]=24
+    pa["nie_detail"]["workforce"]["roles"]=[]
+    pa["cac_feeds"]={"affiliates":{"series_id":"cac-aff","owner_module":"customer_acquisition",
+        "beginning_auc":0,"beginning_customers":0,"attrition_rate":0,"intra_year_shape":"linear",
+        "channels":[{"name":"Affiliate Customer Channel","method":"pool_conversion","params":{},
+          "driver_specs":{
+            "pool":{"source":"entered","trajectory":"explicit","cadence":"year","values":[626.175,688.793],"resolution":"step","extend":"hold"},
+            "conversion_rate":{"source":"entered","trajectory":"flat","value":.08},
+            "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":30_000_000}},
+          "avg_auc_per_customer":30_000_000}]}}
+    pr=run_v2(prec); pwb=calculation_audit_workbook(prec,pr)
+    chrows=[r for r in pwb["CAC Channels"].iter_rows(values_only=True)
+            if len(r)>14 and r[0]=="affiliates" and r[2]==2]
+    ck("calculation audit workbook exposes exact CAC channel operands through New AUC",
+       bool(chrows) and abs(float(chrows[0][5])-688.793)<1e-12
+       and abs(float(chrows[0][6])-.08)<1e-12 and abs(float(chrows[0][12])-30_000_000)<1e-9
+       and abs(float(chrows[0][13])-55.10344)<1e-12 and abs(float(chrows[0][14])-1_653_103_200)<1e-6, str(chrows[:1]))
+    snap=[r for r in pwb["Config Snapshot"].iter_rows(values_only=True)
+          if len(r)>1 and r[0]=="assumptions.cac_feeds.affiliates.channels[0].driver_specs.pool.values[1]"]
+    ck("calculation audit workbook retains exact authored CAC source precision in Config Snapshot",
+       bool(snap) and abs(float(snap[0][1])-688.793)<1e-12, str(snap[:1]))
+    mrows=[r for r in pwb["CAC Monthly Canonical"].iter_rows(values_only=True) if len(r)>13 and r[0]=="affiliates"]
+    ck("calculation audit workbook exposes the canonical monthly CAC stock path used by downstream consumers",
+       len(mrows)==24 and all(r[7] is True for r in mrows) and mrows[0][8]==0, f"rows={len(mrows)}")
+
     legacy_split=copy.deepcopy(direct)
     la=legacy_split["assumptions"]
     la["obs_exposures"]=[
