@@ -56,6 +56,45 @@ def main():
        and "function _feeCoeffPasteInput(id){ _seriesExplicitPasteInput(id); }" in html
        and "function _feeFlatAmountPasteInput(id){ _seriesExplicitPasteInput(id); }" in html)
 
+    # r85 presentation: loaded schedules remain compact but must not hide the tail behind a dead ellipsis.
+    # Every scalar Explicit family uses the shared first+last preview; long schedules can expand in place.
+    ck("all scalar Explicit families use the inspectable loaded-schedule preview",
+       html.count("_explicitPreviewHtml(") == 9
+       and html.count("_explicitSchedulePreviewHtml(") == 11
+       and 'class="explicit-preview-toggle"' in html
+       and "View all" in html and "Collapse" in html)
+    ck("expanded schedule preview is bounded and scrollable instead of widening the authoring page",
+       ".explicit-preview-grid{display:grid" in html
+       and "max-height:170px;overflow:auto" in html
+       and ".explicit-preview{flex:1 1 320px;min-width:220px;max-width:100%" in html)
+
+    pv1=re.search(r"function _explicitPreviewHtml\(vals,fmt,cadence,labels\)\{.*?\n\}", html, re.S)
+    pv2=re.search(r"function _explicitSchedulePreviewHtml\(schedule,scale,cadence,fmt\)\{.*?\n\}", html, re.S)
+    preview_ok=False
+    if pv1 and pv2:
+        js2 = r"""
+function esc(x){return String(x)}
+function _seriesPeriodLabel(cadence,i){return (cadence==='month'?'M':cadence==='quarter'?'Q':'Y')+(i+1)}
+""" + pv1.group(0) + "\n" + pv2.group(0) + r"""
+const h=_explicitPreviewHtml([10,20,30,40,50,60,70,80],v=>String(v),'year');
+const sm=(h.match(/<summary>(.*?)<\/summary>/)||[])[1]||'';
+const hs=_explicitSchedulePreviewHtml({'1':0.10,'2':0.20,'3':0.30,'4':0.40,'5':0.50,'6':0.60,'7':0.70,'8':0.80},100,'quarter');
+const ssm=(hs.match(/<summary>(.*?)<\/summary>/)||[])[1]||'';
+console.log(JSON.stringify({
+ firstLast:sm.includes('Y1 10')&&sm.includes('Y2 20')&&sm.includes('Y3 30')&&sm.includes('Y6 60')&&sm.includes('Y7 70')&&sm.includes('Y8 80')&&!sm.includes('Y4 40')&&!sm.includes('Y5 50'),
+ controls:sm.includes('View all')&&sm.includes('Collapse'),
+ full:h.includes('Y4</span><span class="explicit-preview-value">40')&&h.includes('Y5</span><span class="explicit-preview-value">50'),
+ scaled:ssm.includes('Q1 10')&&ssm.includes('Q8 80')
+}));
+"""
+        pr=subprocess.run(["node","-e",js2],text=True,capture_output=True)
+        if pr.returncode==0 and pr.stdout.strip():
+            try:
+                got=json.loads(pr.stdout.strip().splitlines()[-1]); preview_ok=all(got.values())
+            except Exception:
+                pass
+    ck("loaded-schedule preview shows first three + last three and View all exposes every period", preview_ok)
+
     # All scalar families must render a disabled Load button that is explicitly tied to textarea_id_load.
     scalar_load_fragments = [
         'id="${_cid}_load" class="pillbtn" disabled',
