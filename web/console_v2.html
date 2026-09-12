@@ -226,6 +226,9 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-cost-pool-editor .opex-cost-pool-head label,.opex-cost-pool-editor .opex-cost-pool-component-head label{min-width:0;max-width:100%}
 /* r79: tiered / banded Opex is a purpose-built authoring surface, not a generic cost-pool grid.
    Keep timing, driver construction, and band math visually separate and keep each band on one row. */
+.opex-piecewise-card{margin:18px 0;padding:12px 13px 14px;border:1px solid rgba(148,163,184,.32);border-radius:8px;background:rgba(20,31,48,.28);box-shadow:0 1px 0 rgba(255,255,255,.025) inset;min-width:0}
+.opex-piecewise-card + .opex-piecewise-card{margin-top:24px}
+.opex-piecewise-card .opex-cost-pool-titlebar{margin-bottom:7px;padding-bottom:9px;border-bottom:1px solid rgba(148,163,184,.16)}
 .opex-piecewise-section{margin-top:14px;padding-top:12px;border-top:1px solid rgba(148,163,184,.18);min-width:0}
 .opex-piecewise-section-head{margin-bottom:8px;min-width:0}
 .opex-piecewise-section-head .wf-field-label{margin-bottom:3px;color:#AFC0D8}
@@ -238,7 +241,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-piecewise-driver-row:last-of-type{border-bottom:0}
 .opex-piecewise-driver-row .wf-field{width:auto !important;min-width:0 !important;max-width:none !important}
 .opex-piecewise-driver-row input,.opex-piecewise-driver-row select{width:100% !important;min-width:0 !important;max-width:100% !important}
-.opex-piecewise-band-head,.opex-piecewise-band-row{display:grid;grid-template-columns:minmax(0,112px) minmax(0,112px) minmax(0,112px) minmax(0,128px) auto;gap:8px;align-items:end;justify-content:start;min-width:0}
+.opex-piecewise-band-head,.opex-piecewise-band-row{display:grid;grid-template-columns:minmax(0,112px) minmax(0,112px) minmax(0,112px) minmax(0,170px) auto;gap:8px;align-items:end;justify-content:start;min-width:0}
 .opex-piecewise-band-head{margin:9px 0 3px;padding:0 8px}
 .opex-piecewise-band-head .wf-field-label{margin:0;line-height:1.25}
 .opex-piecewise-band-row{padding:7px 8px;margin:0;border-top:1px solid rgba(148,163,184,.10)}
@@ -7804,7 +7807,7 @@ window.nieCatPiecewiseBandBase=function(i,j,k,v){const lc=((((_ensureNieDetail()
 window.nieCatPiecewiseBandRate=function(i,j,k,v){const lc=((((_ensureNieDetail().categories||[])[i]||{}).linked_components||[])[j]),b=lc&&((lc.bands||[])[k]);if(!b)return;b.marginal_rate=_pf(v);refresh();};
 function _opexPiecewiseEditorHtml(i,lc,j){
   const terms=lc.terms||[],bands=lc.bands||[],opts=_opexPiecewiseTermOptions(),tim=lc.timing||{mode:"monthly",first_period:1},lag=lc.observation_lag||{value:0,period:"model_period"},tag=_opexPeriodTag();
-  let h=`<div class="opex-cost-pool-editor" style="margin:7px 0;padding:8px;border:1px solid #2A3444;border-radius:6px"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="wf-field-label">Tiered / banded component</span><input value="${esc(lc.name||'Tiered / banded component')}" onchange="nieCatPiecewiseName(${i},${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div>`;
+  let h=`<div class="opex-cost-pool-editor opex-piecewise-card"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="wf-field-label">Tiered / banded component</span><input value="${esc(lc.name||'Tiered / banded component')}" onchange="nieCatPiecewiseName(${i},${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div>`;
   h+=`<div class="nie-section-note">Evaluate a balance against a tiered schedule on the selected event cadence.</div>`;
   h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Timing</span><div class="nie-section-note">Set the event cadence and observation lag.</div></div><div class="opex-piecewise-timing-grid"><label class="wf-field"><span class="wf-field-label">Observation lag</span><div class="opex-piecewise-inline-pair"><input type="number" min="0" step="1" value="${Math.max(0,+lag.value||0)}" onchange="nieCatPiecewiseLagValue(${i},${j},this.value)"><select onchange="nieCatPiecewiseLagPeriod(${i},${j},this.value)">${[['model_period','Model period'],['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===(lag.period||'model_period')?' selected':''}>${o[1]}</option>`).join('')}</select></div></label><label class="wf-field"><span class="wf-field-label">Event cadence</span><select onchange="nieCatPiecewiseTimingMode(${i},${j},this.value)">${[['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Semiannual'],['annual','Annual']].map(o=>`<option value="${o[0]}"${o[0]===tim.mode?' selected':''}>${o[1]}</option>`).join('')}</select></label><label class="wf-field"><span class="wf-field-label">First event model period</span><div class="opex-piecewise-first-event"><span class="cu">${tag}</span><input type="number" min="1" step="1" value="${Math.max(1,+tim.first_period||1)}" onchange="nieCatPiecewiseFirstPeriod(${i},${j},this.value)"></div></label></div></div>`;
   h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Composite driver terms</span><div class="nie-section-note">Build the balance used by the band schedule.</div></div>`;
