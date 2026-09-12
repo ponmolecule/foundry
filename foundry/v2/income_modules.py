@@ -664,39 +664,61 @@ def _validate_fee_stream_shape(stream):
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
     _cp = cost.get("params") or {}
+    # r82 briefly used factor_path as a REPLACEMENT for the scalar cost itself.  Retain
+    # that key as a read-compatible legacy contract, but new authoring uses
+    # multiplier_path so the original base cost and the dimensionless multiplier remain
+    # two separate economic facts.
     _factor_path = _cp.get("factor_path")
-    if _factor_path is not None and ck == "none":
-        raise ValueError("fee cost factor_path requires an active fee cost kind")
-    if _factor_path is not None:
-        fp = dict(_factor_path or {})
+    _multiplier_path = _cp.get("multiplier_path")
+    if (_factor_path is not None or _multiplier_path is not None) and ck == "none":
+        raise ValueError("fee cost path requires an active fee cost kind")
+    if _factor_path is not None and _multiplier_path is not None:
+        raise ValueError("fee cost cannot define both legacy factor_path and multiplier_path")
+
+    def _validate_cost_path(path, *, multiplier=False):
+        fp = dict(path or {})
         traj = str(fp.get("trajectory") or "flat").strip().lower()
         period = str(fp.get("period") or "year").strip().lower()
         resolution = str(fp.get("resolution") or "step").strip().lower()
+        noun = "multiplier" if multiplier else "factor"
         if traj not in {"flat", "growth", "explicit_schedule"}:
-            raise ValueError(f"unsupported fee cost factor trajectory: {traj!r}")
+            raise ValueError(f"unsupported fee cost {noun} trajectory: {traj!r}")
         if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
-            raise ValueError(f"unsupported fee cost factor period: {period!r}")
+            raise ValueError(f"unsupported fee cost {noun} period: {period!r}")
         if resolution not in {"step", "smooth"}:
-            raise ValueError(f"unsupported fee cost factor resolution: {resolution!r}")
+            raise ValueError(f"unsupported fee cost {noun} resolution: {resolution!r}")
         try:
-            fval = float(fp.get("value") or 0.0)
+            fval = float(fp.get("value") if fp.get("value") is not None else (1.0 if multiplier else 0.0))
         except (TypeError, ValueError):
-            raise ValueError("fee cost factor value must be numeric")
-        if ck in {"pct_of_revenue", "pct_of_revenue_opex"} and not 0.0 <= fval <= 1.0:
+            raise ValueError(f"fee cost {noun} value must be numeric")
+        if multiplier:
+            if fval < 0.0:
+                raise ValueError("fee cost multiplier value must be nonnegative")
+        elif ck in {"pct_of_revenue", "pct_of_revenue_opex"} and not 0.0 <= fval <= 1.0:
             raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
         if traj == "growth" and not fp.get("growth_spec"):
-            raise ValueError("fee cost factor growth trajectory requires growth_spec")
+            raise ValueError(f"fee cost {noun} growth trajectory requires growth_spec")
         if traj == "explicit_schedule":
             schedule = fp.get("schedule")
             if not isinstance(schedule, dict) or not schedule:
-                raise ValueError("fee cost factor explicit_schedule requires at least one schedule value")
-            if ck in {"pct_of_revenue", "pct_of_revenue_opex"}:
-                try:
-                    vals = [float(v) for v in schedule.values()]
-                except (TypeError, ValueError):
-                    raise ValueError("fee percentage cost factor schedule values must be numeric")
-                if any(v < 0.0 or v > 1.0 for v in vals):
-                    raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
+                raise ValueError(f"fee cost {noun} explicit_schedule requires at least one schedule value")
+            try:
+                vals = [float(v) for v in schedule.values()]
+            except (TypeError, ValueError):
+                raise ValueError(f"fee cost {noun} schedule values must be numeric")
+            if multiplier:
+                if any(v < 0.0 for v in vals):
+                    raise ValueError("fee cost multiplier schedule values must be nonnegative")
+            elif ck in {"pct_of_revenue", "pct_of_revenue_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
+                raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
+
+    if _factor_path is not None:
+        _validate_cost_path(_factor_path, multiplier=False)
+    if _multiplier_path is not None:
+        _validate_cost_path(_multiplier_path, multiplier=True)
+
+    # The scalar remains the canonical base cost for normal and multiplier-path authoring.
+    # Legacy factor_path is replacement semantics and therefore does not consume it.
     if ck in {"pct_of_revenue", "pct_of_revenue_opex"} and _factor_path is None:
         try:
             _pct = float(_cp.get("pct") or 0.0)
@@ -1035,18 +1057,24 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     ck = cost.get("kind") or "none"
     cp = cost.get("params") or {}
     opcost = 0.0
-    factor_path = cp.get("factor_path")
+    factor_path = cp.get("factor_path")          # r82 replacement semantics (read compatibility)
+    multiplier_path = cp.get("multiplier_path")  # r83+ two-layer semantics; defaults to 1.0
+    mult = (_fee_cost_factor_value(multiplier_path, q, ppy, ctx, 1.0)
+            if multiplier_path is not None else 1.0)
     if ck == "per_unit" and basis == "transaction":
-        unit_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("cost_per_unit") or 0.0)
-                     if factor_path is not None else float(cp.get("cost_per_unit") or 0.0))
+        base_unit_cost = float(cp.get("cost_per_unit") or 0.0)
+        unit_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_unit_cost)
+                     if factor_path is not None else base_unit_cost * mult)
         opcost = qty * unit_cost   # -> fee-product NIE (gross)
     elif ck == "pct_of_revenue":
-        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("pct") or 0.0)
-               if factor_path is not None else float(cp.get("pct") or 0.0))
+        base_pct = float(cp.get("pct") or 0.0)
+        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
+               if factor_path is not None else base_pct * mult)
         gross -= gross * pct           # -> nets (contra-revenue)
     elif ck == "pct_of_revenue_opex":
-        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, cp.get("pct") or 0.0)
-               if factor_path is not None else float(cp.get("pct") or 0.0))
+        base_pct = float(cp.get("pct") or 0.0)
+        pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
+               if factor_path is not None else base_pct * mult)
         opcost = gross * pct           # -> fee-product NIE; gross income preserved
 
     return gross, opcost
