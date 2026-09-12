@@ -563,30 +563,48 @@ def main():
        abs(tier_run['is']['otherOpex'][8]-tier_expected)<1e-6
        and all(abs(tier_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
 
+    dormant_rec=copy.deepcopy(tier_cfg)
+    dormant_rec['assumptions']['nie_detail']['categories'][0]['recognition']={'mode':'annual','first_period':2}
+    dormant_run=run_pf_a(dormant_rec)
+    ck('stored recurring-expense recognition is inert when entered recurring expense is zero and tiered timing owns the component',
+       abs(dormant_run['is']['otherOpex'][8]-tier_expected)<1e-6
+       and all(abs(dormant_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
+
+    dormant_sett=copy.deepcopy(tier_cfg)
+    dormant_sett['assumptions']['nie_detail']['categories'][0]['settlement']={'mode':'annual','first_payment_period':2}
+    dormant_sett_run=run_pf_a(dormant_sett)
+    ck('stored recurring-expense settlement is inert when entered recurring expense is zero and tiered timing owns the component',
+       abs(dormant_sett_run['is']['otherOpex'][8]-tier_expected)<1e-6
+       and all(abs(dormant_sett_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
+
     bad_lag=copy.deepcopy(tier_cfg); bad_lag['assumptions']['periods_per_year']=4; bad_lag['assumptions']['n_periods']=4
     bad=False
     try: validate_config_v2(bad_lag)
     except ConfigErrorV2 as e: bad='finer than' in str(e)
     ck('tiered component fails closed when a one-month observation lag cannot be represented at quarterly cadence',bad)
 
-    # Fail closed: custom settlement + endogenous linked revenue component.
-    c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{
-        'name':'Bad combo','flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+    # Ownership contract: category recognition/settlement govern only the entered recurring path.
+    # Additive linked components retain their own/native timing and may coexist with those controls.
+    c=base_cfg(12); a=c['assumptions']; a['capital_raises']=[]; a['nie_detail']['categories']=[{
+        'name':'Mixed settlement','flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
         'linked_components':[{'driver':'fee_income','rate_spec':{'trajectory':'flat','value':.1}}],
         'settlement':{'mode':'annual','first_payment_period':1}}]
-    bad=False
-    try: run_pf_a(c)
-    except ValueError: bad=True
-    ck('custom settlement + linked revenue fails closed', bad)
+    mixed_valid=True
+    try: validate_config_v2(c)
+    except ConfigErrorV2: mixed_valid=False
+    mixed_settlement=run_pf_a(c)
+    ck('validation accepts recurring-expense-owned timing alongside additive components', mixed_valid)
+    ck('custom recurring-expense settlement can coexist with an additive linked component',
+       abs(mixed_settlement['is']['otherOpex'][0]-(10_000+mixed_settlement['is']['fees'][0]*.1))<1e-6)
 
     c=base_cfg(12); a=c['assumptions']; a['nie_detail']['categories']=[{
-        'name':'Bad recognition combo','flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
+        'name':'Mixed recognition','flow_spec':{'trajectory':'flat','value':120_000,'period':'year'},
         'linked_components':[{'driver':'fee_income','rate_spec':{'trajectory':'flat','value':.1}}],
         'recognition':{'mode':'annual','first_period':1}}]
-    bad=False
-    try: run_pf_a(c)
-    except ValueError: bad=True
-    ck('custom recognition + linked revenue fails closed', bad)
+    mixed_recognition=run_pf_a(c)
+    ck('custom recurring-expense recognition can coexist with an additive linked component',
+       abs(mixed_recognition['is']['otherOpex'][0]-(120_000+mixed_recognition['is']['fees'][0]*.1))<1e-6
+       and abs(mixed_recognition['is']['otherOpex'][1]-(mixed_recognition['is']['fees'][1]*.1))<1e-6)
 
     print(f'\n{P} passed, {F} failed')
     return 0 if F==0 else 1

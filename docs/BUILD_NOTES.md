@@ -8,6 +8,15 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 0.10, changed only on client instruction, and any change is called out in the reply.
 
 
+## r80 — Advanced Opex timing ownership and authoring cleanup
+- Clarifies timing ownership without changing existing valid-model economics. Category-level recognition and cash-settlement controls govern only the entered recurring Opex trajectory; additive linked, cost-pool, and self-timed tiered/banded components retain their own/native timing.
+- Hides recurring-expense recognition and settlement controls when the entered recurring trajectory is economically zero. Stored settings are preserved rather than deleted, so they return unchanged if the recurring expense becomes active again.
+- Mixed categories are now valid: an entered recurring expense may use custom recognition/settlement while additive components continue on their independent timing. The prior blanket validation guard is removed because the engine paths are already resolved separately.
+- De-verboses Advanced Operating Expense authoring: removes release-history archaeology and repetitive implementation prose, keeps only short decision-oriented helper text, and retains clear section ownership.
+- Renames the tier schedule's user-facing `Base amount` field to `Band base fee` so it cannot be confused with the category's entered recurring expense. Stored schema remains `base_amount`; piecewise arithmetic is unchanged.
+- Tiered/banded observation lag, event cadence, first event model period, driver composition, bands, Series resolution, and accounting posting logic are unchanged. No OCC- or engagement-specific runtime branch is introduced.
+
+
 
 
 

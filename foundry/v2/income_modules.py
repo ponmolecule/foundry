@@ -68,22 +68,21 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
     _catlist = nd.get("categories") or []
     _cat_economic = [nie_category_series(c, Q, ppy, growth_context=growth_context) for c in _catlist]
 
-    # Recognition timing is a separate axis from the economic expense trajectory.  Rebucket the
-    # entered economic path into ordinal model periods before any cash-settlement accounting is
-    # computed.  Endogenous linked components cannot yet be forecast across future recurrence
-    # blocks, so custom recognition for those components fails closed below.
+    # Recognition timing belongs to the entered recurring trajectory. Rebucket that path onto
+    # ordinal model periods before its cash-settlement accounting is computed. Additive components
+    # are resolved separately and do not inherit these category-level timing controls.
     from .opex_extensions import (resolve_linked_components, resolve_cost_pool_calculation,
-                                  resolve_recognition, normalize_recognition, resolve_settlement,
-                                  normalize_settlement, recognition_spec_for_category)
+                                  resolve_recognition, resolve_settlement, normalize_settlement,
+                                  recognition_spec_for_category)
     _cat_recognition_specs = [recognition_spec_for_category(c, ppy) for c in _catlist]
     _cat_series = [resolve_recognition(arr, rec, ppy, context=growth_context)
                    for arr, rec in zip(_cat_economic, _cat_recognition_specs)]
     cats = [float(sum(arr[i] for arr in _cat_series)) for i in range(Q)]
 
     # Optional advanced Opex mechanics. Linked components are evaluated later in the engine after
-    # whitelisted upstream metrics for that period are known. Custom recognition/settlement
-    # is limited to the pre-resolvable entered category path; forecasting a future endogenous linked
-    # charge across recurrence blocks is a different contract and therefore fails closed.
+    # whitelisted upstream metrics for that period are known. Category recognition and settlement
+    # belong only to the entered recurring path resolved above; additive components retain their own
+    # timing contract (or their native same-period timing) and are not rebucketed by category controls.
     _linked = []
     _sett_pre = [0.0] * Q
     _sett_acc = [0.0] * Q
@@ -95,19 +94,7 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
         _cp = resolve_cost_pool_calculation(_c, Q, ppy, context=growth_context, assumptions=a)
         _lc = ([] if _cp is not None else
                resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a))
-        _rec = recognition_spec_for_category(_c, ppy)
         _sett = normalize_settlement(_c.get("settlement"), ppy)
-        _linked_recognition_ok = (_rec["mode"] == "trajectory" or
-                                  (_rec["mode"] == "monthly" and int(_rec.get("first_period") or 1) == 1))
-        _active_linked = (_cp is not None or bool(_lc))
-        if _active_linked and not _linked_recognition_ok:
-            raise ValueError(
-                f"Operating Expense category {_c.get('name') or _ci + 1!r}: delayed/custom recognition "
-                "cannot be combined with linked/cost-pool components; use recognition=trajectory")
-        if _active_linked and _sett["mode"] not in {"recognition", "monthly"}:
-            raise ValueError(
-                f"Operating Expense category {_c.get('name') or _ci + 1!r}: custom settlement "
-                "cannot be combined with linked/cost-pool components; use settlement=recognition")
         if _cp is not None:
             _linked.append({**_cp, "category_index": _ci})
         elif _lc:

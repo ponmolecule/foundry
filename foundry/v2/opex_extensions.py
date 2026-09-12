@@ -4,15 +4,13 @@ This module deliberately models reusable economic mechanics, not engagement labe
 
 * A category's primary entered recurring amount remains ``flow_spec``.
 * Optional ``linked_components`` add whitelisted typed upstream drivers × multipliers; stock-linked AUC rates carry an explicit natural period.
-* Optional ``recognition`` controls when the economic expense trajectory hits NIE.
-* Optional ``settlement`` controls when recognized expense is paid. Recognition remains NIE;
-  timing differences become prepaid assets (payment ahead of recognition) or accrued liabilities
+* Optional ``recognition`` controls when the entered recurring expense trajectory hits NIE.
+* Optional ``settlement`` controls when that entered recurring expense is paid. Recognition remains
+  NIE; timing differences become prepaid assets (payment ahead of recognition) or accrued liabilities
   (recognition ahead of payment).
-
-Custom recognition and settlement are intentionally limited to pre-resolvable entered expense
-paths. Linked endogenous components default to recognition=same_as_trajectory and
-settlement=same_as_recognition; forecasting/rebucketing a future endogenous revenue-linked charge
-is a different contract and fails closed here.
+* Additive components do not inherit category recognition/settlement timing. Self-timed components
+  (for example tiered/banded schedules) own their event cadence; other linked components retain
+  their native same-period timing. This keeps each timing fact authored once.
 """
 from __future__ import annotations
 

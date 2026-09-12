@@ -333,15 +333,10 @@ def validate_config_v2(cfg):
                                         raise ValueError("Profile B does not expose first-class Fee Product balance quantities to piecewise-linked Opex")
                                     if fee_balance_quantity_creates_cycle(a, cat, _term.get("series_id")):
                                         raise ValueError("piecewise-linked Opex would create a circular dependency through Fee Product balance quantity / Customer Acquisition")
-                _rt = recognition_spec_for_category(cat, _ppy)
-                _st = normalize_settlement(cat.get("settlement"), _ppy)
-                _linked_recognition_ok = (_rt["mode"] == "trajectory" or
-                                          (_rt["mode"] == "monthly" and int(_rt.get("first_period") or 1) == 1))
-                _active_linked = (_cost_pool_active or bool(_lc))
-                if _active_linked and not _linked_recognition_ok:
-                    raise ValueError("delayed/custom recognition cannot be combined with linked/cost-pool components")
-                if _active_linked and _st["mode"] not in {"recognition", "monthly"}:
-                    raise ValueError("custom settlement cannot be combined with linked/cost-pool components")
+                # Category recognition/settlement govern only the entered recurring path.
+                # Validate them independently; additive components keep their own/native timing.
+                recognition_spec_for_category(cat, _ppy)
+                normalize_settlement(cat.get("settlement"), _ppy)
             except (TypeError, ValueError) as e:
                 errs.append(f"nie_detail.categories[{i}] advanced Opex invalid: {e}")
         if nd.get("occ_payment_first_period") is not None:
