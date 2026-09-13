@@ -206,6 +206,21 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Product tab renders natural-period flow/account/flat fee controls without runtime error",
        fr2.returncode==0 and fj2.get("ok") is True, fr2.stderr.strip())
+    # Authoring sequence: choose the coefficient path before Foundry asks for a value.
+    coeff_order_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+        "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; }\n"
+        + hjs + fjs +
+        "\nfunction renderFor(traj){const st={name:'API',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'multiple',value:500000000,period:'year',trajectory:traj,schedule:{'1':500000000,'2':525000000}}}},rate:{behavior:'flat',params:{per_unit:.002}},cost:{kind:'none',params:{}}}; const p={name:'API Product',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:[st]}; cfg.assumptions.obs_exposures=[p]; return fieldsFor('obs',p,'assumptions.obs_exposures.0');}"
+        "\nconst flat=renderFor('flat'), growth=renderFor('growth'), explicit=renderFor('explicit_schedule');"
+        " const ord=(out,a,b)=>out.indexOf(a)>=0&&out.indexOf(b)>=0&&out.indexOf(a)<out.indexOf(b);"
+        " console.log(JSON.stringify({flat:ord(flat,'Turns trajectory','Turns / multiple'),growth:ord(growth,'Turns trajectory','Starting Turns / multiple')&&ord(growth,'Starting Turns / multiple','Turns growth'),explicit:ord(explicit,'Turns trajectory','Turns schedule by year')&&!explicit.includes('<label>Turns / multiple</label>'),periodBeforeValue:ord(flat,'<label>Per</label>','Turns / multiple')}));")
+    cor=subprocess.run(["node","-e",coeff_order_js],text=True,capture_output=True); coj={}
+    if cor.returncode==0 and cor.stdout.strip():
+        try: coj=json.loads(cor.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Transaction coefficient authoring chooses trajectory before asking for turns value",
+       cor.returncode==0 and coj.get("flat") and coj.get("growth") and coj.get("explicit") and coj.get("periodBeforeValue"), cor.stderr.strip())
     ck("Fee streams use a stronger visual separator for quick stream delineation",
        ".fee-stream-block{border-top:2px solid #3E4B61;margin-top:14px;padding-top:10px}" in html
        and '<div class="fld wide fee-stream-block">' in html

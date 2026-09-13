@@ -840,8 +840,9 @@ def _stream_steps(item):
         period = item["coefficient_period"].title()
         traj = item["coefficient_trajectory"]
         traj_label = traj.replace("_", " ").title()
-        steps.append(f"Set Flow coefficient to “{selector}” and Per to “{period}”.")
+        steps.append(f"Set Flow coefficient to “{selector}”.")
         steps.append(f"Set {noun} trajectory to “{traj_label}”.")
+        steps.append(f"Set Per to “{period}”.")
         if traj == "explicit_schedule":
             steps.append(
                 f"Paste the source-model {noun.lower()} schedule into “{noun} schedule by {item['coefficient_period']}” and click Load (replace). "
