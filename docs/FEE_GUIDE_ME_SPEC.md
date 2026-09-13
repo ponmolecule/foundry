@@ -58,7 +58,7 @@ equation. Guide Me must not split those factors into separate revenue streams. I
 fee/spread or revenue-start assumption is missing, Guide Me asks a clarification question rather
 than inventing a value or creating a second stream.
 
-Guide Me instructions must also mirror the active authoring control:
+Guide Me instructions must also mirror the active authoring control. The editor chooses the coefficient trajectory before it asks for a scalar value, so the user first establishes Flat / Growth / Explicit semantics and only then sees the applicable value or schedule:
 - `Flat` coefficient trajectory — use the single Flow % / Turns field;
 - `Growth` — use the starting Flow % / Turns field plus growth controls;
 - `Explicit schedule` — use the schedule pastebox and do not instruct the user to populate the
