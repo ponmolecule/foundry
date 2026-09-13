@@ -228,7 +228,7 @@ def fee_guide_manifest():
         "rate_behavior_by_basis": {k: sorted(v) for k, v in _ALLOWED_RATE_BY_BASIS.items()},
         "special_rules": [
             "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
-            "A derived flow coefficient kind is multiple (turns × source) or pct (% of source).",
+            "A derived flow coefficient kind is multiple (turns × source), pct (% of source), or amount_per_source_unit ($ flow per source unit).",
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
@@ -281,7 +281,7 @@ def _guide_output_schema():
             # Keep the transport grammar simple and string-only; the sentinel is
             # normalized back to None before Foundry's semantic validator runs.
             "coefficient_kind": {
-                "type": "string", "enum": ["multiple", "pct", "not_applicable"]
+                "type": "string", "enum": ["multiple", "pct", "amount_per_source_unit", "not_applicable"]
             },
             "coefficient_period": {
                 "type": "string", "enum": ["month", "quarter", "year", "not_applicable"]
@@ -349,7 +349,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
 - Treat separate REVENUE EQUATIONS as separate streams, but do not mistake separate factors in ONE
   revenue equation for separate streams. A transaction stream natively represents:
   sourced quantity × flow coefficient = throughput; throughput × fee/spread = revenue.
-  Therefore a user's volume/AUC percentage (or turns) and the spread charged on that resulting
+  Therefore a user's volume/AUC percentage, turns, or monetary amount per source unit and the spread charged on that resulting
   throughput belong in ONE transaction stream, not two.
 - Do not output numeric values from your own knowledge. Numbers explicitly supplied by the user are
   not needed in the mapping object; the local Foundry UI tells the user where to enter them.
@@ -698,14 +698,14 @@ def validate_guide_plan(plan):
 
         has_coef = item["coefficient_kind"] is not None
         if has_coef:
-            if item["coefficient_kind"] not in {"multiple", "pct"}:
+            if item["coefficient_kind"] not in {"multiple", "pct", "amount_per_source_unit"}:
                 raise ValueError("Guide Me returned unsupported coefficient kind")
             if item["coefficient_period"] not in {"month", "quarter", "year"}:
                 raise ValueError("Guide Me returned unsupported coefficient period")
             if item["coefficient_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
                 raise ValueError("Guide Me returned unsupported coefficient trajectory")
-            # A natural-period flow coefficient (turns/multiple or pct of source) is, by
-            # definition, the derivation of the sourced quantity. The coefficient owns its
+            # A natural-period flow coefficient (turns/multiple, pct of source, or
+            # amount per source unit) is, by definition, the derivation of the sourced quantity. The coefficient owns its
             # own flat/growth/explicit path; the upstream AUC/other source remains a stock.
             # Structured Outputs cannot express this cross-field implication without bringing
             # back the large anyOf grammar we deliberately removed. Canonicalize the redundant
@@ -834,9 +834,10 @@ def _stream_steps(item):
 
     if item.get("coefficient_kind"):
         is_pct = item["coefficient_kind"] == "pct"
-        noun = "Volume %" if is_pct else "Turns"
-        field = "Flow %" if is_pct else "Turns / multiple"
-        selector = "% of source" if is_pct else "× source"
+        is_amount = item["coefficient_kind"] == "amount_per_source_unit"
+        noun = "Volume %" if is_pct else ("Amount per source unit" if is_amount else "Turns")
+        field = "Flow %" if is_pct else ("Amount / source unit ($000s)" if is_amount else "Turns / multiple")
+        selector = "% of source" if is_pct else ("Amount per source unit" if is_amount else "× source")
         period = item["coefficient_period"].title()
         traj = item["coefficient_trajectory"]
         traj_label = traj.replace("_", " ").title()
@@ -846,7 +847,8 @@ def _stream_steps(item):
         if traj == "explicit_schedule":
             steps.append(
                 f"Paste the source-model {noun.lower()} schedule into “{noun} schedule by {item['coefficient_period']}” and click Load (replace). "
-                f"The single “{field}” field is not used for Explicit Schedule."
+                f"The single “{field}” field is not used for Explicit Schedule." +
+                (" Enter monetary amounts in $000s per source unit." if is_amount else "")
             )
         elif traj == "growth":
             steps.append(f"Enter the starting assumption in “Starting {field}”, then enter the stated {noun.lower()} growth assumption.")

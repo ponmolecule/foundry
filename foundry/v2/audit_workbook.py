@@ -950,6 +950,62 @@ def _fee_cost_rows(cfg, results, n, ppy, exact=None):
     return rows
 
 
+def _fee_quantity_unit_kinds(cfg):
+    """Infer audit-display units for Fee Stream driver quantities without guessing.
+
+    The engine quantity is not universally monetary: helper transaction streams may carry
+    counts or other native units, while balance-derived transaction streams and
+    amount-per-source-unit coefficients carry dollars.  Preserve
+    source units through ×/% derivations and mark only provably monetary paths as money.
+    """
+    a = (cfg or {}).get("assumptions") or {}
+    out = {}
+    for key in ("lending_products", "deposit_products", "obs_exposures"):
+        for prod in a.get(key) or []:
+            streams = list((prod or {}).get("fee_streams") or [])
+            by_name = {str((st or {}).get("name") or ""): i for i, st in enumerate(streams) if (st or {}).get("name")}
+            cache = {}
+            def resolve(i, stack=None):
+                if i in cache:
+                    return cache[i]
+                stack = set(stack or ())
+                if i in stack:
+                    return "native"
+                stack.add(i)
+                st = streams[i] or {}
+                basis = str(st.get("basis") or "").lower()
+                if basis == "balance":
+                    kind = "money"
+                elif basis == "account":
+                    kind = "count"
+                elif basis != "transaction":
+                    kind = "native"
+                else:
+                    drv = st.get("driver") or {}
+                    params = drv.get("params") or {}
+                    coef = params.get("coefficient") or {}
+                    if str(coef.get("kind") or "").lower() == "amount_per_source_unit":
+                        kind = "money"
+                    else:
+                        src = str(drv.get("source") or "constant").lower()
+                        if src in {"own_balance", "managed_notional", "bank_aggregate", "cost_pool"}:
+                            kind = "money"
+                        elif src == "customer_acquisition_count":
+                            kind = "count"
+                        elif src == "stream_ref":
+                            ref = str(drv.get("ref") or "")
+                            kind = resolve(by_name[ref], stack) if ref in by_name else "native"
+                        else:
+                            kind = "native"
+                cache[i] = kind
+                return kind
+            for i, st in enumerate(streams):
+                sid = str((st or {}).get("quantity_series_id") or "").strip()
+                if sid:
+                    out[sid] = resolve(i)
+    return out
+
+
 def _quantity_rows(cfg, results, n, exact=None):
     meta = {}
     try:
@@ -959,6 +1015,7 @@ def _quantity_rows(cfg, results, n, exact=None):
             meta[item["series_id"]] = item
     except Exception:
         pass
+    unit_kinds = _fee_quantity_unit_kinds(cfg)
     rows = []
     if exact is not None:
         qmap = exact.get("fee_stream_quantities") or {}
@@ -968,8 +1025,18 @@ def _quantity_rows(cfg, results, n, exact=None):
         m = meta.get(sid) or {}
         label = " › ".join(x for x in (m.get("product"), m.get("stream")) if x) or sid
         sem = m.get("unit_semantic") or "native observation"
-        qvals = _money_k_series(vals) if exact is not None else vals
-        rows.append((m.get("family") or "Fee stream", label, sid, f"$000s · {sem}", qvals, _MONEY_FMT))
+        kind = unit_kinds.get(sid, "native")
+        if kind == "money":
+            qvals = _money_k_series(vals) if exact is not None else list(vals)
+            units, fmt = f"$000s · {sem}", _MONEY_FMT
+        else:
+            # Public run_v2 historically scales all fee quantity Series by 1,000.  The
+            # calculation audit uses the exact engine, but restore native units here too
+            # for defensive callers that supply only the public result.
+            qvals = list(vals) if exact is not None else [float(v or 0.0) * 1000.0 for v in vals]
+            units = ("count" if kind == "count" else "native units") + f" · {sem}"
+            fmt = _NUM_FMT
+        rows.append((m.get("family") or "Fee stream", label, sid, units, qvals, fmt))
     return rows
 
 

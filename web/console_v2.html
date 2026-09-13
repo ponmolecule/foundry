@@ -2280,7 +2280,7 @@ function _feeSetCoeffSchedule(i,si,text){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
   const vals=_feeParseExplicitValues(text);
   if(!vals.length) return;
-  const out={}; vals.forEach((n,j)=>{if(c.kind==="pct") n/=100; out[String(j+1)]=n;});
+  const out={}; vals.forEach((n,j)=>{if(c.kind==="pct") n/=100; else if(c.kind==="amount_per_source_unit") n*=1000; out[String(j+1)]=n;});
   c.schedule=out; renderContent(); refresh();
 }
 function _feeClearCoeffSchedule(i,si){
@@ -2292,6 +2292,11 @@ function _feeEnsureNaturalCoeff(i,si){
   const dp=st.driver.params; if(dp.coefficient) return dp.coefficient;
   let kind=(dp.pct!=null?"pct":"multiple"), value=(kind==="pct"?+(dp.pct||0):+(dp.multiple||0));
   dp.coefficient={kind:kind,value:value,period:"year",trajectory:"flat"}; return dp.coefficient;
+}
+function _feeCoeffSetKind(i,si,kind){
+  const c=_feeEnsureNaturalCoeff(i,si);
+  if(c.kind!==kind){c.kind=kind;c.value=0;c.schedule={};}
+  renderContent();refresh();
 }
 function _feeFlatAmountScheduleText(schedule){
   const vals=Object.keys(schedule||{}).map(k=>[+k,+schedule[k]]).filter(x=>Number.isFinite(x[0])&&Number.isFinite(x[1])).sort((a,b)=>a[0]-b[0]);
@@ -2704,14 +2709,15 @@ function fieldsFor(fam, p, base){
           const _coef=st.driver.params.coefficient;
           if(_coef){
             const _ckind=_coef.kind||"multiple", _cper=_coef.period||"year", _ctraj=_coef.trajectory||"flat";
-            const _coefNoun=_ckind==="pct"?"Volume %":"Turns";
-            h += `<div class="fld"><label>Flow coefficient</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.kind=this.value;renderContent();refresh()"><option value="multiple"${_ckind==="multiple"?" selected":""}>× source</option><option value="pct"${_ckind==="pct"?" selected":""}>% of source</option></select></div>`;
+            const _isPct=_ckind==="pct", _isAmount=_ckind==="amount_per_source_unit";
+            const _coefNoun=_isPct?"Volume %":(_isAmount?"Amount per source unit":"Turns");
+            h += `<div class="fld"><label>Flow coefficient</label><select onchange="_feeCoeffSetKind(${_fi},${si},this.value)"><option value="multiple"${_ckind==="multiple"?" selected":""}>× source</option><option value="pct"${_ckind==="pct"?" selected":""}>% of source</option><option value="amount_per_source_unit"${_ckind==="amount_per_source_unit"?" selected":""}>Amount per source unit</option></select></div>`;
             h += `<div class="fld"><label>${_coefNoun} trajectory</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.trajectory=this.value;renderContent();refresh()"><option value="flat"${_ctraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ctraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ctraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
             h += `<div class="fld"><label>Per</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.period=this.value;renderContent();refresh()"><option value="year"${_cper==="year"?" selected":""}>Year</option><option value="quarter"${_cper==="quarter"?" selected":""}>Quarter</option><option value="month"${_cper==="month"?" selected":""}>Month</option></select></div>`;
-            const _cv=_ckind==="pct"?((+_coef.value||0)*100):(+_coef.value||0);
-            if(_ctraj!=="explicit_schedule") h += `<div class="fld"><label>${_ctraj==="growth"?"Starting ":""}${_ckind==="pct"?"Flow %":"Turns / multiple"}</label><input type="number" step="any" value="${_cv}" onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.value=_pf(this.value)${_ckind==="pct"?"/100":""};refresh()"></div>`;
+            const _cv=_isPct?((+_coef.value||0)*100):(_isAmount?((+_coef.value||0)/1000):(+_coef.value||0));
+            if(_ctraj!=="explicit_schedule") h += `<div class="fld"><label>${_ctraj==="growth"?"Starting ":""}${_isPct?"Flow %":(_isAmount?"Amount / source unit ($000s)":"Turns / multiple")}</label><input type="number" step="any" value="${_cv}" onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.value=_pf(this.value)${_isPct?"/100":(_isAmount?"*1000":"")};refresh()"></div>`;
             if(_ctraj==="growth") h += `<div class="fld wide"><label>${_coefNoun} growth</label>${growthSpecInline(sb+".driver.params.coefficient.growth_spec",_coef.growth_spec,null,false)}</div>`;
-            if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>${_coefNoun} schedule by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 8, 10, 12, 10, 10, 10, 9" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_coef.schedule,_ckind==="pct"?100:1,_cper)}</div><span class="memo" style="margin:3px 0 0">The explicit schedule is the active ${_coefNoun.toLowerCase()} input; no separate single-value field is used. Each pasted value applies for one stated natural period; the last value carries forward.</span></div>`;}
+            if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;const _ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9";const _scale=_isPct?100:(_isAmount?0.001:1);h += `<div class="fld wide"><label>${_coefNoun} schedule by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)${_isAmount?" · $000s per source unit":""}</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="${_ph}" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_coef.schedule,_scale,_cper)}</div><span class="memo" style="margin:3px 0 0">The explicit schedule is the active ${_coefNoun.toLowerCase()} input; no separate single-value field is used. Each pasted value applies for one stated natural period; the last value carries forward.${_isAmount?" Enter monetary amounts in $000s per source unit; Foundry stores and calculates them in dollars.":""}</span></div>`;}
           } else {
             h += F("Legacy multiple (raw / model period)", sb+".driver.params.multiple", "n"); h += F("Legacy % of source (raw / model period, 0-1)", sb+".driver.params.pct", "n");
             h += `<div class="fld wide"><span class="memo" style="margin:0">Legacy semantics preserved. New flow assumptions should use an explicit natural period.</span><button class="btn-plain" style="margin-top:5px" onclick="_feeEnsureNaturalCoeff(${_fi},${si});renderContent();refresh()">Use natural-period flow</button></div>`;
