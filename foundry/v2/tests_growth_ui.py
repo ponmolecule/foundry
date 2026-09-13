@@ -371,6 +371,33 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'nieWorkforceCountMode' in html and 'nieWorkforceCompMode' in html and 'nieWorkforceCompLegacy' in html
        and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
        and '$000s/FTE/year' in html and 'nieWorkforceCompValue' in html and 'Compensation trajectory' in html)
+    # Regression: adding another role must not reopen Advanced trajectories that a user closed.
+    wa=html.index("window._nieWorkforceAdvancedOpen=window._nieWorkforceAdvancedOpen||{};")
+    wb=html.index("window.nieWorkforceCountMode=",wa)
+    wjs=html[wa:wb]
+    wstate_js=(
+        "const window=globalThis; let wf={roles:[{series_id:'wf-existing',count_spec:{trajectory:'growth'},role:'Existing'}]}; "
+        "window._nieWorkforceAdvancedOpen={'wf-existing':false}; window._nieSectionOpen={}; "
+        "function _ensureWorkforce(){return wf;} let sid=0; function _seriesId(p){return p+'-'+(++sid);} "
+        "let rendered=0,refreshed=0; function renderContent(){rendered++;} function refresh(){refreshed++;} "
+        + wjs +
+        "\nconst before=_nieWorkforceAdvancedIsOpen(wf.roles[0],0,true); nieWorkforceAdd(); "
+        "const after=_nieWorkforceAdvancedIsOpen(wf.roles[0],0,true); const added=_nieWorkforceAdvancedIsOpen(wf.roles[1],1,false); "
+        "nieWorkforceAdvancedSet('wf-existing',true); const reopened=_nieWorkforceAdvancedIsOpen(wf.roles[0],0,true); "
+        "console.log(JSON.stringify({before,after,added,reopened,n:wf.roles.length,rendered,refreshed}));"
+    )
+    wr=subprocess.run(["node","-e",wstate_js],text=True,capture_output=True)
+    wj={}
+    if wr.returncode==0 and wr.stdout.strip():
+        try: wj=json.loads(wr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Add role preserves each existing Workforce Advanced-trajectories disclosure state",
+       wr.returncode==0 and wj.get("before") is False and wj.get("after") is False
+       and wj.get("added") is False and wj.get("reopened") is True and wj.get("n")==2
+       and wj.get("rendered")==1 and wj.get("refreshed")==1, wr.stderr.strip())
+    ck("new Workforce role is scrolled/focused for unambiguous sequential entry",
+       'data-workforce-index="${wi}"' in html and 'class="wf-role-name"' in html
+       and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html)
     ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
        'nieWorkforceCountPaste' in html and 'nieWorkforceCompPaste' in html
        and 'nieCatSchedulePaste' in html and 'Load (replace)' in html
