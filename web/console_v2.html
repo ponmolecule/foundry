@@ -1350,6 +1350,14 @@ function normalizeCfg(c){
       if(p) delete p.opex_fixed_m;
     });
   });
+  // Fee-driver params are basis-typed. r91 could leave a transaction coefficient behind
+  // after a stream was repurposed as Account/Balance/Flat/Event; that hidden stale field
+  // then tripped fail-closed validation even though it no longer participated in the stream.
+  // Canonicalize only the incompatible field: transaction streams retain their coefficient.
+  (c.assumptions.obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
+    const dp=st&&st.driver&&st.driver.params;
+    if(dp && ["account","flat","event"].includes(st.basis||"balance")) delete dp.coefficient;
+  }));
   return c;
 }
 function freezeOriginal(source){
@@ -2436,7 +2444,11 @@ _feeGlobal.feeCostPoolDeleteFromStream=function(i,si,ref){
   const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref));if(at>=0)pools.splice(at,1);renderContent();refresh();
 };
 _feeGlobal.feeStreamBasisChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.rate=st.rate||{behavior:"flat",params:{}};st.cost=st.cost||{kind:"none",params:{}};
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.cost=st.cost||{kind:"none",params:{}};
+  // A natural-period coefficient is a Transaction/throughput-only driver fact. When the
+  // user changes basis, retire that incompatible draft state immediately instead of letting
+  // a hidden transaction field block an otherwise-valid Account/Balance/Flat/Event stream.
+  if(["account","flat","event"].includes(v)) delete st.driver.params.coefficient;
   if(st.driver.source==="cost_pool"&&v!=="transaction"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{}};st.cost={kind:"none",params:{}};}
   if(st.driver.source==="customer_acquisition_count"&&v!=="account"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};}
   renderContent();refresh();
@@ -6837,7 +6849,7 @@ async function _openEngagementNow(slug){
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Could not open the engagement (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
-    cfg = cfg2;
+    cfg = normalizeCfg(cfg2);
     lastRes = null; lastErrs = null;   // invalidate the outgoing engagement's result (see pstat name-match)
     rehydrateOriginal(cfg);
     syncNameChrome();

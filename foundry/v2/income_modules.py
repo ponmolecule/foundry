@@ -732,7 +732,10 @@ def _validate_fee_stream_shape(stream):
             raise ValueError(f"fee cost kind {ck!r} requires numeric pct")
         if _pct < 0.0 or _pct > 1.0:
             raise ValueError(f"fee cost kind {ck!r} pct must be between 0 and 1")
-    coef = (drv.get("params") or {}).get("coefficient")
+    # Natural-period coefficients are Transaction/throughput-only. Ignore a stale hidden
+    # coefficient on another basis (r91 UI could preserve one after a basis change) rather
+    # than failing an otherwise-valid stream on authoring state that cannot affect economics.
+    coef = (drv.get("params") or {}).get("coefficient") if basis in {"transaction", "balance"} else None
     level_schedule = (drv.get("params") or {}).get("level_schedule")
     stock_multiplier = (drv.get("params") or {}).get("stock_multiplier")
     if coef is not None:
@@ -959,7 +962,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             # Explicit natural-period coefficient = FLOW semantics (e.g. 4 turns / Year,
             # 24% of AUC / Year), periodized BEFORE a transaction fee/spread is applied.
             # Absence of the marker preserves legacy raw `multiple`/`pct` behavior exactly.
-            coef = params.get("coefficient")
+            coef = params.get("coefficient") if basis == "transaction" else None
             stock_multiplier = params.get("stock_multiplier")
             if stock_multiplier is not None:
                 sm = dict(stock_multiplier or {})

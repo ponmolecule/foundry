@@ -468,7 +468,7 @@ def validate_config_v2(cfg):
                     if _count_ref not in _count_ids:
                         raise ValueError(f"CAC customer-count Series {_count_ref!r} does not exist")
                 coef = (((st.get("driver") or {}).get("params") or {}).get("coefficient"))
-                if coef is not None:
+                if coef is not None and (st.get("basis") or "balance") == "transaction":
                     _fee_coefficient_value(coef, 1, _ppy, {"growth_context": _growth_ctx})
             except (TypeError, ValueError) as e:
                 errs.append(f"obs_exposures[{pi}].fee_streams[{si}] invalid: {e}")
