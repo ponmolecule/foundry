@@ -8,6 +8,17 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 0.10, changed only on client instruction, and any change is called out in the reply.
 
 
+
+## r93 — Transaction pricing and direct-cost trajectories
+- Generalizes Transaction percentage pricing so `Fee (% of throughput)` is a first-class Flat / Growth / Explicit rate path with Month / Quarter / Year natural periods, Step / Smooth resolution, percentage paste ingestion, compact schedule preview, and View all / Collapse inspection. Legacy scalar `per_unit` remains the Flat fallback for saved configurations.
+- Reuses Foundry's factor-path grammar without conflating economic layers: Transaction throughput is resolved first, the revenue-rate trajectory prices that throughput, and no pricing factor is divided by projection cadence. The r91 `Amount per source unit` coefficient remains independent and unchanged.
+- Promotes Fee Product `cost.params.factor_path` from a compatibility-only replacement path to the first-class direct cost rate/factor trajectory. `Operating cost (% of gross fee revenue)` and other fee-product cost modes can therefore author Flat / Growth / Explicit paths directly.
+- Preserves `cost.params.multiplier_path` as a separate multiplicative layer. Effective fee-product cost is `direct cost path × cost multiplier path`; saved r82 factor-path models remain exact because their implicit multiplier is 1.0, while scalar-only r83+ models retain the scalar as their Flat fallback.
+- Extends Calculation Audit Workbook provenance to show the direct cost path, cost multiplier, and effective cost factor independently. Bank Design Lab exposes non-explicit Transaction rate-path, direct-cost-path, and multiplier levers independently.
+- Tightens authoring-state hygiene: incompatible pricing-rate paths are retired when a stream changes basis, and Durbin authoring clears the ordinary Transaction rate path rather than retaining a hidden conflicting pricing state.
+- Focused regression coverage proves revenue Flat / Growth / Explicit behavior, Month / Quarter / Year buckets, Step / Smooth growth, explicit percentage paste ingestion, zero/negative revenue-rate conventions, percentage-cost bounds, Amount-per-source-unit interaction, direct-cost × multiplier composition, audit provenance, and the new UI paths.
+- Pre-release verification: all 31 historical test entry points passed from zero; focused Fee Suite 45/45, Growth UI 60/60, paste-surface hardening 26/26, and Lab Fee Levers 8/8. Python compilation, browser JavaScript syntax, `git diff --check`, credential-signature scanning, and modified-runtime overfitting scanning are clean.
+
 ## r80 — Advanced Opex timing ownership and authoring cleanup
 - Clarifies timing ownership without changing existing valid-model economics. Category-level recognition and cash-settlement controls govern only the entered recurring Opex trajectory; additive linked, cost-pool, and self-timed tiered/banded components retain their own/native timing.
 - Hides recurring-expense recognition and settlement controls when the entered recurring trajectory is economically zero. Stored settings are preserved rather than deleted, so they return unchanged if the recurring expense becomes active again.

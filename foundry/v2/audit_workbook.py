@@ -907,10 +907,11 @@ def _fee_cost_rows(cfg, results, n, ppy, exact=None):
                 vals = _money_k_series(arr) if exact is not None else arr
                 rows.append((name, label, key, "$000s / engine period", vals, _MONEY_FMT))
 
-    # Authoring-level cost factors are economically important audit evidence.  r83+ keeps
-    # the original scalar cost and a dimensionless multiplier as separate layers; expose both
-    # paths so a reviewer can reconcile a product-cost difference without reverse-engineering
-    # the stream JSON.  The short-lived r82 replacement factor_path remains visible as such.
+    # Authoring-level cost factors are economically important audit evidence.  The direct
+    # cost factor/rate path and the dimensionless multiplier are separate layers; expose both
+    # so a reviewer can reconcile a product-cost difference without reverse-engineering JSON.
+    # A saved r82 factor_path remains economically identical because its implicit multiplier
+    # is 1.0.
     from .income_modules import _fee_cost_factor_value
     gctx = growth_context_from_cfg(cfg, ppy)
     for prod in ((cfg.get("assumptions") or {}).get("obs_exposures") or []):
@@ -934,19 +935,19 @@ def _fee_cost_rows(cfg, results, n, ppy, exact=None):
                 base_fmt = _RATE_FMT
             rows.append((section, "Base cost factor", sid or f"cost:{kind}", base_units, [base] * n, base_fmt))
 
-            legacy_path = params.get("factor_path")
+            factor_path = params.get("factor_path")
             mult_path = params.get("multiplier_path")
             ctx = {"growth_context": gctx}
-            if legacy_path is not None:
-                effective = [_fee_cost_factor_value(legacy_path, q, ppy, ctx, base) for q in range(1, n + 1)]
-                rows.append((section, "Saved r82 replacement cost factor", sid or "legacy:factor_path",
-                             base_units, effective, base_fmt))
-            else:
-                mult = ([_fee_cost_factor_value(mult_path, q, ppy, ctx, 1.0) for q in range(1, n + 1)]
-                        if mult_path is not None else [1.0] * n)
-                effective = [base * float(x or 0.0) for x in mult]
-                rows.append((section, "Cost multiplier", sid or "cost:multiplier", "dimensionless", mult, _NUM_FMT))
-                rows.append((section, "Effective cost factor", sid or "cost:effective", base_units, effective, base_fmt))
+            direct = ([_fee_cost_factor_value(factor_path, q, ppy, ctx, base) for q in range(1, n + 1)]
+                      if factor_path is not None else [base] * n)
+            if factor_path is not None:
+                rows.append((section, "Direct cost rate / factor path", sid or "cost:factor_path",
+                             base_units, direct, base_fmt))
+            mult = ([_fee_cost_factor_value(mult_path, q, ppy, ctx, 1.0) for q in range(1, n + 1)]
+                    if mult_path is not None else [1.0] * n)
+            effective = [float(d or 0.0) * float(m or 0.0) for d, m in zip(direct, mult)]
+            rows.append((section, "Cost multiplier", sid or "cost:multiplier", "dimensionless", mult, _NUM_FMT))
+            rows.append((section, "Effective cost factor", sid or "cost:effective", base_units, effective, base_fmt))
     return rows
 
 

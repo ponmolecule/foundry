@@ -147,14 +147,21 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)
-    ck("fee cost UI preserves the scalar base cost and exposes a separate multiplier trajectory",
+    ck("fee cost UI exposes a first-class direct cost path plus a separate multiplier trajectory",
        '["pct_of_revenue","Revenue share (% of revenue)"]' in html
        and '["pct_of_revenue_opex","Operating cost (% of revenue)"]' in html
-       and 'Operating cost (% of gross fee revenue)' in html
-       and 'Cost multiplier path' in html and '>Period</label>' in html and '>Resolution</label>' in html
+       and 'Operating cost rate path' in html and 'Cost rate (% of gross fee revenue)' in html
+       and 'Cost rate schedule (% of gross fee revenue)' in html
+       and 'Cost multiplier path' in html and 'Multiplier period' in html and 'Multiplier resolution' in html
+       and '_feeCostFactorValue' in html and '_feeSetCostFactorSchedule' in html
        and '_feeCostMultiplierValue' in html and '_feeSetCostMultiplierSchedule' in html
-       and 'Multiplies the base cost above. The multiplier is not divided by model cadence.' in html
+       and 'Direct cost path × Cost multiplier path = effective fee-product cost factor.' in html
        and 'Noninterest Expense: Fee Product Costs' in html)
+    ck("transaction percentage pricing UI exposes Flat/Growth/Explicit natural-period rate authoring",
+       'Fee / spread path' in html and 'Fee rate path' in html
+       and 'Fee rate schedule (%) by ${_trper}' in html
+       and '_feeTransactionRateTrajectory' in html and '_feeTransactionRatePeriod' in html
+       and '_feeTransactionRateResolution' in html and '_feeSetTransactionRateSchedule' in html)
     ck("Income Statement surfaces Fee Product Costs inside the explicit NIE breakout",
        "rowIS('Fee product operating costs', fin.is.feeOpex" in html
        and "rowIS('Workforce compensation', fin.is.workforceComp" in html
@@ -235,20 +242,36 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Transaction authoring supports Amount per source unit in $000s and stores internal dollars",
        acr.returncode==0 and acj.get("option") and acj.get("label") and acj.get("preview") and acj.get("stored"), acr.stderr.strip())
+    pricing_path_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+        "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; } function renderContent(){} function refresh(){}\n"
+        + hjs + fjs +
+        "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002,rate_path:{value:.002,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.002,'2':.0018}}}},cost:{kind:'pct_of_revenue_opex',params:{pct:.00025,factor_path:{value:.00025,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.00025,'2':.0002}},multiplier_path:{value:1.0,trajectory:'flat',period:'year',resolution:'step'}}}};"
+        " const p={name:'API Product',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetTransactionRateSchedule(0,0,'0.20%, 0.18, 0.17'); _feeSetCostFactorSchedule(0,0,'0.025%, 0.020, 0.015');"
+        " console.log(JSON.stringify({rateUI:out.includes('Fee rate path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('Operating cost rate path')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
+    ppr=subprocess.run(["node","-e",pricing_path_js],text=True,capture_output=True); ppj={}
+    if ppr.returncode==0 and ppr.stdout.strip():
+        try: ppj=json.loads(ppr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Transaction revenue/cost explicit paste stores normal percentage authoring as decimal paths",
+       ppr.returncode==0 and ppj.get("rateUI") and ppj.get("costUI") and ppj.get("multUI")
+       and all(abs((ppj.get("rate") or {}).get(str(i),0)-v)<1e-12 for i,v in enumerate([.002,.0018,.0017],1))
+       and all(abs((ppj.get("cost") or {}).get(str(i),0)-v)<1e-12 for i,v in enumerate([.00025,.0002,.00015],1)), str(ppj)+" "+ppr.stderr.strip())
     # r92: basis-typed cleanup must repair already-saved r91 configs and future basis changes.
     na=html.index("function normalizeCfg(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]
     stale_cleanup_js=("const window=globalThis; function renderContent(){} function refresh(){};\n"
         + normjs + hjs +
-        "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{}},cost:{kind:'none',params:{}}}]}]}};"
-        " const loaded=JSON.parse(JSON.stringify(cfg)); normalizeCfg(loaded); const loadClean=!('coefficient' in loaded.assumptions.obs_exposures[0].fee_streams[0].driver.params);"
-        " cfg.assumptions.obs_exposures[0].fee_streams[0]={name:'Business MAB',basis:'transaction',driver:{source:'constant',trajectory:'derived',params:{coefficient:{kind:'multiple',value:2,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{}},cost:{kind:'none',params:{}}};"
-        " feeStreamBasisChange(0,0,'account'); const changeClean=!('coefficient' in cfg.assumptions.obs_exposures[0].fee_streams[0].driver.params);"
+        "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}}]}]}};"
+        " const loaded=JSON.parse(JSON.stringify(cfg)); normalizeCfg(loaded); const ls=loaded.assumptions.obs_exposures[0].fee_streams[0]; const loadClean=!('coefficient' in ls.driver.params)&&!('rate_path' in ls.rate.params);"
+        " cfg.assumptions.obs_exposures[0].fee_streams[0]={name:'Business MAB',basis:'transaction',driver:{source:'constant',trajectory:'derived',params:{coefficient:{kind:'multiple',value:2,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}};"
+        " feeStreamBasisChange(0,0,'account'); const cs=cfg.assumptions.obs_exposures[0].fee_streams[0]; const changeClean=!('coefficient' in cs.driver.params)&&!('rate_path' in cs.rate.params);"
         " console.log(JSON.stringify({loadClean,changeClean,basis:cfg.assumptions.obs_exposures[0].fee_streams[0].basis}));")
     scr=subprocess.run(["node","-e",stale_cleanup_js],text=True,capture_output=True); scj={}
     if scr.returncode==0 and scr.stdout.strip():
         try: scj=json.loads(scr.stdout.strip().splitlines()[-1])
         except Exception: pass
-    ck("Fee basis cleanup retires hidden transaction coefficients on loaded and newly-changed Account streams",
+    ck("Fee basis cleanup retires hidden transaction coefficient/rate state on loaded and newly-changed Account streams",
        scr.returncode==0 and scj.get("loadClean") and scj.get("changeClean") and scj.get("basis")=="account", scr.stderr.strip())
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
