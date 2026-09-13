@@ -66,6 +66,11 @@ def run_pf_b(cfg):
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a, 4, _growth_ctx)
     from .opex_extensions import linked_component_amount
+    from .workforce import resolve_workforce_additive_components, workforce_additive_component_amount
+    _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
+    _wf_add_components = resolve_workforce_additive_components(_wf_cfg, 4) if _nie_d else []
+    _wf_comp_native, _wf_role_comp_native, _wf_additive_comp_native = [], [], []
+    _wf_additive_component_native = [[] for _ in _wf_add_components]
     _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
     _occ_half_amt = 0.0
@@ -210,12 +215,40 @@ def run_pf_b(cfg):
                           "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
                           "periods_per_year": 4})
                 for _lc in (_nie_d.get("linked_components") or []))
-            _sub = (_nie_d["comp"][qi] + _nie_d["categories"][qi] + _linked_opex
+            _role_workforce_comp = _nie_d["comp"][qi]
+            _wf_add_values = []
+            if _wf_add_components:
+                _hist_nii = [float(x or 0.0) for x in out_is["nii"]] + [float(nii or 0.0)]
+                _hist_fee = [float(x or 0.0) for x in out_is["fees"]] + [float(fees or 0.0)]
+                _hist_zero = [0.0] * (qi + 1)
+                _hist_nonint = list(_hist_fee)
+                _hist_total = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(qi + 1)]
+                _wf_metrics = {
+                    "periods_per_year": 4,
+                    "income_statement_flow_history": {
+                        "fee_income": _hist_fee, "gain_on_sale": _hist_zero, "servicing_net": _hist_zero,
+                        "noninterest_income": _hist_nonint, "net_interest_income": _hist_nii,
+                        "total_operating_revenue": _hist_total,
+                    },
+                    "customer_acquisition_auc_monthly": _auc_month_sources,
+                    "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                    "fee_stream_quantity_history": {},
+                    "fee_stream_quantity_known_ids": set(),
+                    "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
+                }
+                _wf_add_values = [workforce_additive_component_amount(_wc, qi, _wf_metrics)
+                                  for _wc in _wf_add_components]
+            _workforce_comp = _role_workforce_comp + sum(_wf_add_values)
+            _sub = (_workforce_comp + _nie_d["categories"][qi] + _linked_opex
                     + _fdic + _occ + _dep_exp[qi] + opex_prod)
             _r = _nie_d["gross_up_rate"]
             _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
-            _workforce_comp = _nie_d["comp"][qi]
             _other_opex = _ovh_b - _workforce_comp - _depreciation_expense
+            _wf_comp_native.append(float(_workforce_comp or 0.0))
+            _wf_role_comp_native.append(float(_role_workforce_comp or 0.0))
+            _wf_additive_comp_native.append(float(sum(_wf_add_values)))
+            for _wci in range(len(_wf_additive_component_native)):
+                _wf_additive_component_native[_wci].append(float(_wf_add_values[_wci] if _wci < len(_wf_add_values) else 0.0))
         nie = opex_prod + _ovh_b
         _prepaid_opex_q = (_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0) + max(0.0, _occ_signed_balance)
         _accrued_opex_q = (_opex_static_acc[qi] if qi < len(_opex_static_acc) else 0.0) + max(0.0, -_occ_signed_balance)
@@ -321,6 +354,22 @@ def run_pf_b(cfg):
                 "ftp_rate": [ftp] * Q,
             })
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
+    if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []) or _wf_add_components):
+        _out["workforce"] = {
+            "resolved_hire_periods": [int((r or {}).get("hire_period") or 1) for r in (_wf_cfg.get("roles") or [])],
+            "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
+            "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
+            "counts": [],
+            "comp": list(_wf_comp_native),
+            "role_comp": list(_wf_role_comp_native),
+            "additive_comp": list(_wf_additive_comp_native),
+            "additive_components": [
+                {"component_id": str((c or {}).get("component_id") or ""),
+                 "name": str((c or {}).get("name") or "Tiered / banded compensation component"),
+                 "amounts": list(_wf_additive_component_native[i])}
+                for i, c in enumerate(_wf_add_components)
+            ],
+        }
     if fixed_asset_mode(a) == "schedule":
         _out["fixed_assets"] = {
             "mode": "schedule",

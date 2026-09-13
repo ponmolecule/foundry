@@ -203,7 +203,7 @@ def _normalize_piecewise_timing(raw: Mapping[str, Any] | None) -> dict:
 def _normalize_piecewise_terms(raw_terms) -> list[dict]:
     terms = list(raw_terms or [])
     if not terms:
-        raise ValueError("piecewise-linked Opex component requires at least one driver term")
+        raise ValueError("piecewise-linked component requires at least one driver term")
     out = []
     from .balance_measures import normalize_balance_measure
     for i, raw in enumerate(terms):
@@ -233,7 +233,7 @@ def _normalize_piecewise_terms(raw_terms) -> list[dict]:
 def _normalize_piecewise_bands(raw_bands) -> list[dict]:
     bands = list(raw_bands or [])
     if not bands:
-        raise ValueError("piecewise-linked Opex component requires at least one band")
+        raise ValueError("piecewise-linked component requires at least one band")
     out = []
     prev_upper = None
     for i, raw in enumerate(bands):

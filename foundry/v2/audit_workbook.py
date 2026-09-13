@@ -735,8 +735,111 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
         eng_comp = _money_k_series(wfout.get("comp")) if exact is not None else wfout.get("comp")
         rows.append(("Reconciliation", "Engine workforce compensation", "workforce.comp", "$000s / engine period",
                      eng_comp, _MONEY_FMT))
-        rows.append(("Reconciliation", "Sum of role payroll expense", "audit:role_comp_sum", "$000s / engine period",
-                     total, _MONEY_FMT))
+        role_comp = wfout.get("role_comp")
+        if role_comp is not None:
+            vals = _money_k_series(role_comp) if exact is not None else list(role_comp)
+            rows.append(("Reconciliation", "Role payroll compensation", "workforce.role_comp", "$000s / engine period",
+                         vals, _MONEY_FMT))
+        else:
+            rows.append(("Reconciliation", "Sum of role payroll expense", "audit:role_comp_sum", "$000s / engine period",
+                         total, _MONEY_FMT))
+        add_comp = wfout.get("additive_comp")
+        if add_comp is not None:
+            vals = _money_k_series(add_comp) if exact is not None else list(add_comp)
+            rows.append(("Reconciliation", "Additive compensation components", "workforce.additive_comp", "$000s / engine period",
+                         vals, _MONEY_FMT))
+        for comp in (wfout.get("additive_components") or []):
+            vals = list((comp or {}).get("amounts") or [])
+            if exact is not None:
+                vals = _money_k_series(vals)
+            rows.append(("Additive compensation", str((comp or {}).get("name") or "Tiered / banded compensation component"),
+                         str((comp or {}).get("component_id") or ""), "$000s / engine period", vals, _MONEY_FMT))
+    return rows
+
+
+def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
+    """Long-form diagnostics for additive Workforce compensation components."""
+    a = cfg.get("assumptions") or {}
+    wfcfg = (((a.get("nie_detail") or {}).get("workforce")) or {})
+    raw_components = list(wfcfg.get("additive_components") or [])
+    if not raw_components:
+        return []
+    from .workforce import (normalize_workforce_additive_component, workforce_additive_component_amount,
+                            WORKFORCE_INCOME_FLOW_SOURCE, _income_flow_term_value)
+    from .opex_extensions import (_piecewise_event_due, _piecewise_term_value, _normalize_piecewise_bands,
+                                  _normalize_observation_lag, _lag_to_engine_periods)
+    ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
+    source = exact if exact is not None else results
+    is_ = source.get("is") or ((source.get("financials") or {}).get("is") or {})
+
+    def _series(key):
+        arr = list(is_.get(key) or [])
+        if exact is not None and len(arr) == n + 1:
+            arr = arr[1:]
+        return [float(x or 0.0) * (1.0 if exact is not None else 1000.0) for x in arr[:n]]
+
+    nii, fee, gos, srv = _series("nii"), _series("fees"), _series("gos"), _series("servNet")
+    nonint = [(fee[i] if i < len(fee) else 0.0) + (gos[i] if i < len(gos) else 0.0) +
+              (srv[i] if i < len(srv) else 0.0) for i in range(n)]
+    totalrev = [(nii[i] if i < len(nii) else 0.0) + nonint[i] for i in range(n)]
+    flow_hist = {"fee_income": fee, "gain_on_sale": gos, "servicing_net": srv,
+                 "noninterest_income": nonint, "net_interest_income": nii,
+                 "total_operating_revenue": totalrev}
+    rows = []
+    for ci, raw in enumerate(raw_components):
+        comp = normalize_workforce_additive_component(raw, ppy)
+        name = str(comp.get("name") or f"Component {ci+1}")
+        cid = str(comp.get("component_id") or "")
+        for i in range(n):
+            metrics = {
+                "periods_per_year": ppy, "income_statement_flow_history": flow_hist,
+                "fee_stream_quantities": {sid0: (arr[i] if i < len(arr) else 0.0)
+                                          for sid0, arr in ctx["quantity_history"].items()},
+                "customer_acquisition_auc_monthly": ctx["cac_monthly"],
+                "customer_acquisition_auc_beginning": ctx["cac_beginning"],
+                "fee_stream_quantity_history": ctx["quantity_history"],
+                "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
+                "bank_total_assets_end_by_period": ctx["total_assets"],
+            }
+            pend = model_period_end_date(cfg, i + 1, ppy)
+            due = _piecewise_event_due(comp, i, ppy)
+            try:
+                amount = workforce_additive_component_amount(comp, i, metrics)
+            except Exception as exc:
+                rows.append([name, cid, i + 1, pend, due, None, None, None, None, None, None, None, None, None, None,
+                             None, None, None, None, f"ERROR: {exc}"])
+                continue
+            if not due:
+                rows.append([name, cid, i + 1, pend, False, None, None, None, None, None, None, None, None, None, None,
+                             None, None, None, float(amount or 0.0), "No event this period"])
+                continue
+            lagp = _lag_to_engine_periods(_normalize_observation_lag(comp.get("observation_lag")), int(ppy))
+            obs = (i + 1) - lagp
+            obs_date = model_period_end_date(cfg, obs, ppy) if obs > 0 else None
+            tvals, composite = [], 0.0
+            for ti, term in enumerate(comp.get("terms") or [], 1):
+                if str(term.get("source") or "") == WORKFORCE_INCOME_FLOW_SOURCE:
+                    tv = _income_flow_term_value(term, obs, metrics)
+                else:
+                    tv = _piecewise_term_value(term, obs, metrics)
+                wt = float(term.get("weight") if term.get("weight") is not None else 1.0)
+                weighted = wt * float(tv or 0.0); composite += weighted
+                tvals.append((ti, term, tv, wt, weighted))
+            active = None
+            for b in _normalize_piecewise_bands(comp.get("bands")):
+                lo, hi = float(b["lower_bound"]), b["upper_bound"]
+                if composite + 1e-12 < lo:
+                    continue
+                if hi is None or composite <= float(hi) + 1e-12:
+                    active = b; break
+            for ti, term, tv, wt, weighted in tvals:
+                rows.append([
+                    name, cid, i + 1, pend, True, obs, obs_date, ti, str(term.get("source") or ""),
+                    str(term.get("metric") or term.get("series_id") or ""), str(term.get("aggregation") or term.get("measure") or ""),
+                    wt, tv, weighted, composite, (active or {}).get("lower_bound"), (active or {}).get("upper_bound"),
+                    (active or {}).get("base_amount"), (active or {}).get("marginal_rate"), float(amount or 0.0),
+                    "Posts to Workforce compensation; income flows are model-year-to-date through the observed event period",
+                ])
     return rows
 
 
@@ -954,7 +1057,8 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Ratios", "Native-cadence public ratios."),
         ("Operating Expense", "IS Opex decomposition plus recurring categories, additive components, settlement balances, and residual reconciliation."),
         ("Opex Component Detail", "Period-by-period linked/tiered/cost-pool intermediates, including tier observations, active bands, rates, and raw-dollar calculated expense."),
-        ("Workforce", "Role-level count, compensation assumptions, resolved payroll expense, and engine total."),
+        ("Workforce", "Role-level count, compensation assumptions, additive compensation, and engine total."),
+        ("Workforce Component Detail", "Period-by-period additive compensation diagnostics: observed FY metric/balance, weighted terms, active hurdle band, and posted Workforce expense."),
         ("CAC - AUC", "Customer-acquisition AUC EOP / average and customer measures by native period."),
         ("CAC Channels", "Annual channel-level operands and outputs at full precision: raw drivers → new customers → average AUC/customer → new AUC/spend/CAC."),
         ("CAC Annual Rollforward", "Feed-level annual beginning/new/lost/ending AUC and customers, attrition, spend, and blended CAC."),
@@ -1023,6 +1127,19 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Workforce"), cfg, _workforce_rows(cfg, results, n, ppy, exact=exact),
                      title="Workforce · Calculation Audit",
                      subtitle="Role-level headcount and payroll calculations, including resolved activation timing.", n=n, ppy=ppy)
+    _write_long_rows(
+        wb.create_sheet("Workforce Component Detail"),
+        title="Workforce Additive Compensation Component Detail · Audit",
+        subtitle="Raw-dollar diagnostics for tiered/banded compensation. Income-statement terms show the exact model-year flow observed at the event; every weighted term and active literal band is exposed.",
+        headers=["Component", "Component ID", "Model period", "Period end", "Event due", "Observation period",
+                 "Observation date", "Term #", "Term source", "Metric / Series ID", "Aggregation / measure", "Weight",
+                 "Raw term value ($)", "Weighted term value ($)", "Composite driver ($)", "Band lower ($)", "Band upper ($)",
+                 "Band base fee ($)", "Marginal rate", "Calculated compensation ($)", "Notes"],
+        rows=_workforce_component_detail_rows(cfg, results, n, ppy, exact=exact),
+        widths=[34, 30, 12, 13, 11, 16, 15, 9, 26, 34, 24, 11, 20, 22, 22, 18, 18, 20, 18, 24, 70],
+        formats={3:"0", 4:"yyyy-mm-dd", 6:"0", 7:"yyyy-mm-dd", 8:"0", 12:_RAW_NUM_FMT,
+                 13:_RAW_MONEY_FMT, 14:_RAW_MONEY_FMT, 15:_RAW_MONEY_FMT, 16:_RAW_MONEY_FMT, 17:_RAW_MONEY_FMT,
+                 18:_RAW_MONEY_FMT, 19:_RAW_NUM_FMT, 20:_RAW_MONEY_FMT}, freeze_col=4)
     _write_wide_rows(wb.create_sheet("CAC - AUC"), cfg, _cac_rows(cfg, results, n, ppy),
                      title="Customer Acquisition / AUC · Calculation Audit",
                      subtitle="AUC period-end and canonical period-average paths plus customer-count measures.", n=n, ppy=ppy)

@@ -935,11 +935,16 @@ def run_pf_a(cfg):
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
     _wf_comp_native = []
+    _wf_role_comp_native = []
+    _wf_additive_comp_native = []
+    _wf_additive_component_native = None
     _wf_count_native = None
-    if _wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []):
+    if (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or [])
+            or (_wf_cfg.get("additive_components") or [])):
         from .workforce import WorkforceRuntime
         _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
         _wf_count_native = [[] for _ in _wf_runtime.rows]
+        _wf_additive_component_native = [[] for _ in _wf_runtime.additive_components]
 
     # First-class managed-notional observables for workforce activation.
     #
@@ -1095,10 +1100,9 @@ def run_pf_a(cfg):
                              else 0.0)
                 _occ_signed_balance += _occ_cash - _occ
 
-            _comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
-                       if _wf_runtime is not None else _nie_d["comp"][q - 1])
+            _role_comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
+                            if _wf_runtime is not None else _nie_d["comp"][q - 1])
             if _wf_runtime is not None:
-                _wf_comp_native.append(_comp_q)
                 for _wi, _cv in enumerate(_wf_runtime.count_for_period(q)):
                     _wf_count_native[_wi].append(_cv)
             _linked_opex = sum(linked_component_amount(
@@ -1113,12 +1117,15 @@ def run_pf_a(cfg):
                              "cost_pool": _cost_pool_ctx(q),
                              "periods_per_year": ppy})
                 for _lc in (_nie_d.get("linked_components") or []))
+            _comp_q = _role_comp_q
             _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
             workforce_comp = _comp_q
             other_opex = overhead - workforce_comp - depreciation_expense
+        else:
+            _role_comp_q = 0.0
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
         # operating-cost % of fee revenue) are external product costs. They remain
         # POST gross-up, but are surfaced as their own NIE line instead of being
@@ -1156,6 +1163,46 @@ def run_pf_a(cfg):
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
             borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
+            _wf_add_values = []
+            if _nie_d and _wf_runtime is not None and _wf_runtime.additive_components:
+                from .workforce import workforce_additive_component_amount
+                _prior_nii = [float(is_["nii"][_p] or 0.0) for _p in range(1, q)]
+                _prior_fee = [float(is_["fees"][_p] or 0.0) for _p in range(1, q)]
+                _prior_gos = [float(is_["gos"][_p] or 0.0) for _p in range(1, q)]
+                _prior_srv = [float(is_["servNet"][_p] or 0.0) for _p in range(1, q)]
+                _hist_nii = _prior_nii + [float(nii or 0.0)]
+                _hist_fee = _prior_fee + [float(fees or 0.0)]
+                _hist_gos = _prior_gos + [float(gos or 0.0)]
+                _hist_srv = _prior_srv + [float(srv or 0.0)]
+                _hist_nonint = [_hist_fee[_i] + _hist_gos[_i] + _hist_srv[_i] for _i in range(q)]
+                _hist_total_rev = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(q)]
+                _wf_metrics = {
+                    "periods_per_year": ppy,
+                    "income_statement_flow_history": {
+                        "fee_income": _hist_fee,
+                        "gain_on_sale": _hist_gos,
+                        "servicing_net": _hist_srv,
+                        "noninterest_income": _hist_nonint,
+                        "net_interest_income": _hist_nii,
+                        "total_operating_revenue": _hist_total_rev,
+                    },
+                    "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
+                                              for sid, arr in _fee_stream_qty_series.items()},
+                    "customer_acquisition_auc_monthly": _auc_month_sources,
+                    "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                    "fee_stream_quantity_history": _fee_stream_qty_series,
+                    "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
+                    "bank_total_assets_end_by_period": bs["totalAssets"],
+                }
+                _wf_add_values = [workforce_additive_component_amount(_wc, q - 1, _wf_metrics)
+                                  for _wc in _wf_runtime.additive_components]
+                _comp_q = _role_comp_q + sum(_wf_add_values)
+                _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
+                        + _fdic + _occ + dep_exp_t[q] + prod_ox)
+                overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+                workforce_comp = _comp_q
+                other_opex = overhead - workforce_comp - depreciation_expense
+                nie = prod_ox + fee_opex + overhead
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
             if _td:
                 if pretax < 0:
@@ -1194,6 +1241,15 @@ def run_pf_a(cfg):
                 ni = new_ni
                 break
             ni = new_ni
+        if _wf_runtime is not None:
+            _wf_comp_native.append(float(workforce_comp or 0.0))
+            _wf_role_comp_native.append(float(_role_comp_q or 0.0))
+            _wf_additive_comp_native.append(float((workforce_comp or 0.0) - (_role_comp_q or 0.0)))
+            if _wf_additive_component_native is not None:
+                _final_wf_add = (_wf_add_values if '_wf_add_values' in locals() else [])
+                for _wci in range(len(_wf_additive_component_native)):
+                    _wf_additive_component_native[_wci].append(
+                        float(_final_wf_add[_wci] if _wci < len(_final_wf_add) else 0.0))
         if _td:
             nol = _nol_end
             _cum_taxable += pretax
@@ -1340,5 +1396,13 @@ def run_pf_a(cfg):
             "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
             "counts": list(_wf_count_native or []),
             "comp": list(_wf_comp_native),
+            "role_comp": list(_wf_role_comp_native),
+            "additive_comp": list(_wf_additive_comp_native),
+            "additive_components": [
+                {"component_id": str((c or {}).get("component_id") or ""),
+                 "name": str((c or {}).get("name") or "Tiered / banded compensation component"),
+                 "amounts": list((_wf_additive_component_native or [])[i])}
+                for i, c in enumerate(_wf_runtime.additive_components)
+            ],
         }
     return _out

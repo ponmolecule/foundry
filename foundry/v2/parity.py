@@ -54,8 +54,18 @@ def _conv_workforce(wf):
     if not isinstance(wf, dict):
         return wf
     out = dict(wf)
-    if isinstance(wf.get("comp"), list):
-        out["comp"] = [_k(x) for x in wf["comp"]]
+    for key in ("comp", "role_comp", "additive_comp"):
+        if isinstance(wf.get(key), list):
+            out[key] = [_k(x) for x in wf[key]]
+    if isinstance(wf.get("additive_components"), list):
+        out["additive_components"] = []
+        for comp in wf["additive_components"]:
+            if not isinstance(comp, dict):
+                out["additive_components"].append(comp); continue
+            row = dict(comp)
+            if isinstance(row.get("amounts"), list):
+                row["amounts"] = [_k(x) for x in row["amounts"]]
+            out["additive_components"].append(row)
     if isinstance(wf.get("counts"), list):
         out["counts"] = [
             [None if x is None else round(float(x), 6) for x in row]

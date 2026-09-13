@@ -250,6 +250,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .opex-piecewise-open-ended{min-height:29px;display:flex;align-items:center;color:#9CA7B7;font-size:10px;white-space:nowrap}
 .opex-piecewise-remove{align-self:end;white-space:nowrap;font-size:10px !important;padding:5px 8px !important}
 .opex-piecewise-actions{margin-top:8px}
+.opex-linked-component-row{display:flex;align-items:center;gap:7px;flex-wrap:nowrap;min-width:0;overflow-x:auto;padding-bottom:2px}
+.opex-linked-component-row .opex-linked-driver{min-width:220px;max-width:360px;flex:1 1 260px}
+.opex-linked-component-row .opex-linked-rate{width:62px !important;min-width:62px !important;max-width:62px !important;flex:0 0 62px}
+.opex-linked-component-row .opex-linked-delete{flex:0 0 auto;margin-left:1px}
+.workforce-additive-wrap{margin-top:12px;padding-top:11px;border-top:1px solid rgba(148,163,184,.18)}
 @media(max-width:760px){.opex-piecewise-timing-grid{grid-template-columns:1fr 1fr}.opex-piecewise-timing-grid .wf-field:first-child{grid-column:1/-1}.opex-piecewise-driver-row{grid-template-columns:minmax(0,1fr) minmax(100px,.55fr)}.opex-piecewise-driver-row .opex-piecewise-remove{justify-self:start}.opex-piecewise-band-head,.opex-piecewise-band-row{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) minmax(0,1fr) auto;gap:5px}.opex-piecewise-band-head{padding:0 4px}.opex-piecewise-band-row{padding:7px 4px}.opex-piecewise-remove{padding:5px 5px !important}}
 /* r72: Close/Edit collapses the entire paste editor body, not only the textarea. */
 .paste-surface-toggle{display:inline-flex;align-items:center;gap:5px;margin:4px 0 0;font-size:10px;color:#8FA3C0}
@@ -4322,7 +4327,7 @@ function _ensureWorkforce(){
   var nd=_ensureNieDetail();
   nd.workforce=nd.workforce||{roles:[],default_payroll_load_rate:0,
     default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};
-  nd.workforce.mode="roles"; nd.workforce.roles=nd.workforce.roles||[];
+  nd.workforce.mode="roles"; nd.workforce.roles=nd.workforce.roles||[]; nd.workforce.additive_components=nd.workforce.additive_components||[];
   nd.workforce.default_salary_growth_spec=nd.workforce.default_salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
   return nd.workforce;
 }
@@ -7867,6 +7872,55 @@ window.secAociToggle = function(){
 };
 
 // ===== Customer Acquisition (CAC) feeds — causal equations over generic Foundry Series. =====
+
+function _workforcePiecewiseTermOptions(){
+  const out=[
+    {value:"income_statement_flow::total_operating_revenue",source:"income_statement_flow",metric:"total_operating_revenue",label:"FY Total operating revenue · NII + fee income + gain on sale + net servicing"},
+    {value:"income_statement_flow::noninterest_income",source:"income_statement_flow",metric:"noninterest_income",label:"FY Total noninterest income · fee income + gain on sale + net servicing"},
+    {value:"income_statement_flow::fee_income",source:"income_statement_flow",metric:"fee_income",label:"FY Fee income"},
+    {value:"income_statement_flow::net_interest_income",source:"income_statement_flow",metric:"net_interest_income",label:"FY Net interest income"},
+    {value:"income_statement_flow::gain_on_sale",source:"income_statement_flow",metric:"gain_on_sale",label:"FY Gain on sale"},
+    {value:"income_statement_flow::servicing_net",source:"income_statement_flow",metric:"servicing_net",label:"FY Net servicing"},
+  ];
+  _opexPiecewiseTermOptions().forEach(o=>out.push(o));
+  return out;
+}
+function _workforcePiecewiseTermValue(t){
+  if((t||{}).source==="income_statement_flow")return "income_statement_flow::"+String(t.metric||"total_operating_revenue");
+  return _opexPiecewiseTermValue(t);
+}
+function _wfPiecewise(j){return (((_ensureWorkforce().additive_components||[])[j])||null);}
+window.nieWorkforceAddPiecewise=function(){const wf=_ensureWorkforce();wf.additive_components=wf.additive_components||[];wf.additive_components.push({driver:"piecewise_linked",component_id:_seriesId("wf-component"),name:"Tiered / banded compensation component",terms:[{source:"income_statement_flow",metric:"total_operating_revenue",aggregation:"model_year_to_date",weight:1}],bands:[{lower_bound:0,upper_bound:null,base_amount:0,marginal_rate:0}],timing:{mode:"annual",first_period:PPY()},observation_lag:{value:0,period:"model_period"}});window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.workforce=true;renderContent();refresh();};
+window.nieWorkforceRemovePiecewise=function(j){const wf=_ensureWorkforce();if(!(wf.additive_components||[])[j])return;wf.additive_components.splice(j,1);renderContent();refresh();};
+window.nieWorkforcePiecewiseName=function(j,v){const lc=_wfPiecewise(j);if(!lc)return;lc.name=String(v||"");refresh();};
+window.nieWorkforcePiecewiseTimingMode=function(j,v){const lc=_wfPiecewise(j);if(!lc)return;lc.timing=lc.timing||{};lc.timing.mode=v;renderContent();refresh();};
+window.nieWorkforcePiecewiseFirstPeriod=function(j,v){const lc=_wfPiecewise(j);if(!lc)return;lc.timing=lc.timing||{};lc.timing.first_period=Math.max(1,Math.round(_pf(v)||1));renderContent();refresh();};
+window.nieWorkforcePiecewiseLagValue=function(j,v){const lc=_wfPiecewise(j);if(!lc)return;lc.observation_lag=lc.observation_lag||{};lc.observation_lag.value=Math.max(0,Math.round(_pf(v)||0));renderContent();refresh();};
+window.nieWorkforcePiecewiseLagPeriod=function(j,v){const lc=_wfPiecewise(j);if(!lc)return;lc.observation_lag=lc.observation_lag||{};lc.observation_lag.period=v;renderContent();refresh();};
+window.nieWorkforcePiecewiseAddTerm=function(j){const lc=_wfPiecewise(j);if(!lc)return;lc.terms=lc.terms||[];lc.terms.push({source:"income_statement_flow",metric:"total_operating_revenue",aggregation:"model_year_to_date",weight:1});renderContent();refresh();};
+window.nieWorkforcePiecewiseRemoveTerm=function(j,k){const lc=_wfPiecewise(j);if(!lc||!(lc.terms||[])[k]||lc.terms.length<=1)return;lc.terms.splice(k,1);renderContent();refresh();};
+window.nieWorkforcePiecewiseTermSource=function(j,k,v){const lc=_wfPiecewise(j),t=lc&&((lc.terms||[])[k]);if(!t)return;v=String(v||"");delete t.series_id;delete t.measure;delete t.metric;delete t.aggregation;if(v.indexOf("income_statement_flow::")===0){t.source="income_statement_flow";t.metric=v.slice("income_statement_flow::".length);t.aggregation="model_year_to_date";}else if(v.indexOf("customer_acquisition_auc::")===0){t.source="customer_acquisition_auc";t.series_id=v.slice("customer_acquisition_auc::".length);t.measure="period_end";}else if(v.indexOf("fee_stream_balance_quantity::")===0){t.source="fee_stream_balance_quantity";t.series_id=v.slice("fee_stream_balance_quantity::".length);}else t.source="bank_total_assets";renderContent();refresh();};
+window.nieWorkforcePiecewiseTermWeight=function(j,k,v){const lc=_wfPiecewise(j),t=lc&&((lc.terms||[])[k]);if(!t)return;t.weight=_pf(v);refresh();};
+window.nieWorkforcePiecewiseTermMeasure=function(j,k,v){const lc=_wfPiecewise(j),t=lc&&((lc.terms||[])[k]);if(!t)return;t.measure=v==="period_average"?"period_average":"period_end";renderContent();refresh();};
+window.nieWorkforcePiecewiseAddBand=function(j){const lc=_wfPiecewise(j);if(!lc)return;lc.bands=lc.bands||[{lower_bound:0,upper_bound:null,base_amount:0,marginal_rate:0}];const last=lc.bands[lc.bands.length-1],lo=+last.lower_bound||0;if(last.upper_bound==null)last.upper_bound=lo;lc.bands.push({lower_bound:+last.upper_bound||0,upper_bound:null,base_amount:0,marginal_rate:0});_piecewiseNormalizeBandBounds(lc);renderContent();refresh();};
+window.nieWorkforcePiecewiseRemoveBand=function(j,k){const lc=_wfPiecewise(j);if(!lc||!(lc.bands||[])[k]||lc.bands.length<=1)return;lc.bands.splice(k,1);_piecewiseNormalizeBandBounds(lc);renderContent();refresh();};
+window.nieWorkforcePiecewiseBandUpper=function(j,k,v){const lc=_wfPiecewise(j),b=lc&&((lc.bands||[])[k]);if(!b||k>=lc.bands.length-1)return;b.upper_bound=Math.max(+b.lower_bound||0,_pf(v)*1000);_piecewiseNormalizeBandBounds(lc);renderContent();refresh();};
+window.nieWorkforcePiecewiseBandBase=function(j,k,v){const lc=_wfPiecewise(j),b=lc&&((lc.bands||[])[k]);if(!b)return;b.base_amount=_pf(v)*1000;refresh();};
+window.nieWorkforcePiecewiseBandRate=function(j,k,v){const lc=_wfPiecewise(j),b=lc&&((lc.bands||[])[k]);if(!b)return;b.marginal_rate=_pf(v);refresh();};
+function _workforcePiecewiseEditorHtml(lc,j){
+  const terms=lc.terms||[],bands=lc.bands||[],tim=lc.timing||{mode:"annual",first_period:PPY()},lag=lc.observation_lag||{value:0,period:"model_period"},tag=_opexPeriodTag(),opts=_workforcePiecewiseTermOptions();
+  let h=`<div class="opex-cost-pool-editor opex-piecewise-card"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="wf-field-label">Tiered / banded compensation component</span><input value="${esc(lc.name||'Tiered / banded compensation component')}" onchange="nieWorkforcePiecewiseName(${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieWorkforceRemovePiecewise(${j});return false">Remove component</button></div>`;
+  h+=`<div class="nie-section-note">Posts directly to <b>Workforce compensation</b>. The component name is descriptive only; the selected source, timing, and bands determine the economics.</div>`;
+  h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Timing</span><div class="nie-section-note">For a fiscal-year bonus recognized in the final model month, use Annual with first event ${tag}${PPY()}.</div></div><div class="opex-piecewise-timing-grid"><label class="wf-field"><span class="wf-field-label">Observation lag</span><div class="opex-piecewise-inline-pair"><input type="number" min="0" step="1" value="${Math.max(0,+lag.value||0)}" onchange="nieWorkforcePiecewiseLagValue(${j},this.value)"><select onchange="nieWorkforcePiecewiseLagPeriod(${j},this.value)">${[['model_period','Model period'],['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===(lag.period||'model_period')?' selected':''}>${o[1]}</option>`).join('')}</select></div></label><label class="wf-field"><span class="wf-field-label">Event cadence</span><select onchange="nieWorkforcePiecewiseTimingMode(${j},this.value)">${[['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Semiannual'],['annual','Annual']].map(o=>`<option value="${o[0]}"${o[0]===(tim.mode||'annual')?' selected':''}>${o[1]}</option>`).join('')}</select></label><label class="wf-field"><span class="wf-field-label">First event model period</span><div class="opex-piecewise-first-event"><span class="cu">${tag}</span><input type="number" min="1" step="1" value="${Math.max(1,+tim.first_period||PPY())}" onchange="nieWorkforcePiecewiseFirstPeriod(${j},this.value)"></div></label></div></div>`;
+  h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Composite driver terms</span><div class="nie-section-note">Income Statement sources accumulate from the start of each model year through the observed event period. At ${tag}${PPY()}, that is the full FY.</div></div>`;
+  terms.forEach((t,k)=>{const tv=_workforcePiecewiseTermValue(t),isA=t.source==='customer_acquisition_auc';h+=`<div class="opex-piecewise-driver-row"><label class="wf-field"><span class="wf-field-label">Source</span><select onchange="nieWorkforcePiecewiseTermSource(${j},${k},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===tv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label>${isA?`<label class="wf-field"><span class="wf-field-label">Measure</span><select onchange="nieWorkforcePiecewiseTermMeasure(${j},${k},this.value)"><option value="period_end"${(t.measure||'period_end')==='period_end'?' selected':''}>Period end</option><option value="period_average"${t.measure==='period_average'?' selected':''}>Period average</option></select></label>`:`<span></span>`}<label class="wf-field"><span class="wf-field-label">Weight / multiplier</span><input type="number" step="any" value="${_numInput(t.weight==null?1:t.weight,12)}" onchange="nieWorkforcePiecewiseTermWeight(${j},${k},this.value)"></label>${terms.length>1?`<button class="btn-plain opex-piecewise-remove" onclick="nieWorkforcePiecewiseRemoveTerm(${j},${k});return false">Remove term</button>`:`<span></span>`}</div>`;});
+  h+=`<div class="nie-actions opex-piecewise-actions"><a href="#" class="cadd" onclick="nieWorkforcePiecewiseAddTerm(${j});return false">+ Add driver term</a></div></div>`;
+  h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Band schedule</span><div class="nie-section-note">Amounts and thresholds are in $000s. Marginal rates are decimals: 2% = 0.02. Lower bounds roll forward; the final band is open-ended.</div></div><div class="opex-piecewise-band-head"><span class="wf-field-label">Lower bound</span><span class="wf-field-label">Upper bound</span><span class="wf-field-label">Band base fee</span><span class="wf-field-label">Marginal rate</span><span></span></div>`;
+  bands.forEach((b,k)=>{const last=k===bands.length-1;h+=`<div class="opex-piecewise-band-row"><label class="wf-field"><input aria-label="Lower bound ($000s)" value="${fmtComma((+b.lower_bound||0)/1000)}" readonly></label><label class="wf-field">${last?`<div class="opex-piecewise-open-ended">∞ · open-ended</div>`:`<input aria-label="Upper bound ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.upper_bound||0)/1000)}" onchange="nieWorkforcePiecewiseBandUpper(${j},${k},this.value);fmtField(this)">`}</label><label class="wf-field"><input aria-label="Band base fee ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.base_amount||0)/1000)}" onchange="nieWorkforcePiecewiseBandBase(${j},${k},this.value);fmtField(this)"></label><label class="wf-field"><input aria-label="Marginal rate (decimal)" type="number" step="any" value="${_numInput(+b.marginal_rate||0,12)}" onchange="nieWorkforcePiecewiseBandRate(${j},${k},this.value)"></label>${bands.length>1?`<button class="btn-plain opex-piecewise-remove" onclick="nieWorkforcePiecewiseRemoveBand(${j},${k});return false">Remove band</button>`:`<span></span>`}</div>`;});
+  h+=`<div class="nie-actions opex-piecewise-actions"><a href="#" class="cadd" onclick="nieWorkforcePiecewiseAddBand(${j});return false">+ Add band</a></div></div></div>`;
+  return h;
+}
+
 // A feed owns acquisition equations and the customer/AUC roll-forward.  Each equation operand
 // is either entered here (Flat / Growth / Explicit) or linked to a compatible series owned by
 // another module.  CAC never owns an Operating Expense or Workforce trajectory it merely consumes.
@@ -8370,9 +8424,9 @@ function structuresSectionsHtml(){
     _pruneOrphanedOpexOwnedPools();
 
     // WORKFORCE COMPENSATION -------------------------------------------------
-    const wf = nd.workforce || {};
-    const _wfHasRows=(wf.roles||[]).length>0, _wfOpen=_nieSectionIsOpen("workforce",_wfHasRows);
-    h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Workforce compensation</div><div class="nie-section-note">Role/position payroll. Roles inherit the workforce defaults unless a row explicitly overrides them.</div>${_wfHasRows&&!_wfOpen?`<div class="nie-section-summary">${(wf.roles||[]).length} role/population${(wf.roles||[]).length===1?'':'s'} loaded · expand to inspect or edit</div>`:''}</div><button class="nie-section-toggle" onclick="nieSectionSetOpen('workforce',${_wfOpen?'false':'true'})">${_wfOpen?'Collapse':'Expand'}</button></div>`;
+    const wf = nd.workforce || {}; wf.additive_components=wf.additive_components||[];
+    const _wfAddComps=wf.additive_components||[], _wfHasRows=((wf.roles||[]).length+_wfAddComps.length)>0, _wfOpen=_nieSectionIsOpen("workforce",_wfHasRows);
+    h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Workforce compensation</div><div class="nie-section-note">Role/position payroll plus additive compensation components such as performance pools. Each mechanic posts to Workforce compensation.</div>${_wfHasRows&&!_wfOpen?`<div class="nie-section-summary">${(wf.roles||[]).length} role/population${(wf.roles||[]).length===1?'':'s'} · ${_wfAddComps.length} additive component${_wfAddComps.length===1?'':'s'} · expand to inspect or edit</div>`:''}</div><button class="nie-section-toggle" onclick="nieSectionSetOpen('workforce',${_wfOpen?'false':'true'})">${_wfOpen?'Collapse':'Expand'}</button></div>`;
     if(_wfOpen){
     h += '<div class="memo" style="margin:0 0 8px"><b>User note.</b> Aggregate roles until timing, escalation, benefits/payroll, or triggers differ.</div>';
     const _legacyStaff = !wf.mode && ((nd.fte_by_year||[]).some(x=>+x) || +(nd.loaded_comp_annual||0));
@@ -8385,9 +8439,10 @@ function structuresSectionsHtml(){
       const _defEscPct=(+(wf.default_salary_growth_spec.rate||0)*100), _defLoadPct=(+(wf.default_payroll_load_rate||0)*100);
       h += `<div class="nie-defaults"><div class="nie-default"><span class="nie-default-label">Salary escalation default</span><div class="nie-default-value">${growthSpecInline('assumptions.nie_detail.workforce.default_salary_growth_spec',wf.default_salary_growth_spec,0,true)}</div></div>`;
       h += `<div class="nie-default"><span class="nie-default-label">Benefits &amp; payroll default</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${_defLoadPct.toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation</span></div><div class="nie-section-note">Added on top of base compensation for benefits, payroll taxes and employer burden (25% turns $100k base comp into $125k expense).</div></div></div>`;
+      h += '<div class="nie-section-note" style="margin:4px 0 8px">Roles inherit the workforce defaults unless a row explicitly overrides them.</div>';
     }
     const _wpo=!!nd._wfPasteOpen;
-    h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear all</a>':'') + '</div>';
+    h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Tiered / banded compensation component</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
@@ -8461,8 +8516,13 @@ function structuresSectionsHtml(){
         });
         h += '</table></div>';
       }
-    } else if(!_legacyStaff){
-      h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles yet. Add one position or paste a spreadsheet; hire periods may extend beyond the current horizon.</div>';
+    } else if(!_legacyStaff && !_wfAddComps.length){
+      h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
+    }
+    if(_wfAddComps.length){
+      h += '<div class="workforce-additive-wrap"><div class="csub" style="margin-bottom:3px">Additive compensation components</div><div class="nie-section-note">Use these for compensation that is not Count × annual compensation, while keeping the result on the Workforce compensation line.</div>';
+      _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')h += _workforcePiecewiseEditorHtml(lc,j);});
+      h += '</div>';
     }
     }
     h += '</div>';
@@ -8519,7 +8579,7 @@ function structuresSectionsHtml(){
         if(!_legacyCostPool){
         const _drv=_opexLinkedDriverOptions();
         row += `<div style="margin-top:7px;padding:7px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">Additive expense components</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>`;
-        _lcs.forEach((lc,j)=>{if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}const _rv=(((lc||{}).rate_spec||{}).value||0)*100,_dv=_opexLinkedDriverValue(lc),_isAuc=(lc&&lc.driver)==='customer_acquisition_auc',_rp=(lc&&lc.rate_period)||'year',_bm=(lc&&lc.measure)||'period_end';row += `<div class="crow" style="align-items:center;margin-top:5px"><span class="cu">Driver</span><select style="min-width:260px;max-width:420px" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select>${_isAuc?`<span class="cu">Measure</span><select style="width:120px" onchange="nieCatLinkedMeasure(${i},${j},this.value)"><option value="period_average"${_bm==='period_average'?' selected':''}>Period average</option><option value="period_end"${_bm==='period_end'?' selected':''}>Period end</option></select>`:''}<span class="cu">×</span><input type="number" step="any" style="width:86px" value="${_numInput(_rv,12)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span>${_isAuc?`<span class="cu">/</span><select style="width:86px" onchange="nieCatLinkedRatePeriod(${i},${j},this.value)">${[['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===_rp?' selected':''}>${o[1]}</option>`).join('')}</select>`:''}<a href="#" class="cx" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>${_opexLinkedSourcePreview(lc)}`;});
+        _lcs.forEach((lc,j)=>{if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}const _rv=(((lc||{}).rate_spec||{}).value||0)*100,_dv=_opexLinkedDriverValue(lc),_isAuc=(lc&&lc.driver)==='customer_acquisition_auc',_rp=(lc&&lc.rate_period)||'year',_bm=(lc&&lc.measure)||'period_end';row += `<div class="crow opex-linked-component-row" style="margin-top:5px"><span class="cu">Driver</span><select class="opex-linked-driver" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select>${_isAuc?`<span class="cu">Measure</span><select style="width:120px;flex:0 0 120px" onchange="nieCatLinkedMeasure(${i},${j},this.value)"><option value="period_average"${_bm==='period_average'?' selected':''}>Period average</option><option value="period_end"${_bm==='period_end'?' selected':''}>Period end</option></select>`:''}<span class="cu">×</span><input class="opex-linked-rate" type="number" step="any" value="${_numInput(_rv,12)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span>${_isAuc?`<span class="cu">/</span><select style="width:82px;flex:0 0 82px" onchange="nieCatLinkedRatePeriod(${i},${j},this.value)">${[['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===_rp?' selected':''}>${o[1]}</option>`).join('')}</select>`:''}<a href="#" class="cx opex-linked-delete" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>${_opexLinkedSourcePreview(lc)}`;});
         row += `<div class="nie-actions"><a href="#" class="cadd" onclick="nieCatAddLinked(${i});return false">+ Add linked component</a><a href="#" class="cadd" onclick="nieCatAddPiecewise(${i});return false">+ Tiered / banded component</a><a href="#" class="cadd" onclick="nieCatAddCostPoolCharge(${i});return false">+ New cost-pool / cost-recovery component</a></div></div>`;
         }
         const _ropts=[['trajectory','Same as trajectory'],['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Semiannual'],['annual','Annual']],_ptag=_opexPeriodTag(),_punit=_opexPeriodUnit();

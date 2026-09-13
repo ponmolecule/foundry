@@ -112,6 +112,124 @@ def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int
     return workforce_comp_series(wf, int(n_periods), int(ppy), growth_context=growth_context)
 
 
+WORKFORCE_ADDITIVE_DRIVER = "piecewise_linked"
+WORKFORCE_INCOME_FLOW_SOURCE = "income_statement_flow"
+WORKFORCE_INCOME_FLOW_METRICS = {
+    "fee_income",
+    "gain_on_sale",
+    "servicing_net",
+    "noninterest_income",
+    "net_interest_income",
+    "total_operating_revenue",
+}
+
+
+def normalize_workforce_additive_component(component: Mapping[str, Any] | None, ppy: int = 12) -> dict:
+    """Normalize one additive compensation component.
+
+    Workforce uses the same literal base + marginal-rate band grammar as Advanced Opex,
+    but owns its own posting destination.  The component name is never computational.
+    Income-statement terms are model-year flows through the event period; the same band
+    primitive may also observe the stock/balance sources already supported by Opex.
+    """
+    c = dict(component or {})
+    drv = str(c.get("driver") or "").strip().lower()
+    if drv != WORKFORCE_ADDITIVE_DRIVER:
+        raise ValueError("workforce additive component must use the tiered/banded driver")
+    from .opex_extensions import (
+        _normalize_piecewise_bands, _normalize_piecewise_timing, _normalize_observation_lag,
+        _normalize_piecewise_terms, _lag_to_engine_periods, timing_interval,
+    )
+    raw_terms = list(c.get("terms") or [])
+    if not raw_terms:
+        raise ValueError("workforce tiered/banded component requires at least one driver term")
+    terms = []
+    for i, raw in enumerate(raw_terms):
+        t = dict(raw or {})
+        src = str(t.get("source") or "").strip().lower()
+        if src == WORKFORCE_INCOME_FLOW_SOURCE:
+            metric = str(t.get("metric") or "").strip().lower()
+            if metric not in WORKFORCE_INCOME_FLOW_METRICS:
+                raise ValueError(
+                    f"workforce additive term {i + 1} has unsupported income-statement metric {metric!r}")
+            aggregation = str(t.get("aggregation") or "model_year_to_date").strip().lower()
+            if aggregation != "model_year_to_date":
+                raise ValueError("workforce income-statement flow aggregation must be model_year_to_date")
+            try:
+                weight = float(t.get("weight") if t.get("weight") is not None else 1.0)
+            except (TypeError, ValueError) as e:
+                raise ValueError(f"workforce additive term {i + 1} weight must be numeric") from e
+            terms.append({"source": src, "metric": metric, "aggregation": aggregation, "weight": weight})
+        else:
+            # Reuse the Opex typed observation grammar for balance/stock terms.  This is
+            # intentionally a shared economic primitive rather than a second Workforce dialect.
+            terms.append(_normalize_piecewise_terms([t])[0])
+    timing = _normalize_piecewise_timing(c.get("timing"))
+    lag = _normalize_observation_lag(c.get("observation_lag"))
+    timing_interval(timing["mode"], int(ppy))
+    _lag_to_engine_periods(lag, int(ppy))
+    if any(t["source"] == "bank_total_assets" for t in terms) and lag["value"] == 0:
+        raise ValueError("workforce Total Assets term requires a positive observation lag to avoid circularity")
+    return {
+        "driver": drv,
+        "component_id": str(c.get("component_id") or "").strip(),
+        "name": str(c.get("name") or "Tiered / banded compensation component"),
+        "terms": terms,
+        "bands": _normalize_piecewise_bands(c.get("bands")),
+        "timing": timing,
+        "observation_lag": lag,
+    }
+
+
+def resolve_workforce_additive_components(workforce: Mapping[str, Any] | None, ppy: int = 12) -> list[dict]:
+    """Return normalized additive compensation components; absence is exactly inert."""
+    return [normalize_workforce_additive_component(c, ppy)
+            for c in ((workforce or {}).get("additive_components") or []) if c]
+
+
+def _income_flow_term_value(term: Mapping[str, Any], observation_ordinal: int,
+                            metrics: Mapping[str, Any]) -> float:
+    """Resolve a model-year income-statement flow through a 1-based observation period."""
+    obs = int(observation_ordinal)
+    if obs <= 0:
+        raise ValueError("workforce income-statement flow observation precedes the first modeled period")
+    ppy = int(metrics.get("periods_per_year") or 12)
+    histories = metrics.get("income_statement_flow_history") or {}
+    metric = str(term.get("metric") or "")
+    arr = histories.get(metric)
+    if arr is None:
+        raise ValueError(f"workforce income-statement flow metric {metric!r} is unavailable in this engine run")
+    values = list(arr)
+    if obs > len(values):
+        raise ValueError(f"workforce income-statement flow observation period {obs} is unavailable")
+    year_start = ((obs - 1) // ppy) * ppy
+    return sum(float(v or 0.0) for v in values[year_start:obs])
+
+
+def workforce_additive_component_amount(component: Mapping[str, Any], period_index: int,
+                                         metrics: Mapping[str, Any]) -> float:
+    """Evaluate one additive compensation component for a zero-based engine period."""
+    from .opex_extensions import (
+        _piecewise_event_due, _lag_to_engine_periods, _piecewise_term_value,
+        apply_piecewise_schedule, _normalize_observation_lag,
+    )
+    c = component
+    i = int(period_index)
+    ppy = int(metrics.get("periods_per_year") or 12)
+    if not _piecewise_event_due(c, i, ppy):
+        return 0.0
+    lag_periods = _lag_to_engine_periods(_normalize_observation_lag(c.get("observation_lag")), ppy)
+    obs = (i + 1) - lag_periods
+    total = 0.0
+    for term in c.get("terms") or []:
+        if str(term.get("source") or "") == WORKFORCE_INCOME_FLOW_SOURCE:
+            val = _income_flow_term_value(term, obs, metrics)
+        else:
+            val = _piecewise_term_value(term, obs, metrics)
+        total += float(term.get("weight") if term.get("weight") is not None else 1.0) * float(val or 0.0)
+    return apply_piecewise_schedule(total, c.get("bands"))
+
+
 class WorkforceRuntime:
     """Stateful workforce resolver used by the engine period-by-period.
 
@@ -129,6 +247,7 @@ class WorkforceRuntime:
         self.default_spec = self.wf.get("default_salary_growth_spec") or {
             "rate": 0.0, "period": "year", "method": "step", "anchor": "hire_anniversary"
         }
+        self.additive_components = resolve_workforce_additive_components(self.wf, self.ppy)
         self.rows: list[dict[str, Any]] = []
         for raw in self.wf.get("roles") or []:
             if not raw:
