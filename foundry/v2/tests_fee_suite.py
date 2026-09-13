@@ -8,7 +8,7 @@ Run: python3 -m foundry.v2.tests_fee_suite
 import sys, json, copy
 sys.path.insert(0, ".")
 from foundry.v2 import run_q, cac_feeder
-from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series, fee_stream_q
+from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series, fee_stream_q, _validate_fee_stream_shape
 from foundry.v2.engine_q_a import run_pf_a
 
 _P = _F = 0
@@ -367,6 +367,27 @@ def main():
        and aqrows["q-enabled"][3].startswith("native units") and abs(aqrows["q-enabled"][4][0]-4.319)<1e-9
        and aqrows["q-api"][3].startswith("$000s") and abs(aqrows["q-api"][4][0]-179_958.33333333334)<1e-6,
        str({k:(v[3],v[4][0]) for k,v in aqrows.items()}))
+
+    # D3e-r92: a transaction coefficient is basis-typed authoring state. r91 could retain
+    # one invisibly after a stream was changed to Account, causing fail-closed validation
+    # even though the Account calculation never consumed it. Stale incompatible state must
+    # be harmless at the engine boundary and must not alter the account quantity/economics.
+    stale_account={"name":"Business MAB","basis":"account",
+        "driver":{"source":"constant","trajectory":"explicit_schedule","params":{
+            "base":0.0,"level_schedule":{"period":"month","resolution":"step","schedule":{"1":1234.0}},
+            "coefficient":{"kind":"amount_per_source_unit","value":500_000_000.0,"period":"year","trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"unit_fee":{"value":0.0,"period":"month","trajectory":"flat"}}},
+        "cost":{"kind":"none","params":{}},"timing":{"start_period":1}}
+    clean_account=copy.deepcopy(stale_account); clean_account["driver"]["params"].pop("coefficient",None)
+    stale_ok=True
+    try: _validate_fee_stream_shape(stale_account)
+    except Exception: stale_ok=False
+    sx={}; cx={}; sg,sc=fee_stream_q(copy.deepcopy(stale_account),1,sx,12); cg,cc=fee_stream_q(copy.deepcopy(clean_account),1,cx,12)
+    ck("D3e stale transaction coefficient cannot block or alter an Account helper stream",
+       stale_ok and abs(sg-cg)<1e-12 and abs(sc-cc)<1e-12
+       and abs(sx.get("stream_qty",{}).get("Business MAB",0)-1234.0)<1e-9
+       and sx.get("stream_qty",{}).get("Business MAB")==cx.get("stream_qty",{}).get("Business MAB"),
+       f"valid={stale_ok} qty={sx.get('stream_qty',{}).get('Business MAB')} gross={sg}")
 
     # D4 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]

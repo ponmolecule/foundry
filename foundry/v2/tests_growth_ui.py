@@ -235,6 +235,21 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Transaction authoring supports Amount per source unit in $000s and stores internal dollars",
        acr.returncode==0 and acj.get("option") and acj.get("label") and acj.get("preview") and acj.get("stored"), acr.stderr.strip())
+    # r92: basis-typed cleanup must repair already-saved r91 configs and future basis changes.
+    na=html.index("function normalizeCfg(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]
+    stale_cleanup_js=("const window=globalThis; function renderContent(){} function refresh(){};\n"
+        + normjs + hjs +
+        "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{}},cost:{kind:'none',params:{}}}]}]}};"
+        " const loaded=JSON.parse(JSON.stringify(cfg)); normalizeCfg(loaded); const loadClean=!('coefficient' in loaded.assumptions.obs_exposures[0].fee_streams[0].driver.params);"
+        " cfg.assumptions.obs_exposures[0].fee_streams[0]={name:'Business MAB',basis:'transaction',driver:{source:'constant',trajectory:'derived',params:{coefficient:{kind:'multiple',value:2,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{}},cost:{kind:'none',params:{}}};"
+        " feeStreamBasisChange(0,0,'account'); const changeClean=!('coefficient' in cfg.assumptions.obs_exposures[0].fee_streams[0].driver.params);"
+        " console.log(JSON.stringify({loadClean,changeClean,basis:cfg.assumptions.obs_exposures[0].fee_streams[0].basis}));")
+    scr=subprocess.run(["node","-e",stale_cleanup_js],text=True,capture_output=True); scj={}
+    if scr.returncode==0 and scr.stdout.strip():
+        try: scj=json.loads(scr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Fee basis cleanup retires hidden transaction coefficients on loaded and newly-changed Account streams",
+       scr.returncode==0 and scj.get("loadClean") and scj.get("changeClean") and scj.get("basis")=="account", scr.stderr.strip())
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
