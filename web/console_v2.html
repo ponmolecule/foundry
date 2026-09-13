@@ -1355,8 +1355,9 @@ function normalizeCfg(c){
   // then tripped fail-closed validation even though it no longer participated in the stream.
   // Canonicalize only the incompatible field: transaction streams retain their coefficient.
   (c.assumptions.obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
-    const dp=st&&st.driver&&st.driver.params;
-    if(dp && ["account","flat","event"].includes(st.basis||"balance")) delete dp.coefficient;
+    const basis=st&&st.basis||"balance", dp=st&&st.driver&&st.driver.params, rp=st&&st.rate&&st.rate.params;
+    if(dp && ["account","flat","event"].includes(basis)) delete dp.coefficient;
+    if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
   }));
   return c;
 }
@@ -2386,6 +2387,17 @@ function _feeSetBalanceRateSchedule(i,si,text){
   const vals=_feeParseExplicitValues(text);if(!vals.length)return;const rp=_feeEnsureBalanceRatePath(i,si);const out={};vals.forEach((v,j)=>out[String(j+1)]=v/10000);rp.schedule=out;renderContent();refresh();
 }
 function _feeClearBalanceRateSchedule(i,si){const rp=_feeEnsureBalanceRatePath(i,si);rp.schedule={};renderContent();refresh();}
+function _feeEnsureTransactionRatePath(i,si){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const rp=st.rate.params;if(!rp.rate_path)rp.rate_path={value:+(rp.per_unit||0),period:"year",trajectory:"flat",resolution:"step"};st.rate.behavior="flat";return rp.rate_path;
+}
+function _feeTransactionRateTrajectory(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.trajectory=v;if(v==="growth"&&!rp.growth_spec)rp.growth_spec={rate:0,period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&!rp.schedule)rp.schedule={};renderContent();refresh();}
+function _feeTransactionRatePeriod(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.period=v;if(rp.growth_spec){rp.growth_spec.period=v;rp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
+function _feeTransactionRateResolution(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.resolution=v;if(rp.growth_spec)rp.growth_spec.method=v;renderContent();refresh();}
+function _feeTransactionRateValue(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.value=_pf(v)/100;refresh();}
+function _feeTransactionRateGrowth(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.growth_spec=rp.growth_spec||{period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};rp.growth_spec.rate=_pf(v)/100;refresh();}
+function _feeSetTransactionRateSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const rp=_feeEnsureTransactionRatePath(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v/100);rp.schedule=out;renderContent();refresh();}
+function _feeClearTransactionRateSchedule(i,si){const rp=_feeEnsureTransactionRatePath(i,si);rp.schedule={};renderContent();refresh();}
 var _feeGlobal=(typeof window!=="undefined"?window:globalThis);
 function _feeCostPools(){cfg.assumptions=cfg.assumptions||{};if(!Array.isArray(cfg.assumptions.cost_pools))cfg.assumptions.cost_pools=[];return cfg.assumptions.cost_pools;}
 function _feeCostPoolByRef(ref){ref=String(ref||"");return _feeCostPools().find(p=>p&&(String(p.series_id||"")===ref||String(p.name||"")===ref))||null;}
@@ -2444,7 +2456,10 @@ _feeGlobal.feeCostPoolDeleteFromStream=function(i,si,ref){
   const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref));if(at>=0)pools.splice(at,1);renderContent();refresh();
 };
 _feeGlobal.feeStreamBasisChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.cost=st.cost||{kind:"none",params:{}};
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si],oldBasis=st.basis||"balance";st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};st.cost=st.cost||{kind:"none",params:{}};
+  // A balance rate is annualized stock pricing; a transaction rate is a throughput factor.
+  // Never carry one silently across a basis change just because both use the same JSON key.
+  if(oldBasis!==v) delete st.rate.params.rate_path;
   // A natural-period coefficient is a Transaction/throughput-only driver fact. When the
   // user changes basis, retire that incompatible draft state immediately instead of letting
   // a hidden transaction field block an otherwise-valid Account/Balance/Flat/Event stream.
@@ -2739,7 +2754,7 @@ function fieldsFor(fam, p, base){
       // Axis 4: pricing. New balance/account authoring uses the same Flat / Growth /
       // Explicit paradigm as other Foundry Series while legacy rate behaviors remain readable.
       const _rbOpts = basis==="balance" ? [["flat","Series rate path"],["annual_change","Legacy annual change (%/yr)"],["scheduled",`Legacy scheduled (per ${PLAB('full')})`],["tiered","Tiered (breakpoints)"]]
-                    : basis==="transaction" ? (src==="cost_pool"?[["cost_recovery","Cost recovery — recovery + markup"]]:[["flat","Flat fee / spread"],["tiered","Tiered (breakpoints)"]])
+                    : basis==="transaction" ? (src==="cost_pool"?[["cost_recovery","Cost recovery — recovery + markup"]]:[["flat","Fee / spread path"],["tiered","Tiered (breakpoints)"]])
                     : [["flat","Flat"]];
       h += SEL("Rate behavior", sb+".rate.behavior", rb, _rbOpts);
       if(basis==="balance"){
@@ -2779,12 +2794,23 @@ function fieldsFor(fam, p, base){
           const _dc = (st.rate.behavior==="durbin_capped");
           if(!_dc){
             if(traj==="derived" && st.driver.params.coefficient){
-              const _adv=((st.rate.params.per_unit||0)*100).toFixed(4);
-              h += `<div class="fld"><label>Fee (% of throughput)</label><input type="number" step="0.0001" value="${_adv}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.per_unit=_pf(this.value)/100;refresh()"></div>`;
+              const _trp=st.rate.params.rate_path, _trtraj=_trp&&_trp.trajectory?_trp.trajectory:"flat", _trper=_trp&&_trp.period?_trp.period:"year", _trres=_trp&&_trp.resolution?_trp.resolution:"step", _trval=(_trp?_trp.value:(st.rate.params.per_unit||0))*100;
+              h += `<div class="fld"><label>Fee rate path</label><select onchange="_feeTransactionRateTrajectory(${_fi},${si},this.value)"><option value="flat"${_trtraj==="flat"?" selected":""}>Flat</option><option value="growth"${_trtraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_trtraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
+              h += `<div class="fld"><label>Period</label><select onchange="_feeTransactionRatePeriod(${_fi},${si},this.value)"><option value="month"${_trper==="month"?" selected":""}>Month</option><option value="quarter"${_trper==="quarter"?" selected":""}>Quarter</option><option value="year"${_trper==="year"?" selected":""}>Year</option></select></div>`;
+              if(_trtraj!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeTransactionRateResolution(${_fi},${si},this.value)"><option value="step"${_trres==="step"?" selected":""}>Step</option><option value="smooth"${_trres==="smooth"?" selected":""}>Smooth</option></select></div>`;
+              if(_trtraj==="flat"||_trtraj==="growth") h += `<div class="fld"><label>${_trtraj==="growth"?"Starting fee":"Fee"} (% of throughput)</label><input type="number" step="0.0001" value="${(+_trval||0).toFixed(6)}" onchange="_feeTransactionRateValue(${_fi},${si},this.value)"></div>`;
+              if(_trtraj==="growth"){
+                const _trgr=(((_trp&&_trp.growth_spec||{}).rate||0)*100);
+                h += `<div class="fld"><label>Growth (% / ${_trper})</label><input type="number" step="0.01" value="${_trgr}" onchange="_feeTransactionRateGrowth(${_fi},${si},this.value)"></div>`;
+              }
+              if(_trtraj==="explicit_schedule"){
+                const _trid=`feeTransactionRatePaste_${_fi}_${si}`,_trs=(_trp&&_trp.schedule)||{};
+                h += `<div class="fld wide"><label>Fee rate schedule (%) by ${_trper}</label><textarea id="${_trid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 0.20, 0.20, 0.18, 0.17, 0.19" oninput="_feeExplicitPasteInput('${_trid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_trid}_load" class="pillbtn" disabled onclick="_feeSetTransactionRateSchedule(${_fi},${si},document.getElementById('${_trid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearTransactionRateSchedule(${_fi},${si})"${Object.keys(_trs).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_trs,100,_trper)}</div><span class="memo" style="margin:3px 0 0">Paste normal percentage values. Each value is a pricing rate on throughput for one selected natural period; the last loaded rate carries forward.</span></div>`;
+              }
             } else h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n");
           }
           // Durbin debit-interchange cap: only relevant to ordinary transaction streams.
-          h += `<label style="grid-column:1/-1;display:flex;align-items:center;gap:7px;cursor:pointer;margin:8px 0 4px;font-size:12px"><input type="checkbox" style="margin:0;flex:0 0 auto" ${_dc?"checked":""} onchange="(function(cb){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];if(cb.checked){st2.rate.behavior='durbin_capped';st2.rate.params=st2.rate.params||{};if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior='flat';}renderContent();refresh();})(this)"><span>Apply Durbin debit-interchange cap (binds at ≥ $10B assets)</span></label>`;
+          h += `<label style="grid-column:1/-1;display:flex;align-items:center;gap:7px;cursor:pointer;margin:8px 0 4px;font-size:12px"><input type="checkbox" style="margin:0;flex:0 0 auto" ${_dc?"checked":""} onchange="(function(cb){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];if(cb.checked){st2.rate.behavior='durbin_capped';st2.rate.params=st2.rate.params||{};delete st2.rate.params.rate_path;if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior='flat';}renderContent();refresh();})(this)"><span>Apply Durbin debit-interchange cap (binds at ≥ $10B assets)</span></label>`;
           if(_dc){
             h += `<div class="fld"><label>Gross interchange rate (%/txn value)</label><input type="number" step="0.01" value="${((st.rate.params.rate||0)*100).toFixed(3)}" title="e.g. 1.25% debit interchange" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=_pf(this.value)/100;refresh()"></div>`;
             h += `<div class="fld"><label>Avg ticket ($/txn)</label><input type="number" step="1" value="${st.rate.params.avg_ticket||0}" title="average transaction size, sets the per-tx cap" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.avg_ticket=_pf(this.value);refresh()"></div>`;
@@ -2832,50 +2858,41 @@ function fieldsFor(fam, p, base){
         h += `<div class="fld"><label>Cost side</label><select onchange="_feeCostFactorSetKind(${_fi},${si},this.value)">${[["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]].map(o=>`<option value="${o[0]}"${o[0]===ck?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
         if(ck!=="none"){
           const _cp=st.cost.params||{},_legacyPct=(ck==="pct_of_revenue"||ck==="pct_of_revenue_opex");
-          // Keep the original cost as the first economic layer.
-          if(ck==="per_unit") h += F("Cost ($/unit)", sb+".cost.params.cost_per_unit", "n");
-          if(_legacyPct){
-            const _cpct=((+(_cp.pct||0))*100).toFixed(4);
-            const _clab=ck==="pct_of_revenue"?"Revenue share (% of gross fee revenue)":"Operating cost (% of gross fee revenue)";
-            h += `<div class="fld"><label>${_clab}</label><input type="number" step="0.01" min="0" max="100" value="${_cpct}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].cost.params.pct=_pf(this.value)/100;refresh()"></div>`;
+          // The direct cost path and the multiplier are two separate economic layers. Legacy
+          // scalar-only streams render as a Flat path until the user explicitly authors a path.
+          const _cbase=_legacyPct?+(_cp.pct||0):+(_cp.cost_per_unit||0),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:1,_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
+          const _cpathLabel=ck==="per_unit"?"Cost per-unit path":(ck==="pct_of_revenue"?"Revenue share rate path":"Operating cost rate path");
+          h += `<div class="fld"><label>${_cpathLabel}</label><select onchange="_feeCostFactorTrajectory(${_fi},${si},this.value)"><option value="flat"${_ct==="flat"?' selected':''}>Flat</option><option value="growth"${_ct==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_ct==="explicit_schedule"?' selected':''}>Explicit schedule</option></select></div>`;
+          h += `<div class="fld"><label>Period</label><select onchange="_feeCostFactorPeriod(${_fi},${si},this.value)"><option value="month"${_cper==="month"?' selected':''}>Month</option><option value="quarter"${_cper==="quarter"?' selected':''}>Quarter</option><option value="year"${_cper==="year"?' selected':''}>Year</option></select></div>`;
+          if(_ct!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeCostFactorResolution(${_fi},${si},this.value)"><option value="step"${_cres==="step"?' selected':''}>Step</option><option value="smooth"${_cres==="smooth"?' selected':''}>Smooth</option></select></div>`;
+          if(_ct==="flat"||_ct==="growth"){
+            const _clab=ck==="per_unit"?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?"Starting cost rate (% of gross fee revenue)":"Cost rate (% of gross fee revenue)");
+            h += `<div class="fld"><label>${_clab}</label><input type="number" step="${_legacyPct?'0.0001':'0.000001'}"${_legacyPct?' min="0" max="100"':''} value="${_cval}" onchange="_feeCostFactorValue(${_fi},${si},this.value)"></div>`;
+          }
+          if(_ct==="growth"){
+            const _cgr=(((_cf.growth_spec||{}).rate||0)*100);
+            h += `<div class="fld"><label>Growth (% / ${_cper})</label><input type="number" step="0.01" value="${_cgr}" onchange="_feeCostFactorGrowth(${_fi},${si},this.value)"></div>`;
+          }
+          if(_ct==="explicit_schedule"){
+            const _cid=`feeCostFactorPaste_${_fi}_${si}`,_sched=_cf.schedule||{};
+            const _cschedLabel=ck==="per_unit"?`Cost schedule ($/unit) by ${_cper}`:`Cost rate schedule (% of gross fee revenue) by ${_cper}`;
+            h += `<div class="fld wide"><label>${_cschedLabel}</label><textarea id="${_cid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCostFactorSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostFactorSchedule(${_fi},${si})"${Object.keys(_sched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sched,_cscale,_cper)}</div><span class="memo" style="margin:3px 0 0">${_legacyPct?'Paste normal percentage values. ':''}Each value applies to one selected natural period; the last loaded value carries forward.</span></div>`;
           }
 
-          // factor_path is retained only for saved r82-style replacement paths. New authoring
-          // uses multiplier_path so the scalar above and the multiplier remain independent.
-          if(_cp.factor_path && !_cp.multiplier_path){
-            const _cf=_cp.factor_path,_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:1,_cval=(+(_cf.value||0))*_cscale;
-            h += `<div class="fld wide"><span class="memo" style="margin:0"><b>Saved cost override path</b> — this saved path replaces the base cost above.</span></div>`;
-            h += `<div class="fld"><label>Cost override path</label><select onchange="_feeCostFactorTrajectory(${_fi},${si},this.value)"><option value="flat"${_ct==="flat"?' selected':''}>Flat</option><option value="growth"${_ct==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_ct==="explicit_schedule"?' selected':''}>Explicit</option></select></div>`;
-            h += `<div class="fld"><label>Period</label><select onchange="_feeCostFactorPeriod(${_fi},${si},this.value)"><option value="month"${_cper==="month"?' selected':''}>Month</option><option value="quarter"${_cper==="quarter"?' selected':''}>Quarter</option><option value="year"${_cper==="year"?' selected':''}>Year</option></select></div>`;
-            if(_ct!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeCostFactorResolution(${_fi},${si},this.value)"><option value="step"${_cres==="step"?' selected':''}>Step</option><option value="smooth"${_cres==="smooth"?' selected':''}>Smooth</option></select></div>`;
-            if(_ct==="flat"||_ct==="growth"){
-              const _clab=ck==="per_unit"?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?"Starting factor (%)":"Cost factor (%)");
-              h += `<div class="fld"><label>${_clab}</label><input type="number" step="${_legacyPct?'0.0001':'0.000001'}"${_legacyPct?' min="0" max="100"':''} value="${_cval}" onchange="_feeCostFactorValue(${_fi},${si},this.value)"></div>`;
-            }
-            if(_ct==="growth"){
-              const _cgr=(((_cf.growth_spec||{}).rate||0)*100);
-              h += `<div class="fld"><label>Growth (% / ${_cper})</label><input type="number" step="0.01" value="${_cgr}" onchange="_feeCostFactorGrowth(${_fi},${si},this.value)"></div>`;
-            }
-            if(_ct==="explicit_schedule"){
-              const _cid=`feeCostFactorPaste_${_fi}_${si}`,_sched=_cf.schedule||{},_loaded=_feeLevelScheduleText(_sched,_cscale);
-              h += `<div class="fld wide"><label>Cost override schedule (${_cper})</label><textarea id="${_cid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCostFactorSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostFactorSchedule(${_fi},${si})"${Object.keys(_sched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sched,_cscale,_cper)}</div></div>`;
-            }
-          } else {
-            const _cm=_cp.multiplier_path||{value:1,trajectory:"flat",period:"year",resolution:"step"},_mt=_cm.trajectory||"flat",_mper=_cm.period||"year",_mres=_cm.resolution||((_cm.growth_spec||{}).method)||"step",_mval=(+(_cm.value==null?1:_cm.value));
-            h += `<div class="fld"><label>Cost multiplier path</label><select onchange="_feeCostMultiplierTrajectory(${_fi},${si},this.value)"><option value="flat"${_mt==="flat"?' selected':''}>Flat</option><option value="growth"${_mt==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_mt==="explicit_schedule"?' selected':''}>Explicit</option></select></div>`;
-            h += `<div class="fld"><label>Period</label><select onchange="_feeCostMultiplierPeriod(${_fi},${si},this.value)"><option value="month"${_mper==="month"?' selected':''}>Month</option><option value="quarter"${_mper==="quarter"?' selected':''}>Quarter</option><option value="year"${_mper==="year"?' selected':''}>Year</option></select></div>`;
-            if(_mt!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeCostMultiplierResolution(${_fi},${si},this.value)"><option value="step"${_mres==="step"?' selected':''}>Step</option><option value="smooth"${_mres==="smooth"?' selected':''}>Smooth</option></select></div>`;
-            if(_mt==="flat"||_mt==="growth") h += `<div class="fld"><label>${_mt==="growth"?"Starting multiplier":"Multiplier"}</label><input type="number" step="0.000001" min="0" value="${_mval}" onchange="_feeCostMultiplierValue(${_fi},${si},this.value)"></div>`;
-            if(_mt==="growth"){
-              const _mgr=(((_cm.growth_spec||{}).rate||0)*100);
-              h += `<div class="fld"><label>Growth (% / ${_mper})</label><input type="number" step="0.01" value="${_mgr}" onchange="_feeCostMultiplierGrowth(${_fi},${si},this.value)"></div>`;
-            }
-            if(_mt==="explicit_schedule"){
-              const _mid=`feeCostMultiplierPaste_${_fi}_${si}`,_msched=_cm.schedule||{},_mloaded=_feeLevelScheduleText(_msched,1);
-              h += `<div class="fld wide"><label>Cost multiplier schedule (${_mper})</label><textarea id="${_mid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_mid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule(${_fi},${si},document.getElementById('${_mid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostMultiplierSchedule(${_fi},${si})"${Object.keys(_msched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_msched,1,_mper)}</div></div>`;
-            }
-            h += `<div class="fld wide"><span class="memo" style="margin:0">Multiplies the base cost above. The multiplier is not divided by model cadence.</span></div>`;
+          const _cm=_cp.multiplier_path||{value:1,trajectory:"flat",period:"year",resolution:"step"},_mt=_cm.trajectory||"flat",_mper=_cm.period||"year",_mres=_cm.resolution||((_cm.growth_spec||{}).method)||"step",_mval=(+(_cm.value==null?1:_cm.value));
+          h += `<div class="fld"><label>Cost multiplier path</label><select onchange="_feeCostMultiplierTrajectory(${_fi},${si},this.value)"><option value="flat"${_mt==="flat"?' selected':''}>Flat</option><option value="growth"${_mt==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_mt==="explicit_schedule"?' selected':''}>Explicit schedule</option></select></div>`;
+          h += `<div class="fld"><label>Multiplier period</label><select onchange="_feeCostMultiplierPeriod(${_fi},${si},this.value)"><option value="month"${_mper==="month"?' selected':''}>Month</option><option value="quarter"${_mper==="quarter"?' selected':''}>Quarter</option><option value="year"${_mper==="year"?' selected':''}>Year</option></select></div>`;
+          if(_mt!=="flat") h += `<div class="fld"><label>Multiplier resolution</label><select onchange="_feeCostMultiplierResolution(${_fi},${si},this.value)"><option value="step"${_mres==="step"?' selected':''}>Step</option><option value="smooth"${_mres==="smooth"?' selected':''}>Smooth</option></select></div>`;
+          if(_mt==="flat"||_mt==="growth") h += `<div class="fld"><label>${_mt==="growth"?"Starting multiplier":"Multiplier"}</label><input type="number" step="0.000001" min="0" value="${_mval}" onchange="_feeCostMultiplierValue(${_fi},${si},this.value)"></div>`;
+          if(_mt==="growth"){
+            const _mgr=(((_cm.growth_spec||{}).rate||0)*100);
+            h += `<div class="fld"><label>Growth (% / ${_mper})</label><input type="number" step="0.01" value="${_mgr}" onchange="_feeCostMultiplierGrowth(${_fi},${si},this.value)"></div>`;
           }
+          if(_mt==="explicit_schedule"){
+            const _mid=`feeCostMultiplierPaste_${_fi}_${si}`,_msched=_cm.schedule||{};
+            h += `<div class="fld wide"><label>Cost multiplier schedule (${_mper})</label><textarea id="${_mid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_mid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule(${_fi},${si},document.getElementById('${_mid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostMultiplierSchedule(${_fi},${si})"${Object.keys(_msched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_msched,1,_mper)}</div></div>`;
+          }
+          h += `<div class="fld wide"><span class="memo" style="margin:0">Direct cost path × Cost multiplier path = effective fee-product cost factor. Neither path is divided by model cadence.</span></div>`;
           if(_legacyPct) h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":"Operating cost preserves gross fee income and reports the calculated amount in Noninterest Expense: Fee Product Costs."}</span></div>`;
         }
       }
@@ -7083,7 +7100,11 @@ function labLeverCatalog(){
       else if(basis==="transaction"){
         if(rb==="durbin_capped" && typeof rp.rate==="number") push(sb+".rate.params.rate", `${pre}: gross interchange rate`, "pct");
         if(rb==="durbin_capped" && typeof rp.avg_ticket==="number") push(sb+".rate.params.avg_ticket", `${pre}: average ticket ($)`, "");
-        if(typeof rp.per_unit==="number") push(sb+".rate.params.per_unit", `${pre}: ${dp.coefficient?"fee on throughput":"fee per unit"}`, dp.coefficient?"pct":"");
+        if(rb==="flat" && rp.rate_path){
+          const trp=rp.rate_path,trt=trp.trajectory||"flat";
+          if(trt!=="explicit_schedule" && typeof trp.value==="number") push(sb+".rate.params.rate_path.value", `${pre}: fee rate on throughput`, "pct");
+          if(trt==="growth" && trp.growth_spec && typeof trp.growth_spec.rate==="number") push(sb+".rate.params.rate_path.growth_spec.rate", `${pre}: fee-rate growth`, "pct");
+        } else if(typeof rp.per_unit==="number") push(sb+".rate.params.per_unit", `${pre}: ${dp.coefficient?"fee on throughput":"fee per unit"}`, dp.coefficient?"pct":"");
       } else if(basis==="account"){
         if(rp.unit_fee && typeof rp.unit_fee.value==="number") push(sb+".rate.params.unit_fee.value", `${pre}: fee/account/${rp.unit_fee.period||"year"} ($000s)`, "k");
         else push(sb+".rate.params.fee_per_period", `${pre}: fee/account/month (legacy $)`, "");
@@ -7097,20 +7118,20 @@ function labLeverCatalog(){
       else if(basis==="event") push(sb+".rate.params.amount", `${pre}: event amount ($)`, "");
       if(rb==="annual_change") push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");
       if(cost.kind!=="none"){
-        // Canonical two-layer contract: scalar base cost plus an optional dimensionless multiplier.
-        // Saved factor_path remains auditable as the older replacement-path representation.
+        // Direct cost path and multiplier are independent sensitivity layers. Scalar-only
+        // legacy streams remain available as the Flat fallback until a path is authored.
         if(cp.factor_path){
           const fp=cp.factor_path,ft=fp.trajectory||"flat";
-          if(ft!=="explicit_schedule" && typeof fp.value==="number") push(sb+".cost.params.factor_path.value", `${pre}: saved cost override`, cost.kind==="per_unit"?"":"pct");
-          if(ft==="growth" && fp.growth_spec && typeof fp.growth_spec.rate==="number") push(sb+".cost.params.factor_path.growth_spec.rate", `${pre}: saved cost override growth`, "pct");
+          if(ft!=="explicit_schedule" && typeof fp.value==="number") push(sb+".cost.params.factor_path.value", `${pre}: direct ${cost.kind==="per_unit"?"cost per unit":"cost rate"}`, cost.kind==="per_unit"?"":"pct");
+          if(ft==="growth" && fp.growth_spec && typeof fp.growth_spec.rate==="number") push(sb+".cost.params.factor_path.growth_spec.rate", `${pre}: direct cost growth`, "pct");
         } else {
           if(cost.kind==="per_unit" && basis==="transaction") push(sb+".cost.params.cost_per_unit", `${pre}: base cost per unit ($)`, "");
           if(cost.kind==="pct_of_revenue" || cost.kind==="pct_of_revenue_opex") push(sb+".cost.params.pct", `${pre}: base ${cost.kind==="pct_of_revenue"?"revenue share":"operating cost % of revenue"}`, "pct");
-          if(cp.multiplier_path){
-            const mp=cp.multiplier_path,mt=mp.trajectory||"flat";
-            if(mt!=="explicit_schedule" && typeof mp.value==="number") push(sb+".cost.params.multiplier_path.value", `${pre}: cost multiplier`, "");
-            if(mt==="growth" && mp.growth_spec && typeof mp.growth_spec.rate==="number") push(sb+".cost.params.multiplier_path.growth_spec.rate", `${pre}: cost multiplier growth`, "pct");
-          }
+        }
+        if(cp.multiplier_path){
+          const mp=cp.multiplier_path,mt=mp.trajectory||"flat";
+          if(mt!=="explicit_schedule" && typeof mp.value==="number") push(sb+".cost.params.multiplier_path.value", `${pre}: cost multiplier`, "");
+          if(mt==="growth" && mp.growth_spec && typeof mp.growth_spec.rate==="number") push(sb+".cost.params.multiplier_path.growth_spec.rate", `${pre}: cost multiplier growth`, "pct");
         }
       }
     });

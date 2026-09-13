@@ -299,6 +299,30 @@ def main():
        and abs(audit_mult[4][0]-1.20)<1e-9 and abs(audit_mult[4][12]-1.50)<1e-9
        and abs(audit_eff[4][0]-0.36)<1e-9 and abs(audit_eff[4][12]-0.45)<1e-9)
 
+    # r93: the direct cost rate itself is now a first-class path and remains independent
+    # from the multiplier. A saved r82 factor_path still means the same thing when multiplier=1.
+    direct_path = copy.deepcopy(sched_op)
+    direct_path["cost"]["params"] = {
+        "pct":0.30,
+        "factor_path":{"value":0.25,"trajectory":"explicit_schedule","period":"year","resolution":"step","schedule":{"1":0.25,"2":0.20}},
+        "multiplier_path":{"value":1.0,"trajectory":"explicit_schedule","period":"year","resolution":"step","schedule":{"1":1.20,"2":1.50}},
+    }
+    _validate_fee_stream_shape(direct_path)
+    _,dc1=fee_stream_q(copy.deepcopy(direct_path),1,{},12); _,dc13=fee_stream_q(copy.deepcopy(direct_path),13,{},12)
+    ck("D2fb direct cost path and multiplier remain separate multiplicative layers",
+       abs(dc1-30.0)<1e-9 and abs(dc13-30.0)<1e-9, f"M1={dc1:.4f}, M13={dc13:.4f}")
+    direct_audit_cfg={"assumptions":{"periods_per_year":12,"n_periods":24,"obs_exposures":[{
+        "name":"Direct path audit","fee_streams":[{**copy.deepcopy(direct_path),"name":"Direct cost stream"}]}]}}
+    direct_rows=_fee_cost_rows(direct_audit_cfg,{"products":[]},24,12)
+    audit_direct=next((r for r in direct_rows if r[1]=="Direct cost rate / factor path"),None)
+    audit_mult2=next((r for r in direct_rows if r[1]=="Cost multiplier"),None)
+    audit_eff2=next((r for r in direct_rows if r[1]=="Effective cost factor"),None)
+    ck("D2fc audit exposes direct cost path, multiplier, and effective product separately",
+       audit_direct is not None and audit_mult2 is not None and audit_eff2 is not None
+       and abs(audit_direct[4][0]-.25)<1e-9 and abs(audit_direct[4][12]-.20)<1e-9
+       and abs(audit_mult2[4][0]-1.20)<1e-9 and abs(audit_mult2[4][12]-1.50)<1e-9
+       and abs(audit_eff2[4][0]-.30)<1e-9 and abs(audit_eff2[4][12]-.30)<1e-9)
+
     sched_unit = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},
         "rate":{"params":{"per_unit":1.0}},
         "cost":{"kind":"per_unit","params":{"cost_per_unit":2.0,
@@ -336,6 +360,71 @@ def main():
        abs(ai-359_941.0)<1e-9 and abs(ac-17_997.05)<1e-9
        and abs(actx["stream_qty"]["API Revenue"]-179_970_500.0)<1e-6,
        f"gross={ai:.2f} cost={ac:.2f} qty={actx['stream_qty'].get('API Revenue')}")
+
+    # r93: percentage pricing is a first-class Transaction trajectory rather than a
+    # scalar hidden behind the throughput coefficient. The coefficient continues to determine
+    # throughput; the rate path prices that throughput as a separate economic layer.
+    tx_rate = {"name":"Transaction Rate Path","basis":"transaction",
+        "driver":{"source":"stream_ref","ref":"Enabled Partners","trajectory":"derived","params":{"coefficient":{
+            "kind":"amount_per_source_unit","value":1200.0,"period":"year","trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"per_unit":0.002,"rate_path":{
+            "value":0.002,"trajectory":"flat","period":"year","resolution":"step"}}},
+        "cost":{"kind":"none","params":{}},"timing":{"start_period":1}}
+    _validate_fee_stream_shape(tx_rate)
+    rf,_=fee_stream_q(copy.deepcopy(tx_rate),1,{"stream_qty":{"Enabled Partners":10.0}},12)
+    ck("D3a transaction revenue Flat rate path prices Amount-per-source-unit throughput",
+       abs(rf-2.0)<1e-9, f"gross={rf:.6f}")
+
+    # Explicit natural periods must be bucketed, never divided by model cadence.
+    period_checks=[]
+    for period, before_q, after_q in [("month",1,2),("quarter",3,4),("year",12,13)]:
+        st=copy.deepcopy(tx_rate); st["rate"]["params"]["rate_path"]={
+            "value":0.002,"trajectory":"explicit_schedule","period":period,"resolution":"step",
+            "schedule":{"1":0.002,"2":0.0018}}
+        _validate_fee_stream_shape(st)
+        b,_=fee_stream_q(copy.deepcopy(st),before_q,{"stream_qty":{"Enabled Partners":10.0}},12)
+        a,_=fee_stream_q(copy.deepcopy(st),after_q,{"stream_qty":{"Enabled Partners":10.0}},12)
+        period_checks.append((period,b,a))
+    ck("D3aa transaction revenue Explicit rate path honors Month/Quarter/Year buckets",
+       all(abs(b-2.0)<1e-9 and abs(a-1.8)<1e-9 for _,b,a in period_checks), str(period_checks))
+
+    step=copy.deepcopy(tx_rate); step["rate"]["params"]["rate_path"]={
+        "value":0.002,"trajectory":"growth","period":"year","resolution":"step",
+        "growth_spec":{"rate":0.10,"period":"year","method":"step","anchor":"model_year"}}
+    smooth=copy.deepcopy(step); smooth["rate"]["params"]["rate_path"]["resolution"]="smooth"; smooth["rate"]["params"]["rate_path"]["growth_spec"]["method"]="smooth"
+    s1,_=fee_stream_q(copy.deepcopy(step),1,{"stream_qty":{"Enabled Partners":10.0}},12); s12,_=fee_stream_q(copy.deepcopy(step),12,{"stream_qty":{"Enabled Partners":10.0}},12); s13,_=fee_stream_q(copy.deepcopy(step),13,{"stream_qty":{"Enabled Partners":10.0}},12)
+    m1,_=fee_stream_q(copy.deepcopy(smooth),1,{"stream_qty":{"Enabled Partners":10.0}},12); m2,_=fee_stream_q(copy.deepcopy(smooth),2,{"stream_qty":{"Enabled Partners":10.0}},12); m12,_=fee_stream_q(copy.deepcopy(smooth),12,{"stream_qty":{"Enabled Partners":10.0}},12); m13,_=fee_stream_q(copy.deepcopy(smooth),13,{"stream_qty":{"Enabled Partners":10.0}},12)
+    ck("D3ab transaction revenue Growth supports Step and Smooth resolution",
+       abs(s1-2.0)<1e-9 and abs(s12-2.0)<1e-9 and abs(s13-2.2)<1e-9
+       and abs(m1-2.0)<1e-9 and 2.0<m2<m12<2.2 and abs(m13-2.2)<1e-9,
+       f"step={s1:.4f}/{s12:.4f}/{s13:.4f} smooth={m1:.4f}/{m2:.4f}/{m12:.4f}/{m13:.4f}")
+
+    neg=copy.deepcopy(tx_rate); neg["rate"]["params"]["rate_path"]["value"]=-0.001
+    zero=copy.deepcopy(tx_rate); zero["rate"]["params"]["rate_path"]["value"]=0.0
+    _validate_fee_stream_shape(neg); _validate_fee_stream_shape(zero)
+    ng,_=fee_stream_q(copy.deepcopy(neg),1,{"stream_qty":{"Enabled Partners":10.0}},12); zg,_=fee_stream_q(copy.deepcopy(zero),1,{"stream_qty":{"Enabled Partners":10.0}},12)
+    ck("D3ac transaction revenue path preserves zero and negative-rate conventions",
+       abs(ng+1.0)<1e-9 and abs(zg)<1e-12, f"negative={ng:.6f} zero={zg:.6f}")
+
+    cost_period_checks=[]
+    for period, before_q, after_q in [("month",1,2),("quarter",3,4),("year",12,13)]:
+        st=copy.deepcopy(tx_rate); st["cost"]={"kind":"pct_of_revenue_opex","params":{
+            "pct":0.05,"factor_path":{"value":0.05,"trajectory":"explicit_schedule","period":period,"resolution":"step","schedule":{"1":0.05,"2":0.04}},
+            "multiplier_path":{"value":2.0,"trajectory":"flat","period":"year","resolution":"step"}}}
+        _validate_fee_stream_shape(st)
+        _,b=fee_stream_q(copy.deepcopy(st),before_q,{"stream_qty":{"Enabled Partners":10.0}},12)
+        _,a=fee_stream_q(copy.deepcopy(st),after_q,{"stream_qty":{"Enabled Partners":10.0}},12)
+        cost_period_checks.append((period,b,a))
+    ck("D3ad direct cost Explicit path honors Month/Quarter/Year while multiplier remains separate",
+       all(abs(b-.20)<1e-9 and abs(a-.16)<1e-9 for _,b,a in cost_period_checks), str(cost_period_checks))
+
+    bad_lo=copy.deepcopy(tx_rate); bad_lo["cost"]={"kind":"pct_of_revenue_opex","params":{"factor_path":{"value":0.05,"trajectory":"explicit_schedule","period":"year","resolution":"step","schedule":{"1":-0.01}}}}
+    bad_hi=copy.deepcopy(tx_rate); bad_hi["cost"]={"kind":"pct_of_revenue_opex","params":{"factor_path":{"value":0.05,"trajectory":"explicit_schedule","period":"year","resolution":"step","schedule":{"1":1.01}}}}
+    bad=[]
+    for st in (bad_lo,bad_hi):
+        try: _validate_fee_stream_shape(st); bad.append(False)
+        except ValueError: bad.append(True)
+    ck("D3ae percentage cost trajectory fails closed outside 0%-100%", all(bad), str(bad))
 
     api_sched=copy.deepcopy(api_amount)
     api_sched["driver"]["params"]["coefficient"].update({

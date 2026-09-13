@@ -34,21 +34,21 @@ def main():
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
     paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 21, str(len(paste_lines)))
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 22, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Seventeen scalar schedule families: ten Fee Product paths (transaction coefficient, Flat amount,
+    # Eighteen scalar schedule families: eleven Fee Product paths (transaction coefficient, Transaction fee rate, Flat amount,
     # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base,
-    # saved cost override, and the canonical Fee Product cost multiplier),
+    # direct cost rate/factor, and the canonical Fee Product cost multiplier),
     # two Operating Expense cost-pool paths (entered cost base and cost-recovery markup), plus CAC
     # driver/attrition, Workforce Count/Compensation, and individual Operating Expense schedule.
     scalar_markers = [
         "feeCoeffPaste_", "feeFlatAmountPaste_", "feeAccountLevelPaste_", "feeStockPctPaste_",
-        "feeBalanceRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_",
+        "feeBalanceRatePaste_", "feeTransactionRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_",
         "nieCostBasePaste_", "nieCostPoolMarkupPaste_", "cacPaste_", "cacAttritionPaste_",
         "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_", "feeCostFactorPaste_", "feeCostMultiplierPaste_",
     ]
-    ck("all seventeen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all eighteen scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -60,7 +60,7 @@ def main():
     # Every scalar Explicit family uses the shared first+last preview; long schedules can expand in place.
     ck("all scalar Explicit families use the inspectable loaded-schedule preview",
        html.count("_explicitPreviewHtml(") == 9
-       and html.count("_explicitSchedulePreviewHtml(") == 11
+       and html.count("_explicitSchedulePreviewHtml(") == 12
        and 'class="explicit-preview-toggle"' in html
        and "View all" in html and "Collapse" in html)
     ck("expanded schedule preview is bounded and scrollable instead of widening the authoring page",
