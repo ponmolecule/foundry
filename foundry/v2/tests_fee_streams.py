@@ -67,6 +67,36 @@ def main():
     ck("transaction basis: 10,000 tx @ 0.35 => 3,500",
        abs(fee_stream_q(s_tx, 1, {})[0] - 3500.0) < 1e-9)
 
+    # stream_ref must be an explicit, valid dependency. A blank/missing/self reference may never
+    # silently resolve to zero, because that can make a populated UI look economically active.
+    src_stream={"name":"Enabled Partners","basis":"transaction",
+                "driver":{"source":"constant","trajectory":"flat","params":{"base":0.004}},
+                "rate":{"behavior":"flat","params":{"per_unit":0.0}},"cost":{"kind":"none","params":{}}}
+    api_stream={"name":"Per-transaction API Revenue","basis":"transaction",
+                "driver":{"source":"stream_ref","ref":"Enabled Partners","trajectory":"derived","params":{"coefficient":{
+                    "kind":"multiple","value":500_000.0,"period":"year","trajectory":"flat"}}},
+                "rate":{"behavior":"flat","params":{"per_unit":0.002}},"cost":{"kind":"none","params":{}}}
+    api_inc,_=product_fee_streams_q({"fee_streams":[src_stream,api_stream]},1,{},ppy=12)
+    ck("valid another-stream dependency produces positive downstream API revenue", api_inc>0)
+    blank_ref=copy.deepcopy(api_stream); blank_ref["driver"].pop("ref",None)
+    try:
+        product_fee_streams_q({"fee_streams":[src_stream,blank_ref]},1,{},ppy=12); blank_ref_raised=False
+    except ValueError:
+        blank_ref_raised=True
+    ck("blank another-stream reference fails closed instead of silently producing zero", blank_ref_raised)
+    missing_ref=copy.deepcopy(api_stream); missing_ref["driver"]["ref"]="Not a stream"
+    try:
+        product_fee_streams_q({"fee_streams":[src_stream,missing_ref]},1,{},ppy=12); missing_ref_raised=False
+    except ValueError:
+        missing_ref_raised=True
+    ck("missing another-stream reference fails closed", missing_ref_raised)
+    self_ref=copy.deepcopy(api_stream); self_ref["driver"]["ref"]=self_ref["name"]
+    try:
+        product_fee_streams_q({"fee_streams":[self_ref]},1,{},ppy=12); self_ref_raised=False
+    except ValueError:
+        self_ref_raised=True
+    ck("self-referencing fee stream fails closed as a dependency cycle", self_ref_raised)
+
     # account basis: qty(500 accts) * fee(4.0/mo) * 3 mo/q = 6,000
     s_ac = {"basis": "account", "driver": {"source": "constant", "params": {"base": 500.0}},
             "rate": {"params": {"fee_per_period": 4.0}}, "timing": {"start_period": 1}}

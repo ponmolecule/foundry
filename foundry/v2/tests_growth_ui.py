@@ -221,6 +221,23 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Transaction coefficient authoring chooses trajectory before asking for turns value",
        cor.returncode==0 and coj.get("flat") and coj.get("growth") and coj.get("explicit") and coj.get("periodBeforeValue"), cor.stderr.strip())
+    # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
+    stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+        "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; }\n"
+        + hjs + fjs +
+        "\nconst p={name:'BaaS APIs',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:["
+        "{name:'Enabled Partners',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:1}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},"
+        "{name:'Per-transaction API Revenue',basis:'transaction',driver:{source:'stream_ref',trajectory:'derived',params:{coefficient:{kind:'multiple',value:500000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002}},cost:{kind:'none',params:{}}}]};"
+        " cfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0');"
+        " const a=out.indexOf('<label>Reference stream</label>'), b=out.indexOf('</select>',a), ref=out.slice(a,b);"
+        " console.log(JSON.stringify({placeholder:ref.includes('<option value=\"\" selected>Select a reference stream…</option>'),upstream:ref.includes('<option value=\"Enabled Partners\">Enabled Partners</option>'),falseSelected:ref.includes('<option value=\"Enabled Partners\" selected>'),selfOption:ref.includes('value=\"Per-transaction API Revenue\"')}));")
+    srr=subprocess.run(["node","-e",stream_ref_js],text=True,capture_output=True); srj={}
+    if srr.returncode==0 and srr.stdout.strip():
+        try: srj=json.loads(srr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Another-stream selector shows an explicit unselected placeholder instead of a false visual reference",
+       srr.returncode==0 and srj.get("placeholder") and srj.get("upstream") and not srj.get("falseSelected") and not srj.get("selfOption"), srr.stderr.strip())
     ck("Fee streams use a stronger visual separator for quick stream delineation",
        ".fee-stream-block{border-top:2px solid #3E4B61;margin-top:14px;padding-top:10px}" in html
        and '<div class="fld wide fee-stream-block">' in html

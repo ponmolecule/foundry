@@ -636,6 +636,9 @@ def _validate_fee_stream_shape(stream):
     ck = cost.get("kind") or "none"
     if ck not in _FEE_COST_KINDS:
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
+    if src == "stream_ref":
+        if not str(drv.get("ref") or "").strip():
+            raise ValueError("fee stream_ref source requires driver.ref")
     if src == "cost_pool":
         if basis != "transaction":
             raise ValueError("fee cost_pool source is supported only on transaction basis")
@@ -1094,9 +1097,14 @@ def fee_streams_order(streams):
     for i, st in enumerate(streams):
         drv = (st or {}).get("driver") or {}
         if drv.get("source") == "stream_ref":
-            ref = drv.get("ref")
-            if ref in by_name and by_name[ref] != i:
-                deps[i].add(by_name[ref])
+            ref = str(drv.get("ref") or "").strip()
+            if not ref:
+                raise ValueError("fee stream_ref source requires driver.ref")
+            if ref not in by_name:
+                raise ValueError(f"fee stream_ref source {ref!r} does not exist")
+            if by_name[ref] == i:
+                raise ValueError("fee stream cycle detected (stream_ref self-reference)")
+            deps[i].add(by_name[ref])
     order, visiting, done = [], set(), set()
     def visit(i):
         if i in done:
