@@ -418,6 +418,12 @@ def validate_config_v2(cfg):
                     validate_growth_spec_for_cadence(_eff, ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.workforce.roles[{i}].salary_growth_spec invalid: {e}")
+        for i, component in enumerate(wf.get("additive_components") or []):
+            try:
+                from .workforce import normalize_workforce_additive_component
+                normalize_workforce_additive_component(component, _ppy)
+            except (TypeError, ValueError) as e:
+                errs.append(f"nie_detail.workforce.additive_components[{i}] invalid: {e}")
     if a.get("overhead_flow_spec") is not None:
         try:
             from .periodic_flows import validate_periodic_flow_spec
