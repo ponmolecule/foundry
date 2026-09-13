@@ -322,10 +322,56 @@ def main():
     _,r82c1 = fee_stream_q(r82_saved,1,{},12); _,r82c13 = fee_stream_q(r82_saved,13,{},12)
     ck("D2i saved replacement factor_path remains read-compatible", abs(r82c1-20.0)<1e-9 and abs(r82c13-30.0)<1e-9)
 
-    # D3 fail-safe: an empty fee product contributes exactly zero
+    # D3-r91: generic monetary amount-per-source-unit coefficient. The authoring UI stores
+    # $000s inputs as internal dollars/source-unit, while the engine periodizes the natural
+    # Month/Quarter/Year amount before pricing the resulting transaction throughput.
+    api_amount = {"name":"API Revenue","basis":"transaction",
+        "driver":{"source":"stream_ref","ref":"Enabled Partners","trajectory":"derived","params":{"coefficient":{
+            "kind":"amount_per_source_unit","value":500_000_000.0,"period":"year","trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"per_unit":0.002}},
+        "cost":{"kind":"pct_of_revenue_opex","params":{"pct":0.05}},"timing":{"start_period":1}}
+    actx={"stream_qty":{"Enabled Partners":4.319292}}
+    ai, ac = fee_stream_q(copy.deepcopy(api_amount),1,actx,12)
+    ck("D3 amount/source-unit reproduces API source economics at monthly cadence",
+       abs(ai-359_941.0)<1e-9 and abs(ac-17_997.05)<1e-9
+       and abs(actx["stream_qty"]["API Revenue"]-179_970_500.0)<1e-6,
+       f"gross={ai:.2f} cost={ac:.2f} qty={actx['stream_qty'].get('API Revenue')}")
+
+    api_sched=copy.deepcopy(api_amount)
+    api_sched["driver"]["params"]["coefficient"].update({
+        "trajectory":"explicit_schedule","schedule":{"1":500_000_000.0,"2":525_000_000.0,"3":551_250_000.0}})
+    y1,_=fee_stream_q(copy.deepcopy(api_sched),12,{"stream_qty":{"Enabled Partners":4.0}},12)
+    y2,_=fee_stream_q(copy.deepcopy(api_sched),13,{"stream_qty":{"Enabled Partners":4.0}},12)
+    ck("D3b amount/source-unit explicit annual schedule steps at model-year boundary without double periodization",
+       abs(y1-(4*500_000_000/12*.002))<1e-9 and abs(y2-(4*525_000_000/12*.002))<1e-9,
+       f"M12={y1:.2f} M13={y2:.2f}")
+
+    parity=copy.deepcopy(api_amount); parity["driver"]["params"]["coefficient"]["value"]=120_000.0; parity["rate"]["params"]["per_unit"]=0.01; parity["cost"]={"kind":"none","params":{}}
+    mann=sum(fee_stream_q(copy.deepcopy(parity),q,{"stream_qty":{"Enabled Partners":10.0}},12)[0] for q in range(1,13))
+    qann=sum(fee_stream_q(copy.deepcopy(parity),q,{"stream_qty":{"Enabled Partners":10.0}},4)[0] for q in range(1,5))
+    ck("D3c amount/source-unit annual economics are monthly/quarterly cadence-equivalent",
+       abs(mann-qann)<1e-9 and abs(mann-12_000.0)<1e-9, f"monthly={mann:.2f} quarterly={qann:.2f}")
+
+    from foundry.v2.audit_workbook import _quantity_rows
+    audit_streams=[
+      {"name":"Business MAB","basis":"transaction","quantity_series_id":"q-mab","driver":{"source":"constant","trajectory":"flat","params":{"base":1234}},"rate":{"behavior":"flat","params":{"per_unit":0}},"cost":{"kind":"none","params":{}}},
+      {"name":"Migrated MAB","basis":"transaction","quantity_series_id":"q-migrated","driver":{"source":"stream_ref","ref":"Business MAB","trajectory":"derived","params":{"coefficient":{"kind":"pct","value":.10,"period":"month","trajectory":"flat"}}},"rate":{"behavior":"flat","params":{"per_unit":0}},"cost":{"kind":"none","params":{}}},
+      {"name":"Enabled Partners","basis":"transaction","quantity_series_id":"q-enabled","driver":{"source":"stream_ref","ref":"Migrated MAB","trajectory":"derived","params":{"coefficient":{"kind":"pct","value":.035,"period":"month","trajectory":"flat"}}},"rate":{"behavior":"flat","params":{"per_unit":0}},"cost":{"kind":"none","params":{}}},
+      {**copy.deepcopy(api_amount),"quantity_series_id":"q-api"},
+    ]
+    aqcfg={"assumptions":{"obs_exposures":[{"name":"BaaS APIs","fee_streams":audit_streams}]}}
+    aqexact={"fee_stream_quantities":{"q-mab":[1234.0],"q-migrated":[123.4],"q-enabled":[4.319],"q-api":[179_958_333.33333334]}}
+    aqrows={r[2]:r for r in _quantity_rows(aqcfg,{},1,exact=aqexact)}
+    ck("D3d Calculation Audit keeps count/native fee quantities unscaled and labels only monetary throughput as $000s",
+       aqrows["q-mab"][3].startswith("native units") and abs(aqrows["q-mab"][4][0]-1234.0)<1e-9
+       and aqrows["q-enabled"][3].startswith("native units") and abs(aqrows["q-enabled"][4][0]-4.319)<1e-9
+       and aqrows["q-api"][3].startswith("$000s") and abs(aqrows["q-api"][4][0]-179_958.33333333334)<1e-6,
+       str({k:(v[3],v[4][0]) for k,v in aqrows.items()}))
+
+    # D4 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]
     f,_ = isolate(empty)
-    ck("D3 empty fee product contributes 0", all(abs(x)<1e-6 for x in f), f"max {max(abs(x) for x in f):.4f}")
+    ck("D4 empty fee product contributes 0", all(abs(x)<1e-6 for x in f), f"max {max(abs(x) for x in f):.4f}")
 
     print(f"\n{_P} passed, {_F} failed")
     return 0 if _F == 0 else 1

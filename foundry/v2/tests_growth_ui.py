@@ -221,6 +221,20 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Transaction coefficient authoring chooses trajectory before asking for turns value",
        cor.returncode==0 and coj.get("flat") and coj.get("growth") and coj.get("explicit") and coj.get("periodBeforeValue"), cor.stderr.strip())
+    amount_coeff_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+        "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; } function renderContent(){} function refresh(){}\n"
+        + hjs + fjs +
+        "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'explicit_schedule',schedule:{'1':500000000,'2':525000000,'3':551250000}}}},rate:{behavior:'flat',params:{per_unit:.002}},cost:{kind:'none',params:{}}};"
+        " const p={name:'API Product',_fee_product:true,fee_streams:[{name:'Enabled Partners',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:4}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},st]}; cfg.assumptions.obs_exposures=[p];"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); const before=JSON.stringify(st.driver.params.coefficient); _feeSetCoeffSchedule(0,1,'500000,525000,551250'); const after=st.driver.params.coefficient;"
+        " console.log(JSON.stringify({option:out.includes('Amount per source unit'),label:out.includes('$000s per source unit'),preview:out.includes('500000')&&out.includes('551250'),stored:after.schedule['1']===500000000&&after.schedule['2']===525000000&&after.schedule['3']===551250000}));")
+    acr=subprocess.run(["node","-e",amount_coeff_js],text=True,capture_output=True); acj={}
+    if acr.returncode==0 and acr.stdout.strip():
+        try: acj=json.loads(acr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Transaction authoring supports Amount per source unit in $000s and stores internal dollars",
+       acr.returncode==0 and acj.get("option") and acj.get("label") and acj.get("preview") and acj.get("stored"), acr.stderr.strip())
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
@@ -300,11 +314,11 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("Fee Product basis info click opens its definition and closes an open sibling",
        ir.returncode==0 and ij.get("opened") and ij.get("closedSibling") and ij.get("expanded") and ij.get("markup"), ir.stderr.strip())
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
-       'const _coefNoun=_ckind==="pct"?"Volume %":"Turns"' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
+       'const _coefNoun=_isPct?"Volume %":(_isAmount?"Amount per source unit":"Turns")' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
     ck("Fee Product explicit coefficient path uses live-validating pastebox/load workflow",
        'feeCoeffPaste_' in html and 'comma, tab, semicolon, or new line' in html
-       and 'placeholder="e.g. 8, 10, 12, 10, 10, 10, 9"' in html
+       and '_ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9"' in html
        and 'oninput="_feeCoeffPasteInput(' in html
        and 'class="pillbtn" disabled onclick="_feeSetCoeffSchedule' in html
        and '_feeClearCoeffSchedule(${_fi},${si})' in html)

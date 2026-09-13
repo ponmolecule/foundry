@@ -576,12 +576,15 @@ def _fee_flat_amount_value(spec, q, ppy, ctx=None):
 def _fee_coefficient_value(spec, q, ppy, ctx=None):
     """Resolve an explicit derived-flow coefficient into one engine-period coefficient.
 
-    `spec.period` states the coefficient's natural flow unit (e.g. 4 turns / Year).
-    This path is opt-in. Legacy `multiple` / `pct` fields remain raw per engine period.
+    `spec.period` states the coefficient's natural flow unit (e.g. 4 turns / Year,
+    24% of source / Year, or $500MM per source unit / Year). Amount-per-source-unit
+    values are stored internally in dollars per source unit; the authoring UI presents
+    them in $000s per source unit. This path is opt-in. Legacy `multiple` / `pct`
+    fields remain raw per engine period.
     """
     spec = dict(spec or {})
     kind = str(spec.get("kind") or "").strip().lower()
-    if kind not in {"multiple", "pct"}:
+    if kind not in {"multiple", "pct", "amount_per_source_unit"}:
         raise ValueError(f"unsupported fee coefficient kind: {kind!r}")
     period = str(spec.get("period") or "").strip().lower()
     if period not in _FEE_NATURAL_PERIODS:
@@ -740,7 +743,7 @@ def _validate_fee_stream_shape(stream):
         if basis != "transaction":
             raise ValueError("natural-period fee coefficient is supported only on transaction basis")
         c = dict(coef or {})
-        if str(c.get("kind") or "").strip().lower() not in {"multiple", "pct"}:
+        if str(c.get("kind") or "").strip().lower() not in {"multiple", "pct", "amount_per_source_unit"}:
             raise ValueError(f"unsupported fee coefficient kind: {c.get('kind')!r}")
         if str(c.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS:
             raise ValueError(f"unsupported fee coefficient period: {c.get('period')!r}")
