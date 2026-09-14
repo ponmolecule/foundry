@@ -150,8 +150,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("fee cost UI exposes a first-class direct cost path plus a separate multiplier trajectory",
        '["pct_of_revenue","Revenue share (% of revenue)"]' in html
        and '["pct_of_revenue_opex","Operating cost (% of revenue)"]' in html
-       and 'Operating cost rate path' in html and 'Cost rate (% of gross fee revenue)' in html
-       and 'Cost rate schedule (% of gross fee revenue)' in html
+       and '["pct_of_throughput_opex","Operating cost (% of throughput)"]' in html
+       and 'Operating cost rate path' in html and 'Cost rate (% of ${_costPctBase})' in html
+       and 'transaction throughput' in html and 'gross fee revenue' in html
+       and 'Cost rate schedule (% of ${_costPctBase})' in html
        and 'Cost multiplier path' in html and 'Multiplier period' in html and 'Multiplier resolution' in html
        and '_feeCostFactorValue' in html and '_feeSetCostFactorSchedule' in html
        and '_feeCostMultiplierValue' in html and '_feeSetCostMultiplierSchedule' in html

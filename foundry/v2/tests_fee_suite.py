@@ -277,6 +277,31 @@ def main():
     net_oc = is_delta("feeOpex", net)
     ck("D2e revenue-share mode remains contra-revenue with no Fee Product Costs NIE", abs(net_oc[0]) < 1e-9, f"got {net_oc[0]:.4f}")
 
+    # r97: some transaction operating costs are quoted against throughput itself, not
+    # against fee revenue. Keep that economic base first-class so users never need to
+    # reverse-engineer an equivalent 5%/50% of revenue merely to match a source model.
+    tx_cost = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":257100.69375020568}},
+        "rate":{"params":{"per_unit":0.0015}},
+        "cost":{"kind":"pct_of_throughput_opex","params":{"pct":0.000075}},"timing":{"start_period":1}}
+    ti,tc = fee_stream_q(copy.deepcopy(tx_cost),1,{},12)
+    ck("D2ea throughput-based operating cost preserves gross fee income", abs(ti-385.6510406253085)<1e-9, f"got {ti:.9f}")
+    ck("D2eb throughput-based operating cost applies 0.0075% to transaction throughput", abs(tc-19.282552031265426)<1e-9, f"got {tc:.9f}")
+    tx_cost_path=copy.deepcopy(tx_cost)
+    tx_cost_path["cost"]["params"]={
+        "pct":0.000075,
+        "factor_path":{"value":0.000075,"trajectory":"explicit_schedule","period":"month","resolution":"step","schedule":{"1":0.000075,"2":0.00008}},
+        "multiplier_path":{"value":1.0,"trajectory":"flat","period":"year","resolution":"step"},
+    }
+    _,tcp1=fee_stream_q(copy.deepcopy(tx_cost_path),1,{},12); _,tcp2=fee_stream_q(copy.deepcopy(tx_cost_path),2,{},12)
+    ck("D2ec throughput cost supports the standard direct-rate trajectory independently of multiplier",
+       abs(tcp1-19.282552031265426)<1e-9 and abs(tcp2-20.568055500016456)<1e-9, f"M1={tcp1:.9f}, M2={tcp2:.9f}")
+    try:
+        _validate_fee_stream_shape({**copy.deepcopy(tx_cost),"basis":"account"})
+        _bad_throughput_basis=False
+    except ValueError:
+        _bad_throughput_basis=True
+    ck("D2ed throughput percentage cost fails closed outside Transaction basis", _bad_throughput_basis)
+
     # D2f-r83: the original scalar cost and the new multiplier are separate layers.
     # A Year/Step multiplier applies unchanged to each monthly cost base and is never /12.
     sched_op = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},

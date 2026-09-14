@@ -10,6 +10,15 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+
+## r97 — Transaction operating cost as % of throughput
+- Adds a first-class Transaction Fee Product cost mode, `pct_of_throughput_opex`, for source-model economics quoted as a percentage of transaction volume/throughput rather than as a percentage of gross fee revenue.
+- The calculation is `Transaction throughput × direct cost rate × cost multiplier = Fee Product cost`. Gross fee income remains intact and the cost routes to Noninterest Expense: Fee Product Costs.
+- Keeps `pct_of_revenue_opex` unchanged for genuinely revenue-based operating costs and `pct_of_revenue` unchanged for contra-revenue/revenue-share economics. No implicit conversion between cost bases is performed.
+- The UI exposes “Operating cost (% of throughput)” with the same Flat / Growth / Explicit Month / Quarter / Year trajectory grammar and separate multiplier layer already used by direct Fee Product costs.
+- Calculation Audit identifies the direct cost factor as `% of transaction throughput`, so the troubleshooting workbook preserves the cost base explicitly.
+- Focused regression uses the observed source-model shape: 0.15% revenue on throughput plus 0.0075% operating cost on throughput, proving the cost is computed directly from volume rather than approximated as 5% of revenue.
+
 ## r94 — Audit/Product Details snapshot reconciliation
 - Pins Calculation Audit export to the exact public preview snapshot shown by Product Details. The browser freezes the current config, invalidates older in-flight previews, obtains a fresh preview, and posts that config together with its `config_hash` and `run_hash`; the server re-runs the frozen config and refuses the export on any hash mismatch.
 - Changes the headline `Fee Product Costs` rows (`Fee revenue`, `Fee Product cost`, `Product operating expense`) to consume the same public product Series that Product Details displays, so the workbook reconciles cell-for-cell instead of silently comparing a public rounded view with a separate raw-engine representation.
