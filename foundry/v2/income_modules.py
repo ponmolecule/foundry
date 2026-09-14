@@ -582,13 +582,24 @@ def _fee_flat_amount_value(spec, q, ppy, ctx=None):
 
 
 def _fee_coefficient_value(spec, q, ppy, ctx=None):
-    """Resolve an explicit derived-flow coefficient into one engine-period coefficient.
+    """Resolve an explicit derived Transaction coefficient.
 
-    `spec.period` states the coefficient's natural flow unit (e.g. 4 turns / Year,
-    24% of source / Year, or $500MM per source unit / Year). Amount-per-source-unit
-    values are stored internally in dollars per source unit; the authoring UI presents
-    them in $000s per source unit. This path is opt-in. Legacy `multiple` / `pct`
-    fields remain raw per engine period.
+    ``multiple`` (turns) and ``amount_per_source_unit`` are natural-period FLOW
+    coefficients: a Year value is distributed across the engine periods in that year.
+
+    ``pct`` has two explicit semantics because the same visual ``% of source`` can mean
+    two different economics:
+
+    * ``semantics="share"`` — a dimensionless share/attach/migration factor.  The
+      percentage is never divided by model cadence; ``period`` only locates an explicit
+      schedule (and the growth path retains its own authored cadence).
+    * ``semantics="flow"`` — a natural-period flow ratio such as annual conversion
+      volume as a percentage of average AUC.  This retains the historical periodization
+      contract.
+
+    Missing ``semantics`` remains ``flow`` at this low-level boundary for backward
+    compatibility.  Product-level evaluation can safely infer ``share`` for count-based
+    source chains and inject it before this resolver is called.
     """
     spec = dict(spec or {})
     kind = str(spec.get("kind") or "").strip().lower()
@@ -597,6 +608,9 @@ def _fee_coefficient_value(spec, q, ppy, ctx=None):
     period = str(spec.get("period") or "").strip().lower()
     if period not in _FEE_NATURAL_PERIODS:
         raise ValueError(f"unsupported fee coefficient period: {period!r}")
+    semantics = str(spec.get("semantics") or "flow").strip().lower() if kind == "pct" else "flow"
+    if kind == "pct" and semantics not in {"share", "flow"}:
+        raise ValueError(f"unsupported percentage coefficient semantics: {semantics!r}")
     traj = str(spec.get("trajectory") or "flat").strip().lower()
     if traj not in {"flat", "growth", "explicit_schedule"}:
         raise ValueError(f"unsupported fee coefficient trajectory: {traj!r}")
@@ -611,6 +625,8 @@ def _fee_coefficient_value(spec, q, ppy, ctx=None):
     elif traj == "explicit_schedule":
         idx = _fee_natural_period_index(q, period, ppy)
         val = _fee_schedule_value(spec.get("schedule") or {}, idx, val)
+    if kind == "pct" and semantics == "share":
+        return val
     return _fee_amount_per_engine_period(val, period, ppy)
 
 
@@ -739,7 +755,7 @@ def _validate_fee_stream_shape(stream):
             raise ValueError(f"fee cost kind {ck!r} requires numeric pct")
         if _pct < 0.0 or _pct > 1.0:
             raise ValueError(f"fee cost kind {ck!r} pct must be between 0 and 1")
-    # Natural-period coefficients are Transaction/throughput-only. Ignore a stale hidden
+    # Derived Transaction coefficients are Transaction/throughput-only. Ignore a stale hidden
     # coefficient on another basis (r91 UI could preserve one after a basis change) rather
     # than failing an otherwise-valid stream on authoring state that cannot affect economics.
     coef = (drv.get("params") or {}).get("coefficient") if basis in {"transaction", "balance"} else None
@@ -748,13 +764,18 @@ def _validate_fee_stream_shape(stream):
     if coef is not None:
         if traj != "derived":
             raise ValueError("fee coefficient requires driver.trajectory='derived'")
-        # Natural-period coefficients describe flows. Feeding them to balance basis would
-        # divide once in the coefficient and again in the stock-rate basis (/ppy^2).
+        # Transaction coefficients belong on flow-producing streams. Feeding one to a balance
+        # basis is invalid; balance-derived percentages use stock_multiplier instead.
         if basis != "transaction":
             raise ValueError("natural-period fee coefficient is supported only on transaction basis")
         c = dict(coef or {})
-        if str(c.get("kind") or "").strip().lower() not in {"multiple", "pct", "amount_per_source_unit"}:
+        _ckind = str(c.get("kind") or "").strip().lower()
+        if _ckind not in {"multiple", "pct", "amount_per_source_unit"}:
             raise ValueError(f"unsupported fee coefficient kind: {c.get('kind')!r}")
+        if _ckind == "pct" and c.get("semantics") is not None:
+            _csem = str(c.get("semantics") or "").strip().lower()
+            if _csem not in {"share", "flow"}:
+                raise ValueError(f"unsupported percentage coefficient semantics: {c.get('semantics')!r}")
         if str(c.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS:
             raise ValueError(f"unsupported fee coefficient period: {c.get('period')!r}")
         if str(c.get("trajectory") or "flat").strip().lower() not in {"flat", "growth", "explicit_schedule"}:
@@ -980,9 +1001,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     else:
         # sourced quantity (own_balance/managed_notional/stream_ref/bank_aggregate/cost_pool)
         if traj == "derived":
-            # Explicit natural-period coefficient = FLOW semantics (e.g. 4 turns / Year,
-            # 24% of AUC / Year), periodized BEFORE a transaction fee/spread is applied.
-            # Absence of the marker preserves legacy raw `multiple`/`pct` behavior exactly.
+            # Derived Transaction coefficients have typed semantics. Turns and amount-per-source-unit
+            # are natural-period flows; pct may be either a dimensionless share or a natural-period
+            # flow ratio. _fee_coefficient_value owns that distinction before pricing is applied.
             coef = params.get("coefficient") if basis == "transaction" else None
             stock_multiplier = params.get("stock_multiplier")
             if stock_multiplier is not None:
@@ -1210,6 +1231,89 @@ def fee_streams_order(streams):
     return order
 
 
+def _fee_stream_quantity_kinds(streams):
+    """Infer coarse quantity units (count / money / native) within one Fee Product.
+
+    This is deliberately structural and name-agnostic.  It is used only to disambiguate
+    legacy percentage coefficients that predate explicit share-vs-flow semantics.
+    """
+    streams = list(streams or [])
+    by_name = {str((st or {}).get("name") or ""): i for i, st in enumerate(streams)
+               if (st or {}).get("name")}
+    cache = {}
+
+    def resolve(i, stack=None):
+        if i in cache:
+            return cache[i]
+        stack = set(stack or ())
+        if i in stack:
+            return "native"
+        stack.add(i)
+        st = streams[i] or {}
+        basis = str(st.get("basis") or "").strip().lower()
+        if basis == "balance":
+            kind = "money"
+        elif basis == "account":
+            kind = "count"
+        elif basis != "transaction":
+            kind = "native"
+        else:
+            drv = st.get("driver") or {}
+            params = drv.get("params") or {}
+            coef = params.get("coefficient") or {}
+            if str(coef.get("kind") or "").strip().lower() == "amount_per_source_unit":
+                kind = "money"
+            else:
+                src = str(drv.get("source") or "constant").strip().lower()
+                if src in {"own_balance", "managed_notional", "bank_aggregate", "cost_pool"}:
+                    kind = "money"
+                elif src == "customer_acquisition_count":
+                    kind = "count"
+                elif src == "stream_ref":
+                    ref = str(drv.get("ref") or "")
+                    kind = resolve(by_name[ref], stack) if ref in by_name else "native"
+                else:
+                    kind = "native"
+        cache[i] = kind
+        return kind
+
+    return {i: resolve(i) for i in range(len(streams))}
+
+
+def _fee_pct_semantics_for_stream(streams, i, quantity_kinds=None):
+    """Resolve legacy ``pct`` coefficient meaning without engagement-specific rules.
+
+    Explicit semantics always win.  For pre-r101 configs with no semantics marker, a
+    count-sourced percentage is a dimensionless share (migration / attach / conversion of
+    counts), while monetary/native sources preserve the historical natural-period FLOW
+    percentage contract.  New authoring writes the semantics explicitly, so this branch is
+    only a compatibility bridge.
+    """
+    streams = list(streams or [])
+    st = streams[i] or {}
+    drv = st.get("driver") or {}
+    coef = ((drv.get("params") or {}).get("coefficient") or {})
+    if str(coef.get("kind") or "").strip().lower() != "pct":
+        return None
+    sem = str(coef.get("semantics") or "").strip().lower()
+    if sem in {"share", "flow"}:
+        return sem
+    kinds = quantity_kinds or _fee_stream_quantity_kinds(streams)
+    src = str(drv.get("source") or "constant").strip().lower()
+    if src == "customer_acquisition_count":
+        source_kind = "count"
+    elif src in {"own_balance", "managed_notional", "bank_aggregate", "cost_pool"}:
+        source_kind = "money"
+    elif src == "stream_ref":
+        by_name = {str((x or {}).get("name") or ""): j for j, x in enumerate(streams)
+                   if (x or {}).get("name")}
+        ref = str(drv.get("ref") or "")
+        source_kind = kinds.get(by_name.get(ref), "native")
+    else:
+        source_kind = "native"
+    return "share" if source_kind == "count" else "flow"
+
+
 def product_fee_streams_q(p, q, ctx, ppy=4):
     """A product's fee_streams for engine period q, as (fee_income, operating_cost) in $.
     Evaluated in dependency order so stream_ref consumers see their source's quantity.
@@ -1227,8 +1331,26 @@ def product_fee_streams_q(p, q, ctx, ppy=4):
         raise
     inc_total = 0.0
     cost_total = 0.0
+    quantity_kinds = _fee_stream_quantity_kinds(streams)
     for i in order:
-        _inc, _cost = fee_stream_q(streams[i], q, ctx, ppy)
+        st = streams[i]
+        drv = (st or {}).get("driver") or {}
+        coef = ((drv.get("params") or {}).get("coefficient") or {})
+        if str(coef.get("kind") or "").strip().lower() == "pct" and not coef.get("semantics"):
+            # Pre-r101 configs did not distinguish a dimensionless count share from a
+            # natural-period flow percentage.  Infer only from the structural source unit:
+            # count chains are shares; monetary/native chains preserve the historical flow
+            # contract.  Do not mutate the user's saved configuration.
+            sem = _fee_pct_semantics_for_stream(streams, i, quantity_kinds)
+            st = dict(st or {})
+            st_drv = dict(drv)
+            st_params = dict(st_drv.get("params") or {})
+            st_coef = dict(coef)
+            st_coef["semantics"] = sem
+            st_params["coefficient"] = st_coef
+            st_drv["params"] = st_params
+            st["driver"] = st_drv
+        _inc, _cost = fee_stream_q(st, q, ctx, ppy)
         inc_total += _inc
         cost_total += _cost
     return inc_total, cost_total

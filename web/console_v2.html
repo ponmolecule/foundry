@@ -2338,15 +2338,44 @@ function _feeClearCoeffSchedule(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
   c.schedule={}; renderContent(); refresh();
 }
+function _feeStreamQuantityKind(i,si,seen){
+  const p=((cfg.assumptions||{}).obs_exposures||[])[i]||{}, streams=p.fee_streams||[], st=streams[si]||{};
+  seen=seen||{}; if(seen[si]) return "native"; seen[si]=1;
+  const basis=String(st.basis||"").toLowerCase();
+  if(basis==="balance") return "money";
+  if(basis==="account") return "count";
+  if(basis!=="transaction") return "native";
+  const d=st.driver||{}, dp=d.params||{}, c=dp.coefficient||{};
+  if(String(c.kind||"").toLowerCase()==="amount_per_source_unit") return "money";
+  const src=String(d.source||"constant").toLowerCase();
+  if(["own_balance","managed_notional","bank_aggregate","cost_pool"].includes(src)) return "money";
+  if(src==="customer_acquisition_count") return "count";
+  if(src==="stream_ref"){
+    const ref=String(d.ref||""), j=streams.findIndex(x=>String((x||{}).name||"")===ref);
+    return j>=0?_feeStreamQuantityKind(i,j,seen):"native";
+  }
+  return "native";
+}
+function _feePctSemantics(i,si,c){
+  c=c||_feeEnsureNaturalCoeff(i,si);
+  if(c&&["share","flow"].includes(String(c.semantics||"").toLowerCase())) return String(c.semantics).toLowerCase();
+  return _feeStreamQuantityKind(i,si,{})==="count"?"share":"flow";
+}
 function _feeEnsureNaturalCoeff(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
   const dp=st.driver.params; if(dp.coefficient) return dp.coefficient;
   let kind=(dp.pct!=null?"pct":"multiple"), value=(kind==="pct"?+(dp.pct||0):+(dp.multiple||0));
   dp.coefficient={kind:kind,value:value,period:"year",trajectory:"flat"}; return dp.coefficient;
 }
-function _feeCoeffSetKind(i,si,kind){
+function _feeCoeffSetKind(i,si,choice){
   const c=_feeEnsureNaturalCoeff(i,si);
-  if(c.kind!==kind){c.kind=kind;c.value=0;c.schedule={};}
+  if(choice==="pct_share"||choice==="pct_flow"){
+    if(c.kind!=="pct"){c.kind="pct";c.value=0;c.schedule={};}
+    c.semantics=(choice==="pct_share"?"share":"flow");
+  }else{
+    if(c.kind!==choice){c.kind=choice;c.value=0;c.schedule={};}
+    delete c.semantics;
+  }
   renderContent();refresh();
 }
 function _feeFlatAmountScheduleText(schedule){
@@ -2779,14 +2808,17 @@ function fieldsFor(fam, p, base){
           if(_coef){
             const _ckind=_coef.kind||"multiple", _cper=_coef.period||"year", _ctraj=_coef.trajectory||"flat";
             const _isPct=_ckind==="pct", _isAmount=_ckind==="amount_per_source_unit";
-            const _coefNoun=_isPct?"Volume %":(_isAmount?"Amount per source unit":"Turns");
-            h += `<div class="fld"><label>Flow coefficient</label><select onchange="_feeCoeffSetKind(${_fi},${si},this.value)"><option value="multiple"${_ckind==="multiple"?" selected":""}>× source</option><option value="pct"${_ckind==="pct"?" selected":""}>% of source</option><option value="amount_per_source_unit"${_ckind==="amount_per_source_unit"?" selected":""}>Amount per source unit</option></select></div>`;
+            const _pctSem=_isPct?_feePctSemantics(_fi,si,_coef):"", _isShare=_isPct&&_pctSem==="share";
+            const _coefNoun=_isPct?(_isShare?"Source share %":"Flow %"):(_isAmount?"Amount per source unit":"Turns");
+            const _coefChoice=_isPct?(_isShare?"pct_share":"pct_flow"):_ckind;
+            h += `<div class="fld"><label>Flow coefficient</label><select onchange="_feeCoeffSetKind(${_fi},${si},this.value)"><option value="multiple"${_coefChoice==="multiple"?" selected":""}>× source (turns / period)</option><option value="pct_share"${_coefChoice==="pct_share"?" selected":""}>Share of source (%)</option><option value="pct_flow"${_coefChoice==="pct_flow"?" selected":""}>Flow % of source / period</option><option value="amount_per_source_unit"${_coefChoice==="amount_per_source_unit"?" selected":""}>Amount per source unit / period</option></select></div>`;
             h += `<div class="fld"><label>${_coefNoun} trajectory</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.trajectory=this.value;renderContent();refresh()"><option value="flat"${_ctraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ctraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ctraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
-            h += `<div class="fld"><label>Per</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.period=this.value;renderContent();refresh()"><option value="year"${_cper==="year"?" selected":""}>Year</option><option value="quarter"${_cper==="quarter"?" selected":""}>Quarter</option><option value="month"${_cper==="month"?" selected":""}>Month</option></select></div>`;
+            if(!_isShare||_ctraj==="explicit_schedule") h += `<div class="fld"><label>${_isShare?"Schedule period":"Per"}</label><select onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.period=this.value;renderContent();refresh()"><option value="year"${_cper==="year"?" selected":""}>Year</option><option value="quarter"${_cper==="quarter"?" selected":""}>Quarter</option><option value="month"${_cper==="month"?" selected":""}>Month</option></select></div>`;
             const _cv=_isPct?((+_coef.value||0)*100):(_isAmount?((+_coef.value||0)/1000):(+_coef.value||0));
-            if(_ctraj!=="explicit_schedule") h += `<div class="fld"><label>${_ctraj==="growth"?"Starting ":""}${_isPct?"Flow %":(_isAmount?"Amount / source unit ($000s)":"Turns / multiple")}</label><input type="number" step="any" value="${_cv}" onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.value=_pf(this.value)${_isPct?"/100":(_isAmount?"*1000":"")};refresh()"></div>`;
+            if(_ctraj!=="explicit_schedule") h += `<div class="fld"><label>${_ctraj==="growth"?"Starting ":""}${_isPct?(_isShare?"Share %":"Flow %") : (_isAmount?"Amount / source unit ($000s)":"Turns / multiple")}</label><input type="number" step="any" value="${_cv}" onchange="var c=_feeEnsureNaturalCoeff(${_fi},${si});c.value=_pf(this.value)${_isPct?"/100":(_isAmount?"*1000":"")};refresh()"></div>`;
             if(_ctraj==="growth") h += `<div class="fld wide"><label>${_coefNoun} growth</label>${growthSpecInline(sb+".driver.params.coefficient.growth_spec",_coef.growth_spec,null,false)}</div>`;
             if(_ctraj==="explicit_schedule"){const _cid=`feeCoeffPaste_${_fi}_${si}`;const _ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9";const _scale=_isPct?100:(_isAmount?0.001:1);h += `<div class="fld wide"><label>${_coefNoun} schedule by ${_cper==="year"?"year":(_cper==="quarter"?"quarter":"month")} (comma, tab, semicolon, or new line)${_isAmount?" · $000s per source unit":""}</label><textarea id="${_cid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="${_ph}" oninput="_feeCoeffPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCoeffSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCoeffSchedule(${_fi},${si})"${Object.keys(_coef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_coef.schedule,_scale,_cper)}</div><span class="memo" style="margin:3px 0 0">The explicit schedule is the active ${_coefNoun.toLowerCase()} input; no separate single-value field is used. Each pasted value applies for one stated natural period; the last value carries forward.${_isAmount?" Enter monetary amounts in $000s per source unit; Foundry stores and calculates them in dollars.":""}</span></div>`;}
+            if(_isPct) h += `<div class="fld wide"><span class="memo" style="margin:0">${_isShare?"Share of source is dimensionless: 0.5% remains 0.5% regardless of Month / Quarter / Year projection cadence. Foundry never divides the share by projection cadence. A schedule period only controls when the share assumption changes.":"Flow % of source is a natural-period flow ratio: a Year assumption is periodized across the model periods in that year. Use this for economics such as annual transaction volume as % of AUC, not for attach / migration shares."}</span></div>`;
           } else {
             h += F("Legacy multiple (raw / model period)", sb+".driver.params.multiple", "n"); h += F("Legacy % of source (raw / model period, 0-1)", sb+".driver.params.pct", "n");
             h += `<div class="fld wide"><span class="memo" style="margin:0">Legacy semantics preserved. New flow assumptions should use an explicit natural period.</span><button class="btn-plain" style="margin-top:5px" onclick="_feeEnsureNaturalCoeff(${_fi},${si});renderContent();refresh()">Use natural-period flow</button></div>`;
@@ -7157,8 +7189,12 @@ function labLeverCatalog(){
       }
       if(traj==="derived"){
         const coef=dp.coefficient||null;
-        if(coef && coef.trajectory!=="explicit_schedule" && typeof coef.value==="number")
-          push(sb+".driver.params.coefficient.value", `${pre}: ${coef.kind==="pct"?"flow % of source":"flow multiple"} / ${coef.period||"year"}`, coef.kind==="pct"?"pct":"");
+        if(coef && coef.trajectory!=="explicit_schedule" && typeof coef.value==="number"){
+          const csem=coef.kind==="pct"?_feePctSemantics(i,si,coef):"";
+          const clabel=coef.kind==="pct"?(csem==="share"?"share % of source":`flow % of source / ${coef.period||"year"}`)
+                       :(coef.kind==="amount_per_source_unit"?`amount / source unit / ${coef.period||"year"}`:`turns / ${coef.period||"year"}`);
+          push(sb+".driver.params.coefficient.value", `${pre}: ${clabel}`, coef.kind==="pct"?"pct":"");
+        }
         if(coef && coef.trajectory==="growth" && coef.growth_spec && typeof coef.growth_spec.rate==="number")
           push(sb+".driver.params.coefficient.growth_spec.rate", `${pre}: coefficient growth`, "pct");
         if(!coef && typeof dp.multiple==="number") push(sb+".driver.params.multiple", `${pre}: source multiple (legacy raw)`, "");

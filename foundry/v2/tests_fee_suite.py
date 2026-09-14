@@ -8,7 +8,8 @@ Run: python3 -m foundry.v2.tests_fee_suite
 import sys, json, copy
 sys.path.insert(0, ".")
 from foundry.v2 import run_q, cac_feeder
-from foundry.v2.income_modules import durbin_effective_rate, _g, managed_notional_series, fee_stream_q, _validate_fee_stream_shape
+from foundry.v2.income_modules import (durbin_effective_rate, _g, managed_notional_series, fee_stream_q,
+                                       product_fee_streams_q, _validate_fee_stream_shape)
 from foundry.v2.engine_q_a import run_pf_a
 
 _P = _F = 0
@@ -465,6 +466,46 @@ def main():
     qann=sum(fee_stream_q(copy.deepcopy(parity),q,{"stream_qty":{"Enabled Partners":10.0}},4)[0] for q in range(1,5))
     ck("D3c amount/source-unit annual economics are monthly/quarterly cadence-equivalent",
        abs(mann-qann)<1e-9 and abs(mann-12_000.0)<1e-9, f"monthly={mann:.2f} quarterly={qann:.2f}")
+
+    # D3d-r101: percentage coefficients must distinguish a dimensionless source share
+    # from a natural-period flow ratio.  The user's observed attach/migration case is a
+    # count share: 0.5% of 1,000 is 5 whether the stored path period says Month or Year.
+    def _count_share_product(period):
+        return {"fee_streams":[
+            {"name":"Business MAB","basis":"account",
+             "driver":{"source":"constant","trajectory":"flat","params":{"base":1000.0}},
+             "rate":{"behavior":"flat","params":{"fee_per_period":0.0}},"cost":{"kind":"none","params":{}}},
+            {"name":"Migration MAB","basis":"transaction",
+             "driver":{"source":"stream_ref","ref":"Business MAB","trajectory":"derived","params":{
+                 "coefficient":{"kind":"pct","value":0.005,"period":period,"trajectory":"flat"}}},
+             "rate":{"behavior":"flat","params":{"per_unit":1.0}},"cost":{"kind":"none","params":{}}},
+        ]}
+    legacy_share_m = product_fee_streams_q(_count_share_product("month"),1,{},12)[0]
+    legacy_share_y = product_fee_streams_q(_count_share_product("year"),1,{},12)[0]
+    ck("D3d-r101 legacy count-based % of source is inferred as a dimensionless share, not divided by 12",
+       abs(legacy_share_m-5.0)<1e-12 and abs(legacy_share_y-5.0)<1e-12,
+       f"month={legacy_share_m:.12f} year={legacy_share_y:.12f}")
+
+    legacy_flow_product={"managed_notional":{"day1":1000.0,"trajectory":"flat"},"fee_streams":[
+        {"name":"Annual conversion volume","basis":"transaction",
+         "driver":{"source":"managed_notional","trajectory":"derived","params":{
+             "coefficient":{"kind":"pct","value":0.12,"period":"year","trajectory":"flat"}}},
+         "rate":{"behavior":"flat","params":{"per_unit":1.0}},"cost":{"kind":"none","params":{}}}
+    ]}
+    legacy_flow_val=product_fee_streams_q(legacy_flow_product,1,{"managed_notional":1000.0},12)[0]
+    ck("D3d-r101 legacy monetary % of source preserves natural-period flow semantics",
+       abs(legacy_flow_val-10.0)<1e-12, f"M1={legacy_flow_val:.12f}")
+
+    explicit_share={"name":"Share","basis":"transaction",
+        "driver":{"source":"managed_notional","trajectory":"derived","params":{
+            "coefficient":{"kind":"pct","semantics":"share","value":0.005,"period":"year","trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"per_unit":1.0}},"cost":{"kind":"none","params":{}}}
+    explicit_flow=copy.deepcopy(explicit_share); explicit_flow["driver"]["params"]["coefficient"]["semantics"]="flow"
+    share_val=fee_stream_q(explicit_share,1,{"managed_notional":1000.0},12)[0]
+    flow_val=fee_stream_q(explicit_flow,1,{"managed_notional":1000.0},12)[0]
+    ck("D3d-r101 explicit share vs flow semantics are economically distinct and auditable",
+       abs(share_val-5.0)<1e-12 and abs(flow_val-(5.0/12.0))<1e-12,
+       f"share={share_val:.12f} flow={flow_val:.12f}")
 
     from foundry.v2.audit_workbook import _quantity_rows
     audit_streams=[

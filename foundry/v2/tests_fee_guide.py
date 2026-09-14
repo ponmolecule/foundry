@@ -73,8 +73,8 @@ def main():
     good={
       "status":"plan","product_label":"Custody services","managed_notional_source":"customer_acquisition_feed",
       "streams":[
-        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
-        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
+        {"name":"Custody fee","basis":"balance","driver_source":"managed_notional","driver_trajectory":"flat","coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Settlement fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_semantics":"not_applicable","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
       ],"questions":[],"unsupported_mechanics":[]}
     def fake_open(req, timeout=0):
         seen["url"]=req.full_url; seen["headers"]={k.lower():v for k,v in req.header_items()}; seen["payload"]=json.loads(req.data.decode())
@@ -96,9 +96,9 @@ def main():
     sch_text=json.dumps(sch)
     ck("structured schema avoids high-latency basis anyOf expansion", '"anyOf"' not in sch_text)
     stream_props=sch["properties"]["streams"]["items"]["properties"]
-    ck("structured schema carries account-level, stock-multiplier, and pricing paths",
-       all(k in stream_props for k in ("driver_period","driver_resolution","stock_multiplier_trajectory","pricing_trajectory","pricing_period")))
-    nullable_fields=("driver_period","driver_resolution","stock_multiplier_trajectory","stock_multiplier_period","stock_multiplier_resolution","pricing_trajectory","pricing_period","pricing_resolution","coefficient_kind","coefficient_period","coefficient_trajectory","flat_amount_trajectory")
+    ck("structured schema carries account-level, stock-multiplier, pricing, and percentage-semantic paths",
+       all(k in stream_props for k in ("driver_period","driver_resolution","stock_multiplier_trajectory","pricing_trajectory","pricing_period","coefficient_semantics")))
+    nullable_fields=("driver_period","driver_resolution","stock_multiplier_trajectory","stock_multiplier_period","stock_multiplier_resolution","pricing_trajectory","pricing_period","pricing_resolution","coefficient_kind","coefficient_semantics","coefficient_period","coefficient_trajectory","flat_amount_trajectory")
     ck("structured schema uses string sentinel instead of nullable enum type arrays", all(stream_props[k].get("type")=="string" and "not_applicable" in stream_props[k].get("enum",[]) for k in nullable_fields))
     ck("structured schema contains no union type arrays", not any(isinstance(v.get("type"),list) for v in stream_props.values()))
     ck("Guide Me disables Sonnet adaptive thinking for low-latency translation", pl.get("thinking")=={"type":"disabled"})
@@ -106,8 +106,8 @@ def main():
     mixed={
       "status":"needs_clarification","product_label":"Settlement escrow","managed_notional_source":"ask",
       "streams":[
-        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
-        {"name":"Escrow fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat","coefficient_kind":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
+        {"name":"Settlement","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived","coefficient_kind":"multiple","coefficient_semantics":"not_applicable","coefficient_period":"year","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Escrow fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat","coefficient_kind":None,"coefficient_semantics":None,"coefficient_period":None,"coefficient_trajectory":None,"flat_amount_trajectory":"explicit_schedule","rate_behavior":"flat","cost_kind":"none"}
       ],
       "questions":["What annual settlement-turn values should be used through Y3 and after normalization?","Should AUC come from Manual assumptions or a Customer-Acquisition feed?"],
       "unsupported_mechanics":[]
@@ -123,17 +123,30 @@ def main():
       "status":"plan","product_label":"Conversion service","managed_notional_source":"customer_acquisition_feed",
       "streams":[
         {"name":"Conversion Service Fee","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived",
-         "coefficient_kind":"pct","coefficient_period":"year","coefficient_trajectory":"explicit_schedule",
+         "coefficient_kind":"pct","coefficient_semantics":"flow","coefficient_period":"year","coefficient_trajectory":"explicit_schedule",
          "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
       ],"questions":[],"unsupported_mechanics":[]
     }
     cv=render_guide_plan(conversion); cvsteps=cv["stream_guides"][0]["steps"]
     ck("conversion volume percentage + spread maps to one transaction stream",
-       len(cv["stream_guides"])==1 and any("Volume % trajectory" in x and "Explicit Schedule" in x for x in cvsteps)
+       len(cv["stream_guides"])==1 and any("Flow % trajectory" in x and "Explicit Schedule" in x for x in cvsteps)
        and any("Fee (% of throughput)" in x and "not a separate fee stream" in x for x in cvsteps))
     ck("explicit coefficient Guide Me never tells user to fill inactive single Flow %",
        any("single “Flow %” field is not used" in x for x in cvsteps)
        and not any(x.endswith("“Flow %”.") for x in cvsteps))
+    share_plan={
+      "status":"plan","product_label":"Attach share","managed_notional_source":"manual",
+      "streams":[
+        {"name":"Attached users","basis":"transaction","driver_source":"managed_notional","driver_trajectory":"derived",
+         "coefficient_kind":"pct","coefficient_semantics":"share","coefficient_period":"year","coefficient_trajectory":"flat",
+         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
+      ],"questions":[],"unsupported_mechanics":[]
+    }
+    sv=render_guide_plan(share_plan); svsteps=sv["stream_guides"][0]["steps"]
+    ck("Guide Me distinguishes a dimensionless source share from a periodized flow percentage",
+       any("Share of source (%)" in x for x in svsteps)
+       and any("never divides it by projection cadence" in x for x in svsteps)
+       and not any(x.startswith("Set Per") for x in svsteps))
     trustee_plan={
       "status":"plan","product_label":"Reserve & Collateral Trustee Fees","managed_notional_source":"customer_acquisition_feed",
       "streams":[
@@ -141,13 +154,13 @@ def main():
          "driver_period":"year","driver_resolution":"smooth",
          "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
          "pricing_trajectory":"flat","pricing_period":"year","pricing_resolution":"not_applicable",
-         "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+         "coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
          "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"},
         {"name":"Trustee Fee on Reserves","basis":"balance","driver_source":"managed_notional","driver_trajectory":"derived",
          "driver_period":"not_applicable","driver_resolution":"not_applicable",
          "stock_multiplier_trajectory":"flat","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
          "pricing_trajectory":"flat","pricing_period":"not_applicable","pricing_resolution":"not_applicable",
-         "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+         "coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
          "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}
       ],"questions":[],"unsupported_mechanics":[]
     }
@@ -173,7 +186,7 @@ def main():
         "driver_period":"not_applicable","driver_resolution":"not_applicable","customer_count_measure":"annual_count",
         "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
         "pricing_trajectory":"flat","pricing_period":"year","pricing_resolution":"not_applicable",
-        "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+        "coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
         "flat_amount_trajectory":"not_applicable","rate_behavior":"flat","cost_kind":"none"}],
       "questions":[],"unsupported_mechanics":[]}
     pg=render_guide_plan(platform_plan); ps=pg["stream_guides"][0]["steps"]
@@ -256,7 +269,7 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
     opcost_plan={
       "status":"plan","product_label":"Service","managed_notional_source":"not_needed",
       "streams":[{"name":"Service fee","basis":"flat","driver_source":"constant","driver_trajectory":"flat",
-                  "coefficient_kind":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
+                  "coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable","coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable",
                   "flat_amount_trajectory":"flat","rate_behavior":"flat","cost_kind":"pct_of_revenue_opex"}],
       "questions":[],"unsupported_mechanics":[]}
     opg=render_guide_plan(opcost_plan)

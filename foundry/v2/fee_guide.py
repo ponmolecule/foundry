@@ -228,8 +228,9 @@ def fee_guide_manifest():
         ],
         "rate_behavior_by_basis": {k: sorted(v) for k, v in _ALLOWED_RATE_BY_BASIS.items()},
         "special_rules": [
-            "Natural-period flow coefficients are valid only on transaction basis with driver trajectory derived.",
-            "A derived flow coefficient kind is multiple (turns × source), pct (% of source), or amount_per_source_unit ($ flow per source unit).",
+            "Derived transaction coefficients are valid only on transaction basis with driver trajectory derived. Turns and amount_per_source_unit are natural-period flows; pct must declare share or flow semantics.",
+            "A derived transaction coefficient kind is multiple (turns × source), pct (% of source), or amount_per_source_unit ($ flow per source unit).",
+            "For coefficient kind pct, coefficient_semantics is mandatory: share means a dimensionless attach/migration/penetration share and is never divided by cadence; flow means a natural-period flow ratio such as annual transaction volume as % of AUC and is periodized to model cadence.",
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
@@ -285,6 +286,9 @@ def _guide_output_schema():
             "coefficient_kind": {
                 "type": "string", "enum": ["multiple", "pct", "amount_per_source_unit", "not_applicable"]
             },
+            "coefficient_semantics": {
+                "type": "string", "enum": ["share", "flow", "not_applicable"]
+            },
             "coefficient_period": {
                 "type": "string", "enum": ["month", "quarter", "year", "not_applicable"]
             },
@@ -304,7 +308,7 @@ def _guide_output_schema():
             "driver_period", "driver_resolution",
             "stock_multiplier_trajectory", "stock_multiplier_period", "stock_multiplier_resolution",
             "pricing_trajectory", "pricing_period", "pricing_resolution",
-            "coefficient_kind", "coefficient_period", "coefficient_trajectory",
+            "coefficient_kind", "coefficient_semantics", "coefficient_period", "coefficient_trajectory",
             "flat_amount_trajectory", "rate_behavior", "cost_kind",
         ],
     }
@@ -352,7 +356,9 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   revenue equation for separate streams. A transaction stream natively represents:
   sourced quantity × flow coefficient = throughput; throughput × fee/spread = revenue.
   Therefore a user's volume/AUC percentage, turns, or monetary amount per source unit and the spread charged on that resulting
-  throughput belong in ONE transaction stream, not two.
+  throughput belong in ONE transaction stream, not two. For a percentage coefficient, distinguish a dimensionless share
+  (attach/migration/penetration: coefficient_semantics=share, never cadence-divided) from a natural-period flow ratio
+  (for example annual transaction volume as % of AUC: coefficient_semantics=flow, periodized to model cadence).
 - Do not output numeric values from your own knowledge. Numbers explicitly supplied by the user are
   not needed in the mapping object; the local Foundry UI tells the user where to enter them.
 - If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
@@ -404,7 +410,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
 - Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex); an operating cost quoted as a percent of transaction volume is NIE (pct_of_throughput_opex). Never substitute one base for another.
 - For driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
   stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
-  coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
+  coefficient_semantics, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
   when that field does not apply to the stream.
 - Do not mention anything that is not present in the user's description or the manifest.
 """
@@ -473,6 +479,8 @@ def _dummy_stream(item):
             "period": item["coefficient_period"],
             "trajectory": item["coefficient_trajectory"] or "flat",
         }
+        if item["coefficient_kind"] == "pct":
+            driver["params"]["coefficient"]["semantics"] = item.get("coefficient_semantics") or "flow"
         if item.get("coefficient_trajectory") == "growth":
             driver["params"]["coefficient"]["growth_spec"] = _dummy_growth_spec()
         elif item.get("coefficient_trajectory") == "explicit_schedule":
@@ -549,7 +557,7 @@ def validate_guide_plan(plan):
         allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "driver_period",
                           "driver_resolution", "customer_count_measure", "stock_multiplier_trajectory", "stock_multiplier_period",
                           "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
-                          "pricing_resolution", "coefficient_kind", "coefficient_period",
+                          "pricing_resolution", "coefficient_kind", "coefficient_semantics", "coefficient_period",
                           "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind"}
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
@@ -572,6 +580,7 @@ def validate_guide_plan(plan):
             "pricing_period": _transport_optional(raw.get("pricing_period")),
             "pricing_resolution": _transport_optional(raw.get("pricing_resolution")),
             "coefficient_kind": _transport_optional(raw.get("coefficient_kind")),
+            "coefficient_semantics": _transport_optional(raw.get("coefficient_semantics")),
             "coefficient_period": _transport_optional(raw.get("coefficient_period")),
             "coefficient_trajectory": _transport_optional(raw.get("coefficient_trajectory")),
             "flat_amount_trajectory": _transport_optional(raw.get("flat_amount_trajectory")),
@@ -702,19 +711,25 @@ def validate_guide_plan(plan):
         if has_coef:
             if item["coefficient_kind"] not in {"multiple", "pct", "amount_per_source_unit"}:
                 raise ValueError("Guide Me returned unsupported coefficient kind")
+            if item["coefficient_kind"] == "pct":
+                if item.get("coefficient_semantics") not in {"share", "flow"}:
+                    raise ValueError("Guide Me percentage coefficient requires share or flow semantics")
+            elif item.get("coefficient_semantics") is not None:
+                raise ValueError("Guide Me returned percentage semantics for a non-percentage coefficient")
             if item["coefficient_period"] not in {"month", "quarter", "year"}:
                 raise ValueError("Guide Me returned unsupported coefficient period")
             if item["coefficient_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
                 raise ValueError("Guide Me returned unsupported coefficient trajectory")
-            # A natural-period flow coefficient (turns/multiple, pct of source, or
-            # amount per source unit) is, by definition, the derivation of the sourced quantity. The coefficient owns its
+            # A transaction coefficient owns the derivation of the sourced quantity. Turns and
+            # amount-per-source-unit are natural-period flows; pct may be either a dimensionless
+            # share or a natural-period flow ratio according to coefficient_semantics. The coefficient owns its
             # own flat/growth/explicit path; the upstream AUC/other source remains a stock.
             # Structured Outputs cannot express this cross-field implication without bringing
             # back the large anyOf grammar we deliberately removed. Canonicalize the redundant
             # driver trajectory here rather than rejecting an otherwise valid mapping. This is
             # structural normalization only -- it invents no economic value or path.
             item["driver_trajectory"] = "derived"
-        elif any(item[k] is not None for k in ("coefficient_period", "coefficient_trajectory")):
+        elif any(item[k] is not None for k in ("coefficient_semantics", "coefficient_period", "coefficient_trajectory")):
             raise ValueError("Guide Me returned coefficient metadata without a coefficient")
         if item["rate_behavior"] == "cost_recovery":
             if item["basis"] != "transaction" or item["driver_source"] != "cost_pool":
@@ -837,15 +852,17 @@ def _stream_steps(item):
     if item.get("coefficient_kind"):
         is_pct = item["coefficient_kind"] == "pct"
         is_amount = item["coefficient_kind"] == "amount_per_source_unit"
-        noun = "Volume %" if is_pct else ("Amount per source unit" if is_amount else "Turns")
-        field = "Flow %" if is_pct else ("Amount / source unit ($000s)" if is_amount else "Turns / multiple")
-        selector = "% of source" if is_pct else ("Amount per source unit" if is_amount else "× source")
+        pct_share = is_pct and item.get("coefficient_semantics") == "share"
+        noun = ("Source share %" if pct_share else "Flow %") if is_pct else ("Amount per source unit" if is_amount else "Turns")
+        field = ("Share %" if pct_share else "Flow %") if is_pct else ("Amount / source unit ($000s)" if is_amount else "Turns / multiple")
+        selector = ("Share of source (%)" if pct_share else "Flow % of source / period") if is_pct else ("Amount per source unit / period" if is_amount else "× source (turns / period)")
         period = item["coefficient_period"].title()
         traj = item["coefficient_trajectory"]
         traj_label = traj.replace("_", " ").title()
         steps.append(f"Set Flow coefficient to “{selector}”.")
         steps.append(f"Set {noun} trajectory to “{traj_label}”.")
-        steps.append(f"Set Per to “{period}”.")
+        if not pct_share or traj == "explicit_schedule":
+            steps.append(f"Set {'Schedule period' if pct_share else 'Per'} to “{period}”.")
         if traj == "explicit_schedule":
             steps.append(
                 f"Paste the source-model {noun.lower()} schedule into “{noun} schedule by {item['coefficient_period']}” and click Load (replace). "
@@ -856,7 +873,10 @@ def _stream_steps(item):
             steps.append(f"Enter the starting assumption in “Starting {field}”, then enter the stated {noun.lower()} growth assumption.")
         else:
             steps.append(f"Enter the assumption in “{field}”.")
-        steps.append("Foundry interprets the coefficient in the selected natural period and converts it to the model cadence.")
+        if pct_share:
+            steps.append("Foundry treats this percentage as a dimensionless share and never divides it by projection cadence; schedule period only controls when an explicit share changes.")
+        else:
+            steps.append("Foundry interprets the coefficient in the selected natural period and converts it to the model cadence.")
 
     if basis == "balance":
         pt = item.get("pricing_trajectory") or "flat"
