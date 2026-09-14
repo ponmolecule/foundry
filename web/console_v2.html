@@ -1803,7 +1803,7 @@ const CALC_TEXT = {
   otherOpex: "Other operating expense: corporate operating expenses other than workforce compensation and depreciation. This is the residual corporate-overhead component after those separately disclosed lines.",
   depreciationExpense: "Depreciation expense: the current modeled period's depreciation of premises and fixed assets. Accumulated depreciation is disclosed separately on the Balance Sheet.",
   prodOpex: "Product operating costs: each product's opex, computed as its opex % × average balance plus any fixed per-period opex, summed across products.",
-  feeOpex: "Fee Product Costs: operating costs authored inside fee streams, including per-unit processing costs and operating costs stated as a percentage of gross fee revenue. Revenue-share costs are contra-revenue and do not appear here.",
+  feeOpex: "Fee Product Costs: operating costs authored inside fee streams, including per-unit processing costs, costs stated as a percentage of transaction throughput, and costs stated as a percentage of gross fee revenue. Revenue-share costs are contra-revenue and do not appear here.",
 };
 function calcText(key){
   const period=PLAB('full'), periodPlural=period+'s';
@@ -2358,7 +2358,7 @@ function _feeClearFlatAmountSchedule(i,si){
 function _feeEnsureCostFactor(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.factor_path)return cp.factor_path;
-  const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex");
+  const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");
   const legacy=pct?+(cp.pct||0):+(cp.cost_per_unit||0);
   cp.factor_path={value:legacy,trajectory:"flat",period:"year",resolution:"step"};return cp.factor_path;
 }
@@ -2369,9 +2369,9 @@ function _feeCostFactorSetKind(i,si,v){
 function _feeCostFactorTrajectory(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&!fp.schedule)fp.schedule={};renderContent();refresh();}
 function _feeCostFactorPeriod(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeCostFactorResolution(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.resolution=v;if(fp.growth_spec)fp.growth_spec.method=v;renderContent();refresh();}
-function _feeCostFactorValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex");fp.value=pct?_pf(v)/100:_pf(v);refresh();}
+function _feeCostFactorValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");fp.value=pct?_pf(v)/100:_pf(v);refresh();}
 function _feeCostFactorGrowth(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.growth_spec=fp.growth_spec||{period:fp.period||"year",method:fp.resolution||"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};fp.growth_spec.rate=_pf(v)/100;refresh();}
-function _feeSetCostFactorSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si),pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"),out={};vals.forEach((v,j)=>out[String(j+1)]=pct?v/100:v);fp.schedule=out;renderContent();refresh();}
+function _feeSetCostFactorSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si),pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex"),out={};vals.forEach((v,j)=>out[String(j+1)]=pct?v/100:v);fp.schedule=out;renderContent();refresh();}
 function _feeClearCostFactorSchedule(i,si){const fp=_feeEnsureCostFactor(i,si);fp.schedule={};renderContent();refresh();}
 function _feeEnsureCostMultiplier(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
@@ -2882,9 +2882,9 @@ function fieldsFor(fam, p, base){
       if(rb==="cost_recovery"){
         h += `<div class="fld wide"><label>Cost side</label><span class="memo" style="margin:0"><b>None — the cost base is non-posting here.</b> Linked pool components already belong to their upstream expense owners; entered cost-base components are pricing assumptions only. Adding a fee-product cost here would double-count or invent expense.</span></div>`;
       } else {
-        h += `<div class="fld"><label>Cost side</label><select onchange="_feeCostFactorSetKind(${_fi},${si},this.value)">${[["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]].map(o=>`<option value="${o[0]}"${o[0]===ck?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+        h += `<div class="fld"><label>Cost side</label><select onchange="_feeCostFactorSetKind(${_fi},${si},this.value)">${[["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_throughput_opex","Operating cost (% of throughput)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]].map(o=>`<option value="${o[0]}"${o[0]===ck?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
         if(ck!=="none"){
-          const _cp=st.cost.params||{},_legacyPct=(ck==="pct_of_revenue"||ck==="pct_of_revenue_opex");
+          const _cp=st.cost.params||{},_legacyPct=(ck==="pct_of_revenue"||ck==="pct_of_revenue_opex"||ck==="pct_of_throughput_opex"),_costPctBase=(ck==="pct_of_throughput_opex"?"transaction throughput":"gross fee revenue");
           // The direct cost path and the multiplier are two separate economic layers. Legacy
           // scalar-only streams render as a Flat path until the user explicitly authors a path.
           const _cbase=_legacyPct?+(_cp.pct||0):+(_cp.cost_per_unit||0),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:1,_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
@@ -2893,7 +2893,7 @@ function fieldsFor(fam, p, base){
           h += `<div class="fld"><label>Period</label><select onchange="_feeCostFactorPeriod(${_fi},${si},this.value)"><option value="month"${_cper==="month"?' selected':''}>Month</option><option value="quarter"${_cper==="quarter"?' selected':''}>Quarter</option><option value="year"${_cper==="year"?' selected':''}>Year</option></select></div>`;
           if(_ct!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeCostFactorResolution(${_fi},${si},this.value)"><option value="step"${_cres==="step"?' selected':''}>Step</option><option value="smooth"${_cres==="smooth"?' selected':''}>Smooth</option></select></div>`;
           if(_ct==="flat"||_ct==="growth"){
-            const _clab=ck==="per_unit"?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?"Starting cost rate (% of gross fee revenue)":"Cost rate (% of gross fee revenue)");
+            const _clab=ck==="per_unit"?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?`Starting cost rate (% of ${_costPctBase})`:`Cost rate (% of ${_costPctBase})`);
             h += `<div class="fld"><label>${_clab}</label><input type="number" step="${_legacyPct?'0.0001':'0.000001'}"${_legacyPct?' min="0" max="100"':''} value="${_cval}" onchange="_feeCostFactorValue(${_fi},${si},this.value)"></div>`;
           }
           if(_ct==="growth"){
@@ -2902,7 +2902,7 @@ function fieldsFor(fam, p, base){
           }
           if(_ct==="explicit_schedule"){
             const _cid=`feeCostFactorPaste_${_fi}_${si}`,_sched=_cf.schedule||{};
-            const _cschedLabel=ck==="per_unit"?`Cost schedule ($/unit) by ${_cper}`:`Cost rate schedule (% of gross fee revenue) by ${_cper}`;
+            const _cschedLabel=ck==="per_unit"?`Cost schedule ($/unit) by ${_cper}`:`Cost rate schedule (% of ${_costPctBase}) by ${_cper}`;
             h += `<div class="fld wide"><label>${_cschedLabel}</label><textarea id="${_cid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCostFactorSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostFactorSchedule(${_fi},${si})"${Object.keys(_sched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sched,_cscale,_cper)}</div><span class="memo" style="margin:3px 0 0">${_legacyPct?'Paste normal percentage values. ':''}Each value applies to one selected natural period; the last loaded value carries forward.</span></div>`;
           }
 
@@ -2920,7 +2920,7 @@ function fieldsFor(fam, p, base){
             h += `<div class="fld wide"><label>Cost multiplier schedule (${_mper})</label><textarea id="${_mid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_mid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule(${_fi},${si},document.getElementById('${_mid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostMultiplierSchedule(${_fi},${si})"${Object.keys(_msched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_msched,1,_mper)}</div></div>`;
           }
           h += `<div class="fld wide"><span class="memo" style="margin:0">Direct cost path × Cost multiplier path = effective fee-product cost factor. Neither path is divided by model cadence.</span></div>`;
-          if(_legacyPct) h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":"Operating cost preserves gross fee income and reports the calculated amount in Noninterest Expense: Fee Product Costs."}</span></div>`;
+          if(_legacyPct) h += `<div class="fld wide"><span class="memo" style="margin:0">${ck==="pct_of_revenue"?"Revenue share reduces reported fee income (contra-revenue).":(ck==="pct_of_throughput_opex"?"Operating cost applies the rate to Transaction throughput, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.":"Operating cost applies the rate to gross fee revenue, preserves gross fee income, and reports the calculated amount in Noninterest Expense: Fee Product Costs.")}</span></div>`;
         }
       }
     });
@@ -7159,7 +7159,7 @@ function labLeverCatalog(){
           if(ft==="growth" && fp.growth_spec && typeof fp.growth_spec.rate==="number") push(sb+".cost.params.factor_path.growth_spec.rate", `${pre}: direct cost growth`, "pct");
         } else {
           if(cost.kind==="per_unit" && basis==="transaction") push(sb+".cost.params.cost_per_unit", `${pre}: base cost per unit ($)`, "");
-          if(cost.kind==="pct_of_revenue" || cost.kind==="pct_of_revenue_opex") push(sb+".cost.params.pct", `${pre}: base ${cost.kind==="pct_of_revenue"?"revenue share":"operating cost % of revenue"}`, "pct");
+          if(cost.kind==="pct_of_revenue" || cost.kind==="pct_of_revenue_opex" || cost.kind==="pct_of_throughput_opex") push(sb+".cost.params.pct", `${pre}: base ${cost.kind==="pct_of_revenue"?"revenue share":(cost.kind==="pct_of_throughput_opex"?"operating cost % of throughput":"operating cost % of revenue")}`, "pct");
         }
         if(cp.multiplier_path){
           const mp=cp.multiplier_path,mt=mp.trajectory||"flat";

@@ -952,7 +952,9 @@ def _fee_cost_rows(cfg, results, n, ppy, exact=None):
                 base_fmt = _NUM_FMT
             else:
                 base = float(params.get("pct") or 0.0)
-                base_units = "decimal share of gross fee revenue"
+                base_units = ("decimal share of transaction throughput"
+                              if kind == "pct_of_throughput_opex"
+                              else "decimal share of gross fee revenue")
                 base_fmt = _RATE_FMT
             rows.append((section, "Base cost factor", sid or f"cost:{kind}", base_units, [base] * n, base_fmt))
 
@@ -1166,6 +1168,8 @@ def _fee_stream_economics_rows(cfg, exact, n):
         if any(v is not None for v in direct):
             if cost_kind == "per_unit":
                 cunits, cfmt = "$ / throughput unit", _RAW_NUM_FMT
+            elif cost_kind == "pct_of_throughput_opex":
+                cunits, cfmt = "% of transaction throughput", _PCT_FMT
             else:
                 cunits, cfmt = "% of gross fee revenue", _PCT_FMT
             rows.append((section, "Direct cost rate / factor", f"{sid}:direct_cost_factor",
@@ -1176,7 +1180,7 @@ def _fee_stream_economics_rows(cfg, exact, n):
                          cunits, _series(rec, "effective_cost_factor"), cfmt))
 
         opcost = _series(rec, "fee_product_cost")
-        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "pct_of_revenue_opex"}:
+        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "pct_of_revenue_opex", "pct_of_throughput_opex"}:
             rows.append((section, "Fee Product cost · stream output", f"{sid}:fee_product_cost",
                          "$000s / engine period", _money_k_series(opcost), _RAW_MONEY_FMT))
     return rows

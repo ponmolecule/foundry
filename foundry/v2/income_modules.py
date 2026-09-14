@@ -339,7 +339,7 @@ _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
 _FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
-_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex"}
+_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 
 
@@ -677,6 +677,8 @@ def _validate_fee_stream_shape(stream):
         validate_cost_recovery_terms(rt.get("params") or {})
     if ck == "per_unit" and basis != "transaction":
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
+    if ck == "pct_of_throughput_opex" and basis != "transaction":
+        raise ValueError("fee cost kind 'pct_of_throughput_opex' is supported only on transaction basis")
     _cp = cost.get("params") or {}
     # factor_path is the first-class direct-cost path (and remains read-compatible with
     # the short-lived r82 replacement-path contract). multiplier_path is a separate
@@ -706,7 +708,7 @@ def _validate_fee_stream_shape(stream):
         if multiplier:
             if fval < 0.0:
                 raise ValueError("fee cost multiplier value must be nonnegative")
-        elif ck in {"pct_of_revenue", "pct_of_revenue_opex"} and not 0.0 <= fval <= 1.0:
+        elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and not 0.0 <= fval <= 1.0:
             raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
         if traj == "growth" and not fp.get("growth_spec"):
             raise ValueError(f"fee cost {noun} growth trajectory requires growth_spec")
@@ -721,7 +723,7 @@ def _validate_fee_stream_shape(stream):
             if multiplier:
                 if any(v < 0.0 for v in vals):
                     raise ValueError("fee cost multiplier schedule values must be nonnegative")
-            elif ck in {"pct_of_revenue", "pct_of_revenue_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
+            elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
                 raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
 
     if _factor_path is not None:
@@ -730,7 +732,7 @@ def _validate_fee_stream_shape(stream):
         _validate_cost_path(_multiplier_path, multiplier=True)
 
     # The scalar remains the legacy Flat fallback when no first-class factor_path exists.
-    if ck in {"pct_of_revenue", "pct_of_revenue_opex"} and _factor_path is None:
+    if ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and _factor_path is None:
         try:
             _pct = float(_cp.get("pct") or 0.0)
         except (TypeError, ValueError):
@@ -883,7 +885,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
     Axis 4 Rate:          flat | annual_change | scheduled | tiered | durbin_capped | cost_recovery
     Axis 5 Timing:        start_period | end_period | ramp_in_periods
-    Axis 6 Cost:          none | per_unit | pct_of_revenue | pct_of_revenue_opex
+    Axis 6 Cost:          none | per_unit | pct_of_revenue | pct_of_revenue_opex | pct_of_throughput_opex
 
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
     quantity of already-evaluated streams, for stream_ref), bank_aggregate (map: e.g.
@@ -1095,6 +1097,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     #    away). Correctly NETS against the fee, because it reduces the revenue itself.
     #  - pct_of_revenue_opex : an OPERATING expense stated as a percentage of gross
     #    fee revenue. Gross fee income remains intact and the cost routes to NIE.
+    #  - pct_of_throughput_opex : an OPERATING expense stated as a percentage of the
+    #    Transaction stream throughput. This is distinct from a percentage of revenue:
+    #    qty × cost rate is routed to NIE while gross fee income remains intact.
     # Returns (income, opcost): income is the fee line; opcost lands in fee-product NIE.
     cost = stream.get("cost") or {}
     ck = cost.get("kind") or "none"
@@ -1130,6 +1135,14 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         pct = base_path_pct * mult
         effective_cost_factor = pct
         opcost = gross * pct           # -> fee-product NIE; gross income preserved
+    elif ck == "pct_of_throughput_opex" and basis == "transaction":
+        base_pct = float(cp.get("pct") or 0.0)
+        base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
+                         if factor_path is not None else base_pct)
+        direct_cost_factor = base_path_pct
+        pct = base_path_pct * mult
+        effective_cost_factor = pct
+        opcost = qty * pct             # -> fee-product NIE; gross income preserved
 
     # Optional diagnostic capture.  This is observational only and never feeds back into
     # fee arithmetic.  Series ID is the stable identity; stream display names remain labels.

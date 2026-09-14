@@ -66,6 +66,15 @@ def cfg_case():
                 "cost": {"kind": "pct_of_revenue_opex", "params": {"pct": 0.05}},  # 5% of gross fee revenue
                 "timing": {"start_period": 1},
             },
+            {
+                "name": "Throughput Cost Example",
+                "basis": "transaction",
+                "quantity_series_id": "fee-qty-audit-throughput-cost",
+                "driver": {"source": "constant", "trajectory": "flat", "params": {"base": 1_000_000.0}},
+                "rate": {"behavior": "flat", "params": {"per_unit": 0.0015}},
+                "cost": {"kind": "pct_of_throughput_opex", "params": {"pct": 0.000075}},
+                "timing": {"start_period": 1},
+            },
         ],
     })
     return c
@@ -90,6 +99,13 @@ def main():
     ck("captured direct cost rate remains distinct from multiplier", abs(rec["direct_cost_factor"][0] - 0.05) < 1e-12 and abs(rec["cost_multiplier"][0] - 1.0) < 1e-12)
     ck("captured Fee Product cost equals gross revenue x cost rate", abs(rec["fee_product_cost"][0] - 10.0) < 1e-9)
 
+    trec = econ.get("fee-qty-audit-throughput-cost") or {}
+    ck("throughput-cost capture keeps the cost base distinct from revenue",
+       abs(trec["quantity"][0]-1_000_000.0)<1e-9
+       and abs(trec["gross_fee_revenue"][0]-1500.0)<1e-9
+       and abs(trec["direct_cost_factor"][0]-0.000075)<1e-12
+       and abs(trec["fee_product_cost"][0]-75.0)<1e-9)
+
     qrows = {r[2]: r for r in _quantity_rows(cfg, public, n, exact=exact)}
     qr = qrows[sid]
     ck("quantity row explicitly labels Transaction throughput / driver quantity",
@@ -110,6 +126,12 @@ def main():
        and abs(by_label["Fee rate / pricing factor"][4][0] - 0.0002) < 1e-12
        and abs(by_label["Gross fee revenue · before contra-revenue"][4][0] - 0.2) < 1e-12
        and abs(by_label["Fee Product cost · stream output"][4][0] - 0.01) < 1e-12)
+
+    trows = {r[1]: r for r in erows if r[0] == "BaaS APIs › Throughput Cost Example"}
+    ck("economics sheet labels throughput-based cost rate with its true base",
+       trows.get("Direct cost rate / factor") is not None
+       and trows["Direct cost rate / factor"][3] == "% of transaction throughput"
+       and abs(trows["Fee Product cost · stream output"][4][0]-0.075)<1e-12)
 
     buf = io.BytesIO(); calculation_audit_workbook(cfg, public).save(buf)
     wb = load_workbook(io.BytesIO(buf.getvalue()), data_only=True)

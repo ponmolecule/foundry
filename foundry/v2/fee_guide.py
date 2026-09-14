@@ -193,6 +193,7 @@ _COST_LABELS = {
     "per_unit": "Cost per unit",
     "pct_of_revenue": "Revenue share (% of revenue)",
     "pct_of_revenue_opex": "Operating cost (% of revenue)",
+    "pct_of_throughput_opex": "Operating cost (% of throughput)",
 }
 _ALLOWED_RATE_BY_BASIS = {
     "balance": {"flat", "annual_change", "scheduled", "tiered"},
@@ -238,7 +239,8 @@ def fee_guide_manifest():
             "Balance annual fee rates may use flat, growth, or explicit_schedule pricing trajectories.",
             "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
             "pct_of_revenue is contra-revenue: it reduces fee income. pct_of_revenue_opex preserves gross fee income and routes the calculated cost to noninterest expense.",
-            "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
+            "pct_of_throughput_opex is transaction-only: it applies the authored cost rate to Transaction throughput, preserves gross fee income, and routes the calculated cost to noninterest expense.",
+            "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_throughput_opex when the cost rate is quoted against transaction volume/throughput; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
             "A cost_pool driver means a native-period non-posting pricing cost base. It may combine eligible Operating Expense / fixed-start Workforce expense Series, entered recurring cost-base assumptions, and balance-derived costs from a canonical monthly managed-notional/AUC Series. Linked components are observational; entered and balance-derived components do not create an expense.",
@@ -399,7 +401,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
-- Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex). Never substitute one for the other.
+- Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex); an operating cost quoted as a percent of transaction volume is NIE (pct_of_throughput_opex). Never substitute one base for another.
 - For driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
   stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
   coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
