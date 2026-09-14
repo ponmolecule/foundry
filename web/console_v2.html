@@ -738,7 +738,7 @@ const CAT_OF = {lending:"asset", deposit:"liability", obs:"offbs"};
 const V31 = !!window.V31;
 const V3 = !!window.V3 || !!window.V22 || V31;
 const V21 = !!window.V21 || V3;
-let cfg = null, lastRes = null, lastErrs = null, ftpOn = false;
+let cfg = null, lastRes = null, lastErrs = null, lastRunFailure = null, ftpOn = false;
 // Projection horizon for table headers/columns — reads the configured n_periods (default 12). The
 // result vectors already carry this many periods; headers must match or they stall at Q12 while rows
 // extend (the bug this fixes).
@@ -1655,10 +1655,37 @@ async function preview(){
   if(V31){ syncModules(); }
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
-  const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
-  if(my !== seq) return;
-  if(r.status === 422){ lastErrs = (await r.json()).errors; lastRes = null; }
-  else { lastRes = await r.json(); lastErrs = null; }
+  const ctl = new AbortController();
+  const timeout = setTimeout(()=>ctl.abort(), 60000);
+  try{
+    const r = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg), signal:ctl.signal});
+    clearTimeout(timeout);
+    if(my !== seq) return;
+    const raw = await r.text();
+    let payload = null;
+    try{ payload = raw ? JSON.parse(raw) : {}; }
+    catch(_e){ payload = null; }
+    if(r.status === 422){
+      lastErrs = (payload && Array.isArray(payload.errors)) ? payload.errors : [{message:"The engine rejected this configuration, but the validation response was unreadable."}];
+      lastRes = null; lastRunFailure = null;
+    } else if(!r.ok){
+      lastRes = null; lastErrs = null;
+      const detail = payload && (payload.detail || payload.error || payload.message);
+      lastRunFailure = {message:`Engine preview failed (HTTP ${r.status})${detail ? ": "+String(detail) : ""}`};
+    } else if(!payload || typeof payload !== "object"){
+      lastRes = null; lastErrs = null;
+      lastRunFailure = {message:"Engine preview returned an unreadable response."};
+    } else {
+      lastRes = payload; lastErrs = null; lastRunFailure = null;
+    }
+  }catch(e){
+    clearTimeout(timeout);
+    if(my !== seq) return;
+    lastRes = null; lastErrs = null;
+    lastRunFailure = {message:(e && e.name === "AbortError")
+      ? "Engine preview timed out after 60 seconds."
+      : `Engine preview request failed${e && e.message ? ": "+e.message : "."}`};
+  }
   paintChrome();
   // The products tab renders only input cards + static config memos — it shows no
   // engine output — so a preview never needs to rebuild it. Rebuilding it anyway
@@ -1677,9 +1704,9 @@ async function preview(){
   if(document.getElementById("pbBody") && typeof renderBands === "function") renderBands();
 }
 function paintChrome(){
-  document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : "fail-closed: configuration incomplete";
+  document.getElementById("status").textContent = lastRes ? "engine run " + lastRes.run_hash : (lastRunFailure ? "engine run failed" : "fail-closed: configuration incomplete");
   document.getElementById("rhash").innerHTML = lastRes ?
-    `config <b>${lastRes.config_hash}</b> &nbsp; run <b>${lastRes.run_hash}</b>` : `<span style="color:#FBBF24">validation pending</span>`;
+    `config <b>${lastRes.config_hash}</b> &nbsp; run <b>${lastRes.run_hash}</b>` : (lastRunFailure ? `<span style="color:#F87171">run failed</span>` : `<span style="color:#FBBF24">validation pending</span>`);
   const wb = document.getElementById("warnBadge");
   if(lastRes){ const sev = lastRes.flags.filter(f=>f.sev==="severe").length;
     wb.textContent = lastRes.flags.length + " flags";
@@ -5746,6 +5773,12 @@ function renderContent(){
       <div class="memo">Complete the inputs — the schedules resume automatically. Nothing renders from a broken configuration; that is a feature.</div>`;
     return;
   }
+  if(lastRunFailure){
+    c.innerHTML = `<div class="qbox"><div class="qt">Model run failed — no stale financials are being shown</div>
+      <div class="qitem">${esc(lastRunFailure.message||"The engine did not return a usable preview.")}</div></div>
+      <div class="memo">Retry the run after reviewing the latest edit. If it fails again, the message above is the diagnostic to use rather than an indefinite Running… state.</div>`;
+    return;
+  }
   if(!lastRes){
     c.innerHTML = '<div class="memo">Running…</div>'; return; }
   const r = lastRes, fin = r.financials, F = r.faithful || {}, D = (r.presentation||{}).derived || {};
@@ -8952,22 +8985,40 @@ async function exportExcel(){
 }
 window.exportExcel=exportExcel;
 async function _calculationAuditSnapshot(){
-  // Freeze the exact config that will be audited, invalidate any older in-flight preview, and
-  // obtain the same public result Product Details consumes.  If the user edits while this run is
-  // in flight, fail closed instead of exporting a workbook for a different snapshot.
+  // Use the same module synchronization as the normal Product Details preview, then freeze the
+  // exact config to audit.  Importantly, do NOT advance the shared preview sequence up front:
+  // a failed export must never cancel/strand the main model run.
+  if(V31){ syncModules(); }
   clearTimeout(timer); timer = null;
-  const my = ++seq;
   const cfgText = JSON.stringify(cfg);
   const snapCfg = JSON.parse(cfgText);
-  const pr = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: cfgText});
-  if(my !== seq || JSON.stringify(cfg) !== cfgText) return {changed:true};
+  const ctl = new AbortController();
+  const timeout = setTimeout(()=>ctl.abort(), 60000);
+  let pr;
+  try{
+    pr = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: cfgText, signal:ctl.signal});
+    clearTimeout(timeout);
+  }catch(e){
+    clearTimeout(timeout);
+    return {failed:true, error:(e && e.name === "AbortError") ? "Audit snapshot preview timed out after 60 seconds." : `Audit snapshot preview failed${e && e.message ? ": "+e.message : "."}`};
+  }
+  if(JSON.stringify(cfg) !== cfgText) return {changed:true};
   if(pr.status === 422) return {invalid:true};
-  if(!pr.ok) return {failed:true};
-  const snapRes = await pr.json();
-  if(my !== seq || JSON.stringify(cfg) !== cfgText) return {changed:true};
+  if(!pr.ok){
+    let detail="";
+    try{ const j=await pr.json(); detail=String((j&& (j.detail||j.error||j.message))||""); }catch(_e){}
+    return {failed:true, error:`Audit snapshot preview failed (HTTP ${pr.status})${detail ? ": "+detail : ""}`};
+  }
+  let snapRes;
+  try{ snapRes = await pr.json(); }
+  catch(_e){ return {failed:true, error:"Audit snapshot preview returned an unreadable response."}; }
+  if(JSON.stringify(cfg) !== cfgText) return {changed:true};
 
-  // Product Details and the audit export now share this exact preview snapshot.
-  lastRes = snapRes; lastErrs = null; paintChrome();
+  // Only after a successful, still-current snapshot do we invalidate any older normal preview.
+  // That late invalidation prevents an older response from overwriting the pinned snapshot while
+  // ensuring that a failed audit attempt can never leave Product Details stuck on Running….
+  ++seq;
+  lastRes = snapRes; lastErrs = null; lastRunFailure = null; paintChrome();
   if(!(V31 && currentTab==="products")) renderContent();
   else refreshProductStats();
   return {config:snapCfg, result:snapRes};
@@ -8976,7 +9027,7 @@ async function exportCalculationAudit(){
   const snap = await _calculationAuditSnapshot();
   if(snap.changed){ alert("Inputs changed while the audit snapshot was being prepared. Run the export again after the latest edit settles."); return; }
   if(snap.invalid){ alert("Fail-closed: complete the open questions first."); return; }
-  if(!snap.result){ alert("Could not prepare the calculation-audit snapshot."); return; }
+  if(!snap.result){ refresh(); alert(snap.error || "Could not prepare the calculation-audit snapshot."); return; }
   const payload = {config:snap.config, expected_config_hash:snap.result.config_hash, expected_run_hash:snap.result.run_hash};
   const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
   if(r.status===409){ alert("The audit run did not match the Product Details snapshot. Nothing was exported; rerun the model and try again."); return; }
