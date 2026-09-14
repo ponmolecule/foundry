@@ -1019,16 +1019,19 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
     # ---- Axis 1 + 4: basis application with rate behavior ----
     eff_rate = _fee_rate_q(rt, q, qty, ppy, ctx, basis=basis)
+    pricing_factor = None
     gross = 0.0
     if basis == "balance":
         if eff_rate is None:  # tiered on balance
             gross = _apply_tiers(rate_params.get("tiers"), qty) / float(ppy)
         else:
+            pricing_factor = float(eff_rate or 0.0)
             gross = qty * eff_rate / float(ppy)
     elif basis == "transaction":
         if (rt.get("behavior") or "flat") == "cost_recovery":
             recovery = float(rate_params.get("recovery_pct") or 0.0)
             markup = float(eff_rate or 0.0)
+            pricing_factor = markup
             from .cost_recovery import cost_recovery_amount
             gross = cost_recovery_amount(qty, recovery, markup)
         elif eff_rate is None:
@@ -1036,6 +1039,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         else:
             per_unit = (float(eff_rate or 0.0) if rate_params.get("rate_path") is not None
                         else float(rate_params.get("per_unit") or 0.0))
+            pricing_factor = per_unit
             gross = qty * per_unit
     elif basis == "account":
         # New explicit natural-unit contract. Legacy `fee_per_period` remains $/account/MONTH
@@ -1049,6 +1053,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
                 fee_level, uf.get("period"), ppy)
         else:
             fee_one_engine_period = float(rate_params.get("fee_per_period") or 0.0) * (12.0 / float(ppy))
+        pricing_factor = fee_one_engine_period
         gross = qty * fee_one_engine_period
     elif basis == "flat":
         flat_amount = rate_params.get("flat_amount")
@@ -1057,9 +1062,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         else:
             # Legacy contract: amount_per_period is already an engine-period amount.
             gross = float(rate_params.get("amount_per_period") or 0.0)
+        pricing_factor = gross
     elif basis == "event":
         at = params.get("at_period")
         amt = float(rate_params.get("amount") or params.get("amount") or 0.0)
+        pricing_factor = amt
         gross = amt if (at is not None and int(at) == q) else 0.0
     else:
         raise ValueError(f"unsupported fee basis: {basis!r}")
@@ -1070,6 +1077,13 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         k = int(ramp_in)
         if k > 0:
             gross *= min(1.0, (q - start + 1) / k)
+
+    # Capture the post-timing gross stream revenue BEFORE any contra-revenue treatment.
+    # This is deliberately distinct from the final reported fee income below.  The
+    # calculation-audit workbook uses these diagnostics to show the causal chain
+    # quantity -> price/rate -> gross revenue -> cost/contra -> reported income instead
+    # of presenting a driver quantity under a revenue-oriented stream name.
+    gross_before_cost = float(gross or 0.0)
 
     # ---- Axis 6: cost side ----
     # Three economically distinct cost types:
@@ -1090,24 +1104,56 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     multiplier_path = cp.get("multiplier_path")  # separate dimensionless layer; defaults to 1.0
     mult = (_fee_cost_factor_value(multiplier_path, q, ppy, ctx, 1.0)
             if multiplier_path is not None else 1.0)
+    direct_cost_factor = None
+    effective_cost_factor = None
     if ck == "per_unit" and basis == "transaction":
         base_unit_cost = float(cp.get("cost_per_unit") or 0.0)
         base_path_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_unit_cost)
                           if factor_path is not None else base_unit_cost)
+        direct_cost_factor = base_path_cost
         unit_cost = base_path_cost * mult
+        effective_cost_factor = unit_cost
         opcost = qty * unit_cost   # -> fee-product NIE (gross)
     elif ck == "pct_of_revenue":
         base_pct = float(cp.get("pct") or 0.0)
         base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
                          if factor_path is not None else base_pct)
+        direct_cost_factor = base_path_pct
         pct = base_path_pct * mult
+        effective_cost_factor = pct
         gross -= gross * pct           # -> nets (contra-revenue)
     elif ck == "pct_of_revenue_opex":
         base_pct = float(cp.get("pct") or 0.0)
         base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
                          if factor_path is not None else base_pct)
+        direct_cost_factor = base_path_pct
         pct = base_path_pct * mult
+        effective_cost_factor = pct
         opcost = gross * pct           # -> fee-product NIE; gross income preserved
+
+    # Optional diagnostic capture.  This is observational only and never feeds back into
+    # fee arithmetic.  Series ID is the stable identity; stream display names remain labels.
+    if isinstance(ctx, dict):
+        sid = str(stream.get("quantity_series_id") or "").strip()
+        cap = ctx.get("capture_stream_economics")
+        if sid and isinstance(cap, dict):
+            rec = cap.setdefault(sid, {"basis": str(basis or ""), "cost_kind": str(ck or "none")})
+
+            def _put(field, value):
+                arr = rec.setdefault(field, [])
+                while len(arr) < int(q):
+                    arr.append(None)
+                arr[int(q) - 1] = None if value is None else float(value)
+
+            _put("quantity", qty)
+            _put("pricing_factor", pricing_factor)
+            _put("gross_fee_revenue", gross_before_cost)
+            _put("contra_revenue", gross_before_cost - float(gross or 0.0))
+            _put("reported_fee_income", gross)
+            _put("direct_cost_factor", direct_cost_factor)
+            _put("cost_multiplier", mult if ck != "none" else None)
+            _put("effective_cost_factor", effective_cost_factor)
+            _put("fee_product_cost", opcost)
 
     return gross, opcost
 

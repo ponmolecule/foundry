@@ -456,6 +456,9 @@ def main():
        and aqrows["q-enabled"][3].startswith("native units") and abs(aqrows["q-enabled"][4][0]-4.319)<1e-9
        and aqrows["q-api"][3].startswith("$000s") and abs(aqrows["q-api"][4][0]-179_958.33333333334)<1e-6,
        str({k:(v[3],v[4][0]) for k,v in aqrows.items()}))
+    ck("D3d2 Calculation Audit quantity rows explicitly say throughput/driver quantity rather than implying revenue",
+       "Transaction throughput / driver quantity" in aqrows["q-api"][1]
+       and "API Revenue" in aqrows["q-api"][1], aqrows["q-api"][1])
 
     # D3e-r92: a transaction coefficient is basis-typed authoring state. r91 could retain
     # one invisibly after a stream was changed to Account, causing fail-closed validation

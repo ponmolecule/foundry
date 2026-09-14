@@ -191,7 +191,7 @@ def main():
         required_audit = {"Index", "Config Snapshot", "Series Provenance", "Income Statement", "Balance Sheet",
                           "Operating Expense", "Opex Component Detail", "Workforce", "CAC - AUC", "CAC Channels",
                           "CAC Annual Rollforward", "CAC Monthly Canonical", "Product Calculations", "Fee Product Costs",
-                          "Fee Stream Quantities", "Cost Pools", "All Series"}
+                          "Fee Stream Quantities", "Fee Stream Economics", "Cost Pools", "All Series"}
         if not required_audit.issubset(set(awb.sheetnames)):
             print(f"  AUDIT XLS FAIL: missing sheets {sorted(required_audit-set(awb.sheetnames))}"); sys.exit(1)
         all_paths = {r[2] for r in awb["All Series"].iter_rows(values_only=True) if len(r) > 2 and r[2]}

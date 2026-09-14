@@ -36,6 +36,7 @@ _MONEY_FMT = '#,##0.000;[Red](#,##0.000);-'
 _NUM_FMT = '#,##0.000000;[Red](#,##0.000000);-'
 _COUNT_FMT = '#,##0.000;[Red](#,##0.000);-'
 _RATE_FMT = '0.000000;[Red](0.000000);-'
+_PCT_FMT = '0.000000%;[Red](0.000000%);-'
 _RAW_NUM_FMT = '0.###############;[Red](0.###############);-'
 _RAW_MONEY_FMT = '#,##0.###############;[Red](#,##0.###############);-'
 
@@ -1027,15 +1028,52 @@ def _fee_quantity_unit_kinds(cfg):
     return out
 
 
+def _fee_stream_meta(cfg):
+    """Return stable-ID metadata for every authored Fee Product stream.
+
+    The audit workbook must never rely on a revenue-oriented display name to imply what a
+    numeric row represents.  This registry lets quantity/economics sheets append an explicit
+    economic-layer label (throughput, rate, revenue, cost) while keeping the user's product and
+    stream names as context only.
+    """
+    a = (cfg or {}).get("assumptions") or {}
+    out = {}
+    for fam, key in (("Lending", "lending_products"), ("Deposit", "deposit_products"),
+                     ("Fee Product", "obs_exposures")):
+        for pi, prod in enumerate(a.get(key) or []):
+            pname = str((prod or {}).get("name") or f"{fam} {pi + 1}")
+            for si, st in enumerate((prod or {}).get("fee_streams") or []):
+                st = st or {}
+                sid = str(st.get("quantity_series_id") or "").strip()
+                if not sid:
+                    continue
+                out[sid] = {
+                    "series_id": sid,
+                    "product": pname,
+                    "stream": str(st.get("name") or f"Stream {si + 1}"),
+                    "family": fam,
+                    "basis": str(st.get("basis") or "").strip().lower(),
+                    "rate_behavior": str((st.get("rate") or {}).get("behavior") or "flat").strip().lower(),
+                    "cost_kind": str((st.get("cost") or {}).get("kind") or "none").strip().lower(),
+                }
+    return out
+
+
+def _quantity_metric_label(basis: str) -> str:
+    b = str(basis or "").lower()
+    if b == "transaction":
+        return "Transaction throughput / driver quantity"
+    if b == "balance":
+        return "Balance driver quantity"
+    if b == "account":
+        return "Account-count driver quantity"
+    if b == "event":
+        return "Event driver quantity"
+    return "Driver quantity"
+
+
 def _quantity_rows(cfg, results, n, exact=None):
-    meta = {}
-    try:
-        from .opex_extensions import fee_stream_quantity_catalog, fee_stream_balance_quantity_catalog
-        a = cfg.get("assumptions") or {}
-        for item in fee_stream_quantity_catalog(a) + fee_stream_balance_quantity_catalog(a):
-            meta[item["series_id"]] = item
-    except Exception:
-        pass
+    meta = _fee_stream_meta(cfg)
     unit_kinds = _fee_quantity_unit_kinds(cfg)
     rows = []
     if exact is not None:
@@ -1044,8 +1082,12 @@ def _quantity_rows(cfg, results, n, exact=None):
         qmap = (((results.get("fee_stream_quantities") or {}).get("series")) or {})
     for sid, vals in qmap.items():
         m = meta.get(sid) or {}
-        label = " › ".join(x for x in (m.get("product"), m.get("stream")) if x) or sid
-        sem = m.get("unit_semantic") or "native observation"
+        basis = str(m.get("basis") or "").lower()
+        label_base = " › ".join(x for x in (m.get("product"), m.get("stream")) if x) or sid
+        label = f"{label_base} › {_quantity_metric_label(basis)}"
+        sem = ("native_period_flow" if basis == "transaction" else
+               "balance_level" if basis == "balance" else
+               "count_level" if basis == "account" else "native observation")
         kind = unit_kinds.get(sid, "native")
         if kind == "money":
             qvals = _money_k_series(vals) if exact is not None else list(vals)
@@ -1058,6 +1100,85 @@ def _quantity_rows(cfg, results, n, exact=None):
             units = ("count" if kind == "count" else "native units") + f" · {sem}"
             fmt = _NUM_FMT
         rows.append((m.get("family") or "Fee stream", label, sid, units, qvals, fmt))
+    return rows
+
+
+def _fee_stream_economics_rows(cfg, exact, n):
+    """Expose the causal fee-stream chain at the same native cadence as the engine.
+
+    This is a troubleshooting surface, not a re-calculation.  Values are captured by the
+    engine while it evaluates each stream, then rendered here with explicit economic-layer
+    labels.  Monetary values are converted from engine dollars to $000s only for display.
+    """
+    econ = (exact or {}).get("fee_stream_economics") or {}
+    meta = _fee_stream_meta(cfg)
+    unit_kinds = _fee_quantity_unit_kinds(cfg)
+    rows = []
+
+    def _series(rec, key):
+        vals = list((rec or {}).get(key) or [])
+        if len(vals) < n:
+            vals += [None] * (n - len(vals))
+        return vals[:n]
+
+    for sid, rec in econ.items():
+        m = meta.get(sid) or {}
+        product = str(m.get("product") or "Fee Product")
+        stream = str(m.get("stream") or sid)
+        basis = str(m.get("basis") or (rec or {}).get("basis") or "").lower()
+        cost_kind = str(m.get("cost_kind") or (rec or {}).get("cost_kind") or "none").lower()
+        section = f"{product} › {stream}"
+
+        qty = _series(rec, "quantity")
+        if unit_kinds.get(sid, "native") == "money":
+            qvals, qunits, qfmt = _money_k_series(qty), "$000s · driver quantity", _RAW_MONEY_FMT
+        elif unit_kinds.get(sid, "native") == "count":
+            qvals, qunits, qfmt = qty, "count · driver quantity", _RAW_NUM_FMT
+        else:
+            qvals, qunits, qfmt = qty, "native units · driver quantity", _RAW_NUM_FMT
+        rows.append((section, _quantity_metric_label(basis), sid, qunits, qvals, qfmt))
+
+        pricing = _series(rec, "pricing_factor")
+        if any(v is not None for v in pricing):
+            if basis in {"transaction", "balance"}:
+                plabel = "Fee rate / pricing factor"
+                punits, pfmt, pvals = "%" + (" of throughput" if basis == "transaction" else " annual on balance"), _PCT_FMT, pricing
+            elif basis == "account":
+                plabel = "Effective account fee"
+                punits, pfmt, pvals = "$ / account / engine period", _RAW_NUM_FMT, pricing
+            else:
+                plabel = "Effective fee amount"
+                punits, pfmt, pvals = "$000s / engine period", _RAW_MONEY_FMT, _money_k_series(pricing)
+            rows.append((section, plabel, f"{sid}:pricing", punits, pvals, pfmt))
+
+        rows.append((section, "Gross fee revenue · before contra-revenue", f"{sid}:gross_revenue",
+                     "$000s / engine period", _money_k_series(_series(rec, "gross_fee_revenue")), _RAW_MONEY_FMT))
+
+        contra = _series(rec, "contra_revenue")
+        if any(abs(float(v or 0.0)) > 0.0 for v in contra):
+            rows.append((section, "Contra-revenue / revenue share", f"{sid}:contra_revenue",
+                         "$000s / engine period", _money_k_series(contra), _RAW_MONEY_FMT))
+
+        rows.append((section, "Reported fee income · stream output", f"{sid}:reported_fee_income",
+                     "$000s / engine period", _money_k_series(_series(rec, "reported_fee_income")), _RAW_MONEY_FMT))
+
+        direct = _series(rec, "direct_cost_factor")
+        if any(v is not None for v in direct):
+            if cost_kind == "per_unit":
+                cunits, cfmt = "$ / throughput unit", _RAW_NUM_FMT
+            else:
+                cunits, cfmt = "% of gross fee revenue", _PCT_FMT
+            rows.append((section, "Direct cost rate / factor", f"{sid}:direct_cost_factor",
+                         cunits, direct, cfmt))
+            rows.append((section, "Cost multiplier", f"{sid}:cost_multiplier", "dimensionless",
+                         _series(rec, "cost_multiplier"), _RAW_NUM_FMT))
+            rows.append((section, "Effective cost rate / factor", f"{sid}:effective_cost_factor",
+                         cunits, _series(rec, "effective_cost_factor"), cfmt))
+
+        opcost = _series(rec, "fee_product_cost")
+        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "pct_of_revenue_opex"}:
+            rows.append((section, "Fee Product cost · stream output", f"{sid}:fee_product_cost",
+                         "$000s / engine period", _money_k_series(opcost), _RAW_MONEY_FMT))
     return rows
 
 
@@ -1153,7 +1274,8 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("CAC Monthly Canonical", "Canonical monthly beginning/EOP/average AUC and customer stocks, even when the engine itself is quarterly."),
         ("Product Calculations", "Every native numeric product series surfaced by the run."),
         ("Fee Product Costs", "Product Details/public-run Fee revenue, Fee Product costs, and product Opex, followed by explicitly labeled exact-engine rows plus cost-factor diagnostics."),
-        ("Fee Stream Quantities", "Stable observational quantity Series consumed by downstream calculations."),
+        ("Fee Stream Quantities", "Stable observational driver-quantity Series. Row labels explicitly identify the quantity/throughput layer so a revenue-oriented stream name cannot be mistaken for revenue."),
+        ("Fee Stream Economics", "Per-stream causal chain captured by the engine: driver quantity/throughput, pricing factor, gross revenue, contra-revenue, reported stream fee income, and direct operating cost layers."),
         ("Cost Pools", "Resolved non-posting cost-pool Series."),
         ("All Series", "Catch-all inventory of numeric period Series surfaced by the public run."),
     ]
@@ -1275,7 +1397,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      subtitle="Headline rows reconcile exactly to Product Details/public-run values; separately labeled exact-engine rows retain unrounded precision for source-model reconciliation.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("Fee Stream Quantities"), cfg, _quantity_rows(cfg, results, n, exact=exact),
                      title="Fee Stream Quantities · Audit",
-                     subtitle="Stable driver-quantity Series available to downstream model components.", n=n, ppy=ppy)
+                     subtitle="Stable driver-quantity Series available to downstream model components. These are quantities/throughput, NOT fee revenue; the economic layer is stated explicitly in every row label.", n=n, ppy=ppy)
+    _write_wide_rows(wb.create_sheet("Fee Stream Economics"), cfg, _fee_stream_economics_rows(cfg, exact, n),
+                     title="Fee Stream Economics · Audit",
+                     subtitle="Engine-captured causal chain by stream. Monetary rows are exact engine dollars converted to $000s; percentage rows remain decimal rates displayed as percentages. Stream output is before any later bank-level post-processing such as Durbin overage adjustments.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("Cost Pools"), cfg, _pool_rows(cfg, results, n, ppy),
                      title="Cost Pools · Audit",
                      subtitle="Resolved non-posting pricing/cost-recovery source Series.", n=n, ppy=ppy)
