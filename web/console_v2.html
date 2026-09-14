@@ -8951,8 +8951,35 @@ async function exportExcel(){
   a.href = URL.createObjectURL(b); a.download = _engSlug()+"_proforma_exhibit.xlsx"; a.click();
 }
 window.exportExcel=exportExcel;
+async function _calculationAuditSnapshot(){
+  // Freeze the exact config that will be audited, invalidate any older in-flight preview, and
+  // obtain the same public result Product Details consumes.  If the user edits while this run is
+  // in flight, fail closed instead of exporting a workbook for a different snapshot.
+  clearTimeout(timer); timer = null;
+  const my = ++seq;
+  const cfgText = JSON.stringify(cfg);
+  const snapCfg = JSON.parse(cfgText);
+  const pr = await fetch("/api/v2/preview", {method:"POST", headers:{"Content-Type":"application/json"}, body: cfgText});
+  if(my !== seq || JSON.stringify(cfg) !== cfgText) return {changed:true};
+  if(pr.status === 422) return {invalid:true};
+  if(!pr.ok) return {failed:true};
+  const snapRes = await pr.json();
+  if(my !== seq || JSON.stringify(cfg) !== cfgText) return {changed:true};
+
+  // Product Details and the audit export now share this exact preview snapshot.
+  lastRes = snapRes; lastErrs = null; paintChrome();
+  if(!(V31 && currentTab==="products")) renderContent();
+  else refreshProductStats();
+  return {config:snapCfg, result:snapRes};
+}
 async function exportCalculationAudit(){
-  const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(cfg)});
+  const snap = await _calculationAuditSnapshot();
+  if(snap.changed){ alert("Inputs changed while the audit snapshot was being prepared. Run the export again after the latest edit settles."); return; }
+  if(snap.invalid){ alert("Fail-closed: complete the open questions first."); return; }
+  if(!snap.result){ alert("Could not prepare the calculation-audit snapshot."); return; }
+  const payload = {config:snap.config, expected_config_hash:snap.result.config_hash, expected_run_hash:snap.result.run_hash};
+  const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
+  if(r.status===409){ alert("The audit run did not match the Product Details snapshot. Nothing was exported; rerun the model and try again."); return; }
   if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
   const b = await r.blob(); const a = document.createElement("a");
   a.href = URL.createObjectURL(b); a.download = _engSlug()+"_calculation_audit.xlsx"; a.click();

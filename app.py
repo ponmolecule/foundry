@@ -1443,23 +1443,57 @@ def v2_exhibit(cfg: dict, _=Depends(gate)):
 
 
 @app.post("/api/v2/calculation-audit")
-def v2_calculation_audit(cfg: dict, _=Depends(gate)):
-    """Granular multi-sheet calculation workbook for source-model reconciliation."""
+def v2_calculation_audit(payload: dict, _=Depends(gate)):
+    """Granular multi-sheet calculation workbook pinned to the displayed preview snapshot.
+
+    Backward compatible: callers may still POST the raw config.  The browser posts an envelope
+    with the config plus the Product Details config/run hashes; the server re-executes that frozen
+    config and refuses the export if either hash differs.  This prevents a debounced/stale browser
+    preview from being silently compared with a workbook generated from newer inputs.
+    """
     import io as _io
     from fastapi.responses import StreamingResponse
     from foundry.v2.audit_workbook import calculation_audit_workbook
     from foundry.v2.run_q import run_v2
     from foundry.v2.validate_q import validate_errors_v2
+
+    if isinstance(payload.get("config"), dict):
+        cfg = payload["config"]
+        expected_config_hash = payload.get("expected_config_hash")
+        expected_run_hash = payload.get("expected_run_hash")
+    else:
+        cfg = payload
+        expected_config_hash = None
+        expected_run_hash = None
+
     errs = validate_errors_v2(cfg)
     if errs:
         return JSONResponse({"valid": False, "errors": errs}, status_code=422)
     results = run_v2(cfg)
+    if ((expected_config_hash and results.get("config_hash") != expected_config_hash) or
+            (expected_run_hash and results.get("run_hash") != expected_run_hash)):
+        return JSONResponse({
+            "valid": False,
+            "error": "audit_snapshot_mismatch",
+            "expected_config_hash": expected_config_hash,
+            "actual_config_hash": results.get("config_hash"),
+            "expected_run_hash": expected_run_hash,
+            "actual_run_hash": results.get("run_hash"),
+        }, status_code=409)
+
     buf = _io.BytesIO()
     calculation_audit_workbook(cfg, results).save(buf)
     buf.seek(0)
     _slug = _engagement_slug(cfg)
-    return StreamingResponse(buf, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                             headers={"Content-Disposition": f'attachment; filename="{_slug}_calculation_audit.xlsx"'})
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={
+            "Content-Disposition": f'attachment; filename="{_slug}_calculation_audit.xlsx"',
+            "X-Foundry-Config-Hash": str(results.get("config_hash") or ""),
+            "X-Foundry-Run-Hash": str(results.get("run_hash") or ""),
+        },
+    )
 
 
 def _engagement_slug(cfg: dict) -> str:
