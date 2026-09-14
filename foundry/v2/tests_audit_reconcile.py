@@ -1,4 +1,4 @@
-"""r94 audit/Product Details reconciliation regression tests.
+"""r95 audit/Product Details reconciliation and preview-lifecycle regression tests.
 
 The Calculation Audit workbook must audit the same public snapshot shown by Product Details,
 while retaining separately-labelled unrounded engine rows for source-model reconciliation.
@@ -101,6 +101,30 @@ def main():
        and "expected_run_hash:snap.result.run_hash" in html)
     ck("audit export fails closed when inputs change during snapshot run",
        "JSON.stringify(cfg) !== cfgText" in html and "r.status===409" in html)
+
+    # r95 lifecycle hardening: a failed audit preparation must never poison the shared preview
+    # sequence or leave output tabs stuck on the null-result ``Running…`` fallback.
+    audit_start = html.index("async function _calculationAuditSnapshot()")
+    audit_end = html.index("async function exportCalculationAudit()", audit_start)
+    audit_js = html[audit_start:audit_end]
+    preview_start = html.index("async function preview()")
+    preview_end = html.index("function paintChrome()", preview_start)
+    preview_js = html[preview_start:preview_end]
+    ck("audit snapshot synchronizes modules before freezing config",
+       audit_js.index("syncModules()") < audit_js.index("const cfgText = JSON.stringify(cfg)"))
+    ck("failed audit preparation does not advance shared preview sequence",
+       "++seq" not in audit_js.split("if(!pr.ok)")[0])
+    ck("successful audit snapshot invalidates older preview only after success",
+       "++seq;" in audit_js and audit_js.index("++seq;") > audit_js.index("snapRes = await pr.json()"))
+    ck("audit preparation has timeout and useful failure detail",
+       "AbortController" in audit_js and "Audit snapshot preview failed" in audit_js)
+    ck("audit failure schedules a normal preview recovery",
+       "if(!snap.result){ refresh();" in html)
+    ck("normal preview cannot spin forever on server/network failure",
+       "AbortController" in preview_js and "Engine preview timed out after 60 seconds." in preview_js
+       and "else if(!r.ok)" in preview_js)
+    ck("output tabs surface model-run failures instead of indefinite Running",
+       "if(lastRunFailure)" in html and "Model run failed — no stale financials are being shown" in html)
 
     # Direct endpoint regression: the server must reject a workbook request whose expected
     # Product Details hashes do not match its deterministic rerun of the frozen config.

@@ -149,3 +149,10 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Model-authoring paste / Explicit textareas share a presentation-only Close/Edit controller when they do not already own a native Close action. Closing a paste surface never clears or rewrites its loaded schedule; narrative free-text fields remain outside this contract.
 - Bank Design Lab Sensitivity no longer places lever names in a fixed-width SVG left gutter. Lever names render in responsive wrapped HTML rows beside the centered-baseline tornado bars, preserving full engagement-specific labels at narrow widths.
 - This release is UI-only. No engine, Series-resolution, cadence, AUC, Fee Product, cost-pool, or accounting-posting economics change.
+
+## r95 — Preview lifecycle recovery + audit snapshot isolation
+- Fixes an r94 regression where Calculation Audit preparation advanced the shared browser preview sequence before its own snapshot had succeeded. A failed audit attempt could therefore invalidate the normal model preview and leave Balance Sheet, Product Details, and Income Statement permanently on `Running…`.
+- Calculation Audit now runs the same `syncModules()` normalization as Product Details before freezing its config, does not advance the shared preview sequence on failure, and invalidates older previews only after a successful still-current snapshot has landed.
+- Failed audit preparation schedules a normal preview recovery and surfaces the actual timeout/HTTP diagnostic instead of the opaque `Could not prepare the calculation-audit snapshot.` message where possible.
+- The normal preview path now fails visibly rather than spinning forever: network errors, HTTP failures, unreadable responses, and a 60-second timeout set an explicit model-run failure state and render no stale financials.
+- Financial-engine arithmetic, accounting, Fee Product pricing/cost semantics, cadence, and the r94 audit/Product Details reconciliation contract are unchanged.
