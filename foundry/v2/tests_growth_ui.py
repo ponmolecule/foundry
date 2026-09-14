@@ -318,7 +318,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
          + hjs + fjs +
          "\nconst p={name:'Conversion',_fee_product:true,managed_notional:{day1:1,trajectory:'flat'},fee_streams:["
          "{name:'Conversion fee',basis:'transaction',driver:{source:'managed_notional',trajectory:'derived',params:{coefficient:{kind:'pct',value:.12,period:'year',trajectory:'explicit_schedule',schedule:{'1':.12,'2':.10}}}},rate:{behavior:'flat',params:{per_unit:.0008}},cost:{kind:'none',params:{}}}]};"
-         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({pctTraj:out.includes('Volume % trajectory'),pctSchedule:out.includes('Volume % schedule by year'),singleHidden:!out.includes('<label>Flow %</label>')}));")
+         "\ncfg.assumptions.obs_exposures=[p]; const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); console.log(JSON.stringify({pctTraj:out.includes('Flow % trajectory'),pctSchedule:out.includes('Flow % schedule by year'),singleHidden:!out.includes('<label>Flow %</label>')}));")
     fr3=subprocess.run(["node","-e",fp3],text=True,capture_output=True); fj3={}
     if fr3.returncode==0 and fr3.stdout.strip():
         try: fj3=json.loads(fr3.stdout.strip().splitlines()[-1])
@@ -354,8 +354,28 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("Fee Product basis info click opens its definition and closes an open sibling",
        ir.returncode==0 and ij.get("opened") and ij.get("closedSibling") and ij.get("expanded") and ij.get("markup"), ir.stderr.strip())
     ck("new Fee Product authoring exposes explicit natural periods and cadence-aware timing labels",
-       'const _coefNoun=_isPct?"Volume %":(_isAmount?"Amount per source unit":"Turns")' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
+       'const _coefNoun=_isPct?(_isShare?"Source share %":"Flow %")' in html and '${_coefNoun} trajectory' in html and 'Use natural-period flow' in html
        and 'Revenue start (${PLAB' in html and 'Ramp-in (${PLAB' in html)
+    ck("percentage coefficient authoring distinguishes dimensionless source share from periodized flow ratio",
+       'Share of source (%)' in html and 'Flow % of source / period' in html
+       and 'Share of source is dimensionless' in html and 'never divides the share by projection cadence' in html
+       and 'annual transaction volume as % of AUC' in html)
+    pct_sem_js=(
+        "const cfg={assumptions:{obs_exposures:[{fee_streams:["
+        "{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'flat',params:{base:1000}}},"
+        "{name:'Migrated MAB',basis:'transaction',driver:{source:'stream_ref',ref:'Business MAB',trajectory:'derived',params:{coefficient:{kind:'pct',value:.005,period:'year',trajectory:'flat'}}}}] }]}};\n"
+        "let rr=0;function renderContent(){rr++;}function refresh(){rr++;}function _pf(x){return +x||0;}\n"
+        + hjs +
+        "\nconst c=cfg.assumptions.obs_exposures[0].fee_streams[1].driver.params.coefficient; const inferred=_feePctSemantics(0,1,c);"
+        " _feeCoeffSetKind(0,1,'pct_flow'); const flow=c.semantics; _feeCoeffSetKind(0,1,'pct_share'); const share=c.semantics;"
+        " console.log(JSON.stringify({inferred,flow,share,rr}));")
+    psr=subprocess.run(["node","-e",pct_sem_js],text=True,capture_output=True); psj={}
+    if psr.returncode==0 and psr.stdout.strip():
+        try: psj=json.loads(psr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("legacy count-chain percentage is inferred as share and the UI persists an explicit share/flow choice",
+       psr.returncode==0 and psj.get("inferred")=="share" and psj.get("flow")=="flow" and psj.get("share")=="share", psr.stderr.strip())
+
     ck("Fee Product explicit coefficient path uses live-validating pastebox/load workflow",
        'feeCoeffPaste_' in html and 'comma, tab, semicolon, or new line' in html
        and '_ph=_isAmount?"e.g. 500000, 525000, 551250":"e.g. 8, 10, 12, 10, 10, 10, 9"' in html
