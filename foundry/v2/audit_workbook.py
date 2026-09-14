@@ -898,14 +898,34 @@ def _product_rows(results, n, exact=None):
 
 def _fee_cost_rows(cfg, results, n, ppy, exact=None):
     rows = []
-    source_products = (exact.get("products") or []) if exact is not None else (results.get("products") or [])
-    for p in source_products:
+
+    # Reconciliation contract: the headline product rows MUST be the exact same public-run
+    # series consumed by Product Details in the browser.  Product Details reads
+    # results["products"][].fees/passCost/opex, so using a second raw-engine run here made
+    # the audit workbook disagree with the screen by representation (and, if the browser
+    # preview was stale relative to cfg, potentially by snapshot).  Keep the public rows as
+    # the named lines a reviewer compares directly to Product Details.
+    public_products = results.get("products") or []
+    for p in public_products:
         name = str(p.get("name") or "Product")
         for key, label in (("fees", "Fee revenue"), ("passCost", "Fee Product cost"), ("opex", "Product operating expense")):
             arr = p.get(key)
             if isinstance(arr, list) and len(arr) == n:
-                vals = _money_k_series(arr) if exact is not None else arr
-                rows.append((name, label, key, "$000s / engine period", vals, _MONEY_FMT))
+                rows.append((name, label, key, "$000s / engine period · Product Details/public run", list(arr), _MONEY_FMT))
+
+    # Preserve the audit workbook's full-precision purpose separately.  These rows come from
+    # the deterministic raw engine and are explicitly labeled as exact so they cannot be
+    # mistaken for the Product Details numbers above.
+    if exact is not None:
+        for p in (exact.get("products") or []):
+            name = str(p.get("name") or "Product")
+            for key, label in (("fees", "Fee revenue · exact engine"),
+                               ("passCost", "Fee Product cost · exact engine"),
+                               ("opex", "Product operating expense · exact engine")):
+                arr = p.get(key)
+                if isinstance(arr, list) and len(arr) == n:
+                    rows.append((name, label, f"{key}:exact", "$000s / engine period · unrounded exact engine",
+                                 _money_k_series(arr), _RAW_MONEY_FMT))
 
     # Authoring-level cost factors are economically important audit evidence.  The direct
     # cost factor/rate path and the dimensionless multiplier are separate layers; expose both
@@ -1132,7 +1152,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("CAC Annual Rollforward", "Feed-level annual beginning/new/lost/ending AUC and customers, attrition, spend, and blended CAC."),
         ("CAC Monthly Canonical", "Canonical monthly beginning/EOP/average AUC and customer stocks, even when the engine itself is quarterly."),
         ("Product Calculations", "Every native numeric product series surfaced by the run."),
-        ("Fee Product Costs", "Fee revenue, Fee Product costs, product Opex, base cost factor, multiplier, and effective factor."),
+        ("Fee Product Costs", "Product Details/public-run Fee revenue, Fee Product costs, and product Opex, followed by explicitly labeled exact-engine rows plus cost-factor diagnostics."),
         ("Fee Stream Quantities", "Stable observational quantity Series consumed by downstream calculations."),
         ("Cost Pools", "Resolved non-posting cost-pool Series."),
         ("All Series", "Catch-all inventory of numeric period Series surfaced by the public run."),
@@ -1252,7 +1272,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      subtitle="Every native numeric product series surfaced by Foundry.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("Fee Product Costs"), cfg, _fee_cost_rows(cfg, results, n, ppy, exact=exact),
                      title="Fee Product Costs · Audit",
-                     subtitle="Product-level fee revenue, external Fee Product costs, and product operating expense.", n=n, ppy=ppy)
+                     subtitle="Headline rows reconcile exactly to Product Details/public-run values; separately labeled exact-engine rows retain unrounded precision for source-model reconciliation.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("Fee Stream Quantities"), cfg, _quantity_rows(cfg, results, n, exact=exact),
                      title="Fee Stream Quantities · Audit",
                      subtitle="Stable driver-quantity Series available to downstream model components.", n=n, ppy=ppy)

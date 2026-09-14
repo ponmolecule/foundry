@@ -9,6 +9,14 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+
+## r94 — Audit/Product Details snapshot reconciliation
+- Pins Calculation Audit export to the exact public preview snapshot shown by Product Details. The browser freezes the current config, invalidates older in-flight previews, obtains a fresh preview, and posts that config together with its `config_hash` and `run_hash`; the server re-runs the frozen config and refuses the export on any hash mismatch.
+- Changes the headline `Fee Product Costs` rows (`Fee revenue`, `Fee Product cost`, `Product operating expense`) to consume the same public product Series that Product Details displays, so the workbook reconciles cell-for-cell instead of silently comparing a public rounded view with a separate raw-engine representation.
+- Retains the audit workbook's hidden-precision purpose with separately labeled `· exact engine` rows for those same product measures. Reviewers can therefore compare Product Details exactly and still inspect unrounded engine values without confusing the two representations.
+- Adds a dedicated reconciliation regression covering all three product rows, workbook-cell equality, exact-engine preservation, browser snapshot freezing/hash pinning, edit-during-export fail-closed behavior, and server-side 409 rejection for mismatched hashes.
+- Verification: all 31 historical test entry points pass; the new audit-reconciliation suite passes 11/11; Fee Suite remains 45/45 and parity remains 9/9. Python compilation, browser JavaScript syntax, `git diff --check`, credential-signature scanning, and modified-runtime engagement-overfitting scanning are clean. No financial-engine economics changed.
+
 ## r93 — Transaction pricing and direct-cost trajectories
 - Generalizes Transaction percentage pricing so `Fee (% of throughput)` is a first-class Flat / Growth / Explicit rate path with Month / Quarter / Year natural periods, Step / Smooth resolution, percentage paste ingestion, compact schedule preview, and View all / Collapse inspection. Legacy scalar `per_unit` remains the Flat fallback for saved configurations.
 - Reuses Foundry's factor-path grammar without conflating economic layers: Transaction throughput is resolved first, the revenue-rate trajectory prices that throughput, and no pricing factor is divided by projection cadence. The r91 `Amount per source unit` coefficient remains independent and unchanged.
