@@ -11,6 +11,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+
+## r99 — Product Details fixed three-decimal precision
+- Product Details now renders every monetary `$000s` cell to exactly three decimal places, regardless of magnitude. This replaces r98's magnitude-aware formatting so troubleshooting views are consistent and never hide the third decimal on larger values.
+- Zero values render as `0.000`; observed Stablecoin examples render as `0.386`, `2.020`, `0.019`, `0.101`, while larger values such as `257.100694` and `1,346.886525` render as `257.101` and `1,346.887`.
+- The change is presentation-only. Engine arrays, audit workbook precision, accounting, cadence, Fee Product economics, and model configuration remain unchanged.
+- Regression coverage executes the shipped Product Details formatter in Node and asserts fixed three-decimal formatting across small, zero, and larger `$000s` values.
+
 ## r98 — Product Details diagnostic precision
 - Product Details remains in `$000s` but now uses magnitude-aware display precision so small engine-computed values are not rounded out of existence while troubleshooting. Values below 10 `$000s` show three decimals, below 100 show two, below 1,000 show one, and larger values remain whole `$000s`.
 - The Stablecoin regression that exposed the defect now renders approximately `0.386` and `2.020` of fee income and `0.019` and `0.101` of Fee Product cost instead of `0`, `2`, `0`, `0`. Underlying engine arrays, accounting, audit exports, and model economics are unchanged.

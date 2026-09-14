@@ -81,8 +81,8 @@ console.log(JSON.stringify([
     if rr.returncode==0 and rr.stdout.strip():
         try: vals=json.loads(rr.stdout.strip().splitlines()[-1])
         except Exception: pass
-    ck("Product Details adaptive $000s precision keeps Stablecoin revenue/cost visible",
-       rr.returncode==0 and vals==["0.386","2.020","0.019","0.101","257.1","1,347","0"], rr.stderr.strip())
+    ck("Product Details uses fixed three-decimal $000s precision",
+       rr.returncode==0 and vals==["0.386","2.020","0.019","0.101","257.101","1,346.887","0.000"], rr.stderr.strip())
     ck("per-product detail table uses diagnostic precision rather than whole-$000s formatter",
        "rowBSProduct('Fee income', p.fees)" in html
        and "rowBSProduct('Operating costs', p.opex)" in html
