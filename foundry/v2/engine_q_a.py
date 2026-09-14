@@ -435,6 +435,10 @@ def run_pf_a(cfg):
     # such as Operating Expense linked components. Populated by fee_stream_q during product
     # evaluation; never recomputed downstream.
     _fee_stream_qty_series = {}
+    # Per-stream fee economics are captured alongside driver quantities strictly for
+    # reconciliation/audit output.  They do not participate in any downstream model
+    # calculation.  Stable quantity_series_id remains the identity key.
+    _fee_stream_econ_series = {}
     _fee_stream_qty_known_ids = {
         str((st or {}).get("quantity_series_id") or "").strip()
         for _prod in (lend + dep + obs)
@@ -590,6 +594,7 @@ def run_pf_a(cfg):
                                                             "cost_pool": _cost_pool_ctx(q),
                                                             "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
+                                                            "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
@@ -701,6 +706,7 @@ def run_pf_a(cfg):
                                                             "cost_pool": _cost_pool_ctx(q),
                                                             "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
+                                                            "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
@@ -1358,6 +1364,7 @@ def run_pf_a(cfg):
             products.append(_pr)
     _out = {"products": products,
             "fee_stream_quantities": {k: list(v) for k, v in _fee_stream_qty_series.items()},
+            "fee_stream_economics": copy.deepcopy(_fee_stream_econ_series),
             "ratios": {k: v[1:] for k, v in ratios.items()},
             "bs": {"cash": bs["cash"], "sec": bs["sec"], "netLoans": bs["netLoans"],
                    "grossLoans": gross, "alll": alll_t, "hfs": hfs, "msr": msr_t,
