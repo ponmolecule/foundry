@@ -1731,20 +1731,18 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-// Product Details is a troubleshooting surface, so do not round small $000s values out of
-// existence. Keep the unit stable while increasing visible precision as magnitude falls:
-// <10 -> 3 decimals (nearest $1), <100 -> 2, <1,000 -> 1, otherwise whole $000s.
+// Product Details is a troubleshooting surface: always retain three decimal places in
+// $000s so small-but-real revenue/cost values remain visible and every row uses the same
+// diagnostic precision. This changes presentation only; engine values are untouched.
 function fmtProductK(x){
   if(x==null) return "\u2014";
   const n=+x; if(!Number.isFinite(n)) return "\u2014";
   const a=Math.abs(n);
-  if(a===0) return "0";
-  const d=a<10?3:(a<100?2:(a<1000?1:0));
-  const s=a.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+  const s=a.toLocaleString("en-US",{minimumFractionDigits:3,maximumFractionDigits:3});
   return n<0?"("+s+")":s;
 }
 function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this reported period ($000s). Per-line formula not yet itemized \u2014 see the full Methodology note on the Assumption Book tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
-function cellNumProduct(x, title){ const n=+x; const t = title || "Engine-computed Product Details output for this reported period ($000s). Small values retain extra decimals so troubleshooting values do not disappear through presentation rounding."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmtProductK(x)}</td>`; }
+function cellNumProduct(x, title){ const n=+x; const t = title || "Engine-computed Product Details output for this reported period ($000s). Values are shown to three decimal places so troubleshooting detail remains visible without changing engine precision."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmtProductK(x)}</td>`; }
 function methodFoot(){ return `<div class="memo" style="margin-top:16px;max-width:820px">Every figure here is engine-computed — balances roll forward with originations, runoff, and charge-offs; interest accrues on average balances at the annual rate divided by ${PPY()} (${PPY()===12?'monthly':'quarterly'} cadence). The full derivation is in the <a href="#" onclick="setTab('notes');return false;" style="color:#7FB2E8">Methodology note on the Assumption Book tab</a>.</div>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each {{period}}.",
