@@ -12,6 +12,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r100 — Product Details precision toggle + unrounded diagnostic path
+- Adds a Product Details `High precision (reconciliation view)` toggle. Presentation mode remains fixed at three decimals in `$000s`; High precision exposes up to 15 significant digits. The toggle is display state only and does not change model assumptions, accounting, statements, or parity outputs.
+- Corrects a deeper r98/r99 limitation: Product Details had been formatting the historical public parity product arrays, which are rounded to `0.01 $000s` before reaching the browser. A value such as `0.038779351215693 $000s` therefore arrived as `0.04`, so showing three decimals could only produce `0.040`.
+- `run_v2` now carries a parallel `detailExact` monetary series for Product Details from the same base engine run, converted to `$000s` without parity rounding. Presentation mode formats that exact series to three decimals (`0.039` in the regression); High precision exposes `0.038779351215693`. Legacy public product arrays remain unchanged for compatibility.
+- Calculation Audit headline Fee Product rows now reconcile to the same unrounded Product Details diagnostic series when available, while the separately labeled `· exact engine` rows remain as a second audit trail.
+- First-principles regression uses three Fee Product costs of `0.019282552032793`, `0.019282552032793`, and `0.000214247150107 $000s`: exact sum `0.038779351215693`, legacy parity product value `0.04`, Product Details diagnostic `0.038779351215693`.
+
 ## r99 — Product Details fixed three-decimal precision
 - Product Details now renders every monetary `$000s` cell to exactly three decimal places, regardless of magnitude. This replaces r98's magnitude-aware formatting so troubleshooting views are consistent and never hide the third decimal on larger values.
 - Zero values render as `0.000`; observed Stablecoin examples render as `0.386`, `2.020`, `0.019`, `0.101`, while larger values such as `257.100694` and `1,346.886525` render as `257.101` and `1,346.887`.

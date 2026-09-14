@@ -507,11 +507,15 @@ def run_v2(cfg):
 
     scen_defs = scenarios_from(cfg)
     scen_results, scen_labels = {}, {}
+    base_exact = None
     for scen, (ov, label) in scen_defs.items():
         c = copy.deepcopy(cfg)
         c["scenario_overlays"] = _merge_overlays(cfg.get("scenario_overlays"), ov) if ov \
             else cfg.get("scenario_overlays")
-        scen_results[scen] = run_parity(c)
+        if scen == "base":
+            scen_results[scen], base_exact = run_parity(c, include_exact=True)
+        else:
+            scen_results[scen] = run_parity(c)
         scen_labels[scen] = label
 
     base = scen_results["base"]
@@ -552,6 +556,29 @@ def run_v2(cfg):
                               "citation": _dfvfull.get("citation")}
         except Exception:
             dfast_segments = None
+    # Product Details is a diagnostic surface, and the historical parity adapter deliberately
+    # rounds monetary arrays to 0.01 $000s. Preserve a parallel, unrounded $000s view from the
+    # SAME base engine run so the browser can distinguish real economics from display/parity
+    # rounding instead of formatting an already-rounded diagnostic value.
+    _detail_money_keys = (
+        "bal", "origq", "soldOrig", "whCarry", "gos", "servUPB", "msrCap",
+        "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
+        "fv", "fvAdj", "fees", "opex", "passCost",
+    )
+    _exact_products = (base_exact or {}).get("products") or []
+    _public_products = base.get("products") or []
+    for _pub, _raw in zip(_public_products, _exact_products):
+        if _pub.get("name") != _raw.get("name"):
+            continue
+        _d = {}
+        for _key in _detail_money_keys:
+            _arr = _raw.get(_key)
+            if isinstance(_arr, list):
+                _d[_key] = [None if _v is None else float(_v) / 1000.0 for _v in _arr]
+        if _d:
+            _pub["detailExact"] = _d
+            _pub["detailExactUnits"] = "$000s · unrounded base-engine diagnostic"
+
     results = {
         "engine_version": ENGINE_V2,
         "config_hash": config_hash,

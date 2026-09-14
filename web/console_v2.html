@@ -738,7 +738,7 @@ const CAT_OF = {lending:"asset", deposit:"liability", obs:"offbs"};
 const V31 = !!window.V31;
 const V3 = !!window.V3 || !!window.V22 || V31;
 const V21 = !!window.V21 || V3;
-let cfg = null, lastRes = null, lastErrs = null, lastRunFailure = null, ftpOn = false;
+let cfg = null, lastRes = null, lastErrs = null, lastRunFailure = null, ftpOn = false, productDetailHighPrecision = false;
 // Projection horizon for table headers/columns — reads the configured n_periods (default 12). The
 // result vectors already carry this many periods; headers must match or they stall at Q12 while rows
 // extend (the bug this fixes).
@@ -1731,18 +1731,22 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
-// Product Details is a troubleshooting surface: always retain three decimal places in
-// $000s so small-but-real revenue/cost values remain visible and every row uses the same
-// diagnostic precision. This changes presentation only; engine values are untouched.
+// Product Details carries a presentation/debug precision toggle. Presentation mode is fixed
+// at three decimal places in $000s. High-precision mode exposes up to 15 significant digits
+// from the unrounded base-engine diagnostic carried beside the legacy parity-rounded product
+// arrays. Neither mode changes engine precision, accounting, or statement/parity outputs.
 function fmtProductK(x){
   if(x==null) return "\u2014";
   const n=+x; if(!Number.isFinite(n)) return "\u2014";
   const a=Math.abs(n);
-  const s=a.toLocaleString("en-US",{minimumFractionDigits:3,maximumFractionDigits:3});
+  const opt = productDetailHighPrecision
+    ? {maximumSignificantDigits:15, minimumSignificantDigits:1}
+    : {minimumFractionDigits:3, maximumFractionDigits:3};
+  const s=a.toLocaleString("en-US",opt);
   return n<0?"("+s+")":s;
 }
 function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this reported period ($000s). Per-line formula not yet itemized \u2014 see the full Methodology note on the Assumption Book tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
-function cellNumProduct(x, title){ const n=+x; const t = title || "Engine-computed Product Details output for this reported period ($000s). Values are shown to three decimal places so troubleshooting detail remains visible without changing engine precision."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmtProductK(x)}</td>`; }
+function cellNumProduct(x, title){ const n=+x; const mode=productDetailHighPrecision?"High precision exposes up to 15 significant digits":"Presentation mode shows three decimal places"; const t = title || `Unrounded base-engine Product Details value for this reported period ($000s). ${mode}; display formatting does not change engine precision or accounting.`; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmtProductK(x)}</td>`; }
 function methodFoot(){ return `<div class="memo" style="margin-top:16px;max-width:820px">Every figure here is engine-computed — balances roll forward with originations, runoff, and charge-offs; interest accrues on average balances at the annual rate divided by ${PPY()} (${PPY()===12?'monthly':'quarterly'} cadence). The full derivation is in the <a href="#" onclick="setTab('notes');return false;" style="color:#7FB2E8">Methodology note on the Assumption Book tab</a>.</div>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each {{period}}.",
@@ -3580,6 +3584,15 @@ function ftpToggleHtml(){
   return `<label class="ftplabel"><input type="checkbox" data-ftp="1"${ftpOn?" checked":""} onchange="setFtp(this.checked)">`+
     `Funds-transfer pricing <span style="color:#8FA3C0">(SOFR on avg balances)</span></label>`;
 }
+function setProductDetailPrecision(v){
+  productDetailHighPrecision = !!v;
+  if(currentTab==="detail") renderContent();
+}
+window.setProductDetailPrecision=setProductDetailPrecision;
+function productDetailPrecisionToggleHtml(){
+  return `<label class="ftplabel" title="Presentation shows 3 decimals in $000s. High precision exposes up to 15 significant digits from the unrounded base-engine Product Details value for reconciliation."><input type="checkbox" data-product-detail-precision="1"${productDetailHighPrecision?" checked":""} onchange="setProductDetailPrecision(this.checked)">`+
+    `High precision <span style="color:#8FA3C0">(reconciliation view)</span></label>`;
+}
 
 /* ---------------- tabs ---------------- */
 // Non-V3 (bare console) keeps its original minimal set; V3/V31 use an explicit ordered list.
@@ -3658,6 +3671,10 @@ function rowBSProduct(label, arr, cls, refKey){
   let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${calcText(refKey)?` data-prov title="${calcText(refKey).replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
   arr.forEach((v,i)=>{ h += v==null ? "<td></td>" : cellNumProduct(v, noteFor(refKey, i, v)); });
   return h + "</tr>";
+}
+function productDetailSeries(p, key){
+  const exact = p && p.detailExact && p.detailExact[key];
+  return Array.isArray(exact) ? exact : (p ? p[key] : null);
 }
 function rowIS(label, arr, cls, tot, refKey){
   if(!arr) return "";
@@ -6126,7 +6143,8 @@ function renderContent(){
   if(currentTab==="detail"){
     const rows = (r.ftp||{}).rows || [];
     h += '<div class="h2">Per-Product Contributions</div>';
-    h += ftpToggleHtml();
+    h += `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">${ftpToggleHtml()}${productDetailPrecisionToggleHtml()}</div>`;
+    h += `<div class="memo" style="margin:-4px 0 10px">Product-period tables below are shown in <b>${productDetailHighPrecision?'high-precision':'presentation'}</b> mode. High precision is diagnostic only and does not alter model values.</div>`;
     h += `<table class="fin"><tr><th>Product (Q1–Q${SUBQ()} submission totals, $000s)</th><th>${SUBLAB()} Balance</th><th>Interest Income</th><th>Interest Expense</th><th>Fees</th><th>Gains on Sale</th><th>Net Servicing</th><th>Op Costs</th><th>Net Charge-offs</th>${ftpOn ? '<th>FTP Charge/Credit</th>' : ''}<th>Direct Contribution</th></tr>`;
     let ftpNet = 0;
     rows.forEach(x=>{
@@ -6152,33 +6170,33 @@ function renderContent(){
       for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
       h += '</tr>';
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
-      h += rowBSProduct(`End-of-${PLAB('full')} balance`, arr12(p.bal, false));
+      h += rowBSProduct(`End-of-${PLAB('full')} balance`, arr12(productDetailSeries(p, "bal"), false));
       if(p.family==="lending"){
-        if(some(p.origq)) h += rowBSProduct('New originations', p.origq);
+        if(some(productDetailSeries(p, 'origq'))) h += rowBSProduct('New originations', productDetailSeries(p, 'origq'));
         if(p.sale_pct > 0){
-          h += rowBSProduct('Originations sold', p.soldOrig);
-          h += rowBSProduct('Warehouse balance (HFS)', p.whCarry);
-          h += rowBSProduct('Gains on sale (incl. MSR cap.)', p.gos);
+          h += rowBSProduct('Originations sold', productDetailSeries(p, 'soldOrig'));
+          h += rowBSProduct('Warehouse balance (HFS)', productDetailSeries(p, 'whCarry'));
+          h += rowBSProduct('Gains on sale (incl. MSR cap.)', productDetailSeries(p, 'gos'));
         }
         if(p.serv_retained > 0){
-          h += rowBSProduct('Serviced UPB (end)', p.servUPB);
-          h += rowBSProduct('MSR capitalized', p.msrCap);
-          h += rowBSProduct('MSR amortization', p.msrAmort);
-          h += rowBSProduct('MSR balance (end)', p.msrBal);
-          h += rowBSProduct('Net servicing income', p.servNet);
+          h += rowBSProduct('Serviced UPB (end)', productDetailSeries(p, 'servUPB'));
+          h += rowBSProduct('MSR capitalized', productDetailSeries(p, 'msrCap'));
+          h += rowBSProduct('MSR amortization', productDetailSeries(p, 'msrAmort'));
+          h += rowBSProduct('MSR balance (end)', productDetailSeries(p, 'msrBal'));
+          h += rowBSProduct('Net servicing income', productDetailSeries(p, 'servNet'));
         }
-        h += rowBSProduct('Interest income', p.intInc);
-        h += rowBSProduct('Net charge-offs', p.co);
-        if(!p.is_fv && p.alll) h += rowBSProduct('ALLL', p.alll);
+        h += rowBSProduct('Interest income', productDetailSeries(p, 'intInc'));
+        h += rowBSProduct('Net charge-offs', productDetailSeries(p, 'co'));
+        if(!p.is_fv && p.alll) h += rowBSProduct('ALLL', productDetailSeries(p, 'alll'));
       }
-      if(p.family==="deposit") h += rowBSProduct('Interest expense', p.intExp);
+      if(p.family==="deposit") h += rowBSProduct('Interest expense', productDetailSeries(p, 'intExp'));
       if(p.is_fv){
-        h += rowBSProduct('Fair value (DCF)', p.fv);
-        h += rowBSProduct('FV adjustment vs balance', p.fvAdj);
+        h += rowBSProduct('Fair value (DCF)', productDetailSeries(p, 'fv'));
+        h += rowBSProduct('FV adjustment vs balance', productDetailSeries(p, 'fvAdj'));
       }
-      h += rowBSProduct('Fee income', p.fees);
-      h += rowBSProduct('Operating costs', p.opex);
-      if(p.passCost && p.passCost.some(x=>x!=null && Math.abs(+x)>1e-6)) h += rowBSProduct('Fee Product cost (\u2192 overhead)', p.passCost);
+      h += rowBSProduct('Fee income', productDetailSeries(p, 'fees'));
+      h += rowBSProduct('Operating costs', productDetailSeries(p, 'opex'));
+      { const _pc=productDetailSeries(p, 'passCost'); if(_pc && _pc.some(x=>x!=null && Math.abs(+x)>1e-9)) h += rowBSProduct('Fee Product cost (\u2192 overhead)', _pc); }
       h += '</table>';
     });
     h += methodFoot();
