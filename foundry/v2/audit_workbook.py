@@ -900,23 +900,25 @@ def _product_rows(results, n, exact=None):
 def _fee_cost_rows(cfg, results, n, ppy, exact=None):
     rows = []
 
-    # Reconciliation contract: the headline product rows MUST be the exact same public-run
-    # series consumed by Product Details in the browser.  Product Details reads
-    # results["products"][].fees/passCost/opex, so using a second raw-engine run here made
-    # the audit workbook disagree with the screen by representation (and, if the browser
-    # preview was stale relative to cfg, potentially by snapshot).  Keep the public rows as
-    # the named lines a reviewer compares directly to Product Details.
+    # Reconciliation contract: the headline rows MUST be the same series Product Details renders.
+    # r100 gives Product Details a parallel unrounded base-engine diagnostic because the historical
+    # public parity seam rounds monetary product arrays to 0.01 $000s before the browser sees them.
+    # Prefer that exact diagnostic here; fall back to the legacy public array for older results.
     public_products = results.get("products") or []
     for p in public_products:
         name = str(p.get("name") or "Product")
+        detail = p.get("detailExact") or {}
         for key, label in (("fees", "Fee revenue"), ("passCost", "Fee Product cost"), ("opex", "Product operating expense")):
-            arr = p.get(key)
+            arr = detail.get(key) if isinstance(detail.get(key), list) else p.get(key)
             if isinstance(arr, list) and len(arr) == n:
-                rows.append((name, label, key, "$000s / engine period · Product Details/public run", list(arr), _MONEY_FMT))
+                exact_detail = isinstance(detail.get(key), list)
+                rows.append((name, label, key,
+                             "$000s / engine period · Product Details" + (" · unrounded" if exact_detail else " · legacy public"),
+                             list(arr), _RAW_MONEY_FMT if exact_detail else _MONEY_FMT))
 
-    # Preserve the audit workbook's full-precision purpose separately.  These rows come from
-    # the deterministic raw engine and are explicitly labeled as exact so they cannot be
-    # mistaken for the Product Details numbers above.
+    # Preserve a separately labeled deterministic exact-engine row as a second audit trail. For
+    # current r100 snapshots it should reconcile to the Product Details diagnostic above; it remains
+    # useful for older snapshots that do not carry detailExact.
     if exact is not None:
         for p in (exact.get("products") or []):
             name = str(p.get("name") or "Product")

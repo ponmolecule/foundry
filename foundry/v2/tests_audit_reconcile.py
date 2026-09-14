@@ -1,7 +1,9 @@
-"""r95 audit/Product Details reconciliation and preview-lifecycle regression tests.
+"""Audit/Product Details reconciliation and preview-lifecycle regression tests.
 
-The Calculation Audit workbook must audit the same public snapshot shown by Product Details,
-while retaining separately-labelled unrounded engine rows for source-model reconciliation.
+Product Details now owns a dedicated unrounded diagnostic series so presentation precision can
+be increased without being capped by the historical 0.01-$000s parity seam. The Calculation
+Audit workbook must reconcile to that same diagnostic series while retaining separately-labelled
+raw-engine rows as a second audit trail.
 """
 import copy
 import io
@@ -49,6 +51,39 @@ def cfg_with_rounding_visible():
     return c
 
 
+
+
+def cfg_with_subcent_costs():
+    """Three stream costs whose exact product total is 0.038779351215693 $000s.
+
+    The frozen public parity conversion rounds that product total to 0.04 $000s. Product Details
+    must retain the exact diagnostic alongside the legacy public value so a precision toggle can
+    expose the difference instead of formatting 0.04 as 0.040.
+    """
+    c = json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
+    a = c["assumptions"]
+    a["obs_exposures"] = [p for p in (a.get("obs_exposures") or []) if not p.get("_fee_product")]
+    costs_000s = [0.019282552032793, 0.019282552032793, 0.000214247150107]
+    streams = []
+    for i, cost_k in enumerate(costs_000s, 1):
+        streams.append({
+            "name": f"Cost stream {i}",
+            "basis": "transaction",
+            "quantity_series_id": f"fee-qty-subcent-{i}",
+            "driver": {"source": "constant", "trajectory": "flat", "params": {"base": 1_000_000.0}},
+            "rate": {"behavior": "flat", "params": {"per_unit": 0.0}},
+            # cost_k is $000s; convert to dollars and solve factor against $1,000,000 throughput.
+            "cost": {"kind": "pct_of_throughput_opex", "params": {"pct": (cost_k * 1000.0) / 1_000_000.0}},
+            "timing": {"start_period": 1},
+        })
+    a["obs_exposures"].append({
+        "name": "Subcent Cost Reconcile",
+        "call_report_line": "obs",
+        "_fee_product": True,
+        "fee_streams": streams,
+    })
+    return c
+
 def main():
     print("AUDIT / PRODUCT DETAILS RECONCILIATION\n")
     cfg = cfg_with_rounding_visible()
@@ -61,17 +96,20 @@ def main():
 
     rows = _fee_cost_rows(cfg, public, n, ppy, exact=exact)
     by_label = {(r[0], r[1]): r for r in rows}
+    detail = product.get("detailExact") or {}
     for key, label in (("fees", "Fee revenue"), ("passCost", "Fee Product cost"), ("opex", "Product operating expense")):
         row = by_label.get(("Audit Reconcile", label))
-        ck(f"headline {label} row equals Product Details public series exactly",
-           row is not None and list(row[4]) == list(product[key]))
+        want = detail.get(key) if isinstance(detail.get(key), list) else product[key]
+        ck(f"headline {label} row equals Product Details diagnostic series exactly",
+           row is not None and list(row[4]) == list(want))
 
     exact_fee = by_label.get(("Audit Reconcile", "Fee revenue · exact engine"))
-    ck("exact fee row remains separately available at unrounded precision",
+    ck("exact fee row remains separately available and ties to Product Details diagnostic",
        exact_fee is not None
        and abs(exact_fee[4][0] - exact["products"][-1]["fees"][0] / 1000.0) < 1e-12
-       and abs(exact_fee[4][0] - product["fees"][0]) > 1e-6,
-       f"public={product['fees'][0]} exact={exact_fee[4][0] if exact_fee else None}")
+       and abs(exact_fee[4][0] - detail["fees"][0]) < 1e-12
+       and abs(product["fees"][0] - detail["fees"][0]) > 1e-6,
+       f"public={product['fees'][0]} detail={detail.get('fees',[None])[0]} exact={exact_fee[4][0] if exact_fee else None}")
 
     buf = io.BytesIO()
     calculation_audit_workbook(cfg, public).save(buf)
@@ -85,13 +123,31 @@ def main():
         }:
             found[row[1]] = row
     ck("workbook Fee revenue cell reconciles exactly to Product Details",
-       found.get("Fee revenue") is not None and found["Fee revenue"][4] == product["fees"][0])
+       found.get("Fee revenue") is not None and found["Fee revenue"][4] == detail["fees"][0])
     ck("workbook Fee Product cost cell reconciles exactly to Product Details",
-       found.get("Fee Product cost") is not None and found["Fee Product cost"][4] == product["passCost"][0])
+       found.get("Fee Product cost") is not None and found["Fee Product cost"][4] == detail["passCost"][0])
     ck("workbook Product operating expense cell reconciles exactly to Product Details",
-       found.get("Product operating expense") is not None and found["Product operating expense"][4] == product["opex"][0])
+       found.get("Product operating expense") is not None and found["Product operating expense"][4] == detail["opex"][0])
     ck("workbook keeps separately labelled exact-engine rows",
        all(k in found for k in ("Fee revenue · exact engine", "Fee Product cost · exact engine", "Product operating expense · exact engine")))
+
+    # First-principles regression for the user-observed 0.040 discrepancy. The three exact stream
+    # costs total 0.038779351215693 $000s; the legacy public parity series rounds that to 0.04.
+    # Product Details must receive both, and its diagnostic must equal the exact stream sum.
+    sub_cfg = cfg_with_subcent_costs()
+    sub_public = run_v2(copy.deepcopy(sub_cfg))
+    sub_exact = run_pf_a(copy.deepcopy(sub_cfg))
+    sub_prod = next(p for p in sub_public["products"] if p.get("name") == "Subcent Cost Reconcile")
+    sub_detail = (sub_prod.get("detailExact") or {}).get("passCost") or []
+    sub_econ = sub_exact.get("fee_stream_economics") or {}
+    stream_sum_k = sum((sub_econ[f"fee-qty-subcent-{i}"]["fee_product_cost"][0] / 1000.0) for i in (1,2,3))
+    expected_sum = 0.038779351215693
+    ck("legacy parity seam explains 0.040 while Product Details retains 0.038779351215693",
+       sub_prod["passCost"][0] == 0.04
+       and len(sub_detail) > 0
+       and abs(sub_detail[0] - expected_sum) < 1e-15
+       and abs(stream_sum_k - expected_sum) < 1e-15,
+       f"public={sub_prod['passCost'][0]} detail={sub_detail[0] if sub_detail else None} streams={stream_sum_k}")
 
     html = open("web/console_v2.html", encoding="utf-8").read()
     ck("audit export freezes a config snapshot and pins expected hashes",

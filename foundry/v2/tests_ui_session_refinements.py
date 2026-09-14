@@ -62,32 +62,52 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("superfluous HTM-designation counter is removed",
        "HTM designated" not in html and "Books included" not in html)
 
-    # Product Details is a troubleshooting surface: small $000s values must not round to zero.
+    # Product Details is both presentation-facing and a reconciliation surface. Presentation
+    # stays at 3 decimals; the explicit toggle exposes the SAME value at up to 15 significant digits.
     a=html.index("function fmtProductK(")
     b=html.index("function cellNum(", a)
-    fmt_js=html[a:b] + '''
-console.log(JSON.stringify([
-  fmtProductK(0.385651040655852),
-  fmtProductK(2.02032978720981),
-  fmtProductK(0.019282552032793),
-  fmtProductK(0.101016489360491),
-  fmtProductK(257.100693770568),
-  fmtProductK(1346.88652480654),
-  fmtProductK(0)
-]));
+    fmt_fn=html[a:b]
+    fmt_js='let productDetailHighPrecision=false;\n' + fmt_fn + '''
+const vals=[
+  0.385651040655852,
+  2.02032978720981,
+  0.019282552032793,
+  0.101016489360491,
+  257.100693770568,
+  1346.88652480654,
+  0
+];
+const presentation=vals.map(fmtProductK);
+productDetailHighPrecision=true;
+const high=vals.map(fmtProductK);
+const auditSum=0.019282552032793+0.019282552032793+0.000214247150107;
+console.log(JSON.stringify({presentation,high,auditSum,auditSumShown:fmtProductK(auditSum)}));
 '''
     rr=subprocess.run(["node","-e",fmt_js],text=True,capture_output=True)
-    vals=[]
+    vals={}
     if rr.returncode==0 and rr.stdout.strip():
         try: vals=json.loads(rr.stdout.strip().splitlines()[-1])
         except Exception: pass
-    ck("Product Details uses fixed three-decimal $000s precision",
-       rr.returncode==0 and vals==["0.386","2.020","0.019","0.101","257.101","1,346.887","0.000"], rr.stderr.strip())
-    ck("per-product detail table uses diagnostic precision rather than whole-$000s formatter",
-       "rowBSProduct('Fee income', p.fees)" in html
-       and "rowBSProduct('Operating costs', p.opex)" in html
-       and "rowBSProduct('Fee Product cost (\\u2192 overhead)', p.passCost)" in html
-       and "Math.abs(+x)>1e-6" in html)
+    ck("Product Details presentation mode uses fixed three-decimal $000s precision",
+       rr.returncode==0 and vals.get("presentation")==["0.386","2.020","0.019","0.101","257.101","1,346.887","0.000"], rr.stderr.strip())
+    ck("Product Details high-precision mode exposes underlying values without display rounding",
+       rr.returncode==0
+       and vals.get("high")==["0.385651040655852","2.02032978720981","0.019282552032793","0.101016489360491","257.100693770568","1,346.88652480654","0"]
+       and abs(vals.get("auditSum",0)-0.038779351215693)<1e-15
+       and vals.get("auditSumShown")=="0.038779351215693", rr.stderr.strip())
+    ck("Product Details exposes an explicit presentation/high-precision reconciliation toggle",
+       "function setProductDetailPrecision(v)" in html
+       and "productDetailHighPrecision = !!v" in html
+       and 'data-product-detail-precision="1"' in html
+       and "High precision <span" in html
+       and "productDetailPrecisionToggleHtml()" in html)
+    ck("per-product detail table uses the unrounded diagnostic series and precision-aware formatter",
+       "function productDetailSeries(p, key)" in html
+       and "p.detailExact && p.detailExact[key]" in html
+       and "rowBSProduct('Fee income', productDetailSeries(p, 'fees'))" in html
+       and "rowBSProduct('Operating costs', productDetailSeries(p, 'opex'))" in html
+       and "const _pc=productDetailSeries(p, 'passCost')" in html
+       and "Math.abs(+x)>1e-9" in html)
 
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1

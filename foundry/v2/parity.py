@@ -92,11 +92,21 @@ def _conv(tree, is_ratio=False, raw=False):
     return tree
 
 
-def run_parity(cfg):
+def run_parity(cfg, *, include_exact=False):
+    """Run the selected engine through the frozen public parity conversion.
+
+    ``include_exact`` is diagnostic-only: callers that need to render or audit numbers below
+    the historical 0.01-$000s parity seam can receive the same raw engine result alongside
+    the converted public result without running the engine twice. Existing callers retain the
+    historical return shape and rounding contract.
+    """
     validate_config_v2(cfg)   # fail closed before any arithmetic (A.13)
     profile = cfg.get("parity_profile")
     if profile == "pf_a":
-        return _conv(run_pf_a(cfg))
-    if profile == "pf_b":
-        return _conv(run_pf_b(cfg))
-    raise ValueError(f"unknown parity_profile {profile!r}")
+        exact = run_pf_a(cfg)
+    elif profile == "pf_b":
+        exact = run_pf_b(cfg)
+    else:
+        raise ValueError(f"unknown parity_profile {profile!r}")
+    public = _conv(exact)
+    return (public, exact) if include_exact else public
