@@ -62,6 +62,33 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("superfluous HTM-designation counter is removed",
        "HTM designated" not in html and "Books included" not in html)
 
+    # Product Details is a troubleshooting surface: small $000s values must not round to zero.
+    a=html.index("function fmtProductK(")
+    b=html.index("function cellNum(", a)
+    fmt_js=html[a:b] + '''
+console.log(JSON.stringify([
+  fmtProductK(0.385651040655852),
+  fmtProductK(2.02032978720981),
+  fmtProductK(0.019282552032793),
+  fmtProductK(0.101016489360491),
+  fmtProductK(257.100693770568),
+  fmtProductK(1346.88652480654),
+  fmtProductK(0)
+]));
+'''
+    rr=subprocess.run(["node","-e",fmt_js],text=True,capture_output=True)
+    vals=[]
+    if rr.returncode==0 and rr.stdout.strip():
+        try: vals=json.loads(rr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Product Details adaptive $000s precision keeps Stablecoin revenue/cost visible",
+       rr.returncode==0 and vals==["0.386","2.020","0.019","0.101","257.1","1,347","0"], rr.stderr.strip())
+    ck("per-product detail table uses diagnostic precision rather than whole-$000s formatter",
+       "rowBSProduct('Fee income', p.fees)" in html
+       and "rowBSProduct('Operating costs', p.opex)" in html
+       and "rowBSProduct('Fee Product cost (\\u2192 overhead)', p.passCost)" in html
+       and "Math.abs(+x)>1e-6" in html)
+
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
 

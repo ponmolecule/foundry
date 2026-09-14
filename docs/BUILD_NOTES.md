@@ -11,6 +11,13 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r98 — Product Details diagnostic precision
+- Product Details remains in `$000s` but now uses magnitude-aware display precision so small engine-computed values are not rounded out of existence while troubleshooting. Values below 10 `$000s` show three decimals, below 100 show two, below 1,000 show one, and larger values remain whole `$000s`.
+- The Stablecoin regression that exposed the defect now renders approximately `0.386` and `2.020` of fee income and `0.019` and `0.101` of Fee Product cost instead of `0`, `2`, `0`, `0`. Underlying engine arrays, accounting, audit exports, and model economics are unchanged.
+- Per-product detail rows use the diagnostic formatter only; statement/reporting tables retain their existing presentation conventions. The Fee Product cost row is also labeled generically as `Fee Product cost (→ overhead)` rather than the narrower `Pass-through cost`, which is not correct for every direct-cost basis.
+- Product Details now surfaces a nonzero Fee Product cost row down to a de minimis floating-point threshold rather than requiring a value above 0.5 `$000s` merely to appear.
+- Regression coverage executes the shipped formatter in Node against the observed Stablecoin values and asserts the Product Details table uses the diagnostic formatter and the neutral Fee Product cost label.
+
 ## r97 — Transaction operating cost as % of throughput
 - Adds a first-class Transaction Fee Product cost mode, `pct_of_throughput_opex`, for source-model economics quoted as a percentage of transaction volume/throughput rather than as a percentage of gross fee revenue.
 - The calculation is `Transaction throughput × direct cost rate × cost multiplier = Fee Product cost`. Gross fee income remains intact and the cost routes to Noninterest Expense: Fee Product Costs.

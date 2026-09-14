@@ -1731,7 +1731,20 @@ function prov(value, source){
 }
 function fmt0(x){ if(x==null) return "\u2014"; const n=Math.round(+x); const s=Math.abs(n).toLocaleString("en-US");
   return n<0?"("+s+")":s; }
+// Product Details is a troubleshooting surface, so do not round small $000s values out of
+// existence. Keep the unit stable while increasing visible precision as magnitude falls:
+// <10 -> 3 decimals (nearest $1), <100 -> 2, <1,000 -> 1, otherwise whole $000s.
+function fmtProductK(x){
+  if(x==null) return "\u2014";
+  const n=+x; if(!Number.isFinite(n)) return "\u2014";
+  const a=Math.abs(n);
+  if(a===0) return "0";
+  const d=a<10?3:(a<100?2:(a<1000?1:0));
+  const s=a.toLocaleString("en-US",{minimumFractionDigits:d,maximumFractionDigits:d});
+  return n<0?"("+s+")":s;
+}
 function cellNum(x, title){ const n=+x; const t = title || "Engine-computed output for this reported period ($000s). Per-line formula not yet itemized \u2014 see the full Methodology note on the Assumption Book tab."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmt0(x)}</td>`; }
+function cellNumProduct(x, title){ const n=+x; const t = title || "Engine-computed Product Details output for this reported period ($000s). Small values retain extra decimals so troubleshooting values do not disappear through presentation rounding."; return `<td class="${n<0?"neg":""}" data-prov title="${String(t).replace(/"/g,"&quot;")}">${fmtProductK(x)}</td>`; }
 function methodFoot(){ return `<div class="memo" style="margin-top:16px;max-width:820px">Every figure here is engine-computed — balances roll forward with originations, runoff, and charge-offs; interest accrues on average balances at the annual rate divided by ${PPY()} (${PPY()===12?'monthly':'quarterly'} cadence). The full derivation is in the <a href="#" onclick="setTab('notes');return false;" style="color:#7FB2E8">Methodology note on the Assumption Book tab</a>.</div>`; }
 const CALC_TEXT = {
   cash: "Cash held at the treasury floor: the cash-floor % of contractual deposit balances each {{period}}.",
@@ -3640,6 +3653,12 @@ function rowBS(label, arr, cls, refKey){
   if(!arr) return "";
   let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${calcText(refKey)?` data-prov title="${calcText(refKey).replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
   arr.forEach((v,i)=>{ h += v==null ? "<td></td>" : cellNum(v, noteFor(refKey, i, v)); });
+  return h + "</tr>";
+}
+function rowBSProduct(label, arr, cls, refKey){
+  if(!arr) return "";
+  let h = `<tr${cls?` class="${cls}"`:""}>` + refCell(refKey) + `<td${calcText(refKey)?` data-prov title="${calcText(refKey).replace(/"/g,"&quot;")}"`:""}>${label}</td>`;
+  arr.forEach((v,i)=>{ h += v==null ? "<td></td>" : cellNumProduct(v, noteFor(refKey, i, v)); });
   return h + "</tr>";
 }
 function rowIS(label, arr, cls, tot, refKey){
@@ -6135,33 +6154,33 @@ function renderContent(){
       for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
       h += '</tr>';
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
-      h += rowBS(`End-of-${PLAB('full')} balance`, arr12(p.bal, false));
+      h += rowBSProduct(`End-of-${PLAB('full')} balance`, arr12(p.bal, false));
       if(p.family==="lending"){
-        if(some(p.origq)) h += rowBS('New originations', p.origq);
+        if(some(p.origq)) h += rowBSProduct('New originations', p.origq);
         if(p.sale_pct > 0){
-          h += rowBS('Originations sold', p.soldOrig);
-          h += rowBS('Warehouse balance (HFS)', p.whCarry);
-          h += rowBS('Gains on sale (incl. MSR cap.)', p.gos);
+          h += rowBSProduct('Originations sold', p.soldOrig);
+          h += rowBSProduct('Warehouse balance (HFS)', p.whCarry);
+          h += rowBSProduct('Gains on sale (incl. MSR cap.)', p.gos);
         }
         if(p.serv_retained > 0){
-          h += rowBS('Serviced UPB (end)', p.servUPB);
-          h += rowBS('MSR capitalized', p.msrCap);
-          h += rowBS('MSR amortization', p.msrAmort);
-          h += rowBS('MSR balance (end)', p.msrBal);
-          h += rowBS('Net servicing income', p.servNet);
+          h += rowBSProduct('Serviced UPB (end)', p.servUPB);
+          h += rowBSProduct('MSR capitalized', p.msrCap);
+          h += rowBSProduct('MSR amortization', p.msrAmort);
+          h += rowBSProduct('MSR balance (end)', p.msrBal);
+          h += rowBSProduct('Net servicing income', p.servNet);
         }
-        h += rowBS('Interest income', p.intInc);
-        h += rowBS('Net charge-offs', p.co);
-        if(!p.is_fv && p.alll) h += rowBS('ALLL', p.alll);
+        h += rowBSProduct('Interest income', p.intInc);
+        h += rowBSProduct('Net charge-offs', p.co);
+        if(!p.is_fv && p.alll) h += rowBSProduct('ALLL', p.alll);
       }
-      if(p.family==="deposit") h += rowBS('Interest expense', p.intExp);
+      if(p.family==="deposit") h += rowBSProduct('Interest expense', p.intExp);
       if(p.is_fv){
-        h += rowBS('Fair value (DCF)', p.fv);
-        h += rowBS('FV adjustment vs balance', p.fvAdj);
+        h += rowBSProduct('Fair value (DCF)', p.fv);
+        h += rowBSProduct('FV adjustment vs balance', p.fvAdj);
       }
-      h += rowBS('Fee income', p.fees);
-      h += rowBS('Operating costs', p.opex);
-      if(p.passCost && p.passCost.some(x=>x)) h += rowBS('Pass-through cost (\u2192 overhead)', p.passCost);
+      h += rowBSProduct('Fee income', p.fees);
+      h += rowBSProduct('Operating costs', p.opex);
+      if(p.passCost && p.passCost.some(x=>x!=null && Math.abs(+x)>1e-6)) h += rowBSProduct('Fee Product cost (\u2192 overhead)', p.passCost);
       h += '</table>';
     });
     h += methodFoot();
