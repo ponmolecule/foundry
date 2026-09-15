@@ -1,7 +1,9 @@
 import copy, json, sys
 from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
-                                          normalize_linked_component, linked_component_amount, apply_piecewise_schedule,
-                                          fee_stream_balance_quantity_catalog, recognition_spec_for_category)
+                                          normalize_linked_component, resolve_linked_components,
+                                          linked_component_amount, apply_piecewise_schedule,
+                                          fee_stream_balance_quantity_catalog, workforce_count_catalog,
+                                          recognition_spec_for_category)
 from foundry.v2.income_modules import nie_category_series, fee_stream_q
 from foundry.v2.growth import GrowthContext
 from foundry.v2.engine_q_a import run_pf_a
@@ -139,6 +141,103 @@ def main():
     tiny['rates']=[0.000001]
     ck('linked Opex multiplier retains 0.0001 percent as a nonzero 1e-6 decimal rate',
        abs(linked_component_amount(tiny,0,{'fee_stream_quantities':{'fee-qty-settlement':1_000_000}})-1.0)<1e-12)
+
+    # Workforce Count is a first-class level driver for per-FTE Operating Expense.
+    # The coefficient is a natural-period dollar amount, not a fake percentage.
+    wc=base_cfg(12); wa=wc['assumptions']; wa['n_periods']=12; wa['capital_raises']=[]
+    wa['nie_detail']['workforce']={
+        'mode':'roles','total_count_series_id':'wf-total','default_payroll_load_rate':0,
+        'roles':[
+            {'series_id':'wf-ops','role':'Operations','count':10,'annual_comp':0,'hire_period':1},
+            {'series_id':'wf-risk','role':'Risk','count':5,'annual_comp':0,'hire_period':2},
+        ]}
+    wa['nie_detail']['categories']=[{
+        'series_id':'opex-per-fte','owner_module':'operating_expense','name':'Per-FTE tools',
+        'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+        'linked_components':[{
+            'driver':'workforce_count','series_id':'wf-total',
+            'amount_spec':{'trajectory':'flat','value':12_000.0,'period':'year'}
+        }]
+    }]
+    wr=run_pf_a(wc)
+    ck('total Workforce Count × annual amount/FTE periodizes once into monthly Opex',
+       abs(wr['is']['otherOpex'][0]-10_000.0)<1e-6
+       and abs(wr['is']['otherOpex'][1]-15_000.0)<1e-6,
+       (wr['is']['otherOpex'][:2], (wr.get('workforce') or {}).get('total_counts',[])[:2]))
+    ck('Workforce total count is a stable observable Series alongside role populations',
+       [x['series_id'] for x in workforce_count_catalog(wa)]==['wf-total','wf-ops','wf-risk']
+       and (wr.get('workforce') or {}).get('total_count_series_id')=='wf-total'
+       and (wr.get('workforce') or {}).get('total_counts',[])[:2]==[10.0,15.0])
+
+    role_amount=resolve_linked_components({
+        'linked_components':[{'driver':'workforce_count','series_id':'wf-ops',
+                              'amount_spec':{'trajectory':'flat','value':1_000.0,'period':'month'}}]
+    },12,12,assumptions=wa)[0]
+    annual_amount=resolve_linked_components({
+        'linked_components':[{'driver':'workforce_count','series_id':'wf-ops',
+                              'amount_spec':{'trajectory':'flat','value':12_000.0,'period':'year'}}]
+    },12,12,assumptions=wa)[0]
+    ck('equivalent $/FTE month and year authoring produces the same native-period amount',
+       role_amount['amount_per_fte']==annual_amount['amount_per_fte']==[1_000.0]*12)
+    ck('role Workforce Count can be consumed directly by stable Series ID',
+       abs(linked_component_amount(role_amount,0,{'workforce_count':{'wf-ops':10.0}})-10_000.0)<1e-9)
+    try:
+        validate_config_v2(wc); workforce_link_valid=True
+    except ConfigErrorV2 as e:
+        print('workforce-count Opex validation error',e); workforce_link_valid=False
+    ck('validation accepts a stable Workforce Count Opex link', workforce_link_valid)
+    bad_wc=copy.deepcopy(wc)
+    bad_wc['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['series_id']='missing-workforce-count'
+    bad=False
+    try: validate_config_v2(bad_wc)
+    except ConfigErrorV2 as e: bad=('does not exist' in str(e))
+    ck('workforce-count Opex fails closed on a missing stable Series reference', bad)
+
+    # The quarterly Profile B engine consumes the same stable Workforce Count Series and
+    # the same natural-period amount/FTE contract. $12k/FTE/year = $3k/FTE/quarter.
+    wcb=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json')); wba=wcb['assumptions']
+    wba['capital_raises']=[]; wba['premises_equipment']=0; wba['premises_depreciation_annual']=0
+    wba['nie_detail']={
+        'categories':[{
+            'series_id':'opex-per-fte-b','owner_module':'operating_expense','name':'Per-FTE tools',
+            'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+            'linked_components':[{'driver':'workforce_count','series_id':'wf-total-b',
+                                  'amount_spec':{'trajectory':'flat','value':12_000.0,'period':'year'}}]}],
+        'other_gross_up_rate':0,'fdic_bp_ann':0,'occ_bp_ann':0,
+        'workforce':{'mode':'roles','total_count_series_id':'wf-total-b','default_payroll_load_rate':0,
+                     'roles':[
+                         {'series_id':'wf-ops-b','role':'Operations','count':10,'annual_comp':0,'hire_period':1},
+                         {'series_id':'wf-risk-b','role':'Risk','count':5,'annual_comp':0,'hire_period':2}]}}
+    wbr=run_pf_b(wcb)
+    ck('Profile B total Workforce Count × amount/FTE uses the same cadence-safe Opex contract',
+       abs(wbr['is']['otherOpex'][0]-30_000.0)<1e-6
+       and abs(wbr['is']['otherOpex'][1]-45_000.0)<1e-6
+       and (wbr.get('workforce') or {}).get('total_counts',[])[:2]==[10.0,15.0],
+       (wbr['is']['otherOpex'][:2], (wbr.get('workforce') or {}).get('total_counts',[])[:2]))
+
+    # Calculation Audit must expose the headcount operand and amount/FTE rather than
+    # forcing reconciliation through an Other Opex residual.
+    wc_public=run_v2(wc)
+    wc_audit=calculation_audit_workbook(wc,wc_public)
+    wrows=[r for r in wc_audit['Opex Component Detail'].iter_rows(values_only=True)
+           if len(r)>24 and r[3]=='workforce_count' and r[11]=='wf-total']
+    ck('Opex Component Detail exposes Workforce Count, amount/FTE, and calculated expense',
+       len(wrows)>=2
+       and wrows[0][12]=='FTE / headcount'
+       and abs(float(wrows[0][21])-1_000.0)<1e-9
+       and abs(float(wrows[0][23])-10.0)<1e-9
+       and abs(float(wrows[0][24])-10_000.0)<1e-9
+       and abs(float(wrows[1][23])-15.0)<1e-9
+       and abs(float(wrows[1][24])-15_000.0)<1e-9, str(wrows[:2]))
+    ow=wc_audit['Operating Expense']
+    addrow=None
+    for rr in range(1,ow.max_row+1):
+        if ow.cell(rr,3).value=='wf-total':
+            addrow=rr; break
+    ck('Operating Expense audit reconciles the headcount-linked component at native cadence',
+       addrow is not None
+       and abs(float(ow.cell(addrow,5).value)-10.0)<1e-9
+       and abs(float(ow.cell(addrow,6).value)-15.0)<1e-9)
 
     vc=copy.deepcopy(c); vc['assumptions']['n_periods']=36
     try:

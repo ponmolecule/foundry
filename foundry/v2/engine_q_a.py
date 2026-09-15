@@ -1108,9 +1108,18 @@ def run_pf_a(cfg):
 
             _role_comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
                             if _wf_runtime is not None else _nie_d["comp"][q - 1])
+            _wf_count_map_q = {}
             if _wf_runtime is not None:
-                for _wi, _cv in enumerate(_wf_runtime.count_for_period(q)):
+                _wf_counts_q = _wf_runtime.count_for_period(q)
+                for _wi, _cv in enumerate(_wf_counts_q):
                     _wf_count_native[_wi].append(_cv)
+                    if _wi < len(_wf_runtime.rows):
+                        _sid = str((_wf_runtime.rows[_wi].get("raw") or {}).get("series_id") or "").strip()
+                        if _sid:
+                            _wf_count_map_q[_sid] = float(_cv or 0.0)
+                _total_sid = str(_wf_cfg.get("total_count_series_id") or "").strip()
+                if _total_sid:
+                    _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
             _linked_opex = sum(linked_component_amount(
                 _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
                              "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
@@ -1121,6 +1130,7 @@ def run_pf_a(cfg):
                              "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
                              "bank_total_assets_end_by_period": bs["totalAssets"],
                              "cost_pool": _cost_pool_ctx(q),
+                             "workforce_count": _wf_count_map_q,
                              "periods_per_year": ppy})
                 for _lc in (_nie_d.get("linked_components") or []))
             _comp_q = _role_comp_q
@@ -1402,6 +1412,10 @@ def run_pf_a(cfg):
             "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
             "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
             "counts": list(_wf_count_native or []),
+            "total_count_series_id": str(_wf_cfg.get("total_count_series_id") or ""),
+            "total_counts": [sum(float((row[i] if i < len(row) else 0.0) or 0.0)
+                                 for row in (_wf_count_native or []))
+                             for i in range(Q)],
             "comp": list(_wf_comp_native),
             "role_comp": list(_wf_role_comp_native),
             "additive_comp": list(_wf_additive_comp_native),

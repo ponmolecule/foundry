@@ -12,6 +12,14 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 
 
+## r102 — Workforce Count-linked Operating Expense + useful workforce run summary
+- Adds a first-class Operating Expense linked-component contract for `Workforce Count × amount per FTE`. The driver is selected by a stable Workforce Series ID: either a role/population `series_id` or the Workforce-owned aggregate `total_count_series_id`. Display names are labels only.
+- The coefficient is a typed natural-period dollar amount per FTE, not a dimensionless percentage. Flat / Growth / Explicit paths support Month / Quarter / Year amount units; `$12,000/FTE/year`, `$3,000/FTE/quarter`, and `$1,000/FTE/month` resolve equivalently and are periodized exactly once before multiplying active headcount.
+- Both Profile A and Profile B consume the same resolved Workforce Count Series. The aggregate count is derived from the active role populations used by the workforce runtime and is surfaced in run output for auditability. Missing stable Series references fail closed.
+- Calculation Audit now carries Workforce Count into Operating Expense reconciliation. `Opex Component Detail` exposes the active FTE/headcount operand, resolved amount/FTE factor, and calculated raw-dollar expense, so a headcount-linked cost does not disappear into an Other Opex residual.
+- Replaces the sparse `Workforce activation tracking` table with a compact `Workforce run summary`: role/population, resolved headcount path, compensation/FTE path, resolved active window plus authored start rule, and payroll load. A Total workforce row shows the aggregate headcount Series available to Opex.
+- No engagement-specific staffing or expense labels are embedded in the engine. Workforce remains the single owner of Count trajectories; Operating Expense is a read-only downstream consumer.
+
 ## r100 — Product Details precision toggle + unrounded diagnostic path
 - Adds a Product Details `High precision (reconciliation view)` toggle. Presentation mode remains fixed at three decimals in `$000s`; High precision exposes up to 15 significant digits. The toggle is display state only and does not change model assumptions, accounting, statements, or parity outputs.
 - Corrects a deeper r98/r99 limitation: Product Details had been formatting the historical public parity product arrays, which are rounded to `0.01 $000s` before reaching the browser. A value such as `0.038779351215693 $000s` therefore arrived as `0.04`, so showing three decimals could only produce `0.040`.

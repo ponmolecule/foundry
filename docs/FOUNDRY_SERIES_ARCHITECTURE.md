@@ -84,6 +84,7 @@ Examples:
 - CAC FTE Count may link to a Workforce population's Count series.
 - Fee Product managed notional may consume the Customer Acquisition AUC output.
 - Account Fee streams may consume the Customer Acquisition customer-count output.
+- Operating Expense may consume a Workforce role Count Series or the Workforce-owned aggregate Count Series and multiply it by an amount per FTE with an explicit natural period.
 
 The owning module remains the single source of truth for trajectory. If CAC links to `Operating
 Expense / Business Development`, CAC does not create a second growth assumption for that spend.
@@ -110,8 +111,9 @@ the resolved native-period count and annual compensation/FTE trajectories:
 
 `Workforce expense = Count × annual compensation/FTE × (1 + Benefits / Payroll) / ppy`
 
-Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is
-authored, preserving historical configurations exactly.
+Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is authored, preserving historical configurations exactly.
+
+Workforce also publishes an aggregate active-headcount Series with its own persisted `total_count_series_id`. The aggregate is derived from the resolved role Count Series each model period; it is not a second staffing input. Operating Expense may observe either that aggregate Series or an individual role Count Series and apply a typed `$ / FTE / Month|Quarter|Year` coefficient. Amount cadence is an economic unit: equivalent annual, quarterly, and monthly per-FTE amounts resolve to the same native-period expense.
 
 Use one row while timing, compensation, escalation, benefits/load and activation economics are the
 same. Split rows when aggregation changes the economics.

@@ -22,9 +22,12 @@ must resolve to equivalent economics independent of engine cadence.
 
 ## Optional linked components
 
-A category may add one or more linked components under **Advanced**. A linked component is:
+A category may add one or more linked components under **Advanced**. Linked components are typed by the units of the upstream Series and the coefficient they consume. Two core contracts are:
 
-`typed upstream Series × entered dimensionless rate Series`
+- `monetary / flow upstream Series × entered dimensionless rate Series`
+- `Workforce Count Series × entered amount per FTE per natural period`
+
+The second contract is intentionally **not** represented as a percentage. An expense quoted as `$X per employee per month/quarter/year` keeps that unit explicitly and is periodized once before multiplying resolved active headcount.
 
 The safe upstream registry remains deliberately narrow:
 
@@ -33,14 +36,13 @@ The safe upstream registry remains deliberately narrow:
 - net servicing fees
 - total noninterest income
 - transaction Fee Stream quantity / throughput, referenced by stable `quantity_series_id`
+- Workforce Count, referenced by a persisted role `series_id` or Workforce-owned aggregate `total_count_series_id`
 
-Transaction Fee Stream quantity is the same native-period flow resolved by the Fee Product engine
-before pricing is applied. Operating Expense observes that Series read-only; it does not recompute,
-own, or alter the fee driver. Balance/account stream quantities are intentionally not exposed under
-this contract because their dimensional semantics differ. These drivers are upstream of Operating
-Expense and avoid an endogenous Opex circularity. The linked rate is stored separately from the
-driver and is auditable. The architecture does not accept arbitrary formulas or workbook cell
-references.
+Transaction Fee Stream quantity is the same native-period flow resolved by the Fee Product engine before pricing is applied. Workforce Count is the resolved active headcount owned by Workforce Compensation. Operating Expense observes those Series read-only; it does not recompute, own, or alter their trajectories. Balance/account stream quantities are intentionally not exposed under the ordinary flow-rate contract because their dimensional semantics differ. These drivers are upstream of Operating Expense and avoid an endogenous Opex circularity.
+
+For Workforce Count, the coefficient is a periodic-flow amount per FTE with Flat / Growth / Explicit motion and Month / Quarter / Year amount units. Thus `$12,000/FTE/year`, `$3,000/FTE/quarter`, and `$1,000/FTE/month` are economically equivalent in a monthly or quarterly engine. The aggregate Workforce Count Series is computed from the same role-level active counts used by payroll; it is not a separately authored staffing forecast.
+
+The architecture does not accept arbitrary formulas or workbook cell references.
 
 A common generic shape is therefore:
 

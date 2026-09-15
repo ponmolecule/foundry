@@ -458,12 +458,39 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
         fee_income = [float(x or 0.0) for x in (is_.get("fees") or [0.0] * n)]
         gain_on_sale = [float(x or 0.0) for x in (is_.get("gos") or [0.0] * n)]
         servicing_net = [float(x or 0.0) for x in (is_.get("servNet") or [0.0] * n)]
+        wfout = exact.get("workforce") or {}
     else:
         ta = [float(x or 0.0) * 1000.0 for x in (((results.get("financials") or {}).get("bs") or {}).get("totalAssets") or [])]
         is_ = ((results.get("financials") or {}).get("is") or {})
         fee_income = [float(x or 0.0) * 1000.0 for x in (is_.get("fees") or [0.0] * n)]
         gain_on_sale = [float(x or 0.0) * 1000.0 for x in (is_.get("gos") or [0.0] * n)]
         servicing_net = [float(x or 0.0) * 1000.0 for x in (is_.get("servNet") or [0.0] * n)]
+        wfout = results.get("workforce") or {}
+
+    # Workforce Count is a level Series, so unlike money it is never rescaled between
+    # exact and public audit contexts.  Re-key the row arrays by their persisted stable
+    # Series IDs and expose the aggregate count Series when the engine returned it.
+    workforce_count_history = {}
+    wfcfg = (((a.get("nie_detail") or {}).get("workforce")) or {})
+    role_ids = list(wfout.get("series_ids") or [])
+    role_counts = list(wfout.get("counts") or [])
+    if not role_ids:
+        role_ids = [str((r or {}).get("series_id") or "") for r in (wfcfg.get("roles") or [])]
+    for wi, sid in enumerate(role_ids):
+        sid = str(sid or "").strip()
+        if sid and wi < len(role_counts):
+            workforce_count_history[sid] = [float(x or 0.0) for x in list(role_counts[wi] or [])[:n]]
+    total_sid = str(wfout.get("total_count_series_id") or wfcfg.get("total_count_series_id") or "").strip()
+    total_counts = list(wfout.get("total_counts") or [])
+    if total_sid:
+        if total_counts:
+            workforce_count_history[total_sid] = [float(x or 0.0) for x in total_counts[:n]]
+        elif workforce_count_history:
+            workforce_count_history[total_sid] = [
+                sum(float(arr[i] if i < len(arr) else 0.0) for arr in workforce_count_history.values())
+                for i in range(n)
+            ]
+
     return {
         "growth_context": gctx,
         "cac_monthly": cac_monthly,
@@ -475,6 +502,7 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
         "fee_income": fee_income,
         "gain_on_sale": gain_on_sale,
         "servicing_net": servicing_net,
+        "workforce_count_history": workforce_count_history,
     }
 
 
@@ -558,6 +586,8 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
                     "bank_total_assets_end_by_period": ctx["total_assets"],
                     "cost_pool": pmap,
+                    "workforce_count": {sid0: (arr[i] if i < len(arr) else 0.0)
+                                         for sid0, arr in ctx["workforce_count_history"].items()},
                     "periods_per_year": ppy,
                 }
                 try:
@@ -588,7 +618,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
         return []
     from .opex_extensions import (resolve_linked_components, resolve_cost_pool_calculation, linked_component_amount,
                                   PIECEWISE_LINKED_DRIVER, COST_POOL_CHARGE_DRIVER, CAC_AUC_DRIVER,
-                                  FEE_STREAM_QUANTITY_DRIVER, _piecewise_event_due, _piecewise_term_value,
+                                  FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
     rows = []
@@ -607,6 +637,8 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
             "bank_total_assets_end_by_period": ctx["total_assets"],
             "cost_pool": pmap,
+            "workforce_count": {sid0: (arr[i] if i < len(arr) else 0.0)
+                                 for sid0, arr in ctx["workforce_count_history"].items()},
             "periods_per_year": ppy,
         }
 
@@ -674,7 +706,13 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                 rates = (comp or {}).get("rates") or []
                 if i < len(rates):
                     rate = float(rates[i] or 0.0)
-                if drv == COST_POOL_CHARGE_DRIVER:
+                if drv == WORKFORCE_COUNT_DRIVER:
+                    sid = str((comp or {}).get("series_id") or "")
+                    source_base = float((metrics.get("workforce_count") or {}).get(sid) or 0.0)
+                    amounts = list((comp or {}).get("amount_per_fte") or [])
+                    rate = float(amounts[i] if i < len(amounts) else 0.0)
+                    notes = "Active Workforce Count × amount per FTE / native engine period"
+                elif drv == COST_POOL_CHARGE_DRIVER:
                     ref = str((comp or {}).get("ref") or "")
                     source_base = float((metrics.get("cost_pool") or {}).get(ref) or 0.0)
                     recovery = float((comp or {}).get("recovery_pct") or 0.0)
@@ -691,9 +729,12 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                     notes = "Same-period driver × rate"
                 elif drv == CAC_AUC_DRIVER:
                     notes = f"Canonical monthly {comp.get('measure') or 'period_end'} AUC accrued using {comp.get('rate_period') or 'year'} rate period; see CAC Monthly Canonical"
+                _measure = str((comp or {}).get("measure") or "")
+                if drv == WORKFORCE_COUNT_DRIVER:
+                    _measure = "FTE / headcount"
                 rows.append([cname, nm, cid, drv, i + 1, pend, True, None, None, None, None,
                              str((comp or {}).get("series_id") or (comp or {}).get("ref") or ""),
-                             str((comp or {}).get("measure") or ""), None, None, None, None, None, None, None, None,
+                             _measure, None, None, None, None, None, None, None, None,
                              rate, recovery, source_base, float(amount or 0.0), notes])
     return rows
 
@@ -1328,11 +1369,11 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_long_rows(
         wb.create_sheet("Opex Component Detail"),
         title="Operating Expense Component Detail · Audit",
-        subtitle="Raw-dollar period diagnostics for additive components. Tiered/banded rows expose observation period, every weighted term, composite driver, active literal band, and calculated expense.",
+        subtitle="Raw-dollar period diagnostics for additive components. Headcount links expose active FTE and amount/FTE; tiered/banded rows expose observation period, every weighted term, composite driver, active literal band, and calculated expense.",
         headers=["Category", "Component", "Component ID", "Driver", "Model period", "Period end", "Event due",
                  "Observation period", "Observation date", "Term #", "Term source", "Term Series ID", "Measure", "Weight",
                  "Raw term value ($)", "Weighted term value ($)", "Composite driver ($)", "Band lower ($)", "Band upper ($)",
-                 "Band base fee ($)", "Marginal rate", "Linked rate / markup", "Recovery %", "Source base ($)",
+                 "Band base fee ($)", "Marginal rate", "Linked rate / amount factor", "Recovery %", "Source base (native units)",
                  "Calculated expense ($)", "Notes"],
         rows=_opex_component_detail_rows(cfg, results, n, ppy, exact=exact),
         widths=[26, 30, 28, 24, 12, 13, 11, 16, 15, 9, 28, 32, 18, 11, 20, 22, 22, 18, 18, 20, 18, 18, 14, 20, 22, 54],

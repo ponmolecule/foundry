@@ -4165,7 +4165,7 @@ function _seriesPasteSummary(vals,fmt){
 function _seriesResolutionUseful(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return f<PPY();}
 function _newNieDetail(){
   return {categories:[], other_gross_up_rate:0, fdic_bp_ann:5.0, occ_simplified_enabled:false,
-          workforce:{mode:"roles",roles:[],default_payroll_load_rate:0,
+          workforce:{mode:"roles",roles:[],total_count_series_id:_seriesId("wf-total-count"),default_payroll_load_rate:0,
                      default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}}};
 }
 function _legacyGrowthSpec(spec, legacyRate){
@@ -4254,10 +4254,16 @@ window.nieCatDelete=function(i){
   renderContent();refresh();
 };
 window.nieCatAddLinked=function(i){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.push({driver:"fee_income",rate_spec:{source:"entered",trajectory:"flat",value:0}});window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();};
-window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;const lc=ct.linked_components[j],sv=String(v);if(sv.indexOf("fee_stream_quantity::")===0){lc.driver="fee_stream_quantity";lc.series_id=sv.slice("fee_stream_quantity::".length);delete lc.rate_period;delete lc.measure;}else if(sv.indexOf("customer_acquisition_auc::")===0){lc.driver="customer_acquisition_auc";lc.series_id=sv.slice("customer_acquisition_auc::".length);lc.rate_period=lc.rate_period||"year";lc.measure=lc.measure||"period_end";}else{lc.driver=v;delete lc.series_id;delete lc.rate_period;delete lc.measure;}renderContent();refresh();};
+window.nieCatLinkedDriver=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;const lc=ct.linked_components[j],sv=String(v);if(sv.indexOf("workforce_count::")===0){lc.driver="workforce_count";lc.series_id=sv.slice("workforce_count::".length);lc.amount_spec=lc.amount_spec||{trajectory:"flat",value:0,period:"month"};delete lc.rate_spec;delete lc.rate_period;delete lc.measure;}else if(sv.indexOf("fee_stream_quantity::")===0){lc.driver="fee_stream_quantity";lc.series_id=sv.slice("fee_stream_quantity::".length);lc.rate_spec=lc.rate_spec||{source:"entered",trajectory:"flat",value:0};delete lc.amount_spec;delete lc.rate_period;delete lc.measure;}else if(sv.indexOf("customer_acquisition_auc::")===0){lc.driver="customer_acquisition_auc";lc.series_id=sv.slice("customer_acquisition_auc::".length);lc.rate_spec=lc.rate_spec||{source:"entered",trajectory:"flat",value:0};delete lc.amount_spec;lc.rate_period=lc.rate_period||"year";lc.measure=lc.measure||"period_end";}else{lc.driver=v;lc.rate_spec=lc.rate_spec||{source:"entered",trajectory:"flat",value:0};delete lc.amount_spec;delete lc.series_id;delete lc.rate_period;delete lc.measure;}renderContent();refresh();};
 window.nieCatLinkedRate=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_spec=ct.linked_components[j].rate_spec||{source:"entered",trajectory:"flat",value:0};ct.linked_components[j].rate_spec.source="entered";ct.linked_components[j].rate_spec.trajectory="flat";ct.linked_components[j].rate_spec.value=_pf(v)/100;refresh();};
 window.nieCatLinkedRatePeriod=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].rate_period=v;renderContent();refresh();};
 window.nieCatLinkedMeasure=function(i,j,v){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return;ct.linked_components[j].measure=(v==="period_average"?"period_average":"period_end");renderContent();refresh();};
+function _ensureNieLinkedAmountSpec(i,j){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct||!(ct.linked_components||[])[j])return null;const lc=ct.linked_components[j];lc.amount_spec=lc.amount_spec||{trajectory:"flat",value:0,period:"month"};lc.amount_spec.period=lc.amount_spec.period||"month";return lc.amount_spec;}
+window.nieCatLinkedAmountTrajectory=function(i,j,v){const s=_ensureNieLinkedAmountSpec(i,j);if(!s)return;v=(v==="explicit"?"explicit":(v==="growth"?"growth":"flat"));s.trajectory=v;if(v==="explicit"){s.values=Array.isArray(s.values)?s.values:[];delete s.value;delete s.growth_spec;}else{if(s.value==null)s.value=0;delete s.values;if(v==="growth")s.growth_spec=s.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};else delete s.growth_spec;}renderContent();refresh();};
+window.nieCatLinkedAmountPeriod=function(i,j,v){const s=_ensureNieLinkedAmountSpec(i,j);if(!s)return;s.period=v;renderContent();refresh();};
+window.nieCatLinkedAmountValue=function(i,j,v){const s=_ensureNieLinkedAmountSpec(i,j);if(!s)return;s.value=_pf(v)*1000;refresh();};
+window.nieCatLinkedAmountPaste=function(i,j,txt){const s=_ensureNieLinkedAmountSpec(i,j),raw=_seriesExplicitValues(txt);if(!s)return;if(!raw.length){appStatus("err","No valid numeric amount-per-FTE schedule found to load.");return;}s.trajectory="explicit";s.values=raw.map(x=>x.value*1000);delete s.value;delete s.growth_spec;appStatus("ok",s.values.length+" amount-per-FTE value"+(s.values.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
+window.nieCatLinkedAmountClear=function(i,j){const s=_ensureNieLinkedAmountSpec(i,j);if(!s)return;s.values=[];renderContent();refresh();};
 window._opexCostPoolReuseOpen=window._opexCostPoolReuseOpen||{};
 function _opexCostPoolReuseKey(i,j){
   const ct=(((_ensureNieDetail()||{}).categories)||[])[i]||{},lc=((ct.linked_components||[])[j])||{};
@@ -4463,6 +4469,7 @@ function _ensureWorkforce(){
   nd.workforce=nd.workforce||{roles:[],default_payroll_load_rate:0,
     default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};
   nd.workforce.mode="roles"; nd.workforce.roles=nd.workforce.roles||[]; nd.workforce.additive_components=nd.workforce.additive_components||[];
+  if(!nd.workforce.total_count_series_id)nd.workforce.total_count_series_id=_seriesId("wf-total-count");
   nd.workforce.default_salary_growth_spec=nd.workforce.default_salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
   return nd.workforce;
 }
@@ -8099,7 +8106,9 @@ function _ensureLinkableSeriesIds(){
   const nd=(cfg.assumptions||{}).nie_detail||{};
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{if(!fd)return;if(!fd.series_id)fd.series_id=_seriesId("cac-auc");if(!fd.customer_count_series_id)fd.customer_count_series_id=_seriesId("cac-count");if(!fd.owner_module)fd.owner_module="customer_acquisition";});
   (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
-  (((nd.workforce||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.expense_series_id)x.expense_series_id=_seriesId("wf-exp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
+  const _wf=nd.workforce||null;
+  if(_wf&&!_wf.total_count_series_id)_wf.total_count_series_id=_seriesId("wf-total-count");
+  (((_wf||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.expense_series_id)x.expense_series_id=_seriesId("wf-exp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
   [["Lending",(cfg.assumptions||{}).lending_products||[]],["Deposit",(cfg.assumptions||{}).deposit_products||[]],["Fee Product",(cfg.assumptions||{}).obs_exposures||[]]].forEach(pair=>{
     (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&["transaction","balance"].includes(st.basis)&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
   });
@@ -8112,6 +8121,9 @@ function _opexLinkedDriverOptions(){
     {value:"servicing_net",driver:"servicing_net",label:"Net servicing fees"},
     {value:"noninterest_income",driver:"noninterest_income",label:"Total noninterest income"}
   ];
+  const wf=(((cfg.assumptions||{}).nie_detail||{}).workforce)||{};
+  if(wf.total_count_series_id&&(wf.roles||[]).length)out.push({value:"workforce_count::"+String(wf.total_count_series_id),driver:"workforce_count",series_id:String(wf.total_count_series_id),label:"Workforce headcount · Total workforce"});
+  (wf.roles||[]).forEach((r,ri)=>{if(r&&r.series_id)out.push({value:"workforce_count::"+String(r.series_id),driver:"workforce_count",series_id:String(r.series_id),label:"Workforce headcount · "+String(r.role||("Role "+(ri+1)))})});
   Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([fn,fd])=>{
     if(!fd||!fd.series_id)return;
     out.push({value:"customer_acquisition_auc::"+String(fd.series_id),driver:"customer_acquisition_auc",series_id:String(fd.series_id),label:"AUC / managed notional · "+fn,feed:fn,feedObj:fd});
@@ -8125,7 +8137,7 @@ function _opexLinkedDriverOptions(){
   });
   return out;
 }
-function _opexLinkedDriverValue(lc){if((lc&&lc.driver)==="fee_stream_quantity")return "fee_stream_quantity::"+String(lc.series_id||"");if((lc&&lc.driver)==="customer_acquisition_auc")return "customer_acquisition_auc::"+String(lc.series_id||"");return String((lc&&lc.driver)||"fee_income");}
+function _opexLinkedDriverValue(lc){if((lc&&lc.driver)==="fee_stream_quantity")return "fee_stream_quantity::"+String(lc.series_id||"");if((lc&&lc.driver)==="customer_acquisition_auc")return "customer_acquisition_auc::"+String(lc.series_id||"");if((lc&&lc.driver)==="workforce_count")return "workforce_count::"+String(lc.series_id||"");return String((lc&&lc.driver)||"fee_income");}
 function _opexPiecewiseTermOptions(){
   _ensureLinkableSeriesIds();
   const out=[{value:"bank_total_assets",source:"bank_total_assets",label:"Total Assets · bank balance sheet"}];
@@ -8171,9 +8183,21 @@ function _opexPiecewiseEditorHtml(i,lc,j){
   return h;
 }
 function _opexLinkedSourcePreview(lc){
-  if(!lc||!["fee_stream_quantity","customer_acquisition_auc"].includes(lc.driver))return "";
+  if(!lc||!["fee_stream_quantity","customer_acquisition_auc","workforce_count"].includes(lc.driver))return "";
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
   if(!opt)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected upstream Series could not be resolved.</div>`;
+  if(lc.driver==="workforce_count"){
+    const wr=((typeof lastRes!=="undefined"&&lastRes)||{}).workforce||{},ids=wr.series_ids||[],counts=wr.counts||[];
+    let vals=[];
+    if(opt.series_id===((((cfg.assumptions||{}).nie_detail||{}).workforce||{}).total_count_series_id||"")){
+      const n=Math.max(0,...counts.map(x=>Array.isArray(x)?x.length:0));vals=Array.from({length:n},(_,k)=>counts.reduce((s,a)=>s+(Array.isArray(a)?(+a[k]||0):0),0));
+    }else{const at=ids.indexOf(String(opt.series_id||""));if(at>=0&&Array.isArray(counts[at]))vals=counts[at].map(v=>+v||0);}
+    const lab=PPY()===12?'M':(PPY()===4?'Q':'Y');
+    let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Workforce Count · active headcount · read-only here</span></div>`;
+    if(vals.length)detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved headcount</span><span class="cu">FTE / headcount level</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.map((v,k)=>lab+(k+1)+' '+_numInput(v,6)).join(' · '))}</div>`;
+    else detail+=`<div class="cmut" style="margin-top:5px">Run the model to preview the resolved active headcount Series consumed by this expense.</div>`;
+    return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(opt.label.replace('Workforce headcount · ',''))}</b> · upstream headcount owned by Workforce Compensation.</div>${detail}</div>`;
+  }
   if(lc.driver==="customer_acquisition_auc"){
     const ca=(((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{},monthly=(ca.aucEndByMonth||[]).map(v=>+v||0);
     const fd=((((cfg||{}).assumptions||{}).cac_feeds||{})[opt.feed]||{}),begin=(+fd.beginning_auc||0)/1000;
@@ -8669,20 +8693,28 @@ function structuresSectionsHtml(){
       const _wres=(lastRes||{}).workforce||null;
       if(_wres){
         const _ids=_wres.series_ids||[], _hires=_wres.resolved_hire_periods||[], _counts=_wres.counts||[];
-        const _ptag=PPY()===12?'M':(PPY()===4?'Q':'Y');
-        h += '<div style="margin-top:10px;border-top:1px solid rgba(148,163,184,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce activation tracking · latest run</div>';
-        h += '<div class="cmut" style="margin:0 0 6px">Resolved by the engine from the modeled trigger path. “Not triggered” means the threshold was not crossed within the current projection horizon.</div>';
-        h += '<table class="ovt ovt-grid" style="font-size:10.5px"><tr><th>Role / population</th><th>Start rule</th><th>Resolved start</th><th style="text-align:right">End-horizon active count</th></tr>';
+        const _ptag=PPY()===12?'M':(PPY()===4?'Q':'Y'),_horizon=NP();
+        const _hcFmt=v=>{const n=+v||0;return Math.abs(n-Math.round(n))<1e-9?String(Math.round(n)):_numInput(n,3);};
+        const _countLabel=wr=>{const s=wr.count_spec||null;if(!s)return 'Flat';const t=s.trajectory||s.mode||'flat';if(t==='explicit')return `Explicit · ${String(s.cadence||'year').replace(/^./,x=>x.toUpperCase())}`;if(t==='growth')return `Growth · ${(((s.growth_spec||{}).rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${(s.growth_spec||{}).period||'year'}`;return 'Flat';};
+        const _compLabel=wr=>{const s=wr.compensation_spec||null,base=+(wr.annual_comp||wr.base_salary_annual||0);if(!s)return `${fmtComma(base/1000)} $000s/yr · Flat`;const t=s.trajectory||s.mode||'flat';if(t==='explicit'){const vs=s.values||[],a=vs.length?+vs[0]:base,b=vs.length?+vs[vs.length-1]:a;return `${fmtComma(a/1000)} → ${fmtComma(b/1000)} $000s/yr · Explicit`;}if(t==='growth'){const b=+(s.base!=null?s.base:base),g=s.growth_spec||{};return `${fmtComma(b/1000)} $000s/yr base · ${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${g.period||'year'}`;}return `${fmtComma((+(s.value!=null?s.value:base))/1000)} $000s/yr · Flat`;};
+        h += '<div style="margin-top:10px;border-top:1px solid rgba(148,163,184,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce run summary · latest run</div>';
+        h += '<div class="cmut" style="margin:0 0 6px">Compact audit of the population path actually used by the engine. Headcount is the resolved active Series; compensation remains annual per FTE before payroll load.</div>';
+        h += '<div style="overflow-x:auto"><table class="ovt ovt-grid" style="font-size:10.5px;min-width:760px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation / FTE</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
+        let _totStart=0,_totEnd=0;
         (wf.roles||[]).forEach((wr,wi)=>{
           let ri=wr.series_id?_ids.indexOf(String(wr.series_id)):-1;if(ri<0&&wi<_hires.length)ri=wi;
-          const hire=ri>=0?_hires[ri]:null, cp=(ri>=0&&Array.isArray(_counts[ri]))?_counts[ri]:[];
-          const endCount=cp.length?+cp[cp.length-1]:0, isTrig=!!wr.activation;
+          const hire=ri>=0?_hires[ri]:null, cp=(ri>=0&&Array.isArray(_counts[ri]))?_counts[ri]:[],isTrig=!!wr.activation;
+          const startCount=(hire&&cp.length&&hire<=cp.length)?(+cp[hire-1]||0):0,endCount=cp.length?+cp[cp.length-1]:0;_totStart+=cp.length?(+cp[0]||0):0;_totEnd+=endCount;
           const src=isTrig&&wr.activation.metric==='managed_notional_end'?(_aucTriggerSources().find(x=>x.key===_aucTriggerKey(wr.activation.source))||{}).label:null;
           const rule=isTrig?(wr.activation.metric==='managed_notional_end'?`EOP AUC / AUM${src?' — '+src:''} ${wr.activation.operator||'>='} ${fmtComma((+(wr.activation.value||0))/1000)} $000s`:String(wr.activation.metric||'metric').replace(/_/g,' ')):`Fixed ${_ptag}${wr.hire_period||1}`;
-          const resolved=ri<0?'Awaiting rerun':(hire?`${isTrig?'Triggered':'Active'} ${_ptag}${hire}`:(isTrig?'Not triggered':'—'));
-          h += `<tr><td>${esc(wr.role||'Unnamed population')}</td><td>${esc(rule)}</td><td>${esc(resolved)}</td><td style="text-align:right;font-family:var(--mono)">${endCount.toFixed(2).replace(/\.00$/,'')}</td></tr>`;
+          const through=wr.end_period?`${_ptag}${wr.end_period}`:`${_ptag}${_horizon}`;
+          const window=ri<0?'Awaiting rerun':(hire?`${_ptag}${hire} → ${through}`:(isTrig?'Not triggered in horizon':'—'));
+          const countText=hire?`${_hcFmt(startCount)} → ${_hcFmt(endCount)} FTE`:`${_hcFmt(endCount)} FTE`;
+          const load=(wr.payroll_load_rate!=null?+wr.payroll_load_rate:+(wf.default_payroll_load_rate||0))*100;
+          h += `<tr><td>${esc(wr.role||'Unnamed population')}</td><td><span style="font-family:var(--mono)">${esc(countText)}</span><div class="cmut">${esc(_countLabel(wr))}</div></td><td>${esc(_compLabel(wr))}</td><td><span style="font-family:var(--mono)">${esc(window)}</span><div class="cmut">${esc(rule)}</div></td><td style="text-align:right;font-family:var(--mono)">${_numInput(load,3)}%</td></tr>`;
         });
-        h += '</table></div>';
+        h += `<tr><td><b>Total workforce</b></td><td><b style="font-family:var(--mono)">${esc(_hcFmt(_totStart))} → ${esc(_hcFmt(_totEnd))} FTE</b></td><td colspan="3"><span class="cmut">Aggregate active headcount is available as a stable driver to Operating Expense linked components.</span></td></tr>`;
+        h += '</table></div></div>';
       }
     } else if(!_legacyStaff && !_wfAddComps.length){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
@@ -8747,7 +8779,24 @@ function structuresSectionsHtml(){
         if(!_legacyCostPool){
         const _drv=_opexLinkedDriverOptions();
         row += `<div style="margin-top:7px;padding:7px;border:1px solid #2A3444;border-radius:6px"><div class="wf-field-label">Additive expense components</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>`;
-        _lcs.forEach((lc,j)=>{if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}const _rv=(((lc||{}).rate_spec||{}).value||0)*100,_dv=_opexLinkedDriverValue(lc),_isAuc=(lc&&lc.driver)==='customer_acquisition_auc',_rp=(lc&&lc.rate_period)||'year',_bm=(lc&&lc.measure)||'period_end';row += `<div class="crow opex-linked-component-row" style="margin-top:5px"><span class="cu">Driver</span><select class="opex-linked-driver" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select>${_isAuc?`<span class="cu">Measure</span><select style="width:120px;flex:0 0 120px" onchange="nieCatLinkedMeasure(${i},${j},this.value)"><option value="period_average"${_bm==='period_average'?' selected':''}>Period average</option><option value="period_end"${_bm==='period_end'?' selected':''}>Period end</option></select>`:''}<span class="cu">×</span><input class="opex-linked-rate" type="number" step="any" value="${_numInput(_rv,12)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span>${_isAuc?`<span class="cu">/</span><select style="width:82px;flex:0 0 82px" onchange="nieCatLinkedRatePeriod(${i},${j},this.value)">${[['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===_rp?' selected':''}>${o[1]}</option>`).join('')}</select>`:''}<a href="#" class="cx opex-linked-delete" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>${_opexLinkedSourcePreview(lc)}`;});
+        _lcs.forEach((lc,j)=>{
+          if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}
+          if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}
+          const _dv=_opexLinkedDriverValue(lc),_isWf=(lc&&lc.driver)==='workforce_count';
+          if(_isWf){
+            const _as=(lc.amount_spec||{trajectory:'flat',value:0,period:'month'}),_at=_as.trajectory||'flat',_ap=_as.period||'month';
+            row += `<div class="opex-cost-pool-editor" style="margin-top:7px"><div class="opex-cost-pool-titlebar"><span class="wf-field-label">Headcount-linked expense</span><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div><div class="crow" style="margin-top:6px;align-items:flex-end;flex-wrap:wrap"><label class="wf-field" style="min-width:250px;flex:1"><span class="wf-field-label">Workforce count driver</span><select class="opex-linked-driver" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label class="wf-field" style="width:120px"><span class="wf-field-label">Amount path</span><select onchange="nieCatLinkedAmountTrajectory(${i},${j},this.value)">${[['flat','Flat'],['growth','Growth'],['explicit','Explicit']].map(o=>`<option value="${o[0]}"${o[0]===_at?' selected':''}>${o[1]}</option>`).join('')}</select></label><label class="wf-field" style="width:100px"><span class="wf-field-label">Per</span><select onchange="nieCatLinkedAmountPeriod(${i},${j},this.value)">${FLOW_PERIODS().map(o=>`<option value="${o[0]}"${o[0]===_ap?' selected':''}>${o[1]}</option>`).join('')}</select></label></div>`;
+            if(_at==='explicit'){
+              const _av=_as.values||[],_aid=`nieLinkedWfAmount_${i}_${j}`;
+              row += `<div style="margin-top:7px;border-left:2px solid #334158;padding-left:9px"><div class="wf-field-label">Amount per FTE schedule ($000s / FTE / ${esc(_ap)})</div><textarea id="${_aid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Paste amount-per-FTE values in $000s" oninput="_seriesExplicitPasteInput('${_aid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_aid}_load" class="pillbtn" disabled onclick="nieCatLinkedAmountPaste(${i},${j},document.getElementById('${_aid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieCatLinkedAmountClear(${i},${j})"${_av.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(_av,v=>fmtComma((+v||0)/1000),_ap)}</div></div>`;
+            }else{
+              row += `<div class="crow" style="margin-top:7px;align-items:center;flex-wrap:wrap"><span class="cu">${_at==='growth'?'Base amount':'Amount'} per FTE</span><input type="text" inputmode="decimal" style="width:92px" value="${fmtComma((+_as.value||0)/1000)}" onchange="nieCatLinkedAmountValue(${i},${j},this.value);fmtField(this)"><span class="cu">$000s / FTE / ${esc(_ap)}</span>${_at==='growth'?(function(){_as.growth_spec=_as.growth_spec||{rate:0,period:'year',method:'step',anchor:'model_year'};return growthSpecInline(`assumptions.nie_detail.categories.${i}.linked_components.${j}.amount_spec.growth_spec`,_as.growth_spec,0,false,true);})():''}</div>`;
+            }
+            row += `<div class="cmut" style="margin-top:6px">Expense = resolved active headcount × amount per FTE. The amount owns its natural Month / Quarter / Year unit; Foundry periodizes it once.</div>${_opexLinkedSourcePreview(lc)}</div>`;
+            return;
+          }
+          const _rv=(((lc||{}).rate_spec||{}).value||0)*100,_isAuc=(lc&&lc.driver)==='customer_acquisition_auc',_rp=(lc&&lc.rate_period)||'year',_bm=(lc&&lc.measure)||'period_end';row += `<div class="crow opex-linked-component-row" style="margin-top:5px"><span class="cu">Driver</span><select class="opex-linked-driver" onchange="nieCatLinkedDriver(${i},${j},this.value)">${_drv.map(o=>`<option value="${esc(o.value)}"${o.value===_dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select>${_isAuc?`<span class="cu">Measure</span><select style="width:120px;flex:0 0 120px" onchange="nieCatLinkedMeasure(${i},${j},this.value)"><option value="period_average"${_bm==='period_average'?' selected':''}>Period average</option><option value="period_end"${_bm==='period_end'?' selected':''}>Period end</option></select>`:''}<span class="cu">×</span><input class="opex-linked-rate" type="number" step="any" value="${_numInput(_rv,12)}" onchange="nieCatLinkedRate(${i},${j},this.value)"><span class="cu">%</span>${_isAuc?`<span class="cu">/</span><select style="width:82px;flex:0 0 82px" onchange="nieCatLinkedRatePeriod(${i},${j},this.value)">${[['month','Month'],['quarter','Quarter'],['year','Year']].map(o=>`<option value="${o[0]}"${o[0]===_rp?' selected':''}>${o[1]}</option>`).join('')}</select>`:''}<a href="#" class="cx opex-linked-delete" onclick="nieCatRemoveLinked(${i},${j});return false">×</a></div>${_opexLinkedSourcePreview(lc)}`;
+        });
         row += `<div class="nie-actions"><a href="#" class="cadd" onclick="nieCatAddLinked(${i});return false">+ Add linked component</a><a href="#" class="cadd" onclick="nieCatAddPiecewise(${i});return false">+ Tiered / banded component</a><a href="#" class="cadd" onclick="nieCatAddCostPoolCharge(${i});return false">+ New cost-pool / cost-recovery component</a></div></div>`;
         }
         const _ropts=[['trajectory','Same as trajectory'],['monthly','Monthly'],['quarterly','Quarterly'],['semiannual','Semiannual'],['annual','Annual']],_ptag=_opexPeriodTag(),_punit=_opexPeriodUnit();

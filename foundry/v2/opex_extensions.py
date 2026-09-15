@@ -27,10 +27,39 @@ SAFE_REVENUE_DRIVERS = {
 
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
+WORKFORCE_COUNT_DRIVER = "workforce_count"
 COST_POOL_CHARGE_DRIVER = "cost_pool_charge"
 PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
+
+
+def workforce_count_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
+    """Catalog Workforce-owned headcount level Series by stable Series ID.
+
+    Operating Expense may observe either the aggregate Workforce population or one
+    role/population.  The aggregate ID is persisted on the Workforce object so links do
+    not depend on display names or row order.
+    """
+    a = assumptions or {}
+    wf = (((a.get("nie_detail") or {}).get("workforce")) or {})
+    out = []
+    total_sid = str(wf.get("total_count_series_id") or "").strip()
+    if total_sid:
+        out.append({"series_id": total_sid, "role": "Total workforce", "scope": "total",
+                    "unit_semantic": "headcount_level"})
+    for i, role in enumerate(wf.get("roles") or []):
+        role = role or {}
+        sid = str(role.get("series_id") or "").strip()
+        if not sid:
+            continue
+        out.append({"series_id": sid,
+                    "role": str(role.get("role") or f"Role {i + 1}"),
+                    "scope": "role", "unit_semantic": "headcount_level"})
+    ids = [x["series_id"] for x in out]
+    if len(ids) != len(set(ids)):
+        raise ValueError("workforce count series_id values must be unique")
+    return out
 
 
 def customer_acquisition_auc_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
@@ -303,7 +332,9 @@ def apply_piecewise_schedule(value: float, bands) -> float:
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, COST_POOL_CHARGE_DRIVER, PIECEWISE_LINKED_DRIVER}
+    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
+                                           WORKFORCE_COUNT_DRIVER, COST_POOL_CHARGE_DRIVER,
+                                           PIECEWISE_LINKED_DRIVER}
     if drv not in allowed:
         raise ValueError(
             f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
@@ -326,6 +357,14 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
         if any(t["source"] == "bank_total_assets" for t in out["terms"]) and out["observation_lag"]["value"] == 0:
             raise ValueError("piecewise-linked Total Assets term requires a positive observation lag to avoid circularity")
         return out
+    if drv == WORKFORCE_COUNT_DRIVER:
+        sid = str(c.get("series_id") or "").strip()
+        if not sid:
+            raise ValueError("workforce_count Opex link requires series_id")
+        amount_spec = dict(c.get("amount_spec") or {
+            "trajectory": "flat", "value": 0.0, "period": "month"
+        })
+        return {"driver": drv, "series_id": sid, "amount_spec": amount_spec}
     rs = dict(c.get("rate_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0})
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
@@ -415,6 +454,19 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
             # Validate cadence compatibility up front; evaluation itself remains period-local.
             validate_piecewise_linked_cadence(c, int(ppy))
             out.append(c)
+            continue
+        if c["driver"] == WORKFORCE_COUNT_DRIVER:
+            if assumptions is not None:
+                known = {x["series_id"] for x in workforce_count_catalog(assumptions)}
+                if c["series_id"] not in known:
+                    raise ValueError(
+                        f"linked workforce count Series {c['series_id']!r} does not exist")
+            from .periodic_flows import resolve_periodic_flow
+            amounts = resolve_periodic_flow(c["amount_spec"], int(n_periods), int(ppy),
+                                            context=context)
+            out.append({"driver": WORKFORCE_COUNT_DRIVER,
+                        "series_id": c["series_id"],
+                        "amount_per_fte": [float(x or 0.0) for x in amounts]})
             continue
         if c["driver"] == CAC_AUC_DRIVER:
             if assumptions is not None and auc_link_creates_cycle(assumptions, category, c["series_id"]):
@@ -511,6 +563,14 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         from .cost_recovery import cost_recovery_amount
         return cost_recovery_amount(
             float(pools.get(ref) or 0.0), float(component.get("recovery_pct") or 0.0), rate)
+    if drv == WORKFORCE_COUNT_DRIVER:
+        sid = str(component.get("series_id") or "")
+        cmap = metrics.get("workforce_count") or {}
+        if sid not in cmap:
+            raise ValueError(f"linked workforce count Series {sid!r} is unavailable in this engine run")
+        amounts = component.get("amount_per_fte") or []
+        amount = float(amounts[i] if i < len(amounts) else 0.0)
+        return float(cmap.get(sid) or 0.0) * amount
     if drv == PIECEWISE_LINKED_DRIVER:
         ppy = int(metrics.get("periods_per_year") or 12)
         if not _piecewise_event_due(component, i, ppy):
