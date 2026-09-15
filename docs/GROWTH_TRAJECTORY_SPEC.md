@@ -270,9 +270,7 @@ registry without changing the workforce schema.
 Growth is now one trajectory choice inside the broader Foundry Series abstraction. A series may be
 entered locally (Flat / Growth / Explicit) or safely linked to a series owned by another module.
 Links use stable `series_id` identifiers rather than display names. Consumers inherit the owner's
-trajectory instead of duplicating it. Current safe links include Operating Expense category → CAC
-Spend and Workforce Count → CAC FTE productivity. Unsupported, missing, ambiguous, or circular
-links fail closed. See `docs/FOUNDRY_SERIES_ARCHITECTURE.md`.
+trajectory instead of duplicating it. Current safe links include Operating Expense category → CAC Spend, Workforce Count → CAC FTE productivity, and Workforce Count → Operating Expense amount-per-FTE components. Unsupported, missing, ambiguous, or circular links fail closed. See `docs/FOUNDRY_SERIES_ARCHITECTURE.md`.
 
 ## First-class managed-notional observability
 

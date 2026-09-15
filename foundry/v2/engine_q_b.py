@@ -71,6 +71,12 @@ def run_pf_b(cfg):
     _wf_add_components = resolve_workforce_additive_components(_wf_cfg, 4) if _nie_d else []
     _wf_comp_native, _wf_role_comp_native, _wf_additive_comp_native = [], [], []
     _wf_additive_component_native = [[] for _ in _wf_add_components]
+    _wf_count_runtime = None
+    _wf_count_native = None
+    if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or [])):
+        from .workforce import WorkforceRuntime
+        _wf_count_runtime = WorkforceRuntime(_wf_cfg, Q, 4, growth_context=_growth_ctx)
+        _wf_count_native = [[] for _ in _wf_count_runtime.rows]
     _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
     _occ_half_amt = 0.0
@@ -206,6 +212,18 @@ def run_pf_b(cfg):
                                                 and (qi % _occ_half_interval) == _occ_pay_phase)
                              else 0.0)
                 _occ_signed_balance += _occ_cash - _occ
+            _wf_count_map_q = {}
+            if _wf_count_runtime is not None:
+                _wf_counts_q = _wf_count_runtime.count_for_period(q)
+                for _wi, _cv in enumerate(_wf_counts_q):
+                    _wf_count_native[_wi].append(_cv)
+                    if _wi < len(_wf_count_runtime.rows):
+                        _sid = str((_wf_count_runtime.rows[_wi].get("raw") or {}).get("series_id") or "").strip()
+                        if _sid:
+                            _wf_count_map_q[_sid] = float(_cv or 0.0)
+                _total_sid = str(_wf_cfg.get("total_count_series_id") or "").strip()
+                if _total_sid:
+                    _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
             _linked_opex = sum(linked_component_amount(
                 _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                           "customer_acquisition_auc_monthly": _auc_month_sources,
@@ -213,6 +231,7 @@ def run_pf_b(cfg):
                           "fee_stream_quantity_history": {},
                           "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
                           "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
+                          "workforce_count": _wf_count_map_q,
                           "periods_per_year": 4})
                 for _lc in (_nie_d.get("linked_components") or []))
             _role_workforce_comp = _nie_d["comp"][qi]
@@ -359,7 +378,11 @@ def run_pf_b(cfg):
             "resolved_hire_periods": [int((r or {}).get("hire_period") or 1) for r in (_wf_cfg.get("roles") or [])],
             "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
             "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
-            "counts": [],
+            "counts": list(_wf_count_native or []),
+            "total_count_series_id": str(_wf_cfg.get("total_count_series_id") or ""),
+            "total_counts": [sum(float((row[i] if i < len(row) else 0.0) or 0.0)
+                                 for row in (_wf_count_native or []))
+                             for i in range(Q)],
             "comp": list(_wf_comp_native),
             "role_comp": list(_wf_role_comp_native),
             "additive_comp": list(_wf_additive_comp_native),

@@ -143,11 +143,15 @@ def main():
     pcfg["assumptions"]["periods_per_year"]=12
     pcfg["assumptions"]["n_periods"]=24
     pcfg["assumptions"]["nie_detail"]={"categories":[],"other_gross_up_rate":0,
-        "workforce":{"mode":"roles","default_payroll_load_rate":0,"roles":[role]}}
+        "workforce":{"mode":"roles","total_count_series_id":"wf-total-public","default_payroll_load_rate":0,"roles":[role]}}
     pout=run_v2(pcfg).get("workforce") or {}
     ck("public Workforce output preserves Count in headcount units",
        pout.get("count_units")=="FTE/headcount" and pout.get("counts",[[]])[0][:12]==[2.0]*12
        and pout.get("counts",[[]])[0][12:24]==[4.0]*12)
+    ck("public Workforce output exposes aggregate active Count under its stable Series ID",
+       pout.get("total_count_series_id")=="wf-total-public"
+       and pout.get("total_counts",[])[:12]==[2.0]*12
+       and pout.get("total_counts",[])[12:24]==[4.0]*12)
     ck("public Workforce compensation remains monetary $000s",
        pout.get("comp_units")=="$000s" and _eq(sum(pout.get("comp",[])[:12]),240.0))
 

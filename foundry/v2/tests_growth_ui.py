@@ -141,9 +141,14 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("opening workforce paste UI does not activate/supersede legacy staffing",
        'onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false"' in html
        and 'onclick="var w=_ensureWorkforce();w._pasteOpen=true' not in html)
-    ck("workforce activation results are surfaced in the operating-expense UI",
-       "Workforce activation tracking · latest run" in html and "resolved_hire_periods" in html
-       and "End-horizon active count" in html)
+    ck("workforce run summary replaces the sparse activation table with useful population economics",
+       "Workforce run summary · latest run" in html and "Headcount path" in html
+       and "Compensation / FTE" in html and "Resolved active window" in html
+       and "Payroll load" in html and "Aggregate active headcount is available as a stable driver" in html)
+    ck("Operating Expense exposes stable Workforce Count × amount-per-FTE authoring",
+       'workforce_count::' in html and 'Headcount-linked expense' in html
+       and 'Amount per FTE' in html and 'Expense = resolved active headcount × amount per FTE.' in html
+       and 'nieCatLinkedAmountTrajectory' in html and 'nieCatLinkedAmountPaste' in html)
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)

@@ -275,14 +275,16 @@ def validate_config_v2(cfg):
             errs.append("nie_detail.other_gross_up_rate must be a rate in [0, 0.5)")
         try:
             from .opex_extensions import (fee_stream_quantity_catalog, fee_stream_balance_quantity_catalog,
-                                          customer_acquisition_auc_catalog)
+                                          customer_acquisition_auc_catalog, workforce_count_catalog)
             _fee_qty_ids = {x["series_id"] for x in fee_stream_quantity_catalog(a)}
             _fee_bal_ids = {x["series_id"] for x in fee_stream_balance_quantity_catalog(a)}
             _auc_ids = {x["series_id"] for x in customer_acquisition_auc_catalog(a)}
+            _wf_count_ids = {x["series_id"] for x in workforce_count_catalog(a)}
         except (TypeError, ValueError) as e:
             _fee_qty_ids = set()
             _fee_bal_ids = set()
             _auc_ids = set()
+            _wf_count_ids = set()
             errs.append(f"Opex linked Series catalog invalid: {e}")
         for i, cat in enumerate(nd.get("categories") or []):
             try:
@@ -312,6 +314,12 @@ def validate_config_v2(cfg):
                                 raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
                             if auc_link_creates_cycle(a, cat, _x.get("series_id")):
                                 raise ValueError("AUC-linked Opex would create a circular dependency through Customer Acquisition")
+                        if _x.get("driver") == "workforce_count":
+                            if _x.get("series_id") not in _wf_count_ids:
+                                raise ValueError(f"linked workforce count Series {_x.get('series_id')!r} does not exist")
+                            from .periodic_flows import validate_periodic_flow_spec
+                            validate_periodic_flow_spec(_x.get("amount_spec"), ppy=_ppy,
+                                                        context=_growth_ctx)
                         if _x.get("driver") == "cost_pool_charge":
                             from .cost_pools import resolve_cost_pool_ref
                             _pool = resolve_cost_pool_ref(_x.get("ref"), a)
@@ -574,6 +582,10 @@ def validate_config_v2(cfg):
     # that authors the economics.  Nested Count specs reuse the role's count series_id.
     _series_ids = []
     _nd_ids = a.get("nie_detail") or {}
+    _wf_ids = (_nd_ids.get("workforce") or {})
+    _wf_total_sid = str(_wf_ids.get("total_count_series_id") or "").strip()
+    if _wf_total_sid:
+        _series_ids.append(_wf_total_sid)
     for _j, _r in enumerate(_nd_ids.get("categories") or []):
         _r = _r or {}
         _sid = str(_r.get("series_id") or "").strip()
