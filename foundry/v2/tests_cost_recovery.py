@@ -519,12 +519,14 @@ def main():
     ck("cost pool fails closed on Opex -> CAC -> AUC -> pool -> fee -> Opex loop", cac_cycle_failed)
 
     unused_spec = copy.deepcopy(cac_cycle)
-    # Switch the selected acquisition equation to explicit params. The stale spend link is now
-    # unused and must not create a false-positive dependency cycle.
+    # Switch the selected acquisition equation to explicit params and remove the prior Spend
+    # operand.  Explicit channels still support an optional Spend Series for CAC audit, so merely
+    # changing ``method`` does not make a persisted driver_specs.spend link inactive.
     unused_spec["assumptions"]["cac_feeds"]["Primary managed notional"]["channels"][0].update({
         "method": "explicit", "params": {"new_customers_by_year": [1.0], "spend": 0.0},
         "avg_auc_per_customer": 100_000.0,
     })
+    unused_spec["assumptions"]["cac_feeds"]["Primary managed notional"]["channels"][0]["driver_specs"].pop("spend", None)
     try: validate_config_v2(unused_spec); unused_ok = True
     except ConfigErrorV2 as e: print("unused-spec validation error", e); unused_ok = False
     ck("cycle guard follows active CAC equation operands instead of stale unused links", unused_ok)

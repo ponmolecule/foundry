@@ -44,6 +44,14 @@ For Workforce Count, the coefficient is a periodic-flow amount per FTE with Flat
 
 The architecture does not accept arbitrary formulas or workbook cell references.
 
+When another module consumes an Operating Expense category as a stable Series, the link resolves
+the category's complete **upstream-resolvable** economics rather than only its entered recurring
+base. In particular, Customer Acquisition acquisition-spend links include deterministic
+`Workforce Count × amount/FTE` components. Components that require main-engine runtime metrics
+(for example fee-income-, AUC-, fee-quantity-, tiered/banded-, or cost-pool-dependent amounts)
+cannot be moved upstream safely and therefore fail closed instead of being silently omitted. This
+keeps the linked Series equal to the source economics the user actually authored.
+
 A common generic shape is therefore:
 
 `entered recurring base + Σ(typed additive components)`

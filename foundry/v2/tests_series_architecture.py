@@ -73,6 +73,35 @@ def main():
     ck("linked expense trajectory remains owned by Opex", _eq(rf["annual"][1]["total_spend"],240000))
     ck("Spend/CAC equation uses linked spend without duplicating a BD budget", _eq(rf["annual"][0]["new_cust"],100))
 
+    # r103: an Opex category is the complete linkable Series, not merely its entered base.
+    # Workforce Count × amount/FTE is deterministic upstream economics and therefore must
+    # travel with the category when CAC consumes it as Acquisition Spend.
+    ga_assumptions={"n_periods":24,"nie_detail":{
+        "categories":[{"series_id":"opex-ga","name":"G&A",
+            "flow_spec":{"trajectory":"flat","value":0,"period":"month"},
+            "linked_components":[{"driver":"workforce_count","series_id":"wf-total-ga",
+                "amount_spec":{"trajectory":"flat","value":10000,"period":"month"}}]}],
+        "workforce":{"mode":"roles","total_count_series_id":"wf-total-ga","roles":[
+            {"series_id":"wf-ga","role":"G&A population","count":3,"annual_comp":100000,"hire_period":1}
+        ]}}}
+    ga_spend={"source":"link","link":{"kind":"operating_expense_category",
+        "series_id":"opex-ga","aggregation":"sum"}}
+    ga_ch={"name":"G&A-funded acquisition","method":"spend_cac","params":{"cac":1000},
+           "avg_auc_per_customer":1,"driver_specs":{"spend":ga_spend}}
+    ga_rf=cac_auc_rollforward({"channels":[ga_ch],"attrition_rate":0},24,12,assumptions=ga_assumptions)
+    ck("CAC linked spend includes Workforce Count × amount/FTE Opex component",
+       _eq(ga_rf["annual"][0]["total_spend"],360000)
+       and _eq(ga_rf["annual"][1]["total_spend"],360000)
+       and _eq(ga_rf["annual"][0]["new_cust"],360))
+
+    unsafe=copy.deepcopy(ga_assumptions)
+    unsafe["nie_detail"]["categories"][0]["linked_components"].append(
+        {"driver":"fee_income","rate_spec":{"source":"entered","trajectory":"flat","value":.01}})
+    unsafe_failed=False
+    try: cac_auc_rollforward({"channels":[ga_ch],"attrition_rate":0},12,12,assumptions=unsafe)
+    except ValueError as e: unsafe_failed="runtime metrics" in str(e)
+    ck("CAC fails closed instead of silently omitting runtime-dependent Opex components", unsafe_failed)
+
     # Finer source cadence is explicit economic metadata: flows sum, levels/rates average.
     monthly_ch={"name":"Monthly source","method":"spend_cac","params":{},"avg_auc_per_customer":1,
         "driver_specs":{

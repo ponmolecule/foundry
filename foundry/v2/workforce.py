@@ -46,6 +46,51 @@ def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, 
             for p, v in enumerate(arr, 1)]
 
 
+def workforce_count_series_by_id(workforce: Mapping[str, Any] | None, series_id: str,
+                                 n_periods: int, ppy: int = 4, *, growth_context=None,
+                                 deterministic_only: bool = False) -> list[float]:
+    """Resolve a Workforce-owned Count Series by stable ID.
+
+    ``series_id`` may identify either one role/population or Workforce's persisted aggregate
+    ``total_count_series_id``.  The aggregate is always composed from the same role-level Count
+    Series that Workforce owns; it is never a separately authored forecast.
+
+    ``deterministic_only`` is the safe upstream-consumer contract used by modules such as Customer
+    Acquisition.  Metric-triggered roles are resolved inside the main engine and can depend on
+    downstream financial metrics, so an upstream consumer must reject them rather than silently
+    manufacturing a pre-engine headcount path.
+    """
+    wf = workforce or {}
+    sid = str(series_id or "").strip()
+    if not sid:
+        raise ValueError("workforce count Series requires series_id")
+    n, ppy = int(n_periods), int(ppy)
+    roles = list(wf.get("roles") or [])
+
+    total_sid = str(wf.get("total_count_series_id") or "").strip()
+    if sid == total_sid and total_sid:
+        if deterministic_only and any((r or {}).get("activation") for r in roles):
+            raise ValueError(
+                "upstream link to Total workforce cannot include metric-triggered roles; "
+                "use fixed/entered activation windows or break the circular dependency")
+        out = [0.0] * n
+        for role in roles:
+            arr = workforce_role_count_series(role, n, ppy, growth_context=growth_context)
+            out = [a + float(v or 0.0) for a, v in zip(out, arr)]
+        return out
+
+    hits = [r for r in roles if str((r or {}).get("series_id") or "").strip() == sid]
+    if len(hits) != 1:
+        raise ValueError(
+            f"linked workforce count Series {sid!r} resolved to {len(hits)} matches; expected exactly one")
+    role = hits[0]
+    if deterministic_only and role.get("activation"):
+        raise ValueError(
+            "upstream link cannot consume a metric-triggered workforce count; "
+            "use a fixed/entered activation window or break the circular dependency")
+    return workforce_role_count_series(role, n, ppy, growth_context=growth_context)
+
+
 def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods: int,
                                         ppy: int = 4, *, growth_context=None,
                                         start_period: int = 1,

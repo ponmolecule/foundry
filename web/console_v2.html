@@ -8262,7 +8262,29 @@ function _cacStored(v,kind){let x=_pf(v);if(kind==="pct")x/=100;else if(kind==="
 function _cacEnteredCurrent(ch,key){const sp=_cacEnsureSpec(ch,key),m=_cacMode(sp);if(m==="growth")return +(sp.base||0);if(m==="explicit")return +((sp.values||[])[0]||0);return +(sp.value||0);}
 function _cacLinkOptions(meta){
   _ensureLinkableSeriesIds(); const nd=(cfg.assumptions||{}).nie_detail||{},out=[];
-  if(meta.linkKind==="operating_expense_category") (nd.categories||[]).forEach(x=>out.push({id:x.series_id,kind:meta.linkKind,label:"Operating Expense · "+(x.name||"Unnamed category"),aggregation:"sum"}));
+  if(meta.linkKind==="operating_expense_category") (nd.categories||[]).forEach(x=>{
+    const lcs=(x.linked_components||[]),wf=nd.workforce||{},roles=wf.roles||[];
+    let disabled=false,reason="";
+    const calc=x.calculation||{};
+    if(calc.kind==="cost_pool"||lcs.some(lc=>lc&&lc.driver==="cost_pool_charge")){disabled=true;reason="cost-pool charge";}
+    if(!disabled){
+      const bad=lcs.find(lc=>lc&&lc.driver!=="workforce_count");
+      if(bad){disabled=true;reason="runtime-dependent component";}
+    }
+    if(!disabled){
+      const wfl=lcs.filter(lc=>lc&&lc.driver==="workforce_count");
+      for(const lc of wfl){
+        const sid=String(lc.series_id||"");
+        if(sid===String(wf.total_count_series_id||"")){
+          if(roles.some(r=>r&&r.activation)){disabled=true;reason="metric-triggered workforce";break;}
+        }else{
+          const wr=roles.find(r=>r&&String(r.series_id||"")===sid);
+          if(!wr||wr.activation){disabled=true;reason=!wr?"missing workforce source":"metric-triggered workforce";break;}
+        }
+      }
+    }
+    out.push({id:x.series_id,kind:meta.linkKind,label:"Operating Expense · "+(x.name||"Unnamed category"),aggregation:"sum",disabled,disabledReason:reason});
+  });
   if(meta.linkKind==="workforce_role_count") (((nd.workforce||{}).roles)||[]).forEach(x=>out.push({id:x.series_id,kind:meta.linkKind,label:"Workforce Count · "+(x.role||"Unnamed population"),aggregation:"average",disabled:!!x.activation}));
   return out;
 }
@@ -8349,6 +8371,17 @@ function _cacLinkedSourcePreview(fn,ci,meta,sp){
     } else {
       detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Flat · ${fmtComma((+fs.value||0)/1000)} $000s/${esc(fp)}</span></div>`;
     }
+    const _wf=((cfg.assumptions||{}).nie_detail||{}).workforce||{},_roles=_wf.roles||[];
+    (src.linked_components||[]).filter(lc=>lc&&lc.driver==="workforce_count").forEach(lc=>{
+      const sid=String(lc.series_id||""),isTotal=sid===String(_wf.total_count_series_id||"");
+      const wr=isTotal?null:_roles.find(r=>r&&String(r.series_id||"")===sid),lab=isTotal?"Total workforce":((wr&&wr.role)||"Workforce population");
+      const a=lc.amount_spec||{},at=a.trajectory||"flat",ap=a.period||"month";
+      let amt="";
+      if(at==="explicit")amt=`Explicit · ${(a.values||[]).length} source values`;
+      else if(at==="growth")amt=`Growth · base ${fmtComma((+a.value||0)/1000)} $000s/FTE/${esc(ap)}`;
+      else amt=`Flat · ${fmtComma((+a.value||0)/1000)} $000s/FTE/${esc(ap)}`;
+      detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Workforce-linked component</span><span class="cu">${esc(lab)} × ${amt}</span></div>`;
+    });
     const latest=_cacLinkedLatestAnnual(fn,ci,meta.k);
     if(latest.length)detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">${latest.map((v,i)=>'Y'+(i+1)+' '+fmtComma(v)).join(' · ')} · $000s/year</span></div>`;
     return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(src.name||'Operating Expense')}</b> · read-only here; edit the source in Operating Expense.</div>${detail}</div>`;
@@ -8377,7 +8410,7 @@ function _cacDriverHtml(fn,ci,ch,meta){
   if(canLink)x+=`<select style="width:96px" onchange="cacDriverSource('${esc(fn)}',${ci},'${meta.k}',this.value)"><option value="entered"${mode!=="link"?' selected':''}>Enter</option><option value="link"${mode==='link'?' selected':''}>Link</option></select>`;
   else x+=`<span class="cu" style="width:84px">Enter</span>`;
   if(mode==="link"){
-    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select style="min-width:210px;max-width:320px" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · metric-triggered':''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
+    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select style="min-width:210px;max-width:320px" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · '+esc(o.disabledReason||'not linkable upstream'):''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
   } else {
     x+=`<select style="width:98px" onchange="cacDriverTrajectory('${esc(fn)}',${ci},'${meta.k}',this.value)">${[["flat","Flat"],["growth","Growth"],["explicit","Explicit"]].map(o=>`<option value="${o[0]}"${o[0]===mode?' selected':''}>${o[1]}</option>`).join('')}</select>`;
     if(mode==="growth"){
