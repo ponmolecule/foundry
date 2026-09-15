@@ -27,7 +27,11 @@ def main():
 const window=globalThis;
 const document={querySelectorAll:()=>[]};
 let cfg={assumptions:{periods_per_year:12,n_periods:84,obs_exposures:[],nie_detail:{
-  categories:[{series_id:'opex-bd',name:'Business Development',trajectory:'flat',per_period:10000}],
+  categories:[
+    {series_id:'opex-bd',name:'Business Development',trajectory:'flat',per_period:10000},
+    {series_id:'opex-ga',name:'G&A',flow_spec:{trajectory:'flat',value:0,period:'month'},linked_components:[{driver:'workforce_count',series_id:'wf-rm',amount_spec:{trajectory:'flat',value:10000,period:'month'}}]},
+    {series_id:'opex-runtime',name:'Runtime-dependent',flow_spec:{trajectory:'flat',value:0,period:'month'},linked_components:[{driver:'fee_income',rate_spec:{source:'entered',trajectory:'flat',value:.01}}]}
+  ],
   workforce:{mode:'roles',roles:[{series_id:'wf-rm',role:'Relationship Managers',count:3,annual_comp:175000,hire_period:1}]}
 },cac_feeds:{growth:{channels:[
   {name:'Partner referrals',method:'pool_conversion',params:{pool:1000,conversion_rate:.02},avg_auc_per_customer:500000},
@@ -62,6 +66,9 @@ const spendLink=fd.channels[1].driver_specs.spend;
 const spendPreviewFlat=_cacLinkedSourcePreview('growth',1,_cacMeta(fd.channels[1].method).find(x=>x.k==='spend'),spendLink);
 cfg.assumptions.nie_detail.categories[0].trajectory='explicit'; cfg.assumptions.nie_detail.categories[0].schedule=[10000,12000,14000];
 const spendPreviewExplicit=_cacLinkedSourcePreview('growth',1,_cacMeta(fd.channels[1].method).find(x=>x.k==='spend'),spendLink);
+const gaMeta=_cacMeta(fd.channels[1].method).find(x=>x.k==='spend');
+const gaPreview=_cacLinkedSourcePreview('growth',1,gaMeta,{link:{series_id:'opex-ga'}});
+const opexLinkOptions=_cacLinkOptions(gaMeta);
 window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
@@ -79,7 +86,7 @@ window._cacChannelDrag={feed:'growth',index:0};
 window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'other',0);
 const crossFeedGuard={growthNames:fd.channels.map(x=>x.name),otherNames:cfg.assumptions.cac_feeds.other.channels.map(x=>x.name)};
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,reordered,reorderedUp,crossFeedGuard}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,reordered,reorderedUp,crossFeedGuard}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -131,6 +138,14 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        and "10 · 12 · 14" in (bj.get("spendPreviewExplicit") or "")
        and "3 source values" in (bj.get("spendPreviewExplicit") or "")
        and "read-only here; edit the source in Operating Expense" in (bj.get("spendPreviewExplicit") or ""))
+    ck("linked Acquisition Spend preview discloses Workforce Count × amount/FTE components",
+       "Workforce-linked component" in (bj.get("gaPreview") or "")
+       and "G&A" in (bj.get("gaPreview") or "")
+       and "$000s/FTE/month" in (bj.get("gaPreview") or ""))
+    _ol={x.get("id"):x for x in (bj.get("opexLinkOptions") or [])}
+    ck("CAC disables Opex sources whose linked components require main-engine runtime metrics",
+       (_ol.get("opex-runtime") or {}).get("disabled") is True
+       and (_ol.get("opex-runtime") or {}).get("disabledReason")=="runtime-dependent component")
     ck("acquisition equations remain the closed vocabulary while channel names are user-defined",
        "New customers = Pool × Conversion" in html and "New customers = Spend ÷ CAC" in html
        and "New customers = FTE Count × Productivity" in html

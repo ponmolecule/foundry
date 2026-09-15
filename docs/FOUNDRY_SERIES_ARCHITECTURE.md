@@ -138,6 +138,13 @@ Example:
 - AUC/customer source: `Enter assumption`
 - AUC/customer trajectory: `Flat`, `Growth`, or `Explicit`
 
+An Operating Expense category selected as CAC Acquisition Spend is a cross-module Series, not a
+pointer to the category's primary text box. The resolver includes the entered recurring base plus
+any deterministic Workforce Count × amount/FTE components owned by that category. If a category
+contains an additive component that depends on main-engine runtime metrics, the CAC link is not
+eligible and validation fails closed; Foundry never substitutes zero or drops the component to make
+the link resolve.
+
 An Explicit schedule opens locally on the operand that needs it. The module does not expose a
 spreadsheet-wide Year-1…Year-N input surface.
 

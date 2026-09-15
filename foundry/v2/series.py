@@ -210,10 +210,12 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                           n_periods: int, ppy: int = 4, *, context=None, _stack=None) -> list[float]:
     """Resolve a whitelisted cross-module link.
 
-    Links are intentionally narrow and causal. CAC may consume static Operating Expense
-    category flows or fixed/entered Workforce count levels; cost pools may also observe
-    fixed-start Workforce expense flows. Metric-triggered workforce links are rejected
-    where downstream economics can feed the same metrics and create circularity.
+    Links are intentionally narrow and causal. CAC may consume an Operating Expense category's
+    complete *upstream-resolvable* flow (entered recurring amount plus deterministic Workforce
+    Count × amount/FTE components) or fixed/entered Workforce count levels; cost pools may also
+    observe fixed-start Workforce expense flows. Runtime-dependent Opex components and
+    metric-triggered workforce links are rejected where downstream economics can feed the same
+    metrics and create circularity.
     """
     kind = str(link.get("kind") or "").strip()
     ident = str(link.get("series_id") or link.get("name") or "").strip()
@@ -225,7 +227,10 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
     nd = (assumptions or {}).get("nie_detail") or {}
     if kind == "operating_expense_category":
         from .income_modules import nie_category_series
-        from .opex_extensions import normalize_opex_calculation, COST_POOL_CHARGE_DRIVER
+        from .opex_extensions import (normalize_opex_calculation, normalize_linked_component,
+                                      COST_POOL_CHARGE_DRIVER, WORKFORCE_COUNT_DRIVER)
+        from .periodic_flows import resolve_periodic_flow
+        from .workforce import workforce_count_series_by_id
         row = _find_by_id_or_name(nd.get("categories") or [], link, kind)
         legacy_cp = normalize_opex_calculation(row).get("kind") == "cost_pool"
         component_cp = any(str((x or {}).get("driver") or "").strip().lower() == COST_POOL_CHARGE_DRIVER
@@ -234,16 +239,35 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
             raise ValueError(
                 "an Operating Expense category containing a cost-pool charge cannot be reused as an upstream "
                 "linked cost; link the underlying source costs instead")
-        return nie_category_series(row, int(n_periods), int(ppy), growth_context=context)
-    if kind == "workforce_role_count":
-        from .workforce import workforce_role_count_series
+        out = nie_category_series(row, int(n_periods), int(ppy), growth_context=context)
+        # Add only components whose complete economics can be resolved before the main engine.
+        # This closes a dangerous r102 seam where CAC could select a category such as G&A, while
+        # the generic Series resolver returned only its entered recurring base and silently omitted
+        # a Workforce Count × amount/FTE component.  Runtime-dependent components fail closed
+        # instead of being dropped from the linked Series.
         wf = nd.get("workforce") or {}
-        row = _find_by_id_or_name(wf.get("roles") or [], link, kind)
-        if row.get("activation"):
-            raise ValueError(
-                "CAC cannot link to a metric-triggered workforce count; use a fixed/entered count path "
-                "or break the circular dependency")
-        return workforce_role_count_series(row, int(n_periods), int(ppy), growth_context=context)
+        for raw_component in (row.get("linked_components") or []):
+            component = normalize_linked_component(raw_component)
+            drv = str(component.get("driver") or "")
+            if drv != WORKFORCE_COUNT_DRIVER:
+                raise ValueError(
+                    f"Operating Expense category {str(row.get('name') or ident)!r} cannot be reused "
+                    f"as an upstream Customer Acquisition Series because linked component {drv!r} "
+                    "requires main-engine runtime metrics")
+            counts = workforce_count_series_by_id(
+                wf, component.get("series_id"), int(n_periods), int(ppy),
+                growth_context=context, deterministic_only=True)
+            amounts = resolve_periodic_flow(
+                component.get("amount_spec"), int(n_periods), int(ppy), context=context)
+            out = [float(base or 0.0) + float(count or 0.0) * float(amount or 0.0)
+                   for base, count, amount in zip(out, counts, amounts)]
+        return out
+    if kind == "workforce_role_count":
+        from .workforce import workforce_count_series_by_id
+        wf = nd.get("workforce") or {}
+        return workforce_count_series_by_id(
+            wf, ident, int(n_periods), int(ppy), growth_context=context,
+            deterministic_only=True)
     if kind == "workforce_role_expense":
         from .workforce import workforce_role_expense_series
         wf = nd.get("workforce") or {}
