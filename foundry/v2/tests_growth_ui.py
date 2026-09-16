@@ -355,13 +355,15 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} function fmtComma(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _feeBasisTileHtml(){return '<tile>'; }\n"
         "let lastRes={customer_acquisition:{Growth:{customerEndByMonth:Array.from({length:36},(_,i)=>100+i),yearEndCustomers:[111,123,135]}}};\n"
         + hjs + fjs +
-        "\nconst out=_feeCustomerCountPreviewHtml('cac-count-growth','period_end'); console.log(JSON.stringify({details:out.includes('<details class=\"explicit-preview\">'),count:out.includes('36 loaded'),viewAll:out.includes('View all'),compact:out.includes('M1 100 · M2 101 · M3 102 · … · M34 133 · M35 134 · M36 135'),spill:out.includes('cac-link-readonly')}));")
+        "\nconst vals=Array.from({length:36},(_,i)=>100+i); const direct=_explicitPreviewHtml(vals,v=>fmtComma(v),'month'); const out=_feeCustomerCountPreviewHtml('cac-count-growth','period_end'); console.log(JSON.stringify({details:out.includes('<details class=\"explicit-preview\">'),count:out.includes('36 loaded'),viewAll:out.includes('View all'),compact:out.includes('M1 100 · M2 101 · M3 102 · … · M34 133 · M35 134 · M36 135'),samePreview:out.includes(direct),actions:out.includes('<div class=\"nie-actions\"'),spill:out.includes('cac-link-readonly'),card:out.includes('cac-link-preview'),selectedCard:out.includes('Selected Customer Acquisition Series'),readOnlyCard:out.includes('read-only here')}));")
     lcr=subprocess.run(["node","-e",linked_count_compact_js],text=True,capture_output=True); lcj={}
     if lcr.returncode==0 and lcr.stdout.strip():
         try: lcj=json.loads(lcr.stdout.strip().splitlines()[-1])
         except Exception: pass
-    ck("linked Ending bank customers uses the same compact expandable preview as typed Explicit schedules",
-       lcr.returncode==0 and lcj.get("details") and lcj.get("count") and lcj.get("viewAll") and lcj.get("compact") and not lcj.get("spill"), str(lcj)+" "+lcr.stderr.strip())
+    ck("linked Ending bank customers uses the same unboxed Explicit preview as typed schedules",
+       lcr.returncode==0 and lcj.get("details") and lcj.get("count") and lcj.get("viewAll") and lcj.get("compact")
+       and lcj.get("samePreview") and lcj.get("actions") and not lcj.get("spill") and not lcj.get("card")
+       and not lcj.get("selectedCard") and not lcj.get("readOnlyCard"), str(lcj)+" "+lcr.stderr.strip())
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
