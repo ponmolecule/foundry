@@ -22,6 +22,7 @@ from openpyxl.utils import get_column_letter
 
 from .growth import growth_context_from_cfg
 from .timebase import model_period_end_date
+from .series import apply_amount_basis
 
 _DARK = "182640"
 _DARK2 = "24334D"
@@ -766,7 +767,8 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
     hires = list(wfout.get("resolved_hire_periods") or [])
     counts = list(wfout.get("counts") or [])
     gctx = growth_context_from_cfg(cfg, ppy)
-    from .workforce import workforce_role_compensation_series, workforce_compensation_period
+    from .workforce import (workforce_role_compensation_series, workforce_compensation_period,
+                            workforce_compensation_basis)
     default_load = float(wfcfg.get("default_payroll_load_rate") or 0.0)
     default_spec = wfcfg.get("default_salary_growth_spec")
     total = [0.0] * n
@@ -779,20 +781,34 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
         annual = workforce_role_compensation_series(role, n, ppy, growth_context=gctx,
                                                      start_period=start, default_growth_spec=default_spec)
         comp_period = workforce_compensation_period(role)
+        comp_basis = workforce_compensation_basis(role)
         factor = {"year": 1.0, "quarter": 4.0, "month": 12.0}[comp_period]
         authored = [float(v or 0.0) / factor for v in annual]
         load = float((role or {}).get("payroll_load_rate") if (role or {}).get("payroll_load_rate") is not None else default_load)
         exp = []
+        end_raw = (role or {}).get("end_period")
+        end = int(end_raw) if end_raw not in (None, "") else None
         for p in range(n):
+            period = p + 1
+            active = hire is not None and period >= int(hire) and (end is None or period <= end)
             active_count = float(cnt[p] or 0.0) if p < len(cnt) else 0.0
             annual_now = float(annual[p] or 0.0) if p < len(annual) else 0.0
-            e = annual_now * active_count * (1.0 + load) / float(ppy) / 1000.0
+            e = (apply_amount_basis(annual_now / float(ppy), comp_basis, active_count)
+                 * (1.0 + load) / 1000.0) if active else 0.0
             exp.append(e)
             total[p] += e
         rows.append((name, "Active count", sid, "FTE / headcount", cnt, _COUNT_FMT))
-        rows.append((name, "Authored compensation / FTE", sid,
-                     f"$ / FTE / {comp_period}", authored, _MONEY_FMT))
-        rows.append((name, "Annualized compensation / FTE", sid, "$ / FTE / year", annual, _MONEY_FMT))
+        rows.append((name, "Compensation amount basis", sid, "basis",
+                     [("Total" if comp_basis == "total" else "Per FTE")] * n, None))
+        if comp_basis == "total":
+            rows.append((name, "Authored total compensation", sid,
+                         f"$ / total population / {comp_period}", authored, _MONEY_FMT))
+            rows.append((name, "Annualized total compensation", sid,
+                         "$ / total population / year", annual, _MONEY_FMT))
+        else:
+            rows.append((name, "Authored compensation / FTE", sid,
+                         f"$ / FTE / {comp_period}", authored, _MONEY_FMT))
+            rows.append((name, "Annualized compensation / FTE", sid, "$ / FTE / year", annual, _MONEY_FMT))
         rows.append((name, f"Payroll load ({load:.4%})", sid, "decimal", [load] * n, _RATE_FMT))
         rows.append((name, f"Payroll expense · resolved hire {hire or '—'}", sid, "$000s / engine period", exp, _MONEY_FMT))
     if wfout.get("comp"):

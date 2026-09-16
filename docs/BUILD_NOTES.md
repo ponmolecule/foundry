@@ -207,3 +207,11 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Keeps canonical customer-count measures explicit: monthly period-end Ending bank customers, year-end customers held through the model year, or period-average customers.
 - Makes source switching non-destructive: an existing pasted Constant/Explicit Account count path is preserved while the CAC link is active and restored exactly if the user switches back to Constant.
 - Guide Me uses the same economic wording. Engine arithmetic, CAC ownership, Fee Product pricing, cadence, and accounting are unchanged.
+
+## r108 — Workforce compensation amount basis
+- Adds a generic Series amount-basis primitive: `total` versus `per_unit`. Workforce presents `per_unit` as **Per FTE**.
+- Ordinary Workforce compensation can now be authored as **Total** without multiplying by Count. Count remains an independently published/linkable Series for other model consumers.
+- Keeps amount basis orthogonal to Flat/Growth/Explicit trajectory, Month/Quarter/Year amount period, Explicit schedule cadence, and Growth rate period.
+- Preserves pre-r108 economics by treating historical Workforce compensation as Per FTE. Invalid bases fail closed.
+- Adds Total/Per FTE authoring to the main Workforce row, bulk paste, Calculation Audit, FIW, and reviewer-facing settings output. Generic paste rows require both basis and period; historical self-describing per-FTE headers remain valid.
+- Regression includes the motivating `28.333 FTE + 354 $000s/month Total` case, which now produces exactly `$354k/month` rather than `$10.029882MM/month` while retaining the 28.333 Count Series.

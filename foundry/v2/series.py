@@ -23,6 +23,34 @@ _FREQ = {"year": 1, "quarter": 4, "month": 12}
 _VALID_EXTEND = {"hold", "zero", "error"}
 _VALID_RESOLUTION = {"step", "smooth"}
 _VALID_AGG = {"sum", "average", "end", "start"}
+_VALID_AMOUNT_BASES = {"total", "per_unit"}
+
+
+def normalize_amount_basis(value: Any, *, default: str = "total") -> str:
+    """Normalize the economic basis of an authored amount.
+
+    ``total`` means the entered amount already represents the complete economic
+    quantity for the row/population. ``per_unit`` means a consuming domain equation
+    must multiply the amount by its explicitly selected unit driver.  Trajectory,
+    cadence, amount period, and amount basis are deliberately orthogonal.
+    """
+    raw = str(value if value not in (None, "") else default).strip().lower()
+    raw = raw.replace("-", "_").replace(" ", "_")
+    aliases = {
+        "total": "total", "whole": "total", "aggregate": "total",
+        "per_unit": "per_unit", "perunit": "per_unit", "unit": "per_unit",
+        "per_fte": "per_unit", "perfte": "per_unit",
+    }
+    basis = aliases.get(raw)
+    if basis not in _VALID_AMOUNT_BASES:
+        raise ValueError(f"unsupported Foundry amount basis {value!r}; expected total/per_unit")
+    return basis
+
+
+def apply_amount_basis(amount: float, basis: str, unit_count: float) -> float:
+    """Apply a normalized amount basis exactly once."""
+    b = normalize_amount_basis(basis)
+    return float(amount or 0.0) if b == "total" else float(amount or 0.0) * float(unit_count or 0.0)
 
 
 def normalize_series_spec(spec: Mapping[str, Any] | None, *, default_value: float = 0.0) -> dict:
@@ -61,6 +89,8 @@ def normalize_series_spec(spec: Mapping[str, Any] | None, *, default_value: floa
         ident["owner_module"] = str(raw.get("owner_module")).strip()
     if str(raw.get("semantic_type") or "").strip():
         ident["semantic_type"] = str(raw.get("semantic_type")).strip()
+    if raw.get("amount_basis") not in (None, ""):
+        ident["amount_basis"] = normalize_amount_basis(raw.get("amount_basis"))
 
     if source == "link":
         link = raw.get("link")

@@ -106,30 +106,53 @@ system.
 One Workforce row represents **one economically homogeneous population**, not necessarily one
 named employee.
 
-`Count` and `Compensation` are Foundry Series. Each may be Flat, Growth, or Explicit. Payroll consumes
-the resolved native-period count and compensation/FTE trajectories:
+`Count` and `Compensation` are independent Foundry Series. Each may be Flat, Growth, or Explicit.
+Compensation also owns an explicit **amount basis**, orthogonal to trajectory and time unit:
 
-`Workforce expense = Count × annualized(compensation/FTE, authored Month/Quarter/Year) × (1 + Benefits / Payroll) / ppy`
+- `total` — the entered compensation amount already represents the whole role/population expense.
+- `per_unit` — for Workforce, the entered amount is per FTE and Count scales the amount.
+
+The generic amount-basis vocabulary lives in the Series layer (`total | per_unit`); Workforce maps
+`per_unit` to the user-facing label **Per FTE**. This avoids baking Workforce terminology into the
+shared primitive.
+
+Payroll therefore resolves as:
+
+- **Total:** `periodized(compensation) × (1 + Benefits / Payroll)`
+- **Per FTE:** `Count × periodized(compensation/FTE) × (1 + Benefits / Payroll)`
+
+Count remains a separately owned, linkable Workforce Series in either case. Choosing Total does
+not discard or zero headcount; it merely removes Count from the compensation equation. Hire/end
+and metric-trigger activation still govern whether the compensation row is active.
 
 Flat, Growth, and Explicit Compensation Series each own an explicit natural amount period
 (`month`, `quarter`, or `year`). Explicit schedules separately own their source cadence, because
-"how often the level changes" and "what time unit the amount represents" are different semantics.
-Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is
-authored; pre-r107 rows are explicitly migrated as `period=year` to preserve historical economics.
-The Workforce bulk-paste contract follows the same rule: a generic `Comp / FTE` column must be
-paired with an explicit `Comp Period`, while self-describing headers such as `Annual Comp`,
-`Monthly Comp`, or `Quarterly Comp` may supply the period through the header itself. Generic
-compensation amounts with no period fail closed rather than inheriting an invisible annual basis.
-Headerless rows must also carry the period explicitly; the old ambiguous `Role, Comp, Start,
-Escalation` shape is rejected rather than guessed.
+"how often the level changes", "what time unit the amount represents", and "whether the amount is
+total or per unit" are three different semantics. Growth also owns its own growth-rate period.
 
-Workforce also publishes an aggregate active-headcount Series with its own persisted `total_count_series_id`. The aggregate is derived from the resolved role Count Series each model period; it is not a second staffing input. Operating Expense may observe either that aggregate Series or an individual role Count Series and apply a typed `$ / FTE / Month|Quarter|Year` coefficient. Amount cadence is an economic unit: equivalent annual, quarterly, and monthly per-FTE amounts resolve to the same native-period expense.
+Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is
+authored. Pre-r107 rows are semantically `period=year`; pre-r108 rows are semantically
+`amount_basis=per_unit` (Per FTE). Those defaults preserve released historical economics and are
+not inferred from the current trajectory.
+
+The Workforce bulk-paste contract follows the same rule. New generic compensation columns require
+both `Comp Basis` (Total or Per FTE) and `Comp Period` (Month, Quarter or Year). Self-describing
+headers may carry either or both semantics. Historical `Annual/Monthly/Quarterly Comp ($000s/FTE)`
+headers remain Per FTE for backward compatibility; a header such as `Total Monthly Comp ($000s)`
+is Total/Month. Ambiguous generic or headerless rows fail closed rather than guessing.
+
+Workforce also publishes an aggregate active-headcount Series with its own persisted
+`total_count_series_id`. The aggregate is derived from the resolved role Count Series each model
+period; it is not a second staffing input. Operating Expense may observe either that aggregate
+Series or an individual role Count Series and apply a typed `$ / FTE / Month|Quarter|Year`
+coefficient. Amount cadence is an economic unit: equivalent annual, quarterly, and monthly per-FTE
+amounts resolve to the same native-period expense.
 
 Use one row while timing, compensation, escalation, benefits/load and activation economics are the
 same. Split rows when aggregation changes the economics.
 
-This restores the useful Count concept without returning to a rigid FTE-Year-1/FTE-Year-2/FTE-Year-3
-staffing table.
+This restores the useful Count concept without forcing every Workforce expense to be Count ×
+compensation per FTE.
 
 ## 6. Customer Acquisition authoring
 
