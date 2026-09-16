@@ -201,3 +201,9 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Failed audit preparation schedules a normal preview recovery and surfaces the actual timeout/HTTP diagnostic instead of the opaque `Could not prepare the calculation-audit snapshot.` message where possible.
 - The normal preview path now fails visibly rather than spinning forever: network errors, HTTP failures, unreadable responses, and a 60-second timeout set an explicit model-run failure state and render no stale financials.
 - Financial-engine arithmetic, accounting, Fee Product pricing/cost semantics, cadence, and the r94 audit/Product Details reconciliation contract are unchanged.
+
+## r106 — Ending bank customers Fee Product link
+- Exposes the CAC-owned customer-count Series in Account-basis Fee Product authoring as **Ending bank customers — Customer Acquisition**, with stable-ID feed selection and a latest-run read-only path preview.
+- Keeps canonical customer-count measures explicit: monthly period-end Ending bank customers, year-end customers held through the model year, or period-average customers.
+- Makes source switching non-destructive: an existing pasted Constant/Explicit Account count path is preserved while the CAC link is active and restored exactly if the user switches back to Constant.
+- Guide Me uses the same economic wording. Engine arithmetic, CAC ownership, Fee Product pricing, cadence, and accounting are unchanged.

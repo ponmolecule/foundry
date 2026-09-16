@@ -193,8 +193,8 @@ def main():
     ck("Guide Me maps CAC-derived annual clients to an explicit Account count measure",
        pg["streams"][0]["driver_source"]=="customer_acquisition_count"
        and pg["streams"][0]["customer_count_measure"]=="annual_count"
-       and any("Client-count source" in x for x in ps)
-       and any("Annual / model-year customer count" in x for x in ps)
+       and any("Ending bank customers source" in x for x in ps)
+       and any("Year-end bank customers" in x for x in ps)
        and any("do not enter a second count schedule" in x for x in ps)
        and not any("Count schedule period" in x or "Count growth" in x for x in ps))
 
@@ -326,9 +326,9 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
     html=open("web/console_v2.html",encoding="utf-8").read()
     ck("Fee Product UI exposes Guide Me beside fee streams", "openFeeGuide(${_fi})" in html and ">Guide Me</button>" in html)
     ck("Account Fee UI can consume CAC client count with an explicit downstream measure",
-       "Customer Acquisition client count" in html and "Client-count source" in html
-       and "Client-count measure" in html and "Annual / model-year customer count" in html
-       and "Monthly period-end active clients" in html and "Period-average active clients" in html
+       "Ending bank customers — Customer Acquisition" in html and "Ending bank customers source" in html
+       and "Customer-count measure" in html and "Year-end bank customers · held through model year" in html
+       and "Ending bank customers · monthly period end" in html and "Period-average bank customers" in html
        and "Follows Customer Acquisition" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)

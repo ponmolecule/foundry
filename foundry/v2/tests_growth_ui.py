@@ -281,6 +281,27 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         except Exception: pass
     ck("Fee basis cleanup retires hidden transaction coefficient/rate state on loaded and newly-changed Account streams",
        scr.returncode==0 and scj.get("loadClean") and scj.get("changeClean") and scj.get("basis")=="account", scr.stderr.strip())
+    # r106: Ending bank customers is a discoverable CAC-owned Series in Account streams, and
+    # switching to that link must not destroy an already-pasted manual count schedule.
+    customer_count_link_js=("const window=globalThis; let cfg={assumptions:{cac_feeds:{Growth:{customer_count_series_id:'cac-count-growth',beginning_customers:80}},obs_exposures:[]}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} function fmtComma(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _feeBasisTileHtml(){return '<tile>'; }\n"
+        "let lastRes={customer_acquisition:{Growth:{customerEndByMonth:[100,110,125],yearEndCustomers:[200]}}};\n"
+        + hjs + fjs +
+        "\nconst st={name:'Annual maintenance',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':100,'2':110,'3':125}}}},rate:{behavior:'flat',params:{unit_fee:{value:1200,period:'year',trajectory:'flat'}}},cost:{kind:'none',params:{}}};"
+        " const prod={name:'Bank customers',_fee_product:true,managed_notional:{day1:0,trajectory:'flat'},fee_streams:[st]}; cfg.assumptions.obs_exposures=[prod];"
+        " const before=JSON.stringify(st.driver.params.level_schedule); feeStreamDriverSourceChange(0,0,'customer_acquisition_count'); const linked={source:st.driver.source,ref:st.driver.ref,measure:st.driver.measure,trajectory:st.driver.trajectory,saved:st.driver._saved_constant_trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; const out=fieldsFor('obs',prod,'assumptions.obs_exposures.0'); feeStreamDriverSourceChange(0,0,'constant'); const restored={source:st.driver.source,trajectory:st.driver.trajectory,schedule:JSON.stringify(st.driver.params.level_schedule)}; console.log(JSON.stringify({before,linked,restored,ui:out.includes('Ending bank customers — Customer Acquisition')&&out.includes('Ending bank customers source')&&out.includes('Ending bank customers · Growth')&&out.includes('M1 100 · M2 110 · M3 125')}));")
+    ccr=subprocess.run(["node","-e",customer_count_link_js],text=True,capture_output=True); ccj={}
+    if ccr.returncode==0 and ccr.stdout.strip():
+        try: ccj=json.loads(ccr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ccl=ccj.get("linked") or {}; ccrs=ccj.get("restored") or {}
+    ck("Fee Product exposes Customer Acquisition Ending bank customers by stable Series ID",
+       ccr.returncode==0 and ccl.get("source")=="customer_acquisition_count" and ccl.get("ref")=="cac-count-growth"
+       and ccl.get("measure")=="period_end" and ccj.get("ui") is True, ccr.stderr.strip())
+    ck("linking Ending bank customers preserves and restores a pasted manual Account count schedule",
+       ccl.get("trajectory")=="flat" and ccl.get("saved")=="explicit_schedule"
+       and ccl.get("schedule")==ccj.get("before") and ccrs.get("source")=="constant"
+       and ccrs.get("trajectory")=="explicit_schedule" and ccrs.get("schedule")==ccj.get("before"), str(ccj))
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
