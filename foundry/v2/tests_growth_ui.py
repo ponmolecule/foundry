@@ -138,8 +138,9 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     ck("every bulk-entry Load surface renders an associated Clear button",
        'poClear()' in html and 'nieWorkforceClear()' in html and 'nieCatClear()' in html
        and html.count('>Clear</button>')>=3)
-    ck("opening workforce paste UI does not activate/supersede legacy staffing",
-       'onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false"' in html
+    ck("opening workforce paste UI is transient and does not activate/supersede legacy staffing",
+       "_structuredPasteSetOpen(\\'workforce\\',true)" in html
+       and "cfg.assumptions.nie_detail._wfPasteOpen=true" not in html
        and 'onclick="var w=_ensureWorkforce();w._pasteOpen=true' not in html)
     ck("workforce run summary replaces the sparse activation table with useful population economics",
        "Workforce run summary · latest run" in html and "Headcount path" in html

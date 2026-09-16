@@ -234,6 +234,29 @@ console.log(JSON.stringify({parse,firstOnly,firstTwo,invalidDisabled,clearAOnly,
        and "_decoratePasteSurfaces();" in html
        and "feeGuideDesc" in html and "model-free-text" in html)
 
+    ck("structured paste visibility is transient UI state rather than saved model state",
+       "window._structuredPasteOpen=window._structuredPasteOpen||{}" in html
+       and "function _structuredPasteIsOpen(key)" in html
+       and "function _structuredPasteSetOpen(key,isOpen)" in html
+       and "window._structuredPasteOpen={};" in html
+       and "_structuredPasteIsOpen(\"preopening\")" in html
+       and "_structuredPasteIsOpen(\"fixedassets\")" in html
+       and "_structuredPasteIsOpen(\"workforce\")" in html
+       and "_structuredPasteIsOpen(\"opex_categories\")" in html)
+    ck("legacy persisted paste-open flags are stripped before normalization and save",
+       "function _stripTransientPasteFlags(c)" in html
+       and "delete c.pre_opening._pasteOpen" in html
+       and "delete a.fixed_assets._pasteOpen" in html
+       and "delete nd._wfPasteOpen; delete nd._catPasteOpen" in html
+       and html.count("_stripTransientPasteFlags(") >= 3)
+    ck("engagement/config replacement resets paste editors to a closed presentation state",
+       "window._pasteSurfaceDefaultClosed=true" in html
+       and "window._pasteSurfaceCloseAllOnNextRender=true" in html
+       and "if(closeAll)window._pasteSurfaceClosed[id]=true" in html
+       and "if(closeAll)window._pasteSurfaceCloseAllOnNextRender=false" in html
+       and "cfg = normalizeCfg(cfg2);\n    _resetTransientAuthoringUi(cfg);" in html
+       and "cfg = parsed;\n    _resetTransientAuthoringUi(cfg);" in html)
+
     # Execute the generic Close/Edit state machine with a tiny DOM stub. This catches the r71 bug
     # where Close only set textarea.hidden and left the surrounding editor controls visible.
     block=re.search(r"window\._pasteSurfaceClosed=window\._pasteSurfaceClosed\|\|\{\};.*?window\._decoratePasteSurfaces=_decoratePasteSurfaces;", html, re.S)
@@ -265,7 +288,7 @@ console.log(JSON.stringify({closed,reopened,state:Object.keys(window._pasteSurfa
         pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
         if pr.returncode==0 and pr.stdout.strip():
             try:
-                got=json.loads(pr.stdout.strip().splitlines()[-1]); ok=(got.get('closed') is True and got.get('reopened') is True and got.get('state')==[])
+                got=json.loads(pr.stdout.strip().splitlines()[-1]); ok=(got.get('closed') is True and got.get('reopened') is True and got.get('state')==['probePaste'])
             except Exception:
                 pass
     ck("generic Close collapses the entire paste editor and Edit reopens it without mutating model state", ok)

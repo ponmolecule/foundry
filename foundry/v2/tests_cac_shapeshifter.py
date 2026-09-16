@@ -310,6 +310,35 @@ def main():
     ck("period-average active clients retain the true opening customer book",
        _eq(orr["customer_average_by_period"][0],(10.0+orr["customer_end_by_month"][0])/2.0))
 
+    # Existing books are genuine opening stocks, not presentation-only labels. New acquisition starts
+    # from the opening customers/AUC and adds to those balances on the canonical monthly grid.
+    opening_add={
+        "series_id":"cac-opening-book","customer_count_series_id":"cac-opening-count",
+        "beginning_customers":100,"beginning_auc":1_000_000,"attrition_rate":0,
+        "channels":[{"name":"Incremental adds","method":"explicit","params":{},"avg_auc_per_customer":10_000,
+                     "driver_specs":{
+                         "new_customers":{"source":"entered","trajectory":"flat","value":12,"period":"year"},
+                         "spend":{"source":"entered","trajectory":"flat","value":0,"period":"year"},
+                         "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":10_000},
+                     }}]
+    }
+    obr=cac_auc_rollforward(opening_add,12,12)
+    ck("opening customers seed M1 before incremental customer adds",
+       _eq(obr["monthly"][0]["beg_cust"],100) and _eq(obr["monthly"][0]["new_cust"],1)
+       and _eq(obr["monthly"][0]["end_cust"],101))
+    ck("annual customer roll-forward starts from opening book instead of zero",
+       _eq(obr["annual"][0]["beg_cust"],100) and _eq(obr["annual"][0]["new_cust"],12)
+       and _eq(obr["annual"][0]["end_cust"],112))
+    ck("opening AUC seeds the same causal roll-forward",
+       _eq(obr["monthly"][0]["beg_auc"],1_000_000) and _eq(obr["annual"][0]["end_auc"],1_120_000)
+       and _eq(obr["derived_series"]["cac-opening-count"]["values"][0],101))
+    bad_open_ok=False
+    try:
+        cac_auc_rollforward({"channels":[],"beginning_customers":-1},12,12)
+    except ValueError as exc:
+        bad_open_ok="opening customers" in str(exc)
+    ck("negative opening customer books fail closed", bad_open_ok)
+
     # Saved r68 streams with no measure retain their old canonical-month EOP behavior.
     legacy_cfg=_probe_cfg(12,"period_end"); del legacy_cfg["assumptions"]["obs_exposures"][0]["fee_streams"][0]["driver"]["measure"]
     legacy=_fee_delta(legacy_cfg)
