@@ -1,27 +1,27 @@
 """Customer-Acquisition AUC feeder (upstream of the fee engine).
 
-Foundry models causal equations, not a source workbook's grid. A feed contains any number of
-user-named acquisition channels; the engine knows only a small closed set of acquisition
-equations (Pool × Conversion, Spend ÷ CAC, FTE Count × Productivity, Explicit Customers).
-Channel names are presentation-only.
+Customer Acquisition is calculated on Foundry's canonical monthly grid.  Source assumptions may
+be authored at Month / Quarter / Year cadence (or linked to another module-owned Series); CAC
+resolves each operand to monthly economics first, evaluates the acquisition equation each month,
+and only then aggregates to annual presentation.  The annual roll-forward is therefore a summary,
+not the computational cadence.
 
-Every equation operand may use the generic Foundry Series contract: enter a Flat / Growth /
-Explicit trajectory, or Link to a compatible series owned elsewhere. Links use stable series IDs,
-so CAC may consume (for example) Operating Expense spend or Workforce Count without duplicating
-the source trajectory. Source cadence is independent of projection cadence.
-
-The annual customer/AUC roll-forward is a domain equation and audit view, not an authoring
-spreadsheet. Its resolved AUC path is emitted as managed-notional explicit levels and its resolved
-customer-book count is published as a separate stable Series for downstream Account Fee streams.
-Unsupported methods/links and circular dependencies fail closed.
+The engine knows only a closed set of equations (Pool × Conversion, Spend ÷ CAC, FTE Count ×
+Productivity, Explicit Customers).  Channel names are presentation-only and cross-module links use
+stable Series IDs.
 """
+
+from __future__ import annotations
+
+import math
+
+
+_FREQ = {"year": 1, "quarter": 4, "month": 12}
+_FLOW_KEYS = {"pool", "spend", "per_fte", "comp_per_fte", "new_customers"}
 
 
 def _grow(base, rate, year):
-    """Compound a base by an annual growth rate. year is 1-indexed (year 1 => base)."""
-    # CAC remains explicitly annual and stepped by model year. Route that existing
-    # semantic through the shared resolver so annual growth has one canonical meaning
-    # across Foundry without changing any CAC economics or UI.
+    """Legacy helper: annual stepped growth, retained for old scalar fields."""
     from .growth import growth_multiplier
     spec = {"rate": float(rate or 0.0), "period": "year",
             "method": "step", "anchor": "model_year"}
@@ -30,16 +30,229 @@ def _grow(base, rate, year):
         base_position="period1")
 
 
+def _period_width_months(period: str, *, engine_ppy: int = 12) -> int:
+    p = str(period or "year").lower()
+    if p == "model_period":
+        if int(engine_ppy) not in (4, 12):
+            raise ValueError(f"unsupported CAC model cadence periods_per_year={engine_ppy}")
+        return 12 // int(engine_ppy)
+    if p not in _FREQ:
+        raise ValueError(f"unsupported CAC source cadence {p!r}")
+    return 12 // _FREQ[p]
+
+
+def _legacy_spec(owner, key, *, is_feed=False):
+    """Translate legacy CAC scalar/growth vocabulary into an entered Series spec."""
+    if is_feed:
+        if key == "attrition_rate":
+            return {"source": "entered", "trajectory": "flat",
+                    "value": float((owner or {}).get("attrition_rate") or 0.0), "period": "year"}
+        if key == "attrition_avg_ticket":
+            v = (owner or {}).get("attrition_avg_ticket")
+            return None if v is None else {"source": "entered", "trajectory": "flat", "value": float(v)}
+        return None
+
+    ch = owner or {}
+    p = ch.get("params") or {}
+    if key == "avg_auc_per_customer":
+        base = float(ch.get("avg_auc_per_customer") or 0.0)
+        g = float(ch.get("avg_auc_growth") or 0.0)
+        if g:
+            return {"source": "entered", "trajectory": "growth", "base": base,
+                    "growth_spec": {"rate": g, "period": "year", "method": "step", "anchor": "model_year"}}
+        return {"source": "entered", "trajectory": "flat", "value": base}
+    if key == "new_customers":
+        vals = list(p.get("new_customers_by_year") or [])
+        # Historical ``new_customers_by_year`` returned zero beyond the supplied list.
+        # Preserve that exact legacy extension semantic while resolving each supplied annual
+        # flow onto the monthly causal grid.
+        return {"source": "entered", "trajectory": "explicit", "cadence": "year",
+                "values": vals, "extend": "zero", "resolution": "step"}
+    growth_keys = {
+        "pool": "pool_growth", "conversion_rate": "conversion_growth",
+        "spend": "spend_growth", "cac": "cac_growth", "ftes": "ftes_growth",
+        "per_fte": "per_fte_growth", "comp_per_fte": "comp_growth",
+    }
+    if key in growth_keys:
+        base = float(p.get(key) or 0.0)
+        g = float(p.get(growth_keys[key]) or 0.0)
+        out = ({"source": "entered", "trajectory": "growth", "base": base,
+                "growth_spec": {"rate": g, "period": "year", "method": "step", "anchor": "model_year"}}
+               if g else {"source": "entered", "trajectory": "flat", "value": base})
+        if key in _FLOW_KEYS:
+            out["period"] = "year"
+        return out
+    if key == "cost_per_customer":
+        if p.get(key) is None:
+            return None
+        return {"source": "entered", "trajectory": "flat", "value": float(p.get(key) or 0.0)}
+    return None
+
+
+def _spec_for(owner, key, *, is_feed=False):
+    specs = (owner or {}).get("driver_specs") or {}
+    if key in specs:
+        return dict(specs.get(key) or {})
+    return _legacy_spec(owner, key, is_feed=is_feed)
+
+
+def _explicit_source_values(spec, months, *, engine_ppy=12):
+    vals = list(spec.get("values") or [])
+    extend = str(spec.get("extend") or "hold").lower()
+    cad = str(spec.get("cadence") or "year").lower()
+    width = _period_width_months(cad, engine_ppy=engine_ppy)
+    out = []
+    for mi in range(int(months)):
+        idx = mi // width
+        if idx < len(vals):
+            v = vals[idx]
+            if v is None:
+                raise ValueError(f"explicit CAC series has a blank value at source period {idx + 1}")
+            out.append(float(v))
+        elif extend == "hold":
+            out.append(float(vals[-1]) if vals else 0.0)
+        elif extend == "zero":
+            out.append(0.0)
+        else:
+            raise ValueError(f"explicit CAC series has no value for source period {idx + 1}")
+    return out, width
+
+
+def _resolve_operand_monthly(spec, months, semantic, *, assumptions=None, growth_context=None,
+                             engine_ppy=12, default_value=0.0):
+    """Resolve one CAC operand to the canonical monthly grid.
+
+    ``semantic='flow'`` means the entered amount is a total for its natural/source period and is
+    spread evenly across the constituent months.  ``level`` and ``share`` are repeated as levels.
+    Cross-module links already arrive as monthly owner-resolved values and are never periodized a
+    second time.
+    """
+    from .series import normalize_series_spec, resolve_series_spec, resolve_entered_series
+    raw = dict(spec or {})
+    if not raw:
+        raw = {"source": "entered", "trajectory": "flat", "value": float(default_value or 0.0)}
+    s = normalize_series_spec(raw, default_value=default_value)
+    if s["source"] == "link":
+        return [float(x or 0.0) for x in resolve_series_spec(
+            s, assumptions or {}, int(months), 12, context=growth_context,
+            default_value=default_value)]
+    if s["source"] != "entered":
+        raise ValueError("CAC operands may be entered or linked; derived operands are owned by CAC outputs")
+
+    if s["trajectory"] == "explicit":
+        arr, width = _explicit_source_values(raw, months, engine_ppy=engine_ppy)
+        if semantic == "flow":
+            return [v / float(width) for v in arr]
+        return arr
+
+    arr = [float(x or 0.0) for x in resolve_entered_series(
+        s, int(months), 12, context=growth_context, default_value=default_value)]
+    if semantic != "flow":
+        return arr
+    natural = str(raw.get("period") or "year").lower()
+    width = _period_width_months(natural, engine_ppy=engine_ppy)
+    return [v / float(width) for v in arr]
+
+
+def _channel_operand_specs(ch):
+    method = str((ch or {}).get("method") or "")
+    if method == "pool_conversion":
+        return {"pool": "flow", "conversion_rate": "share", "avg_auc_per_customer": "level"}
+    if method == "spend_cac":
+        return {"spend": "flow", "cac": "level", "avg_auc_per_customer": "level"}
+    if method == "fte_productivity":
+        return {"ftes": "level", "per_fte": "flow", "comp_per_fte": "flow",
+                "avg_auc_per_customer": "level"}
+    if method == "explicit":
+        return {"new_customers": "flow", "spend": "flow", "avg_auc_per_customer": "level"}
+    raise ValueError(f"unsupported customer-acquisition method {method!r}")
+
+
+def _channel_monthly_operands(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12):
+    out = {}
+    for key, semantic in _channel_operand_specs(ch).items():
+        spec = _spec_for(ch, key)
+        if spec is None:
+            out[key] = [0.0] * int(months)
+            continue
+        out[key] = _resolve_operand_monthly(
+            spec, months, semantic, assumptions=assumptions,
+            growth_context=growth_context, engine_ppy=engine_ppy)
+    # Optional pool-conversion audit spend.
+    if str((ch or {}).get("method") or "") == "pool_conversion":
+        cps = _spec_for(ch, "cost_per_customer")
+        out["cost_per_customer"] = (_resolve_operand_monthly(
+            cps, months, "level", assumptions=assumptions, growth_context=growth_context,
+            engine_ppy=engine_ppy) if cps is not None else [0.0] * int(months))
+    return out
+
+
+def _channel_monthly(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12):
+    op = _channel_monthly_operands(ch, months, assumptions=assumptions,
+                                   growth_context=growth_context, engine_ppy=engine_ppy)
+    method = str((ch or {}).get("method") or "")
+    rows = []
+    for mi in range(int(months)):
+        if method == "pool_conversion":
+            nc = op["pool"][mi] * op["conversion_rate"][mi]
+            spend = nc * op["cost_per_customer"][mi] if op["cost_per_customer"][mi] else 0.0
+        elif method == "spend_cac":
+            spend = op["spend"][mi]
+            c = op["cac"][mi]
+            nc = spend / c if c > 0 else 0.0
+        elif method == "fte_productivity":
+            nc = op["ftes"][mi] * op["per_fte"][mi]
+            spend = op["ftes"][mi] * op["comp_per_fte"][mi]
+        elif method == "explicit":
+            nc = op["new_customers"][mi]
+            spend = op["spend"][mi]
+        else:
+            raise ValueError(f"unsupported customer-acquisition method {method!r}")
+        ticket = op["avg_auc_per_customer"][mi]
+        rows.append({"month": mi + 1, "new_customers": nc, "new_auc": nc * ticket,
+                     "spend": spend, "cac": (spend / nc if nc > 0 else None),
+                     "avg_auc_per_customer": ticket,
+                     "operands": {k: v[mi] for k, v in op.items()}})
+    return rows
+
+
+def _annual_slice(rows, year):
+    lo, hi = (int(year) - 1) * 12, int(year) * 12
+    return rows[lo:hi]
+
+
+def _series_context_args(series_context):
+    sc = series_context or {}
+    q = int(sc.get("Q") or 12)
+    ppy = int(sc.get("ppy") or 12)
+    years = max(int(math.ceil(q / float(ppy))), 1)
+    return years * 12, sc.get("assumptions") or {}, sc.get("growth_context"), ppy
+
+
+def channel_new_customers(ch, year, series_context=None):
+    months, assumptions, gctx, ppy = _series_context_args(series_context)
+    months = max(months, int(year) * 12)
+    rows = _channel_monthly(ch, months, assumptions=assumptions, growth_context=gctx, engine_ppy=ppy)
+    return sum(float(r.get("new_customers") or 0.0) for r in _annual_slice(rows, year))
+
+
+def channel_avg_auc(ch, year, series_context=None):
+    months, assumptions, gctx, ppy = _series_context_args(series_context)
+    months = max(months, int(year) * 12)
+    op = _channel_monthly_operands(ch, months, assumptions=assumptions, growth_context=gctx, engine_ppy=ppy)
+    vals = _annual_slice(op.get("avg_auc_per_customer") or [], year)
+    return sum(vals) / len(vals) if vals else 0.0
+
+
+def channel_spend(ch, year, series_context=None):
+    months, assumptions, gctx, ppy = _series_context_args(series_context)
+    months = max(months, int(year) * 12)
+    rows = _channel_monthly(ch, months, assumptions=assumptions, growth_context=gctx, engine_ppy=ppy)
+    return sum(float(r.get("spend") or 0.0) for r in _annual_slice(rows, year))
+
 
 def resolve_driver_spec(spec, year, *, assumptions=None, Q=None, ppy=4, growth_context=None):
-    """Resolve one generic Foundry-series operand at an annual CAC equation point.
-
-    Legacy ``mode`` specs remain valid.  New specs may instead link to a compatible
-    Foundry series owned by another module; the link declares how the native series is
-    reduced to an annual operand (sum/average/end/start).
-    """
-    if spec is None:
-        return None
+    """Backward-compatible annual reduction helper for audit callers."""
     from .series import resolve_series_value_for_year
     return resolve_series_value_for_year(
         spec, int(year), assumptions or {}, n_periods=Q, ppy=int(ppy),
@@ -47,7 +260,6 @@ def resolve_driver_spec(spec, year, *, assumptions=None, Q=None, ppy=4, growth_c
 
 
 def _driver(owner, key, year, *, legacy_base=0.0, legacy_growth=0.0, series_context=None):
-    """Resolve a named operand from ``owner.driver_specs`` or legacy scalar+growth fields."""
     specs = (owner or {}).get("driver_specs") or {}
     if key in specs:
         sc = series_context or {}
@@ -58,240 +270,147 @@ def _driver(owner, key, year, *, legacy_base=0.0, legacy_growth=0.0, series_cont
 
 
 def _channel_param(ch, key, year, growth_key=None, series_context=None):
+    # Annual helper retained for workbook/backward API.  The CAC engine itself does not use it.
     p = (ch or {}).get("params") or {}
     return _driver(ch, key, year, legacy_base=p.get(key),
                    legacy_growth=p.get(growth_key or (key + "_growth")),
                    series_context=series_context)
 
 
-def channel_new_customers(ch, year, series_context=None):
-    """New customers acquired by one user-named channel in a model year.
-
-    The engine knows acquisition equations, never channel names.  Every equation operand
-    may be entered locally or linked to a compatible Foundry series owned elsewhere.
-    """
-    if not ch:
-        return 0.0
-    method = ch.get("method")
-    p = ch.get("params") or {}
-    specs = ch.get("driver_specs") or {}
-    if method == "pool_conversion":
-        pool = _channel_param(ch, "pool", year, "pool_growth", series_context)
-        conv = _channel_param(ch, "conversion_rate", year, "conversion_growth", series_context)
-        return pool * conv
-    if method == "spend_cac":
-        spend = _channel_param(ch, "spend", year, "spend_growth", series_context)
-        cac = _channel_param(ch, "cac", year, "cac_growth", series_context)
-        return spend / cac if cac > 0 else 0.0
-    if method == "fte_productivity":
-        ftes = _channel_param(ch, "ftes", year, "ftes_growth", series_context)
-        per = _channel_param(ch, "per_fte", year, "per_fte_growth", series_context)
-        return ftes * per
-    if method == "explicit":
-        if "new_customers" in specs:
-            return float(_driver(ch, "new_customers", year, series_context=series_context) or 0.0)
-        arr = p.get("new_customers_by_year") or []
-        i = year - 1
-        return float(arr[i]) if 0 <= i < len(arr) else 0.0
-    raise ValueError(f"unsupported customer-acquisition method {method!r}")
+def _attrition_period(feed):
+    spec = _spec_for(feed, "attrition_rate", is_feed=True) or {}
+    from .series import normalize_series_spec
+    s = normalize_series_spec(spec, default_value=0.0)
+    if s.get("trajectory") == "explicit":
+        return str(spec.get("cadence") or "year").lower()
+    return str(spec.get("period") or "year").lower()
 
 
-def channel_avg_auc(ch, year, series_context=None):
-    """Average AUC per customer acquired by this channel in the given year."""
-    if not ch:
-        return 0.0
-    return _driver(ch, "avg_auc_per_customer", year,
-                   legacy_base=ch.get("avg_auc_per_customer"),
-                   legacy_growth=ch.get("avg_auc_growth"), series_context=series_context)
-
-
-def channel_spend(ch, year, series_context=None):
-    """Acquisition spend attributed to this channel in the given year, for CAC audit."""
-    if not ch:
-        return 0.0
-    method = ch.get("method")
-    p = ch.get("params") or {}
-    specs = ch.get("driver_specs") or {}
-    if method == "spend_cac":
-        return _channel_param(ch, "spend", year, "spend_growth", series_context)
-    if method == "fte_productivity":
-        ftes = _channel_param(ch, "ftes", year, "ftes_growth", series_context)
-        comp = _channel_param(ch, "comp_per_fte", year, "comp_growth", series_context)
-        return ftes * comp
-    if method == "pool_conversion":
-        cpc = (_driver(ch, "cost_per_customer", year,
-                       legacy_base=p.get("cost_per_customer"), legacy_growth=0.0,
-                       series_context=series_context)
-               if ("cost_per_customer" in specs or p.get("cost_per_customer") is not None) else 0.0)
-        return channel_new_customers(ch, year, series_context) * cpc if cpc else 0.0
-    if method == "explicit":
-        if "spend" in specs:
-            return float(_driver(ch, "spend", year, series_context=series_context) or 0.0)
-        return float(p.get("spend") or 0.0)
-    raise ValueError(f"unsupported customer-acquisition method {method!r}")
+def _attrition_monthly_rate_path(feed, months, *, assumptions=None, growth_context=None, engine_ppy=12):
+    spec = _spec_for(feed, "attrition_rate", is_feed=True)
+    return _resolve_operand_monthly(spec, months, "share", assumptions=assumptions,
+                                    growth_context=growth_context, engine_ppy=engine_ppy)
 
 
 def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=None):
-    """Annual customer/AUC roll-forward over ceil(Q/ppy) years.
+    """Canonical-monthly customer/AUC calculation with annual summary presentation.
 
-    AUC is always resolved first on Foundry's canonical monthly grid, then sampled to the
-    selected engine cadence for native balance consumers.  This preserves the intra-year
-    exposure path in quarterly models instead of manufacturing it from quarter-end points.
-    The native-cadence series remains available for existing downstream consumers, while
-    ``auc_end_by_month`` is the canonical balance path for cadence-sensitive calculations.
+    Month/Quarter/Year source cadence belongs to each operand.  Flow operands are spread across
+    the months in their authored source period; levels/rates hold as levels.  Cross-module links
+    are resolved directly to the same monthly grid.  Acquisition equations are evaluated monthly,
+    so sub-year variation is preserved instead of being reduced to an annual average first.
 
-    cac_cfg = {
-      channels: [ {name, method, params, avg_auc_per_customer, avg_auc_growth}, ... ],
-      attrition_rate: r,                 # fraction of existing BOOK (customers) lost per year
-      attrition_avg_ticket: $ | None,    # override; default = beginning AUC / beginning customers
-      beginning_auc: $,                  # usually 0 (no Day-1 pre-commitment)
-      beginning_customers: n,            # usually 0
-      intra_year_shape: "linear"|"stepped",  # legacy/current AUC within-year shape
-      customer_intra_year_shape: "linear"|"stepped",  # active-client shape; defaults to AUC shape for r68 compatibility
-    }
-
-    Returns {
-      auc_end_by_month: [ ... 12 * model years ... ], # canonical monthly period-end AUC
-      auc_end_by_period: [ ... len Q ... ],           # native engine-cadence period-end AUC
-      auc_levels_q: [ ... len Q ... ],                # legacy alias retained for compatibility
-      year_end_auc: [ ... per year ... ],
-      annual: [ per-year records with channel detail, CAC, attrition ],
-    }
+    Existing-book attrition is applied at the end of each authored attrition source period to the
+    book that existed at the beginning of that source period.  Thus an annual 10% attrition input
+    preserves the historical "10% of beginning-year book" semantic, while quarterly/monthly inputs
+    can express genuinely sub-year churn without being averaged into a year.
     """
-    channels = (cac_cfg or {}).get("channels") or []
-    series_context = {"assumptions": assumptions or {}, "Q": int(Q), "ppy": int(ppy),
-                      "growth_context": growth_context}
-    legacy_attr = float((cac_cfg or {}).get("attrition_rate") or 0.0)
-    legacy_ticket_override = (cac_cfg or {}).get("attrition_avg_ticket")
+    ppy = int(ppy)
+    if ppy not in (4, 12):
+        raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
+    years = max(int(math.ceil(int(Q) / float(ppy))), 1)
+    months = years * 12
+    channels = list((cac_cfg or {}).get("channels") or [])
+    channel_monthly = [_channel_monthly(ch, months, assumptions=assumptions or {},
+                                        growth_context=growth_context, engine_ppy=ppy)
+                       for ch in channels]
+
+    attr_rates = _attrition_monthly_rate_path(cac_cfg or {}, months, assumptions=assumptions or {},
+                                               growth_context=growth_context, engine_ppy=ppy)
+    attr_period = _attrition_period(cac_cfg or {})
+    attr_width = _period_width_months(attr_period, engine_ppy=ppy)
+    ticket_spec = _spec_for(cac_cfg or {}, "attrition_avg_ticket", is_feed=True)
+    ticket_path = (_resolve_operand_monthly(ticket_spec, months, "level", assumptions=assumptions or {},
+                                            growth_context=growth_context, engine_ppy=ppy)
+                   if ticket_spec is not None else None)
+
     beg_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     beg_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
-    # AUC and active-customer counts are distinct stocks.  r68 coupled their within-year
-    # resolution through ``intra_year_shape``; keep that as the AUC field and use it only as
-    # the compatibility fallback for saved r68 feeds that predate an explicit customer shape.
-    auc_shape = (cac_cfg or {}).get("intra_year_shape") or "linear"
-    customer_shape = (cac_cfg or {}).get("customer_intra_year_shape")
-    if customer_shape is None:
-        customer_shape = auc_shape
-    if auc_shape not in {"linear", "stepped"}:
-        raise ValueError("CAC intra_year_shape must be linear or stepped")
-    if customer_shape not in {"linear", "stepped"}:
-        raise ValueError("CAC customer_intra_year_shape must be linear or stepped")
-    years = -(-int(Q) // ppy)  # ceil (periods/year = ppy)
+    source_open_auc, source_open_cust = beg_auc, beg_cust
+    monthly = []
+    auc_end_by_month, customer_end_by_month = [], []
 
-    annual = []
-    year_end_auc = []
-    year_end_customers = []
-    for y in range(1, years + 1):
-        new_cust = 0.0
-        new_auc = 0.0
-        ch_detail = []
-        for ch in channels:
-            nc = channel_new_customers(ch, y, series_context)
-            na = nc * channel_avg_auc(ch, y, series_context)
-            sp = channel_spend(ch, y, series_context)
-            new_cust += nc
-            new_auc += na
-            ch_detail.append({
-                "name": ch.get("name"), "new_customers": nc, "new_auc": na,
-                "spend": sp, "cac": (sp / nc if nc > 0 else None),
-            })
-        # Attrition on the existing book (beginning), not on this year's new adds.
-        # Attrition itself may be an explicit annual source-model driver.
-        attr = _driver(cac_cfg or {}, "attrition_rate", y, legacy_base=legacy_attr, legacy_growth=0.0, series_context=series_context)
-        cust_lost = beg_cust * attr
-        _ticket_specs = ((cac_cfg or {}).get("driver_specs") or {})
-        if "attrition_avg_ticket" in _ticket_specs:
-            avg_ticket = float(resolve_driver_spec(_ticket_specs.get("attrition_avg_ticket"), y, assumptions=assumptions, Q=Q, ppy=ppy, growth_context=growth_context) or 0.0)
-        elif legacy_ticket_override is not None:
-            avg_ticket = float(legacy_ticket_override)
-        else:
-            avg_ticket = (beg_auc / beg_cust) if beg_cust > 0 else 0.0
+    for mi in range(months):
+        if mi % attr_width == 0:
+            source_open_auc, source_open_cust = beg_auc, beg_cust
+        ch_rows = [rows[mi] for rows in channel_monthly]
+        new_cust = sum(float(r.get("new_customers") or 0.0) for r in ch_rows)
+        new_auc = sum(float(r.get("new_auc") or 0.0) for r in ch_rows)
+        event = ((mi + 1) % attr_width == 0)
+        rate = float(attr_rates[mi] or 0.0) if event else 0.0
+        if rate < 0.0 or rate > 1.0:
+            raise ValueError("CAC attrition rate must be between 0% and 100% per source period")
+        cust_lost = source_open_cust * rate if event else 0.0
+        avg_ticket = (float(ticket_path[mi]) if ticket_path is not None
+                      else ((source_open_auc / source_open_cust) if source_open_cust > 0 else 0.0))
         auc_lost = cust_lost * avg_ticket
         end_cust = beg_cust + new_cust - cust_lost
         end_auc = beg_auc + new_auc - auc_lost
-        total_spend = sum(c["spend"] for c in ch_detail)
-        annual.append({
-            "year": y,
+        total_spend = sum(float(r.get("spend") or 0.0) for r in ch_rows)
+        monthly.append({
+            "month": mi + 1, "year": mi // 12 + 1, "month_in_year": mi % 12 + 1,
             "beg_auc": beg_auc, "new_auc": new_auc, "auc_lost": auc_lost, "end_auc": end_auc,
             "beg_cust": beg_cust, "new_cust": new_cust, "cust_lost": cust_lost, "end_cust": end_cust,
-            "attrition_rate": attr,
+            "attrition_event": event, "attrition_rate": rate, "attrition_period": attr_period,
+            "attrition_basis_customers": source_open_cust if event else None,
+            "attrition_basis_auc": source_open_auc if event else None,
+            "total_spend": total_spend,
+            "blended_cac": (total_spend / new_cust if new_cust > 0 else None),
+            "channels": ch_rows,
+        })
+        beg_auc, beg_cust = end_auc, end_cust
+        auc_end_by_month.append(end_auc)
+        customer_end_by_month.append(end_cust)
+
+    annual, year_end_auc, year_end_customers = [], [], []
+    for y in range(1, years + 1):
+        rows = monthly[(y - 1) * 12:y * 12]
+        ch_detail = []
+        for ci, ch in enumerate(channels):
+            cr = [r["channels"][ci] for r in rows]
+            nc = sum(float(x.get("new_customers") or 0.0) for x in cr)
+            na = sum(float(x.get("new_auc") or 0.0) for x in cr)
+            sp = sum(float(x.get("spend") or 0.0) for x in cr)
+            ch_detail.append({"name": ch.get("name"), "new_customers": nc, "new_auc": na,
+                              "spend": sp, "cac": (sp / nc if nc > 0 else None)})
+        attr_events = [float(r.get("attrition_rate") or 0.0) for r in rows if r.get("attrition_event")]
+        eff_attr = 1.0 - math.prod(1.0 - x for x in attr_events) if attr_events else 0.0
+        total_spend = sum(float(r.get("total_spend") or 0.0) for r in rows)
+        new_cust = sum(float(r.get("new_cust") or 0.0) for r in rows)
+        rec = {
+            "year": y,
+            "beg_auc": rows[0]["beg_auc"], "new_auc": sum(r["new_auc"] for r in rows),
+            "auc_lost": sum(r["auc_lost"] for r in rows), "end_auc": rows[-1]["end_auc"],
+            "beg_cust": rows[0]["beg_cust"], "new_cust": new_cust,
+            "cust_lost": sum(r["cust_lost"] for r in rows), "end_cust": rows[-1]["end_cust"],
+            "attrition_rate": eff_attr, "attrition_period": attr_period,
             "total_spend": total_spend,
             "blended_cac": (total_spend / new_cust if new_cust > 0 else None),
             "channels": ch_detail,
-        })
-        year_end_auc.append(end_auc)
-        year_end_customers.append(end_cust)
-        beg_auc, beg_cust = end_auc, end_cust
+        }
+        annual.append(rec); year_end_auc.append(rec["end_auc"]); year_end_customers.append(rec["end_cust"])
 
-    # Annual ending levels -> canonical MONTHLY ABSOLUTE levels first.  The canonical grid is
-    # deliberately independent of presentation/engine cadence.  Quarterly models therefore
-    # retain M1/M2/M3 information and only sample M3/M6/M9/M12 for native quarter-end balances.
-    # A downstream flow based on monthly AUC can consume/aggregate ``auc_end_by_month`` instead
-    # of incorrectly applying a quarterly rate to the quarter-end stock.
-    auc_end_by_month = [0.0] * (years * 12)
-    prev_end = float((cac_cfg or {}).get("beginning_auc") or 0.0)
-    for y in range(1, years + 1):
-        ye = year_end_auc[y - 1]
-        for mi in range(1, 13):
-            m = (y - 1) * 12 + mi
-            if auc_shape == "stepped":
-                auc_end_by_month[m - 1] = ye
-            else:  # linear: ramp from prior year-end to this year-end across 12 canonical months
-                auc_end_by_month[m - 1] = prev_end + (ye - prev_end) * mi / 12.0
-        prev_end = ye
-
-    # Customer counts are a separate canonical level Series owned by CAC. Their within-year
-    # shape is explicit and independent from AUC.  Saved r68 feeds without the new field inherit
-    # the AUC shape above so their economics do not move.  The canonical stock observations are
-    # month-end active-customer counts.
-    customer_end_by_month = [0.0] * (years * 12)
-    prev_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
-    for y in range(1, years + 1):
-        ye = year_end_customers[y - 1]
-        for mi in range(1, 13):
-            m = (y - 1) * 12 + mi
-            if customer_shape == "stepped":
-                customer_end_by_month[m - 1] = ye
-            else:
-                customer_end_by_month[m - 1] = prev_cust + (ye - prev_cust) * mi / 12.0
-        prev_cust = ye
-
-    if int(ppy) == 12:
+    if ppy == 12:
         auc_levels_q = list(auc_end_by_month[:int(Q)])
-    elif int(ppy) == 4:
-        # Q1/Q2/Q3/Q4 period-end balances are canonical M3/M6/M9/M12.
-        auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
     else:
-        raise ValueError(f"unsupported CAC cadence periods_per_year={ppy}")
+        auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
 
-    # Publish three explicit downstream customer measures.  ``period_end`` intentionally means
-    # canonical MONTHLY EOP observations; quarterly engines average the three constituent monthly
-    # EOP levels before applying an annual per-client price.  That is exactly r68's prior
-    # customer_level_by_period contract and therefore preserves saved-model economics while making
-    # the semantic visible. ``period_average`` uses the same canonical stock-measure convention as
-    # AUC: (prior month-end + current month-end) / 2, aggregated across native periods.
     from .balance_measures import native_balance_measure_series
     customer_end_by_period = native_balance_measure_series(
         float((cac_cfg or {}).get("beginning_customers") or 0.0),
-        customer_end_by_month, int(Q), int(ppy), "period_end")
+        customer_end_by_month, int(Q), ppy, "period_end")
     customer_average_by_period = native_balance_measure_series(
         float((cac_cfg or {}).get("beginning_customers") or 0.0),
-        customer_end_by_month, int(Q), int(ppy), "period_average")
-    # Preserve the r68 public name as an alias of canonical-month EOP exposure.
-    if int(ppy) == 12:
+        customer_end_by_month, int(Q), ppy, "period_average")
+    if ppy == 12:
         customer_level_by_period = list(customer_end_by_month[:int(Q)])
     else:
         customer_level_by_period = [
-            sum(customer_end_by_month[q * 3:(q + 1) * 3]) / 3.0 for q in range(int(Q))
-        ]
+            sum(customer_end_by_month[q * 3:(q + 1) * 3]) / 3.0 for q in range(int(Q))]
     customer_annual_count_by_period = [
-        float(year_end_customers[min(len(year_end_customers) - 1, i // int(ppy))] or 0.0)
-        for i in range(int(Q))
-    ] if year_end_customers else [0.0] * int(Q)
+        float(year_end_customers[min(len(year_end_customers) - 1, i // ppy)] or 0.0)
+        for i in range(int(Q))] if year_end_customers else [0.0] * int(Q)
 
-    # Materialize module-owned Derived Series metadata.  The Series layer never evaluates
-    # these equations; CAC owns the closed acquisition/roll-forward equations above and
-    # publishes their resolved values with stable IDs when the authoring layer supplied them.
     derived_series = {}
     for ci, ch in enumerate(channels):
         ids = (ch or {}).get("derived_series_ids") or {}
@@ -299,10 +418,15 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             sid = str(ids.get(semantic) or "").strip()
             if not sid:
                 continue
-            vals = [float((yr.get("channels") or [])[ci].get(field) or 0.0) for yr in annual]
+            canonical = [float(channel_monthly[ci][mi].get(field) or 0.0) for mi in range(months)]
+            if ppy == 12:
+                native = canonical[:int(Q)]
+            else:
+                native = [sum(canonical[q * 3:(q + 1) * 3]) for q in range(int(Q))]
             derived_series[sid] = {
                 "source": "derived", "series_id": sid, "owner_module": "customer_acquisition",
-                "semantic_type": semantic, "cadence": "year", "values": vals,
+                "semantic_type": semantic, "cadence": "model_period", "values": native,
+                "canonical_cadence": "month", "canonical_values": canonical,
                 "derived": {"kind": f"cac.{(ch or {}).get('method')}.{semantic}"},
             }
     feed_sid = str((cac_cfg or {}).get("series_id") or "").strip()
@@ -333,9 +457,8 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "customer_average_by_period": customer_average_by_period,
             "customer_annual_count_by_period": customer_annual_count_by_period,
             "year_end_customers": year_end_customers,
-            "annual": annual, "derived_series": derived_series}
-
-
+            "monthly": monthly, "annual": annual, "derived_series": derived_series,
+            "calculation_cadence": "month"}
 def cac_customer_count_catalog(assumptions):
     """Catalog CAC-owned customer-count Series by stable Series ID."""
     out = []

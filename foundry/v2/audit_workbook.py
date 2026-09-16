@@ -294,51 +294,62 @@ def _series_spec_summary(spec: Mapping[str, Any] | None) -> str:
 
 
 def _cac_channel_rows(cfg, n, ppy):
-    """Exact annual channel operands and outputs, preserving hidden precision."""
+    """Annual channel summary aggregated from the canonical monthly CAC calculation."""
     a = cfg.get("assumptions") or {}
     feeds = a.get("cac_feeds") or {}
     if not feeds:
         return []
-    from .cac_feeder import cac_auc_rollforward, _channel_param, channel_avg_auc
+    from .cac_feeder import cac_auc_rollforward
     gctx = growth_context_from_cfg(cfg, ppy)
-    sctx = {"assumptions": a, "Q": int(n), "ppy": int(ppy), "growth_context": gctx}
     rows = []
     for fname, feed in feeds.items():
         raw = cac_auc_rollforward(feed or {}, n, ppy, assumptions=a, growth_context=gctx)
-        annual = list(raw.get("annual") or [])
         channels = list((feed or {}).get("channels") or [])
-        for ci, ch in enumerate(channels):
-            method = str((ch or {}).get("method") or "")
-            specs = (ch or {}).get("driver_specs") or {}
-            params = (ch or {}).get("params") or {}
-            for yi, yr in enumerate(annual, 1):
-                detail = (yr.get("channels") or [])
+        for yi, yr in enumerate(raw.get("annual") or [], 1):
+            detail = list(yr.get("channels") or [])
+            for ci, ch in enumerate(channels):
                 d = detail[ci] if ci < len(detail) else {}
-                pool = conv = spend_in = cac_in = ftes = per_fte = explicit_nc = None
-                if method == "pool_conversion":
-                    pool = _channel_param(ch, "pool", yi, "pool_growth", sctx)
-                    conv = _channel_param(ch, "conversion_rate", yi, "conversion_growth", sctx)
-                elif method == "spend_cac":
-                    spend_in = _channel_param(ch, "spend", yi, "spend_growth", sctx)
-                    cac_in = _channel_param(ch, "cac", yi, "cac_growth", sctx)
-                elif method == "fte_productivity":
-                    ftes = _channel_param(ch, "ftes", yi, "ftes_growth", sctx)
-                    per_fte = _channel_param(ch, "per_fte", yi, "per_fte_growth", sctx)
-                elif method == "explicit":
-                    explicit_nc = float(d.get("new_customers") or 0.0)
-                avg_auc = channel_avg_auc(ch, yi, sctx)
+                specs = (ch or {}).get("driver_specs") or {}
                 metadata = {k: _series_spec_summary(v) for k, v in specs.items()}
-                # Legacy scalar/growth fields remain important evidence when driver_specs is absent.
                 if not metadata:
-                    metadata = {"legacy_params": params, "avg_auc_growth": (ch or {}).get("avg_auc_growth")}
+                    metadata = {"legacy_params": (ch or {}).get("params") or {},
+                                "avg_auc_growth": (ch or {}).get("avg_auc_growth")}
                 rows.append([
-                    fname, str((feed or {}).get("series_id") or ""), yi, str((ch or {}).get("name") or f"Channel {ci+1}"), method,
-                    pool, conv, spend_in, cac_in, ftes, per_fte, explicit_nc, avg_auc,
+                    fname, str((feed or {}).get("series_id") or ""), yi,
+                    str((ch or {}).get("name") or f"Channel {ci+1}"), str((ch or {}).get("method") or ""),
                     d.get("new_customers"), d.get("new_auc"), d.get("spend"), d.get("cac"),
                     json.dumps(metadata, sort_keys=True, separators=(",", ":"), default=str),
                 ])
     return rows
 
+
+def _cac_monthly_acquisition_rows(cfg, n, ppy):
+    """Causal monthly channel operands/results at full engine precision."""
+    a = cfg.get("assumptions") or {}
+    feeds = a.get("cac_feeds") or {}
+    if not feeds:
+        return []
+    from .cac_feeder import cac_auc_rollforward
+    gctx = growth_context_from_cfg(cfg, ppy)
+    rows = []
+    for fname, feed in feeds.items():
+        raw = cac_auc_rollforward(feed or {}, n, ppy, assumptions=a, growth_context=gctx)
+        channels = list((feed or {}).get("channels") or [])
+        for mr in raw.get("monthly") or []:
+            detail = list(mr.get("channels") or [])
+            for ci, ch in enumerate(channels):
+                d = detail[ci] if ci < len(detail) else {}
+                op = d.get("operands") or {}
+                rows.append([
+                    fname, str((feed or {}).get("series_id") or ""), mr.get("month"), mr.get("year"),
+                    mr.get("month_in_year"), str((ch or {}).get("name") or f"Channel {ci+1}"),
+                    str((ch or {}).get("method") or ""),
+                    op.get("pool"), op.get("conversion_rate"), op.get("spend"), op.get("cac"),
+                    op.get("ftes"), op.get("per_fte"), op.get("new_customers"),
+                    d.get("avg_auc_per_customer"), d.get("new_customers"), d.get("new_auc"),
+                    d.get("spend"), d.get("cac"),
+                ])
+    return rows
 
 def _cac_rollforward_rows(cfg, n, ppy):
     a = cfg.get("assumptions") or {}
@@ -351,9 +362,8 @@ def _cac_rollforward_rows(cfg, n, ppy):
         raw = cac_auc_rollforward(feed or {}, n, ppy, assumptions=a, growth_context=gctx)
         for yr in raw.get("annual") or []:
             rows.append([
-                fname, str((feed or {}).get("series_id") or ""), yr.get("year"),
-                str((feed or {}).get("intra_year_shape") or "linear"),
-                str((feed or {}).get("customer_intra_year_shape") or (feed or {}).get("intra_year_shape") or "linear"),
+                fname, str((feed or {}).get("series_id") or ""), yr.get("year"), "month",
+                yr.get("attrition_period"),
                 yr.get("beg_auc"), yr.get("new_auc"), yr.get("attrition_rate"), yr.get("auc_lost"), yr.get("end_auc"),
                 yr.get("beg_cust"), yr.get("new_cust"), yr.get("cust_lost"), yr.get("end_cust"),
                 yr.get("total_spend"), yr.get("blended_cac"),
@@ -394,6 +404,13 @@ def _cac_monthly_rows(cfg, n, ppy):
                 auc_avg[mi] if mi < len(auc_avg) else None,
                 beg_cust0 if mi == 0 else cust_eop[mi - 1], cust_eop[mi] if mi < len(cust_eop) else None,
                 cust_avg[mi] if mi < len(cust_avg) else None,
+                ((raw.get("monthly") or [])[mi].get("new_cust") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("cust_lost") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("new_auc") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("auc_lost") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("attrition_rate") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("attrition_event") if mi < len(raw.get("monthly") or []) else None),
+                ((raw.get("monthly") or [])[mi].get("total_spend") if mi < len(raw.get("monthly") or []) else None),
             ])
     return rows
 
@@ -1316,7 +1333,8 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Workforce", "Role-level count, compensation assumptions, additive compensation, and engine total."),
         ("Workforce Component Detail", "Period-by-period additive compensation diagnostics: observed FY metric/balance, weighted terms, active hurdle band, and posted Workforce expense."),
         ("CAC - AUC", "Customer-acquisition AUC EOP / average and customer measures by native period."),
-        ("CAC Channels", "Annual channel-level operands and outputs at full precision: raw drivers → new customers → average AUC/customer → new AUC/spend/CAC."),
+        ("CAC Channels", "Annual channel summary aggregated from the canonical monthly CAC calculation."),
+        ("CAC Monthly Acquisition", "Primary causal CAC audit: monthly resolved operands and equation outputs for every acquisition channel."),
         ("CAC Annual Rollforward", "Feed-level annual beginning/new/lost/ending AUC and customers, attrition, spend, and blended CAC."),
         ("CAC Monthly Canonical", "Canonical monthly beginning/EOP/average AUC and customer stocks, even when the engine itself is quarterly."),
         ("Product Calculations", "Every native numeric product series surfaced by the run."),
@@ -1402,23 +1420,32 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      subtitle="AUC period-end and canonical period-average paths plus customer-count measures.", n=n, ppy=ppy)
     _write_long_rows(
         wb.create_sheet("CAC Channels"),
-        title="Customer Acquisition Channel Detail · Audit",
-        subtitle="Annual channel equation operands and results at full precision. This is the primary sheet for reconciling Pool × Conversion, Spend ÷ CAC, FTE × Productivity, and Explicit Customer methods.",
-        headers=["Feed", "Feed Series ID", "Model year", "Channel", "Method", "Pool", "Conversion rate",
-                 "Spend input ($)", "CAC input ($/customer)", "FTEs", "Productivity (customers/FTE)",
-                 "Explicit new customers", "Average AUC / new customer ($)", "New customers", "New AUC ($)",
-                 "Acquisition spend ($)", "Implied CAC ($/customer)", "Driver/source metadata"],
+        title="Customer Acquisition Channel Annual Summary · Audit",
+        subtitle="Annual presentation summary aggregated from the canonical monthly acquisition calculation. Use CAC Monthly Acquisition for the causal operands and month-by-month equation results.",
+        headers=["Feed", "Feed Series ID", "Model year", "Channel", "Method", "New customers",
+                 "New AUC ($)", "Acquisition spend ($)", "Implied CAC ($/customer)", "Driver/source metadata"],
         rows=_cac_channel_rows(cfg, n, ppy),
-        widths=[25, 30, 12, 30, 22, 18, 18, 20, 22, 14, 28, 22, 28, 20, 24, 22, 24, 65],
-        formats={3: "0", 6: _RAW_NUM_FMT, 7: _RAW_NUM_FMT, 8: _RAW_MONEY_FMT, 9: _RAW_MONEY_FMT,
-                 10: _RAW_NUM_FMT, 11: _RAW_NUM_FMT, 12: _RAW_NUM_FMT, 13: _RAW_MONEY_FMT, 14: _RAW_NUM_FMT,
-                 15: _RAW_MONEY_FMT, 16: _RAW_MONEY_FMT, 17: _RAW_MONEY_FMT}, freeze_col=5)
+        widths=[25, 30, 12, 30, 22, 20, 24, 22, 24, 65],
+        formats={3: "0", 6: _RAW_NUM_FMT, 7: _RAW_MONEY_FMT, 8: _RAW_MONEY_FMT, 9: _RAW_MONEY_FMT}, freeze_col=5)
+    _write_long_rows(
+        wb.create_sheet("CAC Monthly Acquisition"),
+        title="Customer Acquisition Canonical Monthly Equation Detail · Audit",
+        subtitle="Primary causal CAC audit. Every source cadence is resolved to this monthly grid before Pool × Conversion, Spend ÷ CAC, FTE × Productivity, or Explicit Customers is evaluated.",
+        headers=["Feed", "Feed Series ID", "Canonical month", "Model year", "Month in year", "Channel", "Method",
+                 "Pool flow (customers)", "Conversion rate", "Spend input ($)", "CAC input ($/customer)", "FTEs",
+                 "Productivity flow (customers/FTE)", "Explicit new customers", "Average AUC/new customer ($)",
+                 "New customers", "New AUC ($)", "Acquisition spend ($)", "Implied CAC ($/customer)"],
+        rows=_cac_monthly_acquisition_rows(cfg, n, ppy),
+        widths=[24, 30, 16, 12, 14, 28, 22, 22, 18, 20, 22, 14, 30, 22, 28, 20, 24, 22, 24],
+        formats={3:"0",4:"0",5:"0",8:_RAW_NUM_FMT,9:_RAW_NUM_FMT,10:_RAW_MONEY_FMT,11:_RAW_MONEY_FMT,
+                 12:_RAW_NUM_FMT,13:_RAW_NUM_FMT,14:_RAW_NUM_FMT,15:_RAW_MONEY_FMT,16:_RAW_NUM_FMT,
+                 17:_RAW_MONEY_FMT,18:_RAW_MONEY_FMT,19:_RAW_MONEY_FMT}, freeze_col=7)
     _write_long_rows(
         wb.create_sheet("CAC Annual Rollforward"),
         title="Customer Acquisition Annual Rollforward · Audit",
-        subtitle="Feed-level annual bridge from beginning stocks through acquisitions and attrition to ending AUC/customers.",
-        headers=["Feed", "Feed Series ID", "Model year", "AUC intra-year shape", "Customer intra-year shape",
-                 "Beginning AUC ($)", "New AUC ($)", "Attrition rate", "AUC lost ($)", "Ending AUC ($)",
+        subtitle="Feed-level annual presentation bridge aggregated from canonical monthly CAC calculations.",
+        headers=["Feed", "Feed Series ID", "Model year", "Calculation cadence", "Attrition source period",
+                 "Beginning AUC ($)", "New AUC ($)", "Effective annual attrition rate", "AUC lost ($)", "Ending AUC ($)",
                  "Beginning customers", "New customers", "Customers lost", "Ending customers",
                  "Total acquisition spend ($)", "Blended CAC ($/new customer)"],
         rows=_cac_rollforward_rows(cfg, n, ppy),
@@ -1428,14 +1455,16 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_long_rows(
         wb.create_sheet("CAC Monthly Canonical"),
         title="Customer Acquisition Canonical Monthly Stocks · Audit",
-        subtitle="Canonical monthly observations underlying native-cadence AUC/customer measures. Rows beyond a partial terminal model year are retained but explicitly marked outside the projection.",
+        subtitle="Canonical monthly stock-and-flow observations underlying native-cadence AUC/customer measures. Rows beyond a partial terminal model year are retained but explicitly marked outside the projection.",
         headers=["Feed", "Feed Series ID", "Canonical month", "Month end", "Model year", "Month in model year",
                  "Native engine period", "Within projection", "Beginning AUC ($)", "AUC EOP ($)", "Average AUC ($)",
-                 "Beginning customers", "Customers EOP", "Average customers"],
+                 "Beginning customers", "Customers EOP", "Average customers", "New customers", "Customers lost",
+                 "New AUC ($)", "AUC lost ($)", "Attrition rate on event", "Attrition event", "Acquisition spend ($)"],
         rows=_cac_monthly_rows(cfg, n, ppy),
-        widths=[25, 30, 16, 14, 12, 18, 18, 16, 22, 22, 22, 20, 18, 18],
+        widths=[25, 30, 16, 14, 12, 18, 18, 16, 22, 22, 22, 20, 18, 18, 18, 18, 22, 20, 22, 16, 22],
         formats={3: "0", 4: "yyyy-mm-dd", 5: "0", 6: "0", 7: "0", 9: _RAW_MONEY_FMT, 10: _RAW_MONEY_FMT,
-                 11: _RAW_MONEY_FMT, 12: _RAW_NUM_FMT, 13: _RAW_NUM_FMT, 14: _RAW_NUM_FMT}, freeze_col=8)
+                 11: _RAW_MONEY_FMT, 12: _RAW_NUM_FMT, 13: _RAW_NUM_FMT, 14: _RAW_NUM_FMT, 15:_RAW_NUM_FMT,
+                 16:_RAW_NUM_FMT,17:_RAW_MONEY_FMT,18:_RAW_MONEY_FMT,19:_RAW_NUM_FMT,21:_RAW_MONEY_FMT}, freeze_col=8)
     _write_wide_rows(wb.create_sheet("Product Calculations"), cfg, _product_rows(results, n, exact=exact),
                      title="Product Calculations · Audit",
                      subtitle="Every native numeric product series surfaced by Foundry.", n=n, ppy=ppy)

@@ -148,11 +148,15 @@ the link resolve.
 An Explicit schedule opens locally on the operand that needs it. The module does not expose a
 spreadsheet-wide Year-1…Year-N input surface.
 
-The channel outputs are module-owned Derived series and feed one common customer/AUC roll-forward.
-The feed publishes stable Derived Series for both AUC and total customer count. AUC and active-client
-counts are distinct stocks and therefore own distinct within-year shape controls. A saved r68 feed
-without `customer_intra_year_shape` inherits its AUC shape for compatibility; new authoring makes the
-choice explicit. Downstream consumers must not create a second Flat/Growth/Explicit client forecast.
+The channel outputs are module-owned Derived Series and feed one common customer/AUC roll-forward.
+Customer Acquisition calculates on a **canonical monthly causal grid** regardless of whether the
+bank's presentation cadence is monthly or quarterly. Month / Quarter / Year therefore belong to each
+source assumption, not to the CAC module as a whole. Flow operands are resolved into the months of
+their declared natural period before the acquisition equation runs; level/rate operands hold at their
+resolved value until their authored path changes. The feed publishes stable Derived Series for both
+AUC and total customer count from those monthly calculations. Legacy `intra_year_shape` and
+`customer_intra_year_shape` fields remain readable but no longer manufacture a monthly path after an
+annual calculation. Downstream consumers must not create a second Flat/Growth/Explicit client forecast.
 
 An Account Fee stream consuming the stable customer-count Series must explicitly choose the customer
 measure it needs:
@@ -167,20 +171,39 @@ measure it needs:
   canonical monthly grid, then aggregate those exposures to the selected engine cadence.
 
 The fee's per-account price trajectory remains independently owned by the Fee Product. The customer
-measure does not inherit from AUC shape, and Fee Products never author CAC's Step/Smooth path.
+measure is independent of the source assumptions' cadences, and Fee Products never author a second
+CAC timing/trajectory path.
 
-AUC is resolved first on a **canonical monthly period-end grid**, regardless of whether the selected
-engine/presentation cadence is monthly or quarterly. Quarterly native balances are sampled from
-canonical M3/M6/M9/M12; the monthly path remains available for downstream calculations whose
-economics depend on each month's exposure. The resolved AUC then becomes a canonical managed-notional
-series for downstream Fee Products. The stock owner publishes EOP observations; consumers choose the
-measure they need. `period_average` is derived canonically as `(prior month-end + current month-end) / 2`,
-and a quarterly period average is built from the three underlying monthly average exposures rather than
-from two quarter-end points. Fee Products prefer the stable AUC `series_id`, while legacy name-based
-references remain readable.
-For explicit source cadence finer than the acquisition equation cadence, flow operands such as Spend
-and Explicit Customers sum; level/rate operands such as CAC, Pool, Conversion, Count, Productivity,
-and AUC/customer average.
+CAC equations themselves run on the **canonical monthly grid**. Their operand semantics are explicit:
+
+- **Pool**, **Spend**, **Productivity**, **Compensation/FTE**, and **Explicit New Customers** are flows
+  with a natural Month / Quarter / Year period. A quarterly amount is spread over its three constituent
+  months; an annual amount is spread over twelve. Equivalent natural-period authoring therefore
+  preserves annual economics without collapsing the equation to an annual average.
+- **Conversion rate**, **CAC $/customer**, **FTE Count**, and **Average AUC/customer** are levels/rates.
+  Month / Quarter / Year controls when their authored trajectory may change; the magnitude is not
+  divided merely because the path is annual.
+- A linked upstream Series is consumed on its owner-resolved monthly path and is never periodized a
+  second time.
+
+The four channel equations are evaluated month-by-month. Thus `Pool × Conversion` is
+`Σ(monthly pool × monthly conversion)` for annual presentation, not `average pool × average conversion`.
+`Spend ÷ CAC` and `FTE × Productivity` follow the same monthly causal rule. Annual and quarterly CAC
+reports are aggregations of those monthly results.
+
+Attrition uses source-period event semantics. An annual 10% attrition assumption applies once at the
+annual boundary to the book that existed at the beginning of that year; quarterly and monthly rates
+apply at their corresponding source-period boundaries to the opening book for that period. This keeps
+an annual rate from being silently repeated twelve times while allowing genuinely sub-year attrition.
+
+The resulting AUC is therefore a true **canonical monthly period-end stock**, not an interpolated
+presentation path. Quarterly native balances are sampled from canonical M3/M6/M9/M12; the monthly
+path remains available for downstream calculations whose economics depend on each month's exposure.
+The resolved AUC then becomes a canonical managed-notional Series for downstream Fee Products. The
+stock owner publishes EOP observations; consumers choose the measure they need. `period_average` is
+derived canonically as `(prior month-end + current month-end) / 2`, and a quarterly period average is
+built from the three underlying monthly average exposures rather than from two quarter-end points.
+Fee Products prefer the stable AUC `series_id`, while legacy name-based references remain readable.
 
 Operating Expense may observe a CAC feed's stable AUC Series as a linked component. The consumer
 explicitly chooses **Period end** or **Period average**; missing measure on an r64/r65 configuration

@@ -61,6 +61,16 @@ window.cacExplicitOpen('growth',0,'pool'); const poolOpen=!_cacExplicitIsClosed(
 window.cacScheduleClear('growth',0,'pool'); const poolCleared=[...fd.channels[0].driver_specs.pool.values];
 window.cacSchedulePaste('growth',0,'pool','1,000\t2,500\t3,000','number');
 const unitProbe={pool:_cacStored('2,500','number'),spend:_cacStored('1,250','k'),cac:_cacStored('1,250','price'),auc:_cacStored('500','k')};
+fd.channels[1].driver_specs.spend={series_id:'cac-spend-period-probe',owner_module:'customer_acquisition',source:'entered',mode:'flat',value:10000,period:'month'};
+window.cacDriverTrajectory('growth',1,'spend','explicit');
+const flowTrajectoryExplicit={cadence:fd.channels[1].driver_specs.spend.cadence,values:[...fd.channels[1].driver_specs.spend.values]};
+window.cacDriverTrajectory('growth',1,'spend','flat');
+const flowTrajectoryFlat={period:fd.channels[1].driver_specs.spend.period,value:fd.channels[1].driver_specs.spend.value};
+fd.driver_specs=fd.driver_specs||{};fd.driver_specs.attrition_rate={series_id:'cac-attr-period-probe',owner_module:'customer_acquisition',source:'entered',mode:'flat',value:.01,period:'month'};
+window.cacFeedTrajectory('growth','explicit');
+const attrTrajectoryExplicit={cadence:fd.driver_specs.attrition_rate.cadence,values:[...fd.driver_specs.attrition_rate.values]};
+window.cacFeedTrajectory('growth','flat');
+const attrTrajectoryFlat={period:fd.driver_specs.attrition_rate.period,value:fd.driver_specs.attrition_rate.value};
 window.cacDriverSource('growth',1,'spend','link');
 const spendLink=fd.channels[1].driver_specs.spend;
 const spendPreviewFlat=_cacLinkedSourcePreview('growth',1,_cacMeta(fd.channels[1].method).find(x=>x.k==='spend'),spendLink);
@@ -86,7 +96,7 @@ window._cacChannelDrag={feed:'growth',index:0};
 window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'other',0);
 const crossFeedGuard={growthNames:fd.channels.map(x=>x.name),otherNames:cfg.assumptions.cac_feeds.other.channels.map(x=>x.name)};
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,reordered,reorderedUp,crossFeedGuard}));
+console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -153,21 +163,38 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
     up=bj.get("unitProbe") or {}
     ck("CAC units distinguish balances/spend from per-unit prices and natural counts",
        up=={"pool":2500,"spend":1250000,"cac":1250,"auc":500000}
-       and 'unit:"$000s / year",kind:"k"' in html
+       and 'lab:"Acquisition spend",unit:"$000s",kind:"k",flow:true' in html
        and 'lab:"Cost per customer acquired",unit:"$ / customer",kind:"price"' in html
-       and 'lab:"Addressable pool",unit:"customers",kind:"number"' in html)
+       and 'lab:"Addressable pool",unit:"customers",kind:"number",flow:true' in html
+       and 'window.cacDriverPeriod=function' in html)
     ck("every CAC Explicit primitive uses a visible pastebox with Clear and Close actions",
        "cacSchedulePaste(" in html and "Paste a row or column from Excel/Sheets" in html
        and "cacFeedExplicitPaste(" in html and "Load (replace)" in html
        and "cacScheduleClear(" in html and "cacExplicitClose(" in html
        and "cacFeedExplicitClear(" in html and "cacFeedExplicitClose(" in html
        and ">Clear</button>" in html and ">Close</button>" in html and "Edit schedule" in html)
-    ck("CAC Explicit keeps source cadence but removes meaningless Step/Smooth interpolation",
-       "CAC does not interpolate between source points" in html and "cacScheduleResolution" not in html)
-    ck("feed separates beginning book, AUC shape, and active-client shape controls",
-       "Beginning customers" in html and "Beginning AUC" in html and "AUC within each model year" in html
-       and "Active clients within each model year" in html
-       and "it no longer silently determines active-client timing" in html)
+    ck("CAC Explicit source cadence resolves to monthly before the acquisition equation",
+       "resolves the source cadence to its canonical monthly grid first" in html
+       and "flow amounts are spread across the months in each source period" in html
+       and "cacScheduleResolution" not in html)
+    ck("CAC source cadence always offers Month / Quarter / Year even under quarterly presentation",
+       'function _cacCadenceOptions(){return ["year","quarter","month"];}' in html
+       and '_cacCadenceOptions().map' in html)
+    fp_exp=bj.get("flowTrajectoryExplicit") or {}; fp_flat=bj.get("flowTrajectoryFlat") or {}
+    ck("switching a flow between Flat and Explicit preserves its natural-period amount unit",
+       fp_exp.get("cadence")=="month" and len(fp_exp.get("values") or [])==84
+       and all(v==10000 for v in (fp_exp.get("values") or []))
+       and fp_flat=={"period":"month","value":10000})
+    at_exp=bj.get("attrTrajectoryExplicit") or {}; at_flat=bj.get("attrTrajectoryFlat") or {}
+    ck("switching attrition trajectory preserves the authored source period",
+       at_exp.get("cadence")=="month" and len(at_exp.get("values") or [])==84
+       and all(abs(v-.01)<1e-12 for v in (at_exp.get("values") or []))
+       and at_flat=={"period":"month","value":.01})
+    ck("feed makes monthly calculation cadence explicit instead of manufacturing within-year shapes",
+       "Beginning customers" in html and "Beginning AUC" in html
+       and "Calculation cadence: monthly." in html
+       and "Month / Quarter / Year belong to each source assumption" in html
+       and "AUC within each model year" not in html and "Active clients within each model year" not in html)
     ck("calculated customer-base audit view is a thin fully gridded table",
        'class="cac-audit-grid"' in html
        and "table.cac-audit-grid th,table.cac-audit-grid td{border:1px solid" in html

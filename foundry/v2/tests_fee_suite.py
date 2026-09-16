@@ -193,58 +193,60 @@ def main():
        f"custody-only Q4 {f[4]:.1f}, both Q4 {f2[4]:.1f} (expect ~1.5x)")
 
     # C3/C4 regression: the CAC -> Fee Product bridge must preserve the true opening AUC and
-    # canonical monthly exposure. A stepped path makes the old native-endpoint approximation
-    # visibly wrong: beginning 0.9m, then M1/M2/M3 EOP 3.3m gives monthly averages
-    # 2.1m / 3.3m / 3.3m, hence a Q1 average exposure of 2.9m (not 2.1m, and not 1.65m).
-    stepped_feed = {"retail":{"series_id":"cac-stepped","attrition_rate":0.0,
+    # the canonical monthly exposure produced by the causal monthly CAC engine. One customer
+    # authored as an annual flow is spread evenly across the twelve source-period months, so
+    # beginning 0.9m plus 0.2m of new AUC per month gives M1/M2/M3 EOP of
+    # 1.1m / 1.3m / 1.5m and monthly average exposures of 1.0m / 1.2m / 1.4m.
+    # The Q1 average exposure is therefore 1.2m. Legacy intra_year_shape is intentionally inert.
+    annual_source_feed = {"retail":{"series_id":"cac-stepped","attrition_rate":0.0,
         "beginning_auc":900_000.0,"beginning_customers":0,"intra_year_shape":"stepped",
         "channels":[{"name":"Explicit adds","method":"explicit",
                      "params":{"new_customers_by_year":[1.0],"spend":0.0},
                      "avg_auc_per_customer":2_400_000.0}]}}
-    stepped_mn = cac_feeder.cac_managed_notional(stepped_feed["retail"], 4, 4)
-    stepped_avg, stepped_end = managed_notional_series(stepped_mn, 4, 4)
+    annual_source_mn = cac_feeder.cac_managed_notional(annual_source_feed["retail"], 4, 4)
+    annual_source_avg, annual_source_end = managed_notional_series(annual_source_mn, 4, 4)
     ck("C3 CAC bridge preserves beginning AUC and canonical monthly average exposure",
-       stepped_mn.get("day1")==900_000.0 and abs(stepped_avg[0]-2_900_000.0)<1e-9
-       and abs(stepped_end[0]-3_300_000.0)<1e-9)
+       annual_source_mn.get("day1")==900_000.0 and abs(annual_source_avg[0]-1_200_000.0)<1e-9
+       and abs(annual_source_end[0]-1_500_000.0)<1e-9)
 
     raw_cfg = base_cfg(); raw_cfg["assumptions"]["periods_per_year"] = 4; raw_cfg["assumptions"]["n_periods"] = 4
-    raw_cfg["assumptions"]["cac_feeds"] = stepped_feed
-    raw_cfg["assumptions"]["obs_exposures"] += [{"name":"Custody stepped","call_report_line":"obs","_fee_product":True,
+    raw_cfg["assumptions"]["cac_feeds"] = annual_source_feed
+    raw_cfg["assumptions"]["obs_exposures"] += [{"name":"Custody monthly CAC","call_report_line":"obs","_fee_product":True,
         "managed_notional_source":"retail","managed_notional_source_id":"cac-stepped",
         "fee_streams":[{"basis":"balance","driver":{"source":"managed_notional"},
                         "rate":{"params":{"rate":0.0014}},"timing":{"start_period":1}}]}]
     raw = run_pf_a(raw_cfg)
-    stepped_prod = next(p for p in raw["products"] if p.get("name")=="Custody stepped")
+    annual_source_prod = next(p for p in raw["products"] if p.get("name")=="Custody monthly CAC")
     ck("C4 ordinary Fee Product custody fee uses canonical monthly Average AUC in quarterly cadence",
-       abs(stepped_prod["managedNotionalAvg"][0]-2_900_000.0)<1e-9
-       and abs(stepped_prod["fees"][0]-(2_900_000.0*.0014/4.0))<1e-9)
+       abs(annual_source_prod["managedNotionalAvg"][0]-1_200_000.0)<1e-9
+       and abs(annual_source_prod["fees"][0]-(1_200_000.0*.0014/4.0))<1e-9)
 
     monthly_cfg = copy.deepcopy(raw_cfg)
     monthly_cfg["assumptions"]["periods_per_year"] = 12; monthly_cfg["assumptions"]["n_periods"] = 12
     monthly_raw = run_pf_a(monthly_cfg)
-    monthly_prod = next(p for p in monthly_raw["products"] if p.get("name")=="Custody stepped")
+    monthly_prod = next(p for p in monthly_raw["products"] if p.get("name")=="Custody monthly CAC")
     ck("C4b CAC-fed custody annual economics are monthly/quarterly cadence-equivalent",
-       abs(sum(monthly_prod["fees"])-sum(stepped_prod["fees"]))<1e-9)
+       abs(sum(monthly_prod["fees"])-sum(annual_source_prod["fees"]))<1e-9)
 
     # The same managed-notional socket drives AUC-derived transaction streams, so verify the
-    # canonical average survives through a natural-period throughput coefficient as well.
+    # canonical monthly average survives through a natural-period throughput coefficient too.
     tx_cfg = copy.deepcopy(raw_cfg)
-    tx_cfg["assumptions"]["obs_exposures"][-1]["name"] = "Settlement stepped"
+    tx_cfg["assumptions"]["obs_exposures"][-1]["name"] = "Settlement monthly CAC"
     tx_cfg["assumptions"]["obs_exposures"][-1]["fee_streams"] = [{
         "basis":"transaction",
         "driver":{"source":"managed_notional","trajectory":"derived","params":{"coefficient":{"kind":"multiple","value":4.0,"period":"year","trajectory":"flat"}}},
         "rate":{"params":{"per_unit":0.0005}},"timing":{"start_period":1}}]
     tx_raw = run_pf_a(tx_cfg)
-    tx_prod = next(p for p in tx_raw["products"] if p.get("name")=="Settlement stepped")
-    # 4 turns/year becomes 1 turn in a quarterly period; throughput therefore equals 2.9m.
+    tx_prod = next(p for p in tx_raw["products"] if p.get("name")=="Settlement monthly CAC")
+    # 4 turns/year becomes 1 turn in a quarterly period; throughput therefore equals 1.2m.
     ck("C5 AUC-derived transaction throughput uses the same canonical Average AUC exposure",
-       abs(tx_prod["managedNotionalAvg"][0]-2_900_000.0)<1e-9
-       and abs(tx_prod["fees"][0]-(2_900_000.0*.0005))<1e-9)
+       abs(tx_prod["managedNotionalAvg"][0]-1_200_000.0)<1e-9
+       and abs(tx_prod["fees"][0]-(1_200_000.0*.0005))<1e-9)
 
     tx_monthly_cfg = copy.deepcopy(tx_cfg)
     tx_monthly_cfg["assumptions"]["periods_per_year"] = 12; tx_monthly_cfg["assumptions"]["n_periods"] = 12
     tx_monthly_raw = run_pf_a(tx_monthly_cfg)
-    tx_monthly_prod = next(p for p in tx_monthly_raw["products"] if p.get("name")=="Settlement stepped")
+    tx_monthly_prod = next(p for p in tx_monthly_raw["products"] if p.get("name")=="Settlement monthly CAC")
     ck("C5b AUC-derived transaction annual economics are monthly/quarterly cadence-equivalent",
        abs(sum(tx_monthly_prod["fees"])-sum(tx_prod["fees"]))<1e-9)
 
