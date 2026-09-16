@@ -11,6 +11,7 @@ import math
 from . import run_q
 from .cac_feeder import cac_auc_rollforward, channel_new_customers, channel_avg_auc, channel_spend
 from .audit_workbook import calculation_audit_workbook
+from .validate_q import validate_errors_v2
 
 
 def _eq(a, b, tol=1e-6):
@@ -233,6 +234,24 @@ def main():
     ck("38-client period-average fee accrues on average active-client exposure",
        _eq(xm[0],.66,.011) and _eq(sum(xm),95.0,.05)
        and _eq(sum(xq),sum(xm),.05), xm)
+
+    # The Product UI preserves a user's previously-authored Constant/Explicit count schedule while
+    # a stream is linked to CAC. That schedule is reserve state, not an active linked-driver input.
+    # Reproduce the exact browser shape and prove every customer measure still runs end-to-end.
+    for _measure in ("period_end","annual_count","period_average","period_end"):
+        _cfg=_probe_cfg(12,_measure)
+        _drv=_cfg["assumptions"]["obs_exposures"][0]["fee_streams"][0]["driver"]
+        _drv["params"]["level_schedule"]={
+            "period":"month","resolution":"step","schedule":{"1":28.333,"2":29.0,"3":30.0}
+        }
+        _drv["_saved_constant_trajectory"]="explicit_schedule"
+        _errs=validate_errors_v2(_cfg)
+        ck(f"linked customer measure {_measure} passes preview validation with dormant manual schedule", not _errs, _errs)
+        try:
+            _run=run_q.run_v2(_cfg); _ok=True
+        except Exception:
+            _ok=False
+        ck(f"linked customer measure {_measure} runs with dormant manual count schedule preserved", _ok)
 
     # CAC timing is now calculated, not manufactured from a post-hoc within-year shape.
     pr=cac_auc_rollforward(probe_feed,12,12)

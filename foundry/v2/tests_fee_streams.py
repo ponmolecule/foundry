@@ -127,6 +127,35 @@ def main():
         bad_measure_raised=True
     ck("unknown CAC client-count measure fails closed", bad_measure_raised)
 
+    # A manual Account explicit schedule is preserved by the browser while the stream is linked to
+    # CAC so switching back to Constant is non-destructive. That dormant authoring state must not
+    # participate in validation or economics while the linked driver is active. r111 incorrectly
+    # rejected this exact state after the debounce run, which cleared the linked preview on tab cycle.
+    linked_with_reserved_schedule=copy.deepcopy(s_cac_count)
+    linked_with_reserved_schedule["driver"].update({
+        "measure":"period_end",
+        "params":{"base":0.0,"level_schedule":{
+            "period":"month","resolution":"step","schedule":{"1":999.0,"2":888.0}
+        }},
+        "_saved_constant_trajectory":"explicit_schedule",
+    })
+    ck("linked CAC count ignores preserved manual level_schedule reserve state",
+       abs(fee_stream_q(linked_with_reserved_schedule,1,nested_ctx,ppy=12)[0]-1319.4444444444443)<1e-9)
+    linked_reserved_average=copy.deepcopy(linked_with_reserved_schedule)
+    linked_reserved_average["driver"]["measure"]="period_average"
+    ck("cycling linked customer-count measure remains valid with reserved manual schedule",
+       abs(fee_stream_q(linked_reserved_average,1,nested_ctx,ppy=12)[0]-659.7222222222222)<1e-9)
+    restored_manual=copy.deepcopy(linked_with_reserved_schedule)
+    restored_manual["driver"].update({"source":"constant","trajectory":"explicit_schedule"})
+    restored_manual["driver"].pop("ref",None); restored_manual["driver"].pop("measure",None)
+    ck("restored Constant driver still consumes the preserved manual level_schedule",
+       abs(fee_stream_q(restored_manual,1,{},ppy=12)[0]-(999.0*5000.0/12.0))<1e-9)
+    dormant_flat=copy.deepcopy(restored_manual)
+    dormant_flat["driver"].update({"trajectory":"flat"})
+    dormant_flat["driver"]["params"]["base"]=500.0
+    ck("inactive Constant/Flat driver ignores preserved Explicit level_schedule until reselected",
+       abs(fee_stream_q(dormant_flat,1,{},ppy=12)[0]-(500.0*5000.0/12.0))<1e-9)
+
     # flat basis: fixed 12,500/q regardless of driver
     s_flat = {"basis": "flat", "rate": {"params": {"amount_per_period": 12_500.0}},
               "timing": {"start_period": 1}}
