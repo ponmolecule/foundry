@@ -1,646 +1,2092 @@
 {
- "assumption_tags": {},
- "assumptions": {
-  "aoci_sensitivity_annual": 0.005,
-  "borrow_rate_ann": 0.04,
-  "capital_raises": [
-   {
-    "quarter": 4,
-    "amount": 15000000.0
-   },
-   {
-    "quarter": 8,
-    "amount": 10000000.0
-   }
-  ],
-  "cash_target_pct_deposits": 0.05,
-  "cash_yield": 0.045,
-  "credit_regime": {
-   "enabled": true
+  "assumption_tags": {},
+  "assumptions": {
+    "_operating_expense_mode": "detailed",
+    "aoci_sensitivity_annual": 0.005,
+    "borrow_rate_ann": 0.04,
+    "cac_feeds": {
+      "Universal Customer Build": {
+        "beginning_auc": 75000000.0,
+        "beginning_customers": 1000.0,
+        "channels": [
+          {
+            "driver_specs": {
+              "avg_auc_per_customer": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-ticket-pool-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 80000.0
+              },
+              "conversion_rate": {
+                "base": 0.08,
+                "growth_spec": {
+                  "anchor": "model_year",
+                  "method": "smooth",
+                  "period": "year",
+                  "rate": 0.05
+                },
+                "mode": "growth",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-conv-universal",
+                "source": "entered",
+                "trajectory": "growth"
+              },
+              "cost_per_customer": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-cpc-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 250.0
+              },
+              "pool": {
+                "cadence": "year",
+                "extend": "hold",
+                "mode": "explicit",
+                "owner_module": "customer_acquisition",
+                "period": "year",
+                "resolution": "step",
+                "series_id": "cac-pool-universal",
+                "source": "entered",
+                "trajectory": "explicit",
+                "values": [
+                  1800,
+                  2200,
+                  2600
+                ]
+              }
+            },
+            "method": "pool_conversion",
+            "name": "Affiliate pool",
+            "params": {}
+          },
+          {
+            "driver_specs": {
+              "avg_auc_per_customer": {
+                "base": 65000.0,
+                "growth_spec": {
+                  "anchor": "model_year",
+                  "method": "step",
+                  "period": "year",
+                  "rate": 0.04
+                },
+                "mode": "growth",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-ticket-paid-universal",
+                "source": "entered",
+                "trajectory": "growth"
+              },
+              "cac": {
+                "cadence": "month",
+                "extend": "hold",
+                "mode": "explicit",
+                "owner_module": "customer_acquisition",
+                "period": "month",
+                "resolution": "step",
+                "series_id": "cac-unitcost-universal",
+                "source": "entered",
+                "trajectory": "explicit",
+                "values": [
+                  1200.0,
+                  1194.29,
+                  1188.57,
+                  1182.86,
+                  1177.14,
+                  1171.43,
+                  1165.71,
+                  1160.0,
+                  1154.29,
+                  1148.57,
+                  1142.86,
+                  1137.14,
+                  1131.43,
+                  1125.71,
+                  1120.0,
+                  1114.29,
+                  1108.57,
+                  1102.86,
+                  1097.14,
+                  1091.43,
+                  1085.71,
+                  1080.0,
+                  1074.29,
+                  1068.57,
+                  1062.86,
+                  1057.14,
+                  1051.43,
+                  1045.71,
+                  1040.0,
+                  1034.29,
+                  1028.57,
+                  1022.86,
+                  1017.14,
+                  1011.43,
+                  1005.71,
+                  1000.0
+                ]
+              },
+              "spend": {
+                "link": {
+                  "aggregation": "sum",
+                  "kind": "operating_expense_category",
+                  "series_id": "opex-acquisition-budget"
+                },
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-spend-linked-universal",
+                "source": "link"
+              }
+            },
+            "method": "spend_cac",
+            "name": "Paid acquisition",
+            "params": {}
+          },
+          {
+            "driver_specs": {
+              "avg_auc_per_customer": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-ticket-team-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 125000.0
+              },
+              "comp_per_fte": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "period": "year",
+                "series_id": "cac-comp-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 150000.0
+              },
+              "ftes": {
+                "base": 2.0,
+                "growth_spec": {
+                  "anchor": "model_year",
+                  "method": "step",
+                  "period": "year",
+                  "rate": 0.5
+                },
+                "mode": "growth",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-fte-universal",
+                "source": "entered",
+                "trajectory": "growth"
+              },
+              "per_fte": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "period": "year",
+                "series_id": "cac-productivity-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 120.0
+              }
+            },
+            "method": "fte_productivity",
+            "name": "Relationship team",
+            "params": {}
+          },
+          {
+            "driver_specs": {
+              "avg_auc_per_customer": {
+                "mode": "flat",
+                "owner_module": "customer_acquisition",
+                "series_id": "cac-ticket-explicit-universal",
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 95000.0
+              },
+              "new_customers": {
+                "cadence": "quarter",
+                "extend": "hold",
+                "mode": "explicit",
+                "owner_module": "customer_acquisition",
+                "resolution": "smooth",
+                "series_id": "cac-newcust-universal",
+                "source": "entered",
+                "trajectory": "explicit",
+                "values": [
+                  45,
+                  50,
+                  55,
+                  60,
+                  65,
+                  70,
+                  75,
+                  80,
+                  85,
+                  90,
+                  95,
+                  100
+                ]
+              },
+              "spend": {
+                "cadence": "year",
+                "extend": "hold",
+                "mode": "explicit",
+                "owner_module": "customer_acquisition",
+                "resolution": "step",
+                "series_id": "cac-spend-explicit-universal",
+                "source": "entered",
+                "trajectory": "explicit",
+                "values": [
+                  360000.0,
+                  420000.0,
+                  480000.0
+                ]
+              }
+            },
+            "method": "explicit",
+            "name": "Strategic conversions",
+            "params": {}
+          }
+        ],
+        "customer_count_series_id": "cac-count-universal",
+        "customer_intra_year_shape": "linear",
+        "driver_specs": {
+          "attrition_rate": {
+            "cadence": "quarter",
+            "extend": "hold",
+            "mode": "explicit",
+            "owner_module": "customer_acquisition",
+            "resolution": "step",
+            "semantic_type": "attrition_rate",
+            "series_id": "cac-attrition-universal",
+            "source": "entered",
+            "trajectory": "explicit",
+            "values": [
+              0.012,
+              0.012,
+              0.011,
+              0.011,
+              0.01,
+              0.01,
+              0.009,
+              0.009,
+              0.008,
+              0.008,
+              0.007,
+              0.007
+            ]
+          }
+        },
+        "intra_year_shape": "linear",
+        "owner_module": "customer_acquisition",
+        "series_id": "cac-auc-universal"
+      }
+    },
+    "capital_raises": [
+      {
+        "amount": 15000000.0,
+        "period": 10
+      },
+      {
+        "amount": 10000000.0,
+        "period": 22
+      }
+    ],
+    "cash_target_pct_deposits": 0.05,
+    "cash_yield": 0.045,
+    "cost_pools": [
+      {
+        "components": [
+          {
+            "allocation_pct": 0.35,
+            "kind": "operating_expense_category",
+            "series_id": "opex-tech-base"
+          },
+          {
+            "allocation_pct": 0.25,
+            "kind": "workforce_role_expense",
+            "series_id": "wf-exp-ops-universal"
+          },
+          {
+            "allocation_pct": 1.0,
+            "flow_spec": {
+              "growth_spec": {
+                "anchor": "model_year",
+                "method": "step",
+                "period": "year",
+                "rate": 0.03
+              },
+              "period": "year",
+              "trajectory": "growth",
+              "value": 240000.0
+            },
+            "kind": "assumption_cost_base",
+            "name": "Third-party platform base",
+            "series_id": "cost-base-platform-universal"
+          }
+        ],
+        "name": "Platform services eligible costs",
+        "owner_module": "cost_pool",
+        "series_id": "pool-platform-universal"
+      },
+      {
+        "components": [
+          {
+            "allocation_pct": 1.0,
+            "flow_spec": {
+              "period": "year",
+              "trajectory": "explicit",
+              "values": [
+                180000.0,
+                210000.0,
+                240000.0
+              ]
+            },
+            "kind": "assumption_cost_base",
+            "name": "Shared service fixed base",
+            "series_id": "cost-base-shared-universal"
+          },
+          {
+            "allocation_pct": 1.0,
+            "kind": "balance_derived_cost",
+            "measure": "period_average",
+            "name": "Average-AUC variable cost",
+            "rate_period": "year",
+            "rate_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 2e-05
+            },
+            "series_id": "cost-base-auc-universal",
+            "source_kind": "managed_notional",
+            "source_series_id": "cac-auc-universal"
+          }
+        ],
+        "name": "Shared service charge base",
+        "owner_module": "cost_pool",
+        "series_id": "pool-shared-services-universal"
+      }
+    ],
+    "credit_regime": {
+      "enabled": true
+    },
+    "deposit_products": [
+      {
+        "avg_maturity_m": 0,
+        "call_report_line": "depDDA",
+        "fee_yield_ann": 0.002,
+        "growth_per_period": 0.009901634049960917,
+        "insured_pct": 0.92,
+        "name": "Retail Demand",
+        "new_deposits_per_period": 3000000.0,
+        "opening_balance": 20000000.0,
+        "opex_fixed_m": 8000.0,
+        "opex_pct_ann": 0.001,
+        "rate_paid_ann": 0.001,
+        "rate_type": "fixed",
+        "runoff_per_period": 0.0
+      },
+      {
+        "avg_maturity_m": 0,
+        "call_report_line": "depSavings",
+        "fee_yield_ann": 0.0,
+        "growth_per_period": 0.013159403820177218,
+        "index_spread": -0.01,
+        "insured_pct": 0.88,
+        "name": "MMDA / Savings",
+        "new_deposits_per_period": 4000000.0,
+        "opening_balance": 30000000.0,
+        "opex_fixed_m": 6000.0,
+        "opex_pct_ann": 0.001,
+        "rate_type": "float",
+        "runoff_per_period": 0.0
+      },
+      {
+        "avg_maturity_m": 18,
+        "call_report_line": "depTime",
+        "fee_yield_ann": 0.0,
+        "growth_per_period": 0.01639635681485352,
+        "insured_pct": 0.95,
+        "name": "Time Deposits / CDs",
+        "new_deposits_per_period": 2000000.0,
+        "opening_balance": 18000000.0,
+        "opex_fixed_m": 3000.0,
+        "opex_pct_ann": 0.0008,
+        "rate_paid_ann": 0.043,
+        "rate_type": "fixed",
+        "runoff_per_period": 0.0
+      },
+      {
+        "avg_maturity_m": 12,
+        "call_report_line": "depBrokered",
+        "fee_yield_ann": 0.0,
+        "growth_per_period": 0.006622709560113016,
+        "insured_pct": 1.0,
+        "name": "Brokered",
+        "new_deposits_per_period": 2666666.6666666665,
+        "opening_balance": 25000000.0,
+        "opex_fixed_m": 2000.0,
+        "opex_pct_ann": 0.0004,
+        "rate_paid_ann": 0.049,
+        "rate_type": "fixed",
+        "runoff_per_period": 0.0
+      },
+      {
+        "avg_maturity_m": 0,
+        "call_report_line": "depSweep",
+        "fee_yield_ann": 0.0,
+        "growth_per_period": 0.01639635681485352,
+        "index_spread": -0.004,
+        "insured_pct": 0.5,
+        "name": "Sweep / Program",
+        "new_deposits_per_period": 1333333.3333333333,
+        "opening_balance": 14000000.0,
+        "opex_fixed_m": 3500.0,
+        "opex_pct_ann": 0.001,
+        "rate_type": "float",
+        "runoff_per_period": 0.0
+      },
+      {
+        "avg_maturity_m": 0,
+        "call_report_line": "depInstitutional",
+        "fee_yield_ann": 0.0,
+        "growth_per_period": 0.009901634049960917,
+        "index_spread": -0.002,
+        "insured_pct": 0.3,
+        "name": "Institutional",
+        "new_deposits_per_period": 2333333.3333333335,
+        "opening_balance": 22000000.0,
+        "opex_fixed_m": 5000.0,
+        "opex_pct_ann": 0.0007,
+        "rate_type": "float",
+        "runoff_per_period": 0.0
+      }
+    ],
+    "fixed_assets": {
+      "assets": [
+        {
+          "method": "straight_line",
+          "name": "Existing office equipment",
+          "opening_accumulated_depreciation": 450000.0,
+          "opening_gross_cost": 1200000.0,
+          "remaining_life_years": 3.0,
+          "residual_value": 0.0
+        },
+        {
+          "cost": 900000.0,
+          "in_service_period": 0,
+          "method": "straight_line",
+          "name": "Core banking platform implementation",
+          "residual_value": 0.0,
+          "useful_life_years": 5.0
+        },
+        {
+          "cost": 600000.0,
+          "in_service_period": 13,
+          "method": "straight_line",
+          "name": "Branch and operations buildout",
+          "residual_value": 50000.0,
+          "useful_life_years": 7.0
+        }
+      ],
+      "mode": "schedule"
+    },
+    "intangibles": 0,
+    "lending_products": [
+      {
+        "call_report_line": "loanCRE",
+        "charge_off_ann": 0.005,
+        "fee_streams": [
+          {
+            "basis": "balance",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {
+                "stock_multiplier": {
+                  "kind": "pct",
+                  "trajectory": "flat",
+                  "value": 1.0
+                }
+              },
+              "source": "own_balance",
+              "trajectory": "derived"
+            },
+            "name": "CRE servicing fee",
+            "quantity_series_id": "fee-qty-cre-own-universal",
+            "rate": {
+              "behavior": "annual_change",
+              "params": {
+                "annual_delta": -0.05,
+                "rate": 0.001
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          }
+        ],
+        "fee_yield_ann": 0.003,
+        "measurement": "amortized",
+        "name": "Commercial Real Estate",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "fixed",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069,
+        "yield_ann": 0.065
+      },
+      {
+        "call_report_line": "loanCommercial",
+        "charge_off_ann": 0.005,
+        "fee_yield_ann": 0.003,
+        "index_spread": 0.03,
+        "measurement": "amortized",
+        "name": "Small Business / C&I",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "float",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069,
+        "yield_ann": null
+      },
+      {
+        "call_report_line": "loanConsumer",
+        "charge_off_ann": 0.02,
+        "fee_yield_ann": 0.003,
+        "measurement": "amortized",
+        "name": "Consumer Installment",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "fixed",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069,
+        "yield_ann": 0.089
+      },
+      {
+        "call_report_line": "loanCreditCard",
+        "charge_off_ann": 0.035,
+        "fee_yield_ann": 0.01,
+        "index": "prime",
+        "index_spread": 0.13,
+        "measurement": "amortized",
+        "name": "Credit Card",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "float",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069
+      },
+      {
+        "call_report_line": "loanMortgage",
+        "charge_off_ann": 0.002,
+        "fee_yield_ann": 0.003,
+        "measurement": "amortized",
+        "mortgage_banking": {
+          "gain_on_sale_margin": 0.025,
+          "msr_cap_rate_pct_upb": 0.012,
+          "msr_decay_per_period": 0.06,
+          "sale_pct_of_orig": 0.75,
+          "servicing_fee_bp_ann": 25.0,
+          "servicing_retained_pct": 0.8,
+          "warehouse_hold_q": 1
+        },
+        "name": "Residential Mortgage",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "fixed",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069,
+        "yield_ann": 0.061
+      },
+      {
+        "call_report_line": "loanCommercial",
+        "charge_off_ann": 0.005,
+        "discount_spread_ann": 0.025,
+        "fee_yield_ann": 0.003,
+        "index_spread": 0.03,
+        "measurement": "fair_value",
+        "name": "Small Business / C&I — fair value",
+        "opening_balance": 10000000.0,
+        "opex_fixed_m": 10000.0,
+        "opex_pct_ann": 0.006,
+        "orig_growth_per_period": 0.006622709560113016,
+        "originations_per_period": 1666666.6666666667,
+        "provision_rate_ann": null,
+        "rate_type": "float",
+        "reserve_rate_pct_bal": 0.011,
+        "runoff_per_period": 0.01010170075087069,
+        "yield_ann": null
+      }
+    ],
+    "n_periods": 36,
+    "nie_detail": {
+      "categories": [
+        {
+          "flow_spec": {
+            "growth_spec": {
+              "anchor": "model_year",
+              "method": "step",
+              "period": "year",
+              "rate": 0.1
+            },
+            "period": "year",
+            "trajectory": "growth",
+            "value": 1200000.0
+          },
+          "linked_components": [],
+          "name": "Customer acquisition budget",
+          "owner_module": "operating_expense",
+          "series_id": "opex-acquisition-budget"
+        },
+        {
+          "flow_spec": {
+            "period": "quarter",
+            "trajectory": "flat",
+            "value": 180000.0
+          },
+          "linked_components": [],
+          "name": "Technology & data",
+          "owner_module": "operating_expense",
+          "recognition": {
+            "first_period": 1,
+            "mode": "monthly"
+          },
+          "series_id": "opex-tech-base",
+          "settlement": {
+            "first_payment_period": 2,
+            "mode": "quarterly"
+          }
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "explicit",
+            "values": [
+              480000.0,
+              540000.0,
+              600000.0
+            ]
+          },
+          "linked_components": [],
+          "name": "Professional & legal",
+          "owner_module": "operating_expense",
+          "recognition": {
+            "first_period": 3,
+            "mode": "annual"
+          },
+          "series_id": "opex-professional",
+          "settlement": {
+            "first_payment_period": 4,
+            "mode": "semiannual"
+          }
+        },
+        {
+          "flow_spec": {
+            "period": "month",
+            "trajectory": "flat",
+            "value": 5000.0
+          },
+          "linked_components": [
+            {
+              "driver": "fee_income",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 0.01
+              }
+            }
+          ],
+          "name": "Revenue-linked support cost",
+          "owner_module": "operating_expense",
+          "series_id": "opex-fee-income"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 0.0
+          },
+          "linked_components": [
+            {
+              "driver": "fee_stream_quantity",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 1e-05
+              },
+              "series_id": "fee-qty-api-universal"
+            }
+          ],
+          "name": "Transaction-volume processing",
+          "owner_module": "operating_expense",
+          "series_id": "opex-fee-quantity"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 0.0
+          },
+          "linked_components": [
+            {
+              "amount_spec": {
+                "period": "month",
+                "trajectory": "flat",
+                "value": 1200.0
+              },
+              "driver": "workforce_count",
+              "series_id": "wf-total-universal"
+            }
+          ],
+          "name": "Per-FTE software and tools",
+          "owner_module": "operating_expense",
+          "series_id": "opex-per-fte"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 0.0
+          },
+          "linked_components": [
+            {
+              "driver": "customer_acquisition_auc",
+              "measure": "period_average",
+              "rate_period": "year",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 5e-05
+              },
+              "series_id": "cac-auc-universal"
+            }
+          ],
+          "name": "AUC-linked operational loss provision",
+          "owner_module": "operating_expense",
+          "series_id": "opex-auc"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 0.0
+          },
+          "linked_components": [
+            {
+              "driver": "cost_pool_charge",
+              "markup": {
+                "growth_spec": {
+                  "anchor": "model_year",
+                  "method": "step",
+                  "period": "year",
+                  "rate": 0.02
+                },
+                "period": "year",
+                "trajectory": "growth",
+                "value": 0.05
+              },
+              "recovery_pct": 1.0,
+              "ref": "pool-shared-services-universal"
+            }
+          ],
+          "name": "Shared-service cost-pool charge",
+          "owner_module": "operating_expense",
+          "series_id": "opex-pool-charge"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 0.0
+          },
+          "linked_components": [
+            {
+              "bands": [
+                {
+                  "base_amount": 5000.0,
+                  "lower_bound": 0.0,
+                  "marginal_rate": 0.0,
+                  "upper_bound": 500000000.0
+                },
+                {
+                  "base_amount": 5000.0,
+                  "lower_bound": 500000000.0,
+                  "marginal_rate": 1e-05,
+                  "upper_bound": 1000000000.0
+                },
+                {
+                  "base_amount": 10000.0,
+                  "lower_bound": 1000000000.0,
+                  "marginal_rate": 8e-06,
+                  "upper_bound": null
+                }
+              ],
+              "component_id": "opex-component-tiered-universal",
+              "driver": "piecewise_linked",
+              "name": "Composite balance bands",
+              "observation_lag": {
+                "period": "month",
+                "value": 1
+              },
+              "terms": [
+                {
+                  "source": "bank_total_assets",
+                  "weight": 1.0
+                },
+                {
+                  "measure": "period_end",
+                  "series_id": "cac-auc-universal",
+                  "source": "customer_acquisition_auc",
+                  "weight": 0.25
+                },
+                {
+                  "series_id": "fee-qty-reserve-universal",
+                  "source": "fee_stream_balance_quantity",
+                  "weight": 0.5
+                }
+              ],
+              "timing": {
+                "first_period": 9,
+                "mode": "semiannual"
+              }
+            }
+          ],
+          "name": "Generic tiered balance assessment",
+          "owner_module": "operating_expense",
+          "series_id": "opex-tiered"
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 12000.0
+          },
+          "linked_components": [
+            {
+              "driver": "gain_on_sale",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 0.002
+              }
+            }
+          ],
+          "name": "Gain-on-sale linked support",
+          "recognition": {
+            "first_period": 2,
+            "mode": "quarterly"
+          },
+          "series_id": "opex-gos-link",
+          "settlement": {
+            "first_payment_period": 1,
+            "mode": "monthly"
+          }
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 12000.0
+          },
+          "linked_components": [
+            {
+              "driver": "servicing_net",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 0.003
+              }
+            }
+          ],
+          "name": "Servicing linked support",
+          "recognition": {
+            "first_period": 3,
+            "mode": "semiannual"
+          },
+          "series_id": "opex-servicing-link",
+          "settlement": {
+            "first_payment_period": 6,
+            "mode": "annual"
+          }
+        },
+        {
+          "flow_spec": {
+            "period": "year",
+            "trajectory": "flat",
+            "value": 12000.0
+          },
+          "linked_components": [
+            {
+              "driver": "noninterest_income",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 0.001
+              }
+            }
+          ],
+          "name": "Total noninterest income linked support",
+          "recognition": {
+            "mode": "trajectory"
+          },
+          "series_id": "opex-nii-link",
+          "settlement": {
+            "mode": "recognition"
+          }
+        }
+      ],
+      "fdic_bp_ann": 5.0,
+      "occ_simplified_enabled": false,
+      "other_gross_up_rate": 0.08,
+      "workforce": {
+        "additive_components": [
+          {
+            "bands": [
+              {
+                "base_amount": 0.0,
+                "lower_bound": 0.0,
+                "marginal_rate": 0.0,
+                "upper_bound": 20000000.0
+              },
+              {
+                "base_amount": 0.0,
+                "lower_bound": 20000000.0,
+                "marginal_rate": 0.01,
+                "upper_bound": null
+              }
+            ],
+            "component_id": "wf-component-performance-universal",
+            "driver": "piecewise_linked",
+            "name": "Executive performance pool",
+            "observation_lag": {
+              "period": "model_period",
+              "value": 0
+            },
+            "terms": [
+              {
+                "aggregation": "model_year_to_date",
+                "metric": "total_operating_revenue",
+                "source": "income_statement_flow",
+                "weight": 1.0
+              }
+            ],
+            "timing": {
+              "first_period": 12,
+              "mode": "annual"
+            }
+          }
+        ],
+        "default_payroll_load_rate": 0.22,
+        "default_salary_growth_spec": {
+          "anchor": "hire_anniversary",
+          "method": "step",
+          "period": "year",
+          "rate": 0.03
+        },
+        "mode": "roles",
+        "roles": [
+          {
+            "annual_comp": 120000.0,
+            "compensation_basis": "per_unit",
+            "compensation_period": "year",
+            "compensation_series_id": "wf-comp-ops-universal",
+            "compensation_spec": {
+              "amount_basis": "per_unit",
+              "owner_module": "operating_expense.workforce",
+              "period": "year",
+              "semantic_type": "compensation",
+              "series_id": "wf-comp-ops-universal",
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 120000.0
+            },
+            "count": 6,
+            "count_spec": {
+              "owner_module": "operating_expense.workforce",
+              "semantic_type": "count",
+              "series_id": "wf-count-ops-universal",
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 6
+            },
+            "expense_series_id": "wf-exp-ops-universal",
+            "hire_period": 1,
+            "owner_module": "operating_expense.workforce",
+            "role": "Operations",
+            "series_id": "wf-count-ops-universal"
+          },
+          {
+            "annual_comp": 14000.0,
+            "compensation_basis": "per_unit",
+            "compensation_period": "month",
+            "compensation_series_id": "wf-comp-rm-universal",
+            "compensation_spec": {
+              "amount_basis": "per_unit",
+              "base": 14000.0,
+              "growth_spec": {
+                "anchor": "model_year",
+                "method": "smooth",
+                "period": "year",
+                "rate": 0.03
+              },
+              "owner_module": "operating_expense.workforce",
+              "period": "month",
+              "semantic_type": "compensation",
+              "series_id": "wf-comp-rm-universal",
+              "source": "entered",
+              "trajectory": "growth",
+              "value": 14000.0
+            },
+            "count": 2,
+            "count_spec": {
+              "base": 2,
+              "growth_spec": {
+                "anchor": "model_year",
+                "method": "step",
+                "period": "year",
+                "rate": 0.5
+              },
+              "owner_module": "operating_expense.workforce",
+              "semantic_type": "count",
+              "series_id": "wf-count-rm-universal",
+              "source": "entered",
+              "trajectory": "growth",
+              "value": 2
+            },
+            "expense_series_id": "wf-exp-rm-universal",
+            "hire_period": 1,
+            "owner_module": "operating_expense.workforce",
+            "role": "Relationship managers",
+            "series_id": "wf-count-rm-universal"
+          },
+          {
+            "annual_comp": 354000.0,
+            "compensation_basis": "total",
+            "compensation_period": "month",
+            "compensation_series_id": "wf-comp-marketing-universal",
+            "compensation_spec": {
+              "amount_basis": "total",
+              "cadence": "year",
+              "extend": "hold",
+              "owner_module": "operating_expense.workforce",
+              "period": "month",
+              "resolution": "step",
+              "semantic_type": "compensation",
+              "series_id": "wf-comp-marketing-universal",
+              "source": "entered",
+              "trajectory": "explicit",
+              "values": [
+                354000.0,
+                420000.0,
+                500000.0
+              ]
+            },
+            "count": 3,
+            "count_spec": {
+              "cadence": "year",
+              "extend": "hold",
+              "owner_module": "operating_expense.workforce",
+              "resolution": "step",
+              "semantic_type": "count",
+              "series_id": "wf-count-marketing-universal",
+              "source": "entered",
+              "trajectory": "explicit",
+              "values": [
+                3,
+                4,
+                5
+              ]
+            },
+            "expense_series_id": "wf-exp-marketing-universal",
+            "hire_period": 1,
+            "owner_module": "operating_expense.workforce",
+            "role": "Marketing / partnerships",
+            "series_id": "wf-count-marketing-universal"
+          },
+          {
+            "activation": {
+              "metric": "managed_notional_end",
+              "operator": ">=",
+              "reference": "fixed",
+              "source": "cac-auc-universal",
+              "timing": "same_period",
+              "type": "metric",
+              "value": 150000000.0
+            },
+            "annual_comp": 33750.0,
+            "compensation_basis": "per_unit",
+            "compensation_period": "quarter",
+            "compensation_series_id": "wf-comp-trigger-universal",
+            "compensation_spec": {
+              "amount_basis": "per_unit",
+              "owner_module": "operating_expense.workforce",
+              "period": "quarter",
+              "semantic_type": "compensation",
+              "series_id": "wf-comp-trigger-universal",
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 33750.0
+            },
+            "count": 2,
+            "expense_series_id": "wf-exp-trigger-universal",
+            "owner_module": "operating_expense.workforce",
+            "role": "Custody operations trigger",
+            "series_id": "wf-count-trigger-universal"
+          }
+        ],
+        "total_count_series_id": "wf-total-universal"
+      }
+    },
+    "obs_exposures": [
+      {
+        "call_report_line": "obs",
+        "fee_yield_ann": 0.0075,
+        "growth_per_period": 0.03,
+        "name": "Unused Commercial Commitments",
+        "notional": 20000000.0,
+        "opex_fixed_m": 5000.0,
+        "opex_pct_ann": 0.002
+      },
+      {
+        "_fee_product": true,
+        "call_report_line": "obs",
+        "fee_streams": [
+          {
+            "basis": "account",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "measure": "period_end",
+              "params": {},
+              "ref": "cac-count-universal",
+              "source": "customer_acquisition_count",
+              "trajectory": "flat"
+            },
+            "name": "Account fee — period end",
+            "quantity_series_id": "fee-qty-cust-eop-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "unit_fee": {
+                  "period": "month",
+                  "trajectory": "flat",
+                  "value": 3.0
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "account",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "measure": "period_average",
+              "params": {},
+              "ref": "cac-count-universal",
+              "source": "customer_acquisition_count",
+              "trajectory": "flat"
+            },
+            "name": "Account fee — period average",
+            "quantity_series_id": "fee-qty-cust-avg-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "unit_fee": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "smooth",
+                    "period": "year",
+                    "rate": 0.03
+                  },
+                  "period": "quarter",
+                  "trajectory": "growth",
+                  "value": 9.0
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "account",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "measure": "annual_count",
+              "params": {},
+              "ref": "cac-count-universal",
+              "source": "customer_acquisition_count",
+              "trajectory": "flat"
+            },
+            "name": "Account fee — year-end held",
+            "quantity_series_id": "fee-qty-cust-year-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "unit_fee": {
+                  "period": "year",
+                  "schedule": {
+                    "1": 36.0,
+                    "2": 39.0,
+                    "3": 42.0
+                  },
+                  "trajectory": "explicit_schedule",
+                  "value": 36.0
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "balance",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {
+                "stock_multiplier": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "step",
+                    "period": "year",
+                    "rate": 0.02
+                  },
+                  "kind": "pct",
+                  "trajectory": "growth",
+                  "value": 0.3
+                }
+              },
+              "source": "managed_notional",
+              "trajectory": "derived"
+            },
+            "name": "Reserve balance fee",
+            "quantity_series_id": "fee-qty-reserve-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "rate_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "schedule": {
+                    "1": 0.0012,
+                    "2": 0.0011,
+                    "3": 0.001
+                  },
+                  "trajectory": "explicit_schedule",
+                  "value": 0.0012
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          }
+        ],
+        "managed_notional_source": "Universal Customer Build",
+        "managed_notional_source_id": "cac-auc-universal",
+        "name": "Customer-linked service fees"
+      },
+      {
+        "_fee_product": true,
+        "call_report_line": "obs",
+        "fee_streams": [
+          {
+            "basis": "account",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {
+                "base": 1000.0,
+                "level_schedule": {
+                  "period": "quarter",
+                  "resolution": "smooth",
+                  "schedule": {
+                    "1": 1000.0,
+                    "12": 2400.0,
+                    "4": 1300.0,
+                    "8": 1800.0
+                  }
+                }
+              },
+              "source": "constant",
+              "trajectory": "explicit_schedule"
+            },
+            "name": "Enabled accounts",
+            "quantity_series_id": "fee-qty-enabled-accounts-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "unit_fee": {
+                  "period": "month",
+                  "trajectory": "flat",
+                  "value": 0.0
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "pct_of_revenue",
+              "params": {
+                "pct": 0.05
+              }
+            },
+            "driver": {
+              "params": {
+                "coefficient": {
+                  "kind": "pct",
+                  "period": "month",
+                  "semantics": "share",
+                  "trajectory": "flat",
+                  "value": 0.1
+                }
+              },
+              "ref": "Enabled accounts",
+              "source": "stream_ref",
+              "trajectory": "derived"
+            },
+            "name": "Migrated accounts",
+            "quantity_series_id": "fee-qty-migrated-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "per_unit": 0.5
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "pct_of_throughput_opex",
+              "params": {
+                "factor_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "schedule": {
+                    "1": 5e-05,
+                    "2": 4.5e-05,
+                    "3": 4e-05
+                  },
+                  "trajectory": "explicit_schedule",
+                  "value": 5e-05
+                },
+                "multiplier_path": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "step",
+                    "period": "year",
+                    "rate": 0.02
+                  },
+                  "period": "year",
+                  "resolution": "step",
+                  "trajectory": "growth",
+                  "value": 1.0
+                }
+              }
+            },
+            "driver": {
+              "params": {
+                "coefficient": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "step",
+                    "period": "year",
+                    "rate": 0.08
+                  },
+                  "kind": "amount_per_source_unit",
+                  "period": "year",
+                  "trajectory": "growth",
+                  "value": 1200000.0
+                }
+              },
+              "ref": "Migrated accounts",
+              "source": "stream_ref",
+              "trajectory": "derived"
+            },
+            "name": "API throughput",
+            "quantity_series_id": "fee-qty-api-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "per_unit": 0.002,
+                "rate_path": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "smooth",
+                    "period": "year",
+                    "rate": 0.05
+                  },
+                  "period": "year",
+                  "resolution": "smooth",
+                  "trajectory": "growth",
+                  "value": 0.002
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "pct_of_revenue_opex",
+              "params": {
+                "factor_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "trajectory": "flat",
+                  "value": 0.08
+                },
+                "multiplier_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "trajectory": "flat",
+                  "value": 1.0
+                }
+              }
+            },
+            "driver": {
+              "params": {
+                "coefficient": {
+                  "kind": "multiple",
+                  "period": "model_period",
+                  "trajectory": "flat",
+                  "value": 2.0
+                }
+              },
+              "ref": "Migrated accounts",
+              "source": "stream_ref",
+              "trajectory": "derived"
+            },
+            "name": "Partner events",
+            "quantity_series_id": "fee-qty-partner-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "per_unit": 1.25
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "per_unit",
+              "params": {
+                "cost_per_unit": 0.0001,
+                "multiplier_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "trajectory": "flat",
+                  "value": 1.0
+                }
+              }
+            },
+            "driver": {
+              "params": {
+                "coefficient": {
+                  "kind": "pct",
+                  "period": "year",
+                  "schedule": {
+                    "1": 0.12,
+                    "2": 0.1,
+                    "3": 0.08
+                  },
+                  "semantics": "flow",
+                  "trajectory": "explicit_schedule",
+                  "value": 0.12
+                }
+              },
+              "source": "managed_notional",
+              "trajectory": "derived"
+            },
+            "name": "Conversion flow",
+            "quantity_series_id": "fee-qty-conversion-universal",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "per_unit": 0.0008,
+                "rate_path": {
+                  "period": "year",
+                  "resolution": "step",
+                  "schedule": {
+                    "1": 0.0008,
+                    "2": 0.00075,
+                    "3": 0.0007
+                  },
+                  "trajectory": "explicit_schedule",
+                  "value": 0.0008
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          }
+        ],
+        "managed_notional_source": "Universal Customer Build",
+        "managed_notional_source_id": "cac-auc-universal",
+        "name": "Stream and pricing mechanics"
+      },
+      {
+        "_fee_product": true,
+        "call_report_line": "obs",
+        "fee_streams": [
+          {
+            "basis": "balance",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {
+                "stock_multiplier": {
+                  "kind": "pct",
+                  "trajectory": "flat",
+                  "value": 0.02
+                }
+              },
+              "ref": "total_deposits",
+              "source": "bank_aggregate",
+              "trajectory": "derived"
+            },
+            "name": "Deposit aggregate assessment",
+            "quantity_series_id": "fee-qty-dep-aggregate-universal",
+            "rate": {
+              "behavior": "scheduled",
+              "params": {
+                "rate": 0.001,
+                "schedule": {
+                  "1": 0.001,
+                  "13": 0.0009,
+                  "25": 0.0008
+                }
+              }
+            },
+            "timing": {
+              "start_period": 2
+            }
+          },
+          {
+            "basis": "balance",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {},
+              "source": "managed_notional",
+              "trajectory": "ramp_to_target"
+            },
+            "name": "Tiered managed balance",
+            "quantity_series_id": "fee-qty-tiered-universal",
+            "rate": {
+              "behavior": "tiered",
+              "params": {
+                "tiers": [
+                  {
+                    "rate": 0.0015,
+                    "up_to": 100000000.0
+                  },
+                  {
+                    "rate": 0.001,
+                    "up_to": 200000000.0
+                  },
+                  {
+                    "rate": 0.0007,
+                    "up_to": null
+                  }
+                ]
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          }
+        ],
+        "managed_notional": {
+          "day1": 50000000.0,
+          "ramp_periods": 24,
+          "series_id": "managed-auc-universal",
+          "target": 250000000.0,
+          "trajectory": "ramp_to_target"
+        },
+        "name": "Aggregate and tiered balance fees"
+      },
+      {
+        "_fee_product": true,
+        "call_report_line": "obs",
+        "fee_streams": [
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {},
+              "ref": "pool-platform-universal",
+              "source": "cost_pool",
+              "trajectory": "flat"
+            },
+            "name": "Platform cost recovery",
+            "quantity_series_id": "fee-qty-cost-recovery-universal",
+            "rate": {
+              "behavior": "cost_recovery",
+              "params": {
+                "markup": {
+                  "growth_spec": {
+                    "anchor": "model_year",
+                    "method": "step",
+                    "period": "year",
+                    "rate": 0.02
+                  },
+                  "period": "year",
+                  "trajectory": "growth",
+                  "value": 0.1
+                },
+                "recovery_pct": 0.9
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "flat",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {},
+              "source": "constant",
+              "trajectory": "flat"
+            },
+            "name": "Annual platform retainer",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "flat_amount": {
+                  "period": "year",
+                  "schedule": {
+                    "1": 120000.0,
+                    "2": 150000.0,
+                    "3": 180000.0
+                  },
+                  "trajectory": "explicit_schedule",
+                  "value": 120000.0
+                }
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          },
+          {
+            "basis": "event",
+            "cost": {
+              "kind": "none",
+              "params": {}
+            },
+            "driver": {
+              "params": {
+                "amount": 75000.0,
+                "at_period": 7
+              },
+              "source": "constant",
+              "trajectory": "flat"
+            },
+            "name": "Implementation event",
+            "rate": {
+              "behavior": "flat",
+              "params": {
+                "amount": 75000.0
+              }
+            },
+            "timing": {
+              "start_period": 1
+            }
+          }
+        ],
+        "name": "Cost recovery and recurring/event fees"
+      },
+      {
+        "_fee_product": true,
+        "call_report_line": "obs",
+        "fee_streams": [
+          {
+            "basis": "transaction",
+            "cost": {
+              "kind": "per_unit",
+              "params": {
+                "cost_per_unit": 0.06
+              }
+            },
+            "driver": {
+              "params": {
+                "base": 750000.0,
+                "growth_spec": {
+                  "anchor": "model_year",
+                  "method": "smooth",
+                  "period": "year",
+                  "rate": 0.06
+                }
+              },
+              "source": "constant",
+              "trajectory": "proportional"
+            },
+            "name": "Debit interchange",
+            "quantity_series_id": "fee-qty-interchange-universal",
+            "rate": {
+              "behavior": "durbin_capped",
+              "params": {
+                "avg_ticket": 42.0,
+                "per_unit": 0.441,
+                "rate": 0.0125
+              }
+            },
+            "timing": {
+              "ramp_in_periods": 3,
+              "start_period": 1
+            }
+          }
+        ],
+        "name": "Interchange / Durbin coverage"
+      }
+    ],
+    "other_assets": 2000000,
+    "other_liabilities": 1000000,
+    "overhead_growth_per_period": 0.0033222835420891883,
+    "overhead_per_period": 600000.0,
+    "periods_per_year": 12,
+    "premises_depreciation_annual": 0.0,
+    "premises_equipment": 0.0,
+    "rate_curves": {
+      "current_policy": {
+        "bottom": 0.035,
+        "mid": 0.03625,
+        "observation_date": "2026-07-29",
+        "statement_date": "2026-07-29",
+        "top": 0.0375
+      },
+      "effr": {
+        "_editedCells": {},
+        "dated_anchors": {
+          "2026-12-31": 0.038,
+          "2027-12-31": 0.036,
+          "2028-12-31": 0.034
+        },
+        "edited": false,
+        "longer_run": 0.031,
+        "path_q": [
+          0.036500000000000005,
+          0.038,
+          0.0375,
+          0.037,
+          0.036500000000000005,
+          0.036,
+          0.035500000000000004,
+          0.034999999999999996,
+          0.0345,
+          0.034,
+          0.0335,
+          0.033
+        ],
+        "vintage": "2026-06-17"
+      },
+      "fomc": {
+        "anchors": {
+          "2026-12-31": 0.038,
+          "2027-12-31": 0.036,
+          "2028-12-31": 0.034
+        },
+        "edited": false,
+        "lr": 0.031,
+        "source_vintage": "2026-06-17"
+      },
+      "half_band": 0.00125,
+      "offsets": {
+        "effr": 0.0,
+        "prime": 0.03,
+        "sofr": 0.0005
+      },
+      "offsets_edited": {},
+      "prime": {
+        "_editedCells": {},
+        "dated_anchors": {
+          "2026-12-31": 0.06925,
+          "2027-12-31": 0.06725,
+          "2028-12-31": 0.06525
+        },
+        "edited": false,
+        "longer_run": 0.06225,
+        "path_q": [
+          0.06725,
+          0.06875,
+          0.06825,
+          0.06775,
+          0.06725,
+          0.06675,
+          0.06625,
+          0.06575,
+          0.06525,
+          0.06475,
+          0.06425,
+          0.06375
+        ],
+        "vintage": "2026-06-17"
+      },
+      "sofr": {
+        "_editedCells": {},
+        "dated_anchors": {
+          "2026-12-31": 0.0385,
+          "2027-12-31": 0.0365,
+          "2028-12-31": 0.0345
+        },
+        "edited": false,
+        "longer_run": 0.0315,
+        "path_q": [
+          0.037000000000000005,
+          0.0385,
+          0.038,
+          0.0375,
+          0.037000000000000005,
+          0.0365,
+          0.036000000000000004,
+          0.0355,
+          0.035,
+          0.0345,
+          0.034,
+          0.0335
+        ],
+        "vintage": "2026-06-17"
+      }
+    },
+    "rate_path_longer_run": 0.0315,
+    "rate_path_q": [
+      0.037000000000000005,
+      0.0385,
+      0.038,
+      0.0375,
+      0.037000000000000005,
+      0.0365,
+      0.036000000000000004,
+      0.0355,
+      0.035,
+      0.0345,
+      0.034,
+      0.0335
+    ],
+    "scheduled_borrowings": [
+      {
+        "amount": 10000000.0,
+        "name": "FHLB Term Advance A",
+        "period": 4,
+        "rate_ann": 0.045,
+        "term_q": 8
+      },
+      {
+        "amount": 6000000.0,
+        "name": "FHLB Term Advance B",
+        "period": 13,
+        "rate_ann": 0.048,
+        "term_q": 4
+      }
+    ],
+    "securities_afs": [
+      {
+        "growth_per_period": 0.0,
+        "name": "AFS UST Ladder",
+        "opening": 20000000.0,
+        "purchases_per_period": 333333.3333333333,
+        "runoff_per_period": 0.0026738095522708116,
+        "yield_ann": 0.043
+      },
+      {
+        "growth_per_period": 0.0,
+        "name": "AFS Agency MBS",
+        "opening": 12000000.0,
+        "purchases_per_period": 166666.66666666666,
+        "runoff_per_period": 0.005025210439853933,
+        "yield_ann": 0.049
+      }
+    ],
+    "securities_htm": [
+      {
+        "growth_per_period": 0.0,
+        "name": "HTM Municipal Ladder",
+        "opening": 10000000.0,
+        "purchases_per_period": 0.0,
+        "runoff_per_period": 0.002004013386902481,
+        "yield_ann": 0.047
+      },
+      {
+        "growth_per_period": 0.0,
+        "name": "HTM Agency Debentures",
+        "opening": 8000000.0,
+        "purchases_per_period": 83333.33333333333,
+        "runoff_per_period": 0.003344506587403595,
+        "yield_ann": 0.045
+      }
+    ],
+    "securities_yield": 0.04,
+    "tax_detail": {
+      "book_dta": true,
+      "valuation_allowance_pct": 0.0
+    },
+    "tax_rate": 0.21,
+    "tax_semantics": "nol_carryforward_pf_a"
   },
-  "deposit_products": [
-   {
-    "name": "Retail Demand",
-    "call_report_line": "depDDA",
-    "opening_balance": 20000000.0,
-    "growth_per_period": 0.03,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 9000000.0,
-    "avg_maturity_m": 0,
-    "rate_type": "fixed",
-    "rate_paid_ann": 0.001,
-    "fee_yield_ann": 0.002,
-    "opex_pct_ann": 0.001,
-    "opex_fixed_m": 8000.0,
-    "insured_pct": 0.92
-   },
-   {
-    "name": "MMDA / Savings",
-    "call_report_line": "depSavings",
-    "opening_balance": 30000000.0,
-    "growth_per_period": 0.04,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 12000000.0,
-    "avg_maturity_m": 0,
-    "rate_type": "float",
-    "index_spread": -0.01,
-    "fee_yield_ann": 0.0,
-    "opex_pct_ann": 0.001,
-    "opex_fixed_m": 6000.0,
-    "insured_pct": 0.88
-   },
-   {
-    "name": "Time Deposits / CDs",
-    "call_report_line": "depTime",
-    "opening_balance": 18000000.0,
-    "growth_per_period": 0.05,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 6000000.0,
-    "avg_maturity_m": 18,
-    "rate_type": "fixed",
-    "rate_paid_ann": 0.043,
-    "fee_yield_ann": 0.0,
-    "opex_pct_ann": 0.0008,
-    "opex_fixed_m": 3000.0,
-    "insured_pct": 0.95
-   },
-   {
-    "name": "Brokered",
-    "call_report_line": "depBrokered",
-    "opening_balance": 25000000.0,
-    "growth_per_period": 0.02,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 8000000.0,
-    "avg_maturity_m": 12,
-    "rate_type": "fixed",
-    "rate_paid_ann": 0.049,
-    "fee_yield_ann": 0.0,
-    "opex_pct_ann": 0.0004,
-    "opex_fixed_m": 2000.0,
-    "insured_pct": 1.0
-   },
-   {
-    "name": "Sweep / Program",
-    "call_report_line": "depSweep",
-    "opening_balance": 14000000.0,
-    "growth_per_period": 0.05,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 4000000.0,
-    "avg_maturity_m": 0,
-    "rate_type": "float",
-    "index_spread": -0.004,
-    "fee_yield_ann": 0.0,
-    "opex_pct_ann": 0.001,
-    "opex_fixed_m": 3500.0,
-    "insured_pct": 0.5
-   },
-   {
-    "name": "Institutional",
-    "call_report_line": "depInstitutional",
-    "opening_balance": 22000000.0,
-    "growth_per_period": 0.03,
-    "runoff_per_period": 0.0,
-    "new_deposits_per_period": 7000000.0,
-    "avg_maturity_m": 0,
-    "rate_type": "float",
-    "index_spread": -0.002,
-    "fee_yield_ann": 0.0,
-    "opex_pct_ann": 0.0007,
-    "opex_fixed_m": 5000.0,
-    "insured_pct": 0.3
-   }
-  ],
-  "intangibles": 0,
-  "lending_products": [
-   {
-    "name": "Commercial Real Estate",
-    "call_report_line": "loanCRE",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.005,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "amortized",
-    "fee_yield_ann": 0.003,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "fixed",
-    "yield_ann": 0.065
-   },
-   {
-    "name": "Small Business / C&I",
-    "call_report_line": "loanCommercial",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.005,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "amortized",
-    "fee_yield_ann": 0.003,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "float",
-    "index_spread": 0.03,
-    "yield_ann": null
-   },
-   {
-    "name": "Consumer Installment",
-    "call_report_line": "loanConsumer",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.02,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "amortized",
-    "fee_yield_ann": 0.003,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "fixed",
-    "yield_ann": 0.089
-   },
-   {
-    "name": "Credit Card",
-    "call_report_line": "loanCreditCard",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.035,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "amortized",
-    "fee_yield_ann": 0.01,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "float",
-    "index_spread": 0.13,
-    "index": "prime"
-   },
-   {
-    "name": "Residential Mortgage",
-    "call_report_line": "loanMortgage",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.002,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "amortized",
-    "fee_yield_ann": 0.003,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "fixed",
-    "yield_ann": 0.061,
-    "mortgage_banking": {
-     "sale_pct_of_orig": 0.75,
-     "gain_on_sale_margin": 0.025,
-     "warehouse_hold_q": 1,
-     "servicing_retained_pct": 0.8,
-     "servicing_fee_bp_ann": 25.0,
-     "msr_cap_rate_pct_upb": 0.012,
-     "msr_decay_per_period": 0.06
+  "charter_profile": {
+    "cblr_election": true,
+    "charter_type": "state_nonmember",
+    "regulator": "FDIC",
+    "source": "template",
+    "target_opening": "2027-01-01"
+  },
+  "client_legal_name": "Nook & Cranny National Bank (de novo)",
+  "config_frozen": "2026-09-16",
+  "config_version": "2.1",
+  "constraints": [
+    {
+      "key": "leverage_min",
+      "source": "Parity fixture (predecessor A default)",
+      "text": "Tier 1 leverage floor.",
+      "value": 0.09
     }
-   },
-   {
-    "name": "Small Business / C&I \u2014 fair value",
-    "call_report_line": "loanCommercial",
-    "opening_balance": 10000000.0,
-    "originations_per_period": 5000000.0,
-    "orig_growth_per_period": 0.02,
-    "runoff_per_period": 0.03,
-    "charge_off_ann": 0.005,
-    "provision_rate_ann": null,
-    "reserve_rate_pct_bal": 0.011,
-    "measurement": "fair_value",
-    "fee_yield_ann": 0.003,
-    "opex_pct_ann": 0.006,
-    "opex_fixed_m": 10000.0,
-    "rate_type": "float",
-    "index_spread": 0.03,
-    "yield_ann": null,
-    "discount_spread_ann": 0.025
-   }
   ],
-  "nie_detail": {
-   "fte_by_year": [
-    28,
-    45,
-    62
-   ],
-   "loaded_comp_annual": 145000.0,
-   "categories": [
-    {
-     "name": "Technology & data",
-     "per_quarter": 320000.0
-    },
-    {
-     "name": "Occupancy & facilities",
-     "per_quarter": 180000.0
-    },
-    {
-     "name": "Professional & legal",
-     "per_quarter": 140000.0
-    },
-    {
-     "name": "Marketing",
-     "per_quarter": 95000.0
-    }
-   ],
-   "other_gross_up_rate": 0.15
+  "conversion_notes": [
+    "Universal fixture intentionally uses monthly cadence so natural-period conversion, dated curves, CAC, timing, and explicit schedules are exercised together.",
+    "Traditional loan/deposit/security assumptions were cadence-converted from the prior quarterly coverage fixture to preserve approximate annual economics.",
+    "This fixture is a coverage specimen, not a recommended business plan; unusual combinations are deliberate to keep current authoring branches under regression."
+  ],
+  "engagement_id": "exhaustive-coverage",
+  "hq": "Parity fixture — n/a",
+  "parity_expectation": null,
+  "parity_profile": "pf_a",
+  "peer_query": {
+    "consumer_loan_share": 0.4,
+    "core_funding_share": 0.9,
+    "digital_channel": 1,
+    "fee_income_share": 0.2
   },
-  "obs_exposures": [
-   {
-    "name": "Unused Commercial Commitments",
-    "notional": 20000000.0,
-    "growth_per_period": 0.03,
-    "fee_yield_ann": 0.0075,
-    "opex_pct_ann": 0.002,
-    "opex_fixed_m": 5000.0,
-    "call_report_line": "obs"
-   },
-   {
-    "name": "Service charges",
-    "call_report_line": "obs",
-    "_fee_product": true,
-    "fee_streams": [
-     {
-      "basis": "account",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 35000,
-        "growth_per_period": 0.03
-       }
+  "pre_opening": {
+    "expenses": [
+      {
+        "category": "Organizational & legal (charter application, counsel)",
+        "total": 1400000.0
       },
-      "rate": {
-       "params": {
-        "fee_per_period": 11.0
-       }
+      {
+        "category": "Core systems build & integration",
+        "total": 1100000.0
       },
-      "timing": {
-       "start_period": 1
+      {
+        "category": "Regulatory & application filing fees",
+        "total": 250000.0
+      },
+      {
+        "category": "Pre-opening staffing & recruiting",
+        "total": 900000.0
+      },
+      {
+        "category": "Premises build-out & equipment deposits",
+        "total": 650000.0
       }
-     }
-    ]
-   },
-   {
-    "name": "Trust",
-    "call_report_line": "obs",
-    "_fee_product": true,
-    "managed_notional": {
-     "day1": 60000000.0,
-     "trajectory": "proportional",
-     "growth_per_period": 0.04
-    },
-    "fee_streams": [
-     {
-      "basis": "balance",
-      "driver": {
-       "source": "managed_notional"
-      },
-      "rate": {
-       "params": {
-        "rate": 0.008
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     }
-    ]
-   },
-   {
-    "name": "BaaS",
-    "call_report_line": "obs",
-    "_fee_product": true,
-    "fee_streams": [
-     {
-      "basis": "account",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 36000,
-        "growth_per_period": 0.06
-       }
-      },
-      "rate": {
-       "params": {
-        "fee_per_period": 2.75
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     }
-    ]
-   },
-   {
-    "name": "Payments",
-    "call_report_line": "obs",
-    "_fee_product": true,
-    "fee_streams": [
-     {
-      "basis": "transaction",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 300000,
-        "growth_per_period": 0.04
-       }
-      },
-      "rate": {
-       "params": {
-        "per_unit": 0.3
-       }
-      },
-      "cost": {
-       "kind": "per_unit",
-       "params": {
-        "cost_per_unit": 0.06
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     },
-     {
-      "basis": "transaction",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 12000,
-        "growth_per_period": 0.03
-       }
-      },
-      "rate": {
-       "params": {
-        "per_unit": 18.0
-       }
-      },
-      "cost": {
-       "kind": "per_unit",
-       "params": {
-        "cost_per_unit": 3.0
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     },
-     {
-      "basis": "transaction",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 40000,
-        "growth_per_period": 0.08
-       }
-      },
-      "rate": {
-       "params": {
-        "per_unit": 0.5
-       }
-      },
-      "cost": {
-       "kind": "per_unit",
-       "params": {
-        "cost_per_unit": 0.1
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     }
-    ]
-   },
-   {
-    "name": "Interchange",
-    "call_report_line": "obs",
-    "_fee_product": true,
-    "fee_streams": [
-     {
-      "basis": "transaction",
-      "driver": {
-       "source": "constant",
-       "trajectory": "proportional",
-       "params": {
-        "base": 750000,
-        "growth_per_period": 0.05
-       }
-      },
-      "rate": {
-       "behavior": "durbin_capped",
-       "params": {
-        "per_unit": 0.441,
-        "rate": 0.0125,
-        "avg_ticket": 42.0
-       }
-      },
-      "timing": {
-       "start_period": 1
-      }
-     }
-    ]
-   }
-  ],
-  "other_assets": 2000000,
-  "other_liabilities": 1000000,
-  "overhead_growth_per_period": 0.01,
-  "overhead_per_period": 1800000,
-  "premises_equipment": 1000000,
-  "rate_path_longer_run": 0.0315,
-  "rate_path_q": [
-   0.037000000000000005,
-   0.0385,
-   0.038,
-   0.0375,
-   0.037000000000000005,
-   0.0365,
-   0.036000000000000004,
-   0.0355,
-   0.035,
-   0.0345,
-   0.034,
-   0.0335
-  ],
-  "scheduled_borrowings": [
-   {
-    "name": "FHLB Term Advance A",
-    "quarter": 1,
-    "amount": 10000000.0,
-    "term_q": 8,
-    "rate_ann": 0.045
-   },
-   {
-    "name": "FHLB Term Advance B",
-    "quarter": 4,
-    "amount": 6000000.0,
-    "term_q": 4,
-    "rate_ann": 0.048
-   }
-  ],
-  "securities_afs": [
-   {
-    "name": "AFS UST Ladder",
-    "opening": 20000000.0,
-    "purchases_per_period": 1000000.0,
-    "growth_per_period": 0.0,
-    "runoff_per_period": 0.008,
-    "yield_ann": 0.043
-   },
-   {
-    "name": "AFS Agency MBS",
-    "opening": 12000000.0,
-    "purchases_per_period": 500000.0,
-    "growth_per_period": 0.0,
-    "runoff_per_period": 0.015,
-    "yield_ann": 0.049
-   }
-  ],
-  "securities_htm": [
-   {
-    "name": "HTM Municipal Ladder",
-    "opening": 10000000.0,
-    "purchases_per_period": 0.0,
-    "growth_per_period": 0.0,
-    "runoff_per_period": 0.006,
-    "yield_ann": 0.047
-   },
-   {
-    "name": "HTM Agency Debentures",
-    "opening": 8000000.0,
-    "purchases_per_period": 250000.0,
-    "growth_per_period": 0.0,
-    "runoff_per_period": 0.01,
-    "yield_ann": 0.045
-   }
-  ],
-  "securities_yield": 0.04,
-  "tax_detail": {
-   "book_dta": true,
-   "valuation_allowance_pct": 0.0
+    ],
+    "min_day1_capital": 60000000.0
   },
-  "tax_rate": 0.21,
-  "tax_semantics": "nol_carryforward_pf_a"
- },
- "client_legal_name": "Nook & Cranny National Bank (de novo)",
- "config_frozen": "2026-07-08",
- "config_version": "1.0",
- "constraints": [
-  {
-   "key": "leverage_min",
-   "source": "Parity fixture (predecessor A default)",
-   "text": "Tier 1 leverage floor.",
-   "value": 0.09
+  "prepared_by": "Foundry lineage/coverage build",
+  "proposed_bank": "Nook & Cranny National Bank",
+  "scenario_name": "Universal coverage — current Foundry capability contract",
+  "scenario_overlays": null,
+  "schema_version": "2.0",
+  "step_0": {
+    "earning_engine": "spread",
+    "modules": [
+      "balance_driven_deposits",
+      "balance_driven_lending",
+      "balance_driven_obs",
+      "mortgage_banking",
+      "investment_portfolio"
+    ],
+    "one_sentence": "Coverage fixture spanning Foundry core banking, CAC, Fee Products, Workforce, Opex, fixed assets, rate curves, cost pools, timing, and Series links."
+  },
+  "step_0a": {
+    "entities": {
+      "bank": "Parity Fixture Bank A1 — single entity"
+    },
+    "flags_from_map": [],
+    "map_approved": null
+  },
+  "step_1": {
+    "charter": "n/a (fixture)",
+    "rationale": "Parity fixture.",
+    "regulators": [
+      "n/a"
+    ]
+  },
+  "step_minus_1": {
+    "alternatives_priced": {
+      "de_novo": "Parity fixture."
+    },
+    "decision": "proceed_de_novo"
+  },
+  "stress_params": {
+    "charge_off_mult": 2.5,
+    "gos_margin_compression": 0.4,
+    "msr_value_haircut": 0.2,
+    "origination_volume_haircut": 0.4,
+    "rate_shock_bp": 300,
+    "reserve_mult": 1.5,
+    "sale_share_retention_shift": 0.25
+  },
+  "target_state": {
+    "assets_yr3": 316408500,
+    "initial_capital": 150000000.0
   }
- ],
- "conversion_notes": [
-  "loans: monthly originations x3 -> quarterly; annual prepay /4 -> runoff_q; opening balances are Day-1 zero per source",
-  "Time Deposits / CDs: average maturity 24 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-  "Brokered: average maturity 12 months is not modeled (maturity-ladder liability is a phase-2 mechanic); cost and path carried, term structure disclosed as unsupported",
-  "deposits: flat $-adds converted by computing the source's monthly path (B*(1-runoff/12)+add), sampling quarterly EOP, opening = Q1 EOP, growth pinned per quarter via overrides \u2014 path exact, not approximated",
-  "securities yield = AFS cell; HTM yield differs (4.2%) \u2014 single-book engine, AFS value used, HTM noted; other-assets-% (2% of assets) unsupported as a formula, template constant kept"
- ],
- "engagement_id": "exhaustive-coverage",
- "hq": "Parity fixture \u2014 n/a",
- "parity_expectation": null,
- "parity_profile": "pf_a",
- "peer_query": {
-  "consumer_loan_share": 0.4,
-  "core_funding_share": 0.9,
-  "digital_channel": 1,
-  "fee_income_share": 0.2
- },
- "pre_opening": {
-  "expenses": [
-   {
-    "category": "Organizational & legal (charter application, counsel)",
-    "total": 1400000.0
-   },
-   {
-    "category": "Core systems build & integration",
-    "total": 1100000.0
-   },
-   {
-    "category": "Regulatory & application filing fees",
-    "total": 250000.0
-   },
-   {
-    "category": "Pre-opening staffing & recruiting",
-    "total": 900000.0
-   },
-   {
-    "category": "Premises build-out & equipment deposits",
-    "total": 650000.0
-   }
-  ],
-  "min_day1_capital": 60000000.0
- },
- "prepared_by": "Foundry lineage/coverage build",
- "proposed_bank": "Nook & Cranny National Bank",
- "scenario_name": "Exhaustive coverage \u2014 every product, every branch",
- "scenario_overlays": null,
- "schema_version": "2.0",
- "step_0": {
-  "earning_engine": "spread",
-  "modules": [
-   "balance_driven_deposits",
-   "balance_driven_lending",
-   "balance_driven_obs",
-   "mortgage_banking",
-   "investment_portfolio"
-  ],
-  "one_sentence": "Every product family, every dropdown branch, every optional module populated."
- },
- "step_0a": {
-  "entities": {
-   "bank": "Parity Fixture Bank A1 \u2014 single entity"
-  },
-  "flags_from_map": [],
-  "map_approved": null
- },
- "step_1": {
-  "charter": "n/a (fixture)",
-  "rationale": "Parity fixture.",
-  "regulators": [
-   "n/a"
-  ]
- },
- "step_minus_1": {
-  "alternatives_priced": {
-   "de_novo": "Parity fixture."
-  },
-  "decision": "proceed_de_novo"
- },
- "stress_params": {
-  "charge_off_mult": 2.5,
-  "gos_margin_compression": 0.4,
-  "msr_value_haircut": 0.2,
-  "origination_volume_haircut": 0.4,
-  "rate_shock_bp": 300,
-  "reserve_mult": 1.5,
-  "sale_share_retention_shift": 0.25
- },
- "target_state": {
-  "assets_yr3": 316408500,
-  "initial_capital": 150000000.0
- },
- "charter_profile": {
-  "charter_type": "state_nonmember",
-  "regulator": "FDIC",
-  "cblr_election": true,
-  "source": "template"
- }
 }

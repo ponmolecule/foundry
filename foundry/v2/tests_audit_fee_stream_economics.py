@@ -34,7 +34,7 @@ def ck(name, cond, detail=""):
 
 
 def cfg_case():
-    c = json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
+    c = json.load(open("foundry/fixtures/core_bank_test_base.json", encoding="utf-8"))
     a = c["assumptions"]
     a["obs_exposures"] = [p for p in (a.get("obs_exposures") or []) if not p.get("_fee_product")]
     a["obs_exposures"].append({

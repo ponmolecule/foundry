@@ -456,7 +456,7 @@ def _nie_sheet(ws, nd, ppy=4):
     ws.column_dimensions["E"].width = 44
 
 
-def build_fiw(cfg):
+def build_fiw(cfg, include_capability_map=False):
     a = cfg["assumptions"]
     ch = cfg.get("charter_profile") or {}
     gh = cfg_hash(cfg)
@@ -478,6 +478,12 @@ def build_fiw(cfg):
     rd.append(["This workbook contains only the sheets your products require. Upload it"])
     rd.append(["back through the same door it came from; the import validates everything"])
     rd.append(["and lists open questions rather than guessing."])
+    rd.append([])
+    rd.append(["Embedded engagement state — why this workbook can look sparse and still be complete"])
+    rd.append(["A very-hidden STATE sheet carries a read-only canonical snapshot of the engagement."])
+    rd.append(["Visible gold cells are editable overlays onto that snapshot; SETTINGS is a human-readable"])
+    rd.append(["review surface and is not imported. Do not delete or rename STATE if you want a faithful"])
+    rd.append(["same-door round-trip. CAPABILITY_MAP, when present, documents fixture coverage only."])
     rd.append([])
     rd.append(["Units — the same as the app"])
     rd.append(["Every cell asks for exactly the number you would type in the app. Dollar"])
@@ -546,6 +552,8 @@ def build_fiw(cfg):
 
     buf = io.BytesIO()
     _settings_sheet(wb, cfg)   # human-readable review of every in-app-configured input
+    if include_capability_map:
+        _capability_map_sheet(wb, cfg)
     _embed_state(wb, cfg)      # the workbook carries its own generation state
     wb.save(buf)
     return buf.getvalue(), gh
@@ -573,14 +581,20 @@ def _settings_sheet(wb, cfg):
     ws = wb.create_sheet("SETTINGS")
     ws.append(["SETTINGS — configured in-app (read-only)"])
     ws["A1"].font = Font(bold=True, size=12)
-    ws.append(["Edits on this sheet are NOT imported. These inputs are configured in the app; "
-               "they are stated here so the workbook is a complete record of the engagement."])
+    ws.append(["Edits on this sheet are NOT imported. This is a human-readable review surface; the canonical "
+               "complete engagement snapshot is carried on the very-hidden STATE sheet."])
     ws.append([])
     def sec(title): ws.append([title]); ws[f"A{ws.max_row}"].font = Font(bold=True)
     def row(label, val, unit=""):
-        ws.append([f"  {label}", "" if val is None else val, unit])
+        _cell_val = json.dumps(val, sort_keys=True, default=str) if isinstance(val, (dict, list)) else ("" if val is None else val)
+        ws.append([f"  {label}", _cell_val, unit])
         if isinstance(val, (int, float)) and abs(val) >= 1000:
             ws.cell(row=ws.max_row, column=2).number_format = "#,##0"
+    sec("Projection engine / calendar")
+    row("Periods per year", a.get("periods_per_year"), "12 = month · 4 = quarter · 1 = year")
+    row("Projection periods", a.get("n_periods"), "engine periods")
+    row("Target opening", (cfg.get("charter_profile") or {}).get("target_opening"), "calendar anchor")
+    row("Operating-expense authoring", a.get("_operating_expense_mode") or ("Detailed" if a.get("nie_detail") else "Simple"), "")
     sec("Treasury (funding waterfall)")
     row("Cash floor (% of deposits)", a.get("cash_target_pct_deposits"), "rate")
     row("Yield on cash", a.get("cash_yield"), "annual rate")
@@ -719,6 +733,58 @@ def _settings_sheet(wb, cfg):
         _bases = ", ".join(sorted({(st.get("basis") or "?") for st in (_fp.get("fee_streams") or [])}))
         row(_fp.get("name") or "(unnamed)", f"{_ns} stream(s): {_bases}", "")
     if not _fps: row("(none active)", "")
+
+    sec("Customer acquisition / published Series")
+    _feeds = a.get("cac_feeds") or {}
+    for _fname, _feed in _feeds.items():
+        row(_fname, f"{len(_feed.get('channels') or [])} channel(s)",
+            f"AUC Series {_feed.get('series_id') or '—'} · customer Series {_feed.get('customer_count_series_id') or '—'}")
+        row("  attrition", (_feed.get("driver_specs") or {}).get("attrition_rate", _feed.get("attrition_rate")), "feed-level driver")
+        for _ch in (_feed.get("channels") or []):
+            _specs = _ch.get("driver_specs") or {}
+            _summary = ", ".join(f"{k}:{(v or {}).get('source','entered')}/{(v or {}).get('trajectory',(v or {}).get('mode','flat'))}/{(v or {}).get('period',(v or {}).get('cadence',''))}" for k,v in _specs.items())
+            row(f"  {_ch.get('name') or _ch.get('method')}", _ch.get("method"), _summary)
+    if not _feeds: row("(none active)", "")
+
+    sec("Cost pools (non-posting eligible-cost bases)")
+    for _pool in (a.get("cost_pools") or []):
+        row(_pool.get("name") or _pool.get("id") or "cost pool", _pool.get("id") or _pool.get("series_id") or "", f"{len(_pool.get('components') or [])} component(s)")
+        for _comp in (_pool.get("components") or []):
+            row(f"  {_comp.get('name') or _comp.get('kind') or _comp.get('type')}", _comp.get("kind") or _comp.get("type"), str({k:v for k,v in _comp.items() if k not in {'name','kind','type'}}))
+    if not (a.get("cost_pools") or []): row("(none active)", "")
+
+    sec("Fee stream detail")
+    _fee_owners = list(a.get("lending_products") or []) + list(a.get("deposit_products") or []) + list(a.get("obs_exposures") or [])
+    for _fp in _fee_owners:
+        for _st in (_fp.get("fee_streams") or []):
+            _drv = _st.get("driver") or {}; _rate = _st.get("rate") or {}; _cost = _st.get("cost") or {}
+            _measure = _drv.get("measure") or (_drv.get("params") or {}).get("customer_count_measure")
+            _left = f"basis={_st.get('basis')} · source={_drv.get('source')} · trajectory={_drv.get('trajectory')}"
+            if _drv.get("ref"): _left += f" · ref={_drv.get('ref')}"
+            if _measure: _left += f" · measure={_measure}"
+            _right = f"rate={_rate.get('behavior')} · cost={_cost.get('kind')}"
+            if _st.get("quantity_series_id"): _right += f" · quantity Series={_st.get('quantity_series_id')}"
+            row(f"{_fp.get('name')} — {_st.get('name')}", _left, _right)
+
+    sec("Operating-expense linked mechanics")
+    for _cat in ((a.get("nie_detail") or {}).get("categories") or []):
+        _fs = _cat.get("flow_spec") or {}
+        _rec = _cat.get("recognition") or {}; _setl = _cat.get("settlement") or {}
+        row(_cat.get("name") or "category", f"{_fs.get('trajectory','legacy')} / {_fs.get('period','native')}", f"recognition={_rec.get('mode','trajectory')} · settlement={_setl.get('mode','recognition')}")
+        for _lc in (_cat.get("linked_components") or []):
+            _ref = _lc.get("ref") or _lc.get("series_id") or ""
+            row(f"  linked: {_lc.get('driver')}", _ref, str({k:v for k,v in _lc.items() if k not in {'driver','ref','series_id'}}))
+
+    sec("Structured rate curves")
+    _rc = a.get("rate_curves") or {}
+    _cp = _rc.get("current_policy") or {}
+    if _cp: row("Current policy", f"{_cp.get('bottom')}–{_cp.get('top')}", f"mid {_cp.get('mid')} · observed {_cp.get('observation_date')}")
+    _fomc = _rc.get("fomc") or {}
+    if _fomc: row("FOMC anchors", ", ".join(f"{k}:{v}" for k,v in (_fomc.get('anchors') or {}).items()), f"longer run {_fomc.get('lr')} · vintage {_fomc.get('source_vintage')}")
+    for _nm in ("sofr", "effr", "prime"):
+        _crv = _rc.get(_nm) or {}
+        if _crv: row(_nm.upper(), ", ".join(f"{k}:{v}" for k,v in (_crv.get('dated_anchors') or {}).items()), f"longer run {_crv.get('longer_run')} · vintage {_crv.get('vintage')}")
+
     sec("SOFR rate path (legacy quarterly anchors; dated curves preferred)")
     row("Path", ", ".join(str(x) for x in (a.get("rate_path_q") or [])), "annual")
     row("Longer run", a.get("rate_path_longer_run"), "annual")
@@ -726,6 +792,130 @@ def _settings_sheet(wb, cfg):
     for k, v in (cfg.get("stress_params") or {}).items(): row(k, v, "")
     ws.column_dimensions["A"].width = 44
     ws.column_dimensions["B"].width = 40
+    ws.column_dimensions["C"].width = 70
+
+
+def _capability_map_sheet(wb, cfg):
+    """Visible coverage contract for the bundled Universal fixture.
+
+    This is deliberately generated from the fixture itself rather than maintained as a
+    handwritten checklist: adding a capability to Foundry without a concrete Universal
+    specimen therefore becomes visible in the regression suite.
+    """
+    a = cfg.get("assumptions") or {}
+    rows = []
+    def add(area, capability, specimen, surface, roundtrip="STATE preserves canonical object"):
+        rows.append((area, capability, specimen, surface, roundtrip))
+
+    ppy = int(a.get("periods_per_year") or 4)
+    add("Projection", "Monthly computational cadence", f"{ppy} periods/year · {a.get('n_periods')} periods", "SETTINGS")
+    add("Core bank", "Lending books", ", ".join(p.get("name", "") for p in (a.get("lending_products") or [])), "ASSM_LOANS")
+    add("Core bank", "Deposit books", ", ".join(p.get("name", "") for p in (a.get("deposit_products") or [])), "ASSM_DEPOSITS")
+    add("Core bank", "AFS and HTM securities", f"AFS {len(a.get('securities_afs') or [])} · HTM {len(a.get('securities_htm') or [])}", "ASSM_SEC_AFS / ASSM_SEC_HTM")
+    add("Core bank", "Scheduled borrowings", f"{len(a.get('scheduled_borrowings') or [])} borrowing(s)", "ASSM_BORROWINGS")
+    add("Core bank", "Staged capital raises", f"{len(a.get('capital_raises') or [])} raise(s)", "CONTROL / ASSM_RAISES")
+    add("Core bank", "Pre-opening expenses", f"{len((cfg.get('pre_opening') or {}).get('expenses') or [])} row(s)", "ASSM_PREOPEN")
+    for _kind in ("fixed", "float"):
+        _ps=[p.get("name") for p in (a.get("lending_products") or []) if p.get("rate_type")==_kind]
+        if _ps: add("Lending", f"{_kind.title()}-rate lending", ", ".join(_ps), "ASSM_LOANS")
+    for _m in ("amortized", "fair_value"):
+        _ps=[p.get("name") for p in (a.get("lending_products") or []) if p.get("measurement", "amortized")==_m]
+        if _ps: add("Lending", f"{_m.replace('_',' ').title()} measurement", ", ".join(_ps), "ASSM_LOANS")
+    for _kind in ("fixed", "float"):
+        _ps=[p.get("name") for p in (a.get("deposit_products") or []) if p.get("rate_type")==_kind]
+        if _ps: add("Deposits", f"{_kind.title()}-rate deposits", ", ".join(_ps), "ASSM_DEPOSITS")
+    _mb=[p.get("name") for p in (a.get("lending_products") or []) if p.get("mortgage_banking")];
+    if _mb: add("Lending", "Mortgage banking / originate-to-sell", ", ".join(_mb), "ASSM_LOANS")
+
+    for _fname, _feed in (a.get("cac_feeds") or {}).items():
+        add("Customer acquisition", "Published AUC Series", f"{_fname}: {_feed.get('series_id')}", "SETTINGS")
+        add("Customer acquisition", "Published customer-count Series", f"{_fname}: {_feed.get('customer_count_series_id')}", "SETTINGS")
+        for _ch in (_feed.get("channels") or []):
+            add("Customer acquisition", f"Method: {_ch.get('method')}", _ch.get("name") or _fname, "SETTINGS")
+            for _dk,_ds in (_ch.get("driver_specs") or {}).items():
+                _src=(_ds or {}).get("source","entered"); _tr=(_ds or {}).get("trajectory",(_ds or {}).get("mode","flat")); _per=(_ds or {}).get("period",(_ds or {}).get("cadence"))
+                add("Customer acquisition", f"Driver {_src} / {_tr}" + (f" / {_per}" if _per else ""), f"{_ch.get('name')} · {_dk}", "SETTINGS")
+        for _dk,_ds in (_feed.get("driver_specs") or {}).items():
+            _tr=(_ds or {}).get("trajectory",(_ds or {}).get("mode","flat")); _per=(_ds or {}).get("period",(_ds or {}).get("cadence"))
+            add("Customer acquisition", f"Feed driver {_tr}" + (f" / {_per}" if _per else ""), f"{_fname} · {_dk}", "SETTINGS")
+
+    _fee_owners = list(a.get("lending_products") or []) + list(a.get("deposit_products") or []) + list(a.get("obs_exposures") or [])
+    for _fp in _fee_owners:
+        for _st in (_fp.get("fee_streams") or []):
+            _name=f"{_fp.get('name')} · {_st.get('name')}"; _drv=_st.get("driver") or {}; _rate=_st.get("rate") or {}; _cost=_st.get("cost") or {}
+            add("Fee Product", f"Basis: {_st.get('basis')}", _name, "SETTINGS")
+            add("Fee Product", f"Driver source: {_drv.get('source')}", _name, "SETTINGS")
+            add("Fee Product", f"Driver trajectory: {_drv.get('trajectory')}", _name, "SETTINGS")
+            add("Fee Product", f"Rate behavior: {_rate.get('behavior')}", _name, "SETTINGS")
+            add("Fee Product", f"Direct cost: {_cost.get('kind')}", _name, "SETTINGS")
+            _measure=_drv.get("measure") or (_drv.get("params") or {}).get("customer_count_measure")
+            if _measure: add("Fee Product", f"CAC customer measure: {_measure}", _name, "SETTINGS")
+            _us=((_rate.get("params") or {}).get("unit_fee") or {})
+            if isinstance(_us,dict) and _us:
+                add("Fee Product", f"Account price trajectory: {_us.get('trajectory','flat')}", _name, "SETTINGS")
+                if _us.get("period"): add("Fee Product", f"Account price period: {_us.get('period')}", _name, "SETTINGS")
+            _coef=(_drv.get("params") or {}).get("coefficient") or {}
+            if _coef.get("kind"): add("Fee Product", f"Derived coefficient: {_coef.get('kind')}", _name, "SETTINGS")
+            _rp=_rate.get("params") or {}
+            for _key in ("rate_spec","fee_rate_spec","per_unit_spec","unit_fee"):
+                _spec=_rp.get(_key)
+                if isinstance(_spec,dict) and _spec.get("trajectory"):
+                    add("Fee Product", f"Revenue trajectory: {_spec.get('trajectory')}", _name, "SETTINGS")
+            _cp=_cost.get("params") or {}
+            for _key in ("rate_spec","cost_rate_spec","per_unit_spec"):
+                _spec=_cp.get(_key)
+                if isinstance(_spec,dict) and _spec.get("trajectory"):
+                    add("Fee Product", f"Cost trajectory: {_spec.get('trajectory')}", _name, "SETTINGS")
+
+    _wf=(a.get("nie_detail") or {}).get("workforce") or {}
+    for _r in (_wf.get("roles") or []):
+        _nm=_r.get("role") or "role"; _cs=_r.get("count_spec") or {}; _ps=_r.get("compensation_spec") or {}
+        add("Workforce", f"Count trajectory: {_cs.get('trajectory','flat')}", _nm, "ASSM_NIE")
+        add("Workforce", f"Compensation trajectory: {_ps.get('trajectory','flat')}", _nm, "ASSM_NIE")
+        add("Workforce", f"Compensation basis: {_ps.get('amount_basis',_r.get('compensation_basis','per_unit'))}", _nm, "ASSM_NIE")
+        add("Workforce", f"Compensation period: {_ps.get('period',_r.get('compensation_period','year'))}", _nm, "ASSM_NIE")
+        if _r.get("activation"): add("Workforce", "Metric-triggered activation", _nm, "SETTINGS")
+    if _wf.get("additive_components"): add("Workforce", "Additive compensation components", f"{len(_wf.get('additive_components') or [])} component(s)", "STATE / SETTINGS")
+
+    _nd=a.get("nie_detail") or {}
+    for _cat in (_nd.get("categories") or []):
+        _nm=_cat.get("name") or "category"; _fs=_cat.get("flow_spec") or {}
+        if _fs: add("Operating expense", f"Amount trajectory: {_fs.get('trajectory')}", _nm, "ASSM_NIE")
+        if _fs.get("period"): add("Operating expense", f"Amount period: {_fs.get('period')}", _nm, "ASSM_NIE")
+        _rec=(_cat.get("recognition") or {}).get("mode","trajectory"); _setl=(_cat.get("settlement") or {}).get("mode","recognition")
+        add("Operating expense", f"Recognition: {_rec}", _nm, "SETTINGS")
+        add("Operating expense", f"Settlement: {_setl}", _nm, "SETTINGS")
+        for _lc in (_cat.get("linked_components") or []): add("Operating expense", f"Linked driver: {_lc.get('driver')}", _nm, "SETTINGS")
+
+    for _pool in (a.get("cost_pools") or []):
+        for _comp in (_pool.get("components") or []): add("Cost pool", f"Eligible cost component: {_comp.get('kind') or _comp.get('type')}", _pool.get("name") or _pool.get("id"), "SETTINGS")
+    if a.get("cost_pools"): add("Cost pool", "Downstream cost-pool consumption", ", ".join(p.get("name","") for p in (a.get("cost_pools") or [])), "SETTINGS")
+
+    _fa=a.get("fixed_assets") or {}
+    if _fa.get("mode")=="schedule":
+        add("Fixed assets", "Scheduled fixed-asset authoring", f"{len(_fa.get('assets') or [])} asset/class row(s)", "ASSM_FIXED_ASSETS")
+        if any(x.get("opening_accumulated_depreciation") for x in (_fa.get("assets") or [])): add("Fixed assets", "Opening accumulated depreciation", "existing asset specimen", "ASSM_FIXED_ASSETS")
+        if any((x.get("in_service_period") or 0)>0 for x in (_fa.get("assets") or [])): add("Fixed assets", "Future in-service CAPEX", "future asset specimen", "ASSM_FIXED_ASSETS")
+
+    _rc=a.get("rate_curves") or {}
+    if _rc:
+        add("Rates", "Current policy anchor", str(_rc.get("current_policy") or {}), "SETTINGS")
+        add("Rates", "FOMC dated anchors", str((_rc.get("fomc") or {}).get("anchors") or {}), "SETTINGS")
+        for _nm in ("sofr","effr","prime"):
+            if _rc.get(_nm): add("Rates", f"Structured {_nm.upper()} curve", str((_rc.get(_nm) or {}).get("dated_anchors") or {}), "SETTINGS")
+
+    ws=wb.create_sheet("CAPABILITY_MAP")
+    ws.append(["Area", "Canonical capability", "Concrete Universal specimen", "Visible surface", "Round-trip contract"])
+    for c in ws[1]: c.font=HDR
+    # Collapse exact duplicate claims while retaining first concrete specimen.
+    seen=set()
+    for r in rows:
+        key=(r[0],r[1])
+        if key in seen: continue
+        seen.add(key); ws.append(list(r))
+    for col,width in (("A",24),("B",38),("C",48),("D",28),("E",38)):
+        ws.column_dimensions[col].width=width
+    ws.freeze_panes="A2"
 
 
 def _embed_state(wb, cfg):

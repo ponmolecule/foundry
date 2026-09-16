@@ -143,7 +143,7 @@ def main():
     ck("generic driver growth mode Y3", _eq(channel_new_customers(gs,3),24.2))
 
     # 9) Public run output exposes the calculated customer-base roll-forward for audit/UI use.
-    cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg=json.load(open("foundry/fixtures/core_bank_test_base.json"))
     cfg["assumptions"]["periods_per_year"]=12; cfg["assumptions"]["n_periods"]=84
     cfg["assumptions"]["cac_feeds"]={"growth":copy.deepcopy(seven)}
     out=run_q.run_v2(cfg)
@@ -186,7 +186,7 @@ def main():
         "rate":{"behavior":"flat","params":{"unit_fee":{"value":5000.0,"period":"year","trajectory":"flat"}}},
         "cost":{"kind":"none","params":{}},"timing":{"start_period":1}}
     def _platform_cfg(ppy):
-        pc=json.load(open("foundry/fixtures/universal_template_bank.json"))
+        pc=json.load(open("foundry/fixtures/core_bank_test_base.json"))
         pa=pc["assumptions"]; pa["periods_per_year"]=ppy; pa["n_periods"]=2*ppy; pa["capital_raises"]=[]
         pa["cac_feeds"]={"platform":copy.deepcopy(platform_feed)}
         pa["obs_exposures"]=[{"name":"Platform","_fee_product":True,
@@ -213,7 +213,7 @@ def main():
                      "params":{"new_customers_by_year":[38],"spend":0},
                      "avg_auc_per_customer":1}]}
     def _probe_cfg(ppy,measure):
-        pc=json.load(open("foundry/fixtures/universal_template_bank.json"))
+        pc=json.load(open("foundry/fixtures/core_bank_test_base.json"))
         pa=pc["assumptions"]; pa["periods_per_year"]=ppy; pa["n_periods"]=ppy; pa["capital_raises"]=[]
         pa["cac_feeds"]={"probe":copy.deepcopy(probe_feed)}
         st=copy.deepcopy(platform_stream); st["driver"]["ref"]="cac-count-probe"; st["driver"]["measure"]=measure
@@ -313,7 +313,7 @@ def main():
        _eq(arm["monthly"][0]["cust_lost"],1.0) and arm["annual"][0]["cust_lost"]>11.0 and arm["annual"][0]["cust_lost"]<12.0)
 
     # Calculation Audit must expose the causal monthly equation, not only annual summaries/stocks.
-    audit_cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    audit_cfg=json.load(open("foundry/fixtures/core_bank_test_base.json"))
     aa=audit_cfg["assumptions"]; aa["periods_per_year"]=4; aa["n_periods"]=4; aa["capital_raises"]=[]
     audit_varying=copy.deepcopy(varying); audit_varying["series_id"]="cac-varying-audit"
     aa["cac_feeds"]={"varying":{"series_id":"cac-varying-audit","customer_count_series_id":"cac-varying-count",

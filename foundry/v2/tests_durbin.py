@@ -19,7 +19,7 @@ def main():
     ck("at $10B: capped to 0.6%", abs(durbin_effective_rate(0.012, 40.0, 10_000_000.0) - 0.006) < 1e-9)
     ck("assumed below cap stays", durbin_effective_rate(0.003, 40.0, 12_000_000.0) == 0.003)
     ck("cap only reduces", durbin_effective_rate(0.004, 40.0, 20_000_000.0) == 0.004)
-    cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg = json.load(open("foundry/fixtures/core_bank_test_base.json"))
     r = run_q.run_v2(copy.deepcopy(cfg))
     ck("sub-$10B fixture integrity", r.get("checks", {}).get("integrity_pass") is True)
     print(f"\n{passed} passed, {failed} failed")
@@ -34,7 +34,7 @@ def test_reg_ii_calendar_timing():
     quarter. Bank opens 2027-Q1, crosses $10B, so 2027 year-end triggers -> cap from 2028-Q3."""
     import json as _j, copy as _cp
     from foundry.v2 import run_q as _r
-    base = _j.load(open("foundry/fixtures/universal_template_bank.json"))
+    base = _j.load(open("foundry/fixtures/core_bank_test_base.json"))
     c = _cp.deepcopy(base)
     c["assumptions"]["periods_per_year"] = 4
     c["assumptions"]["n_periods"] = 12

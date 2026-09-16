@@ -20,7 +20,7 @@ def _fh(c):
                                      sort_keys=True, default=str).encode()).hexdigest()[:16]
 
 def main():
-    cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg = json.load(open("foundry/fixtures/core_bank_test_base.json"))
     baseline_financial_hash = _fh(cfg)
     run_fn = lambda c: run_q.run_v2(c)
     lever = "assumptions.lending_products.0.yield_ann"

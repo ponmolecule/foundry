@@ -210,7 +210,7 @@ def main():
     # 9) Public configuration validation also fails closed before a run.
     import copy, json
     from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
-    cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg = json.load(open("foundry/fixtures/core_bank_test_base.json"))
     badcfg = copy.deepcopy(cfg)
     badcfg["assumptions"].setdefault("obs_exposures", []).append({
         "name":"Bad fee","managed_notional":{"day1":1.0,"trajectory":"flat"},
