@@ -19,7 +19,7 @@ def ck(name, ok, detail=''):
     else: F+=1; print('  FAIL ',name,detail)
 
 def base_cfg(ppy=12):
-    c=json.load(open('foundry/fixtures/universal_template_bank.json'))
+    c=json.load(open('foundry/fixtures/core_bank_test_base.json'))
     a=c['assumptions']; a['periods_per_year']=ppy; a['n_periods']=12 if ppy==12 else 4
     a['premises_equipment']=0; a['premises_depreciation_annual']=0; a.pop('fixed_assets',None)
     a['nie_detail']={'categories':[], 'other_gross_up_rate':0, 'fdic_bp_ann':0, 'occ_bp_ann':0,

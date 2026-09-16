@@ -284,7 +284,7 @@ def main():
 
     # Full config validation fails closed on missing/ambiguous links and duplicate stable IDs.
     from .validate_q import validate_config_v2, ConfigErrorV2
-    cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg=json.load(open("foundry/fixtures/core_bank_test_base.json"))
     cfg["assumptions"]["periods_per_year"]=12;cfg["assumptions"]["n_periods"]=12
     cfg["assumptions"]["nie_detail"]={"categories":[{"series_id":"dup","name":"BD","per_period":10000}],
         "workforce":{"mode":"roles","roles":[{"series_id":"dup","role":"RM","count":1,"annual_comp":100000,"hire_period":1}]}}
@@ -295,7 +295,7 @@ def main():
     except ConfigErrorV2 as e: bad=("missing" in str(e) and "series_id" in str(e))
     ck("config validation fails closed on broken links and duplicate stable IDs", bad)
 
-    basis_cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    basis_cfg=json.load(open("foundry/fixtures/core_bank_test_base.json"))
     basis_cfg["assumptions"]["periods_per_year"]=12; basis_cfg["assumptions"]["n_periods"]=12
     basis_cfg["assumptions"]["nie_detail"]={"categories":[],"workforce":{"mode":"roles","roles":[{
         "role":"Invalid basis","count":1,"annual_comp":120000,"compensation_basis":"mystery","hire_period":1

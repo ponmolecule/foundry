@@ -32,7 +32,7 @@ def ck(name, cond, detail=""):
 
 
 def cfg_with_rounding_visible():
-    c = json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
+    c = json.load(open("foundry/fixtures/core_bank_test_base.json", encoding="utf-8"))
     a = c["assumptions"]
     a["obs_exposures"] = [p for p in (a.get("obs_exposures") or []) if not p.get("_fee_product")]
     a["obs_exposures"].append({
@@ -60,7 +60,7 @@ def cfg_with_subcent_costs():
     must retain the exact diagnostic alongside the legacy public value so a precision toggle can
     expose the difference instead of formatting 0.04 as 0.040.
     """
-    c = json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
+    c = json.load(open("foundry/fixtures/core_bank_test_base.json", encoding="utf-8"))
     a = c["assumptions"]
     a["obs_exposures"] = [p for p in (a.get("obs_exposures") or []) if not p.get("_fee_product")]
     costs_000s = [0.019282552032793, 0.019282552032793, 0.000214247150107]

@@ -817,9 +817,9 @@ def v31_exec_view(body: dict, _=Depends(gate)):
 
 @app.get("/api/v31/fiw/universal")
 def v31_fiw_universal(_=Depends(gate)):
-    """Universal template: a full-coverage FIW built from the bundled exhaustive config, so it
-    always matches the current engine and unit conventions. A scaffold/reference showing every
-    module's sheets and labels — not tied to any engagement."""
+    """Universal capability fixture exported through the same FIW machinery as live engagements.
+    The bundled config intentionally instantiates every current canonical authoring primitive;
+    CAPABILITY_MAP makes that coverage visible while STATE preserves the exact round-trip state."""
     from fastapi.responses import Response
     from foundry.v2.fiw import build_fiw
     import json as _json
@@ -827,7 +827,7 @@ def v31_fiw_universal(_=Depends(gate)):
         cfg = _json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
     except Exception:
         return JSONResponse({"error": "universal template config missing"}, status_code=500)
-    data, gh = build_fiw(cfg)
+    data, gh = build_fiw(cfg, include_capability_map=True)
     return Response(content=data,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     headers={"Content-Disposition": f'attachment; filename="foundry_universal_template_{gh}.xlsx"'})

@@ -106,7 +106,7 @@ console.log(JSON.stringify({paths:L.map(x=>x.path), labels:L.map(x=>x.label), un
     # Backend proof: the generic dotted-path Lab core already handles Fee Product paths and the
     # real engine responds economically to a changed fee rate.
     from foundry.v2 import lab_core, run_q
-    base=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    base=json.load(open("foundry/fixtures/core_bank_test_base.json"))
     test=copy.deepcopy(base)
     test["assumptions"].setdefault("obs_exposures",[]).append({
         "name":"Lab Custody","_fee_product":True,

@@ -86,7 +86,7 @@ def main():
     # Full engine integration: one authored annual Opex assumption must produce the same
     # annual economics under monthly and quarterly computational cadence.
     def _engine(ppy, detailed=True):
-        c=json.load(open("foundry/fixtures/universal_template_bank.json"))
+        c=json.load(open("foundry/fixtures/core_bank_test_base.json"))
         a=c["assumptions"]; a["periods_per_year"]=ppy; a["n_periods"]=2*ppy
         a["premises_equipment"]=0; a["premises_depreciation_annual"]=0; a.pop("fixed_assets",None)
         fs={"trajectory":"growth","value":360_000,"period":"year","growth_spec":gs_step}

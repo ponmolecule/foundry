@@ -43,7 +43,7 @@ def main():
             failed += 1; print(f"FAIL {name}")
 
     # --- 1. INVARIANT: the fee-stream fixture baseline and explicit empty lists are stable ---
-    cfg = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    cfg = json.load(open("foundry/fixtures/core_bank_test_base.json"))
     ck("fee-stream fixture baseline hash intact", _hash(cfg) == BASELINE)
 
     # adding an EMPTY fee_streams list to every product must not move the hash

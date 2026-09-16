@@ -18,7 +18,7 @@ sys.path.insert(0, ".")
 from foundry.v2 import run_q
 
 def _mk(ppy, n_years):
-    c = json.load(open("foundry/fixtures/universal_template_bank.json"))
+    c = json.load(open("foundry/fixtures/core_bank_test_base.json"))
     a = c["assumptions"]
     a["periods_per_year"] = ppy
     a["n_periods"] = n_years * ppy
