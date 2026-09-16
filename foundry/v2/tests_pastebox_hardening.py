@@ -59,8 +59,10 @@ def main():
 
     # r85 presentation: loaded schedules remain compact but must not hide the tail behind a dead ellipsis.
     # Every scalar Explicit family uses the shared first+last preview; long schedules can expand in place.
+    # The same presentation helper may also be reused by linked read-only Series so linked and
+    # directly-authored paths remain visually consistent.
     ck("all scalar Explicit families use the inspectable loaded-schedule preview",
-       html.count("_explicitPreviewHtml(") == 10
+       html.count("_explicitPreviewHtml(") >= 10
        and html.count("_explicitSchedulePreviewHtml(") == 12
        and 'class="explicit-preview-toggle"' in html
        and "View all" in html and "Collapse" in html)
