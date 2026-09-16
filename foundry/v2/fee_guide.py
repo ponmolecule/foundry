@@ -166,12 +166,12 @@ _SOURCE_LABELS = {
     "stream_ref": "Another stream",
     "bank_aggregate": "Bank aggregate",
     "cost_pool": "Cost pool — eligible cost base",
-    "customer_acquisition_count": "Customer Acquisition client count",
+    "customer_acquisition_count": "Ending bank customers — Customer Acquisition",
 }
 _CUSTOMER_COUNT_MEASURE_LABELS = {
-    "annual_count": "Annual / model-year customer count",
-    "period_end": "Monthly period-end active clients",
-    "period_average": "Period-average active clients",
+    "annual_count": "Year-end bank customers · held through model year",
+    "period_end": "Ending bank customers · monthly period end",
+    "period_average": "Period-average bank customers",
 }
 _TRAJECTORY_LABELS = {
     "flat": "Flat",
@@ -827,10 +827,10 @@ def _stream_steps(item):
         else:
             steps.append("Set Count path to “Flat” and enter the account/mandate count in “Count / mandates”.")
     elif basis == "account" and item["driver_source"] == "customer_acquisition_count":
-        steps.append("Select the owning Customer Acquisition feed under “Client-count source”.")
+        steps.append("Select the owning Customer Acquisition feed under “Ending bank customers source”.")
         measure = item.get("customer_count_measure")
         if measure in _CUSTOMER_COUNT_MEASURE_LABELS:
-            steps.append(f"Set Client-count measure to “{_CUSTOMER_COUNT_MEASURE_LABELS[measure]}”.")
+            steps.append(f"Set Customer-count measure to “{_CUSTOMER_COUNT_MEASURE_LABELS[measure]}”.")
         steps.append("Leave the within-year customer path sourced from Customer Acquisition; do not enter a second count schedule, growth path, or Step/Smooth assumption in the Fee Product.")
     elif basis != "flat":
         steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
