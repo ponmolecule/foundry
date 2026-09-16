@@ -2552,14 +2552,16 @@ function _feeCustomerCountPreviewHtml(seriesId,measure){
   if(!opt)return `<div class="cac-link-preview"><b>Customer-count source unavailable.</b> Select a Customer Acquisition feed.</div>`;
   const ca=((((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{}), fd=((((cfg||{}).assumptions||{}).cac_feeds||{})[opt.feed]||{});
   const eop=(ca.customerEndByMonth||[]).map(v=>+v||0), opening=+fd.beginning_customers||0, m=String(measure||"period_end");
-  let vals=[],lab="Ending bank customers · monthly period end";
-  if(m==="period_average"){vals=eop.map((v,i)=>(((i?eop[i-1]:opening)+v)/2));lab="Period-average bank customers · monthly";}
-  else if(m==="annual_count"){const y=(ca.yearEndCustomers||[]).map(v=>+v||0);vals=eop.map((_,i)=>y[Math.min(y.length-1,Math.floor(i/12))]||0);lab="Year-end bank customers · held through model year";}
+  let vals=[];
+  if(m==="period_average")vals=eop.map((v,i)=>(((i?eop[i-1]:opening)+v)/2));
+  else if(m==="annual_count"){const y=(ca.yearEndCustomers||[]).map(v=>+v||0);vals=eop.map((_,i)=>y[Math.min(y.length-1,Math.floor(i/12))]||0);}
   else vals=eop;
-  let h=`<div class="cac-link-preview"><div class="cac-link-preview-row"><span class="wf-field-label">Selected Customer Acquisition Series</span><span class="cu">${esc(lab)} · read-only here</span></div>`;
-  if(vals.length)h+=`<div class="nie-actions" style="margin-top:5px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
-  else h+=`<div class="cmut" style="margin-top:5px">Run the model to preview the linked customer path.</div>`;
-  return h+`</div>`;
+  // Linked customer counts deliberately use the ordinary Explicit schedule presentation.
+  // The source/measure controls above already disclose that the values are linked; do not
+  // wrap the resolved path in a second "linked Series" card or otherwise give it a
+  // different visual grammar from a directly-authored schedule.
+  if(vals.length)return `<div class="nie-actions" style="margin-top:4px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
+  return `<span class="memo" style="margin:3px 0 0">Run the model to preview the linked customer path.</span>`;
 }
 _feeGlobal.addFeeCostPool=function(i,si){
   const pools=_feeCostPools();let n=1;const names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
