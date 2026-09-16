@@ -326,6 +326,10 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
 
     beg_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
     beg_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
+    if not math.isfinite(beg_auc) or beg_auc < 0.0:
+        raise ValueError("CAC opening AUC must be a finite non-negative amount")
+    if not math.isfinite(beg_cust) or beg_cust < 0.0:
+        raise ValueError("CAC opening customers must be a finite non-negative count")
     source_open_auc, source_open_cust = beg_auc, beg_cust
     monthly = []
     auc_end_by_month, customer_end_by_month = [], []

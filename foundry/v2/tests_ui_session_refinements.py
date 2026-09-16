@@ -59,6 +59,14 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
        'class="welcome-main"' in html
        and '.welcome-main{transform:translateY(calc(-1 * clamp(3rem, 8vh, 8rem)))}' in html
        and 'translateY(-9rem)' not in html)
+    ck("switching engagements closes transient paste editors instead of restoring visual clutter",
+       "function _resetTransientAuthoringUi(c)" in html
+       and "window._structuredPasteOpen={};" in html
+       and "window._pasteSurfaceDefaultClosed=true" in html
+       and "window._pasteSurfaceCloseAllOnNextRender=true" in html
+       and "cfg = normalizeCfg(cfg2);\n    _resetTransientAuthoringUi(cfg);" in html
+       and "cfg = buildEmptyTemplate();\n    _resetTransientAuthoringUi(cfg);" in html)
+
     ck("superfluous HTM-designation counter is removed",
        "HTM designated" not in html and "Books included" not in html)
 

@@ -191,7 +191,7 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        and all(abs(v-.01)<1e-12 for v in (at_exp.get("values") or []))
        and at_flat=={"period":"month","value":.01})
     ck("feed makes monthly calculation cadence explicit instead of manufacturing within-year shapes",
-       "Beginning customers" in html and "Beginning AUC" in html
+       "Opening customers" in html and "Opening AUC" in html
        and "Calculation cadence: monthly." in html
        and "Month / Quarter / Year belong to each source assumption" in html
        and "AUC within each model year" not in html and "Active clients within each model year" not in html)
@@ -203,6 +203,19 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
        'const _auditInt=v=>Math.round(v).toLocaleString("en-US")' in html
        and 'Calculated output · monetary balances in $000s' in html
        and 'maximumFractionDigits:1' not in html[html.index("Calculated customer-base roll-forward · audit view"):html.index("Calculated customer-base roll-forward · audit view")+2200])
+    ck("CAC linked-source controls wrap and stay bounded inside the tile",
+       ".cac-link-source-select{min-width:0 !important;max-width:100% !important" in html
+       and ".cac-link-readonly{width:100%;min-width:0;max-width:100%" in html
+       and "white-space:normal;overflow-wrap:anywhere;word-break:break-word" in html
+       and ".cac-link-preview-row .cu{min-width:0;max-width:100%;white-space:normal" in html
+       and 'class="cac-link-source-select"' in html
+       and '@media(max-width:900px){.cac-link-preview{margin-left:0;max-width:100%}}' in html)
+    ck("CAC opening-book authoring is explicit and non-negative",
+       'title="Customers already on the books at model start"' in html
+       and 'title="AUC / managed notional already on the books at model start"' in html
+       and "Opening customers/AUC are the existing book at model start" in html
+       and "beginning_customers=Math.max(0,_pf(this.value))" in html
+       and "beginning_auc=Math.max(0,_pf(this.value))*1000" in html)
     ck("Customer Acquisition tile has the same compact expand/collapse pattern as other long Config sections",
        'window.cacSectionSetOpen=function(isOpen)' in html
        and "_cfgSectionIsOpen('customeracq'" in html

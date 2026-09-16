@@ -167,10 +167,15 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-section-toggle:hover{border-color:#DFA85A;color:#DFA85A}
 .nie-section-summary{font-size:10.5px;color:#9CA7B7;margin:1px 0 0}
 .nie-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 2px}
-.cac-link-preview{margin:7px 0 2px 184px;border-left:2px solid #334158;padding:7px 9px;background:rgba(17,27,45,.55);border-radius:0 6px 6px 0}
-.cac-link-preview-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.cac-link-preview{margin:7px 0 2px 184px;border-left:2px solid #334158;padding:7px 9px;background:rgba(17,27,45,.55);border-radius:0 6px 6px 0;min-width:0;max-width:calc(100% - 184px);box-sizing:border-box;overflow:hidden}
+.cac-link-preview-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%}
 .cac-link-preview-row .wf-field-label{margin:0;min-width:118px}
-.cac-link-readonly{width:100%;box-sizing:border-box;overflow-x:auto;white-space:nowrap;background:#0F1828;color:#C7D2E4;border:1px solid #334158;border-radius:4px;padding:6px 7px;font-family:var(--mono);font-size:10.5px;line-height:1.45}
+.cac-link-preview-row .cu{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
+.cac-link-readonly{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:hidden;white-space:normal;overflow-wrap:anywhere;word-break:break-word;background:#0F1828;color:#C7D2E4;border:1px solid #334158;border-radius:4px;padding:6px 7px;font-family:var(--mono);font-size:10.5px;line-height:1.45}
+.cac-link-source-select{min-width:0 !important;max-width:100% !important;width:min(320px,100%) !important;flex:1 1 210px;text-overflow:ellipsis}
+#card-cac,.cac-feed-card,.cac-feed-body,.cac-channel-card{min-width:0;max-width:100%;box-sizing:border-box}
+.cac-channel-card .crow{min-width:0;max-width:100%}
+@media(max-width:900px){.cac-link-preview{margin-left:0;max-width:100%}}
 .nie-defaults{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(120px,.7fr);gap:10px;margin:4px 0 10px}
 .nie-default{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px 9px;min-width:0}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
@@ -930,6 +935,7 @@ async function loadExampleBank(){
   if(!confirmDiscardUnsaved("Loading the example bank")){ return; }
   const r = await fetch(window.V31 ? "/api/v31/template" : "/api/v2/template").catch(()=>null);
   cfg = (r && r.ok) ? await r.json() : JSON.parse(JSON.stringify(TEMPLATE));
+  _resetTransientAuthoringUi(cfg);
   cfg.proposed_bank = "De Novo Bank"; cfg.client_legal_name = "De Novo Bank";
   cfg.scenario_name = "De Novo Bank — Base Case";
   cfg.stress_params = cfg.stress_params || {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300,
@@ -1044,6 +1050,7 @@ function clearWorkspace(){
     if(!confirm("Clear the workspace?\n\nYou have unsaved changes. Clearing discards them and returns to an empty workspace. Save first from the \u25be menu if you want to keep this engagement.")) return;
   }
   cfg = buildEmptyTemplate();
+  _resetTransientAuthoringUi(cfg);
   cfg.scenario_name = "";
   cfg.assumptions = cfg.assumptions || {};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
@@ -1080,6 +1087,7 @@ async function boot(){
   // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
   // available on demand via the "Start from example bank" button (loadExampleBank).
   cfg = buildEmptyTemplate();
+  _resetTransientAuthoringUi(cfg);
   cfg.scenario_name = "";
   cfg.stress_params = cfg.stress_params || {charge_off_mult:2.5, reserve_mult:1.5, rate_shock_bp:300,
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
@@ -1121,7 +1129,8 @@ async function boot(){
           if(!_hasWork || _duplicateOfSaved){
             try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
           } else if(confirm("Recover unsaved work from your last session?\n\nA previous session ended without saving. Recover it, or Cancel to discard and start clean.")){
-            cfg = draftCfg;
+            cfg = normalizeCfg(draftCfg);
+            _resetTransientAuthoringUi(cfg);
             rehydrateOriginal(cfg);
             const sn = document.getElementById("scenarioName");
             if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
@@ -1330,6 +1339,35 @@ function scheduleAutosave(){
    by edits — the exact file the user brought. This is the state a "Revert to Original"
    restores, and the baseline the "Changed since upload" indicator diffs against. */
 let _uploadedOriginal = null;    // {json, label, source} | null
+// Paste-editor visibility is transient workspace state, never model state. Saved/opened engagements
+// must return with authoring chutes neatly closed even when the loaded schedules remain populated.
+function _stripTransientPasteFlags(c){
+  if(!c) return c;
+  if(c.pre_opening) delete c.pre_opening._pasteOpen;
+  const a=c.assumptions||{};
+  if(a.fixed_assets) delete a.fixed_assets._pasteOpen;
+  const nd=a.nie_detail||{};
+  delete nd._wfPasteOpen; delete nd._catPasteOpen;
+  return c;
+}
+window._structuredPasteOpen=window._structuredPasteOpen||{};
+function _structuredPasteIsOpen(key){return !!window._structuredPasteOpen[String(key||'')];}
+function _structuredPasteSetOpen(key,isOpen){
+  const k=String(key||'');if(!k)return;
+  if(isOpen)window._structuredPasteOpen[k]=true;else delete window._structuredPasteOpen[k];
+  renderContent();
+}
+window._structuredPasteIsOpen=_structuredPasteIsOpen;
+window._structuredPasteSetOpen=_structuredPasteSetOpen;
+function _resetTransientAuthoringUi(c){
+  _stripTransientPasteFlags(c);
+  window._structuredPasteOpen={};
+  window._pasteSurfaceClosed={};
+  window._pasteSurfaceDefaultClosed=true;
+  window._pasteSurfaceCloseAllOnNextRender=true;
+  window._cacExplicitClosed={};
+}
+window._resetTransientAuthoringUi=_resetTransientAuthoringUi;
 // Apply the same lazy defaults the render paths fill in (stress_params, obs_exposures), so the
 // frozen baseline matches the SETTLED config. Without this, the first render after upload adds
 // these fields to the live cfg and the baseline diff shows a phantom "1 change (not itemised)".
@@ -1359,6 +1397,10 @@ function normalizeCfg(c){
     if(dp && ["account","flat","event"].includes(basis)) delete dp.coefficient;
     if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
   }));
+  if(c.pre_opening) delete c.pre_opening._pasteOpen;
+  const _ta=c.assumptions||{}, _tnd=_ta.nie_detail||{};
+  if(_ta.fixed_assets) delete _ta.fixed_assets._pasteOpen;
+  delete _tnd._wfPasteOpen; delete _tnd._catPasteOpen;
   return c;
 }
 function freezeOriginal(source){
@@ -1375,6 +1417,7 @@ function freezeOriginal(source){
 // with the autosaved/saved engagement (the store round-trips it; the engine and validator ignore
 // unknown top-level keys). Called just before a save is serialised.
 function stampOriginalForSave(target){
+  _stripTransientPasteFlags(target);
   // Only stamp the frozen original into the saved config if it actually belongs to THIS engagement.
   // Stamping a foreign original (a prior bank's baseline still live in _uploadedOriginal) is what
   // baked a cross-engagement diff into saved configs; the identity check here stops that at the source.
@@ -1585,6 +1628,7 @@ window.revertToLastSave = function(){
   if(LC.baseline == null) return;
   if(!confirm("Revert to your last saved state?\n\nThis discards the changes you've made since then. Anything you've already saved or downloaded is untouched.")) return;
   try{ cfg = JSON.parse(LC.baseline); }catch(e){ return; }
+  _resetTransientAuthoringUi(cfg);
   delete cfg._uploaded_original; delete cfg._blank_canvas;
   if(typeof syncNameChrome === "function") syncNameChrome();
   if(typeof syncModules === "function") syncModules();
@@ -1604,6 +1648,7 @@ window.revertToOriginal = function(){
   const src = _uploadedOriginal.source === "file" ? "the file you uploaded" : _uploadedOriginal.source;
   if(!confirm(`Reset all the way back to ${src} (\u201c${_uploadedOriginal.label}\u201d)?\n\nThis discards every change AND every save you've made since the upload, restoring the original inputs. It does not delete any file you already downloaded.`)) return;
   try{ cfg = JSON.parse(_uploadedOriginal.json); }catch(e){ return; }
+  _resetTransientAuthoringUi(cfg);
   if(typeof syncNameChrome === "function") syncNameChrome();
   if(typeof syncModules === "function") syncModules();
   window._startChipShown = false;
@@ -4049,7 +4094,7 @@ window.poPaste = function(txt, mode){
   if(mode==="replace") cfg.pre_opening.expenses = parsed;
   else cfg.pre_opening.expenses = cfg.pre_opening.expenses.concat(parsed);
   appStatus("ok", parsed.length + " pre-opening item" + (parsed.length===1?"":"s") + " loaded.");
-  cfg.pre_opening._pasteOpen = false;        // clear + collapse: the box is transient, rows are truth
+  if(window._structuredPasteOpen)delete window._structuredPasteOpen.preopening; // clear + collapse; visibility is transient UI state
   renderContent(); refresh();
 };
 
@@ -4060,7 +4105,7 @@ function _clearLoaded(kind, n, fn){
 }
 window.poClear = function(){
   cfg.pre_opening=cfg.pre_opening||{}; const xs=cfg.pre_opening.expenses||[];
-  return _clearLoaded("pre-opening expenses",xs.length,function(){cfg.pre_opening.expenses=[];cfg.pre_opening._pasteOpen=false;});
+  return _clearLoaded("pre-opening expenses",xs.length,function(){cfg.pre_opening.expenses=[];if(window._structuredPasteOpen)delete window._structuredPasteOpen.preopening;});
 };
 function _fixedAssetState(){
   const A=cfg.assumptions; A.fixed_assets=A.fixed_assets||{mode:"simple",assets:[]};
@@ -4078,7 +4123,7 @@ window.faAdd=function(){
 };
 window.faClear=function(){
   const fa=_fixedAssetState(), xs=fa.assets||[];
-  return _clearLoaded("fixed-asset / CAPEX rows",xs.length,function(){fa.assets=[];fa._pasteOpen=false;});
+  return _clearLoaded("fixed-asset / CAPEX rows",xs.length,function(){fa.assets=[];if(window._structuredPasteOpen)delete window._structuredPasteOpen.fixedassets;});
 };
 function _faCsvCells(line){
   const out=[]; let cur="",q=false;
@@ -4116,16 +4161,16 @@ window.faPaste=function(txt,mode){
   });
   if(!parsed.length){appStatus("err","No valid asset rows found. Use Asset, Cost, In Service, Useful Life (cost in $000s; In Service = At opening or current-cadence period).");return;}
   if(mode==="replace") fa.assets=parsed; else fa.assets=fa.assets.concat(parsed);
-  fa._pasteOpen=false; appStatus("ok",parsed.length+" fixed-asset row"+(parsed.length===1?"":"s")+" loaded."); renderContent(); refresh();
+  if(window._structuredPasteOpen)delete window._structuredPasteOpen.fixedassets; appStatus("ok",parsed.length+" fixed-asset row"+(parsed.length===1?"":"s")+" loaded."); renderContent(); refresh();
 };
 window.nieCatClear = function(){
   const nd=_ensureNieDetail(), xs=nd.categories||[];
-  return _clearLoaded("operating-expense categories",xs.length,function(){const removed=xs.slice();nd.categories=[];_purgeDeletedOpexOwnedPools(removed);removed.forEach(_clearOpexCostPoolUiStateForCategory);nd._catPasteOpen=false;delete nd._catPasteGrowthSpec;window._nieCatAdvancedOpen={};});
+  return _clearLoaded("operating-expense categories",xs.length,function(){const removed=xs.slice();nd.categories=[];_purgeDeletedOpexOwnedPools(removed);removed.forEach(_clearOpexCostPoolUiStateForCategory);if(window._structuredPasteOpen)delete window._structuredPasteOpen.opex_categories;delete nd._catPasteGrowthSpec;window._nieCatAdvancedOpen={};});
 };
 window.nieWorkforceClear = function(){
   const nd=_ensureNieDetail(), wf=nd.workforce||{}, xs=wf.roles||[];
   return _clearLoaded("workforce roles/cohorts",xs.length,function(){
-    if(nd.workforce){nd.workforce.roles=[];nd.workforce.mode="roles";} nd._wfPasteOpen=false;
+    if(nd.workforce){nd.workforce.roles=[];nd.workforce.mode="roles";} if(window._structuredPasteOpen)delete window._structuredPasteOpen.workforce;
     window._nieWorkforceAdvancedOpen={};
   });
 };
@@ -4521,7 +4566,7 @@ window.nieCatPaste = function(txt, type, flowPeriod, growthPct, growthPeriod, gr
   });
   if(!added.length){ appStatus("err","No rows parsed. Flat/Growth: <b>Item, Amount</b> per line. Explicit: <b>Item, P1, P2, ...</b>. Amounts in $000s."); return; }
   nd.categories = nd.categories.concat(added);
-  nd._catPasteOpen = false;
+  if(window._structuredPasteOpen)delete window._structuredPasteOpen.opex_categories;
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.opex=true;
   delete nd._catPasteGrowthSpec;
   appStatus("ok", added.length + " " + type + " categor" + (added.length===1?"y":"ies") + " added.");
@@ -4749,7 +4794,7 @@ window.nieWorkforcePaste = function(txt){
   });
   if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Count, Annual Comp ($000s/FTE), Start, End, Escalation %, Benefits/Payroll %</b>. Role, Annual Comp and Start are required. Start may be M17/Q5 or a supported metric trigger."); return; }
   wf.roles=wf.roles.concat(added);
-  var nd=_ensureNieDetail(); nd._wfPasteOpen=false;
+  var nd=_ensureNieDetail(); if(window._structuredPasteOpen)delete window._structuredPasteOpen.workforce;
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.workforce=true;
   appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
   renderContent(); refresh();
@@ -5714,10 +5759,13 @@ window.exportBptCover = exportBptCover;
 // It never clears schedule data. Existing purpose-built Close controls remain authoritative.
 // Generic surfaces collapse their whole local editor body so Close is visibly meaningful.
 window._pasteSurfaceClosed=window._pasteSurfaceClosed||{};
+window._pasteSurfaceDefaultClosed=!!window._pasteSurfaceDefaultClosed;
+window._pasteSurfaceCloseAllOnNextRender=!!window._pasteSurfaceCloseAllOnNextRender;
 window._pasteSurfaceClose=function(id){window._pasteSurfaceClosed[String(id||'')]=true;_decoratePasteSurfaces();};
-window._pasteSurfaceOpen=function(id){delete window._pasteSurfaceClosed[String(id||'')];_decoratePasteSurfaces();setTimeout(()=>{const el=document.getElementById(id);if(el)try{el.focus();}catch(_){}},0);};
+window._pasteSurfaceOpen=function(id){window._pasteSurfaceClosed[String(id||'')]=false;_decoratePasteSurfaces();setTimeout(()=>{const el=document.getElementById(id);if(el)try{el.focus();}catch(_){}},0);};
 function _decoratePasteSurfaces(root){
   root=root||document;const boxes=Array.from(root.querySelectorAll('textarea[id][oninput]'));
+  const closeAll=!!window._pasteSurfaceCloseAllOnNextRender;
   boxes.forEach(ta=>{
     const id=String(ta.id||'');if(!id||id==='feeGuideDesc'||ta.classList.contains('model-free-text'))return;
     const scope=ta.parentElement||ta;scope.dataset.pasteSurface=id;
@@ -5730,7 +5778,8 @@ function _decoratePasteSurfaces(root){
     });
     let ctl=scope.querySelector(`.paste-surface-toggle[data-for="${id}"]`),note=scope.querySelector(`.paste-surface-closed-note[data-for="${id}"]`);
     if(nativeClose){scope.classList.remove('paste-surface-collapsed');if(ctl)ctl.remove();if(note)note.remove();return;}
-    const closed=!!window._pasteSurfaceClosed[id];
+    if(closeAll)window._pasteSurfaceClosed[id]=true;
+    const closed=window._pasteSurfaceDefaultClosed ? window._pasteSurfaceClosed[id]!==false : !!window._pasteSurfaceClosed[id];
     scope.classList.toggle('paste-surface-collapsed',closed);
     if(closed){
       if(ctl)ctl.remove();
@@ -5742,6 +5791,7 @@ function _decoratePasteSurfaces(root){
       ctl.innerHTML=`<button type="button" data-paste-surface-generated="1" onclick="_pasteSurfaceClose('${id.replace(/'/g,"\\'")}')">Close</button>`;
     }
   });
+  if(closeAll)window._pasteSurfaceCloseAllOnNextRender=false;
 }
 window._decoratePasteSurfaces=_decoratePasteSurfaces;
 function renderContent(){
@@ -6446,6 +6496,7 @@ async function uploadScenario(input){
   try {
     const parsed = JSON.parse(await f.text());
     cfg = parsed;
+    _resetTransientAuthoringUi(cfg);
     lastRes = null; lastErrs = null;   // invalidate prior result (see pstat name-match)
     freezeOriginal("the file you uploaded");
     const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "unnamed engagement";
@@ -6468,7 +6519,7 @@ async function uploadWorkbook(input){
   const r = await fetch("/api/v2/parse-workbook", {method:"POST", body: await f.arrayBuffer()});
   const j = await r.json();
   if(!r.ok){ alert("Workbook rejected (fail-closed):\n" + (j.errors||[]).map(e=>e.message).join("\n")); }
-  else { cfg = j; syncNameChrome();
+  else { cfg = j; _resetTransientAuthoringUi(cfg); syncNameChrome();
          freezeOriginal("the workbook you uploaded");
          renderGlobals(); refresh(); renderContent(); markPristine();
          LC.land("workbook", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || "")); }  // CLEAN
@@ -6502,6 +6553,7 @@ async function loadFrozen(id){
   const r = await fetch("/api/v2/frozen/" + id + "/config");
   if(!r.ok){ appStatus("err", "<b>Frozen run not found</b> \u2014 the registry entry may predate this workspace."); return; }
   cfg = await r.json();
+  _resetTransientAuthoringUi(cfg);
   lastRes = null; lastErrs = null;   // invalidate prior result (see pstat name-match)
   syncNameChrome();
   renderGlobals(); refresh(); markPristine();
@@ -6536,6 +6588,7 @@ window.delEngagement = async function(slug){
     try{ await fetch("/api/v31/engagement/unsaved-engagement-crash-recovery", {method:"DELETE"}); }catch(e){}
     try{ await fetch("/api/v31/engagement/working-session-autosaved", {method:"DELETE"}); }catch(e){}  // legacy slug
     cfg = buildEmptyTemplate();
+    _resetTransientAuthoringUi(cfg);
     cfg.scenario_name = "";
     cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
     lastRes = null; lastErrs = null;
@@ -6716,7 +6769,7 @@ async function mtFinalize(){
     body: JSON.stringify({session, cfg})});
   const j = await r.json();
   if(!r.ok){ alert("Translation refused (fail-closed):\n" + (j.error||r.status)); return; }
-  cfg = j.cfg; mt.result = j;
+  cfg = j.cfg; _resetTransientAuthoringUi(cfg); mt.result = j;
   syncModules(); renderGlobals(); refresh(); renderContent();
 }
 async function retroUpload(inp){
@@ -6797,6 +6850,7 @@ async function uploadFIW(inp){
   let j; try{ j = await r.json(); }catch(e){ appStatus("err", `<b>Import failed</b> \u2014 the server returned an unreadable response (${r.status}). Nothing was changed.`); return; }
   if(!r.ok){ appStatus("err", `<b>Import refused (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   cfg = j.cfg;
+  _resetTransientAuthoringUi(cfg);
   freezeOriginal("the workbook you uploaded");
   LC.land("workbook", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // CLEAN
   const n = j.report.edit_count;
@@ -6899,6 +6953,7 @@ async function wizFinish(){
     appStatus("err", "<b>Entry screen:</b> enter an initial capital raise greater than zero before creating the engagement."); return; }
   // a NEW engagement starts from a clean shell — never from whatever session was open
   cfg = JSON.parse(JSON.stringify(TEMPLATE));
+  _resetTransientAuthoringUi(cfg);
   // Invalidate any prior engagement's run result. pstat() matches per-product Q12 stats by NAME
   // against lastRes.ftp.rows; without this clear, a fresh engagement's zero-balance products would
   // show the PRIOR engagement's Q12 numbers wherever a product name collides, until the first run.
@@ -6974,6 +7029,7 @@ async function _openEngagementNow(slug){
   const cfg2 = await r.json();
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = normalizeCfg(cfg2);
+    _resetTransientAuthoringUi(cfg);
     lastRes = null; lastErrs = null;   // invalidate the outgoing engagement's result (see pstat name-match)
     rehydrateOriginal(cfg);
     syncNameChrome();
@@ -8427,7 +8483,7 @@ function _cacDriverHtml(fn,ci,ch,meta){
   if(canLink)x+=`<select style="width:96px" onchange="cacDriverSource('${esc(fn)}',${ci},'${meta.k}',this.value)"><option value="entered"${mode!=="link"?' selected':''}>Enter</option><option value="link"${mode==='link'?' selected':''}>Link</option></select>`;
   else x+=`<span class="cu" style="width:84px">Enter</span>`;
   if(mode==="link"){
-    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select style="min-width:210px;max-width:320px" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · '+esc(o.disabledReason||'not linkable upstream'):''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
+    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select class="cac-link-source-select" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · '+esc(o.disabledReason||'not linkable upstream'):''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
   } else {
     x+=`<select style="width:98px" onchange="cacDriverTrajectory('${esc(fn)}',${ci},'${meta.k}',this.value)">${[["flat","Flat"],["growth","Growth"],["explicit","Explicit"]].map(o=>`<option value="${o[0]}"${o[0]===mode?' selected':''}>${o[1]}</option>`).join('')}</select>`;
     if(mode==="growth"){
@@ -8581,10 +8637,10 @@ function structuresSectionsHtml(){
       });
       // Progressive disclosure: the paste box is hidden until summoned, and clears + collapses on
       // Load. The rows above are the single source of truth; the box is a transient input chute.
-      var _pasteOpen = !!(cfg.pre_opening && cfg.pre_opening._pasteOpen);
+      var _pasteOpen = _structuredPasteIsOpen("preopening");
       if(!_pasteOpen){
         _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
-        _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};window._cfgSectionOpen.preopening=true;cfg.pre_opening._pasteOpen=true;renderContent();return false">⎘ Paste from spreadsheet</a>';
+        _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};window._cfgSectionOpen.preopening=true;_structuredPasteSetOpen(\'preopening\',true);return false">⎘ Paste from spreadsheet</a>';
         _p += '<a href="#" class="cadd" style="color:#8FA3C0" onclick="poAdd();return false">+ Add one manually</a>';
         if(pex.length) _p += '<a href="#" class="cadd" style="color:#C77" onclick="poClear();return false">Clear all</a>';
         _p += '</div>';
@@ -8595,7 +8651,7 @@ function structuresSectionsHtml(){
         _p += '<button id="poPasteBox_load" class="pillbtn" disabled onclick="poPaste(document.getElementById(\'poPasteBox\').value,\'replace\')">Load (replace)</button>';
         _p += '<button id="poPasteBox_append" class="pillbtn" disabled onclick="poPaste(document.getElementById(\'poPasteBox\').value,\'append\')">Load (append)</button>';
         _p += '<button class="pillbtn" style="color:#C77" onclick="poClear()"' + (pex.length?'':' disabled') + '>Clear</button>';
-        _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="cfg.pre_opening._pasteOpen=false;renderContent();return false">close</a>';
+        _p += '<a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_structuredPasteSetOpen(\'preopening\',false);return false">close</a>';
         _p += '</div></div>';
       }
       _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
@@ -8616,10 +8672,10 @@ function structuresSectionsHtml(){
         _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
           _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
         });
-        if(!_fa._pasteOpen){
-          _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="window._cfgSectionOpen.fixedassets=true;_fixedAssetState()._pasteOpen=true;renderContent();return false">⎘ Paste assets</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="faAdd();return false">+ Add asset</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
+        if(!_structuredPasteIsOpen("fixedassets")){
+          _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" onclick="window._cfgSectionOpen.fixedassets=true;_structuredPasteSetOpen(\'fixedassets\',true);return false">⎘ Paste assets</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="faAdd();return false">+ Add asset</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
         } else {
-          _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" oninput="_structuredPasteInput(\x27faPasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button id="faPasteBox_load" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'replace\')">Load (replace)</button><button id="faPasteBox_append" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'append\')">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_fixedAssetState()._pasteOpen=false;renderContent();return false">close</a></div>';
+          _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" oninput="_structuredPasteInput(\x27faPasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button id="faPasteBox_load" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'replace\')">Load (replace)</button><button id="faPasteBox_append" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'append\')">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0;align-self:center" onclick="_structuredPasteSetOpen(\'fixedassets\',false);return false">close</a></div>';
         }
         _d += `<div class="cmut">${_fax.length} asset${_fax.length===1?'':'s'} · straight-line by default. Opening rows are capitalized before M1/Q1; later rows become CAPEX in their placed-in-service period.</div>`;
       }
@@ -8685,15 +8741,15 @@ function structuresSectionsHtml(){
       h += `<div class="nie-default"><span class="nie-default-label">Benefits &amp; payroll default</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${_defLoadPct.toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation</span></div><div class="nie-section-note">Added on top of base compensation for benefits, payroll taxes and employer burden (25% turns $100k base comp into $125k expense).</div></div></div>`;
       h += '<div class="nie-section-note" style="margin:4px 0 8px">Roles inherit the workforce defaults unless a row explicitly overrides them.</div>';
     }
-    const _wpo=!!nd._wfPasteOpen;
-    h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._wfPasteOpen=true;renderContent();return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Tiered / banded compensation component</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
+    const _wpo=_structuredPasteIsOpen("workforce");
+    h += '<div class="nie-actions"><a href="#" class="cadd" onclick="_structuredPasteSetOpen(\'workforce\',true);return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Tiered / banded compensation component</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
       h += '<div class="wf-schema"><span>Role</span><span>Count</span><span>Annual Comp<br>($000s/FTE)</span><span>Start</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
       h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Annual Comp, Start</b>. Count and other columns are optional; blank Count defaults to 1. Start may be M17/Q5 or a supported metric trigger.</div>';
       h += '<textarea id="nieWorkforcePasteBox" rows="6" oninput="_structuredPasteInput(\x27nieWorkforcePasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;CEO\t275\tM1\t\t3.0\t&#10;Compliance Analyst\t95\tM17\t\t4.0\t&#10;Custody Officer\t120\tEOP AUC [Custody] >= 1B\t\t3.5\t"></textarea>';
-      h += '<div class="nie-actions"><button id="nieWorkforcePasteBox_load" class="pillbtn" disabled onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="cfg.assumptions.nie_detail._wfPasteOpen=false;renderContent();return false">close</a></div></div>';
+      h += '<div class="nie-actions"><button id="nieWorkforcePasteBox_load" class="pillbtn" disabled onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="_structuredPasteSetOpen(\'workforce\',false);return false">close</a></div></div>';
     }
     if((wf.roles||[]).length){
       (wf.roles||[]).forEach((wr,wi)=>{
@@ -8783,8 +8839,8 @@ function structuresSectionsHtml(){
     const _catHasRows=(nd.categories||[]).length>0, _catOpen=_nieSectionIsOpen("opex",_catHasRows);
     h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Operating expense categories</div><div class="nie-section-note">Non-workforce recurring NIE. Batch loads can carry different growth assumptions without commingling them.</div>${_catHasRows&&!_catOpen?`<div class="nie-section-summary">${(nd.categories||[]).length} categor${(nd.categories||[]).length===1?'y':'ies'} loaded · expand to inspect or edit</div>`:''}</div><button class="nie-section-toggle" onclick="nieSectionSetOpen('opex',${_catOpen?'false':'true'})">${_catOpen?'Collapse':'Expand'}</button></div>`;
     if(_catOpen){
-    { var _cpo = !!(nd._catPasteOpen); var _cpt = nd._catPasteType || "flat";
-      h += '<div class="nie-actions"><a href="#" class="cadd" onclick="cfg.assumptions.nie_detail._catPasteOpen=true;renderContent();return false">⎘ Paste categories</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add category</a>' + ((nd.categories||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieCatClear();return false">Clear all</a>':'') + '</div>';
+    { var _cpo = _structuredPasteIsOpen("opex_categories"); var _cpt = nd._catPasteType || "flat";
+      h += '<div class="nie-actions"><a href="#" class="cadd" onclick="_structuredPasteSetOpen(\'opex_categories\',true);return false">⎘ Paste categories</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieCatAdd();return false">+ Add category</a>' + ((nd.categories||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieCatClear();return false">Clear all</a>':'') + '</div>';
       if(_cpo){
         var _TT = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]], _cfp=nd._catPastePeriod||_nativeFlowPeriod();
         h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
@@ -8795,7 +8851,7 @@ function structuresSectionsHtml(){
           nd._catPasteGrowthSpec=nd._catPasteGrowthSpec||{rate:0,period:"year",method:"step",anchor:"model_year"};
           h += `<span class="cu" style="margin-left:8px">Growth</span>${growthSpecInline('assumptions.nie_detail._catPasteGrowthSpec',nd._catPasteGrowthSpec,0,false,true)}`;
         }
-        h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="cfg.assumptions.nie_detail._catPasteOpen=false;renderContent();return false">close</a></div>';
+        h += '<a href="#" class="cadd" style="color:#8FA3C0;margin-left:8px" onclick="_structuredPasteSetOpen(\'opex_categories\',false);return false">close</a></div>';
         var _ph = (_cpt==="explicit") ? "Occupancy, 360, 370.8, 381.924&#10;Marketing, 120, 150, 180" : "Occupancy, 360&#10;Technology, 240&#10;Insurance, 35";
         var _hint = (_cpt==="explicit") ? `One <b>Item, P1, P2, ...</b> per line; each value is a $000s <b>${_cfp}</b> flow total. Foundry periodizes it to the model cadence.` : `Paste <b>Item, Amount</b> rows; each amount is $000s per <b>${_cfp}</b>, independent of model cadence.`;
         h += '<div class="cmut" style="margin-bottom:4px">'+_hint+'</div>';
@@ -8889,7 +8945,7 @@ function structuresSectionsHtml(){
     if(!cfNames.length)h+='<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>';
     cfNames.forEach(function(fn){const fd=CF[fn];fd.channels=fd.channels||[];
       h+=`<div class="cac-feed-card">`;
-      h+=`<div class="cac-feed-head crow" style="align-items:center"><span class="cac-feed-title">Feed</span><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Beginning customers</span><input type="number" style="width:68px" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=_pf(this.value);refresh()"><span class="cu">Beginning AUC</span><input type="text" inputmode="decimal" style="width:82px" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div><div class="cac-feed-summary">Feed-level assumptions and audit roll-forward. Acquisition channels below are visually nested because they contribute incremental customers and AUC to this feed.</div><div class="cac-feed-body">`;
+      h+=`<div class="cac-feed-head crow" style="align-items:center"><span class="cac-feed-title">Feed</span><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Opening customers</span><input type="number" min="0" step="any" style="width:82px" title="Customers already on the books at model start" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=Math.max(0,_pf(this.value));refresh()"><span class="cu">Opening AUC</span><input type="text" inputmode="decimal" style="width:82px" title="AUC / managed notional already on the books at model start" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=Math.max(0,_pf(this.value))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div><div class="cac-feed-summary">Opening customers/AUC are the existing book at model start. Acquisition channels below are visually nested because they add incremental customers and AUC on top of that opening balance; feed-level attrition then runs against the applicable opening book.</div><div class="cac-feed-body">`;
       h+=`<div class="memo" style="margin:6px 0 8px"><b>Calculation cadence: monthly.</b> Month / Quarter / Year belong to each source assumption, not to the CAC module. Foundry resolves each operand to the canonical monthly grid, evaluates the acquisition equation monthly, and aggregates those results upward for the annual summary below. Legacy within-year shape fields, if present in an older saved model, are retained in the file but no longer manufacture the customer/AUC path.</div>`;
       h+=`<div class="memo" style="margin:7px 0 8px"><b>How to use this.</b> Pick the acquisition equation, then give each primitive the Foundry Series contract: <b>Enter</b> (Flat / Growth / Explicit), <b>Link</b> where another module owns the assumption, or <b>Derived</b> only when the owning module exposes a closed equation output. No arbitrary formulas.</div>`;
       h+=`<div class="cmut" style="margin:0 0 8px"><b>Units:</b> customer/FTE counts are natural units; Spend, AUC/customer and Compensation are entered in <b>$000s</b>; per-customer CAC is a per-unit price entered in <b>plain dollars</b>. The label beside each field is authoritative.</div>`;

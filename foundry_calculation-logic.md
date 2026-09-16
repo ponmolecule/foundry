@@ -319,3 +319,8 @@ Backward compatibility is presence-based: a pre-r78 saved model with `occ_bp_ann
 
 ## r92 fee-stream basis-state hygiene
 Fee-driver coefficients are basis-typed transaction semantics. A saved or in-memory Account, Flat, or Event stream may not be blocked by a stale hidden transaction coefficient left behind by prior authoring state; r92 canonicalizes that incompatible field on load and immediately when basis changes. The engine boundary also ignores such stale non-transaction authoring state so it cannot alter quantity or revenue. Balance streams retain the existing fail-closed guard against natural-period transaction coefficients because accepting one there can double-periodize stock economics. No valid transaction coefficient behavior or Account count arithmetic changes.
+
+## r105 CAC opening-book and authoring-state clarification
+Customer Acquisition feeds may begin with an existing customer/AUC book. `beginning_customers` and `beginning_auc` are opening stocks: the canonical monthly roll-forward starts M1 from those balances, adds monthly new customers/AUC, applies source-period attrition against the applicable opening book, and carries the resulting ending balances forward. These opening stocks are independent of acquisition-channel flows and may not be negative or non-finite.
+
+Long CAC Series links are presentation-bounded and wrap within the Customer Acquisition tile; this has no effect on Series identity or resolution. Paste-editor open/closed state is likewise presentation-only. It is not model configuration and is reset closed when an engagement/configuration is replaced; loaded Explicit schedules and bulk-imported data remain unchanged.
