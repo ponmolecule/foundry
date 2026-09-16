@@ -354,19 +354,25 @@ def _nie_sheet(ws, nd, ppy=4):
             _cps = role.get("compensation_spec") or {}
             if _cps:
                 _cpt = _cps.get("trajectory") or _cps.get("mode") or "flat"
+                _cpp = str(_cps.get("period") or "year").lower()
                 _row(root + ".compensation_spec.trajectory", sec, "Compensation trajectory", _cpt, "flat / growth / explicit")
+                if "period" in _cps:
+                    _row(root + ".compensation_spec.period", sec, "Compensation amount period", _cpp, "month / quarter / year")
                 if _cpt == "flat":
-                    _row(root + ".compensation_spec.value", sec, "Annual compensation / FTE", _cps.get("value", role.get("annual_comp", 0)), "$/year per FTE")
+                    _row(root + ".compensation_spec.value", sec, "Compensation / FTE", _cps.get("value", role.get("annual_comp", 0)), f"$/{_cpp} per FTE")
                 elif _cpt == "growth":
-                    _row(root + ".compensation_spec.base", sec, "Compensation — base", _cps.get("base", role.get("annual_comp", 0)), "$/year per FTE")
+                    _row(root + ".compensation_spec.base", sec, "Compensation — base", _cps.get("base", role.get("annual_comp", 0)), f"$/{_cpp} per FTE")
                     _growth_rows(root + ".compensation_spec.growth_spec", sec, "Compensation growth", _cps.get("growth_spec") or {})
                 elif _cpt == "explicit":
                     _row(root + ".compensation_spec.cadence", sec, "Compensation schedule cadence", _cps.get("cadence", "year"), "year / quarter / month")
                     _row(root + ".compensation_spec.resolution", sec, "Compensation schedule resolution", _cps.get("resolution", "step"), "step / smooth")
                     for _j, _v in enumerate(_cps.get("values") or []):
-                        _row(root + f".compensation_spec.values.{_j}", sec, f"Compensation schedule — source period {_j + 1}", _v, "$/year per FTE")
+                        _row(root + f".compensation_spec.values.{_j}", sec, f"Compensation schedule — source period {_j + 1}", _v, f"$/{_cpp} per FTE")
             else:
-                _row(root + ".annual_comp", sec, "Annual base compensation", role.get("annual_comp"), "$/year per FTE (legacy)")
+                _cpp = str(role.get("compensation_period") or "year").lower()
+                if "compensation_period" in role:
+                    _row(root + ".compensation_period", sec, "Compensation amount period", _cpp, "month / quarter / year")
+                _row(root + ".annual_comp", sec, "Base compensation / FTE", role.get("annual_comp"), f"$/{_cpp} per FTE")
             _act = role.get("activation") or {}
             if _act:
                 _row(root + ".activation.type", sec, "Activation type", _act.get("type", "metric"), "metric")
@@ -645,8 +651,10 @@ def _settings_sheet(wb, cfg):
                     _start = f"trigger {_act.get('metric')}{_src} {_act.get('operator','>=')} {_ref}"
                 else:
                     _start = f"hire {('M' if int(a.get('periods_per_year') or 4)==12 else 'Q')}{_wr.get('hire_period',1)}"
+                _wp = ((_wr.get("compensation_spec") or {}).get("period")
+                       or _wr.get("compensation_period") or "year")
                 row(_wr.get("role") or "workforce role",
-                    f"{_wr.get('count',1)} FTE · {_start} · ${float(_wr.get('annual_comp') or 0):,.0f}/yr",
+                    f"{_wr.get('count',1)} FTE · {_start} · ${float(_wr.get('annual_comp') or 0):,.0f}/{_wp}",
                     "role/cohort")
         else:
             if nd.get("fte_by_year") is not None:

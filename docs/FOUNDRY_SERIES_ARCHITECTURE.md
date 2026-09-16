@@ -107,11 +107,21 @@ One Workforce row represents **one economically homogeneous population**, not ne
 named employee.
 
 `Count` and `Compensation` are Foundry Series. Each may be Flat, Growth, or Explicit. Payroll consumes
-the resolved native-period count and annual compensation/FTE trajectories:
+the resolved native-period count and compensation/FTE trajectories:
 
-`Workforce expense = Count × annual compensation/FTE × (1 + Benefits / Payroll) / ppy`
+`Workforce expense = Count × annualized(compensation/FTE, authored Month/Quarter/Year) × (1 + Benefits / Payroll) / ppy`
 
-Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is authored, preserving historical configurations exactly.
+Flat, Growth, and Explicit Compensation Series each own an explicit natural amount period
+(`month`, `quarter`, or `year`). Explicit schedules separately own their source cadence, because
+"how often the level changes" and "what time unit the amount represents" are different semantics.
+Legacy `annual_comp + salary_growth_spec` remains authoritative when no Compensation Series is
+authored; pre-r107 rows are explicitly migrated as `period=year` to preserve historical economics.
+The Workforce bulk-paste contract follows the same rule: a generic `Comp / FTE` column must be
+paired with an explicit `Comp Period`, while self-describing headers such as `Annual Comp`,
+`Monthly Comp`, or `Quarterly Comp` may supply the period through the header itself. Generic
+compensation amounts with no period fail closed rather than inheriting an invisible annual basis.
+Headerless rows must also carry the period explicitly; the old ambiguous `Role, Comp, Start,
+Escalation` shape is rejected rather than guessed.
 
 Workforce also publishes an aggregate active-headcount Series with its own persisted `total_count_series_id`. The aggregate is derived from the resolved role Count Series each model period; it is not a second staffing input. Operating Expense may observe either that aggregate Series or an individual role Count Series and apply a typed `$ / FTE / Month|Quarter|Year` coefficient. Amount cadence is an economic unit: equivalent annual, quarterly, and monthly per-FTE amounts resolve to the same native-period expense.
 

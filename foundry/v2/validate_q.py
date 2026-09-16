@@ -393,6 +393,8 @@ def validate_config_v2(cfg):
             if role.get("compensation_spec"):
                 try:
                     from .series import normalize_series_spec, resolve_entered_series
+                    from .workforce import workforce_compensation_period
+                    workforce_compensation_period(role)
                     _cps = normalize_series_spec(role.get("compensation_spec"), default_value=float(comp or 0.0))
                     if _cps.get("source") != "entered":
                         raise ValueError(
@@ -404,6 +406,12 @@ def validate_config_v2(cfg):
                         raise ValueError("compensation values must be non-negative")
                 except (TypeError, ValueError) as e:
                     errs.append(f"nie_detail.workforce.roles[{i}].compensation_spec invalid: {e}")
+            else:
+                try:
+                    from .workforce import workforce_compensation_period
+                    workforce_compensation_period(role)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].compensation_period invalid: {e}")
             if activation:
                 try:
                     from .activation import validate_activation_rule

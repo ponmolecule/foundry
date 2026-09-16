@@ -51,7 +51,7 @@ def main():
     ck("workforce expense consumes count series", _eq(sum(comp[:12]),240000) and _eq(sum(comp[12:24]),480000))
     comp_role={**role,"compensation_series_id":"wf-comp-rm",
         "compensation_spec":{"source":"entered","series_id":"wf-comp-rm","owner_module":"operating_expense.workforce",
-            "semantic_type":"annual_compensation_per_fte","trajectory":"explicit","cadence":"year",
+            "semantic_type":"compensation_per_fte","trajectory":"explicit","period":"year","cadence":"year",
             "values":[120000,132000,145200],"resolution":"step","extend":"hold"}}
     cps=workforce_role_compensation_series(comp_role,36,12)
     ck("Workforce Compensation uses the same explicit/cadence Series contract",
@@ -59,6 +59,47 @@ def main():
     cpexp=workforce_comp_series({"mode":"roles","roles":[comp_role]},36,12)
     ck("payroll consumes Compensation Series without double annualization",
        _eq(sum(cpexp[:12]),240000) and _eq(sum(cpexp[12:24]),528000))
+
+    # r107: compensation amount period is explicit for Flat / Growth / Explicit.
+    # The schedule cadence answers "when may the level change?"; period answers
+    # "what time unit does the entered amount represent?".  They are not aliases.
+    monthly_explicit={
+        "series_id":"wf-monthly-comp","role":"Monthly consultant","count":1,"hire_period":1,
+        "annual_comp":358000,"compensation_period":"month","payroll_load_rate":0,
+        "compensation_spec":{"source":"entered","series_id":"wf-monthly-comp-value",
+            "owner_module":"operating_expense.workforce","semantic_type":"compensation_per_fte",
+            "trajectory":"explicit","period":"month","cadence":"month",
+            "values":[358000]*12,"resolution":"step","extend":"hold"}}
+    monthly_levels=workforce_role_compensation_series(monthly_explicit,12,12)
+    monthly_payroll=workforce_comp_series({"mode":"roles","roles":[monthly_explicit]},12,12)
+    ck("Explicit $358k/FTE/month remains $358k monthly payroll instead of being treated as annual",
+       _eq(monthly_levels[0],4_296_000) and all(_eq(x,358000) for x in monthly_payroll),
+       f"annualized={monthly_levels[0]} payroll={monthly_payroll[:2]}")
+
+    flat_year={"role":"Flat year","count":1,"hire_period":1,"annual_comp":120000,
+               "compensation_period":"year","payroll_load_rate":0,
+               "compensation_spec":{"source":"entered","trajectory":"flat","period":"year","value":120000}}
+    flat_month={"role":"Flat month","count":1,"hire_period":1,"annual_comp":10000,
+                "compensation_period":"month","payroll_load_rate":0,
+                "compensation_spec":{"source":"entered","trajectory":"flat","period":"month","value":10000}}
+    ck("Flat compensation period converts equivalent Year and Month amounts identically",
+       workforce_comp_series({"roles":[flat_year]},12,12)==workforce_comp_series({"roles":[flat_month]},12,12))
+
+    growth_year={**flat_year,"role":"Growth year","compensation_spec":{
+        "source":"entered","trajectory":"growth","period":"year","base":120000,
+        "growth_spec":{"rate":.10,"period":"year","method":"step","anchor":"model_year"}}}
+    growth_month={**flat_month,"role":"Growth month","compensation_spec":{
+        "source":"entered","trajectory":"growth","period":"month","base":10000,
+        "growth_spec":{"rate":.10,"period":"year","method":"step","anchor":"model_year"}}}
+    ck("Growth compensation amount period is independent of the growth-rate period",
+       workforce_comp_series({"roles":[growth_year]},24,12)==workforce_comp_series({"roles":[growth_month]},24,12))
+    bad_period=False
+    try:
+        workforce_comp_series({"roles":[{**flat_month,"compensation_period":"week",
+            "compensation_spec":{"source":"entered","trajectory":"flat","period":"week","value":10000}}]},12,12)
+    except ValueError as e:
+        bad_period="month/quarter/year" in str(e)
+    ck("unsupported Workforce compensation amount period fails closed", bad_period)
 
     # Stable-ID operating-expense link: CAC consumes the expense trajectory instead of duplicating it.
     assumptions={"n_periods":24,"nie_detail":{"categories":[{
