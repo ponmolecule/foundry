@@ -759,7 +759,13 @@ def _validate_fee_stream_shape(stream):
     # coefficient on another basis (r91 UI could preserve one after a basis change) rather
     # than failing an otherwise-valid stream on authoring state that cannot affect economics.
     coef = (drv.get("params") or {}).get("coefficient") if basis in {"transaction", "balance"} else None
-    level_schedule = (drv.get("params") or {}).get("level_schedule")
+    # Account count schedules are authored state for the entered/constant driver only. The UI
+    # deliberately preserves a pasted schedule while the stream is temporarily linked to a CAC-owned
+    # customer-count Series so switching back to Constant is non-destructive. Treat that preserved
+    # schedule as dormant reserve state unless it is actually the active driver contract. This mirrors
+    # the evaluator below, which consumes level_schedule only for constant + explicit_schedule.
+    level_schedule = ((drv.get("params") or {}).get("level_schedule")
+                      if src == "constant" and traj == "explicit_schedule" else None)
     stock_multiplier = (drv.get("params") or {}).get("stock_multiplier")
     if coef is not None:
         if traj != "derived":

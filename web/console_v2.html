@@ -2632,8 +2632,16 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
   // CAC-owned Ending bank customers Series must hide, not destroy, that path. Keep params in
   // place and remember only the active manual trajectory so switching back restores it exactly.
   if(old==="constant"&&v!=="constant"&&!d._saved_constant_trajectory)d._saved_constant_trajectory=d.trajectory||"flat";
+  // The linked source choice is authored state too. Preserve the selected CAC Series + measure
+  // when the user temporarily switches the driver away, just as we preserve the manual Constant
+  // trajectory in the opposite direction. Source-specific reserve fields never participate in
+  // engine economics; they exist only to make source switching reversible.
+  if(old==="customer_acquisition_count"&&v!=="customer_acquisition_count"){
+    if(d.ref)d._saved_cac_ref=String(d.ref);
+    if(["annual_count","period_end","period_average"].includes(String(d.measure||"")))d._saved_cac_measure=String(d.measure);
+  }
   if(v==="cost_pool"){d.source="cost_pool";d.trajectory="flat";var cps=_feeCostPools();if(!d.ref&&cps.length)d.ref=cps[0].series_id;st.rate.behavior="cost_recovery";if(st.rate.params.recovery_pct==null)st.rate.params.recovery_pct=0;if(!st.rate.params.markup)st.rate.params.markup={value:+(st.rate.params.markup_pct||0),period:"year",trajectory:"flat",resolution:"step"};st.cost={kind:"none",params:{}};}
-  else if(v==="customer_acquisition_count"){d.source=v;d.trajectory="flat";d.measure=d.measure||"period_end";var ccs=_feeCustomerCountOptions();if(!d.ref||!ccs.some(o=>o.series_id===String(d.ref)))d.ref=ccs.length?ccs[0].series_id:"";if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
+  else if(v==="customer_acquisition_count"){d.source=v;d.trajectory="flat";var ccs=_feeCustomerCountOptions();var savedRef=String(d._saved_cac_ref||"");if(!d.ref||!ccs.some(o=>o.series_id===String(d.ref)))d.ref=ccs.some(o=>o.series_id===savedRef)?savedRef:(ccs.length?ccs[0].series_id:"");var savedMeasure=String(d._saved_cac_measure||"");d.measure=["annual_count","period_end","period_average"].includes(String(d.measure||""))?String(d.measure):(["annual_count","period_end","period_average"].includes(savedMeasure)?savedMeasure:"period_end");if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else if(v==="constant"){d.source="constant";delete d.ref;delete d.measure;if(d._saved_constant_trajectory){d.trajectory=d._saved_constant_trajectory;delete d._saved_constant_trajectory;}if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else{d.source=v;delete d.ref;delete d.measure;if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   renderContent();if(v!=="stream_ref")refresh();
