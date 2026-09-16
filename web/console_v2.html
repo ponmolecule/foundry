@@ -306,24 +306,26 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cac-channel-card.drop-after{box-shadow:inset 0 -3px 0 #DFA85A}
 .cac-channel-drag-handle{width:24px;height:26px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none;flex:0 0 24px}
 .cac-channel-drag-handle:hover{color:#DFA85A}.cac-channel-drag-handle:active{cursor:grabbing}
-.wf-role-grid{display:grid;grid-template-columns:minmax(125px,1.45fr) 78px minmax(105px,.9fr) minmax(145px,1.2fr) 48px 72px 94px 24px;gap:7px;align-items:end}
+.wf-role-grid{display:grid;grid-template-columns:minmax(125px,1.35fr) 78px minmax(220px,1.35fr) minmax(145px,1.15fr) 48px 72px 94px 24px;gap:7px;align-items:end}
 .wf-field{min-width:0}
 .wf-series-details{margin:7px 0 0;border-top:1px solid rgba(148,163,184,.12);padding-top:6px}
 .wf-series-details>summary{cursor:pointer;color:#8FA3C0;font-size:10px;user-select:none;list-style-position:inside}
 .wf-series-details[open]>summary{color:#B6C2D5}
 .wf-field input,.wf-field select{width:100% !important;max-width:none !important;box-sizing:border-box}
+.wf-comp-value{display:grid !important;grid-template-columns:minmax(72px,1fr) 78px 78px;gap:4px;align-items:center}
+.wf-comp-value input,.wf-comp-value select{width:100% !important;min-width:0 !important}
 .wf-start-wrap{display:flex;gap:4px;align-items:center;min-width:0}
 .wf-start-wrap select{width:94px !important;flex:0 0 94px;min-width:94px}
 .wf-start-wrap input{width:40px !important;flex:0 0 40px;padding-left:5px !important;padding-right:5px !important}
 .wf-end input{width:42px !important;max-width:42px !important;padding-left:5px !important;padding-right:5px !important}
 .wf-trigger-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(148,163,184,.10)}
 .wf-trigger-row .cu{font-size:9px}
-.wf-schema{display:grid;grid-template-columns:1.4fr 1.1fr 1fr .65fr .85fr .95fr;gap:4px;margin:5px 0 7px;padding:6px 7px;border-radius:6px;background:#10192A;border:1px solid rgba(148,163,184,.12)}
+.wf-schema{display:grid;grid-template-columns:1.25fr .55fr 1fr .72fr .68fr .78fr .78fr .95fr;gap:4px;margin:5px 0 7px;padding:6px 7px;border-radius:6px;background:#10192A;border:1px solid rgba(148,163,184,.12)}
 .wf-schema span{font-size:8.5px;color:#9CA7B7;line-height:1.25}
 .nie-assess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .nie-assess-item{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px}
 .nie-assess-item .crow{margin:0 !important}
-@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:minmax(125px,1.4fr) 76px minmax(105px,1fr) minmax(145px,1.25fr) 24px;}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-row:2}.wf-role-grid .wf-delete{grid-column:5;grid-row:1}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:minmax(125px,1.3fr) 76px minmax(220px,1.45fr) minmax(145px,1.2fr) 24px;}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-row:2}.wf-role-grid .wf-delete{grid-column:5;grid-row:1}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
@@ -4544,9 +4546,18 @@ function _ensureWorkforce(){
   nd.workforce.mode="roles"; nd.workforce.roles=nd.workforce.roles||[]; nd.workforce.additive_components=nd.workforce.additive_components||[];
   if(!nd.workforce.total_count_series_id)nd.workforce.total_count_series_id=_seriesId("wf-total-count");
   nd.workforce.default_salary_growth_spec=nd.workforce.default_salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};
-  // r107: compensation amount units are explicit. Historical rows/specs were annual by
-  // contract, so materialize that legacy meaning instead of continuing a hidden default.
-  nd.workforce.roles.forEach(r=>{if(!r)return;if(!r.compensation_period)r.compensation_period="year";if(r.compensation_spec&&!r.compensation_spec.period)r.compensation_spec.period="year";});
+  // r107: compensation amount units are explicit. r108: amount basis is explicit too.
+  // Historical rows/specs were annual *and per FTE* by contract, so materialize both
+  // legacy meanings rather than continuing hidden defaults.
+  nd.workforce.roles.forEach(r=>{
+    if(!r)return;
+    if(!r.compensation_period)r.compensation_period="year";
+    if(!r.compensation_basis)r.compensation_basis="per_unit";
+    if(r.compensation_spec){
+      if(!r.compensation_spec.period)r.compensation_spec.period="year";
+      if(!r.compensation_spec.amount_basis)r.compensation_spec.amount_basis=r.compensation_basis||"per_unit";
+    }
+  });
   return nd.workforce;
 }
 window.nieCatAdd = function(){
@@ -4725,7 +4736,7 @@ window.nieWorkforceAdd = function(){
   var wf=_ensureWorkforce();
   // One row represents one economically homogeneous population. Count is explicit again,
   // with an optional Foundry-Series trajectory rather than forcing one row per person.
-  const role={series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:"",count:1,annual_comp:0,compensation_period:"year",hire_period:1};
+  const role={series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:"",count:1,annual_comp:0,compensation_period:"year",compensation_basis:"per_unit",hire_period:1};
   wf.roles.push(role); const roleIndex=wf.roles.length-1;
   // UI state is independent of trajectory semantics. Adding a role must not reopen
   // Advanced trajectories that the user explicitly collapsed on prior roles.
@@ -4740,12 +4751,13 @@ window.nieWorkforceCountValue=function(i,val){const r=_ensureWorkforce().roles[i
 window.nieWorkforceCountSchedule=function(i,y,val){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.values=r.count_spec.values||[];r.count_spec.values[y]=Math.max(0,_pf(val));if(y===0)r.count=r.count_spec.values[0];refresh();};
 window.nieWorkforceCountCadence=function(i,cad){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.cadence=cad;_resizeSeriesValues(r.count_spec,r.count||0);renderContent();refresh();};
 window.nieWorkforceCountResolution=function(i,res){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.resolution=res;refresh();};
-window.nieWorkforceCompMode=function(i,mode){const r=_ensureWorkforce().roles[i];if(!r)return;if(!r.compensation_series_id)r.compensation_series_id=_seriesId("wf-comp");if(!r.owner_module)r.owner_module="operating_expense.workforce";const old=r.compensation_spec||{},cur=+(old.base!=null?old.base:(old.value!=null?old.value:((old.values||[])[0]!=null?(old.values||[])[0]:r.annual_comp)))||0,per=old.period||r.compensation_period||"year";let sp={series_id:r.compensation_series_id,owner_module:"operating_expense.workforce",semantic_type:"compensation_per_fte",source:"entered",trajectory:mode,period:per};if(mode==="flat")sp.value=cur;else if(mode==="growth")sp={...sp,base:cur,growth_spec:old.growth_spec||r.salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};else{sp={...sp,cadence:old.cadence||"year",values:(old.values||[]).slice(),extend:"hold",resolution:old.resolution||"step"};_resizeSeriesValues(sp,cur);}r.annual_comp=cur;r.compensation_period=per;r.compensation_spec=sp;renderContent();refresh();};
-window.nieWorkforceCompLegacy=function(i){const r=_ensureWorkforce().roles[i];if(!r)return;if(r.compensation_spec){const sp=r.compensation_spec,m=sp.trajectory||sp.mode,cur=+(m==="growth"?(sp.base!=null?sp.base:r.annual_comp):(m==="explicit"?((sp.values||[])[0]||r.annual_comp):(sp.value!=null?sp.value:r.annual_comp)))||0;r.annual_comp=cur;r.compensation_period=sp.period||r.compensation_period||"year";if(m==="growth"&&sp.growth_spec)r.salary_growth_spec=JSON.parse(JSON.stringify(sp.growth_spec));delete r.compensation_spec;}renderContent();refresh();};
+window.nieWorkforceCompMode=function(i,mode){const r=_ensureWorkforce().roles[i];if(!r)return;if(!r.compensation_series_id)r.compensation_series_id=_seriesId("wf-comp");if(!r.owner_module)r.owner_module="operating_expense.workforce";const old=r.compensation_spec||{},cur=+(old.base!=null?old.base:(old.value!=null?old.value:((old.values||[])[0]!=null?(old.values||[])[0]:r.annual_comp)))||0,per=old.period||r.compensation_period||"year",basis=old.amount_basis||r.compensation_basis||"per_unit";let sp={series_id:r.compensation_series_id,owner_module:"operating_expense.workforce",semantic_type:"compensation",amount_basis:basis,source:"entered",trajectory:mode,period:per};if(mode==="flat")sp.value=cur;else if(mode==="growth")sp={...sp,base:cur,growth_spec:old.growth_spec||r.salary_growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}};else{sp={...sp,cadence:old.cadence||"year",values:(old.values||[]).slice(),extend:"hold",resolution:old.resolution||"step"};_resizeSeriesValues(sp,cur);}r.annual_comp=cur;r.compensation_period=per;r.compensation_basis=basis;r.compensation_spec=sp;renderContent();refresh();};
+window.nieWorkforceCompLegacy=function(i){const r=_ensureWorkforce().roles[i];if(!r)return;if(r.compensation_spec){const sp=r.compensation_spec,m=sp.trajectory||sp.mode,cur=+(m==="growth"?(sp.base!=null?sp.base:r.annual_comp):(m==="explicit"?((sp.values||[])[0]||r.annual_comp):(sp.value!=null?sp.value:r.annual_comp)))||0;r.annual_comp=cur;r.compensation_period=sp.period||r.compensation_period||"year";r.compensation_basis=sp.amount_basis||r.compensation_basis||"per_unit";if(m==="growth"&&sp.growth_spec)r.salary_growth_spec=JSON.parse(JSON.stringify(sp.growth_spec));delete r.compensation_spec;}renderContent();refresh();};
 window.nieWorkforceCompValue=function(i,val){const r=_ensureWorkforce().roles[i];if(!r)return;const v=Math.max(0,_pf(val))*1000;r.annual_comp=v;const sp=r.compensation_spec;if(sp){const m=sp.trajectory||sp.mode;if(m==="growth")sp.base=v;else if(m==="explicit"){sp.values=sp.values||[];sp.values[0]=v;}else sp.value=v;}refresh();};
 window.nieWorkforceCompSchedule=function(i,j,val){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.values=r.compensation_spec.values||[];r.compensation_spec.values[j]=Math.max(0,_pf(val))*1000;if(j===0)r.annual_comp=r.compensation_spec.values[0];refresh();};
 window.nieWorkforceCompCadence=function(i,cad){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.cadence=cad;_resizeSeriesValues(r.compensation_spec,r.annual_comp||0);renderContent();refresh();};
 window.nieWorkforceCompPeriod=function(i,per){const r=_ensureWorkforce().roles[i];if(!r)return;if(!["month","quarter","year"].includes(per))return;r.compensation_period=per;if(r.compensation_spec)r.compensation_spec.period=per;renderContent();refresh();};
+window.nieWorkforceCompBasis=function(i,basis){const r=_ensureWorkforce().roles[i];if(!r)return;if(!["total","per_unit"].includes(basis))return;r.compensation_basis=basis;if(r.compensation_spec){r.compensation_spec.amount_basis=basis;r.compensation_spec.semantic_type="compensation";}renderContent();refresh();};
 window.nieWorkforceCompResolution=function(i,res){const r=_ensureWorkforce().roles[i];if(!r||!r.compensation_spec)return;r.compensation_spec.resolution=res;refresh();};
 window.nieWorkforceCountPaste=function(i,txt){const r=_ensureWorkforce().roles[i],raw=_seriesExplicitValues(txt);if(!r||!r.count_spec)return;if(!raw.length){appStatus("err","No valid numeric Count schedule found to load.");return;}r.count_spec.values=raw.map(x=>Math.max(0,x.value));r.count_spec.extend="hold";r.count=r.count_spec.values[0];appStatus("ok",r.count_spec.values.length+" Count value"+(r.count_spec.values.length===1?"":"s")+" loaded (replace).");renderContent();refresh();};
 window.nieWorkforceCountClear=function(i){const r=_ensureWorkforce().roles[i];if(!r||!r.count_spec)return;r.count_spec.values=[];appStatus("ok","Count schedule cleared. Load replacement values before running the model.");renderContent();refresh();};
@@ -4771,7 +4783,8 @@ function _wfHeaderKey(raw){
   if(["role","position","cohort","role cohort"].includes(x)) return "role";
   if(["count","fte","ftes","headcount","fte count"].includes(x)) return "count";
   if(["comp period","compensation period","comp amount period","compensation amount period","salary period","salary amount period"].includes(x)||["compperiod","compensationperiod","compamountperiod","compensationamountperiod","salaryperiod","salaryamountperiod"].includes(z)) return "comp_period";
-  if(x.includes("annual comp")||x.includes("annual compensation")||x.includes("annual salary")||x.includes("annual base salary")||x.includes("monthly comp")||x.includes("monthly compensation")||x.includes("monthly salary")||x.includes("quarterly comp")||x.includes("quarterly compensation")||x.includes("quarterly salary")||x==="comp"||x==="compensation"||x==="salary"||x.includes("base salary")||x.includes("base compensation")||x.includes("comp fte")||x.includes("compensation fte")||["annualcomp","annualcompensation","annualsalary","annualbasesalary","monthlycomp","monthlycompensation","monthlysalary","quarterlycomp","quarterlycompensation","quarterlysalary","comp","compensation","salary","basesalary","basecompensation","compfte","compensationfte"].includes(z)) return "comp_amount";
+  if(["comp basis","compensation basis","amount basis","basis"].includes(x)||["compbasis","compensationbasis","amountbasis"].includes(z)) return "comp_basis";
+  if(x.includes("total comp")||x.includes("total compensation")||x.includes("annual comp")||x.includes("annual compensation")||x.includes("annual salary")||x.includes("annual base salary")||x.includes("monthly comp")||x.includes("monthly compensation")||x.includes("monthly salary")||x.includes("quarterly comp")||x.includes("quarterly compensation")||x.includes("quarterly salary")||/^(comp|compensation|salary)(\s|$)/.test(x)||x.includes("base salary")||x.includes("base compensation")||x.includes("comp fte")||x.includes("compensation fte")||["totalcomp","totalcompensation","annualcomp","annualcompensation","annualsalary","annualbasesalary","monthlycomp","monthlycompensation","monthlysalary","quarterlycomp","quarterlycompensation","quarterlysalary","comp","compensation","salary","basesalary","basecompensation","compfte","compensationfte"].includes(z)) return "comp_amount";
   if(["start","hire","hire period","start period","hire month","hire months","hire mth","hire quarter","hire qtr"].includes(x)||["hiremonth","hiremonths","hiremth","hirequarter","hireqtr","hireperiod","startperiod"].includes(z)) return "start";
   if(["end","end period","end month","end quarter","termination","termination period"].includes(x)) return "end";
   if(x.includes("escalation")||x==="growth"||x==="growth pct"||x==="growth percent"||z.includes("escalation")||["growthpct","growthpercent"].includes(z)) return "escalation";
@@ -4801,6 +4814,23 @@ function _wfCompPeriodFromHeader(raw){
   if(/(^|\b)(quarterly|quarter|qtr)(\b|$)/.test(x)||/\/\s*(quarter|qtr)\b/.test(x)||/per\s+(quarter|qtr)\b/.test(x))return "quarter";
   return null;
 }
+function _wfCompBasis(v){
+  const x=String(v||"").trim().toLowerCase().replace(/[._-]+/g," ").replace(/\s+/g," ");
+  if(["total","aggregate","whole","total compensation","total comp"].includes(x))return "total";
+  if(["per fte","fte","per unit","unit","per employee","employee"].includes(x))return "per_unit";
+  return null;
+}
+function _wfCompBasisFromHeader(raw){
+  const rawx=String(raw||"").trim().toLowerCase();
+  const x=rawx.replace(/[._-]+/g," ").replace(/\s+/g," ");
+  const z=x.replace(/[^a-z0-9]+/g,"");
+  if(/(^|\b)total(\b|$)/.test(x)||z.startsWith("totalcomp")||z.startsWith("totalcompensation"))return "total";
+  if(/\/\s*fte\b/.test(rawx)||/per\s+fte\b/.test(x)||/per\s+employee\b/.test(x)||z.includes("compfte")||z.includes("compensationfte"))return "per_unit";
+  // Released pre-r108 Workforce paste headers used Annual/Monthly/Quarterly Comp as
+  // compensation per FTE. Preserve that explicit historical schema during migration.
+  if(/(^|\b)(annual|monthly|quarterly)(\b|$)/.test(x)||z.startsWith("annual")||z.startsWith("monthly")||z.startsWith("quarterly"))return "per_unit";
+  return null;
+}
 window.nieWorkforcePaste = function(txt){
   var wf=_ensureWorkforce(), lines=String(txt||"").split(/\r?\n/).filter(x=>String(x).trim()), added=[];
   if(!lines.length){appStatus("err","Nothing to load.");return;}
@@ -4810,56 +4840,54 @@ window.nieWorkforcePaste = function(txt){
   function hv(cols,key){const h=header&&header[key];return h&&cols[h.i]!=null?String(cols[h.i]).trim():"";}
   data.forEach(function(line){
     line=String(line).trim(); if(!line) return;
-    var role="", comp=0, compPeriod=null, startRaw="M1", esc=null, count=1, end=null, load=null;
+    var role="", comp=0, compPeriod=null, compBasis=null, startRaw="M1", esc=null, count=1, end=null, load=null;
     if(header){
       const p=_splitPasteRow(line,delim);
       role=hv(p,"role"); count=hv(p,"count")!==""?_pf(hv(p,"count")):1;
-      // Foundry's user-entry contract is $000s everywhere. New generic compensation
-      // headers must carry an explicit natural amount period. Historical headers that
-      // literally say Annual/Monthly/Quarterly remain self-describing and compatible.
       comp=_pf(hv(p,"comp_amount"))*1000;
       const hp=_wfCompPeriodFromHeader((header.comp_amount||{}).raw), cp=hv(p,"comp_period")!==""?_wfCompPeriod(hv(p,"comp_period")):null;
       if(hv(p,"comp_period")!==""&&!cp)return;
       if(hp&&cp&&hp!==cp)return;
-      compPeriod=cp||hp;
-      if(!compPeriod)return;
+      compPeriod=cp||hp; if(!compPeriod)return;
+      const hb=_wfCompBasisFromHeader((header.comp_amount||{}).raw), cb=hv(p,"comp_basis")!==""?_wfCompBasis(hv(p,"comp_basis")):null;
+      if(hv(p,"comp_basis")!==""&&!cb)return;
+      if(hb&&cb&&hb!==cb)return;
+      compBasis=cb||hb; if(!compBasis)return;
       startRaw=hv(p,"start")||"M1";
       if(hv(p,"end")!==""){end=parseInt(hv(p,"end").replace(/[^0-9]/g,""))||null;if(end!=null&&(end<1||end>84))return;}
       if(hv(p,"escalation")!=="") esc=_pf(hv(p,"escalation"));
       if(hv(p,"payroll_load")!=="") load=_pf(hv(p,"payroll_load"))/100;
     } else if(line.indexOf("\t")>=0){
-      // Headerless pastes are accepted only when the compensation amount period is
-      // supplied explicitly.  Ambiguous legacy 4-column rows now fail closed rather
-      // than silently assuming annual compensation.
-      const p=line.split("\t").map(x=>x.trim()); if(p.length<5) return;
-      role=p[0]; comp=_pf(p[1])*1000; compPeriod=_wfCompPeriod(p[2]); if(!compPeriod)return;
-      startRaw=p[3]||"M1"; esc=_pf(p[4]);
-      if(p[5]!==undefined && p[5]!=="") count=_pf(p[5]);
-      if(p[6]!==undefined && p[6]!==""){end=parseInt(String(p[6]).replace(/[^0-9]/g,""))||null;if(end!=null&&(end<1||end>84))return;}
-      if(p[7]!==undefined && p[7]!=="") load=_pf(p[7])/100;
+      // Headerless r108 rows must carry both amount basis and amount period. No guessing.
+      const p=line.split("\t").map(x=>x.trim()); if(p.length<6) return;
+      role=p[0]; comp=_pf(p[1])*1000; compBasis=_wfCompBasis(p[2]); compPeriod=_wfCompPeriod(p[3]);
+      if(!compBasis||!compPeriod)return;
+      startRaw=p[4]||"M1"; esc=_pf(p[5]);
+      if(p[6]!==undefined && p[6]!=="") count=_pf(p[6]);
+      if(p[7]!==undefined && p[7]!==""){end=parseInt(String(p[7]).replace(/[^0-9]/g,""))||null;if(end!=null&&(end<1||end>84))return;}
+      if(p[8]!==undefined && p[8]!=="") load=_pf(p[8])/100;
     } else {
-      // Headerless CSV uses the same explicit-period contract while still allowing
-      // unquoted thousands commas in compensation.
-      var m=line.match(/^\s*(.*?)\s*,\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s*,\s*([^,]+?)\s*,\s*(.*?)\s*,\s*([-+]?[0-9.]+)%?(?:\s*,\s*([0-9.]+))?(?:\s*,\s*(?:[MQ]\s*)?([0-9]+))?(?:\s*,\s*([-+]?[0-9.]+)%?)?\s*$/i);
+      // Headerless CSV still accepts thousands commas, but basis and period are mandatory.
+      var m=line.match(/^\s*(.*?)\s*,\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)\s*,\s*([^,]+?)\s*,\s*([^,]+?)\s*,\s*(.*?)\s*,\s*([-+]?[0-9.]+)%?(?:\s*,\s*([0-9.]+))?(?:\s*,\s*(?:[MQ]\s*)?([0-9]+))?(?:\s*,\s*([-+]?[0-9.]+)%?)?\s*$/i);
       if(!m) return;
-      role=m[1].trim(); comp=_pf(m[2])*1000; compPeriod=_wfCompPeriod(m[3]); if(!compPeriod)return;
-      startRaw=m[4]||"M1"; esc=_pf(m[5]);
-      if(m[6]!=null) count=_pf(m[6]); if(m[7]!=null){end=+m[7];if(end<1||end>84)return;} if(m[8]!=null) load=_pf(m[8])/100;
+      role=m[1].trim(); comp=_pf(m[2])*1000; compBasis=_wfCompBasis(m[3]); compPeriod=_wfCompPeriod(m[4]); if(!compBasis||!compPeriod)return;
+      startRaw=m[5]||"M1"; esc=_pf(m[6]);
+      if(m[7]!=null) count=_pf(m[7]); if(m[8]!=null){end=+m[8];if(end<1||end>84)return;} if(m[9]!=null) load=_pf(m[9])/100;
     }
     const st=_parseWorkforceStart(startRaw); if(!st) return;
     if(!role && !comp) return;
-    var r={series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:role,count:count||0,annual_comp:comp,compensation_period:compPeriod};
-    if(esc!=null) r.salary_growth_spec={rate:esc/100}; // otherwise inherit workforce default
+    var r={series_id:_seriesId("wf-count"),compensation_series_id:_seriesId("wf-comp"),owner_module:"operating_expense.workforce",role:role,count:count||0,annual_comp:comp,compensation_period:compPeriod,compensation_basis:compBasis};
+    if(esc!=null) r.salary_growth_spec={rate:esc/100};
     if(st.activation) r.activation=st.activation; else r.hire_period=st.hire_period;
     if(end!=null) r.end_period=end; if(load!=null) r.payroll_load_rate=load; added.push(r);
   });
-  if(!added.length){ appStatus("err","No roles parsed. Paste a spreadsheet with headers: <b>Role, Count, Comp / FTE ($000s), Comp Period, Start, End, Escalation %, Benefits/Payroll %</b>. Role, compensation, compensation period and Start are required unless the compensation header itself explicitly says Annual, Monthly or Quarterly. Start may be M17/Q5 or a supported metric trigger."); return; }
+  if(!added.length){ appStatus("err","No roles parsed. Paste headers such as <b>Role, Count, Compensation ($000s), Comp Basis, Comp Period, Start, End, Escalation %, Benefits/Payroll %</b>. Basis is Total or Per FTE. Historical self-describing headers such as Annual Comp ($000s/FTE) remain valid. Headerless rows must explicitly include both basis and period."); return; }
   wf.roles=wf.roles.concat(added);
   var nd=_ensureNieDetail(); if(window._structuredPasteOpen)delete window._structuredPasteOpen.workforce;
   window._nieSectionOpen=window._nieSectionOpen||{};window._nieSectionOpen.workforce=true;
   appStatus("ok",added.length+" workforce role/cohort"+(added.length===1?"":"s")+" loaded.");
   renderContent(); refresh();
-};// Risk-based capital ratios are filed only by banks that did NOT elect the
+}// Risk-based capital ratios are filed only by banks that did NOT elect the
 // Community Bank Leverage Ratio (CBLR) framework. ~1,700 CBLR electors lawfully
 // report leverage_ratio only, so peer counts on these metrics reflect the
 // risk-based-filer subset (~6,546 banks), not the full universe. A short n here
@@ -8800,16 +8828,16 @@ function structuresSectionsHtml(){
       const _defEscPct=(+(wf.default_salary_growth_spec.rate||0)*100), _defLoadPct=(+(wf.default_payroll_load_rate||0)*100);
       h += `<div class="nie-defaults"><div class="nie-default"><span class="nie-default-label">Salary escalation default</span><div class="nie-default-value">${growthSpecInline('assumptions.nie_detail.workforce.default_salary_growth_spec',wf.default_salary_growth_spec,0,true)}</div></div>`;
       h += `<div class="nie-default"><span class="nie-default-label">Benefits &amp; payroll default</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${_defLoadPct.toFixed(1)}" onchange="cfg.assumptions.nie_detail.workforce.default_payroll_load_rate=_pf(this.value)/100;refresh()"><span class="cu">% of compensation</span></div><div class="nie-section-note">Added on top of base compensation for benefits, payroll taxes and employer burden (25% turns $100k base comp into $125k expense).</div></div></div>`;
-      h += '<div class="nie-section-note" style="margin:4px 0 8px">Roles inherit the workforce defaults unless a row explicitly overrides them. Compensation amounts always carry an explicit /Month, /Quarter, or /Year unit; schedule cadence and growth period are separate semantics.</div>';
+      h += '<div class="nie-section-note" style="margin:4px 0 8px">Roles inherit the workforce defaults unless a row explicitly overrides them. Compensation carries an explicit Total / Per FTE basis and /Month, /Quarter, or /Year unit; basis, schedule cadence, and growth period are separate semantics.</div>';
     }
     const _wpo=_structuredPasteIsOpen("workforce");
     h += '<div class="nie-actions"><a href="#" class="cadd" onclick="_structuredPasteSetOpen(\'workforce\',true);return false">⎘ Paste roles</a><a href="#" class="cadd" style="color:#8FA3C0" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Tiered / banded compensation component</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(148,163,184,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
-      h += '<div class="wf-schema"><span>Role</span><span>Count</span><span>Comp / FTE<br>($000s)</span><span>Comp Period</span><span>Start</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
-      h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Comp / FTE, Comp Period, Start</b>. Comp Period is Month, Quarter or Year. A historical header that literally says Annual Comp / Monthly Comp / Quarterly Comp may omit Comp Period because the unit is already explicit. Count and other columns are optional; blank Count defaults to 1. Start may be M17/Q5 or a supported metric trigger.</div>';
-      h += '<textarea id="nieWorkforcePasteBox" rows="6" oninput="_structuredPasteInput(\x27nieWorkforcePasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tComp / FTE ($000s)\tComp Period\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;CEO\t275\tYear\tM1\t\t3.0\t&#10;Compliance Analyst\t95\tMonth\tM17\t\t4.0\t&#10;Operations Lead\t120\tQuarter\tM25\t\t3.5\t"></textarea>';
+      h += '<div class="wf-schema"><span>Role</span><span>Count</span><span>Compensation<br>($000s)</span><span>Comp Basis</span><span>Comp Period</span><span>Start</span><span>Escalation %</span><span>Benefits/Payroll %</span></div>';
+      h += '<div class="cmut" style="margin:0 0 5px">Required: <b>Role, Compensation, Comp Basis, Comp Period, Start</b>. Basis is Total or Per FTE; period is Month, Quarter or Year. Historical headers that explicitly say Annual/Monthly/Quarterly Comp ($000s/FTE) remain backward-compatible. Count stays independently available even when Basis = Total.</div>';
+      h += '<textarea id="nieWorkforcePasteBox" rows="6" oninput="_structuredPasteInput(\x27nieWorkforcePasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Role\tCount\tCompensation ($000s)\tComp Basis\tComp Period\tStart\tEnd\tEscalation %\tBenefits/Payroll %&#10;Operations team\t28.333\t354\tTotal\tMonth\tM1\t\t0\t&#10;Compliance Analyst\t1\t95\tPer FTE\tMonth\tM17\t\t4.0\t"></textarea>';
       h += '<div class="nie-actions"><button id="nieWorkforcePasteBox_load" class="pillbtn" disabled onclick="nieWorkforcePaste(document.getElementById(\'nieWorkforcePasteBox\').value)">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceClear()"' + ((wf.roles||[]).length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#8FA3C0" onclick="_structuredPasteSetOpen(\'workforce\',false);return false">close</a></div></div>';
     }
     if((wf.roles||[]).length){
@@ -8822,9 +8850,9 @@ function structuresSectionsHtml(){
         let row=`<div class="wf-role-card" data-workforce-index="${wi}"><div class="wf-role-grid">`;
         row += `<label class="wf-field"><span class="wf-field-label">Role / population</span><input class="wf-role-name" placeholder="Role / economically homogeneous population" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label>`;
         const _cm=(wr.count_spec&&(wr.count_spec.trajectory||wr.count_spec.mode))||"flat", _cv=(_cm==="growth"?+(wr.count_spec.base||wr.count||1):(_cm==="explicit"?+(((wr.count_spec.values||[])[0])||wr.count||1):+(wr.count_spec&&wr.count_spec.value!=null?wr.count_spec.value:(wr.count!=null?wr.count:1))));
-        const _cps=wr.compensation_spec||null, _cpm=(_cps&&(_cps.trajectory||_cps.mode))||"growth", _cpp=(_cps&&_cps.period)||wr.compensation_period||"year", _cpv=(_cpm==="growth"?+((_cps&&_cps.base)!=null?_cps.base:(wr.annual_comp||0)):(_cpm==="explicit"?+(((_cps&&_cps.values)||[])[0]||wr.annual_comp||0):+((_cps&&_cps.value)!=null?_cps.value:(wr.annual_comp||0))));
+        const _cps=wr.compensation_spec||null, _cpm=(_cps&&(_cps.trajectory||_cps.mode))||"growth", _cpp=(_cps&&_cps.period)||wr.compensation_period||"year", _cpb=(_cps&&_cps.amount_basis)||wr.compensation_basis||"per_unit", _cpv=(_cpm==="growth"?+((_cps&&_cps.base)!=null?_cps.base:(wr.annual_comp||0)):(_cpm==="explicit"?+(((_cps&&_cps.values)||[])[0]||wr.annual_comp||0):+((_cps&&_cps.value)!=null?_cps.value:(wr.annual_comp||0))));
         row += `<label class="wf-field"><span class="wf-field-label">Count</span><input type="number" min="0" step="0.1" value="${_cv}" title="FTE / headcount" onchange="nieWorkforceCountValue(${wi},this.value)"></label>`;
-        row += `<label class="wf-field"><span class="wf-field-label">Comp / FTE</span><div class="sec-book-value" style="gap:4px"><input type="text" inputmode="decimal" value="${fmtComma(_cpv/1000)}" title="$000s/FTE/${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Natural period of the compensation amount" style="width:76px" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
+        row += `<label class="wf-field"><span class="wf-field-label">Compensation</span><div class="wf-comp-value"><input type="text" inputmode="decimal" value="${fmtComma(_cpv/1000)}" title="$000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Economic basis of the compensation amount" onchange="nieWorkforceCompBasis(${wi},this.value)"><option value="total"${_cpb==='total'?' selected':''}>Total</option><option value="per_unit"${_cpb==='per_unit'?' selected':''}>Per FTE</option></select><select title="Natural period of the compensation amount" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
         row += `<label class="wf-field"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
         if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
         row += `</div></label>`;
@@ -8837,8 +8865,8 @@ function structuresSectionsHtml(){
         row += `<details class="wf-series-details"${_advOpen?' open':''} ontoggle="nieWorkforceAdvancedSet('${esc(_advKey)}',this.open)"><summary>Advanced trajectories${_advConfigured?` · Count ${_cm==='flat'?'Flat':(_cm==='growth'?'Growth':'Explicit')}${_cps?` · Compensation ${_cpm==='flat'?'Flat':(_cpm==='growth'?'Growth':'Explicit')}`:''}`:''}</summary><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:7px 0 0"><label class="wf-field" style="width:142px"><span class="wf-field-label">Count path</span><select onchange="nieWorkforceCountMode(${wi},this.value)"><option value="flat"${_cm==='flat'?' selected':''}>Flat</option><option value="growth"${_cm==='growth'?' selected':''}>Growth</option><option value="explicit"${_cm==='explicit'?' selected':''}>Explicit</option></select></label><label class="wf-field" style="width:170px"><span class="wf-field-label">Compensation path</span><select onchange="this.value==='legacy'?nieWorkforceCompLegacy(${wi}):nieWorkforceCompMode(${wi},this.value)"><option value="legacy"${!_cps?' selected':''}>Escalation (default)</option><option value="flat"${_cps&&_cpm==='flat'?' selected':''}>Flat</option><option value="growth"${_cps&&_cpm==='growth'?' selected':''}>Growth</option><option value="explicit"${_cps&&_cpm==='explicit'?' selected':''}>Explicit</option></select></label><span class="cmut" style="margin:15px 0 0">Use only when Count or Compensation needs its own trajectory.</span></div>`;
         if(_cm==="growth"){wr.count_spec.growth_spec=wr.count_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};row += `<div class="crow" style="margin:7px 0 0 0"><span class="cu">Count trajectory</span>${growthSpecInline('assumptions.nie_detail.workforce.roles.'+wi+'.count_spec.growth_spec',wr.count_spec.growth_spec,0,true)}<span class="cmut" style="margin:0">One row = one economically homogeneous population; Count is its equation of motion.</span></div>`;}
         if(_cm==="explicit"){const _cad=wr.count_spec.cadence||"year",_vs=wr.count_spec.values||[],_rid=`wfCountPaste_${wi}`;row += `<div style="margin:7px 0 0;border-left:2px solid #334158;padding-left:9px"><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:0 0 5px"><span class="cu">Count schedule</span><label class="wf-field" style="width:104px"><span class="wf-field-label">Source cadence</span><select onchange="nieWorkforceCountCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select></label>`;if(_seriesResolutionUseful(_cad))row += `<label class="wf-field" style="width:132px"><span class="wf-field-label">Between source points</span><select onchange="nieWorkforceCountResolution(${wi},this.value)"><option value="step"${(wr.count_spec.resolution||'step')==='step'?' selected':''}>Hold</option><option value="smooth"${wr.count_spec.resolution==='smooth'?' selected':''}>Interpolate</option></select></label>`;row += `<span class="cmut" style="margin:15px 0 0">Natural FTE/headcount units</span></div><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Paste Count values from a row or column, e.g. 5&#9;7&#9;10" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCountPaste(${wi},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceCountClear(${wi})"${_vs.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(_vs,v=>String(v),_cad)}</div><div class="cmut" style="margin-top:4px">${_seriesResolutionUseful(_cad)?'Hold keeps each source Count until the next source point; Interpolate ramps linearly between source Count anchors.':'Source cadence already matches model cadence, so no interpolation choice is needed.'}</div></div>`;}
-        if(_cps&&_cpm==="growth"){wr.compensation_spec.growth_spec=wr.compensation_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};row += `<div class="crow" style="margin:7px 0 0 0"><span class="cu">Compensation trajectory</span>${growthSpecInline('assumptions.nie_detail.workforce.roles.'+wi+'.compensation_spec.growth_spec',wr.compensation_spec.growth_spec,0,true)}<span class="cmut" style="margin:0">Base amount is $000s/FTE/${_cpp}; the separate growth period controls when escalation applies.</span></div>`;}
-        if(_cps&&_cpm==="explicit"){const _cad=wr.compensation_spec.cadence||"year",_vs=wr.compensation_spec.values||[],_rid=`wfCompPaste_${wi}`;row += `<div style="margin:7px 0 0;border-left:2px solid #334158;padding-left:9px"><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:0 0 5px"><span class="cu">Compensation schedule</span><label class="wf-field" style="width:104px"><span class="wf-field-label">Schedule cadence</span><select onchange="nieWorkforceCompCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select></label>`;if(_seriesResolutionUseful(_cad))row += `<label class="wf-field" style="width:132px"><span class="wf-field-label">Between source points</span><select onchange="nieWorkforceCompResolution(${wi},this.value)"><option value="step"${(wr.compensation_spec.resolution||'step')==='step'?' selected':''}>Hold</option><option value="smooth"${wr.compensation_spec.resolution==='smooth'?' selected':''}>Interpolate</option></select></label>`;row += `<span class="cmut" style="margin:15px 0 0">Each value: $000s / FTE / ${_cpp}</span></div><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Paste Compensation values, e.g. 95&#9;105&#9;115" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCompPaste(${wi},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceCompClear(${wi})"${_vs.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(_vs,v=>fmtComma((v||0)/1000),_cad)}</div><div class="cmut" style="margin-top:4px">Schedule cadence controls how often the amount changes; Amount per (${_cpp}) controls the unit of every pasted value. ${_seriesResolutionUseful(_cad)?'Hold keeps each source amount until the next source point; Interpolate ramps between source compensation anchors.':'Schedule cadence already matches model cadence, so no interpolation choice is needed.'}</div></div>`;}
+        if(_cps&&_cpm==="growth"){wr.compensation_spec.growth_spec=wr.compensation_spec.growth_spec||{rate:0,period:"year",method:"step",anchor:"hire_anniversary"};row += `<div class="crow" style="margin:7px 0 0 0"><span class="cu">Compensation trajectory</span>${growthSpecInline('assumptions.nie_detail.workforce.roles.'+wi+'.compensation_spec.growth_spec',wr.compensation_spec.growth_spec,0,true)}<span class="cmut" style="margin:0">Base amount is $000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}; the separate growth period controls when escalation applies.</span></div>`;}
+        if(_cps&&_cpm==="explicit"){const _cad=wr.compensation_spec.cadence||"year",_vs=wr.compensation_spec.values||[],_rid=`wfCompPaste_${wi}`;row += `<div style="margin:7px 0 0;border-left:2px solid #334158;padding-left:9px"><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:0 0 5px"><span class="cu">Compensation schedule</span><label class="wf-field" style="width:104px"><span class="wf-field-label">Schedule cadence</span><select onchange="nieWorkforceCompCadence(${wi},this.value)">${_seriesCadenceOptions().map(c=>`<option value="${c}"${c===_cad?' selected':''}>${c}</option>`).join('')}</select></label>`;if(_seriesResolutionUseful(_cad))row += `<label class="wf-field" style="width:132px"><span class="wf-field-label">Between source points</span><select onchange="nieWorkforceCompResolution(${wi},this.value)"><option value="step"${(wr.compensation_spec.resolution||'step')==='step'?' selected':''}>Hold</option><option value="smooth"${wr.compensation_spec.resolution==='smooth'?' selected':''}>Interpolate</option></select></label>`;row += `<span class="cmut" style="margin:15px 0 0">Each value: $000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}</span></div><textarea id="${_rid}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:7px" placeholder="Paste Compensation values, e.g. 95&#9;105&#9;115" oninput="_seriesExplicitPasteInput('${_rid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_rid}_load" class="pillbtn" disabled onclick="nieWorkforceCompPaste(${wi},document.getElementById('${_rid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieWorkforceCompClear(${wi})"${_vs.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(_vs,v=>fmtComma((v||0)/1000),_cad)}</div><div class="cmut" style="margin-top:4px">Schedule cadence controls how often the amount changes; Basis controls whether Count scales compensation, and Amount per (${_cpp}) controls the time unit of every pasted value. ${_seriesResolutionUseful(_cad)?'Hold keeps each source amount until the next source point; Interpolate ramps between source compensation anchors.':'Schedule cadence already matches model cadence, so no interpolation choice is needed.'}</div></div>`;}
         row += `</details>`;
         if(_wt){
           const _wm=_wa.metric||"managed_notional_end", _wrf=_wa.reference||"fixed", _wop=_wa.operator||">=";
@@ -8865,10 +8893,10 @@ function structuresSectionsHtml(){
         const _ptag=PPY()===12?'M':(PPY()===4?'Q':'Y'),_horizon=NP();
         const _hcFmt=v=>{const n=+v||0;return Math.abs(n-Math.round(n))<1e-9?String(Math.round(n)):_numInput(n,3);};
         const _countLabel=wr=>{const s=wr.count_spec||null;if(!s)return 'Flat';const t=s.trajectory||s.mode||'flat';if(t==='explicit')return `Explicit · ${String(s.cadence||'year').replace(/^./,x=>x.toUpperCase())}`;if(t==='growth')return `Growth · ${(((s.growth_spec||{}).rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${(s.growth_spec||{}).period||'year'}`;return 'Flat';};
-        const _compLabel=wr=>{const s=wr.compensation_spec||null,base=+(wr.annual_comp||wr.base_salary_annual||0),per=(s&&s.period)||wr.compensation_period||'year';if(!s)return `${fmtComma(base/1000)} $000s/${per} · Escalation`;const t=s.trajectory||s.mode||'flat';if(t==='explicit'){const vs=s.values||[],a=vs.length?+vs[0]:base,b=vs.length?+vs[vs.length-1]:a;return `${fmtComma(a/1000)} → ${fmtComma(b/1000)} $000s/${per} · Explicit`;}if(t==='growth'){const b=+(s.base!=null?s.base:base),g=s.growth_spec||{};return `${fmtComma(b/1000)} $000s/${per} base · ${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${g.period||'year'}`;}return `${fmtComma((+(s.value!=null?s.value:base))/1000)} $000s/${per} · Flat`;};
+        const _compLabel=wr=>{const s=wr.compensation_spec||null,base=+(wr.annual_comp||wr.base_salary_annual||0),per=(s&&s.period)||wr.compensation_period||'year',basis=(s&&s.amount_basis)||wr.compensation_basis||'per_unit',bl=basis==='total'?'Total':'Per FTE';if(!s)return `${fmtComma(base/1000)} $000s/${per} · ${bl} · Escalation`;const t=s.trajectory||s.mode||'flat';if(t==='explicit'){const vs=s.values||[],a=vs.length?+vs[0]:base,b=vs.length?+vs[vs.length-1]:a;return `${fmtComma(a/1000)} → ${fmtComma(b/1000)} $000s/${per} · ${bl} · Explicit`;}if(t==='growth'){const b=+(s.base!=null?s.base:base),g=s.growth_spec||{};return `${fmtComma(b/1000)} $000s/${per} base · ${bl} · ${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${g.period||'year'}`;}return `${fmtComma((+(s.value!=null?s.value:base))/1000)} $000s/${per} · ${bl} · Flat`;};
         h += '<div style="margin-top:10px;border-top:1px solid rgba(148,163,184,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce run summary · latest run</div>';
-        h += '<div class="cmut" style="margin:0 0 6px">Compact audit of the population path actually used by the engine. Headcount is the resolved active Series; compensation shows its authored natural amount period before payroll load.</div>';
-        h += '<div style="overflow-x:auto"><table class="ovt ovt-grid" style="font-size:10.5px;min-width:760px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation / FTE</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
+        h += '<div class="cmut" style="margin:0 0 6px">Compact audit of the population path actually used by the engine. Headcount is the resolved active Series; compensation shows its authored amount basis and natural period before payroll load.</div>';
+        h += '<div style="overflow-x:auto"><table class="ovt ovt-grid" style="font-size:10.5px;min-width:760px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation amount</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
         let _totStart=0,_totEnd=0;
         (wf.roles||[]).forEach((wr,wi)=>{
           let ri=wr.series_id?_ids.indexOf(String(wr.series_id)):-1;if(ri<0&&wi<_hires.length)ri=wi;
@@ -8889,7 +8917,7 @@ function structuresSectionsHtml(){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
     }
     if(_wfAddComps.length){
-      h += '<div class="workforce-additive-wrap"><div class="csub" style="margin-bottom:3px">Additive compensation components</div><div class="nie-section-note">Use these for compensation that is not Count × compensation/FTE, while keeping the result on the Workforce compensation line.</div>';
+      h += '<div class="workforce-additive-wrap"><div class="csub" style="margin-bottom:3px">Additive compensation components</div><div class="nie-section-note">Use these for separate tiered/banded or formula-driven compensation components; ordinary role compensation can be authored as either Total or Per FTE.</div>';
       _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')h += _workforcePiecewiseEditorHtml(lc,j);});
       h += '</div>';
     }

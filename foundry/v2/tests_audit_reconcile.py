@@ -14,7 +14,7 @@ from openpyxl import load_workbook
 
 sys.path.insert(0, ".")
 
-from foundry.v2.audit_workbook import _fee_cost_rows, calculation_audit_workbook
+from foundry.v2.audit_workbook import _fee_cost_rows, _workforce_rows, calculation_audit_workbook
 from foundry.v2.engine_q_a import run_pf_a
 from foundry.v2.run_q import run_v2
 
@@ -130,6 +130,32 @@ def main():
        found.get("Product operating expense") is not None and found["Product operating expense"][4] == detail["opex"][0])
     ck("workbook keeps separately labelled exact-engine rows",
        all(k in found for k in ("Fee revenue · exact engine", "Fee Product cost · exact engine", "Product operating expense · exact engine")))
+
+    # r108: audit output must expose amount basis and must not accidentally use Count
+    # as the activity gate for Total compensation.
+    wf_cfg = copy.deepcopy(cfg)
+    wf_cfg["assumptions"]["periods_per_year"] = 12
+    wf_cfg["assumptions"]["n_periods"] = 4
+    wf_cfg["assumptions"]["nie_detail"] = {
+        "categories": [], "other_gross_up_rate": 0,
+        "workforce": {"mode": "roles", "default_payroll_load_rate": 0, "roles": [{
+            "series_id": "wf-audit-total", "role": "Operations team", "count": 28.333,
+            "hire_period": 2, "end_period": 3, "annual_comp": 354000,
+            "compensation_period": "month", "compensation_basis": "total",
+            "compensation_spec": {"source": "entered", "trajectory": "explicit",
+                "semantic_type": "compensation", "amount_basis": "total",
+                "period": "month", "cadence": "month", "values": [354000] * 4}
+        }]}
+    }
+    wf_exact = {"workforce": {"resolved_hire_periods": [2],
+                               "counts": [[0.0, 28.333, 28.333, 0.0]]}}
+    wrows = _workforce_rows(wf_cfg, {}, 4, 12, exact=wf_exact)
+    wby = {r[1]: r for r in wrows if r[0] == "Operations team"}
+    ck("Calculation Audit exposes Total versus Per FTE as a first-class Workforce amount basis",
+       (wby.get("Compensation amount basis") or [None] * 5)[4] == ["Total"] * 4
+       and "Authored total compensation" in wby and "Annualized total compensation" in wby)
+    ck("Calculation Audit Total compensation ignores Count arithmetically but respects hire/end timing",
+       (wby.get("Payroll expense · resolved hire 2") or [None] * 5)[4] == [0.0, 354.0, 354.0, 0.0])
 
     # First-principles regression for the user-observed 0.040 discrepancy. The three exact stream
     # costs total 0.038779351215693 $000s; the legacy public parity series rounds that to 0.04.

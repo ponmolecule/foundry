@@ -5,13 +5,14 @@ from typing import Any, Callable, Mapping
 
 from .activation import rule_satisfied
 from .growth import growth_multiplier
+from .series import apply_amount_basis, normalize_amount_basis
 
 
 _COMP_PERIOD_FACTOR = {"year": 1.0, "quarter": 4.0, "month": 12.0}
 
 
 def workforce_compensation_period(role: Mapping[str, Any] | None) -> str:
-    """Return the explicitly authored natural period for compensation per FTE.
+    """Return the explicitly authored natural period for a compensation amount.
 
     r107 makes the amount unit first-class.  Historical Workforce compensation was
     unconditionally annual, so saved rows/specs that predate this field are migrated
@@ -29,6 +30,21 @@ def workforce_compensation_period(role: Mapping[str, Any] | None) -> str:
 
 def _annualize_compensation(value: float, period: str) -> float:
     return float(value or 0.0) * _COMP_PERIOD_FACTOR[period]
+
+
+def workforce_compensation_basis(role: Mapping[str, Any] | None) -> str:
+    """Return ``total`` or ``per_unit`` for a Workforce compensation amount.
+
+    r108 separates the economic basis of the amount from its trajectory and time
+    unit. Historical Workforce rows are ``per_unit`` because every released build
+    through r107 defined compensation as Count × compensation/FTE.
+    """
+    row = role or {}
+    spec = row.get("compensation_spec") or {}
+    raw = spec.get("amount_basis") if spec.get("amount_basis") not in (None, "") else row.get("compensation_basis")
+    return normalize_amount_basis(raw, default="per_unit")
+
+
 
 
 def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, ppy: int = 4,
@@ -119,7 +135,7 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
                                         ppy: int = 4, *, growth_context=None,
                                         start_period: int = 1,
                                         default_growth_spec: Mapping[str, Any] | None = None) -> list[float]:
-    """Resolve compensation per FTE to annual-equivalent levels.
+    """Resolve a Workforce compensation amount to annual-equivalent levels.
 
     r107 gives Flat / Growth / Explicit compensation an explicit natural amount period
     (Month / Quarter / Year).  The generic Series machinery still resolves *levels* and
@@ -128,8 +144,10 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
     :class:`WorkforceRuntime`.
 
     ``compensation_spec.period`` owns the amount unit.  Explicit ``cadence`` separately
-    owns how often source values may change.  Missing periods on historical saved models
-    mean Year because that was the only pre-r107 compensation contract.
+    owns how often source values may change. r108 separately owns whether the amount is
+    ``total`` or ``per_unit``; this resolver intentionally does not apply Count. Missing
+    periods on historical saved models mean Year because that was the only pre-r107
+    compensation contract.
     """
     role = role or {}
     n, ppy = int(n_periods), int(ppy)
@@ -169,8 +187,8 @@ def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int
     """Resolve one role/population's native-period payroll expense flow.
 
     This is the observational cross-module seam used by cost pools.  It intentionally
-    composes Count × compensation/FTE in its authored natural period × payroll load and
-    periodizes once, exactly as the Workforce runtime does.  Metric-triggered roles fail closed here because a fee
+    applies the authored compensation amount basis (Total or Per FTE) in its natural
+    period, then payroll load, and periodizes once, exactly as the Workforce runtime does.  Metric-triggered roles fail closed here because a fee
     sourced from payroll can itself affect financial metrics used to activate Workforce;
     that feedback loop needs an explicit dependency design before it can be supported.
     """
@@ -337,6 +355,7 @@ class WorkforceRuntime:
                                                        include_activation_window=False)
             annual = float(row.get("annual_comp") or row.get("base_salary_annual") or 0.0)
             comp_period = workforce_compensation_period(row)
+            comp_basis = workforce_compensation_basis(row)
             end = row.get("end_period")
             end = int(end) if end not in (None, "") else None
             load = float(row.get("payroll_load_rate") if row.get("payroll_load_rate") is not None else self.default_load)
@@ -369,7 +388,8 @@ class WorkforceRuntime:
                         row, self.n, self.ppy, growth_context=self.growth_context,
                         start_period=comp_start, default_growth_spec=self.default_spec)
             self.rows.append({"raw": row, "count": count, "count_series": count_series,
-                              "annual": annual, "comp_period": comp_period, "end": end, "load": load,
+                              "annual": annual, "comp_period": comp_period, "comp_basis": comp_basis,
+                              "end": end, "load": load,
                               "activation": activation, "hire": hire, "spec": legacy_spec,
                               "comp_ns": comp_ns, "comp_series": comp_series})
 
@@ -378,7 +398,10 @@ class WorkforceRuntime:
         total = 0.0
         for st in self.rows:
             count_now = float(st["count_series"][q - 1]) if q <= len(st["count_series"]) else 0.0
-            if count_now <= 0:
+            # Preserve the released Per-FTE contract exactly: a zero-count row never
+            # posted payroll or resolved a metric-triggered hire. Total compensation
+            # deliberately does not use Count as an arithmetic or activation gate.
+            if st["comp_basis"] == "per_unit" and count_now <= 0:
                 continue
             if st["hire"] is None:
                 if metric_getter is None:
@@ -406,7 +429,9 @@ class WorkforceRuntime:
                                          ppy=self.ppy, context=self.growth_context,
                                          base_position="period1")
                 annual_now = _annualize_compensation(st["annual"], st["comp_period"]) * mult
-            total += annual_now * count_now * (1.0 + st["load"]) / float(self.ppy)
+            authored_native = annual_now / float(self.ppy)
+            based_amount = apply_amount_basis(authored_native, st["comp_basis"], count_now)
+            total += based_amount * (1.0 + st["load"])
         return total
 
     def count_for_period(self, period: int) -> list[float]:

@@ -355,24 +355,32 @@ def _nie_sheet(ws, nd, ppy=4):
             if _cps:
                 _cpt = _cps.get("trajectory") or _cps.get("mode") or "flat"
                 _cpp = str(_cps.get("period") or "year").lower()
+                _cpb = str(_cps.get("amount_basis") or role.get("compensation_basis") or "per_unit").lower()
+                _cpl = "Total" if _cpb == "total" else "Per FTE"
+                _cpu = f"$/{_cpp} total" if _cpb == "total" else f"$/{_cpp} per FTE"
                 _row(root + ".compensation_spec.trajectory", sec, "Compensation trajectory", _cpt, "flat / growth / explicit")
+                _row(root + ".compensation_spec.amount_basis", sec, "Compensation amount basis", _cpb, "total / per_unit (Per FTE)")
                 if "period" in _cps:
                     _row(root + ".compensation_spec.period", sec, "Compensation amount period", _cpp, "month / quarter / year")
                 if _cpt == "flat":
-                    _row(root + ".compensation_spec.value", sec, "Compensation / FTE", _cps.get("value", role.get("annual_comp", 0)), f"$/{_cpp} per FTE")
+                    _row(root + ".compensation_spec.value", sec, f"Compensation — {_cpl}", _cps.get("value", role.get("annual_comp", 0)), _cpu)
                 elif _cpt == "growth":
-                    _row(root + ".compensation_spec.base", sec, "Compensation — base", _cps.get("base", role.get("annual_comp", 0)), f"$/{_cpp} per FTE")
+                    _row(root + ".compensation_spec.base", sec, f"Compensation — {_cpl} base", _cps.get("base", role.get("annual_comp", 0)), _cpu)
                     _growth_rows(root + ".compensation_spec.growth_spec", sec, "Compensation growth", _cps.get("growth_spec") or {})
                 elif _cpt == "explicit":
                     _row(root + ".compensation_spec.cadence", sec, "Compensation schedule cadence", _cps.get("cadence", "year"), "year / quarter / month")
                     _row(root + ".compensation_spec.resolution", sec, "Compensation schedule resolution", _cps.get("resolution", "step"), "step / smooth")
                     for _j, _v in enumerate(_cps.get("values") or []):
-                        _row(root + f".compensation_spec.values.{_j}", sec, f"Compensation schedule — source period {_j + 1}", _v, f"$/{_cpp} per FTE")
+                        _row(root + f".compensation_spec.values.{_j}", sec, f"Compensation schedule — source period {_j + 1}", _v, _cpu)
             else:
                 _cpp = str(role.get("compensation_period") or "year").lower()
+                _cpb = str(role.get("compensation_basis") or "per_unit").lower()
+                _cpl = "Total" if _cpb == "total" else "Per FTE"
+                _cpu = f"$/{_cpp} total" if _cpb == "total" else f"$/{_cpp} per FTE"
+                _row(root + ".compensation_basis", sec, "Compensation amount basis", _cpb, "total / per_unit (Per FTE)")
                 if "compensation_period" in role:
                     _row(root + ".compensation_period", sec, "Compensation amount period", _cpp, "month / quarter / year")
-                _row(root + ".annual_comp", sec, "Base compensation / FTE", role.get("annual_comp"), f"$/{_cpp} per FTE")
+                _row(root + ".annual_comp", sec, f"Base compensation — {_cpl}", role.get("annual_comp"), _cpu)
             _act = role.get("activation") or {}
             if _act:
                 _row(root + ".activation.type", sec, "Activation type", _act.get("type", "metric"), "metric")
@@ -651,10 +659,12 @@ def _settings_sheet(wb, cfg):
                     _start = f"trigger {_act.get('metric')}{_src} {_act.get('operator','>=')} {_ref}"
                 else:
                     _start = f"hire {('M' if int(a.get('periods_per_year') or 4)==12 else 'Q')}{_wr.get('hire_period',1)}"
-                _wp = ((_wr.get("compensation_spec") or {}).get("period")
-                       or _wr.get("compensation_period") or "year")
+                _wcs = _wr.get("compensation_spec") or {}
+                _wp = (_wcs.get("period") or _wr.get("compensation_period") or "year")
+                _wbasis = (_wcs.get("amount_basis") or _wr.get("compensation_basis") or "per_unit")
+                _wblabel = "total" if _wbasis == "total" else "per FTE"
                 row(_wr.get("role") or "workforce role",
-                    f"{_wr.get('count',1)} FTE · {_start} · ${float(_wr.get('annual_comp') or 0):,.0f}/{_wp}",
+                    f"{_wr.get('count',1)} FTE · {_start} · ${float(_wr.get('annual_comp') or 0):,.0f}/{_wp} {_wblabel}",
                     "role/cohort")
         else:
             if nd.get("fte_by_year") is not None:
@@ -1120,7 +1130,16 @@ def diff_import(data, current_cfg):
                     _stem = "opex_fixed" if parts[-1] == "per_period" else "growth"
                     old = quarterly_value_to_period(_stem, float(_lv), _ppy)
             newv = _coerce(old, val)
-            changed = not _num_eq(old, newv)
+            # r108 semantic migration: every pre-r108 Workforce compensation amount was
+            # Per FTE even though the basis field did not exist.  The FIW surfaces that
+            # effective default for auditability, but a clean export/import must remain
+            # a no-op.  Only an actual edit to Total should materialize the new field.
+            _semantic_default = (
+                sheet == "ASSM_NIE" and old is None and newv == "per_unit"
+                and parts[-1] in ("compensation_basis", "amount_basis")
+                and "workforce" in parts and "roles" in parts
+            )
+            changed = False if _semantic_default else not _num_eq(old, newv)
             if changed and newv is not None:
                 _apply_path(merged, parts, newv)
                 if _legacy_part is not None:

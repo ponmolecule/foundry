@@ -390,6 +390,11 @@ def validate_config_v2(cfg):
                     errs.append(f"nie_detail.workforce.roles[{i}].count_spec invalid: {e}")
             if not isinstance(comp, (int, float)) or comp < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].annual_comp must be non-negative")
+            try:
+                from .workforce import workforce_compensation_basis
+                workforce_compensation_basis(role)
+            except (TypeError, ValueError) as e:
+                errs.append(f"nie_detail.workforce.roles[{i}].compensation_basis invalid: {e}")
             if role.get("compensation_spec"):
                 try:
                     from .series import normalize_series_spec, resolve_entered_series

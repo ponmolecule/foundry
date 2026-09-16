@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import copy
 
-from .series import normalize_series_spec, resolve_entered_series, resolve_series_spec, annual_value
+from .series import normalize_series_spec, resolve_entered_series, resolve_series_spec, annual_value, normalize_amount_basis
 from .workforce import workforce_role_count_series, workforce_role_compensation_series, workforce_comp_series
 from .cac_feeder import cac_auc_rollforward, channel_new_customers
 
@@ -100,6 +100,63 @@ def main():
     except ValueError as e:
         bad_period="month/quarter/year" in str(e)
     ck("unsupported Workforce compensation amount period fails closed", bad_period)
+
+    # r108: amount basis is independent of Count, amount period, and trajectory.
+    # The motivating case carries headcount for downstream consumers while the authored
+    # $354k/month is already the entire Workforce compensation amount.
+    total_explicit={
+        "series_id":"wf-total-explicit","role":"Operations team","count":28.333,"hire_period":1,
+        "annual_comp":354000,"compensation_period":"month","compensation_basis":"total","payroll_load_rate":0,
+        "compensation_spec":{"source":"entered","series_id":"wf-total-explicit-value",
+            "owner_module":"operating_expense.workforce","semantic_type":"compensation",
+            "amount_basis":"total","trajectory":"explicit","period":"month","cadence":"month",
+            "values":[354000]*12,"resolution":"step","extend":"hold"}}
+    total_explicit_count=workforce_role_count_series(total_explicit,12,12)
+    total_explicit_pay=workforce_comp_series({"roles":[total_explicit]},12,12)
+    ck("Total Explicit compensation does not multiply the authored amount by Workforce Count",
+       all(_eq(x,354000) for x in total_explicit_pay), total_explicit_pay[:2])
+    ck("Total compensation leaves Workforce Count independently available for other consumers",
+       all(_eq(x,28.333) for x in total_explicit_count), total_explicit_count[:2])
+
+    per_fte_explicit=copy.deepcopy(total_explicit)
+    per_fte_explicit["series_id"]="wf-per-fte-explicit"
+    per_fte_explicit["compensation_basis"]="per_unit"
+    per_fte_explicit["compensation_spec"]["series_id"]="wf-per-fte-explicit-value"
+    per_fte_explicit["compensation_spec"]["amount_basis"]="per_unit"
+    per_fte_pay=workforce_comp_series({"roles":[per_fte_explicit]},12,12)
+    ck("Per FTE Explicit compensation preserves Count × amount economics",
+       all(_eq(x,354000*28.333) for x in per_fte_pay), per_fte_pay[:2])
+
+    total_flat={"role":"Total flat","count":7,"hire_period":1,"end_period":2,
+                "annual_comp":10000,"compensation_period":"month","compensation_basis":"total",
+                "payroll_load_rate":0,"compensation_spec":{"source":"entered","trajectory":"flat",
+                    "amount_basis":"total","period":"month","value":10000}}
+    ck("Total Flat compensation is count-independent but still respects the active window",
+       workforce_comp_series({"roles":[total_flat]},4,12)==[10000,10000,0,0])
+
+    total_growth={"role":"Total growth","count":2,"hire_period":1,"annual_comp":10000,
+                  "compensation_period":"month","compensation_basis":"total","payroll_load_rate":0,
+                  "count_spec":{"source":"entered","trajectory":"explicit","cadence":"year","values":[2,4]},
+                  "compensation_spec":{"source":"entered","trajectory":"growth","amount_basis":"total",
+                      "period":"month","base":10000,
+                      "growth_spec":{"rate":.10,"period":"year","method":"step","anchor":"model_year"}}}
+    total_growth_pay=workforce_comp_series({"roles":[total_growth]},24,12)
+    ck("Total Growth compensation changes with its own trajectory rather than Count trajectory",
+       all(_eq(x,10000) for x in total_growth_pay[:12])
+       and all(_eq(x,11000) for x in total_growth_pay[12:]))
+
+    legacy_basis={"role":"Legacy basis","count":2,"hire_period":1,"annual_comp":120000,
+                  "compensation_period":"year","payroll_load_rate":0}
+    ck("pre-r108 Workforce rows migrate semantically to Per FTE without changing economics",
+       _eq(sum(workforce_comp_series({"roles":[legacy_basis]},12,12)),240000))
+    ck("generic amount-basis aliases normalize without embedding Workforce terminology",
+       normalize_amount_basis("per_fte")=="per_unit" and normalize_amount_basis("aggregate")=="total")
+    bad_basis=False
+    try:
+        workforce_comp_series({"roles":[{**legacy_basis,"compensation_basis":"mystery"}]},12,12)
+    except ValueError as e:
+        bad_basis="total/per_unit" in str(e)
+    ck("unsupported Workforce compensation amount basis fails closed", bad_basis)
 
     # Stable-ID operating-expense link: CAC consumes the expense trajectory instead of duplicating it.
     assumptions={"n_periods":24,"nie_detail":{"categories":[{
@@ -237,6 +294,16 @@ def main():
     try: validate_config_v2(cfg)
     except ConfigErrorV2 as e: bad=("missing" in str(e) and "series_id" in str(e))
     ck("config validation fails closed on broken links and duplicate stable IDs", bad)
+
+    basis_cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    basis_cfg["assumptions"]["periods_per_year"]=12; basis_cfg["assumptions"]["n_periods"]=12
+    basis_cfg["assumptions"]["nie_detail"]={"categories":[],"workforce":{"mode":"roles","roles":[{
+        "role":"Invalid basis","count":1,"annual_comp":120000,"compensation_basis":"mystery","hire_period":1
+    }]}}
+    bad_basis_cfg=False
+    try: validate_config_v2(basis_cfg)
+    except ConfigErrorV2 as e: bad_basis_cfg="compensation_basis" in str(e) and "total/per_unit" in str(e)
+    ck("config validation rejects unsupported Workforce compensation basis before engine execution", bad_basis_cfg)
 
     print(f"\n{P} passed, {F} failed")
     return 0 if F==0 else 1
