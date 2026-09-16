@@ -102,14 +102,14 @@ def main():
     except ValueError as e: unsafe_failed="runtime metrics" in str(e)
     ck("CAC fails closed instead of silently omitting runtime-dependent Opex components", unsafe_failed)
 
-    # Finer source cadence is explicit economic metadata: flows sum, levels/rates average.
+    # Finer source cadence is explicit economic metadata: operands resolve monthly before the equation runs.
     monthly_ch={"name":"Monthly source","method":"spend_cac","params":{},"avg_auc_per_customer":1,
         "driver_specs":{
           "spend":{"source":"entered","trajectory":"explicit","cadence":"month","values":[10000]*12,"aggregation":"sum"},
           "cac":{"source":"entered","trajectory":"explicit","cadence":"month","values":[1200]*12,"aggregation":"average"},
           "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
     mr=cac_auc_rollforward({"channels":[monthly_ch],"attrition_rate":0},12,12,assumptions={})
-    ck("CAC explicit monthly Spend sums into annual equation while CAC level averages",
+    ck("CAC explicit monthly Spend and CAC are evaluated month-by-month then aggregate annually",
        _eq(mr["annual"][0]["total_spend"],120000) and _eq(mr["annual"][0]["new_cust"],100))
     quarterly_ch={"name":"Quarterly source","method":"spend_cac","params":{},"avg_auc_per_customer":1,
         "driver_specs":{
@@ -117,7 +117,7 @@ def main():
           "cac":{"source":"entered","trajectory":"explicit","cadence":"quarter","values":[1200]*4,"aggregation":"average","resolution":"step"},
           "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
     qr=cac_auc_rollforward({"channels":[quarterly_ch],"attrition_rate":0},12,12,assumptions={})
-    ck("CAC quarterly Explicit values reduce directly without Step/Smooth or monthly triple-counting",
+    ck("CAC quarterly Explicit flows resolve across constituent months without triple-counting",
        _eq(qr["annual"][0]["total_spend"],120000) and _eq(qr["annual"][0]["new_cust"],100))
 
     # Rename display label; stable series_id keeps link intact.

@@ -626,8 +626,24 @@ def run_v2(cfg):
                     _ch["new_auc"] = float(_ch.get("new_auc") or 0.0) / 1000.0
                     _ch["spend"] = float(_ch.get("spend") or 0.0) / 1000.0
                 _annual.append(_x)
+            _monthly = []
+            for _r in _cr.get("monthly") or []:
+                _x = copy.deepcopy(_r)
+                for _k in ("beg_auc", "new_auc", "auc_lost", "end_auc", "total_spend", "attrition_basis_auc"):
+                    if _x.get(_k) is not None:
+                        _x[_k] = float(_x.get(_k) or 0.0) / 1000.0
+                for _ch in _x.get("channels") or []:
+                    _ch["new_auc"] = float(_ch.get("new_auc") or 0.0) / 1000.0
+                    _ch["spend"] = float(_ch.get("spend") or 0.0) / 1000.0
+                    _ops = _ch.get("operands") or {}
+                    for _ok in ("spend", "comp_per_fte", "avg_auc_per_customer"):
+                        if _ok in _ops:
+                            _ops[_ok] = float(_ops.get(_ok) or 0.0) / 1000.0
+                _monthly.append(_x)
             _cac_out[_nm] = {
                 "annual": _annual,
+                "monthly": _monthly,
+                "calculationCadence": "month",
                 "yearEndAUC": [float(v or 0.0) / 1000.0 for v in (_cr.get("year_end_auc") or [])],
                 "aucEndByPeriod": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_period") or [])],
                 "aucEndByMonth": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_month") or [])],
@@ -637,8 +653,6 @@ def run_v2(cfg):
                 "customerLevelByPeriod": [float(v or 0.0) for v in (_cr.get("customer_level_by_period") or [])],
                 "customerAverageByPeriod": [float(v or 0.0) for v in (_cr.get("customer_average_by_period") or [])],
                 "customerAnnualCountByPeriod": [float(v or 0.0) for v in (_cr.get("customer_annual_count_by_period") or [])],
-                "aucIntraYearShape": str((_fcfg or {}).get("intra_year_shape") or "linear"),
-                "customerIntraYearShape": str((_fcfg or {}).get("customer_intra_year_shape") or (_fcfg or {}).get("intra_year_shape") or "linear"),
                 "moneyUnits": "$000s",
                 "customerUnits": "count",
                 "rateUnits": "decimal",

@@ -213,11 +213,15 @@ def main():
           "avg_auc_per_customer":30_000_000}]}}
     pr=run_v2(prec); pwb=calculation_audit_workbook(prec,pr)
     chrows=[r for r in pwb["CAC Channels"].iter_rows(values_only=True)
-            if len(r)>14 and r[0]=="affiliates" and r[2]==2]
-    ck("calculation audit workbook exposes exact CAC channel operands through New AUC",
-       bool(chrows) and abs(float(chrows[0][5])-688.793)<1e-12
-       and abs(float(chrows[0][6])-.08)<1e-12 and abs(float(chrows[0][12])-30_000_000)<1e-9
-       and abs(float(chrows[0][13])-55.10344)<1e-12 and abs(float(chrows[0][14])-1_653_103_200)<1e-6, str(chrows[:1]))
+            if len(r)>=10 and r[0]=="affiliates" and r[2]==2]
+    mdetail=[r for r in pwb["CAC Monthly Acquisition"].iter_rows(values_only=True)
+             if len(r)>=19 and r[0]=="affiliates" and r[3]==2 and r[5]=="Affiliate Customer Channel"]
+    ck("calculation audit workbook exposes exact CAC annual summary and causal monthly operands",
+       bool(chrows) and abs(float(chrows[0][5])-55.10344)<1e-12
+       and abs(float(chrows[0][6])-1_653_103_200)<1e-6
+       and len(mdetail)==12 and abs(float(mdetail[0][7])-(688.793/12.0))<1e-12
+       and abs(float(mdetail[0][8])-.08)<1e-12 and abs(float(mdetail[0][14])-30_000_000)<1e-9
+       and abs(sum(float(r[15]) for r in mdetail)-55.10344)<1e-12, str(chrows[:1])+str(mdetail[:1]))
     snap=[r for r in pwb["Config Snapshot"].iter_rows(values_only=True)
           if len(r)>1 and r[0]=="assumptions.cac_feeds.affiliates.channels[0].driver_specs.pool.values[1]"]
     ck("calculation audit workbook retains exact authored CAC source precision in Config Snapshot",

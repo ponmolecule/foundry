@@ -7,8 +7,15 @@ commits; management_capital_target leaves financials byte-identical (config_hash
 design). Standing rule: the canonical preview config is pf_a_ots_msr with management target
 0.10, changed only on client instruction, and any change is called out in the reply.
 
-
-
+## r104 — Canonical-monthly Customer Acquisition engine
+- Replaces Customer Acquisition's annual causal engine plus post-hoc within-year shaping with one canonical monthly calculation. Month / Quarter / Year now belong to each CAC source assumption; annual tables are presentation aggregations of the monthly results.
+- Flow operands (`Pool`, `Acquisition Spend`, `Productivity`, `Compensation/FTE`, `Explicit New Customers`) own a natural Month / Quarter / Year amount period. Annual totals are spread over twelve causal months, quarterly totals over three, and monthly amounts are used directly. Level/rate operands (`Conversion`, `CAC $/customer`, `FTE Count`, `Average AUC/customer`) hold as levels until their authored trajectory changes.
+- Cross-module CAC links consume the source owner's monthly-resolved Series directly and are never periodized twice. The r103 Operating Expense → CAC contract therefore remains intact, including Workforce Count × amount/FTE components.
+- `Pool × Conversion`, `Spend ÷ CAC`, `FTE × Productivity`, and `Explicit Customers` are evaluated month-by-month. A varying monthly pool and conversion path therefore uses `sum(monthly pool × monthly conversion)` rather than multiplying annual averages.
+- Existing-book attrition is source-period causal: Month / Quarter / Year controls the attrition event period, and the rate is applied at the source-period boundary to the book that existed at the beginning of that source period. Annual attrition therefore remains a once-per-year opening-book assumption rather than being repeated twelve times.
+- Legacy `intra_year_shape` / `customer_intra_year_shape` fields remain readable but no longer manufacture CAC timing after an annual calculation. Legacy `new_customers_by_year` retains its historical zero-beyond-supplied-years extension behavior.
+- CAC Explicit authoring always offers Month / Quarter / Year even under quarterly presentation. Switching a natural-period flow or attrition assumption between Flat/Growth/Explicit preserves its authored amount/source period rather than silently changing economics.
+- Calculation Audit adds `CAC Monthly Acquisition`, exposing every monthly channel operand and equation result. `CAC Channels` is now explicitly an annual summary; `CAC Monthly Canonical` adds monthly acquisition/attrition flows alongside stock observations.
 
 
 

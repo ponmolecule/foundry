@@ -1,7 +1,8 @@
-"""Golden tests for cadence-agnostic, N-channel Customer Acquisition authoring.
+"""Golden tests for canonical-monthly, N-channel Customer Acquisition authoring.
 
-The customer-base feeder must accept explicit annual driver schedules without learning
-engagement-specific channel names.  Legacy scalar+growth configs remain unchanged.
+Month / Quarter / Year belong to each source operand.  CAC resolves those sources onto a
+canonical monthly grid, evaluates the acquisition equation monthly, and aggregates upward for
+annual presentation without learning engagement-specific channel names.
 """
 import copy
 import json
@@ -9,6 +10,7 @@ import math
 
 from . import run_q
 from .cac_feeder import cac_auc_rollforward, channel_new_customers, channel_avg_auc, channel_spend
+from .audit_workbook import calculation_audit_workbook
 
 
 def _eq(a, b, tol=1e-6):
@@ -31,6 +33,10 @@ def main():
     ck("legacy pool x conversion Y1 unchanged", _eq(channel_new_customers(legacy,1),20.0))
     ck("legacy pool growth Y2 unchanged", _eq(channel_new_customers(legacy,2),22.0))
     ck("legacy avg AUC growth Y2 unchanged", _eq(channel_avg_auc(legacy,2),525000.0))
+    legacy_exp={"name":"Legacy explicit","method":"explicit",
+                "params":{"new_customers_by_year":[12.0],"spend":0.0},"avg_auc_per_customer":1.0}
+    ck("legacy explicit-customer schedule still returns zero beyond its supplied years",
+       _eq(channel_new_customers(legacy_exp,1),12.0) and _eq(channel_new_customers(legacy_exp,2),0.0))
 
     # 2) Explicit annual schedules override the legacy scalar/growth values generically.
     scheduled = copy.deepcopy(legacy)
@@ -154,7 +160,7 @@ def main():
     ck("public result surfaces canonical customer-count path and explicit downstream measures",
        len(caq.get("customerEndByMonth") or [])==84 and len(caq.get("customerLevelByPeriod") or [])==28
        and len(caq.get("customerAverageByPeriod") or [])==28 and len(caq.get("customerAnnualCountByPeriod") or [])==28
-       and caq.get("aucIntraYearShape")=="linear" and caq.get("customerIntraYearShape")=="linear")
+       and caq.get("calculationCadence")=="month" and len(caq.get("monthly") or [])==84)
 
     # 10) A Fee Product can consume the CAC-owned customer book directly without re-authoring
     # another count path. The downstream stream must name WHICH customer semantic it consumes.
@@ -224,18 +230,80 @@ def main():
        _eq(xm[0],.66,.011) and _eq(sum(xm),95.0,.05)
        and _eq(sum(xq),sum(xm),.05), xm)
 
-    # AUC and active-client within-year shapes must be independently authorable.
-    split=copy.deepcopy(probe_feed); split["intra_year_shape"]="linear"; split["customer_intra_year_shape"]="stepped"
+    # CAC timing is now calculated, not manufactured from a post-hoc within-year shape.
+    pr=cac_auc_rollforward(probe_feed,12,12)
+    split=copy.deepcopy(probe_feed); split["intra_year_shape"]="stepped"; split["customer_intra_year_shape"]="stepped"
     sr=cac_auc_rollforward(split,12,12)
-    ck("CAC client timing is independent from AUC timing",
-       _eq(sr["auc_end_by_month"][0],sr["year_end_auc"][0]/12.0)
-       and _eq(sr["customer_end_by_month"][0],38.0)
-       and sr["auc_end_by_month"][0] != sr["year_end_auc"][0])
+    ck("legacy within-year shape fields no longer manufacture CAC timing",
+       all(_eq(a,b) for a,b in zip(sr["auc_end_by_month"], pr["auc_end_by_month"]))
+       and all(_eq(a,b) for a,b in zip(sr["customer_end_by_month"], pr["customer_end_by_month"])))
+    ck("CAC explicitly reports canonical monthly calculation cadence", sr.get("calculation_cadence")=="month")
 
-    bad_shape=copy.deepcopy(probe_feed); bad_shape["customer_intra_year_shape"]="opaque"
-    try: cac_auc_rollforward(bad_shape,12,12); bad_shape_raised=False
-    except ValueError: bad_shape_raised=True
-    ck("unsupported client within-year shape fails closed", bad_shape_raised)
+    # Sub-year source cadence changes the monthly equation itself instead of being averaged first.
+    varying={"name":"Varying pool","method":"pool_conversion","params":{},"avg_auc_per_customer":1,
+             "driver_specs":{
+                 "pool":{"source":"entered","trajectory":"explicit","cadence":"month","values":[100]*6+[1000]*6},
+                 "conversion_rate":{"source":"entered","trajectory":"explicit","cadence":"month","values":[.10]*6+[.01]*6},
+                 "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
+    vr=cac_auc_rollforward({"channels":[varying],"attrition_rate":0},12,12,assumptions={})
+    vq=cac_auc_rollforward({"channels":[varying],"attrition_rate":0},4,4,assumptions={})
+    ck("Pool × Conversion is evaluated month by month, not product-of-annual-averages",
+       _eq(vr["annual"][0]["new_cust"],120.0)
+       and not _eq(vr["annual"][0]["new_cust"],((100*6+1000*6)/12)*((.10*6+.01*6)/12)))
+    ck("monthly CAC source schedules remain causal under quarterly presentation",
+       _eq(vq["annual"][0]["new_cust"],120.0)
+       and all(_eq(a["new_cust"],b["new_cust"]) for a,b in zip(vr["monthly"],vq["monthly"]))
+       and all(_eq(a,b) for a,b in zip(vr["auc_end_by_month"],vq["auc_end_by_month"])))
+
+    # Equivalent natural-period flow entries resolve to identical monthly economics.
+    spend_year={"name":"Y","method":"spend_cac","params":{},"avg_auc_per_customer":1,
+                "driver_specs":{"spend":{"source":"entered","trajectory":"flat","value":120000,"period":"year"},
+                                "cac":{"source":"entered","trajectory":"flat","value":1000},
+                                "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
+    spend_month=copy.deepcopy(spend_year); spend_month["driver_specs"]["spend"].update({"value":10000,"period":"month"})
+    ry=cac_auc_rollforward({"channels":[spend_year],"attrition_rate":0},12,12,assumptions={})
+    rm=cac_auc_rollforward({"channels":[spend_month],"attrition_rate":0},12,12,assumptions={})
+    ck("Spend ÷ CAC accepts equivalent Year and Month natural-period inputs",
+       all(_eq(a["new_cust"],b["new_cust"]) for a,b in zip(ry["monthly"],rm["monthly"]))
+       and _eq(ry["annual"][0]["new_cust"],120.0))
+
+    prod_year={"name":"PY","method":"fte_productivity","params":{},"avg_auc_per_customer":1,
+               "driver_specs":{"ftes":{"source":"entered","trajectory":"flat","value":3},
+                               "per_fte":{"source":"entered","trajectory":"flat","value":24,"period":"year"},
+                               "comp_per_fte":{"source":"entered","trajectory":"flat","value":120000,"period":"year"},
+                               "avg_auc_per_customer":{"source":"entered","trajectory":"flat","value":1}}}
+    prod_month=copy.deepcopy(prod_year); prod_month["driver_specs"]["per_fte"].update({"value":2,"period":"month"}); prod_month["driver_specs"]["comp_per_fte"].update({"value":10000,"period":"month"})
+    py=cac_auc_rollforward({"channels":[prod_year],"attrition_rate":0},12,12,assumptions={})
+    pm=cac_auc_rollforward({"channels":[prod_month],"attrition_rate":0},12,12,assumptions={})
+    ck("FTE productivity and compensation accept equivalent Year and Month natural periods",
+       all(_eq(a["new_cust"],b["new_cust"]) and _eq(a["total_spend"],b["total_spend"]) for a,b in zip(py["monthly"],pm["monthly"]))
+       and _eq(py["annual"][0]["new_cust"],72.0) and _eq(py["annual"][0]["total_spend"],360000.0))
+
+    # Attrition source cadence is causal: annual applies once to the opening-year book; monthly applies monthly.
+    attr_base={"channels":[],"beginning_customers":100,"beginning_auc":100000}
+    ay=copy.deepcopy(attr_base); ay["driver_specs"]={"attrition_rate":{"source":"entered","trajectory":"flat","value":.12,"period":"year"}}
+    am=copy.deepcopy(attr_base); am["driver_specs"]={"attrition_rate":{"source":"entered","trajectory":"flat","value":.01,"period":"month"}}
+    ary=cac_auc_rollforward(ay,12,12); arm=cac_auc_rollforward(am,12,12)
+    ck("annual attrition remains 12% of beginning-year book and posts at its source-period boundary",
+       _eq(ary["annual"][0]["cust_lost"],12.0) and all(_eq(x["cust_lost"],0) for x in ary["monthly"][:-1]) and _eq(ary["monthly"][-1]["cust_lost"],12.0))
+    ck("monthly attrition is evaluated each month rather than averaged into an annual equation",
+       _eq(arm["monthly"][0]["cust_lost"],1.0) and arm["annual"][0]["cust_lost"]>11.0 and arm["annual"][0]["cust_lost"]<12.0)
+
+    # Calculation Audit must expose the causal monthly equation, not only annual summaries/stocks.
+    audit_cfg=json.load(open("foundry/fixtures/universal_template_bank.json"))
+    aa=audit_cfg["assumptions"]; aa["periods_per_year"]=4; aa["n_periods"]=4; aa["capital_raises"]=[]
+    audit_varying=copy.deepcopy(varying); audit_varying["series_id"]="cac-varying-audit"
+    aa["cac_feeds"]={"varying":{"series_id":"cac-varying-audit","customer_count_series_id":"cac-varying-count",
+                                  "channels":[audit_varying],"attrition_rate":0,"beginning_auc":0,"beginning_customers":0}}
+    audit_res=run_q.run_v2(audit_cfg)
+    audit_wb=calculation_audit_workbook(audit_cfg,audit_res)
+    ck("Calculation Audit includes causal CAC Monthly Acquisition sheet",
+       "CAC Monthly Acquisition" in audit_wb.sheetnames)
+    ar=[r for r in audit_wb["CAC Monthly Acquisition"].iter_rows(values_only=True)
+        if len(r)>=19 and r[0]=="varying" and r[5]=="Varying pool"]
+    ck("CAC Monthly Acquisition exposes source-cadence operands before monthly equation evaluation",
+       len(ar)==12 and _eq(ar[0][7],100) and _eq(ar[0][8],.10) and _eq(ar[0][15],10)
+       and _eq(ar[6][7],1000) and _eq(ar[6][8],.01) and _eq(ar[6][15],10), str(ar[:1]+ar[6:7]))
 
     opening=copy.deepcopy(probe_feed); opening["beginning_customers"]=10
     orr=cac_auc_rollforward(opening,12,12)
