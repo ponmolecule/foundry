@@ -399,7 +399,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
     else:
         auc_levels_q = [auc_end_by_month[(q + 1) * 3 - 1] for q in range(int(Q))]
 
-    from .balance_measures import native_balance_measure_series
+    from .balance_measures import native_balance_measure_series, monthly_balance_measure_series
     customer_end_by_period = native_balance_measure_series(
         float((cac_cfg or {}).get("beginning_customers") or 0.0),
         customer_end_by_month, int(Q), ppy, "period_end")
@@ -411,6 +411,15 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
     else:
         customer_level_by_period = [
             sum(customer_end_by_month[q * 3:(q + 1) * 3]) / 3.0 for q in range(int(Q))]
+    # Canonical monthly forms of every customer-count measure are retained for downstream
+    # authoring/audit surfaces.  Consumers should not have to reconstruct these semantics in
+    # the browser from a prior run's EOP path.
+    customer_average_by_month = monthly_balance_measure_series(
+        float((cac_cfg or {}).get("beginning_customers") or 0.0), customer_end_by_month, "period_average")
+    customer_annual_count_by_month = [
+        float(year_end_customers[min(len(year_end_customers) - 1, i // 12)] or 0.0)
+        for i in range(len(customer_end_by_month))
+    ] if year_end_customers else [0.0] * len(customer_end_by_month)
     customer_annual_count_by_period = [
         float(year_end_customers[min(len(year_end_customers) - 1, i // ppy)] or 0.0)
         for i in range(int(Q))] if year_end_customers else [0.0] * int(Q)
@@ -458,7 +467,9 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "customer_end_by_month": customer_end_by_month,
             "customer_end_by_period": customer_end_by_period,
             "customer_level_by_period": customer_level_by_period,
+            "customer_average_by_month": customer_average_by_month,
             "customer_average_by_period": customer_average_by_period,
+            "customer_annual_count_by_month": customer_annual_count_by_month,
             "customer_annual_count_by_period": customer_annual_count_by_period,
             "year_end_customers": year_end_customers,
             "monthly": monthly, "annual": annual, "derived_series": derived_series,
