@@ -353,7 +353,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     # a typed schedule. Do not spill every monthly value into the authoring screen.
     linked_count_compact_js=("const window=globalThis; let cfg={assumptions:{cac_feeds:{Growth:{customer_count_series_id:'cac-count-growth',beginning_customers:80}},obs_exposures:[]}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} function renderContent(){} function refresh(){} function fmtComma(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _feeBasisTileHtml(){return '<tile>'; }\n"
-        "let lastRes={customer_acquisition:{Growth:{customerEndByMonth:Array.from({length:36},(_,i)=>100+i),yearEndCustomers:[111,123,135]}}};\n"
+        "let lastRes={customer_acquisition:{Growth:{customerEndByMonth:Array.from({length:36},(_,i)=>100+i),customerAverageByMonth:Array.from({length:36},(_,i)=>99.5+i),customerAnnualCountByMonth:Array.from({length:36},(_,i)=>111+12*Math.floor(i/12)),yearEndCustomers:[111,123,135]}}};\n"
         + hjs + fjs +
         "\nconst vals=Array.from({length:36},(_,i)=>100+i); const direct=_explicitPreviewHtml(vals,v=>fmtComma(v),'month'); const out=_feeCustomerCountPreviewHtml('cac-count-growth','period_end'); console.log(JSON.stringify({details:out.includes('<details class=\"explicit-preview\">'),count:out.includes('36 loaded'),viewAll:out.includes('View all'),compact:out.includes('M1 100 · M2 101 · M3 102 · … · M34 133 · M35 134 · M36 135'),samePreview:out.includes(direct),actions:out.includes('<div class=\"nie-actions\"'),spill:out.includes('cac-link-readonly'),card:out.includes('cac-link-preview'),selectedCard:out.includes('Selected Customer Acquisition Series'),readOnlyCard:out.includes('read-only here')}));")
     lcr=subprocess.run(["node","-e",linked_count_compact_js],text=True,capture_output=True); lcj={}
@@ -364,6 +364,37 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        lcr.returncode==0 and lcj.get("details") and lcj.get("count") and lcj.get("viewAll") and lcj.get("compact")
        and lcj.get("samePreview") and lcj.get("actions") and not lcj.get("spill") and not lcj.get("card")
        and not lcj.get("selectedCard") and not lcj.get("readOnlyCard"), str(lcj)+" "+lcr.stderr.strip())
+    # r111: all three source-owned customer-count measures must survive arbitrary selector cycling,
+    # source changes, and a preview that initially has no result. The Products tab deliberately
+    # avoids a full rerender after preview, so the linked preview has its own surgical refresh.
+    customer_measure_cycle_js=("const window=globalThis; let cfg={assumptions:{cac_feeds:{Growth:{customer_count_series_id:'cac-count-growth'},Alt:{customer_count_series_id:'cac-count-alt'}},obs_exposures:[]}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;} function _seriesId(p){return p+'-id';} function _ensureLinkableSeriesIds(){} let renders=0,refreshes=0; function renderContent(){renders++;} function refresh(){refreshes++;} function fmtComma(x){return String(x);} function _pf(x){return +(String(x).replace(/,/g,''))||0;} function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _feeBasisTileHtml(){return '<tile>'; }\n"
+        + hjs + fjs +
+        "\nconst st={name:'Customers',basis:'account',driver:{source:'customer_acquisition_count',ref:'cac-count-growth',measure:'period_end',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{unit_fee:{value:1,period:'year'}}},cost:{kind:'none',params:{}}}; const prod={name:'Platform',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[prod];"
+        " let lastRes={customer_acquisition:{Growth:{customerEndByMonth:[10,20,30],customerAverageByMonth:[5,15,25],customerAnnualCountByMonth:[30,30,30]},Alt:{customerEndByMonth:[100,200,300],customerAverageByMonth:[50,150,250],customerAnnualCountByMonth:[300,300,300]}}};"
+        " const seen=[]; for(const m of ['annual_count','period_average','period_end','annual_count','period_end']){feeCustomerCountMeasureChange(0,0,m); const out=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure); seen.push([st.driver.measure,out]);}"
+        " feeCustomerCountSourceChange(0,0,'cac-count-alt'); const alt=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure); feeCustomerCountSourceChange(0,0,'cac-count-growth'); const backSource=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);"
+        " feeStreamDriverSourceChange(0,0,'constant'); feeStreamDriverSourceChange(0,0,'customer_acquisition_count'); const backDriver=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);"
+        " const emptyBefore=(()=>{const save=lastRes;lastRes=null;const x=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure);lastRes=save;return x;})();"
+        " let V31=true,currentTab='products'; const el={attrs:{'data-product-index':'0','data-stream-index':'0'},html:'',getAttribute(k){return this.attrs[k]},set innerHTML(v){this.html=v},get innerHTML(){return this.html}}; const document={querySelectorAll(){return [el]}}; refreshFeeCustomerCountPreviews(); const repopulated=el.html;"
+        " console.log(JSON.stringify({seen:seen.map(x=>[x[0],x[1].includes('M1 30'),x[1].includes('M1 5'),x[1].includes('M1 10')]),alt:alt.includes('M1 100'),backSource:backSource.includes('M1 10'),backDriver:st.driver.measure==='period_end'&&backDriver.includes('M1 10'),empty:emptyBefore.includes('Run the model to preview'),repopulated:repopulated.includes('M1 10'),renders,refreshes}));")
+    cmr=subprocess.run(["node","-e",customer_measure_cycle_js],text=True,capture_output=True); cmj={}
+    if cmr.returncode==0 and cmr.stdout.strip():
+        try: cmj=json.loads(cmr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    _seen=cmj.get("seen") or []
+    ck("customer-count measure selector can cycle through all measures and return without losing preview",
+       cmr.returncode==0 and len(_seen)==5
+       and _seen[0][0]=="annual_count" and _seen[0][1]
+       and _seen[1][0]=="period_average" and _seen[1][2]
+       and _seen[2][0]=="period_end" and _seen[2][3]
+       and _seen[3][0]=="annual_count" and _seen[3][1]
+       and _seen[4][0]=="period_end" and _seen[4][3], str(cmj)+" "+cmr.stderr.strip())
+    ck("linked customer preview survives source changes, driver cycling, and repopulates after a successful run",
+       cmj.get("alt") and cmj.get("backSource") and cmj.get("backDriver") and cmj.get("empty") and cmj.get("repopulated"), str(cmj))
+    ck("customer-count preview consumes engine-owned monthly measure paths instead of browser reconstruction",
+       'customerAnnualCountByMonth' in html and 'customerAverageByMonth' in html
+       and 'eop.map((v,i)=>(((i?eop[i-1]:opening)+v)/2))' not in html)
     # Another-stream authoring must never display a stream as selected unless driver.ref actually stores it.
     stream_ref_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"

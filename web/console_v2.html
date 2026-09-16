@@ -1741,7 +1741,7 @@ async function preview(){
   // BUT the three per-product summary numbers (Q12 balance / revenue / contribution) read from
   // lastRes and must still update — refresh just those in place so they don't look frozen.
   if(!(V31 && currentTab==="products")) renderContent();
-  else refreshProductStats();
+  else { refreshProductStats(); refreshFeeCustomerCountPreviews(); }
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the
   // corridor's modeled placements read lastRes, and without this an edit made just
   // before switching tabs (within the 350ms preview debounce) could leave the
@@ -2549,19 +2549,31 @@ function _feeCustomerCountOptions(){
 }
 function _feeCustomerCountPreviewHtml(seriesId,measure){
   const sid=String(seriesId||""),opt=_feeCustomerCountOptions().find(o=>o.series_id===sid);
-  if(!opt)return `<div class="cac-link-preview"><b>Customer-count source unavailable.</b> Select a Customer Acquisition feed.</div>`;
-  const ca=((((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{}), fd=((((cfg||{}).assumptions||{}).cac_feeds||{})[opt.feed]||{});
-  const eop=(ca.customerEndByMonth||[]).map(v=>+v||0), opening=+fd.beginning_customers||0, m=String(measure||"period_end");
-  let vals=[];
-  if(m==="period_average")vals=eop.map((v,i)=>(((i?eop[i-1]:opening)+v)/2));
-  else if(m==="annual_count"){const y=(ca.yearEndCustomers||[]).map(v=>+v||0);vals=eop.map((_,i)=>y[Math.min(y.length-1,Math.floor(i/12))]||0);}
-  else vals=eop;
+  if(!opt)return `<span class="memo" style="margin:3px 0 0">Customer-count source unavailable. Select a Customer Acquisition feed.</span>`;
+  const ca=((((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{}),m=String(measure||"period_end");
+  // Every selectable measure is now an explicit engine-owned canonical monthly path.  The
+  // authoring screen only presents those values; it does not reconstruct annual/average
+  // customer semantics from a prior EOP result in browser code.
+  let raw=[];
+  if(m==="annual_count")raw=ca.customerAnnualCountByMonth||[];
+  else if(m==="period_average")raw=ca.customerAverageByMonth||[];
+  else raw=ca.customerEndByMonth||[];
+  const vals=(raw||[]).map(v=>+v||0);
   // Linked customer counts deliberately use the ordinary Explicit schedule presentation.
   // The source/measure controls above already disclose that the values are linked; do not
   // wrap the resolved path in a second "linked Series" card or otherwise give it a
   // different visual grammar from a directly-authored schedule.
   if(vals.length)return `<div class="nie-actions" style="margin-top:4px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
   return `<span class="memo" style="margin:3px 0 0">Run the model to preview the linked customer path.</span>`;
+}
+function refreshFeeCustomerCountPreviews(){
+  if(!(V31 && currentTab==="products") || !lastRes)return;
+  document.querySelectorAll("[data-fee-customer-count-preview]").forEach(el=>{
+    const i=+(el.getAttribute("data-product-index")||-1),si=+(el.getAttribute("data-stream-index")||-1);
+    const st=(((((cfg||{}).assumptions||{}).obs_exposures||[])[i]||{}).fee_streams||[])[si];
+    if(!st||!st.driver||st.driver.source!=="customer_acquisition_count")return;
+    el.innerHTML=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure||"period_end");
+  });
 }
 _feeGlobal.addFeeCostPool=function(i,si){
   const pools=_feeCostPools();let n=1;const names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
@@ -2600,6 +2612,17 @@ _feeGlobal.feeStreamBasisChange=function(i,si,v){
   if(["account","flat","event"].includes(v)) delete st.driver.params.coefficient;
   if(st.driver.source==="cost_pool"&&v!=="transaction"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{}};st.cost={kind:"none",params:{}};}
   if(st.driver.source==="customer_acquisition_count"&&v!=="account"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};}
+  renderContent();refresh();
+};
+_feeGlobal.feeCustomerCountSourceChange=function(i,si,v){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};
+  const opts=_feeCustomerCountOptions(),sid=String(v||"");
+  st.driver.ref=opts.some(o=>o.series_id===sid)?sid:(opts.length?opts[0].series_id:"");
+  renderContent();refresh();
+};
+_feeGlobal.feeCustomerCountMeasureChange=function(i,si,v){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};
+  st.driver.measure=["annual_count","period_end","period_average"].includes(String(v||""))?String(v):"period_end";
   renderContent();refresh();
 };
 _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
@@ -2802,9 +2825,9 @@ function fieldsFor(fam, p, base){
       if(src==="customer_acquisition_count"){
         const _ccopts=_feeCustomerCountOptions(),_ccref=String(st.driver.ref||"");let _ccsel=_ccopts.slice();if(_ccref&&!_ccsel.some(o=>o.series_id===_ccref))_ccsel.unshift({series_id:_ccref,label:"Missing Customer Acquisition count source: "+_ccref});
         const _ccmeasure=String(st.driver.measure||"period_end");
-        h += `<div class="fld wide"><label>Ending bank customers source</label><select style="min-width:260px" onchange="setPath('${sb}.driver.ref',this.value);renderContent();refresh()">${_ccsel.length?_ccsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_ccref?' selected':''}>${esc(o.label)}</option>`).join(''):'<option value="">No Customer Acquisition feeds yet</option>'}</select><span class="memo" style="margin:4px 0 0">Customer Acquisition owns this Series. Linking it here does not copy or recreate the customer path. Any manual count schedule previously entered on this stream is preserved in reserve and returns if Driver source is changed back to Constant.</span></div>`;
-        h += `<div class="fld wide"><label>Customer-count measure</label><select style="min-width:300px" onchange="setPath('${sb}.driver.measure',this.value);renderContent();refresh()"><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end bank customers · held through model year</option><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>Ending bank customers · monthly period end</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Period-average bank customers</option></select><span class="memo" style="margin:4px 0 0">${_ccmeasure==='annual_count'?'Uses CAC’s year-end customer count in every model period of that year.':(_ccmeasure==='period_average'?'Uses (prior month-end + current month-end) / 2 and aggregates canonical monthly exposures in quarterly models.':'Uses CAC’s canonical monthly Ending bank customers Series; quarterly models average the three monthly EOP observations before applying an annual account fee.')}</span></div>`;
-        h += `<div class="fld wide">${_feeCustomerCountPreviewHtml(_ccref,_ccmeasure)}</div>`;
+        h += `<div class="fld wide"><label>Ending bank customers source</label><select style="min-width:260px" onchange="feeCustomerCountSourceChange(${_fi},${si},this.value)">${_ccsel.length?_ccsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_ccref?' selected':''}>${esc(o.label)}</option>`).join(''):'<option value="">No Customer Acquisition feeds yet</option>'}</select><span class="memo" style="margin:4px 0 0">Customer Acquisition owns this Series. Linking it here does not copy or recreate the customer path. Any manual count schedule previously entered on this stream is preserved in reserve and returns if Driver source is changed back to Constant.</span></div>`;
+        h += `<div class="fld wide"><label>Customer-count measure</label><select style="min-width:300px" onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end bank customers · held through model year</option><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>Ending bank customers · monthly period end</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Period-average bank customers</option></select><span class="memo" style="margin:4px 0 0">${_ccmeasure==='annual_count'?'Uses CAC’s year-end customer count in every model period of that year.':(_ccmeasure==='period_average'?'Uses (prior month-end + current month-end) / 2 and aggregates canonical monthly exposures in quarterly models.':'Uses CAC’s canonical monthly Ending bank customers Series; quarterly models average the three monthly EOP observations before applying an annual account fee.')}</span></div>`;
+        h += `<div class="fld wide" data-fee-customer-count-preview data-product-index="${_fi}" data-stream-index="${si}">${_feeCustomerCountPreviewHtml(_ccref,_ccmeasure)}</div>`;
       }
       if(src==="cost_pool"){
         const _pools=_feeCostPools(),_pool=_feeCostPoolByRef(st.driver.ref),_cpref=String(st.driver.ref||"");

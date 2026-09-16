@@ -159,8 +159,12 @@ def main():
        all(_eq(caq["aucEndByMonth"][i], ca.get("aucEndByPeriod")[i]) for i in range(84)))
     ck("public result surfaces canonical customer-count path and explicit downstream measures",
        len(caq.get("customerEndByMonth") or [])==84 and len(caq.get("customerLevelByPeriod") or [])==28
-       and len(caq.get("customerAverageByPeriod") or [])==28 and len(caq.get("customerAnnualCountByPeriod") or [])==28
+       and len(caq.get("customerAverageByMonth") or [])==84 and len(caq.get("customerAverageByPeriod") or [])==28
+       and len(caq.get("customerAnnualCountByMonth") or [])==84 and len(caq.get("customerAnnualCountByPeriod") or [])==28
        and caq.get("calculationCadence")=="month" and len(caq.get("monthly") or [])==84)
+    ck("canonical monthly customer measures are source-owned and internally consistent",
+       _eq(caq["customerAverageByMonth"][0], (seven.get("beginning_customers",0)+caq["customerEndByMonth"][0])/2.0)
+       and all(_eq(caq["customerAnnualCountByMonth"][m], caq["yearEndCustomers"][m//12]) for m in range(84)))
 
     # 10) A Fee Product can consume the CAC-owned customer book directly without re-authoring
     # another count path. The downstream stream must name WHICH customer semantic it consumes.
