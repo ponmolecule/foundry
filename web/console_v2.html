@@ -2557,7 +2557,7 @@ function _feeCustomerCountPreviewHtml(seriesId,measure){
   else if(m==="annual_count"){const y=(ca.yearEndCustomers||[]).map(v=>+v||0);vals=eop.map((_,i)=>y[Math.min(y.length-1,Math.floor(i/12))]||0);lab="Year-end bank customers · held through model year";}
   else vals=eop;
   let h=`<div class="cac-link-preview"><div class="cac-link-preview-row"><span class="wf-field-label">Selected Customer Acquisition Series</span><span class="cu">${esc(lab)} · read-only here</span></div>`;
-  if(vals.length)h+=`<div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.map((v,k)=>'M'+(k+1)+' '+fmtComma(v)).join(' · '))}</div>`;
+  if(vals.length)h+=`<div class="nie-actions" style="margin-top:5px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
   else h+=`<div class="cmut" style="margin-top:5px">Run the model to preview the linked customer path.</div>`;
   return h+`</div>`;
 }
