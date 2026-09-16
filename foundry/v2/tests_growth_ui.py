@@ -21,7 +21,7 @@ def main():
     mb=html.index("// Static mirror", ma)
     js += "\n" + html[ma:mb]
     roles="\n".join(
-        f"Role {i+1}\t{60+i}\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
+        f"Role {i+1}\t{60+i}\tYear\tM{1+(i*7)%57}\t{2+(i%4)}" for i in range(48)
     )
     prefix=r'''
 const window=globalThis;
@@ -47,9 +47,9 @@ const cat=JSON.parse(JSON.stringify(cfg.assumptions.nie_detail.categories[0]));
 window.nieWorkforcePaste(__ROLES__);
 const wf=cfg.assumptions.nie_detail.workforce;
 const nroles=wf.roles.length, maxhire=Math.max(...wf.roles.map(r=>r.hire_period));
-window.nieWorkforcePaste("Custody Ops\t120\tEOP AUC [Custody] >= 1B\t3.5");
+window.nieWorkforcePaste("Custody Ops\t120\tYear\tEOP AUC [Custody] >= 1B\t3.5");
 const trigger=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1].activation));
-window.nieWorkforcePaste("Controller, 3,000, M36, 4.0");
+window.nieWorkforcePaste("Controller, 3,000, Year, M36, 4.0");
 const csv=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
 window.nieWorkforcePaste("Role\tCount\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation %\tPayroll Load %\nTreasurer\t2\t130\tM8\tM36\t\t27.5");
 const hdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
@@ -57,6 +57,16 @@ window.nieWorkforcePaste("Role\tAnnual Comp ($000s/FTE)\tStart\tEnd\tEscalation 
 const canon=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
 window.nieWorkforcePaste("Role\tAnnualSalary\tHireMonth\tAnnualEscalation\nCFO\t3,000\t12\t4.0");
 const compactHdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
+const _beforeLegacyHeaderless=wf.roles.length;
+window.nieWorkforcePaste("Ambiguous legacy\t358\tM1\t3");
+const legacyHeaderlessRejected=(wf.roles.length===_beforeLegacyHeaderless);
+const _beforeNoPeriod=wf.roles.length;
+window.nieWorkforcePaste("Role\tComp / FTE ($000s)\tStart\nUnsafe generic comp\t358\tM1");
+const noPeriodRejected=(wf.roles.length===_beforeNoPeriod);
+window.nieWorkforcePaste("Role\tComp / FTE ($000s)\tComp Period\tStart\nMonthly Ops\t358\tMonth\tM1");
+const monthlyHdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
+window.nieWorkforcePaste("Role\tMonthly Comp ($000s/FTE)\tStart\nMonthly Header Ops\t358\tM1");
+const monthlyNamedHdr=JSON.parse(JSON.stringify(wf.roles[wf.roles.length-1]));
 // Unit-parity audit: every bulk/manual user entry uses $000s. 3,000 means $3,000,000.
 const entered="3,000", manualAmt=_pf(entered)*1000;
 cfg.pre_opening.expenses=[]; window.poPaste("Legal\t3,000","replace"); const poAmt=cfg.pre_opening.expenses[0].total;
@@ -71,7 +81,7 @@ window.nieOff(); const simpleHasDraft=!!cfg.assumptions._nie_detail_draft && cfg
 window.nieOn(); const restored=(cfg.assumptions.nie_detail.categories||[])[0].name;
 cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
 window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
-console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,aucSources,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
+console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,legacyHeaderlessRejected,noPeriodRejected,monthlyHdr,monthlyNamedHdr,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,aucSources,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
 '''.replace('__ROLES__', json.dumps(roles))
     br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     bj={}
@@ -113,7 +123,19 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     compact=bj.get("compactHdr") or {}
     ck("compact spreadsheet headers AnnualSalary / HireMonth / AnnualEscalation are recognized",
        compact.get("role")=="CFO" and abs(compact.get("annual_comp",0)-3_000_000)<1e-9
+       and compact.get("compensation_period")=="year"
        and compact.get("hire_period")==12 and abs((compact.get("salary_growth_spec") or {}).get("rate",0)-.04)<1e-12)
+    mh=bj.get("monthlyHdr") or {}; mnh=bj.get("monthlyNamedHdr") or {}
+    ck("ambiguous headerless workforce compensation paste fails closed instead of assuming Year",
+       bj.get("legacyHeaderlessRejected") is True)
+    ck("generic workforce compensation paste fails closed without an explicit amount period",
+       bj.get("noPeriodRejected") is True)
+    ck("workforce paste accepts a separate Comp Period and preserves the authored monthly unit",
+       mh.get("role")=="Monthly Ops" and abs(mh.get("annual_comp",0)-358000)<1e-9
+       and mh.get("compensation_period")=="month" and mh.get("hire_period")==1)
+    ck("self-describing Monthly Comp headers remain valid without a separate Comp Period column",
+       mnh.get("role")=="Monthly Header Ops" and abs(mnh.get("annual_comp",0)-358000)<1e-9
+       and mnh.get("compensation_period")=="month" and mnh.get("hire_period")==1)
     up=bj.get("unitParity") or {}
     ck("paste/manual unit semantics are aligned across every bulk-entry surface",
        up=={"manualAmt":3000000,"poAmt":3000000,"faAmt":3000000,"catAmt":3000000,"wfAmt":3000000}, str(up))
@@ -494,16 +516,21 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'blank=5.0' not in html and 'blank=1.5' not in html)
     ck("workforce paste guidance describes clipboard columns and restores optional Count",
        'you do not need to type tab characters' in html and 'Tabs preferred' not in html
-       and 'Annual Comp<br>($000s/FTE)' in html and '<span>Count</span>' in html)
+       and 'Comp / FTE<br>($000s)' in html and '<span>Comp Period</span>' in html
+       and 'Comp Period is Month, Quarter or Year.' in html and '<span>Count</span>' in html)
     ck("workforce main row stays compact while advanced Count/Compensation paths remain available",
        '<span class="wf-field-label">Count</span>' in html
-       and '<span class="wf-field-label">Annual Comp</span>' in html
+       and '<span class="wf-field-label">Comp / FTE</span>' in html
+       and 'nieWorkforceCompPeriod(${wi},this.value)' in html
+       and 'Natural period of the compensation amount' in html
        and '<span class="wf-field-label">Escalation</span>' in html
        and 'Legacy escalation' not in html and '>↗</option>' not in html and '>⋯</option>' not in html
        and 'Advanced trajectories' in html and 'Count path' in html and 'Compensation path' in html
        and 'nieWorkforceCountMode' in html and 'nieWorkforceCompMode' in html and 'nieWorkforceCompLegacy' in html
        and 'Count schedule' in html and 'One row = one economically homogeneous population' in html
-       and '$000s/FTE/year' in html and 'nieWorkforceCompValue' in html and 'Compensation trajectory' in html)
+       and 'Each value: $000s / FTE / ${_cpp}' in html and 'nieWorkforceCompValue' in html
+       and 'Compensation trajectory' in html and 'Schedule cadence' in html
+       and 'Amount per (${_cpp}) controls the unit of every pasted value.' in html)
     # Regression: adding another role must not reopen Advanced trajectories that a user closed.
     wa=html.index("window._nieWorkforceAdvancedOpen=window._nieWorkforceAdvancedOpen||{};")
     wb=html.index("window.nieWorkforceCountMode=",wa)

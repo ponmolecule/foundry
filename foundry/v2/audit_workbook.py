@@ -766,7 +766,7 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
     hires = list(wfout.get("resolved_hire_periods") or [])
     counts = list(wfout.get("counts") or [])
     gctx = growth_context_from_cfg(cfg, ppy)
-    from .workforce import workforce_role_compensation_series
+    from .workforce import workforce_role_compensation_series, workforce_compensation_period
     default_load = float(wfcfg.get("default_payroll_load_rate") or 0.0)
     default_spec = wfcfg.get("default_salary_growth_spec")
     total = [0.0] * n
@@ -778,6 +778,9 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
         start = int(hire or 1)
         annual = workforce_role_compensation_series(role, n, ppy, growth_context=gctx,
                                                      start_period=start, default_growth_spec=default_spec)
+        comp_period = workforce_compensation_period(role)
+        factor = {"year": 1.0, "quarter": 4.0, "month": 12.0}[comp_period]
+        authored = [float(v or 0.0) / factor for v in annual]
         load = float((role or {}).get("payroll_load_rate") if (role or {}).get("payroll_load_rate") is not None else default_load)
         exp = []
         for p in range(n):
@@ -787,7 +790,9 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
             exp.append(e)
             total[p] += e
         rows.append((name, "Active count", sid, "FTE / headcount", cnt, _COUNT_FMT))
-        rows.append((name, "Annual compensation / FTE", sid, "$ / year", annual, _MONEY_FMT))
+        rows.append((name, "Authored compensation / FTE", sid,
+                     f"$ / FTE / {comp_period}", authored, _MONEY_FMT))
+        rows.append((name, "Annualized compensation / FTE", sid, "$ / FTE / year", annual, _MONEY_FMT))
         rows.append((name, f"Payroll load ({load:.4%})", sid, "decimal", [load] * n, _RATE_FMT))
         rows.append((name, f"Payroll expense · resolved hire {hire or '—'}", sid, "$000s / engine period", exp, _MONEY_FMT))
     if wfout.get("comp"):

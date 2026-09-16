@@ -7,6 +7,30 @@ from .activation import rule_satisfied
 from .growth import growth_multiplier
 
 
+_COMP_PERIOD_FACTOR = {"year": 1.0, "quarter": 4.0, "month": 12.0}
+
+
+def workforce_compensation_period(role: Mapping[str, Any] | None) -> str:
+    """Return the explicitly authored natural period for compensation per FTE.
+
+    r107 makes the amount unit first-class.  Historical Workforce compensation was
+    unconditionally annual, so saved rows/specs that predate this field are migrated
+    semantically to ``year`` rather than changing their economics on load.
+    """
+    row = role or {}
+    spec = row.get("compensation_spec") or {}
+    raw = spec.get("period") if spec else row.get("compensation_period")
+    period = str(raw or "year").strip().lower()
+    if period not in _COMP_PERIOD_FACTOR:
+        raise ValueError(
+            f"unsupported workforce compensation period {raw!r}; expected month/quarter/year")
+    return period
+
+
+def _annualize_compensation(value: float, period: str) -> float:
+    return float(value or 0.0) * _COMP_PERIOD_FACTOR[period]
+
+
 def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, ppy: int = 4,
                                  *, growth_context=None, include_activation_window: bool = True) -> list[float]:
     """Resolve one economically homogeneous workforce population's headcount path.
@@ -95,18 +119,23 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
                                         ppy: int = 4, *, growth_context=None,
                                         start_period: int = 1,
                                         default_growth_spec: Mapping[str, Any] | None = None) -> list[float]:
-    """Resolve annual compensation per FTE as a Foundry Series.
+    """Resolve compensation per FTE to annual-equivalent levels.
 
-    New authoring uses ``compensation_spec`` (Flat / Growth / Explicit).  The returned
-    values are annual compensation levels, not payroll expense; payroll periodization
-    happens once in :class:`WorkforceRuntime`.  With no ``compensation_spec`` this helper
-    reproduces the historical ``annual_comp`` + salary-growth path, including its
-    hire-anniversary start-period semantics.
+    r107 gives Flat / Growth / Explicit compensation an explicit natural amount period
+    (Month / Quarter / Year).  The generic Series machinery still resolves *levels* and
+    schedule cadence; this helper then converts those authored amounts to an annual
+    equivalent so payroll can continue to periodize exactly once in
+    :class:`WorkforceRuntime`.
+
+    ``compensation_spec.period`` owns the amount unit.  Explicit ``cadence`` separately
+    owns how often source values may change.  Missing periods on historical saved models
+    mean Year because that was the only pre-r107 compensation contract.
     """
     role = role or {}
     n, ppy = int(n_periods), int(ppy)
     base = float(role.get("annual_comp") or role.get("base_salary_annual") or 0.0)
     cs = role.get("compensation_spec")
+    period = workforce_compensation_period(role)
     if cs:
         from .series import normalize_series_spec, resolve_entered_series
         ns = normalize_series_spec(cs, default_value=base)
@@ -116,17 +145,21 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
                 "compatible module-owned source and none is currently whitelisted")
         if ns["trajectory"] == "growth":
             from .growth import resolve_growth_series
-            return resolve_growth_series(float(ns["base"]), ns["growth_spec"], n, ppy,
-                                         start_period=int(start_period), context=growth_context)
-        return resolve_entered_series(ns, n, ppy, context=growth_context, default_value=base)
+            raw = resolve_growth_series(float(ns["base"]), ns["growth_spec"], n, ppy,
+                                        start_period=int(start_period), context=growth_context)
+        else:
+            raw = resolve_entered_series(ns, n, ppy, context=growth_context, default_value=base)
+        return [_annualize_compensation(v, period) for v in raw]
 
     spec = dict(default_growth_spec or {
         "rate": 0.0, "period": "year", "method": "step", "anchor": "hire_anniversary"
     })
     spec.update(role.get("salary_growth_spec") or {})
-    return [base * growth_multiplier(spec, current_period=q, start_period=int(start_period),
-                                     ppy=ppy, context=growth_context, base_position="period1")
-            for q in range(1, n + 1)]
+    return [_annualize_compensation(
+        base * growth_multiplier(spec, current_period=q, start_period=int(start_period),
+                                 ppy=ppy, context=growth_context, base_position="period1"),
+        period)
+        for q in range(1, n + 1)]
 
 
 def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int,
@@ -136,8 +169,8 @@ def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int
     """Resolve one role/population's native-period payroll expense flow.
 
     This is the observational cross-module seam used by cost pools.  It intentionally
-    composes Count × annual compensation × payroll load and periodizes once, exactly as
-    the Workforce runtime does.  Metric-triggered roles fail closed here because a fee
+    composes Count × compensation/FTE in its authored natural period × payroll load and
+    periodizes once, exactly as the Workforce runtime does.  Metric-triggered roles fail closed here because a fee
     sourced from payroll can itself affect financial metrics used to activate Workforce;
     that feedback loop needs an explicit dependency design before it can be supported.
     """
@@ -303,6 +336,7 @@ class WorkforceRuntime:
                                                        growth_context=self.growth_context,
                                                        include_activation_window=False)
             annual = float(row.get("annual_comp") or row.get("base_salary_annual") or 0.0)
+            comp_period = workforce_compensation_period(row)
             end = row.get("end_period")
             end = int(end) if end not in (None, "") else None
             load = float(row.get("payroll_load_rate") if row.get("payroll_load_rate") is not None else self.default_load)
@@ -335,7 +369,7 @@ class WorkforceRuntime:
                         row, self.n, self.ppy, growth_context=self.growth_context,
                         start_period=comp_start, default_growth_spec=self.default_spec)
             self.rows.append({"raw": row, "count": count, "count_series": count_series,
-                              "annual": annual, "end": end, "load": load,
+                              "annual": annual, "comp_period": comp_period, "end": end, "load": load,
                               "activation": activation, "hire": hire, "spec": legacy_spec,
                               "comp_ns": comp_ns, "comp_series": comp_series})
 
@@ -360,7 +394,7 @@ class WorkforceRuntime:
             if st["comp_ns"] is not None:
                 ns = st["comp_ns"]
                 if ns["trajectory"] == "growth":
-                    annual_now = float(ns["base"]) * growth_multiplier(
+                    annual_now = _annualize_compensation(float(ns["base"]), st["comp_period"]) * growth_multiplier(
                         ns["growth_spec"], current_period=q, start_period=hire,
                         ppy=self.ppy, context=self.growth_context, base_position="period1")
                 else:
@@ -371,7 +405,7 @@ class WorkforceRuntime:
                 mult = growth_multiplier(st["spec"], current_period=q, start_period=hire,
                                          ppy=self.ppy, context=self.growth_context,
                                          base_position="period1")
-                annual_now = st["annual"] * mult
+                annual_now = _annualize_compensation(st["annual"], st["comp_period"]) * mult
             total += annual_now * count_now * (1.0 + st["load"]) / float(self.ppy)
         return total
 
