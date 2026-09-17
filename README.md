@@ -43,3 +43,6 @@ Foundry's existing **Configuration → Securities books & AOCI** module supports
 
 ### Tiered / banded Opex assessment timing
 Self-timed tiered/banded Opex components can recognize expense either **At cash event** (the backward-compatible contract) or **Accrue evenly over cadence interval**. Spread recognition keeps the calculated assessment and cash event separate, carrying pre-payment recognition through Accrued operating expenses and post-payment unexpired cost through Prepaid operating expenses. Event cadence, first cash event, first covered period, and observation lag remain explicit authoring inputs.
+
+### Managed securities Explicit schedule disclosure
+Managed-securities Explicit percentage schedules use a deterministic two-state editor. When open, the paste table always exposes **Close**; when closed, the same Explicit field always exposes **View / edit schedule**. Transient disclosure state is never allowed to strand a saved/re-rendered Explicit schedule with no way to reopen its values.
