@@ -1314,6 +1314,9 @@ def _fixed_asset_rows(cfg, results, n):
     if mode != "formula_level":
         return rows
     fl = fa.get("formula_level") or {}
+    basis = str(fl.get("level_basis") or "gross").strip().lower()
+    rows.append(("Formula / level", "Level basis", "fixed_assets:formula_level:level_basis",
+                 "gross / net", [basis] + [None] * max(0, len(fa.get("gross") or []) - 1), _RAW_NUM_FMT))
     rows.append(("Formula / level", "Entered base asset level", "fixed_assets:formula_level:base",
                  "$000s · period-end level component", [None] + money(fl.get("base") or []), _RAW_MONEY_FMT))
     for i, comp in enumerate(fl.get("components") or []):
@@ -1334,6 +1337,11 @@ def _fixed_asset_rows(cfg, results, n):
     if rates:
         rows.append(("Formula / level", "Effective depreciation rate", "fixed_assets:formula_level:depreciation_rate",
                      "% per engine period", [None] + [float(x or 0.0) for x in rates], _PCT_FMT))
+    relief = fl.get("accumulated_depreciation_relief") or []
+    if basis == "gross" and any(abs(float(x or 0.0)) > 1e-12 for x in relief):
+        rows.append(("Formula / level", "Accumulated depreciation relieved on disposal",
+                     "fixed_assets:formula_level:accumulated_depreciation_relief",
+                     "$000s · engine period", money(relief), _RAW_MONEY_FMT))
     return rows
 
 

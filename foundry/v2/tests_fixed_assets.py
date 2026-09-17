@@ -36,24 +36,57 @@ def main():
     ck("existing asset depreciates remaining NBV across remaining life", abs(s3["depreciation_expense"][1]-31250)<1e-9 and abs(s3["net"][16])<1e-9)
 
     # Formula / level is the second methodology, not a third asset-vintage carve-out.
-    # The stock is authored directly as base + linked Series × multiplier; depreciation
-    # remains a separate flow and the engine derives gross/accumulated PP&E for presentation.
+    # The stock is authored directly as base + linked Series × multiplier. In r120 its
+    # accounting basis is explicit; gross is the safe default so depreciation reduces net
+    # PP&E instead of silently manufacturing replacement CAPEX.
     fa_ass={"nie_detail":{"workforce":{"total_count_series_id":"wf-total",
               "roles":[{"series_id":"wf-role-a","role":"Operations","count":10,"hire_period":1}]}}}
-    flcfg={"mode":"formula_level","formula_level":{"opening_net":120000,
+    flcfg={"mode":"formula_level","formula_level":{"level_basis":"gross","opening_level":120000,
            "base_spec":{"source":"entered","trajectory":"flat","value":100000},
            "components":[{"component_id":"fa-level-1","name":"Linked asset component",
              "driver_spec":{"source":"link","link":{"kind":"workforce_role_count","series_id":"wf-total","aggregation":"end"}},
              "multiplier_spec":{"source":"entered","trajectory":"flat","value":5000}}],
            "depreciation":{"kind":"rate_of_level","rate_spec":{"source":"entered","trajectory":"flat","value":0.12,"period":"year"}}}}
     fl=fixed_asset_formula_level(flcfg,fa_ass,3,12)
-    ck("Formula / level computes base plus linked driver × multiplier",
-       fl["net"]==[120000.0,150000.0,150000.0,150000.0])
+    ck("Formula / level computes base plus linked driver × multiplier as gross PP&E",
+       fl["gross"]==[120000.0,150000.0,150000.0,150000.0])
     ck("Formula / level annual depreciation rate periodizes exactly once",
        all(abs(x-1500)<1e-8 for x in fl["depreciation_expense"][1:]))
-    ck("Formula / level reconciles gross, accumulated depreciation and implied CAPEX",
-       abs(fl["gross"][1]-151500)<1e-8 and abs(fl["accumulated_depreciation"][2]-3000)<1e-8
-       and abs(fl["capex"][1]-31500)<1e-8 and abs(fl["capex"][2]-1500)<1e-8)
+    ck("Gross Formula / level depreciation reduces net PP&E without replacement CAPEX",
+       abs(fl["gross"][1]-150000)<1e-8 and abs(fl["net"][1]-148500)<1e-8
+       and abs(fl["accumulated_depreciation"][2]-3000)<1e-8
+       and abs(fl["capex"][1]-30000)<1e-8 and abs(fl["capex"][2])<1e-8)
+
+    # r119 configs had no basis and named the opening field opening_net. r120 deliberately
+    # interprets that buggy shape as gross while preserving the value as a migration alias.
+    r119_shape=copy.deepcopy(flcfg); r119_shape["formula_level"].pop("level_basis");
+    r119_shape["formula_level"]["opening_net"]=r119_shape["formula_level"].pop("opening_level")
+    r119=fixed_asset_formula_level(r119_shape,fa_ass,2,12)
+    ck("r119 Formula / level configs migrate to gross-basis semantics",
+       r119["formula_level"]["level_basis"]=="gross" and r119["gross"][0]==120000
+       and abs(r119["gross"][2]-150000)<1e-8 and abs(r119["net"][2]-147000)<1e-8
+       and abs(r119["capex"][2])<1e-8)
+
+    # Net-basis targeting remains available, but only when it is explicit. This preserves the
+    # r119 arithmetic for models that intentionally maintain a net PP&E target.
+    netcfg=copy.deepcopy(flcfg); netcfg["formula_level"]["level_basis"]="net"
+    flnet=fixed_asset_formula_level(netcfg,fa_ass,2,12)
+    ck("Explicit net PP&E target retains replacement-CAPEX behavior",
+       abs(flnet["net"][1]-150000)<1e-8 and abs(flnet["gross"][1]-151500)<1e-8
+       and abs(flnet["capex"][1]-31500)<1e-8 and abs(flnet["capex"][2]-1500)<1e-8)
+
+    # A falling gross target is a disposal/reduction, not a reason to leave all accumulated
+    # depreciation attached to the surviving pool. Relief is proportional to gross disposed.
+    downcfg={"mode":"formula_level","formula_level":{"level_basis":"gross","opening_level":1000,
+             "opening_accumulated_depreciation":200,
+             "base_spec":{"source":"entered","trajectory":"explicit","cadence":"year","values":[500]},
+             "components":[],
+             "depreciation":{"kind":"entered","amount_spec":{"source":"entered","trajectory":"flat","value":60,"period":"year"}}}}
+    down=fixed_asset_formula_level(downcfg,{},1,1)
+    ck("Gross Formula / level decline relieves accumulated depreciation pro rata",
+       abs(down["gross"][1]-500)<1e-9 and abs(down["formula_level"]["accumulated_depreciation_relief"][1]-100)<1e-9
+       and abs(down["accumulated_depreciation"][1]-160)<1e-9 and abs(down["net"][1]-340)<1e-9
+       and abs(down["capex"][1]+500)<1e-9)
 
     fl_month=copy.deepcopy(flcfg);fl_month["formula_level"]["depreciation"]["rate_spec"]={"source":"entered","trajectory":"flat","value":0.01,"period":"month"}
     flm=fixed_asset_formula_level(fl_month,fa_ass,1,12)
@@ -70,15 +103,16 @@ def main():
         "workforce":{"mode":"roles","total_count_series_id":"wf-total-fa","default_payroll_load_rate":0,
           "roles":[{"series_id":"wf-fa-ops","role":"Operations","count":10,"annual_comp":0,"hire_period":1}]}}
     fea["fixed_assets"]={"mode":"formula_level","formula_level":{
-        "opening_net":120000,
+        "level_basis":"gross","opening_level":120000,
         "base_spec":{"source":"entered","trajectory":"flat","value":100000},
         "components":[{"component_id":"fa-level-engine","name":"Equipment capacity",
           "driver_spec":{"source":"link","link":{"kind":"workforce_role_count","series_id":"wf-total-fa","aggregation":"end"}},
           "multiplier_spec":{"source":"entered","trajectory":"flat","value":5000}}],
         "depreciation":{"kind":"rate_of_level","rate_spec":{"source":"entered","trajectory":"flat","value":0.12,"period":"year"}}}}
     fer=run_pf_a(copy.deepcopy(fl_engine))
-    ck("Profile A posts Formula / level net PP&E from linked Workforce Count",
-       abs(fer["bs"]["premises"][0]-120000)<1e-8 and abs(fer["bs"]["premises"][1]-150000)<1e-8
+    ck("Profile A posts Formula / level gross PP&E and depreciation-reduced net PP&E",
+       abs(fer["bs"]["premises"][0]-120000)<1e-8 and abs(fer["bs"]["premisesGross"][1]-150000)<1e-8
+       and abs(fer["bs"]["premisesAccumDep"][1]-1500)<1e-8 and abs(fer["bs"]["premises"][1]-148500)<1e-8
        and (fer.get("fixed_assets") or {}).get("mode")=="formula_level")
     ck("Profile A posts Formula / level depreciation to NIE",
        abs(fer["is"]["depreciationExpense"][0]-1500)<1e-8)
@@ -87,7 +121,7 @@ def main():
     fer_public=run_parity(copy.deepcopy(fl_engine))
     ffl=(fer_public.get("fixed_assets") or {}).get("formula_level") or {}
     ck("public Formula / level audit units convert balances and multipliers to $000s",
-       abs((ffl.get("opening_net") or 0)-120)<1e-8
+       ffl.get("level_basis")=="gross" and abs((ffl.get("opening_level") or 0)-120)<1e-8
        and abs(((ffl.get("base") or [0])[0])-100)<1e-8
        and abs(((((ffl.get("components") or [{}])[0]).get("multiplier") or [0])[0])-5)<1e-8
        and abs(((((ffl.get("components") or [{}])[0]).get("amount") or [0])[0])-50)<1e-8)
@@ -113,8 +147,8 @@ def main():
     fl_public=run_v2(copy.deepcopy(fl_engine))
     fl_audit=calculation_audit_workbook(copy.deepcopy(fl_engine), fl_public)
     fl_labels={str(r[1].value).strip():r for r in fl_audit["Fixed Assets"].iter_rows(min_row=4) if len(r)>1 and r[1].value}
-    ck("Calculation Audit exposes Formula / level driver, multiplier, contribution, depreciation and implied CAPEX",
-       all(x in fl_labels for x in ("Linked driver quantity","Multiplier","Calculated level contribution",
+    ck("Calculation Audit exposes Formula / level basis, driver, multiplier, depreciation and CAPEX",
+       all(x in fl_labels for x in ("Level basis","Linked driver quantity","Multiplier","Calculated level contribution",
                                     "Depreciation expense","CAPEX / (disposal)")))
 
     # Simple-mode disclosure: the Balance Sheet must show gross PP&E and accumulated
@@ -180,6 +214,16 @@ def main():
     ck("Profile B Income Statement also separates depreciation",
        abs(rb["is"]["depreciationExpense"][0]-25000)<1e-9
        and abs((rb["is"]["workforceComp"][0]+rb["is"]["otherOpex"][0]+rb["is"]["depreciationExpense"][0])-rb["is"]["fixedOpex"][0])<1e-9)
+
+    pbf=json.loads((pathlib.Path(__file__).parents[1]/"fixtures"/"parity"/"configs"/"pf_b_base.json").read_text())
+    pba=pbf["assumptions"];pba["premises_equipment"]=0;pba["premises_depreciation_annual"]=0
+    pba["fixed_assets"]={"mode":"formula_level","formula_level":{"level_basis":"gross","opening_level":400000,
+        "base_spec":{"source":"entered","trajectory":"flat","value":400000},"components":[],
+        "depreciation":{"kind":"rate_of_level","rate_spec":{"source":"entered","trajectory":"flat","value":0.10,"period":"year"}}}}
+    pbr=run_pf_b(copy.deepcopy(pbf))
+    ck("Profile B gross Formula / level also depreciates net PP&E without replacement CAPEX",
+       abs(pbr["bs"]["premisesGross"][0]-400000)<1e-9 and abs(pbr["bs"]["premisesAccumDep"][0]-10000)<1e-9
+       and abs(pbr["bs"]["premises"][0]-390000)<1e-9 and abs((pbr.get("fixed_assets") or {}).get("capex",[99])[1])<1e-9)
 
     rp=run_parity(copy.deepcopy(cfg))
     wb_res=results_workbook_v2(cfg,rp)

@@ -59,15 +59,17 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
        out.get("mode")=="schedule" and out.get("n")==0)
     fl=out.get("fl") or {}
     ck("legacy Simple conversion preserves the historical monthly level/depreciation path",
-       fl.get("opening_net")==1200000 and (fl.get("base_spec") or {}).get("trajectory")=="explicit"
+       fl.get("level_basis")=="net" and fl.get("opening_level")==1200000 and (fl.get("base_spec") or {}).get("trajectory")=="explicit"
        and abs(((fl.get("base_spec") or {}).get("values") or [0])[0]-1190000)<1e-9
        and abs((((fl.get("depreciation") or {}).get("amount_spec") or {}).get("values") or [0])[0]-10000)<1e-9)
     ck("fixed-asset editor exposes Formula / level versus Asset schedule without a third methodology",
        'Fixed assets / CAPEX' in html and '>Formula / level</button>' in html and '>Asset schedule</button>' in html
        and 'Use generalized Formula / level' in html)
-    ck("Formula / level UI exposes linked components and rate-on-level depreciation",
-       '+ Add linked component' in html and 'Driver Series' in html and 'Multiplier' in html
-       and '% of asset level' in html and 'Entered amount' in html)
+    ck("Formula / level UI exposes explicit gross/net basis, linked components and depreciation",
+       'Level basis' in html and 'Gross PP&amp;E' in html and 'Net PP&amp;E target' in html
+       and '+ Add linked component' in html and 'Driver Series' in html and 'Multiplier' in html
+       and '% of asset level' in html and 'Entered amount' in html
+       and 'Opening accumulated depreciation' in html)
     linked=out.get("linked") or []
     ck("Formula / level Add linked component stores a stable Workforce Count Series link",
        len(linked)==1 and (linked[0].get("driver_spec") or {}).get("source")=="link"

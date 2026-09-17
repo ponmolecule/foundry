@@ -3,8 +3,9 @@
 The projection engines consume native-period series.  This module owns the accounting
 semantics for the two active authoring methodologies:
 
-* ``formula_level`` — directly resolves the period-end net asset level from an entered
-  base plus compatible linked Series × multipliers, with separately authored depreciation.
+* ``formula_level`` — directly resolves the period-end fixed-asset level from an entered
+  base plus compatible linked Series × multipliers. The level basis is explicit (gross or net
+  PP&E); new authoring defaults to gross so depreciation does not manufacture replacement CAPEX.
 * ``schedule`` — reconstructs PP&E from asset/CAPEX vintages, useful lives and depreciation.
 
 Historical ``premises_equipment`` + ``premises_depreciation_annual`` remains a separate
@@ -86,25 +87,39 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
                               n_periods: int, ppy: int, *, growth_context=None) -> Dict[str, Any]:
     """Resolve the Formula / level fixed-asset methodology.
 
-    The period-end *net* fixed-asset level is authoritative and is composed from an
-    entered base level plus zero or more safe linked driver Series × entered multipliers::
+    The authored period-end fixed-asset level is composed from an entered base plus zero
+    or more safe linked driver Series × entered multipliers::
 
-        net fixed assets = base level + Σ(driver Series × multiplier)
+        fixed-asset level = base level + Σ(driver Series × multiplier)
 
-    This is deliberately different from the asset-schedule methodology: it does not
-    invent vintages, useful lives, or disposal records.  Depreciation is an independently
-    authored flow (entered amount or rate on the resulting net level).  Gross PP&E is
-    therefore an implied reconciliation quantity: ``gross = net + accumulated depreciation``.
-    The corresponding implied CAPEX/(disposal) flow is ``Δnet + depreciation``.
+    ``level_basis`` makes the accounting meaning explicit:
+
+    * ``gross`` (default) — the authored level is gross PP&E. Depreciation rolls into
+      accumulated depreciation and therefore reduces net PP&E. A flat gross level does
+      **not** create replacement CAPEX. Gross declines relieve accumulated depreciation
+      pro rata so the implied disposal occurs at carrying value rather than inventing a gain.
+    * ``net`` — the authored level is an explicit net-PP&E target. This preserves r119's
+      deliberate target-net behavior for models that actually want replacement CAPEX; gross
+      PP&E is reconciled as ``net + accumulated depreciation`` and implied CAPEX is
+      ``Δnet + depreciation``.
+
+    ``opening_net`` is retained only as an r119 read-compatibility alias for
+    ``opening_level``. Missing ``level_basis`` defaults to ``gross`` in r120 because r119's
+    hidden net-basis assumption was the accounting bug corrected by this release.
     """
     n, ppy = int(n_periods), int(ppy)
     if n < 0 or ppy <= 0:
         raise ValueError("n_periods must be >= 0 and ppy must be > 0")
     cfg = _formula_level_config(fixed_assets)
-    opening_net = _f(cfg.get("opening_net"), 0.0)
+    basis = str(cfg.get("level_basis") or "gross").strip().lower()
+    if basis not in {"gross", "net"}:
+        raise ValueError("fixed_assets.formula_level.level_basis must be gross or net")
+    opening_level = _f(cfg.get("opening_level", cfg.get("opening_net", 0.0)), 0.0)
     opening_accum = _f(cfg.get("opening_accumulated_depreciation"), 0.0)
-    if opening_net < 0 or opening_accum < 0:
+    if opening_level < 0 or opening_accum < 0:
         raise ValueError("Formula / level opening balances must be non-negative")
+    if basis == "gross" and opening_accum > opening_level + 1e-9:
+        raise ValueError("Formula / level opening accumulated depreciation cannot exceed opening gross PP&E")
 
     base = _resolve_entered_level(cfg.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0},
                                   n, ppy, growth_context=growth_context)
@@ -147,27 +162,53 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         rates = _resolve_natural_period_series(rs, n, ppy, growth_context=growth_context)
         if any(r < -1e-12 for r in rates):
             raise ValueError("Formula / level depreciation rate cannot be negative")
-        dep_native = [float(level or 0.0) * float(rate or 0.0)
-                      for level, rate in zip(target, rates)]
+        dep_authored = [float(level or 0.0) * float(rate or 0.0)
+                        for level, rate in zip(target, rates)]
     elif kind == "entered":
         es = dict(depcfg.get("amount_spec") or {
             "source":"entered","trajectory":"flat","value":0.0,"period":"year"})
-        dep_native = _resolve_natural_period_series(es, n, ppy, growth_context=growth_context)
-        if any(v < -1e-9 for v in dep_native):
+        dep_authored = _resolve_natural_period_series(es, n, ppy, growth_context=growth_context)
+        if any(v < -1e-9 for v in dep_authored):
             raise ValueError("Formula / level entered depreciation cannot be negative")
         rates = []
     else:
         raise ValueError("fixed_assets.formula_level.depreciation.kind must be entered or rate_of_level")
 
-    net = [opening_net] + target
-    accum = [opening_accum]
-    dep = [0.0] + [float(x or 0.0) for x in dep_native]
-    for t in range(1, n + 1):
-        accum.append(float(accum[-1]) + dep[t])
-    gross = [float(net[t]) + float(accum[t]) for t in range(n + 1)]
+    dep = [0.0] * (n + 1)
     capex = [0.0] * (n + 1)
-    for t in range(1, n + 1):
-        capex[t] = float(net[t]) - float(net[t - 1]) + dep[t]
+    accum_relief = [0.0] * (n + 1)
+
+    if basis == "net":
+        net = [opening_level] + target
+        accum = [opening_accum]
+        for t in range(1, n + 1):
+            dep[t] = float(dep_authored[t - 1] or 0.0)
+            accum.append(float(accum[-1]) + dep[t])
+            capex[t] = float(net[t]) - float(net[t - 1]) + dep[t]
+        gross = [float(net[t]) + float(accum[t]) for t in range(n + 1)]
+    else:
+        gross = [opening_level] + target
+        accum = [opening_accum]
+        net = [max(0.0, opening_level - opening_accum)]
+        for t in range(1, n + 1):
+            prev_gross = float(gross[t - 1])
+            curr_gross = float(gross[t])
+            prev_accum = float(accum[-1])
+            # Direct gross-level declines imply disposal of the same proportion of the
+            # existing asset pool. Relieve the same proportion of accumulated depreciation
+            # so the balance-sheet reduction occurs at carrying value rather than at cost.
+            relief = 0.0
+            if curr_gross < prev_gross - 1e-12 and prev_gross > 1e-12:
+                relief = prev_accum * min(1.0, max(0.0, (prev_gross - curr_gross) / prev_gross))
+            accum_before_dep = max(0.0, prev_accum - relief)
+            max_dep = max(0.0, curr_gross - accum_before_dep)
+            dep[t] = min(float(dep_authored[t - 1] or 0.0), max_dep)
+            accum.append(accum_before_dep + dep[t])
+            accum_relief[t] = relief
+            net.append(max(0.0, curr_gross - accum[t]))
+            # In gross-basis Formula / level, the signed change in authored gross PP&E is
+            # the implied additions/(disposals) at cost. Depreciation never creates CAPEX.
+            capex[t] = curr_gross - prev_gross
 
     return {
         "gross": gross,
@@ -178,13 +219,17 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         "preopening_capex": 0.0,
         "asset_rows": [],
         "formula_level": {
-            "opening_net": opening_net,
+            "level_basis": basis,
+            "opening_level": opening_level,
+            "opening_accumulated_depreciation": opening_accum,
             "base": [float(x or 0.0) for x in base],
             "components": component_rows,
             "depreciation_kind": kind,
             "depreciation_rate_per_engine_period": [float(x or 0.0) for x in rates],
+            "accumulated_depreciation_relief": [float(x or 0.0) for x in accum_relief],
         },
     }
+
 
 def fixed_asset_schedule(fixed_assets: dict | None, n_periods: int, ppy: int) -> Dict[str, List[float]]:
     """Resolve a fixed-asset schedule into native-cadence series.
