@@ -95,11 +95,19 @@ Payment timing differences produce balance-sheet timing balances:
 - recognition before payment -> Accrued operating expenses (liability)
 
 Additive components do not inherit these category timing controls. A self-timed component such as
-`tiered / banded` owns its own observation lag, event cadence, and first event period; ordinary linked
-components retain their native same-period timing. Mixed categories are therefore compositional: a
-recurring entered expense may use its own recognition/settlement schedule while additive components
-continue on their own timing contracts. The authoring UI hides recurring-expense timing controls when
-the entered trajectory is economically zero, while preserving any stored settings for later reuse.
+`tiered / banded` owns its own observation lag, event cadence, first cash-event period, and (optionally)
+its own expense-recognition contract. Historical/self-timed components default to **At cash event**,
+which preserves the pre-r117 behavior. A component may instead choose **Accrue evenly over cadence
+interval** and provide the first covered model period. Foundry then calculates one assessment amount
+for the cadence interval, recognizes equal expense in each covered engine period, settles the full
+amount on the configured event, and carries the timing difference as Prepaid operating expenses or
+Accrued operating expenses. The observed assessment base must already be available at the start of
+the covered interval; otherwise validation fails closed rather than looking ahead to a future balance.
+Ordinary linked components retain their native same-period timing. Mixed categories are therefore
+compositional: a recurring entered expense may use its own recognition/settlement schedule while
+additive components continue on their own timing contracts. The authoring UI hides recurring-expense
+timing controls when the entered trajectory is economically zero, while preserving any stored settings
+for later reuse.
 
 ## OCC simplifying-rate treatment
 
@@ -118,6 +126,20 @@ assumption. It now applies that input on a semiannual contract:
 Foundry does **not** claim that this simplifying bp input reproduces the full statutory OCC
 tier schedule. The correction here is to use the user-entered simplifying rate consistently
 with the semiannual assessment period instead of rebasing and dividing it every engine period.
+
+For the source-faithful tier schedule, use the generic tiered/banded component rather than the
+simplified bp shortcut. In a January-start monthly model, the ordinary OCC cadence translates to:
+
+- Event cadence = Semiannual
+- First cash event = M3 (then M9, M15, ...)
+- Expense recognition = Accrue evenly over cadence interval
+- First covered period = M1 (then M7, M13, ...)
+- Observation lag = 3 months, so M3 observes opening/Dec-31 and M9 observes M6/Jun-30
+
+That configuration recognizes one-sixth of each semiannual assessment in each covered month,
+settles the full assessment at the cash event, and carries the timing difference through accrued
+or prepaid operating-expense balances. The ordinal fields remain generic so a non-January model
+can translate the same economics without embedding calendar-month names in the engine.
 
 ## Generalization guardrails
 

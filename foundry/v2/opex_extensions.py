@@ -229,6 +229,32 @@ def _normalize_piecewise_timing(raw: Mapping[str, Any] | None) -> dict:
     return {"mode": mode, "first_period": first}
 
 
+def _normalize_piecewise_recognition(raw: Mapping[str, Any] | None,
+                                     timing: Mapping[str, Any] | None = None) -> dict:
+    """Normalize self-timed tiered/banded expense recognition.
+
+    ``event`` preserves the historical contract: the calculated charge is recognized and
+    settled in the configured event period.
+
+    ``spread`` treats each event amount as the cash settlement for one cadence interval and
+    recognizes that assessment evenly across the corresponding coverage interval.  The first
+    covered model period is explicit because payment can occur inside the covered interval
+    (for example a semiannual assessment paid in the third month of a six-month coverage block).
+    """
+    s = dict(raw or {})
+    mode = str(s.get("mode") or "event").strip().lower()
+    if mode not in {"event", "spread"}:
+        raise ValueError("piecewise-linked recognition.mode must be event/spread")
+    t = _normalize_piecewise_timing(timing)
+    try:
+        first = int(s.get("first_period") or t["first_period"])
+    except (TypeError, ValueError) as e:
+        raise ValueError("piecewise-linked recognition.first_period must be a positive integer") from e
+    if first < 1:
+        raise ValueError("piecewise-linked recognition.first_period must be a positive integer")
+    return {"mode": mode, "first_period": first}
+
+
 def _normalize_piecewise_terms(raw_terms) -> list[dict]:
     terms = list(raw_terms or [])
     if not terms:
@@ -309,8 +335,27 @@ def _lag_to_engine_periods(lag: Mapping[str, Any], ppy: int) -> int:
 def validate_piecewise_linked_cadence(component: Mapping[str, Any], ppy: int) -> None:
     """Validate event cadence and natural observation lag against model cadence."""
     c = normalize_linked_component(component) if str((component or {}).get("driver") or "") == PIECEWISE_LINKED_DRIVER else component
-    _timing_interval((c.get("timing") or {}).get("mode") or "monthly", int(ppy))
-    _lag_to_engine_periods(c.get("observation_lag") or {}, int(ppy))
+    ppy = int(ppy)
+    timing = _normalize_piecewise_timing(c.get("timing"))
+    interval = _timing_interval(timing["mode"], ppy)
+    lag_periods = _lag_to_engine_periods(c.get("observation_lag") or {}, ppy)
+    recognition = _normalize_piecewise_recognition(c.get("recognition"), timing)
+    if recognition["mode"] == "spread":
+        coverage_first = int(recognition["first_period"])
+        event_first = int(timing["first_period"])
+        event_offset = event_first - coverage_first
+        if event_offset < 0 or event_offset >= interval:
+            raise ValueError(
+                "piecewise-linked spread recognition requires the first event to fall inside "
+                "the first coverage interval")
+        # To accrue the exact assessment from the first covered period, the assessment base
+        # must already be observable at the start of that interval.  This deliberately fails
+        # closed rather than looking ahead to a future balance and silently creating a circular
+        # or clairvoyant accrual.
+        if lag_periods < event_offset + 1:
+            raise ValueError(
+                "piecewise-linked spread recognition requires the observation to be available "
+                "before the first covered period")
 
 
 def apply_piecewise_schedule(value: float, bands) -> float:
@@ -347,12 +392,14 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
         return {**c, "driver": drv, "ref": ref,
                 "recovery_pct": float(c.get("recovery_pct") or 0.0)}
     if drv == PIECEWISE_LINKED_DRIVER:
+        _timing = _normalize_piecewise_timing(c.get("timing"))
         out = {"driver": drv,
                "component_id": str(c.get("component_id") or "").strip(),
                "name": str(c.get("name") or "Tiered / banded component"),
                "terms": _normalize_piecewise_terms(c.get("terms")),
                "bands": _normalize_piecewise_bands(c.get("bands")),
-               "timing": _normalize_piecewise_timing(c.get("timing")),
+               "timing": _timing,
+               "recognition": _normalize_piecewise_recognition(c.get("recognition"), _timing),
                "observation_lag": _normalize_observation_lag(c.get("observation_lag"))}
         if any(t["source"] == "bank_total_assets" for t in out["terms"]) and out["observation_lag"]["value"] == 0:
             raise ValueError("piecewise-linked Total Assets term requires a positive observation lag to avoid circularity")
@@ -501,6 +548,80 @@ def _piecewise_event_due(component: Mapping[str, Any], period_index: int, ppy: i
     return ordinal >= first and (ordinal - first) % interval == 0
 
 
+def _piecewise_event_amount(component: Mapping[str, Any], event_period_index: int,
+                            metrics: Mapping[str, Any]) -> dict:
+    """Calculate one tiered/banded assessment event and expose its observed base."""
+    ppy = int(metrics.get("periods_per_year") or 12)
+    lag_periods = _lag_to_engine_periods(
+        _normalize_observation_lag(component.get("observation_lag")), ppy)
+    event_ordinal = int(event_period_index) + 1
+    observation_ordinal = event_ordinal - lag_periods
+    total = 0.0
+    terms = []
+    for term in component.get("terms") or []:
+        value = _piecewise_term_value(term, observation_ordinal, metrics)
+        weight = float(term.get("weight") if term.get("weight") is not None else 1.0)
+        weighted = weight * value
+        total += weighted
+        terms.append({"term": term, "value": value, "weight": weight, "weighted": weighted})
+    return {
+        "assessment": apply_piecewise_schedule(total, component.get("bands")),
+        "composite": total,
+        "terms": terms,
+        "observation_ordinal": observation_ordinal,
+        "event_ordinal": event_ordinal,
+    }
+
+
+def linked_component_period_result(component: Mapping[str, Any], period_index: int,
+                                   metrics: Mapping[str, Any]) -> dict:
+    """Return recognized expense and cash settlement for one additive Opex component.
+
+    Ordinary linked components settle when recognized, so their timing delta is zero.
+    Tiered/banded components can instead spread an assessed event amount across its cadence
+    interval while retaining the configured event as the cash-settlement period.  Engines
+    accumulate ``cash - expense`` into prepaid/accrued operating-expense balances.
+    """
+    drv = str(component.get("driver") or "")
+    i = int(period_index)
+    if drv != PIECEWISE_LINKED_DRIVER:
+        amount = linked_component_amount(component, i, metrics)
+        return {"expense": amount, "cash": amount, "timing_delta": 0.0,
+                "event_due": bool(abs(amount) > 0.0), "assessment": amount}
+
+    ppy = int(metrics.get("periods_per_year") or 12)
+    timing = _normalize_piecewise_timing(component.get("timing"))
+    recognition = _normalize_piecewise_recognition(component.get("recognition"), timing)
+    interval = _timing_interval(timing["mode"], ppy)
+    ordinal = i + 1
+
+    if recognition["mode"] == "event":
+        due = _piecewise_event_due(component, i, ppy)
+        if not due:
+            return {"expense": 0.0, "cash": 0.0, "timing_delta": 0.0,
+                    "event_due": False, "assessment": 0.0}
+        calc = _piecewise_event_amount(component, i, metrics)
+        amount = float(calc["assessment"] or 0.0)
+        return {**calc, "expense": amount, "cash": amount, "timing_delta": 0.0,
+                "event_due": True, "coverage_start_ordinal": ordinal}
+
+    coverage_first = int(recognition["first_period"])
+    if ordinal < coverage_first:
+        return {"expense": 0.0, "cash": 0.0, "timing_delta": 0.0,
+                "event_due": False, "assessment": 0.0}
+    block = (ordinal - coverage_first) // interval
+    coverage_start = coverage_first + block * interval
+    event_ordinal = int(timing["first_period"]) + block * interval
+    event_index = event_ordinal - 1
+    calc = _piecewise_event_amount(component, event_index, metrics)
+    amount = float(calc["assessment"] or 0.0)
+    expense = amount / float(interval)
+    due = ordinal == event_ordinal
+    cash = amount if due else 0.0
+    return {**calc, "expense": expense, "cash": cash, "timing_delta": cash - expense,
+            "event_due": due, "coverage_start_ordinal": coverage_start}
+
+
 def _piecewise_term_value(term: Mapping[str, Any], observation_ordinal: int, metrics: Mapping[str, Any]) -> float:
     src = str(term.get("source") or "")
     ppy = int(metrics.get("periods_per_year") or 12)
@@ -572,16 +693,9 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amount = float(amounts[i] if i < len(amounts) else 0.0)
         return float(cmap.get(sid) or 0.0) * amount
     if drv == PIECEWISE_LINKED_DRIVER:
-        ppy = int(metrics.get("periods_per_year") or 12)
-        if not _piecewise_event_due(component, i, ppy):
-            return 0.0
-        lag_periods = _lag_to_engine_periods(
-            _normalize_observation_lag(component.get("observation_lag")), ppy)
-        observation_ordinal = (i + 1) - lag_periods
-        total = 0.0
-        for term in component.get("terms") or []:
-            total += float(term.get("weight") if term.get("weight") is not None else 1.0) * _piecewise_term_value(term, observation_ordinal, metrics)
-        return apply_piecewise_schedule(total, component.get("bands"))
+        # Compatibility helper: callers historically consumed only the P&L amount.  The
+        # richer result also carries cash settlement and prepaid/accrued timing deltas.
+        return float(linked_component_period_result(component, i, metrics)["expense"] or 0.0)
     if drv == "fee_income":
         base = float(metrics.get("fee_income") or 0.0)
     elif drv == "gain_on_sale":
