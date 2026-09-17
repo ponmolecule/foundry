@@ -45,6 +45,38 @@ def _conv_fixed_assets(fa):
 
 
 
+
+def _conv_managed_securities(rows):
+    """Convert managed-securities audit output without corrupting rates/ratios.
+
+    Monetary stock/flow arrays become $000s; target/allocation/maturity/yield paths
+    remain dimensionless decimals, and metadata remains raw.
+    """
+    out=[]
+    for p in rows or []:
+        if not isinstance(p, dict):
+            out.append(p); continue
+        pp=dict(p)
+        if isinstance(pp.get("target"), list):
+            pp["target"]=[_k(x) for x in pp["target"]]
+        pp["target_ratio"]=list(pp.get("target_ratio") or [])
+        sleeves=[]
+        for s in pp.get("sleeves") or []:
+            if not isinstance(s, dict):
+                sleeves.append(s); continue
+            ss=dict(s)
+            if isinstance(ss.get("opening"), (int,float)):
+                ss["opening"]=_k(ss["opening"])
+            for key in ("starting","maturing","net_purchases","ending","interest_income"):
+                if isinstance(ss.get(key), list):
+                    ss[key]=[_k(x) for x in ss[key]]
+            for key in ("allocation","maturity_rate_authored","maturity_rate","yield"):
+                ss[key]=list(ss.get(key) or [])
+            sleeves.append(ss)
+        pp["sleeves"]=sleeves
+        out.append(pp)
+    return out
+
 def _conv_workforce(wf):
     """Convert the mixed workforce audit block without corrupting headcount.
 
@@ -81,6 +113,7 @@ def _conv(tree, is_ratio=False, raw=False):
     if isinstance(tree, dict):
         return {k: (_conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else
+                    _conv_managed_securities(v) if k == "managed_securities" else
                     _conv(v, is_ratio or k in ("ratios", "rateQ"),
                           raw or k in ("ftp_rate", "resolved_hire_periods")))
                 for k, v in tree.items()}

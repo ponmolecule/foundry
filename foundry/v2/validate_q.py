@@ -171,6 +171,24 @@ def validate_config_v2(cfg):
     if s is not None and (not isinstance(s, (int, float)) or not (-0.5 <= s <= 0.5)):
         errs.append("aoci_sensitivity_annual must be a rate in [-0.5, 0.5] "
                      "(annual change in AOCI as a share of the AFS book)")
+    # Target-driven managed securities books share the existing Securities & AOCI
+    # module but own a distinct stock-flow grammar. Validate the complete trajectory
+    # contract up front so allocation gaps, unsupported target sources, or bad yield
+    # paths cannot leak into the iterative balance-sheet solve.
+    if a.get("managed_securities_portfolios"):
+        # Profile B remains a deliberately narrow historical parity engine.  Managed
+        # securities participate in Profile A's current-equity/AOCI fixed-point solve;
+        # do not silently ignore the feature under Profile B.
+        if cfg.get("parity_profile") == "pf_b":
+            errs.append("managed securities portfolios are not available for Profile B; "
+                        "use Profile A or remove assumptions.managed_securities_portfolios")
+        try:
+            from .securities import validate_managed_securities
+            errs.extend(validate_managed_securities(a, int(a.get("n_periods") or (_ppy * 3)), _ppy,
+                                                    growth_context=_growth_ctx))
+        except Exception as e:
+            errs.append(f"managed securities validation failed: {e}")
+
     d = a.get("premises_depreciation_annual")
     if d is not None and (not isinstance(d, (int, float)) or d < 0):
         errs.append("premises_depreciation_annual must be a non-negative dollar amount per year")

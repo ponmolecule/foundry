@@ -37,3 +37,6 @@ thin FastAPI/HTML shell. Fictitious client: Solstice Bank (in organization).
   foundry/peers.py REFERENCE.
 - Known open items: config-schema validation (T14 red check), journal-entry engine, prior-metric
   definition parity with the production reference warehouse. All client facts fictitious.
+
+### Managed securities portfolios
+Foundry's existing **Configuration → Securities books & AOCI** module supports both simple AFS/HTM books and target-driven managed portfolios. Managed sleeves use linked target stock, authored allocation, explicit-period runoff, signed balancing purchases/(sales), and entered or Curve Library annual yields.

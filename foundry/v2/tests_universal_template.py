@@ -154,6 +154,18 @@ def main():
     ck("Fixed assets cover opening accumulated depreciation and future CAPEX",
        fa.get("mode")=="schedule" and any(x.get("opening_accumulated_depreciation") for x in assets) and any((x.get("in_service_period") or 0)>0 for x in assets)) # 40
 
+    # Managed securities grammar (r114): generic target-driven stock/flow books, no client-specific nouns.
+    mps=a.get("managed_securities_portfolios") or []; ms=[sl for p in mps for sl in (p.get("sleeves") or [])]
+    ck("Managed securities portfolio is represented", bool(mps) and bool(ms))                         # 41
+    ck("Managed securities covers AFS and HTM sleeves", {str(x.get("classification") or "").upper() for x in ms} == {"AFS","HTM"}) # 42
+    ck("Managed securities covers entered and Curve Library yield sources", {x.get("yield_source","entered") for x in ms} >= {"entered","curve_library"}) # 43
+    ck("Managed securities runoff owns explicit Month Quarter Year natural periods",
+       {str((x.get("maturity_rate_spec") or {}).get("period")) for x in ms} >= {"month","quarter","year"}) # 44
+    mout=out.get("managed_securities") or []
+    ck("Managed securities publishes target runoff balancing flow ending yield and interest",
+       bool(mout) and all(all(k in sl for k in ("starting","maturing","net_purchases","ending","yield","interest_income"))
+                          for pp in mout for sl in (pp.get("sleeves") or [])))                         # 45
+
     # FIW visible/hidden contract + no-op round trip.
     data, gh = build_fiw(deepcopy(cfg), include_capability_map=True)
     wb=load_workbook(io.BytesIO(data), data_only=True)
