@@ -945,10 +945,10 @@ def run_pf_a(cfg):
     # (next-period activation for endogenous metrics such as efficiency ratio / net income).
     _nie_d = nie_detail_series(a, ppy, _growth_ctx, defer_workforce=True)
     from .income_modules import simple_overhead_series
-    from .opex_extensions import linked_component_amount
+    from .opex_extensions import linked_component_period_result
     # Opex settlement timing is balance-sheet plumbing, not expense recognition. Entered
-    # category paths can create prepaid/accrued balances; linked revenue components currently
-    # settle with recognition and therefore contribute no timing balance.
+    # category paths can create prepaid/accrued balances; self-timed tiered/banded linked
+    # components can now do the same when cash settlement differs from recognized expense.
     _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
     # OCC is a semiannual assessment. The user-entered bp/year remains the pricing assumption;
@@ -957,6 +957,7 @@ def run_pf_a(cfg):
     _occ_half_key = None
     _occ_half_amt = 0.0
     _occ_signed_balance = 0.0  # + prepaid asset, - accrued liability
+    _linked_timing_balances = [0.0] * len((_nie_d or {}).get("linked_components") or [])
     _simple_overhead = simple_overhead_series(a, Q, ppy, _growth_ctx)
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
@@ -1140,19 +1141,23 @@ def run_pf_a(cfg):
                 _total_sid = str(_wf_cfg.get("total_count_series_id") or "").strip()
                 if _total_sid:
                     _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
-            _linked_opex = sum(linked_component_amount(
-                _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
-                             "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
-                                                       for sid, arr in _fee_stream_qty_series.items()},
-                             "customer_acquisition_auc_monthly": _auc_month_sources,
-                             "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                             "fee_stream_quantity_history": _fee_stream_qty_series,
-                             "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
-                             "bank_total_assets_end_by_period": bs["totalAssets"],
-                             "cost_pool": _cost_pool_ctx(q),
-                             "workforce_count": _wf_count_map_q,
-                             "periods_per_year": ppy})
-                for _lc in (_nie_d.get("linked_components") or []))
+            _linked_opex = 0.0
+            for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
+                _lr = linked_component_period_result(
+                    _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
+                                 "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
+                                                           for sid, arr in _fee_stream_qty_series.items()},
+                                 "customer_acquisition_auc_monthly": _auc_month_sources,
+                                 "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                                 "fee_stream_quantity_history": _fee_stream_qty_series,
+                                 "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
+                                 "bank_total_assets_end_by_period": bs["totalAssets"],
+                                 "cost_pool": _cost_pool_ctx(q),
+                                 "workforce_count": _wf_count_map_q,
+                                 "periods_per_year": ppy})
+                _linked_opex += float(_lr.get("expense") or 0.0)
+                if _li < len(_linked_timing_balances):
+                    _linked_timing_balances[_li] += float(_lr.get("timing_delta") or 0.0)
             _comp_q = _role_comp_q
             _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
@@ -1169,8 +1174,12 @@ def run_pf_a(cfg):
         # total NIE or net income.
         fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
         nie = prod_ox + fee_opex + overhead
-        _prepaid_opex_q = (_opex_static_pre[q - 1] if q - 1 < len(_opex_static_pre) else 0.0) + max(0.0, _occ_signed_balance)
-        _accrued_opex_q = (_opex_static_acc[q - 1] if q - 1 < len(_opex_static_acc) else 0.0) + max(0.0, -_occ_signed_balance)
+        _prepaid_opex_q = ((_opex_static_pre[q - 1] if q - 1 < len(_opex_static_pre) else 0.0)
+                           + max(0.0, _occ_signed_balance)
+                           + sum(max(0.0, x) for x in _linked_timing_balances))
+        _accrued_opex_q = ((_opex_static_acc[q - 1] if q - 1 < len(_opex_static_acc) else 0.0)
+                           + max(0.0, -_occ_signed_balance)
+                           + sum(max(0.0, -x) for x in _linked_timing_balances))
         nco_ac = sum(p["_co"][q] for p in lend if not p["_is_fv"])
         prov = (alll_t[q] - alll_t[q - 1]) + nco_ac
         if _cr:

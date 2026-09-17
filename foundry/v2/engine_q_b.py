@@ -65,7 +65,7 @@ def run_pf_b(cfg):
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a, 4, _growth_ctx)
-    from .opex_extensions import linked_component_amount
+    from .opex_extensions import linked_component_period_result
     from .workforce import resolve_workforce_additive_components, workforce_additive_component_amount
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_add_components = resolve_workforce_additive_components(_wf_cfg, 4) if _nie_d else []
@@ -81,6 +81,7 @@ def run_pf_b(cfg):
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
     _occ_half_amt = 0.0
     _occ_signed_balance = 0.0
+    _linked_timing_balances = [0.0] * len((_nie_d or {}).get("linked_components") or [])
     # Scheduled (term) borrowings: BULLET advance — full draw held flat for `term_q`
     # quarters, then matures to zero; full-quarter interest on outstanding principal,
     # no averaging, no post-maturity accrual. Must match engine_q_a exactly (parity
@@ -224,16 +225,20 @@ def run_pf_b(cfg):
                 _total_sid = str(_wf_cfg.get("total_count_series_id") or "").strip()
                 if _total_sid:
                     _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
-            _linked_opex = sum(linked_component_amount(
-                _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
-                          "customer_acquisition_auc_monthly": _auc_month_sources,
-                          "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                          "fee_stream_quantity_history": {},
-                          "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
-                          "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
-                          "workforce_count": _wf_count_map_q,
-                          "periods_per_year": 4})
-                for _lc in (_nie_d.get("linked_components") or []))
+            _linked_opex = 0.0
+            for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
+                _lr = linked_component_period_result(
+                    _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
+                              "customer_acquisition_auc_monthly": _auc_month_sources,
+                              "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                              "fee_stream_quantity_history": {},
+                              "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
+                              "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
+                              "workforce_count": _wf_count_map_q,
+                              "periods_per_year": 4})
+                _linked_opex += float(_lr.get("expense") or 0.0)
+                if _li < len(_linked_timing_balances):
+                    _linked_timing_balances[_li] += float(_lr.get("timing_delta") or 0.0)
             _role_workforce_comp = _nie_d["comp"][qi]
             _wf_add_values = []
             if _wf_add_components:
@@ -269,8 +274,12 @@ def run_pf_b(cfg):
             for _wci in range(len(_wf_additive_component_native)):
                 _wf_additive_component_native[_wci].append(float(_wf_add_values[_wci] if _wci < len(_wf_add_values) else 0.0))
         nie = opex_prod + _ovh_b
-        _prepaid_opex_q = (_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0) + max(0.0, _occ_signed_balance)
-        _accrued_opex_q = (_opex_static_acc[qi] if qi < len(_opex_static_acc) else 0.0) + max(0.0, -_occ_signed_balance)
+        _prepaid_opex_q = ((_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0)
+                           + max(0.0, _occ_signed_balance)
+                           + sum(max(0.0, x) for x in _linked_timing_balances))
+        _accrued_opex_q = ((_opex_static_acc[qi] if qi < len(_opex_static_acc) else 0.0)
+                           + max(0.0, -_occ_signed_balance)
+                           + sum(max(0.0, -x) for x in _linked_timing_balances))
 
         gl_end = sum(p["_end"][qi] for p in lend)
         chargeoffs = sum(p["_avg"][qi] * _ov(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / 4.0

@@ -140,6 +140,10 @@ def main():
     setl={((c.get("settlement") or {}).get("mode") or "recognition") for c in cats}
     ck("Opex recognition covers trajectory monthly quarterly semiannual annual", {"trajectory","monthly","quarterly","semiannual","annual"} <= rec) # 36
     ck("Opex settlement covers recognition monthly quarterly semiannual annual", {"recognition","monthly","quarterly","semiannual","annual"} <= setl) # 37
+    piecewise=[lc for c in cats for lc in (c.get("linked_components") or []) if lc.get("driver")==PIECEWISE_LINKED_DRIVER]
+    ck("Tiered Opex covers spread recognition with separate cash-event timing",
+       any((lc.get("recognition") or {}).get("mode")=="spread" and (lc.get("recognition") or {}).get("first_period")
+           and (lc.get("timing") or {}).get("first_period") for lc in piecewise))
 
     # Cost pools + fixed assets.
     pools=a.get("cost_pools") or []

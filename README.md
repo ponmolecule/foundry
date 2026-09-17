@@ -40,3 +40,6 @@ thin FastAPI/HTML shell. Fictitious client: Solstice Bank (in organization).
 
 ### Managed securities portfolios
 Foundry's existing **Configuration → Securities books & AOCI** module supports both simple AFS/HTM books and target-driven managed portfolios. Managed portfolios expose Current/Prior target timing plus first-period initialization; managed sleeves use linked target stock, authored allocation, explicit-period runoff, signed balancing purchases/(sales), and entered or Curve Library annual yields. When managed portfolios are active, the funding waterfall does not create an additional residual securities plug on top of the explicitly targeted books; surplus liquidity remains in cash.
+
+### Tiered / banded Opex assessment timing
+Self-timed tiered/banded Opex components can recognize expense either **At cash event** (the backward-compatible contract) or **Accrue evenly over cadence interval**. Spread recognition keeps the calculated assessment and cash event separate, carrying pre-payment recognition through Accrued operating expenses and post-payment unexpired cost through Prepaid operating expenses. Event cadence, first cash event, first covered period, and observation lag remain explicit authoring inputs.

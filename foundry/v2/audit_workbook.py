@@ -635,6 +635,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
     if not cats:
         return []
     from .opex_extensions import (resolve_linked_components, resolve_cost_pool_calculation, linked_component_amount,
+                                  linked_component_period_result,
                                   PIECEWISE_LINKED_DRIVER, COST_POOL_CHARGE_DRIVER, CAC_AUC_DRIVER,
                                   FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
@@ -675,30 +676,38 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                 metrics = metrics_for(i)
                 pend = model_period_end_date(cfg, i + 1, ppy)
                 try:
-                    amount = linked_component_amount(comp, i, metrics)
+                    _period_result = (linked_component_period_result(comp, i, metrics)
+                                      if drv == PIECEWISE_LINKED_DRIVER else None)
+                    amount = (float(_period_result.get("expense") or 0.0)
+                              if _period_result is not None else linked_component_amount(comp, i, metrics))
                 except Exception as exc:
                     rows.append([cname, nm, cid, drv, i + 1, pend, None, None, None, None, None, None, None, None,
                                  None, None, None, None, None, None, None, None, None, None, None, f"ERROR: {exc}"])
                     continue
 
                 if drv == PIECEWISE_LINKED_DRIVER:
-                    due = _piecewise_event_due(comp, i, ppy)
-                    if not due:
+                    due = bool((_period_result or {}).get("event_due"))
+                    if not due and not abs(float(amount or 0.0)):
                         rows.append([cname, nm, cid, drv, i + 1, pend, False, None, None, None, None, None, None, None,
                                      None, None, None, None, None, None, None, None, None, None, float(amount or 0.0),
                                      "Self-timed component; no event this period"])
                         continue
-                    lagp = _lag_to_engine_periods(_normalize_observation_lag(comp.get("observation_lag")), int(ppy))
-                    obs = (i + 1) - lagp
+                    obs = int((_period_result or {}).get("observation_ordinal") or 0)
                     obs_date = model_period_end_date(cfg, obs, ppy) if obs > 0 else None
                     tvals = []
-                    total = 0.0
-                    for ti, term in enumerate(comp.get("terms") or [], 1):
-                        tv = _piecewise_term_value(term, obs, metrics)
-                        wt = float(term.get("weight") if term.get("weight") is not None else 1.0)
-                        weighted = wt * tv
-                        total += weighted
-                        tvals.append((ti, term, tv, wt, weighted))
+                    total = float((_period_result or {}).get("composite") or 0.0)
+                    _terms = list((_period_result or {}).get("terms") or [])
+                    if _terms:
+                        for ti, tr in enumerate(_terms, 1):
+                            term = tr.get("term") or {}
+                            tvals.append((ti, term, float(tr.get("value") or 0.0),
+                                          float(tr.get("weight") or 0.0), float(tr.get("weighted") or 0.0)))
+                    else:
+                        for ti, term in enumerate(comp.get("terms") or [], 1):
+                            tv = _piecewise_term_value(term, obs, metrics)
+                            wt = float(term.get("weight") if term.get("weight") is not None else 1.0)
+                            weighted = wt * tv
+                            tvals.append((ti, term, tv, wt, weighted))
                     active = None
                     for b in _normalize_piecewise_bands(comp.get("bands")):
                         lo, hi = float(b["lower_bound"]), b["upper_bound"]
@@ -707,13 +716,20 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                         if hi is None or total <= float(hi) + 1e-12:
                             active = b; break
                     for ti, term, tv, wt, weighted in tvals:
+                        _assessment = float((_period_result or {}).get("assessment") or amount or 0.0)
+                        _cash = float((_period_result or {}).get("cash") or 0.0)
+                        _coverage = (_period_result or {}).get("coverage_start_ordinal")
+                        _note = "Literal band base + marginal rate × excess"
+                        if str(((comp or {}).get("recognition") or {}).get("mode") or "event") == "spread":
+                            _note += (f"; assessment={_assessment:.12g}; recognized={float(amount or 0.0):.12g}; "
+                                      f"cash={_cash:.12g}; coverage starts model period {_coverage}")
                         rows.append([
-                            cname, nm, cid, drv, i + 1, pend, True, obs, obs_date, ti,
+                            cname, nm, cid, drv, i + 1, pend, due, obs, obs_date, ti,
                             str(term.get("source") or ""), str(term.get("series_id") or ""), str(term.get("measure") or ""), wt,
                             tv, weighted, total,
                             (active or {}).get("lower_bound"), (active or {}).get("upper_bound"),
                             (active or {}).get("base_amount"), (active or {}).get("marginal_rate"),
-                            None, None, None, float(amount or 0.0), "Literal band base + marginal rate × excess",
+                            None, None, None, float(amount or 0.0), _note,
                         ])
                     continue
 

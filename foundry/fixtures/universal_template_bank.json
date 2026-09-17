@@ -845,7 +845,11 @@
               "name": "Composite balance bands",
               "observation_lag": {
                 "period": "month",
-                "value": 1
+                "value": 3
+              },
+              "recognition": {
+                "first_period": 7,
+                "mode": "spread"
               },
               "terms": [
                 {

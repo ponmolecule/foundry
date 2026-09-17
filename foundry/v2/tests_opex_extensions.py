@@ -1,7 +1,8 @@
 import copy, json, sys
 from foundry.v2.opex_extensions import (resolve_recognition, resolve_settlement,
                                           normalize_linked_component, resolve_linked_components,
-                                          linked_component_amount, apply_piecewise_schedule,
+                                          linked_component_amount, linked_component_period_result,
+                                          apply_piecewise_schedule,
                                           fee_stream_balance_quantity_catalog, workforce_count_catalog,
                                           recognition_spec_for_category)
 from foundry.v2.income_modules import nie_category_series, fee_stream_q
@@ -629,6 +630,41 @@ def main():
        linked_component_amount(gen_comp,14,tier_metrics_15)>0.0
        and linked_component_amount(gen_comp,13,tier_metrics_15)==0.0)
 
+    # r117: a tiered/banded assessment can separate P&L recognition from its cash event.
+    # The assessed amount is still calculated once per cadence interval from the configured
+    # observed base, but expense is spread evenly across the covered interval and the event
+    # remains the settlement date.  This is the generic contract needed by semiannual
+    # regulatory assessments without hard-coding a regulator or calendar month.
+    spread_comp=normalize_linked_component({
+        'driver':'piecewise_linked','name':'Accrued semiannual assessment',
+        'terms':[{'source':'bank_total_assets','weight':1.0}],
+        'bands':general_bands,'timing':{'mode':'semiannual','first_period':3},
+        'recognition':{'mode':'spread','first_period':1},
+        'observation_lag':{'value':3,'period':'month'}})
+    spread_metrics=copy.deepcopy(tier_metrics_15)
+    assessment_h1=apply_piecewise_schedule(spread_metrics['bank_total_assets_end_by_period'][0],general_bands)
+    spread_results=[linked_component_period_result(spread_comp,i,spread_metrics) for i in range(6)]
+    ck('spread tiered recognition accrues one-sixth of the semiannual assessment in each covered month',
+       all(abs(x['expense']-assessment_h1/6.0)<1e-9 for x in spread_results))
+    ck('spread tiered recognition keeps cash settlement at the configured M3 event',
+       abs(spread_results[2]['cash']-assessment_h1)<1e-9
+       and all(abs(spread_results[i]['cash'])<1e-9 for i in [0,1,3,4,5]))
+    bal=0.0; bals=[]
+    for x in spread_results:
+        bal += x['timing_delta']; bals.append(bal)
+    ck('spread tiered recognition creates accrual before payment and prepaid after payment then clears at coverage end',
+       bals[0] < 0 and bals[1] < 0 and bals[2] > 0 and bals[4] > 0 and abs(bals[5])<1e-9)
+
+    bad_spread=copy.deepcopy(spread_comp)
+    bad_spread['observation_lag']={'value':1,'period':'month'}
+    bad_cfg=base_cfg(12); bad_cfg['assumptions']['nie_detail']['categories']=[{
+        'name':'Bad spread','flow_spec':{'trajectory':'flat','value':0.0,'period':'year'},
+        'linked_components':[bad_spread]}]
+    bad=False
+    try: validate_config_v2(bad_cfg)
+    except ConfigErrorV2 as e: bad=('available before the first covered period' in str(e))
+    ck('spread tiered recognition fails closed when the assessment base would require future-period information',bad)
+
     reserve_stream={
         'basis':'balance','name':'Reserve balance','quantity_series_id':'reserve-tiered',
         'driver':{'source':'managed_notional','trajectory':'derived','params':{'stock_multiplier':{'kind':'pct','value':0.30,'trajectory':'flat'}}},
@@ -662,6 +698,52 @@ def main():
     ck('full engine posts the tiered component once on its configured event using prior-period assets',
        abs(tier_run['is']['otherOpex'][8]-tier_expected)<1e-6
        and all(abs(tier_run['is']['otherOpex'][k])<1e-9 for k in range(8)))
+
+    accrued_tier_cfg=copy.deepcopy(tier_cfg)
+    accrued_lc=accrued_tier_cfg['assumptions']['nie_detail']['categories'][0]['linked_components'][0]
+    accrued_lc['timing']={'mode':'semiannual','first_period':3}
+    accrued_lc['recognition']={'mode':'spread','first_period':1}
+    accrued_lc['observation_lag']={'value':3,'period':'month'}
+    accrued_run=run_pf_a(accrued_tier_cfg)
+    accrued_h1=apply_piecewise_schedule(accrued_run['bs']['totalAssets'][0],general_bands)
+    ck('full monthly engine spreads a semiannual tiered assessment across its six-month coverage period',
+       all(abs(accrued_run['is']['otherOpex'][k]-accrued_h1/6.0)<1e-6 for k in range(6)))
+    ck('full monthly engine posts assessment timing through accrued then prepaid Opex balances',
+       accrued_run['bs']['accruedOpex'][1] > 0
+       and accrued_run['bs']['accruedOpex'][2] > 0
+       and abs(accrued_run['bs']['accruedOpex'][3]) < 1e-6
+       and abs(accrued_run['bs']['prepaidOpex'][3]-accrued_h1/2.0) < 1e-6
+       and abs(accrued_run['bs']['prepaidOpex'][6]) < 1e-6)
+    accrued_h2=apply_piecewise_schedule(accrued_run['bs']['totalAssets'][6],general_bands)
+    ck('second semiannual coverage block resets from the configured prior-half measurement base',
+       all(abs(accrued_run['is']['otherOpex'][k]-accrued_h2/6.0)<1e-6 for k in range(6,12)))
+    accrued_audit=calculation_audit_workbook(accrued_tier_cfg, run_v2(accrued_tier_cfg))
+    accrued_detail=[r for r in accrued_audit['Opex Component Detail'].iter_rows(values_only=True)
+                    if len(r)>25 and r[2]=='tiered-assets' and r[4] in (1,3)]
+    ck('calculation audit distinguishes spread recognition from the semiannual cash event',
+       len(accrued_detail)>=2
+       and any(r[4]==1 and r[6] is False and abs(float(r[24] or 0.0)-accrued_h1/6.0)<1e-6
+               and 'cash=0' in str(r[25]) for r in accrued_detail)
+       and any(r[4]==3 and r[6] is True and abs(float(r[24] or 0.0)-accrued_h1/6.0)<1e-6
+               and 'cash=' in str(r[25]) for r in accrued_detail))
+
+    pb=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json')); pba=pb['assumptions']
+    pba['nie_detail']={'categories':[{
+        'name':'Quarterly accrued assessment','flow_spec':{'trajectory':'flat','value':0.0,'period':'year'},
+        'linked_components':[{
+            'driver':'piecewise_linked','component_id':'tiered-pfb','name':'Quarterly assessment',
+            'terms':[{'source':'bank_total_assets','weight':1.0}],
+            'bands':[{'lower_bound':0.0,'upper_bound':None,'base_amount':120_000.0,'marginal_rate':0.0}],
+            'timing':{'mode':'semiannual','first_period':1},
+            'recognition':{'mode':'spread','first_period':1},
+            'observation_lag':{'value':1,'period':'quarter'}}]}],
+        'other_gross_up_rate':0,'fdic_bp_ann':0,'occ_simplified_enabled':False,
+        'workforce':{'mode':'roles','roles':[]}}
+    pbr=run_pf_b(pb)
+    ck('Profile B applies the same spread-assessment contract at quarterly cadence',
+       all(abs(x-60_000.0)<1e-6 for x in pbr['is']['otherOpex'][:4])
+       and abs(pbr['bs']['prepaidOpex'][0]-60_000.0)<1e-6
+       and abs(pbr['bs']['prepaidOpex'][1])<1e-6)
 
     tier_audit=calculation_audit_workbook(tier_cfg, run_v2(tier_cfg))
     ows=tier_audit['Operating Expense']

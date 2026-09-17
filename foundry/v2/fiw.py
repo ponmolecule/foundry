@@ -964,7 +964,11 @@ def _capability_map_sheet(wb, cfg):
         _rec=(_cat.get("recognition") or {}).get("mode","trajectory"); _setl=(_cat.get("settlement") or {}).get("mode","recognition")
         add("Operating expense", f"Recognition: {_rec}", _nm, "SETTINGS")
         add("Operating expense", f"Settlement: {_setl}", _nm, "SETTINGS")
-        for _lc in (_cat.get("linked_components") or []): add("Operating expense", f"Linked driver: {_lc.get('driver')}", _nm, "SETTINGS")
+        for _lc in (_cat.get("linked_components") or []):
+            add("Operating expense", f"Linked driver: {_lc.get('driver')}", _nm, "SETTINGS")
+            if _lc.get("driver")=="piecewise_linked":
+                _pr=(_lc.get("recognition") or {}).get("mode","event")
+                add("Operating expense", f"Tiered component recognition: {_pr}", _nm, "SETTINGS")
 
     for _pool in (a.get("cost_pools") or []):
         for _comp in (_pool.get("components") or []): add("Cost pool", f"Eligible cost component: {_comp.get('kind') or _comp.get('type')}", _pool.get("name") or _pool.get("id"), "SETTINGS")
