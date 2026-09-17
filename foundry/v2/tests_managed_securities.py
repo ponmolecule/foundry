@@ -1,4 +1,4 @@
-"""Focused r114 gate: target-driven managed securities portfolios."""
+"""Focused managed-securities gate: economics, authoring, audit, and UI integration."""
 from __future__ import annotations
 import copy, json, sys
 from pathlib import Path
@@ -152,6 +152,19 @@ def main():
     ck('managed target source dropdown exposes multiple stable Balance Sheet Series',
        '_managedSecTargetSources' in html and 'bank.balance_sheet.equity.end' in html and 'bank.balance_sheet.deposits.end' in html
        and 'secManagedTargetSource' in html)
+    ck('choosing Explicit opens the managed-securities paste editor immediately',
+       'window._secSeriesExplicitOpen[String(path)]=true' in html
+       and 'class="sec-managed-explicit"${explicitOpen?' in html
+       and 'ontoggle="secSeriesExplicitSet(' in html)
+    ck('Securities & AOCI card has a whole-card compact collapse/expand control',
+       '_cfgSectionIsOpen("secaoci",_secCardHasContent)' in html
+       and "cfgSectionSetOpen('secaoci'" in html
+       and '_secCardSummary' in html)
+    ck('Securities & AOCI module activation includes managed portfolios',
+       'function _secAociActive(a)' in html
+       and 'c.managed>0' in html
+       and 'a.managed_securities_portfolios = []' in html
+       and 'secAociToggle();' in html)
     ck('managed UI does not hard-code Treasury/GSE/CRA instrument names or 80/15/5 weights',
        all(x not in html[html.find('// ---------------------------------------------------------------- managed securities'):html.find('function _newNieDetail')]
            for x in ('Treasur','GSE','CRA','0.80','0.15','0.05')))
