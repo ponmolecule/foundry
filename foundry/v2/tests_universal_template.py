@@ -158,6 +158,28 @@ def main():
     ck("Fixed assets cover opening accumulated depreciation and future CAPEX",
        fa.get("mode")=="schedule" and any(x.get("opening_accumulated_depreciation") for x in assets) and any((x.get("in_service_period") or 0)>0 for x in assets)) # 40
 
+    # Fixed-asset methodologies are mutually exclusive in one live model. Exercise Formula / level
+    # as a second executable Universal variant rather than pretending both can be active at once.
+    flcfg=deepcopy(cfg); fla=flcfg["assumptions"]; flroles=(((fla.get("nie_detail") or {}).get("workforce") or {}).get("roles") or [])
+    level_role=next((r for r in flroles if not r.get("activation") and r.get("series_id")), None); level_sid=(level_role or {}).get("series_id")
+    fla["fixed_assets"]={"mode":"formula_level","formula_level":{
+        "opening_net":0.0,
+        "base_spec":{"source":"entered","trajectory":"flat","value":250000.0},
+        "components":[{"component_id":"universal-fixed-assets-workforce","name":"Capacity-linked equipment",
+                       "driver_spec":{"source":"link","link":{"kind":"workforce_role_count","series_id":level_sid,"aggregation":"end"}},
+                       "multiplier_spec":{"source":"entered","trajectory":"growth","base":4000.0,
+                                          "growth_spec":{"rate":0.02,"period":"year","method":"step","anchor":"model_year"}}}],
+        "depreciation":{"kind":"rate_of_level","rate_spec":{"source":"entered","trajectory":"flat","value":0.12,"period":"year"}}}}
+    flerrs=validate_errors_v2(deepcopy(flcfg)); flout=run_q.run_v2(deepcopy(flcfg)) if not flerrs else {}
+    ck("Universal alternate variant executes Formula / level fixed assets",
+       not flerrs and (flout.get("fixed_assets") or {}).get("mode")=="formula_level"
+       and bool(((flout.get("fixed_assets") or {}).get("formula_level") or {}).get("components")), flerrs[:3]) # 41
+    fldata,_=build_fiw(deepcopy(flcfg), include_capability_map=True); flwb=load_workbook(io.BytesIO(fldata), data_only=True)
+    flcmap="\n".join(str(c.value or "") for row in flwb["CAPABILITY_MAP"].iter_rows() for c in row)
+    ck("Universal alternate Formula / level FIW exposes its editable causal surface",
+       "ASSM_FIXED_ASSETS_LEVEL" in flwb.sheetnames and "Formula / level methodology" in flcmap
+       and "Linked Series × multiplier asset level" in flcmap) # 42
+
     # Managed securities grammar (r114): generic target-driven stock/flow books, no client-specific nouns.
     mps=a.get("managed_securities_portfolios") or []; ms=[sl for p in mps for sl in (p.get("sleeves") or [])]
     ck("Managed securities portfolio is represented", bool(mps) and bool(ms))                         # 41

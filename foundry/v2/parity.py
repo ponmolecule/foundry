@@ -41,6 +41,27 @@ def _conv_fixed_assets(fa):
         rows.append(rr)
     if "assets" in fa:
         out["assets"] = rows
+    fl = fa.get("formula_level")
+    if isinstance(fl, dict):
+        ff = dict(fl)
+        if isinstance(ff.get("opening_net"), (int, float)):
+            ff["opening_net"] = _k(ff["opening_net"])
+        if isinstance(ff.get("base"), list):
+            ff["base"] = [_k(x) for x in ff["base"]]
+        comps = []
+        for comp in ff.get("components") or []:
+            if not isinstance(comp, dict):
+                comps.append(comp); continue
+            cc = dict(comp)
+            if isinstance(cc.get("multiplier"), list):
+                cc["multiplier"] = [_k(x) for x in cc["multiplier"]]
+            if isinstance(cc.get("amount"), list):
+                cc["amount"] = [_k(x) for x in cc["amount"]]
+            comps.append(cc)
+        if "components" in ff:
+            ff["components"] = comps
+        # driver quantities and depreciation-rate paths are dimensionless/non-monetary.
+        out["formula_level"] = ff
     return out
 
 
