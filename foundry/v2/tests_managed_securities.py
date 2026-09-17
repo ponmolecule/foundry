@@ -50,6 +50,16 @@ def main():
     c=_cfg(); validate_config_v2(c); r=run_pf_a(copy.deepcopy(c)); mp=r['managed_securities'][0]
     ck('managed portfolio targets current period-end Total Equity',
        all(abs(t-0.30*r['bs']['equity'][i+1])<1e-3 for i,t in enumerate(mp['target'][:12])))
+    lag=_cfg(); lagts=lag['assumptions']['managed_securities_portfolios'][0]['target_source']; lagts['timing']='prior_period'; lagts['prior_initialization']='zero'
+    lagr=run_pf_a(copy.deepcopy(lag)); lagmp=lagr['managed_securities'][0]
+    ck('prior-period target timing leaves first modeled-period securities at zero',
+       abs(lagmp['target'][0])<1e-9 and all(abs(s['ending'][0])<1e-9 for s in lagmp['sleeves']))
+    ck('prior-period target timing uses M1 equity to establish M2 securities',
+       all(abs(lagmp['target'][i] - 0.30*lagr['bs']['equity'][i]) < 1e-3 for i in range(1,12)))
+    lagopen=_cfg(); ots=lagopen['assumptions']['managed_securities_portfolios'][0]['target_source']; ots['timing']='prior_period'; ots['prior_initialization']='opening_source'
+    lagopenr=run_pf_a(copy.deepcopy(lagopen)); lagopenmp=lagopenr['managed_securities'][0]
+    ck('prior-period opening-source initialization is explicit and uses opening equity when selected',
+       abs(lagopenmp['target'][0] - 0.30*lagopenr['bs']['equity'][0]) < 1e-3)
     depcfg=_cfg(); depcfg['assumptions']['managed_securities_portfolios'][0]['target_source']['series_id']=DEPOSITS_END_SERIES_ID
     depr=run_pf_a(copy.deepcopy(depcfg)); depmp=depr['managed_securities'][0]
     ck('managed portfolio target source is a selectable stable Balance Sheet Series, not an Equity-only branch',
@@ -67,6 +77,10 @@ def main():
     ck('managed AFS/HTM endings feed designated securities balance-sheet lines',
        abs(r['bs']['afsBook'][1]-(g['ending'][0]+a['ending'][0]))<1e-6 and abs(r['bs']['htmBook'][1]-cr['ending'][0])<1e-6)
     ck('managed interest feeds securities interest income', r['is']['bookInt'][0] > 0 and abs(r['is']['bookInt'][0]-sum(s['interest_income'][0] for s in mp['sleeves']))<1e-6)
+    ck('managed portfolios suppress the legacy residual-securities funding plug',
+       all(abs(x)<1e-6 for x in r['bs']['sec']))
+    ck('surplus funding remains in cash when managed portfolios own the securities allocation',
+       any(float(x or 0.0)>0 for x in r['bs']['cash']))
 
     # Signed balancing flow: a falling target is a sale, never silently floored to zero.
     a0=c['assumptions']; a0['managed_securities_portfolios'][0]['target_ratio_spec']={
@@ -115,6 +129,14 @@ def main():
     try: validate_config_v2(bad); bad_src=False
     except ValueError as e: bad_src='supported balance-sheet Series' in str(e)
     ck('unsupported endogenous target source fails closed', bad_src)
+    bad=_cfg(); bad['assumptions']['managed_securities_portfolios'][0]['target_source']['timing']='mystery_period'
+    try: validate_config_v2(bad); bad_timing=False
+    except ValueError as e: bad_timing='target_source.timing' in str(e)
+    ck('unsupported target timing fails closed', bad_timing)
+    bad=_cfg(); badts=bad['assumptions']['managed_securities_portfolios'][0]['target_source']; badts['timing']='prior_period'; badts['prior_initialization']='guess'
+    try: validate_config_v2(bad); bad_init=False
+    except ValueError as e: bad_init='prior_initialization' in str(e)
+    ck('unsupported prior-period initialization fails closed', bad_init)
 
     # AOCI circularity is solved rather than dodged with prior-period equity.
     c5=_cfg(); c5['assumptions']['aoci_sensitivity_annual']=-0.02
@@ -126,11 +148,14 @@ def main():
     pub=run_v2(_cfg()); ps=pub['managed_securities'][0]['sleeves'][0]
     ck('public managed-securities output preserves decimal rate paths', ps['yield'][0]==.04 and ps['allocation'][0]==.80)
     ck('public managed-securities monetary paths are $000s', ps['ending'][0] < 1_000_000 and pub['managed_securities_units']['monetary']=='$000s')
+    ck('public managed-securities target-source value is converted with the other monetary paths',
+       pub['managed_securities'][0]['target_source_value'][0] < 1_000_000)
 
     # Legacy no-managed config remains behaviorally identical when new key is absent vs empty.
     legacy=json.loads(Path('foundry/fixtures/core_bank_test_base.json').read_text())
     l1=run_pf_a(copy.deepcopy(legacy)); le=copy.deepcopy(legacy); le['assumptions']['managed_securities_portfolios']=[]; l2=run_pf_a(le)
     ck('empty managed-securities authoring is backward-compatible', l1==l2)
+    ck('legacy simple-only funding waterfall still permits residual securities', any(abs(x)>1e-6 for x in l1['bs']['sec']))
 
     # FIW: managed assumptions are visible/editable but clean round-trip is a semantic no-op.
     fiw_cfg=_cfg(); data,_=build_fiw(copy.deepcopy(fiw_cfg), include_capability_map=True)
@@ -152,6 +177,12 @@ def main():
     ck('managed target source dropdown exposes multiple stable Balance Sheet Series',
        '_managedSecTargetSources' in html and 'bank.balance_sheet.equity.end' in html and 'bank.balance_sheet.deposits.end' in html
        and 'secManagedTargetSource' in html)
+    ck('managed target timing and first-period initialization are explicit in the UI',
+       'Target timing' in html and 'Current period' in html and 'Prior period' in html
+       and 'First modeled period' in html and 'Opening source' in html
+       and 'secManagedTargetTiming' in html and 'secManagedTargetPriorInit' in html)
+    ck('new managed portfolios default to prior-period timing with an explicit zero first period',
+       'timing:"prior_period",prior_initialization:"zero"' in html)
     ck('choosing Explicit opens the managed-securities paste editor immediately',
        'window._secSeriesExplicitOpen[String(path)]=true' in html
        and 'class="sec-managed-explicit"${explicitOpen?' in html

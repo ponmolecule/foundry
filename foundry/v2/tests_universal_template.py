@@ -161,10 +161,14 @@ def main():
     ck("Managed securities covers entered and Curve Library yield sources", {x.get("yield_source","entered") for x in ms} >= {"entered","curve_library"}) # 43
     ck("Managed securities runoff owns explicit Month Quarter Year natural periods",
        {str((x.get("maturity_rate_spec") or {}).get("period")) for x in ms} >= {"month","quarter","year"}) # 44
+    ck("Managed securities target timing and first-period initialization are explicit",
+       all((p.get("target_source") or {}).get("timing") in {"current_period","prior_period"}
+           and (p.get("target_source") or {}).get("prior_initialization") in {"zero","opening_source"}
+           for p in mps)) # 45
     mout=out.get("managed_securities") or []
     ck("Managed securities publishes target runoff balancing flow ending yield and interest",
        bool(mout) and all(all(k in sl for k in ("starting","maturing","net_purchases","ending","yield","interest_income"))
-                          for pp in mout for sl in (pp.get("sleeves") or [])))                         # 45
+                          for pp in mout for sl in (pp.get("sleeves") or [])))                         # 46
 
     # FIW visible/hidden contract + no-op round trip.
     data, gh = build_fiw(deepcopy(cfg), include_capability_map=True)

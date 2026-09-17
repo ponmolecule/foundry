@@ -57,6 +57,8 @@ def _conv_managed_securities(rows):
         if not isinstance(p, dict):
             out.append(p); continue
         pp=dict(p)
+        if isinstance(pp.get("target_source_value"), list):
+            pp["target_source_value"]=[_k(x) for x in pp["target_source_value"]]
         if isinstance(pp.get("target"), list):
             pp["target"]=[_k(x) for x in pp["target"]]
         pp["target_ratio"]=list(pp.get("target_ratio") or [])

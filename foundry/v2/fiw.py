@@ -321,7 +321,12 @@ def _managed_securities_sheet(ws, portfolios):
         root=f"managed_securities_portfolios.{pi}"; pn=p.get("name") or f"Managed portfolio {pi+1}"
         row(root+".name",pn,"Portfolio name",p.get("name"),"text")
         row(root+".series_id",pn,"Portfolio Series ID",p.get("series_id"),"stable ID",True)
-        row(root+".target_source.series_id",pn,"Target source",(p.get("target_source") or {}).get("series_id"),"stable linked balance-sheet Series")
+        _ts=p.get("target_source") or {}
+        row(root+".target_source.series_id",pn,"Target source",_ts.get("series_id"),"stable linked balance-sheet Series")
+        if _ts.get("timing") is not None:
+            row(root+".target_source.timing",pn,"Target timing",_ts.get("timing"),"current_period / prior_period")
+        if _ts.get("prior_initialization") is not None:
+            row(root+".target_source.prior_initialization",pn,"Prior-period first modeled period",_ts.get("prior_initialization"),"zero / opening_source")
         series_rows(root+".target_ratio_spec",pn,"Target %",p.get("target_ratio_spec") or {"source":"entered","trajectory":"flat","value":p.get("target_ratio",0.0)})
         for si,sl in enumerate(p.get("sleeves") or []):
             # Keep the visible FIW surface compact: the hidden machine key already carries
@@ -878,7 +883,11 @@ def _capability_map_sheet(wb, cfg):
     add("Core bank", "AFS and HTM securities", f"AFS {len(a.get('securities_afs') or [])} · HTM {len(a.get('securities_htm') or [])}", "ASSM_SEC_AFS / ASSM_SEC_HTM")
     for _mp in (a.get("managed_securities_portfolios") or []):
         add("Core bank", "Target-driven managed securities portfolio", _mp.get("name") or "managed portfolio", "ASSM_SEC_MANAGED")
-        add("Core bank", "Managed securities target Series", (_mp.get("target_source") or {}).get("series_id"), "ASSM_SEC_MANAGED")
+        _mts = _mp.get("target_source") or {}
+        add("Core bank", "Managed securities target Series", _mts.get("series_id"), "ASSM_SEC_MANAGED")
+        add("Core bank", "Managed securities target timing", _mts.get("timing") or "current_period", "ASSM_SEC_MANAGED")
+        if (_mts.get("timing") or "current_period") == "prior_period":
+            add("Core bank", "Managed securities prior-period initialization", _mts.get("prior_initialization") or "zero", "ASSM_SEC_MANAGED")
         for _sl in (_mp.get("sleeves") or []):
             add("Core bank", f"Managed sleeve — {_sl.get('classification','AFS')}", _sl.get("name") or "security", "ASSM_SEC_MANAGED")
             add("Core bank", f"Managed yield source — {_sl.get('yield_source','entered')}", _sl.get("name") or "security", "ASSM_SEC_MANAGED")

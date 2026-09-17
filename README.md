@@ -39,4 +39,4 @@ thin FastAPI/HTML shell. Fictitious client: Solstice Bank (in organization).
   definition parity with the production reference warehouse. All client facts fictitious.
 
 ### Managed securities portfolios
-Foundry's existing **Configuration → Securities books & AOCI** module supports both simple AFS/HTM books and target-driven managed portfolios. Managed sleeves use linked target stock, authored allocation, explicit-period runoff, signed balancing purchases/(sales), and entered or Curve Library annual yields.
+Foundry's existing **Configuration → Securities books & AOCI** module supports both simple AFS/HTM books and target-driven managed portfolios. Managed portfolios expose Current/Prior target timing plus first-period initialization; managed sleeves use linked target stock, authored allocation, explicit-period runoff, signed balancing purchases/(sales), and entered or Curve Library annual yields. When managed portfolios are active, the funding waterfall does not create an additional residual securities plug on top of the explicitly targeted books; surplus liquidity remains in cash.
