@@ -1,6 +1,6 @@
 """Focused managed-securities gate: economics, authoring, audit, and UI integration."""
 from __future__ import annotations
-import copy, json, sys
+import copy, json, sys, subprocess
 from pathlib import Path
 import io
 
@@ -185,8 +185,59 @@ def main():
        'timing:"prior_period",prior_initialization:"zero"' in html)
     ck('choosing Explicit opens the managed-securities paste editor immediately',
        'window._secSeriesExplicitOpen[String(path)]=true' in html
-       and 'class="sec-managed-explicit"${explicitOpen?' in html
-       and 'ontoggle="secSeriesExplicitSet(' in html)
+       and 'secSeriesExplicitOpen' in html and 'secSeriesExplicitClose' in html)
+    ck('closed Explicit managed-securities schedules always expose a visible View / edit control',
+       'class="pillbtn sec-managed-explicit-edit"' in html
+       and '>View / edit schedule</button>' in html
+       and 'sec-managed-explicit-closed' in html)
+    ck('open Explicit managed-securities schedules expose an explicit Close control',
+       'onclick="secSeriesExplicitClose(' in html and '>Close</button>' in html)
+
+    # Execute the real renderer around the failure mode: Explicit survives a re-render while
+    # its transient editor state is closed. The user must never be stranded with only the
+    # dropdown saying Explicit and no affordance to reopen the schedule.
+    ea=html.index('function _secSeriesEditor(')
+    eb=html.index('window.secManagedAddPortfolio=', ea)
+    editor_js=html[ea:eb]
+    state_a=html.index('window._secSeriesExplicitOpen=')
+    state_b=html.index('function _managedSecPortfolios(', state_a)
+    state_js=html[state_a:state_b]
+    node = "\n".join([
+        "const window=globalThis;",
+        "let renders=0;",
+        "function renderContent(){renders++;}",
+        "function refresh(){}",
+        "function esc(x){return String(x);}",
+        "function _nativeFlowPeriod(){return 'month';}",
+        "function _seriesCadenceOptions(){return ['month','quarter','year'];}",
+        "function _seriesResolutionUseful(){return false;}",
+        "function _seriesPasteSummary(vals,fmt){return vals.length ? vals.length+' values · '+fmt(vals[0]) : 'No values loaded';}",
+        "function _explicitPreviewHtml(){return '';}",
+        "function growthSpecInline(){return '';}",
+        "function _secSeriesDefault(v){return {source:'entered',trajectory:'flat',value:v||0};}",
+    ]) + "\n" + state_js + editor_js + "\n" + "\n".join([
+        "const path='assumptions.managed_securities_portfolios.0.sleeves.0.yield_spec';",
+        "const spec={source:'entered',trajectory:'explicit',cadence:'month',values:[.04,.05],extend:'hold',resolution:'step'};",
+        "secSeriesExplicitSet(path,false);",
+        "const closed=_secSeriesEditor(path,spec,'Annual yield',false);",
+        "secSeriesExplicitOpen(path);",
+        "const opened=_secSeriesEditor(path,spec,'Annual yield',false);",
+        "secSeriesExplicitClose(path);",
+        "const closedAgain=_secSeriesEditor(path,spec,'Annual yield',false);",
+        "console.log(JSON.stringify({closed,opened,closedAgain,renders}));",
+    ])
+    nr=subprocess.run(['node','-e',node],text=True,capture_output=True)
+    nj={}
+    if nr.returncode==0 and nr.stdout.strip():
+        try: nj=json.loads(nr.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    closed=nj.get('closed',''); opened=nj.get('opened',''); closed_again=nj.get('closedAgain','')
+    ck('Explicit renderer is recoverable after close and re-render',
+       nr.returncode==0
+       and 'View / edit schedule' in closed and '<textarea' not in closed
+       and '<textarea' in opened and '>Close</button>' in opened
+       and 'View / edit schedule' in closed_again and '<textarea' not in closed_again
+       and nj.get('renders')==2, nr.stderr.strip())
     ck('Securities & AOCI card has a whole-card compact collapse/expand control',
        '_cfgSectionIsOpen("secaoci",_secCardHasContent)' in html
        and "cfgSectionSetOpen('secaoci'" in html
