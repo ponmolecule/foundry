@@ -1267,6 +1267,51 @@ def _fee_stream_economics_rows(cfg, exact, n):
     return rows
 
 
+def _managed_securities_rows(cfg, results, n):
+    """Expose the managed-securities stock/flow/yield causal chain.
+
+    ``results`` is the exact base-engine output here, so monetary values are raw
+    dollars and are converted once to $000s for the workbook. Rates/ratios remain
+    decimals and use percentage formatting.
+    """
+    rows = []
+    for pi, p in enumerate((results or {}).get("managed_securities") or []):
+        pname = str((p or {}).get("name") or f"Managed portfolio {pi+1}")
+        psid = str((p or {}).get("series_id") or f"managed_portfolio_{pi+1}")
+        section = pname
+        rows.append((section, "Target ratio", f"{psid}:target_ratio", "% of linked target source",
+                     list((p or {}).get("target_ratio") or []), _PCT_FMT))
+        rows.append((section, "Target securities balance", f"{psid}:target", "$000s · period end",
+                     _money_k_series((p or {}).get("target") or []), _RAW_MONEY_FMT))
+        for si, sl in enumerate((p or {}).get("sleeves") or []):
+            sname = str((sl or {}).get("name") or f"Security {si+1}")
+            ssid = str((sl or {}).get("series_id") or f"{psid}:sleeve:{si+1}")
+            sec = f"{pname} › {sname} [{(sl or {}).get('classification') or 'AFS'}]"
+            rows.extend([
+                (sec, "Allocation", f"{ssid}:allocation", "% of managed portfolio",
+                 list((sl or {}).get("allocation") or []), _PCT_FMT),
+                (sec, "Starting portfolio", f"{ssid}:starting", "$000s · beginning balance",
+                 _money_k_series((sl or {}).get("starting") or []), _RAW_MONEY_FMT),
+                (sec, "Authored maturity / runoff rate", f"{ssid}:maturity_rate_authored",
+                 f"% per {(sl or {}).get('maturity_period') or 'model period'}",
+                 list((sl or {}).get("maturity_rate_authored") or (sl or {}).get("maturity_rate") or []), _PCT_FMT),
+                (sec, "Effective maturity / runoff rate", f"{ssid}:maturity_rate", "% per engine period",
+                 list((sl or {}).get("maturity_rate") or []), _PCT_FMT),
+                (sec, "Maturing / runoff", f"{ssid}:maturing", "$000s · engine period",
+                 _money_k_series((sl or {}).get("maturing") or []), _RAW_MONEY_FMT),
+                (sec, "Net purchases / (sales)", f"{ssid}:net_purchases",
+                 "$000s · signed flow (+ purchase / − sale)",
+                 _money_k_series((sl or {}).get("net_purchases") or []), _RAW_MONEY_FMT),
+                (sec, "Ending portfolio", f"{ssid}:ending", "$000s · period end",
+                 _money_k_series((sl or {}).get("ending") or []), _RAW_MONEY_FMT),
+                (sec, "Annual portfolio yield", f"{ssid}:yield", "% p.a.",
+                 list((sl or {}).get("yield") or []), _PCT_FMT),
+                (sec, "Interest income", f"{ssid}:interest_income", "$000s · engine period",
+                 _money_k_series((sl or {}).get("interest_income") or []), _RAW_MONEY_FMT),
+            ])
+    return rows
+
+
 def _pool_rows(cfg, results, n, ppy):
     a = cfg.get("assumptions") or {}
     if a.get("cost_pools"):
@@ -1359,6 +1404,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("CAC Annual Rollforward", "Feed-level annual beginning/new/lost/ending AUC and customers, attrition, spend, and blended CAC."),
         ("CAC Monthly Canonical", "Canonical monthly beginning/EOP/average AUC and customer stocks, even when the engine itself is quarterly."),
         ("Product Calculations", "Every native numeric product series surfaced by the run."),
+        ("Managed Securities", "Target-driven securities stock/flow/yield chain: target balance, allocation, runoff, signed net purchases/(sales), ending balance, annual yield, and interest income."),
         ("Fee Product Costs", "Product Details/public-run Fee revenue, Fee Product costs, and product Opex, followed by explicitly labeled exact-engine rows plus cost-factor diagnostics."),
         ("Fee Stream Quantities", "Stable observational driver-quantity Series. Row labels explicitly identify the quantity/throughput layer so a revenue-oriented stream name cannot be mistaken for revenue."),
         ("Fee Stream Economics", "Per-stream causal chain captured by the engine: driver quantity/throughput, pricing factor, gross revenue, contra-revenue, reported stream fee income, and direct operating cost layers."),
@@ -1489,6 +1535,9 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Product Calculations"), cfg, _product_rows(results, n, exact=exact),
                      title="Product Calculations · Audit",
                      subtitle="Every native numeric product series surfaced by Foundry.", n=n, ppy=ppy)
+    _write_wide_rows(wb.create_sheet("Managed Securities"), cfg, _managed_securities_rows(cfg, exact, n),
+                     title="Managed Securities · Calculation Audit",
+                     subtitle="Target-driven stock/flow/yield chain. Monetary rows are exact engine dollars converted once to $000s; net purchases/(sales) remain signed; annual yields are periodized by the engine exactly once.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("Fee Product Costs"), cfg, _fee_cost_rows(cfg, results, n, ppy, exact=exact),
                      title="Fee Product Costs · Audit",
                      subtitle="Headline rows reconcile exactly to Product Details/public-run values; separately labeled exact-engine rows retain unrounded precision for source-model reconciliation.", n=n, ppy=ppy)

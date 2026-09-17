@@ -684,6 +684,13 @@ def run_v2(cfg):
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
+    if base.get("managed_securities") is not None:
+        results["managed_securities"] = copy.deepcopy(base.get("managed_securities"))
+        results["managed_securities_units"] = {
+            "monetary": "$000s",
+            "rates": "decimal annual yield / dimensionless ratios",
+            "flow_sign": "positive = purchase; negative = sale/reduction",
+        }
     # Workforce activation diagnostics are surfaced only when role/cohort authoring is active.
     # This keeps legacy result shapes unchanged while making derived hire periods auditable.
     if base.get("workforce") is not None:

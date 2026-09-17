@@ -624,7 +624,7 @@
         "fee_yield_ann": 0.003,
         "index_spread": 0.03,
         "measurement": "fair_value",
-        "name": "Small Business / C&I — fair value",
+        "name": "Small Business / C&I \u2014 fair value",
         "opening_balance": 10000000.0,
         "opex_fixed_m": 10000.0,
         "opex_pct_ann": 0.006,
@@ -1183,7 +1183,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee — period end",
+            "name": "Account fee \u2014 period end",
             "quantity_series_id": "fee-qty-cust-eop-universal",
             "rate": {
               "behavior": "flat",
@@ -1212,7 +1212,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee — period average",
+            "name": "Account fee \u2014 period average",
             "quantity_series_id": "fee-qty-cust-avg-universal",
             "rate": {
               "behavior": "flat",
@@ -1247,7 +1247,7 @@
               "source": "customer_acquisition_count",
               "trajectory": "flat"
             },
-            "name": "Account fee — year-end held",
+            "name": "Account fee \u2014 year-end held",
             "quantity_series_id": "fee-qty-cust-year-universal",
             "rate": {
               "behavior": "flat",
@@ -1980,7 +1980,135 @@
       "valuation_allowance_pct": 0.0
     },
     "tax_rate": 0.21,
-    "tax_semantics": "nol_carryforward_pf_a"
+    "tax_semantics": "nol_carryforward_pf_a",
+    "managed_securities_portfolios": [
+      {
+        "name": "Managed securities coverage portfolio",
+        "series_id": "universal-managed-securities",
+        "target_source": {
+          "kind": "bank_balance_sheet",
+          "series_id": "bank.balance_sheet.equity.end"
+        },
+        "target_ratio_spec": {
+          "source": "entered",
+          "trajectory": "flat",
+          "value": 0.22
+        },
+        "sleeves": [
+          {
+            "name": "Liquidity sleeve Alpha",
+            "series_id": "universal-managed-alpha",
+            "classification": "AFS",
+            "opening": 0.0,
+            "allocation_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.55
+            },
+            "maturity_rate_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.01,
+              "period": "month"
+            },
+            "yield_source": "entered",
+            "yield_spec": {
+              "source": "entered",
+              "trajectory": "explicit",
+              "cadence": "month",
+              "values": [
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.035,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.037,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039,
+                0.039
+              ],
+              "resolution": "step",
+              "extend": "hold"
+            }
+          },
+          {
+            "name": "Liquidity sleeve Beta",
+            "series_id": "universal-managed-beta",
+            "classification": "AFS",
+            "opening": 0.0,
+            "allocation_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.3
+            },
+            "maturity_rate_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.06,
+              "period": "quarter"
+            },
+            "yield_source": "curve_library",
+            "curve_name": "sofr"
+          },
+          {
+            "name": "Liquidity sleeve Gamma",
+            "series_id": "universal-managed-gamma",
+            "classification": "HTM",
+            "opening": 0.0,
+            "allocation_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.15
+            },
+            "maturity_rate_spec": {
+              "source": "entered",
+              "trajectory": "flat",
+              "value": 0.12,
+              "period": "year"
+            },
+            "yield_source": "entered",
+            "yield_spec": {
+              "source": "entered",
+              "trajectory": "growth",
+              "base": 0.045,
+              "growth_spec": {
+                "rate": 0.02,
+                "period": "year",
+                "method": "step",
+                "anchor": "model_year"
+              }
+            }
+          }
+        ]
+      }
+    ]
   },
   "charter_profile": {
     "cblr_election": true,
@@ -2006,7 +2134,7 @@
     "This fixture is a coverage specimen, not a recommended business plan; unusual combinations are deliberate to keep current authoring branches under regression."
   ],
   "engagement_id": "exhaustive-coverage",
-  "hq": "Parity fixture — n/a",
+  "hq": "Parity fixture \u2014 n/a",
   "parity_expectation": null,
   "parity_profile": "pf_a",
   "peer_query": {
@@ -2042,7 +2170,7 @@
   },
   "prepared_by": "Foundry lineage/coverage build",
   "proposed_bank": "Nook & Cranny National Bank",
-  "scenario_name": "Universal coverage — current Foundry capability contract",
+  "scenario_name": "Universal coverage \u2014 current Foundry capability contract",
   "scenario_overlays": null,
   "schema_version": "2.0",
   "step_0": {
@@ -2058,7 +2186,7 @@
   },
   "step_0a": {
     "entities": {
-      "bank": "Parity Fixture Bank A1 — single entity"
+      "bank": "Parity Fixture Bank A1 \u2014 single entity"
     },
     "flags_from_map": [],
     "map_approved": null

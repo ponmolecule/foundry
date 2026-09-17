@@ -129,6 +129,28 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .sec-book-unit{font-size:8.5px;color:#9CA7B7;white-space:nowrap;flex:0 0 auto}
 .sec-book-delete{align-self:end;margin-bottom:1px}
 .sec-book-name{width:100% !important;min-width:0 !important;max-width:none !important}
+/* Managed securities share this narrow tile, so each instrument is a deliberate
+   vertical block: name/header first, then only that sleeve's parameters. Nothing
+   from one sleeve is allowed to visually run into the next. */
+.sec-managed-wrap{margin-top:12px;padding-top:10px;border-top:1px solid #2A3444}
+.sec-managed-portfolio{border:1px solid #2B3A57;border-radius:7px;padding:9px;margin:7px 0 10px;min-width:0;overflow:hidden}
+.sec-managed-portfolio-head,.sec-managed-sleeve-head{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0}
+.sec-managed-portfolio-title{font-size:10px;font-weight:700;color:#D9E1EE;min-width:0;overflow-wrap:anywhere}
+.sec-managed-target{display:grid;grid-template-columns:minmax(0,1fr);gap:6px;margin-top:7px}
+.sec-managed-sleeve{border-top:1px solid #2A3444;margin-top:9px;padding-top:9px;min-width:0}
+.sec-managed-sleeve-name{font-size:11px;font-weight:650;color:#E4EAF3;min-width:0;overflow-wrap:anywhere}
+.sec-managed-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;margin-top:7px}
+.sec-managed-field{min-width:0}
+.sec-managed-field>label{display:block;font-size:9px;color:#8FA3C0;margin-bottom:3px;line-height:1.2}
+.sec-managed-field input,.sec-managed-field select{width:100% !important;min-width:0 !important;box-sizing:border-box}
+.sec-managed-series{grid-column:1/-1;border-radius:5px;background:rgba(10,18,30,.22);padding:6px 7px;min-width:0}
+.sec-managed-series-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.sec-managed-series-row input{width:62px !important;flex:0 0 62px}
+.sec-managed-series-row select{width:auto !important;max-width:112px}
+.sec-managed-explicit{margin-top:5px;min-width:0}
+.sec-managed-explicit summary{cursor:pointer;color:#9CA7B7;font-size:9.5px;overflow-wrap:anywhere}
+.sec-managed-explicit textarea{width:100%;box-sizing:border-box;margin-top:5px;background:#0E1626;color:#DDE5F1;border:1px solid #33436199;border-radius:5px;padding:5px;font:10px var(--mono);resize:vertical}
+@media(max-width:1180px){.sec-managed-grid{grid-template-columns:minmax(0,1fr)}}
 .cfgwrap .cu{font-size:11px;color:#9CA7B7;letter-spacing:.01em}
 .cfgwrap .cx{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;
   justify-content:center;color:#8FA3C0;border:1px solid transparent;font-size:13px;text-decoration:none;flex:0 0 24px}
@@ -1577,7 +1599,7 @@ function _diffCfgAgainst(baselineJSON){
   const A0=orig.assumptions||{}, A1=cur.assumptions||{};
   // scalars + nested objects under assumptions, EXCLUDING the named lists (routed to diffList)
   const LISTS = new Set(["lending_products","deposit_products","capital_raises","scheduled_borrowings",
-                         "securities_afs","securities_htm","obs_exposures"]);
+                         "securities_afs","securities_htm","managed_securities_portfolios","obs_exposures"]);
   (function(){
     const keys=new Set([...Object.keys(A0),...Object.keys(A1)]);
     keys.forEach(k=>{ if(LISTS.has(k)||SKIP.has(k)) return;
@@ -1597,6 +1619,12 @@ function _diffCfgAgainst(baselineJSON){
   namedList("Scheduled borrowing", A0.scheduled_borrowings, A1.scheduled_borrowings, "name");
   namedList("Security (AFS)", A0.securities_afs, A1.securities_afs, "name");
   namedList("Security (HTM)", A0.securities_htm, A1.securities_htm, "name");
+  namedList("Managed securities portfolio", A0.managed_securities_portfolios, A1.managed_securities_portfolios, "name");
+  { const m0=A0.managed_securities_portfolios||[], m1=A1.managed_securities_portfolios||[];
+    const byName=a=>Object.fromEntries(a.map((p,i)=>[String((p||{}).series_id||(p||{}).name||i),p||{}]));
+    const x0=byName(m0),x1=byName(m1);
+    new Set([...Object.keys(x0),...Object.keys(x1)]).forEach(k=>{if(x0[k]&&x1[k])namedList(`Managed security (${x1[k].name||x0[k].name||k})`,x0[k].sleeves,x1[k].sleeves,"name");});
+  }
   namedList("Off-balance-sheet", A0.obs_exposures, A1.obs_exposures, "name");
   // module on/off
   [["tax_detail","Deferred-tax detail"],["credit_regime","Credit regime (CECL)"],["nie_detail","Operating-expense detail"]].forEach(([k,lab])=>{
@@ -4246,6 +4274,8 @@ function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 // Paste one explicit Series as a row or column copied from Excel/Sheets, or as CSV.
 // Only pure numeric cells are consumed, so period headers such as Y1/Q1/M1 are ignored.
+// Kept as the legacy tolerant parser for CAC/UI compatibility; new scalar pasteboxes use
+// the fail-closed _seriesExplicitValues controller below.
 function _seriesPasteNumbers(txt){
   const src=String(txt||"").trim(); if(!src)return [];
   const lines=src.split(/\r?\n/).filter(x=>String(x).trim()); let cells=[];
@@ -4271,6 +4301,26 @@ function _seriesPasteSummary(vals,fmt){
 }
 
 function _seriesResolutionUseful(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return f<PPY();}
+
+// ---------------------------------------------------------------- managed securities
+function _managedSecPortfolios(create){if(create && !Array.isArray(cfg.assumptions.managed_securities_portfolios))cfg.assumptions.managed_securities_portfolios=[];return cfg.assumptions.managed_securities_portfolios||[];}
+function _managedSecTargetSources(){return [{id:"bank.balance_sheet.equity.end",name:"Total equity — period end"},{id:"bank.balance_sheet.deposits.end",name:"Total deposits — period end"}];}
+function _secSeriesDefault(value,period){const x={source:"entered",trajectory:"flat",value:+(value||0)};if(period)x.period=period;return x;}
+function _secSeriesEnsure(path,def){let sp=getPath(path);if(!sp||typeof sp!=="object"){sp=_secSeriesDefault(def||0);setPath(path,sp);}sp.source="entered";sp.trajectory=sp.trajectory||"flat";return sp;}
+window.secSeriesTrajectory=function(path,traj){const sp=_secSeriesEnsure(path,0),naturalPeriod=sp.period;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";}if(naturalPeriod)sp.period=naturalPeriod;renderContent();refresh();};
+window.secSeriesValue=function(path,field,v){const sp=_secSeriesEnsure(path,0);sp[field]=_pf(v)/100;refresh();};
+window.secSeriesCadence=function(path,v){const sp=_secSeriesEnsure(path,0);sp.cadence=v;sp.values=sp.values||[];_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);renderContent();refresh();};
+window.secSeriesResolution=function(path,v){const sp=_secSeriesEnsure(path,0);sp.resolution=(v==="smooth"?"smooth":"step");refresh();};
+window.secSeriesPeriod=function(path,v){const sp=_secSeriesEnsure(path,0);sp.period=(["month","quarter","year"].includes(v)?v:_nativeFlowPeriod());refresh();};
+window.secSeriesPaste=function(path,id){const sp=_secSeriesEnsure(path,0),el=document.getElementById(id),raw=_seriesExplicitValues(el?el.value:"");if(!raw.length){appStatus("err","No valid numeric schedule values found.");return;}sp.trajectory="explicit";sp.cadence=sp.cadence||_nativeFlowPeriod();sp.extend="hold";sp.resolution=sp.resolution||"step";sp.values=raw.map(x=>(+x.value||0)/100);_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);appStatus("ok",sp.values.length+" values loaded.");renderContent();refresh();};
+window.secSeriesClear=function(path){const sp=_secSeriesEnsure(path,0);sp.values=[];renderContent();refresh();};
+function _secSeriesEditor(path,spec,label,naturalPeriod){spec=spec&&typeof spec==="object"?spec:_secSeriesDefault(0,naturalPeriod?_nativeFlowPeriod():null);const tr=spec.trajectory||"flat",id="secsp_"+path.replace(/[^a-zA-Z0-9]/g,"_");let h=`<div class="sec-managed-series"><div class="sec-managed-series-row"><span class="sec-book-label" style="margin:0;min-width:64px">${esc(label)}</span><select onchange="secSeriesTrajectory('${path}',this.value)"><option value="flat"${tr==="flat"?' selected':''}>Flat</option><option value="growth"${tr==="growth"?' selected':''}>Growth</option><option value="explicit"${tr==="explicit"?' selected':''}>Explicit</option></select>`;if(tr==="flat")h+=`<input type="number" step="0.01" value="${((+spec.value||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','value',this.value)"><span class="sec-book-unit">%</span>`;if(tr==="growth")h+=`<input type="number" step="0.01" value="${((+spec.base||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','base',this.value)"><span class="sec-book-unit">% base</span>`;h+='</div>';if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Rate period</span><select onchange="secSeriesPeriod('${path}',this.value)">${["month","quarter","year"].map(x=>`<option value="${x}"${x===per?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>`;}if(tr==="growth")h+=`<div class="sec-managed-series-row" style="margin-top:5px">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</div>`;if(tr==="explicit"){const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>(+v*100).toFixed(3)+'%');h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Schedule cadence</span><select onchange="secSeriesCadence('${path}',this.value)">${_seriesCadenceOptions().map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>${_seriesResolutionUseful(cad)?`<select onchange="secSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`:''}</div><details class="sec-managed-explicit"><summary>${esc(summary)} · paste/edit</summary><textarea id="${id}" rows="3" placeholder="Paste ${cad} percentages" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${id}_load" class="pillbtn" disabled onclick="secSeriesPaste('${path}','${id}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="secSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>(+v*100).toFixed(3)+'%',cad)}</div></details>`;}return h+'</div>';}
+window.secManagedAddPortfolio=function(){_managedSecPortfolios(true).push({name:"Managed securities portfolio",series_id:_seriesId("managed-sec"),target_source:{kind:"bank_balance_sheet",series_id:"bank.balance_sheet.equity.end"},target_ratio_spec:_secSeriesDefault(0),sleeves:[]});renderContent();refresh();};
+window.secManagedDeletePortfolio=function(i){_managedSecPortfolios(true).splice(i,1);renderContent();refresh();};
+window.secManagedTargetSource=function(i,v){const p=_managedSecPortfolios()[i];if(!p)return;const ok=_managedSecTargetSources().some(x=>x.id===v);p.target_source={kind:"bank_balance_sheet",series_id:ok?v:"bank.balance_sheet.equity.end"};refresh();};
+window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)return;p.sleeves=p.sleeves||[];p.sleeves.push({name:"Security",series_id:_seriesId("managed-sec-sleeve"),classification:"AFS",opening:0,allocation_spec:_secSeriesDefault(0),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:"entered",yield_spec:_secSeriesDefault(0)});renderContent();refresh();};
+window.secManagedDeleteSleeve=function(i,j){const p=_managedSecPortfolios()[i];if(!p)return;(p.sleeves||[]).splice(j,1);renderContent();refresh();};
+window.secManagedYieldSource=function(i,j,v){const s=((_managedSecPortfolios()[i]||{}).sleeves||[])[j];if(!s)return;s.yield_source=v;if(v==="entered")s.yield_spec=s.yield_spec||_secSeriesDefault(0);else s.curve_name=s.curve_name||"sofr";renderContent();refresh();};
 function _newNieDetail(){
   return {categories:[], other_gross_up_rate:0, fdic_bp_ann:5.0, occ_simplified_enabled:false,
           workforce:{mode:"roles",roles:[],total_count_series_id:_seriesId("wf-total-count"),default_payroll_load_rate:0,
@@ -8808,7 +8858,7 @@ function structuresSectionsHtml(){
   }
   h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
   {
-    let _sb = `<div class="csub">Securities books (per-${PLAB()})</div>`;
+    let _sb = `<div class="csub">Simple securities books (per-${PLAB()})</div>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
       _sb += `<div class="sec-book-editor" data-book-kind="AFS"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'AFS')}" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove AFS book" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
@@ -8816,6 +8866,27 @@ function structuresSectionsHtml(){
       _sb += `<div class="sec-book-editor" data-book-kind="HTM"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove HTM book" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
+    _sb += '<div class="sec-managed-wrap"><div class="csub">Managed portfolios</div><div class="cmut">Target-driven books: linked target stock → allocation → maturities/runoff → balancing net purchases/(sales) → ending stock. Instrument names, weights and rates are authored — never hard-coded.</div>';
+    (_managedSecPortfolios()).forEach((mp,mi)=>{
+      const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
+      _sb += `<div class="sec-managed-portfolio"><div class="sec-managed-portfolio-head"><input class="sec-managed-portfolio-title" style="flex:1 1 auto;width:auto" value="${esc(mp.name||'Managed securities portfolio')}" onchange="_managedSecPortfolios()[${mi}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove managed portfolio" onclick="secManagedDeletePortfolio(${mi});return false">×</a></div>`;
+      {const _sid=((mp.target_source||{}).series_id||"bank.balance_sheet.equity.end"); _sb += `<div class="sec-managed-target"><div class="sec-managed-grid"><div class="sec-managed-field"><label>Target source</label><select title="Stable balance-sheet Series" onchange="secManagedTargetSource(${mi},this.value)">${_managedSecTargetSources().map(x=>`<option value="${x.id}"${x.id===_sid?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div>${_secSeriesEditor(tp,ts,'Target %')}</div></div>`;}
+      (mp.sleeves||[]).forEach((sl,si)=>{
+        const base=`assumptions.managed_securities_portfolios.${mi}.sleeves.${si}`;
+        const as=sl.allocation_spec||_secSeriesDefault(sl.allocation||0), ms=sl.maturity_rate_spec||_secSeriesDefault(sl.maturity_rate||sl.runoff_rate||0,_nativeFlowPeriod()), ys=sl.yield_spec||_secSeriesDefault(sl.yield_ann||0);
+        _sb += `<div class="sec-managed-sleeve"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(sl.name||'Security')}" onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove security" onclick="secManagedDeleteSleeve(${mi},${si});return false">×</a></div><div class="sec-managed-grid">`;
+        _sb += `<div class="sec-managed-field"><label>Classification</label><select onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].classification=this.value;refresh()"><option value="AFS"${String(sl.classification||'AFS').toUpperCase()==='AFS'?' selected':''}>AFS</option><option value="HTM"${String(sl.classification||'AFS').toUpperCase()==='HTM'?' selected':''}>HTM</option></select></div>`;
+        _sb += `<div class="sec-managed-field"><label>Opening balance</label><div class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((+sl.opening||0)/1000)}" onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></div></div>`;
+        _sb += _secSeriesEditor(base+'.allocation_spec',as,'Allocation');
+        _sb += _secSeriesEditor(base+'.maturity_rate_spec',ms,'Maturity / runoff',true);
+        _sb += `<div class="sec-managed-field"><label>Yield source</label><select onchange="secManagedYieldSource(${mi},${si},this.value)"><option value="entered"${(sl.yield_source||'entered')==='entered'?' selected':''}>Entered</option><option value="curve_library"${sl.yield_source==='curve_library'?' selected':''}>Curve Library</option></select></div>`;
+        if((sl.yield_source||'entered')==='curve_library') _sb += `<div class="sec-managed-field"><label>Curve</label><select onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].curve_name=this.value;refresh()">${[['sofr','SOFR'],['effr','EFFR'],['prime','Prime']].map(x=>`<option value="${x[0]}"${(sl.curve_name||'sofr')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+        else _sb += _secSeriesEditor(base+'.yield_spec',ys,'Annual yield');
+        _sb += `<div class="cmut" style="grid-column:1/-1">Net purchases/(sales) are calculated, signed balancing flows. Interest uses period-end balance × annual yield ÷ ${PPY()}.</div></div></div>`;
+      });
+      _sb += `<button class="pillbtn" style="margin-top:7px" onclick="secManagedAddSleeve(${mi})">+ Add security</button></div>`;
+    });
+    _sb += '<button class="pillbtn" onclick="secManagedAddPortfolio()">+ Add managed portfolio</button></div>';
     let _ao = '<div class="csub">AOCI</div>';
     _ao += `<div class="cmut" style="margin:0 0 6px">AOCI sensitivity</div>`;
     _ao += `<div class="crow" style="margin:0"><input type="number" step="0.1" style="width:96px" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=_pf(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
@@ -8826,7 +8897,7 @@ function structuresSectionsHtml(){
       h += `<div class="hline" style="margin:14px 0"></div><div class="csub">Funding waterfall &amp; other balance sheet</div>`;
       h += `<div class="crow" style="align-items:center">Cash floor<input type="number" step="0.1" style="width:56px" value="${((A4.cash_target_pct_deposits||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_target_pct_deposits=_pf(this.value)/100;refresh()"><span class="cu">% of deposits</span></div>`;
       h += `<div class="crow" style="align-items:center">Cash yield<input type="number" step="0.1" style="width:56px" value="${((A4.cash_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
-      h += `<div class="crow" style="align-items:center">Securities yield<input type="number" step="0.1" style="width:56px" value="${((A4.securities_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
+      h += `<div class="crow" style="align-items:center">Residual securities yield<input type="number" step="0.1" style="width:56px" value="${((A4.securities_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Borrowing rate<input type="number" step="0.1" style="width:56px" value="${((A4.borrow_rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.borrow_rate_ann=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Other assets<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_assets||0)/1000)}" onchange="cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
       h += `<div class="crow" style="align-items:center">Other liabilities<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_liabilities||0)/1000)}" onchange="cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;

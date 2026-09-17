@@ -283,6 +283,63 @@ def _array_sheet(ws, arrkey, items, fields):
     ws.column_dimensions["E"].width = 30
 
 
+
+def _managed_securities_sheet(ws, portfolios):
+    """Editable managed-securities assumptions with one machine-keyed row per primitive.
+
+    The nested Series grammar is flattened into ordinary FIW rows so a clean export/import
+    remains a no-op while human edits can still reach target/allocation/runoff/yield paths.
+    """
+    ws.append(["key", "Portfolio / security", "Field", "Value", "Units / note"])
+    for c in ws[1]: c.font = HDR
+    def row(key, section, field, val, units, fact=False):
+        note = ("fact — " + units) if fact else units
+        ws.append([key, section, field, wbunits.to_workbook(val, units) if val is not None else "", wbunits.export_label(note)])
+        if not fact: ws.cell(ws.max_row, 4).fill = GOLD
+        if isinstance(val,(int,float)) and abs(val)>=1000: ws.cell(ws.max_row,4).number_format="#,##0"
+    def series_rows(prefix, section, label, spec, natural_period=False):
+        spec=dict(spec or {})
+        tr=spec.get("trajectory") or "flat"
+        row(prefix+".source",section,label+" — source",spec.get("source","entered"),"entered")
+        row(prefix+".trajectory",section,label+" — trajectory",tr,"flat / growth / explicit")
+        if natural_period:
+            row(prefix+".period",section,label+" — rate period",spec.get("period","model_period"),"month / quarter / year / model_period")
+        if tr=="flat":
+            row(prefix+".value",section,label+" — value",spec.get("value",0.0),"decimal rate; 0.30 = 30%")
+        elif tr=="growth":
+            row(prefix+".base",section,label+" — base",spec.get("base",0.0),"decimal rate; 0.30 = 30%")
+            gs=spec.get("growth_spec") or {}
+            for k,u in (("rate","decimal growth rate"),("period","month / quarter / year"),("method","smooth / step"),("anchor","growth anchor"),("anchor_month","1-12")):
+                if gs.get(k) is not None: row(prefix+".growth_spec."+k,section,label+" — growth "+k.replace("_"," "),gs.get(k),u)
+        elif tr=="explicit":
+            row(prefix+".cadence",section,label+" — schedule cadence",spec.get("cadence","year"),"month / quarter / year")
+            row(prefix+".resolution",section,label+" — resolution",spec.get("resolution","step"),"step / smooth")
+            row(prefix+".extend",section,label+" — extension",spec.get("extend","hold"),"hold / zero / error")
+            for i,v in enumerate(spec.get("values") or []):
+                row(f"{prefix}.values.{i}",section,f"{label} — value {i+1}",v,"decimal rate; 0.30 = 30%")
+    for pi,p in enumerate(portfolios or []):
+        root=f"managed_securities_portfolios.{pi}"; pn=p.get("name") or f"Managed portfolio {pi+1}"
+        row(root+".name",pn,"Portfolio name",p.get("name"),"text")
+        row(root+".series_id",pn,"Portfolio Series ID",p.get("series_id"),"stable ID",True)
+        row(root+".target_source.series_id",pn,"Target source",(p.get("target_source") or {}).get("series_id"),"stable linked balance-sheet Series")
+        series_rows(root+".target_ratio_spec",pn,"Target %",p.get("target_ratio_spec") or {"source":"entered","trajectory":"flat","value":p.get("target_ratio",0.0)})
+        for si,sl in enumerate(p.get("sleeves") or []):
+            # Keep the visible FIW surface compact: the hidden machine key already carries
+            # portfolio ancestry, so sleeve rows need only the security name in column B.
+            sr=f"{root}.sleeves.{si}"; sn=sl.get('name') or f"Security {si+1}"
+            row(sr+".name",sn,"Security name",sl.get("name"),"text")
+            row(sr+".series_id",sn,"Security Series ID",sl.get("series_id"),"stable ID",True)
+            row(sr+".classification",sn,"Classification",str(sl.get("classification") or "AFS").upper(),"AFS / HTM")
+            row(sr+".opening",sn,"Opening balance",sl.get("opening",0.0),"$")
+            series_rows(sr+".allocation_spec",sn,"Allocation %",sl.get("allocation_spec") or {"source":"entered","trajectory":"flat","value":sl.get("allocation",0.0)})
+            series_rows(sr+".maturity_rate_spec",sn,"Maturity / runoff %",sl.get("maturity_rate_spec") or {"source":"entered","trajectory":"flat","value":sl.get("maturity_rate",sl.get("runoff_rate",0.0)),"period":"model_period"}, natural_period=True)
+            ysrc=sl.get("yield_source") or "entered"
+            row(sr+".yield_source",sn,"Yield source",ysrc,"entered / curve_library")
+            if ysrc=="curve_library": row(sr+".curve_name",sn,"Curve",sl.get("curve_name","sofr"),"sofr / effr / prime")
+            else: series_rows(sr+".yield_spec",sn,"Annual yield",sl.get("yield_spec") or {"source":"entered","trajectory":"flat","value":sl.get("yield_ann",0.0)})
+    ws.column_dimensions["A"].hidden=True
+    ws.column_dimensions["B"].width=34; ws.column_dimensions["C"].width=34; ws.column_dimensions["D"].width=34; ws.column_dimensions["E"].width=40
+
 def _nie_sheet(ws, nd, ppy=4):
     """Editable NIE assumptions, including legacy staffing, role/cohort workforce,
     category trajectories, and assessment/gross-up inputs.  New trajectory fields are
@@ -533,6 +590,8 @@ def build_fiw(cfg, include_capability_map=False):
         _array_sheet(wb.create_sheet("ASSM_SEC_AFS"), "securities_afs", a["securities_afs"], SEC_FIELDS)
     if a.get("securities_htm"):
         _array_sheet(wb.create_sheet("ASSM_SEC_HTM"), "securities_htm", a["securities_htm"], SEC_FIELDS)
+    if a.get("managed_securities_portfolios"):
+        _managed_securities_sheet(wb.create_sheet("ASSM_SEC_MANAGED"), a["managed_securities_portfolios"])
     if a.get("obs_exposures"):
         _array_sheet(wb.create_sheet("ASSM_OBS"), "obs_exposures", a["obs_exposures"], OBS_FIELDS)
     if a.get("scheduled_borrowings"):
@@ -651,6 +710,11 @@ def _settings_sheet(wb, cfg):
     for p in (a.get("securities_afs") or []): row(f"AFS — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
     for p in (a.get("securities_htm") or []): row(f"HTM — {p.get('name')}", p.get("opening"), f"yield {p.get('yield_ann')}")
     if not ((a.get("securities_afs") or []) + (a.get("securities_htm") or [])): row("(none)", "")
+    for _mp in (a.get("managed_securities_portfolios") or []):
+        _src=(_mp.get("target_source") or {}).get("series_id")
+        row(f"Managed — {_mp.get('name') or 'portfolio'}", _src, f"{len(_mp.get('sleeves') or [])} sleeves · target-driven")
+        for _sl in (_mp.get("sleeves") or []):
+            row(f"  {_sl.get('name') or 'Security'}", _sl.get("classification","AFS"), f"yield source {_sl.get('yield_source','entered')}")
     row("AOCI sensitivity", a.get("aoci_sensitivity_annual"), "% of AFS/yr")
     sec("NIE detail")
     nd = a.get("nie_detail") or {}
@@ -812,6 +876,12 @@ def _capability_map_sheet(wb, cfg):
     add("Core bank", "Lending books", ", ".join(p.get("name", "") for p in (a.get("lending_products") or [])), "ASSM_LOANS")
     add("Core bank", "Deposit books", ", ".join(p.get("name", "") for p in (a.get("deposit_products") or [])), "ASSM_DEPOSITS")
     add("Core bank", "AFS and HTM securities", f"AFS {len(a.get('securities_afs') or [])} · HTM {len(a.get('securities_htm') or [])}", "ASSM_SEC_AFS / ASSM_SEC_HTM")
+    for _mp in (a.get("managed_securities_portfolios") or []):
+        add("Core bank", "Target-driven managed securities portfolio", _mp.get("name") or "managed portfolio", "ASSM_SEC_MANAGED")
+        add("Core bank", "Managed securities target Series", (_mp.get("target_source") or {}).get("series_id"), "ASSM_SEC_MANAGED")
+        for _sl in (_mp.get("sleeves") or []):
+            add("Core bank", f"Managed sleeve — {_sl.get('classification','AFS')}", _sl.get("name") or "security", "ASSM_SEC_MANAGED")
+            add("Core bank", f"Managed yield source — {_sl.get('yield_source','entered')}", _sl.get("name") or "security", "ASSM_SEC_MANAGED")
     add("Core bank", "Scheduled borrowings", f"{len(a.get('scheduled_borrowings') or [])} borrowing(s)", "ASSM_BORROWINGS")
     add("Core bank", "Staged capital raises", f"{len(a.get('capital_raises') or [])} raise(s)", "CONTROL / ASSM_RAISES")
     add("Core bank", "Pre-opening expenses", f"{len((cfg.get('pre_opening') or {}).get('expenses') or [])} row(s)", "ASSM_PREOPEN")
@@ -1276,6 +1346,7 @@ def diff_import(data, current_cfg):
     ARRAY_SHEETS = {
         "ASSM_SEC_AFS": ("securities_afs", 3),
         "ASSM_SEC_HTM": ("securities_htm", 3),
+        "ASSM_SEC_MANAGED": ("managed_securities_portfolios", 3),
         "ASSM_OBS": ("obs_exposures", 3),
         "ASSM_BORROWINGS": ("scheduled_borrowings", 3),
         "ASSM_RAISES": ("capital_raises", 3),

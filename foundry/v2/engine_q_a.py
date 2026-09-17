@@ -408,6 +408,18 @@ def run_pf_a(cfg):
     rate_curves = _build_rate_curve_set(a, cfg, ppy)
     rate = rate_curves["sofr"]
 
+    # Target-driven managed securities live in the existing Securities & AOCI module.
+    # They are resolved inside the balance-sheet fixed-point solve because a portfolio
+    # may target current-period Total Equity, which itself includes current Net Income
+    # (and, for AFS sleeves, current AOCI).  Authored trajectories are resolved once;
+    # only the endogenous source value is supplied during each solver iteration.
+    from .securities import (EQUITY_END_SERIES_ID, DEPOSITS_END_SERIES_ID, prepare_managed_securities,
+                             managed_period_snapshot, commit_managed_snapshot,
+                             managed_opening_totals, snapshot_totals, public_managed_securities)
+    _managed_sec = prepare_managed_securities(a, Q, ppy, growth_context=_growth_ctx,
+                                              rate_curves=rate_curves)
+    _managed_open_afs, _managed_open_htm = managed_opening_totals(_managed_sec)
+
     from .timebase import event_start_period, quarters_to_periods
 
     capital = cfg["target_state"]["initial_capital"]
@@ -816,7 +828,7 @@ def run_pf_a(cfg):
     day_one -= _burn
     net0 = gross[0] - alll_t[0]
     equity0 = capital + day_one
-    sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p)
+    sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p) + _managed_open_afs + _managed_open_htm
     ne_q[0] = 0
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
 
@@ -824,8 +836,8 @@ def run_pf_a(cfg):
                              "afsBook", "htmBook", "aoci", "paidIn", "prepaidOpex", "accruedOpex")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
-    bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p)
-    bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p)
+    bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p) + _managed_open_afs
+    bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p) + _managed_open_htm
     bs["aoci"][0], bs["paidIn"][0] = 0.0, cap_t[0]
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
@@ -1161,14 +1173,31 @@ def run_pf_a(cfg):
             is_["provNCO"][q] = nco_ac
             is_["provBuild"][q] = prov - _day1 - nco_ac
         net_loans_end = gross[q] - alll_t[q]
-        sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
-        book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / ppyf for p in afs_p + htm_p)
+        _simple_sec_books_end = sum(p["_bal"][q] for p in afs_p + htm_p)
+        _simple_afs_end = sum(p["_bal"][q] for p in afs_p)
+        _simple_htm_end = sum(p["_bal"][q] for p in htm_p)
+        _simple_book_int = sum(p["_avg"][q] * (p.get("yield_ann") or 0.0) / ppyf for p in afs_p + htm_p)
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
         _dta_iter = _dta_prev
+        _aoci_q_guess = _simple_afs_end * _aoci_sens / ppyf
+        _managed_snapshot = []
         for _ in range(60):
-            afs_end_b = sum(p["_bal"][q] for p in afs_p)
+            # Current-period equity is an endogenous target source.  Use the prior solver
+            # iteration's AOCI guess, then update AOCI from the resulting AFS target.
+            # The outer NI fixed-point loop converges both quantities together.
+            _equity_source = cap_t[q] + re + ni + aoci_cum + _aoci_q_guess
+            _managed_snapshot = managed_period_snapshot(
+                _managed_sec, q, {
+                    EQUITY_END_SERIES_ID: _equity_source,
+                    DEPOSITS_END_SERIES_ID: deps_b[q],
+                }, ppy) if _managed_sec else []
+            _managed_totals = snapshot_totals(_managed_snapshot)
+            afs_end_b = _simple_afs_end + _managed_totals["afs"]
+            htm_end_b = _simple_htm_end + _managed_totals["htm"]
+            sec_books_end = _simple_sec_books_end + _managed_totals["total"]
+            book_int = _simple_book_int + _managed_totals["interest"]
             aoci_q = afs_end_b * _aoci_sens / ppyf
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             ne_q[0] = q
@@ -1253,10 +1282,13 @@ def run_pf_a(cfg):
                     taxable = 0.0
                 tax = taxable * a["tax_rate"]
             new_ni = pretax - tax
-            if abs(new_ni - ni) < 1e-4:
-                ni = new_ni
-                break
+            _solver_converged = abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
             ni = new_ni
+            _aoci_q_guess = aoci_q
+            if _solver_converged:
+                break
+        if _managed_sec:
+            commit_managed_snapshot(_managed_sec, _managed_snapshot)
         if _wf_runtime is not None:
             _wf_comp_native.append(float(workforce_comp or 0.0))
             _wf_role_comp_native.append(float(_role_comp_q or 0.0))
@@ -1287,7 +1319,7 @@ def run_pf_a(cfg):
         bs["netLoans"][q], bs["re"][q] = net_loans_end, re
         bs["equity"][q] = cap_t[q] + re + aoci_cum
         bs["afsBook"][q] = afs_end_b
-        bs["htmBook"][q] = sum(p["_bal"][q] for p in htm_p)
+        bs["htmBook"][q] = htm_end_b
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
         bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
         bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q]
@@ -1406,6 +1438,8 @@ def run_pf_a(cfg):
             "depreciation_expense": list(dep_exp_t[1:]),
             "capex": list(capex_t),
         }
+    if _managed_sec:
+        _out["managed_securities"] = public_managed_securities(_managed_sec)
     if _wf_runtime is not None:
         _out["workforce"] = {
             "resolved_hire_periods": _wf_runtime.resolved_hires(),
