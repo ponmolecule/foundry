@@ -817,6 +817,14 @@ def run_pf_a(cfg):
         investable = funding - net_loans_end - (non_earn if ne is None else ne) - msr_end - sec_books_end
         req_cash = cash_floor * dep_bal
         if investable >= req_cash:
+            # Once the user authors one or more target-driven managed securities
+            # portfolios, those explicit books own the securities allocation.  The
+            # pre-r114 funding waterfall must not silently create an additional
+            # residual securities portfolio on top of them.  Surplus liquidity stays
+            # in cash; legacy/simple-only configurations retain the historical
+            # cash-floor + residual-securities behavior unchanged.
+            if _managed_sec:
+                return investable, 0.0, 0.0
             return req_cash, investable - req_cash, 0.0
         return req_cash, 0.0, req_cash - investable
 
@@ -1192,7 +1200,10 @@ def run_pf_a(cfg):
                 _managed_sec, q, {
                     EQUITY_END_SERIES_ID: _equity_source,
                     DEPOSITS_END_SERIES_ID: deps_b[q],
-                }, ppy) if _managed_sec else []
+                }, ppy, prior_source_values={
+                    EQUITY_END_SERIES_ID: bs["equity"][q - 1],
+                    DEPOSITS_END_SERIES_ID: deps_b[q - 1],
+                }) if _managed_sec else []
             _managed_totals = snapshot_totals(_managed_snapshot)
             afs_end_b = _simple_afs_end + _managed_totals["afs"]
             htm_end_b = _simple_htm_end + _managed_totals["htm"]

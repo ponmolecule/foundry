@@ -1279,6 +1279,12 @@ def _managed_securities_rows(cfg, results, n):
         pname = str((p or {}).get("name") or f"Managed portfolio {pi+1}")
         psid = str((p or {}).get("series_id") or f"managed_portfolio_{pi+1}")
         section = pname
+        _ts = (p or {}).get("target_source") or {}
+        _timing = str(_ts.get("timing") or "current_period")
+        _init = str(_ts.get("prior_initialization") or "zero")
+        rows.append((section, "Target source value", f"{psid}:target_source_value",
+                     f"$000s · {_timing}" + (f" · first period {_init}" if _timing == "prior_period" else ""),
+                     _money_k_series((p or {}).get("target_source_value") or []), _RAW_MONEY_FMT))
         rows.append((section, "Target ratio", f"{psid}:target_ratio", "% of linked target source",
                      list((p or {}).get("target_ratio") or []), _PCT_FMT))
         rows.append((section, "Target securities balance", f"{psid}:target", "$000s · period end",

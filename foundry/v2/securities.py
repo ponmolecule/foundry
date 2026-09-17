@@ -22,6 +22,8 @@ DEPOSITS_END_SERIES_ID = "bank.balance_sheet.deposits.end"
 _VALID_CLASSIFICATIONS = {"AFS", "HTM"}
 _VALID_YIELD_SOURCES = {"entered", "curve_library"}
 _VALID_CURVES = {"sofr", "effr", "prime"}
+_VALID_TARGET_TIMINGS = {"current_period", "prior_period"}
+_VALID_PRIOR_INITIALIZATIONS = {"zero", "opening_source"}
 _PERIOD_FREQ = {"year": 1, "quarter": 4, "month": 12}
 _VALID_RATE_PERIODS = set(_PERIOD_FREQ) | {"model_period"}
 
@@ -59,6 +61,16 @@ def normalize_managed_portfolio(portfolio: Mapping[str, Any] | None) -> dict:
     p = deepcopy(dict(portfolio or {}))
     p.setdefault("name", "Managed securities portfolio")
     p.setdefault("target_source", {"kind": "bank_balance_sheet", "series_id": EQUITY_END_SERIES_ID})
+    # r114/r115 portfolios targeted the current period.  Preserve that meaning for
+    # existing saved configurations while making timing explicit for all new authoring.
+    # Prior-period targets additionally own their first-model-period initialization so
+    # the engine never silently substitutes opening balances for a source model whose
+    # first projection period is intentionally zero.
+    ts = p["target_source"] = deepcopy(dict(p.get("target_source") or {}))
+    ts.setdefault("kind", "bank_balance_sheet")
+    ts.setdefault("series_id", EQUITY_END_SERIES_ID)
+    ts.setdefault("timing", "current_period")
+    ts.setdefault("prior_initialization", "zero")
     if not p.get("target_ratio_spec"):
         p["target_ratio_spec"] = _legacy_flat_spec(p.get("target_ratio", 0.0))
     sleeves = []
@@ -125,6 +137,7 @@ def prepare_managed_securities(assumptions: Mapping[str, Any], n_periods: int, p
             "series_id": p.get("series_id"),
             "target_source": deepcopy(p.get("target_source") or {}),
             "target_ratio": ratio,
+            "target_source_value": [],
             "target": [],
             "sleeves": [],
         }
@@ -180,6 +193,12 @@ def validate_managed_securities(assumptions: Mapping[str, Any], n_periods: int, 
         sid = str(src.get("series_id") or "")
         if sid not in catalog:
             errs.append(f"{path}.target_source.series_id {sid!r} is not a supported balance-sheet Series")
+        timing = str(src.get("timing") or "")
+        if timing not in _VALID_TARGET_TIMINGS:
+            errs.append(f"{path}.target_source.timing must be current_period or prior_period")
+        init = str(src.get("prior_initialization") or "")
+        if init not in _VALID_PRIOR_INITIALIZATIONS:
+            errs.append(f"{path}.target_source.prior_initialization must be zero or opening_source")
         if not str(p.get("name") or "").strip():
             errs.append(f"{path}.name is required")
         if not p.get("sleeves"):
@@ -230,20 +249,37 @@ def validate_managed_securities(assumptions: Mapping[str, Any], n_periods: int, 
     return errs
 
 
-def managed_period_snapshot(runtime: list[dict], period: int, source_values: Mapping[str, float], ppy: int) -> list[dict]:
+def managed_period_snapshot(runtime: list[dict], period: int, source_values: Mapping[str, float], ppy: int,
+                            *, prior_source_values: Mapping[str, float] | None = None) -> list[dict]:
     """Resolve one model period from endogenous target-source values.
 
     `period` is 1-based.  Net purchases/(sales) are intentionally signed and are the
     balancing flow required to hit the target ending balance exactly.  Interest income
     follows the source model's period-end-balance convention and annual yield / ppy.
+
+    Target-source timing is explicit per portfolio.  ``current_period`` consumes
+    ``source_values``.  ``prior_period`` consumes ``prior_source_values`` after the
+    first model period; in period 1 it either resolves to zero or to the supplied
+    opening source according to ``prior_initialization``.
     """
     idx = int(period) - 1
+    prior_values = dict(prior_source_values or {})
     out = []
     for p in runtime:
-        src_id = str((p.get("target_source") or {}).get("series_id") or "")
-        source = float(source_values[src_id])
+        src = p.get("target_source") or {}
+        src_id = str(src.get("series_id") or "")
+        timing = str(src.get("timing") or "current_period")
+        if timing == "prior_period":
+            init = str(src.get("prior_initialization") or "zero")
+            if int(period) == 1 and init == "zero":
+                source = 0.0
+            else:
+                source = float(prior_values[src_id])
+        else:
+            source = float(source_values[src_id])
         target = source * float(p["target_ratio"][idx])
-        po = {"name": p.get("name"), "series_id": p.get("series_id"), "target": target, "sleeves": []}
+        po = {"name": p.get("name"), "series_id": p.get("series_id"),
+              "target_source_value": source, "target": target, "sleeves": []}
         for s in p.get("sleeves") or []:
             start = float(s["ending"][-1])
             maturity = start * float(s["maturity_rate"][idx])
@@ -264,6 +300,7 @@ def managed_period_snapshot(runtime: list[dict], period: int, source_values: Map
 def commit_managed_snapshot(runtime: list[dict], snapshot: list[dict]) -> None:
     """Append a converged period snapshot to the runtime's audit histories."""
     for p, ps in zip(runtime, snapshot):
+        p["target_source_value"].append(float(ps.get("target_source_value") or 0.0))
         p["target"].append(float(ps["target"]))
         for s, ss in zip(p["sleeves"], ps["sleeves"]):
             s["starting"].append(float(ss["starting"]))
@@ -298,6 +335,7 @@ def public_managed_securities(runtime: list[dict]) -> list[dict]:
             "name": p.get("name"), "series_id": p.get("series_id"),
             "target_source": deepcopy(p.get("target_source") or {}),
             "target_ratio": list(p.get("target_ratio") or []),
+            "target_source_value": list(p.get("target_source_value") or []),
             "target": list(p.get("target") or []),
             "sleeves": [{
                 "name": s.get("name"), "series_id": s.get("series_id"),

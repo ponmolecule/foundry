@@ -1987,7 +1987,9 @@
         "series_id": "universal-managed-securities",
         "target_source": {
           "kind": "bank_balance_sheet",
-          "series_id": "bank.balance_sheet.equity.end"
+          "series_id": "bank.balance_sheet.equity.end",
+          "timing": "prior_period",
+          "prior_initialization": "zero"
         },
         "target_ratio_spec": {
           "source": "entered",
