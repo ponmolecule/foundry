@@ -345,6 +345,99 @@ def _managed_securities_sheet(ws, portfolios):
     ws.column_dimensions["A"].hidden=True
     ws.column_dimensions["B"].width=34; ws.column_dimensions["C"].width=34; ws.column_dimensions["D"].width=34; ws.column_dimensions["E"].width=40
 
+
+def _fixed_asset_formula_level_sheet(ws, formula_level):
+    """Editable FIW surface for the Formula / level fixed-asset methodology.
+
+    The app remains the preferred place to add/remove linked components because the app
+    owns stable Series selection. Existing components and all entered trajectories can be
+    reviewed/edited here without flattening the causal grammar into a pasted balance path.
+    """
+    ws.append(["key", "Component", "Field", "Value", "Units / note"])
+    for c in ws[1]: c.font = HDR
+
+    def row(key, section, field, val, units, fact=False):
+        note = ("fact — " + units) if fact else units
+        ws.append([key, section, field,
+                   wbunits.to_workbook(val, units) if val is not None else "",
+                   wbunits.export_label(note)])
+        if not fact: ws.cell(ws.max_row, 4).fill = GOLD
+        if isinstance(val, (int, float)) and abs(val) >= 1000:
+            ws.cell(ws.max_row, 4).number_format = "#,##0.000"
+
+    def series_rows(prefix, section, label, spec, value_kind="money", natural_period=False):
+        spec = dict(spec or {})
+        tr = str(spec.get("trajectory") or "flat")
+        units = {"money":"$", "multiplier":"$/driver-unit", "rate":"rate"}[value_kind]
+        row(prefix + ".source", section, label + " — source", spec.get("source", "entered"), "entered")
+        row(prefix + ".trajectory", section, label + " — trajectory", tr, "flat / growth / explicit")
+        if natural_period:
+            row(prefix + ".period", section, label + " — natural period",
+                spec.get("period", "year"), "month / quarter / year")
+        if tr == "flat":
+            row(prefix + ".value", section, label + " — value", spec.get("value", 0.0), units)
+        elif tr == "growth":
+            row(prefix + ".base", section, label + " — base", spec.get("base", 0.0), units)
+            gs = dict(spec.get("growth_spec") or {})
+            for k, u in (("rate", "decimal growth rate"), ("period", "month / quarter / year"),
+                         ("method", "smooth / step"), ("anchor", "growth anchor"), ("anchor_month", "1-12")):
+                if gs.get(k) is not None:
+                    row(prefix + ".growth_spec." + k, section,
+                        label + " — growth " + k.replace("_", " "), gs.get(k), u)
+        elif tr == "explicit":
+            row(prefix + ".cadence", section, label + " — schedule cadence",
+                spec.get("cadence", "year"), "month / quarter / year")
+            row(prefix + ".resolution", section, label + " — resolution",
+                spec.get("resolution", "step"), "step / smooth")
+            row(prefix + ".extend", section, label + " — extension",
+                spec.get("extend", "hold"), "hold / zero / error")
+            for i, v in enumerate(spec.get("values") or []):
+                row(f"{prefix}.values.{i}", section, f"{label} — value {i+1}", v, units)
+
+    fl = dict(formula_level or {})
+    root = "fixed_assets.formula_level"
+    row("fixed_assets.mode", "Formula / level", "Method", "formula_level", "canonical method", True)
+    row(root + ".opening_net", "Formula / level", "Opening net fixed assets", fl.get("opening_net", 0.0), "$")
+    if fl.get("opening_accumulated_depreciation") is not None:
+        row(root + ".opening_accumulated_depreciation", "Formula / level",
+            "Opening accumulated depreciation", fl.get("opening_accumulated_depreciation", 0.0), "$")
+    series_rows(root + ".base_spec", "Formula / level", "Base asset level",
+                fl.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0}, "money")
+
+    for i, comp in enumerate(fl.get("components") or []):
+        comp = dict(comp or {})
+        cr = f"{root}.components.{i}"
+        section = comp.get("name") or f"Linked component {i+1}"
+        row(cr + ".name", section, "Component name", comp.get("name"), "text")
+        row(cr + ".component_id", section, "Component ID", comp.get("component_id"), "stable ID", True)
+        link = dict((comp.get("driver_spec") or {}).get("link") or {})
+        row(cr + ".driver_spec.source", section, "Driver source", "link", "fact — linked Series", True)
+        row(cr + ".driver_spec.link.kind", section, "Driver kind", link.get("kind"), "stable Series kind", True)
+        row(cr + ".driver_spec.link.series_id", section, "Driver Series ID", link.get("series_id"), "stable Series ID", True)
+        row(cr + ".driver_spec.link.aggregation", section, "Driver aggregation", link.get("aggregation", "end"), "end / average", True)
+        series_rows(cr + ".multiplier_spec", section, "Multiplier",
+                    comp.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
+                    "multiplier")
+
+    dep = dict(fl.get("depreciation") or {})
+    kind = dep.get("kind") or "rate_of_level"
+    row(root + ".depreciation.kind", "Depreciation", "Source", kind, "rate_of_level / entered")
+    if kind == "rate_of_level":
+        series_rows(root + ".depreciation.rate_spec", "Depreciation", "Depreciation rate",
+                    dep.get("rate_spec") or {"source":"entered","trajectory":"flat","value":0.0,"period":"year"},
+                    "rate", True)
+    else:
+        series_rows(root + ".depreciation.amount_spec", "Depreciation", "Depreciation amount",
+                    dep.get("amount_spec") or {"source":"entered","trajectory":"flat","value":0.0,"period":"year"},
+                    "money", True)
+
+    ws.column_dimensions["A"].hidden = True
+    ws.column_dimensions["B"].width = 32
+    ws.column_dimensions["C"].width = 34
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 38
+
+
 def _nie_sheet(ws, nd, ppy=4):
     """Editable NIE assumptions, including legacy staffing, role/cohort workforce,
     category trajectories, and assessment/gross-up inputs.  New trajectory fields are
@@ -613,6 +706,9 @@ def build_fiw(cfg, include_capability_map=False):
     if _fa.get("mode") == "schedule" and (_fa.get("assets") or []):
         _array_sheet(wb.create_sheet("ASSM_FIXED_ASSETS"), "fixed_assets.assets",
                      _fa.get("assets") or [], FIXED_ASSET_FIELDS)
+    elif _fa.get("mode") == "formula_level" and isinstance(_fa.get("formula_level"), dict):
+        _fixed_asset_formula_level_sheet(wb.create_sheet("ASSM_FIXED_ASSETS_LEVEL"),
+                                         _fa.get("formula_level") or {})
 
     buf = io.BytesIO()
     _settings_sheet(wb, cfg)   # human-readable review of every in-app-configured input
@@ -681,10 +777,20 @@ def _settings_sheet(wb, cfg):
             row("Overhead growth", a.get("overhead_growth_q"), "rate/qtr (legacy)")
     _fa = a.get("fixed_assets") or {}
     if _fa.get("mode") == "schedule":
-        row("Fixed-asset authoring", "Asset schedule", "native-cadence straight-line resolver")
+        row("Fixed-asset authoring", "Asset schedule", "transaction / vintage-based")
         row("Fixed-asset rows", len(_fa.get("assets") or []), "assets/classes")
+    elif _fa.get("mode") == "formula_level":
+        _fl = _fa.get("formula_level") or {}
+        _dep = _fl.get("depreciation") or {}
+        row("Fixed-asset authoring", "Formula / level", "direct period-end net level")
+        row("Opening net fixed assets", _fl.get("opening_net"), "$")
+        row("Formula / level linked components", len(_fl.get("components") or []), "Series × multiplier components")
+        row("Formula / level depreciation", _dep.get("kind") or "rate_of_level", "rate_of_level / entered")
+        _dsp = _dep.get("rate_spec") if (_dep.get("kind") or "rate_of_level") == "rate_of_level" else _dep.get("amount_spec")
+        if isinstance(_dsp, dict):
+            row("Depreciation natural period", _dsp.get("period"), "month / quarter / year")
     else:
-        row("Fixed-asset authoring", "Simple", "legacy opening PP&E + annual depreciation")
+        row("Fixed-asset authoring", "Legacy Simple", "historical opening PP&E + annual depreciation")
         row("Premises & equipment", a.get("premises_equipment"), "$")
         row("Premises depreciation", a.get("premises_depreciation_annual"), "$/year")
     row("Intangibles", a.get("intangibles"), "$")
@@ -976,9 +1082,14 @@ def _capability_map_sheet(wb, cfg):
 
     _fa=a.get("fixed_assets") or {}
     if _fa.get("mode")=="schedule":
-        add("Fixed assets", "Scheduled fixed-asset authoring", f"{len(_fa.get('assets') or [])} asset/class row(s)", "ASSM_FIXED_ASSETS")
+        add("Fixed assets", "Asset schedule methodology", f"{len(_fa.get('assets') or [])} asset/class row(s)", "ASSM_FIXED_ASSETS")
         if any(x.get("opening_accumulated_depreciation") for x in (_fa.get("assets") or [])): add("Fixed assets", "Opening accumulated depreciation", "existing asset specimen", "ASSM_FIXED_ASSETS")
         if any((x.get("in_service_period") or 0)>0 for x in (_fa.get("assets") or [])): add("Fixed assets", "Future in-service CAPEX", "future asset specimen", "ASSM_FIXED_ASSETS")
+    elif _fa.get("mode")=="formula_level":
+        _fl=_fa.get("formula_level") or {}; _dep=_fl.get("depreciation") or {}
+        add("Fixed assets", "Formula / level methodology", f"{len(_fl.get('components') or [])} linked component(s)", "ASSM_FIXED_ASSETS_LEVEL")
+        if _fl.get("components"): add("Fixed assets", "Linked Series × multiplier asset level", "generic linked level component", "ASSM_FIXED_ASSETS_LEVEL")
+        add("Fixed assets", "Formula / level depreciation", _dep.get("kind") or "rate_of_level", "ASSM_FIXED_ASSETS_LEVEL")
 
     _rc=a.get("rate_curves") or {}
     if _rc:
@@ -1365,6 +1476,7 @@ def diff_import(data, current_cfg):
         "ASSM_RAISES": ("capital_raises", 3),
         "ASSM_PREOPEN": ("pre_opening.expenses", 3),
         "ASSM_FIXED_ASSETS": ("fixed_assets.assets", 3),
+        "ASSM_FIXED_ASSETS_LEVEL": ("fixed_assets.formula_level", 3),
         "ASSM_NIE": ("nie_detail", 3),
     }
     _dropped_rows = []          # hand-added rows with content but no valid machine key

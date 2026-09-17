@@ -502,9 +502,17 @@ def run_pf_a(cfg):
     # depreciation path byte-for-byte.  Schedule mode promotes PP&E to an asset-level
     # native-cadence resolver: CAPEX changes gross PP&E when placed in service and
     # depreciation changes accumulated depreciation / net PP&E thereafter.
-    from .fixed_assets import fixed_asset_mode, fixed_asset_schedule
-    if fixed_asset_mode(a) == "schedule":
+    from .fixed_assets import fixed_asset_formula_level, fixed_asset_mode, fixed_asset_schedule
+    _fa_mode = fixed_asset_mode(a)
+    if _fa_mode == "schedule":
         _fa = fixed_asset_schedule(a.get("fixed_assets"), Q, ppy)
+        prem_gross_t = _fa["gross"]
+        prem_accum_t = _fa["accumulated_depreciation"]
+        prem_t = _fa["net"]
+        dep_exp_t = _fa["depreciation_expense"]
+        capex_t = _fa["capex"]
+    elif _fa_mode == "formula_level":
+        _fa = fixed_asset_formula_level(a.get("fixed_assets"), a, Q, ppy, growth_context=_growth_ctx)
         prem_gross_t = _fa["gross"]
         prem_accum_t = _fa["accumulated_depreciation"]
         prem_t = _fa["net"]
@@ -1447,9 +1455,9 @@ def run_pf_a(cfg):
                    "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}
-    if fixed_asset_mode(a) == "schedule":
+    if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
-            "mode": "schedule",
+            "mode": _fa_mode,
             "preopening_capex": float(_fa.get("preopening_capex") or 0.0),
             "assets": list(_fa.get("asset_rows") or []),
             "gross": list(prem_gross_t),
@@ -1458,6 +1466,8 @@ def run_pf_a(cfg):
             "depreciation_expense": list(dep_exp_t[1:]),
             "capex": list(capex_t),
         }
+        if _fa_mode == "formula_level":
+            _out["fixed_assets"]["formula_level"] = dict(_fa.get("formula_level") or {})
     if _managed_sec:
         _out["managed_securities"] = public_managed_securities(_managed_sec)
     if _wf_runtime is not None:

@@ -94,9 +94,17 @@ def run_pf_b(cfg):
         for _q in range(_q0, min(_q0 + _tq, Q + 1)):
             _sched_t[_q] += _amt
             _sched_int[_q - 1] += _amt * _r / 4.0
-    from .fixed_assets import fixed_asset_mode, fixed_asset_schedule
-    if fixed_asset_mode(a) == "schedule":
+    from .fixed_assets import fixed_asset_formula_level, fixed_asset_mode, fixed_asset_schedule
+    _fa_mode = fixed_asset_mode(a)
+    if _fa_mode == "schedule":
         _fa = fixed_asset_schedule(a.get("fixed_assets"), Q, 4)
+        _prem_t = _fa["net"]
+        _prem_gross_t = _fa["gross"]
+        _prem_accum_t = _fa["accumulated_depreciation"]
+        _dep_exp = _fa["depreciation_expense"][1:]
+        _capex_t = _fa["capex"]
+    elif _fa_mode == "formula_level":
+        _fa = fixed_asset_formula_level(a.get("fixed_assets"), a, Q, 4, growth_context=_growth_ctx)
         _prem_t = _fa["net"]
         _prem_gross_t = _fa["gross"]
         _prem_accum_t = _fa["accumulated_depreciation"]
@@ -402,9 +410,9 @@ def run_pf_b(cfg):
                 for i, c in enumerate(_wf_add_components)
             ],
         }
-    if fixed_asset_mode(a) == "schedule":
+    if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
-            "mode": "schedule",
+            "mode": _fa_mode,
             "preopening_capex": float(_fa.get("preopening_capex") or 0.0),
             "assets": list(_fa.get("asset_rows") or []),
             "gross": list(_prem_gross_t),
@@ -413,4 +421,6 @@ def run_pf_b(cfg):
             "depreciation_expense": list(_dep_exp),
             "capex": list(_capex_t),
         }
+        if _fa_mode == "formula_level":
+            _out["fixed_assets"]["formula_level"] = dict(_fa.get("formula_level") or {})
     return _out

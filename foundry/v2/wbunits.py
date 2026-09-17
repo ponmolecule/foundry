@@ -23,6 +23,10 @@ _MONEY_LEGACY = {
     "$": "$000s",
     "$/month": "$000s/month",
     "$/quarter": "$000s/quarter",
+    # Stock coefficients used by Formula / level Fixed Assets are balance amounts per
+    # linked driver unit (for example $5k per FTE). They scale like balances, unlike
+    # transactional/per-account prices which deliberately remain plain dollars.
+    "$/driver-unit": "$000s/driver-unit",
 }
 _NEW_LABELS = set(_MONEY_LEGACY.values())
 

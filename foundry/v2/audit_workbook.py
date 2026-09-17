@@ -1283,6 +1283,60 @@ def _fee_stream_economics_rows(cfg, exact, n):
     return rows
 
 
+
+def _fixed_asset_rows(cfg, results, n):
+    """Expose the fixed-asset causal chain for both active methodologies.
+
+    ``results`` is the exact base-engine output. Monetary vectors are converted once to
+    $000s; Formula / level driver quantities and depreciation rates remain in native units.
+    The audit uses an opening column so stock reconciliation can be followed directly.
+    """
+    fa = (results or {}).get("fixed_assets") or {}
+    if not isinstance(fa, Mapping) or not fa:
+        return []
+    mode = str(fa.get("mode") or "")
+    rows = []
+    def money(vals): return _money_k_series(vals or [])
+    def flow_with_open(vals): return [None] + money(vals or [])
+    rows.extend([
+        ("Fixed assets", "Gross PP&E", "fixed_assets:gross", "$000s · period end",
+         money(fa.get("gross") or []), _RAW_MONEY_FMT),
+        ("Fixed assets", "Accumulated depreciation", "fixed_assets:accumulated_depreciation", "$000s · period end",
+         money(fa.get("accumulated_depreciation") or []), _RAW_MONEY_FMT),
+        ("Fixed assets", "Net PP&E", "fixed_assets:net", "$000s · period end",
+         money(fa.get("net") or []), _RAW_MONEY_FMT),
+        ("Fixed assets", "Depreciation expense", "fixed_assets:depreciation_expense", "$000s · engine period",
+         flow_with_open(fa.get("depreciation_expense") or []), _RAW_MONEY_FMT),
+        ("Fixed assets", "CAPEX / (disposal)", "fixed_assets:capex",
+         "$000s · signed flow" + (" · implied" if mode == "formula_level" else ""),
+         money(fa.get("capex") or []), _RAW_MONEY_FMT),
+    ])
+    if mode != "formula_level":
+        return rows
+    fl = fa.get("formula_level") or {}
+    rows.append(("Formula / level", "Entered base asset level", "fixed_assets:formula_level:base",
+                 "$000s · period-end level component", [None] + money(fl.get("base") or []), _RAW_MONEY_FMT))
+    for i, comp in enumerate(fl.get("components") or []):
+        if not isinstance(comp, Mapping):
+            continue
+        name = str(comp.get("name") or f"Linked component {i+1}")
+        sid = str(comp.get("component_id") or f"component_{i+1}")
+        driver_sid = str(comp.get("driver_series_id") or "")
+        rows.extend([
+            (name, "Linked driver quantity", f"{sid}:driver:{driver_sid}", "native linked-Series units",
+             [None] + [float(x or 0.0) for x in (comp.get("driver") or [])], _RAW_NUM_FMT),
+            (name, "Multiplier", f"{sid}:multiplier", "$000s / driver unit",
+             [None] + money(comp.get("multiplier") or []), _RAW_MONEY_FMT),
+            (name, "Calculated level contribution", f"{sid}:amount", "$000s · period-end level component",
+             [None] + money(comp.get("amount") or []), _RAW_MONEY_FMT),
+        ])
+    rates = fl.get("depreciation_rate_per_engine_period") or []
+    if rates:
+        rows.append(("Formula / level", "Effective depreciation rate", "fixed_assets:formula_level:depreciation_rate",
+                     "% per engine period", [None] + [float(x or 0.0) for x in rates], _PCT_FMT))
+    return rows
+
+
 def _managed_securities_rows(cfg, results, n):
     """Expose the managed-securities stock/flow/yield causal chain.
 
@@ -1466,6 +1520,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Balance Sheet"), cfg,
                      _exact_financial_rows(bs, "Balance Sheet", "$000s EOP", n, include_open=True),
                      title="Balance Sheet · Calculation Audit", subtitle="Unrounded base-engine opening and EOP balances, converted to $000s without display rounding.", n=n, ppy=ppy, include_open=True)
+    _write_wide_rows(wb.create_sheet("Fixed Assets"), cfg, _fixed_asset_rows(cfg, exact, n),
+                     title="Fixed Assets / CAPEX · Calculation Audit",
+                     subtitle="Formula / level or Asset schedule causal bridge to gross PP&E, accumulated depreciation, net PP&E, depreciation and CAPEX/disposal. Formula / level linked drivers remain in native units; monetary values are converted once to $000s.",
+                     n=n, ppy=ppy, include_open=True)
     _write_wide_rows(wb.create_sheet("Ratios"), cfg,
                      _exact_financial_rows(rt, "Ratios", "% / engine ratio units", n, ratio=True),
                      title="Ratios · Calculation Audit", subtitle="Unrounded native-cadence base-engine ratios.", n=n, ppy=ppy)

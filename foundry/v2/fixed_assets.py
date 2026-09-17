@@ -1,17 +1,21 @@
 """Canonical fixed-asset / CAPEX resolver for Foundry v2.
 
 The projection engines consume native-period series.  This module owns the accounting
-semantics that turn asset records into those series.  Legacy ``premises_equipment`` +
-``premises_depreciation_annual`` remains a separate fallback path in the engines; this
-resolver is used only when ``assumptions.fixed_assets.mode == 'schedule'``.
+semantics for the two active authoring methodologies:
 
-V1 exposes straight-line depreciation while retaining a method field in the schema so
-future methods do not require a data-model migration.
+* ``formula_level`` — directly resolves the period-end net asset level from an entered
+  base plus compatible linked Series × multipliers, with separately authored depreciation.
+* ``schedule`` — reconstructs PP&E from asset/CAPEX vintages, useful lives and depreciation.
+
+Historical ``premises_equipment`` + ``premises_depreciation_annual`` remains a separate
+backward-compatibility fallback until a saved model explicitly opts into Formula / level.
+The schedule path currently exposes straight-line depreciation while retaining a method
+field in the schema so future schedule methods do not require a data-model migration.
 """
 
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Tuple
 
 
 def _f(v, default=0.0):
@@ -27,6 +31,160 @@ def _i(v, default=0):
     except (TypeError, ValueError):
         return int(default)
 
+
+
+_LEVEL_RATE_FREQ = {"year": 1.0, "quarter": 4.0, "month": 12.0}
+
+
+def _formula_level_config(fixed_assets: Mapping[str, Any] | None) -> dict:
+    fa = dict(fixed_assets or {})
+    raw = fa.get("formula_level")
+    if not isinstance(raw, Mapping):
+        raise ValueError("fixed_assets.formula_level must be an object")
+    return dict(raw)
+
+
+def _resolve_entered_level(spec: Mapping[str, Any] | None, n_periods: int, ppy: int,
+                            *, growth_context=None, default_value: float = 0.0) -> list[float]:
+    """Resolve a stock/level assumption without inventing a natural time unit."""
+    from .series import normalize_series_spec, resolve_entered_series
+    ns = normalize_series_spec(spec, default_value=default_value)
+    if ns["source"] != "entered":
+        raise ValueError("fixed-asset level and multiplier trajectories must be entered Series")
+    return [float(x or 0.0) for x in resolve_entered_series(
+        ns, int(n_periods), int(ppy), context=growth_context, default_value=default_value)]
+
+
+def _natural_period_factor(period: Any, ppy: int) -> float:
+    period = str(period or "").strip().lower()
+    if period not in _LEVEL_RATE_FREQ:
+        raise ValueError(f"fixed-asset amount/rate period {period!r} unsupported; expected month/quarter/year")
+    ppy = int(ppy)
+    if ppy not in (1, 4, 12):
+        raise ValueError(f"unsupported cadence periods_per_year={ppy}")
+    # An authored amount/rate is stated per its natural period.  Convert linearly to one
+    # engine period exactly once: 12%/year -> 1%/month; 1%/month -> 3%/quarter.
+    return _LEVEL_RATE_FREQ[period] / float(ppy)
+
+
+def _resolve_natural_period_series(spec: Mapping[str, Any] | None, n_periods: int, ppy: int,
+                                   *, growth_context=None, default_value: float = 0.0) -> list[float]:
+    """Resolve Flat/Growth/Explicit authored values, then periodize their natural unit.
+
+    ``period`` owns the economic unit (Month / Quarter / Year).  Explicit ``cadence``
+    independently owns how often the authored value may change.
+    """
+    raw = dict(spec or {})
+    factor = _natural_period_factor(raw.get("period"), int(ppy))
+    vals = _resolve_entered_level(raw, int(n_periods), int(ppy),
+                                  growth_context=growth_context, default_value=default_value)
+    return [float(v or 0.0) * factor for v in vals]
+
+
+def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
+                              assumptions: Mapping[str, Any] | None,
+                              n_periods: int, ppy: int, *, growth_context=None) -> Dict[str, Any]:
+    """Resolve the Formula / level fixed-asset methodology.
+
+    The period-end *net* fixed-asset level is authoritative and is composed from an
+    entered base level plus zero or more safe linked driver Series × entered multipliers::
+
+        net fixed assets = base level + Σ(driver Series × multiplier)
+
+    This is deliberately different from the asset-schedule methodology: it does not
+    invent vintages, useful lives, or disposal records.  Depreciation is an independently
+    authored flow (entered amount or rate on the resulting net level).  Gross PP&E is
+    therefore an implied reconciliation quantity: ``gross = net + accumulated depreciation``.
+    The corresponding implied CAPEX/(disposal) flow is ``Δnet + depreciation``.
+    """
+    n, ppy = int(n_periods), int(ppy)
+    if n < 0 or ppy <= 0:
+        raise ValueError("n_periods must be >= 0 and ppy must be > 0")
+    cfg = _formula_level_config(fixed_assets)
+    opening_net = _f(cfg.get("opening_net"), 0.0)
+    opening_accum = _f(cfg.get("opening_accumulated_depreciation"), 0.0)
+    if opening_net < 0 or opening_accum < 0:
+        raise ValueError("Formula / level opening balances must be non-negative")
+
+    base = _resolve_entered_level(cfg.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0},
+                                  n, ppy, growth_context=growth_context)
+    target = list(base)
+    component_rows = []
+    from .series import normalize_series_spec, resolve_series_spec
+    for i, raw in enumerate(cfg.get("components") or []):
+        if not isinstance(raw, Mapping):
+            raise ValueError(f"fixed_assets.formula_level.components[{i}] must be an object")
+        comp = dict(raw)
+        dspec = comp.get("driver_spec")
+        ns = normalize_series_spec(dspec, default_value=0.0)
+        if ns["source"] != "link":
+            raise ValueError(f"fixed_assets.formula_level.components[{i}].driver_spec must be a linked Series")
+        drivers = resolve_series_spec(ns, assumptions or {}, n, ppy,
+                                      context=growth_context, default_value=0.0)
+        mults = _resolve_entered_level(comp.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
+                                       n, ppy, growth_context=growth_context)
+        values = [float(d or 0.0) * float(m or 0.0) for d, m in zip(drivers, mults)]
+        target = [float(a or 0.0) + float(b or 0.0) for a, b in zip(target, values)]
+        component_rows.append({
+            "component_id": str(comp.get("component_id") or ""),
+            "name": str(comp.get("name") or f"Linked component {i + 1}"),
+            "driver_series_id": str((ns.get("link") or {}).get("series_id") or ""),
+            "driver_kind": str((ns.get("link") or {}).get("kind") or ""),
+            "driver": [float(x or 0.0) for x in drivers],
+            "multiplier": [float(x or 0.0) for x in mults],
+            "amount": values,
+        })
+
+    if any(float(v or 0.0) < -1e-9 for v in target):
+        raise ValueError("Formula / level fixed-asset level cannot be negative")
+    target = [max(0.0, float(v or 0.0)) for v in target]
+
+    depcfg = dict(cfg.get("depreciation") or {})
+    kind = str(depcfg.get("kind") or "entered").strip().lower()
+    if kind == "rate_of_level":
+        rs = dict(depcfg.get("rate_spec") or {
+            "source":"entered","trajectory":"flat","value":0.0,"period":"year"})
+        rates = _resolve_natural_period_series(rs, n, ppy, growth_context=growth_context)
+        if any(r < -1e-12 for r in rates):
+            raise ValueError("Formula / level depreciation rate cannot be negative")
+        dep_native = [float(level or 0.0) * float(rate or 0.0)
+                      for level, rate in zip(target, rates)]
+    elif kind == "entered":
+        es = dict(depcfg.get("amount_spec") or {
+            "source":"entered","trajectory":"flat","value":0.0,"period":"year"})
+        dep_native = _resolve_natural_period_series(es, n, ppy, growth_context=growth_context)
+        if any(v < -1e-9 for v in dep_native):
+            raise ValueError("Formula / level entered depreciation cannot be negative")
+        rates = []
+    else:
+        raise ValueError("fixed_assets.formula_level.depreciation.kind must be entered or rate_of_level")
+
+    net = [opening_net] + target
+    accum = [opening_accum]
+    dep = [0.0] + [float(x or 0.0) for x in dep_native]
+    for t in range(1, n + 1):
+        accum.append(float(accum[-1]) + dep[t])
+    gross = [float(net[t]) + float(accum[t]) for t in range(n + 1)]
+    capex = [0.0] * (n + 1)
+    for t in range(1, n + 1):
+        capex[t] = float(net[t]) - float(net[t - 1]) + dep[t]
+
+    return {
+        "gross": gross,
+        "accumulated_depreciation": accum,
+        "net": net,
+        "depreciation_expense": dep,
+        "capex": capex,
+        "preopening_capex": 0.0,
+        "asset_rows": [],
+        "formula_level": {
+            "opening_net": opening_net,
+            "base": [float(x or 0.0) for x in base],
+            "components": component_rows,
+            "depreciation_kind": kind,
+            "depreciation_rate_per_engine_period": [float(x or 0.0) for x in rates],
+        },
+    }
 
 def fixed_asset_schedule(fixed_assets: dict | None, n_periods: int, ppy: int) -> Dict[str, List[float]]:
     """Resolve a fixed-asset schedule into native-cadence series.
@@ -138,4 +296,11 @@ def fixed_asset_schedule(fixed_assets: dict | None, n_periods: int, ppy: int) ->
 
 def fixed_asset_mode(assumptions: dict | None) -> str:
     fa = (assumptions or {}).get("fixed_assets") or {}
-    return "schedule" if fa.get("mode") == "schedule" else "simple"
+    mode = str(fa.get("mode") or "simple").strip().lower()
+    if mode == "schedule":
+        return "schedule"
+    if mode == "formula_level":
+        return "formula_level"
+    # Historical configs used ``simple`` or omitted fixed_assets entirely.  Keep that
+    # runtime contract byte-for-byte until the user explicitly opts into Formula / level.
+    return "simple"

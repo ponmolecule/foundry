@@ -192,11 +192,23 @@ def validate_config_v2(cfg):
     d = a.get("premises_depreciation_annual")
     if d is not None and (not isinstance(d, (int, float)) or d < 0):
         errs.append("premises_depreciation_annual must be a non-negative dollar amount per year")
-    # Fixed-asset schedule is opt-in; absence preserves the legacy flat premises path.
+    # Modern fixed-asset methodologies are opt-in; absence preserves the legacy flat premises path.
     _fa = a.get("fixed_assets") or {}
     _fa_nper = int(a.get("n_periods") or 12)
-    if _fa and _fa.get("mode") not in (None, "simple", "schedule"):
-        errs.append("fixed_assets.mode must be 'simple' or 'schedule'")
+    if _fa and _fa.get("mode") not in (None, "simple", "formula_level", "schedule"):
+        errs.append("fixed_assets.mode must be 'formula_level' or 'schedule' (legacy 'simple' remains supported)")
+    if _fa.get("mode") == "formula_level":
+        try:
+            from .fixed_assets import fixed_asset_formula_level
+            fixed_asset_formula_level(_fa, a, _fa_nper, _ppy, growth_context=_growth_ctx)
+            _fl = _fa.get("formula_level") or {}
+            _ids = [str((x or {}).get("component_id") or "").strip() for x in (_fl.get("components") or [])]
+            if any(not x for x in _ids):
+                errs.append("fixed_assets.formula_level components require stable component_id values")
+            if len(_ids) != len(set(_ids)):
+                errs.append("fixed_assets.formula_level component_id values must be unique")
+        except Exception as e:
+            errs.append(f"fixed_assets.formula_level invalid: {e}")
     if _fa.get("mode") == "schedule":
         for i, _asset in enumerate(_fa.get("assets") or []):
             if not isinstance(_asset, dict):
