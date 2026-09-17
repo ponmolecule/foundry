@@ -4148,6 +4148,7 @@ window.secAdd = function(kind){
   (cfg.assumptions[key] = cfg.assumptions[key] || []).push(
     {name: kind ? "HTM" : "AFS", opening: 0,
       purchases_per_period: 0, growth_per_period: 0, runoff_per_period: 0, yield_ann: 0});
+  window._cfgSectionOpen=window._cfgSectionOpen||{}; window._cfgSectionOpen.secaoci=true;
   renderGlobals(); renderContent(); refresh();
 };
 window.poAdd = function(){
@@ -4303,22 +4304,25 @@ function _seriesPasteSummary(vals,fmt){
 function _seriesResolutionUseful(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return f<PPY();}
 
 // ---------------------------------------------------------------- managed securities
+window._secSeriesExplicitOpen=window._secSeriesExplicitOpen||{};
+function _secSeriesExplicitIsOpen(path){return Object.prototype.hasOwnProperty.call(window._secSeriesExplicitOpen,String(path)) ? !!window._secSeriesExplicitOpen[String(path)] : false;}
+window.secSeriesExplicitSet=function(path,isOpen){window._secSeriesExplicitOpen=window._secSeriesExplicitOpen||{};window._secSeriesExplicitOpen[String(path)]=!!isOpen;};
 function _managedSecPortfolios(create){if(create && !Array.isArray(cfg.assumptions.managed_securities_portfolios))cfg.assumptions.managed_securities_portfolios=[];return cfg.assumptions.managed_securities_portfolios||[];}
 function _managedSecTargetSources(){return [{id:"bank.balance_sheet.equity.end",name:"Total equity — period end"},{id:"bank.balance_sheet.deposits.end",name:"Total deposits — period end"}];}
 function _secSeriesDefault(value,period){const x={source:"entered",trajectory:"flat",value:+(value||0)};if(period)x.period=period;return x;}
 function _secSeriesEnsure(path,def){let sp=getPath(path);if(!sp||typeof sp!=="object"){sp=_secSeriesDefault(def||0);setPath(path,sp);}sp.source="entered";sp.trajectory=sp.trajectory||"flat";return sp;}
-window.secSeriesTrajectory=function(path,traj){const sp=_secSeriesEnsure(path,0),naturalPeriod=sp.period;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";}if(naturalPeriod)sp.period=naturalPeriod;renderContent();refresh();};
+window.secSeriesTrajectory=function(path,traj){const sp=_secSeriesEnsure(path,0),naturalPeriod=sp.period;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;delete (window._secSeriesExplicitOpen||{})[String(path)];}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};delete (window._secSeriesExplicitOpen||{})[String(path)];}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";window._secSeriesExplicitOpen=window._secSeriesExplicitOpen||{};window._secSeriesExplicitOpen[String(path)]=true;}if(naturalPeriod)sp.period=naturalPeriod;renderContent();refresh();};
 window.secSeriesValue=function(path,field,v){const sp=_secSeriesEnsure(path,0);sp[field]=_pf(v)/100;refresh();};
 window.secSeriesCadence=function(path,v){const sp=_secSeriesEnsure(path,0);sp.cadence=v;sp.values=sp.values||[];_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);renderContent();refresh();};
 window.secSeriesResolution=function(path,v){const sp=_secSeriesEnsure(path,0);sp.resolution=(v==="smooth"?"smooth":"step");refresh();};
 window.secSeriesPeriod=function(path,v){const sp=_secSeriesEnsure(path,0);sp.period=(["month","quarter","year"].includes(v)?v:_nativeFlowPeriod());refresh();};
 window.secSeriesPaste=function(path,id){const sp=_secSeriesEnsure(path,0),el=document.getElementById(id),raw=_seriesExplicitValues(el?el.value:"");if(!raw.length){appStatus("err","No valid numeric schedule values found.");return;}sp.trajectory="explicit";sp.cadence=sp.cadence||_nativeFlowPeriod();sp.extend="hold";sp.resolution=sp.resolution||"step";sp.values=raw.map(x=>(+x.value||0)/100);_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);appStatus("ok",sp.values.length+" values loaded.");renderContent();refresh();};
 window.secSeriesClear=function(path){const sp=_secSeriesEnsure(path,0);sp.values=[];renderContent();refresh();};
-function _secSeriesEditor(path,spec,label,naturalPeriod){spec=spec&&typeof spec==="object"?spec:_secSeriesDefault(0,naturalPeriod?_nativeFlowPeriod():null);const tr=spec.trajectory||"flat",id="secsp_"+path.replace(/[^a-zA-Z0-9]/g,"_");let h=`<div class="sec-managed-series"><div class="sec-managed-series-row"><span class="sec-book-label" style="margin:0;min-width:64px">${esc(label)}</span><select onchange="secSeriesTrajectory('${path}',this.value)"><option value="flat"${tr==="flat"?' selected':''}>Flat</option><option value="growth"${tr==="growth"?' selected':''}>Growth</option><option value="explicit"${tr==="explicit"?' selected':''}>Explicit</option></select>`;if(tr==="flat")h+=`<input type="number" step="0.01" value="${((+spec.value||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','value',this.value)"><span class="sec-book-unit">%</span>`;if(tr==="growth")h+=`<input type="number" step="0.01" value="${((+spec.base||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','base',this.value)"><span class="sec-book-unit">% base</span>`;h+='</div>';if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Rate period</span><select onchange="secSeriesPeriod('${path}',this.value)">${["month","quarter","year"].map(x=>`<option value="${x}"${x===per?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>`;}if(tr==="growth")h+=`<div class="sec-managed-series-row" style="margin-top:5px">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</div>`;if(tr==="explicit"){const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>(+v*100).toFixed(3)+'%');h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Schedule cadence</span><select onchange="secSeriesCadence('${path}',this.value)">${_seriesCadenceOptions().map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>${_seriesResolutionUseful(cad)?`<select onchange="secSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`:''}</div><details class="sec-managed-explicit"><summary>${esc(summary)} · paste/edit</summary><textarea id="${id}" rows="3" placeholder="Paste ${cad} percentages" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${id}_load" class="pillbtn" disabled onclick="secSeriesPaste('${path}','${id}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="secSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>(+v*100).toFixed(3)+'%',cad)}</div></details>`;}return h+'</div>';}
-window.secManagedAddPortfolio=function(){_managedSecPortfolios(true).push({name:"Managed securities portfolio",series_id:_seriesId("managed-sec"),target_source:{kind:"bank_balance_sheet",series_id:"bank.balance_sheet.equity.end"},target_ratio_spec:_secSeriesDefault(0),sleeves:[]});renderContent();refresh();};
+function _secSeriesEditor(path,spec,label,naturalPeriod){spec=spec&&typeof spec==="object"?spec:_secSeriesDefault(0,naturalPeriod?_nativeFlowPeriod():null);const tr=spec.trajectory||"flat",id="secsp_"+path.replace(/[^a-zA-Z0-9]/g,"_");let h=`<div class="sec-managed-series"><div class="sec-managed-series-row"><span class="sec-book-label" style="margin:0;min-width:64px">${esc(label)}</span><select onchange="secSeriesTrajectory('${path}',this.value)"><option value="flat"${tr==="flat"?' selected':''}>Flat</option><option value="growth"${tr==="growth"?' selected':''}>Growth</option><option value="explicit"${tr==="explicit"?' selected':''}>Explicit</option></select>`;if(tr==="flat")h+=`<input type="number" step="0.01" value="${((+spec.value||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','value',this.value)"><span class="sec-book-unit">%</span>`;if(tr==="growth")h+=`<input type="number" step="0.01" value="${((+spec.base||0)*100).toFixed(4)}" onchange="secSeriesValue('${path}','base',this.value)"><span class="sec-book-unit">% base</span>`;h+='</div>';if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Rate period</span><select onchange="secSeriesPeriod('${path}',this.value)">${["month","quarter","year"].map(x=>`<option value="${x}"${x===per?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>`;}if(tr==="growth")h+=`<div class="sec-managed-series-row" style="margin-top:5px">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</div>`;if(tr==="explicit"){const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>(+v*100).toFixed(3)+'%'),explicitOpen=_secSeriesExplicitIsOpen(path);h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Schedule cadence</span><select onchange="secSeriesCadence('${path}',this.value)">${_seriesCadenceOptions().map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>${_seriesResolutionUseful(cad)?`<select onchange="secSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`:''}</div><details class="sec-managed-explicit"${explicitOpen?' open':''} ontoggle="secSeriesExplicitSet('${path}',this.open)"><summary>${esc(summary)} · paste/edit</summary><textarea id="${id}" rows="3" placeholder="Paste ${cad} percentages" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${id}_load" class="pillbtn" disabled onclick="secSeriesPaste('${path}','${id}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="secSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>(+v*100).toFixed(3)+'%',cad)}</div></details>`;}return h+'</div>';}
+window.secManagedAddPortfolio=function(){_managedSecPortfolios(true).push({name:"Managed securities portfolio",series_id:_seriesId("managed-sec"),target_source:{kind:"bank_balance_sheet",series_id:"bank.balance_sheet.equity.end"},target_ratio_spec:_secSeriesDefault(0),sleeves:[]});window._cfgSectionOpen.secaoci=true;renderContent();refresh();};
 window.secManagedDeletePortfolio=function(i){_managedSecPortfolios(true).splice(i,1);renderContent();refresh();};
 window.secManagedTargetSource=function(i,v){const p=_managedSecPortfolios()[i];if(!p)return;const ok=_managedSecTargetSources().some(x=>x.id===v);p.target_source={kind:"bank_balance_sheet",series_id:ok?v:"bank.balance_sheet.equity.end"};refresh();};
-window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)return;p.sleeves=p.sleeves||[];p.sleeves.push({name:"Security",series_id:_seriesId("managed-sec-sleeve"),classification:"AFS",opening:0,allocation_spec:_secSeriesDefault(0),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:"entered",yield_spec:_secSeriesDefault(0)});renderContent();refresh();};
+window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)return;p.sleeves=p.sleeves||[];p.sleeves.push({name:"Security",series_id:_seriesId("managed-sec-sleeve"),classification:"AFS",opening:0,allocation_spec:_secSeriesDefault(0),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:"entered",yield_spec:_secSeriesDefault(0)});window._cfgSectionOpen.secaoci=true;renderContent();refresh();};
 window.secManagedDeleteSleeve=function(i,j){const p=_managedSecPortfolios()[i];if(!p)return;(p.sleeves||[]).splice(j,1);renderContent();refresh();};
 window.secManagedYieldSource=function(i,j,v){const s=((_managedSecPortfolios()[i]||{}).sleeves||[])[j];if(!s)return;s.yield_source=v;if(v==="entered")s.yield_spec=s.yield_spec||_secSeriesDefault(0);else s.curve_name=s.curve_name||"sofr";renderContent();refresh();};
 function _newNieDetail(){
@@ -7329,9 +7333,7 @@ document.addEventListener("click", (ev)=>{
                + (A.scheduled_borrowings||[]).length + (A.premises_depreciation_annual?1:0) > 0;
       on ? capClear() : capSeed();
     } else if(act==="secaoci"){
-      const secOn = ((A.securities_afs||[]).length + (A.securities_htm||[]).length) > 0 || !!A.aoci_sensitivity_annual;
-      if(secOn){ A.aoci_sensitivity_annual = 0; secClear(); }  // clear books AND sensitivity
-      else { secAdd(0); aociFlip(); }  // activate seeds BOTH: default AFS book + 0.5%/yr AOCI
+      secAociToggle();
     } else if(act==="nie"){ opexToggle(); }
     else if(act==="tax"){
       if(A.tax_detail){ delete A.tax_detail; } else { A.tax_detail = {enabled:true}; }
@@ -8253,8 +8255,14 @@ window.capClear = function(){
   if(A.fixed_assets && A.fixed_assets.mode==="schedule"){A.fixed_assets.assets=[];}
   renderContent(); refresh();
 };
+function _secAociCounts(a){
+  a=a||{}; const simple=(a.securities_afs||[]).length+(a.securities_htm||[]).length, managed=(a.managed_securities_portfolios||[]), sleeves=managed.reduce((n,p)=>n+(((p||{}).sleeves||[]).length),0);
+  return {simple:simple,managed:managed.length,sleeves:sleeves};
+}
+function _secAociActive(a){const c=_secAociCounts(a);return c.simple>0||c.managed>0||!!(a||{}).aoci_sensitivity_annual;}
 window.secClear = function(){
-  cfg.assumptions.securities_afs = []; cfg.assumptions.securities_htm = [];
+  cfg.assumptions.securities_afs = []; cfg.assumptions.securities_htm = []; cfg.assumptions.managed_securities_portfolios = [];
+  delete (window._cfgSectionOpen||{}).secaoci;
   renderContent(); refresh();
 };
 window.aociFlip = function(){
@@ -8262,16 +8270,18 @@ window.aociFlip = function(){
   renderContent(); refresh();
 };
 window.secAociToggle = function(){
-  const a = cfg.assumptions;
-  const on = (a.securities_afs||[]).length + (a.securities_htm||[]).length > 0 || !!a.aoci_sensitivity_annual;
+  const a = cfg.assumptions, c=_secAociCounts(a), on=_secAociActive(a);
   if(on){
-    if(!confirm("Turn off Securities & AOCI? All designated books are removed and AOCI sensitivity is set to zero.")) return;
-    a.securities_afs = []; a.securities_htm = []; a.aoci_sensitivity_annual = 0;
+    const bits=[]; if(c.simple)bits.push(c.simple+" simple book"+(c.simple===1?"":"s")); if(c.managed)bits.push(c.managed+" managed portfolio"+(c.managed===1?"":"s")+(c.sleeves?" / "+c.sleeves+" securit"+(c.sleeves===1?"y":"ies"):"")); if(a.aoci_sensitivity_annual)bits.push("AOCI sensitivity");
+    if(!confirm("Turn off Securities & AOCI? This removes "+bits.join(", ")+". Funding-waterfall and other balance-sheet assumptions are kept.")) return;
+    a.securities_afs = []; a.securities_htm = []; a.managed_securities_portfolios = []; a.aoci_sensitivity_annual = 0;
+    delete (window._cfgSectionOpen||{}).secaoci;
   } else {
-    secAdd(0);   // activation seeds one default AFS book — same pattern as the other toggles
-    return;      // secAdd already re-renders and refreshes
+    (a.securities_afs=a.securities_afs||[]).push({name:"AFS",opening:0,purchases_per_period:0,growth_per_period:0,runoff_per_period:0,yield_ann:0});
+    a.aoci_sensitivity_annual = 0.005;
+    window._cfgSectionOpen=window._cfgSectionOpen||{}; window._cfgSectionOpen.secaoci=true;
   }
-  renderContent(); refresh();
+  renderGlobals(); renderContent(); refresh();
 };
 
 // ===== Customer Acquisition (CAC) feeds — causal equations over generic Foundry Series. =====
@@ -8739,7 +8749,7 @@ function structuresSectionsHtml(){
     ["Pre-opening", !!(cfg.pre_opening && ((cfg.pre_opening.expenses||[]).length || cfg.pre_opening.min_day1_capital))],
     ["Staged raises", !!(A.capital_raises||[]).length],
     ["Scheduled borrowings", !!(A.scheduled_borrowings||[]).length],
-    ["Securities books", !!((A.securities_afs||[]).length + (A.securities_htm||[]).length)],
+    ["Securities books", _secAociCounts(A).simple>0 || _secAociCounts(A).managed>0],
     ["AOCI", !!A.aoci_sensitivity_annual],
     ["Depreciation", !!A.premises_depreciation_annual || !!((A.fixed_assets||{}).mode==="schedule" && (A.fixed_assets.assets||[]).length)],
     ["NIE detail", !!A.nie_detail],
@@ -8749,18 +8759,18 @@ function structuresSectionsHtml(){
   const secAociOn = lampMap["Securities books"]||lampMap["AOCI"];
   const capN = (A.capital_raises||[]).length + (A.scheduled_borrowings||[]).length
              + (((A.fixed_assets||{}).mode==="schedule") ? ((A.fixed_assets.assets||[]).length) : (A.premises_depreciation_annual?1:0));
-  const secN = (A.securities_afs||[]).length + (A.securities_htm||[]).length;
+  const _secCounts = _secAociCounts(A), secN = _secCounts.simple + _secCounts.sleeves;
   h += '<div class="modpanel"><div class="mp-title">Modules \u2014 activation derived from presence, never asserted</div><div class="modbar">';
   const swTile = (label, on, act, icon, extra, titleTxt)=>
     `<div class="modcard${on?" sel":""}" data-act="${act}" title="${titleTxt}"><span style="display:flex;align-items:center;gap:10px"><span class="mi">${ICONS[icon]}</span><span class="ml">${label}${extra||""}</span></span><span class="sw${on?" on":""}"></span></div>`;
   // The strip mirrors the 2x3 card grid below 1:1 - same order (L->R, T->B),
   // same labels, same icons as each card's medallion. AOCI folded into the
   // Securities tile (its card twin already holds both).
-  const secAociTileOn = secN > 0 || !!lampMap["AOCI"];
+  const secAociTileOn = _secAociActive(A);
   h += swTile("Capital structure &amp;<br>pre-opening", capOn, "cap", "bank", "",
               capOn?"On \u2014 click to clear staged raises, scheduled borrowings and depreciation (pre-opening is kept; confirms first)":"Off \u2014 click to activate with a default Q4 raise");
   h += swTile("Securities books<br>&amp; AOCI", secAociTileOn, "secaoci", "doc", "",
-              secAociTileOn?"On \u2014 click to remove all designated books and zero AOCI (instant)":"Off \u2014 click to activate with a default AFS book");
+              secAociTileOn?"On \u2014 click to remove simple + managed securities books and zero AOCI (confirms first)":"Off \u2014 click to activate with a default AFS book and AOCI");
   const _opexModeTile = _operatingExpenseMode(A), _opexOn = _opexModeTile !== "off";
   h += swTile("Operating<br>expense", _opexOn, "nie", "calc", "",
               _opexOn?("On \u2014 "+(_opexModeTile==="detailed"?"Detailed NIE":"Simple overhead")+"; click to deactivate"):("Off \u2014 click to activate Detailed NIE"));
@@ -8856,7 +8866,10 @@ function structuresSectionsHtml(){
     h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="text" inputmode="decimal" style="width:112px" value="${fmtComma((po.min_day1_capital||0)/1000)}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
   }
-  h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div></span></div>`;
+  const _secCardCounts=_secAociCounts(A), _secCardHasContent=_secAociActive(A), _secCardOpen=_cfgSectionIsOpen("secaoci",_secCardHasContent);
+  const _secCardSummary=[_secCardCounts.simple?(_secCardCounts.simple+" simple book"+(_secCardCounts.simple===1?"":"s")):"",_secCardCounts.managed?(_secCardCounts.managed+" managed portfolio"+(_secCardCounts.managed===1?"":"s")+(_secCardCounts.sleeves?" · "+_secCardCounts.sleeves+" securit"+(_secCardCounts.sleeves===1?"y":"ies"):"")):"",A.aoci_sensitivity_annual?"AOCI active":""].filter(Boolean).join(" · ");
+  h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div>${(!_secCardOpen&&_secCardHasContent)?`<div class="nie-section-summary">${esc(_secCardSummary||"Securities configuration loaded")} · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cfgSectionSetOpen('secaoci',${_secCardOpen?'false':'true'})">${_secCardOpen?'Collapse':'Expand'}</button></div>`;
+  if(_secCardOpen){
   {
     let _sb = `<div class="csub">Simple securities books (per-${PLAB()})</div>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
@@ -8902,6 +8915,7 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Other assets<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_assets||0)/1000)}" onchange="cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
       h += `<div class="crow" style="align-items:center">Other liabilities<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_liabilities||0)/1000)}" onchange="cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     }
+  }
   }
   h += `</div><div class="cfgcard" id="card-nie"><div class="cardhead"><span class="mi">${ICONS.calc}</span><span><div class="ct">Operating expense</div><div class="cd">Choose a simple overhead path or detailed NIE authoring. The two modes are alternative ways to build the same expense output.</div></span></div>`;
   const _nieMode = _operatingExpenseMode(A), _nieDetailed = _nieMode === "detailed";
