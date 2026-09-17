@@ -44,8 +44,9 @@ def _conv_fixed_assets(fa):
     fl = fa.get("formula_level")
     if isinstance(fl, dict):
         ff = dict(fl)
-        if isinstance(ff.get("opening_net"), (int, float)):
-            ff["opening_net"] = _k(ff["opening_net"])
+        for _key in ("opening_level", "opening_net", "opening_accumulated_depreciation"):
+            if isinstance(ff.get(_key), (int, float)):
+                ff[_key] = _k(ff[_key])
         if isinstance(ff.get("base"), list):
             ff["base"] = [_k(x) for x in ff["base"]]
         comps = []
@@ -60,6 +61,8 @@ def _conv_fixed_assets(fa):
             comps.append(cc)
         if "components" in ff:
             ff["components"] = comps
+        if isinstance(ff.get("accumulated_depreciation_relief"), list):
+            ff["accumulated_depreciation_relief"] = [_k(x) for x in ff["accumulated_depreciation_relief"]]
         # driver quantities and depreciation-rate paths are dimensionless/non-monetary.
         out["formula_level"] = ff
     return out

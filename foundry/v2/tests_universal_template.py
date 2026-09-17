@@ -163,7 +163,7 @@ def main():
     flcfg=deepcopy(cfg); fla=flcfg["assumptions"]; flroles=(((fla.get("nie_detail") or {}).get("workforce") or {}).get("roles") or [])
     level_role=next((r for r in flroles if not r.get("activation") and r.get("series_id")), None); level_sid=(level_role or {}).get("series_id")
     fla["fixed_assets"]={"mode":"formula_level","formula_level":{
-        "opening_net":0.0,
+        "level_basis":"gross","opening_level":0.0,"opening_accumulated_depreciation":0.0,
         "base_spec":{"source":"entered","trajectory":"flat","value":250000.0},
         "components":[{"component_id":"universal-fixed-assets-workforce","name":"Capacity-linked equipment",
                        "driver_spec":{"source":"link","link":{"kind":"workforce_role_count","series_id":level_sid,"aggregation":"end"}},
@@ -173,6 +173,7 @@ def main():
     flerrs=validate_errors_v2(deepcopy(flcfg)); flout=run_q.run_v2(deepcopy(flcfg)) if not flerrs else {}
     ck("Universal alternate variant executes Formula / level fixed assets",
        not flerrs and (flout.get("fixed_assets") or {}).get("mode")=="formula_level"
+       and (((flout.get("fixed_assets") or {}).get("formula_level") or {}).get("level_basis"))=="gross"
        and bool(((flout.get("fixed_assets") or {}).get("formula_level") or {}).get("components")), flerrs[:3]) # 41
     fldata,_=build_fiw(deepcopy(flcfg), include_capability_map=True); flwb=load_workbook(io.BytesIO(fldata), data_only=True)
     flcmap="\n".join(str(c.value or "") for row in flwb["CAPABILITY_MAP"].iter_rows() for c in row)

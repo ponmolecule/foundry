@@ -397,10 +397,13 @@ def _fixed_asset_formula_level_sheet(ws, formula_level):
     fl = dict(formula_level or {})
     root = "fixed_assets.formula_level"
     row("fixed_assets.mode", "Formula / level", "Method", "formula_level", "canonical method", True)
-    row(root + ".opening_net", "Formula / level", "Opening net fixed assets", fl.get("opening_net", 0.0), "$")
-    if fl.get("opening_accumulated_depreciation") is not None:
-        row(root + ".opening_accumulated_depreciation", "Formula / level",
-            "Opening accumulated depreciation", fl.get("opening_accumulated_depreciation", 0.0), "$")
+    basis = str(fl.get("level_basis") or "gross").strip().lower()
+    opening_level = fl.get("opening_level", fl.get("opening_net", 0.0))
+    row(root + ".level_basis", "Formula / level", "Level basis", basis, "gross / net")
+    row(root + ".opening_level", "Formula / level",
+        "Opening gross fixed assets" if basis == "gross" else "Opening net fixed assets", opening_level, "$")
+    row(root + ".opening_accumulated_depreciation", "Formula / level",
+        "Opening accumulated depreciation", fl.get("opening_accumulated_depreciation", 0.0), "$")
     series_rows(root + ".base_spec", "Formula / level", "Base asset level",
                 fl.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0}, "money")
 
@@ -782,8 +785,12 @@ def _settings_sheet(wb, cfg):
     elif _fa.get("mode") == "formula_level":
         _fl = _fa.get("formula_level") or {}
         _dep = _fl.get("depreciation") or {}
-        row("Fixed-asset authoring", "Formula / level", "direct period-end net level")
-        row("Opening net fixed assets", _fl.get("opening_net"), "$")
+        _basis = str(_fl.get("level_basis") or "gross").strip().lower()
+        _opening = _fl.get("opening_level", _fl.get("opening_net"))
+        row("Fixed-asset authoring", "Formula / level", f"direct period-end {_basis} level")
+        row("Formula / level basis", _basis, "gross / net")
+        row("Opening fixed-asset level", _opening, "$")
+        row("Opening accumulated depreciation", _fl.get("opening_accumulated_depreciation", 0.0), "$")
         row("Formula / level linked components", len(_fl.get("components") or []), "Series × multiplier components")
         row("Formula / level depreciation", _dep.get("kind") or "rate_of_level", "rate_of_level / entered")
         _dsp = _dep.get("rate_spec") if (_dep.get("kind") or "rate_of_level") == "rate_of_level" else _dep.get("amount_spec")
@@ -1087,7 +1094,8 @@ def _capability_map_sheet(wb, cfg):
         if any((x.get("in_service_period") or 0)>0 for x in (_fa.get("assets") or [])): add("Fixed assets", "Future in-service CAPEX", "future asset specimen", "ASSM_FIXED_ASSETS")
     elif _fa.get("mode")=="formula_level":
         _fl=_fa.get("formula_level") or {}; _dep=_fl.get("depreciation") or {}
-        add("Fixed assets", "Formula / level methodology", f"{len(_fl.get('components') or [])} linked component(s)", "ASSM_FIXED_ASSETS_LEVEL")
+        _basis=str(_fl.get("level_basis") or "gross").strip().lower()
+        add("Fixed assets", "Formula / level methodology", f"{_basis} basis · {len(_fl.get('components') or [])} linked component(s)", "ASSM_FIXED_ASSETS_LEVEL")
         if _fl.get("components"): add("Fixed assets", "Linked Series × multiplier asset level", "generic linked level component", "ASSM_FIXED_ASSETS_LEVEL")
         add("Fixed assets", "Formula / level depreciation", _dep.get("kind") or "rate_of_level", "ASSM_FIXED_ASSETS_LEVEL")
 

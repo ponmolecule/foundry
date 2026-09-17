@@ -16,7 +16,7 @@ Foundry separates **pre-opening expenses** from **capital expenditures** and exp
 
 Use Formula / level when the source model determines the fixed-asset **level directly** rather than reconstructing it from purchases and asset vintages. The canonical stock equation is:
 
-`period-end net fixed assets = entered base level + Σ(linked Series × multiplier)`
+`period-end fixed-asset level = entered base level + Σ(linked Series × multiplier)`
 
 The base and each multiplier may use the ordinary Foundry Flat / Growth / Explicit trajectory grammar. A multiplier is a **stock coefficient** (for example `$5k per employee`) and therefore has no Month / Quarter / Year amount period of its own. The linked Series owns its level and cadence.
 
@@ -24,18 +24,19 @@ The first supported browser driver is the stable Workforce Count Series (total w
 
 Depreciation has two authoring choices:
 
-- **% of asset level** — entered Flat / Growth / Explicit depreciation-rate path multiplied by the resolved period-end net asset level.
+- **% of asset level** — entered Flat / Growth / Explicit depreciation-rate path multiplied by the resolved period-end asset level on the selected basis.
 - **Entered amount** — entered Flat / Growth / Explicit depreciation expense path.
 
 Both depreciation choices own an explicit natural period where applicable: Month / Quarter / Year. Explicit schedule cadence is a separate concept from the natural period. Foundry periodizes the authored amount/rate exactly once.
 
-The Formula / level stock is authoritative **net PP&E**. Foundry does not invent useful lives or disposal records merely to explain a directly-authored level. Instead it reconciles:
+Formula / level owns an explicit `level_basis`:
 
-- `accumulated depreciation_t = accumulated depreciation_(t-1) + depreciation_t`
-- `implied gross PP&E_t = net PP&E_t + accumulated depreciation_t`
-- `implied CAPEX/(disposal)_t = net PP&E_t - net PP&E_(t-1) + depreciation_t`
+- **`gross` (default)** — the authored stock is gross PP&E. Depreciation increases accumulated depreciation and reduces net PP&E. A flat gross level therefore does **not** create replacement CAPEX merely because depreciation is recognized. Signed implied CAPEX/(disposal) is the change in authored gross PP&E. If the gross level falls, Foundry relieves the same proportion of existing accumulated depreciation so the reduction occurs at carrying value rather than leaving depreciation attached to disposed assets. Depreciation is capped at the remaining depreciable carrying basis.
+- **`net`** — the authored stock is an intentional net-PP&E target. Foundry reconciles gross PP&E as `net + accumulated depreciation`, and implied CAPEX/(disposal) is `Δnet + depreciation`. This mode is appropriate only when the source model truly intends depreciation to be replaced so the stated net level remains the target.
 
-A negative implied CAPEX value is an implied disposal/reduction; it is not floored away.
+This explicit basis fixes the r119 accounting bug in which Formula / level silently assumed every authored stock was net PP&E. Under that hidden assumption, a flat asset level caused gross PP&E and implied CAPEX to rise every period by the depreciation charge. r120 defaults missing r119 `level_basis` values to **gross**, while retaining explicit `net` as an available target-maintenance contract.
+
+Foundry does not invent useful lives or asset vintages merely to explain a directly-authored Formula / level stock.
 
 ### Asset schedule
 
@@ -77,8 +78,10 @@ For Asset schedule:
 
 For Formula / level:
 
-- `opening_net` is the opening balance.
-- `base_spec` and linked components resolve the period-end net level for periods 1..N.
+- `level_basis` is `gross` or `net`; new/r120 authoring defaults to `gross`.
+- `opening_level` is the opening balance on that selected basis. r119's `opening_net` remains a read-compatibility alias.
+- `opening_accumulated_depreciation` records opening accumulated depreciation. On gross basis it cannot exceed opening gross PP&E.
+- `base_spec` and linked components resolve the period-end level on the selected basis for periods 1..N.
 - depreciation is recognized in the same model period using the chosen entered amount or rate-on-level rule.
 
 Both methods are native-cadence and preserve explicit natural-period semantics.
@@ -103,7 +106,7 @@ Depreciation feeds the Income Statement's separate depreciation line and therefo
 
 ## FIW
 
-Asset schedule uses `ASSM_FIXED_ASSETS`. Formula / level uses `ASSM_FIXED_ASSETS_LEVEL`. The Formula / level sheet keeps the causal grammar visible: base level, existing linked component identity, multiplier paths, depreciation source, and depreciation path. Stable Series IDs are facts in FIW; add/remove or retarget linked components in the app so link identity is never guessed from workbook text.
+Asset schedule uses `ASSM_FIXED_ASSETS`. Formula / level uses `ASSM_FIXED_ASSETS_LEVEL`. The Formula / level sheet keeps the causal grammar visible: level basis, opening level, opening accumulated depreciation, base level, existing linked component identity, multiplier paths, depreciation source, and depreciation path. Stable Series IDs are facts in FIW; add/remove or retarget linked components in the app so link identity is never guessed from workbook text.
 
 ## Pre-opening accounting
 
@@ -117,4 +120,6 @@ The public `pre_open` result distinguishes `burn_total`, `preopening_capex`, `ca
 
 ## Backward compatibility
 
-Saved configurations with `fixed_assets.mode = "schedule"` remain Asset schedule. Saved configurations using the historical Simple contract or omitting `fixed_assets` continue to execute the old `premises_equipment + premises_depreciation_annual` arithmetic byte-for-byte until the user explicitly chooses Formula / level. That explicit conversion preserves the visible historical path rather than silently reinterpreting the old opening balance as a flat forever balance.
+Saved configurations with `fixed_assets.mode = "schedule"` remain Asset schedule. Saved configurations using the historical Simple contract or omitting `fixed_assets` continue to execute the old `premises_equipment + premises_depreciation_annual` arithmetic byte-for-byte until the user explicitly chooses Formula / level. That explicit conversion preserves the visible historical path by creating an explicit **net-basis** Formula / level schedule.
+
+r119 Formula / level configurations remain readable. Their `opening_net` field is accepted as an alias for `opening_level`; because r119 did not expose a basis selector and its hidden net assumption was the bug being repaired, an r119 Formula / level configuration with no `level_basis` is interpreted as **gross** in r120. Users who intentionally need a maintained net-PP&E target can explicitly choose `level_basis = "net"`.
