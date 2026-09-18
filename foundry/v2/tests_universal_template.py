@@ -19,7 +19,7 @@ from .income_modules import (
 )
 from .opex_extensions import (
     SAFE_REVENUE_DRIVERS, FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
-    WORKFORCE_COUNT_DRIVER, COST_POOL_CHARGE_DRIVER, PIECEWISE_LINKED_DRIVER,
+    WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER, COST_POOL_CHARGE_DRIVER, PIECEWISE_LINKED_DRIVER,
 )
 from .validate_q import validate_errors_v2
 
@@ -134,8 +134,12 @@ def main():
     ck("Opex entered amounts cover Flat Growth Explicit", {x.get("trajectory") for x in fs} >= {"flat","growth","explicit"}) # 33
     ck("Opex entered amounts cover Month Quarter Year", {x.get("period") for x in fs} >= {"month","quarter","year"}) # 34
     linked={lc.get("driver") for c in cats for lc in (c.get("linked_components") or [])}
-    required_linked=set(SAFE_REVENUE_DRIVERS)|{FEE_STREAM_QUANTITY_DRIVER,CAC_AUC_DRIVER,WORKFORCE_COUNT_DRIVER,COST_POOL_CHARGE_DRIVER,PIECEWISE_LINKED_DRIVER}
+    required_linked=set(SAFE_REVENUE_DRIVERS)|{FEE_STREAM_QUANTITY_DRIVER,CAC_AUC_DRIVER,WORKFORCE_COUNT_DRIVER,SERVICE_CAPACITY_DRIVER,COST_POOL_CHARGE_DRIVER,PIECEWISE_LINKED_DRIVER}
     ck("Opex covers every current linked-component driver", required_linked <= linked, sorted(required_linked-linked)) # 35
+    service=[lc for c in cats for lc in (c.get("linked_components") or []) if lc.get("driver")==SERVICE_CAPACITY_DRIVER]
+    ck("Opex service-capacity specimen keeps service FTE outside Workforce and owns an explicit hours period",
+       bool(service) and (service[0].get("capacity_spec") or {}).get("period") in {"month","quarter","year"}
+       and (service[0].get("quantity_spec") or {}).get("source")=="entered")
     rec={((c.get("recognition") or {}).get("mode") or "trajectory") for c in cats}
     setl={((c.get("settlement") or {}).get("mode") or "recognition") for c in cats}
     ck("Opex recognition covers trajectory monthly quarterly semiannual annual", {"trajectory","monthly","quarterly","semiannual","annual"} <= rec) # 36

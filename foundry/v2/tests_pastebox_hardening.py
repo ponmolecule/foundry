@@ -34,10 +34,10 @@ def main():
     # Inventory every actual paste textarea in the shipped console. Guide Me is free text,
     # not a model-schedule pastebox, and is deliberately excluded.
     paste_lines = [ln for ln in html.splitlines() if "<textarea" in ln and "feeGuideDesc" not in ln and "model-free-text" not in ln]
-    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 25, str(len(paste_lines)))
+    ck("paste-surface inventory is explicit and complete", len(paste_lines) == 27, str(len(paste_lines)))
     ck("every paste textarea has live per-box activation wiring", all("oninput=" in ln for ln in paste_lines))
 
-    # Twenty-one scalar schedule families: eleven Fee Product paths (transaction coefficient, Transaction fee rate, Flat amount,
+    # Twenty-three scalar schedule families: eleven Fee Product paths (transaction coefficient, Transaction fee rate, Flat amount,
     # Account count, Balance stock %, Balance rate, Account fee, Cost-recovery markup, entered cost base,
     # direct cost rate/factor, and the canonical Fee Product cost multiplier),
     # two Operating Expense cost-pool paths (entered cost base and cost-recovery markup), plus CAC
@@ -48,9 +48,9 @@ def main():
         "feeBalanceRatePaste_", "feeTransactionRatePaste_", "feeAccountFeePaste_", "feeCostRecoveryMarkupPaste_", "feeCostBasePaste_",
         "nieCostBasePaste_", "nieCostPoolMarkupPaste_", "cacPaste_", "cacAttritionPaste_",
         "wfCountPaste_", "wfCompPaste_", "nieCatExplicitPaste_", "nieLinkedWfAmount_", "feeCostFactorPaste_", "feeCostMultiplierPaste_",
-        "secsp_", "fasp_",
+        "secsp_", "fasp_", "opexSvc_", "opexSvcCap_",
     ]
-    ck("all twenty-one scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
+    ck("all twenty-three scalar Explicit schedule families are present", all(x in html for x in scalar_markers))
     ck("scalar schedules share one fail-closed parser", "function _seriesExplicitValues(text)" in html
        and html.count("raw=_seriesExplicitValues(txt)") >= 5
        and "function _feeParseExplicitValues(text){ return _seriesExplicitValues(text).map" in html)
@@ -119,6 +119,8 @@ console.log(JSON.stringify({
         'id="${_mid}_load" class="pillbtn" disabled onclick="_feeSetCostMultiplierSchedule',
         'id="${id}_load" class="pillbtn" disabled onclick="secSeriesPaste',
         'id="${id}_load" class="pillbtn" disabled onclick="faSeriesPaste',
+        'id="${id}_load" class="pillbtn" disabled onclick="nieCatServiceLevelPaste',
+        'id="${id}_load" class="pillbtn" disabled onclick="nieCatServiceCapacityPaste',
     ]
     ck("every scalar schedule Load button is textarea-scoped and initially disabled",
        all(x in html for x in scalar_load_fragments)
@@ -132,6 +134,7 @@ console.log(JSON.stringify({
         "_feeClearCostMultiplierSchedule",
         "nieCatCostPoolClearMarkupSchedule", "cacScheduleClear", "cacFeedExplicitClear", "nieWorkforceCountClear", "nieWorkforceCompClear",
         "nieCatScheduleClear", "nieCatLinkedAmountClear", "secSeriesClear", "faSeriesClear",
+        "nieCatServiceLevelClear", "nieCatServiceCapacityClear",
     ]
     ck("every scalar Explicit schedule family has an isolated Clear action", all(x in html for x in clear_markers))
 

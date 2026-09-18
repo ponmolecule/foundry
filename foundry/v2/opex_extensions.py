@@ -28,6 +28,7 @@ SAFE_REVENUE_DRIVERS = {
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
 WORKFORCE_COUNT_DRIVER = "workforce_count"
+SERVICE_CAPACITY_DRIVER = "service_capacity"
 COST_POOL_CHARGE_DRIVER = "cost_pool_charge"
 PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
@@ -378,7 +379,8 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
     allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
-                                           WORKFORCE_COUNT_DRIVER, COST_POOL_CHARGE_DRIVER,
+                                           WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
+                                           COST_POOL_CHARGE_DRIVER,
                                            PIECEWISE_LINKED_DRIVER}
     if drv not in allowed:
         raise ValueError(
@@ -412,6 +414,42 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             "trajectory": "flat", "value": 0.0, "period": "month"
         })
         return {"driver": drv, "series_id": sid, "amount_spec": amount_spec}
+    if drv == SERVICE_CAPACITY_DRIVER:
+        # A deterministic, entered service-capacity equation.  The service FTE quantity is
+        # deliberately NOT Workforce Count: it represents externally supplied / affiliate /
+        # contractor capacity and therefore must never contaminate bank headcount or payroll.
+        from .series import normalize_series_spec
+
+        def _entered_nonnegative(spec, label):
+            out = normalize_series_spec(spec or {
+                "source": "entered", "trajectory": "flat", "value": 0.0
+            })
+            if out.get("source") != "entered":
+                raise ValueError(f"service-capacity {label} must be an entered Series")
+            vals = []
+            if out.get("trajectory") == "flat":
+                vals = [out.get("value")]
+            elif out.get("trajectory") == "growth":
+                vals = [out.get("base")]
+            else:
+                vals = list(out.get("values") or [])
+            if any(float(v or 0.0) < 0.0 for v in vals):
+                raise ValueError(f"service-capacity {label} values must be nonnegative")
+            return out
+
+        quantity_spec = _entered_nonnegative(c.get("quantity_spec"), "quantity")
+        hourly_rate_spec = _entered_nonnegative(c.get("hourly_rate_spec"), "hourly rate")
+        capacity_spec = dict(c.get("capacity_spec") or {
+            "trajectory": "flat", "value": 0.0, "period": "year"
+        })
+        return {
+            "driver": drv,
+            "component_id": str(c.get("component_id") or "").strip(),
+            "name": str(c.get("name") or "Service capacity"),
+            "quantity_spec": quantity_spec,
+            "hourly_rate_spec": hourly_rate_spec,
+            "capacity_spec": capacity_spec,
+        }
     rs = dict(c.get("rate_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0})
     if str(rs.get("source") or "entered").lower() != "entered":
         raise ValueError("Opex linked-component rate must be an entered dimensionless Series")
@@ -514,6 +552,29 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
             out.append({"driver": WORKFORCE_COUNT_DRIVER,
                         "series_id": c["series_id"],
                         "amount_per_fte": [float(x or 0.0) for x in amounts]})
+            continue
+        if c["driver"] == SERVICE_CAPACITY_DRIVER:
+            from .periodic_flows import resolve_periodic_flow
+            quantities = resolve_entered_series(
+                c["quantity_spec"], int(n_periods), int(ppy), context=context)
+            hourly_rates = resolve_entered_series(
+                c["hourly_rate_spec"], int(n_periods), int(ppy), context=context)
+            hours_per_fte = resolve_periodic_flow(
+                c["capacity_spec"], int(n_periods), int(ppy), context=context)
+            if any(float(x or 0.0) < -1e-12 for x in quantities):
+                raise ValueError("service-capacity resolved quantity must be nonnegative")
+            if any(float(x or 0.0) < -1e-12 for x in hourly_rates):
+                raise ValueError("service-capacity resolved hourly rate must be nonnegative")
+            if any(float(x or 0.0) < -1e-12 for x in hours_per_fte):
+                raise ValueError("service-capacity resolved hours/FTE must be nonnegative")
+            out.append({
+                "driver": SERVICE_CAPACITY_DRIVER,
+                "component_id": c.get("component_id") or "",
+                "name": c.get("name") or "Service capacity",
+                "service_fte": [float(x or 0.0) for x in quantities],
+                "hourly_rate": [float(x or 0.0) for x in hourly_rates],
+                "hours_per_fte": [float(x or 0.0) for x in hours_per_fte],
+            })
             continue
         if c["driver"] == CAC_AUC_DRIVER:
             if assumptions is not None and auc_link_creates_cycle(assumptions, category, c["series_id"]):
@@ -692,6 +753,14 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amounts = component.get("amount_per_fte") or []
         amount = float(amounts[i] if i < len(amounts) else 0.0)
         return float(cmap.get(sid) or 0.0) * amount
+    if drv == SERVICE_CAPACITY_DRIVER:
+        quantities = component.get("service_fte") or []
+        hourly_rates = component.get("hourly_rate") or []
+        hours_per_fte = component.get("hours_per_fte") or []
+        qty = float(quantities[i] if i < len(quantities) else 0.0)
+        rate = float(hourly_rates[i] if i < len(hourly_rates) else 0.0)
+        hours = float(hours_per_fte[i] if i < len(hours_per_fte) else 0.0)
+        return qty * rate * hours
     if drv == PIECEWISE_LINKED_DRIVER:
         # Compatibility helper: callers historically consumed only the P&L amount.  The
         # richer result also carries cash settlement and prepaid/accrued timing deltas.

@@ -956,6 +956,50 @@
           "settlement": {
             "mode": "recognition"
           }
+        },
+        {
+          "series_id": "opex-service-capacity",
+          "owner_module": "operating_expense",
+          "name": "External service capacity",
+          "flow_spec": {
+            "trajectory": "flat",
+            "value": 0.0,
+            "period": "year"
+          },
+          "linked_components": [
+            {
+              "driver": "service_capacity",
+              "component_id": "universal-service-capacity",
+              "name": "External IT support",
+              "quantity_spec": {
+                "source": "entered",
+                "trajectory": "growth",
+                "base": 2.0,
+                "growth_spec": {
+                  "rate": 0.1,
+                  "period": "year",
+                  "method": "step",
+                  "anchor": "model_year"
+                }
+              },
+              "hourly_rate_spec": {
+                "source": "entered",
+                "trajectory": "growth",
+                "base": 170.0,
+                "growth_spec": {
+                  "rate": 0.03,
+                  "period": "year",
+                  "method": "step",
+                  "anchor": "model_year"
+                }
+              },
+              "capacity_spec": {
+                "trajectory": "flat",
+                "value": 2080.0,
+                "period": "year"
+              }
+            }
+          ]
         }
       ],
       "fdic_bp_ann": 5.0,

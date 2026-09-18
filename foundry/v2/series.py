@@ -258,7 +258,9 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
     if kind == "operating_expense_category":
         from .income_modules import nie_category_series
         from .opex_extensions import (normalize_opex_calculation, normalize_linked_component,
-                                      COST_POOL_CHARGE_DRIVER, WORKFORCE_COUNT_DRIVER)
+                                      resolve_linked_components, linked_component_amount,
+                                      COST_POOL_CHARGE_DRIVER, WORKFORCE_COUNT_DRIVER,
+                                      SERVICE_CAPACITY_DRIVER)
         from .periodic_flows import resolve_periodic_flow
         from .workforce import workforce_count_series_by_id
         row = _find_by_id_or_name(nd.get("categories") or [], link, kind)
@@ -279,6 +281,16 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
         for raw_component in (row.get("linked_components") or []):
             component = normalize_linked_component(raw_component)
             drv = str(component.get("driver") or "")
+            if drv == SERVICE_CAPACITY_DRIVER:
+                resolved = resolve_linked_components(
+                    {"linked_components": [raw_component]}, int(n_periods), int(ppy),
+                    context=context, assumptions=assumptions or {})
+                if len(resolved) != 1:
+                    raise ValueError("service-capacity Opex component did not resolve uniquely")
+                rc = resolved[0]
+                out = [float(base or 0.0) + linked_component_amount(rc, i, {})
+                       for i, base in enumerate(out)]
+                continue
             if drv != WORKFORCE_COUNT_DRIVER:
                 raise ValueError(
                     f"Operating Expense category {str(row.get('name') or ident)!r} cannot be reused "
