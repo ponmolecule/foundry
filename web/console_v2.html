@@ -205,7 +205,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#8FA3C0;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
 .nie-default-value{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
 .wf-role-card{border:1px solid rgba(148,163,184,.14);background:#111B2D;border-radius:8px;padding:9px 10px;margin:8px 0}
-.opex-item-card{position:relative;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease}
+/* Opex hierarchy: category boundaries are deliberately stronger than component boundaries. */
+.opex-item-card{position:relative;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease;border-color:rgba(148,163,184,.28);background:rgba(17,27,45,.92);padding:12px 12px 14px;margin:14px 0 18px;box-shadow:0 1px 0 rgba(255,255,255,.02)}
+.opex-item-card + .opex-item-card{margin-top:26px}
+.opex-item-card + .opex-item-card:before{content:"";position:absolute;left:4px;right:4px;top:-14px;height:1px;background:rgba(148,163,184,.24)}
+.opex-category-eyebrow{grid-column:1 / -1;font-size:8.5px;line-height:1;text-transform:uppercase;letter-spacing:.12em;color:#7788A3;margin:0 0 -1px 31px;font-weight:700}
 .opex-item-card.dragging{opacity:.58;border-color:rgba(223,168,90,.48);box-shadow:0 7px 18px rgba(0,0,0,.18)}
 .opex-item-card.drop-before:before,.opex-item-card.drop-after:after{content:"";position:absolute;left:8px;right:8px;height:3px;border-radius:3px;background:#DFA85A;box-shadow:0 0 0 1px rgba(223,168,90,.16)}
 .opex-item-card.drop-before:before{top:-6px}.opex-item-card.drop-after:after{bottom:-6px}
@@ -220,6 +224,11 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 #card-nie{overflow-x:hidden}
 .opex-cost-pool-editor,.opex-cost-pool-card,.opex-cost-pool-component{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;contain:inline-size}
 .opex-cost-pool-editor{padding:10px !important;background:rgba(13,21,34,.48)}
+/* Service components are subordinate siblings inside one Opex category: inset, lighter, and locally numbered. */
+.opex-service-component-card{margin:11px 0 0 14px !important;width:calc(100% - 14px) !important;border:1px solid rgba(148,163,184,.20);border-left:3px solid rgba(143,163,192,.52);border-radius:7px;background:rgba(13,21,34,.38);padding:10px 11px 11px !important;box-shadow:none}
+.opex-service-component-card ~ .opex-service-component-card{margin-top:16px !important}
+.opex-service-component-card .opex-cost-pool-titlebar{padding-bottom:7px;margin-bottom:7px;border-bottom:1px solid rgba(148,163,184,.13)}
+.opex-service-component-kicker{display:block;font-size:8.5px;line-height:1;text-transform:uppercase;letter-spacing:.11em;color:#8292AA;margin:0 0 5px;font-weight:700}
 .opex-cost-pool-titlebar{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0;margin-bottom:3px}
 .opex-cost-pool-titlebar .wf-field-label{min-width:0}
 .opex-cost-pool-remove{flex:0 0 auto;color:#B98282 !important;font-size:11px;opacity:.88;padding:2px 4px !important}
@@ -8521,7 +8530,8 @@ function _opexServiceLevelEditorHtml(i,j,key,label,unit){
 }
 function _opexServiceCapacityEditorHtml(i,j,lc){
   const c=_ensureNieServiceCapacity(i,j)||lc||{},cap=c.capacity_spec||{trajectory:'flat',value:0,period:'year'},tr=cap.trajectory||'flat',per=cap.period||'year',path=`assumptions.nie_detail.categories.${i}.linked_components.${j}.capacity_spec`;
-  let h=`<div class="opex-cost-pool-editor" style="margin-top:7px"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="wf-field-label">Service-capacity component</span><input value="${esc(c.name||'Service capacity')}" onchange="nieCatServiceName(${i},${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div>`;
+  const _siblings=((((_ensureNieDetail().categories||[])[i]||{}).linked_components)||[]),_serviceOrdinal=_siblings.slice(0,j+1).filter(x=>x&&x.driver==='service_capacity').length||1;
+  let h=`<div class="opex-cost-pool-editor opex-service-component-card"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="opex-service-component-kicker">Service component ${_serviceOrdinal}</span><span class="wf-field-label">Service-capacity component</span><input value="${esc(c.name||'Service capacity')}" onchange="nieCatServiceName(${i},${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div>`;
   h+=`<div class="nie-section-note">Expense = service FTE × hourly rate × periodized hours/FTE. Service FTE is external / affiliate / contractor capacity and does not change Workforce Count or payroll.</div>`;
   h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Service FTE quantity</span><div class="nie-section-note">An independently authored service-capacity level, not bank employee headcount.</div></div>${_opexServiceLevelEditorHtml(i,j,'quantity_spec','Service FTE','FTE')}</div>`;
   h+=`<div class="opex-piecewise-section"><div class="opex-piecewise-section-head"><span class="wf-field-label">Hourly rate</span></div>${_opexServiceLevelEditorHtml(i,j,'hourly_rate_spec','Cost / hour','$ / hour')}</div>`;
@@ -9179,7 +9189,7 @@ function structuresSectionsHtml(){
       const _cb = `cfg.assumptions.nie_detail.categories[${i}]`;
       const fs = _viewNieCatFlow(ct), traj=fs.trajectory||"flat", _fp=fs.period||_nativeFlowPeriod();
       const TR = [["flat","Flat"],["growth","Growth"],["explicit","Explicit"]],_legacyCostPool=(ct.calculation&&ct.calculation.kind==="cost_pool");
-      let row = `<div class="wf-role-card opex-item-card" data-opex-index="${i}" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="nieCatDelete(${i});return false">×</a></div>`;
+      let row = `<div class="wf-role-card opex-item-card" data-opex-index="${i}" ondragover="nieCatDragOver(event,${i})" ondragleave="nieCatDragLeave(event)" ondrop="nieCatDrop(event,${i})"><div class="opex-item-head"><div class="opex-category-eyebrow">Operating expense category ${i+1}</div><button type="button" class="opex-drag-handle" draggable="true" aria-label="Drag expense item to reorder" title="Drag to reorder" ondragstart="nieCatDragStart(event,${i})" ondragend="nieCatDragEnd(event)">⋮⋮</button><input class="opex-item-name" value="${esc(ct.name||'')}" placeholder="Expense item name" aria-label="Operating expense item name" onchange="${_cb}.name=this.value;refresh()"><a href="#" class="cx" title="Delete expense item" onclick="nieCatDelete(${i});return false">×</a></div>`;
       if(_legacyCostPool){
         row += _opexCostPoolEditorHtml(i,ct,ct.calculation);
       } else {
