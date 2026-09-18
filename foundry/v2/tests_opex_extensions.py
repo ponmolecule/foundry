@@ -308,6 +308,96 @@ def main():
        and abs(float(svc_rows[0][24])-svc_month)<1e-6,
        str(svc_rows[:1]))
 
+    # r123: Formula / driver rationalizes ordinary links and service-capacity-style factor
+    # chains into one constrained primitive. It is intentionally not a free-form expression
+    # language: stable upstream Series and entered Flat/Growth/Explicit factors only.
+    fcfg=base_cfg(12); fa=fcfg['assumptions']; fa['capital_raises']=[]
+    fa['obs_exposures'].append({
+        'name':'Payments base','call_report_line':'obs','_fee_product':True,
+        'fee_streams':[{
+            'name':'Business MAB','quantity_series_id':'q-mab-formula','basis':'transaction',
+            'driver':{'source':'constant','trajectory':'flat','params':{'base':100.0}},
+            'rate':{'behavior':'flat','params':{'per_unit':0.0}},'timing':{'start_period':1},
+            'cost':{'kind':'none','params':{}}
+        }]})
+    formula_component={
+        'driver':'formula_driver','component_id':'formula-payments','name':'Payment Transactions',
+        'factors':[
+            {'kind':'linked','op':'multiply','name':'Base MAB','source':'fee_stream_quantity','series_id':'q-mab-formula'},
+            {'kind':'entered','op':'multiply','name':'Transactions / MAB','unit':'transactions / MAB',
+             'periodized':True,'spec':{'trajectory':'flat','value':12.0,'period':'month'}},
+            {'kind':'entered','op':'multiply','name':'Cost / transaction','unit':'$ / transaction',
+             'periodized':False,'spec':{'source':'entered','trajectory':'flat','value':0.05}},
+        ]}
+    fa['nie_detail']['categories']=[{'series_id':'opex-payment-transactions','name':'Payment Transactions',
+        'flow_spec':{'trajectory':'flat','value':0,'period':'year'},'linked_components':[formula_component]}]
+    fr=run_pf_a(fcfg)
+    ck('Formula / driver handles base × transactions/base/month × cost/transaction',
+       abs(fr['is']['otherOpex'][0]-60.0)<1e-9 and abs(fr['is']['otherOpex'][11]-60.0)<1e-9,
+       fr['is']['otherOpex'][:2])
+
+    fcomp=resolve_linked_components(fa['nie_detail']['categories'][0],12,12,assumptions=fa)[0]
+    ck('Formula / driver periodizes only the explicitly periodic activity factor',
+       abs(fcomp['factors'][1]['values'][0]-12.0)<1e-12
+       and abs(fcomp['factors'][2]['values'][0]-0.05)<1e-12)
+
+    fq=copy.deepcopy(fa['nie_detail']['categories'][0]);
+    fqcomp=resolve_linked_components(fq,4,4,assumptions=fa)[0]
+    ck('monthly activity intensity becomes a three-month quarterly factor without changing unit cost',
+       abs(fqcomp['factors'][1]['values'][0]-36.0)<1e-12
+       and abs(fqcomp['factors'][2]['values'][0]-0.05)<1e-12)
+
+    failed=copy.deepcopy(formula_component); failed['name']='Failed Processing'; failed['component_id']='formula-failed'
+    failed['factors'][1]={'kind':'entered','op':'multiply','name':'Incidents / MAB','unit':'incidents / MAB',
+                          'periodized':True,'spec':{'trajectory':'flat','value':0.02,'period':'month'}}
+    failed['factors'][2]={'kind':'entered','op':'multiply','name':'Cost / incident','unit':'$ / incident',
+                          'periodized':False,'spec':{'source':'entered','trajectory':'flat','value':5.0}}
+    failed_r=resolve_linked_components({'linked_components':[failed]},12,12,assumptions=fa)[0]
+    ck('Formula / driver handles base × incidents/base × cost/incident',
+       abs(linked_component_amount(failed_r,0,{'fee_stream_quantities':{'q-mab-formula':100.0},'periods_per_year':12})-10.0)<1e-12)
+
+    cross={'driver':'formula_driver','component_id':'formula-cross','name':'Cross-border',
+           'factors':[{'kind':'linked','name':'Remittance volume','source':'fee_stream_quantity','series_id':'q-mab-formula'},
+                      {'kind':'entered','op':'multiply','name':'Cost rate','unit':'% of volume','periodized':False,'display':'percent',
+                       'spec':{'source':'entered','trajectory':'flat','value':0.001}}]}
+    cross_r=resolve_linked_components({'linked_components':[cross]},12,12,assumptions=fa)[0]
+    ck('Formula / driver handles remittance volume × cost rate without hidden cadence division',
+       abs(linked_component_amount(cross_r,0,{'fee_stream_quantities':{'q-mab-formula':1_000_000.0},'periods_per_year':12})-1_000.0)<1e-9)
+
+    calls={'driver':'formula_driver','component_id':'formula-calls','name':'Customer Complaint Management',
+           'factors':[{'kind':'entered','name':'Quantity of calls','unit':'calls','periodized':False,
+                       'spec':{'source':'entered','trajectory':'flat','value':500.0}},
+                      {'kind':'entered','op':'multiply','name':'Cost / call','unit':'$ / call','periodized':False,
+                       'spec':{'source':'entered','trajectory':'flat','value':8.0}}]}
+    calls_r=resolve_linked_components({'linked_components':[calls]},12,12,assumptions=fa)[0]
+    ck('Formula / driver handles entered quantity of calls × cost/call',
+       abs(linked_component_amount(calls_r,0,{'periods_per_year':12})-4_000.0)<1e-9)
+
+    svc_formula={'driver':'formula_driver','component_id':'formula-service','name':'IT Support',
+                 'factors':[{'kind':'entered','name':'Service FTE','unit':'FTE','periodized':False,
+                             'spec':{'source':'entered','trajectory':'flat','value':2.0}},
+                            {'kind':'entered','op':'multiply','name':'Hourly rate','unit':'$ / hour','periodized':False,
+                             'spec':{'source':'entered','trajectory':'flat','value':170.0}},
+                            {'kind':'entered','op':'multiply','name':'Hours / FTE','unit':'hours / FTE','periodized':True,
+                             'spec':{'trajectory':'flat','value':2080.0,'period':'year'}}]}
+    svc_formula_r=resolve_linked_components({'linked_components':[svc_formula]},12,12,assumptions=fa)[0]
+    ck('Formula / driver subsumes the conventional service-capacity equation',
+       abs(linked_component_amount(svc_formula_r,0,{'periods_per_year':12})-svc_month)<1e-6)
+
+    try:
+        validate_config_v2(fcfg); formula_valid=True
+    except ConfigErrorV2 as e:
+        print('formula/driver validation error',e); formula_valid=False
+    ck('validation accepts typed Formula / driver factor chains',formula_valid)
+
+    fpublic=run_v2(fcfg); faudit=calculation_audit_workbook(fcfg,fpublic)
+    frows=[r for r in faudit['Opex Component Detail'].iter_rows(values_only=True)
+           if len(r)>25 and r[3]=='formula_driver']
+    ck('Calculation Audit exposes Formula / driver economics and typed factor-chain note',
+       bool(frows) and frows[0][12]=='typed factor chain'
+       and abs(float(frows[0][24])-60.0)<1e-9 and 'Transactions / MAB' in str(frows[0][25]),
+       str(frows[:1]))
+
     # Calculation Audit must expose the headcount operand and amount/FTE rather than
     # forcing reconciliation through an Other Opex residual.
     wc_public=run_v2(wc)
