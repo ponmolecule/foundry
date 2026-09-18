@@ -368,6 +368,32 @@ def validate_config_v2(cfg):
                                 raise ValueError("service-capacity hourly rate must remain nonnegative")
                             if any(float(v or 0.0) < -1e-12 for v in _hv):
                                 raise ValueError("service-capacity hours/FTE must remain nonnegative")
+                        if _x.get("driver") == "formula_driver":
+                            from .series import resolve_entered_series
+                            from .periodic_flows import resolve_periodic_flow, validate_periodic_flow_spec
+                            _qn = max(1, int(a.get("n_periods") or _ppy))
+                            for _f in (_x.get("factors") or []):
+                                if _f.get("kind") == "linked":
+                                    _src = _f.get("source")
+                                    _sid = _f.get("series_id")
+                                    if _src == "fee_stream_quantity" and _sid not in _fee_qty_ids:
+                                        raise ValueError(f"formula/driver Fee-stream quantity Series {_sid!r} does not exist")
+                                    if _src == "customer_acquisition_auc":
+                                        if _sid not in _auc_ids:
+                                            raise ValueError(f"formula/driver CAC AUC Series {_sid!r} does not exist")
+                                        if auc_link_creates_cycle(a, cat, _sid):
+                                            raise ValueError("formula/driver Opex would create a circular dependency through Customer Acquisition")
+                                    if _src == "workforce_count" and _sid not in _wf_count_ids:
+                                        raise ValueError(f"formula/driver Workforce Count Series {_sid!r} does not exist")
+                                    continue
+                                if _f.get("periodized"):
+                                    validate_periodic_flow_spec(_f.get("spec"), ppy=_ppy,
+                                                                context=_growth_ctx)
+                                    resolve_periodic_flow(_f.get("spec"), _qn, _ppy,
+                                                          context=_growth_ctx)
+                                else:
+                                    resolve_entered_series(_f.get("spec"), _qn, _ppy,
+                                                           context=_growth_ctx)
                         if _x.get("driver") == "cost_pool_charge":
                             from .cost_pools import resolve_cost_pool_ref
                             _pool = resolve_cost_pool_ref(_x.get("ref"), a)

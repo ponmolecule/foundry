@@ -29,10 +29,73 @@ FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
 WORKFORCE_COUNT_DRIVER = "workforce_count"
 SERVICE_CAPACITY_DRIVER = "service_capacity"
+FORMULA_DRIVER = "formula_driver"
 COST_POOL_CHARGE_DRIVER = "cost_pool_charge"
 PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
+_FORMULA_LINK_SOURCES = set(SAFE_REVENUE_DRIVERS) | {
+    FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER,
+}
+
+
+def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = False) -> dict:
+    """Normalize one typed factor in a compact Opex formula/driver component.
+
+    This is intentionally *not* a free-form formula language.  A factor is either a stable
+    upstream Series observation or an entered Flat/Growth/Explicit path.  Entered factors may
+    optionally own a natural Month/Quarter/Year period, in which case they are periodized exactly
+    once before multiplication.  The only arithmetic operators are multiply and divide.
+    """
+    f = dict(raw or {})
+    kind = str(f.get("kind") or "entered").strip().lower()
+    if kind not in {"linked", "entered"}:
+        raise ValueError("formula/driver factor kind must be linked or entered")
+    op = "multiply" if first else str(f.get("op") or "multiply").strip().lower()
+    if op not in {"multiply", "divide"}:
+        raise ValueError("formula/driver factor op must be multiply or divide")
+    out = {
+        "kind": kind,
+        "op": op,
+        "name": str(f.get("name") or ("Driver" if kind == "linked" else "Factor")),
+        "unit": str(f.get("unit") or "").strip(),
+    }
+    if kind == "linked":
+        source = str(f.get("source") or "").strip().lower()
+        if source not in _FORMULA_LINK_SOURCES:
+            raise ValueError(
+                f"unsupported formula/driver linked source {source!r}; allowed: "
+                + ", ".join(sorted(_FORMULA_LINK_SOURCES)))
+        out["source"] = source
+        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER}:
+            sid = str(f.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError(f"formula/driver linked source {source} requires series_id")
+            out["series_id"] = sid
+        if source == CAC_AUC_DRIVER:
+            from .balance_measures import normalize_balance_measure
+            out["measure"] = normalize_balance_measure(f.get("measure"), default="period_end")
+        return out
+
+    periodized = bool(f.get("periodized"))
+    out["periodized"] = periodized
+    out["display"] = "percent" if str(f.get("display") or "number").lower() == "percent" else "number"
+    if periodized:
+        spec = dict(f.get("spec") or {"trajectory": "flat", "value": 0.0, "period": "month"})
+        # Validation/resolution belongs to periodic_flows so Month/Quarter/Year economics are
+        # cadence-invariant and explicit schedules remain natural-period totals.
+        if not spec.get("period"):
+            spec["period"] = "month"
+        out["spec"] = spec
+    else:
+        from .series import normalize_series_spec
+        spec = normalize_series_spec(f.get("spec") or {
+            "source": "entered", "trajectory": "flat", "value": 0.0
+        })
+        if spec.get("source") != "entered":
+            raise ValueError("formula/driver entered factors must be entered Series")
+        out["spec"] = spec
+    return out
 
 
 def workforce_count_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
@@ -380,6 +443,7 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     drv = str(c.get("driver") or "").strip().lower()
     allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
                                            WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
+                                           FORMULA_DRIVER,
                                            COST_POOL_CHARGE_DRIVER,
                                            PIECEWISE_LINKED_DRIVER}
     if drv not in allowed:
@@ -414,6 +478,18 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             "trajectory": "flat", "value": 0.0, "period": "month"
         })
         return {"driver": drv, "series_id": sid, "amount_spec": amount_spec}
+    if drv == FORMULA_DRIVER:
+        factors = list(c.get("factors") or [])
+        if not factors:
+            raise ValueError("formula/driver Opex component requires at least one factor")
+        normalized = [_normalize_formula_factor(f, first=(idx == 0))
+                      for idx, f in enumerate(factors)]
+        return {
+            "driver": drv,
+            "component_id": str(c.get("component_id") or "").strip(),
+            "name": str(c.get("name") or "Formula / driver component"),
+            "factors": normalized,
+        }
     if drv == SERVICE_CAPACITY_DRIVER:
         # A deterministic, entered service-capacity equation.  The service FTE quantity is
         # deliberately NOT Workforce Count: it represents externally supplied / affiliate /
@@ -552,6 +628,27 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
             out.append({"driver": WORKFORCE_COUNT_DRIVER,
                         "series_id": c["series_id"],
                         "amount_per_fte": [float(x or 0.0) for x in amounts]})
+            continue
+        if c["driver"] == FORMULA_DRIVER:
+            factors = []
+            from .periodic_flows import resolve_periodic_flow
+            for f in c.get("factors") or []:
+                row = dict(f)
+                if f.get("kind") == "entered":
+                    if f.get("periodized"):
+                        vals = resolve_periodic_flow(f.get("spec"), int(n_periods), int(ppy),
+                                                     context=context)
+                    else:
+                        vals = resolve_entered_series(f.get("spec"), int(n_periods), int(ppy),
+                                                      context=context)
+                    row["values"] = [float(x or 0.0) for x in vals]
+                factors.append(row)
+            out.append({
+                "driver": FORMULA_DRIVER,
+                "component_id": c.get("component_id") or "",
+                "name": c.get("name") or "Formula / driver component",
+                "factors": factors,
+            })
             continue
         if c["driver"] == SERVICE_CAPACITY_DRIVER:
             from .periodic_flows import resolve_periodic_flow
@@ -753,6 +850,20 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amounts = component.get("amount_per_fte") or []
         amount = float(amounts[i] if i < len(amounts) else 0.0)
         return float(cmap.get(sid) or 0.0) * amount
+    if drv == FORMULA_DRIVER:
+        result = None
+        for fi, factor in enumerate(component.get("factors") or []):
+            value = _formula_factor_value(factor, i, metrics)
+            op = "multiply" if fi == 0 else str(factor.get("op") or "multiply")
+            if result is None:
+                result = value
+            elif op == "divide":
+                if abs(value) < 1e-15:
+                    raise ValueError("formula/driver Opex cannot divide by zero")
+                result /= value
+            else:
+                result *= value
+        return float(result or 0.0)
     if drv == SERVICE_CAPACITY_DRIVER:
         quantities = component.get("service_fte") or []
         hourly_rates = component.get("hourly_rate") or []
@@ -808,6 +919,59 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
     else:  # normalize_linked_component already fail-closes; defensive only.
         raise ValueError(f"unsupported Opex linked driver {drv!r}")
     return base * rate
+
+
+def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
+                          metrics: Mapping[str, Any]) -> float:
+    """Resolve one already-normalized formula/driver factor for an engine period."""
+    i = int(period_index)
+    if str(factor.get("kind") or "") == "entered":
+        vals = list(factor.get("values") or [])
+        return float(vals[i] if i < len(vals) else 0.0)
+
+    src = str(factor.get("source") or "")
+    if src == "fee_income":
+        return float(metrics.get("fee_income") or 0.0)
+    if src == "gain_on_sale":
+        return float(metrics.get("gain_on_sale") or 0.0)
+    if src == "servicing_net":
+        return float(metrics.get("servicing_net") or 0.0)
+    if src == "noninterest_income":
+        return (float(metrics.get("fee_income") or 0.0)
+                + float(metrics.get("gain_on_sale") or 0.0)
+                + float(metrics.get("servicing_net") or 0.0))
+    if src == FEE_STREAM_QUANTITY_DRIVER:
+        sid = str(factor.get("series_id") or "")
+        qmap = metrics.get("fee_stream_quantities") or {}
+        if sid not in qmap:
+            raise ValueError(f"formula/driver Fee-stream quantity Series {sid!r} is unavailable")
+        return float(qmap.get(sid) or 0.0)
+    if src == WORKFORCE_COUNT_DRIVER:
+        sid = str(factor.get("series_id") or "")
+        cmap = metrics.get("workforce_count") or {}
+        if sid not in cmap:
+            raise ValueError(f"formula/driver Workforce Count Series {sid!r} is unavailable")
+        return float(cmap.get(sid) or 0.0)
+    if src == CAC_AUC_DRIVER:
+        sid = str(factor.get("series_id") or "")
+        amap = metrics.get("customer_acquisition_auc_monthly") or {}
+        if sid not in amap:
+            raise ValueError(f"formula/driver CAC AUC Series {sid!r} is unavailable")
+        beginning = float((metrics.get("customer_acquisition_auc_beginning") or {}).get(sid) or 0.0)
+        from .balance_measures import monthly_balance_measure_series
+        measured = monthly_balance_measure_series(beginning, amap[sid],
+                                                   str(factor.get("measure") or "period_end"))
+        ppy = int(metrics.get("periods_per_year") or 12)
+        if ppy not in (1, 4, 12) or 12 % ppy:
+            raise ValueError(f"unsupported cadence periods_per_year={ppy} for formula/driver AUC")
+        width = 12 // ppy
+        lo, hi = i * width, min(len(measured), (i + 1) * width)
+        if hi <= lo:
+            return 0.0
+        if str(factor.get("measure") or "period_end") == "period_end":
+            return float(measured[hi - 1] or 0.0)
+        return sum(float(x or 0.0) for x in measured[lo:hi]) / float(hi - lo)
+    raise ValueError(f"unsupported formula/driver linked source {src!r}")
 
 
 def _timing_interval(mode: str, ppy: int) -> int:

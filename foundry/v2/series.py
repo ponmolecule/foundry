@@ -260,7 +260,7 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
         from .opex_extensions import (normalize_opex_calculation, normalize_linked_component,
                                       resolve_linked_components, linked_component_amount,
                                       COST_POOL_CHARGE_DRIVER, WORKFORCE_COUNT_DRIVER,
-                                      SERVICE_CAPACITY_DRIVER)
+                                      SERVICE_CAPACITY_DRIVER, FORMULA_DRIVER)
         from .periodic_flows import resolve_periodic_flow
         from .workforce import workforce_count_series_by_id
         row = _find_by_id_or_name(nd.get("categories") or [], link, kind)
@@ -289,6 +289,32 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                     raise ValueError("service-capacity Opex component did not resolve uniquely")
                 rc = resolved[0]
                 out = [float(base or 0.0) + linked_component_amount(rc, i, {})
+                       for i, base in enumerate(out)]
+                continue
+            if drv == FORMULA_DRIVER:
+                runtime_sources = [str(f.get("source") or "") for f in component.get("factors") or []
+                                   if f.get("kind") == "linked"]
+                if any(src != WORKFORCE_COUNT_DRIVER for src in runtime_sources):
+                    raise ValueError(
+                        f"Operating Expense category {str(row.get('name') or ident)!r} cannot be reused "
+                        "as an upstream Customer Acquisition Series because its Formula / driver component "
+                        "depends on main-engine runtime Series")
+                resolved = resolve_linked_components(
+                    {"linked_components": [raw_component]}, int(n_periods), int(ppy),
+                    context=context, assumptions=assumptions or {})
+                if len(resolved) != 1:
+                    raise ValueError("formula/driver Opex component did not resolve uniquely")
+                rc = resolved[0]
+                count_paths = {}
+                for f in component.get("factors") or []:
+                    if f.get("kind") == "linked" and f.get("source") == WORKFORCE_COUNT_DRIVER:
+                        sid = str(f.get("series_id") or "")
+                        count_paths[sid] = workforce_count_series_by_id(
+                            wf, sid, int(n_periods), int(ppy), growth_context=context,
+                            deterministic_only=True)
+                out = [float(base or 0.0) + linked_component_amount(
+                    rc, i, {"workforce_count": {sid: vals[i] for sid, vals in count_paths.items()},
+                            "periods_per_year": int(ppy)})
                        for i, base in enumerate(out)]
                 continue
             if drv != WORKFORCE_COUNT_DRIVER:

@@ -638,6 +638,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                                   linked_component_period_result,
                                   PIECEWISE_LINKED_DRIVER, COST_POOL_CHARGE_DRIVER, CAC_AUC_DRIVER,
                                   FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
+                                  FORMULA_DRIVER, _formula_factor_value,
                                   _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
@@ -756,6 +757,23 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                     cap = float(hours_per_fte[i] if i < len(hours_per_fte) else 0.0)
                     notes = ("Entered service FTE × hourly rate × periodized hours/FTE; "
                              f"hours/FTE this engine period={cap:.12g}. Non-workforce capacity.")
+                elif drv == FORMULA_DRIVER:
+                    vals = [_formula_factor_value(f, i, metrics) for f in ((comp or {}).get("factors") or [])]
+                    source_base = vals[0] if vals else None
+                    tail = 1.0
+                    for fi, (f, val) in enumerate(zip((comp or {}).get("factors") or [], vals)):
+                        if fi == 0:
+                            continue
+                        if str(f.get("op") or "multiply") == "divide":
+                            tail = tail / val if abs(val) > 1e-15 else float("nan")
+                        else:
+                            tail *= val
+                    rate = tail if len(vals) > 1 else None
+                    trace = []
+                    for fi, (f, val) in enumerate(zip((comp or {}).get("factors") or [], vals), 1):
+                        op = "" if fi == 1 else (" ÷ " if f.get("op") == "divide" else " × ")
+                        trace.append(f"{op}{str(f.get('name') or ('Factor '+str(fi)))}={float(val):.12g}")
+                    notes = "Formula / driver factor chain: " + "".join(trace)
                 elif drv == COST_POOL_CHARGE_DRIVER:
                     ref = str((comp or {}).get("ref") or "")
                     source_base = float((metrics.get("cost_pool") or {}).get(ref) or 0.0)
@@ -778,6 +796,8 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                     _measure = "FTE / headcount"
                 elif drv == SERVICE_CAPACITY_DRIVER:
                     _measure = "service FTE / non-workforce capacity"
+                elif drv == FORMULA_DRIVER:
+                    _measure = "typed factor chain"
                 rows.append([cname, nm, cid, drv, i + 1, pend, True, None, None, None, None,
                              str((comp or {}).get("series_id") or (comp or {}).get("ref") or ""),
                              _measure, None, None, None, None, None, None, None, None,

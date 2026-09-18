@@ -998,6 +998,44 @@
                 "value": 2080.0,
                 "period": "year"
               }
+            },
+            {
+              "driver": "formula_driver",
+              "component_id": "universal-formula-driver",
+              "name": "Activity unit-cost specimen",
+              "factors": [
+                {
+                  "kind": "linked",
+                  "op": "multiply",
+                  "name": "Migrated account base",
+                  "source": "fee_stream_quantity",
+                  "series_id": "fee-qty-migrated-universal"
+                },
+                {
+                  "kind": "entered",
+                  "op": "multiply",
+                  "name": "Events / account",
+                  "unit": "events / account",
+                  "periodized": true,
+                  "spec": {
+                    "trajectory": "flat",
+                    "value": 2.0,
+                    "period": "month"
+                  }
+                },
+                {
+                  "kind": "entered",
+                  "op": "multiply",
+                  "name": "Cost / event",
+                  "unit": "$ / event",
+                  "periodized": false,
+                  "spec": {
+                    "source": "entered",
+                    "trajectory": "flat",
+                    "value": 0.5
+                  }
+                }
+              ]
             }
           ]
         }

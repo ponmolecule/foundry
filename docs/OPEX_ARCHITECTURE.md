@@ -20,80 +20,89 @@ Recurring flows own a natural amount period (`month`, `quarter`, or `year`). Gro
 own rate period, resolution (`step` or `smooth`), and anchor. Equivalent natural-unit inputs
 must resolve to equivalent economics independent of engine cadence.
 
-## Optional linked components
+## Advanced additive components
 
-A category may add one or more linked components under **Advanced**. Linked components are typed by the units of the upstream Series and the coefficient they consume. Two core contracts are:
+Advanced Operating Expense authoring is intentionally limited to three structural families:
 
-- `monetary / flow upstream Series × entered dimensionless rate Series`
-- `Workforce Count Series × entered amount per FTE per natural period`
+1. **Formula / driver component**
+2. **Tiered / banded component**
+3. **Cost-pool / cost-recovery component**
 
-The second contract is intentionally **not** represented as a percentage. An expense quoted as `$X per employee per month/quarter/year` keeps that unit explicitly and is periodized once before multiplying resolved active headcount.
+The menu is structural, not engagement-shaped. Foundry does not add a new component type merely
+because a source workbook uses a new business label. Historical linked-component and
+`service_capacity` storage shapes remain readable/editable for backward compatibility, but new
+authoring uses Formula / driver for those same multiplicative economics.
 
-The safe upstream registry remains deliberately narrow:
+### Formula / driver component
 
-- fee income
-- gain on sale
-- net servicing fees
-- total noninterest income
-- transaction Fee Stream quantity / throughput, referenced by stable `quantity_series_id`
-- Workforce Count, referenced by a persisted role `series_id` or Workforce-owned aggregate `total_count_series_id`
+Formula / driver is a constrained typed factor chain, not a free-form spreadsheet formula language.
+It composes stable upstream Series and entered factors with multiplication or division:
 
-Transaction Fee Stream quantity is the same native-period flow resolved by the Fee Product engine before pricing is applied. Workforce Count is the resolved active headcount owned by Workforce Compensation. Operating Expense observes those Series read-only; it does not recompute, own, or alter their trajectories. Balance/account stream quantities are intentionally not exposed under the ordinary flow-rate contract because their dimensional semantics differ. These drivers are upstream of Operating Expense and avoid an endogenous Opex circularity.
+`linked or entered factor × factor × factor ÷ factor ...`
 
-For Workforce Count, the coefficient is a periodic-flow amount per FTE with Flat / Growth / Explicit motion and Month / Quarter / Year amount units. Thus `$12,000/FTE/year`, `$3,000/FTE/quarter`, and `$1,000/FTE/month` are economically equivalent in a monthly or quarterly engine. The aggregate Workforce Count Series is computed from the same role-level active counts used by payroll; it is not a separately authored staffing forecast.
+Each entered factor keeps Foundry's ordinary **Flat / Growth / Explicit** trajectory grammar. A factor
+that owns a natural time unit additionally carries an explicit Month / Quarter / Year period and is
+periodized exactly once. A dimensionless rate or unit price carries no hidden time period. This
+distinction is what lets one primitive represent several recurring economic contracts without
+collapsing their causal structure into an explicit final-dollar schedule.
 
-The architecture does not accept arbitrary formulas or workbook cell references.
+Representative contracts include:
 
-When another module consumes an Operating Expense category as a stable Series, the link resolves
-the category's complete **upstream-resolvable** economics rather than only its entered recurring
-base. In particular, Customer Acquisition acquisition-spend links include deterministic
-`Workforce Count × amount/FTE` components. Components that require main-engine runtime metrics
-(for example fee-income-, AUC-, fee-quantity-, tiered/banded-, or cost-pool-dependent amounts)
-cannot be moved upstream safely and therefore fail closed instead of being silently omitted. This
-keeps the linked Series equal to the source economics the user actually authored.
+- ordinary legacy link: `upstream Series × rate`
+- conventional service capacity: `service FTE × $/hour × hours/FTE/year`
+- payment processing: `base quantity × transactions/base/month × $/transaction`
+- failed processing: `base quantity × incidents/base/month × $/incident`
+- cross-border processing: `remittance volume × cost rate`
+- complaint handling: `call quantity × $/call`
 
-A common generic shape is therefore:
+For the payment-processing example, `transactions/base/month` owns Month as its natural period while
+`$/transaction` does not. A quarterly engine therefore converts 12 transactions/base/month to 36
+transactions/base/quarter but leaves $0.05/transaction unchanged. Likewise, a percentage cost applied
+to a native-period remittance-volume Series is a same-period multiplication; Foundry does not invent
+an annual `/12`.
 
-`entered recurring base + Σ(typed additive components)`
+The safe upstream registry remains deliberately narrow and stable-ID based. Formula / driver may
+observe the existing compatible Opex sources, including Fee-stream quantity Series, Workforce Count,
+CAC AUC with an explicit balance measure, and the established safe revenue metrics. Operating Expense
+observes those Series read-only; it does not recreate their trajectories or take ownership of them.
 
-Typed additive components include ordinary `upstream Series × rate` links and a shared
-`cost_pool_charge` component. A cost-pool charge resolves a referenced eligible-cost pool, applies
-its recovery percentage and markup path, and contributes the resulting downstream charge to NIE.
-The pool itself is direction-neutral and non-posting: the same primitive may be consumed by a Fee
-Product when the modeled bank earns the charge. Its linked, entered, and balance-derived pool
-components remain calculation inputs rather than separate Opex postings.
+The component may also be entirely entered. For example, `500 calls/month × $8/call` can be authored
+as two entered factors, preserving the quantity and unit-cost economics separately. If a factor path
+is irregular, Explicit belongs on that factor rather than replacing the whole relationship with a
+pasted expense schedule. A fully explicit final expense remains the ordinary category-level escape
+hatch when the source relationship is genuinely exceptional and not worth generalizing.
 
-New authoring follows this additive model. The short-lived r67 `calculation.kind = cost_pool` shape is
-read only for backward compatibility: it retains its original exclusive semantics so a dormant
-entered-expense draft saved in r67 does not unexpectedly become active. New configurations do not
-create that shape.
+Conventional service capacity is therefore no longer a distinct *new-authoring* species. Its service
+FTE is still deliberately **not** Workforce Count: it represents externally supplied / affiliate /
+contractor capacity and does not affect bank headcount, payroll, compensation statistics, or
+downstream Workforce-linked drivers. Historical `service_capacity` configurations retain their
+released economics and editor for backward compatibility.
 
-### Entered service-capacity component
+Formula / driver does **not** attempt to derive service capacity from workload. The unresolved
+Compliance source case (`operational activity -> workload hours -> implied service FTE -> cost`) stays
+out of this contract until its quantity-period semantics are explicit. This is a deliberate boundary,
+not an invitation to add a Compliance-specific component type.
 
-Some outsourced, affiliate, contractor, and shared-service contracts are priced from an independently
-authored service-capacity quantity rather than bank Workforce Count. Foundry represents that mechanic
-with a deterministic additive `service_capacity` component:
+When another module consumes an Operating Expense category as a stable Series, the link resolves the
+category's complete **upstream-resolvable** economics. Formula / driver components are reusable
+upstream only when every linked operand is itself safely resolvable at that point in the causal graph.
+Components requiring main-engine runtime metrics fail closed rather than being silently omitted.
 
-`service FTE × $ / hour × hours / service FTE / natural period`
+### Tiered / banded component
 
-The three operands are independently authored. Service FTE and hourly rate are level Series with
-Flat / Growth / Explicit motion. Hours per service FTE is a natural-period quantity with Flat / Growth /
-Explicit motion and an explicit Month / Quarter / Year period. Foundry periodizes the hours assumption
-exactly once before multiplying. Thus `2 FTE × $170/hour × 2,080 hours/FTE/year` resolves to
-`$58,933.33/month` in a monthly engine and `$176,800/quarter` in a quarterly engine, with identical
-annual economics.
+Tiered / banded remains separate because its arithmetic is structurally different from a factor
+chain: the applicable base/marginal rate changes across thresholds and the component can own event
+cadence, observation lag, and recognition timing. It is not merely a complicated Formula / driver.
 
-Service FTE is deliberately **not** Workforce Count. It represents externally supplied capacity and
-does not affect bank headcount, payroll, compensation statistics, or downstream Workforce-linked
-drivers. Because all three operands are deterministic entered Series, a category containing only this
-component (plus other upstream-resolvable components) may itself be consumed safely as an upstream
-Operating Expense Series.
+### Cost-pool / cost-recovery component
 
-This component does not attempt to derive service FTE from transaction workload. Workload-derived
-capacity remains a separate, unresolved mechanic until its quantity-period semantics are explicit.
+Cost-pool / cost-recovery remains separate because it aggregates eligible costs owned elsewhere, then
+applies recovery and markup economics. The pool is direction-neutral and non-posting; only the final
+downstream charge posts to NIE. This ownership/aggregation contract is structurally different from
+a direct factor chain.
 
-This covers many vendor, platform, servicing, administrative, shared-service, and other mixed
-fixed/variable expense contracts without adding engagement-specific expense types.
+The short-lived r67 `calculation.kind = cost_pool` shape remains read only for backward compatibility.
+New configurations do not create that exclusive shape.
 
 ## Recognition versus cash settlement
 

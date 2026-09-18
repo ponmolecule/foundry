@@ -197,12 +197,16 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        'workforce_count::' in html and 'Headcount-linked expense' in html
        and 'Amount per FTE' in html and 'Expense = resolved active headcount × amount per FTE.' in html
        and 'nieCatLinkedAmountTrajectory' in html and 'nieCatLinkedAmountPaste' in html)
-    ck("Operating Expense exposes conventional non-workforce service-capacity authoring",
-       '+ Service-capacity component' in html and 'driver:"service_capacity"' in html
-       and 'Expense = service FTE × hourly rate × periodized hours/FTE.' in html
+    ck("Operating Expense rationalizes linked/service authoring into Formula / driver",
+       '+ Formula / driver component' in html and 'driver:"formula_driver"' in html
+       and '+ Linked Series factor' in html and '+ Entered factor' in html
+       and 'A constrained factor chain, not a free-form formula.' in html
+       and 'nieCatFormulaEnteredTrajectory' in html and 'nieCatFormulaEnteredTimeBasis' in html
+       and '+ Service-capacity component' not in html)
+    ck("legacy service-capacity configs remain renderable after Formula / driver rationalization",
+       'driver:"service_capacity"' in html and 'Expense = service FTE × hourly rate × periodized hours/FTE.' in html
        and 'does not change Workforce Count or payroll' in html
-       and 'Service FTE quantity' in html and 'Cost / hour' in html and 'Hours / FTE' in html
-       and 'nieCatServiceLevelTrajectory' in html and 'nieCatServiceCapacityPeriod' in html)
+       and 'Service FTE quantity' in html and 'Hours / FTE' in html)
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)
