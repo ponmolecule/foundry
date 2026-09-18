@@ -12,6 +12,7 @@ from foundry.v2.engine_q_b import run_pf_b
 from foundry.v2.validate_q import validate_config_v2, ConfigErrorV2
 from foundry.v2.run_q import run_v2
 from foundry.v2.audit_workbook import calculation_audit_workbook
+from foundry.v2.series import resolve_series_spec
 
 P=F=0
 def ck(name, ok, detail=''):
@@ -215,6 +216,97 @@ def main():
        and abs(wbr['is']['otherOpex'][1]-45_000.0)<1e-6
        and (wbr.get('workforce') or {}).get('total_counts',[])[:2]==[10.0,15.0],
        (wbr['is']['otherOpex'][:2], (wbr.get('workforce') or {}).get('total_counts',[])[:2]))
+
+    # Conventional externally supplied service capacity is distinct from bank Workforce.
+    # The reusable equation is entered service FTE × $/hour × hours/FTE/natural period.
+    svc=base_cfg(12); sa=svc['assumptions']; sa['capital_raises']=[]
+    sa['nie_detail']['categories']=[{
+        'series_id':'opex-it-affiliate','owner_module':'operating_expense','name':'IT Support',
+        'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+        'linked_components':[{
+            'driver':'service_capacity','component_id':'svc-it','name':'IT Support service capacity',
+            'quantity_spec':{'source':'entered','trajectory':'flat','value':2.0},
+            'hourly_rate_spec':{'source':'entered','trajectory':'flat','value':170.0},
+            'capacity_spec':{'trajectory':'flat','value':2080.0,'period':'year'},
+        }]
+    }]
+    sr=run_pf_a(svc)
+    svc_month=2.0*170.0*2080.0/12.0
+    ck('service-capacity Opex reproduces conventional FTE × hourly rate × annual hours / 12',
+       abs(sr['is']['otherOpex'][0]-svc_month)<1e-6
+       and abs(sr['is']['otherOpex'][11]-svc_month)<1e-6,
+       sr['is']['otherOpex'][:2])
+    ck('service-capacity FTE is non-workforce and does not manufacture bank headcount',
+       not any(abs(float(x or 0.0))>1e-12 for x in ((sr.get('workforce') or {}).get('total_counts') or [])))
+
+    svc_comp=resolve_linked_components(sa['nie_detail']['categories'][0],12,12,assumptions=sa)[0]
+    ck('2080 hours/FTE/year periodizes exactly once to 173.333 hours/FTE/month',
+       abs(svc_comp['hours_per_fte'][0]-(2080.0/12.0))<1e-12
+       and abs(linked_component_amount(svc_comp,0,{})-svc_month)<1e-6)
+    svc_quarter_comp=resolve_linked_components(sa['nie_detail']['categories'][0],4,4,assumptions=sa)[0]
+    ck('the same service-capacity assumption is cadence invariant at annual economics',
+       svc_quarter_comp['hours_per_fte']==[520.0]*4
+       and abs(sum(linked_component_amount(svc_comp,i,{}) for i in range(12))
+               -sum(linked_component_amount(svc_quarter_comp,i,{}) for i in range(4)))<1e-6)
+
+    # Independent quantity and hourly-rate trajectories reproduce the source pattern:
+    # service FTEs can grow 10%/year while cost/hour grows 3%/year.
+    svc_growth=copy.deepcopy(svc)
+    sg=svc_growth['assumptions']['nie_detail']['categories'][0]['linked_components'][0]
+    sg['quantity_spec']={'source':'entered','trajectory':'growth','base':2.0,
+                         'growth_spec':{'rate':.10,'period':'year','method':'step','anchor':'model_year'}}
+    sg['hourly_rate_spec']={'source':'entered','trajectory':'growth','base':170.0,
+                            'growth_spec':{'rate':.03,'period':'year','method':'step','anchor':'model_year'}}
+    svc_growth['assumptions']['n_periods']=24
+    sgr=run_pf_a(svc_growth)
+    y2_month=2.2*175.1*2080.0/12.0
+    ck('service FTE and hourly-rate growth paths remain independent',
+       abs(sgr['is']['otherOpex'][0]-svc_month)<1e-6
+       and abs(sgr['is']['otherOpex'][12]-y2_month)<1e-6,
+       (sgr['is']['otherOpex'][0],sgr['is']['otherOpex'][12],y2_month))
+
+    # Complete deterministic category economics remain reusable upstream; no main-engine
+    # runtime metric is required for this component.
+    linked_svc=resolve_series_spec(
+        {'source':'link','link':{'kind':'operating_expense_category','series_id':'opex-it-affiliate','aggregation':'sum'}},
+        sa,12,12)
+    ck('service-capacity category remains safely reusable as an upstream Opex Series',
+       all(abs(v-svc_month)<1e-6 for v in linked_svc))
+
+    svcb=json.load(open('foundry/fixtures/parity/configs/pf_b_base.json')); sba=svcb['assumptions']
+    sba['capital_raises']=[]; sba['premises_equipment']=0; sba['premises_depreciation_annual']=0
+    sba['nie_detail']={
+        'categories':[{'name':'IT Support','flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+                       'linked_components':[copy.deepcopy(sa['nie_detail']['categories'][0]['linked_components'][0])]}],
+        'other_gross_up_rate':0,'fdic_bp_ann':0,'occ_bp_ann':0,'occ_simplified_enabled':False,
+        'workforce':{'mode':'roles','roles':[]}}
+    svcb_r=run_pf_b(svcb)
+    ck('Profile B consumes the same service-capacity equation at quarterly cadence',
+       abs(svcb_r['is']['otherOpex'][0]-(2.0*170.0*520.0))<1e-6,
+       svcb_r['is']['otherOpex'][:2])
+
+    try:
+        validate_config_v2(svc); svc_valid=True
+    except ConfigErrorV2 as e:
+        print('service-capacity validation error',e); svc_valid=False
+    ck('validation accepts conventional non-workforce service-capacity Opex',svc_valid)
+    bad_svc=copy.deepcopy(svc)
+    bad_svc['assumptions']['nie_detail']['categories'][0]['linked_components'][0]['quantity_spec']['value']=-1
+    bad=False
+    try: validate_config_v2(bad_svc)
+    except ConfigErrorV2 as e: bad=('nonnegative' in str(e))
+    ck('service-capacity Opex fails closed on negative service FTE quantity',bad)
+
+    svc_public=run_v2(svc)
+    svc_audit=calculation_audit_workbook(svc,svc_public)
+    svc_rows=[r for r in svc_audit['Opex Component Detail'].iter_rows(values_only=True)
+              if len(r)>24 and r[3]=='service_capacity']
+    ck('Calculation Audit exposes service FTE, hourly rate, and calculated expense',
+       len(svc_rows)>=1 and svc_rows[0][12]=='service FTE / non-workforce capacity'
+       and abs(float(svc_rows[0][21])-170.0)<1e-9
+       and abs(float(svc_rows[0][23])-2.0)<1e-9
+       and abs(float(svc_rows[0][24])-svc_month)<1e-6,
+       str(svc_rows[:1]))
 
     # Calculation Audit must expose the headcount operand and amount/FTE rather than
     # forcing reconciliation through an Other Opex residual.

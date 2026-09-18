@@ -637,7 +637,8 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
     from .opex_extensions import (resolve_linked_components, resolve_cost_pool_calculation, linked_component_amount,
                                   linked_component_period_result,
                                   PIECEWISE_LINKED_DRIVER, COST_POOL_CHARGE_DRIVER, CAC_AUC_DRIVER,
-                                  FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, _piecewise_event_due, _piecewise_term_value,
+                                  FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
+                                  _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
     rows = []
@@ -746,6 +747,15 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                     amounts = list((comp or {}).get("amount_per_fte") or [])
                     rate = float(amounts[i] if i < len(amounts) else 0.0)
                     notes = "Active Workforce Count × amount per FTE / native engine period"
+                elif drv == SERVICE_CAPACITY_DRIVER:
+                    quantities = list((comp or {}).get("service_fte") or [])
+                    hourly_rates = list((comp or {}).get("hourly_rate") or [])
+                    hours_per_fte = list((comp or {}).get("hours_per_fte") or [])
+                    source_base = float(quantities[i] if i < len(quantities) else 0.0)
+                    rate = float(hourly_rates[i] if i < len(hourly_rates) else 0.0)
+                    cap = float(hours_per_fte[i] if i < len(hours_per_fte) else 0.0)
+                    notes = ("Entered service FTE × hourly rate × periodized hours/FTE; "
+                             f"hours/FTE this engine period={cap:.12g}. Non-workforce capacity.")
                 elif drv == COST_POOL_CHARGE_DRIVER:
                     ref = str((comp or {}).get("ref") or "")
                     source_base = float((metrics.get("cost_pool") or {}).get(ref) or 0.0)
@@ -766,6 +776,8 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                 _measure = str((comp or {}).get("measure") or "")
                 if drv == WORKFORCE_COUNT_DRIVER:
                     _measure = "FTE / headcount"
+                elif drv == SERVICE_CAPACITY_DRIVER:
+                    _measure = "service FTE / non-workforce capacity"
                 rows.append([cname, nm, cid, drv, i + 1, pend, True, None, None, None, None,
                              str((comp or {}).get("series_id") or (comp or {}).get("ref") or ""),
                              _measure, None, None, None, None, None, None, None, None,

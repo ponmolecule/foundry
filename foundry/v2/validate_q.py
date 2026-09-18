@@ -350,6 +350,24 @@ def validate_config_v2(cfg):
                             from .periodic_flows import validate_periodic_flow_spec
                             validate_periodic_flow_spec(_x.get("amount_spec"), ppy=_ppy,
                                                         context=_growth_ctx)
+                        if _x.get("driver") == "service_capacity":
+                            from .series import resolve_entered_series
+                            from .periodic_flows import resolve_periodic_flow, validate_periodic_flow_spec
+                            validate_periodic_flow_spec(_x.get("capacity_spec"), ppy=_ppy,
+                                                        context=_growth_ctx)
+                            _qn = max(1, int(a.get("n_periods") or _ppy))
+                            _qv = resolve_entered_series(_x.get("quantity_spec"), _qn, _ppy,
+                                                         context=_growth_ctx)
+                            _rv = resolve_entered_series(_x.get("hourly_rate_spec"), _qn, _ppy,
+                                                         context=_growth_ctx)
+                            _hv = resolve_periodic_flow(_x.get("capacity_spec"), _qn, _ppy,
+                                                        context=_growth_ctx)
+                            if any(float(v or 0.0) < -1e-12 for v in _qv):
+                                raise ValueError("service-capacity quantity must remain nonnegative")
+                            if any(float(v or 0.0) < -1e-12 for v in _rv):
+                                raise ValueError("service-capacity hourly rate must remain nonnegative")
+                            if any(float(v or 0.0) < -1e-12 for v in _hv):
+                                raise ValueError("service-capacity hours/FTE must remain nonnegative")
                         if _x.get("driver") == "cost_pool_charge":
                             from .cost_pools import resolve_cost_pool_ref
                             _pool = resolve_cost_pool_ref(_x.get("ref"), a)

@@ -68,6 +68,30 @@ read only for backward compatibility: it retains its original exclusive semantic
 entered-expense draft saved in r67 does not unexpectedly become active. New configurations do not
 create that shape.
 
+### Entered service-capacity component
+
+Some outsourced, affiliate, contractor, and shared-service contracts are priced from an independently
+authored service-capacity quantity rather than bank Workforce Count. Foundry represents that mechanic
+with a deterministic additive `service_capacity` component:
+
+`service FTE × $ / hour × hours / service FTE / natural period`
+
+The three operands are independently authored. Service FTE and hourly rate are level Series with
+Flat / Growth / Explicit motion. Hours per service FTE is a natural-period quantity with Flat / Growth /
+Explicit motion and an explicit Month / Quarter / Year period. Foundry periodizes the hours assumption
+exactly once before multiplying. Thus `2 FTE × $170/hour × 2,080 hours/FTE/year` resolves to
+`$58,933.33/month` in a monthly engine and `$176,800/quarter` in a quarterly engine, with identical
+annual economics.
+
+Service FTE is deliberately **not** Workforce Count. It represents externally supplied capacity and
+does not affect bank headcount, payroll, compensation statistics, or downstream Workforce-linked
+drivers. Because all three operands are deterministic entered Series, a category containing only this
+component (plus other upstream-resolvable components) may itself be consumed safely as an upstream
+Operating Expense Series.
+
+This component does not attempt to derive service FTE from transaction workload. Workload-derived
+capacity remains a separate, unresolved mechanic until its quantity-period semantics are explicit.
+
 This covers many vendor, platform, servicing, administrative, shared-service, and other mixed
 fixed/variable expense contracts without adding engagement-specific expense types.
 
