@@ -4467,8 +4467,24 @@ window.nieCatAddFormulaDriver=function(i){
   ct.linked_components.push({driver:"formula_driver",component_id:_seriesId("opex-formula"),name:"Formula / driver component",factors:[linked,{kind:"entered",op:"multiply",name:"Factor",unit:"",periodized:false,display:"number",spec:{source:"entered",trajectory:"flat",value:0}}]});
   window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();
 };
+function _legacyServiceCapacityFormulaView(c){
+  c=c||{};
+  const q=JSON.parse(JSON.stringify(c.quantity_spec||{source:"entered",trajectory:"flat",value:0}));
+  const r=JSON.parse(JSON.stringify(c.hourly_rate_spec||{source:"entered",trajectory:"flat",value:0}));
+  const h=JSON.parse(JSON.stringify(c.capacity_spec||{trajectory:"flat",value:0,period:"year"}));
+  return {driver:"formula_driver",component_id:c.component_id||"",name:c.name||"Service capacity",_legacy_service_capacity_view:true,factors:[
+    {kind:"entered",op:"multiply",name:"Service FTE",unit:"FTE",periodized:false,display:"number",spec:q},
+    {kind:"entered",op:"multiply",name:"Cost / hour",unit:"$ / hour",periodized:false,display:"number",spec:r},
+    {kind:"entered",op:"multiply",name:"Hours / FTE",unit:"hours / FTE",periodized:true,display:"number",spec:h}
+  ]};
+}
 function _ensureNieFormulaDriver(i,j){
-  const ct=((_ensureNieDetail().categories||[])[i]),c=ct&&((ct.linked_components||[])[j]);if(!c||c.driver!=="formula_driver")return null;
+  const ct=((_ensureNieDetail().categories||[])[i]);let c=ct&&((ct.linked_components||[])[j]);if(!c)return null;
+  // r124 UI compatibility: a legacy r121/r122 service-capacity object is presented as the
+  // same Formula / driver object a user would author today. Merely rendering never rewrites
+  // storage; the first actual edit promotes it losslessly to the generalized representation.
+  if(c.driver==="service_capacity"){c=_legacyServiceCapacityFormulaView(c);delete c._legacy_service_capacity_view;ct.linked_components[j]=c;}
+  if(c.driver!=="formula_driver")return null;
   if(!c.component_id)c.component_id=_seriesId("opex-formula");if(!c.name)c.name="Formula / driver component";c.factors=c.factors||[];
   c.factors.forEach((f,k)=>{if(!f)return;f.op=(k===0?"multiply":(f.op==="divide"?"divide":"multiply"));f.kind=(f.kind==="linked"?"linked":"entered");if(!f.name)f.name=f.kind==="linked"?"Driver":"Factor";if(f.kind==="entered"){f.periodized=!!f.periodized;f.display=f.display==="percent"?"percent":"number";f.spec=f.spec||(f.periodized?{trajectory:"flat",value:0,period:"month"}:{source:"entered",trajectory:"flat",value:0});}});
   return c;
@@ -4487,6 +4503,8 @@ window.nieCatFormulaEnteredTrajectory=function(i,j,k,traj){const c=_ensureNieFor
 window.nieCatFormulaEnteredValue=function(i,j,k,field,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="entered")return;let x=_pf(v);if(f.display==="percent")x/=100;f.spec=f.spec||{};f.spec[field]=x;refresh();};
 window.nieCatFormulaEnteredDisplay=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.display=v==="percent"?"percent":"number";renderContent();refresh();};
 window.nieCatFormulaEnteredTimeBasis=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="entered")return;const old=f.spec||{},val=_formulaEnteredCurrent(old),traj=old.trajectory||"flat";if(v==="none"){f.periodized=false;if(traj==="growth")f.spec={source:"entered",trajectory:"growth",base:val,growth_spec:old.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"}};else if(traj==="explicit")f.spec={source:"entered",trajectory:"explicit",cadence:_nativeFlowPeriod(),values:(old.values||[]).slice(),extend:"hold",resolution:"step"};else f.spec={source:"entered",trajectory:"flat",value:val};}else{f.periodized=true;const p=["month","quarter","year"].includes(v)?v:"month";if(traj==="growth")f.spec={trajectory:"growth",value:val,period:p,growth_spec:old.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"}};else if(traj==="explicit")f.spec={trajectory:"explicit",period:p,values:(old.values||[]).slice()};else f.spec={trajectory:"flat",value:val,period:p};}renderContent();refresh();};
+window.nieCatFormulaGrowthField=function(i,j,k,field,value){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="entered")return;f.spec=f.spec||{};let g=(f.spec.growth_spec&&typeof f.spec.growth_spec==="object")?Object.assign({},f.spec.growth_spec):{rate:0,period:"year",method:"step",anchor:"model_year"};g[field]=value;if(field==="period"&&value==="year"&&(!g.anchor||g.anchor==="model_period"))g.anchor="model_year";if(field==="period"&&value!=="year"&&["model_year","calendar_year","fiscal_year","hire_anniversary"].includes(g.anchor))g.anchor="model_period";f.spec.growth_spec=g;};
+function _opexFormulaGrowthSpecInline(i,j,k,spec){const path=`assumptions.nie_detail.categories.${i}.linked_components.${j}.factors.${k}.spec.growth_spec`;return growthSpecInline(path,spec,0,false,true).split(`setGrowthField('${path}',`).join(`nieCatFormulaGrowthField(${i},${j},${k},`);}
 window.nieCatFormulaExplicitPaste=function(i,j,k,id){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k],el=document.getElementById(id),raw=_seriesExplicitValues(el?el.value:"");if(!f||!raw.length){appStatus("err","No valid factor schedule values found.");return;}f.spec=f.spec||{};f.spec.values=raw.map(x=>{let v=+x.value||0;return f.display==="percent"?v/100:v;});if(!f.periodized){f.spec.source="entered";f.spec.cadence=f.spec.cadence||_nativeFlowPeriod();f.spec.extend="hold";f.spec.resolution=f.spec.resolution||"step";_resizeSeriesValues(f.spec,f.spec.values.length?f.spec.values[f.spec.values.length-1]:0);}appStatus("ok",f.spec.values.length+" values loaded (replace).");renderContent();refresh();};
 window.nieCatFormulaExplicitClear=function(i,j,k){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.spec=f.spec||{};f.spec.values=[];renderContent();refresh();};
 function _ensureNieServiceCapacity(i,j){const ct=((_ensureNieDetail().categories||[])[i]),c=ct&&((ct.linked_components||[])[j]);if(!c||c.driver!=="service_capacity")return null;if(!c.component_id)c.component_id=_seriesId("opex-service-capacity");if(!c.name)c.name="Service capacity";c.quantity_spec=c.quantity_spec||{source:"entered",trajectory:"flat",value:0};c.hourly_rate_spec=c.hourly_rate_spec||{source:"entered",trajectory:"flat",value:0};c.capacity_spec=c.capacity_spec||{trajectory:"flat",value:0,period:"year"};return c;}
@@ -8585,7 +8603,7 @@ function _opexFormulaEnteredEditorHtml(i,j,k,f){
   if(tr!=="explicit"){
     const fld=tr==="growth"?"base":"value";
     h+=`<div class="crow" style="align-items:center;margin-top:7px;flex-wrap:wrap"><span class="cu">${tr==='growth'?'Base':'Value'}</span><input type="number" step="any" style="width:120px" value="${_numInput(shown,12)}" onchange="nieCatFormulaEnteredValue(${i},${j},${k},'${fld}',this.value)">${display==='percent'?'<span class="cu">%</span>':''}<span class="cu">Unit label</span><input style="width:180px" value="${esc(unit)}" placeholder="e.g. $ / transaction" onchange="nieCatFormulaFactorUnit(${i},${j},${k},this.value)">${periodized?`<span class="cu">per ${esc(s.period||'month')}</span>`:''}</div>`;
-    if(tr==="growth"){s.growth_spec=s.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};h+=`<div style="margin-top:6px">${growthSpecInline(path+'.growth_spec',s.growth_spec,0,false,true)}</div>`;}
+    if(tr==="growth"){s.growth_spec=s.growth_spec||{rate:0,period:"year",method:"step",anchor:"model_year"};h+=`<div style="margin-top:6px">${_opexFormulaGrowthSpecInline(i,j,k,s.growth_spec)}</div>`;}
   }else{
     const vals=s.values||[],id=`opexFormulaFactor_${i}_${j}_${k}`,cad=periodized?(s.period||'month'):(s.cadence||_nativeFlowPeriod());
     h+=`<div class="crow" style="align-items:center;margin-top:7px;flex-wrap:wrap"><span class="cu">Unit label</span><input style="width:180px" value="${esc(unit)}" placeholder="e.g. calls / MAB" onchange="nieCatFormulaFactorUnit(${i},${j},${k},this.value)"><span class="cu">Schedule ${periodized?'per '+esc(s.period||'month'):'cadence '+esc(cad)}</span></div><textarea id="${id}" rows="2" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#1C2128;border:1px solid #B9C2D2;border-radius:4px;padding:6px;margin-top:5px" placeholder="Paste factor values${display==='percent'?' as percentages':''}" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${id}_load" class="pillbtn" disabled onclick="nieCatFormulaExplicitPaste(${i},${j},${k},'${id}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieCatFormulaExplicitClear(${i},${j},${k})"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>_numInput((+v||0)*(display==='percent'?100:1),8),cad)}</div>`;
@@ -8593,7 +8611,7 @@ function _opexFormulaEnteredEditorHtml(i,j,k,f){
   return h+`</div>`;
 }
 function _opexFormulaDriverEditorHtml(i,j,lc){
-  const c=_ensureNieFormulaDriver(i,j)||lc||{},factors=c.factors||[],ord=_opexFormulaOrdinal(i,j),opts=_opexLinkedDriverOptions();
+  const c=(lc&&lc._legacy_service_capacity_view)?lc:(_ensureNieFormulaDriver(i,j)||lc||{}),factors=c.factors||[],ord=_opexFormulaOrdinal(i,j),opts=_opexLinkedDriverOptions();
   let h=`<div class="opex-cost-pool-editor opex-service-component-card opex-formula-component-card"><div class="opex-cost-pool-titlebar"><label class="wf-field" style="min-width:0;flex:1"><span class="opex-service-component-kicker">Formula component ${ord}</span><span class="wf-field-label">Formula / driver component</span><input value="${esc(c.name||'Formula / driver component')}" onchange="nieCatFormulaName(${i},${j},this.value)"></label><button class="btn-plain opex-cost-pool-remove" onclick="nieCatRemoveLinked(${i},${j});return false">Remove component</button></div>`;
   h+=`<div class="nie-section-note">A constrained factor chain, not a free-form formula. Each entered factor keeps its own Flat / Growth / Explicit path; only factors with a natural Month / Quarter / Year basis are periodized.</div>`;
   factors.forEach((f,k)=>{
@@ -9278,7 +9296,7 @@ function structuresSectionsHtml(){
           if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}
           if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}
           if((lc&&lc.driver)==='formula_driver'){row += _opexFormulaDriverEditorHtml(i,j,lc);return;}
-          if((lc&&lc.driver)==='service_capacity'){row += _opexServiceCapacityEditorHtml(i,j,lc);return;}
+          if((lc&&lc.driver)==='service_capacity'){row += _opexFormulaDriverEditorHtml(i,j,_legacyServiceCapacityFormulaView(lc));return;}
           const _dv=_opexLinkedDriverValue(lc),_isWf=(lc&&lc.driver)==='workforce_count';
           if(_isWf){
             const _as=(lc.amount_spec||{trajectory:'flat',value:0,period:'month'}),_at=_as.trajectory||'flat',_ap=_as.period||'month';

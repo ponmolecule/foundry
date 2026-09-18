@@ -29,7 +29,8 @@ checks=[
  ('headcount-linked Opex authors a natural-period amount per FTE rather than a percentage', 'Headcount-linked expense' in html and 'Amount per FTE' in html and 'Amount path' in html and 'Expense = resolved active headcount × amount per FTE' in html and 'nieCatLinkedAmountPeriod' in html),
  ('headcount-linked Opex source preview is inspection-only and names Workforce ownership', 'Workforce Count · active headcount · read-only here' in html and 'upstream headcount owned by Workforce Compensation' in html and 'resolved active headcount Series consumed by this expense' in html),
  ('Formula / driver supports typed Flat Growth Explicit factors with optional natural periods', 'Formula / driver component' in html and '+ Linked Series factor' in html and '+ Entered factor' in html and 'Time basis' in html and 'No period' in html and 'Per Month' in html and 'Per Quarter' in html and 'Per Year' in html and 'nieCatFormulaEnteredTrajectory' in html and 'nieCatFormulaExplicitPaste' in html),
- ('legacy service-capacity Opex remains readable and editable without a new-authoring button', 'Service-capacity component' in html and 'Expense = service FTE × hourly rate × periodized hours/FTE.' in html and 'does not change Workforce Count or payroll' in html and 'Hours / FTE' in html and 'nieCatServiceCapacityPeriod' in html and '+ Service-capacity component' not in html),
+ ('legacy service-capacity Opex is visually indistinguishable from new Formula / driver authoring', '_legacyServiceCapacityFormulaView' in html and "if((lc&&lc.driver)==='service_capacity'){row += _opexFormulaDriverEditorHtml(i,j,_legacyServiceCapacityFormulaView(lc));return;}" in html and '_legacy_service_capacity_view:true' in html and 'name:"Service FTE"' in html and 'name:"Cost / hour"' in html and 'name:"Hours / FTE"' in html and '+ Service-capacity component' not in html),
+ ('legacy service-capacity storage is not rewritten merely by rendering, but promotes on first Formula edit', 'Merely rendering never rewrites' in html and 'if(c.driver==="service_capacity"){c=_legacyServiceCapacityFormulaView(c);delete c._legacy_service_capacity_view;ct.linked_components[j]=c;}' in html and 'const c=(lc&&lc._legacy_service_capacity_view)?lc:(_ensureNieFormulaDriver(i,j)||lc||{})' in html),
  ('Opex hierarchy visually distinguishes category boundaries from subordinate service-component siblings', 'opex-category-eyebrow' in html and 'Operating expense category ${i+1}' in html and 'opex-service-component-card' in html and 'Service component ${_serviceOrdinal}' in html and re.search(r'\.opex-item-card \+ \.opex-item-card\{[^}]*margin-top:26px',html) is not None and re.search(r'\.opex-service-component-card\{[^}]*margin:11px 0 0 14px !important[^}]*border-left:3px solid rgba\(143,163,192,\.52\)',html) is not None),
  ('AUC-linked Opex exposes explicit balance measure plus natural rate period', 'nieCatLinkedMeasure' in html and all(x in html for x in ['Period average','Period end','Month','Quarter','Year']) and "_bm=(lc&&lc.measure)||'period_end'" in html),
  ('AUC-linked Opex preview exposes the resolved consumer measure rather than raw EOP for both selector states', 'Latest run · ${bmLabel}' in html and '$000s balance · resolved consumer measure' in html and "bm===\"period_average\"?(((k?monthly[k-1]:begin)+v)/2):v" in html),
@@ -65,6 +66,54 @@ p=f=0
 for name,ok in checks:
     if ok: p+=1; print('  PASS ',name)
     else: f+=1; print('  FAIL ',name)
+
+# Execute the actual r124 compatibility adapter. Rendering the view must leave the saved
+# service_capacity object byte-for-byte unchanged; the first Formula edit path promotes all
+# three authored specs without changing their trajectories, periods, values, or component ID.
+view_m=re.search(r"function _legacyServiceCapacityFormulaView\(c\)\{.*?\n\}", html, re.S)
+ensure_m=re.search(r"function _ensureNieFormulaDriver\(i,j\)\{.*?\n\}", html, re.S)
+growth_m=re.search(r"window\.nieCatFormulaGrowthField=function\(i,j,k,field,value\)\{[^\n]*\};", html)
+if view_m and ensure_m and growth_m:
+    js=r"""
+window=globalThis;
+const cfg={assumptions:{nie_detail:{categories:[{linked_components:[{
+ driver:'service_capacity',component_id:'svc-hr',name:'Existing service',
+ quantity_spec:{source:'entered',trajectory:'growth',base:1.25,growth_spec:{rate:.10,period:'year',method:'step',anchor:'model_year'}},
+ hourly_rate_spec:{source:'entered',trajectory:'explicit',cadence:'month',values:[130,135,140],extend:'hold',resolution:'step'},
+ capacity_spec:{trajectory:'flat',value:2080,period:'year'}
+}]}]}}};
+function _ensureNieDetail(){return cfg.assumptions.nie_detail;}
+function _seriesId(prefix){return prefix+'-generated';}
+"""+view_m.group(0)+"\n"+ensure_m.group(0)+"\n"+growth_m.group(0)+r"""
+const original=JSON.stringify(cfg.assumptions.nie_detail.categories[0].linked_components[0]);
+const view=_legacyServiceCapacityFormulaView(cfg.assumptions.nie_detail.categories[0].linked_components[0]);
+const afterView=JSON.stringify(cfg.assumptions.nie_detail.categories[0].linked_components[0]);
+nieCatFormulaGrowthField(0,0,0,'rate',0.20);
+const promoted=cfg.assumptions.nie_detail.categories[0].linked_components[0];
+console.log(JSON.stringify({original,afterView,view,promoted,stored:promoted}));
+"""
+    pr=subprocess.run(['node','-e',js],text=True,capture_output=True)
+    ok=False
+    if pr.returncode==0 and pr.stdout.strip():
+        try:
+            got=json.loads(pr.stdout.strip().splitlines()[-1]); view=got['view']; stored=got['stored']
+            fs=stored.get('factors',[])
+            ok=(got['original']==got['afterView'] and view.get('_legacy_service_capacity_view') is True
+                and view.get('driver')=='formula_driver' and stored.get('driver')=='formula_driver'
+                and stored.get('component_id')=='svc-hr' and stored.get('name')=='Existing service'
+                and len(fs)==3 and fs[0].get('spec',{}).get('trajectory')=='growth'
+                and abs(fs[0].get('spec',{}).get('base',0)-1.25)<1e-12
+                and abs(fs[0].get('spec',{}).get('growth_spec',{}).get('rate',0)-.20)<1e-12
+                and fs[1].get('spec',{}).get('trajectory')=='explicit'
+                and fs[1].get('spec',{}).get('values')==[130,135,140]
+                and fs[2].get('periodized') is True and fs[2].get('spec',{}).get('period')=='year'
+                and abs(fs[2].get('spec',{}).get('value',0)-2080)<1e-12)
+        except Exception:
+            pass
+else:
+    ok=False
+if ok: p+=1; print('  PASS ', 'legacy Service Capacity view is non-mutating and a direct growth edit promotes the exact authored specs')
+else: f+=1; print('  FAIL ', 'legacy Service Capacity view is non-mutating and a direct growth edit promotes the exact authored specs')
 
 
 # Execute the actual visibility predicate. Zero/empty entered trajectories must hide base-owned

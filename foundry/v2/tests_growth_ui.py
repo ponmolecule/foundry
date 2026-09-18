@@ -203,10 +203,11 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'A constrained factor chain, not a free-form formula.' in html
        and 'nieCatFormulaEnteredTrajectory' in html and 'nieCatFormulaEnteredTimeBasis' in html
        and '+ Service-capacity component' not in html)
-    ck("legacy service-capacity configs remain renderable after Formula / driver rationalization",
-       'driver:"service_capacity"' in html and 'Expense = service FTE × hourly rate × periodized hours/FTE.' in html
-       and 'does not change Workforce Count or payroll' in html
-       and 'Service FTE quantity' in html and 'Hours / FTE' in html)
+    ck("legacy service-capacity configs render through the same Formula / driver UI",
+       '_legacyServiceCapacityFormulaView' in html
+       and "if((lc&&lc.driver)==='service_capacity'){row += _opexFormulaDriverEditorHtml(i,j,_legacyServiceCapacityFormulaView(lc));return;}" in html
+       and 'name:"Service FTE"' in html and 'name:"Cost / hour"' in html and 'name:"Hours / FTE"' in html
+       and '_legacy_service_capacity_view:true' in html)
     ck("fee GUT proportional trajectory uses shared growth controls without altering other axes",
        'growthSpecInline(sb+".driver.params.growth_spec"' in html
        and 'Trajectory (how the driver moves)' in html and 'Rate behavior' in html and 'Cost side' in html)
