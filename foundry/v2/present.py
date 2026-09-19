@@ -125,7 +125,12 @@ def derived_lines(res, cfg):
     bs, is_ = res["bs"], res["is"]
     n = len(bs["totalAssets"])
     a = cfg["assumptions"]
-    other_liab = round(a["other_liabilities"] / 1000.0, 2)
+    _ol_series = bs.get("otherLiab")
+    if _ol_series:
+        other_liab_list = [round(float(x or 0.0), 2) for x in _ol_series]
+    else:
+        _ol_flat = round(a["other_liabilities"] / 1000.0, 2)
+        other_liab_list = [_ol_flat] * n
     _prepaid = list(bs.get("prepaidOpex") or [0.0] * n)
     _accrued = list(bs.get("accruedOpex") or [0.0] * n)
     # Non-earning assets = premises + intangibles + other assets, PER QUARTER. The engine
@@ -161,13 +166,13 @@ def derived_lines(res, cfg):
         "nonEarn": non_earn_list,
         "prepaidOpex": [round((_prepaid[i] or 0.0), 2) for i in range(n)],
         "accruedOpex": [round((_accrued[i] or 0.0), 2) for i in range(n)],
-        "otherLiab": [other_liab] * n,
+        "otherLiab": other_liab_list,
         "paidIn": paid_in_list,
         # Total liabilities must include BOTH borrowing lines: the revolving `borrow`
         # plug AND the bullet scheduled draws (`borrowSched`). Omitting the latter
         # breaks the accounting identity by exactly the scheduled balance in every
         # quarter a term draw is outstanding (assets carry its cash; liabilities didn't).
-        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + other_liab + (_accrued[i] or 0.0), 2) for i in range(n)],
+        "totalLiab": [round((dep[i] or 0) + (bor[i] or 0) + (sched[i] or 0) + (other_liab_list[i] or 0.0) + (_accrued[i] or 0.0), 2) for i in range(n)],
     }
     out["totalLiabEq"] = [round(out["totalLiab"][i] + (eq[i] or 0), 2) for i in range(n)]
     out["identity"] = [round((bs["totalAssets"][i] or 0) - out["totalLiabEq"][i], 2) for i in range(n)]

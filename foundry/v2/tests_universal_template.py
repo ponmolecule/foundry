@@ -167,6 +167,11 @@ def main():
     fa=a.get("fixed_assets") or {}; assets=fa.get("assets") or []
     ck("Fixed assets cover opening accumulated depreciation and future CAPEX",
        fa.get("mode")=="schedule" and any(x.get("opening_accumulated_depreciation") for x in assets) and any((x.get("in_service_period") or 0)>0 for x in assets)) # 40
+    olm=a.get("other_liabilities_model") or {}; olcomps=olm.get("components") or []
+    ck("Other liabilities cover Formula / level linked stock authoring",
+       bool(olm) and bool(olcomps) and bool(out.get("other_liabilities")))
+    ck("Other-liability drivers cover Workforce Count and net fixed assets",
+       {str((x.get("driver") or {}).get("kind")) for x in olcomps} >= {"workforce_count","fixed_asset_net"})
 
     # Fixed-asset methodologies are mutually exclusive in one live model. Exercise Formula / level
     # as a second executable Universal variant rather than pretending both can be active at once.

@@ -697,6 +697,27 @@ def validate_config_v2(cfg):
         _own = str(_r.get("owner_module") or "").strip()
         if _own and _own != "operating_expense.workforce":
             errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
+    # Generalized other-liability Formula / level. The engine resolves runtime driver
+    # values period-by-period; validation proves the authored trajectories and stable
+    # Workforce links before projection. Historical scalar other_liabilities remains valid.
+    if isinstance(a.get("other_liabilities_model"), dict):
+        try:
+            from .other_liabilities import prepare_other_liabilities
+            _olp = prepare_other_liabilities(a, max(1, int(a.get("n_periods") or 12)), _ppy,
+                                             growth_context=_growth_ctx)
+            _wf_count_valid = set()
+            if _wf_total_sid:
+                _wf_count_valid.add(_wf_total_sid)
+            for _wr in ((_wf_ids.get("roles") or [])):
+                _sid = str((_wr or {}).get("series_id") or "").strip()
+                if _sid:
+                    _wf_count_valid.add(_sid)
+            for _c in ((_olp or {}).get("components") or []):
+                if _c.get("driver_kind") == "workforce_count" and _c.get("series_id") not in _wf_count_valid:
+                    raise ValueError(f"linked Workforce Count Series {_c.get('series_id')!r} does not exist")
+        except Exception as e:
+            errs.append(f"other_liabilities_model invalid: {e}")
+
     for _fn, _feed in (a.get("cac_feeds") or {}).items():
         _feed_sid = str((_feed or {}).get("series_id") or "").strip()
         if _feed_sid: _series_ids.append(_feed_sid)

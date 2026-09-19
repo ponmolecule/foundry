@@ -530,6 +530,12 @@ def run_pf_a(cfg):
     non_earn = non_earn_t[0]
     cash_floor = a.get("cash_target_pct_deposits", 0.0)
     other_liab = a["other_liabilities"]
+    # Other-liability Formula / level is opt-in. Historical scalar configs remain flat.
+    from .other_liabilities import prepare_other_liabilities, other_liability_period
+    _ol_prepared = prepare_other_liabilities(a, Q, ppy, growth_context=_growth_ctx)
+    _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
+                        else float(other_liab or 0.0))
+    _ol_period_rows = []
 
     # deliberate securities books (A.6): balance path with purchases and runoff;
     # HTM income at its own fixed coupon — the rate shock (applied above to the
@@ -820,8 +826,9 @@ def run_pf_a(cfg):
 
     ne_q = [0]
     def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None,
-             extra_liab=0.0):
-        funding = dep_carry + other_liab + float(extra_liab or 0.0) + equity_end + sched_t[ne_q[0]]
+             extra_liab=0.0, other_liab_level=None):
+        _ol = _other_liab_open if other_liab_level is None else float(other_liab_level or 0.0)
+        funding = dep_carry + _ol + float(extra_liab or 0.0) + equity_end + sched_t[ne_q[0]]
         investable = funding - net_loans_end - (non_earn if ne is None else ne) - msr_end - sec_books_end
         req_cash = cash_floor * dep_bal
         if investable >= req_cash:
@@ -849,12 +856,14 @@ def run_pf_a(cfg):
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
 
     bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
-                             "afsBook", "htmBook", "aoci", "paidIn", "prepaidOpex", "accruedOpex")}
+                             "afsBook", "htmBook", "aoci", "paidIn", "prepaidOpex", "accruedOpex",
+                             "otherLiab")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
     bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p) + _managed_open_afs
     bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p) + _managed_open_htm
     bs["aoci"][0], bs["paidIn"][0] = 0.0, cap_t[0]
+    bs["otherLiab"][0] = _other_liab_open
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
     bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
@@ -1100,6 +1109,7 @@ def run_pf_a(cfg):
         workforce_comp = 0.0
         depreciation_expense = dep_exp_t[q]
         other_opex = overhead - depreciation_expense
+        _wf_count_map_q = {}
         if _nie_d:
             # Detailed NIE: FDIC retains its established regulatory-default shortcut. Simplified
             # OCC is legacy/opt-in only from r78 onward; absence must never create expense.
@@ -1137,7 +1147,6 @@ def run_pf_a(cfg):
 
             _role_comp_q = (_wf_runtime.expense_for_period(q, _activation_metric)
                             if _wf_runtime is not None else _nie_d["comp"][q - 1])
-            _wf_count_map_q = {}
             if _wf_runtime is not None:
                 _wf_counts_q = _wf_runtime.count_for_period(q)
                 for _wi, _cv in enumerate(_wf_counts_q):
@@ -1175,6 +1184,14 @@ def run_pf_a(cfg):
             other_opex = overhead - workforce_comp - depreciation_expense
         else:
             _role_comp_q = 0.0
+        if _ol_prepared is not None:
+            _olr = other_liability_period(
+                _ol_prepared, q - 1, workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q])
+            _other_liab_q = float(_olr["total"] or 0.0)
+            _ol_period_rows.append(_olr)
+        else:
+            _other_liab_q = float(other_liab or 0.0)
+
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
         # operating-cost % of fee revenue) are external product costs. They remain
         # POST gross-up, but are surfaced as their own NIE line instead of being
@@ -1231,7 +1248,7 @@ def run_pf_a(cfg):
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
                             non_earn_t[q] + _prepaid_opex_q + (_dta_iter if _td else 0.0),
-                            _accrued_opex_q)
+                            _accrued_opex_q, _other_liab_q)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
             borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
@@ -1350,6 +1367,7 @@ def run_pf_a(cfg):
         bs["htmBook"][q] = htm_end_b
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
         bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
+        bs["otherLiab"][q] = _other_liab_q
         bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q]
                                   + (bs["dta"][q] if _td else 0.0))
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
@@ -1455,6 +1473,25 @@ def run_pf_a(cfg):
                    "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if _ol_prepared is not None:
+        _out["bs"]["otherLiab"] = list(bs["otherLiab"])
+        _out["other_liabilities_detail"] = {
+            "mode": "formula_level",
+            "opening_balance": _other_liab_open,
+            "base": list(_ol_prepared.get("base") or []),
+            "total": list(bs.get("otherLiab") or []),
+            "components": [
+                {
+                    "component_id": c.get("component_id"), "name": c.get("name"),
+                    "driver_kind": c.get("driver_kind"), "series_id": c.get("series_id") or "",
+                    "multiplier": list(c.get("multiplier") or []),
+                    "driver": [float((r.get("components") or [])[i].get("driver") or 0.0)
+                               if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
+                    "amount": [float((r.get("components") or [])[i].get("amount") or 0.0)
+                               if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
+                } for i, c in enumerate(_ol_prepared.get("components") or [])
+            ],
+        }
     if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
             "mode": _fa_mode,
