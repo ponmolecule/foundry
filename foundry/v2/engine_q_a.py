@@ -1100,6 +1100,11 @@ def run_pf_a(cfg):
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
+        # Direct Fee Product operating costs are known before corporate Opex is resolved.
+        # Keep gross noninterest-income presentation intact, but make the same-period
+        # net fee income (noninterest income less Fee Product Costs) available
+        # as a downstream Opex driver. This is intentionally not an Income Statement netting.
+        fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
         fv_pnl = sum((p["_fvadj"][q] - p["_fvadj"][q - 1]) - p["_co"][q] for p in lend if p["_is_fv"])
         overhead = _simple_overhead[q - 1] + dep_exp_t[q]
         # Presentation-only decomposition of corporate overhead.  The legacy/simple
@@ -1162,6 +1167,7 @@ def run_pf_a(cfg):
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
                     _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
+                                 "fee_product_costs": fee_opex,
                                  "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                                            for sid, arr in _fee_stream_qty_series.items()},
                                  "customer_acquisition_auc_monthly": _auc_month_sources,
@@ -1193,11 +1199,9 @@ def run_pf_a(cfg):
             _other_liab_q = float(other_liab or 0.0)
 
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
-        # operating-cost % of fee revenue) are external product costs. They remain
-        # POST gross-up, but are surfaced as their own NIE line instead of being
-        # buried inside Corporate Overhead. This reclassification does not change
-        # total NIE or net income.
-        fee_opex = sum((p.get("_fcost") or [None] * (Q + 1))[q] or 0.0 for p in lend + dep + obs)
+        # operating-cost % of fee revenue) remain a separate NIE line. Gross fee income
+        # is not rewritten; the management-only net fee income driver above observes
+        # these direct costs when an Opex formula explicitly chooses that source.
         nie = prod_ox + fee_opex + overhead
         _prepaid_opex_q = ((_opex_static_pre[q - 1] if q - 1 < len(_opex_static_pre) else 0.0)
                            + max(0.0, _occ_signed_balance)
@@ -1265,6 +1269,9 @@ def run_pf_a(cfg):
                 _hist_gos = _prior_gos + [float(gos or 0.0)]
                 _hist_srv = _prior_srv + [float(srv or 0.0)]
                 _hist_nonint = [_hist_fee[_i] + _hist_gos[_i] + _hist_srv[_i] for _i in range(q)]
+                _prior_fee_opex = [float(is_["feeOpex"][_p] or 0.0) for _p in range(1, q)]
+                _hist_fee_opex = _prior_fee_opex + [float(fee_opex or 0.0)]
+                _hist_net_fee_income = [_hist_nonint[_i] - _hist_fee_opex[_i] for _i in range(q)]
                 _hist_total_rev = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(q)]
                 _wf_metrics = {
                     "periods_per_year": ppy,
@@ -1273,6 +1280,7 @@ def run_pf_a(cfg):
                         "gain_on_sale": _hist_gos,
                         "servicing_net": _hist_srv,
                         "noninterest_income": _hist_nonint,
+                        "net_fee_income": _hist_net_fee_income,
                         "net_interest_income": _hist_nii,
                         "total_operating_revenue": _hist_total_rev,
                     },

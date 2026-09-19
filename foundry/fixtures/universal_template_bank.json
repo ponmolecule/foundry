@@ -946,6 +946,14 @@
                 "trajectory": "flat",
                 "value": 0.001
               }
+            },
+            {
+              "driver": "net_fee_income",
+              "rate_spec": {
+                "source": "entered",
+                "trajectory": "flat",
+                "value": 0.0005
+              }
             }
           ],
           "name": "Total noninterest income linked support",

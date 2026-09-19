@@ -268,7 +268,7 @@ def _opex_depends_on_downstream_fee(category: Mapping[str, Any], downstream: Seq
         comp = raw or {}
         drv = str(comp.get("driver") or "").strip().lower()
         # These aggregates include every fee stream, including the downstream cost-recovery fee.
-        if drv in {"fee_income", "noninterest_income"}:
+        if drv in {"fee_income", "noninterest_income", "net_fee_income"}:
             return True
         if drv == "fee_stream_quantity":
             sid = str(comp.get("series_id") or "").strip()

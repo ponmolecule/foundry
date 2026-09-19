@@ -8449,7 +8449,8 @@ window.secAociToggle = function(){
 function _workforcePiecewiseTermOptions(){
   const out=[
     {value:"income_statement_flow::total_operating_revenue",source:"income_statement_flow",metric:"total_operating_revenue",label:"FY Total operating revenue · NII + fee income + gain on sale + net servicing"},
-    {value:"income_statement_flow::noninterest_income",source:"income_statement_flow",metric:"noninterest_income",label:"FY Total noninterest income · fee income + gain on sale + net servicing"},
+    {value:"income_statement_flow::noninterest_income",source:"income_statement_flow",metric:"noninterest_income",label:"FY Total noninterest income · Call Report"},
+    {value:"income_statement_flow::net_fee_income",source:"income_statement_flow",metric:"net_fee_income",label:"FY Net fee income · less Fee Product Costs"},
     {value:"income_statement_flow::fee_income",source:"income_statement_flow",metric:"fee_income",label:"FY Fee income"},
     {value:"income_statement_flow::net_interest_income",source:"income_statement_flow",metric:"net_interest_income",label:"FY Net interest income"},
     {value:"income_statement_flow::gain_on_sale",source:"income_statement_flow",metric:"gain_on_sale",label:"FY Gain on sale"},
@@ -8517,7 +8518,8 @@ function _opexLinkedDriverOptions(){
     {value:"fee_income",driver:"fee_income",label:"Fee income"},
     {value:"gain_on_sale",driver:"gain_on_sale",label:"Gain on sale"},
     {value:"servicing_net",driver:"servicing_net",label:"Net servicing fees"},
-    {value:"noninterest_income",driver:"noninterest_income",label:"Total noninterest income"}
+    {value:"noninterest_income",driver:"noninterest_income",label:"Total noninterest income · Call Report"},
+    {value:"net_fee_income",driver:"net_fee_income",label:"Net fee income · less Fee Product Costs"}
   ];
   const wf=(((cfg.assumptions||{}).nie_detail||{}).workforce)||{};
   if(wf.total_count_series_id&&(wf.roles||[]).length)out.push({value:"workforce_count::"+String(wf.total_count_series_id),driver:"workforce_count",series_id:String(wf.total_count_series_id),label:"Workforce headcount · Total workforce"});

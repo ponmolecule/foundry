@@ -109,6 +109,55 @@ def main():
     ck('linked Opex component = entered base + fee income × rate', abs(r['is']['otherOpex'][0]-expected0)<1e-6,
        (r['is']['otherOpex'][0],expected0))
 
+    # Net fee income keeps statutory/gross noninterest-income presentation intact while
+    # letting downstream Opex observe direct Fee Product Costs before applying its own rate.
+    nc=base_cfg(12); na=nc['assumptions']; na['capital_raises']=[]
+    na['obs_exposures'].append({
+        'name':'Gross-fee specimen','call_report_line':'obs','_fee_product':True,
+        'fee_streams':[{
+            'name':'Gross fee with direct cost','quantity_series_id':'fee-qty-net-contrib','basis':'transaction',
+            'driver':{'source':'constant','trajectory':'flat','params':{'base':1_000.0}},
+            'rate':{'behavior':'flat','params':{'per_unit':1.0}},
+            'timing':{'start_period':1},
+            'cost':{'kind':'pct_of_revenue_opex','params':{'pct':0.20}}
+        }]})
+    na['nie_detail']['categories']=[{
+        'series_id':'opex-ip-license','name':'IP licensing cost',
+        'flow_spec':{'trajectory':'flat','value':0,'period':'year'},
+        'linked_components':[{'driver':'net_fee_income',
+                              'rate_spec':{'source':'entered','trajectory':'flat','value':0.10}}]
+    }]
+    nr=run_pf_a(nc)
+    gross_nonint=(nr['is']['fees'][0]+nr['is']['gos'][0]+nr['is']['servNet'][0])
+    net_fee_income=gross_nonint-nr['is']['feeOpex'][0]
+    ck('net fee income driver subtracts Fee Product Costs before downstream Opex rate',
+       nr['is']['feeOpex'][0]>0 and abs(nr['is']['otherOpex'][0]-net_fee_income*0.10)<1e-6,
+       (gross_nonint,nr['is']['feeOpex'][0],nr['is']['otherOpex'][0],net_fee_income*0.10))
+    nc_prod=next(x for x in nr['products'] if x.get('name')=='Gross-fee specimen')
+    ck('net fee income driver does not net Fee Product Costs out of reported fee income',
+       abs(nc_prod['fees'][0]-1_000.0)<1e-9 and nr['is']['feeOpex'][0]>=200.0,
+       (nc_prod['fees'][0],nr['is']['feeOpex'][0]))
+    direct_nc=normalize_linked_component({'driver':'net_fee_income',
+                                          'rate_spec':{'trajectory':'flat','value':0.10}})
+    direct_nc['rates']=[0.10]
+    ck('net fee income primitive is gross noninterest income less direct Fee Product Costs',
+       abs(linked_component_amount(direct_nc,0,{'fee_income':100.0,'gain_on_sale':20.0,'servicing_net':30.0,'fee_product_costs':25.0})-12.5)<1e-12)
+    formula_nc=normalize_linked_component({
+        'driver':'formula_driver','component_id':'formula-net-contrib','name':'Net fee income factor',
+        'factors':[{'kind':'linked','name':'Net fee income','source':'net_fee_income'},
+                   {'kind':'entered','op':'multiply','name':'Rate','periodized':False,
+                    'spec':{'source':'entered','trajectory':'flat','value':0.10}}]})
+    formula_nc['factors'][1]['values']=[0.10]
+    ck('Formula / driver can consume net fee income as a linked factor',
+       abs(linked_component_amount(formula_nc,0,{'fee_income':100.0,'gain_on_sale':20.0,'servicing_net':30.0,'fee_product_costs':25.0})-12.5)<1e-12)
+
+    nc_public=run_v2(nc); nc_audit=calculation_audit_workbook(nc,nc_public)
+    nc_rows=[row for row in nc_audit['Opex Component Detail'].iter_rows(values_only=True)
+             if len(row)>25 and row[3]=='net_fee_income']
+    ck('Calculation Audit exposes the net fee income base used by downstream Opex',
+       bool(nc_rows) and abs(float(nc_rows[0][23])-net_fee_income)<1e-6
+       and 'less Fee Product Costs' in str(nc_rows[0][25]), str(nc_rows[:1]))
+
 
     # Fee-stream quantity is a first-class observational Opex driver, distinct from fee income.
     c=base_cfg(12); a=c['assumptions']

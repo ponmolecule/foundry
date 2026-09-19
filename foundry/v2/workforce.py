@@ -215,6 +215,7 @@ WORKFORCE_INCOME_FLOW_METRICS = {
     "gain_on_sale",
     "servicing_net",
     "noninterest_income",
+    "net_fee_income",
     "net_interest_income",
     "total_operating_revenue",
 }
