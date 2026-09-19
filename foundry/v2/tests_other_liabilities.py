@@ -104,6 +104,20 @@ def main():
        and abs((r["fixed_assets"]["net"][1]-lease["amount"][0])-8000)<1e-9)
     ck("Formula / level sums base plus named liability components",
        abs(r["bs"]["otherLiab"][0]-155000)<1e-9 and abs(r["bs"]["otherLiab"][1]-154000)<1e-9)
+
+    # Explicit Flat mode must override (but not delete) a saved Formula / level setup.
+    flat_saved=copy.deepcopy(c)
+    flat_saved["assumptions"]["other_liabilities_mode"]="flat"
+    flat_saved["assumptions"]["other_liabilities"]=222000
+    fr=run_pf_a(flat_saved)
+    ck("Flat mode uses the flat balance even when a Formula / level setup is preserved",
+       "other_liabilities_detail" not in fr and "otherLiab" not in fr["bs"]
+       and abs(derived_lines(fr,flat_saved)["otherLiab"][0]-222.0)<1e-9)
+    flat_saved["assumptions"]["other_liabilities_mode"]="formula_level"
+    rr=run_pf_a(flat_saved)
+    ck("switching back to Formula / level restores the preserved setup",
+       "other_liabilities_detail" in rr and abs(rr["bs"]["otherLiab"][1]-154000)<1e-9)
+
     c_more=copy.deepcopy(c)
     c_more["assumptions"]["other_liabilities_model"]["base_spec"]["value"] += 1000
     r_more=run_pf_a(c_more)

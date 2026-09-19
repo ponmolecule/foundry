@@ -717,10 +717,17 @@ def validate_config_v2(cfg):
         _own = str(_r.get("owner_module") or "").strip()
         if _own and _own != "operating_expense.workforce":
             errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
-    # Generalized other-liability Formula / level. prepare_other_liabilities resolves and
-    # validates every safe linked Series (Workforce Count or Fixed Assets) deterministically
-    # before projection. Historical scalar other_liabilities remains valid.
-    if isinstance(a.get("other_liabilities_model"), dict):
+    # Generalized other-liability Formula / level. Only the active mode must validate;
+    # a saved inactive Formula / level setup is intentionally retained while Flat is active.
+    _ol_mode_raw = str(a.get("other_liabilities_mode") or "").strip().lower()
+    if _ol_mode_raw and _ol_mode_raw not in {"flat", "formula_level"}:
+        errs.append("other_liabilities_mode must be flat or formula_level")
+    try:
+        from .other_liabilities import other_liability_mode
+        _ol_active = other_liability_mode(a)
+    except Exception:
+        _ol_active = "formula_level" if isinstance(a.get("other_liabilities_model"), dict) else "flat"
+    if _ol_active == "formula_level" and isinstance(a.get("other_liabilities_model"), dict):
         try:
             from .other_liabilities import prepare_other_liabilities
             _olp = prepare_other_liabilities(a, max(1, int(a.get("n_periods") or 12)), _ppy,

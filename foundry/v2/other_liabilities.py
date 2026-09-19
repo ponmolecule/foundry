@@ -33,6 +33,21 @@ def _f(v, default=0.0):
         return float(default)
 
 
+def other_liability_mode(assumptions: Mapping[str, Any] | None) -> str:
+    """Return the active Other-liabilities authoring mode.
+
+    r127-r129 engagements did not persist an explicit mode: the presence of
+    ``other_liabilities_model`` meant Formula / level was active.  Preserve that
+    interpretation.  Newer engagements may switch back to ``flat`` without deleting
+    the saved Formula / level setup, then switch back later with no data loss.
+    """
+    a = assumptions or {}
+    raw = str(a.get("other_liabilities_mode") or "").strip().lower()
+    if raw in {"flat", "formula_level"}:
+        return raw
+    return "formula_level" if isinstance(a.get("other_liabilities_model"), Mapping) else "flat"
+
+
 def other_liability_model(assumptions: Mapping[str, Any] | None) -> dict | None:
     raw = (assumptions or {}).get("other_liabilities_model")
     return dict(raw) if isinstance(raw, Mapping) else None
@@ -126,6 +141,8 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
     from .series import normalize_series_spec, resolve_series_spec
 
     a = assumptions or {}
+    if other_liability_mode(a) != "formula_level":
+        return None
     cfg = other_liability_model(a)
     if cfg is None:
         return None

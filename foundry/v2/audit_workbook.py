@@ -1626,7 +1626,8 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      title="Fixed Assets / CAPEX · Calculation Audit",
                      subtitle="Formula / level or Asset schedule causal bridge to gross PP&E, accumulated depreciation, net PP&E, depreciation and CAPEX/disposal. Formula / level linked drivers remain in native units; monetary values are converted once to $000s.",
                      n=n, ppy=ppy, include_open=True)
-    if isinstance((a.get("other_liabilities_model") or {}), Mapping):
+    from .other_liabilities import other_liability_mode as _audit_ol_mode
+    if _audit_ol_mode(a) == "formula_level" and isinstance((a.get("other_liabilities_model") or {}), Mapping):
         _write_wide_rows(wb.create_sheet("Other Liabilities"), cfg, _other_liability_rows(cfg, exact, n),
                          title="Other Liabilities · Calculation Audit",
                          subtitle="Formula / level causal chain. Workforce counts remain native; monetary stock balances and $/FTE multipliers are converted once to $000s.",

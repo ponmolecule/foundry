@@ -50,6 +50,8 @@ def main():
     fl=fixed_asset_formula_level(flcfg,fa_ass,3,12)
     ck("Formula / level computes base plus linked driver × multiplier as gross PP&E",
        fl["gross"]==[120000.0,150000.0,150000.0,150000.0])
+    ck("legacy generic fixed-asset component names resolve to an economic driver label",
+       fl["formula_level"]["components"][0]["name"]=="Fixed assets · Total workforce")
     ck("Formula / level annual depreciation rate periodizes exactly once",
        all(abs(x-1500)<1e-8 for x in fl["depreciation_expense"][1:]))
     ck("Gross Formula / level depreciation reduces net PP&E without replacement CAPEX",

@@ -75,6 +75,9 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
        len(linked)==1 and (linked[0].get("driver_spec") or {}).get("source")=="link"
        and (((linked[0].get("driver_spec") or {}).get("link") or {}).get("series_id"))=="wf-total-ui"
        and (linked[0].get("multiplier_spec") or {}).get("trajectory")=="flat")
+    ck("new fixed-asset component gets an economic driver-derived name, not an implementation placeholder",
+       len(linked)==1 and linked[0].get("name")=="Fixed assets · Total workforce"
+       and 'name:"Linked asset component"' not in html)
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
 
