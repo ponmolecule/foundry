@@ -132,7 +132,9 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 /* Managed securities share this narrow tile, so each instrument is a deliberate
    vertical block: name/header first, then only that sleeve's parameters. Nothing
    from one sleeve is allowed to visually run into the next. */
-.sec-managed-wrap{margin-top:12px;padding-top:10px;border-top:1px solid #2A3444}
+.sec-managed-wrap{margin-top:16px}
+.sec-major-section{margin-top:16px;padding:12px 14px 14px;border:1px solid #46546B;border-left:4px solid #DFA85A;border-radius:8px;background:rgba(223,168,90,.035);box-shadow:inset 0 1px 0 rgba(255,255,255,.025)}
+.sec-major-title{font-size:15px;line-height:22px;color:#F2F5FA;font-weight:700;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid rgba(223,168,90,.28);letter-spacing:.01em}
 .sec-managed-portfolio{border:1px solid #2B3A57;border-radius:7px;padding:9px;margin:7px 0 10px;min-width:0;overflow:hidden}
 .sec-managed-portfolio-head,.sec-managed-sleeve-head{display:flex;align-items:center;justify-content:space-between;gap:7px;min-width:0}
 .sec-managed-portfolio-title{font-size:10px;font-weight:700;color:#D9E1EE;min-width:0;overflow-wrap:anywhere}
@@ -9126,7 +9128,7 @@ function structuresSectionsHtml(){
       _sb += `<div class="sec-book-editor" data-book-kind="HTM"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove HTM book" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
-    _sb += '<div class="sec-managed-wrap"><div class="csub">Managed portfolios</div><div class="cmut">Target-driven books: linked target stock → allocation → maturities/runoff → balancing net purchases/(sales) → ending stock. Instrument names, weights and rates are authored — never hard-coded.</div>';
+    _sb += '<div class="sec-managed-wrap sec-major-section"><div class="sec-major-title">Managed portfolios</div><div class="cmut">Target-driven books: linked target stock → allocation → maturities/runoff → balancing net purchases/(sales) → ending stock. Instrument names, weights and rates are authored — never hard-coded.</div>';
     (_managedSecPortfolios()).forEach((mp,mi)=>{
       const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
       _sb += `<div class="sec-managed-portfolio"><div class="sec-managed-portfolio-head"><input class="sec-managed-portfolio-title" style="flex:1 1 auto;width:auto" value="${esc(mp.name||'Managed securities portfolio')}" onchange="_managedSecPortfolios()[${mi}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove managed portfolio" onclick="secManagedDeletePortfolio(${mi});return false">×</a></div>`;
@@ -9147,14 +9149,14 @@ function structuresSectionsHtml(){
       _sb += `<button class="pillbtn" style="margin-top:7px" onclick="secManagedAddSleeve(${mi})">+ Add security</button></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secManagedAddPortfolio()">+ Add managed portfolio</button></div>';
-    let _ao = '<div class="csub">AOCI</div>';
+    let _ao = '<div class="sec-major-section"><div class="sec-major-title">AOCI</div>';
     _ao += `<div class="cmut" style="margin:0 0 6px">AOCI sensitivity</div>`;
     _ao += `<div class="crow" style="margin:0"><input type="number" step="0.1" style="width:96px" value="${((cfg.assumptions.aoci_sensitivity_annual||0)*100).toFixed(1)}" onchange="cfg.assumptions.aoci_sensitivity_annual=_pf(this.value)/100;refresh()"><span class="cu">% of AFS/yr \u00b7 HTM immune</span></div>`;
-    _ao += '<div class="cmut">Positive values increase AOCI with rate rises.</div>';
-    h += `<div class="tstack"><div>${_sb}</div><div class="hline" style="grid-column:auto;margin:14px 0"></div><div>${_ao}</div></div>`;
+    _ao += '<div class="cmut">Positive values increase AOCI with rate rises.</div></div>';
+    h += `<div class="tstack"><div>${_sb}</div><div>${_ao}</div></div>`;
 
     { const A4 = cfg.assumptions;
-      h += `<div class="hline" style="margin:14px 0"></div><div class="csub">Funding waterfall &amp; other balance sheet</div>`;
+      h += `<div class="sec-major-section"><div class="sec-major-title">Funding waterfall &amp; other balance sheet</div>`;
       h += `<div class="crow" style="align-items:center">Cash floor<input type="number" step="0.1" style="width:56px" value="${((A4.cash_target_pct_deposits||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_target_pct_deposits=_pf(this.value)/100;refresh()"><span class="cu">% of deposits</span></div>`;
       h += `<div class="crow" style="align-items:center">Cash yield<input type="number" step="0.1" style="width:56px" value="${((A4.cash_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Residual securities yield<input type="number" step="0.1" style="width:56px" value="${((A4.securities_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
@@ -9182,6 +9184,7 @@ function structuresSectionsHtml(){
         }
         h += `</div>`;
       }
+      h += `</div>`;
     }
   }
   }
