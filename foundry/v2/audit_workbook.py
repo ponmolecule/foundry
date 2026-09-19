@@ -1353,8 +1353,10 @@ def _fixed_asset_rows(cfg, results, n):
     basis = str(fl.get("level_basis") or "gross").strip().lower()
     rows.append(("Formula / level", "Level basis", "fixed_assets:formula_level:level_basis",
                  "gross / net", [basis] + [None] * max(0, len(fa.get("gross") or []) - 1), _RAW_NUM_FMT))
-    rows.append(("Formula / level", "Entered base asset level", "fixed_assets:formula_level:base",
-                 "$000s · period-end level component", [None] + money(fl.get("base") or []), _RAW_MONEY_FMT))
+    rows.append(("Formula / level", str(fl.get("base_name") or "Base asset level"),
+                 str(fl.get("base_series_id") or "fixed_assets:formula_level:base"),
+                 "$000s · period-end published Fixed Asset Series",
+                 [None] + money(fl.get("base") or []), _RAW_MONEY_FMT))
     for i, comp in enumerate(fl.get("components") or []):
         if not isinstance(comp, Mapping):
             continue
@@ -1399,23 +1401,41 @@ def _other_liability_rows(cfg, results, n):
     for i, comp in enumerate(ol.get("components") or []):
         if not isinstance(comp, Mapping):
             continue
-        name = str(comp.get("name") or f"Linked liability {i+1}")
+        name = str(comp.get("name") or f"Liability component {i+1}")
         cid = str(comp.get("component_id") or f"liability_{i+1}")
-        kind = str(comp.get("driver_kind") or "")
-        drv = list(comp.get("driver") or [])
-        mul = list(comp.get("multiplier") or [])
-        amt = list(comp.get("amount") or [])
-        if kind == "workforce_count":
-            driver_units, mult_units = "FTE / native count", "$000s / FTE"
-            driver_vals, mult_vals = [None] + [float(x or 0.0) for x in drv], [None] + money(mul)
-        else:
-            driver_units, mult_units = "$000s · linked net fixed asset", "dimensionless multiple"
-            driver_vals, mult_vals = [None] + money(drv), [None] + [float(x or 0.0) for x in mul]
-        rows.extend([
-            (name, "Linked driver", f"{cid}:driver:{kind}", driver_units, driver_vals, _RAW_NUM_FMT if kind == "workforce_count" else _RAW_MONEY_FMT),
-            (name, "Multiplier", f"{cid}:multiplier", mult_units, mult_vals, _RAW_MONEY_FMT if kind == "workforce_count" else _RAW_NUM_FMT),
-            (name, "Calculated liability contribution", f"{cid}:amount", "$000s · period-end liability component", [None] + money(amt), _RAW_MONEY_FMT),
-        ])
+        terms = list(comp.get("terms") or [])
+        # r127 exact payloads may have no explicit terms; preserve audit readability.
+        if not terms and comp.get("driver_kind"):
+            terms = [{"term_id": "legacy", "driver_kind": comp.get("driver_kind"),
+                      "series_id": comp.get("series_id"), "driver_name": comp.get("series_id"),
+                      "driver": comp.get("driver"), "multiplier": comp.get("multiplier"),
+                      "amount": comp.get("amount")}]
+        for j, term in enumerate(terms):
+            kind = str((term or {}).get("driver_kind") or "")
+            drv = list((term or {}).get("driver") or [])
+            mul = list((term or {}).get("multiplier") or [])
+            amt = list((term or {}).get("amount") or [])
+            tname = str((term or {}).get("driver_name") or (term or {}).get("series_id") or f"Term {j+1}")
+            tid = str((term or {}).get("term_id") or f"term_{j+1}")
+            if kind in {"workforce_role_count", "workforce_count"}:
+                driver_units, mult_units = "FTE / native count", "$000s / FTE"
+                driver_vals = [None] + [float(x or 0.0) for x in drv]
+                mult_vals = [None] + money(mul)
+                dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
+            else:
+                driver_units, mult_units = "$000s · linked Fixed Asset Series", "dimensionless signed multiple"
+                driver_vals = [None] + money(drv)
+                mult_vals = [None] + [float(x or 0.0) for x in mul]
+                dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT
+            rows.extend([
+                (name, f"Term {j+1} driver · {tname}", f"{cid}:{tid}:driver", driver_units, driver_vals, dfmt),
+                (name, f"Term {j+1} multiplier", f"{cid}:{tid}:multiplier", mult_units, mult_vals, mfmt),
+                (name, f"Term {j+1} contribution", f"{cid}:{tid}:amount", "$000s · signed contribution",
+                 [None] + money(amt), _RAW_MONEY_FMT),
+            ])
+        rows.append((name, "Calculated liability component", f"{cid}:amount",
+                     "$000s · period-end liability component",
+                     [None] + money(comp.get("amount") or []), _RAW_MONEY_FMT))
     return rows
 
 def _managed_securities_rows(cfg, results, n):
@@ -1550,7 +1570,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Series Provenance", "Stable Series IDs, ownership metadata, and authored link targets/aggregation semantics."),
         ("Income Statement", "Every public native-cadence income-statement series."),
         ("Balance Sheet", "Every public balance-sheet series, including opening balances."),
-        ("Other Liabilities", "Formula / level liability causal chain: opening/base, linked Workforce or net-fixed-asset drivers, multipliers, component balances, and total other liabilities."),
+        ("Other Liabilities", "Formula / level liability causal chain: opening/base, linked Workforce or Fixed Asset Series, signed multipliers, term contributions, component balances, and total other liabilities."),
         ("Ratios", "Native-cadence public ratios."),
         ("Operating Expense", "IS Opex decomposition plus recurring categories, additive components, settlement balances, and residual reconciliation."),
         ("Opex Component Detail", "Period-by-period linked/tiered/cost-pool intermediates, including tier observations, active bands, rates, and raw-dollar calculated expense."),

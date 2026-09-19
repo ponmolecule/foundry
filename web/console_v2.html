@@ -4218,8 +4218,8 @@ function _fixedAssetState(){
   const A=cfg.assumptions; A.fixed_assets=A.fixed_assets||{mode:"simple",assets:[]};
   A.fixed_assets.assets=A.fixed_assets.assets||[]; return A.fixed_assets;
 }
-function _faFormulaDefault(){return {level_basis:"gross",opening_level:0,opening_accumulated_depreciation:0,base_spec:{source:"entered",trajectory:"flat",value:0},components:[],depreciation:{kind:"rate_of_level",rate_spec:{source:"entered",trajectory:"flat",value:0,period:"year"}}};}
-function _faFormulaState(create){const fa=_fixedAssetState();if(create&&(!fa.formula_level||typeof fa.formula_level!=="object"))fa.formula_level=_faFormulaDefault();if(fa.formula_level){const fl=fa.formula_level;if(fl.opening_level==null&&fl.opening_net!=null){fl.opening_level=+fl.opening_net||0;delete fl.opening_net;}if(!fl.level_basis)fl.level_basis="gross";fl.components=fl.components||[];fl.depreciation=fl.depreciation||{kind:"rate_of_level",rate_spec:{source:"entered",trajectory:"flat",value:0,period:"year"}};}return fa.formula_level||null;}
+function _faFormulaDefault(){return {level_basis:"gross",opening_level:0,opening_accumulated_depreciation:0,base_name:"Base asset level",base_spec:{source:"entered",trajectory:"flat",value:0},components:[],depreciation:{kind:"rate_of_level",rate_spec:{source:"entered",trajectory:"flat",value:0,period:"year"}}};}
+function _faFormulaState(create){const fa=_fixedAssetState();if(create&&(!fa.formula_level||typeof fa.formula_level!=="object"))fa.formula_level=_faFormulaDefault();if(fa.formula_level){const fl=fa.formula_level;if(fl.opening_level==null&&fl.opening_net!=null){fl.opening_level=+fl.opening_net||0;delete fl.opening_net;}if(!fl.level_basis)fl.level_basis="gross";if(!fl.base_name)fl.base_name="Base asset level";fl.components=fl.components||[];fl.depreciation=fl.depreciation||{kind:"rate_of_level",rate_spec:{source:"entered",trajectory:"flat",value:0,period:"year"}};}return fa.formula_level||null;}
 function _faInitFormulaFromLegacy(){const fa=_fixedAssetState(),A=cfg.assumptions;if(fa.formula_level)return fa.formula_level;const opening=+(A.premises_equipment||0),ann=+(A.premises_depreciation_annual||0),p=PPY(),n=NP(),native=_nativeFlowPeriod();if(Math.abs(opening)>1e-12||Math.abs(ann)>1e-12){const dep=ann/p,levels=[],deps=[];let prev=opening;for(let q=1;q<=n;q++){const cur=Math.max(0,opening-dep*q);levels.push(cur);deps.push(Math.max(0,prev-cur));prev=cur;}fa.formula_level={level_basis:"net",opening_level:opening,opening_accumulated_depreciation:0,base_spec:{source:"entered",trajectory:"explicit",cadence:native,values:levels,extend:"hold",resolution:"step"},components:[],depreciation:{kind:"entered",amount_spec:{source:"entered",trajectory:"explicit",cadence:native,values:deps,extend:"hold",resolution:"step",period:native}}};}else fa.formula_level=_faFormulaDefault();return fa.formula_level;}
 window.faSetMode=function(mode){
   window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
@@ -4246,14 +4246,34 @@ window.faFormulaDriver=function(i,v){const fl=_faFormulaState(),c=fl&&((fl.compo
 window.faFormulaBasis=function(v){const fl=_faFormulaState(true);fl.level_basis=(v==="net"?"net":"gross");renderContent();refresh();};
 window.faFormulaDepKind=function(v){const fl=_faFormulaState(true);fl.depreciation=fl.depreciation||{};fl.depreciation.kind=(v==="entered"?"entered":"rate_of_level");if(fl.depreciation.kind==="entered")fl.depreciation.amount_spec=fl.depreciation.amount_spec||{source:"entered",trajectory:"flat",value:0,period:"year"};else fl.depreciation.rate_spec=fl.depreciation.rate_spec||{source:"entered",trajectory:"flat",value:0,period:"year"};renderContent();refresh();};
 function _olState(create){const A=cfg.assumptions;let m=A.other_liabilities_model;if(create&&(!m||typeof m!=="object")){m={opening_balance:+(A.other_liabilities||0),base_spec:{source:"entered",trajectory:"flat",value:+(A.other_liabilities||0)},components:[]};A.other_liabilities_model=m;}if(m){m.components=m.components||[];m.base_spec=m.base_spec||{source:"entered",trajectory:"flat",value:0};if(m.opening_balance==null)m.opening_balance=+(A.other_liabilities||0);}return m||null;}
-function _olDriverOptions(){_ensureLinkableSeriesIds();const out=[{value:"fixed_asset_net",kind:"fixed_asset_net",label:"Premises & fixed assets · net"}];const wf=(((cfg.assumptions||{}).nie_detail||{}).workforce)||{};if(wf.total_count_series_id&&(wf.roles||[]).length)out.unshift({value:"workforce_count::"+String(wf.total_count_series_id),kind:"workforce_count",series_id:String(wf.total_count_series_id),label:"Workforce headcount · Total workforce"});(wf.roles||[]).forEach((r,ri)=>{if(r&&r.series_id)out.push({value:"workforce_count::"+String(r.series_id),kind:"workforce_count",series_id:String(r.series_id),label:"Workforce headcount · "+String(r.role||("Role "+(ri+1)))})});return out;}
-function _olDriverValue(c){const d=(c&&c.driver)||{};return d.kind==="workforce_count"?"workforce_count::"+String(d.series_id||""):"fixed_asset_net";}
+const _FA_GROSS_SID="bank.fixed_assets.gross", _FA_ACCUM_SID="bank.fixed_assets.accumulated_depreciation", _FA_NET_SID="bank.fixed_assets.net", _FA_BASE_SID="bank.fixed_assets.formula_level.base";
+function _olDriverOptions(){
+  _ensureLinkableSeriesIds(); const out=[];
+  const wf=(((cfg.assumptions||{}).nie_detail||{}).workforce)||{};
+  if(wf.total_count_series_id&&(wf.roles||[]).length)out.push({value:"workforce_role_count::"+String(wf.total_count_series_id),kind:"workforce_role_count",series_id:String(wf.total_count_series_id),label:"Workforce headcount · Total workforce",unit:"count"});
+  (wf.roles||[]).forEach((r,ri)=>{if(r&&r.series_id)out.push({value:"workforce_role_count::"+String(r.series_id),kind:"workforce_role_count",series_id:String(r.series_id),label:"Workforce headcount · "+String(r.role||("Role "+(ri+1))),unit:"count"})});
+  const fa=((cfg.assumptions||{}).fixed_assets)||{}, fl=(fa.formula_level||{});
+  if(String(fa.mode||"").toLowerCase()==="formula_level"){
+    out.push({value:"fixed_asset_level::"+_FA_BASE_SID,kind:"fixed_asset_level",series_id:_FA_BASE_SID,label:"Fixed assets · "+String(fl.base_name||"Base asset level"),unit:"money"});
+    (fl.components||[]).forEach((c,i)=>{if(c&&c.component_id)out.push({value:"fixed_asset_level::"+String(c.component_id),kind:"fixed_asset_level",series_id:String(c.component_id),label:"Fixed assets · "+String(c.name||("Linked component "+(i+1))),unit:"money"})});
+    out.push({value:"fixed_asset_level::"+_FA_GROSS_SID,kind:"fixed_asset_level",series_id:_FA_GROSS_SID,label:"Fixed assets · Gross total",unit:"money"});
+    out.push({value:"fixed_asset_level::"+_FA_ACCUM_SID,kind:"fixed_asset_level",series_id:_FA_ACCUM_SID,label:"Fixed assets · Accumulated depreciation",unit:"money"});
+    out.push({value:"fixed_asset_level::"+_FA_NET_SID,kind:"fixed_asset_level",series_id:_FA_NET_SID,label:"Fixed assets · Net total",unit:"money"});
+  }
+  return out;
+}
+function _olLegacyTermView(c){const d=(c&&c.driver)||{};if(d.kind==="workforce_count")return {term_id:"legacy",driver_spec:{source:"link",link:{kind:"workforce_role_count",series_id:String(d.series_id||""),aggregation:"end"}},multiplier_spec:c.multiplier_spec||{source:"entered",trajectory:"flat",value:0},_legacy:true};if(d.kind==="fixed_asset_net")return {term_id:"legacy",driver_spec:{source:"link",link:{kind:"fixed_asset_level",series_id:_FA_NET_SID,aggregation:"end"}},multiplier_spec:c.multiplier_spec||{source:"entered",trajectory:"flat",value:1},_legacy:true};return null;}
+function _olTermsView(c){if(Array.isArray((c||{}).terms))return c.terms;const t=_olLegacyTermView(c);return t?[t]:[];}
+function _olEnsureTerms(i){const m=_olState(true),c=(m.components||[])[i];if(!c)return [];if(!Array.isArray(c.terms)){const old=_olLegacyTermView(c);c.terms=old?[{term_id:_seriesId("other-liability-term"),driver_spec:old.driver_spec,multiplier_spec:old.multiplier_spec}]:[];delete c.driver;delete c.multiplier_spec;}return c.terms;}
+function _olDriverValue(t){const link=((((t||{}).driver_spec||{}).link)||{});return String(link.kind||"")+"::"+String(link.series_id||"");}
 window.olEnable=function(){_olState(true);renderContent();refresh();};
 window.olOpening=function(v){const m=_olState(true);m.opening_balance=_pf(v)*1000;refresh();};
-window.olAddComponent=function(){const m=_olState(true),opts=_olDriverOptions(),o=opts[0]||{kind:"fixed_asset_net",value:"fixed_asset_net"};m.components.push({component_id:_seriesId("other-liability"),name:"Liability component",driver:{kind:o.kind,series_id:o.series_id||""},multiplier_spec:{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_net"?1:0}});renderContent();refresh();};
+window.olAddComponent=function(){const m=_olState(true),opts=_olDriverOptions();if(!opts.length){appStatus("err","No compatible linked Series is available. Add Workforce Count or use Fixed Assets Formula / level first.");return;}const o=opts[0];m.components.push({component_id:_seriesId("other-liability"),name:"Liability component",terms:[{term_id:_seriesId("other-liability-term"),driver_spec:{source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}},multiplier_spec:{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0}}]});renderContent();refresh();};
 window.olRemoveComponent=function(i){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;m.components.splice(i,1);renderContent();refresh();};
 window.olName=function(i,v){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;c.name=v;refresh();};
-window.olDriver=function(i,v){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;const o=_olDriverOptions().find(x=>x.value===v);if(!o)return;c.driver={kind:o.kind,series_id:o.series_id||""};c.multiplier_spec=c.multiplier_spec||{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_net"?1:0};renderContent();refresh();};
+window.olAddTerm=function(i){const ts=_olEnsureTerms(i),opts=_olDriverOptions();if(!opts.length){appStatus("err","No compatible linked Series is available.");return;}const o=opts[0];ts.push({term_id:_seriesId("other-liability-term"),driver_spec:{source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}},multiplier_spec:{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0}});renderContent();refresh();};
+window.olRemoveTerm=function(i,j){const ts=_olEnsureTerms(i);if(j<0||j>=ts.length)return;ts.splice(j,1);renderContent();refresh();};
+window.olDriver=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;const o=_olDriverOptions().find(x=>x.value===v);if(!o)return;t.driver_spec={source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}};t.multiplier_spec=t.multiplier_spec||{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0};renderContent();refresh();};
 window.faAdd=function(){
   window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
   const fa=_fixedAssetState(); fa.mode="schedule";
@@ -6238,9 +6258,19 @@ function renderContent(){
     // when the engine supplies the detail; retain the historical net-only fallback
     // for older/imported result payloads.
     if(fin.bs.premisesGross && fin.bs.premisesAccumDep){
-      h += rowBS('Premises & Equipment, gross', arr12(fin.bs.premisesGross, bsHasOpen), null, 'premisesGross');
-      h += rowBS('Less: Accumulated Depreciation', arr12((fin.bs.premisesAccumDep||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'premisesAccumDep');
-      h += rowBS('Premises & Equipment, net', arr12(fin.bs.premises, bsHasOpen), 'subtotal', 'premises');
+      { const _far=(r.fixed_assets||{}), _fl=(_far.formula_level||{}), _basis=String(_fl.level_basis||'').toLowerCase();
+        if(_basis==='gross'){
+          if(Array.isArray(_fl.base)) h += rowBS('&nbsp;&nbsp;'+esc(_fl.base_name||'Base asset level'), arr12(_fl.base, bsHasOpen), null, null);
+          ((_fl.components)||[]).forEach(_c=>{if(_c&&Array.isArray(_c.amount))h += rowBS('&nbsp;&nbsp;'+esc(_c.name||'Fixed-asset component'), arr12(_c.amount,bsHasOpen), null, null);});
+        }
+        h += rowBS('Premises & Equipment, gross', arr12(fin.bs.premisesGross, bsHasOpen), null, 'premisesGross');
+        h += rowBS('Less: Accumulated Depreciation', arr12((fin.bs.premisesAccumDep||[]).map(v=>v==null?null:-v), bsHasOpen), null, 'premisesAccumDep');
+        h += rowBS('Premises & Equipment, net', arr12(fin.bs.premises, bsHasOpen), 'subtotal', 'premises');
+        if(_basis==='net'){
+          if(Array.isArray(_fl.base)) h += rowBS('&nbsp;&nbsp;Net target · '+esc(_fl.base_name||'Base asset level'), arr12(_fl.base, bsHasOpen), null, null);
+          ((_fl.components)||[]).forEach(_c=>{if(_c&&Array.isArray(_c.amount))h += rowBS('&nbsp;&nbsp;Net target · '+esc(_c.name||'Fixed-asset component'), arr12(_c.amount,bsHasOpen), null, null);});
+        }
+      }
     } else {
       h += rowBS('Premises & Equipment', arr12(fin.bs.premises || fin.bs.totalAssets.map(()=>G("assumptions.premises_equipment")/K), bsHasOpen), null, 'premises');
     }
@@ -6260,7 +6290,11 @@ function renderContent(){
     if(some(fin.bs.accruedOpex)) h += rowBS('Accrued Operating Expenses (timing-generated)', arr12(fin.bs.accruedOpex, bsHasOpen), null, 'accruedOpex');
     { const _old=r.other_liabilities||null;
       if(_old&&Array.isArray(_old.base)&&some(_old.base)) h += rowBS('&nbsp;&nbsp;Other liabilities · base level', arr12(_old.base, bsHasOpen), null, null);
-      ((_old&&_old.components)||[]).forEach(_c=>{if(_c&&Array.isArray(_c.amount))h += rowBS('&nbsp;&nbsp;'+esc(_c.name||'Liability component'), arr12(_c.amount,bsHasOpen), null, null);});
+      ((_old&&_old.components)||[]).forEach(_c=>{
+        if(_c&&Array.isArray(_c.amount))h += rowBS('&nbsp;&nbsp;'+esc(_c.name||'Liability component'), arr12(_c.amount,bsHasOpen), null, null);
+        const _terms=(_c&&_c.terms)||[];
+        if(_terms.length>1)_terms.forEach(_t=>{if(_t&&Array.isArray(_t.amount))h += rowBS('&nbsp;&nbsp;&nbsp;&nbsp;↳ '+esc(_t.driver_name||_t.series_id||'Formula term'),arr12(_t.amount,bsHasOpen),null,null);});
+      });
       h += rowBS('Other Liabilities', arr12(fin.bs.otherLiab || D.otherLiab || fin.bs.totalAssets.map(()=>G("assumptions.other_liabilities")/K), bsHasOpen), (_old?'subtotal':null), 'otherLiab');
     }
     h += rowBS('Total Liabilities', arr12(D.totalLiab, bsHasOpen), 'subtotal', 'totalLiab');
@@ -9048,8 +9082,9 @@ function structuresSectionsHtml(){
         _d += `<div class="crow" style="align-items:center">Level basis<select style="width:150px" onchange="faFormulaBasis(this.value)"><option value="gross"${basis==='gross'?' selected':''}>Gross PP&amp;E</option><option value="net"${basis==='net'?' selected':''}>Net PP&amp;E target</option></select></div>`;
         _d += `<div class="crow">Opening ${basis==='gross'?'gross ':'net '}fixed assets<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma(openingLevel/1000)}" onchange="_faFormulaState(true).opening_level=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
         _d += `<div class="crow">Opening accumulated depreciation<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma((+fl.opening_accumulated_depreciation||0)/1000)}" onchange="_faFormulaState(true).opening_accumulated_depreciation=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-        _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.base_spec',fl.base_spec||{source:'entered',trajectory:'flat',value:0},'Base asset level','money',false);
-        _d += `<div class="cmut" style="margin:6px 0">Period-end ${basis==='gross'?'gross':'net'} fixed assets = base level + Σ(linked driver Series × multiplier).</div>`;
+        _d += `<div class="crow">Base component name<input style="flex:1 1 150px" value="${esc(fl.base_name||'Base asset level')}" onchange="_faFormulaState(true).base_name=this.value||'Base asset level';renderContent();refresh()"></div>`;
+        _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.base_spec',fl.base_spec||{source:'entered',trajectory:'flat',value:0},fl.base_name||'Base asset level','money',false);
+        _d += `<div class="cmut" style="margin:6px 0">Period-end ${basis==='gross'?'gross':'net'} fixed assets = base level + Σ(linked driver Series × multiplier). The base and each named linked component are published as stable Fixed Asset Series for downstream formulas.</div>`;
         comps.forEach((c,i)=>{const link=((c.driver_spec||{}).link||{}), cur='workforce_count::'+String(link.series_id||''), path=`assumptions.fixed_assets.formula_level.components.${i}.multiplier_spec`;
           _d += `<div class="sec-managed-sleeve" style="margin-top:8px"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(c.name||('Linked component '+(i+1)))}" onchange="_faFormulaState().components[${i}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove fixed-asset level component" onclick="faFormulaRemoveComponent(${i});return false">×</a></div>`;
           _d += `<div class="sec-managed-grid"><div class="sec-managed-field"><label>Driver Series</label><select onchange="faFormulaDriver(${i},this.value)">${drvOpts.length?drvOpts.map(o=>`<option value="${esc(o.value)}"${o.value===cur?' selected':''}>${esc(o.label)}</option>`).join(''):`<option value="">No compatible level Series</option>`}</select></div>`;
@@ -9134,13 +9169,16 @@ function structuresSectionsHtml(){
           h += `<div class="crow" style="align-items:center">Opening balance<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((+_olm.opening_balance||0)/1000)}" onchange="olOpening(this.value);fmtField(this)"><span class="cu">$000s</span></div>`;
           h += _faSeriesEditor('assumptions.other_liabilities_model.base_spec',_olm.base_spec||{source:'entered',trajectory:'flat',value:0},'Base liability level','money',false);
           h += `<div class="cmut" style="margin:3px 0 7px">The base level is seeded from the prior flat Other liabilities balance for backward compatibility. Set it to zero if linked components replace that balance rather than add to it.</div>`;
-          (_olm.components||[]).forEach((c,i)=>{const dv=_olDriverValue(c),opts=_olDriverOptions(),isW=((c.driver||{}).kind==='workforce_count'),mp=`assumptions.other_liabilities_model.components.${i}.multiplier_spec`;
+          (_olm.components||[]).forEach((c,i)=>{const opts=_olDriverOptions(),terms=_olTermsView(c);
             h += `<div class="sec-managed-sleeve" style="margin-top:8px"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(c.name||('Liability component '+(i+1)))}" onchange="olName(${i},this.value)"><a href="#" class="cx" aria-label="Remove liability component" onclick="olRemoveComponent(${i});return false">×</a></div>`;
-            h += `<div class="sec-managed-grid"><div class="sec-managed-field"><label>Driver Series</label><select onchange="olDriver(${i},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`;
-            h += `<div style="grid-column:1/-1">${_faSeriesEditor(mp,c.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'Liability per FTE':'Multiplier',isW?'multiplier':'multiple',false)}</div></div></div>`;
+            terms.forEach((t,j)=>{const dv=_olDriverValue(t),link=(((t.driver_spec||{}).link)||{}),isW=link.kind==='workforce_role_count',mp=t._legacy?`assumptions.other_liabilities_model.components.${i}.multiplier_spec`:`assumptions.other_liabilities_model.components.${i}.terms.${j}.multiplier_spec`;
+              h += `<div class="sec-managed-grid" style="margin-top:${j?8:2}px;padding-top:${j?8:0}px;${j?'border-top:1px solid #D8DEE8;':''}"><div class="sec-managed-field"><label>Formula term ${j+1} · Driver Series</label><select onchange="olDriver(${i},${j},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div><div style="display:flex;justify-content:flex-end;align-items:flex-start"><button class="btn-plain" style="color:#C77" onclick="olRemoveTerm(${i},${j});return false">Remove term</button></div>`;
+              h += `<div style="grid-column:1/-1">${_faSeriesEditor(mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'Liability per FTE':'Multiplier',isW?'multiplier':'multiple',false)}</div></div>`;
+            });
+            h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddTerm(${i})">+ Add formula term</button></div>`;
           });
-          h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddComponent()">+ Add linked liability component</button>`;
-          h += `<div class="cmut" style="margin-top:6px">Examples: Total workforce × $/FTE; Net fixed assets × multiple. Component names are descriptive only.</div>`;
+          h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddComponent()">+ Add liability component</button>`;
+          h += `<div class="cmut" style="margin-top:6px">Each named liability is the sum of linked Series × multiplier terms. Signed multipliers are allowed; the total liability balance must remain non-negative.</div>`;
         }
         h += `</div>`;
       }

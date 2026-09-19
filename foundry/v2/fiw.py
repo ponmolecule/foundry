@@ -404,7 +404,9 @@ def _fixed_asset_formula_level_sheet(ws, formula_level):
         "Opening gross fixed assets" if basis == "gross" else "Opening net fixed assets", opening_level, "$")
     row(root + ".opening_accumulated_depreciation", "Formula / level",
         "Opening accumulated depreciation", fl.get("opening_accumulated_depreciation", 0.0), "$")
-    series_rows(root + ".base_spec", "Formula / level", "Base asset level",
+    row(root + ".base_name", "Formula / level", "Base component name",
+        fl.get("base_name") or "Base asset level", "text")
+    series_rows(root + ".base_spec", "Formula / level", fl.get("base_name") or "Base asset level",
                 fl.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0}, "money")
 
     for i, comp in enumerate(fl.get("components") or []):
@@ -478,6 +480,19 @@ def _other_liabilities_level_sheet(ws, model):
             for i, v in enumerate(spec.get("values") or []):
                 row(f"{prefix}.values.{i}", section, f"{label} — value {i+1}", v, units, fact)
 
+    def legacy_terms(c):
+        drv = dict(c.get("driver") or {})
+        kind = str(drv.get("kind") or "")
+        if kind == "workforce_count":
+            dkind, sid = "workforce_role_count", str(drv.get("series_id") or "")
+        else:
+            from .fixed_assets import FIXED_ASSET_NET_SERIES_ID
+            dkind, sid = "fixed_asset_level", FIXED_ASSET_NET_SERIES_ID
+        return [{"term_id": "legacy", "driver_spec": {"source": "link", "link": {
+                    "kind": dkind, "series_id": sid, "aggregation": "end"}},
+                 "multiplier_spec": c.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
+                 "_legacy": True}]
+
     m = dict(model or {})
     root = "other_liabilities_model"
     row(root + ".opening_balance", "Formula / level", "Opening other-liability balance", m.get("opening_balance", 0.0), "$")
@@ -485,18 +500,25 @@ def _other_liabilities_level_sheet(ws, model):
                 m.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0}, "$")
     for i, raw in enumerate(m.get("components") or []):
         c = dict(raw or {}); cr = f"{root}.components.{i}"
-        section = c.get("name") or f"Linked component {i+1}"
+        section = c.get("name") or f"Liability component {i+1}"
         row(cr + ".name", section, "Component name", c.get("name"), "text")
-        row(cr + ".component_id", section, "Component ID", c.get("component_id"), "stable ID", True)
-        drv = dict(c.get("driver") or {})
-        row(cr + ".driver.kind", section, "Driver kind", drv.get("kind"), "workforce_count / fixed_asset_net", True)
-        if drv.get("kind") == "workforce_count":
-            row(cr + ".driver.series_id", section, "Driver Series ID", drv.get("series_id"), "stable Workforce Count Series ID", True)
-            units = "$/FTE"
-        else:
-            units = "dimensionless multiple"
-        series_rows(cr + ".multiplier_spec", section, "Multiplier",
-                    c.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0}, units)
+        row(cr + ".component_id", section, "Component ID", c.get("component_id"), "stable component ID", True)
+        terms = c.get("terms") if isinstance(c.get("terms"), list) else legacy_terms(c)
+        for j, rawt in enumerate(terms or []):
+            t = dict(rawt or {}); legacy = bool(t.get("_legacy")); tr = cr if legacy else f"{cr}.terms.{j}"
+            link = dict((t.get("driver_spec") or {}).get("link") or {})
+            tsec = section if len(terms or []) == 1 else f"{section} · term {j+1}"
+            if not legacy:
+                row(tr + ".term_id", tsec, "Term ID", t.get("term_id"), "stable term ID", True)
+            row(tr + (".driver.kind" if legacy else ".driver_spec.link.kind"), tsec, "Driver kind",
+                ("workforce_count" if legacy and link.get("kind") == "workforce_role_count" else
+                 "fixed_asset_net" if legacy else link.get("kind")),
+                "linked Series kind", True)
+            row(tr + (".driver.series_id" if legacy else ".driver_spec.link.series_id"), tsec, "Driver Series ID",
+                link.get("series_id"), "stable Series ID", True)
+            units = "$/FTE" if link.get("kind") == "workforce_role_count" else "dimensionless multiple"
+            series_rows(tr + ".multiplier_spec", tsec, "Multiplier",
+                        t.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0}, units)
 
     ws.column_dimensions["A"].hidden = True
     ws.column_dimensions["B"].width = 34; ws.column_dimensions["C"].width = 38

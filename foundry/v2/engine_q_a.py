@@ -531,7 +531,7 @@ def run_pf_a(cfg):
     cash_floor = a.get("cash_target_pct_deposits", 0.0)
     other_liab = a["other_liabilities"]
     # Other-liability Formula / level is opt-in. Historical scalar configs remain flat.
-    from .other_liabilities import prepare_other_liabilities, other_liability_period
+    from .other_liabilities import prepare_other_liabilities, other_liability_period, other_liability_audit_payload
     _ol_prepared = prepare_other_liabilities(a, Q, ppy, growth_context=_growth_ctx)
     _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
                         else float(other_liab or 0.0))
@@ -1475,23 +1475,8 @@ def run_pf_a(cfg):
             "is": {k: v[1:] for k, v in is_.items()}}
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
-        _out["other_liabilities_detail"] = {
-            "mode": "formula_level",
-            "opening_balance": _other_liab_open,
-            "base": list(_ol_prepared.get("base") or []),
-            "total": list(bs.get("otherLiab") or []),
-            "components": [
-                {
-                    "component_id": c.get("component_id"), "name": c.get("name"),
-                    "driver_kind": c.get("driver_kind"), "series_id": c.get("series_id") or "",
-                    "multiplier": list(c.get("multiplier") or []),
-                    "driver": [float((r.get("components") or [])[i].get("driver") or 0.0)
-                               if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
-                    "amount": [float((r.get("components") or [])[i].get("amount") or 0.0)
-                               if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
-                } for i, c in enumerate(_ol_prepared.get("components") or [])
-            ],
-        }
+        _out["other_liabilities_detail"] = other_liability_audit_payload(
+            _ol_prepared, list(bs.get("otherLiab") or []), _ol_period_rows)
     if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
             "mode": _fa_mode,

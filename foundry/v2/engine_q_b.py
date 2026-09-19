@@ -120,7 +120,7 @@ def run_pf_b(cfg):
         _fa = {"preopening_capex": 0.0, "asset_rows": []}
     non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
-    from .other_liabilities import prepare_other_liabilities, other_liability_period
+    from .other_liabilities import prepare_other_liabilities, other_liability_period, other_liability_audit_payload
     _ol_prepared = prepare_other_liabilities(a, Q, 4, growth_context=_growth_ctx)
     _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
                         else float(other_liab or 0.0))
@@ -407,19 +407,8 @@ def run_pf_b(cfg):
         out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
     if _ol_prepared is not None:
-        _out["other_liabilities_detail"] = {
-            "mode": "formula_level", "opening_balance": _other_liab_open,
-            "base": list(_ol_prepared.get("base") or []), "total": list(out_bs.get("otherLiab") or []),
-            "components": [{
-                "component_id": c.get("component_id"), "name": c.get("name"),
-                "driver_kind": c.get("driver_kind"), "series_id": c.get("series_id") or "",
-                "multiplier": list(c.get("multiplier") or []),
-                "driver": [float((r.get("components") or [])[i].get("driver") or 0.0)
-                           if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
-                "amount": [float((r.get("components") or [])[i].get("amount") or 0.0)
-                           if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
-            } for i, c in enumerate(_ol_prepared.get("components") or [])],
-        }
+        _out["other_liabilities_detail"] = other_liability_audit_payload(
+            _ol_prepared, list(out_bs.get("otherLiab") or []), _ol_period_rows)
     if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []) or _wf_add_components):
         _out["workforce"] = {
             "resolved_hire_periods": [int((r or {}).get("hire_period") or 1) for r in (_wf_cfg.get("roles") or [])],

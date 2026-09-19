@@ -336,6 +336,10 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
         return workforce_count_series_by_id(
             wf, ident, int(n_periods), int(ppy), growth_context=context,
             deterministic_only=True)
+    if kind == "fixed_asset_level":
+        from .fixed_assets import fixed_asset_series_by_id
+        return fixed_asset_series_by_id(
+            assumptions or {}, ident, int(n_periods), int(ppy), growth_context=context)
     if kind == "workforce_role_expense":
         from .workforce import workforce_role_expense_series
         wf = nd.get("workforce") or {}
