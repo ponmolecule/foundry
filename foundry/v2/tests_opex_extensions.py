@@ -434,10 +434,22 @@ def main():
     except ConfigErrorV2 as e: bad=('does not exist' in str(e))
     ck('validation fails closed on missing fee-stream quantity Series reference', bad)
 
+    # Add a small native-unit helper specifically to guard against accidentally routing the
+    # public quantity surface through the historical /1000 parity conversion.
+    vc['assumptions']['obs_exposures'][-1]['fee_streams'].append({
+        'name':'Migrated MAB','quantity_series_id':'fee-qty-native-1234','basis':'transaction',
+        'driver':{'source':'constant','trajectory':'flat','params':{'base':1234.0}},
+        'rate':{'behavior':'flat','params':{'per_unit':0.0}},
+        'timing':{'start_period':1},'cost':{'kind':'none','params':{}}
+    })
     public=run_v2(vc)
-    qser=(((public.get('fee_stream_quantities') or {}).get('series') or {}).get('fee-qty-settlement') or [])
-    ck('public run exposes linked fee-stream quantity without falsely imposing monetary units',
-       len(qser)==36 and abs(qser[0]-1000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='native quantity units · engine-period series')
+    qpub=((public.get('fee_stream_quantities') or {}).get('series') or {})
+    qser=qpub.get('fee-qty-settlement') or []
+    qnative=qpub.get('fee-qty-native-1234') or []
+    ck('public run exposes linked fee-stream quantity in the same native units consumed by Opex',
+       len(qser)==36 and abs(qser[0]-1_000_000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='native quantity units · engine-period series')
+    ck('small native Fee-stream quantity is not silently divided by 1000 in the public preview surface',
+       len(qnative)==36 and abs(qnative[0]-1234.0)<1e-9, qnative[:2])
 
     # CAC/AUC is a stock-linked Opex driver. Annual multipliers accrue on the canonical
     # monthly period-end AUC path, then aggregate to native presentation cadence.

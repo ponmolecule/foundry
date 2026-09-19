@@ -455,8 +455,11 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
     if exact is not None:
         qraw = {sid: [float(x or 0.0) for x in vals] for sid, vals in ((exact.get("fee_stream_quantities") or {}).items())}
     else:
+        # Public fee-stream quantities are exposed in exact native units.  Do not apply the
+        # historical $000s parity conversion here: these Series may be counts/activity units
+        # and are intentionally outside that monetary presentation seam.
         qpub = (((results.get("fee_stream_quantities") or {}).get("series")) or {})
-        qraw = {sid: [float(x or 0.0) * 1000.0 for x in vals] for sid, vals in qpub.items()}
+        qraw = {sid: [float(x or 0.0) for x in vals] for sid, vals in qpub.items()}
     known_ids = set(qraw)
     try:
         from .opex_extensions import fee_stream_quantity_catalog, fee_stream_balance_quantity_catalog
@@ -1221,13 +1224,14 @@ def _quantity_rows(cfg, results, n, exact=None):
                "count_level" if basis == "account" else "native observation")
         kind = unit_kinds.get(sid, "native")
         if kind == "money":
-            qvals = _money_k_series(vals) if exact is not None else list(vals)
+            # Both exact-engine input and the public fee-stream quantity surface are native
+            # quantities.  Monetary throughput is converted to $000s only for this audit row.
+            qvals = _money_k_series(vals)
             units, fmt = f"$000s · {sem}", _MONEY_FMT
         else:
-            # Public run_v2 historically scales all fee quantity Series by 1,000.  The
-            # calculation audit uses the exact engine, but restore native units here too
-            # for defensive callers that supply only the public result.
-            qvals = list(vals) if exact is not None else [float(v or 0.0) * 1000.0 for v in vals]
+            # Native/count quantities are exposed without parity scaling in both exact-engine
+            # and public result surfaces.
+            qvals = list(vals)
             units = ("count" if kind == "count" else "native units") + f" · {sem}"
             fmt = _NUM_FMT
         rows.append((m.get("family") or "Fee stream", label, sid, units, qvals, fmt))
