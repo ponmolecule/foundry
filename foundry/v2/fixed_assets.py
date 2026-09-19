@@ -91,6 +91,39 @@ def _resolve_natural_period_series(spec: Mapping[str, Any] | None, n_periods: in
     return [float(v or 0.0) * factor for v in vals]
 
 
+
+
+def _formula_component_display_name(component: Mapping[str, Any] | None, index: int,
+                                    assumptions: Mapping[str, Any] | None = None,
+                                    normalized_driver: Mapping[str, Any] | None = None) -> str:
+    """Human-facing name for a Formula / level component.
+
+    Early releases seeded the literal placeholder ``Linked asset component``.  That is
+    implementation vocabulary, not a useful balance-sheet label.  Preserve an authored
+    name, but replace legacy/generic placeholders with a stable description derived from
+    the linked Series when possible.
+    """
+    c = component or {}
+    raw = str(c.get("name") or "").strip()
+    generic = (not raw or raw == "Linked asset component" or
+               (raw.lower().startswith("linked component ") and raw.split()[-1].isdigit()))
+    if not generic:
+        return raw
+    ns = normalized_driver or {}
+    link = dict(ns.get("link") or ((c.get("driver_spec") or {}).get("link") or {}))
+    kind = str(link.get("kind") or "").strip()
+    sid = str(link.get("series_id") or "").strip()
+    if kind == "workforce_role_count" and sid:
+        try:
+            from .opex_extensions import workforce_count_catalog
+            hit = next((x for x in workforce_count_catalog(assumptions or {})
+                        if str(x.get("series_id") or "") == sid), None)
+            if hit:
+                return f"Fixed assets · {str(hit.get('role') or sid)}"
+        except Exception:
+            pass
+    return f"Fixed-asset component {index + 1}"
+
 def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
                               assumptions: Mapping[str, Any] | None,
                               n_periods: int, ppy: int, *, growth_context=None) -> Dict[str, Any]:
@@ -151,7 +184,7 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
         target = [float(a or 0.0) + float(b or 0.0) for a, b in zip(target, values)]
         component_rows.append({
             "component_id": str(comp.get("component_id") or ""),
-            "name": str(comp.get("name") or f"Linked component {i + 1}"),
+            "name": _formula_component_display_name(comp, i, assumptions, ns),
             "driver_series_id": str((ns.get("link") or {}).get("series_id") or ""),
             "driver_kind": str((ns.get("link") or {}).get("kind") or ""),
             "driver": [float(x or 0.0) for x in drivers],
@@ -381,7 +414,7 @@ def fixed_asset_series_catalog(assumptions: Mapping[str, Any] | None) -> list[di
         if not sid:
             continue
         rows.append({"series_id": sid,
-                     "name": str(raw.get("name") or f"Linked asset component {i + 1}"),
+                     "name": _formula_component_display_name(raw, i, a),
                      "semantic": "formula_component", "unit": "$",
                      "owner_module": "fixed_assets"})
     return rows

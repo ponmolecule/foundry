@@ -889,12 +889,15 @@ def _settings_sheet(wb, cfg):
     row("Intangibles", a.get("intangibles"), "$")
     row("Other assets", a.get("other_assets"), "$")
     _olm = a.get("other_liabilities_model")
-    if isinstance(_olm, dict):
-        row("Other-liability authoring", "Formula / level", "direct period-end liability level")
+    from .other_liabilities import other_liability_mode
+    _ol_mode = other_liability_mode(a)
+    row("Other-liability authoring", "Formula / level" if _ol_mode == "formula_level" else "Flat",
+        "active authoring mode")
+    if _ol_mode == "formula_level" and isinstance(_olm, dict):
         row("Opening other-liability balance", _olm.get("opening_balance", a.get("other_liabilities", 0.0)), "$")
         row("Other-liability linked components", len(_olm.get("components") or []), "Series × multiplier components")
     else:
-        row("Other liabilities", a.get("other_liabilities"), "$ (legacy flat)")
+        row("Other liabilities", a.get("other_liabilities"), "$ (flat)")
     sec("Scheduled borrowings")
     _ppy = int(a.get("periods_per_year") or 4)
     for i, b in enumerate(a.get("scheduled_borrowings") or [], 1):
@@ -1192,7 +1195,8 @@ def _capability_map_sheet(wb, cfg):
         add("Fixed assets", "Formula / level depreciation", _dep.get("kind") or "rate_of_level", "ASSM_FIXED_ASSETS_LEVEL")
 
     _olm=a.get("other_liabilities_model") or {}
-    if isinstance(_olm, dict) and _olm:
+    from .other_liabilities import other_liability_mode as _ol_mode_fn
+    if _ol_mode_fn(a) == "formula_level" and isinstance(_olm, dict) and _olm:
         add("Other liabilities", "Formula / level methodology", f"{len(_olm.get('components') or [])} linked component(s)", "ASSM_OTHER_LIAB")
         for _c in (_olm.get("components") or []):
             _drv=(_c.get("driver") or {}).get("kind")

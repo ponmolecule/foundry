@@ -12,7 +12,7 @@ def main():
         else: f+=1; print("  FAIL ", name + (f" — {detail}" if detail else ""))
 
     html=Path("web/console_v2.html").read_text(encoding="utf-8")
-    a=html.index("function _olState(create)")
+    a=html.index("function _faSuggestedComponentName(o)")
     b=html.index("window.faAdd=function()",a)
     js=html[a:b]
     prefix=r'''
@@ -27,7 +27,8 @@ function _ensureLinkableSeriesIds(){} function _seriesId(prefix){_idn++;return S
 '''
     suffix=r'''
 const before=JSON.stringify(cfg.assumptions);
-olEnable();
+const initialMode=_olMode();
+olSetMode('formula_level');
 const enabled=JSON.parse(JSON.stringify(cfg.assumptions.other_liabilities_model));
 olAddComponent();
 const afterAdd=JSON.parse(JSON.stringify(cfg.assumptions.other_liabilities_model));
@@ -35,7 +36,11 @@ olDriver(0,0,'fixed_asset_level::bank.fixed_assets.formula_level.base');
 olAddTerm(0);
 olDriver(0,1,'fixed_asset_level::bank.fixed_assets.accumulated_depreciation');
 const afterFA=JSON.parse(JSON.stringify(cfg.assumptions.other_liabilities_model));
-console.log(JSON.stringify({before,enabled,afterAdd,afterFA,opts:_olDriverOptions()}));
+const saved=JSON.stringify(cfg.assumptions.other_liabilities_model);
+olSetMode('flat'); const flatMode=_olMode(), preservedFlat=JSON.stringify(cfg.assumptions.other_liabilities_model)===saved;
+olSetMode('formula_level'); const restoredMode=_olMode(), preservedFormula=JSON.stringify(cfg.assumptions.other_liabilities_model)===saved;
+olRemoveComponent(0); const modeAfterDelete=_olMode();
+console.log(JSON.stringify({before,initialMode,enabled,afterAdd,afterFA,flatMode,preservedFlat,restoredMode,preservedFormula,modeAfterDelete,opts:_olDriverOptions()}));
 '''
     r=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     out={}
@@ -43,6 +48,7 @@ console.log(JSON.stringify({before,enabled,afterAdd,afterFA,opts:_olDriverOption
         try: out=json.loads(r.stdout.strip().splitlines()[-1])
         except Exception: pass
     en=out.get("enabled") or {}
+    ck("fresh legacy liability starts in Flat mode", out.get("initialMode")=="flat", r.stderr.strip())
     ck("enabling Formula / level preserves the legacy flat balance as opening and base",
        en.get("opening_balance")==250000 and (en.get("base_spec") or {}).get("value")==250000,
        r.stderr.strip())
@@ -65,8 +71,14 @@ console.log(JSON.stringify({before,enabled,afterAdd,afterFA,opts:_olDriverOption
        and "Fixed assets · Workforce-linked fixed assets" in labels
        and "Fixed assets · Accumulated depreciation" in labels
        and "Fixed assets · Net total" in labels)
-    ck("UI exposes additive liability Formula / level in the existing funding/balance-sheet area",
-       'Funding waterfall &amp; other balance sheet' in html and 'Use Formula / level' in html
+    ck("Flat / Formula mode switch is permanent and preserves inactive authoring state",
+       out.get("flatMode")=="flat" and out.get("preservedFlat") is True
+       and out.get("restoredMode")=="formula_level" and out.get("preservedFormula") is True
+       and out.get("modeAfterDelete")=="formula_level")
+    ck("UI exposes an always-visible Other liabilities mode selector",
+       'Funding waterfall &amp; other balance sheet' in html
+       and 'aria-label="Other liabilities authoring mode"' in html
+       and "olSetMode('flat')" in html and "olSetMode('formula_level')" in html
        and '+ Add liability component' in html and '+ Add formula term' in html
        and 'Signed multipliers are allowed' in html)
     ck("Balance Sheet renders named liability detail and multi-term contributions",

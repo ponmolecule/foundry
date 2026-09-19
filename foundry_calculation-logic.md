@@ -183,7 +183,7 @@ else:                            cash = required_cash;  securities = 0;  borrowi
 ```
 So cash is held to its floor, any surplus goes to the securities portfolio, and any deficit is filled with borrowings. This is the mechanism that makes the balance sheet balance every quarter.
 
-**Other-liability Formula / level.** Historical configs retain the flat `other_liabilities` scalar. When `other_liabilities_model` is active, the period-end Other liabilities balance is resolved before the funding plug as:
+**Other-liability authoring mode.** Other liabilities always has an explicit authoring choice: **Flat** or **Formula / level**. Historical configs without an explicit mode remain backward-compatible: absence of a saved Formula / level object means Flat; presence of one means Formula / level. Switching modes preserves the inactive setup rather than deleting it. When Formula / level is active, the period-end Other liabilities balance is resolved before the funding plug as:
 ```
 other_liabilities[t] = entered_base_level[t] + Σ(named_component[t])
 named_component[t]   = Σ(linked_series[t] × multiplier[t])
