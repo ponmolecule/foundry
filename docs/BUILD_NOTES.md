@@ -237,3 +237,9 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Corrects misleading Opex Formula / driver linked-source metadata that labeled every transaction Fee-stream quantity as `$000s / month` or `$000s / quarter`. Fee-stream quantity Series can carry counts or other native quantities (for example MAB helpers), so the linked preview now preserves them as **native units** rather than inventing monetary units.
 - The linked-source path copy now says **Fee-stream quantity** rather than implying every linked helper is a monetary transaction amount.
 - Public `fee_stream_quantities` metadata likewise uses a unit-neutral native-quantity Series label. Series values, stable IDs, cadence, Formula / driver arithmetic, fee economics, and saved Opex inputs are unchanged.
+
+## r126 — Fee-stream quantity native-scale correction
+- Fixes the r125 follow-on defect where the Opex linked-source preview label was corrected to `native units` but the public quantity values were still sourced from the historical parity-shaped result tree, which divides ordinary numeric arrays by 1,000. A native quantity such as Migrated MAB = 1,234 could therefore display as 1.234 even though Formula / driver consumed 1,234 internally.
+- `run_v2` now publishes `fee_stream_quantities` from the exact base-engine result rather than the parity-converted tree. The public preview and Opex engine therefore observe the same native quantity values.
+- Calculation Audit public-result fallbacks now treat fee-stream quantities as native values; monetary throughput is converted to $000s only on monetary audit rows, while counts/native quantities remain unscaled.
+- No Fee Product pricing, Opex Formula / driver arithmetic, cadence behavior, stable Series identity, or saved engagement inputs change. Existing Migrated MAB links require no re-entry.

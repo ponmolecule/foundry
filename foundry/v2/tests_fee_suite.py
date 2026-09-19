@@ -519,11 +519,19 @@ def main():
     aqcfg={"assumptions":{"obs_exposures":[{"name":"BaaS APIs","fee_streams":audit_streams}]}}
     aqexact={"fee_stream_quantities":{"q-mab":[1234.0],"q-migrated":[123.4],"q-enabled":[4.319],"q-api":[179_958_333.33333334]}}
     aqrows={r[2]:r for r in _quantity_rows(aqcfg,{},1,exact=aqexact)}
+    aqpublic={"fee_stream_quantities":{"series":copy.deepcopy(aqexact["fee_stream_quantities"]),
+                                         "units":"native quantity units · engine-period series"}}
+    aqrows_public={r[2]:r for r in _quantity_rows(aqcfg,aqpublic,1,exact=None)}
     ck("D3d Calculation Audit keeps count/native fee quantities unscaled and labels only monetary throughput as $000s",
        aqrows["q-mab"][3].startswith("native units") and abs(aqrows["q-mab"][4][0]-1234.0)<1e-9
        and aqrows["q-enabled"][3].startswith("native units") and abs(aqrows["q-enabled"][4][0]-4.319)<1e-9
        and aqrows["q-api"][3].startswith("$000s") and abs(aqrows["q-api"][4][0]-179_958.33333333334)<1e-6,
        str({k:(v[3],v[4][0]) for k,v in aqrows.items()}))
+    ck("D3d public-only audit fallback preserves native quantity scale and converts only monetary throughput",
+       abs(aqrows_public["q-mab"][4][0]-1234.0)<1e-9
+       and abs(aqrows_public["q-enabled"][4][0]-4.319)<1e-9
+       and abs(aqrows_public["q-api"][4][0]-179_958.33333333334)<1e-6,
+       str({k:(v[3],v[4][0]) for k,v in aqrows_public.items()}))
     ck("D3d2 Calculation Audit quantity rows explicitly say throughput/driver quantity rather than implying revenue",
        "Transaction throughput / driver quantity" in aqrows["q-api"][1]
        and "API Revenue" in aqrows["q-api"][1], aqrows["q-api"][1])

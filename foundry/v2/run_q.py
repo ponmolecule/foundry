@@ -593,7 +593,12 @@ def run_v2(cfg):
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
-        "fee_stream_quantities": {"series": copy.deepcopy(base.get("fee_stream_quantities") or {}),
+        # Fee-stream quantities are non-monetary/heterogeneous model quantities (counts,
+        # native activity units, or monetary throughput depending on the stream).  The frozen
+        # parity adapter scales ordinary numeric arrays by 1/1000 for historical public
+        # financial-statement compatibility, so the parity-shaped `base` tree is NOT a valid
+        # source for this native-unit surface.  Publish the exact engine quantities instead.
+        "fee_stream_quantities": {"series": copy.deepcopy((base_exact or {}).get("fee_stream_quantities") or {}),
                                   "units": "native quantity units · engine-period series"},
         "ftp": _ftp_view(base, cfg, _ppy),
         "scenarios": {scen: {**_scen_metrics(r, cfg, next((c2["value"] for c2 in cfg["constraints"]
