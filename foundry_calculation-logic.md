@@ -185,9 +185,10 @@ So cash is held to its floor, any surplus goes to the securities portfolio, and 
 
 **Other-liability Formula / level.** Historical configs retain the flat `other_liabilities` scalar. When `other_liabilities_model` is active, the period-end Other liabilities balance is resolved before the funding plug as:
 ```
-other_liabilities[t] = entered_base_level[t] + Σ(linked_driver[t] × multiplier[t])
+other_liabilities[t] = entered_base_level[t] + Σ(named_component[t])
+named_component[t]   = Σ(linked_series[t] × multiplier[t])
 ```
-The current generic linked drivers are stable Workforce Count Series and net fixed assets. A Workforce-linked multiplier is a stock coefficient ($/FTE, with no hidden time period); a net-fixed-asset multiplier is dimensionless. Names such as Accounts Payable & Accrued Expenses or Operating Lease Liability are descriptive only and do not create engagement-specific engine branches. The resolved liability level feeds the funding waterfall in the same period.
+The current generic linked families are stable Workforce Count Series and published Fixed Asset Formula / level Series. Fixed Assets publishes the entered base, every named formula component, and aggregate gross, accumulated-depreciation, and net balances under stable Series IDs. Workforce-linked multipliers are stock coefficients ($/FTE, with no hidden time period); fixed-asset multipliers are dimensionless and may be signed so an authored relationship can explicitly subtract a contra balance. The resolved total liability stock must remain non-negative. Names such as Accounts Payable & Accrued Expenses or Operating Lease Liability are descriptive only and do not create engagement-specific engine branches. For example, a source model with gross fixed assets `ROU asset + FTE × $800` and a lease liability `ROU asset + negative cumulative depreciation` is represented as `ROU asset × 1 + accumulated depreciation × -1`, so the unrelated FTE-linked asset component is not pulled into the liability. The resolved liability level feeds the funding waterfall in the same period.
 
 **Retained earnings** accumulate net income each quarter (`re += ni`), starting from the day-one mark (§6) minus pre-opening burn (§7c). **Equity** = paid-in capital (`cap_t`) + retained earnings + cumulative AOCI. **Total assets** = cash + securities + securities books + net loans + non-earning + MSR (+ DTA if the tax module is on).
 

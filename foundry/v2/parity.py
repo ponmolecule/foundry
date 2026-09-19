@@ -81,24 +81,46 @@ def _conv_other_liabilities(ol):
     for key in ("base", "total"):
         if isinstance(out.get(key), list):
             out[key] = [_k(x) for x in out[key]]
+
+    def conv_term(term):
+        t = dict(term or {})
+        kind = str(t.get("driver_kind") or "")
+        if isinstance(t.get("amount"), list):
+            t["amount"] = [_k(x) for x in t["amount"]]
+        if isinstance(t.get("driver"), list):
+            t["driver"] = ([None if x is None else round(float(x), 6) for x in t["driver"]]
+                           if kind == "workforce_role_count"
+                           else [_k(x) for x in t["driver"]])
+        if isinstance(t.get("multiplier"), list):
+            t["multiplier"] = ([_k(x) for x in t["multiplier"]]
+                               if kind == "workforce_role_count"
+                               else [None if x is None else float(x) for x in t["multiplier"]])
+        return t
+
     rows = []
     for comp in out.get("components") or []:
         if not isinstance(comp, dict):
             rows.append(comp); continue
         c = dict(comp)
-        kind = str(c.get("driver_kind") or "")
         if isinstance(c.get("amount"), list):
             c["amount"] = [_k(x) for x in c["amount"]]
+        if isinstance(c.get("terms"), list):
+            c["terms"] = [conv_term(t) if isinstance(t, dict) else t for t in c["terms"]]
+        # r127 compatibility fields for one-term components.
+        kind = str(c.get("driver_kind") or "")
         if isinstance(c.get("driver"), list):
-            c["driver"] = ([_k(x) for x in c["driver"]] if kind == "fixed_asset_net"
+            c["driver"] = ([_k(x) for x in c["driver"]]
+                           if kind == "fixed_asset_net"
                            else [None if x is None else round(float(x), 6) for x in c["driver"]])
         if isinstance(c.get("multiplier"), list):
-            c["multiplier"] = ([_k(x) for x in c["multiplier"]] if kind == "workforce_count"
+            c["multiplier"] = ([_k(x) for x in c["multiplier"]]
+                               if kind == "workforce_count"
                                else [None if x is None else float(x) for x in c["multiplier"]])
         rows.append(c)
     if "components" in out:
         out["components"] = rows
     return out
+
 
 def _conv_managed_securities(rows):
     """Convert managed-securities audit output without corrupting rates/ratios.

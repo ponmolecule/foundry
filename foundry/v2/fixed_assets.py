@@ -36,6 +36,15 @@ def _i(v, default=0):
 
 _LEVEL_RATE_FREQ = {"year": 1.0, "quarter": 4.0, "month": 12.0}
 
+# Canonical stable Series IDs for fixed-asset Formula / level outputs. These IDs
+# identify economic quantities, not engagement-specific labels. Formula-level linked
+# component ``component_id`` values are themselves stable Series IDs for the
+# component contribution.
+FIXED_ASSET_GROSS_SERIES_ID = "bank.fixed_assets.gross"
+FIXED_ASSET_ACCUM_DEP_SERIES_ID = "bank.fixed_assets.accumulated_depreciation"
+FIXED_ASSET_NET_SERIES_ID = "bank.fixed_assets.net"
+FIXED_ASSET_FORMULA_BASE_SERIES_ID = "bank.fixed_assets.formula_level.base"
+
 
 def _formula_level_config(fixed_assets: Mapping[str, Any] | None) -> dict:
     fa = dict(fixed_assets or {})
@@ -222,6 +231,8 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
             "level_basis": basis,
             "opening_level": opening_level,
             "opening_accumulated_depreciation": opening_accum,
+            "base_name": str(cfg.get("base_name") or "Base asset level"),
+            "base_series_id": FIXED_ASSET_FORMULA_BASE_SERIES_ID,
             "base": [float(x or 0.0) for x in base],
             "components": component_rows,
             "depreciation_kind": kind,
@@ -338,6 +349,74 @@ def fixed_asset_schedule(fixed_assets: dict | None, n_periods: int, ppy: int) ->
         "asset_rows": rows,
     }
 
+
+
+def fixed_asset_series_catalog(assumptions: Mapping[str, Any] | None) -> list[dict]:
+    """Return linkable fixed-asset level Series owned by the fixed-assets module.
+
+    Formula / level publishes its entered base and each named linked component as
+    separate stock Series, in addition to the aggregate gross / accumulated-depreciation /
+    net balances.  Component IDs are already stable identities, so no display-name link
+    is required and renaming a component cannot break a downstream relationship.
+    """
+    a = assumptions or {}
+    if fixed_asset_mode(dict(a)) != "formula_level":
+        return []
+    fl = _formula_level_config((a.get("fixed_assets") or {}))
+    rows = [
+        {"series_id": FIXED_ASSET_FORMULA_BASE_SERIES_ID,
+         "name": str(fl.get("base_name") or "Base asset level"),
+         "semantic": "formula_base", "unit": "$", "owner_module": "fixed_assets"},
+        {"series_id": FIXED_ASSET_GROSS_SERIES_ID, "name": "Gross fixed assets",
+         "semantic": "gross", "unit": "$", "owner_module": "fixed_assets"},
+        {"series_id": FIXED_ASSET_ACCUM_DEP_SERIES_ID, "name": "Accumulated depreciation",
+         "semantic": "accumulated_depreciation", "unit": "$", "owner_module": "fixed_assets"},
+        {"series_id": FIXED_ASSET_NET_SERIES_ID, "name": "Net fixed assets",
+         "semantic": "net", "unit": "$", "owner_module": "fixed_assets"},
+    ]
+    for i, raw in enumerate(fl.get("components") or []):
+        if not isinstance(raw, Mapping):
+            continue
+        sid = str(raw.get("component_id") or "").strip()
+        if not sid:
+            continue
+        rows.append({"series_id": sid,
+                     "name": str(raw.get("name") or f"Linked asset component {i + 1}"),
+                     "semantic": "formula_component", "unit": "$",
+                     "owner_module": "fixed_assets"})
+    return rows
+
+
+def fixed_asset_series_by_id(assumptions: Mapping[str, Any] | None, series_id: str,
+                             n_periods: int, ppy: int, *, growth_context=None) -> list[float]:
+    """Resolve one published fixed-asset Formula / level Series by stable ID.
+
+    Values are native model-period *levels* and intentionally exclude the opening slot,
+    matching the generic Foundry linked-Series contract.  Only Formula / level publishes
+    component Series; Asset schedule and historical Simple retain aggregate statement
+    outputs but do not invent component identities that were never authored.
+    """
+    a = assumptions or {}
+    if fixed_asset_mode(dict(a)) != "formula_level":
+        raise ValueError("fixed-asset component Series require Formula / level authoring")
+    sid = str(series_id or "").strip()
+    if not sid:
+        raise ValueError("fixed-asset linked Series requires series_id")
+    fa = fixed_asset_formula_level(a.get("fixed_assets"), a, int(n_periods), int(ppy),
+                                   growth_context=growth_context)
+    fl = fa.get("formula_level") or {}
+    if sid == FIXED_ASSET_FORMULA_BASE_SERIES_ID:
+        return [float(x or 0.0) for x in (fl.get("base") or [])]
+    if sid == FIXED_ASSET_GROSS_SERIES_ID:
+        return [float(x or 0.0) for x in (fa.get("gross") or [])[1:]]
+    if sid == FIXED_ASSET_ACCUM_DEP_SERIES_ID:
+        return [float(x or 0.0) for x in (fa.get("accumulated_depreciation") or [])[1:]]
+    if sid == FIXED_ASSET_NET_SERIES_ID:
+        return [float(x or 0.0) for x in (fa.get("net") or [])[1:]]
+    hits = [c for c in (fl.get("components") or []) if str((c or {}).get("component_id") or "") == sid]
+    if len(hits) != 1:
+        raise ValueError(f"linked fixed-asset Series {sid!r} resolved to {len(hits)} matches; expected exactly one")
+    return [float(x or 0.0) for x in (hits[0].get("amount") or [])]
 
 def fixed_asset_mode(assumptions: dict | None) -> str:
     fa = (assumptions or {}).get("fixed_assets") or {}

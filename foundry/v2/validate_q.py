@@ -668,6 +668,26 @@ def validate_config_v2(cfg):
     # them, but any identity that exists must be globally unique and owned by the module
     # that authors the economics.  Nested Count specs reuse the role's count series_id.
     _series_ids = []
+    # Fixed-asset Formula / level component IDs are published Series identities in r128.
+    # They therefore participate in the same global uniqueness contract as Workforce,
+    # Opex, CAC and fee-owned Series. Aggregate/base fixed-asset IDs are canonical
+    # reserved IDs and are not user-authored.
+    _fa_ids = a.get("fixed_assets") or {}
+    if str(_fa_ids.get("mode") or "").strip().lower() == "formula_level":
+        from .fixed_assets import (
+            FIXED_ASSET_GROSS_SERIES_ID, FIXED_ASSET_ACCUM_DEP_SERIES_ID,
+            FIXED_ASSET_NET_SERIES_ID, FIXED_ASSET_FORMULA_BASE_SERIES_ID,
+        )
+        # Canonical Formula / level outputs own these reserved identities. Including them
+        # in the global set also prevents a user-authored component from shadowing one.
+        _series_ids.extend([
+            FIXED_ASSET_GROSS_SERIES_ID, FIXED_ASSET_ACCUM_DEP_SERIES_ID,
+            FIXED_ASSET_NET_SERIES_ID, FIXED_ASSET_FORMULA_BASE_SERIES_ID,
+        ])
+        for _fc in (((_fa_ids.get("formula_level") or {}).get("components")) or []):
+            _sid = str((_fc or {}).get("component_id") or "").strip()
+            if _sid:
+                _series_ids.append(_sid)
     _nd_ids = a.get("nie_detail") or {}
     _wf_ids = (_nd_ids.get("workforce") or {})
     _wf_total_sid = str(_wf_ids.get("total_count_series_id") or "").strip()
@@ -697,9 +717,9 @@ def validate_config_v2(cfg):
         _own = str(_r.get("owner_module") or "").strip()
         if _own and _own != "operating_expense.workforce":
             errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
-    # Generalized other-liability Formula / level. The engine resolves runtime driver
-    # values period-by-period; validation proves the authored trajectories and stable
-    # Workforce links before projection. Historical scalar other_liabilities remains valid.
+    # Generalized other-liability Formula / level. prepare_other_liabilities resolves and
+    # validates every safe linked Series (Workforce Count or Fixed Assets) deterministically
+    # before projection. Historical scalar other_liabilities remains valid.
     if isinstance(a.get("other_liabilities_model"), dict):
         try:
             from .other_liabilities import prepare_other_liabilities
