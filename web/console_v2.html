@@ -8557,9 +8557,9 @@ function _opexLinkedSourcePreview(lc){
     return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(opt.feed)}</b> · upstream AUC owned by Customer Acquisition.</div>${detail}</div>`;
   }
   const st=opt.streamObj||{},drv=st.driver||{},traj=drv.trajectory||"flat";
-  let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Transaction quantity · ${esc(drv.source||'source')} · ${esc(traj)} · read-only here</span></div>`;
+  let detail=`<div class="cac-link-preview-row"><span class="wf-field-label">Linked source path</span><span class="cu">Fee-stream quantity · ${esc(drv.source||'source')} · ${esc(traj)} · read-only here</span></div>`;
   const ser=((((typeof lastRes!=="undefined"&&lastRes)||{}).fee_stream_quantities||{}).series||{})[lc.series_id]||[];
-  if(ser.length){const lab=PPY()===12?'M':'Q';detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">$000s / ${PPY()===12?'month':'quarter'}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(ser.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
+  if(ser.length){const lab=PPY()===12?'M':'Q';detail+=`<div class="cac-link-preview-row" style="margin-top:5px"><span class="wf-field-label">Latest run · resolved pull</span><span class="cu">native units · resolved upstream Series</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(ser.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
   return `<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(opt.product)} › ${esc(opt.stream)}</b> · upstream Fee-stream quantity; edit the source in Fee Product.</div>${detail}</div>`;
 }
 function _opexServiceLevelEditorHtml(i,j,key,label,unit){
