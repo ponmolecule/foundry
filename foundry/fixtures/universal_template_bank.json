@@ -2196,7 +2196,42 @@
           }
         ]
       }
-    ]
+    ],
+    "other_liabilities_model": {
+      "opening_balance": 1000000,
+      "base_spec": {
+        "source": "entered",
+        "trajectory": "flat",
+        "value": 1000000
+      },
+      "components": [
+        {
+          "component_id": "universal-other-liab-workforce",
+          "name": "Workforce-linked accrued expenses",
+          "driver": {
+            "kind": "workforce_count",
+            "series_id": "wf-total-universal"
+          },
+          "multiplier_spec": {
+            "source": "entered",
+            "trajectory": "flat",
+            "value": 0
+          }
+        },
+        {
+          "component_id": "universal-other-liab-fixed-asset",
+          "name": "Fixed-asset-linked liability",
+          "driver": {
+            "kind": "fixed_asset_net"
+          },
+          "multiplier_spec": {
+            "source": "entered",
+            "trajectory": "flat",
+            "value": 0
+          }
+        }
+      ]
+    }
   },
   "charter_profile": {
     "cblr_election": true,

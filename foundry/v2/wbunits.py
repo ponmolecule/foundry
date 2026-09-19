@@ -27,6 +27,7 @@ _MONEY_LEGACY = {
     # linked driver unit (for example $5k per FTE). They scale like balances, unlike
     # transactional/per-account prices which deliberately remain plain dollars.
     "$/driver-unit": "$000s/driver-unit",
+    "$/FTE": "$000s/FTE",
 }
 _NEW_LABELS = set(_MONEY_LEGACY.values())
 

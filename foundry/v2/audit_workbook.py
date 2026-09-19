@@ -1381,6 +1381,43 @@ def _fixed_asset_rows(cfg, results, n):
     return rows
 
 
+
+def _other_liability_rows(cfg, results, n):
+    """Expose generalized other-liability Formula / level causal chain."""
+    ol = (results or {}).get("other_liabilities_detail") or {}
+    if not isinstance(ol, Mapping) or not ol:
+        return []
+    def money(vals): return _money_k_series(vals or [])
+    rows = [
+        ("Other liabilities", "Opening balance", "other_liabilities:opening", "$000s · opening",
+         money([ol.get("opening_balance", 0.0)]) + [None] * max(0, n), _RAW_MONEY_FMT),
+        ("Other liabilities", "Entered base liability level", "other_liabilities:base", "$000s · period end",
+         [None] + money(ol.get("base") or []), _RAW_MONEY_FMT),
+        ("Other liabilities", "Total modeled other liabilities", "other_liabilities:total", "$000s · period end",
+         money(ol.get("total") or []), _RAW_MONEY_FMT),
+    ]
+    for i, comp in enumerate(ol.get("components") or []):
+        if not isinstance(comp, Mapping):
+            continue
+        name = str(comp.get("name") or f"Linked liability {i+1}")
+        cid = str(comp.get("component_id") or f"liability_{i+1}")
+        kind = str(comp.get("driver_kind") or "")
+        drv = list(comp.get("driver") or [])
+        mul = list(comp.get("multiplier") or [])
+        amt = list(comp.get("amount") or [])
+        if kind == "workforce_count":
+            driver_units, mult_units = "FTE / native count", "$000s / FTE"
+            driver_vals, mult_vals = [None] + [float(x or 0.0) for x in drv], [None] + money(mul)
+        else:
+            driver_units, mult_units = "$000s · linked net fixed asset", "dimensionless multiple"
+            driver_vals, mult_vals = [None] + money(drv), [None] + [float(x or 0.0) for x in mul]
+        rows.extend([
+            (name, "Linked driver", f"{cid}:driver:{kind}", driver_units, driver_vals, _RAW_NUM_FMT if kind == "workforce_count" else _RAW_MONEY_FMT),
+            (name, "Multiplier", f"{cid}:multiplier", mult_units, mult_vals, _RAW_MONEY_FMT if kind == "workforce_count" else _RAW_NUM_FMT),
+            (name, "Calculated liability contribution", f"{cid}:amount", "$000s · period-end liability component", [None] + money(amt), _RAW_MONEY_FMT),
+        ])
+    return rows
+
 def _managed_securities_rows(cfg, results, n):
     """Expose the managed-securities stock/flow/yield causal chain.
 
@@ -1513,6 +1550,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Series Provenance", "Stable Series IDs, ownership metadata, and authored link targets/aggregation semantics."),
         ("Income Statement", "Every public native-cadence income-statement series."),
         ("Balance Sheet", "Every public balance-sheet series, including opening balances."),
+        ("Other Liabilities", "Formula / level liability causal chain: opening/base, linked Workforce or net-fixed-asset drivers, multipliers, component balances, and total other liabilities."),
         ("Ratios", "Native-cadence public ratios."),
         ("Operating Expense", "IS Opex decomposition plus recurring categories, additive components, settlement balances, and residual reconciliation."),
         ("Opex Component Detail", "Period-by-period linked/tiered/cost-pool intermediates, including tier observations, active bands, rates, and raw-dollar calculated expense."),
@@ -1568,6 +1606,11 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      title="Fixed Assets / CAPEX · Calculation Audit",
                      subtitle="Formula / level or Asset schedule causal bridge to gross PP&E, accumulated depreciation, net PP&E, depreciation and CAPEX/disposal. Formula / level linked drivers remain in native units; monetary values are converted once to $000s.",
                      n=n, ppy=ppy, include_open=True)
+    if isinstance((a.get("other_liabilities_model") or {}), Mapping):
+        _write_wide_rows(wb.create_sheet("Other Liabilities"), cfg, _other_liability_rows(cfg, exact, n),
+                         title="Other Liabilities · Calculation Audit",
+                         subtitle="Formula / level causal chain. Workforce counts remain native; monetary stock balances and $/FTE multipliers are converted once to $000s.",
+                         n=n, ppy=ppy, include_open=True)
     _write_wide_rows(wb.create_sheet("Ratios"), cfg,
                      _exact_financial_rows(rt, "Ratios", "% / engine ratio units", n, ratio=True),
                      title="Ratios · Calculation Audit", subtitle="Unrounded native-cadence base-engine ratios.", n=n, ppy=ppy)

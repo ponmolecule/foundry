@@ -46,3 +46,6 @@ Self-timed tiered/banded Opex components can recognize expense either **At cash 
 
 ### Managed securities Explicit schedule disclosure
 Managed-securities Explicit percentage schedules use a deterministic two-state editor. When open, the paste table always exposes **Close**; when closed, the same Explicit field always exposes **View / edit schedule**. Transient disclosure state is never allowed to strand a saved/re-rendered Explicit schedule with no way to reopen its values.
+
+### Formula / level other liabilities
+The existing **Securities books & AOCI → Funding waterfall & other balance sheet** surface supports a backward-compatible Formula / level model for Other liabilities. Historical scalar `other_liabilities` remains flat when the generalized model is absent. When enabled, the period-end liability stock is an entered base level plus named linked Series × multiplier components. Current generic drivers are stable Workforce Count Series and net fixed assets; component names are presentation only. This supports, without bespoke runtime branches, balances such as Accounts Payable & Accrued Expenses (`Total workforce × $/FTE`) and a source-model operating lease liability (`Net fixed assets × multiple`).

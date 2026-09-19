@@ -689,6 +689,9 @@ def run_v2(cfg):
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
+    if base.get("other_liabilities_detail") is not None:
+        results["other_liabilities"] = copy.deepcopy(base.get("other_liabilities_detail"))
+        results["other_liabilities"]["units"] = "$000s for monetary fields; Workforce Count drivers are native counts; fixed-asset multipliers are dimensionless"
     if base.get("managed_securities") is not None:
         results["managed_securities"] = copy.deepcopy(base.get("managed_securities"))
         results["managed_securities_units"] = {

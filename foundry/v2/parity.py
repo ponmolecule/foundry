@@ -70,6 +70,36 @@ def _conv_fixed_assets(fa):
 
 
 
+
+def _conv_other_liabilities(ol):
+    """Convert generalized other-liability audit output without corrupting driver units."""
+    if not isinstance(ol, dict):
+        return ol
+    out = dict(ol)
+    if isinstance(out.get("opening_balance"), (int, float)):
+        out["opening_balance"] = _k(out["opening_balance"])
+    for key in ("base", "total"):
+        if isinstance(out.get(key), list):
+            out[key] = [_k(x) for x in out[key]]
+    rows = []
+    for comp in out.get("components") or []:
+        if not isinstance(comp, dict):
+            rows.append(comp); continue
+        c = dict(comp)
+        kind = str(c.get("driver_kind") or "")
+        if isinstance(c.get("amount"), list):
+            c["amount"] = [_k(x) for x in c["amount"]]
+        if isinstance(c.get("driver"), list):
+            c["driver"] = ([_k(x) for x in c["driver"]] if kind == "fixed_asset_net"
+                           else [None if x is None else round(float(x), 6) for x in c["driver"]])
+        if isinstance(c.get("multiplier"), list):
+            c["multiplier"] = ([_k(x) for x in c["multiplier"]] if kind == "workforce_count"
+                               else [None if x is None else float(x) for x in c["multiplier"]])
+        rows.append(c)
+    if "components" in out:
+        out["components"] = rows
+    return out
+
 def _conv_managed_securities(rows):
     """Convert managed-securities audit output without corrupting rates/ratios.
 
@@ -139,6 +169,7 @@ def _conv(tree, is_ratio=False, raw=False):
     if isinstance(tree, dict):
         return {k: (_conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else
+                    _conv_other_liabilities(v) if k == "other_liabilities_detail" else
                     _conv_managed_securities(v) if k == "managed_securities" else
                     _conv(v, is_ratio or k in ("ratios", "rateQ"),
                           raw or k in ("ftp_rate", "resolved_hire_periods")))

@@ -92,7 +92,7 @@ cfg.pre_opening.expenses=[{category:'Legal',total:1000}];
 window.poClear(); window.nieWorkforceClear(); window.nieCatClear();
 console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compactHdr,legacyHeaderlessRejected,noPeriodRejected,monthlyHdr,genericFteHdr,monthlyNamedHdr,totalHdr,totalNamedHdr,noBasisRejected,unitParity:{manualAmt,poAmt,faAmt,catAmt,wfAmt},mnMetric,pyMetric,aucSources,simpleHasDraft,restored,cleared:{po:cfg.pre_opening.expenses.length,wf:wf.roles.length,cat:cfg.assumptions.nie_detail.categories.length}}));
 '''.replace('__ROLES__', json.dumps(roles))
-    br=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
+    br=subprocess.run(["node"],input=prefix+js+suffix,text=True,capture_output=True)
     bj={}
     if br.returncode==0 and br.stdout.strip():
         try: bj=json.loads(br.stdout.strip().splitlines()[-1])

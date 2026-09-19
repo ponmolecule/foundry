@@ -120,6 +120,11 @@ def run_pf_b(cfg):
         _fa = {"preopening_capex": 0.0, "asset_rows": []}
     non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
     other_liab = a["other_liabilities"]
+    from .other_liabilities import prepare_other_liabilities, other_liability_period
+    _ol_prepared = prepare_other_liabilities(a, Q, 4, growth_context=_growth_ctx)
+    _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
+                        else float(other_liab or 0.0))
+    _ol_period_rows = []
     alloc = a["sweep_securities_alloc"]
     floor_pct = a["alll_floor_pct_loans"]
 
@@ -154,9 +159,10 @@ def run_pf_b(cfg):
     _aoci_sens = float(a.get("aoci_sensitivity_annual") or 0.0)
     aoci_cum = 0.0
 
-    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0):
+    def plug(gross_end, alll_end, sec_prod_end, dep_end, equity_end, extra_liab=0.0, other_liab_level=None):
         uses = gross_end - alll_end + sec_prod_end + _ne[0] - _sched_t[_ne_q[0]]
-        liquid = dep_end + other_liab + float(extra_liab or 0.0) + equity_end - uses
+        _ol = _other_liab_open if other_liab_level is None else float(other_liab_level or 0.0)
+        liquid = dep_end + _ol + float(extra_liab or 0.0) + equity_end - uses
         borrow = 0.0
         if liquid < 0:
             borrow = -liquid
@@ -173,7 +179,7 @@ def run_pf_b(cfg):
     out_bs = {k: [] for k in ("cash", "afs", "htm", "grossLoans", "alll", "netLoans",
                               "deposits", "borrowings", "equity", "retained", "aoci",
                               "paidIn", "premises", "premisesGross", "premisesAccumDep",
-                              "borrowSched", "prepaidOpex", "accruedOpex", "totalAssets")}
+                              "borrowSched", "prepaidOpex", "accruedOpex", "otherLiab", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
                               "provision", "fees", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "pretax", "tax",
                               "ni", "chargeoffs")}
@@ -196,6 +202,7 @@ def run_pf_b(cfg):
         _workforce_comp = 0.0
         _depreciation_expense = _dep_exp[qi]
         _other_opex = _ovh_b - _depreciation_expense
+        _wf_count_map_q = {}
         if _nie_d:
             _pa = prev_assets
             _te = (equity if qi == 0 else out_bs["equity"][qi - 1]) - a["intangibles"]
@@ -221,7 +228,6 @@ def run_pf_b(cfg):
                                                 and (qi % _occ_half_interval) == _occ_pay_phase)
                              else 0.0)
                 _occ_signed_balance += _occ_cash - _occ
-            _wf_count_map_q = {}
             if _wf_count_runtime is not None:
                 _wf_counts_q = _wf_count_runtime.count_for_period(q)
                 for _wi, _cv in enumerate(_wf_counts_q):
@@ -281,6 +287,13 @@ def run_pf_b(cfg):
             _wf_additive_comp_native.append(float(sum(_wf_add_values)))
             for _wci in range(len(_wf_additive_component_native)):
                 _wf_additive_component_native[_wci].append(float(_wf_add_values[_wci] if _wci < len(_wf_add_values) else 0.0))
+        if _ol_prepared is not None:
+            _olr = other_liability_period(
+                _ol_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1])
+            _other_liab_q = float(_olr["total"] or 0.0)
+            _ol_period_rows.append(_olr)
+        else:
+            _other_liab_q = float(other_liab or 0.0)
         nie = opex_prod + _ovh_b
         _prepaid_opex_q = ((_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0)
                            + max(0.0, _occ_signed_balance)
@@ -316,7 +329,7 @@ def run_pf_b(cfg):
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
         _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"] + _prepaid_opex_q
         _ne_q[0] = qi + 1
-        c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end, _accrued_opex_q)
+        c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end, _accrued_opex_q, _other_liab_q)
         net_loans = gl_end - alll_end
         afs_end = s2 + sum(p["_end"][qi] for p in afs_p)
         htm_end = sum(p["_end"][qi] for p in htm_p)
@@ -333,7 +346,8 @@ def run_pf_b(cfg):
                      ("premisesGross", _prem_gross_t[qi + 1]),
                      ("premisesAccumDep", _prem_accum_t[qi + 1]),
                      ("borrowSched", _sched_t[qi + 1]), ("prepaidOpex", _prepaid_opex_q),
-                     ("accruedOpex", _accrued_opex_q), ("totalAssets", total_assets)):
+                     ("accruedOpex", _accrued_opex_q), ("otherLiab", _other_liab_q),
+                     ("totalAssets", total_assets)):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
@@ -389,7 +403,23 @@ def run_pf_b(cfg):
                 "gos": [0.0] * Q, "servNet": [0.0] * Q,
                 "ftp_rate": [ftp] * Q,
             })
+    if _ol_prepared is None:
+        out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
+    if _ol_prepared is not None:
+        _out["other_liabilities_detail"] = {
+            "mode": "formula_level", "opening_balance": _other_liab_open,
+            "base": list(_ol_prepared.get("base") or []), "total": list(out_bs.get("otherLiab") or []),
+            "components": [{
+                "component_id": c.get("component_id"), "name": c.get("name"),
+                "driver_kind": c.get("driver_kind"), "series_id": c.get("series_id") or "",
+                "multiplier": list(c.get("multiplier") or []),
+                "driver": [float((r.get("components") or [])[i].get("driver") or 0.0)
+                           if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
+                "amount": [float((r.get("components") or [])[i].get("amount") or 0.0)
+                           if i < len(r.get("components") or []) else 0.0 for r in _ol_period_rows],
+            } for i, c in enumerate(_ol_prepared.get("components") or [])],
+        }
     if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or []) or _wf_add_components):
         _out["workforce"] = {
             "resolved_hire_periods": [int((r or {}).get("hire_period") or 1) for r in (_wf_cfg.get("roles") or [])],

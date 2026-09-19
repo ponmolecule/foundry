@@ -37,6 +37,7 @@ RESULT_CODES_BS = {
     "premisesAccumDep": ("—", "detail", "—", "Accumulated depreciation (presentation detail)"),
     "prepaidOpex": ("RC", "11", "RCON2160", "Prepaid operating expenses (included in other assets)"),
     "accruedOpex": ("RC", "20", "RCON2930", "Accrued operating expenses (included in other liabilities)"),
+    "otherLiab":  ("RC", "20", "RCON2930", "Other liabilities"),
     "borrowSched": ("RC", "16",   "RCON3190",      "Other borrowed money (scheduled FHLB/term draws)"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
 }
@@ -182,7 +183,11 @@ def build_rc(res, cfg):
     _pre = bs.get("prepaidOpex") or [0.0] * n
     _acc = bs.get("accruedOpex") or [0.0] * n
     oa = [a.get("other_assets", 0) / 1000.0 + (_pre[i] or 0.0) / 1000.0 for i in range(n)]
-    ol = [a.get("other_liabilities", 0) / 1000.0 + (_acc[i] or 0.0) / 1000.0 for i in range(n)]
+    _ol_model = bs.get("otherLiab")
+    if _ol_model:
+        ol = [float(_ol_model[i] or 0.0) + (_acc[i] or 0.0) / 1000.0 for i in range(n)]
+    else:
+        ol = [a.get("other_liabilities", 0) / 1000.0 + (_acc[i] or 0.0) / 1000.0 for i in range(n)]
     rows = [
         _row("1", "RCON0081/0071", "Cash and balances due from depository institutions", bs["cash"]),
         _row("2.a", "RCONJJ34", "Held-to-maturity securities (amortized cost)",
