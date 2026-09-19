@@ -436,8 +436,8 @@ def main():
 
     public=run_v2(vc)
     qser=(((public.get('fee_stream_quantities') or {}).get('series') or {}).get('fee-qty-settlement') or [])
-    ck('public run exposes linked fee-stream quantity in $000s per engine period',
-       len(qser)==36 and abs(qser[0]-1000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='$000s / engine period')
+    ck('public run exposes linked fee-stream quantity without falsely imposing monetary units',
+       len(qser)==36 and abs(qser[0]-1000.0)<1e-9 and (public.get('fee_stream_quantities') or {}).get('units')=='native quantity units · engine-period series')
 
     # CAC/AUC is a stock-linked Opex driver. Annual multipliers accrue on the canonical
     # monthly period-end AUC path, then aggregate to native presentation cadence.
