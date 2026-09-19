@@ -479,6 +479,7 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
         fee_income = [float(x or 0.0) for x in (is_.get("fees") or [0.0] * n)]
         gain_on_sale = [float(x or 0.0) for x in (is_.get("gos") or [0.0] * n)]
         servicing_net = [float(x or 0.0) for x in (is_.get("servNet") or [0.0] * n)]
+        fee_product_costs = [float(x or 0.0) for x in (is_.get("feeOpex") or [0.0] * n)]
         wfout = exact.get("workforce") or {}
     else:
         ta = [float(x or 0.0) * 1000.0 for x in (((results.get("financials") or {}).get("bs") or {}).get("totalAssets") or [])]
@@ -486,6 +487,7 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
         fee_income = [float(x or 0.0) * 1000.0 for x in (is_.get("fees") or [0.0] * n)]
         gain_on_sale = [float(x or 0.0) * 1000.0 for x in (is_.get("gos") or [0.0] * n)]
         servicing_net = [float(x or 0.0) * 1000.0 for x in (is_.get("servNet") or [0.0] * n)]
+        fee_product_costs = [float(x or 0.0) * 1000.0 for x in (is_.get("feeOpex") or [0.0] * n)]
         wfout = results.get("workforce") or {}
 
     # Workforce Count is a level Series, so unlike money it is never rescaled between
@@ -523,6 +525,7 @@ def _raw_opex_context(cfg: Mapping[str, Any], results: Mapping[str, Any], n: int
         "fee_income": fee_income,
         "gain_on_sale": gain_on_sale,
         "servicing_net": servicing_net,
+        "fee_product_costs": fee_product_costs,
         "workforce_count_history": workforce_count_history,
     }
 
@@ -600,6 +603,7 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "fee_income": ctx["fee_income"][i] if i < len(ctx["fee_income"]) else 0.0,
                     "gain_on_sale": ctx["gain_on_sale"][i] if i < len(ctx["gain_on_sale"]) else 0.0,
                     "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
+                    "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
                     "fee_stream_quantities": qmap,
                     "customer_acquisition_auc_monthly": ctx["cac_monthly"],
                     "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -641,7 +645,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                                   linked_component_period_result,
                                   PIECEWISE_LINKED_DRIVER, COST_POOL_CHARGE_DRIVER, CAC_AUC_DRIVER,
                                   FEE_STREAM_QUANTITY_DRIVER, WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
-                                  FORMULA_DRIVER, _formula_factor_value,
+                                  FORMULA_DRIVER, NET_FEE_INCOME_DRIVER, _formula_factor_value,
                                   _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
@@ -654,6 +658,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "fee_income": ctx["fee_income"][i] if i < len(ctx["fee_income"]) else 0.0,
             "gain_on_sale": ctx["gain_on_sale"][i] if i < len(ctx["gain_on_sale"]) else 0.0,
             "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
+            "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
             "fee_stream_quantities": qmap,
             "customer_acquisition_auc_monthly": ctx["cac_monthly"],
             "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -786,12 +791,20 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                     sid = str((comp or {}).get("series_id") or "")
                     source_base = float((metrics.get("fee_stream_quantities") or {}).get(sid) or 0.0)
                     notes = "Fee-stream quantity × rate"
-                elif drv in {"fee_income", "gain_on_sale", "servicing_net", "noninterest_income"}:
+                elif drv in {"fee_income", "gain_on_sale", "servicing_net", "noninterest_income",
+                                 NET_FEE_INCOME_DRIVER}:
                     if drv == "noninterest_income":
                         source_base = float(metrics.get("fee_income") or 0.0) + float(metrics.get("gain_on_sale") or 0.0) + float(metrics.get("servicing_net") or 0.0)
+                        notes = "Same-period gross noninterest income × rate"
+                    elif drv == NET_FEE_INCOME_DRIVER:
+                        source_base = (float(metrics.get("fee_income") or 0.0)
+                                       + float(metrics.get("gain_on_sale") or 0.0)
+                                       + float(metrics.get("servicing_net") or 0.0)
+                                       - float(metrics.get("fee_product_costs") or 0.0))
+                        notes = "Same-period total noninterest income less Fee Product Costs × rate"
                     else:
                         source_base = float(metrics.get(drv) or 0.0)
-                    notes = "Same-period driver × rate"
+                        notes = "Same-period driver × rate"
                 elif drv == CAC_AUC_DRIVER:
                     notes = f"Canonical monthly {comp.get('measure') or 'period_end'} AUC accrued using {comp.get('rate_period') or 'year'} rate period; see CAC Monthly Canonical"
                 _measure = str((comp or {}).get("measure") or "")
@@ -910,12 +923,14 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
         return [float(x or 0.0) * (1.0 if exact is not None else 1000.0) for x in arr[:n]]
 
     nii, fee, gos, srv = _series("nii"), _series("fees"), _series("gos"), _series("servNet")
+    fee_cost = _series("feeOpex")
     nonint = [(fee[i] if i < len(fee) else 0.0) + (gos[i] if i < len(gos) else 0.0) +
               (srv[i] if i < len(srv) else 0.0) for i in range(n)]
+    net_fee_income = [nonint[i] - (fee_cost[i] if i < len(fee_cost) else 0.0) for i in range(n)]
     totalrev = [(nii[i] if i < len(nii) else 0.0) + nonint[i] for i in range(n)]
     flow_hist = {"fee_income": fee, "gain_on_sale": gos, "servicing_net": srv,
-                 "noninterest_income": nonint, "net_interest_income": nii,
-                 "total_operating_revenue": totalrev}
+                 "noninterest_income": nonint, "net_fee_income": net_fee_income,
+                 "net_interest_income": nii, "total_operating_revenue": totalrev}
     rows = []
     for ci, raw in enumerate(raw_components):
         comp = normalize_workforce_additive_component(raw, ppy)

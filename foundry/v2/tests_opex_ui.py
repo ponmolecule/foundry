@@ -22,7 +22,7 @@ checks=[
  ('Advanced Opex authoring removes release-number archaeology from user-facing helper copy', all(x not in html for x in ['Existing r64/r65 links with no saved measure remain Period end','Legacy r67 cost-pool-only compatibility mode','This saved r67 category','New r68 authoring'])),
  ('recurring recognition and settlement are hidden when no entered recurring amount consumes them', 'function _opexHasEnteredRecurringExpense' in html and 'if(_hasEnteredRecurring){' in html and 'Recurring expense recognition' in html and 'Recurring expense cash settlement' in html),
  ('balance Fee streams receive stable quantity Series IDs for downstream tiered Opex', '["transaction","balance"].includes(st.basis)' in html and 'fee_stream_balance_quantity::' in html),
- ('linked Opex drivers retain narrow revenue choices', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income'])),
+ ('linked Opex drivers retain gross revenue choices and add an explicit net fee income source', all(x in html for x in ['Fee income','Gain on sale','Net servicing fees','Total noninterest income · Call Report','Net fee income · less Fee Product Costs'])),
  ('Opex can link to transaction-stream quantities by stable quantity Series ID', 'fee_stream_quantity::' in html and 'Fee-stream quantity · ' in html and 'quantity_series_id' in html),
  ('Opex can link to CAC-owned AUC by stable Series ID', 'customer_acquisition_auc::' in html and 'AUC / managed notional' in html and 'canonical monthly AUC' in html),
  ('Opex can link to total or role Workforce Count by stable Series ID', 'workforce_count::' in html and 'Workforce headcount · Total workforce' in html and 'Workforce headcount · '+"" in html and 'total_count_series_id' in html),

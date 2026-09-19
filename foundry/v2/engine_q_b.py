@@ -243,6 +243,7 @@ def run_pf_b(cfg):
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
                     _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
+                              "fee_product_costs": 0.0,
                               "customer_acquisition_auc_monthly": _auc_month_sources,
                               "customer_acquisition_auc_beginning": _auc_beginning_sources,
                               "fee_stream_quantity_history": {},
@@ -260,12 +261,15 @@ def run_pf_b(cfg):
                 _hist_fee = [float(x or 0.0) for x in out_is["fees"]] + [float(fees or 0.0)]
                 _hist_zero = [0.0] * (qi + 1)
                 _hist_nonint = list(_hist_fee)
+                _hist_net_fee_income = list(_hist_nonint)  # Profile B has no first-class Fee Product cost side.
                 _hist_total = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(qi + 1)]
                 _wf_metrics = {
                     "periods_per_year": 4,
                     "income_statement_flow_history": {
                         "fee_income": _hist_fee, "gain_on_sale": _hist_zero, "servicing_net": _hist_zero,
-                        "noninterest_income": _hist_nonint, "net_interest_income": _hist_nii,
+                        "noninterest_income": _hist_nonint,
+                        "net_fee_income": _hist_net_fee_income,
+                        "net_interest_income": _hist_nii,
                         "total_operating_revenue": _hist_total,
                     },
                     "customer_acquisition_auc_monthly": _auc_month_sources,

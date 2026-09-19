@@ -24,6 +24,7 @@ SAFE_REVENUE_DRIVERS = {
     "servicing_net",
     "noninterest_income",
 }
+NET_FEE_INCOME_DRIVER = "net_fee_income"
 
 FEE_STREAM_QUANTITY_DRIVER = "fee_stream_quantity"
 CAC_AUC_DRIVER = "customer_acquisition_auc"
@@ -35,6 +36,7 @@ PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 _FORMULA_LINK_SOURCES = set(SAFE_REVENUE_DRIVERS) | {
+    NET_FEE_INCOME_DRIVER,
     FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER,
 }
 
@@ -441,7 +443,8 @@ def apply_piecewise_schedule(value: float, bands) -> float:
 def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
     c = dict(comp or {})
     drv = str(c.get("driver") or "").strip().lower()
-    allowed = set(SAFE_REVENUE_DRIVERS) | {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
+    allowed = set(SAFE_REVENUE_DRIVERS) | {NET_FEE_INCOME_DRIVER,
+                                           FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
                                            WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER,
                                            FORMULA_DRIVER,
                                            COST_POOL_CHARGE_DRIVER,
@@ -886,6 +889,11 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         base = (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
                 + float(metrics.get("servicing_net") or 0.0))
+    elif drv == NET_FEE_INCOME_DRIVER:
+        base = (float(metrics.get("fee_income") or 0.0)
+                + float(metrics.get("gain_on_sale") or 0.0)
+                + float(metrics.get("servicing_net") or 0.0)
+                - float(metrics.get("fee_product_costs") or 0.0))
     elif drv == FEE_STREAM_QUANTITY_DRIVER:
         sid = str(component.get("series_id") or "")
         qmap = metrics.get("fee_stream_quantities") or {}
@@ -940,6 +948,11 @@ def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
         return (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
                 + float(metrics.get("servicing_net") or 0.0))
+    if src == NET_FEE_INCOME_DRIVER:
+        return (float(metrics.get("fee_income") or 0.0)
+                + float(metrics.get("gain_on_sale") or 0.0)
+                + float(metrics.get("servicing_net") or 0.0)
+                - float(metrics.get("fee_product_costs") or 0.0))
     if src == FEE_STREAM_QUANTITY_DRIVER:
         sid = str(factor.get("series_id") or "")
         qmap = metrics.get("fee_stream_quantities") or {}

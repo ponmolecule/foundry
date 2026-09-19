@@ -18,7 +18,7 @@ from .income_modules import (
     _FEE_BASES, _FEE_SOURCES, _FEE_TRAJECTORIES, _FEE_RATE_BEHAVIORS, _FEE_COST_KINDS,
 )
 from .opex_extensions import (
-    SAFE_REVENUE_DRIVERS, FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
+    SAFE_REVENUE_DRIVERS, NET_FEE_INCOME_DRIVER, FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER,
     WORKFORCE_COUNT_DRIVER, SERVICE_CAPACITY_DRIVER, FORMULA_DRIVER,
     COST_POOL_CHARGE_DRIVER, PIECEWISE_LINKED_DRIVER,
 )
@@ -135,7 +135,7 @@ def main():
     ck("Opex entered amounts cover Flat Growth Explicit", {x.get("trajectory") for x in fs} >= {"flat","growth","explicit"}) # 33
     ck("Opex entered amounts cover Month Quarter Year", {x.get("period") for x in fs} >= {"month","quarter","year"}) # 34
     linked={lc.get("driver") for c in cats for lc in (c.get("linked_components") or [])}
-    required_linked=set(SAFE_REVENUE_DRIVERS)|{FEE_STREAM_QUANTITY_DRIVER,CAC_AUC_DRIVER,WORKFORCE_COUNT_DRIVER,SERVICE_CAPACITY_DRIVER,FORMULA_DRIVER,COST_POOL_CHARGE_DRIVER,PIECEWISE_LINKED_DRIVER}
+    required_linked=set(SAFE_REVENUE_DRIVERS)|{NET_FEE_INCOME_DRIVER,FEE_STREAM_QUANTITY_DRIVER,CAC_AUC_DRIVER,WORKFORCE_COUNT_DRIVER,SERVICE_CAPACITY_DRIVER,FORMULA_DRIVER,COST_POOL_CHARGE_DRIVER,PIECEWISE_LINKED_DRIVER}
     ck("Opex covers every current linked-component driver", required_linked <= linked, sorted(required_linked-linked)) # 35
     service=[lc for c in cats for lc in (c.get("linked_components") or []) if lc.get("driver")==SERVICE_CAPACITY_DRIVER]
     ck("Opex service-capacity specimen keeps service FTE outside Workforce and owns an explicit hours period",
