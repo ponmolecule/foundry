@@ -651,6 +651,11 @@ def validate_config_v2(cfg):
         mb = p.get("mortgage_banking")
         if mb:
             _range_check(mb, MB_RANGES, ctx + "mortgage_banking.", errs)
+        try:
+            from .loan_balance import normalize_linked_loan_balance
+            normalize_linked_loan_balance(p, a)
+        except (TypeError, ValueError) as e:
+            errs.append(ctx + str(e))
 
     # Generic Customer Acquisition / Foundry-Series validation.  This executes only the
     # deterministic assumption-side customer/AUC roll-forward, not the financial engine,
