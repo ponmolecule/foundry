@@ -462,6 +462,9 @@ def run_pf_a(cfg):
     # a second count path.
     _cac_customer_count_series = cac_customer_count_measure_series_map(
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
+    from .interest_balances import prepare_interest_balance_model
+    _ibm = prepare_interest_balance_model(
+        a, _cac_customer_count_series, Q, ppy, growth_context=_growth_ctx)
 
     # Loans may opt into a target level owned by Customer Acquisition rather than
     # independently recreating the same MAB/customer trajectory through originations.
@@ -847,11 +850,12 @@ def run_pf_a(cfg):
 
     ne_q = [0]
     def plug(dep_carry, dep_bal, net_loans_end, equity_end, msr_end, sec_books_end=0.0, ne=None,
-             extra_liab=0.0, other_liab_level=None):
+             extra_liab=0.0, other_liab_level=None, required_cash=0.0, extra_assets=0.0):
         _ol = _other_liab_open if other_liab_level is None else float(other_liab_level or 0.0)
         funding = dep_carry + _ol + float(extra_liab or 0.0) + equity_end + sched_t[ne_q[0]]
-        investable = funding - net_loans_end - (non_earn if ne is None else ne) - msr_end - sec_books_end
-        req_cash = cash_floor * dep_bal
+        investable = (funding - net_loans_end - (non_earn if ne is None else ne)
+                      - msr_end - sec_books_end - float(extra_assets or 0.0))
+        req_cash = max(cash_floor * dep_bal, float(required_cash or 0.0))
         if investable >= req_cash:
             # Once the user authors one or more target-driven managed securities
             # portfolios, those explicit books own the securities allocation.  The
@@ -859,7 +863,7 @@ def run_pf_a(cfg):
             # residual securities portfolio on top of them.  Surplus liquidity stays
             # in cash; legacy/simple-only configurations retain the historical
             # cash-floor + residual-securities behavior unchanged.
-            if _managed_sec:
+            if _managed_sec or _ibm:
                 return investable, 0.0, 0.0
             return req_cash, investable - req_cash, 0.0
         return req_cash, 0.0, req_cash - investable
@@ -876,10 +880,14 @@ def run_pf_a(cfg):
     ne_q[0] = 0
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
 
-    bs = {k: z() for k in ("cash", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
+    bs = {k: z() for k in ("cash", "affiliatedCash", "operatingCash", "frbStock",
+                             "fiduciaryAuaNonInterest", "fiduciaryAuaInterest", "fiduciaryAuaTotal",
+                             "mabCount", "sec", "netLoans", "borrow", "equity", "re", "totalAssets",
                              "afsBook", "htmBook", "aoci", "paidIn", "prepaidOpex", "accruedOpex",
                              "otherLiab")}
     bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
+    if _ibm:
+        bs["affiliatedCash"][0] = c0
     bs["netLoans"][0], bs["re"][0], bs["equity"][0] = net0, day_one, equity0
     bs["afsBook"][0] = sum(p["_bal"][0] for p in afs_p) + _managed_open_afs
     bs["htmBook"][0] = sum(p["_bal"][0] for p in htm_p) + _managed_open_htm
@@ -892,6 +900,10 @@ def run_pf_a(cfg):
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
            "gos", "servNet", "msrAmort", "fvPnl", "prodOpex", "feeOpex", "workforceComp", "otherOpex", "depreciationExpense", "overhead", "ebtda", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
+    if _ibm:
+        for _k in ("affiliatedCashInt", "operatingCashInt", "fiduciaryAuaInt",
+                   "frbStockInt", "fiduciaryDepExp"):
+            is_[_k] = [None] * (Q + 1)
 
     re, nol = day_one, 0.0
     # ---- tax_detail module (NOL -> DTA, ASC 740 presentation; OFF path is
@@ -1064,6 +1076,17 @@ def run_pf_a(cfg):
     for q in range(1, Q + 1):
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
+        _ib_i = q - 1
+        _operating_cash = (bs["equity"][q - 1] * _ibm["operating_cash_ratio_spec"][_ib_i]
+                           if _ibm and q > 1 else 0.0)
+        _frb_stock = (bs["equity"][q - 1] * _ibm["frb_stock_ratio_spec"][_ib_i]
+                      if _ibm and q > 1 else 0.0)
+        _fid_ni = _ibm["fiduciary_noninterest"][_ib_i] if _ibm else 0.0
+        _fid_ib = _ibm["fiduciary_interest"][_ib_i] if _ibm else 0.0
+        _fid_total = _fid_ni + _fid_ib
+        _fid_dep_exp = (_fid_ib * _ibm["customer_cost_rate_spec"][_ib_i] / ppyf
+                        if _ibm else 0.0)
+        dep_exp += _fid_dep_exp
         fees = sum(p["_fee"][q] for p in lend + dep + obs)
         # VERIFIED CORRECT: cap engages exactly on the Reg II effective date. For a bank crossing
         # $10B at the 2027 calendar year-end (opening 2027-Q1 -> period 4), the cap engages at loop
@@ -1274,9 +1297,20 @@ def run_pf_a(cfg):
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
                             non_earn_t[q] + _prepaid_opex_q + (_dta_iter if _td else 0.0),
-                            _accrued_opex_q, _other_liab_q)
+                            _accrued_opex_q, _other_liab_q,
+                            required_cash=_operating_cash, extra_assets=_frb_stock)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
-            cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
+            if _ibm:
+                _affiliated_cash = max(0.0, c - _operating_cash)
+                affiliated_cash_int = _affiliated_cash * _ibm["scenario_rate_spec"][_ib_i] / ppyf
+                operating_cash_int = _operating_cash * _ibm["operating_cash_yield_spec"][_ib_i] / ppyf
+                fiduciary_aua_int = _fid_total * _ibm["scenario_rate_spec"][_ib_i] / ppyf
+                frb_stock_int = _frb_stock * _ibm["frb_stock_yield_spec"][_ib_i] / ppyf
+                cash_int = affiliated_cash_int + operating_cash_int + fiduciary_aua_int + frb_stock_int
+            else:
+                _affiliated_cash = c
+                affiliated_cash_int = operating_cash_int = fiduciary_aua_int = frb_stock_int = 0.0
+                cash_int = ((beg_c + c) / 2.0) * a["cash_yield"] / ppyf
             borr_exp = ((beg_b + b) / 2.0) * a.get("borrow_rate_ann", 0.0) / ppyf + sched_int_t[q]
             nii = loan_int + sec_int + cash_int - dep_exp - borr_exp
             _wf_add_values = []
@@ -1391,6 +1425,10 @@ def run_pf_a(cfg):
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
+        bs["affiliatedCash"][q], bs["operatingCash"][q], bs["frbStock"][q] = _affiliated_cash, _operating_cash, _frb_stock
+        bs["fiduciaryAuaNonInterest"][q], bs["fiduciaryAuaInterest"][q] = _fid_ni, _fid_ib
+        bs["fiduciaryAuaTotal"][q] = _fid_total
+        bs["mabCount"][q] = _ibm["mab"][_ib_i] if _ibm else 0.0
         aoci_cum += aoci_q
         bs["netLoans"][q], bs["re"][q] = net_loans_end, re
         bs["equity"][q] = cap_t[q] + re + aoci_cum
@@ -1399,16 +1437,21 @@ def run_pf_a(cfg):
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
         bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
         bs["otherLiab"][q] = _other_liab_q
-        bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q]
+        bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q] + _frb_stock
                                   + (bs["dta"][q] if _td else 0.0))
-        for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
+        _is_values = [("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("msrAmort", msr_amort), ("fvPnl", fv_pnl),
                      ("prodOpex", prod_ox), ("feeOpex", fee_opex),
                      ("workforceComp", workforce_comp), ("otherOpex", other_opex),
                      ("depreciationExpense", depreciation_expense),
                      ("overhead", overhead), ("ebtda", ebtda), ("pretax", pretax),
-                     ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)):
+                     ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)]
+        if _ibm:
+            _is_values.extend((("affiliatedCashInt", affiliated_cash_int), ("operatingCashInt", operating_cash_int),
+                               ("fiduciaryAuaInt", fiduciary_aua_int), ("frbStockInt", frb_stock_int),
+                               ("fiduciaryDepExp", _fid_dep_exp)))
+        for k, v in _is_values:
             is_[k][q] = v
 
     # ---- ratios (A.7): Tier 1 approx = equity - intangibles - MSA excess over the
@@ -1514,6 +1557,10 @@ def run_pf_a(cfg):
                    "borrowSched": sched_t,
                    **({"dta": bs["dta"]} if _td else {})},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if _ibm:
+        for _k in ("affiliatedCash", "operatingCash", "frbStock", "fiduciaryAuaNonInterest",
+                   "fiduciaryAuaInterest", "fiduciaryAuaTotal", "mabCount"):
+            _out["bs"][_k] = list(bs[_k])
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
         _out["other_liabilities_detail"] = other_liability_audit_payload(
