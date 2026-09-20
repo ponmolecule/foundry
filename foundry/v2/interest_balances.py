@@ -7,6 +7,18 @@ defaults every input to zero and never invents rates or balances.
 from .series import resolve_entered_series
 
 
+def interest_balance_amount(current, prior, basis):
+    """Resolve the disclosed stock used to earn interest for one period."""
+    mode = str(basis or "current_end").strip().lower()
+    if mode == "prior_end":
+        return float(prior or 0.0)
+    if mode == "average":
+        return (float(prior or 0.0) + float(current or 0.0)) / 2.0
+    if mode != "current_end":
+        raise ValueError(f"unsupported interest balance basis {basis!r}")
+    return float(current or 0.0)
+
+
 def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *,
                                    fee_stream_quantities=None, growth_context=None):
     cfg = (assumptions or {}).get("interest_balance_model") or {}
@@ -43,6 +55,13 @@ def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *
     out = {"mab": mab}
     out["affiliated_cash_interest_start_period"] = max(
         1, int(cfg.get("affiliated_cash_interest_start_period") or 1))
+    out["affiliated_cash_interest_basis"] = str(
+        cfg.get("affiliated_cash_interest_basis") or "current_end").strip().lower()
+    out["operating_cash_interest_basis"] = str(
+        cfg.get("operating_cash_interest_basis") or "current_end").strip().lower()
+    for key in ("affiliated_cash_interest_basis", "operating_cash_interest_basis"):
+        if out[key] not in {"current_end", "prior_end", "average"}:
+            raise ValueError(f"interest balance model {key} is unsupported")
     for name in ("scenario_rate_spec", "deposit_attach_rate_spec",
                  "avg_noninterest_balance_per_mab_spec", "boost_attach_rate_spec",
                  "avg_interest_balance_per_mab_spec", "customer_cost_rate_spec",

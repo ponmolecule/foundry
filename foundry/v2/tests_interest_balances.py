@@ -64,6 +64,16 @@ def main():
     dr=run_pf_a(delayed)
     ck("affiliated-bank interest start period suppresses unsupported M1 income",
        dr["is"]["affiliatedCashInt"][0]==0 and dr["is"]["affiliatedCashInt"][1]>0)
+    lagged=_cfg(); lagged_ib=lagged["assumptions"]["interest_balance_model"]
+    lagged_ib["affiliated_cash_interest_start_period"]=2
+    lagged_ib["affiliated_cash_interest_basis"]="prior_end"
+    lagged_ib["operating_cash_interest_basis"]="prior_end"
+    gr=run_pf_a(lagged)
+    ck("cash-interest balance basis can follow the source model's prior EOP formulas",
+       gr["is"]["affiliatedCashInt"][0]==0 and
+       abs(gr["is"]["affiliatedCashInt"][1]-gr["bs"]["affiliatedCash"][1]*.12/12)<1e-6 and
+       gr["is"]["operatingCashInt"][1]==0 and
+       abs(gr["is"]["operatingCashInt"][2]-gr["bs"]["operatingCash"][2]*.01/12)<1e-6)
     ck("FRB stock is included in total assets",
        all(abs(bs["totalAssets"][q]-(bs["cash"][q]+bs["sec"][q]+bs["afsBook"][q]+
            bs["htmBook"][q]+bs["netLoans"][q]+r["fixed_assets"]["net"][q]+

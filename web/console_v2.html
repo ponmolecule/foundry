@@ -4339,6 +4339,7 @@ function _ibFeeQuantityOptions(){return _opexLinkedDriverOptions().filter(o=>o.d
 window.ibMabMode=function(v){const m=_ibState(true);if(v==="link"){const o=_feeCustomerCountOptions();m.mab_source={source:"link",series_id:o.length?o[0].series_id:"",measure:"period_end"};}else if(v==="fee_stream_quantity"){const o=_ibFeeQuantityOptions();m.mab_source={source:"fee_stream_quantity",series_id:o.length?o[0].series_id:""};}else m.mab_source={source:"entered"};renderContent();refresh();};
 window.ibMabLink=function(v){const m=_ibState(true);m.mab_source=m.mab_source||{};m.mab_source.series_id=String(v||"");refresh();};
 window.ibAffiliateStart=function(v){const m=_ibState(true);m.affiliated_cash_interest_start_period=Math.max(1,Math.round(_pf(v)||1));refresh();};
+window.ibCashInterestBasis=function(field,v){const m=_ibState(true);m[field]=['current_end','prior_end','average'].includes(v)?v:'current_end';refresh();};
 function _faDriverOptions(){_ensureLinkableSeriesIds();return _opexLinkedDriverOptions().filter(o=>o.driver==="workforce_count");}
 function _faSuggestedComponentName(o){let x=String((o&&o.label)||"").replace(/^Workforce headcount\s*·\s*/i,"").trim();return x?"Fixed assets · "+x:"Fixed-asset component";}
 function _faComponentDisplayName(c,i){const raw=String((c&&c.name)||"").trim();if(raw&&raw!=="Linked asset component"&&!/^Linked component \d+$/i.test(raw))return raw;const sid=String(((((c||{}).driver_spec||{}).link)||{}).series_id||"");const o=_faDriverOptions().find(x=>String(x.series_id||"")===sid);return o?_faSuggestedComponentName(o):(raw||("Fixed-asset component "+(i+1)));}
@@ -9300,6 +9301,9 @@ function structuresSectionsHtml(){
           h += _faSeriesEditor(b+'avg_interest_balance_per_mab_spec',ib.avg_interest_balance_per_mab_spec,'Avg interest-bearing balance / MAB','dollars',false);
           h += _faSeriesEditor(b+'customer_cost_rate_spec',ib.customer_cost_rate_spec,'Customer cost rate','rate',false);
           h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period (use 2 when M1 is opening/setup)</span></div>`;
+          {const _basisOpts=[['current_end','Current period end'],['prior_end','Prior period end'],['average','Average of prior and current']];
+            h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest balance</span><select onchange="ibCashInterestBasis('affiliated_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.affiliated_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+            h += `<div class="crow"><span class="sec-book-label">Operating-cash interest balance</span><select onchange="ibCashInterestBasis('operating_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.operating_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;}
           h += _faSeriesEditor(b+'operating_cash_ratio_spec',ib.operating_cash_ratio_spec,'Operating cash / prior equity','rate',false);
           h += _faSeriesEditor(b+'operating_cash_yield_spec',ib.operating_cash_yield_spec,'Operating cash yield','rate',false);
           h += _faSeriesEditor(b+'frb_stock_ratio_spec',ib.frb_stock_ratio_spec,'FRB stock / prior equity','rate',false);

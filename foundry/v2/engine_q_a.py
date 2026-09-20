@@ -832,7 +832,7 @@ def run_pf_a(cfg):
     # Fee-stream quantities are now complete. Interest-bearing balances may consume
     # one of those canonical quantity Series (for example Migrated MAB) without
     # recreating or pasting the customer path.
-    from .interest_balances import prepare_interest_balance_model
+    from .interest_balances import interest_balance_amount, prepare_interest_balance_model
     _ibm = prepare_interest_balance_model(
         a, _cac_customer_count_series, Q, ppy,
         fee_stream_quantities=_fee_stream_qty_series, growth_context=_growth_ctx)
@@ -1308,9 +1308,15 @@ def run_pf_a(cfg):
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             if _ibm:
                 _affiliated_cash = max(0.0, c - _operating_cash)
-                affiliated_cash_int = (_affiliated_cash * _ibm["scenario_rate_spec"][_ib_i] / ppyf
+                _affiliate_interest_balance = interest_balance_amount(
+                    _affiliated_cash, bs["affiliatedCash"][q - 1],
+                    _ibm["affiliated_cash_interest_basis"])
+                _operating_interest_balance = interest_balance_amount(
+                    _operating_cash, bs["operatingCash"][q - 1],
+                    _ibm["operating_cash_interest_basis"])
+                affiliated_cash_int = (_affiliate_interest_balance * _ibm["scenario_rate_spec"][_ib_i] / ppyf
                                        if q >= _ibm["affiliated_cash_interest_start_period"] else 0.0)
-                operating_cash_int = _operating_cash * _ibm["operating_cash_yield_spec"][_ib_i] / ppyf
+                operating_cash_int = _operating_interest_balance * _ibm["operating_cash_yield_spec"][_ib_i] / ppyf
                 fiduciary_aua_int = _fid_total * _ibm["scenario_rate_spec"][_ib_i] / ppyf
                 frb_stock_int = _frb_stock * _ibm["frb_stock_yield_spec"][_ib_i] / ppyf
                 cash_int = affiliated_cash_int + operating_cash_int + fiduciary_aua_int + frb_stock_int
