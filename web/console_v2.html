@@ -507,6 +507,12 @@ td.neg{color:var(--red)}
 /* products tab */
 .prod-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:10px;margin:0 0 14px}
 #content .card{background:var(--paper);border:1px solid #C7CEDC;border-top:3px solid #16233B;box-shadow:0 2px 10px rgba(22,35,59,.10);border-radius:3px;padding:12px 14px}
+.product-card{position:relative;transition:border-color .12s ease,box-shadow .12s ease,opacity .12s ease}
+.product-card.dragging{opacity:.58}
+.product-card.drop-before:before,.product-card.drop-after:after{content:"";position:absolute;left:7px;right:7px;height:4px;border-radius:4px;background:#DFA85A;box-shadow:0 0 0 1px rgba(223,168,90,.18);z-index:2}
+.product-card.drop-before:before{top:-7px}.product-card.drop-after:after{bottom:-7px}
+.product-drag-handle{width:25px;height:28px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none;border-radius:4px}
+.product-drag-handle:hover,.product-drag-handle:focus-visible{color:#DFA85A;background:rgba(223,168,90,.08);outline:none}.product-drag-handle:active{cursor:grabbing}
 .card-head{display:flex;align-items:center;gap:8px;cursor:pointer}
 .card-head .caret{color:var(--mut);font-size:10px}
 .card-head .pname{font-weight:700;font-size:13px;flex:1;color:#16233B}
@@ -3172,8 +3178,9 @@ function prodCardHtml(fam, i){
   const cat = CAT_OF[fam], key = fam+"_"+i, base = `assumptions.${ARR_OF[fam]}.${i}`;
   if(!p.rate_type && fam!=="obs") p.rate_type = "fixed";
   if(!p.measurement && fam==="lending") p.measurement = "amortized";
-  let h = '<div class="card">';
+  let h = `<div class="card product-card" data-product-family="${fam}" data-product-index="${i}" ondragover="productDragOver(event,'${fam}',${i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${i})">`;
   h += `<div class="card-head" onclick="toggleOpen('${key}')">`;
+  h += `<button type="button" class="product-drag-handle" draggable="true" aria-label="Drag ${esc(p.name||'product')} to reorder within this section" title="Drag to reorder · arrow keys also move" onclick="event.stopPropagation()" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowLeft'){event.preventDefault();event.stopPropagation();productMove('${fam}',${i},-1)}else if(event.key==='ArrowDown'||event.key==='ArrowRight'){event.preventDefault();event.stopPropagation();productMove('${fam}',${i},1)}" ondragstart="event.stopPropagation();productDragStart(event,'${fam}',${i})" ondragend="event.stopPropagation();productDragEnd(event)">⋮⋮</button>`;
   h += `<span class="caret">${isOpen(key) ? "\u25BC" : "\u25B6"}</span>`;
   h += `<span class="pname">${esc(p.name)}</span>`;
   if(p.rate_type==="float") h += `<span class="chip">${(p.index||"sofr").toUpperCase()}</span>`;
@@ -3324,6 +3331,28 @@ function ovGridHtml(fam, i){
   return h;
 }
 function toggleOpen(key){ openMap[key] = !isOpen(key); renderContent(); }
+window._productDrag=null;
+function _productClearDropMarkers(){document.querySelectorAll('.product-card.drop-before,.product-card.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after'));}
+function _productRekeyOpenState(fam,oldArr,newArr){
+  const prefix=String(fam)+'_', next={};
+  Object.keys(openMap||{}).forEach(k=>{if(k.indexOf(prefix)!==0)next[k]=openMap[k];});
+  newArr.forEach((p,newIdx)=>{const oldIdx=oldArr.indexOf(p),oldKey=prefix+String(oldIdx);if(oldIdx>=0&&Object.prototype.hasOwnProperty.call(openMap,oldKey))next[prefix+String(newIdx)]=openMap[oldKey];});
+  openMap=next;
+}
+function _productReorder(fam,from,targetIndex,after){
+  const arr=famArr(fam);from=+from;targetIndex=+targetIndex;
+  if(from<0||from>=arr.length||targetIndex<0||targetIndex>=arr.length)return false;
+  if(typeof _canonicalizeLegacyWorkforceAucTriggers==='function')_canonicalizeLegacyWorkforceAucTriggers();
+  const oldArr=arr.slice(),moved=arr.splice(from,1)[0];
+  let at=targetIndex;if(from<targetIndex)at-=1;if(after)at+=1;at=Math.max(0,Math.min(arr.length,at));
+  arr.splice(at,0,moved);_productRekeyOpenState(fam,oldArr,arr);return at!==from;
+}
+window.productMove=function(fam,i,delta){const arr=famArr(fam),to=Math.max(0,Math.min(arr.length-1,(+i)+(+delta)));if(to===+i)return;_productReorder(fam,+i,to,(+delta)>0);renderContent();refresh();};
+window.productDragStart=function(ev,fam,i){window._productDrag={fam:String(fam),index:+i};if(ev&&ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',JSON.stringify(window._productDrag));}const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.add('dragging');};
+window.productDragOver=function(ev,fam,i){const d=window._productDrag;if(!d||String(d.fam)!==String(fam))return;if(ev){ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';}_productClearDropMarkers();const card=ev&&ev.currentTarget;if(!card||!card.getBoundingClientRect)return;const r=card.getBoundingClientRect(),cy=+ev.clientY||0,cx=+ev.clientX||0;let after=cy>(r.top+r.height/2);if(cy>=r.top&&cy<=r.bottom&&Math.abs(cy-(r.top+r.height/2))<r.height*.22)after=cx>(r.left+r.width/2);card.classList.add(after?'drop-after':'drop-before');card.dataset.dropAfter=after?'1':'0';};
+window.productDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
+window.productDrop=function(ev,fam,targetIndex){if(ev)ev.preventDefault();const d=window._productDrag,card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_productClearDropMarkers();if(!d||String(d.fam)!==String(fam)){window._productDrag=null;return;}const changed=_productReorder(fam,d.index,targetIndex,after);window._productDrag=null;if(changed){renderContent();refresh();}};
+window.productDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.remove('dragging');_productClearDropMarkers();window._productDrag=null;};
 function delProduct(fam, i){ famArr(fam).splice(i,1); renderContent(); refresh(); }
 window.toggleOpen=toggleOpen; window.delProduct=delProduct;
 
@@ -6186,7 +6215,7 @@ function renderContent(){
   if(currentTab==="products" && V31){
     let h = "";
     h += '<div class="h2">Products</div>';
-    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
+    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. Drag the <b>⋮⋮</b> handle to reorder products within Loans, Deposits, or Off-Balance-Sheet; the saved product order follows the move. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
     h += '<div class="prod-toolbar" style="display:flex;align-items:center;gap:16px;margin:0 0 14px">';
     h += '<button class="btn-gold" onclick="openModal()">+ Add Product</button>';
     h += ftpToggleHtml();
