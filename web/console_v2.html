@@ -2791,15 +2791,41 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
   return _explicitPreviewHtml(vals,fmt,cadence||'year',labels);
 }
 
+function _loanBalanceMode(p){return String((p||{}).balance_mode||"rollforward")==="linked_customer_level"?"linked_customer_level":"rollforward";}
+function loanBalanceModeChange(i,v){
+  const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;
+  p.balance_mode=(v==="linked_customer_level"?"linked_customer_level":"rollforward");
+  if(p.balance_mode==="linked_customer_level"){
+    const opts=_feeCustomerCountOptions(),d=p.balance_driver&&typeof p.balance_driver==="object"?p.balance_driver:{};
+    d.source="customer_acquisition_count";d.series_id=opts.some(o=>o.series_id===String(d.series_id||""))?String(d.series_id):((opts[0]||{}).series_id||"");
+    d.measure=(d.measure==="period_average"?"period_average":"period_end");
+    d.average_balance_per_customer_spec=d.average_balance_per_customer_spec||{source:"entered",trajectory:"flat",value:0};p.balance_driver=d;
+    p.structure="revolving";p.mortgage_banking=null;p.originate_to_sell=null;
+  }
+  renderContent();refresh();
+}
+function loanBalanceDriverSourceChange(i,v){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;const opts=_feeCustomerCountOptions(),sid=String(v||"");p.balance_driver=p.balance_driver||{};p.balance_driver.source="customer_acquisition_count";p.balance_driver.series_id=opts.some(o=>o.series_id===sid)?sid:"";renderContent();refresh();}
+function loanBalanceDriverMeasureChange(i,v){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.balance_driver=p.balance_driver||{};p.balance_driver.measure=(v==="period_average"?"period_average":"period_end");renderContent();refresh();}
+
 function fieldsFor(fam, p, base){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   const M = (label, key, unit) => F(label, base+".mortgage_banking."+key, unit);
   let h = "";
   if(fam==="lending"){
+    const _li=+(base.split(".").pop()),_lbm=_loanBalanceMode(p),_linked=_lbm==="linked_customer_level";
+    h += `<div class="fld wide"><label>Balance authoring</label><select onchange="loanBalanceModeChange(${_li},this.value)"><option value="rollforward"${!_linked?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_linked?' selected':''}>MAB Series × average lending / MAB</option></select></div>`;
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F(`New originations ($000s/${PLAB()})`, base+".originations_per_period", "k");
-    h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_per_period", "pct");
-    h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_per_period", "pct");
+    if(!_linked){
+      h += F(`New originations ($000s/${PLAB()})`, base+".originations_per_period", "k");
+      h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_per_period", "pct");
+      h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_per_period", "pct");
+    }else{
+      const d=p.balance_driver||{},opts=_feeCustomerCountOptions(),sid=String(d.series_id||""),measure=d.measure==="period_average"?"period_average":"period_end";
+      h += `<div class="fld wide"><label>MAB / customer-count Series</label><select onchange="loanBalanceDriverSourceChange(${_li},this.value)">${opts.length?opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===sid?' selected':''}>${esc(o.label)}</option>`).join(''):'<option value="">No Customer Acquisition count Series available</option>'}</select></div>`;
+      h += `<div class="fld"><label>Customer-count measure</label><select onchange="loanBalanceDriverMeasureChange(${_li},this.value)"><option value="period_end"${measure==='period_end'?' selected':''}>Period end</option><option value="period_average"${measure==='period_average'?' selected':''}>Period average</option></select></div>`;
+      h += `<div class="fld wide">${_faSeriesEditor(base+'.balance_driver.average_balance_per_customer_spec',d.average_balance_per_customer_spec,'Average lending / MAB','multiplier',false)}</div>`;
+      h += `<div class="fld wide" data-loan-customer-count-preview>${_feeCustomerCountPreviewHtml(sid,measure)}<div class="fhint" style="margin-top:6px">Ending loan balance = selected MAB count × average lending per MAB. Starting balance seeds the first period's average balance; Foundry derives the balancing production or paydown.</div></div>`;
+    }
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
       const _idx = (p.index||"sofr").toUpperCase();
@@ -2817,7 +2843,7 @@ function fieldsFor(fam, p, base){
     // enable option, appear ONLY for mortgage products (loanMortgage). Other loan
     // types get nothing — no fields, no button — because it isn't a meaningful option
     // for them, and that also prevents a stray keystroke minting a partial block.
-    const isMortgage = p.call_report_line === "loanMortgage";
+    const isMortgage = p.call_report_line === "loanMortgage" && !_linked;
     if(p.mortgage_banking){
       h += M("Originations sold (%)", "sale_pct_of_orig", "pct");
       h += M("Gain-on-sale margin (%)", "gain_on_sale_margin", "pct");
@@ -3247,7 +3273,7 @@ function prodCardHtml(fam, i){
         `<option value="effr"${_idx==="effr"?" selected":""}>EFFR (Fed Funds)</option>`+
         `<option value="prime"${_idx==="prime"?" selected":""}>Prime</option></select></div>`;
     }
-    if(fam==="lending"){
+    if(fam==="lending" && _loanBalanceMode(p)!==="linked_customer_level"){
       // Structure selector (revolving | term). Mirrors the rate_type conditional: choosing 'term'
       // triggers the maturity field; 'revolving' triggers none (runoff_per_period handles paydown). Credit
       // Card is revolving-only; CRE is term-only — those lock. Both structure and term_q are stored
@@ -6661,7 +6687,7 @@ function renderContent(){
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
       h += rowBSProduct(`End-of-${PLAB('full')} balance`, arr12(productDetailSeries(p, "bal"), false));
       if(p.family==="lending"){
-        if(some(productDetailSeries(p, 'origq'))) h += rowBSProduct('New originations', productDetailSeries(p, 'origq'));
+        if(some(productDetailSeries(p, 'origq'))) h += rowBSProduct(p.balanceMode==='linked_customer_level'?'Implied production / (paydown)':'New originations', productDetailSeries(p, 'origq'));
         if(p.sale_pct > 0){
           h += rowBSProduct('Originations sold', productDetailSeries(p, 'soldOrig'));
           h += rowBSProduct('Warehouse balance (HFS)', productDetailSeries(p, 'whCarry'));

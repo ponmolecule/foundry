@@ -463,6 +463,15 @@ def run_pf_a(cfg):
     _cac_customer_count_series = cac_customer_count_measure_series_map(
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
 
+    # Loans may opt into a target level owned by Customer Acquisition rather than
+    # independently recreating the same MAB/customer trajectory through originations.
+    # The loan still owns the on-book balance and every downstream banking consequence.
+    from .loan_balance import resolve_linked_loan_balance
+    for _loan in lend:
+        _loan["_linked_balance"] = resolve_linked_loan_balance(
+            _loan, a, _cac_customer_count_series, Q, ppy,
+            growth_context=_growth_ctx)
+
     def _cost_pool_ctx(period):
         qi = int(period) - 1
         return {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()}
@@ -650,6 +659,7 @@ def run_pf_a(cfg):
         # schedule over term_q quarters and is gone at maturity. When not a term product, _amort stays
         # False and the flat-runoff path below runs UNCHANGED (byte-identical for every existing config).
         _amort = (p.get("structure") == "term") and int(p.get("term_q") or 0) > 0
+        _linked_level = p.get("_linked_balance")
         if _amort:
             _T = quarters_to_periods(int(p["term_q"]), ppy)
             # cohorts: list of [remaining_balance, quarters_elapsed]. Opening book is a seasoned even
@@ -662,11 +672,22 @@ def run_pf_a(cfg):
             beg = p["_bal"][q - 1]
             r = _prod_rate(p, q, rate)
             co = beg * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) / ppyf
-            o = _ovq(p, "originations_q", q,
-                     (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1))
+            o = (_ovq(p, "originations_q", q,
+                      (p.get("originations_q") or 0.0) * (1 + (p.get("orig_growth_q") or 0.0)) ** (q - 1))
+                 if _linked_level is None else 0.0)
             retained = o * (1 - p["_sale"])
             p["_sold"].append(o * p["_sale"])
-            if _amort:
+            if _linked_level is not None:
+                # Direct level contract: Customer Acquisition owns the customer path;
+                # the loan owns the resulting asset.  ``_orig`` carries the signed
+                # balancing production/(paydown) required to reconcile the ordinary
+                # loan roll-forward exactly, rather than fabricating a second driver.
+                runoff_amt = beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0)
+                end = float(_linked_level["ending_balance"][q - 1] or 0.0)
+                o = end - beg + runoff_amt + co
+                retained = o
+                p["_sold"][q] = 0.0
+            elif _amort:
                 # amortize every living cohort one quarter (level payment), then add this quarter's
                 # retained origination as a fresh cohort. Balance = sum of cohorts, less charge-offs.
                 _i = max(0.0, r) / ppyf
@@ -1457,6 +1478,16 @@ def run_pf_a(cfg):
                 _pr["managedNotionalSource"] = p.get("managed_notional_source")
                 if p.get("managed_notional_source_id"):
                     _pr["managedNotionalSourceId"] = p.get("managed_notional_source_id")
+            if fam == "lending" and p.get("_linked_balance") is not None:
+                _lb = p["_linked_balance"]
+                _pr["balanceMode"] = "linked_customer_level"
+                _pr["balanceDriver"] = {
+                    "source": _lb["source"], "seriesId": _lb["series_id"],
+                    "measure": _lb["measure"],
+                }
+                _pr["balanceDriverCount"] = list(_lb["customer_count"])
+                _pr["averageBalancePerCustomer"] = list(_lb["average_balance_per_customer"])
+                _pr["linkedBalanceTarget"] = list(_lb["ending_balance"])
             products.append(_pr)
     _out = {"products": products,
             "fee_stream_quantities": {k: list(v) for k, v in _fee_stream_qty_series.items()},
