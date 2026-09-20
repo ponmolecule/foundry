@@ -346,17 +346,22 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
     na=html.index("function normalizeCfg(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]
     stale_cleanup_js=("const window=globalThis; function renderContent(){} function refresh(){};\n"
         + normjs + hjs +
-        "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}}]}]}};"
-        " const loaded=JSON.parse(JSON.stringify(cfg)); normalizeCfg(loaded); const ls=loaded.assumptions.obs_exposures[0].fee_streams[0]; const loadClean=!('coefficient' in ls.driver.params)&&!('rate_path' in ls.rate.params);"
+        "\nlet cfg={assumptions:{obs_exposures:[{fee_streams:[{name:'Business MAB',basis:'account',driver:{source:'constant',trajectory:'explicit_schedule',params:{level_schedule:{period:'month',resolution:'step',schedule:{'1':1234}},coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}},{name:'Average Transaction Size',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:5000000,coefficient:{kind:'multiple',value:.13,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:0}},cost:{kind:'none',params:{}}}]}]}};"
+        " const loaded=JSON.parse(JSON.stringify(cfg)); normalizeCfg(loaded); const ls=loaded.assumptions.obs_exposures[0].fee_streams[0], tx=loaded.assumptions.obs_exposures[0].fee_streams[1]; const loadClean=!('coefficient' in ls.driver.params)&&!('rate_path' in ls.rate.params); const trajLoadClean=!('coefficient' in tx.driver.params);"
         " cfg.assumptions.obs_exposures[0].fee_streams[0]={name:'Business MAB',basis:'transaction',driver:{source:'constant',trajectory:'derived',params:{coefficient:{kind:'multiple',value:2,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{rate_path:{value:.002,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}};"
         " feeStreamBasisChange(0,0,'account'); const cs=cfg.assumptions.obs_exposures[0].fee_streams[0]; const changeClean=!('coefficient' in cs.driver.params)&&!('rate_path' in cs.rate.params);"
-        " console.log(JSON.stringify({loadClean,changeClean,basis:cfg.assumptions.obs_exposures[0].fee_streams[0].basis}));")
+        " cfg.assumptions.obs_exposures[0].fee_streams[1]={name:'Total Transactions',basis:'transaction',driver:{source:'stream_ref',ref:'Active Users',trajectory:'derived',params:{coefficient:{kind:'multiple',value:.13,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:5}},cost:{kind:'none',params:{}}}; feeStreamTrajectoryChange(0,1,'flat'); const live=cfg.assumptions.obs_exposures[0].fee_streams[1]; const trajChangeClean=!('coefficient' in live.driver.params)&&live.driver.trajectory==='flat';"
+        " console.log(JSON.stringify({loadClean,trajLoadClean,changeClean,trajChangeClean,basis:cfg.assumptions.obs_exposures[0].fee_streams[0].basis}));")
     scr=subprocess.run(["node","-e",stale_cleanup_js],text=True,capture_output=True); scj={}
     if scr.returncode==0 and scr.stdout.strip():
         try: scj=json.loads(scr.stdout.strip().splitlines()[-1])
         except Exception: pass
     ck("Fee basis cleanup retires hidden transaction coefficient/rate state on loaded and newly-changed Account streams",
        scr.returncode==0 and scj.get("loadClean") and scj.get("changeClean") and scj.get("basis")=="account", scr.stderr.strip())
+    ck("Fee trajectory cleanup retires a stale transaction coefficient on refresh/load",
+       scr.returncode==0 and scj.get("trajLoadClean") is True, str(scj)+" "+scr.stderr.strip())
+    ck("Fee trajectory cleanup retires a coefficient immediately when leaving Derived",
+       scr.returncode==0 and scj.get("trajChangeClean") is True, str(scj)+" "+scr.stderr.strip())
     # r106: Ending bank customers is a discoverable CAC-owned Series in Account streams, and
     # switching to that link must not destroy an already-pasted manual count schedule.
     customer_count_link_js=("const window=globalThis; let cfg={assumptions:{cac_feeds:{Growth:{customer_count_series_id:'cac-count-growth',beginning_customers:80}},obs_exposures:[]}};\n"
