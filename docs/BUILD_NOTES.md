@@ -273,3 +273,18 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Drag handles show insertion markers and preserve each card's expanded/collapsed state as the product moves. The focused drag handle also supports arrow-key movement through the same reorder controller.
 - Before a reorder, Foundry canonicalizes legacy managed-notional Workforce activation aliases onto their stable Series identities, preventing historical index/name-based references from following the wrong product after a move.
 - Regression coverage executes the shipped reorder controller, verifies object identity and card state survive the move, proves cross-family drops are rejected, and proves the Universal fixture's aggregate financial statements are unchanged when each product family is reordered.
+
+## r137 — zero-default funding waterfall assumptions
+- New engagements now explicitly initialize Cash floor, Cash yield, Residual securities yield, and Borrowing rate to zero instead of inheriting the populated example bank's 5.0%, 2.5%, 4.0%, and 5.5% assumptions.
+- This prevents a new engagement from silently manufacturing required cash, cash interest, residual-securities interest, or borrowing expense before the user authors those economics. The motivating engagement had unsupported M1 cash interest of $50,534 from a hidden 2.5% default applied to average cash.
+- Legacy parity import fallbacks now also resolve omitted funding-waterfall assumptions to zero. Explicitly present imported values and values already saved in existing engagements remain unchanged.
+- The on-demand example bank retains its explicit example economics; it is not treated as a blank-engagement default.
+- Regression coverage verifies all four new-engagement fields and both legacy profile fallback paths. The complete protocol harness passes with the new checks; browser JavaScript syntax and Python compilation are clean.
+
+## r138 — bank EBITDA subtotal
+
+- Adds an explicit **Earnings before D&A and taxes (bank EBITDA)** subtotal to the on-screen Income Statement, Results workbook, Calculation Audit workbook, and Business Plan Tables.
+- Computes the subtotal as pre-tax income plus fixed-asset depreciation expense plus separately modeled MSR amortization.
+- Keeps interest income and interest expense in the subtotal because they are core bank operating activities.
+- Does not change pre-tax income, taxes, net income, equity, or any underlying model economics.
+- Includes the undeployed r137 correction that makes cash floor, cash yield, residual securities yield, and borrowing rate default to zero for new engagements and legacy-import fallbacks.

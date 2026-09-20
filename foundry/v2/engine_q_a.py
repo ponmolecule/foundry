@@ -890,7 +890,7 @@ def run_pf_a(cfg):
     bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn
 
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
-           "gos", "servNet", "fvPnl", "prodOpex", "feeOpex", "workforceComp", "otherOpex", "depreciationExpense", "overhead", "pretax", "tax", "ni", "nco", "nol")
+           "gos", "servNet", "msrAmort", "fvPnl", "prodOpex", "feeOpex", "workforceComp", "otherOpex", "depreciationExpense", "overhead", "ebtda", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
 
     re, nol = day_one, 0.0
@@ -1121,6 +1121,7 @@ def run_pf_a(cfg):
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
+        msr_amort = sum(p["_samort"][q] for p in lend)
         # Direct Fee Product operating costs are known before corporate Opex is resolved.
         # Keep gross noninterest-income presentation intact, but make the same-period
         # net fee income (noninterest income less Fee Product Costs) available
@@ -1323,6 +1324,7 @@ def run_pf_a(cfg):
                 other_opex = overhead - workforce_comp - depreciation_expense
                 nie = prod_ox + fee_opex + overhead
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
+            ebtda = pretax + depreciation_expense + msr_amort
             if _td:
                 if pretax < 0:
                     _shield = 0.0
@@ -1401,11 +1403,11 @@ def run_pf_a(cfg):
                                   + (bs["dta"][q] if _td else 0.0))
         for k, v in (("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
-                     ("fees", fees), ("gos", gos), ("servNet", srv), ("fvPnl", fv_pnl),
+                     ("fees", fees), ("gos", gos), ("servNet", srv), ("msrAmort", msr_amort), ("fvPnl", fv_pnl),
                      ("prodOpex", prod_ox), ("feeOpex", fee_opex),
                      ("workforceComp", workforce_comp), ("otherOpex", other_opex),
                      ("depreciationExpense", depreciation_expense),
-                     ("overhead", overhead), ("pretax", pretax),
+                     ("overhead", overhead), ("ebtda", ebtda), ("pretax", pretax),
                      ("tax", tax), ("ni", ni), ("nco", nco), ("nol", nol)):
             is_[k][q] = v
 

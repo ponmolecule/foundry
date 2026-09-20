@@ -89,6 +89,7 @@ IS_LAYOUT = [
     {"t": "line", "key": "depreciationExpense", "label": "Depreciation expense", "indent": 1},
     {"t": "line", "key": "nie", "label": "Total noninterest expense", "subtotal": True},
     {"t": "spacer"},
+    {"t": "line", "key": "ebtda", "label": "EARNINGS BEFORE D&A AND TAXES (BANK EBITDA)", "subtotal": True},
     {"t": "line", "key": "pretax", "label": "INCOME (LOSS) BEFORE INCOME TAXES", "subtotal": True},
     {"t": "line", "key": "tax", "label": "Applicable income taxes", "negate_style": True},
     {"t": "total", "key": "ni", "label": "NET INCOME (LOSS)"},
