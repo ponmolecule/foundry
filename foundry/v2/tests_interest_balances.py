@@ -55,14 +55,25 @@ def main():
     ck("cash splits exactly between affiliated bank and operating cash",
        all(abs(bs["cash"][q]-bs["affiliatedCash"][q]-bs["operatingCash"][q])<1e-6
            for q in range(5)))
+    linked=_cfg(); linked["assumptions"]["interest_balance_model"]["mab_source"]={
+        "source":"fee_stream_quantity","series_id":"fee-qty-migrated-universal"}
+    lr=run_pf_a(linked)
+    ck("MAB can consume the canonical Migrated-account fee-stream quantity",
+       lr["bs"]["mabCount"][1:]==[100.0]*4)
+    delayed=_cfg(); delayed["assumptions"]["interest_balance_model"]["affiliated_cash_interest_start_period"]=2
+    dr=run_pf_a(delayed)
+    ck("affiliated-bank interest start period suppresses unsupported M1 income",
+       dr["is"]["affiliatedCashInt"][0]==0 and dr["is"]["affiliatedCashInt"][1]>0)
     ck("FRB stock is included in total assets",
        all(abs(bs["totalAssets"][q]-(bs["cash"][q]+bs["sec"][q]+bs["afsBook"][q]+
            bs["htmBook"][q]+bs["netLoans"][q]+r["fixed_assets"]["net"][q]+
            _cfg()["assumptions"]["intangibles"]+_cfg()["assumptions"]["other_assets"]+
            bs["prepaidOpex"][q]+bs["msr"][q]+bs["frbStock"][q]))<1e-5 for q in range(5)))
     html=Path("web/console_v2.html").read_text()
-    ck("UI states per-MAB values are dollars and exposes CAC linking",
-       "Per-MAB paste values are dollars, not $000s" in html and "Link Customer Acquisition" in html)
+    ck("UI states per-MAB values are dollars and exposes canonical links",
+       "Per-MAB paste values are dollars, not $000s" in html and
+       "Link Customer Acquisition" in html and "Link Fee Stream quantity" in html and
+       "Affiliated-bank interest begins" in html)
     print(f"\n{p} passed, {f} failed")
     if f: raise SystemExit(1)
 

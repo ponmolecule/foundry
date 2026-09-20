@@ -7,7 +7,8 @@ defaults every input to zero and never invents rates or balances.
 from .series import resolve_entered_series
 
 
-def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *, growth_context=None):
+def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *,
+                                   fee_stream_quantities=None, growth_context=None):
     cfg = (assumptions or {}).get("interest_balance_model") or {}
     if not cfg or cfg.get("enabled") is False:
         return None
@@ -20,7 +21,14 @@ def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *
         return [float(v) for v in values]
 
     mab_source = cfg.get("mab_source") or {}
-    if str(mab_source.get("source") or "entered").lower() == "link":
+    source = str(mab_source.get("source") or "entered").lower()
+    if source == "fee_stream_quantity":
+        sid = str(mab_source.get("series_id") or "").strip()
+        values = (fee_stream_quantities or {}).get(sid)
+        if values is None:
+            raise ValueError(f"interest balance model fee-stream MAB source {sid!r} is unavailable")
+        mab = [float(v or 0.0) for v in values]
+    elif source == "link":
         sid = str(mab_source.get("series_id") or "").strip()
         measure = str(mab_source.get("measure") or "period_end").strip()
         measures = customer_counts.get(sid)
@@ -33,6 +41,8 @@ def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *
         raise ValueError("interest balance model MAB count cannot be negative")
 
     out = {"mab": mab}
+    out["affiliated_cash_interest_start_period"] = max(
+        1, int(cfg.get("affiliated_cash_interest_start_period") or 1))
     for name in ("scenario_rate_spec", "deposit_attach_rate_spec",
                  "avg_noninterest_balance_per_mab_spec", "boost_attach_rate_spec",
                  "avg_interest_balance_per_mab_spec", "customer_cost_rate_spec",

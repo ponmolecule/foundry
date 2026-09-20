@@ -4335,8 +4335,10 @@ function _faSeriesEditor(path,spec,label,kind,naturalPeriod){spec=spec&&typeof s
 
 function _ibState(create){const A=cfg.assumptions||{};if(create&&(!A.interest_balance_model||typeof A.interest_balance_model!=="object"))A.interest_balance_model={enabled:true,mab_source:{source:"entered"}};const m=A.interest_balance_model||null;if(m&&create)m.enabled=true;return m;}
 window.ibEnable=function(v){const m=_ibState(true);m.enabled=!!v;renderContent();refresh();};
-window.ibMabMode=function(v){const m=_ibState(true);if(v==="link"){const o=_feeCustomerCountOptions();m.mab_source={source:"link",series_id:o.length?o[0].series_id:"",measure:"period_end"};}else m.mab_source={source:"entered"};renderContent();refresh();};
-window.ibMabLink=function(v){const m=_ibState(true);m.mab_source=m.mab_source||{};m.mab_source.source="link";m.mab_source.series_id=String(v||"");m.mab_source.measure="period_end";refresh();};
+function _ibFeeQuantityOptions(){return _opexLinkedDriverOptions().filter(o=>o.driver==="fee_stream_quantity");}
+window.ibMabMode=function(v){const m=_ibState(true);if(v==="link"){const o=_feeCustomerCountOptions();m.mab_source={source:"link",series_id:o.length?o[0].series_id:"",measure:"period_end"};}else if(v==="fee_stream_quantity"){const o=_ibFeeQuantityOptions();m.mab_source={source:"fee_stream_quantity",series_id:o.length?o[0].series_id:""};}else m.mab_source={source:"entered"};renderContent();refresh();};
+window.ibMabLink=function(v){const m=_ibState(true);m.mab_source=m.mab_source||{};m.mab_source.series_id=String(v||"");refresh();};
+window.ibAffiliateStart=function(v){const m=_ibState(true);m.affiliated_cash_interest_start_period=Math.max(1,Math.round(_pf(v)||1));refresh();};
 function _faDriverOptions(){_ensureLinkableSeriesIds();return _opexLinkedDriverOptions().filter(o=>o.driver==="workforce_count");}
 function _faSuggestedComponentName(o){let x=String((o&&o.label)||"").replace(/^Workforce headcount\s*·\s*/i,"").trim();return x?"Fixed assets · "+x:"Fixed-asset component";}
 function _faComponentDisplayName(c,i){const raw=String((c&&c.name)||"").trim();if(raw&&raw!=="Linked asset component"&&!/^Linked component \d+$/i.test(raw))return raw;const sid=String(((((c||{}).driver_spec||{}).link)||{}).series_id||"");const o=_faDriverOptions().find(x=>String(x.series_id||"")===sid);return o?_faSuggestedComponentName(o):(raw||("Fixed-asset component "+(i+1)));}
@@ -9287,9 +9289,9 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Other assets<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_assets||0)/1000)}" onchange="cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
       { const ib=_ibState(false), on=!!(ib&&ib.enabled);
         h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Interest-bearing balances</div><div class="cmut">Affiliated-bank cash, operating cash, fiduciary AUA and Federal Reserve stock. All assumptions default to zero.</div></div><label><input type="checkbox" ${on?'checked ':''}onchange="ibEnable(this.checked)"> Model</label></div>`;
-        if(on){const b='assumptions.interest_balance_model.', src=(ib.mab_source||{}).source==='link'?'link':'entered',opts=_feeCustomerCountOptions(),sid=String((ib.mab_source||{}).series_id||'');
-          h += `<div class="crow"><span class="sec-book-label">MAB / bank customers</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option></select></div>`;
-          if(src==='link')h += `<div class="crow"><select style="min-width:280px" onchange="ibMabLink(this.value)">${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===sid?' selected':''}>${esc(o.label)}</option>`).join('')}</select><span class="cu">period-end count</span></div>`;
+        if(on){const b='assumptions.interest_balance_model.', src=['link','fee_stream_quantity'].includes((ib.mab_source||{}).source)?(ib.mab_source||{}).source:'entered',opts=src==='fee_stream_quantity'?_ibFeeQuantityOptions():_feeCustomerCountOptions(),sid=String((ib.mab_source||{}).series_id||'');
+          h += `<div class="crow"><span class="sec-book-label">MAB / bank customers</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option><option value="fee_stream_quantity"${src==='fee_stream_quantity'?' selected':''}>Link Fee Stream quantity</option></select></div>`;
+          if(src!=='entered')h += `<div class="crow"><select style="min-width:280px" onchange="ibMabLink(this.value)">${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===sid?' selected':''}>${esc(o.label)}</option>`).join('')}</select><span class="cu">${src==='link'?'period-end count':'canonical stream quantity'}</span></div>`;
           else h += _faSeriesEditor(b+'mab_spec',ib.mab_spec,'MAB count','count',false);
           h += _faSeriesEditor(b+'scenario_rate_spec',ib.scenario_rate_spec,'Scenario Fed Funds rate','rate',false);
           h += _faSeriesEditor(b+'deposit_attach_rate_spec',ib.deposit_attach_rate_spec,'Deposit attach rate','rate',false);
@@ -9297,6 +9299,7 @@ function structuresSectionsHtml(){
           h += _faSeriesEditor(b+'boost_attach_rate_spec',ib.boost_attach_rate_spec,'Boost attach rate','rate',false);
           h += _faSeriesEditor(b+'avg_interest_balance_per_mab_spec',ib.avg_interest_balance_per_mab_spec,'Avg interest-bearing balance / MAB','dollars',false);
           h += _faSeriesEditor(b+'customer_cost_rate_spec',ib.customer_cost_rate_spec,'Customer cost rate','rate',false);
+          h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period (use 2 when M1 is opening/setup)</span></div>`;
           h += _faSeriesEditor(b+'operating_cash_ratio_spec',ib.operating_cash_ratio_spec,'Operating cash / prior equity','rate',false);
           h += _faSeriesEditor(b+'operating_cash_yield_spec',ib.operating_cash_yield_spec,'Operating cash yield','rate',false);
           h += _faSeriesEditor(b+'frb_stock_ratio_spec',ib.frb_stock_ratio_spec,'FRB stock / prior equity','rate',false);

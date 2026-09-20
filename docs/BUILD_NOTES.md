@@ -299,3 +299,10 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - The Income Statement and export presentation disclose each interest component beneath the canonical cash-interest total and fiduciary customer cost beneath deposit interest. The Balance Sheet discloses affiliated cash, operating cash, and Federal Reserve stock; canonical cash, deposit expense, NII, pretax income, net income, and equity remain the accounting totals consumed downstream.
 - Corrects the presentation-layer Total Interest Income subtotal so designated-book interest is not added a second time after already being included in canonical Securities Interest Income.
 - Focused regression coverage is 9/9, Managed Securities remains 47/47, Universal Template remains 61/61, cadence/audit remediation remains 88/88, protocol runs clean through T50 and stops at the environment's missing FastAPI dependency in T51, and browser JavaScript syntax, Python compilation, and `git diff --check` are clean.
+
+## r140 — source-faithful interest-income links
+
+- Interest-bearing balances can now consume the canonical quantity Series published by a Transaction Fee stream, including a Migrated MAB stream. The stream remains the sole owner of the customer path; the interest module no longer requires a duplicate pasted schedule or an incorrect total-CAC proxy.
+- Adds an explicit model-period control for when affiliated-bank cash begins earning interest. This preserves ordinary M1 behavior by default while allowing source models whose opening/setup month earns no affiliated-cash interest to start in M2.
+- Keeps the customer cost rate as the explicit expense assumption on interest-bearing fiduciary AUA and labels MAB as a count in the Calculation Audit instead of `$000s`.
+- Regression coverage verifies fee-stream MAB resolution, M1 affiliated-cash suppression, and the new authoring controls in addition to the existing balance and income identities.

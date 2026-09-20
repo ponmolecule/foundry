@@ -462,9 +462,7 @@ def run_pf_a(cfg):
     # a second count path.
     _cac_customer_count_series = cac_customer_count_measure_series_map(
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
-    from .interest_balances import prepare_interest_balance_model
-    _ibm = prepare_interest_balance_model(
-        a, _cac_customer_count_series, Q, ppy, growth_context=_growth_ctx)
+    _ibm = None
 
     # Loans may opt into a target level owned by Customer Acquisition rather than
     # independently recreating the same MAB/customer trajectory through originations.
@@ -830,6 +828,14 @@ def run_pf_a(cfg):
                 p["_fv"].append(fv); p["_fvadj"].append(fv - p["_bal"][q])
             else:
                 p["_fv"].append(None); p["_fvadj"].append(0.0)
+
+    # Fee-stream quantities are now complete. Interest-bearing balances may consume
+    # one of those canonical quantity Series (for example Migrated MAB) without
+    # recreating or pasting the customer path.
+    from .interest_balances import prepare_interest_balance_model
+    _ibm = prepare_interest_balance_model(
+        a, _cac_customer_count_series, Q, ppy,
+        fee_stream_quantities=_fee_stream_qty_series, growth_context=_growth_ctx)
 
     # ---- aggregation ----
     def z():
@@ -1302,7 +1308,8 @@ def run_pf_a(cfg):
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             if _ibm:
                 _affiliated_cash = max(0.0, c - _operating_cash)
-                affiliated_cash_int = _affiliated_cash * _ibm["scenario_rate_spec"][_ib_i] / ppyf
+                affiliated_cash_int = (_affiliated_cash * _ibm["scenario_rate_spec"][_ib_i] / ppyf
+                                       if q >= _ibm["affiliated_cash_interest_start_period"] else 0.0)
                 operating_cash_int = _operating_cash * _ibm["operating_cash_yield_spec"][_ib_i] / ppyf
                 fiduciary_aua_int = _fid_total * _ibm["scenario_rate_spec"][_ib_i] / ppyf
                 frb_stock_int = _frb_stock * _ibm["frb_stock_yield_spec"][_ib_i] / ppyf

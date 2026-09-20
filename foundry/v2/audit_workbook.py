@@ -428,7 +428,8 @@ def _series_rows(fin: Mapping[str, Any], section: str, units: str, n: int,
             vals = [None] + vals
         elif not include_open and len(vals) == n + 1:
             vals = vals[1:]
-        rows.append((section, _slug_label(key), key, units, vals[:target], fmt))
+        row_units, row_fmt = ("count EOP", _COUNT_FMT) if key == "mabCount" else (units, fmt)
+        rows.append((section, _slug_label(key), key, row_units, vals[:target], row_fmt))
     return rows
 
 
