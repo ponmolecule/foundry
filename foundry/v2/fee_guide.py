@@ -195,6 +195,10 @@ _COST_LABELS = {
     "pct_of_revenue_opex": "Operating cost (% of revenue)",
     "pct_of_throughput_opex": "Operating cost (% of throughput)",
 }
+_TRANSACTION_PRICING_LABELS = {
+    "per_unit": "Per unit ($ / transaction)",
+    "pct_of_throughput": "% of throughput",
+}
 _ALLOWED_RATE_BY_BASIS = {
     "balance": {"flat", "annual_change", "scheduled", "tiered"},
     "transaction": {"flat", "tiered", "durbin_capped", "cost_recovery"},
@@ -218,6 +222,7 @@ def fee_guide_manifest():
         "driver_trajectories": [{"id": x, "label": _TRAJECTORY_LABELS[x]} for x in sorted(_FEE_TRAJECTORIES)],
         "rate_behaviors": [{"id": x, "label": _RATE_LABELS[x]} for x in sorted(_FEE_RATE_BEHAVIORS)],
         "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
+        "transaction_pricing_bases": [{"id": x, "label": _TRANSACTION_PRICING_LABELS[x]} for x in ("per_unit", "pct_of_throughput")],
         "natural_periods": sorted(_FEE_NATURAL_PERIODS - {"model_period"}),
         "flat_amount_trajectories": ["flat", "growth", "explicit_schedule"],
         "level_trajectories": ["flat", "growth", "explicit_schedule"],
@@ -232,6 +237,7 @@ def fee_guide_manifest():
             "A derived transaction coefficient kind is multiple (turns × source), pct (% of source), or amount_per_source_unit ($ flow per source unit).",
             "For coefficient kind pct, coefficient_semantics is mandatory: share means a dimensionless attach/migration/penetration share and is never divided by cadence; flow means a natural-period flow ratio such as annual transaction volume as % of AUC and is periodized to model cadence.",
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
+            "Transaction pricing is independent of the flow coefficient: choose per_unit for dollars per transaction/unit, or pct_of_throughput for a percentage/spread on monetary throughput. Never infer pricing basis solely from the presence of a coefficient.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
             "When an Account fee is driven by Customer Acquisition client count, use customer_acquisition_count. CAC owns the customer-book path; the Fee Product must explicitly choose annual_count, period_end, or period_average and must not create a second flat/growth/explicit count path or Step/Smooth assumption.",
@@ -278,6 +284,7 @@ def _guide_output_schema():
             "pricing_trajectory": {"type": "string", "enum": ["flat", "growth", "explicit_schedule", "not_applicable"]},
             "pricing_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
             "pricing_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
+            "transaction_pricing_basis": {"type": "string", "enum": ["per_unit", "pct_of_throughput", "not_applicable"]},
             # Anthropic Structured Outputs currently rejects an enum on a
             # nullable type-array in some API paths (for example
             # type=["string","null"] with enum=["multiple",...,null]).
@@ -363,6 +370,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   not needed in the mapping object; the local Foundry UI tells the user where to enter them.
 - If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
   author that path, ask for those values/rule rather than inventing them.
+- Transaction pricing basis is independent of how throughput was derived. If the user states dollars per transaction/unit, set transaction_pricing_basis=per_unit. If the user states a percentage/spread on monetary throughput, set transaction_pricing_basis=pct_of_throughput. Do not infer this choice merely because a flow coefficient exists. If the pricing unit is ambiguous, ask a targeted clarification question.
 - If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
   that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
   says revenue begins in a specified month/period but omits the actual start period, ask for it.
@@ -495,6 +503,8 @@ def _dummy_stream(item):
             pt, item.get("pricing_period"), item.get("pricing_resolution")
         )
     elif basis == "transaction":
+        if item.get("transaction_pricing_basis"):
+            rate["params"]["pricing_basis"] = item["transaction_pricing_basis"]
         if item["rate_behavior"] == "cost_recovery":
             # Guide Me maps the mechanic only; a concrete pool ref and numeric assumptions are
             # chosen in the local UI. Dummy values exist solely to exercise the real validator.
@@ -557,7 +567,7 @@ def validate_guide_plan(plan):
         allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "driver_period",
                           "driver_resolution", "customer_count_measure", "stock_multiplier_trajectory", "stock_multiplier_period",
                           "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
-                          "pricing_resolution", "coefficient_kind", "coefficient_semantics", "coefficient_period",
+                          "pricing_resolution", "transaction_pricing_basis", "coefficient_kind", "coefficient_semantics", "coefficient_period",
                           "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind"}
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
@@ -579,6 +589,7 @@ def validate_guide_plan(plan):
             "pricing_trajectory": _transport_optional(raw.get("pricing_trajectory")),
             "pricing_period": _transport_optional(raw.get("pricing_period")),
             "pricing_resolution": _transport_optional(raw.get("pricing_resolution")),
+            "transaction_pricing_basis": _transport_optional(raw.get("transaction_pricing_basis")),
             "coefficient_kind": _transport_optional(raw.get("coefficient_kind")),
             "coefficient_semantics": _transport_optional(raw.get("coefficient_semantics")),
             "coefficient_period": _transport_optional(raw.get("coefficient_period")),
@@ -599,6 +610,13 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
         if item["cost_kind"] not in _FEE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
+        _tpb = item.get("transaction_pricing_basis")
+        if _tpb is not None and _tpb not in _TRANSACTION_PRICING_LABELS:
+            raise ValueError(f"Guide Me invented unsupported transaction pricing basis {_tpb!r}")
+        if item["basis"] != "transaction" and _tpb is not None:
+            raise ValueError("Guide Me returned transaction_pricing_basis outside transaction basis")
+        if item.get("rate_behavior") == "cost_recovery":
+            item["transaction_pricing_basis"] = None
         # Account count-level metadata belongs only to an Explicit EOP count path. Structured
         # translators can confuse a *flat retainer price* with a flat *count* trajectory even
         # while correctly supplying the annual count period/resolution. Because driver_period +
@@ -905,10 +923,14 @@ def _stream_steps(item):
                 steps.append("Enter the stated Markup %.")
             steps.append("Foundry treats the cost pool as a native-period dollar flow: fee income = eligible cost pool × recovery % × (1 + markup %). It does not annualize the pool. Linked expenses remain owned upstream; entered and balance-derived cost-base components are pricing-only and do not post expense.")
         else:
-            if item.get("coefficient_kind"):
-                steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
+            pb=item.get("transaction_pricing_basis")
+            if pb is None:
+                pb="pct_of_throughput" if item.get("coefficient_kind") else "per_unit"
+            steps.append(f"Set Pricing basis to “{_TRANSACTION_PRICING_LABELS[pb]}”.")
+            if pb=="per_unit":
+                steps.append("Enter the fee in “Fee ($ / transaction)”.")
             else:
-                steps.append("Enter the fee in “Fee ($/unit)”.")
+                steps.append("Enter the fee/spread in “Fee (% of throughput)”. This monetizes the throughput produced by the flow coefficient; it is not a separate fee stream.")
             steps.append(f"Set Rate behavior to “{_RATE_LABELS[item['rate_behavior']]}”.")
     elif basis == "account":
         pt = item.get("pricing_trajectory") or "flat"

@@ -67,6 +67,17 @@ def cfg_case():
                 "timing": {"start_period": 1},
             },
             {
+                "name": "Per-unit Count Revenue",
+                "basis": "transaction",
+                "quantity_series_id": "fee-qty-audit-per-unit",
+                "driver": {"source": "stream_ref", "ref": "Enabled Partners", "trajectory": "derived",
+                           "params": {"coefficient": {"kind": "multiple", "value": 2.0, "period": "quarter", "trajectory": "flat"}}},
+                "rate": {"behavior": "flat", "params": {"pricing_basis": "per_unit", "per_unit": 5.0,
+                                                            "rate_path": {"value": 5.0, "trajectory": "flat", "period": "quarter", "resolution": "step"}}},
+                "cost": {"kind": "none", "params": {}},
+                "timing": {"start_period": 1},
+            },
+            {
                 "name": "Throughput Cost Example",
                 "basis": "transaction",
                 "quantity_series_id": "fee-qty-audit-throughput-cost",
@@ -126,6 +137,13 @@ def main():
        and abs(by_label["Fee rate / pricing factor"][4][0] - 0.0002) < 1e-12
        and abs(by_label["Gross fee revenue · before contra-revenue"][4][0] - 0.2) < 1e-12
        and abs(by_label["Fee Product cost · stream output"][4][0] - 0.01) < 1e-12)
+
+    purows = {r[1]: r for r in erows if r[0] == "BaaS APIs › Per-unit Count Revenue"}
+    ck("economics sheet labels per-transaction pricing in dollars rather than percent",
+       purows.get("Fee rate / pricing factor") is not None
+       and purows["Fee rate / pricing factor"][3] == "$ / transaction unit"
+       and abs(purows["Fee rate / pricing factor"][4][0]-5.0)<1e-12
+       and abs(purows["Gross fee revenue · before contra-revenue"][4][0]-0.02)<1e-12)
 
     trows = {r[1]: r for r in erows if r[0] == "BaaS APIs › Throughput Cost Example"}
     ck("economics sheet labels throughput-based cost rate with its true base",

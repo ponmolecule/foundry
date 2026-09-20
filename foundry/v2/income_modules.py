@@ -341,6 +341,29 @@ _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedul
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
 _FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
+_FEE_TRANSACTION_PRICING_BASES = {"per_unit", "pct_of_throughput"}
+
+
+def _transaction_pricing_basis(stream):
+    """Resolve the transaction revenue pricing unit without moving legacy economics.
+
+    r93-r132 derived Transaction streams were authored as throughput x decimal fee rate
+    whenever a flow coefficient was present; ordinary quantity streams used dollars/unit.
+    New configs may state the basis explicitly.  Absence therefore preserves the exact
+    historical interpretation rather than silently migrating stored factors.
+    """
+    st = stream or {}
+    rp = ((st.get("rate") or {}).get("params") or {})
+    explicit = str(rp.get("pricing_basis") or "").strip().lower()
+    if explicit:
+        if explicit not in _FEE_TRANSACTION_PRICING_BASES:
+            raise ValueError(f"unsupported transaction pricing basis: {explicit!r}")
+        return explicit
+    drv = st.get("driver") or {}
+    coef = ((drv.get("params") or {}).get("coefficient"))
+    if str(drv.get("trajectory") or "flat").strip().lower() == "derived" and coef is not None:
+        return "pct_of_throughput"
+    return "per_unit"
 
 
 def _fee_amount_per_engine_period(value, period, ppy):
@@ -829,6 +852,10 @@ def _validate_fee_stream_shape(stream):
             if not isinstance(sm.get("schedule"), dict) or not sm.get("schedule"):
                 raise ValueError("fee stock multiplier explicit_schedule requires at least one schedule value")
     rp = (rt.get("params") or {})
+    if basis == "transaction":
+        _transaction_pricing_basis(st)  # validates explicit basis; legacy absence is inferred
+    elif rp.get("pricing_basis") is not None:
+        raise ValueError("transaction pricing_basis is supported only on transaction basis")
     # rate_path is a first-class pricing-rate trajectory for Balance and Transaction
     # streams. Other bases do not consume it; ignore stale hidden authoring state there.
     rate_path = rp.get("rate_path") if basis in {"balance", "transaction"} else None
@@ -1178,6 +1205,8 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         cap = ctx.get("capture_stream_economics")
         if sid and isinstance(cap, dict):
             rec = cap.setdefault(sid, {"basis": str(basis or ""), "cost_kind": str(ck or "none")})
+            if basis == "transaction":
+                rec["pricing_basis"] = _transaction_pricing_basis(stream)
 
             def _put(field, value):
                 arr = rec.setdefault(field, [])

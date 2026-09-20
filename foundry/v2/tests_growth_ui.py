@@ -223,9 +223,10 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and '_feeCostMultiplierValue' in html and '_feeSetCostMultiplierSchedule' in html
        and 'Direct cost path × Cost multiplier path = effective fee-product cost factor.' in html
        and 'Noninterest Expense: Fee Product Costs' in html)
-    ck("transaction percentage pricing UI exposes Flat/Growth/Explicit natural-period rate authoring",
-       'Fee / spread path' in html and 'Fee rate path' in html
-       and 'Fee rate schedule (%) by ${_trper}' in html
+    ck("transaction pricing UI exposes explicit per-unit vs throughput basis plus Flat/Growth/Explicit paths",
+       'Fee / spread path' in html and 'Pricing basis' in html and 'Pricing path' in html
+       and 'Per unit ($ / transaction)' in html and '% of throughput' in html
+       and 'Fee rate schedule (%)' in html and 'Fee per transaction schedule ($)' in html
        and '_feeTransactionRateTrajectory' in html and '_feeTransactionRatePeriod' in html
        and '_feeTransactionRateResolution' in html and '_feeSetTransactionRateSchedule' in html)
     ck("Income Statement surfaces Fee Product Costs inside the explicit NIE breakout",
@@ -315,7 +316,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "\nconst st={name:'API',basis:'transaction',driver:{source:'stream_ref',ref:'Enabled Partners',trajectory:'derived',params:{coefficient:{kind:'amount_per_source_unit',value:500000000,period:'year',trajectory:'flat'}}},rate:{behavior:'flat',params:{per_unit:.002,rate_path:{value:.002,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.002,'2':.0018}}}},cost:{kind:'pct_of_revenue_opex',params:{pct:.00025,factor_path:{value:.00025,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':.00025,'2':.0002}},multiplier_path:{value:1.0,trajectory:'flat',period:'year',resolution:'step'}}}};"
         " const p={name:'API Product',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
         " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetTransactionRateSchedule(0,0,'0.20%, 0.18, 0.17'); _feeSetCostFactorSchedule(0,0,'0.025%, 0.020, 0.015');"
-        " console.log(JSON.stringify({rateUI:out.includes('Fee rate path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('Operating cost rate path')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
+        " console.log(JSON.stringify({rateUI:out.includes('Pricing basis')&&out.includes('Pricing path')&&out.includes('Fee rate schedule (%) by month'),costUI:out.includes('Operating cost rate path')&&out.includes('Cost rate schedule (% of gross fee revenue) by month'),multUI:out.includes('Cost multiplier path'),rate:st.rate.params.rate_path.schedule,cost:st.cost.params.factor_path.schedule}));")
     ppr=subprocess.run(["node","-e",pricing_path_js],text=True,capture_output=True); ppj={}
     if ppr.returncode==0 and ppr.stdout.strip():
         try: ppj=json.loads(ppr.stdout.strip().splitlines()[-1])
@@ -324,6 +325,23 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        ppr.returncode==0 and ppj.get("rateUI") and ppj.get("costUI") and ppj.get("multUI")
        and all(abs((ppj.get("rate") or {}).get(str(i),0)-v)<1e-12 for i,v in enumerate([.002,.0018,.0017],1))
        and all(abs((ppj.get("cost") or {}).get(str(i),0)-v)<1e-12 for i,v in enumerate([.00025,.0002,.00015],1)), str(ppj)+" "+ppr.stderr.strip())
+    per_unit_pricing_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
+        "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
+        "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; } function renderContent(){} function refresh(){}\n"
+        + hjs + fjs +
+        "\nconst st={name:'FedWire Total Transactions',basis:'transaction',driver:{source:'stream_ref',ref:'Active Users',trajectory:'derived',params:{coefficient:{kind:'multiple',value:.133333333333,period:'month',trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'per_unit',per_unit:0}},cost:{kind:'per_unit',params:{cost_per_unit:5}}};"
+        " const p={name:'FedWire',_fee_product:true,fee_streams:[{name:'Active Users',basis:'transaction',driver:{source:'constant',trajectory:'flat',params:{base:111}},rate:{behavior:'flat',params:{per_unit:0}},cost:{kind:'none',params:{}}},st]}; cfg.assumptions.obs_exposures=[p];"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeTransactionRateValue(0,1,'5'); const saved=st.rate.params.rate_path.value; _feeSetTransactionRateSchedule(0,1,'5,5.25'); const sched=st.rate.params.rate_path.schedule;"
+        " console.log(JSON.stringify({basis:out.includes('Pricing basis')&&out.includes('Per unit ($ / transaction)'),field:out.includes('Fee ($ / transaction)'),saved,sched}));")
+    pur=subprocess.run(["node","-e",per_unit_pricing_js],text=True,capture_output=True); puj={}
+    if pur.returncode==0 and pur.stdout.strip():
+        try: puj=json.loads(pur.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ck("Derived Transaction stream can author $/transaction pricing without percent conversion",
+       pur.returncode==0 and puj.get("basis") and puj.get("field") and abs(puj.get("saved",0)-5.0)<1e-12
+       and abs((puj.get("sched") or {}).get("1",0)-5.0)<1e-12 and abs((puj.get("sched") or {}).get("2",0)-5.25)<1e-12,
+       str(puj)+" "+pur.stderr.strip())
+
     # r92: basis-typed cleanup must repair already-saved r91 configs and future basis changes.
     na=html.index("function normalizeCfg(c){"); nb=html.index("function freezeOriginal",na); normjs=html[na:nb]
     stale_cleanup_js=("const window=globalThis; function renderContent(){} function refresh(){};\n"

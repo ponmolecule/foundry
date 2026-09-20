@@ -1134,6 +1134,12 @@ def _capability_map_sheet(wb, cfg):
             add("Fee Product", f"Driver source: {_drv.get('source')}", _name, "SETTINGS")
             add("Fee Product", f"Driver trajectory: {_drv.get('trajectory')}", _name, "SETTINGS")
             add("Fee Product", f"Rate behavior: {_rate.get('behavior')}", _name, "SETTINGS")
+            if str(_st.get("basis") or "").lower() == "transaction":
+                _rp0=(_rate.get("params") or {});_pb=str(_rp0.get("pricing_basis") or "").lower()
+                if _pb not in {"per_unit","pct_of_throughput"}:
+                    _coef0=((_drv.get("params") or {}).get("coefficient"))
+                    _pb="pct_of_throughput" if str(_drv.get("trajectory") or "flat").lower()=="derived" and _coef0 is not None else "per_unit"
+                add("Fee Product", f"Transaction pricing basis: {_pb}", _name, "SETTINGS")
             add("Fee Product", f"Direct cost: {_cost.get('kind')}", _name, "SETTINGS")
             _measure=_drv.get("measure") or (_drv.get("params") or {}).get("customer_count_measure")
             if _measure: add("Fee Product", f"CAC customer measure: {_measure}", _name, "SETTINGS")
