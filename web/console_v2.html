@@ -1435,13 +1435,18 @@ function normalizeCfg(c){
       if(p) delete p.opex_fixed_m;
     });
   });
-  // Fee-driver params are basis-typed. r91 could leave a transaction coefficient behind
-  // after a stream was repurposed as Account/Balance/Flat/Event; that hidden stale field
-  // then tripped fail-closed validation even though it no longer participated in the stream.
-  // Canonicalize only the incompatible field: transaction streams retain their coefficient.
+  // Fee-driver params are basis- AND trajectory-typed. Hidden derived-only state must not
+  // survive when a stream is repurposed. In particular, a transaction coefficient is valid
+  // only while driver.trajectory='derived'; leaving it behind after switching to Flat/Growth/
+  // Explicit made a perfectly visible non-derived stream fail closed on the next run. Repair
+  // that stale state on every load/normalization so a refresh is sufficient to recover the
+  // engagement. Apply the same invariant to balance stock multipliers, which are likewise
+  // derived-only engine state.
   (c.assumptions.obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
-    const basis=st&&st.basis||"balance", dp=st&&st.driver&&st.driver.params, rp=st&&st.rate&&st.rate.params;
-    if(dp && ["account","flat","event"].includes(basis)) delete dp.coefficient;
+    const basis=st&&st.basis||"balance", drv=st&&st.driver||{}, dp=drv.params, rp=st&&st.rate&&st.rate.params;
+    const traj=String(drv.trajectory||"flat").toLowerCase();
+    if(dp && (["account","flat","event"].includes(basis) || (basis==="transaction" && traj!=="derived"))) delete dp.coefficient;
+    if(dp && (basis!=="balance" || traj!=="derived")) delete dp.stock_multiplier;
     if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
     if(rp && basis!=="transaction") delete rp.pricing_basis;
   }));
@@ -1751,6 +1756,7 @@ async function autosaveNow(){
 }
 window.scheduleAutosave = scheduleAutosave;
 async function preview(){
+  normalizeCfg(cfg);
   if(V31){ syncModules(); }
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
@@ -2663,6 +2669,23 @@ _feeGlobal.feeCostPoolDeleteFromStream=function(i,si,ref){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{per_unit:0}};st.cost={kind:"none",params:{}};
   const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref));if(at>=0)pools.splice(at,1);renderContent();refresh();
 };
+_feeGlobal.feeStreamTrajectoryChange=function(i,si,v){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];
+  st.driver=st.driver||{};st.driver.params=st.driver.params||{};
+  st.driver.trajectory=v;
+  // Derived-only driver state is active economics, not a draft to preserve. Once the user
+  // leaves Derived, remove it immediately so the visible trajectory and saved model cannot
+  // disagree. normalizeCfg applies the same invariant on load/refresh for older saved configs.
+  if(v!=="derived"){delete st.driver.params.coefficient;delete st.driver.params.stock_multiplier;}
+  if(v==="derived"&&st.basis==="transaction"&&st.driver.params.coefficient==null&&st.driver.params.multiple==null&&st.driver.params.pct==null){
+    st.driver.params.coefficient={kind:"multiple",value:0,period:"year",trajectory:"flat"};
+  }
+  if(v==="derived"&&st.basis==="balance"&&st.driver.source!=="constant"&&st.driver.params.stock_multiplier==null&&st.driver.params.multiple==null&&st.driver.params.pct==null){
+    st.driver.params.stock_multiplier={kind:"pct",value:0,period:"year",trajectory:"flat",resolution:"step"};
+  }
+  if(v==="explicit_schedule"&&st.basis==="account"&&st.driver.source==="constant")_feeEnsureAccountLevel(i,si);
+  renderContent();refresh();
+};
 _feeGlobal.feeStreamBasisChange=function(i,si,v){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si],oldBasis=st.basis||"balance";st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};st.cost=st.cost||{kind:"none",params:{}};
   // A balance rate is annualized stock pricing; a transaction rate is a throughput factor.
@@ -2941,7 +2964,7 @@ function fieldsFor(fam, p, base){
       const _isCostPool=(src==="cost_pool");
       const _isCACAccountCount=(basis==="account"&&src==="customer_acquisition_count");
       const _trajOpts=_isCostPool?[["flat","Follows cost pool (native-period flow)"]]:(_isCACAccountCount?[["flat","Follows Customer Acquisition"]]:(_isAccountCount?[["flat","Flat"],["proportional","Growth"],["explicit_schedule","Explicit schedule"]]:[["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (× source)"]]));
-      h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isCACAccountCount)?" disabled":""} onchange="(function(v){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];st2.driver=st2.driver||{};st2.driver.params=st2.driver.params||{};st2.driver.trajectory=v;if(v==='derived'&&st2.basis==='transaction'&&st2.driver.params.coefficient==null&&st2.driver.params.multiple==null&&st2.driver.params.pct==null){st2.driver.params.coefficient={kind:'multiple',value:0,period:'year',trajectory:'flat'};}if(v==='derived'&&st2.basis==='balance'&&st2.driver.source!=='constant'&&st2.driver.params.stock_multiplier==null&&st2.driver.params.multiple==null&&st2.driver.params.pct==null){st2.driver.params.stock_multiplier={kind:'pct',value:0,period:'year',trajectory:'flat',resolution:'step'};}if(v==='explicit_schedule'&&st2.basis==='account'&&st2.driver.source==='constant'){_feeEnsureAccountLevel(${_fi},${si});}renderContent();refresh();})(this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
+      h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
       if(src==="constant" && traj!=="explicit_schedule"){
         const _baseLabel=_isAccountCount?(traj==="proportional"?"Starting count":"Count / mandates"):"Base value";
         h += F(_baseLabel, sb+".driver.params.base", "n");
