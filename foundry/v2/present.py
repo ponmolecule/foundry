@@ -18,6 +18,9 @@ Row types:
 BS_LAYOUT = [
     {"t": "section", "label": "ASSETS"},
     {"t": "line", "key": "cash", "label": "Cash and balances due from banks"},
+    {"t": "line", "key": "affiliatedCash", "label": "of which: cash at affiliated depository bank", "indent": 1},
+    {"t": "line", "key": "operatingCash", "label": "of which: operating cash", "indent": 1},
+    {"t": "line", "key": "frbStock", "label": "Capital stock in Federal Reserve Bank"},
     {"t": "line", "key": "htm", "label": "Securities held-to-maturity, at amortized cost"},
     {"t": "line", "key": "afs", "label": "Securities available-for-sale, at fair value"},
     {"t": "line", "key": "sec", "label": "Securities available-for-sale, at fair value (incl. liquidity portfolio)"},
@@ -63,10 +66,15 @@ IS_LAYOUT = [
     {"t": "line", "key": "secInt", "label": "Interest on securities", "indent": 1},
     {"t": "line", "key": "intSec", "label": "Interest on securities", "indent": 1},
     {"t": "line", "key": "cashInt", "label": "Interest on balances due from banks", "indent": 1},
+    {"t": "line", "key": "affiliatedCashInt", "label": "of which: affiliated-bank cash interest", "indent": 2},
+    {"t": "line", "key": "operatingCashInt", "label": "of which: operating-cash interest", "indent": 2},
+    {"t": "line", "key": "fiduciaryAuaInt", "label": "of which: fiduciary AUA interest", "indent": 2},
+    {"t": "line", "key": "frbStockInt", "label": "of which: Federal Reserve stock income", "indent": 2},
     {"t": "line", "key": "intCash", "label": "Interest on balances due from banks", "indent": 1},
     {"t": "line", "key": "totalIntInc", "label": "Total interest income", "subtotal": True},
     {"t": "section", "label": "INTEREST EXPENSE"},
     {"t": "line", "key": "depExp", "label": "Interest on deposits", "indent": 1},
+    {"t": "line", "key": "fiduciaryDepExp", "label": "of which: fiduciary interest-bearing AUA", "indent": 2},
     {"t": "line", "key": "intDep", "label": "Interest on deposits", "indent": 1},
     {"t": "line", "key": "borrExp", "label": "Interest on borrowed funds", "indent": 1},
     {"t": "line", "key": "intBorrow", "label": "Interest on borrowed funds", "indent": 1},
@@ -182,8 +190,7 @@ def derived_lines(res, cfg):
         return is_.get(k) or [0.0] * m
     out["totalIntInc"] = [round((g("loanInt")[i] if "loanInt" in is_ else g("intLoans")[i] or 0)
                                 + (g("secInt")[i] if "secInt" in is_ else g("intSec")[i] or 0)
-                                + (g("cashInt")[i] if "cashInt" in is_ else g("intCash")[i] or 0)
-                                + (g("bookInt")[i] or 0), 2)
+                                + (g("cashInt")[i] if "cashInt" in is_ else g("intCash")[i] or 0), 2)
                          for i in range(m)]
     out["totalIntExp"] = [round((g("depExp")[i] if "depExp" in is_ else g("intDep")[i] or 0)
                                 + (g("borrExp")[i] if "borrExp" in is_ else g("intBorrow")[i] or 0), 2)
