@@ -1196,12 +1196,24 @@ def _fee_stream_meta(cfg):
                 sid = str(st.get("quantity_series_id") or "").strip()
                 if not sid:
                     continue
+                basis = str(st.get("basis") or "").strip().lower()
+                rp = ((st.get("rate") or {}).get("params") or {})
+                pricing_basis = None
+                if basis == "transaction":
+                    explicit = str(rp.get("pricing_basis") or "").strip().lower()
+                    if explicit in {"per_unit", "pct_of_throughput"}:
+                        pricing_basis = explicit
+                    else:
+                        drv = st.get("driver") or {}
+                        coef = ((drv.get("params") or {}).get("coefficient"))
+                        pricing_basis = ("pct_of_throughput" if str(drv.get("trajectory") or "flat").strip().lower() == "derived" and coef is not None else "per_unit")
                 out[sid] = {
                     "series_id": sid,
                     "product": pname,
                     "stream": str(st.get("name") or f"Stream {si + 1}"),
                     "family": fam,
-                    "basis": str(st.get("basis") or "").strip().lower(),
+                    "basis": basis,
+                    "pricing_basis": pricing_basis,
                     "rate_behavior": str((st.get("rate") or {}).get("behavior") or "flat").strip().lower(),
                     "cost_kind": str((st.get("cost") or {}).get("kind") or "none").strip().lower(),
                 }
@@ -1290,9 +1302,15 @@ def _fee_stream_economics_rows(cfg, exact, n):
 
         pricing = _series(rec, "pricing_factor")
         if any(v is not None for v in pricing):
-            if basis in {"transaction", "balance"}:
+            if basis == "transaction":
                 plabel = "Fee rate / pricing factor"
-                punits, pfmt, pvals = "%" + (" of throughput" if basis == "transaction" else " annual on balance"), _PCT_FMT, pricing
+                if str(m.get("pricing_basis") or (rec or {}).get("pricing_basis") or "") == "per_unit":
+                    punits, pfmt, pvals = "$ / transaction unit", _RAW_NUM_FMT, pricing
+                else:
+                    punits, pfmt, pvals = "% of throughput", _PCT_FMT, pricing
+            elif basis == "balance":
+                plabel = "Fee rate / pricing factor"
+                punits, pfmt, pvals = "% annual on balance", _PCT_FMT, pricing
             elif basis == "account":
                 plabel = "Effective account fee"
                 punits, pfmt, pvals = "$ / account / engine period", _RAW_NUM_FMT, pricing

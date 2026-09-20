@@ -30,6 +30,9 @@ def main():
        {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","pct_of_revenue","pct_of_revenue_opex","pct_of_throughput_opex"}
        and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[]))
        and any("transaction volume/throughput" in x for x in m.get("special_rules",[])))
+    ck("manifest separates transaction pricing unit from throughput construction",
+       {x["id"] for x in m.get("transaction_pricing_bases",[])}=={"per_unit","pct_of_throughput"}
+       and any("independent of the flow coefficient" in x for x in m.get("special_rules",[])))
 
     # Guide Me credential resolution is server-only and must work even though
     # Foundry is deployed separately from CharterIQ. Environment wins, then a

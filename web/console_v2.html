@@ -1443,6 +1443,7 @@ function normalizeCfg(c){
     const basis=st&&st.basis||"balance", dp=st&&st.driver&&st.driver.params, rp=st&&st.rate&&st.rate.params;
     if(dp && ["account","flat","event"].includes(basis)) delete dp.coefficient;
     if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
+    if(rp && basis!=="transaction") delete rp.pricing_basis;
   }));
   if(c.pre_opening) delete c.pre_opening._pasteOpen;
   const _ta=c.assumptions||{}, _tnd=_ta.nie_detail||{};
@@ -2556,6 +2557,16 @@ function _feeSetBalanceRateSchedule(i,si,text){
   const vals=_feeParseExplicitValues(text);if(!vals.length)return;const rp=_feeEnsureBalanceRatePath(i,si);const out={};vals.forEach((v,j)=>out[String(j+1)]=v/10000);rp.schedule=out;renderContent();refresh();
 }
 function _feeClearBalanceRateSchedule(i,si){const rp=_feeEnsureBalanceRatePath(i,si);rp.schedule={};renderContent();refresh();}
+function _feeTransactionPricingBasisForStream(st){
+  const rp=((st||{}).rate||{}).params||{}, explicit=String(rp.pricing_basis||"").toLowerCase();
+  if(explicit==="per_unit"||explicit==="pct_of_throughput")return explicit;
+  const drv=(st||{}).driver||{},coef=(drv.params||{}).coefficient;
+  return (String(drv.trajectory||"flat").toLowerCase()==="derived"&&coef)?"pct_of_throughput":"per_unit";
+}
+function _feeSetTransactionPricingBasis(i,si,v){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  st.rate.params.pricing_basis=(v==="pct_of_throughput"?"pct_of_throughput":"per_unit");renderContent();refresh();
+}
 function _feeEnsureTransactionRatePath(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const rp=st.rate.params;if(!rp.rate_path)rp.rate_path={value:+(rp.per_unit||0),period:"year",trajectory:"flat",resolution:"step"};st.rate.behavior="flat";return rp.rate_path;
@@ -2563,9 +2574,9 @@ function _feeEnsureTransactionRatePath(i,si){
 function _feeTransactionRateTrajectory(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.trajectory=v;if(v==="growth"&&!rp.growth_spec)rp.growth_spec={rate:0,period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&!rp.schedule)rp.schedule={};renderContent();refresh();}
 function _feeTransactionRatePeriod(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.period=v;if(rp.growth_spec){rp.growth_spec.period=v;rp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeTransactionRateResolution(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.resolution=v;if(rp.growth_spec)rp.growth_spec.method=v;renderContent();refresh();}
-function _feeTransactionRateValue(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.value=_pf(v)/100;refresh();}
+function _feeTransactionRateValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st);rp.value=(pb==="pct_of_throughput"?_pf(v)/100:_pf(v));refresh();}
 function _feeTransactionRateGrowth(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.growth_spec=rp.growth_spec||{period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};rp.growth_spec.rate=_pf(v)/100;refresh();}
-function _feeSetTransactionRateSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const rp=_feeEnsureTransactionRatePath(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v/100);rp.schedule=out;renderContent();refresh();}
+function _feeSetTransactionRateSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st),out={};vals.forEach((v,j)=>out[String(j+1)]=(pb==="pct_of_throughput"?v/100:v));rp.schedule=out;renderContent();refresh();}
 function _feeClearTransactionRateSchedule(i,si){const rp=_feeEnsureTransactionRatePath(i,si);rp.schedule={};renderContent();refresh();}
 var _feeGlobal=(typeof window!=="undefined"?window:globalThis);
 function _feeCostPools(){cfg.assumptions=cfg.assumptions||{};if(!Array.isArray(cfg.assumptions.cost_pools))cfg.assumptions.cost_pools=[];return cfg.assumptions.cost_pools;}
@@ -2657,6 +2668,7 @@ _feeGlobal.feeStreamBasisChange=function(i,si,v){
   // A balance rate is annualized stock pricing; a transaction rate is a throughput factor.
   // Never carry one silently across a basis change just because both use the same JSON key.
   if(oldBasis!==v) delete st.rate.params.rate_path;
+  if(v!=="transaction") delete st.rate.params.pricing_basis;
   // A natural-period coefficient is a Transaction/throughput-only driver fact. When the
   // user changes basis, retire that incompatible draft state immediately instead of letting
   // a hidden transaction field block an otherwise-valid Account/Balance/Flat/Event stream.
@@ -3026,21 +3038,21 @@ function fieldsFor(fam, p, base){
         } else {
           const _dc = (st.rate.behavior==="durbin_capped");
           if(!_dc){
-            if(traj==="derived" && st.driver.params.coefficient){
-              const _trp=st.rate.params.rate_path, _trtraj=_trp&&_trp.trajectory?_trp.trajectory:"flat", _trper=_trp&&_trp.period?_trp.period:"year", _trres=_trp&&_trp.resolution?_trp.resolution:"step", _trval=(_trp?_trp.value:(st.rate.params.per_unit||0))*100;
-              h += `<div class="fld"><label>Fee rate path</label><select onchange="_feeTransactionRateTrajectory(${_fi},${si},this.value)"><option value="flat"${_trtraj==="flat"?" selected":""}>Flat</option><option value="growth"${_trtraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_trtraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
-              h += `<div class="fld"><label>Period</label><select onchange="_feeTransactionRatePeriod(${_fi},${si},this.value)"><option value="month"${_trper==="month"?" selected":""}>Month</option><option value="quarter"${_trper==="quarter"?" selected":""}>Quarter</option><option value="year"${_trper==="year"?" selected":""}>Year</option></select></div>`;
-              if(_trtraj!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeTransactionRateResolution(${_fi},${si},this.value)"><option value="step"${_trres==="step"?" selected":""}>Step</option><option value="smooth"${_trres==="smooth"?" selected":""}>Smooth</option></select></div>`;
-              if(_trtraj==="flat"||_trtraj==="growth") h += `<div class="fld"><label>${_trtraj==="growth"?"Starting fee":"Fee"} (% of throughput)</label><input type="number" step="0.0001" value="${(+_trval||0).toFixed(6)}" onchange="_feeTransactionRateValue(${_fi},${si},this.value)"></div>`;
-              if(_trtraj==="growth"){
-                const _trgr=(((_trp&&_trp.growth_spec||{}).rate||0)*100);
-                h += `<div class="fld"><label>Growth (% / ${_trper})</label><input type="number" step="0.01" value="${_trgr}" onchange="_feeTransactionRateGrowth(${_fi},${si},this.value)"></div>`;
-              }
-              if(_trtraj==="explicit_schedule"){
-                const _trid=`feeTransactionRatePaste_${_fi}_${si}`,_trs=(_trp&&_trp.schedule)||{};
-                h += `<div class="fld wide"><label>Fee rate schedule (%) by ${_trper}</label><textarea id="${_trid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="e.g. 0.20, 0.20, 0.18, 0.17, 0.19" oninput="_feeExplicitPasteInput('${_trid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_trid}_load" class="pillbtn" disabled onclick="_feeSetTransactionRateSchedule(${_fi},${si},document.getElementById('${_trid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearTransactionRateSchedule(${_fi},${si})"${Object.keys(_trs).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_trs,100,_trper)}</div><span class="memo" style="margin:3px 0 0">Paste normal percentage values. Each value is a pricing rate on throughput for one selected natural period; the last loaded rate carries forward.</span></div>`;
-              }
-            } else h += F("Fee ($/unit)", sb+".rate.params.per_unit", "n");
+            const _tpb=_feeTransactionPricingBasisForStream(st),_isPctPrice=(_tpb==="pct_of_throughput");
+            h += `<div class="fld"><label>Pricing basis</label><select onchange="_feeSetTransactionPricingBasis(${_fi},${si},this.value)"><option value="per_unit"${_tpb==="per_unit"?" selected":""}>Per unit ($ / transaction)</option><option value="pct_of_throughput"${_tpb==="pct_of_throughput"?" selected":""}>% of throughput</option></select></div>`;
+            const _trp=st.rate.params.rate_path, _trtraj=_trp&&_trp.trajectory?_trp.trajectory:"flat", _trper=_trp&&_trp.period?_trp.period:"year", _trres=_trp&&_trp.resolution?_trp.resolution:"step", _trraw=(_trp?_trp.value:(st.rate.params.per_unit||0)), _trval=_isPctPrice?_trraw*100:_trraw;
+            h += `<div class="fld"><label>Pricing path</label><select onchange="_feeTransactionRateTrajectory(${_fi},${si},this.value)"><option value="flat"${_trtraj==="flat"?" selected":""}>Flat</option><option value="growth"${_trtraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_trtraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
+            h += `<div class="fld"><label>Path cadence</label><select onchange="_feeTransactionRatePeriod(${_fi},${si},this.value)"><option value="month"${_trper==="month"?" selected":""}>Month</option><option value="quarter"${_trper==="quarter"?" selected":""}>Quarter</option><option value="year"${_trper==="year"?" selected":""}>Year</option></select></div>`;
+            if(_trtraj!=="flat") h += `<div class="fld"><label>Resolution</label><select onchange="_feeTransactionRateResolution(${_fi},${si},this.value)"><option value="step"${_trres==="step"?" selected":""}>Step</option><option value="smooth"${_trres==="smooth"?" selected":""}>Smooth</option></select></div>`;
+            if(_trtraj==="flat"||_trtraj==="growth") h += `<div class="fld"><label>${_trtraj==="growth"?"Starting ":""}${_isPctPrice?"Fee (% of throughput)":"Fee ($ / transaction)"}</label><input type="number" step="any" value="${Number(_trval||0).toFixed(_isPctPrice?6:6)}" onchange="_feeTransactionRateValue(${_fi},${si},this.value)"></div>`;
+            if(_trtraj==="growth"){
+              const _trgr=(((_trp&&_trp.growth_spec||{}).rate||0)*100);
+              h += `<div class="fld"><label>Growth (% / ${_trper})</label><input type="number" step="0.01" value="${_trgr}" onchange="_feeTransactionRateGrowth(${_fi},${si},this.value)"></div>`;
+            }
+            if(_trtraj==="explicit_schedule"){
+              const _trid=`feeTransactionRatePaste_${_fi}_${si}`,_trs=(_trp&&_trp.schedule)||{},_trscale=_isPctPrice?100:1;
+              h += `<div class="fld wide"><label>${_isPctPrice?"Fee rate schedule (%)":"Fee per transaction schedule ($)"} by ${_trper}</label><textarea id="${_trid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="${_isPctPrice?"e.g. 0.20, 0.20, 0.18, 0.17":"e.g. 5, 5, 5.25, 5.25"}" oninput="_feeExplicitPasteInput('${_trid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_trid}_load" class="pillbtn" disabled onclick="_feeSetTransactionRateSchedule(${_fi},${si},document.getElementById('${_trid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearTransactionRateSchedule(${_fi},${si})"${Object.keys(_trs).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_trs,_trscale,_trper)}</div><span class="memo" style="margin:3px 0 0">${_isPctPrice?"Each value is a percentage of transaction throughput.":"Each value is dollars per transaction unit."} Path cadence controls when the pricing assumption changes; Foundry does not periodize the pricing factor itself.</span></div>`;
+            }
           }
           // Durbin debit-interchange cap: only relevant to ordinary transaction streams.
           h += `<label style="grid-column:1/-1;display:flex;align-items:center;gap:7px;cursor:pointer;margin:8px 0 4px;font-size:12px"><input type="checkbox" style="margin:0;flex:0 0 auto" ${_dc?"checked":""} onchange="(function(cb){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];if(cb.checked){st2.rate.behavior='durbin_capped';st2.rate.params=st2.rate.params||{};delete st2.rate.params.rate_path;if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior='flat';}renderContent();refresh();})(this)"><span>Apply Durbin debit-interchange cap (binds at ≥ $10B assets)</span></label>`;
@@ -7607,6 +7619,7 @@ function labLeverCatalog(){
       const sb=pb+`.fee_streams.${si}`;
       const drv=st.driver||{}, dp=drv.params||{}, traj=drv.trajectory||"flat", src=drv.source||"constant";
       const rt=st.rate||{}, rp=rt.params||{}, rb=rt.behavior||"flat", basis=st.basis||"balance";
+      const tpb=(rp.pricing_basis==="per_unit"||rp.pricing_basis==="pct_of_throughput")?rp.pricing_basis:((traj==="derived"&&dp.coefficient)?"pct_of_throughput":"per_unit");
       const cost=st.cost||{}, cp=cost.params||{};
       if(src==="constant" && traj!=="explicit_schedule") push(sb+".driver.params.base", `${pre}: driver base`, "");
       if(traj==="proportional"){
@@ -7632,9 +7645,11 @@ function labLeverCatalog(){
         if(rb==="durbin_capped" && typeof rp.avg_ticket==="number") push(sb+".rate.params.avg_ticket", `${pre}: average ticket ($)`, "");
         if(rb==="flat" && rp.rate_path){
           const trp=rp.rate_path,trt=trp.trajectory||"flat";
-          if(trt!=="explicit_schedule" && typeof trp.value==="number") push(sb+".rate.params.rate_path.value", `${pre}: fee rate on throughput`, "pct");
-          if(trt==="growth" && trp.growth_spec && typeof trp.growth_spec.rate==="number") push(sb+".rate.params.rate_path.growth_spec.rate", `${pre}: fee-rate growth`, "pct");
-        } else if(typeof rp.per_unit==="number") push(sb+".rate.params.per_unit", `${pre}: ${dp.coefficient?"fee on throughput":"fee per unit"}`, dp.coefficient?"pct":"");
+          if(trt!=="explicit_schedule" && typeof trp.value==="number") push(sb+".rate.params.rate_path.value", `${pre}: ${tpb==="per_unit"?"fee per transaction":"fee rate on throughput"}`, tpb==="per_unit"?"":"pct");
+          if(trt==="growth" && trp.growth_spec && typeof trp.growth_spec.rate==="number") push(sb+".rate.params.rate_path.growth_spec.rate", `${pre}: pricing-factor growth`, "pct");
+        } else if(typeof rp.per_unit==="number"){
+          push(sb+".rate.params.per_unit", `${pre}: ${tpb==="per_unit"?"fee per transaction":"fee rate on throughput"}`, tpb==="per_unit"?"":"pct");
+        }
       } else if(basis==="account"){
         if(rp.unit_fee && typeof rp.unit_fee.value==="number") push(sb+".rate.params.unit_fee.value", `${pre}: fee/account/${rp.unit_fee.period||"year"} ($000s)`, "k");
         else push(sb+".rate.params.fee_per_period", `${pre}: fee/account/month (legacy $)`, "");

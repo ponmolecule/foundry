@@ -557,6 +557,44 @@ def main():
        and sx.get("stream_qty",{}).get("Business MAB")==cx.get("stream_qty",{}).get("Business MAB"),
        f"valid={stale_ok} qty={sx.get('stream_qty',{}).get('Business MAB')} gross={sg}")
 
+    # D3f-r133: transaction pricing basis is explicit and independent of the
+    # driver coefficient. A count-producing derived stream may charge dollars per
+    # transaction; a monetary-throughput stream may charge a percentage.
+    per_tx={"name":"FedWire Total Transactions","basis":"transaction","quantity_series_id":"q-fedwire",
+        "driver":{"source":"stream_ref","ref":"Active Users","trajectory":"derived","params":{"coefficient":{
+            "kind":"multiple","value":0.13333333333333333,"period":"month","trajectory":"flat"}}},
+        "rate":{"behavior":"flat","params":{"pricing_basis":"per_unit","per_unit":5.0,"rate_path":{
+            "value":5.0,"trajectory":"flat","period":"month","resolution":"step"}}},
+        "cost":{"kind":"per_unit","params":{"cost_per_unit":5.0}},"timing":{"start_period":1}}
+    pctx={"stream_qty":{"Active Users":111.0},"capture_stream_economics":{}}
+    pg,pc=fee_stream_q(copy.deepcopy(per_tx),1,pctx,12)
+    ck("D3f derived transaction count supports explicit $/transaction pricing",
+       abs(pg-74.0)<1e-9 and abs(pc-74.0)<1e-9
+       and abs(pctx["stream_qty"].get("FedWire Total Transactions",0)-14.8)<1e-9,
+       f"qty={pctx['stream_qty'].get('FedWire Total Transactions')} gross={pg} cost={pc}")
+    prec=pctx["capture_stream_economics"].get("q-fedwire") or {}
+    ck("D3f transaction economics capture preserves per-unit pricing semantics",
+       prec.get("pricing_basis")=="per_unit" and abs((prec.get("pricing_factor") or [0])[0]-5.0)<1e-12,
+       str(prec))
+
+    pct_tx=copy.deepcopy(per_tx)
+    pct_tx["rate"]["params"].update({"pricing_basis":"pct_of_throughput","per_unit":0.05,
+        "rate_path":{"value":0.05,"trajectory":"flat","period":"month","resolution":"step"}})
+    pct_tx["cost"]={"kind":"none","params":{}}
+    qg,_=fee_stream_q(pct_tx,1,{"stream_qty":{"Active Users":111.0}},12)
+    ck("D3f same derived quantity can instead use percentage-of-throughput pricing",
+       abs(qg-(14.8*.05))<1e-9, f"gross={qg}")
+
+    legacy_price=copy.deepcopy(pct_tx); legacy_price["rate"]["params"].pop("pricing_basis",None)
+    lg,_=fee_stream_q(legacy_price,1,{"stream_qty":{"Active Users":111.0}},12)
+    ck("D3f legacy derived transaction stream keeps historical percentage pricing inference",
+       abs(lg-qg)<1e-12, f"legacy={lg} explicit={qg}")
+
+    bad_price=copy.deepcopy(per_tx);bad_price["rate"]["params"]["pricing_basis"]="magic"
+    try: _validate_fee_stream_shape(bad_price); bad_price_ok=False
+    except ValueError: bad_price_ok=True
+    ck("D3f unsupported transaction pricing basis fails closed", bad_price_ok)
+
     # D4 fail-safe: an empty fee product contributes exactly zero
     empty = [{"name":"Empty","call_report_line":"obs","_fee_product":True,"fee_streams":[]}]
     f,_ = isolate(empty)
