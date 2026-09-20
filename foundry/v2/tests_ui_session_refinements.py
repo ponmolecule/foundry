@@ -117,6 +117,59 @@ console.log(JSON.stringify({presentation,high,auditSum,auditSumShown:fmtProductK
        and "const _pc=productDetailSeries(p, 'passCost')" in html
        and "Math.abs(+x)>1e-9" in html)
 
+    ck("Product cards expose persistent drag handles with insertion markers and keyboard movement",
+       'class="product-drag-handle" draggable="true"' in html
+       and 'productDragStart(event' in html and 'productDrop(event' in html
+       and '.product-card.drop-before:before,.product-card.drop-after:after' in html
+       and "event.key==='ArrowUp'" in html and "event.key==='ArrowDown'" in html)
+    ck("Product reorder is family-scoped and canonicalizes legacy managed-notional references first",
+       "String(d.fam)!==String(fam)" in html
+       and "_canonicalizeLegacyWorkforceAucTriggers" in html[html.index("function _productReorder"):html.index("function delProduct", html.index("function _productReorder"))])
+
+    # Execute the shipped reorder controller: the actual product objects move in the saved arrays,
+    # expanded/collapsed state follows those objects, and a drag cannot reclassify a product across families.
+    pa=html.index("function toggleOpen(key)")
+    pb=html.index("function v31ModalBody()", pa)
+    product_js=html[pa:pb]
+    node_prefix = r'''
+const window=globalThis;
+const document={querySelectorAll:()=>[]};
+const ARR_OF={lending:'lending_products',deposit:'deposit_products',obs:'obs_exposures'};
+let cfg={assumptions:{
+ lending_products:[{name:'Loan A',marker:'A'},{name:'Loan B',marker:'B'}],
+ deposit_products:[{name:'Deposit A',marker:'D'}],
+ obs_exposures:[{name:'Fee A',marker:'F'}]
+}};
+let openMap={lending_0:false,lending_1:true,deposit_0:false};
+function famArr(fam){return cfg.assumptions[ARR_OF[fam]];}
+function renderContent(){} function refresh(){}
+let canonicalized=0;function _canonicalizeLegacyWorkforceAucTriggers(){canonicalized++;}
+'''
+    node_suffix = r'''
+const loanA=cfg.assumptions.lending_products[0], loanB=cfg.assumptions.lending_products[1];
+const moved=_productReorder('lending',0,1,true);
+const afterDown={names:cfg.assumptions.lending_products.map(x=>x.name),sameA:cfg.assumptions.lending_products[1]===loanA,sameB:cfg.assumptions.lending_products[0]===loanB,open0:openMap.lending_0,open1:openMap.lending_1};
+window.productMove('lending',1,-1);
+const afterKeyboard={names:cfg.assumptions.lending_products.map(x=>x.name),sameA:cfg.assumptions.lending_products[0]===loanA,open0:openMap.lending_0};
+window._productDrag={fam:'lending',index:0};
+window.productDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'deposit',0);
+const crossGuard={loans:cfg.assumptions.lending_products.map(x=>x.name),deposits:cfg.assumptions.deposit_products.map(x=>x.name)};
+console.log(JSON.stringify({moved,afterDown,afterKeyboard,crossGuard,canonicalized}));
+'''
+    rr2=subprocess.run(["node","-e",node_prefix+product_js+node_suffix],text=True,capture_output=True)
+    pj={}
+    if rr2.returncode==0 and rr2.stdout.strip():
+        try: pj=json.loads(rr2.stdout.strip().splitlines()[-1])
+        except Exception: pass
+    ad=pj.get("afterDown") or {}; ak=pj.get("afterKeyboard") or {}; cg=pj.get("crossGuard") or {}
+    ck("drag reorder moves the actual product objects and carries open state with them",
+       rr2.returncode==0 and pj.get("moved") is True and ad.get("names")==["Loan B","Loan A"]
+       and ad.get("sameA") is True and ad.get("sameB") is True and ad.get("open0") is True and ad.get("open1") is False, rr2.stderr.strip())
+    ck("keyboard reorder uses the same persistent array order",
+       ak.get("names")==["Loan A","Loan B"] and ak.get("sameA") is True and ak.get("open0") is False)
+    ck("dragging across product families cannot silently reclassify a product",
+       cg.get("loans")==["Loan A","Loan B"] and cg.get("deposits")==["Deposit A"] and pj.get("canonicalized",0)>=2)
+
     print(f"\n{p} passed, {f} failed")
     return 0 if f==0 else 1
 

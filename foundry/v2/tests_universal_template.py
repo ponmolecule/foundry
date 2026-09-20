@@ -68,6 +68,13 @@ def main():
     ck("universal fixture actually runs modern modules",
        bool(out.get("financials")) and bool(out.get("customer_acquisition")))                         # 3
 
+    reordered = deepcopy(cfg)
+    for _pk in ("lending_products", "deposit_products", "obs_exposures"):
+        reordered["assumptions"][_pk] = list(reversed(reordered["assumptions"].get(_pk) or []))
+    reordered_out = run_q.run_v2(reordered)
+    ck("product authoring order is economically invariant at the aggregate financial-statement layer",
+       out.get("financials") == reordered_out.get("financials"))
+
     # Traditional/core-bank breadth remains present.
     loans = a.get("lending_products") or []; deps = a.get("deposit_products") or []
     ck("core lending covers fixed and floating rates", {p.get("rate_type") for p in loans} >= {"fixed","float"}) # 4
