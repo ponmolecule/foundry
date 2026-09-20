@@ -181,7 +181,7 @@ def run_pf_b(cfg):
                               "paidIn", "premises", "premisesGross", "premisesAccumDep",
                               "borrowSched", "prepaidOpex", "accruedOpex", "otherLiab", "totalAssets")}
     out_is = {k: [] for k in ("intLoans", "intSec", "intCash", "intDep", "intBorrow", "nii",
-                              "provision", "fees", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "pretax", "tax",
+                              "provision", "fees", "msrAmort", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "ebtda", "pretax", "tax",
                               "ni", "chargeoffs")}
 
     for qi in range(Q):
@@ -320,6 +320,7 @@ def run_pf_b(cfg):
         alll_end = alll_tent + true_up
 
         pretax = nii + fees - nie - provision
+        ebtda = pretax + _depreciation_expense
         tax = max(0.0, pretax) * a["tax_rate"]
         ni = pretax - tax
         re += ni
@@ -355,10 +356,10 @@ def run_pf_b(cfg):
             out_bs[k].append(v)
         for k, v in (("intLoans", int_loans), ("intSec", int_sec_prod + int_sweep),
                      ("intCash", int_cash), ("intDep", int_dep), ("intBorrow", int_borrow),
-                     ("nii", nii), ("provision", provision), ("fees", fees),
+                     ("nii", nii), ("provision", provision), ("fees", fees), ("msrAmort", 0.0),
                      ("opexProd", opex_prod), ("workforceComp", _workforce_comp),
                      ("otherOpex", _other_opex), ("depreciationExpense", _depreciation_expense),
-                     ("fixedOpex", _ovh_b), ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
+                     ("fixedOpex", _ovh_b), ("ebtda", ebtda), ("pretax", pretax), ("tax", tax), ("ni", ni), ("chargeoffs", chargeoffs)):
             out_is[k].append(v)
 
         alll = alll_end

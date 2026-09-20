@@ -2685,6 +2685,57 @@ def t71():
           abs(fee_stream_q(_t, 1, {})[0] - 500.0) < 1e-9)
 
 
+def t72():
+    print("T72 new-engagement funding-waterfall assumptions default to zero")
+    import pathlib as _pl
+    _html = _pl.Path("web/console_v2.html").read_text(encoding="utf-8")
+    _start = _html.index("async function wizFinish()")
+    _end = _html.index("window.wizStart=", _start)
+    _wiz = _html[_start:_end]
+    for _slot in ("cash_target_pct_deposits", "cash_yield", "securities_yield", "borrow_rate_ann"):
+        check("T72a", f"new engagement explicitly zeros {_slot}",
+              f"_A.{_slot} = 0;" in _wiz)
+    _translator = _pl.Path("foundry/fixtures/parity/translate_to_v2.py").read_text(encoding="utf-8")
+    check("T72b", "legacy-import omissions no longer inject nonzero funding assumptions",
+          'g.get("cashFloor", 0)' in _translator
+          and _translator.count('g.get("cashYield", 0)') == 2
+          and _translator.count('g.get("secYield", 0)') == 2
+          and _translator.count('g.get("borrowRate", 0)') == 2)
+
+
+def t73():
+    print("T73 bank EBITDA subtotal is published and presented without changing pretax")
+    import json as _j, pathlib as _pl
+    from foundry.v2.run_q import run_v2 as _run
+    for _profile in ("pf_a_base", "pf_b_base"):
+        _cfg = _j.load(open(f"foundry/fixtures/parity/configs/{_profile}.json", encoding="utf-8"))
+        _is = _run(_cfg)["financials"]["is"]
+        check("T73a", f"{_profile}: bank EBITDA equals pretax + D&A every period",
+              "ebtda" in _is and all(abs(_is["ebtda"][i] - _is["pretax"][i]
+                                          - _is["depreciationExpense"][i]
+                                          - _is.get("msrAmort", [0.0] * len(_is["pretax"]))[i]) < 0.011
+                                      for i in range(len(_is["pretax"]))))
+    _html = _pl.Path("web/console_v2.html").read_text(encoding="utf-8")
+    check("T73b", "on-screen Income Statement shows the bank EBITDA subtotal",
+          "Earnings before D&A and taxes (bank EBITDA)" in _html
+          and "rowIS('Earnings before D&A and taxes (bank EBITDA)'" in _html)
+    from foundry.v2.present import IS_LAYOUT
+    check("T73c", "exported Income Statement layout includes the same subtotal before pretax",
+          any(x.get("key") == "ebtda" for x in IS_LAYOUT)
+          and next(i for i,x in enumerate(IS_LAYOUT) if x.get("key") == "ebtda")
+              < next(i for i,x in enumerate(IS_LAYOUT) if x.get("key") == "pretax"))
+    _cfg = _j.load(open("foundry/fixtures/parity/configs/pf_a_base.json", encoding="utf-8"))
+    _public = _run(_cfg)
+    from foundry.v2.excel_q import results_workbook_v2
+    from foundry.v2.parity import run_parity
+    from foundry.v2.audit_workbook import calculation_audit_workbook
+    _result_labels = {str(r[0].value).strip() for r in results_workbook_v2(_cfg, run_parity(_cfg))["Income Statement"].iter_rows() if r and r[0].value}
+    _audit_labels = {str(r[1].value).strip() for r in calculation_audit_workbook(_cfg, _public)["Income Statement"].iter_rows() if len(r) > 1 and r[1].value}
+    check("T73d", "results and Calculation Audit workbooks both expose the subtotal",
+          "EARNINGS BEFORE D&A AND TAXES (BANK EBITDA)" in _result_labels
+          and "ebtda" in _audit_labels)
+
+
 if __name__ == "__main__":
     import os as _os_optin
     # Offline test run: fixtures are the sanctioned source here (no live DB).
@@ -2692,7 +2743,7 @@ if __name__ == "__main__":
     # synthetic data — the whole point of the opt-in.
     _os_optin.environ["FOUNDRY_ALLOW_FIXTURE_BANDS"] = "1"
     print("Foundry protocol harness — engine", runner.ENGINE_VERSION)
-    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69(); t70(); t71()
+    t2(); t3(); t4(); t6(); t14(); t15(); t16(); t17(); t18(); t19(); t20(); t21(); t22(); t23(); t24(); t25(); t26(); t27(); t28(); t29(); t30(); t31(); t32(); t33(); t34(); t35(); t36(); t37(); t38(); t39(); t40(); t41(); t42(); t43(); t44(); t45(); t46(); t47(); t48(); t49(); t50(); t51(); t53(); t54(); t55(); t56(); t57(); t58(); t59(); t60(); t61(); t62(); t63(); t64(); t65(); t66(); t67(); t68(); t69(); t70(); t71(); t72(); t73()
     npass = sum(1 for *_x, ok, _d in [(r[0], r[1], r[2], r[3]) for r in RESULTS] if ok)
     print(f"\n{npass}/{len(RESULTS)} checks passed")
     sys.exit(0 if npass == len(RESULTS) else 1)
