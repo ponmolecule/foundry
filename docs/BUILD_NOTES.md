@@ -306,3 +306,9 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Adds an explicit model-period control for when affiliated-bank cash begins earning interest. This preserves ordinary M1 behavior by default while allowing source models whose opening/setup month earns no affiliated-cash interest to start in M2.
 - Keeps the customer cost rate as the explicit expense assumption on interest-bearing fiduciary AUA and labels MAB as a count in the Calculation Audit instead of `$000s`.
 - Regression coverage verifies fee-stream MAB resolution, M1 affiliated-cash suppression, and the new authoring controls in addition to the existing balance and income identities.
+
+## r141 — explicit cash-interest balance basis
+
+- Adds an explicit balance-basis choice for affiliated-bank and operating-cash interest: current period end, prior period end, or the average of prior and current period ends. Existing saved engagements retain current-period-end behavior unless the user changes the setting.
+- The source-model configuration uses prior-period-end balances for both cash components. This removes the M2 timing discontinuity without changing rates, inserting plugs, or tuning unrelated assumptions.
+- FRB stock remains a current-period balance calculation. Its source-model 0.50% monthly return is entered in Foundry as the economically equivalent 6.00% annual yield.
