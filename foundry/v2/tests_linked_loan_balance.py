@@ -4,6 +4,7 @@ Run: python3 -m foundry.v2.tests_linked_loan_balance
 """
 import copy
 import json
+import subprocess
 
 from .engine_q_a import run_pf_a
 from .loan_balance import normalize_linked_loan_balance, resolve_linked_loan_balance
@@ -41,6 +42,18 @@ def _cfg():
 
 
 def main():
+    # Parse every inline console script as one browser would.  Engine-only tests
+    # cannot detect a JavaScript syntax error that blanks the entire workspace.
+    js_parse = subprocess.run([
+        "node", "-e",
+        "const fs=require('fs'),vm=require('vm');"
+        "const h=fs.readFileSync('web/console_v2.html','utf8');"
+        "let n=0;for(const m of h.matchAll(/<script(?:\\s[^>]*)?>([\\s\\S]*?)<\\/script>/gi))"
+        "{n++;new vm.Script(m[1],{filename:'console_v2.html#script'+n});}"
+        "if(!n)throw new Error('no console scripts found');"
+    ], capture_output=True, text=True)
+    assert js_parse.returncode == 0, js_parse.stderr
+
     cfg = _cfg()
     out = run_pf_a(copy.deepcopy(cfg))
     p = next(x for x in out["products"] if x["name"] == "Unsecured business loans")

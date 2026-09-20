@@ -3273,7 +3273,7 @@ function prodCardHtml(fam, i){
         `<option value="effr"${_idx==="effr"?" selected":""}>EFFR (Fed Funds)</option>`+
         `<option value="prime"${_idx==="prime"?" selected":""}>Prime</option></select></div>`;
     }
-    if(fam==="lending" && _loanBalanceMode(p)!==="linked_customer_level"){
+    if(fam==="lending" && _loanBalanceMode(p)!=="linked_customer_level"){
       // Structure selector (revolving | term). Mirrors the rate_type conditional: choosing 'term'
       // triggers the maturity field; 'revolving' triggers none (runoff_per_period handles paydown). Credit
       // Card is revolving-only; CRE is term-only — those lock. Both structure and term_q are stored
