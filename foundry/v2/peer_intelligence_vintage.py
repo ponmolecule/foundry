@@ -15,15 +15,26 @@ LAB_METRICS = {
 
 
 def _opening_period(estymd, est_year):
-    """Return (year, quarter), tolerating date, YYYYMMDD and date strings."""
+    """Return (year, quarter) from DB dates, YYYYMMDD or MM/DD/YYYY."""
     y = m = None
     if isinstance(estymd, (date, datetime)):
         y, m = estymd.year, estymd.month
     elif estymd is not None:
         s = str(estymd).strip()
+        for fmt in ("%Y-%m-%d", "%Y/%m/%d", "%m/%d/%Y", "%m-%d-%Y"):
+            try:
+                parsed = datetime.strptime(s[:10], fmt)
+                y, m = parsed.year, parsed.month
+                break
+            except ValueError:
+                pass
         digits = "".join(c for c in s if c.isdigit())
-        if len(digits) >= 6:
-            y, m = int(digits[:4]), int(digits[4:6])
+        if not y and len(digits) >= 8:
+            first4, last4 = int(digits[:4]), int(digits[-4:])
+            if 1800 <= first4 <= 2200:       # YYYYMMDD
+                y, m = first4, int(digits[4:6])
+            elif 1800 <= last4 <= 2200:      # MMDDYYYY
+                y, m = last4, int(digits[:2])
     if not y and est_year:
         y, m = int(est_year), 1
     if not y or not m or not 1 <= m <= 12:
@@ -46,12 +57,13 @@ def _percentile(values, p):
 
 
 def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
-                                    min_n=3):
+                                    min_n=2):
     """Build a Q1..Q12 corridor over exactly the user-supplied certificates.
 
-    A bank's age is the calendar-quarter distance from its establishment date.
-    Missing observations remain missing; later observations are never shifted.
-    Percentiles are suppressed when fewer than ``min_n`` banks contribute.
+    Q1 is the first reported quarter, but only when it reconciles to the legal
+    opening quarter (same or next quarter). This prevents a truncated modern
+    history for an old bank from masquerading as its opening vintage. Missing
+    observations remain missing; later observations are never shifted.
     """
     certs = list(dict.fromkeys(int(c) for c in certs if int(c) > 0))
     if not certs:
@@ -84,15 +96,49 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
         "SELECT cert, metric_name, year, quarter, value FROM metrics "
         "WHERE cert = ANY(%s) AND metric_name = ANY(%s) "
         "ORDER BY cert, metric_name, year, quarter", (matched, metrics))
+    first_filing = {}
+    last_filing = {}
+    for cert, metric, year, quarter, value in mrows:
+        if value is None:
+            continue
+        period = (int(year), int(quarter))
+        first_filing[int(cert)] = min(first_filing.get(int(cert), period), period)
+        last_filing[int(cert)] = max(last_filing.get(int(cert), period), period)
+
+    def _qindex(period):
+        return period[0] * 4 + period[1]
+
+    for cert, rec in institutions.items():
+        legal, first = rec["opening"], first_filing.get(cert)
+        rec["first_filing"] = first
+        rec["last_filing"] = last_filing.get(cert)
+        rec["anchor"] = None
+        if not legal:
+            rec["anchor_status"] = "missing legal opening date"
+        elif not first:
+            rec["anchor_status"] = "no metric filings available"
+        else:
+            lag = _qindex(first) - _qindex(legal)
+            if lag in (0, 1):
+                rec["anchor"] = first
+                rec["anchor_status"] = "verified first filing"
+            else:
+                rec["anchor_status"] = (
+                    f"history begins {lag} quarters after legal opening; "
+                    "not treated as an opening vintage")
+
     cells = {m: {age: [] for age in range(1, 13)} for m in metrics}
     contributors = {m: set() for m in metrics}
+    latest_age = {c: {m: None for m in metrics} for c in matched}
     for cert, metric, year, quarter, value in mrows:
         cert, metric = int(cert), str(metric)
         rec = institutions.get(cert)
-        if metric not in cells or not rec or not rec["opening"] or value is None:
+        if metric not in cells or not rec or not rec["anchor"] or value is None:
             continue
-        oy, oq = rec["opening"]
+        oy, oq = rec["anchor"]
         age = (int(year) - oy) * 4 + int(quarter) - oq + 1
+        if age >= 1:
+            latest_age[cert][metric] = max(latest_age[cert][metric] or 0, age)
         if 1 <= age <= 12:
             cells[metric][age].append(float(value))
             contributors[metric].add(cert)
@@ -102,24 +148,59 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
         ages = []
         for age in range(1, 13):
             vals = cells[metric][age]
-            shown = len(vals) >= min_n
+            n = len(vals)
+            if n >= 3:
+                band_type = "percentile corridor"
+                low, mid, high = (_percentile(vals, .25),
+                                  _percentile(vals, .50),
+                                  _percentile(vals, .75))
+            elif n == 2:
+                band_type = "thin sample — observed range"
+                low, mid, high = min(vals), _percentile(vals, .50), max(vals)
+            elif n == 1:
+                band_type = "single observation"
+                low = mid = high = vals[0]
+            else:
+                band_type = "unavailable"
+                low = mid = high = None
             ages.append({
-                "age_q": age, "n": len(vals), "suppressed": not shown,
-                "p25": _percentile(vals, .25) if shown else None,
-                "p50": _percentile(vals, .50) if shown else None,
-                "p75": _percentile(vals, .75) if shown else None,
+                "age_q": age, "n": n, "band_type": band_type,
+                "suppressed": n == 0, "thin_sample": 0 < n < 3,
+                "low": low, "mid": mid, "high": high,
+                "p25": low if n >= 3 else None,
+                "p50": mid, "p75": high if n >= 3 else None,
             })
         corridor[metric] = {
             "ages": ages,
             "contributing_banks": len(contributors[metric]),
         }
 
+    def _qlabel(period):
+        return f"{period[0]}Q{period[1]}" if period else None
+
+    bank_coverage = []
+    for cert in matched:
+        rec = institutions[cert]
+        bank_coverage.append({
+            "cert": cert, "name": rec["name"],
+            "legal_opening_q": _qlabel(rec["opening"]),
+            "first_filing_q": _qlabel(rec["first_filing"]),
+            "latest_filing_q": _qlabel(rec["last_filing"]),
+            "vintage_anchor_q": _qlabel(rec["anchor"]),
+            "status": rec["anchor_status"],
+            "latest_age_by_metric": latest_age[cert],
+            "q10_eligible_by_metric": {
+                m: bool((latest_age[cert].get(m) or 0) >= 10) for m in metrics
+            },
+        })
     no_opening = sorted(c for c, r in institutions.items() if not r["opening"])
     definition = {
         "certs": certs, "metrics": metrics, "max_age_q": 12,
-        "min_n": min_n, "alignment": "legal opening quarter (estymd)",
+        "min_n": min_n,
+        "alignment": "first reported quarter, verified against legal opening quarter",
         "missing_data": "preserved; never shifted, zero-filled, or estimated",
-        "percentile_method": "inclusive linear interpolation (PERCENTILE.INC)",
+        "band_method": ("n>=3: PERCENTILE.INC p25/p50/p75; n=2: observed "
+                        "min/median/max; n=1: individual observation"),
     }
     fingerprint = hashlib.sha256(json.dumps(definition, sort_keys=True).encode()).hexdigest()[:12]
     return {
@@ -129,6 +210,7 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
             "unmatched_certs": sorted(set(certs) - set(matched)),
             "missing_opening_certs": no_opening,
             "contributing_by_metric": {m: len(contributors[m]) for m in metrics},
+            "banks": bank_coverage,
         },
         "corridor": corridor,
     }
