@@ -173,12 +173,16 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
                 "age_q": age, "n": n, "band_type": band_type,
                 "suppressed": n == 0, "thin_sample": 0 < n < 3,
                 "low": low, "mid": mid, "high": high,
-                "p25": low if n >= 3 else None,
-                "p50": mid, "p75": high if n >= 3 else None,
+                # The main corridor renderer needs lower/median/upper anchors.
+                # For n<3 these are explicitly the observed range, not claimed
+                # percentiles; band_type/thin_sample carry that distinction.
+                "p25": low, "p50": mid, "p75": high,
+                "p90": (_percentile(vals, .90) if n >= 3 else high),
             })
         corridor[metric] = {
             "ages": ages,
             "contributing_banks": len(contributors[metric]),
+            "accuracy": "Exact curated-certificate history; missing observations are preserved and age-quarter sample counts are shown.",
         }
 
     def _qlabel(period):
@@ -212,6 +216,10 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
     fingerprint = hashlib.sha256(json.dumps(definition, sort_keys=True).encode()).hexdigest()[:12]
     return {
         "definition": definition, "fingerprint": fingerprint,
+        "cohort_size": len(matched),
+        "cohort_label": "curated certificates",
+        "survivorship": {"failed": 0, "exited_other": 0,
+                         "note": "Exact submitted certificates; coverage status is shown bank by bank below."},
         "coverage": {
             "submitted": len(certs), "matched": len(matched),
             "unmatched_certs": sorted(set(certs) - set(matched)),

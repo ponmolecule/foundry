@@ -79,6 +79,10 @@ def normalize_managed_portfolio(portfolio: Mapping[str, Any] | None) -> dict:
         s.setdefault("name", "Security")
         s["classification"] = str(s.get("classification") or "AFS").upper()
         s.setdefault("opening", 0.0)
+        # Standardized-approach RWA classification is an authored fact, not an
+        # inference from the sleeve name.  Preserve the historical 20% treatment
+        # for existing portfolios while surfacing it explicitly for review/editing.
+        s.setdefault("risk_weight", 0.20)
         if not s.get("allocation_spec"):
             s["allocation_spec"] = _legacy_flat_spec(s.get("allocation", 0.0))
         if not s.get("maturity_rate_spec"):
@@ -159,6 +163,7 @@ def prepare_managed_securities(assumptions: Mapping[str, Any], n_periods: int, p
                 "series_id": s.get("series_id"),
                 "classification": str(s.get("classification") or "AFS").upper(),
                 "opening": float(s.get("opening") or 0.0),
+                "risk_weight": float(s.get("risk_weight", 0.20)),
                 "allocation": alloc,
                 "maturity_rate_authored": mat_authored,
                 "maturity_period": maturity_period,
@@ -242,6 +247,9 @@ def validate_managed_securities(assumptions: Mapping[str, Any], n_periods: int, 
                 errs.append(f"{sp}.yield_source must be entered or curve_library")
             if nr.get("yield_source") == "curve_library" and str(nr.get("curve_name") or "").lower() not in _VALID_CURVES:
                 errs.append(f"{sp}.curve_name must be SOFR, EFFR, or Prime")
+            rw = float(nr.get("risk_weight", 0.20))
+            if rw not in (0.0, 0.20, 0.50, 1.00, 1.50, 2.50):
+                errs.append(f"{sp}.risk_weight must be 0%, 20%, 50%, 100%, 150%, or 250%")
         for i, total in enumerate(alloc_sums, 1):
             if abs(total - 1.0) > 1e-7:
                 errs.append(f"{path} sleeve allocations must sum to 100% in every period; period {i} sums to {total*100:.6g}%")
@@ -340,6 +348,7 @@ def public_managed_securities(runtime: list[dict]) -> list[dict]:
             "sleeves": [{
                 "name": s.get("name"), "series_id": s.get("series_id"),
                 "classification": s.get("classification"), "opening": s.get("opening"),
+                "risk_weight": s.get("risk_weight", 0.20),
                 "allocation": list(s.get("allocation") or []),
                 "maturity_rate_authored": list(s.get("maturity_rate_authored") or []),
                 "maturity_period": s.get("maturity_period") or "model_period",

@@ -1574,6 +1574,29 @@ def _all_series_rows(results, n):
     return rows
 
 
+def _capital_rows(results, n):
+    """Standardized-capital numerator, denominator, and RWA component bridge."""
+    st = ((results.get("capital") or {}).get("standardized") or {})
+    rows = []
+    for key, label in (("rwa", "Risk-weighted assets"), ("cet1", "CET1 capital"),
+                       ("tier1", "Tier 1 capital"), ("tier2", "Tier 2 capital"),
+                       ("total", "Total capital")):
+        rows.append(("Capital", label, key, "$000s", list(st.get(key) or [])[:n], _RAW_MONEY_FMT))
+    for key, label in (("cet1_rwa", "CET1 / RWA"), ("tier1_rwa", "Tier 1 / RWA"),
+                       ("total_rwa", "Total capital / RWA"), ("leverage", "Tier 1 leverage")):
+        rows.append(("Capital ratios", label, key, "%", list((st.get("ratios") or {}).get(key) or [])[:n], _RAW_NUM_FMT))
+    labels = {"cash_at_depositories": "Cash at depository institutions",
+              "frb_stock": "Federal Reserve Bank stock", "securities": "Securities",
+              "loans": "Loans", "held_for_sale": "Loans held for sale",
+              "premises": "Premises and fixed assets", "other_assets": "Other assets",
+              "msr": "Nondeducted mortgage servicing assets",
+              "off_balance_sheet": "Off-balance-sheet exposures"}
+    for key, vals in (st.get("rwa_components") or {}).items():
+        rows.append(("RWA components", labels.get(key, key), key, "$000s RWA contribution",
+                     list(vals or [])[:n], _RAW_MONEY_FMT))
+    return rows
+
+
 def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any]) -> Workbook:
     """Build a multi-sheet reconciliation workbook from one validated Foundry run."""
     a = cfg.get("assumptions") or {}
@@ -1606,6 +1629,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Balance Sheet", "Every public balance-sheet series, including opening balances."),
         ("Other Liabilities", "Formula / level liability causal chain: opening/base, linked Workforce or Fixed Asset Series, signed multipliers, term contributions, component balances, and total other liabilities."),
         ("Ratios", "Native-cadence public ratios."),
+        ("Capital & RWA", "Standardized-capital numerators, ratios, total RWA, and the component-level RWA bridge."),
         ("Operating Expense", "IS Opex decomposition plus recurring categories, additive components, settlement balances, and residual reconciliation."),
         ("Opex Component Detail", "Period-by-period linked/tiered/cost-pool intermediates, including tier observations, active bands, rates, and raw-dollar calculated expense."),
         ("Workforce", "Role-level count, compensation assumptions, additive compensation, and engine total."),
@@ -1669,6 +1693,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Ratios"), cfg,
                      _exact_financial_rows(rt, "Ratios", "% / engine ratio units", n, ratio=True),
                      title="Ratios · Calculation Audit", subtitle="Unrounded native-cadence base-engine ratios.", n=n, ppy=ppy)
+    _write_wide_rows(wb.create_sheet("Capital & RWA"), cfg, _capital_rows(results, n),
+                     title="Capital and Risk-Weighted Assets · Calculation Audit",
+                     subtitle="Standardized-capital numerators and denominator bridge. RWA components show each asset/exposure contribution after its authored or regulatory weight.",
+                     n=n, ppy=ppy)
 
     _write_wide_rows(wb.create_sheet("Operating Expense"), cfg, _operating_expense_rows(cfg, results, n, ppy, exact=exact),
                      title="Operating Expense · Calculation Audit",
