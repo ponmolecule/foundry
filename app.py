@@ -670,54 +670,6 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
     return JSONResponse(parsed)
 
 
-@app.get("/api/v31/trust-peer/registry")
-def v31_trust_peer_registry(user=Depends(gate)):
-    """Standard metric definitions. No client cohort is embedded in Foundry."""
-    from foundry.v2.trust_peer import registry_payload
-    return JSONResponse(registry_payload())
-
-
-@app.post("/api/v31/trust-peer/validate-cohort")
-def v31_trust_peer_validate_cohort(body: dict, user=Depends(gate)):
-    """Validate pasted/uploaded certs against CharterIQ before activation."""
-    from foundry.v2.trust_peer import clean_certs
-    from foundry.charteriq_client import CharterIQClient
-    try:
-        certs = clean_certs(body.get("certs"))
-    except ValueError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
-    if not certs:
-        return JSONResponse({"error": "no valid FDIC certificate numbers supplied"}, status_code=422)
-    client = CharterIQClient()
-    if not client.configured():
-        return JSONResponse({"error": "CharterIQ is not configured; cohort cannot be validated"}, status_code=503)
-    try:
-        matched = client.get_institutions_by_certs(certs)
-    except Exception as e:
-        return JSONResponse({"error": f"CharterIQ validation failed: {e}"}, status_code=502)
-    found = {int(x["cert"]) for x in matched if x.get("cert") is not None}
-    return JSONResponse({"submitted_count": len(certs), "matched_count": len(matched),
-                         "matched": matched,
-                         "unmatched": [c for c in certs if c not in found],
-                         "provenance": "Institution identities matched to CharterIQ; financial observations are queried separately."})
-
-
-@app.post("/api/v31/trust-peer/quarterize")
-def v31_trust_peer_quarterize(body: dict, user=Depends(gate)):
-    """Normalize an explicitly pasted monthly series under a registered rule."""
-    from foundry.v2.trust_peer import METRICS, quarterize
-    metric = body.get("metric")
-    if metric not in METRICS:
-        return JSONResponse({"error": "unknown registered metric"}, status_code=422)
-    try:
-        vals = [float(x) for x in (body.get("values") or [])]
-        rows = quarterize(vals, int(body.get("start_year")), int(body.get("start_month")),
-                          METRICS[metric]["quarterly_rule"])
-    except (TypeError, ValueError) as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
-    return JSONResponse({"metric": metric, "definition": METRICS[metric], "quarters": rows})
-
-
 
 
 
