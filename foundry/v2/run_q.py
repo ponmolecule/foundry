@@ -933,8 +933,25 @@ def run_v2(cfg):
             for t in range(min(nq2, len(balq))):
                 loans_w[t] += (balq[t] or 0.0) * w   # products arrive in $000s
     hfsq = _s("hfs")
-    secq = [(_s("sec")[t] + _s("afsBook")[t] + _s("htmBook")[t]) for t in range(nq2)]
+    legacy_secq, afsq, htmq = _s("sec"), _s("afsBook"), _s("htmBook")
+    managed_total = [0.0] * nq2
+    managed_rwa = [0.0] * nq2
+    for _mp in base.get("managed_securities") or []:
+        for _sl in _mp.get("sleeves") or []:
+            _ends = list(_sl.get("ending") or [])
+            _rw = float(_sl.get("risk_weight", 0.20))
+            for t in range(min(nq2, len(_ends))):
+                _bal = float(_ends[t] or 0.0)
+                managed_total[t] += _bal
+                managed_rwa[t] += _bal * _rw
+    # Simple/legacy books do not yet carry sleeve-level classification and retain
+    # the disclosed 20% agency assumption. Managed sleeves use their authored risk
+    # weight and are removed from this residual to prevent double counting.
+    securities_rwa = [legacy_secq[t] * RW["agency_securities"]
+                      + max(0.0, afsq[t] + htmq[t] - managed_total[t]) * RW["agency_securities"]
+                      + managed_rwa[t] for t in range(nq2)]
     cashq, msrq, alllq = _s("cash"), _s("msr"), _s("alll")
+    affq, opcashq, frbq = _s("affiliatedCash"), _s("operatingCash"), _s("frbStock")
     premq = _s("premises")
     # General other assets are modeled as a flat non-earning balance in Profile A.
     # They are NOT zero-risk simply because the engine does not subtype them; use the
@@ -956,14 +973,29 @@ def run_v2(cfg):
     intang = a2.get("intangibles", 0.0) / 1000.0
     optout = (cfg.get("charter_profile") or {}).get("aoci_optout", True)
     rwa_t, cet1_t, t1_t, t2_t, tot_t = [], [], [], [], []
+    rwa_components = {k: [] for k in ("cash_at_depositories", "frb_stock", "securities",
+                                       "loans", "held_for_sale", "premises",
+                                       "other_assets", "msr", "off_balance_sheet")}
     for t in range(nq2):
-        rwa = (cashq[t] * cab * RW["bank_exposures"]
-               + secq[t] * RW["agency_securities"]
-               + loans_w[t] + hfsq[t] * RW["corporate_consumer_cre"]
-               + premq[t] * RW["corporate_consumer_cre"]
-               + otherq[t] * RW["corporate_consumer_cre"]
-               + max(0.0, msrq[t] - msa_x[t]) * RW["msr_nondeducted"]
-               + obs_notional[t] * CCF["default"] * RW["corporate_consumer_cre"])
+        # When the engine publishes actual cash subseries, use them.  The former
+        # cash_at_banks_pct fallback silently treated this engagement's affiliated-
+        # bank and operating cash as Federal Reserve balances (0% RWA).
+        _has_cash_detail = bool(bsn.get("affiliatedCash") or bsn.get("operatingCash"))
+        _bank_cash = (affq[t] + opcashq[t]) if _has_cash_detail else cashq[t] * cab
+        _parts = {
+            "cash_at_depositories": _bank_cash * RW["bank_exposures"],
+            "frb_stock": frbq[t] * RW["frb_stock"],
+            "securities": securities_rwa[t],
+            "loans": loans_w[t],
+            "held_for_sale": hfsq[t] * RW["corporate_consumer_cre"],
+            "premises": premq[t] * RW["corporate_consumer_cre"],
+            "other_assets": otherq[t] * RW["corporate_consumer_cre"],
+            "msr": max(0.0, msrq[t] - msa_x[t]) * RW["msr_nondeducted"],
+            "off_balance_sheet": obs_notional[t] * CCF["default"] * RW["corporate_consumer_cre"],
+        }
+        rwa = sum(_parts.values())
+        for _k, _v in _parts.items():
+            rwa_components[_k].append(_v)
         dta_ded = (dtaq[t] or 0.0) * REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
         cet1 = eqq[t] - intang - (aociq[t] if optout else 0.0) - dta_ded - msa_x[t]
         t1 = cet1
@@ -995,6 +1027,7 @@ def run_v2(cfg):
         "tier1": [round(x, 2) for x in t1_t],
         "tier2": [round(x, 2) for x in t2_t],
         "total": [round(x, 2) for x in tot_t],
+        "rwa_components": {k: [round(x, 2) for x in v] for k, v in rwa_components.items()},
         "ratios": {"cet1_rwa": _r4(cet1_t, rwa_t), "tier1_rwa": _r4(t1_t, rwa_t),
                     "total_rwa": _r4(tot_t, rwa_t), "leverage": lev_q},
         "thresholds": {"cet1_rwa": PCA["cet1_rwa"] * 100, "tier1_rwa": PCA["tier1_rwa"] * 100,
@@ -1002,8 +1035,8 @@ def run_v2(cfg):
         "aoci_optout": bool(optout),
         "notes": ["risk weights per 12 CFR 324.32; securities weighted as agency (20%) — "
                     "a disclosed modeling assumption",
-                   f"cash at banks share {cab:.0%} weighted 20% (D-P6 fix); balances at the "
-                    "Federal Reserve weighted 0%",
+                   "affiliated-bank and operating-cash subseries weighted 20%; only residual Federal Reserve balances weighted 0%",
+                   "Federal Reserve Bank stock weighted 100% as an equity exposure",
                    "OBS at the default 50% CCF (12 CFR 324.33); per-exposure maturities not yet modeled",
                    "premises/fixed assets and unclassified general other assets are placed in the 100% standardized bucket; specialized other-asset subtypes require explicit classification",
                    "no classified-asset concept modeled; the 150% weight is registered but unused",
@@ -1011,6 +1044,9 @@ def run_v2(cfg):
                    "AOCI opt-out " + ("elected: AOCI excluded from CET1" if optout
                                         else "not elected: AOCI included in CET1")],
     }
+    from .peer_quarterly import build_peer_quarters
+    results["peer_quarterly"] = build_peer_quarters(
+        base, results["capital"]["standardized"], _ppy, max_quarters=12)
     results["capital"]["cblr_tiering"] = {
         "elected": bool(elected), "requirement_pct": round(P3["requirement"] * 100, 2),
         "grace_floor_pct": round(P3["grace_floor"] * 100, 2), "status": cblr_status,

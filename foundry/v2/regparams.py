@@ -44,6 +44,7 @@ REG_PARAMS = {
     "risk_weights": {           # 12 CFR 324.32 standardized approach
         "cash_fed": 0.0,               # balances at Federal Reserve Banks
         "bank_exposures": 0.20,        # deposits at / exposures to depository institutions
+        "frb_stock": 1.00,             # Federal Reserve Bank stock (equity exposure)
         "agency_securities": 0.20,     # GSE/agency debt (modeling assumption: books are agency)
         "resi_first_lien": 0.50,       # qualifying 1-4 family first lien
         "corporate_consumer_cre": 1.00,

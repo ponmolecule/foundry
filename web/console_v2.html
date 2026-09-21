@@ -3994,21 +3994,22 @@ async function retroSubstrate(givenCert){
 }
 window.retroSubstrate = retroSubstrate; window.subCheck = subCheck;
 function bandsSectionHtml(){
+  const _pbMode=cfgRef().peer_bands_mode||"broad", _pbLend=!!cfgRef().peer_bands_lending_only;
   return `<div class="ovh2">Peer corridor \u2014 modeled bank vs real peers</div>
-    <div class="memo" style="margin:-2px 0 10px">Your modeled bank placed against real filed peers \u2014 latest quarter. Each metric is placed by row and colored green (favorable vs peers) or red (unfavorable) by its risk direction.</div>
+    <div class="memo" style="margin:-2px 0 10px">Your modeled bank at Q12 placed against the latest available distribution of real filed peers. Every modeled value is reconstructed on a quarterly basis, regardless of the model cadence or projection length.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#8FA3C0">Cohort</span>
-      <select id="pbCohort" onchange="renderBands()">
-        <option value="broad">Broad cohort (all identity-gated filers)</option>
-        <option value="under_200M">Under $200M assets</option>
-        <option value="200M_500M">$200M\u2013$500M assets</option>
-        <option value="500M_2B">$500M\u2013$2B assets</option>
-        <option value="2B_10B">$2B\u2013$10B assets</option>
-        <option value="curated">Curated certs\u2026</option>
+      <select id="pbCohort" onchange="cfgRef().peer_bands_mode=this.value;window.vintage=null;renderBands()">
+        <option value="broad"${_pbMode==="broad"?" selected":""}>Broad cohort (all identity-gated filers)</option>
+        <option value="under_200M"${_pbMode==="under_200M"?" selected":""}>Under $200M assets</option>
+        <option value="200M_500M"${_pbMode==="200M_500M"?" selected":""}>$200M\u2013$500M assets</option>
+        <option value="500M_2B"${_pbMode==="500M_2B"?" selected":""}>$500M\u2013$2B assets</option>
+        <option value="2B_10B"${_pbMode==="2B_10B"?" selected":""}>$2B\u2013$10B assets</option>
+        <option value="curated"${_pbMode==="curated"?" selected":""}>Curated certs\u2026</option>
       </select>
       <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#9FB0C8;margin-left:6px">
-        <input type="checkbox" id="pbLendingOnly" onchange="renderBands()"> lending peers only</label>
-      <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));renderBands()" style="display:none;min-width:220px">
+        <input type="checkbox" id="pbLendingOnly"${_pbLend?" checked":""} onchange="cfgRef().peer_bands_lending_only=this.checked;renderBands()"> lending peers only</label>
+      <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));window.vintage=null;renderBands()" style="display:none;min-width:220px">
     </div>
     <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>`;
 }
@@ -4027,7 +4028,9 @@ function bandsSectionHtml(){
 // distinct and verified since the Milestone 2 backfill; it's the MODELED side that
 // can't move it, so we don't show a permanently-equal duplicate.)
 window._pbMetrics = ["roa","nim","efficiency","tier1","total","lev","net_charge_off_rate"];
+let _pbRenderGeneration=0;
 window.renderBands = async function(){
+  const _generation=++_pbRenderGeneration;
   const body = document.getElementById("pbBody"); if(!body) return;
   const metrics = window._pbMetrics;
   const mode = document.getElementById("pbCohort").value;
@@ -4080,6 +4083,8 @@ window.renderBands = async function(){
     }
   }
   const results = await Promise.all(metrics.map(fetchBand));
+  if(_generation!==_pbRenderGeneration || currentTab!=="peer") return;
+  const liveBody=document.getElementById("pbBody"); if(!liveBody) return;
 
   // resolve the modeled value for a metric from the run results
   const AKEY = {roa:"roa", nim:"nim", efficiency:"eff"};
@@ -4088,6 +4093,13 @@ window.renderBands = async function(){
   const QKEY = {roa:"roa_q12", nim:"nim_q12"};
   function modeledFor(metric){
     if(!lastRes) return {v:null};
+    const pq=lastRes.peer_quarterly, qs=pq&&pq.available&&(pq.quarters||[]);
+    const q12=qs&&qs[Math.min(11,qs.length-1)];
+    const PK={roa:"roa",nim:"nim",efficiency:"efficiency_ratio",tier1:"tier1_ratio",total:"total_rbc_ratio",lev:"leverage_ratio",net_charge_off_rate:"net_charge_off_rate"};
+    if(q12&&PK[metric]){
+      const isFlow = ["roa","nim","efficiency","net_charge_off_rate"].includes(metric);
+      return {v:q12.filed_ytd[PK[metric]],vq:isFlow?q12.standalone[PK[metric]]:null};
+    }
     if(AKEY[metric]){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
       const subYear = Math.max(1, Math.ceil(SUBQ()/4));
@@ -4177,7 +4189,7 @@ window.renderBands = async function(){
     const bucket = bucketOf(m.v, latest);
     const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
     const _pQ = latestQ || "the latest quarter";
-    const modProv = `Modeled regulator-submission-year (normally Year 3 / ${SUBLAB()}) ${label} for your bank, computed by the engine from your entered assumptions. Compared against the peer band, which is also on an annual (Call-Report) basis.` + (m.note?(" "+m.note):"");
+    const modProv = `Modeled Q12 ${label} for your bank, reconstructed by the engine from your entered assumptions. Flow metrics use Q12 year-to-date filing convention; stock metrics use the Q12 quarter-end balance. Compared against the latest available peer distribution on the same metric basis.` + (m.note?(" "+m.note):"");
     const bandProv = (pp)=>`${label} ${pp}th percentile of the ${useLending?"under $200M lending-peers":"selected"} cohort at ${_pQ}, from real FDIC/UBPR filers (n=${latest.n}) — peer data, not modeled.`;
     // Secondary terminal-quarter (Q12) figure for flow metrics — the same number the Ratios tab shows.
     // Rendered as its own full-width sub-row (NOT inside the modeled cell): a taller modeled cell made
@@ -4185,7 +4197,7 @@ window.renderBands = async function(){
     // As a separate row there is no height mismatch. The empty leading cells push it under the Modeled
     // column so it still reads as a note on the modeled value.
     const q12Row = (m.vq!=null)
-      ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#8FA3C0;padding-top:0" data-prov title="Submission-quarter (${SUBLAB()}) ${esc(label)}, annualized using the active cadence — the figure shown on the Ratios tab. Differs from the submission-year value because it covers one quarter, not the full year.">${SUBLAB()}: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
+      ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#8FA3C0;padding-top:0" data-prov title="Standalone Q12 ${esc(label)}, annualized from the three months in Q12. The primary value above follows the Q12 year-to-date filing convention.">Q12 standalone: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
       : "";
     const rowNote = m.note ? `<tr><td colspan="10" style="color:#8FA3C0;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
     rows += `<tr${(m.vq!=null)?' class="pb-hasq12"':''}><td>${esc(label)}</td>${basisCell}`
@@ -4218,11 +4230,11 @@ window.renderBands = async function(){
   h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th>Basis</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
   h += rows;
   h += '</table>';
-  if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its regulator-submission values against these peers.</div>`; }
+  if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its Q12 values against these peers.</div>`; }
   // the retained commentaries
-  h += `<div class="memo" style="margin-top:10px">Modeled value against the most recent peer distribution. For flow metrics (ROA, NIM) the primary figure is the regulator-submission <b>year</b> (normally full year 3) — the like-for-like basis for the peer band, which is also annual — and the smaller <b>${SUBLAB()}</b> line is the submission quarter (the Ratios-tab figure); they differ because one covers the final year and the other the final quarter. Color reflects where the bank sits relative to peers given each metric's risk direction. Early-year de novo losses are normal \u2014 judge the trajectory on the Vintage Corridor, not here.</div>`;
+  h += `<div class="memo" style="margin-top:10px">Peer Cohort always stops at <b>Q12</b>, even when the projection continues beyond three years. For flow metrics, the primary value follows the Q12 year-to-date filing convention; the smaller line is the standalone three-month Q12 result. Stock ratios use the Q12 quarter-end value. Color reflects where the bank sits relative to the latest peer distribution given each metric's risk direction.</div>`;
   h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#7E8DA6">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
-  body.innerHTML = h;
+  liveBody.innerHTML = h;
 };
 async function subPlace(){
   if(!lastRes){ appStatus("err", "<b>Run the model first.</b>"); return; }
@@ -4498,7 +4510,7 @@ window.secManagedDeletePortfolio=function(i){_managedSecPortfolios(true).splice(
 window.secManagedTargetSource=function(i,v){const p=_managedSecPortfolios()[i];if(!p)return;const ok=_managedSecTargetSources().some(x=>x.id===v);p.target_source=p.target_source||{};p.target_source.kind="bank_balance_sheet";p.target_source.series_id=ok?v:"bank.balance_sheet.equity.end";p.target_source.timing=p.target_source.timing||"current_period";p.target_source.prior_initialization=p.target_source.prior_initialization||"zero";refresh();};
 window.secManagedTargetTiming=function(i,v){const p=_managedSecPortfolios()[i];if(!p)return;p.target_source=p.target_source||{kind:"bank_balance_sheet",series_id:"bank.balance_sheet.equity.end"};p.target_source.timing=(v==="prior_period"?"prior_period":"current_period");p.target_source.prior_initialization=p.target_source.prior_initialization||"zero";renderContent();refresh();};
 window.secManagedTargetPriorInit=function(i,v){const p=_managedSecPortfolios()[i];if(!p)return;p.target_source=p.target_source||{kind:"bank_balance_sheet",series_id:"bank.balance_sheet.equity.end",timing:"prior_period"};p.target_source.prior_initialization=(v==="opening_source"?"opening_source":"zero");refresh();};
-window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)return;p.sleeves=p.sleeves||[];p.sleeves.push({name:"Security",series_id:_seriesId("managed-sec-sleeve"),classification:"AFS",opening:0,allocation_spec:_secSeriesDefault(0),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:"entered",yield_spec:_secSeriesDefault(0)});window._cfgSectionOpen.secaoci=true;renderContent();refresh();};
+window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)return;p.sleeves=p.sleeves||[];p.sleeves.push({name:"Security",series_id:_seriesId("managed-sec-sleeve"),classification:"AFS",opening:0,risk_weight:0.20,allocation_spec:_secSeriesDefault(0),maturity_rate_spec:_secSeriesDefault(0,_nativeFlowPeriod()),yield_source:"entered",yield_spec:_secSeriesDefault(0)});window._cfgSectionOpen.secaoci=true;renderContent();refresh();};
 window.secManagedDeleteSleeve=function(i,j){const p=_managedSecPortfolios()[i];if(!p)return;(p.sleeves||[]).splice(j,1);renderContent();refresh();};
 window.secManagedYieldSource=function(i,j,v){const s=((_managedSecPortfolios()[i]||{}).sleeves||[])[j];if(!s)return;s.yield_source=v;if(v==="entered")s.yield_spec=s.yield_spec||_secSeriesDefault(0);else s.curve_name=s.curve_name||"sofr";renderContent();refresh();};
 function _newNieDetail(){
@@ -5237,6 +5249,11 @@ window._vintageLater = false;   // show the Q13-Q24 charge-off seasoning bucket 
 window.setVintageLater = function(v){ window._vintageLater = !!v; renderContent(); };
 function vintageModeled(mk){
   if(!lastRes) return null;
+  const pq=lastRes.peer_quarterly;
+  if(pq&&pq.available){
+    const key=mk==="__t1rwa"?"tier1_ratio":({roa:"roa",nim:"nim",eff:"efficiency_ratio",nco_rate:"net_charge_off_rate"}[mk]);
+    if(key) return (pq.quarters||[]).slice(0,12).map(q=>q.filed_ytd[key]);
+  }
   if(mk === "__t1rwa"){
     const ST = lastRes.capital && lastRes.capital.standardized;
     return ST ? ST.ratios.tier1_rwa : null;   // like-for-like: risk-based vs risk-based
@@ -5254,9 +5271,11 @@ async function vintageBuild(){
   const ctrl = new AbortController();
   const timer = setTimeout(()=>ctrl.abort(), 25000);
   try{
-    const r = await fetch("/api/v31/substrate/vintage", {method:"POST",
+    const _mode=cfgRef().peer_bands_mode||"broad", _certs=(cfgRef().peer_bands_certs||[]);
+    const _curated=_mode==="curated"&&_certs.length;
+    const r = await fetch(_curated?"/api/v31/peer-intelligence-lab/vintage":"/api/v31/substrate/vintage", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify({est_from:2018, est_to:2023}),
+      body: JSON.stringify(_curated?{certs:_certs}:{est_from:2018, est_to:2023}),
       signal: ctrl.signal});
     clearTimeout(timer);
     let j; try{ j = await r.json(); }
@@ -5300,7 +5319,8 @@ function vintageSectionHtml(){
     return h;
   }
   const V = window.vintage;
-  h += `<div class="memo">${V.cohort_size} banks chartered ${V.definition.est_from}\u2013${V.definition.est_to} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
+  const _vcohort=V.cohort_label||`banks chartered ${V.definition.est_from}\u2013${V.definition.est_to}`;
+  h += `<div class="memo">${V.cohort_size} ${esc(_vcohort)} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
   // Enumerated annualization-convention table — every metric, modeled basis vs peer basis, and whether
   // they are like-for-like. Placed here so the basis of each row is unambiguous before any number is read.
   h += `<div class="memo" style="border-left:3px solid #D8A85E;padding-left:10px;font-size:10.5px">
@@ -5339,7 +5359,7 @@ function vintageSectionHtml(){
     const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #24334D;color:#DFA85A">${esc(M.later.label)}</th>` : "";
     const lateCell = (p)=> (showLater && later)
       ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #24334D;color:#DFA85A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
-    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">${PPY()===12?"M":PPY()===1?"Y":"Q"}${a.age_q}</th>`).join("") + lateTh + '</tr>';
+    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
     ["p90","p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
     });
@@ -9264,6 +9284,7 @@ function structuresSectionsHtml(){
         const as=sl.allocation_spec||_secSeriesDefault(sl.allocation||0), ms=sl.maturity_rate_spec||_secSeriesDefault(sl.maturity_rate||sl.runoff_rate||0,_nativeFlowPeriod()), ys=sl.yield_spec||_secSeriesDefault(sl.yield_ann||0);
         _sb += `<div class="sec-managed-sleeve"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(sl.name||'Security')}" onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove security" onclick="secManagedDeleteSleeve(${mi},${si});return false">×</a></div><div class="sec-managed-grid">`;
         _sb += `<div class="sec-managed-field"><label>Classification</label><select onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].classification=this.value;refresh()"><option value="AFS"${String(sl.classification||'AFS').toUpperCase()==='AFS'?' selected':''}>AFS</option><option value="HTM"${String(sl.classification||'AFS').toUpperCase()==='HTM'?' selected':''}>HTM</option></select></div>`;
+        _sb += `<div class="sec-managed-field"><label>Standardized risk weight</label><select onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].risk_weight=+this.value;refresh()">${[[0,'0%'],[.2,'20%'],[.5,'50%'],[1,'100%'],[1.5,'150%'],[2.5,'250%']].map(o=>`<option value="${o[0]}"${Math.abs(+(sl.risk_weight??.2)-o[0])<1e-9?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
         _sb += `<div class="sec-managed-field"><label>Opening balance</label><div class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((+sl.opening||0)/1000)}" onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></div></div>`;
         _sb += _secSeriesEditor(base+'.allocation_spec',as,'Allocation');
         _sb += _secSeriesEditor(base+'.maturity_rate_spec',ms,'Maturity / runoff',true);
