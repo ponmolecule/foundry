@@ -81,3 +81,28 @@ def test_truncated_history_is_not_mislabeled_as_opening_vintage():
     assert bank["vintage_anchor_q"] is None
     assert "not treated as an opening vintage" in bank["status"]
     assert out["corridor"]["nim"]["ages"][0]["n"] == 0
+
+
+def test_first_filing_is_used_when_legal_opening_is_null():
+    def fake(sql, params):
+        if "FROM institutions" in sql:
+            return [(59194, "ADP Trust", None, None),
+                    (59337, "Dayforce", None, None),
+                    (59363, "Paycom", None, None)]
+        rows = []
+        starts = {59194: (2019, 3, 12), 59337: (2023, 1, 12),
+                  59363: (2024, 3, 7)}
+        for cert, (y0, q0, count) in starts.items():
+            for i in range(count):
+                offset = q0 - 1 + i
+                rows.append((cert, "nim", y0 + offset // 4,
+                             offset % 4 + 1, 1.0 + i))
+        return rows
+
+    out = build_curated_vintage_corridor(
+        CharterIQClient(executor=fake), [59194, 59337, 59363], ["nim"])
+    ages = out["corridor"]["nim"]["ages"]
+    assert ages[6]["n"] == 3 and ages[9]["n"] == 2
+    for bank in out["coverage"]["banks"]:
+        assert bank["vintage_anchor_q"] == bank["first_filing_q"]
+        assert "legal opening date unavailable" in bank["status"]
