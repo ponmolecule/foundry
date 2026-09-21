@@ -247,6 +247,13 @@ def console_v2(_=Depends(gate)):
     return FileResponse("web/console_v2.html")
 
 
+@app.get("/peer-intelligence-lab")
+def peer_intelligence_lab(_=Depends(gate)):
+    """Quarantined peer prototype. It is intentionally not linked from, and
+    shares no state with, the production modeling console."""
+    return FileResponse("web/peer_intelligence_lab.html")
+
+
 @app.get("/docs", include_in_schema=False)
 def gated_docs(_=Depends(gate)):
     from fastapi.openapi.docs import get_swagger_ui_html
