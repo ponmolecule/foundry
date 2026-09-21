@@ -451,6 +451,19 @@ table.fin th:first-child,table.fin td:first-child,
 table.fin th.ref + th,table.fin td.ref + td{text-align:left}
 table.fin td:first-child,table.fin td.ref + td{color:#242A33;font-weight:500}
 table.fin tbody tr:nth-child(even) td,table.fin tr:nth-child(even) td{background:#E9EDF4}
+/* Long-horizon ratio/capital tables keep their row identity visible while the
+   period columns scroll horizontally. The optional regulatory Ref column may
+   scroll away; the requested Ratio/Measure column remains pinned at the left. */
+table.fin.freeze-metric:not(.has-ref) th:first-child,
+table.fin.freeze-metric:not(.has-ref) td:first-child,
+table.fin.freeze-metric.has-ref th.ref + th,
+table.fin.freeze-metric.has-ref td.ref + td{position:sticky;left:0;z-index:2;background:#FFF;box-shadow:2px 0 0 #AEB9C9}
+table.fin.freeze-metric:not(.has-ref) th:first-child,
+table.fin.freeze-metric.has-ref th.ref + th{z-index:3;background:#101B2E}
+table.fin.freeze-metric:not(.has-ref) tr:nth-child(even) td:first-child,
+table.fin.freeze-metric.has-ref tr:nth-child(even) td.ref + td{background:#E9EDF4}
+table.fin.freeze-metric:not(.has-ref) tr:hover td:first-child,
+table.fin.freeze-metric.has-ref tr:hover td.ref + td{background:#DEE5EF}
 /* Dark-card table variant: for tables inside dark ovcards (Foundry Lab, peer-seed). Avoids the
    light-mode zebra + dark text that renders as unreadable striped rows on a dark background. */
 table.fin-dark{border-collapse:collapse;width:100%}
@@ -6531,7 +6544,7 @@ function renderContent(){
   if(currentTab==="ratios"){
     const rt = fin.ratios || {};
     h += '<div class="h2">Summary Ratios (annualized)' + (V21 ? '<span class="schedbadge">SCHEDULE RI-X</span>' : '') + '</div>';
-    h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Ratio</th>';
+    h += '<table class="fin freeze-metric' + (V21 ? ' has-ref' : '') + '"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>Ratio</th>';
     for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
     h += '</tr>';
     h += rowPct('Return on Average Assets (ROA)', rt.roa);
@@ -6544,7 +6557,7 @@ function renderContent(){
     const ST = lastRes && lastRes.capital && lastRes.capital.standardized;
     if(ST){
       h += '<div class="h2" style="margin-top:18px">Standardized Capital (12 CFR 324.32/.33)</div>';
-      h += '<table class="fin"><tr><th>Measure</th>' + Array.from({length:NP()},(_,q)=>`<th>${PERLAB(q+1)}</th>`).join("") + '</tr>';
+      h += '<table class="fin freeze-metric"><tr><th>Measure</th>' + Array.from({length:NP()},(_,q)=>`<th>${PERLAB(q+1)}</th>`).join("") + '</tr>';
       const rows = [["Risk-weighted assets ($000s)", ST.rwa, null], ["CET1 capital", ST.cet1, null],
         ["Tier 2 (ALLL, capped)", ST.tier2, null], ["Total capital", ST.total, null],
         ["CET1 / RWA (%)", ST.ratios.cet1_rwa, ST.thresholds.cet1_rwa],
