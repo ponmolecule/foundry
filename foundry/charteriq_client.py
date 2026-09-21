@@ -174,6 +174,26 @@ class CharterIQClient:
                                          "cause-of-exit attribution pending")
         return out
 
+    def get_institutions_by_certs(self, certs):
+        """Bulk identity validation for an engagement-supplied cohort."""
+        certs = list(dict.fromkeys(int(c) for c in certs))
+        if not certs:
+            return []
+        have = self._columns("institutions")
+        cols = [f for f in self.INSTITUTION_FIELDS if f in have] or ["cert"]
+        rows = self._run(f"SELECT {', '.join(cols)} FROM institutions "
+                         "WHERE cert = ANY(%s) ORDER BY cert", (certs,))
+        out = []
+        for row in rows:
+            rec = dict(zip(cols, row))
+            item = {f: rec.get(f) for f in self.INSTITUTION_FIELDS}
+            if item.get("asset_size_mm") is not None:
+                item["asset_size_mm"] = float(item["asset_size_mm"])
+            if item.get("fail_date") is not None:
+                item["fail_date"] = str(item["fail_date"])
+            out.append(item)
+        return out
+
     def get_bank_quarterly_series(self, cert, metrics, quarters=None):
         """-> {metric: [{"year","quarter","value"}...]} ordered by (year, quarter).
         quarters: optional list of (year, quarter) tuples to bound the pull."""

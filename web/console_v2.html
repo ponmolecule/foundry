@@ -4004,6 +4004,7 @@ function bandsSectionHtml(){
         <option value="200M_500M">$200M\u2013$500M assets</option>
         <option value="500M_2B">$500M\u2013$2B assets</option>
         <option value="2B_10B">$2B\u2013$10B assets</option>
+        <option value="engagement_cohort">Engagement cohort</option>
         <option value="curated">Curated certs\u2026</option>
       </select>
       <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#9FB0C8;margin-left:6px">
@@ -4040,7 +4041,11 @@ window.renderBands = async function(){
   if(lendWrap) lendWrap.style.display = (mode === "under_200M") ? "inline-flex" : "none";
   const useLending = (mode === "under_200M") && lendOnly && lendOnly.checked;
   let cohort = "broad";
-  if(mode === "curated"){
+  if(mode === "engagement_cohort"){
+    const certs=(((cfgRef().trust_peer_cohort||{}).members)||[]).map(x=>+x.cert).filter(Boolean);
+    if(!certs.length){ body.innerHTML='<div class="memo">Paste or upload a cohort above, validate it, then select this option.</div>'; return; }
+    cohort=certs.join(",");
+  } else if(mode === "curated"){
     const certs = (cfgRef().peer_bands_certs||[]);
     if(!certs.length){ body.innerHTML = '<div class="memo">Enter a cert list for the curated cohort (6\u201310 named peers is the working shape).</div>'; return; }
     cohort = certs.join(",");
@@ -4086,7 +4091,13 @@ window.renderBands = async function(){
   // Submission-quarter counterpart for flow metrics, from the base scenario. The peer/vintage
   // surface is intentionally regulator-facing (normally Year 3 / Q12), even when computation runs longer.
   const QKEY = {roa:"roa_q12", nim:"nim_q12"};
-  function modeledFor(metric){
+  function modeledFor(metric, peerQuarter){
+    const pasted=(cfgRef().trust_peer_inputs||{})[metric];
+    if(pasted && Array.isArray(pasted.quarters)){
+      const exact=pasted.quarters.find(x=>x.quarter===peerQuarter);
+      const chosen=exact||pasted.quarters[pasted.quarters.length-1];
+      if(chosen) return {v:+chosen.value, note:`Client-supplied comparison value for ${chosen.quarter}; overrides the modeled value for this row${exact?'.':` (peer observation quarter is ${peerQuarter}).`}`};
+    }
     if(!lastRes) return {v:null};
     if(AKEY[metric]){
       const ann = lastRes.annual && lastRes.annual[AKEY[metric]];
@@ -4165,7 +4176,7 @@ window.renderBands = async function(){
     if(d.small_n) smallNany = true;
     const latest = d.bands[d.bands.length-1];
     latestQ = latest.quarter;
-    const m = modeledFor(metric);
+    const m = modeledFor(metric, latest.quarter);
     if(m.v===null || m.v===undefined){
       const note = m.note ? ` \u00b7 <span style="color:#8FA3C0">${esc(m.note)}</span>` : "";
       rows += `<tr><td>${esc(label)}</td>${basisCell}<td class="num" style="color:#8FA3C0">\u2014</td>`
@@ -4212,7 +4223,7 @@ window.renderBands = async function(){
   }
   // the row table — header names the cohort band and the quarter, both dynamic
   const BAND_LABEL = {broad:"broad cohort", under_200M:"under $200M", "200M_500M":"$200M\u2013$500M",
-                      "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", curated:"curated certs"};
+                      "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", engagement_cohort:"engagement cohort", curated:"curated certs"};
   const bandName = useLending ? "under $200M (lending peers only)" : (BAND_LABEL[mode] || mode);
   h += `<div style="font-weight:600;font-size:13px;color:#DFA85A;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
   h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th>Basis</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
@@ -5385,6 +5396,48 @@ function retroSectionHtml(){
   }
   return h;
 }
+function trustPeerSectionHtml(){
+  const saved=(cfgRef().trust_peer_inputs||{}), n=Object.keys(saved).length, co=cfgRef().trust_peer_cohort||{}, cn=(co.members||[]).length;
+  return `<div class="ovh2">Trust-bank peer intelligence</div>
+    <div class="memo">Cohorts belong to the engagement; Foundry contains no embedded client institution list. Paste FDIC certificate numbers or upload a CSV/TXT file, validate the identities against CharterIQ, then use the cohort below.</div>
+    <div class="ovflag" style="margin-top:10px"><div style="font-weight:600;color:#EDF0F5">Engagement cohort</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><div class="fld"><label>Cohort name</label><input id="tpCohortName" value="${esc(co.name||'Peer candidates')}"></div><div class="fld wide"><label>Certificate numbers (names and IDRSSDs may be in adjacent columns)</label><textarea id="tpCohortPaste" rows="3" placeholder="CertNumber&#9;FinancialInstitution&#10;12345&#9;Example institution" style="min-width:430px"></textarea></div><button class="btn-gold" onclick="validateTrustCohort()">Validate &amp; use</button><button class="btn-plain" onclick="document.getElementById('tpCohortFile').click()">Upload CSV/TXT</button><input id="tpCohortFile" type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="loadTrustCohortFile(this)"></div>
+    <div id="tpCohortStatus" class="memo">${cn?esc(co.name||'Engagement cohort')+' · '+cn+' validated institutions saved.':'No engagement cohort is active.'}</div><div id="tpCohortReview"></div></div>
+    <div id="tpRegistry" class="memo">Loading standard metric registry…</div>
+    <div class="ovflag" style="margin-top:10px"><div style="font-weight:600;color:#EDF0F5">Client comparison input — explicit paste</div>
+    <div class="memo" style="margin:4px 0 10px">Optional fallback. One value per line, tab, or comma. Ratios are quarterly-only; monthly dollar stocks and flows use the registered conversion rule.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:end"><div class="fld"><label>Metric</label><select id="tpMetric" onchange="tpMetricChanged()"></select></div><div class="fld"><label>Cadence</label><select id="tpCadence" onchange="tpMetricChanged()"><option value="quarterly">Quarterly</option><option value="monthly">Monthly</option></select></div><div class="fld"><label>First period</label><input id="tpStart" value="2028Q1"></div><div class="fld wide"><label>Values</label><textarea id="tpValues" rows="2" placeholder="12.4&#10;13.1&#10;13.8" style="min-width:330px"></textarea></div><button class="btn-gold" onclick="saveTrustPaste()">Use pasted series</button><button class="btn-plain" onclick="downloadTrustBrief()">Open printable brief</button></div>
+    <div id="tpPasteStatus" class="memo">${n?n+' client metric series saved in this engagement.':'No client override series saved.'}</div></div>`;
+}
+window.loadTrustRegistry=async function(){
+  const el=document.getElementById("tpRegistry");
+  try{const rr=await fetch("/api/v31/trust-peer/registry"),j=await rr.json();if(!rr.ok)throw new Error(j.error||rr.status);window._trustRegistry=j;if(el)el.textContent="Standard metric definitions and conversion rules are controlled by Foundry; cohort identities remain engagement-owned.";const s=document.getElementById("tpMetric");if(s&&!s.options.length){Object.entries(j.metrics).forEach(([k,v])=>s.add(new Option(`${v.label} (${v.unit})`,k)));tpMetricChanged();}}catch(e){if(el)el.textContent="Metric registry could not load: "+e.message;}
+};
+window.tpMetricChanged=function(){const j=window._trustRegistry,m=document.getElementById("tpMetric"),c=document.getElementById("tpCadence");if(!j||!m||!c||!m.value)return;const d=j.metrics[m.value];if(d.paste_cadence==="quarterly"){c.value="quarterly";c.disabled=true;}else c.disabled=false;};
+function _tpCerts(raw){const out=[],lines=String(raw||"").split(/\r?\n/);let certCol=-1;if(lines.length){const h=lines[0].split(/[\t,;]+/).map(x=>x.trim().toLowerCase());certCol=h.findIndex(x=>x==="cert"||x==="certnumber"||x==="certificate"||x==="fdic cert");}lines.forEach((line,i)=>{const cells=line.split(/[\t,;]+/).map(x=>x.trim());if(i===0&&certCol>=0)return;let v=(certCol>=0?cells[certCol]:null);if(!/^\d+$/.test(v||"")){const nums=cells.filter(x=>/^\d+$/.test(x));v=nums.length?nums[nums.length-1]:null;}if(v&&+v>0)out.push(+v);});return [...new Set(out)];}
+window.loadTrustCohortFile=function(inp){const f=inp.files&&inp.files[0];if(!f)return;const rd=new FileReader();rd.onload=()=>{document.getElementById("tpCohortPaste").value=rd.result;document.getElementById("tpCohortStatus").textContent=`Loaded ${f.name}; validate before use.`;};rd.onerror=()=>{document.getElementById("tpCohortStatus").textContent="Could not read that file.";};rd.readAsText(f);};
+window.validateTrustCohort=async function(){
+  const certs=_tpCerts(document.getElementById("tpCohortPaste").value),st=document.getElementById("tpCohortStatus"),rv=document.getElementById("tpCohortReview"),name=document.getElementById("tpCohortName").value.trim()||"Engagement cohort";
+  if(!certs.length){st.textContent="No certificate numbers found. Put the FDIC certificate number in any pasted row.";return;}st.textContent=`Validating ${certs.length} unique certificate numbers against CharterIQ…`;
+  const rr=await fetch("/api/v31/trust-peer/validate-cohort",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({certs})}),j=await rr.json();if(!rr.ok){st.textContent=j.error||"Validation failed.";return;}
+  if(!j.matched_count){st.textContent="None of the supplied certificate numbers matched CharterIQ; the existing engagement cohort was left unchanged.";rv.innerHTML=`<div class="memo" style="color:#C7975A">Unmatched certificate numbers: ${j.unmatched.join(', ')}.</div>`;return;}
+  cfgRef().trust_peer_cohort={name,members:j.matched,unmatched:j.unmatched,validated_at:new Date().toISOString(),source:"user paste/upload"};dirty=true;
+  st.textContent=`${name} · ${j.matched_count} matched and active${j.unmatched.length?`; ${j.unmatched.length} unmatched and excluded`:''}.`;
+  rv.innerHTML=j.unmatched.length?`<div class="memo" style="color:#C7975A">Unmatched certificate numbers: ${j.unmatched.join(', ')}. These are not included.</div>`:"";
+  const sel=document.getElementById("pbCohort");if(sel){sel.value="engagement_cohort";renderBands();}
+};
+function _tpNumbers(raw){return String(raw||"").trim().split(/[\s,;]+/).filter(Boolean).map(Number);}
+window.saveTrustPaste=async function(){
+  const metric=document.getElementById("tpMetric").value,cadence=document.getElementById("tpCadence").value,start=document.getElementById("tpStart").value.trim(),values=_tpNumbers(document.getElementById("tpValues").value),st=document.getElementById("tpPasteStatus");
+  if(!values.length||values.some(v=>!Number.isFinite(v))){st.textContent="Paste numeric values only.";return;}let quarters=[];
+  if(cadence==="monthly"){const mm=start.match(/^(\d{4})-(0?[1-9]|1[0-2])$/);if(!mm){st.textContent="For monthly data, first period must be YYYY-MM.";return;}const rr=await fetch("/api/v31/trust-peer/quarterize",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({metric,values,start_year:+mm[1],start_month:+mm[2]})}),j=await rr.json();if(!rr.ok){st.textContent=j.error||"Conversion refused.";return;}quarters=j.quarters;
+  }else{const qm=start.match(/^(\d{4})Q([1-4])$/i);if(!qm){st.textContent="For quarterly data, first period must be YYYYQn.";return;}let y=+qm[1],q=+qm[2];quarters=values.map(v=>{const x={quarter:`${y}Q${q}`,value:v,months:3,partial:false};if(++q===5){q=1;y++;}return x;});}
+  cfgRef().trust_peer_inputs=cfgRef().trust_peer_inputs||{};cfgRef().trust_peer_inputs[metric]={metric,cadence,start,quarters,saved_at:new Date().toISOString()};st.textContent=`Saved ${quarters.length} quarters for ${window._trustRegistry.metrics[metric].label}.`;dirty=true;
+};
+window.downloadTrustBrief=function(){
+  const u=window._trustRegistry||{},co=cfgRef().trust_peer_cohort||{},peer=document.getElementById("pbBody"),saved=cfgRef().trust_peer_inputs||{},rows=Object.values(saved).map(s=>`<tr><td>${esc((u.metrics&&u.metrics[s.metric]||{}).label||s.metric)}</td><td>${esc(s.start)}</td><td>${s.quarters.length}</td><td>${s.quarters.map(x=>esc(x.quarter)+': '+Number(x.value).toLocaleString()).join('<br>')}</td></tr>`).join("");const w=window.open("","_blank");if(!w)return;
+  w.document.write(`<!doctype html><html><head><title>Trust Bank Peer Brief</title><style>body{font:13px Arial;color:#172033;margin:36px}h1{font-size:24px}h2{margin-top:28px;border-bottom:1px solid #bbb;padding-bottom:6px}.meta,.memo{color:#58657a}table{border-collapse:collapse;width:100%}td,th{border:1px solid #ccd3dd;padding:6px;text-align:left}.btn-plain,.btn-gold,select,input{display:none}@media print{button{display:none}}</style></head><body><button onclick="print()">Print / Save PDF</button><h1>Trust Bank Peer Brief</h1><div class="meta">${esc(cfgRef().client_legal_name||cfgRef().proposed_bank||'Modeled bank')} · ${new Date().toISOString().slice(0,10)} · ${esc(co.name||'No active engagement cohort')} · ${(co.members||[]).length} validated institutions</div><p>Peer identities were supplied for this engagement and matched to CharterIQ; financial observations are CharterIQ Call Report data.</p><h2>Peer corridor</h2>${peer?peer.innerHTML:'Run the engagement cohort first.'}<h2>Client-supplied comparison series</h2>${rows?`<table><tr><th>Metric</th><th>Starts</th><th>Quarters</th><th>Values</th></tr>${rows}</table>`:'<p>None. Foundry model outputs remain active.</p>'}<h2>Interpretation boundary</h2><p>The uploaded or pasted institutions define an eligible research universe, not a claim that every member is economically comparable. Missing observations are not zero-filled. Structural similarity and outcome comparison are separate judgments.</p></body></html>`);w.document.close();
+};
 function renderPeer(){
   const r = lastRes, el = document.getElementById("content");
   let h = '<div class="h2" style="font-weight:700">Peer Cohort</div>';
@@ -5393,11 +5446,12 @@ function renderPeer(){
     // engine is retired from this rung; everything on this page draws from the
     // CharterIQ substrate (real filed data) or the user's own uploads.
     h += '<div class="memo">Everything on this page is real or absent \u2014 peer evidence comes from the CharterIQ Call Report substrate, retrodiction from filed history. Nothing here is simulated.</div>';
+    h += trustPeerSectionHtml();
     h += bandsSectionHtml();
    
     h += vintageSectionHtml();
     h += retroSectionHtml();
-    el.innerHTML = h; renderBands(); return;
+    el.innerHTML = h; loadTrustRegistry(); renderBands(); return;
   }
   if(!r.peer){ h += '<div class="memo">No peer_query in this configuration \u2014 add one to select a reference cohort.</div>'; h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
   if(r.peer.error){ h += `<div class="warnitem">${esc(r.peer.error)}</div>`; h += vintageSectionHtml(); h += retroSectionHtml(); el.innerHTML = h; return; }
