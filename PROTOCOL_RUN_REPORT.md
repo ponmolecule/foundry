@@ -650,3 +650,9 @@ Focused release gates pass for canonical peer quarters, the seven-year/Q12 cap, 
 ## r150 verification addendum — frozen row labels in long-horizon capital tables
 
 r150 is presentation-only. Summary Ratios now keeps its Ratio column pinned at the left edge while native-period columns scroll horizontally; when regulatory references are enabled, the Ref column may scroll away while Ratio remains pinned. Standardized Capital applies the same treatment to its Measure column. Sticky cells preserve header, zebra-stripe, and hover backgrounds so period values cannot bleed through the frozen label surface. No engine, calculation, cadence, saved configuration, or export behavior changes.
+
+## r151 verification addendum — Peer NIM preserves the source/native denominator
+
+r151 removes a Peer-only NIM definition introduced in r149. The quarterly adapter had added managed AFS/HTM books to earning assets even though the source/native NIM denominator is gross loans plus residual securities plus cash. It also averaged every intervening monthly exposure rather than applying the source model's opening-and-ending balance convention. Peer Q1–Q12 now aggregates the applicable monthly net-interest-income flow, annualizes for the elapsed reporting window, and divides by the two-point average of the same native earning-assets series at the window opening and ending dates. No engagement-specific values are embedded or inferred.
+
+Focused regression coverage proves that an arbitrarily large managed AFS balance cannot alter Peer NIM solely through the adapter and that the result is recomputed from the underlying NII and endpoint balances. Canonical quarterly, seven-year/Q12-cap, capital/RWA, Python compilation, browser JavaScript syntax, and `git diff --check` gates pass.
