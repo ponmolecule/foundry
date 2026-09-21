@@ -113,10 +113,16 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
         rec["first_filing"] = first
         rec["last_filing"] = last_filing.get(cert)
         rec["anchor"] = None
-        if not legal:
-            rec["anchor_status"] = "missing legal opening date"
-        elif not first:
+        if not first:
             rec["anchor_status"] = "no metric filings available"
+        elif not legal:
+            # CharterIQ can have complete Call Report history while the profile's
+            # legal-opening field is null (the three-bank trust cohort exposed this).
+            # The first filing is still an observable, non-invented vintage anchor;
+            # disclose the absent cross-check instead of deleting the bank.
+            rec["anchor"] = first
+            rec["anchor_status"] = (
+                "first filing used as Q1 — legal opening date unavailable")
         else:
             lag = _qindex(first) - _qindex(legal)
             if lag in (0, 1):
@@ -197,7 +203,8 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
     definition = {
         "certs": certs, "metrics": metrics, "max_age_q": 12,
         "min_n": min_n,
-        "alignment": "first reported quarter, verified against legal opening quarter",
+        "alignment": ("first reported quarter; cross-checked to legal opening when "
+                      "available, otherwise disclosed as unverified"),
         "missing_data": "preserved; never shifted, zero-filled, or estimated",
         "band_method": ("n>=3: PERCENTILE.INC p25/p50/p75; n=2: observed "
                         "min/median/max; n=1: individual observation"),
