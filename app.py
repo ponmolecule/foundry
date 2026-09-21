@@ -1279,6 +1279,24 @@ def v31_substrate_vintage(body: dict, _=Depends(gate)):
         return JSONResponse({"error": f"substrate error: {str(e)[:300]}"}, status_code=502)
 
 
+@app.post("/api/v31/peer-intelligence-lab/vintage")
+def peer_intelligence_lab_vintage(body: dict, _=Depends(gate)):
+    """Isolated curated-cert corridor; never reads or writes engagement state."""
+    from foundry.charteriq_client import CharterIQClient
+    from foundry.v2.peer_intelligence_vintage import build_curated_vintage_corridor
+    cl = CharterIQClient()
+    if not cl.configured():
+        return JSONResponse({"error": "substrate not configured"}, status_code=422)
+    try:
+        return JSONResponse(build_curated_vintage_corridor(
+            cl, body.get("certs") or [], metrics=body.get("metrics"),
+            max_age_q=12, min_n=body.get("min_n", 3)))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=422)
+    except Exception as e:
+        return JSONResponse({"error": f"substrate error: {str(e)[:300]}"}, status_code=502)
+
+
 @app.get("/api/v31/fieldlib")
 def v31_fieldlib(_=Depends(gate)):
     from foundry import fieldlib as fl
