@@ -34,6 +34,18 @@ def test_monthly_rebuckets_and_caps_at_q12():
     assert out["quarters"][1]["filed_ytd"]["efficiency_ratio"] == 50.0
 
 
+def test_nim_uses_native_earning_assets_and_window_endpoints():
+    base, std = _fixture(12, 3)
+    # A managed book is deliberately large. It must not be injected solely by
+    # the Peer adapter when the native/source NIM denominator excludes it.
+    base["bs"]["afsBook"] = [10_000.0] * 37
+    out = build_peer_quarters(base, std, 12)
+    q1 = out["quarters"][0]
+    # M1-M3 NII = 6; earning assets are cash only: open=50, M3=53.
+    expected = 6.0 * 4.0 / ((50.0 + 53.0) / 2.0) * 100.0
+    assert abs(q1["filed_ytd"]["nim"] - expected) < 1e-12
+
+
 def test_quarterly_preserves_first_twelve_and_ignores_later_years():
     base, std = _fixture(4, 7)
     out = build_peer_quarters(base, std, 4)
@@ -49,6 +61,7 @@ def test_annual_fails_closed_instead_of_inventing_quarters():
 
 if __name__ == "__main__":
     test_monthly_rebuckets_and_caps_at_q12()
+    test_nim_uses_native_earning_assets_and_window_endpoints()
     test_quarterly_preserves_first_twelve_and_ignores_later_years()
     test_annual_fails_closed_instead_of_inventing_quarters()
     print("peer quarterly tests passed")
