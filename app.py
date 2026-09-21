@@ -248,9 +248,10 @@ def console_v2(_=Depends(gate)):
 
 
 @app.get("/peer-intelligence-lab")
-def peer_intelligence_lab(_=Depends(gate)):
+def peer_intelligence_lab():
     """Quarantined peer prototype. It is intentionally not linked from, and
-    shares no state with, the production modeling console."""
+    shares no state with, the production modeling console. Like /v3.1, the
+    shell is public; every data request remains protected by gate()."""
     return FileResponse("web/peer_intelligence_lab.html")
 
 
