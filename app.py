@@ -1290,7 +1290,7 @@ def peer_intelligence_lab_vintage(body: dict, _=Depends(gate)):
     try:
         return JSONResponse(build_curated_vintage_corridor(
             cl, body.get("certs") or [], metrics=body.get("metrics"),
-            max_age_q=12, min_n=body.get("min_n", 3)))
+            max_age_q=12, min_n=body.get("min_n", 2)))
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
