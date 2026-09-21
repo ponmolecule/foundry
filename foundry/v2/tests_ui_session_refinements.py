@@ -70,6 +70,13 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("superfluous HTM-designation counter is removed",
        "HTM designated" not in html and "Books included" not in html)
 
+    ck("long-horizon Summary Ratios freezes the Ratio column",
+       "fin freeze-metric' + (V21 ? ' has-ref' : '')" in html
+       and "table.fin.freeze-metric.has-ref td.ref + td" in html)
+    ck("long-horizon Standardized Capital freezes the Measure column",
+       '<table class="fin freeze-metric"><tr><th>Measure</th>' in html
+       and "table.fin.freeze-metric:not(.has-ref) td:first-child" in html)
+
     # Product Details is both presentation-facing and a reconciliation surface. Presentation
     # stays at 3 decimals; the explicit toggle exposes the SAME value at up to 15 significant digits.
     a=html.index("function fmtProductK(")
