@@ -76,6 +76,15 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("long-horizon Standardized Capital freezes the Measure column",
        '<table class="fin freeze-metric"><tr><th>Measure</th>' in html
        and "table.fin.freeze-metric:not(.has-ref) td:first-child" in html)
+    ck("every Product Detail and Capital & Ratios table gets an explicit bottom scroller and frozen identity column",
+       "function scrollFreezeFinTables(html)" in html
+       and html.count("c.innerHTML = scrollFreezeFinTables(h); return;") == 2
+       and 'class="fin-scroll" role="region"' in html
+       and '.fin-scroll{display:block;width:100%;max-width:100%;overflow-x:scroll' in html)
+    ck("frozen columns are fully opaque while period cells pass underneath",
+       '.fin-scroll table.fin{width:max-content;min-width:100%;margin:0;border-collapse:separate' in html
+       and 'background-color:#FFF;background-image:none' in html
+       and 'background-clip:border-box' in html)
 
     # Product Details is both presentation-facing and a reconciliation surface. Presentation
     # stays at 3 decimals; the explicit toggle exposes the SAME value at up to 15 significant digits.

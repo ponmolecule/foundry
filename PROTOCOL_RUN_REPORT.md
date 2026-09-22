@@ -670,3 +670,11 @@ The UI labels the source convention explicitly. It also discloses that regulator
 r153 is a presentation-only repair to Workforce Compensation role authoring. The role/population name now occupies a compact header row inside each role card, with an explicit **Remove role** button alongside it. Count, compensation, start, end, escalation, and benefits/payroll controls render in a separate parameter grid below. That grid reflows at narrower viewport widths instead of extending past the visible card boundary, so role deletion no longer depends on finding an off-screen × control.
 
 The existing delete handler and saved Workforce schema are unchanged. Growth/UI regression coverage is **83/83**, including an explicit structural gate for the separated role header, visible removal control, and wrapped parameter classes. Browser JavaScript syntax and `git diff --check` are clean.
+
+## r154 verification addendum — contained Workforce roles and complete table scrolling
+
+r154 corrects the remaining width assumption in the r153 Workforce presentation. The role/population input is capped at 320 pixels rather than expanding across most of the card. The parameter area now uses a container-responsive auto-fit grid; Compensation and Start may span two grid tracks, while Count, End, Escalation, and Benefits/Payroll reflow onto the next available row. No parameter can force the card past its available width, and Benefits/Payroll remains reachable without horizontally scrolling away from the role identity.
+
+Every financial table on Product Detail and Capital & Ratios is now placed in its own horizontal scroll region with an explicit bottom scrollbar. The helper applies the frozen identity column consistently to the product summary, each product-period schedule, summary ratios, standardized capital, concentration diagnostics, capital derivation, and CBLR qualification tables. Frozen cells use fully opaque backgrounds, separate table borders, and a solid edge/shadow so scrolling values cannot remain visible underneath or through border-collapse gaps.
+
+This is presentation-only. Growth/UI passes **83/83** and UI/session refinement coverage passes **20/20**. Browser JavaScript syntax and `git diff --check` are clean.

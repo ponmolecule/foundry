@@ -670,7 +670,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        'class="wf-role-head"' in html and 'class="wf-field wf-role-title"' in html
        and 'class="btn-plain wf-role-remove"' in html and '>Remove role</button>' in html
        and 'class="wf-field wf-compensation"' in html and 'class="wf-field wf-start"' in html
-       and '.wf-role-grid{display:grid;grid-template-columns:78px minmax(250px,1.8fr)' in html)
+       and 'max-width:320px' in html
+       and '.wf-role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr))' in html)
     ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
        'nieWorkforceCountPaste' in html and 'nieWorkforceCompPaste' in html
        and 'nieCatSchedulePaste' in html and 'Load (replace)' in html
