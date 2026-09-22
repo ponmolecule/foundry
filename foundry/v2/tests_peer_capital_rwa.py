@@ -32,6 +32,23 @@ def test_peer_horizon_is_q12_even_when_model_is_seven_years():
     assert pq["quarters"][-1]["native_end"] == 36
 
 
+def test_native_and_annual_nim_use_total_assets_without_double_signing_expense():
+    cfg = _cfg()
+    result = run_v2(cfg)
+    fin = result["financials"]
+    bs, is_, ratios = fin["bs"], fin["is"], fin["ratios"]
+
+    monthly_expected = (is_["nii"][0] * 12.0
+                        / ((bs["totalAssets"][0] + bs["totalAssets"][1]) / 2.0)
+                        * 100.0)
+    assert ratios["nim"][0] == round(monthly_expected, 2)
+
+    annual_expected = (sum(is_["nii"][:12])
+                       / ((bs["totalAssets"][1] + bs["totalAssets"][12]) / 2.0)
+                       * 100.0)
+    assert result["annual"]["nim"][0] == round(annual_expected, 2)
+
+
 def test_managed_sleeve_risk_weights_drive_securities_rwa():
     zero_cfg = _cfg()
     full_cfg = copy.deepcopy(zero_cfg)
@@ -64,6 +81,7 @@ def test_audit_workbook_exposes_capital_and_rwa_bridge():
 if __name__ == "__main__":
     test_cash_detail_drives_rwa_without_hidden_percentage()
     test_peer_horizon_is_q12_even_when_model_is_seven_years()
+    test_native_and_annual_nim_use_total_assets_without_double_signing_expense()
     test_managed_sleeve_risk_weights_drive_securities_rwa()
     test_audit_workbook_exposes_capital_and_rwa_bridge()
     print("peer capital/RWA tests passed")

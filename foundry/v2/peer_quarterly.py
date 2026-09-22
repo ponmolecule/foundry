@@ -11,11 +11,22 @@ FLOW_KEYS = ("roa", "nim", "efficiency_ratio", "net_charge_off_rate")
 STOCK_KEYS = ("tier1_ratio", "total_rbc_ratio", "leverage_ratio")
 
 
-def _endpoint_avg(values, start, end):
-    """Two-point average used by the source/native ratio convention."""
-    if start < 0 or end >= len(values):
+def _reported_endpoint_avg(values, start, end):
+    """Average first and last reported stocks in a flow window [start, end)."""
+    first = start + 1  # balance vectors include the pre-model opening at index 0
+    if first < 0 or end >= len(values):
         return 0.0
-    return (float(values[start] or 0.0) + float(values[end] or 0.0)) / 2.0
+    return (float(values[first] or 0.0) + float(values[end] or 0.0)) / 2.0
+
+
+def _avg_stock(values, start, end):
+    """Average native-period exposure over [start, end), including openings."""
+    avgs = []
+    for i in range(start, end):
+        if i + 1 >= len(values):
+            break
+        avgs.append((float(values[i] or 0.0) + float(values[i + 1] or 0.0)) / 2.0)
+    return sum(avgs) / len(avgs) if avgs else 0.0
 
 
 def _sum(values, start, end):
@@ -47,17 +58,6 @@ def build_peer_quarters(base, standardized, periods_per_year, max_quarters=12):
     is_ = base.get("is") or {}
     gross = bs.get("grossLoans") or []
     assets = bs.get("totalAssets") or []
-    cash = bs.get("cash") or []
-    sec = bs.get("sec") or []
-    # Preserve the native/source NIM denominator exactly.  The base engine's
-    # earning-assets definition is gross loans + residual securities + cash.
-    # Managed AFS/HTM books are not separate denominator additions here; r149
-    # added them only in this adapter and thereby created a Peer-only NIM.
-    earning = []
-    n = max(len(gross), len(assets), len(cash), len(sec))
-    for i in range(n):
-        earning.append(sum(float(v[i] or 0.0) if i < len(v) else 0.0
-                           for v in (gross, cash, sec)))
 
     std_ratios = (standardized or {}).get("ratios") or {}
     native_periods = max(0, len(assets) - 1)
@@ -72,13 +72,13 @@ def build_peer_quarters(base, standardized, periods_per_year, max_quarters=12):
         nie = sum(_sum(is_.get(k) or [], start, end)
                   for k in ("prodOpex", "feeOpex", "overhead"))
         nco = _sum(is_.get("nco") or [], start, end)
-        avg_assets = _endpoint_avg(assets, start, end)
-        avg_earning = _endpoint_avg(earning, start, end)
-        avg_loans = _endpoint_avg(gross, start, end)
+        avg_assets = _avg_stock(assets, start, end)
+        nim_assets = _reported_endpoint_avg(assets, start, end)
+        avg_loans = _avg_stock(gross, start, end)
         native_end = end - 1  # standardized arrays omit opening slot
         standalone = {
             "roa": _ratio(ni, avg_assets, 4.0),
-            "nim": _ratio(nii, avg_earning, 4.0),
+            "nim": _ratio(nii, nim_assets, 4.0),
             "efficiency_ratio": _ratio(nie, rev),
             "net_charge_off_rate": _ratio(nco, avg_loans, 4.0),
             "tier1_ratio": (std_ratios.get("tier1_rwa") or [None] * (native_end + 1))[native_end],
@@ -99,10 +99,10 @@ def build_peer_quarters(base, standardized, periods_per_year, max_quarters=12):
         ynco = _sum(is_.get("nco") or [], ystart, yend)
         annualizer = 4.0 / elapsed_q
         filed_ytd = {
-            "roa": _ratio(yni, _endpoint_avg(assets, ystart, yend), annualizer),
-            "nim": _ratio(ynii, _endpoint_avg(earning, ystart, yend), annualizer),
+            "roa": _ratio(yni, _avg_stock(assets, ystart, yend), annualizer),
+            "nim": _ratio(ynii, _reported_endpoint_avg(assets, ystart, yend), annualizer),
             "efficiency_ratio": _ratio(ynie, yrev),
-            "net_charge_off_rate": _ratio(ynco, _endpoint_avg(gross, ystart, yend), annualizer),
+            "net_charge_off_rate": _ratio(ynco, _avg_stock(gross, ystart, yend), annualizer),
             "tier1_ratio": standalone["tier1_ratio"],
             "total_rbc_ratio": standalone["total_rbc_ratio"],
             "leverage_ratio": standalone["leverage_ratio"],
