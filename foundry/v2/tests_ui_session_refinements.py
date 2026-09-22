@@ -91,7 +91,11 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
        and 'background-clip:border-box' in html)
     ck("frozen identity cells reserve real width and wrap instead of painting over values",
        'width:320px;min-width:320px;max-width:320px;white-space:normal;overflow-wrap:anywhere' in html
+       and 'td:first-child{position:sticky;left:0;z-index:3' in html
+       and 'td:first-child,\ntable.fin.freeze-metric.has-ref th.ref' not in html
        and 'class="product-summary-identity"' in html
+       and 'class="fin product-summary-table"' in html
+       and '.product-summary-table th:first-child,.product-summary-table td:first-child{width:300px !important' in html
        and '.product-summary-identity{display:flex;align-items:center;justify-content:space-between' in html)
     ck("CBLR qualification values respect row units instead of formatting assets as percentages",
        'row.units==="share"?(cl.value*100).toFixed(1)+"%"' in html
