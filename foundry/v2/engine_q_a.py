@@ -1474,12 +1474,13 @@ def run_pf_a(cfg):
     for q in range(1, Q + 1):
         avg_a = (bs["totalAssets"][q - 1] + bs["totalAssets"][q]) / 2.0
         avg_e = (bs["equity"][q - 1] + bs["equity"][q]) / 2.0
-        avg_earn = ((gross[q - 1] + gross[q]) / 2.0 + (bs["sec"][q - 1] + bs["sec"][q]) / 2.0
-                    + (bs["cash"][q - 1] + bs["cash"][q]) / 2.0)
         ni_q = is_["ni"][q]
         ratios["roa"][q] = (ni_q * ppyf / avg_a * 100) if avg_a > 0 else None
         ratios["roe"][q] = (ni_q * ppyf / avg_e * 100) if avg_e > 0 else None
-        ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_earn * 100) if avg_earn > 0 else None
+        # Engagement/source convention: net interest income over average total
+        # assets. NII is already interest income less positive expense inside the
+        # engine; never subtract a negatively presented expense a second time.
+        ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_a * 100) if avg_a > 0 else None
         rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
         ratios["eff"][q] = ((is_["prodOpex"][q] + is_["feeOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
         _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if _td else 0.0

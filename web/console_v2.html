@@ -4202,7 +4202,10 @@ window.renderBands = async function(){
     const bucket = bucketOf(m.v, latest);
     const pct = (METRIC_DIRECTION[metric]==="higher_good"||metric==="efficiency"||metric==="net_charge_off_rate")?"%":"";
     const _pQ = latestQ || "the latest quarter";
-    const modProv = `Modeled Q12 ${label} for your bank, reconstructed by the engine from your entered assumptions. Flow metrics use Q12 year-to-date filing convention; stock metrics use the Q12 quarter-end balance. Compared against the latest available peer distribution on the same metric basis.` + (m.note?(" "+m.note):"");
+    const _basis = metric==="nim"
+      ? " Modeled NIM follows the source convention (NII / average first-and-last reported total assets); peer-filed NIM may use an average-earning-assets basis, so the comparison is directional rather than strictly like-for-like."
+      : " Compared against the latest available peer distribution on the same metric basis.";
+    const modProv = `Modeled Q12 ${label} for your bank, reconstructed by the engine from your entered assumptions. Flow metrics use Q12 year-to-date filing convention; stock metrics use the Q12 quarter-end balance.` + _basis + (m.note?(" "+m.note):"");
     const bandProv = (pp)=>`${label} ${pp}th percentile of the ${useLending?"under $200M lending-peers":"selected"} cohort at ${_pQ}, from real FDIC/UBPR filers (n=${latest.n}) — peer data, not modeled.`;
     // Secondary terminal-quarter (Q12) figure for flow metrics — the same number the Ratios tab shows.
     // Rendered as its own full-width sub-row (NOT inside the modeled cell): a taller modeled cell made
@@ -5342,11 +5345,11 @@ function vintageSectionHtml(){
       <tr><th style="text-align:left">Metric</th><th style="text-align:left">Type</th><th style="text-align:left">Modeled (your bank)</th><th style="text-align:left">Peer band (filers)</th><th style="text-align:left">Like-for-like?</th></tr>
       <tr><td>Tier 1 Ratio</td><td>Stock</td><td>Tier 1 / RWA, point-in-time (standardized)</td><td>Risk-based Tier 1 ratio, point-in-time</td><td style="color:#6FA98C">Yes \u2014 point-in-time, window-independent</td></tr>
       <tr><td>ROA</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
-      <tr><td>NIM</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NII \u00d74/q)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>NIM</td><td>Flow</td><td>Single-quarter NII / average first/last reported total assets, annualized \u00d74</td><td>YTD-annualized filer NIM; denominator may be average earning assets</td><td style="color:#C7975A">No \u2014 window and denominator basis may differ</td></tr>
       <tr><td>Efficiency Ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#C7975A">No \u2014 windows differ (quarter vs YTD)</td></tr>
       <tr><td>Net Charge-Off Rate</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>UBPR single-quarter, annualized \u00d74</td><td style="color:#6FA98C">Yes \u2014 both single-quarter</td></tr>
     </table>
-    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. For the earnings flows (roa, nim, efficiency), the modeled series is each quarter's own figure (matching the Ratios tab at age 12), while the peer band is year-to-date annualized as filed; the two converge at year-ends and can diverge mid-year. Both are genuine period flows \u2014 the difference is the window, not the method.</div>
+    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency can differ mid-year because the modeled view is standalone-quarter while peer filings are year-to-date. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
   </div>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
@@ -6102,8 +6105,8 @@ function renderOverviewClassic(){
     // four quarters (so they will NOT equal any single quarter, including year-end); capital/stock ratios
     // are the year-end (Q4/Q8/Q12) snapshot (so they DO equal that quarter on the Capital & Ratios tab).
     qs += '<div style="margin-top:10px;padding:9px 12px;background:#12203A;border:1px solid #3A6BA8;border-radius:6px">'
-        + '<span style="color:#FFFFFF;font-weight:600;font-size:12px">* Income ratios (ROA, ROE, NIM, Efficiency) are shown as the average of the year\u2019s four quarters</span>'
-        + '<span style="color:#FFFFFF;font-size:12px"> \u2014 so they will not match any single quarter on the Capital &amp; Ratios tab. Capital / stock ratios (Leverage, CET1) are the year-end value (Q4 / Q8 / Q12) and will match that quarter exactly.</span>'
+        + '<span style="color:#FFFFFF;font-weight:600;font-size:12px">* ROA, ROE and Efficiency are shown as the average of the year\u2019s four quarters. NIM is annual NII divided by average first-and-last reported total assets.</span>'
+        + '<span style="color:#FFFFFF;font-size:12px"> Capital / stock ratios (Leverage, CET1) are the year-end value (Q4 / Q8 / Q12) and will match that quarter exactly.</span>'
         + '</div>';
     h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#8FA3C0;font-size:11px">Annual financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
   }
@@ -6532,7 +6535,7 @@ function renderContent(){
       h += `<div class="srcnote">${esc(AN.note)}.</div>`;
       h += '<table class="fin"><tr><th></th>' +
            Array.from({length:_nyr},(_,y)=>`<th>Year ${y+1}</th>`).join("") + '</tr>';
-      [["Net income ($000s)", AN.ni, `Full-year net income ($000s): sum of that year's ${PPY()} ${PLAB('full')}s.`], ["NIM (%)", AN.nim, "Full-year net interest margin: net interest income / average earning assets."], ["ROA (%)", AN.roa, "Full-year return on assets: net income / average assets."], ["Efficiency (%)", AN.eff, "Full-year efficiency ratio: noninterest expense / (net interest income + noninterest income)."]].forEach(([l,arr,pv])=>{
+      [["Net income ($000s)", AN.ni, `Full-year net income ($000s): sum of that year's ${PPY()} ${PLAB('full')}s.`], ["NIM (%)", AN.nim, "Full-year source-convention NIM: annual net interest income divided by the average of the first and last reported total-asset balances. Interest expense is already netted in NII and is not subtracted twice."], ["ROA (%)", AN.roa, "Full-year return on assets: net income / average assets."], ["Efficiency (%)", AN.eff, "Full-year efficiency ratio: noninterest expense / (net interest income + noninterest income)."]].forEach(([l,arr,pv])=>{
         h += `<tr><td data-prov title="${pv}">${l}</td>` + arr.map(v=>`<td style="text-align:right;font-family:var(--mono)${(typeof v==="number"&&v<0)?";color:#B45454":""}" data-prov title="${pv}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
       });
       h += '</table>';

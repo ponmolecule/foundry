@@ -1288,14 +1288,27 @@ def run_v2(cfg):
             xs = [x for x in s[y * _ppy:(y + 1) * _ppy] if x is not None]
             out.append(round(sum(xs) / len(xs), 2) if xs else None)
         return out
+    def _annual_nim_source_convention():
+        nii = list(isw.get("nii") or [])[:_NP]
+        assets = list(bsw.get("totalAssets") or [])
+        out = []
+        for y in range(_NP // _ppy):
+            start, end = y * _ppy, (y + 1) * _ppy
+            # Source workbook convention: first and last reported asset balances
+            # in the model year. NII is already net of interest expense.
+            if end >= len(assets):
+                out.append(None); continue
+            den = ((assets[start + 1] or 0.0) + (assets[end] or 0.0)) / 2.0
+            out.append(round(sum(float(x or 0.0) for x in nii[start:end]) / den * 100.0, 2)
+                       if den > 0 else None)
+        return out
     results["annual"] = {
-        "note": "stocks at year-end (every periods_per_year-th period), flows summed, ratios simple-averaged "
-                 "over the year's engine periods (labeled as such)",
+        "note": "stocks at year-end, flows summed; NIM is annual NII over the average of the first and last reported total-asset balances in each model year",
         "total_assets_eop": [ta_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "net_loans_eop": [_sw("netLoans")[i] for i in range(_ppy - 1, _NP, _ppy)],
         "deposits_eop": [dep_w[i] for i in range(_ppy - 1, _NP, _ppy)],
         "ni": [round(x, 2) for x in ann_ni],
-        "nim": _annR(nim_w), "roa": _annR(roa_w), "eff": _annR(eff_w),
+        "nim": _annual_nim_source_convention(), "roa": _annR(roa_w), "eff": _annR(eff_w),
         "lev_eop": [(lambda s: [(s[i] if i < len(s) else None) for i in range(_ppy - 1, _NP, _ppy)])(
                        lev_w[1:_NP + 1] if len(lev_w) == _NP + 1 else lev_w[:_NP])][0],
     }
@@ -1306,7 +1319,7 @@ def run_v2(cfg):
             {"label": "Total Assets (EOP, $000s)", "y": results["annual"]["total_assets_eop"]},
             {"label": "Net Loans (EOP, $000s)", "y": results["annual"]["net_loans_eop"]},
             {"label": "Total Deposits (EOP, $000s)", "y": results["annual"]["deposits_eop"]},
-            {"label": f"NIM (%, avg of {cadence_noun(_ppy, plural=True)})", "y": results["annual"]["nim"]},
+            {"label": "NIM (%, annual NII / avg first-and-last total assets)", "y": results["annual"]["nim"]},
             {"label": "Efficiency (%, avg)", "y": results["annual"]["eff"]},
             {"label": "ROA (%, avg)", "y": results["annual"]["roa"]},
             {"label": "Leverage / CBLR (%, EOP)", "y": results["annual"]["lev_eop"]},

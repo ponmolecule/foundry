@@ -112,7 +112,7 @@ IS_LAYOUT = [
 RATIO_LABELS = {
     "roa": "Return on average assets (annualized)",
     "roe": "Return on average equity (annualized)",
-    "nim": "Net interest margin (annualized, avg earning assets)",
+    "nim": "Net interest margin (annualized, source convention: avg total assets)",
     "eff": "Efficiency ratio (noninterest expense / revenue)",
     "lev": "Tier 1 leverage ratio (avg assets, MSR threshold deduction)",
     "leverage": "Equity / total assets (leverage)",
