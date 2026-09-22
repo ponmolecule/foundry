@@ -346,9 +346,9 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cac-channel-drag-handle{width:24px;height:26px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none;flex:0 0 24px}
 .cac-channel-drag-handle:hover{color:#DFA85A}.cac-channel-drag-handle:active{cursor:grabbing}
 .wf-role-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:9px 8px;align-items:end;min-width:0}
-.wf-role-grid .wf-role-title{grid-column:1/span 2;grid-row:1;min-width:0}
-.wf-role-grid .wf-count{grid-column:3;grid-row:1}
-.wf-role-grid .wf-compensation{grid-column:4/span 6;grid-row:1}
+.wf-role-grid .wf-role-title{grid-column:1/span 6;grid-row:1;min-width:0}
+.wf-role-grid .wf-count{grid-column:7;grid-row:1}
+.wf-role-grid .wf-compensation{grid-column:8/span 2;grid-row:1}
 .wf-role-grid .wf-delete{grid-column:12;grid-row:1;justify-self:end;align-self:center}
 .wf-role-grid .wf-start{grid-column:1/span 3;grid-row:2}
 .wf-role-grid .wf-end{grid-column:4;grid-row:2;max-width:78px}
@@ -361,7 +361,7 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .wf-series-details>summary{cursor:pointer;color:#8FA3C0;font-size:10px;user-select:none;list-style-position:inside}
 .wf-series-details[open]>summary{color:#B6C2D5}
 .wf-field input,.wf-field select{width:100% !important;max-width:none !important;box-sizing:border-box}
-.wf-comp-value{display:grid !important;grid-template-columns:minmax(72px,1fr) 78px 78px;gap:4px;align-items:center}
+.wf-comp-value{display:grid !important;grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1fr);gap:4px;align-items:center}
 .wf-comp-value input,.wf-comp-value select{width:100% !important;min-width:0 !important}
 .wf-start-wrap{display:flex;gap:4px;align-items:center;min-width:0}
 .wf-start-wrap select{width:94px !important;flex:0 0 94px;min-width:94px}
@@ -473,7 +473,7 @@ table.fin tbody tr:nth-child(even) td,table.fin tr:nth-child(even) td{background
 table.fin.freeze-metric:not(.has-ref) th:first-child,
 table.fin.freeze-metric:not(.has-ref) td:first-child{width:320px;min-width:320px;max-width:320px;white-space:normal;overflow-wrap:anywhere}
 table.fin.freeze-metric:not(.has-ref) th:first-child,
-table.fin.freeze-metric:not(.has-ref) td:first-child,
+table.fin.freeze-metric:not(.has-ref) td:first-child{position:sticky;left:0;z-index:3;background-color:#FFF;background-image:none;background-clip:border-box}
 table.fin.freeze-metric.has-ref th.ref,
 table.fin.freeze-metric.has-ref td.ref{position:sticky;left:0;width:72px;min-width:72px;max-width:72px;z-index:3;background-color:#FFF;background-image:none;background-clip:border-box}
 table.fin.freeze-metric.has-ref th.ref + th,
@@ -487,8 +487,10 @@ table.fin.freeze-metric.has-ref tr:nth-child(even) td.ref + td{background:#E9EDF
 table.fin.freeze-metric:not(.has-ref) tr:hover td:first-child,
 table.fin.freeze-metric.has-ref tr:hover td.ref,
 table.fin.freeze-metric.has-ref tr:hover td.ref + td{background:#DEE5EF}
-.product-summary-identity{display:flex;align-items:center;justify-content:space-between;gap:8px;min-width:0}
-.product-summary-identity>span:first-child{min-width:0;overflow-wrap:anywhere}
+.product-summary-table th:first-child,.product-summary-table td:first-child{width:300px !important;min-width:300px !important;max-width:300px !important}
+.product-summary-table th:not(:first-child),.product-summary-table td:not(:first-child){min-width:112px}
+.product-summary-identity{display:flex;align-items:center;justify-content:space-between;gap:10px;min-width:0}
+.product-summary-identity>span:first-child{min-width:0;overflow-wrap:normal;word-break:normal}
 .product-summary-identity .chip{position:static !important;transform:none !important;flex:0 0 auto}
 /* Dark-card table variant: for tables inside dark ovcards (Foundry Lab, peer-seed). Avoids the
    light-mode zebra + dark text that renders as unreadable striped rows on a dark background. */
@@ -6752,7 +6754,7 @@ function renderContent(){
     h += '<div class="h2">Per-Product Contributions</div>';
     h += `<div style="display:flex;align-items:center;gap:18px;flex-wrap:wrap">${ftpToggleHtml()}${productDetailPrecisionToggleHtml()}</div>`;
     h += `<div class="memo" style="margin:-4px 0 10px">Product-period tables below are shown in <b>${productDetailHighPrecision?'high-precision':'presentation'}</b> mode. High precision is diagnostic only and does not alter model values.</div>`;
-    h += `<table class="fin"><tr><th>Product (Q1–Q${SUBQ()} submission totals, $000s)</th><th>${SUBLAB()} Balance</th><th>Interest Income</th><th>Interest Expense</th><th>Fees</th><th>Gains on Sale</th><th>Net Servicing</th><th>Op Costs</th><th>Net Charge-offs</th>${ftpOn ? '<th>FTP Charge/Credit</th>' : ''}<th>Direct Contribution</th></tr>`;
+    h += `<table class="fin product-summary-table"><tr><th>Product (Q1–Q${SUBQ()} submission totals, $000s)</th><th>${SUBLAB()} Balance</th><th>Interest Income</th><th>Interest Expense</th><th>Fees</th><th>Gains on Sale</th><th>Net Servicing</th><th>Op Costs</th><th>Net Charge-offs</th>${ftpOn ? '<th>FTP Charge/Credit</th>' : ''}<th>Direct Contribution</th></tr>`;
     let ftpNet = 0;
     rows.forEach(x=>{
       ftpNet += x.ftp;
@@ -9464,7 +9466,7 @@ function structuresSectionsHtml(){
         const _cm=(wr.count_spec&&(wr.count_spec.trajectory||wr.count_spec.mode))||"flat", _cv=(_cm==="growth"?+(wr.count_spec.base||wr.count||1):(_cm==="explicit"?+(((wr.count_spec.values||[])[0])||wr.count||1):+(wr.count_spec&&wr.count_spec.value!=null?wr.count_spec.value:(wr.count!=null?wr.count:1))));
         const _cps=wr.compensation_spec||null, _cpm=(_cps&&(_cps.trajectory||_cps.mode))||"growth", _cpp=(_cps&&_cps.period)||wr.compensation_period||"year", _cpb=(_cps&&_cps.amount_basis)||wr.compensation_basis||"per_unit", _cpv=(_cpm==="growth"?+((_cps&&_cps.base)!=null?_cps.base:(wr.annual_comp||0)):(_cpm==="explicit"?+(((_cps&&_cps.values)||[])[0]||wr.annual_comp||0):+((_cps&&_cps.value)!=null?_cps.value:(wr.annual_comp||0))));
         row += `<label class="wf-field wf-count"><span class="wf-field-label">Count</span><input type="number" min="0" step="0.1" value="${_cv}" title="FTE / headcount" onchange="nieWorkforceCountValue(${wi},this.value)"></label>`;
-        row += `<label class="wf-field wf-compensation"><span class="wf-field-label">Compensation</span><div class="wf-comp-value"><input type="text" inputmode="decimal" value="${fmtComma(_cpv/1000)}" title="$000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Economic basis of the compensation amount" onchange="nieWorkforceCompBasis(${wi},this.value)"><option value="total"${_cpb==='total'?' selected':''}>Total</option><option value="per_unit"${_cpb==='per_unit'?' selected':''}>Per FTE</option></select><select title="Natural period of the compensation amount" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
+        row += `<label class="wf-field wf-compensation"><span class="wf-field-label">Compensation ($000s)</span><div class="wf-comp-value"><input type="text" inputmode="decimal" aria-label="Compensation amount in $000s" value="${fmtComma(_cpv/1000)}" title="$000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Economic basis of the compensation amount" onchange="nieWorkforceCompBasis(${wi},this.value)"><option value="total"${_cpb==='total'?' selected':''}>Total</option><option value="per_unit"${_cpb==='per_unit'?' selected':''}>Per FTE</option></select><select title="Natural period of the compensation amount" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
         row += `<button class="wf-role-delete wf-delete" aria-label="Remove workforce role" title="Remove role" onclick="nieWorkforceRemove(${wi});return false">×</button>`;
         row += `<label class="wf-field wf-start"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
         if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
