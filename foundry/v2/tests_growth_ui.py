@@ -668,12 +668,14 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'scrollIntoView({block:"nearest",behavior:"smooth"})' in html)
     ck("Workforce role identity and removal stay visible above wrapped parameters",
        'class="wf-field wf-role-title"' in html
-       and 'class="wf-role-delete wf-delete"' in html and '>×</button>' in html
+       and 'class="cx sec-book-delete wf-delete"' in html and '>×</a>' in html
        and 'class="wf-field wf-count"' in html and 'class="wf-field wf-compensation"' in html
        and 'class="wf-field wf-start"' in html
        and '.wf-role-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))' in html
-       and '.wf-role-grid .wf-role-title{grid-column:1/span 6;grid-row:1' in html
-       and '.wf-role-grid .wf-compensation{grid-column:8/span 2;grid-row:1' in html
+       and '.wf-role-grid .wf-role-title{grid-column:1/span 3;grid-row:1' in html
+       and '.wf-role-grid .wf-compensation{grid-column:5/span 3;grid-row:1' in html
+       and '.wf-comp-value{display:grid !important;grid-template-columns:72px 76px 82px' in html
+       and '.wf-role-delete{' not in html
        and '.wf-role-grid .wf-delete{grid-column:12;grid-row:1' in html
        and '.wf-role-grid .wf-load{grid-column:7/span 2;grid-row:2' in html)
     ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
