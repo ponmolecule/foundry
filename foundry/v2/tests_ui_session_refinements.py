@@ -89,6 +89,13 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
        '.fin-scroll table.fin{width:max-content;min-width:100%;margin:0;border-collapse:separate' in html
        and 'background-color:#FFF;background-image:none' in html
        and 'background-clip:border-box' in html)
+    ck("frozen identity cells reserve real width and wrap instead of painting over values",
+       'width:320px;min-width:320px;max-width:320px;white-space:normal;overflow-wrap:anywhere' in html
+       and 'class="product-summary-identity"' in html
+       and '.product-summary-identity{display:flex;align-items:center;justify-content:space-between' in html)
+    ck("CBLR qualification values respect row units instead of formatting assets as percentages",
+       'row.units==="share"?(cl.value*100).toFixed(1)+"%"' in html
+       and 'row.units==="check"?"$"+fmt0(cl.value)+"k"' in html)
 
     # Product Details is both presentation-facing and a reconciliation surface. Presentation
     # stays at 3 decimals; the explicit toggle exposes the SAME value at up to 15 significant digits.
