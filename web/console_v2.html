@@ -345,11 +345,16 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .cac-channel-card.drop-after{box-shadow:inset 0 -3px 0 #DFA85A}
 .cac-channel-drag-handle{width:24px;height:26px;display:grid;place-items:center;padding:0;border:0;background:transparent;color:#73839D;cursor:grab;font-size:15px;line-height:1;letter-spacing:-2px;user-select:none;flex:0 0 24px}
 .cac-channel-drag-handle:hover{color:#DFA85A}.cac-channel-drag-handle:active{cursor:grabbing}
-.wf-role-head{display:flex;align-items:end;gap:8px;justify-content:space-between;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid rgba(148,163,184,.12)}
-.wf-role-head .wf-role-title{flex:0 1 320px;min-width:180px;max-width:320px}
+.wf-role-head{display:grid;grid-template-columns:minmax(180px,280px) auto;align-items:end;justify-content:start;gap:10px;margin-bottom:9px;padding-bottom:8px;border-bottom:1px solid rgba(148,163,184,.12)}
+.wf-role-head .wf-role-title{width:100%;min-width:0;max-width:280px}
 .wf-role-remove{flex:0 0 auto;white-space:nowrap;color:#C77 !important}
-.wf-role-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(132px,1fr));gap:7px;align-items:end;min-width:0}
-.wf-role-grid .wf-compensation,.wf-role-grid .wf-start{grid-column:span 2}
+.wf-role-grid{display:grid;grid-template-columns:110px minmax(300px,440px) minmax(190px,250px);gap:9px 14px;align-items:end;justify-content:start;min-width:0}
+.wf-role-grid .wf-count{grid-column:1;grid-row:1}
+.wf-role-grid .wf-compensation{grid-column:2;grid-row:1}
+.wf-role-grid .wf-start{grid-column:3;grid-row:1}
+.wf-role-grid .wf-end{grid-column:1;grid-row:2;max-width:78px}
+.wf-role-grid .wf-escalation{grid-column:2;grid-row:2;max-width:150px}
+.wf-role-grid .wf-load{grid-column:3;grid-row:2;max-width:165px}
 .wf-field{min-width:0}
 .wf-series-details{margin:7px 0 0;border-top:1px solid rgba(148,163,184,.12);padding-top:6px}
 .wf-series-details>summary{cursor:pointer;color:#8FA3C0;font-size:10px;user-select:none;list-style-position:inside}
@@ -368,8 +373,8 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .nie-assess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .nie-assess-item{background:#111B2D;border:1px solid rgba(148,163,184,.12);border-radius:7px;padding:8px}
 .nie-assess-item .crow{margin:0 !important}
-@media(max-width:1250px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-row:auto}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:760px){.wf-role-head{align-items:center}.wf-role-grid{grid-template-columns:1fr 1fr}.wf-role-grid .wf-compensation,.wf-role-grid .wf-start{grid-column:1/-1}}
+@media(max-width:980px){.nie-defaults{grid-template-columns:1fr}.wf-role-grid{grid-template-columns:110px minmax(300px,1fr)}.wf-role-grid .wf-count{grid-column:1;grid-row:1}.wf-role-grid .wf-compensation{grid-column:2;grid-row:1}.wf-role-grid .wf-start{grid-column:1;grid-row:2}.wf-role-grid .wf-end{grid-column:2;grid-row:2}.wf-role-grid .wf-escalation{grid-column:1;grid-row:3}.wf-role-grid .wf-load{grid-column:2;grid-row:3}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:760px){.wf-role-head{grid-template-columns:minmax(160px,1fr) auto;align-items:center}.wf-role-grid{grid-template-columns:1fr 1fr}.wf-role-grid .wf-count,.wf-role-grid .wf-compensation,.wf-role-grid .wf-start,.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-column:auto;grid-row:auto;max-width:none}.wf-role-grid .wf-compensation,.wf-role-grid .wf-start{grid-column:1/-1}}
 .modpanel{background:#141E31;border:1px solid #26324B;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#DFA85A;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#9CA7B7;margin:20px 0 0;font-weight:400;line-height:1.5}
@@ -462,18 +467,22 @@ table.fin tbody tr:nth-child(even) td,table.fin tr:nth-child(even) td{background
 .fin-scroll table.fin{width:max-content;min-width:100%;margin:0;border-collapse:separate;border-spacing:0;isolation:isolate}
 .fin-scroll table.fin th,.fin-scroll table.fin td{border-width:0 1px 1px 0}
 .fin-scroll table.fin tr> :first-child{border-left-width:1px}.fin-scroll table.fin tr:first-child> *{border-top-width:1px}
-/* Long-horizon ratio/capital tables keep their row identity visible while the
-   period columns scroll horizontally. The optional regulatory Ref column may
-   scroll away; the requested Ratio/Measure column remains pinned at the left. */
+/* Scrollable financial tables keep their row identity visible. When a regulatory
+   Ref column exists, Ref and the adjacent line-item/metric column freeze together. */
 table.fin.freeze-metric:not(.has-ref) th:first-child,
 table.fin.freeze-metric:not(.has-ref) td:first-child,
+table.fin.freeze-metric.has-ref th.ref,
+table.fin.freeze-metric.has-ref td.ref{position:sticky;left:0;width:72px;min-width:72px;max-width:72px;z-index:3;background-color:#FFF;background-image:none;background-clip:border-box}
 table.fin.freeze-metric.has-ref th.ref + th,
-table.fin.freeze-metric.has-ref td.ref + td{position:sticky;left:0;z-index:2;background-color:#FFF;background-image:none;box-shadow:2px 0 0 #AEB9C9,8px 0 10px -10px #33415C;background-clip:border-box}
+table.fin.freeze-metric.has-ref td.ref + td{position:sticky;left:72px;z-index:2;background-color:#FFF;background-image:none;box-shadow:2px 0 0 #AEB9C9,8px 0 10px -10px #33415C;background-clip:border-box}
 table.fin.freeze-metric:not(.has-ref) th:first-child,
-table.fin.freeze-metric.has-ref th.ref + th{z-index:3;background:#101B2E}
+table.fin.freeze-metric.has-ref th.ref,
+table.fin.freeze-metric.has-ref th.ref + th{z-index:4;background:#101B2E}
 table.fin.freeze-metric:not(.has-ref) tr:nth-child(even) td:first-child,
+table.fin.freeze-metric.has-ref tr:nth-child(even) td.ref,
 table.fin.freeze-metric.has-ref tr:nth-child(even) td.ref + td{background:#E9EDF4}
 table.fin.freeze-metric:not(.has-ref) tr:hover td:first-child,
+table.fin.freeze-metric.has-ref tr:hover td.ref,
 table.fin.freeze-metric.has-ref tr:hover td.ref + td{background:#DEE5EF}
 /* Dark-card table variant: for tables inside dark ovcards (Foundry Lab, peer-seed). Avoids the
    light-mode zebra + dark text that renders as unreadable striped rows on a dark background. */
@@ -6490,7 +6499,7 @@ function renderContent(){
       h += '</table>';
     }
     h += methodFoot();
-    c.innerHTML = h; return;
+    c.innerHTML = scrollFreezeFinTables(h); return;
   }
 
   if(currentTab==="is"){
@@ -6561,7 +6570,7 @@ function renderContent(){
       h += '</table>';
     }
     h += methodFoot();
-    c.innerHTML = h; return;
+    c.innerHTML = scrollFreezeFinTables(h); return;
   }
 
   if(currentTab==="ratios"){
@@ -9447,7 +9456,7 @@ function structuresSectionsHtml(){
         let row=`<div class="wf-role-card" data-workforce-index="${wi}"><div class="wf-role-head"><label class="wf-field wf-role-title"><span class="wf-field-label">Role / population</span><input class="wf-role-name" placeholder="Role / economically homogeneous population" value="${esc(wr.role||'')}" onchange="${_wb}.role=this.value;refresh()"></label><button class="btn-plain wf-role-remove" aria-label="Remove workforce role" onclick="nieWorkforceRemove(${wi});return false">Remove role</button></div><div class="wf-role-grid">`;
         const _cm=(wr.count_spec&&(wr.count_spec.trajectory||wr.count_spec.mode))||"flat", _cv=(_cm==="growth"?+(wr.count_spec.base||wr.count||1):(_cm==="explicit"?+(((wr.count_spec.values||[])[0])||wr.count||1):+(wr.count_spec&&wr.count_spec.value!=null?wr.count_spec.value:(wr.count!=null?wr.count:1))));
         const _cps=wr.compensation_spec||null, _cpm=(_cps&&(_cps.trajectory||_cps.mode))||"growth", _cpp=(_cps&&_cps.period)||wr.compensation_period||"year", _cpb=(_cps&&_cps.amount_basis)||wr.compensation_basis||"per_unit", _cpv=(_cpm==="growth"?+((_cps&&_cps.base)!=null?_cps.base:(wr.annual_comp||0)):(_cpm==="explicit"?+(((_cps&&_cps.values)||[])[0]||wr.annual_comp||0):+((_cps&&_cps.value)!=null?_cps.value:(wr.annual_comp||0))));
-        row += `<label class="wf-field"><span class="wf-field-label">Count</span><input type="number" min="0" step="0.1" value="${_cv}" title="FTE / headcount" onchange="nieWorkforceCountValue(${wi},this.value)"></label>`;
+        row += `<label class="wf-field wf-count"><span class="wf-field-label">Count</span><input type="number" min="0" step="0.1" value="${_cv}" title="FTE / headcount" onchange="nieWorkforceCountValue(${wi},this.value)"></label>`;
         row += `<label class="wf-field wf-compensation"><span class="wf-field-label">Compensation</span><div class="wf-comp-value"><input type="text" inputmode="decimal" value="${fmtComma(_cpv/1000)}" title="$000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Economic basis of the compensation amount" onchange="nieWorkforceCompBasis(${wi},this.value)"><option value="total"${_cpb==='total'?' selected':''}>Total</option><option value="per_unit"${_cpb==='per_unit'?' selected':''}>Per FTE</option></select><select title="Natural period of the compensation amount" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
         row += `<label class="wf-field wf-start"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
         if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;

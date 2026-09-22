@@ -76,11 +76,15 @@ console.log(JSON.stringify({initial,simple,detailed,preserved,off,reactivated}))
     ck("long-horizon Standardized Capital freezes the Measure column",
        '<table class="fin freeze-metric"><tr><th>Measure</th>' in html
        and "table.fin.freeze-metric:not(.has-ref) td:first-child" in html)
-    ck("every Product Detail and Capital & Ratios table gets an explicit bottom scroller and frozen identity column",
+    ck("Balance Sheet, Income Statement, Product Detail, and Capital & Ratios tables get bottom scrollers",
        "function scrollFreezeFinTables(html)" in html
-       and html.count("c.innerHTML = scrollFreezeFinTables(h); return;") == 2
+       and html.count("c.innerHTML = scrollFreezeFinTables(h); return;") == 4
        and 'class="fin-scroll" role="region"' in html
        and '.fin-scroll{display:block;width:100%;max-width:100%;overflow-x:scroll' in html)
+    ck("Ref and adjacent identity columns freeze together as one anchored block",
+       'table.fin.freeze-metric.has-ref th.ref,' in html
+       and 'table.fin.freeze-metric.has-ref td.ref{position:sticky;left:0;width:72px' in html
+       and 'table.fin.freeze-metric.has-ref td.ref + td{position:sticky;left:72px' in html)
     ck("frozen columns are fully opaque while period cells pass underneath",
        '.fin-scroll table.fin{width:max-content;min-width:100%;margin:0;border-collapse:separate' in html
        and 'background-color:#FFF;background-image:none' in html

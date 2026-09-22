@@ -678,3 +678,11 @@ r154 corrects the remaining width assumption in the r153 Workforce presentation.
 Every financial table on Product Detail and Capital & Ratios is now placed in its own horizontal scroll region with an explicit bottom scrollbar. The helper applies the frozen identity column consistently to the product summary, each product-period schedule, summary ratios, standardized capital, concentration diagnostics, capital derivation, and CBLR qualification tables. Frozen cells use fully opaque backgrounds, separate table borders, and a solid edge/shadow so scrolling values cannot remain visible underneath or through border-collapse gaps.
 
 This is presentation-only. Growth/UI passes **83/83** and UI/session refinement coverage passes **20/20**. Browser JavaScript syntax and `git diff --check` are clean.
+
+## r155 verification addendum — complete financial scrolling and compact Workforce form
+
+r155 extends the per-table bottom scrollbar and frozen row-identity treatment to the Balance Sheet and Income Statement, including their annual and memo tables. Product Detail and Capital & Ratios retain the same treatment from r154. When a regulatory Ref column is present, Ref is now frozen at the left edge and the adjacent line-item/Ratio/Metric/$000s column is frozen immediately beside it; both cells use opaque row-aware backgrounds while period columns scroll underneath.
+
+The Workforce role card replaces r154's visually loose auto-fit arrangement with a deliberate compact form. Role/population is capped at 280 pixels and the Remove role action sits immediately beside it. On ordinary desktop widths the parameter grid presents Count, Compensation, and Start on the first row, then End, Escalation, and Benefits/Payroll on the second. Narrower layouts reflow deterministically without horizontal overflow.
+
+This is presentation-only. Growth/UI passes **83/83** and UI/session refinement coverage passes **21/21**. Browser JavaScript syntax and `git diff --check` are clean.
