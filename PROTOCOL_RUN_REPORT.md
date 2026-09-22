@@ -686,3 +686,13 @@ r155 extends the per-table bottom scrollbar and frozen row-identity treatment to
 The Workforce role card replaces r154's visually loose auto-fit arrangement with a deliberate compact form. Role/population is capped at 280 pixels and the Remove role action sits immediately beside it. On ordinary desktop widths the parameter grid presents Count, Compensation, and Start on the first row, then End, Escalation, and Benefits/Payroll on the second. Narrower layouts reflow deterministically without horizontal overflow.
 
 This is presentation-only. Growth/UI passes **83/83** and UI/session refinement coverage passes **21/21**. Browser JavaScript syntax and `git diff --check` are clean.
+
+## r156 verification addendum — frozen-column geometry and two-line Workforce roles
+
+r156 repairs visual collisions revealed after r155. Frozen identity cells now reserve a fixed 320-pixel table width and wrap their own content, preventing long Measure, Criterion, product, and threshold labels from painting over the first numeric column. Product-contribution identity cells use an ordinary flex layout for product name and family badge; the OFF-BS badge is no longer absolutely positioned over the product name or adjacent balance column.
+
+The CBLR qualification presentation now respects row units. Total-assets qualification values are displayed in $000s, while share tests remain percentages. This corrects the prior presentation error that rendered a $000s asset balance multiplied by 100 with a percent sign; engine qualification logic is unchanged.
+
+Workforce's ordinary desktop editor is exactly two grid rows. Row one contains the half-width role/population field, Count, the complete Compensation amount/basis/period control, and an × removal control anchored at the far-right grid edge. Row two contains Start, End, Escalation, and Benefits/Payroll. Advanced trajectories remain below the two-line primary editor and the responsive fallback may reflow on genuinely narrow displays.
+
+Growth/UI passes **83/83** and UI/session refinement coverage passes **23/23**. Browser JavaScript syntax and `git diff --check` are clean.
