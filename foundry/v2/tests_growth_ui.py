@@ -672,8 +672,8 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'class="wf-field wf-count"' in html and 'class="wf-field wf-compensation"' in html
        and 'class="wf-field wf-start"' in html
        and '.wf-role-grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr))' in html
-       and '.wf-role-grid .wf-role-title{grid-column:1/span 5;grid-row:1' in html
-       and '.wf-role-grid .wf-compensation{grid-column:7/span 5;grid-row:1' in html
+       and '.wf-role-grid .wf-role-title{grid-column:1/span 6;grid-row:1' in html
+       and '.wf-role-grid .wf-compensation{grid-column:8/span 2;grid-row:1' in html
        and '.wf-role-grid .wf-delete{grid-column:12;grid-row:1' in html
        and '.wf-role-grid .wf-load{grid-column:7/span 2;grid-row:2' in html)
     ck("Series Explicit authoring uses pasteboxes instead of period-by-period typing",
