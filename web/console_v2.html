@@ -730,6 +730,96 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
 .bank-edit:hover{background:rgba(216,168,94,.14);box-shadow:inset 0 0 0 1px rgba(216,168,94,.35)}
 .scenario-name-inline:hover{background:rgba(216,168,94,.10)!important;border-radius:3px}
 .scenario-name-inline:focus{background:rgba(216,168,94,.14)!important;border-radius:3px}
+/* Klaros theme completion pass: one warm, brown-black application language.
+   Keep the light financial exhibits untouched; normalize every dark workspace surface. */
+:root{
+  --nvy:#171511;
+  --nvy2:#211E18;
+  --nvy3:#2B2720;
+  --nline:#574D3E;
+  --namber:#DDB36C;
+  --nmut:#B9AE9E;
+  --ntext:#FAF6EF;
+}
+body,main,aside,#content.cover{background:#171511}
+#ribbon,footer{background:#171511;border-color:#514638}
+header.cover{
+  background:
+    linear-gradient(90deg,rgba(48,44,37,.98) 0%,rgba(42,39,33,.98) 55%,rgba(25,23,19,.98) 82%,rgba(221,179,108,.18) 100%);
+}
+.toolbar{background:#1D1A15;border-color:#514638}
+.welcome-shell{
+  background:
+    radial-gradient(circle at 84% 20%,rgba(221,179,108,.13),transparent 30%),
+    linear-gradient(135deg,#2A2721 0%,#1C1915 48%,#15130F 100%) !important;
+}
+.welcome-shell>div{position:relative}
+.welcome-shell>div:after{content:"";position:absolute;right:0;top:0;width:9rem;height:100%;pointer-events:none;background:linear-gradient(180deg,rgba(234,216,188,.11),rgba(201,154,80,.04));opacity:.8}
+.welcome-shell input{background:#1C1915 !important;border-color:#625541 !important;color:#FAF6EF !important}
+.welcome-shell [style*="#8A92A3"]{color:#B9AE9E !important}
+.welcome-shell [style*="#C4CDDD"]{color:#EEE6DA !important}
+
+#content.cover .h2{color:#FAF6EF;border-color:#514638}
+#content.cover .memo,#content.cover .cmut,#content.cover .cardhead .cd,
+#content.cover .nie-section-note,#content.cover .nie-section-summary,#content.cover .mp-info,
+#content.cover .cfgfoot,#content.cover .chint,#content.cover .crow .cu,
+#content.cover .sec-book-label,#content.cover .sec-book-unit,#content.cover .sec-managed-field>label,
+#content.cover .sec-managed-explicit-summary,#content.cover .wf-field-label,
+#content.cover .nie-default-label,#content.cover .explicit-preview,#content.cover .explicit-preview-empty,
+#content.cover .explicit-preview-toggle,#content.cover .paste-surface-toggle,
+#content.cover .wf-series-details>summary,#content.cover table.dtab th{color:#B9AE9E}
+#content.cover .cfghead .ttl,#content.cover .cfghead .eng b,#content.cover .cardhead .ct,
+#content.cover .csub,#content.cover .modcard .ml,#content.cover table.dtab td{color:#F3EDE4}
+#content.cover .cfghead .eng,#content.cover .modcard .ml small,#content.cover .cfglamps b,
+#content.cover .wf-schema span{color:#A99D8C}
+
+.cfgcard,.modpanel,.modcard,.ovcard,.ovflag,.mth-sec,
+.nie-default,.wf-role-card,.opex-item-card,.nie-assess-item,.cac-channel-card{
+  background:#211E18 !important;border-color:#4D4437 !important;
+}
+.modcard.sel{border-color:#DDB36C !important;box-shadow:0 0 0 1px rgba(221,179,108,.28)}
+.cardhead,.sec-book-editor,.sec-managed-sleeve,.hline,.tsec>div:last-child,
+.tacct>div:nth-child(even),.tacct>div:nth-child(n+3){border-color:rgba(221,179,108,.16)}
+.nie-mode,.wf-schema{background:#181612;border-color:#463D31}
+.nie-mode button{color:#AFA493}
+.nie-mode button.on{background:#3A3023;color:#FAF6EF;box-shadow:inset 0 0 0 1px #7A6647}
+.cac-feed-card{background:linear-gradient(180deg,#29241C,#1C1915);border-color:rgba(221,179,108,.38)}
+.cac-link-preview{background:rgba(39,34,27,.72);border-color:#62513B}
+.cac-link-readonly,.sec-managed-explicit textarea{
+  background:#1A1713;color:#EEE6DA;border-color:#5B4E3D;
+}
+
+.cover .fld input,.cover .fld select,
+.cfgwrap input[type=number],.cfgwrap input[type=text],.cfgwrap input:not([type]),.cfgwrap select,
+.cfgwrap textarea{
+  background:#1A1713;border-color:#5B4E3D;color:#FAF6EF;
+}
+.cfgwrap input:focus,.cfgwrap select:focus,.cfgwrap textarea:focus{border-color:#DDB36C}
+.pillbtn,.fpill,.nie-section-toggle{border-color:#665844;color:#E5DCCE}
+.pillbtn:hover,.fpill:hover,.nie-section-toggle:hover{border-color:#DDB36C;color:#DDB36C}
+.sw{background:#4A4135}.sw::after{background:#B9AE9E}.sw.on{background:#DDB36C}.sw.on::after{background:#2A231A}
+.minis span{border-color:#665844;color:#AFA493}
+.chip{background:#9C7742;color:#FFF}
+table.dtab th,table.dtab td{border-color:#40382E}
+
+.ovh2{background:#2B261E;border-color:#514638;border-left-color:#DDB36C;color:#E1B66F}
+.ovh3,.accent-label,section#content:not(.cover) .ovh3,section#content:not(.cover) .accent-label{color:#C9974C}
+.ovtag.mut{background:#332D24;color:#B9AE9E}
+table.fin-dark th,table.fin-dark td{border-color:#514638}
+table.fin-dark th{background:#2B261E;color:#F4EDE2;border-bottom-color:#DDB36C}
+table.fin-dark td{color:#EEE6DA}
+table.fin-dark tbody tr:nth-child(even) td,table.fin-dark tr:nth-child(even) td{background:rgba(221,179,108,.045)}
+table.cac-audit-grid,table.cac-audit-grid th,table.cac-audit-grid td{border-color:rgba(221,179,108,.24)}
+table.cac-audit-grid th{color:#CABCAB;background:rgba(221,179,108,.035)}
+table.cac-audit-grid td{color:#EEE6DA}
+.mth-callout{background:#2A241A;border-color:#806840}.mth-scope,#content.cover .cav-item{background:#1B1814;border-color:#463D31}
+
+#globalsBox input,#globalsBox select{border-color:#C9BDAA}
+#globalsBox button{background:#211E18 !important;border-color:#665844 !important;color:#F3EDE4 !important}
+.accentbar{background:linear-gradient(90deg,#B78438 0%,#DDB36C 40%,#EAD8BC 76%,#C9974C 100%)}
+.tab.active{background:linear-gradient(180deg,#F2E5CF,#E5CDA5);color:#231C13;border-color:#E5CDA5}
+.btn-gold,.btn-save{background:linear-gradient(180deg,#E4C48A,#D2A45A);color:#241C12}
+.btn-gold:hover,.btn-save:hover{background:linear-gradient(180deg,#EBD2A4,#DBAE68)}
 </style>
 </head>
 <body>
@@ -6371,7 +6461,7 @@ function renderContent(){
     else { renderOverview(); return; }
   }
   if(V31 && currentTab==="welcome"){
-    let h = `<div style="background:#0A1830;min-height:calc(100vh - 60px);margin:-16px -18px;font-family:'Inter',system-ui,sans-serif;color:#E6E8EC;-webkit-font-smoothing:antialiased">
+    let h = `<div class="welcome-shell" style="background:#0A1830;min-height:calc(100vh - 60px);margin:-16px -18px;font-family:'Inter',system-ui,sans-serif;color:#E6E8EC;-webkit-font-smoothing:antialiased">
       <div style="max-width:72rem;margin-left:max(2rem, calc(50% - 36rem - 96px));margin-right:auto;padding:0 2rem 0 0">
         <div style="display:flex;align-items:center;gap:10px;padding-top:1.5rem">
           <span style="width:28px;height:28px;border-radius:8px;background:#D8A85E;color:#0A1830;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">F</span>
