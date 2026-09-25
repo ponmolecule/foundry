@@ -91,6 +91,44 @@ def _resolve_natural_period_series(spec: Mapping[str, Any] | None, n_periods: in
     return [float(v or 0.0) * factor for v in vals]
 
 
+def _resolve_natural_period_flow(spec: Mapping[str, Any] | None, n_periods: int, ppy: int,
+                                 *, growth_context=None, default_value: float = 0.0) -> list[float]:
+    """Resolve a depreciation flow, including source schedules finer than the engine.
+
+    Most Fixed Asset Formula / level inputs are stocks or rates and therefore use the
+    ordinary Series rule that rejects a source cadence finer than the model cadence.
+    Entered depreciation is different: it is an additive expense flow.  A monthly
+    depreciation schedule in a quarterly model is representable without approximation by
+    resolving the authored amounts on a conceptual monthly grid and summing three months
+    into each engine quarter, just as recurring Operating Expense schedules do.
+
+    Preserve the historical resolver for flat/growth paths and explicit schedules that are
+    no finer than the engine.  Only the previously-unrepresentable fine-cadence case takes
+    the monthly aggregation path.
+    """
+    raw = dict(spec or {})
+    ppy = int(ppy)
+    n = int(n_periods)
+    cadence = str(raw.get("cadence") or "year").strip().lower()
+    source_freq = {"year": 1, "quarter": 4, "month": 12,
+                   "model_period": ppy}.get(cadence)
+    if (str(raw.get("trajectory") or raw.get("mode") or "flat").strip().lower() != "explicit"
+            or source_freq is None or source_freq <= ppy):
+        return _resolve_natural_period_series(
+            raw, n, ppy, growth_context=growth_context, default_value=default_value)
+
+    if ppy not in (1, 4, 12) or 12 % ppy:
+        raise ValueError(f"unsupported cadence periods_per_year={ppy}")
+    months_per_engine_period = 12 // ppy
+    monthly = _resolve_entered_level(
+        raw, n * months_per_engine_period, 12,
+        growth_context=growth_context, default_value=default_value)
+    month_factor = _natural_period_factor(raw.get("period"), 12)
+    monthly_flows = [float(v or 0.0) * month_factor for v in monthly]
+    return [sum(monthly_flows[i:i + months_per_engine_period])
+            for i in range(0, len(monthly_flows), months_per_engine_period)]
+
+
 
 
 def _formula_component_display_name(component: Mapping[str, Any] | None, index: int,
@@ -209,7 +247,7 @@ def fixed_asset_formula_level(fixed_assets: Mapping[str, Any] | None,
     elif kind == "entered":
         es = dict(depcfg.get("amount_spec") or {
             "source":"entered","trajectory":"flat","value":0.0,"period":"year"})
-        dep_authored = _resolve_natural_period_series(es, n, ppy, growth_context=growth_context)
+        dep_authored = _resolve_natural_period_flow(es, n, ppy, growth_context=growth_context)
         if any(v < -1e-9 for v in dep_authored):
             raise ValueError("Formula / level entered depreciation cannot be negative")
         rates = []

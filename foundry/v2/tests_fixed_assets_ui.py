@@ -15,7 +15,7 @@ def main():
 
     html=Path("web/console_v2.html").read_text(encoding="utf-8")
     a=html.index("function _fixedAssetState()")
-    b=html.index("window.nieCatClear",a)
+    b=html.index("window.secManagedAddSleeve",a)
     js=html[a:b]
     prefix=r'''
 const window=globalThis;
@@ -39,7 +39,9 @@ const linked=JSON.parse(JSON.stringify(cfg.assumptions.fixed_assets.formula_leve
 faPaste("Asset\tCost\tIn Service\tUseful Life\nFurniture\t350\tAt opening\t7\nServers\t250\tM18\t5", "replace");
 const rows=JSON.parse(JSON.stringify(cfg.assumptions.fixed_assets.assets));
 faClear();
-console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.assumptions.fixed_assets.assets.length,msgs,fl,linked}));
+cfg.assumptions.periods_per_year=4; cfg.assumptions.n_periods=12;
+const flowEditor=_faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',{source:'entered',trajectory:'explicit',cadence:'month',values:Array(36).fill(1000),extend:'hold',resolution:'step',period:'month'},'Depreciation amount','money',true);
+console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.assumptions.fixed_assets.assets.length,msgs,fl,linked,flowEditor}));
 '''
     r=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     out={}
@@ -70,6 +72,10 @@ console.log(JSON.stringify({rows,mode:cfg.assumptions.fixed_assets.mode,n:cfg.as
        and '+ Add linked component' in html and 'Driver Series' in html and 'Multiplier' in html
        and '% of asset level' in html and 'Entered amount' in html
        and 'Opening accumulated depreciation' in html)
+    ck("entered depreciation exposes Month / Quarter / Year schedules independently of model cadence",
+       'function _flowSeriesCadenceOptions(){return ["year","quarter","month"]' in html
+       and "_faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec'" in html
+       and '<option value="month" selected>Month</option>' in (out.get("flowEditor") or ""))
     linked=out.get("linked") or []
     ck("Formula / level Add linked component stores a stable Workforce Count Series link",
        len(linked)==1 and (linked[0].get("driver_spec") or {}).get("source")=="link"

@@ -95,6 +95,24 @@ def main():
     ck("1%/month and 12%/year depreciation are economically equivalent in monthly cadence",
        abs(flm["depreciation_expense"][1]-fl["depreciation_expense"][1])<1e-8)
 
+    # Entered depreciation is an expense flow, so a quarterly engagement must accept the
+    # same monthly source schedule that recurring Operating Expense accepts and aggregate
+    # each three-month block into the statement quarter.
+    monthly_dep_values=[float(x * 1000) for x in range(1, 37)]
+    quarterly_dep_cfg={"mode":"formula_level","formula_level":{
+        "level_basis":"gross","opening_level":10000000,
+        "base_spec":{"source":"entered","trajectory":"flat","value":10000000},
+        "components":[],
+        "depreciation":{"kind":"entered","amount_spec":{
+            "source":"entered","trajectory":"explicit","cadence":"month",
+            "values":monthly_dep_values,"extend":"hold","resolution":"step",
+            "period":"month"}}}}
+    quarterly_dep=fixed_asset_formula_level(quarterly_dep_cfg,{},12,4)
+    expected_quarters=[sum(monthly_dep_values[i:i+3]) for i in range(0,36,3)]
+    ck("quarterly engagement aggregates 36 explicit monthly depreciation amounts into 12 quarters",
+       quarterly_dep["depreciation_expense"][1:]==expected_quarters,
+       str(quarterly_dep["depreciation_expense"][1:]))
+
     # End-to-end engine seam: the Formula / level resolver must consume the same stable
     # Workforce Count Series the rest of Foundry publishes, then post net PP&E and depreciation.
     fl_engine=_base_cfg(); fl_engine=copy.deepcopy(fl_engine)
