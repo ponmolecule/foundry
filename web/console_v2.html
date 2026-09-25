@@ -4505,7 +4505,12 @@ window.nieWorkforceClear = function(){
 function _seriesId(prefix){ return prefix+"-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,8); }
 function MODELYEARS(){ return Math.max(1,Math.ceil(NP()/PPY())); }
 function _seriesSourcePeriods(cadence){const f={year:1,quarter:4,month:12}[cadence]||PPY();return Math.max(1,Math.ceil(NP()*f/PPY()));}
-function _seriesCadenceOptions(){const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
+function _seriesCadenceOptions(){if(window._fineFlowCadenceOptions)return _flowSeriesCadenceOptions();const p=PPY();return p===12?["year","quarter","month"]:(p===4?["year","quarter"]:["year"]);}
+// Additive flows can be authored more finely than the engine and aggregated without
+// inventing stock/rate economics.  Depreciation amount schedules therefore share the
+// Month / Quarter / Year input contract used by Operating Expense.
+function _flowSeriesCadenceOptions(){return ["year","quarter","month"];}
+function _faFlowSeriesEditor(){window._fineFlowCadenceOptions=true;try{return _faSeriesEditor.apply(null,arguments);}finally{window._fineFlowCadenceOptions=false;}}
 function _seriesPeriodLabel(cadence,i){return (cadence==="month"?"M":cadence==="quarter"?"Q":"Y")+(i+1);}
 function _resizeSeriesValues(sp,fill){sp.values=sp.values||[];const n=_seriesSourcePeriods(sp.cadence||"year");while(sp.values.length<n)sp.values.push(sp.values.length?sp.values[sp.values.length-1]:fill);if(sp.values.length>n)sp.values=sp.values.slice(0,n);}
 // Paste one explicit Series as a row or column copied from Excel/Sheets, or as CSV.
@@ -9295,7 +9300,7 @@ function structuresSectionsHtml(){
         _d += `<div class="hline" style="margin:10px 0"></div><div class="csub" style="margin-bottom:6px">Depreciation</div>`;
         _d += `<div class="crow" style="align-items:center">Source<select style="width:150px" onchange="faFormulaDepKind(this.value)"><option value="rate_of_level"${(dep.kind||'rate_of_level')==='rate_of_level'?' selected':''}>% of asset level</option><option value="entered"${dep.kind==='entered'?' selected':''}>Entered amount</option></select></div>`;
         if((dep.kind||'rate_of_level')==='rate_of_level') _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.rate_spec',dep.rate_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation rate','rate',true);
-        else _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',dep.amount_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation amount','money',true);
+        else _d += _faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',dep.amount_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation amount','money',true);
         _d += basis==='gross'?`<div class="cmut" style="margin-top:6px">The authored asset level is <b>gross PP&amp;E</b>. Depreciation increases accumulated depreciation and reduces net PP&amp;E; it does not manufacture replacement CAPEX. A lower authored gross level is treated as a proportional disposal of the existing pool, including accumulated-depreciation relief.</div>`:`<div class="cmut" style="margin-top:6px">The authored asset level is an intentional <b>net PP&amp;E target</b>. Depreciation hits NIE separately; Foundry reconciles gross PP&amp;E as net + accumulated depreciation and implied CAPEX/(disposal) as Δnet + depreciation.</div>`;
       } else {
         _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
