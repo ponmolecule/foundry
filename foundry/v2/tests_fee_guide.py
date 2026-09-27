@@ -416,6 +416,11 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
        "_feeGuidePinnedPlans" in html and "_feeGuideChecklistHtml(p,_fi)" in html
        and "Back to Fee Product with checklist" in html and "toggleFeeGuideChecklist" in html
        and "Run again" in html and "Dismiss" in html)
+    ck("Guide Me checklist preserves one selected stream across Product rerenders",
+       "_feeGuideChecklistActive" in html and "setFeeGuideChecklistStream" in html
+       and "Stream ${active+1} of ${guides.length}" in html
+       and ">Previous</button>" in html and ">Next</button>" in html
+       and "<details${i===0?' open':''}" not in html)
     ck("Escape key closes an open Guide Me/general modal", 'e.key==="Escape"' in html and 'e.preventDefault(); closeModal();' in html)
     ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
     # Async job wrapper: persistent status is shared across web workers, user-bound,
