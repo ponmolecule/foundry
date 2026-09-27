@@ -732,10 +732,17 @@ def validate_guide_plan(plan):
                 raise ValueError("Guide Me entered monetary flow requires Month, Quarter, or Year")
             item["driver_resolution"] = None
         elif item["driver_period"] is not None or item["driver_resolution"] is not None:
+            # A sourced Transaction stream gets timing/cadence from its source and, when
+            # derived, from its coefficient. Claude may echo the user's monthly cadence onto
+            # driver_period as well as coefficient_period. That duplicate field has no separate
+            # economics, so canonicalize it away instead of rejecting an otherwise exact plan.
+            if item["basis"] == "transaction" and item["driver_source"] != "constant":
+                item["driver_period"] = None
+                item["driver_resolution"] = None
             # A sourced Balance stream with a first-class stock multiplier owns its path on the
             # stock-multiplier axis. Claude can redundantly attach the same source-period metadata
             # to the upstream managed-notional driver; it carries no economics there, so strip it.
-            if (item["basis"] == "balance" and item["driver_trajectory"] == "derived"
+            elif (item["basis"] == "balance" and item["driver_trajectory"] == "derived"
                     and item["driver_source"] != "constant" and item["stock_multiplier_trajectory"] is not None):
                 item["driver_period"] = None
                 item["driver_resolution"] = None

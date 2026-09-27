@@ -132,6 +132,15 @@ def main():
        and contra_out["streams"][1]["revenue_presentation"]=="contra_revenue"
        and any("Income presentation to “Contra-revenue”" in x
                for x in contra_out["stream_guides"][1]["steps"]))
+    contra_redundant=json.loads(json.dumps(contra_migration))
+    contra_redundant["streams"][1]["driver_period"]="month"
+    contra_redundant["streams"][1]["driver_resolution"]="smooth"
+    contra_redundant_out=render_guide_plan(contra_redundant)
+    ck("sourced Transaction strips redundant driver cadence owned by migration coefficient",
+       contra_redundant_out["status"]=="plan"
+       and contra_redundant_out["streams"][1]["driver_period"] is None
+       and contra_redundant_out["streams"][1]["driver_resolution"] is None
+       and contra_redundant_out["streams"][1]["coefficient_period"]=="month")
     resolved_cost_plan=dict(migration_plan)
     resolved_cost_plan["questions"]=["A dollar amount per period is an Operating Expense input, not a Fee Product cost-side path. Should I exclude these per-period dollar costs from the Fee Product streams, and confirm each platform-revenue/migration pair still needs its own two-stream mapping?"]
     resolved_cost_out=render_guide_plan(resolved_cost_plan)
