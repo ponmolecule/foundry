@@ -87,6 +87,7 @@ def main():
     ck("AUC feed ownership is explained without duplicating AUC", "Customer-Acquisition feed" in out["product_setup"])
     ck("transaction flow instructions expose natural-period coefficient", any("Per to “Year”" in s for s in out["stream_guides"][1]["steps"]))
     pl=seen.get("payload") or {}
+    ck("Guide Me budgets enough output for multi-pair entered-flow plans", pl.get("max_tokens")==8000)
     ck("Claude request supplies no tools or retrieval", "tools" not in pl and "url" not in pl and "files" not in pl)
     ck("Claude receives only manifest/system + user's description", pl.get("messages")==[{"role":"user","content":"Custody on AUC plus settlement turns."}] and "FOUNDRY_ENGINE_MANIFEST=" in pl.get("system",""))
     ck("Guide Me system contract keeps flow coefficient and fee/spread in one transaction revenue equation",
