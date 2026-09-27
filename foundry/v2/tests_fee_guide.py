@@ -110,7 +110,8 @@ def main():
     migration_out=render_guide_plan(migration_plan)
     ck("platform migration fallback validates as one Flat explicit revenue path plus one cost question",
        migration_out["status"]=="needs_clarification" and len(migration_out["questions"])==1
-       and migration_out["streams"][0]["basis"]=="flat")
+       and migration_out["streams"][0]["basis"]=="flat"
+       and migration_out["clarification"]["choices"]==["Dollar amount per period","Dollar amount per unit","% of platform throughput","% of bank fee revenue","Revenue share paid away","Not sure"])
     fmt=((pl.get("output_config") or {}).get("format") or {})
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()
@@ -299,6 +300,8 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
     ck("Guide Me can map operating cost % of revenue to NIE distinct from revenue share",
        any("Operating cost (% of revenue)" in x for x in opg["stream_guides"][0]["steps"]))
     ck("mixed request keeps targeted clarification questions", len(mout["questions"])==2 and "settlement-turn" in mout["questions"][0])
+    ck("Guide Me exposes only the next clarification while retaining remaining-question count",
+       mout["clarification"]["question"]==mout["questions"][0] and mout["clarification"]["remaining_count"]==1)
 
     # Live r31 regression: Claude can redundantly put the turns schedule on the sourced
     # driver trajectory even though a natural-period flow coefficient necessarily owns
@@ -355,6 +358,11 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
        and "Follows Customer Acquisition" in html)
     ck("Guide Me is advisory and discloses its grounding boundary", "Nothing in your model was changed" in html and "not your engagement configuration, files, web access, or external tools" in html)
     ck("Guide Me UI renders mixed partial mappings instead of parser failures", "Supported portion Foundry can map now" in html and "Unsupported mechanic" in html and "unsupported_mechanics" in html)
+    ck("Guide Me clarification UI asks one constrained question at a time and carries answers forward",
+       "Here’s what I understand" in html and "One quick question" in html
+       and "answerFeeGuide" in html and "answerFeeGuideOther" in html
+       and "Guide Me clarification history (authoritative user answers; do not ask these questions again)" in html
+       and "Guide Me will ask only the next question needed" in html)
     ck("Guide Me UI submits background jobs instead of holding one Anthropic request open", '/api/v31/fee-guide/jobs' in html and 'Still mapping… Foundry is waiting for Anthropic in the background' in html and 'fetch("/api/v31/fee-guide",' not in html)
     ck("Guide Me modal remains escapable after long clarification output", 'max-height:84vh;overflow-y:auto' in html and 'fee-guide-actions{position:sticky' in html)
     ck("Guide Me exposes always-visible top and footer exits", 'class="modal-close-x"' in html and '>Back to Fee Product</button>' in html and 'onclick="closeFeeGuide();return false"' in html)

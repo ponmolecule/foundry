@@ -375,6 +375,10 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   user's wording already identifies the input as a schedule they will enter. Ask only questions whose
   answers would change the economic mapping. Consolidate related ambiguity into one question rather
   than presenting a checklist.
+- Ask at most ONE clarification question in each response. The application will return the user's
+  answer to you in a clarification history and invite you to resolve the next missing decision. Use
+  that history as authoritative user input, do not ask an answered question again, and return a final
+  plan as soon as the remaining mechanics map cleanly.
 - Transaction pricing basis is independent of how throughput was derived. If the user states dollars per transaction/unit, set transaction_pricing_basis=per_unit. If the user states a percentage/spread on monetary throughput, set transaction_pricing_basis=pct_of_throughput. Do not infer this choice merely because a flow coefficient exists. If the pricing unit is ambiguous, ask a targeted clarification question.
 - When the user says they have a monetary platform-revenue schedule and a migration/participation
   percentage specifying how much of that revenue moves to the bank, do not ask whether the schedule is
@@ -989,6 +993,41 @@ def _stream_steps(item):
     return steps
 
 
+def _clarification_choices(question):
+    """Return small, deterministic choices for one Guide Me clarification.
+
+    Claude identifies the missing economic fact; Foundry owns the interaction.  Keeping
+    this vocabulary local prevents an LLM-generated omnibus question from becoming an
+    unbounded form and lets the user answer one Foundry-shaped decision at a time.
+    """
+    q = str(question or "").strip().lower()
+    if not q:
+        return []
+    if ("dollar amount per period" in q or "percent of platform" in q
+            or "percentage of platform" in q or "revenue share" in q):
+        return [
+            "Dollar amount per period",
+            "Dollar amount per unit",
+            "% of platform throughput",
+            "% of bank fee revenue",
+            "Revenue share paid away",
+            "Not sure",
+        ]
+    if "manual" in q and ("customer acquisition" in q or "customer-acquisition" in q):
+        return ["Manual assumptions", "Customer Acquisition feed", "Not sure"]
+    if "annual_count" in q or ("year" in q and "period-end" in q and "period-average" in q):
+        return ["Year-end count", "Period-end count", "Period-average count", "Not sure"]
+    if "step" in q and "smooth" in q:
+        return ["Step", "Smooth", "Not sure"]
+    if all(x in q for x in ("month", "quarter", "year")) or "cadence" in q:
+        return ["Month", "Quarter", "Year", "Not sure"]
+    if "per unit" in q and ("throughput" in q or "percentage" in q or "percent" in q):
+        return ["Dollars per unit", "% of throughput", "Not sure"]
+    if "start" in q and ("month" in q or "period" in q):
+        return ["Starts in M1", "I’ll enter another start month", "No specified start"]
+    return []
+
+
 def render_guide_plan(plan):
     validated = validate_guide_plan(plan)
     validated["stream_guides"] = [
@@ -1002,6 +1041,15 @@ def render_guide_plan(plan):
         validated["product_setup"] = "This mapping does not require the product-level AUC/AUM source."
     else:
         validated["product_setup"] = "If any stream is driven by AUC/AUM, choose whether that AUC/AUM comes from Manual assumptions or a Customer-Acquisition feed."
+    if validated["status"] == "needs_clarification" and validated["questions"]:
+        question = validated["questions"][0]
+        validated["clarification"] = {
+            "question": question,
+            "choices": _clarification_choices(question),
+            "remaining_count": max(0, len(validated["questions"]) - 1),
+        }
+    else:
+        validated["clarification"] = None
     return validated
 
 
@@ -1032,8 +1080,8 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None, req
     desc = str(description or "").strip()
     if not desc:
         raise ValueError("Describe the fee product you are trying to model")
-    if len(desc) > 6000:
-        raise ValueError("Guide Me description is limited to 6,000 characters")
+    if len(desc) > 12000:
+        raise ValueError("Guide Me description and clarification history are limited to 12,000 characters")
     if api_key is not None:
         key = str(api_key or "").strip()
     else:

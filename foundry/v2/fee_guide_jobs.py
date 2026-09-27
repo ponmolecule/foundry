@@ -153,8 +153,8 @@ def submit_fee_guide_job(user, description, runner=None, start_worker=True):
     desc = str(description or "").strip()
     if not desc:
         raise ValueError("Describe the fee product you are trying to model")
-    if len(desc) > 6000:
-        raise ValueError("Guide Me description is limited to 6,000 characters")
+    if len(desc) > 12000:
+        raise ValueError("Guide Me description and clarification history are limited to 12,000 characters")
     _cleanup_jobs()
     owner = _safe_owner(user)
     job_id = uuid.uuid4().hex
