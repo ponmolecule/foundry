@@ -50,6 +50,25 @@ def main():
     neg_val = product_fee_streams_q({"fee_streams": [neg, migrated({"1": .25})]}, 1, {}, 12)[0]
     ck("negative entered flow remains contra-revenue downstream", abs(neg_val + 12_500) < 1e-9, str(neg_val))
 
+    rebate = migrated({"1": .25})
+    rebate["name"] = "Issuing Subscriber Rebate"
+    rebate["revenue_presentation"] = "contra_revenue"
+    rebate_val = product_fee_streams_q({"fee_streams": [source({"1": 50_000}), rebate]}, 1, {}, 12)[0]
+    ck("explicit contra-revenue presentation posts positive authored rebate as negative fee income",
+       abs(rebate_val + 12_500) < 1e-9, str(rebate_val))
+
+    econ = {}
+    source_stream = source({"1": 50_000})
+    source_stream["quantity_series_id"] = "platform-source"
+    rebate["quantity_series_id"] = "subscriber-rebate"
+    product_fee_streams_q({"fee_streams": [source_stream, rebate]}, 1,
+                          {"capture_stream_economics": econ}, 12)
+    rec = econ["subscriber-rebate"]
+    ck("explicit contra stream audit separates contra amount from gross revenue",
+       abs(rec["gross_fee_revenue"][0]) < 1e-9
+       and abs(rec["contra_revenue"][0] - 12_500) < 1e-9
+       and abs(rec["reported_fee_income"][0] + 12_500) < 1e-9, str(rec))
+
 
 if __name__ == "__main__":
     main()

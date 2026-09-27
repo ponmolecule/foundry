@@ -120,6 +120,16 @@ def main():
        and len(migration_out["streams"])==2 and migration_out["streams"][0]["entered_driver_kind"]=="money_flow"
        and migration_out["streams"][1]["driver_reference"]=="Platform revenue source"
        and migration_out["clarification"]["choices"]==["Dollar amount per period","Dollar amount per unit","% of platform throughput","% of bank fee revenue","Revenue share paid away","Not sure"])
+    resolved_cost_plan=dict(migration_plan)
+    resolved_cost_plan["questions"]=["A dollar amount per period is an Operating Expense input, not a Fee Product cost-side path. Should I exclude these per-period dollar costs from the Fee Product streams, and confirm each platform-revenue/migration pair still needs its own two-stream mapping?"]
+    resolved_cost_out=render_guide_plan(resolved_cost_plan)
+    ck("dollar-period measurement asks only unresolved cost classification without reconfirming revenues",
+       resolved_cost_out["status"]=="needs_clarification"
+       and len(resolved_cost_out["questions"])==1
+       and len(resolved_cost_out["streams"])==2
+       and "operating/service cost" in resolved_cost_out["questions"][0]
+       and "confirm" not in resolved_cost_out["questions"][0].lower()
+       and resolved_cost_out["clarification"]["choices"]==["Operating expense","Contra-revenue","Not sure"])
     mislabeled_plan=dict(migration_plan)
     mislabeled_plan["status"]="plan"
     continued=render_guide_plan(mislabeled_plan)

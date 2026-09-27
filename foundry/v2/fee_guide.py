@@ -222,6 +222,10 @@ def fee_guide_manifest():
         "driver_trajectories": [{"id": x, "label": _TRAJECTORY_LABELS[x]} for x in sorted(_FEE_TRAJECTORIES)],
         "rate_behaviors": [{"id": x, "label": _RATE_LABELS[x]} for x in sorted(_FEE_RATE_BEHAVIORS)],
         "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
+        "revenue_presentations": [
+            {"id": "revenue", "label": "Revenue"},
+            {"id": "contra_revenue", "label": "Contra-revenue"},
+        ],
         "transaction_pricing_bases": [{"id": x, "label": _TRANSACTION_PRICING_LABELS[x]} for x in ("per_unit", "pct_of_throughput")],
         "natural_periods": sorted(_FEE_NATURAL_PERIODS - {"model_period"}),
         "flat_amount_trajectories": ["flat", "growth", "explicit_schedule"],
@@ -247,6 +251,7 @@ def fee_guide_manifest():
             "Balance annual fee rates may use flat, growth, or explicit_schedule pricing trajectories.",
             "Flat amounts may be stated per month, quarter, or year and may use flat, growth, or explicit_schedule amount trajectories.",
             "pct_of_revenue is contra-revenue: it reduces fee income. pct_of_revenue_opex preserves gross fee income and routes the calculated cost to noninterest expense.",
+            "A stream that is itself a rebate, refund, or other reduction of fee income uses revenue_presentation=contra_revenue. Enter its source amounts as positive values; Foundry applies the negative posting and identifies it as contra-revenue in the audit trail.",
             "pct_of_throughput_opex is transaction-only: it applies the authored cost rate to Transaction throughput, preserves gross fee income, and routes the calculated cost to noninterest expense.",
             "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_throughput_opex when the cost rate is quoted against transaction volume/throughput; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
@@ -312,6 +317,7 @@ def _guide_output_schema():
             },
             "rate_behavior": {"type": "string", "enum": sorted(_FEE_RATE_BEHAVIORS)},
             "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
+            "revenue_presentation": {"type": "string", "enum": ["revenue", "contra_revenue"]},
         },
         "required": [
             "name", "basis", "driver_source", "driver_reference", "entered_driver_kind", "driver_trajectory",
@@ -319,7 +325,7 @@ def _guide_output_schema():
             "stock_multiplier_trajectory", "stock_multiplier_period", "stock_multiplier_resolution",
             "pricing_trajectory", "pricing_period", "pricing_resolution",
             "coefficient_kind", "coefficient_semantics", "coefficient_period", "coefficient_trajectory",
-            "flat_amount_trajectory", "rate_behavior", "cost_kind",
+            "flat_amount_trajectory", "rate_behavior", "cost_kind", "revenue_presentation",
         ],
     }
     return {
@@ -396,7 +402,18 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   the only unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars
   per unit, percent of platform throughput, percent of bank fee revenue, or a true revenue
   share/contra-revenue. A direct dollar cost schedule is not a Fee Product cost-side path; identify it
-  as an Operating Expense input rather than pretending it can be entered in the Fee Product.
+  outside the Fee Product only after its economic classification is known. “Dollar amount per period”
+  describes measurement, not presentation: it does NOT by itself establish Operating Expense versus
+  contra-revenue. If the history supplies only that measurement basis, ask one short next question:
+  whether the dollar schedule is (a) an operating/service cost incurred by the bank or (b) an amount
+  owed away from revenue / contra-revenue. Never reconfirm the already-stated revenue pairs or an
+  already-stated contra-revenue designation. A direct dollar Operating Expense schedule routes to
+  Operating Expense; a direct dollar contra-revenue schedule remains a negative fee-revenue stream.
+- When a named stream is itself a rebate, refund, or reduction of fee income, set
+  revenue_presentation=contra_revenue on the POSTING downstream stream. Keep the entered source
+  schedule and migration percentages positive; Foundry owns the negative accounting sign. Do not
+  reinterpret that stream as Operating Expense and do not use its Cost side merely to make it negative.
+  Non-posting source streams use revenue_presentation=revenue.
 - If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
   that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
   says revenue begins in a specified month/period but omits the actual start period, ask for it.
@@ -573,6 +590,7 @@ def _dummy_stream(item):
         rate["params"]["amount"] = 0
     return {
         "basis": basis,
+        "revenue_presentation": item.get("revenue_presentation") or "revenue",
         "driver": driver,
         "rate": rate,
         "timing": {"start_period": 1},
@@ -637,6 +655,7 @@ def validate_guide_plan(plan):
             "flat_amount_trajectory": _transport_optional(raw.get("flat_amount_trajectory")),
             "rate_behavior": str(raw.get("rate_behavior") or ""),
             "cost_kind": str(raw.get("cost_kind") or "none"),
+            "revenue_presentation": str(raw.get("revenue_presentation") or "revenue"),
         }
         if item["basis"] not in _FEE_BASES:
             raise ValueError(f"Guide Me invented unsupported basis {item['basis']!r}")
@@ -659,6 +678,10 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
         if item["cost_kind"] not in _FEE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
+        if item["revenue_presentation"] not in {"revenue", "contra_revenue"}:
+            raise ValueError(f"Guide Me invented unsupported revenue presentation {item['revenue_presentation']!r}")
+        if item["revenue_presentation"] == "contra_revenue" and item["cost_kind"] == "pct_of_revenue":
+            raise ValueError("Guide Me cannot double-apply contra-revenue presentation and revenue share")
         _tpb = item.get("transaction_pricing_basis")
         if _tpb is not None and _tpb not in _TRANSACTION_PRICING_LABELS:
             raise ValueError(f"Guide Me invented unsupported transaction pricing basis {_tpb!r}")
@@ -855,6 +878,21 @@ def validate_guide_plan(plan):
         raise ValueError("Guide Me unsupported_mechanics must be a list")
     out_questions = [str(q)[:500] for q in questions[:8]]
     out_unsupported = [str(x)[:500] for x in unsupported[:8]]
+    # Claude may combine the still-valid cost-classification question with redundant
+    # confirmation of revenue mechanics. Keep only the unresolved economic distinction.
+    compound_direct_cost = any(
+        "dollar amount per period" in q.lower()
+        and "operating expense" in q.lower()
+        and ("confirm" in q.lower() or "exclude" in q.lower())
+        for q in out_questions
+    )
+    if compound_direct_cost and out_streams:
+        out_questions = [q for q in out_questions if not (
+            "dollar amount per period" in q.lower()
+            and "operating expense" in q.lower()
+            and ("confirm" in q.lower() or "exclude" in q.lower())
+        )]
+        out_questions.insert(0, "Is the separate dollar-per-period schedule an operating/service cost incurred by the bank, or an amount owed away from revenue (contra-revenue)?")
     # Structured translators occasionally label an otherwise-valid partial mapping as
     # ``plan`` while still returning the next question.  The payload itself is the stronger
     # signal: unfinished questions mean another clarification turn, not a user-facing parser
@@ -885,6 +923,10 @@ def _stream_steps(item):
         f"Add a {basis} stream and name it “{item['name']}”.",
         f"Set Basis to “{_BASIS_LABELS[basis]}”.",
     ]
+    if item.get("revenue_presentation") == "contra_revenue":
+        steps.append("Set Income presentation to “Contra-revenue”. Enter the underlying amounts as positive values; Foundry applies the negative fee-income posting.")
+    else:
+        steps.append("Set Income presentation to “Revenue”.")
 
     # Flat periodic amounts are self-contained. Other bases expose their causal driver.
     if basis != "flat":
@@ -1060,6 +1102,8 @@ def _clarification_choices(question):
     q = str(question or "").strip().lower()
     if not q:
         return []
+    if "operating/service cost" in q and ("owed away" in q or "contra-revenue" in q):
+        return ["Operating expense", "Contra-revenue", "Not sure"]
     if ("dollar amount per period" in q or "percent of platform" in q
             or "percentage of platform" in q or "revenue share" in q):
         return [
