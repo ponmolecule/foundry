@@ -704,6 +704,9 @@ def _validate_fee_stream_shape(stream):
     basis = st.get("basis")
     if basis not in _FEE_BASES:
         raise ValueError(f"unsupported fee basis: {basis!r}")
+    presentation = st.get("revenue_presentation") or "revenue"
+    if presentation not in {"revenue", "contra_revenue"}:
+        raise ValueError(f"unsupported fee revenue presentation: {presentation!r}")
     drv = st.get("driver") or {}
     src = drv.get("source") or "constant"
     traj = drv.get("trajectory") or "flat"
@@ -731,6 +734,8 @@ def _validate_fee_stream_shape(stream):
     ck = cost.get("kind") or "none"
     if ck not in _FEE_COST_KINDS:
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
+    if presentation == "contra_revenue" and ck == "pct_of_revenue":
+        raise ValueError("contra-revenue presentation cannot also use revenue-share contra treatment")
     if src == "stream_ref":
         if not str(drv.get("ref") or "").strip():
             raise ValueError("fee stream_ref source requires driver.ref")
@@ -1287,6 +1292,15 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         effective_cost_factor = pct
         opcost = qty * pct             # -> fee-product NIE; gross income preserved
 
+    # Revenue/contra classification is explicit rather than inferred from a user's sign.
+    # A contra stream is authored as a positive economic amount and posted as a reduction
+    # of fee income.  Existing signed inputs remain signed for backward compatibility.
+    presentation = str(stream.get("revenue_presentation") or "revenue").lower()
+    contra_presentation_amount = 0.0
+    if presentation == "contra_revenue":
+        contra_presentation_amount = abs(float(gross or 0.0))
+        gross = -contra_presentation_amount
+
     # Optional diagnostic capture.  This is observational only and never feeds back into
     # fee arithmetic.  Series ID is the stable identity; stream display names remain labels.
     if isinstance(ctx, dict):
@@ -1305,8 +1319,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
             _put("quantity", qty)
             _put("pricing_factor", pricing_factor)
-            _put("gross_fee_revenue", gross_before_cost)
-            _put("contra_revenue", gross_before_cost - float(gross or 0.0))
+            _put("gross_fee_revenue", 0.0 if presentation == "contra_revenue" else gross_before_cost)
+            _put("contra_revenue", contra_presentation_amount if presentation == "contra_revenue"
+                 else gross_before_cost - float(gross or 0.0))
             _put("reported_fee_income", gross)
             _put("direct_cost_factor", direct_cost_factor)
             _put("cost_multiplier", mult if ck != "none" else None)
