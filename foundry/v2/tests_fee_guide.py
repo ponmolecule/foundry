@@ -112,6 +112,12 @@ def main():
        migration_out["status"]=="needs_clarification" and len(migration_out["questions"])==1
        and migration_out["streams"][0]["basis"]=="flat"
        and migration_out["clarification"]["choices"]==["Dollar amount per period","Dollar amount per unit","% of platform throughput","% of bank fee revenue","Revenue share paid away","Not sure"])
+    mislabeled_plan=dict(migration_plan)
+    mislabeled_plan["status"]="plan"
+    continued=render_guide_plan(mislabeled_plan)
+    ck("mislabeled plan with a remaining question continues as the next clarification turn",
+       continued["status"]=="needs_clarification"
+       and continued["clarification"]["question"]==migration_plan["questions"][0])
     fmt=((pl.get("output_config") or {}).get("format") or {})
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()
