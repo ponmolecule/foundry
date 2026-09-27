@@ -2984,6 +2984,7 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
     }
     h += `<div class="fld wide" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:4px"><label style="color:#DFA85A;margin:0;flex:1">Fee streams</label><button class="btn-gold" style="font-size:11px;padding:5px 12px" onclick="openFeeGuide(${_fi});return false">Guide Me</button><span class="memo" style="margin:0">Describe the economics; Foundry maps them to its own fee dials.</span></div>`;
+    h += (typeof _feeGuideChecklistHtml==="function"?_feeGuideChecklistHtml(p,_fi):"");
     const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     (p.fee_streams||[]).forEach((st,si)=>{
       const sb = base+".fee_streams."+si;
@@ -3673,6 +3674,31 @@ window.v31FillSubs=v31FillSubs; window.v31ShowLine=v31ShowLine; window.v31AddPro
 function _feeGuideEscLines(lines){
   return (lines||[]).map(x=>`<li style="margin:4px 0">${esc(x)}</li>`).join("");
 }
+window._feeGuidePinnedPlans=window._feeGuidePinnedPlans||new WeakMap();
+window._feeGuideChecklistProgress=window._feeGuideChecklistProgress||new WeakMap();
+function _feeGuideChecklistHtml(product,productIndex){
+  const plan=window._feeGuidePinnedPlans.get(product);
+  if(!plan||!(plan.stream_guides||[]).length)return "";
+  let done=window._feeGuideChecklistProgress.get(product);
+  if(!done){done=new Set();window._feeGuideChecklistProgress.set(product,done);}
+  let h=`<div class="fld wide" style="margin:2px 0 10px;padding:10px 12px;border:1px solid #CDA75E;border-radius:6px;background:#FFFCF4"><div style="display:flex;align-items:center;gap:8px"><b style="color:#70551E;flex:1">Guide Me checklist · ${(plan.stream_guides||[]).length} mapped streams</b><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="openFeeGuide(${productIndex});return false">Run again</button><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="clearFeeGuideChecklist(${productIndex});return false">Dismiss</button></div>`;
+  if(plan.product_setup)h+=`<div class="memo" style="margin:4px 0 7px">${esc(plan.product_setup)}</div>`;
+  (plan.stream_guides||[]).forEach((sg,i)=>{
+    h+=`<details${i===0?' open':''} style="margin-top:6px;border-top:1px solid #E6D9BC;padding-top:6px"><summary style="cursor:pointer;font-weight:700;color:#8A6D2F">Stream ${i+1}: ${esc(sg.name||'Fee stream')}</summary><div style="margin:7px 0 2px 5px">`;
+    (sg.steps||[]).forEach((step,j)=>{const key=i+":"+j;h+=`<label style="display:flex;align-items:flex-start;gap:7px;margin:6px 0;font-size:12px;line-height:1.35"><input type="checkbox" style="margin-top:2px" ${done.has(key)?'checked':''} onchange="toggleFeeGuideChecklist(${productIndex},'${key}',this.checked)"><span>${esc(step)}</span></label>`;});
+    h+='</div></details>';
+  });
+  return h+'</div>';
+}
+window.toggleFeeGuideChecklist=function(productIndex,key,checked){
+  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  let done=window._feeGuideChecklistProgress.get(p);if(!done){done=new Set();window._feeGuideChecklistProgress.set(p,done);}
+  if(checked)done.add(String(key));else done.delete(String(key));
+};
+window.clearFeeGuideChecklist=function(productIndex){
+  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  window._feeGuidePinnedPlans.delete(p);window._feeGuideChecklistProgress.delete(p);renderContent();
+};
 window.openFeeGuide = function(productIndex){
   const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex]||{};
   const nm=p.name||"Fee product";
@@ -3735,12 +3761,16 @@ window.configureFeeGuideKey = async function(){
   }
 };
 window.closeFeeGuide = function(){
+  const productIndex=window._feeGuideProductIndex;
+  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];
+  const hasChecklist=!!(p&&window._feeGuidePinnedPlans.get(p));
   window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
   window._feeGuideActive=false;
   window._feeGuideProductIndex=null;
   window._feeGuideConversation=[];
   window._feeGuideCurrentQuestion="";
   closeModal();
+  if(hasChecklist)renderContent();
 };
 window.answerFeeGuide = function(answer){
   const a=String(answer||"").trim(),q=String(window._feeGuideCurrentQuestion||"").trim();
@@ -3793,6 +3823,10 @@ window.runFeeGuide = async function(){
 
     let h='';
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[],_clar=j.clarification||null;
+    if(_guides.length && j.status!=="needs_clarification"){
+      const p=((cfg.assumptions||{}).obs_exposures||[])[window._feeGuideProductIndex];
+      if(p){window._feeGuidePinnedPlans.set(p,{product_setup:j.product_setup||"",stream_guides:_guides});window._feeGuideChecklistProgress.set(p,new Set());}
+    }
     if(j.status==="needs_clarification"){
       const q=String((_clar&&_clar.question)||_questions[0]||"");window._feeGuideCurrentQuestion=q;
       const streams=j.streams||[];
@@ -3815,12 +3849,14 @@ window.runFeeGuide = async function(){
         });
       }
       h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
+      if(_guides.length)h += '<div style="margin-top:10px"><button class="btn-gold" onclick="closeFeeGuide();return false">Back to Fee Product with checklist</button></div>';
     } else {
       h += `<div style="padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Suggested Foundry mapping</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
       _guides.forEach((sg,i)=>{
         h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #D9DEE6;border-radius:5px"><div style="font-weight:700;color:#8A6D2F">Stream ${i+1}: ${esc(sg.name||"Fee stream")}</div><ol style="margin:7px 0 0 19px;padding:0;font-size:12px;line-height:1.45">${_feeGuideEscLines(sg.steps)}</ol></div>`;
       });
       h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
+      if(_guides.length)h += '<div style="margin-top:10px"><button class="btn-gold" onclick="closeFeeGuide();return false">Back to Fee Product with checklist</button></div>';
     }
     if(box) box.innerHTML=h;
   }catch(e){
