@@ -94,8 +94,23 @@ def main():
     ck("Guide Me does not re-interrogate a fully stated platform migration schedule",
        "never ask the user to reconfirm a fact already stated" in pl.get("system","")
        and "do not ask whether the schedule is" in pl.get("system","") and "modeled elsewhere" in pl.get("system","")
-       and "does not require an additional fee/spread" in pl.get("system","")
+       and "flat_amount_trajectory=explicit_schedule" in pl.get("system","")
+       and "platform revenue × migration percentage" in pl.get("system","")
+       and "driver_period=not_applicable" in pl.get("system","")
        and "ask ONE question only" in pl.get("system",""))
+    migration_plan={"status":"needs_clarification","product_label":"Money movement","managed_notional_source":"not_needed",
+      "streams":[{"name":"Migrated bank revenue","basis":"flat","driver_source":"constant","driver_trajectory":"flat",
+        "driver_period":"not_applicable","driver_resolution":"not_applicable",
+        "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
+        "pricing_trajectory":"not_applicable","pricing_period":"not_applicable","pricing_resolution":"not_applicable",
+        "transaction_pricing_basis":"not_applicable","coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable",
+        "coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"explicit_schedule",
+        "rate_behavior":"flat","cost_kind":"none"}],
+      "questions":["Is the explicit cost dollars per period, dollars per unit, a percentage of platform throughput, a percentage of bank fee revenue, or a revenue share?"],"unsupported_mechanics":[]}
+    migration_out=render_guide_plan(migration_plan)
+    ck("platform migration fallback validates as one Flat explicit revenue path plus one cost question",
+       migration_out["status"]=="needs_clarification" and len(migration_out["questions"])==1
+       and migration_out["streams"][0]["basis"]=="flat")
     fmt=((pl.get("output_config") or {}).get("format") or {})
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()
