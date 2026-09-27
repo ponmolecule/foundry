@@ -396,11 +396,13 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   the only unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars
   per unit, percent of platform throughput, percent of bank fee revenue, or a true revenue
   share/contra-revenue. A direct dollar cost schedule is not a Fee Product cost-side path; identify it
-  as an Operating Expense input rather than pretending it can be entered in the Fee Product. Once the
-  clarification history says the cost is a dollar amount per period, the classification is complete:
-  return the revenue mappings, put the direct dollar cost routing in unsupported_mechanics, and ask NO
-  further question. Never ask the user to confirm excluding it from Fee Product, reconfirm the already
-  stated revenue pairs, or reconfirm an already-stated contra-revenue designation.
+  outside the Fee Product only after its economic classification is known. “Dollar amount per period”
+  describes measurement, not presentation: it does NOT by itself establish Operating Expense versus
+  contra-revenue. If the history supplies only that measurement basis, ask one short next question:
+  whether the dollar schedule is (a) an operating/service cost incurred by the bank or (b) an amount
+  owed away from revenue / contra-revenue. Never reconfirm the already-stated revenue pairs or an
+  already-stated contra-revenue designation. A direct dollar Operating Expense schedule routes to
+  Operating Expense; a direct dollar contra-revenue schedule remains a negative fee-revenue stream.
 - If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
   that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
   says revenue begins in a specified month/period but omits the actual start period, ask for it.
@@ -859,25 +861,21 @@ def validate_guide_plan(plan):
         raise ValueError("Guide Me unsupported_mechanics must be a list")
     out_questions = [str(q)[:500] for q in questions[:8]]
     out_unsupported = [str(x)[:500] for x in unsupported[:8]]
-    # A direct-dollar-per-period answer fully resolves the Fee Product cost classification.
-    # Claude can nevertheless turn the conclusion into a compound confirmation question that
-    # re-asks the revenue mechanics. Normalize that resolved state into an actionable partial
-    # plan: revenue streams remain mapped; the dollar schedule is routed to Opex.
-    resolved_direct_cost = any(
+    # Claude may combine the still-valid cost-classification question with redundant
+    # confirmation of revenue mechanics. Keep only the unresolved economic distinction.
+    compound_direct_cost = any(
         "dollar amount per period" in q.lower()
         and "operating expense" in q.lower()
         and ("confirm" in q.lower() or "exclude" in q.lower())
         for q in out_questions
     )
-    if resolved_direct_cost and out_streams:
+    if compound_direct_cost and out_streams:
         out_questions = [q for q in out_questions if not (
             "dollar amount per period" in q.lower()
             and "operating expense" in q.lower()
             and ("confirm" in q.lower() or "exclude" in q.lower())
         )]
-        note = "Direct dollar costs per period belong in Operating Expense line items, not the Fee Product cost side."
-        if note not in out_unsupported:
-            out_unsupported.append(note)
+        out_questions.insert(0, "Is the separate dollar-per-period schedule an operating/service cost incurred by the bank, or an amount owed away from revenue (contra-revenue)?")
     # Structured translators occasionally label an otherwise-valid partial mapping as
     # ``plan`` while still returning the next question.  The payload itself is the stronger
     # signal: unfinished questions mean another clarification turn, not a user-facing parser
@@ -1083,6 +1081,8 @@ def _clarification_choices(question):
     q = str(question or "").strip().lower()
     if not q:
         return []
+    if "operating/service cost" in q and ("owed away" in q or "contra-revenue" in q):
+        return ["Operating expense", "Contra-revenue", "Not sure"]
     if ("dollar amount per period" in q or "percent of platform" in q
             or "percentage of platform" in q or "revenue share" in q):
         return [

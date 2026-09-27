@@ -123,11 +123,13 @@ def main():
     resolved_cost_plan=dict(migration_plan)
     resolved_cost_plan["questions"]=["A dollar amount per period is an Operating Expense input, not a Fee Product cost-side path. Should I exclude these per-period dollar costs from the Fee Product streams, and confirm each platform-revenue/migration pair still needs its own two-stream mapping?"]
     resolved_cost_out=render_guide_plan(resolved_cost_plan)
-    ck("resolved dollar-period cost routes to Opex without reconfirming revenue mechanics",
-       resolved_cost_out["status"]=="unsupported"
-       and not resolved_cost_out["questions"]
+    ck("dollar-period measurement asks only unresolved cost classification without reconfirming revenues",
+       resolved_cost_out["status"]=="needs_clarification"
+       and len(resolved_cost_out["questions"])==1
        and len(resolved_cost_out["streams"])==2
-       and any("Operating Expense" in x for x in resolved_cost_out["unsupported_mechanics"]))
+       and "operating/service cost" in resolved_cost_out["questions"][0]
+       and "confirm" not in resolved_cost_out["questions"][0].lower()
+       and resolved_cost_out["clarification"]["choices"]==["Operating expense","Contra-revenue","Not sure"])
     mislabeled_plan=dict(migration_plan)
     mislabeled_plan["status"]="plan"
     continued=render_guide_plan(mislabeled_plan)
