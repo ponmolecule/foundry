@@ -396,7 +396,11 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   the only unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars
   per unit, percent of platform throughput, percent of bank fee revenue, or a true revenue
   share/contra-revenue. A direct dollar cost schedule is not a Fee Product cost-side path; identify it
-  as an Operating Expense input rather than pretending it can be entered in the Fee Product.
+  as an Operating Expense input rather than pretending it can be entered in the Fee Product. Once the
+  clarification history says the cost is a dollar amount per period, the classification is complete:
+  return the revenue mappings, put the direct dollar cost routing in unsupported_mechanics, and ask NO
+  further question. Never ask the user to confirm excluding it from Fee Product, reconfirm the already
+  stated revenue pairs, or reconfirm an already-stated contra-revenue designation.
 - If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
   that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
   says revenue begins in a specified month/period but omits the actual start period, ask for it.
@@ -855,6 +859,25 @@ def validate_guide_plan(plan):
         raise ValueError("Guide Me unsupported_mechanics must be a list")
     out_questions = [str(q)[:500] for q in questions[:8]]
     out_unsupported = [str(x)[:500] for x in unsupported[:8]]
+    # A direct-dollar-per-period answer fully resolves the Fee Product cost classification.
+    # Claude can nevertheless turn the conclusion into a compound confirmation question that
+    # re-asks the revenue mechanics. Normalize that resolved state into an actionable partial
+    # plan: revenue streams remain mapped; the dollar schedule is routed to Opex.
+    resolved_direct_cost = any(
+        "dollar amount per period" in q.lower()
+        and "operating expense" in q.lower()
+        and ("confirm" in q.lower() or "exclude" in q.lower())
+        for q in out_questions
+    )
+    if resolved_direct_cost and out_streams:
+        out_questions = [q for q in out_questions if not (
+            "dollar amount per period" in q.lower()
+            and "operating expense" in q.lower()
+            and ("confirm" in q.lower() or "exclude" in q.lower())
+        )]
+        note = "Direct dollar costs per period belong in Operating Expense line items, not the Fee Product cost side."
+        if note not in out_unsupported:
+            out_unsupported.append(note)
     # Structured translators occasionally label an otherwise-valid partial mapping as
     # ``plan`` while still returning the next question.  The payload itself is the stronger
     # signal: unfinished questions mean another clarification turn, not a user-facing parser
