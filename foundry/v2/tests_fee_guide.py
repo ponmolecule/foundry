@@ -120,6 +120,18 @@ def main():
        and len(migration_out["streams"])==2 and migration_out["streams"][0]["entered_driver_kind"]=="money_flow"
        and migration_out["streams"][1]["driver_reference"]=="Platform revenue source"
        and migration_out["clarification"]["choices"]==["Dollar amount per period","Dollar amount per unit","% of platform throughput","% of bank fee revenue","Revenue share paid away","Not sure"])
+    contra_migration=json.loads(json.dumps(migration_plan))
+    contra_migration["status"]="plan"
+    contra_migration["questions"]=[]
+    contra_migration["streams"][0]["revenue_presentation"]="revenue"
+    contra_migration["streams"][1]["name"]="Issuing Subscriber Rebate"
+    contra_migration["streams"][1]["revenue_presentation"]="contra_revenue"
+    contra_out=render_guide_plan(contra_migration)
+    ck("Guide Me accepts and renders explicit contra-revenue stream classification",
+       contra_out["status"]=="plan"
+       and contra_out["streams"][1]["revenue_presentation"]=="contra_revenue"
+       and any("Income presentation to “Contra-revenue”" in x
+               for x in contra_out["stream_guides"][1]["steps"]))
     resolved_cost_plan=dict(migration_plan)
     resolved_cost_plan["questions"]=["A dollar amount per period is an Operating Expense input, not a Fee Product cost-side path. Should I exclude these per-period dollar costs from the Fee Product streams, and confirm each platform-revenue/migration pair still needs its own two-stream mapping?"]
     resolved_cost_out=render_guide_plan(resolved_cost_plan)

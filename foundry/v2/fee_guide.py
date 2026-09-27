@@ -624,7 +624,8 @@ def validate_guide_plan(plan):
                           "driver_resolution", "customer_count_measure", "stock_multiplier_trajectory", "stock_multiplier_period",
                           "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
                           "pricing_resolution", "transaction_pricing_basis", "coefficient_kind", "coefficient_semantics", "coefficient_period",
-                          "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind"}
+                          "coefficient_trajectory", "flat_amount_trajectory", "rate_behavior", "cost_kind",
+                          "revenue_presentation"}
         extra_stream = set(raw) - allowed_stream
         if extra_stream:
             raise ValueError(f"Guide Me returned unsupported stream fields: {sorted(extra_stream)}")
