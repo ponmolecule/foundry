@@ -91,6 +91,11 @@ def main():
     ck("Claude receives only manifest/system + user's description", pl.get("messages")==[{"role":"user","content":"Custody on AUC plus settlement turns."}] and "FOUNDRY_ENGINE_MANIFEST=" in pl.get("system",""))
     ck("Guide Me system contract keeps flow coefficient and fee/spread in one transaction revenue equation",
        "throughput × fee/spread = revenue" in pl.get("system","") and "belong in ONE transaction stream, not two" in pl.get("system",""))
+    ck("Guide Me does not re-interrogate a fully stated platform migration schedule",
+       "never ask the user to reconfirm a fact already stated" in pl.get("system","")
+       and "do not ask whether the schedule is" in pl.get("system","") and "modeled elsewhere" in pl.get("system","")
+       and "does not require an additional fee/spread" in pl.get("system","")
+       and "ask ONE question only" in pl.get("system",""))
     fmt=((pl.get("output_config") or {}).get("format") or {})
     ck("Claude request uses Anthropic Structured Outputs", fmt.get("type")=="json_schema" and isinstance(fmt.get("schema"),dict))
     sch=_guide_output_schema()

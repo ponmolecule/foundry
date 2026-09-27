@@ -370,7 +370,20 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   not needed in the mapping object; the local Foundry UI tells the user where to enter them.
 - If the user describes a ramp/normalization/path but does not give enough values or a growth rule to
   author that path, ask for those values/rule rather than inventing them.
+- Clarification discipline: never ask the user to reconfirm a fact already stated (including cadence,
+  explicit versus growth, or smooth versus step), and never ask an architectural question when the
+  user's wording already identifies the input as a schedule they will enter. Ask only questions whose
+  answers would change the economic mapping. Consolidate related ambiguity into one question rather
+  than presenting a checklist.
 - Transaction pricing basis is independent of how throughput was derived. If the user states dollars per transaction/unit, set transaction_pricing_basis=per_unit. If the user states a percentage/spread on monetary throughput, set transaction_pricing_basis=pct_of_throughput. Do not infer this choice merely because a flow coefficient exists. If the pricing unit is ambiguous, ask a targeted clarification question.
+- When the user says they have a monetary platform-revenue schedule and a migration/participation
+  percentage specifying how much of that revenue moves to the bank, do not ask whether the schedule is
+  modeled elsewhere: treat it as user-entered unless they explicitly call it an existing Foundry stream.
+  The migration percentage itself is the pct_of_throughput pricing factor that produces bank revenue;
+  it is not a separate flow coefficient and it does not require an additional fee/spread. If the user
+  already states Month and Smooth, accept both without reconfirmation. If “explicit cost” is the only
+  unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars per unit,
+  percent of platform throughput, percent of bank fee revenue, or a true revenue share/contra-revenue.
 - If a transaction mechanic requires a fee/spread to monetize throughput and the user has not supplied
   that fee/spread, ask for it rather than creating a second stream or inventing a value. If the user
   says revenue begins in a specified month/period but omits the actual start period, ask for it.
