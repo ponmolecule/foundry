@@ -1155,8 +1155,12 @@ def _fee_quantity_unit_kinds(cfg):
                 else:
                     drv = st.get("driver") or {}
                     params = drv.get("params") or {}
+                    flow_path = params.get("flow_path") or {}
                     coef = params.get("coefficient") or {}
-                    if str(coef.get("kind") or "").lower() == "amount_per_source_unit":
+                    if (str(drv.get("source") or "constant").lower() == "constant"
+                            and str(flow_path.get("unit_kind") or "").lower() == "money_flow"):
+                        kind = "money"
+                    elif str(coef.get("kind") or "").lower() == "amount_per_source_unit":
                         kind = "money"
                     else:
                         src = str(drv.get("source") or "constant").lower()
