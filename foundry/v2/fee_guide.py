@@ -823,12 +823,17 @@ def validate_guide_plan(plan):
         raise ValueError("Guide Me unsupported_mechanics must be a list")
     out_questions = [str(q)[:500] for q in questions[:8]]
     out_unsupported = [str(x)[:500] for x in unsupported[:8]]
-    if status == "plan" and (out_questions or out_unsupported):
-        raise ValueError("Guide Me plan status cannot contain questions or unsupported mechanics")
+    # Structured translators occasionally label an otherwise-valid partial mapping as
+    # ``plan`` while still returning the next question.  The payload itself is the stronger
+    # signal: unfinished questions mean another clarification turn, not a user-facing parser
+    # failure. Likewise, a populated unsupported list owns the unsupported state. This is
+    # structural normalization only; no economic answer or assumption is invented.
+    if out_unsupported:
+        status = "unsupported"
+    elif out_questions:
+        status = "needs_clarification"
     if status == "needs_clarification" and not out_questions:
         raise ValueError("Guide Me clarification status requires at least one question")
-    if status == "needs_clarification" and out_unsupported:
-        raise ValueError("Guide Me clarification status cannot contain unsupported mechanics")
     if status == "unsupported" and not out_unsupported:
         raise ValueError("Guide Me unsupported status requires at least one unsupported mechanic")
     return {
