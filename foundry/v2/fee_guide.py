@@ -237,6 +237,7 @@ def fee_guide_manifest():
             "A derived transaction coefficient kind is multiple (turns × source), pct (% of source), or amount_per_source_unit ($ flow per source unit).",
             "For coefficient kind pct, coefficient_semantics is mandatory: share means a dimensionless attach/migration/penetration share and is never divided by cadence; flow means a natural-period flow ratio such as annual transaction volume as % of AUC and is periodized to model cadence.",
             "One transaction stream can contain source × flow coefficient × fee/spread; the flow coefficient creates throughput and the fee/spread monetizes that same throughput.",
+            "A constant/entered Transaction driver may author a monetary flow in $000s per Month, Quarter, or Year using flat, growth, or explicit_schedule. It can be non-posting at 0% pricing and referenced by another stream; monthly source flow × monthly share is multiplied monthly before quarterly aggregation.",
             "Transaction pricing is independent of the flow coefficient: choose per_unit for dollars per transaction/unit, or pct_of_throughput for a percentage/spread on monetary throughput. Never infer pricing basis solely from the presence of a coefficient.",
             "Do not split a flow coefficient and its fee/spread into separate streams when they are factors in the same revenue equation.",
             "Account count levels may use flat, growth, or explicit_schedule. Explicit account counts are natural-period END-OF-PERIOD levels with step or smooth resolution.",
@@ -274,6 +275,8 @@ def _guide_output_schema():
             "name": {"type": "string"},
             "basis": {"type": "string", "enum": sorted(_FEE_BASES)},
             "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
+            "driver_reference": {"type": "string"},
+            "entered_driver_kind": {"type": "string", "enum": ["money_flow", "not_applicable"]},
             "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
             "driver_period": {"type": "string", "enum": ["month", "quarter", "year", "not_applicable"]},
             "driver_resolution": {"type": "string", "enum": ["step", "smooth", "not_applicable"]},
@@ -311,7 +314,7 @@ def _guide_output_schema():
             "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
         },
         "required": [
-            "name", "basis", "driver_source", "driver_trajectory",
+            "name", "basis", "driver_source", "driver_reference", "entered_driver_kind", "driver_trajectory",
             "driver_period", "driver_resolution",
             "stock_multiplier_trajectory", "stock_multiplier_period", "stock_multiplier_resolution",
             "pricing_trajectory", "pricing_period", "pricing_resolution",
@@ -381,16 +384,15 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   plan as soon as the remaining mechanics map cleanly.
 - Transaction pricing basis is independent of how throughput was derived. If the user states dollars per transaction/unit, set transaction_pricing_basis=per_unit. If the user states a percentage/spread on monetary throughput, set transaction_pricing_basis=pct_of_throughput. Do not infer this choice merely because a flow coefficient exists. If the pricing unit is ambiguous, ask a targeted clarification question.
 - When the user says they have a monetary platform-revenue schedule and a migration/participation
-  percentage specifying how much of that revenue moves to the bank, do not ask whether the schedule is
-  modeled elsewhere. The current Fee Product does not author those two changing schedules as separate
-  Transaction-driver layers. Map the supported revenue result as ONE Flat stream with
-  flat_amount_trajectory=explicit_schedule: tell the user to calculate each period's bank revenue as
-  platform revenue × migration percentage and paste that resulting dollar series into Amount schedule
-  ($000s), with Per set to the stated cadence. Use driver_period=not_applicable,
-  driver_resolution=not_applicable, pricing_trajectory=not_applicable, and cost_kind=none for that
-  supported stream. Do not use Transaction basis, stream_ref, a flow coefficient, or an additional
-  fee/spread for this fallback. If Month and Smooth were already stated, do not reconfirm them; monthly
-  result values are entered directly, so no intra-month interpolation is needed. If “explicit cost” is
+  percentage specifying how much of that revenue moves to the bank, map TWO Transaction streams. First,
+  create an entered non-posting source with driver_source=constant, entered_driver_kind=money_flow,
+  the stated driver_period, and driver_trajectory=explicit_schedule (or Flat/Growth when stated); its
+  pricing basis is pct_of_throughput with a zero fee so it exposes the monetary flow without posting
+  revenue. Second, create the bank-revenue stream with driver_source=stream_ref, driver_reference equal
+  to the first stream's exact name, driver_trajectory=derived, coefficient_kind=pct,
+  coefficient_semantics=share, and the stated coefficient path/cadence. Use pct_of_throughput pricing;
+  the user enters 100% so migrated throughput becomes bank revenue. Monthly entered flows aggregate by
+  sum in quarterly models. Do not ask whether the platform schedule is modeled elsewhere. If “explicit cost” is
   the only unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars
   per unit, percent of platform throughput, percent of bank fee revenue, or a true revenue
   share/contra-revenue. A direct dollar cost schedule is not a Fee Product cost-side path; identify it
@@ -440,7 +442,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
 - Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex); an operating cost quoted as a percent of transaction volume is NIE (pct_of_throughput_opex). Never substitute one base for another.
-- For driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
+- For driver_reference, entered_driver_kind, driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
   stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
   coefficient_semantics, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
   when that field does not apply to the stream.
@@ -484,6 +486,8 @@ def _dummy_stream(item):
     basis = item["basis"]
     traj = item["driver_trajectory"]
     driver = {"source": item["driver_source"], "trajectory": traj, "params": {}}
+    if item["driver_source"] == "stream_ref":
+        driver["ref"] = item.get("driver_reference") or "__guide_reference_stream__"
     if item["driver_source"] == "customer_acquisition_count":
         # Guide Me chooses the mechanic, not a concrete local Series. The UI supplies the
         # actual CAC feed reference; this placeholder only exercises the real shape validator.
@@ -496,6 +500,16 @@ def _dummy_stream(item):
             "resolution": item["driver_resolution"],
             "schedule": {"1": 0},
         }
+    if (basis == "transaction" and item["driver_source"] == "constant"
+            and item.get("entered_driver_kind") == "money_flow"):
+        driver["params"]["flow_path"] = {
+            "unit_kind": "money_flow", "value": 0,
+            "period": item.get("driver_period") or "month",
+            "trajectory": "growth" if traj == "proportional" else traj,
+            "schedule": {"1": 0} if traj == "explicit_schedule" else {},
+        }
+        if traj == "proportional":
+            driver["params"]["flow_path"]["growth_spec"] = _dummy_growth_spec()
     if item.get("stock_multiplier_trajectory") is not None:
         sm = _dummy_level_path(
             item["stock_multiplier_trajectory"],
@@ -588,7 +602,7 @@ def validate_guide_plan(plan):
     for raw in streams:
         if not isinstance(raw, dict):
             raise ValueError("Guide Me stream must be an object")
-        allowed_stream = {"name", "basis", "driver_source", "driver_trajectory", "driver_period",
+        allowed_stream = {"name", "basis", "driver_source", "driver_reference", "entered_driver_kind", "driver_trajectory", "driver_period",
                           "driver_resolution", "customer_count_measure", "stock_multiplier_trajectory", "stock_multiplier_period",
                           "stock_multiplier_resolution", "pricing_trajectory", "pricing_period",
                           "pricing_resolution", "transaction_pricing_basis", "coefficient_kind", "coefficient_semantics", "coefficient_period",
@@ -603,6 +617,8 @@ def validate_guide_plan(plan):
             "name": str(raw.get("name") or "Fee stream")[:120],
             "basis": str(raw.get("basis") or ""),
             "driver_source": str(raw.get("driver_source") or ""),
+            "driver_reference": _transport_optional(raw.get("driver_reference")),
+            "entered_driver_kind": _transport_optional(raw.get("entered_driver_kind")),
             "driver_trajectory": str(raw.get("driver_trajectory") or ""),
             "driver_period": _transport_optional(raw.get("driver_period")),
             "driver_resolution": _transport_optional(raw.get("driver_resolution")),
@@ -626,6 +642,15 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me invented unsupported basis {item['basis']!r}")
         if item["driver_source"] not in _FEE_SOURCES:
             raise ValueError(f"Guide Me invented unsupported driver source {item['driver_source']!r}")
+        if item["driver_source"] == "stream_ref":
+            if not item.get("driver_reference"):
+                raise ValueError("Guide Me Another stream source requires driver_reference")
+        elif item.get("driver_reference") is not None:
+            raise ValueError("Guide Me returned driver_reference without Another stream source")
+        if item.get("entered_driver_kind") is not None:
+            if not (item["basis"] == "transaction" and item["driver_source"] == "constant"
+                    and item["entered_driver_kind"] == "money_flow"):
+                raise ValueError("Guide Me entered monetary flow requires Transaction + Entered driver")
         if item["driver_trajectory"] not in _FEE_TRAJECTORIES:
             raise ValueError(f"Guide Me invented unsupported trajectory {item['driver_trajectory']!r}")
         if item["rate_behavior"] not in _FEE_RATE_BEHAVIORS:
@@ -675,6 +700,13 @@ def validate_guide_plan(plan):
                     raise ValueError("Guide Me returned account count metadata on an incompatible driver")
             elif item["driver_trajectory"] == "explicit_schedule":
                 raise ValueError("Guide Me account explicit count path requires driver_period and step or smooth resolution")
+        elif (item["basis"] == "transaction" and item["driver_source"] == "constant"
+              and item.get("entered_driver_kind") == "money_flow"):
+            if item["driver_trajectory"] not in {"flat", "proportional", "explicit_schedule"}:
+                raise ValueError("Guide Me entered monetary flow requires Flat, Growth, or Explicit trajectory")
+            if item["driver_period"] not in {"month", "quarter", "year"}:
+                raise ValueError("Guide Me entered monetary flow requires Month, Quarter, or Year")
+            item["driver_resolution"] = None
         elif item["driver_period"] is not None or item["driver_resolution"] is not None:
             # A sourced Balance stream with a first-class stock multiplier owns its path on the
             # stock-multiplier axis. Claude can redundantly attach the same source-period metadata
@@ -856,7 +888,12 @@ def _stream_steps(item):
 
     # Flat periodic amounts are self-contained. Other bases expose their causal driver.
     if basis != "flat":
-        steps.append(f"Set Driver source to “{_SOURCE_LABELS[item['driver_source']]}”.")
+        source_label = ("Entered driver" if basis == "transaction" and item["driver_source"] == "constant"
+                        and item.get("entered_driver_kind") == "money_flow"
+                        else _SOURCE_LABELS[item["driver_source"]])
+        steps.append(f"Set Driver source to “{source_label}”.")
+        if item["driver_source"] == "stream_ref" and item.get("driver_reference"):
+            steps.append(f"Set Reference stream to “{item['driver_reference']}”.")
 
     if basis == "account" and item["driver_source"] == "constant":
         traj = item["driver_trajectory"]
@@ -879,6 +916,19 @@ def _stream_steps(item):
         if measure in _CUSTOMER_COUNT_MEASURE_LABELS:
             steps.append(f"Set Customer-count measure to “{_CUSTOMER_COUNT_MEASURE_LABELS[measure]}”.")
         steps.append("Leave the within-year customer path sourced from Customer Acquisition; do not enter a second count schedule, growth path, or Step/Smooth assumption in the Fee Product.")
+    elif (basis == "transaction" and item["driver_source"] == "constant"
+          and item.get("entered_driver_kind") == "money_flow"):
+        traj = item["driver_trajectory"]
+        label = "Growth" if traj == "proportional" else traj.replace("_", " ").title()
+        steps.append("Click “Use entered monetary flow path”.")
+        steps.append(f"Set Driver path to “{label}” and Driver is per to “{item['driver_period'].title()}”.")
+        if traj == "explicit_schedule":
+            steps.append(f"Paste the monetary-flow schedule into “Monetary throughput schedule ($000s per {item['driver_period']})” and click Load (replace).")
+        elif traj == "proportional":
+            steps.append("Enter Starting monetary throughput ($000s) and the stated Driver growth assumption.")
+        else:
+            steps.append("Enter Monetary throughput ($000s).")
+        steps.append("Set Pricing basis to “% of throughput” and Fee (% of throughput) to 0%; this keeps the source stream non-posting while exposing its flow to downstream streams.")
     elif basis != "flat":
         steps.append(f"Set Trajectory to “{_TRAJECTORY_LABELS[item['driver_trajectory']]}”.")
 
@@ -938,7 +988,9 @@ def _stream_steps(item):
         else:
             steps.append("Enter the annual fee in “Rate (bp/yr on balance)”.")
     elif basis == "transaction":
-        if item["rate_behavior"] == "cost_recovery":
+        if item["driver_source"] == "constant" and item.get("entered_driver_kind") == "money_flow":
+            pass  # entered-flow pricing instructions above deliberately keep this source non-posting
+        elif item["rate_behavior"] == "cost_recovery":
             steps.append("Choose or create the eligible Cost pool. Add linked Operating Expense / fixed-start Workforce Series when those costs are modeled in Foundry; use ‘+ entered cost base’ for a non-posting recurring cost assumption; use ‘+ balance-linked cost’ when eligible cost is a managed-notional/AUC balance measure × natural-period rate. Set each component’s Eligible / allocated % from the source assumptions.")
             steps.append("Set Rate behavior to “Cost recovery — recovery + markup”.")
             steps.append("Enter the stated Recovery (% of eligible cost pool). This is downstream reimbursement and is separate from each pool component's allocation percentage.")

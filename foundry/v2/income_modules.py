@@ -604,6 +604,51 @@ def _fee_flat_amount_value(spec, q, ppy, ctx=None):
     return _fee_amount_per_engine_period(val, period, ppy)
 
 
+def _fee_entered_flow_value(spec, q, ppy, ctx=None):
+    """Resolve an entered recurring flow into one engine-period amount.
+
+    Unlike a stock/level path, monthly flows aggregate by SUM when the model cadence is
+    quarterly.  This is the first-class Transaction-driver counterpart to Flat recurring
+    amounts and is intentionally opt-in through ``driver.params.flow_path`` so legacy
+    constant transaction quantities keep their historical model-period meaning.
+    """
+    spec = dict(spec or {})
+    period = str(spec.get("period") or "").strip().lower()
+    if period not in _FEE_NATURAL_PERIODS - {"model_period"}:
+        raise ValueError(f"unsupported entered flow period: {period!r}")
+    traj = str(spec.get("trajectory") or "flat").strip().lower()
+    if traj not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError(f"unsupported entered flow trajectory: {traj!r}")
+    val = float(spec.get("value") or 0.0)
+    if traj == "growth":
+        gs = spec.get("growth_spec")
+        if not gs:
+            raise ValueError("entered flow growth trajectory requires growth_spec")
+        from .growth import growth_multiplier
+        val *= growth_multiplier(gs, current_period=int(q), start_period=1, ppy=int(ppy),
+                                 context=(ctx or {}).get("growth_context"), base_position="period1")
+        return _fee_amount_per_engine_period(val, period, ppy)
+    if traj != "explicit_schedule":
+        return _fee_amount_per_engine_period(val, period, ppy)
+
+    schedule = spec.get("schedule") or {}
+    if not isinstance(schedule, dict):
+        raise ValueError("entered flow explicit_schedule requires a mapping")
+    # Monthly authored flows can be represented exactly in a quarterly model: sum the
+    # three source months belonging to the engine quarter.  Coefficients cannot generally
+    # do this because multiplying a stock by three changing monthly rates needs the three
+    # monthly stocks too; an already-authored flow has no such ambiguity.
+    if period == "month" and int(ppy) == 4:
+        first = (int(q) - 1) * 3 + 1
+        return sum(_fee_schedule_value(schedule, m, val) for m in range(first, first + 3))
+    if period == "month" and int(ppy) == 1:
+        first = (int(q) - 1) * 12 + 1
+        return sum(_fee_schedule_value(schedule, m, val) for m in range(first, first + 12))
+    idx = _fee_natural_period_index(q, period, ppy)
+    val = _fee_schedule_value(schedule, idx, val)
+    return _fee_amount_per_engine_period(val, period, ppy)
+
+
 def _fee_coefficient_value(spec, q, ppy, ctx=None):
     """Resolve an explicit derived Transaction coefficient.
 
@@ -789,6 +834,8 @@ def _validate_fee_stream_shape(stream):
     # the evaluator below, which consumes level_schedule only for constant + explicit_schedule.
     level_schedule = ((drv.get("params") or {}).get("level_schedule")
                       if src == "constant" and traj == "explicit_schedule" else None)
+    flow_path = ((drv.get("params") or {}).get("flow_path")
+                 if src == "constant" and basis == "transaction" else None)
     stock_multiplier = (drv.get("params") or {}).get("stock_multiplier")
     if coef is not None:
         if traj != "derived":
@@ -829,6 +876,24 @@ def _validate_fee_stream_shape(stream):
             raise ValueError(f"unsupported fee level schedule resolution: {ls.get('resolution')!r}")
         if not isinstance(ls.get("schedule"), dict) or not ls.get("schedule"):
             raise ValueError("fee level explicit_schedule requires at least one schedule value")
+    if flow_path is not None:
+        fp = dict(flow_path or {})
+        ftraj = str(fp.get("trajectory") or "flat").strip().lower()
+        expected = {"flat": "flat", "growth": "proportional", "explicit_schedule": "explicit_schedule"}.get(ftraj)
+        if expected is None:
+            raise ValueError(f"unsupported entered flow trajectory: {ftraj!r}")
+        if traj != expected:
+            raise ValueError("entered flow path and driver trajectory disagree")
+        if str(fp.get("period") or "").strip().lower() not in _FEE_NATURAL_PERIODS - {"model_period"}:
+            raise ValueError(f"unsupported entered flow period: {fp.get('period')!r}")
+        if ftraj == "growth" and not fp.get("growth_spec"):
+            raise ValueError("entered flow growth trajectory requires growth_spec")
+        if ftraj == "explicit_schedule" and not isinstance(fp.get("schedule"), dict):
+            raise ValueError("entered flow explicit_schedule requires a mapping")
+        try:
+            float(fp.get("value") or 0.0)
+        except (TypeError, ValueError):
+            raise ValueError("entered flow value must be numeric")
     if stock_multiplier is not None:
         if basis != "balance" or traj != "derived" or src == "constant":
             raise ValueError("fee stock_multiplier requires a sourced balance driver with trajectory='derived'")
@@ -1021,7 +1086,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
 
     sb = _source_base()
     if src == "constant":
-        if traj == "proportional":
+        if basis == "transaction" and params.get("flow_path") is not None:
+            qty = _fee_entered_flow_value(params.get("flow_path"), q, ppy, ctx)
+        elif traj == "proportional":
             qty = base * _driver_growth_multiplier()
         elif traj == "explicit_schedule":
             if params.get("level_schedule") is not None:
@@ -1043,7 +1110,29 @@ def fee_stream_q(stream, q, ctx, ppy=4):
                 sm = dict(stock_multiplier or {})
                 qty = sb * _fee_level_path_value(sm, q, ppy, ctx, 0.0)
             elif coef is not None:
-                qty = sb * _fee_coefficient_value(coef, q, ppy, ctx)
+                # When a referenced entered monetary flow and its migration/share path
+                # are both monthly, preserve the source model's monthly multiplication
+                # before rolling into a quarterly/annual engine period: SUM(A_m * B_m).
+                # Multiplying SUM(A_m) by one quarter-level B would be mathematically wrong.
+                paired = None
+                if (src == "stream_ref" and int(ppy) in (1, 4)
+                        and str(coef.get("kind") or "").lower() == "pct"
+                        and str(coef.get("semantics") or "flow").lower() == "share"
+                        and str(coef.get("period") or "").lower() == "month"):
+                    ref_stream = ((ctx or {}).get("stream_defs") or {}).get(str(drv.get("ref") or ""))
+                    ref_drv = (ref_stream or {}).get("driver") or {}
+                    ref_flow = ((ref_drv.get("params") or {}).get("flow_path") or {})
+                    if (str(ref_drv.get("source") or "constant").lower() == "constant"
+                            and str(ref_flow.get("unit_kind") or "").lower() == "money_flow"
+                            and str(ref_flow.get("period") or "").lower() == "month"):
+                        months = 12 // int(ppy)
+                        first = (int(q) - 1) * months + 1
+                        paired = sum(
+                            _fee_entered_flow_value(ref_flow, m, 12, ctx)
+                            * _fee_coefficient_value(coef, m, 12, ctx)
+                            for m in range(first, first + months)
+                        )
+                qty = paired if paired is not None else sb * _fee_coefficient_value(coef, q, ppy, ctx)
             else:
                 mult = params.get("multiple")
                 pct = params.get("pct")
@@ -1295,6 +1384,12 @@ def _fee_stream_quantity_kinds(streams):
         else:
             drv = st.get("driver") or {}
             params = drv.get("params") or {}
+            flow_path = params.get("flow_path") or {}
+            if (str(drv.get("source") or "constant").strip().lower() == "constant"
+                    and str(flow_path.get("unit_kind") or "").strip().lower() == "money_flow"):
+                kind = "money"
+                cache[i] = kind
+                return kind
             coef = params.get("coefficient") or {}
             if str(coef.get("kind") or "").strip().lower() == "amount_per_source_unit":
                 kind = "money"
@@ -1359,6 +1454,7 @@ def product_fee_streams_q(p, q, ctx, ppy=4):
         return 0.0, 0.0
     ctx = dict(ctx or {})
     ctx.setdefault("stream_qty", {})
+    ctx["stream_defs"] = {str((st or {}).get("name") or ""): st for st in streams if (st or {}).get("name")}
     try:
         order = fee_streams_order(streams)
     except ValueError:

@@ -93,24 +93,31 @@ def main():
        "throughput × fee/spread = revenue" in pl.get("system","") and "belong in ONE transaction stream, not two" in pl.get("system",""))
     ck("Guide Me does not re-interrogate a fully stated platform migration schedule",
        "never ask the user to reconfirm a fact already stated" in pl.get("system","")
-       and "do not ask whether the schedule is" in pl.get("system","") and "modeled elsewhere" in pl.get("system","")
-       and "flat_amount_trajectory=explicit_schedule" in pl.get("system","")
-       and "platform revenue × migration percentage" in pl.get("system","")
-       and "driver_period=not_applicable" in pl.get("system","")
-       and "ask ONE question only" in pl.get("system",""))
+       and "Do not ask whether the platform schedule is" in pl.get("system","") and "modeled elsewhere" in pl.get("system","")
+       and "entered_driver_kind=money_flow" in pl.get("system","")
+       and "driver_source=stream_ref" in pl.get("system","")
+       and "Monthly entered flows aggregate" in pl.get("system",""))
     migration_plan={"status":"needs_clarification","product_label":"Money movement","managed_notional_source":"not_needed",
-      "streams":[{"name":"Migrated bank revenue","basis":"flat","driver_source":"constant","driver_trajectory":"flat",
+      "streams":[{"name":"Platform revenue source","basis":"transaction","driver_source":"constant","driver_reference":"not_applicable","entered_driver_kind":"money_flow","driver_trajectory":"explicit_schedule",
+        "driver_period":"month","driver_resolution":"not_applicable",
+        "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
+        "pricing_trajectory":"not_applicable","pricing_period":"not_applicable","pricing_resolution":"not_applicable",
+        "transaction_pricing_basis":"pct_of_throughput","coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable",
+        "coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"not_applicable",
+        "rate_behavior":"flat","cost_kind":"none"},
+        {"name":"Migrated bank revenue","basis":"transaction","driver_source":"stream_ref","driver_reference":"Platform revenue source","entered_driver_kind":"not_applicable","driver_trajectory":"derived",
         "driver_period":"not_applicable","driver_resolution":"not_applicable",
         "stock_multiplier_trajectory":"not_applicable","stock_multiplier_period":"not_applicable","stock_multiplier_resolution":"not_applicable",
         "pricing_trajectory":"not_applicable","pricing_period":"not_applicable","pricing_resolution":"not_applicable",
-        "transaction_pricing_basis":"not_applicable","coefficient_kind":"not_applicable","coefficient_semantics":"not_applicable",
-        "coefficient_period":"not_applicable","coefficient_trajectory":"not_applicable","flat_amount_trajectory":"explicit_schedule",
+        "transaction_pricing_basis":"pct_of_throughput","coefficient_kind":"pct","coefficient_semantics":"share",
+        "coefficient_period":"month","coefficient_trajectory":"explicit_schedule","flat_amount_trajectory":"not_applicable",
         "rate_behavior":"flat","cost_kind":"none"}],
       "questions":["Is the explicit cost dollars per period, dollars per unit, a percentage of platform throughput, a percentage of bank fee revenue, or a revenue share?"],"unsupported_mechanics":[]}
     migration_out=render_guide_plan(migration_plan)
-    ck("platform migration fallback validates as one Flat explicit revenue path plus one cost question",
+    ck("platform migration maps as entered flow plus referenced migration-share stream",
        migration_out["status"]=="needs_clarification" and len(migration_out["questions"])==1
-       and migration_out["streams"][0]["basis"]=="flat"
+       and len(migration_out["streams"])==2 and migration_out["streams"][0]["entered_driver_kind"]=="money_flow"
+       and migration_out["streams"][1]["driver_reference"]=="Platform revenue source"
        and migration_out["clarification"]["choices"]==["Dollar amount per period","Dollar amount per unit","% of platform throughput","% of bank fee revenue","Revenue share paid away","Not sure"])
     mislabeled_plan=dict(migration_plan)
     mislabeled_plan["status"]="plan"
