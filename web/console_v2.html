@@ -3650,6 +3650,8 @@ window.openFeeGuide = function(productIndex){
   h += '<div class="modal-actions fee-guide-actions"><button class="btn-plain" onclick="closeFeeGuide();return false">Back to Fee Product</button><button id="feeGuideBtn" class="btn-gold" onclick="runFeeGuide()">Map to Foundry</button></div>';
   window._feeGuideProductIndex=productIndex;
   window._feeGuideActive=true;
+  window._feeGuideConversation=[];
+  window._feeGuideCurrentQuestion="";
   window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
   document.getElementById("modal").innerHTML=h;
   document.getElementById("modal-bg").style.display="block";
@@ -3701,7 +3703,23 @@ window.closeFeeGuide = function(){
   window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
   window._feeGuideActive=false;
   window._feeGuideProductIndex=null;
+  window._feeGuideConversation=[];
+  window._feeGuideCurrentQuestion="";
   closeModal();
+};
+window.answerFeeGuide = function(answer){
+  const a=String(answer||"").trim(),q=String(window._feeGuideCurrentQuestion||"").trim();
+  if(!a||!q)return;
+  window._feeGuideConversation=window._feeGuideConversation||[];
+  window._feeGuideConversation.push({question:q,answer:a});
+  window._feeGuideCurrentQuestion="";
+  runFeeGuide();
+};
+window.answerFeeGuideOther = function(){
+  const inp=document.getElementById("feeGuideOtherAnswer"),a=String((inp&&inp.value)||"").trim();
+  const msg=document.getElementById("feeGuideOtherMsg");
+  if(!a){if(msg)msg.textContent="Enter a short answer first.";return;}
+  answerFeeGuide(a);
 };
 window.runFeeGuide = async function(){
   const desc=(document.getElementById("feeGuideDesc")||{}).value||"";
@@ -3714,7 +3732,9 @@ window.runFeeGuide = async function(){
   try{
     // Queue the Anthropic call and return immediately. Long model latency must never
     // sit inside one browser→Foundry request because deployment proxies may terminate it.
-    const sr=await fetch("/api/v31/fee-guide/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc})});
+    const history=(window._feeGuideConversation||[]);
+    const transcript=history.length?("\n\nGuide Me clarification history (authoritative user answers; do not ask these questions again):\n"+history.map((x,i)=>`${i+1}. Question: ${x.question}\n   Answer: ${x.answer}`).join("\n")):"";
+    const sr=await fetch("/api/v31/fee-guide/jobs",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({description:desc+transcript})});
     const sraw=await sr.text();
     let sj={}; try{ sj=sraw?JSON.parse(sraw):{}; }catch(_e){ sj={}; }
     if(!sr.ok) throw new Error(sj.error||("Guide Me could not start ("+sr.status+")"));
@@ -3737,11 +3757,21 @@ window.runFeeGuide = async function(){
     if(!j) throw new Error("Guide Me did not complete within 3 minutes. The server job may still be running; retry after checking Anthropic connectivity.");
 
     let h='';
-    const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[];
-    if(j.status==="needs_clarification" || j.status==="unsupported"){
-      h += `<div style="padding:10px 12px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><b>${j.status==="unsupported"?"Part of this description is not supported by the current fee schema.":"A few details need clarification."}</b>`;
+    const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[],_clar=j.clarification||null;
+    if(j.status==="needs_clarification"){
+      const q=String((_clar&&_clar.question)||_questions[0]||"");window._feeGuideCurrentQuestion=q;
+      const streams=j.streams||[];
+      h += `<div style="padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Here’s what I understand</div>`;
+      h += `<div class="memo" style="margin:4px 0 0">${esc(j.product_label||"Fee product")}${streams.length?" · "+esc(streams.map(x=>x.name||x.basis||"Fee stream").join(" · ")):""}</div>`;
+      if((window._feeGuideConversation||[]).length)h += `<div class="memo" style="margin:5px 0 0;color:#527A52">${window._feeGuideConversation.length} clarification answer${window._feeGuideConversation.length===1?"":"s"} carried forward.</div>`;
+      h += `</div><div style="margin-top:10px;padding:12px 13px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><div class="memo" style="font-weight:700;color:#70551E;margin:0 0 6px">One quick question</div><div style="font-weight:600;line-height:1.45">${esc(q)}</div>`;
+      const choices=(_clar&&_clar.choices)||[];
+      if(choices.length)h += `<div style="display:flex;flex-wrap:wrap;gap:7px;margin-top:10px">${choices.map(c=>`<button class="pillbtn" onclick='answerFeeGuide(${JSON.stringify(c)});return false'>${esc(c)}</button>`).join("")}</div>`;
+      h += `<div style="display:flex;gap:7px;align-items:center;margin-top:10px"><input id="feeGuideOtherAnswer" type="text" placeholder="Or answer briefly in your own words" style="flex:1;min-width:220px;padding:7px 9px;border:1px solid #B8C0CC;border-radius:4px;font:12px inherit" onkeydown="if(event.key==='Enter'){event.preventDefault();answerFeeGuideOther()}"><button class="btn-plain" onclick="answerFeeGuideOther();return false">Continue</button></div><div id="feeGuideOtherMsg" class="memo" style="margin-top:4px;color:#A14A4A"></div></div>`;
+      h += '<div class="memo" style="margin-top:8px">Guide Me will ask only the next question needed to produce a valid Foundry mapping. Nothing in your model was changed.</div>';
+    } else if(j.status==="unsupported"){
+      h += `<div style="padding:10px 12px;border:1px solid #D7C7A6;background:#FFF8EA;border-radius:5px"><b>Part of this description is not supported by the current fee schema.</b>`;
       if(_unsupported.length) h += `<div class="memo" style="margin-top:7px;font-weight:700">Unsupported mechanic${_unsupported.length===1?"":"s"}</div><ul style="margin:4px 0 0 18px;padding:0">${_feeGuideEscLines(_unsupported)}</ul>`;
-      if(_questions.length) h += `<div class="memo" style="margin-top:7px;font-weight:700">Clarify</div><ul style="margin:4px 0 0 18px;padding:0">${_feeGuideEscLines(_questions)}</ul>`;
       h += '</div>';
       if(_guides.length){
         h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #BFCBDD;background:#F7FAFD;border-radius:5px"><div style="font-weight:700;color:#16233B">Supported portion Foundry can map now</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
