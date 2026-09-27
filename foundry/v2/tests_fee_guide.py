@@ -412,6 +412,10 @@ And a Revenue Start Month at Month 13, reflecting a phased rollout approach for 
     ck("Guide Me modal remains escapable after long clarification output", 'max-height:84vh;overflow-y:auto' in html and 'fee-guide-actions{position:sticky' in html)
     ck("Guide Me exposes always-visible top and footer exits", 'class="modal-close-x"' in html and '>Back to Fee Product</button>' in html and 'onclick="closeFeeGuide();return false"' in html)
     ck("closing Guide Me cancels client polling without mutating the fee product", 'window._feeGuideRunToken=(window._feeGuideRunToken||0)+1' in html and 'runToken!==window._feeGuideRunToken || !window._feeGuideActive' in html)
+    ck("completed Guide Me plan remains beside the Fee Product as a progress checklist",
+       "_feeGuidePinnedPlans" in html and "_feeGuideChecklistHtml(p,_fi)" in html
+       and "Back to Fee Product with checklist" in html and "toggleFeeGuideChecklist" in html
+       and "Run again" in html and "Dismiss" in html)
     ck("Escape key closes an open Guide Me/general modal", 'e.key==="Escape"' in html and 'e.preventDefault(); closeModal();' in html)
     ck("Flat fee UI exposes amount trajectory and explicit pastebox", "Amount path" in html and "feeFlatAmountPaste_" in html and "Amount schedule ($000s per" in html)
     # Async job wrapper: persistent status is shared across web workers, user-bound,
