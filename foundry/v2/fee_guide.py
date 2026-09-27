@@ -1148,7 +1148,10 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None, req
     mdl = model or os.environ.get("FOUNDRY_GUIDE_MODEL") or DEFAULT_MODEL
     payload = {
         "model": mdl,
-        "max_tokens": 2200,
+        # A platform-migration mapping legitimately expands into two streams per revenue
+        # equation (entered source + referenced bank revenue).  Four source lines therefore
+        # need eight closed-schema stream objects; 2,200 tokens can truncate valid JSON.
+        "max_tokens": 8000,
         "system": _system_prompt(),
         "messages": [{"role": "user", "content": desc}],
         # Sonnet 5 enables adaptive thinking by default. Guide Me is a closed-schema
@@ -1169,6 +1172,10 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None, req
     try:
         plan = _extract_json(text)
     except (ValueError, json.JSONDecodeError) as e:
+        if str(raw.get("stop_reason") or "").strip().lower() == "max_tokens":
+            raise RuntimeError(
+                "Guide Me's structured plan exceeded its response budget before the JSON was complete."
+            ) from e
         raise RuntimeError(
             "Guide Me could not read Claude's structured response. Please retry the same description; "
             "if it recurs, the configured Claude model may not support structured outputs."
