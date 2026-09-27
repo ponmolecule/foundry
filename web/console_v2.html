@@ -3676,20 +3676,26 @@ function _feeGuideEscLines(lines){
 }
 window._feeGuidePinnedPlans=window._feeGuidePinnedPlans||new WeakMap();
 window._feeGuideChecklistProgress=window._feeGuideChecklistProgress||new WeakMap();
+window._feeGuideChecklistActive=window._feeGuideChecklistActive||new WeakMap();
 function _feeGuideChecklistHtml(product,productIndex){
   const plan=window._feeGuidePinnedPlans.get(product);
   if(!plan||!(plan.stream_guides||[]).length)return "";
+  const guides=plan.stream_guides||[];
   let done=window._feeGuideChecklistProgress.get(product);
   if(!done){done=new Set();window._feeGuideChecklistProgress.set(product,done);}
-  let h=`<div class="fld wide" style="margin:2px 0 10px;padding:10px 12px;border:1px solid #CDA75E;border-radius:6px;background:#FFFCF4"><div style="display:flex;align-items:center;gap:8px"><b style="color:#70551E;flex:1">Guide Me checklist · ${(plan.stream_guides||[]).length} mapped streams</b><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="openFeeGuide(${productIndex});return false">Run again</button><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="clearFeeGuideChecklist(${productIndex});return false">Dismiss</button></div>`;
-  if(plan.product_setup)h+=`<div class="memo" style="margin:4px 0 7px">${esc(plan.product_setup)}</div>`;
-  (plan.stream_guides||[]).forEach((sg,i)=>{
-    h+=`<details${i===0?' open':''} style="margin-top:6px;border-top:1px solid #E6D9BC;padding-top:6px"><summary style="cursor:pointer;font-weight:700;color:#8A6D2F">Stream ${i+1}: ${esc(sg.name||'Fee stream')}</summary><div style="margin:7px 0 2px 5px">`;
-    (sg.steps||[]).forEach((step,j)=>{const key=i+":"+j;h+=`<label style="display:flex;align-items:flex-start;gap:7px;margin:6px 0;font-size:12px;line-height:1.35"><input type="checkbox" style="margin-top:2px" ${done.has(key)?'checked':''} onchange="toggleFeeGuideChecklist(${productIndex},'${key}',this.checked)"><span>${esc(step)}</span></label>`;});
-    h+='</div></details>';
-  });
-  return h+'</div>';
+  let active=+(window._feeGuideChecklistActive.get(product)||0);if(active<0||active>=guides.length)active=0;
+  const sg=guides[active]||{},completed=(sg.steps||[]).filter((_x,j)=>done.has(active+":"+j)).length;
+  let h=`<div class="fld wide" style="margin:2px 0 10px;padding:10px 12px;border:1px solid #B9C2D2;border-radius:5px;background:var(--paper);color:var(--ink)"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b style="color:#293241;flex:1">Guide Me checklist</b><span class="memo" style="margin:0">${completed}/${(sg.steps||[]).length} steps</span><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="openFeeGuide(${productIndex});return false">Run again</button><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="clearFeeGuideChecklist(${productIndex});return false">Dismiss</button></div>`;
+  h+=`<div style="display:grid;grid-template-columns:auto minmax(220px,1fr) auto auto;gap:6px;align-items:center;margin-top:8px"><span class="memo" style="margin:0;white-space:nowrap">Stream ${active+1} of ${guides.length}</span><select style="width:100%;min-width:0" onchange="setFeeGuideChecklistStream(${productIndex},this.value)">${guides.map((g,i)=>`<option value="${i}"${i===active?' selected':''}>${i+1}. ${esc(g.name||'Fee stream')}</option>`).join('')}</select><button class="btn-plain" style="padding:4px 8px" ${active===0?'disabled':''} onclick="setFeeGuideChecklistStream(${productIndex},${active-1});return false">Previous</button><button class="btn-plain" style="padding:4px 8px" ${active===guides.length-1?'disabled':''} onclick="setFeeGuideChecklistStream(${productIndex},${active+1});return false">Next</button></div>`;
+  h+=`<div style="margin:8px 0 2px;padding-top:6px;border-top:1px solid #D9DEE6">`;
+  (sg.steps||[]).forEach((step,j)=>{const key=active+":"+j;h+=`<label style="display:flex;align-items:flex-start;gap:7px;margin:6px 0;font-size:12px;line-height:1.35;color:#293241;text-transform:none;letter-spacing:0"><input type="checkbox" style="margin-top:2px;width:auto" ${done.has(key)?'checked':''} onchange="toggleFeeGuideChecklist(${productIndex},'${key}',this.checked)"><span>${esc(step)}</span></label>`;});
+  return h+'</div></div>';
 }
+window.setFeeGuideChecklistStream=function(productIndex,index){
+  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  const plan=window._feeGuidePinnedPlans.get(p),n=((plan||{}).stream_guides||[]).length;
+  window._feeGuideChecklistActive.set(p,Math.max(0,Math.min(n-1,+index||0)));renderContent();
+};
 window.toggleFeeGuideChecklist=function(productIndex,key,checked){
   const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
   let done=window._feeGuideChecklistProgress.get(p);if(!done){done=new Set();window._feeGuideChecklistProgress.set(p,done);}
@@ -3697,7 +3703,7 @@ window.toggleFeeGuideChecklist=function(productIndex,key,checked){
 };
 window.clearFeeGuideChecklist=function(productIndex){
   const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
-  window._feeGuidePinnedPlans.delete(p);window._feeGuideChecklistProgress.delete(p);renderContent();
+  window._feeGuidePinnedPlans.delete(p);window._feeGuideChecklistProgress.delete(p);window._feeGuideChecklistActive.delete(p);renderContent();
 };
 window.openFeeGuide = function(productIndex){
   const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex]||{};
@@ -3825,7 +3831,7 @@ window.runFeeGuide = async function(){
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[],_clar=j.clarification||null;
     if(_guides.length && j.status!=="needs_clarification"){
       const p=((cfg.assumptions||{}).obs_exposures||[])[window._feeGuideProductIndex];
-      if(p){window._feeGuidePinnedPlans.set(p,{product_setup:j.product_setup||"",stream_guides:_guides});window._feeGuideChecklistProgress.set(p,new Set());}
+      if(p){window._feeGuidePinnedPlans.set(p,{product_setup:j.product_setup||"",stream_guides:_guides});window._feeGuideChecklistProgress.set(p,new Set());window._feeGuideChecklistActive.set(p,0);}
     }
     if(j.status==="needs_clarification"){
       const q=String((_clar&&_clar.question)||_questions[0]||"");window._feeGuideCurrentQuestion=q;
