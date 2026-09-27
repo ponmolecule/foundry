@@ -2492,6 +2492,24 @@ function _feeClearCoeffSchedule(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
   c.schedule={}; renderContent(); refresh();
 }
+function _feeEnsureEnteredFlow(i,si){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
+  const dp=st.driver.params;if(dp.flow_path)return dp.flow_path;
+  const per=(PPY()===12?"month":"quarter");
+  st.driver.source="constant";st.driver.trajectory="flat";
+  dp.flow_path={unit_kind:"money_flow",value:+(dp.base||0),period:per,trajectory:"flat",schedule:{}};
+  return dp.flow_path;
+}
+function _feeEnteredFlowTrajectory(i,si,v){
+  const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureEnteredFlow(i,si);fp.trajectory=v;
+  st.driver.trajectory=(v==="growth"?"proportional":v);
+  if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"smooth",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};
+  if(v==="explicit_schedule"&&!fp.schedule)fp.schedule={};renderContent();refresh();
+}
+function _feeEnteredFlowPeriod(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
+function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.value=_pf(v)*1000;refresh();}
+function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
+function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
 function _feeStreamQuantityKind(i,si,seen){
   const p=((cfg.assumptions||{}).obs_exposures||[])[i]||{}, streams=p.fee_streams||[], st=streams[si]||{};
   seen=seen||{}; if(seen[si]) return "native"; seen[si]=1;
@@ -2500,6 +2518,7 @@ function _feeStreamQuantityKind(i,si,seen){
   if(basis==="account") return "count";
   if(basis!=="transaction") return "native";
   const d=st.driver||{}, dp=d.params||{}, c=dp.coefficient||{};
+  if(String(d.source||"constant").toLowerCase()==="constant"&&String((dp.flow_path||{}).unit_kind||"").toLowerCase()==="money_flow")return "money";
   if(String(c.kind||"").toLowerCase()==="amount_per_source_unit") return "money";
   const src=String(d.source||"constant").toLowerCase();
   if(["own_balance","managed_notional","bank_aggregate","cost_pool"].includes(src)) return "money";
@@ -2722,6 +2741,9 @@ _feeGlobal.feeStreamTrajectoryChange=function(i,si,v){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];
   st.driver=st.driver||{};st.driver.params=st.driver.params||{};
   st.driver.trajectory=v;
+  if(st.basis==="transaction"&&st.driver.source==="constant"&&st.driver.params.flow_path){
+    st.driver.params.flow_path.trajectory=(v==="proportional"?"growth":v);
+  }
   // Derived-only driver state is active economics, not a draft to preserve. Once the user
   // leaves Derived, remove it immediately so the visible trajectory and saved model cannot
   // disagree. normalizeCfg applies the same invariant on load/refresh for older saved configs.
@@ -2979,7 +3001,7 @@ function fieldsFor(fam, p, base){
       // Axis 1: basis
       h += `<div class="fld"><label>Basis (calculation)</label><select onchange="feeStreamBasisChange(${_fi},${si},this.value)">${[["balance","Balance — stock × annual rate"],["transaction","Transaction / throughput — volume × fee or spread"],["account","Account — count × fee"],["flat","Flat — periodic amount"],["event","Event — one-time amount"]].map(v=>`<option value="${v[0]}"${v[0]===basis?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
       // Axis 2: driver source
-      const _drvOpts=[["constant","Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
+      const _drvOpts=[["constant",basis==="transaction"?"Entered driver":"Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
       if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
@@ -3039,8 +3061,19 @@ function fieldsFor(fam, p, base){
       const _isCostPool=(src==="cost_pool");
       const _isCACAccountCount=(basis==="account"&&src==="customer_acquisition_count");
       const _trajOpts=_isCostPool?[["flat","Follows cost pool (native-period flow)"]]:(_isCACAccountCount?[["flat","Follows Customer Acquisition"]]:(_isAccountCount?[["flat","Flat"],["proportional","Growth"],["explicit_schedule","Explicit schedule"]]:[["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (× source)"]]));
-      h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
-      if(src==="constant" && traj!=="explicit_schedule"){
+      const _isEnteredFlow=(basis==="transaction"&&src==="constant"&&!!st.driver.params.flow_path);
+      if(basis==="transaction"&&src==="constant"&&_isEnteredFlow){
+        const _ef=st.driver.params.flow_path,_eft=_ef.trajectory||"flat",_efp=_ef.period||"month";
+        h += `<div class="fld"><label>Driver path</label><select onchange="_feeEnteredFlowTrajectory(${_fi},${si},this.value)"><option value="flat"${_eft==="flat"?" selected":""}>Flat</option><option value="growth"${_eft==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_eft==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
+        h += `<div class="fld"><label>Driver is per</label><select onchange="_feeEnteredFlowPeriod(${_fi},${si},this.value)"><option value="month"${_efp==="month"?" selected":""}>Month</option><option value="quarter"${_efp==="quarter"?" selected":""}>Quarter</option><option value="year"${_efp==="year"?" selected":""}>Year</option></select></div>`;
+        if(_eft!=="explicit_schedule")h += `<div class="fld"><label>${_eft==="growth"?"Starting ":""}monetary throughput ($000s)</label><input type="number" step="any" value="${(+(_ef.value||0)/1000)}" onchange="_feeEnteredFlowValue(${_fi},${si},this.value)"></div>`;
+        if(_eft==="growth")h += `<div class="fld wide"><label>Driver growth</label>${growthSpecInline(`${sb}.driver.params.flow_path.growth_spec`,_ef.growth_spec,null,false)}</div>`;
+        if(_eft==="explicit_schedule"){const _efid=`feeEnteredFlowPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Monetary throughput schedule ($000s per ${_efp})</label><textarea id="${_efid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_efid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_efid}_load" class="pillbtn" disabled onclick="_feeSetEnteredFlowSchedule(${_fi},${si},document.getElementById('${_efid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearEnteredFlowSchedule(${_fi},${si})"${Object.keys(_ef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ef.schedule,1/1000,_efp)}</div><span class="memo" style="margin:3px 0 0">Entered monetary flows sum across months when the model cadence is quarterly. Set pricing to 0% when this stream is only a non-posting source for another stream.</span></div>`;}
+      } else {
+        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
+        if(basis==="transaction"&&src==="constant")h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureEnteredFlow(${_fi},${si});renderContent();refresh();return false">Use entered monetary flow path</button><span class="memo" style="margin:4px 0 0">Adds Flat / Growth / Explicit authoring in $000s per Month / Quarter / Year. Existing legacy constant quantities remain unchanged until selected.</span></div>`;
+      }
+      if(src==="constant" && traj!=="explicit_schedule" && !_isEnteredFlow){
         const _baseLabel=_isAccountCount?(traj==="proportional"?"Starting count":"Count / mandates"):"Base value";
         h += F(_baseLabel, sb+".driver.params.base", "n");
       }
