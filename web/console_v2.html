@@ -70,8 +70,8 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .flow-advanced summary{cursor:pointer;color:#485A76;font-size:11px;font-weight:700}
 .flow-advanced-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px;margin-top:8px}
 .flow-fee-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:3px 14px}
-.flow-fee-actions .loan-add-link,.flow-fee-legacy .loan-add-link{width:auto;text-align:left;align-self:flex-start}
-.flow-fee-legacy{align-items:flex-start}
+.flow-fee-actions .loan-add-link{width:auto;text-align:left;align-self:flex-start}
+.flow-fee-actions .loan-remove{margin-left:0;align-self:flex-start}
 .flow-inline-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .flow-inline-actions select{flex:1;min-width:140px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
@@ -2967,7 +2967,7 @@ function fieldsFor(fam, p, base){
         h += '<div class="flow-section-label">Exposure &amp; retention</div>';
         h += F('Exposure term (days)',base+'.term_days','');
         advanced += F('Day count',base+'.day_count','');
-        h += F('Reserve share of outstanding (%)',base+'.reserve_share','pct');
+        h += F('Funded volume held aside (%)',base+'.reserve_share','pct');
         h += F('Target retained share (%)',base+'.target_retention_share','pct');
       }
       const _im=p.interest_balance_measure||'period_average';
@@ -3008,7 +3008,9 @@ function fieldsFor(fam, p, base){
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     if(!_funded)h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     if(_level){
-      h += `<div class="fld wide"><label>${_funded?'Fee streams':'Additional lending economics'}</label><div class="flow-fee-actions"><button class="loan-add-link" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button><button class="loan-add-link" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div></div>`;
+      const _retainedFeeActive=_funded&&((+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0);
+      const _retainedFeeOpen=_funded&&(_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):_retainedFeeActive);
+      h += `<div class="fld wide"><label>${_funded?'Fee streams on:':'Additional lending economics'}</label><div class="flow-fee-actions"><button class="loan-add-link" onclick="loanAddEconomics(${_li},'transaction')">+ Funded flow</button><button class="loan-add-link" onclick="loanAddEconomics(${_li},'balance')">+ Distributed balance</button>${_funded?`<button class="loan-add-link" onclick="flowLegacyFeeToggle(${_li})">${_retainedFeeOpen?'▾':'+'} Retained average balance${_retainedFeeActive?' · set':''}</button>${_retainedFeeOpen||_retainedFeeActive?`<button class="loan-remove" title="Clear the retained average balance fee and its overrides" onclick="flowLegacyFeeRemove(${_li})">× Remove</button>`:''}`:''}</div></div>`;
       (p.fee_streams||[]).forEach((st,j)=>{const sp=base+'.fee_streams.'+j,fp=((st.driver||{}).params||{}).flow_path||{};
         h += `<div class="fld wide fee-stream-block"><label>${esc(st.name||'Fee stream')} <button class="loan-remove" title="Remove fee stream" onclick="cfg.assumptions.lending_products[${_li}].fee_streams.splice(${j},1);renderContent();refresh()">× Remove</button></label></div>`;
         if(st.driver&&st.driver.source==='distributed_balance'){
@@ -3030,7 +3032,6 @@ function fieldsFor(fam, p, base){
     if(_funded){
       const _feeOverride=Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0;
       const _legacyOpen=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):(+p.fee_yield_ann||0)!==0||_feeOverride;
-      h += `<div class="fld wide flow-fee-legacy"><button class="loan-add-link" onclick="flowLegacyFeeToggle(${_li})">${_legacyOpen?'▾':'▸'} Fee on retained average balance${(+p.fee_yield_ann||0)?' · '+((+p.fee_yield_ann)*100).toFixed(3)+'%':''}${_feeOverride?' · overrides set':''}</button></div>`;
       if(_legacyOpen)h += F('Retained average balance fee (annual %)',base+'.fee_yield_ann','pct');
       if(((+p.fee_yield_ann||0)!==0||_feeOverride)&&(p.fee_streams||[]).length)h += '<div class="fld wide"><span class="fhint">Review fee streams for overlapping charges on the same activity.</span></div>';
       h += '<div class="flow-section-label">Credit &amp; accounting</div>';
@@ -3467,6 +3468,7 @@ const _flowAdvancedOpen = new WeakMap();
 function flowReportingToggle(i,open){const p=(cfg.assumptions.lending_products||[])[i];if(p)_flowReportingOpen.set(p,open);}
 function flowAdvancedToggle(i,open){const p=(cfg.assumptions.lending_products||[])[i];if(p)_flowAdvancedOpen.set(p,open);}
 function flowLegacyFeeToggle(i){const p=(cfg.assumptions.lending_products||[])[i];if(p){const opened=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):(+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0;_flowLegacyFeeOpen.set(p,!opened);renderContent();}}
+function flowLegacyFeeRemove(i){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;p.fee_yield_ann=0;if(p.overrides)delete p.overrides.fee_yield_ann;_flowLegacyFeeOpen.set(p,false);renderContent();refresh();}
 function prodCardHtml(fam, i){
   const p = famArr(fam)[i];
   const cat = CAT_OF[fam], key = fam+"_"+i, base = `assumptions.${ARR_OF[fam]}.${i}`;
