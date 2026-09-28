@@ -2591,9 +2591,13 @@ function _feeEnsureCostFactor(i,si){
 }
 function _feeCostFactorSetKind(i,si,v){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};
-  if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};}renderContent();refresh();
+  if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};}
+  // Let the native select event finish before replacing the element that dispatched it.
+  // Synchronously rebuilding this subtree made the first Cost-side selection appear to
+  // be ignored in some browsers, forcing a second click even though cfg had changed.
+  refresh();setTimeout(()=>renderContent(),0);
 }
-function _feeCostFactorTrajectory(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length))fp.schedule={"1":+(fp.value||0)};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";renderContent();refresh();}
+function _feeCostFactorTrajectory(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length))fp.schedule={"1":+(fp.value||0)};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";refresh();setTimeout(()=>renderContent(),0);}
 function _feeCostFactorPeriod(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeCostFactorResolution(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.resolution=v;if(fp.growth_spec)fp.growth_spec.method=v;renderContent();refresh();}
 function _feeCostFactorValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");fp.value=pct?_pf(v)/100:(st.cost.kind==="periodic_amount_opex"?_pf(v)*1000:_pf(v));refresh();}
