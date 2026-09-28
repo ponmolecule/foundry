@@ -191,6 +191,7 @@ _RATE_LABELS = {
 _COST_LABELS = {
     "none": "None (pure margin)",
     "per_unit": "Cost per unit",
+    "periodic_amount_opex": "Product cost — periodic amount",
     "pct_of_revenue": "Revenue share (% of revenue)",
     "pct_of_revenue_opex": "Operating cost (% of revenue)",
     "pct_of_throughput_opex": "Operating cost (% of throughput)",
@@ -253,6 +254,7 @@ def fee_guide_manifest():
             "pct_of_revenue is contra-revenue: it reduces fee income. pct_of_revenue_opex preserves gross fee income and routes the calculated cost to noninterest expense.",
             "A stream that is itself a rebate, refund, or other reduction of fee income uses revenue_presentation=contra_revenue. Enter its source amounts as positive values; Foundry applies the negative posting and identifies it as contra-revenue in the audit trail.",
             "pct_of_throughput_opex is transaction-only: it applies the authored cost rate to Transaction throughput, preserves gross fee income, and routes the calculated cost to noninterest expense.",
+            "periodic_amount_opex is Flat-only: it accepts a positive recurring Month / Quarter / Year product-cost amount, including an explicit schedule, and routes it to Noninterest Expense: Fee Product Costs without changing revenue presentation.",
             "Use pct_of_revenue_opex when the user describes an operating/service/delivery cost as a percentage of fee revenue; use pct_of_throughput_opex when the cost rate is quoted against transaction volume/throughput; use pct_of_revenue only for an actual revenue share or amount owed away from revenue.",
             "per_unit cost is valid only for transaction basis.",
             "A managed_notional driver means the product's AUC/AUM series; it may come from manual AUC or a Customer-Acquisition feed.",
@@ -401,14 +403,14 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   sum in quarterly models. Do not ask whether the platform schedule is modeled elsewhere. If “explicit cost” is
   the only unresolved phrase, ask ONE question only: whether that cost is dollars per period, dollars
   per unit, percent of platform throughput, percent of bank fee revenue, or a true revenue
-  share/contra-revenue. A direct dollar cost schedule is not a Fee Product cost-side path; identify it
-  outside the Fee Product only after its economic classification is known. “Dollar amount per period”
+  share/contra-revenue. A direct dollar product-cost schedule attached to a Flat revenue stream uses
+  cost_kind=periodic_amount_opex and remains independent of revenue presentation. “Dollar amount per period”
   describes measurement, not presentation: it does NOT by itself establish Operating Expense versus
   contra-revenue. If the history supplies only that measurement basis, ask one short next question:
   whether the dollar schedule is (a) an operating/service cost incurred by the bank or (b) an amount
   owed away from revenue / contra-revenue. Never reconfirm the already-stated revenue pairs or an
   already-stated contra-revenue designation. A direct dollar Operating Expense schedule routes to
-  Operating Expense; a direct dollar contra-revenue schedule remains a negative fee-revenue stream.
+  Noninterest Expense: Fee Product Costs; a direct dollar contra-revenue schedule remains a negative fee-revenue stream.
 - When a named stream is itself a rebate, refund, or reduction of fee income, set
   revenue_presentation=contra_revenue on the POSTING downstream stream. Keep the entered source
   schedule and migration percentages positive; Foundry owns the negative accounting sign. Do not
@@ -458,7 +460,7 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   explicit_schedule according to the user's stated amount path. A changing Flat amount is supported
   through Amount path; do not confuse that with Rate behavior, which remains flat for the Flat basis.
 - Use event only for a one-time amount. Obey rate_behavior_by_basis exactly.
-- Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex); an operating cost quoted as a percent of transaction volume is NIE (pct_of_throughput_opex). Never substitute one base for another.
+- Distinguish revenue share from operating cost: revenue share is contra-revenue (pct_of_revenue); an operating cost stated as a percent of fee revenue is NIE (pct_of_revenue_opex); an operating cost quoted as a percent of transaction volume is NIE (pct_of_throughput_opex); a direct recurring product-cost amount attached to Flat revenue is periodic_amount_opex. Never substitute one base for another and never use contra-revenue merely to enter product cost.
 - For driver_reference, entered_driver_kind, driver_period, driver_resolution, customer_count_measure, stock_multiplier_trajectory, stock_multiplier_period,
   stock_multiplier_resolution, pricing_trajectory, pricing_period, pricing_resolution, coefficient_kind,
   coefficient_semantics, coefficient_period, coefficient_trajectory, and flat_amount_trajectory, use the string "not_applicable"
@@ -679,6 +681,12 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
         if item["cost_kind"] not in _FEE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
+        if item["cost_kind"] == "per_unit" and item["basis"] != "transaction":
+            raise ValueError("Guide Me per-unit cost requires transaction basis")
+        if item["cost_kind"] == "pct_of_throughput_opex" and item["basis"] != "transaction":
+            raise ValueError("Guide Me throughput-percentage cost requires transaction basis")
+        if item["cost_kind"] == "periodic_amount_opex" and item["basis"] != "flat":
+            raise ValueError("Guide Me periodic product-cost amount requires flat basis")
         if item["revenue_presentation"] not in {"revenue", "contra_revenue"}:
             raise ValueError(f"Guide Me invented unsupported revenue presentation {item['revenue_presentation']!r}")
         if item["revenue_presentation"] == "contra_revenue" and item["cost_kind"] == "pct_of_revenue":
@@ -1094,6 +1102,8 @@ def _stream_steps(item):
 
     if item["rate_behavior"] == "cost_recovery":
         steps.append("Cost side remains None: the cost pool is non-posting here. Linked expenses are already owned upstream; entered cost-base assumptions are pricing-only.")
+    elif item["cost_kind"] == "periodic_amount_opex":
+        steps.append("Set Cost side to “Product cost — periodic amount”, choose Explicit schedule and its natural Month / Quarter / Year period, then paste the positive Product cost schedule ($000s). Foundry posts it to Fee Product Costs, not contra-revenue.")
     else:
         steps.append(f"Set Cost side to “{_COST_LABELS[item['cost_kind']]}”.")
     steps.append("Set Revenue start/end/ramp only if your source model specifies timing; otherwise leave the default start and no end.")

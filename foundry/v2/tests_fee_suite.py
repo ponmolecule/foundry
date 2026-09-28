@@ -305,6 +305,27 @@ def main():
         _bad_throughput_basis=True
     ck("D2ed throughput percentage cost fails closed outside Transaction basis", _bad_throughput_basis)
 
+    # A Flat revenue stream can carry a separately-authored recurring product-cost flow.
+    # The cost remains NIE, never contra-revenue, and monthly schedules aggregate exactly
+    # when the engagement itself runs quarterly.
+    flat_direct_cost = {"basis":"flat","driver":{"source":"constant","trajectory":"flat","params":{}},
+        "rate":{"behavior":"flat","params":{"flat_amount":{"value":120000.0,"period":"month","trajectory":"flat"}}},
+        "cost":{"kind":"periodic_amount_opex","params":{"factor_path":{"value":10000.0,
+            "trajectory":"explicit_schedule","period":"month","resolution":"step",
+            "schedule":{"1":10000.0,"2":12000.0,"3":14000.0,"4":16000.0}}}},"timing":{"start_period":1}}
+    fi1,fc1=fee_stream_q(copy.deepcopy(flat_direct_cost),1,{},12)
+    fiq1,fcq1=fee_stream_q(copy.deepcopy(flat_direct_cost),1,{},4)
+    ck("D2ee Flat periodic product cost preserves revenue and routes the amount to NIE",
+       abs(fi1-120000.0)<1e-9 and abs(fc1-10000.0)<1e-9)
+    ck("D2ef monthly explicit product costs sum exactly into a quarterly model period",
+       abs(fiq1-360000.0)<1e-9 and abs(fcq1-36000.0)<1e-9, f"revenue={fiq1:.4f}, cost={fcq1:.4f}")
+    try:
+        _validate_fee_stream_shape({**copy.deepcopy(flat_direct_cost),"basis":"balance"})
+        _bad_periodic_cost_basis=False
+    except ValueError:
+        _bad_periodic_cost_basis=True
+    ck("D2eg periodic product-cost amount fails closed outside Flat basis", _bad_periodic_cost_basis)
+
     # D2f-r83: the original scalar cost and the new multiplier are separate layers.
     # A Year/Step multiplier applies unchanged to each monthly cost base and is never /12.
     sched_op = {"basis":"transaction","driver":{"source":"constant","trajectory":"flat","params":{"base":100.0}},

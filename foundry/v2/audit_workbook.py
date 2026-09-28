@@ -1351,7 +1351,7 @@ def _fee_stream_economics_rows(cfg, exact, n):
                          cunits, _series(rec, "effective_cost_factor"), cfmt))
 
         opcost = _series(rec, "fee_product_cost")
-        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "pct_of_revenue_opex", "pct_of_throughput_opex"}:
+        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "periodic_amount_opex", "pct_of_revenue_opex", "pct_of_throughput_opex"}:
             rows.append((section, "Fee Product cost · stream output", f"{sid}:fee_product_cost",
                          "$000s / engine period", _money_k_series(opcost), _RAW_MONEY_FMT))
     return rows
