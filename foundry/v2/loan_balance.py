@@ -19,6 +19,29 @@ EXPLICIT_LEVEL = "explicit_level"
 FUNDED_FLOW_LEVEL = "funded_flow_level"
 
 
+def _funded_flow_timing(driver: Mapping) -> tuple[str, int, int, float]:
+    """Normalize the meaning and native-model-period timing of a funded flow."""
+    stage = str(driver.get("input_stage") or "funded_volume")
+    if stage not in {"source_activity", "funded_volume"}:
+        raise ValueError("funded-flow input_stage must be source_activity or funded_volume")
+    def positive_period(key: str) -> int:
+        raw = driver.get(key, 1)
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)) or not isfinite(raw) or raw < 1 or int(raw) != raw:
+            raise ValueError(f"funded-flow {key} must be a positive whole model period")
+        return int(raw)
+    start = positive_period("start_period")
+    ramp = positive_period("ramp_periods")
+    try:
+        take_up = float(driver.get("take_up_share", 1))
+    except (TypeError, ValueError):
+        raise ValueError("funded-flow take_up_share must be a share in [0, 1]")
+    if not isfinite(take_up) or not 0 <= take_up <= 1:
+        raise ValueError("funded-flow take_up_share must be a share in [0, 1]")
+    if stage == "funded_volume" and (ramp != 1 or take_up != 1):
+        raise ValueError("final funded volume already includes take-up and ramp; select source activity to apply them")
+    return stage, start, ramp, take_up
+
+
 def loan_balance_mode(product: Mapping | None) -> str:
     raw = str((product or {}).get("balance_mode") or ROLLFORWARD).strip().lower()
     if raw not in {ROLLFORWARD, LINKED_CUSTOMER_LEVEL, EXPLICIT_LEVEL, FUNDED_FLOW_LEVEL}:
@@ -33,6 +56,7 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
     p = product or {}
     if loan_balance_mode(p) == FUNDED_FLOW_LEVEL:
         fd = p.get("funded_flow_driver") or {}
+        stage, start, ramp, take_up = _funded_flow_timing(fd)
         source = str(fd.get("source") or "").strip()
         if source == "entered":
             from .income_modules import _fee_entered_flow_value
@@ -74,7 +98,9 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
         measure = str(p.get("interest_balance_measure") or "")
         if measure not in {"period_average", "period_end", "period_begin"}:
             raise ValueError("funded-flow balance requires an explicit interest_balance_measure")
-        return {"source": "funded_flow", "driver": dict(fd), "term_days": term,
+        return {"source": "funded_flow", "driver": dict(fd), "input_stage": stage,
+                "start_period": start, "ramp_periods": ramp, "take_up_share": take_up,
+                "term_days": term,
                 "day_count": days, "reserve_share": reserve,
                 "target_retention_share": retention,
                 "interest_balance_measure": measure}
@@ -167,10 +193,23 @@ def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
                 raise ValueError(f"funded-flow source Series {sid!r} is unavailable or incomplete")
         if any(float(v) < 0 for v in flows):
             raise ValueError("funded-flow volume cannot be negative")
-        outstanding = [float(v) * ppy * cfg["term_days"] / cfg["day_count"]
-                       * (1 - cfg["reserve_share"]) for v in flows]
+        stage, start, ramp, take_up = (cfg[k] for k in
+            ("input_stage", "start_period", "ramp_periods", "take_up_share"))
+        if stage == "funded_volume":
+            conflict = next((q for q, v in enumerate(flows, 1)
+                             if q < start and abs(float(v)) > 1e-9), None)
+            if conflict is not None:
+                raise ValueError(f"final funded volume is nonzero in model period {conflict} before start_period {start}; change the timing or source data")
+            funded = [float(v) for v in flows]
+        else:
+            funded = [float(v) * take_up *
+                      (0.0 if q < start else min(1.0, (q - start + 1) / ramp))
+                      for q, v in enumerate(flows, 1)]
+        outstanding = [v * ppy * cfg["term_days"] / cfg["day_count"]
+                       * (1 - cfg["reserve_share"]) for v in funded]
         targets = [v * cfg["target_retention_share"] for v in outstanding]
-        return {**cfg, "funded_volume": flows, "outstanding": outstanding,
+        return {**cfg, "source_activity": flows, "funded_volume": funded,
+                "outstanding": outstanding,
                 "ending_balance": targets}
     sid, measure = cfg["series_id"], cfg["measure"]
     by_measure = (customer_count_series or {}).get(sid)
