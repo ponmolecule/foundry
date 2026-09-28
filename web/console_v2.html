@@ -3431,15 +3431,16 @@ function prodCardHtml(fam, i){
   h += pstat(p.name);
   h += `<div class="fields${isOpen(key) ? "" : " hidden"}">`;
   h += `<div class="fld wide"><label>Name</label><input value="${esc(p.name)}" onchange="renameProduct('${fam}',${i},this.value)"></div>`;
-  if(V31){
-    // Classification is a fact of the product, not a menu (INPUT_SPEC P3).
+  if(V31 && !(fam==="lending" && _loanBalanceMode(p)==="funded_flow_level")){
+    // The fixed-category presets carry their reporting line; flow-based lending
+    // starts in Other and exposes this classification for later review.
     h += `<div class="fld wide"><label>Call Report line</label>`
       + `<div style="padding:8px 2px 4px;font-weight:600">${esc(LINE_LABELS_V31[p.call_report_line] || p.call_report_line || "unmapped")}</div></div>`;
   } else {
-  h += `<div class="fld wide"><label>Call Report line</label><select data-restore="${base}.call_report_line" onchange="setPath('${base}.call_report_line', this.value)">`;
+  h += `<div class="fld wide"><label>${V31?'Loan reporting category':'Call Report line'}</label><select data-restore="${base}.call_report_line" onchange="setPath('${base}.call_report_line', this.value);renderContent();refresh()">`;
   const _ks = lineOptionsFor(cat).slice().sort((a,b)=>(a===p.call_report_line?-1:0)-(b===p.call_report_line?-1:0));
   _ks.forEach(k=>{ h += `<option value="${k}"${p.call_report_line===k?" selected":""}>${esc(LINE_LABELS[k])}</option>`; });
-  h += '</select></div>';
+  h += V31?'</select><span class="fhint">'+(p.call_report_line==='loanOther'?'Starts in Other loans for modeling. Review before relying on reporting or risk-weight outputs.':'Reporting category can be refined as the credit exposure is defined.')+'</span></div>':'</select></div>';
   }
   if(cat!=="offbs"){
     h += `<div class="fld"><label>Rate type</label><select onchange="setPath('${base}.rate_type', this.value); renderContent()">`+
@@ -3970,8 +3971,8 @@ function openModal(){
   if(V31){
     window._modalAdded = 0;
     let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
-    mh += '<div class="accent-label">Model by behavior</div><div class="memo" style="margin:0 0 8px">For lending with funded volume, retained balances, and transaction fees, start here. Choose the loan reporting line based on the actual credit exposure.</div>';
-    mh += `<div class="preset-grid"><div class="fld"><label>Loan reporting line</label><select id="flowLoanLine"><option value="">Select classification</option>${LOAN_KEYS.map(k=>`<option value="${k}">${esc(LINE_LABELS_V31[k])}</option>`).join('')}</select></div><button class="preset-btn" onclick="addFlowLoanMulti(this)"><span class="pn">Funded-flow lending + fees</span><span class="ps">Retained credit, funded-volume fees, optional shared cap</span></button></div>`;
+    mh += '<div class="accent-label">Model by behavior</div><div class="memo" style="margin:0 0 8px">For lending with funded volume, retained balances, and transaction fees, start here.</div>';
+    mh += '<div class="preset-grid"><button class="preset-btn" onclick="addFlowLoanMulti(this)"><span class="pn">Flow-based lending + fees</span><span class="ps">Retained credit, funded-volume fees, optional shared cap</span></button></div>';
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
         + (cn==="Off-Balance-Sheet" ? `<button class="preset-btn" id="pfee_obs" onclick="addFeeProductMulti(this)"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue (custody, trustee, \u2026)</span></button>` : "")
@@ -3992,9 +3993,7 @@ function openModal(){
   document.getElementById("modal").style.display = "block";
 }
 function addFlowLoanMulti(btn){
-  const line=document.getElementById('flowLoanLine').value;
-  if(!line){alert('Select the loan reporting line for this credit exposure first.');return;}
-  const p={name:'Funded-flow lending',call_report_line:line,balance_mode:'funded_flow_level',
+  const p={name:'Flow-based lending + fees',call_report_line:'loanOther',balance_mode:'funded_flow_level',
     opening_balance:0,rate_type:'fixed',yield_ann:0,charge_off_ann:0,
     fee_yield_ann:0,opex_pct_ann:0,opex_fixed_per_period:0,
     measurement:'amortized',structure:'revolving',
@@ -4005,7 +4004,7 @@ function addFlowLoanMulti(btn){
   window._modalAdded=(window._modalAdded||0)+1;
   const c=document.getElementById('modalAddedCount');
   if(c)c.textContent=window._modalAdded+' product'+(window._modalAdded===1?'':'s')+' added';
-  btn.querySelector('.ps').textContent='Added under '+LINE_LABELS_V31[line]+' · select again to add another';
+  btn.querySelector('.ps').textContent='Added · select again to add another';
   syncModules();
 }
 function closeModal(){
