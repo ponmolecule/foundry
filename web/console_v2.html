@@ -4059,6 +4059,13 @@ function openModal(){
   document.getElementById("modal").style.display = "block";
 }
 function addFlowLoanMulti(btn){
+  const arr=cfg.assumptions.lending_products;
+  if(btn._added){
+    const at=arr.indexOf(btn._added);
+    if(at!==-1)arr.splice(at,1);
+    btn._added=null;
+    window._modalAdded=Math.max(0,(window._modalAdded||0)-1);
+  }else{
   const p={name:'Flow-based lending + fees',call_report_line:'loanOther',balance_mode:'funded_flow_level',
     opening_balance:0,rate_type:'fixed',yield_ann:0,index_spread:0,charge_off_ann:0,
     fee_yield_ann:0,reserve_rate_pct_bal:0,opex_pct_ann:0,opex_fixed_per_period:0,
@@ -4068,11 +4075,17 @@ function addFlowLoanMulti(btn){
     interest_balance_measure:'period_average',charge_off_balance_measure:'period_begin',
     allowance_mode:'reserve_rate',
     fee_streams:[]};
-  cfg.assumptions.lending_products.push(p);
+  arr.push(p);
+  btn._added=p;
   window._modalAdded=(window._modalAdded||0)+1;
+  }
   const c=document.getElementById('modalAddedCount');
-  if(c)c.textContent=window._modalAdded+' product'+(window._modalAdded===1?'':'s')+' added';
-  btn.querySelector('.ps').textContent='Added · select again to add another';
+  if(c)c.textContent=window._modalAdded ? window._modalAdded+' product'+(window._modalAdded===1?'':'s')+' added' : '';
+  btn.style.borderColor=btn._added ? '#7FB07F' : '';
+  let tag=btn.querySelector('.addtag');
+  if(!tag){tag=document.createElement('span');tag.className='addtag';
+    tag.style.cssText='margin-left:auto;color:#7FB07F;font-size:10px;font-weight:700;white-space:nowrap';btn.appendChild(tag);}
+  tag.textContent=btn._added ? 'added \u2713' : '';
   syncModules();
 }
 function closeModal(){
