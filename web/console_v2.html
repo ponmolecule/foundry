@@ -69,6 +69,9 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .flow-advanced{grid-column:1/-1;margin-top:7px;border-top:1px solid #D8DEE8;padding-top:8px}
 .flow-advanced summary{cursor:pointer;color:#485A76;font-size:11px;font-weight:700}
 .flow-advanced-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px;margin-top:8px}
+.flow-fee-actions{display:flex;flex-wrap:wrap;justify-content:flex-start;gap:3px 14px}
+.flow-fee-actions .loan-add-link,.flow-fee-legacy .loan-add-link{width:auto;text-align:left;align-self:flex-start}
+.flow-fee-legacy{align-items:flex-start}
 .flow-inline-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .flow-inline-actions select{flex:1;min-width:140px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
@@ -2937,9 +2940,10 @@ function fieldsFor(fam, p, base){
   let h = "", advanced = "";
   if(fam==="lending"){
     const _li=+(base.split(".").pop()),_lbm=_loanBalanceMode(p),_linked=_lbm==="linked_customer_level",_explicit=_lbm==="explicit_level",_funded=_lbm==="funded_flow_level",_level=_explicit||_funded;
-    if(_funded)h += '<div class="flow-section-label">Volume &amp; timing</div>';
-    h += `<div class="fld wide"><label>Balance authoring</label><select onchange="loanBalanceModeChange(${_li},this.value)"><option value="rollforward"${_lbm==='rollforward'?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_linked?' selected':''}>MAB Series × average lending / MAB</option><option value="explicit_level"${_explicit?' selected':''}>Entered target balance</option><option value="funded_flow_level"${_funded?' selected':''}>Funded flow × exposure term</option></select></div>`;
-    h += F("Starting balance ($000s)", base+".opening_balance", "k");
+    if(_funded)h += '<div class="flow-section-label">Funded flow × exposure term · timing</div>';
+    const _modeField=`<div class="fld wide"><label>Balance authoring</label><select onchange="loanBalanceModeChange(${_li},this.value)"><option value="rollforward"${_lbm==='rollforward'?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_linked?' selected':''}>MAB Series × average lending / MAB</option><option value="explicit_level"${_explicit?' selected':''}>Entered target balance</option><option value="funded_flow_level"${_funded?' selected':''}>Funded flow × exposure term</option></select></div>`;
+    if(_funded){advanced += _modeField + F("Starting balance ($000s)", base+".opening_balance", "k");}
+    else h += _modeField + F("Starting balance ($000s)", base+".opening_balance", "k");
     if(_level){
       if(_explicit)h += `<div class="fld wide">${_faSeriesEditor(base+'.ending_balance_spec',p.ending_balance_spec,'Target ending balance','money',false)}</div>`;
       if(_funded){const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},_stage=fd.input_stage||'funded_volume',_up=[];
@@ -2967,7 +2971,7 @@ function fieldsFor(fam, p, base){
         h += F('Target retained share (%)',base+'.target_retention_share','pct');
       }
       const _im=p.interest_balance_measure||'period_average';
-      const _interestField=`<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Beginning and ending average</option><option value="period_end"${_im==='period_end'?' selected':''}>Period end</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Period beginning</option></select></div>`;
+      const _interestField=`<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Average (begin + end)</option><option value="period_end"${_im==='period_end'?' selected':''}>End balance</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Beginning balance</option></select></div>`;
       h += _interestField;
       const _groups=(cfg.assumptions||{}).loan_allocation_groups||[],_gid=p.allocation_group_id||'';
       if(_funded)h += '<div class="flow-section-label">Shared capacity</div>';
@@ -3004,7 +3008,7 @@ function fieldsFor(fam, p, base){
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     if(!_funded)h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     if(_level){
-      h += `<div class="fld wide"><label>${_funded?'Fee streams':'Additional lending economics'}</label><button class="loan-add-link" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button> <button class="loan-add-link" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div>`;
+      h += `<div class="fld wide"><label>${_funded?'Fee streams':'Additional lending economics'}</label><div class="flow-fee-actions"><button class="loan-add-link" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button><button class="loan-add-link" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div></div>`;
       (p.fee_streams||[]).forEach((st,j)=>{const sp=base+'.fee_streams.'+j,fp=((st.driver||{}).params||{}).flow_path||{};
         h += `<div class="fld wide fee-stream-block"><label>${esc(st.name||'Fee stream')} <button class="loan-remove" title="Remove fee stream" onclick="cfg.assumptions.lending_products[${_li}].fee_streams.splice(${j},1);renderContent();refresh()">× Remove</button></label></div>`;
         if(st.driver&&st.driver.source==='distributed_balance'){
@@ -3026,7 +3030,7 @@ function fieldsFor(fam, p, base){
     if(_funded){
       const _feeOverride=Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0;
       const _legacyOpen=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):(+p.fee_yield_ann||0)!==0||_feeOverride;
-      h += `<div class="fld wide"><button class="loan-add-link" onclick="flowLegacyFeeToggle(${_li})">${_legacyOpen?'▾':'▸'} Fee on retained average balance${(+p.fee_yield_ann||0)?' · '+((+p.fee_yield_ann)*100).toFixed(3)+'%':''}${_feeOverride?' · overrides set':''}</button></div>`;
+      h += `<div class="fld wide flow-fee-legacy"><button class="loan-add-link" onclick="flowLegacyFeeToggle(${_li})">${_legacyOpen?'▾':'▸'} Fee on retained average balance${(+p.fee_yield_ann||0)?' · '+((+p.fee_yield_ann)*100).toFixed(3)+'%':''}${_feeOverride?' · overrides set':''}</button></div>`;
       if(_legacyOpen)h += F('Retained average balance fee (annual %)',base+'.fee_yield_ann','pct');
       if(((+p.fee_yield_ann||0)!==0||_feeOverride)&&(p.fee_streams||[]).length)h += '<div class="fld wide"><span class="fhint">Review fee streams for overlapping charges on the same activity.</span></div>';
       h += '<div class="flow-section-label">Credit &amp; accounting</div>';
@@ -3422,7 +3426,7 @@ function fieldsFor(fam, p, base){
   }
   if(fam==="lending"&&_loanBalanceMode(p)==="funded_flow_level"){
     const i=+(base.split('.').pop());
-    h += `<details class="flow-advanced" ontoggle="flowAdvancedToggle(${i},this.open)"${_flowAdvancedOpen.get(p)?' open':''}><summary>More settings · day count, accounting &amp; costs</summary><div class="flow-advanced-grid">${advanced}</div></details>`;
+    h += `<details class="flow-advanced" ontoggle="flowAdvancedToggle(${i},this.open)"${_flowAdvancedOpen.get(p)?' open':''}><summary>More settings · model setup &amp; costs</summary><div class="flow-advanced-grid">${advanced}</div></details>`;
   }
   return h;
 }
