@@ -2998,6 +2998,12 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide" data-loan-customer-count-preview>${_feeCustomerCountPreviewHtml(sid,measure)}<div class="fhint" style="margin-top:6px">Ending loan balance = selected MAB count × average lending per MAB. Starting balance seeds the first period's average balance; Foundry derives the balancing production or paydown.</div></div>`;
     }
     if(_funded){
+      h += '<div class="flow-section-label">Credit &amp; accounting</div>';
+      h += `<div class="fld"><label>Charge-off balance</label><select onchange="setPath('${base}.charge_off_balance_measure',this.value);refresh()"><option value="period_begin"${p.charge_off_balance_measure!=='period_end'?' selected':''}>Beginning</option><option value="period_end"${p.charge_off_balance_measure==='period_end'?' selected':''}>Retained period end</option></select></div>`;
+      h += `<div class="fld"><label>Allowance method</label><select onchange="setPath('${base}.allowance_mode',this.value);renderContent();refresh()"><option value="reserve_rate"${p.allowance_mode!=='loss_rate_term'?' selected':''}>Reserve % of balance</option><option value="loss_rate_term"${p.allowance_mode==='loss_rate_term'?' selected':''}>Annual loss × exposure term</option></select></div>`;
+      if(p.allowance_mode==='loss_rate_term')h += `<div class="fld wide">${_faSeriesEditor(base+'.credit_loss_factor_spec',p.credit_loss_factor_spec||{source:'entered',trajectory:'flat',value:1},'Credit loss factor','multiple',false)}</div>`;
+      h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
+      if(p.measurement!=="fair_value"&&p.allowance_mode!=="loss_rate_term")h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
       h += '<div class="flow-section-label">Pricing &amp; fees</div>';
       h += `<div class="fld"><label>Interest rate type</label><select onchange="setPath('${base}.rate_type',this.value);renderContent();refresh()"><option value="fixed"${p.rate_type==='fixed'?' selected':''}>Fixed yield</option><option value="float"${p.rate_type==='float'?' selected':''}>Index + spread</option></select></div>`;
       if(p.rate_type==='float')h += `<div class="fld"><label>Reference index</label><select onchange="setPath('${base}.index',this.value);renderContent();refresh()">${['sofr','effr','prime'].map(x=>`<option value="${x}"${(p.index||'sofr')===x?' selected':''}>${x.toUpperCase()}</option>`).join('')}</select></div>`;
@@ -3040,13 +3046,9 @@ function fieldsFor(fam, p, base){
         h += `<div class="fld wide fee-stream-block"><label>Retained average balance <button class="loan-remove" title="Clear the retained average balance fee and its overrides" onclick="flowLegacyFeeRemove(${_li})">× Remove</button></label></div>`;
       if(_legacyOpen)h += F('Retained average balance fee (annual %)',base+'.fee_yield_ann','pct');
       if(((+p.fee_yield_ann||0)!==0||_feeOverride)&&(p.fee_streams||[]).length)h += '<div class="fld wide"><span class="fhint">Review fee streams for overlapping charges on the same activity.</span></div>';
-      h += '<div class="flow-section-label">Credit &amp; accounting</div>';
-      h += `<div class="fld"><label>Charge-off balance</label><select onchange="setPath('${base}.charge_off_balance_measure',this.value);refresh()"><option value="period_begin"${p.charge_off_balance_measure!=='period_end'?' selected':''}>Beginning</option><option value="period_end"${p.charge_off_balance_measure==='period_end'?' selected':''}>Retained period end</option></select></div>`;
-      h += `<div class="fld"><label>Allowance method</label><select onchange="setPath('${base}.allowance_mode',this.value);renderContent();refresh()"><option value="reserve_rate"${p.allowance_mode!=='loss_rate_term'?' selected':''}>Reserve % of balance</option><option value="loss_rate_term"${p.allowance_mode==='loss_rate_term'?' selected':''}>Annual loss × exposure term</option></select></div>`;
-      if(p.allowance_mode==='loss_rate_term')h += `<div class="fld wide">${_faSeriesEditor(base+'.credit_loss_factor_spec',p.credit_loss_factor_spec||{source:'entered',trajectory:'flat',value:1},'Credit loss factor','multiple',false)}</div>`;
     }
-    h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
-    if(p.measurement!=="fair_value"&&p.allowance_mode!=="loss_rate_term") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
+    if(!_funded)h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
+    if(!_funded&&p.measurement!=="fair_value"&&p.allowance_mode!=="loss_rate_term") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
     if(_funded)advanced += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement',this.value);renderContent();refresh()"><option value="amortized"${p.measurement!=='fair_value'?' selected':''}>Amortized cost</option><option value="fair_value"${p.measurement==='fair_value'?' selected':''}>Fair value</option></select></div>`;
     // Originate-to-sell (gain-on-sale, warehouse, MSR, servicing) is a residential
     // MORTGAGE activity — the field shape (MSR cap rate, servicing runoff) only makes
