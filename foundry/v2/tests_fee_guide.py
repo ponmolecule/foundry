@@ -27,7 +27,7 @@ def main():
        and {x.get("id") for x in m.get("customer_count_measures",[])}=={"annual_count","period_end","period_average"}
        and any("Fee Product must explicitly choose" in x for x in m.get("special_rules",[])))
     ck("manifest distinguishes revenue share from revenue- and throughput-based operating costs",
-       {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","pct_of_revenue","pct_of_revenue_opex","pct_of_throughput_opex"}
+       {x["id"] for x in m.get("cost_kinds",[])}=={"none","per_unit","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex","pct_of_throughput_opex"}
        and any("contra-revenue" in x and "noninterest expense" in x for x in m.get("special_rules",[]))
        and any("transaction volume/throughput" in x for x in m.get("special_rules",[])))
     ck("manifest separates transaction pricing unit from throughput construction",

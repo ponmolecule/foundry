@@ -339,7 +339,7 @@ _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
 _FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
-_FEE_COST_KINDS = {"none", "per_unit", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
+_FEE_COST_KINDS = {"none", "per_unit", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 _FEE_TRANSACTION_PRICING_BASES = {"per_unit", "pct_of_throughput"}
 
@@ -768,6 +768,8 @@ def _validate_fee_stream_shape(stream):
         raise ValueError("fee cost kind 'per_unit' is supported only on transaction basis")
     if ck == "pct_of_throughput_opex" and basis != "transaction":
         raise ValueError("fee cost kind 'pct_of_throughput_opex' is supported only on transaction basis")
+    if ck == "periodic_amount_opex" and basis != "flat":
+        raise ValueError("fee cost kind 'periodic_amount_opex' is supported only on flat basis")
     _cp = cost.get("params") or {}
     # factor_path is the first-class direct-cost path (and remains read-compatible with
     # the short-lived r82 replacement-path contract). multiplier_path is a separate
@@ -777,6 +779,8 @@ def _validate_fee_stream_shape(stream):
     _multiplier_path = _cp.get("multiplier_path")
     if (_factor_path is not None or _multiplier_path is not None) and ck == "none":
         raise ValueError("fee cost path requires an active fee cost kind")
+    if ck == "periodic_amount_opex" and _multiplier_path is not None:
+        raise ValueError("fee periodic product cost uses its amount path directly and cannot use a cost multiplier")
 
     def _validate_cost_path(path, *, multiplier=False):
         fp = dict(path or {})
@@ -797,6 +801,8 @@ def _validate_fee_stream_shape(stream):
         if multiplier:
             if fval < 0.0:
                 raise ValueError("fee cost multiplier value must be nonnegative")
+        elif ck == "periodic_amount_opex" and fval < 0.0:
+            raise ValueError("fee periodic product cost amount must be nonnegative")
         elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and not 0.0 <= fval <= 1.0:
             raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
         if traj == "growth" and not fp.get("growth_spec"):
@@ -812,6 +818,8 @@ def _validate_fee_stream_shape(stream):
             if multiplier:
                 if any(v < 0.0 for v in vals):
                     raise ValueError("fee cost multiplier schedule values must be nonnegative")
+            elif ck == "periodic_amount_opex" and any(v < 0.0 for v in vals):
+                raise ValueError("fee periodic product cost schedule values must be nonnegative")
             elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
                 raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
 
@@ -1009,7 +1017,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     Axis 3 Trajectory:    flat | proportional | ramp_to_target | explicit_schedule | derived
     Axis 4 Rate:          flat | annual_change | scheduled | tiered | durbin_capped | cost_recovery
     Axis 5 Timing:        start_period | end_period | ramp_in_periods
-    Axis 6 Cost:          none | per_unit | pct_of_revenue | pct_of_revenue_opex | pct_of_throughput_opex
+    Axis 6 Cost:          none | per_unit | periodic_amount_opex | pct_of_revenue | pct_of_revenue_opex | pct_of_throughput_opex
 
     ctx supplies: own_balance, managed_notional (rolled AUC), stream_qty (map: name->driver
     quantity of already-evaluated streams, for stream_ref), bank_aggregate (map: e.g.
@@ -1241,6 +1249,9 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     #    network fees). Reported GROSS -> routed to noninterest EXPENSE (fee product costs),
     #    NOT netted against fee income. Netting would misstate Schedule RI (gross fee
     #    income and gross opex are reported separately) and the efficiency ratio.
+    #  - periodic_amount_opex : an independently-authored recurring product-cost amount.
+    #    It is available on Flat revenue streams and routes to fee-product NIE without
+    #    changing the stream's revenue or requiring contra-revenue presentation.
     #  - pct_of_revenue : a CONTRA-REVENUE / revenue share (a cut of THIS fee owed
     #    away). Correctly NETS against the fee, because it reduces the revenue itself.
     #  - pct_of_revenue_opex : an OPERATING expense stated as a percentage of gross
@@ -1267,6 +1278,12 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         unit_cost = base_path_cost * mult
         effective_cost_factor = unit_cost
         opcost = qty * unit_cost   # -> fee-product NIE (gross)
+    elif ck == "periodic_amount_opex" and basis == "flat":
+        # The amount path uses the same Month / Quarter / Year recurring-flow contract
+        # as Flat revenue. Values are authored as positive dollars and periodized once.
+        amount_path = factor_path or {"value": float(cp.get("amount") or 0.0),
+                                      "trajectory": "flat", "period": "year"}
+        opcost = _fee_entered_flow_value(amount_path, q, ppy, ctx)
     elif ck == "pct_of_revenue":
         base_pct = float(cp.get("pct") or 0.0)
         base_path_pct = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_pct)
@@ -1462,8 +1479,9 @@ def _fee_pct_semantics_for_stream(streams, i, quantity_kinds=None):
 def product_fee_streams_q(p, q, ctx, ppy=4):
     """A product's fee_streams for engine period q, as (fee_income, operating_cost) in $.
     Evaluated in dependency order so stream_ref consumers see their source's quantity.
-    operating_cost (per_unit costs) routes to overhead; pct_of_revenue already netted
-    into fee_income. Empty/absent => (0.0, 0.0) (hash-safe)."""
+    operating_cost (per-unit, periodic-amount, or percentage operating costs) routes to
+    overhead; pct_of_revenue is already netted into fee_income. Empty/absent returns
+    (0.0, 0.0) (hash-safe)."""
     streams = p.get("fee_streams") or []
     if not streams:
         return 0.0, 0.0
