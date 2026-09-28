@@ -1488,8 +1488,11 @@ function normalizeCfg(c){
     if(dp && (basis!=="balance" || traj!=="derived")) delete dp.stock_multiplier;
     if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
     if(rp && basis!=="transaction") delete rp.pricing_basis;
+    if(basis==="flat"&&rp&&rp.flat_amount&&rp.flat_amount.trajectory==="explicit_schedule"&&(!rp.flat_amount.schedule||!Object.keys(rp.flat_amount.schedule).length)) rp.flat_amount.schedule={"1":+(rp.flat_amount.value||0)};
     const allowedCosts={balance:["none","pct_of_revenue","pct_of_revenue_opex"],transaction:["none","per_unit","pct_of_throughput_opex","pct_of_revenue","pct_of_revenue_opex"],account:["none","pct_of_revenue","pct_of_revenue_opex"],flat:["none","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex"],event:["none","pct_of_revenue","pct_of_revenue_opex"]};
     if(st.cost && !(allowedCosts[basis]||["none"]).includes(st.cost.kind||"none")) st.cost={kind:"none",params:{}};
+    const fp=st.cost&&st.cost.params&&st.cost.params.factor_path;
+    if(fp&&fp.trajectory==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length)) fp.schedule={"1":+(fp.value||0)};
   }));
   if(c.pre_opening) delete c.pre_opening._pasteOpen;
   const _ta=c.assumptions||{}, _tnd=_ta.nie_detail||{};
@@ -2564,6 +2567,11 @@ function _feeEnsureFlatAmount(i,si){
   rp.flat_amount={value:+(rp.amount_per_period||0),period:per,trajectory:"flat"};
   return rp.flat_amount;
 }
+function _feeFlatAmountTrajectory(i,si,v){
+  const fa=_feeEnsureFlatAmount(i,si);fa.trajectory=v;
+  if(v==="explicit_schedule"&&(!fa.schedule||!Object.keys(fa.schedule).length))fa.schedule={"1":+(fa.value||0)};
+  renderContent();refresh();
+}
 function _feeSetFlatAmountSchedule(i,si,text){
   const vals=_feeParseExplicitValues(text);
   if(!vals.length) return;
@@ -2572,7 +2580,7 @@ function _feeSetFlatAmountSchedule(i,si,text){
   fa.schedule=out; renderContent(); refresh();
 }
 function _feeClearFlatAmountSchedule(i,si){
-  const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; renderContent(); refresh();
+  const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; fa.trajectory="flat"; renderContent(); refresh();
 }
 function _feeEnsureCostFactor(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
@@ -2585,13 +2593,13 @@ function _feeCostFactorSetKind(i,si,v){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};
   if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};}renderContent();refresh();
 }
-function _feeCostFactorTrajectory(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&!fp.schedule)fp.schedule={};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";renderContent();refresh();}
+function _feeCostFactorTrajectory(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length))fp.schedule={"1":+(fp.value||0)};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";renderContent();refresh();}
 function _feeCostFactorPeriod(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeCostFactorResolution(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.resolution=v;if(fp.growth_spec)fp.growth_spec.method=v;renderContent();refresh();}
 function _feeCostFactorValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");fp.value=pct?_pf(v)/100:(st.cost.kind==="periodic_amount_opex"?_pf(v)*1000:_pf(v));refresh();}
 function _feeCostFactorGrowth(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.growth_spec=fp.growth_spec||{period:fp.period||"year",method:fp.resolution||"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};fp.growth_spec.rate=_pf(v)/100;refresh();}
 function _feeSetCostFactorSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si),pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex"),amount=(st.cost.kind==="periodic_amount_opex"),out={};vals.forEach((v,j)=>out[String(j+1)]=pct?v/100:(amount?v*1000:v));fp.schedule=out;renderContent();refresh();}
-function _feeClearCostFactorSchedule(i,si){const fp=_feeEnsureCostFactor(i,si);fp.schedule={};renderContent();refresh();}
+function _feeClearCostFactorSchedule(i,si){const fp=_feeEnsureCostFactor(i,si);fp.schedule={};fp.trajectory="flat";renderContent();refresh();}
 function _feeEnsureCostMultiplier(i,si){
   const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.multiplier_path)return cp.multiplier_path;
@@ -3218,7 +3226,7 @@ function fieldsFor(fam, p, base){
       }
       else if(basis==="flat"){
         const _fa=st.rate.params.flat_amount, _fper=_fa&&_fa.period?_fa.period:(PPY()===12?"month":"quarter"), _fval=_fa?((+_fa.value||0)/1000):((+st.rate.params.amount_per_period||0)/1000), _ftraj=_fa&&_fa.trajectory?_fa.trajectory:"flat";
-        h += `<div class="fld"><label>Amount path</label><select onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.trajectory=this.value;renderContent();refresh()"><option value="flat"${_ftraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ftraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ftraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
+        h += `<div class="fld"><label>Amount path</label><select onchange="_feeFlatAmountTrajectory(${_fi},${si},this.value)"><option value="flat"${_ftraj==="flat"?" selected":""}>Flat</option><option value="growth"${_ftraj==="growth"?" selected":""}>Growth</option><option value="explicit_schedule"${_ftraj==="explicit_schedule"?" selected":""}>Explicit schedule</option></select></div>`;
         h += `<div class="fld"><label>Per</label><select onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.period=this.value;renderContent();refresh()"><option value="month"${_fper==="month"?" selected":""}>Month</option><option value="quarter"${_fper==="quarter"?" selected":""}>Quarter</option><option value="year"${_fper==="year"?" selected":""}>Year</option></select></div>`;
         if(_ftraj==="flat" || _ftraj==="growth") h += `<div class="fld"><label>${_ftraj==="growth"?"Starting amount":"Amount"} ($000s)</label><input type="number" step="0.001" value="${_fval}" onchange="var fa=_feeEnsureFlatAmount(${_fi},${si});fa.value=_pf(this.value)*1000;refresh()"></div>`;
         if(_ftraj==="growth") h += `<div class="fld wide"><label>Amount growth</label>${growthSpecInline(sb+".rate.params.flat_amount.growth_spec",_fa&&_fa.growth_spec,null,false)}</div>`;
