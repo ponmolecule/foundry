@@ -66,6 +66,9 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .flow-reporting{grid-column:1/-1;margin-top:8px;border-top:1px solid #D8DEE8;padding-top:8px}
 .flow-reporting summary{cursor:pointer;color:#485A76;font-size:11px;font-weight:700}
 .flow-reporting .fld{margin-top:8px}
+.flow-advanced{grid-column:1/-1;margin-top:7px;border-top:1px solid #D8DEE8;padding-top:8px}
+.flow-advanced summary{cursor:pointer;color:#485A76;font-size:11px;font-weight:700}
+.flow-advanced-grid{display:grid;grid-template-columns:1fr 1fr;gap:7px 9px;margin-top:8px}
 .flow-inline-actions{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .flow-inline-actions select{flex:1;min-width:140px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
@@ -2931,7 +2934,7 @@ function loanFundedSchedule(i,text){const p=cfg.assumptions.lending_products[i],
 function fieldsFor(fam, p, base){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   const M = (label, key, unit) => F(label, base+".mortgage_banking."+key, unit);
-  let h = "";
+  let h = "", advanced = "";
   if(fam==="lending"){
     const _li=+(base.split(".").pop()),_lbm=_loanBalanceMode(p),_linked=_lbm==="linked_customer_level",_explicit=_lbm==="explicit_level",_funded=_lbm==="funded_flow_level",_level=_explicit||_funded;
     if(_funded)h += '<div class="flow-section-label">Volume &amp; timing</div>';
@@ -2959,12 +2962,13 @@ function fieldsFor(fam, p, base){
         }
         h += '<div class="flow-section-label">Exposure &amp; retention</div>';
         h += F('Exposure term (days)',base+'.term_days','');
-        h += F('Day count',base+'.day_count','');
+        advanced += F('Day count',base+'.day_count','');
         h += F('Reserve share of outstanding (%)',base+'.reserve_share','pct');
         h += F('Target retained share (%)',base+'.target_retention_share','pct');
       }
       const _im=p.interest_balance_measure||'period_average';
-      h += `<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Beginning and ending average</option><option value="period_end"${_im==='period_end'?' selected':''}>Period end</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Period beginning</option></select></div>`;
+      const _interestField=`<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Beginning and ending average</option><option value="period_end"${_im==='period_end'?' selected':''}>Period end</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Period beginning</option></select></div>`;
+      h += _interestField;
       const _groups=(cfg.assumptions||{}).loan_allocation_groups||[],_gid=p.allocation_group_id||'';
       if(_funded)h += '<div class="flow-section-label">Shared capacity</div>';
       h += `<div class="fld wide"><label>Shared balance cap</label><div class="flow-inline-actions"><select onchange="loanAllocationGroupChange(${_li},this.value)"><option value="">None</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select>${_gid?`<button class="loan-remove" title="Remove this product from the shared cap" onclick="removeLoanAllocationGroup(${_li})">× Remove</button>`:`<button class="loan-add-link" onclick="addLoanAllocationGroup(${_li})">+ New cap</button>`}</div></div>`;
@@ -3032,7 +3036,7 @@ function fieldsFor(fam, p, base){
     }
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
     if(p.measurement!=="fair_value"&&p.allowance_mode!=="loss_rate_term") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
-    if(_funded)h += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement',this.value);renderContent();refresh()"><option value="amortized"${p.measurement!=='fair_value'?' selected':''}>Amortized cost</option><option value="fair_value"${p.measurement==='fair_value'?' selected':''}>Fair value</option></select></div>`;
+    if(_funded)advanced += `<div class="fld"><label>Measurement</label><select onchange="setPath('${base}.measurement',this.value);renderContent();refresh()"><option value="amortized"${p.measurement!=='fair_value'?' selected':''}>Amortized cost</option><option value="fair_value"${p.measurement==='fair_value'?' selected':''}>Fair value</option></select></div>`;
     // Originate-to-sell (gain-on-sale, warehouse, MSR, servicing) is a residential
     // MORTGAGE activity — the field shape (MSR cap rate, servicing runoff) only makes
     // sense for 1-4 family loans sold to the secondary market. So the fields, and the
@@ -3052,9 +3056,10 @@ function fieldsFor(fam, p, base){
     } else if(isMortgage){
       h += `<div class="fld wide"><button class="btn-plain" style="font-size:10px;padding:3px 10px" onclick="setPath('${base}.mortgage_banking', {sale_pct_of_orig:0,gain_on_sale_margin:0,warehouse_hold_q:0,servicing_retained_pct:0,servicing_fee_bp_ann:0,msr_cap_rate_pct_upb:0,msr_decay_per_period:0});renderContent();refresh()">+ Enable originate-to-sell (mortgage banking)</button></div>`;
     }
-    h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
-    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
-    if(p.measurement==="fair_value") h += F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct");
+    const costFields=F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct")
+      + F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq")
+      + (p.measurement==="fair_value"?F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct"):"");
+    if(_funded)advanced += costFields;else h += costFields;
   } else if(fam==="deposit"){
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
     h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
@@ -3415,6 +3420,10 @@ function fieldsFor(fam, p, base){
     h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
     h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
   }
+  if(fam==="lending"&&_loanBalanceMode(p)==="funded_flow_level"){
+    const i=+(base.split('.').pop());
+    h += `<details class="flow-advanced" ontoggle="flowAdvancedToggle(${i},this.open)"${_flowAdvancedOpen.get(p)?' open':''}><summary>More settings · day count, accounting &amp; costs</summary><div class="flow-advanced-grid">${advanced}</div></details>`;
+  }
   return h;
 }
 function lineOptionsFor(cat){ return cat==="asset" ? LOAN_KEYS : (cat==="liability" ? DEP_KEYS : ["obs"]); }
@@ -3450,7 +3459,9 @@ function refreshProductStats(){
 }
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();
+const _flowAdvancedOpen = new WeakMap();
 function flowReportingToggle(i,open){const p=(cfg.assumptions.lending_products||[])[i];if(p)_flowReportingOpen.set(p,open);}
+function flowAdvancedToggle(i,open){const p=(cfg.assumptions.lending_products||[])[i];if(p)_flowAdvancedOpen.set(p,open);}
 function flowLegacyFeeToggle(i){const p=(cfg.assumptions.lending_products||[])[i];if(p){const opened=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):(+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0;_flowLegacyFeeOpen.set(p,!opened);renderContent();}}
 function prodCardHtml(fam, i){
   const p = famArr(fam)[i];
@@ -4045,13 +4056,13 @@ function openModal(){
 }
 function addFlowLoanMulti(btn){
   const p={name:'Flow-based lending + fees',call_report_line:'loanOther',balance_mode:'funded_flow_level',
-    opening_balance:0,rate_type:'float',index:'sofr',index_spread:0,yield_ann:0,charge_off_ann:0,
-    fee_yield_ann:0,opex_pct_ann:0,opex_fixed_per_period:0,
+    opening_balance:0,rate_type:'fixed',yield_ann:0,index_spread:0,charge_off_ann:0,
+    fee_yield_ann:0,reserve_rate_pct_bal:0,opex_pct_ann:0,opex_fixed_per_period:0,
     measurement:'amortized',structure:'revolving',
     funded_flow_driver:{source:'entered',input_stage:'source_activity',start_period:1,ramp_periods:1,take_up_share:1,flow_path:{unit_kind:'money_flow',trajectory:'flat',period:_nativeFlowPeriod(),value:0}},
     term_days:0,day_count:365,reserve_share:0,target_retention_share:1,
-    interest_balance_measure:'period_end',charge_off_balance_measure:'period_end',
-    allowance_mode:'loss_rate_term',credit_loss_factor_spec:{source:'entered',trajectory:'flat',value:1},
+    interest_balance_measure:'period_average',charge_off_balance_measure:'period_begin',
+    allowance_mode:'reserve_rate',
     fee_streams:[]};
   cfg.assumptions.lending_products.push(p);
   window._modalAdded=(window._modalAdded||0)+1;
