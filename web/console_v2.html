@@ -57,6 +57,11 @@ header.cover .sub{font-size:12px;color:var(--nmut);margin-top:6px;max-width:960p
 .fee-basis-popover.open{display:block}
 .fee-basis-popover b{display:block;color:#C08A3E;font-size:11px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:3px}
 .fee-stream-block{border-top:2px solid #3E4B61;margin-top:14px;padding-top:10px}
+.loan-add-link{background:none;border:0;padding:2px 3px;color:#C08A3E;font:inherit;font-size:11px;cursor:pointer}
+.loan-add-link:hover{text-decoration:underline}
+.loan-remove{background:none;border:0;color:#A45A5A;font:inherit;font-size:11px;cursor:pointer;padding:2px 4px;margin-left:6px}
+.loan-remove:hover{text-decoration:underline;color:#873D3D}
+.loan-remove:focus-visible,.loan-add-link:focus-visible{outline:2px solid #C08A3E;outline-offset:2px}
 section#content:not(.cover) .ovh3{color:#C08A3E;font-weight:600;letter-spacing:.05em}
 section#content:not(.cover) .accent-label{color:#C08A3E}
 .warnbadge{background:var(--nvy3);border:1px solid var(--nline);border-left:4px solid var(--namber);padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;border-radius:3px;color:var(--ntext)}
@@ -2908,6 +2913,7 @@ function loanBalanceDriverMeasureChange(i,v){const p=((cfg.assumptions||{}).lend
 function loanAllocationGroupChange(i,id){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.allocation_group_id=id||null;if(id&&!p.allocation_target_id)p.allocation_target_id=_seriesId('loan-target');renderContent();refresh();}
 function loanFundedSourceChange(i,source){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.funded_flow_driver=source==='fee_stream_quantity'?{source,series_id:''}:{source:'entered',flow_path:{unit_kind:'money_flow',trajectory:'flat',period:_nativeFlowPeriod(),value:0}};renderContent();refresh();}
 function addLoanAllocationGroup(i){const a=cfg.assumptions||{},groups=a.loan_allocation_groups=a.loan_allocation_groups||[],p=(a.lending_products||[])[i];if(!p)return;let n=groups.length+1,id='loan-cap-'+n;while(groups.some(g=>g.id===id))id='loan-cap-'+(++n);groups.push({id,cap_source:'entered',cap_spec:{source:'entered',trajectory:'flat',value:0}});loanAllocationGroupChange(i,id);}
+function removeLoanAllocationGroup(i){const a=cfg.assumptions||{},p=(a.lending_products||[])[i];if(!p||!p.allocation_group_id)return;const id=p.allocation_group_id;p.allocation_group_id=null;const used=(a.lending_products||[]).some(x=>x.allocation_group_id===id);if(!used)a.loan_allocation_groups=(a.loan_allocation_groups||[]).filter(g=>g.id!==id);renderContent();refresh();}
 function loanAddEconomics(i,basis){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;p.fee_streams=p.fee_streams||[];const name=basis==='balance'?'Distributed servicing':'Funded volume fee',n=p.fee_streams.length+1;p.fee_streams.push(basis==='balance'?{name:name+' '+n,basis:'balance',quantity_series_id:_seriesId('fee-qty'),driver:{source:'distributed_balance',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{rate_path:{value:0,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}}:{name:name+' '+n,basis:'transaction',quantity_series_id:_seriesId('fee-qty'),driver:p.balance_mode==='funded_flow_level'?{source:'product_funded_flow',trajectory:'flat',params:{}}:{source:'constant',trajectory:'flat',params:{flow_path:{unit_kind:'money_flow',value:0,period:_nativeFlowPeriod(),trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'pct_of_throughput',per_unit:0}},cost:{kind:'none',params:{}}});renderContent();refresh();}
 const _loanFlowDraft={};
 function loanFlowTrajectoryChange(i,j,v){const key=i+':'+j,st=cfg.assumptions.lending_products[i].fee_streams[j];if(v==='explicit_schedule'){_loanFlowDraft[key]=true;renderContent();return;}delete _loanFlowDraft[key];st.driver.trajectory=v;st.driver.params.flow_path.trajectory=v;renderContent();refresh();}
@@ -2949,7 +2955,7 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Beginning and ending average</option><option value="period_end"${_im==='period_end'?' selected':''}>Period end</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Period beginning</option></select></div>`;
       const _groups=(cfg.assumptions||{}).loan_allocation_groups||[],_gid=p.allocation_group_id||'';
       h += `<div class="fld"><label>Shared balance cap</label><select onchange="loanAllocationGroupChange(${_li},this.value)"><option value="">None</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select></div>`;
-      h += `<div class="fld"><label>Allocation group</label><button class="btn-plain" onclick="addLoanAllocationGroup(${_li})">+ Add shared cap</button></div>`;
+      h += `<div class="fld"><label>Allocation group</label>${_gid?`<button class="loan-remove" title="Remove this product from the shared cap" onclick="removeLoanAllocationGroup(${_li})">× Remove cap</button>`:`<button class="loan-add-link" onclick="addLoanAllocationGroup(${_li})">+ Add shared cap</button>`}</div>`;
       const _gi=_groups.findIndex(g=>g.id===_gid),_group=_groups[_gi];
       if(_group){const _gp='assumptions.loan_allocation_groups.'+_gi,_cs=_group.cap_source||'entered';
         h += `<div class="fld wide"><label>Cap for ${esc(_gid)}</label><select onchange="setPath('${_gp}.cap_source',this.value);renderContent();refresh()"><option value="entered"${_cs==='entered'?' selected':''}>Entered capacity</option><option value="deposit_book_end"${_cs==='deposit_book_end'?' selected':''}>Ending deposit book × cap ratio</option></select></div>`;
@@ -2977,8 +2983,9 @@ function fieldsFor(fam, p, base){
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     if(_level){
-      h += `<div class="fld wide"><label>Additional lending economics</label><button class="btn-plain" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button> <button class="btn-plain" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div>`;
+      h += `<div class="fld wide"><label>Additional lending economics</label><button class="loan-add-link" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button> <button class="loan-add-link" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div>`;
       (p.fee_streams||[]).forEach((st,j)=>{const sp=base+'.fee_streams.'+j,fp=((st.driver||{}).params||{}).flow_path||{};
+        h += `<div class="fld wide fee-stream-block"><label>${esc(st.name||'Fee stream')} <button class="loan-remove" title="Remove fee stream" onclick="cfg.assumptions.lending_products[${_li}].fee_streams.splice(${j},1);renderContent();refresh()">× Remove</button></label></div>`;
         if(st.driver&&st.driver.source==='distributed_balance'){
           h += `<div class="fld wide"><label>${esc(st.name||'Distributed-balance revenue')} · annual rate</label>${_faSeriesEditor(sp+'.rate.params.rate_path',(st.rate||{}).params&&st.rate.params.rate_path,'Servicing rate','rate',false)}</div>`;
         }else if(st.basis==='transaction'&&st.driver&&st.driver.source==='product_funded_flow'){
@@ -2993,7 +3000,6 @@ function fieldsFor(fam, p, base){
           else h += F('Funded flow ($000s / '+(fp.period||'month')+')',sp+'.driver.params.flow_path.value','k');
           h += F('Fee (% of funded volume)',sp+'.rate.params.per_unit','pct');
         }
-        h += `<div class="fld"><button class="btn-plain" onclick="cfg.assumptions.lending_products[${_li}].fee_streams.splice(${j},1);renderContent();refresh()">Remove ${esc(st.name||'fee')}</button></div>`;
       });
     }
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
@@ -3971,10 +3977,9 @@ function openModal(){
   if(V31){
     window._modalAdded = 0;
     let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
-    mh += '<div class="accent-label">Model by behavior</div><div class="memo" style="margin:0 0 8px">For lending with funded volume, retained balances, and transaction fees, start here.</div>';
-    mh += '<div class="preset-grid"><button class="preset-btn" onclick="addFlowLoanMulti(this)"><span class="pn">Flow-based lending + fees</span><span class="ps">Retained credit, funded-volume fees, optional shared cap</span></button></div>';
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
-      mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
+      mh += `<div class="accent-label">${cn==='Loans'?'Lending':cn}</div><div class="preset-grid">`
+        + (cn==="Loans" ? '<button class="preset-btn" onclick="addFlowLoanMulti(this)"><span class="pn">Flow-based lending + fees</span><span class="ps">Funded volume, retained credit, and optional fees</span></button>' : '')
         + (cn==="Off-Balance-Sheet" ? `<button class="preset-btn" id="pfee_obs" onclick="addFeeProductMulti(this)"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue (custody, trustee, \u2026)</span></button>` : "")
         + TAX31()[cn].map((s,i)=>(s.tpl&&s.tpl._fee_product)?"":`<button class="preset-btn" id="ptax_${cn}_${i}" onclick="addFromTaxonomyMulti('${cn}',${i},this)"><span class="pn">${esc(s.name)}</span><span class="ps">${esc(LINE_LABELS_V31[s.line])}</span></button>`).join("")
         + '</div>';
@@ -6581,7 +6586,7 @@ function renderContent(){
   if(currentTab==="products" && V31){
     let h = "";
     h += '<div class="h2">Products</div>';
-    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. Drag the <b>⋮⋮</b> handle to reorder products within Loans, Deposits, or Off-Balance-Sheet; the saved product order follows the move. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
+    h += '<div class="memo" style="margin:0 0 14px">Build the bank product by product — add what you need rather than removing what you don&rsquo;t. Each product arrives inert (zeros) and contributes nothing until you fill it, so every number on the sheets traces to a value you set. Drag the <b>⋮⋮</b> handle to reorder products within Lending, Deposits, or Off-Balance-Sheet; the saved product order follows the move. With no products yet, initial capital sits in securities and cash \u2014 the balance sheet is alive from the first click.</div>';
     h += '<div class="prod-toolbar" style="display:flex;align-items:center;gap:16px;margin:0 0 14px">';
     h += '<button class="btn-gold" onclick="openModal()">+ Add Product</button>';
     h += ftpToggleHtml();
@@ -6589,11 +6594,11 @@ function renderContent(){
     const secs = [["Loans","lending"],["Deposits","deposit"],["Off-Balance-Sheet","obs"]];
     secs.forEach(([cn,fam])=>{
       const subs = TAX31()[cn] || [];
-      h += `<div class="ovh3">${cn}</div>`;
+      h += `<div class="ovh3">${cn==='Loans'?'Lending':cn}</div>`;
       const cards = allProducts().filter(x=>x.fam===fam);
       h += '<div class="prod-grid">';
       if(cards.length) cards.forEach(x=>{ h += prodCardHtml(x.fam, x.i); });
-      else h += `<div class="memo" style="grid-column:1/-1">No ${cn.toLowerCase()} yet.</div>`;
+      else h += `<div class="memo" style="grid-column:1/-1">No ${cn==='Loans'?'lending products':cn.toLowerCase()} yet.</div>`;
       h += '</div>';
     });
     h += '<div class="ovh3">Securities &amp; Cash</div>';
@@ -7665,7 +7670,7 @@ function renderWizard(){
     let picked = 0, hasDep = false;
     h += '<div class="ovh3">Products</div>';
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
-      h += `<div class="card" style="margin-bottom:10px"><div class="accent-label">${cn}</div>`;
+      h += `<div class="card" style="margin-bottom:10px"><div class="accent-label">${cn==='Loans'?'Lending':cn}</div>`;
       TAX31()[cn].forEach((s,i)=>{
         const on = !!wiz.picks[cn+"|"+i];
         if(on){ picked++; if(cn==="Deposits") hasDep = true; }
