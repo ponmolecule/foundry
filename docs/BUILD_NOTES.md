@@ -312,3 +312,7 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Adds an explicit balance-basis choice for affiliated-bank and operating-cash interest: current period end, prior period end, or the average of prior and current period ends. Existing saved engagements retain current-period-end behavior unless the user changes the setting.
 - The source-model configuration uses prior-period-end balances for both cash components. This removes the M2 timing discontinuity without changing rates, inserting plugs, or tuning unrelated assumptions.
 - FRB stock remains a current-period balance calculation. Its source-model 0.50% monthly return is entered in Foundry as the economically equivalent 6.00% annual yield.
+## r193 — shared-cap editor contrast
+
+- The shared cap is one allocation-group object referenced by each participating lending product. Editing its source or capacity from either card updates the same group.
+- On white lending cards, the reusable Series editor now has a light background and legible labels, schedule summary, preview, buttons, and paste area. Dark securities and other dark-surface editors retain their existing theme. This is a presentation-only change.

@@ -170,6 +170,24 @@ table.dtab tr:hover td{background:rgba(223,168,90,.04)}
 .sec-managed-explicit-summary{color:#9CA7B7;font-size:9.5px;overflow-wrap:anywhere;min-width:0}
 .sec-managed-explicit-edit{flex:0 0 auto}
 .sec-managed-explicit textarea{width:100%;box-sizing:border-box;margin-top:5px;background:#0E1626;color:#DDE5F1;border:1px solid #33436199;border-radius:5px;padding:5px;font:10px var(--mono);resize:vertical}
+/* The shared Series editor also appears in white lending product cards. */
+.product-card[data-product-family="lending"] .sec-managed-series{background:#F3F6FA;border:1px solid #D8E0EB}
+.product-card[data-product-family="lending"] .sec-book-label,
+.product-card[data-product-family="lending"] .sec-book-unit,
+.product-card[data-product-family="lending"] .sec-managed-explicit-summary{color:#485A76}
+.product-card[data-product-family="lending"] .sec-managed-explicit textarea{background:#FFFFFF;color:#1C2128;border-color:#B9C2D2}
+.product-card[data-product-family="lending"] .sec-managed-explicit textarea::placeholder{color:#78869A}
+.product-card[data-product-family="lending"] .sec-managed-series .pillbtn{color:#485A76;border-color:#AAB7C9}
+.product-card[data-product-family="lending"] .sec-managed-series .pillbtn:hover{color:#9D6B25;border-color:#C08A3E}
+.product-card[data-product-family="lending"] .sec-managed-series .pillbtn:disabled{color:#758296;border-color:#B9C2D2;opacity:.65}
+.product-card[data-product-family="lending"] .sec-managed-series .pillbtn.series-load-ready{color:#835915;border-color:#C08A3E;background:#FFF7E9}
+.product-card[data-product-family="lending"] .sec-managed-series .pillbtn[onclick^="faSeriesClear"]{color:#A45A5A}
+.product-card[data-product-family="lending"] .explicit-preview,
+.product-card[data-product-family="lending"] .explicit-preview-count,
+.product-card[data-product-family="lending"] .explicit-preview-toggle,
+.product-card[data-product-family="lending"] .explicit-preview-value{color:#485A76}
+.product-card[data-product-family="lending"] .explicit-preview-period{color:#65758B}
+.product-card[data-product-family="lending"] .explicit-preview-grid{background:#FFFFFF;border-color:#D8E0EB}
 @media(max-width:1180px){.sec-managed-grid{grid-template-columns:minmax(0,1fr)}}
 .cfgwrap .cu{font-size:11px;color:#9CA7B7;letter-spacing:.01em}
 .cfgwrap .cx{width:24px;height:24px;border-radius:50%;display:inline-flex;align-items:center;
