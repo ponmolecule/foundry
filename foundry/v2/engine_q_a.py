@@ -1610,6 +1610,11 @@ def run_pf_a(cfg):
                 if _lb["source"] in {"entered", "funded_flow"}:
                     _pr["balanceDriver"] = {"source": _lb["source"]}
                     if _lb["source"] == "funded_flow":
+                        _pr["fundedInputStage"] = _lb["input_stage"]
+                        _pr["fundedStartPeriod"] = _lb["start_period"]
+                        _pr["fundedRampPeriods"] = _lb["ramp_periods"]
+                        _pr["fundedTakeUpShare"] = _lb["take_up_share"]
+                        _pr["fundedInputVolume"] = list(_lb["source_activity"])
                         _pr["fundedVolume"] = list(_lb["funded_volume"])
                         _pr["calculatedOutstanding"] = list(_lb["outstanding"])
                     _pr["linkedBalanceTarget"] = list(_lb["ending_balance"])

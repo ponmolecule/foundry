@@ -15,6 +15,33 @@ Deposit or Fee Product. A linked source must already exist and resolve to the
 complete model horizon. Entered Explicit schedules must cover every source
 period in the horizon. A loan's own fee streams cannot be its upstream driver.
 
+The optional driver fields `input_stage`, `start_period`, `ramp_periods`, and
+`take_up_share` distinguish upstream activity from final funded volume.
+Start and ramp are positive whole numbers in the model's native cadence; take-up
+is a share in `[0, 1]`. The new UI template starts with `source_activity`.
+Absent fields on saved older models mean `funded_volume`, start 1, ramp 1,
+and take-up 100%, preserving r178/r181 behavior.
+
+For `source_activity`, an entered or linked monetary flow remains intact as
+input. Its downstream funded amount in native model period `t` is:
+
+```
+factor[t] = 0                                    if t < start_period
+          = min(1, (t-start_period+1)/ramp_periods) otherwise
+funded_volume[t] = source_activity[t] * take_up_share * factor[t]
+```
+
+Thus a six-period ramp has factors 1/6 through 6/6. For `funded_volume`, the
+values are already post take-up/ramp; neither is applied twice. Nonzero final
+funded volume before `start_period` fails with the conflicting model period.
+Invalid timing or shares also fail. A linked flow stays available to other
+products regardless of this product's launch. Switching stages does not
+silently erase a saved explicit schedule.
+
+Timing operates at the model cadence. An entered monthly source in a quarterly
+model first aggregates to quarterly volume, then takes the quarter's ramp
+factor; monthly intra-quarter activation requires a monthly model.
+
 For engine period `t`, the closed equation is:
 
 ```
@@ -72,7 +99,9 @@ factor, interest basis, charges, allowance, and fee-stream pricing lineage.
     "name": "Facility A", "allocation_group_id": "shared-cap",
     "allocation_target_id": "facility-a-retained-target",
     "balance_mode": "funded_flow_level", "structure": "revolving",
-    "funded_flow_driver": {"source": "entered", "flow_path": {
+    "funded_flow_driver": {"source": "entered", "input_stage": "source_activity",
+      "start_period": 1, "ramp_periods": 6, "take_up_share": 0.2,
+      "flow_path": {
       "unit_kind": "money_flow", "trajectory": "flat", "period": "month", "value": 1000000}},
     "term_days": 30, "day_count": 365, "reserve_share": 0.01,
     "target_retention_share": 1, "interest_balance_measure": "period_end",

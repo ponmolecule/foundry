@@ -563,7 +563,7 @@ def run_v2(cfg):
     _detail_money_keys = (
         "bal", "origq", "soldOrig", "whCarry", "gos", "servUPB", "msrCap",
         "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
-        "fv", "fvAdj", "fees", "opex", "passCost", "fundedVolume",
+        "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume",
         "calculatedOutstanding", "targetBeforeAllocation", "distributedBalance",
         "interestBasis", "linkedBalanceTarget",
     )
