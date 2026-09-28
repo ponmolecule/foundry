@@ -2878,10 +2878,10 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
   return _explicitPreviewHtml(vals,fmt,cadence||'year',labels);
 }
 
-function _loanBalanceMode(p){return String((p||{}).balance_mode||"rollforward")==="linked_customer_level"?"linked_customer_level":"rollforward";}
+function _loanBalanceMode(p){const mode=String((p||{}).balance_mode||"rollforward");return ["linked_customer_level","explicit_level","funded_flow_level"].includes(mode)?mode:"rollforward";}
 function loanBalanceModeChange(i,v){
   const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;
-  p.balance_mode=(v==="linked_customer_level"?"linked_customer_level":"rollforward");
+  p.balance_mode=(["linked_customer_level","explicit_level","funded_flow_level"].includes(v)?v:"rollforward");
   if(p.balance_mode==="linked_customer_level"){
     const opts=_feeCustomerCountOptions(),d=p.balance_driver&&typeof p.balance_driver==="object"?p.balance_driver:{};
     d.source="customer_acquisition_count";d.series_id=opts.some(o=>o.series_id===String(d.series_id||""))?String(d.series_id):((opts[0]||{}).series_id||"");
@@ -2889,20 +2889,74 @@ function loanBalanceModeChange(i,v){
     d.average_balance_per_customer_spec=d.average_balance_per_customer_spec||{source:"entered",trajectory:"flat",value:0};p.balance_driver=d;
     p.structure="revolving";p.mortgage_banking=null;p.originate_to_sell=null;
   }
+  if(p.balance_mode==="explicit_level"){
+    p.ending_balance_spec=p.ending_balance_spec||{source:"entered",trajectory:"flat",value:0};
+    p.interest_balance_measure=p.interest_balance_measure||"period_average";
+    p.structure="revolving";p.mortgage_banking=null;p.originate_to_sell=null;
+  }
+  if(p.balance_mode==="funded_flow_level"){
+    p.funded_flow_driver=p.funded_flow_driver||{source:'entered',flow_path:{unit_kind:'money_flow',trajectory:'flat',period:_nativeFlowPeriod(),value:0}};
+    p.term_days=p.term_days==null?0:p.term_days;p.day_count=p.day_count||365;
+    p.reserve_share=p.reserve_share||0;p.target_retention_share=p.target_retention_share==null?1:p.target_retention_share;
+    p.interest_balance_measure=p.interest_balance_measure||'period_end';
+    p.structure='revolving';p.mortgage_banking=null;p.originate_to_sell=null;
+  }
   renderContent();refresh();
 }
 function loanBalanceDriverSourceChange(i,v){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;const opts=_feeCustomerCountOptions(),sid=String(v||"");p.balance_driver=p.balance_driver||{};p.balance_driver.source="customer_acquisition_count";p.balance_driver.series_id=opts.some(o=>o.series_id===sid)?sid:"";renderContent();refresh();}
 function loanBalanceDriverMeasureChange(i,v){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.balance_driver=p.balance_driver||{};p.balance_driver.measure=(v==="period_average"?"period_average":"period_end");renderContent();refresh();}
+function loanAllocationGroupChange(i,id){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.allocation_group_id=id||null;if(id&&!p.allocation_target_id)p.allocation_target_id=_seriesId('loan-target');renderContent();refresh();}
+function loanFundedSourceChange(i,source){const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;p.funded_flow_driver=source==='fee_stream_quantity'?{source,series_id:''}:{source:'entered',flow_path:{unit_kind:'money_flow',trajectory:'flat',period:_nativeFlowPeriod(),value:0}};renderContent();refresh();}
+function addLoanAllocationGroup(i){const a=cfg.assumptions||{},groups=a.loan_allocation_groups=a.loan_allocation_groups||[],p=(a.lending_products||[])[i];if(!p)return;let n=groups.length+1,id='loan-cap-'+n;while(groups.some(g=>g.id===id))id='loan-cap-'+(++n);groups.push({id,cap_source:'entered',cap_spec:{source:'entered',trajectory:'flat',value:0}});loanAllocationGroupChange(i,id);}
+function loanAddEconomics(i,basis){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;p.fee_streams=p.fee_streams||[];const name=basis==='balance'?'Distributed servicing':'Funded volume fee',n=p.fee_streams.length+1;p.fee_streams.push(basis==='balance'?{name:name+' '+n,basis:'balance',quantity_series_id:_seriesId('fee-qty'),driver:{source:'distributed_balance',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{rate_path:{value:0,trajectory:'flat',period:'year'}}},cost:{kind:'none',params:{}}}:{name:name+' '+n,basis:'transaction',quantity_series_id:_seriesId('fee-qty'),driver:p.balance_mode==='funded_flow_level'?{source:'product_funded_flow',trajectory:'flat',params:{}}:{source:'constant',trajectory:'flat',params:{flow_path:{unit_kind:'money_flow',value:0,period:_nativeFlowPeriod(),trajectory:'flat'}}},rate:{behavior:'flat',params:{pricing_basis:'pct_of_throughput',per_unit:0}},cost:{kind:'none',params:{}}});renderContent();refresh();}
+const _loanFlowDraft={};
+function loanFlowTrajectoryChange(i,j,v){const key=i+':'+j,st=cfg.assumptions.lending_products[i].fee_streams[j];if(v==='explicit_schedule'){_loanFlowDraft[key]=true;renderContent();return;}delete _loanFlowDraft[key];st.driver.trajectory=v;st.driver.params.flow_path.trajectory=v;renderContent();refresh();}
+function loanFundedTrajectoryChange(i,v){const fp=cfg.assumptions.lending_products[i].funded_flow_driver.flow_path;if(v==='explicit_schedule'){_loanFlowDraft['funded:'+i]=true;renderContent();return;}delete _loanFlowDraft['funded:'+i];fp.trajectory=v;if(v==='growth'&&!fp.growth_spec)fp.growth_spec={rate:0,period:'year',method:'step',anchor:'model_year'};renderContent();refresh();}
+function loanFlowSchedule(i,j,text){const st=cfg.assumptions.lending_products[i].fee_streams[j],fp=st.driver.params.flow_path,values=_seriesExplicitValues(text);if(values.length<_seriesSourcePeriods(fp.period)){alert('Complete the '+_seriesSourcePeriods(fp.period)+' '+fp.period+' values before loading this schedule. The saved flow is unchanged.');return;}fp.schedule={};values.forEach((v,k)=>fp.schedule[String(k+1)]=v*1000);fp.value=0;fp.trajectory='explicit_schedule';st.driver.trajectory='explicit_schedule';delete _loanFlowDraft[i+':'+j];renderContent();refresh();}
+function loanFundedSchedule(i,text){const p=cfg.assumptions.lending_products[i],fp=p.funded_flow_driver.flow_path,values=_seriesExplicitValues(text);if(values.length<_seriesSourcePeriods(fp.period)){alert('Complete the '+_seriesSourcePeriods(fp.period)+' '+fp.period+' values before loading this schedule. The saved flow is unchanged.');return;}fp.schedule={};values.forEach((v,k)=>fp.schedule[String(k+1)]=v*1000);fp.value=0;fp.trajectory='explicit_schedule';delete _loanFlowDraft['funded:'+i];renderContent();refresh();}
 
 function fieldsFor(fam, p, base){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   const M = (label, key, unit) => F(label, base+".mortgage_banking."+key, unit);
   let h = "";
   if(fam==="lending"){
-    const _li=+(base.split(".").pop()),_lbm=_loanBalanceMode(p),_linked=_lbm==="linked_customer_level";
-    h += `<div class="fld wide"><label>Balance authoring</label><select onchange="loanBalanceModeChange(${_li},this.value)"><option value="rollforward"${!_linked?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_linked?' selected':''}>MAB Series × average lending / MAB</option></select></div>`;
+    const _li=+(base.split(".").pop()),_lbm=_loanBalanceMode(p),_linked=_lbm==="linked_customer_level",_explicit=_lbm==="explicit_level",_funded=_lbm==="funded_flow_level",_level=_explicit||_funded;
+    h += `<div class="fld wide"><label>Balance authoring</label><select onchange="loanBalanceModeChange(${_li},this.value)"><option value="rollforward"${_lbm==='rollforward'?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_linked?' selected':''}>MAB Series × average lending / MAB</option><option value="explicit_level"${_explicit?' selected':''}>Entered target balance</option><option value="funded_flow_level"${_funded?' selected':''}>Funded flow × exposure term</option></select></div>`;
     h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    if(!_linked){
+    if(_level){
+      if(_explicit)h += `<div class="fld wide">${_faSeriesEditor(base+'.ending_balance_spec',p.ending_balance_spec,'Target ending balance','money',false)}</div>`;
+      if(_funded){const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},_up=[];
+        ['deposit_products','obs_exposures'].forEach(key=>((cfg.assumptions||{})[key]||[]).forEach(prod=>(prod.fee_streams||[]).forEach(st=>{if(st.basis==='transaction'&&st.quantity_series_id&&((st.driver||{}).source==='constant')&&(((((st.driver||{}).params||{}).flow_path||{}).unit_kind)==='money_flow'))_up.push({id:st.quantity_series_id,label:(prod.name||key)+' · '+(st.name||'flow')});})));
+        h += `<div class="fld"><label>Funded volume source</label><select onchange="loanFundedSourceChange(${_li},this.value)"><option value="entered"${fd.source==='entered'?' selected':''}>Enter flow</option><option value="fee_stream_quantity"${fd.source==='fee_stream_quantity'?' selected':''}>Link upstream flow</option></select></div>`;
+        if(fd.source==='fee_stream_quantity')h += `<div class="fld wide"><label>Upstream monetary flow Series</label><select onchange="setPath('${base}.funded_flow_driver.series_id',this.value);refresh()"><option value="">Select a flow</option>${_up.map(x=>`<option value="${esc(x.id)}"${fd.series_id===x.id?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="fhint">The engine checks monetary units and resolves this Series before loan balances.</span></div>`;
+        else {const _fp=base+'.funded_flow_driver.flow_path';
+          h += `<div class="fld"><label>Flow period</label><select onchange="setPath('${_fp}.period',this.value);refresh()">${['month','quarter','year'].map(per=>`<option value="${per}"${fp.period===per?' selected':''}>${per}</option>`).join('')}</select></div>`;
+          const _ftr=_loanFlowDraft['funded:'+_li]?'explicit_schedule':(fp.trajectory||'flat');
+          h += `<div class="fld"><label>Flow trajectory</label><select onchange="loanFundedTrajectoryChange(${_li},this.value)">${['flat','growth','explicit_schedule'].map(tr=>`<option value="${tr}"${_ftr===tr?' selected':''}>${tr==='explicit_schedule'?'Explicit':tr}</option>`).join('')}</select></div>`;
+          if(_ftr==='explicit_schedule')h += `<div class="fld wide"><label>Funded flow ($000s per ${esc(fp.period||'month')}); paste values</label><textarea rows="3" placeholder="Paste ordered values" onchange="loanFundedSchedule(${_li},this.value)"></textarea><span class="fhint">${Object.keys(fp.schedule||{}).length} periods loaded</span></div>`;
+          else h += F('Funded volume ($000s / '+(fp.period||'month')+')',_fp+'.value','k');
+          if(_ftr==='growth')h += `<div class="fld wide">${growthSpecInline(_fp+'.growth_spec',fp.growth_spec,0,false,true)}</div>`;
+        }
+        h += F('Exposure term (days)',base+'.term_days','');
+        h += F('Day count',base+'.day_count','');
+        h += F('Reserve share of outstanding (%)',base+'.reserve_share','pct');
+        h += F('Target retained share (%)',base+'.target_retention_share','pct');
+        h += `<div class="fld"><label>Charge-off balance</label><select onchange="setPath('${base}.charge_off_balance_measure',this.value);refresh()"><option value="period_begin"${p.charge_off_balance_measure!=='period_end'?' selected':''}>Beginning</option><option value="period_end"${p.charge_off_balance_measure==='period_end'?' selected':''}>Retained period end</option></select></div>`;
+        h += `<div class="fld"><label>Allowance method</label><select onchange="setPath('${base}.allowance_mode',this.value);renderContent();refresh()"><option value="reserve_rate"${p.allowance_mode!=='loss_rate_term'?' selected':''}>Reserve % of balance</option><option value="loss_rate_term"${p.allowance_mode==='loss_rate_term'?' selected':''}>Annual loss × exposure term</option></select></div>`;
+        if(p.allowance_mode==='loss_rate_term')h += `<div class="fld wide">${_faSeriesEditor(base+'.credit_loss_factor_spec',p.credit_loss_factor_spec||{source:'entered',trajectory:'flat',value:1},'Credit loss factor','multiple',false)}</div>`;
+      }
+      const _im=p.interest_balance_measure||'period_average';
+      h += `<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()"><option value="period_average"${_im==='period_average'?' selected':''}>Beginning and ending average</option><option value="period_end"${_im==='period_end'?' selected':''}>Period end</option><option value="period_begin"${_im==='period_begin'?' selected':''}>Period beginning</option></select></div>`;
+      const _groups=(cfg.assumptions||{}).loan_allocation_groups||[],_gid=p.allocation_group_id||'';
+      h += `<div class="fld"><label>Shared balance cap</label><select onchange="loanAllocationGroupChange(${_li},this.value)"><option value="">None</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select></div>`;
+      h += `<div class="fld"><label>Allocation group</label><button class="btn-plain" onclick="addLoanAllocationGroup(${_li})">+ Add shared cap</button></div>`;
+      const _gi=_groups.findIndex(g=>g.id===_gid),_group=_groups[_gi];
+      if(_group){const _gp='assumptions.loan_allocation_groups.'+_gi,_cs=_group.cap_source||'entered';
+        h += `<div class="fld wide"><label>Cap for ${esc(_gid)}</label><select onchange="setPath('${_gp}.cap_source',this.value);renderContent();refresh()"><option value="entered"${_cs==='entered'?' selected':''}>Entered capacity</option><option value="deposit_book_end"${_cs==='deposit_book_end'?' selected':''}>Ending deposit book × cap ratio</option></select></div>`;
+        if(_cs==='entered')h += `<div class="fld wide">${_faSeriesEditor(_gp+'.cap_spec',_group.cap_spec,'Shared capacity','money',false)}</div>`;
+        else h += `<div class="fld"><label>Cap ratio (% of ending deposits)</label>${numInput(_gp+'.cap_ratio','pct')}</div>`;
+      }
+    }else if(!_linked){
       h += F(`New originations ($000s/${PLAB()})`, base+".originations_per_period", "k");
       h += F(`Origination growth (%/${PLAB()})`, base+".orig_growth_per_period", "pct");
       h += F(`Runoff / prepayment (%/${PLAB()})`, base+".runoff_per_period", "pct");
@@ -2922,15 +2976,35 @@ function fieldsFor(fam, p, base){
     }
     else h += F("Yield (annual %)", base+".yield_ann", "pct");
     h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
+    if(_level){
+      h += `<div class="fld wide"><label>Additional lending economics</label><button class="btn-plain" onclick="loanAddEconomics(${_li},'transaction')">+ Fee on funded flow</button> <button class="btn-plain" onclick="loanAddEconomics(${_li},'balance')">+ Fee on distributed balance</button></div>`;
+      (p.fee_streams||[]).forEach((st,j)=>{const sp=base+'.fee_streams.'+j,fp=((st.driver||{}).params||{}).flow_path||{};
+        if(st.driver&&st.driver.source==='distributed_balance'){
+          h += `<div class="fld wide"><label>${esc(st.name||'Distributed-balance revenue')} · annual rate</label>${_faSeriesEditor(sp+'.rate.params.rate_path',(st.rate||{}).params&&st.rate.params.rate_path,'Servicing rate','rate',false)}</div>`;
+        }else if(st.basis==='transaction'&&st.driver&&st.driver.source==='product_funded_flow'){
+          h += `<div class="fld wide"><label>${esc(st.name||'Funded-volume fee')}</label><span class="fhint">Prices this loan's funded-volume Series.</span></div>`;
+          h += F('Fee (% of funded volume)',sp+'.rate.params.per_unit','pct');
+        }else if(st.basis==='transaction'&&fp.unit_kind==='money_flow'){
+          h += `<div class="fld wide"><label>${esc(st.name||'Funded-volume fee')}</label><span class="fhint">Entered monetary flow; fee is a percentage of the period's funded amount.</span></div>`;
+          h += `<div class="fld"><label>Flow period</label><select onchange="setPath('${sp}.driver.params.flow_path.period',this.value);refresh()">${['month','quarter','year'].map(per=>`<option value="${per}"${fp.period===per?' selected':''}>${per}</option>`).join('')}</select></div>`;
+          const _ftr=_loanFlowDraft[_li+':'+j]?'explicit_schedule':(fp.trajectory||'flat');
+          h += `<div class="fld"><label>Flow schedule</label><select onchange="loanFlowTrajectoryChange(${_li},${j},this.value)"><option value="flat"${_ftr==='flat'?' selected':''}>Flat</option><option value="explicit_schedule"${_ftr==='explicit_schedule'?' selected':''}>Explicit</option></select></div>`;
+          if(_ftr==='explicit_schedule')h += `<div class="fld wide"><label>Funded flow ($000s per ${esc(fp.period||'month')}); paste values</label><textarea rows="3" placeholder="Paste ordered values" onchange="loanFlowSchedule(${_li},${j},this.value)"></textarea><span class="fhint">${Object.keys(fp.schedule||{}).length} periods loaded</span></div>`;
+          else h += F('Funded flow ($000s / '+(fp.period||'month')+')',sp+'.driver.params.flow_path.value','k');
+          h += F('Fee (% of funded volume)',sp+'.rate.params.per_unit','pct');
+        }
+        h += `<div class="fld"><button class="btn-plain" onclick="cfg.assumptions.lending_products[${_li}].fee_streams.splice(${j},1);renderContent();refresh()">Remove ${esc(st.name||'fee')}</button></div>`;
+      });
+    }
     h += F("Charge-offs (annual %)", base+".charge_off_ann", "pct");
-    if(p.measurement!=="fair_value") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
+    if(p.measurement!=="fair_value"&&p.allowance_mode!=="loss_rate_term") h += F("ALLL reserve (% of bal)", base+".reserve_rate_pct_bal", "pct");
     // Originate-to-sell (gain-on-sale, warehouse, MSR, servicing) is a residential
     // MORTGAGE activity — the field shape (MSR cap rate, servicing runoff) only makes
     // sense for 1-4 family loans sold to the secondary market. So the fields, and the
     // enable option, appear ONLY for mortgage products (loanMortgage). Other loan
     // types get nothing — no fields, no button — because it isn't a meaningful option
     // for them, and that also prevents a stray keystroke minting a partial block.
-    const isMortgage = p.call_report_line === "loanMortgage" && !_linked;
+    const isMortgage = p.call_report_line === "loanMortgage" && !_linked && !_level;
     if(p.mortgage_banking){
       h += M("Originations sold (%)", "sale_pct_of_orig", "pct");
       h += M("Gain-on-sale margin (%)", "gain_on_sale_margin", "pct");
@@ -3378,7 +3452,7 @@ function prodCardHtml(fam, i){
         `<option value="effr"${_idx==="effr"?" selected":""}>EFFR (Fed Funds)</option>`+
         `<option value="prime"${_idx==="prime"?" selected":""}>Prime</option></select></div>`;
     }
-    if(fam==="lending" && _loanBalanceMode(p)!=="linked_customer_level"){
+    if(fam==="lending" && _loanBalanceMode(p)==="rollforward"){
       // Structure selector (revolving | term). Mirrors the rate_type conditional: choosing 'term'
       // triggers the maturity field; 'revolving' triggers none (runoff_per_period handles paydown). Credit
       // Card is revolving-only; CRE is term-only — those lock. Both structure and term_q are stored
@@ -6912,7 +6986,12 @@ function renderContent(){
       if(p.family!=="obs" && p.rateQ) h += rowPct('Effective rate (annual)', p.rateQ);
       h += rowBSProduct(`End-of-${PLAB('full')} balance`, arr12(productDetailSeries(p, "bal"), false));
       if(p.family==="lending"){
-        if(some(productDetailSeries(p, 'origq'))) h += rowBSProduct(p.balanceMode==='linked_customer_level'?'Implied production / (paydown)':'New originations', productDetailSeries(p, 'origq'));
+        if(p.fundedVolume)h += rowBSProduct('Funded volume (period flow)',productDetailSeries(p,'fundedVolume'));
+        if(p.calculatedOutstanding)h += rowBSProduct('Calculated outstanding before retention',productDetailSeries(p,'calculatedOutstanding'));
+        if(p.targetBeforeAllocation)h += rowBSProduct('Target retained before shared cap',productDetailSeries(p,'targetBeforeAllocation'));
+        if(p.distributedBalance)h += rowBSProduct('Distributed balance',productDetailSeries(p,'distributedBalance'));
+        if(p.interestBasis)h += rowBSProduct('Interest basis ('+esc(p.interestBalanceMeasure||'period average')+')',productDetailSeries(p,'interestBasis'));
+        if(some(productDetailSeries(p, 'origq'))) h += rowBSProduct(p.balanceMode&&p.balanceMode!=='rollforward'?'Implied production / (paydown)':'New originations', productDetailSeries(p, 'origq'));
         if(p.sale_pct > 0){
           h += rowBSProduct('Originations sold', productDetailSeries(p, 'soldOrig'));
           h += rowBSProduct('Warehouse balance (HFS)', productDetailSeries(p, 'whCarry'));
@@ -6926,8 +7005,8 @@ function renderContent(){
           h += rowBSProduct('Net servicing income', productDetailSeries(p, 'servNet'));
         }
         h += rowBSProduct('Interest income', productDetailSeries(p, 'intInc'));
-        h += rowBSProduct('Net charge-offs', productDetailSeries(p, 'co'));
-        if(!p.is_fv && p.alll) h += rowBSProduct('ALLL', productDetailSeries(p, 'alll'));
+        h += rowBSProduct('Net charge-offs'+(p.chargeOffBalanceMeasure?' ('+esc(p.chargeOffBalanceMeasure)+')':''), productDetailSeries(p, 'co'));
+        if(!p.is_fv && p.alll) h += rowBSProduct('ALLL'+(p.allowanceMode?' ('+esc(p.allowanceMode)+')':''), productDetailSeries(p, 'alll'));
       }
       if(p.family==="deposit") h += rowBSProduct('Interest expense', productDetailSeries(p, 'intExp'));
       if(p.is_fv){

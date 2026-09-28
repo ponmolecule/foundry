@@ -336,7 +336,7 @@ def _apply_tiers(tiers, base_qty):
 
 
 _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
-_FEE_SOURCES = {"constant", "own_balance", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
+_FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
 _FEE_COST_KINDS = {"none", "per_unit", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
@@ -748,6 +748,10 @@ def _validate_fee_stream_shape(stream):
             raise ValueError("fee cost_pool source requires driver.ref")
         if rb != "cost_recovery":
             raise ValueError("fee cost_pool source requires rate.behavior='cost_recovery'")
+    if src == "distributed_balance" and (basis != "balance" or traj != "flat"):
+        raise ValueError("distributed_balance fee source requires balance basis and flat driver")
+    if src == "product_funded_flow" and (basis != "transaction" or traj != "flat"):
+        raise ValueError("product_funded_flow fee source requires transaction basis and flat driver")
     if src == "customer_acquisition_count":
         if basis != "account":
             raise ValueError("fee customer_acquisition_count source is supported only on account basis")
@@ -1063,6 +1067,14 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     def _source_base():
         if src == "own_balance":
             return float((ctx or {}).get("own_balance") or 0.0)
+        if src == "distributed_balance":
+            if "distributed_balance" not in (ctx or {}):
+                raise ValueError("distributed balance is unavailable for this product")
+            return float(ctx["distributed_balance"] or 0.0)
+        if src == "product_funded_flow":
+            if "product_funded_flow" not in (ctx or {}):
+                raise ValueError("funded flow is unavailable for this product")
+            return float(ctx["product_funded_flow"] or 0.0)
         if src == "managed_notional":
             return float((ctx or {}).get("managed_notional") or 0.0)
         if src == "stream_ref":
@@ -1427,7 +1439,7 @@ def _fee_stream_quantity_kinds(streams):
                 kind = "money"
             else:
                 src = str(drv.get("source") or "constant").strip().lower()
-                if src in {"own_balance", "managed_notional", "bank_aggregate", "cost_pool"}:
+                if src in {"own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "bank_aggregate", "cost_pool"}:
                     kind = "money"
                 elif src == "customer_acquisition_count":
                     kind = "count"

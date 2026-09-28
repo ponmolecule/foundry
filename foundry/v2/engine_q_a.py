@@ -464,15 +464,6 @@ def run_pf_a(cfg):
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
     _ibm = None
 
-    # Loans may opt into a target level owned by Customer Acquisition rather than
-    # independently recreating the same MAB/customer trajectory through originations.
-    # The loan still owns the on-book balance and every downstream banking consequence.
-    from .loan_balance import resolve_linked_loan_balance
-    for _loan in lend:
-        _loan["_linked_balance"] = resolve_linked_loan_balance(
-            _loan, a, _cac_customer_count_series, Q, ppy,
-            growth_context=_growth_ctx)
-
     def _cost_pool_ctx(period):
         qi = int(period) - 1
         return {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()}
@@ -636,6 +627,62 @@ def run_pf_a(cfg):
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
 
+    # Loans may opt into a target level owned by Customer Acquisition rather than
+    # independently recreating the same MAB/customer trajectory through originations.
+    # The loan still owns the on-book balance and every downstream banking consequence.
+    from .loan_balance import resolve_linked_loan_balance
+    for _loan in lend:
+        _loan["_linked_balance"] = resolve_linked_loan_balance(
+            _loan, a, _cac_customer_count_series, Q, ppy,
+            growth_context=_growth_ctx,
+            fee_stream_quantities=_fee_stream_qty_series)
+        if _loan.get("credit_loss_factor_spec") is not None:
+            from .series import resolve_entered_series as _resolve_loss_factor
+            _loan["_credit_loss_factor"] = _resolve_loss_factor(
+                _loan["credit_loss_factor_spec"], Q, ppy, context=_growth_ctx)
+            if any(float(v) < 0 for v in _loan["_credit_loss_factor"]):
+                raise ValueError("credit loss factor must be nonnegative")
+
+    # Allocate independently-authored loan level targets after deposit books have
+    # resolved. A group references either an entered capacity or the pre-credit
+    # deposit balance; this ordering prevents a loan/deposit funding feedback loop.
+    _allocation_audit = {}
+    from .loan_allocation import allocate_loan_levels
+    from .series import resolve_entered_series
+    for _group in (a.get("loan_allocation_groups") or []):
+        _gid = str(_group.get("id") or "").strip()
+        _members = [p for p in lend if p.get("allocation_group_id") == _gid]
+        if not _gid or not _members:
+            raise ValueError("loan allocation group needs an id and at least one member")
+        _targets = {}
+        for _member in _members:
+            _level = _member.get("_linked_balance")
+            if _level is None:
+                raise ValueError("loan allocation member requires a resolved level balance")
+            _key = str(_member.get("allocation_target_id") or "").strip()
+            if not _key or _key in _targets:
+                raise ValueError("loan allocation targets require distinct stable allocation_target_id values")
+            _targets[_key] = list(_level["ending_balance"])
+        _cap_source = _group.get("cap_source")
+        if _cap_source == "entered":
+            _capacity = resolve_entered_series(_group.get("cap_spec"), Q, ppy,
+                                                context=_growth_ctx)
+        elif _cap_source == "deposit_book_end":
+            _ratio = float(_group.get("cap_ratio"))
+            if not 0 <= _ratio:
+                raise ValueError("loan allocation cap_ratio must be nonnegative")
+            _capacity = [_ratio * sum(float(d["_bal"][i + 1]) for d in dep)
+                         for i in range(Q)]
+        else:
+            raise ValueError("loan allocation requires entered or deposit_book_end cap_source")
+        _resolved = allocate_loan_levels(_targets, _capacity)
+        _allocation_audit[_gid] = _resolved
+        for _member in _members:
+            _key = _member["allocation_target_id"]
+            _member["_linked_balance"]["target_before_allocation"] = _targets[_key]
+            _member["_linked_balance"]["ending_balance"] = _resolved["retained"][_key]
+            _member["_linked_balance"]["distributed_balance"] = _resolved["distributed"][_key]
+
     for p in lend:
         mb = p.get("mortgage_banking") or {}
         h = quarters_to_periods(int(mb.get("warehouse_hold_q", 0) or 0), ppy)
@@ -747,10 +794,25 @@ def run_pf_a(cfg):
                 end = max(0.0, end - _sold_amt)
                 p["_sold"][q] = p["_sold"][q] + _sold_amt      # report as sold volume this quarter
                 p.setdefault("_season_gos", []).append(_season_gain_q)
+            if (_linked_level is not None and p.get("charge_off_balance_measure") == "period_end"):
+                _loss_factor = (p.get("_credit_loss_factor") or [1.0] * Q)[q - 1]
+                co = end * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) * _loss_factor / ppyf
+                o = end - beg + beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) + co
             avg = (beg + end) / 2.0
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
-            p["_ii"].append(avg * r / ppyf); p["_ie"].append(0.0)
+            _interest_basis = avg
+            if _linked_level is not None and _linked_level.get("source") in {"entered", "funded_flow"}:
+                _measure = _linked_level["interest_balance_measure"]
+                _interest_basis = (end if _measure == "period_end" else
+                                   beg if _measure == "period_begin" else avg)
+            if _linked_level is not None:
+                p.setdefault("_interest_basis", [None]).append(_interest_basis)
+            p["_ii"].append(_interest_basis * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            **({"product_funded_flow": _linked_level["funded_volume"][q - 1]}
+                                                               if _linked_level and "funded_volume" in _linked_level else {}),
+                                                            **({"distributed_balance": _linked_level["distributed_balance"][q - 1]}
+                                                               if _linked_level and "distributed_balance" in _linked_level else {}),
                                                             "cost_pool": _cost_pool_ctx(q),
                                                             "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
@@ -759,7 +821,12 @@ def run_pf_a(cfg):
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
-            p["_alll"].append(0.0 if p["_is_fv"] else end * (p.get("reserve_rate_pct_bal") or 0.0))
+            if p.get("allowance_mode") == "loss_rate_term":
+                _loss_factor = (p.get("_credit_loss_factor") or [1.0] * Q)[q - 1]
+                _allowance = end * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) * _loss_factor * float(p["term_days"]) / float(p["day_count"])
+            else:
+                _allowance = end * (p.get("reserve_rate_pct_bal") or 0.0)
+            p["_alll"].append(0.0 if p["_is_fv"] else _allowance)
         # warehouse cohorts: half-quarter coupon at origination and sale
         if p["_sale"] > 0:
             margin = mb.get("gain_on_sale_margin", 0.0) or 0.0
@@ -1539,7 +1606,25 @@ def run_pf_a(cfg):
                     _pr["managedNotionalSourceId"] = p.get("managed_notional_source_id")
             if fam == "lending" and p.get("_linked_balance") is not None:
                 _lb = p["_linked_balance"]
-                _pr["balanceMode"] = "linked_customer_level"
+                _pr["balanceMode"] = p.get("balance_mode")
+                if _lb["source"] in {"entered", "funded_flow"}:
+                    _pr["balanceDriver"] = {"source": _lb["source"]}
+                    if _lb["source"] == "funded_flow":
+                        _pr["fundedVolume"] = list(_lb["funded_volume"])
+                        _pr["calculatedOutstanding"] = list(_lb["outstanding"])
+                    _pr["linkedBalanceTarget"] = list(_lb["ending_balance"])
+                    _pr["interestBalanceMeasure"] = _lb["interest_balance_measure"]
+                    _pr["interestBasis"] = list(p.get("_interest_basis") or [])[1:]
+                    _pr["chargeOffBalanceMeasure"] = p.get("charge_off_balance_measure") or "period_begin"
+                    _pr["allowanceMode"] = p.get("allowance_mode") or "reserve_rate"
+                    if p.get("_credit_loss_factor"):
+                        _pr["creditLossFactor"] = list(p["_credit_loss_factor"])
+                    if "target_before_allocation" in _lb:
+                        _pr["allocationTargetId"] = p["allocation_target_id"]
+                        _pr["targetBeforeAllocation"] = list(_lb["target_before_allocation"])
+                        _pr["distributedBalance"] = list(_lb["distributed_balance"])
+                    products.append(_pr)
+                    continue
                 _pr["balanceDriver"] = {
                     "source": _lb["source"], "seriesId": _lb["series_id"],
                     "measure": _lb["measure"],
@@ -1614,4 +1699,6 @@ def run_pf_a(cfg):
                 for i, c in enumerate(_wf_runtime.additive_components)
             ],
         }
+    if _allocation_audit:
+        _out["loan_allocation_groups"] = copy.deepcopy(_allocation_audit)
     return _out
