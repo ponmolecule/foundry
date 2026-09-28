@@ -3970,6 +3970,8 @@ function openModal(){
   if(V31){
     window._modalAdded = 0;
     let mh = '<h3>Add products</h3><div class="memo" style="margin:-2px 0 8px">Click any number of products \u2014 they\u2019re added as you go. Close when you\u2019re done.</div>';
+    mh += '<div class="accent-label">Model by behavior</div><div class="memo" style="margin:0 0 8px">For lending with funded volume, retained balances, and transaction fees, start here. Choose the loan reporting line based on the actual credit exposure.</div>';
+    mh += `<div class="preset-grid"><div class="fld"><label>Loan reporting line</label><select id="flowLoanLine"><option value="">Select classification</option>${LOAN_KEYS.map(k=>`<option value="${k}">${esc(LINE_LABELS_V31[k])}</option>`).join('')}</select></div><button class="preset-btn" onclick="addFlowLoanMulti(this)"><span class="pn">Funded-flow lending + fees</span><span class="ps">Retained credit, funded-volume fees, optional shared cap</span></button></div>`;
     [["Loans"],["Deposits"],["Off-Balance-Sheet"]].forEach(([cn])=>{
       mh += `<div class="accent-label">${cn}</div><div class="preset-grid">`
         + (cn==="Off-Balance-Sheet" ? `<button class="preset-btn" id="pfee_obs" onclick="addFeeProductMulti(this)"><span class="pn">Fee-based product</span><span class="ps">non-interest revenue (custody, trustee, \u2026)</span></button>` : "")
@@ -3988,6 +3990,23 @@ function openModal(){
   fillLineOptions();
   document.getElementById("modal-bg").style.display = "block";
   document.getElementById("modal").style.display = "block";
+}
+function addFlowLoanMulti(btn){
+  const line=document.getElementById('flowLoanLine').value;
+  if(!line){alert('Select the loan reporting line for this credit exposure first.');return;}
+  const p={name:'Funded-flow lending',call_report_line:line,balance_mode:'funded_flow_level',
+    opening_balance:0,rate_type:'fixed',yield_ann:0,charge_off_ann:0,
+    fee_yield_ann:0,opex_pct_ann:0,opex_fixed_per_period:0,
+    measurement:'amortized',structure:'revolving',
+    funded_flow_driver:{source:'entered',flow_path:{unit_kind:'money_flow',trajectory:'flat',period:_nativeFlowPeriod(),value:0}},
+    term_days:0,day_count:365,reserve_share:0,target_retention_share:1,
+    interest_balance_measure:'period_end',fee_streams:[]};
+  cfg.assumptions.lending_products.push(p);
+  window._modalAdded=(window._modalAdded||0)+1;
+  const c=document.getElementById('modalAddedCount');
+  if(c)c.textContent=window._modalAdded+' product'+(window._modalAdded===1?'':'s')+' added';
+  btn.querySelector('.ps').textContent='Added under '+LINE_LABELS_V31[line]+' · select again to add another';
+  syncModules();
 }
 function closeModal(){
   if(window._feeGuideActive){
