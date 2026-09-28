@@ -133,6 +133,23 @@ def main():
     rows = _product_rows(run_parity(live), 12, exact=run_pf_a(live))
     assert any(row[2] == "fundedInputVolume" and row[4][:4] == [.12] * 4 for row in rows)
 
+    # A fee-bearing funded-flow loan needs no roll-forward runoff or separate
+    # OBS product to qualify as a modeled fee side. Roll-forward loans still do.
+    standalone = copy.deepcopy(live)
+    standalone["assumptions"]["lending_products"][0].pop("runoff_per_period")
+    standalone["assumptions"]["deposit_products"] = []
+    standalone["assumptions"]["obs_exposures"] = []
+    standalone["step_0"]["modules"] = ["balance_driven_lending"]
+    assert not validate_errors_v2(standalone), validate_errors_v2(standalone)
+    assert run_pf_a(standalone)["products"]
+    no_fee = copy.deepcopy(standalone)
+    no_fee["assumptions"]["lending_products"][0]["fee_streams"] = []
+    assert any("no funding or fee side" in e["message"] for e in validate_errors_v2(no_fee))
+    rollforward = copy.deepcopy(standalone)
+    rollforward["assumptions"]["lending_products"][0]["balance_mode"] = "rollforward"
+    assert any("missing required field 'runoff_per_period'" in e["message"]
+               for e in validate_errors_v2(rollforward))
+
     html = open("web/console_v2.html").read()
     for token in ("Input represents", "Starts in model", "Take-up share", "to full size",
                   "Final funded volume · already includes take-up and ramp"):
