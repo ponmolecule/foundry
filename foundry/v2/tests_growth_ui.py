@@ -329,16 +329,17 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
         "function esc(x){return String(x==null?'':x);} function PLAB(k){return k==='full'?'month':'Mth';} function PPY(){return 12;}\n"
         "function numInput(){return '<input>'; } function growthSpecInline(){return '<growth>'; } function _qGrowthToPeriod(x){return x||0;} function _pf(x){return +(String(x).replace(/,/g,''))||0; } function renderContent(){} function refresh(){}\n"
         + hjs + fjs +
-        "\nconst st={name:'Platform revenue',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:100000,period:'month',trajectory:'explicit_schedule',schedule:{'1':100000}}}},cost:{kind:'periodic_amount_opex',params:{factor_path:{value:10000,trajectory:'explicit_schedule',period:'month',resolution:'step',schedule:{'1':10000}}}}};"
+        "\nconst st={name:'Platform revenue',basis:'flat',driver:{source:'constant',trajectory:'flat',params:{}},rate:{behavior:'flat',params:{flat_amount:{value:100000,period:'month',trajectory:'flat'}}},cost:{kind:'periodic_amount_opex',params:{factor_path:{value:10000,trajectory:'flat',period:'month',resolution:'step'}}}};"
         " const p={name:'Platform',_fee_product:true,fee_streams:[st]}; cfg.assumptions.obs_exposures=[p];"
-        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetCostFactorSchedule(0,0,'12.5, 14');"
-        " console.log(JSON.stringify({periodic:out.includes('Product cost — periodic amount'),noTx:!out.includes('Cost per unit (tx)')&&!out.includes('Operating cost (% of throughput)'),label:out.includes('Product cost schedule ($000s) by month'),noMultiplier:!out.includes('Cost multiplier path'),stored:st.cost.params.factor_path.schedule}));")
+        " _feeFlatAmountTrajectory(0,0,'explicit_schedule'); _feeCostFactorTrajectory(0,0,'explicit_schedule'); const seeded=st.rate.params.flat_amount.schedule['1']===100000&&st.cost.params.factor_path.schedule['1']===10000;"
+        " const out=fieldsFor('obs',p,'assumptions.obs_exposures.0'); _feeSetCostFactorSchedule(0,0,'12.5, 14'); const stored=JSON.parse(JSON.stringify(st.cost.params.factor_path.schedule)); _feeClearFlatAmountSchedule(0,0); _feeClearCostFactorSchedule(0,0);"
+        " console.log(JSON.stringify({periodic:out.includes('Product cost — periodic amount'),noTx:!out.includes('Cost per unit (tx)')&&!out.includes('Operating cost (% of throughput)'),label:out.includes('Product cost schedule ($000s) by month'),noMultiplier:!out.includes('Cost multiplier path'),seeded,cleared:st.rate.params.flat_amount.trajectory==='flat'&&st.cost.params.factor_path.trajectory==='flat',stored}));")
     fcr=subprocess.run(["node","-e",flat_cost_js],text=True,capture_output=True); fcj={}
     if fcr.returncode==0 and fcr.stdout.strip():
         try: fcj=json.loads(fcr.stdout.strip().splitlines()[-1])
         except Exception: pass
     ck("Flat Fee Product exposes a direct $000s product-cost schedule and hides transaction-only costs",
-       fcr.returncode==0 and fcj.get("periodic") and fcj.get("noTx") and fcj.get("label") and fcj.get("noMultiplier")
+       fcr.returncode==0 and fcj.get("periodic") and fcj.get("noTx") and fcj.get("label") and fcj.get("noMultiplier") and fcj.get("seeded") and fcj.get("cleared")
        and abs((fcj.get("stored") or {}).get("1",0)-12500)<1e-12 and abs((fcj.get("stored") or {}).get("2",0)-14000)<1e-12,
        str(fcj)+" "+fcr.stderr.strip())
     per_unit_pricing_js=("const cfg={assumptions:{obs_exposures:[],cac_feeds:{}}};\n"
