@@ -25,7 +25,7 @@ ASSUMPTION_REQUIRED = ["rate_path_q", "rate_path_longer_run", "tax_semantics", "
                        "other_assets", "other_liabilities"]
 
 DEP_REQUIRED = ["name", "opening_balance", "growth_per_period", "rate_type"]
-LEND_REQUIRED = ["name", "opening_balance", "runoff_per_period", "rate_type",
+LEND_REQUIRED = ["name", "opening_balance", "rate_type",
                  "charge_off_ann", "measurement"]
 
 # (path, lo, hi, reason) — nonsense fails closed
@@ -140,10 +140,13 @@ def validate_config_v2(cfg):
     # loaded (a config with modules but no revenue engine at all is the real misconfiguration).
     # A deposit-less-but-fee-bearing engagement is permitted (fidelity: fee-first charters are
     # real; the funding waterfall keeps the balance sheet alive off initial capital).
+    lending_fees = "balance_driven_lending" in mods and any(
+        p.get("fee_streams") or (p.get("fee_yield_ann") or 0)
+        for p in (cfg.get("assumptions") or {}).get("lending_products") or [])
     if mods and not unknown and "balance_driven_deposits" not in mods \
-            and "balance_driven_obs" not in mods:
-        errs.append("no funding or fee side loaded — a bank needs deposits or off-balance-sheet "
-                    "fee income (balance_driven_deposits or balance_driven_obs)")
+            and "balance_driven_obs" not in mods and not lending_fees:
+        errs.append("no funding or fee side loaded — add deposits, off-balance-sheet "
+                    "fee income, or a lending product with fee income")
 
     a = cfg["assumptions"]
     if a.get("overhead_flow_spec") is None and a.get("overhead_per_period") is None and a.get("overhead_q") is None:
@@ -652,6 +655,9 @@ def validate_config_v2(cfg):
         for k in LEND_REQUIRED:
             if k not in p:
                 errs.append(ctx + f"missing required field '{k}'")
+        if p.get("balance_mode", "rollforward") == "rollforward" \
+                and "runoff_per_period" not in p:
+            errs.append(ctx + "missing required field 'runoff_per_period'")
         if p.get("rate_type") == "float" and "index_spread" not in p:
             errs.append(ctx + "floating rate requires 'index_spread'")
         if p.get("rate_type") == "float" and p.get("index") is not None \
