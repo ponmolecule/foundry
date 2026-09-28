@@ -193,8 +193,11 @@ def _conv(tree, is_ratio=False, raw=False):
                     _conv_workforce(v) if k == "workforce" else
                     _conv_other_liabilities(v) if k == "other_liabilities_detail" else
                     _conv_managed_securities(v) if k == "managed_securities" else
+                    {gid: {field: (list(values) if field == "factor" else _conv(values))
+                           for field, values in group.items()}
+                     for gid, group in v.items()} if k == "loan_allocation_groups" else
                     _conv(v, is_ratio or k in ("ratios", "rateQ"),
-                          raw or k in ("ftp_rate", "resolved_hire_periods")))
+                          raw or k in ("ftp_rate", "resolved_hire_periods", "creditLossFactor")))
                 for k, v in tree.items()}
     if isinstance(tree, list):
         return [_conv(x, is_ratio, raw) if isinstance(x, (dict, list))

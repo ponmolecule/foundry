@@ -1033,13 +1033,30 @@ def _product_rows(results, n, exact=None):
                 vals = vals[1:]
             if len(vals) != n:
                 continue
-            if key in ("rateQ", "ftp_rate"):
-                units, fmt = ("%" if key == "rateQ" else "decimal annual rate"), _RATE_FMT
+            if key in ("rateQ", "ftp_rate", "creditLossFactor"):
+                units, fmt = ("%" if key == "rateQ" else "decimal annual rate" if key == "ftp_rate" else "factor"), _RATE_FMT
             else:
                 units, fmt = "$000s / engine value", _MONEY_FMT
                 if exact is not None:
                     vals = _money_k_series(vals)
-            rows.append((f"{fam} · {name}", _slug_label(key), key, units, vals, fmt))
+            label = _slug_label(key)
+            if key == "interestBasis":
+                label += f" ({p.get('interestBalanceMeasure') or 'period_average'})"
+            if key == "co":
+                label += f" ({p.get('chargeOffBalanceMeasure') or 'period_begin'})"
+            if key == "alll" and p.get("allowanceMode"):
+                label += f" ({p['allowanceMode']})"
+            rows.append((f"{fam} · {name}", label, key, units, vals, fmt))
+    source = exact if exact is not None else results
+    for gid, group in (source.get("loan_allocation_groups") or {}).items():
+        for key in ("cap", "total_target", "factor"):
+            values = list(group.get(key) or [])
+            if len(values) == n:
+                units = "share" if key == "factor" else "$000s / engine value"
+                if exact is not None and key != "factor":
+                    values = _money_k_series(values)
+                rows.append((f"Loan allocation · {gid}", _slug_label(key), key,
+                             units, values, _RATE_FMT if key == "factor" else _MONEY_FMT))
     return rows
 
 
@@ -1164,7 +1181,7 @@ def _fee_quantity_unit_kinds(cfg):
                         kind = "money"
                     else:
                         src = str(drv.get("source") or "constant").lower()
-                        if src in {"own_balance", "managed_notional", "bank_aggregate", "cost_pool"}:
+                        if src in {"own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "bank_aggregate", "cost_pool"}:
                             kind = "money"
                         elif src == "customer_acquisition_count":
                             kind = "count"

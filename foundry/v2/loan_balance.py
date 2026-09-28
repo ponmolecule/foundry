@@ -1,13 +1,13 @@
-"""Typed balance drivers for lending products.
+"""Typed level-balance drivers for lending products.
 
-Legacy loans remain roll-forward products.  A linked-level loan instead observes a
-CAC-owned customer-count Series and applies an entered average-balance-per-customer
-Series.  The loan module still owns the resulting on-balance-sheet asset, yield,
-allowance, provision and Call Report classification.
+Legacy roll-forward and customer-count-linked paths remain intact. Optional entered
+targets and funded-flow-derived targets supply a retained level to the same loan
+engine, which continues to own yield, allowance, provision and reporting.
 """
 from __future__ import annotations
 
 from typing import Mapping
+from math import isfinite
 
 from .cac_feeder import cac_customer_count_catalog, normalize_customer_count_measure
 from .series import normalize_series_spec, resolve_entered_series
@@ -15,11 +15,13 @@ from .series import normalize_series_spec, resolve_entered_series
 
 ROLLFORWARD = "rollforward"
 LINKED_CUSTOMER_LEVEL = "linked_customer_level"
+EXPLICIT_LEVEL = "explicit_level"
+FUNDED_FLOW_LEVEL = "funded_flow_level"
 
 
 def loan_balance_mode(product: Mapping | None) -> str:
     raw = str((product or {}).get("balance_mode") or ROLLFORWARD).strip().lower()
-    if raw not in {ROLLFORWARD, LINKED_CUSTOMER_LEVEL}:
+    if raw not in {ROLLFORWARD, LINKED_CUSTOMER_LEVEL, EXPLICIT_LEVEL, FUNDED_FLOW_LEVEL}:
         raise ValueError(f"unsupported loan balance mode {raw!r}")
     return raw
 
@@ -29,6 +31,67 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
     if loan_balance_mode(product) == ROLLFORWARD:
         return None
     p = product or {}
+    if loan_balance_mode(p) == FUNDED_FLOW_LEVEL:
+        fd = p.get("funded_flow_driver") or {}
+        source = str(fd.get("source") or "").strip()
+        if source == "entered":
+            from .income_modules import _fee_entered_flow_value
+            flow = fd.get("flow_path")
+            if not isinstance(flow, Mapping) or flow.get("unit_kind") != "money_flow":
+                raise ValueError("funded-flow balance needs an entered monetary flow_path")
+            _fee_entered_flow_value(flow, 1, 12)
+        elif source == "fee_stream_quantity":
+            sid = str(fd.get("series_id") or "").strip()
+            if not sid:
+                raise ValueError("funded-flow balance link requires a stable series_id")
+            from .income_modules import _fee_stream_quantity_kinds
+            matches = []
+            for family in ("deposit_products", "obs_exposures"):
+                for prod in (assumptions or {}).get(family) or []:
+                    streams = prod.get("fee_streams") or []
+                    kinds = _fee_stream_quantity_kinds(streams)
+                    matches += [(st, kinds[i]) for i, st in enumerate(streams)
+                                if str(st.get("quantity_series_id") or "") == sid]
+            if len(matches) != 1 or matches[0][1] != "money" or matches[0][0].get("basis") != "transaction":
+                raise ValueError(f"funded-flow Series {sid!r} must resolve to one upstream monetary transaction flow")
+        else:
+            raise ValueError("funded-flow balance requires entered or fee_stream_quantity source")
+        for key in ("term_days", "day_count", "reserve_share", "target_retention_share"):
+            if key not in p:
+                raise ValueError(f"funded-flow balance requires {key}")
+        term, days = float(p["term_days"]), float(p["day_count"])
+        if not isfinite(term) or not isfinite(days) or term < 0 or days <= 0:
+            raise ValueError("funded-flow term must be finite/nonnegative and day_count finite/positive")
+        reserve, retention = float(p["reserve_share"]), float(p["target_retention_share"])
+        if not (isfinite(reserve) and isfinite(retention) and 0 <= reserve <= 1 and 0 <= retention <= 1):
+            raise ValueError("funded-flow reserve and retention shares must be in [0, 1]")
+        if p.get("mortgage_banking") or p.get("structure") == "term":
+            raise ValueError("funded-flow level cannot use mortgage-banking or term-cohort mechanics")
+        if p.get("charge_off_balance_measure", "period_begin") not in {"period_begin", "period_end"}:
+            raise ValueError("charge_off_balance_measure must be period_begin or period_end")
+        if p.get("allowance_mode", "reserve_rate") not in {"reserve_rate", "loss_rate_term"}:
+            raise ValueError("unsupported loan allowance_mode")
+        measure = str(p.get("interest_balance_measure") or "")
+        if measure not in {"period_average", "period_end", "period_begin"}:
+            raise ValueError("funded-flow balance requires an explicit interest_balance_measure")
+        return {"source": "funded_flow", "driver": dict(fd), "term_days": term,
+                "day_count": days, "reserve_share": reserve,
+                "target_retention_share": retention,
+                "interest_balance_measure": measure}
+    if loan_balance_mode(p) == EXPLICIT_LEVEL:
+        raw_spec = p.get("ending_balance_spec")
+        if not isinstance(raw_spec, Mapping):
+            raise ValueError("explicit-level loan requires ending_balance_spec")
+        spec = normalize_series_spec(raw_spec)
+        if spec["source"] != "entered":
+            raise ValueError("explicit-level loan balance requires an entered Series")
+        if p.get("mortgage_banking") or p.get("structure") == "term":
+            raise ValueError("explicit-level loans cannot use mortgage-banking or term-cohort mechanics")
+        measure = str(p.get("interest_balance_measure") or "period_average")
+        if measure not in {"period_average", "period_end", "period_begin"}:
+            raise ValueError("interest_balance_measure must be period_average, period_end or period_begin")
+        return {"source": "entered", "ending_balance_spec": spec,
+                "interest_balance_measure": measure}
     raw = p.get("balance_driver")
     if not isinstance(raw, Mapping):
         raise ValueError("linked loan balance requires balance_driver")
@@ -72,10 +135,43 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
 
 def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
                                 customer_count_series: Mapping, n_periods: int,
-                                ppy: int, *, growth_context=None) -> dict | None:
+                                ppy: int, *, growth_context=None,
+                                fee_stream_quantities=None) -> dict | None:
     cfg = normalize_linked_loan_balance(product, assumptions)
     if cfg is None:
         return None
+    if cfg["source"] == "entered":
+        balances = resolve_entered_series(cfg["ending_balance_spec"], n_periods, ppy,
+                                           context=growth_context)
+        if any(float(v) < 0 for v in balances):
+            raise ValueError("explicit loan ending balance resolves negative within the model horizon")
+        return {**cfg, "ending_balance": balances}
+    if cfg["source"] == "funded_flow":
+        fd = cfg["driver"]
+        if fd["source"] == "entered":
+            from .income_modules import _fee_entered_flow_value
+            flow_path = fd["flow_path"]
+            if flow_path.get("trajectory") == "explicit_schedule":
+                freq = {"year": 1, "quarter": 4, "month": 12}[flow_path["period"]]
+                required = (n_periods * freq + ppy - 1) // ppy
+                schedule = flow_path.get("schedule") or {}
+                missing = [i for i in range(1, required + 1) if str(i) not in schedule]
+                if missing:
+                    raise ValueError(f"funded-flow schedule is missing source period {missing[0]}")
+            flows = [_fee_entered_flow_value(fd["flow_path"], q, ppy,
+                       {"growth_context": growth_context}) for q in range(1, n_periods + 1)]
+        else:
+            sid = str(fd["series_id"])
+            flows = list((fee_stream_quantities or {}).get(sid) or [])
+            if len(flows) != n_periods:
+                raise ValueError(f"funded-flow source Series {sid!r} is unavailable or incomplete")
+        if any(float(v) < 0 for v in flows):
+            raise ValueError("funded-flow volume cannot be negative")
+        outstanding = [float(v) * ppy * cfg["term_days"] / cfg["day_count"]
+                       * (1 - cfg["reserve_share"]) for v in flows]
+        targets = [v * cfg["target_retention_share"] for v in outstanding]
+        return {**cfg, "funded_volume": flows, "outstanding": outstanding,
+                "ending_balance": targets}
     sid, measure = cfg["series_id"], cfg["measure"]
     by_measure = (customer_count_series or {}).get(sid)
     if not isinstance(by_measure, Mapping) or measure not in by_measure:

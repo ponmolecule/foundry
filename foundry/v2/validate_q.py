@@ -579,6 +579,21 @@ def validate_config_v2(cfg):
                     validate_growth_spec_for_cadence(cgs, ppy=_ppy, context=_growth_ctx)
                 except (TypeError, ValueError) as e:
                     errs.append(f"obs_exposures[{pi}].fee_streams[{si}].driver.params.coefficient.growth_spec invalid: {e}")
+    # Lending products already execute fee_streams in the engine. Validate authored
+    # streams at the same seam rather than allowing a malformed loan stream through.
+    for pi, prod in enumerate(a.get("lending_products") or []):
+        for si, stream in enumerate(prod.get("fee_streams") or []):
+            try:
+                from .income_modules import _validate_fee_stream_shape
+                _validate_fee_stream_shape(stream)
+                if ((stream.get("driver") or {}).get("source") == "distributed_balance"
+                        and not prod.get("allocation_group_id")):
+                    raise ValueError("distributed_balance requires an allocation group")
+                if ((stream.get("driver") or {}).get("source") == "product_funded_flow"
+                        and prod.get("balance_mode") != "funded_flow_level"):
+                    raise ValueError("product_funded_flow requires funded_flow_level balance")
+            except (TypeError, ValueError) as e:
+                errs.append(f"lending_products[{pi}].fee_streams[{si}] invalid: {e}")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():
@@ -654,8 +669,65 @@ def validate_config_v2(cfg):
         try:
             from .loan_balance import normalize_linked_loan_balance
             normalize_linked_loan_balance(p, a)
+            if (p.get("balance_mode") == "funded_flow_level"
+                    and (p.get("funded_flow_driver") or {}).get("source") == "entered"):
+                from .loan_balance import resolve_linked_loan_balance
+                resolve_linked_loan_balance(p, a, {}, int(a.get("n_periods") or 12),
+                                            _ppy, growth_context=_growth_ctx)
         except (TypeError, ValueError) as e:
             errs.append(ctx + str(e))
+        if p.get("allowance_mode") == "loss_rate_term" and p.get("balance_mode") != "funded_flow_level":
+            errs.append(ctx + "loss_rate_term allowance requires funded_flow_level balance")
+        if p.get("credit_loss_factor_spec") is not None:
+            try:
+                from .series import resolve_entered_series
+                factors = resolve_entered_series(p["credit_loss_factor_spec"],
+                    int(a.get("n_periods") or 12), _ppy, context=_growth_ctx)
+                if any(v < 0 for v in factors):
+                    raise ValueError("credit loss factor must be nonnegative")
+            except (TypeError, ValueError) as e:
+                errs.append(ctx + str(e))
+
+    _groups = a.get("loan_allocation_groups") or []
+    _group_ids = [str(g.get("id") or "").strip() for g in _groups]
+    if len(_group_ids) != len(set(_group_ids)) or any(not x for x in _group_ids):
+        errs.append("loan allocation group IDs must be nonempty and unique")
+    _target_ids = [str(p.get("allocation_target_id") or "").strip() for p in lend if p.get("allocation_group_id")]
+    if any(not sid for sid in _target_ids) or len(_target_ids) != len(set(_target_ids)):
+        errs.append("loan allocation members require distinct stable allocation_target_id values")
+    for p in lend:
+        if p.get("allocation_group_id") and p["allocation_group_id"] not in _group_ids:
+            errs.append(f"lending {p.get('name')!r}: unknown allocation_group_id")
+        if p.get("allocation_group_id") and p.get("balance_mode") not in {"explicit_level", "funded_flow_level"}:
+            errs.append(f"lending {p.get('name')!r}: allocation requires a level balance")
+    for group in _groups:
+        gid = str(group.get("id") or "")
+        if gid not in [str(p.get("allocation_group_id")) for p in lend]:
+            errs.append(f"loan allocation group {gid!r} has no members")
+        source = group.get("cap_source")
+        if source == "entered":
+            try:
+                from .series import normalize_series_spec
+                cap = normalize_series_spec(group.get("cap_spec"))
+                if not group.get("cap_spec") or cap["source"] != "entered":
+                    raise ValueError("cap_spec must be an entered Series")
+                from .series import resolve_entered_series
+                capacities = resolve_entered_series(cap, int(a.get("n_periods") or 12),
+                                                    _ppy, context=_growth_ctx)
+                if any(v < 0 for v in capacities):
+                    raise ValueError("cap_spec must resolve nonnegative throughout the horizon")
+            except (TypeError, ValueError) as e:
+                errs.append(f"loan allocation group {gid!r}: {e}")
+        elif source == "deposit_book_end":
+            try:
+                ratio = float(group["cap_ratio"])
+                from math import isfinite
+                if not isfinite(ratio) or ratio < 0:
+                    raise ValueError("cap_ratio must be finite and nonnegative")
+            except (KeyError, TypeError, ValueError) as e:
+                errs.append(f"loan allocation group {gid!r}: invalid cap_ratio ({e})")
+        else:
+            errs.append(f"loan allocation group {gid!r}: unsupported cap_source")
 
     # Generic Customer Acquisition / Foundry-Series validation.  This executes only the
     # deterministic assumption-side customer/AUC roll-forward, not the financial engine,
