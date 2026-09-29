@@ -2381,13 +2381,25 @@ async function refreshFromFOMC(){
 window.refreshFromFOMC=refreshFromFOMC;
 function _syncCurveGridDated(k){
   const rc=cfg.assumptions.rate_curves,c=rc[k];
-  // Keep policy observations before the model, but make each visible grid value
-  // authoritative on its own calendar quarter-end, including the final Q12.
-  const dates=Object.assign({},c.dated_anchors||_curveDatedAnchors(rc,k));
-  c.path_q.forEach((rate,i)=>{dates[_isoUTC(_modelQuarterEnd(i+1))]=+rate;});
+  // Preserve the original policy curve. Only cells the user actually edited
+  // become dated anchors; the other grid values are previews, not instructions.
+  if(!c.base_dated_anchors){
+    const allGridDates=c.dated_anchors&&c.path_q.every((_,i)=>
+      Object.prototype.hasOwnProperty.call(c.dated_anchors,_isoUTC(_modelQuarterEnd(i+1))));
+    // r194 had no dates after an edit. r195 incorrectly inserted every grid
+    // point. Both migrate from the policy curve plus the recorded edited cells.
+    c.base_dated_anchors=Object.assign({},(!c.dated_anchors||allGridDates)
+      ?_curveDatedAnchors(rc,k):c.dated_anchors);
+  }
+  const dates=Object.assign({},c.base_dated_anchors);
+  const edits=c._editedCells||{};
+  const indices=Object.keys(edits).filter(i=>edits[i]);
+  // A manually authored legacy path without cell provenance is wholly authored.
+  const authored=indices.length?indices:c.path_q.map((_,i)=>String(i));
+  authored.forEach(i=>{dates[_isoUTC(_modelQuarterEnd(+i+1))]=+c.path_q[i];});
   c.dated_anchors=dates;
 }
-function setCurveCell(k,i,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.path_q[i]=(parseFloat(v)||0)/100;_syncCurveGridDated(k);c._editedCells=c._editedCells||{};c._editedCells[i]=true;c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_q=c.path_q.slice();scheduleAutosave();refresh(); }
+function setCurveCell(k,i,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.path_q[i]=(parseFloat(v)||0)/100;c._editedCells=c._editedCells||{};c._editedCells[i]=true;_syncCurveGridDated(k);c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_q=c.path_q.slice();scheduleAutosave();refresh(); }
 function setCurveLR(k,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.longer_run=(parseFloat(v)||0)/100;if(!c.dated_anchors)_syncCurveGridDated(k);c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_longer_run=c.longer_run;scheduleAutosave();refresh(); }
 function toggleRateCurves(){ _rateCurvesOpen=!_rateCurvesOpen;const box=document.getElementById("sofrBox"),chev=document.getElementById("rateCurvesChev");if(box)box.style.display=_rateCurvesOpen?"block":"none";if(chev)chev.style.transform=_rateCurvesOpen?"rotate(90deg)":"rotate(0deg)"; }
 window.setCurveCell=setCurveCell;window.setCurveLR=setCurveLR;window.toggleRateCurves=toggleRateCurves;
