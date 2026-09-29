@@ -34,4 +34,14 @@ context.setCurveCell('sofr',11,'3.12');
 assert.ok(Math.abs(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-03-31']-.0312)<1e-12);
 assert.ok(Math.abs(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-12-31']-.0312)<1e-12);
 assert.equal(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-10-31'],undefined);
-console.log('Manual curve edits retain calendar quarter-end dates.');
+assert.equal(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-06-30'],undefined);
+assert.equal(cfg.assumptions.rate_curves.sofr.dated_anchors['2027-12-31'],.0405);
+// A saved r195 curve includes synthetic anchors for every cell. Migration
+// removes untouched synthetic anchors while retaining the user's edits.
+delete cfg.assumptions.rate_curves.sofr.base_dated_anchors;
+for(let i=0;i<12;i++)cfg.assumptions.rate_curves.sofr.dated_anchors[
+  new Date(Date.UTC(2028,3*(i+1),0)).toISOString().slice(0,10)]=.04;
+context._syncCurveGridDated('sofr');
+assert.equal(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-06-30'],undefined);
+assert.ok(Math.abs(cfg.assumptions.rate_curves.sofr.dated_anchors['2030-12-31']-.0312)<1e-12);
+console.log('Edited cells retain dates; untouched policy interpolation survives migration.');

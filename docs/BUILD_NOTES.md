@@ -326,3 +326,8 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 - Editing a quarterly curve cell now retains the dated curve and places every visible grid value at its displayed quarter-end date. Previously the edit deleted dated anchors, causing monthly runs to use an ordinal path two months early and to glide past the final anchor before its displayed date.
 - Previously saved manually edited grids without dates are migrated to dated anchors when the configuration loads. Legacy quarterly paths outside this editor retain their existing engine behavior.
 - A flat 3.12% SOFR grid through December 2030 now yields 3.12% in every 2030 month, including November and December. Changing a curve can reprice other floating products; compare those runs after deploying.
+
+## r196 — preserve the original curve under manual overrides
+
+- Corrects r195's excessive conversion of every preview grid cell into an anchor. Only explicitly edited cells become calendar-dated anchors; untouched periods continue to interpolate the original policy/SEP curve.
+- Migrates saved r194 grids without dates and r195 grids with synthetic quarter anchors using their edited-cell markers. Keeps an original dated-curve snapshot so later edits remain selective.
