@@ -2318,7 +2318,12 @@ function ensureRateCurves(){
   const hasDated=CURVE_ORDER.every(k=>rc[k]&&rc[k].dated_anchors&&Object.keys(rc[k].dated_anchors).length);
   const manual=CURVE_ORDER.some(k=>rc[k]&&rc[k].edited===true);
   if(!complete || (!hasDated && !manual)) _genCurvesFromModel(rc);
-  else { cfg.assumptions.rate_path_q=rc.sofr.path_q.slice(); cfg.assumptions.rate_path_longer_run=rc.sofr.longer_run; }
+  else {
+    // Older grid edits deleted the calendar anchors and switched monthly runs to an
+    // ordinal-quarter path. Restore those saved grid values at their displayed dates.
+    for(const k of CURVE_ORDER)if(rc[k]&&rc[k].edited===true&&!rc[k].dated_anchors)_syncCurveGridDated(k);
+    cfg.assumptions.rate_path_q=rc.sofr.path_q.slice(); cfg.assumptions.rate_path_longer_run=rc.sofr.longer_run;
+  }
 }
 function regenCurvesFromFOMC(){
   const rc=cfg.assumptions.rate_curves; _genCurvesFromModel(rc); scheduleAutosave(); renderGlobals(); refresh();
@@ -2374,8 +2379,16 @@ async function refreshFromFOMC(){
   }catch(e){alert("Couldn't reach the FRED refresh service. Your existing curves are unchanged.");}
 }
 window.refreshFromFOMC=refreshFromFOMC;
-function setCurveCell(k,i,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.path_q[i]=(parseFloat(v)||0)/100;delete c.dated_anchors;c._editedCells=c._editedCells||{};c._editedCells[i]=true;c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_q=c.path_q.slice();scheduleAutosave();refresh(); }
-function setCurveLR(k,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.longer_run=(parseFloat(v)||0)/100;c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_longer_run=c.longer_run;scheduleAutosave();refresh(); }
+function _syncCurveGridDated(k){
+  const rc=cfg.assumptions.rate_curves,c=rc[k];
+  // Keep policy observations before the model, but make each visible grid value
+  // authoritative on its own calendar quarter-end, including the final Q12.
+  const dates=Object.assign({},c.dated_anchors||_curveDatedAnchors(rc,k));
+  c.path_q.forEach((rate,i)=>{dates[_isoUTC(_modelQuarterEnd(i+1))]=+rate;});
+  c.dated_anchors=dates;
+}
+function setCurveCell(k,i,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.path_q[i]=(parseFloat(v)||0)/100;_syncCurveGridDated(k);c._editedCells=c._editedCells||{};c._editedCells[i]=true;c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_q=c.path_q.slice();scheduleAutosave();refresh(); }
+function setCurveLR(k,v){ const rc=cfg.assumptions.rate_curves,c=rc[k];c.longer_run=(parseFloat(v)||0)/100;if(!c.dated_anchors)_syncCurveGridDated(k);c.edited=true;if(k==="sofr")cfg.assumptions.rate_path_longer_run=c.longer_run;scheduleAutosave();refresh(); }
 function toggleRateCurves(){ _rateCurvesOpen=!_rateCurvesOpen;const box=document.getElementById("sofrBox"),chev=document.getElementById("rateCurvesChev");if(box)box.style.display=_rateCurvesOpen?"block":"none";if(chev)chev.style.transform=_rateCurvesOpen?"rotate(90deg)":"rotate(0deg)"; }
 window.setCurveCell=setCurveCell;window.setCurveLR=setCurveLR;window.toggleRateCurves=toggleRateCurves;
 
