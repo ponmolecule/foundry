@@ -316,3 +316,7 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 - The shared cap is one allocation-group object referenced by each participating lending product. Editing its source or capacity from either card updates the same group.
 - On white lending cards, the reusable Series editor now has a light background and legible labels, schedule summary, preview, buttons, and paste area. Dark securities and other dark-surface editors retain their existing theme. This is a presentation-only change.
+## r194 — rate sidebar readability
+
+- Widens the desktop assumption sidebar to 400 px and fits numeric inputs within their grid cells. The four-column interest rate table gives its calendar label a stable share of the width, preventing clipped curve values. The small-screen single-column layout remains responsive.
+- Presentation only; no rate curves, model assumptions, or calculations change.
