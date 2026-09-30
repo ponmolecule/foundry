@@ -7,7 +7,7 @@ const end=html.indexOf('function _renderContentBody(){',start);
 const shared=html.slice(start,end);
 const input=html.slice(html.indexOf('function _seriesExplicitValues('),html.indexOf('function _feeParseExplicitValues('));
 (async()=>{
- const browser=await chromium.launch({headless:true});
+ const browser=await chromium.launch({headless:true,executablePath:process.env.FOUNDRY_CHROMIUM||undefined,args:["--no-sandbox"]});
  try{
  const page=await browser.newPage({viewport:{width:900,height:600}});
  await page.setContent('<style>body{margin:0}textarea{width:400px;height:90px}</style><div id="content"></div>');
