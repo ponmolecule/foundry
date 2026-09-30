@@ -107,6 +107,13 @@ def main():
        'explicit-preview-strip' in html and 'function _prdNum(x)' in html and "_si=n<=6?" in html)
     ck("Product header carries a breadcrumb back to the portfolio",
        'class="prd-crumb"' in html)
+    # r206: one side-column pattern for Configuration and Products.
+    ck("Configuration side column is full height with the page title and an elevated module card",
+       '<div class="cfg-nav-head">Configuration</div><div class="cfg-nav-card">' in html
+       and '.cfg-nav{position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h))' in html
+       and 'window.cfgArrangeShell=function' in html)
+    ck("Products navigator uses the elevated card rows (icon tile, name, sub-line, revenue)",
+       '<div class="prd-nav-card">' in html and 'class="prd-row-t"' in html and ".prd-nav .product-card.prd-row.sel::before" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
