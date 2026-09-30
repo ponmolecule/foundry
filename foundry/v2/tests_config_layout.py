@@ -44,7 +44,7 @@ def main():
        and '<summary>Advanced trajectories<span class="cfg-disc-val"><i>Count</i>' in html)
     # r200: light work surface; graphite and gold as accents only.
     ck("Configuration renders on a light surface, not the dark cover theme",
-       'const DARKTABS = new Set(["overview","peer","examiner","gov","notes","start","welcome","lab"]);' in html
+       'const DARKTABS = new Set(["welcome"]);' in html
        and '<style id="klaros-graphite">' in html and '--k-surface:#FFFFFF' in html)
     ck("Operating expense has sub-tabs and a KPI strip fed by the latest run",
        'class="cfg-subtabs"' in html and 'window.nieTabSet=function' in html and 'data-nie-pane="workforce"' in html
@@ -60,6 +60,15 @@ def main():
        and 'onclick="nieCatAddCostPoolCharge(${i})' in html)
     ck("Module activation switch sits in the module band; the rail shows status",
        'function cfgMountSwitch()' in html and 'class="cfg-mod-dot"' in html and '.cfg-nav .cfg-mod>.modcard{display:none}' in html)
+    # r201: analysis and record tabs join the light surface.
+    ck("Only the Welcome landing keeps the dark cover theme",
+       'const DARKTABS = new Set(["welcome"]);' in html and 'c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));' in html)
+    ck("Section headers on analysis tabs are graphite bands; KPI tiles and flags are white",
+       '.ovh2{background:var(--k-graph)!important' in html and '.ovcard,.ovflag{border-radius:10px;background:var(--k-surface)!important' in html)
+    ck("Analysis data tables use proportional tabular figures",
+       'section#content table.ovt td,section#content table.dtab td' in html and 'font-variant-numeric:tabular-nums lining-nums' in html)
+    ck("Lab heatmaps use the champagne-to-gold ramp",
+       html.count('Math.round(238-t*48)') == 2 and 'Math.round(40+t*40)' not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

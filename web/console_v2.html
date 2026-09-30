@@ -117,15 +117,15 @@ aside .snote{font-size:10.5px;color:#D5D2CF;margin-bottom:8px;line-height:1.6}
   color:#A56158;text-decoration:none;font-size:13px;font-weight:600;border:1px solid transparent;vertical-align:middle}
 .cx:hover{background:rgba(165,97,88,.14);border-color:#A5615866;color:#D08F86}
 table.dtab{border-collapse:collapse;width:100%;margin:6px 0 14px}
-table.dtab th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#A6A09B;text-align:left;
-  padding:7px 10px;border-bottom:1px solid #3C3A38}
-table.dtab td{font-size:11.5px;color:#D4D1CE;padding:7px 10px;border-bottom:1px solid #272523}
-table.dtab tr:hover td{background:rgba(220,169,102,.04)}
+table.dtab th{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#585552;text-align:left;
+  padding:7px 10px;border-bottom:1px solid #C3C0BD}
+table.dtab td{font-size:11.5px;color:#2F2D2A;padding:7px 10px;border-bottom:1px solid #DFDBD8}
+table.dtab tr:hover td{background:rgba(166,117,49,.04)}
 .cadd{display:inline-block;margin-top:5px;color:#D8A45E;font-size:10.5px;text-decoration:none;letter-spacing:.03em}
 .chint{font-size:10px;color:#A6A09B;margin-top:3px}
 .cfgwrap{max-width:none}
 .cfgwrap input[type=number],.cfgwrap input[type=text],.cfgwrap input:not([type]),.cfgwrap select{
-  background:#F8F6F3;border:1px solid #B9B6B299;border-radius:7px;color:#191614;
+  background:#F9F7F6;border:1px solid #B9B6B299;border-radius:7px;color:#191614;
   padding:7px 10px;font-size:12px;font-family:inherit;outline:none;transition:border-color .12s}
 .cfgwrap input:focus,.cfgwrap select:focus{border-color:#A7752D}
 .cfgwrap select{appearance:none;-webkit-appearance:none;padding-right:22px;
@@ -164,7 +164,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .sec-managed-field{min-width:0}
 .sec-managed-field>label{display:block;font-size:9px;color:#585552;margin-bottom:3px;line-height:1.2}
 .sec-managed-field input,.sec-managed-field select{width:100% !important;min-width:0 !important;box-sizing:border-box}
-.sec-managed-series{grid-column:1/-1;border-radius:5px;background:rgba(254,252,249,.22);padding:6px 7px;min-width:0}
+.sec-managed-series{grid-column:1/-1;border-radius:5px;background:rgba(251,249,247,.22);padding:6px 7px;min-width:0}
 .sec-managed-series-row{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
 .sec-managed-series-row input{width:62px !important;flex:0 0 62px}
 .sec-managed-series-row select{width:auto !important;max-width:112px}
@@ -172,7 +172,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .sec-managed-explicit-head,.sec-managed-explicit-closed{display:flex;align-items:center;justify-content:space-between;gap:6px;flex-wrap:wrap;margin-top:5px;min-width:0}
 .sec-managed-explicit-summary{color:#53514E;font-size:9.5px;overflow-wrap:anywhere;min-width:0}
 .sec-managed-explicit-edit{flex:0 0 auto}
-.sec-managed-explicit textarea{width:100%;box-sizing:border-box;margin-top:5px;background:#F8F6F3;color:#211F1C;border:1px solid #B9B6B299;border-radius:5px;padding:5px;font:10px var(--mono);resize:vertical}
+.sec-managed-explicit textarea{width:100%;box-sizing:border-box;margin-top:5px;background:#F9F7F6;color:#211F1C;border:1px solid #B9B6B299;border-radius:5px;padding:5px;font:10px var(--mono);resize:vertical}
 /* The shared Series editor also appears in white lending product cards. */
 .product-card[data-product-family="lending"] .sec-managed-series{background:#F8F5F2;border:1px solid #E1DFDC}
 .product-card[data-product-family="lending"] .sec-book-label,
@@ -198,7 +198,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .cfgwrap .cx:hover{color:#905C55;border-color:#99564E66;background:rgba(153,86,78,.10)}
 .modcard .mi svg{width:20px;height:20px;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.pillbtn{padding:7px 14px;font-size:12px;border-radius:8px;font-weight:500;display:inline-flex;align-items:center;gap:5px;background:transparent;border:1px solid #4E4C4A;color:#E5E2DF;border-radius:8px;padding:6px 13px;font-size:11.5px;cursor:pointer}
 .cfggrid{display:grid;grid-template-columns:1.08fr .88fr 1.04fr;gap:14px;align-items:stretch}
-.cfgcard{background:#EDEBE8;border:1px solid #CECAC7;border-radius:10px;
+.cfgcard{background:#F6F5F3;border:1px solid #CECAC7;border-radius:10px;
   padding:16px 16px 18px;min-height:198px}
 /* three-column density: one type-step down inside cards so entry rows keep to
    a single line and the delete-x stays beside its row */
@@ -220,9 +220,9 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
    exposing engine plumbing. Detailed NIE is split into three calm subpanels. */
 .nie-mode{display:flex;gap:6px;margin:2px 0 12px;padding:3px;background:#171614;border:1px solid #343230;border-radius:9px}
 .nie-mode button{flex:1;border:0;border-radius:6px;background:transparent;color:#585552;padding:7px 10px;font-size:11px;font-weight:600;cursor:pointer}
-.nie-mode button.on{background:#D0CDCA;color:#171513;box-shadow:inset 0 0 0 1px #4E4C4A}
+.nie-mode button.on{background:#EFEDEB;color:#171513;box-shadow:inset 0 0 0 1px #4E4C4A}
 .nie-mode button:hover{color:#A7752D}
-.nie-section{border:1px solid rgba(87,84,81,.16);background:rgba(251,249,246,.36);border-radius:9px;padding:12px 12px 13px;margin:10px 0}
+.nie-section{border:1px solid rgba(87,84,81,.16);background:rgba(250,248,246,.36);border-radius:9px;padding:12px 12px 13px;margin:10px 0}
 .nie-section-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin:0 0 10px}
 .nie-section-title{font-size:13px;font-weight:600;color:#1B1917}
 .nie-section-note{font-size:10.5px;line-height:1.45;color:#585552;margin-top:2px}
@@ -230,20 +230,20 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .nie-section-toggle:hover{border-color:#A7752D;color:#A7752D}
 .nie-section-summary{font-size:10.5px;color:#53514E;margin:1px 0 0}
 .nie-actions{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 2px}
-.cac-link-preview{margin:7px 0 2px 184px;border-left:2px solid #BCB9B6;padding:7px 9px;background:rgba(241,239,237,.55);border-radius:0 6px 6px 0;min-width:0;max-width:calc(100% - 184px);box-sizing:border-box;overflow:hidden}
+.cac-link-preview{margin:7px 0 2px 184px;border-left:2px solid #BCB9B6;padding:7px 9px;background:rgba(247,246,244,.55);border-radius:0 6px 6px 0;min-width:0;max-width:calc(100% - 184px);box-sizing:border-box;overflow:hidden}
 .cac-link-preview-row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;min-width:0;max-width:100%}
 .cac-link-preview-row .wf-field-label{margin:0;min-width:118px}
 .cac-link-preview-row .cu{min-width:0;max-width:100%;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
-.cac-link-readonly{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:hidden;white-space:normal;overflow-wrap:anywhere;word-break:break-word;background:#F6F4F1;color:#2F2D2A;border:1px solid #BCB9B6;border-radius:4px;padding:6px 7px;font-family:var(--mono);font-size:10.5px;line-height:1.45}
+.cac-link-readonly{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow-x:hidden;white-space:normal;overflow-wrap:anywhere;word-break:break-word;background:#F9F7F5;color:#2F2D2A;border:1px solid #BCB9B6;border-radius:4px;padding:6px 7px;font-family:var(--mono);font-size:10.5px;line-height:1.45}
 .cac-link-source-select{min-width:0 !important;max-width:100% !important;width:min(320px,100%) !important;flex:1 1 210px;text-overflow:ellipsis}
 #card-cac,.cac-feed-card,.cac-feed-body,.cac-channel-card{min-width:0;max-width:100%;box-sizing:border-box}
 .cac-channel-card .crow{min-width:0;max-width:100%}
 @media(max-width:900px){.cac-link-preview{margin-left:0;max-width:100%}}
 .nie-defaults{display:grid;grid-template-columns:minmax(0,1.55fr) minmax(120px,.7fr);gap:10px;margin:4px 0 10px}
-.nie-default{background:#F1EFED;border:1px solid rgba(87,84,81,.12);border-radius:7px;padding:8px 9px;min-width:0}
+.nie-default{background:#F7F6F4;border:1px solid rgba(87,84,81,.12);border-radius:7px;padding:8px 9px;min-width:0}
 .nie-default-label,.wf-field-label{display:block;font-size:9px;color:#585552;text-transform:uppercase;letter-spacing:.055em;margin:0 0 5px}
 .nie-default-value{display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
-.wf-role-card{border:1px solid rgba(87,84,81,.14);background:#F1EFED;border-radius:8px;padding:9px 10px;margin:8px 0}
+.wf-role-card{border:1px solid rgba(87,84,81,.14);background:#F7F6F4;border-radius:8px;padding:9px 10px;margin:8px 0}
 /* Opex hierarchy: category boundaries are deliberately stronger than component boundaries. */
 .opex-item-card{position:relative;transition:border-color .12s ease,box-shadow .12s ease,transform .12s ease;border-color:rgba(166,161,155,.28);background:rgba(25,23,22,.92);padding:12px 12px 14px;margin:14px 0 18px;box-shadow:0 1px 0 rgba(255,255,255,.02)}
 .opex-item-card + .opex-item-card{margin-top:26px}
@@ -262,7 +262,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 #card-nie,.nie-section,.opex-item-card{min-width:0;max-width:100%;box-sizing:border-box}
 #card-nie{overflow-x:hidden}
 .opex-cost-pool-editor,.opex-cost-pool-card,.opex-cost-pool-component{width:100%;min-width:0;max-width:100%;box-sizing:border-box;overflow:hidden;contain:inline-size}
-.opex-cost-pool-editor{padding:10px !important;background:rgba(249,247,245,.48)}
+.opex-cost-pool-editor{padding:10px !important;background:rgba(249,248,246,.48)}
 /* Service components are subordinate siblings inside one Opex category: inset, lighter, and locally numbered. */
 .opex-service-component-card{margin:11px 0 0 14px !important;width:calc(100% - 14px) !important;border:1px solid rgba(148,163,184,.20);border-left:3px solid rgba(143,163,192,.52);border-radius:7px;background:rgba(13,21,34,.38);padding:10px 11px 11px !important;box-shadow:none}
 .opex-service-component-card ~ .opex-service-component-card{margin-top:16px !important}
@@ -275,7 +275,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .opex-cost-pool-source-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-top:8px;min-width:0}
 .opex-cost-pool-source-wrap{min-width:0}
 .opex-cost-pool-source{display:block;width:100% !important;min-width:0 !important;max-width:100% !important;box-sizing:border-box;text-overflow:ellipsis}
-.opex-cost-pool-attached-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-top:8px;padding:8px 9px;border:1px solid rgba(87,84,81,.20);border-radius:6px;background:rgba(249,247,245,.34);min-width:0}
+.opex-cost-pool-attached-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:10px;align-items:center;margin-top:8px;padding:8px 9px;border:1px solid rgba(87,84,81,.20);border-radius:6px;background:rgba(249,248,246,.34);min-width:0}
 .opex-cost-pool-attached-copy{display:flex;gap:7px;align-items:baseline;flex-wrap:wrap;min-width:0}
 .opex-cost-pool-attached-copy strong{max-width:100%;overflow-wrap:anywhere}
 .opex-cost-pool-attached-actions{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -353,7 +353,7 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .explicit-preview-toggle{white-space:nowrap;color:#585552;text-decoration:underline;text-underline-offset:2px}
 .explicit-preview summary:hover .explicit-preview-toggle{color:#A7752D}
 .explicit-preview .when-open{display:none}.explicit-preview[open] .when-open{display:inline}.explicit-preview[open] .when-closed{display:none}
-.explicit-preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:4px 8px;max-height:170px;overflow:auto;margin-top:6px;padding:7px 8px;border:1px solid rgba(87,84,81,.18);border-radius:5px;background:rgba(254,252,249,.30)}
+.explicit-preview-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(112px,1fr));gap:4px 8px;max-height:170px;overflow:auto;margin-top:6px;padding:7px 8px;border:1px solid rgba(87,84,81,.18);border-radius:5px;background:rgba(251,249,247,.30)}
 .explicit-preview-cell{display:flex;gap:6px;align-items:baseline;min-width:0}
 .explicit-preview-period{flex:0 0 auto;color:#787572;font-family:var(--mono)}
 .explicit-preview-value{min-width:0;overflow-wrap:anywhere;color:#3D3A38;font-family:var(--mono)}
@@ -362,20 +362,20 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 /* r71: tornado labels live in responsive HTML rows, not a clipped fixed SVG gutter. */
 .lab-tornado{width:100%;max-width:900px}
 .lab-tornado-head,.lab-tornado-row{display:grid;grid-template-columns:minmax(210px,34%) minmax(220px,1fr) 74px;gap:10px;align-items:center}
-.lab-tornado-head{margin:2px 0 5px;color:#A6A09B;font-size:10px}
+.lab-tornado-head{margin:2px 0 5px;color:#585552;font-size:10px}
 .lab-tornado-row{min-height:34px;margin:3px 0}
-.lab-tornado-label{min-width:0;text-align:right;color:#E5E2DF;font-size:11px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
-.lab-tornado-track{position:relative;height:20px;min-width:0;border-radius:4px;background:rgba(60,58,57,.30);overflow:hidden}
-.lab-tornado-track:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #8C8379}
-.lab-tornado-bar{position:absolute;top:2px;height:16px;border-radius:3px;background:#8C8379;opacity:.85}
-.lab-tornado-swing{color:#ACDCB5;font-size:10px;white-space:nowrap}
+.lab-tornado-label{min-width:0;text-align:right;color:#22201E;font-size:11px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+.lab-tornado-track{position:relative;height:20px;min-width:0;border-radius:4px;background:rgba(236,234,232,.30);overflow:hidden}
+.lab-tornado-track:before{content:"";position:absolute;left:50%;top:0;bottom:0;border-left:1px dashed #726F6C}
+.lab-tornado-bar{position:absolute;top:2px;height:16px;border-radius:3px;background:#726F6C;opacity:.85}
+.lab-tornado-swing{color:#436F4D;font-size:10px;white-space:nowrap}
 @media(max-width:900px){.lab-tornado-head,.lab-tornado-row{grid-template-columns:minmax(0,1fr) 66px}.lab-tornado-label{grid-column:1/-1;text-align:left;margin-top:3px}.lab-tornado-head .lab-tornado-label{display:none}.lab-tornado-head .lab-tornado-track{grid-column:1}.lab-tornado-track{grid-column:1}.lab-tornado-swing{grid-column:2}.opex-cost-pool-source-row,.opex-cost-pool-head,.opex-cost-pool-attached-row{grid-template-columns:1fr}.opex-cost-pool-head .btn-plain{justify-self:start}.opex-cost-pool-attached-actions{justify-content:flex-start}.opex-cost-pool-allocation{justify-content:flex-start}}
 .cac-feed-card{border:1px solid rgba(223,168,90,.30);background:linear-gradient(180deg,rgba(25,23,22,.96),rgba(19,18,16,.92));border-radius:10px;padding:11px 12px;margin:10px 0 12px;box-shadow:inset 0 0 0 1px rgba(220,169,102,.07)}
 .cac-feed-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cac-feed-title{color:#A07840;font-weight:600;letter-spacing:.02em}
 .cac-feed-summary{font-size:10.5px;color:#53514E;margin-top:4px}
 .cac-feed-body{margin-top:8px;padding-top:8px;border-top:1px solid rgba(87,84,81,.13)}
-.cac-channel-card{border:1px solid rgba(87,84,81,.22);background:#F1EFED;border-radius:8px;padding:9px 10px;margin:9px 0 0 14px;position:relative}
+.cac-channel-card{border:1px solid rgba(87,84,81,.22);background:#F7F6F4;border-radius:8px;padding:9px 10px;margin:9px 0 0 14px;position:relative}
 .cac-channel-card:before{content:"";position:absolute;left:-9px;top:12px;bottom:12px;width:2px;border-radius:2px;background:rgba(166,117,49,.36)}
 .cac-channel-card.dragging{opacity:.58;border-color:rgba(166,117,49,.48);box-shadow:0 7px 18px rgba(0,0,0,.18)}
 .cac-channel-card.drop-before{box-shadow:inset 0 3px 0 #D8A45E}
@@ -404,14 +404,14 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .wf-end input{width:42px !important;max-width:42px !important;padding-left:5px !important;padding-right:5px !important}
 .wf-trigger-row{display:flex;gap:5px;align-items:center;flex-wrap:wrap;margin-top:8px;padding-top:8px;border-top:1px solid rgba(87,84,81,.10)}
 .wf-trigger-row .cu{font-size:9px}
-.wf-schema{display:grid;grid-template-columns:1.25fr .55fr 1fr .72fr .68fr .78fr .78fr .95fr;gap:4px;margin:5px 0 7px;padding:6px 7px;border-radius:6px;background:#F3F1EF;border:1px solid rgba(87,84,81,.12)}
+.wf-schema{display:grid;grid-template-columns:1.25fr .55fr 1fr .72fr .68fr .78fr .78fr .95fr;gap:4px;margin:5px 0 7px;padding:6px 7px;border-radius:6px;background:#F8F6F5;border:1px solid rgba(87,84,81,.12)}
 .wf-schema span{font-size:8.5px;color:#53514E;line-height:1.25}
 .nie-assess-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
-.nie-assess-item{background:#F1EFED;border:1px solid rgba(87,84,81,.12);border-radius:7px;padding:8px}
+.nie-assess-item{background:#F7F6F4;border:1px solid rgba(87,84,81,.12);border-radius:7px;padding:8px}
 .nie-assess-item .crow{margin:0 !important}
 @media(max-width:980px){.nie-defaults{grid-template-columns:1fr}.nie-assess-grid{grid-template-columns:1fr}.wf-schema{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:760px){.wf-role-grid{grid-template-columns:1fr 1fr}.wf-role-grid .wf-role-title,.wf-role-grid .wf-count,.wf-role-grid .wf-compensation,.wf-role-grid .wf-delete,.wf-role-grid .wf-start,.wf-role-grid .wf-end,.wf-role-grid .wf-escalation,.wf-role-grid .wf-load{grid-column:auto;grid-row:auto;max-width:none}.wf-role-grid .wf-compensation,.wf-role-grid .wf-start{grid-column:1/-1}.wf-role-grid .wf-delete{grid-column:2;grid-row:1}}
-.modpanel{background:#EDEBE8;border:1px solid #CECAC7;border-radius:10px;padding:16px 20px;margin:0 0 8px}
+.modpanel{background:#F6F5F3;border:1px solid #CECAC7;border-radius:10px;padding:16px 20px;margin:0 0 8px}
 .modpanel .mp-title{font-size:11px;letter-spacing:.12em;color:#A7752D;font-weight:600;text-transform:uppercase;margin:0 0 12px}
 .mp-info{display:flex;align-items:center;gap:12px;font-size:14px;color:#53514E;margin:20px 0 0;font-weight:400;line-height:1.5}
 .ccols{display:grid;grid-template-columns:1fr 1fr;column-gap:32px;row-gap:22px}
@@ -442,8 +442,8 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .fpill .fbadge{width:15px;height:15px;border-radius:50%;border:1.4px solid #58544F;color:transparent;display:flex;align-items:center;justify-content:center;font-size:10px;flex:0 0 15px}
 .fpill.on .fbadge{background:#D8A45E;border-color:#D8A45E;color:#1C1A19;font-weight:800}
 .minis{display:flex;gap:6px;margin-top:7px}
-.minis span{width:26px;height:24px;border:1px solid #4E4C4A;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#A6A09B}
-.minis span.on{color:#D8A45E;border-color:#8B6C43}.modcard{flex:1 1 0;justify-content:space-between;display:flex;align-items:center;gap:13px;background:#E5E3E0;border:1px solid #C7C4C1;border-radius:10px;padding:20px 18px;cursor:pointer;min-width:190px;min-height:72px}
+.minis span{width:26px;height:24px;border:1px solid #AEABA7;border-radius:6px;display:flex;align-items:center;justify-content:center;color:#585552}
+.minis span.on{color:#A7752D;border-color:#8B6C43}.modcard{flex:1 1 0;justify-content:space-between;display:flex;align-items:center;gap:13px;background:#F4F3F1;border:1px solid #C7C4C1;border-radius:10px;padding:20px 18px;cursor:pointer;min-width:190px;min-height:72px}
 .modcard.sel{border-color:#A7752D;box-shadow:0 0 0 1px rgba(220,169,102,.35)}
 .cfgcard .ovh2{margin:0 0 10px;border:none;border-left:3px solid #A7752D;border-radius:0;background:transparent;padding:0 0 0 10px}
 .cfgcard .crow input[type=text],.cfgcard .crow input:not([type]){max-width:170px}
@@ -472,10 +472,10 @@ table.dtab tr:hover td{background:rgba(220,169,102,.04)}
 .cardhead .ct{font-size:18px;line-height:24px;font-weight:500;color:#171412;letter-spacing:-.012em}
 .cardhead .cd{font-size:13px;line-height:20px;font-weight:400;color:#53514E;margin-top:2px;max-width:480px}
 .cfgfoot{display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:10.5px;color:#585552}
-.savedchip{color:#8DAA92}.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #3C3A38;color:#A6A09B;background:transparent;font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase;background:#C49C67;color:#FFFFFF}
-.chip.on{border-color:#5B755F;color:#B4CEB8;background:rgba(141,170,146,.10);font-weight:600}
-.chip .dot{width:8px;height:8px;border-radius:50%;background:#58544F;flex:0 0 8px}
-.chip.on .dot{background:#8DAA92}
+.savedchip{color:#8DAA92}.chip{display:inline-flex;align-items:center;gap:6px;padding:4px 12px;border-radius:999px;border:1px solid #C3C0BD;color:#585552;background:transparent;font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:2px;text-transform:uppercase;background:#9F7844;color:#0F0D0B}
+.chip.on{border-color:#516B55;color:#536A57;background:rgba(80,107,85,.10);font-weight:600}
+.chip .dot{width:8px;height:8px;border-radius:50%;background:#A5A19E;flex:0 0 8px}
+.chip.on .dot{background:#506B55}
 .fld.wide{grid-column:1/-1}
 /* two-line, centered sidebar labels: UPPERCASE primary + muted mixed-case qualifier */
 .fld2 label{text-align:center;line-height:1.25;text-transform:none;letter-spacing:.03em;font-weight:700;font-size:9.5px;color:#CFCCC9}
@@ -530,13 +530,13 @@ table.fin.freeze-metric.has-ref tr:hover td.ref + td{background:#E7E4E1}
 /* Dark-card table variant: for tables inside dark ovcards (Foundry Lab, peer-seed). Avoids the
    light-mode zebra + dark text that renders as unreadable striped rows on a dark background. */
 table.fin-dark{border-collapse:collapse;width:100%}
-table.fin-dark th,table.fin-dark td{border:1px solid #3C3A39;padding:6px 10px;font-size:11.5px;
+table.fin-dark th,table.fin-dark td{border:1px solid #C3C0BD;padding:6px 10px;font-size:11.5px;
   text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
-table.fin-dark td{color:#E5E2DF;font-weight:500;background:transparent}
-table.fin-dark th{background:#1F1E1C;color:#EDEBE8;font-weight:600;font-size:10px;letter-spacing:.06em;
-  text-transform:uppercase;border:1px solid #3C3A39;border-bottom:2px solid #8C8379;padding:8px 10px}
+table.fin-dark td{color:#22201E;font-weight:500;background:transparent}
+table.fin-dark th{background:#F5F3F2;color:#1C1A17;font-weight:600;font-size:10px;letter-spacing:.06em;
+  text-transform:uppercase;border:1px solid #C3C0BD;border-bottom:2px solid #726F6C;padding:8px 10px}
 table.fin-dark th:first-child,table.fin-dark td:first-child{text-align:left}
-table.fin-dark tbody tr:nth-child(even) td,table.fin-dark tr:nth-child(even) td{background:rgba(140,131,121,.08)}
+table.fin-dark tbody tr:nth-child(even) td,table.fin-dark tr:nth-child(even) td{background:rgba(114,111,108,.08)}
 /* CAC calculated roll-forward audit: compact dark table with a true thin-cell grid. */
 table.cac-audit-grid{border-collapse:collapse;border:1px solid rgba(179,174,168,.30)}
 table.cac-audit-grid th,table.cac-audit-grid td{border:1px solid rgba(179,174,168,.24);padding:4px 6px;white-space:nowrap}
@@ -557,20 +557,20 @@ td.neg{color:var(--red)}
 .noteitem{font-size:11.5px;color:var(--grey);padding:4px 0;border-bottom:1px dashed var(--soft)}
 /* Methodology + caveat register render on the dark .cover (notes) tab: theme for navy. */
 .mth-wrap{max-width:900px}
-.mth-lead{font-size:14px;line-height:1.7;color:#E6E3E0;margin:2px 0 20px;padding-bottom:18px;border-bottom:1px solid #343331}
+.mth-lead{font-size:14px;line-height:1.7;color:#221F1D;margin:2px 0 20px;padding-bottom:18px;border-bottom:1px solid #CDC9C6}
 .mth-lead em{color:var(--namber);font-style:normal;font-weight:600}
 .mth-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(390px,1fr));gap:16px;margin-bottom:16px}
-.mth-sec{background:#1F1E1C;border:1px solid #393836;border-top:3px solid var(--namber);border-radius:5px;padding:16px 18px}
+.mth-sec{background:#F5F3F2;border:1px solid #C6C3C0;border-top:3px solid var(--namber);border-radius:5px;padding:16px 18px}
 .mth-sec h4{margin:0 0 11px;font-size:11px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--namber);display:flex;align-items:center;gap:9px}
 .mth-sec h4 .mth-num{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--namber);color:#1E1C1B;font-size:11px;font-weight:800;letter-spacing:0}
-.mth-sec p{margin:0 0 10px;font-size:12.5px;line-height:1.68;color:#D7D5D2}
+.mth-sec p{margin:0 0 10px;font-size:12.5px;line-height:1.68;color:#2C2A27}
 .mth-sec p:last-child{margin-bottom:0}
-.mth-sec .mth-tag{font-weight:700;color:#F0E4CC}
-.mth-callout{border:1px solid #725835;border-left:4px solid var(--namber);background:#221D12;border-radius:5px;padding:13px 16px;margin:0 0 18px;font-size:12.5px;line-height:1.65;color:#E8DCC2}
+.mth-sec .mth-tag{font-weight:700;color:#211E1C}
+.mth-callout{border:1px solid #725835;border-left:4px solid var(--namber);background:#F5F4F2;border-radius:5px;padding:13px 16px;margin:0 0 18px;font-size:12.5px;line-height:1.65;color:#8A7F67}
 .mth-callout .mth-cl-h{font-weight:700;color:var(--namber);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;margin-bottom:5px}
-.mth-callout b{color:#FBEFD4}
-.mth-scope{background:#1A1817;border:1px solid #343331;border-left:4px solid #524D48;border-radius:5px;padding:14px 17px;font-size:12.5px;line-height:1.65;color:#BDB7B2;font-style:italic}
-.mth-scope b{font-style:normal;color:#EBE8E5}
+.mth-callout b{color:#8A7F67}
+.mth-scope{background:#F7F5F4;border:1px solid #CDC9C6;border-left:4px solid #ACA9A6;border-radius:5px;padding:14px 17px;font-size:12.5px;line-height:1.65;color:#44413E;font-style:italic}
+.mth-scope b{font-style:normal;color:#1E1C19}
 /* Caveat register on the dark tab: legible light text, subtle amber ticks. */
 #content.cover .cav-intro{font-size:12px;color:#AEA9A3;margin:4px 0 12px;max-width:820px;line-height:1.6}
 #content.cover .cav-list{max-width:860px;display:flex;flex-direction:column;gap:1px}
@@ -661,26 +661,26 @@ th.ref{color:#DFC3A0}
 #content.cover .h2{color:#F2EFEC;border-bottom:1px solid #343331}
 #content.cover .memo{color:#9C9792}
 .ovcards{display:grid;grid-template-columns:repeat(auto-fit,minmax(216px,1fr));gap:12px;margin:8px 0 4px}
-.ovcard{background:#232220;border:1px solid #343331;border-radius:9px;padding:.85rem .95rem}
-.ovcard .k{font-size:.72rem;color:#9C9792;text-transform:uppercase;letter-spacing:.07em}
-.ovcard .v{font-family:var(--mono);font-size:1.35rem;margin-top:.3rem;color:#F2EFEC}
-.ovcard .v.neg{color:#E38377}
-.ovcard .s{font-size:.75rem;color:#9C9792;margin-top:.2rem}
-.ovh3{font-size:.85rem;color:#D8A45E;margin:1.5rem 0 .6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
-.ovh2{background:#232220;border:1px solid #343331;border-left:3px solid #D8A45E;
-  border-radius:6px;padding:8px 12px;margin:18px 0 10px;color:#D8A45E;
+.ovcard{background:#F4F2F0;border:1px solid #CDC9C6;border-radius:9px;padding:.85rem .95rem}
+.ovcard .k{font-size:.72rem;color:#605D5A;text-transform:uppercase;letter-spacing:.07em}
+.ovcard .v{font-family:var(--mono);font-size:1.35rem;margin-top:.3rem;color:#191715}
+.ovcard .v.neg{color:#A64C43}
+.ovcard .s{font-size:.75rem;color:#605D5A;margin-top:.2rem}
+.ovh3{font-size:.85rem;color:#A7752D;margin:1.5rem 0 .6rem;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.ovh2{background:#F4F2F0;border:1px solid #CDC9C6;border-left:3px solid #A7752D;
+  border-radius:6px;padding:8px 12px;margin:18px 0 10px;color:#A7752D;
   font-size:13px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}
-.ovflag{border:1px solid #343331;border-radius:8px;padding:.7rem .85rem;margin-bottom:.55rem;background:#232220}
-.ovflag .fid{font-family:var(--mono);font-size:10.5px;color:#9C9792;margin-right:.5rem}
-.ovflag .ftext{margin-top:.4rem;font-size:13px;color:#F2EFEC;line-height:1.55}
+.ovflag{border:1px solid #CDC9C6;border-radius:8px;padding:.7rem .85rem;margin-bottom:.55rem;background:#F4F2F0}
+.ovflag .fid{font-family:var(--mono);font-size:10.5px;color:#605D5A;margin-right:.5rem}
+.ovflag .ftext{margin-top:.4rem;font-size:13px;color:#191715;line-height:1.55}
 .ovtag{font-family:var(--mono);font-size:10.5px;padding:.12rem .45rem;border-radius:4px;white-space:nowrap;display:inline-block}
-.ovtag.ok{background:rgba(142,197,153,.12);color:#8EC599}
-.ovtag.mut{background:#282624;color:#9C9792}
-.ovtag.warn{background:rgba(217,177,95,.13);color:#D9B15F}
-.ovtag.bad{background:rgba(227,131,119,.14);color:#E38377}
-table.ovt{border-collapse:collapse;font-size:.83rem;color:#F2EFEC;margin-top:4px;min-width:760px}
-table.ovt th{color:#9C9792;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #343331;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
-table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #262422;vertical-align:top}
+.ovtag.ok{background:rgba(60,113,73,.12);color:#3C7149}
+.ovtag.mut{background:#F2F1EF;color:#605D5A}
+.ovtag.warn{background:rgba(159,122,35,.13);color:#9F7A23}
+.ovtag.bad{background:rgba(166,76,67,.14);color:#A64C43}
+table.ovt{border-collapse:collapse;font-size:.83rem;color:#191715;margin-top:4px;min-width:760px}
+table.ovt th{color:#605D5A;text-align:left;font-weight:500;padding:.45rem .6rem;border-bottom:1px solid #CDC9C6;font-size:.72rem;text-transform:uppercase;letter-spacing:.05em}
+table.ovt td{padding:.45rem .6rem;border-bottom:1px solid #E0DDD9;vertical-align:top}
 /* Inside .ovt tables the per-cell data-prov underline (box-shadow, line 347) stacks on top of the
    row's own border-bottom, producing a DOUBLED line — and on tall two-line rows the shadow sits at
    the content-box bottom (mid-row) while the border sits at the row bottom, so the two separate.
@@ -698,8 +698,8 @@ table.ovt td.num{text-align:right;font-variant-numeric:tabular-nums;font-family:
 /* Ruled-grid variant for the flag/threshold ledger: full cell borders + centered
    headers. Scoped so the peer-comparison and vintage .ovt tables are unaffected. */
 table.ovt.ovt-grid{border:1px solid #3C3B39}
-table.ovt.ovt-grid th{text-align:center;border:1px solid #3C3B39;background:#1B1A18}
-table.ovt.ovt-grid td{border:1px solid #343331}
+table.ovt.ovt-grid th{text-align:center;border:1px solid #C3BFBC;background:#F7F5F3}
+table.ovt.ovt-grid td{border:1px solid #CDC9C6}
 /* provenance hover: cells carrying a data-prov get a quiet underline affordance and
    the native title tooltip. Cursor stays the default text/cell cursor (no heavy help
    arrow) — the underline alone signals "hover for source", Excel-formula-bar style. */
@@ -832,13 +832,14 @@ footer .conf{color:var(--k-tx2);letter-spacing:.08em;font-weight:600}
 #content.cover .h2{color:var(--k-graph-tx);border-bottom:1px solid var(--nline)}
 .memo{font-size:12px;line-height:1.6;color:var(--k-tx3)}
 #content.cover .memo{color:var(--k-graph-mut)}
-.ovh3{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--k-graph-tx);margin:26px 0 10px}
+.ovh3{font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;color:var(--k-tx1);margin:26px 0 10px}
 section#content:not(.cover) .ovh3{color:var(--k-tx1);font-weight:600;letter-spacing:0}
 table.fin th{border-bottom:1px solid var(--gold)}
 .btn-plain{border-radius:6px}
 #content.cover .btn-plain{background:var(--nvy3);border:1px solid var(--nline);color:var(--ntext)}
-.ovcard,.ovflag{border-radius:10px}
-.ovh2{background:transparent;border:0;border-bottom:1px solid var(--nline);border-radius:0;padding:0 0 8px;color:var(--ntext);font-size:14px;font-weight:600;letter-spacing:-.005em;text-transform:none}
+.ovcard,.ovflag{border-radius:10px;background:var(--k-surface)!important;border:1px solid var(--k-line)!important;box-shadow:0 1px 2px rgba(24,22,20,.04)}
+.ovh2{background:var(--k-graph)!important;border:0!important;border-radius:8px;padding:9px 14px!important;margin:24px 0 12px!important;color:#FFFFFF!important;font-family:var(--k-disp);font-size:13.5px;font-weight:600;letter-spacing:-.005em;text-transform:none}
+.ovh2 *{color:inherit!important}
 #content.cover .card{border-radius:10px}
 
 /* ============================ CONFIGURATION ============================ */
@@ -1128,6 +1129,14 @@ tr.opex-item-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
 #landingNudge{border-radius:10px!important;background:var(--k-gold-wash)!important;border-color:var(--k-gold-line)!important}
 #landingNudge span{color:var(--k-tx1)!important}
 #landingNudge b{color:var(--k-gold-deep)!important}
+
+/* r201: analysis tabs. Proportional tabular figures in data tables; Capital IQ grid heads. */
+section#content table.ovt td,section#content table.dtab td,section#content table.ovt td *,section#content table.dtab td *{font-family:var(--k-font)!important;font-variant-numeric:tabular-nums lining-nums}
+section#content table.ovt:not(.ovt-grid) th,section#content table.dtab th{background:#EEECE8;color:var(--k-tx2)!important;font-size:11px;font-weight:600;letter-spacing:.02em;border-bottom:1px solid var(--k-line2)}
+section#content table.ovt:not(.ovt-grid) td,section#content table.dtab td{border-bottom:1px solid var(--k-line)}
+.ovcard .k{color:var(--k-tx3)!important;letter-spacing:.05em}
+.ovcard .v{font-family:var(--k-disp)!important;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--k-tx1)}
+section#content select:not(.cfgwrap select){height:29px;border:1px solid var(--k-field-line);border-radius:6px;background:var(--k-surface);color:var(--k-tx1);padding:0 8px;font-size:12.5px}
 </style>
 </head>
 <body>
@@ -1533,12 +1542,12 @@ async function fetchPeerSeed(){
   const raw = (document.getElementById("peerCerts")||{}).value || "";
   const certs = raw.split(/[,\s]+/).map(s=>parseInt(s,10)).filter(n=>!isNaN(n));
   const out = document.getElementById("peerSeedResult");
-  if(!certs.length){ if(out) out.innerHTML = '<div class="memo" style="color:#BE918A">Enter at least one FDIC cert number.</div>'; return; }
+  if(!certs.length){ if(out) out.innerHTML = '<div class="memo" style="color:#896059">Enter at least one FDIC cert number.</div>'; return; }
   const products = (((cfg||{}).assumptions||{}).lending_products) || [];
   // Products must be selected first — peer assumptions are shaped from the engagement's products,
   // and only peer field metrics available for those products are used. No auto-scaffolding.
   if(!products.length){
-    if(out) out.innerHTML = '<div class="memo" style="color:#BE918A">Select your products first (Product tab) \u2014 there is nothing to pre-populate until at least one product exists.</div>';
+    if(out) out.innerHTML = '<div class="memo" style="color:#896059">Select your products first (Product tab) \u2014 there is nothing to pre-populate until at least one product exists.</div>';
     return;
   }
   if(out) out.innerHTML = '<div class="memo">Fetching peer data\u2026</div>';
@@ -1547,7 +1556,7 @@ async function fetchPeerSeed(){
       body: JSON.stringify({certs, products})});
     const d = await r.json();
     renderPeerSeed(d, products);
-  }catch(e){ if(out) out.innerHTML = '<div class="memo" style="color:#BE918A">Peer lookup failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ if(out) out.innerHTML = '<div class="memo" style="color:#896059">Peer lookup failed: '+esc(String(e))+'</div>'; }
 }
 window.fetchPeerSeed = fetchPeerSeed;
 
@@ -1555,7 +1564,7 @@ function renderPeerSeed(d, products){
   const out = document.getElementById("peerSeedResult");
   if(!out) return;
   if(!d || !d.available){
-    out.innerHTML = '<div class="memo" style="color:#BE918A">'+esc((d&&d.note)||"Peer data unavailable.")+'</div>';
+    out.innerHTML = '<div class="memo" style="color:#896059">'+esc((d&&d.note)||"Peer data unavailable.")+'</div>';
     return;
   }
   window._peerSeedData = {suggestions: d.suggestions||{}, products: products,
@@ -1564,14 +1573,14 @@ function renderPeerSeed(d, products){
   let h = '<div class="memo" style="line-height:1.6">'+(d.blend?"Median blend of: ":"Adopting: ")+'<b>'+peers+'</b>. '+esc(d.scope_note||"")+'</div>';
   const sugg = d.suggestions||{};
   const idxs = Object.keys(sugg);
-  if(!idxs.length){ out.innerHTML = h + '<div class="memo" style="margin-top:8px;color:#BE918A">No matching per-product data for these peers.</div>'; return; }
+  if(!idxs.length){ out.innerHTML = h + '<div class="memo" style="margin-top:8px;color:#896059">No matching per-product data for these peers.</div>'; return; }
   h += '<table class="fin-dark" style="margin-top:10px"><tr><th>Product</th><th>Field</th><th style="text-align:right">Suggested</th><th>Provenance</th><th></th></tr>';
   idxs.forEach(i=>{
     const pname = esc((products[i]||{}).name || ("Product "+i));
     Object.keys(sugg[i]).forEach(field=>{
       const s = sugg[i][field];
       h += '<tr id="pseed-'+i+'-'+field+'"><td>'+pname+'</td><td>'+esc(field)+'</td><td style="text-align:right">'+esc(String(s.value))+'</td>'
-        + '<td style="font-size:10px;color:#A6A09B;max-width:34ch">'+esc(s.provenance||"")+'</td>'
+        + '<td style="font-size:10px;color:#585552;max-width:34ch">'+esc(s.provenance||"")+'</td>'
         + '<td><button class="btn-plain" style="font-size:10px;padding:3px 8px" onclick="adoptPeerCell('+i+',\''+field+'\')">Adopt</button></td></tr>';
     });
   });
@@ -2812,24 +2821,24 @@ function _curveVintageLabel(c){ if(!c)return "—"; const v=c.vintage||"dated sn
 function renderRateCurvesPanel(){
   const rc=cfg.assumptions.rate_curves, fe=rc.fomc.edited, cp=rc.current_policy||{}; let h='';
   h+=`<div class="snote">Quarterly-authored reference curves evaluated on the engagement’s actual calendar. Monthly runs interpolate these dated quarter anchors. EFFR/SOFR anchor to target midpoint; Prime to target-range top + 300bp. <b>Policy observation: ${esc(cp.observation_date||cp.statement_date||'—')}</b>.</div>`;
-  h+='<div style="background:#F8F6F3;border:1px solid #B9B6B255;border-radius:6px;padding:8px;margin-bottom:8px;font-size:10px">';
+  h+='<div style="background:#F9F7F6;border:1px solid #B9B6B255;border-radius:6px;padding:8px;margin-bottom:8px;font-size:10px">';
   h+='<div style="display:flex;justify-content:space-between;margin-bottom:5px"><span style="color:#585552">Policy observation date</span><span style="color:#A7752D">'+esc(cp.observation_date||cp.statement_date||"—")+'</span></div>';
   h+='<div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:6px">';
-  h+='<div><div style="font-size:8.5px;color:#585552">Target midpoint %</div><input type="number" step="0.125" value="'+(+((cp.mid||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'mid\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#EDEBE8;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div>';
-  h+='<div><div style="font-size:8.5px;color:#585552">Range top %</div><input type="number" step="0.125" value="'+(+((cp.top||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'top\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#EDEBE8;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div></div>';
+  h+='<div><div style="font-size:8.5px;color:#585552">Target midpoint %</div><input type="number" step="0.125" value="'+(+((cp.mid||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'mid\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F6F5F3;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div>';
+  h+='<div><div style="font-size:8.5px;color:#585552">Range top %</div><input type="number" step="0.125" value="'+(+((cp.top||0)*100).toFixed(3))+'" onchange="setCurrentPolicy(\'top\',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F6F5F3;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div></div>';
   const prov=rc.fomc.source_vintage?('SEP source vintage '+rc.fomc.source_vintage):('SEP anchors retrieved '+(rc.retrieved_at||'—')+' · release date not asserted');
   h+='<div style="display:flex;justify-content:space-between"><span style="color:#585552">Forward-anchor provenance</span><span style="color:#A7752D">'+esc(prov)+'</span></div></div>';
   h+=`<div style="margin:6px 0 4px;font-size:9px;color:${fe?'#D8A45E':'#A6A09B'};text-transform:uppercase;letter-spacing:.05em;font-weight:700">FOMC SEP target-midpoint anchors${fe?' · edited':''}</div>`;
   h+='<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:5px;margin-bottom:8px">';
   const pts=Object.entries(rc.fomc.anchors||{}).sort((a,b)=>a[0].localeCompare(b[0])).slice(0,3);
-  for(const [d,v] of pts){ h+=`<div><div style="font-size:8.5px;color:#585552;text-align:center">${esc(d.slice(0,4))} YE</div><input type="number" step="0.05" value="${+((v||0)*100).toFixed(3)}" onchange="setFomcMedian('${d}',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F8F6F3;border:1px solid ${fe?'#D8A45E55':'#44434155'};color:#191614;border-radius:4px;font-size:11px"></div>`; }
-  h+=`<div><div style="font-size:8.5px;color:#585552;text-align:center">LR</div><input type="number" step="0.05" value="${+((rc.fomc.lr||0)*100).toFixed(3)}" onchange="cfg.assumptions.rate_curves.fomc.lr=(_pf(this.value)||0)/100;cfg.assumptions.rate_curves.fomc.edited=true;regenCurvesFromFOMC()" style="width:100%;text-align:right;padding:3px 5px;background:#F8F6F3;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div></div>`;
+  for(const [d,v] of pts){ h+=`<div><div style="font-size:8.5px;color:#585552;text-align:center">${esc(d.slice(0,4))} YE</div><input type="number" step="0.05" value="${+((v||0)*100).toFixed(3)}" onchange="setFomcMedian('${d}',this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F9F7F6;border:1px solid ${fe?'#D8A45E55':'#44434155'};color:#191614;border-radius:4px;font-size:11px"></div>`; }
+  h+=`<div><div style="font-size:8.5px;color:#585552;text-align:center">LR</div><input type="number" step="0.05" value="${+((rc.fomc.lr||0)*100).toFixed(3)}" onchange="cfg.assumptions.rate_curves.fomc.lr=(_pf(this.value)||0)/100;cfg.assumptions.rate_curves.fomc.edited=true;regenCurvesFromFOMC()" style="width:100%;text-align:right;padding:3px 5px;background:#F9F7F6;border:1px solid #B9B6B255;color:#191614;border-radius:4px;font-size:11px"></div></div>`;
   h+='<div style="margin:4px 0;font-size:9px;color:#585552;text-transform:uppercase;letter-spacing:.05em;font-weight:700">Basis offset (bp; Prime is over range top)</div><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:5px;margin-bottom:8px">';
-  for(const k of CURVE_ORDER){ const oe=rc.offsets_edited&&rc.offsets_edited[k],bp=Math.round((rc.offsets[k]||0)*10000); h+=`<div><div style="font-size:8.5px;color:${oe?'#D8A45E':'#A6A09B'};text-align:center">${CURVE_LABEL[k]}${oe?' *':''}</div><input type="number" step="1" value="${bp}" onchange="setCurveOffset('${k}',(_pf(this.value)||0)/100)" style="width:100%;text-align:right;padding:3px 5px;background:#F8F6F3;border:1px solid ${oe?'#D8A45E55':'#44434155'};color:#191614;border-radius:4px;font-size:11px"></div>`; }
+  for(const k of CURVE_ORDER){ const oe=rc.offsets_edited&&rc.offsets_edited[k],bp=Math.round((rc.offsets[k]||0)*10000); h+=`<div><div style="font-size:8.5px;color:${oe?'#D8A45E':'#A6A09B'};text-align:center">${CURVE_LABEL[k]}${oe?' *':''}</div><input type="number" step="1" value="${bp}" onchange="setCurveOffset('${k}',(_pf(this.value)||0)/100)" style="width:100%;text-align:right;padding:3px 5px;background:#F9F7F6;border:1px solid ${oe?'#D8A45E55':'#44434155'};color:#191614;border-radius:4px;font-size:11px"></div>`; }
   h+='</div><table style="width:100%;border-collapse:collapse;font-size:11px"><tr><th style="text-align:left;padding:3px 4px;color:#585552;font-weight:600">Model quarter · calendar end</th>';
   for(const k of CURVE_ORDER){ const c=rc[k]; h+=`<th style="text-align:center;padding:3px 4px"><div style="color:#A7752D;font-weight:700">${CURVE_LABEL[k]}</div><div style="font-weight:400;font-size:9px;color:${c&&c.edited?'#D8A45E':'#A6A09B'}">${esc(_curveVintageLabel(c))}</div></th>`; } h+='</tr>';
-  for(let q=1;q<=REG_NQ();q++){ h+=`<tr><td style="padding:2px 4px;color:#585552">Q${q} · ${_isoUTC(_modelQuarterEnd(q))}</td>`; for(const k of CURVE_ORDER){ const c=rc[k],val=+(((c.path_q[q-1])||0)*100).toFixed(3),edited=c._editedCells&&c._editedCells[q-1]; h+=`<td style="padding:1px 3px"><input type="number" step="0.05" value="${val}" onchange="setCurveCell('${k}',${q-1},this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F8F6F3;border:1px solid ${edited?'#D8A45E':'#44434155'};border-left:${edited?'2px solid #D8A45E':'1px solid #44434155'};color:#191614;border-radius:4px;font-size:11px"></td>`; } h+='</tr>'; }
-  h+='</table><button onclick="refreshFromFOMC()" style="width:100%;margin-top:8px;padding:8px;background:#A7752D;color:#161513;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">↻ Refresh from FOMC (FRED)</button><button onclick="resetCurvesToFOMC()" style="width:100%;margin-top:6px;padding:8px;background:#E2E0DD;color:#A7752D;border:1px solid #A7752D55;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">↺ Reset to built-in dated snapshot</button>';
+  for(let q=1;q<=REG_NQ();q++){ h+=`<tr><td style="padding:2px 4px;color:#585552">Q${q} · ${_isoUTC(_modelQuarterEnd(q))}</td>`; for(const k of CURVE_ORDER){ const c=rc[k],val=+(((c.path_q[q-1])||0)*100).toFixed(3),edited=c._editedCells&&c._editedCells[q-1]; h+=`<td style="padding:1px 3px"><input type="number" step="0.05" value="${val}" onchange="setCurveCell('${k}',${q-1},this.value)" style="width:100%;text-align:right;padding:3px 5px;background:#F9F7F6;border:1px solid ${edited?'#D8A45E':'#44434155'};border-left:${edited?'2px solid #D8A45E':'1px solid #44434155'};color:#191614;border-radius:4px;font-size:11px"></td>`; } h+='</tr>'; }
+  h+='</table><button onclick="refreshFromFOMC()" style="width:100%;margin-top:8px;padding:8px;background:#A7752D;color:#161513;border:none;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">↻ Refresh from FOMC (FRED)</button><button onclick="resetCurvesToFOMC()" style="width:100%;margin-top:6px;padding:8px;background:#F4F2F0;color:#A7752D;border:1px solid #A7752D55;border-radius:6px;font-weight:700;font-size:12px;cursor:pointer">↺ Reset to built-in dated snapshot</button>';
   return h;
 }
 function resetCurvesToFOMC(){
@@ -2890,9 +2899,9 @@ function renderGlobals(){
       h += '<div style="margin:2px 0 12px;text-align:center">'
         + '<div class="snote" style="letter-spacing:.06em;text-transform:uppercase;font-size:10px;color:#A7752D;margin-bottom:5px">Initial Capital ($000s, in-run adjustment)</div>'
         + '<div style="display:inline-flex;align-items:center;gap:8px">'
-        + '<button type="button" onclick="bumpInitialCapital(-5000)" title="\u2212$5,000K" style="width:28px;height:28px;border:1px solid #AEABA7;background:#EDEBE8;color:#22201E;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">\u2212</button>'
-        + `<input id="initCapTuner" type="text" inputmode="decimal" value="${fmtComma(ic)}" onchange="setInitialCapital(this.value)" style="width:120px;text-align:center;padding:7px 8px;background:#F8F6F3;border:1px solid #B9B6B299;color:#191614;border-radius:7px;font-size:14px;font-family:inherit;font-weight:600">`
-        + '<button type="button" onclick="bumpInitialCapital(5000)" title="+$5,000K" style="width:28px;height:28px;border:1px solid #AEABA7;background:#EDEBE8;color:#22201E;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">+</button>'
+        + '<button type="button" onclick="bumpInitialCapital(-5000)" title="\u2212$5,000K" style="width:28px;height:28px;border:1px solid #AEABA7;background:#F6F5F3;color:#22201E;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">\u2212</button>'
+        + `<input id="initCapTuner" type="text" inputmode="decimal" value="${fmtComma(ic)}" onchange="setInitialCapital(this.value)" style="width:120px;text-align:center;padding:7px 8px;background:#F9F7F6;border:1px solid #B9B6B299;color:#191614;border-radius:7px;font-size:14px;font-family:inherit;font-weight:600">`
+        + '<button type="button" onclick="bumpInitialCapital(5000)" title="+$5,000K" style="width:28px;height:28px;border:1px solid #AEABA7;background:#F6F5F3;color:#22201E;border-radius:7px;font-size:16px;line-height:1;cursor:pointer">+</button>'
         + '</div>'
         + '<div style="font-size:10px;color:#6F6C69;margin-top:4px">\u00b1 buttons nudge by $5,000K</div>'
         + '</div>';
@@ -4778,7 +4787,7 @@ if(V31){
   currentTab = "overview";
   const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios";
 }
-const DARKTABS = new Set(["overview","peer","examiner","gov","notes","start","welcome","lab"]);   // r200: Configuration is a light work surface
+const DARKTABS = new Set(["welcome"]);   // r201: every work tab is a light surface; only the Welcome landing stays dark
 function restoreCardSelects(){
   document.querySelectorAll('select[data-restore]').forEach(sel=>{
     try{
@@ -4879,7 +4888,7 @@ function bandsSectionHtml(){
   return `<div class="ovh2">Peer corridor \u2014 modeled bank vs real peers</div>
     <div class="memo" style="margin:-2px 0 10px">Your modeled bank at Q12 placed against the latest available distribution of real filed peers. Every modeled value is reconstructed on a quarterly basis, regardless of the model cadence or projection length.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
-      <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#A6A09B">Cohort</span>
+      <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#585552">Cohort</span>
       <select id="pbCohort" onchange="cfgRef().peer_bands_mode=this.value;window.vintage=null;renderBands()">
         <option value="broad"${_pbMode==="broad"?" selected":""}>Broad cohort (all identity-gated filers)</option>
         <option value="under_200M"${_pbMode==="under_200M"?" selected":""}>Under $200M assets</option>
@@ -4888,7 +4897,7 @@ function bandsSectionHtml(){
         <option value="2B_10B"${_pbMode==="2B_10B"?" selected":""}>$2B\u2013$10B assets</option>
         <option value="curated"${_pbMode==="curated"?" selected":""}>Curated certs\u2026</option>
       </select>
-      <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#B3AEA8;margin-left:6px">
+      <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#4C4946;margin-left:6px">
         <input type="checkbox" id="pbLendingOnly"${_pbLend?" checked":""} onchange="cfgRef().peer_bands_lending_only=this.checked;renderBands()"> lending peers only</label>
       <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));window.vintage=null;renderBands()" style="display:none;min-width:220px">
     </div>
@@ -5030,7 +5039,7 @@ window.renderBands = async function(){
   // differ on a flow metric without either being wrong.
   const METRIC_BASIS = {roa:"Flow", nim:"Flow", efficiency:"Flow",
     tier1:"Stock", total:"Stock", lev:"Stock", net_charge_off_rate:"Flow"};
-  const COLOR = {good:"#89A28D", bad:"#C77", mid:"#C39962"};
+  const COLOR = {good:"#536A57", bad:"#A05051", mid:"#A07841"};
   function favOf(metric, v, latest){
     const dir = METRIC_DIRECTION[metric] || "higher_good";
     const highPct = v>=latest.p75, lowPct = v<latest.p25;
@@ -5047,9 +5056,9 @@ window.renderBands = async function(){
   results.forEach(({metric, d, err})=>{
     const label = METRIC_LABEL[metric] || metric;
     const basis = METRIC_BASIS[metric] || "";
-    const basisCell = `<td style="font-size:10px;color:#A6A09B">${basis}</td>`;
+    const basisCell = `<td style="font-size:10px;color:#585552">${basis}</td>`;
     if(err){
-      rows += `<tr><td>${esc(label)}</td>${basisCell}<td colspan="8" style="color:#A6A09B;font-size:11px">${esc(err)}</td></tr>`;
+      rows += `<tr><td>${esc(label)}</td>${basisCell}<td colspan="8" style="color:#585552;font-size:11px">${esc(err)}</td></tr>`;
       return;
     }
     if(RISK_BASED_METRICS.has(metric)) anyRisk = true;
@@ -5060,10 +5069,10 @@ window.renderBands = async function(){
     latestQ = latest.quarter;
     const m = modeledFor(metric);
     if(m.v===null || m.v===undefined){
-      const note = m.note ? ` \u00b7 <span style="color:#A6A09B">${esc(m.note)}</span>` : "";
-      rows += `<tr><td>${esc(label)}</td>${basisCell}<td class="num" style="color:#A6A09B">\u2014</td>`
+      const note = m.note ? ` \u00b7 <span style="color:#585552">${esc(m.note)}</span>` : "";
+      rows += `<tr><td>${esc(label)}</td>${basisCell}<td class="num" style="color:#585552">\u2014</td>`
         + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
-        + `<td style="color:#A6A09B;font-size:11px">peer band only${note}</td><td class="num">${latest.n}</td></tr>`;
+        + `<td style="color:#585552;font-size:11px">peer band only${note}</td><td class="num">${latest.n}</td></tr>`;
       return;
     }
     const fav = favOf(metric, m.v, latest);
@@ -5081,13 +5090,13 @@ window.renderBands = async function(){
     // As a separate row there is no height mismatch. The empty leading cells push it under the Modeled
     // column so it still reads as a note on the modeled value.
     const q12Row = (m.vq!=null)
-      ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#A6A09B;padding-top:0" data-prov title="Standalone Q12 ${esc(label)}, annualized from the three months in Q12. The primary value above follows the Q12 year-to-date filing convention.">Q12 standalone: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
+      ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#585552;padding-top:0" data-prov title="Standalone Q12 ${esc(label)}, annualized from the three months in Q12. The primary value above follows the Q12 year-to-date filing convention.">Q12 standalone: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
       : "";
-    const rowNote = m.note ? `<tr><td colspan="10" style="color:#A6A09B;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
+    const rowNote = m.note ? `<tr><td colspan="10" style="color:#585552;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
     rows += `<tr${(m.vq!=null)?' class="pb-hasq12"':''}><td>${esc(label)}</td>${basisCell}`
       + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}</td>`
       + `<td class="num" data-prov title="${esc(bandProv(10))}">${(+latest.p10).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(25))}">${(+latest.p25).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(50))}">${(+latest.p50).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(75))}">${(+latest.p75).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(90))}">${(+latest.p90).toFixed(2)}</td>`
-      + `<td data-prov title="Where your modeled value sits relative to the peer distribution, given this metric's risk direction (whether higher or lower is better)."><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(137,162,141,.16)':fav==='bad'?'rgba(189,129,120,.16)':'rgba(194,153,101,.14)'}">${bucket}</span></td>`
+      + `<td data-prov title="Where your modeled value sits relative to the peer distribution, given this metric's risk direction (whether higher or lower is better)."><span style="display:inline-block;padding:2px 8px;border-radius:3px;font-size:10.5px;font-weight:700;color:${COLOR[fav]};background:${fav==='good'?'rgba(83,106,87,.16)':fav==='bad'?'rgba(147,90,82,.16)':'rgba(159,120,68,.14)'}">${bucket}</span></td>`
       + `<td class="num" data-prov title="Number of real peer banks in this cohort at ${esc(_pQ)}.">${latest.n}</td></tr>` + q12Row + rowNote;
   });
 
@@ -5096,28 +5105,28 @@ window.renderBands = async function(){
   if(provOne){
     h += `<div class="memo" style="margin:0 0 8px"><b>${provOne.certified?"Certified":"Provisional"}</b> \u00b7 extract-raw (no winsorizing); extreme tails are real near-nil-denominator filers, refined by cohort hygiene not capping.</div>`;
   }
-  if(anyRisk){ h += `<div class="memo" style="margin:0 0 8px;color:#A6A09B;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
+  if(anyRisk){ h += `<div class="memo" style="margin:0 0 8px;color:#585552;font-size:10.5px">${esc(CBLR_NOTE)}</div>`; }
   // lending-filter commentary
   if(cohortFilter){
-    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #89A28D;padding-left:10px;font-size:10.5px"><b>Lending peers only</b> \u2014 ${cohortFilter.excluded_count} non-lending / thin-denominator ${cohortFilter.excluded_count===1?"filer":"filers"} excluded from the ${esc(cohortFilter.base_band)} band (${cohortFilter.lending_peers_kept} lending peers kept). Trusts and near-nil-RWA charters aren't lending-bank peers; raw values are unchanged, only the peer group is refined.</div>`;
+    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #536A57;padding-left:10px;font-size:10.5px"><b>Lending peers only</b> \u2014 ${cohortFilter.excluded_count} non-lending / thin-denominator ${cohortFilter.excluded_count===1?"filer":"filers"} excluded from the ${esc(cohortFilter.base_band)} band (${cohortFilter.lending_peers_kept} lending peers kept). Trusts and near-nil-RWA charters aren't lending-bank peers; raw values are unchanged, only the peer group is refined.</div>`;
   } else if(mode === "under_200M"){
-    h += `<div class="memo" style="margin:0 0 8px;color:#C39962;font-size:10.5px">This band includes non-lending charters (trust companies with near-nil RWA) that lift the high end. Toggle <b>lending peers only</b> above for a lending-bank comparison.</div>`;
+    h += `<div class="memo" style="margin:0 0 8px;color:#A07841;font-size:10.5px">This band includes non-lending charters (trust companies with near-nil RWA) that lift the high end. Toggle <b>lending peers only</b> above for a lending-bank comparison.</div>`;
   }
   if(smallNany){
-    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #D8A45E;padding-left:10px;font-size:10.5px">Small cohort: percentiles approach member values \u2014 read as the range of the named peers, not a distribution.</div>`;
+    h += `<div class="memo" style="margin:0 0 8px;border-left:3px solid #A7752D;padding-left:10px;font-size:10.5px">Small cohort: percentiles approach member values \u2014 read as the range of the named peers, not a distribution.</div>`;
   }
   // the row table — header names the cohort band and the quarter, both dynamic
   const BAND_LABEL = {broad:"broad cohort", under_200M:"under $200M", "200M_500M":"$200M\u2013$500M",
                       "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", curated:"curated certs"};
   const bandName = useLending ? "under $200M (lending peers only)" : (BAND_LABEL[mode] || mode);
-  h += `<div style="font-weight:600;font-size:13px;color:#D8A45E;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
+  h += `<div style="font-weight:600;font-size:13px;color:#A7752D;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
   h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th>Basis</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
   h += rows;
   h += '</table>';
   if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its Q12 values against these peers.</div>`; }
   // the retained commentaries
   h += `<div class="memo" style="margin-top:10px">Peer Cohort always stops at <b>Q12</b>, even when the projection continues beyond three years. For flow metrics, the primary value follows the Q12 year-to-date filing convention; the smaller line is the standalone three-month Q12 result. Stock ratios use the Q12 quarter-end value. Color reflects where the bank sits relative to the latest peer distribution given each metric's risk direction.</div>`;
-  h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#908B86">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
+  h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#6B6865">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
   liveBody.innerHTML = h;
 };
 async function subPlace(){
@@ -6197,11 +6206,11 @@ function vintageSectionHtml(){
   if(!window.vintage){
     h += '<div class="memo">Every cohort member\u2019s history is re-clocked to its own opening quarter; the band is what real de novos actually walked at each age. Pre-registered window; suppressed below minimum count; survivorship stated.</div>';
     if(window._vintageLoading){
-      h += '<div class="memo" style="color:#D8A45E">Building corridor from the substrate\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
+      h += '<div class="memo" style="color:#A7752D">Building corridor from the substrate\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
       h += '<button class="btn-plain" disabled style="opacity:.55;cursor:default">Building\u2026</button>';
     } else {
       if(window._vintageError){
-        h += `<div class="memo" style="border-left:3px solid #A56158;color:#D4A7A0">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
+        h += `<div class="memo" style="border-left:3px solid #99564E;color:#89605A">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
       }
       h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
     }
@@ -6212,15 +6221,15 @@ function vintageSectionHtml(){
   h += `<div class="memo">${V.cohort_size} ${esc(_vcohort)} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
   // Enumerated annualization-convention table — every metric, modeled basis vs peer basis, and whether
   // they are like-for-like. Placed here so the basis of each row is unambiguous before any number is read.
-  h += `<div class="memo" style="border-left:3px solid #D8A45E;padding-left:10px;font-size:10.5px">
+  h += `<div class="memo" style="border-left:3px solid #A7752D;padding-left:10px;font-size:10.5px">
     <div style="font-weight:600;margin-bottom:5px">Annualization conventions \u2014 how to read each row</div>
     <table class="ovt" style="width:100%;font-size:10px">
       <tr><th style="text-align:left">Metric</th><th style="text-align:left">Type</th><th style="text-align:left">Modeled (your bank)</th><th style="text-align:left">Peer band (filers)</th><th style="text-align:left">Like-for-like?</th></tr>
-      <tr><td>Tier 1 Ratio</td><td>Stock</td><td>Tier 1 / RWA, point-in-time (standardized)</td><td>Risk-based Tier 1 ratio, point-in-time</td><td style="color:#89A28D">Yes \u2014 point-in-time, window-independent</td></tr>
-      <tr><td>ROA</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#C39962">No \u2014 windows differ (quarter vs YTD)</td></tr>
-      <tr><td>NIM</td><td>Flow</td><td>Single-quarter NII / average first/last reported total assets, annualized \u00d74</td><td>YTD-annualized filer NIM; denominator may be average earning assets</td><td style="color:#C39962">No \u2014 window and denominator basis may differ</td></tr>
-      <tr><td>Efficiency Ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#C39962">No \u2014 windows differ (quarter vs YTD)</td></tr>
-      <tr><td>Net Charge-Off Rate</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>UBPR single-quarter, annualized \u00d74</td><td style="color:#89A28D">Yes \u2014 both single-quarter</td></tr>
+      <tr><td>Tier 1 Ratio</td><td>Stock</td><td>Tier 1 / RWA, point-in-time (standardized)</td><td>Risk-based Tier 1 ratio, point-in-time</td><td style="color:#536A57">Yes \u2014 point-in-time, window-independent</td></tr>
+      <tr><td>ROA</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#A07841">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>NIM</td><td>Flow</td><td>Single-quarter NII / average first/last reported total assets, annualized \u00d74</td><td>YTD-annualized filer NIM; denominator may be average earning assets</td><td style="color:#A07841">No \u2014 window and denominator basis may differ</td></tr>
+      <tr><td>Efficiency Ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#A07841">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>Net Charge-Off Rate</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>UBPR single-quarter, annualized \u00d74</td><td style="color:#536A57">Yes \u2014 both single-quarter</td></tr>
     </table>
     <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency can differ mid-year because the modeled view is standalone-quarter while peer filings are year-to-date. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
   </div>`;
@@ -6241,32 +6250,32 @@ function vintageSectionHtml(){
     const showLater = (metric==="net_charge_off_rate" && M.later);
     const later = window._vintageLater;
     if(metric==="net_charge_off_rate"){
-      h += `<label class="ftplabel" style="font-size:10.5px;margin:2px 0 6px;color:#CFCCC9"><input type="checkbox"${later?" checked":""} onchange="setVintageLater(this.checked)"> show later ages (Q13\u2013Q24) \u2014 where de novo charge-offs season in`;
-      if(later && M.later) h += ` <span style="color:#A6A09B">\u00b7 bucket n=${M.later.n}${M.later.suppressed?" (thin \u2014 suppressed)":""}</span>`;
+      h += `<label class="ftplabel" style="font-size:10.5px;margin:2px 0 6px;color:#33312E"><input type="checkbox"${later?" checked":""} onchange="setVintageLater(this.checked)"> show later ages (Q13\u2013Q24) \u2014 where de novo charge-offs season in`;
+      if(later && M.later) h += ` <span style="color:#585552">\u00b7 bucket n=${M.later.n}${M.later.suppressed?" (thin \u2014 suppressed)":""}</span>`;
       h += `</label>`;
     }
-    const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #343331;color:#D8A45E">${esc(M.later.label)}</th>` : "";
+    const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #CDC9C6;color:#A7752D">${esc(M.later.label)}</th>` : "";
     const lateCell = (p)=> (showLater && later)
-      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #343331;color:#D8A45E">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
+      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CDC9C6;color:#A7752D">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
     ["p90","p75","p50","p25"].forEach(p=>{
       h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
     });
     if(modeled){
-      h += '<tr><td style="color:#D8A45E">Modeled</td>' + M.ages.map(a=>{
+      h += '<tr><td style="color:#A7752D">Modeled</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
         if(v===undefined || a.p25===null) return '<td style="text-align:right">\u2014</td>';
-        const col = (v>a.p75||v<a.p25) ? "#D8A45E" : "#A6A09B";
+        const col = (v>a.p75||v<a.p25) ? "#A7752D" : "#585552";
         return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
-      }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #343331;color:#A6A09B" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';
+      }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #CDC9C6;color:#585552" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';
       h += '<tr><td>Verdict</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
-        if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#A6A09B">\u2014</td>';
+        if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#585552">\u2014</td>';
         const t = v>a.p75 ? "above" : (v<a.p25 ? "below" : "inside");
         return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
-      }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#A6A09B;border-left:2px solid #343331">\u2014</td>' : "") + '</tr>';
+      }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#585552;border-left:2px solid #CDC9C6">\u2014</td>' : "") + '</tr>';
     }
-    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#A6A09B">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#A6A09B;border-left:2px solid #343331">${M.later.n}</td>` : "") + '</tr></table></div>';
+    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#585552">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#585552;border-left:2px solid #CDC9C6">${M.later.n}</td>` : "") + '</tr></table></div>';
     h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}${(showLater && later) ? " \u00b7 Q13\u2013Q24 bucket: per-bank average within the window, then percentiles across banks \u2014 peer history only, no modeled overlay." : ""}</div>`;
   });
   return h;
@@ -6280,7 +6289,7 @@ function retroSectionHtml(){
   } else {
     const R = window.retroReport;
     if(lastRes && window.retroHash && window.retroHash !== lastRes.run_hash){
-      h += `<div class="memo" style="color:#D8A45E">The model has moved since this comparison. <a href="#" style="color:#D8A45E" onclick="retroSubstrate(window.retroCert);return false">Re-run against cert ${esc(String(window.retroCert||""))}</a> \u2014 or upload a fresh file.</div>`;
+      h += `<div class="memo" style="color:#A7752D">The model has moved since this comparison. <a href="#" style="color:#A7752D" onclick="retroSubstrate(window.retroCert);return false">Re-run against cert ${esc(String(window.retroCert||""))}</a> \u2014 or upload a fresh file.</div>`;
     }
     h += `<div class="memo"><b>${R.summary.series_within_15pct_terminal} of ${R.summary.series_compared}</b> series land within 15% at the terminal quarter (worst miss ${R.summary.worst_terminal_error_pct}%). ${esc(R.summary.note)} Report <span style="font-family:var(--mono)">${esc(R.report_hash)}</span>.</div>`;
     R.series.forEach(s=>{
@@ -6288,7 +6297,7 @@ function retroSectionHtml(){
       h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + s.rows.map(r=>`<th style="text-align:right">${PERLAB(r.q)}</th>`).join("") + '</tr>';
       h += '<tr><td>Projected</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.projected.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
       h += '<tr><td>Actual</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right">${r.actual.toLocaleString(undefined,{maximumFractionDigits:0})}</td>`).join("") + '</tr>';
-      h += '<tr><td>Error %</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right;color:${r.ape!==null&&r.ape>0.15?'#A56158':'#A6A09B'}">${r.ape===null?'\u2014':(r.ape*100).toFixed(1)+'%'}</td>`).join("") + '</tr></table></div>';
+      h += '<tr><td>Error %</td>' + s.rows.map(r=>`<td style="font-family:var(--mono);text-align:right;color:${r.ape!==null&&r.ape>0.15?'#99564E':'#585552'}">${r.ape===null?'\u2014':(r.ape*100).toFixed(1)+'%'}</td>`).join("") + '</tr></table></div>';
     });
     h += '<button class="btn-plain" onclick="window.retroReport=null;renderContent()">Clear / upload another</button>';
   }
@@ -6351,13 +6360,13 @@ function renderExaminer(){
   const qs = r.examiner_book || [];
   if(!qs.length) h += '<div class="okbox">No questions generated \u2014 add constraints or a peer_query.</div>';
   qs.forEach((x,i)=>{
-    h += `<div class="ovflag"><div style="font-weight:600;color:#F2EFEC">${PERLAB(i+1)}. ${esc(x.q)}</div>`
+    h += `<div class="ovflag"><div style="font-weight:600;color:#191715">${PERLAB(i+1)}. ${esc(x.q)}</div>`
       + `<div style="margin-top:.4rem">${(x.links||[]).map(l=>`<span class="ovtag mut" style="margin-right:6px">${esc(l)}</span>`).join("")}</div>`
-      + `<div class="ftext" style="color:#C2BFBC">Proposed response: ${esc(x.proposed_response)}</div></div>`;
+      + `<div class="ftext" style="color:#3E3B38">Proposed response: ${esc(x.proposed_response)}</div></div>`;
   });
   if(V31 && lastRes && lastRes.engagement_echo){
     const E = lastRes.engagement_echo;
-    h += `<div class="memo" style="font-size:11px;border-left:3px solid #D8A45E;padding-left:10px">${esc(E.client)} \u00b7 ${esc(E.engagement_id||"")} \u00b7 prepared by ${esc(E.prepared_by)} \u00b7 config ${esc(E.config_version||"")} <span style="font-family:var(--mono)">${esc((E.config_hash||"").slice(0,10))}</span> \u00b7 engine ${esc(E.engine_version||"")} \u00b7 ${new Date().toISOString().slice(0,10)}</div>`;
+    h += `<div class="memo" style="font-size:11px;border-left:3px solid #A7752D;padding-left:10px">${esc(E.client)} \u00b7 ${esc(E.engagement_id||"")} \u00b7 prepared by ${esc(E.prepared_by)} \u00b7 config ${esc(E.config_version||"")} <span style="font-family:var(--mono)">${esc((E.config_hash||"").slice(0,10))}</span> \u00b7 engine ${esc(E.engine_version||"")} \u00b7 ${new Date().toISOString().slice(0,10)}</div>`;
   }
   if(V31 && lastRes && lastRes.pre_open){
     const PO = lastRes.pre_open;
@@ -6366,7 +6375,7 @@ function renderExaminer(){
     h += '<table class="ovt"><tr><th>Category</th><th style="text-align:right">Total ($000s)</th></tr>'
       + PO.expenses.map(e=>`<tr><td>${esc(e.category)}</td><td style="font-family:var(--mono);text-align:right">${(e.total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</td></tr>`).join("")
       + `<tr><td><b>Total burn</b></td><td style="font-family:var(--mono);text-align:right"><b>${(PO.burn_total/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</b></td></tr></table>`;
-    h += `<div class="memo">Capital cushion (raise \u2212 burn): <span style="font-family:var(--mono)">${(PO.cushion/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> vs <span style="font-family:var(--mono)">${(PO.min_day1_capital/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> minimum Day-1 requirement \u2014 <b style="color:${PO.sufficient?'#8DAA92':'#A56158'}">${esc(PO.flag)}</b></div>`;
+    h += `<div class="memo">Capital cushion (raise \u2212 burn): <span style="font-family:var(--mono)">${(PO.cushion/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> vs <span style="font-family:var(--mono)">${(PO.min_day1_capital/1000).toLocaleString(undefined,{maximumFractionDigits:0})}</span> minimum Day-1 requirement \u2014 <b style="color:${PO.sufficient?'#506B55':'#99564E'}">${esc(PO.flag)}</b></div>`;
   }
   if(V31 && lastRes && lastRes.call_report){
     const CR = lastRes.call_report;
@@ -6529,13 +6538,13 @@ function _levSparkline(r){
   const x = i => L + (R-L)*(i/Math.max(1,vals.length-1));
   const pts = vals.map((v,i)=> v==null?null:`${x(i).toFixed(0)},${y(v).toFixed(1)}`).filter(Boolean).join(" ");
   const minV = Math.min(...nums), minI = vals.indexOf(minV);
-  const commitLine = commitPct==null?"":`<line x1="${L}" y1="${y(commitPct).toFixed(1)}" x2="${R}" y2="${y(commitPct).toFixed(1)}" stroke="#D8A45E" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/><text x="${R+4}" y="${(y(commitPct)+3).toFixed(1)}" fill="#D8A45E" font-size="10" font-family="var(--mono)">${commitPct.toFixed(1)}%</text>`;
+  const commitLine = commitPct==null?"":`<line x1="${L}" y1="${y(commitPct).toFixed(1)}" x2="${R}" y2="${y(commitPct).toFixed(1)}" stroke="#A7752D" stroke-width="1" stroke-dasharray="4 4" opacity=".7"/><text x="${R+4}" y="${(y(commitPct)+3).toFixed(1)}" fill="#A7752D" font-size="10" font-family="var(--mono)">${commitPct.toFixed(1)}%</text>`;
   return `<svg viewBox="0 0 900 90" width="100%" height="90" style="margin-top:12px">
     ${commitLine}
-    <line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="#282625" stroke-width="1"/>
-    <polyline fill="none" stroke="#E38377" stroke-width="2" points="${pts}"/>
-    <circle cx="${x(minI).toFixed(0)}" cy="${y(minV).toFixed(1)}" r="3" fill="#E38377"/>
-    <text x="${x(minI).toFixed(0)}" y="${B+11}" fill="#A6A09B" font-size="9" font-family="var(--mono)" text-anchor="middle">${PERLAB(minI+1)} ${minV.toFixed(1)}%</text>
+    <line x1="${L}" y1="${B}" x2="${R}" y2="${B}" stroke="#DDDAD6" stroke-width="1"/>
+    <polyline fill="none" stroke="#A64C43" stroke-width="2" points="${pts}"/>
+    <circle cx="${x(minI).toFixed(0)}" cy="${y(minV).toFixed(1)}" r="3" fill="#A64C43"/>
+    <text x="${x(minI).toFixed(0)}" y="${B+11}" fill="#585552" font-size="9" font-family="var(--mono)" text-anchor="middle">${PERLAB(minI+1)} ${minV.toFixed(1)}%</text>
   </svg>`;
 }
 // Assemble the verdict block HTML from the model result. All slots field-sourced; null slots omitted.
@@ -6570,11 +6579,11 @@ function _verdictBlock(r){
     // capital requirement, precisely scoped
     const shortfall = b.capital_shortfall_est;
     if(shortfall!=null && shortfall>0 && commit){
-      lines += `<p>Estimated additional opening capital to maintain the ${commit.toFixed(1)}% base-case threshold through Q12: <b>${_money000(shortfall)}</b> <span style="color:#7F7A75;font-style:italic">(estimate)</span>.</p>`;
+      lines += `<p>Estimated additional opening capital to maintain the ${commit.toFixed(1)}% base-case threshold through Q12: <b>${_money000(shortfall)}</b> <span style="color:#7C7976;font-style:italic">(estimate)</span>.</p>`;
     }
   }
-  const clsColor = {bad:"#E38377", warn:"#D8A45E", mut:"#CFCCC9", ok:"#8DAA92"}[v.cls]||"#E5E2DF";
-  return `<div class="verdict-block" style="background:linear-gradient(180deg,#1E1C1B,#161413);border:1px solid #3B3938;border-left:4px solid ${clsColor};border-radius:10px;padding:18px 20px;margin-bottom:6px">
+  const clsColor = {bad:"#A64C43", warn:"#A7752D", mut:"#33312E", ok:"#506B55"}[v.cls]||"#22201E";
+  return `<div class="verdict-block" style="background:linear-gradient(180deg,#F6F4F2,#F9F7F5);border:1px solid #C5C1BE;border-left:4px solid ${clsColor};border-radius:10px;padding:18px 20px;margin-bottom:6px">
     <div style="font-size:20px;font-weight:800;color:${clsColor};letter-spacing:-.01em;margin-bottom:${lines?"8px":"0"}">${esc(v.call)}.</div>
     ${lines}
     ${_levSparkline(r)}
@@ -6602,16 +6611,16 @@ function _execToggle(){
   return '<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">'
     + '<div class="h2" style="font-weight:700">Executive Summary</div>'
     + '<div style="display:flex;gap:6px">'
-    + `<button class="btn-plain" onclick="setExecView('v2')" style="font-size:11px;padding:4px 10px;${window._execView==='v2'?'border-color:#D8A45E;color:#D8A45E':''}">New</button>`
-    + `<button class="btn-plain" onclick="setExecView('classic')" style="font-size:11px;padding:4px 10px;${window._execView==='classic'?'border-color:#D8A45E;color:#D8A45E':''}">Classic</button>`
+    + `<button class="btn-plain" onclick="setExecView('v2')" style="font-size:11px;padding:4px 10px;${window._execView==='v2'?'border-color:#A7752D;color:#A7752D':''}">New</button>`
+    + `<button class="btn-plain" onclick="setExecView('classic')" style="font-size:11px;padding:4px 10px;${window._execView==='classic'?'border-color:#A7752D;color:#A7752D':''}">Classic</button>`
     + '</div></div>';
 }
 
 async function renderOverviewV2(){
   const el = document.getElementById("content");
   el.innerHTML = _execToggle()
-    + '<div id="execFrameWrap" style="border:1px solid #282625;border-radius:12px;overflow:hidden;background:#12110F">'
-    + '<div id="execFrameLoad" style="padding:40px;text-align:center;color:#A6A09B;font-size:13px">Building executive summary…</div>'
+    + '<div id="execFrameWrap" style="border:1px solid #DDDAD6;border-radius:12px;overflow:hidden;background:#FAF8F6">'
+    + '<div id="execFrameLoad" style="padding:40px;text-align:center;color:#585552;font-size:13px">Building executive summary…</div>'
     + '</div>';
   let html;
   try{
@@ -6668,19 +6677,19 @@ function renderOverviewClassic(){
   // Layer 0 — top utility line: bind the on-screen (and exported) summary to one immutable run.
   {
     const bits = [];
-    if(r.schema_version!=null) bits.push(`Config <b style="color:#CFCCC9">${esc(String(r.schema_version))}</b>`);
-    if(r.config_hash) bits.push(`Run <b style="font-family:var(--mono);color:#CFCCC9">${esc(String(r.config_hash).slice(0,10))}</b>`);
-    if(r.engine_version) bits.push(`Engine <b style="color:#CFCCC9">${esc(String(r.engine_version).replace(/^foundry-engine\s*/,""))}</b>`);
-    bits.push(`Peer snapshot <b id="peerSnapBit" style="color:#CFCCC9">resolving\u2026</b>`);
-    bits.push(`Generated <b style="color:#CFCCC9">${new Date().toISOString().slice(0,16).replace("T"," ")}Z</b>`);
-    h += `<div style="font-size:10.5px;color:#7F7A75;margin:-8px 0 12px;font-family:var(--mono)">${bits.join(' \u00b7 ')}</div>`;
+    if(r.schema_version!=null) bits.push(`Config <b style="color:#33312E">${esc(String(r.schema_version))}</b>`);
+    if(r.config_hash) bits.push(`Run <b style="font-family:var(--mono);color:#33312E">${esc(String(r.config_hash).slice(0,10))}</b>`);
+    if(r.engine_version) bits.push(`Engine <b style="color:#33312E">${esc(String(r.engine_version).replace(/^foundry-engine\s*/,""))}</b>`);
+    bits.push(`Peer snapshot <b id="peerSnapBit" style="color:#33312E">resolving\u2026</b>`);
+    bits.push(`Generated <b style="color:#33312E">${new Date().toISOString().slice(0,16).replace("T"," ")}Z</b>`);
+    h += `<div style="font-size:10.5px;color:#7C7976;margin:-8px 0 12px;font-family:var(--mono)">${bits.join(' \u00b7 ')}</div>`;
   }
   // Layer 0.5 — change since prior version (reuses the diff engine). Only when a prior baseline exists.
   try{
     if(typeof unsavedChangeList==="function" && _pristineIdent===_cfgIdent(cfgRef())){
       const chg = unsavedChangeList();
       if(chg.length){
-        h += `<div style="background:#1E1C1B;border:1px solid #3B3938;border-radius:6px;padding:8px 11px;margin:0 0 12px;font-size:11px;color:#BDB7B2"><b style="color:#D8A45E">${chg.length} change${chg.length===1?"":"s"} since last saved:</b> ${chg.slice(0,3).map(esc).join(" \u00b7 ")}${chg.length>3?` \u00b7 +${chg.length-3} more`:""}</div>`;
+        h += `<div style="background:#F6F4F2;border:1px solid #C5C1BE;border-radius:6px;padding:8px 11px;margin:0 0 12px;font-size:11px;color:#44413E"><b style="color:#A7752D">${chg.length} change${chg.length===1?"":"s"} since last saved:</b> ${chg.slice(0,3).map(esc).join(" \u00b7 ")}${chg.length>3?` \u00b7 +${chg.length-3} more`:""}</div>`;
       }
     }
   }catch(e){}
@@ -6691,10 +6700,10 @@ function renderOverviewClassic(){
   if(_fams.length){
     h += '<div class="ovh3" style="margin-top:16px">Top issue families \u2014 what to focus on</div>';
     h += '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">' +
-      _fams.slice(0,3).map((f,i)=>`<div style="background:var(--panel,#161413);border:1px solid #282625;border-left:3px solid ${f.sev==="severe"?"#E38377":"#D8A45E"};border-radius:8px;padding:11px 13px">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-weight:700;font-size:12px;color:#E5E2DF">${i+1}. ${esc(f.family)}</span><span class="ovtag ${f.sev==="severe"?"bad":"mut"}">${f.sev==="severe"?"severe":"advisory"}</span></div>
-        <div style="font-size:11px;color:#B3AEA8">${esc(f.concern)}</div>
-        <div style="font-size:10px;color:#7F7A75;margin-top:4px">${f.count} flag${f.count===1?"":"s"} in this family</div></div>`).join("") + '</div>';
+      _fams.slice(0,3).map((f,i)=>`<div style="background:var(--panel,#F9F7F5);border:1px solid #DDDAD6;border-left:3px solid ${f.sev==="severe"?"#A64C43":"#A7752D"};border-radius:8px;padding:11px 13px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:5px"><span style="font-weight:700;font-size:12px;color:#22201E">${i+1}. ${esc(f.family)}</span><span class="ovtag ${f.sev==="severe"?"bad":"mut"}">${f.sev==="severe"?"severe":"advisory"}</span></div>
+        <div style="font-size:11px;color:#4C4946">${esc(f.concern)}</div>
+        <div style="font-size:10px;color:#7C7976;margin-top:4px">${f.count} flag${f.count===1?"":"s"} in this family</div></div>`).join("") + '</div>';
   }
   // TIER 2 — decision drivers (breakeven REMOVED; earnings durability added)
   h += '<div class="ovh3" style="margin-top:18px">Decision drivers</div>';
@@ -6736,11 +6745,11 @@ function renderOverviewClassic(){
     const verdictLinked = (r.constraint_tests||[]).some(t=>t.scenario==="base" && !t.pass);
     h += '<div class="ovh3" style="margin-top:18px">Required before sign-off</div>';
     h += '<div style="display:flex;flex-direction:column;gap:6px">' + acts.map((a,i)=>
-      `<div style="display:flex;align-items:flex-start;gap:9px;background:var(--panel,#161413);border:1px solid #282625;border-radius:6px;padding:9px 12px">
-        <span style="color:#D8A45E;font-weight:700;font-size:12px">${i+1}.</span>
-        <span style="flex:1;font-size:12px;color:#E5E2DF">${esc(a.txt)}</span>
+      `<div style="display:flex;align-items:flex-start;gap:9px;background:var(--panel,#F9F7F5);border:1px solid #DDDAD6;border-radius:6px;padding:9px 12px">
+        <span style="color:#A7752D;font-weight:700;font-size:12px">${i+1}.</span>
+        <span style="flex:1;font-size:12px;color:#22201E">${esc(a.txt)}</span>
         <span class="ovtag ${a.sev==="severe"?"bad":"mut"}">${a.sev==="severe"?"high":"review"}</span>
-        ${verdictLinked&&a.sev==="severe"?'<span class="ovtag" style="background:rgba(227,131,119,.12);color:#E38377" title="Resolving this can change the verdict">affects verdict</span>':''}
+        ${verdictLinked&&a.sev==="severe"?'<span class="ovtag" style="background:rgba(166,76,67,.12);color:#A64C43" title="Resolving this can change the verdict">affects verdict</span>':''}
       </div>`).join("") + '</div>';
   }
   // ============================================================================================
@@ -6757,10 +6766,10 @@ function renderOverviewClassic(){
   // ---- STREAM 1: Are the assumptions credible? --------------------------------------------------
   h += '<div class="ovh3" style="margin-top:22px">Are the assumptions credible?</div>';
   h += '<div class="memo" style="font-size:10.5px;margin:2px 0 6px">Each input assumption judged on its own terms against real-peer bands. This is about whether the <i>plan\u2019s inputs</i> are believable \u2014 not yet about what they add up to.</div>';
-  h += '<div id="reasonReview" style="font-size:11.5px;color:#CFCCC9">building examiner review\u2026</div>';
+  h += '<div id="reasonReview" style="font-size:11.5px;color:#33312E">building examiner review\u2026</div>';
   // methodology reference (the bands/rules the inputs were judged against) — collapsed, lives WITH
   // stream 1 because thresholds are the standard the reasonableness check tests against.
-  h += '<details style="margin:8px 0 4px"><summary style="cursor:pointer;color:#A6A09B;font-size:11px">Reasonableness bands in effect \u2014 the standards these inputs were judged against</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#CFCCC9">loading\u2026</div></details>';
+  h += '<details style="margin:8px 0 4px"><summary style="cursor:pointer;color:#585552;font-size:11px">Reasonableness bands in effect \u2014 the standards these inputs were judged against</summary><div id="threshLedger" style="margin-top:6px;font-size:11px;color:#33312E">loading\u2026</div></details>';
 
   // ---- STREAM 2: Does the modeled bank hold together? -------------------------------------------
   h += '<div class="ovh3" style="margin-top:22px">Does the modeled bank hold together?</div>';
@@ -6772,8 +6781,8 @@ function renderOverviewClassic(){
     const _mrank = _modeledAll.slice().sort((a,b)=> (b.sev==="severe")-(a.sev==="severe"));
     _mrank.forEach(m=>{
       const cls = m.sev==="severe" ? "bad" : "mut";
-      const basis = m.basis ? `<div style="font-size:10px;color:#7F7A75;margin-top:3px">Modeled basis: ${esc(m.basis)}</div>` : "";
-      h += `<div class="ovflag"${m.sev==="severe"?' style="border-left:3px solid #E38377"':''}><span class="fid"${m.sev==="severe"?' style="color:#E38377"':''}>${esc(m.id)}</span><span class="ovtag ${cls}">${m.sev==="severe"?"severe":"advisory"}</span><div class="ftext">${boldMd(m.text)}${basis}</div></div>`;
+      const basis = m.basis ? `<div style="font-size:10px;color:#7C7976;margin-top:3px">Modeled basis: ${esc(m.basis)}</div>` : "";
+      h += `<div class="ovflag"${m.sev==="severe"?' style="border-left:3px solid #A64C43"':''}><span class="fid"${m.sev==="severe"?' style="color:#A64C43"':''}>${esc(m.id)}</span><span class="ovtag ${cls}">${m.sev==="severe"?"severe":"advisory"}</span><div class="ftext">${boldMd(m.text)}${basis}</div></div>`;
     });
   }
 
@@ -6819,13 +6828,13 @@ function renderOverviewClassic(){
         _snap.textContent = _vint || (peerTier ? "resolved" : "pending");
       }
     }catch(e){}
-    el.innerHTML = `<div style="font-size:10.5px;color:#A6A09B;margin:0 0 6px">Severity is the rule\u2019s built-in class, not a verdict on this plan. \u201cYour plan\u201d shows whether the rule actually fired on the values entered.</div>`
+    el.innerHTML = `<div style="font-size:10.5px;color:#585552;margin:0 0 6px">Severity is the rule\u2019s built-in class, not a verdict on this plan. \u201cYour plan\u201d shows whether the rule actually fired on the values entered.</div>`
       + `<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:82px">ID</th><th>Rule</th><th>Trigger</th>${peerTier?'<th style="width:172px;white-space:nowrap">Peer band (p10 \u00b7 median \u00b7 p90)</th>':''}<th style="width:84px;white-space:nowrap">Model input</th><th style="width:74px">Your plan</th><th style="width:56px">Severity</th></tr>`
       + t.thresholds.map(th=>{
           const p = th.peer;
           const peerCell = peerTier ? (p
-            ? `<td data-prov title="Asset-band peer percentiles for this metric — ${esc(p.vintage)} cohort, n=${p.n}${p.small_n?', small sample':''}. p10\u2013median\u2013p90 of real peer banks." style="vertical-align:top;font-size:10px;color:#B3AEA8;white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:#FFFFFF">${(+p.p10).toFixed(2)}\u2013${(+p.p50).toFixed(2)}\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#7F7A75;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
-            : `<td data-prov title="No peer band for this rule — it is a structural/coupled check, not a single peer-comparable metric." style="vertical-align:top;font-size:10px;color:#7F7A75">${esc((th.peer_note||'structural'))}</td>`) : '';
+            ? `<td data-prov title="Asset-band peer percentiles for this metric — ${esc(p.vintage)} cohort, n=${p.n}${p.small_n?', small sample':''}. p10\u2013median\u2013p90 of real peer banks." style="vertical-align:top;font-size:10px;color:#4C4946;white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:#0F0D0B">${(+p.p10).toFixed(2)}\u2013${(+p.p50).toFixed(2)}\u2013${(+p.p90).toFixed(2)}</span><br><span style="color:#7C7976;white-space:nowrap">${esc(p.vintage)} \u00b7 n=${p.n}${p.small_n?' \u00b7 small-n':''}</span></td>`
+            : `<td data-prov title="No peer band for this rule — it is a structural/coupled check, not a single peer-comparable metric." style="vertical-align:top;font-size:10px;color:#7C7976">${esc((th.peer_note||'structural'))}</td>`) : '';
           // the model's own tested input value for this rule — the number that
           // determined firing. None (em dash) where the rule has no single scalar
           // input. CO-BAND is per-product: show each lending product's charge-off
@@ -6834,24 +6843,24 @@ function renderOverviewClassic(){
           const provAttr = th.plan_prov ? ` data-prov title="${esc(th.plan_prov)}"` : '';
           let modelCell;
           if(th.id === "CO-BAND" && Array.isArray(t.co_breakout) && t.co_breakout.length){
-            const vcol = {high:"#E38377", low:"#D8A45E", inside:"#8DAA92", "no assumption":"#7F7A75"};
+            const vcol = {high:"#A64C43", low:"#A7752D", inside:"#506B55", "no assumption":"#7C7976"};
             const lines = t.co_breakout.map(c=>{
               const val = (c.plan_value===null||c.plan_value===undefined) ? "\u2014" : c.plan_value.toFixed(2)+"%";
-              const col = vcol[c.verdict] || "#FFFFFF";
-              return `<div data-prov title="${esc(c.prov||'')}" style="white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:${col}">${val}</span> <span style="color:#A6A09B;font-size:9.5px">${esc(c.name)} \u00b7 ${esc(c.loan_type)} band ${c.band_lo}\u2013${c.band_hi}% \u00b7 ${esc(c.verdict)}</span></div>`;
+              const col = vcol[c.verdict] || "#0F0D0B";
+              return `<div data-prov title="${esc(c.prov||'')}" style="white-space:nowrap"><span style="font-family:var(--mono);font-weight:700;color:${col}">${val}</span> <span style="color:#585552;font-size:9.5px">${esc(c.name)} \u00b7 ${esc(c.loan_type)} band ${c.band_lo}\u2013${c.band_hi}% \u00b7 ${esc(c.verdict)}</span></div>`;
             }).join("");
             modelCell = `<td style="vertical-align:top">${lines}</td>`;
           } else {
-            modelCell = `<td${provAttr} style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#FFFFFF;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#7F7A75;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
+            modelCell = `<td${provAttr} style="vertical-align:top;font-family:var(--mono);font-weight:700;color:#0F0D0B;text-align:right;white-space:nowrap">${(mv===null||mv===undefined)?'<span style="color:#7C7976;font-weight:400">\u2014</span>':mv.toFixed(2)+(th.plan_unit||'')}</td>`;
           }
           const fired = _fired(th.id);
           const fireProv = fired
             ? "This rule fired: the model input crossed the trigger threshold. See the flag detail below for the specific reasoning."
             : "This rule did not fire: the model input stayed within the acceptable range for this threshold.";
           const yourCell = `<td data-prov title="${esc(fireProv)}" style="vertical-align:top">${fired?'<span class="ovtag bad">fired</span>':'<span class="ovtag ok">not triggered</span>'}</td>`;
-          return `<tr><td data-prov title="Rule identifier ${esc(th.id)} \u2014 from the challenge threshold ledger (peer-calibrated where a cohort exists)." style="font-family:var(--mono);color:#D8A45E;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td data-prov title="Threshold that trips this rule: ${esc(th.trigger)}" style="color:#D8A45E;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="Rule class (built-in severity), not a verdict on this plan.">${esc(th.sev)}</span></td></tr>`;
+          return `<tr><td data-prov title="Rule identifier ${esc(th.id)} \u2014 from the challenge threshold ledger (peer-calibrated where a cohort exists)." style="font-family:var(--mono);color:#A7752D;vertical-align:top">${esc(th.id)}</td><td style="vertical-align:top">${esc(th.rule)}</td><td data-prov title="Threshold that trips this rule: ${esc(th.trigger)}" style="color:#A7752D;vertical-align:top">${esc(th.trigger)}</td>${peerCell}${modelCell}${yourCell}<td style="vertical-align:top"><span class="ovtag ${th.sev==="severe"?"bad":"mut"}" title="Rule class (built-in severity), not a verdict on this plan.">${esc(th.sev)}</span></td></tr>`;
         }).join("") + `</table>`
-      + `<div style="margin-top:6px;color:#A6A09B;font-size:11px">${esc(t.provenance)}</div>`;
+      + `<div style="margin-top:6px;color:#585552;font-size:11px">${esc(t.provenance)}</div>`;
   }).catch(()=>{}); }, 0);
   // ---- Input reasonableness review: examiner rows generated from fired flags joined to live peer bands.
   // Each row: Input · Value · generated Observation · Peer band (live p10-med-p90) · Comparability · Severity · Conclusion.
@@ -6902,18 +6911,18 @@ function renderOverviewClassic(){
         const anySmall = bands.some(p=>p.small_n);
         const nStr = nMin==null ? "" : (nMin===nMax ? `n=${nMin}` : `n=${nMin}\u2013${nMax}`) + (anySmall?" \u00b7 some small-sample":"");
         pcb.innerHTML =
-          `Benchmarked against <b style="color:#E5E2DF">real FDIC de novo filers</b>` +
+          `Benchmarked against <b style="color:#22201E">real FDIC de novo filers</b>` +
           (cohorts.length?` \u2014 asset-band cohort ${esc(cohorts.join(", "))}`:``) +
           (vintages.length?`, vintage ${esc(vintages.join(", "))}`:``) +
           (nStr?` (${nStr} per metric)`:``) + `. ` +
           `Current-quarter stock measures (leverage, capital ratios) are like-for-like; selected earnings measures are directional (modeled quarterly vs peer YTD conventions). ` +
-          `<a href="#" style="color:#D8A45E;text-decoration:none" onclick="setTab('peer');return false">View cohort basis &amp; methodology \u2192</a>`;
+          `<a href="#" style="color:#A7752D;text-decoration:none" onclick="setTab('peer');return false">View cohort basis &amp; methodology \u2192</a>`;
       })();
       // map a flag id to a ledger rule id for peer lookup (best-effort; blank when structural)
       const FLAG_TO_RULE = {"FUND-HOT":"FUND-HOT","FUND-DDA":"FUND-DDA","FUND-GROWTH":"FUND-GROWTH",
         "GROWTH-Y1":"GROWTH-Y1","BAND-CO-HI":"CO-BAND","BAND-CO-LO":"CO-BAND","MSR-FEE":"MSR-FEE"};
-      const comparability = (p)=> !p ? ["not comparable","#7F7A75"] :
-        (p.small_n ? ["insufficient sample","#D8A45E"] : ["like-for-like","#8DAA92"]);
+      const comparability = (p)=> !p ? ["not comparable","#7C7976"] :
+        (p.small_n ? ["insufficient sample","#A7752D"] : ["like-for-like","#506B55"]);
       let hh = '<div class="memo" style="font-size:10.5px;margin:2px 0 8px">Each fired assumption reviewed against its reasonableness band. Observations are the challenge layer\u2019s own findings; peer bands are live percentiles from real FDIC filers where a comparable metric exists. Severity is the finding\u2019s class, not a pass/fail of the model.</div>';
       hh += '<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:150px">Input</th><th>Observation</th>'
           + (peerTier?'<th style="width:150px">Peer band (p10\u00b7med\u00b7p90)</th><th style="width:96px">Comparability</th>':'')
@@ -6923,22 +6932,22 @@ function renderOverviewClassic(){
         const p = rule ? peerById[rule] : null;
         const [cmpLabel,cmpColor] = comparability(p);
         const peerCell = peerTier ? (p
-          ? `<td style="vertical-align:top;font-family:var(--mono);font-size:10px;color:#B3AEA8;white-space:nowrap"><span style="color:#fff;font-weight:700">${(+p.p10).toFixed(2)}\u00b7${(+p.p50).toFixed(2)}\u00b7${(+p.p90).toFixed(2)}</span><br><span style="color:#7F7A75">${esc(p.vintage||"")} \u00b7 n=${p.n}${p.small_n?" \u00b7 small-n":""}</span></td>`
-          : `<td style="vertical-align:top;font-size:10px;color:#7F7A75">\u2014</td>`)
+          ? `<td style="vertical-align:top;font-family:var(--mono);font-size:10px;color:#4C4946;white-space:nowrap"><span style="color:#0F0D0B;font-weight:700">${(+p.p10).toFixed(2)}\u00b7${(+p.p50).toFixed(2)}\u00b7${(+p.p90).toFixed(2)}</span><br><span style="color:#7C7976">${esc(p.vintage||"")} \u00b7 n=${p.n}${p.small_n?" \u00b7 small-n":""}</span></td>`
+          : `<td style="vertical-align:top;font-size:10px;color:#7C7976">\u2014</td>`)
           + `<td style="vertical-align:top;font-size:10px;color:${cmpColor}">${cmpLabel}</td>`
           : '';
-        hh += `<tr><td style="vertical-align:top;font-weight:600;color:#E5E2DF">${esc(rw.input)}</td>`
-            + `<td style="vertical-align:top;color:#CFCCC9">${boldMd(rw.obs)}</td>`
+        hh += `<tr><td style="vertical-align:top;font-weight:600;color:#22201E">${esc(rw.input)}</td>`
+            + `<td style="vertical-align:top;color:#33312E">${boldMd(rw.obs)}</td>`
             + peerCell
             + `<td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td>`
-            + `<td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`;
+            + `<td style="vertical-align:top;color:#0F0D0B;font-weight:600">${esc(rw.concl)}</td></tr>`;
       });
       hh += '</table>';
       el.innerHTML = hh;
     }).catch(()=>{
       // fail-closed: still show the examiner rows WITHOUT peer bands rather than nothing
       let hh = '<table class="ovt ovt-grid" style="font-size:11px"><tr><th style="width:150px">Input</th><th>Observation</th><th style="width:58px">Severity</th><th style="width:130px">Conclusion</th></tr>';
-      rows.forEach(rw=>{ hh += `<tr><td style="vertical-align:top;font-weight:600;color:#E5E2DF">${esc(rw.input)}</td><td style="vertical-align:top;color:#CFCCC9">${boldMd(rw.obs)}</td><td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td><td style="vertical-align:top;color:#fff;font-weight:600">${esc(rw.concl)}</td></tr>`; });
+      rows.forEach(rw=>{ hh += `<tr><td style="vertical-align:top;font-weight:600;color:#22201E">${esc(rw.input)}</td><td style="vertical-align:top;color:#33312E">${boldMd(rw.obs)}</td><td style="vertical-align:top"><span class="ovtag ${rw.sevCls}">${rw.sevWord}</span></td><td style="vertical-align:top;color:#0F0D0B;font-weight:600">${esc(rw.concl)}</td></tr>`; });
       hh += '</table><div class="memo" style="font-size:10px;margin-top:4px">Peer bands unavailable for this run \u2014 showing findings without peer comparison.</div>';
       el.innerHTML = hh;
     });
@@ -6951,14 +6960,14 @@ function renderOverviewClassic(){
   h += '<div class="ovh3" style="margin-top:22px">The evidence behind it</div>';
   h += '<div class="memo" style="font-size:10.5px;margin:2px 0 6px">The scenario runs, three-year financials, and integrity checks underlying the call above \u2014 open any for the detail.</div>';
   // Scenario & constraint outcomes — OPEN (the modeled runs behind the verdict).
-  h += '<div class="ovh4" style="margin-top:8px;font-size:12px;font-weight:600;color:#C5C3C0">Scenario &amp; constraint outcomes</div>';
+  h += '<div class="ovh4" style="margin-top:8px;font-size:12px;font-weight:600;color:#3B3835">Scenario &amp; constraint outcomes</div>';
   h += '<table class="ovt"><tr><th>Scenario</th><th>Constraint</th><th style="text-align:right">Value</th><th style="text-align:right">Limit</th><th>Result</th><th>Source</th></tr>';
   (r.constraint_tests||[]).forEach(t=>{
     const lbl = ((r.scenarios||{})[t.scenario]||{}).label || t.scenario;
-    h += `<tr><td>${esc(lbl)}</td><td style="font-family:var(--mono);font-size:11px;color:#9C9792">${esc(t.key)}</td>`+
+    h += `<tr><td>${esc(lbl)}</td><td style="font-family:var(--mono);font-size:11px;color:#605D5A">${esc(t.key)}</td>`+
       `<td class="num">${t.value==null?"n/m":(t.value*100).toFixed(2)+"%"}</td><td class="num">${(t.threshold*100).toFixed(1)}%</td>`+
       `<td><span class="ovtag ${t.pass?"ok":"bad"}">${t.pass?"pass":"FAIL"}</span></td>`+
-      `<td style="font-family:var(--mono);font-size:11px;color:#9C9792">${esc((t.source||"").replace(/\s*\(edit with citation\)\s*/i,"").trim())}</td></tr>`;
+      `<td style="font-family:var(--mono);font-size:11px;color:#605D5A">${esc((t.source||"").replace(/\s*\(edit with citation\)\s*/i,"").trim())}</td></tr>`;
   });
   h += '</table>';
   h += '<div class="memo" style="margin-top:10px;font-size:10.5px">Coupled flags (COUPLED-*) test assumptions jointly \u2014 contradictions across the plan, not independent outliers.</div>';
@@ -6970,18 +6979,18 @@ function renderOverviewClassic(){
           Array.from({length:_qy},(_,y)=>`<th style="text-align:right">Year ${y+1}</th>`).join("") + '</tr>';
     r.quick_stats.rows.forEach(x=>{
       // mark flow/income ratios (shown as full-year AVERAGES) with an asterisk so the footnote is clear
-      const _lbl = /\bavg\b/i.test(x.label||"") ? (esc(x.label) + ' <span style="color:#FFFFFF">*</span>') : esc(x.label);
-      qs += `<tr><td>${_lbl}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#A56158":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
+      const _lbl = /\bavg\b/i.test(x.label||"") ? (esc(x.label) + ' <span style="color:#0F0D0B">*</span>') : esc(x.label);
+      qs += `<tr><td>${_lbl}</td>` + x.y.map(v=>`<td style="font-family:var(--mono);text-align:right${(typeof v==="number"&&v<0)?";color:#99564E":""}">${v==null?"\u2014":v.toLocaleString(undefined,{maximumFractionDigits:2})}</td>`).join("") + '</tr>';
     });
     qs += '</table>';
     // BRIGHT, unmissable footnote — the reconciliation rule. Income ratios are averaged over the year's
     // four quarters (so they will NOT equal any single quarter, including year-end); capital/stock ratios
     // are the year-end (Q4/Q8/Q12) snapshot (so they DO equal that quarter on the Capital & Ratios tab).
-    qs += '<div style="margin-top:10px;padding:9px 12px;background:#1E1C1B;border:1px solid #8C8379;border-radius:6px">'
-        + '<span style="color:#FFFFFF;font-weight:600;font-size:12px">* ROA, ROE and Efficiency are shown as the average of the year\u2019s four quarters. NIM is annual NII divided by average first-and-last reported total assets.</span>'
-        + '<span style="color:#FFFFFF;font-size:12px"> Capital / stock ratios (Leverage, CET1) are the year-end value (Q4 / Q8 / Q12) and will match that quarter exactly.</span>'
+    qs += '<div style="margin-top:10px;padding:9px 12px;background:#F6F4F2;border:1px solid #726F6C;border-radius:6px">'
+        + '<span style="color:#0F0D0B;font-weight:600;font-size:12px">* ROA, ROE and Efficiency are shown as the average of the year\u2019s four quarters. NIM is annual NII divided by average first-and-last reported total assets.</span>'
+        + '<span style="color:#0F0D0B;font-size:12px"> Capital / stock ratios (Leverage, CET1) are the year-end value (Q4 / Q8 / Q12) and will match that quarter exactly.</span>'
         + '</div>';
-    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#A6A09B;font-size:11px">Annual financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
+    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#585552;font-size:11px">Annual financial summary</summary><div style="margin-top:6px">${qs}</div></details>`;
   }
   // Model integrity & viability checks — COLLAPSED
   if(r.checks){
@@ -6991,11 +7000,11 @@ function renderOverviewClassic(){
       if(!rows.length) return;
       ck += `<div class="ovh3" style="font-size:11px">${kl} checks</div><table class="ovt">`;
       rows.forEach(x=>{
-        ck += `<tr><td style="width:54px"><span class="ovtag ${x.pass?"ok":"bad"}">${x.pass?"PASS":"FAIL"}</span></td><td>${esc(x.label)}</td><td style="color:#A6A09B;font-size:10px">${esc(x.note||"")}</td></tr>`;
+        ck += `<tr><td style="width:54px"><span class="ovtag ${x.pass?"ok":"bad"}">${x.pass?"PASS":"FAIL"}</span></td><td>${esc(x.label)}</td><td style="color:#585552;font-size:10px">${esc(x.note||"")}</td></tr>`;
       });
       ck += '</table>';
     });
-    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#A6A09B;font-size:11px">Model checks \u2014 ${esc(r.checks.master)}</summary><div style="margin-top:6px">${ck}</div></details>`;
+    h += `<details style="margin:14px 0 0"><summary style="cursor:pointer;color:#585552;font-size:11px">Model checks \u2014 ${esc(r.checks.master)}</summary><div style="margin-top:6px">${ck}</div></details>`;
   }
   // Peer cohort — inline summary + comparability caveat + link to the interactive tab (per spec)
   // Peer context — ALWAYS shown (per spec: top-line summary + pointer to the Peer Cohort tab). The
@@ -7006,23 +7015,23 @@ function renderOverviewClassic(){
   h += '<div class="ovh3" style="margin-top:20px">Peer context</div>';
   if(_peerCohort){
     const co = _peerCohort, ts = co.terminal_summary || {};
-    h += `<div id="peerContextBody" class="memo" style="font-size:11.5px">Benchmarked against <b style="color:#E5E2DF">${co.n??"\u2014"} real de novo filers</b>` +
-      (co.effective_n!=null?` (effective n ${co.effective_n}` + (co.insufficient_evidence?", <span style=\"color:#D8A45E\">insufficient sample</span>":"") + `)`:``) +
+    h += `<div id="peerContextBody" class="memo" style="font-size:11.5px">Benchmarked against <b style="color:#22201E">${co.n??"\u2014"} real de novo filers</b>` +
+      (co.effective_n!=null?` (effective n ${co.effective_n}` + (co.insufficient_evidence?", <span style=\"color:#A7752D\">insufficient sample</span>":"") + `)`:``) +
       `${(ts.failed!=null||ts.acquired!=null)?`, survivorship-included: ${ts.failed??0} failed \u00b7 ${ts.acquired??0} acquired, retained in the evidence base`:``}. ` +
       `Current-quarter stock measures (leverage, capital ratios) are like-for-like; selected earnings measures are directional (modeled quarterly vs peer YTD conventions). ` +
-      `<a href="#" style="color:#D8A45E;text-decoration:none" onclick="setTab('peer');return false">View cohort basis &amp; methodology \u2192</a></div>`;
+      `<a href="#" style="color:#A7752D;text-decoration:none" onclick="setTab('peer');return false">View cohort basis &amp; methodology \u2192</a></div>`;
   } else {
     const pst = (r.peer||{});
     h += `<div id="peerContextBody" class="memo" style="font-size:11.5px">${esc(pst.note || "Peer evidence attaches when the challenge layer is calibrated from the CharterIQ Call Report substrate.")} ` +
-      `<a href="#" style="color:#D8A45E;text-decoration:none" onclick="setTab('peer');return false">Open the Peer Cohort tab \u2192</a></div>`;
+      `<a href="#" style="color:#A7752D;text-decoration:none" onclick="setTab('peer');return false">Open the Peer Cohort tab \u2192</a></div>`;
   }
   // Download affordance — right on the Executive Summary, not just the ribbon. Exports the full exhibit
   // whose first sheets are this generated verdict + peer appendix (export parity).
-  h += `<div style="margin-top:20px;padding-top:14px;border-top:1px solid #282625;display:flex;align-items:center;gap:10px">
+  h += `<div style="margin-top:20px;padding-top:14px;border-top:1px solid #DDDAD6;display:flex;align-items:center;gap:10px">
     <button class="btn-gold" onclick="exportExecPdf()" title="Download this Executive Summary as a PDF — the verdict, drivers, sign-off items, and both finding streams as a clean client document.">Download Executive Summary (PDF)</button>
     <button class="btn-plain" onclick="exportExcel()" style="margin-left:8px" title="Download the full results exhibit as Excel — this Executive Summary plus every schedule.">Excel exhibit</button>
     <button class="btn-plain" onclick="exportBptCover()" style="margin-left:8px" title="Download the Business Plan Tables cover sheet — engagement-specific tables (balance sheet, income statement, capital, per-product detail) following the standard template.">Business Plan Tables</button>
-    <span style="font-size:10.5px;color:#7F7A75">Excel workbook \u2014 opens with this verdict, bound to run ${esc(String(r.config_hash||"").slice(0,10))}.</span>
+    <span style="font-size:10.5px;color:#7C7976">Excel workbook \u2014 opens with this verdict, bound to run ${esc(String(r.config_hash||"").slice(0,10))}.</span>
   </div>`;
   el.innerHTML = h;
 }
@@ -7192,10 +7201,10 @@ function _renderContentBody(){
       ];
       let hh = '<div class="h2" style="font-weight:700">Engagement overview</div>';
       hh += '<div class="ovcards">' + shell.map(x=>
-        `<div class="ovcard" style="opacity:.6"><div class="k">${x[0]}</div><div class="v" style="color:#6E6A64">\u2014</div><div class="s">${x[1]}</div></div>`).join("") + '</div>';
+        `<div class="ovcard" style="opacity:.6"><div class="k">${x[0]}</div><div class="v" style="color:#8D8A86">\u2014</div><div class="s">${x[1]}</div></div>`).join("") + '</div>';
       hh += '<div class="ovh3">Flags &amp; challenge results</div>';
       hh += '<div class="ovflag"><span class="ovtag mut">awaiting inputs</span><div class="ftext">No model yet. This is the shape of what the overview will show once you begin \u2014 every figure will trace to a value you entered.</div></div>';
-      hh += `<div class="memo" style="margin-top:16px">To begin, go to the <a href="#" onclick="setTab('start');return false" style="color:#D8A45E;text-decoration:none">Start tab</a> \u2014 load the example bank, create a new engagement, or fill a workbook.</div>`;
+      hh += `<div class="memo" style="margin-top:16px">To begin, go to the <a href="#" onclick="setTab('start');return false" style="color:#A7752D;text-decoration:none">Start tab</a> \u2014 load the example bank, create a new engagement, or fill a workbook.</div>`;
       c.innerHTML = hh;
       return;
     }
@@ -7720,18 +7729,18 @@ function _renderContentBody(){
         ["Combined", `Credit <b>and</b> rate together, on top of the downturn haircuts. The worst-case column.`, "stress"],
         ["DFAST Severe", `Supervisory severely-adverse loss rates by loan type replace your charge-offs (front-loaded over 9 quarters). <b>Plus</b> the downturn haircuts.`, "stress"],
       ];
-      let t = '<div style="margin:0 0 14px;padding:14px 16px;background:#191716;border:1px solid #3F3D3C;border-radius:6px;line-height:1.5">'
-        + '<div style="font-weight:700;color:#F8F5F2;margin-bottom:10px;font-size:13px;letter-spacing:.02em">What each scenario changes</div>'
+      let t = '<div style="margin:0 0 14px;padding:14px 16px;background:#F7F6F4;border:1px solid #C0BCB9;border-radius:6px;line-height:1.5">'
+        + '<div style="font-weight:700;color:#151311;margin-bottom:10px;font-size:13px;letter-spacing:.02em">What each scenario changes</div>'
         + '<table style="width:100%;border-collapse:collapse;font-size:12.5px">';
       rows.forEach(([name,desc,kind])=>{
-        const accent = kind==="reference" ? "#7F7A75" : "#E1B882";
-        t += '<tr style="border-top:1px solid #343331">'
-          + `<td style="padding:8px 12px 8px 10px;white-space:nowrap;vertical-align:top;font-weight:700;color:#FFFFFF;border-left:3px solid ${accent}">${esc(name)}</td>`
-          + `<td style="padding:8px 0;vertical-align:top;color:#DEDBD8">${desc}</td></tr>`;
+        const accent = kind==="reference" ? "#7C7976" : "#9F7844";
+        t += '<tr style="border-top:1px solid #CDC9C6">'
+          + `<td style="padding:8px 12px 8px 10px;white-space:nowrap;vertical-align:top;font-weight:700;color:#0F0D0B;border-left:3px solid ${accent}">${esc(name)}</td>`
+          + `<td style="padding:8px 0;vertical-align:top;color:#282523">${desc}</td></tr>`;
       });
       t += '</table>'
-        + `<div style="font-size:12px;color:#CECCC9;margin-top:11px;padding-top:9px;border-top:1px solid #343331">`
-        + `<b style="color:#F8F5F2">Downturn haircuts</b> (on every stressed column, not Base): ${downturn}. `
+        + `<div style="font-size:12px;color:#33312E;margin-top:11px;padding-top:9px;border-top:1px solid #CDC9C6">`
+        + `<b style="color:#151311">Downturn haircuts</b> (on every stressed column, not Base): ${downturn}. `
         + `Set all values in the sidebar under Stress Scenario Settings.</div>`
         + '</div>';
       h += t;
@@ -7855,7 +7864,7 @@ function _renderContentBody(){
     }
     if(V3){
       h += '<div class="h2" style="font-weight:700">Assumption Book</div>';
-      h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#D8A45E" onclick="setTab('overview');return false">Executive Summary</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
+      h += `<div class="memo" style="margin:0 0 18px">Flags and challenge results live on the <a href="#" style="color:#A7752D" onclick="setTab('overview');return false">Executive Summary</a> (${r.flags.length} at present), alongside cohort placements and constraint tests \u2014 one home, no duplicates.</div>`;
     } else {
       h += '<div class="h2">Reasonableness Flags</div>';
       if(!r.flags.length) h += '<div class="okbox">No flags. Assumptions are within typical ranges.</div>';
@@ -8074,8 +8083,8 @@ function _showGuard(slug){
   document.getElementById("guard-sub").innerHTML =
     "You have unsaved edits to the current engagement. Switching will reload the other engagement and discard these unless you save or download first.";
   const rows = list.length
-    ? list.map(s=>`<div style="font-family:var(--mono);font-size:11px;color:#D6D4D1;margin:2px 0">\u2022 ${esc(s)}</div>`).join("")
-    : '<div style="color:#A6A09B;font-size:11px">(changes present)</div>';
+    ? list.map(s=>`<div style="font-family:var(--mono);font-size:11px;color:#2D2B28;margin:2px 0">\u2022 ${esc(s)}</div>`).join("")
+    : '<div style="color:#585552;font-size:11px">(changes present)</div>';
   document.getElementById("guard-list").innerHTML = rows;
   document.getElementById("guard-bg").style.display="block";
   document.getElementById("guard-dlg").style.display="block";
@@ -8121,7 +8130,7 @@ function mtRender(){
     h += `<div class="memo">${mt.result.translation_log.rows.length} mapping(s) applied (provenance: you). Log hash <span style="font-family:var(--mono)">${esc(mt.result.translation_log.log_hash)}</span>.</div>`;
     if(mt.result.gap_questions.length){
       h += '<div class="ovh3">The completion conversation</div>';
-      mt.result.gap_questions.forEach(q=>{ h += `<div class="memo" style="border-left:3px solid #D8A45E">${esc(q)}</div>`; });
+      mt.result.gap_questions.forEach(q=>{ h += `<div class="memo" style="border-left:3px solid #A7752D">${esc(q)}</div>`; });
     }
     h += '<div style="margin-top:12px"><button class="btn-gold" onclick="mt=null;setTab(\'products\')">Open the workspace</button></div>';
     el.innerHTML = h; return;
@@ -8129,7 +8138,7 @@ function mtRender(){
   h += '<div class="ovh3">1 \u00b7 Pick a candidate from the file</div><div class="card" style="max-height:260px;overflow:auto">';
   rep.candidates.forEach((cd,i)=>{
     h += `<label style="display:block;padding:2px;cursor:pointer"><input type="radio" name="mtc" ${mt.sel===i?"checked":""} onchange="mt.sel=${i};renderContent()"> `
-      + `<b>${esc(cd.label)}</b> <span style="color:#A6A09B;font-size:11px">${esc(cd.sheet)} r${cd.row} \u00b7 ${cd.themes.join("/")}${cd.series_like?` \u00b7 series(${cd.numeric_cells})`:""}</span></label>`;
+      + `<b>${esc(cd.label)}</b> <span style="color:#585552;font-size:11px">${esc(cd.sheet)} r${cd.row} \u00b7 ${cd.themes.join("/")}${cd.series_like?` \u00b7 series(${cd.numeric_cells})`:""}</span></label>`;
   });
   h += '</div>';
   h += '<div class="ovh3">2 \u00b7 Assign it \u2014 and declare what the machine refused to guess</div><div class="card"><div class="fields">';
@@ -8141,7 +8150,7 @@ function mtRender(){
   if(mt.assignments.length){
     h += '<div class="ovh3">Confirmed (provenance: you)</div>';
     mt.assignments.forEach((a2,i)=>{
-      h += `<div class="memo">${esc(a2.candidate.label)} \u2192 <b>${esc(a2.slot)}</b> (${esc(a2.converter)}) <a href="#" style="color:#A56158" onclick="mt.assignments.splice(${i},1);renderContent();return false">remove</a></div>`;
+      h += `<div class="memo">${esc(a2.candidate.label)} \u2192 <b>${esc(a2.slot)}</b> (${esc(a2.converter)}) <a href="#" style="color:#99564E" onclick="mt.assignments.splice(${i},1);renderContent();return false">remove</a></div>`;
     });
   }
   h += `<div style="display:flex;gap:9px;margin-top:12px"><button class="btn-gold" ${mt.assignments.length?"":"disabled"} onclick="mtFinalize()">Translate</button><button class="btn-plain" onclick="mt=null;renderContent()">Cancel</button></div>`;
@@ -8222,13 +8231,13 @@ window.downloadUniversalTemplate = downloadUniversalTemplate;
 function appStatus(kind, html){
   const el = document.getElementById("appStatus");
   if(kind === null){ el.style.display = "none"; el.innerHTML = ""; return; }
-  const pal = {busy: ["#A6A09B", "#232220", "\u23f3"],
-                ok:   ["#8DAA92", "#1B231D", "\u2713"],
-                err:  ["#D08F86", "#271816", "\u2715"]}[kind];
+  const pal = {busy: ["#585552", "#E2E0DE", "\u23f3"],
+                ok:   ["#506B55", "#E4E2E0", "\u2713"],
+                err:  ["#955951", "#EAE8E6", "\u2715"]}[kind];
   el.style.cssText = "display:flex;align-items:flex-start;gap:10px;padding:11px 16px;font-size:12.5px;"
-    + "border-bottom:1px solid " + pal[0] + "55;background:" + pal[1] + ";color:#E5E2DF;line-height:1.5";
+    + "border-bottom:1px solid " + pal[0] + "55;background:" + pal[1] + ";color:#22201E;line-height:1.5";
   el.innerHTML = `<span style="color:${pal[0]};font-weight:700">${pal[2]}</span><div style="flex:1">${html}</div>`
-    + (kind === "busy" ? "" : `<a href="#" class="cx" style="color:#A6A09B" onclick="appStatus(null);return false">\u00d7</a>`);
+    + (kind === "busy" ? "" : `<a href="#" class="cx" style="color:#585552" onclick="appStatus(null);return false">\u00d7</a>`);
 }
 window.appStatus = appStatus;
 
@@ -8263,9 +8272,9 @@ async function uploadFIW(inp){
   const _wlist = (j.report.warnings||[]);
   const _high = _wlist.filter(w => w && typeof w === "object" && w.severity === "high");
   const _other = _wlist.filter(w => !(w && typeof w === "object" && w.severity === "high"));
-  const warn = (_high.length ? _high.map(w=>`<div style="margin-top:6px;padding:8px 10px;border-left:3px solid #CB6C61;background:rgba(203,108,97,.10);color:#E6B6AF;font-size:12px"><b>\u26a0 Not imported:</b> ${esc(_wtext(w))}</div>`).join("") : "")
-    + (_other.length ? `<div style="margin-top:4px;color:#D8A45E">Entry-screen warnings: ${_other.map(w=>esc(_wtext(w))).join(" \u00b7 ")}</div>` : "")
-    + (j.report.session_note ? `<div style="margin-top:4px;color:#D8A45E">${esc(j.report.session_note)}</div>` : "");
+  const warn = (_high.length ? _high.map(w=>`<div style="margin-top:6px;padding:8px 10px;border-left:3px solid #A74C42;background:rgba(167,76,66,.10);color:#8A5F59;font-size:12px"><b>\u26a0 Not imported:</b> ${esc(_wtext(w))}</div>`).join("") : "")
+    + (_other.length ? `<div style="margin-top:4px;color:#A7752D">Entry-screen warnings: ${_other.map(w=>esc(_wtext(w))).join(" \u00b7 ")}</div>` : "")
+    + (j.report.session_note ? `<div style="margin-top:4px;color:#A7752D">${esc(j.report.session_note)}</div>` : "");
   appStatus("ok", (n
     ? `<b>Workbook imported \u2014 now working on \u201c${esc(name)}\u201d.</b> ${n} edit${n===1?"":"s"} applied; untouched cells kept their values.${lines}${n>8?"<div>\u2026</div>":""}`
     : `<b>Workbook read \u2014 no edits detected.</b> Every cell matches its generation state; nothing changed for \u201c${esc(name)}\u201d.`) + warn);
@@ -8285,7 +8294,7 @@ function wizStart(){
 }
 function wizSet(k,v){ wiz[k]=v; renderContent(); }
 function wizPick(cat,i,on){ wiz.picks[cat+"|"+i]=on; renderContent(); }
-function wizChip(txt, warn){ return `<div class="memo" style="margin:8px 0;border-left:3px solid ${warn?'#A56158':'#D8A45E'}">${txt}</div>`; }
+function wizChip(txt, warn){ return `<div class="memo" style="margin:8px 0;border-left:3px solid ${warn?'#99564E':'#A7752D'}">${txt}</div>`; }
 function renderWizard(){
   const el = document.getElementById("content");
   let h = `<div class="h2" style="font-weight:700">New engagement — step ${wiz.step} of 3</div>`;
@@ -8324,7 +8333,7 @@ function renderWizard(){
       TAX31()[cn].forEach((s,i)=>{
         const on = !!wiz.picks[cn+"|"+i];
         if(on){ picked++; if(cn==="Deposits") hasDep = true; }
-        h += `<label style="display:block;padding:3px 2px;cursor:pointer"><input type="checkbox"${on?" checked":""} onchange="wizPick('${cn}',${i},this.checked)"> ${esc(s.name)} <span style="color:#A6A09B;font-size:11px">\u2014 ${esc(LINE_LABELS_V31[s.line])}</span></label>`;
+        h += `<label style="display:block;padding:3px 2px;cursor:pointer"><input type="checkbox"${on?" checked":""} onchange="wizPick('${cn}',${i},this.checked)"> ${esc(s.name)} <span style="color:#585552;font-size:11px">\u2014 ${esc(LINE_LABELS_V31[s.line])}</span></label>`;
       });
       h += '</div>';
     });
@@ -8463,7 +8472,7 @@ async function toggleEngMenu(){
   const m = document.getElementById("engMenu");
   if(m.style.display !== "none"){ m.style.display = "none"; return; }
   m.style.display = "block";
-  m.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:#A6A09B">Loading saved engagements\u2026</div>';
+  m.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:#585552">Loading saved engagements\u2026</div>';
   await loadEngStore(true);
   const list = (engStore && engStore.engagements) || [];
   const cur = cfg.scenario_name || "";
@@ -8476,33 +8485,33 @@ async function toggleEngMenu(){
   // in the list — that was the source of the "resume a shell" bug. It's offered ONCE at boot if a
   // prior session ended unsaved, and nowhere else. So the menu never renders a draft row.
   const draft = null;
-  let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#A6A09B">Saved engagements</div>';
-  if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#A6A09B">None saved yet on this workspace.</div>';
+  let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#585552">Saved engagements</div>';
+  if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#585552">None saved yet on this workspace.</div>';
   named.forEach(e=>{
     const active = (e.scenario_name||e.name) === cur;
     // Row = the open-action <a> (flex:1) + a delete × beside it. The × calls the existing
     // delEngagement(slug) (same robust path as Start/Reset: confirm, DELETE, baseline cleanup,
     // store refresh) with stopPropagation so a delete click never also opens the engagement.
-    h += `<div style="display:flex;align-items:center" onmouseover="this.style.background='#272524'" onmouseout="this.style.background=''">`
-      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 10px;border-radius:6px 0 0 6px;text-decoration:none;color:${active?"#D8A45E":"#E5E2DF"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#D8A45E":"#4E4C4A"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#A6A09B;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
-      + `<a href="#" title="Delete this engagement" onclick="engMenuDelete('${e.slug}');return false" style="flex:0 0 auto;padding:7px 10px;color:#96918B;text-decoration:none;font-size:13px;border-radius:0 6px 6px 0" onmouseover="this.style.color='#D08F86'" onmouseout="this.style.color='#96918B'">\u2715</a>`
+    h += `<div style="display:flex;align-items:center" onmouseover="this.style.background='#F3F1EF'" onmouseout="this.style.background=''">`
+      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 10px;border-radius:6px 0 0 6px;text-decoration:none;color:${active?"#A7752D":"#22201E"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#A7752D":"#E6E4E3"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#585552;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
+      + `<a href="#" title="Delete this engagement" onclick="engMenuDelete('${e.slug}');return false" style="flex:0 0 auto;padding:7px 10px;color:#666360;text-decoration:none;font-size:13px;border-radius:0 6px 6px 0" onmouseover="this.style.color='#955951'" onmouseout="this.style.color='#666360'">\u2715</a>`
       + `</div>`;
   });
   if(draft){
     const draftActive = !cur || (cfg.scenario_name||"") === "" || (draft.slug||"") === (window._openSlug||"");
-    h += '<div style="border-top:1px solid #343331;margin:6px 0"></div>';
-    h += '<div style="padding:5px 10px 4px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#A6A09B">Unsaved draft</div>';
-    h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#C39962;font-size:12px" onmouseover="this.style.background='#272524'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#C39962;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Unsaved engagement (crash recovery)</span><span style="display:block;font-size:10px;color:#A6A09B">last-resort recovery of unsaved work \u2014 name &amp; save it to keep it</span></span></a>`;
+    h += '<div style="border-top:1px solid #CDC9C6;margin:6px 0"></div>';
+    h += '<div style="padding:5px 10px 4px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#585552">Unsaved draft</div>';
+    h += `<a href="#" onclick="engMenuOpen('${draft.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;text-decoration:none;color:#A07841;font-size:12px" onmouseover="this.style.background='#F3F1EF'" onmouseout="this.style.background=''"><span style="width:6px;height:6px;border-radius:50%;background:#A07841;flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block">Unsaved engagement (crash recovery)</span><span style="display:block;font-size:10px;color:#585552">last-resort recovery of unsaved work \u2014 name &amp; save it to keep it</span></span></a>`;
   }
-  h += '<div style="border-top:1px solid #343331;margin:6px 0"></div>';
+  h += '<div style="border-top:1px solid #CDC9C6;margin:6px 0"></div>';
   const _emptyWs = (typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas;
   if(_emptyWs){
-    h += '<div style="display:block;padding:7px 10px;color:#6E6964;font-size:12px" title="Create or upload an engagement first">+ Save current configuration here</div>'
-      + '<div style="padding:0 10px 6px;font-size:10px;color:#6E6964">Nothing to save \u2014 the workspace is empty.</div>';
+    h += '<div style="display:block;padding:7px 10px;color:#8D8A87;font-size:12px" title="Create or upload an engagement first">+ Save current configuration here</div>'
+      + '<div style="padding:0 10px 6px;font-size:10px;color:#8D8A87">Nothing to save \u2014 the workspace is empty.</div>';
   } else {
-    h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#8DAA92;font-size:12px" onmouseover="this.style.background=\'#272524\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+    h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#506B55;font-size:12px" onmouseover="this.style.background=\'#F3F1EF\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
   }
-  h += '<a href="#" onclick="document.getElementById(\'engMenu\').style.display=\'none\';clearWorkspace();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#A6A09B;font-size:12px" onmouseover="this.style.background=\'#272524\'" onmouseout="this.style.background=\'\'" title="Empty the workspace to a clean slate (warns first if you have unsaved changes)">\u2205 New / clear workspace</a>';
+  h += '<a href="#" onclick="document.getElementById(\'engMenu\').style.display=\'none\';clearWorkspace();return false" style="display:block;padding:7px 10px;border-radius:6px;text-decoration:none;color:#585552;font-size:12px" onmouseover="this.style.background=\'#F3F1EF\'" onmouseout="this.style.background=\'\'" title="Empty the workspace to a clean slate (warns first if you have unsaved changes)">\u2205 New / clear workspace</a>';
   m.innerHTML = h;
 }
 window.toggleEngMenu = toggleEngMenu;
@@ -8743,7 +8752,7 @@ function renderLab(){
   h += '<div style="display:flex;gap:6px;margin-bottom:16px">';
   modes.forEach(m=>{
     const on = _labMode===m[0];
-    h += `<button class="btn-plain" style="${on?'background:#3A3836;border-color:#8C8379;color:#EAE7E4':''}" onclick="setLabMode('${m[0]}')">${m[1]}</button>`;
+    h += `<button class="btn-plain" style="${on?'background:#ECEBE9;border-color:#726F6C;color:#1F1D1A':''}" onclick="setLabMode('${m[0]}')">${m[1]}</button>`;
   });
   h += '</div>';
   // build the mode body inline (single innerHTML set — no second DOM lookup that could silently fail)
@@ -8759,7 +8768,7 @@ function renderLab(){
  } catch(err){
    const el = document.getElementById("content");
    if(el) el.innerHTML = '<div class="h2" style="font-weight:700">Bank Design Lab</div>'
-     + '<div class="memo" style="margin-top:12px;color:#DAA29A">The Lab hit an error while rendering: '
+     + '<div class="memo" style="margin-top:12px;color:#8F5D56">The Lab hit an error while rendering: '
      + esc(String(err && err.message || err)) + '. This has been contained \u2014 other tabs are unaffected.</div>';
    try{ console.error("Bank Design Lab render error:", err); }catch(_){}
  }
@@ -8768,7 +8777,7 @@ window.renderLab = renderLab;
 
 function labGoalSeekHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:900px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:900px">';
   h += '<div class="k" style="margin:0 0 4px">Goal Seek</div>';
   h += '<div class="s" style="margin-bottom:14px">Pick a target metric and the single lever to solve. The Lab searches for the lever value that hits your target, running the real engine to convergence.</div>';
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
@@ -8787,7 +8796,7 @@ function labGoalSeekHtml(){
 
 function labScenarioHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:900px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:900px">';
   h += '<div class="k" style="margin:0 0 4px">Scenario</div>';
   h += '<div class="s" style="margin-bottom:14px">Manually adjust one or more levers and see the effect on every metric, side by side with your current baseline \u2014 without committing the changes.</div>';
   if(!levers.length){ h += '<div class="memo">No adjustable levers found in this model.</div></div>'; return h; }
@@ -8796,13 +8805,13 @@ function labScenarioHtml(){
     const cur = getPath(l.path);
     const _disp=_labStoredToDisplay(cur,l.unit);
     const ph = (l.unit==="pct" || l.unit==="bps") ? Number(_disp).toFixed(2) : Number(_disp).toLocaleString();
-    const suffix = (l.unit==="pct") ? '<span style="color:#A6A09B;margin-left:4px">%</span>'
-                 : (l.unit==="bps") ? '<span style="color:#A6A09B;margin-left:4px"> bp</span>'
-                 : (l.unit==="k") ? '<span style="color:#A6A09B;margin-right:4px">$</span>' : '';
+    const suffix = (l.unit==="pct") ? '<span style="color:#585552;margin-left:4px">%</span>'
+                 : (l.unit==="bps") ? '<span style="color:#585552;margin-left:4px"> bp</span>'
+                 : (l.unit==="k") ? '<span style="color:#585552;margin-right:4px">$</span>' : '';
     const pre = (l.unit==="k") ? suffix : '';
     const post = (l.unit==="pct" || l.unit==="bps") ? suffix : '';
     h += `<tr><td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
-      + `<td style="text-align:right;white-space:nowrap">${pre}<input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="${ph}" title="Enter in the same units shown under Current${l.unit==="pct"?" (percent, e.g. 20 = 20%)":""}" style="width:110px;text-align:right;padding:5px;background:#12110F;border:1px solid #3C3A39;border-radius:5px;color:#E5E2DF">${post}</td></tr>`;
+      + `<td style="text-align:right;white-space:nowrap">${pre}<input id="scn-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" step="any" placeholder="${ph}" title="Enter in the same units shown under Current${l.unit==="pct"?" (percent, e.g. 20 = 20%)":""}" style="width:110px;text-align:right;padding:5px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:5px;color:#22201E">${post}</td></tr>`;
   });
   h += '</table>';
   h += '<div style="margin-top:12px"><button class="btn-plain" onclick="runLabScenario()">Run scenario</button></div>';
@@ -8817,15 +8826,15 @@ async function runLabGoalSeek(){
   const lever = leverSel.value;
   const unit = leverSel.options[leverSel.selectedIndex]?.getAttribute("data-unit")||"";
   const out = document.getElementById("gsResult");
-  if(isNaN(target)){ out.innerHTML = '<div class="memo" style="color:#BE918A">Enter a numeric target value.</div>'; return; }
-  if(!lever){ out.innerHTML = '<div class="memo" style="color:#BE918A">No lever selected.</div>'; return; }
+  if(isNaN(target)){ out.innerHTML = '<div class="memo" style="color:#896059">Enter a numeric target value.</div>'; return; }
+  if(!lever){ out.innerHTML = '<div class="memo" style="color:#896059">No lever selected.</div>'; return; }
   out.innerHTML = '<div class="memo">Solving\u2026 running the engine to convergence.</div>';
   try{
     const r = await fetch("/api/v31/lab/goal-seek", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({cfg, lever, metric, target})});
     const d = await r.json();
     renderGoalSeekResult(d, lever, unit, metric, target);
-  }catch(e){ out.innerHTML = '<div class="memo" style="color:#BE918A">Solve failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML = '<div class="memo" style="color:#896059">Solve failed: '+esc(String(e))+'</div>'; }
 }
 window.runLabGoalSeek = runLabGoalSeek;
 
@@ -8857,18 +8866,18 @@ function _labInputToStored(v, unit){
 
 function renderGoalSeekResult(d, lever, unit, metric, target){
   const out = document.getElementById("gsResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML = '<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML = '<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   if(!d.converged){
-    let h = '<div class="memo" style="color:#D9B384;line-height:1.6"><b>Not reachable.</b> '+esc(d.status||"")+'</div>';
+    let h = '<div class="memo" style="color:#9C794B;line-height:1.6"><b>Not reachable.</b> '+esc(d.status||"")+'</div>';
     if(d.current_metric!=null) h += '<div class="memo" style="margin-top:6px">Current '+esc(metric)+': '+Number(d.current_metric).toFixed(3)+' \u2014 target '+target+'.</div>';
     out.innerHTML = h;
     return;
   }
   const mlabel = (LAB_METRICS.find(m=>m[0]===metric)||[])[1]||metric;
   window._gsAdopt = {lever, value:d.solution};
-  let h = '<div style="padding:12px;background:#141D15;border:1px solid #3B5440;border-radius:8px;line-height:1.7">';
-  h += '<div style="font-size:13px;color:#EAE7E4">To reach <b>'+esc(mlabel)+' = '+target+'</b>, set:</div>';
-  h += '<div style="font-size:18px;font-weight:700;color:#ACDCB5;margin:4px 0">'+_fmtLever(d.solution, unit)+'</div>';
+  let h = '<div style="padding:12px;background:#F6F5F3;border:1px solid #3B5440;border-radius:8px;line-height:1.7">';
+  h += '<div style="font-size:13px;color:#1F1D1A">To reach <b>'+esc(mlabel)+' = '+target+'</b>, set:</div>';
+  h += '<div style="font-size:18px;font-weight:700;color:#436F4D;margin:4px 0">'+_fmtLever(d.solution, unit)+'</div>';
   h += '<div class="s">from the current '+_fmtLever(d.current_lever, unit)+'. Engine confirms '+esc(mlabel)+' = '+Number(d.achieved_metric).toFixed(3)+' (residual '+Number(d.residual).toExponential(1)+', '+d.evals+' engine runs).</div>';
   h += '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn-plain" onclick="adoptGoalSeek()">Adopt into model</button><button class="btn-plain" onclick="document.getElementById(\'gsResult\').innerHTML=\'\'">Discard</button></div>';
   h += '</div>';
@@ -8907,26 +8916,26 @@ async function runLabScenario(){
     if(inp && inp.value!==""){ const v = parseFloat(inp.value); if(!isNaN(v)) overrides[l.path] = _labInputToStored(v, inp.getAttribute("data-unit")); }
   });
   const out = document.getElementById("scnResult");
-  if(!Object.keys(overrides).length){ out.innerHTML = '<div class="memo" style="color:#BE918A">Enter at least one scenario value.</div>'; return; }
+  if(!Object.keys(overrides).length){ out.innerHTML = '<div class="memo" style="color:#896059">Enter at least one scenario value.</div>'; return; }
   out.innerHTML = '<div class="memo">Running scenario\u2026</div>';
   try{
     const r = await fetch("/api/v31/lab/scenario", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({cfg, overrides})});
     const d = await r.json();
     renderScenarioResult(d);
-  }catch(e){ out.innerHTML = '<div class="memo" style="color:#BE918A">Scenario failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML = '<div class="memo" style="color:#896059">Scenario failed: '+esc(String(e))+'</div>'; }
 }
 window.runLabScenario = runLabScenario;
 
 function renderScenarioResult(d){
   const out = document.getElementById("scnResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML = '<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML = '<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   let h = '<table class="fin-dark" style="width:100%"><tr><th>Metric</th><th style="text-align:right">Baseline</th><th style="text-align:right">Scenario</th><th style="text-align:right">Change</th></tr>';
   LAB_METRICS.forEach(m=>{
     const b = d.baseline[m[0]], s = d.scenario[m[0]];
     if(b==null && s==null) return;
     const delta = (b!=null && s!=null) ? (s-b) : null;
-    const dcol = delta==null ? "#A6A09B" : (delta>=0 ? "#ACDCB5" : "#DAA29A");
+    const dcol = delta==null ? "#585552" : (delta>=0 ? "#436F4D" : "#8F5D56");
     h += `<tr><td>${m[1]}</td><td style="text-align:right">${b!=null?b.toFixed(3):"\u2014"}</td>`
       + `<td style="text-align:right">${s!=null?s.toFixed(3):"\u2014"}</td>`
       + `<td style="text-align:right;color:${dcol}">${delta!=null?(delta>=0?"+":"")+delta.toFixed(3):"\u2014"}</td></tr>`;
@@ -8938,7 +8947,7 @@ function renderScenarioResult(d){
 // ---- SENSITIVITY (tornado) ----
 function labSensitivityHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:900px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:900px">';
   h += '<div class="k" style="margin:0 0 4px">Sensitivity</div>';
   h += '<div class="s" style="margin-bottom:14px">Nudge every lever up and down by the same percentage and see which ones move your chosen metric most \u2014 a tornado chart, widest bar at the top.</div>';
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
@@ -8956,14 +8965,14 @@ async function runLabSensitivity(){
   const pct = parseFloat(document.getElementById("snsPct").value)/100;
   const levers = labLeverCatalog().map(l=>l.path);
   const out = document.getElementById("snsResult");
-  if(isNaN(pct) || pct<=0){ out.innerHTML='<div class="memo" style="color:#BE918A">Enter a positive percentage.</div>'; return; }
+  if(isNaN(pct) || pct<=0){ out.innerHTML='<div class="memo" style="color:#896059">Enter a positive percentage.</div>'; return; }
   out.innerHTML = '<div class="memo">Running '+levers.length+' levers \u00d7 2 engine runs\u2026</div>';
   try{
     const r = await fetch("/api/v31/lab/sensitivity",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cfg,levers,metric,pct})});
     const d = await r.json();
     renderTornado(d);
-  }catch(e){ out.innerHTML='<div class="memo" style="color:#BE918A">Sensitivity failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#896059">Sensitivity failed: '+esc(String(e))+'</div>'; }
 }
 window.runLabSensitivity = runLabSensitivity;
 
@@ -8971,7 +8980,7 @@ function _labelForPath(path){ const f=(labLeverCatalog()||[]).find(l=>l.path===p
 
 function renderTornado(d){
   const out = document.getElementById("snsResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   const rows = (d.rows||[]).filter(r=>r.swing>0).slice(0,12);
   if(!rows.length){ out.innerHTML='<div class="memo">No lever moved this metric measurably.</div>'; return; }
   const base = d.baseline;
@@ -8993,7 +9002,7 @@ function renderTornado(d){
 // ---- TRADE-OFF (rotatable 3D surface + contour) ----
 function labTradeoffHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:960px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:960px">';
   h += '<div class="k" style="margin:0 0 4px">Trade-off Explorer</div>';
   h += '<div class="s" style="margin-bottom:14px">Pick two levers and a metric. The Lab sweeps both across a grid \u2014 every point a real engine run \u2014 and plots the resulting surface. Drag to rotate; the contour view below reads exact values.</div>';
   h += '<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">';
@@ -9015,23 +9024,23 @@ async function runLabTradeoff(){
   const x_path=document.getElementById("toX").value, y_path=document.getElementById("toY").value;
   const metric=document.getElementById("toMetric").value, n=parseInt(document.getElementById("toN").value,10);
   const out=document.getElementById("toResult");
-  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#BE918A">Pick two different levers.</div>'; return; }
+  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#896059">Pick two different levers.</div>'; return; }
   out.innerHTML='<div class="memo">Sweeping '+(n*n)+' engine runs\u2026</div>';
   try{
     const r=await fetch("/api/v31/lab/tradeoff",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cfg,x_path,y_path,metric,n})});
     const d=await r.json();
     renderTradeoff(d);
-  }catch(e){ out.innerHTML='<div class="memo" style="color:#BE918A">Trade-off failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#896059">Trade-off failed: '+esc(String(e))+'</div>'; }
 }
 window.runLabTradeoff = runLabTradeoff;
 
 function renderTradeoff(d){
   const out=document.getElementById("toResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   const mlabel=(LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric;
   out.innerHTML = '<div class="s" style="margin-bottom:8px"><b>'+esc(mlabel)+'</b> across '+esc(_labelForPath(d.x_path))+' (X) and '+esc(_labelForPath(d.y_path))+' (Y). Each cell is a real engine run.</div>'
-    + '<div id="toSurface" style="height:420px;background:#12110F;border:1px solid #3C3A39;border-radius:8px"></div>'
+    + '<div id="toSurface" style="height:420px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:8px"></div>'
     + '<div id="toContour" style="margin-top:12px"></div>';
   drawSurface3D(d);
   drawContour(d);
@@ -9055,9 +9064,9 @@ function drawSurface3D(d){
     return [cx+x1*scale, cy - y2*scale - (v==null?0:((v-zmin)/zr))*0 - z2*zScale ];
   }
   function color(v){
-    if(v==null) return "#42413F";
+    if(v==null) return "#BBB8B5";
     const t=(v-zmin)/zr; // blue(low)->teal->green(high)
-    const r=Math.round(40+t*40), g=Math.round(90+t*140), b=Math.round(180-t*90);
+    const r=Math.round(238-t*48), g=Math.round(233-t*94), b=Math.round(224-t*150);
     return `rgb(${r},${g},${b})`;
   }
   function render(){
@@ -9074,11 +9083,11 @@ function drawSurface3D(d){
     let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:100%;cursor:grab" id="toSvg">`;
     quads.forEach(q=>{
       const p=q.pts.map(pt=>pt[0].toFixed(1)+","+pt[1].toFixed(1)).join(" ");
-      svg+=`<polygon points="${p}" fill="${color(q.avg)}" stroke="#12110F" stroke-width="0.4" opacity="0.95"/>`;
+      svg+=`<polygon points="${p}" fill="${color(q.avg)}" stroke="#FBF9F6" stroke-width="0.4" opacity="0.95"/>`;
     });
     // axis labels
-    svg+=`<text x="12" y="20" fill="#A6A09B" font-size="11">${esc((LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric)}: ${zmin.toFixed(2)} \u2013 ${zmax.toFixed(2)}</text>`;
-    svg+=`<text x="12" y="${H-10}" fill="#75706B" font-size="10">drag to rotate</text>`;
+    svg+=`<text x="12" y="20" fill="#585552" font-size="11">${esc((LAB_METRICS.find(m=>m[0]===d.metric)||[])[1]||d.metric)}: ${zmin.toFixed(2)} \u2013 ${zmax.toFixed(2)}</text>`;
+    svg+=`<text x="12" y="${H-10}" fill="#868380" font-size="10">drag to rotate</text>`;
     svg+=`</svg>`;
     host.innerHTML=svg;
     const el=document.getElementById("toSvg");
@@ -9096,7 +9105,7 @@ function drawContour(d){
   let zmin=Infinity,zmax=-Infinity;
   zs.forEach(r=>r.forEach(v=>{ if(v!=null){ if(v<zmin)zmin=v; if(v>zmax)zmax=v; }}));
   const zr=(zmax-zmin)||1;
-  function color(v){ if(v==null)return "#42413F"; const t=(v-zmin)/zr; const r=Math.round(40+t*40),g=Math.round(90+t*140),b=Math.round(180-t*90); return `rgb(${r},${g},${b})`; }
+  function color(v){ if(v==null)return "#BBB8B5"; const t=(v-zmin)/zr; const r=Math.round(238-t*48),g=Math.round(233-t*94),b=Math.round(224-t*150); return `rgb(${r},${g},${b})`; }
   const cell=Math.max(20,Math.min(46,Math.floor(560/nx)));
   let h='<div class="s" style="margin-bottom:6px">Contour (exact values) \u2014 rows are Y high\u2192low, columns X low\u2192high</div>';
   h+='<div style="overflow:auto"><table style="border-collapse:collapse">';
@@ -9105,7 +9114,7 @@ function drawContour(d){
     for(let i=0;i<nx;i++){
       const v=zs[j][i];
       const _lx=(labLeverCatalog()||[]).find(l=>l.path===d.x_path), _ly=(labLeverCatalog()||[]).find(l=>l.path===d.y_path);
-      h+=`<td title="${esc(_labelForPath(d.x_path))}=${esc(_fmtLever(d.x_vals[i],_lx?_lx.unit:""))}, ${esc(_labelForPath(d.y_path))}=${esc(_fmtLever(d.y_vals[j],_ly?_ly.unit:""))}" style="width:${cell}px;height:${cell}px;background:${color(v)};color:#121211;font-size:9.5px;text-align:center;border:1px solid #12110F">${v==null?"":v.toFixed(1)}</td>`;
+      h+=`<td title="${esc(_labelForPath(d.x_path))}=${esc(_fmtLever(d.x_vals[i],_lx?_lx.unit:""))}, ${esc(_labelForPath(d.y_path))}=${esc(_fmtLever(d.y_vals[j],_ly?_ly.unit:""))}" style="width:${cell}px;height:${cell}px;background:${color(v)};color:#121211;font-size:9.5px;text-align:center;border:1px solid #FBF9F6">${v==null?"":v.toFixed(1)}</td>`;
     }
     h+='</tr>';
   }
@@ -9116,7 +9125,7 @@ function drawContour(d){
 // ---- OPTIMIZER (constrained) ----
 function labOptimizeHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:960px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:960px">';
   h += '<div class="k" style="margin:0 0 4px">Optimizer</div>';
   h += '<div class="s" style="margin-bottom:14px">Search for the lever settings that best hit an objective while respecting constraints. A global search (differential evolution) over the real engine \u2014 slower than the other modes (tens of seconds), and it honestly flags when the answer isn\u2019t unique.</div>';
   // objective
@@ -9126,7 +9135,7 @@ function labOptimizeHtml(){
   LAB_METRICS.forEach(m=> h += `<option value="${m[0]}">${m[1]} (${m[2]})</option>`);
   h += '</select></div></div>';
   // levers to free (checkbox + bounds)
-  h += '<div class="s" style="margin:4px 0 6px;font-weight:600;color:#C7C4C1">Levers the optimizer may move (pick 1\u20135, set bounds):</div>';
+  h += '<div class="s" style="margin:4px 0 6px;font-weight:600;color:#393734">Levers the optimizer may move (pick 1\u20135, set bounds):</div>';
   h += '<table class="fin-dark" style="width:100%"><tr><th></th><th>Lever</th><th style="text-align:right">Current</th><th style="text-align:right">Min</th><th style="text-align:right">Max</th></tr>';
   levers.forEach((l,i)=>{
     const cur = getPath(l.path);
@@ -9134,17 +9143,17 @@ function labOptimizeHtml(){
     const disp = (v)=> +Number(_labStoredToDisplay(v,l.unit)).toFixed(4);
     const lo = disp(cur*0.5);
     const hi = disp(cur*1.5);
-    const uSuffix = (l.unit==="pct") ? '<span style="color:#A6A09B;margin-left:3px">%</span>'
-                  : (l.unit==="bps") ? '<span style="color:#A6A09B;margin-left:3px"> bp</span>' : '';
+    const uSuffix = (l.unit==="pct") ? '<span style="color:#585552;margin-left:3px">%</span>'
+                  : (l.unit==="bps") ? '<span style="color:#585552;margin-left:3px"> bp</span>' : '';
     const stepAttr = 'step="any"';
     h += `<tr><td style="text-align:center"><input type="checkbox" id="optUse-${i}"></td>`
       + `<td>${esc(l.label)}</td><td style="text-align:right">${_fmtLever(cur,l.unit)}</td>`
-      + `<td style="text-align:right;white-space:nowrap"><input id="optLo-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" ${stepAttr} value="${lo}" style="width:90px;text-align:right;padding:4px;background:#12110F;border:1px solid #3C3A39;border-radius:4px;color:#E5E2DF">${uSuffix}</td>`
-      + `<td style="text-align:right;white-space:nowrap"><input id="optHi-${i}" data-unit="${l.unit}" type="number" ${stepAttr} value="${hi}" style="width:90px;text-align:right;padding:4px;background:#12110F;border:1px solid #3C3A39;border-radius:4px;color:#E5E2DF">${uSuffix}</td></tr>`;
+      + `<td style="text-align:right;white-space:nowrap"><input id="optLo-${i}" data-path="${esc(l.path)}" data-unit="${l.unit}" type="number" ${stepAttr} value="${lo}" style="width:90px;text-align:right;padding:4px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:4px;color:#22201E">${uSuffix}</td>`
+      + `<td style="text-align:right;white-space:nowrap"><input id="optHi-${i}" data-unit="${l.unit}" type="number" ${stepAttr} value="${hi}" style="width:90px;text-align:right;padding:4px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:4px;color:#22201E">${uSuffix}</td></tr>`;
   });
   h += '</table>';
   // constraints
-  h += '<div class="s" style="margin:14px 0 6px;font-weight:600;color:#C7C4C1">Constraints (optional):</div>';
+  h += '<div class="s" style="margin:14px 0 6px;font-weight:600;color:#393734">Constraints (optional):</div>';
   h += '<div id="optConstraints"></div>';
   h += '<button class="btn-plain" style="font-size:11px;padding:3px 10px;margin-top:6px" onclick="addOptConstraint()">+ Add constraint</button>';
   h += '<div style="margin-top:14px"><button class="btn-plain" onclick="runLabOptimize()">Optimize</button></div>';
@@ -9159,9 +9168,9 @@ function addOptConstraint(){
   let mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}</option>`).join("");
   const div = document.createElement("div");
   div.style.cssText = "display:flex;gap:8px;align-items:center;margin-bottom:6px";
-  div.innerHTML = `<select id="optCm-${id}" style="padding:5px;background:#12110F;border:1px solid #3C3A39;border-radius:5px;color:#E5E2DF">${mopts}</select>`
-    + `<select id="optCo-${id}" style="padding:5px;background:#12110F;border:1px solid #3C3A39;border-radius:5px;color:#E5E2DF"><option value=">=">\u2265</option><option value="<=">\u2264</option></select>`
-    + `<input id="optCv-${id}" type="number" step="any" placeholder="value" style="width:100px;padding:5px;background:#12110F;border:1px solid #3C3A39;border-radius:5px;color:#E5E2DF">`
+  div.innerHTML = `<select id="optCm-${id}" style="padding:5px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:5px;color:#22201E">${mopts}</select>`
+    + `<select id="optCo-${id}" style="padding:5px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:5px;color:#22201E"><option value=">=">\u2265</option><option value="<=">\u2264</option></select>`
+    + `<input id="optCv-${id}" type="number" step="any" placeholder="value" style="width:100px;padding:5px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:5px;color:#22201E">`
     + `<button class="btn-plain" style="font-size:11px;padding:2px 8px" onclick="this.parentNode.remove()">\u00d7</button>`;
   div.setAttribute("data-cid", id);
   host.appendChild(div);
@@ -9180,8 +9189,8 @@ async function runLabOptimize(){
     }
   });
   const out = document.getElementById("optResult");
-  if(!chosen.length){ out.innerHTML='<div class="memo" style="color:#BE918A">Pick at least one lever (check the box) with valid min < max.</div>'; return; }
-  if(chosen.length>5){ out.innerHTML='<div class="memo" style="color:#BE918A">Pick at most 5 levers.</div>'; return; }
+  if(!chosen.length){ out.innerHTML='<div class="memo" style="color:#896059">Pick at least one lever (check the box) with valid min < max.</div>'; return; }
+  if(chosen.length>5){ out.innerHTML='<div class="memo" style="color:#896059">Pick at most 5 levers.</div>'; return; }
   // gather constraints
   const constraints = [];
   document.querySelectorAll("#optConstraints [data-cid]").forEach(div=>{
@@ -9203,27 +9212,27 @@ async function runLabOptimize(){
     if(!r.ok || ctype.indexOf("application/json") === -1){
       const txt = await r.text();
       if(txt.trim().slice(0,15).toLowerCase().indexOf("<!doctype") === 0 || r.status===502 || r.status===504){
-        out.innerHTML='<div class="memo" style="color:#D9B384;line-height:1.6">The optimize request didn\u2019t return in time (the server sent a gateway error, not a result). This happens when the search is too heavy for one request. Try <b>fewer levers</b> (2\u20133 is ideal) or a <b>narrower min/max range</b> on each, then run again.</div>';
+        out.innerHTML='<div class="memo" style="color:#9C794B;line-height:1.6">The optimize request didn\u2019t return in time (the server sent a gateway error, not a result). This happens when the search is too heavy for one request. Try <b>fewer levers</b> (2\u20133 is ideal) or a <b>narrower min/max range</b> on each, then run again.</div>';
         return;
       }
-      out.innerHTML='<div class="memo" style="color:#BE918A">Optimize failed (HTTP '+r.status+'). '+esc(txt.slice(0,160))+'</div>';
+      out.innerHTML='<div class="memo" style="color:#896059">Optimize failed (HTTP '+r.status+'). '+esc(txt.slice(0,160))+'</div>';
       return;
     }
     const d = await r.json();
     renderOptimizeResult(d);
-  }catch(e){ out.innerHTML='<div class="memo" style="color:#BE918A">Optimize failed: '+esc(String(e))+'. If this persists, try fewer levers or a narrower range.</div>'; }
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#896059">Optimize failed: '+esc(String(e))+'. If this persists, try fewer levers or a narrower range.</div>'; }
 }
 window.runLabOptimize = runLabOptimize;
 
 function renderOptimizeResult(d){
   const out = document.getElementById("optResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   const mlabel=(LAB_METRICS.find(m=>m[0]===d.objective)||[])[1]||d.objective;
   window._optAdopt = d.solution;
   const bandColor = d.feasible ? "#3B5440" : "#543D1F";
-  const bandBg = d.feasible ? "#141D15" : "#1F160A";
+  const bandBg = d.feasible ? "#EDEBE9" : "#F1EFEC";
   let h = `<div style="padding:12px;background:${bandBg};border:1px solid ${bandColor};border-radius:8px;line-height:1.7">`;
-  h += `<div style="font-size:13px;color:#EAE7E4">${d.direction==="max"?"Maximum":"Minimum"} <b>${esc(mlabel)}</b> found: <span style="font-size:17px;font-weight:700;color:#ACDCB5">${d.achieved!=null?d.achieved.toFixed(3):"\u2014"}</span></div>`;
+  h += `<div style="font-size:13px;color:#1F1D1A">${d.direction==="max"?"Maximum":"Minimum"} <b>${esc(mlabel)}</b> found: <span style="font-size:17px;font-weight:700;color:#436F4D">${d.achieved!=null?d.achieved.toFixed(3):"\u2014"}</span></div>`;
   h += '<div class="s" style="margin-top:8px">Lever settings:</div><table class="fin-dark" style="width:auto;min-width:420px;margin-top:4px"><tr><th>Lever</th><th style="text-align:right">Optimized value</th></tr>';
   Object.keys(d.solution||{}).forEach(p=>{
     const l = (labLeverCatalog()||[]).find(x=>x.path===p);
@@ -9234,11 +9243,11 @@ function renderOptimizeResult(d){
     h += '<div class="s" style="margin-top:10px">Constraints:</div>';
     d.constraint_status.forEach(c=>{
       const ml=(LAB_METRICS.find(m=>m[0]===c.metric)||[])[1]||c.metric;
-      h += `<div style="font-size:11px;color:${c.met?"#ACDCB5":"#DAA29A"}">${c.met?"\u2713":"\u2717"} ${esc(ml)} ${c.op} ${c.value}</div>`;
+      h += `<div style="font-size:11px;color:${c.met?"#436F4D":"#8F5D56"}">${c.met?"\u2713":"\u2717"} ${esc(ml)} ${c.op} ${c.value}</div>`;
     });
   }
-  h += `<div class="s" style="margin-top:10px;color:${d.nonunique?"#D9B384":"#A6A09B"}">${esc(d.note||"")}</div>`;
-  if(d.solver) h += `<div class="s" style="margin-top:2px;color:#75706B;font-size:10px">Solver: ${esc(d.solver)} \u00b7 ${d.seeds_run} seed${d.seeds_run>1?"s":""}</div>`;
+  h += `<div class="s" style="margin-top:10px;color:${d.nonunique?"#9C794B":"#585552"}">${esc(d.note||"")}</div>`;
+  if(d.solver) h += `<div class="s" style="margin-top:2px;color:#868380;font-size:10px">Solver: ${esc(d.solver)} \u00b7 ${d.seeds_run} seed${d.seeds_run>1?"s":""}</div>`;
   h += '<div style="margin-top:10px;display:flex;gap:8px"><button class="btn-plain" onclick="adoptOptimize()">Adopt into model</button><button class="btn-plain" onclick="document.getElementById(\'optResult\').innerHTML=\'\'">Discard</button></div>';
   h += '</div>';
   out.innerHTML = h;
@@ -9257,10 +9266,10 @@ window.adoptOptimize = adoptOptimize;
 // ---- EFFICIENT FRONTIER ----
 function labFrontierHtml(){
   const levers = labLeverCatalog();
-  let h = '<div class="ovcard" style="background:#181614;border-color:#3C3A39;max-width:960px">';
+  let h = '<div class="ovcard" style="background:#F8F6F4;border-color:#C3C0BD;max-width:960px">';
   h += '<div class="k" style="margin:0 0 4px">Efficient Frontier</div>';
   h += '<div class="s" style="margin-bottom:14px">Pick two objectives that pull against each other and two levers to sweep. The Lab plots every achievable combination and highlights the frontier \u2014 the settings where you can\u2019t improve one objective without giving up the other. If the two objectives don\u2019t actually compete over these levers, the frontier collapses to a single best point (that\u2019s real information, not a bug).</div>';
-  h += '<div class="s" style="margin-bottom:10px;color:#A6A09B">Each objective is driven toward its natural best (higher-is-better metrics up, lower-is-better metrics down). Axes are oriented so \u201cbetter\u201d is always toward the top-right.</div>';
+  h += '<div class="s" style="margin-bottom:10px;color:#585552">Each objective is driven toward its natural best (higher-is-better metrics up, lower-is-better metrics down). Axes are oriented so \u201cbetter\u201d is always toward the top-right.</div>';
   const dirWord = d => d==="lower" ? " (lower is better)" : d==="neutral" ? "" : " (higher is better)";
   const mopts = LAB_METRICS.map(m=>`<option value="${m[0]}">${m[1]}${dirWord(m[3])}</option>`).join("");
   const moptsB = LAB_METRICS.map((m,i)=>`<option value="${m[0]}"${i===4?' selected':''}>${m[1]}${dirWord(m[3])}</option>`).join("");  // default B to Leverage
@@ -9290,21 +9299,21 @@ async function runLabFrontier(){
   const x_path=document.getElementById("frX").value, y_path=document.getElementById("frY").value;
   const n=parseInt(document.getElementById("frN").value,10);
   const out=document.getElementById("frResult");
-  if(obj_a===obj_b){ out.innerHTML='<div class="memo" style="color:#BE918A">Pick two different objectives \u2014 a frontier needs two competing goals.</div>'; return; }
-  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#BE918A">Pick two different sweep levers.</div>'; return; }
+  if(obj_a===obj_b){ out.innerHTML='<div class="memo" style="color:#896059">Pick two different objectives \u2014 a frontier needs two competing goals.</div>'; return; }
+  if(x_path===y_path){ out.innerHTML='<div class="memo" style="color:#896059">Pick two different sweep levers.</div>'; return; }
   out.innerHTML='<div class="memo">Sweeping '+(n*n)+' engine runs\u2026</div>';
   try{
     const r=await fetch("/api/v31/lab/frontier",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({cfg,obj_a,dir_a,obj_b,dir_b,x_path,y_path,n})});
     const d=await r.json();
     renderFrontier(d);
-  }catch(e){ out.innerHTML='<div class="memo" style="color:#BE918A">Frontier failed: '+esc(String(e))+'</div>'; }
+  }catch(e){ out.innerHTML='<div class="memo" style="color:#896059">Frontier failed: '+esc(String(e))+'</div>'; }
 }
 window.runLabFrontier = runLabFrontier;
 
 function renderFrontier(d){
   const out=document.getElementById("frResult"); if(!out) return;
-  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#BE918A">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
+  if(!d || d.error){ out.innerHTML='<div class="memo" style="color:#896059">'+esc((d&&d.error)||"No result.")+'</div>'; return; }
   const la=(LAB_METRICS.find(m=>m[0]===d.obj_a)||[])[1]||d.obj_a;
   const lb=(LAB_METRICS.find(m=>m[0]===d.obj_b)||[])[1]||d.obj_b;
   const pts=d.points||[];
@@ -9321,33 +9330,33 @@ function renderFrontier(d){
   const sx = a => aLowerBetter ? (padL + (amax-a)/(amax-amin)*cw) : (padL + (a-amin)/(amax-amin)*cw);
   // y: normally low->bottom/high->top; if B is lower-is-better, flip so low(better)->top
   const sy = b => bLowerBetter ? (padT + (b-bmin)/(bmax-bmin)*ch) : (padT + ch - (b-bmin)/(bmax-bmin)*ch);
-  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#12110F;border:1px solid #3C3A39;border-radius:8px">`;
+  let svg=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;max-width:${W}px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:8px">`;
   // axes
-  svg+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ch}" stroke="#4C4A48" stroke-width="1"/>`;
-  svg+=`<line x1="${padL}" y1="${padT+ch}" x2="${padL+cw}" y2="${padT+ch}" stroke="#4C4A48" stroke-width="1"/>`;
+  svg+=`<line x1="${padL}" y1="${padT}" x2="${padL}" y2="${padT+ch}" stroke="#B0ADAA" stroke-width="1"/>`;
+  svg+=`<line x1="${padL}" y1="${padT+ch}" x2="${padL+cw}" y2="${padT+ch}" stroke="#B0ADAA" stroke-width="1"/>`;
   // x tick labels follow orientation: left edge = worse end, right edge = better end
   const xLeftVal = aLowerBetter ? amax : amin, xRightVal = aLowerBetter ? amin : amax;
-  svg+=`<text x="${padL}" y="${padT+ch+16}" fill="#A6A09B" font-size="10">${xLeftVal.toFixed(2)}</text>`;
-  svg+=`<text x="${padL+cw}" y="${padT+ch+16}" fill="#A6A09B" font-size="10" text-anchor="end">${xRightVal.toFixed(2)}</text>`;
-  svg+=`<text x="${padL+cw/2}" y="${padT+ch+40}" fill="#C7C4C1" font-size="12" text-anchor="middle">${esc(la)} \u2192 better</text>`;
+  svg+=`<text x="${padL}" y="${padT+ch+16}" fill="#585552" font-size="10">${xLeftVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw}" y="${padT+ch+16}" fill="#585552" font-size="10" text-anchor="end">${xRightVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL+cw/2}" y="${padT+ch+40}" fill="#393734" font-size="12" text-anchor="middle">${esc(la)} \u2192 better</text>`;
   // y tick labels follow orientation: top = better end, bottom = worse end
   const yTopVal = bLowerBetter ? bmin : bmax, yBotVal = bLowerBetter ? bmax : bmin;
-  svg+=`<text x="${padL-8}" y="${padT+8}" fill="#A6A09B" font-size="10" text-anchor="end">${yTopVal.toFixed(2)}</text>`;
-  svg+=`<text x="${padL-8}" y="${padT+ch}" fill="#A6A09B" font-size="10" text-anchor="end">${yBotVal.toFixed(2)}</text>`;
-  svg+=`<text x="18" y="${padT+ch/2}" fill="#C7C4C1" font-size="12" text-anchor="middle" transform="rotate(-90 18 ${padT+ch/2})">${esc(lb)} \u2192 better</text>`;
+  svg+=`<text x="${padL-8}" y="${padT+8}" fill="#585552" font-size="10" text-anchor="end">${yTopVal.toFixed(2)}</text>`;
+  svg+=`<text x="${padL-8}" y="${padT+ch}" fill="#585552" font-size="10" text-anchor="end">${yBotVal.toFixed(2)}</text>`;
+  svg+=`<text x="18" y="${padT+ch/2}" fill="#393734" font-size="12" text-anchor="middle" transform="rotate(-90 18 ${padT+ch/2})">${esc(lb)} \u2192 better</text>`;
   // frontier line — sort by SCREEN x so the polyline is clean regardless of axis flipping
   const fr=(d.frontier||[]).slice().sort((p,q)=>sx(p.a)-sx(q.a));
   if(fr.length>1){
     let path="M "+fr.map(p=>sx(p.a).toFixed(1)+" "+sy(p.b).toFixed(1)).join(" L ");
-    svg+=`<path d="${path}" fill="none" stroke="#ACDCB5" stroke-width="2" opacity="0.7"/>`;
+    svg+=`<path d="${path}" fill="none" stroke="#436F4D" stroke-width="2" opacity="0.7"/>`;
   }
   // dominated points (dim), then frontier points (bright)
-  pts.forEach(p=>{ if(!p.frontier) svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="3" fill="#4C4A48"/>`; });
-  fr.forEach(p=>{ svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="5" fill="#ACDCB5" stroke="#12110F" stroke-width="1"><title>${esc(la)}=${p.a.toFixed(3)}, ${esc(lb)}=${p.b.toFixed(3)}</title></circle>`; });
+  pts.forEach(p=>{ if(!p.frontier) svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="3" fill="#E7E5E3"/>`; });
+  fr.forEach(p=>{ svg+=`<circle cx="${sx(p.a).toFixed(1)}" cy="${sy(p.b).toFixed(1)}" r="5" fill="#436F4D" stroke="#FBF9F6" stroke-width="1"><title>${esc(la)}=${p.a.toFixed(3)}, ${esc(lb)}=${p.b.toFixed(3)}</title></circle>`; });
   svg+=`</svg>`;
   let note;
   if(d.n_frontier<=1){
-    note='<div class="s" style="color:#D9B384;margin-top:8px">These two objectives don\u2019t compete over these levers \u2014 one setting is best on both, so the frontier is a single point. Try objectives that genuinely trade off (e.g. a return measure vs. a capital measure), or different levers.</div>';
+    note='<div class="s" style="color:#9C794B;margin-top:8px">These two objectives don\u2019t compete over these levers \u2014 one setting is best on both, so the frontier is a single point. Try objectives that genuinely trade off (e.g. a return measure vs. a capital measure), or different levers.</div>';
   } else {
     const extra = (d.n_frontier_settings && d.n_frontier_settings>d.n_frontier) ? (' ('+d.n_frontier_settings+' lever settings map to these '+d.n_frontier+' distinct outcomes)') : '';
     note='<div class="s" style="margin-top:8px">The green frontier shows the '+d.n_frontier+' non-dominated outcomes out of '+d.n_points+' evaluated \u2014 each a real engine run.'+extra+' Moving along it, you trade '+esc(la)+' against '+esc(lb)+'; grey points are dominated (some other setting beats them on both).</div>';
@@ -9388,28 +9397,28 @@ function renderStart(){
     + '</div>'
     + '</div>';
   // Demoted, quiet: bring-your-own-forecast, marked In Development.
-  h += '<div class="ovcard" style="margin:14px 0;border-color:#3C3A39;background:#181614;opacity:.72">'
+  h += '<div class="ovcard" style="margin:14px 0;border-color:#C3C0BD;background:#F8F6F4;opacity:.72">'
     + '<div style="display:flex;align-items:center;gap:10px"><div class="k" style="margin:0">Already have a forecast?</div>'
-    + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A6A09B;border:1px solid #524D48;border-radius:99px;padding:2px 9px">In development</span></div>'
+    + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#585552;border:1px solid #ACA9A6;border-radius:99px;padding:2px 9px">In development</span></div>'
     + '<div class="s" style="margin-top:6px;max-width:74ch;line-height:1.6">Bring the client\u2019s own plan in whatever shape it exists \u2014 Foundry translates it into the model, mapping each series with every conversion logged and surfacing the gaps as questions rather than guesses. Coming soon.</div>'
     + '</div>';
   // Quiet, tucked-away: Use Peer Assumptions (internal seeding toy). Collapsed by default.
   if(!snapshotMode){
     var _peerProducts = (((cfg||{}).assumptions||{}).lending_products) || [];
     var _hasProducts = _peerProducts.length > 0;
-    h += '<details class="ovcard" style="margin:14px 0;border-color:#3C3A39;background:#181614;opacity:.85">'
+    h += '<details class="ovcard" style="margin:14px 0;border-color:#C3C0BD;background:#F8F6F4;opacity:.85">'
       + '<summary style="cursor:pointer;display:flex;align-items:center;gap:10px;list-style:none">'
       + '<div class="k" style="margin:0">Use Peer Assumptions</div>'
-      + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#A6A09B;border:1px solid #524D48;border-radius:99px;padding:2px 9px">Internal</span></summary>'
+      + '<span style="font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#585552;border:1px solid #ACA9A6;border-radius:99px;padding:2px 9px">Internal</span></summary>'
       + '<div class="s" style="margin-top:8px;max-width:72ch;line-height:1.6">Pre-populate the model from real peer Call Report filings. <b>Select products first</b> \u2014 only peer metrics available for those products are seeded (balances, growth, blended yield, cost of funds; not per-product yields or maturity). One cert = adopt; several = median blend. Every value is a labelled suggestion you review before it applies.</div>';
     if(!_hasProducts){
-      h += '<div class="memo" style="margin-top:10px;color:#C39962;border:1px solid #524D48;border-radius:6px;padding:10px 12px;background:#12110F">'
-        + 'No products selected yet. Add your products on the <a href="#" onclick="setTab(\'products\');return false" style="color:#D8A45E;text-decoration:none">Product tab</a> first \u2014 peer assumptions are shaped from the products in your engagement, so there is nothing to pre-populate until at least one product exists.</div>';
+      h += '<div class="memo" style="margin-top:10px;color:#A07841;border:1px solid #ACA9A6;border-radius:6px;padding:10px 12px;background:#FAF8F6">'
+        + 'No products selected yet. Add your products on the <a href="#" onclick="setTab(\'products\');return false" style="color:#A7752D;text-decoration:none">Product tab</a> first \u2014 peer assumptions are shaped from the products in your engagement, so there is nothing to pre-populate until at least one product exists.</div>';
     } else {
       var _lines = _peerProducts.map(function(p){ return esc(p.name || "(unnamed)"); }).join(", ");
-      h += '<div class="chint" style="margin-top:10px">Will seed these ' + _peerProducts.length + ' selected product' + (_peerProducts.length===1?"":"s") + ': <span style="color:#E5E2DF">' + _lines + '</span>. Fields without available peer data are left untouched.</div>'
+      h += '<div class="chint" style="margin-top:10px">Will seed these ' + _peerProducts.length + ' selected product' + (_peerProducts.length===1?"":"s") + ': <span style="color:#22201E">' + _lines + '</span>. Fields without available peer data are left untouched.</div>'
         + '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;align-items:center">'
-        + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#12110F;border:1px solid #3C3A39;border-radius:6px;color:#E5E2DF;font-family:inherit;font-size:12px">'
+        + '<input id="peerCerts" placeholder="FDIC certs, comma-separated (e.g. 3510, 6548)" style="flex:1;min-width:240px;padding:8px;background:#FAF8F6;border:1px solid #C3C0BD;border-radius:6px;color:#22201E;font-family:inherit;font-size:12px">'
         + '<button class="btn-plain" onclick="fetchPeerSeed()">Fetch peer suggestions</button></div>'
         + '<div id="peerSeedResult" style="margin-top:10px"></div>';
     }
@@ -9443,9 +9452,9 @@ function renderStart(){
       h += '</table>';
     }
     if(_draft){
-      h += '<div class="chint" style="margin:12px 0 6px;color:#C39962;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em">Unsaved draft</div>';
+      h += '<div class="chint" style="margin:12px 0 6px;color:#A07841;text-transform:uppercase;font-size:9.5px;letter-spacing:.08em">Unsaved draft</div>';
       h += '<table class="ovt"><tr><th>Draft</th><th>Reference</th><th></th></tr>';
-      h += `<tr><td>Unsaved engagement (crash recovery)<div style="font-size:10px;color:#A6A09B">last-resort recovery of unsaved work \u2014 name &amp; save it above to keep it</div></td>`
+      h += `<tr><td>Unsaved engagement (crash recovery)<div style="font-size:10px;color:#585552">last-resort recovery of unsaved work \u2014 name &amp; save it above to keep it</div></td>`
         + `<td style="font-family:var(--mono);font-size:11px">${esc(_draft.slug)}</td>`
         + `<td><button class="btn-plain" onclick="openEngagement('${_draft.slug}')">Resume</button> <a href="#" class="cx" title="Discard the autosaved draft" onclick="delEngagement('${_draft.slug}');return false">\u00d7</a></td></tr>`;
       h += '</table>';
@@ -10799,9 +10808,9 @@ function renderGovTab(){
   fetch("/api/v31/persistence").then(r=>r.json()).then(p=>{
     const el = document.getElementById("persistBlock"); if(!el) return;
     const good = (p.is_mounted_volume || (p.outside_deploy_tree && p.explicit_env)) && p.writable;
-    el.innerHTML = `<div style="border:1px solid ${good?"#5B755F":"#8B6C43"};border-radius:9px;padding:11px 14px;margin:0 0 14px;font-size:12px">
-      <b style="color:${good?"#8DAA92":"#D8A45E"}">Workspace persistence: ${esc(p.verdict)}</b>
-      <div style="color:#A6A09B;margin-top:4px;font-family:var(--mono);font-size:11px">${esc(p.data_dir)} \u00b7 env ${p.explicit_env?"set":"default"} \u00b7 ${p.counts.fiw_snapshots} workbook snapshot${p.counts.fiw_snapshots===1?"":"s"} \u00b7 ${p.counts.engagements} saved engagement${p.counts.engagements===1?"":"s"} \u00b7 ${p.counts.freezes} frozen run${p.counts.freezes===1?"":"s"}</div>
+    el.innerHTML = `<div style="border:1px solid ${good?"#516B55":"#8B6C43"};border-radius:9px;padding:11px 14px;margin:0 0 14px;font-size:12px">
+      <b style="color:${good?"#506B55":"#A7752D"}">Workspace persistence: ${esc(p.verdict)}</b>
+      <div style="color:#585552;margin-top:4px;font-family:var(--mono);font-size:11px">${esc(p.data_dir)} \u00b7 env ${p.explicit_env?"set":"default"} \u00b7 ${p.counts.fiw_snapshots} workbook snapshot${p.counts.fiw_snapshots===1?"":"s"} \u00b7 ${p.counts.engagements} saved engagement${p.counts.engagements===1?"":"s"} \u00b7 ${p.counts.freezes} frozen run${p.counts.freezes===1?"":"s"}</div>
     </div>`;
   }).catch(()=>{});
   h += '<div id="persistBlock"></div>';
