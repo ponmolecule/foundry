@@ -397,8 +397,7 @@ class WorkforceRuntime:
     def expense_for_period(self, period: int, metric_getter: Callable[[str, str | None, int], float | None] | None = None) -> float:
         q = int(period)
         total = 0.0
-        self.last_population_expenses = [0.0] * len(self.rows)
-        for row_index, st in enumerate(self.rows):
+        for st in self.rows:
             count_now = float(st["count_series"][q - 1]) if q <= len(st["count_series"]) else 0.0
             # Preserve the released Per-FTE contract exactly: a zero-count row never
             # posted payroll or resolved a metric-triggered hire. Total compensation
@@ -433,9 +432,7 @@ class WorkforceRuntime:
                 annual_now = _annualize_compensation(st["annual"], st["comp_period"]) * mult
             authored_native = annual_now / float(self.ppy)
             based_amount = apply_amount_basis(authored_native, st["comp_basis"], count_now)
-            expense = based_amount * (1.0 + st["load"])
-            self.last_population_expenses[row_index] = expense
-            total += expense
+            total += based_amount * (1.0 + st["load"])
         return total
 
     def count_for_period(self, period: int) -> list[float]:

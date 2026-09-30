@@ -24,7 +24,7 @@ from openpyxl.styles import Font, PatternFill, Alignment
 from .configio import ConfigError
 from .modules import REGISTRY
 
-NAVY = "0D1626"; GOLD = "DFA85A"; PANEL = "182640"
+NAVY = "242322"; GOLD = "C8914A"; PANEL = "302E2C"
 HDR = Font(name="Arial", bold=True, color=GOLD, size=10)
 KEY = Font(name="Arial", size=10)
 INPUT = Font(name="Arial", size=10, color="0000FF")   # blue = user-editable input

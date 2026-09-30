@@ -362,3 +362,117 @@ independence, profile A/B legacy compatibility, FIW policy edits, UI migration/d
 checks passed; all 47 managed-securities checks passed. Legacy parity fixture/hash,
 validation and workbook checks passed; broad parity gate still reports pre-existing
 unmapped EBITDA and MSR amortization Call Report diagnostics.
+
+
+## r199 — Klaros graphite theme and staged Configuration workspace
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Theme. The navy/amber palette is remapped to Klaros charcoal, taupe, silver and gold by a
+lightness-preserving transform (each colour keeps its OKLCH lightness, so existing contrast
+relationships hold). Statement tabs keep light paper surfaces with charcoal headers. Type is
+the system UI face on Apple hardware and Inter elsewhere, with tabular figures in fields.
+
+Chrome. Ribbon, cover header and wrapped tab toolbar (about 285px) are replaced by one
+two-row application bar (89px): brand, engagement switcher, save state, flags, Export, and a
+single-row tab strip with hairline rules between workflow groups. All 15 tabs fit at 1440px.
+
+Assumptions inspector. Global assumptions, rate curves and stress settings move from the
+left rail to a right-hand inspector toggled from the bar. It persists across every tab and
+the choice is remembered per browser; first visit opens it at 1500px and wider.
+
+Configuration. The three-column grid is replaced by a module navigator (six modules, each
+with its state summary and activation switch, plus the staged module's section index) and a
+full-width stage that shows one module at a time. Sections open by default. Opex expense
+components (formula / driver, tiered / banded, cost pool) are authored directly on the
+category; only recognition and cash-settlement timing sit behind a disclosure, which states
+its current values when closed. Workforce Advanced trajectories always state Count and
+Compensation paths. Loaded explicit schedules show a sparkline preview in open, closed and
+collapsed states. Links that acted as buttons are now one button family (secondary, primary
+for an armed Load, quiet destructive).
+
+Validation: full Python gate set and Node checks compared line-by-line against the r198
+baseline. tests_config_layout rewritten for the staged layout. Four legacy rule strings
+that gates pin by colour literal are preserved verbatim and overridden by the design layer.
+Visual verification by headless Chromium at 1440, 1600 and 1720px.
+
+
+## r200 — Light work surface; Configuration master-detail
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Theme. Configuration, the Assumptions inspector and the tab strip move to white working
+surfaces on a warm light canvas. Graphite is structure only (application bar, module bands,
+detail-panel heads); Klaros gold marks state only (active tab, selected row and module,
+activation switch, sparkline). Inline colours in the configuration renderers and the
+configuration-only legacy rules are converted by a property-aware transform (surfaces and
+rules flip lightness, dark text already on light stays, accents deepen to read on white).
+Statement tabs keep their paper tables. The analysis and record tabs (Executive Summary,
+Peer Cohort, Examiner Book, Assumption Book, Governance, Start, Lab) remain graphite.
+
+Configuration. Module rail shows status dots; the activation switch moved into the module
+band. Operating expense gains a KPI strip (first-period workforce and category totals from
+the latest run, population/category and component/schedule counts) and sub-tabs
+(Workforce / Expense categories / Assessments). Workforce populations and expense
+categories are master-detail: a dense grid of all records beside the selected record's
+editor. Selection follows object identity, so adds, deletes and drag reorders keep the right
+record open; new records open automatically. Category drag-to-reorder moved to the grid.
+Component tools (formula / driver, tiered / banded, cost pool) are cards inside the
+selected category.
+
+Validation: full gate set compared line-by-line with r198/r199; tests_config_layout extended
+with six r200 checks. Headless Chromium at 1440 and 1600px, inspector open and closed.
+
+
+## r201 — Analysis and record tabs on the light surface
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Executive Summary, Peer Cohort, Examiner Book, Assumption Book, Governance, Start and Bank
+Design Lab move from the dark cover theme to the light work surface. Only the Welcome landing
+stays dark. Inline colours in 44 renderers, plus the Executive Summary, Notes and stress
+callout branches of _renderContentBody, are converted by the same property-aware transform as
+r200, extended to SVG and canvas attributes (fill, stroke, fillStyle, strokeStyle). Every
+converted function is identical to r200 apart from colour literals. The statement branches of
+_renderContentBody are untouched.
+
+Dark surfaces map to near-white tiers rather than mid grey. Section headers (ovh2) are
+graphite bands; KPI tiles and flags are white with hairlines; analysis data tables use
+proportional tabular figures with Capital IQ grid heads. Lab heatmaps (3D surface and
+contour) use a champagne-to-gold ramp in place of blue-to-green.
+
+Validation: full gate set compared with the r198 baseline; tests_config_layout extended with
+four r201 checks. Headless Chromium at 1440px on all seven tabs; Lab sensitivity run live,
+trade-off surface and contour rendered from a synthetic 9x9 grid (the example bank exposes a
+single lever).
+
+
+## r202 — Finish: remaining editors, account page, exhibits
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Managed-portfolio securities and acquisition channels are master-detail, matching Workforce
+and Expense categories: a grid of records beside (channels) or above (securities, which sit
+in a half-width column) the selected record's editor. Channel drag-to-reorder moved to the
+grid. Newly added records open automatically.
+
+The /account page is rebuilt as a light Klaros page (graphite bar, white cards, gold focus).
+Excel exhibit writers (excelio, audit_workbook, bpt_cover) move from navy to graphite and
+Klaros gold for header fills, rules and muted text. Blue inputs, green links and red checks
+keep the modeling convention.
+
+Unchanged by design: the Welcome landing (dark brand page) and the frozen /v1 console.
+
+Validation: full gate set compared with the r198 baseline; tests_config_layout extended with
+two r202 checks; exhibit workbooks regenerated and opened.
+
+
+## r203 — Welcome on the light surface
+
+Presentation-only release. The Welcome landing, the last dark page in the console, moves to
+the light surface: a light hero with a graphite primary action and a graphite panel that
+names what the platform contains (taken from the actual tabs). The redundant in-page brand
+row and placeholder mark are removed; the application bar carries the Klaros mark. While on
+Welcome, engagement controls (switcher, save state, flags, Assumptions, Export) are hidden.
+Every id, handler and line of copy used by sign-in, Enter platform, sign-out and account
+recovery is unchanged. The frozen /v1 console is untouched by design.
