@@ -720,6 +720,45 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(60,78,107,.45)}
 .bank-edit:hover{background:rgba(216,168,94,.14);box-shadow:inset 0 0 0 1px rgba(216,168,94,.35)}
 .scenario-name-inline:hover{background:rgba(216,168,94,.10)!important;border-radius:3px}
 .scenario-name-inline:focus{background:rgba(216,168,94,.14)!important;border-radius:3px}
+
+.iq-expense-tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}.iq-expense-tabs button{padding:9px 14px;background:#f1efea;border:1px solid #ccc6ba;color:#59534a;border-radius:3px;cursor:pointer;font-size:12px}.iq-expense-tabs button.active{background:#3b3a37;color:#e3c791;border-color:#3b3a37}
+/* r198IQ: Capital IQ structure, Klaros charcoal / stone / champagne. */
+:root{--nvy:#242424;--nvy2:#303030;--nvy3:#3b3a38;--nline:#55524c;--namber:#d8b77d;--nmut:#c5c2bc;--paper:#faf9f7}
+header.cover{background:linear-gradient(120deg,#242424,#3a3936)}
+#ribbon{background:#202020}.toolbar{background:#303030}.scenario-name{background:#42413e}
+main.iq-main{grid-template-columns:1fr;background:#eeece8}
+main.iq-main #content{background:#eeece8;color:#252525;padding:22px 28px 32px}
+.iq-main .cfghead .ttl{color:#252525}.iq-main .memo,.iq-main .cfgfoot{color:#66615a}
+.iq-workspace{display:grid;grid-template-columns:220px minmax(0,1fr);gap:20px;align-items:start}
+.iq-nav{position:sticky;top:52px;border:1px solid #cecbc5;background:#f6f4f0;padding:8px;border-radius:5px}
+.iq-nav-title{padding:12px;font-size:10px;letter-spacing:.1em;color:#777168;font-weight:600}
+.iq-nav button{display:flex;align-items:center;gap:10px;text-align:left;width:100%;padding:12px 10px;border:0;border-bottom:1px solid #e3e0da;background:transparent;color:#4a4742;cursor:pointer;font:500 12px Inter,sans-serif;border-radius:3px}
+.iq-nav button.active{background:#303030;color:#e2c58f;border-left:3px solid #c8a263;padding-left:7px}
+.iq-nav-icon svg{width:18px;height:18px}.iq-stage{min-width:0}.iq-stage [hidden]{display:none!important}
+.iq-stage .cfgcard,.iq-stage .modpanel,.iq-assumptions,.iq-stage>.sec-major-section{background:#fff;border:1px solid #ccc8c1;border-radius:5px;padding:20px;min-height:350px;color:#262626;box-shadow:0 2px 6px #24242408}
+.iq-stage .cardhead{background:#303030;margin:-20px -20px 20px;padding:16px 20px;border-radius:4px 4px 0 0;border-bottom:3px solid #c8a263}
+.iq-stage .cardhead .ct{color:#f9f7f2;font-size:18px}.iq-stage .cardhead .cd{color:#d1cec7}
+.iq-stage .crow,.iq-stage .csub,.iq-stage .nie-section-title,.iq-stage .sec-major-title,.iq-stage .sec-managed-portfolio-title,.iq-stage .sec-managed-sleeve-name{color:#303030}
+.iq-stage .cu,.iq-stage .cmut,.iq-stage .chint,.iq-stage .wf-field-label,.iq-stage .nie-section-note,.iq-stage .nie-section-summary,.iq-stage .sec-book-label,.iq-stage .sec-book-unit,.iq-stage .sec-managed-field>label,.iq-stage .sec-managed-explicit-summary,.iq-stage .cd{color:#6a655e}
+.iq-stage details{color:#4e4942}.iq-stage .opex-cost-pool-editor,.iq-stage .opex-cost-pool-card,.iq-stage .opex-cost-pool-component,.iq-stage .opex-service-component-card,.iq-stage .opex-cost-pool-attached-row{background:#f4f2ed!important;border-color:#d3cdc1!important;color:#49433a}.iq-stage .wf-role-card [style*="color"]:not(button):not(a):not(input):not(select){color:#625d55!important}.iq-stage .sec-managed-explicit textarea{background:#fff;color:#333}.iq-stage input,.iq-stage select,.iq-stage textarea,.iq-assumptions #globalsBox input,.iq-assumptions #globalsBox select{background-color:#fff!important;color:#252525!important;border-color:#bdb8af!important;border-radius:3px!important;font-size:12px;box-shadow:none}
+.iq-stage input:focus,.iq-stage select:focus,.iq-stage textarea:focus{outline:2px solid #d8b77d66!important;border-color:#a78448!important}
+.iq-stage .nie-section,.iq-stage .wf-role-card,.iq-stage .nie-default,.iq-stage .nie-assess-item,.iq-stage .sec-managed-portfolio,.iq-stage .sec-managed-series{background:#f8f7f4;border-color:#ddd9d1;border-radius:4px}
+.iq-stage .pillbtn,.iq-stage .nie-section-toggle,.iq-stage .cadd{color:#66502d;border-color:#c6b38e;background:#faf8f3;border-radius:3px}
+.iq-stage .nie-mode{background:#eeece7;border-color:#d2cec5}.iq-stage .nie-mode button{color:#676159}.iq-stage .nie-mode button.on{background:#3b3a37;color:#e8d2a9;box-shadow:none}
+.iq-stage .cx{color:#8c625c}.iq-stage .nie-default-label,.iq-stage .opex-category-eyebrow{color:#6a655e}
+.iq-stage .wf-role-grid > *{grid-column:auto;grid-row:auto;max-width:none;min-width:0}.iq-stage .wf-role-grid .wf-compensation{justify-self:stretch}.iq-stage .wf-role-grid .wf-end{max-width:none}
+.iq-stage .wf-role-grid{grid-template-columns: minmax(180px,1.3fr) minmax(90px,.5fr) minmax(250px,1.5fr) 24px;gap:14px}
+.iq-item-workspace{display:grid;grid-template-columns:230px minmax(0,1fr);gap:18px;margin:16px 0;align-items:start}
+.iq-item-list{border:1px solid #d0cbc2;background:#fff;border-radius:3px;overflow:hidden}
+.iq-item-list button{display:block;width:100%;text-align:left;border:0;border-bottom:1px solid #e1ddd6;background:#fff;padding:13px 12px;color:#36332e;cursor:pointer}
+.iq-item-list button.active{background:#eee5d4;border-left:3px solid #ac864b;padding-left:9px}.iq-item-list strong{display:block;font-size:12px;font-weight:600}.iq-item-list span{display:block;font-size:10px;color:#777066;margin-top:6px}
+.iq-item-editor{min-width:0}.iq-item-editor>.wf-role-card{margin:0;padding:18px;background:#fff}
+.iq-help{border-top:1px solid #e1ddd5;margin:8px 0;padding-top:6px}.iq-help summary{color:#7b6846;font-size:10px;cursor:pointer}.iq-help .cmut,.iq-help .nie-section-note{margin-top:8px;line-height:1.6}
+.iq-assumptions .accent-label{color:#65512f;margin:22px 0 10px}.iq-assumptions .card{background:#f5f3ee;border:1px solid #d2cdc4;padding:18px;border-radius:4px;margin-bottom:16px}.iq-assumptions .fld label,.iq-assumptions .snote,.iq-assumptions .cbl{color:#625d55}.iq-assumptions .fields{gap:12px 18px}.iq-assumptions #globalsBox{max-width:1100px}.iq-assumptions .crow{color:#4f4b44}
+.iq-stage .modbar{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}.iq-stage .mp-title{color:#333}.iq-stage .modcard{background:#f1efea;border-color:#d2cdc4;color:#333}.iq-stage .modcard .ml{color:#333}
+@media(max-width:1250px){.iq-item-workspace{grid-template-columns:190px minmax(0,1fr)}.iq-stage .wf-role-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.iq-stage .wf-compensation{grid-column:1/-1}}
+@media(max-width:850px){.iq-workspace{grid-template-columns:1fr}.iq-nav{position:static;display:flex;flex-wrap:wrap;gap:4px}.iq-nav-title{width:100%}.iq-nav button{width:auto}.iq-item-workspace{grid-template-columns:1fr}.iq-item-list{display:flex;overflow-x:auto}.iq-item-list button{min-width:160px}.iq-stage .modbar{grid-template-columns:1fr}.iq-main #content{padding:16px}}
+
 </style>
 </head>
 <body>
@@ -1486,6 +1525,7 @@ window._structuredPasteSetOpen=_structuredPasteSetOpen;
 function _resetTransientAuthoringUi(c){
   _stripTransientPasteFlags(c);
   _renderedAuthoringTab=null;_renderedAuthoringCfg=null;_consumedPasteId=null;
+  if(typeof _iqItems!=='undefined'){_iqItems={};_iqEngagement=null;}
   window._structuredPasteOpen={};
   window._pasteSurfaceClosed={};
   window._pasteSurfaceDefaultClosed=true;
@@ -6691,7 +6731,9 @@ function _restoreAuthoringState(state){
 function renderContent(){
   const state=_captureAuthoringState();
   _consumedPasteId=null;
+  if(typeof _iqReturnAssumptions==='function') _iqReturnAssumptions();
   _renderContentBody();
+  if(currentTab==="config" && typeof _iqMountWorkspace==='function') _iqMountWorkspace();
   restoreCardSelects();
   _decoratePasteSurfaces();
   _restoreAuthoringState(state);
@@ -6711,7 +6753,7 @@ function refreshConfigPreviews(){
   if(state){state.scrolls.forEach(v=>{const el=document.getElementById(v.id);if(el){el.scrollTop=v.top;el.scrollLeft=v.left;}});window.scrollTo({left:state.x,top:state.y,behavior:'instant'});}
 }
 function _renderContentBody(){
-  { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
+  { const _wel = (V31 && currentTab==="welcome") || currentTab==="config", _m = document.querySelector("main");
     document.querySelector("main > aside").style.display = _wel ? "none" : "";
     _m.style.gridTemplateColumns = _wel ? "1fr" : ""; }
   const c = document.getElementById("content");
@@ -9738,7 +9780,7 @@ function structuresSectionsHtml(){
     h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="text" inputmode="decimal" style="width:112px" value="${fmtComma((po.min_day1_capital||0)/1000)}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
   }
-  const _secCardCounts=_secAociCounts(A), _secCardHasContent=_secAociActive(A), _secCardOpen=_cfgSectionIsOpen("secaoci",_secCardHasContent);
+  const _secCardCounts=_secAociCounts(A), _secCardHasContent=_secAociActive(A), _secCardOpen=true;
   const _secCardSummary=[_secCardCounts.simple?(_secCardCounts.simple+" simple book"+(_secCardCounts.simple===1?"":"s")):"",_secCardCounts.managed?(_secCardCounts.managed+" managed portfolio"+(_secCardCounts.managed===1?"":"s")+(_secCardCounts.sleeves?" · "+_secCardCounts.sleeves+" securit"+(_secCardCounts.sleeves===1?"y":"ies"):"")):"",A.aoci_sensitivity_annual?"AOCI active":""].filter(Boolean).join(" · ");
   h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div>${(!_secCardOpen&&_secCardHasContent)?`<div class="nie-section-summary">${esc(_secCardSummary||"Securities configuration loaded")} · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cfgSectionSetOpen('secaoci',${_secCardOpen?'false':'true'})">${_secCardOpen?'Collapse':'Expand'}</button></div>`;
   if(_secCardOpen){
@@ -9854,7 +9896,7 @@ function structuresSectionsHtml(){
 
     // WORKFORCE COMPENSATION -------------------------------------------------
     const wf = nd.workforce || {}; wf.additive_components=wf.additive_components||[];
-    const _wfAddComps=wf.additive_components||[], _wfHasRows=((wf.roles||[]).length+_wfAddComps.length)>0, _wfOpen=_nieSectionIsOpen("workforce",_wfHasRows);
+    const _wfAddComps=wf.additive_components||[], _wfHasRows=((wf.roles||[]).length+_wfAddComps.length)>0, _wfOpen=true;
     h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Workforce compensation</div><div class="nie-section-note">Role/position payroll plus additive compensation components such as performance pools. Each mechanic posts to Workforce compensation.</div>${_wfHasRows&&!_wfOpen?`<div class="nie-section-summary">${(wf.roles||[]).length} role/population${(wf.roles||[]).length===1?'':'s'} · ${_wfAddComps.length} additive component${_wfAddComps.length===1?'':'s'} · expand to inspect or edit</div>`:''}</div><button class="nie-section-toggle" onclick="nieSectionSetOpen('workforce',${_wfOpen?'false':'true'})">${_wfOpen?'Collapse':'Expand'}</button></div>`;
     if(_wfOpen){
     h += '<div class="memo" style="margin:0 0 8px"><b>User note.</b> Aggregate roles until timing, escalation, benefits/payroll, or triggers differ.</div>';
@@ -9967,7 +10009,7 @@ function structuresSectionsHtml(){
     h += '</div>';
 
     // OPERATING EXPENSE CATEGORIES ------------------------------------------
-    const _catHasRows=(nd.categories||[]).length>0, _catOpen=_nieSectionIsOpen("opex",_catHasRows);
+    const _catHasRows=(nd.categories||[]).length>0, _catOpen=true;
     h += `<div class="nie-section"><div class="nie-section-head"><div><div class="nie-section-title">Operating expense categories</div><div class="nie-section-note">Non-workforce recurring NIE. Batch loads can carry different growth assumptions without commingling them.</div>${_catHasRows&&!_catOpen?`<div class="nie-section-summary">${(nd.categories||[]).length} categor${(nd.categories||[]).length===1?'y':'ies'} loaded · expand to inspect or edit</div>`:''}</div><button class="nie-section-toggle" onclick="nieSectionSetOpen('opex',${_catOpen?'false':'true'})">${_catOpen?'Collapse':'Expand'}</button></div>`;
     if(_catOpen){
     { var _cpo = _structuredPasteIsOpen("opex_categories"); var _cpt = nd._catPasteType || "flat";
@@ -10227,6 +10269,98 @@ window.addFeeProduct = function(catalogKey){
   cfg.assumptions.fee_products = cfg.assumptions.fee_products || [];
   cfg.assumptions.fee_products.push({key: catalogKey, basis: preset.basis, params: {}});
   renderContent(); refresh(); };
+// IQ workspace is presentation only: existing editors and their handlers stay mounted.
+let _iqSection='card-nie', _iqItems={}, _iqEngagement=null;
+function _iqReturnAssumptions(){
+  const aside=document.querySelector('main > aside');
+  if(!aside)return;
+  const panel=document.getElementById('iq-assumptions');
+  if(panel)while(panel.firstChild)aside.appendChild(panel.firstChild);
+  document.querySelector('main').classList.remove('iq-main');
+}
+function _iqSelectSection(key){_iqSection=key;_iqApplySelection();}
+function _iqApplySelection(){
+  const root=document.getElementById('iq-workspace');if(!root)return;
+  root.querySelectorAll('[data-iq-panel]').forEach(el=>el.hidden=el.dataset.iqPanel!==_iqSection);
+  root.querySelectorAll('[data-iq-section]').forEach(el=>{const on=el.dataset.iqSection===_iqSection;el.classList.toggle('active',on);el.setAttribute('aria-selected',String(on));});
+}
+function _iqSelectItem(key,index){
+  _iqItems[key]=index;
+  const root=document.getElementById(key);if(!root)return;
+  root.querySelectorAll('[data-iq-item]').forEach(el=>el.hidden=+el.dataset.iqItem!==index);
+  root.querySelectorAll('[data-iq-item-button]').forEach(el=>{const on=+el.dataset.iqItemButton===index;el.classList.toggle('active',on);el.setAttribute('aria-selected',String(on));});
+}
+function _iqMountItems(section){
+  const rows=Array.from(section.querySelectorAll(':scope > .wf-role-card'));
+  if(!rows.length)return;
+  const key='iq-items-'+(rows[0].hasAttribute('data-opex-index')?'expenses':'workforce');
+  const layout=document.createElement('div');layout.className='iq-item-workspace';layout.id=key;
+  const list=document.createElement('div');list.className='iq-item-list';list.setAttribute('role','tablist');list.setAttribute('aria-label','Configured items');
+  const editor=document.createElement('div');editor.className='iq-item-editor';
+  rows[0].before(layout);layout.append(list,editor);
+  rows.forEach((row,i)=>{
+    const input=row.querySelector('.wf-role-name,.opex-item-name');
+    const btn=document.createElement('button');btn.type='button';btn.dataset.iqItemButton=i;btn.setAttribute('role','tab');
+    const name=document.createElement('strong');name.textContent=(input&&input.value)||'Item '+(i+1);
+    const meta=document.createElement('span');
+    const period=row.querySelector('.wf-comp-value select:last-child');
+    meta.textContent=period ? (period.querySelector('option[selected]')||period.querySelector('option')).textContent+' · $000s' : 'Expense component';
+    btn.append(name,meta);btn.onclick=()=>_iqSelectItem(key,i);list.appendChild(btn);
+    if(input)input.addEventListener('input',()=>name.textContent=input.value||'Item '+(i+1));
+    row.dataset.iqItem=i;editor.appendChild(row);
+  });
+  _iqSelectItem(key,Math.min(_iqItems[key]||0,rows.length-1));
+}
+function _iqMountWorkspace(){
+  const content=document.getElementById('content'),wrap=content.querySelector('.cfgwrap');if(!wrap)return;
+  if(_iqEngagement!==cfg){_iqSection='card-nie';_iqItems={};_iqEngagement=cfg;}
+  document.querySelector('main').classList.add('iq-main');
+  const grid=wrap.querySelector('.cfggrid');if(!grid)return;
+  const root=document.createElement('div');root.id='iq-workspace';root.className='iq-workspace';
+  const nav=document.createElement('nav');nav.className='iq-nav';nav.setAttribute('aria-label','Configuration sections');
+  const title=document.createElement('div');title.className='iq-nav-title';title.textContent='MODEL SETUP';nav.appendChild(title);
+  const stage=document.createElement('div');stage.className='iq-stage';root.append(nav,stage);
+  const add=(key,label,panel,icon)=>{
+    panel.dataset.iqPanel=key;stage.appendChild(panel);
+    const btn=document.createElement('button');btn.type='button';btn.dataset.iqSection=key;btn.setAttribute('role','tab');
+    if(icon){const mark=document.createElement('span');mark.className='iq-nav-icon';mark.innerHTML=icon;btn.appendChild(mark);}
+    btn.appendChild(document.createTextNode(label));btn.onclick=()=>_iqSelectSection(key);nav.appendChild(btn);
+  };
+  const globals=document.createElement('div');globals.id='iq-assumptions';globals.className='iq-assumptions';
+  const aside=document.querySelector('main > aside');while(aside.firstChild)globals.appendChild(aside.firstChild);
+  add('assumptions','Engagement assumptions',globals,ICONS.calc);
+  Array.from(grid.children).forEach(card=>{if(!card.classList.contains('cfgcard'))return;
+    const heading=card.querySelector('.ct'),icon=card.querySelector('.mi');
+    add(card.id,heading?heading.textContent:card.id,card,icon?icon.innerHTML:'');
+  });
+  // Funding policy is independent of designated securities books.
+  const funding=Array.from(stage.querySelectorAll('#card-sec .sec-major-section')).find(el=>el.querySelector('.sec-major-title')?.textContent.includes('Funding waterfall'));
+  if(funding){funding.id='iq-funding';add('iq-funding','Funding & balance sheet',funding,ICONS.bank);}
+  const modules=wrap.querySelector('.modpanel');
+  if(modules){modules.id='iq-modules';add('iq-modules','Module activation',modules,ICONS.stack);}
+  wrap.replaceChildren(root);
+  const expenses=stage.querySelector('#card-nie');
+  if(expenses){
+    const sections=Array.from(expenses.querySelectorAll(':scope > .nie-section'));
+    if(sections.length>1){
+      const tabs=document.createElement('div');tabs.className='iq-expense-tabs';tabs.setAttribute('role','tablist');
+      sections[0].before(tabs);
+      sections.forEach((section,i)=>{const button=document.createElement('button');button.type='button';button.textContent=section.querySelector('.nie-section-title')?.textContent||'Settings '+(i+1);button.onclick=()=>{_iqItems.expenseSection=i;sections.forEach((p,j)=>p.hidden=i!==j);Array.from(tabs.children).forEach((b,j)=>b.classList.toggle('active',i===j));};tabs.appendChild(button);});
+      tabs.children[Math.min(_iqItems.expenseSection||0,sections.length-1)].click();
+    }
+  }
+  stage.querySelectorAll('.nie-section').forEach(_iqMountItems);
+  stage.querySelectorAll('button[onclick]').forEach(button=>{if(/^(cfgSectionSetOpen\('secaoci'|nieSectionSetOpen\('(workforce|opex)')/.test(button.getAttribute('onclick')))button.remove();});
+  // Preserve help verbatim, but move longer explanations behind an explicit affordance.
+  stage.querySelectorAll('.nie-section-note,.cmut,.chint,.mp-info').forEach(note=>{
+    if(note.textContent.length<150||note.querySelector('input,select,textarea,button,a'))return;
+    const detail=document.createElement('details');detail.className='iq-help';
+    const summary=document.createElement('summary');summary.textContent='Guidance';
+    note.before(detail);detail.append(summary,note);
+  });
+  if(!stage.querySelector('[data-iq-panel="'+_iqSection+'"]'))_iqSection='assumptions';
+  _iqApplySelection();
+}
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
@@ -10243,7 +10377,7 @@ function renderConfigTab(){
       + '<button class="btn-plain" style="font-size:11px;padding:5px 12px" onclick="dismissLandingNudge()">Not now</button>'
       + '</div>';
   }
-  h += '<div class="memo" style="margin:0 0 14px">The engagement\u2019s living configuration \u2014 set structures and modules below; the engine activates steps and pages from presence, not assertion.</div>';
+  h += '<div class="memo" style="margin:0 0 14px">Select a section to configure the engagement. Values are in $000s unless labeled otherwise.</div>';
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
     h += `<div class="cfgfoot"><span>Configuration changes apply immediately. All values are in $000s unless otherwise noted.</span></div>`;
