@@ -1311,11 +1311,11 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 @media(max-width:1100px){.prd-shell{grid-template-columns:minmax(0,1fr)}.prd-nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--k-line2)}}
 
 /* r204: add-stream tiles as one compact row; card headings left-aligned */
-.prd-tiles{display:flex!important;flex-direction:row!important;flex-wrap:wrap;gap:6px;justify-content:flex-start!important}
-.prd-card .fee-basis-tile{display:inline-flex;align-items:center;gap:4px;margin:0;width:auto;vertical-align:top}
-.prd-card .fee-basis-tile .btn-plain{height:28px;padding:0 11px;border:1px solid var(--k-line2);border-radius:3px;background:#FFFFFF;color:var(--k-tx1);font-size:12px;font-weight:500;width:auto}
-.prd-card .fee-basis-tile .btn-plain:hover{background:var(--k-hover)}
-.prd-card .fee-basis-info{position:static!important;transform:none!important;border-radius:2px;width:20px;height:20px;margin:0}
+.prd-tiles{display:grid!important;grid-template-columns:repeat(auto-fill,minmax(214px,1fr));gap:10px;align-items:stretch}
+.prd-card .fee-basis-tile{position:relative;display:block;margin:0;width:auto;max-width:none;grid-column:auto!important}
+.prd-card .fee-basis-tile .btn-plain.fee-add{display:grid;grid-template-columns:34px minmax(0,1fr) 22px;gap:12px;align-items:center;width:100%;height:auto;min-height:66px;padding:12px 34px 12px 12px;border:1px solid var(--k-line2);border-radius:3px;background:#FFFFFF;color:var(--k-tx1);text-align:left;cursor:pointer;box-shadow:0 1px 2px rgba(20,20,20,.05);transition:border-color .12s,background .12s}
+.prd-card .fee-basis-tile .btn-plain.fee-add:hover{border-color:var(--k-gold-line);background:#FFFDF7}
+.prd-card .fee-basis-info{position:absolute!important;top:8px;right:8px;transform:none!important;border-radius:2px;width:18px;height:18px;margin:0;font-size:11px;line-height:1;z-index:1}
 
 /* r204: quiet destructive links everywhere; legacy inline #C77 reads as brick, not pink */
 #content [style*="color:#C77"],#content [style*="color: #C77"]{color:var(--k-neg)!important}
@@ -1387,6 +1387,36 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .prd-grip{position:absolute;left:-7px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:-2px;color:var(--k-tx4);cursor:grab;opacity:0}
 .prd-row:hover .prd-grip{opacity:1}
 .prd-empty{padding:4px 8px 6px 24px;font-size:12px;color:var(--k-tx4)}
+
+/* ============================ r207 ============================ */
+/* add-stream option cards */
+.fa-ic{width:34px;height:34px;border-radius:3px;display:grid;place-items:center;background:var(--k-surface2);box-shadow:inset 0 0 0 1px var(--k-line);color:var(--k-tx2)}
+.fa-ic svg{width:17px;height:17px}
+.fee-add:hover .fa-ic{background:var(--k-graph);box-shadow:none;color:#E8C47E}
+.fa-t{display:flex;flex-direction:column;gap:2px;min-width:0}
+.fa-t b{font-size:13px;font-weight:600;color:var(--k-tx1)}
+.fa-t small{font-size:11.5px;line-height:1.35;color:var(--k-tx3)}
+.fa-plus{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;border:1px solid var(--k-line2);color:var(--k-tx2);font-size:15px;line-height:1}
+.fee-add:hover .fa-plus{border-color:var(--k-gold);background:var(--k-gold);color:#1E1706}
+.prd-tiles{margin-top:2px}
+@container prd (min-width:1000px){
+  .prd-stage .prd-card .prd-tiles{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .prd-stage .prd-card .fee-basis-tile .btn-plain.fee-add{grid-template-columns:1fr;align-content:start;gap:10px;min-height:118px;padding:14px 30px 14px 14px}
+  .prd-stage .prd-card .fa-plus{display:none}
+}
+/* form controls sized to their content, not the column */
+#content .prd-card .fields{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important;max-width:1180px!important}
+#content input[inputmode="decimal"],#content input[type=number]{max-width:180px}
+#content .fld>select,#content .prd-card select{max-width:380px}
+#content .fld>input:not([type]),#content .fld>input[type=text]:not([inputmode]){max-width:520px}
+#content textarea{max-width:760px}
+/* fail-closed display: last complete run shown muted, open inputs named */
+.prd-stale .prd-row .v,.prd-stale table.prd-grid td.num,.prd-stale .prd-kpi b,.prd-pstat-stale b{color:var(--k-tx4)!important}
+.prd-row-t .sl.need{color:#8A5A12;font-weight:500}
+.prd-chip.w{background:#FBEFD2;color:#7A5410}
+.prd-banner{border:1px solid #E7CF98;background:#FDF7E8;border-radius:3px;padding:10px 14px;margin:0 0 14px;font-size:12.5px;color:var(--k-tx2)}
+.prd-banner b{color:var(--k-tx1)}
+.prd-banner ul{margin:6px 0 0;padding-left:18px;color:var(--k-tx3)}
 </style>
 </head>
 <body>
@@ -3275,8 +3305,11 @@ function _feeBasisInfoToggle(basis,btn){
   pop.classList.toggle('open',open); btn.setAttribute('aria-expanded',open?'true':'false');
 }
 function _feeBasisTileHtml(basis,productIndex){
+  // r207: an option card per stream basis. The canonical definition stays in the info popover.
   const info=_FEE_BASIS_HELP[basis]||{title:basis,text:''};
-  return `<div class="fee-basis-tile"><button class="btn-plain" onclick="window.addFeeStream(${productIndex},'${basis}')">+ ${basis} stream</button><button type="button" class="fee-basis-info" aria-label="About ${esc(info.title)}" aria-expanded="false" onclick="event.stopPropagation();_feeBasisInfoToggle('${basis}',this)">i</button><div class="fee-basis-popover" role="note"><b>${esc(info.title)}</b>${esc(info.text)}</div></div>`;
+  const short={balance:'A rate on a balance or AUC stock',transaction:'A fee on throughput or volume',account:'A count of accounts \u00d7 a fee',flat:'A fixed amount each period',event:'A one-time amount in one period'}[basis]||'';
+  const ic={balance:'<path d="M3 12.5h10M4.5 12.5V7.5M8 12.5V4.5M11.5 12.5V9"/>',transaction:'<path d="M3 5.5h9l-2.5-2.5M13 10.5H4l2.5 2.5"/>',account:'<circle cx="8" cy="5.5" r="2.5"/><path d="M3.5 13c.8-2.3 2.5-3.5 4.5-3.5s3.7 1.2 4.5 3.5"/>',flat:'<rect x="2.5" y="3.5" width="11" height="10" rx="1"/><path d="M2.5 6.5h11M5.5 2v3M10.5 2v3"/>',event:'<path d="M4 14V2.5M4 3h7.5l-1.8 2.5 1.8 2.5H4"/>'}[basis]||'';
+  return `<div class="fee-basis-tile"><button class="btn-plain fee-add" onclick="window.addFeeStream(${productIndex},'${basis}')"><span class="fa-ic"><svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ic}</svg></span><span class="fa-t"><b>${esc(info.title)}</b><small>${esc(short)}</small></span><span class="fa-plus" aria-hidden="true">+</span></button><button type="button" class="fee-basis-info" aria-label="About ${esc(info.title)}" aria-expanded="false" onclick="event.stopPropagation();_feeBasisInfoToggle('${basis}',this)">i</button><div class="fee-basis-popover" role="note"><b>${esc(info.title)}</b>${esc(info.text)}</div></div>`;
 }
 // Canonical controller for every scalar Series explicit-schedule pastebox.
 // Comma is a schedule delimiter when it is the only delimiter; when rows/tabs/semicolons
@@ -7589,7 +7622,13 @@ function _renderContentBody(){
   if(currentTab==="products" && V31){
     // r204 Products workspace. Presentation only: every editor below is the existing product card and
     // six-axis stream editor; this renderer decides which one is on screen and summarizes the rest.
-    const _all=allProducts(), _rows=((lastRes||{}).ftp||{}).rows||[];
+    // r207: the engine is fail-closed. While an edit leaves inputs incomplete there is no current run, so the
+    // navigator and portfolio keep the last complete run for THIS engagement on screen, muted, and say why.
+    if(lastRes&&lastRes.ftp) window._prdLastGood={cfg:cfg,rows:(lastRes.ftp.rows||[])};
+    const _stale=!lastRes&&!!(window._prdLastGood&&window._prdLastGood.cfg===cfg);
+    const _have=!!lastRes||_stale;
+    const _all=allProducts(), _rows=lastRes?(((lastRes||{}).ftp||{}).rows||[]):(_stale?window._prdLastGood.rows:[]);
+    const _needs=nm=>(lastErrs||[]).some(e=>String((e&&e.message)||'').indexOf("'"+nm+"'")>=0);
     const _row=nm=>_rows.find(x=>x.name===nm)||null;
     const _contrib=r=>r?(ftpOn?r.contribution:(r.contribution-r.ftp)):null;
     const _fmt=v=>(v==null||v==='')?'\u2014':fmt0(v);
@@ -7603,7 +7642,7 @@ function _renderContentBody(){
     const _isFee=p=>!!(p&&(p.managed_notional||p._fee_product));
     const _nStreams=p=>((p&&p.fee_streams)||[]).length;
     const RQ=SUBQ()+'Q revenue', CQ=SUBQ()+'Q contribution'+(ftpOn?' (FTP)':''), BQ=SUBLAB()+' balance';
-    let h='<div class="prd-shell"><nav class="prd-nav" aria-label="Products">';
+    let h='<div class="prd-shell'+(_stale?' prd-stale':'')+'"><nav class="prd-nav" aria-label="Products">';
     h+='<div class="prd-nav-head"><div class="prd-nav-t">Products</div><button class="prd-add" onclick="openModal()">+ Add product</button></div>';
     h+=`<input class="prd-search" type="search" placeholder="Search products" aria-label="Search products" value="${esc(window._prdQuery||'')}" oninput="prdFilter(this.value)">`;
     h+=`<div class="prd-views"><button class="prd-view${view==='portfolio'?' on':''}" onclick="prdView('portfolio')">Portfolio</button><button class="prd-view${view==='compare'?' on':''}" onclick="prdView('compare')">Compare</button></div>`;
@@ -7617,10 +7656,12 @@ function _renderContentBody(){
       if(!items.length) h+='<div class="prd-empty">None yet</div>';
       items.forEach(x=>{ const r=_row(x.p.name), sel=view==='product'&&x.p===window._prdSel, ns=_nStreams(x.p);
         const subl=_isFee(x.p)?(ns+' fee stream'+(ns===1?'':'s')):(x.fam==='obs'?'Off-balance-sheet':(r?BQ+' '+fmt0(r.q12_balance):(x.fam==='lending'?'Lending':'Deposit')));
-        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" ondragover="productDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i})" ondragend="productDragEnd(event)">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl">${esc(subl)}</span></a><span class="v">${r?fmt0(r.revenue):'\u2014'}</span></div>`; });
+        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" ondragover="productDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i})" ondragend="productDragEnd(event)">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl${_needs(x.p.name)?' need':''}">${esc(_needs(x.p.name)?'Needs inputs':subl)}</span></a><span class="v">${(r&&!_needs(x.p.name))?fmt0(r.revenue):'\u2014'}</span></div>`; });
     });
     h+='</div>';
-    h+='<div class="prd-nav-foot">Figures from the latest engine run, $000s.</div></nav><div class="prd-stage">';
+    h+=`<div class="prd-nav-foot">${_stale?'Muted figures are from the last complete run, $000s.':'Figures from the latest engine run, $000s.'}</div></nav><div class="prd-stage">`;
+    { const _q=lastErrs||[];
+      if(!lastRes&&(_q.length||lastRunFailure)) h+=`<div class="prd-banner"><b>${_q.length?_q.length+' input'+(_q.length===1?'':'s')+' to complete':'The latest run did not finish'}.</b> ${_stale?'Figures are shown muted from the last complete run and refresh as soon as the inputs are complete.':'Figures appear once the inputs are complete.'}<ul>${_q.slice(0,4).map(e=>'<li>'+esc((e&&e.message)||'')+'</li>').join('')}${_q.length>4?'<li>and '+(_q.length-4)+' more</li>':''}${lastRunFailure?'<li>'+esc(lastRunFailure.message||'')+'</li>':''}</ul></div>`; }
 
     if(view==='product'){
       const x=_all[selIdx], p=x.p, key=x.fam+'_'+x.i; openMap[key]=true;
@@ -7629,7 +7670,7 @@ function _renderContentBody(){
       const tabs=[['setup','Setup',null]]; if(fee) tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);
       let tab=window._prdTab; if(!tabs.some(t=>t[0]===tab)) tab=fee?'streams':'setup';
       h+=`<div class="prd-crumb"><a href="#" onclick="prdView('portfolio');return false">Products</a><span>/</span>${_famLab(x.fam)}<span>/</span><b>${esc(p.name||'Unnamed product')}</b></div>`;
-      h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${kind}${line?' \u00B7 '+esc(line):''}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${pstat(p.name)}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
+      h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${kind}${line?' \u00B7 '+esc(line):''}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
       if(tabs.length>1) h+='<div class="prd-tabs" role="tablist">'+tabs.map(t=>`<button type="button" class="prd-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="prdTabSet('${t[0]}')">${t[1]}${t[2]!=null?`<small>${t[2]}</small>`:''}</button>`).join('')+'</div>';
       h+=`<div class="prd-card" data-pp-tab="${tab}">${prodCardHtml(x.fam,x.i)}</div>`;
     } else if(view==='compare'){
@@ -7661,18 +7702,19 @@ function _renderContentBody(){
       const gKeys=new Map(), gOf=new Map();
       [...sig.values()].filter(s=>s.size>1).forEach(s=>{ const key=[...s].map(p=>_objs.indexOf(p)).sort((a,b)=>a-b).join('-'); if(!gKeys.has(key)) gKeys.set(key,String.fromCharCode(65+gKeys.size)); const L=gKeys.get(key); s.forEach(p=>{ const a=gOf.get(p)||[]; if(!a.includes(L)) a.push(L); gOf.set(p,a); }); });
       h+='<div class="prd-h1">Portfolio</div><div class="prd-sub">Every product in the engagement, by family. Select a product to edit it.</div>';
-      h+=`<div class="prd-kpis"><div class="prd-kpi"><span>${RQ} ($000s)</span><b>${lastRes?fmt0(tot):'\u2014'}</b></div><div class="prd-kpi"><span>${CQ} ($000s)</span><b>${lastRes?fmt0(totC):'\u2014'}</b></div><div class="prd-kpi"><span>Products</span><b>${_all.length}</b></div><div class="prd-kpi"><span>Revenue concentration</span><b>${(lastRes&&tot>0)?(t2/tot*100).toFixed(1)+'%':'\u2014'}<small>${(lastRes&&tot>0)?'top '+top2.length:''}</small></b></div></div>`;
+      h+=`<div class="prd-kpis"><div class="prd-kpi"><span>${RQ} ($000s)</span><b>${_have?fmt0(tot):'\u2014'}</b></div><div class="prd-kpi"><span>${CQ} ($000s)</span><b>${_have?fmt0(totC):'\u2014'}</b></div><div class="prd-kpi"><span>Products</span><b>${_all.length}</b></div><div class="prd-kpi"><span>Revenue concentration</span><b>${(_have&&tot>0)?(t2/tot*100).toFixed(1)+'%':'\u2014'}<small>${(_have&&tot>0)?'top '+top2.length:''}</small></b></div></div>`;
       FAMS.forEach(([fam,lab])=>{
         const items=_all.filter(x=>x.fam===fam), ft=items.reduce((a,x)=>a+_rev(x),0);
-        h+=`<div class="prd-fam-box"><div class="prd-fam-band"><b>${lab}</b><span>${items.length} product${items.length===1?'':'s'}</span><span class="sp"></span><span>${RQ}</span><span class="tot">${lastRes?fmt0(ft):'\u2014'}</span></div>`;
+        h+=`<div class="prd-fam-box"><div class="prd-fam-band"><b>${lab}</b><span>${items.length} product${items.length===1?'':'s'}</span><span class="sp"></span><span>${RQ}</span><span class="tot">${_have?fmt0(ft):'\u2014'}</span></div>`;
         if(!items.length){ h+='<div class="prd-empty" style="border:0;padding:12px 14px">No products yet. Use + Add product.</div></div>'; return; }
         h+=`<table class="prd-grid"><thead><tr><th>Product</th><th class="num">Fee streams</th><th class="num">${BQ}</th><th class="num">${RQ}</th><th>Share of family</th><th class="num">${CQ}</th><th>Notes</th></tr></thead><tbody>`;
         items.forEach(x=>{ const r=_row(x.p.name), share=(r&&ft>0)?(r.revenue/ft*100):0, notes=[];
           (gOf.get(x.p)||[]).forEach(L=>notes.push(`<span class="prd-chip g" title="The same schedule values are loaded separately in more than one product">Shared schedule ${L}</span>`));
+          if(_needs(x.p.name)) notes.push('<span class="prd-chip w">Needs inputs</span>');
           if(_isFee(x.p)&&x.p.managed_notional_source) notes.push(`<span class="prd-chip">AUC feed: ${esc(x.p.managed_notional_source)}</span>`);
           h+=`<tr class="pick" onclick="prdSelect('${fam}',${x.i})"><td class="nm">${esc(x.p.name||'Unnamed product')}</td><td class="num">${_nStreams(x.p)||'\u2014'}</td><td class="num">${_fmt(r?r.q12_balance:null)}</td><td class="num">${_fmt(r?r.revenue:null)}</td><td><div class="prd-bar"><i><b style="width:${Math.max(0,Math.min(100,share)).toFixed(1)}%"></b></i><em>${(r&&ft>0)?share.toFixed(1)+'%':'\u2014'}</em></div></td><td class="num">${_fmt(_contrib(r))}</td><td>${notes.join('')}</td></tr>`; });
         const fc=items.reduce((a,x)=>{const c=_contrib(_row(x.p.name));return a+(c==null?0:(+c||0));},0), fb=items.reduce((a,x)=>{const r=_row(x.p.name);return a+(r?(+r.q12_balance||0):0);},0);
-        h+=`<tr class="tot"><td>${lab} total</td><td></td><td class="num">${lastRes?fmt0(fb):'\u2014'}</td><td class="num">${lastRes?fmt0(ft):'\u2014'}</td><td></td><td class="num">${lastRes?fmt0(fc):'\u2014'}</td><td></td></tr></tbody></table></div>`;
+        h+=`<tr class="tot"><td>${lab} total</td><td></td><td class="num">${_have?fmt0(fb):'\u2014'}</td><td class="num">${_have?fmt0(ft):'\u2014'}</td><td></td><td class="num">${_have?fmt0(fc):'\u2014'}</td><td></td></tr></tbody></table></div>`;
       });
       h+=`<div style="margin:6px 0 4px">${ftpToggleHtml()}</div>`;
     h += '<div class="prd-memo-h">Securities &amp; Cash</div>';

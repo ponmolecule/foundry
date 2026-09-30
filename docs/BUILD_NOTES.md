@@ -555,3 +555,27 @@ The selected row carries the gold wash, gold bar and graphite icon tile used by 
 Search, drag reorder and selection are unchanged.
 
 Validation: full gate set matches the r198 baseline; tests_config_layout at 41 checks (two new).
+
+
+## r207 — Product tab fixes: figures during incomplete inputs, add-stream cards, field sizing
+
+Presentation-only release on r206; no engine, schema, or saved-configuration change.
+
+Figures while inputs are incomplete. Lending and deposit presets arrive missing required fields
+(for example charge_off_ann, rate_paid_ann). The engine answers with open questions (HTTP 422)
+and, by design, returns no run, which blanked every figure in the navigator. The Products tab now
+keeps the last complete run for the same engagement on screen, muted, with a banner that names
+the open inputs. Products with open questions read "Needs inputs" and show a dash, never a
+borrowed figure. Figures refresh when the inputs are complete. The engine's fail-closed rule is
+unchanged; nothing downstream uses the cached figures.
+
+Add-stream tiles. The five basis tiles are option cards: icon tile, title, one-line description,
+and a "+" affordance, laid five across on wide stages. The canonical definitions stay in the info
+popover; the tile markup keeps the classes, help text and toggle behaviour the gates pin.
+
+Field sizing. Product card fields flow in columns of at least 280px (at most 1180px wide);
+numeric inputs cap at 180px, selects at 380px, text at 520px, paste boxes at 760px.
+
+Validation: full gate set matches the r198 baseline; tests_config_layout at 44 checks (three new).
+Live checks: adding lending and deposit presets keeps other figures and names the open inputs;
+removing the product restores normal display; option cards add the right stream basis.

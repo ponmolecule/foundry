@@ -87,7 +87,7 @@ def main():
        'border-radius:10px' not in html[html.index('<style id="klaros-graphite">'):html.index('</style>',html.index('<style id="klaros-graphite">'))]
        and 'table.cfg-grid td,table.cfg-grid th{border-right:1px solid var(--k-line)}' in html)
     ck("Products tab is a navigator plus one workspace, with Portfolio and Compare views",
-       'class="prd-shell"' in html and 'window.prdSelect=function' in html and "view==='compare'" in html
+       'class="prd-shell' in html and 'window.prdSelect=function' in html and "view==='compare'" in html
        and 'class="prd-card" data-pp-tab=' in html and 'prodCardHtml(x.fam,x.i)' in html)
     ck("Product card and fee-stream editor are split into tabs by markup only",
        html.count('data-pp="setup"') >= 3 and 'data-pp="streams"' in html and 'data-pp="overrides"' in html
@@ -114,6 +114,15 @@ def main():
        and 'window.cfgArrangeShell=function' in html)
     ck("Products navigator uses the elevated card rows (icon tile, name, sub-line, revenue)",
        '<div class="prd-nav-card">' in html and 'class="prd-row-t"' in html and ".prd-nav .product-card.prd-row.sel::before" in html)
+    # r207: fail-closed display, option-card stream tiles, controls sized to content.
+    ck("Products keep the last complete run on screen, muted, while inputs are incomplete",
+       'window._prdLastGood={cfg:cfg,rows:(lastRes.ftp.rows||[])}' in html and "window._prdLastGood.cfg===cfg" in html
+       and 'class="prd-banner"' in html and "'Needs inputs'" in html)
+    ck("Add-stream tiles are option cards and keep the canonical help popover",
+       'class="btn-plain fee-add"' in html and 'class="fa-ic"' in html and 'class="fee-basis-popover"' in html)
+    ck("Form controls are sized to their content rather than the column",
+       '#content input[inputmode="decimal"],#content input[type=number]{max-width:180px}' in html
+       and '#content .prd-card .fields{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
