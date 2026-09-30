@@ -1,0 +1,16 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const h=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const c={};vm.createContext(c);vm.runInContext(h.slice(h.indexOf('function _surplusAllocationPolicy('),h.indexOf('function _surplusAllocationDescription(')),c);
+const old={parity_profile:'pf_a',assumptions:{}};
+assert.equal(c._surplusAllocationPolicy(old),'residual_securities');
+old.assumptions.surplus_allocation_policy=c._surplusAllocationPolicy(old);
+old.assumptions.managed_securities_portfolios=[{}];assert.equal(c._surplusAllocationPolicy(old),'residual_securities');
+assert.equal(c._surplusAllocationPolicy({assumptions:{managed_securities_portfolios:[{}]}}),'cash');
+assert.equal(c._surplusAllocationPolicy({assumptions:{interest_balance_model:{enabled:false}}}),'residual_securities');
+assert.equal(c._surplusAllocationPolicy({assumptions:{interest_balance_model:{enabled:true}}}),'cash');
+assert.equal(c._surplusAllocationPolicy({parity_profile:'pf_b',assumptions:{}}),'legacy_split');
+const a=h.indexOf('function buildEmptyTemplate(){'),b=h.indexOf('\n}',a)+2;
+c.TEMPLATE={assumptions:{},step_0:{}};vm.runInContext(h.slice(a,b),c);
+assert.equal(c.buildEmptyTemplate().assumptions.surplus_allocation_policy,'cash');
+assert.ok(h.includes('_A.surplus_allocation_policy = "cash"'));
+console.log('PASS cash default, legacy migration, stable policy through module changes, profile B preservation');

@@ -125,7 +125,9 @@ def run_pf_b(cfg):
     _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
                         else float(other_liab or 0.0))
     _ol_period_rows = []
-    alloc = a["sweep_securities_alloc"]
+    policy = a.get("surplus_allocation_policy")
+    alloc = (0.0 if policy == "cash" else 1.0 if policy == "residual_securities"
+             else a["sweep_securities_alloc"])
     floor_pct = a["alll_floor_pct_loans"]
 
     # ---- product projections ----
