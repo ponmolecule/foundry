@@ -2,9 +2,10 @@ const fs=require('fs'),assert=require('node:assert/strict'),{chromium}=require('
 (async()=>{
 const browser=await chromium.launch({executablePath:process.env.FOUNDRY_CHROMIUM||undefined,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 const page=await browser.newPage({viewport:{width:1600,height:1050}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-let html=fs.readFileSync(__dirname+'/console_v2.html','utf8').replace(/renderTabs\(\);\s*whoami\(\)\.then\([\s\S]*?<\/script>/,'renderTabs();</script>');html=html.replace('</head>','<script>window.V31=true;window.BUILD="r198IQ test";</script></head>');
+let html=fs.readFileSync(__dirname+'/console_v2.html','utf8').replace(/renderTabs\(\);\s*whoami\(\)\.then\([\s\S]*?<\/script>/,'renderTabs();</script>');html=html.replace('</head>','<script>window.V31=true;window.BUILD="r199IQ test";</script></head>');
 await page.route('**/*',route=>route.request().url()==='http://foundry.test/'?route.fulfill({contentType:'text/html',body:html}):route.abort());await page.goto('http://foundry.test/');
-await page.evaluate(()=>{cfg=buildEmptyTemplate();cfg.proposed_bank='Demonstration Bank';cfg.assumptions.periods_per_year=12;cfg.assumptions.n_periods=36;cfg.assumptions.operating_expense_mode='detailed';cfg.assumptions.nie_detail={workforce:{roles:[{series_id:'wf-a',role:'Platform team',count:140,annual_comp:95000},{series_id:'wf-b',role:'Bank compensation',count:1,annual_comp:287500,compensation_period:'month'},{series_id:'wf-c',role:'Directors fees',count:1,annual_comp:37500,compensation_period:'month'}]},categories:[{series_id:'cat-a',name:'Technology',flow_spec:{trajectory:'flat',value:100000,period:'month'}},{series_id:'cat-b',name:'Internal audit',flow_spec:{trajectory:'flat',value:750000,period:'year'}}]};refresh=()=>{};renderGlobals();currentTab='config';renderTabs();renderContent();});
+await page.evaluate(()=>{cfg=buildEmptyTemplate();cfg.proposed_bank='Demonstration Bank';cfg.assumptions.periods_per_year=12;cfg.assumptions.n_periods=36;cfg.assumptions.operating_expense_mode='detailed';cfg.assumptions.nie_detail={workforce:{roles:[{series_id:'wf-a',role:'Platform team',count:140,annual_comp:95000},{series_id:'wf-b',role:'Bank compensation',count:1,annual_comp:287500,compensation_period:'month'},{series_id:'wf-c',role:'Directors fees',count:1,annual_comp:37500,compensation_period:'month'}]},categories:[{series_id:'cat-a',name:'Technology',flow_spec:{trajectory:'flat',value:100000,period:'month'}},{series_id:'cat-b',name:'Internal audit',flow_spec:{trajectory:'flat',value:750000,period:'year'}}]};cfg.assumptions.cac_feeds={customer_build:{series_id:'customer-build',beginning_customers:1200,beginning_auc:0,attrition_rate:0,channels:[{name:'Customer funnel',method:'spend_cac',params:{spend:100000,cac:1000,avg_auc_per_customer:0}}]}};window._cfgSectionOpen.customeracq=true;refresh=()=>{};renderGlobals();currentTab='config';renderTabs();renderContent();});
+await page.evaluate(()=>{secManagedAddPortfolio();secManagedAddSleeve(0);nieCatAddFormulaDriver(0);nieCatAddPiecewise(0);nieCatAddCostPoolCharge(0);});
 const sections=await page.locator('.iq-nav button').evaluateAll(es=>es.map(e=>e.dataset.iqSection));
 assert.equal(sections.length,9);
 for(const width of [1600,1280,1024,768]){
@@ -12,6 +13,8 @@ for(const width of [1600,1280,1024,768]){
  for(const key of sections){
   await page.locator('[data-iq-section="'+key+'"]').click();
   assert.equal(await page.locator('[data-iq-panel]:visible').count(),1);
+  const coloredPanels=await page.locator('#iq-workspace :is(.cac-feed-card,.cac-channel-card,.wf-role-card,.sec-managed-portfolio,.opex-piecewise-card)').evaluateAll(es=>es.filter(e=>e.getBoundingClientRect().width&&e.getBoundingClientRect().height).filter(e=>{const c=getComputedStyle(e).backgroundColor.match(/\d+/g)||[];return c.length>=3&&(Math.max(...c.slice(0,3).map(Number))-Math.min(...c.slice(0,3).map(Number)))>8}).map(e=>e.className));
+  assert.deepEqual(coloredPanels,[],`non-neutral panels ${width} ${key}`);
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),`overflow ${width} ${key}`);
  }
 }
@@ -42,7 +45,7 @@ assert.equal(await ta.inputValue(),'287.5\t300\t325');
 await page.locator('#wfCompPaste_1_load').click();
 assert.deepEqual(await page.evaluate(()=>cfg.assumptions.nie_detail.workforce.roles[1].compensation_spec.values),[287500,300000,325000]);
 assert.equal(await page.locator('#wfCompPaste_1').inputValue(),'');
-await page.locator('.iq-expense-tabs [role=tab]').filter({hasText:'Operating expense categories'}).click();
+await page.locator('.iq-expense-tabs [role=tab]').filter({hasText:'Expense categories'}).click();
 await page.locator('#iq-items-expenses [data-iq-item-button="1"]').click();
 await page.locator('.nie-actions a[onclick*="nieCatAdd();"]').click();
 assert.equal(await page.locator('#iq-items-expenses [data-iq-item]:visible').getAttribute('data-opex-index'),'0');
@@ -67,6 +70,6 @@ await page.evaluate(()=>{cfg=buildEmptyTemplate();renderGlobals();renderContent(
 assert.equal(await page.locator('[data-iq-section="assumptions"]').getAttribute('aria-selected'),'true');
 assert.equal(await page.locator('#iq-items-workforce').count(),0);
 assert.deepEqual(errors,[]);
-console.log('PASS browser: 4 viewport widths × 9 sections, add/remove/rename/reorder, stable item identity, explicit schedule Load, paste draft and preview stability, sidebar identity, funding edit, keyboard navigation and new-engagement isolation.');
+console.log('PASS populated browser (CAC, managed securities, formula/tiered/cost-pool components): 4 viewport widths × 9 sections, add/remove/rename/reorder, stable item identity, explicit schedule Load, paste draft and preview stability, sidebar identity, funding edit, keyboard navigation and new-engagement isolation.');
 await browser.close();
 })().catch(e=>{console.error(e);process.exit(1)});
