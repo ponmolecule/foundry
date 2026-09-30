@@ -167,8 +167,6 @@ def _conv_workforce(wf):
     for key in ("comp", "role_comp", "additive_comp"):
         if isinstance(wf.get(key), list):
             out[key] = [_k(x) for x in wf[key]]
-    if isinstance(wf.get("population_comp"), list):
-        out["population_comp"] = [[_k(x) for x in row] for row in wf["population_comp"]]
     if isinstance(wf.get("additive_components"), list):
         out["additive_components"] = []
         for comp in wf["additive_components"]:
