@@ -930,13 +930,11 @@ def run_pf_a(cfg):
                       - msr_end - sec_books_end - float(extra_assets or 0.0))
         req_cash = max(cash_floor * dep_bal, float(required_cash or 0.0))
         if investable >= req_cash:
-            # Once the user authors one or more target-driven managed securities
-            # portfolios, those explicit books own the securities allocation.  The
-            # pre-r114 funding waterfall must not silently create an additional
-            # residual securities portfolio on top of them.  Surplus liquidity stays
-            # in cash; legacy/simple-only configurations retain the historical
-            # cash-floor + residual-securities behavior unchanged.
-            if _managed_sec or _ibm:
+            # Explicit policy owns surplus routing independently of module activation.
+            # Unversioned legacy inputs retain the historical module-based behavior.
+            policy = a.get("surplus_allocation_policy")
+            hold_cash = policy == "cash" or (policy is None and (_managed_sec or _ibm))
+            if hold_cash:
                 return investable, 0.0, 0.0
             return req_cash, investable - req_cash, 0.0
         return req_cash, 0.0, req_cash - investable
