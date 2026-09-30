@@ -178,10 +178,11 @@ repeat:
 funding    = deposits + other_liabilities + equity + scheduled_borrowings
 investable  = funding − net_loans − non_earning_assets − MSR − securities_books
 required_cash = cash_target_pct_deposits × deposits
-if investable ≥ required_cash:   cash = required_cash;  securities = the surplus;  borrowings = 0
+if investable ≥ required_cash and policy = cash: cash = investable; residual securities = 0; borrowings = 0
+if investable ≥ required_cash and policy = residual_securities: cash = required_cash; residual securities = the surplus; borrowings = 0
 else:                            cash = required_cash;  securities = 0;  borrowings = the shortfall
 ```
-So cash is held to its floor, any surplus goes to the securities portfolio, and any deficit is filled with borrowings. This is the mechanism that makes the balance sheet balance every quarter.
+New engagements hold unallocated funding in cash. Explicit securities portfolios are funded first; residual securities require the explicit surplus-investment policy. Saved legacy configurations preserve their previous allocation. Any deficit is filled with borrowings. This is the mechanism that makes the balance sheet balance every quarter.
 
 **Other-liability authoring mode.** Other liabilities always has an explicit authoring choice: **Flat** or **Formula / level**. Historical configs without an explicit mode remain backward-compatible: absence of a saved Formula / level object means Flat; presence of one means Formula / level. Switching modes preserves the inactive setup rather than deleting it. When Formula / level is active, the period-end Other liabilities balance is resolved before the funding plug as:
 ```

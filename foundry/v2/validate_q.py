@@ -149,6 +149,10 @@ def validate_config_v2(cfg):
                     "fee income, or a lending product with fee income")
 
     a = cfg["assumptions"]
+    if a.get("surplus_allocation_policy") not in (None, "cash", "residual_securities", "legacy_split"):
+        errs.append("surplus_allocation_policy must be cash or residual_securities")
+    if a.get("surplus_allocation_policy") == "legacy_split" and cfg.get("parity_profile") != "pf_b":
+        errs.append("legacy_split surplus allocation is reserved for profile B compatibility")
     if a.get("overhead_flow_spec") is None and a.get("overhead_per_period") is None and a.get("overhead_q") is None:
         errs.append("missing required assumption: overhead_flow_spec, overhead_per_period, or legacy overhead_q")
     # Projection horizon (optional). Bounded in YEARS (1-7) so table layout stays sane, but the

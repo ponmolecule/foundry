@@ -346,3 +346,19 @@ paste checks, dated-curve checks, JavaScript syntax and diff checks passed. Exis
 pastebox inventory gate retains its four pre-existing r196 failures (25 passed).
 Playwright browser regression is included but could not run here because the browser
 binary download failed; live visual verification remains necessary after deployment.
+
+
+## r198 — Explicit allocation of unallocated funding
+
+New engagements default to holding unallocated funding in cash. Funding waterfall
+exposes Hold in cash / Invest surplus in securities. Authored securities are funded
+first, the cash floor remains binding, and funding shortfalls still borrow. Legacy
+engagements preserve prior economics on import and save an explicit policy so later
+module activation does not change routing. Profile B retains its historical split
+until explicitly changed. Policy is validated and editable through FIW CONTROL.
+
+Validation: $30M isolated capital, authored assets, shortfalls, managed policy
+independence, profile A/B legacy compatibility, FIW policy edits, UI migration/default
+checks passed; all 47 managed-securities checks passed. Legacy parity fixture/hash,
+validation and workbook checks passed; broad parity gate still reports pre-existing
+unmapped EBITDA and MSR amortization Call Report diagnostics.
