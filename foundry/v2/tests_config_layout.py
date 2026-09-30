@@ -123,6 +123,9 @@ def main():
     ck("Form controls are sized to their content rather than the column",
        '#content input[inputmode="decimal"],#content input[type=number]{max-width:180px}' in html
        and '#content .prd-card .fields{grid-template-columns:repeat(auto-fill,minmax(280px,1fr))!important' in html)
+    # r208: checkboxes and radios are never stretched by the legacy text-box width rule.
+    ck("Checkboxes and radios keep their natural size inside fields",
+       '#content .fld input[type=checkbox],#content .fld input[type=radio]' in html and 'width:auto!important;min-width:0!important' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
