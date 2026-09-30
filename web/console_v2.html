@@ -1417,6 +1417,12 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .prd-banner{border:1px solid #E7CF98;background:#FDF7E8;border-radius:3px;padding:10px 14px;margin:0 0 14px;font-size:12.5px;color:var(--k-tx2)}
 .prd-banner b{color:var(--k-tx1)}
 .prd-banner ul{margin:6px 0 0;padding-left:18px;color:var(--k-tx3)}
+
+/* ============================ r208 ============================ */
+/* the legacy ".fld input{width:100%}" was written for text boxes; checkboxes and radios keep their natural size */
+#content .fld input[type=checkbox],#content .fld input[type=radio],#content label>input[type=checkbox],#content label>input[type=radio],
+main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!important;min-width:0!important;height:auto!important;flex:0 0 auto!important;margin:0!important;padding:0!important;accent-color:var(--k-gold)}
+#content label:has(> input[type=checkbox]),#content label:has(> input[type=radio]){display:flex!important;align-items:center;justify-content:flex-start;gap:8px;font-size:12.5px;color:var(--k-tx2);text-transform:none;letter-spacing:0;line-height:1.4}
 </style>
 </head>
 <body>

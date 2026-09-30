@@ -579,3 +579,13 @@ numeric inputs cap at 180px, selects at 380px, text at 520px, paste boxes at 760
 Validation: full gate set matches the r198 baseline; tests_config_layout at 44 checks (three new).
 Live checks: adding lending and deposit presets keeps other figures and names the open inputs;
 removing the product restores normal display; option cards add the right stream basis.
+
+
+## r208 — Checkboxes keep their natural size
+
+Presentation-only release on r207. The legacy rule ".fld input{width:100%}", written for text
+boxes, also stretched checkboxes and radios inside fields: the "Apply Durbin debit-interchange
+cap" checkbox rendered 530px wide with its label squeezed off the right edge. Checkboxes and
+radios now keep their natural size and sit beside their labels, everywhere in the workspace and
+the Assumptions panel. A sweep of 95 views (every product, stream and stream tab, all
+Configuration modules, Stress, Lab, Governance, Start) found no other stretched control.
