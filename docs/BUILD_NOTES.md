@@ -512,3 +512,29 @@ Validation: full gate set compared line-by-line with the r198 baseline; tests_co
 extended to 35 checks (five new for r204). Headless Chromium at 1440px on the universal template
 bank (six fee products, stream-to-stream references): every family rendered with balanced
 sections, stream add auto-selects, field edits persist with selection and tab kept, no page errors.
+
+
+## r205 — Stream workspace to the approved mockup
+
+Presentation-only release on r204; no engine, schema, or saved-configuration change.
+
+Fee streams tab. A product-level driver chain sits above the streams, built from stream
+references, naming the streams outside it. The stream grid and the selected stream's editor sit
+side by side when the workspace is at least 1000px wide, stacked below that. Grid columns: Role
+(Revenue if any price parameter is non-zero, else Driver: a quantity carried at a zero price),
+Driven by, and the engine's own last-period quantity for the stream (fee_stream_quantities) with
+a sparkline in the stacked layout. Per-stream revenue is not shown because the run results do not
+carry it.
+
+Editor. The unchanged six-axis editor is restyled: sentence-case labels, uniform 30px controls
+at full field width, multi-control rows (growth rate, period, method, anchor) on one line, and
+standalone explanatory memos folded into one "About these settings" note per tab. Explicit
+schedules show a six-cell strip (first three and last three values) with display-only rounding;
+stored values keep full precision.
+
+Product header carries a breadcrumb back to the portfolio. A stream rename mirrors into the
+header and grid as you type.
+
+Validation: full gate set matches the r198 baseline; tests_config_layout at 39 checks (four new).
+Headless Chromium at 1440px: every product family renders with balanced sections, stream add
+auto-selects, field edits persist with selection and tab kept, no page errors.

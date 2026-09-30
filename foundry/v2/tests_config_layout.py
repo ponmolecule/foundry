@@ -95,6 +95,18 @@ def main():
        and "window._ppMark=true; h += fieldsFor(fam, p, base); window._ppMark=false;" in html)
     ck("Fee streams are master-detail with a driver chain",
        "_mdPick(p.fee_streams,'_stSelObj','_stSeen')" in html and 'window.stSelect=function' in html and 'class="st-chain"' in html)
+    # r205: stream workspace follows the approved mockup; editor restyled; schedule strip.
+    ck("Stream workspace: product-level chain, grid beside editor, role and engine quantity",
+       "'<div class=\"fld wide st-md\">'+chainH" in html and 'outside this chain' in html
+       and '.prd-stage .st-md{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)' in html
+       and 'fee_stream_quantities' in html and "role:(()=>{" in html)
+    ck("Editor restyle: sentence-case labels, one-line growth rows, memos folded into a note",
+       '.prd-card .fld label{text-transform:none!important' in html and '.prd-card .fld:has(> .cu){flex-direction:row' in html
+       and 'window.prdAfterRender=function' in html and "d.className='st-about'" in html)
+    ck("Explicit schedules show a six-cell strip with display-only rounding",
+       'explicit-preview-strip' in html and 'function _prdNum(x)' in html and "_si=n<=6?" in html)
+    ck("Product header carries a breadcrumb back to the portfolio",
+       'class="prd-crumb"' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
