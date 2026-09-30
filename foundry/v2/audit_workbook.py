@@ -24,11 +24,11 @@ from .growth import growth_context_from_cfg
 from .timebase import model_period_end_date
 from .series import apply_amount_basis
 
-_DARK = "302E2C"
-_DARK2 = "3A3836"
-_GOLD = "C8914A"
-_LIGHT = "F1EFEB"
-_MUTED = "8C8780"
+_DARK = "383838"
+_DARK2 = "444444"
+_GOLD = "DBAB5D"
+_LIGHT = "F2F2F0"
+_MUTED = "8E8E89"
 _BLUE = "0000FF"
 _GREEN = "008000"
 _RED = "FF0000"
@@ -114,7 +114,7 @@ def _sheet_title(ws, title: str, subtitle: str | None = None, width: int = 8) ->
 
 
 def _style_header(ws, row: int, ncols: int) -> None:
-    thin = Side(style="thin", color="8C8780")
+    thin = Side(style="thin", color="8E8E89")
     for c in ws[row][:ncols]:
         c.fill = PatternFill("solid", fgColor=_DARK2)
         c.font = Font(color=_LIGHT, bold=True, size=9)

@@ -476,3 +476,39 @@ row and placeholder mark are removed; the application bar carries the Klaros mar
 Welcome, engagement controls (switcher, save state, flags, Assumptions, Export) are hidden.
 Every id, handler and line of copy used by sign-in, Enter platform, sign-out and account
 recovery is unchanged. The frozen /v1 console is untouched by design.
+
+
+## r204 — Klaros ledger palette and Products workspace
+
+Presentation-only release; no engine, schema, or saved-configuration change. Built on the
+deployed tree (9e47864, byte-identical to r203).
+
+Palette. Graphite is #2C2C2C (neutral, not black) and now carries both application-bar rows;
+tab labels are white with a gold underline. Klaros gold is #DBAB5D, with light washes from the
+Klaros gold strip (#FAF1DE). Every neutral in the console is re-toned to a true grey, removing
+the warm pink cast of r199 to r203; pale pink washes become cream and alarm reds become brick.
+The account page, build stamp and Excel exhibits (audit workbook, BPT cover, workbook export)
+use the same palette.
+
+Ledger geometry. Radii are 2 to 3px throughout, legacy and inline styles included; data grids
+carry hairline column rules; panels drop soft shadows.
+
+Products. The tab is a product navigator (search, families, 12Q revenue, drag reorder via the
+existing handlers) beside one workspace:
+- Portfolio: KPI strip, one graphite-banded ledger per family with share of family and
+  contribution, and a Notes column that flags identical explicit schedules loaded separately
+  in more than one product (read-only scan).
+- Compare: products of one family side by side (stream bases, drivers, pricing, cost side,
+  off-book balance source, latest-run balance, revenue, contribution).
+- Product: graphite header with the existing per-product KPIs, and Setup / Fee streams /
+  Per-month overrides tabs. Fee streams are master-detail: a grid of streams, a driver chain
+  built from stream references, and the selected stream's existing six-axis editor split into
+  Activity / Pricing / Timing / Costs by the editor's own axis boundaries.
+Every editor is the unchanged product card and stream editor; tabs are sections toggled by
+markup only, so lending, deposit, legacy notional and fee products, and every stream basis and
+driver source, keep their behaviour. Stream removal from the detail header asks for confirmation.
+
+Validation: full gate set compared line-by-line with the r198 baseline; tests_config_layout
+extended to 35 checks (five new for r204). Headless Chromium at 1440px on the universal template
+bank (six fee products, stream-to-stream references): every family rendered with balanced
+sections, stream add auto-selects, field edits persist with selection and tab kept, no page errors.
