@@ -71,12 +71,14 @@ def run_pf_b(cfg):
     _wf_add_components = resolve_workforce_additive_components(_wf_cfg, 4) if _nie_d else []
     _wf_comp_native, _wf_role_comp_native, _wf_additive_comp_native = [], [], []
     _wf_additive_component_native = [[] for _ in _wf_add_components]
+    _wf_population_comp_native = []
     _wf_count_runtime = None
     _wf_count_native = None
     if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or [])):
         from .workforce import WorkforceRuntime
         _wf_count_runtime = WorkforceRuntime(_wf_cfg, Q, 4, growth_context=_growth_ctx)
         _wf_count_native = [[] for _ in _wf_count_runtime.rows]
+        _wf_population_comp_native = [[] for _ in _wf_count_runtime.rows]
     _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
     _occ_half_amt = 0.0
@@ -288,6 +290,10 @@ def run_pf_b(cfg):
             _r = _nie_d["gross_up_rate"]
             _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
             _other_opex = _ovh_b - _workforce_comp - _depreciation_expense
+            if _wf_count_runtime is not None:
+                _wf_count_runtime.expense_for_period(qi + 1)
+                for _wi, _expense in enumerate(_wf_count_runtime.last_population_expenses):
+                    _wf_population_comp_native[_wi].append(float(_expense))
             _wf_comp_native.append(float(_workforce_comp or 0.0))
             _wf_role_comp_native.append(float(_role_workforce_comp or 0.0))
             _wf_additive_comp_native.append(float(sum(_wf_add_values)))
@@ -428,6 +434,7 @@ def run_pf_b(cfg):
                              for i in range(Q)],
             "comp": list(_wf_comp_native),
             "role_comp": list(_wf_role_comp_native),
+            "population_comp": list(_wf_population_comp_native),
             "additive_comp": list(_wf_additive_comp_native),
             "additive_components": [
                 {"component_id": str((c or {}).get("component_id") or ""),
