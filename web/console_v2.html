@@ -1484,6 +1484,7 @@ window._structuredPasteIsOpen=_structuredPasteIsOpen;
 window._structuredPasteSetOpen=_structuredPasteSetOpen;
 function _resetTransientAuthoringUi(c){
   _stripTransientPasteFlags(c);
+  _renderedAuthoringTab=null;_renderedAuthoringCfg=null;_consumedPasteId=null;
   window._structuredPasteOpen={};
   window._pasteSurfaceClosed={};
   window._pasteSurfaceDefaultClosed=true;
@@ -1873,13 +1874,15 @@ async function preview(){
       : `Engine preview request failed${e && e.message ? ": "+e.message : "."}`};
   }
   paintChrome();
-  // The products tab renders only input cards + static config memos — it shows no
+  // Configuration refreshes only readonly result fragments. Products renders input
+  // cards + static config memos — it shows no
   // engine output — so a preview never needs to rebuild it. Rebuilding it anyway
   // destroyed the field being typed in (the "flash" on tab). Skip the content
   // rebuild while editing products; output tabs still re-render from lastRes.
   // BUT the three per-product summary numbers (Q12 balance / revenue / contribution) read from
   // lastRes and must still update — refresh just those in place so they don't look frozen.
-  if(!(V31 && currentTab==="products")) renderContent();
+  if(V3 && currentTab==="config") refreshConfigPreviews();
+  else if(!(V31 && currentTab==="products")) renderContent();
   else { refreshProductStats(); refreshFeeCustomerCountPreviews(); }
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the
   // corridor's modeled placements read lastRes, and without this an edit made just
@@ -6643,24 +6646,60 @@ function _decoratePasteSurfaces(root){
   if(closeAll)window._pasteSurfaceCloseAllOnNextRender=false;
 }
 window._decoratePasteSurfaces=_decoratePasteSurfaces;
+// Structural edits may rebuild a card; engine responses must never rebuild authoring inputs.
+let _renderedAuthoringTab=null, _renderedAuthoringCfg=null, _consumedPasteId=null;
+document.addEventListener("click",function(ev){
+  const button=ev.target.closest && ev.target.closest('button');
+  if(!button || !/^(Load(?: \(replace\))?|Append|Replace|Clear)$/i.test(button.textContent.trim()))return;
+  const scope=button.closest('[data-paste-surface]');
+  const ta=scope && scope.querySelector('textarea[id]');
+  if(ta){_consumedPasteId=ta.id;queueMicrotask(()=>{_consumedPasteId=null;});}
+},true);
+function _captureAuthoringState(){
+  const root=document.getElementById('content'),ae=document.activeElement;
+  const same=_renderedAuthoringTab===currentTab && _renderedAuthoringCfg===cfg;
+  if(!root||!same)return null;
+  const fields=Array.from(root.querySelectorAll('textarea[id]')).filter(el=>el.id!==_consumedPasteId).map(el=>({id:el.id,value:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:el.scrollTop,left:el.scrollLeft,height:el.style.height}));
+  const focus=ae && (root.contains(ae)||ae.hasAttribute('data-focus')) ? {id:ae.id,path:ae.getAttribute('data-focus'),start:ae.selectionStart,end:ae.selectionEnd,direction:ae.selectionDirection}:null;
+  return {fields,focus,x:window.scrollX,y:window.scrollY,scrolls:Array.from(document.querySelectorAll('[id]')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>({id:el.id,top:el.scrollTop,left:el.scrollLeft})),details:Array.from(root.querySelectorAll('details')).map(el=>el.open)};
+}
+function _restoreAuthoringState(state){
+  if(!state)return;
+  state.fields.forEach(v=>{const el=document.getElementById(v.id);if(!el)return;el.value=v.value;if(v.height)el.style.height=v.height;el.scrollTop=v.top;el.scrollLeft=v.left;if(el.hasAttribute('oninput'))el.dispatchEvent(new Event('input',{bubbles:true}));});
+  document.querySelectorAll('#content details').forEach((el,i)=>{if(i<state.details.length)el.open=state.details[i];});
+  const f=state.focus;
+  if(f){const el=f.id?document.getElementById(f.id):f.path?Array.from(document.querySelectorAll('[data-focus]')).find(el=>el.getAttribute('data-focus')===f.path):null;
+    if(el){el.focus({preventScroll:true});if(typeof f.start==='number')try{el.setSelectionRange(f.start,f.end,f.direction);}catch(_){} }
+  }
+  state.scrolls.forEach(v=>{const el=document.getElementById(v.id);if(el){el.scrollTop=v.top;el.scrollLeft=v.left;}});
+  window.scrollTo({left:state.x,top:state.y,behavior:'instant'});
+}
 function renderContent(){
-  // Preserve focus across the DOM rebuild: capture which field (by its data-focus
-  // path) is focused and where the caret sits, so a re-render triggered by the
-  // engine preview doesn't destroy the field the user just tabbed into.
-  const _ae = document.activeElement;
-  const _focusPath = (_ae && _ae.getAttribute && _ae.getAttribute("data-focus")) || null;
-  const _restoreFocus = ()=>{
-    if(!_focusPath) return;
-    const el = document.querySelector(`[data-focus="${(window.CSS && CSS.escape) ? CSS.escape(_focusPath) : _focusPath}"]`);
-    if(el){ el.focus();
-      // Select all on restore rather than collapsing the caret to the front — a
-      // collapsed caret at position 0 is exactly the "cursor sits in front of the 0"
-      // problem. Selecting means the next keystroke overwrites cleanly.
-      try{ el.select(); }catch(e){} }
-  };
+  const state=_captureAuthoringState();
+  _consumedPasteId=null;
+  _renderContentBody();
+  restoreCardSelects();
+  _decoratePasteSurfaces();
+  _restoreAuthoringState(state);
+  _renderedAuthoringTab=currentTab;_renderedAuthoringCfg=cfg;
+}
+function refreshConfigPreviews(){
+  // Build read-only output fragments off-screen; keep every live input node mounted.
+  const root=document.getElementById('content');if(!root)return;
+  const fresh=document.createElement('div');fresh.innerHTML=structuresSectionsHtml();
+  const state=_captureAuthoringState();
+  root.querySelectorAll('[data-engine-preview]').forEach(el=>{
+    const key=el.getAttribute('data-engine-preview');
+    const next=Array.from(fresh.querySelectorAll('[data-engine-preview]')).find(n=>n.getAttribute('data-engine-preview')===key);
+    if(next && el.innerHTML!==next.innerHTML)el.innerHTML=next.innerHTML;
+  });
+  // Result summaries may change height above the editor; retain its viewport position.
+  if(state){state.scrolls.forEach(v=>{const el=document.getElementById(v.id);if(el){el.scrollTop=v.top;el.scrollLeft=v.left;}});window.scrollTo({left:state.x,top:state.y,behavior:'instant'});}
+}
+function _renderContentBody(){
   { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
     document.querySelector("main > aside").style.display = _wel ? "none" : "";
-    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; } setTimeout(()=>{ restoreCardSelects(); _restoreFocus(); _decoratePasteSurfaces(); }, 0);
+    _m.style.gridTemplateColumns = _wel ? "1fr" : ""; }
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
   if(V3 && currentTab==="overview"){
@@ -9145,6 +9184,9 @@ function _opexPiecewiseEditorHtml(i,lc,j){
   return h;
 }
 function _opexLinkedSourcePreview(lc){
+  return `<div data-engine-preview="linked-${esc(lc&&lc.series_id||JSON.stringify(lc))}">${_opexLinkedSourcePreviewBody(lc)}</div>`;
+}
+function _opexLinkedSourcePreviewBody(lc){
   if(!lc||!["fee_stream_quantity","customer_acquisition_auc","workforce_count"].includes(lc.driver))return "";
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
   if(!opt)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected upstream Series could not be resolved.</div>`;
@@ -9868,6 +9910,7 @@ function structuresSectionsHtml(){
         }
         row += '</div>'; h += row;
       });
+      h += '<div data-engine-preview="workforce-summary">';
       const _wres=(lastRes||{}).workforce||null;
       if(_wres){
         const _ids=_wres.series_ids||[], _hires=_wres.resolved_hire_periods||[], _counts=_wres.counts||[];
@@ -9894,6 +9937,7 @@ function structuresSectionsHtml(){
         h += `<tr><td><b>Total workforce</b></td><td><b style="font-family:var(--mono)">${esc(_hcFmt(_totStart))} → ${esc(_hcFmt(_totEnd))} FTE</b></td><td colspan="3"><span class="cmut">Aggregate active headcount is available as a stable driver to Operating Expense linked components.</span></td></tr>`;
         h += '</table></div></div>';
       }
+      h += '</div>';
     } else if(!_legacyStaff && !_wfAddComps.length){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
     }
@@ -10007,7 +10051,7 @@ function structuresSectionsHtml(){
     h += `<div class="nie-assess-item"><div class="crow" style="justify-content:space-between;align-items:center;gap:8px"><span class="wf-field-label">Legacy / simplified OCC assessment</span><button class="nie-section-toggle" onclick="nieOccSimplifiedToggle(${_occEnabled?'false':'true'})">${_occEnabled?'Disable':'Enable'}</button></div>${_occEnabled?`<div class="nie-default-value" style="margin-top:6px"><input type="number" step="0.1" style="width:64px" value="${_occ.toFixed(1)}" title="Annualized simplifying bp rate; each ordinal half-year assessment is one-half of the annualized rate." onchange="cfg.assumptions.nie_detail.occ_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="crow" style="align-items:center;margin:6px 0 0"><span class="cu">first cash payment</span><span class="cu">${_occTag}</span><input type="number" min="1" step="1" style="width:58px" value="${_occFirst}" onchange="cfg.assumptions.nie_detail.occ_payment_first_period=Math.max(1,Math.round(_pf(this.value)||1));renderContent();refresh()"><span class="cu">then every ${_occIv} ${_occUnit}${_occIv===1?'':'s'}</span></div><div class="nie-section-note">Quick-estimate shortcut only. Recognition is spread over each ordinal half-year; this cash timing is separate. It is additive to Advanced tiered/banded Opex components.</div>`:`<div class="nie-section-note" style="margin-top:6px">Off — no simplified OCC expense posts. Use an Advanced tiered / banded component for a source-faithful assessment, or enable this shortcut explicitly for a rough bp-based estimate.</div>`}</div>`;
     h += `<div class="nie-assess-item"><span class="wf-field-label">Other NIE gross-up</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" title="Applies to the detailed NIE subtotal as sub×r/(1−r); this is not payroll load." onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">%</span></div><div class="nie-section-note">Applies to detailed NIE subtotal; not payroll load.</div></div>`;
     h += '</div>';
-    if(lastRes && lastRes.nie_detail_series) h += `<div class="chint" style="margin-top:8px">${esc(lastRes.nie_detail_series.note)}.</div>`;
+    h += `<div data-engine-preview="nie-note">${lastRes && lastRes.nie_detail_series ? `<div class="chint" style="margin-top:8px">${esc(lastRes.nie_detail_series.note)}.</div>` : ""}</div>`;
     h += '</div>';
   }
   const _cacCard=(A.cac_feeds=A.cac_feeds||{}), _cacFeedCount=Object.keys(_cacCard).length, _cacChannelCount=Object.values(_cacCard).reduce((n,fd)=>n+(((fd||{}).channels||[]).length),0), _cacOpen=_cfgSectionIsOpen('customeracq',_cacFeedCount||_cacChannelCount);
@@ -10039,6 +10083,7 @@ function structuresSectionsHtml(){
       });
       h+=`<div style="margin:3px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#9FB0C8;margin:0" onclick="addCacChannel('${esc(fn)}');return false">+ acquisition channel</a></div>`;
 
+      h+=`<div data-engine-preview="cac-${esc(fn)}">`;
       const _ca=lastRes&&lastRes.customer_acquisition&&lastRes.customer_acquisition[fn];
       if(_ca&&(_ca.annual||[]).length){const ar=_ca.annual;
         h+=`<div style="overflow-x:auto;border-top:1px solid #2A3444;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward · audit view</div><table class="cac-audit-grid" style="min-width:${Math.max(560,215+ar.length*78)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#9FB0C8">Calculated output · monetary balances in $000s</th>`;
@@ -10048,6 +10093,7 @@ function structuresSectionsHtml(){
         rr('New customers acquired','new_cust','customers');rr('Customers lost to attrition','cust_lost','customers');rr('Ending bank customers','end_cust','customers');rr('New AUC added','new_auc','$000s');rr('AUC lost to attrition','auc_lost','$000s');rr('Ending AUC','end_auc','$000s');rr('Blended CAC','blended_cac','$ / acquired customer',v=>v?_auditInt(v):'—');
         h+=`</tbody></table></div>`;
       }
+      h+='</div>';
       h+=`</div></div>`;
     });
     h+='<div style="border-top:1px solid #2A3444;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #4A5A75;border-radius:5px;padding:4px 10px;color:#DFA85A;margin:0" onclick="addCacFeed();return false">+ New acquisition feed</a></div>';

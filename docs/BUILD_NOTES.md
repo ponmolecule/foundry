@@ -331,3 +331,18 @@ design). Standing rule: the canonical preview config is pf_a_ots_msr with manage
 
 - Corrects r195's excessive conversion of every preview grid cell into an anchor. Only explicitly edited cells become calendar-dated anchors; untouched periods continue to interpolate the original policy/SEP curve.
 - Migrates saved r194 grids without dates and r195 grids with synthetic quarter anchors using their edited-cell markers. Keeps an original dated-curve snapshot so later edits remain selective.
+
+
+## r197 — Stable authoring editors
+
+Configuration preview completion now updates read-only workforce, acquisition,
+linked-source, and expense summaries in place instead of replacing the editor DOM.
+Structural rerenders preserve pending paste text, Load activation, caret selection,
+focus, textarea resize and scroll, and viewport position. Load/Append/Clear consume
+only the targeted draft; engagement changes discard old transient editor state.
+
+Validation: Node authoring-state regression checks, 23 UI session checks, funded-flow
+paste checks, dated-curve checks, JavaScript syntax and diff checks passed. Existing
+pastebox inventory gate retains its four pre-existing r196 failures (25 passed).
+Playwright browser regression is included but could not run here because the browser
+binary download failed; live visual verification remains necessary after deployment.
