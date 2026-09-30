@@ -422,3 +422,26 @@ selected category.
 
 Validation: full gate set compared line-by-line with r198/r199; tests_config_layout extended
 with six r200 checks. Headless Chromium at 1440 and 1600px, inspector open and closed.
+
+
+## r201 — Analysis and record tabs on the light surface
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Executive Summary, Peer Cohort, Examiner Book, Assumption Book, Governance, Start and Bank
+Design Lab move from the dark cover theme to the light work surface. Only the Welcome landing
+stays dark. Inline colours in 44 renderers, plus the Executive Summary, Notes and stress
+callout branches of _renderContentBody, are converted by the same property-aware transform as
+r200, extended to SVG and canvas attributes (fill, stroke, fillStyle, strokeStyle). Every
+converted function is identical to r200 apart from colour literals. The statement branches of
+_renderContentBody are untouched.
+
+Dark surfaces map to near-white tiers rather than mid grey. Section headers (ovh2) are
+graphite bands; KPI tiles and flags are white with hairlines; analysis data tables use
+proportional tabular figures with Capital IQ grid heads. Lab heatmaps (3D surface and
+contour) use a champagne-to-gold ramp in place of blue-to-green.
+
+Validation: full gate set compared with the r198 baseline; tests_config_layout extended with
+four r201 checks. Headless Chromium at 1440px on all seven tabs; Lab sensitivity run live,
+trade-off surface and contour rendered from a synthetic 9x9 grid (the example bank exposes a
+single lever).
