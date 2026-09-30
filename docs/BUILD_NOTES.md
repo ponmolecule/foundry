@@ -395,3 +395,30 @@ Validation: full Python gate set and Node checks compared line-by-line against t
 baseline. tests_config_layout rewritten for the staged layout. Four legacy rule strings
 that gates pin by colour literal are preserved verbatim and overridden by the design layer.
 Visual verification by headless Chromium at 1440, 1600 and 1720px.
+
+
+## r200 — Light work surface; Configuration master-detail
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Theme. Configuration, the Assumptions inspector and the tab strip move to white working
+surfaces on a warm light canvas. Graphite is structure only (application bar, module bands,
+detail-panel heads); Klaros gold marks state only (active tab, selected row and module,
+activation switch, sparkline). Inline colours in the configuration renderers and the
+configuration-only legacy rules are converted by a property-aware transform (surfaces and
+rules flip lightness, dark text already on light stays, accents deepen to read on white).
+Statement tabs keep their paper tables. The analysis and record tabs (Executive Summary,
+Peer Cohort, Examiner Book, Assumption Book, Governance, Start, Lab) remain graphite.
+
+Configuration. Module rail shows status dots; the activation switch moved into the module
+band. Operating expense gains a KPI strip (first-period workforce and category totals from
+the latest run, population/category and component/schedule counts) and sub-tabs
+(Workforce / Expense categories / Assessments). Workforce populations and expense
+categories are master-detail: a dense grid of all records beside the selected record's
+editor. Selection follows object identity, so adds, deletes and drag reorders keep the right
+record open; new records open automatically. Category drag-to-reorder moved to the grid.
+Component tools (formula / driver, tiered / banded, cost pool) are cards inside the
+selected category.
+
+Validation: full gate set compared line-by-line with r198/r199; tests_config_layout extended
+with six r200 checks. Headless Chromium at 1440 and 1600px, inspector open and closed.

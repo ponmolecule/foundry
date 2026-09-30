@@ -42,6 +42,24 @@ def main():
        'function _sparkHtml(vals)' in html and 'class="paste-closed-preview"' in html
        and "const head=(typeof _sparkHtml==='function'?_sparkHtml(vals):'')" in html
        and '<summary>Advanced trajectories<span class="cfg-disc-val"><i>Count</i>' in html)
+    # r200: light work surface; graphite and gold as accents only.
+    ck("Configuration renders on a light surface, not the dark cover theme",
+       'const DARKTABS = new Set(["overview","peer","examiner","gov","notes","start","welcome","lab"]);' in html
+       and '<style id="klaros-graphite">' in html and '--k-surface:#FFFFFF' in html)
+    ck("Operating expense has sub-tabs and a KPI strip fed by the latest run",
+       'class="cfg-subtabs"' in html and 'window.nieTabSet=function' in html and 'data-nie-pane="workforce"' in html
+       and 'data-nie-pane="categories"' in html and 'data-nie-pane="assessments"' in html
+       and 'data-engine-preview="nie-kpis"' in html and '(lastRes||{}).nie_detail_series' in html)
+    ck("Workforce and expense categories are master-detail: dense table plus one selected record",
+       "_mdPick(wf.roles,'_wfSelObj','_wfSeen')" in html and "_mdPick(nd.categories,'_nieCatSelObj','_nieCatSeen')" in html
+       and 'window.wfSelect=function' in html and 'window.nieCatSelect=function' in html and 'class="cfg-md-detail"' in html)
+    ck("Category rows keep drag-to-reorder in the table",
+       'ondragstart="nieCatDragStart(event,${i})"' in html and 'tr.opex-item-card.drop-before td' in html)
+    ck("Expense component tools act inside the selected category",
+       'class="cfg-tool" onclick="nieCatAddFormulaDriver(${i})' in html and 'onclick="nieCatAddPiecewise(${i})' in html
+       and 'onclick="nieCatAddCostPoolCharge(${i})' in html)
+    ck("Module activation switch sits in the module band; the rail shows status",
+       'function cfgMountSwitch()' in html and 'class="cfg-mod-dot"' in html and '.cfg-nav .cfg-mod>.modcard{display:none}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
