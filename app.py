@@ -306,8 +306,8 @@ def console_v31():
     # commit; if the screen's stamp doesn't match the commit just pushed, the
     # deploy or the browser cache is the culprit, not the code.
     stamp_el = (f'<div style="position:fixed;bottom:8px;right:12px;z-index:99999;'
-                f'font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#8D8884;'
-                f'background:rgba(15,15,14,.82);padding:2px 8px;border-radius:6px;'
+                f'font:10.5px/1.4 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#9A9A95;'
+                f'background:rgba(44,44,44,.9);padding:2px 8px;border-radius:3px;'
                 f'border:1px solid rgba(255,255,255,.08);pointer-events:none">build {stamp}</div>')
     html = html.replace("</body>", stamp_el + "</body>")
     # No-cache: the HTML shell must never be served stale, or a deploy looks like
@@ -554,18 +554,18 @@ def account_page():
     recovery with a one-time code, deputy reset. Unauthenticated by design —
     it must be reachable when the password is lost."""
     html = """<!doctype html><meta charset="utf-8"><title>Foundry — Account</title>
-<style>body{background:#F3F2EF;color:#1B1A19;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"Segoe UI",sans-serif;margin:0;-webkit-font-smoothing:antialiased}
-.bar{height:50px;background:#242322;display:flex;align-items:center;gap:10px;padding:0 20px;color:#fff;font-weight:600;font-size:15px;letter-spacing:-.01em}
-.bar a{color:#B3ADA5;font-weight:500;font-size:12px;text-decoration:none;margin-left:auto}.bar a:hover{color:#fff}
+<style>body{background:#F2F2F0;color:#1E1E1E;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"Segoe UI",sans-serif;margin:0;-webkit-font-smoothing:antialiased}
+.bar{height:50px;background:#2C2C2C;display:flex;align-items:center;gap:10px;padding:0 20px;color:#fff;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.bar a{color:#B9B9B4;font-weight:500;font-size:12px;text-decoration:none;margin-left:auto}.bar a:hover{color:#fff}
 main{max-width:520px;margin:36px auto 60px;padding:0 16px}
 h1{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0 0 18px}
-section{background:#fff;border:1px solid #E4E1DC;border-radius:10px;padding:18px 20px 20px;margin:0 0 14px;box-shadow:0 1px 2px rgba(24,22,20,.04)}
-h2{font-size:15px;font-weight:600;margin:0 0 6px;color:#1B1A19}
-input{display:block;box-sizing:border-box;width:100%;margin:8px 0;padding:0 11px;height:34px;background:#fff;border:1px solid #CCC8C1;color:#1B1A19;border-radius:7px;font-size:14px;font-family:inherit}
-input:focus{outline:0;border-color:#C8914A;box-shadow:0 0 0 3px rgba(200,145,74,.18)}
-button{margin-top:6px;height:32px;padding:0 16px;background:#242322;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}button:hover{background:#3A3836}
-.msg{margin-top:10px;font-size:13px;min-height:18px}.ok{color:#4F7A5A}.err{color:#A4483D}
-p{font-size:13px;color:#6F6B65;line-height:1.5;margin:0 0 4px}</style>
+section{background:#fff;border:1px solid #DDDDD8;border-radius:3px;padding:18px 20px 20px;margin:0 0 14px;box-shadow:0 1px 2px rgba(20,20,20,.04)}
+h2{font-size:15px;font-weight:600;margin:0 0 6px;color:#1E1E1E}
+input{display:block;box-sizing:border-box;width:100%;margin:8px 0;padding:0 11px;height:34px;background:#fff;border:1px solid #C4C4BE;color:#1E1E1E;border-radius:3px;font-size:14px;font-family:inherit}
+input:focus{outline:0;border-color:#DBAB5D;box-shadow:0 0 0 3px rgba(219,171,93,.2)}
+button{margin-top:6px;height:32px;padding:0 16px;background:#2C2C2C;color:#fff;border:none;border-radius:3px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}button:hover{background:#3D3D3D}
+.msg{margin-top:10px;font-size:13px;min-height:18px}.ok{color:#4C7A4F}.err{color:#A6402C}
+p{font-size:13px;color:#6A6A66;line-height:1.5;margin:0 0 4px}</style>
 <div class="bar">Klaros Foundry<a href="/">Back to Foundry</a></div><main>
 <h1>Account</h1>
 <section><h2>Change password</h2>
