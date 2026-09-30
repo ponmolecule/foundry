@@ -790,11 +790,44 @@ main.iq-main,main.iq-main #content{background:#ffffff}
 @media(max-width:1300px){.iq-item-workspace{grid-template-columns:1fr}.iq-table-scroll{max-height:260px}.iq-item-editor{min-width:0}.iq-stage .wf-role-grid>.wf-field{grid-template-columns:160px minmax(0,1fr)}}
 @media(max-width:850px){.iq-workspace{grid-template-columns:1fr}.iq-nav{position:static;display:flex;flex-wrap:wrap}.iq-nav button{width:auto}.iq-metrics{grid-template-columns:1fr;gap:12px}.iq-metrics>div{border:0}.iq-stage .wf-role-grid>.wf-field{grid-template-columns:1fr}.iq-stage .wf-comp-value{grid-template-columns:repeat(3,minmax(0,1fr))}}
 
+/* r200IQ: compact advisory shell and structured modeling editors. */
+#ribbon{height:48px;padding:8px 24px;gap:18px;font-family:inherit;font-size:12px;flex-wrap:nowrap}
+#ribbon>.brand{font-size:22px;letter-spacing:0;color:#fff}#ribbon>.brand::before{content:'◩';color:#c4a165;display:inline-block;margin-right:10px;font-size:20px}
+#ribbon>b,#ribbon>.pill,#ribbon>span:not([id]):not(.brand):not(.toolbar-right){display:none}
+#ribbon .toolbar-right{margin-left:auto;min-width:0}#chevBox{background:transparent!important;border:0!important}
+.toolbar{background:#f5f6f7;padding:0 0;border-bottom:1px solid #d3d5d7;gap:0;min-height:44px}.toolbar #tabs{gap:0!important}
+.toolbar .tab{height:44px;border:0;border-right:1px solid #d3d5d7;border-radius:0;color:#222;background:transparent;padding:0 22px;display:inline-flex;align-items:center;gap:12px;font-size:13px}
+.toolbar .tab.active{background:#fff;box-shadow:inset 0 -3px #c4a165}.toolbar .tab:hover{background:#e8eaec;color:#111}
+.iq-more-nav{position:relative;margin-left:auto}.iq-more-nav>summary{list-style:none;cursor:pointer}.iq-more-nav>div{position:absolute;right:0;top:100%;z-index:60;background:#fff;border:1px solid #d3d5d7;box-shadow:0 6px 18px #0002;min-width:220px;padding:4px}.iq-more-nav>div>.tab{display:flex;width:100%;text-align:left;border:0;height:36px}
+main.iq-main{padding:0!important;gap:0!important}.iq-main #content{padding:12px 18px 20px 222px!important;position:relative;min-height:calc(100vh - 92px)}
+.iq-workspace{display:block}.iq-nav{position:absolute!important;left:0;top:0;bottom:0;width:204px;border:0!important;border-right:1px solid #d3d5d7!important;background:#f1f2f3;display:block}.iq-nav-title{display:none}.iq-nav button{min-height:48px;padding:12px 16px;border-bottom:0;font-size:12px;line-height:1.4}.iq-nav button.active{font-weight:600}.iq-nav-icon{margin-right:8px}
+.iq-main .cfghead{margin-bottom:12px!important}.iq-main .cfghead .ttl{font-family:Georgia,'Times New Roman',serif;font-size:28px;font-weight:700}.iq-main .cfgwrap>p,.iq-main #content>.cmut{font-size:10px;color:#666}
+.iq-stage .cfgcard{padding:10px;border-radius:2px}.iq-stage .cardhead{margin:-10px -10px 10px;padding:5px 10px;min-height:34px}.iq-stage .cardhead .ct{font:700 18px Georgia,'Times New Roman',serif}.iq-stage .cardhead .cd,.iq-stage .cardhead .mi{display:none}
+.iq-stage .nie-mode{margin:0 0 8px!important;max-width:270px}.iq-expense-tabs button{padding:8px 14px;font-size:12px}.iq-stage .nie-section{padding:0;border:0!important;margin-top:10px!important}.iq-stage .nie-section>.nie-section-title,.iq-stage .nie-section>.nie-section-note{display:none}
+.iq-metrics{padding:10px;margin-bottom:12px}.iq-metrics strong{font-size:20px;margin-top:5px}.iq-item-workspace{grid-template-columns:minmax(420px,1.25fr) minmax(430px,1fr);gap:14px}
+.iq-table-toolbar{min-height:46px;padding:8px 10px}.iq-table-toolbar>strong,.iq-editor-title>strong{font:700 18px Georgia,'Times New Roman',serif}.iq-editor-title{padding:8px 10px;margin:-12px -12px 8px;min-height:36px}.iq-item-editor>.wf-role-card{padding:12px}.iq-table-toolbar .nie-actions{margin-left:auto;gap:6px}
+#iq-workspace .iq-stage .iq-action-button{display:inline-flex;align-items:center;padding:6px 9px;border:1px solid #b8bdc3;border-radius:2px;background:#fff;font-size:11px;text-decoration:none;color:#222!important}
+.iq-population-table th{font-size:11px;white-space:normal;padding:12px 8px;height:48px}.iq-population-table td{padding:8px;font-size:12px}.iq-table-foot{padding:10px;background:#f8f9fa}
+.iq-editor-basics{display:grid;gap:6px;padding-bottom:8px;border-bottom:1px solid #e0e2e4}.iq-form-row,.iq-editor-basics>.wf-role-title{display:grid!important;grid-template-columns:160px minmax(0,1fr);align-items:center;gap:12px;margin:0!important}.iq-editor-basics .wf-field-label{font-size:12px;letter-spacing:0;text-transform:none;margin:0}
+.iq-editor-basics input,.iq-editor-basics select{height:28px;width:100%}.iq-editor-preview-row{display:grid;grid-template-columns:minmax(0,1fr) 155px;gap:12px;margin:10px 0}.iq-schedule-preview,.iq-timing{border:1px solid #dadddf;padding:8px;border-radius:2px;min-width:0;font-size:11px}.iq-schedule-preview strong,.iq-timing>strong{display:block;margin-bottom:6px;font-size:12px}.iq-schedule-preview table{border-collapse:collapse;width:100%;table-layout:fixed}.iq-schedule-preview :is(th,td){border:1px solid #dadddf;text-align:center;font-size:11px;padding:6px 3px}.iq-schedule-preview th{background:#f1f2f3;font-weight:500}.iq-preview-actions{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}.iq-preview-actions span{color:#666;font-size:10px}.iq-preview-amount{font-size:20px;margin:10px 0}.iq-preview-amount span{font-size:10px;color:#666}
+.iq-timing>.wf-field{display:block;margin:8px 0}.iq-timing .wf-field-label{font-size:11px;letter-spacing:0;text-transform:none}.iq-timing .wf-start-wrap{flex-wrap:wrap}.iq-timing select{width:100%!important}.iq-timing input{width:60px!important}.iq-timing .wf-end input{width:100%!important}
+.iq-advanced-settings>strong{display:block;font-size:12px;margin:10px 0 6px}.iq-setting{border:1px solid #dadddf;border-bottom:0;padding:0;font-size:11px}.iq-setting:last-child{border-bottom:1px solid #dadddf}.iq-setting>summary{display:flex;align-items:center;gap:12px;padding:7px 10px;cursor:pointer;list-style:none}.iq-setting>summary::before{content:'▸';color:#222}.iq-setting[open]>summary::before{content:'▾'}.iq-setting-value{margin-left:auto!important;width:45%;color:#666!important;text-transform:capitalize}.iq-setting>:not(summary){margin:10px!important;max-width:calc(100% - 20px)}.iq-setting .iq-form-row{grid-template-columns:145px minmax(0,1fr)}.iq-setting .wf-field-label{font-size:11px;text-transform:none;letter-spacing:0}
+.iq-editor-footer{display:grid;grid-template-columns:1fr 1fr;gap:14px;background:#f1f2f3;padding:10px;margin:12px -12px -12px;border-top:1px solid #dadddf}.iq-editor-footer span{display:block;color:#666;font-size:11px;margin-bottom:5px}.iq-editor-footer strong{font-size:13px;font-weight:500}.iq-editor-footer [data-iq-population-expense]{font-size:21px;font-weight:600}
+@media(max-width:1350px){.iq-item-workspace{grid-template-columns:1fr}.iq-table-scroll{max-height:240px}.toolbar .tab{padding:0 13px;font-size:12px}}
+@media(max-width:850px){.iq-main #content{padding:12px!important}.iq-nav{position:static!important;width:100%;display:flex;flex-wrap:wrap;margin-bottom:12px}.iq-nav button{width:auto;min-height:36px;padding:8px}.iq-editor-basics>.wf-role-title,.iq-form-row{grid-template-columns:130px minmax(0,1fr)}.iq-editor-preview-row{grid-template-columns:1fr}#ribbon{height:auto;min-height:48px;flex-wrap:wrap}.toolbar .tab{padding:0 10px;font-size:11px}.iq-more-nav{margin-left:0}}
+
+.iq-row-actions,.iq-mode-menu{position:relative;font-size:11px}.iq-row-actions>summary{cursor:pointer;padding:5px 8px;list-style:none;font-size:18px;line-height:18px}.iq-row-actions[open]{z-index:20}.iq-row-actions>a{position:absolute;right:0;top:30px;min-width:220px;white-space:nowrap;background:#fff!important;box-shadow:0 4px 12px #0002}.iq-row-actions>a+a{top:64px}
+.iq-expense-tabs{position:relative;padding-right:120px;margin-bottom:10px!important}.iq-mode-menu{position:absolute;right:4px;top:8px}.iq-mode-menu>summary{cursor:pointer;list-style:none;color:#666}.iq-mode-menu>.nie-mode{position:absolute;right:0;top:24px;z-index:20;width:265px;border:1px solid #b8bdc3;box-shadow:0 4px 12px #0002;background:#fff!important;padding:5px}.iq-mode-menu button{padding:8px!important;font-size:11px!important}
+.iq-setting>.wf-field,.iq-timing>.wf-field{max-width:none}.iq-timing .wf-start-wrap{gap:4px}.iq-timing .wf-field-label{display:inline-block;width:42px}.iq-timing .wf-start{display:flex;align-items:center;gap:4px}.iq-timing .wf-start-wrap{flex:1}.iq-timing .wf-end{display:flex;align-items:center;gap:4px}.iq-timing .wf-end input{flex:1;min-width:0}.iq-setting .wf-field{display:grid;grid-template-columns:145px minmax(0,1fr);gap:12px;align-items:center;width:auto!important}.iq-setting input,.iq-setting select{max-width:100%}.iq-stage .nie-section-head{margin:0}.iq-stage .iq-help{font-size:11px}.iq-main .cfgwrap>p{margin-bottom:8px!important}
+
+.iq-component-tools{margin-top:12px;border:1px solid #d3d5d7;padding:10px;background:#f8f9fa}.iq-component-tools>strong{display:block;font:700 14px Georgia,'Times New Roman',serif;margin-bottom:8px}.iq-component-tools>.nie-actions{display:flex;flex-wrap:wrap;gap:6px;margin:0!important}.iq-component-tools .iq-action-button{flex:1 1 150px;white-space:normal!important;min-width:0}
+.iq-editor-basics select{width:100%!important}.iq-setting{border-bottom:1px solid #dadddf}.iq-setting+.iq-setting{border-top:0}.iq-run-details{margin-top:10px;border-top:1px solid #d3d5d7;padding-top:8px;font-size:11px}.iq-run-details>summary{cursor:pointer;color:#56595d}.iq-editor-title>.opex-drag-handle{margin-right:8px}.iq-editor-title>.cx{margin-left:auto}.iq-editor-title>strong{margin-right:auto}
+.iq-config-help{font-size:11px;color:#56595d;border-top:1px solid #d3d5d7;margin-top:10px;padding:8px 0}.iq-config-help>summary{cursor:pointer}.iq-config-help .memo,.iq-config-help .cfgfoot{margin:8px 0!important}.iq-component-tools .cadd{display:inline-flex!important;padding:7px 10px!important;border:1px solid #b8bdc3!important;color:#222!important;background:#fff!important;border-radius:2px!important;text-decoration:none!important}
 </style>
 </head>
 <body>
 <div id="ribbon">
-  <span class="brand">KLAROS FOUNDRY</span><span>&middot;</span><b>Modeling Workspace</b>
+  <span class="brand" title="Klaros Foundry">Foundry</span><span>&middot;</span><b>Modeling Workspace</b>
   <span class="pill">Klaros Foundry v3.1</span>
   <span id="rhash" style="display:none"></span>
   <span style="flex:1"></span>
@@ -4410,8 +4443,16 @@ function setTab(t){
     if(_as && _as.style.display !== "none" && !_as.textContent.includes("\u23f3")) appStatus(null); } currentTab = t; renderTabs(); renderContent(); }
 window.setTab=setTab;
 function renderTabs(){
-  document.getElementById("tabs").innerHTML = TAB_DEFS.map(([k,l])=>
-    `<button class="tab${k===currentTab?" active":""}" onclick="setTab('${k}')">${l}</button>`).join(" ");
+  const primary=['overview','products','config','bs','is','examiner'];
+  const labels={overview:'Overview',products:'Products',examiner:'Audit / examiner'};
+  const icons={overview:'bank',products:'cube',config:'calc',bs:'wave',is:'doc',examiner:'shield'};
+  const button=([k,l])=>`<button class="tab${k===currentTab?' active':''}" onclick="setTab('${k}')">${typeof ICONS!=='undefined'&&icons[k]?ICONS[icons[k]]:''}<span>${labels[k]||l}</span></button>`;
+  const defs=TAB_DEFS.filter(([k])=>primary.includes(k)).sort((a,b)=>primary.indexOf(a[0])-primary.indexOf(b[0]));
+  const more=TAB_DEFS.filter(([k])=>!primary.includes(k));
+  document.getElementById('tabs').innerHTML=defs.map(button).join('')+`<details class="iq-more-nav"><summary class="tab${primary.includes(currentTab)?'':' active'}">${primary.includes(currentTab)?'More':esc((TAB_DEFS.find(x=>x[0]===currentTab)||[])[1]||'More')} ▾</summary><div>${more.map(button).join('')}</div></details>`;
+  const scenarioInput=document.getElementById('scenarioName');if(scenarioInput&&document.activeElement!==scenarioInput)scenarioInput.value=(cfg&&cfg.scenario_name)||'';
+  const right=document.querySelector('.toolbar-right'),ribbon=document.getElementById('ribbon');
+  if(right&&right.parentElement!==ribbon)ribbon.appendChild(right);
 }
 function finColspan(withOpen, withTotal){
   return (V21 ? 1 : 0) + 1 + (withOpen ? 1 : 0) + NP() + (withTotal ? 1 : 0);
@@ -6746,12 +6787,12 @@ function _captureAuthoringState(){
   if(!root||!same)return null;
   const fields=Array.from(root.querySelectorAll('textarea[id]')).filter(el=>el.id!==_consumedPasteId).map(el=>({id:el.id,value:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:el.scrollTop,left:el.scrollLeft,height:el.style.height}));
   const focus=ae && (root.contains(ae)||ae.hasAttribute('data-focus')) ? {id:ae.id,path:ae.getAttribute('data-focus'),start:ae.selectionStart,end:ae.selectionEnd,direction:ae.selectionDirection}:null;
-  return {fields,focus,x:window.scrollX,y:window.scrollY,scrolls:Array.from(document.querySelectorAll('[id]')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>({id:el.id,top:el.scrollTop,left:el.scrollLeft})),details:Array.from(root.querySelectorAll('details')).map(el=>el.open)};
+  return {fields,focus,x:window.scrollX,y:window.scrollY,scrolls:Array.from(document.querySelectorAll('[id]')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>({id:el.id,top:el.scrollTop,left:el.scrollLeft})),details:Array.from(root.querySelectorAll('details')).map(el=>({id:el.id,open:el.open}))};
 }
 function _restoreAuthoringState(state){
   if(!state)return;
   state.fields.forEach(v=>{const el=document.getElementById(v.id);if(!el)return;el.value=v.value;if(v.height)el.style.height=v.height;el.scrollTop=v.top;el.scrollLeft=v.left;if(el.hasAttribute('oninput'))el.dispatchEvent(new Event('input',{bubbles:true}));});
-  document.querySelectorAll('#content details').forEach((el,i)=>{if(i<state.details.length)el.open=state.details[i];});
+  document.querySelectorAll('#content details').forEach((el,i)=>{const byId=el.id&&state.details.find(v=>v.id===el.id);const v=byId||state.details[i];if(v!=null)el.open=typeof v==='boolean'?v:v.open;});
   const f=state.focus;
   if(f){const el=f.id?document.getElementById(f.id):f.path?Array.from(document.querySelectorAll('[data-focus]')).find(el=>el.getAttribute('data-focus')===f.path):null;
     if(el){el.focus({preventScroll:true});if(typeof f.start==='number')try{el.setSelectionRange(f.start,f.end,f.direction);}catch(_){} }
@@ -10086,7 +10127,7 @@ function structuresSectionsHtml(){
         }
         row += '</div>';
       }
-      const _adv=!!((window._nieCatAdvancedOpen||{})[i]),_lcs=ct.linked_components||[],_rec=ct.recognition||{mode:'trajectory'},_rm=_rec.mode||'trajectory',_sett=ct.settlement||{mode:'recognition'},_sm=_sett.mode||'recognition',_hasEnteredRecurring=_opexHasEnteredRecurringExpense(ct);
+      const _adv=true,_lcs=ct.linked_components||[],_rec=ct.recognition||{mode:'trajectory'},_rm=_rec.mode||'trajectory',_sett=ct.settlement||{mode:'recognition'},_sm=_sett.mode||'recognition',_hasEnteredRecurring=_opexHasEnteredRecurringExpense(ct);
       row += `<div class="nie-actions" style="margin-top:6px"><a href="#" class="cadd" onclick="nieCatAdvanced(${i},${_adv?'false':'true'});return false">${_adv?'Hide advanced':'Advanced'}${(_legacyCostPool||_lcs.length||(_hasEnteredRecurring&&(_rm!=='trajectory'||_sm!=='recognition')))?' · configured':''}</a></div>`;
       if(_adv){
         if(!_legacyCostPool){
@@ -10343,13 +10384,97 @@ function _iqNormalizeStyles(root){
     }
   });
 }
+function _iqPopulationExpense(role,index){
+  const w=(lastRes||{}).workforce||{},ids=w.series_ids||[];const ri=role.series_id?ids.indexOf(String(role.series_id)):index;return ri<0?null:(w.population_comp||[])[ri]?.[0]??null;
+}
 function _iqRefreshMetrics(){
   const nd=(cfg.assumptions||{}).nie_detail||{},roles=(nd.workforce||{}).roles||[];
+  document.querySelectorAll('[data-iq-population-expense]').forEach(el=>{const i=+el.dataset.iqPopulationExpense,v=_iqPopulationExpense(roles[i]||{},i);el.textContent=v==null?'Awaiting run':fmtComma(v);});
   document.querySelectorAll('[data-iq-metric]').forEach(el=>{
     const metric=el.dataset.iqMetric;
     if(metric==='populations')el.textContent=String(roles.length);
     else if(metric==='schedules')el.textContent=String(roles.filter(r=>['explicit'].includes((r.compensation_spec||{}).trajectory||(r.compensation_spec||{}).mode)).length);
     else if(metric==='workforce'){const v=(((lastRes||{}).workforce||{}).comp||[])[0];el.textContent=v==null?'Awaiting run':fmtComma(v);}
+  });
+}
+function _iqDisclosure(title,value){
+  const d=document.createElement('details');d.className='iq-setting';
+  const summary=document.createElement('summary');const name=document.createElement('span');name.textContent=title;
+  const state=document.createElement('span');state.className='iq-setting-value';state.textContent=value;
+  summary.append(name,state);d.appendChild(summary);return d;
+}
+function _iqSchedulePreview(row,role){
+  const preview=row.querySelector('.iq-schedule-preview');if(!preview)return;
+  const sp=role.compensation_spec||{},vs=sp.values||[],per=sp.period||role.compensation_period||'year',cad=sp.cadence||per;
+  const path=sp.trajectory||sp.mode||'legacy';
+  if(path==='explicit'){
+    const indices=vs.length<=4?vs.map((_,i)=>i):[0,1,2,-1,vs.length-1];
+    preview.innerHTML='<strong>Schedule preview ('+esc({month:'monthly',quarter:'quarterly',year:'annual'}[cad]||cad)+' · $000s)</strong><table><tr>'+indices.map(i=>'<th>'+(i<0?'…':(cad==='month'?'M':cad==='quarter'?'Q':'Y')+(i+1))+'</th>').join('')+'</tr><tr>'+indices.map(i=>'<td>'+(i<0?'…':fmtComma((+vs[i]||0)/1000))+'</td>').join('')+'</tr></table><div class="iq-preview-actions"><button type="button" class="pillbtn">View / edit schedule</button><span>'+vs.length+' source values · '+(sp.resolution==='smooth'?'Interpolated':'Hold')+'</span></div>';
+  }else{
+    const v=sp.base??sp.value??role.annual_comp??0;
+    preview.innerHTML='<strong>Compensation preview ($000s)</strong><div class="iq-preview-amount">'+fmtComma(v/1000)+' <span>/ '+esc(per)+' · '+(path==='legacy'?'Default escalation':esc(path))+'</span></div><div class="iq-preview-actions"><button type="button" class="pillbtn">View / edit trajectory</button></div>';
+  }
+  preview.querySelector('button').onclick=()=>{const d=row.querySelector('.iq-comp-settings');d.open=true;d.scrollIntoView({block:'nearest'});};
+}
+function _iqBuildWorkforceEditor(row,i){
+  const role=_iqCollection('iq-items-workforce')[i]||{},grid=row.querySelector('.wf-role-grid'),old=row.querySelector('.wf-series-details');if(!grid||!old)return;
+  const field=(label,control)=>{const box=document.createElement('div');box.className='iq-form-row';const text=document.createElement('label');text.textContent=label;box.append(text,control);return box;};
+  grid.querySelector('.wf-role-title .wf-field-label').textContent='Population name';
+  const comp=grid.querySelector('.wf-compensation'),values=comp.querySelector('.wf-comp-value'),amount=values.querySelector('input'),selects=values.querySelectorAll('select');
+  selects[0].querySelector('option[value=total]').textContent='Total population';Array.from(selects[1].options).forEach(o=>o.textContent=o.value.replace(/^./,c=>c.toUpperCase()));
+  const basics=document.createElement('div');basics.className='iq-editor-basics';
+  basics.append(grid.querySelector('.wf-role-title'),field('Compensation basis',selects[0]),field('Amount per',selects[1]));
+  const paths=old.querySelectorAll(':scope > .crow > label');
+  const countPath=paths[0],compPath=paths[1];
+  if(compPath)basics.append(field('Compensation path',compPath.querySelector('select')));
+  row.appendChild(basics);
+  const upper=document.createElement('div');upper.className='iq-editor-preview-row';
+  const preview=document.createElement('div');preview.className='iq-schedule-preview';
+  const timing=document.createElement('div');timing.className='iq-timing';timing.innerHTML='<strong>Timing</strong>';
+  const startMode=grid.querySelector('.wf-start select');grid.querySelector('.wf-start .wf-field-label').textContent='Begins';grid.querySelector('.wf-end .wf-field-label').textContent='Ends';
+  timing.append(grid.querySelector('.wf-start'),grid.querySelector('.wf-end'));upper.append(preview,timing);row.appendChild(upper);
+  const advanced=document.createElement('div');advanced.className='iq-advanced-settings';advanced.innerHTML='<strong>Advanced settings</strong>';
+  const cp=role.count_spec||{},sp=role.compensation_spec||{},mode=sp.trajectory||sp.mode||'legacy';
+  const counts=_iqDisclosure('Count trajectory',(cp.trajectory||cp.mode||'Flat')+' · '+(role.count??1));counts.classList.add('iq-count-settings');
+  counts.append(grid.querySelector('.wf-count'));if(countPath)counts.appendChild(countPath);
+  const compensation=_iqDisclosure('Compensation trajectory',mode==='legacy'?'Default escalation':mode+' · '+(sp.cadence||sp.period||role.compensation_period||'year'));compensation.classList.add('iq-comp-settings');
+  compensation.appendChild(field('Base amount ($000s)',amount));
+  Array.from(old.children).slice(2).forEach(node=>{const text=node.textContent||'';(text.startsWith('Count')?counts:compensation).appendChild(node);});
+  const activation=_iqDisclosure('Activation rule',role.activation?'Metric trigger':'Fixed start · '+PERLAB(role.hire_period||1));activation.classList.add('iq-activation-settings');
+  activation.appendChild(field('Activation method',startMode));
+  const trigger=row.querySelector('.wf-trigger-row');if(trigger)activation.appendChild(trigger);
+  const benefits=_iqDisclosure('Escalation & benefits',role.payroll_load_rate!=null?((role.payroll_load_rate||0)*100)+'% payroll load':'Uses workforce defaults');
+  benefits.append(grid.querySelector('.wf-escalation'),grid.querySelector('.wf-load'));
+  [counts,compensation,activation,benefits].forEach((d,j)=>d.id='iq-wf-setting-'+(role.series_id||i)+'-'+j);advanced.append(counts,compensation,activation,benefits);row.appendChild(advanced);
+  old.remove();grid.remove();
+  const footer=document.createElement('div');footer.className='iq-editor-footer';footer.innerHTML='<div><span>'+PERLAB(1)+' calculated expense · latest run ($000s)</span><strong data-iq-population-expense="'+i+'"></strong></div><div><span>Posts to</span><strong>Workforce compensation</strong></div>';row.appendChild(footer);
+  const update=()=>{_iqSchedulePreview(row,role);counts.querySelector('.iq-setting-value').textContent=((role.count_spec||{}).trajectory||'Flat')+' · '+(role.count??1);benefits.querySelector('.iq-setting-value').textContent=role.payroll_load_rate!=null?((role.payroll_load_rate||0)*100)+'% payroll load':'Uses workforce defaults';activation.querySelector('.iq-setting-value').textContent=role.activation?'Metric trigger':'Fixed start · '+PERLAB(role.hire_period||1);const cost=_iqPopulationExpense(role,i);footer.querySelector('[data-iq-population-expense]').textContent=cost==null?'Awaiting run':fmtComma(cost);};update();row.addEventListener('change',update);
+}
+function _iqBuildExpenseEditor(row,i){
+  const entity=_iqCollection('iq-items-expenses')[i]||{},head=row.querySelector('.opex-item-head'),flow=row.querySelector(':scope > .crow');
+  const form=document.createElement('div');form.className='iq-editor-basics';
+  const field=(label,control)=>{const box=document.createElement('div');box.className='iq-form-row';const text=document.createElement('label');text.textContent=label;box.append(text,control);return box;};
+  const input=head?.querySelector('.opex-item-name');if(input)form.appendChild(field('Expense name',input));const drag=head?.querySelector('.opex-drag-handle');if(drag)row.querySelector('.iq-editor-title').prepend(drag);
+  const path=flow?.querySelector('select[onchange*="nieCatTrajectory"]'),period=flow?.querySelector('select[onchange*="Period"]');
+  if(path)form.appendChild(field('Expense path',path));if(period)form.appendChild(field('Amount per',period));
+  if(head){head.after(form);head.remove();}else row.appendChild(form);
+  if(flow){
+    const trajectory=_iqDisclosure('Recurring expense trajectory',(_viewNieCatFlow(entity).trajectory||'flat')+' · '+(_viewNieCatFlow(entity).period||_nativeFlowPeriod()));trajectory.classList.add('iq-comp-settings');trajectory.id='iq-expense-trajectory-'+(entity.series_id||i);
+    const amount=flow.querySelector('input[onchange*="nieCatFlowValue"]');if(amount)trajectory.appendChild(field('Base amount ($000s)',amount));
+    flow.querySelectorAll(':scope > .cu').forEach(e=>e.remove());trajectory.appendChild(flow);
+    const preview=document.createElement('div');preview.className='iq-schedule-preview';form.after(preview);
+    const update=()=>{const fs=_viewNieCatFlow(entity);_iqSchedulePreview(row,{compensation_spec:{...fs,cadence:fs.period}});preview.querySelector('strong').textContent=fs.trajectory==='explicit'?'Schedule preview ('+(fs.period||_nativeFlowPeriod())+' · $000s)':'Recurring expense preview ($000s)';};
+    row.appendChild(trajectory);update();row.addEventListener('change',update);
+  }
+  const toggle=row.querySelector('a[onclick*="nieCatAdvanced"]');if(toggle)toggle.closest('.nie-actions').remove();
+  const schemas=Array.from(row.children).filter(el=>el.querySelector(':scope > .wf-field-label')?.textContent==='Additive expense components');
+  schemas.forEach(schema=>{
+    const tools=schema.querySelector(':scope > .nie-actions');if(tools){const strip=document.createElement('div');strip.className='iq-component-tools';strip.innerHTML='<strong>Expense component tools</strong>';strip.appendChild(tools);row.appendChild(strip);}
+    const d=_iqDisclosure('Expense components',(entity.linked_components||[]).length+' configured');d.id='iq-expense-components-'+(entity.series_id||i);schema.before(d);d.appendChild(schema);
+    Array.from(schema.children).filter(el=>el.matches('.opex-cost-pool-editor,.opex-piecewise-card,.opex-service-component-card,.opex-cost-pool-component')).forEach((card,j)=>{const c=(entity.linked_components||[])[j]||{};const item=_iqDisclosure(c.name||'Component '+(j+1),(c.driver||'').replace(/_/g,' '));card.before(item);item.appendChild(card);});
+  });
+  Array.from(row.children).filter(el=>el.querySelector('select[onchange*="nieCatRecognition"],select[onchange*="nieCatSettlement"]')).forEach(el=>{
+    const select=el.querySelector('select'),recognition=select.getAttribute('onchange').includes('Recognition'),d=_iqDisclosure(recognition?'Expense recognition':'Cash settlement',select.options[select.selectedIndex].textContent);d.id='iq-expense-'+(recognition?'recognition':'settlement')+'-'+(entity.series_id||i);el.before(d);d.appendChild(el);
   });
 }
 function _iqMountItems(section){
@@ -10361,14 +10486,14 @@ function _iqMountItems(section){
   const heading=document.createElement('div');heading.className='iq-table-toolbar';
   const title=document.createElement('strong');title.textContent=workforce?'Workforce populations':'Expense categories';heading.appendChild(title);
   const actions=section.querySelector(':scope > .nie-actions');
-  if(actions){heading.appendChild(actions);const add=actions.querySelector('a[onclick*="nieWorkforceAdd();"]');if(add)add.textContent='+ Add population';}
+  if(actions){heading.appendChild(actions);const add=actions.querySelector('a[onclick*="nieWorkforceAdd();"]');if(add)add.textContent='+ Add population';const paste=actions.querySelector('a[onclick*="Paste"]');if(paste)paste.textContent='Paste '+(workforce?'roles':'categories');const extras=Array.from(actions.children).filter(a=>/Clear|Tiered/.test(a.textContent));const tiered=extras.find(a=>/Tiered/.test(a.textContent));if(tiered){const tools=document.createElement('div');tools.className='iq-component-tools';tools.innerHTML='<strong>Compensation component tools</strong>';tools.appendChild(tiered);section.appendChild(tools);extras.splice(extras.indexOf(tiered),1);}if(extras.length){const menu=document.createElement('details');menu.className='iq-row-actions';menu.innerHTML='<summary aria-label="More population actions">⋯</summary>';extras.forEach(a=>menu.appendChild(a));actions.appendChild(menu);}}
   const scroll=document.createElement('div');scroll.className='iq-table-scroll';
   const table=document.createElement('table');table.className='iq-population-table';
   const thead=document.createElement('thead'),tr=document.createElement('tr');
-  const labels=workforce?['Population','Count','Basis','Amount ($000s)','Per','Path']:['Expense','Source amount ($000s)','Per','Path','Components'];
+  const labels=workforce?['Population','Count','Basis','Amount per',PERLAB(1)+' cost ($000s) · latest run','Schedule']:['Expense','Source amount ($000s)','Per','Path','Components'];
   labels.forEach(label=>{const th=document.createElement('th');th.textContent=label;tr.appendChild(th);});thead.appendChild(tr);
   const tbody=document.createElement('tbody');table.append(thead,tbody);scroll.appendChild(table);list.append(heading,scroll);
-  const footer=document.createElement('div');footer.className='iq-table-foot';footer.textContent='Select a row to edit its assumptions. Amounts shown are authored inputs.';list.appendChild(footer);
+  const footer=document.createElement('div');footer.className='iq-table-foot';footer.textContent=workforce?'Select a row to edit. Calculated costs reflect the latest engine run.':'Select a row to edit. Source amounts are authored inputs in $000s.';list.appendChild(footer);
   _iqKeyboardTabs(tbody);
   const editor=document.createElement('div');editor.className='iq-item-editor';
   rows[0].before(layout);layout.append(list,editor);
@@ -10387,16 +10512,16 @@ function _iqMountItems(section){
       const path=spec.trajectory||spec.mode||(workforce?'escalation':'flat');
       if(workforce){
         cells[1].textContent=row.querySelector('.wf-count input')?.value||'—';
-        const selects=row.querySelectorAll('.wf-comp-value select');
+        const selects=row.querySelectorAll('select[onchange*="nieWorkforceCompBasis"],select[onchange*="nieWorkforceCompPeriod"]');
         cells[2].textContent=selects[0]?.value==='total'?'Total':'Per FTE';
-        cells[3].textContent=row.querySelector('.wf-comp-value input')?.value||'—';
-        cells[4].textContent=selects[1]?.value||'year';
+        cells[3].textContent=selects[1]?.value||'year';
+        cells[4].dataset.iqPopulationExpense=i;const cost=_iqPopulationExpense(entity,i);cells[4].textContent=cost==null?'—':fmtComma(cost);
         cells[5].textContent=path==='explicit'?'Explicit · '+(spec.values||[]).length:' '+path.replace(/^./,c=>c.toUpperCase());
       }else{
         const amount=spec.trajectory==='explicit'?(spec.values||[])[0]:spec.value;
         cells[1].textContent=amount==null?'—':fmtComma(amount/1000);cells[2].textContent=spec.period||_nativeFlowPeriod();cells[3].textContent=path.replace(/^./,c=>c.toUpperCase());cells[4].textContent=String((entity.linked_components||[]).length);
       }
-    };updateSummary();row.addEventListener('input',updateSummary);row.addEventListener('change',updateSummary);
+    };updateSummary();if(workforce)_iqBuildWorkforceEditor(row,i);else _iqBuildExpenseEditor(row,i);row.addEventListener('input',updateSummary);row.addEventListener('change',updateSummary);
     btn.onclick=()=>_iqSelectItem(key,i);item.onclick=ev=>{if(!ev.target.closest('button'))_iqSelectItem(key,i);};tbody.appendChild(item);
     row.dataset.iqItem=i;row.id=key+'-panel-'+i;row.setAttribute('role','tabpanel');row.setAttribute('aria-labelledby',key+'-tab-'+i);btn.id=key+'-tab-'+i;btn.setAttribute('aria-controls',row.id);editor.appendChild(row);
     if(!workforce){item.draggable=true;item.title='Select to edit; drag to reorder';item.ondragstart=ev=>window.nieCatDragStart(ev,i);item.ondragover=ev=>window.nieCatDragOver(ev,i);item.ondragleave=ev=>window.nieCatDragLeave(ev);item.ondrop=ev=>window.nieCatDrop(ev,i);item.ondragend=ev=>window.nieCatDragEnd(ev);}
@@ -10421,7 +10546,7 @@ function _iqMountWorkspace(){
     panel.dataset.iqPanel=key;panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','iq-tab-'+key);stage.appendChild(panel);
     const btn=document.createElement('button');btn.type='button';btn.dataset.iqSection=key;btn.id='iq-tab-'+key;btn.setAttribute('role','tab');btn.setAttribute('aria-controls',panel.id);
     if(icon){const mark=document.createElement('span');mark.className='iq-nav-icon';mark.innerHTML=icon;btn.appendChild(mark);}
-    btn.appendChild(document.createTextNode(label));btn.onclick=()=>_iqSelectSection(key);nav.appendChild(btn);
+    const concise={'Capital structure & pre-opening':'Capital & pre-opening','Securities books & AOCI':'Securities & liquidity','Operating expense':'Operating expenses','Tax detail — NOL → DTA':'Tax','Credit regime — CECL presentation':'Credit'};btn.appendChild(document.createTextNode(concise[label]||label));btn.onclick=()=>_iqSelectSection(key);nav.appendChild(btn);
   };
   const globals=document.createElement('div');globals.id='iq-assumptions';globals.className='iq-assumptions';
   const aside=document.querySelector('main > aside');while(aside.firstChild)globals.appendChild(aside.firstChild);
@@ -10436,6 +10561,7 @@ function _iqMountWorkspace(){
   const modules=wrap.querySelector('.modpanel');
   if(modules){modules.id='iq-modules';add('iq-modules','Module activation',modules,ICONS.stack);}
   wrap.replaceChildren(root);
+  const help=document.createElement('details');help.className='iq-config-help';help.innerHTML='<summary>Configuration help</summary>';Array.from(content.children).filter(x=>x.matches('.memo,.cfgfoot')).forEach(x=>help.appendChild(x));if(help.children.length>1)wrap.after(help);
   const expenses=stage.querySelector('#card-nie');
   if(expenses){
     const sections=Array.from(expenses.querySelectorAll(':scope > .nie-section'));
@@ -10455,19 +10581,23 @@ function _iqMountWorkspace(){
     expenseSections[0].prepend(strip);
     const tabs=stage.querySelectorAll('.iq-expense-tabs button');['Workforce','Expense categories','Defaults & assessments'].forEach((label,i)=>{if(tabs[i])tabs[i].textContent=label;});
   }
-  stage.querySelectorAll('.nie-section').forEach(_iqMountItems);
+  stage.querySelectorAll('.nie-section').forEach(section=>{_iqMountItems(section);const head=section.querySelector(':scope > .nie-section-head');if(head&&section.querySelector('.iq-item-workspace')){const guidance=document.createElement('details');guidance.className='iq-help';guidance.innerHTML='<summary>Guidance</summary>';guidance.appendChild(head);Array.from(section.children).filter(x=>x!==guidance&&x!==head&&(x.matches('.cmut,.chint')||x.textContent.trim().startsWith('User note.'))).forEach(x=>guidance.appendChild(x));section.appendChild(guidance);}});
   _iqRefreshMetrics();
+  const mode=stage.querySelector('#card-nie>.nie-mode'),expenseTabs=stage.querySelector('.iq-expense-tabs');if(mode&&expenseTabs){const modeBox=document.createElement('details');modeBox.className='iq-mode-menu';modeBox.innerHTML='<summary>Expense mode ▾</summary>';modeBox.appendChild(mode);expenseTabs.appendChild(modeBox);}
   _iqNormalizeStyles(stage);
+  stage.querySelectorAll('.nie-actions a').forEach(a=>a.classList.add('iq-action-button'));
+  stage.querySelectorAll('.ct').forEach(el=>{if(el.textContent==='Operating expense')el.textContent='Operating expenses';});
   stage.querySelectorAll('button[onclick]').forEach(button=>{if(/^(cfgSectionSetOpen\('secaoci'|nieSectionSetOpen\('(workforce|opex)')/.test(button.getAttribute('onclick')))button.remove();});
   // Preserve help verbatim, but move longer explanations behind an explicit affordance.
   stage.querySelectorAll('.nie-section-note,.cmut,.chint,.mp-info,.memo').forEach(note=>{
-    if(note.textContent.length<150||note.querySelector('input,select,textarea,button,a'))return;
+    if(note.closest('details.iq-help')||note.textContent.length<150||note.querySelector('input,select,textarea,button,a'))return;
     const preceding=note.previousElementSibling;
     if(preceding?.matches('details.iq-help')){preceding.appendChild(note);return;}
     const detail=document.createElement('details');detail.className='iq-help';
     const summary=document.createElement('summary');summary.textContent='Guidance';
     note.before(detail);detail.append(summary,note);
   });
+  stage.querySelectorAll('.nie-section').forEach(section=>{const notes=Array.from(section.querySelectorAll(':scope > details.iq-help'));if(notes.length){const first=notes[0];notes.slice(1).forEach(note=>{Array.from(note.children).filter(x=>x.tagName!=='SUMMARY').forEach(x=>first.appendChild(x));note.remove();});section.appendChild(first);}const audit=section.querySelector(':scope > [data-engine-preview="workforce-summary"]');if(audit){const d=document.createElement('details');d.className='iq-run-details';d.innerHTML='<summary>Workforce audit · latest run</summary>';audit.before(d);d.appendChild(audit);section.appendChild(d);}});
   if(!stage.querySelector('[data-iq-panel="'+_iqSection+'"]'))_iqSection='assumptions';
   _iqApplySelection();
 }
