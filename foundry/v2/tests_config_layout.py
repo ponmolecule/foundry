@@ -69,6 +69,12 @@ def main():
        'section#content table.ovt td,section#content table.dtab td' in html and 'font-variant-numeric:tabular-nums lining-nums' in html)
     ck("Lab heatmaps use the champagne-to-gold ramp",
        html.count('Math.round(238-t*48)') == 2 and 'Math.round(40+t*40)' not in html)
+    # r202: remaining list editors are master-detail.
+    ck("Managed-portfolio securities are a grid with one selected editor",
+       "_mdPick(_slArr,'_secSlSel'+mi,'_secSlSeen'+mi)" in html and 'window.secSleeveSelect=function' in html and 'class="cfg-md cfg-md-stack"' in html)
+    ck("Acquisition channels are a grid with drag reorder and one selected editor",
+       "_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn)" in html and 'window.cacChannelSelect=function' in html
+       and 'ondragstart="cacChannelDragStart(event,' in html and 'tr.cac-channel-card.drop-before td' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

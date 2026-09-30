@@ -445,3 +445,23 @@ Validation: full gate set compared with the r198 baseline; tests_config_layout e
 four r201 checks. Headless Chromium at 1440px on all seven tabs; Lab sensitivity run live,
 trade-off surface and contour rendered from a synthetic 9x9 grid (the example bank exposes a
 single lever).
+
+
+## r202 — Finish: remaining editors, account page, exhibits
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Managed-portfolio securities and acquisition channels are master-detail, matching Workforce
+and Expense categories: a grid of records beside (channels) or above (securities, which sit
+in a half-width column) the selected record's editor. Channel drag-to-reorder moved to the
+grid. Newly added records open automatically.
+
+The /account page is rebuilt as a light Klaros page (graphite bar, white cards, gold focus).
+Excel exhibit writers (excelio, audit_workbook, bpt_cover) move from navy to graphite and
+Klaros gold for header fills, rules and muted text. Blue inputs, green links and red checks
+keep the modeling convention.
+
+Unchanged by design: the Welcome landing (dark brand page) and the frozen /v1 console.
+
+Validation: full gate set compared with the r198 baseline; tests_config_layout extended with
+two r202 checks; exhibit workbooks regenerated and opened.

@@ -1137,6 +1137,16 @@ section#content table.ovt:not(.ovt-grid) td,section#content table.dtab td{border
 .ovcard .k{color:var(--k-tx3)!important;letter-spacing:.05em}
 .ovcard .v{font-family:var(--k-disp)!important;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums;color:var(--k-tx1)}
 section#content select:not(.cfgwrap select){height:29px;border:1px solid var(--k-field-line);border-radius:6px;background:var(--k-surface);color:var(--k-tx1);padding:0 8px;font-size:12.5px}
+
+/* r202: stacked master-detail where the module column is narrow; channel rows carry drag markers */
+.cfg-stage .cfg-md.cfg-md-stack{grid-template-columns:minmax(0,1fr)!important;margin:12px 0}
+.cfg-md-detail .sec-managed-sleeve{border-top:0;margin-top:0;padding-top:0}
+tr.cac-channel-card{background:none;border:0;padding:0;margin:0;box-shadow:none}
+tr.cac-channel-card:before{display:none}
+tr.cac-channel-card.drop-before td{box-shadow:inset 0 2px 0 var(--k-gold)}
+tr.cac-channel-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
+.cfg-md-detail .cac-channel-card{border:0!important;background:transparent!important;padding:0!important;margin:0!important}
+.cfg-md-detail .cac-channel-drag-handle{display:none}
 </style>
 </head>
 <body>
@@ -1276,6 +1286,8 @@ function _nieTabSel(){let k=window._nieTab;if(!k){try{k=sessionStorage.getItem('
 window.nieTabSet=function(k){window._nieTab=k;try{sessionStorage.setItem('foundry.nieTab',k);}catch(e){}const c=document.getElementById('card-nie');if(c)c.setAttribute('data-nie-tab',k);document.querySelectorAll('.cfg-subtab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-tab')===k));};
 // Master-detail selection is held by object identity, so reorder, insert and delete keep the right record open.
 window.wfSelect=function(i){const r=(((cfg.assumptions.nie_detail||{}).workforce||{}).roles||[])[i];if(r){window._wfSelObj=r;renderContent();}};
+window.secSleeveSelect=function(mi,si){const p=(cfg.assumptions.managed_securities_portfolios||[])[mi],s=p&&(p.sleeves||[])[si];if(s){window['_secSlSel'+mi]=s;renderContent();}};
+window.cacChannelSelect=function(fn,ci){const f=(cfg.assumptions.cac_feeds||{})[fn],c=f&&(f.channels||[])[ci];if(c){window['_cacChSel_'+fn]=c;renderContent();}};
 window.nieCatSelect=function(i){const c=((cfg.assumptions.nie_detail||{}).categories||[])[i];if(c){window._nieCatSelObj=c;renderContent();}};
 function _mdPick(arr,selKey,seenKey){
   const seen=(window[seenKey]=window[seenKey]||new WeakSet());const fresh=arr.find(x=>x&&typeof x==='object'&&!seen.has(x));
@@ -10246,7 +10258,9 @@ function structuresSectionsHtml(){
       const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
       _sb += `<div class="sec-managed-portfolio"><div class="sec-managed-portfolio-head"><input class="sec-managed-portfolio-title" style="flex:1 1 auto;width:auto" value="${esc(mp.name||'Managed securities portfolio')}" onchange="_managedSecPortfolios()[${mi}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove managed portfolio" onclick="secManagedDeletePortfolio(${mi});return false">×</a></div>`;
       {const _tso=(mp.target_source||{}), _sid=(_tso.series_id||"bank.balance_sheet.equity.end"), _timing=(_tso.timing||"current_period"), _init=(_tso.prior_initialization||"zero"); _sb += `<div class="sec-managed-target"><div class="sec-managed-grid"><div class="sec-managed-field"><label>Target source</label><select title="Stable balance-sheet Series" onchange="secManagedTargetSource(${mi},this.value)">${_managedSecTargetSources().map(x=>`<option value="${x.id}"${x.id===_sid?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div><div class="sec-managed-field"><label>Target timing</label><select title="Use the target source from the current or prior model period" onchange="secManagedTargetTiming(${mi},this.value)"><option value="current_period"${_timing==='current_period'?' selected':''}>Current period</option><option value="prior_period"${_timing==='prior_period'?' selected':''}>Prior period</option></select></div>${_timing==='prior_period'?`<div class="sec-managed-field"><label>First modeled period</label><select title="How a prior-period target initializes before the first projection period" onchange="secManagedTargetPriorInit(${mi},this.value)"><option value="zero"${_init==='zero'?' selected':''}>Zero</option><option value="opening_source"${_init==='opening_source'?' selected':''}>Opening source</option></select></div>`:''}${_secSeriesEditor(tp,ts,'Target %')}</div></div>`;}
+      const _slCards=[],_slMeta=[],_slArr=(mp.sleeves||[]),_slSel=_slArr.length?_mdPick(_slArr,'_secSlSel'+mi,'_secSlSeen'+mi):0;
       (mp.sleeves||[]).forEach((sl,si)=>{
+        const _slMark=_sb.length;
         const base=`assumptions.managed_securities_portfolios.${mi}.sleeves.${si}`;
         const as=sl.allocation_spec||_secSeriesDefault(sl.allocation||0), ms=sl.maturity_rate_spec||_secSeriesDefault(sl.maturity_rate||sl.runoff_rate||0,_nativeFlowPeriod()), ys=sl.yield_spec||_secSeriesDefault(sl.yield_ann||0);
         _sb += `<div class="sec-managed-sleeve"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(sl.name||'Security')}" onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove security" onclick="secManagedDeleteSleeve(${mi},${si});return false">×</a></div><div class="sec-managed-grid">`;
@@ -10259,7 +10273,17 @@ function structuresSectionsHtml(){
         if((sl.yield_source||'entered')==='curve_library') _sb += `<div class="sec-managed-field"><label>Curve</label><select onchange="_managedSecPortfolios()[${mi}].sleeves[${si}].curve_name=this.value;refresh()">${[['sofr','SOFR'],['effr','EFFR'],['prime','Prime']].map(x=>`<option value="${x[0]}"${(sl.curve_name||'sofr')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
         else _sb += _secSeriesEditor(base+'.yield_spec',ys,'Annual yield');
         _sb += `<div class="cmut" style="grid-column:1/-1">Net purchases/(sales) are calculated, signed balancing flows. Interest uses period-end balance × annual yield ÷ ${PPY()}.</div></div></div>`;
+        _slCards.push(_sb.slice(_slMark)); _sb=_sb.slice(0,_slMark);
+        const _pth=s=>{const t=(s&&s.trajectory)||'flat';return t==='flat'?(((+(s&&s.value)||0)*100).toFixed(2)+'%'):(t==='growth'?'Growth':'Explicit');};
+        _slMeta.push({name:sl.name||'Security',cls:String(sl.classification||'AFS').toUpperCase(),rw:((+sl.risk_weight||0)*100).toFixed(0)+'%',open:(+sl.opening||0)/1000,
+          alloc:_pth(as),ylds:(sl.yield_source||'entered')==='curve_library'?String(sl.curve_name||'curve').toUpperCase():_pth(ys)});
       });
+      if(_slMeta.length){
+        _sb += '<div class="cfg-md cfg-md-stack"><div class="cfg-md-list"><div class="cfg-md-scroll"><table class="cfg-grid"><thead><tr><th>Security</th><th>Class</th><th class="num">Risk wt</th><th class="num">Opening ($000s)</th><th class="num">Allocation</th><th class="num">Yield</th></tr></thead><tbody>';
+        _slMeta.forEach((m,si)=>{_sb += `<tr class="${si===_slSel?'sel':''}" onclick="secSleeveSelect(${mi},${si})"><td class="name" title="${esc(m.name)}">${esc(m.name)}</td><td><span class="cfg-pill">${m.cls}</span></td><td class="num">${m.rw}</td><td class="num">${fmtComma(m.open)}</td><td class="num">${m.alloc}</td><td class="num">${m.ylds}</td></tr>`;});
+        _sb += `</tbody></table></div><div class="cfg-md-foot">${_slMeta.length} securit${_slMeta.length===1?'y':'ies'} in this portfolio. Select a row to edit it.</div></div>`;
+        _sb += `<div class="cfg-md-detail"><div class="cfg-md-head"><b>${esc((_slMeta[_slSel]||{}).name||'')}</b><span>Security ${_slSel+1} of ${_slMeta.length}</span></div><div class="cfg-md-body">${_slCards[_slSel]||''}</div></div></div>`;
+      }
       _sb += `<button class="pillbtn" style="margin-top:7px" onclick="secManagedAddSleeve(${mi})">+ Add security</button></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secManagedAddPortfolio()">+ Add managed portfolio</button></div>';
@@ -10617,13 +10641,24 @@ function structuresSectionsHtml(){
       else h+=`<input type="number" step="0.1" style="width:72px" value="${((+asp.value||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'flat')"><span class="cu">% of opening book</span><select style="width:82px" onchange="cacFeedPeriod('${esc(fn)}',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(asp.period||'year')===v?' selected':''}>Per ${v}</option>`).join('')}</select>`;
       h+=`</div></div>`;
 
-      fd.channels.forEach(function(ch,ci){ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
+      const _chCards=[],_chMeta=[],_chSel=(fd.channels||[]).length?_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn):0;
+      fd.channels.forEach(function(ch,ci){const _chMark=h.length;ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
         h+=`<div class="cac-channel-card" ondragover="cacChannelDragOver(event,'${esc(fn)}',${ci})" ondragleave="cacChannelDragLeave(event)" ondrop="cacChannelDrop(event,'${esc(fn)}',${ci})"><div class="crow" style="align-items:center;margin:0 0 4px"><button type="button" class="cac-channel-drag-handle" draggable="true" aria-label="Drag acquisition channel to reorder" title="Drag to reorder within this feed" ondragstart="cacChannelDragStart(event,'${esc(fn)}',${ci})" ondragend="cacChannelDragEnd(event)">⋮⋮</button><span class="cu">Acquisition channel</span><input style="width:160px" placeholder="User-defined channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].channels[${ci}].name=this.value;refresh()"><span class="cu">How are customers acquired?</span><select onchange="cacMethodChange('${esc(fn)}',${ci},this.value)">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?' selected':''}>${o[1]}</option>`).join('')}</select><a href="#" class="cx" style="margin-left:auto" onclick="cfg.assumptions.cac_feeds['${esc(fn)}'].channels.splice(${ci},1);renderContent();refresh();return false">×</a></div>`;
         const eq={pool_conversion:'New customers = Pool × Conversion',spend_cac:'New customers = Spend ÷ CAC',fte_productivity:'New customers = FTE Count × Productivity',explicit:'New customers = Explicit customer series'}[m];
         h+=`<div class="chint" style="margin:0 0 4px">${eq}. Channel names are labels only; the engine knows the equation, not “Affiliate,” “BD,” or any other engagement-specific name.</div>`;
         _cacMeta(m).forEach(meta=>h+=_cacDriverHtml(fn,ci,ch,meta));
         h+=`</div>`;
+        _chCards.push(h.slice(_chMark)); h=h.slice(0,_chMark);
+        const _ml={pool_conversion:'Pool \u00d7 conversion',spend_cac:'Spend \u00f7 CAC',fte_productivity:'FTE \u00d7 productivity',explicit:'Explicit series'}[m]||m;
+        const _nx=_cacMeta(m).filter(x=>{const s=(ch.driver_specs||{})[x.k];return s&&(s.trajectory==='explicit'||s.mode==='explicit');}).length;
+        _chMeta.push({name:ch.name||'Unnamed channel',method:_ml,drivers:_cacMeta(m).length,nx:_nx});
       });
+      if(_chMeta.length){
+        h += '<div class="cfg-md"><div class="cfg-md-list"><div class="cfg-md-scroll"><table class="cfg-grid"><thead><tr><th style="width:18px"></th><th>Channel</th><th>Equation</th><th class="num">Drivers</th><th class="num">Explicit</th></tr></thead><tbody>';
+        _chMeta.forEach((mm,ci)=>{h += `<tr class="cac-channel-card${ci===_chSel?' sel':''}" onclick="cacChannelSelect('${esc(fn)}',${ci})" ondragover="cacChannelDragOver(event,'${esc(fn)}',${ci})" ondragleave="cacChannelDragLeave(event)" ondrop="cacChannelDrop(event,'${esc(fn)}',${ci})"><td class="grip" draggable="true" title="Drag to reorder" ondragstart="cacChannelDragStart(event,'${esc(fn)}',${ci})" ondragend="cacChannelDragEnd(event)" onclick="event.stopPropagation()">\u22ee\u22ee</td><td class="name" title="${esc(mm.name)}">${esc(mm.name)}</td><td>${mm.method}</td><td class="num">${mm.drivers}</td><td class="num">${mm.nx}</td></tr>`;});
+        h += `</tbody></table></div><div class="cfg-md-foot">${_chMeta.length} channel${_chMeta.length===1?'':'s'}. Drag the handle to reorder; select a row to edit its drivers.</div></div>`;
+        h += `<div class="cfg-md-detail"><div class="cfg-md-head"><b>${esc((_chMeta[_chSel]||{}).name||'')}</b><span>Channel ${_chSel+1} of ${_chMeta.length}</span></div><div class="cfg-md-body">${_chCards[_chSel]||''}</div><div class="cfg-md-post"><span>Posts to</span><b>Customers and AUC</b></div></div></div>`;
+      }
       h+=`<div style="margin:3px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#4C4946;margin:0" onclick="addCacChannel('${esc(fn)}');return false">+ acquisition channel</a></div>`;
 
       h+=`<div data-engine-preview="cac-${esc(fn)}">`;

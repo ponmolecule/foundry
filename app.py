@@ -554,28 +554,35 @@ def account_page():
     recovery with a one-time code, deputy reset. Unauthenticated by design —
     it must be reachable when the password is lost."""
     html = """<!doctype html><meta charset="utf-8"><title>Foundry — Account</title>
-<style>body{background:#0A1830;color:#E6E8EC;font-family:Inter,'Segoe UI',sans-serif;max-width:520px;margin:40px auto;padding:0 16px}
-h1{font-size:22px;font-weight:600}h2{font-size:15px;font-weight:600;margin:26px 0 8px;color:#D8A85E}
-input{display:block;width:100%;margin:6px 0;padding:9px 11px;background:#0E1626;border:1px solid #33436199;color:#EDF1F7;border-radius:7px;font-size:14px}
-button{margin-top:8px;padding:9px 16px;background:#D8A85E;color:#0A1830;border:none;border-radius:7px;font-weight:600;cursor:pointer}
-.msg{margin-top:10px;font-size:13px;min-height:18px}.ok{color:#7FB07F}.err{color:#E08585}
-p{font-size:13px;color:#9CA7B7;line-height:1.5}</style>
-<h1>Foundry — Account</h1>
-<h2>Change password</h2>
+<style>body{background:#F3F2EF;color:#1B1A19;font-family:-apple-system,BlinkMacSystemFont,"SF Pro Text",Inter,"Segoe UI",sans-serif;margin:0;-webkit-font-smoothing:antialiased}
+.bar{height:50px;background:#242322;display:flex;align-items:center;gap:10px;padding:0 20px;color:#fff;font-weight:600;font-size:15px;letter-spacing:-.01em}
+.bar a{color:#B3ADA5;font-weight:500;font-size:12px;text-decoration:none;margin-left:auto}.bar a:hover{color:#fff}
+main{max-width:520px;margin:36px auto 60px;padding:0 16px}
+h1{font-size:24px;font-weight:600;letter-spacing:-.02em;margin:0 0 18px}
+section{background:#fff;border:1px solid #E4E1DC;border-radius:10px;padding:18px 20px 20px;margin:0 0 14px;box-shadow:0 1px 2px rgba(24,22,20,.04)}
+h2{font-size:15px;font-weight:600;margin:0 0 6px;color:#1B1A19}
+input{display:block;box-sizing:border-box;width:100%;margin:8px 0;padding:0 11px;height:34px;background:#fff;border:1px solid #CCC8C1;color:#1B1A19;border-radius:7px;font-size:14px;font-family:inherit}
+input:focus{outline:0;border-color:#C8914A;box-shadow:0 0 0 3px rgba(200,145,74,.18)}
+button{margin-top:6px;height:32px;padding:0 16px;background:#242322;color:#fff;border:none;border-radius:7px;font-weight:600;font-size:13px;cursor:pointer;font-family:inherit}button:hover{background:#3A3836}
+.msg{margin-top:10px;font-size:13px;min-height:18px}.ok{color:#4F7A5A}.err{color:#A4483D}
+p{font-size:13px;color:#6F6B65;line-height:1.5;margin:0 0 4px}</style>
+<div class="bar">Klaros Foundry<a href="/">Back to Foundry</a></div><main>
+<h1>Account</h1>
+<section><h2>Change password</h2>
 <p>Signs in with your current credentials when you submit.</p>
 <input id="c_cur" type="password" placeholder="Current password">
 <input id="c_new" type="password" placeholder="New password (8+ characters)">
-<button onclick="chg()">Change password</button><div class="msg" id="c_msg"></div>
-<h2>Forgot password — recover with a one-time code</h2>
+<button onclick="chg()">Change password</button><div class="msg" id="c_msg"></div></section>
+<section><h2>Forgot password — recover with a one-time code</h2>
 <input id="r_user" placeholder="Username">
 <input id="r_code" placeholder="Recovery code (e.g. AB12-CD34)">
 <input id="r_new" type="password" placeholder="New password (8+ characters)">
-<button onclick="rec()">Recover</button><div class="msg" id="r_msg"></div>
-<h2>Deputy: reset a colleague's password</h2>
+<button onclick="rec()">Recover</button><div class="msg" id="r_msg"></div></section>
+<section><h2>Deputy: reset a colleague's password</h2>
 <p>Deputies only. Signs in with <b>your</b> credentials when you submit.</p>
 <input id="d_user" placeholder="Colleague's username">
 <input id="d_tmp" placeholder="Temporary password to issue (8+ characters)">
-<button onclick="dep()">Issue temporary password</button><div class="msg" id="d_msg"></div>
+<button onclick="dep()">Issue temporary password</button><div class="msg" id="d_msg"></div></section></main>
 <script>
 async function post(url, body, msgId){
   const el = document.getElementById(msgId);

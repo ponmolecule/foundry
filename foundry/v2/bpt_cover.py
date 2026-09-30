@@ -22,13 +22,13 @@ from openpyxl.utils import get_column_letter
 import io
 
 _ARIAL = "Arial"
-_HDR_FILL = PatternFill("solid", fgColor="1F3B5F")
+_HDR_FILL = PatternFill("solid", fgColor="242322")
 _HDR_FONT = Font(name=_ARIAL, bold=True, color="FFFFFF", size=11)
-_SUB_FONT = Font(name=_ARIAL, bold=True, color="1F3B5F", size=10)
+_SUB_FONT = Font(name=_ARIAL, bold=True, color="242322", size=10)
 _LBL_FONT = Font(name=_ARIAL, size=10)
 _NUM_FONT = Font(name=_ARIAL, size=10)
 _TOTAL_FONT = Font(name=_ARIAL, bold=True, size=10)
-_TITLE_FONT = Font(name=_ARIAL, bold=True, color="1F3B5F", size=12)
+_TITLE_FONT = Font(name=_ARIAL, bold=True, color="242322", size=12)
 _MONEY = '#,##0;(#,##0);-'
 _PCT = '0.0%;(0.0%);-'
 _PCT2 = '0.00%;(0.00%);-'
@@ -194,10 +194,10 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     flow_labels = [p["label"] for p in flow_cols]
 
     c = ws.cell(row=row[0], column=1, value=f"{_bank_name(cfg)} \u2014 Business Plan Tables ({granularity.title()})")
-    c.font = Font(name=_ARIAL, bold=True, size=15, color="1F3B5F"); row[0] += 1
+    c.font = Font(name=_ARIAL, bold=True, size=15, color="242322"); row[0] += 1
     c = ws.cell(row=row[0], column=1,
                 value="Numbers in $ thousands unless noted. Generated from the Foundry engine for this engagement.")
-    c.font = Font(name=_ARIAL, italic=True, size=9, color="6B7A8D"); row[0] += 2
+    c.font = Font(name=_ARIAL, italic=True, size=9, color="6F6B65"); row[0] += 2
 
     # Balance Sheet ($)
     _title("Table 1: Balance Sheet ($ thousands)")
@@ -296,7 +296,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     if not dep_in_res:
         cn = ws.cell(row=row[0], column=2,
             value="Per-deposit interest-expense split not separately modeled; only the aggregate total is engine-sourced.")
-        cn.font = Font(name=_ARIAL, italic=True, size=8, color="9AA7B4"); row[0] += 2
+        cn.font = Font(name=_ARIAL, italic=True, size=8, color="9C978F"); row[0] += 2
 
     # Forecast Capital Levels — stocks
     _title("Table 6: Forecast Capital Levels")
@@ -334,7 +334,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
                 "that single quarter. ")) +
               "Blank cells indicate a line the engine does not separately produce (not zero). "
               "Product tables reflect this engagement's actual products.")
-    note.font = Font(name=_ARIAL, italic=True, size=8, color="6B7A8D")
+    note.font = Font(name=_ARIAL, italic=True, size=8, color="6F6B65")
     note.alignment = Alignment(wrap_text=True)
     ws.merge_cells(start_row=row[0], start_column=2, end_row=row[0], end_column=2 + ncols)
     ws.row_dimensions[row[0]].height = 42
