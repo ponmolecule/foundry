@@ -1147,6 +1147,38 @@ tr.cac-channel-card.drop-before td{box-shadow:inset 0 2px 0 var(--k-gold)}
 tr.cac-channel-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
 .cfg-md-detail .cac-channel-card{border:0!important;background:transparent!important;padding:0!important;margin:0!important}
 .cfg-md-detail .cac-channel-drag-handle{display:none}
+
+/* r203: Welcome on the light surface */
+body.on-welcome #chevBox,body.on-welcome #changeBadge,body.on-welcome .warnbadge,body.on-welcome #inspBtn,body.on-welcome #exportMenuWrap{display:none!important}
+body.on-welcome #content{padding:0}
+body.on-welcome .ab-rule{display:none}
+.wel{min-height:calc(100vh - var(--appbar-h) - 44px);display:flex;align-items:center;background:linear-gradient(180deg,#FFFFFF 0%,var(--k-canvas) 100%)}
+.wel-in{width:100%;max-width:1240px;margin:0 auto;padding:56px 56px 72px;display:grid;grid-template-columns:minmax(0,1.55fr) minmax(300px,.6fr);gap:64px;align-items:center}
+.wel-eyebrow{font-size:12px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--k-gold-deep)}
+.wel-h{font-family:var(--k-disp);font-size:clamp(40px,4.4vw,62px);line-height:1.05;font-weight:600;letter-spacing:-.032em;color:var(--k-tx1);margin:14px 0 0}
+.wel-h span{color:var(--k-gold-deep)}
+.wel-sub{font-size:17px;line-height:1.55;color:var(--k-tx3);max-width:50ch;margin:18px 0 0}
+.wel-login{margin-top:28px;max-width:340px}
+.wel-login input{display:block;box-sizing:border-box;width:100%;height:40px;margin:0 0 8px;padding:0 12px;background:#FFFFFF;border:1px solid var(--k-field-line);border-radius:8px;font-size:14px;color:var(--k-tx1)}
+.wel-login input::placeholder{color:var(--k-tx4)}
+.wel-login input:focus{outline:0;border-color:var(--k-gold);box-shadow:0 0 0 3px rgba(200,145,74,.18)}
+.wel-err{min-height:16px;font-size:12px;color:var(--k-neg);margin:2px 0 0}
+.wel-who{margin-top:24px;font-size:13px;color:var(--k-tx3)}
+.wel-who b{color:var(--k-tx1);font-weight:600}
+.wel-who a{color:var(--k-gold-deep);text-decoration:none}
+.wel-cta{margin-top:20px}
+#enterBtn{height:44px;padding:0 22px;border:0;border-radius:9px;background:var(--k-graph);color:#FFFFFF;font-size:14.5px;font-weight:600;display:inline-flex;align-items:center;gap:10px;cursor:pointer;box-shadow:0 1px 2px rgba(24,22,20,.16)}
+#enterBtn:hover{background:#3A3836}
+#enterBtn span{color:#E2B97F;font-size:16px}
+.wel-foot{margin-top:14px;font-size:12.5px}
+.wel-foot a{color:var(--k-tx3);text-decoration:none}
+.wel-foot a:hover{color:var(--k-tx1)}
+.wel-rail{background:var(--k-graph);border-radius:16px;padding:26px 26px 12px;color:#FFFFFF;box-shadow:0 24px 60px rgba(24,22,20,.16)}
+.wel-rail-k{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#E2B97F;margin:0 0 10px}
+.wel-row{display:flex;flex-direction:column;gap:3px;padding:14px 0;border-top:1px solid rgba(255,255,255,.1)}
+.wel-row b{font-size:14px;font-weight:600;letter-spacing:-.005em}
+.wel-row span{font-size:12.5px;line-height:1.45;color:var(--k-graph-mut)}
+@media(max-width:1000px){.wel-in{grid-template-columns:minmax(0,1fr);gap:0;padding:40px 28px}.wel-rail{display:none}}
 </style>
 </head>
 <body>
@@ -4799,7 +4831,7 @@ if(V31){
   currentTab = "overview";
   const i = TAB_DEFS.findIndex(t=>t[0]==="ratios"); if(i>=0) TAB_DEFS[i][1] = "Capital & Ratios";
 }
-const DARKTABS = new Set(["welcome"]);   // r201: every work tab is a light surface; only the Welcome landing stays dark
+const DARKTABS = new Set([]);   // r203: every page, Welcome included, is a light surface
 function restoreCardSelects(){
   document.querySelectorAll('select[data-restore]').forEach(sel=>{
     try{
@@ -7196,7 +7228,7 @@ function refreshConfigPreviews(){
 }
 function _renderContentBody(){
   { const _wel = (V31 && currentTab==="welcome"), _m = document.querySelector("main");
-    document.querySelector("main > aside").style.display = _wel ? "none" : "";
+    document.querySelector("main > aside").style.display = _wel ? "none" : ""; document.body.classList.toggle("on-welcome", !!_wel);
     _m.style.gridTemplateColumns = _wel ? "1fr" : ""; }
   const c = document.getElementById("content");
   c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));
@@ -7224,27 +7256,28 @@ function _renderContentBody(){
     else { renderOverview(); return; }
   }
   if(V31 && currentTab==="welcome"){
-    let h = `<div style="background:#161513;min-height:calc(100vh - 60px);margin:-16px -18px;font-family:'Inter',system-ui,sans-serif;color:#EAE7E4;-webkit-font-smoothing:antialiased">
-      <div style="max-width:72rem;margin-left:max(2rem, calc(50% - 36rem - 96px));margin-right:auto;padding:0 2rem 0 0">
-        <div style="display:flex;align-items:center;gap:10px;padding-top:1.5rem">
-          <span style="width:28px;height:28px;border-radius:8px;background:#D8A45E;color:#161513;display:flex;align-items:center;justify-content:center;font-weight:600;font-size:14px">F</span>
-          <span style="font-size:16px;font-weight:600;color:#EAE7E4">Klaros Found<span style="color:#D8A45E">ry</span></span>
-        </div>
-        <div class="welcome-main" style="display:flex;flex-direction:column;justify-content:center;min-height:calc(100vh - 190px)">
-          <div style="font-family:'B612 Mono',ui-monospace,monospace;font-size:11px;font-weight:500;letter-spacing:.12em;text-transform:uppercase;color:#D8A45E">Welcome to Klaros Foundry</div>
-          <div style="margin-top:1.1rem;font-size:clamp(40px,4.6vw,64px);line-height:1.1;font-weight:600;letter-spacing:-.025em;color:#EAE7E4">Financial modeling<br>for <span style="color:#D8A45E">De Novo Charter</span> work.</div>
-          <div style="margin-top:1.15rem;font-size:17px;line-height:1.625;color:#96918B;max-width:100ch">Create financial projections and regulator-mandated schedules to support charter applications.</div>
-          <div id="loginBlock" style="margin-top:1.35rem;display:${window.AUTHED?'none':'block'};max-width:320px">
-            <input id="loginUser" placeholder="Username" autocomplete="username" style="display:block;width:100%;margin:0 0 8px;padding:10px 12px;background:#141311;border:1px solid #44434199;color:#F3F0ED;border-radius:7px;font-size:14px;font-family:inherit">
-            <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()" style="display:block;width:100%;margin:0 0 4px;padding:10px 12px;background:#141311;border:1px solid #44434199;color:#F3F0ED;border-radius:7px;font-size:14px;font-family:inherit">
-            <div id="loginErr" style="min-height:16px;font-size:12px;color:#D08F86;margin:2px 0 0"></div>
+    let h = `<div class="wel"><div class="wel-in">
+        <div class="welcome-main">
+          <div class="wel-eyebrow">Welcome to Klaros Foundry</div>
+          <h1 class="wel-h">Financial modeling<br>for <span>De Novo Charter</span> work.</h1>
+          <p class="wel-sub">Create financial projections and regulator-mandated schedules to support charter applications.</p>
+          <div id="loginBlock" class="wel-login" style="display:${window.AUTHED?'none':'block'}">
+            <input id="loginUser" placeholder="Username" autocomplete="username">
+            <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" onkeydown="if(event.key==='Enter')doLogin()">
+            <div id="loginErr" class="wel-err"></div>
           </div>
-          <div id="whoBlock" style="margin-top:1.2rem;display:${window.AUTHED?'block':'none'};font-size:13px;color:#96918B">Signed in as <b id="whoName" style="color:#CFCCC9">${esc(window.AUTHED||"")}</b> \u00b7 <a href="#" onclick="doLogout();return false" style="color:#D8A45E;text-decoration:none">Sign out</a></div>
-          <div style="margin-top:1.4rem"><button id="enterBtn" onclick="enterPlatform()" style="background:#D8A45E;color:#161513;border:none;border-radius:7px;padding:.875rem 1.5rem;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;display:inline-flex;align-items:center;gap:.5rem" onmouseover="this.style.background='#E2B677'" onmouseout="this.style.background='#D8A45E'">Enter platform <span style="font-size:15px">\u2192</span></button>
-          <div style="margin-top:.7rem;font-size:12px"><a href="/account" style="color:#96918B;text-decoration:none">Forgot your password? \u2192 Account recovery</a></div></div>
+          <div id="whoBlock" class="wel-who" style="display:${window.AUTHED?'block':'none'}">Signed in as <b id="whoName">${esc(window.AUTHED||"")}</b> \u00b7 <a href="#" onclick="doLogout();return false">Sign out</a></div>
+          <div class="wel-cta"><button id="enterBtn" onclick="enterPlatform()">Enter platform <span>\u2192</span></button></div>
+          <div class="wel-foot"><a href="/account">Forgot your password? \u2192 Account recovery</a></div>
         </div>
-      </div>
-    </div>`;
+        <div class="wel-rail" aria-hidden="true">
+          <div class="wel-rail-k">One model, every exhibit</div>
+          <div class="wel-row"><b>Configuration</b><span>Capital, securities, operating expense and customer acquisition</span></div>
+          <div class="wel-row"><b>Statements</b><span>Pro forma balance sheet and income statement on Call Report schedules</span></div>
+          <div class="wel-row"><b>Stress and capital</b><span>Scenario stress, leverage and risk-based capital ratios</span></div>
+          <div class="wel-row"><b>Peer and examiner</b><span>Peer cohort placement and the examiner question book</span></div>
+        </div>
+      </div></div>`;
     document.getElementById("content").innerHTML = h; return;
   }
   if(V31 && currentTab==="start"){ if(mt){ mtRender(); } else if(wiz){ renderWizard(); } else { renderStart(); } return; }
