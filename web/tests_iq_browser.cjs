@@ -2,16 +2,14 @@ const fs=require('fs'),assert=require('node:assert/strict'),{chromium}=require('
 (async()=>{
 const browser=await chromium.launch({executablePath:process.env.FOUNDRY_CHROMIUM||undefined,headless:true,args:['--no-sandbox','--disable-dev-shm-usage','--disable-gpu']});
 const page=await browser.newPage({viewport:{width:1600,height:1050}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-let html=fs.readFileSync(__dirname+'/console_v2.html','utf8').replace(/renderTabs\(\);\s*whoami\(\)\.then\([\s\S]*?<\/script>/,'renderTabs();</script>');html=html.replace('</head>','<script>window.V31=true;window.BUILD="r200IQ test";</script></head>');
+let html=fs.readFileSync(__dirname+'/console_v2.html','utf8').replace(/renderTabs\(\);\s*whoami\(\)\.then\([\s\S]*?<\/script>/,'renderTabs();</script>');html=html.replace('</head>','<script>window.V31=true;window.BUILD="r201IQ test";</script></head>');
 await page.route('**/*',route=>route.request().url()==='http://foundry.test/'?route.fulfill({contentType:'text/html',body:html}):route.abort());await page.goto('http://foundry.test/');
 await page.evaluate(()=>{cfg=buildEmptyTemplate();cfg.proposed_bank='Demonstration Bank';cfg.assumptions.periods_per_year=12;cfg.assumptions.n_periods=36;cfg.assumptions.operating_expense_mode='detailed';cfg.assumptions.nie_detail={workforce:{roles:[{series_id:'wf-a',role:'Platform team',count:140,annual_comp:95000},{series_id:'wf-b',role:'Bank compensation',count:1,annual_comp:287500,compensation_period:'month'},{series_id:'wf-c',role:'Directors fees',count:1,annual_comp:37500,compensation_period:'month'}]},categories:[{series_id:'cat-a',name:'Technology',flow_spec:{trajectory:'flat',value:100000,period:'month'}},{series_id:'cat-b',name:'Internal audit',flow_spec:{trajectory:'flat',value:750000,period:'year'}}]};cfg.assumptions.cac_feeds={customer_build:{series_id:'customer-build',beginning_customers:1200,beginning_auc:0,attrition_rate:0,channels:[{name:'Customer funnel',method:'spend_cac',params:{spend:100000,cac:1000,avg_auc_per_customer:0}}]}};window._cfgSectionOpen.customeracq=true;refresh=()=>{};renderGlobals();currentTab='config';renderTabs();renderContent();});
 await page.evaluate(()=>{secManagedAddPortfolio();secManagedAddSleeve(0);nieCatAddFormulaDriver(0);nieCatAddPiecewise(0);nieCatAddCostPoolCharge(0);});
 const sections=await page.locator('.iq-nav button').evaluateAll(es=>es.map(e=>e.dataset.iqSection));
 assert.equal(sections.length,9);
-assert.equal(await page.locator('#tabs > .tab').count(),6);
-await page.locator('.iq-more-nav > summary').click();
-assert.equal(await page.locator('.iq-more-nav button.tab').count(),await page.evaluate(()=>TAB_DEFS.length-6));
-await page.locator('.iq-more-nav > summary').click();
+assert.deepEqual(await page.locator('#tabs > .tab').allTextContents(),await page.evaluate(()=>TAB_DEFS.map(x=>x[1])));
+assert.equal(await page.locator('.iq-more-nav').count(),0);
 for(const width of [1600,1280,1024,768]){
  await page.setViewportSize({width,height:1050});
  for(const key of sections){
