@@ -68,7 +68,7 @@ def main():
        and 'onclick="enterPlatform()"' in html and 'document.body.classList.toggle("on-welcome", !!_wel);' in html
        and 'body.on-welcome #chevBox' in html and 'class="welcome-main"' in html)
     ck("Section headers on analysis tabs are graphite bands; KPI tiles and flags are white",
-       '.ovh2{background:var(--k-graph)!important' in html and '.ovcard,.ovflag{border-radius:10px;background:var(--k-surface)!important' in html)
+       '.ovh2{background:var(--k-graph)!important' in html and '.ovcard,.ovflag{border-radius:3px;background:var(--k-surface)!important' in html)
     ck("Analysis data tables use proportional tabular figures",
        'section#content table.ovt td,section#content table.dtab td' in html and 'font-variant-numeric:tabular-nums lining-nums' in html)
     ck("Lab heatmaps use the champagne-to-gold ramp",
@@ -79,6 +79,34 @@ def main():
     ck("Acquisition channels are a grid with drag reorder and one selected editor",
        "_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn)" in html and 'window.cacChannelSelect=function' in html
        and 'ondragstart="cacChannelDragStart(event,' in html and 'tr.cac-channel-card.drop-before td' in html)
+    # r204: Klaros palette (graphite, yellow gold, neutral surfaces), ledger geometry, Products workspace.
+    ck("Palette is graphite and yellow-gold on neutral surfaces, with a graphite tab row",
+       '--k-graph:#2C2C2C' in html and '--k-gold:#DBAB5D' in html and '--k-canvas:#F2F2F0' in html
+       and '.ab-nav{height:40px;background:var(--k-graph)' in html and '.tab.active{background:transparent;color:#FFFFFF' in html)
+    ck("Ledger geometry: design-layer radii are 3px or less, with column rules in data grids",
+       'border-radius:10px' not in html[html.index('<style id="klaros-graphite">'):html.index('</style>',html.index('<style id="klaros-graphite">'))]
+       and 'table.cfg-grid td,table.cfg-grid th{border-right:1px solid var(--k-line)}' in html)
+    ck("Products tab is a navigator plus one workspace, with Portfolio and Compare views",
+       'class="prd-shell"' in html and 'window.prdSelect=function' in html and "view==='compare'" in html
+       and 'class="prd-card" data-pp-tab=' in html and 'prodCardHtml(x.fam,x.i)' in html)
+    ck("Product card and fee-stream editor are split into tabs by markup only",
+       html.count('data-pp="setup"') >= 3 and 'data-pp="streams"' in html and 'data-pp="overrides"' in html
+       and all(f'data-st="{k}"' in html for k in ("activity","pricing","timing","costs"))
+       and "window._ppMark=true; h += fieldsFor(fam, p, base); window._ppMark=false;" in html)
+    ck("Fee streams are master-detail with a driver chain",
+       "_mdPick(p.fee_streams,'_stSelObj','_stSeen')" in html and 'window.stSelect=function' in html and 'class="st-chain"' in html)
+    # r205: stream workspace follows the approved mockup; editor restyled; schedule strip.
+    ck("Stream workspace: product-level chain, grid beside editor, role and engine quantity",
+       "'<div class=\"fld wide st-md\">'+chainH" in html and 'outside this chain' in html
+       and '.prd-stage .st-md{display:grid;grid-template-columns:minmax(0,.9fr) minmax(0,1.1fr)' in html
+       and 'fee_stream_quantities' in html and "role:(()=>{" in html)
+    ck("Editor restyle: sentence-case labels, one-line growth rows, memos folded into a note",
+       '.prd-card .fld label{text-transform:none!important' in html and '.prd-card .fld:has(> .cu){flex-direction:row' in html
+       and 'window.prdAfterRender=function' in html and "d.className='st-about'" in html)
+    ck("Explicit schedules show a six-cell strip with display-only rounding",
+       'explicit-preview-strip' in html and 'function _prdNum(x)' in html and "_si=n<=6?" in html)
+    ck("Product header carries a breadcrumb back to the portfolio",
+       'class="prd-crumb"' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
