@@ -804,7 +804,7 @@ main{display:grid;grid-template-columns:minmax(0,1fr) 372px;align-items:start;ba
 body.insp-closed main{grid-template-columns:minmax(0,1fr)}
 body.insp-closed main>aside{display:none}
 #content{grid-column:1;grid-row:1;padding:26px 32px 64px;min-height:calc(100vh - var(--appbar-h) - 44px)}
-#content.is-config{background:var(--k-canvas);overflow:visible}
+#content.is-config{background:var(--k-canvas);overflow:visible;padding:0}
 main>aside{grid-column:2;grid-row:1;position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h));max-height:none;overflow-y:auto;border-right:0;border-left:1px solid var(--k-line2);background:var(--k-surface);padding:0 18px 48px;color:var(--k-tx1)}
 @media(max-width:1180px){
   main{grid-template-columns:minmax(0,1fr)}
@@ -844,9 +844,9 @@ table.fin th{border-bottom:1px solid var(--gold)}
 
 /* ============================ CONFIGURATION ============================ */
 .cfg-h1{font-family:var(--k-disp);font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.022em;color:var(--k-tx1);margin:0 0 18px}
-.cfgwrap{max-width:1640px;color:var(--k-tx1)}
-.cfg-shell{display:grid;grid-template-columns:232px minmax(0,1fr);gap:24px;align-items:start}
-.cfg-nav{position:sticky;top:calc(var(--appbar-h) + 20px);background:var(--k-surface);border:1px solid var(--k-line);border-radius:3px;padding:8px;margin:0;max-height:calc(100vh - var(--appbar-h) - 40px);overflow-y:auto;scrollbar-width:thin}
+.cfgwrap{max-width:none;color:var(--k-tx1)}
+.cfg-shell{display:grid;grid-template-columns:300px minmax(0,1fr);gap:0;align-items:start;min-height:calc(100vh - var(--appbar-h) - 44px)}
+.cfg-nav{position:sticky;top:var(--appbar-h);height:calc(100vh - var(--appbar-h));box-sizing:border-box;overflow-y:auto;scrollbar-width:thin;background:#EDEEEC;border:0;border-right:1px solid var(--k-line2);border-radius:0;padding:20px 14px 24px;margin:0}
 .cfg-nav-title{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3);padding:8px 10px 6px}
 .cfg-nav .modbar{display:flex;flex-direction:column;flex-wrap:nowrap;gap:1px;margin:0}
 .cfg-mod{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) 8px;gap:10px;align-items:center;padding:8px 10px;border-radius:3px;cursor:pointer;user-select:none}
@@ -867,13 +867,13 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfg-subnav a{font-size:12px;line-height:17px;color:var(--k-tx3);text-decoration:none;padding:4px 8px;border-radius:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cfg-subnav a:hover{color:var(--k-tx1);background:var(--k-hover)}
 .cfg-nav .mp-info{display:block;font-size:11.5px;line-height:1.5;color:var(--k-tx4);margin:10px 4px 4px;padding:10px 6px 2px;border-top:1px solid var(--k-line)}
-.cfg-stage{min-width:0;container-type:inline-size;container-name:stage}
+.cfg-stage{min-width:0;container-type:inline-size;container-name:stage;padding:22px 32px 64px}
 .cfggrid{display:block}
 .cfggrid>.cfgcard{display:none;background:transparent;border:0;border-radius:0;padding:0;min-height:0;overflow:visible}
 .cfggrid[data-cfg-selected="cap"]>#card-cap,.cfggrid[data-cfg-selected="sec"]>#card-sec,.cfggrid[data-cfg-selected="nie"]>#card-nie,
 .cfggrid[data-cfg-selected="cac"]>#card-cac,.cfggrid[data-cfg-selected="tax"]>#card-tax,.cfggrid[data-cfg-selected="cecl"]>#card-cecl{display:block}
 #card-nie{overflow:visible}
-@media(max-width:1020px){.cfg-shell{grid-template-columns:1fr;gap:16px}.cfg-nav{position:static;max-height:none}}
+@media(max-width:1020px){.cfg-shell{grid-template-columns:1fr}.cfg-nav{position:static;height:auto;border-right:0;border-bottom:1px solid var(--k-line2)}}
 
 /* module band: graphite structure, gold icon */
 .cfg-stage .cardhead{position:relative;display:flex;align-items:center;gap:12px;min-height:52px;border:0;padding:10px 16px;margin:0 0 16px;background:var(--k-graph);border-radius:3px;color:var(--k-graph-tx)}
@@ -1201,21 +1201,8 @@ section#content table.ovt td:last-child,section#content table.ovt th:last-child,
 .prd-view{height:30px;border:0;background:#FFFFFF;font-size:12px;font-weight:500;color:var(--k-tx2);cursor:pointer;font-family:inherit}
 .prd-view + .prd-view{border-left:1px solid var(--k-line2)}
 .prd-view.on{background:var(--k-graph);color:#FFFFFF}
-.prd-list-h{display:flex;justify-content:space-between;padding:6px 8px;font-size:11px;font-weight:600;color:var(--k-tx3);border-bottom:1px solid var(--k-line2)}
-.prd-fam{display:flex;align-items:center;gap:8px;width:100%;height:34px;padding:0 8px;border:0;border-bottom:1px solid var(--k-line);background:transparent;font-size:13px;font-weight:600;color:var(--k-tx1);cursor:pointer;text-align:left;font-family:inherit}
-.prd-fam .car{width:10px;color:var(--k-tx3);font-size:10px}
-.prd-fam .n{margin-left:auto;font-size:11.5px;font-weight:500;color:var(--k-tx3)}
-.prd-nav .product-card.prd-row{display:grid;grid-template-columns:14px minmax(0,1fr) auto;gap:6px;align-items:center;height:32px;padding:0 8px 0 4px;margin:0;border:0;border-bottom:1px solid var(--k-line);border-radius:0;background:transparent;box-shadow:none}
-.prd-nav .product-card.prd-row:hover{background:#E4E5E2}
-.prd-nav .product-card.prd-row.sel{background:#FFFFFF;box-shadow:inset 3px 0 0 var(--k-gold)}
 .prd-nav .product-card.prd-row.drop-before{box-shadow:inset 0 2px 0 var(--k-gold)}
 .prd-nav .product-card.prd-row.drop-after{box-shadow:inset 0 -2px 0 var(--k-gold)}
-.prd-row a{font-size:12.5px;color:var(--k-tx1);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.prd-row.sel a{font-weight:600}
-.prd-row .v{font-size:12.5px;color:var(--k-tx2);font-variant-numeric:tabular-nums}
-.prd-grip{color:var(--k-tx4);font-size:10px;letter-spacing:-2px;cursor:grab;opacity:0}
-.prd-row:hover .prd-grip{opacity:1}
-.prd-empty{padding:8px 12px;font-size:12px;color:var(--k-tx4);border-bottom:1px solid var(--k-line)}
 .prd-nav-foot{margin:12px 4px 0;font-size:11.5px;color:var(--k-tx4)}
 .prd-stage{min-width:0;padding:22px 32px 64px;container-type:inline-size;container-name:prd}
 .prd-h1{font-family:var(--k-disp);font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.022em;color:var(--k-tx1);margin:0 0 4px}
@@ -1375,6 +1362,31 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .eps-c b{font-size:12px;font-weight:500;color:var(--k-tx1);font-variant-numeric:tabular-nums}
 .eps-gap{justify-content:center;align-items:center;color:var(--k-tx4);min-width:24px}
 .prd-card .explicit-preview-compact,.cfgwrap .explicit-preview-compact{display:none}
+
+/* ============================ r206: shared side column ============================ */
+.cfg-nav-head{font-family:var(--k-disp);font-size:22px;font-weight:600;letter-spacing:-.02em;color:var(--k-tx1);margin:0 2px 14px}
+.cfg-nav-card,.prd-nav-card{background:#FFFFFF;border:1px solid var(--k-line2);border-radius:3px;padding:8px;box-shadow:0 1px 2px rgba(20,20,20,.05)}
+.cfg-nav-card .cfg-nav-title{padding:6px 10px 6px}
+.prd-card-h{display:flex;justify-content:space-between;padding:6px 8px 2px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3)}
+.prd-fam{display:flex;align-items:center;gap:6px;width:100%;padding:12px 8px 5px;border:0;background:transparent;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3);cursor:pointer;text-align:left;font-family:inherit}
+.prd-fam:hover{color:var(--k-tx1)}
+.prd-fam .car{width:10px;font-size:9px}
+.prd-fam .n{margin-left:auto;font-weight:500;letter-spacing:0}
+.prd-nav .product-card.prd-row{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 8px;margin:1px 0;border:0;border-radius:3px;background:transparent;box-shadow:none;cursor:pointer}
+.prd-nav .product-card.prd-row:hover{background:var(--k-hover)}
+.prd-nav .product-card.prd-row.sel{background:var(--k-sel)}
+.prd-nav .product-card.prd-row.sel::before{content:"";position:absolute;left:0;top:7px;bottom:7px;width:3px;border-radius:0 3px 3px 0;background:var(--k-gold)}
+.prd-row .mi{width:28px;height:28px;border-radius:3px;display:grid;place-items:center;background:var(--k-surface2);box-shadow:inset 0 0 0 1px var(--k-line);color:var(--k-tx3)}
+.prd-row .mi svg{width:15px;height:15px;stroke-width:1.45}
+.prd-row.sel .mi{background:var(--k-graph);box-shadow:none;color:#E8C47E}
+.prd-row-t{display:flex;flex-direction:column;min-width:0;text-decoration:none}
+.prd-row-t .ml{font-size:13px;line-height:18px;font-weight:500;color:var(--k-tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prd-row.sel .prd-row-t .ml{font-weight:600}
+.prd-row-t .sl{font-size:11.5px;line-height:16px;color:var(--k-tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prd-row .v{font-size:12.5px;color:var(--k-tx2);font-variant-numeric:tabular-nums}
+.prd-grip{position:absolute;left:-7px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:-2px;color:var(--k-tx4);cursor:grab;opacity:0}
+.prd-row:hover .prd-grip{opacity:1}
+.prd-empty{padding:4px 8px 6px 24px;font-size:12px;color:var(--k-tx4)}
 </style>
 </head>
 <body>
@@ -1546,6 +1558,11 @@ window.prdAfterRender=function(){ // fold explanatory memos into one note per st
     groups.forEach((notes,host)=>{ const d=document.createElement('details'); d.className='st-about';
       d.innerHTML='<summary>About these settings <span>'+notes.length+' note'+(notes.length===1?'':'s')+'</span></summary><ul>'+notes.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul>'; host.appendChild(d); });
   });
+};
+window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move inside the workspace so the side column runs full height
+  const c=document.getElementById('content'), st=c&&c.querySelector('.cfg-stage'); if(!st) return;
+  const nudge=c.querySelector(':scope > #landingNudge'); if(nudge) st.insertBefore(nudge, st.firstChild);
+  [...c.querySelectorAll(':scope > .cfgfoot, :scope > .cfgfoot ~ .memo')].forEach(el=>st.appendChild(el));
 };
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
@@ -7590,15 +7607,19 @@ function _renderContentBody(){
     h+='<div class="prd-nav-head"><div class="prd-nav-t">Products</div><button class="prd-add" onclick="openModal()">+ Add product</button></div>';
     h+=`<input class="prd-search" type="search" placeholder="Search products" aria-label="Search products" value="${esc(window._prdQuery||'')}" oninput="prdFilter(this.value)">`;
     h+=`<div class="prd-views"><button class="prd-view${view==='portfolio'?' on':''}" onclick="prdView('portfolio')">Portfolio</button><button class="prd-view${view==='compare'?' on':''}" onclick="prdView('compare')">Compare</button></div>`;
-    h+=`<div class="prd-list-h"><span>Product</span><span>${RQ}</span></div>`;
+    // r206: the product list uses the elevated card of the Configuration module list.
+    const _famIcon={lending:'bank',deposit:'stack',obs:'cube'};
+    h+=`<div class="prd-nav-card"><div class="prd-card-h"><span>Product</span><span>${RQ}</span></div>`;
     FAMS.forEach(([fam,lab])=>{
       const items=_all.filter(x=>x.fam===fam), open=!((window._prdFamClosed||{})[fam]);
-      h+=`<button class="prd-fam" onclick="prdFamToggle('${fam}')" aria-expanded="${open}"><span class="car">${open?'\u25BE':'\u25B8'}</span>${lab}<span class="n">${items.length}</span></button>`;
+      h+=`<button type="button" class="prd-fam" onclick="prdFamToggle('${fam}')" aria-expanded="${open}"><span class="car">${open?'\u25BE':'\u25B8'}</span>${lab}<span class="n">${items.length}</span></button>`;
       if(!open) return;
       if(!items.length) h+='<div class="prd-empty">None yet</div>';
-      items.forEach(x=>{ const r=_row(x.p.name), sel=view==='product'&&x.p===window._prdSel;
-        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" ondragover="productDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i})" ondragend="productDragEnd(event)">\u22EE\u22EE</span><a href="#" onclick="prdSelect('${fam}',${x.i});return false">${esc(x.p.name||'Unnamed product')}</a><span class="v">${r?fmt0(r.revenue):'\u2014'}</span></div>`; });
+      items.forEach(x=>{ const r=_row(x.p.name), sel=view==='product'&&x.p===window._prdSel, ns=_nStreams(x.p);
+        const subl=_isFee(x.p)?(ns+' fee stream'+(ns===1?'':'s')):(x.fam==='obs'?'Off-balance-sheet':(r?BQ+' '+fmt0(r.q12_balance):(x.fam==='lending'?'Lending':'Deposit')));
+        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" ondragover="productDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i})" ondragend="productDragEnd(event)">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl">${esc(subl)}</span></a><span class="v">${r?fmt0(r.revenue):'\u2014'}</span></div>`; });
     });
+    h+='</div>';
     h+='<div class="prd-nav-foot">Figures from the latest engine run, $000s.</div></nav><div class="prd-stage">';
 
     if(view==='product'){
@@ -10493,7 +10514,7 @@ function structuresSectionsHtml(){
     tax:A.tax_detail?"NOL \u2192 DTA, ASC 740":"Legacy treatment",
     cecl:A.credit_regime?"CECL, ACL presentation":"ALLL vocabulary"};
   const _cfgSel=_cfgModuleSelected((lampMap["NIE detail"]||_opexModeNav!=="off")?"nie":"cap");
-  h += '<div class="cfg-shell"><nav class="modpanel cfg-nav" aria-label="Configuration modules"><div class="cfg-nav-title">Modules</div><div class="modbar">';
+  h += '<div class="cfg-shell"><nav class="modpanel cfg-nav" aria-label="Configuration modules"><div class="cfg-nav-head">Configuration</div><div class="cfg-nav-card"><div class="cfg-nav-title">Modules</div><div class="modbar">';
   const swTile = (label, on, act, icon, extra, titleTxt)=>{
     const key=_CFG_ACT2MOD[act], _nm={cap:"Capital & pre-opening",secaoci:"Securities & AOCI",nie:"Operating expense",cac:"Customer acquisition",tax:"Tax detail",cecl:"Credit regime"}[act]||label.replace(/<br>/g," ");
     return `<div class="cfg-mod${key===_cfgSel?" sel":""}${on?" on":""}" data-cfg-mod="${key}" role="button" tabindex="0" aria-current="${key===_cfgSel?"true":"false"}" onclick="cfgSelectModule('${key}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();cfgSelectModule('${key}');}"><span class="mi">${ICONS[icon]}</span><span class="cfg-mod-text"><span class="ml">${esc(_nm)}</span><span class="cfg-mod-sum">${esc(_cfgSum[act]||"")}</span></span><span class="cfg-mod-dot" title="${on?"Active":"Off"}"></span><span class="modcard${on?" sel":""}" data-act="${act}" role="switch" aria-checked="${on?"true":"false"}" title="${titleTxt}"><span class="sw${on?" on":""}"></span></span></div>`;
@@ -10516,7 +10537,7 @@ function structuresSectionsHtml(){
               A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
   h += swTile("Credit regime \u2014<br>CECL", !!A.credit_regime, "cecl", "shield", "",
               A.credit_regime?"On \u2014 ACL vocabulary + provision decomposition; click to deactivate":"Off \u2014 click to activate the ASC 326 presentation");
-  h += '</div><div class="mp-info">Switch a module on in its header. Values are $000s unless a field says otherwise.</div></nav>';
+  h += '</div><div class="mp-info">Switch a module on in its header. Values are $000s unless a field says otherwise.</div></div></nav>';
   h += `<div class="cfg-stage"><div class="cfggrid" data-cfg-selected="${_cfgSel}">`;
   h += `<div class="cfgcard" id="card-cap"><div class="cardhead"><span class="mi">${ICONS.bank}</span><span><div class="ct">Capital structure &amp; pre-opening</div><div class="cd">Define capital actions and pre-opening requirements.</div></span></div>`;
   {
@@ -11177,7 +11198,7 @@ function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
   const _eng = cfg.client_legal_name || cfg.proposed_bank || cfg.client || "Unnamed engagement";
-  let h = '<div class="cfg-h1">Configuration</div>';
+  let h = '';   // r206: the page title lives at the head of the side column
   // One-time landing nudge (LIFECYCLE_SPEC §4): after a config lands (upload or create) but isn't
   // saved, offer to save it as an engagement. Shows once; [Save] or [Not now] dismisses it; the
   // quiet "Unsaved" badge carries the reminder afterward. Never for opened/example configs.
@@ -11194,7 +11215,7 @@ function renderConfigTab(){
     h += `<div class="cfgfoot"><span>Changes apply immediately and recompute the model.</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#A3772A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
-    document.getElementById("content").innerHTML = h; return;
+    document.getElementById("content").innerHTML = h; if(typeof cfgArrangeShell==="function") cfgArrangeShell(); return;
   }
   h += '<div class="ovh3">Configuration as document</div>';
   h += '<div class="accent-label" style="color:#8B6C38">Client configuration (JSON)</div>';
