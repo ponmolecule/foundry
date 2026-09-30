@@ -1084,6 +1084,7 @@ def run_pf_a(cfg):
     _wf_runtime = None
     _wf_comp_native = []
     _wf_role_comp_native = []
+    _wf_population_comp_native = []
     _wf_additive_comp_native = []
     _wf_additive_component_native = None
     _wf_count_native = None
@@ -1092,6 +1093,7 @@ def run_pf_a(cfg):
         from .workforce import WorkforceRuntime
         _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
         _wf_count_native = [[] for _ in _wf_runtime.rows]
+        _wf_population_comp_native = [[] for _ in _wf_runtime.rows]
         _wf_additive_component_native = [[] for _ in _wf_runtime.additive_components]
 
     # First-class managed-notional observables for workforce activation.
@@ -1478,6 +1480,8 @@ def run_pf_a(cfg):
         if _managed_sec:
             commit_managed_snapshot(_managed_sec, _managed_snapshot)
         if _wf_runtime is not None:
+            for _wi, _expense in enumerate(getattr(_wf_runtime, "last_population_expenses", [0.0] * len(_wf_runtime.rows))):
+                _wf_population_comp_native[_wi].append(float(_expense))
             _wf_comp_native.append(float(workforce_comp or 0.0))
             _wf_role_comp_native.append(float(_role_comp_q or 0.0))
             _wf_additive_comp_native.append(float((workforce_comp or 0.0) - (_role_comp_q or 0.0)))
@@ -1694,6 +1698,7 @@ def run_pf_a(cfg):
                              for i in range(Q)],
             "comp": list(_wf_comp_native),
             "role_comp": list(_wf_role_comp_native),
+            "population_comp": list(_wf_population_comp_native),
             "additive_comp": list(_wf_additive_comp_native),
             "additive_components": [
                 {"component_id": str((c or {}).get("component_id") or ""),
