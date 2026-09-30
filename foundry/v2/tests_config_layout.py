@@ -44,7 +44,7 @@ def main():
        and '<summary>Advanced trajectories<span class="cfg-disc-val"><i>Count</i>' in html)
     # r200: light work surface; graphite and gold as accents only.
     ck("Configuration renders on a light surface, not the dark cover theme",
-       'const DARKTABS = new Set(["welcome"]);' in html
+       'const DARKTABS = new Set([]);' in html
        and '<style id="klaros-graphite">' in html and '--k-surface:#FFFFFF' in html)
     ck("Operating expense has sub-tabs and a KPI strip fed by the latest run",
        'class="cfg-subtabs"' in html and 'window.nieTabSet=function' in html and 'data-nie-pane="workforce"' in html
@@ -61,8 +61,12 @@ def main():
     ck("Module activation switch sits in the module band; the rail shows status",
        'function cfgMountSwitch()' in html and 'class="cfg-mod-dot"' in html and '.cfg-nav .cfg-mod>.modcard{display:none}' in html)
     # r201: analysis and record tabs join the light surface.
-    ck("Only the Welcome landing keeps the dark cover theme",
-       'const DARKTABS = new Set(["welcome"]);' in html and 'c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));' in html)
+    ck("Every page, Welcome included, renders on the light surface",
+       'const DARKTABS = new Set([]);' in html and 'c.classList.toggle("cover", V3 && DARKTABS.has(currentTab));' in html)
+    ck("Welcome keeps its sign-in wiring and hides engagement controls",
+       all(f'id="{i}"' in html for i in ("loginUser","loginPass","loginErr","loginBlock","whoBlock","whoName","enterBtn"))
+       and 'onclick="enterPlatform()"' in html and 'document.body.classList.toggle("on-welcome", !!_wel);' in html
+       and 'body.on-welcome #chevBox' in html and 'class="welcome-main"' in html)
     ck("Section headers on analysis tabs are graphite bands; KPI tiles and flags are white",
        '.ovh2{background:var(--k-graph)!important' in html and '.ovcard,.ovflag{border-radius:10px;background:var(--k-surface)!important' in html)
     ck("Analysis data tables use proportional tabular figures",

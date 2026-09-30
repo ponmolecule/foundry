@@ -465,3 +465,14 @@ Unchanged by design: the Welcome landing (dark brand page) and the frozen /v1 co
 
 Validation: full gate set compared with the r198 baseline; tests_config_layout extended with
 two r202 checks; exhibit workbooks regenerated and opened.
+
+
+## r203 — Welcome on the light surface
+
+Presentation-only release. The Welcome landing, the last dark page in the console, moves to
+the light surface: a light hero with a graphite primary action and a graphite panel that
+names what the platform contains (taken from the actual tabs). The redundant in-page brand
+row and placeholder mark are removed; the application bar carries the Klaros mark. While on
+Welcome, engagement controls (switcher, save state, flags, Assumptions, Export) are hidden.
+Every id, handler and line of copy used by sign-in, Enter platform, sign-out and account
+recovery is unchanged. The frozen /v1 console is untouched by design.
