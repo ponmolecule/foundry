@@ -16,10 +16,32 @@ def main():
     html=Path("web/console_v2.html").read_text(encoding="utf-8")
     m=re.search(r"\.cfggrid\{[^}]*grid-template-columns:([0-9.]+)fr\s+([0-9.]+)fr\s+([0-9.]+)fr", html)
     vals=tuple(map(float,m.groups())) if m else ()
-    ck("Config left column is squeezed to relieve the Securities/Tax middle column",
-       bool(vals) and vals[0] <= 1.10 and vals[1] >= .86 and vals[2] >= vals[1], str(vals))
-    ck("Config column proportions preserve a full-width right authoring column",
-       bool(vals) and abs(sum(vals)-3.0) < 1e-9 and vals[2] >= 1.0, str(vals))
+    # r199: the three-column grid is superseded. One module is staged at a time beside a module
+    # navigator; the legacy proportions rule stays in the stylesheet only as an inert baseline.
+    ck("Legacy three-column proportions remain parseable as an inert baseline", bool(vals) and abs(sum(vals)-3.0) < 1e-9, str(vals))
+    ck("Configuration stages one module at a time",
+       '.cfggrid{display:block}' in html and '.cfggrid>.cfgcard{display:none' in html
+       and all(f'.cfggrid[data-cfg-selected="{k}"]>#card-{k}' in html for k in ("cap","sec","nie","cac","tax","cecl")))
+    ck("Configuration has a module navigator with per-module switches and a full-width stage",
+       'class="cfg-shell"' in html and 'class="modpanel cfg-nav"' in html and 'class="cfg-stage"' in html
+       and 'window.cfgSelectModule=function' in html and 'data-cfg-mod="${key}"' in html
+       and 'class="modcard${on?" sel":""}" data-act="${act}" role="switch"' in html)
+    ck("Navigator lists the staged module's sections and summarises each module's state",
+       'function cfgBuildSubnav()' in html and "if(typeof cfgAfterRender==='function')cfgAfterRender();" in html
+       and 'class="cfg-mod-sum"' in html and 'const _cfgSum={' in html)
+    ck("Global assumptions dock as a right-hand inspector that persists across tabs",
+       'id="inspBtn"' in html and 'window.toggleInspector=function' in html
+       and 'body.insp-closed main>aside{display:none}' in html and "localStorage.setItem('foundry.inspector'" in html)
+    ck("Application chrome is one compact bar with a single-row, grouped tab strip",
+       '<div id="appbar">' in html and '<div id="ribbon">' not in html and '<header class="cover">' not in html
+       and 'class="tabsep"' in html)
+    ck("Opex components are authored without an Advanced click; only timing sits behind a summarised disclosure",
+       "if(_adv){\n        if(!_legacyCostPool){" not in html and 'Advanced timing<span class="cfg-disc-val">' in html
+       and "if(_hasEnteredRecurring&&_adv){" in html)
+    ck("Loaded explicit schedules stay visible: sparkline preview in open, closed and collapsed states",
+       'function _sparkHtml(vals)' in html and 'class="paste-closed-preview"' in html
+       and "const head=(typeof _sparkHtml==='function'?_sparkHtml(vals):'')" in html
+       and '<summary>Advanced trajectories<span class="cfg-disc-val"><i>Count</i>' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
@@ -38,15 +60,17 @@ def main():
     ck("Workforce and Opex authoring sections have explicit compact Expand/Collapse controls",
        "nieSectionSetOpen('workforce'" in html and "nieSectionSetOpen('opex'" in html
        and 'class="nie-section-toggle"' in html and 'expand to inspect or edit' in html)
-    ck("Loaded Workforce/Opex sections default collapsed while empty sections remain open",
-       'function _nieSectionIsOpen(key,hasRows)' in html and ': !hasRows;' in html
+    ck("Workforce/Opex sections open by default in the staged layout; dense collapse-when-loaded stays available",
+       'function _nieSectionIsOpen(key,hasRows)' in html and ': !hasRows;' in html and 'window._cfgDenseDefaults' in html
+       and "!!window._nieSectionOpen[key] : true;" in html
        and 'window._nieSectionOpen.workforce=true' in html and 'window._nieSectionOpen.opex=true' in html)
     ck("Pre-opening expense and Fixed Assets/CAPEX have compact Expand/Collapse controls",
        "cfgSectionSetOpen('preopening'" in html and "cfgSectionSetOpen('fixedassets'" in html
        and '>Pre-opening expenses</span><button class="nie-section-toggle"' in html
        and '>Fixed assets / CAPEX</span><button class="nie-section-toggle"' in html)
-    ck("Loaded pre-opening/fixed-asset sections default collapsed and authoring actions reopen them",
+    ck("Pre-opening/fixed-asset sections open by default in the staged layout and authoring actions reopen them",
        'function _cfgSectionIsOpen(key,hasContent)' in html and ': !hasContent;' in html
+       and "!!window._cfgSectionOpen[key] : true;" in html
        and 'window._cfgSectionOpen.preopening=true' in html and 'window._cfgSectionOpen.fixedassets=true' in html)
 
     print(f"\n{p} passed, {f} failed")
