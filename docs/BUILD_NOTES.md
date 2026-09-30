@@ -362,3 +362,36 @@ independence, profile A/B legacy compatibility, FIW policy edits, UI migration/d
 checks passed; all 47 managed-securities checks passed. Legacy parity fixture/hash,
 validation and workbook checks passed; broad parity gate still reports pre-existing
 unmapped EBITDA and MSR amortization Call Report diagnostics.
+
+
+## r199 — Klaros graphite theme and staged Configuration workspace
+
+Presentation-only release; no engine, schema, or saved-configuration change.
+
+Theme. The navy/amber palette is remapped to Klaros charcoal, taupe, silver and gold by a
+lightness-preserving transform (each colour keeps its OKLCH lightness, so existing contrast
+relationships hold). Statement tabs keep light paper surfaces with charcoal headers. Type is
+the system UI face on Apple hardware and Inter elsewhere, with tabular figures in fields.
+
+Chrome. Ribbon, cover header and wrapped tab toolbar (about 285px) are replaced by one
+two-row application bar (89px): brand, engagement switcher, save state, flags, Export, and a
+single-row tab strip with hairline rules between workflow groups. All 15 tabs fit at 1440px.
+
+Assumptions inspector. Global assumptions, rate curves and stress settings move from the
+left rail to a right-hand inspector toggled from the bar. It persists across every tab and
+the choice is remembered per browser; first visit opens it at 1500px and wider.
+
+Configuration. The three-column grid is replaced by a module navigator (six modules, each
+with its state summary and activation switch, plus the staged module's section index) and a
+full-width stage that shows one module at a time. Sections open by default. Opex expense
+components (formula / driver, tiered / banded, cost pool) are authored directly on the
+category; only recognition and cash-settlement timing sit behind a disclosure, which states
+its current values when closed. Workforce Advanced trajectories always state Count and
+Compensation paths. Loaded explicit schedules show a sparkline preview in open, closed and
+collapsed states. Links that acted as buttons are now one button family (secondary, primary
+for an armed Load, quiet destructive).
+
+Validation: full Python gate set and Node checks compared line-by-line against the r198
+baseline. tests_config_layout rewritten for the staged layout. Four legacy rule strings
+that gates pin by colour literal are preserved verbatim and overridden by the design layer.
+Visual verification by headless Chromium at 1440, 1600 and 1720px.
