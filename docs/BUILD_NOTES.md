@@ -538,3 +538,20 @@ header and grid as you type.
 Validation: full gate set matches the r198 baseline; tests_config_layout at 39 checks (four new).
 Headless Chromium at 1440px: every product family renders with balanced sections, stream add
 auto-selects, field edits persist with selection and tab kept, no page errors.
+
+
+## r206 — One side-column pattern for Configuration and Products
+
+Presentation-only release on r205; no engine, schema, or saved-configuration change.
+
+Configuration takes Products' side column: full height from the application bar, #EDEEEC with a
+hairline right border, the page title at its head. The onboarding nudge and footer move inside
+the workspace after render (cfgArrangeShell) so the column is never interrupted.
+
+Products takes Configuration's elevated navigator: a white bordered card holding family
+headings (collapsible, with counts) and product rows with an icon tile per family, the product
+name, a sub-line (fee-stream count, or Q12 balance for lending and deposits) and 12Q revenue.
+The selected row carries the gold wash, gold bar and graphite icon tile used by Configuration.
+Search, drag reorder and selection are unchanged.
+
+Validation: full gate set matches the r198 baseline; tests_config_layout at 41 checks (two new).
