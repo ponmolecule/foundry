@@ -703,3 +703,18 @@ constant visual cue, not the only target); the row itself follows the pointer wh
 the original dims; the gold drop line sits above or below the target row according to its top or
 bottom half only (the old card-grid rule also used left/right, which mis-placed drops in a list).
 A plain click still selects the product; drops across families are still refused.
+
+
+## r219 — Fee-stream driver figures with their working shown
+
+Presentation-only release on r218. The fee-stream grid's "Quantity, last period" column becomes
+"Driver · M36" (the model's actual final period: M, Q or Y). Values are shown in the editor's
+units: money in $000s (the engine's quantity series is in plain units, so 51,599,500 now reads
+51,599.5), counts as accounts, customers or units. Units mirror the engine's own classifier
+(income_modules._fee_stream_quantity_kinds), including inheritance through stream references.
+A second line shows the working: "entered · M36 of your schedule", "= 80% × 51,599.5 ·
+<source>", "= 116.6 per account × 240", "= 2× 240", or the feed the stream draws on. Ratios are
+computed from the engine's final-period figures (stream ÷ source), so the line always agrees
+with the number above it; the source name links to that stream. The editor's Activity tab shows
+the same working above the fields (and, for a source, which streams it drives). Notes folded into
+"About these settings" now form one box per tab.

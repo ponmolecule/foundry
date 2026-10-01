@@ -164,6 +164,13 @@ def main():
        'draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,' in html and 'prdDragImage(event)' in html
        and 'window.prdRowDragOver=function' in html and 'class="prd-row-t" draggable="false"' in html
        and '.prd-nav .product-card.prd-row.drop-after{box-shadow:0 3px 0 0 var(--k-gold)}' in html)
+    # r219: fee-stream driver figures in the editor's units, with their working shown in grid and editor.
+    ck("Fee-stream driver column shows the final-period figure in the editor's units with a working line",
+       'function _stProv(metas,i,fi)' in html and 'function _stKinds(metas)' in html and "'money_flow'" in html
+       and '<th class="num">Driver \\u00b7 \'+_stProvP(_stMeta)+\'</th>' in html and 'class="fld wide st-calc"' in html
+       and 'event.stopPropagation();stSelect(' in html and 'Quantity, last period' not in html)
+    ck("One 'About these settings' box per stream tab",
+       "const tabs=['activity','pricing','timing','costs'], last={};" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
