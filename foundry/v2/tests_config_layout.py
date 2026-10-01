@@ -204,6 +204,9 @@ def main():
     ck("Stream editor carries no duplicate working block; grid figures refresh after each run; only the info icon opens a card",
        'class="fld wide st-calc"' not in html and 'function refreshStreamFigures()' in html and "if(typeof refreshStreamFigures==='function') refreshStreamFigures(); }" in html
        and '${_stCellHtml(_stMeta,k,_fi)}' in html and '.st-list .st-v[data-ip]' not in html and "data-ip=\"src:'+fi+':auc\" tabindex" not in html)
+    # r229: controls are fitted before paint (no shrink-then-grow flicker on redraw).
+    ck("Control fitting runs synchronously on redraw, not on a timer",
+       'const run=()=>fitControls();' in html and "t=setTimeout(()=>fitControls(),40)" not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
