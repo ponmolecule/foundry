@@ -755,3 +755,18 @@ spend ÷ CAC) reproduces its source in all 36 months under every timing; Engagem
 attrition) on straight line / year-ends reproduces its source's monthly averages (Year 1 exact,
 Year 7 within input rounding); invariants, closed forms, quarterly engine cadence, end-to-end fee
 consumption, and rejection of invalid values.
+
+
+## r222 — Calculation cards; decluttered stream grid; r221 path row without defaults
+
+Presentation release on r221 plus one read-only API route. Run results are unchanged.
+- Fee-stream grid: one line per figure (value, unit, ⓘ). Hovering the figure shows its working;
+  clicking the figure or ⓘ pins it; Esc or an outside click closes; keyboard focus also shows it.
+  Clicking a figure does not change the selected stream; clicking elsewhere on the row still does.
+- Cards and the editor's Activity line are rendered from the same structured steps (operation,
+  label, value, total), so they cannot disagree. ◆ Source rows show one number (the AUC the
+  engine uses); the card explains average vs month-end AUC and links to the feed roll-forward.
+- Intra-period path row: no "(default)" labels and no default/non-default tag; the options are
+  alternative conventions. Its ⓘ card shows average AUC (or customers) by year under every option
+  side by side, with the one in use marked, computed on demand by POST /api/v31/cac/path-options
+  (cac_feeder.path_option_comparison, identical to the engine for the option in use).

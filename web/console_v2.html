@@ -1524,6 +1524,32 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .cac-path-eff{margin:6px 0 2px;padding:7px 10px;border-left:3px solid var(--k-gold);background:#FBF7EF;font-size:12.5px}
 .cac-path-eff details{margin-top:6px}.cac-path-eff summary{cursor:pointer;color:var(--k-gold-deep);font-size:12px}
 .cac-path-eff table{width:auto;margin-top:6px}
+
+/* r222: calculation cards and the decluttered stream grid */
+.st-list td.st-q,.st-list td.st-q.num{white-space:nowrap!important}
+.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:help}
+.st-list .st-v.st-fx{font-weight:400;color:var(--k-tx3);border-bottom-style:dotted}
+.ip-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:6px;border:1px solid #BDBDB8;border-radius:50%;font-size:9px;font-weight:700;font-style:normal;color:#666666;vertical-align:1px;cursor:pointer;user-select:none}
+.ip-i:hover,.ip-on.ip-i,.ip-on + .st-u + .ip-i{border-color:#8F6B30;color:#8F6B30;background:#FBF7EF}
+.ip-card{position:absolute;z-index:9000;width:380px;max-width:calc(100vw - 16px);background:#FFFFFF;border:1px solid #C4C4C4;border-top:3px solid var(--k-gold);border-radius:3px;box-shadow:0 12px 34px rgba(0,0,0,.18);padding:12px 14px;font-size:12.5px;color:#343434;text-align:left;white-space:normal}
+.ip-card h4{margin:0 0 2px;font-size:12.5px;font-weight:600}
+.ip-card .ip-sub{font-size:11.5px;color:#666666;margin:0 0 9px}
+.ip-card .ip-pin{position:absolute;right:12px;top:10px;font-size:10.5px;color:#96928C}
+.ip-steps{display:grid;grid-template-columns:18px 1fr auto;row-gap:5px;column-gap:6px;align-items:baseline;font-variant-numeric:tabular-nums}
+.ip-steps .op{color:#96928C;text-align:center}.ip-steps .vl{text-align:right;font-weight:600;white-space:nowrap}
+.ip-steps i{font-style:normal;color:#666666;font-size:11.5px}
+.ip-steps .mu{color:#666666;font-weight:400}
+.ip-steps .tot{border-top:1px solid #343434;padding-top:5px;font-weight:700}
+.ip-note{margin-top:9px;font-size:11.5px;color:#666666;line-height:1.45}
+.ip-ft{margin-top:9px;padding-top:8px;border-top:1px solid #E6E6E3;font-size:11.5px;color:#666666}
+.ip-card a{color:var(--k-gold-deep);text-decoration:none;border-bottom:1px dotted #BF975E}
+.ip-card:has(.ip-t){width:auto;max-width:min(760px,calc(100vw - 16px))}
+.ip-tw{overflow-x:auto}.ip-t{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12px}
+.ip-t th,.ip-t td{border:1px solid #D8D8D8;padding:5px 9px;text-align:right;white-space:nowrap}.ip-t th:first-child,.ip-t td:first-child{text-align:left}
+.ip-t th{background:#EFEFEF;font-weight:600;color:#4A4A4A}.ip-t tr.cur td{background:#F5ECDD;font-weight:600}
+.st-calc-b{flex:1 1 auto;min-width:0;max-width:520px}
+.st-calc-b .ip-steps{row-gap:3px}.st-calc-b .ip-note{margin-top:5px}
+.cac-path-h .ip-i{margin-left:8px}
 </style>
 </head>
 <body>
@@ -1810,9 +1836,9 @@ function _stFeedLink(label){ return '<a href="#" onclick="event.stopPropagation(
 function _stSrcRows(metas,fi){
   const s=_stSrc(metas,fi), P=_stProvP(metas); let h='';
   if(s.auc){ const link=s.auc.feed?_stFeedLink('feed roll-forward'):'<a href="#" onclick="event.stopPropagation();prdTabSet(\'setup\');return false">entered ramp</a>';
-    h+='<tr class="st-src"><td>\u25C6</td><td class="name">AUC<span class="st-tag">source</span></td><td></td><td>'+esc(s.auc.feed||'Entered ramp')+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(s.auc.avg)+'</span><span class="st-u">$000s</span><span class="st-w">average AUC used in '+P+(s.auc.end!=null?' \u00b7 ending '+_stNum(s.auc.end):'')+' \u00b7 '+link+'</span></td></tr>'; }
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">AUC<span class="st-tag">source</span></td><td></td><td>'+(s.auc.feed?'Acquisition feed':'Entered ramp')+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v" data-ip="src:'+fi+':auc" tabindex="0">'+_stNum(s.auc.avg)+'</span><span class="st-u">$000s</span><span class="ip-i" data-ip="src:'+fi+':auc" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; }
   Object.keys(s.cust).forEach(ref=>{ const ms=s.cust[ref], ks=Object.keys(ms); if(!ks.length) return;
-    h+='<tr class="st-src"><td>\u25C6</td><td class="name">Customers<span class="st-tag">source</span></td><td></td><td>'+esc(ref)+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(ms[ks[0]])+'</span><span class="st-u">customers</span><span class="st-w">'+ks.map(k=>_ST_MEAS[k]+(ks.length>1?' '+_stNum(ms[k]):'')).join(' \u00b7 ')+' in '+P+' \u00b7 '+_stFeedLink('feed roll-forward')+'</span></td></tr>'; });
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">Customers<span class="st-tag">source</span></td><td></td><td>Acquisition feed</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v" data-ip="src:'+fi+':cust:'+encodeURIComponent(ref)+'" tabindex="0">'+_stNum(ms[ks[0]])+'</span><span class="st-u">customers</span><span class="ip-i" data-ip="src:'+fi+':cust:'+encodeURIComponent(ref)+'" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; });
   return h; }
 function _stSrcChip(metas,fi,root){ const d=(metas[root]||{}).drv||{}, sv=String(d.source||'').toLowerCase();
   if(sv==='managed_notional'){ const s=_stSrc(metas,fi); return '<span class="c src">AUC<small>'+esc((s.auc&&s.auc.feed)||'entered ramp')+' \u00b7 source</small></span><span class="a">\u2192</span>'; }
@@ -1821,8 +1847,8 @@ function _stSrcChip(metas,fi,root){ const d=(metas[root]||{}).drv||{}, sv=String
 function _stProv(metas,i,fi){
   const m=metas[i]; if(!m) return null;
   { const b=String(m.basis||'').toLowerCase();
-    if(b==='flat') return {val:'\u2014',unit:'',work:'fixed amount \u00b7 no volume driver',calc:'Fixed amount each period \u00b7 no volume driver'};
-    if(b==='event') return {val:'\u2014',unit:'',work:'one-time amount \u00b7 no volume driver',calc:'One-time amount \u00b7 no volume driver'};
+    if(b==='flat') return {val:'fixed amount',unit:'',work:'fixed amount \u00b7 no volume driver',calc:'Fixed amount each period \u00b7 no volume driver',steps:[],note:'A fixed amount each period. There is no volume driver, so nothing is multiplied.',fixed:true};
+    if(b==='event') return {val:'one-time',unit:'',work:'one-time amount \u00b7 no volume driver',calc:'One-time amount \u00b7 no volume driver',steps:[],note:'A one-time amount. There is no volume driver, so nothing is multiplied.',fixed:true};
     if(!m.qty||!m.qty.length) return null; }
   const kinds=_stKinds(metas), K0=(typeof K!=='undefined'?K:1000), sc=x=>(kinds[i]==='money'?x/K0:x), ppy=(typeof PPY==='function')?PPY():12;
   const n=m.qty.length, q=m.qty[n-1], val=_stNum(sc(q)), unit=_stUnitLabel(metas,kinds,i), P=_stProvP(metas), EU=_stEngUnit();
@@ -1833,25 +1859,35 @@ function _stProv(metas,i,fi){
       const op=Math.abs(fac-1)<1e-9?'':(fac>1?' \u00f7 '+_stNum(fac,'ratio'):' \u00d7 '+_stNum(1/fac,'ratio'));
       const isPct=(ck==='pct'), shown=isPct?_stNum(a*100,'ratio')+'%/'+ab:_stNum(a,'ratio')+(ck==='multiple'||ck==='turns'?' turns/':'\u00d7/')+ab;
       const perPer=isPct?_stNum(r*100,'ratio')+'%':_stNum(r,'ratio'); return {shown,op,perPer,fac}; };
-  let work='', calc='';
+  let work='', calc='', steps=[], note='';
+  const TOT=()=>({o:'=',l:esc(m.name),v:val+' '+unit,t:1});
   if(srcv==='constant'){
     const per=(p.level_schedule||{}).period||(p.flow_path||{}).period||'', sched=(String(d.trajectory||'')==='explicit_schedule')||(p.flow_path&&String(p.flow_path.trajectory||'')==='explicit_schedule');
     const L=sched?_stSchedLbl(per,n):P;
     work=sched?('entered \u00b7 <b>'+L+'</b> of your schedule'):'entered';
     calc='Entered <b>'+val+' '+unit+'</b>'+(sched?' <span class="src">('+L+' of your schedule'+(L!==P?'; '+P+' is the last '+EU+' of '+L:'')+')</span>':'')+depTxt;
+    steps=[{l:sched?'Entered in your schedule':'Entered',d:sched?(L+(L!==P?' \u00b7 '+P+' is its last '+EU:'')):'',v:val+' '+unit,t:1}];
+    if(dependents.length) note='Drives '+dependents.map(j=>esc(metas[j].name)).join(', ')+'.';
   } else if(srcv==='managed_notional'){
     const S=_stSrc(metas,fi), ref='<span class="st-srcref">\u25C6 AUC</span>';
     if(S.auc&&S.auc.avg){ const base=S.auc.avg*K0, r=q/base, A=_stNum(S.auc.avg);
-      if(p.stock_multiplier){ const pct=_stNum(r*100,'ratio'); work='= <b>'+pct+'%</b> \u00d7 '+A+' \u00b7 '+ref; calc='<b>'+pct+'%</b> \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+      if(p.stock_multiplier){ const pct=_stNum(r*100,'ratio'); work='= <b>'+pct+'%</b> \u00d7 '+A+' \u00b7 '+ref; calc='<b>'+pct+'%</b> \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>';
+        steps=[{l:'Share of AUC',v:pct+'%'},{o:'\u00d7',l:'\u25C6 AUC',d:'average for '+P,v:A+' $000s'},TOT()]; }
       else { const per=c.period||'model_period', R=rateTxt(r,per), L=String(c.trajectory||'')==='explicit_schedule'?' <span class="src">('+_stSchedLbl(per,n)+')</span>':'';
         work='= <b>'+R.shown+'</b>'+R.op+' \u00d7 '+A+' \u00b7 '+ref;
-        calc='<b>'+R.shown+'</b>'+L+R.op+(R.op?' = '+R.perPer+' per '+EU:'')+' \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+        calc='<b>'+R.shown+'</b>'+L+R.op+(R.op?' = '+R.perPer+' per '+EU:'')+' \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>';
+        const SL=String(c.trajectory||'')==='explicit_schedule'?_stSchedLbl(per,n):'', perN=String(per||'').toLowerCase(), isPctK=(ck==='pct');
+        steps=[{l:(isPctK?'Flow rate':'Turns')+(SL?', from your schedule':''),d:SL,v:R.shown}];
+        if(R.op) steps.push({o:R.fac>1?'\u00f7':'\u00d7',l:(R.fac>1?EU.charAt(0).toUpperCase()+EU.slice(1)+'s per '+(perN==='annual'?'year':perN):'Periods'),v:_stNum(R.fac>1?R.fac:1/R.fac,'ratio')},{o:'=',l:'Per '+EU,v:R.perPer,m:1});
+        steps.push({o:'\u00d7',l:'\u25C6 AUC',d:'average for '+P,v:A+' $000s'},TOT()); }
     } else { work='from the off-book balance (AUC)'; calc='Driven by the off-book balance (AUC) = <b>'+val+' '+unit+'</b> at '+P; }
     calc+=depTxt;
   } else if(srcv==='customer_acquisition_count'){
     const S=_stSrc(metas,fi), ref=_stFeedName(d.ref), meas=String(d.measure||'period_end').toLowerCase(), v=((S.cust[ref]||{})[meas]), ML=_ST_MEAS[meas]||meas, cref='<span class="st-srcref">\u25C6 Customers</span>';
-    if(v!=null&&Math.abs(v-q)<=1e-6*Math.max(1,Math.abs(q))){ work='= '+cref+', '+ML+' in '+P; calc=cref+' <span class="src">('+ML+', '+P+', '+esc(ref)+')</span> = <b>'+val+' '+unit+'</b>'; }
-    else if(v){ const x=_stNum(q/v,'ratio'); work='= <b>'+x+'\u00d7</b> '+cref+', '+ML+' in '+P; calc='<b>'+x+'\u00d7</b> '+cref+' '+_stNum(v)+' <span class="src">('+ML+', '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+    if(v!=null&&Math.abs(v-q)<=1e-6*Math.max(1,Math.abs(q))){ work='= '+cref+', '+ML+' in '+P; calc=cref+' <span class="src">('+ML+', '+P+', '+esc(ref)+')</span> = <b>'+val+' '+unit+'</b>';
+      steps=[{l:'\u25C6 Customers',d:ML+' in '+P+' \u00b7 '+esc(ref),v:val+' '+unit,t:1}]; }
+    else if(v){ const x=_stNum(q/v,'ratio'); work='= <b>'+x+'\u00d7</b> '+cref+', '+ML+' in '+P; calc='<b>'+x+'\u00d7</b> '+cref+' '+_stNum(v)+' <span class="src">('+ML+', '+P+')</span> = <b>'+val+' '+unit+'</b>';
+      steps=[{l:'Multiple',v:x+'\u00d7'},{o:'\u00d7',l:'\u25C6 Customers',d:ML+' in '+P,v:_stNum(v)+' customers'},TOT()]; }
     else { work='from the customer acquisition feed'; calc='Driven by the customer acquisition feed = <b>'+val+' '+unit+'</b> at '+P; }
     calc+=depTxt;
   } else if(srcv==='stream_ref'){
@@ -1860,15 +1896,17 @@ function _stProv(metas,i,fi){
     const link=j>=0?'<a href="#" onclick="event.stopPropagation();stSelect('+fi+','+j+');return false">'+esc(s.name)+'</a>':esc(String(d.ref||'another stream'));
     if(qs==null){ work='from '+link; calc='Driven by '+link; }
     else if(!qs){ work='source is 0 at '+P+' \u00b7 '+link; calc='Source '+link+' is 0 at '+P; }
-    else if(ck==='amount_per_source_unit'){ const per=sc(q)/ssc(qs), uS=su.replace(/s$/,''); work='= <b>'+_stNum(per,'ratio')+' per '+uS+'</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(per,'ratio')+'</b> '+unit+' per '+uS+' \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
-    else if(ck==='multiple'||ck==='turns'){ const x=sc(q)/ssc(qs); work='= <b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' \u00b7 '+link; calc='<b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
-    else { const r=q/qs*100; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else if(ck==='amount_per_source_unit'){ const per=sc(q)/ssc(qs), uS=su.replace(/s$/,''); steps=[{l:'Amount per '+uS,v:_stNum(per,'ratio')+' '+unit},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(per,'ratio')+' per '+uS+'</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(per,'ratio')+'</b> '+unit+' per '+uS+' \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else if(ck==='multiple'||ck==='turns'){ const x=sc(q)/ssc(qs); steps=[{l:'Multiple',v:_stNum(x,'ratio')+'\u00d7'},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' \u00b7 '+link; calc='<b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else { const r=q/qs*100; steps=[{l:'Share of '+esc(s.name),v:_stNum(r,'ratio')+'%'},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     calc+=depTxt;
   } else {
     const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    steps=[{l:'Driven by '+(SRC[srcv]||esc(_prdLab(srcv))),d:P,v:val+' '+unit,t:1}];
     work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
   }
-  return {val,unit,work,calc};
+  if(!note&&dependents.length) note='Drives '+dependents.map(j=>esc(metas[j].name)).join(', ')+'.';
+  return {val,unit,work,calc,steps,note,title:esc(m.name)+' \u00b7 '+P};
 }
 
 // r221: customer-acquisition intra-period path. Absent keys reproduce the historical calculation exactly.
@@ -1897,22 +1935,83 @@ function _cacPathRowHtml(fn,fd,asp,am){
   const T={period_end:'At attrition-period end',spread:'Spread evenly across the attrition period',period_start:'At attrition-period start'};
   const TD={period_end:`All of each ${perWord}\u2019s attrition in its last month. Highest average balance.`,
             spread:`Equal slices in every month of each ${perWord}.`,period_start:`All of each ${perWord}\u2019s attrition in its first month. Lowest average balance.`};
-  let h=`<div class="cac-path" data-fn="${F}"><div class="cac-path-h">Intra-period path<span class="cac-path-tag${nonDefault?' nd':''}">${nonDefault?'non-default':'default'}</span></div>`;
-  h+=`<div class="cac-path-r"><span class="l">Path</span><select onchange="cacFeedPathSet('${F}','path',this.value)"><option value="monthly_flows"${path==='monthly_flows'?' selected':''}>Monthly flows (default)</option><option value="straight_line"${path==='straight_line'?' selected':''}>Straight line between anchor points</option></select>`;
+  let h=`<div class="cac-path" data-fn="${F}"><div class="cac-path-h">Intra-period path<span class="ip-i" data-ip="path:${encodeURIComponent(fn)}" role="button" tabindex="0" aria-label="How the options compare">i</span></div>`;
+  h+=`<div class="cac-path-r"><span class="l">Path</span><select onchange="cacFeedPathSet('${F}','path',this.value)"><option value="monthly_flows"${path==='monthly_flows'?' selected':''}>Monthly flows</option><option value="straight_line"${path==='straight_line'?' selected':''}>Straight line between anchor points</option></select>`;
   h+=`<span class="d">${path==='straight_line'?'Anchor balances are calculated as usual; the months between them move in equal steps.':'New customers and AUC are added each month; attrition follows the timing below.'}</span></div>`;
   if(path==='straight_line'){
     h+=`<div class="cac-path-r"><span class="l">Anchor points</span><select onchange="cacFeedPathSet('${F}','anchor',this.value)"><option value="year"${anchor==='year'?' selected':''}>Year-ends</option><option value="quarter"${anchor==='quarter'?' selected':''}>Quarter-ends</option></select><span class="d">Month-ends aren\u2019t offered: with monthly anchors there is nothing to interpolate, so the path is the monthly flows.</span></div>`;
   }
-  h+=`<div class="cac-path-r"><span class="l">Attrition timing</span><select ${timingDisabled?'disabled':''} onchange="cacFeedPathSet('${F}','timing',this.value)">${Object.keys(T).map(k=>`<option value="${k}"${k===(timingDisabled?'period_end':timing)?' selected':''}>${T[k]}${k==='period_end'?' (default)':''}</option>`).join('')}</select><span class="d">${timingDisabled?timingWhy:TD[timing]+` This feed\u2019s attrition period is a ${perWord}.`}</span></div>`;
-  const pc=((((typeof lastRes!=='undefined'&&lastRes)||{}).customer_acquisition||{})[fn]||{}).pathComparison;
-  if(nonDefault&&pc&&(pc.default_avg_auc_by_year||[]).length){
-    const useAuc=(pc.default_avg_auc_by_year||[]).some(v=>Math.abs(+v)>0), D=useAuc?pc.default_avg_auc_by_year:pc.default_avg_customers_by_year, C=useAuc?pc.chosen_avg_auc_by_year:pc.chosen_avg_customers_by_year;
-    const n=D.length, last=n-1, dl=C[last]-D[last], pct=D[last]?dl/D[last]*100:0, u=useAuc?' $000s':' customers', f=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:useAuc?0:1});
-    h+=`<div class="cac-path-eff"><b>Effect vs default:</b> balances at each ${path==='straight_line'?anchor+'-end':perWord+'-end'} unchanged; Year ${n} average ${useAuc?'AUC':'customers'} <b>${f(C[last])}${u}</b> (${dl>=0?'+':''}${f(dl)}, ${pct>=0?'+':''}${pct.toFixed(2)}% vs default).`;
-    h+=`<details><summary>By year</summary><table class="cfg-grid"><thead><tr><th>Year</th><th class="num">Default</th><th class="num">Chosen</th><th class="num">Change</th><th class="num">%</th></tr></thead><tbody>${D.map((d,y)=>{const c=C[y],x=c-d;return `<tr><td>Year ${y+1}</td><td class="num">${f(d)}</td><td class="num">${f(c)}</td><td class="num">${x>=0?'+':''}${f(x)}</td><td class="num">${d?((x/d*100)>=0?'+':'')+(x/d*100).toFixed(2)+'%':'\u2014'}</td></tr>`;}).join('')}</tbody></table></details></div>`;
-  } else if(nonDefault){ h+=`<div class="cac-path-eff">Run the model to see the effect against the default path.</div>`; }
+  h+=`<div class="cac-path-r"><span class="l">Attrition timing</span><select ${timingDisabled?'disabled':''} onchange="cacFeedPathSet('${F}','timing',this.value)">${Object.keys(T).map(k=>`<option value="${k}"${k===(timingDisabled?'period_end':timing)?' selected':''}>${T[k]}</option>`).join('')}</select><span class="d">${timingDisabled?timingWhy:TD[timing]+` This feed\u2019s attrition period is a ${perWord}.`}</span></div>`;
   return h+`</div>`;
 }
+
+// r222: calculation cards. Hover shows; click pins (Esc or outside closes); focus shows. Content is built
+// from the same structured steps the editor uses, so the grid, card and editor can never disagree.
+function _ipStepsHtml(steps,note){
+  let h='';
+  if(steps&&steps.length){ h+='<div class="ip-steps">'+steps.map(s=>`<span class="op${s.t?' tot':''}">${s.o||''}</span><span class="lb${s.t?' tot':''}${s.m?' mu':''}">${s.l}${s.d?' <i>('+s.d+')</i>':''}</span><span class="vl${s.t?' tot':''}${s.m?' mu':''}">${s.v}</span>`).join('')+'</div>'; }
+  if(note) h+='<div class="ip-note">'+note+'</div>';
+  return h;
+}
+function _ipSrcHtml(fi,kind,ref){
+  const metas=(window._stMetaByFi||{})[fi]; if(!metas) return '';
+  const s=_stSrc(metas,fi), P=_stProvP(metas);
+  if(kind==='auc'&&s.auc){
+    return `<h4>AUC \u00b7 ${P}</h4><div class="ip-sub">The off-book balance this product\u2019s streams draw on</div>`+
+      _ipStepsHtml([{l:'AUC used in '+P,d:'month average',v:_stNum(s.auc.avg)+' $000s',t:1}].concat(s.auc.end!=null?[{l:'Month-end AUC',v:_stNum(s.auc.end)+' $000s',m:1}]:[]),
+        'Rates and turns are applied to the <b>average</b> AUC across the month (start and end of the month averaged), so that is the figure the streams use. The month-end figure is the one shown as Ending AUC in the feed\u2019s roll-forward.')+
+      `<div class="ip-ft">${s.auc.feed?'Feed: '+esc(s.auc.feed)+' \u00b7 '+_stFeedLink('open roll-forward'):'Entered on the product\u2019s Setup tab'}</div>`;
+  }
+  if(kind==='cust'){ const ms=(s.cust||{})[ref]||{}, ks=Object.keys(ms);
+    return `<h4>Customers \u00b7 ${P}</h4><div class="ip-sub">Customer counts this product\u2019s streams draw on</div>`+
+      _ipStepsHtml(ks.map(k=>({l:_ST_MEAS[k].charAt(0).toUpperCase()+_ST_MEAS[k].slice(1)+' customers',d:P,v:_stNum(ms[k])})),
+        'Each stream uses the count its settings name: period-end, average for the period, or year-end (which applies the year\u2019s closing count to every month of that year).')+
+      `<div class="ip-ft">Feed: ${esc(ref)} \u00b7 ${_stFeedLink('open roll-forward')}</div>`; }
+  return '';
+}
+const _IP_OPT={flows_end:'Monthly flows \u00b7 attrition at period end',flows_spread:'Monthly flows \u00b7 attrition spread evenly',flows_start:'Monthly flows \u00b7 attrition at period start',line_year:'Straight line \u00b7 year-end anchors',line_quarter:'Straight line \u00b7 quarter-end anchors'};
+function _ipPathHtml(d){
+  const useAuc=d.options.some(o=>o.avg_auc_by_year.some(v=>Math.abs(+v)>0)), key=useAuc?'avg_auc_by_year':'avg_customers_by_year';
+  const monthly=String(d.attrition_period||'')==='month';
+  let opts=d.options; if(monthly) opts=opts.filter(o=>o.key==='flows_end'||o.key.startsWith('line_'));
+  const n=(opts[0]||{})[key]?.length||0, f=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:useAuc?0:1});
+  let h=`<h4>How the options compare</h4><div class="ip-sub">Average ${useAuc?'AUC ($000s)':'customers'} by year under each option</div><div class="ip-tw"><table class="ip-t"><thead><tr><th>Option</th>${Array.from({length:n},(_,y)=>`<th>Year ${y+1}</th>`).join('')}</tr></thead><tbody>`;
+  opts.forEach(o=>{ const cur=(o.key===d.current)||(monthly&&o.key==='flows_end'&&d.current.startsWith('flows_'));
+    h+=`<tr class="${cur?'cur':''}"><td>${cur?'\u25CF ':''}${monthly&&o.key==='flows_end'?'Monthly flows':_IP_OPT[o.key]}</td>${o[key].map(v=>`<td>${f(v)}</td>`).join('')}</tr>`; });
+  h+=`</tbody></table></div><div class="ip-note">\u25CF in use. Year-end balances are the same under every option; only averages within the year differ.${monthly?' This feed\u2019s attrition is monthly, so the three attrition timings give identical results and are shown once.':''}</div>`;
+  return h;
+}
+(function(){
+  let pinned=null, card=null, seq=0;
+  function content(t){
+    const k=t.getAttribute('data-ip')||''; const p=k.split(':');
+    if(p[0]==='st'){ const metas=(window._stMetaByFi||{})[p[1]]; const pv=metas?_stProv(metas,+p[2],+p[1]):null;
+      return pv?`<h4>${pv.title}</h4><div class="ip-sub">How the driver is calculated</div>`+_ipStepsHtml(pv.steps,pv.note):''; }
+    if(p[0]==='src') return _ipSrcHtml(p[1],p[2],decodeURIComponent(p.slice(3).join(':')));
+    if(p[0]==='path'){ const fn=decodeURIComponent(p.slice(1).join(':')), my=++seq;
+      fetch('/api/v31/cac/path-options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg,feed:fn})})
+        .then(r=>r.json()).then(d=>{ if(my!==seq||!card) return; const b=card.querySelector('.ip-body'); if(b){ b.innerHTML=d&&d.options?_ipPathHtml(d):'<div class="ip-note">The comparison could not be calculated: '+esc((d&&d.error)||'unknown error')+'</div>'; place(card,t);} })
+        .catch(()=>{ if(card&&my===seq){ const b=card.querySelector('.ip-body'); if(b) b.innerHTML='<div class="ip-note">The comparison could not be calculated.</div>'; } });
+      return '<h4>How the options compare</h4><div class="ip-sub">Calculating every option\u2026</div>'; }
+    return '';
+  }
+  function place(c,t){ const r=t.getBoundingClientRect(); c.style.top=(window.scrollY+r.bottom+8)+'px';
+    const W=c.offsetWidth, vw=window.innerWidth;
+    let left=(r.left-10+W<=vw-8)?(r.left-10):(r.right+10-W);   // open rightwards when it fits, else align to the right edge
+    left=Math.max(8,Math.min(left,vw-W-8)); c.style.left=(window.scrollX+left)+'px'; }
+  function hide(){ if(card){ if(card._t) card._t.classList.remove('ip-on'); card.remove(); card=null; } pinned=null; }
+  function show(t,pin){ hide(); const html=content(t); if(!html) return; const c=document.createElement('div'); c.className='ip-card'+(pin?' pinned':'');
+    c.setAttribute('role','dialog'); c.innerHTML=(pin?'<span class="ip-pin">pinned \u00b7 Esc to close</span>':'')+'<div class="ip-body">'+html+'</div>';
+    document.body.appendChild(c); place(c,t); c._t=t; t.classList.add('ip-on'); card=c; if(pin) pinned=t; }
+  document.addEventListener('mouseover',e=>{ if(pinned) return; const t=e.target.closest&&e.target.closest('[data-ip]');
+    if(t){ if(!card||card._t!==t) show(t,false); } else if(card&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); });
+  document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]');
+    if(t){ e.stopPropagation(); e.preventDefault(); if(pinned===t){ hide(); return; } show(t,true); return; }
+    if(pinned&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); }, true);
+  document.addEventListener('focusin',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]'); if(t&&!pinned) show(t,false); });
+  document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); else if(e.key==='Enter'){ const t=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-ip]'); if(t){ e.preventDefault(); show(t,true); } } });
+  window.ipHide=hide;
+})();
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -4630,14 +4729,14 @@ function fieldsFor(fam, p, base){
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += '<div class="fld wide st-md">'+chainH;
-      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi);
+      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
-        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);return pv?'<span class="st-v">'+pv.val+'</span><span class="st-u">'+pv.unit+'</span>'+(pv.work?'<span class="st-w">'+pv.work+'</span>':''):'\u2014';})()}</td></tr>`; });
-      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Driver \u00b7 ${_stProvP(_stMeta)} is each stream\u2019s quantity in the final period, in the editor\u2019s units; the second line shows where it comes from.</div></div>`;
+        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);if(!pv)return '\u2014';const key='st:'+_fi+':'+k;return '<span class="st-v'+(pv.fixed?' st-fx':'')+'" data-ip="'+key+'" tabindex="0">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+'<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';})()}</td></tr>`; });
+      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Hover a figure, or click \u24D8, to see how it is calculated.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
-      { const pv=_stProv(_stMeta,_stSel,_fi); h += `<div class="st-body" data-st-tab="${tab}">${pv&&pv.calc?'<div class="st-sec" data-st="activity"><div class="fld wide st-calc"><span class="t">'+_stProvP(_stMeta)+'</span><span>'+pv.calc+'</span></div></div>':''}${_stCards[_stSel]||''}</div></div></div>`; }
+      { const pv=_stProv(_stMeta,_stSel,_fi); h += `<div class="st-body" data-st-tab="${tab}">${pv&&(pv.steps||pv.note)?'<div class="st-sec" data-st="activity"><div class="fld wide st-calc"><span class="t">'+_stProvP(_stMeta)+'</span><div class="st-calc-b">'+_ipStepsHtml(pv.steps||[],pv.note)+'</div></div></div>':''}${_stCards[_stSel]||''}</div></div></div>`; }
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#D4A65C">Add a fee stream</label></div>';
