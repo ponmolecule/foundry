@@ -734,3 +734,24 @@ Presentation-only release on r219. Accuracy rule: every figure shown is read fro
   streams say "no volume driver"; the driver chain starts from its source (AUC → stream).
 Verified: every figure on a test product (turns, flow %, stock %, fixed, yearly account
 schedule, average customers) recomputed independently from the engine: 11 of 11 match.
+
+
+## r221 — Customer acquisition: intra-period path options (engine)
+
+Engine release on r220. Each acquisition feed gains three optional settings; absent keys reproduce
+the historical calculation byte for byte (full-results sha256 identical on every runnable
+configuration before and after).
+- intra_period_path: monthly_flows (default) | straight_line
+- path_anchor (straight_line only): year (default) | quarter. Month-ends are not offered.
+- attrition_timing (monthly_flows only): period_end (default) | spread | period_start. Timing moves
+  only the month in which each attrition period's loss lands; amount, basis (book at the period's
+  start), rate and ticket are unchanged. With monthly attrition every timing is identical.
+Straight-line paths interpolate between the default calculation's anchor balances and record the
+implied monthly loss so beginning + new − lost = end holds in every month. With a non-default option
+the feed also publishes pathComparison (default vs chosen yearly averages) for the authoring screen.
+UI: Configuration → Customer acquisition → each feed, directly under Existing-book attrition.
+Validation (foundry/v2/tests_cac_intra_period.py, 66 checks): Engagement B (1.5% monthly churn,
+spend ÷ CAC) reproduces its source in all 36 months under every timing; Engagement A (annual
+attrition) on straight line / year-ends reproduces its source's monthly averages (Year 1 exact,
+Year 7 within input rounding); invariants, closed forms, quarterly engine cadence, end-to-end fee
+consumption, and rejection of invalid values.
