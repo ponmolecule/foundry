@@ -133,6 +133,13 @@ def main():
     # r210: solid Klaros-gold strip under the menu, part of the bar's own height.
     ck("Menu bar carries a 6px solid Klaros-gold strip and sticky offsets match its height",
        '#appbar{border-bottom:6px solid #DFB367;box-shadow:none}' in html and '--appbar-h:96px;' in html and '#appbar::after{content:none}' in html)
+    # r211: Welcome on the Klaros cover image.
+    ck("Welcome uses the Klaros cover image with sign-in on the gold strip and the exhibit index ribbon",
+       'class="wel wel-photo"' in html and 'class="wel-signin"' in html and '.wel-rail{position:absolute;left:calc(588/2341*100cqw)' in html
+       and 'Peer and vintage analysis' in html and "data:image/jpeg;base64," in html and '@media (max-width:999px){' in html)
+    ck("Narrow Welcome keeps the photograph behind translucent sections, one embedded copy of the image",
+       '.wel-photo::before{content:"";display:block;height:calc(593/2341*100vw)' in html and 'rgba(234,216,188,.84)' in html
+       and html.count('data:image/jpeg;base64,') == 1 and '--wel-img:url(' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
