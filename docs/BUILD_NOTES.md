@@ -634,3 +634,12 @@ image pixels and scaled with the page width:
 Below 1000px wide the image's top band becomes a banner and the hero, sign-in and ribbon stack.
 Every sign-in id, handler and string the gates pin is unchanged; sign-in tested end to end at
 1440, 1920 and 900px.
+
+
+## r212 — Narrow Welcome over the photograph
+
+Presentation-only release on r211. Below 1000px wide (browser zoom, half-screen windows,
+tablets) the Welcome page no longer drops the photograph: the image's top band with the logo is
+the banner, and the building runs behind the stacked headline, a translucent-gold sign-in panel
+and the graphite-fade index ribbon. The image is held once in a CSS custom property and shared
+by every layer. 1440px and 1920px renders are pixel-identical to r211.
