@@ -671,3 +671,13 @@ ends exactly where the subtitle ends (within 2px at 1440 and 1920) on any system
 above and below the headline are equal: 25px at 1440, 36px at 1920. Sign-in and the index ribbon
 keep their approved sizes. Narrow layout: the building is the backdrop and the logo sits in the
 graphite hero. Sign-in tested end to end at 1440, 1920 and 900px.
+
+
+## r216 — Customer-acquisition audit view as a ruled ledger table
+
+Presentation-only release on r215. The calculated customer-base roll-forward is a fully ruled
+table (horizontal and vertical lines) sized to its content: 583px wide instead of the full
+1,034px panel, first column 190px instead of 478px. Year headers are right-aligned over their
+figures (they were left-aligned over right-aligned numbers); the long first header wraps rather
+than widening its column. Ending bank customers and Ending AUC are bold under a dark rule;
+alternate rows carry a faint stripe. Header wording and figures are unchanged.
