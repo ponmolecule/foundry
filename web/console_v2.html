@@ -1500,6 +1500,18 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .st-calc .t{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--k-gold-deep)}
 .st-calc b{color:var(--k-tx1)}
 .st-calc .src{color:var(--k-tx4)}
+
+/* r220: source rows and source references */
+.st-body .fld.st-calc.st-calc{flex-wrap:nowrap;justify-content:flex-start}
+.st-calc>span:last-child{flex:1 1 auto;min-width:0;line-height:1.45}
+.st-list tbody tr.st-src td{background:#F3F3F1;cursor:default}
+.st-list tbody tr.st-src:hover td{background:#F3F3F1}
+.st-list tbody tr.st-src + tr:not(.st-src) td{border-top:2px solid #C4C4C4}
+.st-list tbody tr.st-src td:first-child{color:var(--k-gold-deep);text-align:center}
+.st-list tbody tr.st-src td.name{font-weight:600}
+.st-tag{display:inline-block;margin-left:6px;height:18px;line-height:18px;padding:0 6px;border-radius:2px;background:#E7E7E3;color:#4A4A4A;font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;vertical-align:1px}
+.st-srcref{color:var(--k-gold-deep);font-weight:600;white-space:nowrap}
+.st-chain .c.src{border-style:dashed;background:#F3F3F1}
 </style>
 </head>
 <body>
@@ -1764,18 +1776,72 @@ function _stUnitLabel(metas,kinds,i,stack){
   return 'units';
 }
 function _stNum(x,kind){ if(x==null||!isFinite(x)) return '\u2014'; const a=Math.abs(x); return Number(x).toLocaleString('en-US',{maximumFractionDigits:(kind==='ratio'?(a>=100?1:(a>=10?2:3)):(a>=100?1:(a>=1?2:4)))}); }
+function _stPerK(per){ const p=String(per||'').toLowerCase(), ppy=(typeof PPY==='function')?PPY():12; return ({year:1,annual:1,quarter:4,month:12})[p]||ppy; }
+function _stPerAbbr(per){ return ({year:'yr',annual:'yr',quarter:'qtr',month:'mo'})[String(per||'').toLowerCase()]||'period'; }
+function _stEngUnit(){ const ppy=(typeof PPY==='function')?PPY():12; return ppy===12?'month':(ppy===4?'quarter':(ppy===1?'year':'period')); }
+function _stSchedLbl(per,n){ const ppy=(typeof PPY==='function')?PPY():12, p=String(per||'').toLowerCase();
+  if(p==='year'||p==='annual') return 'Y'+Math.ceil(n/ppy); if(p==='quarter') return 'Q'+Math.ceil(n*4/ppy); if(p==='month') return 'M'+Math.ceil(n*12/ppy);
+  return (ppy===4?'Q':(ppy===1?'Y':'M'))+n; }
+const _ST_MEAS={period_end:'period-end',period_average:'average',annual_count:'year-end'};
+const _ST_MEAS_KEY={period_end:'customerEndByPeriod',period_average:'customerAverageByPeriod',annual_count:'customerAnnualCountByPeriod'};
+function _stSrc(metas,fi){ // values the engine actually used, read from the run
+  const p=(((typeof cfg!=='undefined'&&cfg)||{}).assumptions||{}).obs_exposures?.[fi]||{}, res=(typeof lastRes!=='undefined'&&lastRes)||{}, out={auc:null,cust:{}};
+  if(metas.some(m=>String((m.drv||{}).source||'').toLowerCase()==='managed_notional')){
+    const pr=(res.products||[]).find(x=>x&&x.name===p.name&&Array.isArray(x.managedNotionalAvg));
+    if(pr&&pr.managedNotionalAvg.length){ const a=pr.managedNotionalAvg, e=pr.managedNotionalEnd||[]; out.auc={avg:+a[a.length-1], end:e.length?+e[e.length-1]:null, feed:_stFeedName(p.managed_notional_source||pr.managedNotionalSource||p.managed_notional_source_id||'')}; } }
+  metas.forEach(m=>{ const d=m.drv||{}; if(String(d.source||'').toLowerCase()!=='customer_acquisition_count') return;
+    const ref=_stFeedName(d.ref), meas=String(d.measure||'period_end').toLowerCase(), f=((res.customer_acquisition||{})[ref])||null, arr=f&&_ST_MEAS_KEY[meas]?f[_ST_MEAS_KEY[meas]]:null;
+    out.cust[ref]=out.cust[ref]||{}; if(arr&&arr.length) out.cust[ref][meas]=+arr[arr.length-1]; });
+  return out; }
+function _stFeedName(ref){ const r=String(ref||''), F=((((typeof cfg!=='undefined'&&cfg)||{}).assumptions||{}).cac_feeds)||{}; if(F[r]) return r; for(const nm in F){ const fd=F[nm]||{}; if(String(fd.customer_count_series_id||'')===r||String(fd.series_id||'')===r) return nm; } return r; }
+function _stFeedLink(label){ return '<a href="#" onclick="event.stopPropagation();setTab(\'config\');if(typeof cfgSelectModule===\'function\')cfgSelectModule(\'cac\');return false">'+label+'</a>'; }
+function _stSrcRows(metas,fi){
+  const s=_stSrc(metas,fi), P=_stProvP(metas); let h='';
+  if(s.auc){ const link=s.auc.feed?_stFeedLink('feed roll-forward'):'<a href="#" onclick="event.stopPropagation();prdTabSet(\'setup\');return false">entered ramp</a>';
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">AUC<span class="st-tag">source</span></td><td></td><td>'+esc(s.auc.feed||'Entered ramp')+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(s.auc.avg)+'</span><span class="st-u">$000s</span><span class="st-w">average AUC used in '+P+(s.auc.end!=null?' \u00b7 ending '+_stNum(s.auc.end):'')+' \u00b7 '+link+'</span></td></tr>'; }
+  Object.keys(s.cust).forEach(ref=>{ const ms=s.cust[ref], ks=Object.keys(ms); if(!ks.length) return;
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">Customers<span class="st-tag">source</span></td><td></td><td>'+esc(ref)+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(ms[ks[0]])+'</span><span class="st-u">customers</span><span class="st-w">'+ks.map(k=>_ST_MEAS[k]+(ks.length>1?' '+_stNum(ms[k]):'')).join(' \u00b7 ')+' in '+P+' \u00b7 '+_stFeedLink('feed roll-forward')+'</span></td></tr>'; });
+  return h; }
+function _stSrcChip(metas,fi,root){ const d=(metas[root]||{}).drv||{}, sv=String(d.source||'').toLowerCase();
+  if(sv==='managed_notional'){ const s=_stSrc(metas,fi); return '<span class="c src">AUC<small>'+esc((s.auc&&s.auc.feed)||'entered ramp')+' \u00b7 source</small></span><span class="a">\u2192</span>'; }
+  if(sv==='customer_acquisition_count') return '<span class="c src">Customers<small>'+esc(_stFeedName(d.ref))+' \u00b7 source</small></span><span class="a">\u2192</span>';
+  return ''; }
 function _stProv(metas,i,fi){
-  const m=metas[i]; if(!m||!m.qty||!m.qty.length) return null;
-  const kinds=_stKinds(metas), K0=(typeof K!=='undefined'?K:1000), sc=x=>(kinds[i]==='money'?x/K0:x);
-  const q=m.qty[m.qty.length-1], val=_stNum(sc(q)), unit=_stUnitLabel(metas,kinds,i), P=_stProvP(metas);
+  const m=metas[i]; if(!m) return null;
+  { const b=String(m.basis||'').toLowerCase();
+    if(b==='flat') return {val:'\u2014',unit:'',work:'fixed amount \u00b7 no volume driver',calc:'Fixed amount each period \u00b7 no volume driver'};
+    if(b==='event') return {val:'\u2014',unit:'',work:'one-time amount \u00b7 no volume driver',calc:'One-time amount \u00b7 no volume driver'};
+    if(!m.qty||!m.qty.length) return null; }
+  const kinds=_stKinds(metas), K0=(typeof K!=='undefined'?K:1000), sc=x=>(kinds[i]==='money'?x/K0:x), ppy=(typeof PPY==='function')?PPY():12;
+  const n=m.qty.length, q=m.qty[n-1], val=_stNum(sc(q)), unit=_stUnitLabel(metas,kinds,i), P=_stProvP(metas), EU=_stEngUnit();
   const d=m.drv||{}, p=d.params||{}, srcv=String(d.source||'constant').toLowerCase(), c=p.coefficient||{}, ck=String(c.kind||'').toLowerCase();
   const dependents=metas.map((z,j)=>j).filter(j=>String((metas[j].drv||{}).source||'')==='stream_ref'&&String((metas[j].drv||{}).ref||'')===m.name);
   const depTxt=dependents.length?(' \u00b7 drives '+dependents.length+' stream'+(dependents.length===1?'':'s')+' ('+dependents.map(j=>esc(metas[j].name)).join(', ')+')'):'';
+  const rateTxt=(r,per)=>{ const k=_stPerK(per), fac=ppy/k, a=r*fac, ab=_stPerAbbr(per);
+      const op=Math.abs(fac-1)<1e-9?'':(fac>1?' \u00f7 '+_stNum(fac,'ratio'):' \u00d7 '+_stNum(1/fac,'ratio'));
+      const isPct=(ck==='pct'), shown=isPct?_stNum(a*100,'ratio')+'%/'+ab:_stNum(a,'ratio')+(ck==='multiple'||ck==='turns'?' turns/':'\u00d7/')+ab;
+      const perPer=isPct?_stNum(r*100,'ratio')+'%':_stNum(r,'ratio'); return {shown,op,perPer,fac}; };
   let work='', calc='';
   if(srcv==='constant'){
-    const sched=(String(d.trajectory||'')==='explicit_schedule')||(p.flow_path&&String(p.flow_path.trajectory||'')==='explicit_schedule');
-    work=sched?('entered \u00b7 '+P+' of your schedule'):'entered';
-    calc='Entered value <b>'+val+' '+unit+'</b>'+depTxt;
+    const per=(p.level_schedule||{}).period||(p.flow_path||{}).period||'', sched=(String(d.trajectory||'')==='explicit_schedule')||(p.flow_path&&String(p.flow_path.trajectory||'')==='explicit_schedule');
+    const L=sched?_stSchedLbl(per,n):P;
+    work=sched?('entered \u00b7 <b>'+L+'</b> of your schedule'):'entered';
+    calc='Entered <b>'+val+' '+unit+'</b>'+(sched?' <span class="src">('+L+' of your schedule'+(L!==P?'; '+P+' is the last '+EU+' of '+L:'')+')</span>':'')+depTxt;
+  } else if(srcv==='managed_notional'){
+    const S=_stSrc(metas,fi), ref='<span class="st-srcref">\u25C6 AUC</span>';
+    if(S.auc&&S.auc.avg){ const base=S.auc.avg*K0, r=q/base, A=_stNum(S.auc.avg);
+      if(p.stock_multiplier){ const pct=_stNum(r*100,'ratio'); work='= <b>'+pct+'%</b> \u00d7 '+A+' \u00b7 '+ref; calc='<b>'+pct+'%</b> \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+      else { const per=c.period||'model_period', R=rateTxt(r,per), L=String(c.trajectory||'')==='explicit_schedule'?' <span class="src">('+_stSchedLbl(per,n)+')</span>':'';
+        work='= <b>'+R.shown+'</b>'+R.op+' \u00d7 '+A+' \u00b7 '+ref;
+        calc='<b>'+R.shown+'</b>'+L+R.op+(R.op?' = '+R.perPer+' per '+EU:'')+' \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+    } else { work='from the off-book balance (AUC)'; calc='Driven by the off-book balance (AUC) = <b>'+val+' '+unit+'</b> at '+P; }
+    calc+=depTxt;
+  } else if(srcv==='customer_acquisition_count'){
+    const S=_stSrc(metas,fi), ref=_stFeedName(d.ref), meas=String(d.measure||'period_end').toLowerCase(), v=((S.cust[ref]||{})[meas]), ML=_ST_MEAS[meas]||meas, cref='<span class="st-srcref">\u25C6 Customers</span>';
+    if(v!=null&&Math.abs(v-q)<=1e-6*Math.max(1,Math.abs(q))){ work='= '+cref+', '+ML+' in '+P; calc=cref+' <span class="src">('+ML+', '+P+', '+esc(ref)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else if(v){ const x=_stNum(q/v,'ratio'); work='= <b>'+x+'\u00d7</b> '+cref+', '+ML+' in '+P; calc='<b>'+x+'\u00d7</b> '+cref+' '+_stNum(v)+' <span class="src">('+ML+', '+P+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else { work='from the customer acquisition feed'; calc='Driven by the customer acquisition feed = <b>'+val+' '+unit+'</b> at '+P; }
+    calc+=depTxt;
   } else if(srcv==='stream_ref'){
     const j=metas.findIndex(z=>z.name===String(d.ref||'')); const s=j>=0?metas[j]:null; const qs=(s&&s.qty&&s.qty.length)?s.qty[s.qty.length-1]:null;
     const sk=j>=0?kinds[j]:'native', ssc=x=>(sk==='money'?x/K0:x), sv=qs==null?null:_stNum(ssc(qs)), su=j>=0?_stUnitLabel(metas,kinds,j):'';
@@ -1785,9 +1851,9 @@ function _stProv(metas,i,fi){
     else if(ck==='amount_per_source_unit'){ const per=sc(q)/ssc(qs), uS=su.replace(/s$/,''); work='= <b>'+_stNum(per,'ratio')+' per '+uS+'</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(per,'ratio')+'</b> '+unit+' per '+uS+' \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     else if(ck==='multiple'||ck==='turns'){ const x=sc(q)/ssc(qs); work='= <b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' \u00b7 '+link; calc='<b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     else { const r=q/qs*100; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
-    if(dependents.length) calc+=depTxt;
+    calc+=depTxt;
   } else {
-    const SRC={managed_notional:'the off-book balance (AUC)',customer_acquisition_count:'the customer acquisition feed',bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
     work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
   }
   return {val,unit,work,calc};
@@ -4501,14 +4567,15 @@ function fieldsFor(fam, p, base){
       let tab=window._stTab; if(!['activity','pricing','timing','costs'].includes(tab)) tab='activity';
       const tsum=`Start ${m.start||1} \u00b7 ${m.end?'end '+m.end:'no end'} \u00b7 ${m.ramp?'ramp '+m.ramp:'step'}`;
       let chainH='';
-      if(chain.length>1||down.length){
+      const _srcChip=_stSrcChip(_stMeta,_fi,chain[0]);
+      if(chain.length>1||down.length||_srcChip){
         const inC=new Set(chain.concat(down)), out=_stMeta.map((z,j)=>j).filter(j=>!inC.has(j));
-        chainH='<div class="st-chain"><span class="k">Driver chain</span>'+chain.map((j,n)=>`${n?'<span class="a">\u2192</span>':''}<a href="#" class="c${j===_stSel?' on':''}" onclick="stSelect(${_fi},${j});return false">${esc(_stMeta[j].name)}<small>${esc(BAS[_stMeta[j].basis]||_prdLab(_stMeta[j].basis))}${j===_stSel?' \u00b7 selected':''}</small></a>`).join('')
+        chainH='<div class="st-chain"><span class="k">Driver chain</span>'+_srcChip+chain.map((j,n)=>`${n?'<span class="a">\u2192</span>':''}<a href="#" class="c${j===_stSel?' on':''}" onclick="stSelect(${_fi},${j});return false">${esc(_stMeta[j].name)}<small>${esc(BAS[_stMeta[j].basis]||_prdLab(_stMeta[j].basis))}${j===_stSel?' \u00b7 selected':''}</small></a>`).join('')
           +(down.length?'<span class="a">\u2192</span>'+down.map(j=>`<a href="#" class="c" onclick="stSelect(${_fi},${j});return false">${esc(_stMeta[j].name)}<small>driven by the selected stream</small></a>`).join(''):'')
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += '<div class="fld wide st-md">'+chainH;
-      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>';
+      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi);
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);return pv?'<span class="st-v">'+pv.val+'</span><span class="st-u">'+pv.unit+'</span>'+(pv.work?'<span class="st-w">'+pv.work+'</span>':''):'\u2014';})()}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Driver \u00b7 ${_stProvP(_stMeta)} is each stream\u2019s quantity in the final period, in the editor\u2019s units; the second line shows where it comes from.</div></div>`;

@@ -718,3 +718,19 @@ computed from the engine's final-period figures (stream ÷ source), so the line 
 with the number above it; the source name links to that stream. The editor's Activity tab shows
 the same working above the fields (and, for a source, which streams it drives). Notes folded into
 "About these settings" now form one box per tab.
+
+
+## r220 — Driver sources and exact working for feed-driven streams
+
+Presentation-only release on r219. Accuracy rule: every figure shown is read from the run.
+- Source rows (◆) open the fee-stream grid when a stream draws on them: AUC (the per-product
+  average AUC the engine applied, results.products[].managedNotionalAvg, with month-end alongside
+  to tie to the feed's Ending AUC) and Customers (the feed's period-end, average or year-end count,
+  matched to the stream's measure). Feeds referenced by id are resolved to their names.
+- AUC-driven streams show their rate in authored terms: "= 9 turns/yr ÷ 12 × AUC",
+  "= 5%/yr ÷ 12 × AUC", "= 30% × AUC" (rates with growth show the rate in force). Rates are
+  stream ÷ AUC from the engine's figures, labelled with the schedule's own period ("(Y7)").
+- Entered schedules name the schedule's own period ("Y7 of your schedule"); fixed and one-time
+  streams say "no volume driver"; the driver chain starts from its source (AUC → stream).
+Verified: every figure on a test product (turns, flow %, stock %, fixed, yearly account
+schedule, average customers) recomputed independently from the engine: 11 of 11 match.
