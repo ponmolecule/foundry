@@ -780,3 +780,13 @@ option) and the post-run refresh hook are removed: none answered a user need, an
 comparison switches the option and reads the results. The intra-period path row keeps only its
 controls (Path, Anchor points, Attrition timing). The stream and source calculation cards from r222
 are unchanged. Results at the defaults remain byte-identical to pre-r221.
+
+
+## r224 — Attrition within the period: one control in the attrition box
+
+Presentation release on r223. The separate "Intra-period path" box (Path, Anchor points, Attrition
+timing) is replaced by one dropdown, "Attrition within the period", inside the Existing-book
+attrition box: taken at the end / spread evenly / taken at the start of each attrition period;
+straight line between year-ends / quarter-ends. Stored as the r221 keys (end of period = no keys),
+so the engine, its tests and saved engagements are unchanged. With monthly attrition a one-line note
+says the first three options give the same result. The attrition box is sized to its contents.
