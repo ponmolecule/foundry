@@ -130,6 +130,9 @@ def main():
     ck("Every tab opens with a breadcrumb and a graphite title band",
        'window.pageChrome=function' in html and 'window.cfgCrumb=function' in html and "GROUPS=['Workspace','Statements','Analysis','Record']" in html
        and '#content .h2.pg-band,#content .pg-band-row,#content .prd-h1.pg-band{' in html)
+    # r210: solid Klaros-gold strip under the menu, part of the bar's own height.
+    ck("Menu bar carries a 6px solid Klaros-gold strip and sticky offsets match its height",
+       '#appbar{border-bottom:6px solid #DFB367;box-shadow:none}' in html and '--appbar-h:96px;' in html and '#appbar::after{content:none}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

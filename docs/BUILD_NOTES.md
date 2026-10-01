@@ -611,3 +611,10 @@ Assumption Book, and so on. Applied after each render by a small observer; tab c
 untouched apart from the first heading becoming the band.
 
 Validation: full gate set matches the r198 baseline; tests_config_layout at 46 checks.
+
+
+## r210 — Klaros-gold strip under the menu
+
+Presentation-only release on r209. The 3px gradient accent under the menu becomes a 6px solid
+Klaros-gold (#DFB367) strip, built into the bar as its bottom border so page content and the
+sticky side columns start below it (sticky offset 96px, the bar's measured height).
