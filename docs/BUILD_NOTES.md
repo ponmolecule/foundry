@@ -813,3 +813,29 @@ Presentation release on r225. Width rules from a measured sweep of every tab and
 - Warnings, flags and banners sized to their text, capped at 880px.
 Sweep results at 1440px: fields wider than 360px 26 → 16 (remaining are paste/name fields within
 caps); non-text boxes using under 60% of their width 8 → 0; master-detail Securities 1000 → 688px.
+
+
+## r227 — Tight without truncation
+
+Presentation release on r226, correcting over-squeezed controls. Measured truncation (selected text
+or value not fitting its control) across all Configuration modules, every acquisition channel, the
+product editors and the remaining tabs: 31 at 1440 and 1920px before, 0 after.
+- fitControls(): after every render of the work area, each dropdown gets a minimum width that fits
+  its widest option (stable across selections) and each name input one that fits its text, up to
+  420px (it also grows while typing). Controls are only ever widened.
+- The 320px dropdown cap is removed (dropdowns are bounded by their container instead).
+- Master-detail: side by side from 1400px of stage width (list up to 640px, detail 480-880px);
+  below that, stacked (list up to 640px above a detail card up to 880px), so rows no longer wrap
+  at 1440px.
+
+
+## r228 — One place for the working; figures stay current
+
+Presentation release on r227.
+- The stream editor's Activity working block is removed: it repeated the ⓘ card for the selected
+  stream and was not redrawn after edits, so it could show superseded figures.
+- Grid figures and ◆ source rows are now refreshed in place after every run (refreshStreamFigures),
+  without redrawing the editor being typed in; the ⓘ card therefore always reflects the latest run.
+  Previously both the grid figure and the editor block kept the values from when the stream was
+  selected (e.g. 240 accounts after an edit had made it 480).
+- Only the ⓘ opens a calculation card; figures carry no underline and are not clickable.

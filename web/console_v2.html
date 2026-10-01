@@ -1026,7 +1026,7 @@ tr.opex-item-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
 .cfg-md-foot{padding:9px 12px;font-size:12px;color:var(--k-tx3);border-top:1px solid var(--k-line);background:var(--k-surface2)}
 .cfg-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:500;background:#EFEFEF;color:var(--k-tx2)}
 .cfg-pill.x{background:var(--k-gold-wash);color:var(--k-gold-deep)}
-.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden;max-width:760px}
+.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden;max-width:880px}
 .cfg-md-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--k-graph);color:#FFFFFF}
 .cfg-stage .cfg-md-head b{color:#FFFFFF;font-family:var(--k-disp);font-size:14px;font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cfg-md-head span{font-size:11.5px;color:var(--k-graph-mut);white-space:nowrap}
@@ -1520,10 +1520,9 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 
 /* r222: calculation cards and the decluttered stream grid */
 .st-list td.st-q,.st-list td.st-q.num{white-space:nowrap!important}
-.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:pointer}
-.st-list .st-v.st-fx{font-weight:400;color:var(--k-tx3);border-bottom-style:dotted}
+.st-list .st-v.st-fx{font-weight:400;color:var(--k-tx3)}
 .ip-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:6px;border:1px solid #BDBDB8;border-radius:50%;font-size:9px;font-weight:700;font-style:normal;color:#666666;vertical-align:1px;cursor:pointer;user-select:none}
-.ip-i:hover,.ip-on.ip-i,.ip-on + .st-u + .ip-i{border-color:#8F6B30;color:#8F6B30;background:#FBF7EF}
+.ip-i:hover,.ip-on.ip-i{border-color:#8F6B30;color:#8F6B30;background:#FBF7EF}
 .ip-card{position:absolute;z-index:9000;width:380px;max-width:calc(100vw - 16px);background:#FFFFFF;border:1px solid #C4C4C4;border-top:3px solid var(--k-gold);border-radius:3px;box-shadow:0 12px 34px rgba(0,0,0,.18);padding:12px 14px;font-size:12.5px;color:#343434;text-align:left;white-space:normal}
 .ip-card h4{margin:0 0 2px;font-size:12.5px;font-weight:600}
 .ip-card .ip-sub{font-size:11.5px;color:#666666;margin:0 0 9px}
@@ -1540,8 +1539,10 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .st-calc-b .ip-steps{row-gap:3px}.st-calc-b .ip-note{margin-top:5px}
 
 /* r226: measured widths. Forms sized to content; master-detail sized to its parts; notices at a readable width. */
-.cfg-stage select{max-width:320px}
-.cfg-stage input:not([type]),.cfg-stage input[type=text]{max-width:320px}
+/* r227: never truncate. fitControls() gives each dropdown a minimum width that fits its widest option and each
+   name input one that fits its text (up to 420px); nothing is made narrower. */
+.cfg-stage select{max-width:100%}
+.cfg-stage input:not([type]),.cfg-stage input[type=text]{max-width:420px}
 .cfg-stage input[type=number]{max-width:180px}
 .cfg-stage textarea{max-width:760px}
 .cfg-stage .sec-managed-portfolio-title,.cfg-stage .sec-managed-sleeve-head input,.cfg-stage .wf-role-title input{width:420px!important;max-width:100%!important;flex:none}
@@ -1553,7 +1554,8 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .cfg-stage .crow,.sec-book-line{justify-content:start}
 .cfg-stage .crow{width:fit-content;max-width:100%}
 .cfg-stage .sec-major-section:not(:has(table)){width:fit-content;max-width:100%}
-@container stage (min-width:1000px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(min(640px,calc(100% - 414px)),640px) minmax(400px,760px);justify-content:start}}
+@container stage (min-width:1000px) and (max-width:1399px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(0,1fr)!important}.cfg-md:not(.cfg-md-stack) .cfg-md-list{max-width:640px}}
+@container stage (min-width:1400px){div.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(min(640px,calc(100% - 494px)),640px) minmax(480px,880px);justify-content:start}}
 .cfg-md.cfg-md-stack .cfg-md-list{width:fit-content;max-width:100%}
 .cfg-md.cfg-md-stack .cfg-md-list table.cfg-grid{width:auto!important}
 .warnitem,.ovflag{width:fit-content;max-width:880px}
@@ -1845,9 +1847,9 @@ function _stFeedLink(label){ return '<a href="#" onclick="event.stopPropagation(
 function _stSrcRows(metas,fi){
   const s=_stSrc(metas,fi), P=_stProvP(metas); let h='';
   if(s.auc){ const link=s.auc.feed?_stFeedLink('feed roll-forward'):'<a href="#" onclick="event.stopPropagation();prdTabSet(\'setup\');return false">entered ramp</a>';
-    h+='<tr class="st-src"><td>\u25C6</td><td class="name">AUC<span class="st-tag">source</span></td><td></td><td>'+(s.auc.feed?'Acquisition feed':'Entered ramp')+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v" data-ip="src:'+fi+':auc" tabindex="0">'+_stNum(s.auc.avg)+'</span><span class="st-u">$000s</span><span class="ip-i" data-ip="src:'+fi+':auc" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; }
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">AUC<span class="st-tag">source</span></td><td></td><td>'+(s.auc.feed?'Acquisition feed':'Entered ramp')+'</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(s.auc.avg)+'</span><span class="st-u">$000s</span><span class="ip-i" data-ip="src:'+fi+':auc" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; }
   Object.keys(s.cust).forEach(ref=>{ const ms=s.cust[ref], ks=Object.keys(ms); if(!ks.length) return;
-    h+='<tr class="st-src"><td>\u25C6</td><td class="name">Customers<span class="st-tag">source</span></td><td></td><td>Acquisition feed</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v" data-ip="src:'+fi+':cust:'+encodeURIComponent(ref)+'" tabindex="0">'+_stNum(ms[ks[0]])+'</span><span class="st-u">customers</span><span class="ip-i" data-ip="src:'+fi+':cust:'+encodeURIComponent(ref)+'" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; });
+    h+='<tr class="st-src"><td>\u25C6</td><td class="name">Customers<span class="st-tag">source</span></td><td></td><td>Acquisition feed</td><td class="c-opt"></td><td class="c-opt"></td><td class="num st-q"><span class="st-v">'+_stNum(ms[ks[0]])+'</span><span class="st-u">customers</span><span class="ip-i" data-ip="src:'+fi+':cust:'+encodeURIComponent(ref)+'" role="button" tabindex="0" aria-label="About this source">i</span></td></tr>'; });
   return h; }
 function _stSrcChip(metas,fi,root){ const d=(metas[root]||{}).drv||{}, sv=String(d.source||'').toLowerCase();
   if(sv==='managed_notional'){ const s=_stSrc(metas,fi); return '<span class="c src">AUC<small>'+esc((s.auc&&s.auc.feed)||'entered ramp')+' \u00b7 source</small></span><span class="a">\u2192</span>'; }
@@ -1992,6 +1994,55 @@ function _ipSrcHtml(fi,kind,ref){
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); else if(e.key==='Enter'){ const t=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-ip]'); if(t){ e.preventDefault(); show(t,true); } } });
   window.ipHide=hide;
 })();
+
+// r227: no truncated controls. Runs after every render of the work area; only ever widens a control.
+function fitControls(root){
+  root=root||document.getElementById('content'); if(!root) return;
+  const cv=fitControls._cv||(fitControls._cv=document.createElement('canvas').getContext('2d'));
+  root.querySelectorAll('select').forEach(el=>{
+    if(!el.offsetParent||!el.options.length) return;
+    const cs=getComputedStyle(el); cv.font=cs.font; let mx=0;
+    for(const o of el.options) mx=Math.max(mx,cv.measureText(o.text).width);
+    const border=el.offsetWidth-el.clientWidth;
+    const need=Math.ceil(mx+(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+22+border);
+    const row=el.closest('.crow,.cac-within,.fld,td,.cfg-md-detail')||el.parentElement;
+    const room=row?row.getBoundingClientRect().width*0.8:need;
+    const target=Math.min(need,Math.max(room,120));
+    if(el.getBoundingClientRect().width+0.5<target) el.style.minWidth=target+'px';
+  });
+  root.querySelectorAll('input[type=text],input:not([type])').forEach(fitInput);
+}
+function fitInput(el){
+  if(!el||!el.offsetParent||!el.value) return;
+  if(el.scrollWidth>el.clientWidth+1){ const pad=el.offsetWidth-el.clientWidth; el.style.minWidth=Math.min(420,el.scrollWidth+pad+6)+'px'; }
+}
+(function(){
+  let t=null; const run=()=>{ clearTimeout(t); t=setTimeout(()=>fitControls(),40); };
+  const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
+    new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
+  start();
+  document.addEventListener('input',e=>{ const el=e.target; if(el&&el.tagName==='INPUT'&&(!el.type||el.type==='text')&&el.closest('#content')) fitInput(el); });
+})();
+
+// r228: one renderer for a stream's figure cell, and an in-place refresh after every run so the grid (and
+// the cards it opens) always reflect the latest results without redrawing the editor being typed in.
+function _stCellHtml(metas,k,fi){
+  const pv=_stProv(metas,k,fi); if(!pv) return '\u2014'; const key='st:'+fi+':'+k;
+  return '<span class="st-v'+(pv.fixed?' st-fx':'')+'">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+
+         '<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';
+}
+function refreshStreamFigures(){
+  const S=((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities)||{}).series||{};
+  document.querySelectorAll('.st-list').forEach(list=>{
+    if(!list.offsetParent) return; const any=list.querySelector('[data-ip^="st:"]'); if(!any) return;
+    const fi=+any.getAttribute('data-ip').split(':')[1], metas=(window._stMetaByFi||{})[fi]; if(!metas) return;
+    metas.forEach(m=>{ if(m.qid) m.qty=S[m.qid]||null; });
+    const tb=list.querySelector('tbody'); if(!tb) return;
+    [...tb.querySelectorAll('tr')].filter(r=>!r.classList.contains('st-src')).forEach((r,k)=>{ const c=r.querySelector('.st-q'); if(c&&metas[k]) c.innerHTML=_stCellHtml(metas,k,fi); });
+    tb.querySelectorAll('tr.st-src').forEach(x=>x.remove()); tb.insertAdjacentHTML('afterbegin',_stSrcRows(metas,fi));
+  });
+  if(typeof window.ipHide==='function') window.ipHide();
+}
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -3086,7 +3137,7 @@ async function preview(){
   // lastRes and must still update — refresh just those in place so they don't look frozen.
   if(V3 && currentTab==="config") refreshConfigPreviews();
   else if(!(V31 && currentTab==="products")) renderContent();
-  else { refreshProductStats(); refreshFeeCustomerCountPreviews(); }
+  else { refreshProductStats(); refreshFeeCustomerCountPreviews(); if(typeof refreshStreamFigures==='function') refreshStreamFigures(); }
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the
   // corridor's modeled placements read lastRes, and without this an edit made just
   // before switching tabs (within the 350ms preview debounce) could leave the
@@ -4688,7 +4739,7 @@ function fieldsFor(fam, p, base){
       }
       h += '</div>';
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
-      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};return (rb==='cost_recovery'||nz((st.rate||{}).params,0))?'Revenue':'Driver';})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
+      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};return (rb==='cost_recovery'||nz((st.rate||{}).params,0))?'Revenue':'Driver';})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
@@ -4711,12 +4762,12 @@ function fieldsFor(fam, p, base){
       h += '<div class="fld wide st-md">'+chainH;
       h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
-        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);if(!pv)return '\u2014';const key='st:'+_fi+':'+k;return '<span class="st-v'+(pv.fixed?' st-fx':'')+'" data-ip="'+key+'" tabindex="0">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+'<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';})()}</td></tr>`; });
-      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click a figure or \u24D8 to see how it is calculated.</div></div>`;
+        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
+      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
-      { const pv=_stProv(_stMeta,_stSel,_fi); h += `<div class="st-body" data-st-tab="${tab}">${pv&&(pv.steps||pv.note)?'<div class="st-sec" data-st="activity"><div class="fld wide st-calc"><span class="t">'+_stProvP(_stMeta)+'</span><div class="st-calc-b">'+_ipStepsHtml(pv.steps||[],pv.note)+'</div></div></div>':''}${_stCards[_stSel]||''}</div></div></div>`; }
+      { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#D4A65C">Add a fee stream</label></div>';
