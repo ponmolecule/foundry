@@ -176,6 +176,19 @@ def main():
        'function _stSrcRows(metas,fi)' in html and 'managedNotionalAvg' in html and "period_average:'customerAverageByPeriod'" in html
        and 'function _stFeedName(ref)' in html and "'fixed amount \\u00b7 no volume driver'" in html
        and 'function _stSchedLbl(per,n)' in html and "+_stSrcRows(_stMeta,_fi);" in html and 'const _srcChip=_stSrcChip(' in html)
+    # r221: intra-period path row on customer-acquisition feeds.
+    ck("Acquisition feeds offer an Intra-period path row (path, anchor points, attrition timing) under attrition",
+       'h+=_cacPathRowHtml(fn,fd,asp,am);' in html and 'window.cacFeedPathSet=function' in html
+       and '<option value="straight_line"' in html and "Month-ends aren" in html)
+    # r222: calculation cards declutter the stream grid; path row carries no default labels.
+    ck("Stream grid shows one line per figure; the working opens in a hover/click card built from the same steps as the editor",
+       'function _ipStepsHtml(steps,note)' in html and "data-ip=\"'+key+'\"" in html and 'window.ipHide=hide;' in html
+       and "_ipStepsHtml(pv.steps||[],pv.note)" in html and 'Hover a figure, or click' in html and "'<span class=\"st-w\">'" not in html)
+    ck("Source rows explain average vs month-end AUC in a card instead of inline",
+       'function _ipSrcHtml(fi,kind,ref)' in html and 'Month-end AUC' in html and 'Rates and turns are applied to the <b>average</b> AUC' in html)
+    ck("Intra-period path row has only its three controls: no default labels, no tag, no comparison card",
+       'Monthly flows (default)' not in html and "(default)':''" not in html and 'cac-path-tag' not in html
+       and '/api/v31/cac/path-options' not in html and '_ipPathHtml' not in html and 'refreshCacPathEffects' not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
