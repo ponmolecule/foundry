@@ -643,3 +643,11 @@ tablets) the Welcome page no longer drops the photograph: the image's top band w
 the banner, and the building runs behind the stacked headline, a translucent-gold sign-in panel
 and the graphite-fade index ribbon. The image is held once in a CSS custom property and shared
 by every layer. 1440px and 1920px renders are pixel-identical to r211.
+
+
+## r213 — Sign-in fields sized for a username
+
+Presentation-only release on r212. Sign-in fields cap at 300px at every width (were 420px in the
+narrow layout and 367px at 1920px; 1440px is unchanged at 276px and pixel-identical to r211). In
+the narrow layout the translucent-gold sign-in panel is a compact 344px strip with the building
+beside it, echoing the desktop composition.

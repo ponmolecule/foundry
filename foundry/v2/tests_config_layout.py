@@ -140,6 +140,8 @@ def main():
     ck("Narrow Welcome keeps the photograph behind translucent sections, one embedded copy of the image",
        '.wel-photo::before{content:"";display:block;height:calc(593/2341*100vw)' in html and 'rgba(234,216,188,.84)' in html
        and html.count('data:image/jpeg;base64,') == 1 and '--wel-img:url(' in html)
+    ck("Sign-in fields are capped at 300px at every width",
+       '.wel-login input{display:block;box-sizing:border-box;width:100%;max-width:300px;' in html and 'max-width:344px;box-sizing:border-box;align-self:flex-start;' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
