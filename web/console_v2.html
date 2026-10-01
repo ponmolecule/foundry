@@ -1224,8 +1224,8 @@ section#content table.ovt td:last-child,section#content table.ovt th:last-child,
 .prd-view{height:30px;border:0;background:#FFFFFF;font-size:12px;font-weight:500;color:var(--k-tx2);cursor:pointer;font-family:inherit}
 .prd-view + .prd-view{border-left:1px solid var(--k-line2)}
 .prd-view.on{background:var(--k-graph);color:#FFFFFF}
-.prd-nav .product-card.prd-row.drop-before{box-shadow:inset 0 2px 0 var(--k-gold)}
-.prd-nav .product-card.prd-row.drop-after{box-shadow:inset 0 -2px 0 var(--k-gold)}
+.prd-nav .product-card.prd-row.drop-before{box-shadow:0 -3px 0 0 var(--k-gold)}
+.prd-nav .product-card.prd-row.drop-after{box-shadow:0 3px 0 0 var(--k-gold)}
 .prd-nav-foot{margin:12px 4px 0;font-size:11.5px;color:var(--k-tx4)}
 .prd-stage{min-width:0;padding:22px 32px 64px;container-type:inline-size;container-name:prd}
 .prd-h1{font-family:var(--k-disp);font-size:26px;line-height:32px;font-weight:600;letter-spacing:-.022em;color:var(--k-tx1);margin:0 0 4px}
@@ -1402,13 +1402,13 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .prd-row .mi{width:28px;height:28px;border-radius:3px;display:grid;place-items:center;background:var(--k-surface2);box-shadow:inset 0 0 0 1px var(--k-line);color:var(--k-tx3)}
 .prd-row .mi svg{width:15px;height:15px;stroke-width:1.45}
 .prd-row.sel .mi{background:var(--k-graph);box-shadow:none;color:#DFB367}
-.prd-row-t{display:flex;flex-direction:column;min-width:0;text-decoration:none}
+.prd-row-t{display:flex;flex-direction:column;min-width:0;text-decoration:none;cursor:pointer}
 .prd-row-t .ml{font-size:13px;line-height:18px;font-weight:500;color:var(--k-tx1);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prd-row.sel .prd-row-t .ml{font-weight:600}
 .prd-row-t .sl{font-size:11.5px;line-height:16px;color:var(--k-tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prd-row .v{font-size:12.5px;color:var(--k-tx2);font-variant-numeric:tabular-nums}
-.prd-grip{position:absolute;left:-7px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:-2px;color:var(--k-tx4);cursor:grab;opacity:0}
-.prd-row:hover .prd-grip{opacity:1}
+.prd-grip{position:absolute;left:3px;top:50%;transform:translateY(-50%);font-size:10px;letter-spacing:-2px;color:var(--k-tx4);opacity:.45;pointer-events:none}
+.prd-row:hover .prd-grip{opacity:1;color:var(--k-tx2)}
 .prd-empty{padding:4px 8px 6px 24px;font-size:12px;color:var(--k-tx4)}
 
 /* ============================ r207 ============================ */
@@ -1481,6 +1481,12 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .fx-eye:focus-visible{outline:2px solid #343434;outline-offset:1px;border-radius:2px}
 .wel-caps{min-height:0;font-size:11.5px;font-weight:600;color:#8E2F2C;margin:-8px 0 6px}
 .wel-caps:empty{display:none}
+
+/* r218: whole-row drag in the product list */
+.prd-nav .product-card.prd-row[draggable="true"]{padding-left:16px;cursor:grab}
+.prd-nav .product-card.prd-row[draggable="true"]:active{cursor:grabbing}
+.prd-nav .product-card.prd-row.dragging{opacity:.4;background:var(--k-hover)}
+.prd-nav .product-card.prd-row.drop-before::before,.prd-nav .product-card.prd-row.drop-after::after{display:none}
 </style>
 </head>
 <body>
@@ -1700,6 +1706,14 @@ if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ if(docu
 window.welEye=function(btn){ const p=document.getElementById('loginPass'); if(!p) return; const show=p.type==='password'; p.type=show?'text':'password';
   btn.setAttribute('aria-pressed',show?'true':'false'); btn.setAttribute('aria-label',show?'Hide password':'Show password'); btn.classList.toggle('on',show); p.focus(); };
 window.welCaps=function(e){ const c=document.getElementById('welCaps'); if(!c) return; const on=!!(e&&e.getModifierState&&e.getModifierState('CapsLock')); c.textContent=on?'Caps Lock is on':''; c.classList.toggle('on',on); };
+
+// r218: product list reordering. The whole row is the handle and follows the pointer; the drop line is
+// decided by the row's top or bottom half only (a vertical list). Reorder logic is the existing productDrop.
+window.prdDragImage=function(ev){ const row=ev&&ev.currentTarget; if(row&&ev.dataTransfer&&ev.dataTransfer.setDragImage){ try{ ev.dataTransfer.setDragImage(row,24,Math.round(row.offsetHeight/2)); }catch(e){} } };
+window.prdRowDragOver=function(ev,fam,i){ const d=window._productDrag; if(!d||String(d.fam)!==String(fam)) return; ev.preventDefault(); if(ev.dataTransfer) ev.dataTransfer.dropEffect='move';
+  const row=ev.currentTarget, r=row.getBoundingClientRect(), after=(+ev.clientY||0)>(r.top+r.height/2);
+  if(row.dataset.dropAfter===(after?'1':'0')&&row.classList.contains(after?'drop-after':'drop-before')) return;
+  _productClearDropMarkers(); row.classList.add(after?'drop-after':'drop-before'); row.dataset.dropAfter=after?'1':'0'; };
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7770,7 +7784,7 @@ function _renderContentBody(){
       if(!items.length) h+='<div class="prd-empty">None yet</div>';
       items.forEach(x=>{ const r=_row(x.p.name), sel=view==='product'&&x.p===window._prdSel, ns=_nStreams(x.p);
         const subl=_isFee(x.p)?(ns+' fee stream'+(ns===1?'':'s')):(x.fam==='obs'?'Off-balance-sheet':(r?BQ+' '+fmt0(r.q12_balance):(x.fam==='lending'?'Lending':'Deposit')));
-        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" ondragover="productDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i})" ondragend="productDragEnd(event)">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl${_needs(x.p.name)?' need':''}">${esc(_needs(x.p.name)?'Needs inputs':subl)}</span></a><span class="v">${(r&&!_needs(x.p.name))?fmt0(r.revenue):'\u2014'}</span></div>`; });
+        h+=`<div class="product-card prd-row${sel?' sel':''}" data-q="${esc(String(x.p.name||'').toLowerCase())}" draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,'${fam}',${x.i});prdDragImage(event)" ondragend="productDragEnd(event)" ondragover="prdRowDragOver(event,'${fam}',${x.i})" ondragleave="productDragLeave(event)" ondrop="productDrop(event,'${fam}',${x.i})"><span class="prd-grip" aria-hidden="true">\u22EE\u22EE</span><span class="mi">${ICONS[_famIcon[fam]]||''}</span><a href="#" class="prd-row-t" draggable="false" onclick="prdSelect('${fam}',${x.i});return false"><span class="ml">${esc(x.p.name||'Unnamed product')}</span><span class="sl${_needs(x.p.name)?' need':''}">${esc(_needs(x.p.name)?'Needs inputs':subl)}</span></a><span class="v">${(r&&!_needs(x.p.name))?fmt0(r.revenue):'\u2014'}</span></div>`; });
     });
     h+='</div>';
     h+=`<div class="prd-nav-foot">${_stale?'Muted figures are from the last complete run, $000s.':'Figures from the latest engine run, $000s.'}</div></nav><div class="prd-stage">`;
