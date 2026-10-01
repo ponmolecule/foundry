@@ -159,6 +159,11 @@ def main():
        '<div class="wel-signin-t">User access</div>' in html and '<label for="loginUser">Username</label>' in html
        and '<label for="loginPass">Password</label>' in html and 'onclick="welEye(this)"' in html and 'window.welCaps=function' in html
        and 'aria-label="Sign in"' in html and "'Welcome back':'Sign in'" not in html)
+    # r218: product list reorder: whole row draggable, row is the drag image, drop line by top/bottom half.
+    ck("Product rows drag by the whole row, show the row while dragging, and drop by top or bottom half",
+       'draggable="true" title="Drag to reorder" ondragstart="productDragStart(event,' in html and 'prdDragImage(event)' in html
+       and 'window.prdRowDragOver=function' in html and 'class="prd-row-t" draggable="false"' in html
+       and '.prd-nav .product-card.prd-row.drop-after{box-shadow:0 3px 0 0 var(--k-gold)}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

@@ -693,3 +693,13 @@ The "Sign in" / "Welcome back" heading is replaced in both states by a small-cap
 label, matching the page's other zone labels; screen readers still announce the region as
 "Sign in". Field ids, handlers and the 162px field width are unchanged. Tested at 1440, 1920
 and 900px: label lift, show/hide, Caps Lock, Enter to submit, wrong-password error, real sign-in.
+
+
+## r218 — Product list drag-to-reorder restored as a proper slide
+
+Presentation-only release on r217. Reordering still uses the existing productDrop logic, but the
+interaction was rebuilt for the vertical product list: the whole row is the handle (the grip is a
+constant visual cue, not the only target); the row itself follows the pointer while dragging and
+the original dims; the gold drop line sits above or below the target row according to its top or
+bottom half only (the old card-grid rule also used left/right, which mis-placed drops in a list).
+A plain click still selects the product; drops across families are still refused.
