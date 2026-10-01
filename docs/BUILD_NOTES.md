@@ -780,3 +780,36 @@ option) and the post-run refresh hook are removed: none answered a user need, an
 comparison switches the option and reads the results. The intra-period path row keeps only its
 controls (Path, Anchor points, Attrition timing). The stream and source calculation cards from r222
 are unchanged. Results at the defaults remain byte-identical to pre-r221.
+
+
+## r224 — Attrition within the period: one control in the attrition box
+
+Presentation release on r223. The separate "Intra-period path" box (Path, Anchor points, Attrition
+timing) is replaced by one dropdown, "Attrition within the period", inside the Existing-book
+attrition box: taken at the end / spread evenly / taken at the start of each attrition period;
+straight line between year-ends / quarter-ends. Stored as the r221 keys (end of period = no keys),
+so the engine, its tests and saved engagements are unchanged. With monthly attrition a one-line note
+says the first three options give the same result. The attrition box is sized to its contents.
+
+
+## r225 — Attrition Path and Timing as two controls; cards on click only
+
+Presentation release on r224. In the Existing-book attrition box, the single list is split into its
+two dimensions: Path (Monthly flows / Straight line between year-ends / quarter-ends) and Timing
+(at the end / spread evenly / at the start of each attrition period). Timing is shown whenever the
+path is monthly flows; with monthly attrition it stays usable with a note that it has no effect.
+Stored as the r221 keys; engine and results unchanged. Calculation cards open on click (or Enter)
+and close on Esc or a click elsewhere; hover and show-on-focus are removed.
+
+
+## r226 — Measured widths across Configuration, notices and editors
+
+Presentation release on r225. Width rules from a measured sweep of every tab and Configuration module:
+- Forms: dropdowns and text fields up to 320px, numbers 180px, names 420px, paste boxes 760px; rows,
+  setting boxes and control-only sections sized to their content.
+- Master-detail (channels, workforce, …): list column up to 640px and detail 400–760px, left-aligned,
+  so at 2560px the pair stops at about 1,400px instead of filling the stage; stacked layouts
+  (securities) size list and detail to content.
+- Warnings, flags and banners sized to their text, capped at 880px.
+Sweep results at 1440px: fields wider than 360px 26 → 16 (remaining are paste/name fields within
+caps); non-text boxes using under 60% of their width 8 → 0; master-detail Securities 1000 → 688px.

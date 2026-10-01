@@ -1026,7 +1026,7 @@ tr.opex-item-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
 .cfg-md-foot{padding:9px 12px;font-size:12px;color:var(--k-tx3);border-top:1px solid var(--k-line);background:var(--k-surface2)}
 .cfg-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:500;background:#EFEFEF;color:var(--k-tx2)}
 .cfg-pill.x{background:var(--k-gold-wash);color:var(--k-gold-deep)}
-.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden}
+.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden;max-width:760px}
 .cfg-md-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--k-graph);color:#FFFFFF}
 .cfg-stage .cfg-md-head b{color:#FFFFFF;font-family:var(--k-disp);font-size:14px;font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cfg-md-head span{font-size:11.5px;color:var(--k-graph-mut);white-space:nowrap}
@@ -1513,16 +1513,14 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .st-srcref{color:var(--k-gold-deep);font-weight:600;white-space:nowrap}
 .st-chain .c.src{border-style:dashed;background:#F3F3F1}
 
-/* r221: intra-period path row on customer-acquisition feeds */
-.cac-path{border:1px solid #CFCFCC;border-radius:3px;padding:9px 10px 6px;margin:-2px 0 10px;background:#FAFAF8}
-.cac-path-h{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:0 0 7px}
-.cac-path-r{display:grid;grid-template-columns:184px 300px 1fr;gap:10px;align-items:center;margin:0 0 6px}
-.cac-path-r .l{color:#2A2A2A}.cac-path-r select{width:300px}.cac-path-r select:disabled{background:#F3F3F1;color:#96928C;border-style:dashed}
-.cac-path-r .d{font-size:12px;color:#666;line-height:1.4}
+/* r224: attrition box sized to its content; within-period control in the box */
+.cac-attr-box{width:fit-content;max-width:100%;padding-right:14px!important}
+.cac-within{align-items:center;margin:7px 0 0}.cac-within .l{width:184px;color:#2A2A2A}.cac-within select{width:300px}
+.cac-within-note{margin:4px 0 0 190px;font-size:12px;color:#666666}
 
 /* r222: calculation cards and the decluttered stream grid */
 .st-list td.st-q,.st-list td.st-q.num{white-space:nowrap!important}
-.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:help}
+.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:pointer}
 .st-list .st-v.st-fx{font-weight:400;color:var(--k-tx3);border-bottom-style:dotted}
 .ip-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:6px;border:1px solid #BDBDB8;border-radius:50%;font-size:9px;font-weight:700;font-style:normal;color:#666666;vertical-align:1px;cursor:pointer;user-select:none}
 .ip-i:hover,.ip-on.ip-i,.ip-on + .st-u + .ip-i{border-color:#8F6B30;color:#8F6B30;background:#FBF7EF}
@@ -1540,6 +1538,27 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .ip-card a{color:var(--k-gold-deep);text-decoration:none;border-bottom:1px dotted #BF975E}
 .st-calc-b{flex:1 1 auto;min-width:0;max-width:520px}
 .st-calc-b .ip-steps{row-gap:3px}.st-calc-b .ip-note{margin-top:5px}
+
+/* r226: measured widths. Forms sized to content; master-detail sized to its parts; notices at a readable width. */
+.cfg-stage select{max-width:320px}
+.cfg-stage input:not([type]),.cfg-stage input[type=text]{max-width:320px}
+.cfg-stage input[type=number]{max-width:180px}
+.cfg-stage textarea{max-width:760px}
+.cfg-stage .sec-managed-portfolio-title,.cfg-stage .sec-managed-sleeve-head input,.cfg-stage .wf-role-title input{width:420px!important;max-width:100%!important;flex:none}
+.prd-ws .fld.wide input[type=text],.prd-ws .fld.wide input:not([type]){max-width:420px}
+.sec-managed-portfolio{width:fit-content;max-width:100%}
+.sec-managed-portfolio-head{width:fit-content;max-width:100%}
+.sec-managed-grid{grid-template-columns:repeat(2,320px)!important;justify-content:start;column-gap:22px}
+.sec-managed-series{width:fit-content;max-width:100%;padding-right:16px}
+.cfg-stage .crow,.sec-book-line{justify-content:start}
+.cfg-stage .crow{width:fit-content;max-width:100%}
+.cfg-stage .sec-major-section:not(:has(table)){width:fit-content;max-width:100%}
+@container stage (min-width:1000px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(min(640px,calc(100% - 414px)),640px) minmax(400px,760px);justify-content:start}}
+.cfg-md.cfg-md-stack .cfg-md-list{width:fit-content;max-width:100%}
+.cfg-md.cfg-md-stack .cfg-md-list table.cfg-grid{width:auto!important}
+.warnitem,.ovflag{width:fit-content;max-width:880px}
+.ovcard{max-width:880px}
+#persistBlock>div{width:fit-content;max-width:880px}
 </style>
 </head>
 <body>
@@ -1902,37 +1921,30 @@ function _stProv(metas,i,fi){
 // r221: customer-acquisition intra-period path. Absent keys reproduce the historical calculation exactly.
 
 function _cacAttrPeriod(asp,am){ return String(am==='explicit'?(asp.cadence||'year'):(asp.period||'year')).toLowerCase(); }
-window.cacFeedPathSet=function(fn,key,val){
+window.cacFeedWithinSet=function(fn,key,v){ // r225: Path and Timing; stored as the r221 keys (absent = monthly flows, end of period)
   const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
-  const asp=_cacFeedSpec(fd,'attrition_rate',fd.attrition_rate||0), per=_cacAttrPeriod(asp,_cacMode(asp));
-  if(key==='path'){ if(val==='straight_line'){ fd.intra_period_path='straight_line'; fd.path_anchor=fd.path_anchor||(per==='quarter'?'quarter':'year'); delete fd.attrition_timing; }
-                    else { delete fd.intra_period_path; delete fd.path_anchor; } }
-  else if(key==='anchor'){ fd.path_anchor=(val==='quarter'?'quarter':'year'); }
-  else if(key==='timing'){ if(val==='period_end') delete fd.attrition_timing; else fd.attrition_timing=val; }
+  if(key==='path'){
+    if(v==='line_year'||v==='line_quarter'){ fd.intra_period_path='straight_line'; fd.path_anchor=(v==='line_quarter'?'quarter':'year'); delete fd.attrition_timing; }
+    else { delete fd.intra_period_path; delete fd.path_anchor; }
+  } else if(key==='timing'){
+    if(v==='spread') fd.attrition_timing='spread'; else if(v==='start') fd.attrition_timing='period_start'; else delete fd.attrition_timing;
+  }
   renderContent(); refresh();
 };
-function _cacPathRowHtml(fn,fd,asp,am){
-  const path=fd.intra_period_path==='straight_line'?'straight_line':'monthly_flows', per=_cacAttrPeriod(asp,am);
-  const anchor=fd.path_anchor==='quarter'?'quarter':'year', timing=['spread','period_start'].includes(fd.attrition_timing)?fd.attrition_timing:'period_end';
-  const nonDefault=(path!=='monthly_flows'||timing!=='period_end'), F=esc(fn);
-  const perWord={month:'month',quarter:'quarter',year:'year'}[per]||per;
-  const timingDisabled=(path==='straight_line'||per==='month');
-  const timingWhy=path==='straight_line'?'Not used with a straight-line path: only anchor balances are calculated; months in between are interpolated.'
-       :(per==='month'?'The attrition period is a month, so every timing option gives the same result: each month\u2019s attrition is taken in that month.':'');
-  const T={period_end:'At attrition-period end',spread:'Spread evenly across the attrition period',period_start:'At attrition-period start'};
-  const TD={period_end:`All of each ${perWord}\u2019s attrition in its last month. Highest average balance.`,
-            spread:`Equal slices in every month of each ${perWord}.`,period_start:`All of each ${perWord}\u2019s attrition in its first month. Lowest average balance.`};
-  let h=`<div class="cac-path" data-fn="${F}"><div class="cac-path-h">Intra-period path</div>`;
-  h+=`<div class="cac-path-r"><span class="l">Path</span><select onchange="cacFeedPathSet('${F}','path',this.value)"><option value="monthly_flows"${path==='monthly_flows'?' selected':''}>Monthly flows</option><option value="straight_line"${path==='straight_line'?' selected':''}>Straight line between anchor points</option></select>`;
-  h+=`<span class="d">${path==='straight_line'?'Anchor balances are calculated as usual; the months between them move in equal steps.':'New customers and AUC are added each month; attrition follows the timing below.'}</span></div>`;
-  if(path==='straight_line'){
-    h+=`<div class="cac-path-r"><span class="l">Anchor points</span><select onchange="cacFeedPathSet('${F}','anchor',this.value)"><option value="year"${anchor==='year'?' selected':''}>Year-ends</option><option value="quarter"${anchor==='quarter'?' selected':''}>Quarter-ends</option></select><span class="d">Month-ends aren\u2019t offered: with monthly anchors there is nothing to interpolate, so the path is the monthly flows.</span></div>`;
+function _cacAttrWithinHtml(fn,fd,asp,am){
+  const per=_cacAttrPeriod(asp,am), F=esc(fn);
+  const path=fd.intra_period_path==='straight_line'?(fd.path_anchor==='quarter'?'line_quarter':'line_year'):'flows';
+  const timing=({spread:'spread',period_start:'start'}[fd.attrition_timing]||'end');
+  const sel=(key,cur,opts)=>`<select onchange="cacFeedWithinSet('${F}','${key}',this.value)">${opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+  let h=`<div class="crow cac-within"><span class="l">Path</span>${sel('path',path,[['flows','Monthly flows'],['line_year','Straight line between year-ends'],['line_quarter','Straight line between quarter-ends']])}</div>`;
+  if(path==='flows'){
+    h+=`<div class="crow cac-within"><span class="l">Timing</span>${sel('timing',timing,[['end','At the end of each attrition period'],['spread','Spread evenly across each attrition period'],['start','At the start of each attrition period']])}</div>`;
+    if(per==='month') h+=`<div class="cac-within-note">Attrition is monthly, so timing has no effect.</div>`;
   }
-  h+=`<div class="cac-path-r"><span class="l">Attrition timing</span><select ${timingDisabled?'disabled':''} onchange="cacFeedPathSet('${F}','timing',this.value)">${Object.keys(T).map(k=>`<option value="${k}"${k===(timingDisabled?'period_end':timing)?' selected':''}>${T[k]}</option>`).join('')}</select><span class="d">${timingDisabled?timingWhy:TD[timing]+` This feed\u2019s attrition period is a ${perWord}.`}</span></div>`;
-  return h+`</div>`;
+  return h;
 }
 
-// r222: calculation cards. Hover shows; click pins (Esc or outside closes); focus shows. Content is built
+// r222/r225: calculation cards open on click (or Enter); Esc or a click elsewhere closes. Content is built
 // from the same structured steps the editor uses, so the grid, card and editor can never disagree.
 function _ipStepsHtml(steps,note){
   let h='';
@@ -1972,14 +1984,11 @@ function _ipSrcHtml(fi,kind,ref){
     left=Math.max(8,Math.min(left,vw-W-8)); c.style.left=(window.scrollX+left)+'px'; }
   function hide(){ if(card){ if(card._t) card._t.classList.remove('ip-on'); card.remove(); card=null; } pinned=null; }
   function show(t,pin){ hide(); const html=content(t); if(!html) return; const c=document.createElement('div'); c.className='ip-card'+(pin?' pinned':'');
-    c.setAttribute('role','dialog'); c.innerHTML=(pin?'<span class="ip-pin">pinned \u00b7 Esc to close</span>':'')+'<div class="ip-body">'+html+'</div>';
+    c.setAttribute('role','dialog'); c.innerHTML='<div class="ip-body">'+html+'</div>';
     document.body.appendChild(c); place(c,t); c._t=t; t.classList.add('ip-on'); card=c; if(pin) pinned=t; }
-  document.addEventListener('mouseover',e=>{ if(pinned) return; const t=e.target.closest&&e.target.closest('[data-ip]');
-    if(t){ if(!card||card._t!==t) show(t,false); } else if(card&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); });
   document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]');
     if(t){ e.stopPropagation(); e.preventDefault(); if(pinned===t){ hide(); return; } show(t,true); return; }
     if(pinned&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); }, true);
-  document.addEventListener('focusin',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]'); if(t&&!pinned) show(t,false); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); else if(e.key==='Enter'){ const t=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-ip]'); if(t){ e.preventDefault(); show(t,true); } } });
   window.ipHide=hide;
 })();
@@ -4703,7 +4712,7 @@ function fieldsFor(fam, p, base){
       h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);if(!pv)return '\u2014';const key='st:'+_fi+':'+k;return '<span class="st-v'+(pv.fixed?' st-fx':'')+'" data-ip="'+key+'" tabindex="0">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+'<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';})()}</td></tr>`; });
-      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Hover a figure, or click \u24D8, to see how it is calculated.</div></div>`;
+      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click a figure or \u24D8 to see how it is calculated.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
@@ -11481,12 +11490,11 @@ function structuresSectionsHtml(){
 
       // Attrition is a feed-level primitive, not an engagement-specific annual row.
       const asp=_cacFeedSpec(fd,'attrition_rate',fd.attrition_rate||0),am=_cacMode(asp);
-      h+=`<div style="border:1px solid #CFCFCC;border-radius:3px;padding:7px 8px;margin:6px 0 9px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#2A2A2A">Existing-book attrition</span><span class="cu" style="width:84px">Enter</span><select style="width:98px" onchange="cacFeedTrajectory('${esc(fn)}',this.value)">${[['flat','Flat'],['growth','Growth'],['explicit','Explicit']].map(o=>`<option value="${o[0]}"${o[0]===am?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+      h+=`<div class="cac-attr-box" style="border:1px solid #CFCFCC;border-radius:3px;padding:7px 8px;margin:6px 0 9px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#2A2A2A">Existing-book attrition</span><span class="cu" style="width:84px">Enter</span><select style="width:98px" onchange="cacFeedTrajectory('${esc(fn)}',this.value)">${[['flat','Flat'],['growth','Growth'],['explicit','Explicit']].map(o=>`<option value="${o[0]}"${o[0]===am?' selected':''}>${o[1]}</option>`).join('')}</select>`;
       if(am==='growth'){const gs=asp.growth_spec||{};h+=`<input type="number" step="0.1" style="width:66px" value="${((+asp.base||0)*100).toFixed(2)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].driver_specs.attrition_rate.base=_pf(this.value)/100;refresh()"><span class="cu">% of opening book</span><select style="width:82px" onchange="cacFeedPeriod('${esc(fn)}',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(asp.period||'year')===v?' selected':''}>Per ${v}</option>`).join('')}</select><input type="number" step="0.1" style="width:58px" value="${((+gs.rate||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'rate')"><span class="cu">% growth</span><select style="width:76px" onchange="cacFeedGrowthPeriod('${esc(fn)}',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(gs.period||'year')===v?' selected':''}>/${v}</option>`).join('')}</select>`;}
       else if(am==='explicit'){const _ac=asp.cadence||'year',_av=asp.values||[],_aid=('cacAttritionPaste_'+String(asp.series_id||fn)).replace(/[^A-Za-z0-9_]/g,'_'),_closed=_cacExplicitIsClosed(fn,-1,'attrition_rate');if(_closed)h+=`<span class="cu">${_av.length} explicit value${_av.length===1?'':'s'} loaded · %</span><button class="pillbtn" style="margin-left:6px" onclick="cacFeedExplicitOpen('${esc(fn)}')">Edit schedule</button>`;else h+=`<span class="cu">paste explicit % values below</span></div><div style="margin:7px 0 2px 184px;border-left:2px solid #BABAB7;padding-left:9px"><div class="crow" style="align-items:center;margin:0 0 5px"><label class="wf-field" style="width:110px"><span class="wf-field-label">Source cadence</span><select onchange="cacFeedExplicitCadence('${esc(fn)}',this.value)">${_cacCadenceOptions().map(c=>`<option value="${c}"${c===_ac?' selected':''}>${c}</option>`).join('')}</select></label><span class="cmut" style="margin:15px 0 0">Existing-book attrition · %</span></div><textarea id="${_aid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box;background:var(--paper);color:#2A2A2A;border:1px solid #3A3A37;border-radius:4px;padding:7px" placeholder="2.0&#9;2.5&#9;3.0" oninput="_seriesExplicitPasteInput('${_aid}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${_aid}_load" class="pillbtn" disabled onclick="cacFeedExplicitPaste('${esc(fn)}',document.getElementById('${_aid}').value)">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="cacFeedExplicitClear('${esc(fn)}')"${_av.length?'':' disabled'}>Clear</button><button class="pillbtn" onclick="cacFeedExplicitClose('${esc(fn)}')">Close</button>${_explicitPreviewHtml(_av,v=>(v*100).toFixed(2)+'%',_ac)}</div><div class="cmut" style="margin-top:4px">Each value is the attrition rate for that source period. CAC applies it at the end of the source period to the customer book that existed at the beginning of that period; it is not averaged into an annual rate before calculation.</div>`;}
       else h+=`<input type="number" step="0.1" style="width:72px" value="${((+asp.value||0)*100).toFixed(2)}" onchange="cacFeedValue('${esc(fn)}',this.value,'flat')"><span class="cu">% of opening book</span><select style="width:82px" onchange="cacFeedPeriod('${esc(fn)}',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(asp.period||'year')===v?' selected':''}>Per ${v}</option>`).join('')}</select>`;
-      h+=`</div></div>`;
-      h+=_cacPathRowHtml(fn,fd,asp,am);   // r221: intra-period path (feed level)
+      h+=`</div>`+_cacAttrWithinHtml(fn,fd,asp,am)+`</div>`;   // r224: attrition within the period, inside the attrition box
 
       const _chCards=[],_chMeta=[],_chSel=(fd.channels||[]).length?_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn):0;
       fd.channels.forEach(function(ch,ci){const _chMark=h.length;ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
