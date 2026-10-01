@@ -154,6 +154,11 @@ def main():
        '.cfg-stage table.cac-audit-grid.cac-audit-grid{width:auto!important;min-width:0!important;' in html
        and 'border:1px solid #D8D8D8!important' in html and "String(key).indexOf('end_')===0?' class=\"end\"'" in html
        and '.cfg-stage table.cac-audit-grid.cac-audit-grid th:first-child{text-align:left;white-space:normal;max-width:190px}' in html)
+    # r217: sign-in fields are underlined with floating labels; show/hide and Caps Lock; zone labelled "User access".
+    ck("Sign-in uses underlined fields with floating labels, a show/hide eye, a Caps Lock warning and a 'User access' label",
+       '<div class="wel-signin-t">User access</div>' in html and '<label for="loginUser">Username</label>' in html
+       and '<label for="loginPass">Password</label>' in html and 'onclick="welEye(this)"' in html and 'window.welCaps=function' in html
+       and 'aria-label="Sign in"' in html and "'Welcome back':'Sign in'" not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
