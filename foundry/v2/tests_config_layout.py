@@ -171,6 +171,11 @@ def main():
        and 'event.stopPropagation();stSelect(' in html and 'Quantity, last period' not in html)
     ck("One 'About these settings' box per stream tab",
        "const tabs=['activity','pricing','timing','costs'], last={};" in html)
+    # r220: source rows (AUC, customers) and exact working for feed-driven streams.
+    ck("Fee-stream grid shows the AUC and customer sources the engine used, and feed-driven working in authored terms",
+       'function _stSrcRows(metas,fi)' in html and 'managedNotionalAvg' in html and "period_average:'customerAverageByPeriod'" in html
+       and 'function _stFeedName(ref)' in html and "'fixed amount \\u00b7 no volume driver'" in html
+       and 'function _stSchedLbl(per,n)' in html and "+_stSrcRows(_stMeta,_fi);" in html and 'const _srcChip=_stSrcChip(' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
