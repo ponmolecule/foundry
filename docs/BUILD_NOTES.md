@@ -839,3 +839,12 @@ Presentation release on r227.
   Previously both the grid figure and the editor block kept the values from when the stream was
   selected (e.g. 240 accounts after an edit had made it 480).
 - Only the ⓘ opens a calculation card; figures carry no underline and are not clickable.
+
+
+## r229 — No flicker on redraw
+
+Presentation fix on r228. Toggling an option that redraws the Configuration stage (e.g. straight line
+between year-ends ↔ quarter-ends) briefly showed dropdowns at their unfitted widths: measured frame by
+frame, total dropdown width dropped 18px for ~50-80ms before r227's fitting pass widened them again on
+a 40ms timer. fitControls now runs in the mutation callback itself (a microtask before paint), so a
+redrawn control is never painted unfitted. Frame-by-frame probe after the change: no movement.

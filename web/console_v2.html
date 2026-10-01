@@ -2017,7 +2017,9 @@ function fitInput(el){
   if(el.scrollWidth>el.clientWidth+1){ const pad=el.offsetWidth-el.clientWidth; el.style.minWidth=Math.min(420,el.scrollWidth+pad+6)+'px'; }
 }
 (function(){
-  let t=null; const run=()=>{ clearTimeout(t); t=setTimeout(()=>fitControls(),40); };
+  // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
+  // control never shows its unfitted width for a frame. fitControls only changes styles, which the observer ignores.
+  const run=()=>fitControls();
   const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
