@@ -658,3 +658,16 @@ beside it, echoing the desktop composition.
 Presentation-only release on r213. Username, password and Enter platform share one 162px column
 (same left edge, same width) at every window size; the button's width is fixed with its label
 centred so the match holds across system fonts. The narrow-layout gold panel fits its contents.
+
+
+## r215 — Welcome recomposed: smaller graphite, refined headline
+
+Presentation-only release on r214. The Welcome page is composed from the Klaros cover image's
+parts instead of one fixed picture, so the graphite block can be sized: 50% wide by 40% tall
+(was about 75% by 48%). The graphite is a CSS gradient sampled from the image; the Klaros Group
+logo is lifted onto a transparent background; sky, gold strip and building are separate crops
+(black edge rows trimmed). The headline is semibold, one line, and fitted on the live page so it
+ends exactly where the subtitle ends (within 2px at 1440 and 1920) on any system font. Gaps
+above and below the headline are equal: 25px at 1440, 36px at 1920. Sign-in and the index ribbon
+keep their approved sizes. Narrow layout: the building is the backdrop and the logo sits in the
+graphite hero. Sign-in tested end to end at 1440, 1920 and 900px.
