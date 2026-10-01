@@ -589,3 +589,25 @@ cap" checkbox rendered 530px wide with its label squeezed off the right edge. Ch
 radios now keep their natural size and sit beside their labels, everywhere in the workspace and
 the Assumptions panel. A sweep of 95 views (every product, stream and stream tab, all
 Configuration modules, Stress, Lab, Governance, Start) found no other stretched control.
+
+
+## r209 — Klaros theme colours and a uniform page header
+
+Presentation-only release on r208. Graphite bars (application bar, tab row, title bands, detail
+heads) are unchanged.
+
+Theme. Every non-graphite surface follows the Klaros pro-forma theme: white page (including the
+legacy "paper" token on statement and record tabs), #343434 ink, #666666 labels, #96928C muted
+text, #D8D8D8 rules, #C4C4C4 control borders, #EFEFEF side columns and stripes, #DFB367 gold for
+accents and focus, #D3A157 / #BF975E gold buttons, #EAD8BC champagne chips and selection washes,
+#B0413E alarm red. A 3px gold gradient accent bar sits under the tab row; Assumptions cards,
+banners and flags carry the theme's 4px gold left edge. Button text stays #343434 rather than the
+theme's white, for legibility on gold.
+
+Page header. Every tab except Welcome opens with a breadcrumb (group / tab, or tab / section) and
+a graphite title band set below the menu: Configuration / module, Products / Portfolio, Compare
+or family / product, Statements / Balance Sheet, Analysis / Executive Summary, Record /
+Assumption Book, and so on. Applied after each render by a small observer; tab content is
+untouched apart from the first heading becoming the band.
+
+Validation: full gate set matches the r198 baseline; tests_config_layout at 46 checks.
