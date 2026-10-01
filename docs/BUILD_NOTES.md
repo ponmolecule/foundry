@@ -681,3 +681,15 @@ table (horizontal and vertical lines) sized to its content: 583px wide instead o
 figures (they were left-aligned over right-aligned numbers); the long first header wraps rather
 than widening its column. Ending bank customers and Ending AUC are bold under a dark rule;
 alternate rows carry a faint stripe. Header wording and figures are unchanged.
+
+
+## r217 — Sign-in: underlined fields, floating labels, "User access"
+
+Presentation-only release on r216. The sign-in fields are underlined (no boxes on the gold strip)
+with floating labels: "Username" and "Password" sit in the field and lift to small capitals as
+you type, so the labels stay visible once filled. The password has a show/hide eye, and a
+"Caps Lock is on" warning appears while Caps Lock is on (cleared on release or leaving the field).
+The "Sign in" / "Welcome back" heading is replaced in both states by a small-caps "User access"
+label, matching the page's other zone labels; screen readers still announce the region as
+"Sign in". Field ids, handlers and the 162px field width are unchanged. Tested at 1440, 1920
+and 900px: label lift, show/hide, Caps Lock, Enter to submit, wrong-password error, real sign-in.
