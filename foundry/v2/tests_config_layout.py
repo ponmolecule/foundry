@@ -167,7 +167,7 @@ def main():
     # r219: fee-stream driver figures in the editor's units, with their working shown in grid and editor.
     ck("Fee-stream driver column shows the final-period figure in the editor's units with a working line",
        'function _stProv(metas,i,fi)' in html and 'function _stKinds(metas)' in html and "'money_flow'" in html
-       and '<th class="num">Driver \\u00b7 \'+_stProvP(_stMeta)+\'</th>' in html and 'class="fld wide st-calc"' in html
+       and '<th class="num">Driver \\u00b7 \'+_stProvP(_stMeta)+\'</th>' in html
        and 'event.stopPropagation();stSelect(' in html and 'Quantity, last period' not in html)
     ck("One 'About these settings' box per stream tab",
        "const tabs=['activity','pricing','timing','costs'], last={};" in html)
@@ -180,7 +180,7 @@ def main():
     # r222: calculation cards declutter the stream grid; path row carries no default labels.
     ck("Stream grid shows one line per figure; the working opens in a click card built from the same steps as the editor",
        'function _ipStepsHtml(steps,note)' in html and "data-ip=\"'+key+'\"" in html and 'window.ipHide=hide;' in html
-       and "_ipStepsHtml(pv.steps||[],pv.note)" in html and 'Click a figure or' in html and "'<span class=\"st-w\">'" not in html)
+       and 'Click \\u24D8 to see how a figure is calculated' in html and "'<span class=\"st-w\">'" not in html)
     ck("Source rows explain average vs month-end AUC in a card instead of inline",
        'function _ipSrcHtml(fi,kind,ref)' in html and 'Month-end AUC' in html and 'Rates and turns are applied to the <b>average</b> AUC' in html)    # r224: attrition within the period is one control inside the attrition box.
     ck("Attrition within the period is a single dropdown inside the Existing-book attrition box",
@@ -200,6 +200,10 @@ def main():
        and '@container stage (min-width:1000px) and (max-width:1399px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(0,1fr)!important}' in html
        and 'minmax(min(640px,calc(100% - 494px)),640px) minmax(480px,880px)' in html and 'max-width:880px}' in html
        and '.warnitem,.ovflag{width:fit-content;max-width:880px}' in html)
+    # r228: no duplicate working in the editor; figures refresh in place after each run; only the ⓘ opens a card.
+    ck("Stream editor carries no duplicate working block; grid figures refresh after each run; only the info icon opens a card",
+       'class="fld wide st-calc"' not in html and 'function refreshStreamFigures()' in html and "if(typeof refreshStreamFigures==='function') refreshStreamFigures(); }" in html
+       and '${_stCellHtml(_stMeta,k,_fi)}' in html and '.st-list .st-v[data-ip]' not in html and "data-ip=\"src:'+fi+':auc\" tabindex" not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
