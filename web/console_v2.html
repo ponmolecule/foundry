@@ -1487,6 +1487,19 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .prd-nav .product-card.prd-row[draggable="true"]:active{cursor:grabbing}
 .prd-nav .product-card.prd-row.dragging{opacity:.4;background:var(--k-hover)}
 .prd-nav .product-card.prd-row.drop-before::before,.prd-nav .product-card.prd-row.drop-after::after{display:none}
+
+/* r219: driver provenance in the fee-stream grid and editor */
+.st-list .st-q{white-space:nowrap;text-align:right;vertical-align:top}
+.st-list .st-v{font-weight:600;color:var(--k-tx1);font-variant-numeric:tabular-nums}
+.st-list .st-u{font-size:11px;color:var(--k-tx3);margin-left:4px}
+.st-list .st-w{display:block;margin-top:3px;font-size:11.5px;color:var(--k-tx3);white-space:normal;line-height:1.35}
+.st-list .st-w b{font-weight:600;color:var(--k-tx2)}
+.st-list .st-w a,.st-calc a{color:var(--k-gold-deep);text-decoration:none;border-bottom:1px dotted #BF975E}
+.st-body .fld.st-calc{flex-direction:row;flex-wrap:wrap}
+.st-calc{display:flex;align-items:baseline;gap:10px;padding:8px 12px;border-left:3px solid var(--k-gold);background:#FBF7EF;font-size:12.5px;color:var(--k-tx2);font-variant-numeric:tabular-nums}
+.st-calc .t{font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--k-gold-deep)}
+.st-calc b{color:var(--k-tx1)}
+.st-calc .src{color:var(--k-tx4)}
 </style>
 </head>
 <body>
@@ -1646,17 +1659,24 @@ function _prdNum(x){ // display-only rounding; the stored value keeps full preci
   const n=Number(t.replace(/,/g,'')); if(!isFinite(n)) return t; const a=Math.abs(n);
   return n.toLocaleString('en-US',{maximumFractionDigits:a>=100?2:(a>=1?4:6)});
 }
-window.prdAfterRender=function(){ // fold explanatory memos into one note per stream tab
+window.prdAfterRender=function(){ // r219: one "About these settings" box per stream tab
   document.querySelectorAll('.st-body').forEach(body=>{
     if(body.getAttribute('data-about')) return; body.setAttribute('data-about','1');
-    const groups=new Map();
+    const bodyNotes=[], secNotes=new Map();
     body.querySelectorAll('.fld.wide').forEach(f=>{
       if(f.children.length!==1||!f.firstElementChild.matches('span.memo')) return;
       const t=(f.textContent||'').replace(/\s+/g,' ').trim(); if(t.length<40) return;
-      const host=f.closest('.st-sec')||body; const a=groups.get(host)||[]; if(!a.includes(t)) a.push(t); groups.set(host,a); f.classList.add('st-memo-moved');
+      const sec=f.closest('.st-sec'); f.classList.add('st-memo-moved');
+      if(sec){ const a=secNotes.get(sec)||[]; if(!a.includes(t)) a.push(t); secNotes.set(sec,a); } else if(!bodyNotes.includes(t)) bodyNotes.push(t);
     });
-    groups.forEach((notes,host)=>{ const d=document.createElement('details'); d.className='st-about';
-      d.innerHTML='<summary>About these settings <span>'+notes.length+' note'+(notes.length===1?'':'s')+'</span></summary><ul>'+notes.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul>'; host.appendChild(d); });
+    const tabs=['activity','pricing','timing','costs'], last={};
+    body.querySelectorAll('.st-sec[data-st]').forEach(s=>{ last[s.getAttribute('data-st')]=s; });
+    const make=notes=>{ const d=document.createElement('details'); d.className='st-about'; d.innerHTML='<summary>About these settings <span>'+notes.length+' note'+(notes.length===1?'':'s')+'</span></summary><ul>'+notes.map(t=>'<li>'+esc(t)+'</li>').join('')+'</ul>'; return d; };
+    let placed=false;
+    tabs.forEach(tab=>{ const host=last[tab]; if(!host) return; let notes=bodyNotes.slice();
+      body.querySelectorAll('.st-sec[data-st="'+tab+'"]').forEach(s=>{ (secNotes.get(s)||[]).forEach(t=>{ if(!notes.includes(t)) notes.push(t); }); });
+      if(notes.length){ host.appendChild(make(notes)); placed=true; } });
+    if(!placed&&bodyNotes.length) body.appendChild(make(bodyNotes));
   });
 };
 window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move inside the workspace so the side column runs full height
@@ -1714,6 +1734,64 @@ window.prdRowDragOver=function(ev,fam,i){ const d=window._productDrag; if(!d||St
   const row=ev.currentTarget, r=row.getBoundingClientRect(), after=(+ev.clientY||0)>(r.top+r.height/2);
   if(row.dataset.dropAfter===(after?'1':'0')&&row.classList.contains(after?'drop-after':'drop-before')) return;
   _productClearDropMarkers(); row.classList.add(after?'drop-after':'drop-before'); row.dataset.dropAfter=after?'1':'0'; };
+
+// r219: driver provenance. Units mirror the engine's own quantity-kind classifier
+// (income_modules._fee_stream_quantity_kinds): money (engine dollars, shown in $000s like the editor),
+// count, or native. Ratios in the working line are computed from the engine's final-period figures,
+// so the line is always arithmetically consistent with the number above it.
+function _stProvP(metas){ const n=Math.max(0,...(metas||[]).map(m=>(m.qty||[]).length)); const ppy=(typeof PPY==='function')?PPY():12; return (ppy===4?'Q':(ppy===1?'Y':'M'))+(n||''); }
+function _stKinds(metas){
+  const by={}; metas.forEach((m,i)=>{ if(m.name) by[m.name]=i; }); const cache={};
+  const res=(i,stack)=>{ if(i in cache) return cache[i]; stack=stack||{}; if(stack[i]) return 'native'; stack[i]=1;
+    const m=metas[i], basis=String(m.basis||'').toLowerCase(), d=m.drv||{}, p=d.params||{}, srcv=String(d.source||'constant').toLowerCase(); let k='native';
+    if(basis==='balance') k='money'; else if(basis==='account') k='count'; else if(basis!=='transaction') k='native';
+    else if(srcv==='constant'&&String((p.flow_path||{}).unit_kind||'').toLowerCase()==='money_flow') k='money';
+    else if(String((p.coefficient||{}).kind||'').toLowerCase()==='amount_per_source_unit') k='money';
+    else if(['own_balance','distributed_balance','product_funded_flow','managed_notional','bank_aggregate','cost_pool'].includes(srcv)) k='money';
+    else if(srcv==='customer_acquisition_count') k='count';
+    else if(srcv==='stream_ref') k=(String(d.ref||'') in by)?res(by[String(d.ref)],stack):'native';
+    cache[i]=k; return k; };
+  return metas.map((m,i)=>res(i));
+}
+function _stUnitLabel(metas,kinds,i,stack){
+  stack=stack||{}; if(stack[i]) return 'units'; stack[i]=1;
+  const m=metas[i], d=m.drv||{}, srcv=String(d.source||'constant').toLowerCase(), c=(d.params||{}).coefficient||{};
+  if(kinds[i]==='money') return '$000s';
+  if(String(m.basis)==='account'&&srcv==='constant') return 'accounts';
+  if(srcv==='customer_acquisition_count') return 'customers';
+  if(srcv==='stream_ref'&&String(c.kind||'').toLowerCase()==='pct'){ const j=metas.findIndex(z=>z.name===String(d.ref||'')); if(j>=0) return _stUnitLabel(metas,kinds,j,stack); }
+  if(String(m.basis)==='account') return 'accounts';
+  return 'units';
+}
+function _stNum(x,kind){ if(x==null||!isFinite(x)) return '\u2014'; const a=Math.abs(x); return Number(x).toLocaleString('en-US',{maximumFractionDigits:(kind==='ratio'?(a>=100?1:(a>=10?2:3)):(a>=100?1:(a>=1?2:4)))}); }
+function _stProv(metas,i,fi){
+  const m=metas[i]; if(!m||!m.qty||!m.qty.length) return null;
+  const kinds=_stKinds(metas), K0=(typeof K!=='undefined'?K:1000), sc=x=>(kinds[i]==='money'?x/K0:x);
+  const q=m.qty[m.qty.length-1], val=_stNum(sc(q)), unit=_stUnitLabel(metas,kinds,i), P=_stProvP(metas);
+  const d=m.drv||{}, p=d.params||{}, srcv=String(d.source||'constant').toLowerCase(), c=p.coefficient||{}, ck=String(c.kind||'').toLowerCase();
+  const dependents=metas.map((z,j)=>j).filter(j=>String((metas[j].drv||{}).source||'')==='stream_ref'&&String((metas[j].drv||{}).ref||'')===m.name);
+  const depTxt=dependents.length?(' \u00b7 drives '+dependents.length+' stream'+(dependents.length===1?'':'s')+' ('+dependents.map(j=>esc(metas[j].name)).join(', ')+')'):'';
+  let work='', calc='';
+  if(srcv==='constant'){
+    const sched=(String(d.trajectory||'')==='explicit_schedule')||(p.flow_path&&String(p.flow_path.trajectory||'')==='explicit_schedule');
+    work=sched?('entered \u00b7 '+P+' of your schedule'):'entered';
+    calc='Entered value <b>'+val+' '+unit+'</b>'+depTxt;
+  } else if(srcv==='stream_ref'){
+    const j=metas.findIndex(z=>z.name===String(d.ref||'')); const s=j>=0?metas[j]:null; const qs=(s&&s.qty&&s.qty.length)?s.qty[s.qty.length-1]:null;
+    const sk=j>=0?kinds[j]:'native', ssc=x=>(sk==='money'?x/K0:x), sv=qs==null?null:_stNum(ssc(qs)), su=j>=0?_stUnitLabel(metas,kinds,j):'';
+    const link=j>=0?'<a href="#" onclick="event.stopPropagation();stSelect('+fi+','+j+');return false">'+esc(s.name)+'</a>':esc(String(d.ref||'another stream'));
+    if(qs==null){ work='from '+link; calc='Driven by '+link; }
+    else if(!qs){ work='source is 0 at '+P+' \u00b7 '+link; calc='Source '+link+' is 0 at '+P; }
+    else if(ck==='amount_per_source_unit'){ const per=sc(q)/ssc(qs), uS=su.replace(/s$/,''); work='= <b>'+_stNum(per,'ratio')+' per '+uS+'</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(per,'ratio')+'</b> '+unit+' per '+uS+' \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else if(ck==='multiple'||ck==='turns'){ const x=sc(q)/ssc(qs); work='= <b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' \u00b7 '+link; calc='<b>'+_stNum(x,'ratio')+'\u00d7</b> '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    else { const r=q/qs*100; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
+    if(dependents.length) calc+=depTxt;
+  } else {
+    const SRC={managed_notional:'the off-book balance (AUC)',customer_acquisition_count:'the customer acquisition feed',bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
+  }
+  return {val,unit,work,calc};
+}
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -4410,7 +4488,7 @@ function fieldsFor(fam, p, base){
       }
       h += '</div>';
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
-      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};return (rb==='cost_recovery'||nz((st.rate||{}).params,0))?'Revenue':'Driver';})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
+      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};return (rb==='cost_recovery'||nz((st.rate||{}).params,0))?'Revenue':'Driver';})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
@@ -4430,14 +4508,14 @@ function fieldsFor(fam, p, base){
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += '<div class="fld wide st-md">'+chainH;
-      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Quantity, last period</th></tr></thead><tbody>';
+      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>';
       _stMeta.forEach((z,k)=>{ const q=z.qty;
-        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(q&&q.length)?(typeof _sparkHtml==='function'?_sparkHtml(q):'')+'<span>'+esc(_prdNum(q[q.length-1]))+'</span>':'\u2014'}</td></tr>`; });
-      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Quantities are from the latest engine run.</div></div>`;
+        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);return pv?'<span class="st-v">'+pv.val+'</span><span class="st-u">'+pv.unit+'</span>'+(pv.work?'<span class="st-w">'+pv.work+'</span>':''):'\u2014';})()}</td></tr>`; });
+      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Driver \u00b7 ${_stProvP(_stMeta)} is each stream\u2019s quantity in the final period, in the editor\u2019s units; the second line shows where it comes from.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
-      h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`;
+      { const pv=_stProv(_stMeta,_stSel,_fi); h += `<div class="st-body" data-st-tab="${tab}">${pv&&pv.calc?'<div class="st-sec" data-st="activity"><div class="fld wide st-calc"><span class="t">'+_stProvP(_stMeta)+'</span><span>'+pv.calc+'</span></div></div>':''}${_stCards[_stSel]||''}</div></div></div>`; }
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#D4A65C">Add a fee stream</label></div>';
