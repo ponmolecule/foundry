@@ -651,3 +651,10 @@ Presentation-only release on r212. Sign-in fields cap at 300px at every width (w
 narrow layout and 367px at 1920px; 1440px is unchanged at 276px and pixel-identical to r211). In
 the narrow layout the translucent-gold sign-in panel is a compact 344px strip with the building
 beside it, echoing the desktop composition.
+
+
+## r214 — Sign-in fields match the Enter platform button
+
+Presentation-only release on r213. Username, password and Enter platform share one 162px column
+(same left edge, same width) at every window size; the button's width is fixed with its label
+centred so the match holds across system fonts. The narrow-layout gold panel fits its contents.
