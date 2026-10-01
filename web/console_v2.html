@@ -1515,12 +1515,12 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 
 /* r224: attrition box sized to its content; within-period control in the box */
 .cac-attr-box{width:fit-content;max-width:100%;padding-right:14px!important}
-.cac-within{align-items:center;margin:7px 0 0}.cac-within .l{width:184px;color:#2A2A2A}.cac-within select{width:340px}
+.cac-within{align-items:center;margin:7px 0 0}.cac-within .l{width:184px;color:#2A2A2A}.cac-within select{width:300px}
 .cac-within-note{margin:4px 0 0 190px;font-size:12px;color:#666666}
 
 /* r222: calculation cards and the decluttered stream grid */
 .st-list td.st-q,.st-list td.st-q.num{white-space:nowrap!important}
-.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:help}
+.st-list .st-v[data-ip]{border-bottom:1px dotted #96928C;cursor:pointer}
 .st-list .st-v.st-fx{font-weight:400;color:var(--k-tx3);border-bottom-style:dotted}
 .ip-i{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:6px;border:1px solid #BDBDB8;border-radius:50%;font-size:9px;font-weight:700;font-style:normal;color:#666666;vertical-align:1px;cursor:pointer;user-select:none}
 .ip-i:hover,.ip-on.ip-i,.ip-on + .st-u + .ip-i{border-color:#8F6B30;color:#8F6B30;background:#FBF7EF}
@@ -1900,25 +1900,30 @@ function _stProv(metas,i,fi){
 // r221: customer-acquisition intra-period path. Absent keys reproduce the historical calculation exactly.
 
 function _cacAttrPeriod(asp,am){ return String(am==='explicit'?(asp.cadence||'year'):(asp.period||'year')).toLowerCase(); }
-window.cacFeedWithinSet=function(fn,v){ // r224: one control; stored as the r221 keys (absent = end of period)
+window.cacFeedWithinSet=function(fn,key,v){ // r225: Path and Timing; stored as the r221 keys (absent = monthly flows, end of period)
   const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
-  delete fd.intra_period_path; delete fd.path_anchor; delete fd.attrition_timing;
-  if(v==='spread') fd.attrition_timing='spread';
-  else if(v==='start') fd.attrition_timing='period_start';
-  else if(v==='line_year'||v==='line_quarter'){ fd.intra_period_path='straight_line'; fd.path_anchor=(v==='line_quarter'?'quarter':'year'); }
+  if(key==='path'){
+    if(v==='line_year'||v==='line_quarter'){ fd.intra_period_path='straight_line'; fd.path_anchor=(v==='line_quarter'?'quarter':'year'); delete fd.attrition_timing; }
+    else { delete fd.intra_period_path; delete fd.path_anchor; }
+  } else if(key==='timing'){
+    if(v==='spread') fd.attrition_timing='spread'; else if(v==='start') fd.attrition_timing='period_start'; else delete fd.attrition_timing;
+  }
   renderContent(); refresh();
 };
 function _cacAttrWithinHtml(fn,fd,asp,am){
   const per=_cacAttrPeriod(asp,am), F=esc(fn);
-  const cur=fd.intra_period_path==='straight_line'?(fd.path_anchor==='quarter'?'line_quarter':'line_year')
-           :({spread:'spread',period_start:'start'}[fd.attrition_timing]||'end');
-  const O=[['end','Taken at the end of each attrition period'],['spread','Spread evenly across each attrition period'],
-           ['start','Taken at the start of each attrition period'],['line_year','Straight line between year-ends'],['line_quarter','Straight line between quarter-ends']];
-  return `<div class="crow cac-within"><span class="l">Attrition within the period</span><select onchange="cacFeedWithinSet('${F}',this.value)">${O.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join('')}</select></div>`
-    +(per==='month'?`<div class="cac-within-note">Attrition is monthly, so the first three options give the same result.</div>`:'');
+  const path=fd.intra_period_path==='straight_line'?(fd.path_anchor==='quarter'?'line_quarter':'line_year'):'flows';
+  const timing=({spread:'spread',period_start:'start'}[fd.attrition_timing]||'end');
+  const sel=(key,cur,opts)=>`<select onchange="cacFeedWithinSet('${F}','${key}',this.value)">${opts.map(o=>`<option value="${o[0]}"${o[0]===cur?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+  let h=`<div class="crow cac-within"><span class="l">Path</span>${sel('path',path,[['flows','Monthly flows'],['line_year','Straight line between year-ends'],['line_quarter','Straight line between quarter-ends']])}</div>`;
+  if(path==='flows'){
+    h+=`<div class="crow cac-within"><span class="l">Timing</span>${sel('timing',timing,[['end','At the end of each attrition period'],['spread','Spread evenly across each attrition period'],['start','At the start of each attrition period']])}</div>`;
+    if(per==='month') h+=`<div class="cac-within-note">Attrition is monthly, so timing has no effect.</div>`;
+  }
+  return h;
 }
 
-// r222: calculation cards. Hover shows; click pins (Esc or outside closes); focus shows. Content is built
+// r222/r225: calculation cards open on click (or Enter); Esc or a click elsewhere closes. Content is built
 // from the same structured steps the editor uses, so the grid, card and editor can never disagree.
 function _ipStepsHtml(steps,note){
   let h='';
@@ -1958,14 +1963,11 @@ function _ipSrcHtml(fi,kind,ref){
     left=Math.max(8,Math.min(left,vw-W-8)); c.style.left=(window.scrollX+left)+'px'; }
   function hide(){ if(card){ if(card._t) card._t.classList.remove('ip-on'); card.remove(); card=null; } pinned=null; }
   function show(t,pin){ hide(); const html=content(t); if(!html) return; const c=document.createElement('div'); c.className='ip-card'+(pin?' pinned':'');
-    c.setAttribute('role','dialog'); c.innerHTML=(pin?'<span class="ip-pin">pinned \u00b7 Esc to close</span>':'')+'<div class="ip-body">'+html+'</div>';
+    c.setAttribute('role','dialog'); c.innerHTML='<div class="ip-body">'+html+'</div>';
     document.body.appendChild(c); place(c,t); c._t=t; t.classList.add('ip-on'); card=c; if(pin) pinned=t; }
-  document.addEventListener('mouseover',e=>{ if(pinned) return; const t=e.target.closest&&e.target.closest('[data-ip]');
-    if(t){ if(!card||card._t!==t) show(t,false); } else if(card&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); });
   document.addEventListener('click',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]');
     if(t){ e.stopPropagation(); e.preventDefault(); if(pinned===t){ hide(); return; } show(t,true); return; }
     if(pinned&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); }, true);
-  document.addEventListener('focusin',e=>{ const t=e.target.closest&&e.target.closest('[data-ip]'); if(t&&!pinned) show(t,false); });
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); else if(e.key==='Enter'){ const t=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-ip]'); if(t){ e.preventDefault(); show(t,true); } } });
   window.ipHide=hide;
 })();
@@ -4689,7 +4691,7 @@ function fieldsFor(fam, p, base){
       h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${(()=>{const pv=_stProv(_stMeta,k,_fi);if(!pv)return '\u2014';const key='st:'+_fi+':'+k;return '<span class="st-v'+(pv.fixed?' st-fx':'')+'" data-ip="'+key+'" tabindex="0">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+'<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';})()}</td></tr>`; });
-      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Hover a figure, or click \u24D8, to see how it is calculated.</div></div>`;
+      h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click a figure or \u24D8 to see how it is calculated.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';

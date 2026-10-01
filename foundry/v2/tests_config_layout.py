@@ -178,9 +178,9 @@ def main():
        and 'function _stSchedLbl(per,n)' in html and "+_stSrcRows(_stMeta,_fi);" in html and 'const _srcChip=_stSrcChip(' in html)
 
     # r222: calculation cards declutter the stream grid; path row carries no default labels.
-    ck("Stream grid shows one line per figure; the working opens in a hover/click card built from the same steps as the editor",
+    ck("Stream grid shows one line per figure; the working opens in a click card built from the same steps as the editor",
        'function _ipStepsHtml(steps,note)' in html and "data-ip=\"'+key+'\"" in html and 'window.ipHide=hide;' in html
-       and "_ipStepsHtml(pv.steps||[],pv.note)" in html and 'Hover a figure, or click' in html and "'<span class=\"st-w\">'" not in html)
+       and "_ipStepsHtml(pv.steps||[],pv.note)" in html and 'Click a figure or' in html and "'<span class=\"st-w\">'" not in html)
     ck("Source rows explain average vs month-end AUC in a card instead of inline",
        'function _ipSrcHtml(fi,kind,ref)' in html and 'Month-end AUC' in html and 'Rates and turns are applied to the <b>average</b> AUC' in html)    # r224: attrition within the period is one control inside the attrition box.
     ck("Attrition within the period is a single dropdown inside the Existing-book attrition box",
@@ -188,6 +188,12 @@ def main():
        and 'Straight line between year-ends' in html and 'Straight line between quarter-ends' in html
        and '_cacPathRowHtml' not in html and 'cacFeedPathSet' not in html and 'Intra-period path' not in html
        and '/api/v31/cac/path-options' not in html)
+    # r225: attrition Path and Timing are two visible controls; cards open on click only.
+    ck("Attrition box shows Path and Timing as separate controls; timing hidden only for straight-line paths",
+       "sel('path',path," in html and "sel('timing',timing," in html and 'Attrition is monthly, so timing has no effect.' in html)
+    ck("Calculation cards open on click or Enter only (no hover, no show-on-focus)",
+       "document.addEventListener('mouseover',e=>{ if(pinned) return;" not in html and "document.addEventListener('focusin',e=>{ const t=e.target.closest" not in html
+       and "if(e.key==='Escape') hide();" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
