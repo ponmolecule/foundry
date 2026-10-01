@@ -1166,10 +1166,10 @@ body.on-welcome .ab-rule{display:none}
 .wel-h span{color:#DFB367}
 .wel-sub{margin:var(--wel-sub-gap,calc(1.883cqw - 10px)) 0 0;font-size:1.05cqw;line-height:1.2;white-space:nowrap;color:#C9C9C9}
 .wel-signin{position:absolute;z-index:1;left:3cqw;width:calc(448/2341*100cqw);box-sizing:border-box;top:calc(40% + (100% - 40%)/2);transform:translateY(-50%)}
-.wel-signin-t{font-size:calc(30/2341*100cqw);font-weight:600;letter-spacing:-.01em;color:#343434;margin:0 0 12px}
-.wel-login input{display:block;box-sizing:border-box;width:162px;max-width:100%;height:38px;margin:0 0 8px;padding:0 12px;background:#FFFFFF;border:1px solid #C4C4C4;border-radius:3px;font-size:14px;color:#343434;box-shadow:0 1px 2px rgba(52,52,52,.08)}
-.wel-login input::placeholder{color:#96928C}
-.wel-login input:focus{outline:0;border-color:#343434;box-shadow:0 0 0 3px rgba(52,52,52,.15)}
+.wel-signin-t{font-size:11.5px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;line-height:1;color:#343434;margin:0 0 16px}
+.wel-login input{display:block;box-sizing:border-box;width:162px;max-width:100%;height:40px;margin:0;padding:14px 26px 2px 0;border:0;border-bottom:1.5px solid rgba(52,52,52,.45);border-radius:0;background:transparent;box-shadow:none;font-size:14px;color:#343434}
+.wel-login input::placeholder{color:transparent}
+.wel-login input:focus{outline:0;border-bottom:2px solid #343434}
 .wel-err{min-height:16px;font-size:12px;color:#8E2F2C;margin:2px 0 0}
 .wel-who{font-size:13px;color:#343434}
 .wel-who b{font-weight:600}
@@ -1198,7 +1198,6 @@ body.on-welcome .ab-rule{display:none}
   .wel-h{white-space:normal;font-size:28px;line-height:1.15;margin-top:12px}
   .wel-sub{white-space:normal;font-size:15px;margin-top:12px}
   .wel-signin{position:relative;left:auto;top:auto;transform:none;width:auto;max-width:calc(100% - 40px);box-sizing:border-box;align-self:flex-start;margin:22px 20px;padding:24px 22px;border-radius:3px;background:radial-gradient(ellipse at center,rgba(234,216,188,.84),rgba(197,156,94,.84));-webkit-backdrop-filter:blur(3px);backdrop-filter:blur(3px);box-shadow:0 10px 30px rgba(0,0,0,.25)}
-  .wel-signin-t{font-size:20px}
   .wel-rail{position:relative;left:auto;grid-template-columns:repeat(2,minmax(0,1fr));row-gap:18px;padding:40px 24px 26px;background:linear-gradient(to bottom,rgba(30,30,30,0),rgba(30,30,30,.82) 22%,rgba(24,24,24,.94))}
   .wel-rail-k,.wel-row::before,.wel-row span{font-size:12px}
   .wel-row b{font-size:15px;white-space:normal}
@@ -1470,6 +1469,18 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .cfg-stage table.cac-audit-grid.cac-audit-grid td:first-child{text-align:left;min-width:0}
 .cfg-stage table.cac-audit-grid.cac-audit-grid tbody tr:nth-child(even) td{background:#F7F7F7}
 .cfg-stage table.cac-audit-grid.cac-audit-grid tr.end td{font-weight:600;border-top:2px solid #343434!important}
+
+/* r217: floating labels, show/hide, Caps Lock */
+.wel-login .fx{position:relative;width:162px;max-width:100%;margin:0 0 14px}
+.wel-login .fx label{position:absolute;left:0;top:13px;font-size:14px;color:#4A4A4A;pointer-events:none;transition:top .15s,font-size .15s,letter-spacing .15s}
+.wel-login .fx input:focus + label,.wel-login .fx input:not(:placeholder-shown) + label{top:0;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:#343434}
+.wel-login .fx input:-webkit-autofill{-webkit-box-shadow:0 0 0 40px transparent inset!important;transition:background-color 9999s}
+.wel-login .fx input:-webkit-autofill + label{top:0;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:600;color:#343434}
+.fx-eye{position:absolute;right:0;bottom:6px;border:0;background:transparent;color:#5E5A55;padding:4px;cursor:pointer;display:flex}
+.fx-eye:hover,.fx-eye.on{color:#343434}
+.fx-eye:focus-visible{outline:2px solid #343434;outline-offset:1px;border-radius:2px}
+.wel-caps{min-height:0;font-size:11.5px;font-weight:600;color:#8E2F2C;margin:-8px 0 6px}
+.wel-caps:empty{display:none}
 </style>
 </head>
 <body>
@@ -1684,6 +1695,11 @@ window.welFit=function(){
 };
 window.addEventListener('resize',()=>{ if(document.body.classList.contains('on-welcome')) welFit(); });
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ if(document.body.classList.contains('on-welcome')) welFit(); });
+
+// r217: sign-in field helpers (presentation only)
+window.welEye=function(btn){ const p=document.getElementById('loginPass'); if(!p) return; const show=p.type==='password'; p.type=show?'text':'password';
+  btn.setAttribute('aria-pressed',show?'true':'false'); btn.setAttribute('aria-label',show?'Hide password':'Show password'); btn.classList.toggle('on',show); p.focus(); };
+window.welCaps=function(e){ const c=document.getElementById('welCaps'); if(!c) return; const on=!!(e&&e.getModifierState&&e.getModifierState('CapsLock')); c.textContent=on?'Caps Lock is on':''; c.classList.toggle('on',on); };
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7689,11 +7705,12 @@ function _renderContentBody(){
         <h1 class="wel-h">Financial modeling for <span>De Novo Charter</span> work.</h1>
         <p class="wel-sub">Create financial projections and regulator-mandated schedules to support charter applications.</p>
       </div>
-      <div class="wel-signin">
-        <div class="wel-signin-t">${window.AUTHED?'Welcome back':'Sign in'}</div>
+      <div class="wel-signin" role="region" aria-label="Sign in">
+        <div class="wel-signin-t">User access</div>
         <div id="loginBlock" class="wel-login" style="display:${window.AUTHED?'none':'block'}">
-          <input id="loginUser" placeholder="Username" autocomplete="username" aria-label="Username">
-          <input id="loginPass" type="password" placeholder="Password" autocomplete="current-password" aria-label="Password" onkeydown="if(event.key==='Enter')doLogin()">
+          <div class="fx"><input id="loginUser" placeholder=" " autocomplete="username" spellcheck="false" autocapitalize="off"><label for="loginUser">Username</label></div>
+          <div class="fx"><input id="loginPass" type="password" placeholder=" " autocomplete="current-password" onkeydown="welCaps(event);if(event.key==='Enter')doLogin()" onkeyup="welCaps(event)" onblur="welCaps(null)"><label for="loginPass">Password</label><button type="button" class="fx-eye" aria-label="Show password" aria-pressed="false" onclick="welEye(this)"><svg viewBox="0 0 16 16" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1.5 8s2.4-4.5 6.5-4.5S14.5 8 14.5 8 12.1 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button></div>
+          <div class="wel-caps" id="welCaps" role="status" aria-live="polite"></div>
           <div id="loginErr" class="wel-err" role="alert"></div>
         </div>
         <div id="whoBlock" class="wel-who" style="display:${window.AUTHED?'block':'none'}">Signed in as <b id="whoName">${esc(window.AUTHED||"")}</b> \u00b7 <a href="#" onclick="doLogout();return false">Sign out</a></div>
