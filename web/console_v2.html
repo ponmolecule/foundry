@@ -1026,7 +1026,7 @@ tr.opex-item-card.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold)}
 .cfg-md-foot{padding:9px 12px;font-size:12px;color:var(--k-tx3);border-top:1px solid var(--k-line);background:var(--k-surface2)}
 .cfg-pill{display:inline-flex;align-items:center;height:20px;padding:0 8px;border-radius:2px;font-size:11px;font-weight:500;background:#EFEFEF;color:var(--k-tx2)}
 .cfg-pill.x{background:var(--k-gold-wash);color:var(--k-gold-deep)}
-.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden;max-width:760px}
+.cfg-md-detail{border:1px solid var(--k-line2);border-radius:3px;background:var(--k-surface);min-width:0;overflow:hidden;max-width:880px}
 .cfg-md-head{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;background:var(--k-graph);color:#FFFFFF}
 .cfg-stage .cfg-md-head b{color:#FFFFFF;font-family:var(--k-disp);font-size:14px;font-weight:600;letter-spacing:-.005em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .cfg-md-head span{font-size:11.5px;color:var(--k-graph-mut);white-space:nowrap}
@@ -1540,8 +1540,10 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .st-calc-b .ip-steps{row-gap:3px}.st-calc-b .ip-note{margin-top:5px}
 
 /* r226: measured widths. Forms sized to content; master-detail sized to its parts; notices at a readable width. */
-.cfg-stage select{max-width:320px}
-.cfg-stage input:not([type]),.cfg-stage input[type=text]{max-width:320px}
+/* r227: never truncate. fitControls() gives each dropdown a minimum width that fits its widest option and each
+   name input one that fits its text (up to 420px); nothing is made narrower. */
+.cfg-stage select{max-width:100%}
+.cfg-stage input:not([type]),.cfg-stage input[type=text]{max-width:420px}
 .cfg-stage input[type=number]{max-width:180px}
 .cfg-stage textarea{max-width:760px}
 .cfg-stage .sec-managed-portfolio-title,.cfg-stage .sec-managed-sleeve-head input,.cfg-stage .wf-role-title input{width:420px!important;max-width:100%!important;flex:none}
@@ -1553,7 +1555,8 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .cfg-stage .crow,.sec-book-line{justify-content:start}
 .cfg-stage .crow{width:fit-content;max-width:100%}
 .cfg-stage .sec-major-section:not(:has(table)){width:fit-content;max-width:100%}
-@container stage (min-width:1000px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(min(640px,calc(100% - 414px)),640px) minmax(400px,760px);justify-content:start}}
+@container stage (min-width:1000px) and (max-width:1399px){.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(0,1fr)!important}.cfg-md:not(.cfg-md-stack) .cfg-md-list{max-width:640px}}
+@container stage (min-width:1400px){div.cfg-md:not(.cfg-md-stack){grid-template-columns:minmax(min(640px,calc(100% - 494px)),640px) minmax(480px,880px);justify-content:start}}
 .cfg-md.cfg-md-stack .cfg-md-list{width:fit-content;max-width:100%}
 .cfg-md.cfg-md-stack .cfg-md-list table.cfg-grid{width:auto!important}
 .warnitem,.ovflag{width:fit-content;max-width:880px}
@@ -1991,6 +1994,35 @@ function _ipSrcHtml(fi,kind,ref){
     if(pinned&&!(e.target.closest&&e.target.closest('.ip-card'))) hide(); }, true);
   document.addEventListener('keydown',e=>{ if(e.key==='Escape') hide(); else if(e.key==='Enter'){ const t=document.activeElement&&document.activeElement.closest&&document.activeElement.closest('[data-ip]'); if(t){ e.preventDefault(); show(t,true); } } });
   window.ipHide=hide;
+})();
+
+// r227: no truncated controls. Runs after every render of the work area; only ever widens a control.
+function fitControls(root){
+  root=root||document.getElementById('content'); if(!root) return;
+  const cv=fitControls._cv||(fitControls._cv=document.createElement('canvas').getContext('2d'));
+  root.querySelectorAll('select').forEach(el=>{
+    if(!el.offsetParent||!el.options.length) return;
+    const cs=getComputedStyle(el); cv.font=cs.font; let mx=0;
+    for(const o of el.options) mx=Math.max(mx,cv.measureText(o.text).width);
+    const border=el.offsetWidth-el.clientWidth;
+    const need=Math.ceil(mx+(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+22+border);
+    const row=el.closest('.crow,.cac-within,.fld,td,.cfg-md-detail')||el.parentElement;
+    const room=row?row.getBoundingClientRect().width*0.8:need;
+    const target=Math.min(need,Math.max(room,120));
+    if(el.getBoundingClientRect().width+0.5<target) el.style.minWidth=target+'px';
+  });
+  root.querySelectorAll('input[type=text],input:not([type])').forEach(fitInput);
+}
+function fitInput(el){
+  if(!el||!el.offsetParent||!el.value) return;
+  if(el.scrollWidth>el.clientWidth+1){ const pad=el.offsetWidth-el.clientWidth; el.style.minWidth=Math.min(420,el.scrollWidth+pad+6)+'px'; }
+}
+(function(){
+  let t=null; const run=()=>{ clearTimeout(t); t=setTimeout(()=>fitControls(),40); };
+  const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
+    new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
+  start();
+  document.addEventListener('input',e=>{ const el=e.target; if(el&&el.tagName==='INPUT'&&(!el.type||el.type==='text')&&el.closest('#content')) fitInput(el); });
 })();
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
