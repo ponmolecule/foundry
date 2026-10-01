@@ -526,22 +526,6 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "year_end_customers": year_end_customers,
             "monthly": monthly, "annual": annual, "derived_series": derived_series,
             "calculation_cadence": "month"}
-    # r221: with a non-default intra-period option, also report the default path's yearly averages so the
-    # authoring screen can state the effect exactly. Absent at defaults (output unchanged).
-    if path_mode != "monthly_flows" or timing != "period_end":
-        _dflt_cfg = {k: v for k, v in (cac_cfg or {}).items()
-                     if k not in ("intra_period_path", "path_anchor", "attrition_timing")}
-        _d = cac_auc_rollforward(_dflt_cfg, Q, ppy, assumptions=assumptions, growth_context=growth_context)
-        def _yr_avg(rows, key_b, key_e):
-            return [sum((r[key_b] + r[key_e]) / 2.0 for r in rows[y * 12:(y + 1) * 12]) / 12.0
-                    for y in range(years)]
-        _out["path_comparison"] = {
-            "path": path_mode, "anchor": (anchor if path_mode == "straight_line" else None), "timing": timing,
-            "default_avg_auc_by_year": _yr_avg(_d["monthly"], "beg_auc", "end_auc"),
-            "chosen_avg_auc_by_year": _yr_avg(monthly, "beg_auc", "end_auc"),
-            "default_avg_customers_by_year": _yr_avg(_d["monthly"], "beg_cust", "end_cust"),
-            "chosen_avg_customers_by_year": _yr_avg(monthly, "beg_cust", "end_cust"),
-        }
     return _out
 def cac_customer_count_catalog(assumptions):
     """Catalog CAC-owned customer-count Series by stable Series ID."""
@@ -617,44 +601,3 @@ def cac_managed_notional(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=
         "schedule": {str(q + 1): r["auc_end_by_period"][q] for q in range(int(Q))},
         "canonical_monthly_end": list(r.get("auc_end_by_month") or []),
     }
-
-
-# r222: side-by-side comparison of every intra-period option for one feed. Not called by the engine run;
-# used on demand by the authoring screen so no run output (or frozen-run hash) changes.
-PATH_OPTIONS = (
-    ("flows_end", {"intra_period_path": "monthly_flows", "attrition_timing": "period_end"}),
-    ("flows_spread", {"intra_period_path": "monthly_flows", "attrition_timing": "spread"}),
-    ("flows_start", {"intra_period_path": "monthly_flows", "attrition_timing": "period_start"}),
-    ("line_year", {"intra_period_path": "straight_line", "path_anchor": "year"}),
-    ("line_quarter", {"intra_period_path": "straight_line", "path_anchor": "quarter"}),
-)
-
-
-def path_option_comparison(cfg, feed_name):
-    """Yearly average AUC ($000s) and customers under every intra-period option, computed exactly as the
-    engine does (same periods, cadence, assumptions and growth context)."""
-    from .growth import growth_context_from_cfg
-    a = (cfg or {}).get("assumptions") or {}
-    feeds = a.get("cac_feeds") or {}
-    if feed_name not in feeds:
-        raise KeyError(feed_name)
-    n = int(a.get("n_periods") or 12); ppy = int(a.get("periods_per_year") or 4)
-    gctx = growth_context_from_cfg(cfg, ppy)
-    base = {k: v for k, v in (feeds[feed_name] or {}).items()
-            if k not in ("intra_period_path", "path_anchor", "attrition_timing")}
-    def _current(fd):
-        if str(fd.get("intra_period_path") or "") == "straight_line":
-            return "line_quarter" if str(fd.get("path_anchor") or "year") == "quarter" else "line_year"
-        return {"spread": "flows_spread", "period_start": "flows_start"}.get(str(fd.get("attrition_timing") or ""), "flows_end")
-    out = []
-    for key, opt in PATH_OPTIONS:
-        r = cac_auc_rollforward(dict(base, **opt), n, ppy, assumptions=a, growth_context=gctx)
-        m = r["monthly"]; years = len(m) // 12
-        out.append({"key": key,
-                    "avg_auc_by_year": [sum((x["beg_auc"] + x["end_auc"]) / 2 for x in m[y*12:(y+1)*12]) / 12 / 1000.0 for y in range(years)],
-                    "avg_customers_by_year": [sum((x["beg_cust"] + x["end_cust"]) / 2 for x in m[y*12:(y+1)*12]) / 12 for y in range(years)],
-                    "year_end_auc": [v / 1000.0 for v in r["year_end_auc"]],
-                    "year_end_customers": list(r["year_end_customers"])})
-    period = _attrition_period(feeds[feed_name] or {})
-    return {"feed": feed_name, "current": _current(feeds[feed_name] or {}), "attrition_period": period,
-            "options": out}

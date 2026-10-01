@@ -12,7 +12,8 @@ Guarantees checked here:
   * Engagement B (monthly 1.5% attrition, spend ÷ CAC) reproduces its source sheet in all 36 months
     under every timing option; Engagement A (annual attrition, straight-line source) reproduces its
     source's monthly averages with straight_line/year;
-  * invalid values are rejected.
+  * invalid values are rejected;
+  * run output carries no comparison data (removed in r223: not a user need).
 """
 from __future__ import annotations
 import copy, json, math, sys
@@ -61,7 +62,6 @@ def main():
                                                attrition_timing="period_end"), n, 12)
         ck(f"{nm}: stating the defaults explicitly gives byte-identical output",
            json.dumps(d0, sort_keys=True, default=str) == json.dumps(d1, sort_keys=True, default=str))
-        ck(f"{nm}: no comparison block is published at the defaults", "path_comparison" not in d0)
 
     # 2. engagement B acceptance: monthly attrition is unaffected by timing
     for t in ("period_end", "spread", "period_start"):
@@ -78,9 +78,6 @@ def main():
        max(abs(a - b) for a, b in zip(va[:12], SRC_A_Y1)) < 1e-6)
     ck("A: straight line matches the source's Year 7 monthly averages (within input rounding, < 0.5 $000s)",
        max(abs(a - b) for a, b in zip(va[72:84], SRC_A_Y7)) < 0.5)
-    pc = ra.get("path_comparison") or {}
-    ck("A: comparison block reports default vs chosen yearly averages",
-       len(pc.get("default_avg_auc_by_year") or []) == 7 and pc["chosen_avg_auc_by_year"][6] < pc["default_avg_auc_by_year"][6])
 
     # 4. invariants and closed forms, across attrition periods month / quarter / year
     def feed(period, cad_vals):
@@ -146,22 +143,8 @@ def main():
        abs(a1[-1] - (ends[-2] + ends[-1]) / 2) < 0.01 and abs(a1[-1] - a0[-1]) > 1.0, f"M36 average {a0[-1]:,.2f} → {a1[-1]:,.2f}")
     ck("end to end: year-end AUC published by the feed is unchanged",
        [round(x, 6) for x in R1["customer_acquisition"][fn]["yearEndAUC"]] == [round(x, 6) for x in R0["customer_acquisition"][fn]["yearEndAUC"]])
-    ck("end to end: the comparison block is published only for the non-default feed",
-       "pathComparison" in R1["customer_acquisition"][fn] and "pathComparison" not in R0["customer_acquisition"][fn])
 
-    # 8. on-demand comparison (r222): reproduces the engine run for the option in use, covers every option
-    from foundry.v2.cac_feeder import path_option_comparison, PATH_OPTIONS
-    cmp_ = path_option_comparison(fx, fn)
-    eng = R0["customer_acquisition"][fn]["monthly"]
-    eng_avg = [sum((x["beg_auc"] + x["end_auc"]) / 2 for x in eng[y*12:(y+1)*12]) / 12 for y in range(len(eng) // 12)]
-    cur = [o for o in cmp_["options"] if o["key"] == cmp_["current"]][0]
-    ck("comparison: the option in use reproduces the engine run's yearly averages exactly",
-       cmp_["current"] == "flows_end" and max(abs(a - b) for a, b in zip(cur["avg_auc_by_year"], eng_avg)) < 1e-9)
-    ck("comparison: every option is reported and year-ends agree across them",
-       [o["key"] for o in cmp_["options"]] == [k for k, _ in PATH_OPTIONS]
-       and all(max(abs(a - b) for a, b in zip(o["year_end_auc"], cur["year_end_auc"])) < 1e-6 for o in cmp_["options"]))
-    cmp2 = path_option_comparison(fx2, fn)
-    ck("comparison: the current option is detected from the feed's settings", cmp2["current"] == "line_year")
+    ck("run output carries no option-comparison block", all("pathComparison" not in v for v in R1["customer_acquisition"].values()))
 
     # 6. invalid values are rejected
     for bad in ({"intra_period_path": "bogus"}, {"path_anchor": "month"}, {"attrition_timing": "later"}):
