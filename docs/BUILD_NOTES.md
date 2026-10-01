@@ -827,3 +827,15 @@ product editors and the remaining tabs: 31 at 1440 and 1920px before, 0 after.
 - Master-detail: side by side from 1400px of stage width (list up to 640px, detail 480-880px);
   below that, stacked (list up to 640px above a detail card up to 880px), so rows no longer wrap
   at 1440px.
+
+
+## r228 — One place for the working; figures stay current
+
+Presentation release on r227.
+- The stream editor's Activity working block is removed: it repeated the ⓘ card for the selected
+  stream and was not redrawn after edits, so it could show superseded figures.
+- Grid figures and ◆ source rows are now refreshed in place after every run (refreshStreamFigures),
+  without redrawing the editor being typed in; the ⓘ card therefore always reflects the latest run.
+  Previously both the grid figure and the editor block kept the values from when the stream was
+  selected (e.g. 240 accounts after an edit had made it 480).
+- Only the ⓘ opens a calculation card; figures carry no underline and are not clickable.
