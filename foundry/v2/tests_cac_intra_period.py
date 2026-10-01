@@ -149,6 +149,20 @@ def main():
     ck("end to end: the comparison block is published only for the non-default feed",
        "pathComparison" in R1["customer_acquisition"][fn] and "pathComparison" not in R0["customer_acquisition"][fn])
 
+    # 8. on-demand comparison (r222): reproduces the engine run for the option in use, covers every option
+    from foundry.v2.cac_feeder import path_option_comparison, PATH_OPTIONS
+    cmp_ = path_option_comparison(fx, fn)
+    eng = R0["customer_acquisition"][fn]["monthly"]
+    eng_avg = [sum((x["beg_auc"] + x["end_auc"]) / 2 for x in eng[y*12:(y+1)*12]) / 12 for y in range(len(eng) // 12)]
+    cur = [o for o in cmp_["options"] if o["key"] == cmp_["current"]][0]
+    ck("comparison: the option in use reproduces the engine run's yearly averages exactly",
+       cmp_["current"] == "flows_end" and max(abs(a - b) for a, b in zip(cur["avg_auc_by_year"], eng_avg)) < 1e-9)
+    ck("comparison: every option is reported and year-ends agree across them",
+       [o["key"] for o in cmp_["options"]] == [k for k, _ in PATH_OPTIONS]
+       and all(max(abs(a - b) for a, b in zip(o["year_end_auc"], cur["year_end_auc"])) < 1e-6 for o in cmp_["options"]))
+    cmp2 = path_option_comparison(fx2, fn)
+    ck("comparison: the current option is detected from the feed's settings", cmp2["current"] == "line_year")
+
     # 6. invalid values are rejected
     for bad in ({"intra_period_path": "bogus"}, {"path_anchor": "month"}, {"attrition_timing": "later"}):
         try: roll(with_(B, **bad), 36, 12); ok = False

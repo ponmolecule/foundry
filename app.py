@@ -1218,6 +1218,21 @@ def v31_substrate_placement(body: dict, _=Depends(gate)):
         return JSONResponse({"error": str(e)[:300]}, status_code=502)
 
 
+@app.post("/api/v31/cac/path-options")
+def v31_cac_path_options(body: dict, _=Depends(gate)):
+    """r222: yearly averages under every intra-period option for one acquisition feed (on demand)."""
+    from foundry.v2.cac_feeder import path_option_comparison
+    cfg = body.get("config"); feed = body.get("feed")
+    if not cfg or not feed:
+        return JSONResponse({"error": "config and feed required"}, status_code=422)
+    try:
+        return JSONResponse(path_option_comparison(cfg, str(feed)))
+    except KeyError:
+        return JSONResponse({"error": "no such feed"}, status_code=404)
+    except ValueError as e:
+        return JSONResponse({"error": str(e)[:300]}, status_code=422)
+
+
 @app.post("/api/v2/sens")
 def v2_sens(body: dict, _=Depends(gate)):
     """SENS (FLOOR F-112): one-variable low/base/high sensitivity, three full runs."""
