@@ -134,12 +134,18 @@ def main():
     ck("Menu bar carries a 6px solid Klaros-gold strip and sticky offsets match its height",
        '#appbar{border-bottom:6px solid #DFB367;box-shadow:none}' in html and '--appbar-h:96px;' in html and '#appbar::after{content:none}' in html)
     # r211: Welcome on the Klaros cover image.
-    ck("Welcome uses the Klaros cover image with sign-in on the gold strip and the exhibit index ribbon",
-       'class="wel wel-photo"' in html and 'class="wel-signin"' in html and '.wel-rail{position:absolute;left:calc(588/2341*100cqw)' in html
-       and 'Peer and vintage analysis' in html and "data:image/jpeg;base64," in html and '@media (max-width:999px){' in html)
-    ck("Narrow Welcome keeps the photograph behind translucent sections, one embedded copy of the image",
-       '.wel-photo::before{content:"";display:block;height:calc(593/2341*100vw)' in html and 'rgba(234,216,188,.84)' in html
-       and html.count('data:image/jpeg;base64,') == 1 and '--wel-img:url(' in html)
+    ck("Welcome uses the Klaros cover image's parts with sign-in on the gold strip and the exhibit index ribbon",
+       'class="wel wel-photo"' in html and 'class="wel-signin"' in html and '.wel-rail{position:absolute;z-index:1;left:25cqw;' in html
+       and 'Peer and vintage analysis' in html and 'class="wel-logo" alt="Klaros Group"' in html and '@media (max-width:999px){' in html)
+    ck("Narrow Welcome keeps the building behind translucent sections",
+       '.wb-b{left:0;top:0;width:100%;height:100%}' in html and 'rgba(234,216,188,.84)' in html)
+    # r215: graphite block 50% x 40%; headline semibold, one line, ending where the subtitle ends.
+    ck("Welcome graphite block is 50% wide by 40% tall, with sky, gold strip and building as separate parts",
+       '.wb-g{left:0;top:0;width:50%;height:40%;' in html and '.wb-s{left:50%;right:0;top:0;height:40%;' in html
+       and '.wb-o{left:0;width:25%;top:40%;bottom:0;' in html and '.wb-b{left:25%;right:0;top:40%;bottom:0;' in html)
+    ck("Welcome headline is semibold, one line, and fitted to the subtitle's length",
+       'font-weight:600;letter-spacing:-.02em;color:#FFFFFF}' in html and 'window.welFit=function' in html
+       and 'requestAnimationFrame(welFit)' in html and '.wel-sub{margin:var(--wel-sub-gap,calc(1.883cqw - 10px)) 0 0;' in html)
     ck("Sign-in fields match the Enter platform button: same 162px width at every size",
        '.wel-login input{display:block;box-sizing:border-box;width:162px;max-width:100%;' in html
        and '#enterBtn{width:162px;box-sizing:border-box;justify-content:center;' in html)
