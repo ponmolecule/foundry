@@ -800,3 +800,16 @@ two dimensions: Path (Monthly flows / Straight line between year-ends / quarter-
 path is monthly flows; with monthly attrition it stays usable with a note that it has no effect.
 Stored as the r221 keys; engine and results unchanged. Calculation cards open on click (or Enter)
 and close on Esc or a click elsewhere; hover and show-on-focus are removed.
+
+
+## r226 — Measured widths across Configuration, notices and editors
+
+Presentation release on r225. Width rules from a measured sweep of every tab and Configuration module:
+- Forms: dropdowns and text fields up to 320px, numbers 180px, names 420px, paste boxes 760px; rows,
+  setting boxes and control-only sections sized to their content.
+- Master-detail (channels, workforce, …): list column up to 640px and detail 400–760px, left-aligned,
+  so at 2560px the pair stops at about 1,400px instead of filling the stage; stacked layouts
+  (securities) size list and detail to content.
+- Warnings, flags and banners sized to their text, capped at 880px.
+Sweep results at 1440px: fields wider than 360px 26 → 16 (remaining are paste/name fields within
+caps); non-text boxes using under 60% of their width 8 → 0; master-detail Securities 1000 → 688px.

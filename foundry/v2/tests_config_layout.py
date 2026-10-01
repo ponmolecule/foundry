@@ -194,6 +194,11 @@ def main():
     ck("Calculation cards open on click or Enter only (no hover, no show-on-focus)",
        "document.addEventListener('mouseover',e=>{ if(pinned) return;" not in html and "document.addEventListener('focusin',e=>{ const t=e.target.closest" not in html
        and "if(e.key==='Escape') hide();" in html)
+    # r226: measured widths across Configuration and notices.
+    ck("Forms, master-detail layouts and notices are sized to their content (r226 width rules)",
+       '.cfg-stage select{max-width:320px}' in html and 'minmax(min(640px,calc(100% - 414px)),640px) minmax(400px,760px)' in html
+       and 'min-width:0;overflow:hidden;max-width:760px}' in html and '.warnitem,.ovflag{width:fit-content;max-width:880px}' in html
+       and '.cfg-stage .sec-managed-portfolio-title,.cfg-stage .sec-managed-sleeve-head input,.cfg-stage .wf-role-title input{width:420px' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
