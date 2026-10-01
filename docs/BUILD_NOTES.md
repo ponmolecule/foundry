@@ -618,3 +618,19 @@ Validation: full gate set matches the r198 baseline; tests_config_layout at 46 c
 Presentation-only release on r209. The 3px gradient accent under the menu becomes a 6px solid
 Klaros-gold (#DFB367) strip, built into the bar as its bottom border so page content and the
 sticky side columns start below it (sticky offset 96px, the bar's measured height).
+
+
+## r211 — Welcome on the Klaros cover image
+
+Presentation-only release on r210. The Welcome page uses the Klaros cover image (2341x1314, deck
+title removed, embedded as a 253 KB JPEG). Layout follows the image's own blocks, positioned in
+image pixels and scaled with the page width:
+- Graphite block: eyebrow, headline and subtitle under the Klaros Group logo; the headline is
+  optically centred between eyebrow and subtitle (24px above and below at 1440px).
+- Gold strip: sign-in drawn directly on the strip (no card): heading, white fields, graphite
+  Enter platform button, account recovery. Signed in, the same area reads "Welcome back".
+- Building: "One model, every exhibit" as an index ribbon of four numbered columns on a graphite
+  fade; the fourth is renamed "Peer and vintage analysis" with a matching description.
+Below 1000px wide the image's top band becomes a banner and the hero, sign-in and ribbon stack.
+Every sign-in id, handler and string the gates pin is unchanged; sign-in tested end to end at
+1440, 1920 and 900px.
