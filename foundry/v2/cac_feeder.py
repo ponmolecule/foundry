@@ -331,6 +331,18 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
     if not math.isfinite(beg_cust) or beg_cust < 0.0:
         raise ValueError("CAC opening customers must be a finite non-negative count")
     source_open_auc, source_open_cust = beg_auc, beg_cust
+    # r221: intra-period path options (feed-level; absent keys = historical behaviour, bit-identical).
+    path_mode = str((cac_cfg or {}).get("intra_period_path") or "monthly_flows").strip().lower()
+    if path_mode not in ("monthly_flows", "straight_line"):
+        raise ValueError("CAC intra_period_path must be 'monthly_flows' or 'straight_line'")
+    anchor = str((cac_cfg or {}).get("path_anchor") or "year").strip().lower()
+    if anchor not in ("year", "quarter"):
+        raise ValueError("CAC path_anchor must be 'year' or 'quarter'")
+    timing = str((cac_cfg or {}).get("attrition_timing") or "period_end").strip().lower()
+    if timing not in ("period_end", "spread", "period_start"):
+        raise ValueError("CAC attrition_timing must be 'period_end', 'spread' or 'period_start'")
+    if path_mode == "straight_line":
+        timing = "period_end"          # interpolation uses anchor balances only; timing is not used
     monthly = []
     auc_end_by_month, customer_end_by_month = [], []
 
@@ -344,10 +356,23 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
         rate = float(attr_rates[mi] or 0.0) if event else 0.0
         if rate < 0.0 or rate > 1.0:
             raise ValueError("CAC attrition rate must be between 0% and 100% per source period")
-        cust_lost = source_open_cust * rate if event else 0.0
-        avg_ticket = (float(ticket_path[mi]) if ticket_path is not None
-                      else ((source_open_auc / source_open_cust) if source_open_cust > 0 else 0.0))
-        auc_lost = cust_lost * avg_ticket
+        if timing == "period_end" or attr_width == 1:
+            cust_lost = source_open_cust * rate if event else 0.0
+            avg_ticket = (float(ticket_path[mi]) if ticket_path is not None
+                          else ((source_open_auc / source_open_cust) if source_open_cust > 0 else 0.0))
+            auc_lost = cust_lost * avg_ticket
+        else:
+            # The period's rate and ticket are those of its final month (exactly as the default uses),
+            # applied to the book at the start of the period; only the month the loss lands in moves.
+            p_end = (mi // attr_width) * attr_width + attr_width - 1
+            p_rate = float(attr_rates[p_end] or 0.0)
+            if p_rate < 0.0 or p_rate > 1.0:
+                raise ValueError("CAC attrition rate must be between 0% and 100% per source period")
+            share = (1.0 / attr_width) if timing == "spread" else (1.0 if (mi % attr_width == 0) else 0.0)
+            cust_lost = source_open_cust * p_rate * share
+            p_ticket = (float(ticket_path[p_end]) if ticket_path is not None
+                        else ((source_open_auc / source_open_cust) if source_open_cust > 0 else 0.0))
+            auc_lost = cust_lost * p_ticket
         end_cust = beg_cust + new_cust - cust_lost
         end_auc = beg_auc + new_auc - auc_lost
         total_spend = sum(float(r.get("spend") or 0.0) for r in ch_rows)
@@ -365,6 +390,33 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
         beg_auc, beg_cust = end_auc, end_cust
         auc_end_by_month.append(end_auc)
         customer_end_by_month.append(end_cust)
+
+    if path_mode == "straight_line":
+        width = 12 if anchor == "year" else 3
+        prev_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
+        prev_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
+        for a0 in range(0, months, width):
+            a1 = min(a0 + width, months) - 1
+            end_a, end_c = auc_end_by_month[a1], customer_end_by_month[a1]
+            n = a1 - a0 + 1
+            for k in range(n):
+                mi = a0 + k
+                auc_end_by_month[mi] = end_a if k == n - 1 else prev_auc + (end_a - prev_auc) * (k + 1) / n
+                customer_end_by_month[mi] = end_c if k == n - 1 else prev_cust + (end_c - prev_cust) * (k + 1) / n
+            prev_auc, prev_cust = end_a, end_c
+        b_auc = float((cac_cfg or {}).get("beginning_auc") or 0.0)
+        b_cust = float((cac_cfg or {}).get("beginning_customers") or 0.0)
+        for mi, r in enumerate(monthly):
+            r["beg_auc"], r["beg_cust"] = b_auc, b_cust
+            r["end_auc"], r["end_cust"] = auc_end_by_month[mi], customer_end_by_month[mi]
+            # implied loss so that beginning + new - lost = end holds in every month of the audit
+            r["auc_lost"] = b_auc + r["new_auc"] - r["end_auc"]
+            r["cust_lost"] = b_cust + r["new_cust"] - r["end_cust"]
+            r["path"] = "straight_line"
+            b_auc, b_cust = r["end_auc"], r["end_cust"]
+    if timing != "period_end":
+        for r in monthly:
+            r["attrition_timing"] = timing
 
     annual, year_end_auc, year_end_customers = [], [], []
     for y in range(1, years + 1):
@@ -461,7 +513,7 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "derived": {"kind": "cac.customer_count_rollforward"},
         }
 
-    return {"auc_end_by_month": auc_end_by_month,
+    _out = {"auc_end_by_month": auc_end_by_month,
             "auc_end_by_period": auc_levels_q, "auc_levels_q": auc_levels_q,
             "year_end_auc": year_end_auc,
             "customer_end_by_month": customer_end_by_month,
@@ -474,6 +526,23 @@ def cac_auc_rollforward(cac_cfg, Q, ppy=4, *, assumptions=None, growth_context=N
             "year_end_customers": year_end_customers,
             "monthly": monthly, "annual": annual, "derived_series": derived_series,
             "calculation_cadence": "month"}
+    # r221: with a non-default intra-period option, also report the default path's yearly averages so the
+    # authoring screen can state the effect exactly. Absent at defaults (output unchanged).
+    if path_mode != "monthly_flows" or timing != "period_end":
+        _dflt_cfg = {k: v for k, v in (cac_cfg or {}).items()
+                     if k not in ("intra_period_path", "path_anchor", "attrition_timing")}
+        _d = cac_auc_rollforward(_dflt_cfg, Q, ppy, assumptions=assumptions, growth_context=growth_context)
+        def _yr_avg(rows, key_b, key_e):
+            return [sum((r[key_b] + r[key_e]) / 2.0 for r in rows[y * 12:(y + 1) * 12]) / 12.0
+                    for y in range(years)]
+        _out["path_comparison"] = {
+            "path": path_mode, "anchor": (anchor if path_mode == "straight_line" else None), "timing": timing,
+            "default_avg_auc_by_year": _yr_avg(_d["monthly"], "beg_auc", "end_auc"),
+            "chosen_avg_auc_by_year": _yr_avg(monthly, "beg_auc", "end_auc"),
+            "default_avg_customers_by_year": _yr_avg(_d["monthly"], "beg_cust", "end_cust"),
+            "chosen_avg_customers_by_year": _yr_avg(monthly, "beg_cust", "end_cust"),
+        }
+    return _out
 def cac_customer_count_catalog(assumptions):
     """Catalog CAC-owned customer-count Series by stable Series ID."""
     out = []

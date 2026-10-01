@@ -669,6 +669,11 @@ def run_v2(cfg):
                 "rateUnits": "decimal",
                 "cacUnits": "$ per acquired customer",
             }
+            if _cr.get("path_comparison"):   # r221: only present when a non-default intra-period option is set
+                _pc = dict(_cr["path_comparison"])
+                for _k in ("default_avg_auc_by_year", "chosen_avg_auc_by_year"):
+                    _pc[_k] = [float(v or 0.0) / 1000.0 for v in (_pc.get(_k) or [])]
+                _cac_out[_nm]["pathComparison"] = _pc
         results["customer_acquisition"] = _cac_out
 
     # Cost pools are non-posting pricing sources, but their resolved native-period amounts are
