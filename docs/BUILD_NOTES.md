@@ -790,3 +790,13 @@ attrition box: taken at the end / spread evenly / taken at the start of each att
 straight line between year-ends / quarter-ends. Stored as the r221 keys (end of period = no keys),
 so the engine, its tests and saved engagements are unchanged. With monthly attrition a one-line note
 says the first three options give the same result. The attrition box is sized to its contents.
+
+
+## r225 — Attrition Path and Timing as two controls; cards on click only
+
+Presentation release on r224. In the Existing-book attrition box, the single list is split into its
+two dimensions: Path (Monthly flows / Straight line between year-ends / quarter-ends) and Timing
+(at the end / spread evenly / at the start of each attrition period). Timing is shown whenever the
+path is monthly flows; with monthly attrition it stays usable with a note that it has no effect.
+Stored as the r221 keys; engine and results unchanged. Calculation cards open on click (or Enter)
+and close on Esc or a click elsewhere; hover and show-on-focus are removed.
