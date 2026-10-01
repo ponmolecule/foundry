@@ -848,3 +848,15 @@ between year-ends ↔ quarter-ends) briefly showed dropdowns at their unfitted w
 frame, total dropdown width dropped 18px for ~50-80ms before r227's fitting pass widened them again on
 a 40ms timer. fitControls now runs in the mutation callback itself (a microtask before paint), so a
 redrawn control is never painted unfitted. Frame-by-frame probe after the change: no movement.
+
+
+## r230 — Workforce role card
+
+Presentation release on r229, scoped to the box the user identified (Operating expense → workforce role
+card). The Compensation row no longer splits the card into three equal thirds (279px each at 1440px):
+amount 140px, Per FTE and unit dropdowns fitted to their options (97px, 99px). The role field grid uses
+columns of at most 340px and 300px, left-aligned (End and Benefits move from 429px to 352px).
+Fitting fixes found while doing it: fitControls now applies its minimum with priority (an older
+".wf-comp-value select{min-width:0!important}" had been cancelling it), and also runs when a
+Configuration module is selected or a collapsible section is opened (controls drawn while hidden could
+not be measured). Truncated controls remain 0 at 1440 and 1920px; the r229 no-flicker probe is unchanged.

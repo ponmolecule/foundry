@@ -1561,6 +1561,11 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .warnitem,.ovflag{width:fit-content;max-width:880px}
 .ovcard{max-width:880px}
 #persistBlock>div{width:fit-content;max-width:880px}
+
+/* r230: workforce role card. Fields sized to their contents (amount 140px, dropdowns fitted); columns capped and left-aligned. */
+.wf-role-card .wf-role-grid{grid-template-columns:minmax(0,340px) minmax(0,300px)!important;justify-content:start}
+.wf-role-card .wf-comp-value{grid-template-columns:140px max-content max-content!important;justify-content:start}
+.wf-role-card .wf-comp-value input{width:140px}
 </style>
 </head>
 <body>
@@ -2008,13 +2013,13 @@ function fitControls(root){
     const row=el.closest('.crow,.cac-within,.fld,td,.cfg-md-detail')||el.parentElement;
     const room=row?row.getBoundingClientRect().width*0.8:need;
     const target=Math.min(need,Math.max(room,120));
-    if(el.getBoundingClientRect().width+0.5<target) el.style.minWidth=target+'px';
+    if(el.getBoundingClientRect().width+0.5<target) el.style.setProperty('min-width',target+'px','important');
   });
   root.querySelectorAll('input[type=text],input:not([type])').forEach(fitInput);
 }
 function fitInput(el){
   if(!el||!el.offsetParent||!el.value) return;
-  if(el.scrollWidth>el.clientWidth+1){ const pad=el.offsetWidth-el.clientWidth; el.style.minWidth=Math.min(420,el.scrollWidth+pad+6)+'px'; }
+  if(el.scrollWidth>el.clientWidth+1){ const pad=el.offsetWidth-el.clientWidth; el.style.setProperty('min-width',Math.min(420,el.scrollWidth+pad+6)+'px','important'); }
 }
 (function(){
   // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
@@ -2024,6 +2029,10 @@ function fitInput(el){
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
   document.addEventListener('input',e=>{ const el=e.target; if(el&&el.tagName==='INPUT'&&(!el.type||el.type==='text')&&el.closest('#content')) fitInput(el); });
+  // r230: controls drawn while hidden can't be measured, so also fit when a hidden part becomes visible:
+  // selecting a Configuration module, and opening a collapsible section. Both run before paint.
+  document.addEventListener('toggle',e=>{ if(e.target&&e.target.tagName==='DETAILS'&&e.target.open) fitControls(e.target); },true);
+  setTimeout(()=>{ const o=window.cfgSelectModule; if(typeof o==='function'&&!o._fit){ const w=function(){ const r=o.apply(this,arguments); try{ fitControls(); }catch(_){} return r; }; w._fit=true; window.cfgSelectModule=w; } },0);
 })();
 
 // r228: one renderer for a stream's figure cell, and an in-place refresh after every run so the grid (and
