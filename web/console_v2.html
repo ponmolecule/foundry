@@ -1516,14 +1516,9 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 /* r221: intra-period path row on customer-acquisition feeds */
 .cac-path{border:1px solid #CFCFCC;border-radius:3px;padding:9px 10px 6px;margin:-2px 0 10px;background:#FAFAF8}
 .cac-path-h{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:#666;margin:0 0 7px}
-.cac-path-tag{display:inline-block;margin-left:8px;padding:1px 6px;border-radius:2px;background:#E7E7E3;color:#4A4A4A;font-size:10px;font-weight:700;letter-spacing:.05em}
-.cac-path-tag.nd{background:#F5ECDD;color:#7A5410}
 .cac-path-r{display:grid;grid-template-columns:184px 300px 1fr;gap:10px;align-items:center;margin:0 0 6px}
 .cac-path-r .l{color:#2A2A2A}.cac-path-r select{width:300px}.cac-path-r select:disabled{background:#F3F3F1;color:#96928C;border-style:dashed}
 .cac-path-r .d{font-size:12px;color:#666;line-height:1.4}
-.cac-path-eff{margin:6px 0 2px;padding:7px 10px;border-left:3px solid var(--k-gold);background:#FBF7EF;font-size:12.5px}
-.cac-path-eff details{margin-top:6px}.cac-path-eff summary{cursor:pointer;color:var(--k-gold-deep);font-size:12px}
-.cac-path-eff table{width:auto;margin-top:6px}
 
 /* r222: calculation cards and the decluttered stream grid */
 .st-list td.st-q,.st-list td.st-q.num{white-space:nowrap!important}
@@ -1543,13 +1538,8 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .ip-note{margin-top:9px;font-size:11.5px;color:#666666;line-height:1.45}
 .ip-ft{margin-top:9px;padding-top:8px;border-top:1px solid #E6E6E3;font-size:11.5px;color:#666666}
 .ip-card a{color:var(--k-gold-deep);text-decoration:none;border-bottom:1px dotted #BF975E}
-.ip-card:has(.ip-t){width:auto;max-width:min(760px,calc(100vw - 16px))}
-.ip-tw{overflow-x:auto}.ip-t{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:12px}
-.ip-t th,.ip-t td{border:1px solid #D8D8D8;padding:5px 9px;text-align:right;white-space:nowrap}.ip-t th:first-child,.ip-t td:first-child{text-align:left}
-.ip-t th{background:#EFEFEF;font-weight:600;color:#4A4A4A}.ip-t tr.cur td{background:#F5ECDD;font-weight:600}
 .st-calc-b{flex:1 1 auto;min-width:0;max-width:520px}
 .st-calc-b .ip-steps{row-gap:3px}.st-calc-b .ip-note{margin-top:5px}
-.cac-path-h .ip-i{margin-left:8px}
 </style>
 </head>
 <body>
@@ -1910,10 +1900,7 @@ function _stProv(metas,i,fi){
 }
 
 // r221: customer-acquisition intra-period path. Absent keys reproduce the historical calculation exactly.
-function refreshCacPathEffects(){ // r221: redraw each feed's path row once results arrive
-  document.querySelectorAll('.cac-path[data-fn]').forEach(el=>{ const fn=el.getAttribute('data-fn'), fd=(((cfg||{}).assumptions||{}).cac_feeds||{})[fn]; if(!fd) return;
-    const asp=_cacFeedSpec(fd,'attrition_rate',fd.attrition_rate||0); const open=!!(el.querySelector('details')||{}).open;
-    el.outerHTML=_cacPathRowHtml(fn,fd,asp,_cacMode(asp)); if(open){ const n=document.querySelector('.cac-path[data-fn="'+fn.replace(/"/g,'\\"')+'"] details'); if(n) n.open=true; } }); }
+
 function _cacAttrPeriod(asp,am){ return String(am==='explicit'?(asp.cadence||'year'):(asp.period||'year')).toLowerCase(); }
 window.cacFeedPathSet=function(fn,key,val){
   const fd=cfg.assumptions.cac_feeds[fn]; if(!fd) return;
@@ -1935,7 +1922,7 @@ function _cacPathRowHtml(fn,fd,asp,am){
   const T={period_end:'At attrition-period end',spread:'Spread evenly across the attrition period',period_start:'At attrition-period start'};
   const TD={period_end:`All of each ${perWord}\u2019s attrition in its last month. Highest average balance.`,
             spread:`Equal slices in every month of each ${perWord}.`,period_start:`All of each ${perWord}\u2019s attrition in its first month. Lowest average balance.`};
-  let h=`<div class="cac-path" data-fn="${F}"><div class="cac-path-h">Intra-period path<span class="ip-i" data-ip="path:${encodeURIComponent(fn)}" role="button" tabindex="0" aria-label="How the options compare">i</span></div>`;
+  let h=`<div class="cac-path" data-fn="${F}"><div class="cac-path-h">Intra-period path</div>`;
   h+=`<div class="cac-path-r"><span class="l">Path</span><select onchange="cacFeedPathSet('${F}','path',this.value)"><option value="monthly_flows"${path==='monthly_flows'?' selected':''}>Monthly flows</option><option value="straight_line"${path==='straight_line'?' selected':''}>Straight line between anchor points</option></select>`;
   h+=`<span class="d">${path==='straight_line'?'Anchor balances are calculated as usual; the months between them move in equal steps.':'New customers and AUC are added each month; attrition follows the timing below.'}</span></div>`;
   if(path==='straight_line'){
@@ -1969,30 +1956,14 @@ function _ipSrcHtml(fi,kind,ref){
       `<div class="ip-ft">Feed: ${esc(ref)} \u00b7 ${_stFeedLink('open roll-forward')}</div>`; }
   return '';
 }
-const _IP_OPT={flows_end:'Monthly flows \u00b7 attrition at period end',flows_spread:'Monthly flows \u00b7 attrition spread evenly',flows_start:'Monthly flows \u00b7 attrition at period start',line_year:'Straight line \u00b7 year-end anchors',line_quarter:'Straight line \u00b7 quarter-end anchors'};
-function _ipPathHtml(d){
-  const useAuc=d.options.some(o=>o.avg_auc_by_year.some(v=>Math.abs(+v)>0)), key=useAuc?'avg_auc_by_year':'avg_customers_by_year';
-  const monthly=String(d.attrition_period||'')==='month';
-  let opts=d.options; if(monthly) opts=opts.filter(o=>o.key==='flows_end'||o.key.startsWith('line_'));
-  const n=(opts[0]||{})[key]?.length||0, f=v=>Number(v).toLocaleString('en-US',{maximumFractionDigits:useAuc?0:1});
-  let h=`<h4>How the options compare</h4><div class="ip-sub">Average ${useAuc?'AUC ($000s)':'customers'} by year under each option</div><div class="ip-tw"><table class="ip-t"><thead><tr><th>Option</th>${Array.from({length:n},(_,y)=>`<th>Year ${y+1}</th>`).join('')}</tr></thead><tbody>`;
-  opts.forEach(o=>{ const cur=(o.key===d.current)||(monthly&&o.key==='flows_end'&&d.current.startsWith('flows_'));
-    h+=`<tr class="${cur?'cur':''}"><td>${cur?'\u25CF ':''}${monthly&&o.key==='flows_end'?'Monthly flows':_IP_OPT[o.key]}</td>${o[key].map(v=>`<td>${f(v)}</td>`).join('')}</tr>`; });
-  h+=`</tbody></table></div><div class="ip-note">\u25CF in use. Year-end balances are the same under every option; only averages within the year differ.${monthly?' This feed\u2019s attrition is monthly, so the three attrition timings give identical results and are shown once.':''}</div>`;
-  return h;
-}
+
 (function(){
-  let pinned=null, card=null, seq=0;
+  let pinned=null, card=null;
   function content(t){
     const k=t.getAttribute('data-ip')||''; const p=k.split(':');
     if(p[0]==='st'){ const metas=(window._stMetaByFi||{})[p[1]]; const pv=metas?_stProv(metas,+p[2],+p[1]):null;
       return pv?`<h4>${pv.title}</h4><div class="ip-sub">How the driver is calculated</div>`+_ipStepsHtml(pv.steps,pv.note):''; }
     if(p[0]==='src') return _ipSrcHtml(p[1],p[2],decodeURIComponent(p.slice(3).join(':')));
-    if(p[0]==='path'){ const fn=decodeURIComponent(p.slice(1).join(':')), my=++seq;
-      fetch('/api/v31/cac/path-options',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg,feed:fn})})
-        .then(r=>r.json()).then(d=>{ if(my!==seq||!card) return; const b=card.querySelector('.ip-body'); if(b){ b.innerHTML=d&&d.options?_ipPathHtml(d):'<div class="ip-note">The comparison could not be calculated: '+esc((d&&d.error)||'unknown error')+'</div>'; place(card,t);} })
-        .catch(()=>{ if(card&&my===seq){ const b=card.querySelector('.ip-body'); if(b) b.innerHTML='<div class="ip-note">The comparison could not be calculated.</div>'; } });
-      return '<h4>How the options compare</h4><div class="ip-sub">Calculating every option\u2026</div>'; }
     return '';
   }
   function place(c,t){ const r=t.getBoundingClientRect(); c.style.top=(window.scrollY+r.bottom+8)+'px';
@@ -3104,7 +3075,7 @@ async function preview(){
   // rebuild while editing products; output tabs still re-render from lastRes.
   // BUT the three per-product summary numbers (Q12 balance / revenue / contribution) read from
   // lastRes and must still update — refresh just those in place so they don't look frozen.
-  if(V3 && currentTab==="config"){ refreshConfigPreviews(); if(typeof refreshCacPathEffects==='function') refreshCacPathEffects(); }
+  if(V3 && currentTab==="config") refreshConfigPreviews();
   else if(!(V31 && currentTab==="products")) renderContent();
   else { refreshProductStats(); refreshFeeCustomerCountPreviews(); }
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the

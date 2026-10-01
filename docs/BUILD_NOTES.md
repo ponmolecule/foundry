@@ -770,3 +770,13 @@ Presentation release on r221 plus one read-only API route. Run results are uncha
   alternative conventions. Its ⓘ card shows average AUC (or customers) by year under every option
   side by side, with the one in use marked, computed on demand by POST /api/v31/cac/path-options
   (cac_feeder.path_option_comparison, identical to the engine for the option in use).
+
+
+## r223 — Remove the intra-period option comparison
+
+Release on r222. The option-comparison card, its API route (/api/v31/cac/path-options) and function,
+the engine's extra default-path calculation (pathComparison, computed on every run with a non-default
+option) and the post-run refresh hook are removed: none answered a user need, and a user who wants a
+comparison switches the option and reads the results. The intra-period path row keeps only its
+controls (Path, Anchor points, Attrition timing). The stream and source calculation cards from r222
+are unchanged. Results at the defaults remain byte-identical to pre-r221.
