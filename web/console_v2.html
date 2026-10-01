@@ -1459,6 +1459,17 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 #content .pg-band-row>.h2{background:transparent!important;color:#FFFFFF!important;border:0!important;padding:0!important;margin:0!important;font-size:20px;flex:1 1 auto}
 .prd-h1.pg-band + .prd-sub{margin-top:-6px}
 .cfg-stage>.pg-crumb + .cardhead,.cfg-stage>.pg-crumb ~ .cfggrid .cardhead{margin-top:0}
+
+/* r216: customer-acquisition audit view as a ruled ledger table, sized to its content */
+.cfg-stage table.cac-audit-grid.cac-audit-grid{width:auto!important;min-width:0!important;border:1px solid #C4C4C4;border-collapse:collapse;font-size:12.5px!important;background:#FFFFFF;margin-top:4px}
+.cfg-stage table.cac-audit-grid.cac-audit-grid th,.cfg-stage table.cac-audit-grid.cac-audit-grid td{border:1px solid #D8D8D8!important;padding:7px 12px!important;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+.cfg-stage table.cac-audit-grid.cac-audit-grid th{background:#EFEFEF;border-bottom:1px solid #C4C4C4!important;color:#343434!important;font-size:11.5px;font-weight:600;text-align:right;vertical-align:bottom;line-height:1.3}
+.cfg-stage table.cac-audit-grid.cac-audit-grid th:first-child{text-align:left;white-space:normal;max-width:190px}
+.cfg-stage table.cac-audit-grid.cac-audit-grid th:last-child,.cfg-stage table.cac-audit-grid.cac-audit-grid td:last-child{text-align:left;color:#666666!important}
+.cfg-stage table.cac-audit-grid.cac-audit-grid td{color:#343434!important;text-align:right;min-width:84px}
+.cfg-stage table.cac-audit-grid.cac-audit-grid td:first-child{text-align:left;min-width:0}
+.cfg-stage table.cac-audit-grid.cac-audit-grid tbody tr:nth-child(even) td{background:#F7F7F7}
+.cfg-stage table.cac-audit-grid.cac-audit-grid tr.end td{font-weight:600;border-top:2px solid #343434!important}
 </style>
 </head>
 <body>
@@ -11201,7 +11212,7 @@ function structuresSectionsHtml(){
         h+=`<div style="overflow-x:auto;border-top:1px solid #CACAC7;margin-top:8px;padding-top:8px"><div class="csub" style="margin-bottom:5px">Calculated customer-base roll-forward · audit view</div><table class="cac-audit-grid" style="min-width:${Math.max(560,215+ar.length*78)}px;width:100%;font-size:10px"><thead><tr><th style="text-align:left;padding:4px 6px;color:#4A4A47">Calculated output · monetary balances in $000s</th>`;
         ar.forEach((r,i)=>h+=`<th style="padding:4px 5px;color:#4A4A47">Year ${i+1}</th>`);h+=`<th style="text-align:left;padding:4px 6px;color:#7B7B78">Unit</th></tr></thead><tbody>`;
         const _auditInt=v=>Math.round(v).toLocaleString("en-US");
-        const rr=(lab,key,unit,fmt)=>{h+=`<tr><td style="padding:4px 6px;color:#2A2A2A">${lab}</td>`;ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):_auditInt(v)}</td>`;});h+=`<td class="cu">${unit}</td></tr>`;};
+        const rr=(lab,key,unit,fmt)=>{h+=`<tr${String(key).indexOf('end_')===0?' class="end"':''}><td style="padding:4px 6px;color:#2A2A2A">${lab}</td>`;ar.forEach(r=>{const v=+(r[key]||0);h+=`<td style="padding:4px 6px;text-align:right;font-family:var(--mono)">${fmt?fmt(v):_auditInt(v)}</td>`;});h+=`<td class="cu">${unit}</td></tr>`;};
         rr('New customers acquired','new_cust','customers');rr('Customers lost to attrition','cust_lost','customers');rr('Ending bank customers','end_cust','customers');rr('New AUC added','new_auc','$000s');rr('AUC lost to attrition','auc_lost','$000s');rr('Ending AUC','end_auc','$000s');rr('Blended CAC','blended_cac','$ / acquired customer',v=>v?_auditInt(v):'—');
         h+=`</tbody></table></div>`;
       }

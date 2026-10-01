@@ -149,6 +149,11 @@ def main():
     ck("Sign-in fields match the Enter platform button: same 162px width at every size",
        '.wel-login input{display:block;box-sizing:border-box;width:162px;max-width:100%;' in html
        and '#enterBtn{width:162px;box-sizing:border-box;justify-content:center;' in html)
+    # r216: customer-acquisition audit view is a ruled table sized to its content, headers aligned with figures.
+    ck("Customer-acquisition audit table is fully ruled, content-width, with right-aligned year headers and bold ending balances",
+       '.cfg-stage table.cac-audit-grid.cac-audit-grid{width:auto!important;min-width:0!important;' in html
+       and 'border:1px solid #D8D8D8!important' in html and "String(key).indexOf('end_')===0?' class=\"end\"'" in html
+       and '.cfg-stage table.cac-audit-grid.cac-audit-grid th:first-child{text-align:left;white-space:normal;max-width:190px}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
