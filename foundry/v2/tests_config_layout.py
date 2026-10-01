@@ -80,8 +80,8 @@ def main():
        "_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn)" in html and 'window.cacChannelSelect=function' in html
        and 'ondragstart="cacChannelDragStart(event,' in html and 'tr.cac-channel-card.drop-before td' in html)
     # r204: Klaros palette (graphite, yellow gold, neutral surfaces), ledger geometry, Products workspace.
-    ck("Palette is graphite and yellow-gold on neutral surfaces, with a graphite tab row",
-       '--k-graph:#2C2C2C' in html and '--k-gold:#DBAB5D' in html and '--k-canvas:#F2F2F0' in html
+    ck("Palette is graphite bars on the Klaros theme (white page, #343434 ink, #DFB367 gold), with a graphite tab row",
+       '--k-graph:#2C2C2C' in html and '--k-gold:#DFB367' in html and '--k-canvas:#FFFFFF' in html and '--k-tx1:#343434' in html and '--paper:#FFFFFF' in html
        and '.ab-nav{height:40px;background:var(--k-graph)' in html and '.tab.active{background:transparent;color:#FFFFFF' in html)
     ck("Ledger geometry: design-layer radii are 3px or less, with column rules in data grids",
        'border-radius:10px' not in html[html.index('<style id="klaros-graphite">'):html.index('</style>',html.index('<style id="klaros-graphite">'))]
@@ -126,6 +126,10 @@ def main():
     # r208: checkboxes and radios are never stretched by the legacy text-box width rule.
     ck("Checkboxes and radios keep their natural size inside fields",
        '#content .fld input[type=checkbox],#content .fld input[type=radio]' in html and 'width:auto!important;min-width:0!important' in html)
+    # r209: uniform page header on every tab.
+    ck("Every tab opens with a breadcrumb and a graphite title band",
+       'window.pageChrome=function' in html and 'window.cfgCrumb=function' in html and "GROUPS=['Workspace','Statements','Analysis','Record']" in html
+       and '#content .h2.pg-band,#content .pg-band-row,#content .prd-h1.pg-band{' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
