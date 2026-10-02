@@ -601,6 +601,19 @@ def validate_config_v2(cfg):
                     raise ValueError("product_funded_flow requires funded_flow_level balance")
             except (TypeError, ValueError) as e:
                 errs.append(f"lending_products[{pi}].fee_streams[{si}] invalid: {e}")
+    # r232: deposit products also execute fee_streams in the engine; validate them at the same seam.
+    for pi, prod in enumerate(a.get("deposit_products") or []):
+        for si, stream in enumerate(prod.get("fee_streams") or []):
+            try:
+                from .income_modules import _validate_fee_stream_shape
+                _validate_fee_stream_shape(stream)
+                _src = (stream.get("driver") or {}).get("source")
+                if _src == "distributed_balance" and not prod.get("allocation_group_id"):
+                    raise ValueError("distributed_balance requires an allocation group")
+                if _src == "product_funded_flow":
+                    raise ValueError("product_funded_flow applies to funded-flow loans, not deposits")
+            except (TypeError, ValueError) as e:
+                errs.append(f"deposit_products[{pi}].fee_streams[{si}] invalid: {e}")
     po = cfg.get("pre_opening") or {}
     for i, e in enumerate(po.get("expenses") or []):
         if not str(e.get("category", "")).strip():

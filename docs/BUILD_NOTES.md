@@ -898,3 +898,40 @@ Presentation-only iteration on fix2. Pool preview and Product Detail use "Swept 
 and "Fee on swept-out balances"; the audit labels match. Series keys stay sweptBalance and
 sweepFee. Source guidance asks for gross program balance before retention/capacity limits,
 not deposits already expected to remain on-book. Deposit presets and calculation logic unchanged.
+
+
+## r232 — Fee streams on loans and deposits
+
+Built on r231a_fix3 (6f00909). Results are identical to fix3 for every runnable configuration.
+- Loans and deposits get the Fee streams tab fee products already have: the same stream grid, ⓘ calculation
+  cards and Activity / Pricing / Timing / Costs editor. The engine already executed their streams (the
+  template's Commercial Real Estate loan carries "CRE servicing fee", which moved revenue but was not shown
+  anywhere on screen).
+- One shared stream workspace (_feeStreamsSectionHtml), lifted unchanged out of the fee-product form; stream
+  handlers resolve their product through _stOwner (fee product index unchanged; 1000+i loans; 2000+i
+  deposits). All 32 fee-product views render identically to fix3.
+- The Setup fee yield is listed read-only beside the streams on loans and deposits ("Fee yield · SETUP"),
+  with its own card (yield ÷ periods × average balance), so all fee income is visible in one list. It is
+  still authored in Setup → Pricing. Shown even when a product has no streams yet.
+- A balance stream added to a loan or deposit starts on the product's own balance (fee products keep AUC).
+- Guide Me remains a fee-product tool.
+- Validation: deposit fee streams are now validated like loan streams (malformed streams and the
+  loan-only funded-flow source are rejected).
+
+
+## r233 — Loan and deposit Setup grouped by concern
+
+Presentation release on r232. Results are identical to r232 for every runnable configuration.
+- Loan Setup: Name and Call Report line above tabs Balance · Pricing · Timing · Credit · Costs; deposit
+  Setup: Balance · Pricing · Timing · Costs. The same tab style as the stream editor, each tab with a
+  one-line summary from the product's settings (refreshed after every edit). Only tabs with fields appear.
+- Deposit balance methods: the Balance tab holds the method's own fields, including r231a's pool picker,
+  retained share, pool settings and opening swept-out balance (plan item C).
+- Fields are classified by the configuration path they write to and moved, never rewritten; groups are
+  display:contents wrappers inside the existing form grid. Unclassifiable fields stay visible below the tabs.
+  Grouping runs before paint (first painted frame already grouped). The open tab is remembered per family.
+- Funded-flow loans keep their existing sectioned layout. Fee products' 4-field Setup is unchanged.
+Verification: every Setup field present exactly once in all 24 loan / deposit / balance-method views
+(same fields as r232); 54 tab views at 1440 and 1024px with each field visible in exactly one tab, no
+truncation and no overflow; fee-product screens identical to r232 apart from the card's new data-fam /
+data-i attributes; full results identical; fingerprints 3 of 3.

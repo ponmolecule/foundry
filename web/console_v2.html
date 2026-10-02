@@ -1581,6 +1581,17 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .wf-role-card .wf-role-grid{grid-template-columns:minmax(0,340px) minmax(0,300px)!important;justify-content:start}
 .wf-role-card .wf-comp-value{grid-template-columns:140px max-content max-content!important;justify-content:start}
 .wf-role-card .wf-comp-value input{width:140px}
+
+/* r232: Setup fee-yield row in loan and deposit fee-stream grids */
+.st-list tbody tr.st-setup td{background:#F7F5F0;cursor:default}
+.st-list tbody tr.st-setup:hover td{background:#F7F5F0}
+
+/* r233: grouped Setup tabs for loans and deposits (same style as the stream editor's tabs) */
+.prd-stabs{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid #D8D8D8;margin:6px 0 12px}
+.prd-stab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 16px 9px;border:0;background:none;cursor:pointer;font:inherit;color:#666666;text-align:left}
+.prd-stab b{font-weight:500;color:#4A4A4A;font-size:13.5px}.prd-stab small{font-size:11.5px;color:#96928C;white-space:nowrap}
+.prd-stab:hover b{color:#343434}.prd-stab.on{box-shadow:inset 0 -2.5px 0 var(--k-gold)}.prd-stab.on b{color:#343434;font-weight:600}
+.prd-stab:focus-visible{outline:2px solid var(--k-gold);outline-offset:-2px}
 </style>
 </head>
 <body>
@@ -1728,7 +1739,7 @@ window.prdFamToggle=function(f){const m=(window._prdFamClosed=window._prdFamClos
 window.prdFilter=function(q){window._prdQuery=q;q=String(q||'').toLowerCase().trim();document.querySelectorAll('.prd-row').forEach(r=>{r.style.display=(!q||String(r.getAttribute('data-q')||'').includes(q))?'':'none';});};
 window.prdTabSet=function(k){window._prdTab=k;const c=document.querySelector('.prd-card');if(c)c.setAttribute('data-pp-tab',k);document.querySelectorAll('.prd-tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-tab')===k));};
 window.prdCmpFam=function(f){window._prdCmpFam=f;renderContent();};
-window.stSelect=function(fi,si){const s=((cfg.assumptions.obs_exposures||[])[fi]||{}).fee_streams;if(s&&s[si]){window._stSelObj=s[si];renderContent();}};
+window.stSelect=function(fi,si){const s=(_stOwner(fi)||{}).fee_streams;if(s&&s[si]){window._stSelObj=s[si];renderContent();}};
 window.stTabSet=function(k){window._stTab=k;const b=document.querySelector('.st-body');if(b)b.setAttribute('data-st-tab',k);document.querySelectorAll('.st-tab').forEach(x=>x.classList.toggle('on',x.getAttribute('data-tab')===k));};
 document.addEventListener('input',function(e){ // r204: mirror a stream rename into its header and grid row as you type
   const t=e.target; if(!t||!t.closest||!t.closest('.st-body .fee-stream-block')) return;
@@ -1854,7 +1865,7 @@ function _stSchedLbl(per,n){ const ppy=(typeof PPY==='function')?PPY():12, p=Str
 const _ST_MEAS={period_end:'period-end',period_average:'average',annual_count:'year-end'};
 const _ST_MEAS_KEY={period_end:'customerEndByPeriod',period_average:'customerAverageByPeriod',annual_count:'customerAnnualCountByPeriod'};
 function _stSrc(metas,fi){ // values the engine actually used, read from the run
-  const p=(((typeof cfg!=='undefined'&&cfg)||{}).assumptions||{}).obs_exposures?.[fi]||{}, res=(typeof lastRes!=='undefined'&&lastRes)||{}, out={auc:null,cust:{}};
+  const p=_stOwner(fi)||{}, res=(typeof lastRes!=='undefined'&&lastRes)||{}, out={auc:null,cust:{}};
   if(metas.some(m=>String((m.drv||{}).source||'').toLowerCase()==='managed_notional')){
     const pr=(res.products||[]).find(x=>x&&x.name===p.name&&Array.isArray(x.managedNotionalAvg));
     if(pr&&pr.managedNotionalAvg.length){ const a=pr.managedNotionalAvg, e=pr.managedNotionalEnd||[]; out.auc={avg:+a[a.length-1], end:e.length?+e[e.length-1]:null, feed:_stFeedName(p.managed_notional_source||pr.managedNotionalSource||p.managed_notional_source_id||'')}; } }
@@ -1997,6 +2008,7 @@ function _ipSrcHtml(fi,kind,ref){
     const k=t.getAttribute('data-ip')||''; const p=k.split(':');
     if(p[0]==='st'){ const metas=(window._stMetaByFi||{})[p[1]]; const pv=metas?_stProv(metas,+p[2],+p[1]):null;
       return pv?`<h4>${pv.title}</h4><div class="ip-sub">How the driver is calculated</div>`+_ipStepsHtml(pv.steps,pv.note):''; }
+    if(p[0]==='fy') return _ipFeeYieldHtml(+p[1]);
     if(p[0]==='src') return _ipSrcHtml(p[1],p[2],decodeURIComponent(p.slice(3).join(':')));
     return '';
   }
@@ -2039,7 +2051,7 @@ function fitInput(el){
 (function(){
   // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
   // control never shows its unfitted width for a frame. fitControls only changes styles, which the observer ignores.
-  const run=()=>fitControls();
+  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };   // r233: group Setup before fitting, both before paint
   const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
@@ -2064,10 +2076,113 @@ function refreshStreamFigures(){
     const fi=+any.getAttribute('data-ip').split(':')[1], metas=(window._stMetaByFi||{})[fi]; if(!metas) return;
     metas.forEach(m=>{ if(m.qid) m.qty=S[m.qid]||null; });
     const tb=list.querySelector('tbody'); if(!tb) return;
-    [...tb.querySelectorAll('tr')].filter(r=>!r.classList.contains('st-src')).forEach((r,k)=>{ const c=r.querySelector('.st-q'); if(c&&metas[k]) c.innerHTML=_stCellHtml(metas,k,fi); });
-    tb.querySelectorAll('tr.st-src').forEach(x=>x.remove()); tb.insertAdjacentHTML('afterbegin',_stSrcRows(metas,fi));
+    [...tb.querySelectorAll('tr')].filter(r=>!r.classList.contains('st-src')&&!r.classList.contains('st-setup')).forEach((r,k)=>{ const c=r.querySelector('.st-q'); if(c&&metas[k]) c.innerHTML=_stCellHtml(metas,k,fi); });
+    tb.querySelectorAll('tr.st-src,tr.st-setup').forEach(x=>x.remove()); tb.insertAdjacentHTML('afterbegin',_stSrcRows(metas,fi)+_stSetupFeeRow(fi));
   });
   if(typeof window.ipHide==='function') window.ipHide();
+}
+
+// r232: on loans and deposits the Setup fee yield is listed with the fee streams so every source of fee income
+// is visible in one place. It stays authored in Setup; the row is read-only with its own card.
+function _stFamAvg(fi){
+  fi=+fi; const fam=fi>=2000?'deposit':(fi>=1000?'lending':null); if(!fam) return null;
+  const rows=((((typeof lastRes!=='undefined'&&lastRes)||{}).products)||[]).filter(r=>r&&r.family===fam);
+  const r=rows[fi-(fam==='deposit'?2000:1000)]; const a=r&&r.avg; return (a&&a.length)?+a[a.length-1]:null;
+}
+function _stSetupFeeRow(fi){
+  fi=+fi; if(fi<1000) return ''; const p=_stOwner(fi)||{}, fy=+p.fee_yield_ann||0; if(!(fy>0)) return '';
+  const avg=_stFamAvg(fi);
+  return '<tr class="st-setup"><td>\u2014</td><td class="name">Fee yield<span class="st-tag">setup</span></td><td><span class="pill">Revenue</span></td><td>Average balance</td><td class="c-opt"></td><td class="c-opt"></td>'+
+    '<td class="num st-q"><span class="st-v">'+(fy*100).toFixed(2)+'%</span><span class="st-u">of '+(avg!=null?_stNum(avg)+' $000s':'average balance')+'</span>'+
+    '<span class="ip-i" data-ip="fy:'+fi+'" role="button" tabindex="0" aria-label="About the fee yield">i</span></td></tr>';
+}
+function _ipFeeYieldHtml(fi){
+  const p=_stOwner(fi)||{}, fy=+p.fee_yield_ann||0, avg=_stFamAvg(fi), ppy=(typeof PPY==='function')?PPY():12;
+  const metas=(window._stMetaByFi||{})[fi]; const P=metas?_stProvP(metas):'';
+  const eu=ppy===12?'Months':(ppy===4?'Quarters':'Periods');
+  const steps=[{l:'Fee yield, annual',v:(fy*100).toFixed(2)+'%'},{o:'\u00f7',l:eu+' per year',v:String(ppy)}];
+  if(avg!=null) steps.push({o:'\u00d7',l:'Average balance',d:P,v:_stNum(avg)+' $000s'},{o:'=',l:'Fee yield income',d:P,v:_stNum(avg*fy/ppy)+' $000s',t:1});
+  return '<h4>Fee yield \u00b7 '+esc(p.name||'')+'</h4><div class="ip-sub">Set in Setup \u2192 Pricing</div>'+_ipStepsHtml(steps,'This fee is charged on the product\u2019s average balance and adds to any fee streams listed here. Total fee income = fee yield + fee streams.');
+}
+
+// r233: Setup for loans and deposits grouped by concern (Balance · Pricing · Timing · Credit · Costs), using the
+// same tab style as the stream editor. Fields are classified by the configuration path they write to (stable),
+// never rewritten: groups are display:contents wrappers inside the existing form grid, inactive ones hidden.
+// Anything that cannot be classified stays visible below the tabs. Funded-flow loans keep their own sectioned
+// layout. Runs before paint, from the same mutation callback as fitControls.
+const _PRD_GRP_ORDER=['balance','pricing','timing','credit','costs'];
+const _PRD_GRP_LABEL={balance:'Balance',pricing:'Pricing',timing:'Timing',credit:'Credit',costs:'Costs'};
+const _PRD_GRP_RULES={
+  lending:[['id',/renameProduct|call_report_line/],['balance',/loanBalanceModeChange|opening_balance|originations_per_period|orig_growth_per_period|runoff_per_period|purchases_per_period|mortgage_banking/],
+           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|yield_ann|rate_floor|rate_cap/],['timing',/\.structure\b|term_q|maturity|amort/],
+           ['credit',/charge_off|reserve_rate|provision_rate|allowance|cecl/],['costs',/\.measurement\b|opex_pct_ann|opex_fixed|discount_spread/]],
+  deposit:[['id',/renameProduct|call_report_line/],['balance',/depositMode|depositPoolSelect|pool_share_spec|deposit_retention_pools|ending_balance_spec|opening_balance|growth_per_period|new_deposits_per_period|runoff_per_period/],
+           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|rate_paid_ann|fee_yield_ann|interest_balance_measure/],['timing',/avg_maturity_m/],
+           ['costs',/opex_pct_ann|opex_fixed|insured_pct/]]
+};
+function _prdGrpOf(el,fam){
+  const ctl=el.querySelector('input,select,textarea,button');
+  const lab=((el.querySelector('label')||{}).textContent||'').trim();
+  if(/^(Name|Call Report line)$/.test(lab)) return 'id';
+  const txt=(ctl?[...ctl.attributes].filter(a=>/^on/.test(a.name)).map(a=>a.value).join(' '):'')+' '+[...el.querySelectorAll('[onchange],[oninput]')].map(x=>(x.getAttribute('onchange')||'')+(x.getAttribute('oninput')||'')).join(' ');
+  for(const [g,re] of (_PRD_GRP_RULES[fam]||[])) if(re.test(txt)) return g;
+  if(fam==='lending'&&/^Structure$/.test(lab)) return 'timing';   // read-only when the product type fixes it
+  if(!ctl) return 'hint';
+  return 'other';
+}
+function _prdPct(v,d){ return (Number(v||0)*100).toFixed(d==null?2:d)+'%'; }
+function _prdM(v){ return '$'+(Number(v||0)/1e6).toFixed(1)+'M'; }
+function _prdK(v){ return '$'+Math.round(Number(v||0)/1000).toLocaleString('en-US')+'k'; }
+function _prdGrpSummary(fam,p,g){
+  const per=(typeof PLAB==='function')?PLAB().toLowerCase():'period', idx=String(p.index||'sofr').toUpperCase();
+  const rate=(own)=>p.rate_type==='float'?(idx+(Number(p.index_spread||0)>=0?' +':' \u2212')+Math.abs(Number(p.index_spread||0)*100).toFixed(2)+'%'):('Fixed '+_prdPct(own));
+  const opex=()=>_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period!=null?p.opex_fixed_per_period:p.opex_fixed_m)+'/'+per;
+  if(fam==='lending') return {
+    balance:_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.runoff_per_period)+' runoff/'+per,
+    pricing:rate(p.yield_ann)+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
+    timing:(p.structure?String(p.structure).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase()):'Term')+(p.term_q?' \u00b7 '+p.term_q+' quarters':' \u00b7 no term set'),
+    credit:_prdPct(p.charge_off_ann)+' charge-offs \u00b7 '+_prdPct(p.reserve_rate_pct_bal)+' reserve',
+    costs:(p.measurement==='fair_value'?'Fair value':'Amortized cost')+' \u00b7 '+opex()}[g]||'';
+  const mode=p.balance_mode||'rollforward', pool=((((cfg||{}).assumptions||{}).deposit_retention_pools)||[]).find(x=>x&&x.id===p.retention_pool_id);
+  return {
+    balance:mode==='pool'?('Shared pool'+(pool&&pool.name?' \u00b7 '+pool.name:'')):(mode==='level'?'Entered / linked level':(_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.growth_per_period)+' growth/'+per)),
+    pricing:rate(p.rate_paid_ann)+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
+    timing:Number(p.avg_maturity_m)>0?(p.avg_maturity_m+'-month average maturity'):'No maturity',
+    costs:opex()}[g]||'';
+}
+window._prdSetupTab=window._prdSetupTab||{};
+window.prdSetupTabSet=function(fam,g){
+  window._prdSetupTab[fam]=g; const card=document.querySelector('.prd-card[data-grouped]'); if(!card) return;
+  card.querySelectorAll('.prd-stab').forEach(t=>t.classList.toggle('on',t.getAttribute('data-g')===g));
+  card.querySelectorAll('.prd-grp').forEach(w=>{ w.style.display=(w.getAttribute('data-g')===g)?'contents':'none'; });
+  if(typeof fitControls==='function') fitControls(card);
+};
+function prdRefreshSetupSummaries(){   // r233: summaries follow edits made inside the grouped Setup
+  const card=document.querySelector('.prd-card[data-grouped]'); if(!card) return;
+  const fam=card.getAttribute('data-fam'), idx=+card.getAttribute('data-i');
+  const p=((((cfg||{}).assumptions||{})[fam==='lending'?'lending_products':'deposit_products'])||[])[idx]; if(!p) return;
+  card.querySelectorAll('.prd-stab').forEach(t=>{ const sm=t.querySelector('small'); if(sm) sm.textContent=_prdGrpSummary(fam,p,t.getAttribute('data-g')); });
+}
+document.addEventListener('change',e=>{ if(e.target&&e.target.closest&&e.target.closest('.prd-card[data-grouped]')) prdRefreshSetupSummaries(); });
+function prdGroupSetup(){
+  const card=document.querySelector('.prd-card'); if(!card||card.hasAttribute('data-grouped')) return;
+  const fam=card.getAttribute('data-fam'), idx=+card.getAttribute('data-i');
+  if(fam!=='lending'&&fam!=='deposit') return;
+  const p=((((cfg||{}).assumptions||{})[fam==='lending'?'lending_products':'deposit_products'])||[])[idx]; if(!p) return;
+  if(fam==='lending'&&typeof _loanBalanceMode==='function'&&_loanBalanceMode(p)==='funded_flow_level') return;
+  const secs=[...card.querySelectorAll('.pp-sec[data-pp="setup"]')]; if(!secs.length) return;
+  const host=secs.find(s=>s.querySelector('.fld'))||secs[0];
+  const els=[]; secs.forEach(s=>[...s.children].forEach(el=>els.push(el)));
+  const groups={}, ident=[], other=[]; let last=null;
+  els.forEach(el=>{ let g=_prdGrpOf(el,fam); if(g==='hint') g=last||'other'; if(g==='id'){ident.push(el);last='id';return;} if(g==='other'){other.push(el);last='other';return;} (groups[g]=groups[g]||[]).push(el); last=g; });
+  const keys=_PRD_GRP_ORDER.filter(g=>groups[g]&&groups[g].length); if(keys.length<2) return;
+  card.setAttribute('data-grouped','1');
+  let cur=window._prdSetupTab[fam]; if(!keys.includes(cur)) cur=keys[0];
+  const bar=document.createElement('div'); bar.className='prd-stabs'; bar.setAttribute('role','tablist');
+  bar.innerHTML=keys.map(g=>`<button type="button" role="tab" class="prd-stab${g===cur?' on':''}" data-g="${g}" onclick="prdSetupTabSet('${fam}','${g}')"><b>${_PRD_GRP_LABEL[g]}</b><small>${esc(_prdGrpSummary(fam,p,g))}</small></button>`).join('');
+  ident.forEach(el=>host.appendChild(el)); host.appendChild(bar);
+  keys.forEach(g=>{ const w=document.createElement('div'); w.className='prd-grp'; w.setAttribute('data-g',g); w.style.display=(g===cur)?'contents':'none'; groups[g].forEach(el=>w.appendChild(el)); host.appendChild(w); });
+  if(other.length){ const w=document.createElement('div'); w.className='prd-grp-other'; w.style.display='contents'; other.forEach(el=>w.appendChild(el)); host.appendChild(w); }
 }
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
@@ -3835,18 +3950,18 @@ function _feeExplicitPasteInput(id){ _seriesExplicitPasteInput(id); }
 function _feeCoeffPasteInput(id){ _seriesExplicitPasteInput(id); }
 function _feeFlatAmountPasteInput(id){ _seriesExplicitPasteInput(id); }
 function _feeSetCoeffSchedule(i,si,text){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
+  const st=_stOwner(i).fee_streams[si], c=st.driver.params.coefficient;
   const vals=_feeParseExplicitValues(text);
   if(!vals.length) return;
   const out={}; vals.forEach((n,j)=>{if(c.kind==="pct") n/=100; else if(c.kind==="amount_per_source_unit") n*=1000; out[String(j+1)]=n;});
   c.schedule=out; renderContent(); refresh();
 }
 function _feeClearCoeffSchedule(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si], c=st.driver.params.coefficient;
+  const st=_stOwner(i).fee_streams[si], c=st.driver.params.coefficient;
   c.schedule={}; renderContent(); refresh();
 }
 function _feeEnsureEnteredFlow(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
   const dp=st.driver.params;if(dp.flow_path)return dp.flow_path;
   const per=(PPY()===12?"month":"quarter");
   st.driver.source="constant";st.driver.trajectory="flat";
@@ -3854,7 +3969,7 @@ function _feeEnsureEnteredFlow(i,si){
   return dp.flow_path;
 }
 function _feeEnteredFlowTrajectory(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureEnteredFlow(i,si);fp.trajectory=v;
+  const st=_stOwner(i).fee_streams[si],fp=_feeEnsureEnteredFlow(i,si);fp.trajectory=v;
   st.driver.trajectory=(v==="growth"?"proportional":v);
   if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"smooth",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};
   if(v==="explicit_schedule"&&!fp.schedule)fp.schedule={};renderContent();refresh();
@@ -3864,7 +3979,7 @@ function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.va
 function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
 function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
 function _feeStreamQuantityKind(i,si,seen){
-  const p=((cfg.assumptions||{}).obs_exposures||[])[i]||{}, streams=p.fee_streams||[], st=streams[si]||{};
+  const p=_stOwner(i)||{}, streams=p.fee_streams||[], st=streams[si]||{};
   seen=seen||{}; if(seen[si]) return "native"; seen[si]=1;
   const basis=String(st.basis||"").toLowerCase();
   if(basis==="balance") return "money";
@@ -3888,7 +4003,7 @@ function _feePctSemantics(i,si,c){
   return _feeStreamQuantityKind(i,si,{})==="count"?"share":"flow";
 }
 function _feeEnsureNaturalCoeff(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
+  const st=_stOwner(i).fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
   const dp=st.driver.params; if(dp.coefficient) return dp.coefficient;
   let kind=(dp.pct!=null?"pct":"multiple"), value=(kind==="pct"?+(dp.pct||0):+(dp.multiple||0));
   dp.coefficient={kind:kind,value:value,period:"year",trajectory:"flat"}; return dp.coefficient;
@@ -3909,7 +4024,7 @@ function _feeFlatAmountScheduleText(schedule){
   return vals.map(x=>(x[1]/1000)).join(", ");
 }
 function _feeEnsureFlatAmount(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.rate=st.rate||{behavior:"flat",params:{}}; st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si]; st.rate=st.rate||{behavior:"flat",params:{}}; st.rate.params=st.rate.params||{};
   const rp=st.rate.params; if(rp.flat_amount) return rp.flat_amount;
   const per=(PPY()===12?"month":"quarter");
   rp.flat_amount={value:+(rp.amount_per_period||0),period:per,trajectory:"flat"};
@@ -3931,29 +4046,29 @@ function _feeClearFlatAmountSchedule(i,si){
   const fa=_feeEnsureFlatAmount(i,si); fa.schedule={}; fa.trajectory="flat"; renderContent(); refresh();
 }
 function _feeEnsureCostFactor(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
+  const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.factor_path)return cp.factor_path;
   const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");
   const legacy=pct?+(cp.pct||0):(st.cost.kind==="periodic_amount_opex"?+(cp.amount||0):+(cp.cost_per_unit||0));
   cp.factor_path={value:legacy,trajectory:"flat",period:"year",resolution:"step"};return cp.factor_path;
 }
 function _feeCostFactorSetKind(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};
+  const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};
   if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};}
   // Let the native select event finish before replacing the element that dispatched it.
   // Synchronously rebuilding this subtree made the first Cost-side selection appear to
   // be ignored in some browsers, forcing a second click even though cfg had changed.
   refresh();setTimeout(()=>renderContent(),0);
 }
-function _feeCostFactorTrajectory(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length))fp.schedule={"1":+(fp.value||0)};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";refresh();setTimeout(()=>renderContent(),0);}
+function _feeCostFactorTrajectory(i,si,v){const st=_stOwner(i).fee_streams[si],fp=_feeEnsureCostFactor(i,si);fp.trajectory=v;if(v==="growth"&&!fp.growth_spec)fp.growth_spec={rate:0,period:fp.period||"year",method:"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length))fp.schedule={"1":+(fp.value||0)};if(st.cost.kind==="periodic_amount_opex"&&v==="explicit_schedule")fp.resolution="step";refresh();setTimeout(()=>renderContent(),0);}
 function _feeCostFactorPeriod(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeCostFactorResolution(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.resolution=v;if(fp.growth_spec)fp.growth_spec.method=v;renderContent();refresh();}
-function _feeCostFactorValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");fp.value=pct?_pf(v)/100:(st.cost.kind==="periodic_amount_opex"?_pf(v)*1000:_pf(v));refresh();}
+function _feeCostFactorValue(i,si,v){const st=_stOwner(i).fee_streams[si],fp=_feeEnsureCostFactor(i,si);const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");fp.value=pct?_pf(v)/100:(st.cost.kind==="periodic_amount_opex"?_pf(v)*1000:_pf(v));refresh();}
 function _feeCostFactorGrowth(i,si,v){const fp=_feeEnsureCostFactor(i,si);fp.growth_spec=fp.growth_spec||{period:fp.period||"year",method:fp.resolution||"step",anchor:(fp.period||"year")==="year"?"model_year":"model_period"};fp.growth_spec.rate=_pf(v)/100;refresh();}
-function _feeSetCostFactorSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],fp=_feeEnsureCostFactor(i,si),pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex"),amount=(st.cost.kind==="periodic_amount_opex"),out={};vals.forEach((v,j)=>out[String(j+1)]=pct?v/100:(amount?v*1000:v));fp.schedule=out;renderContent();refresh();}
+function _feeSetCostFactorSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=_stOwner(i).fee_streams[si],fp=_feeEnsureCostFactor(i,si),pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex"),amount=(st.cost.kind==="periodic_amount_opex"),out={};vals.forEach((v,j)=>out[String(j+1)]=pct?v/100:(amount?v*1000:v));fp.schedule=out;renderContent();refresh();}
 function _feeClearCostFactorSchedule(i,si){const fp=_feeEnsureCostFactor(i,si);fp.schedule={};fp.trajectory="flat";renderContent();refresh();}
 function _feeEnsureCostMultiplier(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
+  const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.multiplier_path)return cp.multiplier_path;
   cp.multiplier_path={value:1,trajectory:"flat",period:"year",resolution:"step"};return cp.multiplier_path;
 }
@@ -3969,7 +4084,7 @@ function _feeLevelScheduleText(schedule,scale){
   const sc=(scale==null?1:+scale); return vals.map(x=>x[1]*sc).join(", ");
 }
 function _feeEnsureAccountLevel(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
+  const st=_stOwner(i).fee_streams[si]; st.driver=st.driver||{}; st.driver.params=st.driver.params||{};
   const dp=st.driver.params; if(!dp.level_schedule)dp.level_schedule={period:"year",resolution:"step",schedule:{}}; return dp.level_schedule;
 }
 function _feeSetAccountLevelSchedule(i,si,text){
@@ -3978,7 +4093,7 @@ function _feeSetAccountLevelSchedule(i,si,text){
 }
 function _feeClearAccountLevelSchedule(i,si){const ls=_feeEnsureAccountLevel(i,si);ls.schedule={};renderContent();refresh();}
 function _feeEnsureStockMultiplier(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
   const dp=st.driver.params;if(!dp.stock_multiplier)dp.stock_multiplier={kind:"pct",value:0,period:"year",trajectory:"flat",resolution:"step"};return dp.stock_multiplier;
 }
 function _feeSetStockMultiplierSchedule(i,si,text){
@@ -3986,7 +4101,7 @@ function _feeSetStockMultiplierSchedule(i,si,text){
 }
 function _feeClearStockMultiplierSchedule(i,si){const sm=_feeEnsureStockMultiplier(i,si);sm.schedule={};renderContent();refresh();}
 function _feeEnsureBalanceRatePath(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const rp=st.rate.params;if(!rp.rate_path)rp.rate_path={value:+(rp.rate||0),period:"year",trajectory:"flat",resolution:"step"};st.rate.behavior="flat";return rp.rate_path;
 }
 function _feeSetBalanceRateSchedule(i,si,text){
@@ -4000,19 +4115,19 @@ function _feeTransactionPricingBasisForStream(st){
   return (String(drv.trajectory||"flat").toLowerCase()==="derived"&&coef)?"pct_of_throughput":"per_unit";
 }
 function _feeSetTransactionPricingBasis(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   st.rate.params.pricing_basis=(v==="pct_of_throughput"?"pct_of_throughput":"per_unit");renderContent();refresh();
 }
 function _feeEnsureTransactionRatePath(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const rp=st.rate.params;if(!rp.rate_path)rp.rate_path={value:+(rp.per_unit||0),period:"year",trajectory:"flat",resolution:"step"};st.rate.behavior="flat";return rp.rate_path;
 }
 function _feeTransactionRateTrajectory(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.trajectory=v;if(v==="growth"&&!rp.growth_spec)rp.growth_spec={rate:0,period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};if(v==="explicit_schedule"&&!rp.schedule)rp.schedule={};renderContent();refresh();}
 function _feeTransactionRatePeriod(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.period=v;if(rp.growth_spec){rp.growth_spec.period=v;rp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeTransactionRateResolution(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.resolution=v;if(rp.growth_spec)rp.growth_spec.method=v;renderContent();refresh();}
-function _feeTransactionRateValue(i,si,v){const st=cfg.assumptions.obs_exposures[i].fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st);rp.value=(pb==="pct_of_throughput"?_pf(v)/100:_pf(v));refresh();}
+function _feeTransactionRateValue(i,si,v){const st=_stOwner(i).fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st);rp.value=(pb==="pct_of_throughput"?_pf(v)/100:_pf(v));refresh();}
 function _feeTransactionRateGrowth(i,si,v){const rp=_feeEnsureTransactionRatePath(i,si);rp.growth_spec=rp.growth_spec||{period:rp.period||"year",method:rp.resolution||"step",anchor:(rp.period||"year")==="year"?"model_year":"model_period"};rp.growth_spec.rate=_pf(v)/100;refresh();}
-function _feeSetTransactionRateSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=cfg.assumptions.obs_exposures[i].fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st),out={};vals.forEach((v,j)=>out[String(j+1)]=(pb==="pct_of_throughput"?v/100:v));rp.schedule=out;renderContent();refresh();}
+function _feeSetTransactionRateSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const st=_stOwner(i).fee_streams[si],rp=_feeEnsureTransactionRatePath(i,si),pb=_feeTransactionPricingBasisForStream(st),out={};vals.forEach((v,j)=>out[String(j+1)]=(pb==="pct_of_throughput"?v/100:v));rp.schedule=out;renderContent();refresh();}
 function _feeClearTransactionRateSchedule(i,si){const rp=_feeEnsureTransactionRatePath(i,si);rp.schedule={};renderContent();refresh();}
 var _feeGlobal=(typeof window!=="undefined"?window:globalThis);
 function _feeCostPools(){cfg.assumptions=cfg.assumptions||{};if(!Array.isArray(cfg.assumptions.cost_pools))cfg.assumptions.cost_pools=[];return cfg.assumptions.cost_pools;}
@@ -4068,7 +4183,7 @@ function refreshFeeCustomerCountPreviews(){
   if(!(V31 && currentTab==="products") || !lastRes)return;
   document.querySelectorAll("[data-fee-customer-count-preview]").forEach(el=>{
     const i=+(el.getAttribute("data-product-index")||-1),si=+(el.getAttribute("data-stream-index")||-1);
-    const st=(((((cfg||{}).assumptions||{}).obs_exposures||[])[i]||{}).fee_streams||[])[si];
+    const st=(((_stOwner(i)||{}).fee_streams)||[])[si];
     if(!st||!st.driver||st.driver.source!=="customer_acquisition_count")return;
     el.innerHTML=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure||"period_end");
   });
@@ -4076,11 +4191,11 @@ function refreshFeeCustomerCountPreviews(){
 _feeGlobal.addFeeCostPool=function(i,si){
   const pools=_feeCostPools();let n=1;const names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
   const p={series_id:_seriesId("cost-pool"),owner_module:"cost_pool",name:"Cost pool "+n,components:[]};pools.push(p);
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};st.driver.source="cost_pool";st.driver.ref=p.series_id;st.driver.trajectory="flat";st.driver.params={};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};st.driver.source="cost_pool";st.driver.ref=p.series_id;st.driver.trajectory="flat";st.driver.params={};
   st.rate=st.rate||{};st.rate.behavior="cost_recovery";st.rate.params={recovery_pct:0,markup:{value:0,period:"year",trajectory:"flat",resolution:"step"}};st.cost={kind:"none",params:{}};
   renderContent();refresh();
 };
-_feeGlobal.feeCostPoolSelect=function(i,si,ref){const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver.ref=ref;renderContent();refresh();};
+_feeGlobal.feeCostPoolSelect=function(i,si,ref){const st=_stOwner(i).fee_streams[si];st.driver.ref=ref;renderContent();refresh();};
 _feeGlobal.feeCostPoolRename=function(ref,name){const p=_feeCostPoolByRef(ref);if(p){p.name=String(name||"").trim()||p.name;refresh();}};
 function _costPoolUsage(ref){
   ref=String(ref||"");const fee=[],opex=[];
@@ -4096,11 +4211,11 @@ _feeGlobal.feeCostPoolDelete=function(ref){
 _feeGlobal.feeCostPoolDeleteFromStream=function(i,si,ref){
   const u=_costPoolUsage(ref);
   if(u.total>1){alert("This shared cost pool has "+u.total+" downstream consumers. Repoint the other consumers before deleting it.");return;}
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{per_unit:0}};st.cost={kind:"none",params:{}};
+  const st=_stOwner(i).fee_streams[si];st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{per_unit:0}};st.cost={kind:"none",params:{}};
   const pools=_feeCostPools(),at=pools.findIndex(p=>p&&String(p.series_id||"")===String(ref));if(at>=0)pools.splice(at,1);renderContent();refresh();
 };
 _feeGlobal.feeStreamTrajectoryChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];
+  const st=_stOwner(i).fee_streams[si];
   st.driver=st.driver||{};st.driver.params=st.driver.params||{};
   st.driver.trajectory=v;
   if(st.basis==="transaction"&&st.driver.source==="constant"&&st.driver.params.flow_path){
@@ -4120,7 +4235,7 @@ _feeGlobal.feeStreamTrajectoryChange=function(i,si,v){
   renderContent();refresh();
 };
 _feeGlobal.feeStreamBasisChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si],oldBasis=st.basis||"balance";st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};st.cost=st.cost||{kind:"none",params:{}};
+  const st=_stOwner(i).fee_streams[si],oldBasis=st.basis||"balance";st.basis=v;st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};st.cost=st.cost||{kind:"none",params:{}};
   // A balance rate is annualized stock pricing; a transaction rate is a throughput factor.
   // Never carry one silently across a basis change just because both use the same JSON key.
   if(oldBasis!==v) delete st.rate.params.rate_path;
@@ -4136,18 +4251,18 @@ _feeGlobal.feeStreamBasisChange=function(i,si,v){
   renderContent();refresh();
 };
 _feeGlobal.feeCustomerCountSourceChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};
   const opts=_feeCustomerCountOptions(),sid=String(v||"");
   st.driver.ref=opts.some(o=>o.series_id===sid)?sid:(opts.length?opts[0].series_id:"");
   renderContent();refresh();
 };
 _feeGlobal.feeCustomerCountMeasureChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};
   st.driver.measure=["annual_count","period_end","period_average"].includes(String(v||""))?String(v):"period_end";
   renderContent();refresh();
 };
 _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const d=st.driver,old=String(d.source||"constant");
   // A pasted/manual Account count path is valuable authored work. Linking the stream to the
   // CAC-owned Ending bank customers Series must hide, not destroy, that path. Keep params in
@@ -4194,14 +4309,14 @@ _feeGlobal.feeCostPoolComponentSource=function(ref,ci,val){const p=_feeCostPoolB
 _feeGlobal.feeCostPoolComponentAllocation=function(ref,ci,val){const p=_feeCostPoolByRef(ref);if(!p)return;p.components[ci].allocation_pct=Math.max(0,Math.min(1,_pf(val)/100));refresh();};
 _feeGlobal.feeCostPoolRemoveComponent=function(ref,ci){const p=_feeCostPoolByRef(ref);if(!p)return;p.components.splice(ci,1);renderContent();refresh();};
 function _feeEnsureCostRecovery(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{};st.rate.behavior="cost_recovery";st.rate.params=st.rate.params||{};const rp=st.rate.params;
+  const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{};st.rate.behavior="cost_recovery";st.rate.params=st.rate.params||{};const rp=st.rate.params;
   if(rp.recovery_pct==null)rp.recovery_pct=0;if(!rp.markup)rp.markup={value:+(rp.markup_pct||0),period:"year",trajectory:"flat",resolution:"step"};
   st.cost={kind:"none",params:{}};return rp;
 }
 function _feeSetCostRecoveryMarkupSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const rp=_feeEnsureCostRecovery(i,si),mp=rp.markup,out={};vals.forEach((v,j)=>out[String(j+1)]=v/100);mp.schedule=out;renderContent();refresh();}
 function _feeClearCostRecoveryMarkupSchedule(i,si){const rp=_feeEnsureCostRecovery(i,si);rp.markup.schedule={};renderContent();refresh();}
 function _feeEnsureAccountUnitFee(i,si){
-  const st=cfg.assumptions.obs_exposures[i].fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
+  const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const rp=st.rate.params;if(!rp.unit_fee)rp.unit_fee={value:+(rp.fee_per_period||0),period:"month",trajectory:"flat",path_period:"year",resolution:"step"};
   if(!rp.unit_fee.trajectory)rp.unit_fee.trajectory="flat";if(!rp.unit_fee.path_period)rp.unit_fee.path_period="year";if(!rp.unit_fee.resolution)rp.unit_fee.resolution="step";return rp.unit_fee;
 }
@@ -4503,6 +4618,7 @@ function fieldsFor(fam, p, base){
       + F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq")
       + (p.measurement==="fair_value"?F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct"):"");
     if(_funded)advanced += costFields;else h += costFields;
+    if(typeof window!=='undefined'&&window._ppMark){ const _li=+(base.split('.').pop()); h += '</div><div class="pp-sec" data-pp="streams">'+_feeStreamsSectionHtml(fam,p,base,1000+_li)+'</div><div class="pp-sec" data-pp="setup">'; }   // r232
   } else if(fam==="deposit"){
     h += depositBalanceHtml(p,base);
     // r231b: in level and pool modes the method sets each period's balance; the entered figure is only the
@@ -4525,6 +4641,7 @@ function fieldsFor(fam, p, base){
     h += F("Retained-balance fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
+    if(typeof window!=='undefined'&&window._ppMark){ const _di=+(base.split('.').pop()); h += '</div><div class="pp-sec" data-pp="streams">'+_feeStreamsSectionHtml(fam,p,base,2000+_di)+'</div><div class="pp-sec" data-pp="setup">'; }   // r232
   } else if(p.managed_notional || p._fee_product){
     const _fi = base.split(".").pop();   // array index (fieldsFor has no i in scope)
     // First-class FEE PRODUCT (pure non-interest revenue; off-book). Wired to the engine's
@@ -4546,7 +4663,7 @@ function fieldsFor(fam, p, base){
     _feeds.forEach(f=>{const fd=_feedMap[f];if(fd&&!fd.series_id)fd.series_id=_seriesId("cac-auc");if(fd&&!fd.owner_module)fd.owner_module="customer_acquisition";});
     const _srcOpts = [["","Manual (enter AUC ramp below)"]].concat(_feeds.map(f=>["feed:"+f,"Customer-Acquisition feed: "+f]));
     const _curSrc = p.managed_notional_source ? ("feed:"+p.managed_notional_source) : "";
-    h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=cfg.assumptions.obs_exposures[${_fi}]; if(v.indexOf(\x27feed:\x27)===0){var nm=v.slice(5),fd=((cfg.assumptions||{}).cac_feeds||{})[nm];pp.managed_notional_source=nm;if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}else{delete pp.managed_notional_source;delete pp.managed_notional_source_id;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
+    h += `<div class="fld wide"><label>AUC source</label><select onchange="var v=this.value; var pp=_stOwner(${_fi}); if(v.indexOf(\x27feed:\x27)===0){var nm=v.slice(5),fd=((cfg.assumptions||{}).cac_feeds||{})[nm];pp.managed_notional_source=nm;if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}else{delete pp.managed_notional_source;delete pp.managed_notional_source_id;} renderContent(); refresh()">${_srcOpts.map(o=>`<option value="${o[0]}"${o[0]===_curSrc?" selected":""}>${esc(o[1])}</option>`).join("")}</select></div>`;
     if(!p.managed_notional_source){
       const _mntraj=p.managed_notional.trajectory||"ramp_to_target";
       h += SEL("AUC trajectory", mnb+".trajectory", _mntraj, [["ramp_to_target","Ramp to target"],["proportional","Growth"],["flat","Flat"]]);
@@ -4562,8 +4679,38 @@ function fieldsFor(fam, p, base){
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
     }
     if(typeof window!=='undefined'&&window._ppMark) h += '</div><div class="pp-sec" data-pp="streams">';   // r204: fee streams tab
-    h += `<div class="fld wide" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:4px"><label style="color:#D4A65C;margin:0;flex:1">Fee streams</label><button class="btn-gold" style="font-size:11px;padding:5px 12px" onclick="openFeeGuide(${_fi});return false">Guide Me</button><span class="memo" style="margin:0">Describe the economics; Foundry maps them to its own fee dials.</span></div>`;
-    h += (typeof _feeGuideChecklistHtml==="function"?_feeGuideChecklistHtml(p,_fi):"");
+    h += _feeStreamsSectionHtml(fam, p, base, _fi);
+    if(typeof window!=='undefined'&&window._ppMark) h += '</div><div class="pp-sec" data-pp="setup">';
+  } else {
+    h += F("Notional ($000s)", base+".notional", "k");
+    h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
+    h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
+    h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
+    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
+  }
+  if(fam==="lending"&&_loanBalanceMode(p)==="funded_flow_level"){
+    const i=+(base.split('.').pop());
+    h += `<details class="flow-advanced" ontoggle="flowAdvancedToggle(${i},this.open)"${_flowAdvancedOpen.get(p)?' open':''}><summary>More settings · model setup &amp; costs</summary><div class="flow-advanced-grid">${advanced}</div></details>`;
+  }
+  return h;
+}
+// r232: the fee-stream workspace, shared by fee products, loans and deposits. _fi is the stream owner code:
+// a fee product's index (unchanged), or 1000+i for loans and 2000+i for deposits (resolved by _stOwner).
+function _stOwner(i){ // r232: resolve a stream owner code to its product (fee product index; 1000+i loan; 2000+i deposit)
+  const a=(((typeof cfg!=='undefined'&&cfg)||{}).assumptions)||{}; i=+i;
+  if(i>=2000) return (a.deposit_products||[])[i-2000];
+  if(i>=1000) return (a.lending_products||[])[i-1000];
+  return (a.obs_exposures||[])[i];
+}
+function _feeStreamsSectionHtml(fam, p, base, _fi){
+  const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
+  let h = "";
+  const SEL = (label, path, cur, opts) => {
+      let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
+      return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
+    };
+    if(+_fi<1000){ h += `<div class="fld wide" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:4px"><label style="color:#D4A65C;margin:0;flex:1">Fee streams</label><button class="btn-gold" style="font-size:11px;padding:5px 12px" onclick="openFeeGuide(${_fi});return false">Guide Me</button><span class="memo" style="margin:0">Describe the economics; Foundry maps them to its own fee dials.</span></div>`;
+    h += (typeof _feeGuideChecklistHtml==="function"?_feeGuideChecklistHtml(p,_fi):""); }   // r232: Guide Me remains a fee-product tool
     const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     const _stCards=[],_stMeta=[],_stSel=(p.fee_streams||[]).length?_mdPick(p.fee_streams,'_stSelObj','_stSeen'):0;
     (p.fee_streams||[]).forEach((st,si)=>{
@@ -4578,10 +4725,10 @@ function fieldsFor(fam, p, base){
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
-      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="_stOwner(${_fi}).fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       const _revPresentation=String(st.revenue_presentation||"revenue");
-      h += `<div class="fld"><label>Income presentation</label><select onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].revenue_presentation=this.value;refresh()"><option value="revenue"${_revPresentation==="revenue"?' selected':''}>Revenue</option><option value="contra_revenue"${_revPresentation==="contra_revenue"?' selected':''}>Contra-revenue</option></select></div>`;
+      h += `<div class="fld"><label>Income presentation</label><select onchange="_stOwner(${_fi}).fee_streams[${si}].revenue_presentation=this.value;refresh()"><option value="revenue"${_revPresentation==="revenue"?' selected':''}>Revenue</option><option value="contra_revenue"${_revPresentation==="contra_revenue"?' selected':''}>Contra-revenue</option></select></div>`;
       // Axis 1: basis
       h += `<div class="fld"><label>Basis (calculation)</label><select onchange="feeStreamBasisChange(${_fi},${si},this.value)">${[["balance","Balance — stock × annual rate"],["transaction","Transaction / throughput — volume × fee or spread"],["account","Account — count × fee"],["flat","Flat — periodic amount"],["event","Event — one-time amount"]].map(v=>`<option value="${v[0]}"${v[0]===basis?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
       h += `<div class="fld wide"><span class="memo" style="margin:0">Enter positive assumptions. Contra-revenue posts the calculated stream as a reduction of fee income.</span></div>`;
@@ -4734,7 +4881,7 @@ function fieldsFor(fam, p, base){
           }
         } else {
           const _bp=((st.rate.params.rate||0)*10000).toFixed(2);
-          h += `<div class="fld"><label>Legacy rate (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=_pf(this.value)/10000;refresh()"></div>`;
+          h += `<div class="fld"><label>Legacy rate (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.rate=_pf(this.value)/10000;refresh()"></div>`;
         }
       }
       else if(basis==="transaction"){
@@ -4752,7 +4899,7 @@ function fieldsFor(fam, p, base){
           }
           h += `<div class="fld wide"><span class="memo" style="margin:0"><b>Fee = eligible cost pool × recovery % × (1 + markup %).</b> The pool may combine linked expense Series with entered or balance-derived non-posting cost-base assumptions. It already resolves to a native-period flow, so Foundry does not annualize or divide it by projection cadence.</span></div>`;
           const _lr=((typeof lastRes!=="undefined"&&lastRes)||{}),_pr=(_lr.products||[]).find(x=>x&&x.family==="obs"&&x.name===p.name);if(_pr&&Array.isArray(_pr.fees)&&_pr.fees.length&&(p.fee_streams||[]).length===1){const _lab=PPY()===12?"M":(PPY()===4?"Q":"Y");h += `<div class="fld wide"><div class="cac-link-preview-row"><span class="wf-field-label">Latest run · resulting fee revenue</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(_pr.fees.map((v,k)=>_lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div></div>`;}
-          h += `<div class="fld wide"><label>Pricing / regulatory memo (optional)</label><textarea id="feePricingMemo_${_fi}_${si}" rows="2" class="model-free-text" style="width:100%;font-family:var(--sans);font-size:11px;box-sizing:border-box" placeholder="e.g. arm’s-length pricing rationale, affiliate-services policy, benchmark or regulatory context" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].pricing_memo=this.value">${esc(st.pricing_memo||'')}</textarea></div>`;
+          h += `<div class="fld wide"><label>Pricing / regulatory memo (optional)</label><textarea id="feePricingMemo_${_fi}_${si}" rows="2" class="model-free-text" style="width:100%;font-family:var(--sans);font-size:11px;box-sizing:border-box" placeholder="e.g. arm’s-length pricing rationale, affiliate-services policy, benchmark or regulatory context" onchange="_stOwner(${_fi}).fee_streams[${si}].pricing_memo=this.value">${esc(st.pricing_memo||'')}</textarea></div>`;
         } else {
           const _dc = (st.rate.behavior==="durbin_capped");
           if(!_dc){
@@ -4773,11 +4920,11 @@ function fieldsFor(fam, p, base){
             }
           }
           // Durbin debit-interchange cap: only relevant to ordinary transaction streams.
-          h += `<label style="grid-column:1/-1;display:flex;align-items:center;gap:7px;cursor:pointer;margin:8px 0 4px;font-size:12px"><input type="checkbox" style="margin:0;flex:0 0 auto" ${_dc?"checked":""} onchange="(function(cb){var st2=cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}];if(cb.checked){st2.rate.behavior='durbin_capped';st2.rate.params=st2.rate.params||{};delete st2.rate.params.rate_path;if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior='flat';}renderContent();refresh();})(this)"><span>Apply Durbin debit-interchange cap (binds at ≥ $10B assets)</span></label>`;
+          h += `<label style="grid-column:1/-1;display:flex;align-items:center;gap:7px;cursor:pointer;margin:8px 0 4px;font-size:12px"><input type="checkbox" style="margin:0;flex:0 0 auto" ${_dc?"checked":""} onchange="(function(cb){var st2=_stOwner(${_fi}).fee_streams[${si}];if(cb.checked){st2.rate.behavior='durbin_capped';st2.rate.params=st2.rate.params||{};delete st2.rate.params.rate_path;if(st2.rate.params.avg_ticket==null)st2.rate.params.avg_ticket=0;if(st2.rate.params.rate==null)st2.rate.params.rate=0;}else{st2.rate.behavior='flat';}renderContent();refresh();})(this)"><span>Apply Durbin debit-interchange cap (binds at ≥ $10B assets)</span></label>`;
           if(_dc){
-            h += `<div class="fld"><label>Gross interchange rate (%/txn value)</label><input type="number" step="0.01" value="${((st.rate.params.rate||0)*100).toFixed(3)}" title="e.g. 1.25% debit interchange" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.rate=_pf(this.value)/100;refresh()"></div>`;
-            h += `<div class="fld"><label>Avg ticket ($/txn)</label><input type="number" step="1" value="${st.rate.params.avg_ticket||0}" title="average transaction size, sets the per-tx cap" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.avg_ticket=_pf(this.value);refresh()"></div>`;
-            h += `<div class="fld"><label>Net fee ($/unit, after network fee)</label><input type="number" step="0.001" value="${st.rate.params.per_unit||0}" title="the per-transaction fee you actually earn (gross rate x ticket, less network fee)" onchange="cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.per_unit=_pf(this.value);refresh()"></div>`;
+            h += `<div class="fld"><label>Gross interchange rate (%/txn value)</label><input type="number" step="0.01" value="${((st.rate.params.rate||0)*100).toFixed(3)}" title="e.g. 1.25% debit interchange" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.rate=_pf(this.value)/100;refresh()"></div>`;
+            h += `<div class="fld"><label>Avg ticket ($/txn)</label><input type="number" step="1" value="${st.rate.params.avg_ticket||0}" title="average transaction size, sets the per-tx cap" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.avg_ticket=_pf(this.value);refresh()"></div>`;
+            h += `<div class="fld"><label>Net fee ($/unit, after network fee)</label><input type="number" step="0.001" value="${st.rate.params.per_unit||0}" title="the per-transaction fee you actually earn (gross rate x ticket, less network fee)" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.per_unit=_pf(this.value);refresh()"></div>`;
             h += `<div class="fld wide" style="font-size:11px;color:#888">Below $10B: you earn the net fee. At/above $10B: the effective rate is capped to the regulated cap ($0.21 + 0.05%×ticket + $0.01), reducing interchange automatically.</div>`;
           }
         }
@@ -4809,7 +4956,7 @@ function fieldsFor(fam, p, base){
       else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F(`At period (${PLAB('full')})`, sb+".driver.params.at_period", "n"); }
       if(rb==="annual_change"){ h += F("Annual rate change (%/yr, neg=pressure)", sb+".rate.params.annual_delta", "pct"); }
       if(rb==="tiered"){ h += `<div class="fld wide" style="font-size:11px;color:#888">Tiered breakpoints entered as JSON: [{"up_to":1000000,"rate":0.01},{"up_to":null,"rate":0.005}]</div>`;
-        h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{cfg.assumptions.obs_exposures[${_fi}].fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert('Invalid JSON')}"></div>`; }
+        h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{_stOwner(${_fi}).fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert('Invalid JSON')}"></div>`; }
       h += '</div><div class="st-sec" data-st="timing">';
       // Axis 5: timing
       h += F(`Revenue start (${PLAB('full')})`, sb+".timing.start_period", "n");
@@ -4887,34 +5034,26 @@ function fieldsFor(fam, p, base){
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += '<div class="fld wide st-md">'+chainH;
-      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
+      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
       const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
-      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){cfg.assumptions.obs_exposures[${_fi}].fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
+      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){_stOwner(${_fi}).fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
       { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
+    } else if(+_fi>=1000&&_stSetupFeeRow(_fi)){   // r232: no streams yet, but the Setup fee yield is still listed
+      h += '<div class="fld wide st-md"><div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver</th></tr></thead><tbody>'+_stSetupFeeRow(_fi)+'</tbody></table>'
+        + '<div class="st-foot">No fee streams yet. The fee yield is set in Setup \u2192 Pricing; add a stream below for a fee with its own driver, pricing, timing or cost.</div></div></div>';
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#D4A65C">Add a fee stream</label></div>';
     h += '<div class="fld wide prd-tiles">';
     ["balance","transaction","account","flat","event"].forEach(bz=>{ h += _feeBasisTileHtml(bz,_fi); });
     h += '</div>';
-    if(typeof window!=='undefined'&&window._ppMark) h += '</div><div class="pp-sec" data-pp="setup">';
-  } else {
-    h += F("Notional ($000s)", base+".notional", "k");
-    h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
-    h += F("Fees (annual % of notional)", base+".fee_yield_ann", "pct");
-    h += F("Op cost (annual % of notional)", base+".opex_pct_ann", "pct");
-    h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
-  }
-  if(fam==="lending"&&_loanBalanceMode(p)==="funded_flow_level"){
-    const i=+(base.split('.').pop());
-    h += `<details class="flow-advanced" ontoggle="flowAdvancedToggle(${i},this.open)"${_flowAdvancedOpen.get(p)?' open':''}><summary>More settings · model setup &amp; costs</summary><div class="flow-advanced-grid">${advanced}</div></details>`;
-  }
   return h;
 }
+
 function lineOptionsFor(cat){ return cat==="asset" ? LOAN_KEYS : (cat==="liability" ? DEP_KEYS : ["obs"]); }
 function isOpen(key){ return openMap[key]===undefined ? true : openMap[key]; }
 function pstat(name){
@@ -5346,21 +5485,21 @@ function _feeGuideChecklistHtml(product,productIndex){
   return h+'</div></div>';
 }
 window.setFeeGuideChecklistStream=function(productIndex,index){
-  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  const p=_stOwner(productIndex);if(!p)return;
   const plan=window._feeGuidePinnedPlans.get(p),n=((plan||{}).stream_guides||[]).length;
   window._feeGuideChecklistActive.set(p,Math.max(0,Math.min(n-1,+index||0)));renderContent();
 };
 window.toggleFeeGuideChecklist=function(productIndex,key,checked){
-  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  const p=_stOwner(productIndex);if(!p)return;
   let done=window._feeGuideChecklistProgress.get(p);if(!done){done=new Set();window._feeGuideChecklistProgress.set(p,done);}
   if(checked)done.add(String(key));else done.delete(String(key));
 };
 window.clearFeeGuideChecklist=function(productIndex){
-  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];if(!p)return;
+  const p=_stOwner(productIndex);if(!p)return;
   window._feeGuidePinnedPlans.delete(p);window._feeGuideChecklistProgress.delete(p);window._feeGuideChecklistActive.delete(p);renderContent();
 };
 window.openFeeGuide = function(productIndex){
-  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex]||{};
+  const p=_stOwner(productIndex)||{};
   const nm=p.name||"Fee product";
   let h='<button class="modal-close-x" type="button" aria-label="Close Guide Me" title="Back to Fee Product" onclick="closeFeeGuide();return false">&times;</button>';
   h += `<h3>Guide Me — ${esc(nm)}</h3>`;
@@ -5422,7 +5561,7 @@ window.configureFeeGuideKey = async function(){
 };
 window.closeFeeGuide = function(){
   const productIndex=window._feeGuideProductIndex;
-  const p=((cfg.assumptions||{}).obs_exposures||[])[productIndex];
+  const p=_stOwner(productIndex);
   const hasChecklist=!!(p&&window._feeGuidePinnedPlans.get(p));
   window._feeGuideRunToken=(window._feeGuideRunToken||0)+1;
   window._feeGuideActive=false;
@@ -5484,7 +5623,7 @@ window.runFeeGuide = async function(){
     let h='';
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[],_clar=j.clarification||null;
     if(_guides.length && j.status!=="needs_clarification"){
-      const p=((cfg.assumptions||{}).obs_exposures||[])[window._feeGuideProductIndex];
+      const p=_stOwner(window._feeGuideProductIndex);
       if(p){window._feeGuidePinnedPlans.set(p,{product_setup:j.product_setup||"",stream_guides:_guides});window._feeGuideChecklistProgress.set(p,new Set());window._feeGuideChecklistActive.set(p,0);}
     }
     if(j.status==="needs_clarification"){
@@ -5670,9 +5809,10 @@ window.addFeeProductMulti = function(btn){
   if(c) c.textContent = window._modalAdded ? (window._modalAdded + (window._modalAdded === 1 ? " product added" : " products added")) : "";
 };
 window.addFeeStream = function(i, basis){
-  const p = cfg.assumptions.obs_exposures[i]; if(!p) return;
+  const p = _stOwner(i); if(!p) return;
   p.fee_streams = p.fee_streams || [];
-  const src = (basis==="balance") ? "managed_notional" : "constant";
+  // r232: a balance stream on a loan or deposit starts on the product's own balance (fee products have AUC).
+  const src = (basis==="balance") ? ((+i>=1000)?"own_balance":"managed_notional") : "constant";
   p.fee_streams.push({name:"", basis:basis, quantity_series_id:_seriesId("fee-qty"),
                       revenue_presentation:"revenue",
                       driver:{source:src, trajectory:"flat", params:{base:0}},
@@ -8254,12 +8394,12 @@ function _renderContentBody(){
       const x=_all[selIdx], p=x.p, key=x.fam+'_'+x.i; openMap[key]=true;
       const fee=_isFee(p), ns=_nStreams(p), line=LINE_LABELS_V31[p.call_report_line]||p.call_report_line||'';
       const kind=fee?'Fee product':(x.fam==='lending'?'Lending product':(x.fam==='deposit'?'Deposit product':'Off-balance-sheet product'));
-      const tabs=[['setup','Setup',null]]; if(fee) tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);
+      const tabs=[['setup','Setup',null]]; if(fee||x.fam==='lending'||x.fam==='deposit') tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);   // r232: Fee streams for loans and deposits too
       let tab=window._prdTab; if(!tabs.some(t=>t[0]===tab)) tab=fee?'streams':'setup';
       h+=`<div class="prd-crumb"><a href="#" onclick="prdView('portfolio');return false">Products</a><span>/</span>${_famLab(x.fam)}<span>/</span><b>${esc(p.name||'Unnamed product')}</b></div>`;
       h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${kind}${line?' \u00B7 '+esc(line):''}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
       if(tabs.length>1) h+='<div class="prd-tabs" role="tablist">'+tabs.map(t=>`<button type="button" class="prd-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="prdTabSet('${t[0]}')">${t[1]}${t[2]!=null?`<small>${t[2]}</small>`:''}</button>`).join('')+'</div>';
-      h+=`<div class="prd-card" data-pp-tab="${tab}">${prodCardHtml(x.fam,x.i)}</div>`;
+      h+=`<div class="prd-card" data-pp-tab="${tab}" data-fam="${x.fam}" data-i="${x.i}">${prodCardHtml(x.fam,x.i)}</div>`;
     } else if(view==='compare'){
       const fam=window._prdCmpFam||'obs', allF=_all.filter(x=>x.fam===fam), items=allF.slice(0,12);
       h+='<div class="prd-h1">Compare products</div><div class="prd-sub">Products in one family side by side: how each earns, what drives it, and what the latest run produced.</div>';
