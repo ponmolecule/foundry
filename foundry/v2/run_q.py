@@ -563,7 +563,7 @@ def run_v2(cfg):
     _detail_money_keys = (
         "bal", "origq", "soldOrig", "whCarry", "gos", "servUPB", "msrCap",
         "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
-        "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume",
+        "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume", "sweptBalance", "sweepFee",
         "calculatedOutstanding", "targetBeforeAllocation", "distributedBalance",
         "interestBasis", "linkedBalanceTarget",
     )
@@ -595,6 +595,8 @@ def run_v2(cfg):
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
+        **({"deposit_retention_pools": base["deposit_retention_pools"]}
+           if base.get("deposit_retention_pools") else {}),
         **({"loan_allocation_groups": base.get("loan_allocation_groups")}
            if base.get("loan_allocation_groups") else {}),
         # Fee-stream quantities are non-monetary/heterogeneous model quantities (counts,

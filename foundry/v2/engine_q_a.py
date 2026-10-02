@@ -565,7 +565,16 @@ def run_pf_a(cfg):
         p["_sale"] = mb.get("sale_pct_of_orig", 0.0) or 0.0
         p["_alll"][0] = 0.0 if p["_is_fv"] else p["_bal"][0] * (p.get("reserve_rate_pct_bal") or 0.0)
 
-    for p in dep + obs:
+    from .deposit_balance import prepare as prepare_deposits, allocate_period as allocate_deposit_period
+    _deposit_feature = bool(a.get("deposit_retention_pools")) or any(p.get("balance_mode", "rollforward") != "rollforward" for p in dep)
+    _deposit_direct, _deposit_pools = {}, []
+    _deposit_prepared = False
+    # Resolve upstream fee quantities before their deposit consumers; historical
+    # projection order stays identical for engagements without deposit extensions.
+    for p in (obs + dep if _deposit_feature else dep + obs):
+        if _deposit_feature and p in dep and not _deposit_prepared:
+            _deposit_direct, _deposit_pools = prepare_deposits(a, Q, ppy, _fee_stream_qty_series, _growth_ctx)
+            _deposit_prepared = True
         # managed notional (off-book AUC/AUM) for fee products; empty => zeros (hash-safe)
         # managed_notional: inline on the product, OR sourced from a named CAC feed
         # (assumptions.cac_feeds[name]) so multiple products share ONE customer-driven AUC.
@@ -611,12 +620,25 @@ def run_pf_a(cfg):
             else:
                 end = max(0.0, beg * (1 + _ovq(p, "growth_q", q, p.get("growth_q") or 0.0)
                                       - runoff_rt) + new_abs)
+            if _deposit_feature and p in dep:
+                _di = dep.index(p)
+                if _di in _deposit_direct:
+                    end = _deposit_direct[_di][q - 1]
+                elif p.get("balance_mode") == "pool":
+                    # Period-loop policy owns allocation after prior bank state exists.
+                    _pool = next(g for g in _deposit_pools if _di in g['members'])
+                    _available = max(0., _pool['source'][q-1] + _pool['adjustments'][q-1])
+                    _cap = _pool['capacity'][q-1] if _pool['capacity'] is not None else _available
+                    end = (min(_available, _available * _pool['share'][q-1], _cap) * _pool['weights'][_di][q-1]) if _pool['budget'] is None else 0.0
             avg = (beg + end) / 2.0
+            _measure = p.get("interest_balance_measure", "period_average") if p in dep else "period_average"
+            _interest_basis = end if _measure == "period_end" else beg if _measure == "period_begin" else avg
             r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
-            p["_ie"].append(avg * r / ppyf if p in dep else 0.0)
+            p["_ie"].append(_interest_basis * r / ppyf if p in dep else 0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            "distributed_balance": 0.0,
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
                                                             "customer_acquisition_count": _cac_customer_count_ctx(q),
@@ -1145,6 +1167,30 @@ def run_pf_a(cfg):
         return None
 
     for q in range(1, Q + 1):
+        for _pool in _deposit_pools:
+            _prior_opex = ((is_["prodOpex"][q - 1] or 0) + (is_["feeOpex"][q - 1] or 0) + (is_["overhead"][q - 1] or 0)) if q > 1 else 0.0
+            _alloc = allocate_deposit_period(_pool, q, ppy, bs["equity"][q - 1], gross[q - 1], _prior_opex)
+            for _di, (_retained, _swept, _sweep_fee) in _alloc.items():
+                _dp = dep[_di]
+                _beg = _dp["_bal"][q - 1]
+                _dp["_bal"][q] = _retained
+                _avg = (_beg + _retained) / 2
+                _dp["_avg"][q] = _avg
+                _measure = _dp.get("interest_balance_measure", "period_average")
+                _basis = _retained if _measure == "period_end" else _beg if _measure == "period_begin" else _avg
+                _dp["_ie"][q] = _basis * _prod_rate(_dp, q, rate) / ppyf
+                _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg,
+                    "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
+                    "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q),
+                    "capture_stream_qty": _fee_stream_qty_series, "capture_stream_economics": _fee_stream_econ_series,
+                    "growth_context": _growth_ctx}, ppy)
+                _dp["_fee"][q] = _avg * (_dp.get("fee_yield_ann") or 0) / ppyf + _inc + _sweep_fee
+                _dp["_fcost"][q] = _cost
+                _dp["_ox"][q] = _avg * (_dp.get("opex_pct_ann") or 0) / ppyf + opex_fixed_period(_dp, ppy)
+                _dp.setdefault("_swept", []).append(_swept)
+                _dp.setdefault("_sweep_fee", []).append(_sweep_fee)
+        if _deposit_pools:
+            deps_c[q] = deps_b[q] = sum(p["_bal"][q] for p in dep)
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
         _ib_i = q - 1
@@ -1569,6 +1615,7 @@ def run_pf_a(cfg):
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
                 "rate_type": p.get("rate_type", "fixed"),
+                "index": p.get("index", "sofr"),
                 "index_spread": p.get("index_spread"),
                 "is_fv": bool(p.get("_is_fv")),
                 "sale_pct": p.get("_sale", 0.0),
@@ -1593,6 +1640,14 @@ def run_pf_a(cfg):
                 "servNet": [(p["_snet"][q] if p.get("_snet") else 0.0) for q in range(1, Q + 1)],
                 "ftp_rate": [rate(q) for q in range(1, Q + 1)],
             }
+            if fam == "deposit" and p.get("balance_mode", "rollforward") != "rollforward":
+                _pr["balanceMode"] = p["balance_mode"]
+                _pr["interestBalanceMeasure"] = p.get("interest_balance_measure", "period_average")
+                _pr["interestBasis"] = [p["_bal"][q] if p.get("interest_balance_measure") == "period_end" else p["_bal"][q-1] if p.get("interest_balance_measure") == "period_begin" else p["_avg"][q] for q in range(1, Q+1)]
+                if p.get("balance_mode") == "pool":
+                    _pr["retentionPoolId"] = p["retention_pool_id"]
+                    _pr["sweptBalance"] = p["_swept"]
+                    _pr["sweepFee"] = p["_sweep_fee"]
             # Promote the off-book stock from a private calculation helper to an auditable,
             # native-cadence model output.  Only products that actually carry/supply managed
             # notional receive these keys, preserving the historical output shape elsewhere.
@@ -1704,4 +1759,6 @@ def run_pf_a(cfg):
         }
     if _allocation_audit:
         _out["loan_allocation_groups"] = copy.deepcopy(_allocation_audit)
+    if _deposit_pools:
+        _out["deposit_retention_pools"] = {p["config"]["id"]: p["audit"] for p in _deposit_pools}
     return _out
