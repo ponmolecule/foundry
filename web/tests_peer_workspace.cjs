@@ -1,0 +1,10 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const start=html.indexOf('// r239 peer workspace:');const end=html.indexOf('let _pbRenderGeneration',start);
+const cfg={peer_bands_mode:'2B_10B'};
+const ctx={window:{},cfgRef:()=>cfg,lastRes:{run_hash:'test'},esc:s=>String(s).replace(/</g,'&lt;'),setTimeout,clearTimeout,console};vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
+assert.equal(ctx.peerFinite(null),false);assert.equal(ctx.peerFinite(0),true);
+const range=ctx.peerRangeSvg({min:0,max:0,p10:0,p25:0,p50:0,p75:0,p90:0},0);assert(!range.includes('NaN'));
+const body=ctx.peerWorkspaceSummary([{metric:'roa',d:{bands:[{quarter:'2026Q2',min:-1,max:2,p10:0,p25:.1,p50:.5,p75:1,p90:1.5,n:300}]}}],'2B_10B',false,()=>({v:0,vq:null}),()=>'<P10');
+assert(body.includes('<span>Min</span><b>-1.00</b>'));assert(body.includes('0.00%'));assert.equal(ctx.window._peerSnapshot.rows[0].band.n,300);
+(async()=>{let active=0,max=0;const values=await ctx.peerMapLimited([1,2,3,4,5,6,7],async x=>{active++;max=Math.max(max,active);await new Promise(r=>setTimeout(r,10));active--;return x;});assert(max<=3);assert.deepEqual(Array.from(values),[1,2,3,4,5,6,7]);console.log('PASS stacked values, true extrema, zero/missing handling, ordered concurrency <=3');})().catch(e=>{console.error(e);process.exit(1)});

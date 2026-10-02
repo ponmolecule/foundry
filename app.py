@@ -658,7 +658,7 @@ def auth_reset(body: dict, user=Depends(gate)):
     return {"ok": True, "reset": body.get("username")}
 
 @app.get("/api/v31/peer-bands")
-def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate)):
+def v31_peer_bands(metric: str = "roa", cohort: str = "broad", latest_only: bool = False, user=Depends(gate)):
     """Substrate percentile bands (F-121 consumption path). cohort is 'broad',
     a stored asset-band group_id (under_200M, 200M_500M, ...), or a comma-separated
     cert list (the Konrad shape)."""
@@ -675,7 +675,12 @@ def v31_peer_bands(metric: str = "roa", cohort: str = "broad", user=Depends(gate
             return JSONResponse({"error": f"unrecognized cohort '{cohort}' — expected "
                                  "'broad', an asset band, or a cert list"}, status_code=400)
     try:
-        parsed, source = _pb.get_bands(metric, co)
+        if latest_only:
+            from foundry.v2.peer_cache import cached_peer
+            key=("bands",_pb._canonical_metric(metric),co if isinstance(co,str) else tuple(sorted(set(co))))
+            parsed, source = cached_peer(key,lambda:_pb.get_bands(metric,co,latest_only=True))
+        else:
+            parsed, source = _pb.get_bands(metric,co)
     except _pb.BandsError as e:
         return JSONResponse({"error": str(e)}, status_code=404)
     except Exception as e:
@@ -710,7 +715,8 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                                  "cohort requires the live database"}, status_code=503)
         db_metric = _pb._canonical_metric(metric)   # short corridor key -> DB metric_name
         stage = "get_lending_cohort_bands"
-        bands = cl.get_lending_cohort_bands(db_metric, asset_band=band, latest_only=True)
+        from foundry.v2.peer_cache import cached_peer
+        bands = cached_peer(("lending",db_metric,band),lambda:cl.get_lending_cohort_bands(db_metric,asset_band=band,latest_only=True))
         if not bands:
             return JSONResponse({"error": f"no lending peers in band '{band}' have a published "
                                  f"'{db_metric}' at the latest quarter (after charter/ceiling"
@@ -1279,7 +1285,9 @@ def v31_substrate_vintage(body: dict, _=Depends(gate)):
         metrics = body.get("metrics")
         if not metrics:
             metrics = list(VINTAGE_METRICS) + ["net_charge_off_rate"]
-        return JSONResponse(build_vintage_corridor(cl, est_from, est_to, metrics=metrics))
+        from foundry.v2.peer_cache import cached_peer
+        return JSONResponse(cached_peer(("vintage",est_from,est_to,tuple(metrics)),
+            lambda:build_vintage_corridor(cl, est_from, est_to, metrics=metrics)))
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
@@ -1295,9 +1303,11 @@ def peer_intelligence_lab_vintage(body: dict, _=Depends(gate)):
     if not cl.configured():
         return JSONResponse({"error": "substrate not configured"}, status_code=422)
     try:
-        return JSONResponse(build_curated_vintage_corridor(
-            cl, body.get("certs") or [], metrics=body.get("metrics"),
-            max_age_q=12, min_n=body.get("min_n", 2)))
+        from foundry.v2.peer_cache import cached_peer
+        certs=body.get("certs") or [];metrics=body.get("metrics");min_n=body.get("min_n",2)
+        key=("curated-vintage",json.dumps([sorted(certs),metrics,min_n],sort_keys=True))
+        return JSONResponse(cached_peer(key,lambda:build_curated_vintage_corridor(
+            cl, certs, metrics=metrics,max_age_q=12,min_n=min_n)))
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
@@ -1598,3 +1608,22 @@ async def v2_parse_workbook(request: Request, _=Depends(gate)):
     if errs:
         return JSONResponse({"valid": False, "errors": errs}, status_code=422)
     return JSONResponse(cfg)
+
+@app.post('/api/v31/peer-comparison/export')
+async def peer_comparison_export(request: Request, _=Depends(gate)):
+    """Export a bounded displayed snapshot; never contacts the substrate."""
+    import json
+    from io import BytesIO
+    from fastapi.responses import Response
+    from foundry.v2.peer_export import peer_comparison_workbook
+    raw=await request.body()
+    if len(raw)>4_000_000:raise HTTPException(413,'Comparison snapshot is too large.')
+    try:
+        body=json.loads(raw)
+        if not isinstance(body,dict):raise ValueError('Expected comparison snapshot')
+        from starlette.concurrency import run_in_threadpool
+        def render():
+            wb=peer_comparison_workbook(body);out=BytesIO();wb.save(out);return out.getvalue()
+        contents=await run_in_threadpool(render)
+    except (ValueError,TypeError,KeyError) as exc:raise HTTPException(422,str(exc))
+    return Response(contents,media_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',headers={'Content-Disposition':'attachment; filename="foundry_peer_comparison.xlsx"'})
