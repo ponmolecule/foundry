@@ -216,7 +216,7 @@ def main():
        and 'w._fit=true; window.cfgSelectModule=w;' in html)
     # r231b: deposit pools: fee basis control; honest opening-balance label in level / pool modes.
     ck("Deposit pools offer the swept-balance fee basis; level and pool modes label the opening balance for what it is",
-       "sweep_fee_balance_measure" in html and 'Swept-balance fee on' in html and 'Opening balance before period 1 ($000s)' in html)
+       "sweep_fee_balance_measure" in html and 'Fee balance measure' in html and 'Opening balance before period 1 ($000s)' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

@@ -1,6 +1,6 @@
-# r231a_fix2 · Deposit balance sources and shared retention / sweep policies
+# r231a_fix3 · Deposit balance sources and shared retention / sweep policies
 
-History: r230 (`1c3e67d`) → r231a (`30f7ad8`) → r231a_fix1 (`33c2156`) → r231a_fix2. The existing product workspace,
+History: r230 (`1c3e67d`) → r231a (`30f7ad8`) → r231a_fix1 (`33c2156`) → r231a_fix2 (`55902e6`) → r231a_fix3. The existing product workspace,
 branding, six deposit presets, top menus, and ordinary deposit roll-forward remain.
 This release adds optional mechanics inside those deposit products.
 
@@ -99,3 +99,7 @@ Use the usual `deploy_foundry_dynamic.ps1` workflow. The delivery contains
 compatible history. If your local/GitHub branch is still at `1c3e67d`, importing this
 bundle can fast-forward. The deployment script should report the new build stamp.
 No remote branch was pushed by this build task.
+
+Outbound pool balances are labeled **Swept out (off-book)** and the revenue is **Fee on swept-out balances**.
+Enter the gross program source before retention/capacity limits. Inbound Sweep / Program deposits
+remain an ordinary deposit preset; the preset does not automatically opt into pooling.

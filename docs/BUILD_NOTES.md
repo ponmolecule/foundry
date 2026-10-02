@@ -891,3 +891,10 @@ History: r230 → r231a → r231a_fix1 → r231a_fix2. Last good deployment rema
 - Five transition previews tested against the actual API all return 200; one request per action.
 - Full inventory includes Python and CJS scripts: 56 entry points, 46 pass / 10 baseline failures.
   No new failing entry points against r230. See DEPOSIT_FIX1_VALIDATION.md for details.
+
+## r231a_fix3 — Clarify outbound sweep labels
+
+Presentation-only iteration on fix2. Pool preview and Product Detail use "Swept out (off-book)"
+and "Fee on swept-out balances"; the audit labels match. Series keys stay sweptBalance and
+sweepFee. Source guidance asks for gross program balance before retention/capacity limits,
+not deposits already expected to remain on-book. Deposit presets and calculation logic unchanged.
