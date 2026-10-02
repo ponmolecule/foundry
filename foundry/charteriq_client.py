@@ -630,8 +630,11 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
     certs = [m["cert"] for m in members]
     mrows = client._run(
         "SELECT cert, metric_name, year, quarter, value FROM metrics "
-        "WHERE cert = ANY(%s) AND metric_name = ANY(%s) "
-        "ORDER BY cert, metric_name, year, quarter", (certs, list(metrics)))
+        "WHERE cert = ANY(%s) AND metric_name = ANY(%s) AND year BETWEEN %s AND %s "
+        "ORDER BY cert, metric_name, year, quarter",
+        # r242: only the years the corridor can use (charter year onward, ages up to 24 quarters for the
+        # charge-off later bucket); earlier/later rows were fetched and then discarded in Python.
+        (certs, list(metrics), int(est_from), int(est_to) + 7))
     est = {m["cert"]: m["est_year"] for m in members}
     # per (metric, cert): age-ordered values
     series = {}
