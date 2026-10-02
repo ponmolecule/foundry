@@ -263,6 +263,13 @@ def main():
     ck("List-and-detail screens size the list to its table when there is room, and re-fit on sub-tab and product-tab switches",
        'function fitMasterDetail()' in html and 'minmax(min(${need}px, calc(100% - 494px)), ${need}px) minmax(480px, 880px)' in html
        and "['cfgSelectModule','nieTabSet','prdTabSet'].forEach(" in html)
+    # r240: Peer Cohort: one cached batch request; redesigned corridor with stacked Min..Max; Excel export.
+    ck("Peer corridor uses one cached batch request and the redesigned rows with stacked Min..Max",
+       '/api/v31/peer-bands/batch?metrics=' in html and 'window._pbCache = window._pbCache || {};' in html
+       and 'function _pbDesignHtml(items, ctx)' in html and "stat('min','Min')" in html and "stat('max','Max')" in html
+       and 'window.pbExport=async function()' in html and 'const results = await Promise.all(metrics.map(fetchBand));' not in html)
+    ck("Vintage corridor tables include Min and Max rows",
+       '["max","p90","p75","p50","p25","min"].forEach(p=>{' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

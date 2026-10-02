@@ -136,6 +136,7 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
     cells = {m: {age: [] for age in range(1, 13)} for m in metrics}
     contributors = {m: set() for m in metrics}
     latest_age = {c: {m: None for m in metrics} for c in matched}
+    series_by_cert = {m: {} for m in metrics}   # r240: each bank's value by age, for the workbook
     for cert, metric, year, quarter, value in mrows:
         cert, metric = int(cert), str(metric)
         rec = institutions.get(cert)
@@ -148,6 +149,7 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
         if 1 <= age <= 12:
             cells[metric][age].append(float(value))
             contributors[metric].add(cert)
+            series_by_cert[metric].setdefault(str(cert), {})[age] = float(value)
 
     corridor = {}
     for metric in metrics:
@@ -178,6 +180,7 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
                 # percentiles; band_type/thin_sample carry that distinction.
                 "p25": low, "p50": mid, "p75": high,
                 "p90": (_percentile(vals, .90) if n >= 3 else high),
+                "min": (min(vals) if n else None), "max": (max(vals) if n else None),   # r240
             })
         corridor[metric] = {
             "ages": ages,
@@ -228,4 +231,5 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
             "banks": bank_coverage,
         },
         "corridor": corridor,
+        "series_by_cert": series_by_cert,
     }
