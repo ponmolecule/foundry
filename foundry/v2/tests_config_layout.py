@@ -255,6 +255,10 @@ def main():
     ck("Workforce roles reorder by drag, like operating-expense categories",
        'window.nieWorkforceDrop=function(ev,target)' in html and 'ondragstart="nieWorkforceDragStart(event,${wi})"' in html
        and 'Drag the handle to reorder; select a row to edit its assumptions.' in html)
+    # r237: the Operating expense scope card reads "N workforce populations · N expense categories".
+    ck("Operating expense scope card reads 'N workforce populations · N expense categories' with correct singulars",
+       "workforce population${_r.length===1?'':'s'}" in html and "expense categor${_c.length===1?'y':'ies'}" in html
+       and 'Populations / categories' not in html and '.cfg-kpis[data-engine-preview="nie-kpis"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.45fr) minmax(0,1fr)}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

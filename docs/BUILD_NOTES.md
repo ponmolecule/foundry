@@ -984,3 +984,11 @@ Presentation release on r235. Results identical to r235.
    inline text with thin dividers instead of grey boxes.
 4. Workforce roles reorder by drag, like categories. Selection follows the role; Advanced-trajectories state
    is keyed by series id; engine outputs are unaffected (26 statement series identical after a reorder).
+
+
+## r237 — Operating expense scope card
+
+Presentation release on r236. The "Populations / categories 10 / 18" card now reads "10 workforce
+populations · 18 expense categories" (singular forms when a count is 1), large numbers with small words as in
+the other KPI cards. That card gets a 1.45 share of the KPI strip so the phrase stays on one line at 1440px;
+each half wraps as a unit on narrower screens. Its value aligns with the neighbouring cards.
