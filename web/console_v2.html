@@ -1585,6 +1585,13 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 /* r232: Setup fee-yield row in loan and deposit fee-stream grids */
 .st-list tbody tr.st-setup td{background:#F7F5F0;cursor:default}
 .st-list tbody tr.st-setup:hover td{background:#F7F5F0}
+
+/* r233: grouped Setup tabs for loans and deposits (same style as the stream editor's tabs) */
+.prd-stabs{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid #D8D8D8;margin:6px 0 12px}
+.prd-stab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 16px 9px;border:0;background:none;cursor:pointer;font:inherit;color:#666666;text-align:left}
+.prd-stab b{font-weight:500;color:#4A4A4A;font-size:13.5px}.prd-stab small{font-size:11.5px;color:#96928C;white-space:nowrap}
+.prd-stab:hover b{color:#343434}.prd-stab.on{box-shadow:inset 0 -2.5px 0 var(--k-gold)}.prd-stab.on b{color:#343434;font-weight:600}
+.prd-stab:focus-visible{outline:2px solid var(--k-gold);outline-offset:-2px}
 </style>
 </head>
 <body>
@@ -2044,7 +2051,7 @@ function fitInput(el){
 (function(){
   // r229: fit synchronously in the mutation callback (a microtask, before the browser paints), so a redrawn
   // control never shows its unfitted width for a frame. fitControls only changes styles, which the observer ignores.
-  const run=()=>fitControls();
+  const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };   // r233: group Setup before fitting, both before paint
   const start=()=>{ const c=document.getElementById('content'); if(!c) return setTimeout(start,200);
     new MutationObserver(run).observe(c,{childList:true,subtree:true}); run(); };
   start();
@@ -2096,6 +2103,86 @@ function _ipFeeYieldHtml(fi){
   const steps=[{l:'Fee yield, annual',v:(fy*100).toFixed(2)+'%'},{o:'\u00f7',l:eu+' per year',v:String(ppy)}];
   if(avg!=null) steps.push({o:'\u00d7',l:'Average balance',d:P,v:_stNum(avg)+' $000s'},{o:'=',l:'Fee yield income',d:P,v:_stNum(avg*fy/ppy)+' $000s',t:1});
   return '<h4>Fee yield \u00b7 '+esc(p.name||'')+'</h4><div class="ip-sub">Set in Setup \u2192 Pricing</div>'+_ipStepsHtml(steps,'This fee is charged on the product\u2019s average balance and adds to any fee streams listed here. Total fee income = fee yield + fee streams.');
+}
+
+// r233: Setup for loans and deposits grouped by concern (Balance · Pricing · Timing · Credit · Costs), using the
+// same tab style as the stream editor. Fields are classified by the configuration path they write to (stable),
+// never rewritten: groups are display:contents wrappers inside the existing form grid, inactive ones hidden.
+// Anything that cannot be classified stays visible below the tabs. Funded-flow loans keep their own sectioned
+// layout. Runs before paint, from the same mutation callback as fitControls.
+const _PRD_GRP_ORDER=['balance','pricing','timing','credit','costs'];
+const _PRD_GRP_LABEL={balance:'Balance',pricing:'Pricing',timing:'Timing',credit:'Credit',costs:'Costs'};
+const _PRD_GRP_RULES={
+  lending:[['id',/renameProduct|call_report_line/],['balance',/loanBalanceModeChange|opening_balance|originations_per_period|orig_growth_per_period|runoff_per_period|purchases_per_period|mortgage_banking/],
+           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|yield_ann|rate_floor|rate_cap/],['timing',/\.structure\b|term_q|maturity|amort/],
+           ['credit',/charge_off|reserve_rate|provision_rate|allowance|cecl/],['costs',/\.measurement\b|opex_pct_ann|opex_fixed|discount_spread/]],
+  deposit:[['id',/renameProduct|call_report_line/],['balance',/depositMode|depositPoolSelect|pool_share_spec|deposit_retention_pools|ending_balance_spec|opening_balance|growth_per_period|new_deposits_per_period|runoff_per_period/],
+           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|rate_paid_ann|fee_yield_ann|interest_balance_measure/],['timing',/avg_maturity_m/],
+           ['costs',/opex_pct_ann|opex_fixed|insured_pct/]]
+};
+function _prdGrpOf(el,fam){
+  const ctl=el.querySelector('input,select,textarea,button');
+  const lab=((el.querySelector('label')||{}).textContent||'').trim();
+  if(/^(Name|Call Report line)$/.test(lab)) return 'id';
+  const txt=(ctl?[...ctl.attributes].filter(a=>/^on/.test(a.name)).map(a=>a.value).join(' '):'')+' '+[...el.querySelectorAll('[onchange],[oninput]')].map(x=>(x.getAttribute('onchange')||'')+(x.getAttribute('oninput')||'')).join(' ');
+  for(const [g,re] of (_PRD_GRP_RULES[fam]||[])) if(re.test(txt)) return g;
+  if(fam==='lending'&&/^Structure$/.test(lab)) return 'timing';   // read-only when the product type fixes it
+  if(!ctl) return 'hint';
+  return 'other';
+}
+function _prdPct(v,d){ return (Number(v||0)*100).toFixed(d==null?2:d)+'%'; }
+function _prdM(v){ return '$'+(Number(v||0)/1e6).toFixed(1)+'M'; }
+function _prdK(v){ return '$'+Math.round(Number(v||0)/1000).toLocaleString('en-US')+'k'; }
+function _prdGrpSummary(fam,p,g){
+  const per=(typeof PLAB==='function')?PLAB().toLowerCase():'period', idx=String(p.index||'sofr').toUpperCase();
+  const rate=(own)=>p.rate_type==='float'?(idx+(Number(p.index_spread||0)>=0?' +':' \u2212')+Math.abs(Number(p.index_spread||0)*100).toFixed(2)+'%'):('Fixed '+_prdPct(own));
+  const opex=()=>_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period!=null?p.opex_fixed_per_period:p.opex_fixed_m)+'/'+per;
+  if(fam==='lending') return {
+    balance:_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.runoff_per_period)+' runoff/'+per,
+    pricing:rate(p.yield_ann)+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
+    timing:(p.structure?String(p.structure).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase()):'Term')+(p.term_q?' \u00b7 '+p.term_q+' quarters':' \u00b7 no term set'),
+    credit:_prdPct(p.charge_off_ann)+' charge-offs \u00b7 '+_prdPct(p.reserve_rate_pct_bal)+' reserve',
+    costs:(p.measurement==='fair_value'?'Fair value':'Amortized cost')+' \u00b7 '+opex()}[g]||'';
+  const mode=p.balance_mode||'rollforward', pool=((((cfg||{}).assumptions||{}).deposit_retention_pools)||[]).find(x=>x&&x.id===p.retention_pool_id);
+  return {
+    balance:mode==='pool'?('Shared pool'+(pool&&pool.name?' \u00b7 '+pool.name:'')):(mode==='level'?'Entered / linked level':(_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.growth_per_period)+' growth/'+per)),
+    pricing:rate(p.rate_paid_ann)+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
+    timing:Number(p.avg_maturity_m)>0?(p.avg_maturity_m+'-month average maturity'):'No maturity',
+    costs:opex()}[g]||'';
+}
+window._prdSetupTab=window._prdSetupTab||{};
+window.prdSetupTabSet=function(fam,g){
+  window._prdSetupTab[fam]=g; const card=document.querySelector('.prd-card[data-grouped]'); if(!card) return;
+  card.querySelectorAll('.prd-stab').forEach(t=>t.classList.toggle('on',t.getAttribute('data-g')===g));
+  card.querySelectorAll('.prd-grp').forEach(w=>{ w.style.display=(w.getAttribute('data-g')===g)?'contents':'none'; });
+  if(typeof fitControls==='function') fitControls(card);
+};
+function prdRefreshSetupSummaries(){   // r233: summaries follow edits made inside the grouped Setup
+  const card=document.querySelector('.prd-card[data-grouped]'); if(!card) return;
+  const fam=card.getAttribute('data-fam'), idx=+card.getAttribute('data-i');
+  const p=((((cfg||{}).assumptions||{})[fam==='lending'?'lending_products':'deposit_products'])||[])[idx]; if(!p) return;
+  card.querySelectorAll('.prd-stab').forEach(t=>{ const sm=t.querySelector('small'); if(sm) sm.textContent=_prdGrpSummary(fam,p,t.getAttribute('data-g')); });
+}
+document.addEventListener('change',e=>{ if(e.target&&e.target.closest&&e.target.closest('.prd-card[data-grouped]')) prdRefreshSetupSummaries(); });
+function prdGroupSetup(){
+  const card=document.querySelector('.prd-card'); if(!card||card.hasAttribute('data-grouped')) return;
+  const fam=card.getAttribute('data-fam'), idx=+card.getAttribute('data-i');
+  if(fam!=='lending'&&fam!=='deposit') return;
+  const p=((((cfg||{}).assumptions||{})[fam==='lending'?'lending_products':'deposit_products'])||[])[idx]; if(!p) return;
+  if(fam==='lending'&&typeof _loanBalanceMode==='function'&&_loanBalanceMode(p)==='funded_flow_level') return;
+  const secs=[...card.querySelectorAll('.pp-sec[data-pp="setup"]')]; if(!secs.length) return;
+  const host=secs.find(s=>s.querySelector('.fld'))||secs[0];
+  const els=[]; secs.forEach(s=>[...s.children].forEach(el=>els.push(el)));
+  const groups={}, ident=[], other=[]; let last=null;
+  els.forEach(el=>{ let g=_prdGrpOf(el,fam); if(g==='hint') g=last||'other'; if(g==='id'){ident.push(el);last='id';return;} if(g==='other'){other.push(el);last='other';return;} (groups[g]=groups[g]||[]).push(el); last=g; });
+  const keys=_PRD_GRP_ORDER.filter(g=>groups[g]&&groups[g].length); if(keys.length<2) return;
+  card.setAttribute('data-grouped','1');
+  let cur=window._prdSetupTab[fam]; if(!keys.includes(cur)) cur=keys[0];
+  const bar=document.createElement('div'); bar.className='prd-stabs'; bar.setAttribute('role','tablist');
+  bar.innerHTML=keys.map(g=>`<button type="button" role="tab" class="prd-stab${g===cur?' on':''}" data-g="${g}" onclick="prdSetupTabSet('${fam}','${g}')"><b>${_PRD_GRP_LABEL[g]}</b><small>${esc(_prdGrpSummary(fam,p,g))}</small></button>`).join('');
+  ident.forEach(el=>host.appendChild(el)); host.appendChild(bar);
+  keys.forEach(g=>{ const w=document.createElement('div'); w.className='prd-grp'; w.setAttribute('data-g',g); w.style.display=(g===cur)?'contents':'none'; groups[g].forEach(el=>w.appendChild(el)); host.appendChild(w); });
+  if(other.length){ const w=document.createElement('div'); w.className='prd-grp-other'; w.style.display='contents'; other.forEach(el=>w.appendChild(el)); host.appendChild(w); }
 }
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
@@ -8312,7 +8399,7 @@ function _renderContentBody(){
       h+=`<div class="prd-crumb"><a href="#" onclick="prdView('portfolio');return false">Products</a><span>/</span>${_famLab(x.fam)}<span>/</span><b>${esc(p.name||'Unnamed product')}</b></div>`;
       h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${kind}${line?' \u00B7 '+esc(line):''}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
       if(tabs.length>1) h+='<div class="prd-tabs" role="tablist">'+tabs.map(t=>`<button type="button" class="prd-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="prdTabSet('${t[0]}')">${t[1]}${t[2]!=null?`<small>${t[2]}</small>`:''}</button>`).join('')+'</div>';
-      h+=`<div class="prd-card" data-pp-tab="${tab}">${prodCardHtml(x.fam,x.i)}</div>`;
+      h+=`<div class="prd-card" data-pp-tab="${tab}" data-fam="${x.fam}" data-i="${x.i}">${prodCardHtml(x.fam,x.i)}</div>`;
     } else if(view==='compare'){
       const fam=window._prdCmpFam||'obs', allF=_all.filter(x=>x.fam===fam), items=allF.slice(0,12);
       h+='<div class="prd-h1">Compare products</div><div class="prd-sub">Products in one family side by side: how each earns, what drives it, and what the latest run produced.</div>';

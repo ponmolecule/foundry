@@ -917,3 +917,21 @@ Built on r231a_fix3 (6f00909). Results are identical to fix3 for every runnable 
 - Guide Me remains a fee-product tool.
 - Validation: deposit fee streams are now validated like loan streams (malformed streams and the
   loan-only funded-flow source are rejected).
+
+
+## r233 — Loan and deposit Setup grouped by concern
+
+Presentation release on r232. Results are identical to r232 for every runnable configuration.
+- Loan Setup: Name and Call Report line above tabs Balance · Pricing · Timing · Credit · Costs; deposit
+  Setup: Balance · Pricing · Timing · Costs. The same tab style as the stream editor, each tab with a
+  one-line summary from the product's settings (refreshed after every edit). Only tabs with fields appear.
+- Deposit balance methods: the Balance tab holds the method's own fields, including r231a's pool picker,
+  retained share, pool settings and opening swept-out balance (plan item C).
+- Fields are classified by the configuration path they write to and moved, never rewritten; groups are
+  display:contents wrappers inside the existing form grid. Unclassifiable fields stay visible below the tabs.
+  Grouping runs before paint (first painted frame already grouped). The open tab is remembered per family.
+- Funded-flow loans keep their existing sectioned layout. Fee products' 4-field Setup is unchanged.
+Verification: every Setup field present exactly once in all 24 loan / deposit / balance-method views
+(same fields as r232); 54 tab views at 1440 and 1024px with each field visible in exactly one tab, no
+truncation and no overflow; fee-product screens identical to r232 apart from the card's new data-fam /
+data-i attributes; full results identical; fingerprints 3 of 3.

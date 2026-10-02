@@ -206,7 +206,7 @@ def main():
        and '${_stCellHtml(_stMeta,k,_fi)}' in html and '.st-list .st-v[data-ip]' not in html and "data-ip=\"src:'+fi+':auc\" tabindex" not in html)
     # r229: controls are fitted before paint (no shrink-then-grow flicker on redraw).
     ck("Control fitting runs synchronously on redraw, not on a timer",
-       'const run=()=>fitControls();' in html and "t=setTimeout(()=>fitControls(),40)" not in html)
+       "const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };" in html and "t=setTimeout(()=>fitControls(),40)" not in html)
     # r230: workforce role card sized to content; fitting has priority and also runs on module select / section open.
     ck("Workforce role card: compensation amount 140px with fitted dropdowns; columns capped and left-aligned",
        '.wf-role-card .wf-comp-value{grid-template-columns:140px max-content max-content!important;justify-content:start}' in html
@@ -220,6 +220,13 @@ def main():
     # r232: the product tab line (a stray comment once dropped Per-month overrides for every product).
     ck("Product tabs: Setup, Fee streams for fee products, loans and deposits, and Per-month overrides",
        "if(fee||x.fam==='lending'||x.fam==='deposit') tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);" in html)
+    # r233: loan and deposit Setup grouped by concern, classified by configuration path, before paint.
+    ck("Loan and deposit Setup are grouped into Balance / Pricing / Timing / Credit / Costs by configuration path",
+       'function prdGroupSetup()' in html and 'const _PRD_GRP_RULES={' in html and "if(fam==='lending'&&typeof _loanBalanceMode==='function'&&_loanBalanceMode(p)==='funded_flow_level') return;" in html
+       and "w.style.display=(g===cur)?'contents':'none'" in html and "const run=()=>{ if(typeof prdGroupSetup==='function') prdGroupSetup(); fitControls(); };" in html
+       and 'data-fam="${x.fam}" data-i="${x.i}"' in html and 'function prdRefreshSetupSummaries()' in html)
+    ck("Setup fields that cannot be classified stay visible below the tabs (never hidden)",
+       "if(other.length){ const w=document.createElement('div'); w.className='prd-grp-other'; w.style.display='contents';" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
