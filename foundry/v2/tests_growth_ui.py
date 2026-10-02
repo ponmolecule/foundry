@@ -627,7 +627,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'path.indexOf("assumptions.overhead_flow_spec")===0' in html)
     ck("workforce UI makes default inheritance explicit and removes implementation-language load override",
        'Roles inherit the workforce defaults unless a row explicitly overrides them.' in html
-       and 'Benefits / Payroll</span>' in html and 'load override' not in html)
+       and 'Benefits / payroll %</span>' in html and 'load override' not in html)
     ck("workforce UI gives concise economic-aggregation guidance",
        '<b>User note.</b> Aggregate roles until timing, escalation, benefits/payroll, or triggers differ.' in html
        and 'This keeps large staffing plans compact without losing model fidelity.' not in html)
@@ -648,7 +648,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'nieWorkforceCompPeriod(${wi},this.value)' in html
        and 'Economic basis of the compensation amount' in html
        and 'Natural period of the compensation amount' in html
-       and '<span class="wf-field-label">Escalation</span>' in html
+       and '<span class="wf-field-label">Escalation %</span>' in html
        and 'Legacy escalation' not in html and '>↗</option>' not in html and '>⋯</option>' not in html
        and 'Advanced trajectories' in html and 'Count path' in html and 'Compensation path' in html
        and 'nieWorkforceCountMode' in html and 'nieWorkforceCompMode' in html and 'nieWorkforceCompLegacy' in html
