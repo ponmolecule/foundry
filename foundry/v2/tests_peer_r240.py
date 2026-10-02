@@ -107,6 +107,10 @@ def main():
     colors = _re.findall(r'<a:ln[^>]*><a:solidFill><a:srgbClr val="([0-9a-fA-F]{6})"', xml)   # namespace-prefix agnostic
     ck("workbook has a chart per corridor sheet plus a Charts sheet, each series styled distinctly",
        len(charts) >= 2 and len(set(c.lower() for c in colors)) >= 4 and "ROA" in openpyxl.load_workbook(io.BytesIO(data)).sheetnames)
+    from foundry.charteriq_client import accuracy_label
+    ck("earnings metrics carry the migrated label; unconfirmed metrics keep the cautious one",
+       "migrated" in accuracy_label("roa") and "migrated" in accuracy_label("efficiency_ratio")
+       and "pending" in accuracy_label("net_charge_off_rate"))
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

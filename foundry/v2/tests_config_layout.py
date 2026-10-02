@@ -292,6 +292,11 @@ def main():
        'leverage_ratio:"__lev"' in html and 'mk==="__lev"?"leverage_ratio"' in html)
     ck("Vintage plot is sized from the table element itself, never its stretchable wrapper, and re-fits on resize",
        "const tbl=wrap.querySelector('table')||wrap;" in html and "window.addEventListener('resize',()=>{ clearTimeout(window._vinRz);" in html)
+    # r245: empty corridors explained; modeled values shown even without a peer band; all-charters fallback.
+    ck("Vintage corridor explains an empty cohort instead of drawing dashes, and offers all charters",
+       'function _vinEmptyCard(V)' in html and 'if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }' in html
+       and 'window.vintageUseAll=function()' in html and '(!window._vinScopeAll&&_mode' in html
+       and "if(a.p25==null) return `<td style=\"font-family:var(--mono);text-align:right;color:#565653\">${(+v).toFixed(2)}</td>`;" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

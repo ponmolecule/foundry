@@ -1211,7 +1211,8 @@ def t33():
     check("T33c", "quarterly series ordered and accuracy-labeled per family",
           ser["series"]["cet1_ratio"][0]["value"] == 12.5
           and "item-level" in ser["accuracy"]["cet1_ratio"]
-          and "legacy" in accuracy_label("nim"))
+          # r245: earnings family (Milestone 4) is migrated; unconfirmed families keep the legacy label
+          and "migrated" in accuracy_label("nim") and "legacy" in accuracy_label("net_charge_off_rate"))
     pp = cl.get_peer_percentiles("cet1_ratio", "500M_2B", 2025, 4)
     check("T33d", "capital-family percentiles from the surveyed schema (group_id + "
                     "peer_count); caveat states the refreshed status (no internal codenames)",
