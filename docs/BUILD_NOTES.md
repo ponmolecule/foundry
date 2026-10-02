@@ -1086,3 +1086,19 @@ Presentation release on r243.
   wrapper, which flex stretching had made as tall as the plot; once tall, it stayed tall. Plots are now sized
   from the table element itself, the row is top-aligned (no stretching), and plots re-fit on window resize.
   Measured: plot equals table for every metric at 1440, 1920 and 2560px and across live resizes.
+
+
+## r245 — Vintage corridor for thin cohorts
+
+Built on r244.
+- A $2B-$10B cohort holds one 2018-2023 charter, so every age was suppressed (minimum 8) and the page drew a
+  grid of dashes while the plot showed the modeled line alone. Now a fully empty corridor shows one card that
+  explains why (counts, minimum, and that recent charters are mostly still small) with a "Use all 2018-2023
+  charters" action; a metric empty at every age shows its heading and one line; partial suppression shows the
+  modeled values (the bank's own numbers) everywhere, with verdicts only where a peer band exists.
+- The corridor header names the band ("... chartered 2018-2023 now $2B-$10B") and says when all sizes are shown.
+- Accuracy label: earnings metrics (ROA, NIM, efficiency, ROE) now read "item-level FFIEC CDR (earnings family
+  migrated July 2026)" instead of the stale "legacy ... migration pending (Work Order M3-6)". Metrics not
+  confirmed migrated keep the cautious label.
+- Protocol check T33c pinned accuracy_label("nim") as "legacy"; updated to the migrated earnings label, keeping
+  its intent (labels differ by family; net charge-off rate still carries the legacy label).

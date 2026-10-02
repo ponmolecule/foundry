@@ -1727,6 +1727,11 @@ tr.vin-ext td{color:var(--k-tx3)}
 .vin-tbl{flex:0 0 auto}
 .vin-chart{flex:1 1 300px;min-width:300px;box-sizing:border-box;border:0;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between}
 .vin-chart .vin-svg{width:auto;height:auto;max-width:100%}
+
+/* r245: empty vintage corridor */
+.vin-empty-card{max-width:760px;margin:24px 0 8px;padding:18px 22px;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07)}
+.vin-empty-card b{display:block;font-size:14px;color:var(--k-tx1);margin-bottom:6px}
+.vin-empty-card p{margin:0 0 14px;font-size:12.5px;line-height:1.55;color:#4A4A4A}
 </style>
 </head>
 <body>
@@ -2448,7 +2453,7 @@ function _vinCohortLabel(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}
   if(m==="curated") return (c.peer_bands_certs||[]).length+" curated certificates";
   return _VIN_BAND_LABEL[m] ? "2018\u20132023 charters now "+_VIN_BAND_LABEL[m] : "2018\u20132023 charters"; }
 function _vinSync(){ // r242: once a corridor has been built, any cohort switch rebuilds it (the dropdown clears window.vintage first)
-  if(window._vinWanted && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; if(typeof vintageBuild==="function") vintageBuild(); } }
+  if(window._vinWanted && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; window._vinScopeAll=false; if(typeof vintageBuild==="function") vintageBuild(); } }
 function _vinChartHtml(M, modeled){   // r242: placeholder at default size; fitVintageCharts redraws it to fit
   window._vinCharts = window._vinCharts || {}; const id = 'v'+(window._vinChartSeq=(window._vinChartSeq||0)+1);
   if(Object.keys(window._vinCharts).length>300) window._vinCharts={};
@@ -2492,6 +2497,19 @@ function _vinSvg(M, modeled, W, H){
   if(modeled){ const pts=(M.ages||[]).filter(a=>ok(modeled[a.age_q-1])).map(a=>[X(a.age_q),Y(+modeled[a.age_q-1])]); g+=line(pts,"vl-x")+pts.map(p=>`<circle class="vc-x" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6"/>`).join(""); }
   return g+`</svg>`;
 }
+
+// r245: empty corridors explained, not drawn as a grid of dashes
+function _vinMetricEmpty(M){ return (M.ages||[]).every(a=>a.suppressed || a.p50==null); }
+function _vinAllEmpty(V){ const ms=Object.values(V.corridor||{}); return ms.length>0 && ms.every(_vinMetricEmpty); }
+function _vinEmptyCard(V){
+  const n=V.cohort_size||0, mn=(V.definition&&V.definition.min_n)||8, band=V.definition&&V.definition.asset_band;
+  const many=n===1?'bank':'banks';
+  const desc = band ? `Only ${n} ${many} chartered ${V.definition.est_from}\u2013${V.definition.est_to}${n===1?' is':' are'} now ${_VIN_BAND_LABEL[band]}.` : `Only ${n} ${many} in this cohort.`;
+  return `<div class="vin-empty-card"><b>Too few de novos for a corridor in this cohort.</b>`
+    + `<p>${desc} A corridor needs at least ${mn} banks at each age quarter, so every age is suppressed rather than estimated. Banks chartered in recent years are mostly still small, which is why larger asset bands hold few of them.</p>`
+    + (band ? `<button type="button" class="pc-xl" onclick="vintageUseAll()">Use all ${V.definition.est_from}\u2013${V.definition.est_to} charters</button>` : '') + `</div>`;
+}
+window.vintageUseAll=function(){ window._vinScopeAll=true; window.vintage=null; setTimeout(()=>vintageBuild(),0); };
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7602,7 +7620,7 @@ async function vintageBuild(){
     const _curated=_mode==="curated"&&_certs.length;
     const r = await fetch(_curated?"/api/v31/peer-intelligence-lab/vintage":"/api/v31/substrate/vintage", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(_curated?{certs:_certs}:Object.assign({est_from:2018, est_to:2023}, (_mode&&_mode!=="broad"&&_mode!=="curated")?{asset_band:_mode}:{})),
+      body: JSON.stringify(_curated?{certs:_certs}:Object.assign({est_from:2018, est_to:2023}, (!window._vinScopeAll&&_mode&&_mode!=="broad"&&_mode!=="curated")?{asset_band:_mode}:{})),
       signal: ctrl.signal});
     clearTimeout(timer);
     let j; try{ j = await r.json(); }
@@ -7648,7 +7666,7 @@ function vintageSectionHtml(){
     return h;
   }
   const V = window.vintage;
-  const _vcohort=V.cohort_label||`banks chartered ${V.definition.est_from}\u2013${V.definition.est_to}`;
+  const _vcohort=V.cohort_label||(`banks chartered ${V.definition.est_from}\u2013${V.definition.est_to}`+(V.definition.asset_band&&_VIN_BAND_LABEL[V.definition.asset_band]?` now ${_VIN_BAND_LABEL[V.definition.asset_band]}`:'')+(window._vinScopeAll?' (all sizes: the selected band has too few de novos)':''));
   h += `<div class="memo">${V.cohort_size} ${esc(_vcohort)} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
   // Enumerated annualization-convention table — every metric, modeled basis vs peer basis, and whether
   // they are like-for-like. Placed here so the basis of each row is unambiguous before any number is read.
@@ -7664,7 +7682,13 @@ function vintageSectionHtml(){
     </table>
     <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency can differ mid-year because the modeled view is standalone-quarter while peer filings are year-to-date. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
   </div>`;
-  Object.entries(V.corridor).forEach(([metric, M])=>{
+  if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }
+  else Object.entries(V.corridor).forEach(([metric, M])=>{
+    if(_vinMetricEmpty(M)){   // r245: no peer band at any age: a heading and one line, no empty table or plot
+      const mx=Math.max(0,...(M.ages||[]).map(a=>+a.n||0)), mn=(V.definition&&V.definition.min_n)||8;
+      h += `<div class="vin-h"><span class="vin-name">${esc(_VIN_LABEL[metric]||metric)}</span></div><div class="vin-sub">No corridor at any age: at most ${mx} bank${mx===1?'':'s'} per age quarter, below the minimum of ${mn}.</div>`;
+      return;
+    }
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;
     // stock (point-in-time balance ratio) vs flow (per-period income ratio) — the
@@ -7696,7 +7720,8 @@ function vintageSectionHtml(){
     if(modeled){
       h += '<tr><td style="color:#A3772A">Modeled</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
-        if(v===undefined || a.p25===null) return '<td style="text-align:right">\u2014</td>';
+        if(v==null || !isFinite(+v)) return '<td style="text-align:right">\u2014</td>';
+        if(a.p25==null) return `<td style="font-family:var(--mono);text-align:right;color:#565653">${(+v).toFixed(2)}</td>`;   // r245: own value, no band
         const col = (v>a.p75||v<a.p25) ? "#A3772A" : "#565653";
         return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
       }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #CACAC7;color:#565653" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';

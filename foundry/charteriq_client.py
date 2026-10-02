@@ -34,9 +34,14 @@ RETRO_SERIES = ["deposits", "loans", "assets", "equity", "net_income",
                  "leverage", "roa", "roe", "nim", "efficiency"]
 
 
+EARNINGS_METRICS = {"roa", "nim", "efficiency_ratio", "roe"}   # r245: Milestone 4 (earnings family) is live
+
+
 def accuracy_label(metric_name):
     if metric_name in CAPITAL_METRICS:
         return "item-level FFIEC CDR (migrated 2026-07-14)"
+    if metric_name in EARNINGS_METRICS:
+        return "item-level FFIEC CDR (earnings family migrated July 2026)"
     return "legacy FDIC public-API computation — migration pending (Work Order M3-6)"
 
 
