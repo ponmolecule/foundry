@@ -1714,13 +1714,19 @@ tr.vin-ext td{color:var(--k-tx3)}
 .vin-leg i.r{background:#F3EEE3}.vin-leg i.i{background:#E3D2AC}.vin-leg i.m{height:2px;background:#343434}.vin-leg i.x{height:2px;background:#A3772A}
 .vin-empty{font-size:12px;color:var(--k-tx3);padding-top:30px}
 /* r240: peer corridor: bounded width, subtle dividers between the percentiles */
-.pc-cards,.pc-panel,.pc-note{max-width:1180px}
-.pc-row{grid-template-columns:minmax(150px,180px) minmax(150px,320px) auto 124px}
+.pc-cards,.pc-panel,.pc-note{max-width:calc((100% + 1076px) / 2)}
+.pc-row{grid-template-columns:minmax(150px,180px) minmax(150px,1fr) auto 124px}
 .pc-st{padding:0 9px;border-left:1px solid #ECECE8}
 .pc-stats .pc-st:first-child{border-left:0;padding-left:0}
 .pc-st:nth-child(2),.pc-st:nth-child(7){border-left-color:#D6D2C8}
 .pc-st:nth-child(1) .v,.pc-st:nth-child(7) .v{color:#6E6A63}
 .pc-stats{gap:0}
+
+/* r242: vintage plot beside its table: same height, 32px gap, ends where the peer corridor ends, graphite frame */
+.vin-body{flex-wrap:wrap;align-items:stretch;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}
+.vin-tbl{flex:0 0 auto}
+.vin-chart{flex:1 1 300px;min-width:300px;box-sizing:border-box;border:0;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between}
+.vin-chart .vin-svg{width:auto;height:auto;max-width:100%}
 </style>
 </head>
 <body>
@@ -2187,6 +2193,7 @@ function fitControls(root){
   });
   root.querySelectorAll('input[type=text],input:not([type]),input[type=number]').forEach(fitInput);
   fitMasterDetail();
+  if(typeof fitVintageCharts==='function') fitVintageCharts();
 }
 function fitMasterDetail(){
   // r238: a list whose table needs more than the default 640px gets exactly that width when the screen has room,
@@ -2440,25 +2447,47 @@ function _vinKey(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}; const 
 function _vinCohortLabel(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}; const m=c.peer_bands_mode||"broad";
   if(m==="curated") return (c.peer_bands_certs||[]).length+" curated certificates";
   return _VIN_BAND_LABEL[m] ? "2018\u20132023 charters now "+_VIN_BAND_LABEL[m] : "2018\u20132023 charters"; }
-function _vinSync(){ if(window.vintage && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; if(typeof vintageBuild==="function") vintageBuild(); } }
-function _vinChartHtml(M, modeled){
-  const ages=(M.ages||[]).map(a=>a.age_q), W=360, H=196, L=40, R=10, T=12, B=26;
+function _vinSync(){ // r242: once a corridor has been built, any cohort switch rebuilds it (the dropdown clears window.vintage first)
+  if(window._vinWanted && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; if(typeof vintageBuild==="function") vintageBuild(); } }
+function _vinChartHtml(M, modeled){   // r242: placeholder at default size; fitVintageCharts redraws it to fit
+  window._vinCharts = window._vinCharts || {}; const id = 'v'+(window._vinChartSeq=(window._vinChartSeq||0)+1);
+  if(Object.keys(window._vinCharts).length>300) window._vinCharts={};
+  window._vinCharts[id]={M, modeled};
+  return `<div class="vin-chart" data-vin="${id}">${_vinSvg(M, modeled, 360, 196)}${_vinLegend(modeled)}</div>`;
+}
+function _vinLegend(modeled){ return `<div class="vin-leg"><i class="r"></i>min\u2013max <i class="i"></i>P25\u2013P75 <i class="m"></i>median${modeled?' <i class="x"></i>modeled':''}</div>`; }
+function fitVintageCharts(){
+  document.querySelectorAll('#content .vin-chart[data-vin]').forEach(box=>{
+    if(!box.offsetParent) return; const d=(window._vinCharts||{})[box.getAttribute('data-vin')]; if(!d) return;
+    const body=box.closest('.vin-body'), tbl=body&&body.querySelector('.vin-tbl'); if(!tbl) return;
+    const sideBySide = Math.abs(box.getBoundingClientRect().top - tbl.getBoundingClientRect().top) < 4;
+    const cs=getComputedStyle(box), leg=box.querySelector('.vin-leg');
+    const padV=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0), padH=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
+    const w=Math.max(220, Math.floor(box.clientWidth-padH));
+    const outer = sideBySide ? tbl.getBoundingClientRect().height : 300;
+    const h=Math.max(150, Math.floor(outer-(box.offsetHeight-box.clientHeight)-padV-(leg?leg.offsetHeight+6:0)));
+    if(box.dataset.w==String(w)&&box.dataset.h==String(h)) return;
+    box.dataset.w=w; box.dataset.h=h;
+    const svg=box.querySelector('svg'); if(svg) svg.outerHTML=_vinSvg(d.M, d.modeled, w, h);
+  });
+}
+function _vinSvg(M, modeled, W, H){
+  const ages=(M.ages||[]).map(a=>a.age_q), L=40, R=10, T=12, B=26;
   const ok=v=>v!=null&&isFinite(+v);
   const vals=[]; (M.ages||[]).forEach((a,i)=>{ ["min","max","p25","p75","p50"].forEach(k=>{ if(ok(a[k])&&!a.suppressed) vals.push(+a[k]); }); if(modeled&&ok(modeled[a.age_q-1])) vals.push(+modeled[a.age_q-1]); });
-  if(vals.length<2) return `<div class="vin-chart vin-empty">Not enough peer observations to plot.</div>`;
+  if(vals.length<2) return `<svg class="vin-svg" viewBox="0 0 ${W} ${H}"><text class="vt" x="${W/2}" y="${H/2}" text-anchor="middle">Not enough peer observations to plot.</text></svg>`;
   let lo=Math.min(...vals), hi=Math.max(...vals); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
   const n=Math.max(...ages,12), X=q=>L+(q-1)/(n-1)*(W-L-R), Y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
   const runs=(k1,k2)=>{ const out=[]; let cur=[]; (M.ages||[]).forEach(a=>{ if(!a.suppressed&&ok(a[k1])&&ok(a[k2])) cur.push(a); else { if(cur.length) out.push(cur); cur=[]; } }); if(cur.length) out.push(cur); return out; };
   const area=(k1,k2,cls)=>runs(k1,k2).map(r=>r.length<2?"":`<path class="${cls}" d="M${r.map(a=>X(a.age_q).toFixed(1)+","+Y(+a[k2]).toFixed(1)).join("L")}L${r.slice().reverse().map(a=>X(a.age_q).toFixed(1)+","+Y(+a[k1]).toFixed(1)).join("L")}Z"/>`).join("");
   const line=(pts,cls)=>pts.length<2?"":`<path class="${cls}" d="M${pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join("L")}"/>`;
-  let g=`<svg class="vin-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vintage corridor plot">`;
+  let g=`<svg class="vin-svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vintage corridor plot">`;
   [0,0.5,1].forEach(f=>{ const v=lo+(hi-lo)*f; g+=`<line class="vg" x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="vt" x="${L-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${v.toFixed(Math.abs(hi-lo)<10?1:0)}</text>`; });
   [1,4,8,12].filter(q=>q<=n).forEach(q=>{ g+=`<text class="vt" x="${X(q).toFixed(1)}" y="${H-8}" text-anchor="middle">Q${q}</text>`; });
   g+=area("min","max","va-r")+area("p25","p75","va-i");
   runs("p50","p50").forEach(r=>{ g+=line(r.map(a=>[X(a.age_q),Y(+a.p50)]),"vl-m"); });
   if(modeled){ const pts=(M.ages||[]).filter(a=>ok(modeled[a.age_q-1])).map(a=>[X(a.age_q),Y(+modeled[a.age_q-1])]); g+=line(pts,"vl-x")+pts.map(p=>`<circle class="vc-x" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6"/>`).join(""); }
-  g+=`</svg>`;
-  return `<div class="vin-chart">${g}<div class="vin-leg"><i class="r"></i>min\u2013max <i class="i"></i>P25\u2013P75 <i class="m"></i>median${modeled?' <i class="x"></i>modeled':''}</div></div>`;
+  return g+`</svg>`;
 }
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
@@ -7554,6 +7583,7 @@ let _vintageBusy = false;
 async function vintageBuild(){
   if(_vintageBusy) return;          // no double-fires (which could storm the pool)
   _vintageBusy = true;
+  const _reqKey = _vinKey(); window._vinWanted = true; window._vinStale = false;   // r242: the cohort this build is for
   window._vintageLoading = true; window._vintageError = null;
   renderContent();                  // paint the loading state immediately
   // Client-side timeout: the substrate query can be heavy, but it must never spin
@@ -7574,7 +7604,8 @@ async function vintageBuild(){
       window._vintageError = (j && j.error) || `substrate error (${r.status})`;
       appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(window._vintageError));
     } else {
-      window.vintage = j; window.vintageKey = _vinKey();
+      if(_reqKey === _vinKey()){ window.vintage = j; window.vintageKey = _reqKey; }
+      else { window._vinStale = true; }   // r242: the cohort changed while this was in flight; discard it
     }
   }catch(e){
     const aborted = (e && e.name === "AbortError");
@@ -7585,6 +7616,7 @@ async function vintageBuild(){
   }finally{
     clearTimeout(timer);
     _vintageBusy = false; window._vintageLoading = false;
+    if(window._vinStale){ window._vinStale = false; setTimeout(()=>vintageBuild(), 0); return; }   // rebuild for the current cohort
     renderContent();
   }
 }
@@ -7598,13 +7630,13 @@ function vintageSectionHtml(){
   if(!window.vintage){
     h += '<div class="memo">Every cohort member\u2019s history is re-clocked to its own opening quarter; the band is what real de novos actually walked at each age. Pre-registered window; suppressed below minimum count; survivorship stated.</div>';
     if(window._vintageLoading){
-      h += '<div class="memo" style="color:#A3772A">Building corridor from the substrate\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
+      h += '<div class="memo" style="color:#A3772A">Building corridor for ' + esc(_vinCohortLabel()) + '\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
       h += '<button class="btn-plain" disabled style="opacity:.55;cursor:default">Building\u2026</button>';
     } else {
       if(window._vintageError){
         h += `<div class="memo" style="border-left:3px solid #985747;color:#896156">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
       }
-      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 ${_vinCohortLabel()}</button>';
+      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 ' + esc(_vinCohortLabel()) + '</button>';
     }
     return h;
   }

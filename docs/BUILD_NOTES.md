@@ -1048,3 +1048,29 @@ Built on r240. Pro forma engine untouched; run results identical.
 - Excel: a line chart beside each corridor sheet's table and a Charts sheet gathering them (min/max dashed
   grey, P25/P75 gold, median graphite, modeled thick gold with markers). Ages without peer observations are
   left blank so charts show gaps, not false zeros. Sheet and chart names in mixed case.
+
+
+## r242 — Peer Cohort: width, vintage cohort binding, plot fit
+
+Built on r241. Pro forma engine untouched; run results identical.
+- Peer corridor width is exactly halfway between r240 (full width) and r241 (1180px) at every screen size:
+  max-width calc((100% + 1076px) / 2). Measured strip widths 421 / 661 / 981 px at 1440 / 1920 / 2560,
+  the midpoints of r240 and r241. Percentile delineation unchanged.
+- Vintage corridor cohort binding (two bugs): the cohort dropdown cleared the corridor before the r241 sync
+  check ran, so a switch never rebuilt it; and a build still in flight when the cohort changed was accepted
+  for the new cohort ("still showing 3 members"). Each build now records its cohort, a late result for a
+  different cohort is discarded and rebuilt for the current one, and once a corridor has been built every
+  cohort switch rebuilds it.
+- Build button label rendered a literal ${_vinCohortLabel()} (template placeholder inside a plain string); fixed.
+  The loading message names the cohort.
+- Vintage data query bounded to the years the corridor can use (charter year through est_to + 7) instead of
+  each member's full history; same corridor, far fewer rows. Builds report their time and member count.
+- Each vintage plot is as tall as its table, 32px from it, ends on the same vertical line as the peer corridor,
+  sits in a 0.5-inch graphite frame, and is redrawn at its exact size (no stretched text).
+
+
+## r243 — Vintage plot as a soft card
+
+Presentation release on r242. The 0.5-inch graphite frame around each vintage plot is replaced by a soft card:
+white, 6px rounded corners, a two-layer shadow (0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.07)), no
+outline. The plot still matches its table's height and ends on the peer corridor's vertical line.

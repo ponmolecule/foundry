@@ -93,6 +93,9 @@ def main():
     except Exception:
         pass
     inst = [x for x in sqls if "FROM institutions" in x[0]]
+    mq = [x for x in sqls if "FROM metrics" in x[0]]
+    ck("vintage data query is bounded to the years the corridor can use",
+       bool(mq) and "year BETWEEN %s AND %s" in mq[0][0] and 2018 in mq[0][1] and 2030 in mq[0][1])
     ck("vintage corridor filters membership by the selected asset band",
        bool(inst) and "asset_size_mm >= %s" in inst[0][0] and 2000 in inst[0][1] and 10000 in inst[0][1])
     data = build_workbook({"cohort_label": "c", "corridor": [], "vintage": {"corridor": {"roa": {"ages": [{"age_q": a, "n": 2} for a in (1, 2, 3)]}},
