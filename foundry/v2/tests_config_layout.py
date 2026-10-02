@@ -234,6 +234,15 @@ def main():
        and 'function _wfUnitWord()' in html and '<table class="ovt ovt-grid wf-run-sum"' in html
        and 'table.ovt-grid.wf-run-sum{width:auto!important;max-width:100%}' in html
        and 'background-color:#FFFFFF;font-size:13.5px;padding:0 10px;margin:0}' in html)
+    # r235: controls are fitted by measuring rendered text (not canvas + the computed font shorthand, which is ""
+    # when font features are set), re-fitted when web fonts load, and fields that cannot fit span their grid row.
+    ck("Control fitting measures rendered text, refits after web fonts load, and lets an over-long field span its row",
+       'function _fitMeasure(el,text)' in html and 'cv.font=cs.font' not in html
+       and "document.fonts.addEventListener('loadingdone',()=>fitControls())" in html and 'document.fonts.ready.then(()=>fitControls())' in html
+       and "row.style.gridColumn='1 / -1'" in html and "input[type=text],input:not([type]),input[type=number]" in html)
+    ck("Workforce activation trigger sits directly under the Start row, before Advanced trajectories",
+       html.index('// r235: the activation trigger sits directly under the Start row') < html.index('const _advKey=_nieWorkforceAdvancedKey(wr,wi)')
+       and html.count('<div class="wf-trigger-row">')==1)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

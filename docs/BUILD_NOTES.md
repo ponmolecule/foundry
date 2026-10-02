@@ -953,3 +953,20 @@ bytes of console source to Node as one command-line argument (143,874 bytes in r
 later checks never run (it is one of the ten baseline failures). Run once through standard input, r233 and
 r234 both pass 67 and fail the same 17 pre-existing checks; r234's only effect there was the escalation label
 pin, updated to "Escalation %". Repairing the harness and the 17 decayed checks is left for its own release.
+
+
+## r235 — Every prepopulated box shows its full value; trigger under Start
+
+Presentation release on r234. Results identical to r234.
+- Root cause of clipped boxes ("Metric trigge", "Hire anniversar"): the r227 fitter measured text on a canvas
+  using the control's computed "font" shorthand, which Chrome reports as "" when font features (tabular
+  figures) are set, so it measured in 10px sans-serif and under-sized controls by about a quarter (e.g. 73px
+  vs 100px rendered for "Hire anniversary"). The fitter now measures with an off-screen element styled like
+  the control (exact rendering), fits number inputs and placeholders as well as text inputs, re-fits when
+  web fonts (Inter) finish loading, and lets a field whose value cannot fit its column span the grid row.
+- The truncation audit had the same canvas flaw and under-reported. Re-measured by rendering, with Inter
+  served as in production: r234 had 33 clipped controls (19 distinct) across Capital, Operating expense,
+  Customer acquisition, Tax and the product stream editor; r235 has 0 at 1440 and 1920px, with no sideways
+  page scroll and no control past its card on any screen.
+- Workforce: the activation Trigger row (metric, operator, value) moved from below Advanced trajectories to
+  directly under the Start row that enables it, styled like the fields above.
