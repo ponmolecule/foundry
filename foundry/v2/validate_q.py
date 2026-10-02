@@ -640,6 +640,16 @@ def validate_config_v2(cfg):
     if "balance_driven_lending" in mods and not lend:
         errs.append("balance_driven_lending loaded but assumptions.lending_products is empty")
 
+    if a.get("deposit_retention_pools") or any(p.get("balance_mode", "rollforward") != "rollforward" for p in dep):
+        try:
+            from .deposit_balance import prepare, source_catalog
+            from .growth import growth_context_from_cfg
+            if cfg.get("parity_profile") != "pf_a":
+                raise ValueError("Deposit level / sweep policies require Profile A")
+            n, ppy = int(a.get("n_periods") or 12), int(a.get("periods_per_year") or 4)
+            prepare(a, n, ppy, {x['series_id']: [0.] * n for x in source_catalog(a)}, growth_context_from_cfg(cfg, ppy))
+        except (ValueError, TypeError, KeyError) as e:
+            errs.append("Deposit balance / retention: " + str(e))
     for p in dep:
         ctx = f"deposit '{p.get('name', '<?>')}': "
         for k in DEP_REQUIRED:

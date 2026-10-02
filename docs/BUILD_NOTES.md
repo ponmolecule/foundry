@@ -860,3 +860,34 @@ Fitting fixes found while doing it: fitControls now applies its minimum with pri
 ".wf-comp-value select{min-width:0!important}" had been cancelling it), and also runs when a
 Configuration module is selected or a collapsible section is opened (controls drawn while hidden could
 not be measured). Truncated controls remain 0 at 1440 and 1920px; the r229 no-flicker probe is unchanged.
+
+
+## r231a_fix1 — Corrected deposit balance sources and shared retention pools
+
+Validation build on r230-compatible history: r230 `1c3e67d` → r231a `30f7ad8` → this fix.
+No r231 deployment is required. r230 remains the last good deployment and rollback baseline.
+Incorporates the r231b fingerprint and opening-label corrections, with these further fixes:
+- Full legacy output comparison; three r230 public fingerprints and actual frozen verification pass.
+- Product Details resolves SOFR/EFFR/Prime from configuration without changing old hashed outputs.
+  Resolution follows each engine's family/input order; duplicate names do not select another index.
+- New pools explicitly author average swept-balance fees. Configurations without a basis keep r231a
+  period-end fees. Opening swept balance is independent and defaults to zero, not period-1 ending.
+- Average basis, beginning swept balance and fee are exported for independent audit reconciliation.
+- Level/pool retained opening label states that it is before period 1; existing accounting is preserved.
+- Equity capacity control says "Equity allocation ratio" and explicitly describes an allocation budget,
+  not an enforceable capital/assets constraint. Financial formula unchanged; full capital constraint work
+  remains separate. No engagement-specific formula or new deposit product type is introduced.
+
+See DEPOSIT_FIX1_VALIDATION.md for manual checks and full-suite results.
+
+## r231a_fix2 — Unified fee default and atomic pool-mode transitions
+
+History: r230 → r231a → r231a_fix1 → r231a_fix2. Last good deployment remains r230.
+- Average swept-balance fee is the only default, including imported pools without a setting.
+  Period-end remains available explicitly; r231a was never deployed and needs no fallback.
+- Switching a deposit to pool mode creates or attaches a pool in the same action, before preview.
+  A sole existing pool is selected; with multiple pools a new independent pool is created.
+  New member shares start at zero when the pool already has members.
+- Five transition previews tested against the actual API all return 200; one request per action.
+- Full inventory includes Python and CJS scripts: 56 entry points, 46 pass / 10 baseline failures.
+  No new failing entry points against r230. See DEPOSIT_FIX1_VALIDATION.md for details.

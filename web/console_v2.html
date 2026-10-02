@@ -720,6 +720,21 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .bank-edit:hover{background:rgba(212,170,103,.14);box-shadow:inset 0 0 0 1px rgba(212,170,103,.35)}
 .scenario-name-inline:hover{background:rgba(212,170,103,.10)!important;border-radius:3px}
 .scenario-name-inline:focus{background:rgba(212,170,103,.14)!important;border-radius:3px}
+/* Deposit operands inherit the existing product theme and schedule mechanics. */
+.prd-card .product-card[data-product-family="deposit"] .fld.deposit-operand{display:block}
+.prd-card .product-card[data-product-family="deposit"] .fld.deposit-tools{flex-direction:row;justify-content:flex-start;align-items:center}
+.product-card[data-product-family="deposit"] .deposit-tools{display:flex;flex-direction:row;align-items:center;justify-content:flex-start;gap:8px;flex-wrap:wrap}
+.product-card[data-product-family="deposit"] .deposit-tools select{flex:0 1 330px}
+.product-card[data-product-family="deposit"] .pillbtn{width:auto;min-height:28px;padding:4px 10px;color:#454541;background:#FAFAF8;border:1px solid #CDCDC9;font-size:11px}
+.product-card[data-product-family="deposit"] .pillbtn:hover{color:#705322;border-color:#A27831;background:#F6F2EA}
+.product-card[data-product-family="deposit"] .pillbtn:disabled{color:#777773;opacity:.5}
+.product-card[data-product-family="deposit"] .pillbtn.series-load-ready{background:#2C2C2C;color:#FFF;border-color:#2C2C2C}
+.product-card[data-product-family="deposit"] .deposit-remove{width:24px;min-width:24px;padding:2px;background:transparent;border:0;color:#777773;cursor:pointer;font-size:16px}
+.product-card[data-product-family="deposit"] .deposit-remove:hover{color:#875548}
+.product-card[data-product-family="deposit"] .fhint{display:block;font-size:11px;color:#777773;margin-top:5px;line-height:1.45}
+.product-card[data-product-family="deposit"] .deposit-operand>.deposit-source{display:inline-block;width:90px;max-width:90px;vertical-align:top}
+.product-card[data-product-family="deposit"] .deposit-operand>.sec-managed-series{display:inline-block;vertical-align:top;margin:0 0 0 8px;max-width:calc(100% - 105px)}
+.product-card[data-product-family="deposit"] .deposit-operand:has(.sec-managed-explicit)>.sec-managed-series{display:block;max-width:100%;margin:8px 0 0}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -4213,6 +4228,102 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
   return _explicitPreviewHtml(vals,fmt,cadence||'year',labels);
 }
 
+const _depositPoolOpen = new Set();
+// Deposit balance operands reuse Foundry's existing schedule editor and stable IDs.
+function depositSources(kind,basis){
+  const out=[];
+  ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
+    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='stream_ref'){const hits=streams.filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
+    if(!st.quantity_series_id)st.quantity_series_id=_seriesId('fee-qty');
+    const drv=st.driver||{},pr=drv.params||{},c=pr.coefficient||{},label=(p.name||'Fee product')+' · '+(st.name||'Stream');
+    if(kind==='fee_share'&&c.kind==='pct'&&c.semantics==='share')out.push({id:st.quantity_series_id,label:label+' · share schedule'});
+    if(kind==='fee_quantity'&&st.basis===basis&&upstream(st)&&(basis==='balance'||(pr.flow_path||{}).unit_kind==='money_flow'||['stream_ref','managed_notional'].includes(drv.source)))out.push({id:st.quantity_series_id,label});
+  }));
+  if(kind==='fee_quantity'&&basis==='transaction')((cfg.assumptions||{}).lending_products||[]).filter(p=>p.balance_mode==='funded_flow_level').forEach(p=>{if(!p.balance_series_id)p.balance_series_id=_seriesId('lending-flow');out.push({id:p.balance_series_id,kind:'lending_funded_flow',label:(p.name||'Lending')+' · funded flow'});});
+  return out;
+}
+function depositActivityLink(path,value){const opts=depositSources('fee_quantity','transaction'),o=opts.find(x=>x.id===value);setPath(path+'.link',{kind:(o&&o.kind)||'fee_quantity',series_id:value});refresh();}
+function depositOperandSource(path,source,share){
+  if(source==='entered')setPath(path,{source:'entered',trajectory:'flat',value:share?1:0});
+  else if(source==='link')setPath(path,{source:'link',link:{kind:share?'fee_share':'fee_quantity',series_id:'',aggregation:'end'}});
+  else setPath(path,{source:'derived',series_id:_seriesId('deposit-level'),owner_module:'deposits',derived:{kind:'activity_held',activity:{source:'entered',period:_nativeFlowPeriod(),amount_spec:{source:'entered',trajectory:'flat',value:0}},holding_days_spec:{source:'entered',trajectory:'flat',value:0},share_spec:{source:'entered',trajectory:'flat',value:1},day_count:365}});
+  renderContent();refresh();
+}
+function depositActivitySource(path,v){setPath(path,v==='link'?{source:'link',link:{kind:'fee_quantity',series_id:''}}:{source:'entered',period:_nativeFlowPeriod(),amount_spec:{source:'entered',trajectory:'flat',value:0}});renderContent();refresh();}
+function depositOperandHtml(path,spec,label,share){
+  const sp=spec||{source:'entered',trajectory:'flat',value:share?1:0},src=sp.source||'entered';
+  let h=`<div class="fld wide deposit-operand"><label>${esc(label)}</label><select class="deposit-source" aria-label="${esc(label)} source" onchange="depositOperandSource('${path}',this.value,${!!share})">${[['entered','Enter'],['link','Link'],...(!share?[['derived','Derived']]:[])].map(x=>`<option value="${x[0]}"${src===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select>`;
+  if(src==='entered')h+=_faSeriesEditor(path,sp,'',share?'rate':'money',false).replace(/<span class="sec-book-label"[^>]*><\/span>/,'');
+  if(src==='link'){const opts=depositSources(share?'fee_share':'fee_quantity','balance');h+=`<select aria-label="${esc(label)} linked series" onchange="setPath('${path}.link.series_id',this.value);refresh()"><option value="">Select a compatible Series</option>${opts.map(o=>`<option value="${esc(o.id)}"${(sp.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;}
+  if(src==='derived'){
+    const dp=path+'.derived',d=sp.derived||{},act=d.activity||{},ap=dp+'.activity';
+    h+=`<div class="sec-book-label">Activity × holding days × share</div><select aria-label="Activity source" onchange="depositActivitySource('${ap}',this.value)"><option value="entered"${act.source==='entered'?' selected':''}>Enter activity</option><option value="link"${act.source==='link'?' selected':''}>Link activity</option></select>`;
+    if(act.source==='link')h+=`<select aria-label="Linked activity" onchange="depositActivityLink('${ap}',this.value)"><option value="">Select monetary activity</option>${depositSources('fee_quantity','transaction').map(o=>`<option value="${esc(o.id)}"${(act.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
+    else h+=_faSeriesEditor(ap+'.amount_spec',act.amount_spec,'Activity','money',false)+`<select aria-label="Activity amount period" onchange="setPath('${ap}.period',this.value);refresh()">${['month','quarter','year'].map(v=>`<option${act.period===v?' selected':''}>${v}</option>`).join('')}</select>`;
+    h+=_faSeriesEditor(dp+'.holding_days_spec',d.holding_days_spec,'Holding days','count',false);
+    h+=depositOperandHtml(dp+'.share_spec',d.share_spec,'Share of activity',true);
+    h+=`<label>Day-count basis</label><select onchange="setPath('${dp}.day_count',+this.value);refresh()"><option value="365"${d.day_count!==360?' selected':''}>365</option><option value="360"${d.day_count===360?' selected':''}>360</option></select>`;
+  }return h+'</div>';
+}
+function depositCleanPools(){const a=cfg.assumptions||{},used=new Set((a.deposit_products||[]).filter(p=>p.balance_mode==='pool').map(p=>p.retention_pool_id));a.deposit_retention_pools=(a.deposit_retention_pools||[]).filter(g=>used.has(g.id));if(!a.deposit_retention_pools.length)delete a.deposit_retention_pools;}
+function depositMode(i,v){const p=cfg.assumptions.deposit_products[i],old=p.balance_mode||'rollforward',keys=['growth_per_period','runoff_per_period','new_deposits_per_period','avg_maturity_m','growth_q','runoff_q','new_deposits_q'];if(old==='rollforward'&&v!=='rollforward'){p._rollforward_balance_draft={fields:{},overrides:{}};keys.forEach(k=>{if(p[k]!=null)p._rollforward_balance_draft.fields[k]=p[k];if((p.overrides||{})[k])p._rollforward_balance_draft.overrides[k]=JSON.parse(JSON.stringify(p.overrides[k]));});}if(v==='rollforward'&&p._rollforward_balance_draft){Object.assign(p,p._rollforward_balance_draft.fields);p.overrides=p.overrides||{};Object.assign(p.overrides,p._rollforward_balance_draft.overrides);delete p._rollforward_balance_draft;}p.balance_mode=v;if(v!=='rollforward'){p.growth_per_period=0;p.runoff_per_period=0;p.new_deposits_per_period=0;p.avg_maturity_m=0;delete p.growth_q;delete p.runoff_q;delete p.new_deposits_q;['growth_per_period','growth_q','runoff_per_period','runoff_q','new_deposits_per_period','new_deposits_q','avg_maturity_m'].forEach(k=>{if(p.overrides)delete p.overrides[k]});p.ending_balance_spec=p.ending_balance_spec||{source:'entered',trajectory:'flat',value:0};}if(v!=='pool'){delete p.retention_pool_id;depositCleanPools();}else{const groups=cfg.assumptions.deposit_retention_pools||[];if(!groups.some(g=>g.id===p.retention_pool_id)){if(groups.length===1)depositPoolAttach(i,groups[0].id);else depositPoolCreate(i);}}renderContent();refresh();}
+// Attach/create mutate state only. Callers request one preview after the whole transition.
+function depositPoolAttach(i,id){
+  const p=cfg.assumptions.deposit_products[i],same=p.retention_pool_id===id;
+  const hasMembers=cfg.assumptions.deposit_products.some((x,j)=>j!==i&&x.balance_mode==='pool'&&x.retention_pool_id===id);
+  p.retention_pool_id=id;
+  if(!same||!p.pool_share_spec)p.pool_share_spec={source:'entered',trajectory:'flat',value:hasMembers?0:1};
+  depositCleanPools();
+}
+function depositPoolSelect(i,id){depositPoolAttach(i,id);renderContent();refresh();}
+function depositPoolCreate(i){
+  const a=cfg.assumptions,groups=a.deposit_retention_pools=a.deposit_retention_pools||[],id=_seriesId('deposit-pool');
+  groups.push({id,name:'Deposit pool '+(groups.length+1),balance_spec:{source:'entered',trajectory:'flat',value:0},retention_share_spec:{source:'entered',trajectory:'flat',value:1},capacity_source:'none',sweep_fee_balance_measure:'period_average',opening_swept_balance:0,sweep_fee_rate_spec:{source:'entered',trajectory:'flat',value:0},adjustments:[]});
+  _depositPoolOpen.add(id);depositPoolAttach(i,id);
+}
+function depositPoolAdd(i){depositPoolCreate(i);renderContent();refresh();}
+function depositPoolCapacity(path,v){setPath(path+'.capacity_source',v);if(v==='entered'&&!getPath(path+'.capacity_spec'))setPath(path+'.capacity_spec',{source:'entered',trajectory:'flat',value:0});if(v==='beginning_equity_budget'&&!getPath(path+'.equity_budget'))setPath(path+'.equity_budget',{target_leverage_spec:{source:'entered',trajectory:'flat',value:0},capital_deduction_spec:{source:'entered',trajectory:'flat',value:0},liquidity_buffer_spec:{source:'entered',trajectory:'flat',value:0},operating_float_months_spec:{source:'entered',trajectory:'flat',value:0},other_committed_assets_spec:{source:'entered',trajectory:'flat',value:0}});renderContent();refresh();}
+function depositPoolAdjustment(path){const g=getPath(path);g.adjustments=g.adjustments||[];g.adjustments.push({id:_seriesId('deposit-adjustment'),name:'Balance adjustment',direction:'deduct',balance_spec:{source:'entered',trajectory:'flat',value:0}});renderContent();refresh();}
+function depositBalanceHtml(p,base){
+  const i=+base.split('.').pop(),mode=p.balance_mode||'rollforward';
+  let h=`<div class="fld wide"><label>Balance method</label><select onchange="depositMode(${i},this.value)">${[['rollforward','Opening balance + growth / inflows'],['level','Enter / link / derive balance'],['pool','Shared retention & sweep pool']].map(x=>`<option value="${x[0]}"${mode===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+  if(mode==='level')h+=depositOperandHtml(base+'.ending_balance_spec',p.ending_balance_spec,'Ending balance',false);
+  if(mode==='pool'){
+    const groups=cfg.assumptions.deposit_retention_pools||[],gi=groups.findIndex(g=>g.id===p.retention_pool_id),g=groups[gi],gp='assumptions.deposit_retention_pools.'+gi;
+    h+=`<div class="fld wide"><label>Retention & sweep pool</label><div class="deposit-tools"><select onchange="depositPoolSelect(${i},this.value)"><option value="">Select a pool</option>${groups.map(x=>`<option value="${esc(x.id)}"${p.retention_pool_id===x.id?' selected':''}>${esc(x.name||x.id)}</option>`).join('')}</select><button class="pillbtn" onclick="depositPoolAdd(${i})">+ Add pool</button>${g?`<button class="deposit-remove" aria-label="Remove from pool" title="Remove from pool" onclick="depositMode(${i},'rollforward')">×</button>`:''}</div></div>`;
+    if(g){
+      h+=depositOperandHtml(base+'.pool_share_spec',p.pool_share_spec,'This category’s share of retained deposits',true);
+      const members=(cfg.assumptions.deposit_products||[]).filter(x=>x.balance_mode==='pool'&&x.retention_pool_id===g.id).map(x=>x.name).join(', ');
+      h+=`<details class="flow-advanced fld wide"${_depositPoolOpen.has(g.id)?' open':''} ontoggle="if(this.open)_depositPoolOpen.add('${esc(g.id)}');else _depositPoolOpen.delete('${esc(g.id)}')"><summary>Shared pool settings · ${esc(g.name||'Deposit pool')}</summary><div class="flow-advanced-grid"><div class="fld wide"><label>Pool name</label><input value="${esc(g.name||'')}" onchange="setPath('${gp}.name',this.value);renderContent();refresh()"><span class="fhint">Shared by ${esc(members)}. Category shares must total 100%.</span></div>`;
+      h+=depositOperandHtml(gp+'.balance_spec',g.balance_spec,'Source balance',false);
+      (g.adjustments||[]).forEach((adj,j)=>{const ap=gp+'.adjustments.'+j;h+=`<div class="fld wide"><input aria-label="Adjustment name" value="${esc(adj.name||'')}" onchange="setPath('${ap}.name',this.value);refresh()"><select aria-label="Adjustment direction" onchange="setPath('${ap}.direction',this.value);refresh()"><option value="deduct"${adj.direction==='deduct'?' selected':''}>Deduct</option><option value="add"${adj.direction==='add'?' selected':''}>Add</option></select><button class="deposit-remove" title="Remove adjustment" aria-label="Remove adjustment" onclick="getPath('${gp}').adjustments.splice(${j},1);renderContent();refresh()">×</button></div>`+depositOperandHtml(ap+'.balance_spec',adj.balance_spec,'Adjustment balance',false);});
+      h+=`<div class="fld wide deposit-tools"><button class="pillbtn" onclick="depositPoolAdjustment('${gp}')">+ Balance adjustment</button></div>`;
+      h+=depositOperandHtml(gp+'.retention_share_spec',g.retention_share_spec,'Maximum retained share',true);
+      h+=`<div class="fld wide"><label>Capacity limit</label><select onchange="depositPoolCapacity('${gp}',this.value)">${[['none','No capacity limit'],['entered','Enter / link / derive capacity'],['beginning_equity_budget','Beginning equity budget']].map(x=>`<option value="${x[0]}"${g.capacity_source===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+      if(g.capacity_source==='entered')h+=depositOperandHtml(gp+'.capacity_spec',g.capacity_spec,'Retained deposit capacity',false);
+      if(g.capacity_source==='beginning_equity_budget'){
+        const b=g.equity_budget||{};
+        [['target_leverage_spec','Equity allocation ratio','rate'],['capital_deduction_spec','Capital deductions','money'],['liquidity_buffer_spec','Liquidity buffer','money'],['operating_float_months_spec','Prior operating expense · months','count'],['other_committed_assets_spec','Other committed assets','money']].forEach(x=>h+=`<div class="fld wide">${_faSeriesEditor(gp+'.equity_budget.'+x[0],b[x[0]],x[1],x[2],false)}</div>`);
+        h+='<div class="fld wide"><span class="fhint">Allocation budget: beginning equity less deductions, divided by the allocation ratio, less commitments. This does not enforce a bank capital / assets ratio. M1 prior operating expense is zero.</span></div>';
+      }
+      h+=`<div class="fld wide">${_faSeriesEditor(gp+'.sweep_fee_rate_spec',g.sweep_fee_rate_spec,'Swept-balance fee · annual %','rate',false)}<span class="fhint">Charged once on swept balances; allocated across member categories.</span></div><div class="fld"><label>Swept-balance fee on</label><select onchange="setPath('${gp}.sweep_fee_balance_measure',this.value);refresh()"><option value="period_average"${(g.sweep_fee_balance_measure||'period_average')==='period_average'?' selected':''}>Average balance</option><option value="period_end"${(g.sweep_fee_balance_measure||'period_average')==='period_end'?' selected':''}>Period-end balance</option></select></div><div class="fld"><label>Opening swept balance ($000s)</label><input type="number" min="0" step="0.001" value="${(+g.opening_swept_balance||0)/1000}" onchange="setPath('${gp}.opening_swept_balance',+this.value*1000);refresh()"><span class="fhint">Before period 1; used by average-balance fees.</span></div></div></details>`;
+      const audit=typeof lastRes!=='undefined'&&lastRes&&lastRes.deposit_retention_pools&&lastRes.deposit_retention_pools[g.id];
+      if(audit)h+=`<details class="flow-advanced fld wide"><summary>Pool preview · retained / swept</summary><div class="fhint">Retained ($000s)</div>${_explicitPreviewHtml(audit.retainedBalance,fmtComma,_nativeFlowPeriod())}<div class="fhint">Swept ($000s)</div>${_explicitPreviewHtml(audit.sweptBalance,fmtComma,_nativeFlowPeriod())}</details>`;
+    }
+  }
+  if(mode!=='rollforward')h+=`<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()">${[['period_average','Average (begin + end)'],['period_end','End balance'],['period_begin','Beginning balance']].map(x=>`<option value="${x[0]}"${(p.interest_balance_measure||'period_average')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+  return h;
+}
+
+// Both engines publish products in input order within each family. Names alone are not unique.
+function productReferenceIndex(p, products, assumptions){
+  if(p.index)return String(p.index).toLowerCase(); // Historical snapshots may carry this metadata.
+  const key={lending:'lending_products',deposit:'deposit_products',obs:'obs_exposures'}[p.family];
+  const family=(products||[]).filter(x=>x.family===p.family),ordinal=family.indexOf(p);
+  const input=key&&((assumptions||{})[key]||[])[ordinal];
+  return input&&input.name===p.name ? String(input.index||'sofr').toLowerCase() : null;
+}
+
 function _loanBalanceMode(p){const mode=String((p||{}).balance_mode||"rollforward");return ["linked_customer_level","explicit_level","funded_flow_level"].includes(mode)?mode:"rollforward";}
 function loanBalanceModeChange(i,v){
   const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;
@@ -4393,11 +4504,16 @@ function fieldsFor(fam, p, base){
       + (p.measurement==="fair_value"?F("DCF discount spread over SOFR (%)", base+".discount_spread_ann", "pct"):"");
     if(_funded)advanced += costFields;else h += costFields;
   } else if(fam==="deposit"){
-    h += F("Starting balance ($000s)", base+".opening_balance", "k");
-    h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
-    h += F(`New deposits ($000s/${PLAB()})`, base+".new_deposits_per_period", "k");
-    h += F(`Runoff (%/${PLAB()})`, base+".runoff_per_period", "pct");
-    h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
+    h += depositBalanceHtml(p,base);
+    // r231b: in level and pool modes the method sets each period's balance; the entered figure is only the
+    // opening balance before period 1 (period 1's average combines it with the method's period-1 balance).
+    h += F(((p.balance_mode||'rollforward')==='rollforward')?"Starting balance ($000s)":"Opening balance before period 1 ($000s)", base+".opening_balance", "k");
+    if((p.balance_mode||'rollforward')==='rollforward'){
+      h += F(`Growth (%/${PLAB()})`, base+".growth_per_period", "pct");
+      h += F(`New deposits ($000s/${PLAB()})`, base+".new_deposits_per_period", "k");
+      h += F(`Runoff (%/${PLAB()})`, base+".runoff_per_period", "pct");
+      h += F("Avg maturity (months; 0 = none)", base+".avg_maturity_m", "num");
+    }
     if(p.rate_type==="float"){
       const _isCRE = p.call_report_line==="loanCRE" || p.line==="loanCRE";
       const _idx = (p.index||"sofr").toUpperCase();
@@ -4406,7 +4522,7 @@ function fieldsFor(fam, p, base){
         : F("Spread over "+_idx+" (annual %)", base+".index_spread", "pct");
     }
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
-    h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
+    h += F("Retained-balance fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
   } else if(p.managed_notional || p._fee_product){
@@ -4959,10 +5075,12 @@ function ovFieldsFor(fam, p){
     if(!funded||(+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length)f.push(["fee_yield_ann","Retained-balance fee (ann. %)","pct"]);
     f.push(["charge_off_ann","Charge-offs (ann. %)","pct"]);
   } else if(fam==="deposit"){
+    if((p.balance_mode||"rollforward")==="rollforward"){
     f.push(["growth_per_period",`Growth (%/${PLAB()})`,"pct"]);
     f.push(["new_deposits_per_period",`New deposits ($000s/${PLAB()})`,"kq"]);
     f.push(["avg_maturity_m","Avg maturity (months)","num"]);
     f.push(["runoff_per_period",`Runoff (%/${PLAB()})`,"pct"]);
+    }
     if(p.rate_type==="float") f.push(["index_spread","Spread over "+((p.index||"sofr").toUpperCase())+" (ann. %)","pct"]);
     else f.push(["rate_paid_ann","Rate paid (ann. %)","pct"]);
     f.push(["fee_yield_ann","Fees (ann. %)","pct"]);
@@ -5035,7 +5153,7 @@ window.productDragOver=function(ev,fam,i){const d=window._productDrag;if(!d||Str
 window.productDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
 window.productDrop=function(ev,fam,targetIndex){if(ev)ev.preventDefault();const d=window._productDrag,card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_productClearDropMarkers();if(!d||String(d.fam)!==String(fam)){window._productDrag=null;return;}const changed=_productReorder(fam,d.index,targetIndex,after);window._productDrag=null;if(changed){renderContent();refresh();}};
 window.productDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.remove('dragging');_productClearDropMarkers();window._productDrag=null;};
-function delProduct(fam, i){ famArr(fam).splice(i,1); renderContent(); refresh(); }
+function delProduct(fam, i){ famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
 window.toggleOpen=toggleOpen; window.delProduct=delProduct;
 
 function v31ModalBody(){
@@ -8588,7 +8706,8 @@ function _renderContentBody(){
     h += '</table>';
     h += '<div class="memo">Direct contribution = interest income \u2212 interest expense + fees + gains on sale + net servicing income \u2212 allocated operating costs \u2212 net charge-offs' + (ftpOn ? ' + FTP charge/credit. FTP charges assets and credits liabilities at forecast SOFR on average balances (warehouse included); the offsetting net position accrues to Treasury, which represents the value of equity funding and the earnings of the cash, securities, and borrowing book. FTP is presentation-only and does not change the income statement.' : '. No funds-transfer pricing: deposit products get no credit for funding value, and loan products bear no funding charge.') + ' Corporate overhead is not allocated; FV revaluation is excluded. End balance is the final-period carrying value including warehouse and FV adjustments.</div>';
     (r.products||[]).forEach(p=>{
-      const tag = (p.rate_type==="float" ? ' \u2014 SOFR' + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
+      const referenceIndex = productReferenceIndex(p, r.products, cfg.assumptions);
+      const tag = (p.rate_type==="float" ? ' \u2014 '+(referenceIndex ? referenceIndex.toUpperCase() : 'Floating rate') + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
       h += `<div class="h2" style="font-size:15px">${esc(p.name)}${esc(tag)}</div>`;
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>$000s</th>';
       for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;
@@ -8619,7 +8738,12 @@ function _renderContentBody(){
         h += rowBSProduct('Net charge-offs'+(p.chargeOffBalanceMeasure?' ('+esc(p.chargeOffBalanceMeasure)+')':''), productDetailSeries(p, 'co'));
         if(!p.is_fv && p.alll) h += rowBSProduct('ALLL'+(p.allowanceMode?' ('+esc(p.allowanceMode)+')':''), productDetailSeries(p, 'alll'));
       }
-      if(p.family==="deposit") h += rowBSProduct('Interest expense', productDetailSeries(p, 'intExp'));
+      if(p.family==="deposit") {
+        if(p.interestBasis)h += rowBSProduct('Interest basis ('+esc(p.interestBalanceMeasure||'period average')+')',productDetailSeries(p,'interestBasis'));
+        if(p.sweptBalance)h += rowBSProduct('Swept balance (off book)',productDetailSeries(p,'sweptBalance'));
+        if(p.sweepFee)h += rowBSProduct('Swept-balance fee income',productDetailSeries(p,'sweepFee'));
+        h += rowBSProduct('Interest expense', productDetailSeries(p, 'intExp'));
+      }
       if(p.is_fv){
         h += rowBSProduct('Fair value (DCF)', productDetailSeries(p, 'fv'));
         h += rowBSProduct('FV adjustment vs balance', productDetailSeries(p, 'fvAdj'));
