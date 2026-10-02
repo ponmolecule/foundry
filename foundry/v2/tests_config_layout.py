@@ -285,8 +285,13 @@ def main():
        and "Build corridor \\u2014 ' + esc(_vinCohortLabel()) + '</button>'" in html and 'Build corridor \\u2014 ${_vinCohortLabel()}' not in html)
     ck("Vintage plot is fitted to its table's height, ends with the peer corridor, as a soft card",
        'function fitVintageCharts()' in html and "if(typeof fitVintageCharts==='function') fitVintageCharts();" in html
-       and '.vin-body{flex-wrap:wrap;align-items:stretch;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}' in html
+       and '.vin-body{flex-wrap:wrap;align-items:flex-start;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}' in html
        and 'box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07)' in html and 'border:0.5in solid' not in html)
+    # r244: leverage has a modeled vintage series; plots sized from the table element (no stretch feedback loop).
+    ck("Vintage leverage ratio has its modeled series (same quarterly filing view as tier 1)",
+       'leverage_ratio:"__lev"' in html and 'mk==="__lev"?"leverage_ratio"' in html)
+    ck("Vintage plot is sized from the table element itself, never its stretchable wrapper, and re-fits on resize",
+       "const tbl=wrap.querySelector('table')||wrap;" in html and "window.addEventListener('resize',()=>{ clearTimeout(window._vinRz);" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

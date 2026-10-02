@@ -1723,7 +1723,7 @@ tr.vin-ext td{color:var(--k-tx3)}
 .pc-stats{gap:0}
 
 /* r242: vintage plot beside its table: same height, 32px gap, ends where the peer corridor ends, graphite frame */
-.vin-body{flex-wrap:wrap;align-items:stretch;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}
+.vin-body{flex-wrap:wrap;align-items:flex-start;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}
 .vin-tbl{flex:0 0 auto}
 .vin-chart{flex:1 1 300px;min-width:300px;box-sizing:border-box;border:0;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);padding:12px 14px;display:flex;flex-direction:column;justify-content:space-between}
 .vin-chart .vin-svg{width:auto;height:auto;max-width:100%}
@@ -2456,15 +2456,18 @@ function _vinChartHtml(M, modeled){   // r242: placeholder at default size; fitV
   return `<div class="vin-chart" data-vin="${id}">${_vinSvg(M, modeled, 360, 196)}${_vinLegend(modeled)}</div>`;
 }
 function _vinLegend(modeled){ return `<div class="vin-leg"><i class="r"></i>min\u2013max <i class="i"></i>P25\u2013P75 <i class="m"></i>median${modeled?' <i class="x"></i>modeled':''}</div>`; }
+window.addEventListener('resize',()=>{ clearTimeout(window._vinRz); window._vinRz=setTimeout(()=>{ if(typeof fitVintageCharts==='function') fitVintageCharts(); },120); });
 function fitVintageCharts(){
   document.querySelectorAll('#content .vin-chart[data-vin]').forEach(box=>{
     if(!box.offsetParent) return; const d=(window._vinCharts||{})[box.getAttribute('data-vin')]; if(!d) return;
-    const body=box.closest('.vin-body'), tbl=body&&body.querySelector('.vin-tbl'); if(!tbl) return;
-    const sideBySide = Math.abs(box.getBoundingClientRect().top - tbl.getBoundingClientRect().top) < 4;
+    const body=box.closest('.vin-body'), wrap=body&&body.querySelector('.vin-tbl'); if(!wrap) return;
+    const tbl=wrap.querySelector('table')||wrap;   // r244: the table itself, never the (stretchable) wrapper
+    const _wr=wrap.getBoundingClientRect(), _br=box.getBoundingClientRect();
+    const sideBySide = Math.abs(_br.top - _wr.top) < 4 && _br.left >= _wr.right - 2;   // r244: position from the wrapper, size from the table
     const cs=getComputedStyle(box), leg=box.querySelector('.vin-leg');
     const padV=(parseFloat(cs.paddingTop)||0)+(parseFloat(cs.paddingBottom)||0), padH=(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0);
     const w=Math.max(220, Math.floor(box.clientWidth-padH));
-    const outer = sideBySide ? tbl.getBoundingClientRect().height : 300;
+    const outer = sideBySide ? tbl.getBoundingClientRect().height + (tbl.getBoundingClientRect().top - _wr.top) : 300;
     const h=Math.max(150, Math.floor(outer-(box.offsetHeight-box.clientHeight)-padV-(leg?leg.offsetHeight+6:0)));
     if(box.dataset.w==String(w)&&box.dataset.h==String(h)) return;
     box.dataset.w=w; box.dataset.h=h;
@@ -7562,7 +7565,7 @@ const METRIC_DIRECTION = {
   efficiency: "lower_good", net_charge_off_rate: "lower_good",
 };
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
-const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
+const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", leverage_ratio:"__lev", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
 window.vintageModeled = vintageModeled;
 window._vintageLater = false;   // show the Q13-Q24 charge-off seasoning bucket (off by default)
 window.setVintageLater = function(v){ window._vintageLater = !!v; renderContent(); };
@@ -7570,12 +7573,16 @@ function vintageModeled(mk){
   if(!lastRes) return null;
   const pq=lastRes.peer_quarterly;
   if(pq&&pq.available){
-    const key=mk==="__t1rwa"?"tier1_ratio":({roa:"roa",nim:"nim",eff:"efficiency_ratio",nco_rate:"net_charge_off_rate"}[mk]);
+    const key=mk==="__t1rwa"?"tier1_ratio":mk==="__lev"?"leverage_ratio":({roa:"roa",nim:"nim",eff:"efficiency_ratio",nco_rate:"net_charge_off_rate"}[mk]);
     if(key) return (pq.quarters||[]).slice(0,12).map(q=>q.filed_ytd[key]);
   }
   if(mk === "__t1rwa"){
     const ST = lastRes.capital && lastRes.capital.standardized;
     return ST ? ST.ratios.tier1_rwa : null;   // like-for-like: risk-based vs risk-based
+  }
+  if(mk === "__lev"){   // r244: tier 1 leverage ratio (standardized), then the financial-ratio series
+    const ST = lastRes.capital && lastRes.capital.standardized;
+    return (ST && ST.ratios && ST.ratios.leverage) || (lastRes.financials.ratios.lev||null);
   }
   return lastRes.financials.ratios[mk];
 }
