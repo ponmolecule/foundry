@@ -213,7 +213,7 @@ def main():
        and '.wf-role-card .wf-role-grid{grid-template-columns:minmax(0,340px) minmax(0,300px)!important;justify-content:start}' in html)
     ck("Control fitting applies with priority and also runs when a module is selected or a section is opened",
        "el.style.setProperty('min-width',target+'px','important')" in html and "e.target.tagName==='DETAILS'&&e.target.open) fitControls(e.target)" in html
-       and 'w._fit=true; window.cfgSelectModule=w;' in html)
+       and "['cfgSelectModule','nieTabSet','prdTabSet'].forEach(nm=>{ const o=window[nm];" in html and 'w._fit=true; window[nm]=w;' in html)
     # r231b: deposit pools: fee basis control; honest opening-balance label in level / pool modes.
     ck("Deposit pools offer the swept-balance fee basis; level and pool modes label the opening balance for what it is",
        "sweep_fee_balance_measure" in html and 'Fee balance measure' in html and 'Opening balance before period 1 ($000s)' in html)
@@ -259,6 +259,10 @@ def main():
     ck("Operating expense scope card reads 'N workforce populations · N expense categories' with correct singulars",
        "workforce population${_r.length===1?'':'s'}" in html and "expense categor${_c.length===1?'y':'ies'}" in html
        and 'Populations / categories' not in html and '.cfg-kpis[data-engine-preview="nie-kpis"]{grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(0,1.45fr) minmax(0,1fr)}' in html)
+    # r238: list columns grow to their table's width when there is room (no needless horizontal scroll).
+    ck("List-and-detail screens size the list to its table when there is room, and re-fit on sub-tab and product-tab switches",
+       'function fitMasterDetail()' in html and 'minmax(min(${need}px, calc(100% - 494px)), ${need}px) minmax(480px, 880px)' in html
+       and "['cfgSelectModule','nieTabSet','prdTabSet'].forEach(" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
