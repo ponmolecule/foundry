@@ -283,10 +283,10 @@ def main():
        and 'if(_reqKey === _vinKey()){ window.vintage = j; window.vintageKey = _reqKey; }' in html
        and "if(window._vinWanted && window.vintageKey!==_vinKey()" in html
        and "Build corridor \\u2014 ' + esc(_vinCohortLabel()) + '</button>'" in html and 'Build corridor \\u2014 ${_vinCohortLabel()}' not in html)
-    ck("Vintage plot is fitted to its table's height, ends with the peer corridor, inside a 0.5in graphite frame",
+    ck("Vintage plot is fitted to its table's height, ends with the peer corridor, as a soft card",
        'function fitVintageCharts()' in html and "if(typeof fitVintageCharts==='function') fitVintageCharts();" in html
        and '.vin-body{flex-wrap:wrap;align-items:stretch;gap:24px 32px;max-width:calc((100% + 1076px) / 2)}' in html
-       and 'border:0.5in solid #2C2C2C' in html)
+       and 'box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07)' in html and 'border:0.5in solid' not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

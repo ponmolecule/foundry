@@ -1067,3 +1067,10 @@ Built on r241. Pro forma engine untouched; run results identical.
   each member's full history; same corridor, far fewer rows. Builds report their time and member count.
 - Each vintage plot is as tall as its table, 32px from it, ends on the same vertical line as the peer corridor,
   sits in a 0.5-inch graphite frame, and is redrawn at its exact size (no stretched text).
+
+
+## r243 — Vintage plot as a soft card
+
+Presentation release on r242. The 0.5-inch graphite frame around each vintage plot is replaced by a soft card:
+white, 6px rounded corners, a two-layer shadow (0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.07)), no
+outline. The plot still matches its table's height and ends on the peer corridor's vertical line.
