@@ -1048,6 +1048,17 @@ def _product_rows(results, n, exact=None):
                 label += f" ({p['allowanceMode']})"
             rows.append((f"{fam} · {name}", label, key, units, vals, fmt))
     source = exact if exact is not None else results
+    for gid, group in (source.get("deposit_retention_pools") or {}).items():
+        for key, values in group.items():
+            vals = list(values)
+            if len(vals) != n:
+                continue
+            enum = key == "bindingLimit"
+            if exact is not None and not enum:
+                vals = _money_k_series(vals)
+            rows.append((f"Deposit retention · {gid}", _slug_label(key), key,
+                         "enum: 0=none, 1=share, 2=capacity, 3=both" if enum else "$000s",
+                         vals, _COUNT_FMT if enum else _MONEY_FMT))
     for gid, group in (source.get("loan_allocation_groups") or {}).items():
         for key in ("cap", "total_target", "factor"):
             values = list(group.get(key) or [])
@@ -1584,7 +1595,9 @@ def _all_series_rows(results, n):
         seen.add(path)
         arr = vals[1:] if len(vals) == n + 1 else vals
         low = path.lower()
-        if any(x in low for x in ("count", "customer")):
+        if low.startswith("deposit_retention_pools.") and low.endswith(".bindinglimit"):
+            units, fmt = "enum: 0=none, 1=share, 2=capacity, 3=both", _COUNT_FMT
+        elif any(x in low for x in ("count", "customer")):
             units, fmt = "native / count", _COUNT_FMT
         elif any(x in low for x in ("rate", "ratio", "roa", "roe", "nim", "eff", "lev", "pct")):
             units, fmt = "native rate / ratio", _RATE_FMT

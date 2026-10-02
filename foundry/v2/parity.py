@@ -196,6 +196,9 @@ def _conv(tree, is_ratio=False, raw=False):
                     {gid: {field: (list(values) if field == "factor" else _conv(values))
                            for field, values in group.items()}
                      for gid, group in v.items()} if k == "loan_allocation_groups" else
+                    {gid: {field: (list(values) if field == "bindingLimit" else _conv(values))
+                           for field, values in group.items()}
+                     for gid, group in v.items()} if k == "deposit_retention_pools" else
                     _conv(v, is_ratio or k in ("ratios", "rateQ"),
                           raw or k in ("ftp_rate", "resolved_hire_periods", "creditLossFactor")))
                 for k, v in tree.items()}
