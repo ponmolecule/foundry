@@ -1615,7 +1615,6 @@ def run_pf_a(cfg):
                 "name": p.get("name"), "family": fam,
                 "line": p.get("call_report_line"),
                 "rate_type": p.get("rate_type", "fixed"),
-                "index": p.get("index", "sofr"),
                 "index_spread": p.get("index_spread"),
                 "is_fv": bool(p.get("_is_fv")),
                 "sale_pct": p.get("_sale", 0.0),

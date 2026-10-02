@@ -34,10 +34,10 @@ def main():
     ns={'__name__':'foundry.v2.engine_q_a','__package__':'foundry.v2'}
     exec(compile(old,'legacy_engine_q_a.py','exec'),ns)
     current=run_pf_a(copy.deepcopy(c));legacy=ns['run_pf_a'](copy.deepcopy(c))
-    # Index metadata is the only new non-financial field on old products.
-    for p in current['products']:p.pop('index',None)
+    # r231b: compare the full output with nothing removed (r231 stripped an added 'index' field here,
+    # which hid a change to every run fingerprint).
     assert current==legacy
-    print('PASS exact legacy engine equivalence')
+    print('PASS exact legacy engine equivalence (full output, nothing removed)')
     c=fixture();assert not validate_errors_v2(c),validate_errors_v2(c)
     out=run_pf_a(copy.deepcopy(c));g=out['deposit_retention_pools']['pool']
     assert g['retainedBalance']==[400_000]*36 and g['sweptBalance']==[800_000]*36
@@ -108,6 +108,18 @@ def main():
         x=fixture();mutate(x['assumptions']);assert validate_errors_v2(x)
     x=fixture();x['assumptions']['deposit_retention_pools'][0].update(capacity_source='beginning_equity_budget',equity_budget={'target_leverage_spec':flat(.13)});x['assumptions']['loan_allocation_groups']=[{'id':'cycle','cap_source':'deposit_book_end','cap_ratio':1}];assert any('cycle' in str(e) for e in validate_errors_v2(x))
     print('PASS fail-closed shares, negative / nonfinite operands, duplicate IDs, conflicting methods and cycles')
+
+    # r231b: swept-balance fee basis. A growing swept balance distinguishes the bases (a constant one cannot).
+    from foundry.v2.deposit_balance import allocate_period
+    keys=('sourceBalance','balanceAdjustments','availableBalance','shareLimit','capacity','retainedBalance','sweptBalance','sweepFee','beginningSweptBalance','sweepFeeBasis','beginningCapital','committedAssets','bindingLimit')
+    def pool(measure):
+        return dict(source=[1000.,2000.,3000.],adjustments=[0.]*3,share=[.5]*3,capacity=None,budget=None,fee_rate=[.12]*3,
+                    weights={0:[1.]*3},members=[0],fee_measure=measure,audit={k:[] for k in keys})
+    for measure,expected in (('period_end',[5.,10.,15.]),('period_average',[2.5,7.5,12.5])):
+        g=pool(measure);fees=[allocate_period(g,q,12)[0][2] for q in (1,2,3)]
+        assert all(abs(a-b)<1e-9 for a,b in zip(fees,expected)),(measure,fees)
+    x=fixture();x['assumptions']['deposit_retention_pools'][0]['sweep_fee_balance_measure']='period_begin';assert validate_errors_v2(x)
+    print('PASS swept-balance fee on average from zero opening or period-end balance; invalid measure rejected')
 
 
 if __name__=='__main__':main()

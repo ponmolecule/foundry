@@ -171,6 +171,11 @@ def prepare(a, n, ppy, quantities=None, growth_context=None):
         net = [sum((1 if direction == 'add' else -1) * vals[q] for direction, vals in adjustments) for q in range(n)]
         shares = r(pool.get('retention_share_spec', {'value': 1}), True)
         fee = r(pool.get('sweep_fee_rate_spec', {'value': 0}))
+        # Preserve r231a's period-end basis when the option is absent. New UI pools author average explicitly.
+        fee_measure = str(pool.get('sweep_fee_balance_measure') or 'period_end')
+        opening_swept = r({'value': pool.get('opening_swept_balance', 0)})[0]
+        if fee_measure not in {'period_average', 'period_end'}:
+            raise ValueError('Swept-balance fee balance measure must be period_average or period_end')
         cs = pool.get('capacity_source', 'none')
         if cs not in {'none', 'entered', 'beginning_equity_budget'}:
             raise ValueError('Unsupported deposit capacity source')
@@ -183,8 +188,8 @@ def prepare(a, n, ppy, quantities=None, growth_context=None):
             budget = {key: r(policy.get(key, {'value': default}), key == 'target_leverage_spec') for key, default in [('target_leverage_spec', 0), ('capital_deduction_spec', 0), ('liquidity_buffer_spec', 0), ('operating_float_months_spec', 0), ('other_committed_assets_spec', 0)]}
             if any(v <= 0 for v in budget['target_leverage_spec']):
                 raise ValueError('Equity-budget target leverage must be above zero')
-        prepared.append(dict(config=pool, members=members, weights=weights, source=available, adjustments=net, share=shares, fee_rate=fee, capacity=capacity, budget=budget,
-                             audit={key: [] for key in ('sourceBalance', 'balanceAdjustments', 'availableBalance', 'shareLimit', 'capacity', 'retainedBalance', 'sweptBalance', 'sweepFee', 'beginningCapital', 'committedAssets', 'bindingLimit')}))
+        prepared.append(dict(config=pool, members=members, weights=weights, source=available, adjustments=net, share=shares, fee_rate=fee, capacity=capacity, budget=budget, fee_measure=fee_measure, opening_swept=opening_swept,
+                             audit={key: [] for key in ('sourceBalance', 'balanceAdjustments', 'availableBalance', 'shareLimit', 'capacity', 'retainedBalance', 'sweptBalance', 'sweepFee', 'beginningSweptBalance', 'sweepFeeBasis', 'beginningCapital', 'committedAssets', 'bindingLimit')}))
     return direct, prepared
 
 
@@ -202,10 +207,13 @@ def allocate_period(pool, q, ppy, beginning_equity=0, beginning_credit=0, prior_
         cap = pool['capacity'][k] if pool['capacity'] is not None else available
     retained = min(available, limit, cap)
     swept = available - retained
-    fee = swept * pool['fee_rate'][k] / ppy
+    # Opening swept balance is independent of the first ending balance, just like retained deposits.
+    prior = pool['audit']['sweptBalance'][-1] if pool['audit']['sweptBalance'] else pool.get('opening_swept', 0.)
+    basis = (prior + swept) / 2.0 if pool.get('fee_measure') == 'period_average' else swept
+    fee = basis * pool['fee_rate'][k] / ppy
     # 0=available / no sweep, 1=share, 2=capacity, 3=both (audit enum).
     binding = 0 if retained == available else (3 if abs(limit-cap) < 1e-9 else 1 if limit < cap else 2)
-    vals = (pool['source'][k], pool['adjustments'][k], available, limit, cap, retained, swept, fee, capital, committed, binding)
+    vals = (pool['source'][k], pool['adjustments'][k], available, limit, cap, retained, swept, fee, prior, basis, capital, committed, binding)
     for key, val in zip(pool['audit'], vals):
         pool['audit'][key].append(val)
     return {i: (retained * pool['weights'][i][k], swept * pool['weights'][i][k], fee * pool['weights'][i][k]) for i in pool['members']}
