@@ -1031,3 +1031,20 @@ Excel export (Download Excel)
   formulas (the template's design, without its #VALUE! titles or the Tier1_RBR column shift). Larger cohorts:
   the distribution per age (n, min, P10-P90, max) plus placement formulas and a Members sheet. Arial, inputs
   blue, formulas black; recalculated with zero errors in testing. File named in Central time.
+
+
+## r241 — Peer Cohort refinements
+
+Built on r240. Pro forma engine untouched; run results identical.
+- Peer corridor bounded to 1180px (strip column at most 320px), so it no longer fills the screen; thin dividers
+  between the percentiles, slightly stronger around P10-P90, Min/Max muted.
+- Vintage corridor follows the peer cohort. Previously any asset band fell back to "all 2018-2023 charters"
+  and an existing corridor was never rebuilt on a cohort switch. Now the request carries the asset band
+  (membership: 2018-2023 charters at their current size in that band), the corridor records which cohort it
+  belongs to, and a cohort switch rebuilds it. Both vintage endpoints cache results for 30 minutes.
+- Vintage metric headings: graphite band, mixed case at about 1.5x size, at least a third of the width (a
+  separator, never a full-width rule); the capital footnote sits beneath in small muted text.
+- A plot beside each vintage table: min-max range, P25-P75, median, and the modeled bank.
+- Excel: a line chart beside each corridor sheet's table and a Charts sheet gathering them (min/max dashed
+  grey, P25/P75 gold, median graphite, modeled thick gold with markers). Ages without peer observations are
+  left blank so charts show gaps, not false zeros. Sheet and chart names in mixed case.

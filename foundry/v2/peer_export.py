@@ -16,6 +16,40 @@ import io
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 from openpyxl.utils import get_column_letter
+from openpyxl.chart import LineChart, Reference
+from openpyxl.chart.shapes import GraphicalProperties
+from openpyxl.chart.marker import Marker
+from openpyxl.drawing.line import LineProperties
+
+METRIC_LABEL = {"roa": "ROA", "nim": "NIM", "efficiency_ratio": "Efficiency ratio", "tier1_ratio": "Tier 1 ratio",
+                "cet1_ratio": "CET1 ratio", "leverage_ratio": "Leverage ratio", "total_rbc_ratio": "Total capital ratio",
+                "net_charge_off_rate": "Net charge-off rate", "noninterest_share": "Noninterest revenue share"}
+
+_SERIES_STYLE = {"Min": ("C9C2B3", 12000, "dash"), "P25": ("D9C499", 15000, None), "Median": ("343434", 22000, None),
+                 "P75": ("D9C499", 15000, None), "Max": ("C9C2B3", 12000, "dash"), "Modeled": ("A3772A", 28000, None)}
+
+
+def _corridor_chart(ws, title, cat_col, cols, first_row, last_row):
+    """Line chart of the corridor: peer min/P25/median/P75/max plus the modeled bank. Blank cells plot as gaps."""
+    ch = LineChart()
+    ch.title = title; ch.height = 7.5; ch.width = 15
+    ch.legend.position = "b"; ch.display_blanks = "span"
+    ch.y_axis.majorGridlines.spPr = GraphicalProperties(ln=LineProperties(solidFill="EFEFEF"))
+    ch.x_axis.title = "Age (quarters since opening)"
+    for col in cols:
+        ch.add_data(Reference(ws, min_col=col, min_row=first_row - 1, max_row=last_row), titles_from_data=True)
+    ch.set_categories(Reference(ws, min_col=cat_col, min_row=first_row, max_row=last_row))
+    for idx, srs in enumerate(ch.series):   # by position: series objects compare equal by content
+        name = ws.cell(row=first_row - 1, column=cols[idx]).value
+        color, width, dash = _SERIES_STYLE.get(name, ("8F6B30", 15000, None))
+        srs.graphicalProperties = GraphicalProperties(ln=LineProperties(solidFill=color, w=width, prstDash=dash))
+        srs.smooth = False
+        if name == "Modeled":
+            srs.marker = Marker(symbol="circle", size=6)
+            srs.marker.graphicalProperties = GraphicalProperties(solidFill=color, ln=LineProperties(solidFill=color))
+        else:
+            srs.marker = Marker(symbol="none")
+    return ch
 
 CURATED_MAX = 25
 FONT = "Arial"
@@ -111,17 +145,19 @@ def build_workbook(payload: dict) -> bytes:
 
     # ---------------- Vintage corridor: de novos at the same age ----------------
     vcorr = (vintage.get("corridor") or {})
+    chart_specs = []
     series = vintage.get("series_by_cert") or {}
     names = {str(b.get("cert")): str(b.get("name") or b.get("cert")) for b in (vintage.get("bank_coverage") or [])}
     for metric, block in vcorr.items():
         ages = block.get("ages") or []
         if not ages:
             continue
-        ws = wb.create_sheet(_safe_sheet(metric, used))
+        mlabel = METRIC_LABEL.get(metric, metric)
+        ws = wb.create_sheet(_safe_sheet(mlabel, used))
         per_bank = series.get(metric) or {}
         curated = bool(per_bank) and len(per_bank) <= CURATED_MAX
         mod = vin_modeled.get(metric) or {}
-        ws["A1"] = f"{metric}: vintage corridor, ages Q1-Q12 ({'each peer shown' if curated else 'cohort distribution'})"
+        ws["A1"] = f"{mlabel}: vintage corridor, ages Q1-Q12 ({'each peer shown' if curated else 'cohort distribution'})"
         ws["A1"].font = F_TITLE
         ws["A2"] = ("Peers re-clocked to their opening quarter (age Q1 = first quarter of operation). "
                     + ("Aggregates and placement are formulas over the peer columns." if curated else
@@ -142,10 +178,13 @@ def build_workbook(payload: dict) -> bytes:
                         c = ws.cell(row=r, column=2 + j, value=v); c.font = F_INPUT; c.number_format = NUM
                 rng = f"{first}{r}:{last}{r}"
                 base = 2 + pc
+                has_obs = any(_num((per_bank.get(c) or {}).get(str(age), (per_bank.get(c) or {}).get(age))) is not None for c in certs)
                 fx = {"min": f"MIN({rng})", "p10": f"PERCENTILE({rng},0.1)", "p25": f"PERCENTILE({rng},0.25)",
                       "p50": f"MEDIAN({rng})", "p75": f"PERCENTILE({rng},0.75)", "p90": f"PERCENTILE({rng},0.9)",
                       "max": f"MAX({rng})"}
                 for k, s in enumerate(STATS):
+                    if not has_obs:
+                        continue
                     c = ws.cell(row=r, column=base + k, value=f'=IF(COUNT({rng})=0,"",{fx[s]})')
                     c.font = F_BODY; c.number_format = NUM
                 ncol = base + len(STATS)
@@ -178,6 +217,19 @@ def build_workbook(payload: dict) -> bytes:
                     f"{get_column_letter(mcol)}{r}", L["min"], L["p10"], L["p25"], L["p50"], L["p75"], L["p90"], L["max"],
                     f"B{r}")).font = F_BODY
         ws.freeze_panes = "B5"
+        n_rows = len(ages)
+        head = [ws.cell(row=4, column=c).value for c in range(1, ws.max_column + 1)]
+        cols = [head.index(h) + 1 for h in ("Min", "P25", "Median", "P75", "Max", "Modeled") if h in head]
+        if cols and n_rows >= 2:
+            ttl = f"{mlabel}: modeled vs peers by age"
+            ws.add_chart(_corridor_chart(ws, ttl, 1, cols, 5, 4 + n_rows), f"{get_column_letter(ws.max_column + 2)}4")
+            chart_specs.append((ws, ttl, cols, n_rows))
+
+    if chart_specs:
+        cs = wb.create_sheet(_safe_sheet("Charts", used))
+        cs["A1"] = "Vintage corridor: modeled bank vs peers at the same age"; cs["A1"].font = F_TITLE
+        for k, (src, ttl, cols, n_rows) in enumerate(chart_specs):
+            cs.add_chart(_corridor_chart(src, ttl, 1, cols, 5, 4 + n_rows), f"{'A' if k % 2 == 0 else 'K'}{3 + (k // 2) * 16}")
 
     # ---------------- Members ----------------
     cov = vintage.get("bank_coverage") or []

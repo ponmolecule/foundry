@@ -270,6 +270,13 @@ def main():
        and 'window.pbExport=async function()' in html and 'const results = await Promise.all(metrics.map(fetchBand));' not in html)
     ck("Vintage corridor tables include Min and Max rows",
        '["max","p90","p75","p50","p25","min"].forEach(p=>{' in html)
+    # r241: vintage follows the cohort; graphite headings; plots beside tables; bounded, delineated corridor.
+    ck("Vintage corridor follows the peer cohort, with graphite headings and a plot beside each table",
+       'function _vinSync()' in html and 'if(typeof _vinSync==="function") _vinSync();' in html and '{asset_band:_mode}' in html
+       and '<div class="vin-h"><span class="vin-name">' in html and '_vinChartHtml(M, modeled)' in html
+       and '.vin-h{display:flex;align-items:baseline;gap:12px;width:fit-content;min-width:33%;' in html)
+    ck("Peer corridor is bounded in width and its percentiles are delineated",
+       '.pc-cards,.pc-panel,.pc-note{max-width:1180px}' in html and '.pc-st{padding:0 9px;border-left:1px solid #ECECE8}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
