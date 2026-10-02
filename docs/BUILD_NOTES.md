@@ -970,3 +970,17 @@ Presentation release on r234. Results identical to r234.
   page scroll and no control past its card on any screen.
 - Workforce: the activation Trigger row (metric, operator, value) moved from below Advanced trajectories to
   directly under the Start row that enables it, styled like the fields above.
+
+
+## r236 — Toggles, action order, component buttons, role reordering
+
+Presentation release on r235. Results identical to r235.
+1. Segmented toggles show the selected option filled (graphite, white text), matching Products' Portfolio |
+   Compare. Found by scanning every screen: Operating expense (Simple overhead | Detailed), Capital
+   (Formula / level | Asset schedule) and Securities (Flat | Formula / level) all shared the white-on-grey style.
+2. Add comes before Paste everywhere it pairs: roles, categories, fixed assets, pre-opening expenses.
+3. Additive expense components are slim pill buttons (+ Formula · + Tiered bands · + Cost pool) with their
+   descriptions as tooltips. Disclosure summaries (Advanced timing, Advanced trajectories, ...) are quiet
+   inline text with thin dividers instead of grey boxes.
+4. Workforce roles reorder by drag, like categories. Selection follows the role; Advanced-trajectories state
+   is keyed by series id; engine outputs are unaffected (26 statement series identical after a reorder).

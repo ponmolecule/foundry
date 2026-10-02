@@ -243,6 +243,18 @@ def main():
     ck("Workforce activation trigger sits directly under the Start row, before Advanced trajectories",
        html.index('// r235: the activation trigger sits directly under the Start row') < html.index('const _advKey=_nieWorkforceAdvancedKey(wr,wi)')
        and html.count('<div class="wf-trigger-row">')==1)
+    # r236: selected toggle filled; Add before Paste; slim component buttons; inline disclosure summaries; role drag.
+    ck("Segmented toggles fill the selected option (not white on grey)",
+       '.cfg-stage .nie-mode button.on{background:#2C2C2C!important;color:#FFFFFF!important;box-shadow:none!important}' in html)
+    ck("Add comes before Paste for roles, categories, fixed assets and pre-opening expenses",
+       all(0 < html.find(a) < html.find(p) and html.find(p)-html.find(a) < 700 for a,p in
+           (('+ Add role','⎘ Paste roles'),('+ Add category','⎘ Paste categories'),('+ Add asset','⎘ Paste assets'),('+ Add one manually','⎘ Paste from spreadsheet'))))
+    ck("Additive components are slim buttons with descriptions in tooltips; disclosure summaries are inline text",
+       '<span>+ Formula</span></a>' in html and '<span>+ Tiered bands</span></a>' in html and '<span>+ Cost pool</span></a>' in html
+       and 'title="A balance evaluated against a band schedule."' in html and '.cfg-disc-val{height:auto!important;padding:0 0 0 12px!important' in html)
+    ck("Workforce roles reorder by drag, like operating-expense categories",
+       'window.nieWorkforceDrop=function(ev,target)' in html and 'ondragstart="nieWorkforceDragStart(event,${wi})"' in html
+       and 'Drag the handle to reorder; select a row to edit its assumptions.' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
