@@ -2121,6 +2121,22 @@ function fitControls(root){
     if(el.getBoundingClientRect().width+0.5<target) el.style.setProperty('min-width',target+'px','important');
   });
   root.querySelectorAll('input[type=text],input:not([type]),input[type=number]').forEach(fitInput);
+  fitMasterDetail();
+}
+function fitMasterDetail(){
+  // r238: a list whose table needs more than the default 640px gets exactly that width when the screen has room,
+  // instead of scrolling while the detail card leaves space unused. Side by side, the detail card keeps 480-880px;
+  // if the screen is too narrow the table still scrolls rather than squeezing the card.
+  document.querySelectorAll('#content .cfg-md').forEach(md=>{
+    if(!md.offsetParent||md.classList.contains('cfg-md-stack')) return;
+    const l=md.querySelector('.cfg-md-list'); if(!l) return;
+    const sc=l.querySelector('.cfg-md-scroll')||l, t=sc.querySelector('table'); if(!t) return;
+    if(sc.scrollWidth<=sc.clientWidth+1) return;
+    const need=Math.ceil(t.scrollWidth+(l.offsetWidth-sc.clientWidth));
+    const sideBySide=getComputedStyle(md).gridTemplateColumns.split(' ').length>1;
+    if(sideBySide) md.style.gridTemplateColumns=`minmax(min(${need}px, calc(100% - 494px)), ${need}px) minmax(480px, 880px)`;
+    else l.style.maxWidth=need+'px';
+  });
 }
 function fitInput(el){
   if(!el||!el.offsetParent) return;
@@ -2142,7 +2158,9 @@ function fitInput(el){
   // r230: controls drawn while hidden can't be measured, so also fit when a hidden part becomes visible:
   // selecting a Configuration module, and opening a collapsible section. Both run before paint.
   document.addEventListener('toggle',e=>{ if(e.target&&e.target.tagName==='DETAILS'&&e.target.open) fitControls(e.target); },true);
-  setTimeout(()=>{ const o=window.cfgSelectModule; if(typeof o==='function'&&!o._fit){ const w=function(){ const r=o.apply(this,arguments); try{ fitControls(); }catch(_){} return r; }; w._fit=true; window.cfgSelectModule=w; } },0);
+  // r230/r238: re-fit (before paint) whenever a hidden part is revealed without a redraw: a Configuration module,
+  // an Operating expense sub-tab, or a product tab.
+  setTimeout(()=>{ ['cfgSelectModule','nieTabSet','prdTabSet'].forEach(nm=>{ const o=window[nm]; if(typeof o==='function'&&!o._fit){ const w=function(){ const r=o.apply(this,arguments); try{ fitControls(); }catch(_){} return r; }; w._fit=true; window[nm]=w; } }); },0);
 })();
 
 // r228: one renderer for a stream's figure cell, and an in-place refresh after every run so the grid (and

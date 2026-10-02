@@ -992,3 +992,14 @@ Presentation release on r236. The "Populations / categories 10 / 18" card now re
 populations · 18 expense categories" (singular forms when a count is 1), large numbers with small words as in
 the other KPI cards. That card gets a 1.45 share of the KPI strip so the phrase stays on one line at 1440px;
 each half wraps as a unit on narrower screens. Its value aligns with the neighbouring cards.
+
+
+## r238 — Lists use the room they need
+
+Presentation release on r237. The r226/r227 640px cap on list columns made the Operating expense categories
+table (714px) scroll horizontally at every screen width, while the detail card left space unused; the
+workforce roles table (646px, after r236's drag column) scrolled by 6px. After each fit, a list whose table
+overflows now gets exactly the table's width when the screen has room: side by side, the detail card moves
+right and keeps 480-880px; stacked, the list's cap rises to the table width. Too-narrow screens still scroll
+rather than squeeze the detail card. The fit also re-runs when an Operating expense sub-tab or a product tab is
+selected (those reveal panels drawn while hidden). Measured at 1440, 1920 and 2560px: no list scrolls.
