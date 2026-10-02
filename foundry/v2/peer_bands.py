@@ -234,3 +234,48 @@ def get_bands(metric, cohort):
             "not an error to paper over.")
     with open(path, encoding="utf-8") as fh:
         return parse_bands_response(json.load(fh)), "fixture (PROVISIONAL \u2014 NOT LIVE DATA)"
+
+
+# r240: extremes for stored asset-band cohorts. Stored bands come pre-aggregated (P10-P90 and a count, no
+# min/max), so the extremes are read with one streaming MIN/MAX aggregate over the band's current members at
+# the band's quarter (no percentile sort, so it cannot fan out the way percentile_cont over a membership
+# subquery did). Guarded: if the extremes contradict the stored percentiles (min above P10 or max below P90,
+# which would mean a different membership), they are withheld rather than shown.
+_BAND_RANGES = {"under_200M": (None, 200), "200M_500M": (200, 500), "500M_2B": (500, 2000),
+                "2B_10B": (2000, 10000), "10B_50B": (10000, 50000), "over_50B": (50000, None)}
+
+
+def attach_extremes(doc, metric, cohort, client=None):
+    """Add min/max to the latest band of a stored-band document, in place. Returns a status string."""
+    try:
+        bands = doc.get("bands") or []
+        if not bands:
+            return "no bands"
+        latest = bands[-1]
+        if latest.get("min") is not None and latest.get("max") is not None:
+            return "already present"
+        if not isinstance(cohort, str) or not (cohort == "broad" or cohort in _BAND_RANGES):
+            return "not a stored band"
+        from foundry.charteriq_client import CharterIQClient
+        cl = client or CharterIQClient()
+        if not cl.configured():
+            return "substrate not configured"
+        lo, hi = _BAND_RANGES.get(cohort, (None, None))
+        conds = ["active = 1"]; params = []
+        if lo is not None: conds.append("asset_size_mm >= %s"); params.append(lo)
+        if hi is not None: conds.append("asset_size_mm < %s"); params.append(hi)
+        rows = cl._run(
+            "SELECT MIN(value), MAX(value), COUNT(*) FROM metrics WHERE metric_name = %s AND year = %s "
+            "AND quarter = %s AND value IS NOT NULL AND cert IN (SELECT cert FROM institutions WHERE "
+            + " AND ".join(conds) + ")",
+            tuple([_canonical_metric(metric), int(latest["year"]), int(latest["q"])] + params))
+        if not rows or rows[0][0] is None:
+            return "no rows"
+        vmin, vmax = float(rows[0][0]), float(rows[0][1])
+        if vmin > float(latest["p10"]) + 1e-9 or vmax < float(latest["p90"]) - 1e-9:
+            latest["extremes_note"] = "withheld: extremes did not reconcile with the stored percentiles"
+            return "withheld"
+        latest["min"], latest["max"] = vmin, vmax
+        return "attached"
+    except Exception as e:   # extremes are optional; never turn a good band into an error
+        return f"skipped: {type(e).__name__}"

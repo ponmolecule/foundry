@@ -1003,3 +1003,31 @@ overflows now gets exactly the table's width when the screen has room: side by s
 right and keeps 480-880px; stacked, the list's cap rises to the table width. Too-narrow screens still scroll
 rather than squeeze the detail card. The fit also re-runs when an Operating expense sub-tab or a product tab is
 selected (those reveal panels drawn while hidden). Measured at 1440, 1920 and 2560px: no list scrolls.
+
+
+## r240 — Peer Cohort: faster, steadier, redesigned, exportable
+
+Built on r238 (r239 was a separate build that was rolled back; numbering skips it to avoid confusion).
+Pro forma engine untouched; run results identical.
+Reliability and speed
+- The corridor made one request per metric (about seven at once), each needing two or more queries on a small
+  bounded connection pool; some queued past the 15-second timeout and failed at random. It now makes ONE
+  request: /api/v31/peer-bands/batch runs the existing single-metric handlers one after another (identical
+  output), retries once on a transient 502/503, and caches successes for 30 minutes. Peer data do not change
+  with the model, so the browser also keeps them for the session: re-renders and model reruns issue no queries.
+Min and max of the comparison set
+- Curated and lending cohorts: MIN/MAX added to the existing percentile queries (same rows).
+- Stored asset bands (pre-aggregated, no extremes): one streaming MIN/MAX over the band's current members,
+  withheld with a note if it contradicts the stored percentiles. Vintage ages gain min/max (same values,
+  same suppression); curated vintage results include each bank's series by age for the workbook.
+Redesign (from the Claude Design proposal, with the requested change)
+- Summary cards (inside P25-P75, outside P10-P90, better than median given direction, awaiting data); one row
+  per metric with a band strip (P10-P90, P25-P75, median, min/max ticks, modeled dot); the comparison set's
+  Min / P10 / P25 / P50 / P75 / P90 / Max with each label ABOVE its value; n; the modeled value stacked over
+  its placement and Q12 standalone figure. Vintage tables gain Max and Min rows.
+Excel export (Download Excel)
+- Built from what the page already holds, so it never re-queries the substrate. Curated cohorts (up to 25
+  banks with series): one column per peer per age with min/percentiles/median/max/n and placement as live
+  formulas (the template's design, without its #VALUE! titles or the Tier1_RBR column shift). Larger cohorts:
+  the distribution per age (n, min, P10-P90, max) plus placement formulas and a Members sheet. Arial, inputs
+  blue, formulas black; recalculated with zero errors in testing. File named in Central time.

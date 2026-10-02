@@ -1656,6 +1656,45 @@ table.ovt-grid.wf-run-sum td,table.ovt-grid.wf-run-sum th{padding-right:22px}
 .cfg-kpi.cfg-kpi-scope b em{font-style:normal;white-space:nowrap}
 .cfg-kpi.cfg-kpi-scope b small{margin:0 0 0 5px}
 .cfg-kpi.cfg-kpi-scope b i{font-style:normal;font-weight:400;color:var(--k-tx3);margin:0 8px;font-size:15px}
+
+/* r240: Peer corridor */
+.pc-cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));border:1px solid var(--k-line);border-radius:3px;background:#FFFFFF;margin:10px 0 12px}
+.pc-card{padding:11px 16px;border-left:1px solid var(--k-line);min-width:0}.pc-card:first-child{border-left:0}
+.pc-card .k{display:block;font-size:11.5px;color:var(--k-tx3)}
+.pc-card b{display:block;font-family:var(--k-disp);font-size:22px;line-height:30px;font-weight:600;color:var(--k-tx1);font-variant-numeric:tabular-nums}
+.pc-card b small{font-size:12px;font-weight:500;color:var(--k-tx3)}
+.pc-card .s{display:block;font-size:11px;color:var(--k-tx3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-note{margin:0 0 12px;padding:8px 12px;border-left:3px solid var(--k-gold);background:#FBF7EF;font-size:12px;color:#4A4A4A}
+.pc-panel{border:1px solid var(--k-line);border-radius:3px;background:#FFFFFF}
+.pc-panel-h{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--k-line);background:#FAFAF8}
+.pc-panel-h b{font-size:13px;color:var(--k-tx1)}
+.pc-legend{display:inline-flex;align-items:center;gap:6px;font-size:11px;color:var(--k-tx3);margin-left:auto}
+.pc-legend .lg{display:inline-block;width:14px;height:8px;margin-left:8px}.pc-legend .lg.b90{background:#EFE6D2}.pc-legend .lg.b50{background:#D9C499}
+.pc-legend .lg.med{width:2px;height:12px;background:#343434}.pc-legend .lg.dot{width:9px;height:9px;border-radius:50%;background:#536A57}
+.pc-xl{height:28px;padding:0 12px;border:1px solid #C4C4C4;border-radius:14px;background:#FFFFFF;font:inherit;font-size:12px;font-weight:500;color:#343434;cursor:pointer}
+.pc-xl:hover{border-color:var(--k-gold);background:#FBF7EF}
+.pc-row{display:grid;grid-template-columns:minmax(150px,190px) minmax(160px,1fr) auto 130px;gap:8px 18px;align-items:center;padding:11px 14px;border-bottom:1px solid #EFEFEF}
+.pc-row:last-child{border-bottom:0}
+.pc-name b{display:block;font-size:13px;font-weight:600;color:var(--k-tx1)}
+.pc-name span{display:block;font-size:11px;color:var(--k-tx3)}.pc-name em{font-style:normal;padding:0 5px;margin-right:4px;border-radius:2px;background:#EFEFEF;color:#4A4A4A}
+.pc-strip{position:relative;height:26px}.pc-svg{width:100%;height:26px;display:block}
+.pc-axis{stroke:#E6E6E3;stroke-width:1}.pc-range{stroke:#C9C2B3;stroke-width:1.2}.pc-tick{stroke:#96928C;stroke-width:1.2}
+.pc-b90{fill:#EFE6D2}.pc-b50{fill:#D9C499}.pc-med{stroke:#343434;stroke-width:2}
+.pc-dot{position:absolute;top:50%;width:11px;height:11px;margin:-5.5px 0 0 -5.5px;border-radius:50%;border:2px solid #FFFFFF;box-shadow:0 0 0 1px rgba(0,0,0,.18)}
+.pc-dot.good{background:#536A57}.pc-dot.bad{background:#9F5340}.pc-dot.mid{background:#9D7A40}
+.pc-stats{display:grid;grid-template-columns:repeat(8,auto);gap:0 14px;font-variant-numeric:tabular-nums}
+.pc-st{display:flex;flex-direction:column;align-items:flex-end;min-width:44px}
+.pc-st .k{font-size:10.5px;color:var(--k-tx3);letter-spacing:.02em}.pc-st .v{font-size:12.5px;color:var(--k-tx1)}
+.pc-st.n .v{color:var(--k-tx3)}
+.pc-mod{display:flex;flex-direction:column;align-items:flex-end;gap:3px}
+.pc-mod .v{font-family:var(--k-disp);font-size:17px;font-weight:600;font-variant-numeric:tabular-nums}
+.pc-mod .v.good{color:#536A57}.pc-mod .v.bad{color:#9F5340}.pc-mod .v.mid{color:#9D7A40}.pc-mod .v.mut{color:var(--k-tx3)}
+.pc-mod .chip{font-size:10.5px;font-weight:600;padding:1px 7px;border-radius:9px}
+.pc-mod .chip.good{color:#536A57;background:rgba(83,106,87,.12)}.pc-mod .chip.bad{color:#9F5340;background:rgba(146,91,77,.12)}.pc-mod .chip.mid{color:#9D7A40;background:rgba(156,122,66,.12)}.pc-mod .chip.mut{color:var(--k-tx3);background:#F3F3F1}
+.pc-mod .sa{font-size:10.5px;color:var(--k-tx3)}
+.pc-wait{grid-column:2/-1;font-size:12px;color:var(--k-tx3)}
+tr.vin-ext td{color:var(--k-tx3)}
+@media (max-width:1180px){.pc-row{grid-template-columns:minmax(140px,170px) 1fr 120px}.pc-stats{grid-column:1/-1;justify-content:start}}
 </style>
 </head>
 <body>
@@ -2298,6 +2337,73 @@ window.nieWorkforceDrop=function(ev,target){if(ev)ev.preventDefault();const arr=
   if(at===from){window._nieWfDragIndex=null;return;}
   const moved=arr.splice(from,1)[0];arr.splice(at,0,moved);window._nieWfDragIndex=null;renderContent();refresh();};
 window.nieWorkforceDragEnd=function(ev){const r=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.wf-role-row'):null;if(r)r.classList.remove('dragging');_nieWfClearDropMarkers();window._nieWfDragIndex=null;};
+
+// r240: Peer corridor, redesigned. One row per metric: band strip (P10-P90, P25-P75, median, min/max ticks, the
+// modeled bank as a dot), the comparison set's Min..Max with each label above its value, n, and the modeled value
+// stacked over its placement. Built only from the records renderBands already computes.
+function _pbFmt(v,pct){ return (v==null||!isFinite(+v)) ? '\u2014' : (+v).toFixed(2)+(pct||''); }
+function _pbStrip(L, v, fav){
+  const lo0=(L.min!=null?+L.min:+L.p10), hi0=(L.max!=null?+L.max:+L.p90);
+  let lo=Math.min(lo0, v!=null?+v:lo0), hi=Math.max(hi0, v!=null?+v:hi0); const pad=(hi-lo)*0.04||1; lo-=pad; hi+=pad;
+  const X=x=>((+x-lo)/(hi-lo)*300).toFixed(1);
+  let g=`<svg class="pc-svg" viewBox="0 0 300 26" preserveAspectRatio="none" aria-hidden="true">`;
+  g+=`<line x1="0" y1="13" x2="300" y2="13" class="pc-axis"/>`;
+  if(L.min!=null&&L.max!=null) g+=`<line x1="${X(L.min)}" y1="13" x2="${X(L.max)}" y2="13" class="pc-range"/><line x1="${X(L.min)}" y1="8" x2="${X(L.min)}" y2="18" class="pc-tick"/><line x1="${X(L.max)}" y1="8" x2="${X(L.max)}" y2="18" class="pc-tick"/>`;
+  g+=`<rect x="${X(L.p10)}" y="7" width="${(X(L.p90)-X(L.p10)).toFixed(1)}" height="12" class="pc-b90"/>`;
+  g+=`<rect x="${X(L.p25)}" y="7" width="${(X(L.p75)-X(L.p25)).toFixed(1)}" height="12" class="pc-b50"/>`;
+  g+=`<line x1="${X(L.p50)}" y1="5" x2="${X(L.p50)}" y2="21" class="pc-med"/>`;
+  return g+'</svg>'+(v!=null?`<i class="pc-dot ${fav||'mid'}" style="left:${(X(v)/3).toFixed(2)}%"></i>`:'');
+}
+function _pbDesignHtml(items, ctx){
+  window._pbItems=items; window._pbCtx=ctx;
+  const ok=items.filter(it=>it.latest&&it.m&&it.m.v!=null), wait=items.filter(it=>it.err);
+  const inside=ok.filter(it=>it.m.v>=it.latest.p25&&it.m.v<=it.latest.p75);
+  const outside=ok.filter(it=>it.m.v<it.latest.p10||it.m.v>it.latest.p90);
+  const better=ok.filter(it=>{ const d=(typeof METRIC_DIRECTION!=='undefined'&&METRIC_DIRECTION[it.metric])||''; return d==='higher_good'?it.m.v>it.latest.p50:(d==='lower_good'||it.metric==='efficiency'||it.metric==='net_charge_off_rate')?it.m.v<it.latest.p50:false; });
+  const names=a=>a.map(x=>esc(x.label)).join(', ');
+  const card=(k,v,of,sub)=>`<div class="pc-card"><span class="k">${k}</span><b>${v}${of!=null?`<small> / ${of}</small>`:''}</b>${sub?`<span class="s">${sub}</span>`:''}</div>`;
+  let h=`<div class="pc-cards">`+card('Inside peer P25\u2013P75',inside.length,ok.length,'')+card('Outside P10\u2013P90',outside.length,null,outside.length?names(outside):'none')
+    +card('Better than peer median',better.length,ok.length,"given each metric\u2019s direction")+card('Awaiting peer data',wait.length,null,wait.length?names(wait):'none')+`</div>`;
+  if(ctx.smallNany) h+=`<div class="pc-note"><b>Small cohort.</b> Percentiles approach member values \u2014 read them as the range of the named peers, not a distribution.</div>`;
+  h+=`<div class="pc-panel"><div class="pc-panel-h"><b>${esc(ctx.bandName)} band${ctx.latestQ?', '+esc(ctx.latestQ):''}</b><span class="pc-legend"><i class="lg b90"></i>P10\u2013P90 <i class="lg b50"></i>P25\u2013P75 <i class="lg med"></i>median <i class="lg dot"></i>modeled</span><button type="button" class="pc-xl" onclick="pbExport()">Download Excel</button></div>`;
+  items.forEach(it=>{
+    const d=(typeof METRIC_DIRECTION!=='undefined'&&METRIC_DIRECTION[it.metric])||'';
+    const dir=d==='higher_good'?'higher is better':(d==='lower_good'||it.metric==='efficiency'||it.metric==='net_charge_off_rate')?'lower is better':'directional';
+    let r=`<div class="pc-row"><div class="pc-name"><b>${esc(it.label)}</b><span><em>${esc(it.basis||'')}</em> ${dir}</span></div>`;
+    if(it.err){ h+=r+`<div class="pc-wait">No peer data published yet for this metric and cohort \u2014 ${esc(it.err)}</div></div>`; return; }
+    const L=it.latest, v=(it.m&&it.m.v!=null)?it.m.v:null, pct=it.pct||'';
+    const tip=(pp)=>it.bandProv?` title="${esc(it.bandProv(pp))}"`:'';
+    const stat=(k,lab,pp)=>`<div class="pc-st"${pp?tip(pp):''}><span class="k">${lab}</span><span class="v">${_pbFmt(L[k])}</span></div>`;
+    r+=`<div class="pc-strip">${_pbStrip(L,v,it.fav)}</div>`;
+    r+=`<div class="pc-stats">`+stat('min','Min')+stat('p10','P10',10)+stat('p25','P25',25)+stat('p50','P50',50)+stat('p75','P75',75)+stat('p90','P90',90)+stat('max','Max')+`<div class="pc-st n"><span class="k">n</span><span class="v">${L.n??'\u2014'}</span></div></div>`;
+    if(v==null) r+=`<div class="pc-mod"><span class="v mut">\u2014</span><span class="chip mut">peer band only</span></div>`;
+    else r+=`<div class="pc-mod"${it.modProv?` title="${esc(it.modProv)}"`:''}><span class="v ${it.fav||'mid'}">${_pbFmt(v,pct)}</span><span class="chip ${it.fav||'mid'}">${esc(it.bucket||'')}</span>${it.m.vq!=null?`<span class="sa">Q12 standalone ${_pbFmt(it.m.vq,pct)}</span>`:''}</div>`;
+    if(L.extremes_note) r+=`<div class="pc-wait" style="grid-column:1/-1">Min / max ${esc(L.extremes_note)}.</div>`;
+    h+=r+`</div>`;
+  });
+  return h+`</div>`;
+}
+window.pbExport=async function(){
+  const items=window._pbItems||[], ctx=window._pbCtx||{}, V=window.vintage||null;
+  const corridor=items.map(it=>{ const L=it.latest||{}; return {metric:it.metric,label:it.label,basis:it.basis,error:it.err||null,
+      modeled:(it.m&&it.m.v!=null)?+it.m.v:null, standalone:(it.m&&it.m.vq!=null)?+it.m.vq:null, n:L.n,
+      min:L.min,p10:L.p10,p25:L.p25,p50:L.p50,p75:L.p75,p90:L.p90,max:L.max}; });
+  const vm={};
+  if(V&&V.corridor&&typeof VINTAGE_OVERLAY!=='undefined'&&typeof vintageModeled==='function'){
+    Object.keys(V.corridor).forEach(k=>{ const mk=VINTAGE_OVERLAY[k]; const arr=mk?vintageModeled(mk):null; if(arr){ const o={}; arr.forEach((x,i)=>{ if(x!=null&&isFinite(+x)) o[String(i+1)]=+x; }); vm[k]=o; } });
+  }
+  const payload={cohort_label:(ctx.bandName||'cohort'), quarter:ctx.latestQ||'', corridor,
+                 vintage:V?{corridor:V.corridor,series_by_cert:V.series_by_cert,bank_coverage:V.bank_coverage,members:V.members,fingerprint:V.fingerprint}:null,
+                 vintage_modeled:vm};
+  try{
+    appStatus&&appStatus('ok','Preparing the workbook\u2026');
+    const r=await fetch('/api/v31/peer-export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+    if(!r.ok){ let e=''; try{ e=(await r.json()).error; }catch(_){} throw new Error(e||('HTTP '+r.status)); }
+    const blob=await r.blob(); const cd=r.headers.get('Content-Disposition')||''; const m=cd.match(/filename="([^"]+)"/);
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=m?m[1]:'Foundry_Peer_Cohort.xlsx'; document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},800);
+    appStatus&&appStatus('ok','Workbook downloaded.');
+  }catch(e){ appStatus&&appStatus('err','<b>Export failed</b> \u2014 '+esc(e.message||String(e))); }
+};
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -6182,7 +6288,28 @@ window.renderBands = async function(){
       return {metric, err:(e&&e.name==="AbortError")?"request timed out":"could not reach the bands endpoint"};
     }
   }
-  const results = await Promise.all(metrics.map(fetchBand));
+  // r240: one batched request (server runs the metrics sequentially, retries a transient failure and caches);
+  // peer bands do not change with the model, so this browser also keeps them for the session.
+  window._pbCache = window._pbCache || {};
+  const _pmList = metrics.map(m=>PEER_METRIC[m]||m);
+  const _ck = JSON.stringify([_pmList, cohort, useLending]);
+  let results = window._pbCache[_ck];
+  if(!results){
+    const _ctl = new AbortController(), _tm = setTimeout(()=>_ctl.abort(), useLending ? 90000 : 60000);
+    try{
+      const rr = await fetch(`/api/v31/peer-bands/batch?metrics=${encodeURIComponent(_pmList.join(','))}&cohort=${encodeURIComponent(cohort)}&lending=${useLending?1:0}&band=under_200M`, {signal:_ctl.signal});
+      clearTimeout(_tm);
+      let j=null; try{ j = await rr.json(); }catch(_e){ throw new Error(`HTTP ${rr.status} (non-JSON)`); }
+      if(!rr.ok) throw new Error((j&&j.error)||`HTTP ${rr.status}`);
+      const byPm = {}; (j.results||[]).forEach(x=>{ byPm[x.metric]=x; });
+      results = metrics.map(m=>{ const x = byPm[PEER_METRIC[m]||m]; return (x&&x.d) ? {metric:m, d:x.d} : {metric:m, err:(x&&x.err)||"no response"}; });
+      if(results.every(x=>x.d||/no peer|not published|no lending peers|no percentile/i.test(x.err||""))) window._pbCache[_ck] = results;
+    }catch(e){
+      clearTimeout(_tm);
+      const msg = (e&&e.name==="AbortError") ? "request timed out" : ("could not reach the bands endpoint" + (e&&e.message?" \u2014 "+e.message:""));
+      results = metrics.map(m=>({metric:m, err:msg}));
+    }
+  }
   if(_generation!==_pbRenderGeneration || currentTab!=="peer") return;
   const liveBody=document.getElementById("pbBody"); if(!liveBody) return;
 
@@ -6262,12 +6389,12 @@ window.renderBands = async function(){
 
   // ---- render: one ROW per metric, old modeled-capital-vs-peers style ----
   let anyRisk = false, latestQ = null, cohortFilter = null, provOne = null, smallNany = false;
-  let rows = "";
+  let rows = ""; const _items = [];
   results.forEach(({metric, d, err})=>{
     const label = METRIC_LABEL[metric] || metric;
     const basis = METRIC_BASIS[metric] || "";
     const basisCell = `<td style="font-size:10px;color:#565653">${basis}</td>`;
-    if(err){
+    if(err){ _items.push({metric, label, basis, err});
       rows += `<tr><td>${esc(label)}</td>${basisCell}<td colspan="8" style="color:#565653;font-size:11px">${esc(err)}</td></tr>`;
       return;
     }
@@ -6278,7 +6405,7 @@ window.renderBands = async function(){
     const latest = d.bands[d.bands.length-1];
     latestQ = latest.quarter;
     const m = modeledFor(metric);
-    if(m.v===null || m.v===undefined){
+    if(m.v===null || m.v===undefined){ _items.push({metric, label, basis, latest, m, note:m.note||null});
       const note = m.note ? ` \u00b7 <span style="color:#565653">${esc(m.note)}</span>` : "";
       rows += `<tr><td>${esc(label)}</td>${basisCell}<td class="num" style="color:#565653">\u2014</td>`
         + `<td class="num">${(+latest.p10).toFixed(2)}</td><td class="num">${(+latest.p25).toFixed(2)}</td><td class="num">${(+latest.p50).toFixed(2)}</td><td class="num">${(+latest.p75).toFixed(2)}</td><td class="num">${(+latest.p90).toFixed(2)}</td>`
@@ -6303,6 +6430,7 @@ window.renderBands = async function(){
       ? `<tr><td></td><td></td><td class="num" style="font-size:9.5px;font-weight:400;color:#565653;padding-top:0" data-prov title="Standalone Q12 ${esc(label)}, annualized from the three months in Q12. The primary value above follows the Q12 year-to-date filing convention.">Q12 standalone: ${m.vq.toFixed(2)}${pct}</td><td colspan="7"></td></tr>`
       : "";
     const rowNote = m.note ? `<tr><td colspan="10" style="color:#565653;font-size:10px;padding:0 6px 8px">${esc(m.note)}</td></tr>` : "";
+    _items.push({metric, label, basis, latest, m, fav, bucket, pct, modProv, bandProv, note:m.note||null});
     rows += `<tr${(m.vq!=null)?' class="pb-hasq12"':''}><td>${esc(label)}</td>${basisCell}`
       + `<td class="num" style="font-weight:700;color:${COLOR[fav]}" data-prov title="${esc(modProv)}">${m.v.toFixed(2)}${pct}</td>`
       + `<td class="num" data-prov title="${esc(bandProv(10))}">${(+latest.p10).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(25))}">${(+latest.p25).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(50))}">${(+latest.p50).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(75))}">${(+latest.p75).toFixed(2)}</td><td class="num" data-prov title="${esc(bandProv(90))}">${(+latest.p90).toFixed(2)}</td>`
@@ -6329,10 +6457,7 @@ window.renderBands = async function(){
   const BAND_LABEL = {broad:"broad cohort", under_200M:"under $200M", "200M_500M":"$200M\u2013$500M",
                       "500M_2B":"$500M\u2013$2B", "2B_10B":"$2B\u2013$10B", curated:"curated certs"};
   const bandName = useLending ? "under $200M (lending peers only)" : (BAND_LABEL[mode] || mode);
-  h += `<div style="font-weight:600;font-size:13px;color:#A3772A;margin-bottom:4px">Modeled bank vs real peers \u2014 ${esc(bandName)} band${latestQ?`, ${esc(latestQ)}`:""}</div>`;
-  h += '<table class="ovt" style="width:100%"><tr><th>Metric</th><th>Basis</th><th style="text-align:right">Modeled</th><th style="text-align:right">p10</th><th style="text-align:right">p25</th><th style="text-align:right">p50</th><th style="text-align:right">p75</th><th style="text-align:right">p90</th><th>Placement</th><th style="text-align:right">n</th></tr>';
-  h += rows;
-  h += '</table>';
+  h += _pbDesignHtml(_items, {bandName, latestQ, smallNany, useLending, mode});
   if(!lastRes){ h += `<div class="memo" style="margin-top:8px">Run the model to place its Q12 values against these peers.</div>`; }
   // the retained commentaries
   h += `<div class="memo" style="margin-top:10px">Peer Cohort always stops at <b>Q12</b>, even when the projection continues beyond three years. For flow metrics, the primary value follows the Q12 year-to-date filing convention; the smaller line is the standalone three-month Q12 result. Stock ratios use the Q12 quarter-end value. Color reflects where the bank sits relative to the latest peer distribution given each metric's risk direction.</div>`;
@@ -7468,8 +7593,8 @@ function vintageSectionHtml(){
     const lateCell = (p)=> (showLater && later)
       ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
-    ["p90","p75","p50","p25"].forEach(p=>{
-      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
+    ["max","p90","p75","p50","p25","min"].forEach(p=>{
+      h += `<tr${(p==="max"||p==="min")?' class="vin-ext"':''}><td>${p==="max"?"Max":p==="min"?"Min":p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]==null?"\u2014":(+a[p]).toFixed(2)}</td>`).join("") + ((p==="max"||p==="min")?(lateTh?'<td style="text-align:right">\u2014</td>':''):lateCell(p)) + '</tr>';
     });
     if(modeled){
       h += '<tr><td style="color:#A3772A">Modeled</td>' + M.ages.map(a=>{

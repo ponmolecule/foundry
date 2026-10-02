@@ -732,6 +732,73 @@ def v31_peer_bands_lending(metric: str = "tier1_ratio", band: str = "under_200M"
                              f"{type(e).__name__}: {e}",
                              "trace": traceback.format_exc()[-600:]}, status_code=502)
 
+_PB_CACHE = {}   # r240: (metric, cohort, lending, band) -> (time, result); peer data does not change with the model
+
+
+@app.get("/api/v31/peer-bands/batch")
+def v31_peer_bands_batch(metrics: str = "", cohort: str = "broad", lending: int = 0, band: str = "under_200M",
+                         fresh: int = 0, user=Depends(gate)):
+    """r240: every corridor metric in ONE request. Runs the existing single-metric handlers one after another on
+    one worker (no burst of parallel requests competing for the bounded pool), retries once on a transient
+    502/503, and caches successful results for 30 minutes. Output per metric is exactly what the single
+    endpoint returns, plus min/max."""
+    import json as _json, time as _time
+    from foundry.v2 import peer_bands as _pb
+    out = []
+    if len(_PB_CACHE) > 500:
+        _PB_CACHE.clear()
+    for metric in [m.strip() for m in metrics.split(",") if m.strip()][:16]:
+        key = (metric, cohort, int(bool(lending)), band)
+        hit = _PB_CACHE.get(key)
+        if hit and not fresh and _time.time() - hit[0] < 1800:
+            out.append(dict(hit[1], cached=True)); continue
+        res = None
+        for attempt in (1, 2):
+            resp = (v31_peer_bands_lending(metric=metric, band=band, user=user) if lending
+                    else v31_peer_bands(metric=metric, cohort=cohort, user=user))
+            try:
+                body = _json.loads(resp.body)
+            except Exception:
+                body = {"error": f"HTTP {resp.status_code} (unreadable body)"}
+            if resp.status_code == 200:
+                res = {"metric": metric, "d": body}; break
+            if resp.status_code in (502, 503) and attempt == 1:
+                _time.sleep(0.4); continue
+            res = {"metric": metric, "err": body.get("error") or f"HTTP {resp.status_code}"}; break
+        if "d" in res:
+            if not lending:
+                res["extremes"] = _pb.attach_extremes(res["d"], metric, cohort)
+            _PB_CACHE[key] = (_time.time(), res)
+        out.append(res)
+    return JSONResponse({"results": out})
+
+
+@app.post("/api/v31/peer-export")
+def v31_peer_export(body: dict, _=Depends(gate)):
+    """r240: Peer Cohort workbook from what the page already holds (no substrate query)."""
+    from foundry.v2.peer_export import build_workbook
+    from fastapi.responses import Response
+    import datetime as _dt, re as _re
+    try:
+        from zoneinfo import ZoneInfo
+        now = _dt.datetime.now(ZoneInfo("America/Chicago"))
+    except Exception:
+        now = _dt.datetime.utcnow()
+    corridor = body.get("corridor") or []
+    vin = body.get("vintage") or {}
+    if len(corridor) > 40 or len(((vin.get("series_by_cert") or {}).get(next(iter(vin.get("series_by_cert") or {"": {}})) ) or {})) > 2000:
+        return JSONResponse({"error": "export too large"}, status_code=413)
+    body = dict(body, as_of=now.strftime("%m/%d/%Y %H:%M CT"))
+    try:
+        data = build_workbook(body)
+    except Exception as e:
+        return JSONResponse({"error": f"workbook failed: {type(e).__name__}: {e}"}, status_code=500)
+    tag = _re.sub(r"[^A-Za-z0-9]+", "_", str(body.get("cohort_label") or "cohort")).strip("_")[:40] or "cohort"
+    fname = f"Foundry_Peer_Cohort_{tag}_{now.strftime('%m%d%Y_%H%M')}.xlsx"
+    return Response(content=data, media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    headers={"Content-Disposition": f'attachment; filename="{fname}"'})
+
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or
