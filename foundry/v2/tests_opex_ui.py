@@ -7,8 +7,8 @@ from pathlib import Path
 html=Path('web/console_v2.html').read_text()
 checks=[
  ('Opex advanced control is progressive disclosure', 'Hide advanced' in html and '>Advanced' in html),
- ('Opex UI rationalizes new additive authoring to three structural component families', 'Additive expense components' in html and '+ Formula / driver component' in html and '+ Tiered / banded component' in html and '+ New cost-pool / cost-recovery component' in html and 'onclick="nieCatAddLinked' not in html and 'onclick="nieCatAddServiceCapacity' not in html),
- ('Opex Advanced exposes generalized tiered / banded components', '+ Tiered / banded component' in html and '>Tiered / banded component</span>' in html and 'Band schedule' in html),
+ ('Opex UI rationalizes new additive authoring to three structural component families', 'Additive expense components' in html and '<span>+ Formula</span></a>' in html and '<span>+ Tiered bands</span></a>' in html and '<span>+ Cost pool</span></a>' in html and 'onclick="nieCatAddLinked' not in html and 'onclick="nieCatAddServiceCapacity' not in html),
+ ('Opex Advanced exposes generalized tiered / banded components', '<span>+ Tiered bands</span></a>' in html and '>Tiered / banded component</span>' in html and 'Band schedule' in html),
  ('tiered Opex exposes composite upstream balance terms rather than regulator-specific drivers', all(x in html for x in ['Total Assets · bank balance sheet','AUC / managed notional · ','Balance quantity · ','Weight / multiplier']) and 'OCC' not in html[html.find('function _opexPiecewiseTermOptions'):html.find('function _opexPiecewiseEditorHtml')]),
  ('tiered Opex makes event timing and observation lag explicit', 'Event cadence' in html and 'Observation lag' in html and 'First cash event' in html and 'piecewise_linked' in html),
  ('tiered Opex can separate cash event from even coverage-period expense recognition', 'Expense recognition' in html and 'Accrue evenly over cadence interval' in html and 'First covered model period' in html and 'nieCatPiecewiseRecognitionMode' in html and 'nieCatPiecewiseRecognitionFirstPeriod' in html),
