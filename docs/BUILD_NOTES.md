@@ -879,3 +879,15 @@ Incorporates the r231b fingerprint and opening-label corrections, with these fur
   remains separate. No engagement-specific formula or new deposit product type is introduced.
 
 See DEPOSIT_FIX1_VALIDATION.md for manual checks and full-suite results.
+
+## r231a_fix2 — Unified fee default and atomic pool-mode transitions
+
+History: r230 → r231a → r231a_fix1 → r231a_fix2. Last good deployment remains r230.
+- Average swept-balance fee is the only default, including imported pools without a setting.
+  Period-end remains available explicitly; r231a was never deployed and needs no fallback.
+- Switching a deposit to pool mode creates or attaches a pool in the same action, before preview.
+  A sole existing pool is selected; with multiple pools a new independent pool is created.
+  New member shares start at zero when the pool already has members.
+- Five transition previews tested against the actual API all return 200; one request per action.
+- Full inventory includes Python and CJS scripts: 56 entry points, 46 pass / 10 baseline failures.
+  No new failing entry points against r230. See DEPOSIT_FIX1_VALIDATION.md for details.

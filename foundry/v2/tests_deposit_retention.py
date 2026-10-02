@@ -23,7 +23,7 @@ def fixture():
     base=copy.deepcopy(a['deposit_products'][0]);base.update(opening_balance=0,growth_per_period=0,runoff_per_period=0,new_deposits_per_period=0,avg_maturity_m=0,fee_yield_ann=0,opex_pct_ann=0,opex_fixed_per_period=0,rate_type='fixed',rate_paid_ann=.12,fee_streams=[])
     for key in ('growth_q','runoff_q','new_deposits_q','overrides'):base.pop(key,None)
     a['deposit_products']=[dict(base,name='Category A',balance_mode='pool',retention_pool_id='pool',pool_share_spec=flat(.25),interest_balance_measure='period_end'),dict(base,name='Category B',balance_mode='pool',retention_pool_id='pool',pool_share_spec=flat(.75),interest_balance_measure='period_end')]
-    a['deposit_retention_pools']=[{'id':'pool','balance_spec':flat(1_200_000),'retention_share_spec':flat(.5),'capacity_source':'entered','capacity_spec':flat(400_000),'sweep_fee_rate_spec':flat(.12)}]
+    a['deposit_retention_pools']=[{'id':'pool','balance_spec':flat(1_200_000),'retention_share_spec':flat(.5),'capacity_source':'entered','capacity_spec':flat(400_000),'sweep_fee_rate_spec':flat(.12),'sweep_fee_balance_measure':'period_end'}]
     return c
 
 

@@ -1,6 +1,6 @@
-# r231a_fix1 · Deposit balance sources and shared retention / sweep policies
+# r231a_fix2 · Deposit balance sources and shared retention / sweep policies
 
-Built directly on Claude's `1c3e67d` release (r230). The existing product workspace,
+History: r230 (`1c3e67d`) → r231a (`30f7ad8`) → r231a_fix1 (`33c2156`) → r231a_fix2. The existing product workspace,
 branding, six deposit presets, top menus, and ordinary deposit roll-forward remain.
 This release adds optional mechanics inside those deposit products.
 
@@ -36,7 +36,7 @@ Retained balance = min(available, available × retained-share limit, capacity).
 Swept balance = available − retained. Swept funds are not bank deposit liabilities.
 Annual swept-balance fee = swept-balance basis × annual fee rate / periods per year, where the basis is the
 average of opening and ending swept balances, or period-end swept balance, set per pool.
-New UI pools author average explicitly. An omitted setting preserves r231a period-end fees.
+Average is the single default for new and imported pools; period-end must be selected explicitly.
 Opening swept balance is entered separately in $000s (zero if omitted), before period 1;
 later periods use the previous swept ending balance. It is off-book and does not add deposit liabilities.
 Fees are allocated across categories by their pool shares and recognized once.

@@ -1,7 +1,7 @@
-# r231a_fix1 validation build
+# r231a_fix2 validation build
 
 Last good deployment and rollback baseline: r230 (`1c3e67d`). This delivery's main branch
-contains r230 → r231a → r231a_fix1 history and can fast-forward from r230. r231a or r231b
+contains r230 → r231a → r231a_fix1 → r231a_fix2 history and can fast-forward from r230. r231a or r231b
 does not need to be deployed first. No deployment has been performed by this build process.
 The ZIP has the existing delivery/foundry-full.bundle structure; deploy the exact filename supplied.
 A rollback to r230 requires the existing explicit version-switch/rollback workflow: pulling an older
@@ -42,9 +42,10 @@ This build does not silently substitute a different capital-policy formula.
 
 ## Automated verification
 
-Full inventory: 52 executable test modules; 43 passed, 9 failed. The same nine modules fail with the
-same conditions in unmodified r230 (39 passed / 9 failed across its 48 modules). No additional failure
-modules were introduced. All deposit integration, UI, fix1, identity, audit reconciliation, loan
+Full inventory: 56 test entry points (52 Python modules plus four web/tests*.cjs scripts);
+46 passed, 10 failed. Baseline r230: 52 entry points (48 Python plus four CJS), 42 passed,
+10 failed. The same entry points fail in both; no additional failure entry points were introduced.
+Counts are scripts/modules, not individual assertions. All deposit integration, UI, fix1, identity, audit reconciliation, loan
 allocation, cadence-equivalence and series architecture tests pass.
 
 Known baseline failures:
@@ -56,8 +57,23 @@ Known baseline failures:
 - tests_opex_ui: AUC basis preview assertion.
 - tests_pastebox_hardening: four inventory/wiring/preview assertions.
 - tests_universal_template: canonical driver/cost coverage assertions.
+- web/tests_authoring_stability.cjs: standard invocation cannot find the default Playwright browser.
+  A supplemental run using the available Chromium executable reaches an assertion: Load should
+  clear the draft, but preserves "100\t200\t300". This assertion fails identically on r230 and fix2.
 
 Identity: all three named r230 fixture fingerprints pass without removing result fields.
 Frozen verification: actual registry_q.verify against the r230 core fingerprint passes.
 Rendered browser: source switching, persistent expansion, live Load, monetary scaling, Clear,
 Close and EFFR Product Detail heading pass with no JavaScript errors.
+
+## fix2 acceptance checks
+
+The omitted fee basis now uses average in both imported and on-screen pool definitions.
+Period-end is an explicit choice. The existing opening swept stock behavior remains unchanged.
+
+Switching to pool mode creates a new pool if none exists, selects the sole existing pool,
+or creates an independent pool if several exist and no valid pool is already assigned.
+Joining the sole pool starts at zero category share when other members exist, preserving the
+existing allocation. Author the desired category shares together afterward; they must total 100%.
+Every transition requests one preview after attaching the product to its valid pool.
+The integration test replays five snapshots through the actual preview API; all return HTTP 200.
