@@ -1074,3 +1074,15 @@ Built on r241. Pro forma engine untouched; run results identical.
 Presentation release on r242. The 0.5-inch graphite frame around each vintage plot is replaced by a soft card:
 white, 6px rounded corners, a two-layer shadow (0 1px 2px rgba(0,0,0,.06), 0 4px 14px rgba(0,0,0,.07)), no
 outline. The plot still matches its table's height and ends on the peer corridor's vertical line.
+
+
+## r244 — Vintage leverage and plot height
+
+Presentation release on r243.
+- Leverage ratio had no modeled vintage series: the vintage-to-model map listed tier 1, CET1, ROA, NIM,
+  efficiency and charge-offs but not leverage_ratio. It now maps to the quarterly filing view's leverage_ratio
+  (the same source as tier 1), falling back to the standardized leverage ratio.
+- Plots taller than their tables (Leverage, NIM, Tier 1): a feedback loop. The plot was sized from the table's
+  wrapper, which flex stretching had made as tall as the plot; once tall, it stayed tall. Plots are now sized
+  from the table element itself, the row is top-aligned (no stretching), and plots re-fit on window resize.
+  Measured: plot equals table for every metric at 1440, 1920 and 2560px and across live resizes.
