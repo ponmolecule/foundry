@@ -19,7 +19,6 @@ so no scaling; ratios stored as percentages (12.5 = 12.5%).
 """
 import os
 import re
-import threading
 
 CAPITAL_METRICS = {"cet1_ratio", "tier1_ratio", "total_rbc_ratio", "tce_ratio",
                     "tce_dollars", "capital_buffer", "rwa_dollars",
@@ -52,9 +51,13 @@ class SubstrateNotConfigured(RuntimeError):
 # per-metric 502s (whichever lost the race). A ThreadedConnectionPool (built for
 # concurrent sync threads) caps total connections and reuses them.
 _POOLS = {}
-_POOL_LOCK = threading.Lock()
+_POOL_LOCK = None
 
 def _get_pool(url):
+    global _POOL_LOCK
+    import threading
+    if _POOL_LOCK is None:
+        _POOL_LOCK = threading.Lock()
     with _POOL_LOCK:
         pool = _POOLS.get(url)
         if pool is None:
@@ -253,21 +256,18 @@ class CharterIQClient:
             "percentile_cont(0.50) WITHIN GROUP (ORDER BY value) AS p50, "
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY value) AS p90, "
-            "COUNT(*) AS n, MIN(value), MAX(value) "
+            "COUNT(*) AS n "
             f"FROM metrics WHERE {where} "
             "GROUP BY year, quarter ORDER BY year, quarter",
             tuple(params))
         bands = []
-        for row in rows:
-            y, q, p10, p25, p50, p75, p90, n = row[:8]
+        for y, q, p10, p25, p50, p75, p90, n in rows:
             if p50 is None:
                 continue
             bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
                           "p10": float(p10), "p25": float(p25), "p50": float(p50),
                           "p75": float(p75), "p90": float(p90),
-                          "n": int(n) if n is not None else None,
-                          "min": float(row[8]) if len(row)>8 and row[8] is not None else None,
-                          "max": float(row[9]) if len(row)>9 and row[9] is not None else None})
+                          "n": int(n) if n is not None else None})
         return bands
 
     def get_metric_latest_by_cert(self, metric_name, certs):
@@ -377,21 +377,18 @@ class CharterIQClient:
             "percentile_cont(0.50) WITHIN GROUP (ORDER BY m.value) AS p50, "
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY m.value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY m.value) AS p90, "
-            "COUNT(*) AS n, MIN(m.value), MAX(m.value) "
+            "COUNT(*) AS n "
             f"FROM metrics m WHERE {' AND '.join(where)} "
             "GROUP BY m.year, m.quarter ORDER BY m.year, m.quarter",
             tuple(params))
         bands = []
-        for row in rows:
-            y, q, p10, p25, p50, p75, p90, n = row[:8]
+        for y, q, p10, p25, p50, p75, p90, n in rows:
             if p50 is None:
                 continue
             bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
                           "p10": float(p10), "p25": float(p25), "p50": float(p50),
                           "p75": float(p75), "p90": float(p90),
-                          "n": int(n) if n is not None else None,
-                          "min": float(row[8]) if len(row)>8 and row[8] is not None else None,
-                          "max": float(row[9]) if len(row)>9 and row[9] is not None else None})
+                          "n": int(n) if n is not None else None})
         return bands
 
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
@@ -631,7 +628,6 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
             vals = sorted(s[age - 1] for (m2, c2), s in series.items()
                            if m2 == metric and len(s) >= age)
             ages.append({"age_q": age, "n": len(vals),
-                          "min": min(vals) if len(vals)>=min_n else None, "max": max(vals) if len(vals)>=min_n else None,
                           "p25": _pctl(vals, 25) if len(vals) >= min_n else None,
                           "p50": _pctl(vals, 50) if len(vals) >= min_n else None,
                           "p75": _pctl(vals, 75) if len(vals) >= min_n else None,

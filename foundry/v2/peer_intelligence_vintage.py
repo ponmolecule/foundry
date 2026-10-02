@@ -133,7 +133,6 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
                     f"history begins {lag} quarters after legal opening; "
                     "not treated as an opening vintage")
 
-    observations = []
     cells = {m: {age: [] for age in range(1, 13)} for m in metrics}
     contributors = {m: set() for m in metrics}
     latest_age = {c: {m: None for m in metrics} for c in matched}
@@ -148,7 +147,6 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
             latest_age[cert][metric] = max(latest_age[cert][metric] or 0, age)
         if 1 <= age <= 12:
             cells[metric][age].append(float(value))
-            observations.append({"cert":cert,"name":rec["name"],"year":int(year),"quarter":int(quarter),"age_q":age,"metric":metric,"value":float(value)})
             contributors[metric].add(cert)
 
     corridor = {}
@@ -172,7 +170,7 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
                 band_type = "unavailable"
                 low = mid = high = None
             ages.append({
-                "age_q": age, "n": n, "min":min(vals) if vals else None,"max":max(vals) if vals else None,"band_type": band_type,
+                "age_q": age, "n": n, "band_type": band_type,
                 "suppressed": n == 0, "thin_sample": 0 < n < 3,
                 "low": low, "mid": mid, "high": high,
                 # The main corridor renderer needs lower/median/upper anchors.
@@ -229,5 +227,5 @@ def build_curated_vintage_corridor(client, certs, metrics=None, max_age_q=12,
             "contributing_by_metric": {m: len(contributors[m]) for m in metrics},
             "banks": bank_coverage,
         },
-        "corridor": corridor, "observations":observations,
+        "corridor": corridor,
     }
