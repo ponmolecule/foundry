@@ -198,7 +198,7 @@ console.log(JSON.stringify({fresh,cat,nroles,maxhire,trigger,csv,hdr,canon,compa
        and 'Amount per FTE' in html and 'Expense = resolved active headcount × amount per FTE.' in html
        and 'nieCatLinkedAmountTrajectory' in html and 'nieCatLinkedAmountPaste' in html)
     ck("Operating Expense rationalizes linked/service authoring into Formula / driver",
-       '+ Formula / driver component' in html and 'driver:"formula_driver"' in html
+       '<span>+ Formula</span></a>' in html and 'title="Factor chain of linked Series and entered factors."' in html and 'driver:"formula_driver"' in html
        and '+ Linked Series factor' in html and '+ Entered factor' in html
        and 'A constrained factor chain, not a free-form formula.' in html
        and 'nieCatFormulaEnteredTrajectory' in html and 'nieCatFormulaEnteredTimeBasis' in html
