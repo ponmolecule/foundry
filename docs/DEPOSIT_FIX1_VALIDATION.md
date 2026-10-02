@@ -1,7 +1,7 @@
-# r231a_fix2 validation build
+# r231a_fix3 validation build
 
 Last good deployment and rollback baseline: r230 (`1c3e67d`). This delivery's main branch
-contains r230 → r231a → r231a_fix1 → r231a_fix2 history and can fast-forward from r230. r231a or r231b
+contains r230 → r231a → r231a_fix1 → r231a_fix2 → r231a_fix3 history and can fast-forward from r230. r231a or r231b
 does not need to be deployed first. No deployment has been performed by this build process.
 The ZIP has the existing delivery/foundry-full.bundle structure; deploy the exact filename supplied.
 A rollback to r230 requires the existing explicit version-switch/rollback workflow: pulling an older
@@ -77,3 +77,10 @@ Joining the sole pool starts at zero category share when other members exist, pr
 existing allocation. Author the desired category shares together afterward; they must total 100%.
 Every transition requests one preview after attaching the product to its valid pool.
 The integration test replays five snapshots through the actual preview API; all return HTTP 200.
+
+## fix3 labels and guidance
+
+Pool editor, Product Detail and audit labels distinguish outbound "Swept out (off-book)"
+and "Fee on swept-out balances" from inbound Sweep / Program deposits. Audit series keys
+are unchanged. The source field asks for gross program balance before retention or capacity
+limits. Deposit presets, calculation formulas and fee defaults are unchanged from fix2.

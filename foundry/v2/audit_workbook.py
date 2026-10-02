@@ -42,8 +42,17 @@ _RAW_NUM_FMT = '0.###############;[Red](0.###############);-'
 _RAW_MONEY_FMT = '#,##0.###############;[Red](#,##0.###############);-'
 
 
+_DEPOSIT_SWEEP_LABELS = {
+    "sweptBalance": "Swept out (off-book)",
+    "sweepFee": "Fee on swept-out balances",
+    "beginningSweptBalance": "Opening swept-out balance (off-book)",
+    "sweepFeeBasis": "Fee basis on swept-out balances",
+}
+
+
 def _slug_label(path: str) -> str:
-    return path.rsplit(".", 1)[-1].replace("_", " ")
+    key = path.rsplit(".", 1)[-1]
+    return _DEPOSIT_SWEEP_LABELS.get(key, key.replace("_", " "))
 
 
 def _exact_base_run(cfg: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -1604,7 +1613,7 @@ def _all_series_rows(results, n):
         else:
             units, fmt = "public run units", _MONEY_FMT
         section = path.split(".", 1)[0]
-        rows.append((section, path, path, units, arr, fmt))
+        rows.append((section, _DEPOSIT_SWEEP_LABELS.get(path.rsplit(".", 1)[-1], path), path, units, arr, fmt))
     return rows
 
 
