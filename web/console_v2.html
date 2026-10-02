@@ -1592,6 +1592,38 @@ main>aside input[type=checkbox],main>aside input[type=radio]{width:auto!importan
 .prd-stab b{font-weight:500;color:#4A4A4A;font-size:13.5px}.prd-stab small{font-size:11.5px;color:#96928C;white-space:nowrap}
 .prd-stab:hover b{color:#343434}.prd-stab.on{box-shadow:inset 0 -2.5px 0 var(--k-gold)}.prd-stab.on b{color:#343434;font-weight:600}
 .prd-stab:focus-visible{outline:2px solid var(--k-gold);outline-offset:-2px}
+
+/* r234: workforce role card entry fields. Two clean rows (identity and pay; timing and loads), uniform 32px
+   controls, labels above, numbers right-aligned in tabular figures, units in the labels. Scoped to the card;
+   the Advanced trajectories section is unchanged. */
+.wf-role-card .wf-role-grid{display:flex!important;flex-wrap:wrap;align-items:flex-end;gap:12px 14px!important;grid-template-columns:none!important}
+.wf-role-card .wf-role-grid::after{content:"";flex-basis:100%;height:0;order:4}
+.wf-role-card .wf-role-grid .wf-field{display:flex!important;flex-direction:column;gap:5px;min-width:0;max-width:none!important;margin:0!important;grid-column:auto!important;grid-row:auto!important}
+.wf-role-card .wf-role-grid .wf-role-title{order:1;flex:1 1 300px;max-width:520px!important}
+.wf-role-card .wf-role-grid .wf-count{order:2;flex:0 0 auto}
+.wf-role-card .wf-role-grid .wf-compensation{order:3;flex:0 0 auto}
+.wf-role-card .wf-role-grid .wf-delete{order:3}
+.wf-role-card .wf-role-grid .wf-start{order:5}.wf-role-card .wf-role-grid .wf-end{order:6}
+.wf-role-card .wf-role-grid .wf-escalation{order:7}.wf-role-card .wf-role-grid .wf-load{order:8}
+.wf-role-card .wf-role-grid .wf-field-label{font-size:12px;font-weight:400;color:#666666;line-height:1.2;letter-spacing:0;text-transform:none}
+.wf-role-card .wf-role-grid input,.wf-role-card .wf-role-grid select{height:32px!important;box-sizing:border-box;border:1px solid #C4C4C4;border-radius:3px;background-color:#FFFFFF;font-size:13.5px;padding:0 10px;margin:0}
+.wf-role-card .wf-role-grid select{padding-right:28px;width:auto!important}
+.wf-role-card .wf-role-grid input:focus,.wf-role-card .wf-role-grid select:focus{border-color:var(--k-gold);outline:none;box-shadow:0 0 0 2px rgba(223,179,103,.25)}
+.wf-role-card .wf-role-grid input[type=number],.wf-role-card .wf-role-grid .wf-comp-value input{text-align:right;font-variant-numeric:tabular-nums}
+.wf-role-card .wf-role-grid .wf-role-title input{width:100%!important;max-width:none!important}
+.wf-role-card .wf-role-grid .wf-count input{width:84px!important}
+.wf-role-card .wf-role-grid .wf-comp-value{display:flex!important;align-items:center;gap:6px;width:auto!important;grid-template-columns:none!important}
+.wf-role-card .wf-role-grid .wf-comp-value input{width:104px!important;min-width:0}
+.wf-role-card .wf-role-grid .wf-start-wrap{display:flex;align-items:center;gap:8px}
+.wf-role-card .wf-role-grid .wf-start-wrap .sec-book-unit{order:1;font-size:12px;color:#666666;margin:0}
+.wf-role-card .wf-role-grid .wf-start-wrap input{order:2;width:60px!important}
+.wf-role-card .wf-role-grid .wf-end input{width:84px!important}
+.wf-role-card .wf-role-grid .wf-escalation input,.wf-role-card .wf-role-grid .wf-load input{width:112px!important}
+.wf-role-card .wf-role-grid .sec-book-value{display:block;margin:0}
+.wf-role-card .wf-role-grid .wf-static{display:flex;align-items:center;height:32px;box-sizing:border-box;padding:0 10px;min-width:112px;border:1px dashed #C4C4C4;border-radius:3px;background:#F7F7F5;color:#96928C;font-size:12.5px;cursor:help}
+/* r234: workforce run summary sized to its content */
+table.ovt-grid.wf-run-sum{width:auto!important;max-width:100%}
+table.ovt-grid.wf-run-sum td,table.ovt-grid.wf-run-sum th{padding-right:22px}
 </style>
 </head>
 <body>
@@ -2269,6 +2301,7 @@ function PERLAB(i){ var p=PPY(); var pre=(p===12?"M":p===1?"Y":"Q"); return pre+
 // Cadence-aware event timing. New monthly engagements store an explicit engine `period`
 // so a user may place a raise/borrowing in any month. Legacy `quarter` values retain
 // calendar-quarter semantics and display at that quarter's first engine period.
+function _wfUnitWord(){ return PPY()===12?'month':PPY()===1?'year':'quarter'; }   // r234: workforce role labels
 function EVENTUNIT(){ return PPY()===12?"Mth":PPY()===1?"Yr":"Qtr"; }
 function EVENTSCHEDLABEL(){ return EVENTUNIT(); }
 // Canonical business-growth authoring controls. These are deliberately scoped to
@@ -11600,12 +11633,12 @@ function structuresSectionsHtml(){
         row += `<label class="wf-field wf-compensation"><span class="wf-field-label">Compensation ($000s)</span><div class="wf-comp-value"><input type="text" inputmode="decimal" aria-label="Compensation amount in $000s" value="${fmtComma(_cpv/1000)}" title="$000s ${_cpb==='total'?'total':'per FTE'} / ${_cpp}" onchange="nieWorkforceCompValue(${wi},this.value);fmtField(this)"><select title="Economic basis of the compensation amount" onchange="nieWorkforceCompBasis(${wi},this.value)"><option value="total"${_cpb==='total'?' selected':''}>Total</option><option value="per_unit"${_cpb==='per_unit'?' selected':''}>Per FTE</option></select><select title="Natural period of the compensation amount" onchange="nieWorkforceCompPeriod(${wi},this.value)"><option value="month"${_cpp==='month'?' selected':''}>/ Month</option><option value="quarter"${_cpp==='quarter'?' selected':''}>/ Quarter</option><option value="year"${_cpp==='year'?' selected':''}>/ Year</option></select></div></label>`;
         row += `<a href="#" class="cx sec-book-delete wf-delete" aria-label="Remove workforce role" title="Remove role" onclick="nieWorkforceRemove(${wi});return false">×</a>`;
         row += `<label class="wf-field wf-start"><span class="wf-field-label">Start</span><div class="wf-start-wrap"><select onchange="nieWorkforceStartMode(${wi},this.value)"><option value="fixed"${!_wt?' selected':''}>Fixed period</option><option value="metric"${_wt?' selected':''}>Metric trigger</option></select>`;
-        if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${EVENTUNIT()}</span>`;
+        if(!_wt) row += `<input type="number" min="1" max="84" step="1" title="${EVENTUNIT()} number (1–84)" value="${Math.min(84,wr.hire_period||1)}" onchange="${_wb}.hire_period=Math.min(84,Math.max(1,Math.round(_pf(this.value))));refresh()"><span class="sec-book-unit">${_wfUnitWord()}</span>`;
         row += `</div></label>`;
-        row += `<label class="wf-field wf-end"><span class="wf-field-label">End ${EVENTUNIT()}</span><input type="number" min="1" max="84" step="1" placeholder="—" value="${wr.end_period!=null?Math.min(84,wr.end_period):''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.min(84,Math.max(1,Math.round(_pf(v))))};refresh()"></label>`;
-        if(!_cps) row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation</span><div class="sec-book-value"><input type="number" step="0.1" placeholder="Default ${_defEsc.toFixed(1)}" value="${_roleEsc!=null?_roleEsc.toFixed(2):''}" title="Blank inherits the workforce salary-escalation default" onchange="var v=this.value.trim();${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};if(v===''){delete ${_wb}.salary_growth_spec.rate;if(!Object.keys(${_wb}.salary_growth_spec).length)delete ${_wb}.salary_growth_spec}else{${_wb}.salary_growth_spec.rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
-        else row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation</span><span class="cmut" style="margin:5px 0 0" title="Managed by the Compensation path under Advanced trajectories">—</span></label>`;
-        row += `<label class="wf-field wf-load"><span class="wf-field-label">Benefits / Payroll</span><div class="sec-book-value"><input type="number" step="0.5" placeholder="Default ${_defLoad.toFixed(1)}" value="${_roleLoad!=null?_roleLoad.toFixed(1):''}" title="Blank inherits the workforce default; this percentage is added on top of base compensation" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"><span class="sec-book-unit">%</span></div></label>`;
+        row += `<label class="wf-field wf-end"><span class="wf-field-label">End ${_wfUnitWord()}</span><input type="number" min="1" max="84" step="1" placeholder="Open" value="${wr.end_period!=null?Math.min(84,wr.end_period):''}" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.end_period}else{${_wb}.end_period=Math.min(84,Math.max(1,Math.round(_pf(v))))};refresh()"></label>`;
+        if(!_cps) row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation %</span><div class="sec-book-value"><input type="number" step="0.1" placeholder="Default ${_defEsc.toFixed(1)}" value="${_roleEsc!=null?_roleEsc.toFixed(2):''}" title="Blank inherits the workforce salary-escalation default" onchange="var v=this.value.trim();${_wb}.salary_growth_spec=${_wb}.salary_growth_spec||{};if(v===''){delete ${_wb}.salary_growth_spec.rate;if(!Object.keys(${_wb}.salary_growth_spec).length)delete ${_wb}.salary_growth_spec}else{${_wb}.salary_growth_spec.rate=_pf(v)/100};refresh()"></div></label>`;
+        else row += `<label class="wf-field wf-escalation"><span class="wf-field-label">Escalation %</span><span class="wf-static" title="Managed by the Compensation path under Advanced trajectories">Set by path</span></label>`;
+        row += `<label class="wf-field wf-load"><span class="wf-field-label">Benefits / payroll %</span><div class="sec-book-value"><input type="number" step="0.5" placeholder="Default ${_defLoad.toFixed(1)}" value="${_roleLoad!=null?_roleLoad.toFixed(1):''}" title="Blank inherits the workforce default; this percentage is added on top of base compensation" onchange="var v=this.value.trim();if(v===''){delete ${_wb}.payroll_load_rate}else{${_wb}.payroll_load_rate=_pf(v)/100};refresh()"></div></label>`;
         row += `</div>`;
         const _advKey=_nieWorkforceAdvancedKey(wr,wi), _advConfigured=(_cm!=="flat"||!!_cps), _advOpen=_nieWorkforceAdvancedIsOpen(wr,wi,_advConfigured);
         row += `<details class="wf-series-details"${_advOpen?' open':''} ontoggle="nieWorkforceAdvancedSet('${esc(_advKey)}',this.open)"><summary>Advanced trajectories<span class="cfg-disc-val"><i>Count</i>${_cm==='flat'?'Flat':(_cm==='growth'?'Growth':('Explicit · '+((wr.count_spec.values||[]).length)+' values'))}</span>${_cm==='explicit'&&typeof _sparkHtml==='function'?_sparkHtml(wr.count_spec.values):''}<span class="cfg-disc-val"><i>Compensation</i>${_cps?(_cpm==='flat'?'Flat':(_cpm==='growth'?'Growth':('Explicit · '+((_cps.values||[]).length)+' values'))):'Base with escalation'}</span>${_cps&&_cpm==='explicit'&&typeof _sparkHtml==='function'?_sparkHtml(_cps.values):''}</summary><div class="crow" style="align-items:flex-end;flex-wrap:wrap;margin:7px 0 0"><label class="wf-field" style="width:142px"><span class="wf-field-label">Count path</span><select onchange="nieWorkforceCountMode(${wi},this.value)"><option value="flat"${_cm==='flat'?' selected':''}>Flat</option><option value="growth"${_cm==='growth'?' selected':''}>Growth</option><option value="explicit"${_cm==='explicit'?' selected':''}>Explicit</option></select></label><label class="wf-field" style="width:170px"><span class="wf-field-label">Compensation path</span><select onchange="this.value==='legacy'?nieWorkforceCompLegacy(${wi}):nieWorkforceCompMode(${wi},this.value)"><option value="legacy"${!_cps?' selected':''}>Escalation (default)</option><option value="flat"${_cps&&_cpm==='flat'?' selected':''}>Flat</option><option value="growth"${_cps&&_cpm==='growth'?' selected':''}>Growth</option><option value="explicit"${_cps&&_cpm==='explicit'?' selected':''}>Explicit</option></select></label><span class="cmut" style="margin:15px 0 0">Use only when Count or Compensation needs its own trajectory.</span></div>`;
@@ -11653,7 +11686,7 @@ function structuresSectionsHtml(){
         const _compLabel=wr=>{const s=wr.compensation_spec||null,base=+(wr.annual_comp||wr.base_salary_annual||0),per=(s&&s.period)||wr.compensation_period||'year',basis=(s&&s.amount_basis)||wr.compensation_basis||'per_unit',bl=basis==='total'?'Total':'Per FTE';if(!s)return `${fmtComma(base/1000)} $000s/${per} · ${bl} · Escalation`;const t=s.trajectory||s.mode||'flat';if(t==='explicit'){const vs=s.values||[],a=vs.length?+vs[0]:base,b=vs.length?+vs[vs.length-1]:a;return `${fmtComma(a/1000)} → ${fmtComma(b/1000)} $000s/${per} · ${bl} · Explicit`;}if(t==='growth'){const b=+(s.base!=null?s.base:base),g=s.growth_spec||{};return `${fmtComma(b/1000)} $000s/${per} base · ${bl} · ${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${g.period||'year'}`;}return `${fmtComma((+(s.value!=null?s.value:base))/1000)} $000s/${per} · ${bl} · Flat`;};
         h += '<div style="margin-top:10px;border-top:1px solid rgba(85,85,82,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce run summary · latest run</div>';
         h += '<div class="cmut" style="margin:0 0 6px">Compact audit of the population path actually used by the engine. Headcount is the resolved active Series; compensation shows its authored amount basis and natural period before payroll load.</div>';
-        h += '<div style="overflow-x:auto"><table class="ovt ovt-grid" style="font-size:10.5px;min-width:760px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation amount</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
+        h += '<div style="overflow-x:auto"><table class="ovt ovt-grid wf-run-sum" style="font-size:10.5px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation amount</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
         let _totStart=0,_totEnd=0;
         (wf.roles||[]).forEach((wr,wi)=>{
           let ri=wr.series_id?_ids.indexOf(String(wr.series_id)):-1;if(ri<0&&wi<_hires.length)ri=wi;

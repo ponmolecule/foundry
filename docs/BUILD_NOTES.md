@@ -935,3 +935,21 @@ Verification: every Setup field present exactly once in all 24 loan / deposit / 
 (same fields as r232); 54 tab views at 1440 and 1024px with each field visible in exactly one tab, no
 truncation and no overflow; fee-product screens identical to r232 apart from the card's new data-fam /
 data-i attributes; full results identical; fingerprints 3 of 3.
+
+
+## r234 — Workforce role fields and run summary
+
+Presentation release on r233. Results identical to r233.
+- Workforce role card entry fields restyled toward the Design reference: two rows (Role / population ·
+  Count · Compensation; Start · End month · Escalation % · Benefits / payroll %), uniform 32px controls with
+  small labels above, numbers right-aligned in tabular figures, units moved into labels, "month" between the
+  start mode and number, "Open" for an open end month, and a same-height "Set by path" box where escalation
+  is managed by the compensation path. Scoped to .wf-role-card; Advanced trajectories unchanged.
+- Workforce run summary table sized to its content (about 1,000px instead of the full stage width).
+Verification: two rows and 32px controls on every role at 1440 and 1920px, no truncation; every role field
+still writes to the configuration; the other five Configuration modules are pixel-identical to r233.
+Test note: tests_growth_ui has stopped early since the original r198 build because it passes over 131,072
+bytes of console source to Node as one command-line argument (143,874 bytes in r198; 169,869 now), so its
+later checks never run (it is one of the ten baseline failures). Run once through standard input, r233 and
+r234 both pass 67 and fail the same 17 pre-existing checks; r234's only effect there was the escalation label
+pin, updated to "Escalation %". Repairing the harness and the 17 decayed checks is left for its own release.
