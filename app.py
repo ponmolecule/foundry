@@ -1355,7 +1355,9 @@ def v31_substrate_vintage(body: dict, _=Depends(gate)):
         hit = _VIN_CACHE.get(key)
         if hit and _time.time() - hit[0] < 1800:
             return JSONResponse(hit[1])
+        _t0 = _time.time()
         doc = build_vintage_corridor(cl, est_from, est_to, metrics=metrics, asset_band=band)
+        doc["build"] = {"seconds": round(_time.time() - _t0, 2), "members": doc.get("cohort_size")}
         doc = _json.loads(_json.dumps(doc, default=lambda o: float(o) if hasattr(o, "__float__") else str(o)))
         _VIN_CACHE[key] = (_time.time(), doc)
         return JSONResponse(doc)
