@@ -898,3 +898,22 @@ Presentation-only iteration on fix2. Pool preview and Product Detail use "Swept 
 and "Fee on swept-out balances"; the audit labels match. Series keys stay sweptBalance and
 sweepFee. Source guidance asks for gross program balance before retention/capacity limits,
 not deposits already expected to remain on-book. Deposit presets and calculation logic unchanged.
+
+
+## r232 — Fee streams on loans and deposits
+
+Built on r231a_fix3 (6f00909). Results are identical to fix3 for every runnable configuration.
+- Loans and deposits get the Fee streams tab fee products already have: the same stream grid, ⓘ calculation
+  cards and Activity / Pricing / Timing / Costs editor. The engine already executed their streams (the
+  template's Commercial Real Estate loan carries "CRE servicing fee", which moved revenue but was not shown
+  anywhere on screen).
+- One shared stream workspace (_feeStreamsSectionHtml), lifted unchanged out of the fee-product form; stream
+  handlers resolve their product through _stOwner (fee product index unchanged; 1000+i loans; 2000+i
+  deposits). All 32 fee-product views render identically to fix3.
+- The Setup fee yield is listed read-only beside the streams on loans and deposits ("Fee yield · SETUP"),
+  with its own card (yield ÷ periods × average balance), so all fee income is visible in one list. It is
+  still authored in Setup → Pricing. Shown even when a product has no streams yet.
+- A balance stream added to a loan or deposit starts on the product's own balance (fee products keep AUC).
+- Guide Me remains a fee-product tool.
+- Validation: deposit fee streams are now validated like loan streams (malformed streams and the
+  loan-only funded-flow source are rejected).
