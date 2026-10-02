@@ -171,8 +171,8 @@ def prepare(a, n, ppy, quantities=None, growth_context=None):
         net = [sum((1 if direction == 'add' else -1) * vals[q] for direction, vals in adjustments) for q in range(n)]
         shares = r(pool.get('retention_share_spec', {'value': 1}), True)
         fee = r(pool.get('sweep_fee_rate_spec', {'value': 0}))
-        # Preserve r231a's period-end basis when the option is absent. New UI pools author average explicitly.
-        fee_measure = str(pool.get('sweep_fee_balance_measure') or 'period_end')
+        # One default for UI-authored and imported pools; period-end is an explicit choice.
+        fee_measure = str(pool.get('sweep_fee_balance_measure') or 'period_average')
         opening_swept = r({'value': pool.get('opening_swept_balance', 0)})[0]
         if fee_measure not in {'period_average', 'period_end'}:
             raise ValueError('Swept-balance fee balance measure must be period_average or period_end')

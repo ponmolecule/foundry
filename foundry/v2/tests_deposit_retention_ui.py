@@ -21,7 +21,7 @@ function _explicitPreviewHtml(){return '<div>preview</div>';}
 function fmtComma(v){return String(v);}
 ''' + html[start:end]+ r'''
 function assert(v,m){if(!v)throw new Error(m);}
-depositMode(0,'pool');depositPoolAdd(0);
+depositMode(0,'pool');
 const p=cfg.assumptions.deposit_products[0],g=cfg.assumptions.deposit_retention_pools[0];
 assert(p.growth_per_period===0&&p.runoff_per_period===0&&p.new_deposits_per_period===0&&!p.overrides.growth_per_period,'old balance dynamics conflict');
 assert(p.retention_pool_id===g.id&&p.pool_share_spec.value===1,'first member');
