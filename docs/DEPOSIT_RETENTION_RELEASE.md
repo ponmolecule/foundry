@@ -1,4 +1,4 @@
-# r231 · Deposit balance sources and shared retention / sweep policies
+# r231a_fix1 · Deposit balance sources and shared retention / sweep policies
 
 Built directly on Claude's `1c3e67d` release (r230). The existing product workspace,
 branding, six deposit presets, top menus, and ordinary deposit roll-forward remain.
@@ -34,20 +34,25 @@ Clear / Close editor and preview.
 Available balance = max(0, source + additions − deductions).
 Retained balance = min(available, available × retained-share limit, capacity).
 Swept balance = available − retained. Swept funds are not bank deposit liabilities.
-Annual swept-balance fee = swept balance × annual fee rate / periods per year.
+Annual swept-balance fee = swept-balance basis × annual fee rate / periods per year, where the basis is the
+average of opening and ending swept balances, or period-end swept balance, set per pool.
+New UI pools author average explicitly. An omitted setting preserves r231a period-end fees.
+Opening swept balance is entered separately in $000s (zero if omitted), before period 1;
+later periods use the previous swept ending balance. It is off-book and does not add deposit liabilities.
 Fees are allocated across categories by their pool shares and recognized once.
 Interest uses the explicitly selected beginning, ending or arithmetic average balance.
 Retained-balance fees remain separately labeled and apply to arithmetic average balances.
 
 Capacity can be entered, linked, derived, or computed from a beginning equity budget:
 
-    max(0, max(0, prior ending equity − capital deductions) / target capital-to-assets
+    max(0, max(0, prior ending equity − capital deductions) / equity allocation ratio
            − beginning lending exposure − liquidity buffer − other committed assets
            − prior operating expense converted to monthly expense × float months)
 
 This is an allocation budget using modeled beginning equity and authored deductions;
-it does not silently equate book equity to regulatory Tier 1 or guarantee a regulatory
-leverage ratio. Capital deductions and other commitments must reflect the intended
+it does not enforce bank capital / assets and does not equate book equity to regulatory Tier 1.
+For example, 30M equity / 13% permits a 230.769M deposit allocation before commitments;
+including equity funding gives 260.769M assets and 11.504% equity / assets, not 13%. Capital deductions and other commitments must reflect the intended
 policy. M1 prior operating expense is zero. At most one pool owns the bank equity
 budget; several deposit categories can share it.
 
@@ -65,7 +70,7 @@ lose precision. Use the native source cadence for those cases.
 Product Detail shows interest basis, swept balance and swept-balance fee income.
 The pool preview shows retained and swept amounts. Calculation Audit's **Product
 Calculations** and **All Series** include pool source, net adjustments, availability,
-share limit, capacity, retained, swept, fee, beginning capital and commitments.
+share limit, capacity, retained, swept, opening swept basis, fee basis, fee, beginning capital and commitments.
 `bindingLimit` is an enum: 0 no sweep, 1 share, 2 capacity, 3 both.
 Monetary public / workbook values are $000s; engine values remain dollars.
 
@@ -76,8 +81,10 @@ series architecture, and audit reconciliation suites. Tested actual preview API 
 rendered browser card: source switching, persistent shared settings, Load activation,
 monetary paste scaling, Clear and Close. No browser JavaScript errors.
 
-An unchanged fixture's raw financial results match the original Claude engine exactly;
-only floating-index metadata was added to old product outputs. New tests cover independent
+The complete unchanged fixture output matches the r230 engine without removing fields.
+All three named r230 fingerprints remain unchanged. Floating reference-index labels resolve
+from configuration family order (both engines preserve it), including duplicate product names;
+no index metadata is added to hashed results. New tests cover independent
 pools, binding constraints, zero capacity, excessive deductions, linked migration schedule
 changes, stable identity on rename and reorder, linked lending float displacement,
 beginning-period equity budgets, explicit M13 starts, and audit export.
