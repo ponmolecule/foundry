@@ -1330,6 +1330,9 @@ def v2_sens(body: dict, _=Depends(gate)):
                              status_code=422)
 
 
+_VIN_CACHE = {}   # r240: vintage corridors by request, 30 minutes
+
+
 @app.post("/api/v31/substrate/vintage")
 def v31_substrate_vintage(body: dict, _=Depends(gate)):
     """Vintage corridor: age-aligned de novo trajectories from the substrate."""
@@ -1346,7 +1349,16 @@ def v31_substrate_vintage(body: dict, _=Depends(gate)):
         metrics = body.get("metrics")
         if not metrics:
             metrics = list(VINTAGE_METRICS) + ["net_charge_off_rate"]
-        return JSONResponse(build_vintage_corridor(cl, est_from, est_to, metrics=metrics))
+        band = body.get("asset_band") if body.get("asset_band") in ("under_200M", "200M_500M", "500M_2B", "2B_10B", "10B_50B", "over_50B") else None
+        import json as _json, time as _time
+        key = _json.dumps({"v": "broad", "f": est_from, "t": est_to, "m": metrics, "b": band}, sort_keys=True)
+        hit = _VIN_CACHE.get(key)
+        if hit and _time.time() - hit[0] < 1800:
+            return JSONResponse(hit[1])
+        doc = build_vintage_corridor(cl, est_from, est_to, metrics=metrics, asset_band=band)
+        doc = _json.loads(_json.dumps(doc, default=lambda o: float(o) if hasattr(o, "__float__") else str(o)))
+        _VIN_CACHE[key] = (_time.time(), doc)
+        return JSONResponse(doc)
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
@@ -1362,9 +1374,17 @@ def peer_intelligence_lab_vintage(body: dict, _=Depends(gate)):
     if not cl.configured():
         return JSONResponse({"error": "substrate not configured"}, status_code=422)
     try:
-        return JSONResponse(build_curated_vintage_corridor(
-            cl, body.get("certs") or [], metrics=body.get("metrics"),
-            max_age_q=12, min_n=body.get("min_n", 2)))
+        import json as _json, time as _time
+        key = _json.dumps({"v": "curated", "c": sorted(str(x) for x in (body.get("certs") or [])),
+                           "m": body.get("metrics"), "n": body.get("min_n", 2)}, sort_keys=True)
+        hit = _VIN_CACHE.get(key)
+        if hit and _time.time() - hit[0] < 1800:
+            return JSONResponse(hit[1])
+        doc = build_curated_vintage_corridor(cl, body.get("certs") or [], metrics=body.get("metrics"),
+                                             max_age_q=12, min_n=body.get("min_n", 2))
+        doc = _json.loads(_json.dumps(doc, default=lambda o: float(o) if hasattr(o, "__float__") else str(o)))
+        _VIN_CACHE[key] = (_time.time(), doc)
+        return JSONResponse(doc)
     except ValueError as e:
         return JSONResponse({"error": str(e)[:300]}, status_code=422)
     except Exception as e:
