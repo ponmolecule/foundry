@@ -1695,6 +1695,32 @@ table.ovt-grid.wf-run-sum td,table.ovt-grid.wf-run-sum th{padding-right:22px}
 .pc-wait{grid-column:2/-1;font-size:12px;color:var(--k-tx3)}
 tr.vin-ext td{color:var(--k-tx3)}
 @media (max-width:1180px){.pc-row{grid-template-columns:minmax(140px,170px) 1fr 120px}.pc-stats{grid-column:1/-1;justify-content:start}}
+
+/* r240: vintage corridor headings, layout and plots (airy) */
+.vin-h{display:flex;align-items:baseline;gap:12px;width:fit-content;min-width:33%;margin:34px 0 10px;padding:8px 16px;background:#2C2C2C;border-radius:2px}
+.vin-name{font-family:var(--k-disp);font-size:19px;font-weight:600;color:#FFFFFF;letter-spacing:-.005em}
+.vin-basis{font-size:11.5px;font-weight:500;color:#C9C3B6;text-transform:none}
+.vin-sub{margin:-2px 0 10px;font-size:11.5px;color:var(--k-tx3);max-width:760px}
+.vin-body{display:flex;flex-wrap:wrap;align-items:flex-start;gap:20px 28px}
+.vin-tbl{flex:0 1 auto;min-width:0}
+.vin-chart{flex:0 0 360px;max-width:100%;padding-top:2px}
+.vin-svg{width:100%;height:auto;display:block}
+.vin-svg .vg{stroke:#EFEFEF;stroke-width:1}.vin-svg .vt{font-size:10px;fill:#96928C;font-family:inherit}
+.vin-svg .va-r{fill:#F3EEE3}.vin-svg .va-i{fill:#E3D2AC}
+.vin-svg .vl-m{fill:none;stroke:#343434;stroke-width:1.6}
+.vin-svg .vl-x{fill:none;stroke:#A3772A;stroke-width:2}.vin-svg .vc-x{fill:#A3772A;stroke:#FFFFFF;stroke-width:1}
+.vin-leg{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-top:6px;font-size:11px;color:var(--k-tx3)}
+.vin-leg i{display:inline-block;width:14px;height:8px;margin-left:8px}.vin-leg i:first-child{margin-left:0}
+.vin-leg i.r{background:#F3EEE3}.vin-leg i.i{background:#E3D2AC}.vin-leg i.m{height:2px;background:#343434}.vin-leg i.x{height:2px;background:#A3772A}
+.vin-empty{font-size:12px;color:var(--k-tx3);padding-top:30px}
+/* r240: peer corridor: bounded width, subtle dividers between the percentiles */
+.pc-cards,.pc-panel,.pc-note{max-width:1180px}
+.pc-row{grid-template-columns:minmax(150px,180px) minmax(150px,320px) auto 124px}
+.pc-st{padding:0 9px;border-left:1px solid #ECECE8}
+.pc-stats .pc-st:first-child{border-left:0;padding-left:0}
+.pc-st:nth-child(2),.pc-st:nth-child(7){border-left-color:#D6D2C8}
+.pc-st:nth-child(1) .v,.pc-st:nth-child(7) .v{color:#6E6A63}
+.pc-stats{gap:0}
 </style>
 </head>
 <body>
@@ -2404,6 +2430,36 @@ window.pbExport=async function(){
     appStatus&&appStatus('ok','Workbook downloaded.');
   }catch(e){ appStatus&&appStatus('err','<b>Export failed</b> \u2014 '+esc(e.message||String(e))); }
 };
+
+// r240: vintage corridor follows the peer cohort; metric headings as graphite bands; a plot beside each table.
+const _VIN_LABEL={roa:"ROA",nim:"NIM",efficiency_ratio:"Efficiency ratio",tier1_ratio:"Tier 1 ratio",cet1_ratio:"CET1 ratio",
+  leverage_ratio:"Leverage ratio",total_rbc_ratio:"Total capital ratio",net_charge_off_rate:"Net charge-off rate",noninterest_share:"Noninterest revenue share"};
+const _VIN_BAND_LABEL={under_200M:"under $200M","200M_500M":"$200M\u2013$500M","500M_2B":"$500M\u2013$2B","2B_10B":"$2B\u2013$10B","10B_50B":"$10B\u2013$50B",over_50B:"over $50B"};
+function _vinKey(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}; const m=c.peer_bands_mode||"broad";
+  return m==="curated" ? "curated:"+(c.peer_bands_certs||[]).join(",") : "band:"+m; }
+function _vinCohortLabel(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}; const m=c.peer_bands_mode||"broad";
+  if(m==="curated") return (c.peer_bands_certs||[]).length+" curated certificates";
+  return _VIN_BAND_LABEL[m] ? "2018\u20132023 charters now "+_VIN_BAND_LABEL[m] : "2018\u20132023 charters"; }
+function _vinSync(){ if(window.vintage && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; if(typeof vintageBuild==="function") vintageBuild(); } }
+function _vinChartHtml(M, modeled){
+  const ages=(M.ages||[]).map(a=>a.age_q), W=360, H=196, L=40, R=10, T=12, B=26;
+  const ok=v=>v!=null&&isFinite(+v);
+  const vals=[]; (M.ages||[]).forEach((a,i)=>{ ["min","max","p25","p75","p50"].forEach(k=>{ if(ok(a[k])&&!a.suppressed) vals.push(+a[k]); }); if(modeled&&ok(modeled[a.age_q-1])) vals.push(+modeled[a.age_q-1]); });
+  if(vals.length<2) return `<div class="vin-chart vin-empty">Not enough peer observations to plot.</div>`;
+  let lo=Math.min(...vals), hi=Math.max(...vals); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  const n=Math.max(...ages,12), X=q=>L+(q-1)/(n-1)*(W-L-R), Y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const runs=(k1,k2)=>{ const out=[]; let cur=[]; (M.ages||[]).forEach(a=>{ if(!a.suppressed&&ok(a[k1])&&ok(a[k2])) cur.push(a); else { if(cur.length) out.push(cur); cur=[]; } }); if(cur.length) out.push(cur); return out; };
+  const area=(k1,k2,cls)=>runs(k1,k2).map(r=>r.length<2?"":`<path class="${cls}" d="M${r.map(a=>X(a.age_q).toFixed(1)+","+Y(+a[k2]).toFixed(1)).join("L")}L${r.slice().reverse().map(a=>X(a.age_q).toFixed(1)+","+Y(+a[k1]).toFixed(1)).join("L")}Z"/>`).join("");
+  const line=(pts,cls)=>pts.length<2?"":`<path class="${cls}" d="M${pts.map(p=>p[0].toFixed(1)+","+p[1].toFixed(1)).join("L")}"/>`;
+  let g=`<svg class="vin-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Vintage corridor plot">`;
+  [0,0.5,1].forEach(f=>{ const v=lo+(hi-lo)*f; g+=`<line class="vg" x1="${L}" x2="${W-R}" y1="${Y(v).toFixed(1)}" y2="${Y(v).toFixed(1)}"/><text class="vt" x="${L-6}" y="${(Y(v)+3).toFixed(1)}" text-anchor="end">${v.toFixed(Math.abs(hi-lo)<10?1:0)}</text>`; });
+  [1,4,8,12].filter(q=>q<=n).forEach(q=>{ g+=`<text class="vt" x="${X(q).toFixed(1)}" y="${H-8}" text-anchor="middle">Q${q}</text>`; });
+  g+=area("min","max","va-r")+area("p25","p75","va-i");
+  runs("p50","p50").forEach(r=>{ g+=line(r.map(a=>[X(a.age_q),Y(+a.p50)]),"vl-m"); });
+  if(modeled){ const pts=(M.ages||[]).filter(a=>ok(modeled[a.age_q-1])).map(a=>[X(a.age_q),Y(+modeled[a.age_q-1])]); g+=line(pts,"vl-x")+pts.map(p=>`<circle class="vc-x" cx="${p[0].toFixed(1)}" cy="${p[1].toFixed(1)}" r="2.6"/>`).join(""); }
+  g+=`</svg>`;
+  return `<div class="vin-chart">${g}<div class="vin-leg"><i class="r"></i>min\u2013max <i class="i"></i>P25\u2013P75 <i class="m"></i>median${modeled?' <i class="x"></i>modeled':''}</div></div>`;
+}
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -6236,6 +6292,7 @@ function bandsSectionHtml(){
 window._pbMetrics = ["roa","nim","efficiency","tier1","total","lev","net_charge_off_rate"];
 let _pbRenderGeneration=0;
 window.renderBands = async function(){
+  if(typeof _vinSync==="function") _vinSync();
   const _generation=++_pbRenderGeneration;
   const body = document.getElementById("pbBody"); if(!body) return;
   const metrics = window._pbMetrics;
@@ -7508,7 +7565,7 @@ async function vintageBuild(){
     const _curated=_mode==="curated"&&_certs.length;
     const r = await fetch(_curated?"/api/v31/peer-intelligence-lab/vintage":"/api/v31/substrate/vintage", {method:"POST",
       headers:{"Content-Type":"application/json"},
-      body: JSON.stringify(_curated?{certs:_certs}:{est_from:2018, est_to:2023}),
+      body: JSON.stringify(_curated?{certs:_certs}:Object.assign({est_from:2018, est_to:2023}, (_mode&&_mode!=="broad"&&_mode!=="curated")?{asset_band:_mode}:{})),
       signal: ctrl.signal});
     clearTimeout(timer);
     let j; try{ j = await r.json(); }
@@ -7517,7 +7574,7 @@ async function vintageBuild(){
       window._vintageError = (j && j.error) || `substrate error (${r.status})`;
       appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(window._vintageError));
     } else {
-      window.vintage = j;
+      window.vintage = j; window.vintageKey = _vinKey();
     }
   }catch(e){
     const aborted = (e && e.name === "AbortError");
@@ -7547,7 +7604,7 @@ function vintageSectionHtml(){
       if(window._vintageError){
         h += `<div class="memo" style="border-left:3px solid #985747;color:#896156">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
       }
-      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
+      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 ${_vinCohortLabel()}</button>';
     }
     return h;
   }
@@ -7577,7 +7634,8 @@ function vintageSectionHtml(){
     // per-age-quarter figures, capital is a point-in-time stock.
     const vBasis = (metric==="roa"||metric==="nim"||metric==="efficiency_ratio"||metric==="net_charge_off_rate") ? "Flow"
                  : (metric==="tier1_ratio"||metric==="cet1_ratio"||metric==="leverage_ratio") ? "Stock" : "";
-    h += `<div class="ovh3" style="font-size:12px">${esc(metric)}${vBasis?` (${vBasis})`:""}${(metric==="tier1_ratio"||metric==="cet1_ratio") ? " (modeled tier-1 / RWA, standardized approach \u2014 like-for-like: the substrate metric is risk-based; magnitudes above 100% prove it)" : ""}</div>`;
+    h += `<div class="vin-h"><span class="vin-name">${esc(_VIN_LABEL[metric]||metric)}</span>${vBasis?`<span class="vin-basis">${vBasis}</span>`:""}</div>`;
+    if(metric==="tier1_ratio"||metric==="cet1_ratio") h += `<div class="vin-sub">Modeled tier 1 / RWA, standardized approach. Like-for-like: the substrate metric is risk-based; magnitudes above 100% confirm it.</div>`;
     // Charge-off only: an opt-in "later ages" bucket (Q13-Q24) showing that de novo charge-offs
     // season in AFTER the 12-quarter horizon. The main table stays strictly Q1-Q12; the bucket is
     // an extra, toggled column of peer history (no modeled overlay). Demonstrates the flat-zero
@@ -7592,7 +7650,7 @@ function vintageSectionHtml(){
     const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${esc(M.later.label)}</th>` : "";
     const lateCell = (p)=> (showLater && later)
       ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
-    h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
+    h += '<div class="vin-body"><div class="vin-tbl" style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
     ["max","p90","p75","p50","p25","min"].forEach(p=>{
       h += `<tr${(p==="max"||p==="min")?' class="vin-ext"':''}><td>${p==="max"?"Max":p==="min"?"Min":p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]==null?"\u2014":(+a[p]).toFixed(2)}</td>`).join("") + ((p==="max"||p==="min")?(lateTh?'<td style="text-align:right">\u2014</td>':''):lateCell(p)) + '</tr>';
     });
@@ -7610,7 +7668,7 @@ function vintageSectionHtml(){
         return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
       }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#565653;border-left:2px solid #CACAC7">\u2014</td>' : "") + '</tr>';
     }
-    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#565653">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#565653;border-left:2px solid #CACAC7">${M.later.n}</td>` : "") + '</tr></table></div>';
+    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#565653">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#565653;border-left:2px solid #CACAC7">${M.later.n}</td>` : "") + '</tr></table></div>' + _vinChartHtml(M, modeled) + '</div>';
     h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}${(showLater && later) ? " \u00b7 Q13\u2013Q24 bucket: per-bank average within the window, then percentiles across banks \u2014 peer history only, no modeled overlay." : ""}</div>`;
   });
   return h;

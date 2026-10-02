@@ -74,11 +74,36 @@ def main():
     import openpyxl
     data = build_workbook({"cohort_label": "c", "corridor": [], "vintage": {"corridor": {"roa": {"ages": [{"age_q": 1, "n": 2}]}},
                            "series_by_cert": {"roa": {"1": {"1": 2.0}, "2": {"1": 4.0}}}}, "vintage_modeled": {"roa": {"1": 5.0}}})
-    ws = openpyxl.load_workbook(io.BytesIO(data))["roa"]
+    ws = openpyxl.load_workbook(io.BytesIO(data))["ROA"]   # r241: sheets named in mixed case
     row = [c.value for c in ws[5]]
     ck("curated sheet: peer values as inputs, min/median/max as formulas, placement formula",
        row[1] == 2.0 and row[2] == 4.0 and str(row[3]).startswith('=IF(COUNT(B5:C5)=0,"",MIN(B5:C5))')
        and 'MEDIAN(B5:C5)' in str(row[6]) and str(row[-1]).startswith("=IF(OR("))
+    # r241: vintage corridor filters by asset band; workbook charts style each series distinctly
+    from foundry.charteriq_client import build_vintage_corridor
+    sqls = []
+    def exv(sql, params):
+        sqls.append((sql, params))
+        if "FROM institutions" in sql: return [(1, 2019, None, None)]
+        return [(1, "roa", 2019, q, 1.0) for q in (1, 2, 3, 4)]
+    class C:
+        def _run(self, sql, params=()): return exv(sql, params)
+    try:
+        build_vintage_corridor(C(), 2018, 2023, metrics=["roa"], min_n=1, asset_band="2B_10B")
+    except Exception:
+        pass
+    inst = [x for x in sqls if "FROM institutions" in x[0]]
+    ck("vintage corridor filters membership by the selected asset band",
+       bool(inst) and "asset_size_mm >= %s" in inst[0][0] and 2000 in inst[0][1] and 10000 in inst[0][1])
+    data = build_workbook({"cohort_label": "c", "corridor": [], "vintage": {"corridor": {"roa": {"ages": [{"age_q": a, "n": 2} for a in (1, 2, 3)]}},
+                           "series_by_cert": {"roa": {"1": {"1": 2.0, "2": 3.0, "3": 4.0}, "2": {"1": 4.0, "2": 5.0, "3": 6.0}}}},
+                           "vintage_modeled": {"roa": {"1": 5.0, "3": 6.0}}})
+    import zipfile, re as _re
+    z = zipfile.ZipFile(io.BytesIO(data)); charts = [n for n in z.namelist() if n.startswith("xl/charts/chart")]
+    xml = z.read(charts[0]).decode() if charts else ""
+    colors = _re.findall(r'<a:ln[^>]*><a:solidFill><a:srgbClr val="([0-9a-fA-F]{6})"', xml)   # namespace-prefix agnostic
+    ck("workbook has a chart per corridor sheet plus a Charts sheet, each series styled distinctly",
+       len(charts) >= 2 and len(set(c.lower() for c in colors)) >= 4 and "ROA" in openpyxl.load_workbook(io.BytesIO(data)).sheetnames)
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

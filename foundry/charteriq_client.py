@@ -602,7 +602,7 @@ class CharterIQClientVintageMixin:
     pass
 
 
-def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_age_q=12):
+def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_age_q=12, asset_band=None):
     """Age-aligned trajectory corridor for banks chartered in [est_from, est_to].
 
     Each bank's clock restarts at its own charter: age quarter 1 is its first
@@ -612,9 +612,17 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
     import hashlib
     import json as _json
     metrics = metrics or VINTAGE_METRICS
+    # r240: optional asset band (current size), so the corridor follows a stored-band peer cohort
+    _bands = {"under_200M": (None, 200), "200M_500M": (200, 500), "500M_2B": (500, 2000),
+              "2B_10B": (2000, 10000), "10B_50B": (10000, 50000), "over_50B": (50000, None)}
+    _conds, _params = ["est_year BETWEEN %s AND %s"], [int(est_from), int(est_to)]
+    if asset_band in _bands:
+        _lo, _hi = _bands[asset_band]
+        if _lo is not None: _conds.append("asset_size_mm >= %s"); _params.append(_lo)
+        if _hi is not None: _conds.append("asset_size_mm < %s"); _params.append(_hi)
     rows = client._run(
-        "SELECT cert, est_year, end_year, fail_date FROM institutions "
-        "WHERE est_year BETWEEN %s AND %s", (int(est_from), int(est_to)))
+        "SELECT cert, est_year, end_year, fail_date FROM institutions WHERE " + " AND ".join(_conds),
+        tuple(_params))
     members = [{"cert": r[0], "est_year": r[1], "end_year": r[2],
                  "fail_date": str(r[3]) if r[3] else None} for r in rows]
     if not members:
@@ -682,6 +690,7 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
     failed = [m for m in members if m["fail_date"]]
     exited = [m for m in members if m["end_year"] and not m["fail_date"]]
     definition = {"est_from": est_from, "est_to": est_to, "metrics": metrics,
+                  **({"asset_band": asset_band} if asset_band else {}),
                    "min_n": min_n, "max_age_q": max_age_q}
     fp = hashlib.sha256(_json.dumps({"def": definition,
                                        "members": sorted(certs)},
