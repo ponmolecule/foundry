@@ -108,7 +108,7 @@ def _canonical_metric(metric):
     return _METRIC_ALIASES.get(metric, metric)
 
 
-def _db_bands(metric, cohort):
+def _db_bands(metric, cohort, latest_only=False):
     """Read a stored cohort's bands from the peer_percentiles table via the single
     CHARTERIQ_DATABASE_URL client. Returns parsed dict or None (not configured /
     no rows). group_id maps 'broad' -> 'all_universe'."""
@@ -125,22 +125,38 @@ def _db_bands(metric, cohort):
     # get_peer_percentiles, but across the quarter series. Without this the query
     # scans and sorts millions of duplicate rows and hangs the request.
     try:
-        rows = cl._run(
-            "SELECT DISTINCT ON (year, quarter) "
-            "year, quarter, peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
-            "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
-            "ORDER BY year, quarter", (mname, gid))
-    except Exception:
-        # timeout, connection drop, or query error -> treat as 'no rows' so the
-        # caller degrades to its honest fallback (refusal / static threshold),
-        # never a 500 that hangs the page. The failure is real; the response is
-        # graceful.
-        return None
+        columns = "year, quarter, peer_p10, peer_p25, peer_p50, peer_p75, peer_p90, peer_count "
+        sql = ("SELECT " + columns + "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
+               "ORDER BY year DESC, quarter DESC LIMIT 1") if latest_only else (
+               "SELECT DISTINCT ON (year, quarter) " + columns +
+               "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s ORDER BY year, quarter")
+        rows = cl._run(sql, (mname, gid))
+    except Exception as exc:
+        raise RuntimeError("Peer database query failed; retry or check substrate availability.") from exc
     if not rows:
         return None
     bands = [{"quarter": f"{r[0]}Q{r[1]}", "p10": float(r[2]), "p25": float(r[3]),
               "p50": float(r[4]), "p75": float(r[5]), "p90": float(r[6]),
               "n": int(r[7]) if r[7] is not None else None} for r in rows]
+    if latest_only and bands:
+        # The substrate's per-bank percentile rows also retain the underlying value.
+        # Aggregate only this cohort/metric/quarter, not individual histories.
+        b=bands[-1];year,quarter=rows[-1][:2]
+        extrema=None
+        try:
+            extrema=cl._run("SELECT MIN(value), MAX(value), COUNT(DISTINCT cert) "
+                            "FROM peer_percentiles WHERE metric_name = %s AND group_id = %s "
+                            "AND year = %s AND quarter = %s AND value IS NOT NULL",
+                            (mname,gid,int(year),int(quarter)))
+        except Exception:
+            b["extrema_note"]="Extrema unavailable; published percentiles remain available."
+        if extrema:
+            low,high,count=extrema[0]
+            import math
+            if count==b['n'] and low is not None and high is not None and math.isfinite(float(low)) and math.isfinite(float(high)):
+                b.update(min=float(low),max=float(high))
+            else:
+                b['extrema_note']='Underlying observation coverage does not reconcile to the published count.'
     return {"metric": metric, "cohort": cohort,
             "provenance": {"basis": "identity-gated", "certified": False,
                            "computed_at": None,
@@ -150,7 +166,7 @@ def _db_bands(metric, cohort):
             "bands": bands}
 
 
-def get_bands(metric, cohort):
+def get_bands(metric, cohort, latest_only=False):
     """Resolve percentile bands, preferring the ONE database connection.
 
     Order: (1) stored cohort -> CHARTERIQ_DATABASE_URL (SQL, the same client every
@@ -160,7 +176,7 @@ def get_bands(metric, cohort):
     """
     # (1) stored cohorts: the database serves these directly
     if _is_stored(cohort):
-        parsed = _db_bands(metric, cohort)
+        parsed = _db_bands(metric, cohort, latest_only=latest_only)
         if parsed is not None:
             return parsed, "substrate (db)"
     # (2) arbitrary cert-list cohort (charter-filtered lending peers, curated certs):
@@ -174,9 +190,9 @@ def get_bands(metric, cohort):
         cl = CharterIQClient()
         if cl.configured():
             try:
-                bands = cl.get_cohort_bands(_canonical_metric(metric), list(cohort))
-            except Exception:
-                bands = []
+                bands = cl.get_cohort_bands(_canonical_metric(metric), list(cohort), latest_only=latest_only)
+            except Exception as exc:
+                raise RuntimeError("Curated peer query failed; retry or check substrate availability.") from exc
             if bands:
                 # small_n honesty MUST fire here too: for a curated cohort of a few
                 # certs, percentile_cont linearly interpolates between the members —
@@ -233,4 +249,6 @@ def get_bands(metric, cohort):
             "database rows and no provisional fixture. This is an honest gap, "
             "not an error to paper over.")
     with open(path, encoding="utf-8") as fh:
-        return parse_bands_response(json.load(fh)), "fixture (PROVISIONAL \u2014 NOT LIVE DATA)"
+        doc=parse_bands_response(json.load(fh))
+        if latest_only:doc["bands"]=doc["bands"][-1:]
+        return doc, "fixture (PROVISIONAL \u2014 NOT LIVE DATA)"

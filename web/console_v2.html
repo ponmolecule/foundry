@@ -1657,6 +1657,9 @@ table.ovt-grid.wf-run-sum td,table.ovt-grid.wf-run-sum th{padding-right:22px}
 .cfg-kpi.cfg-kpi-scope b small{margin:0 0 0 5px}
 .cfg-kpi.cfg-kpi-scope b i{font-style:normal;font-weight:400;color:var(--k-tx3);margin:0 8px;font-size:15px}
 </style>
+<style>/* r239 scoped peer workspace: existing graphite, white and Klaros gold. */
+.peer-workspace{margin:18px 0 28px;background:#FFF;border:1px solid #D8D8D4;border-radius:3px}.peer-heading{display:flex;justify-content:space-between;align-items:center;gap:20px;padding:22px 24px}.peer-heading h3{margin:6px 0;font-size:23px;letter-spacing:-.4px;color:#343434}.peer-heading p{margin:0;color:#777773;font-size:12px;line-height:1.6}.peer-eyebrow{font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#A27831}.peer-kpis{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #E3E3DF;border-bottom:1px solid #E3E3DF;background:#FAFAF8}.peer-kpis>div{padding:16px 24px;border-right:1px solid #E3E3DF;display:flex;flex-direction:column;gap:6px}.peer-kpis span,.peer-modeled>span{font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:#777773}.peer-kpis b{font-size:17px;font-weight:600;color:#343434}.peer-legend{display:flex;align-items:center;gap:20px;flex-wrap:wrap;font-size:11px;color:#777773;padding:12px 24px}.peer-legend button{margin-left:auto}.peer-metric{display:grid;grid-template-columns:170px minmax(250px,1fr) 130px 120px;gap:18px;padding:22px 24px;border-top:1px solid #E9E9E6;align-items:center}.peer-metric-name h4{font-size:14px;margin:0 0 7px;color:#343434}.peer-metric-name>span,.peer-metric-name small{display:block;font-size:10px;color:#777773;margin-top:5px;line-height:1.5}.peer-metric-name small{color:#99743B}.peer-range{width:100%;display:block}.peer-points{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px;text-align:center}.peer-points>div{display:flex;flex-direction:column;gap:5px}.peer-points span{font-size:9px;letter-spacing:.03em;color:#777773}.peer-points b{font-variant-numeric:tabular-nums;font-size:11px;font-weight:500;white-space:nowrap}.peer-points small{font-size:8px;color:#888}.peer-modeled{text-align:right;display:flex;flex-direction:column;gap:6px}.peer-modeled b{font-size:23px;color:#A27831;font-variant-numeric:tabular-nums;font-weight:600;letter-spacing:-.5px}.peer-modeled small{font-size:9px;color:#777773}.peer-placement{display:flex;flex-direction:column;gap:7px}.peer-placement b{font-size:11px;font-weight:500;padding:6px 8px;background:#F5F0E6;color:#705322;border-radius:3px}.peer-placement span{font-size:10px;color:#777773}.peer-unavailable{grid-column:span 3;font-size:12px;color:#896156;line-height:1.6}.peer-unavailable small{display:block;color:#777773}.peer-footnote{font-size:10px;line-height:1.6;color:#777773;margin:0;padding:16px 24px;border-top:1px solid #E3E3DF}.peer-details{margin:12px 0 28px}.peer-details>summary{cursor:pointer;font-size:12px;font-weight:600;color:#666;padding:10px 0}.peer-vintage-chart{max-width:920px;margin:14px 0 18px;border:1px solid #E3E3DF;padding:12px 12px 4px;border-radius:3px;background:#FFF}.peer-vintage-chart svg{display:block;width:100%}.peer-vintage-chart .peer-legend{justify-content:center;padding:8px;font-size:10px}@media(max-width:1100px){.peer-metric{grid-template-columns:150px minmax(220px,1fr) 120px}.peer-placement{grid-column:2/4;flex-direction:row;align-items:center}.peer-heading{align-items:flex-start;flex-direction:column}}@media(max-width:700px){.peer-metric{grid-template-columns:1fr 1fr}.peer-metric-band{grid-column:1/3;grid-row:2}.peer-placement{grid-column:1/3}.peer-heading,.peer-metric{padding:18px}.peer-kpis{grid-template-columns:1fr}.peer-kpis>div{border-right:0;border-bottom:1px solid #E3E3DF}.peer-legend{padding:12px 18px}}
+</style>
 </head>
 <body>
 <div id="appbar">
@@ -6099,7 +6102,7 @@ function bandsSectionHtml(){
     <div class="memo" style="margin:-2px 0 10px">Your modeled bank at Q12 placed against the latest available distribution of real filed peers. Every modeled value is reconstructed on a quarterly basis, regardless of the model cadence or projection length.</div>
     <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
       <span style="font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:#565653">Cohort</span>
-      <select id="pbCohort" onchange="cfgRef().peer_bands_mode=this.value;window.vintage=null;renderBands()">
+      <select id="pbCohort" onchange="cfgRef().peer_bands_mode=this.value;window.vintage=null;window._peerVintageContext=null;renderBands()">
         <option value="broad"${_pbMode==="broad"?" selected":""}>Broad cohort (all identity-gated filers)</option>
         <option value="under_200M"${_pbMode==="under_200M"?" selected":""}>Under $200M assets</option>
         <option value="200M_500M"${_pbMode==="200M_500M"?" selected":""}>$200M\u2013$500M assets</option>
@@ -6109,7 +6112,7 @@ function bandsSectionHtml(){
       </select>
       <label id="pbLendingWrap" style="display:none;align-items:center;gap:5px;font-size:11px;color:#4A4A47;margin-left:6px">
         <input type="checkbox" id="pbLendingOnly"${_pbLend?" checked":""} onchange="cfgRef().peer_bands_lending_only=this.checked;renderBands()"> lending peers only</label>
-      <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));window.vintage=null;renderBands()" style="display:none;min-width:220px">
+      <input id="pbCerts" placeholder="cert list, e.g. 628, 3511, 7213" value="${esc((cfgRef().peer_bands_certs||[]).join(', '))}" onchange="cfgRef().peer_bands_certs=this.value.split(',').map(s=>parseInt(s)).filter(n=>!isNaN(n));window.vintage=null;window._peerVintageContext=null;renderBands()" style="display:none;min-width:220px">
     </div>
     <div id="pbBody"><div class="memo">Loading bands\u2026</div></div>`;
 }
@@ -6128,11 +6131,56 @@ function bandsSectionHtml(){
 // distinct and verified since the Milestone 2 backfill; it's the MODELED side that
 // can't move it, so we don't show a permanently-equal duplicate.)
 window._pbMetrics = ["roa","nim","efficiency","tier1","total","lev","net_charge_off_rate"];
+// r239 peer workspace: presentation and exports consume the displayed snapshot only.
+const _peerLabels={roa:'ROA',nim:'NIM',efficiency:'Efficiency ratio',tier1:'Tier 1 / RWA',total:'Total capital / RWA',lev:'Tier 1 leverage',net_charge_off_rate:'Net charge-offs',efficiency_ratio:'Efficiency ratio',tier1_ratio:'Tier 1 / RWA',leverage_ratio:'Tier 1 leverage',total_rbc_ratio:'Total capital / RWA'};
+const _peerDataCache=new Map();
+let _peerControllers=[];
+function peerSelectionKey(){const c=cfgRef();return JSON.stringify([c.peer_bands_mode||'broad',(c.peer_bands_certs||[]).slice().sort((a,b)=>a-b),!!c.peer_bands_lending_only]);}
+function peerFinite(v){return typeof v==='number'&&Number.isFinite(v);}
+function peerNumber(v){return peerFinite(v)?v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}):'Unavailable';}
+async function peerMapLimited(items,load){const out=new Array(items.length);let next=0;async function worker(){while(next<items.length){const i=next++;out[i]=await load(items[i]);}}await Promise.all(Array.from({length:Math.min(3,items.length)},worker));return out;}
+function peerRangeSvg(b,value){
+ const vals=['min','p10','p25','p50','p75','p90','max'].map(k=>b[k]).concat([value]).filter(peerFinite);
+ if(!vals.length)return '';
+ let lo=Math.min(...vals),hi=Math.max(...vals);if(lo===hi){lo-=1;hi+=1;}const pad=(hi-lo)*.05;lo-=pad;hi+=pad;
+ const x=v=>20+(v-lo)/(hi-lo)*560,rect=(a,z,fill)=>peerFinite(a)&&peerFinite(z)?`<rect x="${x(a)}" y="17" width="${Math.max(1,x(z)-x(a))}" height="12" fill="${fill}"/>`:'';
+ return `<svg class="peer-range" viewBox="0 0 600 46" role="img" aria-label="Peer percentile band and modeled value"><line x1="20" x2="580" y1="23" y2="23" stroke="#CDCDC9"/>${rect(b.p10,b.p90,'#EEE8DC')}${rect(b.p25,b.p75,'#D8C49C')}${peerFinite(b.p50)?`<line x1="${x(b.p50)}" x2="${x(b.p50)}" y1="12" y2="34" stroke="#343434" stroke-width="2"/>`:''}${peerFinite(value)?`<circle cx="${x(value)}" cy="23" r="7" fill="#A27831" stroke="white" stroke-width="2"/>`:''}</svg>`;
+}
+function peerWorkspaceSummary(results,mode,lending,modeledFor,bucketOf){
+ const labels={broad:'All identity-gated filers',curated:'Selected certificates',under_200M:'Under $200M','200M_500M':'$200M–$500M','500M_2B':'$500M–$2B','2B_10B':'$2B–$10B'};
+ const rows=results.map(({metric,d,err})=>{const b=d&&d.bands&&d.bands[d.bands.length-1],m=modeledFor(metric);return {metric,label:_peerLabels[metric]||metric,band:b||{},modeled:m.v,standalone:m.vq,note:m.note||'',error:err||(!b?'No published observations':''),source:d&&d.source,provenance:d&&d.provenance,placement:b&&peerFinite(m.v)?bucketOf(m.v,b):'Not placed'};});
+ window._peerSnapshot={cfg:cfgRef(),key:peerSelectionKey(),run_hash:lastRes&&lastRes.run_hash,generated_at:new Date().toISOString(),selection:{mode,label:(labels[mode]||mode)+(lending?' · lending peers':''),certs:mode==='curated'?(cfgRef().peer_bands_certs||[]):[],lending},rows};
+ const complete=rows.filter(r=>!r.error).length,quarters=[...new Set(rows.filter(r=>!r.error).map(r=>r.band.quarter))];
+ let h=`<section class="peer-workspace"><div class="peer-heading"><div><div class="peer-eyebrow">Calendar comparison</div><h3>Where your modeled bank sits</h3><p>Modeled Q12 against ${esc(labels[mode]||mode)}${lending?' · lending peers':''}. Each metric keeps its own filing date and sample count.</p></div><button class="btn-plain peer-download" onclick="peerDownloadComparison(this)">Download comparison · Excel</button></div><div class="peer-kpis"><div><span>Available metrics</span><b>${complete} / ${rows.length}</b></div><div><span>Peer filings</span><b>${esc(quarters.join(' · ')||'Unavailable')}</b></div><div><span>Alignment</span><b>Calendar periods</b></div></div><div class="peer-legend"><span>● Modeled</span><span>┃ Median</span><span>Gold band P25–P75 · outer band P10–P90</span><button class="btn-plain" onclick="_peerDataCache.clear();renderBands()">Retry / refresh view</button></div>`;
+ for(const r of rows){const b=r.band;
+  h+=`<article class="peer-metric"><div class="peer-metric-name"><h4>${esc(r.label)}</h4><span>${['tier1','total','lev'].includes(r.metric)?'Stock':'Flow'} · ${esc(b.quarter||'No filing')}</span>${r.metric==='nim'?'<small>Directional: denominator may differ</small>':''}${b.n!=null&&b.n<8?'<small>Thin sample: interpolated member values</small>':''}</div>`;
+  if(r.error){h+=`<div class="peer-unavailable">${esc(r.error)}<small>Unavailable is not zero. Other metrics remain usable.</small></div></article>`;continue;}
+  h+=`<div class="peer-metric-band">${peerRangeSvg(b,r.modeled)}<div class="peer-points">${[['min','Min'],['p10','P10'],['p25','P25'],['p50','Median'],['p75','P75'],['p90','P90'],['max','Max']].map(([k,label])=>`<div><span>${label}</span><b>${peerFinite(b[k])?peerNumber(b[k]):'—'}</b>${!peerFinite(b[k])?'<small>Not supplied</small>':''}</div>`).join('')}</div></div><div class="peer-modeled"><span>Modeled Q12</span><b>${peerFinite(r.modeled)?peerNumber(r.modeled)+'%':'—'}</b>${peerFinite(r.standalone)?`<small>Standalone ${peerNumber(r.standalone)}%</small>`:''}</div><div class="peer-placement"><b>${esc(r.placement)}</b><span>n = ${b.n==null?'unavailable':b.n}</span></div></article>`;
+ }
+ return h+'<p class="peer-footnote">Ratios are percentage points. True min/max require published extrema or underlying observations; P10/P90 are never substituted. Downloads capture these displayed values without another peer-data query. Successful retrievals are reused for up to two minutes.</p></section>';
+}
+function peerVintageChart(metric,M,modeled){
+ const ages=M.ages||[],all=ages.flatMap(a=>[a.p25,a.p50,a.p75]).concat(modeled||[]).filter(peerFinite);if(!all.length)return '<p class="memo">No usable observations for this metric.</p>';
+ let lo=Math.min(...all),hi=Math.max(...all);if(lo===hi){lo-=1;hi+=1;}const pad=(hi-lo)*.1;lo-=pad;hi+=pad;const x=i=>50+i*48,y=v=>175-(v-lo)/(hi-lo)*145;
+ const line=(values,color,dash)=>{let d='',open=false;values.forEach((v,i)=>{if(!peerFinite(v)){open=false;return;}d+=(open?'L':'M')+x(i)+','+y(v)+' ';open=true;});return `<path d="${d}" fill="none" stroke="${color}" stroke-width="2" ${dash?'stroke-dasharray="4 4"':''}/>`;};
+ let band='';for(let i=0;i<ages.length-1;i++){const a=ages[i],b=ages[i+1];if([a.p25,a.p75,b.p25,b.p75].every(peerFinite))band+=`<polygon points="${x(i)},${y(a.p25)} ${x(i+1)},${y(b.p25)} ${x(i+1)},${y(b.p75)} ${x(i)},${y(a.p75)}" fill="#EDE3D0"/>`;}
+ return `<div class="peer-vintage-chart"><svg viewBox="0 0 620 218" role="img" aria-label="${esc(_peerLabels[metric]||metric)} by relative quarter"><text x="4" y="20" fill="#777773" font-size="11">${peerNumber(hi)}</text><text x="4" y="177" fill="#777773" font-size="11">${peerNumber(lo)}</text><line x1="50" y1="177" x2="578" y2="177" stroke="#CDCDC9"/>${band}${line(ages.map(a=>a.p50),'#343434')}${line(modeled||[],'#A27831',true)}${ages.map((a,i)=>`<text x="${x(i)}" y="194" text-anchor="middle" font-size="10" fill="#666">Q${a.age_q}</text><text x="${x(i)}" y="210" text-anchor="middle" font-size="9" fill="#777">n=${a.n}</text>`).join('')}</svg><div class="peer-legend"><span>━━ Peer median</span><span>┄ Modeled filing basis</span><span>P25–P75 band · gaps preserved</span></div></div>`;
+}
+async function peerDownloadComparison(button){
+ const s=window._peerSnapshot;if(!s||s.cfg!==cfgRef()||s.key!==peerSelectionKey()||s.run_hash!==(lastRes&&lastRes.run_hash)){appStatus('err','The comparison changed. Refresh the view before exporting.');return;}
+ const vintage=window.vintage&&window._peerVintageContext&&window._peerVintageContext.cfg===cfgRef()&&window._peerVintageContext.key===s.key?window.vintage:null;
+ const modeled={};if(vintage)Object.keys(vintage.corridor||{}).forEach(k=>{modeled[k]=vintageModeled(VINTAGE_OVERLAY[k])||[];});
+ button.disabled=true;const before=button.textContent;button.textContent='Preparing Excel…';const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+ try{const r=await fetch('/api/v31/peer-comparison/export',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({selection:s.selection,generated_at:s.generated_at,run_hash:s.run_hash,rows:s.rows,vintage,modeled}),signal:ctrl.signal});if(!r.ok)throw Error((await r.json()).detail||'Export could not complete');const blob=await r.blob(),url=URL.createObjectURL(blob),a=document.createElement('a');a.href=url;a.download='foundry_peer_comparison.xlsx';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}catch(e){appStatus('err',esc(e.name==='AbortError'?'Export timed out; retry.':e.message));}finally{clearTimeout(timer);button.disabled=false;button.textContent=before;}
+}
+
 let _pbRenderGeneration=0;
 window.renderBands = async function(){
   const _generation=++_pbRenderGeneration;
+  _peerControllers.forEach(c=>c.abort());_peerControllers=[];
   const body = document.getElementById("pbBody"); if(!body) return;
   const metrics = window._pbMetrics;
+  const _deadline=Date.now()+30000;
   const mode = document.getElementById("pbCohort").value;
   const certsEl = document.getElementById("pbCerts");
   certsEl.style.display = mode === "curated" ? "inline-block" : "none";
@@ -6157,16 +6205,20 @@ window.renderBands = async function(){
 
   // fetch one band per metric (latest quarter used for placement)
   async function fetchBand(metric){
-    const _ctl = new AbortController();
+    if(_generation!==_pbRenderGeneration||currentTab!=="peer")return {metric,err:"Cancelled"};
+    const remaining=_deadline-Date.now();if(remaining<=0)return {metric,err:"Comparison request timed out; retry this metric."};
+    const _ctl = new AbortController();_peerControllers.push(_ctl);
     // the lending path does more DB work (cohort membership + denominator/value
     // fetch + filter + band compute) than the stored/curated path, so give it more
     // room before aborting — a slow multi-query response isn't "unreachable".
-    const _timeout = useLending ? 30000 : 15000;
+    const _timeout = Math.min(remaining,useLending ? 30000 : 20000);
     const _timer = setTimeout(()=>_ctl.abort(), _timeout);
     const pm = PEER_METRIC[metric] || metric;
     const url = useLending
       ? `/api/v31/peer-bands-lending?metric=${encodeURIComponent(pm)}&band=under_200M`
-      : `/api/v31/peer-bands?metric=${encodeURIComponent(pm)}&cohort=${encodeURIComponent(cohort)}`;
+      : `/api/v31/peer-bands?metric=${encodeURIComponent(pm)}&cohort=${encodeURIComponent(cohort)}&latest_only=true`;
+    const cached=_peerDataCache.get(url);
+    if(cached&&Date.now()-cached.at<120000){clearTimeout(_timer);return {metric,d:cached.data};}
     try{
       const rr = await fetch(url, {signal:_ctl.signal}); clearTimeout(_timer);
       let j = null;
@@ -6177,12 +6229,16 @@ window.renderBands = async function(){
         const txt = await rr.text().catch(()=>"" );
         return {metric, err:`HTTP ${rr.status} (non-JSON): ${(txt||"").slice(0,120)}`};
       }
-      return rr.ok ? {metric, d:j} : {metric, err:(j.error||`HTTP ${rr.status}`)};
+      if(rr.ok&&j&&Array.isArray(j.bands)&&j.bands.length){
+        _peerDataCache.set(url,{at:Date.now(),data:j});while(_peerDataCache.size>64)_peerDataCache.delete(_peerDataCache.keys().next().value);
+        return {metric,d:j};
+      }
+      return {metric,err:(j&&j.error)||`No usable bands (HTTP ${rr.status})`};
     }catch(e){ clearTimeout(_timer);
       return {metric, err:(e&&e.name==="AbortError")?"request timed out":"could not reach the bands endpoint"};
     }
   }
-  const results = await Promise.all(metrics.map(fetchBand));
+  const results = await peerMapLimited(metrics,fetchBand);
   if(_generation!==_pbRenderGeneration || currentTab!=="peer") return;
   const liveBody=document.getElementById("pbBody"); if(!liveBody) return;
 
@@ -6337,7 +6393,7 @@ window.renderBands = async function(){
   // the retained commentaries
   h += `<div class="memo" style="margin-top:10px">Peer Cohort always stops at <b>Q12</b>, even when the projection continues beyond three years. For flow metrics, the primary value follows the Q12 year-to-date filing convention; the smaller line is the standalone three-month Q12 result. Stock ratios use the Q12 quarter-end value. Color reflects where the bank sits relative to the latest peer distribution given each metric's risk direction.</div>`;
   h += `<div class="memo" style="margin-top:6px;font-size:10.5px;color:#696966">Certified designation lands with the substrate's percentile-reconciliation gate. Trajectory checking lives in the Vintage Corridor.</div>`;
-  liveBody.innerHTML = h;
+  liveBody.innerHTML = peerWorkspaceSummary(results,mode,useLending,modeledFor,bucketOf)+'<details class="peer-details"><summary>Detailed table, definitions and source conventions</summary>'+h+'</details>';
 };
 async function subPlace(){
   if(!lastRes){ appStatus("err", "<b>Run the model first.</b>"); return; }
@@ -7351,7 +7407,7 @@ const METRIC_DIRECTION = {
   efficiency: "lower_good", net_charge_off_rate: "lower_good",
 };
 const CBLR_NOTE = "n reflects risk-based filers only \u2014 CBLR electors (~1,700 banks) lawfully file leverage_ratio only, so this cohort excludes them by law, not by gap. Use leverage_ratio for an all-banks capital view.";
-const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
+const VINTAGE_OVERLAY = {tier1_ratio:"__t1rwa", cet1_ratio:"__t1rwa", leverage_ratio:"__lev", total_rbc_ratio:"__totalrwa", roa:"roa", nim:"nim", efficiency_ratio:"eff", net_charge_off_rate:"nco_rate"};
 window.vintageModeled = vintageModeled;
 window._vintageLater = false;   // show the Q13-Q24 charge-off seasoning bucket (off by default)
 window.setVintageLater = function(v){ window._vintageLater = !!v; renderContent(); };
@@ -7359,12 +7415,12 @@ function vintageModeled(mk){
   if(!lastRes) return null;
   const pq=lastRes.peer_quarterly;
   if(pq&&pq.available){
-    const key=mk==="__t1rwa"?"tier1_ratio":({roa:"roa",nim:"nim",eff:"efficiency_ratio",nco_rate:"net_charge_off_rate"}[mk]);
+    const key=mk==="__t1rwa"?"tier1_ratio":mk==="__lev"?"leverage_ratio":mk==="__totalrwa"?"total_rbc_ratio":({roa:"roa",nim:"nim",eff:"efficiency_ratio",nco_rate:"net_charge_off_rate"}[mk]);
     if(key) return (pq.quarters||[]).slice(0,12).map(q=>q.filed_ytd[key]);
   }
-  if(mk === "__t1rwa"){
+  if(["__t1rwa","__lev","__totalrwa"].includes(mk)){
     const ST = lastRes.capital && lastRes.capital.standardized;
-    return ST ? ST.ratios.tier1_rwa : null;   // like-for-like: risk-based vs risk-based
+    return ST ? ST.ratios[{__t1rwa:"tier1_rwa",__lev:"leverage",__totalrwa:"total_rwa"}[mk]] : null;   // like-for-like: risk-based vs risk-based
   }
   return lastRes.financials.ratios[mk];
 }
@@ -7372,6 +7428,7 @@ let _vintageBusy = false;
 async function vintageBuild(){
   if(_vintageBusy) return;          // no double-fires (which could storm the pool)
   _vintageBusy = true;
+  const _vCfg=cfgRef(),_vKey=peerSelectionKey();
   window._vintageLoading = true; window._vintageError = null;
   renderContent();                  // paint the loading state immediately
   // Client-side timeout: the substrate query can be heavy, but it must never spin
@@ -7392,7 +7449,7 @@ async function vintageBuild(){
       window._vintageError = (j && j.error) || `substrate error (${r.status})`;
       appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(window._vintageError));
     } else {
-      window.vintage = j;
+      if(cfgRef()===_vCfg&&peerSelectionKey()===_vKey){window.vintage=j;window._peerVintageContext={cfg:_vCfg,key:_vKey};}
     }
   }catch(e){
     const aborted = (e && e.name === "AbortError");
@@ -7422,27 +7479,28 @@ function vintageSectionHtml(){
       if(window._vintageError){
         h += `<div class="memo" style="border-left:3px solid #985747;color:#896156">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
       }
-      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 2018\u20132023 charters</button>';
+      h += `<button class="btn-plain" onclick="vintageBuild()">${(cfgRef().peer_bands_mode==='curated')?'Build selected-peer corridor':'Build corridor · 2018–2023 charters'}</button>`;
     }
     return h;
   }
+  if(window._peerVintageContext&&(window._peerVintageContext.cfg!==cfgRef()||window._peerVintageContext.key!==peerSelectionKey()))return h+'<div class="memo">The selection changed. Build a corridor for this selection.</div>';
   const V = window.vintage;
   const _vcohort=V.cohort_label||`banks chartered ${V.definition.est_from}\u2013${V.definition.est_to}`;
   h += `<div class="memo">${V.cohort_size} ${esc(_vcohort)} \u00b7 corridor fingerprint <span style="font-family:var(--mono)">${esc(V.fingerprint)}</span> \u00b7 ${V.survivorship.failed} failed / ${V.survivorship.exited_other} exited before today \u2014 ${esc(V.survivorship.note)}</div>`;
   // Enumerated annualization-convention table — every metric, modeled basis vs peer basis, and whether
   // they are like-for-like. Placed here so the basis of each row is unambiguous before any number is read.
-  h += `<div class="memo" style="border-left:3px solid #A3772A;padding-left:10px;font-size:10.5px">
+  h += `<details class="peer-details"><summary>Filing conventions and comparison basis</summary><div class="memo" style="border-left:3px solid #A3772A;padding-left:10px;font-size:10.5px">
     <div style="font-weight:600;margin-bottom:5px">Annualization conventions \u2014 how to read each row</div>
     <table class="ovt" style="width:100%;font-size:10px">
       <tr><th style="text-align:left">Metric</th><th style="text-align:left">Type</th><th style="text-align:left">Modeled (your bank)</th><th style="text-align:left">Peer band (filers)</th><th style="text-align:left">Like-for-like?</th></tr>
       <tr><td>Tier 1 Ratio</td><td>Stock</td><td>Tier 1 / RWA, point-in-time (standardized)</td><td>Risk-based Tier 1 ratio, point-in-time</td><td style="color:#536A57">Yes \u2014 point-in-time, window-independent</td></tr>
-      <tr><td>ROA</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#9D7A40">No \u2014 windows differ (quarter vs YTD)</td></tr>
-      <tr><td>NIM</td><td>Flow</td><td>Single-quarter NII / average first/last reported total assets, annualized \u00d74</td><td>YTD-annualized filer NIM; denominator may be average earning assets</td><td style="color:#9D7A40">No \u2014 window and denominator basis may differ</td></tr>
-      <tr><td>Efficiency Ratio</td><td>Flow</td><td>Single-quarter</td><td>YTD-annualized (cumulative)</td><td style="color:#9D7A40">No \u2014 windows differ (quarter vs YTD)</td></tr>
+      <tr><td>ROA</td><td>Flow</td><td>Filed YTD, annualized</td><td>YTD-annualized (cumulative NI \u00d74/q)</td><td style="color:#9D7A40">Yes \u2014 filed YTD windows align</td></tr>
+      <tr><td>NIM</td><td>Flow</td><td>Filed YTD NII / reported average total assets, annualized</td><td>YTD-annualized filer NIM; denominator may be average earning assets</td><td style="color:#9D7A40">Directional \u2014 denominator basis may differ</td></tr>
+      <tr><td>Efficiency Ratio</td><td>Flow</td><td>Filed YTD</td><td>YTD-annualized (cumulative)</td><td style="color:#9D7A40">Yes \u2014 filed YTD windows align</td></tr>
       <tr><td>Net Charge-Off Rate</td><td>Flow</td><td>Single-quarter, annualized \u00d74</td><td>UBPR single-quarter, annualized \u00d74</td><td style="color:#536A57">Yes \u2014 both single-quarter</td></tr>
     </table>
-    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency can differ mid-year because the modeled view is standalone-quarter while peer filings are year-to-date. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
-  </div>`;
+    <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency use the modeled filed-YTD view when available, matching the peer filing window. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
+  </div></details>`;
   Object.entries(V.corridor).forEach(([metric, M])=>{
     const mk = VINTAGE_OVERLAY[metric];
     const modeled = mk ? vintageModeled(mk) : null;
@@ -7457,6 +7515,8 @@ function vintageSectionHtml(){
     // season in AFTER the 12-quarter horizon. The main table stays strictly Q1-Q12; the bucket is
     // an extra, toggled column of peer history (no modeled overlay). Demonstrates the flat-zero
     // Q1-Q12 band is the vintage story, not a defect.
+    h += peerVintageChart(metric,M,modeled);
+    h += '<details class="peer-details"><summary>Quarterly values, min/max and coverage</summary>';
     const showLater = (metric==="net_charge_off_rate" && M.later);
     const later = window._vintageLater;
     if(metric==="net_charge_off_rate"){
@@ -7466,27 +7526,28 @@ function vintageSectionHtml(){
     }
     const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${esc(M.later.label)}</th>` : "";
     const lateCell = (p)=> (showLater && later)
-      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
+      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${M.later[p]==null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
     h += '<div style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
-    ["p90","p75","p50","p25"].forEach(p=>{
-      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]===null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
+    ["max","p90","p75","p50","p25","min"].forEach(p=>{
+      h += `<tr><td>${p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]==null?"\u2014":a[p].toFixed(2)}</td>`).join("") + lateCell(p) + '</tr>';
     });
     if(modeled){
       h += '<tr><td style="color:#A3772A">Modeled</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
-        if(v===undefined || a.p25===null) return '<td style="text-align:right">\u2014</td>';
+        if(!peerFinite(v) || a.p25==null) return '<td style="text-align:right">\u2014</td>';
         const col = (v>a.p75||v<a.p25) ? "#A3772A" : "#565653";
         return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
       }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #CACAC7;color:#565653" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';
       h += '<tr><td>Verdict</td>' + M.ages.map(a=>{
         const v = modeled[a.age_q-1];
-        if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#565653">\u2014</td>';
+        if(!peerFinite(v) || a.p25==null) return '<td style="text-align:right;color:#565653">\u2014</td>';
         const t = v>a.p75 ? "above" : (v<a.p25 ? "below" : "inside");
         return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
       }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#565653;border-left:2px solid #CACAC7">\u2014</td>' : "") + '</tr>';
     }
     h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#565653">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#565653;border-left:2px solid #CACAC7">${M.later.n}</td>` : "") + '</tr></table></div>';
     h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}${(showLater && later) ? " \u00b7 Q13\u2013Q24 bucket: per-bank average within the window, then percentiles across banks \u2014 peer history only, no modeled overlay." : ""}</div>`;
+    h += "</details>";
   });
   return h;
 }
