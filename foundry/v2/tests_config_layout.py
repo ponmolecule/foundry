@@ -227,6 +227,13 @@ def main():
        and 'data-fam="${x.fam}" data-i="${x.i}"' in html and 'function prdRefreshSetupSummaries()' in html)
     ck("Setup fields that cannot be classified stay visible below the tabs (never hidden)",
        "if(other.length){ const w=document.createElement('div'); w.className='prd-grp-other'; w.style.display='contents';" in html)
+    # r234: workforce role entry fields in two clean rows; run summary sized to its content.
+    ck("Workforce role card: two rows of uniform fields with units in the labels; run summary sized to content",
+       '.wf-role-card .wf-role-grid::after{content:"";flex-basis:100%;height:0;order:4}' in html
+       and 'Escalation %</span>' in html and 'Benefits / payroll %</span>' in html and 'placeholder="Open"' in html
+       and 'function _wfUnitWord()' in html and '<table class="ovt ovt-grid wf-run-sum"' in html
+       and 'table.ovt-grid.wf-run-sum{width:auto!important;max-width:100%}' in html
+       and 'background-color:#FFFFFF;font-size:13.5px;padding:0 10px;margin:0}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
