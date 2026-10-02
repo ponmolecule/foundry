@@ -256,18 +256,23 @@ class CharterIQClient:
             "percentile_cont(0.50) WITHIN GROUP (ORDER BY value) AS p50, "
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY value) AS p90, "
-            "COUNT(*) AS n "
+            "COUNT(*) AS n, MIN(value) AS vmin, MAX(value) AS vmax "
             f"FROM metrics WHERE {where} "
             "GROUP BY year, quarter ORDER BY year, quarter",
             tuple(params))
         bands = []
-        for y, q, p10, p25, p50, p75, p90, n in rows:
+        for row in rows:
+            y, q, p10, p25, p50, p75, p90, n = row[:8]
             if p50 is None:
                 continue
-            bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
-                          "p10": float(p10), "p25": float(p25), "p50": float(p50),
-                          "p75": float(p75), "p90": float(p90),
-                          "n": int(n) if n is not None else None})
+            band = {"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
+                    "p10": float(p10), "p25": float(p25), "p50": float(p50),
+                    "p75": float(p75), "p90": float(p90),
+                    "n": int(n) if n is not None else None}
+            # r240: extremes of the same rows the percentiles are computed over
+            if len(row) >= 10 and row[8] is not None and row[9] is not None:
+                band["min"], band["max"] = float(row[8]), float(row[9])
+            bands.append(band)
         return bands
 
     def get_metric_latest_by_cert(self, metric_name, certs):
@@ -377,18 +382,23 @@ class CharterIQClient:
             "percentile_cont(0.50) WITHIN GROUP (ORDER BY m.value) AS p50, "
             "percentile_cont(0.75) WITHIN GROUP (ORDER BY m.value) AS p75, "
             "percentile_cont(0.90) WITHIN GROUP (ORDER BY m.value) AS p90, "
-            "COUNT(*) AS n "
+            "COUNT(*) AS n, MIN(m.value) AS vmin, MAX(m.value) AS vmax "
             f"FROM metrics m WHERE {' AND '.join(where)} "
             "GROUP BY m.year, m.quarter ORDER BY m.year, m.quarter",
             tuple(params))
         bands = []
-        for y, q, p10, p25, p50, p75, p90, n in rows:
+        for row in rows:
+            y, q, p10, p25, p50, p75, p90, n = row[:8]
             if p50 is None:
                 continue
-            bands.append({"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
-                          "p10": float(p10), "p25": float(p25), "p50": float(p50),
-                          "p75": float(p75), "p90": float(p90),
-                          "n": int(n) if n is not None else None})
+            band = {"quarter": f"{int(y)}Q{int(q)}", "year": int(y), "q": int(q),
+                    "p10": float(p10), "p25": float(p25), "p50": float(p50),
+                    "p75": float(p75), "p90": float(p90),
+                    "n": int(n) if n is not None else None}
+            # r240: extremes of the same rows the percentiles are computed over
+            if len(row) >= 10 and row[8] is not None and row[9] is not None:
+                band["min"], band["max"] = float(row[8]), float(row[9])
+            bands.append(band)
         return bands
 
     def get_peer_percentiles(self, metric_name, peer_group, year, quarter):
@@ -632,6 +642,8 @@ def build_vintage_corridor(client, est_from, est_to, metrics=None, min_n=8, max_
                           "p50": _pctl(vals, 50) if len(vals) >= min_n else None,
                           "p75": _pctl(vals, 75) if len(vals) >= min_n else None,
                           "p90": _pctl(vals, 90) if len(vals) >= min_n else None,
+                          "min": vals[0] if len(vals) >= min_n else None,      # r240: vals is sorted
+                          "max": vals[-1] if len(vals) >= min_n else None,
                           "suppressed": len(vals) < min_n})
         corridor[metric] = {"ages": ages, "accuracy": accuracy_label(metric)}
         # Optional "later ages" bucket for net charge-off ONLY: de novo charge-offs season in after
