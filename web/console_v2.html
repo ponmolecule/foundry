@@ -2275,6 +2275,7 @@ function _stKinds(metas){
     else if(['own_balance','distributed_balance','product_funded_flow','managed_notional','bank_aggregate','cost_pool'].includes(srcv)) k='money';
     else if(srcv==='customer_acquisition_count') k='count';
     else if(srcv==='stream_ref') k=(String(d.ref||'') in by)?res(by[String(d.ref)],stack):'native';
+    else if(srcv==='fee_stream_quantity'){ const ps=((((typeof cfg!=='undefined'&&cfg)||{}).assumptions||{}).obs_exposures)||[]; ps.forEach((p,pi)=>(p.fee_streams||[]).forEach((s,si)=>{if(s.quantity_series_id===d.ref) k=_feeStreamQuantityKind(pi,si,{});})); }
     cache[i]=k; return k; };
   return metas.map((m,i)=>res(i));
 }
@@ -2376,7 +2377,7 @@ function _stProv(metas,i,fi){
     else { const r=q/qs*100; steps=[{l:'Share of '+esc(s.name),v:_stNum(r,'ratio')+'%'},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     calc+=depTxt;
   } else {
-    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',fee_stream_quantity:'a linked quantity from '+esc(feeQuantityLabel(d.ref)),cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
     steps=[{l:'Driven by '+(SRC[srcv]||esc(_prdLab(srcv))),d:P,v:val+' '+unit,t:1}];
     work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
   }
@@ -4925,9 +4926,62 @@ function _feeEnteredFlowPeriod(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.p
 function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.value=_pf(v)*1000;refresh();}
 function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
 function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
+// r269: compatible quantity references use stable IDs across Fee Product owners.
+// r270: readable source labels and dependency-aware deletion.
+function feeQuantityLabel(ref){
+  const ps=((cfg.assumptions||{}).obs_exposures||[]);
+  for(const p of ps){const st=(p.fee_streams||[]).find(x=>x.quantity_series_id===ref);if(st)return (p.name||'Fee product')+' › '+(st.name||'Stream');}
+  return 'Missing source';
+}
+function feeDeletionConsumers(owner,removed){
+  const ids=new Set(removed.map(x=>x.quantity_series_id).filter(Boolean)),names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
+  const a=cfg.assumptions||{};
+  function walk(value,label){
+    if(!value||typeof value!=='object'||removed.includes(value))return;
+    if(Array.isArray(value)){value.forEach((x,j)=>walk(x,label+' / '+(x&&x.name||'item '+(j+1))));return;}
+    const d=value.driver||{};
+    if(value!==owner&&(d.source==='stream_ref'&&names.has(d.ref))&&(owner.fee_streams||[]).includes(value))out.push((owner.name||'Product')+' › '+(value.name||'Stream'));
+    for(const [key,v] of Object.entries(value)){
+      if(['quantity_series_id','series_id'].includes(key))continue;
+      if(typeof v==='string'&&ids.has(v))out.push(label);
+      else if(v&&typeof v==='object')walk(v,label+(key==='fee_streams'?' › streams':' / '+key.replace(/_/g,' ')));
+    }
+  }
+  for(const [key,value] of Object.entries(a))walk(value,({obs_exposures:'Fee products',deposit_products:'Deposits',lending_products:'Lending',deposit_retention_pools:'Deposit pools'})[key]||key.replace(/_/g,' '));
+  return [...new Set(out)];
+}
+function feeConfirmDeletion(owner,removed){
+  const consumers=feeDeletionConsumers(owner,removed);
+  return !consumers.length||confirm('This source is used by:\n\n'+consumers.join('\n')+'\n\nDeleting it will block runs until these links are updated. Delete anyway?');
+}
+function feeRemoveStream(i,si){const p=_stOwner(i),st=(p.fee_streams||[])[si];if(!st||!feeConfirmDeletion(p,[st]))return; p.fee_streams.splice(si,1);renderContent();refresh();}
+function feeQuantityCandidates(i,si){
+  const current=(_stOwner(i).fee_streams||[])[si]||{},basis=current.basis||'balance',out=[];
+  ((cfg.assumptions||{}).obs_exposures||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,sj)=>{
+    if(pi===i&&sj===si)return;
+    const sb=st.basis;if(!['balance','transaction','account'].includes(sb)||!['balance','transaction','account'].includes(basis))return;
+    if(basis==='balance'&&sb!=='balance'||basis==='account'&&sb!=='account')return;
+    const seen=new Set();function reaches(owner,node){
+      if(owner===i&&node===si)return true;const key=owner+':'+node;if(seen.has(key))return false;seen.add(key);
+      const prod=cfg.assumptions.obs_exposures[owner],d=((prod.fee_streams[node]||{}).driver)||{};
+      if(d.source==='stream_ref'){const j=prod.fee_streams.findIndex(x=>x.name===d.ref);return j>=0&&reaches(owner,j);}
+      if(d.source==='fee_stream_quantity'){for(let a=0;a<cfg.assumptions.obs_exposures.length;a++){const j=(cfg.assumptions.obs_exposures[a].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return reaches(a,j);}}
+      return false;
+    }
+    if(reaches(pi,sj))return;
+    out.push({value:st.quantity_series_id||'candidate:'+pi+':'+sj,pi,si:sj,label:(p.name||'Fee product')+' › '+(st.name||'Stream')+' · '+(sb==='balance'?'balance':sb==='account'?'account count':'throughput')});
+  }));return out;
+}
+function feeQuantitySelect(i,si,value){
+  const st=_stOwner(i).fee_streams[si],match=feeQuantityCandidates(i,si).find(x=>x.value===value);
+  if(!match){st.driver.ref='';renderContent();refresh();return;}
+  const source=cfg.assumptions.obs_exposures[match.pi].fee_streams[match.si];
+  if(!source.quantity_series_id)source.quantity_series_id=_seriesId('fee-qty');
+  st.driver.ref=source.quantity_series_id;renderContent();refresh();
+}
 function _feeStreamQuantityKind(i,si,seen){
   const p=_stOwner(i)||{}, streams=p.fee_streams||[], st=streams[si]||{};
-  seen=seen||{}; if(seen[si]) return "native"; seen[si]=1;
+  seen=seen||{};const _node=i+":"+si; if(seen[_node]) return "native"; seen[_node]=1;
   const basis=String(st.basis||"").toLowerCase();
   if(basis==="balance") return "money";
   if(basis==="account") return "count";
@@ -4941,6 +4995,10 @@ function _feeStreamQuantityKind(i,si,seen){
   if(src==="stream_ref"){
     const ref=String(d.ref||""), j=streams.findIndex(x=>String((x||{}).name||"")===ref);
     return j>=0?_feeStreamQuantityKind(i,j,seen):"native";
+  }
+  if(src==='fee_stream_quantity'){
+    const products=((cfg.assumptions||{}).obs_exposures||[]);
+    for(let pi=0;pi<products.length;pi++){const j=(products[pi].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return _feeStreamQuantityKind(pi,j,seen);}
   }
   return "native";
 }
@@ -5231,9 +5289,10 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
   }
   if(v==="cost_pool"){d.source="cost_pool";d.trajectory="flat";var cps=_feeCostPools();if(!d.ref&&cps.length)d.ref=cps[0].series_id;st.rate.behavior="cost_recovery";if(st.rate.params.recovery_pct==null)st.rate.params.recovery_pct=0;if(!st.rate.params.markup)st.rate.params.markup={value:+(st.rate.params.markup_pct||0),period:"year",trajectory:"flat",resolution:"step"};st.cost={kind:"none",params:{}};}
   else if(v==="customer_acquisition_count"){d.source=v;d.trajectory="flat";var ccs=_feeCustomerCountOptions();var savedRef=String(d._saved_cac_ref||"");if(!d.ref||!ccs.some(o=>o.series_id===String(d.ref)))d.ref=ccs.some(o=>o.series_id===savedRef)?savedRef:(ccs.length?ccs[0].series_id:"");var savedMeasure=String(d._saved_cac_measure||"");d.measure=["annual_count","period_end","period_average"].includes(String(d.measure||""))?String(d.measure):(["annual_count","period_end","period_average"].includes(savedMeasure)?savedMeasure:"period_end");if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
+  else if(v==='fee_stream_quantity'){d.source=v;delete d.ref;delete d.measure;if(old==='constant'&&d.params&&d.params.flow_path)d.trajectory='flat';if(st.rate.behavior==='cost_recovery'){st.rate.behavior='flat';st.rate.params={};}}
   else if(v==="constant"){d.source="constant";delete d.ref;delete d.measure;if(d._saved_constant_trajectory){d.trajectory=d._saved_constant_trajectory;delete d._saved_constant_trajectory;}if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else{d.source=v;delete d.ref;delete d.measure;if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
-  renderContent();if(v!=="stream_ref")refresh();
+  renderContent();if(v!=="stream_ref"&&v!=="fee_stream_quantity")refresh();
 };
 _feeGlobal.feeCostPoolAddComponent=function(ref){
   const p=_feeCostPoolByRef(ref);if(!p)return;p.components=p.components||[];const used=new Set(p.components.map(c=>String(c.kind||"")+"::"+String(c.series_id||""))),opts=_feeCostPoolSourceOptions().filter(o=>!used.has(o.value));
@@ -5301,11 +5360,11 @@ const _depositPoolOpen = new Set();
 function depositSources(kind,basis){
   const out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
-    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='stream_ref'){const hits=streams.filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
+    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='fee_stream_quantity'){const hits=((cfg.assumptions||{}).obs_exposures||[]).flatMap(x=>x.fee_streams||[]).filter(x=>x.quantity_series_id===d.ref);return hits.length===1&&upstream(hits[0],seen);}if(s==='stream_ref'){const owner=((cfg.assumptions||{}).obs_exposures||[]).find(x=>(x.fee_streams||[]).includes(node))||p;const hits=(owner.fee_streams||[]).filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
     if(!st.quantity_series_id)st.quantity_series_id=_seriesId('fee-qty');
     const drv=st.driver||{},pr=drv.params||{},c=pr.coefficient||{},label=(p.name||'Fee product')+' · '+(st.name||'Stream');
     if(kind==='fee_share'&&c.kind==='pct'&&c.semantics==='share')out.push({id:st.quantity_series_id,label:label+' · share schedule'});
-    if(kind==='fee_quantity'&&st.basis===basis&&upstream(st)&&(basis==='balance'||(pr.flow_path||{}).unit_kind==='money_flow'||['stream_ref','managed_notional'].includes(drv.source)))out.push({id:st.quantity_series_id,label});
+    if(kind==='fee_quantity'&&st.basis===basis&&upstream(st)&&(basis==='balance'||(pr.flow_path||{}).unit_kind==='money_flow'||['stream_ref','fee_stream_quantity','managed_notional'].includes(drv.source)))out.push({id:st.quantity_series_id,label});
   }));
   if(kind==='fee_quantity'&&basis==='transaction')((cfg.assumptions||{}).lending_products||[]).filter(p=>p.balance_mode==='funded_flow_level').forEach(p=>{if(!p.balance_series_id)p.balance_series_id=_seriesId('lending-flow');out.push({id:p.balance_series_id,kind:'lending_funded_flow',label:(p.name||'Lending')+' · funded flow'});});
   return out;
@@ -5678,7 +5737,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
-      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="_stOwner(${_fi}).fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="feeRemoveStream(${_fi},${si});return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       const _revPresentation=String(st.revenue_presentation||"revenue");
       h += `<div class="fld"><label>Income presentation</label><select onchange="_stOwner(${_fi}).fee_streams[${si}].revenue_presentation=this.value;refresh()"><option value="revenue"${_revPresentation==="revenue"?' selected':''}>Revenue</option><option value="contra_revenue"${_revPresentation==="contra_revenue"?' selected':''}>Contra-revenue</option></select></div>`;
@@ -5689,8 +5748,13 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       // Axis 2: driver source
       const _drvOpts=[["constant",basis==="transaction"?"Entered driver":"Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
+      if(_fi>=0&&_fi<1000&&["balance","transaction","account"].includes(basis))_drvOpts.push(["fee_stream_quantity","Linked stream quantity — across fee products"]);
       if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
+      if(src==='fee_stream_quantity'){
+        const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
+        h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
+      }
       if(src==="stream_ref"){
         const _ref=String(st.driver.ref||"");
         const _refNames=streamNames.filter(n=>n&&n!==String(st.name||""));
@@ -5971,8 +6035,8 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
-      const SRC={constant:'Entered',stream_ref:'Another stream',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
-      const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
+      const SRC={constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
+      const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
       const m=_stMeta[_stSel]||_stMeta[0];
       const chain=[_stSel]; { let cur=m,guard=0; while(cur&&cur.src==='stream_ref'&&cur.ref&&guard++<12){ const j=_stMeta.findIndex(z=>z.name===cur.ref); if(j<0||chain.includes(j)) break; chain.unshift(j); cur=_stMeta[j]; } }
       const down=_stMeta.map((z,j)=>j).filter(j=>_stMeta[j].src==='stream_ref'&&_stMeta[j].ref===m.name&&!chain.includes(j));
@@ -5991,8 +6055,8 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
-      const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
-      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){_stOwner(${_fi}).fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
+      const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
+      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
       { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
     } else if(+_fi>=1000&&_stSetupFeeRow(_fi)){   // r232: no streams yet, but the Setup fee yield is still listed
@@ -6245,7 +6309,7 @@ window.productDragOver=function(ev,fam,i){const d=window._productDrag;if(!d||Str
 window.productDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
 window.productDrop=function(ev,fam,targetIndex){if(ev)ev.preventDefault();const d=window._productDrag,card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_productClearDropMarkers();if(!d||String(d.fam)!==String(fam)){window._productDrag=null;return;}const changed=_productReorder(fam,d.index,targetIndex,after);window._productDrag=null;if(changed){renderContent();refresh();}};
 window.productDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.remove('dragging');_productClearDropMarkers();window._productDrag=null;};
-function delProduct(fam, i){ famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
+function delProduct(fam, i){ const p=famArr(fam)[i];if(!feeConfirmDeletion(p,p.fee_streams||[]))return; famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
 window.toggleOpen=toggleOpen; window.delProduct=delProduct;
 
 function v31ModalBody(){
@@ -9344,7 +9408,7 @@ function _renderContentBody(){
       if(!items.length) h+='<div class="prd-memo">No products in this family yet.</div>';
       else {
         const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
-        const SRC={constant:'Entered',stream_ref:'Another stream',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool'};
+        const SRC={constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool'};
         const tally=(arr,map)=>{ if(!arr.length) return '\u2014'; const m=new Map(); arr.forEach(v=>{const k=(map&&map[v])||_prdLab(v); m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].map(([k,n])=>n>1?`${esc(k)} \u00D7${n}`:esc(k)).join('<br>'); };
         const S=x=>(x.p.fee_streams||[]);
         const R=[['g','Structure'],['Fee streams',x=>S(x).length||'\u2014',1],['Stream bases',x=>tally(S(x).map(s=>s.basis||'balance'),BAS)],['Driven by',x=>tally(S(x).map(s=>(s.driver||{}).source||'constant'),SRC)],

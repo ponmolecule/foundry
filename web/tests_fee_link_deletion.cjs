@@ -1,0 +1,15 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const code=html.slice(html.indexOf('// r270: readable source labels'),html.indexOf('function feeQuantityCandidates'));
+const source={name:'TPV',quantity_series_id:'tpv',basis:'transaction'},consumer={name:'Migrated',driver:{source:'fee_stream_quantity',ref:'tpv'}};
+const products=[{name:'Activity',fee_streams:[source]},{name:'Revenue',fee_streams:[consumer]}];
+let allow=false,prompt='',renders=0,refreshes=0;
+const ctx={cfg:{assumptions:{obs_exposures:products,deposit_retention_pools:[{name:'Program retention',source_balance:{series_id:'pool',source_series_id:'tpv'}}]}},_stOwner:i=>products[i],confirm:message=>(prompt=message,allow),renderContent:()=>renders++,refresh:()=>refreshes++};
+vm.createContext(ctx);vm.runInContext(code,ctx);
+assert.equal(ctx.feeQuantityLabel('tpv'),'Activity › TPV');
+ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,1);assert.equal(renders,0);assert(prompt.includes('Revenue'));assert(prompt.includes('Program retention'));assert(prompt.includes('block runs'));
+allow=true;ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,0);assert.equal(refreshes,1);assert.equal(consumer.driver.ref,'tpv');assert.equal(ctx.feeQuantityLabel('tpv'),'Missing source');
+products[0].fee_streams=[{name:'Root'},{name:'Local',driver:{source:'stream_ref',ref:'Root'}}];assert(ctx.feeDeletionConsumers(products[0],[products[0].fee_streams[0]]).some(x=>x.includes('Local')));
+assert.equal(ctx.feeDeletionConsumers(products[1],products[1].fee_streams).length,0);
+assert(html.includes('feeRemoveStream(${_fi},${_stSel})'));assert(html.includes('if(!feeConfirmDeletion(p,p.fee_streams||[]))return'));
+console.log('PASS deletion cancellation/no mutation, named fee and deposit consumers, confirmed deletion retains broken reference, local references and source labels');

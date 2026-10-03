@@ -184,6 +184,17 @@ def _pool_downstream_fee_streams(pool: Mapping[str, Any], assumptions: Mapping[s
         ref = str(drv.get("ref") or "").strip()
         if (pid and ref == pid) or (not pid and pname and ref == pname):
             out.append(st)
+    from .fee_links import has_links, FeeLinkPlan
+    if has_links(assumptions or {}):
+        plan=FeeLinkPlan(assumptions)
+        roots={node for node,st in plan.nodes.items() if any(st is root for root in out)}
+        def depends(node):
+            if node in roots:return True
+            dep=plan.deps[node]
+            return dep is not None and depends(dep)
+        for node in plan.order:
+            st=plan.nodes[node]
+            if depends(node) and not any(st is root for root in out):out.append(st)
     return out
 
 
