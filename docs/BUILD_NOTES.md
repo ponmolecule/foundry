@@ -1132,3 +1132,19 @@ Built on r246. Engine untouched; run results identical.
   loader only redrew the Configuration tab.
 - Not yet: the balance-measure mismatch rule (needs confirmed fee-stream and cost-pool shapes) and Change
   history (r248, starting with versioned saves).
+
+
+## r248 — Governance & QA: change history
+
+Built on r247 (deploy together). Engine untouched; run results identical.
+- Versioned saves (foundry/store.py): after the engagement file is written exactly as before, each save of a
+  NAMED engagement also keeps a timestamped copy (who, when, full configuration) under
+  <engagements dir>/_history/<slug>/. Unchanged re-saves are skipped; the newest 50 are kept; working-session
+  autosaves are not recorded; any history failure is swallowed so it can never fail or alter a save. The
+  listing reads only *.json files, so the history folder never appears. Per-user, like engagements.
+- GET /api/v31/engagement/{slug}/history (foundry/v2/config_diff.py): versions newest first with field-level
+  changes against the previous save; numeric schedules collapse consecutive changed cells into one entry,
+  labelled by the schedule's own cadence (M / Q / Y); plain names for common fields.
+- Change history tab, per the mock: dark "<engagement> · saves" bar, newest first, who and when, a one-line
+  summary, before (struck) -> after. History starts with the first save after this release.
+- Data checks now read a schedule's cadence too (quarterly schedules labelled Q, not M).

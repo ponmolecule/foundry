@@ -814,6 +814,18 @@ def v31_qa_checks(body: dict, _=Depends(gate)):
         return JSONResponse({"error": f"checks failed: {type(e).__name__}: {e}"}, status_code=500)
 
 
+@app.get("/api/v31/engagement/{slug}/history")
+def v31_engagement_history(slug: str, user=Depends(gate)):
+    """r248: Change history for a saved engagement, newest first, with field-level changes (read-only)."""
+    from foundry import store
+    from foundry.v2.config_diff import history
+    try:
+        return JSONResponse({"slug": store.slugify(slug), "keep": store.HISTORY_KEEP,
+                             "versions": history(store.list_versions(slug, user=user))})
+    except Exception as e:
+        return JSONResponse({"error": f"history failed: {type(e).__name__}: {e}"}, status_code=500)
+
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or
