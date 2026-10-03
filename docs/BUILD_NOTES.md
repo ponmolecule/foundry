@@ -1102,3 +1102,49 @@ Built on r244.
   confirmed migrated keep the cautious label.
 - Protocol check T33c pinned accuracy_label("nim") as "legacy"; updated to the migrated earnings label, keeping
   its intent (labels differ by family; net charge-off rate still carries the legacy label).
+
+
+## r246 — Vintage shown in the section title
+
+Presentation release on r245. The section title now carries the vintage after a colon: "Vintage corridor -
+de novos at the same age: Chartered 2018-2023" (broad and the all-charters fallback), "... Chartered
+2018-2023, now $2B-$10B" (asset band), and for curated peers their actual opening years once built
+("Chartered 2019-2024"); no suffix for curated peers before the first build.
+
+
+## r247 — Governance & QA: data checks
+
+Built on r246. Engine untouched; run results identical.
+- The Governance tab becomes Governance & QA: a dark header with counts (Needs review / Worth a look / Info),
+  tabs Data checks (default) and Reproducibility (the former Governance content, unchanged).
+- Data checks (foundry/v2/data_checks.py, POST /api/v31/qa/checks) read the configuration only. Rules:
+  isolated runs in explicit schedules at 8x the surrounding level (Needs review) or 3x (Worth a look); values
+  near 12x or 100x flagged as a likely unit mix-up (annual rate in a monthly series; percentage as whole
+  number); a 2x jump in the same period as another finding is flagged with it (stale pastes move together);
+  annual acquisition attrition taken at period end under monthly flows noted as Info. Step changes and
+  smooth ramps are not flagged. Effects of Needs review findings: the model is run on deep copies with the
+  flagged values replaced by their surrounding level (ending customers and AUC, net income, fee income,
+  deposits). Nothing is saved; the configuration passed in is never modified.
+- Recreated incident (17% July attrition in a 1.5% monthly series, CAC 2.2x the same month): both flagged
+  Needs review, cross-referenced, with the annual-rate hint and quantified effects. The sound template has
+  no findings. Go to opens the relevant module or product.
+- Fixed in passing (pre-existing): the run registry stayed on "Loading registry..." on this tab because its
+  loader only redrew the Configuration tab.
+- Not yet: the balance-measure mismatch rule (needs confirmed fee-stream and cost-pool shapes) and Change
+  history (r248, starting with versioned saves).
+
+
+## r248 — Governance & QA: change history
+
+Built on r247 (deploy together). Engine untouched; run results identical.
+- Versioned saves (foundry/store.py): after the engagement file is written exactly as before, each save of a
+  NAMED engagement also keeps a timestamped copy (who, when, full configuration) under
+  <engagements dir>/_history/<slug>/. Unchanged re-saves are skipped; the newest 50 are kept; working-session
+  autosaves are not recorded; any history failure is swallowed so it can never fail or alter a save. The
+  listing reads only *.json files, so the history folder never appears. Per-user, like engagements.
+- GET /api/v31/engagement/{slug}/history (foundry/v2/config_diff.py): versions newest first with field-level
+  changes against the previous save; numeric schedules collapse consecutive changed cells into one entry,
+  labelled by the schedule's own cadence (M / Q / Y); plain names for common fields.
+- Change history tab, per the mock: dark "<engagement> · saves" bar, newest first, who and when, a one-line
+  summary, before (struck) -> after. History starts with the first save after this release.
+- Data checks now read a schedule's cadence too (quarterly schedules labelled Q, not M).

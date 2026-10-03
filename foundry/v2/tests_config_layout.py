@@ -297,6 +297,18 @@ def main():
        'function _vinEmptyCard(V)' in html and 'if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }' in html
        and 'window.vintageUseAll=function()' in html and '(!window._vinScopeAll&&_mode' in html
        and "if(a.p25==null) return `<td style=\"font-family:var(--mono);text-align:right;color:#565653\">${(+v).toFixed(2)}</td>`;" in html)
+    # r246: the vintage (charter years, band) is shown in the section title.
+    ck("Vintage corridor title carries the charter years (and band, or curated peers' actual opening years)",
+       "'<div class=\"ovh2\">Vintage corridor \\u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>'" in html
+       and 'function _vinTitleSuffix()' in html and 'return ": Chartered " + f + "\\u2013" + t + band;' in html)
+    # r247: Governance & QA page (data checks + reproducibility).
+    ck("Governance & QA: data checks (read-only endpoint) and the former Governance content as Reproducibility",
+       'function renderGovRepro()' in html and 'window._govTab = window._govTab ||' in html and "fetch('/api/v31/qa/checks'" in html
+       and "if(tab==='gov'){ const h=c.querySelector('.gq-head');" in html and 'if(currentTab==="config"||currentTab==="gov") renderContent();' in html)
+    # r248: Change history tab (versioned saves, field-level diffs).
+    ck("Governance & QA has a Change history tab reading /api/v31/engagement/{slug}/history",
+       "onclick=\"govTabSet('history')\"" in html and 'function _govHistHtml()' in html
+       and "/api/v31/engagement/${encodeURIComponent(slug)}/history" in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

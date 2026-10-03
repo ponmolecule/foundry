@@ -1732,6 +1732,46 @@ tr.vin-ext td{color:var(--k-tx3)}
 .vin-empty-card{max-width:760px;margin:24px 0 8px;padding:18px 22px;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07)}
 .vin-empty-card b{display:block;font-size:14px;color:var(--k-tx1);margin-bottom:6px}
 .vin-empty-card p{margin:0 0 14px;font-size:12.5px;line-height:1.55;color:#4A4A4A}
+
+/* r247: Governance & QA */
+.gq-head{display:flex;align-items:center;gap:24px;padding:16px 22px;margin:0 0 14px;background:#2C2C2C;border-radius:2px;color:#FFFFFF}
+.gq-head h2{margin:0;font-family:var(--k-disp);font-size:20px;font-weight:600;color:#FFFFFF;flex:1}
+.gq-counts{display:flex;gap:26px}.gq-counts span{display:flex;flex-direction:column;align-items:flex-end}
+.gq-counts i{font-style:normal;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#C9C3B6}
+.gq-counts b{font-family:var(--k-disp);font-size:20px;font-weight:600;color:#FFFFFF}.gq-counts b.r{color:#E39A84}.gq-counts b.l{color:#DFB367}
+.gq-tabs{display:flex;gap:4px;border-bottom:1px solid #D8D8D8;margin:0 0 14px}
+.gq-tab{padding:9px 16px;border:0;background:none;font:inherit;font-size:13.5px;color:#4A4A4A;cursor:pointer}
+.gq-tab small{color:#96928C;margin-left:4px}.gq-tab.on{box-shadow:inset 0 -2.5px 0 var(--k-gold);color:#343434;font-weight:600}
+.gq-bar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 0 12px;font-size:12px;color:#666666}
+.gq-bar em{font-style:normal;margin-left:auto;color:#96928C}
+.gq-pill{height:28px;padding:0 12px;border:1px solid #C4C4C4;border-radius:14px;background:#FFFFFF;font:inherit;font-size:12px;color:#343434;cursor:pointer}
+.gq-pill.on{background:#2C2C2C;border-color:#2C2C2C;color:#FFFFFF}
+.gq-t{width:100%;max-width:1400px;border-collapse:collapse;background:#FFFFFF;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);overflow:hidden}
+.gq-t th{text-align:left;font-size:11.5px;font-weight:600;color:#4A4A4A;background:#FAFAF8;padding:10px 14px;border-bottom:1px solid #ECECE8}
+.gq-t td{vertical-align:top;padding:12px 14px;border-bottom:1px solid #F0F0EC;font-size:12.5px}
+.gq-t tr:last-child td{border-bottom:0}
+.gq-sev{display:inline-block;padding:2px 8px;border-radius:9px;font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;white-space:nowrap}
+.gq-sev.r{color:#9F5340;background:rgba(146,91,77,.12)}.gq-sev.l{color:#8F6B30;background:rgba(156,122,66,.14)}.gq-sev.i{color:#666666;background:#F0F0EE}
+.gq-where{min-width:220px;color:#343434}.gq-where code{display:block;margin-top:3px;font-family:var(--mono);font-size:11px;color:#6E6A63;white-space:normal}
+.gq-find b{font-weight:600;color:#1F1F1F}.gq-find span{display:block;margin-top:3px;color:#666666;line-height:1.45}
+.gq-go{white-space:nowrap;color:#8F6B30;text-decoration:none;font-size:12px}.gq-go:hover{text-decoration:underline}
+.gq-foot{max-width:1000px;margin:10px 0 0;font-size:11px;color:#96928C;line-height:1.5}
+.gq-empty{padding:18px 22px;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);font-size:12.5px;color:#4A4A4A;max-width:760px}
+
+/* r248: change history */
+.gq-hist{max-width:1100px;background:#FFFFFF;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);overflow:hidden}
+.gq-hist-h{display:flex;align-items:center;padding:11px 16px;background:#2C2C2C;color:#FFFFFF}
+.gq-hist-h b{flex:1;font-size:13.5px}.gq-hist-h span{font-size:11.5px;color:#C9C3B6}
+.gq-hist-row{display:grid;grid-template-columns:150px 1fr;gap:16px;padding:13px 16px;border-top:1px solid #F0F0EC}
+.gq-hist-row:first-of-type{border-top:0}
+.gq-hist-w{font-size:12.5px;color:#4A4A4A}.gq-hist-w span{display:block;color:#96928C;font-size:11.5px}
+.gq-hist-c{font-size:12.5px;color:#343434}.gq-hist-c>b{font-weight:600}
+.gq-mut{color:#96928C;font-weight:400}
+.gq-diff{width:100%;margin-top:8px;border-collapse:collapse;border:1px solid #ECECE8;border-radius:4px}
+.gq-diff td{padding:7px 10px;border-top:1px solid #F0F0EC;font-size:12px;vertical-align:top}
+.gq-diff tr:first-child td{border-top:0}.gq-diff td span{color:#6E6A63}
+.gq-diff td.b{text-align:right;white-space:nowrap}.gq-diff td.b s{color:#9F5340}
+.gq-diff td.a{width:14px;color:#96928C}.gq-diff td.n{color:#536A57;font-weight:600;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -1930,6 +1970,7 @@ window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move ins
     const tab=(typeof currentTab!=='undefined')?currentTab:'', m=meta()[tab]||{label:tab,group:''};
     if(tab==='config'){ cfgCrumb(); return; }
     if(c.querySelector('.prd-crumb')) return;
+    if(tab==='gov'){ const h=c.querySelector('.gq-head'); if(h){ h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">Record<span>/</span><b>Governance &amp; QA</b></div>'); return; } }   // r247: the dark header is the band
     if(tab==='products'){ const h=c.querySelector('.prd-h1'); if(h&&!h.classList.contains('pg-band')){ h.classList.add('pg-band'); h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb"><a href="#" onclick="prdView(\'portfolio\');return false">Products</a><span>/</span><b>'+esc(h.textContent.trim())+'</b></div>'); } return; }
     let first=c.firstElementChild; while(first&&first.matches('script,style')) first=first.nextElementSibling; if(!first) return;
     let band;
@@ -2510,6 +2551,135 @@ function _vinEmptyCard(V){
     + (band ? `<button type="button" class="pc-xl" onclick="vintageUseAll()">Use all ${V.definition.est_from}\u2013${V.definition.est_to} charters</button>` : '') + `</div>`;
 }
 window.vintageUseAll=function(){ window._vinScopeAll=true; window.vintage=null; setTimeout(()=>vintageBuild(),0); };
+
+// r246: the vintage shown in the section title, where people look
+function _vinTitleSuffix(){
+  const c=(typeof cfgRef==="function"?cfgRef():{})||{}, m=c.peer_bands_mode||"broad", V=window.vintage;
+  if(m==="curated"){
+    if(!V || window.vintageKey!==_vinKey()) return "";
+    const ys=(V.bank_coverage||[]).map(b=>String(b.vintage_anchor_q||b.legal_opening_q||b.first_filing_q||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)).map(Number);
+    if(!ys.length) return "";
+    const a=Math.min(...ys), b=Math.max(...ys);
+    return ": Chartered " + (a===b ? String(a) : a+"\u2013"+b);
+  }
+  const d=(V&&V.definition)||{}, f=d.est_from||2018, t=d.est_to||2023;
+  const band=(!window._vinScopeAll && _VIN_BAND_LABEL[m]) ? ", now "+_VIN_BAND_LABEL[m] : "";
+  return ": Chartered " + f + "\u2013" + t + band;
+}
+
+// r247: Governance & QA. Data checks are read-only: the server scans the configuration and estimates effects on
+// deep copies (nothing saved, engine untouched). Reproducibility is the former Governance tab, unchanged.
+window._govTab = window._govTab || 'checks';
+window._govFilter = window._govFilter || 'all';
+function renderGovTab(){
+  const el=document.getElementById('content');
+  const Q=window._govQA||{}, F=(Q.findings||[]);
+  const cnt=k=>F.filter(f=>f.severity===k).length;
+  let head=`<div class="gq-head"><h2>Governance &amp; QA</h2><div class="gq-counts">`
+    +`<span><i>Needs review</i><b class="r">${Q.findings?cnt('review'):'\u2014'}</b></span><span><i>Worth a look</i><b class="l">${Q.findings?cnt('look'):'\u2014'}</b></span><span><i>Info</i><b>${Q.findings?cnt('info'):'\u2014'}</b></span></div></div>`;
+  head+=`<div class="gq-tabs"><button type="button" class="gq-tab${window._govTab==='checks'?' on':''}" onclick="govTabSet('checks')">Data checks${Q.findings?` <small>${F.length}</small>`:''}</button>`
+    +`<button type="button" class="gq-tab${window._govTab==='history'?' on':''}" onclick="govTabSet('history')">Change history${(window._govHist&&window._govHist.versions)?` <small>${window._govHist.versions.length} version${window._govHist.versions.length===1?'':'s'}</small>`:''}</button>`
+    +`<button type="button" class="gq-tab${window._govTab==='repro'?' on':''}" onclick="govTabSet('repro')">Reproducibility</button></div>`;
+  if(window._govTab==='repro'){ renderGovRepro(); el.insertAdjacentHTML('afterbegin', head); return; }
+  if(window._govTab==='history'){ el.innerHTML = head + `<div id="gqBody">${_govHistHtml()}</div>`; _govEnsureHist(); return; }
+  el.innerHTML = head + `<div id="gqBody">${_govChecksHtml()}</div>`;
+  _govEnsureChecks();
+}
+// r248: Change history (each save of a named engagement; field-level changes against the previous save)
+function _govSlug(){ const n=((cfgRef()||{}).scenario_name||'').trim(); return n ? n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') : ''; }
+async function _govEnsureHist(force){
+  const slug=_govSlug(); const H=window._govHist||{};
+  if(!slug){ window._govHist={slug:'', none:true}; const b=document.getElementById('gqBody'); if(b) b.innerHTML=_govHistHtml(); return; }
+  if(!force && H.slug===slug && (H.versions||H.error||H.loading) && (Date.now()-(H.t||0))<15000) return;
+  window._govHist={slug, loading:true, t:Date.now()};
+  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/history`); const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+       window._govHist={slug, versions:j.versions||[], keep:j.keep, t:Date.now()}; }
+  catch(e){ window._govHist={slug, error:(e&&e.message)||'history unavailable', t:Date.now()}; }
+  if(currentTab==='gov' && window._govTab==='history') renderGovTab();
+}
+function _gqWhen(iso){
+  const d=new Date(iso); if(isNaN(d)) return esc(iso||''); const now=new Date(), y=new Date(now); y.setDate(now.getDate()-1);
+  const hm=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===now.toDateString()) return 'Today '+hm;
+  if(d.toDateString()===y.toDateString()) return 'Yesterday '+hm;
+  return d.toLocaleDateString([], {day:'numeric',month:'short'})+' '+hm;
+}
+function _govHistHtml(){
+  const H=window._govHist||{};
+  if(H.none) return `<div class="gq-empty">Save this engagement under a name to start its change history.</div>`;
+  if(H.loading||!H.slug&&!H.versions) return `<div class="memo">Loading change history\u2026</div>`;
+  if(H.error) return `<div class="memo">Change history could not load \u2014 ${esc(H.error)}.</div>`;
+  const V=H.versions||[], name=esc(((cfgRef()||{}).scenario_name)||H.slug);
+  let h=`<div class="gq-hist"><div class="gq-hist-h"><b>${name} \u00b7 saves</b><span>newest first \u00b7 ${V.length} kept</span></div>`;
+  if(!V.length) h+=`<div class="gq-hist-row"><div class="gq-hist-w">\u2014</div><div class="gq-hist-c">No saves recorded yet. History starts with the next save of this engagement.</div></div>`;
+  V.forEach(v=>{
+    h+=`<div class="gq-hist-row"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">`;
+    if(v.first){ h+=`<b>First recorded version</b><span class="gq-mut"> \u00b7 later saves are compared with this one</span>`; }
+    else if(!v.n_changes){ h+=`<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>`; }
+    else {
+      h+=`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span><table class="gq-diff">`;
+      (v.changes||[]).forEach(c=>{ h+=`<tr><td>${esc(c.where)}${c.field?` \u00b7 <span>${esc(c.field)}</span>`:''}</td><td class="b">${c.before?`<s>${esc(c.before)}</s>`:''}</td><td class="a">\u2192</td><td class="n">${c.after?esc(c.after):'<span class="gq-mut">removed</span>'}</td></tr>`; });
+      h+=`</table>`+(v.more?`<div class="gq-mut" style="margin-top:4px">+ ${v.more} more change${v.more===1?'':'s'}</div>`:'');
+    }
+    h+=`</div></div>`;
+  });
+  return h+`</div><div class="gq-foot">History records each save of a named engagement (autosaves are not recorded) and keeps the newest ${H.keep||50}. It starts with the first save after this release.</div>`;
+}
+window.govTabSet=function(t){ window._govTab=t; renderGovTab(); };
+window.govFilterSet=function(f){ window._govFilter=f; renderGovTab(); };
+function _govCfgKey(){ try{ return JSON.stringify(cfgRef()); }catch(_){ return ''; } }
+async function _govEnsureChecks(force){
+  const key=_govCfgKey(); const Q=window._govQA||{};
+  if(!force && (Q.key===key) && (Q.findings||Q.error||Q.loading)) return;
+  window._govQA={key, loading:true}; const body=document.getElementById('gqBody'); if(body) body.innerHTML=_govChecksHtml();
+  try{
+    const r=await fetch('/api/v31/qa/checks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef()})});
+    const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+    window._govQA={key, findings:j.findings||[], at:new Date()};
+  }catch(e){ window._govQA={key, error:(e&&e.message)||'checks failed'}; }
+  if(currentTab==='gov') renderGovTab();
+}
+const _GQ_SEV={review:['Needs review','r'],look:['Worth a look','l'],info:['Info','i']};
+function _gqPer(f,i){ return (f.period==='quarter'?'Q':f.period==='year'?'Y':'M')+(i+1); }
+function _gqNum(v){ v=+v; if(Math.abs(v)<1&&Math.abs(v)<0.995) return (v*100).toFixed(2)+'%'; return Math.abs(v)>=100?Math.round(v).toLocaleString('en-US'):v.toFixed(2); }
+function _gqFinding(f){
+  if(f.convention==='annual_attrition_period_end')
+    return `<b>Annual attrition is taken in month 12 of each year.</b><span>Average balances run above a straight line between year-ends. Correct if intended; otherwise choose a straight-line path or spread the timing under Customer acquisition \u2192 attrition.</span>`;
+  const field=(f.detail||'').split(' \u00b7 ').filter(x=>x&&x!=='explicit').slice(-1)[0]||'Value';
+  let hl=`<b>${esc(field.charAt(0).toUpperCase()+field.slice(1))} jumps from ${esc(f.headline_values[0])} to ${esc(f.headline_values[1])} in ${_gqPer(f,f.peak)}</b>`;
+  if(f.end>f.start) hl+=`${f.then?`, then ${esc(f.then)}`:''}, back to ${esc(f.headline_values[0])} in ${_gqPer(f,f.end+1)}.`;
+  else hl+='.';
+  let d=f.companion ? `${(+f.ratio).toFixed(1)}\u00d7 the surrounding level, in the same ${f.period==='quarter'?'quarter':'month'} as another flagged change.` : `${(+f.ratio).toFixed(1)}\u00d7 the surrounding level.`;
+  if(f.hint) d+=' '+esc(f.hint);
+  if((f.same_period_as||[]).length) d+=` Same ${f.period==='quarter'?'quarter':'month'} as the ${esc(f.same_period_as.join(' and '))} change.`;
+  if((f.effects||[]).length) d+=' Effect of these values: '+f.effects.map(e=>`${esc(e.measure)} ${e.delta>0?'+':'\u2212'}${Math.abs(e.delta)>=100?Math.round(Math.abs(e.delta)).toLocaleString('en-US'):Math.abs(e.delta).toFixed(1)}`).join('; ')+'.';
+  else if(f.severity==='review' && f.effects && !f.effects.length) d+=' No measurable effect on net income, fee income, deposits or customers in this run.';
+  return hl+`<span>${d}</span>`;
+}
+function _govGo(path){
+  const k=path[1];
+  if(k==='lending_products'||k==='deposit_products'||k==='obs_exposures'){ setTab('products'); setTimeout(()=>prdSelect(k==='lending_products'?'lending':k==='deposit_products'?'deposit':'obs', +path[2]||0),50); return; }
+  const m=k==='cac_feeds'?'cac':(k==='nie_detail'?'nie':(k==='managed_securities_portfolios'?'sec':null));
+  if(m){ window._cfgModule=m; try{ sessionStorage.setItem('foundry.cfgModule',m); }catch(_){} }   // open Configuration on the right module
+  setTab('config'); if(m) setTimeout(()=>{ if(typeof cfgSelectModule==='function') cfgSelectModule(m); },60);
+}
+window.govGo=function(i){ const f=((window._govQA||{}).findings||[])[i]; if(f) _govGo(f.path||[]); };
+function _govChecksHtml(){
+  const Q=window._govQA||{};
+  if(Q.loading) return `<div class="memo">Checking the configuration\u2026</div>`;
+  if(Q.error) return `<div class="memo">Checks could not run \u2014 ${esc(Q.error)}. <a href="#" class="cadd" onclick="_govEnsureChecks(true);return false">Try again</a></div>`;
+  if(!Q.findings) return `<div class="memo">Checking the configuration\u2026</div>`;
+  const F=Q.findings, flt=window._govFilter, cnt=k=>F.filter(f=>f.severity===k).length;
+  const pill=(k,lab,n)=>`<button type="button" class="gq-pill${flt===k?' on':''}" onclick="govFilterSet('${k}')">${lab} ${n}</button>`;
+  let h=`<div class="gq-bar"><span>Show</span>${pill('all','All',F.length)}${pill('review','Needs review',cnt('review'))}${pill('look','Worth a look',cnt('look'))}${pill('info','Info',cnt('info'))}`
+    +`<em>Checked against the current configuration \u00b7 ${Q.at?Q.at.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}</em></div>`;
+  if(!F.length) return h+`<div class="gq-empty">No findings. Explicit schedules have no isolated spikes or likely unit errors, and no conventions need flagging.</div>`;
+  h+=`<table class="gq-t"><tr><th>Severity</th><th>Where</th><th>Finding</th><th></th></tr>`;
+  F.forEach((f,i)=>{ if(flt!=='all'&&f.severity!==flt) return; const sv=_GQ_SEV[f.severity];
+    h+=`<tr><td><span class="gq-sev ${sv[1]}">${sv[0]}</span></td><td class="gq-where">${esc(f.where)}${f.detail?`<code>${esc(f.detail)}</code>`:''}</td><td class="gq-find">${_gqFinding(f)}</td><td><a href="#" class="gq-go" onclick="govGo(${i});return false">Go to \u2192</a></td></tr>`; });
+  h+=`</table><div class="gq-foot">Flagged: an isolated run in an explicit schedule at 8\u00d7 its surrounding level or more (Needs review) or 3\u00d7 or more (Worth a look); values near 12\u00d7 or 100\u00d7 suggest a unit mix-up. Effects compare the run with the flagged values replaced by their surrounding level. Checks read the configuration only; nothing is changed.</div>`;
+  return h;
+}
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7647,7 +7817,7 @@ async function vintageBuild(){
 }
 window.vintageBuild = vintageBuild;
 function vintageSectionHtml(){
-  let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age</div>';
+  let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>';
   if(!(subStatus && subStatus.configured && subStatus.reachable)){
     h += '<div class="memo">Arrives with the substrate connection: real recently-chartered banks, each re-clocked to its own opening quarter, so the model\u2019s Q10 is compared to their Q10 \u2014 not to mature banks.</div>';
     return h;
@@ -9496,7 +9666,7 @@ async function loadRegistry(force){
   if(regData && !force) return;
   try { const r = await fetch("/api/v2/registry"); regData = await r.json(); }
   catch(e){ regData = {status:{persistent:false, note:"registry unreachable"}, entries:[]}; }
-  if(currentTab==="config") renderContent();
+  if(currentTab==="config"||currentTab==="gov") renderContent();   // r247: the registry lives on Governance & QA
 }
 async function freezeRun(){
   const label = cfg.scenario_name || cfg.client_legal_name || "unlabeled run";
@@ -12382,9 +12552,9 @@ function renderConfigTab(){
     + '</div></div>';
   document.getElementById("content").innerHTML = h;
 }
-function renderGovTab(){
+function renderGovRepro(){   // r247: the former Governance tab, now the Reproducibility tab of Governance & QA
   const snapshotMode = !!window.SNAPSHOT;
-  let h = '<div class="h2">Governance</div>';
+  let h = '';
   fetch("/api/v31/persistence").then(r=>r.json()).then(p=>{
     const el = document.getElementById("persistBlock"); if(!el) return;
     const good = (p.is_mounted_volume || (p.outside_deploy_tree && p.explicit_env)) && p.writable;
