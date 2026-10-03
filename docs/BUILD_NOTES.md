@@ -1110,3 +1110,25 @@ Presentation release on r245. The section title now carries the vintage after a 
 de novos at the same age: Chartered 2018-2023" (broad and the all-charters fallback), "... Chartered
 2018-2023, now $2B-$10B" (asset band), and for curated peers their actual opening years once built
 ("Chartered 2019-2024"); no suffix for curated peers before the first build.
+
+
+## r247 — Governance & QA: data checks
+
+Built on r246. Engine untouched; run results identical.
+- The Governance tab becomes Governance & QA: a dark header with counts (Needs review / Worth a look / Info),
+  tabs Data checks (default) and Reproducibility (the former Governance content, unchanged).
+- Data checks (foundry/v2/data_checks.py, POST /api/v31/qa/checks) read the configuration only. Rules:
+  isolated runs in explicit schedules at 8x the surrounding level (Needs review) or 3x (Worth a look); values
+  near 12x or 100x flagged as a likely unit mix-up (annual rate in a monthly series; percentage as whole
+  number); a 2x jump in the same period as another finding is flagged with it (stale pastes move together);
+  annual acquisition attrition taken at period end under monthly flows noted as Info. Step changes and
+  smooth ramps are not flagged. Effects of Needs review findings: the model is run on deep copies with the
+  flagged values replaced by their surrounding level (ending customers and AUC, net income, fee income,
+  deposits). Nothing is saved; the configuration passed in is never modified.
+- Recreated incident (17% July attrition in a 1.5% monthly series, CAC 2.2x the same month): both flagged
+  Needs review, cross-referenced, with the annual-rate hint and quantified effects. The sound template has
+  no findings. Go to opens the relevant module or product.
+- Fixed in passing (pre-existing): the run registry stayed on "Loading registry..." on this tab because its
+  loader only redrew the Configuration tab.
+- Not yet: the balance-measure mismatch rule (needs confirmed fee-stream and cost-pool shapes) and Change
+  history (r248, starting with versioned saves).
