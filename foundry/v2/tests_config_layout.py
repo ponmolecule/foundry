@@ -322,7 +322,9 @@ def main():
     ck("Vintage chart is drawn at its measured size, both views share one height, and peer statistics sit in fixed columns",
        'function fitVinPanel()' in html and 'width="${W}" height="${H}" class="vx-svg"' in html and 'viewBox="0 0 960 320"' not in html
        and 'min-height:${Math.max(_vinDims().H+56,420)}px' in html
-       and '.pc2-stats{display:grid;grid-template-columns:repeat(8,minmax(52px,1fr));' in html)
+       and '.pc2-stats{display:grid;grid-template-columns:repeat(8,64px);justify-content:start;' in html)
+    # r252: vintage panel at 80% of the r251 width.
+    ck("Vintage panel is 80% of the peer corridor's width rule", '.vx{margin:14px 0 6px;max-width:calc(0.8 * (100% + 1076px) / 2);' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
