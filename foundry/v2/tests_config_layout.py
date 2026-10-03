@@ -324,11 +324,14 @@ def main():
        and 'min-height:${Math.max(_vinDims().H+56,420)}px' in html
        and '.pc2-stats.pc2-axislbl{display:block;position:relative;height:30px}' in html)
     # r252: vintage panel at 80% of the r251 width.
-    ck("Vintage panel is 80% of the peer corridor's width rule", '.vx{margin:14px 0 6px;max-width:calc(0.8 * (100% + 1076px) / 2);' in html)
-    # r254: percentile axis (bands and median in the same place on every row), labels under their marks, count off the axis.
+    # r252 width rule superseded by r255 (centred, 80% of r252 width); asserted by the r255 check below.
     ck("Peer strips use a percentile axis with band edges by role, labels under their marks, legend, and the count beside the legend or per row",
        "const RK=true;" in html and "left:${RK?'50%':pc(L.p50)}" in html and "st('p50','p50',50)" in html
        and '<span class="pc2-legend">' in html and 'per metric</span>' in html and '<span class="pc2-rn">n ${it.latest.n}</span>' in html)
+    # r255: vintage panel centred, 80% of the r254 width, chart 10% taller than r254 on the same screen.
+    ck("Vintage panel is centred at 64% of the r251 width and its chart is 10% taller than r254",
+       '.vx{margin:14px auto 6px;max-width:calc(0.64 * (100% + 1076px) / 2);' in html
+       and 'H:Math.round(1.1*Math.max(280,Math.min(480,Wprev*0.34)))' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
