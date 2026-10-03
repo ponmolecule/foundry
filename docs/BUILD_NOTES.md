@@ -1314,3 +1314,11 @@ Presentation release on r261. Engine untouched; configuration unchanged.
   the list at 1920, 880px stacked at 1440; no overflow or truncation). "+ Compensation pool" adds a pool and
   opens it; "Remove pool" sits in the panel foot. Only one row is highlighted at a time. The separate
   full-width pools block below the table is gone (kept only for an engagement with pools but no roles).
+
+
+## r263 — Categories list and detail aligned
+
+Presentation release on r262. In r261/r262 the categories list kept its natural 716px while the detail panel
+beneath was up to 1100px, so the panel overhung the table by almost 400px instead of sitting under it. The
+list now matches the panel (width 100%, max 1100px): identical left and right edges at 1440 / 1920 / 2560
+(1,034 / 1,100 / 1,100px), panel entirely below the table, no horizontal scroll.

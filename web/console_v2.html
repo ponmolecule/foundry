@@ -1961,7 +1961,7 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 /* r260: categories with formula components get room: list stacked above a detail panel up to 1100px */
 [data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}   /* r261: the categories section always stacks (no layout jump between categories) */
 [data-nie-pane="categories"] .cfg-md-detail{max-width:1100px}
-[data-nie-pane="categories"] .cfg-md-list{width:max-content;max-width:100%!important}   /* r261: stacked list keeps its table's natural width */
+[data-nie-pane="categories"] .cfg-md-list{width:100%;max-width:1100px!important}   /* r263: list and detail form one aligned block */   /* r261: stacked list keeps its table's natural width */
 .fx-row:not(.fx-linked){grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 28px!important;gap:8px 14px!important}
 .fx-row.fx-hasg{grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 110px 28px!important}
 .fx-row.fx-linked{grid-template-columns:94px minmax(120px,1.2fr) minmax(240px,4fr) 28px!important;gap:8px 14px!important}
