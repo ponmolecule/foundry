@@ -350,7 +350,8 @@ def main():
     # r264: categories detail is a side panel again; one-line formula factors (measured column widths, fit opt-out).
     ck("Categories keep their side panel; formula factors fit one line; grid-sized dropdowns opt out of fitControls",
        "if(el.hasAttribute('data-nofit')){" in html and '<select class="fx-op" data-nofit' in html
-       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:auto minmax(480px,1fr)!important;' in html
+       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(574px,1fr) minmax(880px,1100px)!important;' in html   # r265: list takes the rest
+       and '[data-nie-pane="categories"] table.cfg-grid{table-layout:fixed;width:100%}' in html
        and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' not in html
        and 'class="fx-tog' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
     ck("Compensation pools are rows in the roles table, edited in the detail panel; no separate block below",
