@@ -370,6 +370,10 @@ def main():
        '@media (min-width:1880px){   /* r265: the panel keeps 880-1100px; the list takes everything left over */' in html
        and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(574px,1fr) minmax(880px,1100px)!important;' in html
        and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' not in html)
+    # r268: categories Path / Amount / Components sized to their widest content; Category absorbs the difference.
+    ck("Categories table sizes Path, Amount and Components to their content (no squeeze or overflow)",
+       'function fitCategoryColumns()' in html and "if(typeof fitCategoryColumns==='function') fitCategoryColumns();" in html
+       and '[data-nie-pane="categories"] table.cfg-grid td:nth-child(3),[data-nie-pane="categories"] table.cfg-grid td:nth-child(4),[data-nie-pane="categories"] table.cfg-grid td:nth-child(5){white-space:nowrap;max-width:none!important}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
