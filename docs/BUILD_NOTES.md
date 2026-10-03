@@ -1314,3 +1314,25 @@ Presentation release on r261. Engine untouched; configuration unchanged.
   the list at 1920, 880px stacked at 1440; no overflow or truncation). "+ Compensation pool" adds a pool and
   opens it; "Remove pool" sits in the panel foot. Only one row is highlighted at a time. The separate
   full-width pools block below the table is gone (kept only for an engagement with pools but no roles).
+
+
+## r263 — Categories list and detail aligned
+
+Presentation release on r262. In r261/r262 the categories list kept its natural 716px while the detail panel
+beneath was up to 1100px, so the panel overhung the table by almost 400px instead of sitting under it. The
+list now matches the panel (width 100%, max 1100px): identical left and right edges at 1440 / 1920 / 2560
+(1,034 / 1,100 / 1,100px), panel entirely below the table, no horizontal scroll.
+
+
+## r264 — Categories side panel restored; one-line formula factors
+
+Presentation release on r263. Engine untouched.
+- The Expense categories detail is again a side panel beside its list (the r260/r261/r263 stacking and width
+  rules are removed). On screens of 1600px and wider the list takes its natural width (574px) and the panel the
+  rest (927px at 1920, 1100px at 2560); narrower screens stack, as before r260.
+- Room comes from squeezing the list: Path 64px, Amount 96px (header wraps), "Comp." 52px, Timing 104px
+  (wraps), long category names end in an ellipsis.
+- Formula factors stay on one line at 846 / 893 / 1066px cards. Column widths come from measured needs
+  (x Multiply 100, Growth 84, Per Quarter 110, Number 89, growth chip 92-118px). fitControls gained an opt-out
+  (data-nofit) so grid-sized dropdowns are not forced wider than their column (it had set a 572px minimum on the
+  linked-series dropdown). No overflow, no clipped text at 1440 / 1920 / 2560.
