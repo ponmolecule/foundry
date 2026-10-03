@@ -1216,6 +1216,10 @@ def _fee_quantity_unit_kinds(cfg):
                 sid = str((st or {}).get("quantity_series_id") or "").strip()
                 if sid:
                     out[sid] = resolve(i)
+    from .fee_links import has_links, FeeLinkPlan
+    if has_links(a):
+        plan=FeeLinkPlan(a)
+        out.update({sid:plan.kinds[node] for sid,node in plan.ids.items()})
     return out
 
 

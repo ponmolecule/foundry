@@ -336,7 +336,7 @@ def _apply_tiers(tiers, base_qty):
 
 
 _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
-_FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
+_FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "fee_stream_quantity", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
 _FEE_COST_KINDS = {"none", "per_unit", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
@@ -736,7 +736,7 @@ def _validate_fee_stream_shape(stream):
         raise ValueError(f"unsupported fee cost kind: {ck!r}")
     if presentation == "contra_revenue" and ck == "pct_of_revenue":
         raise ValueError("contra-revenue presentation cannot also use revenue-share contra treatment")
-    if src == "stream_ref":
+    if src in {"stream_ref", "fee_stream_quantity"}:
         if not str(drv.get("ref") or "").strip():
             raise ValueError("fee stream_ref source requires driver.ref")
     if src == "cost_pool":
@@ -1080,6 +1080,12 @@ def fee_stream_q(stream, q, ctx, ppy=4):
         if src == "stream_ref":
             ref = drv.get("ref")
             return float(((ctx or {}).get("stream_qty") or {}).get(ref) or 0.0)
+        if src == "fee_stream_quantity":
+            ref = str(drv.get("ref") or "").strip()
+            values = ((ctx or {}).get("linked_stream_qty") or {}).get(ref)
+            if values is None or len(values) < q:
+                raise ValueError("Linked fee quantity is unavailable: " + ref)
+            return float(values[q - 1])
         if src == "bank_aggregate":
             ref = drv.get("ref")
             return float(((ctx or {}).get("bank_aggregate") or {}).get(ref) or 0.0)
@@ -1140,11 +1146,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
                 # before rolling into a quarterly/annual engine period: SUM(A_m * B_m).
                 # Multiplying SUM(A_m) by one quarter-level B would be mathematically wrong.
                 paired = None
-                if (src == "stream_ref" and int(ppy) in (1, 4)
+                if (src in {"stream_ref", "fee_stream_quantity"} and int(ppy) in (1, 4)
                         and str(coef.get("kind") or "").lower() == "pct"
                         and str(coef.get("semantics") or "flow").lower() == "share"
                         and str(coef.get("period") or "").lower() == "month"):
-                    ref_stream = ((ctx or {}).get("stream_defs") or {}).get(str(drv.get("ref") or ""))
+                    ref_stream = ((ctx or {}).get("linked_stream_defs" if src == "fee_stream_quantity" else "stream_defs") or {}).get(str(drv.get("ref") or ""))
                     ref_drv = (ref_stream or {}).get("driver") or {}
                     ref_flow = ((ref_drv.get("params") or {}).get("flow_path") or {})
                     if (str(ref_drv.get("source") or "constant").lower() == "constant"

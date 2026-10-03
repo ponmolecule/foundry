@@ -69,11 +69,13 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
             if not sid:
                 raise ValueError("funded-flow balance link requires a stable series_id")
             from .income_modules import _fee_stream_quantity_kinds
+            from .fee_links import has_links, FeeLinkPlan
+            plan=FeeLinkPlan(assumptions) if has_links(assumptions or {}) else None
             matches = []
             for family in ("deposit_products", "obs_exposures"):
-                for prod in (assumptions or {}).get(family) or []:
+                for pi,prod in enumerate((assumptions or {}).get(family) or []):
                     streams = prod.get("fee_streams") or []
-                    kinds = _fee_stream_quantity_kinds(streams)
+                    kinds = {i:plan.kinds[(pi,i)] for i in range(len(streams))} if plan and family=="obs_exposures" else _fee_stream_quantity_kinds(streams)
                     matches += [(st, kinds[i]) for i, st in enumerate(streams)
                                 if str(st.get("quantity_series_id") or "") == sid]
             if len(matches) != 1 or matches[0][1] != "money" or matches[0][0].get("basis") != "transaction":
