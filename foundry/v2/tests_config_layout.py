@@ -266,7 +266,7 @@ def main():
     # r240: Peer Cohort: one cached batch request; redesigned corridor with stacked Min..Max; Excel export.
     ck("Peer corridor uses one cached batch request and the redesigned rows with stacked Min..Max",
        '/api/v31/peer-bands/batch?metrics=' in html and 'window._pbCache = window._pbCache || {};' in html
-       and 'function _pbDesignHtml(items, ctx)' in html and "st('min','min','ext')" in html and "st('max','max','ext')" in html
+       and 'function _pbDesignHtml(items, ctx)' in html and "st('min','min',0,'ext lft')" in html and "st('max','max',100,'ext rgt')" in html
        and 'window.pbExport=async function()' in html and 'const results = await Promise.all(metrics.map(fetchBand));' not in html)
     ck("Vintage corridor tables include Min and Max rows",
        "[['Max','max'],['p90','p90'],['p75','p75'],['p50','p50'],['p25','p25'],['Min','min']].forEach(" in html)   # r250: design table
@@ -322,7 +322,13 @@ def main():
     ck("Vintage chart is drawn at its measured size, both views share one height, and peer statistics sit in fixed columns",
        'function fitVinPanel()' in html and 'width="${W}" height="${H}" class="vx-svg"' in html and 'viewBox="0 0 960 320"' not in html
        and 'min-height:${Math.max(_vinDims().H+56,420)}px' in html
-       and '.pc2-stats{display:grid;grid-template-columns:repeat(8,minmax(52px,1fr));' in html)
+       and '.pc2-stats.pc2-axislbl{display:block;position:relative;height:30px}' in html)
+    # r252: vintage panel at 80% of the r251 width.
+    ck("Vintage panel is 80% of the peer corridor's width rule", '.vx{margin:14px 0 6px;max-width:calc(0.8 * (100% + 1076px) / 2);' in html)
+    # r254: percentile axis (bands and median in the same place on every row), labels under their marks, count off the axis.
+    ck("Peer strips use a percentile axis with band edges by role, labels under their marks, legend, and the count beside the legend or per row",
+       "const RK=true;" in html and "left:${RK?'50%':pc(L.p50)}" in html and "st('p50','p50',50)" in html
+       and '<span class="pc2-legend">' in html and 'per metric</span>' in html and '<span class="pc2-rn">n ${it.latest.n}</span>' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
