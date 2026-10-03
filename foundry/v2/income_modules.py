@@ -1405,6 +1405,25 @@ def fee_streams_order(streams):
     return order
 
 
+def fee_quantity_kind(stream, dependency_kind="native"):
+    """Shared structural unit rule for legacy and cross-product quantities."""
+    st = stream or {}
+    basis = str(st.get("basis") or "").strip().lower()
+    if basis == "balance": return "money"
+    if basis == "account": return "count"
+    if basis != "transaction": return "native"
+    drv = st.get("driver") or {}
+    params = drv.get("params") or {}
+    src = str(drv.get("source") or "constant").strip().lower()
+    flow = params.get("flow_path") or {}
+    if src == "constant" and str(flow.get("unit_kind") or "").strip().lower() == "money_flow": return "money"
+    if str((params.get("coefficient") or {}).get("kind") or "").strip().lower() == "amount_per_source_unit": return "money"
+    if src in {"own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "bank_aggregate", "cost_pool"}: return "money"
+    if src == "customer_acquisition_count": return "count"
+    if src in {"stream_ref", "fee_stream_quantity"}: return dependency_kind
+    return "native"
+
+
 def _fee_stream_quantity_kinds(streams):
     """Infer coarse quantity units (count / money / native) within one Fee Product.
 
@@ -1424,36 +1443,10 @@ def _fee_stream_quantity_kinds(streams):
             return "native"
         stack.add(i)
         st = streams[i] or {}
-        basis = str(st.get("basis") or "").strip().lower()
-        if basis == "balance":
-            kind = "money"
-        elif basis == "account":
-            kind = "count"
-        elif basis != "transaction":
-            kind = "native"
-        else:
-            drv = st.get("driver") or {}
-            params = drv.get("params") or {}
-            flow_path = params.get("flow_path") or {}
-            if (str(drv.get("source") or "constant").strip().lower() == "constant"
-                    and str(flow_path.get("unit_kind") or "").strip().lower() == "money_flow"):
-                kind = "money"
-                cache[i] = kind
-                return kind
-            coef = params.get("coefficient") or {}
-            if str(coef.get("kind") or "").strip().lower() == "amount_per_source_unit":
-                kind = "money"
-            else:
-                src = str(drv.get("source") or "constant").strip().lower()
-                if src in {"own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "bank_aggregate", "cost_pool"}:
-                    kind = "money"
-                elif src == "customer_acquisition_count":
-                    kind = "count"
-                elif src == "stream_ref":
-                    ref = str(drv.get("ref") or "")
-                    kind = resolve(by_name[ref], stack) if ref in by_name else "native"
-                else:
-                    kind = "native"
+        drv = st.get("driver") or {}
+        ref = str(drv.get("ref") or "")
+        dependency_kind = resolve(by_name[ref], stack) if str(drv.get("source") or "").strip().lower() == "stream_ref" and ref in by_name else "native"
+        kind = fee_quantity_kind(st, dependency_kind)
         cache[i] = kind
         return kind
 

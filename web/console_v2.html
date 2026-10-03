@@ -2377,7 +2377,7 @@ function _stProv(metas,i,fi){
     else { const r=q/qs*100; steps=[{l:'Share of '+esc(s.name),v:_stNum(r,'ratio')+'%'},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     calc+=depTxt;
   } else {
-    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',fee_stream_quantity:'a linked fee-stream quantity ('+esc(String(d.ref||''))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',fee_stream_quantity:'a linked quantity from '+esc(feeQuantityLabel(d.ref)),cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
     steps=[{l:'Driven by '+(SRC[srcv]||esc(_prdLab(srcv))),d:P,v:val+' '+unit,t:1}];
     work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
   }
@@ -4927,6 +4927,34 @@ function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.va
 function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
 function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
 // r269: compatible quantity references use stable IDs across Fee Product owners.
+// r270: readable source labels and dependency-aware deletion.
+function feeQuantityLabel(ref){
+  const ps=((cfg.assumptions||{}).obs_exposures||[]);
+  for(const p of ps){const st=(p.fee_streams||[]).find(x=>x.quantity_series_id===ref);if(st)return (p.name||'Fee product')+' › '+(st.name||'Stream');}
+  return 'Missing source';
+}
+function feeDeletionConsumers(owner,removed){
+  const ids=new Set(removed.map(x=>x.quantity_series_id).filter(Boolean)),names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
+  const a=cfg.assumptions||{};
+  function walk(value,label){
+    if(!value||typeof value!=='object'||removed.includes(value))return;
+    if(Array.isArray(value)){value.forEach((x,j)=>walk(x,label+' / '+(x&&x.name||'item '+(j+1))));return;}
+    const d=value.driver||{};
+    if(value!==owner&&(d.source==='stream_ref'&&names.has(d.ref))&&(owner.fee_streams||[]).includes(value))out.push((owner.name||'Product')+' › '+(value.name||'Stream'));
+    for(const [key,v] of Object.entries(value)){
+      if(['quantity_series_id','series_id'].includes(key))continue;
+      if(typeof v==='string'&&ids.has(v))out.push(label);
+      else if(v&&typeof v==='object')walk(v,label+(key==='fee_streams'?' › streams':' / '+key.replace(/_/g,' ')));
+    }
+  }
+  for(const [key,value] of Object.entries(a))walk(value,({obs_exposures:'Fee products',deposit_products:'Deposits',lending_products:'Lending',deposit_retention_pools:'Deposit pools'})[key]||key.replace(/_/g,' '));
+  return [...new Set(out)];
+}
+function feeConfirmDeletion(owner,removed){
+  const consumers=feeDeletionConsumers(owner,removed);
+  return !consumers.length||confirm('This source is used by:\n\n'+consumers.join('\n')+'\n\nDeleting it will block runs until these links are updated. Delete anyway?');
+}
+function feeRemoveStream(i,si){const p=_stOwner(i),st=(p.fee_streams||[])[si];if(!st||!feeConfirmDeletion(p,[st]))return; p.fee_streams.splice(si,1);renderContent();refresh();}
 function feeQuantityCandidates(i,si){
   const current=(_stOwner(i).fee_streams||[])[si]||{},basis=current.basis||'balance',out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,sj)=>{
@@ -5709,7 +5737,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
-      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="_stOwner(${_fi}).fee_streams.splice(${si},1);renderContent();refresh();return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="feeRemoveStream(${_fi},${si});return false" style="color:#C77">\u00d7 remove</a></label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       const _revPresentation=String(st.revenue_presentation||"revenue");
       h += `<div class="fld"><label>Income presentation</label><select onchange="_stOwner(${_fi}).fee_streams[${si}].revenue_presentation=this.value;refresh()"><option value="revenue"${_revPresentation==="revenue"?' selected':''}>Revenue</option><option value="contra_revenue"${_revPresentation==="contra_revenue"?' selected':''}>Contra-revenue</option></select></div>`;
@@ -6008,7 +6036,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
       const SRC={constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
-      const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
+      const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
       const m=_stMeta[_stSel]||_stMeta[0];
       const chain=[_stSel]; { let cur=m,guard=0; while(cur&&cur.src==='stream_ref'&&cur.ref&&guard++<12){ const j=_stMeta.findIndex(z=>z.name===cur.ref); if(j<0||chain.includes(j)) break; chain.unshift(j); cur=_stMeta[j]; } }
       const down=_stMeta.map((z,j)=>j).filter(j=>_stMeta[j].src==='stream_ref'&&_stMeta[j].ref===m.name&&!chain.includes(j));
@@ -6027,8 +6055,8 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
-      const TB=[['activity','Activity',esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
-      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="if(confirm('Remove this fee stream?')){_stOwner(${_fi}).fee_streams.splice(${_stSel},1);renderContent();refresh();}">Remove stream</button></div>`;
+      const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
+      h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
       { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
     } else if(+_fi>=1000&&_stSetupFeeRow(_fi)){   // r232: no streams yet, but the Setup fee yield is still listed
@@ -6281,7 +6309,7 @@ window.productDragOver=function(ev,fam,i){const d=window._productDrag;if(!d||Str
 window.productDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
 window.productDrop=function(ev,fam,targetIndex){if(ev)ev.preventDefault();const d=window._productDrag,card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_productClearDropMarkers();if(!d||String(d.fam)!==String(fam)){window._productDrag=null;return;}const changed=_productReorder(fam,d.index,targetIndex,after);window._productDrag=null;if(changed){renderContent();refresh();}};
 window.productDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.remove('dragging');_productClearDropMarkers();window._productDrag=null;};
-function delProduct(fam, i){ famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
+function delProduct(fam, i){ const p=famArr(fam)[i];if(!feeConfirmDeletion(p,p.fee_streams||[]))return; famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
 window.toggleOpen=toggleOpen; window.delProduct=delProduct;
 
 function v31ModalBody(){
