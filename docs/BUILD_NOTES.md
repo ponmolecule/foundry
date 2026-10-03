@@ -1355,3 +1355,13 @@ Measure, Multiplier and Per were as wide as Balance source. It is now a grid: Ba
 width (386 / 432 / 606px at 1440 / 1920 / 2560), Measure 136px, Multiplier 96px, Per 96px (measured needs);
 the dropdowns opt out of fitControls; no clipping or overflow. The same applies to the fee-product cost pool
 row. The balance-series preview gains "Hide source x" (remembered per series), like the linked-series previews.
+
+
+## r267 — Component types in the categories list
+
+Presentation release on r266. The "Comp." count column becomes "Components": chips for the additive expense
+components each category uses (Formula, Cost pool, Tiered, Linked), with a count when more than one ("Formula
+x2"), "-" when none. The side panel is unchanged (beside the list at 1920 / 2560; stacked below 1880px), and a
+new gate check fails if it is ever stacked on wide screens again. When stacked (below 1880px) the list now
+matches the 880px panel beneath it, so names no longer wrap at 1440 (0 of 13; was 10). At 1920 the list stays
+574px beside the 926px panel that one-line formula factors need, so names wrap to two lines there.

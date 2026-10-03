@@ -362,6 +362,14 @@ def main():
        '.cp-bal-row{display:grid!important;grid-template-columns:minmax(240px,1fr) 136px 96px 96px!important;' in html
        and 'class="opex-cost-pool-grid cp-bal-row"' in html and "data-nofit onchange='feeCostPoolBalanceRatePeriod(" in html
        and 'function _feeCostPoolBalancePreviewBody(seriesId,measure)' in html and 'title="Hide balance source"' in html)
+    # r267: categories list shows which additive components each category uses; the side panel must stay.
+    ck("Categories list shows component types (Formula / Cost pool / Tiered / Linked) with counts",
+       'function _catCompChips(i)' in html and '<td class="cat-comps">${_catCompChips(i)}</td>' in html
+       and '<th title="Additive expense components">Components</th>' in html)
+    ck("GUARD: the Expense categories detail stays a side panel beside its list on wide screens (never stacked there)",
+       '@media (min-width:1880px){   /* r265: the panel keeps 880-1100px; the list takes everything left over */' in html
+       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(574px,1fr) minmax(880px,1100px)!important;' in html
+       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' not in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
