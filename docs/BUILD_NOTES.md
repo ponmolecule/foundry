@@ -1282,3 +1282,15 @@ Presentation release on r258. Engine untouched.
   more Formula / driver components (previously each collapsed separately).
 - Every linked-series source preview (formula linked factors and standalone linked components) has "Hide
   source"; hidden previews shrink to "Linked source hidden · Show", remembered per series.
+
+
+## r260 — Room for formula components; visible open/close control
+
+Presentation release on r259. Engine untouched; no fields changed.
+- Categories containing Formula / driver components stack the list above a detail panel of up to 1100px at
+  every width (as at 1440px already); formula cards go from 750-846px to 1000-1066px. Fields have 14px gaps
+  and roomier columns; the linked-series dropdown, previously clipped past the card edge at 1920px, now fits.
+  Measured at 1440 / 1920 / 2560: no row overflow, no clipped text.
+- The tiny arrow becomes a 30px bordered chevron button that flips when open; the whole header is clickable
+  (hover highlight, Collapse / Expand tooltip, keyboard Enter / Space).
+- "Hide source" sits on its own line above the preview instead of over its text.

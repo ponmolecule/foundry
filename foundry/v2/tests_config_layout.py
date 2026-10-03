@@ -346,6 +346,10 @@ def main():
     ck("Governance explains an expired session; components collapse together; linked-series previews can be hidden",
        'function _govAuthHtml(what, retry)' in html and "if(r.status===401){ window._govHist={slug, ck, auth:true" in html
        and 'window.opexFxAll=function(i,js,open)' in html and 'class="lsrc-x" title="Hide linked source"' in html)
+    # r260: room for formula components (stacked, detail up to 1100px, 14px gaps) and a visible chevron toggle.
+    ck("Formula components get a wider stacked panel, 14px field gaps, and a visible chevron open/close control",
+       '.cfg-md:has(.fx-card){grid-template-columns:minmax(0,1fr)!important}' in html and '.cfg-md-detail:has(.fx-card){max-width:1100px}' in html
+       and 'class="fx-tog' in html and 'aria-expanded="${open}"' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
