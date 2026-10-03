@@ -1925,6 +1925,31 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 /* r256: dark title bands round to match */
 .pg-band,.prd-h1,.gq-head,.ovh2,.vin-h,.gq-hist-h{border-radius:8px!important}
 .gq-hist-h{border-bottom-left-radius:0!important;border-bottom-right-radius:0!important}
+
+/* r257: airier formula component, one line per factor (growth summary column) */
+.fx-head{padding:13px 18px}.fx-body{padding:18px 18px 18px}.fx-name{margin-bottom:16px}
+.fx-row{padding:14px 0!important;gap:8px 12px!important}
+.fx-row:not(.fx-linked){grid-template-columns:94px minmax(90px,1fr) 70px minmax(90px,1fr) 78px 96px 80px 28px!important;gap:8px 10px!important}
+.fx-row.fx-hasg{grid-template-columns:94px minmax(90px,1fr) 70px minmax(90px,1fr) 78px 96px 80px 100px 28px!important}
+.fx-row.fx-linked{grid-template-columns:94px minmax(90px,1fr) minmax(220px,4fr) 28px!important;gap:8px 10px!important}
+.fx-x{width:28px;height:34px;border:0;background:none;color:#9b958a;font-size:18px;line-height:1;cursor:pointer;border-radius:6px}.fx-x:hover{color:#9F5340;background:#f6e3db}
+.fx-rmc{padding-bottom:0!important;align-self:end}
+.fx-gc{display:flex;flex-direction:column;gap:4px;align-self:end}.fx-gl{font-size:11.5px;color:#6E6A63;line-height:normal}
+.fx-gchip{height:auto;min-height:0;padding:0 8px;box-sizing:border-box;border:1px solid #d8d2c4;border-radius:6px;background:#FAF8F3;color:#4a4741;font:inherit;font-size:12px;text-align:left;cursor:pointer;white-space:nowrap}
+.fx-gchip:hover,.fx-gchip.on{border-color:#9a7330;color:#7a5a20}
+.fx-gsub{padding:10px 12px;margin-top:4px;background:#FAF8F3;border-radius:6px}
+.fx-add{margin:16px 0 14px!important}.fx-expr{padding:12px 14px!important}.fx-note{margin:8px 0 14px!important}
+@container (max-width: 820px){ .fx-row.fx-hasg{grid-template-columns:100px minmax(130px,1.3fr) 108px minmax(130px,1fr)!important} .fx-row.fx-hasg .fx-gc{grid-column:1;grid-row:2} }
+/* growth chip matches the inputs' height */
+.fx-row.fx-hasg .fx-gchip{height:29px}
+/* r257: compensation pool fields sized to their content (scoped; OpEx tiered cards unchanged) */
+.wf-pools .opex-cost-pool-titlebar .wf-field{max-width:560px}
+.wf-pools .opex-piecewise-timing-grid{grid-template-columns:230px 170px 140px;justify-content:start;gap:10px 18px}
+.wf-pools .opex-piecewise-driver-row{grid-template-columns:minmax(280px,540px) repeat(3,auto);justify-content:start;gap:8px 12px}
+.wf-pools .opex-piecewise-driver-row label:nth-child(2) select{width:150px!important}.wf-pools .opex-piecewise-driver-row input[type=number]{width:120px!important}
+/* r257: compensation pools header */
+.wf-pools{margin-top:14px}.wf-pools-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
+.wf-pool-row td{background:#FCFBF8}
 </style>
 </head>
 <body>
@@ -11747,6 +11772,7 @@ if(typeof document!=='undefined'&&typeof document.addEventListener==='function')
 function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: collapsible card, one row per factor, live formula line
   const c=(lc&&lc._legacy_service_capacity_view)?lc:(_ensureNieFormulaDriver(i,j)||lc||{}),factors=c.factors||[],opts=_opexLinkedDriverOptions();
   const key=i+'_'+j; window._fxOpen=window._fxOpen||{}; const open=window._fxOpen[key]!==false;
+  const hasG=factors.some(f=>f.kind!=='linked'&&((f.spec||{}).trajectory==='growth'));
   const nm=f=>f.name||(f.kind==='linked'?'Driver':'Factor'), opSym=f=>f.op==='divide'?'\u00f7':'\u00d7';
   const expr=factors.map((f,k)=>(k?opSym(f)+' ':'')+nm(f)).join(' ');
   // arithmetic only when every factor is an entered value (a linked series has no single number to show here)
@@ -11765,7 +11791,7 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
   factors.forEach((f,k)=>{
     const lab=k===0?'Start with':`Factor ${k+1}`, op=f.op==='divide'?'divide':'multiply';
     const opSel=k?`<select class="fx-op" onchange="nieCatFormulaFactorOp(${i},${j},${k},this.value)"><option value="multiply"${op==='multiply'?' selected':''}>\u00d7 Multiply</option><option value="divide"${op==='divide'?' selected':''}>\u00f7 Divide</option></select>`:'';
-    const rm=factors.length>1?`<a href="#" class="fx-rm" onclick="nieCatFormulaRemoveFactor(${i},${j},${k});return false">Remove</a>`:'';
+    const rm=factors.length>1?`<button type="button" class="fx-x" title="Remove factor" aria-label="Remove factor" onclick="nieCatFormulaRemoveFactor(${i},${j},${k});return false">\u00d7</button>`:'';
     if(f.kind==='linked'){
       const val=_opexFormulaLinkedValue(f),isA=f.source==='customer_acquisition_auc',preview={driver:f.source,series_id:f.series_id,measure:f.measure};
       h+=`<div class="fx-row fx-linked"><div class="fx-c fx-lab"><span class="fx-k">${lab}</span>${opSel}</div>`
@@ -11777,15 +11803,16 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
     }
     const sp=f.spec||{},tr=sp.trajectory||'flat',display=f.display==='percent'?'percent':'number',periodized=!!f.periodized,time=periodized?(sp.period||'month'):'none';
     const raw=(tr==='growth'?+sp.base||+sp.value||0:+sp.value||0),shown=display==='percent'?raw*100:raw,unit=f.unit||'',fld=tr==='growth'?'base':'value';
-    h+=`<div class="fx-row"><div class="fx-c fx-lab"><span class="fx-k">${lab}</span>${opSel}</div>`
+    h+=`<div class="fx-row${hasG?' fx-hasg':''}"><div class="fx-c fx-lab"><span class="fx-k">${lab}</span>${opSel}</div>`
       +`<label class="fx-l"><span>Name</span><input value="${esc(f.name||'Factor')}" onchange="nieCatFormulaFactorName(${i},${j},${k},this.value)"></label>`
       +(tr!=='explicit'?`<label class="fx-l fx-num"><span>${tr==='growth'?'Base':'Value'}${display==='percent'?' (%)':''}</span><input type="number" step="any" value="${_numInput(shown,12)}" onchange="nieCatFormulaEnteredValue(${i},${j},${k},'${fld}',this.value)"></label>`:`<div class="fx-l fx-num"><span>Value</span><em class="fx-mut">schedule</em></div>`)
       +`<label class="fx-l"><span>Unit label</span><input value="${esc(unit)}" placeholder="e.g. $ / transaction" onchange="nieCatFormulaFactorUnit(${i},${j},${k},this.value)"></label>`
       +`<label class="fx-l fx-path"><span>Path</span><select onchange="nieCatFormulaEnteredTrajectory(${i},${j},${k},this.value)"><option value="flat"${tr==='flat'?' selected':''}>Flat</option><option value="growth"${tr==='growth'?' selected':''}>Growth</option><option value="explicit"${tr==='explicit'?' selected':''}>Explicit</option></select></label>`
       +`<label class="fx-l fx-time"><span>Time basis</span><select onchange="nieCatFormulaEnteredTimeBasis(${i},${j},${k},this.value)"><option value="none"${time==='none'?' selected':''}>No period</option><option value="month"${time==='month'?' selected':''}>Per Month</option><option value="quarter"${time==='quarter'?' selected':''}>Per Quarter</option><option value="year"${time==='year'?' selected':''}>Per Year</option></select></label>`
       +`<label class="fx-l fx-disp"><span>Display</span><select onchange="nieCatFormulaEnteredDisplay(${i},${j},${k},this.value)"><option value="number"${display==='number'?' selected':''}>Number</option><option value="percent"${display==='percent'?' selected':''}>Percent</option></select></label>`
+      +(hasG?`<div class="fx-c fx-gc">${tr==='growth'?(()=>{ const g=sp.growth_spec||{}, gk=i+'_'+j+'_'+k, on=window._fxG&&window._fxG[gk]; return `<span class="fx-gl">Growth</span><button type="button" class="fx-gchip${on?' on':''}" onclick="window._fxG=window._fxG||{};window._fxG['${gk}']=!window._fxG['${gk}'];renderContent()">${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}% / ${esc(g.period==='month'?'mo':g.period==='quarter'?'qtr':'yr')} \u00b7 ${esc(g.method||'step')}</button>`; })():''}</div>`:'')
       +`<div class="fx-c fx-rmc">${rm}</div>`;
-    if(tr==='growth'){ sp.growth_spec=sp.growth_spec||{rate:0,period:'year',method:'step',anchor:'model_year'}; h+=`<div class="fx-sub">${_opexFormulaGrowthSpecInline(i,j,k,sp.growth_spec)}</div>`; }
+    if(tr==='growth'){ sp.growth_spec=sp.growth_spec||{rate:0,period:'year',method:'step',anchor:'model_year'}; if(window._fxG&&window._fxG[i+'_'+j+'_'+k]) h+=`<div class="fx-sub fx-gsub">${_opexFormulaGrowthSpecInline(i,j,k,sp.growth_spec)}</div>`; }
     if(tr==='explicit'){ const vals=sp.values||[],id=`opexFormulaFactor_${i}_${j}_${k}`,cad=periodized?(sp.period||'month'):(sp.cadence||_nativeFlowPeriod());
       h+=`<div class="fx-sub"><span class="fx-mut">Schedule ${periodized?'per '+esc(sp.period||'month'):'cadence '+esc(cad)}</span><textarea id="${id}" rows="2" class="fx-paste" placeholder="Paste factor values${display==='percent'?' as percentages':''}" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${id}_load" class="pillbtn" disabled onclick="nieCatFormulaExplicitPaste(${i},${j},${k},'${id}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="nieCatFormulaExplicitClear(${i},${j},${k})"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>_numInput((+v||0)*(display==='percent'?100:1),8),cad)}</div></div>`; }
     h+=`</div>`;
@@ -12483,6 +12510,7 @@ function structuresSectionsHtml(){
         const _hcFmt=v=>{const n=+v||0;return Math.abs(n-Math.round(n))<1e-9?String(Math.round(n)):_numInput(n,3);};
         const _countLabel=wr=>{const s=wr.count_spec||null;if(!s)return 'Flat';const t=s.trajectory||s.mode||'flat';if(t==='explicit')return `Explicit · ${String(s.cadence||'year').replace(/^./,x=>x.toUpperCase())}`;if(t==='growth')return `Growth · ${(((s.growth_spec||{}).rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${(s.growth_spec||{}).period||'year'}`;return 'Flat';};
         const _compLabel=wr=>{const s=wr.compensation_spec||null,base=+(wr.annual_comp||wr.base_salary_annual||0),per=(s&&s.period)||wr.compensation_period||'year',basis=(s&&s.amount_basis)||wr.compensation_basis||'per_unit',bl=basis==='total'?'Total':'Per FTE';if(!s)return `${fmtComma(base/1000)} $000s/${per} · ${bl} · Escalation`;const t=s.trajectory||s.mode||'flat';if(t==='explicit'){const vs=s.values||[],a=vs.length?+vs[0]:base,b=vs.length?+vs[vs.length-1]:a;return `${fmtComma(a/1000)} → ${fmtComma(b/1000)} $000s/${per} · ${bl} · Explicit`;}if(t==='growth'){const b=+(s.base!=null?s.base:base),g=s.growth_spec||{};return `${fmtComma(b/1000)} $000s/${per} base · ${bl} · ${((+g.rate||0)*100).toFixed(2).replace(/\.00$/,'')}%/${g.period||'year'}`;}return `${fmtComma((+(s.value!=null?s.value:base))/1000)} $000s/${per} · ${bl} · Flat`;};
+        h += '<!--WF_POOLS-->';   // r257: compensation pools render here, above the run summary
         h += '<div style="margin-top:10px;border-top:1px solid rgba(85,85,82,.16);padding-top:8px"><div class="csub" style="margin-bottom:3px">Workforce run summary · latest run</div>';
         h += '<div class="cmut" style="margin:0 0 6px">Compact audit of the population path actually used by the engine. Headcount is the resolved active Series; compensation shows its authored amount basis and natural period before payroll load.</div>';
         h += '<div style="overflow-x:auto"><table class="ovt ovt-grid wf-run-sum" style="font-size:10.5px"><tr><th>Role / population</th><th>Headcount path</th><th>Compensation amount</th><th>Resolved active window</th><th style="text-align:right">Payroll load</th></tr>';
@@ -12499,6 +12527,10 @@ function structuresSectionsHtml(){
           const load=(wr.payroll_load_rate!=null?+wr.payroll_load_rate:+(wf.default_payroll_load_rate||0))*100;
           h += `<tr><td>${esc(wr.role||'Unnamed population')}</td><td><span style="font-family:var(--mono)">${esc(countText)}</span><div class="cmut">${esc(_countLabel(wr))}</div></td><td>${esc(_compLabel(wr))}</td><td><span style="font-family:var(--mono)">${esc(window)}</span><div class="cmut">${esc(rule)}</div></td><td style="text-align:right;font-family:var(--mono)">${_numInput(load,3)}%</td></tr>`;
         });
+        (()=>{ const pc=((typeof lastRes!=='undefined'&&lastRes&&lastRes.workforce)||{}).additive_components||[]; let t='';
+          pc.forEach(c=>{ const a=(c&&c.amounts)||[], tot=a.reduce((x,y)=>x+(+y||0),0), fi=a.findIndex(v=>Math.abs(+v||0)>1e-9);
+            t+=`<tr class="wf-pool-row"><td>${esc(c.name||'Compensation pool')}</td><td><span class="cmut">Pool</span></td><td>${fmtComma(Math.round(tot*100)/100)} $000s over the horizon</td><td>${fi>=0?'First posting M'+(fi+1):'<span class="cmut">No postings in the horizon</span>'}</td><td></td></tr>`; });
+          h += t; })();
         h += `<tr><td><b>Total workforce</b></td><td><b style="font-family:var(--mono)">${esc(_hcFmt(_totStart))} → ${esc(_hcFmt(_totEnd))} FTE</b></td><td colspan="3"><span class="cmut">Aggregate active headcount is available as a stable driver to Operating Expense linked components.</span></td></tr>`;
         h += '</table></div></div>';
       }
@@ -12506,10 +12538,12 @@ function structuresSectionsHtml(){
     } else if(!_legacyStaff && !_wfAddComps.length){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
     }
-    if(_wfAddComps.length){
-      h += '<div class="workforce-additive-wrap"><div class="csub" style="margin-bottom:3px">Additive compensation components</div><div class="nie-section-note">Use these for separate tiered/banded or formula-driven compensation components; ordinary role compensation can be authored as either Total or Per FTE.</div>';
-      _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')h += _workforcePiecewiseEditorHtml(lc,j);});
-      h += '</div>';
+    { // r257: Compensation pools (bonus and incentive pools layered on role compensation); same config and adder as before
+      let __p = '<div class="workforce-additive-wrap wf-pools"><div class="wf-pools-h"><div><div class="csub" style="margin-bottom:3px">Compensation pools</div><div class="nie-section-note">Bonus and incentive pools layered on role compensation, e.g. a revenue-linked bonus pool. They post to Workforce compensation.</div></div><button type="button" class="btn-plain" onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</button></div>';
+      if(_wfAddComps.length){ _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')__p += _workforcePiecewiseEditorHtml(lc,j);}); }
+      else __p += '<div class="cmut" style="margin:4px 0 2px">No compensation pools.</div>';
+      __p += '</div>';
+      if(h.indexOf('<!--WF_POOLS-->')>=0) h = h.replace('<!--WF_POOLS-->', __p); else if(_wfAddComps.length) h += __p;
     }
     }
     h += '</div>';

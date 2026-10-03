@@ -337,6 +337,11 @@ def main():
        'function _opexFormulaDriverEditorHtml(i,j,lc){   // r256:' in html and 'class="fx-expr"' in html and '@container (max-width: 820px)' in html
        and "(k?opSym(f)+' ':'')+nm(f)" in html
        and 'input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{border-radius:6px!important}' in html)
+    # r257: one-line formula factors (growth chip), Compensation pools above the run summary with pool rows, sized pool fields.
+    ck("Formula factors stay on one line (growth chip); Compensation pools sit above the run summary, which lists each pool",
+       'class="fx-gchip' in html and '.fx-row.fx-hasg{grid-template-columns:' in html and "h += '<!--WF_POOLS-->';" in html
+       and 'onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</button>' in html and 'class="wf-pool-row"' in html
+       and '.wf-pools .opex-piecewise-timing-grid{grid-template-columns:230px 170px 140px;' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
