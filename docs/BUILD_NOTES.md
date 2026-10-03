@@ -1336,3 +1336,13 @@ Presentation release on r263. Engine untouched.
   (x Multiply 100, Growth 84, Per Quarter 110, Number 89, growth chip 92-118px). fitControls gained an opt-out
   (data-nofit) so grid-sized dropdowns are not forced wider than their column (it had set a 572px minimum on the
   linked-series dropdown). No overflow, no clipped text at 1440 / 1920 / 2560.
+
+
+## r265 — Categories list uses the free width
+
+Presentation release on r264. At 2560px the side panel stopped at 1100px with an empty band to its right while
+the list was held at 574px and truncated most names. Now, on screens of 1880px and wider, the panel keeps
+880-1100px (one-line formula factors) and the list takes everything left over: 1,040px at 2560 (panel ends
+21px from the edge; 0 of 13 long names wrapped or truncated), 574px at 1920. The categories table uses a fixed
+layout (narrow columns keep their widths; the name column takes exactly the remainder) and long names wrap to a
+second line instead of truncating (8 of 13 at 1920; none truncated anywhere). Narrower screens stack.
