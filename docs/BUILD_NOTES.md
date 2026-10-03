@@ -1148,3 +1148,20 @@ Built on r247 (deploy together). Engine untouched; run results identical.
 - Change history tab, per the mock: dark "<engagement> · saves" bar, newest first, who and when, a one-line
   summary, before (struck) -> after. History starts with the first save after this release.
 - Data checks now read a schedule's cadence too (quarterly schedules labelled Q, not M).
+
+
+## r249 — Change tracking
+
+Built on r248. Engine untouched; run results identical.
+- Tracking starts explicitly ("Start tracking" in the Governance & QA header, or "Start change tracking" in
+  Change history); freezing a run while tracking is off asks once whether to start it. Before that the
+  engagement is in build-out: the header reads "Build-out · not tracked" and earlier saves are collapsed into
+  one expandable "Build-out · N saves" line. The marker lives at _history/<slug>.tracking.json, outside the
+  versions folder (so pruning can never remove it) and outside the configuration.
+- Once tracking, the header shows "Unsaved changes N": the net field difference between the live
+  configuration and the saved engagement (twenty edits to one field count once; reverting counts zero), via
+  POST /api/v31/engagement/{slug}/status (read-only). Change history shows a "Now · not saved yet" entry with
+  those changes. Fields the save path stamps on the stored copy (client, proposed_bank, schema version) are
+  not counted. Any save clears the cached status and history.
+- Lists of objects are matched by identity (series_id, id, name, role, label): deleting a schedule or a role
+  is one "removed" line, adding one is one "added" line, with no knock-on changes from shifted positions.
