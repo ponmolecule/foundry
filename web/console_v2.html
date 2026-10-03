@@ -1786,6 +1786,73 @@ tr.vin-ext td{color:var(--k-tx3)}
 .gq-pending{background:#FFFBF2}.gq-sub{background:#FCFCFA}
 .gq-k{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:8px;margin-left:4px}
 .gq-k.rm{color:#9F5340;background:rgba(146,91,77,.12)}.gq-k.ad{color:#536A57;background:rgba(83,106,87,.12)}
+
+/* r250: peer corridor rows (Claude Design) */
+.pc2{border:1px solid #e4ded1!important;border-radius:6px!important}
+.pc2 .pc-panel-h{background:#FFFFFF;padding:14px 20px;border-bottom:1px solid #e4ded1}
+.pc2 .pc-panel-h b{font-size:14px;font-weight:600;color:#7a5a20}
+.pc2-scale{margin-left:auto;font-size:12px;color:#6f6a60}
+.pc2-row{display:flex;flex-wrap:wrap;align-items:center;gap:16px 28px;padding:18px 20px;border-bottom:1px solid #efeae0}
+.pc2-row:last-child{border-bottom:0}.pc2-row:hover{background:#fcfaf6}
+.pc2-name{flex:0 0 200px}.pc2-name b{display:block;font-size:15px;font-weight:600;color:#1d1c1a;margin-bottom:6px}
+.pc2-tags{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:12px;color:#6f6a60}
+.pc2-basis{padding:1px 6px;border:1px solid #d8d2c4;border-radius:3px;background:#FFFFFF;color:#4a4741}
+.pc2-dirn{padding:2px 6px;background:#f4ead6;color:#7a5a20;border-radius:3px;cursor:help}
+.pc2-plot{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:8px}
+.pc2-strip{position:relative;height:26px}
+.pc2-axis{position:absolute;left:0;right:0;top:12px;height:1px;background:#e4ded1}
+.pc2-b90{position:absolute;top:7px;height:11px;background:#ece5d5}.pc2-b50{position:absolute;top:7px;height:11px;background:#d9cba8}
+.pc2-med{position:absolute;top:3px;height:19px;width:2px;margin-left:-1px;background:#1d1c1a}
+.pc2-sa{position:absolute;top:7px;width:11px;height:11px;margin-left:-5.5px;border-radius:6px;border:1.5px solid #9a7330;background:#faf8f3;box-sizing:border-box}
+.pc2-mod{position:absolute;top:4px;width:17px;height:17px;margin-left:-8.5px;border-radius:9px;background:#9a7330;border:3px solid #fff;box-shadow:0 0 0 1px #9a7330,0 1px 3px rgba(0,0,0,.18);box-sizing:border-box}
+.pc2-stats{display:flex;flex-wrap:wrap;gap:4px 18px;font-family:var(--mono);font-size:11px;color:#6f6a60;font-variant-numeric:tabular-nums}
+.pc2-st{display:flex;flex-direction:column;align-items:flex-start}.pc2-st i{font-style:normal;color:#9b958a}
+.pc2-st.ext{color:#9b958a}
+.pc2-val{flex:0 0 130px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.pc2-val b{font-family:var(--mono);font-size:22px;font-weight:500;color:#7a5a20}.pc2-val b.mut{color:#9b958a}
+.pc2-val span{font-size:11px;color:#6f6a60}
+.pc2-tone{flex:0 0 150px;display:flex;flex-direction:column;gap:4px;align-items:flex-start;font-size:11px}
+.pc2-chip{padding:3px 8px;border-radius:3px;font-size:12px;font-weight:500;font-family:var(--mono)}
+.pc2-tone a{font-size:12px;color:#7a5a20;text-decoration:none}.pc2-tone a:hover{text-decoration:underline}
+.pc2-wait{flex:1 1 500px;display:flex;flex-direction:column;gap:8px;font-size:12px;color:#6f6a60;line-height:1.5}
+.pc2-none{height:11px;border:1px dashed #d8d2c4;border-radius:2px}
+.pc2-note{flex:1 1 100%;font-size:11px;color:#9b958a}
+/* r250: vintage corridor (Claude Design) */
+.vx{margin:14px 0 6px;max-width:calc((100% + 1076px) / 2);background:#FFFFFF;border:1px solid #e4ded1;border-radius:6px}
+.vx-top{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding:12px 16px;border-bottom:1px solid #e4ded1}
+.vx-tabs{display:flex;flex-wrap:wrap;gap:6px;margin-right:auto}
+.vx-tab{padding:7px 14px;border:1px solid #d8d2c4;border-radius:3px;background:#FFFFFF;font:inherit;font-size:13px;color:#1d1c1a;cursor:pointer}
+.vx-tab span{color:#9b958a}.vx-tab.on{background:#1d1c1a;border-color:#1d1c1a;color:#FFFFFF}.vx-tab.on span{color:#C9C3B6}
+.vx-lfl{padding:4px 10px;border-radius:3px;font-size:12px}.vx-lfl.no{background:#f4ead6;color:#7a5a20}.vx-lfl.ok{background:#e5ede2;color:#3f6444}
+.vx-seg{display:flex;border:1px solid #d8d2c4;border-radius:3px;overflow:hidden}
+.vx-seg button{padding:6px 12px;border:0;background:#FFFFFF;font:inherit;font-size:12.5px;color:#1d1c1a;cursor:pointer}
+.vx-seg button.on{background:#1d1c1a;color:#FFFFFF}
+.vx-main{display:flex;align-items:stretch}
+.vx-chart{flex:1 1 auto;min-width:0;padding:16px 8px 8px 12px}.vx-svg{display:block;overflow:visible}.vx-mono{font-family:var(--mono)}
+.vx-side{flex:0 0 240px;display:flex;flex-direction:column;gap:12px;padding:18px 20px;border-left:1px solid #efeae0}
+.vx-q{display:flex;justify-content:space-between;align-items:baseline}.vx-q b{font-family:var(--mono);font-size:22px;font-weight:500;color:#1d1c1a}.vx-q span{font-size:12px;color:#3f6444;font-family:var(--mono)}
+.vx-mod{display:flex;flex-direction:column;gap:4px;padding:12px;background:#faf6ec;border-radius:4px}
+.vx-mod>span{font-size:12px;color:#7a5a20}.vx-mod div{display:flex;justify-content:space-between;align-items:baseline}
+.vx-mod b{font-family:var(--mono);font-size:22px;font-weight:500;color:#7a5a20}.vx-mod em{font-style:normal;padding:2px 8px;border-radius:3px;font-size:12px}
+.vx-mod.none{background:#f5f2ea;font-size:12px;line-height:1.5;color:#6f6a60}
+.vx-rows>div{display:flex;justify-content:space-between;padding:7px 0;border-bottom:1px solid #f0ebe1;font-size:13px}
+.vx-rows>div span:first-child{color:#6f6a60}.vx-rows>div.ext{color:#9b958a}.vx-rows>div.ext span{color:#9b958a}
+.vx-hint{font-size:11px;color:#9b958a}
+.vx-foot{padding:10px 16px;border-top:1px solid #efeae0;font-size:12px;color:#6f6a60}
+.vx-empty{padding:22px 18px;font-size:12.5px;color:#6f6a60}
+.vx-tw{overflow-x:auto;padding:8px 12px}.vx-t{border-collapse:collapse;width:100%;min-width:860px;font-size:12.5px}
+.vx-t th{padding:7px 8px;text-align:right;font-weight:500;color:#6f6a60;border-bottom:1px solid #e4ded1;font-family:var(--mono)}
+.vx-t td{padding:7px 8px;text-align:right;border-bottom:1px solid #f0ebe1;font-family:var(--mono);color:#1d1c1a}
+.vx-t td:first-child{text-align:left;font-family:inherit;color:#4a4741}.vx-t tr.ext td{color:#9b958a}.vx-t tr.mod td{color:#7a5a20}.vx-t tr.n td{color:#9b958a}
+.vx-vd{padding:1px 6px;border-radius:3px;font-size:11px;font-family:inherit}.vx-vd.inside{background:#efeae0;color:#4a4741}.vx-vd.above,.vx-vd.below{background:#f6e3db;color:#a1462b}
+@media (max-width:1180px){.vx-main{flex-direction:column}.vx-side{border-left:0;border-top:1px solid #efeae0;flex:none}}
+
+/* r250: compact coding monospace for the redesigned peer and vintage components (as in the design) */
+.pc2,.vx{--pcmono:ui-monospace,"SFMono-Regular","SF Mono",Menlo,Consolas,"Liberation Mono",monospace}
+.pc2-stats,.pc2-val b,.pc2-chip,.vx-mono,.vx-q b,.vx-q span,.vx-mod b,.vx-rows .vx-mono,.vx-t th,.vx-t td{font-family:var(--pcmono)!important;letter-spacing:0}
+.vx-svg text.vx-mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
+.pc2-name{flex:0 0 230px}
+.pc2 .pc-panel-h b::first-letter{text-transform:uppercase}
 </style>
 </head>
 <body>
@@ -2458,20 +2525,33 @@ function _pbDesignHtml(items, ctx){
   let h=`<div class="pc-cards">`+card('Inside peer P25\u2013P75',inside.length,ok.length,'')+card('Outside P10\u2013P90',outside.length,null,outside.length?names(outside):'none')
     +card('Better than peer median',better.length,ok.length,"given each metric\u2019s direction")+card('Awaiting peer data',wait.length,null,wait.length?names(wait):'none')+`</div>`;
   if(ctx.smallNany) h+=`<div class="pc-note"><b>Small cohort.</b> Percentiles approach member values \u2014 read them as the range of the named peers, not a distribution.</div>`;
-  h+=`<div class="pc-panel"><div class="pc-panel-h"><b>${esc(ctx.bandName)} band${ctx.latestQ?', '+esc(ctx.latestQ):''}</b><span class="pc-legend"><i class="lg b90"></i>P10\u2013P90 <i class="lg b50"></i>P25\u2013P75 <i class="lg med"></i>median <i class="lg dot"></i>modeled</span><button type="button" class="pc-xl" onclick="pbExport()">Download Excel</button></div>`;
+  h+=`<div class="pc-panel pc2"><div class="pc-panel-h"><b>${esc(ctx.bandName)} band${ctx.latestQ?', '+esc(ctx.latestQ):''}</b><span class="pc2-scale">Each row scaled to its own peer range</span><button type="button" class="pc-xl" onclick="pbExport()">Download Excel</button></div>`;
+  const VMAP={roa:'roa',nim:'nim',efficiency:'efficiency_ratio',tier1:'tier1_ratio',lev:'leverage_ratio'};
+  const TONE={good:['#e5ede2','#3f6444'],mid:['#f4ead6','#7a5a20'],bad:['#f6e3db','#a1462b']};
   items.forEach(it=>{
     const d=(typeof METRIC_DIRECTION!=='undefined'&&METRIC_DIRECTION[it.metric])||'';
-    const dir=d==='higher_good'?'higher is better':(d==='lower_good'||it.metric==='efficiency'||it.metric==='net_charge_off_rate')?'lower is better':'directional';
-    let r=`<div class="pc-row"><div class="pc-name"><b>${esc(it.label)}</b><span><em>${esc(it.basis||'')}</em> ${dir}</span></div>`;
-    if(it.err){ h+=r+`<div class="pc-wait">No peer data published yet for this metric and cohort \u2014 ${esc(it.err)}</div></div>`; return; }
-    const L=it.latest, v=(it.m&&it.m.v!=null)?it.m.v:null, pct=it.pct||'';
-    const tip=(pp)=>it.bandProv?` title="${esc(it.bandProv(pp))}"`:'';
-    const stat=(k,lab,pp)=>`<div class="pc-st"${pp?tip(pp):''}><span class="k">${lab}</span><span class="v">${_pbFmt(L[k])}</span></div>`;
-    r+=`<div class="pc-strip">${_pbStrip(L,v,it.fav)}</div>`;
-    r+=`<div class="pc-stats">`+stat('min','Min')+stat('p10','P10',10)+stat('p25','P25',25)+stat('p50','P50',50)+stat('p75','P75',75)+stat('p90','P90',90)+stat('max','Max')+`<div class="pc-st n"><span class="k">n</span><span class="v">${L.n??'\u2014'}</span></div></div>`;
-    if(v==null) r+=`<div class="pc-mod"><span class="v mut">\u2014</span><span class="chip mut">peer band only</span></div>`;
-    else r+=`<div class="pc-mod"${it.modProv?` title="${esc(it.modProv)}"`:''}><span class="v ${it.fav||'mid'}">${_pbFmt(v,pct)}</span><span class="chip ${it.fav||'mid'}">${esc(it.bucket||'')}</span>${it.m.vq!=null?`<span class="sa">Q12 standalone ${_pbFmt(it.m.vq,pct)}</span>`:''}</div>`;
-    if(L.extremes_note) r+=`<div class="pc-wait" style="grid-column:1/-1">Min / max ${esc(L.extremes_note)}.</div>`;
+    const lowerGood=(d==='lower_good'||it.metric==='efficiency'||it.metric==='net_charge_off_rate');
+    const dir=lowerGood?'lower is better':'higher is better';
+    const vm=VMAP[it.metric], lfl=vm&&_VIN_LFL[vm], directional=lfl&&!lfl[0];
+    let r=`<div class="pc2-row"><div class="pc2-name"><b>${esc(it.label)}</b><div class="pc2-tags"><span class="pc2-basis">${esc(it.basis||'')}</span><span>${dir}</span>${directional?`<span class="pc2-dirn" title="${esc(lfl[1])}">directional</span>`:''}</div></div>`;
+    if(it.err||!it.latest){ h+=r+`<div class="pc2-wait"><div class="pc2-none"></div>No peer data published yet for this metric and cohort \u2014 ${esc(it.err||'')}</div></div>`; return; }
+    const L=it.latest, v=(it.m&&it.m.v!=null)?+it.m.v:null, sa=(it.m&&it.m.vq!=null)?+it.m.vq:null, pct=it.pct||'';
+    const vals=[L.p10,L.p25,L.p50,L.p75,L.p90].map(Number).concat(v!=null?[v]:[], sa!=null?[sa]:[]).filter(isFinite);
+    let lo=Math.min(...vals), hi=Math.max(...vals); const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
+    const pc=x=>((x-lo)/(hi-lo)*100).toFixed(2)+'%', wd=(x1,x2)=>((x2-x1)/(hi-lo)*100).toFixed(2)+'%';
+    let strip=`<div class="pc2-strip"><div class="pc2-axis"></div><div class="pc2-b90" style="left:${pc(L.p10)};width:${wd(L.p10,L.p90)}"></div><div class="pc2-b50" style="left:${pc(L.p25)};width:${wd(L.p25,L.p75)}"></div><div class="pc2-med" style="left:${pc(L.p50)}"></div>`;
+    if(sa!=null) strip+=`<div class="pc2-sa" title="Q12 standalone" style="left:${pc(sa)}"></div>`;
+    if(v!=null) strip+=`<div class="pc2-mod" title="Modeled" style="left:${pc(v)}"></div>`;
+    strip+=`</div>`;
+    const st=(k,lab,cls)=>`<span class="pc2-st${cls?' '+cls:''}"><i>${lab}</i>${_pbFmt(L[k])}</span>`;
+    const stats=`<div class="pc2-stats">`+st('min','min','ext')+st('p10','p10')+st('p25','p25')+st('p50','p50')+st('p75','p75')+st('p90','p90')+st('max','max','ext')+`<span class="pc2-st"><i>n</i>${L.n??'\u2014'}</span></div>`;
+    r+=`<div class="pc2-plot">${strip}${stats}</div>`;
+    if(v==null){ h+=r+`<div class="pc2-val"><b class="mut">\u2014</b></div><div class="pc2-tone"><span class="pc2-chip" style="background:#f0eee9;color:#6f6a60">peer band only</span></div></div>`; return; }
+    const better=lowerGood? v<L.p50 : v>L.p50, outside=v<L.p10||v>L.p90, tk=better?'good':(outside?'bad':'mid');
+    r+=`<div class="pc2-val"${it.modProv?` title="${esc(it.modProv)}"`:''}><b>${_pbFmt(v,pct)}</b>${sa!=null?`<span>Q12 standalone ${_pbFmt(sa,pct)}</span>`:''}</div>`;
+    r+=`<div class="pc2-tone"><span class="pc2-chip" style="background:${TONE[tk][0]};color:${TONE[tk][1]}">${esc(String(it.bucket||'').toLowerCase())}</span><span style="color:${TONE[tk][1]}">${better?'better':'worse'} than peer median</span>`
+      +((vm&&window.vintage&&(window.vintage.corridor||{})[vm])?`<a href="#" onclick="vinOpen('${vm}');return false">Trajectory \u2192</a>`:'')+`</div>`;
+    if(L.extremes_note) r+=`<div class="pc2-note">Min / max ${esc(L.extremes_note)}.</div>`;
     h+=r+`</div>`;
   });
   return h+`</div>`;
@@ -2570,7 +2650,7 @@ window.vintageUseAll=function(){ window._vinScopeAll=true; window.vintage=null; 
 function _vinTitleSuffix(){
   const c=(typeof cfgRef==="function"?cfgRef():{})||{}, m=c.peer_bands_mode||"broad", V=window.vintage;
   if(m==="curated"){
-    if(!V || window.vintageKey!==_vinKey()) return "";
+    if(!V || !(V.bank_coverage||[]).length) return "";   // r250: read from the corridor itself (no key check)
     const ys=(V.bank_coverage||[]).map(b=>String(b.vintage_anchor_q||b.legal_opening_q||b.first_filing_q||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)).map(Number);
     if(!ys.length) return "";
     const a=Math.min(...ys), b=Math.max(...ys);
@@ -2742,6 +2822,83 @@ setTimeout(()=>{ const o=window.freezeRun; if(typeof o==='function'&&!o._track){
   try{ const slug=_govSlug(); if(slug){ const st=await (await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
     if(st.saved && !st.tracking && confirm('Start change tracking for this engagement now? Changes will be compared from this point on.')){ await govStartTracking(); } } }catch(_){}
   return r; }; w._track=true; window.freezeRun=w; } },0);   // r249: freezing while untracked offers to start tracking
+
+// r250: vintage corridor as in the Claude Design proposal: metric tabs, like-for-like chip, Chart | Table toggle,
+// one chart with a tracking crosshair and a side panel for the hovered quarter.
+const _VIN_LFL={tier1_ratio:[1,'Yes \u2014 point-in-time'],cet1_ratio:[1,'Yes \u2014 point-in-time'],leverage_ratio:[1,'Yes \u2014 point-in-time'],
+  roa:[0,'No \u2014 windows differ (quarter vs YTD)'],efficiency_ratio:[0,'No \u2014 windows differ (quarter vs YTD)'],
+  nim:[0,'No \u2014 window and denominator may differ'],net_charge_off_rate:[1,'Yes \u2014 both single-quarter']};
+function _vinMetrics(V){ return Object.keys(V.corridor||{}); }
+function _vinCur(V){ const ms=_vinMetrics(V); if(!ms.includes(window._vinSel)) window._vinSel=ms[0]; return window._vinSel; }
+function _vinPanelHtml(V){
+  const ms=_vinMetrics(V), cur=_vinCur(V), view=window._vinView||'chart', lfl=_VIN_LFL[cur];
+  const basis=m=>(m==="tier1_ratio"||m==="cet1_ratio"||m==="leverage_ratio")?'Stock':'Flow';
+  let h=`<div class="vx" id="vinPanel"><div class="vx-top"><div class="vx-tabs">`+ms.map(m=>`<button type="button" class="vx-tab${m===cur?' on':''}" onclick="vinSelect('${m}')">${esc(_VIN_LABEL[m]||m)} <span>(${basis(m)})</span></button>`).join('')+`</div>`
+    +(lfl?`<span class="vx-lfl ${lfl[0]?'ok':'no'}">${esc(lfl[1])}</span>`:'')
+    +`<div class="vx-seg"><button type="button" class="${view==='chart'?'on':''}" onclick="vinView('chart')">Chart</button><button type="button" class="${view==='table'?'on':''}" onclick="vinView('table')">Table</button></div></div>`;
+  h+=`<div id="vxBody">${_vinBodyHtml(V,cur,view)}</div>`;
+  const M=V.corridor[cur]||{}; h+=`<div class="vx-foot">${esc(M.accuracy||'')}</div></div>`;
+  return h;
+}
+function _vinSeries(V,metric){
+  const M=V.corridor[metric]||{}, ages=M.ages||[], mk=VINTAGE_OVERLAY[metric], mod=mk?vintageModeled(mk):null;
+  const val=(a,k)=>(a&&!a.suppressed&&a[k]!=null&&isFinite(+a[k]))?+a[k]:null;
+  return {M, ages, n:ages.map(a=>+a.n||0), p90:ages.map(a=>val(a,'p90')), p75:ages.map(a=>val(a,'p75')), p50:ages.map(a=>val(a,'p50')),
+    p25:ages.map(a=>val(a,'p25')), max:ages.map(a=>val(a,'max')), min:ages.map(a=>val(a,'min')),
+    mod:mod?ages.map(a=>{ const v=mod[a.age_q-1]; return (v!=null&&isFinite(+v))?+v:null; }):null};
+}
+function _vinVerdict(S,i){ const v=S.mod&&S.mod[i]; if(v==null||S.p25[i]==null) return null; return v>S.p75[i]?'above':(v<S.p25[i]?'below':'inside'); }
+function _vinBodyHtml(V,metric,view){
+  const S=_vinSeries(V,metric); const nA=S.ages.length;
+  if(!nA) return `<div class="vx-empty">No ages to show.</div>`;
+  if(_vinMetricEmpty(S.M)){ const mx=Math.max(0,...S.n), mn=(V.definition&&V.definition.min_n)||8; return `<div class="vx-empty">No corridor at any age: at most ${mx} bank${mx===1?'':'s'} per age quarter, below the minimum of ${mn}.</div>`; }
+  if(view==='table') return _vinTableHtml(S);
+  let hq=window._vinHq; if(hq==null||hq>=nA) hq=nA-1;
+  return `<div class="vx-main"><div class="vx-chart">${_vinChartSvg(S,hq)}</div>${_vinSide(S,hq)}</div>`;
+}
+function _vinChartSvg(S,hq){
+  const W=960,H=320,L=54,R=16,T=16,B=40,n=S.ages.length;
+  const all=[...S.p90,...S.p25,...(S.mod||[])].filter(v=>v!=null); if(!all.length) return '';
+  let lo=Math.min(...all),hi=Math.max(...all); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
+  const step=(W-L-R)/Math.max(1,n-1), x=i=>L+i*step, y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
+  const runs=(a,b)=>{ const out=[]; let c=[]; for(let i=0;i<n;i++){ if(a[i]!=null&&b[i]!=null) c.push(i); else { if(c.length) out.push(c); c=[]; } } if(c.length) out.push(c); return out; };
+  const area=(up,dn,fill)=>runs(up,dn).map(r=>r.length<2?'':`<path d="M${r.map(i=>x(i).toFixed(1)+','+y(up[i]).toFixed(1)).join('L')}L${r.slice().reverse().map(i=>x(i).toFixed(1)+','+y(dn[i]).toFixed(1)).join('L')}Z" fill="${fill}"/>`).join('');
+  const line=(a,attrs)=>runs(a,a).map(r=>r.length<2?'':`<path d="M${r.map(i=>x(i).toFixed(1)+','+y(a[i]).toFixed(1)).join('L')}" fill="none" ${attrs}/>`).join('');
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" class="vx-svg" role="img" aria-label="Vintage corridor chart">`;
+  for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4, yy=y(v); g+=`<line x1="${L}" x2="${W-R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="#efeae0"/><text x="${L-10}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#9b958a" class="vx-mono">${v.toFixed(Math.abs(hi-lo)<10?1:0)}</text>`; }
+  const small=S.n.findIndex(v=>v>0&&v<3);
+  if(small>=0){ const x0=Math.max(L,x(small)-step/2); const meets=S.p75[small]!=null&&S.p75[small]===S.p90[small];
+    g+=`<rect x="${x0.toFixed(1)}" y="${T}" width="${(W-R-x0).toFixed(1)}" height="${H-T-B}" fill="#f7f4ee"/><text x="${(x0+8).toFixed(1)}" y="${T+14}" font-size="11" fill="#6f6a60">n = ${S.n[small]}${meets?' \u00b7 p75 meets p90':' \u00b7 thin sample'}</text>`; }
+  g+=area(S.p90,S.p75,'#ece5d5')+area(S.p75,S.p25,'#d9cba8')+line(S.p50,'stroke="#1d1c1a" stroke-width="1.5" stroke-dasharray="4 4"');
+  g+=`<line x1="${x(hq).toFixed(1)}" x2="${x(hq).toFixed(1)}" y1="${T}" y2="${H-B}" stroke="#1d1c1a" stroke-opacity="0.25"/>`;
+  if(S.mod){ g+=line(S.mod,'stroke="#9a7330" stroke-width="2.5" stroke-linejoin="round"');
+    S.mod.forEach((v,i)=>{ if(v==null) return; const out=_vinVerdict(S,i)&&_vinVerdict(S,i)!=='inside'; g+=`<circle cx="${x(i).toFixed(1)}" cy="${y(v).toFixed(1)}" r="${i===hq?6:4}" fill="${out?'#a1462b':'#9a7330'}" stroke="#fff" stroke-width="2"/>`; }); }
+  S.n.forEach((nn,i)=>{ g+=`<text x="${x(i).toFixed(1)}" y="${H-B+18}" text-anchor="middle" font-size="12" class="vx-mono" fill="${i===hq?'#1d1c1a':'#6f6a60'}" font-weight="${i===hq?600:400}">Q${S.ages[i].age_q}</text><text x="${x(i).toFixed(1)}" y="${H-B+33}" text-anchor="middle" font-size="10" fill="#9b958a" class="vx-mono">n${nn}</text>`;
+    g+=`<rect x="${(x(i)-step/2).toFixed(1)}" y="${T}" width="${step.toFixed(1)}" height="${H-T}" fill="transparent" style="cursor:crosshair" onmouseenter="vinHover(${i})"/>`; });
+  return g+`</svg>`;
+}
+function _vinSide(S,i){
+  const f=v=>v==null?'\u2014':(+v).toFixed(2), v=S.mod?S.mod[i]:null, vd=_vinVerdict(S,i);
+  const tone=vd==='inside'?['#efeae0','#4a4741']:vd?['#f6e3db','#a1462b']:['#f0eee9','#6f6a60'];
+  let h=`<div class="vx-side"><div class="vx-q"><b>Q${S.ages[i].age_q}</b><span>n = ${S.n[i]}</span></div>`;
+  h+= v!=null ? `<div class="vx-mod"><span>Modeled</span><div><b>${f(v)}</b>${vd?`<em style="background:${tone[0]};color:${tone[1]}">${vd}</em>`:''}</div></div>`
+              : `<div class="vx-mod none">No modeled series in this corridor for this metric.</div>`;
+  const rows=[['Max',S.max[i]],['p90',S.p90[i]],['p75',S.p75[i]],['p50 (median)',S.p50[i]],['p25',S.p25[i]],['Min',S.min[i]]].filter(r=>r[1]!=null||r[0].startsWith('p'));
+  h+=`<div class="vx-rows">`+rows.map(r=>`<div${(r[0]==='Max'||r[0]==='Min')?' class="ext"':''}><span>${r[0]}</span><span class="vx-mono">${f(r[1])}</span></div>`).join('')+`</div><span class="vx-hint">Hover the chart to read any quarter.</span></div>`;
+  return h;
+}
+function _vinTableHtml(S){
+  const f=v=>v==null?'\u2014':(+v).toFixed(2);
+  let h=`<div class="vx-tw"><table class="vx-t"><tr><th></th>`+S.ages.map(a=>`<th>Q${a.age_q}</th>`).join('')+`</tr>`;
+  [['Max','max'],['p90','p90'],['p75','p75'],['p50','p50'],['p25','p25'],['Min','min']].forEach(([lab,k])=>{ h+=`<tr${(k==='max'||k==='min')?' class="ext"':''}><td>${lab}</td>`+S[k].map(v=>`<td>${f(v)}</td>`).join('')+`</tr>`; });
+  if(S.mod){ h+=`<tr class="mod"><td>Modeled</td>`+S.mod.map(v=>`<td>${f(v)}</td>`).join('')+`</tr><tr><td>Verdict</td>`+S.ages.map((a,i)=>{ const vd=_vinVerdict(S,i); return `<td>${vd?`<span class="vx-vd ${vd}">${vd}</span>`:'\u2014'}</td>`; }).join('')+`</tr>`; }
+  h+=`<tr class="n"><td>n</td>`+S.n.map(v=>`<td>${v}</td>`).join('')+`</tr></table></div>`;
+  return h;
+}
+window.vinSelect=function(m){ window._vinSel=m; window._vinHq=null; const p=document.getElementById('vinPanel'); if(p&&window.vintage) p.outerHTML=_vinPanelHtml(window.vintage); };
+window.vinView=function(v){ window._vinView=v; const p=document.getElementById('vinPanel'); if(p&&window.vintage) p.outerHTML=_vinPanelHtml(window.vintage); };
+window.vinHover=function(i){ if(window._vinHq===i) return; window._vinHq=i; const b=document.getElementById('vxBody'); if(b&&window.vintage) b.innerHTML=_vinBodyHtml(window.vintage,_vinCur(window.vintage),window._vinView||'chart'); };
+window.vinOpen=function(m){ window._vinSel=m; window._vinHq=null; const p=document.getElementById('vinPanel'); if(p&&window.vintage){ p.outerHTML=_vinPanelHtml(window.vintage); const q=document.getElementById('vinPanel'); if(q) q.scrollIntoView({block:'start',behavior:'smooth'}); } };
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7915,58 +8072,7 @@ function vintageSectionHtml(){
     <div style="margin-top:5px">Stock metrics are point-in-time balances, so the year and the quarter coincide \u2014 no window issue. Charge-off is a flow but like-for-like: both sides use the UBPR single-quarter method. ROA and efficiency can differ mid-year because the modeled view is standalone-quarter while peer filings are year-to-date. Modeled NIM also follows the source model's total-assets denominator, while peer-filed NIM may use average earning assets; treat that comparison as directional.</div>
   </div>`;
   if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }
-  else Object.entries(V.corridor).forEach(([metric, M])=>{
-    if(_vinMetricEmpty(M)){   // r245: no peer band at any age: a heading and one line, no empty table or plot
-      const mx=Math.max(0,...(M.ages||[]).map(a=>+a.n||0)), mn=(V.definition&&V.definition.min_n)||8;
-      h += `<div class="vin-h"><span class="vin-name">${esc(_VIN_LABEL[metric]||metric)}</span></div><div class="vin-sub">No corridor at any age: at most ${mx} bank${mx===1?'':'s'} per age quarter, below the minimum of ${mn}.</div>`;
-      return;
-    }
-    const mk = VINTAGE_OVERLAY[metric];
-    const modeled = mk ? vintageModeled(mk) : null;
-    // stock (point-in-time balance ratio) vs flow (per-period income ratio) — the
-    // same distinction the Peer corridor's Basis column carries, shown here in the
-    // header. Vintage places the modeled value at each AGE quarter; flow metrics are
-    // per-age-quarter figures, capital is a point-in-time stock.
-    const vBasis = (metric==="roa"||metric==="nim"||metric==="efficiency_ratio"||metric==="net_charge_off_rate") ? "Flow"
-                 : (metric==="tier1_ratio"||metric==="cet1_ratio"||metric==="leverage_ratio") ? "Stock" : "";
-    h += `<div class="vin-h"><span class="vin-name">${esc(_VIN_LABEL[metric]||metric)}</span>${vBasis?`<span class="vin-basis">${vBasis}</span>`:""}</div>`;
-    if(metric==="tier1_ratio"||metric==="cet1_ratio") h += `<div class="vin-sub">Modeled tier 1 / RWA, standardized approach. Like-for-like: the substrate metric is risk-based; magnitudes above 100% confirm it.</div>`;
-    // Charge-off only: an opt-in "later ages" bucket (Q13-Q24) showing that de novo charge-offs
-    // season in AFTER the 12-quarter horizon. The main table stays strictly Q1-Q12; the bucket is
-    // an extra, toggled column of peer history (no modeled overlay). Demonstrates the flat-zero
-    // Q1-Q12 band is the vintage story, not a defect.
-    const showLater = (metric==="net_charge_off_rate" && M.later);
-    const later = window._vintageLater;
-    if(metric==="net_charge_off_rate"){
-      h += `<label class="ftplabel" style="font-size:10.5px;margin:2px 0 6px;color:#32312F"><input type="checkbox"${later?" checked":""} onchange="setVintageLater(this.checked)"> show later ages (Q13\u2013Q24) \u2014 where de novo charge-offs season in`;
-      if(later && M.later) h += ` <span style="color:#565653">\u00b7 bucket n=${M.later.n}${M.later.suppressed?" (thin \u2014 suppressed)":""}</span>`;
-      h += `</label>`;
-    }
-    const lateTh = (showLater && later) ? `<th style="text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${esc(M.later.label)}</th>` : "";
-    const lateCell = (p)=> (showLater && later)
-      ? `<td style="font-family:var(--mono);text-align:right;border-left:2px solid #CACAC7;color:#A3772A">${M.later[p]===null?"\u2014":M.later[p].toFixed(2)}</td>` : "";
-    h += '<div class="vin-body"><div class="vin-tbl" style="overflow-x:auto"><table class="ovt"><tr><th></th>' + M.ages.map(a=>`<th style="text-align:right">Q${a.age_q}</th>`).join("") + lateTh + '</tr>';
-    ["max","p90","p75","p50","p25","min"].forEach(p=>{
-      h += `<tr${(p==="max"||p==="min")?' class="vin-ext"':''}><td>${p==="max"?"Max":p==="min"?"Min":p}</td>` + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right">${a[p]==null?"\u2014":(+a[p]).toFixed(2)}</td>`).join("") + ((p==="max"||p==="min")?(lateTh?'<td style="text-align:right">\u2014</td>':''):lateCell(p)) + '</tr>';
-    });
-    if(modeled){
-      h += '<tr><td style="color:#A3772A">Modeled</td>' + M.ages.map(a=>{
-        const v = modeled[a.age_q-1];
-        if(v==null || !isFinite(+v)) return '<td style="text-align:right">\u2014</td>';
-        if(a.p25==null) return `<td style="font-family:var(--mono);text-align:right;color:#565653">${(+v).toFixed(2)}</td>`;   // r245: own value, no band
-        const col = (v>a.p75||v<a.p25) ? "#A3772A" : "#565653";
-        return `<td style="font-family:var(--mono);text-align:right;color:${col}">${v.toFixed(2)}</td>`;
-      }).join("") + ((showLater && later) ? '<td style="text-align:right;border-left:2px solid #CACAC7;color:#565653" title="The modeled bank exists only 12 quarters; the later bucket is peer history only.">\u2014</td>' : "") + '</tr>';
-      h += '<tr><td>Verdict</td>' + M.ages.map(a=>{
-        const v = modeled[a.age_q-1];
-        if(v===undefined || a.p25===null) return '<td style="text-align:right;color:#565653">\u2014</td>';
-        const t = v>a.p75 ? "above" : (v<a.p25 ? "below" : "inside");
-        return `<td style="text-align:right"><span class="ovtag ${t==="inside"?"mut":""}">${t}</span></td>`;
-      }).join("") + ((showLater && later) ? '<td style="text-align:right;color:#565653;border-left:2px solid #CACAC7">\u2014</td>' : "") + '</tr>';
-    }
-    h += '<tr><td>n</td>' + M.ages.map(a=>`<td style="font-family:var(--mono);text-align:right;color:#565653">${a.n}</td>`).join("") + ((showLater && later) ? `<td style="font-family:var(--mono);text-align:right;color:#565653;border-left:2px solid #CACAC7">${M.later.n}</td>` : "") + '</tr></table></div>' + _vinChartHtml(M, modeled) + '</div>';
-    h += `<div class="memo" style="font-size:11px">${esc(M.accuracy)}${M.ages.some(a=>a.suppressed) ? " \u00b7 quarters below n=" + V.definition.min_n + " are suppressed, not estimated" : ""}.${RISK_BASED_METRICS.has(metric) ? " \u00b7 " + esc(CBLR_NOTE) : ""}${(showLater && later) ? " \u00b7 Q13\u2013Q24 bucket: per-bank average within the window, then percentiles across banks \u2014 peer history only, no modeled overlay." : ""}</div>`;
-  });
+  else h += _vinPanelHtml(V);   // r250: tabs, Chart | Table, tracking crosshair (Claude Design)
   return h;
 }
 function retroSectionHtml(){
