@@ -351,6 +351,10 @@ def main():
        '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' in html and '[data-nie-pane="categories"] .cfg-md-detail{max-width:1100px}' in html
        and '[data-nie-pane="categories"] .cfg-md-list{width:max-content;max-width:100%!important}' in html   # r261: section-wide, list at natural width
        and 'class="fx-tog' in html and 'aria-expanded="${open}"' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
+    # r262: compensation pools are rows in the roles table and are edited in its detail panel.
+    ck("Compensation pools are rows in the roles table, edited in the detail panel; no separate block below",
+       'class="wf-role-row wf-pool-tr' in html and 'onclick="wfSelectPool(${pj})"' in html and 'class="cfg-md-detail wf-pool-detail-card"' in html
+       and "if((wf.roles||[]).length) h = h.replace('<!--WF_POOLS-->','');" in html and 'window.wfSelectPool=function(j)' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
