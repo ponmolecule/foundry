@@ -1232,3 +1232,18 @@ Presentation release on r254. The vintage chart/table panel is centred in the pa
 (panel 785 / 938 / 1,143 px at 1440 / 1920 / 2560); the chart is 10% taller than r254 on the same screen
 (308 / 340 / 436 px), computed from the r254 chart width since the side panel keeps its fixed width. Chart
 and Table still share one body height.
+
+
+## r256 — Formula component (Claude Design) and rounded corners
+
+Presentation release on r255. Engine untouched; every factor field keeps its existing handler.
+- Operating expense formula / driver component rebuilt to the Claude Design: collapsible card ("Formula" chip,
+  name, Expense = ... summary), one row per factor with small labels (operator in the label cell; name, value
+  or base, unit, path, time basis, display, remove), growth settings or the explicit schedule on a line
+  beneath, linked-series factors with their source note, and a live formula line. With only entered factors it
+  shows the arithmetic ("= 1 x 140 x 2,080 = 291,200 / year"); with a linked factor it shows names only, with
+  the correct operator (the design's mockup printed "undefined" there). Edits refresh the line. On cards
+  narrower than 820px (detail beside the list) each factor wraps into two lines; no overflow or clipped fields
+  at 1440 / 1920 / 2560.
+- Subtle rounded corners across Foundry: fields and buttons 6px; cards, panels and dark title bands 8px;
+  pill-shaped controls unchanged. Clipped-control and overflow audits: 0 at 1440 and 1920px.

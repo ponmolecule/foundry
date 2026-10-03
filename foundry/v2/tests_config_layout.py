@@ -332,6 +332,11 @@ def main():
     ck("Vintage panel is centred at 64% of the r251 width and its chart is 10% taller than r254",
        '.vx{margin:14px auto 6px;max-width:calc(0.64 * (100% + 1076px) / 2);' in html
        and 'H:Math.round(1.1*Math.max(280,Math.min(480,Wprev*0.34)))' in html)
+    # r256: formula component in the Claude Design layout; subtle rounded corners across Foundry.
+    ck("Formula component: collapsible card, one row per factor (two lines on narrow cards), live formula line; rounded corners",
+       'function _opexFormulaDriverEditorHtml(i,j,lc){   // r256:' in html and 'class="fx-expr"' in html and '@container (max-width: 820px)' in html
+       and "(k?opSym(f)+' ':'')+nm(f)" in html
+       and 'input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{border-radius:6px!important}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
