@@ -13,6 +13,7 @@ def has_links(a):
 
 class FeeLinkPlan:
     def __init__(self,a):
+        from .income_modules import fee_quantity_kind
         self.products=a.get('obs_exposures') or []
         self.nodes={};self.ids={};self.local={};self.deps={};self.kinds={}
         for key in ('deposit_products','lending_products'):
@@ -59,14 +60,7 @@ class FeeLinkPlan:
         for node in self.nodes:visit(node)
         for node in self.order:
             st=self.nodes[node];d=st.get('driver') or {};params=d.get('params') or {};basis=st.get('basis');src=d.get('source','constant');coef=params.get('coefficient') or {}
-            if basis=='balance':kind='money'
-            elif basis=='account':kind='count'
-            elif basis!='transaction':kind='native'
-            elif coef.get('kind')=='amount_per_source_unit':kind='money'
-            elif self.deps[node] is not None:kind=self.kinds[self.deps[node]]
-            elif src=='customer_acquisition_count':kind='count'
-            elif src in {'own_balance','managed_notional','distributed_balance','product_funded_flow','bank_aggregate','cost_pool'} or (params.get('flow_path') or {}).get('unit_kind')=='money_flow':kind='money'
-            else:kind='native'
+            kind=fee_quantity_kind(st,self.kinds.get(self.deps[node],'native'))
             self.kinds[node]=kind
             if src=='fee_stream_quantity' and (st.get('rate') or {}).get('behavior')=='durbin_capped':
                 if kind=='money':raise ValueError('Durbin pricing requires transaction counts, not monetary throughput')
