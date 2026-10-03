@@ -1165,3 +1165,20 @@ Built on r248. Engine untouched; run results identical.
   not counted. Any save clears the cached status and history.
 - Lists of objects are matched by identity (series_id, id, name, role, label): deleting a schedule or a role
   is one "removed" line, adding one is one "added" line, with no knock-on changes from shifted positions.
+
+
+## r250 — Peer Cohort: Claude Design replicas
+
+Presentation release on r249. Engine untouched.
+- Peer corridor rows rebuilt to the Claude Design: band strip (P10-P90, P25-P75, thin black median), the
+  modeled value as a ringed gold dot and the Q12 standalone as a small hollow dot; statistics under the strip
+  with each label above its value (Min and Max kept, muted); value in 22px monospace with Q12 standalone
+  beneath; tone chip and label (green better than peer median, amber worse, red outside P10-P90);
+  "directional" chip where the windows differ; "Trajectory ->" opens that metric in the vintage corridor.
+- Vintage corridor rebuilt to the Claude Design: metric tabs, like-for-like chip, Chart | Table toggle; one
+  chart (P75-P90 and P25-P75 bands, dashed median, modeled line, shaded thin-sample region "n = 2 · p75
+  meets p90", Q1-Q12 with n beneath) with a tracking crosshair and a side panel for the hovered quarter
+  (n, Modeled with verdict, Max/p90/p75/p50/p25/Min). This replaces the r241-r244 graphite headings and
+  separate table-plus-plot per metric.
+- Curated vintage title ("Chartered 2019-2024") now reads the opening years from the corridor itself.
+- Gate pins on the replaced layout updated to assert the same intents against the new design.

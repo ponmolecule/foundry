@@ -266,15 +266,14 @@ def main():
     # r240: Peer Cohort: one cached batch request; redesigned corridor with stacked Min..Max; Excel export.
     ck("Peer corridor uses one cached batch request and the redesigned rows with stacked Min..Max",
        '/api/v31/peer-bands/batch?metrics=' in html and 'window._pbCache = window._pbCache || {};' in html
-       and 'function _pbDesignHtml(items, ctx)' in html and "stat('min','Min')" in html and "stat('max','Max')" in html
+       and 'function _pbDesignHtml(items, ctx)' in html and "st('min','min','ext')" in html and "st('max','max','ext')" in html
        and 'window.pbExport=async function()' in html and 'const results = await Promise.all(metrics.map(fetchBand));' not in html)
     ck("Vintage corridor tables include Min and Max rows",
-       '["max","p90","p75","p50","p25","min"].forEach(p=>{' in html)
+       "[['Max','max'],['p90','p90'],['p75','p75'],['p50','p50'],['p25','p25'],['Min','min']].forEach(" in html)   # r250: design table
     # r241: vintage follows the cohort; graphite headings; plots beside tables; bounded, delineated corridor.
     ck("Vintage corridor follows the peer cohort, with graphite headings and a plot beside each table",
        'function _vinSync()' in html and 'if(typeof _vinSync==="function") _vinSync();' in html and '{asset_band:_mode}' in html
-       and '<div class="vin-h"><span class="vin-name">' in html and '_vinChartHtml(M, modeled)' in html
-       and '.vin-h{display:flex;align-items:baseline;gap:12px;width:fit-content;min-width:33%;' in html)
+       and 'function _vinPanelHtml(V)' in html and 'function _vinChartSvg(S,hq)' in html and 'window.vinHover=function(i)' in html)   # r250: tabs + one chart
     ck("Peer corridor is bounded in width and its percentiles are delineated",
        '.pc-cards,.pc-panel,.pc-note{max-width:calc((100% + 1076px) / 2)}' in html and '.pc-st{padding:0 9px;border-left:1px solid #ECECE8}' in html)
     # r242: vintage follows cohort switches without races; label fixed; plot sized to its table and framed.
@@ -296,7 +295,7 @@ def main():
     ck("Vintage corridor explains an empty cohort instead of drawing dashes, and offers all charters",
        'function _vinEmptyCard(V)' in html and 'if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }' in html
        and 'window.vintageUseAll=function()' in html and '(!window._vinScopeAll&&_mode' in html
-       and "if(a.p25==null) return `<td style=\"font-family:var(--mono);text-align:right;color:#565653\">${(+v).toFixed(2)}</td>`;" in html)
+       and "S.mod.map(v=>`<td>${f(v)}</td>`)" in html)   # r250: modeled row shown at every age
     # r246: the vintage (charter years, band) is shown in the section title.
     ck("Vintage corridor title carries the charter years (and band, or curated peers' actual opening years)",
        "'<div class=\"ovh2\">Vintage corridor \\u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>'" in html
@@ -314,6 +313,11 @@ def main():
        'function _govTrackSlot()' in html and "/api/v31/engagement/${encodeURIComponent(slug)}/status" in html
        and 'window.govStartTracking=async function()' in html and "confirm('Start change tracking for this engagement now?" in html
        and 'w._govHook=true; window.fetch=w;' in html)
+    # r250: Claude Design replicas: peer rows and the vintage panel; curated title read from the corridor.
+    ck("Peer rows and the vintage panel follow the Claude Design (ringed modeled dot, tone chips, tabs, Chart | Table)",
+       '.pc2-mod{position:absolute;top:4px;width:17px;height:17px' in html and "TONE={good:['#e5ede2','#3f6444']" in html
+       and '<div class="vx-seg"><button' in html and "window.vinOpen=function(m)" in html
+       and 'if(!V || !(V.bank_coverage||[]).length) return "";' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
