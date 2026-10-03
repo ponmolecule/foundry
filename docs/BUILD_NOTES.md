@@ -1210,3 +1210,17 @@ Presentation release on r252 (r252 = the 80% vintage panel width; r253 adds the 
   like axis ticks: the ROA modeled dot (51.49, between P50 and P75) appeared to sit on the "p90" column.
 - Vintage chart/table panel is 80% of its r251 width: calc(0.8 * (100% + 1076px) / 2); the chart is still
   drawn at its measured size and both views keep one height.
+
+
+## r254 — Peer corridor on a percentile axis
+
+Presentation release on r253.
+- Every strip uses the same percentile axis: P10 at 10%, P25 at 25%, median at 50%, P75 at 75%, P90 at 90%,
+  min and max at the ends, so bands and median bars align across all rows. Band edges are placed by role, so
+  tied values (e.g. NIM P25 = median = 3.33) cannot move them. The modeled and standalone dots are placed by
+  rank, interpolated between the known percentiles; values beyond the peer min or max are pinned at the edge
+  (the chip still says "below p10" / "above p90").
+- Statistic labels sit directly under their marks (min, p10 ... max); the count is no longer on the axis:
+  one "n = X peers per metric" beside the legend when every metric has the same count, otherwise per row.
+- Legend in the panel header: P10-P90 (middle 80% of peers), P25-P75 (middle 50%), median, your bank,
+  Q12 standalone.

@@ -1858,6 +1858,23 @@ tr.vin-ext td{color:var(--k-tx3)}
 .vx-svg{width:auto;height:auto;max-width:none}
 .vx-main{align-items:stretch}.vx-fixed{display:flex;flex-direction:column;justify-content:flex-start}
 .vx-chart{overflow:hidden}
+
+/* r254: peer corridor legend */
+.pc2-legend{display:inline-flex;align-items:center;flex-wrap:wrap;gap:6px;font-size:11.5px;color:#4a4741}
+.pc2-legend em{font-style:normal;color:#9b958a;margin-right:6px}
+.pc2-legend .lg{display:inline-block;margin-left:10px}.pc2-legend .lg:first-child{margin-left:0}
+.pc2-legend .lg.l{width:18px;height:9px;background:#ece5d5}.pc2-legend .lg.d{width:18px;height:9px;background:#d9cba8}
+.pc2-legend .lg.m{width:2px;height:13px;background:#1d1c1a}
+.pc2-legend .lg.b{width:11px;height:11px;border-radius:50%;background:#9a7330;border:2px solid #fff;box-shadow:0 0 0 1px #9a7330;box-sizing:border-box}
+.pc2-legend .lg.s{width:9px;height:9px;border-radius:50%;border:1.5px solid #9a7330;background:#faf8f3;box-sizing:border-box}
+.pc2 .pc-panel-h{flex-wrap:wrap;gap:10px 18px}.pc2-scale{margin-left:auto}
+
+/* r254: percentile axis labels under their marks; count beside the legend or per row */
+.pc2-stats.pc2-axislbl{display:block;position:relative;height:30px}
+.pc2-axislbl .pc2-st{position:absolute;top:0;transform:translateX(-50%);align-items:center;white-space:nowrap}
+.pc2-axislbl .pc2-st.lft{transform:none;align-items:flex-start}.pc2-axislbl .pc2-st.rgt{transform:translateX(-100%);align-items:flex-end}
+.pc2-n{font-size:11.5px;color:#4a4741;padding:2px 8px;border:1px solid #e4ded1;border-radius:3px;background:#FAFAF8}
+.pc2-rn{padding:1px 6px;border-radius:3px;background:#f0eee9;color:#4a4741;font-family:var(--pcmono,monospace);font-size:11px}
 </style>
 </head>
 <body>
@@ -2531,7 +2548,7 @@ function _pbDesignHtml(items, ctx){
   let h=`<div class="pc-cards">`+card('Inside peer P25\u2013P75',inside.length,ok.length,'')+card('Outside P10\u2013P90',outside.length,null,outside.length?names(outside):'none')
     +card('Better than peer median',better.length,ok.length,"given each metric\u2019s direction")+card('Awaiting peer data',wait.length,null,wait.length?names(wait):'none')+`</div>`;
   if(ctx.smallNany) h+=`<div class="pc-note"><b>Small cohort.</b> Percentiles approach member values \u2014 read them as the range of the named peers, not a distribution.</div>`;
-  h+=`<div class="pc-panel pc2"><div class="pc-panel-h"><b>${esc(ctx.bandName)} band${ctx.latestQ?', '+esc(ctx.latestQ):''}</b><span class="pc2-scale">Each row scaled to its own peer range</span><button type="button" class="pc-xl" onclick="pbExport()">Download Excel</button></div>`;
+  h+=`<div class="pc-panel pc2"><div class="pc-panel-h"><b>${esc(ctx.bandName)} band${ctx.latestQ?', '+esc(ctx.latestQ):''}</b><span class="pc2-legend"><i class="lg l"></i>P10\u2013P90 <em>middle 80% of peers</em><i class="lg d"></i>P25\u2013P75 <em>middle 50%</em><i class="lg m"></i>median<i class="lg b"></i>your bank<i class="lg s"></i>Q12 standalone</span>${(()=>{ const ns=[...new Set(items.filter(x=>x.latest&&x.latest.n!=null).map(x=>x.latest.n))]; window._pbOneN=(ns.length===1)?ns[0]:null; return ns.length===1?`<span class="pc2-n">n = ${ns[0]} peer${ns[0]===1?'':'s'} per metric</span>`:''; })()}<span class="pc2-scale">Positioned by percentile among peers</span><button type="button" class="pc-xl" onclick="pbExport()">Download Excel</button></div>`;
   const VMAP={roa:'roa',nim:'nim',efficiency:'efficiency_ratio',tier1:'tier1_ratio',lev:'leverage_ratio'};
   const TONE={good:['#e5ede2','#3f6444'],mid:['#f4ead6','#7a5a20'],bad:['#f6e3db','#a1462b']};
   items.forEach(it=>{
@@ -2539,18 +2556,28 @@ function _pbDesignHtml(items, ctx){
     const lowerGood=(d==='lower_good'||it.metric==='efficiency'||it.metric==='net_charge_off_rate');
     const dir=lowerGood?'lower is better':'higher is better';
     const vm=VMAP[it.metric], lfl=vm&&_VIN_LFL[vm], directional=lfl&&!lfl[0];
-    let r=`<div class="pc2-row"><div class="pc2-name"><b>${esc(it.label)}</b><div class="pc2-tags"><span class="pc2-basis">${esc(it.basis||'')}</span><span>${dir}</span>${directional?`<span class="pc2-dirn" title="${esc(lfl[1])}">directional</span>`:''}</div></div>`;
+    const rowN=(window._pbOneN==null&&it.latest&&it.latest.n!=null)?`<span class="pc2-rn">n ${it.latest.n}</span>`:'';
+    let r=`<div class="pc2-row"><div class="pc2-name"><b>${esc(it.label)}</b><div class="pc2-tags"><span class="pc2-basis">${esc(it.basis||'')}</span><span>${dir}</span>${directional?`<span class="pc2-dirn" title="${esc(lfl[1])}">directional</span>`:''}${rowN}</div></div>`;
     if(it.err||!it.latest){ const em=String(it.err||''); h+=r+`<div class="pc2-wait"><div class="pc2-none"></div>${/^no peer data/i.test(em)?esc(em):'No peer data published yet for this metric and cohort'+(em?' \u2014 '+esc(em):'')+'.'}</div></div>`; return; }
     const L=it.latest, v=(it.m&&it.m.v!=null)?+it.m.v:null, sa=(it.m&&it.m.vq!=null)?+it.m.vq:null, pct=it.pct||'';
     const vals=[L.p10,L.p25,L.p50,L.p75,L.p90].map(Number).concat(v!=null?[v]:[], sa!=null?[sa]:[]).filter(isFinite);
     let lo=Math.min(...vals), hi=Math.max(...vals); const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
-    const pc=x=>((x-lo)/(hi-lo)*100).toFixed(2)+'%', wd=(x1,x2)=>((x2-x1)/(hi-lo)*100).toFixed(2)+'%';
-    let strip=`<div class="pc2-strip"><div class="pc2-axis"></div><div class="pc2-b90" style="left:${pc(L.p10)};width:${wd(L.p10,L.p90)}"></div><div class="pc2-b50" style="left:${pc(L.p25)};width:${wd(L.p25,L.p75)}"></div><div class="pc2-med" style="left:${pc(L.p50)}"></div>`;
+    let pc=x=>((x-lo)/(hi-lo)*100).toFixed(2)+'%', wd=(x1,x2)=>((x2-x1)/(hi-lo)*100).toFixed(2)+'%';
+    {   // r254: percentile axis: P10 at 10%, P25 at 25%, median at 50% ... in every row (value positions by rank)
+      const K=[[L.min,0],[L.p10,10],[L.p25,25],[L.p50,50],[L.p75,75],[L.p90,90],[L.max,100]].filter(k=>k[0]!=null&&isFinite(+k[0])).map(k=>[+k[0],k[1]]);
+      const rank=x=>{ x=+x; if(x<K[0][0]) return K[0][1]>0?Math.max(1.5,K[0][1]-3):1.5; if(x>K[K.length-1][0]) return K[K.length-1][1]<100?Math.min(98.5,K[K.length-1][1]+3):98.5;
+        const ties=K.filter(k=>k[0]===x); if(ties.length) return (ties[0][1]+ties[ties.length-1][1])/2;
+        for(let i=0;i<K.length-1;i++){ const [a,ra]=K[i],[b,rb]=K[i+1]; if(x>=a&&x<=b) return b===a?(ra+rb)/2:ra+(x-a)/(b-a)*(rb-ra); } return 50; };
+      pc=x=>rank(x).toFixed(2)+'%';
+      wd=(x1,x2)=>Math.max(0,rank(x2)-rank(x1)).toFixed(2)+'%';
+    }
+    const RK=true;   // r254: band edges by role on the percentile axis (ties in value cannot move them)
+    let strip=`<div class="pc2-strip"><div class="pc2-axis"></div><div class="pc2-b90" style="left:${RK?'10%':pc(L.p10)};width:${RK?'80%':wd(L.p10,L.p90)}"></div><div class="pc2-b50" style="left:${RK?'25%':pc(L.p25)};width:${RK?'50%':wd(L.p25,L.p75)}"></div><div class="pc2-med" style="left:${RK?'50%':pc(L.p50)}"></div>`;
     if(sa!=null) strip+=`<div class="pc2-sa" title="Q12 standalone" style="left:${pc(sa)}"></div>`;
     if(v!=null) strip+=`<div class="pc2-mod" title="Modeled" style="left:${pc(v)}"></div>`;
     strip+=`</div>`;
-    const st=(k,lab,cls)=>`<span class="pc2-st${cls?' '+cls:''}"><i>${lab}</i>${_pbFmt(L[k])}</span>`;
-    const stats=`<div class="pc2-stats">`+st('min','min','ext')+st('p10','p10')+st('p25','p25')+st('p50','p50')+st('p75','p75')+st('p90','p90')+st('max','max','ext')+`<span class="pc2-st"><i>n</i>${L.n??'\u2014'}</span></div>`;
+    const st=(k,lab,pos,cls)=>(L[k]==null?'':`<span class="pc2-st${cls?' '+cls:''}" style="left:${pos}%"><i>${lab}</i>${_pbFmt(L[k])}</span>`);
+    const stats=`<div class="pc2-stats pc2-axislbl">`+st('min','min',0,'ext lft')+st('p10','p10',10)+st('p25','p25',25)+st('p50','p50',50)+st('p75','p75',75)+st('p90','p90',90)+st('max','max',100,'ext rgt')+`</div>`;   // r254: each label under its mark
     r+=`<div class="pc2-plot">${strip}${stats}</div>`;
     if(v==null){ h+=r+`<div class="pc2-val"><b class="mut">\u2014</b></div><div class="pc2-tone"><span class="pc2-chip" style="background:#f0eee9;color:#6f6a60">peer band only</span></div></div>`; return; }
     const better=lowerGood? v<L.p50 : v>L.p50, outside=v<L.p10||v>L.p90, tk=better?'good':(outside?'bad':'mid');
