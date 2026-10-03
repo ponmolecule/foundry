@@ -1262,3 +1262,10 @@ Presentation release on r256. Engine untouched; configuration keys unchanged.
 - Formula / driver component: more generous spacing; every factor on one line, with growth shown as a summary
   chip ("10% / yr · step") that opens its settings beneath on demand; a compact remove control. Narrow cards
   still wrap to two lines.
+
+
+## r258 — "+ Compensation pool" beside "+ Add role"
+
+Presentation release on r257. The roles action row reads "+ Add role · + Compensation pool · Paste roles"
+(the existing "+ Tiered / banded compensation component" entry renamed, same adder and same
+workforce.additive_components object); the separate button r257 placed in the pools header is removed.

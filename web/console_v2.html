@@ -12433,7 +12433,7 @@ function structuresSectionsHtml(){
       h += '<div class="nie-section-note" style="margin:4px 0 8px">Roles inherit the workforce defaults unless a row explicitly overrides them. Compensation carries an explicit Total / Per FTE basis and /Month, /Quarter, or /Year unit; basis, schedule cadence, and growth period are separate semantics.</div>';
     }
     const _wpo=_structuredPasteIsOpen("workforce");
-    h += '<div class="nie-actions"><a href="#" class="cadd" style="color:#565653" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="_structuredPasteSetOpen(\'workforce\',true);return false">⎘ Paste roles</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Tiered / banded compensation component</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
+    h += '<div class="nie-actions"><a href="#" class="cadd" style="color:#565653" onclick="nieWorkforceAdd();return false">+ Add role</a><a href="#" class="cadd" onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</a><a href="#" class="cadd" onclick="_structuredPasteSetOpen(\'workforce\',true);return false">⎘ Paste roles</a>' + ((wf.roles||[]).length?'<a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceClear();return false">Clear roles</a>':'') + '</div>';
     if(_wpo){
       h += '<div style="margin:8px 0 10px;border-top:1px solid rgba(85,85,82,.12);padding-top:9px">';
       h += '<div class="cmut" style="margin:0 0 5px">Paste directly from <b>Excel or Google Sheets</b>; Foundry reads the clipboard columns automatically. CSV is also accepted — you do not need to type tab characters.</div>';
@@ -12539,7 +12539,7 @@ function structuresSectionsHtml(){
       h += '<div class="cmut" style="margin:8px 0 2px">No workforce roles or additive compensation components yet.</div>';
     }
     { // r257: Compensation pools (bonus and incentive pools layered on role compensation); same config and adder as before
-      let __p = '<div class="workforce-additive-wrap wf-pools"><div class="wf-pools-h"><div><div class="csub" style="margin-bottom:3px">Compensation pools</div><div class="nie-section-note">Bonus and incentive pools layered on role compensation, e.g. a revenue-linked bonus pool. They post to Workforce compensation.</div></div><button type="button" class="btn-plain" onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</button></div>';
+      let __p = '<div class="workforce-additive-wrap wf-pools"><div class="wf-pools-h"><div><div class="csub" style="margin-bottom:3px">Compensation pools</div><div class="nie-section-note">Bonus and incentive pools layered on role compensation, e.g. a revenue-linked bonus pool. They post to Workforce compensation.</div></div></div>';
       if(_wfAddComps.length){ _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')__p += _workforcePiecewiseEditorHtml(lc,j);}); }
       else __p += '<div class="cmut" style="margin:4px 0 2px">No compensation pools.</div>';
       __p += '</div>';

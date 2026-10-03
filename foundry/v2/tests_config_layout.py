@@ -340,7 +340,7 @@ def main():
     # r257: one-line formula factors (growth chip), Compensation pools above the run summary with pool rows, sized pool fields.
     ck("Formula factors stay on one line (growth chip); Compensation pools sit above the run summary, which lists each pool",
        'class="fx-gchip' in html and '.fx-row.fx-hasg{grid-template-columns:' in html and "h += '<!--WF_POOLS-->';" in html
-       and 'onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</button>' in html and 'class="wf-pool-row"' in html
+       and 'onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</a>' in html and 'class="wf-pool-row"' in html
        and '.wf-pools .opex-piecewise-timing-grid{grid-template-columns:230px 170px 140px;' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
