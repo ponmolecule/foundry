@@ -1957,6 +1957,22 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 .lsrc-wrap{position:relative}.lsrc-x{position:absolute;top:6px;right:8px;z-index:1;font-size:11.5px;color:#6E6A63;text-decoration:none;background:#FFFFFF;padding:1px 6px;border-radius:4px}
 .lsrc-x:hover{color:#9F5340;background:#f6e3db}
 .lsrc-bar{margin-top:4px;font-size:11.5px;color:#96928C}.lsrc-bar a{color:#3d5a80;text-decoration:none}
+
+/* r260: categories with formula components get room: list stacked above a detail panel up to 1100px */
+.cfg-md:has(.fx-card){grid-template-columns:minmax(0,1fr)!important}
+.cfg-md-detail:has(.fx-card){max-width:1100px}
+.fx-row:not(.fx-linked){grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 28px!important;gap:8px 14px!important}
+.fx-row.fx-hasg{grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 110px 28px!important}
+.fx-row.fx-linked{grid-template-columns:94px minmax(120px,1.2fr) minmax(240px,4fr) 28px!important;gap:8px 14px!important}
+/* r260: an unmistakable open/close control */
+.fx-tog{display:inline-flex;align-items:center;justify-content:center;flex:0 0 30px;width:30px;height:30px;border:1px solid #d3cdbf;border-radius:8px;background:#FFFFFF;color:#4a4741;transition:transform .15s ease,background .15s ease}
+.fx-tog.on{transform:rotate(180deg)}
+.fx-head:hover .fx-tog{background:#f3efe6;border-color:#9a7330;color:#7a5a20}
+.fx-head:focus-visible{outline:2px solid #9a7330;outline-offset:-2px}
+.fx-closed .fx-head{border-bottom:0}
+
+/* r260: "Hide source" sits on its own line above the preview (no overlap with the source text) */
+.lsrc-wrap{padding-top:20px}.lsrc-x{top:0!important;right:0!important}
 </style>
 </head>
 <body>
@@ -11805,7 +11821,7 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
     if(res!=null && isFinite(res)) arith=` = ${parts.join(' \u00d7 ').replace(/\u00d7 /g,(m,o)=>m)} = ${res.toLocaleString('en-US',{maximumFractionDigits:2})}${pers.size===1?' / '+[...pers][0]:''}`;
     if(arith){ const syms=factors.slice(1).map(opSym); let p2=parts[0]; parts.slice(1).forEach((x,idx)=>{ p2+=` ${syms[idx]} ${x}`; }); arith=` = ${p2} = ${res.toLocaleString('en-US',{maximumFractionDigits:2})}${pers.size===1?' / '+[...pers][0]:''}`; }
   }
-  let h=`<div class="fx-card opex-formula-component-card"><div class="fx-head" onclick="window._fxOpen['${key}']=${open?'false':'true'};renderContent()"><span class="fx-chip">Formula</span><b>${esc(c.name||'Formula / driver component')}</b><span class="fx-sum">Expense = ${esc(expr||'factor chain')}</span><span class="fx-caret">${open?'\u25be':'\u25b8'}</span></div>`;
+  let h=`<div class="fx-card opex-formula-component-card${open?'':' fx-closed'}"><div class="fx-head" role="button" tabindex="0" aria-expanded="${open}" title="${open?'Collapse':'Expand'}" onclick="window._fxOpen['${key}']=${open?'false':'true'};renderContent()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><span class="fx-chip">Formula</span><b>${esc(c.name||'Formula / driver component')}</b><span class="fx-sum">Expense = ${esc(expr||'factor chain')}</span><span class="fx-tog${open?' on':''}" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>`;
   if(!open) return h+`</div>`;
   h+=`<div class="fx-body"><label class="fx-l fx-name"><span>Component name</span><input value="${esc(c.name||'Formula / driver component')}" onchange="nieCatFormulaName(${i},${j},this.value)"></label>`;
   factors.forEach((f,k)=>{
