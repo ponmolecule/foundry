@@ -1194,3 +1194,9 @@ Presentation release on r250. Engine untouched.
   enlarged the text and distorted the proportions on wide screens.
 - Chart and Table views share one body height at every width (also allowing for the side panel).
 - The charge-off "no peer data" message no longer repeats itself.
+
+
+## r252 — Vintage panel width
+
+Presentation release on r251. The vintage chart/table panel is 80% of its r251 width (981 / 1173 / 1429 px at
+1440 / 1920 / 2560); the chart is still drawn at its measured size and both views keep equal heights.
