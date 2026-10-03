@@ -318,6 +318,11 @@ def main():
        '.pc2-mod{position:absolute;top:4px;width:17px;height:17px' in html and "TONE={good:['#e5ede2','#3f6444']" in html
        and '<div class="vx-seg"><button' in html and "window.vinOpen=function(m)" in html
        and 'if(!V || !(V.bank_coverage||[]).length) return "";' in html)
+    # r251: vintage chart drawn at true size (never scaled), shared body height, aligned peer statistics.
+    ck("Vintage chart is drawn at its measured size, both views share one height, and peer statistics sit in fixed columns",
+       'function fitVinPanel()' in html and 'width="${W}" height="${H}" class="vx-svg"' in html and 'viewBox="0 0 960 320"' not in html
+       and 'min-height:${Math.max(_vinDims().H+56,420)}px' in html
+       and '.pc2-stats{display:grid;grid-template-columns:repeat(8,minmax(52px,1fr));' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

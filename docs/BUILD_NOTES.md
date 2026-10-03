@@ -1182,3 +1182,15 @@ Presentation release on r249. Engine untouched.
   separate table-plus-plot per metric.
 - Curated vintage title ("Chartered 2019-2024") now reads the opening years from the corridor itself.
 - Gate pins on the replaced layout updated to assert the same intents against the new design.
+
+
+## r251 — Peer Cohort design fixes
+
+Presentation release on r250. Engine untouched.
+- Peer statistics (min, p10-p90, max, n) sit in eight fixed equal columns spanning the plot, so each statistic
+  is at the same position in every row (previously each row flowed at its own widths and nothing lined up).
+- Vintage chart drawn at the chart area's measured pixel width (redrawn on resize), height about a third of
+  the width (280-480px), fixed text sizes. Previously a fixed 960x320 drawing was stretched to the panel, which
+  enlarged the text and distorted the proportions on wide screens.
+- Chart and Table views share one body height at every width (also allowing for the side panel).
+- The charge-off "no peer data" message no longer repeats itself.

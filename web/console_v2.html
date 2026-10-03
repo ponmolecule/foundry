@@ -1805,7 +1805,7 @@ tr.vin-ext td{color:var(--k-tx3)}
 .pc2-med{position:absolute;top:3px;height:19px;width:2px;margin-left:-1px;background:#1d1c1a}
 .pc2-sa{position:absolute;top:7px;width:11px;height:11px;margin-left:-5.5px;border-radius:6px;border:1.5px solid #9a7330;background:#faf8f3;box-sizing:border-box}
 .pc2-mod{position:absolute;top:4px;width:17px;height:17px;margin-left:-8.5px;border-radius:9px;background:#9a7330;border:3px solid #fff;box-shadow:0 0 0 1px #9a7330,0 1px 3px rgba(0,0,0,.18);box-sizing:border-box}
-.pc2-stats{display:flex;flex-wrap:wrap;gap:4px 18px;font-family:var(--mono);font-size:11px;color:#6f6a60;font-variant-numeric:tabular-nums}
+.pc2-stats{display:grid;grid-template-columns:repeat(8,minmax(52px,1fr));gap:0 10px;font-family:var(--mono);font-size:11px;color:#6f6a60;font-variant-numeric:tabular-nums}
 .pc2-st{display:flex;flex-direction:column;align-items:flex-start}.pc2-st i{font-style:normal;color:#9b958a}
 .pc2-st.ext{color:#9b958a}
 .pc2-val{flex:0 0 130px;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
@@ -1853,6 +1853,11 @@ tr.vin-ext td{color:var(--k-tx3)}
 .vx-svg text.vx-mono{font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace}
 .pc2-name{flex:0 0 230px}
 .pc2 .pc-panel-h b::first-letter{text-transform:uppercase}
+
+/* r251: vintage chart drawn at true size; both views share one body height */
+.vx-svg{width:auto;height:auto;max-width:none}
+.vx-main{align-items:stretch}.vx-fixed{display:flex;flex-direction:column;justify-content:flex-start}
+.vx-chart{overflow:hidden}
 </style>
 </head>
 <body>
@@ -2321,6 +2326,7 @@ function fitControls(root){
   root.querySelectorAll('input[type=text],input:not([type]),input[type=number]').forEach(fitInput);
   fitMasterDetail();
   if(typeof fitVintageCharts==='function') fitVintageCharts();
+  if(typeof fitVinPanel==='function') fitVinPanel();
 }
 function fitMasterDetail(){
   // r238: a list whose table needs more than the default 640px gets exactly that width when the screen has room,
@@ -2534,7 +2540,7 @@ function _pbDesignHtml(items, ctx){
     const dir=lowerGood?'lower is better':'higher is better';
     const vm=VMAP[it.metric], lfl=vm&&_VIN_LFL[vm], directional=lfl&&!lfl[0];
     let r=`<div class="pc2-row"><div class="pc2-name"><b>${esc(it.label)}</b><div class="pc2-tags"><span class="pc2-basis">${esc(it.basis||'')}</span><span>${dir}</span>${directional?`<span class="pc2-dirn" title="${esc(lfl[1])}">directional</span>`:''}</div></div>`;
-    if(it.err||!it.latest){ h+=r+`<div class="pc2-wait"><div class="pc2-none"></div>No peer data published yet for this metric and cohort \u2014 ${esc(it.err||'')}</div></div>`; return; }
+    if(it.err||!it.latest){ const em=String(it.err||''); h+=r+`<div class="pc2-wait"><div class="pc2-none"></div>${/^no peer data/i.test(em)?esc(em):'No peer data published yet for this metric and cohort'+(em?' \u2014 '+esc(em):'')+'.'}</div></div>`; return; }
     const L=it.latest, v=(it.m&&it.m.v!=null)?+it.m.v:null, sa=(it.m&&it.m.vq!=null)?+it.m.vq:null, pct=it.pct||'';
     const vals=[L.p10,L.p25,L.p50,L.p75,L.p90].map(Number).concat(v!=null?[v]:[], sa!=null?[sa]:[]).filter(isFinite);
     let lo=Math.min(...vals), hi=Math.max(...vals); const pad=(hi-lo)*0.06||1; lo-=pad; hi+=pad;
@@ -2852,19 +2858,20 @@ function _vinBodyHtml(V,metric,view){
   const S=_vinSeries(V,metric); const nA=S.ages.length;
   if(!nA) return `<div class="vx-empty">No ages to show.</div>`;
   if(_vinMetricEmpty(S.M)){ const mx=Math.max(0,...S.n), mn=(V.definition&&V.definition.min_n)||8; return `<div class="vx-empty">No corridor at any age: at most ${mx} bank${mx===1?'':'s'} per age quarter, below the minimum of ${mn}.</div>`; }
-  if(view==='table') return _vinTableHtml(S);
+  if(view==='table') return `<div class="vx-fixed" style="min-height:${Math.max(_vinDims().H+56,420)}px">${_vinTableHtml(S)}</div>`;
   let hq=window._vinHq; if(hq==null||hq>=nA) hq=nA-1;
-  return `<div class="vx-main"><div class="vx-chart">${_vinChartSvg(S,hq)}</div>${_vinSide(S,hq)}</div>`;
+  return `<div class="vx-main" style="min-height:${Math.max(_vinDims().H+56,420)}px"><div class="vx-chart">${_vinChartSvg(S,hq)}</div>${_vinSide(S,hq)}</div>`;
 }
+function _vinDims(){ const W=Math.max(420,Math.round(window._vinChartW||900)); return {W, H:Math.round(Math.max(280,Math.min(480,W*0.34)))}; }
 function _vinChartSvg(S,hq){
-  const W=960,H=320,L=54,R=16,T=16,B=40,n=S.ages.length;
+  const {W,H}=_vinDims(), L=54,R=16,T=16,B=40,n=S.ages.length;   // r251: drawn at true pixel size, never scaled
   const all=[...S.p90,...S.p25,...(S.mod||[])].filter(v=>v!=null); if(!all.length) return '';
   let lo=Math.min(...all),hi=Math.max(...all); const pad=(hi-lo)*0.08||1; lo-=pad; hi+=pad;
   const step=(W-L-R)/Math.max(1,n-1), x=i=>L+i*step, y=v=>T+(hi-v)/(hi-lo)*(H-T-B);
   const runs=(a,b)=>{ const out=[]; let c=[]; for(let i=0;i<n;i++){ if(a[i]!=null&&b[i]!=null) c.push(i); else { if(c.length) out.push(c); c=[]; } } if(c.length) out.push(c); return out; };
   const area=(up,dn,fill)=>runs(up,dn).map(r=>r.length<2?'':`<path d="M${r.map(i=>x(i).toFixed(1)+','+y(up[i]).toFixed(1)).join('L')}L${r.slice().reverse().map(i=>x(i).toFixed(1)+','+y(dn[i]).toFixed(1)).join('L')}Z" fill="${fill}"/>`).join('');
   const line=(a,attrs)=>runs(a,a).map(r=>r.length<2?'':`<path d="M${r.map(i=>x(i).toFixed(1)+','+y(a[i]).toFixed(1)).join('L')}" fill="none" ${attrs}/>`).join('');
-  let g=`<svg viewBox="0 0 ${W} ${H}" width="100%" class="vx-svg" role="img" aria-label="Vintage corridor chart">`;
+  let g=`<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" class="vx-svg" role="img" aria-label="Vintage corridor chart">`;
   for(let k=0;k<=4;k++){ const v=lo+(hi-lo)*k/4, yy=y(v); g+=`<line x1="${L}" x2="${W-R}" y1="${yy.toFixed(1)}" y2="${yy.toFixed(1)}" stroke="#efeae0"/><text x="${L-10}" y="${(yy+4).toFixed(1)}" text-anchor="end" font-size="11" fill="#9b958a" class="vx-mono">${v.toFixed(Math.abs(hi-lo)<10?1:0)}</text>`; }
   const small=S.n.findIndex(v=>v>0&&v<3);
   if(small>=0){ const x0=Math.max(L,x(small)-step/2); const meets=S.p75[small]!=null&&S.p75[small]===S.p90[small];
@@ -2895,6 +2902,15 @@ function _vinTableHtml(S){
   h+=`<tr class="n"><td>n</td>`+S.n.map(v=>`<td>${v}</td>`).join('')+`</tr></table></div>`;
   return h;
 }
+function fitVinPanel(){   // r251: keep the chart drawn at the chart area's real width
+  const box=document.querySelector('#vinPanel .vx-chart')||null, panel=document.getElementById('vinPanel'); if(!panel||!panel.offsetParent) return;
+  let w;
+  if(box){ const cs=getComputedStyle(box); w=box.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0); }
+  else { w=panel.clientWidth-240-20; }
+  w=Math.round(w); if(!(w>0) || Math.abs((window._vinChartW||0)-w)<2) return;
+  window._vinChartW=w; const b=document.getElementById('vxBody'); if(b&&window.vintage) b.innerHTML=_vinBodyHtml(window.vintage,_vinCur(window.vintage),window._vinView||'chart');
+}
+window.addEventListener('resize',()=>{ clearTimeout(window._vinPz); window._vinPz=setTimeout(fitVinPanel,100); });
 window.vinSelect=function(m){ window._vinSel=m; window._vinHq=null; const p=document.getElementById('vinPanel'); if(p&&window.vintage) p.outerHTML=_vinPanelHtml(window.vintage); };
 window.vinView=function(v){ window._vinView=v; const p=document.getElementById('vinPanel'); if(p&&window.vintage) p.outerHTML=_vinPanelHtml(window.vintage); };
 window.vinHover=function(i){ if(window._vinHq===i) return; window._vinHq=i; const b=document.getElementById('vxBody'); if(b&&window.vintage) b.innerHTML=_vinBodyHtml(window.vintage,_vinCur(window.vintage),window._vinView||'chart'); };
