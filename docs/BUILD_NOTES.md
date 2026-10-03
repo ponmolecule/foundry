@@ -1200,3 +1200,13 @@ Presentation release on r250. Engine untouched.
 
 Presentation release on r251. The vintage chart/table panel is 80% of its r251 width (981 / 1173 / 1429 px at
 1440 / 1920 / 2560); the chart is still drawn at its measured size and both views keep equal heights.
+
+
+## r253 — Peer statistics block (with r252: narrower vintage panel)
+
+Presentation release on r252 (r252 = the 80% vintage panel width; r253 adds the statistics block).
+- Peer statistics are a compact block of eight fixed 64px columns under the start of the strip (aligned row to
+  row, as in the Claude Design). r251 spread equal columns across the strip's full width, which made them read
+  like axis ticks: the ROA modeled dot (51.49, between P50 and P75) appeared to sit on the "p90" column.
+- Vintage chart/table panel is 80% of its r251 width: calc(0.8 * (100% + 1076px) / 2); the chart is still
+  drawn at its measured size and both views keep one height.
