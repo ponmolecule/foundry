@@ -297,6 +297,10 @@ def main():
        'function _vinEmptyCard(V)' in html and 'if(_vinAllEmpty(V)){ h += _vinEmptyCard(V); }' in html
        and 'window.vintageUseAll=function()' in html and '(!window._vinScopeAll&&_mode' in html
        and "if(a.p25==null) return `<td style=\"font-family:var(--mono);text-align:right;color:#565653\">${(+v).toFixed(2)}</td>`;" in html)
+    # r246: the vintage (charter years, band) is shown in the section title.
+    ck("Vintage corridor title carries the charter years (and band, or curated peers' actual opening years)",
+       "'<div class=\"ovh2\">Vintage corridor \\u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>'" in html
+       and 'function _vinTitleSuffix()' in html and 'return ": Chartered " + f + "\\u2013" + t + band;' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

@@ -1102,3 +1102,11 @@ Built on r244.
   confirmed migrated keep the cautious label.
 - Protocol check T33c pinned accuracy_label("nim") as "legacy"; updated to the migrated earnings label, keeping
   its intent (labels differ by family; net charge-off rate still carries the legacy label).
+
+
+## r246 — Vintage shown in the section title
+
+Presentation release on r245. The section title now carries the vintage after a colon: "Vintage corridor -
+de novos at the same age: Chartered 2018-2023" (broad and the all-charters fallback), "... Chartered
+2018-2023, now $2B-$10B" (asset band), and for curated peers their actual opening years once built
+("Chartered 2019-2024"); no suffix for curated peers before the first build.
