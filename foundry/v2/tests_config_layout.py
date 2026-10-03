@@ -357,6 +357,11 @@ def main():
     ck("Compensation pools are rows in the roles table, edited in the detail panel; no separate block below",
        'class="wf-role-row wf-pool-tr' in html and 'onclick="wfSelectPool(${pj})"' in html and 'class="cfg-md-detail wf-pool-detail-card"' in html
        and "if((wf.roles||[]).length) h = h.replace('<!--WF_POOLS-->','');" in html and 'window.wfSelectPool=function(j)' in html)
+    # r266: cost pool balance row sized to content (source takes the room) and a hideable balance-series preview.
+    ck("Cost pool balance row: source takes the remaining width, measure/multiplier/per sized to content; preview hideable",
+       '.cp-bal-row{display:grid!important;grid-template-columns:minmax(240px,1fr) 136px 96px 96px!important;' in html
+       and 'class="opex-cost-pool-grid cp-bal-row"' in html and "data-nofit onchange='feeCostPoolBalanceRatePeriod(" in html
+       and 'function _feeCostPoolBalancePreviewBody(seriesId,measure)' in html and 'title="Hide balance source"' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2
