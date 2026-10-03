@@ -17,15 +17,25 @@ def _check(values, label, share=False):
 def source_catalog(a):
     """Only upstream OBS quantities; deposit-owned drivers would create a cycle."""
     from .income_modules import _fee_stream_quantity_kinds
+    from .fee_links import has_links, FeeLinkPlan
+    plan = FeeLinkPlan(a) if has_links(a) else None
     out = []
-    for p in a.get('obs_exposures') or []:
+    for pi,p in enumerate(a.get('obs_exposures') or []):
         streams = p.get('fee_streams') or []
-        kinds = _fee_stream_quantity_kinds(streams)
+        kinds = {i:plan.kinds[(pi,i)] for i in range(len(streams))} if plan else _fee_stream_quantity_kinds(streams)
         def upstream(i, seen=None):
             seen = set(seen or ())
             if i in seen:
                 return False
             seen.add(i)
+            if plan:
+                def globally_upstream(node, visited):
+                    if node in visited:return False
+                    visited=visited|{node};d=plan.nodes[node].get('driver') or {}
+                    dep=plan.deps[node]
+                    if dep is not None:return globally_upstream(dep,visited)
+                    return d.get('source','constant') in {'constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'}
+                return globally_upstream((pi,i),set())
             driver = streams[i].get('driver') or {}
             source = driver.get('source', 'constant')
             if source == 'stream_ref':

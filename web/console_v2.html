@@ -2275,6 +2275,7 @@ function _stKinds(metas){
     else if(['own_balance','distributed_balance','product_funded_flow','managed_notional','bank_aggregate','cost_pool'].includes(srcv)) k='money';
     else if(srcv==='customer_acquisition_count') k='count';
     else if(srcv==='stream_ref') k=(String(d.ref||'') in by)?res(by[String(d.ref)],stack):'native';
+    else if(srcv==='fee_stream_quantity'){ const ps=((((typeof cfg!=='undefined'&&cfg)||{}).assumptions||{}).obs_exposures)||[]; ps.forEach((p,pi)=>(p.fee_streams||[]).forEach((s,si)=>{if(s.quantity_series_id===d.ref) k=_feeStreamQuantityKind(pi,si,{});})); }
     cache[i]=k; return k; };
   return metas.map((m,i)=>res(i));
 }
@@ -2376,7 +2377,7 @@ function _stProv(metas,i,fi){
     else { const r=q/qs*100; steps=[{l:'Share of '+esc(s.name),v:_stNum(r,'ratio')+'%'},{o:'\u00d7',l:esc(s.name),d:P,v:sv+' '+su},TOT()]; work='= <b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' \u00b7 '+link; calc='<b>'+_stNum(r,'ratio')+'%</b> \u00d7 '+sv+' '+su+' <span class="src">('+esc(s.name)+')</span> = <b>'+val+' '+unit+'</b>'; }
     calc+=depTxt;
   } else {
-    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
+    const SRC={bank_aggregate:'a bank aggregate ('+esc(_prdLab(d.ref||'total_deposits'))+')',fee_stream_quantity:'a linked fee-stream quantity ('+esc(String(d.ref||''))+')',cost_pool:'a cost pool',own_balance:'the product\u2019s balance',distributed_balance:'the distributed balance',product_funded_flow:'the product\u2019s funded flow'};
     steps=[{l:'Driven by '+(SRC[srcv]||esc(_prdLab(srcv))),d:P,v:val+' '+unit,t:1}];
     work='from '+(SRC[srcv]||esc(_prdLab(srcv))); calc='Driven by '+(SRC[srcv]||esc(_prdLab(srcv)))+' = <b>'+val+' '+unit+'</b> at '+P+depTxt;
   }
@@ -4925,9 +4926,34 @@ function _feeEnteredFlowPeriod(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.p
 function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.value=_pf(v)*1000;refresh();}
 function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
 function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
+// r269: compatible quantity references use stable IDs across Fee Product owners.
+function feeQuantityCandidates(i,si){
+  const current=(_stOwner(i).fee_streams||[])[si]||{},basis=current.basis||'balance',out=[];
+  ((cfg.assumptions||{}).obs_exposures||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,sj)=>{
+    if(pi===i&&sj===si)return;
+    const sb=st.basis;if(!['balance','transaction','account'].includes(sb)||!['balance','transaction','account'].includes(basis))return;
+    if(basis==='balance'&&sb!=='balance'||basis==='account'&&sb!=='account')return;
+    const seen=new Set();function reaches(owner,node){
+      if(owner===i&&node===si)return true;const key=owner+':'+node;if(seen.has(key))return false;seen.add(key);
+      const prod=cfg.assumptions.obs_exposures[owner],d=((prod.fee_streams[node]||{}).driver)||{};
+      if(d.source==='stream_ref'){const j=prod.fee_streams.findIndex(x=>x.name===d.ref);return j>=0&&reaches(owner,j);}
+      if(d.source==='fee_stream_quantity'){for(let a=0;a<cfg.assumptions.obs_exposures.length;a++){const j=(cfg.assumptions.obs_exposures[a].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return reaches(a,j);}}
+      return false;
+    }
+    if(reaches(pi,sj))return;
+    out.push({value:st.quantity_series_id||'candidate:'+pi+':'+sj,pi,si:sj,label:(p.name||'Fee product')+' › '+(st.name||'Stream')+' · '+(sb==='balance'?'balance':sb==='account'?'account count':'throughput')});
+  }));return out;
+}
+function feeQuantitySelect(i,si,value){
+  const st=_stOwner(i).fee_streams[si],match=feeQuantityCandidates(i,si).find(x=>x.value===value);
+  if(!match){st.driver.ref='';renderContent();refresh();return;}
+  const source=cfg.assumptions.obs_exposures[match.pi].fee_streams[match.si];
+  if(!source.quantity_series_id)source.quantity_series_id=_seriesId('fee-qty');
+  st.driver.ref=source.quantity_series_id;renderContent();refresh();
+}
 function _feeStreamQuantityKind(i,si,seen){
   const p=_stOwner(i)||{}, streams=p.fee_streams||[], st=streams[si]||{};
-  seen=seen||{}; if(seen[si]) return "native"; seen[si]=1;
+  seen=seen||{};const _node=i+":"+si; if(seen[_node]) return "native"; seen[_node]=1;
   const basis=String(st.basis||"").toLowerCase();
   if(basis==="balance") return "money";
   if(basis==="account") return "count";
@@ -4941,6 +4967,10 @@ function _feeStreamQuantityKind(i,si,seen){
   if(src==="stream_ref"){
     const ref=String(d.ref||""), j=streams.findIndex(x=>String((x||{}).name||"")===ref);
     return j>=0?_feeStreamQuantityKind(i,j,seen):"native";
+  }
+  if(src==='fee_stream_quantity'){
+    const products=((cfg.assumptions||{}).obs_exposures||[]);
+    for(let pi=0;pi<products.length;pi++){const j=(products[pi].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return _feeStreamQuantityKind(pi,j,seen);}
   }
   return "native";
 }
@@ -5231,9 +5261,10 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
   }
   if(v==="cost_pool"){d.source="cost_pool";d.trajectory="flat";var cps=_feeCostPools();if(!d.ref&&cps.length)d.ref=cps[0].series_id;st.rate.behavior="cost_recovery";if(st.rate.params.recovery_pct==null)st.rate.params.recovery_pct=0;if(!st.rate.params.markup)st.rate.params.markup={value:+(st.rate.params.markup_pct||0),period:"year",trajectory:"flat",resolution:"step"};st.cost={kind:"none",params:{}};}
   else if(v==="customer_acquisition_count"){d.source=v;d.trajectory="flat";var ccs=_feeCustomerCountOptions();var savedRef=String(d._saved_cac_ref||"");if(!d.ref||!ccs.some(o=>o.series_id===String(d.ref)))d.ref=ccs.some(o=>o.series_id===savedRef)?savedRef:(ccs.length?ccs[0].series_id:"");var savedMeasure=String(d._saved_cac_measure||"");d.measure=["annual_count","period_end","period_average"].includes(String(d.measure||""))?String(d.measure):(["annual_count","period_end","period_average"].includes(savedMeasure)?savedMeasure:"period_end");if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
+  else if(v==='fee_stream_quantity'){d.source=v;delete d.ref;delete d.measure;if(old==='constant'&&d.params&&d.params.flow_path)d.trajectory='flat';if(st.rate.behavior==='cost_recovery'){st.rate.behavior='flat';st.rate.params={};}}
   else if(v==="constant"){d.source="constant";delete d.ref;delete d.measure;if(d._saved_constant_trajectory){d.trajectory=d._saved_constant_trajectory;delete d._saved_constant_trajectory;}if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else{d.source=v;delete d.ref;delete d.measure;if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
-  renderContent();if(v!=="stream_ref")refresh();
+  renderContent();if(v!=="stream_ref"&&v!=="fee_stream_quantity")refresh();
 };
 _feeGlobal.feeCostPoolAddComponent=function(ref){
   const p=_feeCostPoolByRef(ref);if(!p)return;p.components=p.components||[];const used=new Set(p.components.map(c=>String(c.kind||"")+"::"+String(c.series_id||""))),opts=_feeCostPoolSourceOptions().filter(o=>!used.has(o.value));
@@ -5301,11 +5332,11 @@ const _depositPoolOpen = new Set();
 function depositSources(kind,basis){
   const out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
-    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='stream_ref'){const hits=streams.filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
+    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='fee_stream_quantity'){const hits=((cfg.assumptions||{}).obs_exposures||[]).flatMap(x=>x.fee_streams||[]).filter(x=>x.quantity_series_id===d.ref);return hits.length===1&&upstream(hits[0],seen);}if(s==='stream_ref'){const owner=((cfg.assumptions||{}).obs_exposures||[]).find(x=>(x.fee_streams||[]).includes(node))||p;const hits=(owner.fee_streams||[]).filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
     if(!st.quantity_series_id)st.quantity_series_id=_seriesId('fee-qty');
     const drv=st.driver||{},pr=drv.params||{},c=pr.coefficient||{},label=(p.name||'Fee product')+' · '+(st.name||'Stream');
     if(kind==='fee_share'&&c.kind==='pct'&&c.semantics==='share')out.push({id:st.quantity_series_id,label:label+' · share schedule'});
-    if(kind==='fee_quantity'&&st.basis===basis&&upstream(st)&&(basis==='balance'||(pr.flow_path||{}).unit_kind==='money_flow'||['stream_ref','managed_notional'].includes(drv.source)))out.push({id:st.quantity_series_id,label});
+    if(kind==='fee_quantity'&&st.basis===basis&&upstream(st)&&(basis==='balance'||(pr.flow_path||{}).unit_kind==='money_flow'||['stream_ref','fee_stream_quantity','managed_notional'].includes(drv.source)))out.push({id:st.quantity_series_id,label});
   }));
   if(kind==='fee_quantity'&&basis==='transaction')((cfg.assumptions||{}).lending_products||[]).filter(p=>p.balance_mode==='funded_flow_level').forEach(p=>{if(!p.balance_series_id)p.balance_series_id=_seriesId('lending-flow');out.push({id:p.balance_series_id,kind:'lending_funded_flow',label:(p.name||'Lending')+' · funded flow'});});
   return out;
@@ -5689,8 +5720,13 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       // Axis 2: driver source
       const _drvOpts=[["constant",basis==="transaction"?"Entered driver":"Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
+      if(_fi>=0&&_fi<1000&&["balance","transaction","account"].includes(basis))_drvOpts.push(["fee_stream_quantity","Linked stream quantity — across fee products"]);
       if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
+      if(src==='fee_stream_quantity'){
+        const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
+        h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
+      }
       if(src==="stream_ref"){
         const _ref=String(st.driver.ref||"");
         const _refNames=streamNames.filter(n=>n&&n!==String(st.name||""));
@@ -5971,7 +6007,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
-      const SRC={constant:'Entered',stream_ref:'Another stream',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
+      const SRC={constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool',managed_notional:'Managed notional (AUC)'};
       const _src=m=>m.src==='stream_ref'?(m.ref?esc(m.ref):'Another stream (not set)'):(m.src==='bank_aggregate'?esc(_prdLab(m.ref||'total_deposits')):esc(SRC[m.src]||_prdLab(m.src)));
       const m=_stMeta[_stSel]||_stMeta[0];
       const chain=[_stSel]; { let cur=m,guard=0; while(cur&&cur.src==='stream_ref'&&cur.ref&&guard++<12){ const j=_stMeta.findIndex(z=>z.name===cur.ref); if(j<0||chain.includes(j)) break; chain.unshift(j); cur=_stMeta[j]; } }
@@ -9344,7 +9380,7 @@ function _renderContentBody(){
       if(!items.length) h+='<div class="prd-memo">No products in this family yet.</div>';
       else {
         const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
-        const SRC={constant:'Entered',stream_ref:'Another stream',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool'};
+        const SRC={constant:'Entered',stream_ref:'Another stream',fee_stream_quantity:'Linked stream quantity',bank_aggregate:'Bank aggregate',customer_acquisition_count:'Customer acquisition',cost_pool:'Cost pool'};
         const tally=(arr,map)=>{ if(!arr.length) return '\u2014'; const m=new Map(); arr.forEach(v=>{const k=(map&&map[v])||_prdLab(v); m.set(k,(m.get(k)||0)+1);}); return [...m.entries()].map(([k,n])=>n>1?`${esc(k)} \u00D7${n}`:esc(k)).join('<br>'); };
         const S=x=>(x.p.fee_streams||[]);
         const R=[['g','Structure'],['Fee streams',x=>S(x).length||'\u2014',1],['Stream bases',x=>tally(S(x).map(s=>s.basis||'balance'),BAS)],['Driven by',x=>tally(S(x).map(s=>(s.driver||{}).source||'constant'),SRC)],

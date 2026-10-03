@@ -149,6 +149,14 @@ def validate_config_v2(cfg):
                     "fee income, or a lending product with fee income")
 
     a = cfg["assumptions"]
+    from .fee_links import has_links, FeeLinkPlan
+    if has_links(a):
+        try:
+            if cfg.get("parity_profile") != "pf_a":
+                raise ValueError("Cross-product fee quantity links require the fee-stream engine (pf_a)")
+            FeeLinkPlan(a)
+        except (ValueError, TypeError, KeyError) as exc:
+            errs.append("Fee quantity links: " + str(exc))
     if a.get("surplus_allocation_policy") not in (None, "cash", "residual_securities", "legacy_split"):
         errs.append("surplus_allocation_policy must be cash or residual_securities")
     if a.get("surplus_allocation_policy") == "legacy_split" and cfg.get("parity_profile") != "pf_b":
@@ -571,7 +579,15 @@ def validate_config_v2(cfg):
                         raise ValueError(f"CAC customer-count Series {_count_ref!r} does not exist")
                 coef = (((st.get("driver") or {}).get("params") or {}).get("coefficient"))
                 if coef is not None and (st.get("basis") or "balance") == "transaction":
-                    _fee_coefficient_value(coef, 1, _ppy, {"growth_context": _growth_ctx})
+                    coefficient_ppy = _ppy
+                    d = st.get('driver') or {}
+                    if d.get('source') == 'fee_stream_quantity' and _ppy == 4 and coef.get('kind') == 'pct' and coef.get('semantics') == 'share' and coef.get('period') == 'month':
+                        sources=[x for p in a.get('obs_exposures') or [] for x in p.get('fee_streams') or [] if x.get('quantity_series_id') == d.get('ref')]
+                        source_driver=(sources[0].get('driver') or {}) if len(sources)==1 else {}
+                        flow=(source_driver.get('params') or {}).get('flow_path') or {}
+                        if source_driver.get('source','constant')=='constant' and flow.get('unit_kind')=='money_flow' and flow.get('period')=='month':
+                            coefficient_ppy=12 # Engine multiplies each source month before summing.
+                    _fee_coefficient_value(coef, 1, coefficient_ppy, {"growth_context": _growth_ctx})
             except (TypeError, ValueError) as e:
                 errs.append(f"obs_exposures[{pi}].fee_streams[{si}] invalid: {e}")
             gs0 = (((st.get("driver") or {}).get("params") or {}).get("growth_spec"))

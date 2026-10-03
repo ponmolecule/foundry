@@ -569,10 +569,29 @@ def run_pf_a(cfg):
     _deposit_feature = bool(a.get("deposit_retention_pools")) or any(p.get("balance_mode", "rollforward") != "rollforward" for p in dep)
     _deposit_direct, _deposit_pools = {}, []
     _deposit_prepared = False
+    from .fee_links import has_links, FeeLinkPlan
+    _fee_links = FeeLinkPlan(a) if has_links(a) else None
+    _fee_link_contexts = {}
+    _fee_links_done = False
+    def _project_fee_streams(product, period, context, cadence):
+        if _fee_links is not None and any(product is x for x in obs):
+            pi = next(i for i,x in enumerate(obs) if product is x)
+            _fee_link_contexts[(pi, period)] = context
+            return 0., 0.
+        return product_fee_streams_q(product, period, context, cadence)
+    def _finish_fee_links():
+        nonlocal _fee_links_done
+        if _fee_links is None or _fee_links_done: return
+        totals = _fee_links.evaluate(_fee_link_contexts, Q, ppy)
+        for (pi, period), (inc, cost) in totals.items():
+            obs[pi]["_fee"][period] += inc
+            obs[pi]["_fcost"][period] += cost
+        _fee_links_done = True
     # Resolve upstream fee quantities before their deposit consumers; historical
     # projection order stays identical for engagements without deposit extensions.
     for p in (obs + dep if _deposit_feature else dep + obs):
         if _deposit_feature and p in dep and not _deposit_prepared:
+            _finish_fee_links()
             _deposit_direct, _deposit_pools = prepare_deposits(a, Q, ppy, _fee_stream_qty_series, _growth_ctx)
             _deposit_prepared = True
         # managed notional (off-book AUC/AUM) for fee products; empty => zeros (hash-safe)
@@ -637,7 +656,7 @@ def run_pf_a(cfg):
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
             p["_ie"].append(_interest_basis * r / ppyf if p in dep else 0.0)
-            _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+            _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg,
                                                             "distributed_balance": 0.0,
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
@@ -648,6 +667,8 @@ def run_pf_a(cfg):
             p["_fee"].append(avg * (p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
+
+    _finish_fee_links()
 
     # Loans may opt into a target level owned by Customer Acquisition rather than
     # independently recreating the same MAB/customer trajectory through originations.
@@ -1253,6 +1274,8 @@ def run_pf_a(cfg):
                     _dp = _st.get("driver") or {}
                     _dprm = _dp.get("params") or {}
                     _vol = _g(float(_dprm.get("base") or 0.0), _dprm.get("growth_q"), q)
+                    if _dp.get("source") == "fee_stream_quantity":
+                        _vol = _fee_stream_qty_series[_st["quantity_series_id"]][q-1]
                     _overage = _vol * _at * (_ar - _er)
                     fees -= _overage
                     is_.setdefault("durbinCap", [None] * (Q + 1))
