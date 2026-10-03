@@ -1974,6 +1974,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 
 /* r260: "Hide source" sits on its own line above the preview (no overlap with the source text) */
 .lsrc-wrap{padding-top:20px}.lsrc-x{top:0!important;right:0!important}
+
+/* r262: compensation pools as rows in the roles table, edited in the detail panel */
+.wf-pool-tr td.name::before{content:"";display:inline-block;width:7px;height:7px;margin-right:7px;border-radius:2px;background:#9a7330;vertical-align:1px}
+.wf-pool-detail{margin-top:0}.wf-pool-detail .opex-piecewise-card{border:0!important;margin:0!important;padding:0!important;box-shadow:none!important}
+.wf-pool-detail .opex-cost-pool-remove{display:none}
+.wf-pool-detail .opex-piecewise-timing-grid{grid-template-columns:minmax(200px,230px) minmax(130px,170px) minmax(110px,140px)!important}
+.wf-pool-detail .opex-piecewise-driver-row{grid-template-columns:minmax(220px,1fr) repeat(3,auto)!important}
 </style>
 </head>
 <body>
@@ -3051,6 +3058,10 @@ window.vinSelect=function(m){ window._vinSel=m; window._vinHq=null; const p=docu
 window.vinView=function(v){ window._vinView=v; const p=document.getElementById('vinPanel'); if(p&&window.vintage) p.outerHTML=_vinPanelHtml(window.vintage); };
 window.vinHover=function(i){ if(window._vinHq===i) return; window._vinHq=i; const b=document.getElementById('vxBody'); if(b&&window.vintage) b.innerHTML=_vinBodyHtml(window.vintage,_vinCur(window.vintage),window._vinView||'chart'); };
 window.vinOpen=function(m){ window._vinSel=m; window._vinHq=null; const p=document.getElementById('vinPanel'); if(p&&window.vintage){ p.outerHTML=_vinPanelHtml(window.vintage); const q=document.getElementById('vinPanel'); if(q) q.scrollIntoView({block:'start',behavior:'smooth'}); } };
+
+window.wfSelectPool=function(j){ window._wfPoolSel=j; renderContent(); };   // r262
+setTimeout(()=>{ const o=window.wfSelect; if(typeof o==='function'&&!o._pool){ const w=function(){ window._wfPoolSel=null; return o.apply(this,arguments); }; w._pool=true; window.wfSelect=w; }
+  const a=window.nieWorkforceAddPiecewise; if(typeof a==='function'&&!a._pool){ const w2=function(){ const r=a.apply(this,arguments); try{ const n=((cfgRef().assumptions.nie_detail||{}).workforce||{}).additive_components||[]; window._wfPoolSel=n.length-1; renderContent(); }catch(_){} return r; }; w2._pool=true; window.nieWorkforceAddPiecewise=w2; } },0);   // selecting a role clears the pool; a new pool opens in the panel
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -12534,10 +12545,14 @@ function structuresSectionsHtml(){
       });
       { const _pl=v=>`<span class="cfg-pill${v==='Explicit'?' x':''}">${v}</span>`;
         h += '<div class="cfg-md"><div class="cfg-md-list"><div class="cfg-md-scroll"><table class="cfg-grid"><thead><tr><th style="width:18px"></th><th>Population</th><th class="num">Count</th><th class="num">Comp ($000s)</th><th>Basis</th><th>Active</th><th>Paths</th></tr></thead><tbody>';
-        _wfMeta.forEach((m,wi)=>{h += `<tr class="wf-role-row${wi===_wfSel?' sel':''}" data-wf-index="${wi}" onclick="wfSelect(${wi})" ondragover="nieWorkforceDragOver(event,${wi})" ondragleave="nieWorkforceDragLeave(event)" ondrop="nieWorkforceDrop(event,${wi})"><td class="grip" draggable="true" title="Drag to reorder" ondragstart="nieWorkforceDragStart(event,${wi})" ondragend="nieWorkforceDragEnd(event)" onclick="event.stopPropagation()">\u22ee\u22ee</td><td class="name" title="${esc(m.name)}">${esc(m.name)}</td><td class="num">${_numInput(+m.count||0,3)}</td><td class="num">${fmtComma(m.amt)}<span class="mut"> / ${m.per.toLowerCase()}</span></td><td>${m.basis}</td><td class="mut">${m.start}${m.end?' \u2192 '+m.end:''}</td><td>${_pl(m.cnt)} ${_pl(m.cmp)}</td></tr>`;});
-        h += `</tbody></table></div><div class="cfg-md-foot">${_wfMeta.length} population${_wfMeta.length===1?'':'s'}. Drag the handle to reorder; select a row to edit its assumptions.</div></div>`;
+        _wfMeta.forEach((m,wi)=>{h += `<tr class="wf-role-row${(wi===_wfSel&&!((window._wfPoolSel!=null)&&(window._wfPoolSel<((wf.additive_components||[]).length))))?' sel':''}" data-wf-index="${wi}" onclick="wfSelect(${wi})" ondragover="nieWorkforceDragOver(event,${wi})" ondragleave="nieWorkforceDragLeave(event)" ondrop="nieWorkforceDrop(event,${wi})"><td class="grip" draggable="true" title="Drag to reorder" ondragstart="nieWorkforceDragStart(event,${wi})" ondragend="nieWorkforceDragEnd(event)" onclick="event.stopPropagation()">\u22ee\u22ee</td><td class="name" title="${esc(m.name)}">${esc(m.name)}</td><td class="num">${_numInput(+m.count||0,3)}</td><td class="num">${fmtComma(m.amt)}<span class="mut"> / ${m.per.toLowerCase()}</span></td><td>${m.basis}</td><td class="mut">${m.start}${m.end?' \u2192 '+m.end:''}</td><td>${_pl(m.cnt)} ${_pl(m.cmp)}</td></tr>`;});
+        const _pools=(wf.additive_components||[]), _psel=(window._wfPoolSel!=null&&window._wfPoolSel<_pools.length)?window._wfPoolSel:null;   // r262: pools are rows here
+        _pools.forEach((lc,pj)=>{ const tm=(lc&&lc.timing)||{}, cad=tm.mode||tm.cadence||'annual', fp=tm.first_period;
+          h += `<tr class="wf-role-row wf-pool-tr${pj===_psel?' sel':''}" data-wf-pool="${pj}" onclick="wfSelectPool(${pj})"><td class="grip"></td><td class="name" title="${esc(lc.name||'Compensation pool')}">${esc(lc.name||'Compensation pool')}</td><td class="num mut">\u2014</td><td class="num mut">bands</td><td>Pool</td><td class="mut">${esc(String(cad).charAt(0).toUpperCase()+String(cad).slice(1))}${fp?' \u00b7 first '+_opexPeriodTag()+fp:''}</td><td><span class="cfg-pill">Tiered</span></td></tr>`; });
+        h += `</tbody></table></div><div class="cfg-md-foot">${_wfMeta.length} population${_wfMeta.length===1?'':'s'}${_pools.length?` \u00b7 ${_pools.length} compensation pool${_pools.length===1?'':'s'}`:''}. Drag the handle to reorder; select a row to edit its assumptions.</div></div>`;
         const _m=_wfMeta[_wfSel]||{};
-        h += `<div class="cfg-md-detail"><div class="cfg-md-head"><b>${esc(_m.name||'')}</b><span>Population ${_wfSel+1} of ${_wfMeta.length}</span></div><div class="cfg-md-body">${_wfCards[_wfSel]||''}</div><div class="cfg-md-post"><span>Posts to</span><b>Workforce compensation</b><a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceRemove(${_wfSel});return false">Remove population</a></div></div></div>`;
+        if(_psel!=null){ const lc=_pools[_psel]; h += `<div class="cfg-md-detail wf-pool-detail-card"><div class="cfg-md-head"><b>${esc(lc.name||'Compensation pool')}</b><span>Compensation pool ${_psel+1} of ${_pools.length}</span></div><div class="cfg-md-body"><div class="wf-pools wf-pool-detail">${(lc&&lc.driver)==='piecewise_linked'?_workforcePiecewiseEditorHtml(lc,_psel):''}</div></div><div class="cfg-md-post"><span>Posts to</span><b>Workforce compensation</b><a href="#" class="cadd" style="color:#C77" onclick="window._wfPoolSel=null;nieWorkforceRemovePiecewise(${_psel});return false">Remove pool</a></div></div></div>`; }
+        else h += `<div class="cfg-md-detail"><div class="cfg-md-head"><b>${esc(_m.name||'')}</b><span>Population ${_wfSel+1} of ${_wfMeta.length}</span></div><div class="cfg-md-body">${_wfCards[_wfSel]||''}</div><div class="cfg-md-post"><span>Posts to</span><b>Workforce compensation</b><a href="#" class="cadd" style="color:#C77" onclick="nieWorkforceRemove(${_wfSel});return false">Remove population</a></div></div></div>`;
       }
       h += '<div data-engine-preview="workforce-summary">';
       const _wres=(lastRes||{}).workforce||null;
@@ -12580,7 +12595,8 @@ function structuresSectionsHtml(){
       if(_wfAddComps.length){ _wfAddComps.forEach((lc,j)=>{if((lc&&lc.driver)==='piecewise_linked')__p += _workforcePiecewiseEditorHtml(lc,j);}); }
       else __p += '<div class="cmut" style="margin:4px 0 2px">No compensation pools.</div>';
       __p += '</div>';
-      if(h.indexOf('<!--WF_POOLS-->')>=0) h = h.replace('<!--WF_POOLS-->', __p); else if(_wfAddComps.length) h += __p;
+      if((wf.roles||[]).length) h = h.replace('<!--WF_POOLS-->','');   // r262: pools live in the roles table and its detail panel
+      else if(_wfAddComps.length) h += __p;
     }
     }
     h += '</div>';
