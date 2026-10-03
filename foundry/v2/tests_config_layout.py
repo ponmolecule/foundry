@@ -349,7 +349,7 @@ def main():
     # r260: room for formula components (stacked, detail up to 1100px, 14px gaps) and a visible chevron toggle.
     ck("Formula components get a wider stacked panel, 14px field gaps, and a visible chevron open/close control",
        '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' in html and '[data-nie-pane="categories"] .cfg-md-detail{max-width:1100px}' in html
-       and '[data-nie-pane="categories"] .cfg-md-list{width:max-content;max-width:100%!important}' in html   # r261: section-wide, list at natural width
+       and '[data-nie-pane="categories"] .cfg-md-list{width:100%;max-width:1100px!important}' in html   # r263: list and detail one aligned block
        and 'class="fx-tog' in html and 'aria-expanded="${open}"' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
     # r262: compensation pools are rows in the roles table and are edited in its detail panel.
     ck("Compensation pools are rows in the roles table, edited in the detail panel; no separate block below",
