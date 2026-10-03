@@ -348,7 +348,8 @@ def main():
        and 'window.opexFxAll=function(i,js,open)' in html and 'class="lsrc-x" title="Hide linked source"' in html)
     # r260: room for formula components (stacked, detail up to 1100px, 14px gaps) and a visible chevron toggle.
     ck("Formula components get a wider stacked panel, 14px field gaps, and a visible chevron open/close control",
-       '.cfg-md:has(.fx-card){grid-template-columns:minmax(0,1fr)!important}' in html and '.cfg-md-detail:has(.fx-card){max-width:1100px}' in html
+       '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' in html and '[data-nie-pane="categories"] .cfg-md-detail{max-width:1100px}' in html
+       and '[data-nie-pane="categories"] .cfg-md-list{width:max-content;max-width:100%!important}' in html   # r261: section-wide, list at natural width
        and 'class="fx-tog' in html and 'aria-expanded="${open}"' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
