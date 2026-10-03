@@ -1959,8 +1959,9 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 .lsrc-bar{margin-top:4px;font-size:11.5px;color:#96928C}.lsrc-bar a{color:#3d5a80;text-decoration:none}
 
 /* r260: categories with formula components get room: list stacked above a detail panel up to 1100px */
-.cfg-md:has(.fx-card){grid-template-columns:minmax(0,1fr)!important}
-.cfg-md-detail:has(.fx-card){max-width:1100px}
+[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}   /* r261: the categories section always stacks (no layout jump between categories) */
+[data-nie-pane="categories"] .cfg-md-detail{max-width:1100px}
+[data-nie-pane="categories"] .cfg-md-list{width:max-content;max-width:100%!important}   /* r261: stacked list keeps its table's natural width */
 .fx-row:not(.fx-linked){grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 28px!important;gap:8px 14px!important}
 .fx-row.fx-hasg{grid-template-columns:94px minmax(120px,1.2fr) 86px minmax(120px,1.2fr) 92px 112px 96px 110px 28px!important}
 .fx-row.fx-linked{grid-template-columns:94px minmax(120px,1.2fr) minmax(240px,4fr) 28px!important;gap:8px 14px!important}
