@@ -2510,6 +2510,21 @@ function _vinEmptyCard(V){
     + (band ? `<button type="button" class="pc-xl" onclick="vintageUseAll()">Use all ${V.definition.est_from}\u2013${V.definition.est_to} charters</button>` : '') + `</div>`;
 }
 window.vintageUseAll=function(){ window._vinScopeAll=true; window.vintage=null; setTimeout(()=>vintageBuild(),0); };
+
+// r246: the vintage shown in the section title, where people look
+function _vinTitleSuffix(){
+  const c=(typeof cfgRef==="function"?cfgRef():{})||{}, m=c.peer_bands_mode||"broad", V=window.vintage;
+  if(m==="curated"){
+    if(!V || window.vintageKey!==_vinKey()) return "";
+    const ys=(V.bank_coverage||[]).map(b=>String(b.vintage_anchor_q||b.legal_opening_q||b.first_filing_q||"").slice(0,4)).filter(y=>/^\d{4}$/.test(y)).map(Number);
+    if(!ys.length) return "";
+    const a=Math.min(...ys), b=Math.max(...ys);
+    return ": Chartered " + (a===b ? String(a) : a+"\u2013"+b);
+  }
+  const d=(V&&V.definition)||{}, f=d.est_from||2018, t=d.est_to||2023;
+  const band=(!window._vinScopeAll && _VIN_BAND_LABEL[m]) ? ", now "+_VIN_BAND_LABEL[m] : "";
+  return ": Chartered " + f + "\u2013" + t + band;
+}
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
@@ -7647,7 +7662,7 @@ async function vintageBuild(){
 }
 window.vintageBuild = vintageBuild;
 function vintageSectionHtml(){
-  let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age</div>';
+  let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>';
   if(!(subStatus && subStatus.configured && subStatus.reachable)){
     h += '<div class="memo">Arrives with the substrate connection: real recently-chartered banks, each re-clocked to its own opening quarter, so the model\u2019s Q10 is compared to their Q10 \u2014 not to mature banks.</div>';
     return h;
