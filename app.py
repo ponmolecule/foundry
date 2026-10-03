@@ -799,6 +799,21 @@ def v31_peer_export(body: dict, _=Depends(gate)):
                     headers={"Content-Disposition": f'attachment; filename="{fname}"'})
 
 
+@app.post("/api/v31/qa/checks")
+def v31_qa_checks(body: dict, _=Depends(gate)):
+    """r247: Governance & QA data checks. Read-only: findings for the posted configuration; effects are
+    estimated by running the model on deep copies. Nothing is saved and the engine is not modified."""
+    from foundry.v2.data_checks import run_checks
+    from foundry.v2.run_q import run_v2
+    cfg = body.get("config")
+    if not isinstance(cfg, dict):
+        return JSONResponse({"error": "config required"}, status_code=422)
+    try:
+        return JSONResponse({"findings": run_checks(cfg, runner=run_v2)})
+    except Exception as e:
+        return JSONResponse({"error": f"checks failed: {type(e).__name__}: {e}"}, status_code=500)
+
+
 @app.get("/api/v31/persistence")
 def v31_persistence(_=Depends(gate)):
     """Workspace persistence honesty: is FOUNDRY_DATA_DIR a mounted volume, or
