@@ -1262,3 +1262,23 @@ Presentation release on r256. Engine untouched; configuration keys unchanged.
 - Formula / driver component: more generous spacing; every factor on one line, with growth shown as a summary
   chip ("10% / yr · step") that opens its settings beneath on demand; a compact remove control. Narrow cards
   still wrap to two lines.
+
+
+## r258 — "+ Compensation pool" beside "+ Add role"
+
+Presentation release on r257. The roles action row reads "+ Add role · + Compensation pool · Paste roles"
+(the existing "+ Tiered / banded compensation component" entry renamed, same adder and same
+workforce.additive_components object); the separate button r257 placed in the pools header is removed.
+
+
+## r259 — Expired sessions on Governance; collapse all; hideable linked sources
+
+Presentation release on r258. Engine untouched.
+- Change history showed "HTTP 401": sessions last 12 hours (FOUNDRY_SESSION_SECONDS, default 43,200) and the
+  console has no shared 401 handling. Governance's checks, status and history now say the session expired,
+  offer sign-in in a new tab (which renews the site cookie without losing this tab's edits) and "try again".
+  The history route itself was verified: it is the only route matching the URL and returns 200 with a session.
+- Additive expense components: "Collapse all · Expand all" in the section header when a category has two or
+  more Formula / driver components (previously each collapsed separately).
+- Every linked-series source preview (formula linked factors and standalone linked components) has "Hide
+  source"; hidden previews shrink to "Linked source hidden · Show", remembered per series.
