@@ -1304,3 +1304,13 @@ columns spread across the screen. Now the whole Expense categories section stack
 jump when moving between categories): the list keeps its table's natural width (716px at every screen), the
 detail beneath is up to 1100px (1,034px at 1440). No horizontal page scroll; formula cards unchanged
 (1,066px at 1920, 14px gaps, no clipping).
+
+
+## r262 — Compensation pools in the roles table
+
+Presentation release on r261. Engine untouched; configuration unchanged.
+- Pools are rows in the Workforce roles table (after the populations; Count "-", Basis "Pool", Active shows
+  the timing, Paths "Tiered"); selecting one opens its editor in the same detail panel as a role (768px beside
+  the list at 1920, 880px stacked at 1440; no overflow or truncation). "+ Compensation pool" adds a pool and
+  opens it; "Remove pool" sits in the panel foot. Only one row is highlighted at a time. The separate
+  full-width pools block below the table is gone (kept only for an engagement with pools but no roles).
