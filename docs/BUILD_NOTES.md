@@ -1247,3 +1247,18 @@ Presentation release on r255. Engine untouched; every factor field keeps its exi
   at 1440 / 1920 / 2560.
 - Subtle rounded corners across Foundry: fields and buttons 6px; cards, panels and dark title bands 8px;
   pill-shaped controls unchanged. Clipped-control and overflow audits: 0 at 1440 and 1920px.
+
+
+## r257 — Compensation pools relocated; airier one-line formula factors
+
+Presentation release on r256. Engine untouched; configuration keys unchanged.
+- Workforce: "Additive compensation components" become "Compensation pools" (bonus and incentive pools layered
+  on role compensation), placed directly under the roles and above the run summary, with a "+ Compensation
+  pool" button that calls the existing adder (same workforce.additive_components object). The run summary
+  gains a row per pool, read from the engine's existing per-pool output (amounts in $000s): total over the
+  horizon and first posting. Previously the summary listed roles only, though pools always posted to
+  Workforce compensation (display omission; no numbers were affected). Pool fields sized to their content
+  (name up to 560px; timing 230 / 170 / 140px; source up to 540px), scoped so OpEx tiered cards are unchanged.
+- Formula / driver component: more generous spacing; every factor on one line, with growth shown as a summary
+  chip ("10% / yr · step") that opens its settings beneath on demand; a compact remove control. Narrow cards
+  still wrap to two lines.
