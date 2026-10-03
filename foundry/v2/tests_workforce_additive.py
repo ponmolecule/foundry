@@ -139,7 +139,7 @@ def main():
 
     html = Path("web/console_v2.html").read_text()
     ck("Workforce UI authors additive tiered/banded compensation against explicit FY metrics",
-       "+ Tiered / banded compensation component" in html
+       "+ Compensation pool" in html   # r258: action-row label (same adder)
        and "FY Total operating revenue · NII + fee income + gain on sale + net servicing" in html
        and "Posts directly to <b>Workforce compensation</b>" in html
        and "nieWorkforcePiecewiseAddBand" in html)
