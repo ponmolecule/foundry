@@ -1365,3 +1365,11 @@ x2"), "-" when none. The side panel is unchanged (beside the list at 1920 / 2560
 new gate check fails if it is ever stacked on wide screens again. When stacked (below 1880px) the list now
 matches the 880px panel beneath it, so names no longer wrap at 1440 (0 of 13; was 10). At 1920 the list stays
 574px beside the 926px panel that one-line formula factors need, so names wrap to two lines there.
+
+
+## r268 — Categories columns sized to content
+
+Presentation release on r267. Path, Amount and Components had guessed fixed widths (64 / 96 / 130px): "Explicit"
+was squeezed and "41.66667 / month" ran into Components. They now never wrap, and after each render their
+widths are set to the widest actual content (e.g. Path 77px, Amount 137px for "41.66667 / quarter"); the
+Category column absorbs the difference. No cell overflows at 1440 / 1920 / 2560; the side panel is unchanged.

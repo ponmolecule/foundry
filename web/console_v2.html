@@ -2020,6 +2020,10 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 .cat-chip{display:inline-block;margin:1px 4px 1px 0;padding:1px 6px;border-radius:4px;font-size:11px;white-space:nowrap}
 .cat-chip-formula{background:#e8eef7;color:#3d5a80}.cat-chip-costpool{background:#efe8f4;color:#6a4a80}
 .cat-chip-tiered{background:#f4ead6;color:#7a5a20}.cat-chip-linked{background:#e5ede2;color:#3f6444}
+
+/* r268: Path / Amount / Components never wrap or squeeze (their widths are measured); Category absorbs the difference */
+[data-nie-pane="categories"] table.cfg-grid td:nth-child(3),[data-nie-pane="categories"] table.cfg-grid td:nth-child(4),[data-nie-pane="categories"] table.cfg-grid td:nth-child(5){white-space:nowrap;max-width:none!important}
+[data-nie-pane="categories"] table.cfg-grid th:nth-child(3),[data-nie-pane="categories"] table.cfg-grid th:nth-child(4),[data-nie-pane="categories"] table.cfg-grid th:nth-child(5){max-width:none}
 </style>
 </head>
 <body>
@@ -2488,6 +2492,7 @@ function fitControls(root){
   });
   root.querySelectorAll('input[type=text],input:not([type]),input[type=number]').forEach(fitInput);
   fitMasterDetail();
+  if(typeof fitCategoryColumns==='function') fitCategoryColumns();
   if(typeof fitVintageCharts==='function') fitVintageCharts();
   if(typeof fitVinPanel==='function') fitVinPanel();
 }
@@ -3109,6 +3114,21 @@ function _catCompChips(i){
   if(!lcs.length) return '<span class="mut">\u2014</span>';
   const n={}; lcs.forEach(lc=>{ const d=(lc&&lc.driver)||''; const t=(d==='formula_driver'||d==='service_capacity')?'Formula':d==='cost_pool_charge'?'Cost pool':d==='piecewise_linked'?'Tiered':'Linked'; n[t]=(n[t]||0)+1; });
   return ['Formula','Cost pool','Tiered','Linked'].filter(t=>n[t]).map(t=>`<span class="cat-chip cat-chip-${t.replace(' ','').toLowerCase()}">${t}${n[t]>1?' \u00d7'+n[t]:''}</span>`).join('');
+}
+
+// r268: the categories table sizes Path, Amount and Components to their widest actual content; Category takes the rest
+function fitCategoryColumns(){
+  document.querySelectorAll('[data-nie-pane="categories"] table.cfg-grid').forEach(t=>{
+    if(!t.offsetParent) return;
+    const ths=t.querySelectorAll('thead th'), rows=[...t.querySelectorAll('tbody tr')];
+    [[2,64],[3,96],[4,96]].forEach(([ci,min])=>{
+      let need=min;
+      rows.forEach(r=>{ const td=r.children[ci]; if(!td) return; const cs=getComputedStyle(td), rg=document.createRange(); rg.selectNodeContents(td);
+        const w=Math.max(...[...rg.getClientRects()].map(x=>x.right),0)-Math.min(...[...rg.getClientRects()].map(x=>x.left),Infinity);
+        if(isFinite(w)) need=Math.max(need,Math.ceil(w+(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+2)); });
+      const th=ths[ci]; if(th && Math.abs((parseFloat(th.style.width)||0)-need)>1){ th.style.width=need+'px'; th.style.maxWidth=need+'px'; }
+    });
+  });
 }
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
