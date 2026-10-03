@@ -1346,3 +1346,12 @@ the list was held at 574px and truncated most names. Now, on screens of 1880px a
 21px from the edge; 0 of 13 long names wrapped or truncated), 574px at 1920. The categories table uses a fixed
 layout (narrow columns keep their widths; the name column takes exactly the remainder) and long names wrap to a
 second line instead of truncating (8 of 13 at 1920; none truncated anywhere). Narrower screens stack.
+
+
+## r266 — Cost pool balance row and balance-series close
+
+Presentation release on r265. The Operating Expense cost pool's balance row used equal auto-fit columns, so
+Measure, Multiplier and Per were as wide as Balance source. It is now a grid: Balance source takes the remaining
+width (386 / 432 / 606px at 1440 / 1920 / 2560), Measure 136px, Multiplier 96px, Per 96px (measured needs);
+the dropdowns opt out of fitControls; no clipping or overflow. The same applies to the fee-product cost pool
+row. The balance-series preview gains "Hide source x" (remembered per series), like the linked-series previews.
