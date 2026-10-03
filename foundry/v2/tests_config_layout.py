@@ -342,6 +342,10 @@ def main():
        'class="fx-gchip' in html and '.fx-row.fx-hasg{grid-template-columns:' in html and "h += '<!--WF_POOLS-->';" in html
        and 'onclick="nieWorkforceAddPiecewise();return false">+ Compensation pool</a>' in html and 'class="wf-pool-row"' in html
        and '.wf-pools .opex-piecewise-timing-grid{grid-template-columns:230px 170px 140px;' in html)
+    # r259: expired-session message on Governance; collapse/expand all components; hideable linked-series previews.
+    ck("Governance explains an expired session; components collapse together; linked-series previews can be hidden",
+       'function _govAuthHtml(what, retry)' in html and "if(r.status===401){ window._govHist={slug, ck, auth:true" in html
+       and 'window.opexFxAll=function(i,js,open)' in html and 'class="lsrc-x" title="Hide linked source"' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

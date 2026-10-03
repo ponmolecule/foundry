@@ -1950,6 +1950,13 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 /* r257: compensation pools header */
 .wf-pools{margin-top:14px}.wf-pools-h{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;margin-bottom:8px}
 .wf-pool-row td{background:#FCFBF8}
+
+/* r259: collapse all components; hide linked-series previews */
+.opex-comp-h{display:flex;align-items:baseline;gap:14px}.opex-comp-all{display:inline-flex;gap:12px;font-size:12px}
+.opex-comp-all a{color:#3d5a80;text-decoration:none}.opex-comp-all a:hover{text-decoration:underline}
+.lsrc-wrap{position:relative}.lsrc-x{position:absolute;top:6px;right:8px;z-index:1;font-size:11.5px;color:#6E6A63;text-decoration:none;background:#FFFFFF;padding:1px 6px;border-radius:4px}
+.lsrc-x:hover{color:#9F5340;background:#f6e3db}
+.lsrc-bar{margin-top:4px;font-size:11.5px;color:#96928C}.lsrc-bar a{color:#3d5a80;text-decoration:none}
 </style>
 </head>
 <body>
@@ -2795,7 +2802,7 @@ async function _govEnsureHist(force){
   if(!slug){ window._govHist={slug:'', none:true}; const b=document.getElementById('gqBody'); if(b) b.innerHTML=_govHistHtml(); return; }
   if(!force && H.slug===slug && H.ck===ck && (H.versions||H.error||H.loading)) return;   // r249: refresh whenever the configuration changes
   window._govHist={slug, ck, loading:true, t:Date.now()};
-  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/history`); const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/history`); if(r.status===401){ window._govHist={slug, ck, auth:true, t:Date.now()}; if(currentTab==='gov'&&window._govTab==='history') renderGovTab(); return; } const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
        window._govHist={slug, ck, versions:j.versions||[], keep:j.keep, tracking:j.tracking||null, t:Date.now()}; }
   catch(e){ window._govHist={slug, ck, error:(e&&e.message)||'history unavailable', t:Date.now()}; }
   if(currentTab==='gov' && window._govTab==='history') renderGovTab();
@@ -2817,6 +2824,7 @@ function _govHistHtml(){
   const H=window._govHist||{}, S=window._govStatus||{};
   if(H.none) return `<div class="gq-empty">Save this engagement under a name to start its history.</div>`;
   if(H.loading||!H.slug&&!H.versions) return `<div class="memo">Loading change history\u2026</div>`;
+  if(H.auth) return _govAuthHtml('change history','window._govHist=null;window._govStatus=null;renderGovTab()');
   if(H.error) return `<div class="memo">Change history could not load \u2014 ${esc(H.error)}.</div>`;
   const V=H.versions||[], T=H.tracking||S.tracking||null, name=esc(((cfgRef()||{}).scenario_name)||H.slug);
   const t0=T?new Date(T.started_at):null;
@@ -2843,6 +2851,10 @@ function _govHistHtml(){
 
 window.govTabSet=function(t){ window._govTab=t; renderGovTab(); };
 window.govFilterSet=function(f){ window._govFilter=f; renderGovTab(); };
+
+function _govAuthHtml(what, retry){   // r259: sessions last 12 hours; signing in again in a new tab keeps this page's edits
+  return `<div class="gq-empty"><b>Your session has expired.</b> Sessions last 12 hours, so ${what} could not load. <a href="/v3.1" target="_blank" rel="noopener">Sign in again in a new tab</a>, then <a href="#" onclick="${retry};return false">try again</a>. Nothing on this page is lost.</div>`;
+}
 function _govCfgKey(){ try{ return JSON.stringify(cfgRef()); }catch(_){ return ''; } }
 async function _govEnsureChecks(force){
   const key=_govCfgKey(); const Q=window._govQA||{};
@@ -2850,6 +2862,7 @@ async function _govEnsureChecks(force){
   window._govQA={key, loading:true}; const body=document.getElementById('gqBody'); if(body) body.innerHTML=_govChecksHtml();
   try{
     const r=await fetch('/api/v31/qa/checks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef()})});
+    if(r.status===401){ window._govQA={key, auth:true}; if(currentTab==='gov') renderGovTab(); return; }
     const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
     window._govQA={key, findings:j.findings||[], at:new Date()};
   }catch(e){ window._govQA={key, error:(e&&e.message)||'checks failed'}; }
@@ -2883,6 +2896,7 @@ window.govGo=function(i){ const f=((window._govQA||{}).findings||[])[i]; if(f) _
 function _govChecksHtml(){
   const Q=window._govQA||{};
   if(Q.loading) return `<div class="memo">Checking the configuration\u2026</div>`;
+  if(Q.auth) return _govAuthHtml('the data checks','window._govQA=null;_govEnsureChecks(true)');
   if(Q.error) return `<div class="memo">Checks could not run \u2014 ${esc(Q.error)}. <a href="#" class="cadd" onclick="_govEnsureChecks(true);return false">Try again</a></div>`;
   if(!Q.findings) return `<div class="memo">Checking the configuration\u2026</div>`;
   const F=Q.findings, flt=window._govFilter, cnt=k=>F.filter(f=>f.severity===k).length;
@@ -2901,6 +2915,7 @@ function _govChecksHtml(){
 function _govTrackSlot(){
   const S=window._govStatus||{};
   if(!_govSlug()||(S.slug!==undefined&&!S.saved)) return `<span class="gq-track"><i>Change tracking</i><span class="st">Not saved yet</span></span>`;
+  if(S.auth) return `<span class="gq-track"><i>Change tracking</i><span class="st">Session expired</span></span>`;
   if(S.loading||S.saved===undefined) return `<span class="gq-track"><i>Change tracking</i><span class="st">\u2026</span></span>`;
   if(!S.tracking) return `<span class="gq-track"><i>Change tracking</i><span class="st">Build-out \u00b7 not tracked</span><button type="button" onclick="govStartTracking()">Start tracking</button></span>`;
   const n=(S.pending&&S.pending.n)||0;
@@ -2912,6 +2927,7 @@ async function _govEnsureStatus(force){
   if(!slug){ window._govStatus={key, slug:'', saved:false}; return; }
   window._govStatus={key, loading:true};
   try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef()})});
+       if(r.status===401){ window._govStatus={key, saved:undefined, auth:true}; if(currentTab==='gov') renderGovTab(); return; }
        const j=await r.json(); window._govStatus=Object.assign({key},j); }
   catch(e){ window._govStatus={key, saved:false, error:true}; }
   if(currentTab==='gov') renderGovTab();
@@ -11682,10 +11698,14 @@ function _opexPiecewiseEditorHtml(i,lc,j){
   bands.forEach((b,k)=>{const last=k===bands.length-1;h+=`<div class="opex-piecewise-band-row"><label class="wf-field"><input aria-label="Lower bound ($000s)" value="${fmtComma((+b.lower_bound||0)/1000)}" readonly></label><label class="wf-field">${last?`<div class="opex-piecewise-open-ended">∞ · open-ended</div>`:`<input aria-label="Upper bound ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.upper_bound||0)/1000)}" onchange="nieCatPiecewiseBandUpper(${i},${j},${k},this.value);fmtField(this)">`}</label><label class="wf-field"><input aria-label="Band base fee ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.base_amount||0)/1000)}" onchange="nieCatPiecewiseBandBase(${i},${j},${k},this.value);fmtField(this)"></label><label class="wf-field"><input aria-label="Marginal rate (decimal)" type="number" step="any" value="${_numInput(+b.marginal_rate||0,12)}" onchange="nieCatPiecewiseBandRate(${i},${j},${k},this.value)"></label>${bands.length>1?`<button class="btn-plain opex-piecewise-remove" onclick="nieCatPiecewiseRemoveBand(${i},${j},${k});return false">Remove band</button>`:`<span></span>`}</div>`;});
   h+=`<div class="nie-actions opex-piecewise-actions"><a href="#" class="cadd" onclick="nieCatPiecewiseAddBand(${i},${j});return false">+ Add band</a></div></div><div class="cmut" style="margin-top:10px">If this replaces another assessment charge, disable the other charge to avoid double counting.</div></div>`;
   return h;
+}function _opexLinkedSourcePreview(lc){   // r259: every linked-series preview can be hidden (remembered per series)
+  const key=String((lc&&(lc.series_id||lc.driver+':'+(lc.source||'')))||JSON.stringify(lc)), body=_opexLinkedSourcePreviewBody(lc), dp=esc(lc&&lc.series_id||JSON.stringify(lc));
+  if(!body) return `<div data-engine-preview="linked-${dp}"></div>`;
+  window._lsrcHidden=window._lsrcHidden||{}; const hid=!!window._lsrcHidden[key], k=esc(key).replace(/'/g,'&#39;');
+  if(hid) return `<div data-engine-preview="linked-${dp}" class="lsrc-bar">Linked source hidden \u00b7 <a href="#" onclick="window._lsrcHidden['${k}']=false;renderContent();return false">Show</a></div>`;
+  return `<div data-engine-preview="linked-${dp}" class="lsrc-wrap"><a href="#" class="lsrc-x" title="Hide linked source" onclick="window._lsrcHidden=window._lsrcHidden||{};window._lsrcHidden['${k}']=true;renderContent();return false">Hide source \u00d7</a>${body}</div>`;
 }
-function _opexLinkedSourcePreview(lc){
-  return `<div data-engine-preview="linked-${esc(lc&&lc.series_id||JSON.stringify(lc))}">${_opexLinkedSourcePreviewBody(lc)}</div>`;
-}
+window.opexFxAll=function(i,js,open){ window._fxOpen=window._fxOpen||{}; js.forEach(j=>{ window._fxOpen[i+'_'+j]=!!open; }); renderContent(); };
 function _opexLinkedSourcePreviewBody(lc){
   if(!lc||!["fee_stream_quantity","customer_acquisition_auc","workforce_count"].includes(lc.driver))return "";
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
@@ -12599,7 +12619,7 @@ function structuresSectionsHtml(){
       {
         if(!_legacyCostPool){
         const _drv=_opexLinkedDriverOptions();
-        row += `<div class="cfg-inset"><div class="wf-field-label">Additive expense components</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>`;
+        row += `<div class="cfg-inset"><div class="opex-comp-h"><div class="wf-field-label">Additive expense components</div>${(()=>{ const fj=_lcs.map((lc,j)=>(lc&&(lc.driver==='formula_driver'||lc.driver==='service_capacity'))?j:-1).filter(j=>j>=0); return fj.length>1?`<span class="opex-comp-all"><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],false);return false">Collapse all</a><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],true);return false">Expand all</a></span>`:''; })()}</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>`;
         _lcs.forEach((lc,j)=>{
           if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}
           if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}
