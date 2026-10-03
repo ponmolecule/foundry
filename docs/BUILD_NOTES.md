@@ -1294,3 +1294,13 @@ Presentation release on r259. Engine untouched; no fields changed.
 - The tiny arrow becomes a 30px bordered chevron button that flips when open; the whole header is clickable
   (hover highlight, Collapse / Expand tooltip, keyboard Enter / Space).
 - "Hide source" sits on its own line above the preview instead of over its text.
+
+
+## r261 — Categories layout fix
+
+Presentation release on r260. r260 stacked the list above the detail for categories with formula components,
+but nothing then bounded the list: at 1920 / 2560px it stretched to the full page (1,514 / 2,154px) and its
+columns spread across the screen. Now the whole Expense categories section stacks consistently (no layout
+jump when moving between categories): the list keeps its table's natural width (716px at every screen), the
+detail beneath is up to 1100px (1,034px at 1440). No horizontal page scroll; formula cards unchanged
+(1,066px at 1920, 14px gaps, no clipping).
