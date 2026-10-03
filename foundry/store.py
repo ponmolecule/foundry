@@ -68,6 +68,10 @@ def save_engagement(cfg, slug=None, user=None):
     # gate T18; recorded in PROTOCOL_GAPS and ENGINE_SPEC §12.
     with open(path, "w", encoding="utf-8") as f:
         json.dump(cfg2, f, indent=1)
+    try:                                   # r248: change history; never allowed to fail or alter the save
+        _record_version(cfg2, slug, user)
+    except Exception:
+        pass
     return {"slug": slug, "path": path,
             "config_schema_version": cfg2["config_schema_version"]}
 
@@ -135,4 +139,68 @@ def list_engagements(user=None):
         except Exception:
             out.append({"slug": slug, "name": slug + " (unreadable)",
                         "config_schema_version": None})
+    return out
+
+
+# ---------------------------------------------------------------------------------------------------------
+# r248: change history. Each save of a NAMED engagement also keeps a timestamped copy (who, when, the full
+# configuration) under <engagements dir>/_history/<slug>/. Unchanged re-saves are not recorded; the newest
+# HISTORY_KEEP versions are kept. Working-session autosaves are excluded (they would bury the real saves).
+# The engagement file itself is written exactly as before; history is written after it, and any failure is
+# swallowed by save_engagement. list_engagements only reads *.json files, so the _history folder never lists.
+HISTORY_KEEP = 50
+
+
+def _history_dir(slug, user=None):
+    d = os.path.join(_dir(user), "_history", slugify(slug))
+    os.makedirs(d, exist_ok=True)
+    return d
+
+
+def _user_name(user):
+    if isinstance(user, dict):
+        return str(user.get("user") or user.get("name") or user.get("username") or "")
+    return str(user or "")
+
+
+def _record_version(cfg, slug, user=None):
+    if str(slug).startswith("working-session"):
+        return None
+    import datetime as _dt
+    d = _history_dir(slug, user)
+    files = sorted(f for f in os.listdir(d) if f.endswith(".json"))
+    body = json.dumps(cfg, sort_keys=True)
+    if files:
+        try:
+            with open(os.path.join(d, files[-1]), encoding="utf-8") as f:
+                if json.dumps(json.load(f).get("config"), sort_keys=True) == body:
+                    return None            # nothing changed since the last recorded save
+        except Exception:
+            pass
+    now = _dt.datetime.now(_dt.timezone.utc)
+    vid = now.strftime("%Y%m%dT%H%M%S%fZ")
+    with open(os.path.join(d, vid + ".json"), "w", encoding="utf-8") as f:
+        json.dump({"id": vid, "saved_at": now.isoformat(), "user": _user_name(user), "config": cfg}, f)
+    files = sorted(f for f in os.listdir(d) if f.endswith(".json"))
+    for old in files[:-HISTORY_KEEP]:
+        try:
+            os.remove(os.path.join(d, old))
+        except OSError:
+            pass
+    return vid
+
+
+def list_versions(slug, user=None):
+    """Recorded versions of an engagement, oldest first: [{id, saved_at, user, config}]."""
+    d = os.path.join(_dir(user), "_history", slugify(slug))
+    if not os.path.isdir(d):
+        return []
+    out = []
+    for name in sorted(os.listdir(d)):
+        if name.endswith(".json"):
+            try:
+                with open(os.path.join(d, name), encoding="utf-8") as f:
+                    out.append(json.load(f))
+            except Exception:
+                continue
     return out

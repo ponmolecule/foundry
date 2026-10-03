@@ -178,7 +178,7 @@ def run_checks(cfg, runner=None):
     findings = []
     for path, spec in _explicit_series(cfg):
         vals = spec["values"]
-        period = spec.get("period") or ("month" if len(vals) >= 24 else "period")
+        period = spec.get("cadence") or spec.get("period") or ("month" if len(vals) >= 24 else "period")
         for ep in _episodes(vals):
             sev = "review" if ep["ratio"] >= REVIEW_RATIO else "look"
             main, detail = _where(cfg, path)
@@ -200,7 +200,7 @@ def run_checks(cfg, runner=None):
     seen = {(tuple(f["path"]), f["start"]) for f in findings}
     for path, spec in _explicit_series(cfg):
         vals = spec["values"]
-        period = spec.get("period") or ("month" if len(vals) >= 24 else "period")
+        period = spec.get("cadence") or spec.get("period") or ("month" if len(vals) >= 24 else "period")
         for ep in _episodes(vals, threshold=COMPANION_RATIO):
             if ep["start"] not in starts or (tuple(path), ep["start"]) in seen:
                 continue

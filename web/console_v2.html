@@ -1757,6 +1757,21 @@ tr.vin-ext td{color:var(--k-tx3)}
 .gq-go{white-space:nowrap;color:#8F6B30;text-decoration:none;font-size:12px}.gq-go:hover{text-decoration:underline}
 .gq-foot{max-width:1000px;margin:10px 0 0;font-size:11px;color:#96928C;line-height:1.5}
 .gq-empty{padding:18px 22px;border-radius:6px;background:#FFFFFF;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);font-size:12.5px;color:#4A4A4A;max-width:760px}
+
+/* r248: change history */
+.gq-hist{max-width:1100px;background:#FFFFFF;border-radius:6px;box-shadow:0 1px 2px rgba(0,0,0,.06),0 4px 14px rgba(0,0,0,.07);overflow:hidden}
+.gq-hist-h{display:flex;align-items:center;padding:11px 16px;background:#2C2C2C;color:#FFFFFF}
+.gq-hist-h b{flex:1;font-size:13.5px}.gq-hist-h span{font-size:11.5px;color:#C9C3B6}
+.gq-hist-row{display:grid;grid-template-columns:150px 1fr;gap:16px;padding:13px 16px;border-top:1px solid #F0F0EC}
+.gq-hist-row:first-of-type{border-top:0}
+.gq-hist-w{font-size:12.5px;color:#4A4A4A}.gq-hist-w span{display:block;color:#96928C;font-size:11.5px}
+.gq-hist-c{font-size:12.5px;color:#343434}.gq-hist-c>b{font-weight:600}
+.gq-mut{color:#96928C;font-weight:400}
+.gq-diff{width:100%;margin-top:8px;border-collapse:collapse;border:1px solid #ECECE8;border-radius:4px}
+.gq-diff td{padding:7px 10px;border-top:1px solid #F0F0EC;font-size:12px;vertical-align:top}
+.gq-diff tr:first-child td{border-top:0}.gq-diff td span{color:#6E6A63}
+.gq-diff td.b{text-align:right;white-space:nowrap}.gq-diff td.b s{color:#9F5340}
+.gq-diff td.a{width:14px;color:#96928C}.gq-diff td.n{color:#536A57;font-weight:600;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -2563,10 +2578,52 @@ function renderGovTab(){
   let head=`<div class="gq-head"><h2>Governance &amp; QA</h2><div class="gq-counts">`
     +`<span><i>Needs review</i><b class="r">${Q.findings?cnt('review'):'\u2014'}</b></span><span><i>Worth a look</i><b class="l">${Q.findings?cnt('look'):'\u2014'}</b></span><span><i>Info</i><b>${Q.findings?cnt('info'):'\u2014'}</b></span></div></div>`;
   head+=`<div class="gq-tabs"><button type="button" class="gq-tab${window._govTab==='checks'?' on':''}" onclick="govTabSet('checks')">Data checks${Q.findings?` <small>${F.length}</small>`:''}</button>`
+    +`<button type="button" class="gq-tab${window._govTab==='history'?' on':''}" onclick="govTabSet('history')">Change history${(window._govHist&&window._govHist.versions)?` <small>${window._govHist.versions.length} version${window._govHist.versions.length===1?'':'s'}</small>`:''}</button>`
     +`<button type="button" class="gq-tab${window._govTab==='repro'?' on':''}" onclick="govTabSet('repro')">Reproducibility</button></div>`;
   if(window._govTab==='repro'){ renderGovRepro(); el.insertAdjacentHTML('afterbegin', head); return; }
+  if(window._govTab==='history'){ el.innerHTML = head + `<div id="gqBody">${_govHistHtml()}</div>`; _govEnsureHist(); return; }
   el.innerHTML = head + `<div id="gqBody">${_govChecksHtml()}</div>`;
   _govEnsureChecks();
+}
+// r248: Change history (each save of a named engagement; field-level changes against the previous save)
+function _govSlug(){ const n=((cfgRef()||{}).scenario_name||'').trim(); return n ? n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') : ''; }
+async function _govEnsureHist(force){
+  const slug=_govSlug(); const H=window._govHist||{};
+  if(!slug){ window._govHist={slug:'', none:true}; const b=document.getElementById('gqBody'); if(b) b.innerHTML=_govHistHtml(); return; }
+  if(!force && H.slug===slug && (H.versions||H.error||H.loading) && (Date.now()-(H.t||0))<15000) return;
+  window._govHist={slug, loading:true, t:Date.now()};
+  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/history`); const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
+       window._govHist={slug, versions:j.versions||[], keep:j.keep, t:Date.now()}; }
+  catch(e){ window._govHist={slug, error:(e&&e.message)||'history unavailable', t:Date.now()}; }
+  if(currentTab==='gov' && window._govTab==='history') renderGovTab();
+}
+function _gqWhen(iso){
+  const d=new Date(iso); if(isNaN(d)) return esc(iso||''); const now=new Date(), y=new Date(now); y.setDate(now.getDate()-1);
+  const hm=d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'});
+  if(d.toDateString()===now.toDateString()) return 'Today '+hm;
+  if(d.toDateString()===y.toDateString()) return 'Yesterday '+hm;
+  return d.toLocaleDateString([], {day:'numeric',month:'short'})+' '+hm;
+}
+function _govHistHtml(){
+  const H=window._govHist||{};
+  if(H.none) return `<div class="gq-empty">Save this engagement under a name to start its change history.</div>`;
+  if(H.loading||!H.slug&&!H.versions) return `<div class="memo">Loading change history\u2026</div>`;
+  if(H.error) return `<div class="memo">Change history could not load \u2014 ${esc(H.error)}.</div>`;
+  const V=H.versions||[], name=esc(((cfgRef()||{}).scenario_name)||H.slug);
+  let h=`<div class="gq-hist"><div class="gq-hist-h"><b>${name} \u00b7 saves</b><span>newest first \u00b7 ${V.length} kept</span></div>`;
+  if(!V.length) h+=`<div class="gq-hist-row"><div class="gq-hist-w">\u2014</div><div class="gq-hist-c">No saves recorded yet. History starts with the next save of this engagement.</div></div>`;
+  V.forEach(v=>{
+    h+=`<div class="gq-hist-row"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">`;
+    if(v.first){ h+=`<b>First recorded version</b><span class="gq-mut"> \u00b7 later saves are compared with this one</span>`; }
+    else if(!v.n_changes){ h+=`<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>`; }
+    else {
+      h+=`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span><table class="gq-diff">`;
+      (v.changes||[]).forEach(c=>{ h+=`<tr><td>${esc(c.where)}${c.field?` \u00b7 <span>${esc(c.field)}</span>`:''}</td><td class="b">${c.before?`<s>${esc(c.before)}</s>`:''}</td><td class="a">\u2192</td><td class="n">${c.after?esc(c.after):'<span class="gq-mut">removed</span>'}</td></tr>`; });
+      h+=`</table>`+(v.more?`<div class="gq-mut" style="margin-top:4px">+ ${v.more} more change${v.more===1?'':'s'}</div>`:'');
+    }
+    h+=`</div></div>`;
+  });
+  return h+`</div><div class="gq-foot">History records each save of a named engagement (autosaves are not recorded) and keeps the newest ${H.keep||50}. It starts with the first save after this release.</div>`;
 }
 window.govTabSet=function(t){ window._govTab=t; renderGovTab(); };
 window.govFilterSet=function(f){ window._govFilter=f; renderGovTab(); };
