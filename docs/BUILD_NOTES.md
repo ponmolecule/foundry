@@ -1224,3 +1224,11 @@ Presentation release on r253.
   one "n = X peers per metric" beside the legend when every metric has the same count, otherwise per row.
 - Legend in the panel header: P10-P90 (middle 80% of peers), P25-P75 (middle 50%), median, your bank,
   Q12 standalone.
+
+
+## r255 — Vintage panel centred
+
+Presentation release on r254. The vintage chart/table panel is centred in the page and 80% of its r254 width
+(panel 785 / 938 / 1,143 px at 1440 / 1920 / 2560); the chart is 10% taller than r254 on the same screen
+(308 / 340 / 436 px), computed from the r254 chart width since the side panel keeps its fixed width. Chart
+and Table still share one body height.
