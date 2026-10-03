@@ -1772,6 +1772,20 @@ tr.vin-ext td{color:var(--k-tx3)}
 .gq-diff tr:first-child td{border-top:0}.gq-diff td span{color:#6E6A63}
 .gq-diff td.b{text-align:right;white-space:nowrap}.gq-diff td.b s{color:#9F5340}
 .gq-diff td.a{width:14px;color:#96928C}.gq-diff td.n{color:#536A57;font-weight:600;white-space:nowrap}
+
+/* r249: change tracking */
+.gq-track{display:flex;flex-direction:column;align-items:flex-end;padding-left:26px;margin-left:4px;border-left:1px solid rgba(255,255,255,.18)}
+.gq-track i{font-style:normal;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:#C9C3B6}
+.gq-track b{font-family:var(--k-disp);font-size:20px;font-weight:600;color:#FFFFFF}
+.gq-track .st{font-size:13px;font-weight:500;color:#E6E1D6;margin:2px 0 4px}
+.gq-track button{height:24px;padding:0 11px;border:1px solid rgba(223,179,103,.7);border-radius:12px;background:transparent;color:#DFB367;font:inherit;font-size:11.5px;cursor:pointer}
+.gq-track button:hover{background:rgba(223,179,103,.12)}.gq-track-on{cursor:pointer}
+.gq-build{display:grid;grid-template-columns:150px 1fr auto;gap:16px;align-items:center;padding:13px 16px;border-top:1px solid #F0F0EC;background:#FAFAF8;font-size:12.5px;color:#4A4A4A}
+.gq-build b{font-weight:600;color:#343434}.gq-build a{color:#8F6B30;text-decoration:none;font-weight:600;white-space:nowrap}
+.gq-tgl{margin-left:6px;font-weight:500!important}
+.gq-pending{background:#FFFBF2}.gq-sub{background:#FCFCFA}
+.gq-k{font-size:10px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:1px 6px;border-radius:8px;margin-left:4px}
+.gq-k.rm{color:#9F5340;background:rgba(146,91,77,.12)}.gq-k.ad{color:#536A57;background:rgba(83,106,87,.12)}
 </style>
 </head>
 <body>
@@ -2576,11 +2590,12 @@ function renderGovTab(){
   const Q=window._govQA||{}, F=(Q.findings||[]);
   const cnt=k=>F.filter(f=>f.severity===k).length;
   let head=`<div class="gq-head"><h2>Governance &amp; QA</h2><div class="gq-counts">`
-    +`<span><i>Needs review</i><b class="r">${Q.findings?cnt('review'):'\u2014'}</b></span><span><i>Worth a look</i><b class="l">${Q.findings?cnt('look'):'\u2014'}</b></span><span><i>Info</i><b>${Q.findings?cnt('info'):'\u2014'}</b></span></div></div>`;
+    +`<span><i>Needs review</i><b class="r">${Q.findings?cnt('review'):'\u2014'}</b></span><span><i>Worth a look</i><b class="l">${Q.findings?cnt('look'):'\u2014'}</b></span><span><i>Info</i><b>${Q.findings?cnt('info'):'\u2014'}</b></span>${_govTrackSlot()}</div></div>`;
   head+=`<div class="gq-tabs"><button type="button" class="gq-tab${window._govTab==='checks'?' on':''}" onclick="govTabSet('checks')">Data checks${Q.findings?` <small>${F.length}</small>`:''}</button>`
     +`<button type="button" class="gq-tab${window._govTab==='history'?' on':''}" onclick="govTabSet('history')">Change history${(window._govHist&&window._govHist.versions)?` <small>${window._govHist.versions.length} version${window._govHist.versions.length===1?'':'s'}</small>`:''}</button>`
     +`<button type="button" class="gq-tab${window._govTab==='repro'?' on':''}" onclick="govTabSet('repro')">Reproducibility</button></div>`;
   if(window._govTab==='repro'){ renderGovRepro(); el.insertAdjacentHTML('afterbegin', head); return; }
+  _govEnsureStatus();
   if(window._govTab==='history'){ el.innerHTML = head + `<div id="gqBody">${_govHistHtml()}</div>`; _govEnsureHist(); return; }
   el.innerHTML = head + `<div id="gqBody">${_govChecksHtml()}</div>`;
   _govEnsureChecks();
@@ -2588,13 +2603,13 @@ function renderGovTab(){
 // r248: Change history (each save of a named engagement; field-level changes against the previous save)
 function _govSlug(){ const n=((cfgRef()||{}).scenario_name||'').trim(); return n ? n.toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'') : ''; }
 async function _govEnsureHist(force){
-  const slug=_govSlug(); const H=window._govHist||{};
+  const slug=_govSlug(); const H=window._govHist||{}; const ck=_govCfgKey();
   if(!slug){ window._govHist={slug:'', none:true}; const b=document.getElementById('gqBody'); if(b) b.innerHTML=_govHistHtml(); return; }
-  if(!force && H.slug===slug && (H.versions||H.error||H.loading) && (Date.now()-(H.t||0))<15000) return;
-  window._govHist={slug, loading:true, t:Date.now()};
+  if(!force && H.slug===slug && H.ck===ck && (H.versions||H.error||H.loading)) return;   // r249: refresh whenever the configuration changes
+  window._govHist={slug, ck, loading:true, t:Date.now()};
   try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/history`); const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
-       window._govHist={slug, versions:j.versions||[], keep:j.keep, t:Date.now()}; }
-  catch(e){ window._govHist={slug, error:(e&&e.message)||'history unavailable', t:Date.now()}; }
+       window._govHist={slug, ck, versions:j.versions||[], keep:j.keep, tracking:j.tracking||null, t:Date.now()}; }
+  catch(e){ window._govHist={slug, ck, error:(e&&e.message)||'history unavailable', t:Date.now()}; }
   if(currentTab==='gov' && window._govTab==='history') renderGovTab();
 }
 function _gqWhen(iso){
@@ -2604,27 +2619,40 @@ function _gqWhen(iso){
   if(d.toDateString()===y.toDateString()) return 'Yesterday '+hm;
   return d.toLocaleDateString([], {day:'numeric',month:'short'})+' '+hm;
 }
+function _govDiffTable(chs, more){
+  let h=`<table class="gq-diff">`;
+  (chs||[]).forEach(c=>{ const tag=c.kind==='removed'?' <span class="gq-k rm">removed</span>':c.kind==='added'?' <span class="gq-k ad">added</span>':'';
+    h+=`<tr><td>${esc(c.where)}${c.field?` \u00b7 <span>${esc(c.field)}</span>`:''}${tag}</td><td class="b">${c.before?`<s>${esc(c.before)}</s>`:''}</td><td class="a">\u2192</td><td class="n">${c.after?esc(c.after):'<span class="gq-mut">\u2014</span>'}</td></tr>`; });
+  return h+`</table>`+(more?`<div class="gq-mut" style="margin-top:4px">+ ${more} more change${more===1?'':'s'}</div>`:'');
+}
 function _govHistHtml(){
-  const H=window._govHist||{};
-  if(H.none) return `<div class="gq-empty">Save this engagement under a name to start its change history.</div>`;
+  const H=window._govHist||{}, S=window._govStatus||{};
+  if(H.none) return `<div class="gq-empty">Save this engagement under a name to start its history.</div>`;
   if(H.loading||!H.slug&&!H.versions) return `<div class="memo">Loading change history\u2026</div>`;
   if(H.error) return `<div class="memo">Change history could not load \u2014 ${esc(H.error)}.</div>`;
-  const V=H.versions||[], name=esc(((cfgRef()||{}).scenario_name)||H.slug);
-  let h=`<div class="gq-hist"><div class="gq-hist-h"><b>${name} \u00b7 saves</b><span>newest first \u00b7 ${V.length} kept</span></div>`;
-  if(!V.length) h+=`<div class="gq-hist-row"><div class="gq-hist-w">\u2014</div><div class="gq-hist-c">No saves recorded yet. History starts with the next save of this engagement.</div></div>`;
-  V.forEach(v=>{
+  const V=H.versions||[], T=H.tracking||S.tracking||null, name=esc(((cfgRef()||{}).scenario_name)||H.slug);
+  const t0=T?new Date(T.started_at):null;
+  const tracked=T?V.filter(v=>new Date(v.saved_at)>=t0):[], build=T?V.filter(v=>new Date(v.saved_at)<t0):V;
+  let h=`<div class="gq-hist"><div class="gq-hist-h"><b>${name} \u00b7 saves</b><span>newest first${T?` \u00b7 tracking since ${_gqWhen(T.started_at)}`:''}</span></div>`;
+  const P=S.pending;
+  if(T && P && P.n){ h+=`<div class="gq-hist-row gq-pending"><div class="gq-hist-w">Now<span>not saved yet</span></div><div class="gq-hist-c"><b>${P.n} unsaved change${P.n===1?'':'s'}</b><span class="gq-mut"> \u00b7 compared with the last save</span>${_govDiffTable(P.changes,P.more)}</div></div>`; }
+  tracked.forEach(v=>{
     h+=`<div class="gq-hist-row"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">`;
-    if(v.first){ h+=`<b>First recorded version</b><span class="gq-mut"> \u00b7 later saves are compared with this one</span>`; }
-    else if(!v.n_changes){ h+=`<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>`; }
-    else {
-      h+=`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span><table class="gq-diff">`;
-      (v.changes||[]).forEach(c=>{ h+=`<tr><td>${esc(c.where)}${c.field?` \u00b7 <span>${esc(c.field)}</span>`:''}</td><td class="b">${c.before?`<s>${esc(c.before)}</s>`:''}</td><td class="a">\u2192</td><td class="n">${c.after?esc(c.after):'<span class="gq-mut">removed</span>'}</td></tr>`; });
-      h+=`</table>`+(v.more?`<div class="gq-mut" style="margin-top:4px">+ ${v.more} more change${v.more===1?'':'s'}</div>`:'');
-    }
+    if(v.first||!tracked.length) h+=`<b>First recorded version</b>`;
+    else if(!v.n_changes) h+=`<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>`;
+    else h+=`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span>`+_govDiffTable(v.changes,v.more);
     h+=`</div></div>`;
   });
-  return h+`</div><div class="gq-foot">History records each save of a named engagement (autosaves are not recorded) and keeps the newest ${H.keep||50}. It starts with the first save after this release.</div>`;
+  if(build.length || !T){
+    const d0=build.length?_gqWhen(build[build.length-1].saved_at).replace(/ \d.*$/,''):'', d1=build.length?_gqWhen(build[0].saved_at).replace(/ \d.*$/,''):'';
+    h+=`<div class="gq-build"><div>${build.length?(d0===d1?esc(d0):esc(d0)+' \u2013 '+esc(d1)):'\u2014'}</div><div><b>Build-out \u00b7 ${build.length} save${build.length===1?'':'s'}</b><span class="gq-mut"> \u00b7 ${T?'before tracking started':'not tracked yet; changes are compared from the moment tracking starts'}</span>`
+      +(build.length?` <a href="#" class="gq-tgl" onclick="window._govShowBuild=!window._govShowBuild;renderGovTab();return false">${window._govShowBuild?'hide':'show'}</a>`:'')+`</div>`
+      +(T?'<div></div>':`<a href="#" onclick="govStartTracking();return false">Start change tracking</a>`)+`</div>`;
+    if(window._govShowBuild) build.forEach(v=>{ h+=`<div class="gq-hist-row gq-sub"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">${v.first?'<b>First recorded version</b>':(v.n_changes?`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span>`+_govDiffTable(v.changes,v.more):'<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>')}</div></div>`; });
+  }
+  return h+`</div><div class="gq-foot">History records each save of a named engagement (autosaves are not recorded) and keeps the newest ${H.keep||50}. Saves before tracking starts are kept as build-out. Freezing a run while tracking is off asks whether to start tracking.</div>`;
 }
+
 window.govTabSet=function(t){ window._govTab=t; renderGovTab(); };
 window.govFilterSet=function(f){ window._govFilter=f; renderGovTab(); };
 function _govCfgKey(){ try{ return JSON.stringify(cfgRef()); }catch(_){ return ''; } }
@@ -2680,6 +2708,40 @@ function _govChecksHtml(){
   h+=`</table><div class="gq-foot">Flagged: an isolated run in an explicit schedule at 8\u00d7 its surrounding level or more (Needs review) or 3\u00d7 or more (Worth a look); values near 12\u00d7 or 100\u00d7 suggest a unit mix-up. Effects compare the run with the flagged values replaced by their surrounding level. Checks read the configuration only; nothing is changed.</div>`;
   return h;
 }
+
+// r249: change tracking state and net unsaved changes (status endpoint is read-only)
+function _govTrackSlot(){
+  const S=window._govStatus||{};
+  if(!_govSlug()||(S.slug!==undefined&&!S.saved)) return `<span class="gq-track"><i>Change tracking</i><span class="st">Not saved yet</span></span>`;
+  if(S.loading||S.saved===undefined) return `<span class="gq-track"><i>Change tracking</i><span class="st">\u2026</span></span>`;
+  if(!S.tracking) return `<span class="gq-track"><i>Change tracking</i><span class="st">Build-out \u00b7 not tracked</span><button type="button" onclick="govStartTracking()">Start tracking</button></span>`;
+  const n=(S.pending&&S.pending.n)||0;
+  return `<span class="gq-track gq-track-on" role="button" tabindex="0" title="Show unsaved changes" onclick="govTabSet('history')"><i>Unsaved changes</i><b>${n}</b></span>`;
+}
+async function _govEnsureStatus(force){
+  const slug=_govSlug(), key=_govCfgKey()+'|'+slug, S=window._govStatus||{};
+  if(!force && S.key===key && (S.saved!==undefined||S.loading)) return;
+  if(!slug){ window._govStatus={key, slug:'', saved:false}; return; }
+  window._govStatus={key, loading:true};
+  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef()})});
+       const j=await r.json(); window._govStatus=Object.assign({key},j); }
+  catch(e){ window._govStatus={key, saved:false, error:true}; }
+  if(currentTab==='gov') renderGovTab();
+}
+window.govStartTracking=async function(){
+  const slug=_govSlug(); if(!slug) return;
+  try{ const r=await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/tracking`,{method:'POST'}); const j=await r.json();
+       if(!r.ok){ appStatus&&appStatus('err','<b>Tracking not started</b> \u2014 '+esc(j.error||('HTTP '+r.status))); return; } }
+  catch(e){ return; }
+  window._govStatus=null; window._govHist=null; if(currentTab==='gov') renderGovTab();
+};
+(function(){ const of=window.fetch; if(of && !of._govHook){ const w=function(u,o){ const p=of.apply(this,arguments);   // r249: any save refreshes Governance status and history
+  if(/\/api\/v31\/engagement\/save-current|\/api\/v31\/engagement$/.test(String(u)) && o && String(o.method||'').toUpperCase()==='POST'){ p.then(()=>{ window._govStatus=null; window._govHist=null; if(typeof currentTab!=='undefined'&&currentTab==='gov') renderGovTab(); }).catch(()=>{}); }
+  return p; }; w._govHook=true; window.fetch=w; } })();
+setTimeout(()=>{ const o=window.freezeRun; if(typeof o==='function'&&!o._track){ const w=async function(){ const r=await o.apply(this,arguments);
+  try{ const slug=_govSlug(); if(slug){ const st=await (await fetch(`/api/v31/engagement/${encodeURIComponent(slug)}/status`,{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'})).json();
+    if(st.saved && !st.tracking && confirm('Start change tracking for this engagement now? Changes will be compared from this point on.')){ await govStartTracking(); } } }catch(_){}
+  return r; }; w._track=true; window.freezeRun=w; } },0);   // r249: freezing while untracked offers to start tracking
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels

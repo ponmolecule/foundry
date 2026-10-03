@@ -204,3 +204,37 @@ def list_versions(slug, user=None):
             except Exception:
                 continue
     return out
+
+
+# r249: change tracking. Started explicitly per engagement; the marker lives beside the versions folder
+# (_history/<slug>.tracking.json), never inside it and never in the configuration.
+def _tracking_path(slug, user=None):
+    d = os.path.join(_dir(user), "_history")
+    os.makedirs(d, exist_ok=True)
+    return os.path.join(d, slugify(slug) + ".tracking.json")
+
+
+def get_tracking(slug, user=None):
+    path = _tracking_path(slug, user)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def start_tracking(slug, user=None):
+    import datetime as _dt
+    existing = get_tracking(slug, user)
+    if existing:
+        return existing
+    rec = {"started_at": _dt.datetime.now(_dt.timezone.utc).isoformat(), "user": _user_name(user)}
+    with open(_tracking_path(slug, user), "w", encoding="utf-8") as f:
+        json.dump(rec, f)
+    return rec
+
+
+def is_saved(slug, user=None):
+    return os.path.exists(os.path.join(_dir(user), slugify(slug) + ".json"))

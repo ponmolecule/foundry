@@ -309,6 +309,11 @@ def main():
     ck("Governance & QA has a Change history tab reading /api/v31/engagement/{slug}/history",
        "onclick=\"govTabSet('history')\"" in html and 'function _govHistHtml()' in html
        and "/api/v31/engagement/${encodeURIComponent(slug)}/history" in html)
+    # r249: change tracking (explicit start, build-out collapsed, net unsaved changes, freeze prompt).
+    ck("Change tracking: header slot, status endpoint, Start tracking, freeze prompt, caches cleared on save",
+       'function _govTrackSlot()' in html and "/api/v31/engagement/${encodeURIComponent(slug)}/status" in html
+       and 'window.govStartTracking=async function()' in html and "confirm('Start change tracking for this engagement now?" in html
+       and 'w._govHook=true; window.fetch=w;' in html)
     ck("Securities books use a two-tier field editor",
        '.sec-book-line-top{' in html and '.sec-book-line-bottom{' in html
        and html.count('class="sec-book-line sec-book-line-top"') == 2

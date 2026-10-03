@@ -15,19 +15,6 @@ def _is_num_list(v):
     return isinstance(v, list) and len(v) >= 2 and all(x is None or isinstance(x, (int, float)) for x in v)
 
 
-def _leaves(o, path=()):
-    if isinstance(o, dict):
-        for k, v in o.items():
-            if isinstance(k, str) and k.startswith("_"):
-                continue
-            yield from _leaves(v, path + (k,))
-    elif isinstance(o, list) and not _is_num_list(o):
-        for i, v in enumerate(o):
-            yield from _leaves(v, path + (i,))
-    else:
-        yield path, o
-
-
 def _val(v):
     if v is None:
         return "—"
@@ -79,27 +66,77 @@ def _prefix(cfg, path):
     return {"quarter": "Q", "year": "Y", "annual": "Y"}.get(str(per), "M")
 
 
+_ID_KEYS = ("series_id", "id", "name", "role", "label")
+
+
+def _item_key(x, i):
+    if isinstance(x, dict):
+        for k in _ID_KEYS:
+            if x.get(k) not in (None, ""):
+                return (k, str(x[k]))
+    return ("#", i)
+
+
+def _summary(v):
+    """Short description of a whole added or removed subtree."""
+    if isinstance(v, dict):
+        nm = next((str(v[k]) for k in ("name", "role", "label") if v.get(k)), "")
+        vals = v.get("values")
+        extra = f"{len(vals)} values" if isinstance(vals, list) else f"{len(v)} settings"
+        return (nm + " · " if nm else "") + extra
+    if isinstance(v, list):
+        return f"{len(v)} item{'' if len(v) == 1 else 's'}"
+    return _val(v)
+
+
 def diff(old, new):
-    a = dict(_leaves(old or {}))
-    b = dict(_leaves(new or {}))
-    changes = []
-    for path in sorted(set(a) | set(b), key=lambda p: [str(x) for x in p]):
-        va, vb = a.get(path, None), b.get(path, None)
-        if va == vb:
-            continue
-        where, field = _label(new if path in b else old, path)
-        if _is_num_list(va) and _is_num_list(vb) and len(va) == len(vb):
-            idx = [i for i in range(len(va)) if va[i] != vb[i]]
-            period_prefix = _prefix(new, path)
+    """Field-level changes. Lists of objects are matched by identity (series_id, id, name, role, label),
+    so removing one item is one 'removed' change rather than a cascade of shifted positions."""
+    out = []
+
+    def emit(path, before, after, kind):
+        where, field = _label(new if kind != "removed" else old, path)
+        out.append({"where": where, "field": field or "value", "kind": kind,
+                    "before": before if before is not None else "", "after": after if after is not None else ""})
+
+    def walk(a, b, path):
+        if isinstance(a, dict) and isinstance(b, dict):
+            for k in list(a.keys()) + [k for k in b.keys() if k not in a]:
+                if isinstance(k, str) and k.startswith("_"):
+                    continue
+                if k not in b:
+                    emit(path + (k,), _summary(a[k]), None, "removed")
+                elif k not in a:
+                    emit(path + (k,), None, _summary(b[k]), "added")
+                else:
+                    walk(a[k], b[k], path + (k,))
+            return
+        if _is_num_list(a) and _is_num_list(b) and len(a) == len(b):
+            idx = [i for i in range(len(a)) if a[i] != b[i]]
+            pre = _prefix(new, path + ("values",)) if path and path[-1] == "values" else _prefix(new, path + (0,))
+            where, field = _label(new, path)
             for r in _runs(idx):
-                when = f"{period_prefix}{r[0] + 1}" + (f" to {period_prefix}{r[-1] + 1}" if len(r) > 1 else "")
-                changes.append({"where": where, "field": (field + " · " if field else "") + when,
-                                "before": " / ".join(_val(va[i]) for i in r), "after": " / ".join(_val(vb[i]) for i in r)})
-        else:
-            kind = "added" if path not in a else ("removed" if path not in b else "changed")
-            changes.append({"where": where, "field": field or "value", "kind": kind,
-                            "before": "" if kind == "added" else _val(va), "after": "" if kind == "removed" else _val(vb)})
-    return changes
+                when = f"{pre}{r[0] + 1}" + (f" to {pre}{r[-1] + 1}" if len(r) > 1 else "")
+                out.append({"where": where, "field": (field + " · " if field else "") + when, "kind": "changed",
+                            "before": " / ".join(_val(a[i]) for i in r), "after": " / ".join(_val(b[i]) for i in r)})
+            return
+        if isinstance(a, list) and isinstance(b, list) and not _is_num_list(a) and not _is_num_list(b):
+            ka = {_item_key(x, i): (i, x) for i, x in enumerate(a)}
+            kb = {_item_key(x, i): (i, x) for i, x in enumerate(b)}
+            for key, (i, x) in ka.items():
+                if key not in kb:
+                    emit(path + (i,), _summary(x), None, "removed")
+            for key, (j, y) in kb.items():
+                if key not in ka:
+                    emit(path + (j,), None, _summary(y), "added")
+                else:
+                    walk(ka[key][1], y, path + (j,))
+            return
+        if a != b:
+            emit(path, _val(a), _val(b), "changed")
+
+    walk(old or {}, new or {}, ())
+    return out
 
 
 def history(versions):
