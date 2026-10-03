@@ -821,9 +821,43 @@ def v31_engagement_history(slug: str, user=Depends(gate)):
     from foundry.v2.config_diff import history
     try:
         return JSONResponse({"slug": store.slugify(slug), "keep": store.HISTORY_KEEP,
+                             "tracking": store.get_tracking(slug, user=user),
                              "versions": history(store.list_versions(slug, user=user))})
     except Exception as e:
         return JSONResponse({"error": f"history failed: {type(e).__name__}: {e}"}, status_code=500)
+
+
+@app.post("/api/v31/engagement/{slug}/tracking")
+def v31_engagement_tracking_start(slug: str, user=Depends(gate)):
+    """r249: start change tracking for a saved engagement (idempotent)."""
+    from foundry import store
+    if not store.is_saved(slug, user=user):
+        return JSONResponse({"error": "save the engagement first"}, status_code=409)
+    return JSONResponse({"tracking": store.start_tracking(slug, user=user)})
+
+
+@app.post("/api/v31/engagement/{slug}/status")
+def v31_engagement_status(slug: str, body: dict, user=Depends(gate)):
+    """r249: saved? tracking? and, once tracking, the net unsaved changes of the posted (live) configuration
+    against the saved engagement. Read-only."""
+    from foundry import store
+    from foundry.v2.config_diff import diff, MAX_CHANGES
+    saved = store.is_saved(slug, user=user)
+    tracking = store.get_tracking(slug, user=user) if saved else None
+    out = {"slug": store.slugify(slug), "saved": saved, "tracking": tracking, "pending": None}
+    if saved and tracking and isinstance(body.get("config"), dict):
+        try:
+            base = store.load_engagement(slug, user=user)
+            live = body["config"]
+            # the save path stamps these onto the stored copy; a live config that lacks them has not changed
+            for k in ("config_schema_version", "client", "proposed_bank"):
+                if k in base and k not in live:
+                    base = dict(base); base.pop(k, None)
+            ch = diff(base, live)
+            out["pending"] = {"n": len(ch), "changes": ch[:MAX_CHANGES], "more": max(0, len(ch) - MAX_CHANGES)}
+        except Exception as e:
+            out["pending_error"] = f"{type(e).__name__}"
+    return JSONResponse(out)
 
 
 @app.get("/api/v31/persistence")

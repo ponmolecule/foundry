@@ -43,6 +43,39 @@ def main():
             ck_cfg = copy.deepcopy(c); ck_cfg["assumptions"]["lending_products"][0]["yield_ann"] = 0.05 + k * 0.0001
             store._record_version(ck_cfg, "Keep Test", "u1")
         ck("only the newest versions are kept", len(store.list_versions("Keep Test", user="u1")) == store.HISTORY_KEEP)
+        # r249: identity-matched lists, tracking marker placement, stamps not counted
+        from foundry.v2.config_diff import diff
+        c4 = copy.deepcopy(c); feed = list(c4["assumptions"]["cac_feeds"].values())[0]
+        del feed["driver_specs"]["attrition_rate"]; c4["assumptions"]["nie_detail"]["workforce"]["roles"].pop(1)
+        D = diff(c, c4)
+        ck("a deleted schedule and a deleted role are one 'removed' line each (no positional cascade)",
+           len(D) == 2 and all(x["kind"] == "removed" for x in D) and "12 values" in D[0]["before"])
+        store.start_tracking("Keep Test", user="u1")
+        for k in range(store.HISTORY_KEEP + 3):
+            cc = copy.deepcopy(c); cc["assumptions"]["lending_products"][0]["yield_ann"] = 0.06 + k * 0.0001
+            store._record_version(cc, "Keep Test", "u1")
+        ck("the tracking marker sits outside the versions folder and survives pruning",
+           store.get_tracking("Keep Test", user="u1") is not None
+           and all(not str(v.get("id", "")).startswith("_") for v in store.list_versions("Keep Test", user="u1")))
+        for k, v in (("FOUNDRY_USER", "klaros"), ("FOUNDRY_PASS", "test123"), ("FOUNDRY_COOKIE_SECURE", "0")):
+            os.environ.setdefault(k, v)
+        import app as A
+        A.app.dependency_overrides[A.gate] = lambda: "u1"
+        try:
+            from fastapi.testclient import TestClient
+            cl = TestClient(A.app)
+            live = copy.deepcopy(c)        # no client / proposed_bank / schema stamps, like the page
+            st = cl.post("/api/v31/engagement/hist-test/status", json={"config": live}).json()
+            ck("status reports saved, untracked engagements without a pending count", st["saved"] and st["tracking"] is None and st["pending"] is None)
+            cl.post("/api/v31/engagement/hist-test/tracking")
+            store.save_engagement(copy.deepcopy(live), slug="Hist Test", user="u1")
+            st = cl.post("/api/v31/engagement/hist-test/status", json={"config": live}).json()
+            ck("right after a save the live config has 0 unsaved changes (server stamps are not counted)", st["pending"]["n"] == 0)
+            live2 = copy.deepcopy(live); del list(live2["assumptions"]["cac_feeds"].values())[0]["driver_specs"]["attrition_rate"]
+            st = cl.post("/api/v31/engagement/hist-test/status", json={"config": live2}).json()
+            ck("deleting a schedule shows as 1 unsaved change, kind removed", st["pending"]["n"] == 1 and st["pending"]["changes"][0]["kind"] == "removed")
+        finally:
+            A.app.dependency_overrides.clear()
     finally:
         shutil.rmtree(d, ignore_errors=True)
         if old_env is None: os.environ.pop("FOUNDRY_DATA_DIR", None)
