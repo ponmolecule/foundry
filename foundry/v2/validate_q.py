@@ -391,6 +391,11 @@ def validate_config_v2(cfg):
                                 if _f.get("kind") == "linked":
                                     _src = _f.get("source")
                                     _sid = _f.get("series_id")
+                                    if _src == "catalog_quantity":
+                                        from .source_catalog import require_balance, balance_link_creates_cycle
+                                        require_balance(a, _sid, _f.get("measure") or "period_end")
+                                        if balance_link_creates_cycle(a, cat, _sid):
+                                            raise ValueError("Linked balance would create a circular dependency through this Operating Expense category")
                                     if _src == "fee_stream_quantity" and _sid not in _fee_qty_ids:
                                         raise ValueError(f"formula/driver Fee-stream quantity Series {_sid!r} does not exist")
                                     if _src == "customer_acquisition_auc":

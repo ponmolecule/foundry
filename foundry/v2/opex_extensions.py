@@ -36,7 +36,7 @@ PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 _FORMULA_LINK_SOURCES = set(SAFE_REVENUE_DRIVERS) | {
-    NET_FEE_INCOME_DRIVER,
+    NET_FEE_INCOME_DRIVER, "catalog_quantity",
     FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER,
 }
 
@@ -64,17 +64,19 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
     }
     if kind == "linked":
         source = str(f.get("source") or "").strip().lower()
+        if not source:
+            raise ValueError("formula/driver linked factor: select a source")
         if source not in _FORMULA_LINK_SOURCES:
             raise ValueError(
                 f"unsupported formula/driver linked source {source!r}; allowed: "
                 + ", ".join(sorted(_FORMULA_LINK_SOURCES)))
         out["source"] = source
-        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER}:
+        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER, "catalog_quantity"}:
             sid = str(f.get("series_id") or "").strip()
             if not sid:
                 raise ValueError(f"formula/driver linked source {source} requires series_id")
             out["series_id"] = sid
-        if source == CAC_AUC_DRIVER:
+        if source in {CAC_AUC_DRIVER, "catalog_quantity"}:
             from .balance_measures import normalize_balance_measure
             out["measure"] = normalize_balance_measure(f.get("measure"), default="period_end")
         return out
@@ -938,6 +940,13 @@ def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
         return float(vals[i] if i < len(vals) else 0.0)
 
     src = str(factor.get("source") or "")
+    if src == "catalog_quantity":
+        sid = str(factor.get("series_id") or "")
+        values = metrics.get("catalog_balances") or {}
+        measure = factor.get("measure") or "period_end"
+        if sid not in values or measure not in values[sid]:
+            raise ValueError(f"Linked balance source {sid!r} is unavailable for {measure}")
+        return float(values[sid][measure])
     if src == "fee_income":
         return float(metrics.get("fee_income") or 0.0)
     if src == "gain_on_sale":

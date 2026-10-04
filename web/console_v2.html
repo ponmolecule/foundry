@@ -4225,6 +4225,7 @@ window.scheduleAutosave = scheduleAutosave;
 async function preview(){
   normalizeCfg(cfg);
   if(V31){ syncModules(); }
+  loadSourceCatalog().catch(()=>{});
   const my = ++seq;
   document.getElementById("status").textContent = "running engine…";
   const ctl = new AbortController();
@@ -4976,7 +4977,7 @@ function feeQuantityLabel(ref){
   return 'Missing source';
 }
 function feeDeletionConsumers(owner,removed){
-  const ids=new Set(removed.map(x=>x.quantity_series_id).filter(Boolean)),names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
+  const ids=new Set(removed.flatMap(x=>[x.quantity_series_id,...(x._catalogRemovalIds||[]),...(x.source_catalog_id?['deposit.'+x.source_catalog_id+'.balance','lending.'+x.source_catalog_id+'.balance']:[])]).filter(Boolean)),names=new Set(removed.map(x=>x.name).filter(Boolean)),out=[];
   const a=cfg.assumptions||{};
   function walk(value,label){
     if(!value||typeof value!=='object'||removed.includes(value))return;
@@ -4997,7 +4998,8 @@ function feeConfirmDeletion(owner,removed){
   return !consumers.length||confirm('This source is used by:\n\n'+consumers.join('\n')+'\n\nDeleting it will block runs until these links are updated. Delete anyway?');
 }
 function feeRemoveStream(i,si){const p=_stOwner(i),st=(p.fee_streams||[])[si];if(!st||!feeConfirmDeletion(p,[st]))return; p.fee_streams.splice(si,1);renderContent();refresh();}
-function feeQuantityCandidates(i,si){
+function feeQuantityCandidates(i,si){const legacy=_legacyFeeQuantityCandidates(i,si),rows=catalogSources('fee_quantity');if(!rows)return legacy;return legacy.filter(x=>rows.some(r=>r.series_id===x.value)).map(x=>({...x,label:rows.find(r=>r.series_id===x.value).label}));}
+function _legacyFeeQuantityCandidates(i,si){
   const current=(_stOwner(i).fee_streams||[])[si]||{},basis=current.basis||'balance',out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,sj)=>{
     if(pi===i&&sj===si)return;
@@ -5187,7 +5189,7 @@ function _feeCostPoolSourceOptions(){
   ((((nd.workforce||{}).roles)||[])).forEach(r=>{if(r&&r.expense_series_id&&!r.activation)out.push({value:"workforce_role_expense::"+r.expense_series_id,kind:"workforce_role_expense",series_id:r.expense_series_id,label:"Workforce expense: "+(r.role||"Unnamed population")});});
   return out;
 }
-function _feeCostPoolBalanceOptions(){
+function _legacyFeeCostPoolBalanceOptions(){
   _ensureLinkableSeriesIds();const out=[];Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([name,fd])=>{if(fd&&fd.series_id)out.push({series_id:String(fd.series_id),feed:String(name),source_kind:"managed_notional",owner_module:"customer_acquisition",semantic_type:"auc_end",label:"AUC / managed notional: "+name});});return out;
 }
 function _feeCostPoolBalancePreviewHtml(seriesId,measure){   // r266: the balance-series preview can be hidden (remembered per series)
@@ -5210,7 +5212,9 @@ function _feeCostPoolBalancePreviewBody(seriesId,measure){
   }else h+=`<div class="cmut" style="margin-top:5px">Run the model to preview the selected AUC measure. This source is hard-typed to the feed's AUC Series, not its client-count Series.</div>`;
   return h+`</div>`;
 }
-function _feeCustomerCountOptions(){
+function _feeCustomerCountOptions(){const rows=catalogSources('fee_customer_count');return rows?rows.map(x=>({series_id:x.series_id,feed:x.feed,label:x.label})):_legacyFeeCustomerCountOptions();}
+function _feeCostPoolBalanceOptions(){const rows=catalogSources('cost_pool_balance');return rows?rows.map(x=>({series_id:x.series_id,feed:x.feed,source_kind:'managed_notional',owner_module:'customer_acquisition',semantic_type:'auc_end',label:x.label})):_legacyFeeCostPoolBalanceOptions();}
+function _legacyFeeCustomerCountOptions(){
   _ensureLinkableSeriesIds();const out=[];Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([name,fd])=>{if(fd&&fd.customer_count_series_id)out.push({series_id:String(fd.customer_count_series_id),feed:String(name),label:"Ending bank customers · "+name});});return out;
 }
 function _feeCustomerCountPreviewHtml(seriesId,measure){
@@ -5399,7 +5403,8 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
 
 const _depositPoolOpen = new Set();
 // Deposit balance operands reuse Foundry's existing schedule editor and stable IDs.
-function depositSources(kind,basis){
+function depositSources(kind,basis){const legacy=_legacyDepositSources(kind,basis),rows=catalogSources(kind==='fee_share'?'deposit_share':'deposit_'+basis);if(!rows)return legacy;return rows.map(x=>({id:x.series_id,label:x.label,kind:x.driver==='lending_funded_flow'?'lending_funded_flow':kind}));}
+function _legacyDepositSources(kind,basis){
   const out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
     const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='fee_stream_quantity'){const hits=((cfg.assumptions||{}).obs_exposures||[]).flatMap(x=>x.fee_streams||[]).filter(x=>x.quantity_series_id===d.ref);return hits.length===1&&upstream(hits[0],seen);}if(s==='stream_ref'){const owner=((cfg.assumptions||{}).obs_exposures||[]).find(x=>(x.fee_streams||[]).includes(node))||p;const hits=(owner.fee_streams||[]).filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
@@ -5423,11 +5428,11 @@ function depositOperandHtml(path,spec,label,share){
   const sp=spec||{source:'entered',trajectory:'flat',value:share?1:0},src=sp.source||'entered';
   let h=`<div class="fld wide deposit-operand"><label>${esc(label)}</label><select class="deposit-source" aria-label="${esc(label)} source" onchange="depositOperandSource('${path}',this.value,${!!share})">${[['entered','Enter'],['link','Link'],...(!share?[['derived','Derived']]:[])].map(x=>`<option value="${x[0]}"${src===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select>`;
   if(src==='entered')h+=_faSeriesEditor(path,sp,'',share?'rate':'money',false).replace(/<span class="sec-book-label"[^>]*><\/span>/,'');
-  if(src==='link'){const opts=depositSources(share?'fee_share':'fee_quantity','balance');h+=`<select aria-label="${esc(label)} linked series" onchange="setPath('${path}.link.series_id',this.value);refresh()"><option value="">Select a compatible Series</option>${opts.map(o=>`<option value="${esc(o.id)}"${(sp.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;}
+  if(src==='link'){h+=`<a href="#" class="cadd" onclick="browseDepositSources('${path}','${share?'deposit_share':'deposit_balance'}',false);return false">Browse / search</a>`;const opts=depositSources(share?'fee_share':'fee_quantity','balance');h+=`<select aria-label="${esc(label)} linked series" onchange="setPath('${path}.link.series_id',this.value);refresh()"><option value="">Select a compatible Series</option>${opts.map(o=>`<option value="${esc(o.id)}"${(sp.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;}
   if(src==='derived'){
     const dp=path+'.derived',d=sp.derived||{},act=d.activity||{},ap=dp+'.activity';
     h+=`<div class="sec-book-label">Activity × holding days × share</div><select aria-label="Activity source" onchange="depositActivitySource('${ap}',this.value)"><option value="entered"${act.source==='entered'?' selected':''}>Enter activity</option><option value="link"${act.source==='link'?' selected':''}>Link activity</option></select>`;
-    if(act.source==='link')h+=`<select aria-label="Linked activity" onchange="depositActivityLink('${ap}',this.value)"><option value="">Select monetary activity</option>${depositSources('fee_quantity','transaction').map(o=>`<option value="${esc(o.id)}"${(act.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
+    if(act.source==='link')h+=`<a href="#" class="cadd" onclick="browseDepositSources('${ap}','deposit_transaction',true);return false">Browse / search</a><select aria-label="Linked activity" onchange="depositActivityLink('${ap}',this.value)"><option value="">Select monetary activity</option>${depositSources('fee_quantity','transaction').map(o=>`<option value="${esc(o.id)}"${(act.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
     else h+=_faSeriesEditor(ap+'.amount_spec',act.amount_spec,'Activity','money',false)+`<select aria-label="Activity amount period" onchange="setPath('${ap}.period',this.value);refresh()">${['month','quarter','year'].map(v=>`<option${act.period===v?' selected':''}>${v}</option>`).join('')}</select>`;
     h+=_faSeriesEditor(dp+'.holding_days_spec',d.holding_days_spec,'Holding days','count',false);
     h+=depositOperandHtml(dp+'.share_spec',d.share_spec,'Share of activity',true);
@@ -5435,7 +5440,7 @@ function depositOperandHtml(path,spec,label,share){
   }return h+'</div>';
 }
 function depositCleanPools(){const a=cfg.assumptions||{},used=new Set((a.deposit_products||[]).filter(p=>p.balance_mode==='pool').map(p=>p.retention_pool_id));a.deposit_retention_pools=(a.deposit_retention_pools||[]).filter(g=>used.has(g.id));if(!a.deposit_retention_pools.length)delete a.deposit_retention_pools;}
-function depositMode(i,v){const p=cfg.assumptions.deposit_products[i],old=p.balance_mode||'rollforward',keys=['growth_per_period','runoff_per_period','new_deposits_per_period','avg_maturity_m','growth_q','runoff_q','new_deposits_q'];if(old==='rollforward'&&v!=='rollforward'){p._rollforward_balance_draft={fields:{},overrides:{}};keys.forEach(k=>{if(p[k]!=null)p._rollforward_balance_draft.fields[k]=p[k];if((p.overrides||{})[k])p._rollforward_balance_draft.overrides[k]=JSON.parse(JSON.stringify(p.overrides[k]));});}if(v==='rollforward'&&p._rollforward_balance_draft){Object.assign(p,p._rollforward_balance_draft.fields);p.overrides=p.overrides||{};Object.assign(p.overrides,p._rollforward_balance_draft.overrides);delete p._rollforward_balance_draft;}p.balance_mode=v;if(v!=='rollforward'){p.growth_per_period=0;p.runoff_per_period=0;p.new_deposits_per_period=0;p.avg_maturity_m=0;delete p.growth_q;delete p.runoff_q;delete p.new_deposits_q;['growth_per_period','growth_q','runoff_per_period','runoff_q','new_deposits_per_period','new_deposits_q','avg_maturity_m'].forEach(k=>{if(p.overrides)delete p.overrides[k]});p.ending_balance_spec=p.ending_balance_spec||{source:'entered',trajectory:'flat',value:0};}if(v!=='pool'){delete p.retention_pool_id;depositCleanPools();}else{const groups=cfg.assumptions.deposit_retention_pools||[];if(!groups.some(g=>g.id===p.retention_pool_id)){if(groups.length===1)depositPoolAttach(i,groups[0].id);else depositPoolCreate(i);}}renderContent();refresh();}
+function depositMode(i,v){const p=cfg.assumptions.deposit_products[i],old=p.balance_mode||'rollforward';if(old==='pool'&&v!=='pool'&&!cfg.assumptions.deposit_products.some((x,j)=>j!==i&&x.retention_pool_id===p.retention_pool_id)&&!feeConfirmDeletion(p,[{_catalogRemovalIds:['retainedBalance','sweptBalance','availableBalance'].map(k=>'deposit_pool.'+p.retention_pool_id+'.'+k)}])){renderContent();return;}const keys=['growth_per_period','runoff_per_period','new_deposits_per_period','avg_maturity_m','growth_q','runoff_q','new_deposits_q'];if(old==='rollforward'&&v!=='rollforward'){p._rollforward_balance_draft={fields:{},overrides:{}};keys.forEach(k=>{if(p[k]!=null)p._rollforward_balance_draft.fields[k]=p[k];if((p.overrides||{})[k])p._rollforward_balance_draft.overrides[k]=JSON.parse(JSON.stringify(p.overrides[k]));});}if(v==='rollforward'&&p._rollforward_balance_draft){Object.assign(p,p._rollforward_balance_draft.fields);p.overrides=p.overrides||{};Object.assign(p.overrides,p._rollforward_balance_draft.overrides);delete p._rollforward_balance_draft;}p.balance_mode=v;if(v!=='rollforward'){p.growth_per_period=0;p.runoff_per_period=0;p.new_deposits_per_period=0;p.avg_maturity_m=0;delete p.growth_q;delete p.runoff_q;delete p.new_deposits_q;['growth_per_period','growth_q','runoff_per_period','runoff_q','new_deposits_per_period','new_deposits_q','avg_maturity_m'].forEach(k=>{if(p.overrides)delete p.overrides[k]});p.ending_balance_spec=p.ending_balance_spec||{source:'entered',trajectory:'flat',value:0};}if(v!=='pool'){delete p.retention_pool_id;depositCleanPools();}else{const groups=cfg.assumptions.deposit_retention_pools||[];if(!groups.some(g=>g.id===p.retention_pool_id)){if(groups.length===1)depositPoolAttach(i,groups[0].id);else depositPoolCreate(i);}}renderContent();refresh();}
 // Attach/create mutate state only. Callers request one preview after the whole transition.
 function depositPoolAttach(i,id){
   const p=cfg.assumptions.deposit_products[i],same=p.retention_pool_id===id;
@@ -5547,7 +5552,7 @@ function fieldsFor(fam, p, base){
     if(_level){
       if(_explicit)h += `<div class="fld wide">${_faSeriesEditor(base+'.ending_balance_spec',p.ending_balance_spec,'Target ending balance','money',false)}</div>`;
       if(_funded){const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},_stage=fd.input_stage||'funded_volume',_up=[];
-        ['deposit_products','obs_exposures'].forEach(key=>((cfg.assumptions||{})[key]||[]).forEach(prod=>(prod.fee_streams||[]).forEach(st=>{if(st.basis==='transaction'&&st.quantity_series_id&&((st.driver||{}).source==='constant')&&(((((st.driver||{}).params||{}).flow_path||{}).unit_kind)==='money_flow'))_up.push({id:st.quantity_series_id,label:(prod.name||key)+' · '+(st.name||'flow')});})));
+        const _flowSources=catalogSources('lending_funded_flow');if(_flowSources)_up.push(..._flowSources.map(x=>({id:x.series_id,label:x.label})));else ['deposit_products','obs_exposures'].forEach(key=>((cfg.assumptions||{})[key]||[]).forEach(prod=>(prod.fee_streams||[]).forEach(st=>{if(st.basis==='transaction'&&st.quantity_series_id&&((st.driver||{}).source==='constant')&&(((((st.driver||{}).params||{}).flow_path||{}).unit_kind)==='money_flow'))_up.push({id:st.quantity_series_id,label:(prod.name||key)+' · '+(st.name||'flow')});})));
         h += `<div class="fld wide"><label>Input represents</label><select title="Source activity uses take-up and ramp. Final funded volume is already calculated and must be zero before launch." onchange="loanFundedStageChange(${_li},this.value)"><option value="source_activity"${_stage==='source_activity'?' selected':''}>Source activity · apply take-up and launch ramp</option><option value="funded_volume"${_stage==='funded_volume'?' selected':''}>Final funded volume · already includes take-up and ramp</option></select></div>`;
         h += `<div class="fld"><label>Starts in model ${PLAB('full')} (1-based)</label><input type="number" min="1" step="1" value="${fd.start_period==null?1:esc(fd.start_period)}" onchange="setUnit('${base}.funded_flow_driver.start_period','',this.value)"></div>`;
         if(_stage==='source_activity'){
@@ -5555,7 +5560,7 @@ function fieldsFor(fam, p, base){
           h += `<div class="fld"><label>${PLAB('full').replace(/^./,c=>c.toUpperCase())}s to full size</label><input type="number" min="1" step="1" value="${fd.ramp_periods==null?1:esc(fd.ramp_periods)}" onchange="setUnit('${base}.funded_flow_driver.ramp_periods','',this.value)"></div>`;
         }
         h += `<div class="fld"><label>Funded volume source</label><select onchange="loanFundedSourceChange(${_li},this.value)"><option value="entered"${fd.source==='entered'?' selected':''}>Enter flow</option><option value="fee_stream_quantity"${fd.source==='fee_stream_quantity'?' selected':''}>Link upstream flow</option></select></div>`;
-        if(fd.source==='fee_stream_quantity')h += `<div class="fld wide"><label>Upstream monetary flow Series</label><select onchange="setPath('${base}.funded_flow_driver.series_id',this.value);refresh()"><option value="">Select a flow</option>${_up.map(x=>`<option value="${esc(x.id)}"${fd.series_id===x.id?' selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
+        if(fd.source==='fee_stream_quantity')h += `<div class="fld wide"><label>Upstream monetary flow Series <a href="#" onclick="browseLoanSources('${base}');return false">Browse / search</a></label><select onchange="setPath('${base}.funded_flow_driver.series_id',this.value);refresh()"><option value="">Select a flow</option>${_up.map(x=>`<option value="${esc(x.id)}"${fd.series_id===x.id?' selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
         else {const _fp=base+'.funded_flow_driver.flow_path';
           h += `<div class="fld"><label>Flow period</label><select onchange="setPath('${_fp}.period',this.value);refresh()">${['month','quarter','year'].map(per=>`<option value="${per}"${fp.period===per?' selected':''}>${per}</option>`).join('')}</select></div>`;
           const _ftr=_loanFlowDraft['funded:'+_li]?'explicit_schedule':(fp.trajectory||'flat');
@@ -5795,6 +5800,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
       if(src==='fee_stream_quantity'){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
+        h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
         h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
       }
       if(src==="stream_ref"){
@@ -6351,7 +6357,7 @@ window.productDragOver=function(ev,fam,i){const d=window._productDrag;if(!d||Str
 window.productDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
 window.productDrop=function(ev,fam,targetIndex){if(ev)ev.preventDefault();const d=window._productDrag,card=ev&&ev.currentTarget,after=!!(card&&card.dataset&&card.dataset.dropAfter==='1');_productClearDropMarkers();if(!d||String(d.fam)!==String(fam)){window._productDrag=null;return;}const changed=_productReorder(fam,d.index,targetIndex,after);window._productDrag=null;if(changed){renderContent();refresh();}};
 window.productDragEnd=function(ev){const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.product-card'):null;if(card)card.classList.remove('dragging');_productClearDropMarkers();window._productDrag=null;};
-function delProduct(fam, i){ const p=famArr(fam)[i];if(!feeConfirmDeletion(p,p.fee_streams||[]))return; famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
+function delProduct(fam, i){ const p=famArr(fam)[i],removed=[p,...(p.fee_streams||[])];if(fam==='deposit'&&p.retention_pool_id&&!famArr(fam).some((x,j)=>j!==i&&x.retention_pool_id===p.retention_pool_id))removed.push({_catalogRemovalIds:['retainedBalance','sweptBalance','availableBalance'].map(k=>'deposit_pool.'+p.retention_pool_id+'.'+k)});if(!feeConfirmDeletion(p,removed))return; famArr(fam).splice(i,1); if(fam==="deposit")depositCleanPools(); renderContent(); refresh(); }
 window.toggleOpen=toggleOpen; window.delProduct=delProduct;
 
 function v31ModalBody(){
@@ -7679,8 +7685,7 @@ window.nieCatAddLinked=function(i){const ct=((_ensureNieDetail().categories||[])
 window.nieCatAddServiceCapacity=function(i){const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;ct.linked_components=ct.linked_components||[];ct.linked_components.push({driver:"service_capacity",component_id:_seriesId("opex-service-capacity"),name:"Service capacity",quantity_spec:{source:"entered",trajectory:"flat",value:0},hourly_rate_spec:{source:"entered",trajectory:"flat",value:0},capacity_spec:{trajectory:"flat",value:0,period:"year"}});window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();};
 window.nieCatAddFormulaDriver=function(i){
   const ct=((_ensureNieDetail().categories||[])[i]);if(!ct)return;
-  const opts=_opexLinkedDriverOptions(),pick=opts.find(o=>o.driver==="fee_stream_quantity")||opts[0]||{driver:"fee_income",value:"fee_income"};
-  const linked={kind:"linked",op:"multiply",name:"Base driver",source:pick.driver};if(pick.series_id)linked.series_id=pick.series_id;
+  const linked={kind:"linked",op:"multiply",name:"Base driver",source:""};
   ct.linked_components=ct.linked_components||[];
   ct.linked_components.push({driver:"formula_driver",component_id:_seriesId("opex-formula"),name:"Formula / driver component",factors:[linked,{kind:"entered",op:"multiply",name:"Factor",unit:"",periodized:false,display:"number",spec:{source:"entered",trajectory:"flat",value:0}}]});
   window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=true;renderContent();refresh();
@@ -7708,14 +7713,14 @@ function _ensureNieFormulaDriver(i,j){
   return c;
 }
 window.nieCatFormulaName=function(i,j,v){const c=_ensureNieFormulaDriver(i,j);if(!c)return;c.name=String(v||"");refresh();};
-window.nieCatFormulaAddLinkedFactor=function(i,j){const c=_ensureNieFormulaDriver(i,j);if(!c)return;const o=_opexLinkedDriverOptions()[0]||{driver:"fee_income"};const f={kind:"linked",op:"multiply",name:"Driver",source:o.driver};if(o.series_id)f.series_id=o.series_id;c.factors.push(f);renderContent();refresh();};
+window.nieCatFormulaAddLinkedFactor=function(i,j){const c=_ensureNieFormulaDriver(i,j);if(!c)return;const f={kind:"linked",op:"multiply",name:"Driver",source:""};c.factors.push(f);renderContent();refresh();};
 window.nieCatFormulaAddEnteredFactor=function(i,j){const c=_ensureNieFormulaDriver(i,j);if(!c)return;c.factors.push({kind:"entered",op:"multiply",name:"Factor",unit:"",periodized:false,display:"number",spec:{source:"entered",trajectory:"flat",value:0}});renderContent();refresh();};
 window.nieCatFormulaRemoveFactor=function(i,j,k){const c=_ensureNieFormulaDriver(i,j);if(!c||!c.factors[k])return;c.factors.splice(k,1);renderContent();refresh();};
 window.nieCatFormulaFactorOp=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||k===0)return;f.op=v==="divide"?"divide":"multiply";refresh();};
 window.nieCatFormulaFactorName=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.name=String(v||"");refresh();};
 window.nieCatFormulaFactorUnit=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.unit=String(v||"");refresh();};
-window.nieCatFormulaLinkedSource=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="linked")return;const o=_opexLinkedDriverOptions().find(x=>x.value===v)||_opexLinkedDriverOptions()[0];if(!o)return;f.source=o.driver;if(o.series_id)f.series_id=o.series_id;else delete f.series_id;if(f.source==="customer_acquisition_auc")f.measure=f.measure||"period_end";else delete f.measure;renderContent();refresh();};
-window.nieCatFormulaLinkedMeasure=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.measure=v==="period_average"?"period_average":"period_end";refresh();};
+window.nieCatFormulaLinkedSource=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="linked")return;if(v===""){f.source="";delete f.series_id;delete f.measure;renderContent();refresh();return;}const o=_opexLinkedDriverOptions().find(x=>x.value===v);if(!o)return;f.source=o.driver;if(o.series_id)f.series_id=o.series_id;else delete f.series_id;if(["customer_acquisition_auc","catalog_quantity"].includes(f.source))f.measure=(o.measures||["period_end","period_average"]).includes(f.measure)?f.measure:"period_end";else delete f.measure;renderContent();refresh();};
+window.nieCatFormulaLinkedMeasure=function(i,j,k,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f)return;f.measure=["period_end","period_average","period_begin"].includes(v)?v:"period_end";refresh();};
 function _formulaEnteredCurrent(s){if(!s)return 0;if(s.trajectory==="growth")return +(s.base||0);if(s.trajectory==="explicit")return +(((s.values||[])[0])||0);return +(s.value||0);}
 window.nieCatFormulaEnteredTrajectory=function(i,j,k,traj){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="entered")return;const old=f.spec||{},v=_formulaEnteredCurrent(old),p=old.period||"month";traj=traj==="growth"?"growth":traj==="explicit"?"explicit":"flat";if(f.periodized){if(traj==="flat")f.spec={trajectory:"flat",value:v,period:p};else if(traj==="growth")f.spec={trajectory:"growth",value:v,period:p,growth_spec:{rate:0,period:"year",method:"step",anchor:"model_year"}};else f.spec={trajectory:"explicit",period:p,values:[]};}else{if(traj==="flat")f.spec={source:"entered",trajectory:"flat",value:v};else if(traj==="growth")f.spec={source:"entered",trajectory:"growth",base:v,growth_spec:{rate:0,period:"year",method:"step",anchor:"model_year"}};else f.spec={source:"entered",trajectory:"explicit",cadence:_nativeFlowPeriod(),values:[],extend:"hold",resolution:"step"};}renderContent();refresh();};
 window.nieCatFormulaEnteredValue=function(i,j,k,field,v){const c=_ensureNieFormulaDriver(i,j),f=c&&c.factors[k];if(!f||f.kind!=="entered")return;let x=_pf(v);if(f.display==="percent")x/=100;f.spec=f.spec||{};f.spec[field]=x;refresh();};
@@ -11825,6 +11830,7 @@ var CAC_METHODS = [["pool_conversion","Pool × conversion"],["spend_cac","Spend 
 function CACYEARS(){ return MODELYEARS(); }
 function _cacPow(base,g,y){ return (+base||0)*Math.pow(1+(+g||0),Math.max(0,(+y||1)-1)); }
 function _ensureLinkableSeriesIds(){
+  for(const key of ['deposit_products','lending_products'])for(const p of (cfg.assumptions||{})[key]||[])if(!p.source_catalog_id)p.source_catalog_id=_seriesId('product-source');
   const nd=(cfg.assumptions||{}).nie_detail||{};
   Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(fd=>{if(!fd)return;if(!fd.series_id)fd.series_id=_seriesId("cac-auc");if(!fd.customer_count_series_id)fd.customer_count_series_id=_seriesId("cac-count");if(!fd.owner_module)fd.owner_module="customer_acquisition";});
   (nd.categories||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("opex");if(!x.owner_module)x.owner_module="operating_expense";});
@@ -11832,10 +11838,40 @@ function _ensureLinkableSeriesIds(){
   if(_wf&&!_wf.total_count_series_id)_wf.total_count_series_id=_seriesId("wf-total-count");
   (((_wf||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.expense_series_id)x.expense_series_id=_seriesId("wf-exp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
   [["Lending",(cfg.assumptions||{}).lending_products||[]],["Deposit",(cfg.assumptions||{}).deposit_products||[]],["Fee Product",(cfg.assumptions||{}).obs_exposures||[]]].forEach(pair=>{
-    (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&["transaction","balance"].includes(st.basis)&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
+    (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&["transaction","balance","account"].includes(st.basis)&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
   });
 }
+// Shared metadata comes from the server's typed publishers, outside run results.
+let sourceCatalogRows=[],sourceCatalogKey='',sourceCatalogPending=null;
+function _sourceCatalogKey(){return JSON.stringify(cfg.assumptions||{});}
+async function loadSourceCatalog(){
+  _ensureLinkableSeriesIds();const key=_sourceCatalogKey();
+  if(sourceCatalogKey===key)return sourceCatalogRows;
+  if(sourceCatalogPending&&sourceCatalogPending.key===key)return sourceCatalogPending.promise;
+  const promise=(async()=>{const r=await fetch('/api/v2/source-catalog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(cfg)}),v=await r.json();if(!r.ok)throw Error(v.error||'Source catalog unavailable');if(_sourceCatalogKey()===key){sourceCatalogRows=v.sources||[];sourceCatalogKey=key;}return v.sources||[];})();
+  sourceCatalogPending={key,promise};try{return await promise;}finally{if(sourceCatalogPending&&sourceCatalogPending.key===key)sourceCatalogPending=null;}
+}
+function catalogSources(consumer){return sourceCatalogRows.length?sourceCatalogRows.filter(x=>(x.consumers||[]).includes(consumer)):null;}
 function _opexLinkedDriverOptions(){
+  const legacy=_legacyOpexLinkedDriverOptions(),rows=catalogSources('opex_formula');
+  if(!rows)return legacy;
+  // Keep legacy metadata for previews; identity and eligibility come from the catalog.
+  return rows.map(x=>{const value=['fee_income','gain_on_sale','servicing_net','noninterest_income','net_fee_income'].includes(x.driver)?x.driver:x.driver+'::'+x.series_id;return {...(legacy.find(o=>o.value===value)||{}),value,driver:x.driver,series_id:x.series_id,label:x.label,measures:x.measures,unit:x.unit};});
+}
+async function openSourceCatalog(consumer,onSelect,allowedIds,categoryId){
+  let rows;try{rows=await loadSourceCatalog();if(categoryId){const r=await fetch('/api/v2/source-catalog',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfg,consumer_category:categoryId})});const data=await r.json();if(!r.ok)throw Error(data.error||'Source catalog unavailable');rows=data.sources||[];}}catch(e){alert(e.message);return;}
+  let dlg=document.getElementById('sourceCatalogDialog');if(dlg)dlg.remove();dlg=document.createElement('dialog');dlg.id='sourceCatalogDialog';dlg.style.cssText='position:fixed;top:12vh;left:50%;transform:translateX(-50%);margin:0;box-sizing:border-box;width:min(780px,90vw);max-height:80vh;background:#F9F8F6;color:#2A2A2A;border:1px solid #C1C1BE;border-radius:6px;padding:20px';
+  dlg.innerHTML='<div style="display:flex;justify-content:space-between;align-items:center"><b style="font-size:16px">Source catalog</b><button class="btn-plain" aria-label="Close source catalog" onclick="this.closest(\'dialog\').close()">×</button></div><p class="cmut">Reusable modeled quantities. Selecting a source links its quantity; it does not duplicate revenue or expense.</p><input id="sourceCatalogSearch" type="search" placeholder="Search product, quantity, or unit" style="width:100%;box-sizing:border-box;padding:8px;margin-bottom:12px"><div id="sourceCatalogList" style="max-height:55vh;overflow:auto"></div>';
+  document.body.appendChild(dlg);
+  function paint(){const q=dlg.querySelector('input').value.toLowerCase(),list=dlg.querySelector('#sourceCatalogList');list.innerHTML='';for(const x of rows.filter(x=>(x.label+' '+x.unit+' '+x.family).toLowerCase().includes(q))){const eligible=(x.consumers||[]).includes(consumer)&&(!allowedIds||allowedIds.has(x.series_id)),b=document.createElement('button');b.type='button';b.disabled=!eligible;b.style.cssText='display:block;width:100%;text-align:left;padding:10px;background:transparent;border:0;border-bottom:1px solid #D8D5CE;color:inherit';b.innerHTML='<b>'+esc(x.label)+'</b><div class="cmut">'+esc(({money_stock:'Balance ($)',money_flow:'Money per period ($)',count:'Count',share:'Share (%)',native:'Source quantity'}[x.unit]||x.unit)+(x.measures.length?' · '+x.measures.map(m=>({period_end:'End balance',period_begin:'Beginning balance',period_average:'Average balance'}[m]||m)).join(' / '):''))+'</div>'+(!eligible?'<div class="cmut">'+esc(x.unavailable_reason||'Unavailable here: incompatible units, timing, or dependency for this input.')+'</div>':'');b.onclick=()=>{const val=['fee_income','gain_on_sale','servicing_net','noninterest_income','net_fee_income'].includes(x.driver)?x.driver:x.driver+'::'+x.series_id;dlg.close();onSelect(x,val);};list.appendChild(b);}if(!list.children.length)list.innerHTML='<p class="cmut">No matching sources.</p>';}
+  dlg.querySelector('input').oninput=paint;dlg.addEventListener('close',()=>dlg.remove());paint();dlg.showModal();dlg.querySelector('input').focus();
+}
+async function browseSourceCatalog(i,j,k){_ensureLinkableSeriesIds();return openSourceCatalog('opex_formula',(x,val)=>nieCatFormulaLinkedSource(i,j,k,val),null,cfg.assumptions.nie_detail.categories[i].series_id);}
+async function browseLoanSources(base){return openSourceCatalog('lending_funded_flow',x=>{setPath(base+'.funded_flow_driver.series_id',x.series_id);renderContent();refresh();});}
+async function browseFeeSources(i,si){await loadSourceCatalog();const ids=new Set(feeQuantityCandidates(i,si).map(x=>x.value));return openSourceCatalog('fee_quantity',x=>feeQuantitySelect(i,si,x.series_id),ids);}
+async function browseDepositSources(path,consumer,activity){return openSourceCatalog(consumer,x=>{if(activity)depositActivityLink(path,x.series_id);else{setPath(path+'.link.series_id',x.series_id);refresh();}renderContent();});}
+window.browseLoanSources=browseLoanSources;window.browseSourceCatalog=browseSourceCatalog;window.browseFeeSources=browseFeeSources;window.browseDepositSources=browseDepositSources;
+function _legacyOpexLinkedDriverOptions(){
   _ensureLinkableSeriesIds();
   const out=[
     {value:"fee_income",driver:"fee_income",label:"Fee income"},
@@ -11915,6 +11951,10 @@ function _opexPiecewiseEditorHtml(i,lc,j){
 }
 window.opexFxAll=function(i,js,open){ window._fxOpen=window._fxOpen||{}; js.forEach(j=>{ window._fxOpen[i+'_'+j]=!!open; }); renderContent(); };
 function _opexLinkedSourcePreviewBody(lc){
+  if(lc&&lc.driver==='catalog_quantity'){
+    const rows=catalogSources('opex_formula')||[],x=rows.find(x=>x.series_id===lc.series_id);
+    return `<div class="cac-link-preview"><b>${esc(x?x.label:'Missing source: '+lc.series_id)}</b><div class="cmut">${esc({period_end:'End balance',period_average:'Average balance',period_begin:'Beginning balance'}[lc.measure]||'End balance')} · balance in dollars · observed after allocation and before OpEx. Annual factors are periodized once.</div></div>`;
+  }
   if(!lc||!["fee_stream_quantity","customer_acquisition_auc","workforce_count"].includes(lc.driver))return "";
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
   if(!opt)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected upstream Series could not be resolved.</div>`;
@@ -11981,7 +12021,7 @@ function _opexServiceCapacityEditorHtml(i,j,lc){
   return h;
 }
 function _opexFormulaOrdinal(i,j){const xs=((((_ensureNieDetail().categories||[])[i]||{}).linked_components)||[]);return xs.slice(0,j+1).filter(x=>x&&!['cost_pool_charge','piecewise_linked'].includes(x.driver)).length||1;}
-function _opexFormulaLinkedValue(f){if(!f)return"fee_income";if(['fee_stream_quantity','customer_acquisition_auc','workforce_count'].includes(f.source))return String(f.source)+"::"+String(f.series_id||"");return String(f.source||"fee_income");}
+function _opexFormulaLinkedValue(f){if(!f||f.source==="")return"";if(['fee_stream_quantity','customer_acquisition_auc','workforce_count','catalog_quantity'].includes(f.source))return String(f.source)+"::"+String(f.series_id||"");return String(f.source||"fee_income");}
 function _opexFormulaEnteredEditorHtml(i,j,k,f){
   const s=f.spec||{},tr=s.trajectory||"flat",display=f.display==="percent"?"percent":"number",periodized=!!f.periodized,path=`assumptions.nie_detail.categories.${i}.linked_components.${j}.factors.${k}.spec`,time=periodized?(s.period||"month"):"none";
   const raw=(tr==="growth"?+s.base||+s.value||0:+s.value||0),shown=display==="percent"?raw*100:raw,unit=f.unit||"";
@@ -12021,12 +12061,12 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
     const opSel=k?`<select class="fx-op" data-nofit onchange="nieCatFormulaFactorOp(${i},${j},${k},this.value)"><option value="multiply"${op==='multiply'?' selected':''}>\u00d7 Multiply</option><option value="divide"${op==='divide'?' selected':''}>\u00f7 Divide</option></select>`:'';
     const rm=factors.length>1?`<button type="button" class="fx-x" title="Remove factor" aria-label="Remove factor" onclick="nieCatFormulaRemoveFactor(${i},${j},${k});return false">\u00d7</button>`:'';
     if(f.kind==='linked'){
-      const val=_opexFormulaLinkedValue(f),isA=f.source==='customer_acquisition_auc',preview={driver:f.source,series_id:f.series_id,measure:f.measure};
+      const val=_opexFormulaLinkedValue(f),isA=['customer_acquisition_auc','catalog_quantity'].includes(f.source),measures=(opts.find(o=>o.value===val)||{}).measures||['period_end','period_average'],preview={driver:f.source,series_id:f.series_id,measure:f.measure};
       h+=`<div class="fx-row fx-linked"><div class="fx-c fx-lab"><span class="fx-k">${lab}</span>${opSel}</div>`
         +`<label class="fx-l"><span>Name</span><input value="${esc(f.name||'Driver')}" onchange="nieCatFormulaFactorName(${i},${j},${k},this.value)"></label>`
-        +`<label class="fx-l fx-span"><span>Linked series</span><select data-nofit onchange="nieCatFormulaLinkedSource(${i},${j},${k},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===val?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`
-        +(isA?`<label class="fx-l"><span>Measure</span><select data-nofit onchange="nieCatFormulaLinkedMeasure(${i},${j},${k},this.value)"><option value="period_end"${(f.measure||'period_end')==='period_end'?' selected':''}>Period end</option><option value="period_average"${f.measure==='period_average'?' selected':''}>Period average</option></select></label>`:'')
-        +`<div class="fx-c fx-rmc">${rm}</div><div class="fx-sub">${_opexLinkedSourcePreview(preview)}</div></div>`;
+        +`<label class="fx-l fx-span"><span>Linked series <a href="#" onclick="browseSourceCatalog(${i},${j},${k});return false">Browse / search</a></span><select data-nofit onchange="nieCatFormulaLinkedSource(${i},${j},${k},this.value)">${[{value:"",label:"Select a source"}].concat(val&&!opts.some(o=>o.value===val)?[{value:val,label:"Missing / incompatible source: "+(f.series_id||f.source)}]:[]).concat(opts).map(o=>`<option value="${esc(o.value)}"${o.value===val?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`
+        +(isA?`<label class="fx-l"><span>Measure</span><select data-nofit onchange="nieCatFormulaLinkedMeasure(${i},${j},${k},this.value)">${measures.map(m=>`<option value="${m}"${(f.measure||'period_end')===m?' selected':''}>${{period_end:'End balance',period_begin:'Beginning balance',period_average:'Average balance'}[m]||m}</option>`).join('')}</select></label>`:'')
+        +`<div class="fx-c fx-rmc">${rm}</div><div class="fx-sub">${val?_opexLinkedSourcePreview(preview):"Choose a source to define this expense."}</div></div>`;
       return;
     }
     const sp=f.spec||{},tr=sp.trajectory||'flat',display=f.display==='percent'?'percent':'number',periodized=!!f.periodized,time=periodized?(sp.period||'month'):'none';

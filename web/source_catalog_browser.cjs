@@ -1,0 +1,21 @@
+const {chromium}=require('playwright'),fs=require('fs'),path=require('path'),{execFileSync}=require('child_process');
+const repo=path.resolve(__dirname,'..');
+(async()=>{
+let html=fs.readFileSync(path.join(repo,'web/console_v2.html'),'utf8').replace('renderTabs();\nwhoami().then(u=>{ paintWho(); if(u){ boot(); } else { currentTab = "welcome"; renderContent(); } });','');
+const config=JSON.parse(execFileSync('python3',['-c','import json;from foundry.v2.tests_source_catalog import setup;print(json.dumps(setup()))'],{cwd:repo}));
+const browser=await chromium.launch({executablePath:process.env.FOUNDRY_CHROMIUM_PATH,args:['--no-sandbox','--disable-gpu','--single-process','--no-zygote'],headless:true});const page=await browser.newPage({viewport:{width:1400,height:1000}});let errors=[];page.on('pageerror',e=>errors.push(e.message));
+await page.route('**/*',route=>{if(route.request().url().includes('/source-catalog')){const body=execFileSync('python3',['-c',"import json,sys;from foundry.v2.source_catalog import catalog;payload=json.load(sys.stdin);c=payload.get('config') or payload;print(json.dumps({'sources':catalog(c['assumptions'])}))"],{cwd:repo,input:route.request().postData()});return route.fulfill({status:200,body,contentType:'application/json'});}return route.fulfill({status:200,body:'{}',contentType:'application/json'});});
+await page.goto('http://foundry.test');await page.setContent(html);await page.evaluate(c=>{cfg=c;currentTab='products';refresh=()=>{};scheduleAutosave=()=>{};_renderContentBody=()=>{document.getElementById('content').innerHTML=_opexFormulaDriverEditorHtml(0,0,cfg.assumptions.nie_detail.categories[0].linked_components[0])};renderContent();},config);
+await page.evaluate(()=>{cfg.assumptions.nie_detail.categories[0].linked_components=[];nieCatAddFormulaDriver(0);});
+if(await page.locator('.fx-linked select').inputValue()!=='')throw Error('new expense preselected a source');
+if(await page.locator('.fx-linked select option:checked').textContent()!=='Select a source')throw Error('missing neutral prompt');
+await page.evaluate(()=>nieCatFormulaAddLinkedFactor(0,0));
+if(!await page.evaluate(()=>cfg.assumptions.nie_detail.categories[0].linked_components[0].factors.filter(f=>f.kind==='linked').every(f=>f.source===''&&!f.series_id)))throw Error('added factor preselected a source');
+await page.evaluate(()=>nieCatFormulaRemoveFactor(0,0,2));
+await page.getByText('Browse / search',{exact:true}).click();await page.locator('#sourceCatalogSearch').fill('Retained on-book');await page.locator('#sourceCatalogList button').click();
+if(!await page.evaluate(()=>cfg.assumptions.nie_detail.categories[0].linked_components[0].factors[0].series_id==='deposit_pool.pool.retainedBalance'))throw Error('source selection failed');
+await page.evaluate(()=>{cfg.assumptions.deposit_retention_pools[0].name='Program pool renamed';});await page.getByText('Browse / search',{exact:true}).click();await page.locator('#sourceCatalogSearch').fill('Program pool renamed');if(await page.locator('#sourceCatalogList button').count()!==3)throw Error('renamed metadata not refreshed');await page.getByRole('button',{name:'Close source catalog'}).click();
+await page.locator('.fx-linked select').last().selectOption('period_average');if(!await page.evaluate(()=>cfg.assumptions.nie_detail.categories[0].linked_components[0].factors[0].measure==='period_average'))throw Error('measure selection failed');
+if(process.env.FOUNDRY_CATALOG_SCREENSHOT){await page.getByText('Browse / search',{exact:true}).click();await page.locator('#sourceCatalogSearch').fill('Program pool renamed');await page.screenshot({path:process.env.FOUNDRY_CATALOG_SCREENSHOT});}
+if(errors.length)throw Error(JSON.stringify(errors));console.log('PASS production source dialog: search, select retained pool balance, metadata rename, balance measure, no page errors');await browser.close();
+})().catch(e=>{console.error(e);process.exit(1)});
