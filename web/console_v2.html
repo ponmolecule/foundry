@@ -2055,6 +2055,24 @@ main>#content{min-width:0}
  .fx-row.fx-linked,.fx-row.fx-linked:has(.fx-measure){grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
  .fx-linked .fx-measure{grid-column:1;grid-row:3}
 }
+/* r275: compact deposit inputs, grouped source → retention → off-book fees. */
+.prd-card[data-fam="deposit"] .deposit-section{grid-column:1/-1;min-width:0;border:1px solid var(--k-line2);border-radius:8px;padding:14px;background:var(--k-surface)}
+.deposit-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px}.deposit-section-head span,.deposit-summary{color:var(--k-tx3);font-size:11.5px;font-weight:400}
+.deposit-section-grid,.deposit-pool-step{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;min-width:0}
+.deposit-pool-step{grid-column:1/-1;border-top:1px solid var(--k-line2);padding-top:14px;margin-top:6px}.deposit-pool-step>.deposit-section-head{grid-column:1/-1;margin:0}
+.deposit-operand{min-width:0;padding:10px 0;border-top:1px solid var(--k-line)}
+.deposit-operand>.deposit-source{width:96px!important;min-width:0!important;max-width:96px;display:inline-block;margin-bottom:8px}
+.deposit-operand>select:not(.deposit-source):not(.deposit-day-count){max-width:600px;width:100%;min-width:0!important}
+.deposit-day-count{width:86px!important;min-width:0!important;max-width:86px!important;display:inline-block}.deposit-day-label{margin-top:10px}
+.deposit-operand .sec-managed-series-row{flex-wrap:wrap;gap:8px;align-items:center}.deposit-operand .sec-managed-series-row>select,.deposit-pool-step .sec-managed-series-row>select{width:132px!important;min-width:0!important;max-width:160px!important;flex:0 0 auto!important}
+.deposit-operand .sec-managed-series-row>input,.deposit-pool-step .sec-managed-series-row>input{width:132px!important;min-width:0!important;max-width:160px!important;flex:0 0 auto!important}
+.deposit-tools{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.deposit-tools>select{width:auto!important;min-width:180px!important;max-width:420px;flex:1 1 220px}
+.deposit-disclosure{grid-column:1/-1;border:1px solid var(--k-line2);border-radius:6px;padding:10px 12px;background:var(--k-surface)}.deposit-disclosure>summary{cursor:pointer;font-size:12px;color:var(--k-tx1)}.deposit-disclosure>summary span{color:var(--k-tx3)}.deposit-disclosure[open]>.deposit-section-grid{margin-top:12px}
+.prd-card[data-fam="deposit"] .flow-advanced>summary{display:flex;gap:10px;flex-wrap:wrap;justify-content:space-between}
+.prd-card[data-fam="deposit"] .flow-advanced-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px}
+.prd-card[data-fam="deposit"] .fld:not(.wide)>input,.prd-card[data-fam="deposit"] .fld:not(.wide)>select{max-width:260px;width:100%;min-width:0!important}
+.eng-menu-status{padding:8px 10px;font-size:11.5px;color:var(--k-tx3)}
+@container prd (max-width:600px){.deposit-section-grid,.deposit-pool-step,.prd-card[data-fam="deposit"] .flow-advanced-grid{grid-template-columns:minmax(0,1fr)}}
 </style>
 </head>
 <body>
@@ -2662,6 +2680,7 @@ const _PRD_GRP_RULES={
            ['costs',/opex_pct_ann|opex_fixed|insured_pct/]]
 };
 function _prdGrpOf(el,fam){
+  if(el.dataset.depositGroup)return el.dataset.depositGroup;
   const ctl=el.querySelector('input,select,textarea,button');
   const lab=((el.querySelector('label')||{}).textContent||'').trim();
   if(/^(Name|Call Report line)$/.test(lab)) return 'id';
@@ -5426,6 +5445,8 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
 }
 
 const _depositPoolOpen = new Set();
+const _depositDisclosureOpen = new Set();
+function _depositDisclosureAttrs(key){const k=esc(key);return `${_depositDisclosureOpen.has(key)?' open':''} ontoggle="if(this.open)_depositDisclosureOpen.add('${k}');else _depositDisclosureOpen.delete('${k}')"`;}
 // Deposit balance operands reuse Foundry's existing schedule editor and stable IDs.
 function depositSources(kind,basis){const legacy=_legacyDepositSources(kind,basis),rows=catalogSources(kind==='fee_share'?'deposit_share':'deposit_'+basis);if(!rows)return legacy;return rows.map(x=>({id:x.series_id,label:x.label,kind:x.driver==='lending_funded_flow'?'lending_funded_flow':kind}));}
 function _legacyDepositSources(kind,basis){
@@ -5460,7 +5481,7 @@ function depositOperandHtml(path,spec,label,share){
     else h+=_faSeriesEditor(ap+'.amount_spec',act.amount_spec,'Activity','money',false)+`<select aria-label="Activity amount period" onchange="setPath('${ap}.period',this.value);refresh()">${['month','quarter','year'].map(v=>`<option${act.period===v?' selected':''}>${v}</option>`).join('')}</select>`;
     h+=_faSeriesEditor(dp+'.holding_days_spec',d.holding_days_spec,'Holding days','count',false);
     h+=depositOperandHtml(dp+'.share_spec',d.share_spec,'Share of activity',true);
-    h+=`<label>Day-count basis</label><select onchange="setPath('${dp}.day_count',+this.value);refresh()"><option value="365"${d.day_count!==360?' selected':''}>365</option><option value="360"${d.day_count===360?' selected':''}>360</option></select>`;
+    h+=`<label class="deposit-day-label">Day-count basis</label><select class="deposit-day-count" data-nofit aria-label="Day-count basis" onchange="setPath('${dp}.day_count',+this.value);refresh()"><option value="365"${d.day_count!==360?' selected':''}>365</option><option value="360"${d.day_count===360?' selected':''}>360</option></select>`;
   }return h+'</div>';
 }
 function depositCleanPools(){const a=cfg.assumptions||{},used=new Set((a.deposit_products||[]).filter(p=>p.balance_mode==='pool').map(p=>p.retention_pool_id));a.deposit_retention_pools=(a.deposit_retention_pools||[]).filter(g=>used.has(g.id));if(!a.deposit_retention_pools.length)delete a.deposit_retention_pools;}
@@ -5482,9 +5503,13 @@ function depositPoolCreate(i){
 function depositPoolAdd(i){depositPoolCreate(i);renderContent();refresh();}
 function depositPoolCapacity(path,v){setPath(path+'.capacity_source',v);if(v==='entered'&&!getPath(path+'.capacity_spec'))setPath(path+'.capacity_spec',{source:'entered',trajectory:'flat',value:0});if(v==='beginning_equity_budget'&&!getPath(path+'.equity_budget'))setPath(path+'.equity_budget',{target_leverage_spec:{source:'entered',trajectory:'flat',value:0},capital_deduction_spec:{source:'entered',trajectory:'flat',value:0},liquidity_buffer_spec:{source:'entered',trajectory:'flat',value:0},operating_float_months_spec:{source:'entered',trajectory:'flat',value:0},other_committed_assets_spec:{source:'entered',trajectory:'flat',value:0}});renderContent();refresh();}
 function depositPoolAdjustment(path){const g=getPath(path);g.adjustments=g.adjustments||[];g.adjustments.push({id:_seriesId('deposit-adjustment'),name:'Balance adjustment',direction:'deduct',balance_spec:{source:'entered',trajectory:'flat',value:0}});renderContent();refresh();}
+function _depositSpecSummary(spec,share){
+ const sp=spec||{},tr=sp.trajectory||'flat';if(sp.source==='link')return 'Linked';if(sp.source==='derived')return 'Derived';if(tr==='explicit')return 'Explicit schedule';if(tr==='growth')return 'Growth path';return share?((Number(sp.value||0)*100).toFixed(2)+'%'):fmtComma((+sp.value||0)/1000)+' $000s';
+}
+function _depositPoolSummary(g){return _depositSpecSummary(g.retention_share_spec,true)+' retained · '+({none:'No capacity limit',entered:'Entered / linked capacity',beginning_equity_budget:'Equity budget'}[g.capacity_source]||'No capacity limit')+' · fee '+_depositSpecSummary(g.sweep_fee_rate_spec,true);}
 function depositBalanceHtml(p,base){
   const i=+base.split('.').pop(),mode=p.balance_mode||'rollforward';
-  let h=`<div class="fld wide"><label>Balance method</label><select onchange="depositMode(${i},this.value)">${[['rollforward','Opening balance + growth / inflows'],['level','Enter / link / derive balance'],['pool','Shared retention & sweep pool']].map(x=>`<option value="${x[0]}"${mode===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+  let h=`<section class="deposit-section fld wide" data-deposit-group="balance"><div class="deposit-section-head"><b>Category balance</b><span>On-book deposits</span></div><div class="deposit-section-grid"><div class="fld wide"><label>Balance method</label><select onchange="depositMode(${i},this.value)">${[['rollforward','Opening balance + growth / inflows'],['level','Enter / link / derive balance'],['pool','Shared retention & sweep pool']].map(x=>`<option value="${x[0]}"${mode===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
   if(mode==='level')h+=depositOperandHtml(base+'.ending_balance_spec',p.ending_balance_spec,'Ending balance',false);
   if(mode==='pool'){
     const groups=cfg.assumptions.deposit_retention_pools||[],gi=groups.findIndex(g=>g.id===p.retention_pool_id),g=groups[gi],gp='assumptions.deposit_retention_pools.'+gi;
@@ -5492,23 +5517,27 @@ function depositBalanceHtml(p,base){
     if(g){
       h+=depositOperandHtml(base+'.pool_share_spec',p.pool_share_spec,'This category’s share of retained deposits',true);
       const members=(cfg.assumptions.deposit_products||[]).filter(x=>x.balance_mode==='pool'&&x.retention_pool_id===g.id).map(x=>x.name).join(', ');
-      h+=`<details class="flow-advanced fld wide"${_depositPoolOpen.has(g.id)?' open':''} ontoggle="if(this.open)_depositPoolOpen.add('${esc(g.id)}');else _depositPoolOpen.delete('${esc(g.id)}')"><summary>Shared pool settings · ${esc(g.name||'Deposit pool')}</summary><div class="flow-advanced-grid"><div class="fld wide"><label>Pool name</label><input value="${esc(g.name||'')}" onchange="setPath('${gp}.name',this.value);renderContent();refresh()"><span class="fhint">Shared by ${esc(members)}. Category shares must total 100%.</span></div>`;
-      h+=depositOperandHtml(gp+'.balance_spec',g.balance_spec,'Source balance',false)+"<div class=\"fld wide\"><span class=\"fhint\">Enter the gross program balance before retention or capacity limits—not the deposits expected to remain on-book.</span></div>";
+      h+=`<details class="flow-advanced fld wide"${_depositPoolOpen.has(g.id)?' open':''} ontoggle="if(this.open)_depositPoolOpen.add('${esc(g.id)}');else _depositPoolOpen.delete('${esc(g.id)}')"><summary><b>Shared pool · ${esc(g.name||'Deposit pool')}</b><span class="deposit-summary">${esc(_depositPoolSummary(g))}</span></summary><div class="flow-advanced-grid"><div class="fld wide"><label>Pool name</label><input value="${esc(g.name||'')}" onchange="setPath('${gp}.name',this.value);renderContent();refresh()"><span class="fhint">Shared by ${esc(members)}. Category shares must total 100%.</span></div>`;
+      h+='<div class="deposit-pool-step"><div class="deposit-section-head"><b>1 · Source balance</b><span>Before retention</span></div>'+depositOperandHtml(gp+'.balance_spec',g.balance_spec,'Gross program balance',false)+"<div class=\"fld wide\"><span class=\"fhint\">Enter the gross program balance before retention or capacity limits—not the deposits expected to remain on-book.</span></div>";
+      h+='<details class="deposit-disclosure fld wide"'+_depositDisclosureAttrs(g.id+':adjustments')+'><summary>Balance adjustments <span>'+((g.adjustments||[]).length?' · '+g.adjustments.length+' configured':' · none')+'</span></summary><div class="deposit-section-grid">';
       (g.adjustments||[]).forEach((adj,j)=>{const ap=gp+'.adjustments.'+j;h+=`<div class="fld wide"><input aria-label="Adjustment name" value="${esc(adj.name||'')}" onchange="setPath('${ap}.name',this.value);refresh()"><select aria-label="Adjustment direction" onchange="setPath('${ap}.direction',this.value);refresh()"><option value="deduct"${adj.direction==='deduct'?' selected':''}>Deduct</option><option value="add"${adj.direction==='add'?' selected':''}>Add</option></select><button class="deposit-remove" title="Remove adjustment" aria-label="Remove adjustment" onclick="getPath('${gp}').adjustments.splice(${j},1);renderContent();refresh()">×</button></div>`+depositOperandHtml(ap+'.balance_spec',adj.balance_spec,'Adjustment balance',false);});
       h+=`<div class="fld wide deposit-tools"><button class="pillbtn" onclick="depositPoolAdjustment('${gp}')">+ Balance adjustment</button></div>`;
+      h+='</div></details></div><div class="deposit-pool-step"><div class="deposit-section-head"><b>2 · Retention &amp; capacity</b><span>What stays on-book</span></div>';
       h+=depositOperandHtml(gp+'.retention_share_spec',g.retention_share_spec,'Maximum retained share',true);
       h+=`<div class="fld wide"><label>Capacity limit</label><select onchange="depositPoolCapacity('${gp}',this.value)">${[['none','No capacity limit'],['entered','Enter / link / derive capacity'],['beginning_equity_budget','Beginning equity budget']].map(x=>`<option value="${x[0]}"${g.capacity_source===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
       if(g.capacity_source==='entered')h+=depositOperandHtml(gp+'.capacity_spec',g.capacity_spec,'Retained deposit capacity',false);
       if(g.capacity_source==='beginning_equity_budget'){
         const b=g.equity_budget||{};
+        h+='<details class="deposit-disclosure fld wide"'+_depositDisclosureAttrs(g.id+':budget')+'><summary>Equity budget inputs <span> · '+esc(_depositSpecSummary(b.target_leverage_spec,true))+' allocation ratio</span></summary><div class="deposit-section-grid">';
         [['target_leverage_spec','Equity allocation ratio','rate'],['capital_deduction_spec','Capital deductions','money'],['liquidity_buffer_spec','Liquidity buffer','money'],['operating_float_months_spec','Prior operating expense · months','count'],['other_committed_assets_spec','Other committed assets','money']].forEach(x=>h+=`<div class="fld wide">${_faSeriesEditor(gp+'.equity_budget.'+x[0],b[x[0]],x[1],x[2],false)}</div>`);
-        h+='<div class="fld wide"><span class="fhint">Allocation budget: beginning equity less deductions, divided by the allocation ratio, less commitments. This does not enforce a bank capital / assets ratio. M1 prior operating expense is zero.</span></div>';
+        h+='<div class="fld wide"><span class="fhint">Allocation budget: beginning equity less deductions, divided by the allocation ratio, less commitments. This does not enforce a bank capital / assets ratio. M1 prior operating expense is zero.</span></div></div></details>';
       }
-      h+=`<div class="fld wide">${_faSeriesEditor(gp+'.sweep_fee_rate_spec',g.sweep_fee_rate_spec,'Fee on swept-out balances · annual %','rate',false)}<span class="fhint">Charged once on balances swept out (off-book); allocated across member categories.</span></div><div class="fld"><label>Fee balance measure</label><select onchange="setPath('${gp}.sweep_fee_balance_measure',this.value);refresh()"><option value="period_average"${(g.sweep_fee_balance_measure||'period_average')==='period_average'?' selected':''}>Average balance</option><option value="period_end"${(g.sweep_fee_balance_measure||'period_average')==='period_end'?' selected':''}>Period-end balance</option></select></div><div class="fld"><label>Opening swept-out balance (off-book, $000s)</label><input type="number" min="0" step="0.001" value="${(+g.opening_swept_balance||0)/1000}" onchange="setPath('${gp}.opening_swept_balance',+this.value*1000);refresh()"><span class="fhint">Before period 1; used by average-balance fees.</span></div></div></details>`;
+      h+=`</div><div class="deposit-pool-step"><div class="deposit-section-head"><b>3 · Swept-out fees</b><span>Off-book balances</span></div><div class="fld wide">${_faSeriesEditor(gp+'.sweep_fee_rate_spec',g.sweep_fee_rate_spec,'Fee on swept-out balances · annual %','rate',false)}<span class="fhint">Charged once on balances swept out (off-book); allocated across member categories.</span></div><div class="fld"><label>Fee balance measure</label><select onchange="setPath('${gp}.sweep_fee_balance_measure',this.value);refresh()"><option value="period_average"${(g.sweep_fee_balance_measure||'period_average')==='period_average'?' selected':''}>Average balance</option><option value="period_end"${(g.sweep_fee_balance_measure||'period_average')==='period_end'?' selected':''}>Period-end balance</option></select></div><div class="fld"><label>Opening swept-out balance (off-book, $000s)</label><input type="number" min="0" step="0.001" value="${(+g.opening_swept_balance||0)/1000}" onchange="setPath('${gp}.opening_swept_balance',+this.value*1000);refresh()"><span class="fhint">Before period 1; used by average-balance fees.</span></div></div></div></details>`;
       const audit=typeof lastRes!=='undefined'&&lastRes&&lastRes.deposit_retention_pools&&lastRes.deposit_retention_pools[g.id];
       if(audit)h+=`<details class="flow-advanced fld wide"><summary>Pool preview · retained / swept out</summary><div class="fhint">Retained ($000s)</div>${_explicitPreviewHtml(audit.retainedBalance,fmtComma,_nativeFlowPeriod())}<div class="fhint">Swept out (off-book, $000s)</div>${_explicitPreviewHtml(audit.sweptBalance,fmtComma,_nativeFlowPeriod())}</details>`;
     }
   }
+  h+='</div></section>';
   if(mode!=='rollforward')h+=`<div class="fld"><label>Interest balance measure</label><select onchange="setPath('${base}.interest_balance_measure',this.value);refresh()">${[['period_average','Average (begin + end)'],['period_end','End balance'],['period_begin','Beginning balance']].map(x=>`<option value="${x[0]}"${(p.interest_balance_measure||'period_average')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
   return h;
 }
@@ -7616,7 +7645,7 @@ window.secManagedAddSleeve=function(i){const p=_managedSecPortfolios()[i];if(!p)
 window.secManagedDeleteSleeve=function(i,j){const p=_managedSecPortfolios()[i];if(!p)return;(p.sleeves||[]).splice(j,1);renderContent();refresh();};
 window.secManagedYieldSource=function(i,j,v){const s=((_managedSecPortfolios()[i]||{}).sleeves||[])[j];if(!s)return;s.yield_source=v;if(v==="entered")s.yield_spec=s.yield_spec||_secSeriesDefault(0);else s.curve_name=s.curve_name||"sofr";renderContent();refresh();};
 function _newNieDetail(){
-  return {categories:[], other_gross_up_rate:0, fdic_bp_ann:5.0, occ_simplified_enabled:false,
+  return {categories:[], other_gross_up_rate:0, fdic_bp_ann:0, occ_simplified_enabled:false,
           workforce:{mode:"roles",roles:[],total_count_series_id:_seriesId("wf-total-count"),default_payroll_load_rate:0,
                      default_salary_growth_spec:{rate:0,period:"year",method:"step",anchor:"hire_anniversary"}}};
 }
@@ -10274,7 +10303,7 @@ window.delEngagement = async function(slug){
     const sn = document.getElementById("scenarioName"); if(sn){ sn.value = ""; } syncBankLabel();
     renderGlobals(); refresh();
   }
-  await loadEngStore(true);   // await the fresh list BEFORE rendering, so the deleted row is gone
+  await loadEngStore(true,true);   // await the fresh list BEFORE rendering, so the deleted row is gone
   renderContent();            // re-render now that engStore no longer contains the deleted engagement
 };
 // (saveCurrentEng removed — the single user-facing save is engMenuSave via the chevron menu, which
@@ -10688,12 +10717,17 @@ async function wizFinish(){
 }
 window.wizStart=wizStart; window.wizSet=wizSet; window.wizPick=wizPick; window.wizFinish=wizFinish;
 
-let engStore = null;
-async function loadEngStore(force){
+let engStore = null, engStoreRequest = null, engStoreError = "";
+async function loadEngStore(force,afterWrite){
+  if(afterWrite&&engStoreRequest)await engStoreRequest;
   if(engStore && !force) return;
-  try { const r = await fetch("/api/v31/engagements"); engStore = await r.json(); }
-  catch(e){ engStore = {engagements: [], error: "store unreachable"}; }
-  if(currentTab === "start") renderContent();
+  if(engStoreRequest) return engStoreRequest;
+  engStoreRequest=(async()=>{
+    try { const r=await fetch("/api/v31/engagements");if(!r.ok)throw new Error("store unreachable");const next=await r.json();if(!Array.isArray(next.engagements))throw new Error("invalid engagement list");engStore=next;engStoreError=""; }
+    catch(e){engStoreError="Could not refresh saved engagements.";}
+    finally {if(currentTab==="start")renderContent();}
+  })();
+  try {await engStoreRequest;} finally {engStoreRequest=null;}
 }
 async function openEngagement(slug){
   // Backstop against silent discard: if there are unsaved edits to the current engagement, show the
@@ -10737,8 +10771,12 @@ async function toggleEngMenu(){
   const m = document.getElementById("engMenu");
   if(m.style.display !== "none"){ m.style.display = "none"; return; }
   m.style.display = "block";
-  m.innerHTML = '<div style="padding:8px 10px;font-size:11px;color:#565653">Loading saved engagements\u2026</div>';
+  paintEngMenu();
   await loadEngStore(true);
+  if(m.style.display!=="none")paintEngMenu();
+}
+function paintEngMenu(){
+  const m=document.getElementById("engMenu");
   const list = (engStore && engStore.engagements) || [];
   const cur = cfg.scenario_name || "";
   // The autosaved working session is a DRAFT, not a named engagement — separate it
@@ -10751,7 +10789,9 @@ async function toggleEngMenu(){
   // prior session ended unsaved, and nowhere else. So the menu never renders a draft row.
   const draft = null;
   let h = '<div style="padding:5px 10px 7px;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:#565653">Saved engagements</div>';
-  if(!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#565653">None saved yet on this workspace.</div>';
+  if(engStoreError)h+=`<div role="status" class="eng-menu-status">${esc(engStoreError)}${engStore?" Showing the last loaded list.":""} <a href="#" onclick="loadEngStore(true).then(()=>{if(document.getElementById('engMenu').style.display!=='none')paintEngMenu()});return false">Retry</a></div>`;
+  if(!engStore&&!engStoreError)h+='<div role="status" class="eng-menu-status">Loading saved engagements…</div>';
+  if(engStore&&!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#565653">None saved yet on this workspace.</div>';
   named.forEach(e=>{
     const active = (e.scenario_name||e.name) === cur;
     // Row = the open-action <a> (flex:1) + a delete × beside it. The × calls the existing
@@ -10828,7 +10868,7 @@ async function engMenuSave(){
   await _purgeRecoveryDrafts();                        // explicit save retires any stale unsaved-work recovery draft
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
-  await loadEngStore(true);   // refresh the list so the saved engagement shows immediately
+  await loadEngStore(true,true);   // refresh the list so the saved engagement shows immediately
   renderContent();
 }
 window.engMenuSave = engMenuSave;
@@ -11696,6 +11736,8 @@ function renderStart(){
   if(!snapshotMode) h += `<div class="chint" style="margin-bottom:8px">Saved engagements are kept on this workspace and survive restarts. To save the current configuration, open the engagement menu (the \u25bc beside the bank name, top right) and choose \u201cSave current configuration here\u201d \u2014 you'll be asked to name it. For anything important, also keep the Excel round-trip download and a frozen run as your durable backup.</div>`;
   if(snapshotMode){
     h += '<div class="memo">The engagement store lives on the deployed workspace (Railway volume).</div>';
+  } else if(engStore === null&&engStoreError){
+    h+='<div class="memo">Could not load saved engagements. <button class="pillbtn" onclick="loadEngStore(true)">Retry</button></div>';
   } else if(engStore === null){
     loadEngStore(); h += '<div class="memo">Loading engagement store\u2026</div>';
   } else if(!(engStore.engagements||[]).length){
@@ -12961,7 +13003,7 @@ function structuresSectionsHtml(){
     const _occEnabled=(Object.prototype.hasOwnProperty.call(nd,'occ_simplified_enabled')?!!nd.occ_simplified_enabled:nd.occ_bp_ann!=null);
     const _occ=(nd.occ_bp_ann!=null?+nd.occ_bp_ann:1.5);
     h += '<div class="nie-section" data-nie-pane="assessments"><div class="nie-section-head"><div><div class="nie-section-title">Assessments &amp; other NIE</div><div class="nie-section-note">Regulatory assessments and the non-payroll NIE gross-up. These are separate from workforce payroll load.</div></div></div><div class="nie-assess-grid">';
-    h += `<div class="nie-assess-item"><span class="wf-field-label">FDIC assessment</span><div class="nie-default-value"><input type="number" step="0.1" style="width:64px" value="${_fdic.toFixed(1)}" title="Basis points/yr on avg consolidated assets − avg tangible equity (12 USC 1817(b))." onchange="cfg.assumptions.nie_detail.fdic_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="nie-section-note">On avg assets less avg tangible equity.</div></div>`;
+    h += `<div class="nie-assess-item"><span class="wf-field-label">FDIC assessment</span><div class="nie-default-value"><input type="number" step="0.1" style="width:64px" value="${_fdic.toFixed(1)}" title="Basis points/yr on avg consolidated assets − avg tangible equity (12 USC 1817(b))." onchange="cfg.assumptions.nie_detail.fdic_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="nie-section-note">On avg assets less avg tangible equity. Set to 0 when a separate expense category models FDIC.</div></div>`;
     const _occTag=_opexPeriodTag(),_occUnit=_opexPeriodUnit(),_occIv=Math.max(1,PPY()/2),_occFirst=Math.max(1,Math.round(+(nd.occ_payment_first_period!=null?nd.occ_payment_first_period:(PPY()===12?3:1))||1));
     h += `<div class="nie-assess-item"><div class="crow" style="justify-content:space-between;align-items:center;gap:8px"><span class="wf-field-label">Legacy / simplified OCC assessment</span><button class="nie-section-toggle" onclick="nieOccSimplifiedToggle(${_occEnabled?'false':'true'})">${_occEnabled?'Disable':'Enable'}</button></div>${_occEnabled?`<div class="nie-default-value" style="margin-top:6px"><input type="number" step="0.1" style="width:64px" value="${_occ.toFixed(1)}" title="Annualized simplifying bp rate; each ordinal half-year assessment is one-half of the annualized rate." onchange="cfg.assumptions.nie_detail.occ_bp_ann=_pf(this.value);refresh()"><span class="cu">bp/yr</span></div><div class="crow" style="align-items:center;margin:6px 0 0"><span class="cu">first cash payment</span><span class="cu">${_occTag}</span><input type="number" min="1" step="1" style="width:58px" value="${_occFirst}" onchange="cfg.assumptions.nie_detail.occ_payment_first_period=Math.max(1,Math.round(_pf(this.value)||1));renderContent();refresh()"><span class="cu">then every ${_occIv} ${_occUnit}${_occIv===1?'':'s'}</span></div><div class="nie-section-note">Quick-estimate shortcut only. Recognition is spread over each ordinal half-year; this cash timing is separate. It is additive to Advanced tiered/banded Opex components.</div>`:`<div class="nie-section-note" style="margin-top:6px">Off — no simplified OCC expense posts. Use an Advanced tiered / banded component for a source-faithful assessment, or enable this shortcut explicitly for a rough bp-based estimate.</div>`}</div>`;
     h += `<div class="nie-assess-item"><span class="wf-field-label">Other NIE gross-up</span><div class="nie-default-value"><input type="number" step="0.5" style="width:64px" value="${((nd.other_gross_up_rate||0)*100).toFixed(1)}" title="Applies to the detailed NIE subtotal as sub×r/(1−r); this is not payroll load." onchange="cfg.assumptions.nie_detail.other_gross_up_rate=_pf(this.value)/100;refresh()"><span class="cu">%</span></div><div class="nie-section-note">Applies to detailed NIE subtotal; not payroll load.</div></div>`;
