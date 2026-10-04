@@ -278,9 +278,9 @@ def main():
        '.pc-cards,.pc-panel,.pc-note{max-width:calc((100% + 1076px) / 2)}' in html and '.pc-st{padding:0 9px;border-left:1px solid #ECECE8}' in html)
     # r242: vintage follows cohort switches without races; label fixed; plot sized to its table and framed.
     ck("Vintage builds are bound to their cohort (late results discarded) and any switch rebuilds; label renders",
-       'const _reqKey = _vinKey(); window._vinWanted = true; window._vinStale = false;' in html
+       'const _reqKey = _vinKey(); window._vinAttemptKey=_reqKey; window._vinWanted = true; window._vinStale = false;' in html
        and 'if(_reqKey === _vinKey()){ window.vintage = j; window.vintageKey = _reqKey; }' in html
-       and "if(window._vinWanted && window.vintageKey!==_vinKey()" in html
+       and "if(window._vinWanted && (window._vinAttemptKey||window.vintageKey)!==_vinKey()" in html
        and "Build corridor \\u2014 ' + esc(_vinCohortLabel()) + '</button>'" in html and 'Build corridor \\u2014 ${_vinCohortLabel()}' not in html)
     ck("Vintage plot is fitted to its table's height, ends with the peer corridor, as a soft card",
        'function fitVintageCharts()' in html and "if(typeof fitVintageCharts==='function') fitVintageCharts();" in html
