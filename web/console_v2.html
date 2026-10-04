@@ -2031,6 +2031,30 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 /* r268: Path / Amount / Components never wrap or squeeze (their widths are measured); Category absorbs the difference */
 [data-nie-pane="categories"] table.cfg-grid td:nth-child(3),[data-nie-pane="categories"] table.cfg-grid td:nth-child(4),[data-nie-pane="categories"] table.cfg-grid td:nth-child(5){white-space:nowrap;max-width:none!important}
 [data-nie-pane="categories"] table.cfg-grid th:nth-child(3),[data-nie-pane="categories"] table.cfg-grid th:nth-child(4),[data-nie-pane="categories"] table.cfg-grid th:nth-child(5){max-width:none}
+/* r274: use the editor's available width, including the Assumptions inspector. */
+main>#content{min-width:0}
+[data-nie-pane="categories"]{container-type:inline-size}
+[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}
+[data-nie-pane="categories"] .cfg-md-list,[data-nie-pane="categories"] .cfg-md-detail{width:100%;box-sizing:border-box;max-width:1100px!important}
+@container (min-width:1500px){[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(360px,1fr) minmax(880px,1100px)!important}}
+.fx-row{position:relative;padding-right:36px!important}
+.fx-row .fx-rmc{position:absolute;right:0;top:12px;grid-column:auto!important;grid-row:auto!important}
+.fx-row.fx-linked{grid-template-columns:100px minmax(100px,1fr) minmax(200px,3fr)!important}
+.fx-row.fx-linked:has(.fx-measure){grid-template-columns:100px minmax(100px,1fr) minmax(200px,3fr) 132px!important}
+.fx-row .fx-sub{grid-column:1/-1;width:100%;min-width:0}
+.fx-sub>.lsrc-wrap,.fx-sub>.lsrc-bar{width:100%;min-width:0}
+@container (max-width:820px){
+ .fx-row.fx-linked,.fx-row.fx-linked:has(.fx-measure){grid-template-columns:100px minmax(100px,1fr) 132px!important}
+ .fx-linked .fx-span{grid-column:1/-1;grid-row:2}
+ .fx-linked .fx-measure{grid-column:3;grid-row:1}
+ .fx-row:not(.fx-linked),.fx-row.fx-hasg{grid-template-columns:100px minmax(80px,1fr) 90px minmax(80px,1fr)!important}
+}
+@container (max-width:500px){
+ .fx-row:not(.fx-linked),.fx-row.fx-hasg{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .fx-row:not(.fx-linked)>.fx-l,.fx-row:not(.fx-linked)>.fx-c{grid-column:auto!important;grid-row:auto!important}
+ .fx-row.fx-linked,.fx-row.fx-linked:has(.fx-measure){grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
+ .fx-linked .fx-measure{grid-column:1;grid-row:3}
+}
 </style>
 </head>
 <body>
@@ -11953,7 +11977,11 @@ window.opexFxAll=function(i,js,open){ window._fxOpen=window._fxOpen||{}; js.forE
 function _opexLinkedSourcePreviewBody(lc){
   if(lc&&lc.driver==='catalog_quantity'){
     const rows=catalogSources('opex_formula')||[],x=rows.find(x=>x.series_id===lc.series_id);
-    return `<div class="cac-link-preview"><b>${esc(x?x.label:'Missing source: '+lc.series_id)}</b><div class="cmut">${esc({period_end:'End balance',period_average:'Average balance',period_begin:'Beginning balance'}[lc.measure]||'End balance')} · balance in dollars · observed after allocation and before OpEx. Annual factors are periodized once.</div></div>`;
+    const r=(typeof lastRes!=='undefined'&&lastRes)||{},a=cfg.assumptions||{},measure=lc.measure||'period_end';let ends=[],opening=0;
+    if(x&&x.pool){const pool=(a.deposit_retention_pools||[]).find(p=>p.id===x.pool)||{};ends=((r.deposit_retention_pools||{})[x.pool]||{})[x.key]||[];opening=x.key==='sweptBalance'?(+pool.opening_swept_balance||0)/1000:x.key==='retainedBalance'?(a.deposit_products||[]).filter(p=>p.retention_pool_id===x.pool).reduce((v,p)=>v+(+p.opening_balance||0)/1000,0):0;}
+    else if(x){const family=x.key==='lending_products'?'lending':'deposit',ps=(r.products||[]).filter(p=>p.family===family);if(x.key==='deposit_total'){const n=Math.max(0,...ps.map(p=>(p.bal||[]).length));const bals=Array.from({length:n},(_,i)=>ps.reduce((v,p)=>v+(+(p.bal||[])[i]||0),0));if(cfg.parity_profile==='pf_b'){opening=(a.deposit_products||[]).reduce((v,p)=>v+(+p.opening_balance||0)/1000,0);ends=bals;}else{opening=bals[0]||0;ends=bals.slice(1);}}else{const bals=(ps[x.index]||{}).bal||[];if(cfg.parity_profile==='pf_b'){opening=(+(a[x.key]||[])[x.index]?.opening_balance||0)/1000;ends=bals;}else{opening=bals[0]||0;ends=bals.slice(1);}}}
+    const vals=ends.map((v,i)=>measure==='period_begin'?(i?+ends[i-1]:opening):measure==='period_average'?((i?+ends[i-1]:opening)+(+v))/2:+v),lab=PPY()===12?'M':PPY()===4?'Q':'Y';
+    return `<div class="cac-link-preview"><b>${esc(x?x.label:'Missing source: '+lc.series_id)}</b><div class="cmut">${esc({period_end:'End balance',period_average:'Average balance',period_begin:'Beginning balance'}[measure])} · latest run · $000s</div>${vals.length?`<div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(vals.map((v,i)=>lab+(i+1)+' '+fmtComma(v)).join(' · '))}</div>`:'<div class="cmut">Run the model to preview this selected balance series.</div>'}</div>`;
   }
   if(!lc||!["fee_stream_quantity","customer_acquisition_auc","workforce_count"].includes(lc.driver))return "";
   const opt=_opexLinkedDriverOptions().find(o=>o.value===_opexLinkedDriverValue(lc));
@@ -12065,7 +12093,7 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
       h+=`<div class="fx-row fx-linked"><div class="fx-c fx-lab"><span class="fx-k">${lab}</span>${opSel}</div>`
         +`<label class="fx-l"><span>Name</span><input value="${esc(f.name||'Driver')}" onchange="nieCatFormulaFactorName(${i},${j},${k},this.value)"></label>`
         +`<label class="fx-l fx-span"><span>Linked series <a href="#" onclick="browseSourceCatalog(${i},${j},${k});return false">Browse / search</a></span><select data-nofit onchange="nieCatFormulaLinkedSource(${i},${j},${k},this.value)">${[{value:"",label:"Select a source"}].concat(val&&!opts.some(o=>o.value===val)?[{value:val,label:"Missing / incompatible source: "+(f.series_id||f.source)}]:[]).concat(opts).map(o=>`<option value="${esc(o.value)}"${o.value===val?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label>`
-        +(isA?`<label class="fx-l"><span>Measure</span><select data-nofit onchange="nieCatFormulaLinkedMeasure(${i},${j},${k},this.value)">${measures.map(m=>`<option value="${m}"${(f.measure||'period_end')===m?' selected':''}>${{period_end:'End balance',period_begin:'Beginning balance',period_average:'Average balance'}[m]||m}</option>`).join('')}</select></label>`:'')
+        +(isA?`<label class="fx-l fx-measure"><span>Measure</span><select data-nofit onchange="nieCatFormulaLinkedMeasure(${i},${j},${k},this.value)">${measures.map(m=>`<option value="${m}"${(f.measure||'period_end')===m?' selected':''}>${{period_end:'End balance',period_begin:'Beginning balance',period_average:'Average balance'}[m]||m}</option>`).join('')}</select></label>`:'')
         +`<div class="fx-c fx-rmc">${rm}</div><div class="fx-sub">${val?_opexLinkedSourcePreview(preview):"Choose a source to define this expense."}</div></div>`;
       return;
     }
