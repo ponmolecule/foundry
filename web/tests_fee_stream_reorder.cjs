@@ -1,0 +1,14 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const code=html.slice(html.indexOf('// r271: reorder streams'),html.indexOf('// End r271 stream reorder.'));
+const a={name:'Source',quantity_series_id:'root'},b={name:'Share',driver:{source:'stream_ref',ref:'Source'}},c={name:'Linked',driver:{source:'fee_stream_quantity',ref:'root'}};
+const owners={0:{fee_streams:[a,b,c]},1000:{fee_streams:[{name:'Loan A'},{name:'Loan B'}]},2000:{fee_streams:[{name:'Deposit A'},{name:'Deposit B'}]}};
+let render=0,refresh=0;const fields=[{id:'feeCoeffPaste_0_1',value:'25 50'},{id:'feeCoeffPaste_0_1_load'},{id:'feeEnteredFlowPaste_0_0',value:'100 200'}];
+const ctx={window:null,document:{getElementById:()=>({querySelectorAll:()=>fields}),querySelectorAll:()=>[],querySelector:()=>null},_stOwner:i=>owners[i],renderContent:()=>render++,refresh:()=>refresh++};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(code,ctx);ctx._stSelObj=b;
+const before=JSON.stringify(owners[0].fee_streams);
+assert(ctx._feeStreamReorder(0,0,2,true));assert.deepEqual(owners[0].fee_streams,[b,c,a]);assert.equal(ctx._stSelObj,b);assert.equal(b.driver.ref,'Source');assert.equal(c.driver.ref,'root');assert.equal(fields[0].id,'feeCoeffPaste_0_0');assert.equal(fields[2].id,'feeEnteredFlowPaste_0_2');
+assert(ctx._feeStreamReorder(0,2,0,false));assert.equal(JSON.stringify(owners[0].fee_streams),before);assert.equal(fields[0].id,'feeCoeffPaste_0_1');assert(!ctx._feeStreamReorder(0,0,0,false));assert(!ctx._feeStreamReorder(0,-1,0,false));assert(!ctx._feeStreamReorder(0,0,8,true));
+ctx.feeStreamMove(1000,1,-1);ctx.feeStreamMove(2000,0,1);assert.equal(owners[1000].fee_streams[0].name,'Loan B');assert.equal(owners[2000].fee_streams[1].name,'Deposit A');assert.equal(render,2);assert.equal(refresh,2);
+ctx._feeStreamDrag={owner:owners[0],stream:a};const ev={stopPropagation(){},preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}};ctx.feeStreamDrop(ev,2000,0);assert.equal(render,2,'cross-owner drop rejected');
+assert(html.includes('class="fee-stream-row'));assert(html.includes('data-st-order="${_fi}:${k}"'));assert(html.includes("event.key==='ArrowUp'"));
+console.log('PASS reorder up/down, no-op/bounds, object selection, stable/name refs, paste drafts, all owner families and cross-owner rejection');
