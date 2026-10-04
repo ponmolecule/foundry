@@ -5021,7 +5021,12 @@ function _feeSetCoeffSchedule(i,si,text){
   const out={}; vals.forEach((n,j)=>{if(c.kind==="pct") n/=100; else if(c.kind==="amount_per_source_unit") n*=1000; out[String(j+1)]=n;});
   c.schedule=out; renderContent(); refresh();
 }
+function _clearPasteDraft(id){
+  const ta=document.getElementById(id);
+  if(ta){ta.value="";ta.dispatchEvent(new Event("input",{bubbles:true}));}
+}
 function _feeClearCoeffSchedule(i,si){
+  _clearPasteDraft(`feeCoeffPaste_${i}_${si}`);
   const st=_stOwner(i).fee_streams[si], c=st.driver.params.coefficient;
   c.schedule={}; renderContent(); refresh();
 }
@@ -5042,7 +5047,7 @@ function _feeEnteredFlowTrajectory(i,si,v){
 function _feeEnteredFlowPeriod(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.period=v;if(fp.growth_spec){fp.growth_spec.period=v;fp.growth_spec.anchor=v==="year"?"model_year":"model_period";}renderContent();refresh();}
 function _feeEnteredFlowValue(i,si,v){const fp=_feeEnsureEnteredFlow(i,si);fp.value=_pf(v)*1000;refresh();}
 function _feeSetEnteredFlowSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const fp=_feeEnsureEnteredFlow(i,si),out={};vals.forEach((v,j)=>out[String(j+1)]=v*1000);fp.schedule=out;renderContent();refresh();}
-function _feeClearEnteredFlowSchedule(i,si){const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
+function _feeClearEnteredFlowSchedule(i,si){_clearPasteDraft(`feeEnteredFlowPaste_${i}_${si}`);const fp=_feeEnsureEnteredFlow(i,si);fp.schedule={};renderContent();refresh();}
 // r269: compatible quantity references use stable IDs across Fee Product owners.
 // r270: readable source labels and dependency-aware deletion.
 function feeQuantityLabel(ref){
@@ -5214,7 +5219,7 @@ function _feeSetAccountLevelSchedule(i,si,text){
   const vals=_feeParseExplicitValues(text); if(!vals.length)return; const ls=_feeEnsureAccountLevel(i,si);
   const out={};vals.forEach((v,j)=>out[String(j+1)]=v);ls.schedule=out;renderContent();refresh();
 }
-function _feeClearAccountLevelSchedule(i,si){const ls=_feeEnsureAccountLevel(i,si);ls.schedule={};renderContent();refresh();}
+function _feeClearAccountLevelSchedule(i,si){_clearPasteDraft(`feeAccountLevelPaste_${i}_${si}`);const ls=_feeEnsureAccountLevel(i,si);ls.schedule={};renderContent();refresh();}
 function _feeEnsureStockMultiplier(i,si){
   const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
   const dp=st.driver.params;if(!dp.stock_multiplier)dp.stock_multiplier={kind:"pct",value:0,period:"year",trajectory:"flat",resolution:"step"};return dp.stock_multiplier;

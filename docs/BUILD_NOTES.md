@@ -1438,3 +1438,6 @@ This release intentionally changes results for configurations that previously re
 Verification includes production browser checks for table/editor agreement at missing, 0% and 50% risk weights, immediate edits, zero missing-value displays and preserved explicit FDIC/yield values; Profile A/B missing FDIC versus explicit zero; explicit 5 bp continuing to accrue; and a $30m residual book earning zero at missing/zero yield and positive interest at an authored yield. Capital/RWA tests, inline syntax and the identity gate pass. Full-suite results are recorded in delivery/VALIDATION.md with a fresh r278 comparison.
 
 Full r279 regression comparison: 62 Python modules / 9 existing failing modules; 7 JavaScript scripts / 1 existing failing script. No new failing modules or failed assertions versus fresh r278. The deliberate missing-FDIC change and its frozen-run consequence are explicitly tested.
+
+## r280 — Activity paste Clear
+Explicitly consume visible Activity drafts in coefficient, monetary flow and account count Clear callbacks before authoring restoration. No engine changes. See R280_RELEASE_NOTES.md for regression evidence.
