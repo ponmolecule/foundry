@@ -1373,3 +1373,8 @@ Presentation release on r267. Path, Amount and Components had guessed fixed widt
 was squeezed and "41.66667 / month" ran into Components. They now never wrap, and after each render their
 widths are set to the widest actual content (e.g. Path 77px, Amount 137px for "41.66667 / quarter"); the
 Category column absorbs the difference. No cell overflows at 1440 / 1920 / 2560; the side panel is unchanged.
+
+
+## r272 — Shared source catalog
+
+See R272_SOURCE_CATALOG.md. Built directly on r271; metadata discovery is outside engine results. Existing Formula components can observe current book/pool balances with explicit measures. Browse/search and typed consumer eligibility are shared across the main quantity pickers. Legacy outputs and pinned fingerprints remain unchanged.

@@ -572,6 +572,7 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                                   resolve_settlement, normalize_settlement,
                                   resolve_linked_components, resolve_cost_pool_calculation,
                                   linked_component_amount)
+    from .source_catalog import result_balances
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
     component_sum = [0.0] * n
 
@@ -614,7 +615,8 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "gain_on_sale": ctx["gain_on_sale"][i] if i < len(ctx["gain_on_sale"]) else 0.0,
                     "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
                     "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
-                    "fee_stream_quantities": qmap,
+                    "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
+            "fee_stream_quantities": qmap,
                     "customer_acquisition_auc_monthly": ctx["cac_monthly"],
                     "customer_acquisition_auc_beginning": ctx["cac_beginning"],
                     "fee_stream_quantity_history": ctx["quantity_history"],
@@ -658,6 +660,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                                   FORMULA_DRIVER, NET_FEE_INCOME_DRIVER, _formula_factor_value,
                                   _piecewise_event_due, _piecewise_term_value,
                                   _normalize_piecewise_bands, _normalize_observation_lag, _lag_to_engine_periods)
+    from .source_catalog import result_balances
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
     rows = []
 
@@ -669,6 +672,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "gain_on_sale": ctx["gain_on_sale"][i] if i < len(ctx["gain_on_sale"]) else 0.0,
             "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
             "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
+            "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
             "fee_stream_quantities": qmap,
             "customer_acquisition_auc_monthly": ctx["cac_monthly"],
             "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -922,6 +926,7 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
                             WORKFORCE_INCOME_FLOW_SOURCE, _income_flow_term_value)
     from .opex_extensions import (_piecewise_event_due, _piecewise_term_value, _normalize_piecewise_bands,
                                   _normalize_observation_lag, _lag_to_engine_periods)
+    from .source_catalog import result_balances
     ctx = _raw_opex_context(cfg, results, n, ppy, exact=exact)
     source = exact if exact is not None else results
     is_ = source.get("is") or ((source.get("financials") or {}).get("is") or {})

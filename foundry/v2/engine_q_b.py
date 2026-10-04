@@ -188,6 +188,10 @@ def run_pf_b(cfg):
 
     for qi in range(Q):
         q = qi + 1
+        from .source_catalog import runtime_balances
+        _catalog_balances_q = runtime_balances(a,
+            [dict(p, _bal=[p['_beg'][0]]+p['_end']) for p in dep],
+            [dict(p, _bal=[p['_beg'][0]]+p['_end']) for p in lend], [], q)
         int_loans = sum(p["_avg"][qi] * _prod_rate(p, q, _rate) / 4.0 for p in lend)
         int_sec_prod = sum(p["_avg"][qi] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
@@ -248,6 +252,7 @@ def run_pf_b(cfg):
                               "fee_product_costs": 0.0,
                               "customer_acquisition_auc_monthly": _auc_month_sources,
                               "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                              "catalog_balances": _catalog_balances_q,
                               "fee_stream_quantity_history": {},
                               "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
                               "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
@@ -276,7 +281,8 @@ def run_pf_b(cfg):
                     },
                     "customer_acquisition_auc_monthly": _auc_month_sources,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                    "fee_stream_quantity_history": {},
+                    "catalog_balances": _catalog_balances_q,
+                              "fee_stream_quantity_history": {},
                     "fee_stream_quantity_known_ids": set(),
                     "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
                 }

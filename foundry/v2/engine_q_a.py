@@ -1212,6 +1212,8 @@ def run_pf_a(cfg):
                 _dp.setdefault("_sweep_fee", []).append(_sweep_fee)
         if _deposit_pools:
             deps_c[q] = deps_b[q] = sum(p["_bal"][q] for p in dep)
+        from .source_catalog import runtime_balances
+        _catalog_balances_q = runtime_balances(a, dep, lend, _deposit_pools, q)
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
         _ib_i = q - 1
@@ -1357,7 +1359,8 @@ def run_pf_a(cfg):
                                                            for sid, arr in _fee_stream_qty_series.items()},
                                  "customer_acquisition_auc_monthly": _auc_month_sources,
                                  "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                                 "fee_stream_quantity_history": _fee_stream_qty_series,
+                                 "catalog_balances": _catalog_balances_q,
+                    "fee_stream_quantity_history": _fee_stream_qty_series,
                                  "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
                                  "bank_total_assets_end_by_period": bs["totalAssets"],
                                  "cost_pool": _cost_pool_ctx(q),
@@ -1491,6 +1494,7 @@ def run_pf_a(cfg):
                                               for sid, arr in _fee_stream_qty_series.items()},
                     "customer_acquisition_auc_monthly": _auc_month_sources,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
+                    "catalog_balances": _catalog_balances_q,
                     "fee_stream_quantity_history": _fee_stream_qty_series,
                     "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
                     "bank_total_assets_end_by_period": bs["totalAssets"],

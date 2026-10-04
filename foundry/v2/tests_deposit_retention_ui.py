@@ -10,6 +10,8 @@ def main():
     end=html.index('function _loanBalanceMode(p)',start)
     js=r'''
 const window=globalThis;
+function catalogSources(){return null;}
+function feeConfirmDeletion(){return true;}
 let cfg={assumptions:{deposit_products:[{name:'DDA',growth_per_period:.05,runoff_per_period:.01,new_deposits_per_period:1000,overrides:{growth_per_period:{1:.1}}},{name:'Savings'}],obs_exposures:[{name:'Upstream',fee_streams:[{name:'Activity',quantity_series_id:'tpv',basis:'transaction',driver:{source:'constant',params:{flow_path:{unit_kind:'money_flow'}}}},{name:'Migration',quantity_series_id:'migration',basis:'transaction',driver:{source:'stream_ref',params:{coefficient:{kind:'pct',semantics:'share'}}}}]}],lending_products:[{name:'Facility',balance_mode:'funded_flow_level'}]}};
 let serial=0,lastRes=null;
 function _seriesId(k){return k+'-'+(++serial);}function renderContent(){}function refresh(){}
