@@ -64,6 +64,8 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
     }
     if kind == "linked":
         source = str(f.get("source") or "").strip().lower()
+        if not source:
+            raise ValueError("formula/driver linked factor: select a source")
         if source not in _FORMULA_LINK_SOURCES:
             raise ValueError(
                 f"unsupported formula/driver linked source {source!r}; allowed: "
