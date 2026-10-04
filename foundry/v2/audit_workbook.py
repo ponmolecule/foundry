@@ -796,6 +796,13 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                         op = "" if fi == 1 else (" ÷ " if f.get("op") == "divide" else " × ")
                         trace.append(f"{op}{str(f.get('name') or ('Factor '+str(fi)))}={float(val):.12g}")
                     notes = "Formula / driver factor chain: " + "".join(trace)
+                    if comp.get("monthly_accrual_pair"):
+                        pair = comp["monthly_accrual_pair"]
+                        source_base = None
+                        rate = None
+                        notes = (f"Monthly {pair['measure']} AUC × {pair['rate_period']} rate, "
+                                 "summed into engine period; see CAC Monthly Canonical. "
+                                 "Additional factors: " + "".join(trace[2:]))
                 elif drv == COST_POOL_CHARGE_DRIVER:
                     ref = str((comp or {}).get("ref") or "")
                     source_base = float((metrics.get("cost_pool") or {}).get(ref) or 0.0)
