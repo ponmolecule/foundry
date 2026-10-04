@@ -1383,3 +1383,10 @@ See R272_SOURCE_CATALOG.md. Built directly on r271; metadata discovery is outsid
 Built directly on r272 (8ccc715). New Formula / driver expense components and newly added linked factors start with Select a source. The dropdown and Browse / search both support choosing a source; clearing the dropdown removes the link. No source is silently substituted for an empty or unknown selection. Existing authored links and legacy defaults remain intact.
 
 An incomplete linked factor is rejected with “formula/driver linked factor: select a source” rather than generating expense against an arbitrary series. Production browser coverage creates a component, checks the empty prompt, adds another empty linked factor, and then selects a pool balance through the catalog. Existing rename and measure checks continue to pass. Three pinned fixture fingerprints are unchanged.
+# r274 — Responsive expense editor and balance previews
+
+Built directly on r273. The category list and editor use the space available inside Configuration, rather than browser width. Opening Assumptions reduces that space and stacks the category list above the editor; wide workspaces retain the side-by-side presentation. Formula factor controls wrap within the editor, while remove-factor buttons stay at the upper right of their own row.
+
+Catalog balance links now display the selected series from the latest run in $000s, labeled by presentation period. Beginning and average measures use the correct opening stock: deposit/lending opening balances, pool-member deposit opening balances, or explicit opening swept balance. The preview is read-only and does not run the model or alter its numbers. If results are unavailable, the UI asks the user to run the model. The hide/show preview control remains separate from the remove-factor button.
+
+Production Chromium coverage checks editor bounds at 1280, 1440, and 1920 pixels with Assumptions open and closed, remove-factor placement, and engine-backed retained balances ($400,000 end; $200,000 first-period average from zero opening). Prior catalog search, source selection, rename, and measure checks remain covered. Engine code is unchanged.
