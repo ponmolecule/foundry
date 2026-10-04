@@ -387,7 +387,7 @@ def validate_config_v2(cfg):
                             from .series import resolve_entered_series
                             from .periodic_flows import resolve_periodic_flow, validate_periodic_flow_spec
                             _qn = max(1, int(a.get("n_periods") or _ppy))
-                            for _f in (_x.get("factors") or []):
+                            for _fi, _f in enumerate(_x.get("factors") or []):
                                 if _f.get("kind") == "linked":
                                     _src = _f.get("source")
                                     _sid = _f.get("series_id")
@@ -412,7 +412,10 @@ def validate_config_v2(cfg):
                                     resolve_periodic_flow(_f.get("spec"), _qn, _ppy,
                                                           context=_growth_ctx)
                                 else:
-                                    resolve_entered_series(_f.get("spec"), _qn, _ppy,
+                                    monthly_rate = _x.get("accrual_cadence") == "monthly" and _fi == 1
+                                    resolve_entered_series(_f.get("spec"),
+                                                           _qn * (12 // _ppy) if monthly_rate else _qn,
+                                                           12 if monthly_rate else _ppy,
                                                            context=_growth_ctx)
                         if _x.get("driver") == "cost_pool_charge":
                             from .cost_pools import resolve_cost_pool_ref
