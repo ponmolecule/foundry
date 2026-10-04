@@ -44,8 +44,10 @@ def main():
     print('PASS single average default, public audit units, independent retained opening and fail-closed sweep opening')
     cfg=json.load(open('foundry/fixtures/core_bank_test_base.json'));res=run_v2(cfg)
     frozen=dict(config=cfg,config_hash=res['config_hash'],run_hash='f1384367e87a')
+    with patch.object(registry_q,'get_entry',return_value=frozen):assert not registry_q.verify('review-fixture')['match']
+    frozen['run_hash']=res['run_hash']
     with patch.object(registry_q,'get_entry',return_value=frozen):assert registry_q.verify('review-fixture')['match']
-    print('PASS actual frozen-run verification against r230 fingerprint')
+    print('PASS r279 intentional implicit-FDIC change rejects the r230 frozen hash; current fingerprint re-verifies')
     html=Path('web/console_v2.html').read_text()
     start=html.index('const _depositPoolOpen = new Set();');end=html.index('function _loanBalanceMode(',start)
     initial=json.load(open('foundry/fixtures/core_bank_test_base.json'))
