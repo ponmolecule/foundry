@@ -2858,7 +2858,7 @@ function _vinCohortLabel(){ const c=(typeof cfgRef==="function"?cfgRef():{})||{}
   if(m==="curated") return (c.peer_bands_certs||[]).length+" curated certificates";
   return _VIN_BAND_LABEL[m] ? "2018\u20132023 charters now "+_VIN_BAND_LABEL[m] : "2018\u20132023 charters"; }
 function _vinSync(){ // r242: once a corridor has been built, any cohort switch rebuilds it (the dropdown clears window.vintage first)
-  if(window._vinWanted && window.vintageKey!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; window._vinScopeAll=false; if(typeof vintageBuild==="function") vintageBuild(); } }
+  if(window._vinWanted && (window._vinAttemptKey||window.vintageKey)!==_vinKey() && !(typeof _vintageBusy!=="undefined"&&_vintageBusy)){ window.vintage=null; window._vinScopeAll=false; if(typeof vintageBuild==="function") vintageBuild(); } }
 function _vinChartHtml(M, modeled){   // r242: placeholder at default size; fitVintageCharts redraws it to fit
   window._vinCharts = window._vinCharts || {}; const id = 'v'+(window._vinChartSeq=(window._vinChartSeq||0)+1);
   if(Object.keys(window._vinCharts).length>300) window._vinCharts={};
@@ -8398,8 +8398,9 @@ let _vintageBusy = false;
 async function vintageBuild(){
   if(_vintageBusy) return;          // no double-fires (which could storm the pool)
   _vintageBusy = true;
-  const _reqKey = _vinKey(); window._vinWanted = true; window._vinStale = false;   // r242: the cohort this build is for
+  const _reqKey = _vinKey(); window._vinAttemptKey=_reqKey; window._vinWanted = true; window._vinStale = false;   // r242: the cohort this build is for
   window._vintageLoading = true; window._vintageError = null;
+  if(window.vintageKey&&window.vintageKey!==_reqKey)window.vintage=null;
   renderContent();                  // paint the loading state immediately
   // Client-side timeout: the substrate query can be heavy, but it must never spin
   // forever. Abort at 25s and surface a message instead of an infinite wait.
@@ -8407,52 +8408,49 @@ async function vintageBuild(){
   const timer = setTimeout(()=>ctrl.abort(), 25000);
   try{
     const _mode=cfgRef().peer_bands_mode||"broad", _certs=(cfgRef().peer_bands_certs||[]);
+    if(_mode==="curated"&&!_certs.length)throw new Error("select at least one curated certificate before building");
     const _curated=_mode==="curated"&&_certs.length;
     const r = await fetch(_curated?"/api/v31/peer-intelligence-lab/vintage":"/api/v31/substrate/vintage", {method:"POST",
       headers:{"Content-Type":"application/json"},
       body: JSON.stringify(_curated?{certs:_certs}:Object.assign({est_from:2018, est_to:2023}, (!window._vinScopeAll&&_mode&&_mode!=="broad"&&_mode!=="curated")?{asset_band:_mode}:{})),
       signal: ctrl.signal});
-    clearTimeout(timer);
     let j; try{ j = await r.json(); }
-    catch(e){ throw new Error(`unreadable response (${r.status})`); }
+    catch(e){if(e&&e.name==="AbortError")throw e;throw new Error(`unreadable response (${r.status})`); }
+    if(_reqKey!==_vinKey()){window._vinStale=true;return;}
     if(!r.ok){
       window._vintageError = (j && j.error) || `substrate error (${r.status})`;
       appStatus("err", "<b>Corridor refused (fail-closed)</b> \u2014 " + esc(window._vintageError));
     } else {
+      if(!j||!j.definition||!j.survivorship||!j.corridor||typeof j.corridor!=="object")throw new Error("incomplete corridor response; try building again");
       if(_reqKey === _vinKey()){ window.vintage = j; window.vintageKey = _reqKey; }
       else { window._vinStale = true; }   // r242: the cohort changed while this was in flight; discard it
     }
   }catch(e){
+    if(_reqKey!==_vinKey()){window._vinStale=true;return;}
     const aborted = (e && e.name === "AbortError");
     window._vintageError = aborted
       ? "the substrate did not respond within 25 seconds \u2014 it may be waking up or under load. Try again in a moment."
-      : ("could not reach the substrate \u2014 " + (e && e.message ? e.message : "network error"));
+      : ("corridor request failed \u2014 " + (e && e.message ? e.message : "network error"));
     appStatus("err", "<b>Corridor unavailable</b> \u2014 " + esc(window._vintageError));
   }finally{
     clearTimeout(timer);
     _vintageBusy = false; window._vintageLoading = false;
-    if(window._vinStale){ window._vinStale = false; setTimeout(()=>vintageBuild(), 0); return; }   // rebuild for the current cohort
+    if(_reqKey!==_vinKey()){ window._vinStale = false; window._vinScopeAll=false; setTimeout(()=>vintageBuild(), 0); return; }   // rebuild for the current cohort
     renderContent();
   }
 }
 window.vintageBuild = vintageBuild;
 function vintageSectionHtml(){
   let h = '<div class="ovh2">Vintage corridor \u2014 de novos at the same age' + esc(_vinTitleSuffix()) + '</div>';
-  if(!(subStatus && subStatus.configured && subStatus.reachable)){
-    h += '<div class="memo">Arrives with the substrate connection: real recently-chartered banks, each re-clocked to its own opening quarter, so the model\u2019s Q10 is compared to their Q10 \u2014 not to mature banks.</div>';
-    return h;
-  }
+  // Keep the action independent of the cached health check and previous results.
+  h+='<div class="vin-actions" style="display:flex;align-items:center;gap:12px;margin:10px 0">';
+  if(window._vintageLoading)h+='<button class="btn-plain" disabled>Building corridor…</button><span class="cmut">'+esc(_vinCohortLabel())+'</span>';
+  else h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 ' + esc(_vinCohortLabel()) + '</button>';
+  h+='</div>';
+  if(!(subStatus && subStatus.configured && subStatus.reachable))h+='<div class="memo">The last connection check is unavailable. Build corridor retries the service directly; a failed request will show its error here.</div>';
+  if(window._vintageError)h+=`<div role="status" class="memo" style="border-left:3px solid #985747;padding-left:10px">Last attempt did not complete: ${esc(window._vintageError)}${window.vintage?' The previous corridor remains displayed.':''}</div>`;
   if(!window.vintage){
-    h += '<div class="memo">Every cohort member\u2019s history is re-clocked to its own opening quarter; the band is what real de novos actually walked at each age. Pre-registered window; suppressed below minimum count; survivorship stated.</div>';
-    if(window._vintageLoading){
-      h += '<div class="memo" style="color:#A3772A">Building corridor for ' + esc(_vinCohortLabel()) + '\u2026 real charter histories are being re-clocked and banded. This can take a few seconds.</div>';
-      h += '<button class="btn-plain" disabled style="opacity:.55;cursor:default">Building\u2026</button>';
-    } else {
-      if(window._vintageError){
-        h += `<div class="memo" style="border-left:3px solid #985747;color:#896156">Last attempt didn\u2019t complete: ${esc(window._vintageError)}</div>`;
-      }
-      h += '<button class="btn-plain" onclick="vintageBuild()">Build corridor \u2014 ' + esc(_vinCohortLabel()) + '</button>';
-    }
+    h+='<div class="memo">Each cohort member’s history is re-clocked to its opening quarter. Results are suppressed below the minimum count; survivorship is stated.</div>';
     return h;
   }
   const V = window.vintage;
