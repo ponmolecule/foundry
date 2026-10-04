@@ -2055,6 +2055,36 @@ main>#content{min-width:0}
  .fx-row.fx-linked,.fx-row.fx-linked:has(.fx-measure){grid-template-columns:minmax(0,1fr) minmax(0,1fr)!important}
  .fx-linked .fx-measure{grid-column:1;grid-row:3}
 }
+/* r278: formula fields own their tracks; the global content fitter must not enlarge them. */
+.fx-card .fx-body input,.fx-card .fx-body select{box-sizing:border-box;max-width:100%!important;min-width:0!important}
+.fx-card .fx-name input{width:100%!important}
+.fx-card .fx-row:not(.fx-linked){grid-template-columns:104px minmax(150px,280px) 150px minmax(120px,200px) 100px 128px 106px!important;gap:12px!important;justify-content:start}
+.fx-card .fx-row.fx-hasg{grid-template-columns:104px minmax(150px,280px) 150px minmax(120px,200px) 100px 128px 106px 138px!important}
+.fx-card .fx-row>.fx-l,.fx-card .fx-row>.fx-c{min-width:0;grid-column:auto;grid-row:auto}
+.fx-card .fx-row .fx-rmc{grid-column:auto!important;grid-row:auto!important}
+.fx-card .fx-row.fx-linked{grid-template-columns:104px minmax(150px,240px) minmax(0,1fr)!important;gap:12px!important}
+.fx-card .fx-row.fx-linked:has(.fx-measure){grid-template-columns:104px minmax(150px,240px) minmax(0,1fr) 164px!important}
+.fx-card .fx-linked .fx-sub{grid-column:1/-1}
+.fx-card .fx-row input[type=number]{appearance:textfield;-moz-appearance:textfield}
+.fx-card .fx-row input[type=number]::-webkit-inner-spin-button,.fx-card .fx-row input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+@container (max-width:1250px){
+ .fx-card .fx-row.fx-hasg{grid-template-columns:104px minmax(140px,1fr) 150px minmax(140px,1fr)!important}
+ .fx-card .fx-row.fx-hasg .fx-path{grid-column:2;grid-row:2}.fx-card .fx-row.fx-hasg .fx-time{grid-column:3;grid-row:2}.fx-card .fx-row.fx-hasg .fx-disp{grid-column:4;grid-row:2}
+ .fx-card .fx-row.fx-hasg .fx-gc{grid-column:2/4;grid-row:3;max-width:190px}
+}
+@container (max-width:1050px){
+ .fx-card .fx-row:not(.fx-linked){grid-template-columns:104px minmax(140px,1fr) 150px minmax(140px,1fr)!important}
+ .fx-card .fx-row:not(.fx-linked) .fx-path{grid-column:2;grid-row:2}.fx-card .fx-row:not(.fx-linked) .fx-time{grid-column:3;grid-row:2}.fx-card .fx-row:not(.fx-linked) .fx-disp{grid-column:4;grid-row:2}
+ .fx-card .fx-row.fx-linked,.fx-card .fx-row.fx-linked:has(.fx-measure){grid-template-columns:104px minmax(140px,1fr) 164px!important}
+ .fx-card .fx-linked .fx-span{grid-column:1/-1;grid-row:2}.fx-card .fx-linked .fx-measure{grid-column:3;grid-row:1}
+}
+@container (max-width:700px){
+ .fx-card .fx-row:not(.fx-linked),.fx-card .fx-row.fx-hasg{grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .fx-card .fx-row:not(.fx-linked)>.fx-l,.fx-card .fx-row:not(.fx-linked)>.fx-c{grid-column:auto!important;grid-row:auto!important}
+ .fx-card .fx-row:not(.fx-linked) .fx-num{grid-column:1!important}.fx-card .fx-row:not(.fx-linked) .fx-gc{max-width:190px}
+ .fx-card .fx-row.fx-linked,.fx-card .fx-row.fx-linked:has(.fx-measure){grid-template-columns:repeat(2,minmax(0,1fr))!important}
+ .fx-card .fx-linked .fx-measure{grid-column:1/-1;grid-row:3;max-width:180px}.fx-card .fx-linked .fx-span{grid-column:1/-1;grid-row:2}
+}
 /* r275: compact deposit inputs, grouped source → retention → off-book fees. */
 .prd-card[data-fam="deposit"] .deposit-section{grid-column:1/-1;min-width:0;border:1px solid var(--k-line2);border-radius:8px;padding:14px;background:var(--k-surface)}
 .deposit-section-head{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:12px;font-size:12px}.deposit-section-head span,.deposit-summary{color:var(--k-tx3);font-size:11.5px;font-weight:400}
@@ -2598,6 +2628,7 @@ function fitMasterDetail(){
 }
 function fitInput(el){
   if(!el||!el.offsetParent) return;
+  if(el.closest('.fx-card')){el.style.removeProperty('min-width');return;}
   const txt=el.value||el.getAttribute('placeholder')||''; if(!txt) return;
   const cs=getComputedStyle(el);
   const need=Math.ceil(_fitMeasure(el,txt)+(parseFloat(cs.paddingLeft)||0)+(parseFloat(cs.paddingRight)||0)+(el.offsetWidth-el.clientWidth)+(el.type==='number'?20:4));
