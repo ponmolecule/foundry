@@ -735,6 +735,13 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .product-card[data-product-family="deposit"] .deposit-operand>.deposit-source{display:inline-block;width:90px;max-width:90px;vertical-align:top}
 .product-card[data-product-family="deposit"] .deposit-operand>.sec-managed-series{display:inline-block;vertical-align:top;margin:0 0 0 8px;max-width:calc(100% - 105px)}
 .product-card[data-product-family="deposit"] .deposit-operand:has(.sec-managed-explicit)>.sec-managed-series{display:block;max-width:100%;margin:8px 0 0}
+/* r271: compact fee-stream drag affordance, matching existing table reorder. */
+.st-list .st-order{white-space:nowrap;width:48px}
+.st-drag{border:0;background:transparent;color:var(--k-muted,#8D8578);padding:2px 4px;font-size:13px;line-height:1;cursor:grab;vertical-align:middle}
+.st-drag:hover{color:var(--k-gold,#A3772A)}.st-drag:focus-visible{outline:1px solid var(--k-gold,#A3772A);outline-offset:2px}.st-drag:active{cursor:grabbing}
+.fee-stream-row.drop-before td{box-shadow:inset 0 2px 0 var(--k-gold,#A3772A)}
+.fee-stream-row.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold,#A3772A)}
+.fee-stream-row.dragging td{opacity:.45}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -2171,6 +2178,41 @@ window.prdFamToggle=function(f){const m=(window._prdFamClosed=window._prdFamClos
 window.prdFilter=function(q){window._prdQuery=q;q=String(q||'').toLowerCase().trim();document.querySelectorAll('.prd-row').forEach(r=>{r.style.display=(!q||String(r.getAttribute('data-q')||'').includes(q))?'':'none';});};
 window.prdTabSet=function(k){window._prdTab=k;const c=document.querySelector('.prd-card');if(c)c.setAttribute('data-pp-tab',k);document.querySelectorAll('.prd-tab').forEach(b=>b.classList.toggle('on',b.getAttribute('data-tab')===k));};
 window.prdCmpFam=function(f){window._prdCmpFam=f;renderContent();};
+// r271: reorder streams within their owner; never rewrite dependencies.
+function _feeStreamClearDropMarkers(){document.querySelectorAll('.fee-stream-row.drop-before,.fee-stream-row.drop-after').forEach(el=>{el.classList.remove('drop-before','drop-after');delete el.dataset.dropAfter;});}
+function _feeStreamReorder(fi,from,target,after){
+  const p=_stOwner(fi),arr=p&&p.fee_streams;from=+from;target=+target;
+  if(!arr||!Number.isInteger(from)||!Number.isInteger(target)||from<0||target<0||from>=arr.length||target>=arr.length)return false;
+  let at=target-(from<target?1:0)+(after?1:0);at=Math.max(0,Math.min(arr.length-1,at));if(at===from)return false;
+  const old=arr.slice(),moved=arr.splice(from,1)[0];arr.splice(at,0,moved);
+  // Paste draft IDs include the stream index. Remap live IDs before render captures them,
+  // so unsubmitted schedule text follows its stream rather than the old row position.
+  const root=document.getElementById('content');
+  if(root)root.querySelectorAll('[id]').forEach(el=>{
+    const m=el.id.match(/^(fee[A-Za-z]+_)(\d+)_(\d+)(.*)$/);
+    if(m&&+m[2]===+fi&&old[+m[3]])el.id=m[1]+m[2]+'_'+arr.indexOf(old[+m[3]])+m[4];
+  });
+  return true;
+}
+window.feeStreamMove=function(fi,si,delta){const arr=(_stOwner(fi)||{}).fee_streams||[],to=Math.max(0,Math.min(arr.length-1,+si+delta));if(_feeStreamReorder(fi,si,to,delta>0)){renderContent();const handle=document.querySelector('[data-st-order="'+fi+':'+to+'"]');if(handle)handle.focus({preventScroll:true});refresh();}};
+window.feeStreamDragStart=function(ev,fi,si){
+  ev.stopPropagation();const owner=_stOwner(fi);window._feeStreamDrag={fi:+fi,owner,stream:(owner.fee_streams||[])[si]};
+  if(ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain','fee-stream:'+fi+':'+si);}
+  const row=ev.currentTarget.closest('.fee-stream-row');if(row)row.classList.add('dragging');
+};
+window.feeStreamDragOver=function(ev,fi,si){
+  ev.stopPropagation();const d=window._feeStreamDrag;if(!d||d.owner!==_stOwner(fi))return;
+  ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';const row=ev.currentTarget,b=row.getBoundingClientRect(),after=ev.clientY>b.top+b.height/2;
+  _feeStreamClearDropMarkers();row.classList.add(after?'drop-after':'drop-before');row.dataset.dropAfter=after?'1':'0';
+};
+window.feeStreamDragLeave=function(ev){ev.stopPropagation();const row=ev.currentTarget;if(ev.relatedTarget&&row.contains(ev.relatedTarget))return;row.classList.remove('drop-before','drop-after');delete row.dataset.dropAfter;};
+window.feeStreamDrop=function(ev,fi,target){
+  ev.stopPropagation();ev.preventDefault();const d=window._feeStreamDrag,after=ev.currentTarget.dataset.dropAfter==='1';_feeStreamClearDropMarkers();window._feeStreamDrag=null;
+  if(!d||d.owner!==_stOwner(fi))return;const from=(d.owner.fee_streams||[]).indexOf(d.stream);
+  if(_feeStreamReorder(fi,from,target,after)){renderContent();refresh();}
+};
+window.feeStreamDragEnd=function(ev){ev.stopPropagation();document.querySelectorAll('.fee-stream-row.dragging').forEach(el=>el.classList.remove('dragging'));_feeStreamClearDropMarkers();window._feeStreamDrag=null;};
+// End r271 stream reorder.
 window.stSelect=function(fi,si){const s=(_stOwner(fi)||{}).fee_streams;if(s&&s[si]){window._stSelObj=s[si];renderContent();}};
 window.stTabSet=function(k){window._stTab=k;const b=document.querySelector('.st-body');if(b)b.setAttribute('data-st-tab',k);document.querySelectorAll('.st-tab').forEach(x=>x.classList.toggle('on',x.getAttribute('data-tab')===k));};
 document.addEventListener('input',function(e){ // r204: mirror a stream rename into its header and grid row as you type
@@ -6053,7 +6095,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       h += '<div class="fld wide st-md">'+chainH;
       h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
-        h += `<tr class="${k===_stSel?'sel':''}" onclick="stSelect(${_fi},${k})"><td class="mut">${k+1}</td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
+        h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
       const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
