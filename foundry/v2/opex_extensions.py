@@ -83,6 +83,11 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
 
     periodized = bool(f.get("periodized"))
     out["periodized"] = periodized
+    if f.get("rate_period"):
+        rp = str(f["rate_period"])
+        if rp not in _RATE_PERIODS or periodized:
+            raise ValueError("formula rate_period requires a non-periodized Month/Quarter/Year rate")
+        out["rate_period"] = rp
     out["display"] = "percent" if str(f.get("display") or "number").lower() == "percent" else "number"
     if periodized:
         spec = dict(f.get("spec") or {"trajectory": "flat", "value": 0.0, "period": "month"})
@@ -489,12 +494,22 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             raise ValueError("formula/driver Opex component requires at least one factor")
         normalized = [_normalize_formula_factor(f, first=(idx == 0))
                       for idx, f in enumerate(factors)]
-        return {
+        out = {
             "driver": drv,
             "component_id": str(c.get("component_id") or "").strip(),
             "name": str(c.get("name") or "Formula / driver component"),
             "factors": normalized,
         }
+        if c.get("accrual_cadence"):
+            if c["accrual_cadence"] != "monthly" or len(normalized) < 2:
+                raise ValueError("formula monthly accrual requires a balance and rate pair")
+            base, rate = normalized[:2]
+            if (base.get("source") != CAC_AUC_DRIVER or base.get("kind") != "linked"
+                    or rate.get("kind") != "entered" or not rate.get("rate_period")
+                    or rate.get("op") != "multiply"):
+                raise ValueError("formula monthly accrual requires linked AUC × entered period rate")
+            out["accrual_cadence"] = "monthly"
+        return out
     if drv == SERVICE_CAPACITY_DRIVER:
         # A deterministic, entered service-capacity equation.  The service FTE quantity is
         # deliberately NOT Workforce Count: it represents externally supplied / affiliate /
@@ -637,22 +652,35 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
         if c["driver"] == FORMULA_DRIVER:
             factors = []
             from .periodic_flows import resolve_periodic_flow
-            for f in c.get("factors") or []:
+            monthly_pair = None
+            if c.get("accrual_cadence") == "monthly":
+                base, rate = c["factors"][:2]
+                monthly_pair = resolve_linked_components({**(category or {}), "linked_components": [{
+                    "driver": CAC_AUC_DRIVER, "series_id": base["series_id"],
+                    "measure": base["measure"], "rate_spec": rate["spec"],
+                    "rate_period": rate["rate_period"]}]}, n_periods, ppy,
+                    context=context, assumptions=assumptions)[0]
+            for fi, f in enumerate(c.get("factors") or []):
                 row = dict(f)
                 if f.get("kind") == "entered":
-                    if f.get("periodized"):
+                    if monthly_pair is not None and fi == 1:
+                        vals = monthly_pair["rates"]
+                    elif f.get("periodized"):
                         vals = resolve_periodic_flow(f.get("spec"), int(n_periods), int(ppy),
                                                      context=context)
                     else:
                         vals = resolve_entered_series(f.get("spec"), int(n_periods), int(ppy),
                                                       context=context)
-                    row["values"] = [float(x or 0.0) for x in vals]
+                    scale = (12 / (int(ppy) * _RATE_PERIODS[f["rate_period"]])
+                             if f.get("rate_period") and not (monthly_pair is not None and fi == 1) else 1)
+                    row["values"] = [float(x or 0.0) * scale for x in vals]
                 factors.append(row)
             out.append({
                 "driver": FORMULA_DRIVER,
                 "component_id": c.get("component_id") or "",
                 "name": c.get("name") or "Formula / driver component",
                 "factors": factors,
+                **({"monthly_accrual_pair": monthly_pair} if monthly_pair is not None else {}),
             })
             continue
         if c["driver"] == SERVICE_CAPACITY_DRIVER:
@@ -856,8 +884,11 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amount = float(amounts[i] if i < len(amounts) else 0.0)
         return float(cmap.get(sid) or 0.0) * amount
     if drv == FORMULA_DRIVER:
-        result = None
+        pair = component.get("monthly_accrual_pair")
+        result = linked_component_amount(pair, i, metrics) if pair is not None else None
         for fi, factor in enumerate(component.get("factors") or []):
+            if pair is not None and fi < 2:
+                continue
             value = _formula_factor_value(factor, i, metrics)
             op = "multiply" if fi == 0 else str(factor.get("op") or "multiply")
             if result is None:
