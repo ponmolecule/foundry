@@ -348,11 +348,11 @@ def main():
        and 'window.opexFxAll=function(i,js,open)' in html and 'class="lsrc-x" title="Hide linked source"' in html)
     # r260: room for formula components (stacked, detail up to 1100px, 14px gaps) and a visible chevron toggle.
     # r264: categories detail is a side panel again; one-line formula factors (measured column widths, fit opt-out).
-    ck("Categories keep their side panel; formula factors fit one line; grid-sized dropdowns opt out of fitControls",
+    ck("Categories fit available workspace width; grid-sized dropdowns opt out of fitControls",
        "if(el.hasAttribute('data-nofit')){" in html and '<select class="fx-op" data-nofit' in html
        and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(574px,1fr) minmax(880px,1100px)!important;' in html   # r265: list takes the rest
        and '[data-nie-pane="categories"] table.cfg-grid{table-layout:fixed;width:100%}' in html
-       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' not in html
+       and '@container (min-width:1500px){[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(360px,1fr) minmax(880px,1100px)!important}}' in html
        and 'class="fx-tog' in html and '.fx-tog.on{transform:rotate(180deg)}' in html)
     ck("Compensation pools are rows in the roles table, edited in the detail panel; no separate block below",
        'class="wf-role-row wf-pool-tr' in html and 'onclick="wfSelectPool(${pj})"' in html and 'class="cfg-md-detail wf-pool-detail-card"' in html
@@ -366,10 +366,10 @@ def main():
     ck("Categories list shows component types (Formula / Cost pool / Tiered / Linked) with counts",
        'function _catCompChips(i)' in html and '<td class="cat-comps">${_catCompChips(i)}</td>' in html
        and '<th title="Additive expense components">Components</th>' in html)
-    ck("GUARD: the Expense categories detail stays a side panel beside its list on wide screens (never stacked there)",
+    ck("GUARD: wide workspaces retain side-by-side categories; constrained workspaces stack",
        '@media (min-width:1880px){   /* r265: the panel keeps 880-1100px; the list takes everything left over */' in html
        and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(574px,1fr) minmax(880px,1100px)!important;' in html
-       and '[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(0,1fr)!important}' not in html)
+       and '@container (min-width:1500px){[data-nie-pane="categories"] .cfg-md{grid-template-columns:minmax(360px,1fr) minmax(880px,1100px)!important}}' in html)
     # r268: categories Path / Amount / Components sized to their widest content; Category absorbs the difference.
     ck("Categories table sizes Path, Amount and Components to their content (no squeeze or overflow)",
        'function fitCategoryColumns()' in html and "if(typeof fitCategoryColumns==='function') fitCategoryColumns();" in html
