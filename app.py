@@ -1567,6 +1567,29 @@ def v2_template(_=Depends(gate)):
     return JSONResponse(t)
 
 
+@app.post("/api/v2/source-catalog")
+def v2_source_catalog(cfg: dict, _=Depends(gate)):
+    """Metadata discovery only: no projection run, no fingerprint changes."""
+    from foundry.v2.source_catalog import catalog
+    try:
+        model=cfg.get("config") or cfg
+        a=model.get("assumptions") or {}
+        rows=catalog(a)
+        category_id=cfg.get("consumer_category")
+        if category_id:
+            from foundry.v2.source_catalog import balance_link_creates_cycle
+            from foundry.v2.opex_extensions import auc_link_creates_cycle
+            category=next((c for c in (a.get("nie_detail") or {}).get("categories") or [] if c.get("series_id")==category_id),{})
+            for row in rows:
+                cyclic=(row['driver']=='catalog_quantity' and balance_link_creates_cycle(a,category,row['series_id'])) or (row['driver']=='customer_acquisition_auc' and auc_link_creates_cycle(a,category,row['series_id']))
+                if cyclic:
+                    row['consumers']=[x for x in row['consumers'] if x!='opex_formula']
+                    row['unavailable_reason']='This source depends on the expense category you are editing; linking it back would be circular.'
+        return JSONResponse({"sources": rows})
+    except ValueError as exc:
+        return JSONResponse({"sources": [], "error": str(exc)}, status_code=422)
+
+
 @app.post("/api/v2/preview")
 def v2_preview(cfg: dict, _=Depends(gate)):
     """Preview IS the run (T-PRV): this calls exactly run_v2."""

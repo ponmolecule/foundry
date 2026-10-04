@@ -11,5 +11,5 @@ ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,1);assert.e
 allow=true;ctx.feeRemoveStream(0,0);assert.equal(products[0].fee_streams.length,0);assert.equal(refreshes,1);assert.equal(consumer.driver.ref,'tpv');assert.equal(ctx.feeQuantityLabel('tpv'),'Missing source');
 products[0].fee_streams=[{name:'Root'},{name:'Local',driver:{source:'stream_ref',ref:'Root'}}];assert(ctx.feeDeletionConsumers(products[0],[products[0].fee_streams[0]]).some(x=>x.includes('Local')));
 assert.equal(ctx.feeDeletionConsumers(products[1],products[1].fee_streams).length,0);
-assert(html.includes('feeRemoveStream(${_fi},${_stSel})'));assert(html.includes('if(!feeConfirmDeletion(p,p.fee_streams||[]))return'));
+assert(html.includes('feeRemoveStream(${_fi},${_stSel})'));assert(html.includes('if(!feeConfirmDeletion(p,removed))return'));
 console.log('PASS deletion cancellation/no mutation, named fee and deposit consumers, confirmed deletion retains broken reference, local references and source labels');
