@@ -1514,3 +1514,24 @@ schedule: {period: value}}) were never examined; (2) the only rule flagged value
 - Change tracking: numbers equal to within float noise are not changes; real sub-unit differences are shown with
   enough decimals; period-keyed schedules merge into ranges (M1 to M36). The 36-line phantom list collapses to the
   one real change.
+
+
+## r288 (Claude) — Expanded Securities sections as bands
+
+Built on r287 (e8ff522, deployed). Engine untouched; every control keeps its handler.
+- r287's layout layer (_layoutExpandedSecurities and ~70 grid rules) is retired; it produced loose 3+2 grids,
+  mismatched product boxes and labels stacked over every field. tools/verify_securities_layout.cjs (r287) checks
+  r287's classes and is superseded by tests_r288_securities_bands and the browser checks below.
+- One layout grammar: bands with a left header column (product or group name, one-line note) and fields on the
+  right; one line per assumption (label | method | value + unit, or sparkline + first -> last + count, cadence,
+  Edit). Funding allocation: Policy; Rates, floors & other assets (paired). Interest-bearing balances: four numbered
+  product bands; the linked-series selector on its own line with its caption beneath (the r286 overprint is gone).
+  Other liabilities: Starting position; one collapsible band per component with a line per term. Managed
+  portfolios: target settings on one line; the selected security as Holding / Flows / Yield bands.
+- Every section is collapsed when the user arrives on the page (by tab or by module); re-renders while editing keep
+  the open section open.
+- Dropdowns in these sections opt out of fitControls (it had forced a 418px minimum that overprinted the caption);
+  a class collision with r283's section numbers (fsx-n) is avoided (fsx-lab).
+- Browser checks at 1280 / 1440 / 1920 px with interest-bearing balances on, four explicit schedules and a linked
+  driver: zero overlapping sibling boxes, nothing past a card edge, no truncated or wrapped schedule summaries,
+  collapse on arrival; narrow stages stack each band's header above its fields.
