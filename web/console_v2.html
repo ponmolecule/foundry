@@ -2312,6 +2312,10 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r299: expense categories are table rows now; the card-era drop bars (::before/::after) became an extra table cell
+   on "drop-after" and re-laid out every column (a 317px jump), so the table jittered while dragging. Rows keep their
+   layout-neutral inset marker (tr.opex-item-card.drop-* td box-shadow). */
+tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.opex-item-card::before,tr.opex-item-card::after{content:none!important;display:none!important}
 /* r298: data-check catalogue: collapsed by default; heading, count and note separated (r286 styles restored) */
 .gq-cat{margin-top:18px;border:1px solid #e2e0d9;border-radius:8px;background:#fff}
 .gq-cat>summary.gq-cat-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;padding:11px 14px;cursor:pointer;list-style:none;user-select:none}

@@ -1665,3 +1665,14 @@ Built on r297. Presentation only.
   the user left it while on the page and collapses again on arrival from another tab.
 - The heading ran into its note ("...catchEdits are compared...") because the catalogue's r286 styles were no longer
   in the file; they are restored, with heading, count and note as separate, spaced elements.
+
+
+## r299 (Claude) — Steady drag-to-reorder for expense categories
+
+Built on r298. Presentation only.
+- Expense category rows keep the class opex-item-card from when they were cards; its card-era drop bars are
+  ::before / ::after pseudo-elements. On a table row the "drop-after" pseudo-element became an extra table cell and
+  re-laid out every column (the Path column jumped 317px), while "drop-before" did not; crossing each row's
+  midpoint flipped between the two, so the table jittered. Workforce rows have no such pseudo-elements.
+- The pseudo-elements are suppressed on table rows; the layout-neutral inset marker remains. Measured: identical row
+  and cell geometry with either marker; a real drag reorders correctly.
