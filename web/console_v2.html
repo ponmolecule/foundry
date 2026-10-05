@@ -2312,6 +2312,11 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r291: placed-in-service box */
+.fa-isp{text-align:right;font-variant-numeric:tabular-nums}
+.fa-isp.fa-isp-bad{border-color:#B0413E!important;background:#FBEDEA!important}
+.fa-isp-msg{display:block;color:#B0413E;font-size:11px;line-height:1.3;margin-top:3px}
+.fa-isp-msg:empty{display:none}
 /* r288: r287 layout layer retired. Band layout: a left header column per product or group, fields on the right,
    one line per assumption. Flex/grid only, sized by content; no absolute positioning (no overlapping boxes). */
 #content #card-sec .fsx-band{display:grid;grid-template-columns:190px minmax(0,1fr);gap:0 20px;padding:13px 0;border-top:1px solid #ecebe6}
@@ -7937,6 +7942,22 @@ function _bcEditorHtml(){
 
 // r289: summaries first; select an expense/asset to edit its existing controls.
 window._capitalInputSelection=window._capitalInputSelection||{preopening:0,fixedassets:0};
+
+// r291: "placed in service" is a whole period number typed into a box (0 = at opening, up to the forecast horizon),
+// replacing a dropdown as long as the horizon. Digits only; an out-of-range entry is refused, not silently clamped.
+function _faIspWord(){ return PPY()===12?'Month':(PPY()===4?'Quarter':'Year'); }
+function _faIspLabel(){ return `${_faIspWord()} placed in service (max = ${NP()})`; }
+function _faIspTitle(){ return `Whole number from 0 to ${NP()}: 0 = at opening; ${_opexPeriodTag()}1 is the first forecast ${_faIspWord().toLowerCase()}.`; }
+function _faIspText(el){ if(!el) return '\u2014'; const v=String((el.classList.contains('fa-isp-bad')?el.dataset.saved:el.value)||'').trim();   /* the table shows the SAVED value while an entry is refused */ if(v==='') return '\u2014'; return +v===0?'Opening':_opexPeriodTag()+(+v); }
+window.faInService=function(i,el){
+  const max=NP(), t=String(el.value||'').trim(), ok=/^[0-9]+$/.test(t)&&(+t)<=max;
+  let msg=el.nextElementSibling; if(!msg||!msg.classList||!msg.classList.contains('fa-isp-msg')){ msg=document.createElement('span'); msg.className='fa-isp-msg'; el.after(msg); }
+  if(!ok){ el.classList.add('fa-isp-bad'); el.setAttribute('aria-invalid','true');
+    msg.textContent=t===''?`Enter a whole number from 0 to ${max}.`:`${t} is past the forecast horizon; enter 0 to ${max}.`; return; }
+  el.classList.remove('fa-isp-bad'); el.removeAttribute('aria-invalid'); msg.textContent='';
+  el.value=String(+t); el.dataset.saved=String(+t);
+  cfg.assumptions.fixed_assets.assets[i].in_service_period=+t; refresh();
+};
 window.capitalInputSelect=function(kind,index){window._capitalInputSelection[kind]=index;renderContent();};
 function _presentCapitalInputs(){
  for(const [kind,id]of [['preopening','preopening-editor'],['fixedassets','fixedassets-editor']]){
@@ -7952,18 +7973,18 @@ function _presentCapitalInputs(){
  table.innerHTML='<table><thead><tr>'+header.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody></tbody></table>';
  const tbody=table.querySelector('tbody');let total=0;
  rows.forEach((r,i)=>{
- const inputs=[...r.querySelectorAll('input')],name=inputs[0],amount=inputs[1],select=r.querySelector('select'),life=inputs[2],remove=r.querySelector('.cx');total+=_pf(amount.value);
+ const inputs=[...r.querySelectorAll('input')],name=inputs[0],amount=inputs[1],select=r.querySelector('input.fa-isp'),life=inputs.find(x=>x!==name&&x!==amount&&!x.classList.contains('fa-isp')),remove=r.querySelector('.cx');total+=_pf(amount.value);
  const tr=document.createElement('tr');tr.className=i===selected?'selected':'';
  const nameTd=document.createElement('td'),button=document.createElement('button');button.className='capital-input-pick';button.textContent=name.value||'New '+(isAsset?'asset':'expense');button.title='Edit '+name.value;button.onclick=()=>capitalInputSelect(kind,i);nameTd.appendChild(button);tr.appendChild(nameTd);
  const amtTd=document.createElement('td');amtTd.className='num';amtTd.textContent=amount.value;tr.appendChild(amtTd);
- if(isAsset){for(const value of [select&&select.options[select.selectedIndex]?.text,life&&life.value]){const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);}}
+ if(isAsset){for(const value of [_faIspText(select),life&&life.value]){const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);}}
  const removeTd=document.createElement('td');removeTd.className='capital-input-remove';if(remove)removeTd.appendChild(remove);tr.appendChild(removeTd);tbody.appendChild(tr);
  if(i===selected){const detail=document.createElement('tr');detail.className='capital-input-detail';const cell=document.createElement('td');cell.colSpan=header.length;
  const fields=document.createElement('div');fields.className='capital-input-fields';
- for(const [control,label]of [[name,isAsset?'Asset name':'Expense name'],[amount,isAsset?'Cost ($000s)':'Amount ($000s)'],...(isAsset?[[select,'Placed in service'],[life,'Useful life (years)']]:[])]){
+ for(const [control,label]of [[name,isAsset?'Asset name':'Expense name'],[amount,isAsset?'Cost ($000s)':'Amount ($000s)'],...(isAsset?[[select,_faIspLabel()],[life,'Useful life (years)']]:[])]){
  if(!control)continue;const field=document.createElement('label');field.textContent=label;field.appendChild(control);fields.appendChild(field);}
  cell.appendChild(fields);detail.appendChild(cell);tbody.appendChild(detail);
- fields.addEventListener('change',()=>{button.textContent=name.value;amtTd.textContent=amount.value;if(isAsset){tr.children[2].textContent=select.options[select.selectedIndex]?.text||'—';tr.children[3].textContent=life.value;}const costs=[...root.querySelectorAll('input[onchange*="'+(isAsset?'.cost=':'.total=')+'"]')];const sum=costs.reduce((t,x)=>t+_pf(x.value),0);const foot=root.querySelector('.capital-input-total b');if(foot)foot.textContent=fmtComma(sum)+' $000s';});
+ fields.addEventListener('change',()=>{button.textContent=name.value;amtTd.textContent=amount.value;if(isAsset){tr.children[2].textContent=_faIspText(select);tr.children[3].textContent=life.value;}const costs=[...root.querySelectorAll('input[onchange*="'+(isAsset?'.cost=':'.total=')+'"]')];const sum=costs.reduce((t,x)=>t+_pf(x.value),0);const foot=root.querySelector('.capital-input-total b');if(foot)foot.textContent=fmtComma(sum)+' $000s';});
  }else{const stash=document.createElement('div');stash.hidden=true;stash.className='capital-input-stash';stash.appendChild(r);root.appendChild(stash);}
  if(i===selected)r.remove();
  });
@@ -13332,7 +13353,7 @@ function structuresSectionsHtml(){
         _d += '</section>';
       } else {
         _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
-          _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
+          _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><input type="text" inputmode="numeric" autocomplete="off" class="fa-isp" style="width:64px" maxlength="${String(NP()).length}" placeholder="0" title="${esc(_faIspTitle())}" aria-label="${esc(_faIspLabel())}" value="${isp}" data-saved="${isp}" oninput="this.value=this.value.replace(/[^0-9]/g,'')" onchange="faInService(${i},this)"><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
         });
         {
           _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" style="color:#565653" onclick="faAdd();return false">+ Add asset</a><a href="#" class="cadd" onclick="window._cfgSectionOpen.fixedassets=true;_structuredPasteSetOpen(\'fixedassets\',true);return false">⎘ Paste assets</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';

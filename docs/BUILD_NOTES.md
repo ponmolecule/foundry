@@ -1554,3 +1554,24 @@ Built on r289 (406d528). Presentation only; engine untouched.
   36-month tables (Net income and Tier 1 leverage by month) previously ran past the sheet onto the canvas.
 - Measured at 1920px on all nine sheet pages: content and notation centred (240px each side), nothing past the
   sheet edge, and the title band is always the page heading, never the sheet.
+
+
+## r291 (Claude) — Placed in service as a box, not a horizon-long dropdown
+
+Built on r290. Presentation and input only; engine and the in_service_period field unchanged.
+- Fixed assets / CAPEX: "Placed in service" was a dropdown with one option per forecast period (36 on a
+  36-month model). It is now a digits-only box labelled "Month placed in service (max = N)", N being the forecast
+  horizon (the period word follows the cadence: Month / Quarter / Year). 0 means at opening, as before.
+- Letters and symbols cannot be typed or pasted in; empty or out-of-range entries are refused with a message (the
+  saved value is kept), never silently clamped. The asset table shows "Opening" / "M12" and keeps showing the saved
+  value while an entry is refused.
+
+
+## r292 (Claude) — FDIC assessment defaults to 0 bp
+
+Built on r291. Every code default was already 0 bp (engine fallback REG_PARAMS, new-engagement defaults, display
+of an unset rate, FIW note "default 0"); the universal template fixture alone set 5.0 bp, and it seeds the
+downloadable universal template workbook. It now stores 0.0. Effect on the template (36 months, $000s):
+pretax +684.5, tax +143.7 (21%), net income +540.7; the other four fixtures are identical. The template's current
+fingerprint pin moves from cef1ab6b99c5 to 6fd77a2f45fe. Saved engagements keep whatever rate they store; an
+explicit rate is still honoured. Guarded by tests_r292_fdic_default.

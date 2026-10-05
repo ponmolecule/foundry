@@ -1048,7 +1048,7 @@
           ]
         }
       ],
-      "fdic_bp_ann": 5.0,
+      "fdic_bp_ann": 0.0,
       "occ_simplified_enabled": false,
       "other_gross_up_rate": 0.08,
       "workforce": {
