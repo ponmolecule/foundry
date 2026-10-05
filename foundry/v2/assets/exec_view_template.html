@@ -6,13 +6,13 @@
 <title>Foundry — Executive Summary</title>
 <style>
   :root{
-    /* Foundry Exec Summary (cover) skin — verified against the live console (dark navy) */
-    --shell:#0D1626; --surface:#182640; --elevated:#131F33; --interactive:#1E2B44;
-    --border:#24334D; --border-hi:#33415C; --border-soft:#1E2C46;
-    --navy:#0D1626; --navy2:#182640;
-    --text:#EDF0F5; --text2:#C6CFDE; --muted:#8C99AF; --meta:#8C99AF;
-    --gold:#DFA85A; --gold2:#E8BC77; --goldbtn:#D8A85E;
-    --pass:#34D399; --warn:#FBBF24; --fail:#F87171; --info:#67A6FF;
+    /* r285: Klaros skin (graphite and gold on warm-white), matching the Classic view and the console */
+    --shell:#FFFFFF; --surface:#FFFFFF; --elevated:#FBFAF7; --interactive:#F3EFE6;
+    --border:#E2E0D9; --border-hi:#CBC9C2; --border-soft:#ECEBE6;
+    --navy:#FBFAF7; --navy2:#F6F3EC;
+    --text:#1D1C1A; --text2:#4A4741; --muted:#8A867D; --meta:#8A867D;
+    --gold:#9A7330; --gold2:#7A5A20; --goldbtn:#DFB367;
+    --pass:#8F6B30; --warn:#C57F1A; --fail:#B0413E; --info:#4A4741;
   }
   *{box-sizing:border-box}
   body{margin:0;background:var(--shell);color:var(--text);font-size:14px;
@@ -76,11 +76,11 @@
   .ovcard-s{font-size:10.5px;color:var(--meta)}
   .check-line{display:flex;align-items:flex-start;gap:10px}
   table.wide{border-collapse:collapse;width:100%}
-  table.wide th,table.wide td{border:1px solid #2A3B57;padding:6px 10px;font-size:11.5px;white-space:normal;vertical-align:top}
-  table.wide td{color:#DCE3EF;font-weight:500;text-align:left}
+  table.wide th,table.wide td{border:1px solid #E2E0D9;padding:6px 10px;font-size:11.5px;white-space:normal;vertical-align:top}
+  table.wide td{color:#343434;font-weight:500;text-align:left}
   table.wide td.r,table.wide td.num{text-align:right;font-variant-numeric:tabular-nums}
-  table.wide th{background:#152238;color:#E4ECF7;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #3A6BA8;text-align:left}
-  table.wide tbody tr:nth-child(even) td{background:rgba(58,107,168,.08)}
+  table.wide th{background:#2C2C2C;color:#FFFFFF;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border-bottom:2px solid #DFB367;text-align:left}
+  table.wide tbody tr:nth-child(even) td{background:rgba(150,146,140,.07)}
   .tinynote{font-size:10.5px;color:var(--meta);margin-top:8px;line-height:1.5}
   details.ledger>summary{cursor:pointer;color:var(--gold);font-size:12px;padding:4px 0;list-style:none}
   details.ledger>summary::-webkit-details-marker{display:none}
@@ -103,7 +103,7 @@
   .sev{font-size:9.5px;font-weight:700;letter-spacing:.06em;padding:3px 8px;border-radius:4px;white-space:nowrap}
   .sev-severe{background:rgba(176,65,62,.12);color:var(--fail);border:1px solid rgba(176,65,62,.32)}
   .sev-advisory{background:rgba(197,127,26,.12);color:var(--warn);border:1px solid rgba(197,127,26,.30)}
-  .sev-review{background:rgba(58,107,165,.12);color:var(--info);border:1px solid rgba(58,107,165,.30)}
+  .sev-review{background:rgba(74,71,65,.07);color:var(--info);border:1px solid rgba(74,71,65,.25)}
   .sev-pass{background:rgba(184,137,46,.12);color:var(--pass);border:1px solid rgba(184,137,46,.32)}
   .concern{font-size:12px;color:var(--muted);line-height:1.5}
   .check{width:16px;height:16px;border-radius:4px;border:1.5px solid #CBC9C2;flex:0 0 auto}
@@ -111,14 +111,14 @@
 
   /* Exact replication of Classic table.fin-dark — full grid: vertical + horizontal cell lines. */
   table{border-collapse:collapse;width:100%}
-  th,td{border:1px solid #2A3B57;padding:6px 10px;font-size:11.5px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
-  td{color:#DCE3EF;font-weight:500;background:transparent;vertical-align:top}
-  th{background:#152238;color:#E4ECF7;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid #2A3B57;border-bottom:2px solid #3A6BA8;padding:8px 10px;text-align:right}
-  tbody tr:nth-child(even) td{background:rgba(58,107,168,.08)}
+  th,td{border:1px solid #E2E0D9;padding:6px 10px;font-size:11.5px;text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums lining-nums}
+  td{color:#343434;font-weight:500;background:transparent;vertical-align:top}
+  th{background:#2C2C2C;color:#FFFFFF;font-weight:600;font-size:10px;letter-spacing:.06em;text-transform:uppercase;border:1px solid #2C2C2C;border-bottom:2px solid #DFB367;padding:8px 10px;text-align:right}
+  tbody tr:nth-child(even) td{background:rgba(150,146,140,.07)}
   /* left-align the label/text columns (first col and any .pl0/.lft cell) */
   td:first-child,th:first-child,td.lft,th.lft{text-align:left;white-space:normal}
   td.pl0,th.pl0{padding-left:10px}
-  tr.clickable:hover td{background:rgba(58,107,168,.14)}
+  tr.clickable:hover td{background:rgba(223,179,103,.14)}
   tr.clickable{cursor:pointer}
   tr.clickable:hover td{background:rgba(244,242,237,.85)}
   .pl0{padding-left:0}
@@ -180,7 +180,7 @@
    ============================================================ */
 
 var THEME = {
-  pass:"#B8892E", warn:"#C57F1A", fail:"#B0413E", info:"#3A6BA5", ink:"#17191C",
+  pass:"#B8892E", warn:"#C57F1A", fail:"#B0413E", info:"#6E6A63", ink:"#17191C",
   grid:"rgba(150,146,140,.15)", axis:"rgba(150,146,140,.22)", scaleTrack:"rgba(203,201,194,.65)"
 };
 
@@ -273,8 +273,8 @@ function bigChart(series, color, threshold){
 function topbar(){
   return '<div class="topbar"><div class="flex center wrapx" style="gap:26px">' +
     '<div class="brand">' +
-      '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 3l5 5-5 5-5-5z" fill="#7C6CF0"></path>' +
-      '<path d="M16 9l5 5-5 5-5-5z" fill="#8B7BF7"></path></svg><span>' + esc(MODEL.product) + '</span></div>' +
+      '<svg width="22" height="22" viewBox="0 0 22 22" aria-hidden="true"><path d="M6 3l5 5-5 5-5-5z" fill="#B8892E"></path>' +
+      '<path d="M16 9l5 5-5 5-5-5z" fill="#DFB367"></path></svg><span>' + esc(MODEL.product) + '</span></div>' +
     '<nav class="tabs"><button class="tab' + (state.view==="home"?" active":"") + '" type="button" data-nav="home">' + esc(MODEL.section) + '</button>' +
       MODEL.navTabs.map(function(t){ return '<button class="tab' + (state.view===t.view?' active':'') + '" type="button" data-nav="' + t.view + '" title="' + esc(t.label) + '">' + esc(t.label) + '</button>'; }).join("") +
     '</nav></div>' +
@@ -316,12 +316,12 @@ function heroPanel(){
       '<line x1="' + xm.toFixed(1) + '" y1="26" x2="' + x1 + '" y2="26" stroke="' + THEME.axis + '" stroke-width="2" stroke-dasharray="3 4"></line>' +
       '<circle cx="' + xr.toFixed(1) + '" cy="26" r="5" fill="#FBFAF7" stroke="#96928C" stroke-width="2"></circle>' +
       '<circle cx="' + xm.toFixed(1) + '" cy="26" r="5" fill="' + markColor + '"></circle>' +
-      '<text x="' + x0 + '" y="52" font-size="12" font-weight="600" fill="#A8B7D3" font-family="inherit">' + fmt(GAUGE.scaleMin) + '</text>' +
+      '<text x="' + x0 + '" y="52" font-size="12" font-weight="600" fill="#8A867D" font-family="inherit">' + fmt(GAUGE.scaleMin) + '</text>' +
       '<text x="' + (xr - 10).toFixed(1) + '" y="52" text-anchor="end" font-size="14" font-weight="600" fill="#17191C" font-family="inherit">' + fmt(GAUGE.requirement.value) + '</text>' +
-      '<text x="' + (xr - 10).toFixed(1) + '" y="68" text-anchor="end" font-size="11" fill="#7F91B2" font-family="inherit">' + esc(GAUGE.requirement.label) + '</text>' +
+      '<text x="' + (xr - 10).toFixed(1) + '" y="68" text-anchor="end" font-size="11" fill="#8A867D" font-family="inherit">' + esc(GAUGE.requirement.label) + '</text>' +
       '<text x="' + (xm + 12).toFixed(1) + '" y="52" font-size="14" font-weight="600" fill="' + markColor + '" font-family="inherit">' + fmt(GAUGE.model.value) + '</text>' +
-      '<text x="' + (xm + 12).toFixed(1) + '" y="68" font-size="11" fill="#7F91B2" font-family="inherit">' + esc(GAUGE.model.label) + '</text>' +
-      '<text x="' + x1 + '" y="52" text-anchor="end" font-size="12" font-weight="600" fill="#A8B7D3" font-family="inherit">' + fmt(GAUGE.scaleMax) + '</text>' +
+      '<text x="' + (xm + 12).toFixed(1) + '" y="68" font-size="11" fill="#8A867D" font-family="inherit">' + esc(GAUGE.model.label) + '</text>' +
+      '<text x="' + x1 + '" y="52" text-anchor="end" font-size="12" font-weight="600" fill="#8A867D" font-family="inherit">' + fmt(GAUGE.scaleMax) + '</text>' +
     '</svg><div class="gauge-foot">' + esc(GAUGE.foot) + '</div></div></div>';
 }
 
@@ -366,8 +366,8 @@ function attentionPanel(){
 
 function signoffPanel(){
   return '<div class="card col gap12"><div class="flex center gap9">' +
-    '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1.5" fill="none" stroke="#A8B7D3" stroke-width="1.4"></rect>' +
-    '<line x1="5.5" y1="6" x2="10.5" y2="6" stroke="#A8B7D3" stroke-width="1.4"></line><line x1="5.5" y1="9" x2="10.5" y2="9" stroke="#A8B7D3" stroke-width="1.4"></line></svg>' +
+    '<svg width="15" height="15" viewBox="0 0 16 16" aria-hidden="true"><rect x="3" y="2" width="10" height="13" rx="1.5" fill="none" stroke="#8A867D" stroke-width="1.4"></rect>' +
+    '<line x1="5.5" y1="6" x2="10.5" y2="6" stroke="#8A867D" stroke-width="1.4"></line><line x1="5.5" y1="9" x2="10.5" y2="9" stroke="#8A867D" stroke-width="1.4"></line></svg>' +
     '<span class="kicker">' + esc(COPY.signoff.title) + '</span>' +
     '<span class="lede" style="margin-left:auto">' + esc(COPY.signoff.meta) + '</span></div>' +
     '<div class="col gap10">' + SIGNOFF.map(function(s){
@@ -375,7 +375,7 @@ function signoffPanel(){
         '<span class="pretty" style="font-size:13px;line-height:1.5">' + esc(s.text) + '</span>' +
         '<span class="sev sev-' + s.severity + '">' + s.severity.toUpperCase() + '</span></div>';
     }).join("") + '</div>' +
-    '<div class="lede" style="line-height:1.55;border-top:1px solid rgba(34,56,97,.45);padding-top:10px">' +
+    '<div class="lede" style="line-height:1.55;border-top:1px solid #E2E0D9;padding-top:10px">' +
     esc(COPY.signoff.foot) + '</div></div>';
 }
 
@@ -544,7 +544,7 @@ function viewMetric(){
       bigChart(m.series, c, null) + '</svg>' +
     '<div class="chart-axis num"><span>' + esc(MODEL.periodStartLabel || 'Q1') + ' · ' + m.series[0] + '</span><span>' + esc(t.axisMid) + '</span>' +
     '<span>' + esc(MODEL.periodEndLabel || 'Q12') + ' · ' + m.series[m.series.length - 1] + '</span></div></div>' +
-    '<div class="col gap8" style="border-top:1px solid rgba(34,56,97,.45);padding-top:16px">' +
+    '<div class="col gap8" style="border-top:1px solid #E2E0D9;padding-top:16px">' +
     '<div class="eyebrow">' + esc(t.driversTitle) + '</div>' +
     m.drivers.map(function(d){
       return '<div class="kv"><span>' + esc(d[0]) + '</span><span class="num">' + esc(d[1]) + '</span></div>';
@@ -575,7 +575,7 @@ function viewScenario(){
       bigChart(s.series, col, CONSTRAINT.threshold) + '</svg>' +
     '<div class="chart-axis num"><span>' + esc(MODEL.periodStartLabel || 'Q1') + '</span><span style="color:' + THEME.fail + '">' +
       esc(CONSTRAINT.thresholdLabel) + ' requirement</span><span>' + esc(MODEL.periodEndLabel || 'Q12') + ' · ' + esc(s.value) + '</span></div></div>' +
-    '<div class="col gap8" style="border-top:1px solid rgba(34,56,97,.45);padding-top:16px">' +
+    '<div class="col gap8" style="border-top:1px solid #E2E0D9;padding-top:16px">' +
     '<div class="eyebrow">' + esc(t.driversTitle) + '</div>' +
     s.drivers.map(function(d){ return '<div class="driver pretty">' + esc(d) + '</div>'; }).join("") +
     '</div></div></section>';
