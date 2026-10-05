@@ -4490,9 +4490,24 @@ function changeListSinceUpload(){
 // Extracted from the upload-only path so the cycle-away guard can diff against _pristineJSON (the
 // universal baseline set on every entry mode), giving the same specific detail regardless of how the
 // engagement was created. baselineJSON is a JSON STRING of a full config.
+// r297: an edit converts a legacy overhead or expense category into its natural-period flow spec. Give the saved copy
+// the same converted view, so the guard lists only what the user changed, not every field of the new format.
+function _upgradeLegacyViews(orig, cur){
+  try{
+    const oa=orig&&orig.assumptions, ca=cur&&cur.assumptions; if(!oa||!ca) return;
+    const keep=cfg;
+    try{
+      if(ca.overhead_flow_spec && !oa.overhead_flow_spec){ cfg=orig; oa.overhead_flow_spec=_viewSimpleOpexFlow(); }
+      const oc=((oa.nie_detail||{}).categories)||[], cc=((ca.nie_detail||{}).categories)||[];
+      oc.forEach((ct,i)=>{ const m=cc.find(x=>x&&ct&&x.name===ct.name)||cc[i];
+        if(m&&m.flow_spec&&!ct.flow_spec){ cfg=orig; ct.flow_spec=_viewNieCatFlow(ct); } });
+    } finally { cfg=keep; }
+  }catch(e){}
+}
 function _diffCfgAgainst(baselineJSON){
   let orig; try{ orig = normalizeCfg(JSON.parse(baselineJSON)); }catch(e){ return []; }
   const cur = normalizeCfg(JSON.parse(JSON.stringify(cfg)));
+  _upgradeLegacyViews(orig, cur);   // r297: a legacy item converted on edit is compared in its converted form
   const out = [];
   const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
   const pct   = v => (v==null?"\u2014":(v*100).toFixed(2).replace(/\.?0+$/,"")+"%");
@@ -8244,7 +8259,10 @@ function _legacyGrowthSpec(spec, legacyRate){
     if(!out.period || out.period==="model_period") out.period=p;
     return out;
   }
-  return {rate:+(legacyRate||0),period:p,method:"smooth",anchor:"model_period"};
+  // r297: legacy growth_per_period compounds once per ENGINE period. "step" at the model period reproduces it exactly
+  // (verified 0.0000 difference, quarterly and monthly); "smooth" sub-stepped within a quarter and shifted every
+  // quarterly engagement's expense path (overhead up to ~0.33%/period) the moment an amount was edited.
+  return {rate:+(legacyRate||0),period:p,method:"step",anchor:"model_period"};
 }
 function _viewSimpleOpexFlow(){
   const A=cfg.assumptions;
