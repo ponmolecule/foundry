@@ -1535,3 +1535,22 @@ Built on r287 (e8ff522, deployed). Engine untouched; every control keeps its han
 - Browser checks at 1280 / 1440 / 1920 px with interest-bearing balances on, four explicit schedules and a linked
   driver: zero overlapping sibling boxes, nothing past a card edge, no truncated or wrapped schedule summaries,
   collapse on arrival; narrow stages stack each band's header above its fields.
+
+
+## r289 (GPT) — Named balance components and capital presentation
+
+Built directly on r288 (8701c60). Generic, user-named typed balance components replace the fixed four-category structure for new authoring. Existing models retain the unchanged legacy calculation contract; adoption is explicit and reversible. Named accounting destinations, shared inputs, unit validation, income/cost bases, opening stocks and component risk weights are audited. Pre-opening and scheduled assets use summary tables with selected-item editors and top actions; formula assets have distinct opening/derivation/depreciation groups. See R289_RELEASE_NOTES.md and R289_VALIDATION.md.
+
+
+## r290 (Claude) — Centred sheets on the record pages; chapter notation aligned
+
+Built on r289 (406d528). Presentation only; engine untouched.
+- Cause: r283 limited the centred white sheet to five pages, and centred the breadcrumb (chapter notation) at
+  1440px on every canvas page. On Examiner Book, Assumption Book, Bank Design Lab and Governance the content ran
+  full width while the notation floated centred above it.
+- The sheet now covers those four pages (nine in all); Governance, which has its own header path, wraps too.
+- The notation is centred only above a centred sheet; pages without one keep it aligned with their content.
+- Tables not already inside a scrolling container are wrapped so they scroll inside the sheet. Stress Testing's two
+  36-month tables (Net income and Tier 1 leverage by month) previously ran past the sheet onto the canvas.
+- Measured at 1920px on all nine sheet pages: content and notation centred (240px each side), nothing past the
+  sheet edge, and the title band is always the page heading, never the sheet.

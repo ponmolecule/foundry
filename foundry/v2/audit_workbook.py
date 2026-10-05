@@ -1529,6 +1529,20 @@ def _other_liability_rows(cfg, results, n):
                      [None] + money(comp.get("amount") or []), _RAW_MONEY_FMT))
     return rows
 
+def _balance_component_rows(results, exact, n):
+    block=(exact or {}).get('balance_components') or (results or {}).get('balance_components') or {}
+    raw=bool((exact or {}).get('balance_components'));rows=[]
+    for c in block.get('components') or []:
+        section=c.get('name') or c['id']
+        for key,label in [('ending','Ending balance · '+c['treatment']),('interest_balance','Balance used for pricing'),('annual_rate','Annual yield'),('annual_cost_rate','Annual cost rate'),('income','Income posted · '+c.get('income_line','interest')),('cost','Cost posted · '+c.get('cost_line','interest_expense'))]:
+            vals=c.get(key) or []
+            if key in {'annual_rate','annual_cost_rate'}:units,fmt='annual decimal rate',_RATE_FMT
+            else:
+                vals=[None if v is None else float(v)/(1000 if raw else 1) for v in vals];units,fmt='$000s',_RAW_MONEY_FMT
+            rows.append((section,label,c['id']+'.'+key,units,vals[:n],fmt))
+    return rows
+
+
 def _managed_securities_rows(cfg, results, n):
     """Expose the managed-securities stock/flow/yield causal chain.
 
@@ -1876,6 +1890,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Product Calculations"), cfg, _product_rows(results, n, exact=exact),
                      title="Product Calculations · Audit",
                      subtitle="Every native numeric product series surfaced by Foundry.", n=n, ppy=ppy)
+    if results.get('balance_components') is not None:
+        _write_wide_rows(wb.create_sheet('Balance Components'), cfg, _balance_component_rows(results,exact,n),
+                         title='Named Balance Components · Calculation Audit',
+                         subtitle='User-defined component names and accounting destinations. Cash allocations are part of cash, separate assets are additional on-book stocks, and administered balances are off-book. Each income and cost posts once.',n=n,ppy=ppy)
     _write_wide_rows(wb.create_sheet("Managed Securities"), cfg, _managed_securities_rows(cfg, exact, n),
                      title="Managed Securities · Calculation Audit",
                      subtitle="Target-driven stock/flow/yield chain. Monetary rows are exact engine dollars converted once to $000s; net purchases/(sales) remain signed; annual yields are periodized by the engine exactly once.", n=n, ppy=ppy)

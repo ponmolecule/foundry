@@ -742,6 +742,76 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .fee-stream-row.drop-before td{box-shadow:inset 0 2px 0 var(--k-gold,#A3772A)}
 .fee-stream-row.drop-after td{box-shadow:inset 0 -2px 0 var(--k-gold,#A3772A)}
 .fee-stream-row.dragging td{opacity:.45}
+/* r289: named components and presentation-first capital inputs, scoped to their own surfaces. */
+#content #card-sec .bc-editor{padding-top:12px!important}
+#content #card-sec .bc-toolbar,.capital-input-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0 14px!important}
+#content #card-sec .bc-note{font-size:12px;color:var(--k-tx3);line-height:1.6;padding:10px 12px;background:var(--k-surface2);border-radius:4px;margin:10px 0}
+.bc-note button{margin-left:12px}
+#content #card-sec .bc-component,#content #card-sec .bc-shared{border:1px solid var(--k-line);border-radius:5px;background:var(--k-surface);margin:12px 0;overflow:hidden}
+.bc-component>summary,.bc-shared>summary,.bc-advanced>summary{padding:12px 14px;cursor:pointer;font-size:13px;line-height:1.5}
+.bc-component>summary>span,.bc-shared>summary>span,.bc-advanced>summary>span{float:right;font-weight:400;font-size:11.5px;color:var(--k-tx3);margin-left:10px}
+.bc-component[open]>summary{border-bottom:1px solid var(--k-line);background:var(--k-surface2)}
+.bc-component-body{padding:14px 16px;min-width:0}
+.bc-identity{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:14px}
+#content #card-sec .bc-editor .bc-identity input,#content #card-sec .bc-editor .bc-shared-row>input{width:min(400px,100%)!important;min-width:0!important;text-align:left!important;max-width:100%!important}
+#content #card-sec .bc-settings{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 20px;max-width:760px}
+.bc-settings>label{display:flex;flex-direction:column;align-items:flex-start;gap:5px;font-size:12px;min-width:0}
+#content #card-sec .bc-editor select{width:auto!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .bc-editor input:not([type=checkbox]){width:110px!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .bc-block{border-top:1px solid var(--k-line);padding-top:12px;margin-top:16px}
+.bc-block>h4{font-size:12px;font-weight:650;margin:0 0 10px}
+.bc-term{padding:10px 12px;margin:10px 0;background:var(--k-surface2);border-radius:4px}
+.bc-term-head{display:flex;align-items:center;justify-content:space-between;font-size:11px;color:var(--k-tx3);margin-bottom:8px}
+.bc-operand{margin:8px 0;min-width:0}
+.bc-op-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-size:12px;margin-bottom:6px}
+.bc-op-head>span{flex:0 1 160px;font-weight:500}
+#content #card-sec .bc-op-head>select{max-width:min(100%,440px)!important}
+#content #card-sec .bc-editor .sec-managed-series{border:0!important;padding:0!important;margin:0!important;background:transparent!important}
+#content #card-sec .bc-editor .sec-managed-series-row{display:flex!important;flex-wrap:wrap;align-items:center;gap:7px!important;min-height:0;padding:2px 0}
+#content #card-sec .bc-editor .sec-managed-series-row:first-child>.sec-book-label{display:none}
+#content #card-sec .bc-editor .sec-managed-explicit-closed{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:5px}
+#content #card-sec .bc-editor .sec-managed-explicit-summary{font-size:11px;min-width:0;overflow-wrap:anywhere;flex:1 1 240px}
+.bc-inline{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:8px 0;font-size:12px}
+.bc-inline>label{display:flex;align-items:center;gap:8px}
+.bc-factor{display:flex;align-items:flex-start;gap:10px;border-top:1px solid var(--k-line);margin-top:8px;padding-top:8px}
+.bc-factor>.bc-operand{flex:1;min-width:0}
+.bc-advanced{margin-top:14px;border-top:1px solid var(--k-line)}
+.bc-advanced>summary{padding:10px 0}
+.bc-shared-row{padding:12px 14px;border-top:1px solid var(--k-line)}
+.bc-shared-row>select{margin-left:8px}
+.bc-empty{padding:24px 14px;color:var(--k-tx3);font-size:12px;text-align:center;border:1px dashed var(--k-line)}
+.capital-input-table{border:1px solid var(--k-line);border-radius:4px;overflow:hidden;margin:10px 0;max-width:100%}
+.capital-input-table table{border-collapse:collapse;width:100%;table-layout:fixed;font-size:12px}
+.capital-input-table th{padding:8px 10px;font-weight:600;text-align:left;background:var(--k-surface2);color:var(--k-tx3);border-bottom:1px solid var(--k-line)}
+.capital-input-table td{padding:9px 10px;border-bottom:1px solid var(--k-line);vertical-align:middle;overflow-wrap:anywhere}
+.capital-input-table th:first-child{width:auto}.capital-input-table th:last-child{width:40px;box-sizing:border-box}.capital-input-table th:nth-child(2){width:100px;text-align:right}
+#fixedassets-editor .capital-input-table th:nth-child(3){width:90px}#fixedassets-editor .capital-input-table th:nth-child(4){width:80px}
+.capital-input-table td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.capital-input-pick{font:inherit;color:var(--k-tx1);background:none;border:0;padding:0;text-align:left;cursor:pointer;white-space:normal!important;line-height:1.5;max-width:100%}
+.capital-input-table tr.selected{background:#F3ECDE}.capital-input-table tr.selected .capital-input-pick{font-weight:600}
+.capital-input-remove{text-align:center;padding:6px!important}.capital-input-remove .cx{display:inline-block;position:static!important;margin:0!important;min-width:20px!important}
+.capital-input-detail{background:var(--k-surface2)}
+.capital-input-fields{display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:10px 16px}
+#fixedassets-editor .capital-input-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
+#fixedassets-editor .capital-input-fields>label:first-child{grid-column:1/-1}
+.capital-input-fields>label{display:flex;flex-direction:column;align-items:flex-start;gap:5px;font-size:11px;color:var(--k-tx3);min-width:0}
+#content .capital-input-fields input,#content .capital-input-fields select{width:110px!important;min-width:0!important;max-width:100%!important;flex:none!important}
+#content .capital-input-fields>label:first-child input{width:100%!important;max-width:100%!important;min-width:0!important}
+.capital-input-total{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:11.5px;color:var(--k-tx3);padding:4px 0 12px}
+.capital-input-total b{color:var(--k-tx1);font-weight:600;font-variant-numeric:tabular-nums;white-space:nowrap}
+@container stage (max-width:700px){#content #card-sec .bc-settings{grid-template-columns:minmax(0,1fr)}.bc-component>summary>span,.bc-advanced>summary>span{float:none;display:block;margin:4px 0 0}.capital-input-fields,#fixedassets-editor .capital-input-fields{grid-template-columns:minmax(0,1fr)}.capital-input-table{overflow-x:auto}.capital-input-table table{min-width:380px}}
+
+
+#fixedassets-editor .capital-formula-group{border:1px solid var(--k-line);border-radius:4px;margin:12px 0;padding:12px 14px;background:var(--k-surface)}
+#fixedassets-editor .capital-formula-group>h4{font-size:12px;margin:0 0 12px;font-weight:650;padding-bottom:9px;border-bottom:1px solid var(--k-line)}
+#fixedassets-editor .capital-formula-group>.crow{display:grid;grid-template-columns:minmax(100px,1fr) 110px 45px;align-items:center;gap:8px;font-size:12px;margin:8px 0}
+#fixedassets-editor .capital-formula-group>.crow input{flex:0 1 110px!important;width:110px!important;min-width:0!important;max-width:100%!important;margin-left:auto}
+#fixedassets-editor .capital-formula-group>.crow input:not([type]){flex:1 1 180px!important;width:auto!important;max-width:300px!important}
+#fixedassets-editor .capital-formula-group select{min-width:0!important;max-width:100%!important}
+#fixedassets-editor .capital-formula-group>.crow select,#fixedassets-editor .capital-formula-group>.crow input:not([type]){grid-column:2/-1;width:100%!important}
+#fixedassets-editor .sec-managed-series-row{display:flex;flex-wrap:wrap;align-items:center;gap:7px}
+#fixedassets-editor .sec-managed-series-row input{width:110px!important;min-width:0!important;max-width:100%!important}
+
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -2152,7 +2222,8 @@ body.fd-canvas,body.fd-canvas #content,body.fd-canvas main{background:#f0efeb!im
 body.fd-canvas .cfg-nav{background:transparent!important}
 /* r283: centred white sheet on the analysis pages */
 body.fd-canvas .fd-sheet{max-width:1440px;margin:0 auto 40px;background:#fff;border:1px solid #e2e0d9;border-radius:8px;padding:22px 26px;box-shadow:0 1px 2px rgba(40,35,25,.04);min-width:0}
-body.fd-canvas #content>.pg-crumb{max-width:1440px;margin-left:auto;margin-right:auto}
+body.fd-canvas .fd-sheet .fd-scroll{overflow-x:auto;max-width:100%}   /* r290 */
+body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:auto;margin-right:auto}   /* r290: centre the chapter notation only above a centred sheet */
 /* r283: Securities & balances (Claude Design): rail + five collapsible sections */
 .fsx{display:grid;grid-template-columns:190px minmax(0,944px);gap:40px;padding:22px 4px 40px;justify-content:start}
 .fsx-rail{position:sticky;top:calc(var(--appbar-h,84px) + 16px);align-self:start;font-size:12.5px}
@@ -2593,7 +2664,7 @@ window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move ins
     const tab=(typeof currentTab!=='undefined')?currentTab:'', m=meta()[tab]||{label:tab,group:''};
     if(tab==='config'){ cfgCrumb(); return; }
     if(c.querySelector('.prd-crumb')) return;
-    if(tab==='gov'){ const h=c.querySelector('.gq-head'); if(h){ h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">Record<span>/</span><b>Governance &amp; QA</b></div>'); return; } }   // r247: the dark header is the band
+    if(tab==='gov'){ const h=c.querySelector('.gq-head'); if(h){ h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">Record<span>/</span><b>Governance &amp; QA</b></div>'); if(typeof _fdWrapSheet==='function') _fdWrapSheet(c, tab); return; } }   /* r290: Governance gets the centred sheet too */   // r247: the dark header is the band
     if(tab==='products'){ const h=c.querySelector('.prd-h1'); if(h&&!h.classList.contains('pg-band')){ h.classList.add('pg-band'); h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb"><a href="#" onclick="prdView(\'portfolio\');return false">Products</a><span>/</span><b>'+esc(h.textContent.trim())+'</b></div>'); } return; }
     let first=c.firstElementChild; while(first&&first.matches('script,style')) first=first.nextElementSibling; if(!first) return;
     let band;
@@ -4225,8 +4296,8 @@ function _surplusAllocationPolicy(c){
   const a=c.assumptions||{};
   if(a.surplus_allocation_policy)return a.surplus_allocation_policy;
   if(c.parity_profile==="pf_b")return "legacy_split";
-  const ib=a.interest_balance_model;
-  return (a.managed_securities_portfolios||[]).length || (ib && Object.keys(ib).length && ib.enabled!==false) ? "cash" : "residual_securities";
+  const ib=a.interest_balance_model, bc=a.balance_components_model;
+  return (a.managed_securities_portfolios||[]).length || (ib && Object.keys(ib).length && ib.enabled!==false) || (bc && bc.enabled!==false) ? "cash" : "residual_securities";
 }
 function _surplusAllocationDescription(){
   const policy=_surplusAllocationPolicy(cfg);
@@ -7716,6 +7787,7 @@ window.secAdd = function(kind){
 window.poAdd = function(){
   window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.preopening=true;
   cfg.pre_opening = cfg.pre_opening || {};
+  window._capitalInputSelection=window._capitalInputSelection||{};window._capitalInputSelection.preopening=(cfg.pre_opening.expenses||[]).length;
   (cfg.pre_opening.expenses = cfg.pre_opening.expenses || []).push({category: "", total: 0});
   renderContent(); refresh();
 };
@@ -7777,7 +7849,7 @@ function _faSeriesExplicitIsOpen(path){return Object.prototype.hasOwnProperty.ca
 window.faSeriesExplicitOpen=function(path){window._faSeriesExplicitOpen[String(path)]=true;renderContent();};
 window.faSeriesExplicitClose=function(path){window._faSeriesExplicitOpen[String(path)]=false;renderContent();};
 function _faSeriesEnsure(path,def,period){let sp=getPath(path);if(!sp||typeof sp!=="object"){sp={source:"entered",trajectory:"flat",value:+(def||0)};if(period)sp.period=period;setPath(path,sp);}sp.source="entered";sp.trajectory=sp.trajectory||"flat";if(period&&!sp.period)sp.period=period;return sp;}
-window.faSeriesTrajectory=function(path,traj){const sp=_faSeriesEnsure(path,0),natural=sp.period;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";window._faSeriesExplicitOpen[String(path)]=true;}if(natural)sp.period=natural;renderContent();refresh();};
+window.faSeriesTrajectory=function(path,traj){const sp=_faSeriesEnsure(path,0),natural=sp.period,typedUnit=String(path).startsWith('assumptions.balance_components_model.')?sp.unit:null;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";window._faSeriesExplicitOpen[String(path)]=true;}if(natural)sp.period=natural;if(typedUnit)sp.unit=typedUnit;renderContent();refresh();};
 window.faSeriesValue=function(path,field,v,kind){const sp=_faSeriesEnsure(path,0);sp[field]=(kind==="rate"?_pf(v)/100:((kind==="multiple"||kind==="count"||kind==="dollars")?_pf(v):_pf(v)*1000));refresh();};
 window.faSeriesCadence=function(path,v){const sp=_faSeriesEnsure(path,0);sp.cadence=v;sp.values=sp.values||[];_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);renderContent();refresh();};
 window.faSeriesResolution=function(path,v){const sp=_faSeriesEnsure(path,0);sp.resolution=(v==="smooth"?"smooth":"step");refresh();};
@@ -7785,7 +7857,121 @@ window.faSeriesPeriod=function(path,v){const sp=_faSeriesEnsure(path,0);sp.perio
 window.faSeriesPaste=function(path,id,kind){const sp=_faSeriesEnsure(path,0),el=document.getElementById(id),raw=_seriesExplicitValues(el?el.value:"");if(!raw.length){appStatus("err","No valid numeric schedule values found.");return;}sp.trajectory="explicit";sp.cadence=sp.cadence||_nativeFlowPeriod();sp.extend="hold";sp.resolution=sp.resolution||"step";sp.values=raw.map(x=>kind==="rate"?(+x.value||0)/100:((kind==="multiple"||kind==="count"||kind==="dollars")?(+x.value||0):(+x.value||0)*1000));_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);appStatus("ok",sp.values.length+" values loaded.");renderContent();refresh();};
 window.faSeriesClear=function(path){const sp=_faSeriesEnsure(path,0);sp.values=[];renderContent();refresh();};
 function _faSeriesFmt(v,kind){return kind==="rate"?((+v||0)*100).toFixed(3)+"%":((kind==="multiple"||kind==="count"||kind==="dollars")?_numInput(+v||0,8):fmtComma((+v||0)/1000));}
-function _faSeriesEditor(path,spec,label,kind,naturalPeriod){spec=spec&&typeof spec==="object"?spec:{source:"entered",trajectory:"flat",value:0};const tr=spec.trajectory||"flat",id="fasp_"+path.replace(/[^a-zA-Z0-9]/g,"_"),suffix=kind==="rate"?"%":(kind==="multiplier"?"$000s / unit":(kind==="multiple"?"× multiple":(kind==="count"?"count":(kind==="dollars"?"$ / MAB":"$000s")))),_raw=(kind==='multiple'||kind==='count'||kind==='dollars'),_show=v=>kind==='rate'?((+v||0)*100).toFixed(4):(_raw?_numInput(+v||0,8):fmtComma((+v||0)/1000));let h=`<div class="sec-managed-series"><div class="sec-managed-series-row"><span class="sec-book-label" style="margin:0;min-width:82px">${esc(label)}</span><select onchange="faSeriesTrajectory('${path}',this.value)"><option value="flat"${tr==="flat"?' selected':''}>Flat</option><option value="growth"${tr==="growth"?' selected':''}>Growth</option><option value="explicit"${tr==="explicit"?' selected':''}>Explicit</option></select>`;if(tr==="flat")h+=`<input type="text" inputmode="decimal" value="${_show(spec.value)}" onchange="faSeriesValue('${path}','value',this.value,'${kind}');fmtField(this)"><span class="sec-book-unit">${suffix}</span>`;if(tr==="growth")h+=`<input type="text" inputmode="decimal" value="${_show(spec.base)}" onchange="faSeriesValue('${path}','base',this.value,'${kind}');fmtField(this)"><span class="sec-book-unit">${suffix} base</span>`;h+='</div>';if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">${kind==='rate'?'Rate':'Amount'} period</span><select onchange="faSeriesPeriod('${path}',this.value)">${["month","quarter","year"].map(x=>`<option value="${x}"${x===per?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>`;}if(tr==="growth")h+=`<div class="sec-managed-series-row" style="margin-top:5px">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</div>`;if(tr==="explicit"){const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>_faSeriesFmt(v,kind)),open=_faSeriesExplicitIsOpen(path);h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Schedule cadence</span><select onchange="faSeriesCadence('${path}',this.value)">${_seriesCadenceOptions().map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>${_seriesResolutionUseful(cad)?`<select onchange="faSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`:''}</div>`;if(!open)h+=`<div class="sec-managed-explicit-closed">${typeof _sparkHtml==='function'?_sparkHtml(vals):''}<span class="sec-managed-explicit-summary">${esc(summary)}</span><button type="button" class="pillbtn" onclick="faSeriesExplicitOpen('${path}')">View / edit schedule</button></div>`;else h+=`<div class="sec-managed-explicit"><div class="sec-managed-explicit-head"><span class="sec-managed-explicit-summary">${esc(summary)}</span><button type="button" class="pillbtn" onclick="faSeriesExplicitClose('${path}')">Close</button></div><textarea id="${id}" rows="3" placeholder="Paste ${cad} values" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${id}_load" class="pillbtn" disabled onclick="faSeriesPaste('${path}','${id}','${kind}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>_faSeriesFmt(v,kind),cad)}</div></div>`;}return h+'</div>';}
+function _faSeriesEditor(path,spec,label,kind,naturalPeriod){spec=spec&&typeof spec==="object"?spec:{source:"entered",trajectory:"flat",value:0};const tr=spec.trajectory||"flat",id="fasp_"+path.replace(/[^a-zA-Z0-9]/g,"_"),suffix=kind==="rate"?"%":(kind==="multiplier"?"$000s / unit":(kind==="multiple"?"× multiple":(kind==="count"?"count":(kind==="dollars"?"$ / unit":"$000s")))),_raw=(kind==='multiple'||kind==='count'||kind==='dollars'),_show=v=>kind==='rate'?((+v||0)*100).toFixed(4):(_raw?_numInput(+v||0,8):fmtComma((+v||0)/1000));let h=`<div class="sec-managed-series"><div class="sec-managed-series-row"><span class="sec-book-label" style="margin:0;min-width:82px">${esc(label)}</span><select onchange="faSeriesTrajectory('${path}',this.value)"><option value="flat"${tr==="flat"?' selected':''}>Flat</option><option value="growth"${tr==="growth"?' selected':''}>Growth</option><option value="explicit"${tr==="explicit"?' selected':''}>Explicit</option></select>`;if(tr==="flat")h+=`<input type="text" inputmode="decimal" value="${_show(spec.value)}" onchange="faSeriesValue('${path}','value',this.value,'${kind}');fmtField(this)"><span class="sec-book-unit">${suffix}</span>`;if(tr==="growth")h+=`<input type="text" inputmode="decimal" value="${_show(spec.base)}" onchange="faSeriesValue('${path}','base',this.value,'${kind}');fmtField(this)"><span class="sec-book-unit">${suffix} base</span>`;h+='</div>';if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">${kind==='rate'?'Rate':'Amount'} period</span><select onchange="faSeriesPeriod('${path}',this.value)">${["month","quarter","year"].map(x=>`<option value="${x}"${x===per?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select></div>`;}if(tr==="growth")h+=`<div class="sec-managed-series-row" style="margin-top:5px">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</div>`;if(tr==="explicit"){const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>_faSeriesFmt(v,kind)),open=_faSeriesExplicitIsOpen(path);h+=`<div class="sec-managed-series-row" style="margin-top:5px"><span class="sec-book-unit">Schedule cadence</span><select onchange="faSeriesCadence('${path}',this.value)">${_seriesCadenceOptions().map(x=>`<option value="${x}"${x===cad?' selected':''}>${x[0].toUpperCase()+x.slice(1)}</option>`).join('')}</select>${_seriesResolutionUseful(cad)?`<select onchange="faSeriesResolution('${path}',this.value)"><option value="step"${(spec.resolution||'step')==='step'?' selected':''}>Step</option><option value="smooth"${spec.resolution==='smooth'?' selected':''}>Smooth</option></select>`:''}</div>`;if(!open)h+=`<div class="sec-managed-explicit-closed">${typeof _sparkHtml==='function'?_sparkHtml(vals):''}<span class="sec-managed-explicit-summary">${esc(summary)}</span><button type="button" class="pillbtn" onclick="faSeriesExplicitOpen('${path}')">View / edit schedule</button></div>`;else h+=`<div class="sec-managed-explicit"><div class="sec-managed-explicit-head"><span class="sec-managed-explicit-summary">${esc(summary)}</span><button type="button" class="pillbtn" onclick="faSeriesExplicitClose('${path}')">Close</button></div><textarea id="${id}" rows="3" placeholder="Paste ${cad} values" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="nie-actions" style="margin-top:5px"><button id="${id}_load" class="pillbtn" disabled onclick="faSeriesPaste('${path}','${id}','${kind}')">Load (replace)</button><button class="pillbtn" style="color:#C77" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>_faSeriesFmt(v,kind),cad)}</div></div>`;}return h+'</div>';}
+
+// r289: named balances use the same series grammar; existing contracts remain opt-in compatibility.
+function _bcState(create){const a=cfg.assumptions;if(!a.balance_components_model&&create)a.balance_components_model={enabled:true,inputs:[],components:[]};return a.balance_components_model||null;}
+function _bcFlat(value,unit){return {source:'entered',trajectory:'flat',value,unit:unit||'scalar'};}
+function _bcLegacyAdapter(m){
+ const copy=x=>JSON.parse(JSON.stringify(x)),inputs=[],components=[];
+ const add=(id,name,unit,spec)=>{inputs.push({id,name,unit,spec:copy(spec||_bcFlat(0))});return {source:'input_ref',input_id:id};};
+ let activity=copy(m.mab_spec||_bcFlat(0,'count'));const src=m.mab_source||{};
+ if(['link','fee_stream_quantity'].includes(src.source))activity={...copy(src),source:src.source==='link'?'customer_count':'fee_stream_quantity',unit:'count'};
+ const count=add('activity','Customer activity','count',activity),policy=add('policy-rate','Reference yield','rate',m.scenario_rate_spec),cost=add('customer-cost','Customer cost rate','rate',m.customer_cost_rate_spec);
+ const comp=(id,name,treatment,terms,yield_spec,extra)=>{const c={id,name,treatment,opening_balance:0,risk_weight:treatment==='off_book'?0:.2,start_period:1,interest_balance_measure:'current_end',yield_spec:copy(yield_spec),terms,...(extra||{})};components.push(c);return c;};
+ [['customer-balance','Customer-linked balance','deposit_attach_rate_spec','avg_noninterest_balance_per_mab_spec'],['customer-paid-balance','Customer-linked balance with cost','boost_attach_rate_spec','avg_interest_balance_per_mab_spec']].forEach(([id,name,share,amount])=>{
+ const a=add(id+'-share','Participation share','scalar',m[share]),b=add(id+'-amount','Balance per customer','money_per_unit',m[amount]);const c=comp(id,name,'off_book',[{source_spec:count,factors:[a,b]}],policy);if(id==='customer-paid-balance')c.cost_spec=cost;});
+ const prior={source:'bank_series',series_id:'equity',timing:'prior_period',prior_initialization:'zero'};
+ comp('cash-allocation','Cash allocation','cash_allocation',[{source_spec:copy(prior),factors:[copy(m.operating_cash_ratio_spec||_bcFlat(0))]}],m.operating_cash_yield_spec||_bcFlat(0),{interest_balance_measure:m.operating_cash_interest_basis||'current_end'});
+ comp('earning-asset','Other earning asset','earning_asset',[{source_spec:copy(prior),factors:[copy(m.frb_stock_ratio_spec||_bcFlat(0))]}],m.frb_stock_yield_spec||_bcFlat(0),{risk_weight:1});
+ comp('remaining-cash','Remaining cash','residual_cash',[],policy,{interest_balance_measure:m.affiliated_cash_interest_basis||'current_end',interest_start_period:Math.max(1,+(m.affiliated_cash_interest_start_period||1))});
+ return {enabled:m.enabled!==false,inputs,components};
+}
+window.bcAdoptLegacy=function(){const a=cfg.assumptions;if(!a.balance_components_model)a.balance_components_model=_bcLegacyAdapter(a.interest_balance_model||{});a.balance_components_model.enabled=true;if(a.interest_balance_model)a.interest_balance_model.enabled=false;renderContent();refresh();};
+window.bcRestoreLegacy=function(){_bcState().enabled=false;cfg.assumptions.interest_balance_model.enabled=true;renderContent();refresh();};
+window.bcEnable=function(on){_bcState(true).enabled=on;renderContent();refresh();};
+window.bcAdd=function(){const m=_bcState(true);m.enabled=true;m.components.push({id:_seriesId('balance-component'),name:'Balance component',treatment:'cash_allocation',opening_balance:0,risk_weight:.2,start_period:1,interest_balance_measure:'current_end',yield_spec:_bcFlat(0,'rate'),terms:[{source_spec:_bcFlat(0,'money'),factors:[]}]});renderContent();refresh();};
+window.bcInputAdd=function(){const m=_bcState(true);m.inputs.push({id:_seriesId('balance-input'),name:'Shared assumption',unit:'money',spec:_bcFlat(0,'money')});renderContent();refresh();};
+window.bcInputRemove=function(i){const m=_bcState(),id=m.inputs[i].id;const refs=JSON.stringify({components:m.components,inputs:m.inputs.filter((x,j)=>j!==i)});if(refs.includes('\"input_id\":\"'+id+'\"')){appStatus('err','This shared assumption is in use. Repoint its consumers before removing it.');return;}m.inputs.splice(i,1);renderContent();refresh();};
+window.bcInputUnit=function(i,v){const x=_bcState().inputs[i];x.unit=v;if((x.spec||{}).source==='entered')x.spec.unit=v;renderContent();refresh();};
+window.bcTreatment=function(i,v){const c=_bcState().components[i];c.treatment=v;c.risk_weight=v==='earning_asset'?1:v==='off_book'?0:.2;if(v==='residual_cash'){c.income_line='interest';delete c.cost_spec;}renderContent();refresh();};
+window.bcRemove=function(i){_bcState().components.splice(i,1);renderContent();refresh();};
+window.bcTermAdd=function(i){_bcState().components[i].terms.push({source_spec:_bcFlat(0,'money'),factors:[]});renderContent();refresh();};
+window.bcFactorAdd=function(i,j){_bcState().components[i].terms[j].factors.push(_bcFlat(1,'scalar'));renderContent();refresh();};
+function _bcSourceOptions(unit){
+ const m=_bcState()||{},opts=[{value:'entered',label:'Enter a series'}];
+ (m.inputs||[]).filter(x=>unit===x.unit||unit==='scalar'&&['scalar','rate'].includes(x.unit)).forEach(x=>opts.push({value:'input_ref::'+x.id,label:'Shared · '+x.name}));
+ if(['money','count'].includes(unit)){
+ (sourceCatalogRows.length?sourceCatalogRows.filter(x=>x.driver==='fee_stream_quantity'&&x.collection==='obs_exposures'):_ibFeeQuantityOptions()).forEach(x=>{const u=x.unit||'count';if(unit==='count'&&u==='count'||unit==='money'&&u==='money_stock')opts.push({value:'fee_stream_quantity::'+x.series_id,label:x.label});});
+ if(unit==='count')(_feeCustomerCountOptions()||[]).forEach(x=>opts.push({value:'customer_count::'+x.series_id,label:x.label}));
+ if(unit==='money')for(const [sid,label]of [['equity','Prior-period equity'],['total_assets','Prior-period total assets'],['deposits','Prior-period deposits']])opts.push({value:'bank_series::'+sid,label});
+ }
+ return opts;
+}
+window.bcSourceSet=function(path,value,unit){const [source,id]=value.split('::');let s=_bcFlat(0,unit);if(source==='input_ref')s={source,input_id:id};if(source==='fee_stream_quantity'||source==='customer_count')s={source,series_id:id,unit,measure:'period_end'};if(source==='bank_series')s={source,series_id:id,timing:'prior_period',prior_initialization:'opening'};setPath(path,s);if(unit==='count'&&path.endsWith('.source_spec')){const t=getPath(path.slice(0,-12));if(t){t.factors=t.factors||[];}if(t&&!t.factors.some(f=>f.unit==='money_per_unit'))t.factors.push(_bcFlat(0,'money_per_unit'));}renderContent();refresh();};
+window.bcOperandUnit=function(path,unit){setPath(path,_bcFlat(1,unit));renderContent();refresh();};
+function _bcOperand(path,s,label,unit,canChooseUnit){
+ s=s||_bcFlat(0,unit);const val=s.source==='input_ref'?'input_ref::'+s.input_id:s.source&&s.source!=='entered'?s.source+'::'+s.series_id:'entered';let opts=_bcSourceOptions(unit);
+ if(!opts.some(x=>x.value===val))opts.push({value:val,label:'Missing / incompatible source'});
+ let h=`<div class="bc-operand"><div class="bc-op-head"><span>${esc(label)}</span>${canChooseUnit?`<select data-nofit aria-label="${esc(label)} units" onchange="bcOperandUnit('${path}',this.value)">${[['scalar','Multiplier'],['rate','Percentage'],['money_per_unit','Dollars per unit']].map(([v,l])=>`<option value="${v}"${unit===v?' selected':''}>${l}</option>`).join('')}</select>`:''}<select data-nofit aria-label="${esc(label)} source" onchange="bcSourceSet('${path}',this.value,'${unit}')">${opts.map(x=>`<option value="${esc(x.value)}"${x.value===val?' selected':''}>${esc(x.label)}</option>`).join('')}</select></div>`;
+ if(!s.source||s.source==='entered'){const kind=unit==='money'?'money':unit==='rate'?'rate':unit==='count'?'count':unit==='money_per_unit'?'dollars':'multiple';h+=_faSeriesEditor(path,s,label,kind,false).replace(/\$ \/ MAB/g,'$ / unit');}
+ else if(s.source==='bank_series'){h+=`<div class="bc-inline"><label>Timing<select data-nofit onchange="setPath('${path}.timing',this.value);renderContent();refresh()"><option value="prior_period"${s.timing!=='current_period'?' selected':''}>Prior period</option>${s.series_id==='deposits'?`<option value="current_period"${s.timing==='current_period'?' selected':''}>Current period</option>`:''}</select></label>${s.timing!=='current_period'?`<label>First period<select data-nofit onchange="setPath('${path}.prior_initialization',this.value);refresh()"><option value="opening"${s.prior_initialization!=='zero'?' selected':''}>Opening stock</option><option value="zero"${s.prior_initialization==='zero'?' selected':''}>Zero</option></select></label>`:''}</div>`;}
+ return h+'</div>';
+}
+function _bcEditorHtml(){
+ const m=_bcState()||{enabled:false,components:[],inputs:[]},on=m.enabled!==false,base='assumptions.balance_components_model.';
+ let h=`<div class="sec-managed-sleeve bc-editor"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label">Interest-bearing balances</div></div><label><input type="checkbox"${on?' checked':''} onchange="bcEnable(this.checked)">Model</label></div>`;
+ if(cfg.assumptions.interest_balance_model)h+=`<div class="bc-note">Named components are active. The original setup is retained for rollback. Adoption adds component audit series, so its run fingerprint changes.<button class="btn-plain" onclick="bcRestoreLegacy()">Restore original setup</button></div>`;
+ h+=`<div class="bc-toolbar"><button class="pillbtn" onclick="bcAdd()">+ Add balance component</button><button class="pillbtn" onclick="bcInputAdd()">+ Add shared assumption</button></div>`;
+ if(!on)h+='<div class="cmut">Not modeled. Add a component or enable the saved setup.</div>';
+ else{
+ if((m.inputs||[]).length){h+='<details class="bc-shared"><summary>Shared assumptions <span>'+m.inputs.length+' reusable inputs</span></summary>';
+ m.inputs.forEach((x,i)=>{const path=base+'inputs.'+i+'.spec';h+=`<div class="bc-shared-row"><input aria-label="Shared assumption name" value="${esc(x.name)}" onchange="setPath('${base}inputs.${i}.name',this.value);renderContent();refresh()"><select data-nofit aria-label="Shared assumption units" onchange="bcInputUnit(${i},this.value)">${[['money','Balance ($000s)'],['count','Count'],['scalar','Multiplier'],['rate','Annual rate / share (%)'],['money_per_unit','Dollars per unit']].map(([v,l])=>`<option value="${v}"${x.unit===v?' selected':''}>${l}</option>`).join('')}</select><button class="cx" aria-label="Remove shared assumption" onclick="bcInputRemove(${i})">×</button>${_bcOperand(path,x.spec,x.name,x.unit,false)}</div>`;});h+='</details>';}
+ (m.components||[]).forEach((c,i)=>{
+ const path=base+'components.'+i,kind=c.treatment,txt={cash_allocation:'Part of bank cash',residual_cash:'Remaining bank cash',earning_asset:'Separate on-book asset',off_book:'Off-book administered balance'}[kind];
+ h+=`<details class="bc-component"${window._bcOpen&&window._bcOpen[c.id]?' open':''} ontoggle="window._bcOpen=window._bcOpen||{};window._bcOpen['${c.id}']=this.open"><summary><strong>${esc(c.name)}</strong><span>${txt||kind}</span></summary><div class="bc-component-body"><div class="bc-identity"><input aria-label="Balance component name" value="${esc(c.name)}" onchange="setPath('${path}.name',this.value);renderContent();refresh()"><button class="cx" aria-label="Remove balance component" onclick="bcRemove(${i})">×</button></div><div class="bc-settings"><label>Accounting treatment<select data-nofit onchange="bcTreatment(${i},this.value)">${[['cash_allocation','Part of bank cash'],['residual_cash','Remaining bank cash'],['earning_asset','Separate on-book asset'],['off_book','Off-book administered balance']].map(([v,l])=>`<option value="${v}"${kind===v?' selected':''}>${l}</option>`).join('')}</select></label><label>Interest balance measure<select data-nofit onchange="setPath('${path}.interest_balance_measure',this.value);refresh()">${[['current_end','Current period end'],['prior_end','Prior period end'],['average','Average of prior and current']].map(([v,l])=>`<option value="${v}"${(c.interest_balance_measure||'current_end')===v?' selected':''}>${l}</option>`).join('')}</select></label></div>`;
+ if(kind!=='residual_cash'){
+ h+='<div class="bc-block"><h4>Balance formula</h4>';
+ (c.terms||[]).forEach((t,j)=>{const tp=path+'.terms.'+j,sp=t.source_spec||{},inp=(m.inputs||[]).find(x=>x.id===sp.input_id),unit=inp?inp.unit:sp.unit||(['customer_count'].includes(sp.source)?'count':'money');
+ h+=`<div class="bc-term"><div class="bc-term-head">Term ${j+1}<button class="cx" aria-label="Remove formula term" onclick="_bcState().components[${i}].terms.splice(${j},1);renderContent();refresh()">×</button></div><label class="bc-inline">Source units<select data-nofit onchange="bcSourceSet('${tp}.source_spec','entered',this.value)"><option value="money"${unit==='money'?' selected':''}>Balance ($000s)</option><option value="count"${unit==='count'?' selected':''}>Count</option></select></label>${_bcOperand(tp+'.source_spec',sp,'Balance source',unit,false)}`;
+ (t.factors||[]).forEach((f,k)=>{const ref=(m.inputs||[]).find(x=>x.id===f.input_id),fu=ref?ref.unit:f.unit||'scalar';h+=`<div class="bc-factor">${_bcOperand(tp+'.factors.'+k,f,'× Factor '+(k+1),fu,true)}<button class="cx" aria-label="Remove factor" onclick="_bcState().components[${i}].terms[${j}].factors.splice(${k},1);renderContent();refresh()">×</button></div>`;});
+ h+=`<button class="btn-plain" onclick="bcFactorAdd(${i},${j})">+ Multiply by</button></div>`;});h+=`<button class="btn-plain" onclick="bcTermAdd(${i})">+ Add term</button><p class="cmut">Terms add together. Counts require a dollars-per-unit factor; balances use dimensionless factors.</p></div>`;
+ }else h+='<p class="bc-note">This component earns on cash left after other cash allocations. Only one component can own that remainder.</p>';
+ h+=`<div class="bc-block"><h4>Income &amp; cost</h4>${_bcOperand(path+'.yield_spec',c.yield_spec,'Annual yield','rate',false)}`;
+ if(kind!=='residual_cash')h+=`<label class="bc-inline">Income destination<select data-nofit onchange="setPath('${path}.income_line',this.value);refresh()"><option value="interest"${c.income_line!=='fee'?' selected':''}>Interest income</option><option value="fee"${c.income_line==='fee'?' selected':''}>Fee income</option></select></label>${c.cost_spec?_bcOperand(path+'.cost_spec',c.cost_spec,'Annual cost rate','rate',false)+`<label class="bc-inline">Cost destination<select data-nofit onchange="setPath('${path}.cost_line',this.value);refresh()"><option value="interest_expense"${c.cost_line!=='operating_expense'?' selected':''}>Interest expense</option><option value="operating_expense"${c.cost_line==='operating_expense'?' selected':''}>Operating expense</option></select></label><button class="btn-plain" onclick="delete _bcState().components[${i}].cost_spec;renderContent();refresh()">Remove cost</button>`:`<button class="btn-plain" onclick="_bcState().components[${i}].cost_spec=_bcFlat(0,'rate');renderContent();refresh()">+ Add cost</button>`}`;
+ h+=`</div><details class="bc-advanced"><summary>Opening, timing &amp; capital <span>Start ${PLAB()}${c.start_period||1} · Risk ${((c.risk_weight||0)*100).toFixed(0)}%</span></summary><div class="bc-settings">${kind!=='residual_cash'?`<label>Opening balance ($000s)<input type="text" inputmode="decimal" value="${fmtComma((c.opening_balance||0)/1000)}" onchange="setPath('${path}.opening_balance',_pf(this.value)*1000);refresh();fmtField(this)"></label>`:''}${kind!=='residual_cash'?`<label>Balance begins<input type="number" min="1" value="${c.start_period||1}" onchange="setPath('${path}.start_period',parseInt(this.value));refresh()"></label>`:''}<label>Interest begins<input type="number" min="1" value="${c.interest_start_period||c.start_period||1}" onchange="setPath('${path}.interest_start_period',parseInt(this.value));refresh()"></label>${kind!=='off_book'?`<label>Standardized risk weight<select data-nofit onchange="setPath('${path}.risk_weight',+this.value);refresh()">${[0,.2,.5,1,1.5,2.5].map(v=>`<option value="${v}"${c.risk_weight===v?' selected':''}>${v*100}%</option>`).join('')}</select></label>`:''}</div></details></div></details>`;
+ });
+ if(!(m.components||[]).length)h+='<div class="bc-empty">No balance components. Add the balances this engagement needs.</div>';
+ }return h+'</div>';
+}
+
+// r289: summaries first; select an expense/asset to edit its existing controls.
+window._capitalInputSelection=window._capitalInputSelection||{preopening:0,fixedassets:0};
+window.capitalInputSelect=function(kind,index){window._capitalInputSelection[kind]=index;renderContent();};
+function _presentCapitalInputs(){
+ for(const [kind,id]of [['preopening','preopening-editor'],['fixedassets','fixedassets-editor']]){
+ const root=document.getElementById(id);if(!root||root.querySelector('.capital-input-table'))continue;
+ const isAsset=kind==='fixedassets';let rows=[...root.querySelectorAll(':scope>.crow')].filter(r=>r.querySelector(isAsset?'input[onchange*=".assets["]':'input[onchange*=".expenses["]'));
+ const action=root.querySelector(isAsset?'a[onclick*="faAdd"]':'a[onclick*="poAdd"]');
+ if(action){const bar=action.parentElement;bar.classList.add('capital-input-actions');const anchor=root.querySelector('.nie-mode')||root.querySelector('.csub');anchor.after(bar);}
+ if(!rows.length)continue;
+ const table=document.createElement('div');table.className='capital-input-table';
+ const placeholder=document.createComment('capital input table');rows[0].before(placeholder);
+ const selected=Math.min(Math.max(0,window._capitalInputSelection[kind]||0),rows.length-1);
+ const header=isAsset?['Asset','Cost ($000s)','In service','Life (years)','']:['Expense','Amount ($000s)',''];
+ table.innerHTML='<table><thead><tr>'+header.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody></tbody></table>';
+ const tbody=table.querySelector('tbody');let total=0;
+ rows.forEach((r,i)=>{
+ const inputs=[...r.querySelectorAll('input')],name=inputs[0],amount=inputs[1],select=r.querySelector('select'),life=inputs[2],remove=r.querySelector('.cx');total+=_pf(amount.value);
+ const tr=document.createElement('tr');tr.className=i===selected?'selected':'';
+ const nameTd=document.createElement('td'),button=document.createElement('button');button.className='capital-input-pick';button.textContent=name.value||'New '+(isAsset?'asset':'expense');button.title='Edit '+name.value;button.onclick=()=>capitalInputSelect(kind,i);nameTd.appendChild(button);tr.appendChild(nameTd);
+ const amtTd=document.createElement('td');amtTd.className='num';amtTd.textContent=amount.value;tr.appendChild(amtTd);
+ if(isAsset){for(const value of [select&&select.options[select.selectedIndex]?.text,life&&life.value]){const td=document.createElement('td');td.textContent=value||'—';tr.appendChild(td);}}
+ const removeTd=document.createElement('td');removeTd.className='capital-input-remove';if(remove)removeTd.appendChild(remove);tr.appendChild(removeTd);tbody.appendChild(tr);
+ if(i===selected){const detail=document.createElement('tr');detail.className='capital-input-detail';const cell=document.createElement('td');cell.colSpan=header.length;
+ const fields=document.createElement('div');fields.className='capital-input-fields';
+ for(const [control,label]of [[name,isAsset?'Asset name':'Expense name'],[amount,isAsset?'Cost ($000s)':'Amount ($000s)'],...(isAsset?[[select,'Placed in service'],[life,'Useful life (years)']]:[])]){
+ if(!control)continue;const field=document.createElement('label');field.textContent=label;field.appendChild(control);fields.appendChild(field);}
+ cell.appendChild(fields);detail.appendChild(cell);tbody.appendChild(detail);
+ fields.addEventListener('change',()=>{button.textContent=name.value;amtTd.textContent=amount.value;if(isAsset){tr.children[2].textContent=select.options[select.selectedIndex]?.text||'—';tr.children[3].textContent=life.value;}const costs=[...root.querySelectorAll('input[onchange*="'+(isAsset?'.cost=':'.total=')+'"]')];const sum=costs.reduce((t,x)=>t+_pf(x.value),0);const foot=root.querySelector('.capital-input-total b');if(foot)foot.textContent=fmtComma(sum)+' $000s';});
+ }else{const stash=document.createElement('div');stash.hidden=true;stash.className='capital-input-stash';stash.appendChild(r);root.appendChild(stash);}
+ if(i===selected)r.remove();
+ });
+ for(const note of root.querySelectorAll(':scope>.cmut'))if(/\d+ (expenses added|assets loaded)/.test(note.textContent))note.remove();
+ placeholder.replaceWith(table);
+ const footer=document.createElement('div');footer.className='capital-input-total';footer.innerHTML=`<span>${rows.length} ${isAsset?'assets':'expenses'} · ${isAsset?'capitalized when placed in service':'expensed before opening'}</span><b>${esc(fmtComma(total))} $000s</b>`;table.after(footer);
+ }
+}
 
 function _ibState(create){const A=cfg.assumptions||{};if(create&&(!A.interest_balance_model||typeof A.interest_balance_model!=="object"))A.interest_balance_model={enabled:true,mab_source:{source:"entered"}};const m=A.interest_balance_model||null;if(m&&create)m.enabled=true;return m;}
 window.ibEnable=function(v){const m=_ibState(true);m.enabled=!!v;renderContent();refresh();};
@@ -7836,6 +8022,7 @@ window.olDriver=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;
 window.faAdd=function(){
   window._cfgSectionOpen=window._cfgSectionOpen||{};window._cfgSectionOpen.fixedassets=true;
   const fa=_fixedAssetState(); fa.mode="schedule";
+  window._capitalInputSelection=window._capitalInputSelection||{};window._capitalInputSelection.fixedassets=fa.assets.length;
   fa.assets.push({name:"",cost:0,in_service_period:0,useful_life_years:5,method:"straight_line",residual_value:0});
   renderContent(); refresh();
 };
@@ -9657,17 +9844,23 @@ window._decoratePasteSurfaces=_decoratePasteSurfaces;
 // Structural edits may rebuild a card; engine responses must never rebuild authoring inputs.
 // r283: centred white sheet on the analysis pages. Runs from pageChrome AFTER the title band is chosen, so the
 // band is always the page heading (never the sheet). The breadcrumb stays on the canvas above the sheet.
-const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer'];
+const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer','examiner','notes','lab','gov'];   // r290: + Examiner Book, Assumption Book, Bank Design Lab, Governance
 function _fdWrapSheet(c, tab){
   if(!_FD_SHEET_TABS.includes(tab)||!c||c.querySelector(':scope>.fd-sheet')) return;
   const crumb=c.querySelector(':scope>.pg-crumb'), sheet=document.createElement('div'); sheet.className='fd-sheet';
   [...c.childNodes].forEach(n=>{ if(n!==crumb) sheet.appendChild(n); }); c.appendChild(sheet);
+  // r290: a table not already inside a scrolling container scrolls within the sheet instead of spilling past it
+  sheet.querySelectorAll('table').forEach(t=>{
+    let p=t.parentElement, clipped=false;
+    while(p&&p!==sheet){ const o=getComputedStyle(p).overflowX; if(o==='auto'||o==='scroll'||o==='hidden'){ clipped=true; break; } p=p.parentElement; }
+    if(!clipped){ const w=document.createElement('div'); w.className='fd-scroll'; t.before(w); w.appendChild(t); }
+  });
 }
 // r283: Securities & balances presented as five collapsible sections (Claude Design). The existing, already-wired
 // blocks are MOVED into the sections unchanged, so every handler keeps working. Closed by default.
 window._fsxOpen=window._fsxOpen||{};
 const _FSX=[['s1','01','Funding allocation','Where funding beyond loans and securities goes, and what it earns or costs.','FUNDING'],
-  ['s2','02','Interest-bearing balances','Affiliated-bank cash, operating cash, fiduciary AUA and Federal Reserve stock.','FUNDING'],
+  ['s2','02','Interest-bearing balances','Named balances, reusable sources and explicit accounting treatments.','FUNDING'],
   ['s3','03','Other liabilities','A flat period-end balance, or one built from named Formula / level components.','LIABILITIES'],
   ['s4','04','Securities books & AOCI','Simple books with opening balances, monthly purchases, growth and runoff; AOCI on AFS holdings.','INVESTMENTS'],
   ['s5','05','Managed portfolios','Target balances allocated across securities; maturities and balancing trades set each ending balance.','INVESTMENTS']];
@@ -9681,6 +9874,7 @@ function _fsxSummary(k,root){   // root: the block (first render) or the whole s
       const u=(r.querySelector('.cu')||{}).textContent||''; if(lab) out.push([lab.replace(/:$/,''),inp.value+(u?' '+u.trim():'')]); });
   } else if(k==='s2'){
     const cb=root&&root.querySelector('.fsx-include input[type=checkbox], .sec-managed-sleeve-head input[type=checkbox]');
+    if(a.balance_components_model && a.balance_components_model.enabled!==false){out.push(['Status','Modeled'],['Components',String((a.balance_components_model.components||[]).length)],['Shared inputs',String((a.balance_components_model.inputs||[]).length)]);return out;}
     if(!cb||!cb.checked) out.push(['Status','Not modeled']);
     else { out.push(['Status','Modeled']); (root?[...root.querySelectorAll('.sec-managed-series')]:[]).slice(0,5).forEach(sr=>{ const lab=(sr.querySelector('.sec-book-label')||{}).textContent||''; const inp=sr.querySelector('input'); if(lab) out.push([lab.trim(),inp&&inp.value?inp.value:'schedule']); }); }
   } else if(k==='s3'){
@@ -9717,7 +9911,7 @@ function _presentSecuritiesPage(){
   let rail='<nav class="fsx-rail"><div class="fsx-mi">MODEL INPUTS</div>', g='';
   _FSX.forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${window._fsxOpen[k]?' on':''}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
   rail+='</nav>';
-  let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-MAB values are dollars. Every assumption is either a flat value or an explicit period schedule.</p><div class="fsx-all"><a href="#" onclick="fsxAll(true);return false">Expand all</a><a href="#" onclick="fsxAll(false);return false">Collapse all</a></div></div>';
+  let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-unit amounts are dollars. Series support flat values, growth paths and explicit schedules.</p><div class="fsx-all"><a href="#" onclick="fsxAll(true);return false">Expand all</a><a href="#" onclick="fsxAll(false);return false">Collapse all</a></div></div>';
   const RB={s1:B.fa,s2:B.ib,s3:B.ol,s4:null,s5:B.mp};
   _FSX.forEach(([k,n,t,d])=>{ const sum=_fsxSummary(k,RB[k]).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join('');
     main+=`<section class="fsx-sec${window._fsxOpen[k]?' open':''}" id="fsx-${k}" data-k="${k}"><div class="fsx-h" role="button" tabindex="0" aria-expanded="${!!window._fsxOpen[k]}" onclick="fsxToggle('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fsxToggle('${k}')}"><span class="fsx-n">${n}</span><div><h2>${esc(t)}</h2><p>${esc(d)}</p><div class="fsx-sum">${sum}</div></div><div class="fsx-ctl" onclick="event.stopPropagation()"></div><span class="fsx-chev">${chev}</span></div><div class="fsx-b"></div></section>`; });
@@ -9788,7 +9982,7 @@ function _fsxBands(card){
   }
   // 02 Interest-bearing balances: one numbered band per product
   const ib=card.querySelector('#fsx-s2 .fsx-b>.sec-managed-sleeve');
-  if(ib&&!ib.querySelector('.fsx-band')){
+  if(ib&&!ib.classList.contains('bc-editor')&&!ib.querySelector('.fsx-band')){
     const groups=[...ib.querySelectorAll('.cfg-setting-group')], grid=ib.querySelector('.cfg-balance-grid');
     const defNote={'Operating cash':'Sized off prior-period equity; zero in M1.','Federal Reserve stock':'Sized off prior-period equity; zero in M1.'};
     const tail=[...ib.children].filter(c=>c.classList.contains('cmut'));
@@ -9888,7 +10082,8 @@ function renderContent(){
   _consumedPasteId=null;
   _renderContentBody();
   if(typeof document!=='undefined'&&document.body&&document.body.classList) document.body.classList.toggle('fd-canvas',!['bs','is','welcome'].includes(currentTab));   // r283: quiet canvas (guarded for script tests)
-  if(currentTab==='config' && typeof _presentSecuritiesPage==='function') _presentSecuritiesPage();   // r283
+  if(currentTab==='config' && typeof _presentSecuritiesPage==='function') _presentSecuritiesPage();
+  if(currentTab==='config'&&typeof _presentCapitalInputs==='function') _presentCapitalInputs();
   restoreCardSelects();
   _decoratePasteSurfaces();
   _restoreAuthoringState(state);
@@ -10233,6 +10428,7 @@ function _renderContentBody(){
     if(fin.is.operatingCashInt) h += rowIS('  of which: Operating cash', fin.is.operatingCashInt, null, T.operatingCashInt, 'operatingCashInt');
     if(fin.is.fiduciaryAuaInt) h += rowIS('  of which: Fiduciary AUA', fin.is.fiduciaryAuaInt, null, T.fiduciaryAuaInt, 'fiduciaryAuaInt');
     if(fin.is.frbStockInt) h += rowIS('  of which: Federal Reserve stock', fin.is.frbStockInt, null, T.frbStockInt, 'frbStockInt');
+    ((r.balance_components||{}).components||[]).filter(c=>c.income_line==='interest').forEach(c=>{h+=rowIS('  of which: '+esc(c.name),c.income,null,null,null);});
     h += rowIS('Total Interest Income', D.totalIntInc, 'subtotal');
     h += rowIS('Interest Expense: Deposits', fin.is.depExp || fin.is.intDep, null, T.depExp ?? T.intDep, 'depExp');
     if(fin.is.fiduciaryDepExp) h += rowIS('  of which: Fiduciary interest-bearing AUA', fin.is.fiduciaryDepExp, null, T.fiduciaryDepExp, 'fiduciaryDepExp');
@@ -13077,13 +13273,14 @@ function structuresSectionsHtml(){
       // Progressive disclosure: the paste box is hidden until summoned, and clears + collapses on
       // Load. The rows above are the single source of truth; the box is a transient input chute.
       var _pasteOpen = _structuredPasteIsOpen("preopening");
-      if(!_pasteOpen){
+      {
         _p += '<div style="margin-top:8px;display:flex;gap:6px;flex-wrap:wrap">';
         _p += '<a href="#" class="cadd" style="color:#565653" onclick="poAdd();return false">+ Add one manually</a>';
         _p += '<a href="#" class="cadd" onclick="cfg.pre_opening=cfg.pre_opening||{};window._cfgSectionOpen.preopening=true;_structuredPasteSetOpen(\'preopening\',true);return false">⎘ Paste from spreadsheet</a>';
         if(pex.length) _p += '<a href="#" class="cadd" style="color:#C77" onclick="poClear();return false">Clear all</a>';
         _p += '</div>';
-      } else {
+      }
+      if(_pasteOpen){
         _p += '<div style="margin-top:8px"><div class="cmut" style="margin-bottom:4px">Paste one <b>Item, Amount</b> per line (Amount in $000s; tab or comma separated), then Load. The box clears after.</div>';
         _p += '<textarea id="poPasteBox" rows="4" oninput="_structuredPasteInput(\x27poPasteBox\x27)" style="width:100%;font-family:inherit;font-size:12px;box-sizing:border-box;background:var(--paper);color:#2A2A2A;border:1px solid #3A3A37;border-radius:2px;padding:6px" placeholder="Legal &amp; organizational, 250&#10;Regulatory filing fees, 75&#10;Consulting, 180"></textarea>';
         _p += '<div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap">';
@@ -13114,10 +13311,10 @@ function structuresSectionsHtml(){
         const fl=_faFormulaState(true), comps=fl.components||[], dep=fl.depreciation||{kind:'rate_of_level'}, drvOpts=_faDriverOptions();
         const basis=(fl.level_basis==='net'?'net':'gross'), openingLevel=+(fl.opening_level!=null?fl.opening_level:fl.opening_net)||0;
         _d += `<div class="nie-section-note" style="margin-bottom:7px"><b>Formula / level</b> directly determines a period-end fixed-asset stock. Choose whether that authored stock is Gross PP&amp;E or an intentional Net PP&amp;E target. Gross is the default and does not create replacement CAPEX merely because depreciation is recognized.</div>`;
-        _d += `<div class="crow" style="align-items:center">Level basis<select style="width:150px" onchange="faFormulaBasis(this.value)"><option value="gross"${basis==='gross'?' selected':''}>Gross PP&amp;E</option><option value="net"${basis==='net'?' selected':''}>Net PP&amp;E target</option></select></div>`;
+        _d += `<section class="capital-formula-group"><h4>Opening position</h4><div class="crow" style="align-items:center">Level basis<select style="width:150px" onchange="faFormulaBasis(this.value)"><option value="gross"${basis==='gross'?' selected':''}>Gross PP&amp;E</option><option value="net"${basis==='net'?' selected':''}>Net PP&amp;E target</option></select></div>`;
         _d += `<div class="crow">Opening ${basis==='gross'?'gross ':'net '}fixed assets<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma(openingLevel/1000)}" onchange="_faFormulaState(true).opening_level=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
         _d += `<div class="crow">Opening accumulated depreciation<input type="text" inputmode="decimal" style="width:86px" value="${fmtComma((+fl.opening_accumulated_depreciation||0)/1000)}" onchange="_faFormulaState(true).opening_accumulated_depreciation=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-        _d += `<div class="crow">Base component name<input style="flex:1 1 150px" value="${esc(fl.base_name||'Base asset level')}" onchange="_faFormulaState(true).base_name=this.value||'Base asset level';renderContent();refresh()"></div>`;
+        _d += `</section><section class="capital-formula-group"><h4>Balance derivation</h4><div class="crow">Base component name<input style="flex:1 1 150px" value="${esc(fl.base_name||'Base asset level')}" onchange="_faFormulaState(true).base_name=this.value||'Base asset level';renderContent();refresh()"></div>`;
         _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.base_spec',fl.base_spec||{source:'entered',trajectory:'flat',value:0},fl.base_name||'Base asset level','money',false);
         _d += `<div class="cmut" style="margin:6px 0">Period-end ${basis==='gross'?'gross':'net'} fixed assets = base level + Σ(linked driver Series × multiplier). The base and each named linked component are published as stable Fixed Asset Series for downstream formulas.</div>`;
         comps.forEach((c,i)=>{const link=((c.driver_spec||{}).link||{}), cur='workforce_count::'+String(link.series_id||''), path=`assumptions.fixed_assets.formula_level.components.${i}.multiplier_spec`;
@@ -13127,25 +13324,27 @@ function structuresSectionsHtml(){
           _d += `<div class="cmut" style="grid-column:1/-1">Multiplier is a stock coefficient — for example $5.0k per driver unit — so it has no Month / Quarter / Year amount period.</div></div></div>`;
         });
         _d += `<div style="margin-top:7px"><button class="pillbtn" onclick="faFormulaAddComponent()">+ Add linked component</button></div>`;
-        _d += `<div class="hline" style="margin:10px 0"></div><div class="csub" style="margin-bottom:6px">Depreciation</div>`;
+        _d += `</section><section class="capital-formula-group"><h4>Depreciation</h4>`;
         _d += `<div class="crow" style="align-items:center">Source<select style="width:150px" onchange="faFormulaDepKind(this.value)"><option value="rate_of_level"${(dep.kind||'rate_of_level')==='rate_of_level'?' selected':''}>% of asset level</option><option value="entered"${dep.kind==='entered'?' selected':''}>Entered amount</option></select></div>`;
         if((dep.kind||'rate_of_level')==='rate_of_level') _d += _faSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.rate_spec',dep.rate_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation rate','rate',true);
         else _d += _faFlowSeriesEditor('assumptions.fixed_assets.formula_level.depreciation.amount_spec',dep.amount_spec||{source:'entered',trajectory:'flat',value:0,period:'year'},'Depreciation amount','money',true);
         _d += basis==='gross'?`<div class="cmut" style="margin-top:6px">The authored asset level is <b>gross PP&amp;E</b>. Depreciation increases accumulated depreciation and reduces net PP&amp;E; it does not manufacture replacement CAPEX. A lower authored gross level is treated as a proportional disposal of the existing pool, including accumulated-depreciation relief.</div>`:`<div class="cmut" style="margin-top:6px">The authored asset level is an intentional <b>net PP&amp;E target</b>. Depreciation hits NIE separately; Foundry reconciles gross PP&amp;E as net + accumulated depreciation and implied CAPEX/(disposal) as Δnet + depreciation.</div>`;
+        _d += '</section>';
       } else {
         _fax.forEach((x,i)=>{ const isp=Math.max(0,Math.min(NP(),+(x.in_service_period||0)));
           _d += `<div class="crow" style="gap:4px"><input style="flex:1 1 72px;min-width:60px" placeholder="Asset" value="${esc(x.name||'')}" onchange="cfg.assumptions.fixed_assets.assets[${i}].name=this.value;refresh()"><input type="text" inputmode="decimal" style="width:58px" title="Cost, $000s" value="${fmtComma((x.cost||0)/1000)}" onchange="cfg.assumptions.fixed_assets.assets[${i}].cost=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span><select style="width:74px" title="Placed in service" onchange="cfg.assumptions.fixed_assets.assets[${i}].in_service_period=+this.value;refresh()"><option value="0"${isp===0?' selected':''}>Opening</option>${Array.from({length:NP()},(_,q)=>`<option value="${q+1}"${isp===q+1?' selected':''}>${PLAB()}${q+1}</option>`).join('')}</select><input type="number" min="0.1" step="0.5" style="width:42px" title="Useful life, years" value="${x.useful_life_years||5}" onchange="cfg.assumptions.fixed_assets.assets[${i}].useful_life_years=_pf(this.value);refresh()"><span class="cu">yrs</span><a href="#" class="cx" onclick="cfg.assumptions.fixed_assets.assets.splice(${i},1);renderContent();refresh();return false">×</a></div>`;
         });
-        if(!_structuredPasteIsOpen("fixedassets")){
+        {
           _d += '<div style="margin-top:7px;display:flex;gap:6px;flex-wrap:wrap"><a href="#" class="cadd" style="color:#565653" onclick="faAdd();return false">+ Add asset</a><a href="#" class="cadd" onclick="window._cfgSectionOpen.fixedassets=true;_structuredPasteSetOpen(\'fixedassets\',true);return false">⎘ Paste assets</a>' + (_fax.length?'<a href="#" class="cadd" style="color:#C77" onclick="faClear();return false">Clear all</a>':'') + '</div>';
-        } else {
+        }
+        if(_structuredPasteIsOpen("fixedassets")){
           _d += '<div class="cmut" style="margin:6px 0 4px">Paste from Excel/Sheets or CSV. Headers may be reordered: <b>Asset | Cost | In Service | Useful Life</b>. Cost is $000s; In Service is <b>At opening</b> or the current model period. Optional: Method, Residual Value.</div><textarea id="faPasteBox" rows="4" oninput="_structuredPasteInput(\x27faPasteBox\x27)" style="width:100%;font-family:inherit;font-size:11px;box-sizing:border-box;background:var(--paper);color:#2A2A2A;border:1px solid #3A3A37;border-radius:2px;padding:6px" placeholder="Asset&#9;Cost&#9;In Service&#9;Useful Life&#10;Furniture & fixtures&#9;350&#9;At opening&#9;7&#10;IT expansion&#9;250&#9;M18&#9;5"></textarea><div style="margin-top:5px;display:flex;gap:6px;flex-wrap:wrap"><button id="faPasteBox_load" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'replace\')">Load (replace)</button><button id="faPasteBox_append" class="pillbtn" disabled onclick="faPaste(document.getElementById(\'faPasteBox\').value,\'append\')">Load (append)</button><button class="pillbtn" style="color:#C77" onclick="faClear()"' + (_fax.length?'':' disabled') + '>Clear</button><a href="#" class="cadd" style="color:#565653;align-self:center" onclick="_structuredPasteSetOpen(\'fixedassets\',false);return false">close</a></div>';
         }
         _d += `<div class="cmut">${_fax.length} asset${_fax.length===1?'':'s'} · straight-line by default. Opening rows are capitalized before M1/Q1; later rows become CAPEX in their placed-in-service period.</div>`;
       }
       _d += `<div class="crow" style="margin-top:8px">Intangibles<input type="text" inputmode="decimal" style="width:78px" value="${fmtComma((cfg.assumptions.intangibles||0)/1000)}" onchange="cfg.assumptions.intangibles=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
     }
-    h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div>${_p}</div><div>${_d}</div></div>`;
+    h += `<div class="ccols tacct"><div>${_r}</div><div>${_b}</div><div id="preopening-editor">${_p}</div><div id="fixedassets-editor">${_d}</div></div>`;
     h += `<div class="hline"></div><div class="crow" style="margin:0">Minimum Day-1 capital<input type="text" inputmode="decimal" style="width:112px" value="${fmtComma((po.min_day1_capital||0)/1000)}" title="$000s" onchange="cfg.pre_opening.min_day1_capital=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
   }
   const _secCardCounts=_secAociCounts(A), _secCardHasContent=_secAociActive(A), _secCardOpen=_cfgSectionIsOpen("secaoci",_secCardHasContent);
@@ -13211,28 +13410,32 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Borrowing rate<input type="number" step="0.1" style="width:56px" value="${((A4.borrow_rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.borrow_rate_ann=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Other assets<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_assets||0)/1000)}" onchange="cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
       h += `</div></div>`;
+      if(!A4.interest_balance_model || ((A4.balance_components_model||{}).enabled!==false && A4.balance_components_model)) {
+        h+=_bcEditorHtml();
+      }else
       { const ib=_ibState(false), on=!!(ib&&ib.enabled);
-        h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Interest-bearing balances</div><div class="cmut">Affiliated-bank cash, operating cash, fiduciary AUA and Federal Reserve stock. All assumptions default to zero.</div></div><label><input type="checkbox" ${on?'checked ':''}onchange="ibEnable(this.checked)"> Model</label></div>`;
+        h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Interest-bearing balances</div><div class="cmut">Remaining cash, operating cash, fiduciary AUA and Other earning asset. All assumptions default to zero.</div></div><label><input type="checkbox" ${on?'checked ':''}onchange="ibEnable(this.checked)"> Model</label></div>`;
+        h+=`<div class="bc-note">Existing configuration · calculations and audit identifiers are preserved.<button class="pillbtn" onclick="bcAdoptLegacy()">Use named components</button></div>`;
         if(on){const b='assumptions.interest_balance_model.', src=['link','fee_stream_quantity'].includes((ib.mab_source||{}).source)?(ib.mab_source||{}).source:'entered',opts=src==='fee_stream_quantity'?_ibFeeQuantityOptions():_feeCustomerCountOptions(),sid=String((ib.mab_source||{}).series_id||'');
-          h += `<div class="cfg-setting-group"><h3>Fiduciary balances</h3><p class="cfg-group-note">Customer activity drives balances under administration. Amounts per customer are entered in dollars.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">MAB / bank customers</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option><option value="fee_stream_quantity"${src==='fee_stream_quantity'?' selected':''}>Link Fee Stream quantity</option></select></div>`;
+          h += `<div class="cfg-setting-group"><h3>Customer-linked balances</h3><p class="cfg-group-note">Customer activity drives balances under administration. Amounts per customer are entered in dollars.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Customer activity</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option><option value="fee_stream_quantity"${src==='fee_stream_quantity'?' selected':''}>Link Fee Stream quantity</option></select></div>`;
           if(src!=='entered')h += `<div class="crow"><select style="min-width:280px" onchange="ibMabLink(this.value)">${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===sid?' selected':''}>${esc(o.label)}</option>`).join('')}</select><span class="cu">${src==='link'?'period-end count':'canonical stream quantity'}</span></div>`;
-          else h += _faSeriesEditor(b+'mab_spec',ib.mab_spec,'MAB count','count',false);
-          h += _faSeriesEditor(b+'scenario_rate_spec',ib.scenario_rate_spec,'Scenario Fed Funds rate','rate',false);
+          else h += _faSeriesEditor(b+'mab_spec',ib.mab_spec,'Customer count','count',false);
+          h += _faSeriesEditor(b+'scenario_rate_spec',ib.scenario_rate_spec,'Reference annual yield','rate',false);
           h += _faSeriesEditor(b+'deposit_attach_rate_spec',ib.deposit_attach_rate_spec,'Deposit attach rate','rate',false);
-          h += _faSeriesEditor(b+'avg_noninterest_balance_per_mab_spec',ib.avg_noninterest_balance_per_mab_spec,'Avg non-interest balance / MAB','dollars',false);
+          h += _faSeriesEditor(b+'avg_noninterest_balance_per_mab_spec',ib.avg_noninterest_balance_per_mab_spec,'Balance per customer','dollars',false);
           h += _faSeriesEditor(b+'boost_attach_rate_spec',ib.boost_attach_rate_spec,'Boost attach rate','rate',false);
-          h += _faSeriesEditor(b+'avg_interest_balance_per_mab_spec',ib.avg_interest_balance_per_mab_spec,'Avg interest-bearing balance / MAB','dollars',false);
+          h += _faSeriesEditor(b+'avg_interest_balance_per_mab_spec',ib.avg_interest_balance_per_mab_spec,'Interest-bearing balance per customer','dollars',false);
           h += _faSeriesEditor(b+'customer_cost_rate_spec',ib.customer_cost_rate_spec,'Customer cost rate','rate',false);
-          h += `</div></div><div class="cfg-balance-grid"><div class="cfg-setting-group"><h3>Affiliated-bank cash</h3><p class="cfg-group-note">Interest uses the scenario Fed Funds rate above.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period</span></div>`;
+          h += `</div></div><div class="cfg-balance-grid"><div class="cfg-setting-group"><h3>Remaining cash</h3><p class="cfg-group-note">Interest uses the reference yield above.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period</span></div>`;
           {const _basisOpts=[['current_end','Current period end'],['prior_end','Prior period end'],['average','Average of prior and current']];
-            h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest balance</span><select onchange="ibCashInterestBasis('affiliated_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.affiliated_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
-            h += `</div></div><div class="cfg-setting-group"><h3>Operating cash</h3><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest balance</span><select onchange="ibCashInterestBasis('operating_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.operating_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;}
-          h += _faSeriesEditor(b+'operating_cash_ratio_spec',ib.operating_cash_ratio_spec,'Operating cash / prior equity','rate',false);
-          h += _faSeriesEditor(b+'operating_cash_yield_spec',ib.operating_cash_yield_spec,'Operating cash yield','rate',false);
-          h += `</div></div><div class="cfg-setting-group"><h3>Federal Reserve stock</h3><div class="cfg-setting-fields">`;
-          h += _faSeriesEditor(b+'frb_stock_ratio_spec',ib.frb_stock_ratio_spec,'FRB stock / prior equity','rate',false);
-          h += _faSeriesEditor(b+'frb_stock_yield_spec',ib.frb_stock_yield_spec,'FRB stock yield','rate',false);
-          h += `</div></div></div><div class="cmut">M1 operating cash and FRB stock are zero. Thereafter each uses prior-period equity.</div>`;
+            h += `<div class="crow"><span class="sec-book-label">Remaining cash interest balance</span><select onchange="ibCashInterestBasis('affiliated_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.affiliated_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
+            h += `</div></div><div class="cfg-setting-group"><h3>Cash allocation</h3><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest balance</span><select onchange="ibCashInterestBasis('operating_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.operating_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;}
+          h += _faSeriesEditor(b+'operating_cash_ratio_spec',ib.operating_cash_ratio_spec,'Cash allocation / prior equity','rate',false);
+          h += _faSeriesEditor(b+'operating_cash_yield_spec',ib.operating_cash_yield_spec,'Cash allocation yield','rate',false);
+          h += `</div></div><div class="cfg-setting-group"><h3>Other earning asset</h3><div class="cfg-setting-fields">`;
+          h += _faSeriesEditor(b+'frb_stock_ratio_spec',ib.frb_stock_ratio_spec,'Asset / prior equity','rate',false);
+          h += _faSeriesEditor(b+'frb_stock_yield_spec',ib.frb_stock_yield_spec,'Asset yield','rate',false);
+          h += `</div></div></div><div class="cmut">M1 equity-derived balances are zero. Thereafter each uses prior-period equity.</div>`;
         } h += `</div>`;
       }
       { const _olm=_olState(false), _olModeNow=_olMode();

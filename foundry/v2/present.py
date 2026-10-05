@@ -228,3 +228,16 @@ LINE_ALIASES.update({
 def canonical_line(line):
     """Canonical internal Call Report line key for legacy human-readable labels."""
     return LINE_ALIASES.get(line, line)
+
+
+def bs_layout_for_results(res):
+    """Extend only opted-in component results; legacy exhibit rows remain identical."""
+    if 'earningAssets' not in res.get('bs', {}):
+        return BS_LAYOUT
+    layout=[]
+    for row in BS_LAYOUT:
+        if row.get('key')=='frbStock':
+            layout.append({'t':'line','key':'earningAssets','label':'Other interest-bearing assets'})
+        else:
+            layout.append(row)
+    return layout

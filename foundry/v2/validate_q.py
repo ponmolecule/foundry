@@ -82,6 +82,13 @@ def validate_config_v2(cfg):
     _alias_ppy = _a0.get("periods_per_year") or 4
     if not isinstance(_alias_ppy, int) or isinstance(_alias_ppy, bool) or _alias_ppy not in (4, 12):
         _alias_ppy = 4
+    try:
+        from .balance_components import validate_model
+        validate_model(_a0)
+        if (_a0.get('balance_components_model') or {}).get('enabled',True) and _a0.get('balance_components_model') and cfg.get('parity_profile')!='pf_a':
+            errs.append('Named balance components currently require Profile A')
+    except (ValueError,TypeError) as e:
+        errs.append(str(e))
     # Cadence field-name aliasing (mirror of the engine): accept BOTH the legacy "_q" per-period
     # field names and the canonical "_per_period" names, so a config authored with either passes.
     # We mirror new->old before the required-field/range checks (which reference the "_q" names),
