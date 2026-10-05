@@ -4691,7 +4691,8 @@ async function autosaveNow(){
   _asBusy = false;
 }
 window.scheduleAutosave = scheduleAutosave;
-async function preview(){
+async function preview(){ const _h=(typeof _lcCleanNow==='function'&&typeof _lcHealDrift==='function'), _w=(typeof window!=='undefined')?window:{}, _wasClean=_h?_lcCleanNow():false, _seq=_w._userActSeq; try{ return await _previewInner.apply(this,arguments); } finally { if(_h&&_w._userActSeq===_seq) _lcHealDrift(_wasClean,'run'); } }   // r296: the deferred run; never when the user interacted meanwhile; inert where the lifecycle helpers are absent
+async function _previewInner(){
   normalizeCfg(cfg);
   if(V31){ syncModules(); }
   loadSourceCatalog().catch(()=>{});
@@ -11588,6 +11589,24 @@ async function _identicalToSaved(){
   return false;
 }
 window.openEngagement = openEngagement;
+// r296: user-interaction counter (trusted events only). A change with no interaction since an open is not an edit.
+window._userActSeq=0;
+['input','change','paste','drop','keydown','mousedown','touchstart'].forEach(t=>document.addEventListener(t,e=>{ if(e.isTrusted) window._userActSeq++; },true));
+function _lcSettleAfterOpen(){
+  const seq0=window._userActSeq, base0=LC.baseline;
+  [600,1500,3000,6000].forEach(ms=>setTimeout(()=>{
+    try{
+      if(window._userActSeq!==seq0) return;                  // the user has interacted: anything after this is theirs
+      if(LC.baseline!==base0) return;                        // another open, save or heal has re-baselined since
+      if(LC.state()!=='MODIFIED') return;
+      const d=(typeof unsavedChangeList==='function')?unsavedChangeList():[];
+      (window.__renderDrift=window.__renderDrift||[]).push({where:'after open (+'+ms+'ms, no interaction)', at:new Date().toISOString(), fields:d.slice(0,20)});
+      LC.baseline=LC._ser(cfg);
+      console.warn('Foundry: configuration changed after opening without any interaction; re-baselined', d);
+      if(typeof updateChangedChip==='function') updateChangedChip();
+    }catch(e){}
+  }, ms));
+}
 async function _openEngagementNow(slug){
   // Cancel any autosave armed while editing the OUTGOING engagement: without this, a timer
   // scheduled on engagement A can fire a few seconds later — after cfg has already been swapped
@@ -11612,6 +11631,7 @@ async function _openEngagementNow(slug){
                   && TAB_DEFS.some(t=>t[0]===currentTab);
     renderGlobals(); refresh(); markPristine();
     LC.land("open", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));  // CLEAN from the store
+    _lcSettleAfterOpen();   /* r296 */
     setTab(_keep ? currentTab : "overview");
   } else {
     appStatus("err", "<b>This engagement is a chassis (v1) configuration.</b> It runs on the Console (link in the ribbon); wizard-built engagements open there until the unified results view ships.");
