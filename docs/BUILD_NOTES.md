@@ -1441,3 +1441,10 @@ Full r279 regression comparison: 62 Python modules / 9 existing failing modules;
 
 ## r280 — Activity paste Clear
 Explicitly consume visible Activity drafts in coefficient, monetary flow and account count Clear callbacks before authoring restoration. No engine changes. See R280_RELEASE_NOTES.md for regression evidence.
+
+
+## r281 — Configuration balance-sheet hierarchy
+
+UI-only release on r280. Securities settings now separate simple books, managed portfolios, AOCI, funding allocation, fiduciary balances, affiliated-bank cash, operating cash, Federal Reserve stock and named liabilities. Group headings feed the existing Configuration section navigation. Funding and fiduciary inputs use responsive two-column grids; numeric widths remain bounded and explicit schedules retain previews and existing paste actions. Named liability formulas collapse independently and remember their open state during rerendering. Shared Configuration spacing and action-button sizing are consistent across modules. Top menus and Klaros colors are retained. No engine, schema, pricing, defaults or saved assumptions changed.
+
+Validation: browser checks at 1440/1280/1024/768 pixels, all six module selections, liability expand/rerender persistence, and no runtime errors. Against r280, the same example produces identical configuration and all 42 Securities control values/options/handlers. Existing 18-case formula layout regression, three pinned result identities and inline JavaScript syntax pass. Full engine suite not repeated for this presentation change. This reorganizes the Securities module substantially; it does not claim a complete interaction redesign of every Configuration module.

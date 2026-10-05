@@ -2103,6 +2103,49 @@ main>#content{min-width:0}
 .prd-card[data-fam="deposit"] .fld:not(.wide)>input,.prd-card[data-fam="deposit"] .fld:not(.wide)>select{max-width:260px;width:100%;min-width:0!important}
 .eng-menu-status{padding:8px 10px;font-size:11.5px;color:var(--k-tx3)}
 @container prd (max-width:600px){.deposit-section-grid,.deposit-pool-step,.prd-card[data-fam="deposit"] .flow-advanced-grid{grid-template-columns:minmax(0,1fr)}}
+/* r281: configuration hierarchy and proportionate balance-sheet authoring. */
+.cfg-stage .cfgcard{max-width:1280px}
+.cfg-stage .cfgcard .cardhead{margin-bottom:20px}
+.cfg-stage .cfgcard .cmut{line-height:1.5}
+.cfg-stage .cfgcard .pillbtn,.cfg-stage .cfgcard .btn-plain{min-height:30px;padding:5px 10px;font-size:12px}
+.cfggrid[data-cfg-selected="sec"]>#card-sec.cflex{grid-template-columns:minmax(0,1fr)}
+.cfg-stage #card-sec .sec-major-section,.cfg-stage #card-sec .tstack>div:first-child{width:auto;max-width:100%}
+.cfg-stage #card-sec .tstack>div:first-child{border:0;background:transparent;padding:0;margin:0}
+.cfg-stage #card-sec .tstack>div:first-child>.sec-major-section{border:1px solid var(--k-line)!important;padding:20px!important;margin:0 0 16px}
+.cfg-stage #card-sec .sec-major-section{padding:20px!important;margin-bottom:16px}
+.cfg-stage #card-sec .sec-major-title{font-size:17px;line-height:24px;margin-bottom:16px}
+.cfg-setting-group{min-width:0;padding:18px 20px;border:1px solid var(--k-line);border-radius:5px;background:var(--k-surface);margin-bottom:16px}
+.cfg-setting-group h3{font-family:var(--k-disp);font-size:14px;line-height:20px;font-weight:600;letter-spacing:0;color:var(--k-tx1);margin:0 0 12px;padding-bottom:10px;border-bottom:1px solid var(--k-line)}
+.cfg-setting-group .cfg-group-note{font-size:12px;line-height:18px;color:var(--k-tx3);margin:-3px 0 14px;max-width:80ch}
+.cfg-setting-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 16px;align-items:start;min-width:0}
+.cfg-setting-fields>.crow{grid-column:1/-1;width:100%;display:flex;flex-wrap:wrap;align-items:center;margin:0!important;gap:8px 12px}
+.cfg-setting-fields>.crow>.sec-book-label{flex:0 1 190px;margin:0}
+.cfg-stage #card-sec .cfg-setting-fields>.sec-managed-series{grid-column:auto;width:auto;min-width:0;max-width:100%;margin:0;padding:12px;background:var(--k-surface2)}
+.cfg-stage #card-sec .cfg-setting-fields .sec-managed-series-row{display:flex;flex-wrap:wrap;align-items:center;gap:8px;min-width:0}
+.cfg-stage #card-sec .cfg-setting-fields .sec-managed-series-row>.sec-book-label{flex:1 0 100%;font-size:12px;font-weight:500;margin:0 0 3px!important}
+.cfg-stage #card-sec .sec-managed-series-row input{width:120px!important;flex:0 1 120px;min-width:0}
+.cfg-stage #card-sec .sec-managed-explicit-closed{display:grid;grid-template-columns:80px minmax(0,1fr);gap:8px;align-items:center}
+.cfg-stage #card-sec .sec-managed-explicit-closed .pillbtn{grid-column:2;justify-self:start;margin-top:2px}
+.cfg-stage #card-sec .sec-managed-explicit-summary{min-width:0;white-space:normal;overflow-wrap:anywhere;line-height:18px}
+.cfg-stage #card-sec .sec-managed-explicit-closed svg{max-width:80px}
+.cfg-balance-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start}
+.cfg-balance-grid>.cfg-setting-group{margin:0}
+.cfg-balance-grid .cfg-setting-fields{grid-template-columns:minmax(0,1fr)}
+.cfg-stage #card-sec .sec-managed-grid{grid-template-columns:repeat(2,minmax(0,1fr))!important;gap:14px;min-width:0}
+.cfg-stage #card-sec .sec-managed-field{min-width:0}
+.cfg-stage #card-sec .sec-managed-field select{width:100%;min-width:0!important}
+.cfg-stage #card-sec .sec-managed-sleeve-head{align-items:center;margin-bottom:14px}
+.cfg-stage #card-sec .sec-managed-sleeve-head input{flex:1 1 auto;width:auto!important;max-width:440px!important;min-width:0}
+.cfg-stage #card-sec .sec-managed-sleeve-head .cx{margin-left:auto;flex:0 0 28px;text-align:center}
+@container stage (max-width:600px){.cfg-setting-fields,.cfg-balance-grid{grid-template-columns:minmax(0,1fr)}.cfg-stage #card-sec .sec-managed-grid{grid-template-columns:minmax(0,1fr)!important}.cfg-stage #card-sec .sec-major-section{padding:16px!important}.cfg-setting-group{padding:14px}.cfg-stage #card-sec .cfg-setting-fields>.crow>select{min-width:0!important;max-width:100%}}
+
+.cfg-stage #card-sec .cfg-liability-component{border:1px solid var(--k-line);border-radius:5px;padding:12px 14px;margin:12px 0;background:var(--k-surface)}
+.cfg-liability-component>summary{cursor:pointer;font-size:13px;line-height:20px;color:var(--k-tx1)}
+.cfg-liability-component>summary>span{float:right;font-size:12px;color:var(--k-tx3);font-weight:400}
+.cfg-liability-component[open]>summary{border-bottom:1px solid var(--k-line);padding-bottom:10px;margin-bottom:14px}
+.cfg-stage #card-sec .sec-funding-panel>.cfg-setting-group>.cfg-setting-fields>.crow{grid-column:auto;gap:8px}
+.cfg-stage #card-sec .sec-funding-panel>.cfg-setting-group>.cfg-setting-fields>.crow:first-child{grid-column:1/-1}
+.cfg-stage #card-sec .cfg-setting-fields>.cmut{grid-column:1/-1;margin:0 0 4px}
 </style>
 </head>
 <body>
@@ -2215,7 +2258,7 @@ function _appbarH(){const a=document.getElementById('appbar');return a?a.offsetH
 function cfgBuildSubnav(){
   document.querySelectorAll('.cfg-subnav').forEach(n=>n.remove());
   const key=window._cfgModule,row=document.querySelector('.cfg-mod.sel'),card=document.getElementById('card-'+key);if(!row||!card||key==='nie')return;
-  const heads=Array.from(card.querySelectorAll('.nie-section-title,.sec-major-title,.tacct>div>.csub:first-child,.tstack>div>.csub:first-child'));if(heads.length<2)return;
+  const heads=Array.from(card.querySelectorAll('.nie-section-title,.sec-major-title,.cfg-setting-group>h3,.tacct>div>.csub:first-child,.tstack>div>.csub:first-child'));if(heads.length<2)return;
   const nav=document.createElement('div');nav.className='cfg-subnav';
   heads.forEach(hd=>{const sp=hd.querySelector('span');const t=((sp?sp.textContent:hd.textContent)||'').trim();if(!t)return;
     const a=document.createElement('a');a.href='#';a.textContent=t;a.title=t;
@@ -12669,7 +12712,7 @@ function structuresSectionsHtml(){
   h += `</div><div class="cfgcard cflex" id="card-sec"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.doc}</span><span><div class="ct">Securities books &amp; AOCI</div><div class="cd">Configure designated books and AOCI sensitivity.</div>${(!_secCardOpen&&_secCardHasContent)?`<div class="nie-section-summary">${esc(_secCardSummary||"Securities configuration loaded")} · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cfgSectionSetOpen('secaoci',${_secCardOpen?'false':'true'})">${_secCardOpen?'Collapse':'Expand'}</button></div>`;
   if(_secCardOpen){
   {
-    let _sb = `<div class="csub">Simple securities books (per-${PLAB()})</div>`;
+    let _sb = `<div class="cfg-setting-group"><h3>Simple securities books</h3><p class="cfg-group-note">Opening balances, additions and runoff per ${PLAB('full')}.</p>`;
     (cfg.assumptions.securities_afs||[]).forEach((b,i)=>{
       _sb += `<div class="sec-book-editor" data-book-kind="AFS"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'AFS')}" value="${esc(b.name||"AFS")}" onchange="cfg.assumptions.securities_afs[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_afs[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_afs[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_afs[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_afs[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove AFS book" onclick="cfg.assumptions.securities_afs.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
@@ -12677,7 +12720,7 @@ function structuresSectionsHtml(){
       _sb += `<div class="sec-book-editor" data-book-kind="HTM"><div class="sec-book-line sec-book-line-top"><label class="sec-book-field"><span class="sec-book-label">Name</span><span class="sec-book-value"><input class="sec-book-name" title="${esc(b.name||'HTM')}" value="${esc(b.name||"HTM")}" onchange="cfg.assumptions.securities_htm[${i}].name=this.value;refresh()"></span></label><label class="sec-book-field"><span class="sec-book-label">Opening balance</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.opening||0)/1000)}" title="opening balance, $000s" onchange="cfg.assumptions.securities_htm[${i}].opening=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label></div><div class="sec-book-line sec-book-line-bottom"><label class="sec-book-field"><span class="sec-book-label">Yield</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.yield_ann||0)*100).toFixed(1)}" title="yield % (annual)" onchange="cfg.assumptions.securities_htm[${i}].yield_ann=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Purchases</span><span class="sec-book-value"><input type="text" inputmode="decimal" value="${fmtComma((b.purchases_per_period||0)/1000)}" title="purchases / additions per ${PLAB('full')}, $000s" onchange="cfg.assumptions.securities_htm[${i}].purchases_per_period=_pf(this.value)*1000;refresh();fmtField(this)"><span class="sec-book-unit">$000s</span></span></label><label class="sec-book-field"><span class="sec-book-label">Growth</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.growth_per_period||0)*100).toFixed(1)}" title="balance growth %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].growth_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><label class="sec-book-field"><span class="sec-book-label">Runoff</span><span class="sec-book-value"><input type="number" step="0.1" value="${((b.runoff_per_period||0)*100).toFixed(1)}" title="runoff / maturities %/${PLAB()}" onchange="cfg.assumptions.securities_htm[${i}].runoff_per_period=_pf(this.value)/100;refresh()"><span class="sec-book-unit">%</span></span></label><a href="#" class="cx sec-book-delete" aria-label="Remove HTM book" onclick="cfg.assumptions.securities_htm.splice(${i},1);renderContent();refresh();return false">\u00d7</a></div></div>`;
     });
     _sb += '<button class="pillbtn" onclick="secAdd(0)">+ Add AFS book</button> <button class="pillbtn" style="margin-left:6px" onclick="secAdd(1)">+ Add HTM book</button>';
-    _sb += '<div class="sec-managed-wrap sec-major-section"><div class="sec-major-title">Managed portfolios</div><div class="cmut">Target-driven books: linked target stock → allocation → maturities/runoff → balancing net purchases/(sales) → ending stock. Instrument names, weights and rates are authored — never hard-coded.</div>';
+    _sb += '</div><div class="sec-managed-wrap sec-major-section"><div class="sec-major-title">Managed portfolios</div><div class="cmut">Set a target balance, then allocate it across securities. Maturities and balancing purchases or sales determine each ending balance.</div>';
     (_managedSecPortfolios()).forEach((mp,mi)=>{
       const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
       _sb += `<div class="sec-managed-portfolio"><div class="sec-managed-portfolio-head"><input class="sec-managed-portfolio-title" style="flex:1 1 auto;width:auto" value="${esc(mp.name||'Managed securities portfolio')}" onchange="_managedSecPortfolios()[${mi}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove managed portfolio" onclick="secManagedDeletePortfolio(${mi});return false">×</a></div>`;
@@ -12718,7 +12761,7 @@ function structuresSectionsHtml(){
     h += `<div class="tstack"><div>${_sb}</div><div>${_ao}</div></div>`;
 
     { const A4 = cfg.assumptions;
-      h += `<div class="sec-major-section"><div class="sec-major-title">Funding waterfall &amp; other balance sheet</div>`;
+      h += `<div class="sec-major-section sec-funding-panel"><div class="sec-major-title">Funding &amp; balance-sheet settings</div><div class="cfg-setting-group"><h3>Funding allocation</h3><p class="cfg-group-note">Set how unallocated funds, cash reserves and borrowing are priced.</p><div class="cfg-setting-fields">`;
       h += `<div class="crow" style="align-items:center">Unallocated funding<select aria-label="Unallocated funding" onchange="cfg.assumptions.surplus_allocation_policy=this.value;renderContent();refresh()"><option value="cash"${_surplusAllocationPolicy(cfg)==='cash'?' selected':''}>Hold in cash</option><option value="residual_securities"${_surplusAllocationPolicy(cfg)==='residual_securities'?' selected':''}>Invest surplus in securities</option>${cfg.parity_profile==='pf_b'?`<option value="legacy_split"${_surplusAllocationPolicy(cfg)==='legacy_split'?' selected':''}>Preserved legacy split</option>`:''}</select></div>`;
       h += `<div class="cmut" style="margin-bottom:8px">${_surplusAllocationDescription()}</div>`;
       h += `<div class="crow" style="align-items:center">Cash floor<input type="number" step="0.1" style="width:56px" value="${((A4.cash_target_pct_deposits||0)*100).toFixed(1)}" onchange="cfg.assumptions.cash_target_pct_deposits=_pf(this.value)/100;refresh()"><span class="cu">% of deposits</span></div>`;
@@ -12726,10 +12769,11 @@ function structuresSectionsHtml(){
       h += `<div class="crow" style="align-items:center">Residual securities yield<input type="number" step="0.1" style="width:56px" value="${((A4.securities_yield||0)*100).toFixed(1)}" onchange="cfg.assumptions.securities_yield=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Borrowing rate<input type="number" step="0.1" style="width:56px" value="${((A4.borrow_rate_ann||0)*100).toFixed(1)}" onchange="cfg.assumptions.borrow_rate_ann=_pf(this.value)/100;refresh()"><span class="cu">% annual</span></div>`;
       h += `<div class="crow" style="align-items:center">Other assets<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_assets||0)/1000)}" onchange="cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
+      h += `</div></div>`;
       { const ib=_ibState(false), on=!!(ib&&ib.enabled);
         h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Interest-bearing balances</div><div class="cmut">Affiliated-bank cash, operating cash, fiduciary AUA and Federal Reserve stock. All assumptions default to zero.</div></div><label><input type="checkbox" ${on?'checked ':''}onchange="ibEnable(this.checked)"> Model</label></div>`;
         if(on){const b='assumptions.interest_balance_model.', src=['link','fee_stream_quantity'].includes((ib.mab_source||{}).source)?(ib.mab_source||{}).source:'entered',opts=src==='fee_stream_quantity'?_ibFeeQuantityOptions():_feeCustomerCountOptions(),sid=String((ib.mab_source||{}).series_id||'');
-          h += `<div class="crow"><span class="sec-book-label">MAB / bank customers</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option><option value="fee_stream_quantity"${src==='fee_stream_quantity'?' selected':''}>Link Fee Stream quantity</option></select></div>`;
+          h += `<div class="cfg-setting-group"><h3>Fiduciary balances</h3><p class="cfg-group-note">Customer activity drives balances under administration. Amounts per customer are entered in dollars.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">MAB / bank customers</span><select onchange="ibMabMode(this.value)"><option value="entered"${src==='entered'?' selected':''}>Enter series</option><option value="link"${src==='link'?' selected':''}>Link Customer Acquisition</option><option value="fee_stream_quantity"${src==='fee_stream_quantity'?' selected':''}>Link Fee Stream quantity</option></select></div>`;
           if(src!=='entered')h += `<div class="crow"><select style="min-width:280px" onchange="ibMabLink(this.value)">${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===sid?' selected':''}>${esc(o.label)}</option>`).join('')}</select><span class="cu">${src==='link'?'period-end count':'canonical stream quantity'}</span></div>`;
           else h += _faSeriesEditor(b+'mab_spec',ib.mab_spec,'MAB count','count',false);
           h += _faSeriesEditor(b+'scenario_rate_spec',ib.scenario_rate_spec,'Scenario Fed Funds rate','rate',false);
@@ -12738,15 +12782,16 @@ function structuresSectionsHtml(){
           h += _faSeriesEditor(b+'boost_attach_rate_spec',ib.boost_attach_rate_spec,'Boost attach rate','rate',false);
           h += _faSeriesEditor(b+'avg_interest_balance_per_mab_spec',ib.avg_interest_balance_per_mab_spec,'Avg interest-bearing balance / MAB','dollars',false);
           h += _faSeriesEditor(b+'customer_cost_rate_spec',ib.customer_cost_rate_spec,'Customer cost rate','rate',false);
-          h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period (use 2 when M1 is opening/setup)</span></div>`;
+          h += `</div></div><div class="cfg-balance-grid"><div class="cfg-setting-group"><h3>Affiliated-bank cash</h3><p class="cfg-group-note">Interest uses the scenario Fed Funds rate above.</p><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest begins</span><input type="number" min="1" step="1" style="width:72px" value="${Math.max(1,Math.round(+(ib.affiliated_cash_interest_start_period||1)))}" onchange="ibAffiliateStart(this.value)"><span class="cu">model period</span></div>`;
           {const _basisOpts=[['current_end','Current period end'],['prior_end','Prior period end'],['average','Average of prior and current']];
             h += `<div class="crow"><span class="sec-book-label">Affiliated-bank interest balance</span><select onchange="ibCashInterestBasis('affiliated_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.affiliated_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;
-            h += `<div class="crow"><span class="sec-book-label">Operating-cash interest balance</span><select onchange="ibCashInterestBasis('operating_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.operating_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;}
+            h += `</div></div><div class="cfg-setting-group"><h3>Operating cash</h3><div class="cfg-setting-fields"><div class="crow"><span class="sec-book-label">Interest balance</span><select onchange="ibCashInterestBasis('operating_cash_interest_basis',this.value)">${_basisOpts.map(x=>`<option value="${x[0]}"${(ib.operating_cash_interest_basis||'current_end')===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select></div>`;}
           h += _faSeriesEditor(b+'operating_cash_ratio_spec',ib.operating_cash_ratio_spec,'Operating cash / prior equity','rate',false);
           h += _faSeriesEditor(b+'operating_cash_yield_spec',ib.operating_cash_yield_spec,'Operating cash yield','rate',false);
+          h += `</div></div><div class="cfg-setting-group"><h3>Federal Reserve stock</h3><div class="cfg-setting-fields">`;
           h += _faSeriesEditor(b+'frb_stock_ratio_spec',ib.frb_stock_ratio_spec,'FRB stock / prior equity','rate',false);
           h += _faSeriesEditor(b+'frb_stock_yield_spec',ib.frb_stock_yield_spec,'FRB stock yield','rate',false);
-          h += `<div class="cmut">M1 operating cash and FRB stock are zero. Thereafter each uses prior-period equity, avoiding circularity. Per-MAB paste values are dollars, not $000s.</div>`;
+          h += `</div></div></div><div class="cmut">M1 operating cash and FRB stock are zero. Thereafter each uses prior-period equity.</div>`;
         } h += `</div>`;
       }
       { const _olm=_olState(false), _olModeNow=_olMode();
@@ -12761,12 +12806,12 @@ function structuresSectionsHtml(){
           h += _faSeriesEditor('assumptions.other_liabilities_model.base_spec',_olmActive.base_spec||{source:'entered',trajectory:'flat',value:0},'Base liability level','money',false);
           h += `<div class="cmut" style="margin:3px 0 7px">The base level is seeded from the prior flat Other liabilities balance for backward compatibility. Set it to zero if linked components replace that balance rather than add to it.</div>`;
           (_olmActive.components||[]).forEach((c,i)=>{const opts=_olDriverOptions(),terms=_olTermsView(c);
-            h += `<div class="sec-managed-sleeve" style="margin-top:8px"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(c.name||('Liability component '+(i+1)))}" onchange="olName(${i},this.value)"><a href="#" class="cx" aria-label="Remove liability component" onclick="olRemoveComponent(${i});return false">×</a></div>`;
+            h += `<details class="sec-managed-sleeve cfg-liability-component" ${window._liabilityUiOpen&&window._liabilityUiOpen[i]?'open':''} ontoggle="window._liabilityUiOpen=window._liabilityUiOpen||{};window._liabilityUiOpen[${i}]=this.open"><summary><strong>${esc(c.name||('Liability component '+(i+1)))}</strong><span>${terms.length} formula term${terms.length===1?'':'s'}</span></summary><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(c.name||('Liability component '+(i+1)))}" onchange="olName(${i},this.value)"><a href="#" class="cx" aria-label="Remove liability component" onclick="olRemoveComponent(${i});return false">×</a></div>`;
             terms.forEach((t,j)=>{const dv=_olDriverValue(t),link=(((t.driver_spec||{}).link)||{}),isW=link.kind==='workforce_role_count',mp=t._legacy?`assumptions.other_liabilities_model.components.${i}.multiplier_spec`:`assumptions.other_liabilities_model.components.${i}.terms.${j}.multiplier_spec`;
               h += `<div class="sec-managed-grid" style="margin-top:${j?8:2}px;padding-top:${j?8:0}px;${j?'border-top:1px solid #2A2A2A;':''}"><div class="sec-managed-field"><label>Formula term ${j+1} · Driver Series</label><select onchange="olDriver(${i},${j},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div><div style="display:flex;justify-content:flex-end;align-items:flex-start"><button class="btn-plain" style="color:#C77" onclick="olRemoveTerm(${i},${j});return false">Remove term</button></div>`;
               h += `<div style="grid-column:1/-1">${_faSeriesEditor(mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'Liability per FTE':'Multiplier',isW?'multiplier':'multiple',false)}</div></div>`;
             });
-            h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddTerm(${i})">+ Add formula term</button></div>`;
+            h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddTerm(${i})">+ Add formula term</button></details>`;
           });
           h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddComponent()">+ Add liability component</button>`;
           h += `<div class="cmut" style="margin-top:6px">Each named liability is the sum of linked Series × multiplier terms. Signed multipliers are allowed; the total liability balance must remain non-negative.</div>`;
