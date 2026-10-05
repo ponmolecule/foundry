@@ -24,7 +24,7 @@ PINNED_R283 = {**PINNED_R230,
 PINNED_CURRENT = {
     "foundry/fixtures/core_bank_test_base.json": "f4aa646c3180",
     "foundry/fixtures/patrick_default_v31.json": "6d7e75a3ea0d",
-    "foundry/fixtures/universal_template_bank.json": "cef1ab6b99c5",
+    "foundry/fixtures/universal_template_bank.json": "6fd77a2f45fe",   # r292: template FDIC assessment 5 bp -> 0 bp (pretax +684.5, tax +143.7, NI +540.7 $000s over the horizon)
 }
 
 

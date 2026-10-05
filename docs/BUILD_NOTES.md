@@ -1565,3 +1565,13 @@ Built on r290. Presentation and input only; engine and the in_service_period fie
 - Letters and symbols cannot be typed or pasted in; empty or out-of-range entries are refused with a message (the
   saved value is kept), never silently clamped. The asset table shows "Opening" / "M12" and keeps showing the saved
   value while an entry is refused.
+
+
+## r292 (Claude) — FDIC assessment defaults to 0 bp
+
+Built on r291. Every code default was already 0 bp (engine fallback REG_PARAMS, new-engagement defaults, display
+of an unset rate, FIW note "default 0"); the universal template fixture alone set 5.0 bp, and it seeds the
+downloadable universal template workbook. It now stores 0.0. Effect on the template (36 months, $000s):
+pretax +684.5, tax +143.7 (21%), net income +540.7; the other four fixtures are identical. The template's current
+fingerprint pin moves from cef1ab6b99c5 to 6fd77a2f45fe. Saved engagements keep whatever rate they store; an
+explicit rate is still honoured. Guarded by tests_r292_fdic_default.
