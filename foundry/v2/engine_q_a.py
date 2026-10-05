@@ -947,6 +947,9 @@ def run_pf_a(cfg):
         a, _cac_customer_count_series, Q, ppy,
         fee_stream_quantities=_fee_stream_qty_series, growth_context=_growth_ctx)
 
+    from .balance_components import prepare as prepare_balance_components
+    _bcm = prepare_balance_components(a, _cac_customer_count_series, _fee_stream_qty_series, Q, ppy, _growth_ctx)
+
     # ---- aggregation ----
     def z():
         return [0.0] * (Q + 1)
@@ -976,7 +979,7 @@ def run_pf_a(cfg):
             # Explicit policy owns surplus routing independently of module activation.
             # Unversioned legacy inputs retain the historical module-based behavior.
             policy = a.get("surplus_allocation_policy")
-            hold_cash = policy == "cash" or (policy is None and (_managed_sec or _ibm))
+            hold_cash = policy == "cash" or (policy is None and (_managed_sec or _ibm or _bcm))
             if hold_cash:
                 return investable, 0.0, 0.0
             return req_cash, investable - req_cash, 0.0
@@ -992,7 +995,9 @@ def run_pf_a(cfg):
     equity0 = capital + day_one
     sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p) + _managed_open_afs + _managed_open_htm
     ne_q[0] = 0
-    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0])
+    _bc_open = _bcm.opening_totals() if _bcm else {}
+    c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0],
+                       required_cash=_bc_open.get('cash_allocation', 0), extra_assets=_bc_open.get('earning_asset', 0))
 
     bs = {k: z() for k in ("cash", "affiliatedCash", "operatingCash", "frbStock",
                              "fiduciaryAuaNonInterest", "fiduciaryAuaInterest", "fiduciaryAuaTotal",
@@ -1019,6 +1024,12 @@ def run_pf_a(cfg):
                    "frbStockInt", "fiduciaryDepExp"):
             is_[_k] = [None] * (Q + 1)
 
+    if _bcm:
+        bs['earningAssets'] = z(); bs['offBookBalances'] = z()
+        bs['earningAssets'][0] = _bc_open.get('earning_asset', 0)
+        bs['offBookBalances'][0] = _bc_open.get('off_book', 0)
+        bs['totalAssets'][0] += bs['earningAssets'][0]
+
     re, nol = day_one, 0.0
     from .tax_interim import InterimTaxLedger, MONEY_SERIES
     _tax_ledger = InterimTaxLedger(cfg, a, ppy)
@@ -1028,11 +1039,15 @@ def run_pf_a(cfg):
     bs["dta"][0] = _tax_ledger.opening_dta
     if _tax_ledger.opening_dta:
         c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0,
-                          non_earn_t[0] + _tax_ledger.opening_dta)
+                          non_earn_t[0] + _tax_ledger.opening_dta,
+                          required_cash=_bc_open.get('cash_allocation', 0), extra_assets=_bc_open.get('earning_asset', 0))
         bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
         if _ibm:
             bs["affiliatedCash"][0] = c0
         bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn + _tax_ledger.opening_dta
+    if _bcm:
+        _bcm.set_opening_cash(bs['cash'][0])
+        bs['totalAssets'][0] += (_bc_open.get('earning_asset', 0) if _tax_ledger.opening_dta else 0)
     # ---- credit_regime module (ASC 326 presentation): decomposes the SAME
     # provision into day-one (retained originations x lifetime EL rate),
     # reserve build/(release) on the existing book, and NCO replenishment.
@@ -1225,8 +1240,19 @@ def run_pf_a(cfg):
         _fid_total = _fid_ni + _fid_ib
         _fid_dep_exp = (_fid_ib * _ibm["customer_cost_rate_spec"][_ib_i] / ppyf
                         if _ibm else 0.0)
+        _bc_bank = {('prior_period','equity'):bs['equity'][q-1],
+                    ('prior_period','total_assets'):bs['totalAssets'][q-1],
+                    ('prior_period','deposits'):deps_b[q-1],('current_period','deposits'):deps_b[q]}
+        _bc_stocks = _bcm.stocks(_ib_i, _bc_bank) if _bcm else {}
+        _bc_pre = []
+        if _bcm:
+            _operating_cash = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='cash_allocation')
+            _frb_stock = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='earning_asset')
+            _bc_pre, _ = _bcm.period(_ib_i,_bc_bank,_bc_stocks,_operating_cash,0,bs['cash'][q-1])
+            dep_exp += sum(x['cost'] for x in _bc_pre if x['cost_line']=='interest_expense')
         dep_exp += _fid_dep_exp
         fees = sum(p["_fee"][q] for p in lend + dep + obs)
+        if _bcm: fees += sum(x['income'] for x in _bc_pre if x['income_line']=='fee')
         # VERIFIED CORRECT: cap engages exactly on the Reg II effective date. For a bank crossing
         # $10B at the 2027 calendar year-end (opening 2027-Q1 -> period 4), the cap engages at loop
         # period 7 = 2028-Q3 = July 1 2028, the regulatory effective date. (The IS output arrays are
@@ -1282,6 +1308,7 @@ def run_pf_a(cfg):
                     is_.setdefault("durbinCap", [None] * (Q + 1))
                     is_["durbinCap"][q] = (is_["durbinCap"][q] or 0.0) + _overage
         prod_ox = sum(p["_ox"][q] for p in lend + dep + obs)
+        if _bcm: prod_ox += sum(x['cost'] for x in _bc_pre if x['cost_line']=='operating_expense')
         nco = sum(p["_co"][q] for p in lend)
         gos = sum(p["_gos"][q] for p in lend)
         srv = sum(p["_snet"][q] for p in lend)
@@ -1456,6 +1483,10 @@ def run_pf_a(cfg):
                 fiduciary_aua_int = _fid_total * _ibm["scenario_rate_spec"][_ib_i] / ppyf
                 frb_stock_int = _frb_stock * _ibm["frb_stock_yield_spec"][_ib_i] / ppyf
                 cash_int = affiliated_cash_int + operating_cash_int + fiduciary_aua_int + frb_stock_int
+            elif _bcm:
+                _affiliated_cash = max(0.0,c-_operating_cash)
+                _bc_final, _bc_unassigned = _bcm.period(_ib_i,_bc_bank,_bc_stocks,c,a['cash_yield'],beg_c)
+                cash_int = _bc_unassigned + sum(x['income'] for x in _bc_final if x['income_line']=='interest')
             else:
                 _affiliated_cash = c
                 affiliated_cash_int = operating_cash_int = fiduciary_aua_int = frb_stock_int = 0.0
@@ -1522,6 +1553,10 @@ def run_pf_a(cfg):
                 break
         if not _solver_converged:
             raise ValueError(f"Period {q}: income/equity/tax-asset solve did not converge; no financial results published")
+        if _bcm:
+            _bcm.commit(_bc_final)
+            bs['earningAssets'][q] = _frb_stock
+            bs['offBookBalances'][q] = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='off_book')
         if _managed_sec:
             commit_managed_snapshot(_managed_sec, _managed_snapshot)
         if _wf_runtime is not None:
@@ -1710,6 +1745,10 @@ def run_pf_a(cfg):
         for _k in ("affiliatedCash", "operatingCash", "frbStock", "fiduciaryAuaNonInterest",
                    "fiduciaryAuaInterest", "fiduciaryAuaTotal", "mabCount"):
             _out["bs"][_k] = list(bs[_k])
+    if _bcm:
+        _out['balance_components'] = _bcm.audit()
+        _out['bs']['earningAssets'] = list(bs['earningAssets'])
+        _out['bs']['offBookBalances'] = list(bs['offBookBalances'])
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
         _out["other_liabilities_detail"] = other_liability_audit_payload(

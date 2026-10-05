@@ -192,12 +192,23 @@ def _conv_tax_interim(block):
                      for row in block.get("rows") or []]}
 
 
+def _conv_balance_components(block):
+    rows=[]
+    for c in block.get('components') or []:
+        r=dict(c)
+        r['opening']=_k(c['opening'])
+        for k in ('ending','interest_balance','income','cost'):r[k]=[_k(v) for v in c[k]]
+        rows.append(r)
+    return {'components':rows,'units':'$000s; annual_rate, annual_cost_rate and risk_weight are decimal rates'}
+
+
 def _conv(tree, is_ratio=False, raw=False):
     # ftp_rate is a per-quarter decimal rate CONSUMED to compute the dollar FTP charge (not a
     # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
     # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
-        return {k: (_conv_tax_interim(v) if k == "tax_interim" else
+        return {k: (_conv_balance_components(v) if k == "balance_components" else
+                    _conv_tax_interim(v) if k == "tax_interim" else
                     _conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else
                     _conv_other_liabilities(v) if k == "other_liabilities_detail" else

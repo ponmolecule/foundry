@@ -1535,3 +1535,8 @@ Built on r287 (e8ff522, deployed). Engine untouched; every control keeps its han
 - Browser checks at 1280 / 1440 / 1920 px with interest-bearing balances on, four explicit schedules and a linked
   driver: zero overlapping sibling boxes, nothing past a card edge, no truncated or wrapped schedule summaries,
   collapse on arrival; narrow stages stack each band's header above its fields.
+
+
+## r289 (GPT) — Named balance components and capital presentation
+
+Built directly on r288 (8701c60). Generic, user-named typed balance components replace the fixed four-category structure for new authoring. Existing models retain the unchanged legacy calculation contract; adoption is explicit and reversible. Named accounting destinations, shared inputs, unit validation, income/cost bases, opening stocks and component risk weights are audited. Pre-opening and scheduled assets use summary tables with selected-item editors and top actions; formula assets have distinct opening/derivation/depreciation groups. See R289_RELEASE_NOTES.md and R289_VALIDATION.md.

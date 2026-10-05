@@ -333,7 +333,7 @@ def results_workbook_v2(cfg, res):
             ws.append([label, key, c[0], c[1], c[2]] + shown)
 
     n_bs = len(res["bs"]["totalAssets"])
-    sheet_from_layout(wb.create_sheet("Balance Sheet"), present.BS_LAYOUT, res["bs"], n_bs, n_bs == _np + 1)
+    sheet_from_layout(wb.create_sheet("Balance Sheet"), present.bs_layout_for_results(res), res["bs"], n_bs, n_bs == _np + 1)
     n_is = len(res["is"]["ni"])
     sheet_from_layout(wb.create_sheet("Income Statement"), present.IS_LAYOUT, res["is"], n_is, False)
 

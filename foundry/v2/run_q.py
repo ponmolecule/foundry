@@ -699,6 +699,8 @@ def run_v2(cfg):
     if base.get("other_liabilities_detail") is not None:
         results["other_liabilities"] = copy.deepcopy(base.get("other_liabilities_detail"))
         results["other_liabilities"]["units"] = "$000s for monetary fields; Workforce Count drivers are native counts; Fixed Asset drivers are $000s; fixed-asset multipliers are signed dimensionless"
+    if base.get('balance_components') is not None:
+        results['balance_components'] = copy.deepcopy(base['balance_components'])
     if base.get("managed_securities") is not None:
         results["managed_securities"] = copy.deepcopy(base.get("managed_securities"))
         results["managed_securities_units"] = {
@@ -907,7 +909,7 @@ def run_v2(cfg):
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
         "line_labels": present.LINE_LABELS, "loan_keys": present.LOAN_KEYS, "dep_keys": present.DEP_KEYS,
-        "bs_layout": present.BS_LAYOUT, "is_layout": present.IS_LAYOUT,
+        "bs_layout": present.bs_layout_for_results(base), "is_layout": present.IS_LAYOUT,
         "ratio_labels": present.RATIO_LABELS, "scenario_labels": present.SCENARIO_LABELS,
         "derived": present.derived_lines(base, cfg),
         "product_codes": {p["name"]: (code_for_line(p.get("line")) or ["", "", "", ""])
@@ -997,6 +999,15 @@ def run_v2(cfg):
             "msr": max(0.0, msrq[t] - msa_x[t]) * RW["msr_nondeducted"],
             "off_balance_sheet": obs_notional[t] * CCF["default"] * RW["corporate_consumer_cre"],
         }
+        if base.get('balance_components') is not None:
+            _component_cash = _component_cash_rwa = _component_asset_rwa = 0.0
+            for _bc in base['balance_components'].get('components') or []:
+                _value = float((_bc.get('ending') or [0]*nq2)[t])
+                if _bc['treatment'] in {'cash_allocation','residual_cash'}:
+                    _component_cash += _value; _component_cash_rwa += _value*float(_bc.get('risk_weight') or 0)
+                elif _bc['treatment']=='earning_asset':_component_asset_rwa += _value*float(_bc.get('risk_weight') or 0)
+            _parts['cash_at_depositories'] = _component_cash_rwa + max(0.0,cashq[t]-_component_cash)*cab*RW['bank_exposures']
+            _parts['other_assets'] += _component_asset_rwa
         rwa = sum(_parts.values())
         for _k, _v in _parts.items():
             rwa_components[_k].append(_v)
