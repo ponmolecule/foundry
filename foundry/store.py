@@ -135,6 +135,8 @@ def list_engagements(user=None):
                         "name": display,
                         "is_draft": is_draft,
                         "bank": cfg.get("client_legal_name") or cfg.get("proposed_bank") or "",
+                        # r293: the bank as the header shows it (proposed name first); versions are grouped by it
+                        "bank_display": cfg.get("proposed_bank") or cfg.get("client_legal_name") or "",
                         "config_schema_version": cfg.get("config_schema_version")})
         except Exception:
             out.append({"slug": slug, "name": slug + " (unreadable)",
