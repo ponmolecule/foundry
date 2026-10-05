@@ -2240,6 +2240,74 @@ body.fd-canvas #content>.pg-crumb{max-width:1440px;margin-left:auto;margin-right
 #content #fsx-s4 .fsx-b>.sec-major-section{padding-left:0!important;padding-right:0!important}
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
+
+/* r287: bounded fields and deliberate product groups inside expanded securities sections. */
+#content #card-sec .fsx-b .fsx-fields{display:grid!important;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 20px;align-items:start}
+#content #card-sec .fsx-b .fsx-field{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px 8px;border:0!important;padding:0!important;margin:0!important;min-width:0;min-height:32px;grid-column:auto!important}
+#content #card-sec .fsx-b .fsx-field>.fsx-label{flex:0 0 100%;font-size:12px;font-weight:500;line-height:1.4;color:var(--k-tx1)}
+#content #card-sec .fsx-b .fsx-field input:not([type=checkbox]){width:100px!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .fsx-b .fsx-field select{width:auto!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .fsx-b .fsx-note{grid-column:1/-1;font-size:11.5px;line-height:1.5;margin:0!important;color:var(--k-tx3)}
+#content #card-sec .fsx-b .fsx-span{grid-column:1/-1!important}
+#content #card-sec .fsx-b .fsx-product{border:1px solid var(--k-line)!important;border-radius:6px!important;padding:14px 16px!important;margin:14px 0!important;background:var(--k-surface)!important}
+#content #card-sec .fsx-b .fsx-product>h3{font-size:13px!important;letter-spacing:0!important;text-transform:none!important;color:var(--k-tx1)!important;font-weight:650!important;margin:0 0 5px!important}
+#content #card-sec .fsx-b .fsx-product>.cfg-group-note{margin:0 0 12px!important}
+#content #card-sec .fsx-b .fsx-products{display:grid!important;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr))!important;gap:14px}
+#content #card-sec .fsx-b .fsx-products>.fsx-product{margin:0!important}
+#content #card-sec .fsx-b .fsx-products .fsx-fields{grid-template-columns:minmax(0,1fr)}
+#content #card-sec .fsx-b .fsx-series{border:0!important;min-width:0;padding:0!important;margin:0!important;display:grid!important;grid-template-columns:minmax(0,1fr);gap:6px;background:transparent!important}
+#content #card-sec .fsx-b .fsx-series>.sec-managed-series-row{display:flex!important;flex-wrap:wrap;gap:6px 8px;min-height:0!important;padding:0!important;margin:0!important;min-width:0}
+#content #card-sec .fsx-b .fsx-series>.sec-managed-series-row:first-child>.sec-book-label{flex:0 0 100%;margin:0!important;font-size:12px!important;font-weight:500!important;line-height:1.4}
+#content #card-sec .fsx-b .fsx-series select{width:auto!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .fsx-b .fsx-series input{width:100px!important;max-width:100%!important;min-width:0!important}
+#content #card-sec .fsx-b .fsx-series .sec-managed-explicit-closed{display:flex!important;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:0!important;min-width:0}
+#content #card-sec .fsx-b .fsx-series .sec-managed-explicit-summary{font-size:11px;line-height:1.5;min-width:0;flex:1 1 160px;overflow-wrap:anywhere}
+#content #card-sec .fsx-b .fsx-series .sec-managed-explicit-closed svg{width:64px;max-width:64px;height:22px;flex:0 0 64px}
+#content #card-sec .fsx-b .fsx-series .sec-managed-explicit-closed button{flex:0 0 auto;margin:0!important;padding:4px 8px!important;font-size:11px!important}
+#content #card-sec .fsx-b .fsx-source{display:flex!important;flex-wrap:wrap;gap:5px 10px!important;grid-column:1/-1!important;padding:8px 10px!important;background:var(--k-surface2)!important;border-radius:4px}
+#content #card-sec .fsx-b .fsx-source select{width:100%!important;max-width:100%!important;min-width:0!important;flex:1 1 100%}
+#content #card-sec .fsx-b .fsx-source .cu{display:block;flex:1 1 100%;white-space:normal;line-height:1.4}
+#content #card-sec .fsx-b .cfg-liability-component{border:1px solid var(--k-line)!important;border-radius:6px!important;padding:12px 14px!important;margin:12px 0!important;background:var(--k-surface)!important}
+#content #card-sec .fsx-b .cfg-liability-component>summary{display:flex;align-items:center;gap:8px;list-style:none;cursor:pointer}
+#content #card-sec .fsx-b .cfg-liability-component>summary::before{content:'›';font-size:18px;color:var(--k-tx3);line-height:1;transition:transform .15s}
+#content #card-sec .fsx-b .cfg-liability-component[open]>summary::before{transform:rotate(90deg)}
+#content #card-sec .fsx-b .cfg-liability-component>summary>span{margin-left:auto;float:none}
+#content #card-sec .fsx-b .sec-managed-sleeve-head input.sec-managed-sleeve-name{width:min(320px,calc(100% - 36px))!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .fsx-b .fsx-liability-term{display:grid!important;grid-template-columns:minmax(0,1.4fr) minmax(180px,1fr) auto!important;gap:12px;align-items:start}
+#content #card-sec .fsx-b .fsx-liability-term>div{min-width:0;grid-column:auto!important}
+#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(2){grid-column:3!important;grid-row:1;align-self:center}
+#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(3){grid-column:2!important;grid-row:1}
+#content #card-sec .fsx-b .sec-managed-field select{width:auto!important;min-width:0!important;max-width:100%!important}
+#content #card-sec .fsx-b .fsx-liability-term .sec-managed-field select{width:100%!important}
+#content #card-sec .fsx-b .fsx-liability-term .btn-plain{font-size:11px;padding:4px}
+#content #card-sec .fsx-b .sec-managed-portfolio{padding:16px!important;margin:14px 0!important}
+#content #card-sec .fsx-b .sec-managed-portfolio-head input.sec-managed-portfolio-title{width:min(360px,calc(100% - 36px))!important;min-width:0!important}
+#content #card-sec .fsx-b .fsx-target{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px 16px;align-items:start;margin:12px 0!important;padding:12px!important;background:var(--k-surface2);border-radius:5px}
+#content #card-sec .fsx-b .fsx-target>.fsx-series{grid-column:1/-1}
+#content #card-sec .fsx-b .fsx-security-fields{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:14px 16px!important}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series{grid-column:1/-1!important;padding-top:10px!important;border-top:1px solid var(--k-line)!important}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:first-child>.sec-book-label{flex:0 0 160px}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:not(:first-child){margin-left:168px!important}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-explicit-closed{margin-left:168px!important}
+#content #card-sec .fsx-b .fsx-security-fields>.cmut{grid-column:1/-1}
+#content #card-sec .fsx-b .cfg-md-detail{max-width:none}
+@media(max-width:1100px){#content #card-sec .fsx-b .fsx-fields,#content #card-sec .fsx-b .fsx-products{grid-template-columns:minmax(0,1fr)}#content #card-sec .fsx-b .fsx-liability-term{grid-template-columns:minmax(0,1fr) auto!important}#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(2){grid-column:2!important}#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(3){grid-column:1/-1!important;grid-row:auto}}
+@media(max-width:700px){#content #card-sec .fsx-b .fsx-target,#content #card-sec .fsx-b .fsx-security-fields{grid-template-columns:minmax(0,1fr)!important}#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:not(:first-child),#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-explicit-closed{margin-left:0!important}.fsx-h{flex-wrap:wrap}#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:first-child>.sec-book-label{flex:0 0 100%}}
+
+#content #card-sec #fsx-s1 .fsx-fields{grid-template-columns:repeat(3,minmax(0,1fr))!important;gap:12px 20px}
+@media(max-width:1100px){#content #card-sec #fsx-s1 .fsx-fields{grid-template-columns:repeat(2,minmax(0,1fr))!important}}
+@media(max-width:700px){#content #card-sec #fsx-s1 .fsx-fields{grid-template-columns:minmax(0,1fr)!important}}
+#content #card-sec .fsx-b .fsx-fields>.fsx-series{grid-column:auto!important}
+#content #card-sec .fsx-b .sec-managed-sleeve-head input.sec-managed-sleeve-name{flex:0 1 320px!important;max-width:320px!important}
+#content #card-sec .fsx-b .sec-managed-sleeve-head .cx{margin-left:auto!important}
+@container stage (max-width:700px){
+#content #card-sec .fsx-b .fsx-fields,#content #card-sec .fsx-b .fsx-products,#content #card-sec .fsx-b .fsx-target,#content #card-sec .fsx-b .fsx-security-fields,#content #card-sec #fsx-s1 .fsx-fields{grid-template-columns:minmax(0,1fr)!important}
+#content #card-sec .fsx-b .fsx-liability-term{grid-template-columns:minmax(0,1fr) auto!important}
+#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(2){grid-column:2!important}
+#content #card-sec .fsx-b .fsx-liability-term>div:nth-child(3){grid-column:1/-1!important;grid-row:auto}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:not(:first-child),#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-explicit-closed{margin-left:0!important}
+#content #card-sec .fsx-b .fsx-security-fields>.fsx-series>.sec-managed-series-row:first-child>.sec-book-label{flex:0 0 100%}
+}
 /* r286: data-check catalogue */
 .gq-cat{margin-top:22px;border-top:1px solid #e2e0d9;padding-top:14px}
 .gq-cat-h{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}.gq-cat-h b{font-size:14px}.gq-cat-h span{font-size:12px;color:#8a867d}
@@ -9575,7 +9643,7 @@ function _fsxSummary(k,root){   // root: the block (first render) or the whole s
   if(k==='s1'){
     out.push(['Unallocated',a.surplus_allocation_policy==='residual_securities'?'Residual securities':'Hold in cash']);
     (root?[...root.querySelectorAll('.crow')]:[]).forEach(r=>{ const inp=r.querySelector('input'); if(!inp) return;
-      const lab=[...r.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join(' ').trim()||(r.querySelector('label,.sec-book-label')||{}).textContent||'';
+      const lab=[...r.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join(' ').trim()||(r.querySelector('label,.sec-book-label,.fsx-label')||{}).textContent||'';
       const u=(r.querySelector('.cu')||{}).textContent||''; if(lab) out.push([lab.replace(/:$/,''),inp.value+(u?' '+u.trim():'')]); });
   } else if(k==='s2'){
     const cb=root&&root.querySelector('.fsx-include input[type=checkbox], .sec-managed-sleeve-head input[type=checkbox]');
@@ -9601,6 +9669,49 @@ function _fsxSummary(k,root){   // root: the block (first render) or the whole s
   }
   return out.slice(0,6);
 }
+// Presentation only: move existing nodes, preserving every value, handler and paste surface.
+function _layoutExpandedSecurities(card){
+  const bodies=[...card.querySelectorAll('.fsx-b')].filter(b=>b.parentElement.id!=='fsx-s4');
+  bodies.forEach(body=>{
+    body.querySelectorAll('.cfg-setting-fields').forEach(fields=>{
+      fields.classList.add('fsx-fields');
+      [...fields.children].forEach(el=>{
+        if(el.classList.contains('cmut'))el.classList.add('fsx-note');
+        if(!el.classList.contains('crow'))return;
+        el.classList.add('fsx-field');
+        const texts=[...el.childNodes].filter(n=>n.nodeType===3&&n.textContent.trim());
+        if(texts.length){const label=document.createElement('span');label.className='fsx-label';texts[0].before(label);texts.forEach(n=>label.appendChild(n));}
+        const label=el.querySelector(':scope>.sec-book-label');if(label)label.classList.add('fsx-label');
+        if(el.querySelector('select[onchange*="ibMabLink"]'))el.classList.add('fsx-source');
+      });
+    });
+    body.querySelectorAll('.sec-managed-series').forEach(el=>{
+      el.classList.add('fsx-series');
+      const rows=[...el.children].filter(r=>r.classList.contains('sec-managed-series-row'));
+      const first=rows[0];
+      rows.slice(1).filter(r=>r.querySelector('select[onchange*="SeriesCadence"],select[onchange*="SeriesPeriod"]')).forEach(r=>{while(r.firstChild)first.appendChild(r.firstChild);r.remove();});
+    });
+    body.querySelectorAll('select').forEach(el=>{el.setAttribute('data-nofit','');el.style.removeProperty('min-width');});
+  });
+  const fund=card.querySelector('#fsx-s1 .fsx-fields');
+  if(fund){const first=fund.querySelector('.fsx-field');if(first)first.classList.add('fsx-span');}
+  card.querySelectorAll('#fsx-s2 .cfg-setting-group').forEach(g=>g.classList.add('fsx-product'));
+  const fiduciary=card.querySelector('#fsx-s2 .fsx-product .fsx-fields');
+  if(fiduciary){
+    const order=['scenario_rate_spec','customer_cost_rate_spec','deposit_attach_rate_spec','avg_noninterest_balance_per_mab_spec','boost_attach_rate_spec','avg_interest_balance_per_mab_spec'];
+    order.forEach(path=>{const el=[...fiduciary.children].find(n=>n.querySelector('[onchange*="'+path+'"]'));if(el)fiduciary.appendChild(el);});
+  }
+  const cash=card.querySelector('#fsx-s2 .cfg-balance-grid');if(cash)cash.classList.add('fsx-products');
+  const liab=card.querySelector('#fsx-s3 .fsx-b>.sec-managed-sleeve');
+  if(liab){const fields=document.createElement('div');fields.className='fsx-fields';
+    const rows=[...liab.children].filter(el=>el.classList.contains('crow')||el.classList.contains('sec-managed-series'));
+    if(rows.length){rows[0].before(fields);rows.forEach(el=>{fields.appendChild(el);if(el.classList.contains('crow')){el.classList.add('fsx-field');const txt=[...el.childNodes].find(n=>n.nodeType===3&&n.textContent.trim());if(txt){const label=document.createElement('span');label.className='fsx-label';txt.before(label);label.appendChild(txt);}}});}
+    liab.querySelectorAll('.cfg-liability-component .sec-managed-grid').forEach(el=>el.classList.add('fsx-liability-term'));
+  }
+  card.querySelectorAll('#fsx-s5 .sec-managed-target>.sec-managed-grid').forEach(el=>el.classList.add('fsx-target'));
+  card.querySelectorAll('#fsx-s5 .cfg-md-detail .sec-managed-grid').forEach(el=>el.classList.add('fsx-security-fields'));
+}
+
 function _presentSecuritiesPage(){
   const card=document.getElementById('card-sec'); if(!card||card.querySelector(':scope>.fsx')) return;
   const tst=card.querySelector(':scope>.tstack'), fp=card.querySelector(':scope>.sec-funding-panel'); if(!tst&&!fp) return;
@@ -9628,6 +9739,7 @@ function _presentSecuritiesPage(){
   if(B.mp) body('s5').appendChild(B.mp);
   if(tst) tst.remove(); if(fp) fp.remove();
   card.appendChild(shell);
+  _layoutExpandedSecurities(card);
 }
 function _fsxRefresh(sec){ const k=sec&&sec.dataset.k, box=sec&&sec.querySelector('.fsx-sum'); if(!k||!box) return;
   box.innerHTML=_fsxSummary(k,sec).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join(''); }
