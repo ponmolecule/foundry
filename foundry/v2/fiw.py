@@ -657,7 +657,7 @@ def _nie_sheet(ws, nd, ppy=4):
              nd.get("other_gross_up_rate"), "share of NIE subtotal (not payroll load)")
     if nd.get("fdic_bp_ann") is not None:
         _row("nie_detail.fdic_bp_ann", "Assessments", "FDIC assessment rate",
-             nd.get("fdic_bp_ann"), "bp/year (blank = 5.0 default)")
+             nd.get("fdic_bp_ann"), "bp/year (blank = 0 default)")
     _occ_enabled = (bool(nd.get("occ_simplified_enabled")) if "occ_simplified_enabled" in nd
                     else nd.get("occ_bp_ann") is not None)
     _row("nie_detail.occ_simplified_enabled", "Assessments", "Legacy / simplified OCC",
@@ -977,7 +977,7 @@ def _settings_sheet(wb, cfg):
         if nd.get("other_gross_up_rate") is not None:
             row("Other NIE gross-up rate", nd.get("other_gross_up_rate"), "rate · applies to NIE subtotal, not payroll load")
         if nd.get("fdic_bp_ann") is not None:
-            row("FDIC assessment rate", nd.get("fdic_bp_ann"), "bp/yr (default 5.0)")
+            row("FDIC assessment rate", nd.get("fdic_bp_ann"), "bp/yr (default 0)")
         _occ_enabled = (bool(nd.get("occ_simplified_enabled")) if "occ_simplified_enabled" in nd
                         else nd.get("occ_bp_ann") is not None)
         row("Legacy / simplified OCC", _occ_enabled, "explicit opt-in")
