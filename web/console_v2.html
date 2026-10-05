@@ -2239,6 +2239,12 @@ body.fd-canvas #content>.pg-crumb{max-width:1440px;margin-left:auto;margin-right
 #content .fsx-b .sec-managed-portfolio{background:#fff!important;border:1px solid #e2e0d9!important;border-radius:8px!important}
 #content #fsx-s4 .fsx-b>.sec-major-section{padding-left:0!important;padding-right:0!important}
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
+
+/* r286: data-check catalogue */
+.gq-cat{margin-top:22px;border-top:1px solid #e2e0d9;padding-top:14px}
+.gq-cat-h{display:flex;align-items:baseline;gap:14px;margin-bottom:8px}.gq-cat-h b{font-size:14px}.gq-cat-h span{font-size:12px;color:#8a867d}
+.gq-cat-t td{vertical-align:top;font-size:12px;line-height:1.45}.gq-cat-k{font-weight:600;white-space:nowrap}.gq-cat-ex{color:#4a4741;font-style:italic}
+.gq-cat-lim{margin-top:10px;font-size:12px;color:#4a4741}.gq-cat-lim ul{margin:4px 0 0 18px;padding:0}.gq-cat-lim li{margin:2px 0}
 </style>
 </head>
 <body>
@@ -3197,10 +3203,10 @@ async function _govEnsureChecks(force){
   if(!force && (Q.key===key) && (Q.findings||Q.error||Q.loading)) return;
   window._govQA={key, loading:true}; const body=document.getElementById('gqBody'); if(body) body.innerHTML=_govChecksHtml();
   try{
-    const r=await fetch('/api/v31/qa/checks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef()})});
+    const r=await fetch('/api/v31/qa/checks',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({config:cfgRef(),slug:(typeof _govSlug==='function'?_govSlug():null)})});   // r286: slug enables the edited-since-save check
     if(r.status===401){ window._govQA={key, auth:true}; if(currentTab==='gov') renderGovTab(); return; }
     const j=await r.json(); if(!r.ok) throw new Error(j.error||('HTTP '+r.status));
-    window._govQA={key, findings:j.findings||[], at:new Date()};
+    window._govQA={key, findings:j.findings||[], catalog:j.catalog||[], limits:j.limits||[], withSave:!!j.compared_with_save, at:new Date()};
   }catch(e){ window._govQA={key, error:(e&&e.message)||'checks failed'}; }
   if(currentTab==='gov') renderGovTab();
 }
@@ -3210,6 +3216,16 @@ function _gqNum(v){ v=+v; if(Math.abs(v)<1&&Math.abs(v)<0.995) return (v*100).to
 function _gqFinding(f){
   if(f.convention==='annual_attrition_period_end')
     return `<b>Annual attrition is taken in month 12 of each year.</b><span>Average balances run above a straight line between year-ends. Correct if intended; otherwise choose a straight-line path or spread the timing under Customer acquisition \u2192 attrition.</span>`;
+  if(f.kind==='trend'||f.kind==='edit'){   // r286: digit slips, unit slips and trend breaks
+    const parts=(f.detail||'').split(' \u00b7 ').filter(x=>x&&!/^(explicit|level schedule|schedule|values|driver)$/.test(x));
+    const fld=f.field||parts.slice(-1)[0]||'Value', when=(f.period_word||'')+f.label;
+    let hl=f.kind==='edit' ? `<b>${esc(fld.charAt(0).toUpperCase()+fld.slice(1))} in ${esc(when)} changed from ${esc(f.headline_values[0])} to ${esc(f.headline_values[1])}.</b>`
+                           : `<b>${esc(fld.charAt(0).toUpperCase()+fld.slice(1))} is ${esc(f.headline_values[1])} in ${esc(when)}, where its neighbours imply about ${esc(f.headline_values[0])}.</b>`;
+    let d=f.signature?esc(f.signature)+'.':'Far outside this schedule\'s usual period-to-period movement'+(f.z?` (${(+f.z).toFixed(0)}\u00d7 its typical deviation)`:'')+'.';
+    if(f.kind==='trend'&&f.changed_from) d+=` Changed from ${esc(f.changed_from)} since the last save.`;
+    if((f.effects||[]).length) d+=' Effect of this value: '+f.effects.map(e=>`${esc(e.measure)} ${e.delta>0?'+':'\u2212'}${Math.abs(e.delta)>=100?Math.round(Math.abs(e.delta)).toLocaleString('en-US'):Math.abs(e.delta).toFixed(1)}`).join('; ')+'.';
+    return hl+`<span>${d}</span>`;
+  }
   const field=(f.detail||'').split(' \u00b7 ').filter(x=>x&&x!=='explicit').slice(-1)[0]||'Value';
   let hl=`<b>${esc(field.charAt(0).toUpperCase()+field.slice(1))} jumps from ${esc(f.headline_values[0])} to ${esc(f.headline_values[1])} in ${_gqPer(f,f.peak)}</b>`;
   if(f.end>f.start) hl+=`${f.then?`, then ${esc(f.then)}`:''}, back to ${esc(f.headline_values[0])} in ${_gqPer(f,f.end+1)}.`;
@@ -3229,6 +3245,17 @@ function _govGo(path){
   setTab('config'); if(m) setTimeout(()=>{ if(typeof cfgSelectModule==='function') cfgSelectModule(m); },60);
 }
 window.govGo=function(i){ const f=((window._govQA||{}).findings||[])[i]; if(f) _govGo(f.path||[]); };
+
+// r286: the catalogue of what the data checks catch, and their limits (served with the findings)
+function _govCatalogHtml(Q){
+  const C=(Q&&Q.catalog)||[], L=(Q&&Q.limits)||[]; if(!C.length) return '';
+  let h=`<div class="gq-cat"><div class="gq-cat-h"><b>What these checks catch</b><span>${Q.withSave?'Edits are compared with the last save.':'Save the engagement to also check edits against the last save.'}</span></div>`;
+  h+=`<table class="gq-t gq-cat-t"><tr><th>Check</th><th>Catches</th><th>Example</th><th>Severity</th><th>Where it looks</th></tr>`;
+  C.forEach(c=>{ h+=`<tr><td class="gq-cat-k">${esc(c.check)}</td><td>${esc(c.catches)}</td><td class="gq-cat-ex">${esc(c.example)}</td><td>${esc(c.severity)}</td><td>${esc(c.where)}</td></tr>`; });
+  h+=`</table>`;
+  if(L.length) h+=`<div class="gq-cat-lim"><b>Not caught</b><ul>${L.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
+  return h+`</div>`;
+}
 function _govChecksHtml(){
   const Q=window._govQA||{};
   if(Q.loading) return `<div class="memo">Checking the configuration\u2026</div>`;
@@ -3239,11 +3266,12 @@ function _govChecksHtml(){
   const pill=(k,lab,n)=>`<button type="button" class="gq-pill${flt===k?' on':''}" onclick="govFilterSet('${k}')">${lab} ${n}</button>`;
   let h=`<div class="gq-bar"><span>Show</span>${pill('all','All',F.length)}${pill('review','Needs review',cnt('review'))}${pill('look','Worth a look',cnt('look'))}${pill('info','Info',cnt('info'))}`
     +`<em>Checked against the current configuration \u00b7 ${Q.at?Q.at.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}):''}</em></div>`;
-  if(!F.length) return h+`<div class="gq-empty">No findings. Explicit schedules have no isolated spikes or likely unit errors, and no conventions need flagging.</div>`;
+  if(!F.length) return h+`<div class="gq-empty">No findings in any schedule${Q.withSave?' or in edits since the last save':''}.</div>`+_govCatalogHtml(Q);
   h+=`<table class="gq-t"><tr><th>Severity</th><th>Where</th><th>Finding</th><th></th></tr>`;
   F.forEach((f,i)=>{ if(flt!=='all'&&f.severity!==flt) return; const sv=_GQ_SEV[f.severity];
     h+=`<tr><td><span class="gq-sev ${sv[1]}">${sv[0]}</span></td><td class="gq-where">${esc(f.where)}${f.detail?`<code>${esc(f.detail)}</code>`:''}</td><td class="gq-find">${_gqFinding(f)}</td><td><a href="#" class="gq-go" onclick="govGo(${i});return false">Go to \u2192</a></td></tr>`; });
-  h+=`</table><div class="gq-foot">Flagged: an isolated run in an explicit schedule at 8\u00d7 its surrounding level or more (Needs review) or 3\u00d7 or more (Worth a look); values near 12\u00d7 or 100\u00d7 suggest a unit mix-up. Effects compare the run with the flagged values replaced by their surrounding level. Checks read the configuration only; nothing is changed.</div>`;
+  h+=`</table><div class="gq-foot">Every numeric schedule is checked against its own trend and, when the engagement is saved, against the last save. See what the checks catch below. Effects compare the run with the flagged values replaced by their surrounding level. Checks read the configuration only; nothing is changed.</div>`;
+  h+=_govCatalogHtml(Q);
   return h;
 }
 
