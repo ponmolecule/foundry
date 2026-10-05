@@ -2312,6 +2312,17 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r295: compact unsaved-changes window; readable change list; four evenly spaced choices */
+#guard-dlg{width:min(520px,94vw)!important;padding:16px 18px!important;border-radius:8px!important}
+#guard-dlg h3{font-size:15px!important;margin:0 0 6px!important}
+#guard-sub{font-size:12px!important;line-height:1.45;margin-bottom:10px!important}
+#guard-list{max-height:150px!important;background:#232322!important;border:1px solid #3a3a38!important;border-radius:5px!important;padding:8px 10px!important;margin-bottom:12px!important}
+#guard-list .gd-h{color:#9a968d;font-size:11px;margin-bottom:4px}
+#guard-list .gd-row{color:#e3e3e0;font:11px/1.45 var(--mono,ui-monospace,monospace);margin:1px 0;overflow-wrap:anywhere}
+#guard-list .gd-more{color:#9a968d;font-size:11px;margin-top:3px}
+#guard-list>div[style]{color:#b9b8b5!important}
+#guard-actions{display:grid!important;grid-template-columns:repeat(4,minmax(0,1fr))!important;gap:8px!important;justify-content:stretch!important}
+#guard-actions>button{width:100%;padding:7px 4px!important;font-size:12.5px!important;white-space:nowrap;margin:0!important;overflow:hidden;text-overflow:ellipsis}
 /* r293: bank + version in the header; Save-as-version dialog; grouped saved list */
 #chevBox{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:min(560px,48vw)}
 #bankLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:40px;flex:0 1 auto}
@@ -4124,7 +4135,10 @@ function updateChangedChip(){
     if(nowChanged !== window._startChipShown){ window._startChipShown = nowChanged; renderStart(); }
   }
 }
-function refresh(){ if(window.SNAPSHOT) return;
+function refresh(){ const _wasClean=_lcCleanNow(); const _r=_refreshInner.apply(this,arguments);   // r295
+  try{ if(_r&&typeof _r.then==='function') _r.then(()=>_lcHealDrift(_wasClean,'run')); else _lcHealDrift(_wasClean,'run'); }catch(e){}
+  return _r; }
+function _refreshInner(){ if(window.SNAPSHOT) return;
   // First real interaction on a blank canvas turns it into a live model.
   if(cfg && cfg._blank_canvas){ delete cfg._blank_canvas; }
   clearTimeout(timer); timer = setTimeout(preview, 350); scheduleAutosave(); updateChangedChip(); }
@@ -10144,7 +10158,23 @@ function _restoreAuthoringState(state){
   window.scrollTo({left:state.x,top:state.y,behavior:'instant'});
 }
 
-function renderContent(){
+// r295: a render or engine run that changes the configuration on its own is not a user edit. If the engagement was
+// clean when it started and differs when it ends, re-baseline (recording the drift for diagnosis) instead of
+// presenting it as unsaved changes.
+function _lcCleanNow(){ try{ return typeof LC!=='undefined' && LC.baseline!=null && LC.state()==='CLEAN'; }catch(e){ return false; } }
+function _lcHealDrift(wasClean, where){
+  try{
+    if(!wasClean || LC.state()!=='MODIFIED') return;
+    const d=(typeof unsavedChangeList==='function')?unsavedChangeList():[];
+    (window.__renderDrift=window.__renderDrift||[]).push({where, at:new Date().toISOString(), fields:d.slice(0,20)});
+    if(window.__renderDrift.length>50) window.__renderDrift.shift();
+    LC.baseline=LC._ser(cfg);
+    if(typeof console!=='undefined') console.warn('Foundry: configuration changed during '+where+' without an edit; re-baselined', d);
+    if(typeof updateChangedChip==='function') updateChangedChip();
+  }catch(e){}
+}
+function renderContent(){ const _wasClean=_lcCleanNow(); const _r=_renderContentInner.apply(this,arguments); _lcHealDrift(_wasClean,'render:'+(typeof currentTab!=='undefined'?currentTab:'')); return _r; }
+function _renderContentInner(){
   const state=_captureAuthoringState();
   _consumedPasteId=null;
   _renderContentBody();
@@ -11178,8 +11208,9 @@ function _showGuard(slug){
   document.getElementById("guard-sub").innerHTML = _never
     ? "This engagement has not been saved yet (it was recovered from your last session or newly created). Switching will discard it unless you save or download first."
     : "You have unsaved edits to the current engagement. Switching will reload the other engagement and discard these unless you save or download first.";
-  const rows = list.length
-    ? '<div style="color:#565653;font-size:11px;margin-bottom:3px">These fields changed since the last save:</div>'+list.map(s=>`<div style="font-family:var(--mono);font-size:11px;color:#2B2B2B;margin:2px 0">\u2022 ${esc(s)}</div>`).join("")
+  const rows = list.length   /* r295: light text on the dark list (rows were dark-on-dark, i.e. invisible); capped at 8 */
+    ? '<div class="gd-h">These fields changed since the last save:</div>'+list.slice(0,8).map(s=>`<div class="gd-row">\u2022 ${esc(s)}</div>`).join("")
+      +(list.length>8?`<div class="gd-more">and ${list.length-8} more</div>`:'')
     : (_never ? '<div style="color:#565653;font-size:11px">Nothing to compare against: it has never been saved.</div>'
               : '<div style="color:#565653;font-size:11px">The configuration differs from the last save, but no individual field could be listed.</div>');
   document.getElementById("guard-list").innerHTML = rows;

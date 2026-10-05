@@ -1608,3 +1608,16 @@ Built on r293. Engine untouched.
 - One save window: r293 added the "Save as a new version" dialog beside the guard's older embedded form; the guard's
   Save as now opens the same dialog and then completes the switch.
 - The current-version marker in the saved list follows saves as well as opens.
+
+
+## r295 (Claude) — Unsaved-changes guard: visible reasons, no drift, compact
+
+Built on r294. Engine untouched.
+- The guard did list the changed fields, but each row was near-black text (#2B2B2B) on the near-black list (#2A2A2A),
+  so the reasons were invisible and the empty-looking list made the window tall. Rows are now light text, capped at
+  eight with "and N more".
+- Changes no user made: a render or engine run that alters the configuration while the engagement was clean is now
+  re-baselined instead of counted as unsaved work; each occurrence is recorded in window.__renderDrift (where, when,
+  fields) and logged to the console so its source can be named. Genuine edits (made before the render) still count.
+- The window is compact (520px, about 300px tall with a full list) and the four choices are evenly sized; no label
+  is clipped.
