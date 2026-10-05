@@ -1354,6 +1354,15 @@ def run_v2(cfg):
                                                     if _wf_comp is not None
                                                     else [round(x / 1000.0, 2) for x in nd_s["comp"]]),
                                           "categories": [round(x / 1000.0, 2) for x in nd_s["categories"]],
+                                          # r300: each category's full expense = base path + components (cost pool, formula, tiered)
+                                          # (engine output arrives already in $000s; the base paths in nd_s are dollars)
+                                          **(lambda _lk: {
+                                              "components": [round(x, 2) for x in _lk.get("total", [])],
+                                              "components_by_category": {k: [round(x, 2) for x in v]
+                                                                         for k, v in (_lk.get("by_category") or {}).items()},
+                                              "categories_total": [round(a / 1000.0 + b, 2) for a, b in
+                                                                   zip(nd_s["categories"], _lk.get("total") or [0.0] * len(nd_s["categories"]))],
+                                          })(base.get("nie_linked_by_category") or {}),
                                           "linked_component_count": len(nd_s.get("linked_components") or []),
                                           "prepaid_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("prepaidOpex") or [])],
                                           "accrued_opex": [round(x / 1000.0, 2) for x in ((base.get("bs") or {}).get("accruedOpex") or [])],
