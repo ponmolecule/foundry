@@ -1575,3 +1575,20 @@ downloadable universal template workbook. It now stores 0.0. Effect on the templ
 pretax +684.5, tax +143.7 (21%), net income +540.7; the other four fixtures are identical. The template's current
 fingerprint pin moves from cef1ab6b99c5 to 6fd77a2f45fe. Saved engagements keep whatever rate they store; an
 explicit rate is still honoured. Guarded by tests_r292_fdic_default.
+
+
+## r293 (Claude) — Bank and version, clearly separated
+
+Built on r292. Engine untouched.
+- A saved engagement is a BANK plus a VERSION. "Save as" wrote the whole typed name into the version field, so
+  "Bank 1-Aggressive" showed as "Bank 1 / Bank 1-Aggressive": two near-identical plain-text names that ran
+  together when truncated.
+- Header: the bank in bold, then the version as a gold "VERSION" chip ("Base" before one is named); the bank
+  truncates first, the chip keeps its full text; clicking the chip renames the version in place.
+- Save as asks only for the version (in-app dialog, bank shown as context, live "Saved as Bank 1 · Aggressive"
+  preview); a typed bank prefix is detected and stripped. The unsaved-changes guard does the same.
+- Saved list: versions grouped under their bank (as the header names it), "current" marked by storage key.
+- Data: scenario_name stores the bank-qualified name ("Bank 1 · Aggressive") so storage keys stay unique per bank
+  and consistent with Governance history and change tracking. The key slug of "Bank 1 · Aggressive" equals that of
+  "Bank 1-Aggressive", so re-saving an older engagement updates it instead of duplicating. The store list adds
+  bank_display (proposed name first) beside the existing bank field.

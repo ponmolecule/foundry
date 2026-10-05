@@ -2312,6 +2312,29 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r293: bank + version in the header; Save-as-version dialog; grouped saved list */
+#chevBox{display:inline-flex;align-items:center;gap:8px;min-width:0;max-width:min(560px,48vw)}
+#bankLabel{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:40px;flex:0 1 auto}
+#scenSep{display:none!important}
+.ver-chip{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;border:1px solid #c9a35a;color:#f2d79e;background:rgba(223,179,103,.10);border-radius:999px;padding:2px 10px 2px 9px;font-size:12px;font-weight:500;white-space:nowrap;max-width:190px;overflow:hidden;text-overflow:ellipsis;cursor:pointer;line-height:1.4}
+.ver-chip i{font-style:normal;color:#c9a35a;font-size:9.5px;letter-spacing:.06em;font-weight:700}
+.ver-chip.base{border-color:#6b6963;color:#d9d5cc;background:transparent}
+.ver-chip:hover{border-color:#dfb367}.ver-chip:focus-visible{outline:2px solid #dfb367;outline-offset:2px}
+#scenarioName.scenario-name-inline{display:none}
+#scenarioName.scenario-name-inline.ver-editing{display:inline-block;width:170px;flex:0 0 auto}
+#engMenuBtn{color:#dfb367!important;text-decoration:none}
+.eng-grp-h{display:flex;align-items:baseline;gap:8px;padding:8px 10px 3px;font-size:12px;font-weight:600;color:#2A2A2A;border-top:1px solid #E5E5E3}
+.eng-grp-h:first-of-type{border-top:0}.eng-grp-h span{margin-left:auto;font-size:10.5px;font-weight:400;color:#8B8B88}
+.ver-dlg-wrap{position:fixed;inset:0;background:rgba(20,20,20,.45);display:none;align-items:flex-start;justify-content:center;padding-top:14vh;z-index:10000}
+.ver-dlg{background:#2a2a2a;border:1px solid #4d4c4a;border-radius:8px;box-shadow:0 18px 48px rgba(0,0,0,.35);width:380px;padding:16px 18px;color:#e9e6df}
+.ver-dlg h4{margin:0 0 10px;font-size:15px;color:#fff}
+.ver-fixed{display:flex;justify-content:space-between;align-items:center;background:#333230;border-radius:5px;padding:7px 10px;margin-bottom:10px}
+.ver-fixed span{color:#9a968d;font-size:11px;letter-spacing:.06em}.ver-fixed b{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;margin-left:12px}
+.ver-lbl{display:block;font-size:11px;color:#b9b8b5;margin:0 0 4px}
+#verSaveName{width:100%;box-sizing:border-box;background:#1f1f1e;border:1px solid #6b6963;border-radius:5px;padding:7px 10px;color:#fff;font:13px Inter,system-ui,sans-serif}
+#verSaveName:focus{outline:none;border-color:#dfb367;box-shadow:0 0 0 2px rgba(223,179,103,.25)}
+.ver-hint{font-size:11.5px;color:#9a968d;margin:7px 0 0;line-height:1.45}.ver-hint b{color:#f2d79e;font-weight:600}.ver-hint.ver-warn{color:#f2d79e}
+.ver-btns{display:flex;justify-content:flex-end;gap:8px;margin-top:14px}
 /* r291: placed-in-service box */
 .fa-isp{text-align:right;font-variant-numeric:tabular-nums}
 .fa-isp.fa-isp-bad{border-color:#B0413E!important;background:#FBEDEA!important}
@@ -2434,7 +2457,8 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
     <span id="chevBox">
       <span id="bankLabel" class="bank-edit" title="Bank name — click to rename" onclick="renameBank()"></span>
       <span id="scenSep">/</span>
-      <input class="scenario-name-inline" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=this.value;syncBankLabel();scheduleAutosave()">
+      <span id="versionChip" class="ver-chip base" role="button" tabindex="0" title="Version: click to rename" onclick="verChipEdit()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();verChipEdit()}">Base</span>
+      <input class="scenario-name-inline" id="scenarioName" placeholder="scenario / variant" title="Scenario name — a named variant of this bank (e.g. Base, Rate Shock)" onchange="cfg.scenario_name=_engNameFor(this.value);syncBankLabel();scheduleAutosave()" onblur="verChipDone()" onkeydown="if(event.key==='Enter'){this.blur()}else if(event.key==='Escape'){this.value=_versionOf(cfg.scenario_name,_engBank());this.blur()}">
       <a href="#" id="engMenuBtn" onclick="toggleEngMenu();return false" title="Saved engagements">▼</a>
       <div id="engMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;min-width:280px;max-height:340px;overflow:auto;background:#2A2A2A;border:1px solid #4D4C4A;border-radius:3px;box-shadow:0 10px 28px rgba(42,42,42,.5);z-index:60;padding:6px"></div>
     </span>
@@ -2509,9 +2533,9 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
   <div id="guard-sub" style="color:#A2A19E;font-size:12px;margin-bottom:10px"></div>
   <div id="guard-list" style="max-height:34vh;overflow:auto;background:#2A2A2A;border:1px solid #2A2A2A;border-radius:3px;padding:8px 10px;margin-bottom:12px"></div>
   <div id="guard-saveas" style="display:none;margin-bottom:12px">
-    <label style="display:block;color:#B9B8B5;font-size:11px;margin-bottom:3px">Save as engagement name</label>
+    <label style="display:block;color:#B9B8B5;font-size:11px;margin-bottom:3px">Version name <span id="guard-bank" style="color:#898986"></span></label>
     <input id="guard-name" type="text" style="width:100%;box-sizing:border-box;padding:7px 9px;background:#2A2A2A;border:1px solid #3A3A38;border-radius:3px;color:#E3E3E0;font-size:13px;font-family:inherit" onkeydown="if(event.key==='Enter'){guardSaveAsConfirm();}">
-    <div style="color:#898986;font-size:10.5px;margin-top:3px">Keep the name to update this engagement, or edit it to save a separate copy.</div>
+    <div style="color:#898986;font-size:10.5px;margin-top:3px">Keep the version to update it, or enter a new one to save a separate version.</div>
   </div>
   <div class="modal-actions" id="guard-actions" style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
     <button class="btn-plain" onclick="guardCancel()">Cancel</button>
@@ -4889,8 +4913,29 @@ function syncBankLabel(){
   // the "—" separator only makes sense between a bank and a scenario; hide it when either is
   // absent so the chevron never shows a dangling dash.
   const scen = cfg ? (cfg.scenario_name || "").trim() : "";
-  if(sep) sep.style.display = (bank && scen) ? "" : "none";
+  if(sep) sep.style.display = "none";   /* r293: the version chip replaces the slash separator */
+  const ch=document.getElementById('versionChip'), sn2=document.getElementById('scenarioName');
+  const ver=_versionOf(scen, bank);
+  if(ch){ ch.innerHTML = ver ? `<i>VERSION</i>${esc(ver)}` : 'Base'; ch.classList.toggle('base', !ver);
+    ch.title = (bank ? bank + ' \u00b7 ' : '') + (ver || 'Base') + ' \u2014 click to rename this version'; }
+  if(sn2 && document.activeElement !== sn2) sn2.value = ver;
 }
+// r293: a saved engagement is a BANK plus a VERSION. scenario_name stores the bank-qualified name ("Bank 1 \u00b7
+// Aggressive") so storage keys stay unique per bank and consistent with every existing key; the UI shows the version.
+function _engBank(){ return cfg ? (cfg.proposed_bank || cfg.client_legal_name || "").trim() : ""; }
+function _versionOf(name, bank){
+  const nm = String(name || "").trim(), b = String(bank || "").trim();
+  if(b && nm.toLowerCase().startsWith(b.toLowerCase())){
+    const rest = nm.slice(b.length);
+    if(rest === "" ) return "";
+    if(/^[\s\-\u2013\u2014\u00b7:|\/_.,]/.test(rest)) return rest.replace(/^[\s\-\u2013\u2014\u00b7:|\/_.,]+/, "").trim();
+  }
+  return nm;
+}
+function _engNameFor(version){ const b=_engBank(), v=_versionOf(version, b); return v ? (b ? `${b} \u00b7 ${v}` : v) : ""; }
+window.verChipEdit=function(){ const ch=document.getElementById('versionChip'), sn=document.getElementById('scenarioName'); if(!sn) return;
+  sn.value=_versionOf(cfg&&cfg.scenario_name, _engBank()); if(ch) ch.style.display='none'; sn.classList.add('ver-editing'); sn.focus(); sn.select(); };
+window.verChipDone=function(){ const ch=document.getElementById('versionChip'), sn=document.getElementById('scenarioName'); if(sn) sn.classList.remove('ver-editing'); if(ch) ch.style.display=''; syncBankLabel(); };
 window.syncBankLabel = syncBankLabel;
 function renameBank(){
   if(!cfg) return;
@@ -11076,8 +11121,9 @@ async function guardDiscard(){ const slug=_guardPendingSlug; _guardPendingSlug=n
   if(slug) await _openEngagementNow(slug); }
 window.guardDiscard=guardDiscard;
 function guardSaveAsOpen(){
-  const nm = (cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || "").trim();
+  const _b = _engBank(), nm = _versionOf(cfg.scenario_name || "", _b);   /* r293: the version; the bank is context */
   const inp = document.getElementById("guard-name"); inp.value = nm;
+  const gb = document.getElementById("guard-bank"); if(gb) gb.textContent = _b ? "\u00b7 " + _b : "";
   document.getElementById("guard-saveas").style.display="block";
   document.getElementById("guard-actions").style.display="none";
   const dlg = document.getElementById("guard-dlg");
@@ -11099,8 +11145,8 @@ async function guardSaveAsConfirm(){
   if((typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas){
     appStatus("err", "<b>Nothing to save yet.</b> The workspace is empty."); return;
   }
-  const nm = (document.getElementById("guard-name").value || "").trim();
-  if(!nm){ appStatus("err","<b>Enter a name</b> to save this engagement."); return; }
+  const nm = _engNameFor((document.getElementById("guard-name").value || "").trim());   /* r293: bank \u00b7 version */
+  if(!nm){ appStatus("err","<b>Enter a version name</b> to save this engagement."); return; }
   cfg.scenario_name = nm;
   if(typeof syncNameChrome==="function") syncNameChrome();
   const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
@@ -11540,16 +11586,19 @@ function paintEngMenu(){
   if(engStoreError)h+=`<div role="status" class="eng-menu-status">${esc(engStoreError)}${engStore?" Showing the last loaded list.":""} <a href="#" onclick="loadEngStore(true).then(()=>{if(document.getElementById('engMenu').style.display!=='none')paintEngMenu()});return false">Retry</a></div>`;
   if(!engStore&&!engStoreError)h+='<div role="status" class="eng-menu-status">Loading saved engagements…</div>';
   if(engStore&&!named.length) h += '<div style="padding:6px 10px 10px;font-size:11.5px;color:#565653">None saved yet on this workspace.</div>';
-  named.forEach(e=>{
-    const active = (e.scenario_name||e.name) === cur;
+  const _groups=[], _gi={};   // r293: versions grouped under their bank
+  named.forEach(e=>{ const b=(e.bank_display||e.bank||'').trim()||'Other'; if(!(b in _gi)){ _gi[b]=_groups.length; _groups.push({bank:b,items:[]}); } _groups[_gi[b]].items.push(e); });
+  _groups.forEach(g=>{ h+=`<div class="eng-grp-h">${esc(g.bank)}<span>${g.items.length} version${g.items.length===1?'':'s'}</span></div>`;
+  g.items.forEach(e=>{
+    const active = window._openSlug ? e.slug === window._openSlug : (e.scenario_name||e.name) === cur;
     // Row = the open-action <a> (flex:1) + a delete × beside it. The × calls the existing
     // delEngagement(slug) (same robust path as Start/Reset: confirm, DELETE, baseline cleanup,
     // store refresh) with stopPropagation so a delete click never also opens the engagement.
     h += `<div style="display:flex;align-items:center" onmouseover="this.style.background='#F2F1EF'" onmouseout="this.style.background=''">`
-      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 10px;border-radius:3px 0 0 6px;text-decoration:none;color:${active?"#A3772A":"#2A2A2A"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#A3772A":"#E5E5E3"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(e.name||e.slug)}</span><span style="display:block;font-size:10px;color:#565653;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
+      + `<a href="#" onclick="engMenuOpen('${e.slug}');return false" style="display:flex;align-items:center;gap:8px;padding:7px 4px 7px 20px;border-radius:3px 0 0 6px;text-decoration:none;color:${active?"#A3772A":"#2A2A2A"};font-size:12px;flex:1;min-width:0"><span style="width:6px;height:6px;border-radius:50%;background:${active?"#A3772A":"#E5E5E3"};flex:0 0 6px"></span><span style="flex:1;min-width:0"><span style="display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(e.name||e.slug)}">${esc(_versionOf(e.name, e.bank_display||e.bank)||'Base')}</span><span style="display:block;font-size:10px;color:#565653;font-family:var(--mono)">${esc(e.slug)}</span></span>${active?'<span style="font-size:9.5px">current</span>':''}</a>`
       + `<a href="#" title="Delete this engagement" onclick="engMenuDelete('${e.slug}');return false" style="flex:0 0 auto;padding:7px 10px;color:#646461;text-decoration:none;font-size:13px;border-radius:0 6px 6px 0" onmouseover="this.style.color='#945A4B'" onmouseout="this.style.color='#646461'">\u2715</a>`
       + `</div>`;
-  });
+  }); });
   if(draft){
     const draftActive = !cur || (cfg.scenario_name||"") === "" || (draft.slug||"") === (window._openSlug||"");
     h += '<div style="border-top:1px solid #CACAC7;margin:6px 0"></div>';
@@ -11559,10 +11608,10 @@ function paintEngMenu(){
   h += '<div style="border-top:1px solid #CACAC7;margin:6px 0"></div>';
   const _emptyWs = (typeof LC !== "undefined" && LC.state() === "EMPTY") || !cfg || cfg._blank_canvas;
   if(_emptyWs){
-    h += '<div style="display:block;padding:7px 10px;color:#8B8B88;font-size:12px" title="Create or upload an engagement first">+ Save current configuration here</div>'
+    h += '<div style="display:block;padding:7px 10px;color:#8B8B88;font-size:12px" title="Create or upload an engagement first">+ Save as a new version</div>'
       + '<div style="padding:0 10px 6px;font-size:10px;color:#8B8B88">Nothing to save \u2014 the workspace is empty.</div>';
   } else {
-    h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:3px;text-decoration:none;color:#506B55;font-size:12px" onmouseover="this.style.background=\'#F2F1EF\'" onmouseout="this.style.background=\'\'">+ Save current configuration here</a>';
+    h += '<a href="#" onclick="engMenuSave();return false" style="display:block;padding:7px 10px;border-radius:3px;text-decoration:none;color:#506B55;font-size:12px" onmouseover="this.style.background=\'#F2F1EF\'" onmouseout="this.style.background=\'\'">+ Save as a new version</a>';
   }
   h += '<a href="#" onclick="document.getElementById(\'engMenu\').style.display=\'none\';clearWorkspace();return false" style="display:block;padding:7px 10px;border-radius:3px;text-decoration:none;color:#565653;font-size:12px" onmouseover="this.style.background=\'#F2F1EF\'" onmouseout="this.style.background=\'\'" title="Empty the workspace to a clean slate (warns first if you have unsaved changes)">\u2205 New / clear workspace</a>';
   m.innerHTML = h;
@@ -11589,7 +11638,7 @@ async function engMenuDelete(slug){
   if(m){ m.style.display = "none"; await toggleEngMenu(); }
 }
 window.engMenuDelete = engMenuDelete;
-async function engMenuSave(){
+async function engMenuSave(nmOverride){
   document.getElementById("engMenu").style.display = "none";
   // Refuse to save an EMPTY workspace. After deleting/clearing everything there is no configuration
   // to persist; saving here would create a zombie shell engagement (user-found). A save must have a
@@ -11600,10 +11649,8 @@ async function engMenuSave(){
   }
   // Suggest a name (bank name leads, then legal, then scenario), but let the user NAME IT
   // THEMSELVES rather than silently saving under whatever the config carried.
-  const suggested = (cfg.proposed_bank || cfg.client_legal_name || cfg.scenario_name || "").trim();
-  const entered = window.prompt("Name this engagement:", suggested);
-  if(entered === null) return;                 // user cancelled
-  const nm = entered.trim();
+  if(nmOverride == null){ openVersionSave(); return; }   // r293: name the VERSION; the bank is fixed context
+  const nm = String(nmOverride).trim();
   if(!nm){ appStatus("err", "<b>Name it first</b> \u2014 an engagement needs a name."); return; }
   // Persist the chosen name onto the config's scenario_name so it round-trips and shows in chrome.
   cfg.scenario_name = nm;
@@ -11620,6 +11667,32 @@ async function engMenuSave(){
   renderContent();
 }
 window.engMenuSave = engMenuSave;
+// r293: Save as a new version
+function openVersionSave(){
+  let d=document.getElementById('verSaveDlg');
+  if(!d){ d=document.createElement('div'); d.id='verSaveDlg'; d.className='ver-dlg-wrap'; document.body.appendChild(d); }
+  const b=_engBank(), cur=_versionOf(cfg&&cfg.scenario_name, b);
+  d.innerHTML=`<div class="ver-dlg" role="dialog" aria-modal="true" aria-labelledby="verSaveTitle"><h4 id="verSaveTitle">Save as a new version</h4>
+    <div class="ver-fixed"><span>BANK</span><b>${esc(b||'Unnamed bank')}</b></div>
+    <label class="ver-lbl" for="verSaveName">Version name</label>
+    <input id="verSaveName" type="text" autocomplete="off" value="${esc(cur)}" placeholder="e.g. Base, Aggressive, Rate shock">
+    <p class="ver-hint" id="verSaveHint"></p>
+    <div class="ver-btns"><button class="btn-plain" onclick="closeVersionSave()">Cancel</button><button class="btn-gold" onclick="confirmVersionSave()">Save version</button></div></div>`;
+  d.style.display='flex';
+  const inp=document.getElementById('verSaveName'); inp.oninput=_verSaveHint; inp.onkeydown=e=>{ if(e.key==='Enter') confirmVersionSave(); else if(e.key==='Escape') closeVersionSave(); };
+  _verSaveHint(); inp.focus(); inp.select();
+}
+function _verSaveHint(){
+  const b=_engBank(), raw=(document.getElementById('verSaveName').value||'').trim(), v=_versionOf(raw,b), h=document.getElementById('verSaveHint');
+  if(!raw){ h.innerHTML='Name this version of the plan, for example <b>Base</b> or <b>Aggressive</b>.'; h.className='ver-hint'; return; }
+  if(v!==raw&&v){ h.innerHTML=`\u201c${esc(raw.slice(0,raw.length-v.length))}\u201d is already the bank, so this saves as <b>${esc(_engNameFor(v))}</b>.`; h.className='ver-hint ver-warn'; return; }
+  if(!v){ h.innerHTML='That is the bank\u2019s name; enter a version name.'; h.className='ver-hint ver-warn'; return; }
+  h.innerHTML=`Saved as <b>${esc(_engNameFor(v))}</b>. Rename the bank by clicking its name in the header.`; h.className='ver-hint';
+}
+window.closeVersionSave=function(){ const d=document.getElementById('verSaveDlg'); if(d) d.style.display='none'; };
+window.confirmVersionSave=function(){ const raw=(document.getElementById('verSaveName').value||'').trim(), v=_versionOf(raw,_engBank());
+  if(!v){ _verSaveHint(); document.getElementById('verSaveName').focus(); return; }
+  closeVersionSave(); engMenuSave(_engNameFor(v)); };
 document.addEventListener("click", (ev)=>{
   const tile = ev.target.closest && ev.target.closest(".modcard[data-act]");
   if(tile){
