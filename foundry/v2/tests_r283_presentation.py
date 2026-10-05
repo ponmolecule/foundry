@@ -13,10 +13,10 @@ def main():
     ck("canvas on every page except Balance Sheet, Income Statement and Welcome",
        "document.body.classList.toggle('fd-canvas',!['bs','is','welcome'].includes(currentTab));" in html and "document.body&&document.body.classList" in html
        and "body.fd-canvas,body.fd-canvas #content,body.fd-canvas main{background:#f0efeb!important}" in html)
-    ck("centred white sheet on Product Detail, Capital & Ratios, Stress Testing, Executive Summary and Peer Cohort",
-       "const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer'];" in html and "max-width:1440px;margin:0 auto 40px;background:#fff" in html)
+    ck("centred white sheet on the analysis and record pages (nine tabs since r290)",
+       "const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer','examiner','notes','lab','gov'];" in html and "max-width:1440px;margin:0 auto 40px;background:#fff" in html)
     i_band = html.find("band.classList.add('pg-band');")
-    i_wrap = html.find("if(typeof _fdWrapSheet==='function') _fdWrapSheet(c, tab);")
+    i_wrap = html.find("if(typeof _fdWrapSheet==='function') _fdWrapSheet(c, tab);   // r283")   # the generic path (Governance has its own header path since r290)
     ck("the sheet is wrapped only after the title band is chosen (never painted as the band)", 0 < i_band < i_wrap)
     ck("no r282-style pre-band workspace wrapper", "workspace-sheet" not in html)
     ck("Securities presenter builds five sections and moves the existing wired blocks",

@@ -2222,7 +2222,8 @@ body.fd-canvas,body.fd-canvas #content,body.fd-canvas main{background:#f0efeb!im
 body.fd-canvas .cfg-nav{background:transparent!important}
 /* r283: centred white sheet on the analysis pages */
 body.fd-canvas .fd-sheet{max-width:1440px;margin:0 auto 40px;background:#fff;border:1px solid #e2e0d9;border-radius:8px;padding:22px 26px;box-shadow:0 1px 2px rgba(40,35,25,.04);min-width:0}
-body.fd-canvas #content>.pg-crumb{max-width:1440px;margin-left:auto;margin-right:auto}
+body.fd-canvas .fd-sheet .fd-scroll{overflow-x:auto;max-width:100%}   /* r290 */
+body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:auto;margin-right:auto}   /* r290: centre the chapter notation only above a centred sheet */
 /* r283: Securities & balances (Claude Design): rail + five collapsible sections */
 .fsx{display:grid;grid-template-columns:190px minmax(0,944px);gap:40px;padding:22px 4px 40px;justify-content:start}
 .fsx-rail{position:sticky;top:calc(var(--appbar-h,84px) + 16px);align-self:start;font-size:12.5px}
@@ -2663,7 +2664,7 @@ window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move ins
     const tab=(typeof currentTab!=='undefined')?currentTab:'', m=meta()[tab]||{label:tab,group:''};
     if(tab==='config'){ cfgCrumb(); return; }
     if(c.querySelector('.prd-crumb')) return;
-    if(tab==='gov'){ const h=c.querySelector('.gq-head'); if(h){ h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">Record<span>/</span><b>Governance &amp; QA</b></div>'); return; } }   // r247: the dark header is the band
+    if(tab==='gov'){ const h=c.querySelector('.gq-head'); if(h){ h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">Record<span>/</span><b>Governance &amp; QA</b></div>'); if(typeof _fdWrapSheet==='function') _fdWrapSheet(c, tab); return; } }   /* r290: Governance gets the centred sheet too */   // r247: the dark header is the band
     if(tab==='products'){ const h=c.querySelector('.prd-h1'); if(h&&!h.classList.contains('pg-band')){ h.classList.add('pg-band'); h.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb"><a href="#" onclick="prdView(\'portfolio\');return false">Products</a><span>/</span><b>'+esc(h.textContent.trim())+'</b></div>'); } return; }
     let first=c.firstElementChild; while(first&&first.matches('script,style')) first=first.nextElementSibling; if(!first) return;
     let band;
@@ -9843,11 +9844,17 @@ window._decoratePasteSurfaces=_decoratePasteSurfaces;
 // Structural edits may rebuild a card; engine responses must never rebuild authoring inputs.
 // r283: centred white sheet on the analysis pages. Runs from pageChrome AFTER the title band is chosen, so the
 // band is always the page heading (never the sheet). The breadcrumb stays on the canvas above the sheet.
-const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer'];
+const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer','examiner','notes','lab','gov'];   // r290: + Examiner Book, Assumption Book, Bank Design Lab, Governance
 function _fdWrapSheet(c, tab){
   if(!_FD_SHEET_TABS.includes(tab)||!c||c.querySelector(':scope>.fd-sheet')) return;
   const crumb=c.querySelector(':scope>.pg-crumb'), sheet=document.createElement('div'); sheet.className='fd-sheet';
   [...c.childNodes].forEach(n=>{ if(n!==crumb) sheet.appendChild(n); }); c.appendChild(sheet);
+  // r290: a table not already inside a scrolling container scrolls within the sheet instead of spilling past it
+  sheet.querySelectorAll('table').forEach(t=>{
+    let p=t.parentElement, clipped=false;
+    while(p&&p!==sheet){ const o=getComputedStyle(p).overflowX; if(o==='auto'||o==='scroll'||o==='hidden'){ clipped=true; break; } p=p.parentElement; }
+    if(!clipped){ const w=document.createElement('div'); w.className='fd-scroll'; t.before(w); w.appendChild(t); }
+  });
 }
 // r283: Securities & balances presented as five collapsible sections (Claude Design). The existing, already-wired
 // blocks are MOVED into the sections unchanged, so every handler keeps working. Closed by default.
