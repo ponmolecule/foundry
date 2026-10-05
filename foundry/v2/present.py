@@ -32,6 +32,7 @@ BS_LAYOUT = [
     {"t": "line", "key": "alll", "label": "Less: allowance for credit losses on loans", "indent": 1, "negate": True},
     {"t": "line", "key": "netLoans", "label": "Loans and leases, net of allowance", "subtotal": True},
     {"t": "line", "key": "msr", "label": "Mortgage servicing rights, net"},
+    {"t": "line", "key": "dta", "label": "Deferred tax assets — carryforwards and interim losses, net"},
     {"t": "line", "key": "premisesGross", "label": "Premises and fixed assets, gross"},
     {"t": "line", "key": "premisesAccumDep", "label": "Less: accumulated depreciation", "negate": True, "indent": 1},
     {"t": "line", "key": "premises", "label": "Premises and fixed assets, net of accumulated depreciation", "subtotal": True},
@@ -100,6 +101,8 @@ IS_LAYOUT = [
     {"t": "line", "key": "ebtda", "label": "EARNINGS BEFORE D&A AND TAXES (BANK EBITDA)", "subtotal": True},
     {"t": "line", "key": "pretax", "label": "INCOME (LOSS) BEFORE INCOME TAXES", "subtotal": True},
     {"t": "line", "key": "tax", "label": "Applicable income taxes", "negate_style": True},
+    {"t": "line", "key": "taxCurrent", "label": "of which: current tax provision", "indent": 1},
+    {"t": "line", "key": "taxDeferred", "label": "of which: deferred tax expense / (benefit)", "indent": 1},
     {"t": "total", "key": "ni", "label": "NET INCOME (LOSS)"},
     {"t": "spacer"},
     {"t": "section", "label": "MEMORANDA"},
@@ -107,6 +110,7 @@ IS_LAYOUT = [
     {"t": "line", "key": "chargeoffs", "label": "Net charge-offs", "indent": 1},
     {"t": "line", "key": "bookInt", "label": "of which: interest on designated securities books", "indent": 1},
     {"t": "line", "key": "nol", "label": "Net operating loss carryforward, end of period", "indent": 1},
+    {"t": "line", "key": "currentYearTaxLoss", "label": "Current tax-year loss to date (not a prior-year NOL)", "indent": 1},
 ]
 
 RATIO_LABELS = {

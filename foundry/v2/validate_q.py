@@ -149,6 +149,11 @@ def validate_config_v2(cfg):
                     "fee income, or a lending product with fee income")
 
     a = cfg["assumptions"]
+    from .tax_interim import validate_tax_policy
+    try:
+        validate_tax_policy(a, cfg)
+    except (ValueError, TypeError, KeyError) as exc:
+        errs.append("Income tax: " + str(exc))
     from .fee_links import has_links, FeeLinkPlan
     if has_links(a):
         try:

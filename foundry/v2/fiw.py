@@ -995,15 +995,22 @@ def _settings_sheet(wb, cfg):
         row("Incurred loss", "not offered", "CECL mandatory for HFI amortized-cost loans")
     else:
         row("(not active)", "", "ALLL vocabulary; single provision line")
-    sec("Tax detail (NOL \u2192 DTA)")
-    _tdx = a.get("tax_detail")
-    if _tdx:
-        row("Module", "active", "ASC 740 current/deferred split")
-        row("NOL utilization limit", _tdx.get("nol_utilization_limit_pct", 0.8), "of taxable income (IRC 172)")
-        row("Valuation allowance mode", _tdx.get("va_mode", "auto"), "")
-        row("CET1 treatment", "full deduction of net NOL-DTA", "12 CFR 3.22(a)")
-    else:
-        row("(not active)", "", "100% NOL shield, no DTA booked")
+    sec("Income taxes — tax-year ledger")
+    _tdx = a.get("tax_detail") or {}
+    _tpx = a.get("tax_policy") or {}
+    row("Interim provision method", _tpx.get("interim_method", "ytd_actual"), "actual-YTD fallback requires an unavailable reliable annual estimate")
+    row("Tax-year ending month", _tpx.get("fiscal_year_end_month", 12), "1=January; 12=December")
+    row("Opening prior-year NOL", _tpx.get("opening_nol", 0), "$; completed tax years only")
+    row("Prior-year NOL utilization limit", _tpx.get("nol_utilization_limit_pct", _tdx.get("nol_utilization_limit_pct", 0.8)), "of positive tax-year income; never limits same-year netting")
+    row("Future-year DTA recognition", bool(_tdx) and _tdx.get("enabled") is not False, "supported profitable annual estimates can recognize interim losses independently")
+    row("Valuation allowance assessment", _tdx.get("va_mode", "full"), "auto is a legacy alias for full allowance on unrealized carryforwards")
+    row("Valuation allowance fraction", _tdx.get("va_pct", 0), "used only for pct mode")
+    for _y, _v in (_tpx.get("annual_income_estimates") or {}).items():
+        row("Supported annual income — tax year " + str(_y), _v, "$; ordinary book income assumed equal to taxable income before NOLs")
+    for _p, _v in (_tpx.get("estimate_overrides") or {}).items():
+        row("Annual estimate revision — period " + str(_p), _v, "$; full-year estimate, not incremental income")
+    row("Recognition evidence / note", _tpx.get("recognition_note", ""), "analyst assessment; not an engine assertion")
+    row("Capital treatment", "full deduction of net loss-related DTA", "12 CFR 3.22(a)")
     sec("Fee products (GUT)")
     _fps = [p for p in (a.get("obs_exposures") or []) if p.get("_fee_product")]
     for _fp in _fps:

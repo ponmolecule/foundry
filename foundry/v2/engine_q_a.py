@@ -1020,20 +1020,19 @@ def run_pf_a(cfg):
             is_[_k] = [None] * (Q + 1)
 
     re, nol = day_one, 0.0
-    # ---- tax_detail module (NOL -> DTA, ASC 740 presentation; OFF path is
-    # byte-identical to the legacy shield-everything treatment) ----
-    _td = a.get("tax_detail") or None
-    if _td is not None and _td.get("enabled") is False:
-        _td = None
-    if _td:
-        _td_lim = float(_td.get("nol_utilization_limit_pct",
-                                  _RP["tax"]["nol_utilization_limit_pct"]))
-        _td_va_mode = _td.get("va_mode", "auto")
-        _td_va_pct = float(_td.get("va_pct", 0.0))
-        for _k in ("taxCurrent", "taxDeferred", "dtaGross", "dtaVA", "dtaNet"):
-            is_[_k] = [None] * (Q + 1)
-        bs["dta"] = [0.0] * (Q + 1)
-    _cum_taxable, _dta_prev = 0.0, 0.0
+    from .tax_interim import InterimTaxLedger, MONEY_SERIES
+    _tax_ledger = InterimTaxLedger(cfg, a, ppy)
+    for _k in MONEY_SERIES:
+        is_[_k] = [None] * (Q + 1)
+    bs["dta"] = [0.0] * (Q + 1)
+    bs["dta"][0] = _tax_ledger.opening_dta
+    if _tax_ledger.opening_dta:
+        c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0,
+                          non_earn_t[0] + _tax_ledger.opening_dta)
+        bs["cash"][0], bs["sec"][0], bs["borrow"][0] = c0, s0, b0
+        if _ibm:
+            bs["affiliatedCash"][0] = c0
+        bs["totalAssets"][0] = c0 + s0 + sec_books0 + net0 + non_earn + _tax_ledger.opening_dta
     # ---- credit_regime module (ASC 326 presentation): decomposes the SAME
     # provision into day-one (retained originations x lifetime EL rate),
     # reserve build/(release) on the existing book, and NCO replenishment.
@@ -1414,7 +1413,7 @@ def run_pf_a(cfg):
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
-        _dta_iter = _dta_prev
+        _tax_assets_iter = _tax_ledger.dta
         _aoci_q_guess = _simple_afs_end * _aoci_sens / ppyf
         _managed_snapshot = []
         for _ in range(60):
@@ -1439,7 +1438,7 @@ def run_pf_a(cfg):
             equity_end = cap_t[q] + re + ni + aoci_cum + aoci_q
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
-                            non_earn_t[q] + _prepaid_opex_q + (_dta_iter if _td else 0.0),
+                            non_earn_t[q] + _prepaid_opex_q + _tax_assets_iter,
                             _accrued_opex_q, _other_liab_q,
                             required_cash=_operating_cash, extra_assets=_frb_stock)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
@@ -1510,44 +1509,19 @@ def run_pf_a(cfg):
                 nie = prod_ox + fee_opex + overhead
             pretax = nii + fees + fv_pnl + gos + srv - nie - prov
             ebtda = pretax + depreciation_expense + msr_amort
-            if _td:
-                if pretax < 0:
-                    _shield = 0.0
-                    _current = 0.0
-                    _nol_end = nol - pretax
-                else:
-                    _shield = min(nol, _td_lim * pretax)
-                    _current = (pretax - _shield) * a["tax_rate"]
-                    _nol_end = nol - _shield
-                _dta_gross = _nol_end * a["tax_rate"]
-                if _td_va_mode == "auto":
-                    _va = _dta_gross if (_cum_taxable + pretax) < 0 else 0.0
-                elif _td_va_mode == "pct":
-                    _va = _dta_gross * _td_va_pct
-                else:
-                    _va = 0.0
-                _dta_net = _dta_gross - _va
-                _deferred = -(_dta_net - _dta_prev)
-                tax = _current + _deferred
-                _dta_iter = _dta_net
-            else:
-                # AUDIT 6.1: post-2017 NOLs are limited to 80% of taxable income. This is TAX LAW and
-                # must apply regardless of whether detailed DTA accounting is enabled (the election
-                # affects accounting recognition, not what the tax code permits). Same limit param as
-                # the detailed path (_td_lim / REG_PARAMS nol_utilization_limit_pct).
-                _nol_lim_pct = float((_RP.get("tax") or {}).get("nol_utilization_limit_pct", 0.80))
-                if pretax > 0:
-                    _shield = min(nol, _nol_lim_pct * pretax)
-                    taxable = pretax - _shield
-                else:
-                    taxable = 0.0
-                tax = taxable * a["tax_rate"]
+            _tax_row = _tax_ledger.evaluate(q, pretax)
+            tax = _tax_row["tax"]
+            _tax_assets_new = _tax_row["dtaNet"]
             new_ni = pretax - tax
-            _solver_converged = abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
+            _solver_converged = (abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
+                                 and abs(_tax_assets_new - _tax_assets_iter) < 1e-4)
             ni = new_ni
+            _tax_assets_iter = _tax_assets_new
             _aoci_q_guess = aoci_q
             if _solver_converged:
                 break
+        if not _solver_converged:
+            raise ValueError(f"Period {q}: income/equity/tax-asset solve did not converge; no financial results published")
         if _managed_sec:
             commit_managed_snapshot(_managed_sec, _managed_snapshot)
         if _wf_runtime is not None:
@@ -1559,20 +1533,11 @@ def run_pf_a(cfg):
                 for _wci in range(len(_wf_additive_component_native)):
                     _wf_additive_component_native[_wci].append(
                         float(_final_wf_add[_wci] if _wci < len(_final_wf_add) else 0.0))
-        if _td:
-            nol = _nol_end
-            _cum_taxable += pretax
-            _dta_prev = _dta_net
-            bs["dta"][q] = _dta_net
-            for _k, _v in (("taxCurrent", _current), ("taxDeferred", _deferred),
-                            ("dtaGross", _dta_gross), ("dtaVA", _va), ("dtaNet", _dta_net)):
-                is_[_k][q] = _v
-        elif pretax < 0:
-            nol += -pretax
-        else:
-            # Consume only the NOL actually USED as a tax deduction. The current-period
-            # 80% limitation can make pretax income larger than the permissible shield.
-            nol = max(0.0, nol - (_shield if pretax > 0 else 0.0))
+        _tax_ledger.commit(_tax_row)
+        nol = _tax_row["nol"]
+        bs["dta"][q] = _tax_row["dtaNet"]
+        for _k in MONEY_SERIES:
+            is_[_k][q] = _tax_row[_k]
         re += ni
 
         bs["cash"][q], bs["sec"][q], bs["borrow"][q] = c, s, b
@@ -1589,7 +1554,7 @@ def run_pf_a(cfg):
         bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
         bs["otherLiab"][q] = _other_liab_q
         bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q] + _frb_stock
-                                  + (bs["dta"][q] if _td else 0.0))
+                                  + bs["dta"][q])
         _is_values = [("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("msrAmort", msr_amort), ("fvPnl", fv_pnl),
@@ -1621,7 +1586,7 @@ def run_pf_a(cfg):
         ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_a * 100) if avg_a > 0 else None
         rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
         ratios["eff"][q] = ((is_["prodOpex"][q] + is_["feeOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
-        _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if _td else 0.0
+        _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if bs["dta"][q] else 0.0
         t1 = bs["equity"][q] - a["intangibles"] - _dta_ded
         msr_x = max(0.0, msr_t[q] - 0.25 * max(0.0, t1))
         ratios["lev"][q] = ((t1 - msr_x) / (avg_a - msr_x - _dta_ded) * 100) if (avg_a - msr_x - _dta_ded) > 0 else None
@@ -1738,8 +1703,9 @@ def run_pf_a(cfg):
                    "premisesGross": prem_gross_t,
                    "premisesAccumDep": prem_accum_t,
                    "borrowSched": sched_t,
-                   **({"dta": bs["dta"]} if _td else {})},
+                   "dta": bs["dta"]},
             "is": {k: v[1:] for k, v in is_.items()}}
+    _out["tax_interim"] = _tax_ledger.audit()
     if _ibm:
         for _k in ("affiliatedCash", "operatingCash", "frbStock", "fiduciaryAuaNonInterest",
                    "fiduciaryAuaInterest", "fiduciaryAuaTotal", "mabCount"):
