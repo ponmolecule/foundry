@@ -1638,3 +1638,30 @@ Built on r295. Engine untouched.
 - Validation: drift inside the run and from a post-open timer is healed (no guard on leaving); genuine edits made
   100 / 400 / 700 / 1000 / 1500 ms after opening, during the run, all stay unsaved; the reported round trip
   (edit A, Discard & switch to B, reopen A, leave) raises no second guard.
+
+
+## r297 (Claude) — Editing a legacy expense no longer changes its growth or shows phantom changes
+
+Built on r296. Engine untouched (console conversion only).
+- Reported (with screenshot): changing Simple overhead from 1,800,000 to 2,800,000 listed six further "changes",
+  every field of a new overhead_flow_spec from "—".
+- Cause: an engagement still holding overhead (or a detailed expense category) in the legacy per-period fields is
+  displayed through a converted view; the first edit materialises that view as a flow spec. The conversion used
+  growth method "smooth", which on a QUARTERLY model sub-steps growth within each quarter: overhead rose about
+  0.33% per period (1,800,000 became 1,805,986.73 in Q1; up to 6,679/quarter), categories up to 2,046/quarter.
+  Monthly models were unaffected.
+- Fix: legacy growth converts to "step" at the model period, which reproduces the legacy path exactly (0.0000,
+  quarterly and monthly, overhead and categories). The guard compares against the saved copy's converted view,
+  so it lists only the user's change ("Value: 1,800,000 → 2,800,000").
+- Engagements saved since such an edit on a quarterly model may carry "Smooth" in Simple overhead or a category's
+  growth method; set it to "Step" to restore the legacy profile (not changed automatically: smooth may be intended).
+
+
+## r298 (Claude) — Governance catalogue collapsed by default
+
+Built on r297. Presentation only.
+- "What these checks catch" (8 checks and 5 limits) took over the Data checks tab. It is now a single collapsed line
+  ("What these checks catch · 8 checks · 5 limits", with the save note at the right); click to open. It stays as
+  the user left it while on the page and collapses again on arrival from another tab.
+- The heading ran into its note ("...catchEdits are compared...") because the catalogue's r286 styles were no longer
+  in the file; they are restored, with heading, count and note as separate, spaced elements.

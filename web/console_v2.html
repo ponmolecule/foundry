@@ -2312,6 +2312,21 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r298: data-check catalogue: collapsed by default; heading, count and note separated (r286 styles restored) */
+.gq-cat{margin-top:18px;border:1px solid #e2e0d9;border-radius:8px;background:#fff}
+.gq-cat>summary.gq-cat-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;padding:11px 14px;cursor:pointer;list-style:none;user-select:none}
+.gq-cat>summary.gq-cat-h::-webkit-details-marker{display:none}
+.gq-cat>summary.gq-cat-h::before{content:"\25B8";color:#9a7330;font-size:11px;width:10px;align-self:center}
+.gq-cat[open]>summary.gq-cat-h::before{content:"\25BE"}
+.gq-cat>summary.gq-cat-h b{font-size:13.5px;font-weight:600;color:#1d1c1a}
+.gq-cat-n{font-size:11.5px;color:#9a7330;font-weight:500}
+.gq-cat-note{font-size:12px;color:#8a867d;margin-left:auto}
+.gq-cat>summary.gq-cat-h:hover b{color:#9a7330}
+.gq-cat[open]>summary.gq-cat-h{border-bottom:1px solid #ecebe6}
+.gq-cat>.gq-cat-t{margin:0;border:0;border-radius:0}
+.gq-cat-t td{vertical-align:top;font-size:12px;line-height:1.45}.gq-cat-k{font-weight:600;white-space:nowrap}.gq-cat-ex{color:#4a4741;font-style:italic}
+.gq-cat-lim{padding:10px 14px 12px;font-size:12px;color:#4a4741;border-top:1px solid #ecebe6}
+.gq-cat-lim ul{margin:4px 0 0 18px;padding:0}.gq-cat-lim li{margin:2px 0}
 /* r295: compact unsaved-changes window; readable change list; four evenly spaced choices */
 #guard-dlg{width:min(520px,94vw)!important;padding:16px 18px!important;border-radius:8px!important}
 #guard-dlg h3{font-size:15px!important;margin:0 0 6px!important}
@@ -3462,12 +3477,13 @@ window.govGo=function(i){ const f=((window._govQA||{}).findings||[])[i]; if(f) _
 // r286: the catalogue of what the data checks catch, and their limits (served with the findings)
 function _govCatalogHtml(Q){
   const C=(Q&&Q.catalog)||[], L=(Q&&Q.limits)||[]; if(!C.length) return '';
-  let h=`<div class="gq-cat"><div class="gq-cat-h"><b>What these checks catch</b><span>${Q.withSave?'Edits are compared with the last save.':'Save the engagement to also check edits against the last save.'}</span></div>`;
+  // r298: collapsed by default; the open state is kept while the user stays on the page
+  let h=`<details class="gq-cat"${window._govCatOpen?' open':''} ontoggle="window._govCatOpen=this.open"><summary class="gq-cat-h"><b>What these checks catch</b><span class="gq-cat-n">${C.length} checks${L.length?` \u00b7 ${L.length} limits`:''}</span><span class="gq-cat-note">${Q.withSave?'Edits are compared with the last save.':'Save the engagement to also check edits against the last save.'}</span></summary>`;
   h+=`<table class="gq-t gq-cat-t"><tr><th>Check</th><th>Catches</th><th>Example</th><th>Severity</th><th>Where it looks</th></tr>`;
   C.forEach(c=>{ h+=`<tr><td class="gq-cat-k">${esc(c.check)}</td><td>${esc(c.catches)}</td><td class="gq-cat-ex">${esc(c.example)}</td><td>${esc(c.severity)}</td><td>${esc(c.where)}</td></tr>`; });
   h+=`</table>`;
   if(L.length) h+=`<div class="gq-cat-lim"><b>Not caught</b><ul>${L.map(x=>`<li>${esc(x)}</li>`).join('')}</ul></div>`;
-  return h+`</div>`;
+  return h+`</details>`;
 }
 function _govChecksHtml(){
   const Q=window._govQA||{};
@@ -4490,9 +4506,24 @@ function changeListSinceUpload(){
 // Extracted from the upload-only path so the cycle-away guard can diff against _pristineJSON (the
 // universal baseline set on every entry mode), giving the same specific detail regardless of how the
 // engagement was created. baselineJSON is a JSON STRING of a full config.
+// r297: an edit converts a legacy overhead or expense category into its natural-period flow spec. Give the saved copy
+// the same converted view, so the guard lists only what the user changed, not every field of the new format.
+function _upgradeLegacyViews(orig, cur){
+  try{
+    const oa=orig&&orig.assumptions, ca=cur&&cur.assumptions; if(!oa||!ca) return;
+    const keep=cfg;
+    try{
+      if(ca.overhead_flow_spec && !oa.overhead_flow_spec){ cfg=orig; oa.overhead_flow_spec=_viewSimpleOpexFlow(); }
+      const oc=((oa.nie_detail||{}).categories)||[], cc=((ca.nie_detail||{}).categories)||[];
+      oc.forEach((ct,i)=>{ const m=cc.find(x=>x&&ct&&x.name===ct.name)||cc[i];
+        if(m&&m.flow_spec&&!ct.flow_spec){ cfg=orig; ct.flow_spec=_viewNieCatFlow(ct); } });
+    } finally { cfg=keep; }
+  }catch(e){}
+}
 function _diffCfgAgainst(baselineJSON){
   let orig; try{ orig = normalizeCfg(JSON.parse(baselineJSON)); }catch(e){ return []; }
   const cur = normalizeCfg(JSON.parse(JSON.stringify(cfg)));
+  _upgradeLegacyViews(orig, cur);   // r297: a legacy item converted on edit is compared in its converted form
   const out = [];
   const money = v => "$" + (Math.round((v||0)/1000)).toLocaleString() + "k";
   const pct   = v => (v==null?"\u2014":(v*100).toFixed(2).replace(/\.?0+$/,"")+"%");
@@ -8244,7 +8275,10 @@ function _legacyGrowthSpec(spec, legacyRate){
     if(!out.period || out.period==="model_period") out.period=p;
     return out;
   }
-  return {rate:+(legacyRate||0),period:p,method:"smooth",anchor:"model_period"};
+  // r297: legacy growth_per_period compounds once per ENGINE period. "step" at the model period reproduces it exactly
+  // (verified 0.0000 difference, quarterly and monthly); "smooth" sub-stepped within a quarter and shifted every
+  // quarterly engagement's expense path (overhead up to ~0.33%/period) the moment an amount was edited.
+  return {rate:+(legacyRate||0),period:p,method:"step",anchor:"model_period"};
 }
 function _viewSimpleOpexFlow(){
   const A=cfg.assumptions;
@@ -10123,7 +10157,7 @@ function _fsxBands(card){
 }
 // r288: every section starts collapsed when the user arrives on the page (not on re-renders while editing)
 setTimeout(()=>{
-  const st=window.setTab; if(typeof st==='function'&&!st._fsx){ const w=function(t){ if(t==='config'&&typeof currentTab!=='undefined'&&currentTab!=='config') window._fsxOpen={}; return st.apply(this,arguments); }; w._fsx=true; window.setTab=w; }
+  const st=window.setTab; if(typeof st==='function'&&!st._fsx){ const w=function(t){ if(t==='config'&&typeof currentTab!=='undefined'&&currentTab!=='config') window._fsxOpen={}; if(t==='gov'&&typeof currentTab!=='undefined'&&currentTab!=='gov') window._govCatOpen=false; return st.apply(this,arguments); }; w._fsx=true; window.setTab=w; }
   const cm=window.cfgSelectModule; if(typeof cm==='function'&&!cm._fsx){ const w2=function(key){ const was=window._cfgModule; const r=cm.apply(this,arguments); if(key==='sec'&&was!=='sec'&&typeof fsxAll==='function') fsxAll(false); return r; }; w2._fsx=true; window.cfgSelectModule=w2; }
 },0);
 window.fsxToggle=function(k){ window._fsxOpen[k]=!window._fsxOpen[k]; const sec=document.getElementById('fsx-'+k); if(sec){ sec.classList.toggle('open',!!window._fsxOpen[k]); sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[k]); }
