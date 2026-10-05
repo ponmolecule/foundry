@@ -1478,3 +1478,15 @@ Compact tax authoring, current/deferred detail, tax assets in the balance/capita
 calculation, Call Report other-assets inclusion, and a dedicated Income Taxes audit
 sheet accompany the engine change. Results/fingerprints intentionally change.
 See R284_TAX_METHOD.md, R284_RELEASE_NOTES.md and R284_VALIDATION.md.
+
+
+## r285 (Claude) — New Executive Summary view in the Klaros skin
+
+Presentation release on r284 (4ead287). Engine untouched. The New Executive Summary view is a self-contained
+document generated server-side (foundry/v2/exec_view_gen.py) from foundry/v2/assets/exec_view_template.html and
+shown in a sandboxed iframe, so the console's palette changes never reached it. Its chart palette had already been
+moved to warm tones, but its CSS variables, tables and logo were still navy and blue; that left some text dark on
+navy (e.g. the gauge's requirement value was effectively invisible). Variables and literals are now Klaros:
+warm-white surfaces, graphite text (#1D1C1A / #4A4741 / #8A867D), deep gold accents (#9A7330), graphite table
+headers with the gold rule, gold logo; info tone graphite instead of blue. No blue-dominant colour remains
+(guarded by tests_r285_exec_skin); rendered check: no blue in computed styles, no light text on light surfaces.
