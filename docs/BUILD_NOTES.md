@@ -1621,3 +1621,20 @@ Built on r294. Engine untouched.
   fields) and logged to the console so its source can be named. Genuine edits (made before the render) still count.
 - The window is compact (520px, about 300px tall with a full list) and the four choices are evenly sized; no label
   is clipped.
+
+
+## r296 (Claude) — No "unsaved" state from changes after opening that nobody made
+
+Built on r295. Engine untouched.
+- Reported: Discard & switch from A to B, reopen A, leave A: the guard appears again although A was just loaded.
+- Root cause not confirmed (not reproducible on the reference configurations; normalizeCfg is idempotent on all
+  twelve). Gap found in r295: opening an engagement schedules the engine run 350 ms later, AFTER the clean baseline;
+  r295 checked at scheduling time, so any change made during the deferred run (e.g. its in-place normalizeCfg on
+  data where that is not idempotent) or by any other post-open timer still made the engagement dirty.
+- The deferred run (preview) is now covered, healing only when the user did not interact during it; a settle check
+  after every open (0.6 / 1.5 / 3 / 6 s) heals changes made with no user interaction since the open. Trusted user
+  interactions (input, change, paste, drop, keydown, mousedown, touchstart) are counted; any interaction disables
+  the heal. Each heal is logged in window.__renderDrift with its fields.
+- Validation: drift inside the run and from a post-open timer is healed (no guard on leaving); genuine edits made
+  100 / 400 / 700 / 1000 / 1500 ms after opening, during the run, all stay unsaved; the reported round trip
+  (edit A, Discard & switch to B, reopen A, leave) raises no second guard.
