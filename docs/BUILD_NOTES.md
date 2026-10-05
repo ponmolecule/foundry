@@ -1554,3 +1554,14 @@ Built on r289 (406d528). Presentation only; engine untouched.
   36-month tables (Net income and Tier 1 leverage by month) previously ran past the sheet onto the canvas.
 - Measured at 1920px on all nine sheet pages: content and notation centred (240px each side), nothing past the
   sheet edge, and the title band is always the page heading, never the sheet.
+
+
+## r291 (Claude) — Placed in service as a box, not a horizon-long dropdown
+
+Built on r290. Presentation and input only; engine and the in_service_period field unchanged.
+- Fixed assets / CAPEX: "Placed in service" was a dropdown with one option per forecast period (36 on a
+  36-month model). It is now a digits-only box labelled "Month placed in service (max = N)", N being the forecast
+  horizon (the period word follows the cadence: Month / Quarter / Year). 0 means at opening, as before.
+- Letters and symbols cannot be typed or pasted in; empty or out-of-range entries are refused with a message (the
+  saved value is kept), never silently clamped. The asset table shows "Opening" / "M12" and keeps showing the saved
+  value while an entry is refused.
