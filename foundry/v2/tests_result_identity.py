@@ -22,9 +22,9 @@ PINNED_R283 = {**PINNED_R230,
     "foundry/fixtures/core_bank_test_base.json": "02a7295b4351",
 }
 PINNED_CURRENT = {
-    "foundry/fixtures/core_bank_test_base.json": "f4aa646c3180",
+    "foundry/fixtures/core_bank_test_base.json": "3095860cd0b7",   # r300: + nie_detail_series components / by category / categories_total (reporting only; every financial value identical)
     "foundry/fixtures/patrick_default_v31.json": "6d7e75a3ea0d",
-    "foundry/fixtures/universal_template_bank.json": "6fd77a2f45fe",   # r292: template FDIC assessment 5 bp -> 0 bp (pretax +684.5, tax +143.7, NI +540.7 $000s over the horizon)
+    "foundry/fixtures/universal_template_bank.json": "63efab196c93",   # r300: + component reporting series (financials identical); r292: FDIC 5 bp -> 0 bp   # r292: template FDIC assessment 5 bp -> 0 bp (pretax +684.5, tax +143.7, NI +540.7 $000s over the horizon)
 }
 
 

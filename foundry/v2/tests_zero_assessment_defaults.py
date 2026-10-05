@@ -22,6 +22,7 @@ def main():
     a['securities_yield']=.04;assert run_pf_a(c)['is']['secInt'][0]>0
     c=json.load(open('foundry/fixtures/core_bank_test_base.json'));c['assumptions']['nie_detail']['fdic_bp_ann']=5
     # r284 intentionally adds the tax-year ledger; preserve the complete-result guard.
-    assert run_v2(c)['run_hash']=='4c3613f2d783'
+    # r300 adds category component reporting series (financials verified identical); pin moves 4c3613f2d783 -> 80760d2e12e0.
+    assert run_v2(c)['run_hash']=='80760d2e12e0'
     print('PASS Profile A/B missing FDIC = explicit zero; explicit 5 still accrues; explicit-5 core result fingerprint pinned')
 if __name__=='__main__':main()

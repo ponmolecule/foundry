@@ -1136,6 +1136,7 @@ def run_pf_a(cfg):
     _occ_half_amt = 0.0
     _occ_signed_balance = 0.0  # + prepaid asset, - accrued liability
     _linked_timing_balances = [0.0] * len((_nie_d or {}).get("linked_components") or [])
+    _nie_linked_cat_by_q = {}   # r300: component charges per period, by category (reporting only)
     _simple_overhead = simple_overhead_series(a, Q, ppy, _growth_ctx)
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
     _wf_runtime = None
@@ -1377,6 +1378,7 @@ def run_pf_a(cfg):
                 if _total_sid:
                     _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
             _linked_opex = 0.0
+            _nie_linked_cat_by_q[q] = {}   # r300: overwritten if the solver re-runs this period
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
                     _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
@@ -1393,6 +1395,9 @@ def run_pf_a(cfg):
                                  "workforce_count": _wf_count_map_q,
                                  "periods_per_year": ppy})
                 _linked_opex += float(_lr.get("expense") or 0.0)
+                _lci = _lc.get("category_index")
+                if _lci is not None:
+                    _nie_linked_cat_by_q[q][int(_lci)] = _nie_linked_cat_by_q[q].get(int(_lci), 0.0) + float(_lr.get("expense") or 0.0)
                 if _li < len(_linked_timing_balances):
                     _linked_timing_balances[_li] += float(_lr.get("timing_delta") or 0.0)
             _comp_q = _role_comp_q
@@ -1768,6 +1773,15 @@ def run_pf_a(cfg):
             _out["fixed_assets"]["formula_level"] = dict(_fa.get("formula_level") or {})
     if _managed_sec:
         _out["managed_securities"] = public_managed_securities(_managed_sec)
+    if _nie_linked_cat_by_q:
+        # r300: reporting only. The same charges already post through _linked_opex; this records them by category so
+        # views can show each category's full expense (base path + cost pool / formula / tiered components).
+        _cats_seen = sorted({ci for d in _nie_linked_cat_by_q.values() for ci in d})
+        _out["nie_linked_by_category"] = {
+            "total": [float(sum((_nie_linked_cat_by_q.get(i + 1) or {}).values())) for i in range(Q)],
+            "by_category": {str(ci): [float((_nie_linked_cat_by_q.get(i + 1) or {}).get(ci, 0.0)) for i in range(Q)]
+                            for ci in _cats_seen},
+        }
     if _wf_runtime is not None:
         _out["workforce"] = {
             "resolved_hire_periods": _wf_runtime.resolved_hires(),

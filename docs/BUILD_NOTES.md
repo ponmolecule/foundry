@@ -1676,3 +1676,20 @@ Built on r298. Presentation only.
   midpoint flipped between the two, so the table jittered. Workforce rows have no such pseudo-elements.
 - The pseudo-elements are suppressed on table rows; the layout-neutral inset marker remains. Measured: identical row
   and cell geometry with either marker; a real drag reorders correctly.
+
+
+## r300 (Claude) — Expense categories reported with their components
+
+Built on r299. Engine calculations unchanged; reporting series added.
+- "M1 expense categories" (and nie_detail_series.categories) held only each category's own recurring base path;
+  cost-pool, Formula and Tiered component charges, which the engine evaluates separately and posts in the same
+  operating expense, were invisible there (the universal template hides 91.56 $000s/month of them in M1).
+- The engine now records component charges by category and period (overwritten if the solver re-runs a period);
+  results add nie_detail_series.components, components_by_category and categories_total (base paths + components).
+- Console: the KPI shows the full total with "base paths X + components Y"; each category editor shows "Latest run ·
+  components charge for this category" under Additive expense components.
+- Verified: every financial result identical to r299 on all five reference configurations; only run_hash changes
+  for core_bank_test_base (f4aa646c3180 -> 3095860cd0b7) and universal_template_bank (6fd77a2f45fe -> 63efab196c93)
+  because the results now carry the new series.
+- Engine behaviour confirmed by experiment: a category's base path and its cost-pool charge are additive. Entering
+  the same base both as the category's base path and inside its cost pool counts it twice.
