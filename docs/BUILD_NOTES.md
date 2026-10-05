@@ -1655,3 +1655,13 @@ Built on r296. Engine untouched (console conversion only).
   so it lists only the user's change ("Value: 1,800,000 → 2,800,000").
 - Engagements saved since such an edit on a quarterly model may carry "Smooth" in Simple overhead or a category's
   growth method; set it to "Step" to restore the legacy profile (not changed automatically: smooth may be intended).
+
+
+## r298 (Claude) — Governance catalogue collapsed by default
+
+Built on r297. Presentation only.
+- "What these checks catch" (8 checks and 5 limits) took over the Data checks tab. It is now a single collapsed line
+  ("What these checks catch · 8 checks · 5 limits", with the save note at the right); click to open. It stays as
+  the user left it while on the page and collapses again on arrival from another tab.
+- The heading ran into its note ("...catchEdits are compared...") because the catalogue's r286 styles were no longer
+  in the file; they are restored, with heading, count and note as separate, spaced elements.
