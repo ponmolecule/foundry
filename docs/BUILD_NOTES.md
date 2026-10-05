@@ -1490,3 +1490,27 @@ navy (e.g. the gauge's requirement value was effectively invisible). Variables a
 warm-white surfaces, graphite text (#1D1C1A / #4A4741 / #8A867D), deep gold accents (#9A7330), graphite table
 headers with the gold rule, gold logo; info tone graphite instead of blue. No blue-dominant colour remains
 (guarded by tests_r285_exec_skin); rendered check: no blue in computed styles, no light text on light surfaces.
+
+
+## r286 (Claude) — Governance data checks that catch digit slips; change tracking without phantom edits
+
+Built on r285. Engine untouched.
+Why two deliberate fat-finger tests (634 typed as 1,634 in a fee-stream count schedule) were missed:
+(1) the scanner read only {trajectory: explicit, values} objects, so level schedules ({period, resolution,
+schedule: {period: value}}) were never examined; (2) the only rule flagged values >= 3x the whole-series median
+(here 5,457), which cannot catch a slip in a trending series (1,634 is below the median, 1,819).
+- Every numeric schedule is scanned: explicit values, period-keyed level schedules, and schedule-like lists.
+- Local-trend break detector: residual against the neighbours' interpolation, robust scale (MAD), iterative,
+  only points beyond both neighbours (genuine steps are never flagged), interior before edges.
+- One-keystroke explanations: extra / missing / transposed digit, x10 / x100 / x1,000 ($ vs $000s).
+  "1,634 looks like 634 with an extra 1 at the start."
+- Edited since the last save: when the engagement is saved, edits that look like a slip are flagged with the
+  saved value (catches edge and noisy-series slips the trend cannot).
+- Validation: the user's series caught (expected ~614); x1,000, swapped, dropped and final-period slips caught
+  with the right explanation; 0 false positives on 7 named shapes and 300 randomized clean series; 0 findings on
+  shipped fixtures. Trend findings inside an existing spike episode are suppressed (no duplicates).
+- Governance > Data checks lists "What these checks catch" (8 checks, examples, severity, scope) and
+  "Not caught" (5 limits), served with the findings so the list cannot drift from the code.
+- Change tracking: numbers equal to within float noise are not changes; real sub-unit differences are shown with
+  enough decimals; period-keyed schedules merge into ranges (M1 to M36). The 36-line phantom list collapses to the
+  one real change.
