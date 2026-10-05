@@ -4067,7 +4067,8 @@ async function boot(){
           let _duplicateOfSaved = false;
           if(_hasWork){
             const ident = _cfgIdent(draftCfg).trim();
-            const candidates = (js.engagements||[]).filter(e => !_isRecoverySlug(e.slug) && (!ident || (e.name||"").trim()===ident));
+            const candidates = (js.engagements||[]).filter(e => !_isRecoverySlug(e.slug)).slice(0,40)
+              .sort((a,b)=>((b.name||"").trim()===ident)-((a.name||"").trim()===ident));   /* r294: any saved engagement, same name first */
             for(const e of candidates){
               try{
                 const sr = await fetch("/api/v31/engagement/" + encodeURIComponent(e.slug));
@@ -11120,7 +11121,11 @@ window.guardDownload=guardDownload;
 async function guardDiscard(){ const slug=_guardPendingSlug; _guardPendingSlug=null; _guardHide();
   if(slug) await _openEngagementNow(slug); }
 window.guardDiscard=guardDiscard;
-function guardSaveAsOpen(){
+function guardSaveAsOpen(){   // r294: the guard uses the same "Save as a new version" dialog as the menu
+  document.getElementById("guard-dlg").style.display="none"; document.getElementById("guard-bg").style.display="none";
+  window._verSaveFromGuard=true; openVersionSave(); return;
+}
+function _legacyGuardSaveAsOpen(){
   const _b = _engBank(), nm = _versionOf(cfg.scenario_name || "", _b);   /* r293: the version; the bank is context */
   const inp = document.getElementById("guard-name"); inp.value = nm;
   const gb = document.getElementById("guard-bank"); if(gb) gb.textContent = _b ? "\u00b7 " + _b : "";
@@ -11154,6 +11159,7 @@ async function guardSaveAsConfirm(){
     body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: nm})});
   let j={}; try{ j = await r.json(); }catch(e){}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
+  if(j && j.slug) window._openSlug = j.slug;   /* r294 */
   window._lastSavedAt = new Date();
   await _purgeRecoveryDrafts();                        // saved work must not reappear as crash recovery on next login
   LC.markSaved(nm);                                   // real save -> re-baseline the state engine to CLEAN
@@ -11168,11 +11174,14 @@ window.guardSaveAsConfirm=guardSaveAsConfirm;
 function _showGuard(slug){
   _guardPendingSlug = slug;
   const list = unsavedChangeList();
-  document.getElementById("guard-sub").innerHTML =
-    "You have unsaved edits to the current engagement. Switching will reload the other engagement and discard these unless you save or download first.";
+  const _never = LC.state()==="NEW-UNSAVED";   /* r294: say WHY the guard appeared */
+  document.getElementById("guard-sub").innerHTML = _never
+    ? "This engagement has not been saved yet (it was recovered from your last session or newly created). Switching will discard it unless you save or download first."
+    : "You have unsaved edits to the current engagement. Switching will reload the other engagement and discard these unless you save or download first.";
   const rows = list.length
-    ? list.map(s=>`<div style="font-family:var(--mono);font-size:11px;color:#2B2B2B;margin:2px 0">\u2022 ${esc(s)}</div>`).join("")
-    : '<div style="color:#565653;font-size:11px">(changes present)</div>';
+    ? '<div style="color:#565653;font-size:11px;margin-bottom:3px">These fields changed since the last save:</div>'+list.map(s=>`<div style="font-family:var(--mono);font-size:11px;color:#2B2B2B;margin:2px 0">\u2022 ${esc(s)}</div>`).join("")
+    : (_never ? '<div style="color:#565653;font-size:11px">Nothing to compare against: it has never been saved.</div>'
+              : '<div style="color:#565653;font-size:11px">The configuration differs from the last save, but no individual field could be listed.</div>');
   document.getElementById("guard-list").innerHTML = rows;
   document.getElementById("guard-bg").style.display="block";
   document.getElementById("guard-dlg").style.display="block";
@@ -11528,8 +11537,24 @@ async function openEngagement(slug){
   // guard (itemised changes + Download / Save as / Discard / Cancel) instead of switching. This is the
   // one consistent behaviour across every entry mode — uploaded, opened, or hand-created — because it
   // diffs against _pristineJSON, which is set on every load. The user decides; nothing is lost silently.
-  if(hasUnsavedWork()){ _showGuard(slug); return; }
+  if(hasUnsavedWork() && LC.state()==="NEW-UNSAVED" && await _identicalToSaved()){ /* r294: same as a saved engagement: nothing to lose */ }
+  else if(hasUnsavedWork()){ _showGuard(slug); return; }
   await _openEngagementNow(slug);
+}
+// r294: a never-saved (recovered or created) configuration that is IDENTICAL to a saved engagement is not unsaved
+// work. Re-mark it as that saved engagement (clean) so no guard appears; returns true when it matched.
+async function _identicalToSaved(){
+  try{
+    const rs=await fetch('/api/v31/engagements'); if(!rs.ok) return false;
+    const js=await rs.json(), mine=LC._ser(cfg); if(!mine) return false;
+    const list=(js.engagements||[]).filter(e=>!_isRecoverySlug(e.slug)).slice(0,40);
+    const ident=_cfgIdent(cfg).trim(); list.sort((a,b)=>((b.name||'').trim()===ident)-((a.name||'').trim()===ident));
+    for(const e of list){
+      const r=await fetch('/api/v31/engagement/'+encodeURIComponent(e.slug)); if(!r.ok) continue;
+      if(LC._ser(await r.json())===mine){ LC.land('open', e.name||e.slug); window._openSlug=e.slug; if(typeof updateChangedChip==='function') updateChangedChip(); return true; }
+    }
+  }catch(e){}
+  return false;
 }
 window.openEngagement = openEngagement;
 async function _openEngagementNow(slug){
@@ -11660,6 +11685,7 @@ async function engMenuSave(nmOverride){
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   window._lastSavedAt = new Date();
+  try{ const _j = await r.clone().json(); if(_j && _j.slug) window._openSlug = _j.slug; }catch(e){}   /* r294 */
   await _purgeRecoveryDrafts();                        // explicit save retires any stale unsaved-work recovery draft
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
@@ -11689,9 +11715,13 @@ function _verSaveHint(){
   if(!v){ h.innerHTML='That is the bank\u2019s name; enter a version name.'; h.className='ver-hint ver-warn'; return; }
   h.innerHTML=`Saved as <b>${esc(_engNameFor(v))}</b>. Rename the bank by clicking its name in the header.`; h.className='ver-hint';
 }
-window.closeVersionSave=function(){ const d=document.getElementById('verSaveDlg'); if(d) d.style.display='none'; };
+window.closeVersionSave=function(){ const d=document.getElementById('verSaveDlg'); if(d) d.style.display='none';
+  if(window._verSaveFromGuard){ window._verSaveFromGuard=false; if(typeof guardCancel==='function') guardCancel(); } };
 window.confirmVersionSave=function(){ const raw=(document.getElementById('verSaveName').value||'').trim(), v=_versionOf(raw,_engBank());
   if(!v){ _verSaveHint(); document.getElementById('verSaveName').focus(); return; }
+  if(window._verSaveFromGuard){   // continue the guarded switch: save under bank \u00b7 version, then open the pending engagement
+    window._verSaveFromGuard=false; const d=document.getElementById('verSaveDlg'); if(d) d.style.display='none';
+    document.getElementById('guard-name').value=v; guardSaveAsConfirm(); return; }
   closeVersionSave(); engMenuSave(_engNameFor(v)); };
 document.addEventListener("click", (ev)=>{
   const tile = ev.target.closest && ev.target.closest(".modcard[data-act]");

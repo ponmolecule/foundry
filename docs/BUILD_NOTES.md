@@ -1592,3 +1592,19 @@ Built on r292. Engine untouched.
   and consistent with Governance history and change tracking. The key slug of "Bank 1 · Aggressive" equals that of
   "Bank 1-Aggressive", so re-saving an older engagement updates it instead of duplicating. The store list adds
   bank_display (proposed name first) beside the existing bank field.
+
+
+## r294 (Claude) — Save guard: no false alarms, one save window
+
+Built on r293. Engine untouched.
+- Reported: the "unsaved changes" guard appearing with no changes; save windows of different shapes.
+- Not reproduced in seven browser scenarios (open/switch, every tab and module, a rich engagement, sign-in and reload,
+  edit + autosave + save + reload, guard reopening). The code path that yields exactly the reported symptom is the
+  NEW-UNSAVED state: accepting "Recover unsaved work" at sign-in lands the configuration as never saved, so every
+  switch raised the guard with an empty list shown as "(changes present)", even when it was identical to a save.
+- Fixes: a never-saved configuration identical to any saved engagement is re-marked as that engagement (no guard);
+  boot retires an identical recovery draft whatever its name; the guard states why it appeared ("These fields changed
+  since the last save: ..." or "has not been saved yet ..."), never a bare "(changes present)".
+- One save window: r293 added the "Save as a new version" dialog beside the guard's older embedded form; the guard's
+  Save as now opens the same dialog and then completes the switch.
+- The current-version marker in the saved list follows saves as well as opens.
