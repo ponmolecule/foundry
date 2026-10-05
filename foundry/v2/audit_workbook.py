@@ -1633,6 +1633,37 @@ def _all_series_rows(results, n):
     return rows
 
 
+def _tax_rows(results, exact, n):
+    trace = ((exact or {}).get("tax_interim") or results.get("tax_interim") or {})
+    raw = bool((exact or {}).get("tax_interim"))
+    data = trace.get("rows") or []
+    rows = []
+    fields = (("year", "Tax year ending", "year", _COUNT_FMT),
+              ("annualEstimate", "Supported full-year ordinary income estimate", "$000s", _RAW_MONEY_FMT),
+              ("effectiveRate", "Annual / actual-YTD effective rate", "%", _PCT_FMT),
+              ("taxIncomeYtd", "Tax-year income to date before NOLs", "$000s", _RAW_MONEY_FMT),
+              ("yearOpeningNol", "Prior-year NOL at start of tax year", "$000s", _RAW_MONEY_FMT),
+              ("nolUsedYtd", "Prior-year NOL deduction used to date", "$000s", _RAW_MONEY_FMT),
+              ("currentYearTaxLoss", "Current tax-year loss to date — provisional", "$000s", _RAW_MONEY_FMT),
+              ("nol", "Prior-year NOL remaining / finalized year-end carryforward", "$000s", _RAW_MONEY_FMT),
+              ("legalCurrentYtd", "Tax on actual YTD income after prior-year deduction (not cash paid)", "$000s", _RAW_MONEY_FMT),
+              ("taxProvisionYtd", "Tax provision to date", "$000s", _RAW_MONEY_FMT),
+              ("tax", "Period tax expense / (benefit)", "$000s", _RAW_MONEY_FMT),
+              ("taxCurrent", "Current tax provision — period allocation", "$000s", _RAW_MONEY_FMT),
+              ("taxDeferred", "Deferred tax expense / (benefit)", "$000s", _RAW_MONEY_FMT),
+              ("dtaGross", "Gross loss-related DTA, including provisional current-year losses", "$000s", _RAW_MONEY_FMT),
+              ("dtaVA", "Valuation allowance", "$000s", _RAW_MONEY_FMT),
+              ("dtaNet", "Net loss-related DTA", "$000s", _RAW_MONEY_FMT),
+              ("dtaCurrentYear", "Net DTA — provisional current-year losses", "$000s", _RAW_MONEY_FMT),
+              ("dtaPriorYear", "Net DTA — prior-year carryforwards", "$000s", _RAW_MONEY_FMT))
+    for key, label, unit, fmt in fields:
+        values = [r.get(key) for r in data[:n]]
+        if raw and unit == "$000s":
+            values = [None if v is None else float(v)/1000 for v in values]
+        rows.append(("Income taxes", label, "tax_interim."+key, unit, values, fmt))
+    return rows
+
+
 def _capital_rows(results, n):
     """Standardized-capital numerator, denominator, and RWA component bridge."""
     st = ((results.get("capital") or {}).get("standardized") or {})
@@ -1684,6 +1715,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     sheet_notes = [
         ("Config Snapshot", "Exact authored scalar configuration values, including full numeric precision; sensitive credential-like fields are redacted."),
         ("Series Provenance", "Stable Series IDs, ownership metadata, and authored link targets/aggregation semantics."),
+        ("Income Taxes", "Tax-year ledger, supported annual estimate, YTD deduction/provision, period current/deferred allocation and valuation allowance."),
         ("Income Statement", "Every public native-cadence income-statement series."),
         ("Balance Sheet", "Every public balance-sheet series, including opening balances."),
         ("Other Liabilities", "Formula / level liability causal chain: opening/base, linked Workforce or Fixed Asset Series, signed multipliers, term contributions, component balances, and total other liabilities."),
@@ -1859,6 +1891,9 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Cost Pools"), cfg, _pool_rows(cfg, results, n, ppy),
                      title="Cost Pools · Audit",
                      subtitle="Resolved non-posting pricing/cost-recovery source Series.", n=n, ppy=ppy)
+    _write_wide_rows(wb.create_sheet("Income Taxes"), cfg, _tax_rows(results, exact, n),
+                     title="Income Taxes · Calculation Audit",
+                     subtitle="Tax years follow the calendar. The NOL limitation applies to prior-year carryforwards. Current-year losses are provisional until year-end. Current tax is a provision, not a cash-payment schedule. See Config Snapshot for recognition assessment and policy.", n=n, ppy=ppy)
     _write_wide_rows(wb.create_sheet("All Series"), cfg, _all_series_rows(results, n),
                      title="All Public Run Series · Audit",
                      subtitle="Catch-all numeric Series inventory. Use subsystem sheets first; this sheet is the completeness backstop.", n=n, ppy=ppy)

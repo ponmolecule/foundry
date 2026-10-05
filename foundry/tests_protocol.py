@@ -2012,19 +2012,18 @@ def t61():
     off = _r.run_v2(cfg)["financials"]
     cA = _cp.deepcopy(cfg); cA["assumptions"]["tax_detail"] = {"enabled": True, "nol_utilization_limit_pct": 1.0}
     A = _r.run_v2(cA)["financials"]
-    # AUDIT 6.1: the DEFAULT path now applies the 80% NOL limit (IRC 172, tax-law, election-
-    # independent). So limit=1.0 detailed (100% NOL) is NO LONGER equal to the default path; it
-    # should utilize MORE NOL and therefore end with equity >= the default path (less/equal tax),
-    # strictly greater in at least one quarter where NOL and profit coexist.
+    # r284: this fixture has no prior-year NOL to use during its first tax
+    # year. A within-year loss cannot be reclassified as a carryforward merely
+    # because the next QUARTER is profitable; both limits must give the same NI.
     _eqA = A["bs"]["equity"][1:]; _eqOff = off["bs"]["equity"][1:]
-    check("T61a", "limit=1.0 (100% NOL) utilizes >= default 80% path (equity no lower, strictly higher somewhere)",
-          all((x or 0) >= (y or 0) - 1e-6 for x, y in zip(_eqA, _eqOff))
-          and any((x or 0) > (y or 0) + 1e-6 for x, y in zip(_eqA, _eqOff)))
+    check("T61a", "100% and 80% limits agree without prior-year NOL consumption",
+          all(abs((x or 0)-(y or 0)) < 1e-6 for x,y in zip(_eqA,_eqOff)))
     cB = _cp.deepcopy(cfg); cB["assumptions"]["tax_detail"] = {"enabled": True}
     B = _r.run_v2(cB)["financials"]["is"]
-    prof = [q for q in range(1, len(B["pretax"])) if (B["pretax"][q] or 0) > 0 and (B["nol"][q] or 0) > 0]
-    check("T61b", "default 80% limit: current tax appears in profitable quarters despite NOL (IRC 172)",
-          bool(prof) and all((B["taxCurrent"][q] or 0) > 0 for q in prof))
+    prof = [q for q in range(len(B["pretax"]))
+            if (B["pretax"][q] or 0) > 0 and (B["taxIncomeYtd"][q] or 0) < 0]
+    check("T61b", "same-year income absorbs preceding losses before a tax charge (25-11)",
+          bool(prof) and all(abs(B["taxCurrentYtd"][q] or 0) < 1e-6 for q in prof))
     check("T61b", "auto VA holds full while cumulative taxable income is negative",
           (B["dtaGross"][-1] or 0) > 0
           and abs((B["dtaVA"][-1] or 0) - (B["dtaGross"][-1] or 0)) < 1e-6
@@ -2039,8 +2038,9 @@ def t61():
                 for x, y in zip(off["ratios"]["lev"][1:], C["ratios"]["lev"][1:]))
     check("T61c", f"leverage within the EOP-deduction wedge (max {wedge:.4f} pct pts; full "
                     "CET1 deduction + denominator exclusion per 12 CFR 3.22/RC-R)", wedge < 0.06)
-    check("T61d", "off path carries no tax-detail series (goldens' shape untouched)",
-          "taxCurrent" not in off["is"] and "dta" not in off["bs"])
+    check("T61d", "tax ledger is always audited; unsupported future-year assets remain zero",
+          "taxCurrent" in off["is"] and "dta" in off["bs"]
+          and all((v or 0)==0 for v in off["bs"]["dta"]))
 
 
 def t60():

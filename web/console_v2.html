@@ -2346,6 +2346,19 @@ window.toggleInspector=function(){const open=document.body.classList.contains('i
 (function(){let s=null;try{s=localStorage.getItem('foundry.inspector');}catch(e){}applyInspector(s?s==='open':window.innerWidth>=1500);})();
 const _CFG_MODS=['cap','sec','nie','cac','tax','cecl'];
 const _CFG_ACT2MOD={cap:'cap',secaoci:'sec',nie:'nie',cac:'cac',tax:'tax',cecl:'cecl'};
+function taxPolicySet(key,value){
+  cfg.assumptions.tax_policy=cfg.assumptions.tax_policy||{};
+  cfg.assumptions.tax_policy[key]=value;renderContent();refresh();
+}
+function taxEstimateSet(year,value){
+  const tp=cfg.assumptions.tax_policy||(cfg.assumptions.tax_policy={});
+  const m=tp.annual_income_estimates||(tp.annual_income_estimates={});
+  if(String(value).trim()==='') delete m[year]; else m[year]=_pf(value)*1000;
+  refresh();
+}
+function taxNolLimitSet(value){
+  taxPolicySet('nol_utilization_limit_pct',_pf(value)/100);
+}
 function _cfgModuleSelected(defaultKey){let k=window._cfgModule;if(!k){try{k=sessionStorage.getItem('foundry.cfgModule');}catch(e){}}if(_CFG_MODS.indexOf(k)<0)k=defaultKey||'cap';window._cfgModule=k;return k;}
 function _appbarH(){const a=document.getElementById('appbar');return a?a.offsetHeight:0;}
 function cfgBuildSubnav(){
@@ -4573,7 +4586,7 @@ const CALC_TEXT = {
   servicing: "Servicing fees on average serviced principal, net of MSR amortization.",
   nie: "Corporate overhead growing at the overhead rate \u2014 or, when NIE detail is active, FTE-step comp, category lines, and FDIC/OCC assessments on the correct base.",
   pretax: "Net interest income \u2212 provision + noninterest income \u2212 noninterest expense (+ net fair-value gains where elected).",
-  tax: "Statutory rate on pre-tax income after applying accumulated NOL carryforwards; no deferred tax asset booked.",
+  tax: "Tax-year YTD provision less the amount already recognized; annual effective-rate estimates or actual-YTD fallback. The NOL limit applies only to prior-year carryforwards. Loss benefits require supported realization.",
   netIncome: "Pre-tax income \u2212 tax.",
   tier1: "Equity less intangibles and the above-threshold MSA deduction \u2014 the CBLR framework's numerator.",
   leverage: "Tier 1 ÷ {{period}}-end total assets (MSA-deducted where applicable) — judged against the chartering commitment.",
@@ -9906,7 +9919,7 @@ function _renderContentBody(){
     h += rowBS('Intangibles', arr12(fin.bs.totalAssets.map(()=>G("assumptions.intangibles")/K), bsHasOpen), null, 'intangibles');
     if(some(fin.bs.msr)) h += rowBS('Mortgage Servicing Rights', arr12(fin.bs.msr, bsHasOpen), null, 'msr');
     h += rowBS('Other Assets', arr12(fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen), null, 'otherAssets');
-    if(some(fin.bs.dta)) h += rowBS('Deferred Tax Assets (NOL, net of valuation allowance)', arr12(fin.bs.dta, bsHasOpen), null, 'dta');
+    if(some(fin.bs.dta)) h += rowBS('Deferred tax assets — carryforwards and interim losses, net', arr12(fin.bs.dta, bsHasOpen), null, 'dta');
     h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
     h += `<tr class="section"><td colspan="${finColspan(bsHasOpen,false)}">Liabilities</td></tr>`;
     DEP_KEYS.forEach(k=>{
@@ -10008,9 +10021,10 @@ function _renderContentBody(){
     if(fin.is.taxCurrent){
       h += rowIS('\u2003of which: current tax', fin.is.taxCurrent, null, (fin.is.taxCurrent||[]).slice(-1)[0], 'tax');
       h += rowIS('\u2003of which: deferred tax (\u0394 DTA)', fin.is.taxDeferred, null, (fin.is.taxDeferred||[]).slice(-1)[0], 'tax');
-      h += rowIS('Memo: DTA \u2014 NOL (net of VA)', fin.is.dtaNet, null, (fin.is.dtaNet||[]).slice(-1)[0], 'tax');
+      h += rowIS('Memo: deferred tax assets (net of allowance)', fin.is.dtaNet, null, (fin.is.dtaNet||[]).slice(-1)[0], 'tax');
     }
-    if(fin.is.nol) h += rowIS('Memo: NOL Carryforward (end)', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0], 'nol');
+    if(fin.is.currentYearTaxLoss) h += rowIS('Memo: current tax-year loss to date', fin.is.currentYearTaxLoss, null, null, 'tax');
+    if(fin.is.nol) h += rowIS('Memo: prior-year NOL remaining / year-end carryforward', fin.is.nol, null, (fin.is.nol||[]).slice(-1)[0], 'nol');
     h += '</table>';
     h += '<div class="memo">Taxes apply the statutory rate to pre-tax income net of accumulated NOL carryforwards; no deferred tax asset is booked (conservative). FV gains/losses include credit losses on fair-value elected loans, which carry no provision.</div>';
     if(lastRes && lastRes.annual){
@@ -12756,7 +12770,7 @@ function structuresSectionsHtml(){
     secaoci:[_secCounts.simple?_cfgPl(_secCounts.simple,"book"):"",_secCounts.managed?_cfgPl(_secCounts.managed,"managed portfolio"):"",A.aoci_sensitivity_annual?"AOCI":""].filter(Boolean).join(" \u00b7 ")||"No designated books",
     nie:_opexModeNav==="detailed"?("Detailed \u00b7 "+_cfgPl((((_ndNav.workforce||{}).roles)||[]).length,"role")+" \u00b7 "+_cfgPl((_ndNav.categories||[]).length,"category","categories")):(_opexModeNav==="simple"?"Simple overhead":"Off"),
     cac:_cacNav?_cfgPl(_cacNav,"feed"):"No feeds",
-    tax:A.tax_detail?"NOL \u2192 DTA, ASC 740":"Legacy treatment",
+    tax:(A.tax_policy||{}).interim_method==="annual_effective_rate"?"Annual effective rate":"Tax-year YTD provision",
     cecl:A.credit_regime?"CECL, ACL presentation":"ALLL vocabulary"};
   const _cfgSel=_cfgModuleSelected((lampMap["NIE detail"]||_opexModeNav!=="off")?"nie":"cap");
   h += '<div class="cfg-shell"><nav class="modpanel cfg-nav" aria-label="Configuration modules"><div class="cfg-nav-head">Configuration</div><div class="cfg-nav-card"><div class="cfg-nav-title">Modules</div><div class="modbar">';
@@ -12778,8 +12792,8 @@ function structuresSectionsHtml(){
   const cacN = Object.keys(A.cac_feeds||{}).length;
   h += swTile("Customer acquisition", cacN>0, "cac", "stack", "",
               cacN>0?("On - "+cacN+" acquisition feed"+(cacN>1?"s":"")):"Off - click to add an acquisition feed");
-  h += swTile("Tax \u2014<br>NOL \u2192 DTA", !!A.tax_detail, "tax", "percent", "",
-              A.tax_detail?"On \u2014 NOL \u2192 DTA with current/deferred split; click to deactivate":"Off \u2014 click to activate ASC 740 tax detail");
+  h += swTile("Tax \u2014<br>NOL \u2192 DTA", !!A.tax_detail&&A.tax_detail.enabled!==false, "tax", "percent", "",
+              A.tax_detail&&A.tax_detail.enabled!==false?"On \u2014 future-year deferred-tax recognition; click to deactivate":"Off \u2014 future-year loss benefits unrecognized");
   h += swTile("Credit regime \u2014<br>CECL", !!A.credit_regime, "cecl", "shield", "",
               A.credit_regime?"On \u2014 ACL vocabulary + provision decomposition; click to deactivate":"Off \u2014 click to activate the ASC 326 presentation");
   h += '</div><div class="mp-info">Switch a module on in its header. Values are $000s unless a field says otherwise.</div></div></nav>';
@@ -13346,16 +13360,25 @@ function structuresSectionsHtml(){
     }
   }
   h+='</div>';
-  h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Tax detail \u2014 NOL \u2192 DTA</div><div class="cd">ASC 740 presentation: current/deferred split, DTA from carryforwards, valuation allowance, full CET1 deduction (12 CFR 3.22). Off = legacy treatment.</div></span></div>`;
-  h += `<button class="fpill${cfg.assumptions.tax_detail?" on":""}" style="margin:10px 0 12px" onclick="${cfg.assumptions.tax_detail?"delete cfg.assumptions.tax_detail":"cfg.assumptions.tax_detail={enabled:true}"};renderContent();refresh()" title="${cfg.assumptions.tax_detail?"On \u2014 click to disable (legacy treatment resumes)":"Off \u2014 click to enable"}"><span style="color:${cfg.assumptions.tax_detail?"#D4A65C":"#A2A19E"}">${ICONS.percent}</span>NOL \u2192 DTA</button>`;
-  if(cfg.assumptions.tax_detail){
-    const td = cfg.assumptions.tax_detail;
-    h += `<div class="crow" style="align-items:center">NOL utilization limit <input type="number" step="1" style="width:64px" value="${((td.nol_utilization_limit_pct!=null?td.nol_utilization_limit_pct:0.8)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.nol_utilization_limit_pct=_pf(this.value)/100;refresh()"><span class="cu">% of taxable income (IRC \u00a7172: 80%)</span></div>`;
-    h += `<div class="crow" style="align-items:center">Valuation allowance <select onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="auto"${(td.va_mode||"auto")==="auto"?" selected":""}>Auto \u2014 full while cumulative taxable income is negative</option><option value="pct"${td.va_mode==="pct"?" selected":""}>Percentage haircut</option><option value="none"${td.va_mode==="none"?" selected":""}>None (recognize in full)</option></select></div>`;
-    if(td.va_mode==="pct") h += `<div class="crow" style="align-items:center">VA haircut <input type="number" step="1" style="width:64px" value="${((td.va_pct||0)*100).toFixed(0)}" onchange="cfg.assumptions.tax_detail.va_pct=_pf(this.value)/100;refresh()"><span class="cu">% of gross DTA</span></div>`;
-  } else {
-    h += `<div class="cmut">Not active \u2014 the legacy treatment applies: 100% NOL shield, no DTA booked (equivalent to a full valuation allowance).</div>`;
+  h += `<div class="cfgcard" id="card-tax"><div class="cardhead"><span class="mi">${ICONS.percent}</span><span><div class="ct">Income taxes</div><div class="cd">Monthly or quarterly provisions within a tax year. Loss recognition requires a supported recovery assessment.</div></span></div>`;
+  const tp=A.tax_policy||{}, td=A.tax_detail||{}, taxOn=!!A.tax_detail&&td.enabled!==false, taxLimit=tp.nol_utilization_limit_pct==null?(td.nol_utilization_limit_pct==null?.8:td.nol_utilization_limit_pct):tp.nol_utilization_limit_pct;
+  h += `<div class="crow" style="gap:10px;align-items:center"><label for="tax-method">Interim provision</label><select id="tax-method" style="width:260px;max-width:100%" onchange="taxPolicySet('interim_method',this.value)"><option value="ytd_actual"${(tp.interim_method||'ytd_actual')==='ytd_actual'?' selected':''}>YTD actual — annual estimate unavailable</option><option value="annual_effective_rate"${tp.interim_method==='annual_effective_rate'?' selected':''}>Estimated annual effective rate</option></select></div>`;
+  h += `<div class="crow" style="gap:10px;align-items:center"><label for="tax-year-end">Tax year ends</label><select id="tax-year-end" style="width:130px;max-width:100%" onchange="taxPolicySet('fiscal_year_end_month',+this.value)">${['January','February','March','April','May','June','July','August','September','October','November','December'].map((m,i)=>`<option value="${i+1}"${(tp.fiscal_year_end_month||12)===i+1?' selected':''}${PPY()===4&&(i+1)%3?' disabled':''}>${m}</option>`).join('')}</select></div>`;
+  h += `<div class="crow" style="gap:10px;align-items:center"><label for="tax-opening-nol">Prior-year NOL at opening</label><input id="tax-opening-nol" type="number" min="0" style="width:130px" value="${(tp.opening_nol||0)/1000}" onchange="taxPolicySet('opening_nol',_pf(this.value)*1000)"><span class="cu">$000s · completed tax years only</span></div>`;
+  if(tp.interim_method==='annual_effective_rate'){
+    const end=tp.fiscal_year_end_month||12, years=[...new Set(Array.from({length:NP()},(_,i)=>{let d=_modelPeriodEnd(i+1);return d.getUTCFullYear()+(d.getUTCMonth()+1>end?1:0);} ))];
+    h += `<div class="cmut" style="margin:8px 0">Supported full-tax-year ordinary income before NOLs ($000s). Includes earlier months; not EBITDA. This model assumes book income equals taxable income. Blank estimates block the run.</div><div style="overflow-x:auto"><table class="dtab" style="max-width:460px"><thead><tr><th>Tax year ending</th><th>Annual income / (loss)</th></tr></thead><tbody>`;
+    years.forEach(y=>{const v=(tp.annual_income_estimates||{})[y];h+=`<tr><td>${y}</td><td><input aria-label="Tax year ${y} supported annual income ($000s)" type="number" style="width:140px" value="${v==null?'':v/1000}" placeholder="Required" onchange="taxEstimateSet('${y}',this.value)"></td></tr>`;});
+    h += `</tbody></table></div>`;
+  } else h += `<div class="cmut" style="margin:8px 0">Use this fallback when a reliable annual rate cannot be estimated. Unrecognized losses offset later income in the same tax year before a provision is charged.</div>`;
+  h += `<button class="fpill${taxOn?' on':''}" style="margin:8px 0" onclick="${taxOn?'delete cfg.assumptions.tax_detail':'cfg.assumptions.tax_detail={enabled:true,va_mode:\'full\'}'};renderContent();refresh()">Deferred-tax recognition ${taxOn?'on':'off'}</button>`;
+  if(taxOn){
+    const vm=td.va_mode==='none'?'none':td.va_mode==='pct'?'pct':'full';
+    h += `<div class="crow" style="gap:10px;align-items:center"><label for="tax-va">Future-year loss benefits</label><select id="tax-va" style="width:250px;max-width:100%" onchange="cfg.assumptions.tax_detail.va_mode=this.value;renderContent();refresh()"><option value="full"${vm==='full'?' selected':''}>Full allowance — not supported</option><option value="pct"${vm==='pct'?' selected':''}>Partially supported</option><option value="none"${vm==='none'?' selected':''}>Fully supported — no allowance</option></select></div>`;
+    if(vm==='pct') h += `<div class="crow" style="gap:10px;align-items:center">Valuation allowance <input aria-label="Valuation allowance percent" type="number" min="0" max="100" style="width:80px" value="${(td.va_pct||0)*100}" onchange="cfg.assumptions.tax_detail.va_pct=_pf(this.value)/100;refresh()"><span class="cu">% of unrealized carryforward tax asset</span></div>`;
+    h += `<div class="cmut">A supported profitable annual estimate can recognize an early-year loss benefit even with a full allowance on future-year carryforwards. No automatic allowance release from cumulative profits.</div>`;
   }
+  h += `<details style="margin-top:10px"><summary>Carryforward limit · ${(taxLimit*100).toFixed(0)}%</summary><div class="crow" style="gap:10px;align-items:center;margin-top:8px">Prior-year NOL deduction limit <input aria-label="Prior-year NOL deduction limit percent" type="number" min="0" max="100" style="width:80px" value="${taxLimit*100}" onchange="taxNolLimitSet(this.value)"><span class="cu">% of positive taxable income for the tax year</span></div><div class="cmut">Default 80% for post-2017 federal NOLs. This is not a limit on netting income and losses within the same year.</div></details>`;
   h += `</div>`;
 
   h += `<div class="cfgcard" id="card-cecl"><div class="cardhead"><span class="mi">${ICONS.shield}</span><span><div class="ct">Credit regime \u2014 CECL presentation</div><div class="cd">ASC 326 vocabulary and the day-one provision decomposition. Election is per product (measurement: amortized cost + ACL, or fair value option) \u2014 this card governs presentation, not the election.</div></span></div>`;

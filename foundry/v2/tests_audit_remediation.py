@@ -254,11 +254,13 @@ def main():
 
     # C. NOL roll-forward ----------------------------------------------------------
     ri = rb["financials"]["is"]
-    # pf_a has losses through period 11 then small positive P12 with an NOL balance.
-    used = ri["nol"][10] - ri["nol"][11]
-    expected = .8 * max(0.0, ri["pretax"][11])
-    ck("C1 default NOL balance burns only the deduction actually used", abs(used-expected) < .02,
-       f"used={used:.2f}, expected={expected:.2f}")
+    # r284: the final quarter is positive but its TAX YEAR remains loss-making.
+    # Same-year losses absorb that income in full; they are not prior-year NOLs.
+    trace=rb['tax_interim']['rows'][-1]
+    ck("C1 same-year losses absorb the last positive quarter before taxation",
+       trace['taxIncomeYtd']<0 and abs(trace['taxCurrentYtd'])<.02 and
+       abs(ri['nol'][-1]-(trace['yearOpeningNol']-trace['taxIncomeYtd']))<.02,
+       f"tax-year loss={trace['taxIncomeYtd']:.2f}k, current tax={trace['taxCurrentYtd']:.2f}k")
 
     # D. Regulator-facing Q12 vs computational horizon + Day-1 normalization -------
     qper = bpt_cover._quarterly_periods(12, 36, 12)

@@ -595,6 +595,7 @@ def run_v2(cfg):
                    "config_frozen": cfg.get("config_frozen")},
         "financials": {"bs": base["bs"], "is": base["is"], "ratios": base.get("ratios")},
         "products": base.get("products"),
+        "tax_interim": base.get("tax_interim"),
         **({"deposit_retention_pools": base["deposit_retention_pools"]}
            if base.get("deposit_retention_pools") else {}),
         **({"loan_allocation_groups": base.get("loan_allocation_groups")}
@@ -799,12 +800,9 @@ def run_v2(cfg):
     bs2 = base["bs"]; n2 = len(bs2["totalAssets"])
     intangk = cfg["assumptions"]["intangibles"] / 1000.0
     msr2 = bs2.get("msr") or [0.0] * n2
-    # DTA (NOL) is deducted from CET1/Tier 1 AND from average assets when the deferred-tax
-    # path is elected, exactly as the engine does (12 CFR 3.22(a)). bs["dta"] is present only
-    # when tax_detail is on; the reg param is the CET1 deduction fraction. Omitting this made
-    # the derivation drift from the engine leverage by ~6-7bp with tax_detail on, tripping the
-    # ">2bp does not reconcile" warning even though the engine leverage itself was correct.
-    _td_on = bool(cfg["assumptions"].get("tax_detail"))
+    # Recognized tax-loss assets depend on future taxable income and are deducted
+    # in the engine's capital path. Include supported same-year interim loss assets
+    # even when future-year carryforward recognition is disabled.
     _dta_series = bs2.get("dta") or [0.0] * n2
     _dta_frac = REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
     lev2 = (base.get("ratios") or {}).get("lev") or (base.get("ratios") or {}).get("leverage") or []
@@ -812,7 +810,7 @@ def run_v2(cfg):
     tier1, msa_x, avg_net, lev_drv = [], [], [], []
     for i in range(q0, n2):
         eq = bs2["equity"][i] or 0.0
-        dta_ded = ((_dta_series[i] or 0.0) * _dta_frac) if _td_on else 0.0
+        dta_ded = (_dta_series[i] or 0.0) * _dta_frac
         t1p = eq - intangk - dta_ded
         mx = max(0.0, (msr2[i] or 0.0) - 0.25 * max(0.0, t1p))
         t1 = t1p - mx
@@ -898,7 +896,7 @@ def run_v2(cfg):
     results["caveats"] = [
         "No trading book is modeled; the trading-assets qualification test is structurally zero.",
         "Funds-transfer pricing is presentation-only and never changes the income statement.",
-        "By default no deferred tax asset is booked \u2014 NOL carryforwards offset future taxable income only (conservative); the optional deferred-tax detail path books DTAs (gross, valuation allowance, net) under ASC 740 when elected.",
+        "Tax years follow the engagement calendar. The 80% limit applies only to prior-year NOL carryforwards. Interim provisions use an authored annual effective rate or an explicitly conservative actual-YTD fallback. Loss-benefit recognition and future DTA realization require analyst assessment; the detailed module does not infer recoverability from cumulative profit.",
         "Securitization is not modeled (open decision, parked); the gain-on-sale capital deduction row is shown at zero for schedule completeness.",
         "The MSA deduction is approximated per 12 CFR 3.22(d) as excess over 25% of Tier 1 before threshold deductions.",
         "Business-combination events (incl. the CBLR M&A no-grace transition) are out of scope and not modeled.",

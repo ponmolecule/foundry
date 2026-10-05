@@ -1,0 +1,252 @@
+[
+  {
+    "fixture": "foundry/fixtures/core_bank_test_base.json",
+    "r283_hash": "02a7295b4351",
+    "r284_hash": "f4aa646c3180",
+    "existing_financial_series_changed": {}
+  },
+  {
+    "fixture": "foundry/fixtures/patrick_default_v31.json",
+    "r283_hash": "65c7d71491d6",
+    "r284_hash": "6d7e75a3ea0d",
+    "existing_financial_series_changed": {
+      "is.nol": {
+        "first_index": 0,
+        "old": 1226.13,
+        "new": 0.0,
+        "ending_old": 16831.28,
+        "ending_new": 16831.28
+      }
+    }
+  },
+  {
+    "fixture": "foundry/fixtures/universal_template_bank.json",
+    "r283_hash": "f04db06d9389",
+    "r284_hash": "cef1ab6b99c5",
+    "existing_financial_series_changed": {
+      "bs.cash": {
+        "first_index": 3,
+        "old": 143788.53,
+        "new": 143815.91,
+        "ending_old": 447625.42,
+        "ending_new": 447625.49
+      },
+      "bs.equity": {
+        "first_index": 3,
+        "old": 145594.19,
+        "new": 145621.57,
+        "ending_old": 200193.17,
+        "ending_new": 200193.26
+      },
+      "bs.re": {
+        "first_index": 3,
+        "old": -4469.49,
+        "new": -4442.11,
+        "ending_old": 24143.79,
+        "ending_new": 24143.87
+      },
+      "bs.totalAssets": {
+        "first_index": 3,
+        "old": 317844.76,
+        "new": 317872.14,
+        "ending_old": 895876.73,
+        "ending_new": 895876.81
+      },
+      "bs.afsBook": {
+        "first_index": 4,
+        "old": 60763.32,
+        "new": 60768.44,
+        "ending_old": 82294.14,
+        "ending_new": 82294.15
+      },
+      "bs.htmBook": {
+        "first_index": 4,
+        "old": 22949.86,
+        "new": 22950.77,
+        "ending_old": 25783.95,
+        "ending_new": 25783.96
+      },
+      "bs.aoci": {
+        "first_index": 9,
+        "old": 218.4,
+        "new": 218.41,
+        "ending_old": 1049.39,
+        "ending_new": 1049.39
+      },
+      "is.secInt": {
+        "first_index": 3,
+        "old": 295.01,
+        "new": 295.03,
+        "ending_old": 381.69,
+        "ending_new": 381.69
+      },
+      "is.bookInt": {
+        "first_index": 3,
+        "old": 295.01,
+        "new": 295.03,
+        "ending_old": 381.69,
+        "ending_new": 381.69
+      },
+      "is.cashInt": {
+        "first_index": 2,
+        "old": 530.28,
+        "new": 530.33,
+        "ending_old": 1657.15,
+        "ending_new": 1657.15
+      },
+      "is.nii": {
+        "first_index": 2,
+        "old": 1038.8,
+        "new": 1038.85,
+        "ending_old": 3292.98,
+        "ending_new": 3292.98
+      },
+      "is.ebtda": {
+        "first_index": 2,
+        "old": -236.46,
+        "new": -236.41,
+        "ending_old": 1839.72,
+        "ending_new": 1839.72
+      },
+      "is.pretax": {
+        "first_index": 2,
+        "old": -272.3,
+        "new": -272.24,
+        "ending_old": 1785.48,
+        "ending_new": 1785.48
+      },
+      "is.tax": {
+        "first_index": 2,
+        "old": 0.0,
+        "new": -27.33,
+        "ending_old": 374.95,
+        "ending_new": 374.95
+      },
+      "is.ni": {
+        "first_index": 2,
+        "old": -272.3,
+        "new": -244.92,
+        "ending_old": 1410.53,
+        "ending_new": 1410.53
+      },
+      "is.nol": {
+        "first_index": 0,
+        "old": 32.79,
+        "new": 0.0,
+        "ending_old": 0.0,
+        "ending_new": 0.0
+      },
+      "is.taxCurrent": {
+        "first_index": 2,
+        "old": 0.0,
+        "new": -27.33,
+        "ending_old": 374.95,
+        "ending_new": 374.95
+      },
+      "is.dtaGross": {
+        "first_index": 2,
+        "old": 57.18,
+        "new": 29.84,
+        "ending_old": 0.0,
+        "ending_new": 0.0
+      },
+      "is.dtaVA": {
+        "first_index": 2,
+        "old": 57.18,
+        "new": 29.84,
+        "ending_old": 0.0,
+        "ending_new": 0.0
+      },
+      "ratios.roa": {
+        "first_index": 2,
+        "old": -1.05,
+        "new": -0.95,
+        "ending_old": 1.91,
+        "ending_new": 1.91
+      },
+      "ratios.roe": {
+        "first_index": 2,
+        "old": -2.24,
+        "new": -2.02,
+        "ending_old": 8.49,
+        "ending_new": 8.49
+      },
+      "ratios.lev": {
+        "first_index": 2,
+        "old": 46.86,
+        "new": 46.87,
+        "ending_old": 22.59,
+        "ending_new": 22.59
+      }
+    }
+  },
+  {
+    "fixture": "foundry/fixtures/parity/configs/pf_a_base.json",
+    "r283_hash": "a8bfb4b7d1be",
+    "r284_hash": "9ea47ad8c3b8",
+    "existing_financial_series_changed": {
+      "bs.sec": {
+        "first_index": 12,
+        "old": 64657.41,
+        "new": 64657.97,
+        "ending_old": 64657.41,
+        "ending_new": 64657.97
+      },
+      "bs.equity": {
+        "first_index": 12,
+        "old": 49381.87,
+        "new": 49382.43,
+        "ending_old": 49381.87,
+        "ending_new": 49382.43
+      },
+      "bs.re": {
+        "first_index": 12,
+        "old": -10618.13,
+        "new": -10617.57,
+        "ending_old": -10618.13,
+        "ending_new": -10617.57
+      },
+      "bs.totalAssets": {
+        "first_index": 12,
+        "old": 316407.94,
+        "new": 316408.5,
+        "ending_old": 316407.94,
+        "ending_new": 316408.5
+      },
+      "is.tax": {
+        "first_index": 11,
+        "old": 0.56,
+        "new": 0.0,
+        "ending_old": 0.56,
+        "ending_new": 0.0
+      },
+      "is.ni": {
+        "first_index": 11,
+        "old": 12.71,
+        "new": 13.27,
+        "ending_old": 12.71,
+        "ending_new": 13.27
+      },
+      "is.nol": {
+        "first_index": 0,
+        "old": 1665.86,
+        "new": 0.0,
+        "ending_old": 10620.22,
+        "ending_new": 10617.57
+      },
+      "ratios.roe": {
+        "first_index": 11,
+        "old": 0.1,
+        "new": 0.11,
+        "ending_old": 0.1,
+        "ending_new": 0.11
+      }
+    }
+  },
+  {
+    "fixture": "foundry/fixtures/parity/configs/pf_b_base.json",
+    "r283_hash": "6d5436c6bfcd",
+    "r284_hash": "e4ff2d4a236d",
+    "existing_financial_series_changed": {}
+  }
+]

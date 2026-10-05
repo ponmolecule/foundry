@@ -37,6 +37,7 @@ RESULT_CODES_BS = {
     "premisesAccumDep": ("—", "detail", "—", "Accumulated depreciation (presentation detail)"),
     "prepaidOpex": ("RC", "11", "RCON2160", "Prepaid operating expenses (included in other assets)"),
     "accruedOpex": ("RC", "20", "RCON2930", "Accrued operating expenses (included in other liabilities)"),
+    "dta":        ("RC", "11", "RCON2160", "Deferred tax assets, net (included in other assets)"),
     "otherLiab":  ("RC", "20", "RCON2930", "Other liabilities"),
     "borrowSched": ("RC", "16",   "RCON3190",      "Other borrowed money (scheduled FHLB/term draws)"),
     "retained":    ("RC", "26.a", "RCON3632",      "Retained earnings"),
@@ -80,6 +81,21 @@ RESULT_CODES_IS = {
     "chargeoffs":("RI-B", "9",   "RIAD4635", "Net charge-offs"),
     "nol":       ("—", "memo",   "—",        "NOL carryforward (memo)"),
 }
+
+# Tax provision components and tax-year ledger stocks are modeled detail/memos,
+# not additional reportable income. RI 9 contains their TOTAL exactly once.
+for _key, _label in {
+    "taxCurrent": "Current income tax expense / benefit (component of RI 9)",
+    "taxDeferred": "Deferred income tax expense / benefit (component of RI 9)",
+    "dtaGross": "Gross tax-loss asset", "dtaVA": "Tax-loss valuation allowance",
+    "dtaNet": "Net tax-loss asset", "taxIncomeYtd": "Tax-year ordinary income YTD",
+    "taxCurrentYtd": "Current provision YTD", "taxProvisionYtd": "Total provision YTD",
+    "currentYearTaxLoss": "Current-year provisional tax loss",
+    "nolUsedYtd": "Prior-year NOL deduction YTD",
+    "dtaCurrentYear": "Net current-year tax-loss asset",
+    "dtaPriorYear": "Net prior-year carryforward tax asset",
+}.items():
+    RESULT_CODES_IS[_key] = ("—", "detail", "—", _label)
 
 # product call_report_line vocabulary -> RC-C / RC-E item references
 LINE_CODES = {
@@ -182,7 +198,9 @@ def build_rc(res, cfg):
     intang = [a.get("intangibles", 0) / 1000.0] * n
     _pre = bs.get("prepaidOpex") or [0.0] * n
     _acc = bs.get("accruedOpex") or [0.0] * n
-    oa = [a.get("other_assets", 0) / 1000.0 + (_pre[i] or 0.0) / 1000.0 for i in range(n)]
+    _dta = bs.get("dta") or [0.0] * n
+    oa = [a.get("other_assets", 0) / 1000.0 + (_pre[i] or 0.0) / 1000.0
+          + float(_dta[i] or 0.0) for i in range(n)]
     _ol_model = bs.get("otherLiab")
     if _ol_model:
         ol = [float(_ol_model[i] or 0.0) + (_acc[i] or 0.0) / 1000.0 for i in range(n)]

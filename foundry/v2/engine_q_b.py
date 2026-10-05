@@ -3,8 +3,8 @@
 Distinctives vs profile A: per-period override vectors on any driver; deliberate
 AFS and HTM securities books plus a surplus-liquidity sweep (HTM never reprices);
 expected-loss provisioning separate from charge-offs with an entity ALLL floor
-true-up; beginning-of-quarter accrual on treasury balances; taxes on positive
-pre-tax income only (no DTA). Deterministic, dollars in / dollars out.
+true-up; beginning-of-quarter accrual on treasury balances; shared tax-year-aware
+interim provisions. Deterministic, dollars in / dollars out.
 """
 
 Q = 12
@@ -20,6 +20,7 @@ def _ov(p, field, q, base):
 def run_pf_b(cfg):
     import copy
     a = copy.deepcopy(cfg["assumptions"])
+    Q = int(a.get("n_periods") or 12)
     lend = copy.deepcopy(a.get("lending_products") or [])
     dep = copy.deepcopy(a.get("deposit_products") or [])
     obs = copy.deepcopy(a.get("obs_exposures") or [])
@@ -186,6 +187,16 @@ def run_pf_b(cfg):
                               "provision", "fees", "msrAmort", "opexProd", "workforceComp", "otherOpex", "depreciationExpense", "fixedOpex", "ebtda", "pretax", "tax",
                               "ni", "chargeoffs")}
 
+    from .tax_interim import InterimTaxLedger, MONEY_SERIES
+    _tax_ledger = InterimTaxLedger(cfg, a, 4)
+    for _key in MONEY_SERIES + ("nol",):
+        out_is[_key] = []
+    out_bs["dta"] = []
+    if _tax_ledger.opening_dta:
+        _ne[0] += _tax_ledger.opening_dta
+        cash, sweep, borrow = plug(gl0, alll, sec0, dep0, equity)
+        prev_assets = cash + sweep + sec0 + (gl0 - alll) + _ne[0]
+
     for qi in range(Q):
         q = qi + 1
         from .source_catalog import runtime_balances
@@ -329,7 +340,12 @@ def run_pf_b(cfg):
 
         pretax = nii + fees - nie - provision
         ebtda = pretax + _depreciation_expense
-        tax = max(0.0, pretax) * a["tax_rate"]
+        _tax_row = _tax_ledger.evaluate(q, pretax)
+        _tax_ledger.commit(_tax_row)
+        tax = _tax_row["tax"]
+        for _key in MONEY_SERIES + ("nol",):
+            out_is[_key].append(_tax_row[_key])
+        out_bs["dta"].append(_tax_row["dtaNet"])
         ni = pretax - tax
         re += ni
         _afs_end = sum(p["_end"][qi] for p in afs_p) if afs_p else 0.0
@@ -340,7 +356,7 @@ def run_pf_b(cfg):
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
-        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"] + _prepaid_opex_q
+        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"] + _prepaid_opex_q + _tax_row["dtaNet"]
         _ne_q[0] = qi + 1
         c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end, _accrued_opex_q, _other_liab_q)
         net_loans = gl_end - alll_end
@@ -373,6 +389,7 @@ def run_pf_b(cfg):
         alll = alll_end
         cash, sweep, borrow = c2, s2, b2
 
+    from .regparams import REG_PARAMS
     out_ratios = {"roa": [], "roe": [], "nim": [], "eff": [], "leverage": []}
     pa, pe = prev_assets, capital
     for qi in range(Q):
@@ -383,7 +400,8 @@ def run_pf_b(cfg):
         out_ratios["nim"].append(None)  # informational only in profile B fixtures
         rev = out_is["nii"][qi] + out_is["fees"][qi]
         out_ratios["eff"].append((out_is["opexProd"][qi] + out_is["fixedOpex"][qi]) / rev * 100 if rev > 0 else None)
-        out_ratios["leverage"].append(eq / ta * 100 if ta > 0 else None)
+        _dta_ded = out_bs["dta"][qi] * REG_PARAMS["tax"]["dta_nol_cet1_deduction"]
+        out_ratios["leverage"].append((eq - _dta_ded) / (ta - _dta_ded) * 100 if ta - _dta_ded > 0 else None)
         pa, pe = ta, eq
     ftp = (a.get("reporting") or {}).get("ftp_benchmark_ann", 0.0)
     products = []
@@ -418,7 +436,7 @@ def run_pf_b(cfg):
             })
     if _ol_prepared is None:
         out_bs.pop("otherLiab", None)
-    _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios}
+    _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios, "tax_interim": _tax_ledger.audit()}
     if _ol_prepared is not None:
         _out["other_liabilities_detail"] = other_liability_audit_payload(
             _ol_prepared, list(out_bs.get("otherLiab") or []), _ol_period_rows)
