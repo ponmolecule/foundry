@@ -1448,3 +1448,19 @@ Explicitly consume visible Activity drafts in coefficient, monetary flow and acc
 UI-only release on r280. Securities settings now separate simple books, managed portfolios, AOCI, funding allocation, fiduciary balances, affiliated-bank cash, operating cash, Federal Reserve stock and named liabilities. Group headings feed the existing Configuration section navigation. Funding and fiduciary inputs use responsive two-column grids; numeric widths remain bounded and explicit schedules retain previews and existing paste actions. Named liability formulas collapse independently and remember their open state during rerendering. Shared Configuration spacing and action-button sizing are consistent across modules. Top menus and Klaros colors are retained. No engine, schema, pricing, defaults or saved assumptions changed.
 
 Validation: browser checks at 1440/1280/1024/768 pixels, all six module selections, liability expand/rerender persistence, and no runtime errors. Against r280, the same example produces identical configuration and all 42 Securities control values/options/handlers. Existing 18-case formula layout regression, three pinned result identities and inline JavaScript syntax pass. Full engine suite not repeated for this presentation change. This reorganizes the Securities module substantially; it does not claim a complete interaction redesign of every Configuration module.
+
+
+## r283 (Claude) — Securities & balances redesign; quiet canvas
+
+Built on r281 (7d30485), as an alternative to GPT's r282. Engine untouched; every control keeps its handler.
+- Quiet canvas #f0efeb on every page except Balance Sheet, Income Statement and Welcome (left navigation sits on
+  it; white cards carry a fine border so they stay outlined on bright monitors).
+- Product Detail, Capital & Ratios, Stress Testing, Executive Summary and Peer Cohort: content in a centred
+  1440px white sheet (240px of canvas each side at 1920); the breadcrumb stays on the canvas. The sheet is
+  wrapped in pageChrome only AFTER the title band is chosen, so the band is always the page heading. (GPT's r282
+  wrapped first, which painted the whole sheet graphite on seven tabs.)
+- Securities & balances follows the Claude Design: a "Model inputs" rail and five collapsible sections, closed by
+  default: 01 Funding allocation, 02 Interest-bearing balances (incl. operating cash & FRB stock), 03 Other
+  liabilities, 04 Securities books & AOCI, 05 Managed portfolios. Closed headers show live summary chips; the
+  Include-in-model switch and the Flat / Formula-level switch work on the closed header. Existing blocks are moved
+  into the sections unchanged and restyled into compact rows (books as one row each; AOCI as a row).

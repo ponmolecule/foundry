@@ -2146,6 +2146,99 @@ main>#content{min-width:0}
 .cfg-stage #card-sec .sec-funding-panel>.cfg-setting-group>.cfg-setting-fields>.crow{grid-column:auto;gap:8px}
 .cfg-stage #card-sec .sec-funding-panel>.cfg-setting-group>.cfg-setting-fields>.crow:first-child{grid-column:1/-1}
 .cfg-stage #card-sec .cfg-setting-fields>.cmut{grid-column:1/-1;margin:0 0 4px}
+
+/* r283: quiet canvas (not on Balance Sheet / Income Statement / Welcome) */
+body.fd-canvas,body.fd-canvas #content,body.fd-canvas main{background:#f0efeb!important}
+body.fd-canvas .cfg-nav{background:transparent!important}
+/* r283: centred white sheet on the analysis pages */
+body.fd-canvas .fd-sheet{max-width:1440px;margin:0 auto 40px;background:#fff;border:1px solid #e2e0d9;border-radius:8px;padding:22px 26px;box-shadow:0 1px 2px rgba(40,35,25,.04);min-width:0}
+body.fd-canvas #content>.pg-crumb{max-width:1440px;margin-left:auto;margin-right:auto}
+/* r283: Securities & balances (Claude Design): rail + five collapsible sections */
+.fsx{display:grid;grid-template-columns:190px minmax(0,944px);gap:40px;padding:22px 4px 40px;justify-content:start}
+.fsx-rail{position:sticky;top:calc(var(--appbar-h,84px) + 16px);align-self:start;font-size:12.5px}
+.fsx-mi{font-size:10.5px;letter-spacing:.1em;font-weight:700;color:var(--k-gold-deep,#7a5a20);margin:2px 0 16px}
+.fsx-g{font-size:10px;letter-spacing:.1em;font-weight:700;color:#8a867d;margin:16px 0 6px}
+.fsx-it{display:flex;gap:10px;padding:4px 0;color:#4a4741;text-decoration:none}.fsx-it i{font:normal 11px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#b0aa9e;padding-top:1px}
+.fsx-it:hover{color:#1d1c1a}.fsx-it.on{color:#1d1c1a;font-weight:600}.fsx-it.on i{color:#9a7330}
+.fsx-top{display:flex;align-items:flex-end;gap:16px;margin:0 0 14px;padding-bottom:14px;border-bottom:1px solid #e2e0d9}
+.fsx-intro{margin:0;color:#8a867d;max-width:600px;font-size:12.5px}.fsx-all{margin-left:auto;display:flex;gap:14px;font-size:12px;white-space:nowrap}.fsx-all a{color:#3d5a80;text-decoration:none}
+.fsx-sec{background:#fff;border:1px solid #e2e0d9;border-radius:8px;margin:0 0 12px;overflow:visible}
+.fsx-h{display:grid;grid-template-columns:34px minmax(0,1fr) auto 32px;gap:14px;align-items:center;padding:15px 18px;cursor:pointer;border-radius:8px}
+.fsx-h:hover{background:#fbfaf6}.fsx-h:focus-visible{outline:2px solid #9a7330;outline-offset:-2px}
+.fsx-n{font:12px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#9a7330}
+.fsx-h h2{font-size:16px;font-weight:600;margin:0;color:#1d1c1a}.fsx-h p{margin:2px 0 0;color:#8a867d;font-size:12.5px}
+.fsx-sum{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}.fsx-sum span{font:11.5px ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#4a4741;background:#f5f3ee;border:1px solid #ebe8e0;border-radius:5px;padding:2px 8px}
+.fsx-sum span b{font-family:inherit;font-family:Inter,system-ui,sans-serif;font-weight:500;color:#8a867d;margin-right:5px}
+.fsx-ctl{display:flex;align-items:center;gap:8px;white-space:nowrap;font-size:12.5px}
+.fsx-ctl .nie-mode{margin:0}.fsx-include{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.fsx-chev{width:30px;height:30px;border:1px solid #d6d2c7;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#4a4741;background:#fff;transition:transform .15s}
+.fsx-sec.open .fsx-chev{transform:rotate(180deg)}.fsx-h:hover .fsx-chev{border-color:#9a7330;color:#7a5a20}
+.fsx-b{display:none;border-top:1px solid #e2e0d9;padding:6px 18px 16px}.fsx-sec.open .fsx-b{display:block}
+.fsx-sec.open .fsx-h{border-radius:8px 8px 0 0}
+/* moved blocks: drop their own titles (the section header carries them) and flatten their frames */
+.fsx-b>.cfg-setting-group>h3,.fsx-b .sec-managed-sleeve-head>div:first-child,.fsx-b .sec-major-title,.fsx-b .sec-managed-wrap>.cmut:first-of-type{display:none!important}
+.fsx-b .cfg-setting-group,.fsx-b .sec-managed-sleeve,.fsx-b .sec-major-section,.fsx-b .sec-managed-wrap{border:0!important;background:transparent!important;padding:0!important;margin:0!important;box-shadow:none!important;width:auto!important;max-width:none!important}
+.fsx-b .cfg-group-note{font-size:12px;color:#8a867d;margin:8px 0 6px}
+.fsx-b .crow{display:grid;grid-template-columns:230px auto 1fr;align-items:center;gap:6px 12px;min-height:38px;border-top:1px solid #ecebe6;margin:0;padding:4px 0}
+.fsx-b .crow input:not([type=checkbox]){width:104px;text-align:right;font-variant-numeric:tabular-nums}
+.fsx-b .crow .cu{color:#8a867d;font-size:11.5px}
+.fsx-b .sec-book-editor{border:0;border-top:1px solid #ecebe6;padding:10px 0;margin:0;background:transparent}
+
+/* r283: compact rows (Claude Design grammar) for the moved controls */
+.fsx-b .cfg-setting-group .cfg-setting-group,.fsx-b .sec-managed-sleeve .cfg-setting-group,.fsx-b .cfg-balance-grid>.cfg-setting-group{border:0!important;background:transparent!important;padding:0!important;margin:0!important}
+.fsx-b .cfg-setting-group h3{font-size:10px!important;letter-spacing:.1em;font-weight:700!important;color:#8a867d!important;text-transform:uppercase;margin:16px 0 4px!important}
+.fsx-b .cfg-balance-grid,.fsx-b .cfg-setting-fields{display:block!important}
+.fsx-b .sec-managed-series{border:0!important;border-top:1px solid #ecebe6!important;background:transparent!important;padding:0!important;margin:0!important;border-radius:0!important;box-shadow:none!important}
+.fsx-b .sec-managed-series-row{display:grid!important;grid-template-columns:230px 110px auto minmax(0,1fr);gap:12px;align-items:center;min-height:36px;padding:2px 0}
+.fsx-b .sec-managed-series-row>.sec-book-label,.fsx-b .crow>.sec-book-label{font-size:12.5px;font-weight:500;color:#1d1c1a}
+.fsx-b .sec-book-unit{font-size:11.5px;color:#8a867d}
+.fsx-b .crow{min-height:36px!important;padding:2px 0!important}
+.fsx-b input:not([type=checkbox]):not([type=radio]){width:104px!important;min-width:0!important;text-align:right;font-variant-numeric:tabular-nums}
+.fsx-b .sec-book-editor input[type=text],.fsx-b input.sec-wide,.fsx-b .sec-managed-portfolio-head input{width:260px!important;text-align:left}
+.fsx-b .sec-managed-series-row select{width:110px!important;min-width:0!important}
+/* header controls: gold switch and compact segmented mode */
+.fsx-include input{appearance:none;-webkit-appearance:none;width:30px;height:16px;border-radius:8px;margin:0;cursor:pointer;background:#cfcac0 radial-gradient(circle at 8px 8px,#fff 5.5px,transparent 6px) no-repeat;transition:background-color .15s}
+.fsx-include input:checked{background:#c9a35a radial-gradient(circle at 22px 8px,#fff 5.5px,transparent 6px) no-repeat}
+#content .fsx-ctl .fsx-include input[type=checkbox]{width:30px!important;height:16px!important;min-width:30px!important;max-width:none!important;flex:0 0 30px!important;display:inline-block!important;padding:0!important;border:0!important;vertical-align:middle}
+.fsx-ctl .nie-mode{display:inline-flex;border:1px solid #e0ddd5;border-radius:6px;overflow:hidden;background:#f4f3ef;gap:0}
+.fsx-ctl .nie-mode button{padding:3px 10px!important;font-size:11.5px!important;min-width:0!important;height:auto!important;border:0!important;background:transparent;color:#8a867d;border-radius:5px!important}
+.fsx-ctl .nie-mode button.on{background:#232323!important;color:#fff!important}
+/* the rail replaces r281's sub-list under the Securities module */
+.cfg-mod.sel[data-cfg-mod="sec"]+.cfg-subnav{display:none!important}
+
+/* r283: securities books as one compact row each; labels only on the first book (they read as column headers) */
+.fsx-b .sec-book-editor{display:grid!important;grid-template-columns:minmax(170px,1.6fr) 118px 78px 110px 78px 78px 22px;gap:0 10px;align-items:end;padding:5px 0!important}
+.fsx-b .sec-book-line{display:contents!important}
+.fsx-b .sec-book-field{display:flex!important;flex-direction:column;gap:3px;min-width:0;margin:0!important}
+.fsx-b .sec-book-value{display:flex!important;align-items:center;gap:4px;min-width:0}
+.fsx-b .sec-book-editor input{width:100%!important;min-width:0!important}
+.fsx-b .sec-book-editor .sec-book-unit{display:none}
+.fsx-b .sec-book-editor~.sec-book-editor .sec-book-label{display:none}
+.fsx-b .sec-book-editor .sec-book-label{font-size:10.5px!important;font-weight:600!important;color:#8a867d!important;white-space:nowrap}
+.fsx-b .sec-book-line-top .sec-book-field:nth-child(2) .sec-book-label::after{content:" ($000s)"}
+.fsx-b .sec-book-line-bottom .sec-book-field:nth-child(1) .sec-book-label::after{content:" %"}
+.fsx-b .sec-book-line-bottom .sec-book-field:nth-child(2) .sec-book-label::after{content:" ($000s / mo)"}
+.fsx-b .sec-book-line-bottom .sec-book-field:nth-child(3) .sec-book-label::after{content:" %"}
+.fsx-b .sec-book-line-bottom .sec-book-field:nth-child(4) .sec-book-label::after{content:" % / mo"}
+.fsx-b .sec-book-delete{align-self:center;justify-self:center;color:#b9b3a8;text-decoration:none}
+.fsx-b .sec-book-editor+.sec-book-editor{border-top:1px solid #ecebe6!important}
+/* AOCI as a single row after the books */
+#fsx-s4 .fsx-b>.sec-major-section{display:grid!important;grid-template-columns:230px minmax(0,1fr);align-items:center;column-gap:12px;border-top:1px solid #e2e0d9!important;margin-top:14px!important;padding-top:10px!important}
+#fsx-s4 .fsx-b>.sec-major-section>.cmut:first-of-type{display:block!important;font-size:12.5px;font-weight:500;color:#1d1c1a;margin:0!important}
+#fsx-s4 .fsx-b>.sec-major-section>.crow{display:flex!important;align-items:center;gap:8px;border:0!important;margin:0!important;padding:0!important;min-height:36px}
+#fsx-s4 .fsx-b>.sec-major-section>.cmut:last-child{grid-column:1/-1;font-size:11.5px;color:#8a867d;margin:4px 0 0!important}
+/* rows and series span the card */
+.fsx-b .crow,.fsx-b .sec-managed-series,.fsx-b .sec-managed-series-row{width:auto!important;max-width:none!important}
+
+/* r283: book columns: wrapping headings, full-width name, right-aligned numbers (ID-level specificity beats #content input rules) */
+#content .fsx-b .sec-book-editor .sec-book-label{white-space:normal!important;line-height:1.2}
+#content .fsx-b .sec-book-editor input{width:100%!important;min-width:0!important;max-width:none!important}
+#content .fsx-b .sec-book-editor input:not(.sec-book-name){text-align:right!important}
+#content .fsx-b .sec-book-editor input.sec-book-name,#content .fsx-b input.sec-managed-portfolio-title,#content .fsx-b input.sec-managed-sleeve-name{text-align:left!important}
+#content .fsx-b input.sec-managed-portfolio-title,#content .fsx-b input.sec-managed-sleeve-name{width:auto!important;min-width:280px!important;font-weight:600}
+#content .fsx-b .sec-managed-portfolio{background:#fff!important;border:1px solid #e2e0d9!important;border-radius:8px!important}
+#content #fsx-s4 .fsx-b>.sec-major-section{padding-left:0!important;padding-right:0!important}
+#content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 </style>
 </head>
 <body>
@@ -2388,6 +2481,7 @@ window.cfgArrangeShell=function(){ // r206: onboarding nudge and footer move ins
     else { first.insertAdjacentHTML('beforebegin','<div class="h2 pg-band-new">'+esc(m.label)+'</div>'); band=c.querySelector('.pg-band-new'); }
     band.classList.add('pg-band');
     band.insertAdjacentHTML('beforebegin','<div class="prd-crumb pg-crumb">'+(m.group?esc(m.group)+'<span>/</span>':'')+'<b>'+esc(m.label)+'</b></div>');
+    if(typeof _fdWrapSheet==='function') _fdWrapSheet(c, tab);   // r283: wrap only after the band is identified
   };
   function watch(){ const c=document.getElementById('content'); if(!c) return;
     new MutationObserver(()=>{ if(window._pcPending) return; window._pcPending=true; requestAnimationFrame(()=>{ window._pcPending=false; try{ pageChrome(); }catch(e){} }); }).observe(c,{childList:true}); }
@@ -9418,6 +9512,93 @@ function _decoratePasteSurfaces(root){
 }
 window._decoratePasteSurfaces=_decoratePasteSurfaces;
 // Structural edits may rebuild a card; engine responses must never rebuild authoring inputs.
+// r283: centred white sheet on the analysis pages. Runs from pageChrome AFTER the title band is chosen, so the
+// band is always the page heading (never the sheet). The breadcrumb stays on the canvas above the sheet.
+const _FD_SHEET_TABS=['detail','ratios','stress','overview','peer'];
+function _fdWrapSheet(c, tab){
+  if(!_FD_SHEET_TABS.includes(tab)||!c||c.querySelector(':scope>.fd-sheet')) return;
+  const crumb=c.querySelector(':scope>.pg-crumb'), sheet=document.createElement('div'); sheet.className='fd-sheet';
+  [...c.childNodes].forEach(n=>{ if(n!==crumb) sheet.appendChild(n); }); c.appendChild(sheet);
+}
+// r283: Securities & balances presented as five collapsible sections (Claude Design). The existing, already-wired
+// blocks are MOVED into the sections unchanged, so every handler keeps working. Closed by default.
+window._fsxOpen=window._fsxOpen||{};
+const _FSX=[['s1','01','Funding allocation','Where funding beyond loans and securities goes, and what it earns or costs.','FUNDING'],
+  ['s2','02','Interest-bearing balances','Affiliated-bank cash, operating cash, fiduciary AUA and Federal Reserve stock.','FUNDING'],
+  ['s3','03','Other liabilities','A flat period-end balance, or one built from named Formula / level components.','LIABILITIES'],
+  ['s4','04','Securities books & AOCI','Simple books with opening balances, monthly purchases, growth and runoff; AOCI on AFS holdings.','INVESTMENTS'],
+  ['s5','05','Managed portfolios','Target balances allocated across securities; maturities and balancing trades set each ending balance.','INVESTMENTS']];
+function _fsxNum(v,d){ v=+v||0; return v.toLocaleString('en-US',{minimumFractionDigits:d||0,maximumFractionDigits:d||0}); }
+function _fsxSummary(k,root){   // root: the block (first render) or the whole section (refresh)
+  const a=(cfgRef()||{}).assumptions||{}, out=[];
+  if(k==='s1'){
+    out.push(['Unallocated',a.surplus_allocation_policy==='residual_securities'?'Residual securities':'Hold in cash']);
+    (root?[...root.querySelectorAll('.crow')]:[]).forEach(r=>{ const inp=r.querySelector('input'); if(!inp) return;
+      const lab=[...r.childNodes].filter(n=>n.nodeType===3).map(n=>n.textContent.trim()).join(' ').trim()||(r.querySelector('label,.sec-book-label')||{}).textContent||'';
+      const u=(r.querySelector('.cu')||{}).textContent||''; if(lab) out.push([lab.replace(/:$/,''),inp.value+(u?' '+u.trim():'')]); });
+  } else if(k==='s2'){
+    const cb=root&&root.querySelector('.fsx-include input[type=checkbox], .sec-managed-sleeve-head input[type=checkbox]');
+    if(!cb||!cb.checked) out.push(['Status','Not modeled']);
+    else { out.push(['Status','Modeled']); (root?[...root.querySelectorAll('.sec-managed-series')]:[]).slice(0,5).forEach(sr=>{ const lab=(sr.querySelector('.sec-book-label')||{}).textContent||''; const inp=sr.querySelector('input'); if(lab) out.push([lab.trim(),inp&&inp.value?inp.value:'schedule']); }); }
+  } else if(k==='s3'){
+    const m=a.other_liabilities_model||{}, on=(root&&root.querySelector('.nie-mode button.on')||{}).textContent||'';
+    out.push(['Mode',on.trim()||'Flat']);
+    if(m.opening_balance!=null) out.push(['Opening',_fsxNum(m.opening_balance/1000)]); else if(a.other_liabilities!=null) out.push(['Balance',_fsxNum(a.other_liabilities/1000)]);
+    if((m.base_spec||{}).value!=null) out.push(['Base level',_fsxNum(m.base_spec.value/1000)]);
+    out.push(['Components',String((m.components||[]).length)]);
+  } else if(k==='s4'){
+    const af=a.securities_afs||[], ht=a.securities_htm||[], all=af.concat(ht);
+    out.push(['Books',`${all.length} \u00b7 ${af.length} AFS, ${ht.length} HTM`]);
+    out.push(['Opening',_fsxNum(all.reduce((t,b)=>t+(+b.opening||0),0)/1000)]);
+    out.push(['Purchases',_fsxNum(all.reduce((t,b)=>t+(+b.purchases_per_period||0),0)/1000,2)+' / mo']);
+    out.push(['AOCI sensitivity',((+a.aoci_sensitivity_annual||0)*100).toFixed(1)+'% of AFS / yr']);
+  } else if(k==='s5'){
+    const ps=a.managed_securities_portfolios||[], n=ps.reduce((t,p)=>t+((p.sleeves||[]).length),0);
+    out.push(['Portfolios',String(ps.length)]); out.push(['Securities',String(n)]);
+    const p0=ps[0], tsel=root&&root.querySelector('.sec-managed-target select'), tlab=tsel&&tsel.options[tsel.selectedIndex]?tsel.options[tsel.selectedIndex].text.replace(/\s+[\u2014-]\s+.*$/,'').toLowerCase():'target source';
+    if(p0&&(p0.target_ratio_spec||{}).value!=null) out.push(['Target',((+p0.target_ratio_spec.value||0)*100).toFixed(1)+'% of '+tlab]);
+  }
+  return out.slice(0,6);
+}
+function _presentSecuritiesPage(){
+  const card=document.getElementById('card-sec'); if(!card||card.querySelector(':scope>.fsx')) return;
+  const tst=card.querySelector(':scope>.tstack'), fp=card.querySelector(':scope>.sec-funding-panel'); if(!tst&&!fp) return;
+  const groups=[...card.querySelectorAll('.cfg-setting-group')], ttl=g=>((g.querySelector(':scope>h3')||{}).textContent||'');
+  const sleeves=[...card.querySelectorAll('.sec-managed-sleeve')], stl=s=>((s.querySelector('.sec-managed-sleeve-head .sec-book-label')||{}).textContent||'');
+  const B={fa:groups.find(g=>/Funding allocation/.test(ttl(g))), books:groups.find(g=>/Simple securities books/.test(ttl(g))),
+    ib:sleeves.find(s=>/Interest-bearing/.test(stl(s))), ol:sleeves.find(s=>/Other liabilities/.test(stl(s))),
+    mp:card.querySelector('.sec-managed-wrap'), aoci:[...card.querySelectorAll('.sec-major-section')].find(s=>/AOCI/i.test((s.querySelector('.sec-major-title')||{}).textContent||''))};
+  const chev='<svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+  const shell=document.createElement('div'); shell.className='fsx';
+  let rail='<nav class="fsx-rail"><div class="fsx-mi">MODEL INPUTS</div>', g='';
+  _FSX.forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${window._fsxOpen[k]?' on':''}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
+  rail+='</nav>';
+  let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-MAB values are dollars. Every assumption is either a flat value or an explicit period schedule.</p><div class="fsx-all"><a href="#" onclick="fsxAll(true);return false">Expand all</a><a href="#" onclick="fsxAll(false);return false">Collapse all</a></div></div>';
+  const RB={s1:B.fa,s2:B.ib,s3:B.ol,s4:null,s5:B.mp};
+  _FSX.forEach(([k,n,t,d])=>{ const sum=_fsxSummary(k,RB[k]).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join('');
+    main+=`<section class="fsx-sec${window._fsxOpen[k]?' open':''}" id="fsx-${k}" data-k="${k}"><div class="fsx-h" role="button" tabindex="0" aria-expanded="${!!window._fsxOpen[k]}" onclick="fsxToggle('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fsxToggle('${k}')}"><span class="fsx-n">${n}</span><div><h2>${esc(t)}</h2><p>${esc(d)}</p><div class="fsx-sum">${sum}</div></div><div class="fsx-ctl" onclick="event.stopPropagation()"></div><span class="fsx-chev">${chev}</span></div><div class="fsx-b"></div></section>`; });
+  main+='</div>';
+  shell.innerHTML=rail+main;
+  const body=k=>shell.querySelector(`#fsx-${k} .fsx-b`), ctl=k=>shell.querySelector(`#fsx-${k} .fsx-ctl`);
+  if(B.fa) body('s1').appendChild(B.fa);
+  if(B.ib){ const lab=B.ib.querySelector('.sec-managed-sleeve-head label'); if(lab){ lab.classList.add('fsx-include'); [...lab.childNodes].forEach(n=>{ if(n.nodeType===3&&n.textContent.trim()) n.textContent=' Include in model'; }); ctl('s2').appendChild(lab); } body('s2').appendChild(B.ib); }
+  if(B.ol){ const mode=B.ol.querySelector(':scope>.nie-mode'); if(mode) ctl('s3').appendChild(mode); body('s3').appendChild(B.ol); }
+  if(B.books) body('s4').appendChild(B.books); if(B.aoci) body('s4').appendChild(B.aoci);
+  if(B.mp) body('s5').appendChild(B.mp);
+  if(tst) tst.remove(); if(fp) fp.remove();
+  card.appendChild(shell);
+}
+function _fsxRefresh(sec){ const k=sec&&sec.dataset.k, box=sec&&sec.querySelector('.fsx-sum'); if(!k||!box) return;
+  box.innerHTML=_fsxSummary(k,sec).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join(''); }
+if(typeof document!=='undefined'&&typeof document.addEventListener==='function'){
+  document.addEventListener('change',e=>{ const sec=e.target&&e.target.closest&&e.target.closest('.fsx-sec'); if(sec) setTimeout(()=>_fsxRefresh(sec),0); });   // r283: summaries follow edits
+  document.addEventListener('click',e=>{ const sec=e.target&&e.target.closest&&e.target.closest('.fsx-sec'); if(sec&&e.target.closest('.nie-mode,button')) setTimeout(()=>_fsxRefresh(document.getElementById(sec.id)),0); });
+}
+window.fsxToggle=function(k){ window._fsxOpen[k]=!window._fsxOpen[k]; const sec=document.getElementById('fsx-'+k); if(sec){ sec.classList.toggle('open',!!window._fsxOpen[k]); sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[k]); }
+  const it=document.querySelector(`.fsx-it[data-k="${k}"]`); if(it) it.classList.toggle('on',!!window._fsxOpen[k]); if(typeof fitControls==='function') fitControls(); };
+window.fsxAll=function(open){ _FSX.forEach(([k])=>{ window._fsxOpen[k]=!!open; const sec=document.getElementById('fsx-'+k); if(sec) sec.classList.toggle('open',!!open); const it=document.querySelector(`.fsx-it[data-k="${k}"]`); if(it) it.classList.toggle('on',!!open); }); if(typeof fitControls==='function') fitControls(); };
+window.fsxGo=function(k){ if(!window._fsxOpen[k]) fsxToggle(k); const sec=document.getElementById('fsx-'+k); if(sec) sec.scrollIntoView({block:'start',behavior:'smooth'}); };
+
 let _renderedAuthoringTab=null, _renderedAuthoringCfg=null, _consumedPasteId=null;
 document.addEventListener("click",function(ev){
   const button=ev.target.closest && ev.target.closest('button');
@@ -9445,10 +9626,13 @@ function _restoreAuthoringState(state){
   state.scrolls.forEach(v=>{const el=document.getElementById(v.id);if(el){el.scrollTop=v.top;el.scrollLeft=v.left;}});
   window.scrollTo({left:state.x,top:state.y,behavior:'instant'});
 }
+
 function renderContent(){
   const state=_captureAuthoringState();
   _consumedPasteId=null;
   _renderContentBody();
+  if(typeof document!=='undefined'&&document.body&&document.body.classList) document.body.classList.toggle('fd-canvas',!['bs','is','welcome'].includes(currentTab));   // r283: quiet canvas (guarded for script tests)
+  if(currentTab==='config' && typeof _presentSecuritiesPage==='function') _presentSecuritiesPage();   // r283
   restoreCardSelects();
   _decoratePasteSurfaces();
   _restoreAuthoringState(state);
