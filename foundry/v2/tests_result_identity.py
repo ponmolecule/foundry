@@ -1,7 +1,7 @@
 """r231a_fix1 regression gate: results of existing engagements must not change unless a release intends it.
 
 Pins the run fingerprint (run_hash, a hash of the complete results) of the three named fixtures to the
-value produced by r230, except the documented r279 zero-FDIC-default change. A frozen run is re-verified by recomputing this fingerprint, so any unintended
+documented current release values, retaining r230 and r283 pins for review. A frozen run is re-verified by recomputing this fingerprint, so any unintended
 change here would make previously frozen runs fail re-verification.
 
 If a release deliberately changes results for these fixtures, update the pins in the same release and
@@ -15,10 +15,16 @@ PINNED_R230 = {
     "foundry/fixtures/universal_template_bank.json": "f04db06d9389",
 }
 
-# r279 intentionally removes the implicit 5 bp assessment when no rate is authored.
-# The other fixtures carry an explicit rate or do not use detailed NIE and remain unchanged.
-PINNED_CURRENT = {**PINNED_R230,
+# r284 deliberately changes the tax calculation and publishes its audit ledger.
+# Whole-result pins (nothing stripped) are re-baselined explicitly for that correction.
+# See docs/R284_TAX_METHOD.md and release validation for r283 -> r284 financial deltas.
+PINNED_R283 = {**PINNED_R230,
     "foundry/fixtures/core_bank_test_base.json": "02a7295b4351",
+}
+PINNED_CURRENT = {
+    "foundry/fixtures/core_bank_test_base.json": "f4aa646c3180",
+    "foundry/fixtures/patrick_default_v31.json": "6d7e75a3ea0d",
+    "foundry/fixtures/universal_template_bank.json": "cef1ab6b99c5",
 }
 
 

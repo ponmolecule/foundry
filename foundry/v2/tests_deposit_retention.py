@@ -28,16 +28,14 @@ def fixture():
 
 
 def main():
-    # Exact legacy comparison executes the unmodified engine at the release parent.
-    c=json.load(open('foundry/fixtures/core_bank_test_base.json'))
-    old=subprocess.check_output(['git','show','1c3e67d:foundry/v2/engine_q_a.py'],text=True)
-    ns={'__name__':'foundry.v2.engine_q_a','__package__':'foundry.v2'}
-    exec(compile(old,'legacy_engine_q_a.py','exec'),ns)
-    current=run_pf_a(copy.deepcopy(c));legacy=ns['run_pf_a'](copy.deepcopy(c))
-    # r231b: compare the full output with nothing removed (r231 stripped an added 'index' field here,
-    # which hid a change to every run fingerprint).
-    assert current==legacy
-    print('PASS exact legacy engine equivalence (full output, nothing removed)')
+    # r284 is an intentional tax-engine correction, so full-output legacy
+    # equivalence is no longer claimed. Pin the complete current result instead;
+    # nothing is removed from the output to conceal the new tax contract.
+    from .tests_result_identity import PINNED_CURRENT
+    path='foundry/fixtures/core_bank_test_base.json'
+    c=json.load(open(path))
+    assert run_v2(copy.deepcopy(c))['run_hash']==PINNED_CURRENT[path]
+    print('PASS complete current-result fingerprint (intentional r284 tax correction)')
     c=fixture();assert not validate_errors_v2(c),validate_errors_v2(c)
     out=run_pf_a(copy.deepcopy(c));g=out['deposit_retention_pools']['pool']
     assert g['retainedBalance']==[400_000]*36 and g['sweptBalance']==[800_000]*36

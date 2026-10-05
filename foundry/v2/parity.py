@@ -184,12 +184,21 @@ def _conv_workforce(wf):
         ]
     return out
 
+def _conv_tax_interim(block):
+    from .tax_interim import MONEY_SERIES
+    money = set(MONEY_SERIES) | {"tax", "nol", "annualEstimate", "legalCurrentYtd", "yearOpeningNol", "yearOpeningDta"}
+    return {**block, "units": "$000s for monetary values; year, period and effectiveRate are raw",
+            "rows": [{k: (_k(v) if k in money and v is not None else v) for k, v in row.items()}
+                     for row in block.get("rows") or []]}
+
+
 def _conv(tree, is_ratio=False, raw=False):
     # ftp_rate is a per-quarter decimal rate CONSUMED to compute the dollar FTP charge (not a
     # displayed ratio). It must pass through at full precision: rounding it to 2 decimals turned
     # 0.037 into 0.04 and threw off every product's FTP/contribution vs the reference model.
     if isinstance(tree, dict):
-        return {k: (_conv_fixed_assets(v) if k == "fixed_assets" else
+        return {k: (_conv_tax_interim(v) if k == "tax_interim" else
+                    _conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else
                     _conv_other_liabilities(v) if k == "other_liabilities_detail" else
                     _conv_managed_securities(v) if k == "managed_securities" else

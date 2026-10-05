@@ -1464,3 +1464,17 @@ Built on r281 (7d30485), as an alternative to GPT's r282. Engine untouched; ever
   liabilities, 04 Securities books & AOCI, 05 Managed portfolios. Closed headers show live summary chips; the
   Include-in-model switch and the Flat / Formula-level switch work on the closed header. Existing blocks are moved
   into the sections unchanged and restyled into compact rows (books as one row each; AOCI as a row).
+
+
+## r284 — Tax-year interim provisions
+
+Direct successor to Claude r283 (`b6655ac`). Replaces period-by-period NOL generation
+with a dated tax-year ledger and supported annual-effective-rate interim provision.
+Same-year losses offset income fully; the configured carryforward limit applies to
+prior-year NOLs only. Future-year loss recognition requires an analyst assessment;
+legacy automatic recognition no longer treats cumulative profit as proof.
+
+Compact tax authoring, current/deferred detail, tax assets in the balance/capital
+calculation, Call Report other-assets inclusion, and a dedicated Income Taxes audit
+sheet accompany the engine change. Results/fingerprints intentionally change.
+See R284_TAX_METHOD.md, R284_RELEASE_NOTES.md and R284_VALIDATION.md.
