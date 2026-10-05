@@ -800,16 +800,28 @@ def v31_peer_export(body: dict, _=Depends(gate)):
 
 
 @app.post("/api/v31/qa/checks")
-def v31_qa_checks(body: dict, _=Depends(gate)):
+def v31_qa_checks(body: dict, user=Depends(gate)):
     """r247: Governance & QA data checks. Read-only: findings for the posted configuration; effects are
-    estimated by running the model on deep copies. Nothing is saved and the engine is not modified."""
-    from foundry.v2.data_checks import run_checks
+    estimated by running the model on deep copies. Nothing is saved and the engine is not modified.
+    r286: when the engagement is saved, edits since the last save are checked too; the catalogue of what the
+    checks catch (and their limits) is returned with the findings."""
+    from foundry.v2.data_checks import run_checks, CATALOG, LIMITS
     from foundry.v2.run_q import run_v2
     cfg = body.get("config")
     if not isinstance(cfg, dict):
         return JSONResponse({"error": "config required"}, status_code=422)
+    saved = None
+    slug = body.get("slug")
+    if isinstance(slug, str) and slug:
+        try:
+            from foundry import store
+            if store.is_saved(slug, user=user):
+                saved = store.load_engagement(slug, user=user)
+        except Exception:
+            saved = None                       # the edit check is optional; never block the other checks
     try:
-        return JSONResponse({"findings": run_checks(cfg, runner=run_v2)})
+        return JSONResponse({"findings": run_checks(cfg, runner=run_v2, saved=saved), "catalog": CATALOG,
+                             "limits": LIMITS, "compared_with_save": saved is not None})
     except Exception as e:
         return JSONResponse({"error": f"checks failed: {type(e).__name__}: {e}"}, status_code=500)
 

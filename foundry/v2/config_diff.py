@@ -36,6 +36,37 @@ _NAMES = {"yield_ann": "yield (annual)", "fee_yield_ann": "fee yield (annual)", 
           "avg_maturity_m": "average maturity (months)", "term_q": "term (quarters)"}
 
 
+def _is_n(v):
+    return isinstance(v, (int, float)) and not isinstance(v, bool)
+
+
+def _close(a, b):
+    """r286: numbers equal to within float noise are not a change."""
+    return _is_n(a) and _is_n(b) and abs(a - b) <= 1e-9 * max(1.0, abs(a), abs(b))
+
+
+def _pair(a, b):
+    """r286: display two values; if they differ but would display identically, add decimals until they don't."""
+    va, vb = _val(a), _val(b)
+    if va == vb and _is_n(a) and _is_n(b) and a != b:
+        for d in range(1, 9):
+            fa, fb = f"{a:,.{d}f}", f"{b:,.{d}f}"
+            if fa != fb:
+                return fa, fb
+    return va, vb
+
+
+def _keyed(d):
+    """A period-keyed schedule {"1": v, "2": v, ...}: returns {int key: value} or None."""
+    if not isinstance(d, dict) or not d:
+        return None
+    try:
+        m = {int(k): v for k, v in d.items()}
+    except (TypeError, ValueError):
+        return None
+    return m if all(v is None or _is_n(v) for v in m.values()) else None
+
+
 def _label(cfg, path):
     main, detail = _where(cfg, list(path[:-1]) if path else [])
     leaf = path[-1] if path else ""
@@ -100,6 +131,22 @@ def diff(old, new):
                     "before": before if before is not None else "", "after": after if after is not None else ""})
 
     def walk(a, b, path):
+        ka_, kb_ = _keyed(a), _keyed(b)
+        if ka_ is not None and kb_ is not None and (len(ka_) >= 2 or len(kb_) >= 2):
+            # r286: a period-keyed schedule is a series: merge consecutive changed periods into ranges
+            pre = _prefix(new, path)
+            where, field = _label(new, path)
+            keys = sorted(set(ka_) | set(kb_))
+            chg = [k for k in keys if not (k in ka_ and k in kb_ and (ka_[k] == kb_[k] or _close(ka_[k], kb_[k])))]
+            for r in _runs(chg):
+                when = f"{pre}{r[0]}" + (f" to {pre}{r[-1]}" if len(r) > 1 else "")
+                pairs = [_pair(ka_.get(k), kb_.get(k)) for k in r]
+                show = pairs[:8]
+                bef = " / ".join(p[0] for p in show) + (" / …" if len(pairs) > 8 else "")
+                aft = " / ".join(p[1] for p in show) + (" / …" if len(pairs) > 8 else "")
+                out.append({"where": where, "field": (field + " · " if field else "") + when, "kind": "changed",
+                            "before": bef, "after": aft})
+            return
         if isinstance(a, dict) and isinstance(b, dict):
             for k in list(a.keys()) + [k for k in b.keys() if k not in a]:
                 if isinstance(k, str) and k.startswith("_"):
@@ -112,13 +159,13 @@ def diff(old, new):
                     walk(a[k], b[k], path + (k,))
             return
         if _is_num_list(a) and _is_num_list(b) and len(a) == len(b):
-            idx = [i for i in range(len(a)) if a[i] != b[i]]
+            idx = [i for i in range(len(a)) if a[i] != b[i] and not _close(a[i], b[i])]
             pre = _prefix(new, path + ("values",)) if path and path[-1] == "values" else _prefix(new, path + (0,))
             where, field = _label(new, path)
             for r in _runs(idx):
                 when = f"{pre}{r[0] + 1}" + (f" to {pre}{r[-1] + 1}" if len(r) > 1 else "")
                 out.append({"where": where, "field": (field + " · " if field else "") + when, "kind": "changed",
-                            "before": " / ".join(_val(a[i]) for i in r), "after": " / ".join(_val(b[i]) for i in r)})
+                            "before": " / ".join(_pair(a[i], b[i])[0] for i in r), "after": " / ".join(_pair(a[i], b[i])[1] for i in r)})
             return
         if isinstance(a, list) and isinstance(b, list) and not _is_num_list(a) and not _is_num_list(b):
             ka = {_item_key(x, i): (i, x) for i, x in enumerate(a)}
@@ -132,8 +179,13 @@ def diff(old, new):
                 else:
                     walk(ka[key][1], y, path + (j,))
             return
-        if a != b:
-            emit(path, _val(a), _val(b), "changed")
+        if a != b and not _close(a, b):
+            if _is_n(a) and _is_n(b):
+                pa, pb = _pair(a, b)
+                where, field = _label(new, path)
+                out.append({"where": where, "field": field, "kind": "changed", "before": pa, "after": pb})
+            else:
+                emit(path, _val(a), _val(b), "changed")
 
     walk(old or {}, new or {}, ())
     return out
