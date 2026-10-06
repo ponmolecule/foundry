@@ -1,3 +1,7 @@
+# r307 — Guide Me vocabulary and annual-change mapping repair
+
+See R307_RELEASE_NOTES.md and R307_VALIDATION.md. Engine and saved engagement results unchanged.
+
 # r306 — Zero funding and FDIC template defaults
 
 See R306_RELEASE_NOTES.md and R306_VALIDATION.md. Saved engagements are unchanged.
