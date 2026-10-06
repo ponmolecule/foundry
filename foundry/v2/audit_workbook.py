@@ -1529,6 +1529,66 @@ def _other_liability_rows(cfg, results, n):
                      [None] + money(comp.get("amount") or []), _RAW_MONEY_FMT))
     return rows
 
+def _other_asset_rows(cfg, results, n):
+    """Expose generalized other-asset Formula / level causal chain."""
+    ol = (results or {}).get("other_assets_detail") or {}
+    if not isinstance(ol, Mapping) or not ol:
+        return []
+    def money(vals): return _money_k_series(vals or [])
+    rows = [
+        ("Other assets", "Opening balance", "other_assets:opening", "$000s · opening",
+         money([ol.get("opening_balance", 0.0)]) + [None] * max(0, n), _RAW_MONEY_FMT),
+        ("Other assets", "Entered base asset level", "other_assets:base", "$000s · period end",
+         [None] + money(ol.get("base") or []), _RAW_MONEY_FMT),
+        ("Other assets", "Total modeled other liabilities", "other_assets:total", "$000s · period end",
+         money(([ol.get("opening_balance", 0.0)] + list(ol.get("total") or [])) if len(ol.get("total") or []) == n else (ol.get("total") or [])), _RAW_MONEY_FMT),
+    ]
+    for i, comp in enumerate(ol.get("components") or []):
+        if not isinstance(comp, Mapping):
+            continue
+        name = str(comp.get("name") or f"Asset component {i+1}")
+        cid = str(comp.get("component_id") or f"asset_{i+1}")
+        terms = list(comp.get("terms") or [])
+        # r127 exact payloads may have no explicit terms; preserve audit readability.
+        if not terms and comp.get("driver_kind"):
+            terms = [{"term_id": "legacy", "driver_kind": comp.get("driver_kind"),
+                      "series_id": comp.get("series_id"), "driver_name": comp.get("series_id"),
+                      "driver": comp.get("driver"), "multiplier": comp.get("multiplier"),
+                      "amount": comp.get("amount")}]
+        for j, term in enumerate(terms):
+            kind = str((term or {}).get("driver_kind") or "")
+            drv = list((term or {}).get("driver") or [])
+            mul = list((term or {}).get("multiplier") or [])
+            amt = list((term or {}).get("amount") or [])
+            tname = str((term or {}).get("driver_name") or (term or {}).get("series_id") or f"Term {j+1}")
+            tid = str((term or {}).get("term_id") or f"term_{j+1}")
+            if kind in {"workforce_role_count", "workforce_count"}:
+                driver_units, mult_units = "FTE / native count", "$000s / FTE"
+                driver_vals = [None] + [float(x or 0.0) for x in drv]
+                mult_vals = [None] + money(mul)
+                dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
+            else:
+                driver_units, mult_units = "$000s · linked monetary Series", "dimensionless signed multiple"
+                driver_vals = [None] + money(drv)
+                mult_vals = [None] + [float(x or 0.0) for x in mul]
+                dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT
+            if term.get("days") is not None:
+                rows.extend([
+                    (name, "Days outstanding", f"{cid}:{tid}:days", "days", [None]+list(term["days"]), _RAW_NUM_FMT),
+                    (name, "Annual day basis", f"{cid}:{tid}:year_days", "days", [None]+[term["year_days"]]*n, _RAW_NUM_FMT),
+                    (name, "Authored multiplier before day conversion", f"{cid}:{tid}:authored_multiplier", "dimensionless", [None]+list(term["authored_multiplier"]), _RAW_NUM_FMT),
+                ])
+            rows.extend([
+                (name, f"Term {j+1} driver · {tname}", f"{cid}:{tid}:driver", driver_units, driver_vals, dfmt),
+                (name, f"Term {j+1} multiplier", f"{cid}:{tid}:multiplier", mult_units, mult_vals, mfmt),
+                (name, f"Term {j+1} contribution", f"{cid}:{tid}:amount", "$000s · signed contribution",
+                 [None] + money(amt), _RAW_MONEY_FMT),
+            ])
+        rows.append((name, "Calculated asset component", f"{cid}:amount",
+                     "$000s · period-end asset component",
+                     [None] + money(comp.get("amount") or []), _RAW_MONEY_FMT))
+    return rows
+
 def _balance_component_rows(results, exact, n):
     block=(exact or {}).get('balance_components') or (results or {}).get('balance_components') or {}
     raw=bool((exact or {}).get('balance_components'));rows=[]
@@ -1789,6 +1849,9 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                      title="Fixed Assets / CAPEX · Calculation Audit",
                      subtitle="Formula / level or Asset schedule causal bridge to gross PP&E, accumulated depreciation, net PP&E, depreciation and CAPEX/disposal. Formula / level linked drivers remain in native units; monetary values are converted once to $000s.",
                      n=n, ppy=ppy, include_open=True)
+    if exact.get("other_assets_detail"):
+        _write_wide_rows(wb.create_sheet("Other Assets"), cfg, _other_asset_rows(cfg, exact, n),
+                         title="Other Assets · Calculation Audit", subtitle="Named balances and source × multiplier calculations; amounts in $000s.", n=n, ppy=ppy, include_open=True)
     from .other_liabilities import other_liability_mode as _audit_ol_mode
     if _audit_ol_mode(a) == "formula_level" and isinstance((a.get("other_liabilities_model") or {}), Mapping):
         _write_wide_rows(wb.create_sheet("Other Liabilities"), cfg, _other_liability_rows(cfg, exact, n),

@@ -159,6 +159,8 @@ def derived_lines(res, cfg):
     else:
         non_earn_flat = round((a["premises_equipment"] + a["intangibles"] + a["other_assets"]) / 1000.0, 2)
         non_earn_list = [non_earn_flat] * n
+    if bs.get("otherAssets") is not None:
+        non_earn_list = [round((bs.get("premises") or [0.0]*n)[i] + a["intangibles"]/1000.0 + bs["otherAssets"][i], 2) for i in range(n)]
     # Paid-in capital = initial capital PLUS cumulative staged raises, per quarter. The
     # engine already computes this in bs["paidIn"] (cap_t, in $000s); pass it through so
     # "Capital Stock & Surplus" moves with raises and the equity section foots. Using a
@@ -203,6 +205,8 @@ def derived_lines(res, cfg):
                         + (g("feeOpex")[i] or 0)
                         + (g("overhead")[i] if "overhead" in is_ else g("fixedOpex")[i] or 0), 2)
                   for i in range(m)]
+    if bs.get("otherAssets") is not None:
+        out["intangibles"] = [round(a["intangibles"]/1000.0,2)]*n
     return out
 
 
@@ -231,13 +235,18 @@ def canonical_line(line):
 
 
 def bs_layout_for_results(res):
-    """Extend only opted-in component results; legacy exhibit rows remain identical."""
-    if 'earningAssets' not in res.get('bs', {}):
+    """Extend only opted-in components; historical exhibit rows stay identical."""
+    has_earning = 'earningAssets' in res.get('bs', {})
+    has_other = 'otherAssets' in res.get('bs', {})
+    if not has_earning and not has_other:
         return BS_LAYOUT
     layout=[]
     for row in BS_LAYOUT:
-        if row.get('key')=='frbStock':
+        if has_earning and row.get('key')=='frbStock':
             layout.append({'t':'line','key':'earningAssets','label':'Other interest-bearing assets'})
+        elif has_other and row.get('key')=='nonEarn':
+            layout.append({'t':'line','key':'intangibles','label':'Intangible assets'})
+            layout.append({'t':'line','key':'otherAssets','label':'Other assets'})
         else:
             layout.append(row)
     return layout

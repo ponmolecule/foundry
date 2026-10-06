@@ -211,7 +211,7 @@ def _conv(tree, is_ratio=False, raw=False):
                     _conv_tax_interim(v) if k == "tax_interim" else
                     _conv_fixed_assets(v) if k == "fixed_assets" else
                     _conv_workforce(v) if k == "workforce" else
-                    _conv_other_liabilities(v) if k == "other_liabilities_detail" else
+                    _conv_other_liabilities(v) if k in {"other_liabilities_detail", "other_assets_detail"} else
                     _conv_managed_securities(v) if k == "managed_securities" else
                     {gid: {field: (list(values) if field == "factor" else _conv(values))
                            for field, values in group.items()}

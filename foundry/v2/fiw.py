@@ -524,6 +524,91 @@ def _other_liabilities_level_sheet(ws, model):
     ws.column_dimensions["B"].width = 34; ws.column_dimensions["C"].width = 38
     ws.column_dimensions["D"].width = 24; ws.column_dimensions["E"].width = 42
 
+def _other_assets_level_sheet(ws, model):
+    """Editable FIW surface for generalized Other Assets Formula / level."""
+    ws.append(["key", "Component", "Field", "Value", "Units / note"])
+    for c in ws[1]: c.font = HDR
+
+    def row(key, section, field, val, units, fact=False):
+        note = ("fact — " + units) if fact else units
+        ws.append([key, section, field,
+                   wbunits.to_workbook(val, units) if val is not None else "",
+                   wbunits.export_label(note)])
+        if not fact: ws.cell(ws.max_row, 4).fill = GOLD
+        if isinstance(val, (int, float)) and abs(val) >= 1000:
+            ws.cell(ws.max_row, 4).number_format = "#,##0.000"
+
+    def series_rows(prefix, section, label, spec, units="$", fact=False):
+        spec = dict(spec or {})
+        tr = str(spec.get("trajectory") or "flat")
+        row(prefix + ".source", section, label + " — source", spec.get("source", "entered"), "entered", fact)
+        row(prefix + ".trajectory", section, label + " — trajectory", tr, "flat / growth / explicit", fact)
+        if tr == "flat":
+            row(prefix + ".value", section, label + " — value", spec.get("value", 0.0), units, fact)
+        elif tr == "growth":
+            row(prefix + ".base", section, label + " — base", spec.get("base", 0.0), units, fact)
+            gs = dict(spec.get("growth_spec") or {})
+            for k, u in (("rate", "decimal growth rate"), ("period", "month / quarter / year"),
+                         ("method", "smooth / step"), ("anchor", "growth anchor"), ("anchor_month", "1-12")):
+                if gs.get(k) is not None:
+                    row(prefix + ".growth_spec." + k, section,
+                        label + " — growth " + k.replace("_", " "), gs.get(k), u, fact)
+        elif tr == "explicit":
+            row(prefix + ".cadence", section, label + " — schedule cadence", spec.get("cadence", "year"), "month / quarter / year", fact)
+            row(prefix + ".resolution", section, label + " — resolution", spec.get("resolution", "step"), "step / smooth", fact)
+            row(prefix + ".extend", section, label + " — extension", spec.get("extend", "hold"), "hold / zero / error", fact)
+            for i, v in enumerate(spec.get("values") or []):
+                row(f"{prefix}.values.{i}", section, f"{label} — value {i+1}", v, units, fact)
+
+    def legacy_terms(c):
+        drv = dict(c.get("driver") or {})
+        kind = str(drv.get("kind") or "")
+        if kind == "workforce_count":
+            dkind, sid = "workforce_role_count", str(drv.get("series_id") or "")
+        else:
+            from .fixed_assets import FIXED_ASSET_NET_SERIES_ID
+            dkind, sid = "fixed_asset_level", FIXED_ASSET_NET_SERIES_ID
+        return [{"term_id": "legacy", "driver_spec": {"source": "link", "link": {
+                    "kind": dkind, "series_id": sid, "aggregation": "end"}},
+                 "multiplier_spec": c.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0},
+                 "_legacy": True}]
+
+    m = dict(model or {})
+    root = "other_assets_model"
+    row(root + ".opening_balance", "Formula / level", "Opening other-asset balance", m.get("opening_balance", 0.0), "$")
+    series_rows(root + ".base_spec", "Formula / level", "Base asset level",
+                m.get("base_spec") or {"source":"entered","trajectory":"flat","value":0.0}, "$")
+    for i, raw in enumerate(m.get("components") or []):
+        c = dict(raw or {}); cr = f"{root}.components.{i}"
+        section = c.get("name") or f"Asset component {i+1}"
+        row(cr + ".name", section, "Component name", c.get("name"), "text")
+        row(cr + ".component_id", section, "Component ID", c.get("component_id"), "stable component ID", True)
+        terms = c.get("terms") if isinstance(c.get("terms"), list) else legacy_terms(c)
+        for j, rawt in enumerate(terms or []):
+            t = dict(rawt or {}); legacy = bool(t.get("_legacy")); tr = cr if legacy else f"{cr}.terms.{j}"
+            link = dict((t.get("driver_spec") or {}).get("link") or {})
+            tsec = section if len(terms or []) == 1 else f"{section} · term {j+1}"
+            if not legacy:
+                row(tr + ".term_id", tsec, "Term ID", t.get("term_id"), "stable term ID", True)
+            row(tr + (".driver.kind" if legacy else ".driver_spec.link.kind"), tsec, "Driver kind",
+                ("workforce_count" if legacy and link.get("kind") == "workforce_role_count" else
+                 "fixed_asset_net" if legacy else link.get("kind")),
+                "linked Series kind", True)
+            row(tr + (".driver.series_id" if legacy else ".driver_spec.link.series_id"), tsec, "Driver Series ID",
+                link.get("series_id"), "stable Series ID", True)
+            if (t.get("driver_spec") or {}).get("source") == "entered":
+                series_rows(tr + ".driver_spec", tsec, "Entered asset level", t["driver_spec"], "$")
+            if t.get("days_spec") is not None:
+                series_rows(tr + ".days_spec", tsec, "Days outstanding", t["days_spec"], "days")
+                row(tr + ".year_days", tsec, "Days per year", t.get("year_days",360), "days")
+            units = "$/FTE" if link.get("kind") == "workforce_role_count" else "dimensionless multiple"
+            series_rows(tr + ".multiplier_spec", tsec, "Multiplier",
+                        t.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0}, units)
+
+    ws.column_dimensions["A"].hidden = True
+    ws.column_dimensions["B"].width = 34; ws.column_dimensions["C"].width = 38
+    ws.column_dimensions["D"].width = 24; ws.column_dimensions["E"].width = 42
+
 def _nie_sheet(ws, nd, ppy=4):
     """Editable NIE assumptions, including legacy staffing, role/cohort workforce,
     category trajectories, and assessment/gross-up inputs.  New trajectory fields are
@@ -796,6 +881,8 @@ def build_fiw(cfg, include_capability_map=False):
     elif _fa.get("mode") == "formula_level" and isinstance(_fa.get("formula_level"), dict):
         _fixed_asset_formula_level_sheet(wb.create_sheet("ASSM_FIXED_ASSETS_LEVEL"),
                                          _fa.get("formula_level") or {})
+    if isinstance(a.get("other_assets_model"), dict):
+        _other_assets_level_sheet(wb.create_sheet("ASSM_OTHER_ASSETS"), a["other_assets_model"])
     if isinstance(a.get("other_liabilities_model"), dict):
         _other_liabilities_level_sheet(wb.create_sheet("ASSM_OTHER_LIAB"),
                                        a.get("other_liabilities_model") or {})
@@ -889,6 +976,9 @@ def _settings_sheet(wb, cfg):
         row("Premises depreciation", a.get("premises_depreciation_annual"), "$/year")
     row("Intangibles", a.get("intangibles"), "$")
     row("Other assets", a.get("other_assets"), "$")
+    if a.get("other_assets_model"):
+        row("Other Assets authoring", a.get("other_assets_mode","formula_level"), "active mode")
+        row("Other Assets components",len(a["other_assets_model"].get("components") or []),"named balances")
     _olm = a.get("other_liabilities_model")
     from .other_liabilities import other_liability_mode
     _ol_mode = other_liability_mode(a)
@@ -1604,6 +1694,7 @@ def diff_import(data, current_cfg):
         "ASSM_FIXED_ASSETS": ("fixed_assets.assets", 3),
         "ASSM_FIXED_ASSETS_LEVEL": ("fixed_assets.formula_level", 3),
         "ASSM_OTHER_LIAB": ("other_liabilities_model", 3),
+        "ASSM_OTHER_ASSETS": ("other_assets_model", 3),
         "ASSM_NIE": ("nie_detail", 3),
     }
     _dropped_rows = []          # hand-added rows with content but no valid machine key
