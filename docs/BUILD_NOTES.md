@@ -1749,3 +1749,7 @@ Built directly on r303 (98242c5). Added opt-in non-earning named Other Assets, e
 
 ## r308
 Guide Me source-reference contract and one bounded automatic correction for invalid mappings; cross-product reference wiring completed. Built on r307. See R308_RELEASE_NOTES.md and R308_VALIDATION.md.
+
+
+## r309
+New product selection resets to Setup; unspecified product tab defaults to Setup. Presentation only; verified actual browser tab transitions.

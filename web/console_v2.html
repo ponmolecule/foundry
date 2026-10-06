@@ -10411,7 +10411,7 @@ function _renderContentBody(){
     const _fmt=v=>(v==null||v==='')?'\u2014':fmt0(v);
     const _objs=_all.map(x=>x.p);
     { const seen=(window._prdSeen=window._prdSeen||new WeakSet()); const fresh=_objs.find(o=>o&&!seen.has(o)); _objs.forEach(o=>{if(o)seen.add(o);});
-      if(fresh&&window._prdSeenInit){window._prdSel=fresh;window._prdView='product';} window._prdSeenInit=true; }
+      if(fresh&&window._prdSeenInit){window._prdSel=fresh;window._prdView='product';window._prdTab='setup';} window._prdSeenInit=true; }
     let view=window._prdView||'portfolio'; const selIdx=_objs.indexOf(window._prdSel); if(view==='product'&&selIdx<0) view='portfolio';
     const secs=[["Loans","lending"],["Deposits","deposit"],["Off-Balance-Sheet","obs"]];   // every product family has a home on this tab
     const FAMS=secs.map(([cn,fam])=>[fam, cn==="Loans"?"Lending":(cn==="Off-Balance-Sheet"?"Off-balance-sheet":cn)]);
@@ -10445,7 +10445,7 @@ function _renderContentBody(){
       const fee=_isFee(p), ns=_nStreams(p), line=LINE_LABELS_V31[p.call_report_line]||p.call_report_line||'';
       const kind=fee?'Fee product':(x.fam==='lending'?'Lending product':(x.fam==='deposit'?'Deposit product':'Off-balance-sheet product'));
       const tabs=[['setup','Setup',null]]; if(fee||x.fam==='lending'||x.fam==='deposit') tabs.push(['streams','Fee streams',ns]); if(V21) tabs.push(['overrides','Per-month overrides',null]);   // r232: Fee streams for loans and deposits too
-      let tab=window._prdTab; if(!tabs.some(t=>t[0]===tab)) tab=fee?'streams':'setup';
+      let tab=window._prdTab; if(!tabs.some(t=>t[0]===tab)) tab='setup';
       h+=`<div class="prd-crumb"><a href="#" onclick="prdView('portfolio');return false">Products</a><span>/</span>${_famLab(x.fam)}<span>/</span><b>${esc(p.name||'Unnamed product')}</b></div>`;
       h+=`<div class="prd-band"><div class="prd-band-id"><div class="prd-band-t"><b>${esc(p.name||'Unnamed product')}</b><span class="prd-tag">${_famLab(x.fam)}</span></div><div class="prd-band-s">${kind}${line?' \u00B7 '+esc(line):''}${fee&&p.managed_notional_source?' \u00B7 AUC from feed '+esc(p.managed_notional_source):''}</div></div>${lastRes?pstat(p.name):(()=>{const r=_row(p.name);if(!r)return '<div class="pstat"><span><label>'+BQ+'</label><b>\u2014</b></span><span><label>'+RQ+'</label><b>'+(_needs(p.name)?'Needs inputs':'\u2014')+'</b></span></div>';const cc=_contrib(r);return '<div class="pstat prd-pstat-stale" title="From the last complete run"><span><label>'+BQ+'</label><b>'+fmt0(r.q12_balance)+'</b></span><span><label>'+RQ+'</label><b>'+fmt0(r.revenue)+'</b></span><span><label>'+CQ+'</label><b>'+fmt0(cc)+'</b></span></div>';})()}<div class="prd-band-act"><button type="button" onclick="delProduct('${x.fam}',${x.i})">Delete</button></div></div>`;
       if(tabs.length>1) h+='<div class="prd-tabs" role="tablist">'+tabs.map(t=>`<button type="button" class="prd-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="prdTabSet('${t[0]}')">${t[1]}${t[2]!=null?`<small>${t[2]}</small>`:''}</button>`).join('')+'</div>';
