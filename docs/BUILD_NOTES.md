@@ -1693,3 +1693,16 @@ Built on r299. Engine calculations unchanged; reporting series added.
   because the results now carry the new series.
 - Engine behaviour confirmed by experiment: a category's base path and its cost-pool charge are additive. Entering
   the same base both as the category's base path and inside its cost pool counts it twice.
+
+
+## r301 (Claude) — Plain Save
+
+Built on r300. Presentation and workflow only; engine untouched.
+- The only way to save was the ▾ menu's "Save as a new version". A Save button now sits in the header beside the
+  engagement status: gold "Save" when there are unsaved changes (one click writes the open bank · version, no dialog),
+  "Saved ✓" (disabled) when clean, "Save…" for a never-saved engagement (opens the version dialog), hidden when the
+  workspace is empty. Ctrl/Cmd+S does the same instead of the browser's save-page.
+- It uses the existing save path (recovery-draft purge, clean baseline, change tracking, saved-list refresh).
+- After a save, the status reads "N changes since save" (an uploaded engagement previously kept saying "since upload").
+- Verified: a typed edit then Save keeps a single saved entry and stores the new value; Ctrl+S saves; Ctrl+S when clean
+  does nothing.
