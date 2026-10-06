@@ -863,6 +863,13 @@ def validate_config_v2(cfg):
         _own = str(_r.get("owner_module") or "").strip()
         if _own and _own != "operating_expense.workforce":
             errs.append(f"nie_detail.workforce.roles[{_j}].owner_module must be operating_expense.workforce")
+    try:
+        from .other_assets import prepare_other_assets
+        if str(a.get("other_assets_mode") or "") not in {"", "flat", "formula_level"}:
+            raise ValueError("other_assets_mode must be flat or formula_level")
+        prepare_other_assets(a, max(1, int(a.get("n_periods") or 12)), _ppy, growth_context=_growth_ctx)
+    except (ValueError, TypeError, KeyError) as exc:
+        errs.append("Other Assets: " + str(exc))
     # Generalized other-liability Formula / level. Only the active mode must validate;
     # a saved inactive Formula / level setup is intentionally retained while Flat is active.
     _ol_mode_raw = str(a.get("other_liabilities_mode") or "").strip().lower()

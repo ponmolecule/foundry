@@ -1729,3 +1729,7 @@ Built on r302. Presentation only; engine untouched.
   Tiered term most often goes wrong (e.g. a total-assets term needs a positive observation lag; a balance-stream term
   cannot use one).
 - Workforce compensation pools' Tiered terms use income-statement flows rather than catalogue series and are unchanged.
+
+## r304 — named Other Assets
+
+Built directly on r303 (98242c5). Added opt-in non-earning named Other Assets, entered levels and linked source × multiplier terms, with optional configurable days-outstanding conversion. Funding, financial/audit output, Call Report, RWA and editable workbook integration. Legacy outputs are identical; no automatic engagement migration. Corrected opening/ending labels in the tiered asset source preview without changing expense timing. See R304_RELEASE_NOTES.md and R304_VALIDATION.md.

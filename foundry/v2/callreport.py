@@ -201,6 +201,8 @@ def build_rc(res, cfg):
     _dta = bs.get("dta") or [0.0] * n
     oa = [a.get("other_assets", 0) / 1000.0 + (_pre[i] or 0.0) / 1000.0
           + float(_dta[i] or 0.0) for i in range(n)]
+    if bs.get("otherAssets") is not None:
+        oa = [float(bs["otherAssets"][i] or 0.0) + (_pre[i] or 0.0)/1000.0 + float(_dta[i] or 0.0) for i in range(n)]
     _ol_model = bs.get("otherLiab")
     if _ol_model:
         ol = [float(_ol_model[i] or 0.0) + (_acc[i] or 0.0) / 1000.0 for i in range(n)]
