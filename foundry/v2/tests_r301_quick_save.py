@@ -22,6 +22,8 @@ def main():
        "if((e.ctrlKey||e.metaKey) && !e.shiftKey && !e.altKey && (e.key==='s'||e.key==='S')){ e.preventDefault(); quickSave(); }" in html)
     ck("after a save, changes are counted 'since save' (not 'since upload')",
        'const since = (!this.saved && (this.origin === "upload" || this.origin === "workbook")) ? "upload" : "save";' in html)
+    ck("r302: the button refreshes on every lifecycle change (open, save, clear), not only after an edit",
+       html.count('try{ if(typeof _syncSaveBtn === "function") _syncSaveBtn(); }catch(e){}') == 3)
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

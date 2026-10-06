@@ -1706,3 +1706,12 @@ Built on r300. Presentation and workflow only; engine untouched.
 - After a save, the status reads "N changes since save" (an uploaded engagement previously kept saying "since upload").
 - Verified: a typed edit then Save keeps a single saved entry and stores the new value; Ctrl+S saves; Ctrl+S when clean
   does nothing.
+
+
+## r302 (Claude) — Save button visible from the moment an engagement opens
+
+Built on r301. The r301 Save button was refreshed only when the change status refreshed, which on opening an
+engagement happens before the engagement is marked opened; the button stayed hidden until the first edit (the r301
+test refreshed it by hand and missed this). It now refreshes on every lifecycle change (open, save, clear): "Saved ✓"
+right after opening, gold "Save" at the first change, hidden when the workspace is empty. The clean state has a
+visible outline. Verified on the real path: sign in, open from the ▾ menu, edit, Save, clear.
