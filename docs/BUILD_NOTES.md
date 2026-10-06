@@ -1745,3 +1745,7 @@ Built on r302. Presentation only; engine untouched.
 ## r304 — named Other Assets
 
 Built directly on r303 (98242c5). Added opt-in non-earning named Other Assets, entered levels and linked source × multiplier terms, with optional configurable days-outstanding conversion. Funding, financial/audit output, Call Report, RWA and editable workbook integration. Legacy outputs are identical; no automatic engagement migration. Corrected opening/ending labels in the tiered asset source preview without changing expense timing. See R304_RELEASE_NOTES.md and R304_VALIDATION.md.
+
+
+## r308
+Guide Me source-reference contract and one bounded automatic correction for invalid mappings; cross-product reference wiring completed. Built on r307. See R308_RELEASE_NOTES.md and R308_VALIDATION.md.
