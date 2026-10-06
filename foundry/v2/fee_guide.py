@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 10
+GUIDE_SCHEMA_VERSION = 11
 # Loan-only sources do not exist on a Fee Product.
 _GUIDE_SOURCES = _FEE_SOURCES - {"distributed_balance", "product_funded_flow"}
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
@@ -429,6 +429,15 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
 - For fee/spread on annualized throughput derived from AUC/AUM, use transaction + managed_notional +
   driver_trajectory=derived with an explicit coefficient kind/period. The turns/multiple path belongs
   in coefficient_trajectory; never place that path in driver_trajectory.
+- Source/reference contract: managed_notional means the product-level AUC/AUM, including a
+  Customer-Acquisition AUC feed. Its driver_reference MUST be not_applicable: the feed is selected
+  at product level, not as another fee stream. A named turns/coefficient path is NOT a source
+  stream. Use driver_reference only with stream_ref (same-product stream name) or
+  fee_stream_quantity (cross-product quantity source selected locally).
+- For annual turns × Average AUC × a percentage fee, use ONE transaction
+  stream: managed_notional, derived, coefficient_kind=multiple, coefficient_period=year,
+  coefficient_trajectory matching the turns path, transaction_pricing_basis=pct_of_throughput,
+  rate_behavior=flat. A user-provided coefficient name does not identify another source stream.
 - For a fee charged on a stock such as AUC/AUM itself, use balance + managed_notional.
 - For reimbursement/cost-plus/service-fee mechanics charged on modeled eligible expenses, use
   transaction + cost_pool + driver_trajectory=flat + rate_behavior=cost_recovery + cost_kind=none.
@@ -515,7 +524,7 @@ def _dummy_stream(item):
     basis = item["basis"]
     traj = item["driver_trajectory"]
     driver = {"source": item["driver_source"], "trajectory": traj, "params": {}}
-    if item["driver_source"] == "stream_ref":
+    if item["driver_source"] in {"stream_ref", "fee_stream_quantity"}:
         driver["ref"] = item.get("driver_reference") or "__guide_reference_stream__"
     if item["driver_source"] == "customer_acquisition_count":
         # Guide Me chooses the mechanic, not a concrete local Series. The UI supplies the
@@ -675,11 +684,11 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me invented unsupported basis {item['basis']!r}")
         if item["driver_source"] not in _GUIDE_SOURCES:
             raise ValueError(f"Guide Me invented unsupported driver source {item['driver_source']!r}")
-        if item["driver_source"] == "stream_ref":
+        if item["driver_source"] in {"stream_ref", "fee_stream_quantity"}:
             if not item.get("driver_reference"):
-                raise ValueError("Guide Me Another stream source requires driver_reference")
+                raise ValueError("Guide Me linked stream source requires driver_reference")
         elif item.get("driver_reference") is not None:
-            raise ValueError("Guide Me returned driver_reference without Another stream source")
+            raise ValueError("Guide Me returned driver_reference without a linked stream source")
         if item.get("entered_driver_kind") is not None:
             if not (item["basis"] == "transaction" and item["driver_source"] == "constant"
                     and item["entered_driver_kind"] == "money_flow"):
@@ -964,8 +973,11 @@ def _stream_steps(item):
                         and item.get("entered_driver_kind") == "money_flow"
                         else _SOURCE_LABELS[item["driver_source"]])
         steps.append(f"Set Driver source to “{source_label}”.")
-        if item["driver_source"] == "stream_ref" and item.get("driver_reference"):
-            steps.append(f"Set Reference stream to “{item['driver_reference']}”.")
+        if item["driver_source"] in {"stream_ref", "fee_stream_quantity"} and item.get("driver_reference"):
+            if item["driver_source"] == "fee_stream_quantity":
+                steps.append(f"Select the source stream “{item['driver_reference']}” in the linked quantity picker.")
+            else:
+                steps.append(f"Set Reference stream to “{item['driver_reference']}”.")
 
     if basis == "account" and item["driver_source"] == "constant":
         traj = item["driver_trajectory"]
@@ -1253,21 +1265,35 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None, req
         },
         # Intentionally NO tools, web search, retrieval, URLs, files, or engagement config.
     }
-    raw = _anthropic_request(payload, key, timeout=request_timeout, http_open=http_open)
-    blocks = raw.get("content") or []
-    text = "".join(str(b.get("text") or "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
-    try:
-        plan = _extract_json(text)
-    except (ValueError, json.JSONDecodeError) as e:
-        if str(raw.get("stop_reason") or "").strip().lower() == "max_tokens":
-            raise RuntimeError(
-                "Guide Me's structured plan exceeded its response budget before the JSON was complete."
-            ) from e
-        raise RuntimeError(
-            "Guide Me could not read Claude's structured response. Please retry the same description; "
-            "if it recurs, the configured Claude model may not support structured outputs."
-        ) from e
-    out = render_guide_plan(plan)
+    # Structured output guarantees JSON shape, not relationships between fields.
+    # Request one correction; never erase a source reference or guess its economics.
+    for attempt in range(2):
+        raw = _anthropic_request(payload, key, timeout=request_timeout, http_open=http_open)
+        blocks = raw.get("content") or []
+        text = "".join(str(b.get("text") or "") for b in blocks if isinstance(b, dict) and b.get("type") == "text")
+        try:
+            plan = _extract_json(text)
+        except (ValueError, json.JSONDecodeError) as e:
+            if str(raw.get("stop_reason") or "").strip().lower() == "max_tokens":
+                raise RuntimeError("Guide Me's structured plan exceeded its response budget before the JSON was complete.") from e
+            raise RuntimeError("Guide Me could not read Claude's structured response. Please retry the same description.") from e
+        try:
+            out = render_guide_plan(plan)
+            break
+        except ValueError as e:
+            if attempt:
+                raise RuntimeError(
+                    "Guide Me could not validate the mapping after one automatic correction. "
+                    "No configuration was changed. " + str(e)
+                ) from e
+            payload["messages"] += [
+                {"role": "assistant", "content": text},
+                {"role": "user", "content":
+                    "Foundry rejected this mapping: " + str(e) +
+                    ". Correct the field relationships using the original description and clarification history. "
+                    "Do not invent or change economic assumptions. If the source is ambiguous, ask one clarification question. "
+                    "Return the complete corrected schema object."},
+            ]
     out["model"] = mdl
     out["grounding"] = "Foundry fee-engine manifest only; no tools/retrieval/engagement data supplied"
     return out
