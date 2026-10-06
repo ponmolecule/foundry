@@ -28,7 +28,9 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 9
+GUIDE_SCHEMA_VERSION = 10
+# Loan-only sources do not exist on a Fee Product.
+_GUIDE_SOURCES = _FEE_SOURCES - {"distributed_balance", "product_funded_flow"}
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -164,6 +166,7 @@ _SOURCE_LABELS = {
     "own_balance": "Own on-book balance",
     "managed_notional": "Managed notional (AUC/AUM)",
     "stream_ref": "Another stream",
+    "fee_stream_quantity": "Linked stream quantity — across fee products",
     "bank_aggregate": "Bank aggregate",
     "cost_pool": "Cost pool — eligible cost base",
     "customer_acquisition_count": "Ending bank customers — Customer Acquisition",
@@ -182,7 +185,7 @@ _TRAJECTORY_LABELS = {
 }
 _RATE_LABELS = {
     "flat": "Flat",
-    "annual_change": "Annual change",
+    "annual_change": "Annual rate change",
     "scheduled": "Scheduled",
     "tiered": "Tiered",
     "durbin_capped": "Durbin capped",
@@ -215,11 +218,15 @@ def fee_guide_manifest():
     The IDs come from the current evaluator constants, so the guide cannot quietly
     grow a parallel product taxonomy. Labels/instructions mirror the current UI.
     """
+    for ids, labels in ((_GUIDE_SOURCES, _SOURCE_LABELS), (_FEE_BASES, _BASIS_LABELS), (_FEE_TRAJECTORIES, _TRAJECTORY_LABELS), (_FEE_RATE_BEHAVIORS, _RATE_LABELS), (_FEE_COST_KINDS, _COST_LABELS)):
+        missing = set(ids) - set(labels)
+        if missing:
+            raise ValueError("Guide Me vocabulary labels missing: " + ", ".join(sorted(missing)))
     return {
         "schema_version": GUIDE_SCHEMA_VERSION,
         "principle": "Map user-described mechanics to Foundry shapes. Do not invent product types or assumptions.",
         "bases": [{"id": x, "label": _BASIS_LABELS[x]} for x in sorted(_FEE_BASES)],
-        "driver_sources": [{"id": x, "label": _SOURCE_LABELS[x]} for x in sorted(_FEE_SOURCES)],
+        "driver_sources": [{"id": x, "label": _SOURCE_LABELS[x]} for x in sorted(_GUIDE_SOURCES)],
         "driver_trajectories": [{"id": x, "label": _TRAJECTORY_LABELS[x]} for x in sorted(_FEE_TRAJECTORIES)],
         "rate_behaviors": [{"id": x, "label": _RATE_LABELS[x]} for x in sorted(_FEE_RATE_BEHAVIORS)],
         "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
@@ -281,7 +288,7 @@ def _guide_output_schema():
         "properties": {
             "name": {"type": "string"},
             "basis": {"type": "string", "enum": sorted(_FEE_BASES)},
-            "driver_source": {"type": "string", "enum": sorted(_FEE_SOURCES)},
+            "driver_source": {"type": "string", "enum": sorted(_GUIDE_SOURCES)},
             "driver_reference": {"type": "string"},
             "entered_driver_kind": {"type": "string", "enum": ["money_flow", "not_applicable"]},
             "driver_trajectory": {"type": "string", "enum": sorted(_FEE_TRAJECTORIES)},
@@ -449,11 +456,14 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   A flat retainer plus changing EOP counts therefore means pricing_trajectory=flat AND
   driver_trajectory=explicit_schedule. If the resolution is economically required but omitted, ask
   whether the EOP levels should Step or Smooth; never invent rounding.
+- For balance rate_behavior=annual_change, pricing_trajectory describes the annual change path,
+  not the starting rate: Flat / Growth / Explicit. Annual changes use Year and Step only;
+  first change applies after Year 1. Preserve annual_change when the user explicitly requests it.
 - If a balance is described as a percentage of another stock (for example reserves as % of Avg AUC),
   use balance + the sourced stock + driver_trajectory=derived + stock_multiplier_trajectory. This is a
   STOCK multiplier and must never be represented as a transaction flow coefficient. Stock multiplier
   paths may be flat, growth, or explicit_schedule; explicit paths also name source period and resolution.
-- For balance annual rates and account per-unit fees, pricing_trajectory may be flat, growth, or
+- For balance rate_behavior=flat and account per-unit fees, pricing_trajectory may be flat, growth, or
   explicit_schedule. pricing_period is the account fee's natural billing period; for an explicit balance
   rate path it is the source schedule cadence. Never use Flat amount trajectory for account or balance.
 - Use flat for a recurring fixed-dollar amount and set flat_amount_trajectory to flat, growth, or
@@ -554,11 +564,12 @@ def _dummy_stream(item):
     rate = {"behavior": item["rate_behavior"], "params": {}}
     if basis == "balance":
         pt = item.get("pricing_trajectory") or "flat"
-        rate["behavior"] = "flat"
         rate["params"]["rate"] = 0
-        rate["params"]["rate_path"] = _dummy_level_path(
-            pt, item.get("pricing_period"), item.get("pricing_resolution")
-        )
+        if item["rate_behavior"] == "annual_change":
+            rate["params"]["annual_delta_path"] = _dummy_level_path(pt, "year", "step")
+        else:
+            rate["behavior"] = "flat"
+            rate["params"]["rate_path"] = _dummy_level_path(pt, item.get("pricing_period"), item.get("pricing_resolution"))
     elif basis == "transaction":
         if item.get("transaction_pricing_basis"):
             rate["params"]["pricing_basis"] = item["transaction_pricing_basis"]
@@ -662,7 +673,7 @@ def validate_guide_plan(plan):
         }
         if item["basis"] not in _FEE_BASES:
             raise ValueError(f"Guide Me invented unsupported basis {item['basis']!r}")
-        if item["driver_source"] not in _FEE_SOURCES:
+        if item["driver_source"] not in _GUIDE_SOURCES:
             raise ValueError(f"Guide Me invented unsupported driver source {item['driver_source']!r}")
         if item["driver_source"] == "stream_ref":
             if not item.get("driver_reference"):
@@ -774,6 +785,9 @@ def validate_guide_plan(plan):
         elif item["stock_multiplier_period"] is not None or item["stock_multiplier_resolution"] is not None:
             raise ValueError("Guide Me returned stock multiplier metadata without a stock multiplier")
 
+        if item["basis"] == "balance" and item["rate_behavior"] == "annual_change":
+            if item["pricing_period"] not in {None, "year"} or item["pricing_resolution"] not in {None, "step"}:
+                raise ValueError("Guide Me annual changes require Year and Step")
         pt = item["pricing_trajectory"]
         is_cost_recovery = (item["basis"] == "transaction" and item["rate_behavior"] == "cost_recovery")
         if item["basis"] in {"balance", "account"} or is_cost_recovery:
@@ -1033,7 +1047,18 @@ def _stream_steps(item):
         else:
             steps.append("Foundry interprets the coefficient in the selected natural period and converts it to the model cadence.")
 
-    if basis == "balance":
+    if basis == "balance" and item["rate_behavior"] == "annual_change":
+        pt = item.get("pricing_trajectory") or "flat"
+        steps.append("Set Rate behavior to “Annual rate change”.")
+        steps.append("Enter the annual starting fee in “Starting rate (bp/yr on balance)”.")
+        steps.append(f"Under Annual rate change, choose “{pt.replace('_schedule',' schedule').replace('_',' ').title()}”.")
+        if pt == "explicit_schedule":
+            steps.append("Open Edit schedule, paste the annual percentage changes and click Load (replace). The first change applies after Year 1; the last change carries forward.")
+        elif pt == "growth":
+            steps.append("Enter the starting annual change and its annual growth; growth changes the change assumption itself.")
+        else:
+            steps.append("Enter the stated relative annual percentage change, not a percentage-point change in the fee rate. Year 1 uses the starting fee; the change applies after each year.")
+    elif basis == "balance":
         pt = item.get("pricing_trajectory") or "flat"
         steps.append("Set Rate behavior to “Series rate path”.")
         steps.append(f"Set Rate path to “{pt.replace('_schedule',' schedule').replace('_',' ').title()}”.")
