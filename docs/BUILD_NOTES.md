@@ -1715,3 +1715,17 @@ engagement happens before the engagement is marked opened; the button stayed hid
 test refreshed it by hand and missed this). It now refreshes on every lifecycle change (open, save, clear): "Saved ✓"
 right after opening, gold "Save" at the first change, hidden when the workspace is empty. The clean state has a
 visible outline. Verified on the real path: sign in, open from the ▾ menu, edit, Save, clear.
+
+
+## r303 (Claude) — Tiered components: Browse / search and series previews
+
+Built on r302. Presentation only; engine untouched.
+- Formula components offer "Browse / search" for linked series and a preview of the selected series; Tiered (piecewise)
+  driver terms had only a Source dropdown. Each Tiered term now has "Browse / search" (the shared source catalogue in a
+  Tiered mode: only total assets, Customer Acquisition AUC and balance-basis fee-stream quantities are selectable) and a
+  preview beneath it: the shared Formula preview for AUC; the run's balance quantity ($000s) for fee streams; the run's
+  total assets for total-assets terms.
+- An empty preview says why: no run yet, or the last run failed or was rejected (with its message), which is how a
+  Tiered term most often goes wrong (e.g. a total-assets term needs a positive observation lag; a balance-stream term
+  cannot use one).
+- Workforce compensation pools' Tiered terms use income-statement flows rather than catalogue series and are unchanged.
