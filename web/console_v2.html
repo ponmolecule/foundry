@@ -2312,6 +2312,16 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r300: expense KPI shows base paths + components; category editor shows its component charge */
+.cfg-kpi .cfg-kpi-sub{display:block;font-style:normal;font-size:11px;color:#8a867d;margin-top:2px}
+.opex-comp-run{margin:8px 0 10px;padding:8px 10px;background:#f7f5f0;border:1px solid #ecebe6;border-radius:6px}
+.opex-comp-run-h{display:block;font-size:11.5px;font-weight:600;color:#4a4741;margin-bottom:4px}
+.opex-comp-run-h small{font-weight:400;color:#8a867d;margin-left:4px}
+.opex-comp-run-v{font:11.5px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color:#1d1c1a;overflow-wrap:anywhere}
+/* r299: expense categories are table rows now; the card-era drop bars (::before/::after) became an extra table cell
+   on "drop-after" and re-laid out every column (a 317px jump), so the table jittered while dragging. Rows keep their
+   layout-neutral inset marker (tr.opex-item-card.drop-* td box-shadow). */
+tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.opex-item-card::before,tr.opex-item-card::after{content:none!important;display:none!important}
 /* r298: data-check catalogue: collapsed by default; heading, count and note separated (r286 styles restored) */
 .gq-cat{margin-top:18px;border:1px solid #e2e0d9;border-radius:8px;background:#fff}
 .gq-cat>summary.gq-cat-h{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px 14px;padding:11px 14px;cursor:pointer;list-style:none;user-select:none}
@@ -8341,6 +8351,17 @@ window.nieCatSchedulePeriod=function(i,p){const ct=((_ensureNieDetail().categori
 window.nieCatAdvanced=function(i,open){window._nieCatAdvancedOpen=window._nieCatAdvancedOpen||{};window._nieCatAdvancedOpen[i]=!!open;renderContent();};
 window._nieCatDragIndex=null;
 function _nieCatClearDropMarkers(){document.querySelectorAll('.opex-item-card.drop-before,.opex-item-card.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after'));}
+
+// r300: a category's component charges (cost pool, formula, tiered) from the latest run, shown where they are authored.
+// They are part of the category's expense: the engine posts them with the category's recurring path.
+function _catCompRunHtml(i){
+  const ns=(typeof lastRes!=='undefined'&&lastRes&&lastRes.nie_detail_series)||null;
+  const arr=ns&&ns.components_by_category&&ns.components_by_category[String(i)];
+  if(!arr||!arr.length) return '';
+  const tag=_opexPeriodTag(), n=Math.min(arr.length,12);
+  const cells=arr.slice(0,n).map((v,k)=>`${tag}${k+1} ${fmtComma(+v)}`).join(' \u00b7 ');
+  return `<div class="opex-comp-run"><span class="opex-comp-run-h">Latest run \u00b7 components charge for this category <small>$000s / ${tag==='M'?'month':(tag==='Q'?'quarter':'year')}, added to the recurring expense above</small></span><div class="opex-comp-run-v">${cells}${arr.length>n?' \u00b7 \u2026':''}</div></div>`;
+}
 window.nieCatDragStart=function(ev,i){window._nieCatDragIndex=i;if(ev&&ev.dataTransfer){ev.dataTransfer.effectAllowed='move';ev.dataTransfer.setData('text/plain',String(i));}const card=ev&&ev.currentTarget&&ev.currentTarget.closest?ev.currentTarget.closest('.opex-item-card'):null;if(card)card.classList.add('dragging');};
 window.nieCatDragOver=function(ev,i){if(window._nieCatDragIndex==null)return;if(ev){ev.preventDefault();if(ev.dataTransfer)ev.dataTransfer.dropEffect='move';}_nieCatClearDropMarkers();const card=ev&&ev.currentTarget; if(!card||!card.getBoundingClientRect)return;const r=card.getBoundingClientRect(),after=(+ev.clientY||0)>(r.top+r.height/2);card.classList.add(after?'drop-after':'drop-before');card.dataset.dropAfter=after?'1':'0';};
 window.nieCatDragLeave=function(ev){const card=ev&&ev.currentTarget;if(!card)return;const next=ev.relatedTarget;if(next&&card.contains&&card.contains(next))return;card.classList.remove('drop-before','drop-after');delete card.dataset.dropAfter;};
@@ -13693,7 +13714,7 @@ function structuresSectionsHtml(){
       const _sx=s=>!!(s&&((s.trajectory||s.mode)==='explicit'));
       const _nx=_r.filter(x=>_sx(x.count_spec)||_sx(x.compensation_spec)).length+_c.filter(x=>_sx(x.flow_spec)).length;
       const _ns=(lastRes||{}).nie_detail_series||null,_p1=_opexPeriodTag()+'1',_v=a=>(a&&a.length)?fmtComma(+a[0]):'\u2014';
-      h += `<div class="cfg-kpis" data-engine-preview="nie-kpis"><div class="cfg-kpi"><span>${_p1} workforce compensation</span><b>${_v(_ns&&_ns.comp)}<small>$000s</small></b></div><div class="cfg-kpi"><span>${_p1} expense categories</span><b>${_v(_ns&&_ns.categories)}<small>$000s</small></b></div><div class="cfg-kpi cfg-kpi-scope"><span aria-hidden="true">&nbsp;</span><b><em>${_r.length}<small>workforce population${_r.length===1?'':'s'}</small></em><i>\u00b7</i><em>${_c.length}<small>expense categor${_c.length===1?'y':'ies'}</small></em></b></div><div class="cfg-kpi"><span>Components / explicit schedules</span><b>${_comp} / ${_nx}</b></div></div>`;
+      h += `<div class="cfg-kpis" data-engine-preview="nie-kpis"><div class="cfg-kpi"><span>${_p1} workforce compensation</span><b>${_v(_ns&&_ns.comp)}<small>$000s</small></b></div><div class="cfg-kpi"><span>${_p1} expense categories</span><b>${_v(_ns&&(_ns.categories_total||_ns.categories))}<small>$000s</small></b>${(_ns&&_ns.components&&_ns.components.length&&_ns.categories&&_ns.categories.length)?`<em class="cfg-kpi-sub">base paths ${fmtComma(+_ns.categories[0])} + components ${fmtComma(+_ns.components[0])}</em>`:''}</div><div class="cfg-kpi cfg-kpi-scope"><span aria-hidden="true">&nbsp;</span><b><em>${_r.length}<small>workforce population${_r.length===1?'':'s'}</small></em><i>\u00b7</i><em>${_c.length}<small>expense categor${_c.length===1?'y':'ies'}</small></em></b></div><div class="cfg-kpi"><span>Components / explicit schedules</span><b>${_comp} / ${_nx}</b></div></div>`;
       const _t=_nieTabSel(),_tb=(k,l,n)=>`<button type="button" class="cfg-subtab${_t===k?' on':''}" data-tab="${k}" onclick="nieTabSet('${k}')">${l}${n!=null?`<small>${n}</small>`:''}</button>`;
       h += `<div class="cfg-subtabs" role="tablist">${_tb('workforce','Workforce',_r.length)}${_tb('categories','Expense categories',_c.length)}${_tb('assessments','Assessments & other NIE',null)}</div>`;
     }
@@ -13888,7 +13909,7 @@ function structuresSectionsHtml(){
       {
         if(!_legacyCostPool){
         const _drv=_opexLinkedDriverOptions();
-        row += `<div class="cfg-inset"><div class="opex-comp-h"><div class="wf-field-label">Additive expense components</div>${(()=>{ const fj=_lcs.map((lc,j)=>(lc&&(lc.driver==='formula_driver'||lc.driver==='service_capacity'||_isLegacyLinkedExpense(lc)))?j:-1).filter(j=>j>=0); return fj.length>1?`<span class="opex-comp-all"><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],false);return false">Collapse all</a><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],true);return false">Expand all</a></span>`:''; })()}</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>`;
+        row += `<div class="cfg-inset"><div class="opex-comp-h"><div class="wf-field-label">Additive expense components</div>${(()=>{ const fj=_lcs.map((lc,j)=>(lc&&(lc.driver==='formula_driver'||lc.driver==='service_capacity'||_isLegacyLinkedExpense(lc)))?j:-1).filter(j=>j>=0); return fj.length>1?`<span class="opex-comp-all"><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],false);return false">Collapse all</a><a href="#" onclick="opexFxAll(${i},[${fj.join(',')}],true);return false">Expand all</a></span>`:''; })()}</div><div class="nie-section-note">Add modeled expense components to the recurring expense entered above.</div>${_catCompRunHtml(i)}`;
         _lcs.forEach((lc,j)=>{
           if((lc&&lc.driver)==='cost_pool_charge'){row += _opexCostPoolEditorHtml(i,ct,lc,j);return;}
           if((lc&&lc.driver)==='piecewise_linked'){row += _opexPiecewiseEditorHtml(i,lc,j);return;}
