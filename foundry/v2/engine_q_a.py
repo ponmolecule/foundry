@@ -663,6 +663,7 @@ def run_pf_a(cfg):
             _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg,
                                                             "distributed_balance": 0.0,
                                                             "managed_notional": _mn_avg[q - 1],
+                                                            "managed_notional_end": _mn_end[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
                                                             "customer_acquisition_count": _cac_customer_count_ctx(q),
                                                             "capture_stream_qty": _fee_stream_qty_series,
@@ -1221,6 +1222,7 @@ def run_pf_a(cfg):
                 _dp["_ie"][q] = _basis * _prod_rate(_dp, q, rate) / ppyf
                 _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
+                    "managed_notional_end": _dp["_mn_end"][q - 1],
                     "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q),
                     "capture_stream_qty": _fee_stream_qty_series, "capture_stream_economics": _fee_stream_econ_series,
                     "growth_context": _growth_ctx}, ppy)

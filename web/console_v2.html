@@ -823,6 +823,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 @media(max-width:1100px){#card-sec .oa-editor .sec-managed-series-row>.sec-book-label{flex:1 0 100%!important}#card-sec .oa-editor .crow{grid-template-columns:none!important}}
 
 #card-sec .oa-editor select[aria-label="Other asset source"]{width:min(480px,100%)!important;max-width:480px!important}
+.fee-change-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.fee-change-inline>select{width:150px!important;flex:0 0 150px}.fee-change-inline>input{width:100px!important;flex:0 0 100px}.fee-change-inline>span{font-size:11px;color:var(--muted)}.fee-change-schedule{flex:1;min-width:180px}.fee-change-schedule summary{cursor:pointer;font-size:12px}.fee-change-schedule textarea{width:100%;box-sizing:border-box;margin:6px 0}.fee-change-schedule .memo{display:block;margin-top:6px}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -2876,17 +2877,17 @@ function _stProv(metas,i,fi){
     steps=[{l:sched?'Entered in your schedule':'Entered',d:sched?(L+(L!==P?' \u00b7 '+P+' is its last '+EU:'')):'',v:val+' '+unit,t:1}];
     if(dependents.length) note='Drives '+dependents.map(j=>esc(metas[j].name)).join(', ')+'.';
   } else if(srcv==='managed_notional'){
-    const S=_stSrc(metas,fi), ref='<span class="st-srcref">\u25C6 AUC</span>';
-    if(S.auc&&S.auc.avg){ const base=S.auc.avg*K0, r=q/base, A=_stNum(S.auc.avg);
-      if(p.stock_multiplier){ const pct=_stNum(r*100,'ratio'); work='= <b>'+pct+'%</b> \u00d7 '+A+' \u00b7 '+ref; calc='<b>'+pct+'%</b> \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>';
-        steps=[{l:'Share of AUC',v:pct+'%'},{o:'\u00d7',l:'\u25C6 AUC',d:'average for '+P,v:A+' $000s'},TOT()]; }
+    const S=_stSrc(metas,fi), aucMeasure=d.measure==='period_end'?'end of period':'average', aucValue=S.auc&&(d.measure==='period_end'?S.auc.end:S.auc.avg), ref='<span class="st-srcref">\u25C6 AUC</span>';
+    if(S.auc&&aucValue){ const base=aucValue*K0, r=q/base, A=_stNum(aucValue);
+      if(p.stock_multiplier){ const pct=_stNum(r*100,'ratio'); work='= <b>'+pct+'%</b> \u00d7 '+A+' \u00b7 '+ref; calc='<b>'+pct+'%</b> \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">('+aucMeasure+', '+P+')</span> = <b>'+val+' '+unit+'</b>';
+        steps=[{l:'Share of AUC',v:pct+'%'},{o:'\u00d7',l:'\u25C6 AUC',d:aucMeasure+' for '+P,v:A+' $000s'},TOT()]; }
       else { const per=c.period||'model_period', R=rateTxt(r,per), L=String(c.trajectory||'')==='explicit_schedule'?' <span class="src">('+_stSchedLbl(per,n)+')</span>':'';
         work='= <b>'+R.shown+'</b>'+R.op+' \u00d7 '+A+' \u00b7 '+ref;
-        calc='<b>'+R.shown+'</b>'+L+R.op+(R.op?' = '+R.perPer+' per '+EU:'')+' \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">(average, '+P+')</span> = <b>'+val+' '+unit+'</b>';
+        calc='<b>'+R.shown+'</b>'+L+R.op+(R.op?' = '+R.perPer+' per '+EU:'')+' \u00d7 '+ref+' <b>'+A+' $000s</b> <span class="src">('+aucMeasure+', '+P+')</span> = <b>'+val+' '+unit+'</b>';
         const SL=String(c.trajectory||'')==='explicit_schedule'?_stSchedLbl(per,n):'', perN=String(per||'').toLowerCase(), isPctK=(ck==='pct');
         steps=[{l:(isPctK?'Flow rate':'Turns')+(SL?', from your schedule':''),d:SL,v:R.shown}];
         if(R.op) steps.push({o:R.fac>1?'\u00f7':'\u00d7',l:(R.fac>1?EU.charAt(0).toUpperCase()+EU.slice(1)+'s per '+(perN==='annual'?'year':perN):'Periods'),v:_stNum(R.fac>1?R.fac:1/R.fac,'ratio')},{o:'=',l:'Per '+EU,v:R.perPer,m:1});
-        steps.push({o:'\u00d7',l:'\u25C6 AUC',d:'average for '+P,v:A+' $000s'},TOT()); }
+        steps.push({o:'\u00d7',l:'\u25C6 AUC',d:aucMeasure+' for '+P,v:A+' $000s'},TOT()); }
     } else { work='from the off-book balance (AUC)'; calc='Driven by the off-book balance (AUC) = <b>'+val+' '+unit+'</b> at '+P; }
     calc+=depTxt;
   } else if(srcv==='customer_acquisition_count'){
@@ -2955,8 +2956,8 @@ function _ipSrcHtml(fi,kind,ref){
   const s=_stSrc(metas,fi), P=_stProvP(metas);
   if(kind==='auc'&&s.auc){
     return `<h4>AUC \u00b7 ${P}</h4><div class="ip-sub">The off-book balance this product\u2019s streams draw on</div>`+
-      _ipStepsHtml([{l:'AUC used in '+P,d:'month average',v:_stNum(s.auc.avg)+' $000s',t:1}].concat(s.auc.end!=null?[{l:'Month-end AUC',v:_stNum(s.auc.end)+' $000s',m:1}]:[]),
-        'Rates and turns are applied to the <b>average</b> AUC across the month (start and end of the month averaged), so that is the figure the streams use. The month-end figure is the one shown as Ending AUC in the feed\u2019s roll-forward.')+
+      _ipStepsHtml([{l:'Average AUC in '+P,d:'period average',v:_stNum(s.auc.avg)+' $000s',t:1}].concat(s.auc.end!=null?[{l:'Month-end AUC',v:_stNum(s.auc.end)+' $000s',m:1}]:[]),
+        'Each stream chooses <b>Average</b> or <b>End of period</b> under Activity. Average = (beginning + ending AUC) / 2. The ending balance is shown in the feed\u2019s roll-forward.')+
       `<div class="ip-ft">${s.auc.feed?'Feed: '+esc(s.auc.feed)+' \u00b7 '+_stFeedLink('open roll-forward'):'Entered on the product\u2019s Setup tab'}</div>`;
   }
   if(kind==='cust'){ const ms=(s.cust||{})[ref]||{}, ks=Object.keys(ms);
@@ -3690,7 +3691,7 @@ function fitCategoryColumns(){
 function _prdLab(v){return String(v==null||v===''?'none':v).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase());}
 const _PRD_CK={none:'None',pct_of_revenue:'Revenue share (% of revenue)',pct_of_revenue_opex:'Operating cost (% of revenue)',pct_of_throughput_opex:'Operating cost (% of throughput)',per_unit:'Cost per unit',periodic_amount_opex:'Periodic product cost'};
 function _prdRbLab(basis,rb,src){ // mirrors the stream editor's own option labels
-  if(basis==='balance') return ({flat:'Series rate path',annual_change:'Legacy annual change',scheduled:'Legacy scheduled',tiered:'Tiered (breakpoints)'})[rb]||_prdLab(rb);
+  if(basis==='balance') return ({flat:'Series rate path',annual_change:'Annual rate change',scheduled:'Legacy scheduled',tiered:'Tiered (breakpoints)'})[rb]||_prdLab(rb);
   if(basis==='transaction') return rb==='cost_recovery'?'Cost recovery':(({flat:'Fee / spread path',tiered:'Tiered (breakpoints)'})[rb]||_prdLab(rb));
   return rb==='flat'?'Flat':_prdLab(rb);
 }
@@ -5707,12 +5708,15 @@ function _feeSetAccountLevelSchedule(i,si,text){
 function _feeClearAccountLevelSchedule(i,si){_clearPasteDraft(`feeAccountLevelPaste_${i}_${si}`);const ls=_feeEnsureAccountLevel(i,si);ls.schedule={};renderContent();refresh();}
 function _feeEnsureStockMultiplier(i,si){
   const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{};st.driver.params=st.driver.params||{};
-  const dp=st.driver.params;if(!dp.stock_multiplier)dp.stock_multiplier={kind:"pct",value:0,period:"year",trajectory:"flat",resolution:"step"};return dp.stock_multiplier;
+  const dp=st.driver.params;if(!dp.stock_multiplier)dp.stock_multiplier={kind:"pct",value:dp.multiple!=null?+dp.multiple:dp.pct!=null?+dp.pct:1,period:"year",trajectory:"flat",resolution:"step"};return dp.stock_multiplier;
 }
 function _feeSetStockMultiplierSchedule(i,si,text){
   const vals=_feeParseExplicitValues(text);if(!vals.length)return;const sm=_feeEnsureStockMultiplier(i,si);const out={};vals.forEach((v,j)=>out[String(j+1)]=v/100);sm.schedule=out;renderContent();refresh();
 }
 function _feeClearStockMultiplierSchedule(i,si){const sm=_feeEnsureStockMultiplier(i,si);sm.schedule={};renderContent();refresh();}
+function _feeRateBehavior(i,si,v){const st=_stOwner(i).fee_streams[si],rp=st.rate.params;if(v!=='flat'&&rp.rate_path){rp._saved_rate_path=rp.rate_path;rp.rate=+rp.rate_path.value||0;delete rp.rate_path;}else if(v==='flat'&&rp._saved_rate_path){rp.rate_path=rp._saved_rate_path;delete rp._saved_rate_path;}st.rate.behavior=v;renderContent();refresh();}
+function _feeAnnualChangePath(i,si){const rp=_stOwner(i).fee_streams[si].rate.params;return rp.annual_delta_path||(rp.annual_delta_path={trajectory:'flat',period:'year',resolution:'step',value:+(rp.annual_delta||0)});}
+function _feeAnnualChangeSchedule(i,si,text){const vals=_feeParseExplicitValues(text);if(!vals.length)return;const x=_feeAnnualChangePath(i,si);x.schedule={};vals.forEach((v,k)=>x.schedule[String(k+1)]=v/100);renderContent();refresh();}
 function _feeEnsureBalanceRatePath(i,si){
   const st=_stOwner(i).fee_streams[si];st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const rp=st.rate.params;if(!rp.rate_path)rp.rate_path={value:+(rp.rate||0),period:"year",trajectory:"flat",resolution:"step"};st.rate.behavior="flat";return rp.rate_path;
@@ -5850,7 +5854,7 @@ _feeGlobal.feeStreamTrajectoryChange=function(i,si,v){
     st.driver.params.coefficient={kind:"multiple",value:0,period:"year",trajectory:"flat"};
   }
   if(v==="derived"&&st.basis==="balance"&&st.driver.source!=="constant"&&st.driver.params.stock_multiplier==null&&st.driver.params.multiple==null&&st.driver.params.pct==null){
-    st.driver.params.stock_multiplier={kind:"pct",value:0,period:"year",trajectory:"flat",resolution:"step"};
+    st.driver.params.stock_multiplier={kind:"pct",value:1,period:"year",trajectory:"flat",resolution:"step"};
   }
   if(v==="explicit_schedule"&&st.basis==="account"&&st.driver.source==="constant")_feeEnsureAccountLevel(i,si);
   renderContent();refresh();
@@ -6372,6 +6376,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       if(_fi>=0&&_fi<1000&&["balance","transaction","account"].includes(basis))_drvOpts.push(["fee_stream_quantity","Linked stream quantity — across fee products"]);
       if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
+      if(src==='managed_notional')h+=`<div class="fld"><label>AUC balance measure</label><select onchange="setPath('${sb}.driver.measure',this.value);renderContent();refresh()"><option value="period_average"${(st.driver.measure||'period_average')==='period_average'?' selected':''}>Average (begin + end)</option><option value="period_end"${st.driver.measure==='period_end'?' selected':''}>End of period</option></select></div>`;
       if(src==='fee_stream_quantity'){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
         h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
@@ -6460,7 +6465,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       }
       if(traj==="derived"){
         if(basis==="balance"){
-          const _sm=st.driver.params.stock_multiplier;
+          const _dp=st.driver.params,_sm=_dp.stock_multiplier||{kind:"pct",value:_dp.multiple!=null?+_dp.multiple:_dp.pct!=null?+_dp.pct:1,trajectory:"flat",period:"year",resolution:"step"};
           if(_sm){
             const _smtraj=_sm.trajectory||"flat", _smper=_sm.period||"year", _smres=_sm.resolution||"step", _smv=(+_sm.value||0)*100;
             h += `<div class="fld"><label>Stock derivation</label><select disabled><option>% of source balance</option></select></div>`;
@@ -6502,10 +6507,10 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       h += '</div><div class="st-sec" data-st="pricing">';
       // Axis 4: pricing. New balance/account authoring uses the same Flat / Growth /
       // Explicit paradigm as other Foundry Series while legacy rate behaviors remain readable.
-      const _rbOpts = basis==="balance" ? [["flat","Series rate path"],["annual_change","Legacy annual change (%/yr)"],["scheduled",`Legacy scheduled (per ${PLAB('full')})`],["tiered","Tiered (breakpoints)"]]
+      const _rbOpts = basis==="balance" ? [["flat","Series rate path"],["annual_change","Annual rate change"],["scheduled",`Legacy scheduled (per ${PLAB('full')})`],["tiered","Tiered (breakpoints)"]]
                     : basis==="transaction" ? (src==="cost_pool"?[["cost_recovery","Cost recovery — recovery + markup"]]:[["flat","Fee / spread path"],["tiered","Tiered (breakpoints)"]])
                     : [["flat","Flat"]];
-      h += SEL("Rate behavior", sb+".rate.behavior", rb, _rbOpts);
+      h += `<div class="fld"><label>Rate behavior</label><select onchange="_feeRateBehavior(${_fi},${si},this.value)">${_rbOpts.map(o=>`<option value="${o[0]}"${rb===o[0]?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
       if(basis==="balance"){
         if(rb==="flat"){
           const _rpath=st.rate.params.rate_path, _rtraj=_rpath&&_rpath.trajectory?_rpath.trajectory:"flat", _rper=_rpath&&_rpath.period?_rpath.period:"year", _rres=_rpath&&_rpath.resolution?_rpath.resolution:"step", _rv=(_rpath?_rpath.value:(st.rate.params.rate||0))*10000;
@@ -6520,7 +6525,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           }
         } else {
           const _bp=((st.rate.params.rate||0)*10000).toFixed(2);
-          h += `<div class="fld"><label>Legacy rate (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.rate=_pf(this.value)/10000;refresh()"></div>`;
+          h += `<div class="fld"><label>${rb==="annual_change"?"Starting rate":"Rate"} (bp/yr on balance)</label><input type="number" step="0.5" value="${_bp}" onchange="_stOwner(${_fi}).fee_streams[${si}].rate.params.rate=_pf(this.value)/10000;refresh()"></div>`;
         }
       }
       else if(basis==="transaction"){
@@ -6593,7 +6598,14 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         }
       }
       else if(basis==="event"){ h += F("Amount ($)", sb+".rate.params.amount", "n"); h += F(`At period (${PLAB('full')})`, sb+".driver.params.at_period", "n"); }
-      if(rb==="annual_change"){ h += F("Annual rate change (%/yr, neg=pressure)", sb+".rate.params.annual_delta", "pct"); }
+      if(rb==="annual_change"){
+        const ac=st.rate.params.annual_delta_path||{trajectory:'flat',value:+(st.rate.params.annual_delta||0)},at=ac.trajectory||'flat',aid=`feeAnnualChangePaste_${_fi}_${si}`;
+        h+=`<div class="fld wide"><label>Annual rate change · applied after each year</label><div class="fee-change-inline"><select aria-label="Annual change trajectory" onchange="var x=_feeAnnualChangePath(${_fi},${si});x.trajectory=this.value;if(this.value==='growth'&&!x.growth_spec)x.growth_spec={rate:0,period:'year',method:'step',anchor:'model_year'};if(this.value==='explicit_schedule'&&!Object.keys(x.schedule||{}).length)x.schedule={'1':+(x.value||0)};renderContent();refresh()">${[['flat','Flat'],['growth','Growth'],['explicit_schedule','Explicit schedule']].map(o=>`<option value="${o[0]}"${at===o[0]?' selected':''}>${o[1]}</option>`).join('')}</select>`;
+        if(at!=='explicit_schedule')h+=`<input aria-label="Annual change percent" type="number" step="any" value="${_numInput((ac.value||0)*100,8)}" onchange="_feeAnnualChangePath(${_fi},${si}).value=_pf(this.value)/100;refresh()"><span>% / year</span>`;
+        if(at==='growth')h+=`<input aria-label="Annual change growth percent" type="number" step="any" value="${_numInput(((ac.growth_spec||{}).rate||0)*100,8)}" onchange="_feeAnnualChangePath(${_fi},${si}).growth_spec={rate:_pf(this.value)/100,period:'year',method:'step',anchor:'model_year'};refresh()"><span>% growth / year</span>`;
+        if(at==='explicit_schedule')h+=`<details class="fee-change-schedule"><summary>${Object.keys(ac.schedule||{}).length} changes · Edit schedule</summary><div><textarea id="${aid}" rows="2" placeholder="e.g. -2, -3, -1" oninput="_feeExplicitPasteInput('${aid}')"></textarea><button class="pillbtn" id="${aid}_load" disabled onclick="_feeAnnualChangeSchedule(${_fi},${si},document.getElementById('${aid}').value)">Load (replace)</button><button class="pillbtn" onclick="_clearPasteDraft('${aid}');_feeAnnualChangePath(${_fi},${si}).schedule={};renderContent();refresh()">Clear</button>${_explicitSchedulePreviewHtml(ac.schedule,100,'year')}<span class="memo">First value: change after Year 1. Last value carries forward.</span></div></details>`;
+        h+='</div></div>';
+      }
       if(rb==="tiered"){ h += `<div class="fld wide" style="font-size:11px;color:#888">Tiered breakpoints entered as JSON: [{"up_to":1000000,"rate":0.01},{"up_to":null,"rate":0.005}]</div>`;
         h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{_stOwner(${_fi}).fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert('Invalid JSON')}"></div>`; }
       h += '</div><div class="st-sec" data-st="timing">';
@@ -12052,7 +12064,10 @@ function labLeverCatalog(){
         } else push(sb+".rate.params.amount_per_period", `${pre}: flat amount/${PLAB()} (legacy $)`, "");
       }
       else if(basis==="event") push(sb+".rate.params.amount", `${pre}: event amount ($)`, "");
-      if(rb==="annual_change") push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");
+      if(rb==="annual_change"){
+        if(rp.annual_delta_path){const ac=rp.annual_delta_path;if(ac.trajectory!=="explicit_schedule")push(sb+".rate.params.annual_delta_path.value", `${pre}: annual pricing change`, "pct");if(ac.trajectory==='growth')push(sb+".rate.params.annual_delta_path.growth_spec.rate", `${pre}: pricing-change growth`, "pct");}
+        else push(sb+".rate.params.annual_delta", `${pre}: annual pricing change`, "pct");
+      }
       if(cost.kind!=="none"){
         // Direct cost path and multiplier are independent sensitivity layers. Scalar-only
         // legacy streams remain available as the Flat fallback until a path is authored.
