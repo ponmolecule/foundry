@@ -1,3 +1,11 @@
+# r306 — Zero funding and FDIC template defaults
+
+See R306_RELEASE_NOTES.md and R306_VALIDATION.md. Saved engagements are unchanged.
+
+# r305 — Consistent fee-stream authoring
+
+See R305_RELEASE_NOTES.md and R305_VALIDATION.md. Built on r304; no legacy fixture output changes.
+
 
 ## Preview demo configuration — pinned (post-PC-26)
 Client observed Summary Ratios changing between preview bakes. Cause: demo-config drift, not

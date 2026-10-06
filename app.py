@@ -369,7 +369,8 @@ def v31_template(_=Depends(gate)):
     p = "foundry/fixtures/patrick_default_v31.json"
     if not _os.path.exists(p):
         return JSONResponse({"error": "v3.1 default configuration missing"}, status_code=500)
-    return JSONResponse(_json.load(open(p, encoding="utf-8")))
+    from foundry.v2.new_engagement import neutral_template
+    return JSONResponse(neutral_template(_json.load(open(p, encoding="utf-8"))))
 
 
 def _can_manage_fee_guide_secret(user):
@@ -982,6 +983,8 @@ def v31_fiw_universal(_=Depends(gate)):
         cfg = _json.load(open("foundry/fixtures/universal_template_bank.json", encoding="utf-8"))
     except Exception:
         return JSONResponse({"error": "universal template config missing"}, status_code=500)
+    from foundry.v2.new_engagement import neutral_template
+    cfg = neutral_template(cfg)
     data, gh = build_fiw(cfg, include_capability_map=True)
     return Response(content=data,
                     media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
@@ -1576,7 +1579,8 @@ def v2_template(_=Depends(gate)):
     for c in t["constraints"]:
         c["source"] = "Engagement commitment (edit with citation)"
     t["hq"] = "TBD"; t["prepared_by"] = "Foundry Modeling Workspace"
-    return JSONResponse(t)
+    from foundry.v2.new_engagement import neutral_template
+    return JSONResponse(neutral_template(t))
 
 
 @app.post("/api/v2/source-catalog")
