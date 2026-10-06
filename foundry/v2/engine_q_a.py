@@ -527,7 +527,11 @@ def run_pf_a(cfg):
         prem_accum_t = [max(0.0, prem_gross_t[q] - prem_t[q]) for q in range(Q + 1)]
         capex_t = [0.0] * (Q + 1)
         _fa = {"preopening_capex": 0.0, "asset_rows": []}
-    non_earn_t = [prem_t[q] + a["intangibles"] + a["other_assets"] for q in range(Q + 1)]
+    from .other_assets import prepare_other_assets, other_asset_period, other_asset_audit_payload
+    _oa_prepared = prepare_other_assets(a, Q, ppy, growth_context=_growth_ctx)
+    _oa_period_rows = []
+    _oa_t = [float(_oa_prepared["opening_balance"]) if _oa_prepared else float(a["other_assets"])] + [float(a["other_assets"])] * Q
+    non_earn_t = [prem_t[q] + a["intangibles"] + _oa_t[q] for q in range(Q + 1)]
     non_earn = non_earn_t[0]
     cash_floor = a.get("cash_target_pct_deposits", 0.0)
     other_liab = a["other_liabilities"]
@@ -1417,6 +1421,12 @@ def run_pf_a(cfg):
         else:
             _other_liab_q = float(other_liab or 0.0)
 
+        if _oa_prepared is not None:
+            _oar = other_asset_period(_oa_prepared, q - 1, workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q], income_flows={"fees": fees})
+            _oa_period_rows.append(_oar)
+            _oa_t[q] = _oar["total"]
+            non_earn_t[q] = prem_t[q] + a["intangibles"] + _oa_t[q]
+
         # Fee-stream operating costs (e.g. payment-rail network fees or an explicit
         # operating-cost % of fee revenue) remain a separate NIE line. Gross fee income
         # is not rewritten; the management-only net fee income driver above observes
@@ -1754,6 +1764,9 @@ def run_pf_a(cfg):
         _out['balance_components'] = _bcm.audit()
         _out['bs']['earningAssets'] = list(bs['earningAssets'])
         _out['bs']['offBookBalances'] = list(bs['offBookBalances'])
+    if _oa_prepared is not None:
+        _out["bs"]["otherAssets"] = _oa_t
+        _out["other_assets_detail"] = other_asset_audit_payload(_oa_prepared, _oa_t, _oa_period_rows)
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
         _out["other_liabilities_detail"] = other_liability_audit_payload(

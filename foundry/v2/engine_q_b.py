@@ -119,7 +119,11 @@ def run_pf_b(cfg):
         _prem_accum_t = [max(0.0, _prem_gross_t[q] - _prem_t[q]) for q in range(Q + 1)]
         _capex_t = [0.0] * (Q + 1)
         _fa = {"preopening_capex": 0.0, "asset_rows": []}
-    non_earn = _prem_t[0] + a["intangibles"] + a["other_assets"]
+    from .other_assets import prepare_other_assets, other_asset_period, other_asset_audit_payload
+    _oa_prepared = prepare_other_assets(a, Q, 4, growth_context=_growth_ctx)
+    _oa_period_rows = []
+    _oa_t = [float(_oa_prepared["opening_balance"]) if _oa_prepared else float(a["other_assets"])]
+    non_earn = _prem_t[0] + a["intangibles"] + _oa_t[0]
     other_liab = a["other_liabilities"]
     from .other_liabilities import prepare_other_liabilities, other_liability_period, other_liability_audit_payload
     _ol_prepared = prepare_other_liabilities(a, Q, 4, growth_context=_growth_ctx)
@@ -317,6 +321,12 @@ def run_pf_b(cfg):
             _ol_period_rows.append(_olr)
         else:
             _other_liab_q = float(other_liab or 0.0)
+        _oa_q = float(a["other_assets"])
+        if _oa_prepared is not None:
+            _oar = other_asset_period(_oa_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1], income_flows={"fees": fees})
+            _oa_q = _oar["total"]
+            _oa_period_rows.append(_oar)
+        _oa_t.append(_oa_q)
         nie = opex_prod + _ovh_b
         _prepaid_opex_q = ((_opex_static_pre[qi] if qi < len(_opex_static_pre) else 0.0)
                            + max(0.0, _occ_signed_balance)
@@ -356,7 +366,7 @@ def run_pf_b(cfg):
 
         dep_end = sum(p["_end"][qi] for p in dep)
         sec_prod_end = sum(p["_end"][qi] for p in afs_p + htm_p)
-        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + a["other_assets"] + _prepaid_opex_q + _tax_row["dtaNet"]
+        _ne[0] = _prem_t[qi + 1] + a["intangibles"] + _oa_q + _prepaid_opex_q + _tax_row["dtaNet"]
         _ne_q[0] = qi + 1
         c2, s2, b2 = plug(gl_end, alll_end, sec_prod_end, dep_end, equity_end, _accrued_opex_q, _other_liab_q)
         net_loans = gl_end - alll_end
@@ -437,6 +447,9 @@ def run_pf_b(cfg):
     if _ol_prepared is None:
         out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios, "tax_interim": _tax_ledger.audit()}
+    if _oa_prepared is not None:
+        _out["bs"]["otherAssets"] = _oa_t[1:]
+        _out["other_assets_detail"] = other_asset_audit_payload(_oa_prepared, _oa_t[1:], _oa_period_rows)
     if _ol_prepared is not None:
         _out["other_liabilities_detail"] = other_liability_audit_payload(
             _ol_prepared, list(out_bs.get("otherLiab") or []), _ol_period_rows)

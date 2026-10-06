@@ -696,6 +696,9 @@ def run_v2(cfg):
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
+    if base.get("other_assets_detail") is not None:
+        results["other_assets_detail"] = copy.deepcopy(base["other_assets_detail"])
+        results["other_assets_detail"]["units"] = "$000s for money; multipliers and days are raw"
     if base.get("other_liabilities_detail") is not None:
         results["other_liabilities"] = copy.deepcopy(base.get("other_liabilities_detail"))
         results["other_liabilities"]["units"] = "$000s for monetary fields; Workforce Count drivers are native counts; Fixed Asset drivers are $000s; fixed-asset multipliers are signed dimensionless"
@@ -962,7 +965,8 @@ def run_v2(cfg):
     # General other assets are modeled as a flat non-earning balance in Profile A.
     # They are NOT zero-risk simply because the engine does not subtype them; use the
     # standardized 100% default bucket pending a more granular regulatory classification.
-    otherq = [float(a2.get("other_assets") or 0.0) / 1000.0] * nq2
+    otherq = _s("otherAssets") if bsn.get("otherAssets") else [float(a2.get("other_assets") or 0.0) / 1000.0] * nq2
+    if len(otherq) == nq2 + 1: otherq = otherq[1:]
     dtaq = _s("dta") if bsn.get("dta") else [0.0] * nq2
     obs_notional = [0.0] * nq2
     for p in base.get("products") or []:
