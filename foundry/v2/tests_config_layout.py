@@ -182,7 +182,7 @@ def main():
        'function _ipStepsHtml(steps,note)' in html and "data-ip=\"'+key+'\"" in html and 'window.ipHide=hide;' in html
        and 'Click \\u24D8 to see how a figure is calculated' in html and "'<span class=\"st-w\">'" not in html)
     ck("Source rows explain average vs month-end AUC in a card instead of inline",
-       'function _ipSrcHtml(fi,kind,ref)' in html and 'Month-end AUC' in html and 'Rates and turns are applied to the <b>average</b> AUC' in html)    # r224: attrition within the period is one control inside the attrition box.
+       'function _ipSrcHtml(fi,kind,ref)' in html and 'Month-end AUC' in html and 'Each stream chooses <b>Average</b> or <b>End of period</b>' in html)    # r224: attrition within the period is one control inside the attrition box.
     ck("Attrition within the period is a single dropdown inside the Existing-book attrition box",
        "+_cacAttrWithinHtml(fn,fd,asp,am)+" in html and 'window.cacFeedWithinSet=function' in html
        and 'Straight line between year-ends' in html and 'Straight line between quarter-ends' in html

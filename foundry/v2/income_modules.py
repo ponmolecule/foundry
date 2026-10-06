@@ -28,6 +28,8 @@ Fee modules (F-036/070/141/142/143, fixing D-P10/11/13):
   Every module carries a growth path (fixing D-P10's static-forever fees).
 """
 
+import math
+
 Q = 12
 
 
@@ -281,6 +283,31 @@ def managed_notional_series(mn, Q, ppy=4, growth_context=None):
     return avg, end
 
 
+def _validate_annual_delta_path(path):
+    if not isinstance(path, dict):
+        raise ValueError("annual change path must be an object")
+    trajectory = path.get("trajectory", "flat")
+    if trajectory not in {"flat", "growth", "explicit_schedule"}:
+        raise ValueError("unsupported annual change trajectory")
+    if path.get("period", "year") != "year" or path.get("resolution", "step") != "step":
+        raise ValueError("annual changes require a yearly Step path")
+    values = [path.get("value", 0)]
+    if trajectory == "explicit_schedule":
+        schedule = path.get("schedule")
+        if not isinstance(schedule, dict) or not schedule:
+            raise ValueError("annual change schedule requires values")
+        if any(not str(k).isdigit() or int(k) < 1 for k in schedule):
+            raise ValueError("annual change schedule indexes must be positive years")
+        values = list(schedule.values())
+    if trajectory == "growth" and not path.get("growth_spec"):
+        raise ValueError("annual change growth requires growth_spec")
+    try:
+        if any(not math.isfinite(float(v)) or float(v) < -1 for v in values):
+            raise ValueError()
+    except (TypeError, ValueError):
+        raise ValueError("annual rate change must be finite and at least -100%")
+
+
 def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None, basis=None):
     """Axis 4 (rate behavior), including opt-in Series-style rate paths.
 
@@ -305,8 +332,21 @@ def _fee_rate_q(rt, q, base_qty, ppy=4, ctx=None, basis=None):
     r0 = float(rp.get("rate") or 0.0)
     if behavior == "annual_change":
         yr = (q - 1) // ppy                      # 0 in year 1, 1 in year 2, ...
-        delta = float(rp.get("annual_delta") or 0.0)
-        return r0 * ((1.0 + delta) ** yr)
+        path = rp.get("annual_delta_path")
+        if path is None:
+            delta = float(rp.get("annual_delta") or 0.0)
+            return r0 * ((1.0 + delta) ** yr)
+        _validate_annual_delta_path(path)
+        # Transition 1 is after Year 1; Year 1 always uses the starting rate.
+        rate = r0
+        for transition in range(1, yr + 1):
+            delta = (_fee_schedule_value(path["schedule"], transition, rp.get("annual_delta") or 0.0)
+                     if path.get("trajectory") == "explicit_schedule" else
+                     _fee_level_path_value(path, transition, 1, ctx, rp.get("annual_delta") or 0.0))
+            if not math.isfinite(delta) or delta < -1:
+                raise ValueError("annual rate change must be finite and at least -100%")
+            rate *= 1.0 + delta
+        return rate
     if behavior == "scheduled":
         sched = rp.get("schedule") or {}         # {model period: rate}
         return float(sched.get(str(q), r0))
@@ -739,6 +779,8 @@ def _validate_fee_stream_shape(stream):
     if src in {"stream_ref", "fee_stream_quantity"}:
         if not str(drv.get("ref") or "").strip():
             raise ValueError("fee stream_ref source requires driver.ref")
+    if src == "managed_notional" and drv.get("measure", "period_average") not in {"period_average", "period_end"}:
+        raise ValueError("managed-notional measure must be period_average or period_end")
     if src == "cost_pool":
         if basis != "transaction":
             raise ValueError("fee cost_pool source is supported only on transaction basis")
@@ -934,6 +976,8 @@ def _validate_fee_stream_shape(stream):
             if not isinstance(sm.get("schedule"), dict) or not sm.get("schedule"):
                 raise ValueError("fee stock multiplier explicit_schedule requires at least one schedule value")
     rp = (rt.get("params") or {})
+    if rb == "annual_change" and rp.get("annual_delta_path") is not None:
+        _validate_annual_delta_path(rp["annual_delta_path"])
     if basis == "transaction":
         _transaction_pricing_basis(st)  # validates explicit basis; legacy absence is inferred
     elif rp.get("pricing_basis") is not None:
@@ -1076,7 +1120,13 @@ def fee_stream_q(stream, q, ctx, ppy=4):
                 raise ValueError("funded flow is unavailable for this product")
             return float(ctx["product_funded_flow"] or 0.0)
         if src == "managed_notional":
-            return float((ctx or {}).get("managed_notional") or 0.0)
+            measure = drv.get("measure", "period_average")
+            if measure not in {"period_average", "period_end"}:
+                raise ValueError("managed-notional measure must be period_average or period_end")
+            key = "managed_notional_end" if measure == "period_end" else "managed_notional"
+            if measure == "period_end" and key not in (ctx or {}):
+                raise ValueError("period-end managed notional is unavailable")
+            return float((ctx or {}).get(key) or 0.0)
         if src == "stream_ref":
             ref = drv.get("ref")
             return float(((ctx or {}).get("stream_qty") or {}).get(ref) or 0.0)
