@@ -2324,6 +2324,28 @@ body.fd-canvas #content:has(>.fd-sheet)>.pg-crumb{max-width:1440px;margin-left:a
 #content #fsx-s4 .fsx-b>.sec-major-section>*{margin-left:0!important}
 
 
+/* r310: Guide Me Apply plan */
+.fga-cta{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:10px}.fga-cta .memo{margin:0}
+.fga-h .memo{margin:3px 0 0}
+.fga-setup{margin-top:8px;padding:7px 10px;border:1px solid #e2e0d9;border-radius:6px;background:#fbfaf7;font-size:12px}
+.fga-card{border:1px solid #e2e0d9;border-radius:8px;margin-top:10px;overflow:hidden;background:#fff}.fga-card.bad{border-color:#e3b3ab}
+.fga-ch{display:flex;align-items:center;gap:10px;padding:8px 12px;background:#f6f4ef;border-bottom:1px solid #ecebe6}
+.fga-n{font:600 11px ui-monospace,Menlo,monospace;color:#9a7330}
+.fga-name{flex:1;min-width:0;border:1px solid #d9d6cd;border-radius:5px;padding:4px 8px;font-weight:600;font-size:13px;background:#fff}
+.fga-tag{font:11px ui-monospace,Menlo,monospace;background:#f0ead9;color:#7a5a20;padding:1px 7px;border-radius:4px;white-space:nowrap}
+.fga-cb{display:grid;grid-template-columns:118px minmax(0,1fr);gap:6px 12px;padding:9px 12px;font-size:12px;align-items:baseline}
+.fga-cb .k{color:#8a867d}
+.fga-sel{max-width:100%;font-size:12px;padding:3px 6px;border:1px solid #d9d6cd;border-radius:5px}.fga-sel.need{border-color:#dfb367;background:#fffaf0}
+.fga-need{color:#b0413e;font-size:11px;font-weight:600;margin-left:6px}
+.fga-pill{display:inline-block;font-size:11px;padding:1px 8px;border-radius:999px;background:#fbefe2;color:#9a5a10;border:1px solid #efd3ad;margin:1px 4px 1px 0}
+.fga-pill.opt{background:#f5f3ee;color:#8a867d;border-color:#e2e0d9}
+.fga-mode{display:flex;flex-wrap:wrap;gap:6px 16px;align-items:center;margin-top:12px;font-size:12px}.fga-mode label{display:flex;gap:6px;align-items:center;text-transform:none;letter-spacing:0;color:#1d1c1a;margin:0}.fga-mode input{width:auto}.fga-mode .memo{flex-basis:100%}.fga-warn{margin-top:8px;border:1px solid #efd3ad;background:#fdf6ea;border-radius:6px;padding:7px 10px;font-size:12px;color:#5a3f12}
+.fga-btns{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:12px}.fga-btns .btn-gold:disabled{opacity:.5;cursor:default}
+.fga-err,.fga-errtxt{color:#b0413e;font-size:12px}#fga-msg:empty{display:none}#fga-msg{margin-top:8px}
+.fg-chip{font-size:10px;border-radius:4px;padding:1px 5px;font-weight:700;vertical-align:1px;white-space:nowrap}
+.fg-chip.n{background:#dfb367;color:#2c2c2c}.fg-chip.v{background:#fbefe2;color:#9a5a10;border:1px solid #efd3ad;font-weight:600}
+.fg-banner{display:flex;gap:10px;align-items:flex-start;border:1px solid #efd3ad;background:#fdf6ea;border-radius:7px;padding:9px 12px;font-size:12px;color:#5a3f12;margin:6px 0 8px}
+.fg-banner b{color:#7a4a08}.fg-ico{color:#c57f1a}
 /* r303: Tiered driver terms: browse link and per-term series preview */
 .pw-browse{margin-left:8px;font-weight:500;font-size:11.5px}
 .pw-preview{margin:4px 0 10px}
@@ -4591,7 +4613,11 @@ function _diffCfgAgainst(baselineJSON){
     keys.forEach(k=>{
       if(SKIP.has(k)) return;
       const v0=(o0||{})[k], v1=(o1||{})[k];
-      if(Array.isArray(v0) || Array.isArray(v1)){ return; }         // arrays handled by named diffList
+      if(Array.isArray(v0) || Array.isArray(v1)){                  // arrays handled by named diffList
+        if(k==="fee_streams") namedList(`${prefix}Fee stream`, v0, v1, "name");   /* r310: fee-stream changes were never itemised */
+        return; }
+      /* r310: opening a fee product writes an all-zero managed-notional placeholder; that is display scaffolding, not an edit */
+      if(k==="managed_notional" && v0==null && isObj(v1) && !(+v1.day1) && !(+v1.target) && (v1.ramp_periods==null||+v1.ramp_periods===8) && (v1.trajectory||"ramp_to_target")==="ramp_to_target" && Object.keys(v1).every(x=>["day1","target","ramp_periods","trajectory"].includes(x))) return;
       if(isObj(v0) || isObj(v1)){ deep(v0||{}, v1||{}, `${prefix}${label(k)} \u00b7 `); return; }
       if(!near(v0,v1)) out.push(`${prefix}${label(k)}: ${fmtFor(k,v0)} \u2192 ${fmtFor(k,v1)}`);
     });
@@ -5551,12 +5577,12 @@ function feeDeletionConsumers(owner,removed){
     const d=value.driver||{};
     if(value!==owner&&(d.source==='stream_ref'&&names.has(d.ref))&&(owner.fee_streams||[]).includes(value))out.push((owner.name||'Product')+' › '+(value.name||'Stream'));
     for(const [key,v] of Object.entries(value)){
-      if(['quantity_series_id','series_id'].includes(key))continue;
+      if(key==='quantity_series_id'||(key==='series_id'&&!/^Operating expenses/.test(label)))continue;   /* r310: expense lines read a stream through series_id */
       if(typeof v==='string'&&ids.has(v))out.push(label);
       else if(v&&typeof v==='object')walk(v,label+(key==='fee_streams'?' › streams':' / '+key.replace(/_/g,' ')));
     }
   }
-  for(const [key,value] of Object.entries(a))walk(value,({obs_exposures:'Fee products',deposit_products:'Deposits',lending_products:'Lending',deposit_retention_pools:'Deposit pools'})[key]||key.replace(/_/g,' '));
+  for(const [key,value] of Object.entries(a))walk(value,({obs_exposures:'Fee products',deposit_products:'Deposits',lending_products:'Lending',deposit_retention_pools:'Deposit pools',nie_detail:'Operating expenses'})[key]||key.replace(/_/g,' '));
   return [...new Set(out)];
 }
 function feeConfirmDeletion(owner,removed){
@@ -6348,6 +6374,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
     };
     if(+_fi<1000){ h += `<div class="fld wide" style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:4px"><label style="color:#D4A65C;margin:0;flex:1">Fee streams</label><button class="btn-gold" style="font-size:11px;padding:5px 12px" onclick="openFeeGuide(${_fi});return false">Guide Me</button><span class="memo" style="margin:0">Describe the economics; Foundry maps them to its own fee dials.</span></div>`;
+    if(typeof _fgBannerHtml==='function') h += _fgBannerHtml(p,_fi);   /* r310 */
     h += (typeof _feeGuideChecklistHtml==="function"?_feeGuideChecklistHtml(p,_fi):""); }   // r232: Guide Me remains a fee-product tool
     const streamNames = (p.fee_streams||[]).map(x=>x&&x.name).filter(Boolean);
     const _stCards=[],_stMeta=[],_stSel=(p.fee_streams||[]).length?_mdPick(p.fee_streams,'_stSelObj','_stSeen'):0;
@@ -6688,7 +6715,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       h += '<div class="fld wide st-md">'+chainH;
       h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
-        h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
+        h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}${typeof _fgChipHtml==='function'?_fgChipHtml((p.fee_streams||[])[k]):''}</td><td><span class="cfg-pill${z.role==='Revenue'?' x':''}" title="${z.role==='Revenue'?'Prices its quantity':'Carries a quantity at a zero price'}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry a quantity at a zero price; revenue streams price one. Click \u24D8 to see how a figure is calculated.</div></div>`;
       const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
@@ -7211,6 +7238,150 @@ window.configureFeeGuideKey = async function(){
     if(msg) msg.textContent=e.message||String(e);
   }
 };
+
+// ---------------------------------------------------------------------------------------------------------
+// r310: Apply a Guide Me plan. The server builds each stream with the same construction Guide Me's validator
+// uses (every value at zero), fills in the links chosen here, and checks it with the engine's stream-shape
+// validator. Guide Me never picks assumptions: the values it leaves are listed and tracked until entered.
+// ---------------------------------------------------------------------------------------------------------
+window._fgNew = window._fgNew || new WeakMap();   // stream object -> needs [{label,path,optional}]
+function _feeGuideApplyCtaHtml(j){
+  const can=(j&&j.streams||[]).length>0;
+  return `<div class="fga-cta">${can?`<button class="btn-gold" onclick="feeGuideApplyReview();return false">Review &amp; apply…</button>`:''}<button class="btn-plain" onclick="closeFeeGuide();return false">Back to Fee Product with checklist</button>${can?'<span class="memo">Apply creates the streams for you; the checklist stays available either way.</span>':''}</div>`;
+}
+const _FGA_SRC={constant:'Entered',managed_notional:'Managed notional (AUC/AUM)',stream_ref:'Another stream in this product',fee_stream_quantity:'A stream in another product',bank_aggregate:'Bank aggregate',cost_pool:'Cost pool',customer_acquisition_count:'Customer acquisition count',own_balance:'Own balance'};
+const _FGA_BASIS={account:'Account',balance:'Balance',transaction:'Transaction',flat:'Flat',event:'Event'};
+const _fgaTx=x=>String(x||'').replace('_schedule',' schedule').replace(/_/g,' ');
+function _fgaDriverText(it){
+  if(it.basis==='flat') return 'None (fixed fee)';
+  let t=_FGA_SRC[it.driver_source]||_fgaTx(it.driver_source);
+  if(it.driver_source==='constant'&&it.entered_driver_kind==='money_flow') t='Entered throughput ($ flow)';
+  if(it.customer_count_measure) t+=' · '+_fgaTx(it.customer_count_measure);
+  if(it.driver_source==='constant'&&it.driver_trajectory) t+=' · '+_fgaTx(it.driver_trajectory==='proportional'?'growth':it.driver_trajectory);
+  if(it.driver_period) t+=' · per '+it.driver_period;
+  if(it.driver_trajectory==='derived'&&it.coefficient_kind) t+=' · '+({multiple:'turns on source',pct:'% of source',amount_per_source_unit:'amount per source unit'}[it.coefficient_kind]||it.coefficient_kind);
+  return t;
+}
+function _fgaPricingText(it){
+  const b=it.basis;
+  if(b==='balance') return it.rate_behavior==='annual_change'?'Starting rate with an annual change ('+_fgaTx(it.pricing_trajectory||'flat')+')':'Rate on balance · '+_fgaTx(it.pricing_trajectory||'flat');
+  if(b==='transaction') return it.rate_behavior==='cost_recovery'?'Cost recovery with markup':(it.transaction_pricing_basis==='pct_of_throughput'?'% of throughput':'Per transaction')+(it.rate_behavior&&it.rate_behavior!=='flat'?' · '+_fgaTx(it.rate_behavior):'');
+  if(b==='account') return 'Unit fee · '+_fgaTx(it.pricing_trajectory||'flat')+(it.pricing_period?' · billed per '+it.pricing_period:'');
+  if(b==='flat') return 'Flat amount · '+_fgaTx(it.flat_amount_trajectory||'flat')+' · per year';
+  if(b==='event') return 'Amount per event';
+  return '';
+}
+function _fgaAllStreams(basis){   // legal quantity sources for a new stream of this basis: fee-product streams only, same rule as the stream editor
+  const A=(cfg&&cfg.assumptions)||{}, out=[], Q=['balance','transaction','account'];
+  [['Fee Product',A.obs_exposures]].forEach(([fam,ps])=>(ps||[]).forEach((p,pi)=>((p&&p.fee_streams)||[]).forEach((st,si)=>{
+    if(!st||!Q.includes(st.basis)||!Q.includes(basis)||(basis==='balance'&&st.basis!=='balance')||(basis==='account'&&st.basis!=='account')) return;
+    if(st&&st.quantity_series_id) out.push({value:String(st.quantity_series_id),label:`${fam} › ${(p&&p.name)||fam+' '+(pi+1)} › ${st.name||'Stream '+(si+1)}`,name:String(st.name||'')});
+  })));
+  return out;
+}
+function _fgaLinkOptions(kind,k){
+  const S=window._fgApply, A=(cfg&&cfg.assumptions)||{};
+  if(kind==='customer_count') return (typeof _feeCustomerCountOptions==='function'?_feeCustomerCountOptions():[]).map(o=>({value:String(o.series_id),label:o.label||o.series_id}));
+  if(kind==='bank_aggregate') return [{value:'total_deposits',label:'Total deposits'},{value:'total_assets',label:'Total assets'}];
+  if(kind==='cost_pool') return (A.cost_pools||[]).filter(x=>x&&x.series_id).map(x=>({value:String(x.series_id),label:x.name||x.series_id}));
+  if(kind==='fee_quantity'){ const own=new Set(S.mode==='replace'?((_stOwner(S.idx)||{}).fee_streams||[]).map(x=>String((x&&x.quantity_series_id)||'')):[]); return _fgaAllStreams((S.rows[k]||{}).basis).filter(o=>!own.has(o.value)); }
+  if(kind==='stream'){
+    const plan=S.rows.map((r,j)=>j===k?null:{value:'plan:'+j,label:(_fgaName(j))+' (from this plan)',name:_fgaName(j)}).filter(Boolean);
+    const p=_stOwner(S.idx)||{}, ex=S.mode==='replace'?[]:((p.fee_streams||[]).filter(x=>x&&x.name).map(x=>({value:'name:'+x.name,label:x.name,name:x.name})));
+    return plan.concat(ex);
+  }
+  return [];
+}
+function _fgaName(j){ const el=document.getElementById('fga-name-'+j); return ((el&&el.value)||window._fgApply.rows[j].name||'').trim(); }
+function _fgaDefaultLink(row,opts){
+  const ref=String(row.driver_reference||'').trim().toLowerCase();
+  if(ref){ const m=opts.find(o=>String(o.name||o.label||'').trim().toLowerCase()===ref)||opts.find(o=>String(o.label||'').toLowerCase().endsWith(ref)); if(m) return m.value; }
+  if(row.link_kind==='bank_aggregate') return 'total_deposits';
+  return opts.length===1?opts[0].value:'';
+}
+window.feeGuideApplyReview=async function(){
+  const L=window._feeGuideLastPlan, box=document.getElementById('feeGuideResult'); if(!L||!box) return;
+  window._feeGuideResultHtml=box.innerHTML;
+  const p=_stOwner(L.idx)||{};
+  window._fgApply={idx:L.idx, items:(L.j.streams||[]), rows:[], links:{}, mode:'add', hasExisting:((p.fee_streams||[]).length>0), setup:L.j.product_setup||'', label:(p.name||L.j.product_label||'Fee product')};
+  box.innerHTML='<div class="memo">Preparing the streams…</div>';
+  try{
+    const r=await fetch('/api/v31/fee-guide/materialize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({streams:window._fgApply.items})});
+    const js=await r.json(); if(!r.ok) throw new Error(js.error||('Could not prepare the streams ('+r.status+')'));
+    window._fgApply.rows=js.streams||[];
+    _fgaFoot(false);
+    window._fgApply.rows.forEach((row,k)=>{ if(row.link_kind){ const d=_fgaDefaultLink(row,_fgaLinkOptions(row.link_kind,k)); if(d) window._fgApply.links[k]=d; } });
+    _fgaRender();
+  }catch(e){ box.innerHTML=`<div class="fga-err">${esc(e.message||String(e))}</div><div class="fga-btns"><button class="btn-plain" onclick="feeGuideApplyBack();return false">Back</button></div>`; }
+};
+function _fgaFoot(on){ const f=document.querySelector('.fee-guide-actions'); if(f) f.style.display=on?'':'none'; }   /* one set of buttons at a time */
+window.feeGuideApplyBack=function(){ _fgaFoot(true); const box=document.getElementById('feeGuideResult'); if(box&&window._feeGuideResultHtml!=null) box.innerHTML=window._feeGuideResultHtml; };
+window.feeGuideApplyLink=function(k,v){ window._fgApply.links[k]=v; _fgaRender(true); };
+window.feeGuideApplyMode=function(v){ const S=window._fgApply; S.mode=v; Object.keys(S.links).forEach(k=>{ const row=S.rows[k]||{}; if(row.link_kind&&!_fgaLinkOptions(row.link_kind,+k).some(o=>o.value===S.links[k])) delete S.links[k]; }); _fgaRender(true); };
+function _fgaRender(keepNames){
+  const S=window._fgApply, box=document.getElementById('feeGuideResult'); if(!S||!box) return;
+  const names=keepNames?S.rows.map((r,k)=>_fgaName(k)):S.rows.map(r=>r.name);
+  const ok=S.rows.filter(r=>!r.error).length;
+  let h=`<div class="fga"><div class="fga-h"><b>Apply plan to “${esc(S.label)}”</b><div class="memo">Guide Me creates the structure: streams, bases, drivers and pricing shapes. Rates, volumes and amounts are left for you; Guide Me never picks assumptions.</div></div>`;
+  if(S.setup) h+=`<div class="fga-setup"><b>Also check:</b> ${esc(S.setup)}</div>`;
+  S.rows.forEach((row,k)=>{
+    const it=S.items[k]||{};
+    h+=`<div class="fga-card${row.error?' bad':''}"><div class="fga-ch"><span class="fga-n">${k+1}</span><input id="fga-name-${k}" class="fga-name" value="${esc(names[k])}" aria-label="Stream name"><span class="fga-tag">${esc(_FGA_BASIS[row.basis]||row.basis)}</span></div><div class="fga-cb">`;
+    h+=`<span class="k">Driver</span><span>${esc(_fgaDriverText(it))}</span>`;
+    if(row.link_kind){
+      const opts=_fgaLinkOptions(row.link_kind,k), cur=S.links[k]||'';
+      const lab={customer_count:'Customer feed',stream:'Reference stream',fee_quantity:'Source stream',bank_aggregate:'Aggregate',cost_pool:'Cost pool'}[row.link_kind]||'Link';
+      h+=`<span class="k">${lab}</span><span>${opts.length?`<select class="fga-sel${cur?'':' need'}" onchange="feeGuideApplyLink(${k},this.value)">${cur?'':'<option value="">Choose…</option>'}${opts.map(o=>`<option value="${esc(o.value)}"${o.value===cur?' selected':''}>${esc(o.label)}</option>`).join('')}</select>${cur?'':'<span class="fga-need">choose one</span>'}`:`<span class="fga-need">None in this engagement yet${row.link_kind==='cost_pool'?': create a cost pool first':row.link_kind==='customer_count'?': create a customer-acquisition feed first':''}</span>`}${row.driver_reference?`<small class="memo"> Guide Me named “${esc(row.driver_reference)}”</small>`:''}</span>`;
+    }
+    h+=`<span class="k">Pricing</span><span>${esc(_fgaPricingText(it))}</span>`;
+    const req=(row.needs||[]).filter(x=>!x.optional), opt=(row.needs||[]).filter(x=>x.optional);
+    if(req.length||opt.length) h+=`<span class="k">You enter</span><span>${req.map(x=>`<span class="fga-pill">${esc(x.label)}</span>`).join('')}${opt.map(x=>`<span class="fga-pill opt" title="Optional: 0% is a valid choice">${esc(x.label)} · optional</span>`).join('')}</span>`;
+    if(row.error) h+=`<span class="k">Can’t apply</span><span class="fga-errtxt">${esc(row.error)}</span>`;
+    h+=`</div></div>`;
+  });
+  if(S.hasExisting) h+=`<div class="fga-mode"><span class="memo">This product already has ${(_stOwner(S.idx).fee_streams||[]).length} stream${(_stOwner(S.idx).fee_streams||[]).length===1?'':'s'}:</span><label><input type="radio" name="fga-mode" ${S.mode==='add'?'checked':''} onchange="feeGuideApplyMode('add')"> Add these alongside them</label><label><input type="radio" name="fga-mode" ${S.mode==='replace'?'checked':''} onchange="feeGuideApplyMode('replace')"> Replace them</label></div>`;
+  if(S.mode==='replace'){ const _p=_stOwner(S.idx)||{}, _c=(typeof feeDeletionConsumers==='function')?feeDeletionConsumers(_p,(_p.fee_streams||[]).slice()):[]; if(_c.length) h+=`<div class="fga-warn"><b>Replacing removes streams that other items read:</b> ${_c.map(esc).join('; ')}. Runs are blocked until those links are updated.</div>`; }
+  h+=`<div id="fga-msg" class="fga-errtxt"></div><div class="fga-btns"><button class="btn-plain" onclick="feeGuideApplyBack();return false">Back</button><button class="btn-plain" onclick="closeFeeGuide();return false">Keep checklist only</button><button class="btn-gold" ${ok?'':'disabled'} onclick="feeGuideApplyConfirm();return false">Apply ${ok} stream${ok===1?'':'s'}</button></div></div>`;
+  box.innerHTML=h;
+}
+window.feeGuideApplyConfirm=async function(){
+  const S=window._fgApply, msg=document.getElementById('fga-msg'), p=_stOwner(S.idx); if(!S||!p) return;
+  // names: unique within the product (stream links use names)
+  const taken=new Set(S.mode==='replace'?[]:(p.fee_streams||[]).map(x=>String((x&&x.name)||'').toLowerCase())), names={};
+  S.rows.forEach((r,k)=>{ let nm=_fgaName(k)||r.name||('Stream '+(k+1)), base=nm, n=2; while(taken.has(nm.toLowerCase())) nm=`${base} (${n++})`; taken.add(nm.toLowerCase()); names[k]=nm; });
+  const links={}; Object.entries(S.links).forEach(([k,v])=>{ v=String(v||''); links[k]=v.startsWith('plan:')?names[+v.slice(5)]:(v.startsWith('name:')?v.slice(5):v); });
+  const unchosen=S.rows.map((r,k)=>(!r.error&&r.link_kind&&!links[k])?k:-1).filter(k=>k>=0);
+  if(unchosen.length){ msg.textContent='Choose '+unchosen.map(k=>'the '+({customer_count:'customer feed',stream:'reference stream',fee_quantity:'source stream',bank_aggregate:'aggregate',cost_pool:'cost pool'}[S.rows[k].link_kind]||'link')+' for “'+names[k]+'”').join(', ')+'.'; return; }
+  msg.textContent='';
+  try{
+    const r=await fetch('/api/v31/fee-guide/materialize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({streams:S.items,links,names})});
+    const js=await r.json(); if(!r.ok) throw new Error(js.error||('Could not build the streams ('+r.status+')'));
+    const rows=(js.streams||[]).filter(x=>!x.error);
+    const bad=rows.filter(x=>!x.stream); if(bad.length) throw new Error('Still missing a link for '+bad.map(x=>'“'+x.name+'”').join(', ')+'.');
+    if(S.mode==='replace'){ if(typeof feeConfirmDeletion==='function'&&!feeConfirmDeletion(p,(p.fee_streams||[]).slice())) return; p.fee_streams=[]; } p.fee_streams=p.fee_streams||[];
+    rows.forEach(x=>{ const st=x.stream; if(['account','transaction','balance'].includes(st.basis)) st.quantity_series_id=_seriesId('fee-qty'); p.fee_streams.push(st); window._fgNew.set(st,x.needs||[]); });
+    window._feeGuidePinnedPlans&&window._feeGuidePinnedPlans.delete(p);
+    const cnt=rows.length, todo=rows.reduce((a,x)=>a+(x.needs||[]).filter(n=>!n.optional).length,0);
+    window._prdTab='streams';   /* land on the streams, where the banner and chips are */
+    closeFeeGuide(); renderContent(); const _pr=refresh();
+    const _say=()=>{ if(typeof appStatus==='function') appStatus('ok',`<b>Guide Me added ${cnt} stream${cnt===1?'':'s'}</b> to ${esc(p.name||'this fee product')}. ${todo} value${todo===1?'':'s'} to enter; not saved yet.`); };
+    (_pr&&typeof _pr.then==='function')?_pr.then(_say,_say):setTimeout(_say,700);
+  }catch(e){ msg.textContent=e.message||String(e); }
+};
+function _fgFilled(v){ if(typeof v==='number') return v!==0; if(v&&typeof v==='object') return Object.values(v).some(_fgFilled)||(!Array.isArray(v)&&Object.keys(v).length>0&&Object.values(v).every(x=>typeof x!=='number')); return false; }
+function _fgGet(o,path){ return String(path).split('.').reduce((a,k)=>(a==null?a:a[k]),o); }
+function _fgRemaining(st){ const nd=st&&window._fgNew.get(st); return nd?nd.filter(x=>!x.optional&&!_fgFilled(_fgGet(st,x.path))):[]; }
+function _fgChipHtml(st){
+  if(!st||!window._fgNew.has(st)) return '';
+  const rem=_fgRemaining(st);
+  return ` <span class="fg-chip n" title="Added by Guide Me in this session">NEW</span>${rem.length?` <span class="fg-chip v" title="${esc(rem.map(x=>x.label).join(' · '))}">${rem.length} value${rem.length===1?'':'s'}</span>`:''}`;
+}
+function _fgBannerHtml(p,fi){
+  const sts=(p&&p.fee_streams)||[], added=sts.filter(st=>window._fgNew.has(st)); if(!added.length) return '';
+  const tot=added.reduce((a,st)=>a+_fgRemaining(st).length,0); if(!tot) return '';
+  const first=sts.findIndex(st=>window._fgNew.has(st)&&_fgRemaining(st).length);
+  return `<div class="fld wide fg-banner"><span class="fg-ico">⚠</span><span><b>${tot} value${tot===1?'':'s'} to enter</b> in the ${added.length} stream${added.length===1?'':'s'} Guide Me added. They contribute $0 until you fill them in. <a href="#" onclick="stSelect(${fi},${first});return false">Go to the first one</a></span></div>`;
+}
 window.closeFeeGuide = function(){
   const productIndex=window._feeGuideProductIndex;
   const p=_stOwner(productIndex);
@@ -7273,6 +7444,7 @@ window.runFeeGuide = async function(){
     if(!j) throw new Error("Guide Me did not complete within 3 minutes. The server job may still be running; retry after checking Anthropic connectivity.");
 
     let h='';
+    window._feeGuideLastPlan={j:j, idx:window._feeGuideProductIndex};   /* r310: kept for Review & apply */
     const _guides=j.stream_guides||[], _unsupported=j.unsupported_mechanics||[], _questions=j.questions||[],_clar=j.clarification||null;
     if(_guides.length && j.status!=="needs_clarification"){
       const p=_stOwner(window._feeGuideProductIndex);
@@ -7300,14 +7472,14 @@ window.runFeeGuide = async function(){
         });
       }
       h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
-      if(_guides.length)h += '<div style="margin-top:10px"><button class="btn-gold" onclick="closeFeeGuide();return false">Back to Fee Product with checklist</button></div>';
+      if(_guides.length)h += _feeGuideApplyCtaHtml(j);
     } else {
       h += `<div style="padding:10px 12px;border:1px solid #CACAC7;background:#FAFAF7;border-radius:3px"><div style="font-weight:700;color:#2A2A2A">Suggested Foundry mapping</div><div class="memo" style="margin:3px 0 0">${esc(j.product_setup||"")}</div></div>`;
       _guides.forEach((sg,i)=>{
         h += `<div style="margin-top:10px;padding:10px 12px;border:1px solid #DEDEDB;border-radius:3px"><div style="font-weight:700;color:#8B6C38">Stream ${i+1}: ${esc(sg.name||"Fee stream")}</div><ol style="margin:7px 0 0 19px;padding:0;font-size:12px;line-height:1.45">${_feeGuideEscLines(sg.steps)}</ol></div>`;
       });
       h += '<div class="memo" style="margin-top:8px">This is guidance only. Nothing in your model was changed.</div>';
-      if(_guides.length)h += '<div style="margin-top:10px"><button class="btn-gold" onclick="closeFeeGuide();return false">Back to Fee Product with checklist</button></div>';
+      if(_guides.length)h += _feeGuideApplyCtaHtml(j);
     }
     if(box) box.innerHTML=h;
   }catch(e){
