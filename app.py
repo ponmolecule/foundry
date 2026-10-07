@@ -434,6 +434,20 @@ def v31_fee_guide_job_status(job_id: str, user=Depends(gate)):
         return JSONResponse({"error": "Guide Me job not found"}, status_code=404)
 
 
+@app.post("/api/v31/fee-guide/materialize")
+def v31_fee_guide_materialize(body: dict, _=Depends(gate)):
+    """r310: build real fee streams from a Guide Me plan (structure only, every value at zero).
+
+    Local and deterministic: no model call. The plan items are re-validated here, references the user chose
+    are filled in, and each stream passes the engine's stream-shape validator before it is returned.
+    """
+    from foundry.v2.fee_guide import materialize_guide_streams
+    try:
+        return JSONResponse(materialize_guide_streams(body.get("streams") or [], body.get("links") or {}, body.get("names") or {}))
+    except ValueError as e:
+        return JSONResponse({"error": str(e)}, status_code=422)
+
+
 @app.post("/api/v31/fee-guide")
 def v31_fee_guide(body: dict, _=Depends(gate)):
     """Translate user prose into a validated Foundry Fee Product dial plan.
