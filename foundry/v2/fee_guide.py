@@ -1297,3 +1297,148 @@ def guide_fee_product(description, api_key=None, model=None, http_open=None, req
     out["model"] = mdl
     out["grounding"] = "Foundry fee-engine manifest only; no tools/retrieval/engagement data supplied"
     return out
+
+
+# ---------------------------------------------------------------------------------------------------------
+# r310: Apply a Guide Me plan. Each validated plan item is turned into a real fee stream with the SAME
+# construction the plan validator uses (_dummy_stream), every number left at zero, the references the user
+# chose locally filled in, and the result checked with the engine's own stream-shape validator. Guide Me still
+# never picks assumptions: the values it leaves for the user are returned as "needs".
+# ---------------------------------------------------------------------------------------------------------
+GUIDE_LINK_KINDS = {
+    "customer_acquisition_count": "customer_count",
+    "stream_ref": "stream",
+    "fee_stream_quantity": "fee_quantity",
+    "bank_aggregate": "bank_aggregate",
+    "cost_pool": "cost_pool",
+}
+_PLACEHOLDER_REFS = {"__guide_cac_customer_count__", "__guide_cost_pool__", "__guide_reference_stream__"}
+_FEE_PRODUCT_ONLY_BLOCKED = {"own_balance", "distributed_balance", "product_funded_flow"}
+
+
+def _guide_link_kind(item):
+    if item.get("rate_behavior") == "cost_recovery":
+        return "cost_pool"
+    return GUIDE_LINK_KINDS.get(item.get("driver_source") or "")
+
+
+def _guide_needs(st, item):
+    """The values Apply leaves for the user (all created at zero): [{label, path, optional}].
+
+    ``path`` is the dotted location inside the stream, so the console can tell live when each one has been
+    entered. Growth rates are optional (0% growth can be intended) and never counted as missing.
+    """
+    out = []
+    basis, drv, rt = st.get("basis"), st.get("driver") or {}, st.get("rate") or {}
+    p, rp = drv.get("params") or {}, rt.get("params") or {}
+
+    def need(label, path, optional=False):
+        if not any(x["path"] == path for x in out):
+            out.append({"label": label, "path": path, "optional": optional})
+
+    def path_needs(spec, label, path, unit=""):
+        if not isinstance(spec, dict):
+            return
+        traj = spec.get("trajectory") or "flat"
+        if traj == "explicit_schedule":
+            need(f"{label} schedule", path + ".schedule"); return
+        need(label + (f" ({unit})" if unit else ""), path + ".value")
+        if spec.get("growth_spec"):
+            need(f"{label} growth rate", path + ".growth_spec.rate", True)
+
+    if drv.get("source") == "constant" and basis != "flat":          # a flat fee has no driver
+        if "flow_path" in p:
+            path_needs(p["flow_path"], "Throughput", "driver.params.flow_path",
+                       "$000s per " + str(p["flow_path"].get("period") or "month"))
+        elif "level_schedule" in p:
+            need("Account count schedule", "driver.params.level_schedule.schedule")
+        else:
+            need({"account": "Number of accounts", "transaction": "Transaction volume", "balance": "Balance",
+                  "event": "Number of events"}.get(basis, "Driver level"), "driver.params.base")
+            if p.get("growth_spec"):
+                need("Driver growth rate", "driver.params.growth_spec.rate", True)
+    if "stock_multiplier" in p:
+        path_needs(p["stock_multiplier"], "Share of source", "driver.params.stock_multiplier", "%")
+    if "coefficient" in p:
+        k = (p["coefficient"] or {}).get("kind")
+        path_needs(p["coefficient"], {"multiple": "Turns on source", "pct": "% of source",
+                                     "amount_per_source_unit": "Amount per source unit"}.get(k, "Coefficient"),
+                   "driver.params.coefficient")
+    if basis == "balance" and "annual_delta_path" in rp:           # r307 annual-change pricing
+        need("Starting rate (bp/yr on balance)", "rate.params.rate")
+        path_needs(rp["annual_delta_path"], "Annual rate change", "rate.params.annual_delta_path", "% per year")
+    elif basis == "balance" and "rate_path" in rp:
+        path_needs(rp["rate_path"], "Fee rate on balance", "rate.params.rate_path", "%")
+    elif basis == "transaction":
+        if rt.get("behavior") == "cost_recovery":
+            need("Recovery %", "rate.params.recovery_pct")
+            path_needs(rp.get("markup"), "Markup", "rate.params.markup", "%")
+        else:
+            need("Fee % of throughput" if rp.get("pricing_basis") == "pct_of_throughput" else "Fee per transaction",
+                 "rate.params.per_unit")
+    elif basis == "account" and "unit_fee" in rp:
+        path_needs(rp["unit_fee"], "Fee per account", "rate.params.unit_fee",
+                   "per " + str(rp["unit_fee"].get("period") or "year"))
+    elif basis == "flat" and "flat_amount" in rp:
+        path_needs(rp["flat_amount"], "Flat fee", "rate.params.flat_amount", "per year")
+    elif basis == "event":
+        need("Fee per event", "rate.params.amount")
+    ck = (st.get("cost") or {}).get("kind") or "none"
+    if ck != "none":
+        need("Cost assumption (" + _COST_LABELS.get(ck, ck) + ")", "cost.params")
+    return out
+
+
+def materialize_guide_streams(items, links=None, names=None):
+    """Build real fee streams from validated Guide Me plan items.
+
+    items: the ``streams`` list of a Guide Me response; links: {index: ref} chosen by the user;
+    names: {index: name} edits. Returns {"streams": [...]} with, per item, either ``stream`` (shape-valid)
+    or ``missing`` (what must still be chosen), plus ``needs`` and ``link_kind``.
+    """
+    if not isinstance(items, list) or not items or len(items) > 20:
+        raise ValueError("Guide Me plan has no streams to apply")
+    plan = {"status": "plan", "product_label": "", "managed_notional_source": "not_needed",
+            "streams": [{k: ("not_applicable" if v is None else v) for k, v in dict(x).items()} for x in items],
+            "questions": [], "unsupported_mechanics": []}
+    valid = validate_guide_plan(plan)["streams"]          # re-validate: the browser is not trusted
+    links = {str(k): str(v or "").strip() for k, v in (links or {}).items()}
+    names = {str(k): str(v or "").strip()[:120] for k, v in (names or {}).items()}
+    final_names = [names.get(str(i)) or it["name"] for i, it in enumerate(valid)]
+    plan_names = {it["name"]: final_names[i] for i, it in enumerate(valid)}
+    out = []
+    for i, it in enumerate(valid):
+        row = {"index": i, "name": final_names[i], "basis": it["basis"], "link_kind": _guide_link_kind(it),
+               "driver_reference": it.get("driver_reference") or ""}
+        if it["driver_source"] in _FEE_PRODUCT_ONLY_BLOCKED:
+            row["error"] = "This driver uses a loan or deposit balance, which a fee product does not have."
+            out.append(row); continue
+        st = _dummy_stream(it)
+        st = json.loads(json.dumps(st))
+        st["name"] = final_names[i]
+        drv = st["driver"]
+        if drv.get("source") == "constant" and "flow_path" not in drv["params"] and "level_schedule" not in drv["params"]:
+            drv["params"]["base"] = 0
+            if drv.get("trajectory") == "proportional":
+                drv["params"]["growth_spec"] = _dummy_growth_spec()
+        kind = row["link_kind"]
+        if kind:
+            ref = links.get(str(i), "")
+            if not ref and kind == "stream" and it.get("driver_reference") in plan_names:
+                ref = plan_names[it["driver_reference"]]          # another stream in this same plan
+            if not ref and kind == "bank_aggregate":
+                ref = "total_deposits"
+            if not ref or ref in _PLACEHOLDER_REFS:
+                row["missing"] = kind
+            else:
+                drv["ref"] = ref
+        row["needs"] = _guide_needs(st, it)
+        if "missing" not in row:
+            try:
+                _validate_fee_stream_shape(st)
+            except ValueError as e:
+                row["error"] = str(e)
+            else:
+                row["stream"] = st
+        out.append(row)
+    return {"streams": out}

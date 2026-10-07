@@ -1753,3 +1753,10 @@ Guide Me source-reference contract and one bounded automatic correction for inva
 
 ## r309
 New product selection resets to Setup; unspecified product tab defaults to Setup. Presentation only; verified actual browser tab transitions.
+
+## r310
+Guide Me "Apply plan". A plan result now offers "Review & apply": one card per stream (editable name, basis, driver, pricing, the values the user must enter), a required link choice where the stream needs a customer feed, reference stream, source stream, aggregate or cost pool, and Add alongside / Replace. Apply creates the streams with every assumption at zero; Guide Me never picks rates, volumes or amounts. New streams carry a NEW chip and a count of values still to enter, a banner totals them and links to the first, and the product lands on Fee streams. The result is an ordinary unsaved change, so Discard undoes it.
+Server: `materialize_guide_streams` in fee_guide.py and `POST /api/v31/fee-guide/materialize` (gated, deterministic, no model call). Items are re-validated, and each stream passes the engine stream-shape validator before it is returned.
+Unsaved-changes list: fee-stream additions, removals and edits are now itemised (they were never listed before), and the all-zero managed-notional placeholder written when a fee product is opened is no longer reported as a change.
+Deletion warning: operating-expense lines that read a stream through `series_id` are now named when that stream is removed (stream editor and Replace alike); they were silently skipped. Guide Me link choices follow the stream editor's rule: fee-product streams only, basis-compatible.
+Engine arithmetic unchanged. The checklist path is unchanged and still available.
