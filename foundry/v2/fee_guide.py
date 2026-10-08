@@ -28,7 +28,7 @@ from .income_modules import (
     _validate_fee_stream_shape,
 )
 
-GUIDE_SCHEMA_VERSION = 11
+GUIDE_SCHEMA_VERSION = 12
 # Loan-only sources do not exist on a Fee Product.
 _GUIDE_SOURCES = _FEE_SOURCES - {"distributed_balance", "product_funded_flow"}
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
@@ -398,6 +398,20 @@ The API constrains your response to Foundry's JSON schema. Populate it under the
   that history as authoritative user input, do not ask an answered question again, and return a final
   plan as soon as the remaining mechanics map cleanly.
 - Transaction pricing basis is independent of how throughput was derived. If the user states dollars per transaction/unit, set transaction_pricing_basis=per_unit. If the user states a percentage/spread on monetary throughput, set transaction_pricing_basis=pct_of_throughput. Do not infer this choice merely because a flow coefficient exists. If the pricing unit is ambiguous, ask a targeted clarification question.
+- When the user says BOTH TPV and migration are existing linked sources, do not assume the
+  migration source is a raw percentage or that it is already migrated throughput. Ask ONE question:
+  does that linked source contain only migration percentages, or TPV already multiplied by those
+  percentages? Until answered, use needs_clarification with streams=[]; do not invent a coefficient
+  cadence or offer an entered migration schedule in place of the requested link.
+  If it is already migrated monetary throughput, reuse it directly via fee_stream_quantity (or
+  stream_ref if explicitly in the same product), driver_trajectory=flat, no coefficient. Price the
+  bank revenue and cost on the SAME migrated throughput with pct_of_throughput and
+  pct_of_throughput_opex. Dollars per dollar of TPV are dimensionless rates, not dollars per transaction.
+  If it is a raw percentage Series, the current fee grammar cannot multiply two independent linked
+  Series: report that specific mechanic as unsupported rather than pretend the coefficient supports
+  a link or silently copy the schedule. Explain the supported alternative: a reusable upstream
+  migrated-TPV quantity feeding both the revenue and cost. Do not add a separate cost-only revenue
+  stream when the product cost is a percentage of that same throughput.
 - When the user says they have a monetary platform-revenue schedule and a migration/participation
   percentage specifying how much of that revenue moves to the bank, map TWO Transaction streams. First,
   create an entered non-posting source with driver_source=constant, entered_driver_kind=money_flow,
@@ -618,6 +632,13 @@ def _dummy_stream(item):
         "timing": {"start_period": 1},
         "cost": {"kind": item["cost_kind"], "params": {}},
     }
+
+
+class _GuideCadenceMissing(ValueError):
+    """A missing authoring choice is a question, never an invented period."""
+    def __init__(self, question):
+        super().__init__(question)
+        self.question = question
 
 
 def validate_guide_plan(plan):
@@ -852,6 +873,12 @@ def validate_guide_plan(plan):
                     raise ValueError("Guide Me percentage coefficient requires share or flow semantics")
             elif item.get("coefficient_semantics") is not None:
                 raise ValueError("Guide Me returned percentage semantics for a non-percentage coefficient")
+            if item["coefficient_period"] is None:
+                if item["coefficient_kind"] == "pct" and item["coefficient_semantics"] == "share":
+                    question = "What is the migration/share schedule's authoring cadence: Month, Quarter, or Year? This controls when the share changes, not an annualization of the percentage."
+                else:
+                    question = "Is the flow coefficient stated per Month, Quarter, or Year?"
+                raise _GuideCadenceMissing(question)
             if item["coefficient_period"] not in {"month", "quarter", "year"}:
                 raise ValueError("Guide Me returned unsupported coefficient period")
             if item["coefficient_trajectory"] not in {"flat", "growth", "explicit_schedule"}:
@@ -1185,7 +1212,19 @@ def _clarification_choices(question):
 
 
 def render_guide_plan(plan):
-    validated = validate_guide_plan(plan)
+    try:
+        validated = validate_guide_plan(plan)
+    except _GuideCadenceMissing as e:
+        # This incomplete response cannot be applied. Keep the conversation alive
+        # without filling a schedule period from the model's cadence or guessing Year.
+        validated = validate_guide_plan({
+            "status": "unsupported" if plan.get("unsupported_mechanics") else "needs_clarification",
+            "product_label": plan.get("product_label") or "Fee product",
+            "managed_notional_source": plan.get("managed_notional_source") or "ask",
+            "streams": [],
+            "questions": [] if plan.get("unsupported_mechanics") else [(plan.get("questions") or [e.question])[0]],
+            "unsupported_mechanics": plan.get("unsupported_mechanics") or [],
+        })
     validated["stream_guides"] = [
         {"name": st["name"], "steps": _stream_steps(st)} for st in validated["streams"]
     ]

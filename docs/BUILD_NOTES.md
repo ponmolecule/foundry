@@ -1760,3 +1760,7 @@ Server: `materialize_guide_streams` in fee_guide.py and `POST /api/v31/fee-guide
 Unsaved-changes list: fee-stream additions, removals and edits are now itemised (they were never listed before), and the all-zero managed-notional placeholder written when a fee product is opened is no longer reported as a change.
 Deletion warning: operating-expense lines that read a stream through `series_id` are now named when that stream is removed (stream editor and Replace alike); they were silently skipped. Guide Me link choices follow the stream editor's rule: fee-product streams only, basis-compatible.
 Engine arithmetic unchanged. The checklist path is unchanged and still available.
+
+
+## r311
+Guide Me clarifies linked migration shape and missing coefficient cadence without guessing assumptions. Incomplete mappings cannot be applied. Built directly on r310. See R311_RELEASE_NOTES.md and R311_VALIDATION.md.
