@@ -49,6 +49,10 @@ DEP_FIELDS = [
     ("__RATE__", "Rate paid / Spread over index (% p.a.)",
      "fixed: annual rate (4.90% = 0.049).  float: spread over the chosen index, may be negative"),
     ("__RATE_BASELINE__", "Interpreted as (live)", "fact — informational, follows the Rate type dropdown, not imported"),
+    # r313: r312 deposit pricing controls (float only; blank = 100% beta / no floor / no cap)
+    ("deposit_beta", "Index beta (float only)", "share [0,1]  (40% = 0.40; blank = 100%)"),
+    ("deposit_rate_floor", "Rate floor (float only)", "annual rate  (0.50% = 0.005; blank = none)"),
+    ("deposit_rate_cap", "Rate cap (float only)", "annual rate  (3.00% = 0.03; blank = none)"),
     ("fee_yield_ann", "Fee yield", "annual % of avg balance"),
     ("opex_pct_ann", "Op cost (% of avg bal)", "annual rate"),
     ("opex_fixed_q", "Op cost fixed", workbook_units("opex_fixed_q")),

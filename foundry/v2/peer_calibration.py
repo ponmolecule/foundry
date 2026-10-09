@@ -213,9 +213,9 @@ def _corridor_to_pctlabel(pos):
 # Mirrors the value challenge_config already tested, so placement is consistent
 # with why the flag fired. Returns a float or None (skip annotation).
 def _flag_client_value(flag, cfg):
-    from .engine_q_a import rate_fn, _prod_rate
+    from .engine_q_a import _prod_rate, _deposit_rate, _build_rate_curve_set
     a = cfg.get("assumptions", {})
-    rate = rate_fn(a.get("rate_path_q"), a.get("rate_path_longer_run"))
+    rate = _build_rate_curve_set(a, cfg, int(a.get("periods_per_year") or 4))["sofr"]   # r313: same curves as the engine and the checks
     lend = a.get("lending_products") or []
     dep = a.get("deposit_products") or []
     fid = flag.get("id", "")
@@ -224,7 +224,7 @@ def _flag_client_value(flag, cfg):
         wd = sum((p.get("opening_balance") or 0) for p in dep)
         if wd <= 0:
             return None
-        wc = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in dep) / wd
+        wc = sum((p.get("opening_balance") or 0) * _deposit_rate(p, 1, rate) for p in dep) / wd   # r313
         return wc * 100.0
     # loan-yield family: balance-weighted Q1 loan yield (%)
     if fid in ("PRICE-USURY", "PRICE-LOWYIELD", "COUPLED-02"):

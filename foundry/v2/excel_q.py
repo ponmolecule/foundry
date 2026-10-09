@@ -17,7 +17,8 @@ from openpyxl import Workbook, load_workbook
 
 DEP_COLS = ["name", "opening_balance", "growth_q", "runoff_q", "rate_type",
             "rate_paid_ann", "index_spread", "fee_yield_ann", "opex_pct_ann",
-            "opex_fixed_q", "call_report_line"]
+            "opex_fixed_q", "call_report_line",
+            "deposit_beta", "deposit_rate_floor", "deposit_rate_cap"]   # r313: r312 deposit pricing
 LEND_COLS = ["name", "opening_balance", "volume_mode", "originations_q", "orig_growth_q",
              "growth_q", "runoff_q", "rate_type", "yield_ann", "index_spread",
              "charge_off_ann", "provision_rate_ann", "reserve_rate_pct_bal",
@@ -43,6 +44,9 @@ DICT_ROWS = [
     ("Deposits", "runoff_q", "number", "rate/qtr", "optional", "[0, 1]", "Quarterly runoff; negative mints balances and is rejected."),
     ("Deposits", "rate_type", "text", "—", "required", "fixed | float", "float prices at index + index_spread off the rate path."),
     ("Deposits", "rate_paid_ann", "number", "annual rate", "fixed only", "[0, 0.30]", "Rate paid on balances."),
+    ("Deposits", "deposit_beta", "number", "share", "float only", "[0, 1]", "Share of the index passed through; blank = 100%."),
+    ("Deposits", "deposit_rate_floor", "number", "annual rate", "float only", "<= cap", "Lowest rate paid; blank = none."),
+    ("Deposits", "deposit_rate_cap", "number", "annual rate", "float only", ">= floor", "Highest rate paid; blank = none."),
     ("Lending", "originations_q", "number", "$/qtr", "originations mode", ">= 0", "New volume per quarter, grown by orig_growth_q."),
     ("Lending", "charge_off_ann", "number", "annual rate", "required", "[0, 0.40]", "Net charge-offs on average balances."),
     ("Lending", "provision_rate_ann", "number", "annual rate", "optional", "[0, 0.40]", "Expected-loss provisioning; blank = charge-off rate; entity ALLL floor still applies."),

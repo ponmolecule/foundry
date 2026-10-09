@@ -1767,3 +1767,6 @@ Guide Me clarifies linked migration shape and missing coefficient cadence withou
 
 ## r312 — Deposit beta and Governance
 See R312_RELEASE_NOTES.md and R312_VALIDATION.md. Direct continuation of r311; optional deposit index participation and rate bounds; saved-list Governance fix and nonblocking linked-stream authoring warnings. Existing result fingerprints unchanged.
+
+## r313
+Deposit beta coverage outside the engine. Funding checks and peer placement read the deposit rate the engine pays (beta, floor, cap) and use the engine's own SOFR/EFFR/Prime curve set instead of the legacy SOFR path. Config workbook and input workbook carry beta, floor and cap. The unsaved-changes Download in v3.1 produces the self-contained input workbook instead of the lossy config workbook. Beta, floor and cap sit under the Pricing sub-tab; labels in the unsaved list, Change history and the Design Lab. Engine arithmetic unchanged. Review memo: docs/R313_REVIEW_MEMO.md.

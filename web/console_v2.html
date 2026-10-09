@@ -3147,7 +3147,7 @@ const _PRD_GRP_RULES={
            ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|yield_ann|rate_floor|rate_cap/],['timing',/\.structure\b|term_q|maturity|amort/],
            ['credit',/charge_off|reserve_rate|provision_rate|allowance|cecl/],['costs',/\.measurement\b|opex_pct_ann|opex_fixed|discount_spread/]],
   deposit:[['id',/renameProduct|call_report_line/],['balance',/depositMode|depositPoolSelect|pool_share_spec|deposit_retention_pools|ending_balance_spec|opening_balance|growth_per_period|new_deposits_per_period|runoff_per_period/],
-           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|rate_paid_ann|fee_yield_ann|interest_balance_measure/],['timing',/avg_maturity_m/],
+           ['pricing',/\.rate_type\b|\.index['"\s,)]|index_spread|rate_paid_ann|fee_yield_ann|interest_balance_measure|deposit_beta|deposit_rate_floor|deposit_rate_cap/],['timing',/avg_maturity_m/],
            ['costs',/opex_pct_ann|opex_fixed|insured_pct/]]
 };
 function _prdGrpOf(el,fam){
@@ -4594,7 +4594,7 @@ function _diffCfgAgainst(baselineJSON){
     "amount","notional","opening","purchases_per_period","total","premises_equipment","intangibles",
     "other_assets","other_liabilities","premises_depreciation_annual","opex_fixed_per_period","aum_open","min_day1_capital"]);
   const RATE_KEYS = new Set(["growth_per_period","runoff_per_period","orig_growth_per_period","charge_off_ann","provision_rate_ann",
-    "reserve_rate_pct_bal","fee_yield_ann","opex_pct_ann","yield_ann","rate_paid_ann","index_spread",
+    "reserve_rate_pct_bal","fee_yield_ann","opex_pct_ann","yield_ann","rate_paid_ann","index_spread","deposit_beta","deposit_rate_floor","deposit_rate_cap",
     "rate_ann","cash_target_pct_deposits","cash_yield","securities_yield","borrow_rate_ann",
     "discount_spread_ann","tax_rate","interchange_rate","network_fee_rate","aum_growth_q","aum_growth",
     "gain_on_sale_margin","sale_pct_of_orig","servicing_fee_bp_ann","msr_cap_rate_pct_upb","msr_decay_per_period",
@@ -6308,7 +6308,7 @@ function fieldsFor(fam, p, base){
         const val=p[key]==null?'':_numInput(p[key]*100,12);
         h += `<div class="fld"><label>${label}</label><input type="text" inputmode="decimal" style="width:100px;max-width:100%" value="${val}" placeholder="${placeholder}" onchange="setPath('${base}.${key}',this.value.trim()===''?null:_pf(this.value)/100)"></div>`;
       }
-      h += '<div class="cu">Rate = index × beta + spread, bounded by any floor/cap.</div>';
+      h += '<div class="cu" data-deposit-group="pricing">Rate = index × beta + spread, bounded by any floor/cap.</div>';   // r313: shown with Pricing, not under every sub-tab
     }
     h += F("Retained-balance fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
@@ -11460,7 +11460,9 @@ function _guardHide(){ document.getElementById("guard-bg").style.display="none";
   document.getElementById("guard-actions").style.display="flex"; }
 function guardCancel(){ _guardPendingSlug=null; _guardHide(); }
 window.guardCancel=guardCancel;
-function guardDownload(){ if(typeof downloadWorkbook==="function") downloadWorkbook(); }
+function guardDownload(){   // r313: the guard's Download must keep everything. The legacy config workbook drops fee streams, growth and more; the input workbook carries the full engagement.
+  if(V31 && typeof downloadFIW==="function") return downloadFIW();
+  if(typeof downloadWorkbook==="function") downloadWorkbook(); }
 window.guardDownload=guardDownload;
 async function guardDiscard(){ const slug=_guardPendingSlug; _guardPendingSlug=null; _guardHide();
   if(slug) await _openEngagementNow(slug); }
@@ -12180,6 +12182,7 @@ function labLeverCatalog(){
   (a.deposit_products||[]).forEach((p,i)=>{
     const nm = p.name || ("Deposit "+(i+1));
     if(typeof p.rate_paid_ann === "number") push(`assumptions.deposit_products.${i}.rate_paid_ann`, `${nm}: rate paid`, "pct");
+    if(p.rate_type==="float" && typeof p.deposit_beta === "number") push(`assumptions.deposit_products.${i}.deposit_beta`, `${nm}: index beta`, "pct");   // r313
     if(typeof p.growth_per_period === "number") push(`assumptions.deposit_products.${i}.growth_per_period`, `${nm}: growth/${PLAB()}`, "pct");
   });
 

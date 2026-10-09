@@ -8,7 +8,7 @@ Flags are deterministic functions of the configuration and the Q1 rate context.
 Severity: 'severe' (examiners will challenge or the plan is inconsistent) or
 'mild' (worth support in the assumption book).
 """
-from .engine_q_a import rate_fn, _prod_rate
+from .engine_q_a import rate_fn, _prod_rate, _deposit_rate, _build_rate_curve_set
 
 # canonical loan types from either predecessor's line vocabulary
 _LINE_TYPE = {
@@ -105,7 +105,9 @@ def challenge_config(cfg):
                 from .timebase import quarterly_value_to_period
                 g = quarterly_value_to_period("growth", g, ppy)
         return (1.0 + float(g or 0.0)) ** ppq - 1.0
-    rate = rate_fn(a["rate_path_q"], a["rate_path_longer_run"], ppy)
+    # r313: the engine's own curve set (dated SOFR plus EFFR and Prime), so a product indexed to Prime
+    # or EFFR is judged at the rate the engine charges, not at SOFR off the legacy quarterly path.
+    rate = _build_rate_curve_set(a, cfg, ppy)["sofr"]
     lend = a.get("lending_products") or []
     dep = a.get("deposit_products") or []
     flags = []
@@ -171,7 +173,7 @@ def challenge_config(cfg):
     # ---- funding checks, per deposit product ----
     for p in dep:
         nm = p.get("name", "<?>")
-        r1 = _prod_rate(p, 1, rate)
+        r1 = _deposit_rate(p, 1, rate)   # r313: the rate the engine pays (beta, floor, cap)
         if r1 > 0.055:
             _flag(flags, "FUND-HOT", "severe",
                   f"{nm}: {r1:.2%} rate paid is high for this funding type. Rate-sensitive "
@@ -188,7 +190,7 @@ def challenge_config(cfg):
     # ---- blended spread viability ----
     w_y = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in lend)
     w_l = sum((p.get("opening_balance") or 0) for p in lend)
-    w_c = sum((p.get("opening_balance") or 0) * _prod_rate(p, 1, rate) for p in dep)
+    w_c = sum((p.get("opening_balance") or 0) * _deposit_rate(p, 1, rate) for p in dep)
     w_d = sum((p.get("opening_balance") or 0) for p in dep)
     if w_l > 0 and w_d > 0:
         spread = w_y / w_l - w_c / w_d

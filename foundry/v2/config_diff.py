@@ -33,7 +33,8 @@ _NAMES = {"yield_ann": "yield (annual)", "fee_yield_ann": "fee yield (annual)", 
           "opening_balance": "starting balance", "runoff_per_period": "runoff", "growth_per_period": "growth",
           "originations_per_period": "new originations", "new_deposits_per_period": "new deposits",
           "index_spread": "spread over index", "rate_type": "rate type", "scenario_name": "engagement name",
-          "avg_maturity_m": "average maturity (months)", "term_q": "term (quarters)"}
+          "avg_maturity_m": "average maturity (months)", "term_q": "term (quarters)",
+          "deposit_beta": "index beta", "deposit_rate_floor": "rate floor (annual)", "deposit_rate_cap": "rate cap (annual)"}   # r313
 
 
 def _is_n(v):
