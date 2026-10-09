@@ -1764,3 +1764,6 @@ Engine arithmetic unchanged. The checklist path is unchanged and still available
 
 ## r311
 Guide Me clarifies linked migration shape and missing coefficient cadence without guessing assumptions. Incomplete mappings cannot be applied. Built directly on r310. See R311_RELEASE_NOTES.md and R311_VALIDATION.md.
+
+## r312 — Deposit beta and Governance
+See R312_RELEASE_NOTES.md and R312_VALIDATION.md. Direct continuation of r311; optional deposit index participation and rate bounds; saved-list Governance fix and nonblocking linked-stream authoring warnings. Existing result fingerprints unchanged.

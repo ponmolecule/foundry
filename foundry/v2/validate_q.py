@@ -713,6 +713,17 @@ def validate_config_v2(cfg):
         if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None:
             errs.append(ctx + "fixed rate requires 'rate_paid_ann'")
         _range_check(p, PROD_RANGES, ctx, errs)
+        from math import isfinite
+        for key in ("deposit_beta", "deposit_rate_floor", "deposit_rate_cap"):
+            v = p.get(key)
+            if v is not None and (isinstance(v, bool) or not isinstance(v, (int, float)) or not isfinite(v)):
+                errs.append(ctx + key + " must be a finite number")
+        beta = p.get("deposit_beta", 1)
+        if isinstance(beta, (int, float)) and not 0 <= beta <= 1:
+            errs.append(ctx + "deposit_beta must be between 0 and 1")
+        floor, cap = p.get("deposit_rate_floor"), p.get("deposit_rate_cap")
+        if isinstance(floor, (int, float)) and isinstance(cap, (int, float)) and floor > cap:
+            errs.append(ctx + "deposit rate floor cannot exceed cap")
     for p in lend:
         ctx = f"lending '{p.get('name', '<?>')}': "
         for k in LEND_REQUIRED:

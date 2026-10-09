@@ -202,6 +202,21 @@ def _prod_rate(p, t, rate):
     return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
 
 
+def _deposit_rate(p, t, rate):
+    """Deposit-only index participation; omitted settings preserve legacy rates."""
+    if p.get("rate_type") != "float":
+        return _prod_rate(p, t, rate)
+    idx = p.get("index")
+    curves = getattr(rate, "_curves", None)
+    rfn = curves.get(idx) if curves and idx in curves else rate
+    r = rfn(t) * float(1.0 if p.get("deposit_beta") is None else p["deposit_beta"]) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
+    if p.get("deposit_rate_floor") is not None:
+        r = max(r, float(p["deposit_rate_floor"]))
+    if p.get("deposit_rate_cap") is not None:
+        r = min(r, float(p["deposit_rate_cap"]))
+    return r
+
+
 def _fv_of(p, q, bal, rate, is_asset, ppyf=4.0):
     """DCF fair value of the existing book at end of quarter q."""
     if bal <= 0:
@@ -211,7 +226,7 @@ def _fv_of(p, q, bal, rate, is_asset, ppyf=4.0):
     b, pv, df = bal, 0.0, 1.0
     _fv_periods = int(round(FV_HORIZON_YEARS * ppyf))   # 15yr in the engine cadence
     for t in range(1, _fv_periods + 1):
-        rc = _prod_rate(p, q + t, rate) / ppyf
+        rc = (_prod_rate(p, q + t, rate) if is_asset else _deposit_rate(p, q + t, rate)) / ppyf
         rd = (rate(q + t) + p.get("discount_spread_ann", 0.0)) / ppyf
         interest = b * rc
         principal = b * decay
@@ -656,7 +671,7 @@ def run_pf_a(cfg):
             avg = (beg + end) / 2.0
             _measure = p.get("interest_balance_measure", "period_average") if p in dep else "period_average"
             _interest_basis = end if _measure == "period_end" else beg if _measure == "period_begin" else avg
-            r = _prod_rate(p, q, rate) if "rate_type" in p else 0.0
+            r = (_deposit_rate(p, q, rate) if p in dep else _prod_rate(p, q, rate)) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
             p["_ie"].append(_interest_basis * r / ppyf if p in dep else 0.0)
@@ -1219,7 +1234,7 @@ def run_pf_a(cfg):
                 _dp["_avg"][q] = _avg
                 _measure = _dp.get("interest_balance_measure", "period_average")
                 _basis = _retained if _measure == "period_end" else _beg if _measure == "period_begin" else _avg
-                _dp["_ie"][q] = _basis * _prod_rate(_dp, q, rate) / ppyf
+                _dp["_ie"][q] = _basis * _deposit_rate(_dp, q, rate) / ppyf
                 _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
                     "managed_notional_end": _dp["_mn_end"][q - 1],
@@ -1665,7 +1680,7 @@ def run_pf_a(cfg):
                 "serv_retained": (p.get("mortgage_banking") or {}).get("servicing_retained_pct", 0.0) if fam == "lending" else 0.0,
                 "bal": [(p["_bal"][q] + (p["_fvadj"][q] if p.get("_is_fv") else 0.0)
                          if fam == "lending" else p["_bal"][q]) for q in range(0, Q + 1)],
-                "rateQ": [_prod_rate(p, q, rate) * 100 for q in range(1, Q + 1)] if fam != "obs" else None,
+                "rateQ": [(_deposit_rate(p, q, rate) if fam == "deposit" else _prod_rate(p, q, rate)) * 100 for q in range(1, Q + 1)] if fam != "obs" else None,
                 "intInc": _s("_ii"), "intExp": _s("_ie"),
                 "origq": _s("_orig"), "soldOrig": _s("_sold"), "whCarry": _s("_whc"),
                 "whBal": _s("_wh"),

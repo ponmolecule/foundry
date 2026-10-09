@@ -3166,7 +3166,7 @@ function _prdM(v){ return '$'+(Number(v||0)/1e6).toFixed(1)+'M'; }
 function _prdK(v){ return '$'+Math.round(Number(v||0)/1000).toLocaleString('en-US')+'k'; }
 function _prdGrpSummary(fam,p,g){
   const per=(typeof PLAB==='function')?PLAB().toLowerCase():'period', idx=String(p.index||'sofr').toUpperCase();
-  const rate=(own)=>p.rate_type==='float'?(idx+(Number(p.index_spread||0)>=0?' +':' \u2212')+Math.abs(Number(p.index_spread||0)*100).toFixed(2)+'%'):('Fixed '+_prdPct(own));
+  const rate=(own)=>p.rate_type==='float'?((p.deposit_beta!=null?(_prdPct(p.deposit_beta)+' × '):'')+idx+(Number(p.index_spread||0)>=0?' +':' \u2212')+Math.abs(Number(p.index_spread||0)*100).toFixed(2)+'%'):('Fixed '+_prdPct(own));
   const opex=()=>_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period!=null?p.opex_fixed_per_period:p.opex_fixed_m)+'/'+per;
   if(fam==='lending') return {
     balance:_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.runoff_per_period)+' runoff/'+per,
@@ -3498,6 +3498,7 @@ const _GQ_SEV={review:['Needs review','r'],look:['Worth a look','l'],info:['Info
 function _gqPer(f,i){ return (f.period==='quarter'?'Q':f.period==='year'?'Y':'M')+(i+1); }
 function _gqNum(v){ v=+v; if(Math.abs(v)<1&&Math.abs(v)<0.995) return (v*100).toFixed(2)+'%'; return Math.abs(v)>=100?Math.round(v).toLocaleString('en-US'):v.toFixed(2); }
 function _gqFinding(f){
+  if(f.kind==='authoring') return `<b>Review stream configuration.</b><span>${esc(f.hint)}</span>`;
   if(f.convention==='annual_attrition_period_end')
     return `<b>Annual attrition is taken in month 12 of each year.</b><span>Average balances run above a straight line between year-ends. Correct if intended; otherwise choose a straight-line path or spread the timing under Customer acquisition \u2192 attrition.</span>`;
   if(f.kind==='trend'||f.kind==='edit'){   // r286: digit slips, unit slips and trend breaks
@@ -6302,6 +6303,13 @@ function fieldsFor(fam, p, base){
         : F("Spread over "+_idx+" (annual %)", base+".index_spread", "pct");
     }
     else h += F("Rate paid (annual %)", base+".rate_paid_ann", "pct");
+    if(p.rate_type==="float"){
+      for(const [key,label,placeholder] of [['deposit_beta','Index beta (%)','100'],['deposit_rate_floor','Rate floor (annual %)','None'],['deposit_rate_cap','Rate cap (annual %)','None']]){
+        const val=p[key]==null?'':_numInput(p[key]*100,12);
+        h += `<div class="fld"><label>${label}</label><input type="text" inputmode="decimal" style="width:100px;max-width:100%" value="${val}" placeholder="${placeholder}" onchange="setPath('${base}.${key}',this.value.trim()===''?null:_pf(this.value)/100)"></div>`;
+      }
+      h += '<div class="cu">Rate = index × beta + spread, bounded by any floor/cap.</div>';
+    }
     h += F("Retained-balance fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
@@ -11074,7 +11082,11 @@ function _renderContentBody(){
     h += '<div class="memo">Direct contribution = interest income \u2212 interest expense + fees + gains on sale + net servicing income \u2212 allocated operating costs \u2212 net charge-offs' + (ftpOn ? ' + FTP charge/credit. FTP charges assets and credits liabilities at forecast SOFR on average balances (warehouse included); the offsetting net position accrues to Treasury, which represents the value of equity funding and the earnings of the cash, securities, and borrowing book. FTP is presentation-only and does not change the income statement.' : '. No funds-transfer pricing: deposit products get no credit for funding value, and loan products bear no funding charge.') + ' Corporate overhead is not allocated; FV revaluation is excluded. End balance is the final-period carrying value including warehouse and FV adjustments.</div>';
     (r.products||[]).forEach(p=>{
       const referenceIndex = productReferenceIndex(p, r.products, cfg.assumptions);
-      const tag = (p.rate_type==="float" ? ' \u2014 '+(referenceIndex ? referenceIndex.toUpperCase() : 'Floating rate') + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
+      const _depositOrdinal=(r.products||[]).filter(x=>x.family==='deposit').indexOf(p);
+      const _depositCfg=p.family==='deposit'?((cfg.assumptions.deposit_products||[])[_depositOrdinal]||{}):{};
+      const _betaTag=_depositCfg.deposit_beta==null?'':(_depositCfg.deposit_beta*100)+'% × ';
+
+      const tag = (p.rate_type==="float" ? ' \u2014 '+_betaTag+(referenceIndex ? referenceIndex.toUpperCase() : 'Floating rate') + ((p.index_spread||0)>=0?'+':'') + (((p.index_spread||0)*100).toFixed(2).replace(/\.?0+$/,'')) + '%' : '') + (p.is_fv ? ' \u2014 fair value' : '');
       h += `<div class="h2" style="font-size:15px">${esc(p.name)}${esc(tag)}</div>`;
       h += '<table class="fin"><tr>' + (V21 ? '<th class="ref">Ref</th>' : '') + '<th>$000s</th>';
       for(let q=1;q<=NP();q++) h += `<th>${PERLAB(q)}</th>`;

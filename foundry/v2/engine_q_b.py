@@ -30,7 +30,7 @@ def run_pf_b(cfg):
     # Profile B is intentionally quarterly-only, but it still participates in the
     # same public scenario/rate contract as Profile A. Apply the common overlay and
     # common floating-rate dispatch rather than silently ignoring them.
-    from .engine_q_a import (_apply_overlays, _build_rate_curve_set, _prod_rate, opex_fixed_q)
+    from .engine_q_a import (_apply_overlays, _build_rate_curve_set, _prod_rate, _deposit_rate, opex_fixed_q)
     if cfg.get("scenario_overlays"):
         _apply_overlays(lend, dep, a, cfg["scenario_overlays"], 4)
     _curves = _build_rate_curve_set(a, cfg, 4)
@@ -211,7 +211,7 @@ def run_pf_b(cfg):
         int_sec_prod = sum(p["_avg"][qi] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
         int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
-        int_dep = sum(p["_avg"][qi] * _prod_rate(p, q, _rate) / 4.0 for p in dep)
+        int_dep = sum(p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
         int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
@@ -419,7 +419,7 @@ def run_pf_b(cfg):
         for p in plist:
             def _r(field, dflt_key):
                 return [_ov(p, field, qi + 1, p.get(dflt_key) or 0.0) for qi in range(Q)]
-            yv = ([_prod_rate(p, qi + 1, _rate) for qi in range(Q)]
+            yv = ([(_deposit_rate(p, qi + 1, _rate) if fam == "deposit" else _prod_rate(p, qi + 1, _rate)) for qi in range(Q)]
                   if fam in ("lending", "deposit") else [0.0] * Q)
             cov = _r("charge_off_ann", "charge_off_ann")
             products.append({

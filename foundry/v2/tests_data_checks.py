@@ -12,7 +12,7 @@ def main():
         if cond: p += 1; print("  PASS ", name + (f" — {detail}" if detail else ""))
         else: f += 1; print("  FAIL ", name + (f" — {detail}" if detail else ""))
     tpl = json.load(open("foundry/fixtures/universal_template_bank.json"))
-    ck("a sound template produces no findings", run_checks(copy.deepcopy(tpl)) == [])
+    ck("a sound template produces no schedule anomalies", [f for f in run_checks(copy.deepcopy(tpl)) if f.get("kind") != "authoring"] == [])
     att = [0.015] * 6 + [0.17, 0.1313, 0.0925, 0.0538] + [0.015] * 26
     cfg = {"assumptions": {"cac_feeds": {"SKN": {"driver_specs": {"attrition_rate": {"trajectory": "explicit", "period": "month", "values": att}},
                                                   "channels": [{"name": "Direct", "driver_specs": {"cac": {"value": {"trajectory": "explicit", "values": [16000.0] * 6 + [32000.0] + [16000.0] * 29}}}}]}}}}

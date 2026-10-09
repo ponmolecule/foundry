@@ -286,7 +286,10 @@ def _trend_breaks(vals):
 
 def _get(o, path):
     for k in path:
-        o = o[k] if isinstance(o, (dict, list)) else None
+        try:
+            o = o[k] if isinstance(o, (dict, list)) else None
+        except (KeyError, IndexError, TypeError):
+            return None
         if o is None:
             return None
     return o
@@ -316,6 +319,7 @@ def _per_word(s):
 
 
 CATALOG = [
+    {"check":"Linked stream posting", "catches":"Priced source and consumer; missing derived coefficient schedule.", "example":"A priced stream feeds another priced stream.", "severity":"Worth a look", "where":"Fee-product streams."},
     {"check": "Digit slip against the trend",
      "catches": "A value one keystroke away from what its neighbours imply: an extra, missing or doubled digit, or two adjacent digits swapped.",
      "example": "634 typed as 1,634 in a schedule running 123, 634, 1,106, 1,200, ...",
@@ -545,6 +549,42 @@ def run_checks(cfg, runner=None, saved=None):
             except Exception as e:      # effects are optional; a failed estimate never hides a finding
                 for f in serious:
                     f["effects_error"] = f"{type(e).__name__}"
+    findings.extend(_fee_link_findings(cfg))
     order = {"review": 0, "look": 1, "info": 2}
     findings.sort(key=lambda f: (order[f["severity"]], f["where"]))
     return findings
+
+
+def _fee_link_findings(cfg):
+    """Nonblocking authoring checks; quantities and financial posting are independent."""
+    products = (cfg.get("assumptions") or {}).get("obs_exposures") or []
+    ids = {s.get("quantity_series_id"): s for p in products for s in p.get("fee_streams") or [] if s.get("quantity_series_id")}
+    def active(s):
+        for k in ("rate", "cost"):
+            obj = s.get(k) or {}
+            if obj.get("kind") == "none": continue
+            if any(_num(v) and v != 0 for v in _numbers(obj.get("params") or {})): return True
+        return False
+    out = []
+    for pi, p in enumerate(products):
+        streams = p.get("fee_streams") or []
+        for si, st in enumerate(streams):
+            d = st.get("driver") or {}; params = d.get("params") or {}; ref = d.get("ref")
+            source = ids.get(ref) if d.get("source") == "fee_stream_quantity" else next((x for x in streams if x.get("name") == ref), None) if d.get("source") == "stream_ref" else None
+            hints = []
+            if source and active(source) and active(st):
+                hints.append("Both this stream and its source post revenue or cost. Confirm that these are separate charges; a quantity-only source should have zero pricing and no costs.")
+            coef = params.get("coefficient") or {}
+            if d.get("trajectory") == "derived" and coef.get("trajectory") == "explicit_schedule" and not coef.get("schedule"):
+                hints.append("The linked quantity is multiplied by an empty coefficient schedule. Load the schedule or choose Flat to pass the source through.")
+            for hint in hints:
+                out.append(dict(severity="look", kind="authoring", path=["assumptions", "obs_exposures", pi, "fee_streams", si], where="Fee products · " + str(p.get("name") or pi), detail=str(st.get("name") or si), hint=hint, effects=None, same_period_as=[]))
+    return out
+
+
+def _numbers(obj):
+    if isinstance(obj, dict):
+        for v in obj.values(): yield from _numbers(v)
+    elif isinstance(obj, list):
+        for v in obj: yield from _numbers(v)
+    elif _num(obj): yield obj

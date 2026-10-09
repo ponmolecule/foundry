@@ -62,7 +62,7 @@ def main():
     live["assumptions"]["obs_exposures"][2]["fee_streams"][0]["driver"]["params"]["level_schedule"]["schedule"]["2"] = 1634.0
     F = dc.run_checks(live, saved=saved)
     ck("end to end: one Needs-review finding on the level schedule, with the saved value",
-       len(F) == 1 and F[0]["severity"] == "review" and F[0]["label"] == "2" and F[0].get("changed_from") == "634"
+       len([f for f in F if f.get("kind") != "authoring"]) == 1 and F[0]["severity"] == "review" and F[0]["label"] == "2" and F[0].get("changed_from") == "634"
        and "extra 1 at the start" in F[0]["signature"] and F[0]["field"] == "Count", str(F))
     live2 = copy.deepcopy(saved)
     live2["assumptions"]["obs_exposures"][2]["fee_streams"][0]["driver"]["params"]["level_schedule"]["schedule"]["1"] = 1230.0
