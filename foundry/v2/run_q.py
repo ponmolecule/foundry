@@ -565,7 +565,7 @@ def run_v2(cfg):
         "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
         "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume", "sweptBalance", "sweepFee",
         "calculatedOutstanding", "targetBeforeAllocation", "distributedBalance",
-        "interestBasis", "linkedBalanceTarget",
+        "interestBasis", "linkedBalanceTarget", "repayments",
     )
     _exact_products = (base_exact or {}).get("products") or []
     _public_products = base.get("products") or []
@@ -698,6 +698,8 @@ def run_v2(cfg):
             "posting_semantic": "non_posting_pricing_source",
         }
 
+    if (base_exact or {}).get("repayment_profiles") is not None:
+        results["repayment_profiles"] = copy.deepcopy(base_exact["repayment_profiles"])
     if (base_exact or {}).get("expense_gross_up") is not None:
         results["expense_gross_up"] = copy.deepcopy(base_exact["expense_gross_up"])
     if base.get("fixed_assets") is not None:

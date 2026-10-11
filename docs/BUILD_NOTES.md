@@ -1777,3 +1777,6 @@ Optional CAC gross new/lost count publishers, reusable account adoption (target-
 
 ## r315 — Expense gross-up eligibility
 Explicit group/line eligibility, legacy defaults preserved, audited base/charge, and zero gross-up for new templates. Built directly on r314.
+
+## r316 — Optional monthly repayment profiles
+Canonical monthly funded cohorts, explicit loss/allowance paths, repayments and cohort audits, monthly profile fee aggregation and fail-closed unsupported combinations. Direct continuation of r315; includes its gross-up eligibility changes.

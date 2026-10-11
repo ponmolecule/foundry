@@ -1094,7 +1094,7 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     _validate_fee_stream_shape(stream)
     if not (ctx or {}).get('_account_monthly'):
         from .account_activity import monthly_fee
-        replay = monthly_fee(stream, q, ctx or {}, ppy, fee_stream_q)
+        replay = monthly_fee(stream, q, ctx or {}, ppy, fee_stream_q, force=(ctx or {}).get('_profile_monthly_operands') is not None)
         if replay is not None:
             return replay
     tm = stream.get("timing") or {}

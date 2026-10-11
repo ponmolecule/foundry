@@ -100,6 +100,9 @@ def main():
     ck('Account participation share with monthly servicing',product_fee_streams_q({'fee_streams':[share]},1,{},4)[1]==18000)
     cap={};econ={};product_fee_streams_q({'fee_streams':[servicing]},1,{'account_activity':q,'capture_stream_qty':cap,'capture_stream_economics':econ},4)
     ck('audit cost factor reconciles quarter expense',abs(econ['servicing']['quantity'][0]*econ['servicing']['effective_cost_factor'][0]-econ['servicing']['fee_product_cost'][0])<1e-8)
+    revenue_cost=copy.deepcopy(servicing);revenue_cost['rate']={'behavior':'flat','params':{'unit_fee':{'value':10,'period':'month'}}};revenue_cost['cost']={'kind':'pct_of_revenue_opex','params':{'pct':.1}}
+    econ={};inc,cost=product_fee_streams_q({'fee_streams':[revenue_cost]},1,{'account_activity':q,'capture_stream_economics':econ},4)
+    ck('quarterly percent-of-revenue cost factor retains percentage units',abs(econ['servicing']['effective_cost_factor'][0]-.1)<1e-9 and abs(cost-inc*.1)<1e-9)
     from .opex_extensions import resolve_linked_components, linked_component_amount
     cat={'linked_components':[{'driver':'formula_driver','factors':[{'kind':'linked','source':'account_activity','series_id':'adds'},{'kind':'entered','spec':{'trajectory':'flat','value':175}}]}]}
     comp=resolve_linked_components(cat,4,4,assumptions=a)[0]

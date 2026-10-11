@@ -1,0 +1,12 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const ctx={cfg:{assumptions:{lending_products:[{name:'Generic',charge_off_ann:.04,runoff_q:.1,runoff_per_period:.1,allowance_mode:'loss_rate_term'}]}},renderContent(){},refresh(){},alert(msg){throw Error(msg)},_loanFlowDraft:{},esc:x=>String(x),_faSeriesEditor(){return ''}};
+vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function loanRepaymentMode('),html.indexOf('function loanFundedSourceChange(')),ctx);
+ctx.loanRepaymentMode(0,'profile');const p=ctx.cfg.assumptions.lending_products[0];assert.equal(p.charge_off_ann,0);assert.equal(p.repayment_profile.loss_rate_spec.value,.04);assert.equal(p.allowance_mode,'profile_expected_loss');assert.equal(p.repayment_profile.repayment_fractions.length,0);
+ctx.loanRepaymentCurveLoad(0,'repayment_fractions','0%\t0%\t100%');assert.equal(JSON.stringify(p.repayment_profile.repayment_fractions),'[0,0,1]');
+const rendered=ctx._loanProfileCurveHtml(0,'repayment_fractions','Repayment');assert(rendered.includes('Monthly ages'));for(const match of rendered.matchAll(/onclick="([^"]+)"/g))new vm.Script(match[1]);
+ctx.loanRepaymentCurveClear(0,'repayment_fractions');assert.equal(p.repayment_profile.repayment_fractions.length,0);assert(ctx._loanProfileCurveHtml(0,'repayment_fractions','Repayment').includes('Load (replace)'));
+ctx.loanOpeningCohortAdd(0,'opening_cohorts');assert.equal(p.repayment_profile.opening_cohorts.length,1);ctx.loanOpeningCohortRemove(0,'opening_cohorts',0);assert.equal(p.repayment_profile.opening_cohorts.length,0);
+ctx.loanRepaymentMode(0,'days');assert(!p.repayment_profile);assert.equal(p.charge_off_ann,.04);assert.equal(p.runoff_q,.1);assert.equal(p.allowance_mode,'loss_rate_term');
+assert(html.includes('Remaining profile expected loss'));assert(html.includes('Principal repayments (period flow)'));
+console.log('PASS explicit profile opt-in, preserved legacy settings, curve Load/Clear/Close, valid actions and opening cohorts');

@@ -51,9 +51,11 @@ def loan_balance_mode(product: Mapping | None) -> str:
 
 def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping | None) -> dict | None:
     """Validate and normalize one opt-in customer-linked loan balance contract."""
+    p = product or {}
+    from .repayment_profiles import validate as validate_repayment_profile
+    validate_repayment_profile(p, assumptions)
     if loan_balance_mode(product) == ROLLFORWARD:
         return None
-    p = product or {}
     if loan_balance_mode(p) == FUNDED_FLOW_LEVEL:
         fd = p.get("funded_flow_driver") or {}
         stage, start, ramp, take_up = _funded_flow_timing(fd)
@@ -95,7 +97,7 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
             raise ValueError("funded-flow level cannot use mortgage-banking or term-cohort mechanics")
         if p.get("charge_off_balance_measure", "period_begin") not in {"period_begin", "period_end"}:
             raise ValueError("charge_off_balance_measure must be period_begin or period_end")
-        if p.get("allowance_mode", "reserve_rate") not in {"reserve_rate", "loss_rate_term"}:
+        if p.get("allowance_mode", "reserve_rate") not in ({"reserve_rate", "profile_expected_loss"} if p.get("repayment_profile") is not None else {"reserve_rate", "loss_rate_term"}):
             raise ValueError("unsupported loan allowance_mode")
         measure = str(p.get("interest_balance_measure") or "")
         if measure not in {"period_average", "period_end", "period_begin"}:

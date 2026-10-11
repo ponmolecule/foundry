@@ -2023,4 +2023,15 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
                 _grows.append([period['period'],row['group'],row['name'],row['amount']/1000,row['eligible'],row['eligible_amount']/1000,period['rate'],period['eligible_base']/1000,period['gross_up']/1000])
         _write_long_rows(wb.create_sheet('Expense Gross-up'), title='Configured expense gross-up', subtitle='Expense amounts post once. Eligibility controls only base × rate / (1 − rate); monetary values are $000s.', headers=['Period','Group','Expense','Expense ($000s)','Eligible','Eligible amount ($000s)','Rate','Period base ($000s)','Period gross-up ($000s)'],rows=_grows,widths=[12,22,44,22,12,24,12,24,24],formats={4:_RAW_MONEY_FMT,6:_RAW_MONEY_FMT,7:'0.00%',8:_RAW_MONEY_FMT,9:_RAW_MONEY_FMT},freeze_col=4)
 
+    if results.get('repayment_profiles'):
+        _period_rows=[];_cohort_rows=[]
+        for item in results['repayment_profiles']:
+            profile=item['profile'];name=item['product']
+            for row in profile['monthly']:
+                _period_rows.append([name,row['month']]+[row[k]/1000 for k in ('beginning','funded','charge_offs','repayments','ending','allowance','distributed')])
+            for row in profile['cohorts']:
+                _cohort_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('original_principal','beginning','funded','charge_offs','repayments','ending','allowance')]+[row['loss_exposure']/1000,row['loss_rate'],row['loss_factor'],row['loss_denominator']])
+        _write_long_rows(wb.create_sheet('Repayment Monthly'),title='Profiled lending · monthly principal roll-forward',subtitle='Monthly funding buckets; age 0 is the funding month. Losses occur before conditional scheduled repayments. Beginning + funded − charge-offs − repayments = ending. Monetary values $000s.',headers=['Product','Month','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Distributed ending'],rows=_period_rows,widths=[30,12,22,22,22,22,22,22,22],formats={i:_RAW_MONEY_FMT for i in range(3,10)},freeze_col=3)
+        _write_long_rows(wb.create_sheet('Repayment Cohorts'),title='Profiled lending · retained cohorts',subtitle='Age 0 is the funding month. Each cohort reconciles; remaining balance is part of the identity until fully extinguished. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Original principal','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Loss exposure','Loss rate','Loss factor','Loss denominator'],rows=_cohort_rows,widths=[30,12,24,14,24,22,22,22,22,22,22,22,16,16,18],formats={**{i:_RAW_MONEY_FMT for i in range(5,13)},13:'0.00%',14:'0.0000',15:'0'},freeze_col=5)
+
     return wb

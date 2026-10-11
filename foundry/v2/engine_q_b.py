@@ -67,6 +67,7 @@ def run_pf_b(cfg):
             cap_t[_q] += float(_r["amount"])
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
+    if any(p.get('repayment_profile') is not None for p in a.get('lending_products') or []):raise ValueError('Repayment profiles require Profile A')
     _nie_d = nie_detail_series(a, 4, _growth_ctx)
     from .gross_up import active as _gross_active, calculate as _gross_calculate
     _gross_enabled = _gross_active(a); _gross_audit = []

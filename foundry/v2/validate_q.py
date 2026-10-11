@@ -780,7 +780,11 @@ def validate_config_v2(cfg):
             _range_check(mb, MB_RANGES, ctx + "mortgage_banking.", errs)
         try:
             from .loan_balance import normalize_linked_loan_balance
-            normalize_linked_loan_balance(p, a)
+            _normalized_loan = normalize_linked_loan_balance(p, a)
+            if p.get('repayment_profile') is not None:
+                if cfg.get('parity_profile') != 'pf_a':raise ValueError('Repayment profiles require the fee-stream engine (pf_a)')
+                from .repayment_profiles import resolve as resolve_profile
+                resolve_profile(p, a, int(a.get('n_periods') or 12), _ppy, _normalized_loan, _growth_ctx)
             if (p.get("balance_mode") == "funded_flow_level"
                     and (p.get("funded_flow_driver") or {}).get("source") == "entered"):
                 from .loan_balance import resolve_linked_loan_balance

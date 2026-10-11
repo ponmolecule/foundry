@@ -140,11 +140,11 @@ def needs_monthly(stream, definitions, seen=None):
         return bool(parent and needs_monthly(parent,definitions,seen))
     return False
 
-def monthly_fee(stream,q,ctx,ppy,evaluator):
+def monthly_fee(stream,q,ctx,ppy,evaluator,*,force=False):
     """Replay only opt-in chains monthly, preserving SUM(quantity_m * price_m)."""
     import copy
     definitions=dict(ctx.get('linked_stream_defs') or {});definitions.update(ctx.get('stream_defs') or {})
-    if not needs_monthly(stream,definitions):return None
+    if not force and not needs_monthly(stream,definitions):return None
     width=12//ppy;lo=(q-1)*width;hi=q*width;cache={};visiting=set()
     def eval_month(st,mi):
         key=(id(st),mi)
@@ -174,7 +174,9 @@ def monthly_fee(stream,q,ctx,ppy,evaluator):
             c['customer_acquisition_count']={d['ref']:{k:v[mi] for k,v in meta.items()}}
         elif src=='constant':
             if params.get('schedule') or params.get('level_schedule',{}).get('period')=='model_period':raise ValueError('Monthly account-cost chains require natural-period schedules, not legacy model-period schedules')
-        elif src not in {'stream_ref','fee_stream_quantity'}:raise ValueError('This source has no canonical monthly count path for account activity costs')
+        elif src in {'own_balance','distributed_balance','product_funded_flow'} and ctx.get('_profile_monthly_operands') is not None:
+            c[src] = ctx['_profile_monthly_operands'][src][mi]
+        elif src not in {'stream_ref','fee_stream_quantity'}:raise ValueError('This source has no canonical monthly path for this calculation')
         tm=s.get('timing') or {};s['timing']=dict(tm,start_period=(int(tm.get('start_period') or 1)-1)*width+1)
         if tm.get('end_period') is not None:s['timing']['end_period']=int(tm['end_period'])*width
         if tm.get('ramp_in_periods'):raise ValueError('Monthly account activity chains require an explicit adoption path rather than a revenue ramp')
@@ -205,7 +207,7 @@ def monthly_fee(stream,q,ctx,ppy,evaluator):
         result=(inc,cost,qty,{k:v[mi] for k,v in rec.items() if isinstance(v,list) and len(v)>mi})
         cache[key]=result;visiting.remove(key);return result
     rows=[eval_month(stream,mi) for mi in range(lo,hi)];inc=sum(x[0] for x in rows);cost=sum(x[1] for x in rows)
-    level=stream.get('basis')=='account';qty=sum(x[2] for x in rows)/(width if level else 1)
+    level=stream.get('basis') in {'account','balance'};qty=sum(x[2] for x in rows)/(width if level else 1)
     name=stream.get('name');ctx.setdefault('stream_qty',{})[name]=qty
     sid=stream.get('quantity_series_id')
     if sid:
@@ -223,6 +225,15 @@ def monthly_fee(stream,q,ctx,ppy,evaluator):
                 if field in {'pricing_factor','effective_cost_factor'} and qty:
                     numer=sum(x[2]*(x[3].get(field) or 0.) for x in rows)
                     v=numer/qty
+                    if field=='pricing_factor' and stream.get('basis')=='balance':
+                        # Balance prices are annual rates, unlike Account's $/engine-period price.
+                        v=numer/(qty*width)
+                    if field=='effective_cost_factor':
+                        kind=(stream.get('cost') or {}).get('kind')
+                        if kind in {'pct_of_revenue','pct_of_revenue_opex'}:
+                            gross=sum(x[3].get('gross_fee_revenue',0.) or 0. for x in rows)
+                            v=(sum((x[3].get('gross_fee_revenue',0.) or 0.)*(x[3].get(field) or 0.) for x in rows)/gross if gross else sum(x[3].get(field,0.) or 0. for x in rows)/width)
+                        elif kind=='periodic_amount_opex':v=cost
                 arr=rec.setdefault(field,[])
                 while len(arr)<q:arr.append(None)
                 arr[q-1]=v

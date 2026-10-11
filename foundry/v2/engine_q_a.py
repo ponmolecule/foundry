@@ -314,12 +314,18 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
             sched = {str(i + 1): ppy * _w[i] * cum9 for i in range(_win)}
             if not isinstance(p.get("overrides"), dict):
                 p["overrides"] = {}
-            p["overrides"]["charge_off_ann"] = sched
+            if p.get("repayment_profile") is not None:
+                if p["repayment_profile"].get("loss_basis") != "annual_balance": raise ValueError("DFAST absolute balance loss cannot be applied to a lifetime-volume repayment profile")
+                p["_profile_loss_overrides"] = sched
+            else:
+                p["overrides"]["charge_off_ann"] = sched
         else:
             p["charge_off_ann"] = (p.get("charge_off_ann") or 0.0) * co_m
+            if p.get("repayment_profile") is not None: p["_profile_loss_mult"] = co_m
         if p.get("reserve_rate_pct_bal") is not None:
             p["reserve_rate_pct_bal"] *= res_m
         p["originations_q"] = (p.get("originations_q") or 0.0) * (1 - (ov.get("origination_volume_haircut", 0) or 0))
+        if p.get("repayment_profile") is not None: p["_profile_volume_mult"] = 1 - (ov.get("origination_volume_haircut", 0) or 0)
         mb = p.get("mortgage_banking")
         if mb:
             if "gain_on_sale_margin" in mb:
@@ -716,6 +722,14 @@ def run_pf_a(cfg):
             if any(float(v) < 0 for v in _loan["_credit_loss_factor"]):
                 raise ValueError("credit loss factor must be nonnegative")
 
+    from .repayment_profiles import resolve as resolve_repayment_profile
+    for _loan in lend:
+        if _loan.get('repayment_profile') is not None:
+            _profile = resolve_repayment_profile(_loan, a, Q, ppy, _loan['_linked_balance'], _growth_ctx)
+            _loan['_repayment_profile'] = _profile
+            _loan['_linked_balance'].update({k:_profile[k] for k in ('ending_balance','distributed_balance','funded_volume','source_activity','outstanding')})
+            _loan['_alll'][0] = _profile['opening_allowance']
+
     # Allocate independently-authored loan level targets after deposit books have
     # resolved. A group references either an entered capacity or the pre-credit
     # deposit balance; this ordering prevents a loan/deposit funding feedback loop.
@@ -871,7 +885,11 @@ def run_pf_a(cfg):
                 _loss_factor = (p.get("_credit_loss_factor") or [1.0] * Q)[q - 1]
                 co = end * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) * _loss_factor / ppyf
                 o = end - beg + beg * _ovq(p, "runoff_q", q, p.get("runoff_q") or 0.0) + co
-            avg = (beg + end) / 2.0
+            if p.get('_repayment_profile') is not None:
+                _profile = p['_repayment_profile']
+                co = _profile['charge_offs'][q-1];o = _profile['retained_funded'][q-1]
+                retained = o
+            avg = (p['_repayment_profile']['average'][q-1] if p.get('_repayment_profile') is not None else (beg + end) / 2.0)
             p["_bal"].append(end); p["_avg"].append(avg); p["_co"].append(co); p["_orig"].append(o)
             _interest_basis = avg
             if _linked_level is not None and _linked_level.get("source") in {"entered", "funded_flow"}:
@@ -880,8 +898,12 @@ def run_pf_a(cfg):
                                    beg if _measure == "period_begin" else avg)
             if _linked_level is not None:
                 p.setdefault("_interest_basis", [None]).append(_interest_basis)
+            if p.get("_repayment_profile") is not None:
+                _interest_basis = p["_repayment_profile"]["interest_basis"][q-1]
+                p["_interest_basis"][-1] = _interest_basis
             p["_ii"].append(_interest_basis * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
+                                                            **({"_profile_monthly_operands": {"own_balance":[x['average'] for x in p['_repayment_profile']['monthly']], "distributed_balance":[x['distributed'] for x in p['_repayment_profile']['monthly']], "product_funded_flow":p['_repayment_profile']['monthly_funded_volume']}} if p.get('_repayment_profile') is not None else {}),
                                                             **({"product_funded_flow": _linked_level["funded_volume"][q - 1]}
                                                                if _linked_level and "funded_volume" in _linked_level else {}),
                                                             **({"distributed_balance": _linked_level["distributed_balance"][q - 1]}
@@ -894,7 +916,9 @@ def run_pf_a(cfg):
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
-            if p.get("allowance_mode") == "loss_rate_term":
+            if p.get("_repayment_profile") is not None:
+                _allowance = p["_repayment_profile"]["allowance"][q-1]
+            elif p.get("allowance_mode") == "loss_rate_term":
                 _loss_factor = (p.get("_credit_loss_factor") or [1.0] * Q)[q - 1]
                 _allowance = end * _ovq(p, "charge_off_ann", q, p.get("charge_off_ann") or 0.0) * _loss_factor * float(p["term_days"]) / float(p["day_count"])
             else:
@@ -1759,6 +1783,9 @@ def run_pf_a(cfg):
                         _pr["allocationTargetId"] = p["allocation_target_id"]
                         _pr["targetBeforeAllocation"] = list(_lb["target_before_allocation"])
                         _pr["distributedBalance"] = list(_lb["distributed_balance"])
+                    if p.get("_repayment_profile") is not None:
+                        _pr["repayments"] = list(p["_repayment_profile"]["repayments"])
+                        _pr["distributedBalance"] = list(p["_repayment_profile"]["distributed_balance"])
                     products.append(_pr)
                     continue
                 _pr["balanceDriver"] = {
@@ -1857,4 +1884,6 @@ def run_pf_a(cfg):
     if _deposit_pools:
         _out["deposit_retention_pools"] = {p["config"]["id"]: p["audit"] for p in _deposit_pools}
     if _gross_enabled: _out["expense_gross_up"] = {"periods": [_gross_audit[k] for k in sorted(_gross_audit)], "units": "dollars"}
+    if any(p.get("_repayment_profile") is not None for p in lend):
+        _out["repayment_profiles"] = [{"product": p.get("name"), "product_index": i, "profile": copy.deepcopy(p["_repayment_profile"]), "convention": copy.deepcopy(p["repayment_profile"])} for i,p in enumerate(lend) if p.get("_repayment_profile") is not None]
     return _out
