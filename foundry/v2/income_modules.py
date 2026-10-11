@@ -98,15 +98,16 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
                resolve_linked_components(_c, Q, ppy, context=growth_context, assumptions=a))
         _sett = normalize_settlement(_c.get("settlement"), ppy)
         if _cp is not None:
-            _linked.append({**_cp, "category_index": _ci})
+            _linked.append({**_cp, "category_index": _ci, "_gross_raw": _c})
         elif _lc:
-            _linked.extend({**x, "category_index": _ci} for x in _lc)
+            _raw_lc = _c.get("linked_components") or []
+            _linked.extend({**x, "category_index": _ci, "_gross_raw": (_raw_lc[j] if j < len(_raw_lc) else {})} for j, x in enumerate(_lc))
         _sr = resolve_settlement(_arr, _sett, ppy, context=growth_context)
         for _i in range(Q):
             _sett_pre[_i] += _sr["prepaid"][_i]
             _sett_acc[_i] += _sr["accrued"][_i]
             _sett_cash[_i] += _sr["cash"][_i]
-    return {"comp": comp, "categories": cats, "linked_components": _linked,
+    return {"comp": comp, "categories": cats, "_category_series": _cat_series, "linked_components": _linked,
              "settlement_prepaid": _sett_pre, "settlement_accrued": _sett_acc,
              "settlement_cash": _sett_cash,
              "gross_up_rate": float(nd.get("other_gross_up_rate") or 0.0),

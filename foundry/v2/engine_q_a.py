@@ -466,6 +466,8 @@ def run_pf_a(cfg):
     # reconciliation/audit output.  They do not participate in any downstream model
     # calculation.  Stable quantity_series_id remains the identity key.
     _fee_stream_econ_series = {}
+    from .gross_up import active as _gross_active, calculate as _gross_calculate
+    _gross_enabled = _gross_active(a); _gross_audit = {}
     _fee_stream_qty_known_ids = {
         str((st or {}).get("quantity_series_id") or "").strip()
         for _prod in (lend + dep + obs)
@@ -1407,6 +1409,7 @@ def run_pf_a(cfg):
                 if _total_sid:
                     _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
             _linked_opex = 0.0
+            _gross_linked_values = []
             _nie_linked_cat_by_q[q] = {}   # r300: overwritten if the solver re-runs this period
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
@@ -1424,6 +1427,7 @@ def run_pf_a(cfg):
                                  "workforce_count": _wf_count_map_q,
                                  "periods_per_year": ppy})
                 _linked_opex += float(_lr.get("expense") or 0.0)
+                _gross_linked_values.append(float(_lr.get("expense") or 0.0))
                 _lci = _lc.get("category_index")
                 if _lci is not None:
                     _nie_linked_cat_by_q[q][int(_lci)] = _nie_linked_cat_by_q[q].get(int(_lci), 0.0) + float(_lr.get("expense") or 0.0)
@@ -1434,6 +1438,10 @@ def run_pf_a(cfg):
                      + _fdic + _occ + dep_exp_t[q] + prod_ox)
             _r = _nie_d["gross_up_rate"]
             overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+            if _gross_enabled:
+                _gross_row = _gross_calculate(a, q, ppy, _nie_d, compensation=_comp_q, role_rows=(_wf_runtime.rows if _wf_runtime is not None else []), additive_values=[], fdic=_fdic, occ=_occ, depreciation=dep_exp_t[q], fixed_assets=_fa, products=lend+dep+obs, linked_values=_gross_linked_values, fee_economics=_fee_stream_econ_series, product_total=prod_ox)
+                _gross_audit[q] = _gross_row
+                overhead = (_sub - prod_ox) + _gross_row['gross_up']
             workforce_comp = _comp_q
             other_opex = overhead - workforce_comp - depreciation_expense
         else:
@@ -1575,6 +1583,10 @@ def run_pf_a(cfg):
                 _sub = (_comp_q + _nie_d["categories"][q - 1] + _linked_opex
                         + _fdic + _occ + dep_exp_t[q] + prod_ox)
                 overhead = (_sub - prod_ox) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+                if _gross_enabled:
+                    _gross_row = _gross_calculate(a, q, ppy, _nie_d, compensation=_comp_q, role_rows=(_wf_runtime.rows if _wf_runtime is not None else []), additive_values=_wf_add_values if _wf_runtime is not None and _wf_runtime.additive_components else [], fdic=_fdic, occ=_occ, depreciation=dep_exp_t[q], fixed_assets=_fa, products=lend+dep+obs, linked_values=_gross_linked_values, fee_economics=_fee_stream_econ_series, product_total=prod_ox)
+                    _gross_audit[q] = _gross_row
+                    overhead = (_sub - prod_ox) + _gross_row['gross_up']
                 workforce_comp = _comp_q
                 other_opex = overhead - workforce_comp - depreciation_expense
                 nie = prod_ox + fee_opex + overhead
@@ -1844,4 +1856,5 @@ def run_pf_a(cfg):
         _out["loan_allocation_groups"] = copy.deepcopy(_allocation_audit)
     if _deposit_pools:
         _out["deposit_retention_pools"] = {p["config"]["id"]: p["audit"] for p in _deposit_pools}
+    if _gross_enabled: _out["expense_gross_up"] = {"periods": [_gross_audit[k] for k in sorted(_gross_audit)], "units": "dollars"}
     return _out

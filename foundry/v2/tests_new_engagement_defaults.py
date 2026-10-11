@@ -12,7 +12,10 @@ class Tests(unittest.TestCase):
    if 'nie_detail' in new['assumptions']:self.assertEqual(new['assumptions']['nie_detail']['fdic_bp_ann'],0)
    expected=copy.deepcopy(before)
    for key in FUNDING_DEFAULT_KEYS:expected['assumptions'][key]=0
-   if 'nie_detail' in expected['assumptions']:expected['assumptions']['nie_detail']['fdic_bp_ann']=0
+   if 'nie_detail' in expected['assumptions']:
+    expected['assumptions']['nie_detail']['fdic_bp_ann']=0
+    expected['assumptions']['nie_detail']['other_gross_up_rate']=0
+    self.assertEqual(new['assumptions']['nie_detail']['other_gross_up_rate'],0)
    self.assertEqual(new,expected,'Only requested default assumptions change')
  def test_blank_input(self):
   out=neutral_template({'assumptions':{}})

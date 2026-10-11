@@ -1,0 +1,11 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const ctx={cfg:{assumptions:{nie_detail:{categories:[{name:'Expense',linked_components:[{name:'Formula'}]}]},obs_exposures:[{name:'Fee',fee_streams:[{name:'Cost',cost:{kind:'per_unit'}}]}]}},window:null,renderContent(){},refresh(){},esc:x=>String(x)};ctx.window=ctx;
+vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function _grossEligibilityRows('),html.indexOf('function _fixedAssetState(')),ctx);
+let rows=ctx._grossEligibilityRows();assert(!ctx.cfg.assumptions.nie_detail.gross_up_eligibility);
+let i=rows.findIndex(r=>r.label==='Expense');ctx.grossEligibilitySet(i,'exclude');assert.equal(ctx.cfg.assumptions.nie_detail.categories[0].gross_up_eligible,false);
+rows=ctx._grossEligibilityRows();assert.equal(rows.find(r=>r.label.includes('Formula')).def,false);
+i=rows.findIndex(r=>r.label.includes('Formula'));ctx.grossEligibilitySet(i,'include');assert.equal(ctx.cfg.assumptions.nie_detail.categories[0].linked_components[0].gross_up_eligible,true);
+i=rows.findIndex(r=>r.label==='Fee › Cost cost');ctx.grossEligibilitySet(i,'include');let st=ctx.cfg.assumptions.obs_exposures[0].fee_streams[0];assert(st.quantity_series_id);const sid=st.quantity_series_id;ctx.grossEligibilitySet(i,'exclude');assert.equal(st.quantity_series_id,sid);
+assert(ctx._grossEligibilityHtml().includes('width:158px'));assert(ctx._grossEligibilityHtml().includes('Default · excluded'));
+console.log('PASS inherited category/component eligibility, opt-in source identity and compact eligibility editor');

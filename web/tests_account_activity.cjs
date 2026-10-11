@@ -14,5 +14,5 @@ assert(ctx._accountAdoptionHtml('Feed A').includes('Reconciling')||ctx._accountA
 const costs=html.slice(html.indexOf('function _feeCostFactorSetKind('),html.indexOf('function _feeCostFactorTrajectory('));
 ctx._stOwner=()=>({fee_streams:ctx.streams});ctx.streams=[{cost:{kind:'none',params:{}}}];ctx.setTimeout=fn=>fn();vm.runInContext(costs,ctx);ctx._feeCostFactorSetKind(0,0,'per_account');assert.equal(ctx.streams[0].cost.params.period,'month');assert.equal(ctx.streams[0].cost.params.cost_per_account,0);
 assert(html.includes('Cost billing period'));assert(html.includes('Cost per account'));assert(html.includes('account-adoption-card .sec-managed-series-row>input{width:110px'));assert(html.includes('Customer flows / account adoption'));
-assert.equal(fs.readFileSync(__dirname+'/../BUILD_STAMP','utf8').trim(),'foundry-r314-account-activity-costs');
+assert(/^foundry-r(?:31[4-9]|3[2-9]\d|[4-9]\d{2}|\d{4,})-[a-z0-9-]+$/.test(fs.readFileSync(__dirname+'/../BUILD_STAMP','utf8').trim()));
 console.log('PASS optional publishers, stable IDs, exclusive method switch, opening state, source choices, cost period and bounded controls');

@@ -68,6 +68,8 @@ def run_pf_b(cfg):
     from .income_modules import nie_detail_series
     from .regparams import REG_PARAMS as _RP
     _nie_d = nie_detail_series(a, 4, _growth_ctx)
+    from .gross_up import active as _gross_active, calculate as _gross_calculate
+    _gross_enabled = _gross_active(a); _gross_audit = []
     from .opex_extensions import linked_component_period_result
     from .workforce import resolve_workforce_additive_components, workforce_additive_component_amount
     _wf_cfg = ((a.get("nie_detail") or {}).get("workforce") or {})
@@ -263,6 +265,7 @@ def run_pf_b(cfg):
                 if _total_sid:
                     _wf_count_map_q[_total_sid] = sum(float(x or 0.0) for x in _wf_counts_q)
             _linked_opex = 0.0
+            _gross_linked_values = []
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
                     _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
@@ -276,6 +279,7 @@ def run_pf_b(cfg):
                               "workforce_count": _wf_count_map_q,
                               "periods_per_year": 4})
                 _linked_opex += float(_lr.get("expense") or 0.0)
+                _gross_linked_values.append(float(_lr.get("expense") or 0.0))
                 if _li < len(_linked_timing_balances):
                     _linked_timing_balances[_li] += float(_lr.get("timing_delta") or 0.0)
             _role_workforce_comp = _nie_d["comp"][qi]
@@ -310,6 +314,12 @@ def run_pf_b(cfg):
                     + _fdic + _occ + _dep_exp[qi] + opex_prod)
             _r = _nie_d["gross_up_rate"]
             _ovh_b = (_sub - opex_prod) + (_sub * _r / (1 - _r) if 0 < _r < 1 else 0.0)
+            if _gross_enabled:
+                if _wf_count_runtime is not None: _wf_count_runtime.expense_for_period(q)
+                _gross_products = [{**p, '_ox': [0.0]*q+[opex_fixed_q(p)], '_fcost': [0.0]*(q+1)} for p in lend+dep+obs+afs_p+htm_p]
+                _gross_row = _gross_calculate(a, q, 4, _nie_d, compensation=_workforce_comp, role_rows=(_wf_count_runtime.rows if _wf_count_runtime is not None else []), additive_values=_wf_add_values, fdic=_fdic, occ=_occ, depreciation=_dep_exp[qi], fixed_assets=_fa, products=_gross_products, linked_values=_gross_linked_values, product_total=opex_prod)
+                _gross_audit.append(_gross_row)
+                _ovh_b = (_sub - opex_prod) + _gross_row['gross_up']
             _other_opex = _ovh_b - _workforce_comp - _depreciation_expense
             _wf_comp_native.append(float(_workforce_comp or 0.0))
             _wf_role_comp_native.append(float(_role_workforce_comp or 0.0))
@@ -488,4 +498,5 @@ def run_pf_b(cfg):
         }
         if _fa_mode == "formula_level":
             _out["fixed_assets"]["formula_level"] = dict(_fa.get("formula_level") or {})
+    if _gross_enabled: _out["expense_gross_up"] = {"periods": _gross_audit, "units": "dollars"}
     return _out

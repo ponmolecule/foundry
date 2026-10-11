@@ -1774,3 +1774,6 @@ Deposit beta coverage outside the engine. Funding checks and peer placement read
 
 ## r314
 Optional CAC gross new/lost count publishers, reusable account adoption (target-share reconciliation or gross flows), explicit opening subscribers and proportional exits; monthly probability compounding with no same-month reopening; cadence-aware Account costs and participation shares. Native / monthly audit reconciliation; complete r313 result identity preserved without stripping fields. See docs/R314_RELEASE_NOTES.md and docs/R314_VALIDATION.md. Repayment, commitments and gross-up policy deferred.
+
+## r315 — Expense gross-up eligibility
+Explicit group/line eligibility, legacy defaults preserved, audited base/charge, and zero gross-up for new templates. Built directly on r314.

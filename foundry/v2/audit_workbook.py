@@ -2016,4 +2016,11 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
             for cell in row:
                 if cell.row > 2 and cell.column <= 4:
                     cell.alignment = Alignment(vertical="top", wrap_text=True)
+    if results.get('expense_gross_up'):
+        _grows=[]
+        for period in results['expense_gross_up']['periods']:
+            for row in period['rows']:
+                _grows.append([period['period'],row['group'],row['name'],row['amount']/1000,row['eligible'],row['eligible_amount']/1000,period['rate'],period['eligible_base']/1000,period['gross_up']/1000])
+        _write_long_rows(wb.create_sheet('Expense Gross-up'), title='Configured expense gross-up', subtitle='Expense amounts post once. Eligibility controls only base × rate / (1 − rate); monetary values are $000s.', headers=['Period','Group','Expense','Expense ($000s)','Eligible','Eligible amount ($000s)','Rate','Period base ($000s)','Period gross-up ($000s)'],rows=_grows,widths=[12,22,44,22,12,24,12,24,24],formats={4:_RAW_MONEY_FMT,6:_RAW_MONEY_FMT,7:'0.00%',8:_RAW_MONEY_FMT,9:_RAW_MONEY_FMT},freeze_col=4)
+
     return wb

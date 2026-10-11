@@ -398,6 +398,7 @@ class WorkforceRuntime:
         q = int(period)
         total = 0.0
         for st in self.rows:
+            st.setdefault("period_expenses", {})[q] = 0.0
             count_now = float(st["count_series"][q - 1]) if q <= len(st["count_series"]) else 0.0
             # Preserve the released Per-FTE contract exactly: a zero-count row never
             # posted payroll or resolved a metric-triggered hire. Total compensation
@@ -432,7 +433,8 @@ class WorkforceRuntime:
                 annual_now = _annualize_compensation(st["annual"], st["comp_period"]) * mult
             authored_native = annual_now / float(self.ppy)
             based_amount = apply_amount_basis(authored_native, st["comp_basis"], count_now)
-            total += based_amount * (1.0 + st["load"])
+            st["period_expenses"][q] = based_amount * (1.0 + st["load"])
+            total += st["period_expenses"][q]
         return total
 
     def count_for_period(self, period: int) -> list[float]:

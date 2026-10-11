@@ -156,6 +156,9 @@ def validate_config_v2(cfg):
                     "fee income, or a lending product with fee income")
 
     a = cfg["assumptions"]
+    from .gross_up import validate as validate_gross_up
+    try: validate_gross_up(a)
+    except ValueError as e: errs.append(str(e))
     from .tax_interim import validate_tax_policy
     try:
         validate_tax_policy(a, cfg)

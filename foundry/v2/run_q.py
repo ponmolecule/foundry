@@ -698,6 +698,8 @@ def run_v2(cfg):
             "posting_semantic": "non_posting_pricing_source",
         }
 
+    if (base_exact or {}).get("expense_gross_up") is not None:
+        results["expense_gross_up"] = copy.deepcopy(base_exact["expense_gross_up"])
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"

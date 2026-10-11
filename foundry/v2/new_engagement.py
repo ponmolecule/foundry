@@ -8,4 +8,5 @@ def neutral_template(cfg):
         a[key] = 0.0
     if isinstance(a.get('nie_detail'), dict):
         a['nie_detail']['fdic_bp_ann'] = 0.0
+        a['nie_detail']['other_gross_up_rate'] = 0.0
     return out
