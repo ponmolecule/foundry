@@ -36,7 +36,7 @@ PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 _FORMULA_LINK_SOURCES = set(SAFE_REVENUE_DRIVERS) | {
-    NET_FEE_INCOME_DRIVER, "catalog_quantity",
+    NET_FEE_INCOME_DRIVER, "catalog_quantity", "account_activity",
     FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER,
 }
 
@@ -71,7 +71,7 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
                 f"unsupported formula/driver linked source {source!r}; allowed: "
                 + ", ".join(sorted(_FORMULA_LINK_SOURCES)))
         out["source"] = source
-        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER, "catalog_quantity"}:
+        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER, "catalog_quantity", "account_activity"}:
             sid = str(f.get("series_id") or "").strip()
             if not sid:
                 raise ValueError(f"formula/driver linked source {source} requires series_id")
@@ -971,6 +971,12 @@ def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
         return float(vals[i] if i < len(vals) else 0.0)
 
     src = str(factor.get("source") or "")
+    if src == "account_activity":
+        sid = str(factor.get('series_id') or '')
+        meta = (metrics.get('account_activity') or {}).get(sid)
+        if meta is None: raise ValueError('Account activity source unavailable: ' + sid)
+        if meta['temporal'] != 'flow': raise ValueError('Opex account activity links require a count flow; use Account fee costs for recurring servicing')
+        return float(meta['values'][i])
     if src == "catalog_quantity":
         sid = str(factor.get("series_id") or "")
         values = metrics.get("catalog_balances") or {}

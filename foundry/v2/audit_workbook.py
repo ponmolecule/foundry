@@ -267,6 +267,10 @@ def _series_provenance_rows(cfg: Mapping[str, Any]) -> list[list[Any]]:
                     add(path, str(k), str(v).strip(), str(obj.get("owner_module") or ""), str(k).removesuffix("_series_id"),
                         str(obj.get("source") or ""), str(obj.get("trajectory") or obj.get("mode") or ""),
                         str(obj.get("cadence") or obj.get("period") or ""), str(obj.get("resolution") or ""))
+            for _field in ('activity_series_ids', 'series_ids'):
+                if isinstance(obj.get(_field), Mapping):
+                    for sem, dsid in obj[_field].items():
+                        add(f'{path}.{_field}', str(sem), dsid, 'account_activity', str(sem), 'derived')
             if isinstance(obj.get("derived_series_ids"), Mapping):
                 for sem, dsid in obj.get("derived_series_ids").items():
                     add(f"{path}.derived_series_ids" if path else "derived_series_ids", str(sem), dsid,
@@ -617,7 +621,7 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
                     "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
             "fee_stream_quantities": qmap,
-                    "customer_acquisition_auc_monthly": ctx["cac_monthly"],
+                    "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
                     "customer_acquisition_auc_beginning": ctx["cac_beginning"],
                     "fee_stream_quantity_history": ctx["quantity_history"],
                     "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
@@ -674,7 +678,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
             "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
             "fee_stream_quantities": qmap,
-            "customer_acquisition_auc_monthly": ctx["cac_monthly"],
+            "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
             "customer_acquisition_auc_beginning": ctx["cac_beginning"],
             "fee_stream_quantity_history": ctx["quantity_history"],
             "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
@@ -963,7 +967,7 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
                 "periods_per_year": ppy, "income_statement_flow_history": flow_hist,
                 "fee_stream_quantities": {sid0: (arr[i] if i < len(arr) else 0.0)
                                           for sid0, arr in ctx["quantity_history"].items()},
-                "customer_acquisition_auc_monthly": ctx["cac_monthly"],
+                "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
                 "customer_acquisition_auc_beginning": ctx["cac_beginning"],
                 "fee_stream_quantity_history": ctx["quantity_history"],
                 "fee_stream_quantity_known_ids": ctx["known_quantity_ids"],
@@ -1143,7 +1147,11 @@ def _fee_cost_rows(cfg, results, n, ppy, exact=None):
             sname = str((st or {}).get("name") or f"Stream {si+1}")
             section = f"{pname} › {sname}"
             sid = str((st or {}).get("quantity_series_id") or "")
-            if kind == "per_unit":
+            if kind == 'per_account':
+                base = float(params.get('cost_per_account') or 0.)
+                base_units = '$ / account / ' + str(params.get('period') or '')
+                base_fmt = _NUM_FMT
+            elif kind == "per_unit":
                 base = float(params.get("cost_per_unit") or 0.0)
                 base_units = "$ / unit"
                 base_fmt = _NUM_FMT
@@ -1390,7 +1398,9 @@ def _fee_stream_economics_rows(cfg, exact, n):
 
         direct = _series(rec, "direct_cost_factor")
         if any(v is not None for v in direct):
-            if cost_kind == "per_unit":
+            if cost_kind == 'per_account':
+                cunits, cfmt = '$ / account / authored billing period', _RAW_NUM_FMT
+            elif cost_kind == "per_unit":
                 cunits, cfmt = "$ / throughput unit", _RAW_NUM_FMT
             elif cost_kind == "pct_of_throughput_opex":
                 cunits, cfmt = "% of transaction throughput", _PCT_FMT
@@ -1401,10 +1411,10 @@ def _fee_stream_economics_rows(cfg, exact, n):
             rows.append((section, "Cost multiplier", f"{sid}:cost_multiplier", "dimensionless",
                          _series(rec, "cost_multiplier"), _RAW_NUM_FMT))
             rows.append((section, "Effective cost rate / factor", f"{sid}:effective_cost_factor",
-                         cunits, _series(rec, "effective_cost_factor"), cfmt))
+                         "$ / account / engine period" if cost_kind == "per_account" else cunits, _series(rec, "effective_cost_factor"), cfmt))
 
         opcost = _series(rec, "fee_product_cost")
-        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "periodic_amount_opex", "pct_of_revenue_opex", "pct_of_throughput_opex"}:
+        if any(abs(float(v or 0.0)) > 0.0 for v in opcost) or cost_kind in {"per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue_opex", "pct_of_throughput_opex"}:
             rows.append((section, "Fee Product cost · stream output", f"{sid}:fee_product_cost",
                          "$000s / engine period", _money_k_series(opcost), _RAW_MONEY_FMT))
     return rows
@@ -1694,7 +1704,9 @@ def _all_series_rows(results, n):
         seen.add(path)
         arr = vals[1:] if len(vals) == n + 1 else vals
         low = path.lower()
-        if low.startswith("deposit_retention_pools.") and low.endswith(".bindinglimit"):
+        if low.startswith("account_activity."):
+            units, fmt = "count", _COUNT_FMT
+        elif low.startswith("deposit_retention_pools.") and low.endswith(".bindinglimit"):
             units, fmt = "enum: 0=none, 1=share, 2=capacity, 3=both", _COUNT_FMT
         elif any(x in low for x in ("count", "customer")):
             units, fmt = "native / count", _COUNT_FMT
@@ -1975,6 +1987,24 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Income Taxes"), cfg, _tax_rows(results, exact, n),
                      title="Income Taxes · Calculation Audit",
                      subtitle="Tax years follow the calendar. The NOL limitation applies to prior-year carryforwards. Current-year losses are provisional until year-end. Current tax is a provision, not a cash-payment schedule. See Config Snapshot for recognition assessment and policy.", n=n, ppy=ppy)
+    if results.get('account_activity'):
+        from .account_activity import catalog as activity_catalog
+        _meta = {x['series_id']:x for x in activity_catalog(cfg.get('assumptions') or {})}
+        _rows = []
+        for sid, data in results['account_activity']['series'].items():
+            _rows.append(('Account activity', _meta[sid]['label'], sid, 'count / period' if data['temporal']=='flow' else 'count EOP', data['values'], _COUNT_FMT))
+        _write_wide_rows(wb.create_sheet('Account Activity'), cfg, _rows, title='Account activity', subtitle='Non-posting count publishers. Gross versus reconciling labels reflect the selected method; exits assume proportional customer attrition.', n=n, ppy=ppy)
+        _ws=wb.create_sheet('Adoption Monthly')
+        _ws.append(['Source','Method','Month','Beginning subscribers','Customer exits','Additions','Cancellations / closures','Ending subscribers','Adoption share','Eligible existing non-holders'])
+        for item in results['account_activity']['adoption'].values():
+            for row in item['monthly']:
+                _ws.append([item['name'],item['mode'],row['month'],row['beginning'],row['customer_exits'],row['additions'],row['cancellations'],row['ending'],row['adoption_share'],row['eligible_existing_nonholders']])
+        _style_header(_ws,1,10);_ws.freeze_panes='D2';_ws.auto_filter.ref=_ws.dimensions
+        for c in ('A','B'):_ws.column_dimensions[c].width=25
+        for c in ('C','D','E','F','G','H','I','J'):_ws.column_dimensions[c].width=20
+        for row in _ws.iter_rows(min_row=2):
+            for cell in row[3:]:cell.number_format=_RATE_FMT if cell.column==9 else _COUNT_FMT
+
     _write_wide_rows(wb.create_sheet("All Series"), cfg, _all_series_rows(results, n),
                      title="All Public Run Series · Audit",
                      subtitle="Catch-all numeric Series inventory. Use subsystem sheets first; this sheet is the completeness backstop.", n=n, ppy=ppy)

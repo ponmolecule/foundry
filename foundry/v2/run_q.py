@@ -674,6 +674,11 @@ def run_v2(cfg):
             }
         results["customer_acquisition"] = _cac_out
 
+    if (cfg.get('assumptions') or {}).get('account_adoption') or any(f.get('activity_series_ids') or any(c.get('activity_series_ids') for c in f.get('channels') or []) for f in ((cfg.get('assumptions') or {}).get('cac_feeds') or {}).values()):
+        from .account_activity import resolve as resolve_activity
+        _activity, _adoption = resolve_activity(cfg['assumptions'], _NP, _ppy, _cac_growth_ctx)
+        results['account_activity'] = {'series': _activity, 'adoption': _adoption, 'units':'count', 'calculationCadence':'month'}
+
     # Cost pools are non-posting pricing sources, but their resolved native-period amounts are
     # useful audit evidence. Surface stable-ID series once per run so the authoring UI can show
     # exactly what the downstream recovery/markup fee observed.

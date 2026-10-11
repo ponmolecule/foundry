@@ -34,14 +34,14 @@ def source_catalog(a):
                     visited=visited|{node};d=plan.nodes[node].get('driver') or {}
                     dep=plan.deps[node]
                     if dep is not None:return globally_upstream(dep,visited)
-                    return d.get('source','constant') in {'constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'}
+                    return d.get('source','constant') in {'constant','own_balance','managed_notional','customer_acquisition_count','account_activity','cost_pool'}
                 return globally_upstream((pi,i),set())
             driver = streams[i].get('driver') or {}
             source = driver.get('source', 'constant')
             if source == 'stream_ref':
                 refs = [j for j, other in enumerate(streams) if other.get('name') == driver.get('ref')]
                 return len(refs) == 1 and upstream(refs[0], seen)
-            return source in {'constant', 'own_balance', 'managed_notional', 'customer_acquisition_count', 'cost_pool'}
+            return source in {'constant', 'own_balance', 'managed_notional', 'customer_acquisition_count', 'account_activity', 'cost_pool'}
         for i, st in enumerate(streams):
             sid = str(st.get('quantity_series_id') or '').strip()
             if not sid:

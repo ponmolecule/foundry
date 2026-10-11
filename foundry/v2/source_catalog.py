@@ -77,6 +77,9 @@ def catalog(a):
         if x['kind']=='lending_funded_flow':rows.append(dict(series_id=x['series_id'],label=x['label'],family='Lending',unit='money_flow',temporal='flow',measures=[],consumers=['deposit_transaction'],driver='lending_funded_flow',basis='transaction'))
     from .cac_feeder import cac_customer_count_catalog
     from .cost_pools import cost_pool_catalog
+    from .account_activity import catalog as activity_catalog
+    for x in activity_catalog(a):
+        rows.append(dict(x, family='Account activity', unit='count', measures=['period_end','period_average'] if x['temporal']=='level' else [], consumers=['fee_account_activity'] + (['opex_formula'] if x['temporal']=='flow' else []), driver='account_activity'))
     for x in cac_customer_count_catalog(a):
         rows.append(dict(x,label='Customer acquisition › '+x['feed']+' › Customers',family='Customer acquisition',unit='count',temporal='level',measures=['period_end','period_average'],consumers=['fee_customer_count'],driver='customer_acquisition_count'))
     for x in cost_pool_catalog(a):

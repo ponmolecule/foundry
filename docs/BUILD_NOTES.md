@@ -1770,3 +1770,7 @@ See R312_RELEASE_NOTES.md and R312_VALIDATION.md. Direct continuation of r311; o
 
 ## r313
 Deposit beta coverage outside the engine. Funding checks and peer placement read the deposit rate the engine pays (beta, floor, cap) and use the engine's own SOFR/EFFR/Prime curve set instead of the legacy SOFR path. Config workbook and input workbook carry beta, floor and cap. The unsaved-changes Download in v3.1 produces the self-contained input workbook instead of the lossy config workbook. Beta, floor and cap sit under the Pricing sub-tab; labels in the unsaved list, Change history and the Design Lab. Engine arithmetic unchanged. Review memo: docs/R313_REVIEW_MEMO.md.
+
+
+## r314
+Optional CAC gross new/lost count publishers, reusable account adoption (target-share reconciliation or gross flows), explicit opening subscribers and proportional exits; monthly probability compounding with no same-month reopening; cadence-aware Account costs and participation shares. Native / monthly audit reconciliation; complete r313 result identity preserved without stripping fields. See docs/R314_RELEASE_NOTES.md and docs/R314_VALIDATION.md. Repayment, commitments and gross-up policy deferred.

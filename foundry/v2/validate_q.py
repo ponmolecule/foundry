@@ -366,6 +366,9 @@ def validate_config_v2(cfg):
                     for _x in _lc:
                         if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
                             raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
+                        if _x.get('driver') == 'fee_stream_quantity':
+                            from .account_activity import expense_cycle
+                            if expense_cycle(a, cat, _x.get('series_id')): raise ValueError('Fee quantity expense would create a circular account activity dependency')
                         if _x.get("driver") == "customer_acquisition_auc":
                             if _x.get("series_id") not in _auc_ids:
                                 raise ValueError(f"linked CAC AUC Series {_x.get('series_id')!r} does not exist")
@@ -410,6 +413,16 @@ def validate_config_v2(cfg):
                                             raise ValueError("Linked balance would create a circular dependency through this Operating Expense category")
                                     if _src == "fee_stream_quantity" and _sid not in _fee_qty_ids:
                                         raise ValueError(f"formula/driver Fee-stream quantity Series {_sid!r} does not exist")
+                                    if _src == 'fee_stream_quantity':
+                                        from .account_activity import expense_cycle
+                                        if expense_cycle(a, cat, _sid): raise ValueError('Fee quantity expense would create a circular account activity dependency')
+                                    if _src == 'account_activity':
+                                        from .account_activity import catalog as activity_catalog
+                                        rows = [x for x in activity_catalog(a) if x['series_id'] == _sid]
+                                        if len(rows) != 1: raise ValueError('Account activity source does not exist')
+                                        if rows[0]['temporal'] != 'flow': raise ValueError('Opex requires count flows; use Account costs for recurring servicing')
+                                        from .account_activity import expense_cycle
+                                        if expense_cycle(a, cat, _sid): raise ValueError('Account activity expense would create a circular CAC dependency')
                                     if _src == "customer_acquisition_auc":
                                         if _sid not in _auc_ids:
                                             raise ValueError(f"formula/driver CAC AUC Series {_sid!r} does not exist")
@@ -575,6 +588,16 @@ def validate_config_v2(cfg):
     except (TypeError, ValueError) as e:
         errs.append(f"cost_pools invalid: {e}")
 
+    try:
+        from .account_activity import resolve as resolve_activity
+        _activity, _ = resolve_activity(a, max(1, int(a.get('n_periods') or _ppy)), _ppy, _growth_ctx)
+        from .account_activity import validate_fee_paths
+        validate_fee_paths(a, max(1, int(a.get('n_periods') or _ppy)), _ppy, _growth_ctx)
+        if cfg.get('parity_profile') != 'pf_a' and any((s.get('driver') or {}).get('source') == 'account_activity' or (s.get('cost') or {}).get('kind') == 'per_account' or ((s.get('driver') or {}).get('params') or {}).get('share_spec') is not None for k in ('obs_exposures','deposit_products','lending_products') for p in a.get(k) or [] for s in p.get('fee_streams') or []):
+            raise ValueError('Account activity fee streams require the fee-stream engine (pf_a)')
+    except (ValueError, TypeError, KeyError) as e:
+        errs.append(f'Account activity invalid: {e}')
+        _activity = {}
     for pi, prod in enumerate(a.get("obs_exposures") or []):
         mn = prod.get("managed_notional") or {}
         if mn.get("growth_spec"):
@@ -591,6 +614,12 @@ def validate_config_v2(cfg):
                     _linked_pool = resolve_cost_pool_ref((st.get("driver") or {}).get("ref"), a)
                     if not ((_linked_pool or {}).get("components") or []):
                         raise ValueError("referenced cost_pool requires at least one eligible expense component")
+                if ((st.get('driver') or {}).get('source') == 'account_activity'):
+                    from .account_activity import catalog as activity_catalog
+                    rows = [x for x in activity_catalog(a) if x['series_id'] == (st.get('driver') or {}).get('ref')]
+                    if len(rows) != 1: raise ValueError('Account activity source does not exist')
+                    if (st.get('basis') == 'account') != (rows[0]['temporal'] == 'level'):
+                        raise ValueError('Account activity count level / flow does not match fee basis')
                 if ((st.get("driver") or {}).get("source") == "customer_acquisition_count"):
                     from .cac_feeder import cac_customer_count_catalog
                     _count_ids = {x["series_id"] for x in cac_customer_count_catalog(a)}

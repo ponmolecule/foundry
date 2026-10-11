@@ -30,7 +30,10 @@ from .income_modules import (
 
 GUIDE_SCHEMA_VERSION = 12
 # Loan-only sources do not exist on a Fee Product.
-_GUIDE_SOURCES = _FEE_SOURCES - {"distributed_balance", "product_funded_flow"}
+# New opt-in population mechanics are authored in Customer acquisition, not guessed
+# by Guide Me's fee-only plan/materializer. Keep its supported vocabulary explicit.
+_GUIDE_SOURCES = _FEE_SOURCES - {"distributed_balance", "product_funded_flow", "account_activity"}
+_GUIDE_COST_KINDS = _FEE_COST_KINDS - {"per_account"}
 ANTHROPIC_MESSAGES_URL = "https://api.anthropic.com/v1/messages"
 ANTHROPIC_VERSION = "2023-06-01"
 DEFAULT_MODEL = "claude-sonnet-5"
@@ -218,7 +221,7 @@ def fee_guide_manifest():
     The IDs come from the current evaluator constants, so the guide cannot quietly
     grow a parallel product taxonomy. Labels/instructions mirror the current UI.
     """
-    for ids, labels in ((_GUIDE_SOURCES, _SOURCE_LABELS), (_FEE_BASES, _BASIS_LABELS), (_FEE_TRAJECTORIES, _TRAJECTORY_LABELS), (_FEE_RATE_BEHAVIORS, _RATE_LABELS), (_FEE_COST_KINDS, _COST_LABELS)):
+    for ids, labels in ((_GUIDE_SOURCES, _SOURCE_LABELS), (_FEE_BASES, _BASIS_LABELS), (_FEE_TRAJECTORIES, _TRAJECTORY_LABELS), (_FEE_RATE_BEHAVIORS, _RATE_LABELS), (_GUIDE_COST_KINDS, _COST_LABELS)):
         missing = set(ids) - set(labels)
         if missing:
             raise ValueError("Guide Me vocabulary labels missing: " + ", ".join(sorted(missing)))
@@ -229,7 +232,7 @@ def fee_guide_manifest():
         "driver_sources": [{"id": x, "label": _SOURCE_LABELS[x]} for x in sorted(_GUIDE_SOURCES)],
         "driver_trajectories": [{"id": x, "label": _TRAJECTORY_LABELS[x]} for x in sorted(_FEE_TRAJECTORIES)],
         "rate_behaviors": [{"id": x, "label": _RATE_LABELS[x]} for x in sorted(_FEE_RATE_BEHAVIORS)],
-        "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_FEE_COST_KINDS)],
+        "cost_kinds": [{"id": x, "label": _COST_LABELS[x]} for x in sorted(_GUIDE_COST_KINDS)],
         "revenue_presentations": [
             {"id": "revenue", "label": "Revenue"},
             {"id": "contra_revenue", "label": "Contra-revenue"},
@@ -325,7 +328,7 @@ def _guide_output_schema():
                 "enum": ["flat", "growth", "explicit_schedule", "not_applicable"],
             },
             "rate_behavior": {"type": "string", "enum": sorted(_FEE_RATE_BEHAVIORS)},
-            "cost_kind": {"type": "string", "enum": sorted(_FEE_COST_KINDS)},
+            "cost_kind": {"type": "string", "enum": sorted(_GUIDE_COST_KINDS)},
             "revenue_presentation": {"type": "string", "enum": ["revenue", "contra_revenue"]},
         },
         "required": [
@@ -720,7 +723,7 @@ def validate_guide_plan(plan):
             raise ValueError(f"Guide Me invented unsupported rate behavior {item['rate_behavior']!r}")
         if item["rate_behavior"] not in _ALLOWED_RATE_BY_BASIS.get(item["basis"], set()):
             raise ValueError(f"Guide Me returned rate behavior {item['rate_behavior']!r} incompatible with basis {item['basis']!r}")
-        if item["cost_kind"] not in _FEE_COST_KINDS:
+        if item["cost_kind"] not in _GUIDE_COST_KINDS:
             raise ValueError(f"Guide Me invented unsupported cost kind {item['cost_kind']!r}")
         if item["cost_kind"] == "per_unit" and item["basis"] != "transaction":
             raise ValueError("Guide Me per-unit cost requires transaction basis")

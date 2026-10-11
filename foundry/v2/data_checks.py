@@ -557,7 +557,8 @@ def run_checks(cfg, runner=None, saved=None):
 
 def _fee_link_findings(cfg):
     """Nonblocking authoring checks; quantities and financial posting are independent."""
-    products = (cfg.get("assumptions") or {}).get("obs_exposures") or []
+    a = cfg.get("assumptions") or {}
+    products = a.get("obs_exposures") or []
     ids = {s.get("quantity_series_id"): s for p in products for s in p.get("fee_streams") or [] if s.get("quantity_series_id")}
     def active(s):
         for k in ("rate", "cost"):
@@ -572,6 +573,14 @@ def _fee_link_findings(cfg):
             d = st.get("driver") or {}; params = d.get("params") or {}; ref = d.get("ref")
             source = ids.get(ref) if d.get("source") == "fee_stream_quantity" else next((x for x in streams if x.get("name") == ref), None) if d.get("source") == "stream_ref" else None
             hints = []
+            if (st.get('cost') or {}).get('kind') == 'per_unit':
+                from .income_modules import _fee_stream_quantity_kinds
+                from .fee_links import has_links, FeeLinkPlan
+                try:
+                    kind = FeeLinkPlan(a).kinds[(pi,si)] if has_links(a) else _fee_stream_quantity_kinds(streams).get(si)
+                    if kind == 'count':
+                        hints.append('Per-unit cost on a count flow is charged per event. If this is recurring account servicing, use Account basis and Cost per account with an explicit billing period.')
+                except ValueError: pass
             if source and active(source) and active(st):
                 hints.append("Both this stream and its source post revenue or cost. Confirm that these are separate charges; a quantity-only source should have zero pricing and no costs.")
             coef = params.get("coefficient") or {}

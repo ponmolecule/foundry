@@ -477,6 +477,14 @@ def run_pf_a(cfg):
     # a second count path.
     _cac_customer_count_series = cac_customer_count_measure_series_map(
         a, Q, ppy, growth_context=_growth_ctx) if (a.get("cac_feeds") or {}) else {}
+    from .account_activity import resolve as resolve_account_activity
+    _activity_series, _adoption_audit = resolve_account_activity(a, Q, ppy, _growth_ctx)
+    _cac_monthly_counts = {}
+    if _activity_series or any((s.get('cost') or {}).get('kind') == 'per_account' for k in ('obs_exposures','lending_products','deposit_products') for p in a.get(k) or [] for s in p.get('fee_streams') or []):
+        for f in (a.get('cac_feeds') or {}).values():
+            r = cac_auc_rollforward(f, Q, ppy, assumptions=a, growth_context=_growth_ctx)
+            _cac_monthly_counts[f.get('customer_count_series_id')] = {'period_end':r['customer_end_by_month'], 'period_average':r['customer_average_by_month'], 'annual_count':r['customer_annual_count_by_month']}
+    _activity_stream_owners = {s.get('quantity_series_id'):p.get('fee_streams') or [] for p in obs+dep+lend for s in p.get('fee_streams') or []}
     _ibm = None
 
     def _cost_pool_ctx(period):
@@ -680,7 +688,7 @@ def run_pf_a(cfg):
                                                             "managed_notional": _mn_avg[q - 1],
                                                             "managed_notional_end": _mn_end[q - 1],
                                                             "cost_pool": _cost_pool_ctx(q),
-                                                            "customer_acquisition_count": _cac_customer_count_ctx(q),
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
@@ -877,7 +885,7 @@ def run_pf_a(cfg):
                                                             **({"distributed_balance": _linked_level["distributed_balance"][q - 1]}
                                                                if _linked_level and "distributed_balance" in _linked_level else {}),
                                                             "cost_pool": _cost_pool_ctx(q),
-                                                            "customer_acquisition_count": _cac_customer_count_ctx(q),
+                                                            "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                                                             "capture_stream_qty": _fee_stream_qty_series,
                                                             "capture_stream_economics": _fee_stream_econ_series,
                                                             "growth_context": _growth_ctx}, ppy)
@@ -1238,7 +1246,7 @@ def run_pf_a(cfg):
                 _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
                     "managed_notional_end": _dp["_mn_end"][q - 1],
-                    "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q),
+                    "cost_pool": _cost_pool_ctx(q), "customer_acquisition_count": _cac_customer_count_ctx(q), "account_activity": _activity_series, "cac_monthly_counts": _cac_monthly_counts, "activity_stream_owners": _activity_stream_owners,
                     "capture_stream_qty": _fee_stream_qty_series, "capture_stream_economics": _fee_stream_econ_series,
                     "growth_context": _growth_ctx}, ppy)
                 _dp["_fee"][q] = _avg * (_dp.get("fee_yield_ann") or 0) / ppyf + _inc + _sweep_fee
@@ -1406,7 +1414,7 @@ def run_pf_a(cfg):
                                  "fee_product_costs": fee_opex,
                                  "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                                            for sid, arr in _fee_stream_qty_series.items()},
-                                 "customer_acquisition_auc_monthly": _auc_month_sources,
+                                 "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                                  "customer_acquisition_auc_beginning": _auc_beginning_sources,
                                  "catalog_balances": _catalog_balances_q,
                     "fee_stream_quantity_history": _fee_stream_qty_series,
@@ -1554,7 +1562,7 @@ def run_pf_a(cfg):
                     },
                     "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                               for sid, arr in _fee_stream_qty_series.items()},
-                    "customer_acquisition_auc_monthly": _auc_month_sources,
+                    "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
                     "catalog_balances": _catalog_balances_q,
                     "fee_stream_quantity_history": _fee_stream_qty_series,

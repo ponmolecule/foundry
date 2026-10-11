@@ -1612,6 +1612,9 @@ def v2_source_catalog(cfg: dict, _=Depends(gate)):
             category=next((c for c in (a.get("nie_detail") or {}).get("categories") or [] if c.get("series_id")==category_id),{})
             for row in rows:
                 cyclic=(row['driver']=='catalog_quantity' and balance_link_creates_cycle(a,category,row['series_id'])) or (row['driver']=='customer_acquisition_auc' and auc_link_creates_cycle(a,category,row['series_id']))
+                if row['driver'] in {'account_activity','fee_stream_quantity'}:
+                    from foundry.v2.account_activity import expense_cycle
+                    cyclic = cyclic or expense_cycle(a, category, row['series_id'])
                 if cyclic:
                     row['consumers']=[x for x in row['consumers'] if x!='opex_formula']
                     row['unavailable_reason']='This source depends on the expense category you are editing; linking it back would be circular.'

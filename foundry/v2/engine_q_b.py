@@ -47,6 +47,8 @@ def run_pf_b(cfg):
         _cacr = cac_auc_rollforward(_feed_cfg or {}, Q, 4, assumptions=a, growth_context=_growth_ctx)
         _auc_month_sources[_feed_key] = list(_cacr.get("auc_end_by_month") or [])
         _auc_beginning_sources[_feed_key] = float((_feed_cfg or {}).get("beginning_auc") or 0.0)
+    from .account_activity import resolve as resolve_account_activity
+    _activity_series, _ = resolve_account_activity(a, Q, 4, _growth_ctx)
     from .income_modules import simple_overhead_series
     _simple_overhead = simple_overhead_series(a, Q, 4, _growth_ctx)
     # Cost pools are shared non-posting native-period flows. Profile B does not yet use
@@ -265,7 +267,7 @@ def run_pf_b(cfg):
                 _lr = linked_component_period_result(
                     _lc, qi, {"fee_income": fees, "gain_on_sale": 0.0, "servicing_net": 0.0,
                               "fee_product_costs": 0.0,
-                              "customer_acquisition_auc_monthly": _auc_month_sources,
+                              "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                               "customer_acquisition_auc_beginning": _auc_beginning_sources,
                               "catalog_balances": _catalog_balances_q,
                               "fee_stream_quantity_history": {},
@@ -294,7 +296,7 @@ def run_pf_b(cfg):
                         "net_interest_income": _hist_nii,
                         "total_operating_revenue": _hist_total,
                     },
-                    "customer_acquisition_auc_monthly": _auc_month_sources,
+                    "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
                     "catalog_balances": _catalog_balances_q,
                               "fee_stream_quantity_history": {},

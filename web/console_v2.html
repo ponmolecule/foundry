@@ -824,6 +824,12 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 
 #card-sec .oa-editor select[aria-label="Other asset source"]{width:min(480px,100%)!important;max-width:480px!important}
 .fee-change-inline{display:flex;align-items:center;gap:8px;flex-wrap:wrap}.fee-change-inline>select{width:150px!important;flex:0 0 150px}.fee-change-inline>input{width:100px!important;flex:0 0 100px}.fee-change-inline>span{font-size:11px;color:var(--muted)}.fee-change-schedule{flex:1;min-width:180px}.fee-change-schedule summary{cursor:pointer;font-size:12px}.fee-change-schedule textarea{width:100%;box-sizing:border-box;margin:6px 0}.fee-change-schedule .memo{display:block;margin-top:6px}
+/* r314: bounded controls for optional account adoption; existing theme retained. */
+.account-adoption-card .sec-managed-series-row{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.account-adoption-card .sec-managed-series-row>input{width:110px;min-width:0;max-width:140px}
+.account-adoption-card .sec-managed-series-row>select{width:120px;min-width:0;max-width:160px}
+.account-adoption-card .sec-managed-series{margin-top:8px;padding-top:8px;border-top:1px solid var(--k-line2)}
+.account-adoption-card summary{cursor:pointer;flex-wrap:wrap;list-style:none}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -4459,7 +4465,7 @@ function normalizeCfg(c){
     if(rp && !["balance","transaction"].includes(basis)) delete rp.rate_path;
     if(rp && basis!=="transaction") delete rp.pricing_basis;
     if(basis==="flat"&&rp&&rp.flat_amount&&rp.flat_amount.trajectory==="explicit_schedule"&&(!rp.flat_amount.schedule||!Object.keys(rp.flat_amount.schedule).length)) rp.flat_amount.schedule={"1":+(rp.flat_amount.value||0)};
-    const allowedCosts={balance:["none","pct_of_revenue","pct_of_revenue_opex"],transaction:["none","per_unit","pct_of_throughput_opex","pct_of_revenue","pct_of_revenue_opex"],account:["none","pct_of_revenue","pct_of_revenue_opex"],flat:["none","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex"],event:["none","pct_of_revenue","pct_of_revenue_opex"]};
+    const allowedCosts={balance:["none","pct_of_revenue","pct_of_revenue_opex"],transaction:["none","per_unit","pct_of_throughput_opex","pct_of_revenue","pct_of_revenue_opex"],account:["none","per_account","pct_of_revenue","pct_of_revenue_opex"],flat:["none","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex"],event:["none","pct_of_revenue","pct_of_revenue_opex"]};
     if(st.cost && !(allowedCosts[basis]||["none"]).includes(st.cost.kind||"none")) st.cost={kind:"none",params:{}};
     const fp=st.cost&&st.cost.params&&st.cost.params.factor_path;
     if(fp&&fp.trajectory==="explicit_schedule"&&(!fp.schedule||!Object.keys(fp.schedule).length)) fp.schedule={"1":+(fp.value||0)};
@@ -5628,7 +5634,7 @@ function _feeStreamQuantityKind(i,si,seen){
   if(String(c.kind||"").toLowerCase()==="amount_per_source_unit") return "money";
   const src=String(d.source||"constant").toLowerCase();
   if(["own_balance","managed_notional","bank_aggregate","cost_pool"].includes(src)) return "money";
-  if(src==="customer_acquisition_count") return "count";
+  if(["customer_acquisition_count","account_activity"].includes(src)) return "count";
   if(src==="stream_ref"){
     const ref=String(d.ref||""), j=streams.findIndex(x=>String((x||{}).name||"")===ref);
     return j>=0?_feeStreamQuantityKind(i,j,seen):"native";
@@ -5691,12 +5697,12 @@ function _feeEnsureCostFactor(i,si){
   const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};st.cost.params=st.cost.params||{};
   const cp=st.cost.params;if(cp.factor_path)return cp.factor_path;
   const pct=(st.cost.kind==="pct_of_revenue"||st.cost.kind==="pct_of_revenue_opex"||st.cost.kind==="pct_of_throughput_opex");
-  const legacy=pct?+(cp.pct||0):(st.cost.kind==="periodic_amount_opex"?+(cp.amount||0):+(cp.cost_per_unit||0));
+  const legacy=pct?+(cp.pct||0):(st.cost.kind==="periodic_amount_opex"?+(cp.amount||0):+(st.cost.kind==="per_account"?cp.cost_per_account||0:cp.cost_per_unit||0));
   cp.factor_path={value:legacy,trajectory:"flat",period:"year",resolution:"step"};return cp.factor_path;
 }
 function _feeCostFactorSetKind(i,si,v){
   const st=_stOwner(i).fee_streams[si];st.cost=st.cost||{kind:"none",params:{}};
-  if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};}
+  if(st.cost.kind!==v){st.cost.kind=v;st.cost.params={};if(v==="per_account"){st.cost.params=st.cost.params||{};st.cost.params.period=st.cost.params.period||"month";st.cost.params.cost_per_account=st.cost.params.cost_per_account||0;}else st.cost.params={};}
   // Let the native select event finish before replacing the element that dispatched it.
   // Synchronously rebuilding this subtree made the first Cost-side selection appear to
   // be ignored in some browsers, forcing a second click even though cfg had changed.
@@ -5833,6 +5839,10 @@ function _feeCustomerCountPreviewHtml(seriesId,measure){
   return `<span class="memo" style="margin:3px 0 0">Run the model to preview the linked customer path.</span>`;
 }
 function refreshFeeCustomerCountPreviews(){
+  document.querySelectorAll('[data-fee-activity-preview]').forEach(el=>{
+    const i=+el.getAttribute('data-product-index'),si=+el.getAttribute('data-stream-index'),st=(_stOwner(i).fee_streams||[])[si];
+    if(st&&st.driver.source==='account_activity')el.innerHTML=_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:st.driver.ref});
+  });
   if(!(V31 && currentTab==="products") || !lastRes)return;
   document.querySelectorAll("[data-fee-customer-count-preview]").forEach(el=>{
     const i=+(el.getAttribute("data-product-index")||-1),si=+(el.getAttribute("data-stream-index")||-1);
@@ -5897,7 +5907,7 @@ _feeGlobal.feeStreamBasisChange=function(i,si,v){
   // user changes basis, retire that incompatible draft state immediately instead of letting
   // a hidden transaction field block an otherwise-valid Account/Balance/Flat/Event stream.
   if(["account","flat","event"].includes(v)) delete st.driver.params.coefficient;
-  const allowedCosts={balance:["none","pct_of_revenue","pct_of_revenue_opex"],transaction:["none","per_unit","pct_of_throughput_opex","pct_of_revenue","pct_of_revenue_opex"],account:["none","pct_of_revenue","pct_of_revenue_opex"],flat:["none","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex"],event:["none","pct_of_revenue","pct_of_revenue_opex"]};
+  const allowedCosts={balance:["none","pct_of_revenue","pct_of_revenue_opex"],transaction:["none","per_unit","pct_of_throughput_opex","pct_of_revenue","pct_of_revenue_opex"],account:["none","per_account","pct_of_revenue","pct_of_revenue_opex"],flat:["none","periodic_amount_opex","pct_of_revenue","pct_of_revenue_opex"],event:["none","pct_of_revenue","pct_of_revenue_opex"]};
   if(!(allowedCosts[v]||["none"]).includes(st.cost.kind||"none"))st.cost={kind:"none",params:{}};
   if(st.driver.source==="cost_pool"&&v!=="transaction"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};st.rate={behavior:"flat",params:{}};st.cost={kind:"none",params:{}};}
   if(st.driver.source==="customer_acquisition_count"&&v!=="account"){st.driver={source:"constant",trajectory:"flat",params:{base:0}};}
@@ -5930,6 +5940,7 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
     if(["annual_count","period_end","period_average"].includes(String(d.measure||"")))d._saved_cac_measure=String(d.measure);
   }
   if(v==="cost_pool"){d.source="cost_pool";d.trajectory="flat";var cps=_feeCostPools();if(!d.ref&&cps.length)d.ref=cps[0].series_id;st.rate.behavior="cost_recovery";if(st.rate.params.recovery_pct==null)st.rate.params.recovery_pct=0;if(!st.rate.params.markup)st.rate.params.markup={value:+(st.rate.params.markup_pct||0),period:"year",trajectory:"flat",resolution:"step"};st.cost={kind:"none",params:{}};}
+  else if(v==='account_activity'){d.source=v;d.trajectory='flat';d.params={};d.ref='';d.measure='period_end';}
   else if(v==="customer_acquisition_count"){d.source=v;d.trajectory="flat";var ccs=_feeCustomerCountOptions();var savedRef=String(d._saved_cac_ref||"");if(!d.ref||!ccs.some(o=>o.series_id===String(d.ref)))d.ref=ccs.some(o=>o.series_id===savedRef)?savedRef:(ccs.length?ccs[0].series_id:"");var savedMeasure=String(d._saved_cac_measure||"");d.measure=["annual_count","period_end","period_average"].includes(String(d.measure||""))?String(d.measure):(["annual_count","period_end","period_average"].includes(savedMeasure)?savedMeasure:"period_end");if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else if(v==='fee_stream_quantity'){d.source=v;delete d.ref;delete d.measure;if(old==='constant'&&d.params&&d.params.flow_path)d.trajectory='flat';if(st.rate.behavior==='cost_recovery'){st.rate.behavior='flat';st.rate.params={};}}
   else if(v==="constant"){d.source="constant";delete d.ref;delete d.measure;if(d._saved_constant_trajectory){d.trajectory=d._saved_constant_trajectory;delete d._saved_constant_trajectory;}if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
@@ -6005,7 +6016,7 @@ function depositSources(kind,basis){const legacy=_legacyDepositSources(kind,basi
 function _legacyDepositSources(kind,basis){
   const out=[];
   ((cfg.assumptions||{}).obs_exposures||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{
-    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='fee_stream_quantity'){const hits=((cfg.assumptions||{}).obs_exposures||[]).flatMap(x=>x.fee_streams||[]).filter(x=>x.quantity_series_id===d.ref);return hits.length===1&&upstream(hits[0],seen);}if(s==='stream_ref'){const owner=((cfg.assumptions||{}).obs_exposures||[]).find(x=>(x.fee_streams||[]).includes(node))||p;const hits=(owner.fee_streams||[]).filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','cost_pool'].includes(s);};
+    const streams=p.fee_streams||[],upstream=(node,seen=new Set())=>{if(seen.has(node))return false;seen.add(node);const d=node.driver||{},s=d.source||'constant';if(s==='fee_stream_quantity'){const hits=((cfg.assumptions||{}).obs_exposures||[]).flatMap(x=>x.fee_streams||[]).filter(x=>x.quantity_series_id===d.ref);return hits.length===1&&upstream(hits[0],seen);}if(s==='stream_ref'){const owner=((cfg.assumptions||{}).obs_exposures||[]).find(x=>(x.fee_streams||[]).includes(node))||p;const hits=(owner.fee_streams||[]).filter(x=>x.name===d.ref);return hits.length===1&&upstream(hits[0],seen);}return ['constant','own_balance','managed_notional','customer_acquisition_count','account_activity','cost_pool'].includes(s);};
     if(!st.quantity_series_id)st.quantity_series_id=_seriesId('fee-qty');
     const drv=st.driver||{},pr=drv.params||{},c=pr.coefficient||{},label=(p.name||'Fee product')+' · '+(st.name||'Stream');
     if(kind==='fee_share'&&c.kind==='pct'&&c.semantics==='share')out.push({id:st.quantity_series_id,label:label+' · share schedule'});
@@ -6411,12 +6422,19 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
       if(_fi>=0&&_fi<1000&&["balance","transaction","account"].includes(basis))_drvOpts.push(["fee_stream_quantity","Linked stream quantity — across fee products"]);
       if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
+      if(["account","transaction"].includes(basis))_drvOpts.push(["account_activity","Customer flows / account adoption"]);
       h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
       if(src==='managed_notional')h+=`<div class="fld"><label>AUC balance measure</label><select onchange="setPath('${sb}.driver.measure',this.value);renderContent();refresh()"><option value="period_average"${(st.driver.measure||'period_average')==='period_average'?' selected':''}>Average (begin + end)</option><option value="period_end"${st.driver.measure==='period_end'?' selected':''}>End of period</option></select></div>`;
       if(src==='fee_stream_quantity'){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
         h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
         h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
+      }
+      if(src==='account_activity'){
+        const opts=_accountActivityOptions(basis),ref=String(st.driver.ref||'');
+        h+=`<div class="fld wide"><label>Activity source</label><select data-nofit onchange="setPath('${sb}.driver.ref',this.value);renderContent();refresh()"><option value="">Select a ${basis==='account'?'subscriber count':'customer / subscriber flow'}…</option>${ref&&!opts.some(x=>x.series_id===ref)?`<option selected value="${esc(ref)}">Missing source: ${esc(ref)}</option>`:''}${opts.map(x=>`<option value="${esc(x.series_id)}"${x.series_id===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo">Create shared adoption sources under Customer acquisition. Count flows post no revenue or cost by themselves.</span></div>`;
+        if(basis==='account')h+=SEL('Count measure',sb+'.driver.measure',st.driver.measure||'period_end',[['period_end','Month-end count'],['period_average','Average (begin + end)']]);
+        h+=`<div class="fld wide" data-fee-activity-preview data-product-index="${_fi}" data-stream-index="${si}">${_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:ref})}</div>`;
       }
       if(src==="stream_ref"){
         const _ref=String(st.driver.ref||"");
@@ -6432,6 +6450,10 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         h += `<div class="fld wide"><label>Ending bank customers source</label><select style="min-width:260px" onchange="feeCustomerCountSourceChange(${_fi},${si},this.value)">${_ccsel.length?_ccsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_ccref?' selected':''}>${esc(o.label)}</option>`).join(''):'<option value="">No Customer Acquisition feeds yet</option>'}</select><span class="memo" style="margin:4px 0 0">Customer Acquisition owns this Series. Linking it here does not copy or recreate the customer path. Any manual count schedule previously entered on this stream is preserved in reserve and returns if Driver source is changed back to Constant.</span></div>`;
         h += `<div class="fld wide"><label>Customer-count measure</label><select style="min-width:300px" onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end bank customers · held through model year</option><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>Ending bank customers · monthly period end</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Period-average bank customers</option></select><span class="memo" style="margin:4px 0 0">${_ccmeasure==='annual_count'?'Uses CAC’s year-end customer count in every model period of that year.':(_ccmeasure==='period_average'?'Uses (prior month-end + current month-end) / 2 and aggregates canonical monthly exposures in quarterly models.':'Uses CAC’s canonical monthly Ending bank customers Series; quarterly models average the three monthly EOP observations before applying an annual account fee.')}</span></div>`;
         h += `<div class="fld wide" data-fee-customer-count-preview data-product-index="${_fi}" data-stream-index="${si}">${_feeCustomerCountPreviewHtml(_ccref,_ccmeasure)}</div>`;
+      }
+      if(basis==='account'){
+        if(st.driver.params.share_spec)h+=`<div class="fld wide">${_faSeriesEditor(sb+'.driver.params.share_spec',st.driver.params.share_spec,'Participation share','rate',false)}<button class="cx" aria-label="Remove participation share" onclick="delete _stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec;renderContent();refresh()">×</button><span class="memo">Scales the count; it does not calculate subscriber openings or closures. Use Account adoption for those flows.</span></div>`;
+        else h+=`<div class="fld"><button class="btn-plain" onclick="_stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec=_activityPath(1);renderContent();refresh()">+ Participation share</button></div>`;
       }
       if(src==="cost_pool"){
         const _pools=_feeCostPools(),_pool=_feeCostPoolByRef(st.driver.ref),_cpref=String(st.driver.ref||"");
@@ -6472,8 +6494,9 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       // visibly distinct while preserving legacy raw multiple/pct configs.
       const _isAccountCount=(basis==="account"&&src==="constant");
       const _isCostPool=(src==="cost_pool");
+      const _isActivity=(src==="account_activity");
       const _isCACAccountCount=(basis==="account"&&src==="customer_acquisition_count");
-      const _trajOpts=_isCostPool?[["flat","Follows cost pool (native-period flow)"]]:(_isCACAccountCount?[["flat","Follows Customer Acquisition"]]:(_isAccountCount?[["flat","Flat"],["proportional","Growth"],["explicit_schedule","Explicit schedule"]]:[["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (× source)"]]));
+      const _trajOpts=_isActivity?[["flat","Follows shared activity source"]]:_isCostPool?[["flat","Follows cost pool (native-period flow)"]]:(_isCACAccountCount?[["flat","Follows Customer Acquisition"]]:(_isAccountCount?[["flat","Flat"],["proportional","Growth"],["explicit_schedule","Explicit schedule"]]:[["flat","Flat"],["proportional","Proportional growth"],["ramp_to_target","Ramp to target"],["explicit_schedule","Explicit schedule"],["derived","Derived (× source)"]]));
       const _isEnteredFlow=(basis==="transaction"&&src==="constant"&&!!st.driver.params.flow_path);
       if(basis==="transaction"&&src==="constant"&&_isEnteredFlow){
         const _ef=st.driver.params.flow_path,_eft=_ef.trajectory||"flat",_efp=_ef.period||"month";
@@ -6483,7 +6506,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         if(_eft==="growth")h += `<div class="fld wide"><label>Driver growth</label>${growthSpecInline(`${sb}.driver.params.flow_path.growth_spec`,_ef.growth_spec,null,false)}</div>`;
         if(_eft==="explicit_schedule"){const _efid=`feeEnteredFlowPaste_${_fi}_${si}`;h += `<div class="fld wide"><label>Monetary throughput schedule ($000s per ${_efp})</label><textarea id="${_efid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_efid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_efid}_load" class="pillbtn" disabled onclick="_feeSetEnteredFlowSchedule(${_fi},${si},document.getElementById('${_efid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearEnteredFlowSchedule(${_fi},${si})"${Object.keys(_ef.schedule||{}).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_ef.schedule,1/1000,_efp)}</div><span class="memo" style="margin:3px 0 0">Entered monetary flows sum across months when the model cadence is quarterly. Set pricing to 0% when this stream is only a non-posting source for another stream.</span></div>`;}
       } else {
-        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
+        h += `<div class="fld"><label>${(_isAccountCount||_isCACAccountCount)?"Count path":"Trajectory (how the driver moves)"}</label><select${(_isCostPool||_isActivity||_isCACAccountCount)?" disabled":""} onchange="feeStreamTrajectoryChange(${_fi},${si},this.value)">${_trajOpts.map(v=>`<option value="${v[0]}"${v[0]===traj?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
         if(basis==="transaction"&&src==="constant")h += `<div class="fld wide"><button class="btn-plain" onclick="_feeEnsureEnteredFlow(${_fi},${si});renderContent();refresh();return false">Use entered monetary flow path</button><span class="memo" style="margin:4px 0 0">Adds Flat / Growth / Explicit authoring in $000s per Month / Quarter / Year. Existing legacy constant quantities remain unchanged until selected.</span></div>`;
       }
       if(src==="constant" && traj!=="explicit_schedule" && !_isEnteredFlow){
@@ -6654,19 +6677,20 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       if(rb==="cost_recovery"){
         h += `<div class="fld wide"><label>Cost side</label><span class="memo" style="margin:0"><b>None — the cost base is non-posting here.</b> Linked pool components already belong to their upstream expense owners; entered cost-base components are pricing assumptions only. Adding a fee-product cost here would double-count or invent expense.</span></div>`;
       } else {
-        const _costOptions={balance:[["none","None (pure margin)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],transaction:[["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_throughput_opex","Operating cost (% of throughput)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],account:[["none","None (pure margin)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],flat:[["none","None (pure margin)"],["periodic_amount_opex","Product cost — periodic amount"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],event:[["none","None (pure margin)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]]};
+        const _costOptions={balance:[["none","None (pure margin)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],transaction:[["none","None (pure margin)"],["per_unit","Cost per unit (tx)"],["pct_of_throughput_opex","Operating cost (% of throughput)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],account:[["none","None (pure margin)"],["per_account","Cost per account"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],flat:[["none","None (pure margin)"],["periodic_amount_opex","Product cost — periodic amount"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]],event:[["none","None (pure margin)"],["pct_of_revenue","Revenue share (% of revenue)"],["pct_of_revenue_opex","Operating cost (% of revenue)"]]};
         h += `<div class="fld"><label>Cost side</label><select onchange="_feeCostFactorSetKind(${_fi},${si},this.value)">${(_costOptions[basis]||_costOptions.balance).map(o=>`<option value="${o[0]}"${o[0]===ck?' selected':''}>${o[1]}</option>`).join('')}</select></div>`;
+        if(ck==='per_account')h+=`<div class="fld"><label>Cost billing period</label><select data-nofit onchange="setPath('${sb}.cost.params.period',this.value);refresh()">${['month','quarter','year'].map(v=>`<option value="${v}"${(st.cost.params.period||'month')===v?' selected':''}>$ / account / ${v}</option>`).join('')}</select></div>`;
         if(ck!=="none"){
           const _cp=st.cost.params||{},_legacyPct=(ck==="pct_of_revenue"||ck==="pct_of_revenue_opex"||ck==="pct_of_throughput_opex"),_amountCost=(ck==="periodic_amount_opex"),_costPctBase=(ck==="pct_of_throughput_opex"?"transaction throughput":"gross fee revenue");
           // The direct cost path and the multiplier are two separate economic layers. Legacy
           // scalar-only streams render as a Flat path until the user explicitly authors a path.
-          const _cbase=_legacyPct?+(_cp.pct||0):(_amountCost?+(_cp.amount||0):+(_cp.cost_per_unit||0)),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:(_amountCost?0.001:1),_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
-          const _cpathLabel=_amountCost?"Product cost path":(ck==="per_unit"?"Cost per-unit path":(ck==="pct_of_revenue"?"Revenue share rate path":"Operating cost rate path"));
+          const _cbase=_legacyPct?+(_cp.pct||0):(_amountCost?+(_cp.amount||0):+(ck==="per_account"?_cp.cost_per_account||0:_cp.cost_per_unit||0)),_cf=_cp.factor_path||{value:_cbase,trajectory:"flat",period:"year",resolution:"step"},_ct=_cf.trajectory||"flat",_cper=_cf.period||"year",_cres=_cf.resolution||((_cf.growth_spec||{}).method)||"step",_cscale=_legacyPct?100:(_amountCost?0.001:1),_cval=(+(_cf.value==null?_cbase:_cf.value))*_cscale;
+          const _cpathLabel=_amountCost?"Product cost path":(["per_unit","per_account"].includes(ck)?"Cost per-unit path":(ck==="pct_of_revenue"?"Revenue share rate path":"Operating cost rate path"));
           h += `<div class="fld"><label>${_cpathLabel}</label><select onchange="_feeCostFactorTrajectory(${_fi},${si},this.value)"><option value="flat"${_ct==="flat"?' selected':''}>Flat</option><option value="growth"${_ct==="growth"?' selected':''}>Growth</option><option value="explicit_schedule"${_ct==="explicit_schedule"?' selected':''}>Explicit schedule</option></select></div>`;
           h += `<div class="fld"><label>Period</label><select onchange="_feeCostFactorPeriod(${_fi},${si},this.value)"><option value="month"${_cper==="month"?' selected':''}>Month</option><option value="quarter"${_cper==="quarter"?' selected':''}>Quarter</option><option value="year"${_cper==="year"?' selected':''}>Year</option></select></div>`;
           if(_ct!=="flat"&&(!_amountCost||_ct==="growth")) h += `<div class="fld"><label>Resolution</label><select onchange="_feeCostFactorResolution(${_fi},${si},this.value)"><option value="step"${_cres==="step"?' selected':''}>Step</option><option value="smooth"${_cres==="smooth"?' selected':''}>Smooth</option></select></div>`;
           if(_ct==="flat"||_ct==="growth"){
-            const _clab=_amountCost?(_ct==="growth"?"Starting product cost ($000s)":"Product cost ($000s)"):(ck==="per_unit"?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?`Starting cost rate (% of ${_costPctBase})`:`Cost rate (% of ${_costPctBase})`));
+            const _clab=_amountCost?(_ct==="growth"?"Starting product cost ($000s)":"Product cost ($000s)"):(["per_unit","per_account"].includes(ck)?(_ct==="growth"?"Starting cost ($/unit)":"Cost ($/unit)"):(_ct==="growth"?`Starting cost rate (% of ${_costPctBase})`:`Cost rate (% of ${_costPctBase})`));
             h += `<div class="fld"><label>${_clab}</label><input type="number" step="${_legacyPct?'0.0001':(_amountCost?'0.001':'0.000001')}"${(_legacyPct||_amountCost)?' min="0"':''}${_legacyPct?' max="100"':''} value="${_cval}" onchange="_feeCostFactorValue(${_fi},${si},this.value)"></div>`;
           }
           if(_ct==="growth"){
@@ -6675,7 +6699,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           }
           if(_ct==="explicit_schedule"){
             const _cid=`feeCostFactorPaste_${_fi}_${si}`,_sched=_cf.schedule||{};
-            const _cschedLabel=_amountCost?`Product cost schedule ($000s) by ${_cper}`:(ck==="per_unit"?`Cost schedule ($/unit) by ${_cper}`:`Cost rate schedule (% of ${_costPctBase}) by ${_cper}`);
+            const _cschedLabel=_amountCost?`Product cost schedule ($000s) by ${_cper}`:(["per_unit","per_account"].includes(ck)?`Cost schedule ($/unit) by ${_cper}`:`Cost rate schedule (% of ${_costPctBase}) by ${_cper}`);
             h += `<div class="fld wide"><label>${_cschedLabel}</label><textarea id="${_cid}" rows="3" style="width:100%;font-family:var(--mono);font-size:11px;box-sizing:border-box" placeholder="Paste a row or column" oninput="_feeExplicitPasteInput('${_cid}')"></textarea><div class="nie-actions" style="margin-top:4px"><button id="${_cid}_load" class="pillbtn" disabled onclick="_feeSetCostFactorSchedule(${_fi},${si},document.getElementById('${_cid}').value)">Load (replace)</button><button class="pillbtn" onclick="_feeClearCostFactorSchedule(${_fi},${si})"${Object.keys(_sched).length?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(_sched,_cscale,_cper)}</div><span class="memo" style="margin:3px 0 0">${_legacyPct?'Paste normal percentage values. ':(_amountCost?'Paste positive cost amounts in $000s. ':'')}Each value applies to one selected natural period; the last loaded value carries forward.</span></div>`;
           }
 
@@ -12261,7 +12285,7 @@ function labLeverCatalog(){
         // legacy streams remain available as the Flat fallback until a path is authored.
         if(cp.factor_path){
           const fp=cp.factor_path,ft=fp.trajectory||"flat";
-          if(ft!=="explicit_schedule" && typeof fp.value==="number") push(sb+".cost.params.factor_path.value", `${pre}: direct ${cost.kind==="per_unit"?"cost per unit":"cost rate"}`, cost.kind==="per_unit"?"":"pct");
+          if(ft!=="explicit_schedule" && typeof fp.value==="number") push(sb+".cost.params.factor_path.value", `${pre}: direct ${["per_unit","per_account"].includes(cost.kind)?"cost per unit":"cost rate"}`, ["per_unit","per_account"].includes(cost.kind)?"":"pct");
           if(ft==="growth" && fp.growth_spec && typeof fp.growth_spec.rate==="number") push(sb+".cost.params.factor_path.growth_spec.rate", `${pre}: direct cost growth`, "pct");
         } else {
           if(cost.kind==="per_unit" && basis==="transaction") push(sb+".cost.params.cost_per_unit", `${pre}: base cost per unit ($)`, "");
@@ -13138,6 +13162,24 @@ function _workforcePiecewiseEditorHtml(lc,j){
 // A feed owns acquisition equations and the customer/AUC roll-forward.  Each equation operand
 // is either entered here (Flat / Growth / Explicit) or linked to a compatible series owned by
 // another module.  CAC never owns an Operating Expense or Workforce trajectory it merely consumes.
+function _activityPath(value=0){return {source:'entered',trajectory:'flat',value,period:'month'};}
+function _accountActivityOptions(basis){
+ const out=[];Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([fn,f])=>{if(basis==='transaction'){Object.entries(f.activity_series_ids||{}).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+k.replaceAll('_',' ')}));(f.channels||[]).forEach(c=>Object.entries(c.activity_series_ids||{}).forEach(([k,id])=>out.push({series_id:id,label:fn+' › '+(c.name||'Channel')+' › '+k.replaceAll('_',' ')})));}});
+ ((cfg.assumptions||{}).account_adoption||[]).forEach(x=>Object.entries(x.series_ids||{}).forEach(([k,id])=>{if((basis==='account')===(k==='count'))out.push({series_id:id,label:(x.name||'Subscribers')+' › '+({count:'Active subscribers',additions:x.mode==='gross_flows'?'Gross openings':'Reconciling additions',cancellations:x.mode==='gross_flows'?'Closures':'Reconciling cancellations',exits:'Customer attrition exits'}[k])});}));return out;
+}
+window.publishCustomerFlows=function(fn){const f=cfg.assumptions.cac_feeds[fn];f.activity_series_ids=f.activity_series_ids||{};['new_customers','lost_customers'].forEach(k=>{if(!f.activity_series_ids[k])f.activity_series_ids[k]=_seriesId('cac-flow');});(f.channels||[]).forEach(c=>{c.activity_series_ids=c.activity_series_ids||{};['new_customers','lost_customers'].forEach(k=>{if(!c.activity_series_ids[k])c.activity_series_ids[k]=_seriesId('cac-flow');});});renderContent();refresh();};
+window.activityChannelOpening=function(fn,ci,v){cfg.assumptions.cac_feeds[fn].channels[ci].opening_customers=_pf(v);refresh();};
+window.addAccountAdoption=function(fn){const a=cfg.assumptions;a.account_adoption=a.account_adoption||[];a.account_adoption.push({id:_seriesId('adoption'),name:'Account adoption',customer_source_id:a.cac_feeds[fn].customer_count_series_id,mode:'target_share',opening_subscribers:0,exit_assumption:'proportional_customer_attrition',target_share:_activityPath(0),series_ids:Object.fromEntries(['count','additions','cancellations','exits'].map(k=>[k,_seriesId('subscriber-'+k)]))});renderContent();refresh();};
+window.accountAdoptionMode=function(i,mode){const x=cfg.assumptions.account_adoption[i];['target_share','new_customer_adoption','existing_customer_adoption','closure_probability'].forEach(k=>delete x[k]);x.mode=mode;if(mode==='target_share')x.target_share=_activityPath(0);else ['new_customer_adoption','existing_customer_adoption','closure_probability'].forEach(k=>x[k]=_activityPath(0));renderContent();refresh();};
+function _accountAdoptionHtml(fn){
+ const f=cfg.assumptions.cac_feeds[fn],xs=cfg.assumptions.account_adoption||[];let h=`<div class="crow" style="gap:8px;margin-top:10px"><button class="pillbtn" onclick="publishCustomerFlows('${esc(fn)}')">${f.activity_series_ids?'Customer flows published':'Publish customer flows'}</button><button class="pillbtn" onclick="addAccountAdoption('${esc(fn)}')">+ Account adoption</button></div>`;
+ if(f.activity_series_ids)h+='<div class="memo">New customers are gross acquisitions. Channel losses assume proportional attrition; assign channel opening customers to attribute the opening book.</div>';
+ (f.channels||[]).forEach((c,ci)=>{if(c.activity_series_ids)h+=`<label class="wf-field" style="display:inline-flex;max-width:220px;margin:5px 10px 0 0"><span class="wf-field-label">${esc(c.name||'Channel')} · opening customers</span><input type="number" min="0" style="width:100px" value="${c.opening_customers||0}" onchange="activityChannelOpening('${esc(fn)}',${ci},this.value)"></label>`;});
+ xs.forEach((x,i)=>{if(x.customer_source_id!==f.customer_count_series_id)return;const b='assumptions.account_adoption.'+i;h+=`<details class="cac-channel-card account-adoption-card" open><summary style="display:flex;align-items:center;gap:8px"><strong>${esc(x.name||'Account adoption')}</strong><span class="cu">${x.mode==='target_share'?'Target share':'Gross flows'} · ${_numInput(x.opening_subscribers||0,2)} opening</span><button class="cx" style="margin-left:auto" aria-label="Remove adoption source" onclick="event.preventDefault();cfg.assumptions.account_adoption.splice(${i},1);renderContent();refresh()">×</button></summary><div class="crow" style="gap:10px;margin-top:8px"><label class="wf-field" style="max-width:220px"><span class="wf-field-label">Source name</span><input value="${esc(x.name)}" onchange="setPath('${b}.name',this.value);refresh()"></label><label class="wf-field" style="max-width:220px"><span class="wf-field-label">Method</span><select data-nofit onchange="accountAdoptionMode(${i},this.value)"><option value="target_share"${x.mode==='target_share'?' selected':''}>Target adoption share</option><option value="gross_flows"${x.mode==='gross_flows'?' selected':''}>Gross openings / closures</option></select></label><label class="wf-field" style="max-width:140px"><span class="wf-field-label">Opening subscribers</span><input type="number" min="0" value="${x.opening_subscribers}" onchange="setPath('${b}.opening_subscribers',_pf(this.value));refresh()"></label></div>`;
+ const fields=x.mode==='target_share'?[['target_share','Target share']]:[['new_customer_adoption','New-customer take-up'],['existing_customer_adoption','Existing non-holder adoption'],['closure_probability','Closure probability']];fields.forEach(([k,l])=>h+=_faSeriesEditor(b+'.'+k,x[k],l,'rate',x.mode==='gross_flows'));
+ h+=`<div class="memo">Assumption: subscriber exits follow customer attrition proportionally. Exits precede closures and adoption; same-month closures cannot reopen. ${x.mode==='target_share'?'Additions / cancellations reconcile the target; they do not identify simultaneous gross openings and closures.':'Probabilities compound from their stated period. New-customer take-up is the monthly acquisition probability.'}</div>`;
+ const r=((((lastRes||{}).account_activity||{}).adoption||{})[x.id]||{}).monthly||[];h+=`<div data-engine-preview="adoption-${esc(x.id)}">`;if(r.length){h+='<div class="cac-link-readonly">'+esc(r.slice(0,12).map(v=>'M'+v.month+' '+_numInput(v.ending,2)+' active / +'+_numInput(v.additions,2)+' / −'+_numInput(v.cancellations+v.customer_exits,2)).join(' · '))+'</div>';}h+='</div></details>';});return h;
+}
 var CAC_METHODS = [["pool_conversion","Pool × conversion"],["spend_cac","Spend ÷ CAC"],["fte_productivity","FTEs × productivity"],["explicit","Explicit customers"]];
 function CACYEARS(){ return MODELYEARS(); }
 function _cacPow(base,g,y){ return (+base||0)*Math.pow(1+(+g||0),Math.max(0,(+y||1)-1)); }
@@ -13213,6 +13255,7 @@ function _legacyOpexLinkedDriverOptions(){
       out.push({value:"fee_stream_quantity::"+sid,driver:"fee_stream_quantity",series_id:sid,label:"Fee-stream quantity · "+pn+" › "+sn,product:pn,stream:sn,streamObj:st});
     });});
   });
+  ['transaction'].forEach(b=>_accountActivityOptions(b).forEach(x=>out.push({value:'account_activity::'+x.series_id,driver:'account_activity',series_id:x.series_id,label:x.label})));
   return out;
 }
 function _opexLinkedDriverValue(lc){if((lc&&lc.driver)==="fee_stream_quantity")return "fee_stream_quantity::"+String(lc.series_id||"");if((lc&&lc.driver)==="customer_acquisition_auc")return "customer_acquisition_auc::"+String(lc.series_id||"");if((lc&&lc.driver)==="workforce_count")return "workforce_count::"+String(lc.series_id||"");return String((lc&&lc.driver)||"fee_income");}
@@ -13294,6 +13337,11 @@ function _opexPiecewiseEditorHtml(i,lc,j){
 }
 window.opexFxAll=function(i,js,open){ window._fxOpen=window._fxOpen||{}; js.forEach(j=>{ window._fxOpen[i+'_'+j]=!!open; }); renderContent(); };
 function _opexLinkedSourcePreviewBody(lc){
+  if(lc&&lc.driver==='account_activity'){
+    const vals=((((lastRes||{}).account_activity||{}).series||{})[lc.series_id]||{}).values||[];
+    if(!vals.length)return '<span class="memo">Run the model to preview the linked customer / subscriber flow.</span>';
+    return `<div class="cac-link-readonly">${esc(vals.map((v,i)=>(PPY()===12?'M':'Q')+(i+1)+' '+_numInput(v,3)).join(' · '))}</div>`;
+  }
   if(lc&&lc.driver==='catalog_quantity'){
     const rows=catalogSources('opex_formula')||[],x=rows.find(x=>x.series_id===lc.series_id);
     const r=(typeof lastRes!=='undefined'&&lastRes)||{},a=cfg.assumptions||{},measure=lc.measure||'period_end';let ends=[],opening=0;
@@ -13368,7 +13416,7 @@ function _opexServiceCapacityEditorHtml(i,j,lc){
   return h;
 }
 function _opexFormulaOrdinal(i,j){const xs=((((_ensureNieDetail().categories||[])[i]||{}).linked_components)||[]);return xs.slice(0,j+1).filter(x=>x&&!['cost_pool_charge','piecewise_linked'].includes(x.driver)).length||1;}
-function _opexFormulaLinkedValue(f){if(!f||f.source==="")return"";if(['fee_stream_quantity','customer_acquisition_auc','workforce_count','catalog_quantity'].includes(f.source))return String(f.source)+"::"+String(f.series_id||"");return String(f.source||"fee_income");}
+function _opexFormulaLinkedValue(f){if(!f||f.source==="")return"";if(['fee_stream_quantity','customer_acquisition_auc','workforce_count','catalog_quantity','account_activity'].includes(f.source))return String(f.source)+"::"+String(f.series_id||"");return String(f.source||"fee_income");}
 function _opexFormulaEnteredEditorHtml(i,j,k,f){
   const s=f.spec||{},tr=s.trajectory||"flat",display=f.display==="percent"?"percent":"number",periodized=!!f.periodized,path=`assumptions.nie_detail.categories.${i}.linked_components.${j}.factors.${k}.spec`,time=f.rate_period||(periodized?(s.period||"month"):"none");
   const raw=(tr==="growth"?+s.base||+s.value||0:+s.value||0),shown=display==="percent"?raw*100:raw,unit=f.unit||"";
@@ -14340,6 +14388,7 @@ function structuresSectionsHtml(){
       }
       h+=`<div style="margin:3px 0 8px"><a href="#" class="cadd" style="font-size:10px;color:#4A4A47;margin:0" onclick="addCacChannel('${esc(fn)}');return false">+ acquisition channel</a></div>`;
 
+      h+=_accountAdoptionHtml(fn);
       h+=`<div data-engine-preview="cac-${esc(fn)}">`;
       const _ca=lastRes&&lastRes.customer_acquisition&&lastRes.customer_acquisition[fn];
       if(_ca&&(_ca.annual||[]).length){const ar=_ca.annual;

@@ -94,7 +94,11 @@ def main():
     ck("the unsaved-changes Download keeps the whole engagement", 'if(V31 && typeof downloadFIW==="function") return downloadFIW();' in html)
     from foundry.v2.config_diff import _NAMES
     ck("change history names the three controls", _NAMES.get("deposit_beta") == "index beta")
-    ck("build stamp", Path("BUILD_STAMP").read_text().strip() == "foundry-r313-deposit-beta-coverage")
+    # A coverage regression must survive a successor release's BUILD_STAMP.
+    # Exact release stamp validation lives in the new release's authoring test.
+    import re
+    stamp = re.fullmatch(r"foundry-r(\d+)-[a-z0-9-]+", Path("BUILD_STAMP").read_text().strip())
+    ck("build stamp is r313 or a successor", bool(stamp and int(stamp.group(1)) >= 313))
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 

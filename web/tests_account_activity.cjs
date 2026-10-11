@@ -1,0 +1,18 @@
+const assert=require('node:assert/strict'),fs=require('fs'),vm=require('vm');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+const block=html.slice(html.indexOf('function _activityPath('),html.indexOf('var CAC_METHODS'));
+let ids=0,renders=0,previews=0;
+const ctx={cfg:{assumptions:{cac_feeds:{'Feed A':{customer_count_series_id:'customers',channels:[{name:'Channel'}]}}}},window:null,_seriesId:()=>`stable-${++ids}`,renderContent:()=>renders++,refresh:()=>previews++,esc:x=>String(x),_numInput:x=>String(x),_faSeriesEditor:(path,spec,label)=>`<div>${label}</div>`,lastRes:null};ctx.window=ctx;vm.createContext(ctx);vm.runInContext(block,ctx);
+assert.equal(ctx._accountActivityOptions('account').length,0);
+ctx.publishCustomerFlows('Feed A');let f=ctx.cfg.assumptions.cac_feeds['Feed A'];const before=JSON.stringify(f.activity_series_ids);ctx.publishCustomerFlows('Feed A');assert.equal(JSON.stringify(f.activity_series_ids),before);
+assert.equal(ctx._accountActivityOptions('transaction').length,4);
+ctx.addAccountAdoption('Feed A');const a=ctx.cfg.assumptions.account_adoption[0];assert.equal(a.opening_subscribers,0);assert.equal(a.exit_assumption,'proportional_customer_attrition');assert.equal(Object.keys(a.series_ids).length,4);assert.equal(ctx._accountActivityOptions('account').length,1);
+const stable=JSON.stringify(a.series_ids);ctx.accountAdoptionMode(0,'gross_flows');assert(!a.target_share);assert(a.new_customer_adoption&&a.existing_customer_adoption&&a.closure_probability);assert.equal(a.closure_probability.period,'month');assert.equal(JSON.stringify(a.series_ids),stable);
+a.name='Renamed population';assert(ctx._accountActivityOptions('transaction').some(x=>x.label.includes('Renamed population › Gross openings')));
+ctx.accountAdoptionMode(0,'target_share');assert(a.target_share);assert(!a.closure_probability&&!a.new_customer_adoption);
+assert(ctx._accountAdoptionHtml('Feed A').includes('Reconciling')||ctx._accountAdoptionHtml('Feed A').includes('reconcile'));
+const costs=html.slice(html.indexOf('function _feeCostFactorSetKind('),html.indexOf('function _feeCostFactorTrajectory('));
+ctx._stOwner=()=>({fee_streams:ctx.streams});ctx.streams=[{cost:{kind:'none',params:{}}}];ctx.setTimeout=fn=>fn();vm.runInContext(costs,ctx);ctx._feeCostFactorSetKind(0,0,'per_account');assert.equal(ctx.streams[0].cost.params.period,'month');assert.equal(ctx.streams[0].cost.params.cost_per_account,0);
+assert(html.includes('Cost billing period'));assert(html.includes('Cost per account'));assert(html.includes('account-adoption-card .sec-managed-series-row>input{width:110px'));assert(html.includes('Customer flows / account adoption'));
+assert.equal(fs.readFileSync(__dirname+'/../BUILD_STAMP','utf8').trim(),'foundry-r314-account-activity-costs');
+console.log('PASS optional publishers, stable IDs, exclusive method switch, opening state, source choices, cost period and bounded controls');

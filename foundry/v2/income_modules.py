@@ -376,10 +376,10 @@ def _apply_tiers(tiers, base_qty):
 
 
 _FEE_BASES = {"balance", "transaction", "account", "flat", "event"}
-_FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "fee_stream_quantity", "bank_aggregate", "cost_pool", "customer_acquisition_count"}
+_FEE_SOURCES = {"constant", "own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "stream_ref", "fee_stream_quantity", "bank_aggregate", "cost_pool", "customer_acquisition_count", "account_activity"}
 _FEE_TRAJECTORIES = {"flat", "proportional", "ramp_to_target", "explicit_schedule", "derived"}
 _FEE_RATE_BEHAVIORS = {"flat", "annual_change", "scheduled", "tiered", "durbin_capped", "cost_recovery"}
-_FEE_COST_KINDS = {"none", "per_unit", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
+_FEE_COST_KINDS = {"none", "per_unit", "per_account", "periodic_amount_opex", "pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"}
 _FEE_NATURAL_PERIODS = {"month", "quarter", "year", "model_period"}
 _FEE_TRANSACTION_PRICING_BASES = {"per_unit", "pct_of_throughput"}
 
@@ -794,6 +794,20 @@ def _validate_fee_stream_shape(stream):
         raise ValueError("distributed_balance fee source requires balance basis and flat driver")
     if src == "product_funded_flow" and (basis != "transaction" or traj != "flat"):
         raise ValueError("product_funded_flow fee source requires transaction basis and flat driver")
+    if src == "account_activity":
+        if basis not in {"account", "transaction"} or traj != "flat":
+            raise ValueError("Account activity requires Account / Transaction basis and flat source path")
+        if not str(drv.get("ref") or "").strip():
+            raise ValueError("Account activity requires a source Series ID")
+        if basis == "account" and drv.get("measure", "period_end") not in {"period_end", "period_average"}:
+            raise ValueError("Invalid account activity balance measure")
+    if ck == "per_account":
+        if basis != "account": raise ValueError("Per-account cost requires Account basis")
+        cp = cost.get("params") or {}
+        if cp.get("period") not in {"month", "quarter", "year"}:
+            raise ValueError("Per-account cost requires an explicit Month / Quarter / Year billing period")
+        v = float(cp.get("cost_per_account", 0))
+        if not math.isfinite(v) or v < 0: raise ValueError("Per-account cost must be finite and nonnegative")
     if src == "customer_acquisition_count":
         if basis != "account":
             raise ValueError("fee customer_acquisition_count source is supported only on account basis")
@@ -847,7 +861,7 @@ def _validate_fee_stream_shape(stream):
         if multiplier:
             if fval < 0.0:
                 raise ValueError("fee cost multiplier value must be nonnegative")
-        elif ck == "periodic_amount_opex" and fval < 0.0:
+        elif ck in {"periodic_amount_opex", "per_account"} and (not math.isfinite(fval) or fval < 0.0):
             raise ValueError("fee periodic product cost amount must be nonnegative")
         elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and not 0.0 <= fval <= 1.0:
             raise ValueError(f"fee cost kind {ck!r} factor value must be between 0 and 1")
@@ -864,7 +878,7 @@ def _validate_fee_stream_shape(stream):
             if multiplier:
                 if any(v < 0.0 for v in vals):
                     raise ValueError("fee cost multiplier schedule values must be nonnegative")
-            elif ck == "periodic_amount_opex" and any(v < 0.0 for v in vals):
+            elif ck in {"periodic_amount_opex", "per_account"} and any(not math.isfinite(v) or v < 0.0 for v in vals):
                 raise ValueError("fee periodic product cost schedule values must be nonnegative")
             elif ck in {"pct_of_revenue", "pct_of_revenue_opex", "pct_of_throughput_opex"} and any(v < 0.0 or v > 1.0 for v in vals):
                 raise ValueError("fee percentage cost factor schedule values must be between 0 and 1")
@@ -1077,6 +1091,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
     if not stream:
         return 0.0, 0.0
     _validate_fee_stream_shape(stream)
+    if not (ctx or {}).get('_account_monthly'):
+        from .account_activity import monthly_fee
+        replay = monthly_fee(stream, q, ctx or {}, ppy, fee_stream_q)
+        if replay is not None:
+            return replay
     tm = stream.get("timing") or {}
     start = int(tm.get("start_period") or 1)
     end = tm.get("end_period")
@@ -1145,6 +1164,15 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             if not ref or ref not in pools:
                 raise ValueError(f"fee cost_pool source {ref!r} is unavailable in evaluator context")
             return float(pools[ref] or 0.0)
+        if src == "account_activity":
+            ref = str(drv.get("ref") or "")
+            meta = ((ctx or {}).get("account_activity") or {}).get(ref)
+            if meta is None: raise ValueError("Account activity source is unavailable: " + ref)
+            if (basis == "account") != (meta['temporal'] == 'level'):
+                raise ValueError("Account basis requires a count level; Transaction basis requires a count flow")
+            vals = meta['values']
+            if q > len(vals): raise ValueError("Account activity observation unavailable")
+            return float(vals[q-1])
         if src == "customer_acquisition_count":
             ref = str(drv.get("ref") or "").strip()
             counts = (ctx or {}).get("customer_acquisition_count") or {}
@@ -1227,6 +1255,11 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             qty = sb * _driver_growth_multiplier()
         else:
             qty = sb  # flat/ramp_to_target already baked into the source stock
+
+    if params.get('share_spec') is not None:
+        if basis != 'account': raise ValueError('Participation share requires Account basis')
+        from .account_activity import _path
+        qty *= _path(params['share_spec'], int(q), (ctx or {}).get('growth_context'))[int(q)-1]
 
     # Expose this stream's driver quantity for downstream stream_ref consumers and, when
     # explicitly requested by the engine, as a stable read-only cross-module Series. The latter
@@ -1338,7 +1371,15 @@ def fee_stream_q(stream, q, ctx, ppy=4):
             if multiplier_path is not None else 1.0)
     direct_cost_factor = None
     effective_cost_factor = None
-    if ck == "per_unit" and basis == "transaction":
+    if ck == "per_account":
+        base_unit_cost = float(cp.get("cost_per_account") or 0.)
+        base_path_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_unit_cost) if factor_path is not None else base_unit_cost)
+        if not math.isfinite(base_path_cost) or base_path_cost < 0: raise ValueError('Per-account cost path must remain finite and nonnegative')
+        direct_cost_factor = base_path_cost
+        unit_cost = _fee_amount_per_engine_period(base_path_cost, cp['period'], ppy) * mult
+        effective_cost_factor = unit_cost
+        opcost = qty * unit_cost
+    elif ck == "per_unit" and basis == "transaction":
         base_unit_cost = float(cp.get("cost_per_unit") or 0.0)
         base_path_cost = (_fee_cost_factor_value(factor_path, q, ppy, ctx, base_unit_cost)
                           if factor_path is not None else base_unit_cost)
@@ -1469,7 +1510,7 @@ def fee_quantity_kind(stream, dependency_kind="native"):
     if src == "constant" and str(flow.get("unit_kind") or "").strip().lower() == "money_flow": return "money"
     if str((params.get("coefficient") or {}).get("kind") or "").strip().lower() == "amount_per_source_unit": return "money"
     if src in {"own_balance", "distributed_balance", "product_funded_flow", "managed_notional", "bank_aggregate", "cost_pool"}: return "money"
-    if src == "customer_acquisition_count": return "count"
+    if src in {"customer_acquisition_count", "account_activity"}: return "count"
     if src in {"stream_ref", "fee_stream_quantity"}: return dependency_kind
     return "native"
 
