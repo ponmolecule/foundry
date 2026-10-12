@@ -10,6 +10,9 @@ function policy(early=true){return {early,structural_reason:'Deposit inputs prot
 (async()=>{
  const summary=ctx.engagementSetupHtml();for(const text of ['Charter','Monthly','3 years · 36 months','2028-01-01','FDIC','30,000','CBLR','Texas','Edit setup'])assert(summary.includes(text));
  assert(html.includes('let h = engagementSetupHtml()'));assert(html.includes('.eset-summary{display:grid'));assert(html.includes('width:176px'));assert(html.includes('grid-template-columns:repeat(2,minmax(0,1fr))'));
+ // Execute the exact fixed-asset rendering expression: merely viewing it must be read-only.
+ const read=html.match(/const _fa=A\.fixed_assets\|\|\{mode:"simple",assets:\[\]\}/);assert(read);
+ const a={};vm.runInNewContext(read[0]+'; _fa.assets||[];', {A:a});assert.deepEqual(a,{});
  const original=JSON.stringify(ctx.cfg);responses=[response(policy())];await ctx.engagementSetupOpen();ctx.engagementSetupDraft('years',5);assert.equal(JSON.stringify(ctx.cfg),original);assert(ctx.engagementSetupHtml().includes('5 years × 12 periods/year = 60'));
  ctx.engagementSetupCancel();assert.equal(JSON.stringify(ctx.cfg),original);
  responses=[response(policy())];await ctx.engagementSetupOpen();ctx.engagementSetupDraft('years',5);responses=[response({error:'Missing source data'},false)];await ctx.engagementSetupApply();assert.equal(JSON.stringify(ctx.cfg),original);assert(ctx.engagementSetupHtml().includes('Missing source data'));assert.equal(refreshes,0);

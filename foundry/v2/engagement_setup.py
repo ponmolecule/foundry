@@ -11,14 +11,23 @@ def _clean(value):
     if isinstance(value,list):return [_clean(x) for x in value]
     return value
 
+def _empty_fixed_assets(value):
+    # The configuration renderer historically materialized this inactive shell.
+    # Do not generalize this exception to authored assets or formula schedules.
+    return isinstance(value,dict) and _clean(value)=={'mode':'simple'}
+
+def _digest(value):
+    return hashlib.sha256(json.dumps(_clean(value),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
+
 def fingerprints(cfg):
     a=copy.deepcopy(cfg.get('assumptions') or {})
     # Generated caches move whenever the calendar/horizon changes or the page renders.
     # Only authored curve overrides are setup dependencies.
     for key in ('rate_path_q','rate_path_longer_run','org_costs_pre_open','n_periods','periods_per_year'):a.pop(key,None)
+    if _empty_fixed_assets(a.get('fixed_assets')):a.pop('fixed_assets',None)
     rc=a.get('rate_curves') or {}
     a['rate_curves']={k:v for k,v in rc.items() if isinstance(v,dict) and v.get('edited') is True}
-    return {k:hashlib.sha256(json.dumps(_clean(v),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest() for k,v in a.items() if not k.startswith('_') and _clean(v) not in (None,{},[])}
+    return {k:_digest(v) for k,v in a.items() if not k.startswith('_') and _clean(v) not in (None,{},[])}
 
 def initialize(cfg):
     out=copy.deepcopy(cfg)
@@ -44,13 +53,16 @@ def _horizon_dependency(cfg):
 
 def policy(cfg):
     current=fingerprints(cfg);baseline=(cfg.get('authoring_setup') or {}).get('creation_inputs') if (cfg.get('authoring_setup') or {}).get('version')==1 else None
+    if isinstance(baseline,dict):
+        baseline=baseline.copy()
+        if baseline.get('fixed_assets')==_digest({'mode':'simple','assets':[]}):baseline.pop('fixed_assets')
     if isinstance(baseline,dict):changed=[k for k in sorted(set(current)|set(baseline)) if current.get(k)!=baseline.get(k)]
     else:
         # Old files have no creation evidence. Only genuinely empty model shells
         # can be treated as early; populated legacy engagements remain protected.
         a=cfg.get('assumptions') or {}
         roots=('lending_products','deposit_products','obs_exposures','nie_detail','cac_feeds','capital_raises','scheduled_borrowings','securities_afs','securities_htm','managed_securities_portfolios','fixed_assets','cost_pools','other_assets_model','other_liabilities_model','interest_balances','interest_balance_model','balance_components_model','account_adoption','deposit_retention_pools','loan_allocation_groups')
-        changed=[k for k in roots if a.get(k)]
+        changed=[k for k in roots if a.get(k) and not (k=='fixed_assets' and _empty_fixed_assets(a[k]))]
         if any(isinstance(v,dict) and v.get('edited') for v in (a.get('rate_curves') or {}).values()):changed.append('rate_curves')
     if any(isinstance(v,dict) and v.get('edited') for v in ((cfg.get('assumptions') or {}).get('rate_curves') or {}).values()) and 'rate_curves' not in changed:changed.append('rate_curves')
     labels=[LABELS.get(k,k.replace('_',' ').capitalize()) for k in changed]

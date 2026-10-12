@@ -10,6 +10,23 @@ def shell():
  c['charter_profile']={'charter_type':'state_nonmember','state':'Texas','regulator':'FDIC + state supervisor','target_opening':'2028-01-01','cblr_election':True};c.update(proposed_bank='Example',client_legal_name='Example (in organization)',hq='Texas',scenario_name='Example — engagement baseline',pre_opening={'expenses':[]});return initialize(c)
 
 class Tests(unittest.TestCase):
+ def test_renderer_empty_asset_shell_does_not_lock_setup(self):
+  c=shell();c['assumptions']['fixed_assets']={'mode':'simple','assets':[]}
+  self.assertTrue(policy(c)['early'])
+  x=apply(c,{'periods_per_year':4,'target_opening':'2029-01-01'})
+  self.assertEqual(values(x)['periods_per_year'],4);self.assertEqual(values(x)['target_opening'],'2029-01-01')
+ def test_r318_baseline_with_empty_asset_shell_is_compatible(self):
+  from .engagement_setup import _digest
+  c=shell();c['authoring_setup']['creation_inputs']['fixed_assets']=_digest({'mode':'simple','assets':[]})
+  self.assertTrue(policy(c)['early'])
+  c['assumptions']['fixed_assets']={'mode':'schedule','assets':[{'cost':1000}]}
+  self.assertFalse(policy(c)['early'])
+ def test_legacy_empty_asset_shell_is_not_entered_data(self):
+  c={'assumptions':{'fixed_assets':{'mode':'simple','assets':[]}}}
+  self.assertTrue(policy(c)['early'])
+ def test_asset_formula_and_unknown_fields_remain_protected(self):
+  for fa in ({'mode':'formula_level','formula_level':{'opening_level':1000}}, {'mode':'simple','assets':[],'future_input':1}):
+   c=shell();c['assumptions']['fixed_assets']=fa;self.assertFalse(policy(c)['early'])
  def test_early_horizon_preserves_capital_and_preopening(self):
   c=shell();c['pre_opening']['expenses']=[{'description':'Legal','amount':12000,'month_offset':-1}];before=copy.deepcopy(c)
   x=apply(c,{'years':5});self.assertEqual(x['assumptions']['n_periods'],60);self.assertEqual(x['pre_opening'],c['pre_opening']);self.assertEqual(x['target_state'],c['target_state']);self.assertEqual(c,before);self.assertTrue(policy(x)['early'])

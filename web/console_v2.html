@@ -13952,7 +13952,7 @@ function structuresSectionsHtml(){
       }
       _p += `<div class="cmut">${pex.length} expense${pex.length===1?"":"s"} added · expensed before opening</div>`;
     }
-    const _fa=_fixedAssetState(), _faSchedule=_fa.mode==="schedule", _faFormula=_fa.mode==="formula_level", _faLegacy=!_faSchedule&&!_faFormula, _fax=_fa.assets||[];
+    const _fa=A.fixed_assets||{mode:"simple",assets:[]}, _faSchedule=_fa.mode==="schedule", _faFormula=_fa.mode==="formula_level", _faLegacy=!_faSchedule&&!_faFormula, _fax=_fa.assets||[];
     const _faFl=_fa.formula_level||{}, _faComponents=_faFl.components||[];
     const _faHasContent=_faSchedule?_fax.length>0:(_faFormula?!!((+(_faFl.opening_level!=null?_faFl.opening_level:_faFl.opening_net)||0)||_faComponents.length||(_faFl.base_spec&&(+_faFl.base_spec.value||+_faFl.base_spec.base||(_faFl.base_spec.values||[]).some(v=>+v)))||_faFl.depreciation):!!(+cfg.assumptions.premises_equipment||+cfg.assumptions.premises_depreciation_annual||+cfg.assumptions.intangibles));
     const _faOpen=_cfgSectionIsOpen("fixedassets",_faHasContent);
