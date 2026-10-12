@@ -16,6 +16,39 @@ def _empty_fixed_assets(value):
     # Do not generalize this exception to authored assets or formula schedules.
     return isinstance(value,dict) and _clean(value)=={'mode':'simple'}
 
+def _plain_workforce(value):
+    """Flat, natural-unit compensation is not tied to a forecast grid."""
+    if not isinstance(value,dict):return False
+    if set(_clean(value))-{'categories','workforce','other_gross_up_rate','fdic_bp_ann','occ_simplified_enabled','gross_up_eligibility'}:return False
+    if value.get('categories') or value.get('fdic_bp_ann') or value.get('occ_simplified_enabled'):return False
+    wf=value.get('workforce') or {}
+    if not isinstance(wf,dict):return False
+    if set(_clean(wf))-{'mode','roles','additive_components','total_count_series_id','default_payroll_load_rate','default_salary_growth_spec'}:return False
+    if wf.get('mode','roles')!='roles' or wf.get('additive_components'):return False
+    if wf.get('roles') and (wf.get('default_salary_growth_spec') or {}).get('rate'):return False
+    for role in wf.get('roles') or []:
+        if not isinstance(role,dict):return False
+        known={'role','series_id','compensation_series_id','owner_module','count','annual_comp','compensation_period','compensation_basis','hire_period','payroll_load_rate','gross_up_eligible'}
+        if set(_clean(role))-known:return False
+        if role.get('hire_period',1)!=1:return False
+        if role.get('compensation_period','year') not in {'month','quarter','year'}:return False
+    return True
+
+def _blank_fee_product(value):
+    if not isinstance(value,dict) or not value.get('_fee_product'):return False
+    known={'call_report_line','managed_notional','fee_streams','notional','fee_yield_ann','opex_pct_ann','opex_fixed_per_period','gross_up_eligible'}
+    if set(_clean(value))-known:return False
+    if value.get('fee_streams') or any(value.get(k) for k in ('notional','fee_yield_ann','opex_pct_ann','opex_fixed_per_period')):return False
+    mn=value.get('managed_notional') or {}
+    return isinstance(mn,dict) and not mn.get('day1') and not mn.get('target') and not (set(_clean(mn))-{'day1','target','ramp_periods','ramp_quarters','trajectory'})
+
+def _protects_setup(key,value):
+    if _clean(value) in (None,{},[]):return False
+    if key=='fixed_assets' and _empty_fixed_assets(value):return False
+    if key=='nie_detail' and _plain_workforce(value):return False
+    if key=='obs_exposures' and isinstance(value,list) and all(_blank_fee_product(p) for p in value):return False
+    return True
+
 def _digest(value):
     return hashlib.sha256(json.dumps(_clean(value),sort_keys=True,separators=(',',':'),allow_nan=False).encode()).hexdigest()
 
@@ -56,13 +89,16 @@ def policy(cfg):
     if isinstance(baseline,dict):
         baseline=baseline.copy()
         if baseline.get('fixed_assets')==_digest({'mode':'simple','assets':[]}):baseline.pop('fixed_assets')
-    if isinstance(baseline,dict):changed=[k for k in sorted(set(current)|set(baseline)) if current.get(k)!=baseline.get(k)]
+    if isinstance(baseline,dict):
+        # Protect inputs that still exist, not deletion history or inactive scaffolding.
+        a=cfg.get('assumptions') or {}
+        changed=[k for k in sorted(current) if current.get(k)!=baseline.get(k) and _protects_setup(k,a.get(k))]
     else:
         # Old files have no creation evidence. Only genuinely empty model shells
         # can be treated as early; populated legacy engagements remain protected.
         a=cfg.get('assumptions') or {}
         roots=('lending_products','deposit_products','obs_exposures','nie_detail','cac_feeds','capital_raises','scheduled_borrowings','securities_afs','securities_htm','managed_securities_portfolios','fixed_assets','cost_pools','other_assets_model','other_liabilities_model','interest_balances','interest_balance_model','balance_components_model','account_adoption','deposit_retention_pools','loan_allocation_groups')
-        changed=[k for k in roots if a.get(k) and not (k=='fixed_assets' and _empty_fixed_assets(a[k]))]
+        changed=[k for k in roots if _protects_setup(k,a.get(k))]
         if any(isinstance(v,dict) and v.get('edited') for v in (a.get('rate_curves') or {}).values()):changed.append('rate_curves')
     if any(isinstance(v,dict) and v.get('edited') for v in ((cfg.get('assumptions') or {}).get('rate_curves') or {}).values()) and 'rate_curves' not in changed:changed.append('rate_curves')
     labels=[LABELS.get(k,k.replace('_',' ').capitalize()) for k in changed]
@@ -76,6 +112,8 @@ def _cadence_defaults(a,old,new):
     amounts={'originations','new_deposits','purchases','opex_fixed','overhead'};growth={'growth','orig_growth','overhead_growth'}
     def walk(obj):
         if isinstance(obj,dict):
+            # No volume or pricing exists yet; template ramp length has no cash flow to retime.
+            if _blank_fee_product(obj):return
             if obj.get('cadence')=='model_period' and obj.get('values'):raise ValueError('A model-period schedule requires deliberate reauthoring before changing cadence')
             if obj.get('overrides') and any(obj['overrides'].values()):raise ValueError('Period overrides require deliberate reauthoring before changing cadence')
             if obj.get('schedule') and obj.get('period') not in {'month','quarter','year'}:raise ValueError('An untyped period schedule prevents a cadence change')

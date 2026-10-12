@@ -1816,3 +1816,23 @@ No menus, theme, default economics, engine posting or result fields changed. A t
 Direct continuation of r319 (c981939). Adds a compact Expand/Collapse button beside Edit. Collapse hides the summary and editor while preserving any draft or in-flight validation. Expand restores them. Edit expands the section and requests the current setup policy. Snapshot users can expand/collapse but cannot edit. Switching engagements resets the view to expanded and clears drafts. Disclosure state is transient: no configuration, result or saved engagement field is added.
 
 Validation: actual JavaScript helper tests cover collapse/expand, untouched configuration, retained draft, Edit from collapsed, snapshot read-only, rejection and stale responses. All 26 backend setup checks pass; complete inline JavaScript syntax and whitespace checks pass. No engine changes. No rendered browser test is claimed (browser unavailable). Full suite not rerun for this isolated disclosure change; r319 baseline recorded 91 passing modules and 16 existing failures.
+
+# r321 — protect current inputs, not empty cards or deletion history
+
+Direct continuation of r320 (d101bc3). No engine or economic changes.
+
+## Cause
+
+r318–r320 compared entire assumption-section fingerprints against creation fingerprints. Creating an empty fee card or workforce section therefore locked setup. Removing a section present at creation also counted as a difference. Deleting roles leaves the workforce's mode, generated total-count ID and defaults, which were incorrectly treated as timing dependencies.
+
+## Correction
+
+Protection now tests current content before using a fingerprint difference. Missing or empty sections do not keep a historical lock. Empty fee products with no streams, balance, yield or expense are safe, including their unused template ramp. Workforce roles containing flat compensation in explicit month/quarter/year units, flat count and period-1 hiring are safe. Pre-opening expenses continue to be excluded.
+
+Actual fee streams, volumes, links, workforce growth/count schedules, timed hiring, assessments, additive compensation and unknown substantive fields remain protected. This is a conservative exception for known cadence-independent grammar, not a wholesale unlock of populated engagements. Salary/count values and pre-opening costs are preserved. Legacy files without creation metadata use the same content checks. No creation baseline is fabricated for populated legacy inputs.
+
+## Deployment check
+
+Open Edit setup after deploying. Cadence and target opening must be active when the only entries are an empty fee card, flat salary role, and pre-opening expenses. They must remain active after deleting those entries. Add a role beginning in period 13 or an explicit count schedule: structural editing must be protected again. No need to delete salary-only roles to revise setup.
+
+Expand/Collapse/Edit from r320 remains included.

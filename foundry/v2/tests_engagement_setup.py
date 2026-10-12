@@ -27,6 +27,29 @@ class Tests(unittest.TestCase):
  def test_asset_formula_and_unknown_fields_remain_protected(self):
   for fa in ({'mode':'formula_level','formula_level':{'opening_level':1000}}, {'mode':'simple','assets':[],'future_input':1}):
    c=shell();c['assumptions']['fixed_assets']=fa;self.assertFalse(policy(c)['early'])
+ def test_user_blank_fee_salary_preopening_then_delete(self):
+  c=shell();c['pre_opening']['expenses']=[{'category':'Legal','total':12000}]
+  c['assumptions']['obs_exposures']=[{'name':'New fee product','_fee_product':True,'call_report_line':'obs','managed_notional':{'day1':0,'target':0,'ramp_periods':8,'trajectory':'ramp_to_target'},'fee_streams':[],'notional':0,'fee_yield_ann':0,'opex_pct_ann':0,'opex_fixed_per_period':0}]
+  c['assumptions']['nie_detail']={'categories':[],'other_gross_up_rate':0,'fdic_bp_ann':0,'occ_simplified_enabled':False,'workforce':{'mode':'roles','roles':[{'role':'Analyst','series_id':'count','compensation_series_id':'comp','owner_module':'operating_expense.workforce','count':1,'annual_comp':100000,'compensation_period':'year','compensation_basis':'per_unit','hire_period':1}],'default_salary_growth_spec':{'rate':0,'period':'year','method':'step','anchor':'hire_anniversary'},'default_payroll_load_rate':0,'total_count_series_id':'total'}}
+  before=copy.deepcopy(c);self.assertTrue(policy(c)['early'])
+  x=apply(c,{'periods_per_year':4,'target_opening':'2029-01-01'})
+  self.assertEqual(x['assumptions']['nie_detail'],c['assumptions']['nie_detail']);self.assertEqual(x['pre_opening'],c['pre_opening']);self.assertEqual(c,before)
+  c['assumptions']['obs_exposures']=[];c['assumptions']['nie_detail']['workforce']['roles']=[];c['pre_opening']['expenses']=[]
+  self.assertTrue(policy(c)['early']);apply(c,{'periods_per_year':4,'target_opening':'2029-01-01'})
+ def test_deleting_baseline_product_releases_lock(self):
+  c=shell();c['assumptions']['obs_exposures']=[{'name':'Original','notional':5000}];c=initialize(c);c['assumptions']['obs_exposures']=[]
+  self.assertTrue(policy(c)['early']);apply(c,{'target_opening':'2029-01-01'})
+ def test_empty_workforce_residue_in_legacy_engagement(self):
+  c={'assumptions':{'nie_detail':{'categories':[],'workforce':{'mode':'roles','roles':[],'total_count_series_id':'generated','default_salary_growth_spec':{'rate':.03,'period':'year'},'default_payroll_load_rate':.25},'other_gross_up_rate':0,'fdic_bp_ann':0,'occ_simplified_enabled':False}}}
+  self.assertTrue(policy(c)['early'])
+ def test_timed_linked_and_growing_workforce_still_protect(self):
+  for role in ({'annual_comp':100000,'hire_period':13},{'annual_comp':100000,'count_spec':{'source':'link','link':{'kind':'catalog','series_id':'count'}}},{'annual_comp':100000,'count_spec':{'source':'entered','trajectory':'explicit','values':[1,2,3],'cadence':'year'}},{'annual_comp':100000,'compensation_spec':{'trajectory':'growth','base':100000,'period':'year','growth_spec':{'rate':.03,'period':'year'}}}):
+   c=shell();c['assumptions']['nie_detail']={'workforce':{'mode':'roles','roles':[role]}}
+   self.assertFalse(policy(c)['early'])
+   with self.assertRaises(ValueError):apply(c,{'periods_per_year':4})
+ def test_fee_volume_or_stream_or_unknown_input_still_protect(self):
+  for extra in ({'notional':1},{'fee_streams':[{'basis':'transaction','driver':{'source':'constant','params':{'base':1}}}]},{'future_schedule':[1,2,3]}):
+   c=shell();c['assumptions']['obs_exposures']=[{'_fee_product':True,'call_report_line':'obs',**extra}];self.assertFalse(policy(c)['early'])
  def test_early_horizon_preserves_capital_and_preopening(self):
   c=shell();c['pre_opening']['expenses']=[{'description':'Legal','amount':12000,'month_offset':-1}];before=copy.deepcopy(c)
   x=apply(c,{'years':5});self.assertEqual(x['assumptions']['n_periods'],60);self.assertEqual(x['pre_opening'],c['pre_opening']);self.assertEqual(x['target_state'],c['target_state']);self.assertEqual(c,before);self.assertTrue(policy(x)['early'])
