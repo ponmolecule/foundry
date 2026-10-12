@@ -1506,6 +1506,20 @@ def v31_fields(activations: str = "", _=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/engagement-setup")
+def v31_engagement_setup(body: dict, user=Depends(gate)):
+    from foundry.v2.engagement_setup import initialize, policy, apply
+    cfg=body.get('cfg')
+    if not isinstance(cfg,dict):return JSONResponse({'error':'An engagement configuration is required'},status_code=422)
+    try:
+        action=body.get('action','policy')
+        if action=='initialize':return JSONResponse({'cfg':cfg if cfg.get('authoring_setup') else initialize(cfg)})
+        if action=='policy':return JSONResponse(policy(cfg))
+        if action=='apply':return JSONResponse({'cfg':apply(cfg,body.get('patch'))})
+        raise ValueError('Unsupported setup action')
+    except (ValueError,TypeError) as e:return JSONResponse({'error':str(e)},status_code=422)
+
+
 @app.post("/api/v31/engagement")
 def v31_save_engagement(body: dict, user=Depends(gate)):
     from foundry import store

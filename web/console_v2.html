@@ -830,6 +830,7 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .account-adoption-card .sec-managed-series-row>select{width:120px;min-width:0;max-width:160px}
 .account-adoption-card .sec-managed-series{margin-top:8px;padding-top:8px;border-top:1px solid var(--k-line2)}
 .account-adoption-card summary{cursor:pointer;flex-wrap:wrap;list-style:none}
+.eset{border:1px solid var(--nline,var(--line));border-radius:4px;background:var(--paper,#fff);padding:12px 14px;margin:0 0 14px}.eset-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:10px;font-size:13px}.eset-head .btn-plain{font-size:11px;padding:4px 10px}.eset-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(135px,1fr));gap:10px 18px}.eset-summary span{display:block;color:var(--muted,#6c6c65);font-size:10px;margin-bottom:3px}.eset-summary strong{display:block;font-size:11px;font-weight:600;overflow-wrap:anywhere}.eset-editor{border-top:1px solid var(--nline,var(--line));margin-top:12px;padding-top:12px}.eset-fields{display:flex;flex-wrap:wrap;gap:12px 16px;align-items:flex-end}.eset-fields label{display:flex;flex-direction:column;gap:5px;font-size:11px}.eset-fields input,.eset-fields select{width:176px;max-width:100%;box-sizing:border-box;font-size:12px;padding:6px 8px}.eset-fields :disabled{opacity:.65}.eset-note{font-size:11px;color:var(--muted,#6c6c65);line-height:1.5;margin-top:10px}.eset-actions{display:flex;gap:8px;margin-top:12px}.eset-error{font-size:12px;color:#8e443a;margin-top:10px}@media(max-width:600px){.eset-fields label{width:100%}.eset-fields input,.eset-fields select{width:100%!important}.eset-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -4408,6 +4409,7 @@ function _structuredPasteSetOpen(key,isOpen){
 window._structuredPasteIsOpen=_structuredPasteIsOpen;
 window._structuredPasteSetOpen=_structuredPasteSetOpen;
 function _resetTransientAuthoringUi(c){
+  _engSetup=null;
   _stripTransientPasteFlags(c);
   _renderedAuthoringTab=null;_renderedAuthoringCfg=null;_consumedPasteId=null;
   window._structuredPasteOpen={};
@@ -11926,6 +11928,12 @@ async function wizFinish(){
     famArr(TAX31()[cat][+i].fam).push(materializeTemplate(TAX31()[cat][+i]));
   });
   syncModules();
+  normalizeCfg(cfg); ensureRateCurves();
+  try{
+    const setupResponse=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'initialize',cfg})});
+    if(!setupResponse.ok)throw Error('Setup initialization failed');
+    const setup=await setupResponse.json();cfg=setup.cfg;
+  }catch(e){appStatus('err','Engagement created without a setup baseline; setup editing will be conservative.');}
   try{
     const r = await fetch("/api/v31/engagement", {method:"POST", headers:{"Content-Type":"application/json"},
       body: JSON.stringify({cfg: cfg})});
@@ -14580,11 +14588,38 @@ window.addFeeProduct = function(catalogKey){
   cfg.assumptions.fee_products = cfg.assumptions.fee_products || [];
   cfg.assumptions.fee_products.push({key: catalogKey, basis: preset.basis, params: {}});
   renderContent(); refresh(); };
+// r318: visible setup; drafts apply atomically after server-side dependency checks.
+let _engSetup=null;
+function engagementSetupValues(){const a=cfg.assumptions||{},cp=cfg.charter_profile||{},ppy=+a.periods_per_year||4,n=+a.n_periods||12;return {name:cfg.proposed_bank||cfg.client_legal_name||'',state:cp.state||cfg.hq||'',target_opening:cp.target_opening||cfg.target_opening||'',charter_type:cp.charter_type||'',cblr_election:cp.cblr_election!==false,periods_per_year:ppy,years:n/ppy,n_periods:n,initial_capital:+((cfg.target_state||{}).initial_capital)||0,regulator:cp.regulator||REGULATOR_OF[cp.charter_type]||''};}
+function engagementSetupHtml(){const v=engagementSetupValues(),labels={national:'National bank',national_trust:'National trust bank',state_member:'State member bank',state_nonmember:'State nonmember bank'};
+ let h='<section class="eset" aria-label="Engagement setup"><div class="eset-head"><b>Engagement setup</b><button class="btn-plain" onclick="engagementSetupOpen()"'+(window.SNAPSHOT?' disabled':'')+'>Edit setup</button></div><div class="eset-summary">';
+ [['Institution',v.name],['Charter',labels[v.charter_type]||v.charter_type||'Not set'],['Primary regulator',v.regulator||'Not set'],['Home state / market',v.state||'Not set'],['Target opening',v.target_opening||'Not set'],['Cadence',{12:'Monthly',4:'Quarterly',1:'Annual'}[v.periods_per_year]||v.periods_per_year],['Forecast',v.years.toLocaleString('en-US',{maximumFractionDigits:2})+' years · '+v.n_periods+' '+({12:'months',4:'quarters',1:'years'}[v.periods_per_year]||'periods')],['CBLR election',v.cblr_election?'Yes':'No'],['Initial capital','$'+fmtComma(v.initial_capital/1000)+'k']].forEach(([k,value])=>{h+=`<div><span>${esc(k)}</span><strong>${esc(value)}</strong></div>`;});h+='</div>';
+ if(_engSetup){const S=_engSetup;if(S.loading)h+='<div class="eset-note">Checking setup dependencies…</div>';else if(S.draft){const d=S.draft,early=S.policy.early,lock=early?'':' disabled';h+='<div class="eset-editor"><div class="eset-fields">';
+ const input=(key,label,value,extra='',disabled='')=>`<label>${label}<input value="${esc(value)}" ${extra}${disabled} onchange="engagementSetupDraft('${key}',this.value)"></label>`;
+ h+=input('name','Institution name',d.name,'style="width:250px;max-width:100%"');
+ h+=`<label>Charter type<select${lock} onchange="engagementSetupDraft('charter_type',this.value)">${!labels[d.charter_type]?`<option value="${esc(d.charter_type)}">${esc(d.charter_type||'Not set')}</option>`:''}${Object.entries(labels).map(([k,l])=>`<option value="${k}"${d.charter_type===k?' selected':''}>${l}</option>`).join('')}</select></label>`;
+ h+=`<label>Home state / market<select onchange="engagementSetupDraft('state',this.value)"><option value="${esc(d.state)}">${esc(d.state||'Not set')}</option>${US_STATES.filter(x=>x!==d.state).map(x=>`<option value="${esc(x)}">${esc(x)}</option>`).join('')}</select></label>`;
+ h+=input('target_opening','Target opening',d.target_opening,'placeholder="YYYY-MM-DD / YYYY-Q1"',lock);
+ h+=`<label>Cadence<select${lock} onchange="engagementSetupDraft('periods_per_year',+this.value)">${![4,12].includes(d.periods_per_year)?`<option value="${d.periods_per_year}">Annual (legacy)</option>`:''}<option value="12"${d.periods_per_year===12?' selected':''}>Monthly</option><option value="4"${d.periods_per_year===4?' selected':''}>Quarterly</option></select></label>`;
+ const years=[...new Set([d.years,3,5,7])].sort((a,b)=>a-b);h+=`<label>Forecast horizon<select onchange="engagementSetupDraft('years',+this.value)">${years.map(y=>`<option value="${y}"${d.years===y?' selected':''}${!early&&y<S.policy.values.years?' disabled':''}>${y.toLocaleString('en-US',{maximumFractionDigits:2})} years</option>`).join('')}</select></label>`;
+ h+=`<label>CBLR election<select onchange="engagementSetupDraft('cblr_election',this.value==='yes')"><option value="yes"${d.cblr_election?' selected':''}>Yes</option><option value="no"${!d.cblr_election?' selected':''}>No</option></select></label>`;
+ h+=input('initial_capital','Initial capital ($000s)',d.initial_capital/1000,'type="number" min="0" step="any"');h+='</div>';
+ h+=`<div class="eset-note">${esc(early?'Cadence, charter, opening date and horizon can still be revised. Pre-opening expenses and initial capital are preserved.':S.policy.structural_reason)}${!early?' Extending the horizon remains available if the existing sources support it.':''} ${esc(S.policy.extend_reason||'')} ${esc(S.policy.horizon_dependency||'')}</div>`;
+ h+=`<div class="eset-note">${d.years} years × ${d.periods_per_year} periods/year = ${Math.round(d.years*d.periods_per_year)} model periods. Primary regulator: ${esc(REGULATOR_OF[d.charter_type]||d.charter_type||'Not set')}. Apply validates the change; existing schedules keep their extension rules.</div>`;
+ if(S.error)h+=`<div class="eset-error" role="alert">${esc(S.error)}</div>`;
+ h+=`<div class="eset-actions"><button class="btn-gold"${S.busy?' disabled':''} onclick="engagementSetupApply()">${S.busy?'Checking…':'Apply changes'}</button><button class="btn-plain"${S.busy?' disabled':''} onclick="engagementSetupCancel()">Cancel</button></div></div>`;
+ }else h+=`<div class="eset-error" role="alert">${esc(S.error||'Could not check setup')} <button class="btn-plain" onclick="engagementSetupCancel()">Close</button></div>`;}
+ return h+'</section>';}
+async function engagementSetupOpen(){if(window.SNAPSHOT)return;const original=cfg,token={loading:true};_engSetup=token;renderContent();const signature=JSON.stringify(cfg);try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'policy',cfg:original})});const j=await r.json();if(!r.ok)throw Error(j.error||'Could not check setup');if(_engSetup!==token)return;if(cfg!==original||JSON.stringify(cfg)!==signature){token.loading=false;token.error='Inputs changed while setup was being checked. Reopen setup to use the current inputs.';renderContent();return;}token.loading=false;token.policy=j;token.draft=Object.fromEntries(Object.entries(j.values).filter(([k])=>!['n_periods','regulator'].includes(k)));renderContent();}catch(e){if(_engSetup!==token)return;token.loading=false;token.error=e.message;renderContent();}}
+function engagementSetupDraft(k,value){if(!_engSetup||!_engSetup.draft||_engSetup.busy)return;_engSetup.draft[k]=k==='initial_capital'?Number(value)*1000:value;_engSetup.error='';if(['years','periods_per_year','charter_type','cblr_election'].includes(k))renderContent();}
+function engagementSetupCancel(){_engSetup=null;renderContent();}
+async function engagementSetupApply(){const S=_engSetup;if(!S||!S.draft||S.busy||window.SNAPSHOT)return;const original=cfg;S.busy=true;S.error='';renderContent();const signature=JSON.stringify(cfg);try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'apply',cfg:original,patch:S.draft})});const j=await r.json();if(!r.ok)throw Error(j.error||'Setup change was not accepted');if(_engSetup!==S)return;if(cfg!==original||JSON.stringify(cfg)!==signature)throw Error('Inputs changed while setup was being checked. Reopen setup and try again; nothing was replaced.');if(JSON.stringify(j.cfg)===signature){_engSetup=null;renderContent();appStatus('ok','Setup unchanged.');return;}cfg=j.cfg;_engSetup=null;lastRes=null;lastErrs=null;lastRunFailure=null;syncNameChrome();renderGlobals();renderContent();refresh();scheduleAutosave();appStatus('ok','Engagement setup updated. Existing inputs were preserved.');}catch(e){if(_engSetup!==S)return;S.busy=false;S.error=e.message;renderContent();}}
+
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;
   const r = lastRes || {};
   const _eng = cfg.client_legal_name || cfg.proposed_bank || cfg.client || "Unnamed engagement";
-  let h = '';   // r206: the page title lives at the head of the side column
+  let h = engagementSetupHtml();   // r318: persistent, compact setup summary
   // One-time landing nudge (LIFECYCLE_SPEC §4): after a config lands (upload or create) but isn't
   // saved, offer to save it as an engagement. Shows once; [Save] or [Not now] dismisses it; the
   // quiet "Unsaved" badge carries the reminder afterward. Never for opened/example configs.
@@ -14598,7 +14633,7 @@ function renderConfigTab(){
   }
   if(!snapshotMode) h += '<div class="cfgwrap">' + structuresSectionsHtml() + '</div>';
   const g = (p)=>{ try { return p.split(".").reduce((o,k)=>o==null?o:o[k], cfg); } catch(e){ return null; } };
-    h += `<div class="cfgfoot"><span>Changes apply immediately and recompute the model.</span></div>`;
+    h += `<div class="cfgfoot"><span>Changes apply immediately and recompute the model. Engagement setup uses Apply changes.</span></div>`;
   if(V31){
     h += '<div class="memo" style="margin-top:14px">Intake \u2014 upload/download of the configuration and workbook \u2014 lives on the <a href="#" style="color:#A3772A" onclick="setTab(\'start\');return false">Start</a> tab on this rung. This tab is the engagement as data.</div>';
     document.getElementById("content").innerHTML = h; if(typeof cfgArrangeShell==="function") cfgArrangeShell(); return;
