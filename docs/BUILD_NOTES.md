@@ -1780,3 +1780,8 @@ Explicit group/line eligibility, legacy defaults preserved, audited base/charge,
 
 ## r316 — Optional monthly repayment profiles
 Canonical monthly funded cohorts, explicit loss/allowance paths, repayments and cohort audits, monthly profile fee aggregation and fail-closed unsupported combinations. Direct continuation of r315; includes its gross-up eligibility changes.
+
+
+## r317 — repayment profile cap, allowance and stress completion
+
+Built on r316. Adds simultaneous shared closing-cap transfers at par with retained/distributed cohort identities, curve-based loss-rate-term allowance, and explicit replacement DFAST balance losses for lifetime-volume profiles. No new product type. See R317_RELEASE_NOTES.md for timing conventions and R317_VALIDATION.md for evidence.

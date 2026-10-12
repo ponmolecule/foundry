@@ -315,7 +315,6 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
             if not isinstance(p.get("overrides"), dict):
                 p["overrides"] = {}
             if p.get("repayment_profile") is not None:
-                if p["repayment_profile"].get("loss_basis") != "annual_balance": raise ValueError("DFAST absolute balance loss cannot be applied to a lifetime-volume repayment profile")
                 p["_profile_loss_overrides"] = sched
             else:
                 p["overrides"]["charge_off_ann"] = sched
@@ -724,7 +723,7 @@ def run_pf_a(cfg):
 
     from .repayment_profiles import resolve as resolve_repayment_profile
     for _loan in lend:
-        if _loan.get('repayment_profile') is not None:
+        if _loan.get('repayment_profile') is not None and not _loan.get('allocation_group_id'):
             _profile = resolve_repayment_profile(_loan, a, Q, ppy, _loan['_linked_balance'], _growth_ctx)
             _loan['_repayment_profile'] = _profile
             _loan['_linked_balance'].update({k:_profile[k] for k in ('ending_balance','distributed_balance','funded_volume','source_activity','outstanding')})
@@ -752,8 +751,11 @@ def run_pf_a(cfg):
             _targets[_key] = list(_level["ending_balance"])
         _cap_source = _group.get("cap_source")
         if _cap_source == "entered":
-            _capacity = resolve_entered_series(_group.get("cap_spec"), Q, ppy,
-                                                context=_growth_ctx)
+            if any(p.get('repayment_profile') is not None for p in _members) and (_group.get('cap_spec') or {}).get('cadence') != 'model_period':
+                _mc = resolve_entered_series(_group.get('cap_spec'), Q*(12//ppy), 12, context=_growth_ctx)
+                _capacity = [_mc[i] for i in range(12//ppy-1,len(_mc),12//ppy)]
+            else:
+                _capacity = resolve_entered_series(_group.get("cap_spec"), Q, ppy, context=_growth_ctx)
         elif _cap_source == "deposit_book_end":
             _ratio = float(_group.get("cap_ratio"))
             if not 0 <= _ratio:
@@ -762,7 +764,26 @@ def run_pf_a(cfg):
                          for i in range(Q)]
         else:
             raise ValueError("loan allocation requires entered or deposit_book_end cap_source")
-        _resolved = allocate_loan_levels(_targets, _capacity)
+        if any(p.get('repayment_profile') is not None for p in _members):
+            from .repayment_profiles import resolve_group, monthly_allocation_inputs
+            _monthly_group = dict(_group)
+            if _group.get('cap_source') == 'deposit_book_end':
+                _monthly_group['_monthly_deposit_book'] = [sum(float(d['_bal'][i+1]) for d in dep) for i in range(Q) for _ in range(12//ppy)]
+            _monthly_cap, _monthly_targets = monthly_allocation_inputs(cfg, _monthly_group, _members, Q, ppy, _growth_ctx)
+            _profiles, _resolved = resolve_group(_members, a, Q, ppy, _monthly_cap, _monthly_targets, _growth_ctx)
+            for _member in _members:
+                if _member.get('repayment_profile') is not None:
+                    _pr = _profiles[_member['allocation_target_id']]
+                    _member['_repayment_profile'] = _pr
+                    _member['_alll'][0] = _pr['opening_allowance']
+                    _member['_linked_balance'].update({k:_pr[k] for k in ('ending_balance','distributed_balance','funded_volume','source_activity','outstanding')})
+                    _targets[_member['allocation_target_id']] = _pr['target_before_allocation']
+                    # Profile distributed includes seasoned transfers and prior off-book cohorts.
+                    _resolved['distributed'][_member['allocation_target_id']] = _pr['distributed_balance']
+        else:
+            _resolved = allocate_loan_levels(_targets, _capacity)
+        if _resolved.get('monthly') is not None:
+            _resolved['capacity_convention'] = 'native_deposit_close_held_within_period' if _cap_source == 'deposit_book_end' else 'entered_monthly_capacity'
         _allocation_audit[_gid] = _resolved
         for _member in _members:
             _key = _member["allocation_target_id"]
@@ -1785,6 +1806,7 @@ def run_pf_a(cfg):
                         _pr["distributedBalance"] = list(_lb["distributed_balance"])
                     if p.get("_repayment_profile") is not None:
                         _pr["repayments"] = list(p["_repayment_profile"]["repayments"])
+                        _pr["principalTransfersOut"] = list(p["_repayment_profile"]["transfers_out"])
                         _pr["distributedBalance"] = list(p["_repayment_profile"]["distributed_balance"])
                     products.append(_pr)
                     continue

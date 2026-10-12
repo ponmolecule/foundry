@@ -42,11 +42,14 @@ def validate(p, a=None):
         ids=[]
         for row in profile[key]:
             if not isinstance(row,dict) or not isinstance(row.get('id'),str) or not row['id'].strip():raise ValueError('Opening cohorts require stable IDs')
-            if str(row['id']).startswith(('funded-','distributed-')):raise ValueError('Opening cohort IDs cannot use generated funding prefixes')
+            if str(row['id']).startswith(('funded-','distributed-')) or p.get('allocation_group_id') and str(row['id']).startswith('transfer-'):raise ValueError('Opening cohort IDs cannot use generated funding prefixes')
             ids.append(row['id']);age=row.get('next_age_month')
             if isinstance(age,bool) or not isinstance(age,int) or not 0<=age<len(curve):raise ValueError('Opening cohort next age must be within the repayment curve')
             orig=number(row.get('original_principal'),'Opening original principal');bal=number(row.get('outstanding'),'Opening outstanding');paid=number(row.get('repaid_to_date'),'Opening repayments');loss=number(row.get('charged_off_to_date'),'Opening charge-offs')
-            if abs(orig-bal-paid-loss)>1e-7*max(1,orig):raise ValueError('Opening cohort principal must equal repayments + charge-offs + outstanding')
+            transferred=number(row.get('transferred_to_date',0),'Opening transfers')
+            if abs(orig-bal-paid-loss-transferred)>1e-7*max(1,orig):raise ValueError('Opening cohort principal must equal repayments + charge-offs + transfers + outstanding')
+            if number(row.get('loss_principal_at_opening',orig),'Opening retained loss principal')>orig:raise ValueError('Opening loss principal cannot exceed original principal')
+            if key=='opening_cohorts' and profile['loss_basis']=='cohort_volume' and transferred and 'loss_principal_at_opening' not in row:raise ValueError('A previously transferred lifetime-loss cohort requires its remaining retained loss principal')
             if key=='opening_cohorts' and profile['loss_basis']=='cohort_volume':
                 if number(row.get('loss_rate_at_funding'),'Opening cohort loss rate')>1:raise ValueError('Opening cohort loss rate must be within 0–100%')
             if key=='opening_distributed_cohorts' and loss:raise ValueError('Distributed cohort credit losses are not modeled by this bank')
@@ -54,14 +57,10 @@ def validate(p, a=None):
     opening=sum(number(x['outstanding'],'Opening outstanding') for x in profile['opening_cohorts'])
     if abs(opening-float(p.get('opening_balance') or 0))>1e-7*max(1,opening):raise ValueError('Opening loan balance must equal explicit opening cohort outstanding')
     if p.get('balance_mode')!='funded_flow_level':raise ValueError('Repayment profiles require a funded-flow lending balance')
-    if p.get('allocation_group_id'):raise ValueError('Repayment profiles cannot yet be combined with shared balance caps; use the existing average-days method or remove the cap')
-    if p.get('allowance_mode','reserve_rate') not in {'reserve_rate','profile_expected_loss'}:raise ValueError('Profiled balances require reserve share or remaining profile expected loss; loss_rate_term is unsupported')
+    if p.get('allowance_mode','reserve_rate') not in {'reserve_rate','profile_expected_loss','loss_rate_term'}:raise ValueError('Unsupported profiled allowance method')
     if float(p.get('charge_off_ann') or 0)!=0 or any(float(v or 0)!=0 for v in ((p.get('overrides') or {}).get('charge_off_ann') or {}).values()):raise ValueError('Profile loss path replaces legacy charge_off_ann; set the legacy rate and overrides to zero')
     if float(p.get('runoff_per_period') or p.get('runoff_q') or 0)!=0:raise ValueError('Repayment curve replaces legacy runoff; set runoff to zero')
     if p.get('measurement')=='fair_value':raise ValueError('Repayment profiles currently support amortized-cost loans only')
-    if a is not None:
-        for group in a.get('loan_allocation_groups') or []:
-            if p.get('allocation_target_id') in (group.get('members') or []):raise ValueError('Repayment profiles cannot join a shared balance cap')
     return profile
 
 def monthly_sources(a,n,ppy,context=None):
@@ -96,7 +95,7 @@ def canonical_flow(p,a,n,ppy,context=None):
         out.append(number(arr[m],'Monthly funded activity'))
     return out
 
-def resolve(p,a,n,ppy,linked,context=None):
+def _project(p,a,n,ppy,linked,context=None):
     profile=validate(p,a)
     if profile is None:return None
     months=n*(12//ppy);width=12//ppy;curve=profile['repayment_fractions'];cum=[];total=0.
@@ -107,8 +106,9 @@ def resolve(p,a,n,ppy,linked,context=None):
     if any(v>1 for v in rates):raise ValueError('Profile loss rates must be within 0–100%')
     factors=resolve_entered_series(p['credit_loss_factor_spec'],months,12,context=context) if p.get('credit_loss_factor_spec') else [1.]*months
     factors=[number(v,'Credit loss factor') for v in factors]
-    rates=[float((p.get('_profile_loss_overrides') or {}).get(str(m//width+1),v))*float(p.get('_profile_loss_mult',1)) for m,v in enumerate(rates)]
-    inputs=[v*float(p.get('_profile_volume_mult',1)) for v in canonical_flow(p,a,n,ppy,context)]
+    rates=[v*number(p.get('_profile_loss_mult',1),'Stress loss multiplier') for v in rates]
+    overlays={int(k):number(v,'Stress annual balance loss') for k,v in (p.get('_profile_loss_overrides') or {}).items()}
+    inputs=[v*number(p.get('_profile_volume_mult',1),'Stress funding multiplier') for v in canonical_flow(p,a,n,ppy,context)]
     fd=p['funded_flow_driver'];funded=[]
     for m,v in enumerate(inputs):
         q=m//width+1
@@ -118,17 +118,20 @@ def resolve(p,a,n,ppy,linked,context=None):
         else:funded.append(v*linked['take_up_share']*(0 if q<linked['start_period'] else min(1,(q-linked['start_period']+1)/linked['ramp_periods'])))
     cohorts=[];distributed=[]
     def opening(rows):
-        return [dict(id=x['id'],original=float(x['original_principal']),balance=float(x['outstanding']),age=x['next_age_month'],loss_rate=float(x.get('loss_rate_at_funding',0))*float(p.get('_profile_loss_mult',1))) for x in rows]
+        return [dict(id=x['id'],original=float(x['original_principal']),balance=float(x['outstanding']),age=x['next_age_month'],loss_rate=float(x.get('loss_rate_at_funding',0))*float(p.get('_profile_loss_mult',1)),loss_principal=float(x.get('loss_principal_at_opening',x['original_principal']))) for x in rows]
     cohorts=opening(profile['opening_cohorts']);distributed=opening(profile['opening_distributed_cohorts'])
-    def step(c,rate,factor, *, new=False, loss=True):
+    def step(c,rate,factor, *, new=False, loss=True, month=None):
         age=c['age'];beg=c['balance'];orig=c['original']
         if age>=len(curve):
             if beg>1e-7:raise ValueError('Exposure remains after the entered repayment horizon')
             return 0.,0.,0.
         co=0.
         if loss:
-            if profile['loss_basis']=='cohort_volume':
-                timing=profile['loss_timing_fractions'];co=orig*float(c['loss_rate'])*factor*(timing[age] if age<len(timing) else 0.)
+            overlay=overlays.get(month//width+1) if month is not None else None
+            if overlay is not None:
+                co=(0. if new and profile['loss_balance_measure']=='period_begin' else beg)*overlay*factor/12.
+            elif profile['loss_basis']=='cohort_volume':
+                timing=profile['loss_timing_fractions'];co=c.get('loss_principal',orig)*float(c['loss_rate'])*factor*(timing[age] if age<len(timing) else 0.)
             else:co=(0. if new and profile['loss_balance_measure']=='period_begin' else beg)*rate*factor/12.
         if co>beg+1e-8:raise ValueError('Profile charge-offs exceed available cohort exposure')
         remaining=beg-co;pay=remaining*(curve[age]/(1-cum[age]) if cum[age]<1-1e-12 else 0.)
@@ -138,32 +141,59 @@ def resolve(p,a,n,ppy,linked,context=None):
     def expected(c,m):
         cp=copy.deepcopy(c);loss=0.
         for offset in range(len(curve)-cp['age']):
-            mi=min(months-1,m+offset);co,pay,end=step(cp,rates[mi],factors[mi]);loss+=co;cp['balance']=end;cp['age']+=1
+            mi=min(months-1,m+offset);co,pay,end=step(cp,rates[mi],factors[mi],month=m+offset);loss+=co;cp['balance']=end;cp['age']+=1
         return loss
-    opening_allowance=(sum(expected(c,0) for c in cohorts) if p.get('allowance_mode')=='profile_expected_loss' else sum(c['balance'] for c in cohorts)*float(p.get('reserve_rate_pct_bal') or 0))
-    monthly=[];ledger=[]
+    def allowance(c,m):
+        mode=p.get('allowance_mode','reserve_rate')
+        if mode=='reserve_rate':return c['balance']*float(p.get('reserve_rate_pct_bal') or 0)
+        if mode=='profile_expected_loss' or profile['loss_basis']=='cohort_volume':return expected(c,m)
+        # Curve survival rebases the legacy term method; no fixed exposure-days input.
+        cp=copy.deepcopy(c);exposure=0.
+        for offset in range(len(curve)-cp['age']):
+            exposure+=cp['balance'];_,_,end=step(cp,0,0,loss=False)
+            cp['balance']=end;cp['age']+=1
+        mi=min(months-1,m);quote=overlays.get(m//width+1,rates[mi])
+        return min(c['balance'],exposure*quote*factors[mi]/12.)
+    opening_allowance=sum(allowance(c,0) for c in cohorts)
+    monthly=[];ledger=[];distributed_ledger=[]
     retain=linked['target_retention_share'];available=1-linked['reserve_share']
     for m,v in enumerate(funded):
-        begin=sum(c['balance'] for c in cohorts);new=v*available*retain;newdist=v*available*(1-retain)
-        if new:cohorts.append({'id':'funded-'+str(m+1),'original':new,'balance':new,'age':0,'funding_month':m+1,'loss_rate':rates[m]})
-        if newdist:distributed.append({'id':'distributed-'+str(m+1),'original':newdist,'balance':newdist,'age':0})
-        repayments=chargeoffs=0.
+        begin=sum(c['balance'] for c in cohorts);dist_begin=sum(c['balance'] for c in distributed);new=v*available*retain;newdist=v*available*(1-retain)
+        if new:cohorts.append({'id':'funded-'+str(m+1),'original':new,'balance':new,'age':0,'funding_month':m+1,'loss_rate':rates[m],'loss_principal':new})
+        if newdist:distributed.append({'id':'distributed-'+str(m+1),'original':newdist,'balance':newdist,'age':0,'funding_month':m+1})
+        repayments=chargeoffs=0.;month_rows=[]
         for c in cohorts:
-            isnew=c.get('funding_month')==m+1;beg=c['balance'];age=c['age'];co,pay,end=step(c,rates[m],factors[m],new=isnew)
+            isnew=c.get('funding_month')==m+1;beg=c['balance'];age=c['age'];co,pay,end=step(c,rates[m],factors[m],new=isnew,month=m)
             c['balance']=end;c['age']+=1;repayments+=pay;chargeoffs+=co
-            acl=expected(c,m+1) if p.get('allowance_mode')=='profile_expected_loss' else end*float(p.get('reserve_rate_pct_bal') or 0)
-            ledger.append({'month':m+1,'cohort':c['id'],'age_month':age,'original_principal':c['original'],'beginning':0. if isnew else beg,'funded':new if isnew else 0.,'charge_offs':co,'repayments':pay,'ending':end,'allowance':acl,'loss_rate':rates[m] if profile['loss_basis']=='annual_balance' else c['loss_rate'],'loss_factor':factors[m],'loss_exposure':(0. if isnew and profile['loss_balance_measure']=='period_begin' else beg) if profile['loss_basis']=='annual_balance' else c['original']*(profile['loss_timing_fractions'][age] if age<len(profile['loss_timing_fractions']) else 0.),'loss_denominator':12 if profile['loss_basis']=='annual_balance' else 1})
+            month_rows.append({'month':m+1,'cohort':c['id'],'age_month':age,'original_principal':c['original'],'beginning':0. if isnew else beg,'funded':new if isnew else 0.,'charge_offs':co,'repayments':pay,'ending':end,'allowance':0.,'transfers_out':0.,'loss_rate':overlays.get(m//width+1,rates[m] if profile['loss_basis']=='annual_balance' else c['loss_rate']),'loss_treatment':'stress_balance_replacement' if m//width+1 in overlays else profile['loss_basis'],'loss_factor':factors[m],'loss_exposure':(0. if isnew and profile['loss_balance_measure']=='period_begin' else beg) if profile['loss_basis']=='annual_balance' or m//width+1 in overlays else c.get('loss_principal',c['original'])*(profile['loss_timing_fractions'][age] if age<len(profile['loss_timing_fractions']) else 0.),'loss_denominator':12 if profile['loss_basis']=='annual_balance' or m//width+1 in overlays else 1})
+        dist_pay=0.
         for c in distributed:
-            co,pay,end=step(c,0,0,loss=False);c['balance']=end;c['age']+=1
+            beg=c['balance'];age=c['age'];isnew=c.get('funding_month')==m+1
+            co,pay,end=step(c,0,0,loss=False);c['balance']=end;c['age']+=1;dist_pay+=pay
+            distributed_ledger.append({'month':m+1,'cohort':c['id'],'age_month':age,'beginning':0. if isnew else beg,'funded':beg if isnew else 0.,'transfers_in':0.,'repayments':pay,'ending':end})
+        target=sum(c['balance'] for c in cohorts)
+        factor=yield target
+        if not math.isfinite(factor) or not 0<=factor<=1:raise ValueError('Invalid cohort allocation factor')
+        transfer=0.
+        for c,row in zip(cohorts,month_rows):
+            sold=c['balance']*(1-factor);transfer+=sold
+            if sold:
+                tid='transfer-'+c['id']+'-'+str(m+1)
+                distributed.append({'id':tid,'original':sold,'balance':sold,'age':c['age']})
+                distributed_ledger.append({'month':m+1,'cohort':tid,'age_month':c['age']-1,'beginning':0.,'funded':0.,'transfers_in':sold,'repayments':0.,'ending':sold})
+                c['balance']-=sold;c['loss_principal']=c.get('loss_principal',c['original'])*factor
+            row['transfers_out']=sold;row['ending']=c['balance'];row['allowance']=allowance(c,m+1)
+            ledger.append(row)
         end=sum(c['balance'] for c in cohorts);dist=sum(c['balance'] for c in distributed)
-        acl=sum(expected(c,m+1) for c in cohorts) if p.get('allowance_mode')=='profile_expected_loss' else end*float(p.get('reserve_rate_pct_bal') or 0)
-        if abs(begin+new-chargeoffs-repayments-end)>1e-7*max(1,begin+new):raise ValueError('Cohort roll-forward does not reconcile')
-        monthly.append({'month':m+1,'beginning':begin,'funded':new,'repayments':repayments,'charge_offs':chargeoffs,'ending':end,'average':(begin+end)/2,'allowance':acl,'distributed':dist})
+        acl=sum(allowance(c,m+1) for c in cohorts)
+        if abs(begin+new-chargeoffs-repayments-transfer-end)>1e-7*max(1,begin+new):raise ValueError('Cohort roll-forward does not reconcile')
+        if abs(dist_begin+newdist+transfer-dist_pay-dist)>1e-7*max(1,dist_begin+newdist+transfer):raise ValueError('Distributed cohort roll-forward does not reconcile')
+        monthly.append({'distributed_beginning':dist_begin,'distributed_funded':newdist,'distributed_repayments':dist_pay,'distributed_transfers_in':transfer,'month':m+1,'beginning':begin,'funded':new,'repayments':repayments,'transfers_out':transfer,'target_before_allocation':target,'allocation_factor':factor,'charge_offs':chargeoffs,'ending':end,'average':(begin+end)/2,'allowance':acl,'distributed':dist})
         cohorts=[c for c in cohorts if c['balance']>1e-10];distributed=[c for c in distributed if c['balance']>1e-10]
     def sums(k):return [sum(x[k] for x in monthly[i:i+width]) for i in range(0,months,width)]
     def ends(k):return [monthly[i+width-1][k] for i in range(0,months,width)]
     measure=linked['interest_balance_measure'];key={'period_begin':'beginning','period_end':'ending','period_average':'average'}[measure]
-    output = {'monthly':monthly,'cohorts':ledger,'opening_allowance':opening_allowance,'ending_balance':ends('ending'),'allowance':ends('allowance'),'repayments':sums('repayments'),'charge_offs':sums('charge_offs'),'retained_funded':sums('funded'),'interest_basis':[x/width for x in sums(key)],'average':[x/width for x in sums('average')],'distributed_balance':ends('distributed'),'funded_volume':[sum(funded[i:i+width]) for i in range(0,months,width)],'source_activity':[sum(inputs[i:i+width]) for i in range(0,months,width)],'monthly_funded_volume':funded,'outstanding':[sum(x[k] for k in ('ending','distributed')) for x in [monthly[i+width-1] for i in range(0,months,width)]]}
+    output = {'monthly':monthly,'cohorts':ledger,'distributed_cohorts':distributed_ledger,'opening_allowance':opening_allowance,'ending_balance':ends('ending'),'allowance':ends('allowance'),'repayments':sums('repayments'),'transfers_out':sums('transfers_out'),'target_before_allocation':ends('target_before_allocation'),'charge_offs':sums('charge_offs'),'retained_funded':sums('funded'),'interest_basis':[x/width for x in sums(key)],'average':[x/width for x in sums('average')],'distributed_balance':ends('distributed'),'funded_volume':[sum(funded[i:i+width]) for i in range(0,months,width)],'source_activity':[sum(inputs[i:i+width]) for i in range(0,months,width)],'monthly_funded_volume':funded,'outstanding':[sum(x[k] for k in ('ending','distributed')) for x in [monthly[i+width-1] for i in range(0,months,width)]]}
 
     if p.get('fee_streams'):
         from .income_modules import product_fee_streams_q
@@ -181,3 +211,86 @@ def resolve(p,a,n,ppy,linked,context=None):
         for q in range(1,n+1):
             product_fee_streams_q(p,q,{'growth_context':context,'account_activity':activity,'cac_monthly_counts':counts,'_profile_monthly_operands':operands},ppy)
     return output
+
+
+def _drive(projector, factors=None):
+    """Single-product projection with explicit monthly allocation factors."""
+    month=0
+    try:
+        next(projector)
+        while True:
+            projector.send(1. if factors is None else factors[month]);month+=1
+    except StopIteration as done:return done.value
+
+
+def resolve(p,a,n,ppy,linked,context=None):
+    if p.get('repayment_profile') is None:return None
+    if p.get('allocation_group_id'):
+        raise ValueError('Shared cohort allocation must resolve all pool members together')
+    return _drive(_project(p,a,n,ppy,linked,context))
+
+
+def resolve_group(members,a,n,ppy,capacity,legacy_targets,context=None):
+    """Simultaneous monthly post-loss/paydown cap. Transfers are at par, never buybacks.
+
+    A falling cap may transfer seasoned exposure. Each transfer removes the
+    surviving principal and its future bank loss share, without changing cash
+    repayments, historical charge-offs, or the original cohort principal.
+    """
+    months=n*(12//ppy);width=12//ppy
+    if len(capacity)!=months:raise ValueError('Shared cohort cap needs a canonical monthly capacity')
+    gens={p['allocation_target_id']:_project(p,a,n,ppy,p['_linked_balance'],context) for p in members if p.get('repayment_profile') is not None}
+    targets={key:next(gen) for key,gen in gens.items()};results={}
+    keys=[p['allocation_target_id'] for p in members]
+    audit={'targets':{k:[] for k in keys},'cap':[],'total_target':[],'factor':[],'retained':{k:[] for k in keys},'distributed':{k:[] for k in keys},'monthly':[],'profile_cap_treatment':'transfer_at_par_no_buyback'}
+    for m in range(months):
+        all_targets={k:targets[k] if k in gens else legacy_targets[k][m] for k in keys}
+        cap=number(capacity[m],'Monthly capacity');total=sum(number(v,'Monthly target') for v in all_targets.values());factor=min(1.,cap/total) if total else 1.
+        row={'month':m+1,'cap':cap,'total_target':total,'factor':factor,'targets':all_targets.copy(),'retained':{k:v*factor for k,v in all_targets.items()}}
+        audit['monthly'].append(row)
+        if (m+1)%width==0:
+            audit['cap'].append(cap);audit['total_target'].append(total);audit['factor'].append(factor)
+            for k,v in all_targets.items():
+                audit['targets'][k].append(v);audit['retained'][k].append(v*factor);audit['distributed'][k].append(v*(1-factor))
+        for key,gen in gens.items():
+            try:targets[key]=gen.send(factor)
+            except StopIteration as done:results[key]=done.value
+    if len(results)!=len(gens):raise ValueError('Incomplete shared cohort projection')
+    return results,audit
+
+
+def monthly_allocation_inputs(cfg,group,members,n,ppy,context=None):
+    """Resolve monthly capacities and legacy level targets without profile recursion.
+
+    Entered natural-cadence levels are evaluated at month ends. A legacy explicit
+    model-period level is held constant within that period. The deposit-book
+    capacity uses the native-period closing deposit target, held within the
+    period. It does not claim to observe intra-period deposit balances.
+    """
+    from .series import resolve_entered_series
+    months=n*(12//ppy);width=12//ppy;a=cfg['assumptions'];legacy={}
+    def monthly_spec(spec):
+        spec=copy.deepcopy(spec)
+        if spec.get('cadence')=='model_period':
+            vals=resolve_entered_series(spec,n,ppy,context=context)
+            return {'source':'entered','trajectory':'explicit','cadence':'month','values':[v for v in vals for _ in range(width)]}
+        return spec
+    for p in members:
+        if p.get('repayment_profile') is not None:continue
+        if p.get('balance_mode')=='explicit_level':
+            legacy[p['allocation_target_id']]=resolve_entered_series(monthly_spec(p['ending_balance_spec']),months,12,context=context)
+        else:
+            # Preserve the existing native-period start/take-up/ramp convention.
+            ln=p['_linked_balance'];inputs=canonical_flow(p,a,n,ppy,context)
+            vals=[]
+            for m,v in enumerate(inputs):
+                q=m//width+1
+                vals.append(v if ln['input_stage']=='funded_volume' else v*ln['take_up_share']*(0 if q<ln['start_period'] else min(1,(q-ln['start_period']+1)/ln['ramp_periods'])))
+            legacy[p['allocation_target_id']]=[v*12*ln['term_days']/ln['day_count']*(1-ln['reserve_share'])*ln['target_retention_share'] for v in vals]
+    if group['cap_source']=='entered':
+        return resolve_entered_series(monthly_spec(group['cap_spec']),months,12,context=context),legacy
+    # The cap source is the native-model-period closing deposit target. As with
+    # an entered quarterly level, that target applies throughout its period.
+    # No intra-quarter deposit observations are invented. Monthly modeling or
+    # an entered monthly capacity is needed for a genuinely monthly deposit cap.
+    return [float(group['cap_ratio'])*v for v in group['_monthly_deposit_book']],legacy

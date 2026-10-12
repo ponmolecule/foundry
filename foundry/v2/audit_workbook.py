@@ -2024,14 +2024,26 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         _write_long_rows(wb.create_sheet('Expense Gross-up'), title='Configured expense gross-up', subtitle='Expense amounts post once. Eligibility controls only base × rate / (1 − rate); monetary values are $000s.', headers=['Period','Group','Expense','Expense ($000s)','Eligible','Eligible amount ($000s)','Rate','Period base ($000s)','Period gross-up ($000s)'],rows=_grows,widths=[12,22,44,22,12,24,12,24,24],formats={4:_RAW_MONEY_FMT,6:_RAW_MONEY_FMT,7:'0.00%',8:_RAW_MONEY_FMT,9:_RAW_MONEY_FMT},freeze_col=4)
 
     if results.get('repayment_profiles'):
-        _period_rows=[];_cohort_rows=[]
+        _period_rows=[];_cohort_rows=[];_distributed_rows=[]
         for item in results['repayment_profiles']:
             profile=item['profile'];name=item['product']
             for row in profile['monthly']:
-                _period_rows.append([name,row['month']]+[row[k]/1000 for k in ('beginning','funded','charge_offs','repayments','ending','allowance','distributed')])
+                _period_rows.append([name,row['month']]+[row[k]/1000 for k in ('beginning','funded','charge_offs','repayments','ending','allowance','distributed')]+[row.get('transfers_out',0)/1000])
             for row in profile['cohorts']:
-                _cohort_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('original_principal','beginning','funded','charge_offs','repayments','ending','allowance')]+[row['loss_exposure']/1000,row['loss_rate'],row['loss_factor'],row['loss_denominator']])
-        _write_long_rows(wb.create_sheet('Repayment Monthly'),title='Profiled lending · monthly principal roll-forward',subtitle='Monthly funding buckets; age 0 is the funding month. Losses occur before conditional scheduled repayments. Beginning + funded − charge-offs − repayments = ending. Monetary values $000s.',headers=['Product','Month','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Distributed ending'],rows=_period_rows,widths=[30,12,22,22,22,22,22,22,22],formats={i:_RAW_MONEY_FMT for i in range(3,10)},freeze_col=3)
-        _write_long_rows(wb.create_sheet('Repayment Cohorts'),title='Profiled lending · retained cohorts',subtitle='Age 0 is the funding month. Each cohort reconciles; remaining balance is part of the identity until fully extinguished. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Original principal','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Loss exposure','Loss rate','Loss factor','Loss denominator'],rows=_cohort_rows,widths=[30,12,24,14,24,22,22,22,22,22,22,22,16,16,18],formats={**{i:_RAW_MONEY_FMT for i in range(5,13)},13:'0.00%',14:'0.0000',15:'0'},freeze_col=5)
+                _cohort_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('original_principal','beginning','funded','charge_offs','repayments','ending','allowance')]+[row['loss_exposure']/1000,row['loss_rate'],row['loss_factor'],row['loss_denominator'],row.get('transfers_out',0)/1000,row.get('loss_treatment',item['convention']['loss_basis'])])
+            for row in profile.get('distributed_cohorts') or []:
+                _distributed_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('beginning','funded','transfers_in','repayments','ending')])
+        _write_long_rows(wb.create_sheet('Repayment Monthly'),title='Profiled lending · monthly principal roll-forward',subtitle='Monthly funding buckets; age 0 is the funding month. Losses occur before conditional scheduled repayments. Beginning + funded − charge-offs − repayments − transfers out = ending. Transfers are at par; they are not repayments. Monetary values $000s.',headers=['Product','Month','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Distributed ending','Transfers out at par'],rows=_period_rows,widths=[30,12,22,22,22,22,22,22,22,24],formats={i:_RAW_MONEY_FMT for i in range(3,11)},freeze_col=3)
+        _write_long_rows(wb.create_sheet('Repayment Cohorts'),title='Profiled lending · retained cohorts',subtitle='Age 0 is the funding month. Each cohort reconciles; remaining balance is part of the identity until fully extinguished. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Original principal','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Loss exposure','Loss rate','Loss factor','Loss denominator','Transfers out at par','Loss treatment'],rows=_cohort_rows,widths=[30,12,24,14,24,22,22,22,22,22,22,22,16,16,18,24,28],formats={**{i:_RAW_MONEY_FMT for i in range(5,13)},13:'0.00%',14:'0.0000',15:'0',16:_RAW_MONEY_FMT},freeze_col=5)
+
+        _write_long_rows(wb.create_sheet('Distributed Cohorts'),title='Profiled lending · distributed cohorts',subtitle='Beginning + distributed funded + transfers in − repayments = ending. These balances are off-book and carry no bank credit losses. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Beginning','Distributed funded','Transfers in at par','Repayments','Ending'],rows=_distributed_rows,widths=[30,12,30,14,22,22,24,22,22],formats={i:_RAW_MONEY_FMT for i in range(5,10)},freeze_col=5)
+        _cap_rows=[]
+        for gid,group in ((exact or results).get('loan_allocation_groups') or {}).items():
+            for row in group.get('monthly') or []:
+                scale=1000 if exact is not None else 1
+                for sid,target in row['targets'].items():
+                    _cap_rows.append([gid,row['month'],sid,row['cap']/scale,row['total_target']/scale,row['factor'],target/scale,row['retained'][sid]/scale])
+        if _cap_rows:
+            _write_long_rows(wb.create_sheet('Profile Cap Monthly'),title='Shared profile cap · monthly allocation',subtitle='Pro rata allocation after losses and scheduled repayments. Excess profile principal transfers at par. Deposit capacity uses the native-period closing target; it is held within quarterly periods.',headers=['Pool','Month','Target ID','Capacity','Total target','Factor','Member target','Retained ending'],rows=_cap_rows,widths=[24,12,26,22,22,14,22,22],formats={4:_RAW_MONEY_FMT,5:_RAW_MONEY_FMT,6:'0.00%',7:_RAW_MONEY_FMT,8:_RAW_MONEY_FMT},freeze_col=4)
 
     return wb

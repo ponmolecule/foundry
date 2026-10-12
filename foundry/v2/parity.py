@@ -213,7 +213,10 @@ def _conv(tree, is_ratio=False, raw=False):
                     _conv_workforce(v) if k == "workforce" else
                     _conv_other_liabilities(v) if k in {"other_liabilities_detail", "other_assets_detail"} else
                     _conv_managed_securities(v) if k == "managed_securities" else
-                    {gid: {field: (list(values) if field == "factor" else _conv(values))
+                    {gid: {field: (list(values) if field == "factor" else
+                               [{**row, 'cap':_k(row['cap']), 'total_target':_k(row['total_target']),
+                                 'targets':{sid:_k(v) for sid,v in row['targets'].items()},
+                                 'retained':{sid:_k(v) for sid,v in row['retained'].items()}} for row in values] if field == 'monthly' else _conv(values))
                            for field, values in group.items()}
                      for gid, group in v.items()} if k == "loan_allocation_groups" else
                     {gid: {field: (list(values) if field == "bindingLimit" else _conv(values))

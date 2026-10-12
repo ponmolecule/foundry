@@ -784,7 +784,9 @@ def validate_config_v2(cfg):
             if p.get('repayment_profile') is not None:
                 if cfg.get('parity_profile') != 'pf_a':raise ValueError('Repayment profiles require the fee-stream engine (pf_a)')
                 from .repayment_profiles import resolve as resolve_profile
-                resolve_profile(p, a, int(a.get('n_periods') or 12), _ppy, _normalized_loan, _growth_ctx)
+                _profile_validation_product = dict(p)
+                _profile_validation_product.pop('allocation_group_id', None)
+                resolve_profile(_profile_validation_product, a, int(a.get('n_periods') or 12), _ppy, _normalized_loan, _growth_ctx)
             if (p.get("balance_mode") == "funded_flow_level"
                     and (p.get("funded_flow_driver") or {}).get("source") == "entered"):
                 from .loan_balance import resolve_linked_loan_balance
@@ -828,8 +830,9 @@ def validate_config_v2(cfg):
                 if not group.get("cap_spec") or cap["source"] != "entered":
                     raise ValueError("cap_spec must be an entered Series")
                 from .series import resolve_entered_series
-                capacities = resolve_entered_series(cap, int(a.get("n_periods") or 12),
-                                                    _ppy, context=_growth_ctx)
+                _profile_cap = any(p.get('allocation_group_id') == gid and p.get('repayment_profile') is not None for p in lend) and cap.get('cadence') != 'model_period'
+                capacities = resolve_entered_series(cap, int(a.get("n_periods") or 12)*(12//_ppy if _profile_cap else 1),
+                                                    12 if _profile_cap else _ppy, context=_growth_ctx)
                 if any(v < 0 for v in capacities):
                     raise ValueError("cap_spec must resolve nonnegative throughout the horizon")
             except (TypeError, ValueError) as e:
