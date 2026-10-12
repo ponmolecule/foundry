@@ -14,6 +14,7 @@ TREATMENTS = {'cash_allocation', 'residual_cash', 'earning_asset', 'off_book'}
 def validate_model(a):
     m=a.get('balance_components_model') or {}
     if not m or m.get('enabled') is False:return
+    if 'cash_interest_enabled' in m and not isinstance(m['cash_interest_enabled'],bool):raise ValueError('Cash interest enabled must be boolean')
     if (a.get('interest_balance_model') or {}).get('enabled', True) and a.get('interest_balance_model'):
         raise ValueError('Choose the legacy balances model or named balance components, not both')
     inputs=m.get('inputs') or []
@@ -31,6 +32,11 @@ def validate_model(a):
         if c.get('interest_balance_measure','current_end') not in {'current_end','prior_end','average'}:raise ValueError('Invalid balance-component interest measurement')
         if c.get('income_line','interest') not in {'interest','fee'}:raise ValueError('Invalid balance-component income destination')
         if c.get('cost_line','interest_expense') not in {'interest_expense','operating_expense'}:raise ValueError('Invalid balance-component cost destination')
+        if 'cap_at_available_cash' in c:
+            if not isinstance(c['cap_at_available_cash'],bool) or c['treatment']!='cash_allocation':raise ValueError('Cash cap is available only on cash allocations')
+            if c['cap_at_available_cash'] and (c.get('income_line','interest')!='interest' or c.get('cost_spec')):raise ValueError('Capped cash allocations earn interest only; use another component for fees or costs')
+        if 'interest_enabled' in c and not isinstance(c['interest_enabled'],bool):raise ValueError('Interest enabled must be boolean')
+        if c.get('prior_interest_initialization','opening') not in {'opening','zero'}:raise ValueError('Invalid first-period interest initialization')
         for k in ('interest_start_period',):
             if k in c and (isinstance(c[k],bool) or not isinstance(c[k],int) or c[k]<1):raise ValueError('Interest start must be a positive model period')
         start=c.get('start_period',1)
@@ -42,6 +48,8 @@ class BalanceComponents:
     def __init__(self,a,counts,quantities,n,ppy,context=None):
         validate_model(a);self.model=deepcopy(a['balance_components_model']);self.n=n;self.ppy=float(ppy)
         self.counts=counts;self.quantities=quantities;self.context=context;self.cache={}
+        from .other_liabilities import other_liability_mode
+        self.liabilities={c['component_id']:c for c in (a.get('other_liabilities_model') or {}).get('components') or [] if c.get('kind')=='settlement'} if other_liability_mode(a)=='formula_level' else {}
         self.inputs={x['id']:x for x in self.model.get('inputs') or []}
         self.components=self.model.get('components') or []
         self.rows={c['id']:{'id':c['id'],'name':c.get('name') or 'Balance component','treatment':c['treatment'],
@@ -93,6 +101,15 @@ class BalanceComponents:
         elif src=='customer_count':
             sid=s.get('series_id');measure=s.get('measure','period_end')
             if sid not in self.counts or measure not in self.counts[sid]:raise ValueError('Unavailable customer-count balance source: '+str(sid))
+        elif src=='liability_component':
+            if s.get('component_id') not in self.liabilities:raise ValueError('Missing settlement liability component')
+        elif src=='reference_rate':
+            if s.get('index') not in {'sofr','effr','prime'}:raise ValueError('Unknown reference rate index')
+            spread=s.get('spread_spec') or {'source':'entered','trajectory':'flat','value':0}
+            if spread.get('source','entered')!='entered':raise ValueError('Reference spread must be an entered rate path')
+            vals=[float(x) for x in resolve_entered_series(spread,self.n,int(self.ppy),context=self.context,default_value=0)]
+            if any(not isfinite(x) for x in vals):raise ValueError('Reference spread must be finite')
+            self.cache[repr(s)]=vals
         elif src=='bank_series':
             sid=s.get('series_id')
             allowed={'equity','total_assets','deposits'}
@@ -112,7 +129,8 @@ class BalanceComponents:
         if src=='input_ref':return self.inputs[s['input_id']].get('unit','scalar')
         if src=='customer_count':return 'count'
         if src=='fee_stream_quantity':return 'count' if self.meta[s['series_id']]['unit']=='count' else 'money'
-        if src=='bank_series':return 'money'
+        if src in {'bank_series','liability_component'}:return 'money'
+        if src=='reference_rate':return 'rate'
         return s.get('unit','scalar')
 
     def value(self,s,i,bank):
@@ -120,6 +138,8 @@ class BalanceComponents:
         if src=='input_ref':return self.value(self.inputs[s['input_id']]['spec'],i,bank)
         if src=='fee_stream_quantity':return float(self.quantities[s['series_id']][i])
         if src=='customer_count':return float(self.counts[s['series_id']][s.get('measure','period_end')][i])
+        if src=='liability_component':return float(bank[('current_period',s['component_id'])])
+        if src=='reference_rate':return float(bank[('rate',s['index'])])+self.cache[repr(s)][i]
         if src=='bank_series':
             if i==0 and s.get('timing','prior_period')=='prior_period' and s.get('prior_initialization')=='zero':return 0.
             return float(bank[(s.get('timing','prior_period'),s['series_id'])])
@@ -129,10 +149,14 @@ class BalanceComponents:
         return {kind:sum(r['opening'] for r in self.rows.values() if r['treatment']==kind) for kind in TREATMENTS}
 
     def set_opening_cash(self,cash):
-        alloc=self.opening_totals()['cash_allocation']
-        if alloc>cash+1e-6:raise ValueError('Opening allocated cash exceeds available cash')
-        for r in self.rows.values():
-            if r['treatment']=='residual_cash':r['opening']=max(0.,cash-alloc)
+        strict=sum(self.rows[c['id']]['opening'] for c in self.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
+        if strict>cash+1e-6:raise ValueError('Opening allocated cash exceeds available cash')
+        left=max(0.,cash-strict)
+        for c in self.components:
+            if c['treatment']=='cash_allocation' and c.get('cap_at_available_cash'):
+                r=self.rows[c['id']];r['opening']=min(r['opening'],left);left-=r['opening']
+        for c in self.components:
+            if c['treatment']=='residual_cash':self.rows[c['id']]['opening']=left
 
     def stocks(self,i,bank):
         vals={}
@@ -149,31 +173,43 @@ class BalanceComponents:
         return vals
 
     def period(self,i,bank,stocks,cash,residual_rate,prior_cash):
+        stocks=dict(stocks)
+        strict=sum(stocks.get(c['id'],0) for c in self.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
+        if strict>cash+1e-6:raise ValueError('Allocated cash exceeds available cash')
+        left=max(0.,cash-strict);requests={}
+        for c in self.components:
+            if c['treatment']=='cash_allocation' and c.get('cap_at_available_cash'):
+                requested=stocks.get(c['id'],0);requests[c['id']]=requested
+                stocks[c['id']]=min(requested,left);left-=stocks[c['id']]
         allocated=sum(stocks.get(c['id'],0) for c in self.components if c['treatment']=='cash_allocation')
         if allocated>cash+1e-6:raise ValueError('Allocated cash exceeds available cash')
         out=[];has_residual=False
         for c in self.components:
             r=self.rows[c['id']];stock=stocks.get(c['id'],0.)
             if c['treatment']=='residual_cash':stock=max(0.,cash-allocated);has_residual=True
-            prior=r['ending'][-1] if r['ending'] else r['opening']
+            prior=r['ending'][-1] if r['ending'] else (0. if c.get('prior_interest_initialization')=='zero' else r['opening'])
             measure=interest_balance_amount(stock,prior,c.get('interest_balance_measure','current_end'))
             rate=self.value(c.get('yield_spec') or {'value':0},i,bank)
             cost_rate=self.value(c.get('cost_spec') or {'value':0},i,bank)
-            income=measure*rate/self.ppy if i+1>=c.get('interest_start_period',c.get('start_period',1)) else 0.
+            enabled=c.get('interest_enabled',True) and (self.model.get('cash_interest_enabled',True) if c['treatment'] in {'cash_allocation','residual_cash'} else True)
+            income=measure*rate/self.ppy if enabled and i+1>=c.get('interest_start_period',c.get('start_period',1)) else 0.
             cost=measure*cost_rate/self.ppy if i+1>=c.get('start_period',1) else 0.
             if not isfinite(income+cost):raise ValueError('Non-finite component income/cost')
             out.append(dict(id=c['id'],ending=stock,interest_balance=measure,annual_rate=rate,annual_cost_rate=cost_rate,income=income,cost=cost,
                             income_line=c.get('income_line','interest'),cost_line=c.get('cost_line','interest_expense')))
+            if c['id'] in requests:out[-1]['requested_balance']=requests[c['id']]
         unassigned=0.
         if not has_residual:
             prior_alloc=sum((self.rows[c['id']]['ending'][-1] if self.rows[c['id']]['ending'] else self.rows[c['id']]['opening']) for c in self.components if c['treatment']=='cash_allocation')
             unassigned=((cash-allocated)+max(0.,prior_cash-prior_alloc))/2*residual_rate/self.ppy
+        if not self.model.get('cash_interest_enabled',True):unassigned=0.
         return out,unassigned
 
     def commit(self,rows):
         for x in rows:
             row=self.rows[x['id']]
             for k in ('ending','interest_balance','annual_rate','annual_cost_rate','income','cost'):row[k].append(x[k])
+            if 'requested_balance' in x:row.setdefault('requested_balance',[]).append(x['requested_balance'])
 
     def audit(self):return {'components':list(self.rows.values())}
 

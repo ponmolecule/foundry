@@ -1022,6 +1022,11 @@ def run_pf_a(cfg):
         a, _cac_customer_count_series, Q, ppy,
         fee_stream_quantities=_fee_stream_qty_series, growth_context=_growth_ctx)
 
+    if _ol_prepared:
+        from .settlement_balances import bind as bind_settlement
+        for _sc in _ol_prepared['components']:
+            if _sc.get('settlement'):bind_settlement(_sc,_fee_stream_econ_series,Q)
+        _other_liab_open=float(_ol_prepared['opening_balance'])
     from .balance_components import prepare as prepare_balance_components
     _bcm = prepare_balance_components(a, _cac_customer_count_series, _fee_stream_qty_series, Q, ppy, _growth_ctx)
 
@@ -1071,6 +1076,8 @@ def run_pf_a(cfg):
     sec_books0 = sum(p["_bal"][0] for p in afs_p + htm_p) + _managed_open_afs + _managed_open_htm
     ne_q[0] = 0
     _bc_open = _bcm.opening_totals() if _bcm else {}
+    if _bcm and any(c.get('cap_at_available_cash') for c in _bcm.components):
+        _bc_open['cash_allocation']=sum(_bcm.rows[c['id']]['opening'] for c in _bcm.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
     c0, s0, b0 = plug(deps_c[0], deps_b[0], net0, equity0, 0.0, sec_books0, non_earn_t[0],
                        required_cash=_bc_open.get('cash_allocation', 0), extra_assets=_bc_open.get('earning_asset', 0))
 
@@ -1320,10 +1327,16 @@ def run_pf_a(cfg):
         _bc_bank = {('prior_period','equity'):bs['equity'][q-1],
                     ('prior_period','total_assets'):bs['totalAssets'][q-1],
                     ('prior_period','deposits'):deps_b[q-1],('current_period','deposits'):deps_b[q]}
+        for _index,_curve in rate_curves.items():_bc_bank[('rate',_index)]=_curve(q)
+        for _sc in ((_ol_prepared or {}).get('components') or []):
+            if _sc.get('settlement'):
+                _sv=_sc['resolved_balance'];_sid=_sc['component_id']
+                _bc_bank[('current_period',_sid)]=_sv[q-1]
+                _bc_bank[('prior_period',_sid)]=_sv[q-2] if q>1 else _sc['opening_balance']
         _bc_stocks = _bcm.stocks(_ib_i, _bc_bank) if _bcm else {}
         _bc_pre = []
         if _bcm:
-            _operating_cash = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='cash_allocation')
+            _operating_cash = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='cash_allocation' and not c.get('cap_at_available_cash'))
             _frb_stock = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='earning_asset')
             _bc_pre, _ = _bcm.period(_ib_i,_bc_bank,_bc_stocks,_operating_cash,0,bs['cash'][q-1])
             dep_exp += sum(x['cost'] for x in _bc_pre if x['cost_line']=='interest_expense')
@@ -1652,6 +1665,9 @@ def run_pf_a(cfg):
             raise ValueError(f"Period {q}: income/equity/tax-asset solve did not converge; no financial results published")
         if _bcm:
             _bcm.commit(_bc_final)
+            if any(x.get('cap_at_available_cash') for x in _bcm.components):
+                _operating_cash=sum(x['ending'] for x in _bc_final if _bcm.rows[x['id']]['treatment']=='cash_allocation')
+                _affiliated_cash=max(0.,c-_operating_cash)
             bs['earningAssets'][q] = _frb_stock
             bs['offBookBalances'][q] = sum(_bc_stocks.get(c['id'],0) for c in _bcm.components if c['treatment']=='off_book')
         if _managed_sec:

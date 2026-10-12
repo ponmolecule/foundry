@@ -42,6 +42,14 @@ def catalog(a):
     from .income_modules import _fee_stream_quantity_kinds
     from .fee_links import has_links, FeeLinkPlan
     rows=balance_catalog(a)
+    from .settlement_balances import sources as settlement_sources
+    for src in settlement_sources(a):
+        for measure,label in [('reported_fee_income','Reported fee income'),('fee_product_cost','Direct stream cost'),('net_fee_income','Fee income less direct cost')]:
+            rows.append(dict(series_id=src['series_id']+'.'+measure,stream_id=src['series_id'],measure=measure,label=src['label']+' › '+label,family='Fee income',unit='money_flow',temporal='flow',consumers=['settlement_balance'],driver='fee_stream_economics'))
+    if a.get('other_liabilities_mode','formula_level')=='formula_level':
+        for comp in (a.get('other_liabilities_model') or {}).get('components') or []:
+            if comp.get('kind')=='settlement':
+                rows.append(dict(series_id='settlement.'+comp['component_id']+'.balance',component_id=comp['component_id'],label='Settlement liability › '+str(comp.get('name') or comp['component_id']),family='Liability',unit='money_stock',temporal='stock',measures=['period_end'],consumers=['cash_allocation'],driver='liability_component'))
     for src in ('fee_income','gain_on_sale','servicing_net','noninterest_income','net_fee_income'):
         rows.append(dict(series_id=src,label=src.replace('_',' ').title(),family='Income',unit='money_flow',temporal='flow',measures=[],consumers=['opex_formula'],driver=src))
     for meta in customer_acquisition_auc_catalog(a):

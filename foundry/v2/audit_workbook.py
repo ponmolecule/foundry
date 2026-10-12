@@ -1504,6 +1504,9 @@ def _other_liability_rows(cfg, results, n):
             continue
         name = str(comp.get("name") or f"Liability component {i+1}")
         cid = str(comp.get("component_id") or f"liability_{i+1}")
+        if comp.get('kind')=='settlement':
+            rows.append((name,'Selected eligible revenue before holding weights',f'{cid}:eligible_revenue','$000s · revenue flow',[None]+money(comp.get('eligible_revenue') or []),_RAW_MONEY_FMT))
+            rows.append((name,'Opening settlement liability',f'{cid}:opening_balance','$000s · opening',money([comp.get('opening_balance',0)])+[None]*n,_RAW_MONEY_FMT))
         terms = list(comp.get("terms") or [])
         # r127 exact payloads may have no explicit terms; preserve audit readability.
         if not terms and comp.get("driver_kind"):
@@ -1524,7 +1527,7 @@ def _other_liability_rows(cfg, results, n):
                 mult_vals = [None] + money(mul)
                 dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
             else:
-                driver_units, mult_units = "$000s · linked Fixed Asset Series", "dimensionless signed multiple"
+                driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else "$000s · linked Fixed Asset Series"), "dimensionless signed multiple"
                 driver_vals = [None] + money(drv)
                 mult_vals = [None] + [float(x or 0.0) for x in mul]
                 dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT
@@ -1604,7 +1607,8 @@ def _balance_component_rows(results, exact, n):
     raw=bool((exact or {}).get('balance_components'));rows=[]
     for c in block.get('components') or []:
         section=c.get('name') or c['id']
-        for key,label in [('ending','Ending balance · '+c['treatment']),('interest_balance','Balance used for pricing'),('annual_rate','Annual yield'),('annual_cost_rate','Annual cost rate'),('income','Income posted · '+c.get('income_line','interest')),('cost','Cost posted · '+c.get('cost_line','interest_expense'))]:
+        keys=[('requested_balance','Requested allocation before cash cap')] if 'requested_balance' in c else []
+        for key,label in keys+[('ending','Ending balance · '+c['treatment']),('interest_balance','Balance used for pricing'),('annual_rate','Annual yield'),('annual_cost_rate','Annual cost rate'),('income','Income posted · '+c.get('income_line','interest')),('cost','Cost posted · '+c.get('cost_line','interest_expense'))]:
             vals=c.get(key) or []
             if key in {'annual_rate','annual_cost_rate'}:units,fmt='annual decimal rate',_RATE_FMT
             else:

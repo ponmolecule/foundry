@@ -167,6 +167,9 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
         if not cid:
             raise ValueError(f"other_liabilities_model.components[{i}] requires component_id")
         ids.append(cid)
+        if c.get('kind')=='settlement':
+            from .settlement_balances import prepare
+            rows.append(prepare(c,a,ppy));continue
         resolved_terms = []
         for j, term in enumerate(_component_terms(c, i)):
             tid = str(term.get("term_id") or "").strip()
@@ -234,7 +237,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
         raise ValueError("other_liabilities_model component_id values must be unique")
     if len(term_ids) != len(set(term_ids)):
         raise ValueError("other_liabilities_model term_id values must be unique")
-    return {"opening_balance": max(0.0, opening), "base": base, "components": rows}
+    return {"opening_balance": max(0.0, opening)+sum(r.get("opening_balance",0) for r in rows if r.get("settlement")), "base": base, "components": rows}
 
 
 def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int,
@@ -250,6 +253,7 @@ def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int
     detail = []
     total = float(base[i] or 0.0)
     for c in prepared.get("components") or []:
+        if c.get('settlement') and not c.get('terms'):raise ValueError('Settlement revenue has not been bound')
         terms = []
         component_amount = 0.0
         for t in c.get("terms") or []:
@@ -308,6 +312,8 @@ def other_liability_audit_payload(prepared: Mapping[str, Any] | None, total,
             "amount": [float(x.get("amount") or 0.0) for x in c_runtime],
             "terms": [],
         }
+        if c.get('settlement'):
+            row.update(kind='settlement',settlement=c['settlement'],eligible_revenue=c.get('eligible_revenue') or [],opening_balance=c.get('opening_balance',0))
         for t in c.get("terms") or []:
             tid = t.get("term_id")
             tr = []

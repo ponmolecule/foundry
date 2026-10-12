@@ -106,6 +106,9 @@ def _conv_other_liabilities(ol):
             c["amount"] = [_k(x) for x in c["amount"]]
         if isinstance(c.get("terms"), list):
             c["terms"] = [conv_term(t) if isinstance(t, dict) else t for t in c["terms"]]
+        if c.get('kind')=='settlement':
+            c['eligible_revenue']=[_k(x) for x in c.get('eligible_revenue') or []]
+            c['opening_balance']=_k(c.get('opening_balance',0))
         # r127 compatibility fields for one-term components.
         kind = str(c.get("driver_kind") or "")
         if isinstance(c.get("driver"), list):
@@ -198,6 +201,7 @@ def _conv_balance_components(block):
         r=dict(c)
         r['opening']=_k(c['opening'])
         for k in ('ending','interest_balance','income','cost'):r[k]=[_k(v) for v in c[k]]
+        if 'requested_balance' in c:r['requested_balance']=[_k(v) for v in c['requested_balance']]
         rows.append(r)
     return {'components':rows,'units':'$000s; annual_rate, annual_cost_rate and risk_weight are decimal rates'}
 
