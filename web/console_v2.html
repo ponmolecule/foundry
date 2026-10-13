@@ -847,6 +847,27 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .settlement-weight-grid small{font-size:11px;color:#777}
 .settlement-actions{display:flex;gap:12px;margin-bottom:16px}
 @media(max-width:760px){.settlement-source-row{grid-template-columns:minmax(0,1fr) 30px}.settlement-source-row label{grid-column:1}.settlement-source-row .cx{grid-column:2;grid-row:2}}
+
+/* r326: one active balance-sheet editor. All existing wired controls remain mounted. */
+.fsx-focused .fsx-sec[hidden]{display:none!important}
+.fsx-focused .fsx-main{min-width:0}
+.fsx-focused .fsx-it{padding:8px 10px;border-left:3px solid transparent;border-radius:3px}
+.fsx-focused .fsx-it.on{background:#292929;color:#fff;border-left-color:#c9a35a}
+.fsx-focused .fsx-it.on i{color:#d5b77d}
+.fsx-focused .fsx-band{grid-template-columns:180px minmax(0,1fr)}
+.fsx-focused .settlement-editor .sec-managed-sleeve-head input{width:280px!important}
+.fsx-focused .settlement-editor .bc-settings select{width:auto;max-width:220px}
+.fsx-focused .settlement-editor .bc-settings input{width:104px!important}
+.fsx-focused .settlement-source-row{grid-template-columns:minmax(0,480px) minmax(200px,240px) 26px;gap:12px;max-width:770px}
+.settlement-holding-header{display:flex;align-items:center;justify-content:space-between;gap:16px;border-bottom:1px solid #e2e0d9;padding-bottom:10px}
+.settlement-holding-header .btn-plain{white-space:nowrap;padding:5px 10px}
+.settlement-weight-field{display:flex;flex-direction:column;gap:6px}
+.settlement-weight-label{display:flex;align-items:center;gap:8px}
+.settlement-weight-label .cx{padding:0;width:22px;height:22px;background:transparent}
+.settlement-editor .settlement-weight-grid input{width:104px!important}
+.settlement-editor .settlement-weight-grid{gap:16px 32px}
+.fsx-focused .fsx-b select:not([multiple]){max-width:100%}
+@media(max-width:760px){.fsx-focused{grid-template-columns:1fr;gap:16px}.fsx-focused .fsx-rail{position:static;display:flex;flex-wrap:wrap;gap:6px}.fsx-focused .fsx-mi,.fsx-focused .fsx-g{display:none}.fsx-focused .fsx-it{font-size:12px}.fsx-focused .settlement-source-row{grid-template-columns:minmax(0,1fr) 26px}.settlement-holding-header{flex-wrap:wrap}}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -8448,7 +8469,8 @@ window.olSettlementWeight=function(i,age,text){const v=Number(text);if(!text.tri
 window.olSettlementHistory=function(i,age,text){const v=_pf(text);if(!text.trim()||!Number.isFinite(v)){appStatus('err','Enter a signed opening revenue amount.');return;}_olState().components[i].settlement.opening_history[age]=v*1000;refresh();};
 window.olSettlementAddAge=function(i){const t=_olState().components[i].settlement;t.weights.push(0);renderContent();};
 window.olSettlementRemoveAge=function(i){const t=_olState().components[i].settlement;if(t.weights.length<=1)return;t.weights.pop();t.opening_history=(t.opening_history||[]).slice(0,t.weights.length-1);renderContent();refresh();};
-function olSettlementHoldingHtml(t,i){const period=t.period||'month',weights=t.weights||[];return '<div class="settlement-holding"><strong>Revenue held in the payable</strong><div class="settlement-weight-grid">'+weights.map((w,age)=>`<label>${esc(olSettlementAgeLabel(age,period))} weight<input type="number" min="0" step="any" value="${esc(w)}" onchange="olSettlementWeight(${i},${age},this.value)"><small>1 = full amount; 0.5 = half</small></label>`).join('')+`</div><div class="settlement-actions"><button class="btn-plain" onclick="olSettlementAddAge(${i})">+ Add earlier ${esc(period)}</button>${weights.length>1?`<button class="btn-plain" onclick="olSettlementRemoveAge(${i})">Remove oldest ${esc(period)}</button>`:''}</div>`+(weights.length>1?'<strong>Revenue before the forecast ($000s)</strong><div class="settlement-weight-grid">'+weights.slice(1).map((w,j)=>`<label>${esc(olSettlementAgeLabel(j+1,period))} opening revenue<input value="${esc(t.opening_history&&t.opening_history[j]!=null?t.opening_history[j]/1000:'')}" placeholder="Required, signed amount" onchange="olSettlementHistory(${i},${j},this.value)"></label>`).join('')+'</div>':'')+'</div>';}
+function olSettlementHoldingHtml(t,i){const period=t.period||'month',weights=t.weights||[];return `<div class="settlement-holding"><div class="settlement-holding-header"><strong>Revenue held in the payable</strong><button class="btn-plain" onclick="olSettlementAddAge(${i})">+ Add earlier ${esc(period)}</button></div><div class="settlement-weight-grid">`+weights.map((w,age)=>`<div class="settlement-weight-field"><div class="settlement-weight-label"><label for="settlement-weight-${i}-${age}">${esc(olSettlementAgeLabel(age,period))} weight</label>${age>0&&age===weights.length-1?`<button type="button" class="cx" aria-label="Remove ${esc(olSettlementAgeLabel(age,period))} weight" title="Remove oldest ${esc(period)}" onclick="olSettlementRemoveAge(${i})">×</button>`:''}</div><input id="settlement-weight-${i}-${age}" type="number" min="0" step="any" value="${esc(w)}" onchange="olSettlementWeight(${i},${age},this.value)"><small>1 = full amount; 0.5 = half</small></div>`).join('')+'</div>'+(weights.length>1?'<strong>Revenue before the forecast ($000s)</strong><div class="settlement-weight-grid">'+weights.slice(1).map((w,j)=>`<label>${esc(olSettlementAgeLabel(j+1,period))} opening revenue<input value="${esc(t.opening_history&&t.opening_history[j]!=null?t.opening_history[j]/1000:'')}" placeholder="Required, signed amount" onchange="olSettlementHistory(${i},${j},this.value)"></label>`).join('')+'</div>':'')+'</div>';}
+
 function olSettlementHtml(c,i){const t=c.settlement||{},opts=settlementSourceOptions(),path='assumptions.other_liabilities_model.components.'+i;
  let h=`<details class="sec-managed-sleeve cfg-liability-component settlement-editor"${window._liabilityUiOpen&&window._liabilityUiOpen[i]?' open':''} ontoggle="window._liabilityUiOpen=window._liabilityUiOpen||{};window._liabilityUiOpen[${i}]=this.open"><summary><strong>${esc(c.name||'Settlement liability')}</strong><span>Revenue-linked settlement</span></summary><div class="sec-managed-sleeve-head"><input style="width:230px;max-width:100%" aria-label="Settlement liability name" value="${esc(c.name)}" onchange="olName(${i},this.value)"><button class="cx" aria-label="Remove settlement liability" onclick="olRemoveComponent(${i})">×</button></div><div class="bc-settings"><label>Opening liability ($000s)<input style="width:110px" value="${fmtComma((c.opening_balance||0)/1000)}" onchange="setPath('${path}.opening_balance',_pf(this.value)*1000);refresh()"></label><label>Source sign<select data-nofit onchange="setPath('${path}.settlement.sign',+this.value);refresh()"><option value="1"${t.sign!==-1?' selected':''}>Keep sign (+1)</option><option value="-1"${t.sign===-1?' selected':''}>Reverse sign (−1)</option></select></label><label>Holding period unit<select data-nofit onchange="setPath('${path}.settlement.period',this.value);refresh()">${['month','quarter'].map(v=>`<option value="${v}"${t.period===v?' selected':''}>${v}</option>`).join('')}</select></label></div>`;
  (t.sources||[]).forEach((r,j)=>{h+=`<div class="settlement-source-row"><label>Eligible revenue source<select data-nofit style="max-width:100%" onchange="olSettlementSource(${i},${j},this.value)"><option value="">Select a source</option>${!opts.some(x=>x.series_id===r.series_id)&&r.series_id?`<option selected value="${esc(r.series_id)}">Missing source</option>`:''}${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===r.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>Measure<select data-nofit onchange="setPath('${path}.settlement.sources.${j}.measure',this.value);refresh()">${[['reported_fee_income','Reported fee income'],['fee_product_cost','Direct stream cost'],['net_fee_income','Fee income less direct cost']].map(([v,l])=>`<option value="${v}"${r.measure===v?' selected':''}>${l}</option>`).join('')}</select></label><button class="cx" aria-label="Remove selected revenue source" onclick="olSettlementRemoveSource(${i},${j})">×</button></div>`;});
@@ -10413,14 +10435,16 @@ function _presentSecuritiesPage(){
     oa:sleeves.find(s=>/^Other assets$/.test(stl(s))), ib:sleeves.find(s=>/Interest-bearing/.test(stl(s))), ol:sleeves.find(s=>/Other liabilities/.test(stl(s))),
     mp:card.querySelector('.sec-managed-wrap'), aoci:[...card.querySelectorAll('.sec-major-section')].find(s=>/AOCI/i.test((s.querySelector('.sec-major-title')||{}).textContent||''))};
   const chev='<svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-  const shell=document.createElement('div'); shell.className='fsx';
+  const active=_fsxActiveKey();
+  const shell=document.createElement('div'); shell.className='fsx fsx-focused';
   let rail='<nav class="fsx-rail"><div class="fsx-mi">MODEL INPUTS</div>', g='';
-  _FSX.forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${window._fsxOpen[k]?' on':''}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
+  _FSX.forEach(([k,n,t,,grp])=>{ if(grp!==g){ rail+=`<div class="fsx-g">${grp}</div>`; g=grp; } rail+=`<a href="#" class="fsx-it${active===k?' on':''}" aria-current="${active===k?'page':'false'}" data-k="${k}" onclick="fsxGo('${k}');return false"><i>${n}</i>${esc(t)}</a>`; });
   rail+='</nav>';
-  let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-unit amounts are dollars. Series support flat values, growth paths and explicit schedules.</p><div class="fsx-all"><a href="#" onclick="fsxAll(true);return false">Expand all</a><a href="#" onclick="fsxAll(false);return false">Collapse all</a></div></div>';
+  let main='<div class="fsx-main"><div class="fsx-top"><p class="fsx-intro">Amounts in $000s unless noted. Per-unit amounts are dollars. Series support flat values, growth paths and explicit schedules.</p></div>';
+
   const RB={s1:B.fa,s2:B.ib,s3:B.ol,s4:null,s5:B.mp,s6:B.oa};
   _FSX.forEach(([k,n,t,d])=>{ const sum=_fsxSummary(k,RB[k]).map(([x,y])=>`<span><b>${esc(x)}</b>${esc(y)}</span>`).join('');
-    main+=`<section class="fsx-sec${window._fsxOpen[k]?' open':''}" id="fsx-${k}" data-k="${k}"><div class="fsx-h" role="button" tabindex="0" aria-expanded="${!!window._fsxOpen[k]}" onclick="fsxToggle('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fsxToggle('${k}')}"><span class="fsx-n">${n}</span><div><h2>${esc(t)}</h2><p>${esc(d)}</p><div class="fsx-sum">${sum}</div></div><div class="fsx-ctl" onclick="event.stopPropagation()"></div><span class="fsx-chev">${chev}</span></div><div class="fsx-b"></div></section>`; });
+    main+=`<section class="fsx-sec${window._fsxOpen[k]?' open':''}" id="fsx-${k}" data-k="${k}"${active!==k?' hidden':''}><div class="fsx-h" role="button" tabindex="0" aria-expanded="${!!window._fsxOpen[k]}" onclick="fsxToggle('${k}')" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();fsxToggle('${k}')}"><span class="fsx-n">${n}</span><div><h2>${esc(t)}</h2><p>${esc(d)}</p><div class="fsx-sum">${sum}</div></div><div class="fsx-ctl" onclick="event.stopPropagation()"></div><span class="fsx-chev">${chev}</span></div><div class="fsx-b"></div></section>`; });
   main+='</div>';
   shell.innerHTML=rail+main;
   const body=k=>shell.querySelector(`#fsx-${k} .fsx-b`), ctl=k=>shell.querySelector(`#fsx-${k} .fsx-ctl`);
@@ -10549,12 +10573,14 @@ function _fsxBands(card){
 // r288: every section starts collapsed when the user arrives on the page (not on re-renders while editing)
 setTimeout(()=>{
   const st=window.setTab; if(typeof st==='function'&&!st._fsx){ const w=function(t){ if(t==='config'&&typeof currentTab!=='undefined'&&currentTab!=='config') window._fsxOpen={}; if(t==='gov'&&typeof currentTab!=='undefined'&&currentTab!=='gov') window._govCatOpen=false; return st.apply(this,arguments); }; w._fsx=true; window.setTab=w; }
-  const cm=window.cfgSelectModule; if(typeof cm==='function'&&!cm._fsx){ const w2=function(key){ const was=window._cfgModule; const r=cm.apply(this,arguments); if(key==='sec'&&was!=='sec'&&typeof fsxAll==='function') fsxAll(false); return r; }; w2._fsx=true; window.cfgSelectModule=w2; }
+  const cm=window.cfgSelectModule; if(typeof cm==='function'&&!cm._fsx){ const w2=function(key){ const was=window._cfgModule; const r=cm.apply(this,arguments); if(key==='sec'&&was!=='sec'&&typeof fsxGo==='function') fsxGo(_fsxActiveKey()); return r; }; w2._fsx=true; window.cfgSelectModule=w2; }
 },0);
-window.fsxToggle=function(k){ window._fsxOpen[k]=!window._fsxOpen[k]; const sec=document.getElementById('fsx-'+k); if(sec){ sec.classList.toggle('open',!!window._fsxOpen[k]); sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[k]); }
-  const it=document.querySelector(`.fsx-it[data-k="${k}"]`); if(it) it.classList.toggle('on',!!window._fsxOpen[k]); if(typeof fitControls==='function') fitControls(); };
-window.fsxAll=function(open){ _FSX.forEach(([k])=>{ window._fsxOpen[k]=!!open; const sec=document.getElementById('fsx-'+k); if(sec) sec.classList.toggle('open',!!open); const it=document.querySelector(`.fsx-it[data-k="${k}"]`); if(it) it.classList.toggle('on',!!open); }); if(typeof fitControls==='function') fitControls(); };
-window.fsxGo=function(k){ if(!window._fsxOpen[k]) fsxToggle(k); const sec=document.getElementById('fsx-'+k); if(sec) sec.scrollIntoView({block:'start',behavior:'smooth'}); };
+function _fsxActiveKey(){const keys=_FSX.map(x=>x[0]);if(!keys.includes(window._fsxActive))window._fsxActive=keys.find(k=>window._fsxOpen[k])||keys[0];if(window._fsxOpen[window._fsxActive]==null)window._fsxOpen[window._fsxActive]=true;return window._fsxActive;}
+window.fsxToggle=function(k){if(k!==_fsxActiveKey()){fsxGo(k);return;}window._fsxOpen[k]=!window._fsxOpen[k];const sec=document.getElementById('fsx-'+k);if(sec){sec.classList.toggle('open',!!window._fsxOpen[k]);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[k]);}if(typeof fitControls==='function')fitControls();};
+// Compatibility for callers: expansion is scoped to the active editor.
+window.fsxAll=function(open){const k=_fsxActiveKey();window._fsxOpen[k]=!!open;const sec=document.getElementById('fsx-'+k);if(sec){sec.classList.toggle('open',!!open);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!open);}if(typeof fitControls==='function')fitControls();};
+window.fsxGo=function(k){if(!_FSX.some(x=>x[0]===k))return;window._fsxActive=k;window._fsxOpen[k]=true;_FSX.forEach(([id])=>{const sec=document.getElementById('fsx-'+id);if(sec){sec.hidden=id!==k;sec.classList.toggle('open',!!window._fsxOpen[id]);sec.querySelector('.fsx-h').setAttribute('aria-expanded',!!window._fsxOpen[id]);}const it=document.querySelector(`.fsx-it[data-k="${id}"]`);if(it){it.classList.toggle('on',id===k);it.setAttribute('aria-current',id===k?'page':'false');}});if(typeof fitControls==='function')fitControls();};
+
 
 let _renderedAuthoringTab=null, _renderedAuthoringCfg=null, _consumedPasteId=null;
 document.addEventListener("click",function(ev){

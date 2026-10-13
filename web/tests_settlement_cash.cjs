@@ -10,7 +10,7 @@ ctx.window.olSettlementAddSource(0);assert.equal(c.settlement.sources[0].series_
 ctx.window.olSettlementNumbers(0,'weights','1 1');ctx.window.olSettlementNumbers(0,'opening_history','-6,398.454');assert.equal(c.settlement.opening_history[0],-6398454);
 const before=JSON.stringify(c.settlement.weights);ctx.window.olSettlementNumbers(0,'weights','bad');assert.equal(JSON.stringify(c.settlement.weights),before);assert(error.includes('space-separated'));
 let out=ctx.olSettlementHtml(c,0);assert(out.includes('Revenue-linked settlement'));assert(out.includes('Opening liability ($000s)'));assert(out.includes('Services › Revenue'));assert(out.includes('×'));
-assert(out.includes('Current month weight'));assert(out.includes('Prior month weight'));assert(!out.includes('Holding weights (space-separated)'));
+assert(out.includes('settlement-holding-header'));assert(out.indexOf('Add earlier month')<out.indexOf('Current month weight'));assert.equal((out.match(/aria-label="Remove Prior month weight"/g)||[]).length,1);assert(!out.includes('>Remove oldest month</button>'));assert(out.includes('Current month weight'));assert(out.includes('Prior month weight'));assert(!out.includes('Holding weights (space-separated)'));
 const saved=JSON.stringify(c.settlement);ctx.olSettlementHtml(c,0);assert.equal(JSON.stringify(c.settlement),saved);
 ctx.window.olSettlementWeight(0,1,'0.5');assert.equal(c.settlement.weights[1],0.5);
 ctx.window.olSettlementWeight(0,1,'-1');assert.equal(c.settlement.weights[1],0.5);
