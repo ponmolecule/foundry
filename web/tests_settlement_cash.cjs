@@ -10,6 +10,14 @@ ctx.window.olSettlementAddSource(0);assert.equal(c.settlement.sources[0].series_
 ctx.window.olSettlementNumbers(0,'weights','1 1');ctx.window.olSettlementNumbers(0,'opening_history','-6,398.454');assert.equal(c.settlement.opening_history[0],-6398454);
 const before=JSON.stringify(c.settlement.weights);ctx.window.olSettlementNumbers(0,'weights','bad');assert.equal(JSON.stringify(c.settlement.weights),before);assert(error.includes('space-separated'));
 let out=ctx.olSettlementHtml(c,0);assert(out.includes('Revenue-linked settlement'));assert(out.includes('Opening liability ($000s)'));assert(out.includes('Services › Revenue'));assert(out.includes('×'));
+assert(out.includes('Current month weight'));assert(out.includes('Prior month weight'));assert(!out.includes('Holding weights (space-separated)'));
+const saved=JSON.stringify(c.settlement);ctx.olSettlementHtml(c,0);assert.equal(JSON.stringify(c.settlement),saved);
+ctx.window.olSettlementWeight(0,1,'0.5');assert.equal(c.settlement.weights[1],0.5);
+ctx.window.olSettlementWeight(0,1,'-1');assert.equal(c.settlement.weights[1],0.5);
+ctx.window.olSettlementHistory(0,0,'-6,398.454');assert.equal(c.settlement.opening_history[0],-6398454);
+ctx.window.olSettlementAddAge(0);assert.equal(c.settlement.weights.length,3);assert.equal(c.settlement.weights[2],0);assert(ctx.olSettlementHtml(c,0).includes('2 months ago weight'));assert(!Object.hasOwn(c.settlement.opening_history,1));
+ctx.window.olSettlementRemoveAge(0);assert.equal(c.settlement.weights.length,2);
+c.settlement.period='quarter';assert(ctx.olSettlementHtml(c,0).includes('Prior quarter weight'));c.settlement.period='month';
 const money=ctx._bcSourceOptions('money');assert(money.some(x=>x.value==='liability_component::'+c.component_id));assert(ctx._bcSourceOptions('rate').some(x=>x.value==='reference_rate'));
 ctx.window.bcSourceSet('assumptions.balance_components_model.testYield','reference_rate','rate');assert.equal(cfg.assumptions.balance_components_model.testYield.index,'effr');
 out=ctx._bcOperand('assumptions.balance_components_model.testYield',cfg.assumptions.balance_components_model.testYield,'Yield','rate',false);assert(out.includes('Fed Funds (EFFR)'));assert(out.includes('Annual spread'));
