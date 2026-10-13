@@ -1,0 +1,19 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
+const cfg={assumptions:{balance_components_model:{enabled:true,inputs:[],components:[{id:'asset',name:'Editable asset',treatment:'earning_asset',terms:[{source_spec:{source:'entered',unit:'money',value:100},sign:-1,factors:[]}],balance_floor:'zero',yield_spec:{source:'entered',unit:'rate',value:0}}]}}};
+const ctx={cfg,window:{},sourceCatalogRows:[{series_id:'lending.stable.balance',label:'Selected lending stock',driver:'catalog_quantity',unit:'money_stock',measures:['period_end','period_begin','period_average']}],_seriesId:()=> 'id',esc:String,fmtComma:String,_pf:Number,PLAB:()=> 'M',renderContent(){},refresh(){},_olMode:()=> 'formula_level',_olState:()=>({components:[]}),_feeCustomerCountOptions:()=>[],_ibFeeQuantityOptions:()=>[],_faSeriesEditor:()=> '<div>Existing series editor</div>',setPath(path,value){const parts=path.split('.');let o=cfg;while(parts.length>1)o=o[parts.shift()];o[parts[0]]=value;}};
+vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function _bcState(create)'),html.indexOf('// r289: summaries first')),ctx);
+ctx.window.bcIncomeMethod(0,'entered_amount');assert.equal(cfg.assumptions.balance_components_model.components[0].income_amount_spec.period,'year');
+let out=ctx._bcEditorHtml();assert(out.includes('Income amount')===false);assert(out.includes('Income calculation'));assert(out.includes('Entered income posts once'));assert(out.includes('Term operation'));assert(out.includes('Subtract'));assert(out.includes('Floor calculated balance at zero'));assert(out.includes('Edit component name'));assert(!out.includes('>Annual yield</span>'));
+ctx.window.bcIncomeMethod(0,'separate_balance_yield');out=ctx._bcEditorHtml();assert(out.includes('Income balance basis'));assert(out.includes('does not add another asset'));
+ctx.window.bcSourceSet('assumptions.balance_components_model.components.0.terms.0.source_spec','catalog_balance::lending.stable.balance','money');out=ctx._bcEditorHtml();assert(out.includes('Selected lending stock'));assert(out.includes('Balance measure'));
+const saved=JSON.stringify(cfg);ctx._bcEditorHtml();assert.equal(JSON.stringify(cfg),saved);
+for(const handler of out.matchAll(/on(?:change|click)="([^"]+)"/g))new vm.Script(handler[1].replace(/&quot;/g,'"'));
+ctx.window.bcTreatment(0,'cash_allocation');assert.equal(cfg.assumptions.balance_components_model.components[0].income_method,'balance_yield');
+// Render the real annual schedule control, not the series-editor test stub.
+Object.assign(ctx,{_numInput:String,_seriesSourcePeriods:()=>3,_nativeFlowPeriod:()=> 'month',_seriesPasteSummary:()=> 'Three targets',_faSeriesExplicitIsOpen:()=>false,_seriesResolutionUseful:()=>true,_seriesCadenceOptions:()=>['month','quarter','year'],_sparkHtml:()=> '',_faSeriesFmt:String,_explicitPreviewHtml:()=>''});
+vm.runInContext(html.slice(html.indexOf('function _faSeriesEditor('),html.indexOf('// r289: named balances')),ctx);
+out=ctx._faSeriesEditor('assumptions.balance_components_model.components.0.terms.0.source_spec',{trajectory:'explicit',cadence:'year',values:[100,200,300],year_end_targets:true},'Balance','money',false);assert(out.includes('Values are year-end balance targets'));assert(out.includes('Ramp to each year end'));assert(out.includes('Prior year-end target'));assert(out.includes('Calendar year'));
+for(const handler of out.matchAll(/on(?:change|click)="([^"]+)"/g))new vm.Script(handler[1].replace(/&quot;/g,'"'));
+console.log('PASS bounded formula/income controls, stable catalog picker, read-only rendering, treatment switch, annual target authoring and all inline/generated JavaScript syntax');

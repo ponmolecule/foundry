@@ -1608,7 +1608,8 @@ def _balance_component_rows(results, exact, n):
     for c in block.get('components') or []:
         section=c.get('name') or c['id']
         keys=[('requested_balance','Requested allocation before cash cap')] if 'requested_balance' in c else []
-        for key,label in keys+[('ending','Ending balance · '+c['treatment']),('interest_balance','Balance used for pricing'),('annual_rate','Annual yield'),('annual_cost_rate','Annual cost rate'),('income','Income posted · '+c.get('income_line','interest')),('cost','Cost posted · '+c.get('cost_line','interest_expense'))]:
+        if 'income_basis' in c:keys.append(('income_basis',('Entered income amount per '+c.get('income_amount_period','model_period')) if c.get('income_method')=='entered_amount' else 'Independent balance used for income'))
+        for key,label in keys+[('ending','Ending balance · '+c['treatment']),('interest_balance','Balance used for pricing'),('annual_rate','Annual yield (unused for entered income)' if c.get('income_method')=='entered_amount' else 'Annual yield'),('annual_cost_rate','Annual cost rate'),('income','Income posted · '+c.get('income_line','interest')),('cost','Cost posted · '+c.get('cost_line','interest_expense'))]:
             vals=c.get(key) or []
             if key in {'annual_rate','annual_cost_rate'}:units,fmt='annual decimal rate',_RATE_FMT
             else:
