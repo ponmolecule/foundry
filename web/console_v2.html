@@ -1502,10 +1502,11 @@ table.prd-cmp td.num{text-align:right;font-variant-numeric:tabular-nums}
 .cfg-nav-card,.prd-nav-card{background:#FFFFFF;border:1px solid var(--k-line2);border-radius:3px;padding:8px;box-shadow:0 1px 2px rgba(20,20,20,.05)}
 .cfg-nav-card .cfg-nav-title{padding:6px 10px 6px}
 .prd-card-h{display:flex;justify-content:space-between;padding:6px 8px 2px;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3)}
-.prd-fam{display:flex;align-items:center;gap:6px;width:100%;padding:12px 8px 5px;border:0;background:transparent;font-size:10.5px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--k-tx3);cursor:pointer;text-align:left;font-family:inherit}
-.prd-fam:hover{color:var(--k-tx1)}
-.prd-fam .car{width:10px;font-size:9px}
-.prd-fam .n{margin-left:auto;font-weight:500;letter-spacing:0}
+.prd-fam{display:flex;align-items:center;gap:7px;box-sizing:border-box;width:100%;margin:14px 0 5px;padding:9px 9px;border:1px solid var(--k-graph);border-radius:4px;background:var(--k-graph);font-size:11.5px;font-weight:650;line-height:16px;letter-spacing:.045em;text-transform:uppercase;color:#FFFFFF;cursor:pointer;text-align:left;font-family:inherit}
+.prd-fam:hover{color:#FFFFFF;border-color:var(--k-gold);box-shadow:inset 2px 0 var(--k-gold)}
+.prd-fam:focus-visible{outline:2px solid var(--k-gold);outline-offset:2px}
+.prd-fam .car{width:10px;font-size:9px;color:var(--k-gold);flex:0 0 10px}
+.prd-fam .n{margin-left:auto;min-width:18px;padding:1px 5px;box-sizing:border-box;border:1px solid rgba(255,255,255,.24);border-radius:3px;color:#FFFFFF;font-size:10.5px;font-weight:600;line-height:15px;text-align:center;letter-spacing:0;font-variant-numeric:tabular-nums}
 .prd-nav .product-card.prd-row{position:relative;display:grid;grid-template-columns:28px minmax(0,1fr) auto;gap:10px;align-items:center;padding:7px 8px;margin:1px 0;border:0;border-radius:3px;background:transparent;box-shadow:none;cursor:pointer}
 .prd-nav .product-card.prd-row:hover{background:var(--k-hover)}
 .prd-nav .product-card.prd-row.sel{background:var(--k-sel)}
