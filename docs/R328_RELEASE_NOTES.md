@@ -1,0 +1,4 @@
+# r328 — audit export failure handling
+Built directly on r327. Validation detail, session expiry, permissions, snapshot mismatch, rate limiting, server errors, interrupted connections, timeouts and invalid workbook responses have distinct messages. The workbook-generation/download request has a 60-second timeout and cleanup on every exit. Responses must have Excel MIME and ZIP magic before download.
+Workbook serialization exceptions remain HTTP 500, log their traceback with a support reference, and return a safe message. They are not misclassified as user input errors; inputs are not changed. Engine results and snapshot hash checks are unchanged.
+Targeted frontend failure-path tests, HTTP workbook failure/recovery tests, settlement tests and full five-fixture identity comparison are included in validation. No full-suite rerun or rendered browser QA.

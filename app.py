@@ -1744,7 +1744,14 @@ def v2_calculation_audit(payload: dict, _=Depends(gate)):
         }, status_code=409)
 
     buf = _io.BytesIO()
-    calculation_audit_workbook(cfg, results).save(buf)
+    try:
+        calculation_audit_workbook(cfg, results).save(buf)
+    except Exception:
+        import logging, uuid
+        incident = uuid.uuid4().hex[:12]
+        logging.getLogger(__name__).exception("Audit workbook generation failed; reference %s", incident)
+        return JSONResponse({"error": "audit_workbook_generation_failed",
+                             "detail": f"Workbook generation failed. Reference {incident}; provide this reference to support. Your inputs were not changed."}, status_code=500)
     buf.seek(0)
     _slug = _engagement_slug(cfg)
     return StreamingResponse(

@@ -17,6 +17,12 @@ class Tests(unittest.TestCase):
   self.cfg['assumptions']['other_liabilities_model']['components'][0]['settlement']['sign']=-1
   r=self.client.post('/api/v2/preview',json=self.cfg);self.assertEqual(r.status_code,200);j=r.json()
   r=self.client.post('/api/v2/calculation-audit',json={'config':self.cfg,'expected_config_hash':j['config_hash'],'expected_run_hash':j['run_hash']});self.assertEqual(r.status_code,200);self.assertTrue(r.content.startswith(b'PK'))
+ def test_workbook_exception_has_reference_and_recovers(self):
+  self.cfg['assumptions']['other_liabilities_model']['components'][0]['settlement']['sign']=-1
+  with patch('foundry.v2.audit_workbook.calculation_audit_workbook',side_effect=RuntimeError('private traceback detail')):
+   with self.assertLogs('app',level='ERROR') as logs:r=self.client.post('/api/v2/calculation-audit',json=self.cfg)
+   self.assertEqual(r.status_code,500);j=r.json();self.assertIn('Reference',j['detail']);self.assertNotIn('private traceback detail',j['detail']);self.assertIn('private traceback detail',' '.join(logs.output))
+  r=self.client.post('/api/v2/calculation-audit',json=self.cfg);self.assertEqual(r.status_code,200)
  def test_unexpected_error_is_not_validation(self):
   with patch('foundry.v2.run_q.run_v2',side_effect=RuntimeError('unexpected defect')):
    with self.assertRaisesRegex(RuntimeError,'unexpected defect'):self.client.post('/api/v2/preview',json=self.cfg)

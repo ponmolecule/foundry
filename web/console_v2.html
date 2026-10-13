@@ -14803,6 +14803,17 @@ async function exportExcel(){
   a.href = URL.createObjectURL(b); a.download = _engSlug()+"_proforma_exhibit.xlsx"; a.click();
 }
 window.exportExcel=exportExcel;
+async function _auditFailureMessage(r,stage){
+ let j=null;try{j=await r.json();}catch(_e){}
+ const detail=j&&(Array.isArray(j.errors)?j.errors.map(x=>typeof x==='string'?x:x.message||JSON.stringify(x)).join("\n"):j.detail||j.message||j.error);
+ if(r.status===422)return detail?String(detail):'The configuration was rejected, but the server returned no readable validation detail. Nothing was exported.';
+ if(r.status===401)return 'Your session has expired. Sign in again, reopen the engagement, and retry the audit export.';
+ if(r.status===403)return 'Audit export access was denied. Check your account permissions.';
+ if(r.status===409)return 'The audit run did not match the Product Details snapshot. Nothing was exported; rerun the model and try again.';
+ if(r.status===429)return 'The server is receiving too many requests. Wait briefly and retry the audit export.';
+ if(r.status>=500)return `Audit ${stage} failed on the server (HTTP ${r.status}). `+(detail?String(detail):'Retry once; if it persists, provide the failure time and engagement to support. This is not an instruction to change your inputs.');
+ return `Audit ${stage} failed (HTTP ${r.status}).`+(detail?' '+String(detail):' Nothing was exported.');
+}
 async function _calculationAuditSnapshot(){
   // Use the same module synchronization as the normal Product Details preview, then freeze the
   // exact config to audit.  Importantly, do NOT advance the shared preview sequence up front:
@@ -14819,17 +14830,12 @@ async function _calculationAuditSnapshot(){
     clearTimeout(timeout);
   }catch(e){
     clearTimeout(timeout);
-    return {failed:true, error:(e && e.name === "AbortError") ? "Audit snapshot preview timed out after 60 seconds." : `Audit snapshot preview failed${e && e.message ? ": "+e.message : "."}`};
+    return {failed:true, error:(e && e.name === "AbortError") ? "Audit snapshot preview timed out after 60 seconds." : "Audit snapshot preview failed: could not reach the server. Check your connection and retry. Nothing was exported."};
   }
   if(JSON.stringify(cfg) !== cfgText) return {changed:true};
-  if(pr.status === 422){
-    let detail="";try{const j=await pr.json();detail=(Array.isArray(j.errors)?j.errors.map(x=>typeof x==='string'?x:x.message||JSON.stringify(x)).join("\n"):String(j.detail||j.error||""));}catch(_e){}
-    return {invalid:true,error:detail};
-  }
+  if(pr.status === 422)return {invalid:true,error:await _auditFailureMessage(pr,'preview')};
   if(!pr.ok){
-    let detail="";
-    try{ const j=await pr.json(); detail=String((j&& (j.detail||j.error||j.message))||""); }catch(_e){}
-    return {failed:true, error:`Audit snapshot preview failed (HTTP ${pr.status})${detail ? ": "+detail : ""}`};
+    return {failed:true,error:await _auditFailureMessage(pr,'preview')};
   }
   let snapRes;
   try{ snapRes = await pr.json(); }
@@ -14851,11 +14857,19 @@ async function exportCalculationAudit(){
   if(snap.invalid){ refresh(); alert(snap.error || "Fail-closed: complete the open questions first."); return; }
   if(!snap.result){ refresh(); alert(snap.error || "Could not prepare the calculation-audit snapshot."); return; }
   const payload = {config:snap.config, expected_config_hash:snap.result.config_hash, expected_run_hash:snap.result.run_hash};
-  const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
-  if(r.status===409){ alert("The audit run did not match the Product Details snapshot. Nothing was exported; rerun the model and try again."); return; }
-  if(!r.ok){ alert("Fail-closed: complete the open questions first."); return; }
-  const b = await r.blob(); const a = document.createElement("a");
-  a.href = URL.createObjectURL(b); a.download = _engSlug()+"_calculation_audit.xlsx"; a.click();
+  const ctl=new AbortController(),timeout=setTimeout(()=>ctl.abort(),60000);
+  try{
+    const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload),signal:ctl.signal});
+    if(r.status===409){alert(await _auditFailureMessage(r,'workbook generation'));return;}
+    if(!r.ok){alert(await _auditFailureMessage(r,'workbook generation'));return;}
+    const mime=(r.headers.get('content-type')||'').split(';')[0].trim();
+    if(mime!=='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'){alert('Audit workbook response was not an Excel file. Nothing was downloaded. Retry; if it persists, report this response error.');return;}
+    const b=await r.blob(),prefix=new Uint8Array(await b.slice(0,4).arrayBuffer());
+    if(prefix.length!==4||prefix[0]!==80||prefix[1]!==75||prefix[2]!==3||prefix[3]!==4){alert('Audit workbook was empty or incomplete. Nothing was downloaded. Retry the export.');return;}
+    const a=document.createElement('a'),url=URL.createObjectURL(b);a.href=url;a.download=_engSlug()+"_calculation_audit.xlsx";a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);
+  }catch(e){alert(e&&e.name==='AbortError'?'Audit workbook generation or download timed out after 60 seconds. Nothing was downloaded. Retry; if it persists, report the failure time.':'Audit workbook generation or download was interrupted. Check your connection and retry. Nothing was downloaded.');}
+  finally{clearTimeout(timeout);}
+
 }
 window.exportCalculationAudit=exportCalculationAudit;
 async function exportExecPdf(){
