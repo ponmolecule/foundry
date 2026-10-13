@@ -41,6 +41,15 @@ def _session_max_age():
 app = FastAPI(title="Foundry", version="0.2.2", docs_url=None, redoc_url=None, openapi_url=None)
 security = HTTPBasic(auto_error=False)
 
+# Only expected settlement input failures become validation responses. Programming
+# exceptions retain their traceback/500 instead of being mislabeled user errors.
+from foundry.v2.settlement_balances import SettlementInputError
+
+@app.exception_handler(SettlementInputError)
+async def settlement_input_error_response(request: Request, exc: SettlementInputError):
+    return JSONResponse({"valid": False, "errors": [str(exc)], "detail": str(exc)}, status_code=422)
+
+
 def _session_secret():
     import os as _os
     d = _os.path.join(_os.environ.get("FOUNDRY_DATA_DIR", _os.path.join(_os.getcwd(), "data")), "auth")

@@ -1,0 +1,4 @@
+# r327 — actionable settlement validation errors
+Built directly on r326. Expected settlement input failures now use a specific exception type and return HTTP 422 with actionable text, including component name and the first invalid period. Preview and direct audit routes share this handling. Unexpected programming exceptions remain server errors.
+The audit snapshot UI displays the returned validation detail rather than a generic open-question message. Invalid stocks remain rejected: no clipping, sign auto-correction or partial results. Valid financial calculations are unchanged.
+Validation: HTTP preview/direct-audit invalid sign reproduction, corrected sign success with workbook generation, unexpected-error propagation, 18 settlement tests, authoring/navigation helpers and full inline syntax. Full fixture output identity against r326 checked without stripping fields. No live deployment or rendered browser test.

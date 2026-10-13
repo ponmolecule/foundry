@@ -14822,7 +14822,10 @@ async function _calculationAuditSnapshot(){
     return {failed:true, error:(e && e.name === "AbortError") ? "Audit snapshot preview timed out after 60 seconds." : `Audit snapshot preview failed${e && e.message ? ": "+e.message : "."}`};
   }
   if(JSON.stringify(cfg) !== cfgText) return {changed:true};
-  if(pr.status === 422) return {invalid:true};
+  if(pr.status === 422){
+    let detail="";try{const j=await pr.json();detail=(Array.isArray(j.errors)?j.errors.map(x=>typeof x==='string'?x:x.message||JSON.stringify(x)).join("\n"):String(j.detail||j.error||""));}catch(_e){}
+    return {invalid:true,error:detail};
+  }
   if(!pr.ok){
     let detail="";
     try{ const j=await pr.json(); detail=String((j&& (j.detail||j.error||j.message))||""); }catch(_e){}
@@ -14845,7 +14848,7 @@ async function _calculationAuditSnapshot(){
 async function exportCalculationAudit(){
   const snap = await _calculationAuditSnapshot();
   if(snap.changed){ alert("Inputs changed while the audit snapshot was being prepared. Run the export again after the latest edit settles."); return; }
-  if(snap.invalid){ alert("Fail-closed: complete the open questions first."); return; }
+  if(snap.invalid){ refresh(); alert(snap.error || "Fail-closed: complete the open questions first."); return; }
   if(!snap.result){ refresh(); alert(snap.error || "Could not prepare the calculation-audit snapshot."); return; }
   const payload = {config:snap.config, expected_config_hash:snap.result.config_hash, expected_run_hash:snap.result.run_hash};
   const r = await fetch("/api/v2/calculation-audit", {method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify(payload)});
