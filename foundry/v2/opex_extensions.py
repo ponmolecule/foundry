@@ -921,7 +921,8 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
     elif drv == "noninterest_income":
         base = (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
-                + float(metrics.get("servicing_net") or 0.0))
+                + float(metrics.get("servicing_net") or 0.0)
+                + float(metrics.get("other_income") or 0.0))
     elif drv == NET_FEE_INCOME_DRIVER:
         base = (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
@@ -993,7 +994,8 @@ def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
     if src == "noninterest_income":
         return (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)
-                + float(metrics.get("servicing_net") or 0.0))
+                + float(metrics.get("servicing_net") or 0.0)
+                + float(metrics.get("other_income") or 0.0))
     if src == NET_FEE_INCOME_DRIVER:
         return (float(metrics.get("fee_income") or 0.0)
                 + float(metrics.get("gain_on_sale") or 0.0)

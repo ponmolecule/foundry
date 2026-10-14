@@ -250,3 +250,14 @@ def bs_layout_for_results(res):
         else:
             layout.append(row)
     return layout
+
+
+def is_layout_for_results(res):
+    if "otherIncome" not in res.get("is", {}):
+        return IS_LAYOUT
+    layout=[]
+    for row in IS_LAYOUT:
+        layout.append(row)
+        if row.get("key")=="fees":
+            layout.append({"t":"line","key":"otherIncome","label":"Other income","indent":1})
+    return layout

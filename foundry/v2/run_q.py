@@ -705,6 +705,8 @@ def run_v2(cfg):
     if base.get("fixed_assets") is not None:
         results["fixed_assets"] = copy.deepcopy(base.get("fixed_assets"))
         results["fixed_assets"]["units"] = "$000s for monetary fields; period/life metadata are raw"
+    if base.get("other_income_detail") is not None:
+        results["other_income_detail"] = copy.deepcopy(base["other_income_detail"])
     if base.get("other_assets_detail") is not None:
         results["other_assets_detail"] = copy.deepcopy(base["other_assets_detail"])
         results["other_assets_detail"]["units"] = "$000s for money; multipliers and days are raw"
@@ -921,7 +923,7 @@ def run_v2(cfg):
     results["cblr"] = _cblr_checks(cfg, base)
     results["presentation"] = {
         "line_labels": present.LINE_LABELS, "loan_keys": present.LOAN_KEYS, "dep_keys": present.DEP_KEYS,
-        "bs_layout": present.bs_layout_for_results(base), "is_layout": present.IS_LAYOUT,
+        "bs_layout": present.bs_layout_for_results(base), "is_layout": present.is_layout_for_results(base),
         "ratio_labels": present.RATIO_LABELS, "scenario_labels": present.SCENARIO_LABELS,
         "derived": present.derived_lines(base, cfg),
         "product_codes": {p["name"]: (code_for_line(p.get("line")) or ["", "", "", ""])

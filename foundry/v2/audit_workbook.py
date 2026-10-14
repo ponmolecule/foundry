@@ -953,6 +953,8 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
     nonint = [(fee[i] if i < len(fee) else 0.0) + (gos[i] if i < len(gos) else 0.0) +
               (srv[i] if i < len(srv) else 0.0) for i in range(n)]
     net_fee_income = [nonint[i] - (fee_cost[i] if i < len(fee_cost) else 0.0) for i in range(n)]
+    other = _series("otherIncome")
+    nonint = [v + (other[i] if i < len(other) else 0.0) for i, v in enumerate(nonint)]
     totalrev = [(nii[i] if i < len(nii) else 0.0) + nonint[i] for i in range(n)]
     flow_hist = {"fee_income": fee, "gain_on_sale": gos, "servicing_net": srv,
                  "noninterest_income": nonint, "net_fee_income": net_fee_income,
@@ -1829,6 +1831,8 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Cost Pools", "Resolved non-posting cost-pool Series."),
         ("All Series", "Catch-all inventory of numeric period Series surfaced by the public run."),
     ]
+    if results.get('other_income_detail') is not None:
+        sheet_notes.insert(4, ('Other Income', 'Named entity-level income flows, posting once to Other income.'))
     for r in sheet_notes:
         idx.append(list(r))
     index_header_row = idx.max_row - len(sheet_notes)
@@ -1970,6 +1974,14 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Product Calculations"), cfg, _product_rows(results, n, exact=exact),
                      title="Product Calculations · Audit",
                      subtitle="Every native numeric product series surfaced by Foundry.", n=n, ppy=ppy)
+    if results.get('other_income_detail') is not None:
+        detail = (exact or {}).get('other_income_detail') or {}
+        rows = [('Other income', row['name'], 'other_income.'+row['id'], '$000s / engine period',
+                 _money_k_series(row['amount']), _MONEY_FMT) for row in detail.get('lines', [])]
+        rows.append(('Other income', 'Total other income', 'otherIncome', '$000s / engine period',
+                     _money_k_series(detail.get('total', [])), _MONEY_FMT))
+        _write_wide_rows(wb.create_sheet('Other Income'), cfg, rows, title='Other Income · Calculation Audit',
+                         subtitle='Entity-level income. Each named line posts once; no product or asset is created.', n=n, ppy=ppy)
     if results.get('balance_components') is not None:
         _write_wide_rows(wb.create_sheet('Balance Components'), cfg, _balance_component_rows(results,exact,n),
                          title='Named Balance Components · Calculation Audit',

@@ -1027,6 +1027,9 @@ def run_pf_a(cfg):
         for _sc in _ol_prepared['components']:
             if _sc.get('settlement'):bind_settlement(_sc,_fee_stream_econ_series,Q)
         _other_liab_open=float(_ol_prepared['opening_balance'])
+    from .other_income import prepare as prepare_other_income
+    _other_income_rows = prepare_other_income(a, _fee_stream_qty_series, Q, ppy, _growth_ctx)
+    _other_income_total = [sum(row["amount"][i] for row in _other_income_rows) for i in range(Q)]
     from .balance_components import prepare as prepare_balance_components
     _bcm = prepare_balance_components(a, _cac_customer_count_series, _fee_stream_qty_series, Q, ppy, _growth_ctx)
 
@@ -1101,6 +1104,8 @@ def run_pf_a(cfg):
     isk = ("loanInt", "secInt", "bookInt", "cashInt", "depExp", "borrExp", "nii", "prov", "fees",
            "gos", "servNet", "msrAmort", "fvPnl", "prodOpex", "feeOpex", "workforceComp", "otherOpex", "depreciationExpense", "overhead", "ebtda", "pretax", "tax", "ni", "nco", "nol")
     is_ = {k: [None] * (Q + 1) for k in isk}
+    if _other_income_rows:
+        is_["otherIncome"] = [None] + list(_other_income_total)
     if _ibm:
         for _k in ("affiliatedCashInt", "operatingCashInt", "fiduciaryAuaInt",
                    "frbStockInt", "fiduciaryDepExp"):
@@ -1280,7 +1285,7 @@ def run_pf_a(cfg):
             _vals = [is_[k][_p] for k in ("prodOpex", "feeOpex", "overhead", "nii", "fees", "gos", "servNet")]
             if any(v is None for v in _vals):
                 return None
-            _rev = float(is_["nii"][_p] + is_["fees"][_p] + is_["gos"][_p] + is_["servNet"][_p])
+            _rev = float(is_["nii"][_p] + is_["fees"][_p] + is_["gos"][_p] + is_["servNet"][_p] + _other_income_total[_p - 1])
             return ((float(is_["prodOpex"][_p]) + float(is_["feeOpex"][_p]) + float(is_["overhead"][_p])) / _rev) if _rev > 0 else None
         return None
 
@@ -1476,7 +1481,7 @@ def run_pf_a(cfg):
             for _li, _lc in enumerate(_nie_d.get("linked_components") or []):
                 _lr = linked_component_period_result(
                     _lc, q - 1, {"fee_income": fees, "gain_on_sale": gos, "servicing_net": srv,
-                                 "fee_product_costs": fee_opex,
+                                 "fee_product_costs": fee_opex, "other_income": _other_income_total[q - 1],
                                  "fee_stream_quantities": {sid: (arr[q - 1] if q - 1 < len(arr) else 0.0)
                                                            for sid, arr in _fee_stream_qty_series.items()},
                                  "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
@@ -1618,6 +1623,7 @@ def run_pf_a(cfg):
                 _prior_fee_opex = [float(is_["feeOpex"][_p] or 0.0) for _p in range(1, q)]
                 _hist_fee_opex = _prior_fee_opex + [float(fee_opex or 0.0)]
                 _hist_net_fee_income = [_hist_nonint[_i] - _hist_fee_opex[_i] for _i in range(q)]
+                _hist_nonint = [v + _other_income_total[i] for i, v in enumerate(_hist_nonint)]
                 _hist_total_rev = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(q)]
                 _wf_metrics = {
                     "periods_per_year": ppy,
@@ -1652,7 +1658,7 @@ def run_pf_a(cfg):
                 workforce_comp = _comp_q
                 other_opex = overhead - workforce_comp - depreciation_expense
                 nie = prod_ox + fee_opex + overhead
-            pretax = nii + fees + fv_pnl + gos + srv - nie - prov
+            pretax = nii + fees + fv_pnl + gos + srv - nie - prov + _other_income_total[q - 1]
             ebtda = pretax + depreciation_expense + msr_amort
             _tax_row = _tax_ledger.evaluate(q, pretax)
             tax = _tax_row["tax"]
@@ -1736,7 +1742,7 @@ def run_pf_a(cfg):
         # assets. NII is already interest income less positive expense inside the
         # engine; never subtract a negatively presented expense a second time.
         ratios["nim"][q] = (is_["nii"][q] * ppyf / avg_a * 100) if avg_a > 0 else None
-        rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q]
+        rev = is_["nii"][q] + is_["fees"][q] + is_["gos"][q] + is_["servNet"][q] + _other_income_total[q - 1]
         ratios["eff"][q] = ((is_["prodOpex"][q] + is_["feeOpex"][q] + is_["overhead"][q]) / rev * 100) if rev > 0 else None
         _dta_ded = (bs["dta"][q] * _RP["tax"]["dta_nol_cet1_deduction"]) if bs["dta"][q] else 0.0
         t1 = bs["equity"][q] - a["intangibles"] - _dta_ded
@@ -1861,6 +1867,9 @@ def run_pf_a(cfg):
                    "borrowSched": sched_t,
                    "dta": bs["dta"]},
             "is": {k: v[1:] for k, v in is_.items()}}
+    if _other_income_rows:
+        _out["is"]["otherIncome"] = list(_other_income_total)
+        _out["other_income_detail"] = {"lines": _other_income_rows, "total": list(_other_income_total)}
     _out["tax_interim"] = _tax_ledger.audit()
     if _ibm:
         for _k in ("affiliatedCash", "operatingCash", "frbStock", "fiduciaryAuaNonInterest",

@@ -244,7 +244,7 @@ def _build_sheet(ws, cfg, res, periods, granularity):
     _datarow("Interest Income", ii)
     _datarow("Interest Expense", ie)
     _datarow("Provision for Credit Losses", _flow_sum(["prov"]))
-    _datarow("Non-Interest Income", _flow_sum(["fees", "gos", "servNet", "fvPnl"]))
+    _datarow("Non-Interest Income", _flow_sum(["fees", "gos", "servNet", "fvPnl", "otherIncome"]))
     _datarow("Non-Interest Expense", _flow_sum(["prodOpex", "feeOpex", "overhead"]))
     _datarow("Earnings before D&A and taxes (bank EBITDA)", _flow_sum(["ebtda"]), bold=True)
     _datarow("Pre-Tax Net Income", _flow_sum(["pretax"]), bold=True)

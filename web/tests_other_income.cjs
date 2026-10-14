@@ -1,0 +1,20 @@
+const fs=require('fs'),vm=require('vm'),assert=require('node:assert/strict');
+const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+for(const script of html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g))new vm.Script(script[1]);
+const cfg={assumptions:{}};let runCount=0;
+const ctx={cfg,window:{},catalogSources:()=>[{series_id:'flow',unit:'money_flow',collection:'obs_exposures',label:'Generic flow'}],_seriesId:()=> 'income-id',_nativeFlowPeriod:()=> 'month',esc:String,ICONS:{calc:''},_faSeriesEditor:()=> '<div>Existing paste editor</div>',renderContent(){},refresh(){runCount++}};
+vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function otherIncomeState()'),html.indexOf('function _grossEligibilityRows()')),ctx);
+const before=JSON.stringify(cfg);let out=ctx.otherIncomeHtml();assert.equal(JSON.stringify(cfg),before);assert(out.includes('card-income'));assert(!out.includes('Dividend income'));
+ctx.window.otherIncomeAdd();assert.equal(cfg.assumptions.other_income_model.lines[0].amount_spec.period,'month');out=ctx.otherIncomeHtml();assert(out.includes('Dividend income'));assert(out.includes('Existing paste editor'));
+ctx.window.otherIncomeSource(0,'linked_quantity');out=ctx.otherIncomeHtml();assert(out.includes('Generic flow'));assert(out.includes('not existing revenue'));ctx.window.otherIncomeRemove(0);assert.equal(cfg.assumptions.other_income_model.lines.length,0);
+assert(html.includes('.cfggrid[data-cfg-selected="income"]>#card-income'));assert(html.includes('Amounts represent'));assert(html.includes('Annual compensation rate'));assert(html.includes('top base amount is not added'));
+// Guard must not lose the pending switch or hide the retry dialog on HTTP/network failures.
+let hide=0,errors=[],outcome=false;Object.assign(ctx,{_guardPendingSlug:'saved-target',_guardHide:()=>hide++,appStatus:(k,m)=>errors.push(m),_openEngagementNow:async()=>outcome});
+vm.runInContext(html.slice(html.indexOf('async function guardDiscard()'),html.indexOf('window.guardDiscard=guardDiscard;')),ctx);
+(async()=>{await ctx.guardDiscard();assert.equal(ctx._guardPendingSlug,'saved-target');assert.equal(hide,0);outcome=true;await ctx.guardDiscard();assert.equal(ctx._guardPendingSlug,null);assert.equal(hide,1);
+ ctx._guardPendingSlug='retry';ctx._openEngagementNow=async()=>{throw Error('network failed')};await ctx.guardDiscard();assert.equal(ctx._guardPendingSlug,'retry');assert.equal(hide,1);assert(errors.some(x=>x.includes('network failed')));
+ const loaderCode=html.slice(html.indexOf('async function _openEngagementNow(slug)'),html.indexOf('async function toggleEngMenu()',html.indexOf('async function _openEngagementNow(slug)')));
+ const target={assumptions:{deposit_products:[]},scenario_name:'Saved target'};Object.assign(ctx,{_asTimer:null,clearTimeout(){},fetch:async()=>({ok:true,json:async()=>target}),normalizeCfg:x=>x,_resetTransientAuthoringUi(){},rehydrateOriginal(){},syncNameChrome(){},currentTab:'config',TAB_DEFS:[['config']],renderGlobals(){},markPristine(){},LC:{land(){}},_lcSettleAfterOpen(){},setTab(t){ctx.currentTab=t}});
+ vm.runInContext(loaderCode,ctx);ctx._guardPendingSlug='actual-target';await ctx.guardDiscard();assert.equal(ctx.cfg,target);assert.equal(ctx.currentTab,'config');assert.equal(ctx._guardPendingSlug,null);
+ ctx._guardPendingSlug='bad-target';ctx.fetch=async()=>({ok:false,status:422,json:async()=>({error:'Invalid saved config'})});await ctx.guardDiscard();assert.equal(ctx.cfg,target);assert.equal(ctx._guardPendingSlug,'bad-target');
+ console.log('PASS income authoring, immutable render, typed source picker, compensation labels, JavaScript syntax and switch retry');})().catch(e=>{console.error(e);process.exitCode=1;});

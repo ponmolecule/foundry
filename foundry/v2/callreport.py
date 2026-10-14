@@ -263,7 +263,7 @@ def build_ri(res):
     # interest and overstates total interest income by exactly bookInt every quarter.
     tii = [s["loanInt"][t] + s["secInt"][t] + s["cashInt"][t] for t in range(n)]
     tie = [s["depExp"][t] + s["borrExp"][t] for t in range(n)]
-    nonint_inc = [s["fees"][t] + s["gos"][t] + s["servNet"][t] + s["fvPnl"][t] for t in range(n)]
+    nonint_inc = [s["fees"][t] + s["gos"][t] + s["servNet"][t] + s["fvPnl"][t] + s.get("otherIncome", [0.0]*n)[t] for t in range(n)]
     nonint_exp = [s["overhead"][t] + s["prodOpex"][t] + (s.get("feeOpex") or [0.0] * n)[t] for t in range(n)]
     rows = [
         _row("1.a", "RIAD4010", "Interest and fees on loans", s["loanInt"]),
