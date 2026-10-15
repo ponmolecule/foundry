@@ -1529,7 +1529,7 @@ def _other_liability_rows(cfg, results, n):
                 mult_vals = [None] + money(mul)
                 dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
             else:
-                driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else "$000s · linked Fixed Asset Series"), "dimensionless signed multiple"
+                driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else ("$000s · entered liability level" if kind=="entered_level" else "$000s · linked Fixed Asset Series")), "dimensionless signed multiple"
                 driver_vals = [None] + money(drv)
                 mult_vals = [None] + [float(x or 0.0) for x in mul]
                 dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT

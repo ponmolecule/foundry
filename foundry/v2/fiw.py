@@ -514,6 +514,11 @@ def _other_liabilities_level_sheet(ws, model):
             tsec = section if len(terms or []) == 1 else f"{section} · term {j+1}"
             if not legacy:
                 row(tr + ".term_id", tsec, "Term ID", t.get("term_id"), "stable term ID", True)
+            if (t.get("driver_spec") or {}).get("source") == "entered":
+                series_rows(tr + ".driver_spec", tsec, "Entered liability level", t["driver_spec"], "$")
+                series_rows(tr + ".multiplier_spec", tsec, "Multiplier",
+                            t.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":1.0}, "dimensionless multiple")
+                continue
             row(tr + (".driver.kind" if legacy else ".driver_spec.link.kind"), tsec, "Driver kind",
                 ("workforce_count" if legacy and link.get("kind") == "workforce_role_count" else
                  "fixed_asset_net" if legacy else link.get("kind")),

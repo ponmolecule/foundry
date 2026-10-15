@@ -32,6 +32,10 @@ olSetMode('formula_level');
 const enabled=JSON.parse(JSON.stringify(cfg.assumptions.other_liabilities_model));
 olAddComponent();
 const afterAdd=JSON.parse(JSON.stringify(cfg.assumptions.other_liabilities_model));
+olTermSource(0,0,'link');
+const linkedSource=cfg.assumptions.other_liabilities_model.components[0].terms[0].driver_spec.source;
+olTermSource(0,0,'entered');
+const enteredSource=cfg.assumptions.other_liabilities_model.components[0].terms[0].driver_spec.source;
 olDriver(0,0,'fixed_asset_level::bank.fixed_assets.formula_level.base');
 olAddTerm(0);
 olDriver(0,1,'fixed_asset_level::bank.fixed_assets.accumulated_depreciation');
@@ -40,7 +44,7 @@ const saved=JSON.stringify(cfg.assumptions.other_liabilities_model);
 olSetMode('flat'); const flatMode=_olMode(), preservedFlat=JSON.stringify(cfg.assumptions.other_liabilities_model)===saved;
 olSetMode('formula_level'); const restoredMode=_olMode(), preservedFormula=JSON.stringify(cfg.assumptions.other_liabilities_model)===saved;
 olRemoveComponent(0); const modeAfterDelete=_olMode();
-console.log(JSON.stringify({before,initialMode,enabled,afterAdd,afterFA,flatMode,preservedFlat,restoredMode,preservedFormula,modeAfterDelete,opts:_olDriverOptions()}));
+console.log(JSON.stringify({before,initialMode,enabled,afterAdd,afterFA,linkedSource,enteredSource,flatMode,preservedFlat,restoredMode,preservedFormula,modeAfterDelete,opts:_olDriverOptions()}));
 '''
     r=subprocess.run(["node","-e",prefix+js+suffix],text=True,capture_output=True)
     out={}
@@ -55,8 +59,9 @@ console.log(JSON.stringify({before,initialMode,enabled,afterAdd,afterFA,flatMode
     aa=(out.get("afterAdd") or {}).get("components") or []
     t0=((aa[0].get("terms") or [{}])[0] if aa else {})
     l0=((t0.get("driver_spec") or {}).get("link") or {})
-    ck("new liability component defaults to stable Total Workforce Count when available",
-       len(aa)==1 and l0.get("kind")=="workforce_role_count" and l0.get("series_id")=="wf-total-ui")
+    ck("new liability component defaults to an entered zero level",
+       len(aa)==1 and t0.get("driver_spec")=={"source":"entered","trajectory":"flat","value":0} and t0.get("multiplier_spec",{}).get("value")==1)
+    ck("liability source selector switches between entered and linked",out.get("linkedSource")=="link" and out.get("enteredSource")=="entered")
     af=(out.get("afterFA") or {}).get("components") or []
     terms=(af[0].get("terms") or []) if af else []
     links=[((t.get("driver_spec") or {}).get("link") or {}) for t in terms]

@@ -175,6 +175,22 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             tid = str(term.get("term_id") or "").strip()
             term_ids.append(tid)
             ns = normalize_series_spec(term.get("driver_spec"), default_value=0.0)
+            if ns.get("source") == "entered":
+                if ns.get("trajectory") == "explicit" and ns.get("cadence") == "month" and ppy < 12:
+                    width = 12 // ppy
+                    monthly = _resolve_entered(ns, n * width, 12, growth_context=growth_context)
+                    driver = monthly[width - 1::width]
+                else:
+                    driver = _resolve_entered(ns, n, ppy, growth_context=growth_context)
+                mult = _resolve_entered(
+                    term.get("multiplier_spec") or {"source": "entered", "trajectory": "flat", "value": 1.0},
+                    n, ppy, growth_context=growth_context, default_value=1.0)
+                resolved_terms.append({
+                    "term_id": tid, "driver_kind": "entered_level", "series_id": "",
+                    "driver_name": "Entered liability level", "driver_unit": "$",
+                    "driver": driver, "multiplier": mult,
+                })
+                continue
             if ns.get("source") != "link":
                 raise ValueError(
                     f"other_liabilities_model.components[{i}].terms[{j}].driver_spec must be a linked Series")
