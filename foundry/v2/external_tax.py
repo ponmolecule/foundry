@@ -7,12 +7,23 @@ import ast
 import math
 import re
 from .tax_interim import MONEY_SERIES, tax_year
+from .regparams import REG_PARAMS
 from .other_income import prepare as prepare_flows
 from .series import resolve_entered_series
 
 OPS=(ast.Add,ast.Sub,ast.Mult,ast.Div)
 FUNCS={'min','max','abs','prior','safe_div'}
-RESERVED=FUNCS|{'bank_pretax','periods_per_year','configured_tax_rate'}
+CONFIGURED_UNITS={'configured_tax_rate':'scalar','configured_nol_limit':'scalar','configured_opening_nol':'money'}
+RESERVED=FUNCS|{'bank_pretax','periods_per_year'}|set(CONFIGURED_UNITS)
+
+def configured_value(a,key):
+    policy=a.get('tax_policy') or {};detail=a.get('tax_detail') or {}
+    if key=='configured_tax_rate':v=a.get('tax_rate')
+    elif key=='configured_nol_limit':v=policy.get('nol_utilization_limit_pct',detail.get('nol_utilization_limit_pct',REG_PARAMS['tax']['nol_utilization_limit_pct']))
+    else:v=policy.get('opening_nol',0)
+    v=number(v)
+    if v<0 or (CONFIGURED_UNITS[key]=='scalar' and v>1):raise ValueError('Configured tax assumption out of range: '+key)
+    return v
 
 def active(a): return a.get('tax_mode','calculated')=='external'
 def number(v):
@@ -87,18 +98,17 @@ def validate(a,cfg):
         else:raise ValueError('Tax input source must be entered or linked_quantity')
     input_ids={x['id'] for x in inputs}
     trees={x['id']:parse(x.get('expression','')) for x in rules}
-    uses_rate=any(isinstance(node,ast.Name) and node.id=='configured_tax_rate' for t in trees.values() for node in ast.walk(t))
-    if uses_rate:
-        rate=number(a.get('tax_rate'))
-        if not 0<=rate<=1:raise ValueError('Configured tax rate must be between 0 and 1')
-        units['configured_tax_rate']='scalar'
+    configured_refs={node.id for t in trees.values() for node in ast.walk(t) if isinstance(node,ast.Name)} & set(CONFIGURED_UNITS)
+    for key in configured_refs:
+        configured_value(a,key)
+        units[key]=CONFIGURED_UNITS[key]
     unknown=set().union(*(references(t) for t in trees.values()))-ids if trees else set()
     if unknown:raise ValueError('Unknown tax source/rule: '+', '.join(sorted(unknown)))
     for t in trees.values():
         for node in ast.walk(t):
             if isinstance(node,ast.Call) and node.func.id=='prior':
                 if node.args[0].id not in ids-RESERVED:raise ValueError('Prior requires a named tax input or rule')
-                if isinstance(node.args[1],ast.Name) and node.args[1].id not in input_ids:raise ValueError('Prior opening must reference an entered or linked input')
+                if isinstance(node.args[1],ast.Name) and node.args[1].id not in input_ids|set(CONFIGURED_UNITS):raise ValueError('Prior opening must reference an input or configured tax assumption')
     order=[];visiting=set()
     def visit(k):
         if k in visiting:raise ValueError('Circular current-period tax rules: '+k)
@@ -172,7 +182,8 @@ class ExternalTaxLedger:
     def evaluate(self,period,pretax):
         if period!=self.last_period+1:raise ValueError('External tax periods must be evaluated and committed in order')
         env={'bank_pretax':number(pretax),'periods_per_year':float(self.ppy)}
-        if 'configured_tax_rate' in self.units:env['configured_tax_rate']=number(self.a.get('tax_rate'))
+        for key in CONFIGURED_UNITS:
+            if key in self.units:env[key]=configured_value(self.a,key)
         for x in self.m.get('inputs',[]):
             if x['id'] in self.values:env[x['id']]=self.values[x['id']][period-1]
             else:
