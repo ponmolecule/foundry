@@ -1731,6 +1731,19 @@ def _tax_rows(results, exact, n):
     raw = bool((exact or {}).get("tax_interim"))
     data = trace.get("rows") or []
     rows = []
+    if trace.get('method')=='external':
+        fields=[('tax','Total tax expense / (benefit)'),('taxCurrent','Current tax provision'),('taxDeferred','Deferred tax expense / (benefit)'),('payments','Cash tax payment / (refund)'),('settlementNet','Current tax settlement · positive payable / negative receivable'),('dtaNet','Recognized deferred tax asset'),('deferredLiability','Deferred tax liability')]
+        for key,label in fields:
+            vals=[r.get(key) for r in data[:n]]
+            if raw:vals=[None if x is None else x/1000 for x in vals]
+            rows.append(('External tax',label,'tax_interim.'+key,'$000s',vals,_RAW_MONEY_FMT))
+        labels={x['id']:x.get('name') or x['id'] for x in trace.get('sources',[])}
+        labels.update({x['id']:(x.get('name') or x['id'])+' = '+x['expression'] for x in trace.get('rules',[])})
+        for sid,unit in (trace.get('source_units') or {}).items():
+            vals=[r.get('operands',{}).get(sid) for r in data[:n]]
+            if raw and unit=='money':vals=[None if x is None else x/1000 for x in vals]
+            rows.append(('External tax operands',labels.get(sid,sid),'tax_interim.operands.'+sid,'$000s' if unit=='money' else 'dimensionless',vals,_RAW_MONEY_FMT if unit=='money' else _RAW_NUM_FMT))
+        return rows
     fields = (("year", "Tax year ending", "year", _COUNT_FMT),
               ("annualEstimate", "Supported full-year ordinary income estimate", "$000s", _RAW_MONEY_FMT),
               ("effectiveRate", "Annual / actual-YTD effective rate", "%", _PCT_FMT),

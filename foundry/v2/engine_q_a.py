@@ -1119,7 +1119,9 @@ def run_pf_a(cfg):
 
     re, nol = day_one, 0.0
     from .tax_interim import InterimTaxLedger, MONEY_SERIES
-    _tax_ledger = InterimTaxLedger(cfg, a, ppy)
+    from .external_tax import ledger as tax_ledger
+    _tax_ledger = tax_ledger(cfg, a, ppy, _fee_stream_qty_series)
+    _external_tax = bool(getattr(_tax_ledger, "external", False))
     for _k in MONEY_SERIES:
         is_[_k] = [None] * (Q + 1)
     bs["dta"] = [0.0] * (Q + 1)
@@ -1135,6 +1137,22 @@ def run_pf_a(cfg):
     if _bcm:
         _bcm.set_opening_cash(bs['cash'][0])
         bs['totalAssets'][0] += (_bc_open.get('earning_asset', 0) if _tax_ledger.opening_dta else 0)
+    if _external_tax:
+        _opening_tax_receivable=max(0.,-_tax_ledger.payable)
+        _opening_tax_liab=max(0.,_tax_ledger.payable)+_tax_ledger.dtl
+        for _key in ('taxPayable','taxReceivable','taxDeferredLiability'):
+            bs[_key]=[0.]*(Q+1)
+        bs['taxPayable'][0]=max(0.,_tax_ledger.payable)
+        bs['taxReceivable'][0]=_opening_tax_receivable
+        bs['taxDeferredLiability'][0]=_tax_ledger.dtl
+        bs['otherLiab'][0]=_other_liab_open+_opening_tax_liab
+        c0,s0,b0=plug(deps_c[0],deps_b[0],net0,equity0,0.,sec_books0,
+            non_earn_t[0]+_tax_ledger.opening_dta+_opening_tax_receivable,
+            other_liab_level=bs['otherLiab'][0],required_cash=_bc_open.get('cash_allocation',0),extra_assets=_bc_open.get('earning_asset',0))
+        bs['cash'][0],bs['sec'][0],bs['borrow'][0]=c0,s0,b0
+        bs['affiliatedCash'][0]=c0
+        bs['totalAssets'][0]=c0+s0+sec_books0+net0+non_earn_t[0]+_tax_ledger.opening_dta+_opening_tax_receivable+_bc_open.get('earning_asset',0)
+        if _bcm:_bcm.set_opening_cash(c0)
     # ---- credit_regime module (ASC 326 presentation): decomposes the SAME
     # provision into day-one (retained originations x lifetime EL rate),
     # reserve build/(release) on the existing book, and NCO replenishment.
@@ -1555,7 +1573,8 @@ def run_pf_a(cfg):
         beg_c, beg_s, beg_b = bs["cash"][q - 1], bs["sec"][q - 1], bs["borrow"][q - 1]
 
         ni = 0.0
-        _tax_assets_iter = _tax_ledger.dta
+        _tax_assets_iter = _tax_ledger.dta + (max(0.,-_tax_ledger.payable) if _external_tax else 0.)
+        _tax_liab_iter = max(0.,_tax_ledger.payable)+_tax_ledger.dtl if _external_tax else 0.
         _aoci_q_guess = _simple_afs_end * _aoci_sens / ppyf
         _managed_snapshot = []
         for _ in range(60):
@@ -1581,7 +1600,7 @@ def run_pf_a(cfg):
             ne_q[0] = q
             c, s, b = plug(deps_c[q], deps_b[q], net_loans_end, equity_end, msr_t[q], sec_books_end,
                             non_earn_t[q] + _prepaid_opex_q + _tax_assets_iter,
-                            _accrued_opex_q, _other_liab_q,
+                            _accrued_opex_q, _other_liab_q + _tax_liab_iter,
                             required_cash=_operating_cash, extra_assets=_frb_stock)
             sec_int = ((beg_s + s) / 2.0) * a.get("securities_yield", 0.0) / ppyf + book_int
             if _ibm:
@@ -1662,12 +1681,14 @@ def run_pf_a(cfg):
             ebtda = pretax + depreciation_expense + msr_amort
             _tax_row = _tax_ledger.evaluate(q, pretax)
             tax = _tax_row["tax"]
-            _tax_assets_new = _tax_row["dtaNet"]
+            _tax_assets_new = _tax_row["dtaNet"] + (_tax_row["taxReceivable"] if _external_tax else 0.)
+            _tax_liab_new = _tax_row["taxPayable"] + _tax_row["deferredLiability"] if _external_tax else 0.
             new_ni = pretax - tax
             _solver_converged = (abs(new_ni - ni) < 1e-4 and abs(aoci_q - _aoci_q_guess) < 1e-4
-                                 and abs(_tax_assets_new - _tax_assets_iter) < 1e-4)
+                                 and abs(_tax_assets_new - _tax_assets_iter) < 1e-4 and abs(_tax_liab_new-_tax_liab_iter)<1e-4)
             ni = new_ni
             _tax_assets_iter = _tax_assets_new
+            _tax_liab_iter = _tax_liab_new
             _aoci_q_guess = aoci_q
             if _solver_converged:
                 break
@@ -1710,9 +1731,11 @@ def run_pf_a(cfg):
         bs["htmBook"][q] = htm_end_b
         bs["aoci"][q], bs["paidIn"][q] = aoci_cum, cap_t[q]
         bs["prepaidOpex"][q], bs["accruedOpex"][q] = _prepaid_opex_q, _accrued_opex_q
-        bs["otherLiab"][q] = _other_liab_q
+        bs["otherLiab"][q] = _other_liab_q + _tax_liab_iter
+        if _external_tax:
+            bs['taxPayable'][q]=_tax_row['taxPayable'];bs['taxReceivable'][q]=_tax_row['taxReceivable'];bs['taxDeferredLiability'][q]=_tax_row['deferredLiability']
         bs["totalAssets"][q] = (c + s + sec_books_end + net_loans_end + non_earn_t[q] + _prepaid_opex_q + msr_t[q] + _frb_stock
-                                  + bs["dta"][q])
+                                  + bs["dta"][q] + (bs["taxReceivable"][q] if _external_tax else 0.))
         _is_values = [("loanInt", loan_int), ("secInt", sec_int), ("bookInt", book_int), ("cashInt", cash_int),
                      ("depExp", dep_exp), ("borrExp", borr_exp), ("nii", nii), ("prov", prov),
                      ("fees", fees), ("gos", gos), ("servNet", srv), ("msrAmort", msr_amort), ("fvPnl", fv_pnl),
@@ -1871,6 +1894,9 @@ def run_pf_a(cfg):
         _out["is"]["otherIncome"] = list(_other_income_total)
         _out["other_income_detail"] = {"lines": _other_income_rows, "total": list(_other_income_total)}
     _out["tax_interim"] = _tax_ledger.audit()
+    if _external_tax:
+        for _key in ('taxPayable','taxReceivable','taxDeferredLiability','otherLiab'):
+            _out['bs'][_key]=list(bs[_key])
     if _ibm:
         for _k in ("affiliatedCash", "operatingCash", "frbStock", "fiduciaryAuaNonInterest",
                    "fiduciaryAuaInterest", "fiduciaryAuaTotal", "mabCount"):
@@ -1885,7 +1911,7 @@ def run_pf_a(cfg):
     if _ol_prepared is not None:
         _out["bs"]["otherLiab"] = list(bs["otherLiab"])
         _out["other_liabilities_detail"] = other_liability_audit_payload(
-            _ol_prepared, list(bs.get("otherLiab") or []), _ol_period_rows)
+            _ol_prepared, ([v-bs["taxPayable"][i]-bs["taxDeferredLiability"][i] for i,v in enumerate(bs["otherLiab"])] if _external_tax else list(bs.get("otherLiab") or [])), _ol_period_rows)
     if _fa_mode in {"schedule", "formula_level"}:
         _out["fixed_assets"] = {
             "mode": _fa_mode,

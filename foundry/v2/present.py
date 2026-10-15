@@ -238,7 +238,7 @@ def bs_layout_for_results(res):
     """Extend only opted-in components; historical exhibit rows stay identical."""
     has_earning = 'earningAssets' in res.get('bs', {})
     has_other = 'otherAssets' in res.get('bs', {})
-    if not has_earning and not has_other:
+    if not has_earning and not has_other and 'taxReceivable' not in res.get('bs',{}):
         return BS_LAYOUT
     layout=[]
     for row in BS_LAYOUT:
@@ -249,6 +249,14 @@ def bs_layout_for_results(res):
             layout.append({'t':'line','key':'otherAssets','label':'Other assets'})
         else:
             layout.append(row)
+    if 'taxReceivable' in res.get('bs',{}):
+        adjusted=[]
+        for row in layout:
+            adjusted.append(row)
+            if row.get('key')=='dta':adjusted.append({'t':'line','key':'taxReceivable','label':'Current tax receivable'})
+            if row.get('key')=='otherLiab':
+                adjusted.extend([{'t':'line','key':'taxPayable','label':'of which: current tax payable','indent':1},{'t':'line','key':'taxDeferredLiability','label':'of which: deferred tax liability','indent':1}])
+        layout=adjusted
     return layout
 
 

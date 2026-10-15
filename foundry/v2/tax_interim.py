@@ -36,6 +36,9 @@ def _number(v, name, lo=None, hi=None):
 
 
 def validate_tax_policy(a, cfg):
+    from .external_tax import validate as validate_external, active
+    validate_external(a, cfg)
+    if active(a): return
     tp = a.get("tax_policy")
     td = a.get("tax_detail")
     tp = {} if tp is None else tp

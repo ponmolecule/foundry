@@ -190,6 +190,11 @@ def _conv_workforce(wf):
 def _conv_tax_interim(block):
     from .tax_interim import MONEY_SERIES
     money = set(MONEY_SERIES) | {"tax", "nol", "annualEstimate", "legalCurrentYtd", "yearOpeningNol", "yearOpeningDta"}
+    if block.get('method')=='external':
+        units=block.get('source_units',{})
+        extra={'payments','settlementNet','taxPayable','taxReceivable','deferredLiability'}
+        return {**block,'units':'$000s for money; scalar operands dimensionless',
+            'rows':[{k:({sid:(_k(x) if units.get(sid)=='money' else x) for sid,x in v.items()} if k=='operands' else _k(v) if k in money|extra and v is not None else v) for k,v in r.items()} for r in block.get('rows',[])]}
     return {**block, "units": "$000s for monetary values; year, period and effectiveRate are raw",
             "rows": [{k: (_k(v) if k in money and v is not None else v) for k, v in row.items()}
                      for row in block.get("rows") or []]}
