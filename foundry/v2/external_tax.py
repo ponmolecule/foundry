@@ -166,6 +166,9 @@ def validate(a,cfg):
         if k!='opening_payable' and v<0:raise ValueError('Deferred tax opening balances cannot be negative')
     if m.get('deferred_mode','none') not in {'none','balances'}:raise ValueError('Deferred-tax mode must be none or balances')
     if m.get('deferred_mode')=='balances' and not (outputs.get('deferred_asset') or outputs.get('deferred_liability')):raise ValueError('Deferred balance mode requires an explicit asset or liability source')
+    if m.get('blocks'):
+        from .tax_blocks import validate_blocks
+        validate_blocks(m,units)
     return trees,order,units
 
 class ExternalTaxLedger:
@@ -206,6 +209,9 @@ class ExternalTaxLedger:
             if r==0:raise ValueError('External tax division by zero; use max(denominator, positive_floor) or a defined rule')
             return l/r
         for k in self.order:env[k]=number(calc(self.trees[k]))
+        if self.m.get('blocks'):
+            from .tax_blocks import check_values
+            check_values(self.m,env,period)
         out=self.m.get('outputs',{});current=env[out['current']]
         dta=env[out['deferred_asset']] if self.m.get('deferred_mode')=='balances' and out.get('deferred_asset') else 0.;dtl=env[out['deferred_liability']] if self.m.get('deferred_mode')=='balances' and out.get('deferred_liability') else 0.
         if dta<0 or dtl<0:raise ValueError('External deferred tax balances cannot be negative')

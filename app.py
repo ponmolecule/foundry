@@ -1515,6 +1515,14 @@ def v31_fields(activations: str = "", _=Depends(gate)):
         return JSONResponse({"error": str(e)}, status_code=422)
 
 
+@app.post("/api/v31/tax-blocks/preview")
+def v31_tax_blocks_preview(body: dict, user=Depends(gate)):
+    """Read-only planning; returns an isolated candidate, never saves or runs it."""
+    from foundry.v2.tax_blocks import plan
+    try:return JSONResponse(plan(body.get('cfg'),body.get('block')))
+    except (ValueError,TypeError,KeyError) as e:return JSONResponse({'error':str(e)},status_code=422)
+
+
 @app.post("/api/v31/engagement-setup")
 def v31_engagement_setup(body: dict, user=Depends(gate)):
     from foundry.v2.engagement_setup import initialize, policy, apply
