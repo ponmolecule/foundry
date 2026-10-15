@@ -31,6 +31,26 @@ def main():
     m.update(deferred_mode='balances',opening_deferred_asset=25,opening_deferred_liability=10)
     m['inputs'] += [inp('asset',50),inp('liability',30)];m['outputs'].update(deferred_asset='asset',deferred_liability='liability')
     x=ExternalTaxLedger(c,a,12);r=x.evaluate(1,1000);assert r['taxDeferred']==-5 and r['tax']==95
+    # Reuse the existing rate; no duplicated input, no implicit tax posting.
+    c=cfg();a=c['assumptions'];a['tax_rate']=.27;m=a['external_tax']
+    m['rules']=[rule('assessed','max(0, bank_pretax) * configured_tax_rate')];m['outputs']['current']='assessed'
+    x=ExternalTaxLedger(c,a,12);r=x.evaluate(1,1000)
+    assert r['tax']==270 and r['operands']['configured_tax_rate']==.27
+    assert x.audit()['source_units']['configured_tax_rate']=='scalar'
+    a['tax_rate']=.19
+    assert ExternalTaxLedger(c,a,12).evaluate(1,1000)['tax']==190
+    for ppy in (4,12):
+        a['periods_per_year']=ppy
+        assert ExternalTaxLedger(c,a,ppy).evaluate(1,1000)['tax']==190,'annual tax rate is not divided by cadence'
+    for invalid in (None,True,-.1,1.1,float('nan')):
+        bad=copy.deepcopy(a);bad['tax_rate']=invalid
+        try:validate(bad,c)
+        except ValueError:pass
+        else:raise AssertionError('invalid configured rate')
+    # No new operand or audit unit for existing external rules that do not use it.
+    old=cfg();ox=ExternalTaxLedger(old,old['assumptions'],12)
+    assert 'configured_tax_rate' not in ox.evaluate(1,1000)['operands']
+    assert 'configured_tax_rate' not in ox.audit()['source_units']
     # Generic group allocation; no source-engagement labels or constants.
     c=cfg();a=c['assumptions'];m=a['external_tax'];m['inputs']=[inp('other_profit',2000),inp('tax_rate',.25,'scalar'),inp('opening_losses',10000),inp('limit',.8,'scalar')]
     m['rules']=[rule('group_income','bank_pretax + other_profit'),rule('losses','max(0, prior(losses, opening_losses) - used)'),rule('used','min(prior(losses, opening_losses), max(0, group_income) * limit)'),rule('group_tax','max(0, group_income - used) * tax_rate'),rule('share','safe_div(max(0, bank_pretax), max(0, bank_pretax) + max(0, other_profit), 0)','scalar'),rule('allocated','group_tax * share')]

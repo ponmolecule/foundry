@@ -12,7 +12,7 @@ from .series import resolve_entered_series
 
 OPS=(ast.Add,ast.Sub,ast.Mult,ast.Div)
 FUNCS={'min','max','abs','prior','safe_div'}
-RESERVED=FUNCS|{'bank_pretax','periods_per_year'}
+RESERVED=FUNCS|{'bank_pretax','periods_per_year','configured_tax_rate'}
 
 def active(a): return a.get('tax_mode','calculated')=='external'
 def number(v):
@@ -87,6 +87,11 @@ def validate(a,cfg):
         else:raise ValueError('Tax input source must be entered or linked_quantity')
     input_ids={x['id'] for x in inputs}
     trees={x['id']:parse(x.get('expression','')) for x in rules}
+    uses_rate=any(isinstance(node,ast.Name) and node.id=='configured_tax_rate' for t in trees.values() for node in ast.walk(t))
+    if uses_rate:
+        rate=number(a.get('tax_rate'))
+        if not 0<=rate<=1:raise ValueError('Configured tax rate must be between 0 and 1')
+        units['configured_tax_rate']='scalar'
     unknown=set().union(*(references(t) for t in trees.values()))-ids if trees else set()
     if unknown:raise ValueError('Unknown tax source/rule: '+', '.join(sorted(unknown)))
     for t in trees.values():
@@ -167,6 +172,7 @@ class ExternalTaxLedger:
     def evaluate(self,period,pretax):
         if period!=self.last_period+1:raise ValueError('External tax periods must be evaluated and committed in order')
         env={'bank_pretax':number(pretax),'periods_per_year':float(self.ppy)}
+        if 'configured_tax_rate' in self.units:env['configured_tax_rate']=number(self.a.get('tax_rate'))
         for x in self.m.get('inputs',[]):
             if x['id'] in self.values:env[x['id']]=self.values[x['id']][period-1]
             else:
