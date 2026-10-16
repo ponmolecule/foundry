@@ -241,9 +241,19 @@ class _Model:
     def other_liab_series(self):
         return [(_num(t) - _num(d)) for t, d in zip(self.total_liab_series(), self.bs.get("deposits") or [])]
 
+    def other_earning_assets_series(self):
+        """Interest-bearing assets outside cash/securities/loans.
+
+        With balance components enabled the engine publishes ``earningAssets`` (the earning-asset
+        components) in the slot Federal Reserve stock otherwise occupies, and the presentation layout
+        shows it INSTEAD of ``frbStock``. Take it in preference so the two are never double counted."""
+        if isinstance(self.bs.get("earningAssets"), list):
+            return self.bs["earningAssets"]
+        return self.bs.get("frbStock") if isinstance(self.bs.get("frbStock"), list) else None
+
     def earning_assets_series(self):
         return _addv(self.bs.get("cash"), self.securities_series(), self.bs.get("grossLoans"),
-                     self.bs.get("frbStock"))
+                     self.other_earning_assets_series())
 
     def isv(self, key):
         return self.is_.get(key)
@@ -271,7 +281,14 @@ class _Model:
         return sum(v for v in self.flow(series, self.years) if v is not None)
 
     def has_window_activity(self, series):
-        return abs(self.window_total(series)) > _EPS
+        """True when ANY engine period inside the submission window is non-zero.
+
+        Tested per period, not on the net total, so offsetting activity (+X then -X) is still shown."""
+        if series is None:
+            return False
+        s, _ = _norm(series, self.years, self.n)
+        idxs = sorted({i for p in self.years for i in p["flow_idxs"]})
+        return any(abs(_num(s[i])) > _EPS for i in idxs if 0 <= i < len(s))
 
     def obs_revenue_products(self):
         return [p for p in self.obs if self.has_window_activity(p.get("fees"))]
@@ -473,7 +490,8 @@ _BS_NOTES = [
     "Period-end balances: Day 1 is the opening balance sheet; each year is its final submission quarter-end.",
     "Securities = all AFS, HTM and designated securities books. Loans are net of the allowance and include "
     "loans held for sale at carrying value. Other Assets = Total Assets less the lines shown (premises, "
-    "Federal Reserve stock, MSRs, deferred tax, prepaid and other assets). Intangible Assets = configured intangibles.",
+    "Federal Reserve stock or other interest-bearing assets, MSRs, deferred tax, prepaid and other assets). "
+    "Intangible Assets = configured intangibles.",
     "Other Liabilities = Total Liabilities less Deposits (borrowings, accrued and other liabilities).",
 ]
 
@@ -485,6 +503,8 @@ def _is_rows(m, P):
         ("Provision for Credit Losses", m.flow(m.isv("prov"), P), False),
         ("Non-Interest Income", m.flow(m.nonint_income(), P), False),
         ("Non-Interest Expense", m.flow(m.nonint_expense(), P), False),
+    ] + ([("Earnings before D&A and taxes (bank EBITDA)", m.flow(m.isv("ebtda"), P), True)]
+         if isinstance(m.isv("ebtda"), list) else []) + [
         ("Pre-Tax Net Income", m.flow(m.isv("pretax"), P), True),
         ("Taxes", m.flow(m.isv("tax"), P), False),
         ("Net Income", m.flow(m.isv("ni"), P), True),
@@ -498,7 +518,8 @@ def _is_annual(wb, m, bank):
     for label, vals, bold in _is_rows(m, m.years):
         sh.line(label, vals, bold=bold)
     sh.notes(["Flows summed over each submission year. Pre-Tax Net Income = Interest Income − Interest Expense − "
-              "Provision + Non-Interest Income − Non-Interest Expense."])
+              "Provision + Non-Interest Income − Non-Interest Expense. Bank EBITDA is the engine's earnings before "
+              "depreciation, amortization and taxes, shown as on the Pro Forma Income Statement."])
 
 
 def _bs_pct(wb, m, bank):
@@ -603,8 +624,8 @@ def _fph(wb, m, bank):
     sh.notes([
         "Tier 1 Leverage Ratio: standardized capital module, year-end. ROAE / ROAA: annual net income ÷ average "
         "equity / average total assets. Yield on Earning Assets and Net Interest Margin: annual total interest "
-        "income / net interest income ÷ average earning assets (cash, securities, Federal Reserve stock and gross "
-        "loans incl. held for sale). Efficiency Ratio: non-interest expense ÷ (net interest income + non-interest income).",
+        "income / net interest income ÷ average earning assets (cash, securities, gross loans incl. held for sale, "
+        "and Federal Reserve stock or other interest-bearing assets). Efficiency Ratio: non-interest expense ÷ (net interest income + non-interest income).",
         "Liquidity, Deposit Mix and Loan Mix are year-end. Deposit Mix classifies each liability product: "
         "non-interest-bearing when its configured rate is zero (fixed) and it paid no interest in the horizon, "
         "otherwise interest-bearing. Loans held for sale ÷ gross loans. Loan Mix = each asset product ÷ total "
@@ -742,8 +763,9 @@ def _ii_calc(wb, m, bank):
     ii = m.flow(m.interest_income(), Y)
     sh.line("Total Average Earning Assets", aea)
     sh.line("Yield", [_div(v * k, d) if v is not None and k else None for v, k, d in zip(ii, ann, aea)], fmt=_RATE)
-    sh.notes(["Average earning assets = cash, securities, Federal Reserve stock and gross loans (incl. held for "
-              "sale), averaged over the year. Yield = total interest income ÷ average earning assets."])
+    sh.notes(["Average earning assets = cash, securities, gross loans (incl. held for sale) and Federal Reserve "
+              "stock or other interest-bearing assets, averaged over the year. Yield = total interest income ÷ "
+              "average earning assets."])
 
 
 def _loan_term_years(m, c):

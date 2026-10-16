@@ -160,6 +160,43 @@ def main():
     ck("E2 monthly engine aggregates to calendar quarters (Q1 = M1..M3)",
        abs(uq["Net Income"][0] - sum(uni_ni[0:3])) < 0.01 and len(uq["Net Income"]) == 12)
 
+    # 6. r339 reporting fixes
+    from foundry.v2 import tests_balance_components as BC
+    from foundry.v2.bpt_enhanced import _Model
+    bc = BC.configured([BC.component("other-asset", "earning_asset", 30000000, rate=.06, opening_balance=25000000)])
+    bres = run_v2(copy.deepcopy(bc))
+    bm = _Model(bc, bres)
+    bbs = bres["financials"]["bs"]
+    core = [(bbs["cash"][i] or 0) + sum((bbs.get(k) or [0] * 37)[i] or 0 for k in ("htm", "afs", "sec", "htmBook", "afsBook"))
+            + (bbs["grossLoans"][i] or 0) for i in range(len(bbs["totalAssets"]))]
+    ea = bm.earning_assets_series()
+    ck("R1 earning-asset base includes other interest-bearing assets (earningAssets)",
+       all(abs(ea[i] - core[i] - bbs["earningAssets"][i]) < 1e-6 for i in range(len(core))) and bbs["earningAssets"][12] > 0)
+    dup = copy.deepcopy(bres); dup["financials"]["bs"]["frbStock"] = list(bbs["earningAssets"])
+    ck("R2 earningAssets replaces (never adds to) Federal Reserve stock",
+       _Model(bc, dup).earning_assets_series() == ea)
+    bwb = load_workbook(io.BytesIO(build_bpt_cover(bc, bres)[0]), data_only=True)
+    bf = rows(bwb["Financial Performance Highlight"]); bi = rows(bwb["Interest Income Calculation"])
+    ann_nii = sum(bres["financials"]["is"]["nii"][:12])
+    avg_ea = sum(((ea[i] or 0) + (ea[i + 1] or 0)) / 2 for i in range(12)) / 12
+    ck("R3 NIM and yield use the full earning-asset base",
+       abs(bf["Net Interest Margin"][0] - ann_nii / avg_ea) < 1e-6 and abs(bi["Total Average Earning Assets"][0] - avg_ea) < 1e-6)
+    eb = res["financials"]["is"]["ebtda"]
+    lbl = "Earnings before D&A and taxes (bank EBITDA)"
+    eq = rows(wb["Income Statement Quarterly"])
+    ck("R4 bank EBITDA restored on annual and quarterly income statements and ties to the engine",
+       lbl in isa and all(abs(isa[lbl][i] - sum(eb[4 * i:4 * i + 4])) < 0.01 for i in range(3)) and
+       lbl in eq and all(abs(eq[lbl][q] - eb[q]) < 0.01 for q in range(12)) and lbl in rows(wb["Income Statement % of Asset"]))
+    off = copy.deepcopy(res)
+    tgt = next(p for p in off["products"] if p["name"] == "Activity Sources")
+    tgt["fees"] = [0.0] * len(tgt["fees"]); tgt["fees"][0] = 1000.0; tgt["fees"][4] = -1000.0
+    owb = load_workbook(io.BytesIO(build_bpt_cover(cfg, off)[0]), data_only=True)
+    on = rows(owb["Non-Interest Income"]); of = rows(owb["Financial Performance Highlight"])
+    ck("R5 offsetting activity (+1,000 then -1,000) keeps the product row",
+       "Activity Sources" in on and on["Activity Sources"][:2] == [1000.0, -1000.0] and "Activity Sources" in of)
+    ck("R6 a product with no activity in any period is still excluded",
+       "Activity Sources" not in nii and not _Model(cfg, res).has_window_activity([0.0] * 12))
+
     # 5. legacy layout remains reachable and unchanged in shape
     lwb = load_workbook(io.BytesIO(build_bpt_cover_legacy(cfg, res)[0]), read_only=True)
     ck("L1 legacy two-sheet layout still builds",
