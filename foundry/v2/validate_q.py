@@ -79,6 +79,11 @@ def validate_config_v2(cfg):
     from .timebase import quarterly_value_to_period
     from .growth import validate_growth_spec_for_cadence, growth_context_from_cfg
     _a0 = cfg.get("assumptions") or {}
+    try:
+        from .rates_workspace import validate as validate_rates_workspace
+        validate_rates_workspace(_a0, cfg)
+    except (ValueError, TypeError, KeyError) as e:
+        errs.append(str(e))
     _alias_ppy = _a0.get("periods_per_year") or 4
     if not isinstance(_alias_ppy, int) or isinstance(_alias_ppy, bool) or _alias_ppy not in (4, 12):
         _alias_ppy = 4

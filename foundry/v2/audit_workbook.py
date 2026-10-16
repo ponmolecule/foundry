@@ -1844,6 +1844,10 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         ("Cost Pools", "Resolved non-posting cost-pool Series."),
         ("All Series", "Catch-all inventory of numeric period Series surfaced by the public run."),
     ]
+    if a.get('rates_workspace') is not None:
+        sheet_notes += [('Rate Assumptions','Published evidence, engagement schedules, overrides and derivation settings.'),
+                        ('Effective Rates','Canonical monthly annualized index rates, active source and Fed-based comparison.'),
+                        ('Engine Rates','Native period-end index rates before product pricing and scenario shifts.')]
     if results.get('other_income_detail') is not None:
         sheet_notes.insert(4, ('Other Income', 'Named entity-level income flows, posting once to Other income.'))
     for r in sheet_notes:
@@ -2076,4 +2080,7 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         if _cap_rows:
             _write_long_rows(wb.create_sheet('Profile Cap Monthly'),title='Shared profile cap · monthly allocation',subtitle='Pro rata allocation after losses and scheduled repayments. Excess profile principal transfers at par. Deposit capacity uses the native-period closing target; it is held within quarterly periods.',headers=['Pool','Month','Target ID','Capacity','Total target','Factor','Member target','Retained ending'],rows=_cap_rows,widths=[24,12,26,22,22,14,22,22],formats={4:_RAW_MONEY_FMT,5:_RAW_MONEY_FMT,6:'0.00%',7:_RAW_MONEY_FMT,8:_RAW_MONEY_FMT},freeze_col=4)
 
+    if a.get('rates_workspace') is not None:
+        from .rates_workspace import audit_sheets
+        audit_sheets(wb, cfg)
     return wb

@@ -126,6 +126,9 @@ def _build_rate_curve_set(a, cfg, ppy=4):
     dated policy/SEP anchors > legacy quarterly path.  This keeps old fixtures stable while
     ensuring generated curves are attached to the engagement calendar, not ordinal Q2/Q6/Q10.
     """
+    if a.get("rates_workspace") is not None:
+        from .rates_workspace import build
+        return build(a, cfg, ppy)
     rc = a.get("rate_curves") or {}
     sofr_cfg = rc.get("sofr") or {}
     legacy_sofr = sofr_cfg.get("path_q") or a.get("rate_path_q") or [0.0]
@@ -245,6 +248,10 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
     """Downturn overlays: credit multipliers, rate shock, volume/GOS/MSR/sale-share."""
     shock = (ov.get("rate_shock_bp", 0) or 0) / 10000.0
     if shock:
+        if a.get("rates_workspace") is not None:
+            import copy
+            a["rates_workspace"]["_scenario_shift"] = shock
+            a["rates_workspace"]["_scenario_base"] = copy.deepcopy(a.get("rate_curves") or {})
         a["cash_yield"] = max(0.0, a["cash_yield"] + shock)
         a["securities_yield"] = max(0.0, a.get("securities_yield", 0.0) + shock)
         a["borrow_rate_ann"] = max(0.0, a.get("borrow_rate_ann", 0.0) + shock)

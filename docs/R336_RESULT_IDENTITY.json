@@ -1,0 +1,32 @@
+[
+  {
+    "configuration": "foundry/fixtures/core_bank_test_base.json",
+    "identical": true,
+    "run_hash": "3095860cd0b7",
+    "full_sha256": "73bb5022b5e1b93f559401c249388382e4977df53664a5bb7cfb13b6aa0c0b7a"
+  },
+  {
+    "configuration": "foundry/fixtures/patrick_default_v31.json",
+    "identical": true,
+    "run_hash": "6d7e75a3ea0d",
+    "full_sha256": "c620868ab48c52b87f816db8b744e02873c9917346c2e7a0b4cd37f731c5da5e"
+  },
+  {
+    "configuration": "foundry/fixtures/universal_template_bank.json",
+    "identical": true,
+    "run_hash": "63efab196c93",
+    "full_sha256": "b688c7caff09ba97f352588258412878b827dff69b300af5ee49a09c41c80c9c"
+  },
+  {
+    "configuration": "foundry/fixtures/parity/configs/pf_a_base.json",
+    "identical": true,
+    "run_hash": "9ea47ad8c3b8",
+    "full_sha256": "0bf6a174b489db36668568ef8d3807160941321fdd7f7fbe77128a13391d86ea"
+  },
+  {
+    "configuration": "foundry/fixtures/parity/configs/pf_b_base.json",
+    "identical": true,
+    "run_hash": "e4ff2d4a236d",
+    "full_sha256": "b51490beffdd2403d52abf2ef58312b92864af89d7292b9ce80bb645b6ada067"
+  }
+]

@@ -209,6 +209,24 @@ def curves_refresh(_=Depends(gate)):
         raise HTTPException(502, f"FOMC refresh failed — {detail}. Existing curves retained; nothing written.")
 
 
+@app.get("/web/rates_workspace.js")
+def rates_workspace_js():
+    return FileResponse("web/rates_workspace.js", media_type="application/javascript", headers={"Cache-Control": "no-store"})
+
+@app.get("/web/rates_workspace.css")
+def rates_workspace_css():
+    return FileResponse("web/rates_workspace.css", media_type="text/css", headers={"Cache-Control": "no-store"})
+
+@app.post("/api/v31/rates/preview")
+async def rates_preview(request: Request, _=Depends(gate)):
+    from foundry.v2.rates_workspace import preview
+    try:
+        body = await request.json()
+        return preview(body["config"])
+    except (ValueError, TypeError, KeyError) as e:
+        raise HTTPException(422, str(e))
+
+
 @app.get("/api/health")
 def health():   # unauthenticated on purpose: deploy probes need it
     # Reports the live build stamp, engagement list, and DB reachability — the fields a
