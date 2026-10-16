@@ -309,9 +309,16 @@ def main():
 
     bpt_bytes, _ = bpt_cover.build_bpt_cover(mc, run_v2(copy.deepcopy(mc)))
     bpt_wb = load_workbook(io.BytesIO(bpt_bytes), read_only=True, data_only=True)
-    ck("D13 monthly model Business Plan Tables remain Annual + Quarterly only",
-       bpt_wb.sheetnames == ["Business Plan Tables Annual", "Business Plan Tables Quarterly"],
-       str(bpt_wb.sheetnames))
+    # r338: the enhanced template is one table per sheet. A monthly computational model must still
+    # present only annual and calendar-quarter views (never monthly columns) over Q1-Q12.
+    _bq = bpt_wb["Balance Sheet Quarterly"]
+    _q_hdr = [c for c in next(_bq.iter_rows(min_row=3, max_row=3, values_only=True)) if c]
+    _ya = [c for c in next(bpt_wb["Income Statement (Annual)"].iter_rows(min_row=2, max_row=2, values_only=True)) if c]
+    ck("D13 monthly model Business Plan Tables remain annual + calendar-quarter views only",
+       "Balance Sheet EOP (Annual)" in bpt_wb.sheetnames and "Income Statement Quarterly" in bpt_wb.sheetnames and
+       _q_hdr == ["Q1", "Q2", "Q3", "Q4"] * 3 and _ya[1:] == ["Year 1", "Year 2", "Year 3"] and
+       not any(str(n).startswith("M") and str(n)[1:].isdigit() for n in _q_hdr),
+       str(bpt_wb.sheetnames[:3]) + " " + str(_q_hdr))
 
     # Existing Q12-named scenario / concentration fields are submission metrics, not
     # accidental terminal metrics when computation extends beyond three years.

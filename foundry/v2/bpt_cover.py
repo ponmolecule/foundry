@@ -1,4 +1,7 @@
-"""Business Plan Tables — cover-sheet generator (two sheets: Annual + Quarterly).
+"""Business Plan Tables — period helpers and the pre-r338 two-sheet (Annual + Quarterly) layout.
+
+``build_bpt_cover`` now delegates to ``bpt_enhanced`` (enhanced, engagement-driven template);
+``build_bpt_cover_legacy`` keeps the earlier layout reachable unchanged.
 
 Produces an engagement-specific 'Business Plan Tables' workbook following the Business Plan Table template shape,
 with BOTH tabs the template has: 'Business Plan Tables Annual' and 'Business Plan Tables Quarterly'.
@@ -343,7 +346,17 @@ def _build_sheet(ws, cfg, res, periods, granularity):
 
 
 def build_bpt_cover(cfg, res):
-    """Return (xlsx_bytes, filename). Two-tab Business Plan Tables workbook (Annual + Quarterly)."""
+    """Return (xlsx_bytes, filename): the enhanced, engagement-driven Business Plan Tables.
+
+    One table per sheet following the enhanced template; product-driven rows and the per-asset
+    assumption sheets come from this engagement's product registry. See ``bpt_enhanced``.
+    """
+    from .bpt_enhanced import build_enhanced_bpt
+    return build_enhanced_bpt(cfg, res)
+
+
+def build_bpt_cover_legacy(cfg, res):
+    """Return (xlsx_bytes, filename). Pre-r338 two-tab workbook (Annual + Quarterly), retained."""
     wb = Workbook()
     ws_annual = wb.active
     ws_annual.title = "Business Plan Tables Annual"
