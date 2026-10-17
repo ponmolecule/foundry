@@ -54,6 +54,8 @@ def _legacy_spec(owner, key, *, is_feed=False):
 
     ch = owner or {}
     p = ch.get("params") or {}
+    if key == "productivity_multiplier":
+        return {"source":"entered","trajectory":"flat","value":1.0}
     if key == "avg_auc_per_customer":
         base = float(ch.get("avg_auc_per_customer") or 0.0)
         g = float(ch.get("avg_auc_growth") or 0.0)
@@ -178,6 +180,11 @@ def _channel_monthly_operands(ch, months, *, assumptions=None, growth_context=No
         out[key] = _resolve_operand_monthly(
             spec, months, semantic, assumptions=assumptions,
             growth_context=growth_context, engine_ppy=engine_ppy)
+    if ch.get('method')=='fte_productivity' and 'productivity_multiplier' in (ch.get('driver_specs') or {}):
+        values=_resolve_operand_monthly(_spec_for(ch,'productivity_multiplier'),months,'share',assumptions=assumptions,growth_context=growth_context,engine_ppy=engine_ppy)
+        if any(not math.isfinite(v) or v<0 for v in values):
+            raise ValueError('Productivity multiplier must be finite and nonnegative')
+        out['productivity_multiplier']=values
     # Optional pool-conversion audit spend.
     if str((ch or {}).get("method") or "") == "pool_conversion":
         cps = _spec_for(ch, "cost_per_customer")
@@ -201,7 +208,8 @@ def _channel_monthly(ch, months, *, assumptions=None, growth_context=None, engin
             c = op["cac"][mi]
             nc = spend / c if c > 0 else 0.0
         elif method == "fte_productivity":
-            nc = op["ftes"][mi] * op["per_fte"][mi]
+            multiplier=op['productivity_multiplier'][mi] if 'productivity_multiplier' in op else 1.
+            nc = op["ftes"][mi] * op["per_fte"][mi] * multiplier
             spend = op["ftes"][mi] * op["comp_per_fte"][mi]
         elif method == "explicit":
             nc = op["new_customers"][mi]

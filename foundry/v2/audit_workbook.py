@@ -362,6 +362,7 @@ def _cac_monthly_acquisition_rows(cfg, n, ppy):
                     op.get("ftes"), op.get("per_fte"), op.get("new_customers"),
                     d.get("avg_auc_per_customer"), d.get("new_customers"), d.get("new_auc"),
                     d.get("spend"), d.get("cac"),
+                    op.get("productivity_multiplier",1.0) if ch.get('method')=='fte_productivity' else None,
                 ])
     return rows
 
@@ -1959,16 +1960,16 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_long_rows(
         wb.create_sheet("CAC Monthly Acquisition"),
         title="Customer Acquisition Canonical Monthly Equation Detail · Audit",
-        subtitle="Primary causal CAC audit. Every source cadence is resolved to this monthly grid before Pool × Conversion, Spend ÷ CAC, FTE × Productivity, or Explicit Customers is evaluated.",
+        subtitle="Primary causal CAC audit. Every source cadence resolves monthly before Pool × Conversion, Spend ÷ CAC, FTE × Productivity × dimensionless multiplier, or Explicit Customers is evaluated.",
         headers=["Feed", "Feed Series ID", "Canonical month", "Model year", "Month in year", "Channel", "Method",
                  "Pool flow (customers)", "Conversion rate", "Spend input ($)", "CAC input ($/customer)", "FTEs",
                  "Productivity flow (customers/FTE)", "Explicit new customers", "Average AUC/new customer ($)",
-                 "New customers", "New AUC ($)", "Acquisition spend ($)", "Implied CAC ($/customer)"],
+                 "New customers", "New AUC ($)", "Acquisition spend ($)", "Implied CAC ($/customer)", "Productivity multiplier"],
         rows=_cac_monthly_acquisition_rows(cfg, n, ppy),
-        widths=[24, 30, 16, 12, 14, 28, 22, 22, 18, 20, 22, 14, 30, 22, 28, 20, 24, 22, 24],
+        widths=[24, 30, 16, 12, 14, 28, 22, 22, 18, 20, 22, 14, 30, 22, 28, 20, 24, 22, 24,24],
         formats={3:"0",4:"0",5:"0",8:_RAW_NUM_FMT,9:_RAW_NUM_FMT,10:_RAW_MONEY_FMT,11:_RAW_MONEY_FMT,
                  12:_RAW_NUM_FMT,13:_RAW_NUM_FMT,14:_RAW_NUM_FMT,15:_RAW_MONEY_FMT,16:_RAW_NUM_FMT,
-                 17:_RAW_MONEY_FMT,18:_RAW_MONEY_FMT,19:_RAW_MONEY_FMT}, freeze_col=7)
+                 17:_RAW_MONEY_FMT,18:_RAW_MONEY_FMT,19:_RAW_MONEY_FMT,20:'0.00%'}, freeze_col=7)
     _write_long_rows(
         wb.create_sheet("CAC Annual Rollforward"),
         title="Customer Acquisition Annual Rollforward · Audit",

@@ -83,6 +83,11 @@ window.cacMethodChange('growth',0,'fte_productivity');
 window.cacDriverSource('growth',0,'ftes','link');
 const fteLink=fd.channels[0].driver_specs.ftes;
 const ftePreview=_cacLinkedSourcePreview('growth',0,_cacMeta(fd.channels[0].method).find(x=>x.k==='ftes'),fteLink);
+const multiplierDefault=fd.channels[0].driver_specs.productivity_multiplier.value;
+window.cacDriverTrajectory('growth',0,'productivity_multiplier','explicit');
+window.cacSchedulePaste('growth',0,'productivity_multiplier','0,50,100','pct');
+const multiplierValues=[...fd.channels[0].driver_specs.productivity_multiplier.values];
+const multiplierFteLink=fd.channels[0].driver_specs.ftes.link.series_id;
 const firstChannel=fd.channels[0],secondChannel=fd.channels[1];_cacEnsureDerivedIds(firstChannel);_cacEnsureDerivedIds(secondChannel);const firstSeries=firstChannel.derived_series_ids.new_customers;
 window._cacExplicitClosed[_cacExplicitUiKey('growth',0,'per_fte')]=false;
 window._cacChannelDrag={feed:'growth',index:0};
@@ -96,7 +101,7 @@ window._cacChannelDrag={feed:'growth',index:0};
 window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'other',0);
 const crossFeedGuard={growthNames:fd.channels.map(x=>x.name),otherNames:cfg.assumptions.cac_feeds.other.channels.map(x=>x.name)};
 window.nop=0;
-console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
+console.log(JSON.stringify({multiplierDefault,multiplierValues,multiplierFteLink,seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -104,6 +109,7 @@ console.log(JSON.stringify({seeded,pool:fd.channels[0].driver_specs.pool,poolLoa
         try: bj=json.loads(br.stdout.strip().splitlines()[-1])
         except Exception: pass
     sd=bj.get("seeded") or {}
+    ck("Productivity multiplier defaults to 100%, loads percentage schedules and preserves workforce link", bj.get("multiplierDefault")==1 and bj.get("multiplierValues")==[0,.5,1] and bj.get("multiplierFteLink")=="wf-rm")
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]
        and sd.get("m1")==["avg_auc_per_customer","cac","spend"], br.stderr.strip())

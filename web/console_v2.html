@@ -14181,6 +14181,7 @@ function _cacMeta(method){
   if(method==="fte_productivity") return [
     {k:"ftes",lab:"Acquisition FTE count",unit:"FTE",kind:"number",linkKind:"workforce_role_count",aggregation:"average"},
     {k:"per_fte",lab:"New customers / FTE",unit:"customers / FTE",kind:"number",flow:true},
+    {k:"productivity_multiplier",lab:"Productivity multiplier",unit:"%",kind:"pct"},
     {k:"comp_per_fte",lab:"Compensation / FTE (for CAC memo)",unit:"$000s / FTE",kind:"k",flow:true},
     {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
   return [
@@ -14199,6 +14200,7 @@ function _cacUnit(meta,sp){
 }
 function _cacLegacyVal(ch,key,y){
   ch=ch||{}; const p=ch.params||{};
+  if(key==="productivity_multiplier") return 1;
   if(key==="avg_auc_per_customer") return _cacPow(ch.avg_auc_per_customer,ch.avg_auc_growth,y);
   if(key==="new_customers") { const a=p.new_customers_by_year||[]; return +(a[y-1]||0); }
   const gm={pool:"pool_growth",conversion_rate:"conversion_growth",spend:"spend_growth",cac:"cac_growth",ftes:"ftes_growth",per_fte:"per_fte_growth",comp_per_fte:"comp_growth"};
@@ -15039,7 +15041,7 @@ function structuresSectionsHtml(){
       const _chCards=[],_chMeta=[],_chSel=(fd.channels||[]).length?_mdPick(fd.channels,'_cacChSel_'+fn,'_cacChSeen_'+fn):0;
       fd.channels.forEach(function(ch,ci){const _chMark=h.length;ch.params=ch.params||{};ch.driver_specs=ch.driver_specs||{};_cacEnsureDerivedIds(ch);const m=ch.method||'pool_conversion';_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));
         h+=`<div class="cac-channel-card" ondragover="cacChannelDragOver(event,'${esc(fn)}',${ci})" ondragleave="cacChannelDragLeave(event)" ondrop="cacChannelDrop(event,'${esc(fn)}',${ci})"><div class="crow" style="align-items:center;margin:0 0 4px"><button type="button" class="cac-channel-drag-handle" draggable="true" aria-label="Drag acquisition channel to reorder" title="Drag to reorder within this feed" ondragstart="cacChannelDragStart(event,'${esc(fn)}',${ci})" ondragend="cacChannelDragEnd(event)">⋮⋮</button><span class="cu">Acquisition channel</span><input style="width:160px" placeholder="User-defined channel name" value="${esc(ch.name||'')}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].channels[${ci}].name=this.value;refresh()"><span class="cu">How are customers acquired?</span><select onchange="cacMethodChange('${esc(fn)}',${ci},this.value)">${CAC_METHODS.map(o=>`<option value="${o[0]}"${o[0]===m?' selected':''}>${o[1]}</option>`).join('')}</select><a href="#" class="cx" style="margin-left:auto" onclick="cfg.assumptions.cac_feeds['${esc(fn)}'].channels.splice(${ci},1);renderContent();refresh();return false">×</a></div>`;
-        const eq={pool_conversion:'New customers = Pool × Conversion',spend_cac:'New customers = Spend ÷ CAC',fte_productivity:'New customers = FTE Count × Productivity',explicit:'New customers = Explicit customer series'}[m];
+        const eq={pool_conversion:'New customers = Pool × Conversion',spend_cac:'New customers = Spend ÷ CAC',fte_productivity:'New customers = FTE Count × Productivity × Productivity multiplier',explicit:'New customers = Explicit customer series'}[m];
         h+=`<div class="chint" style="margin:0 0 4px">${eq}. Channel names are labels only; the engine knows the equation, not “Affiliate,” “BD,” or any other engagement-specific name.</div>`;
         _cacMeta(m).forEach(meta=>h+=_cacDriverHtml(fn,ci,ch,meta));
         h+=`</div>`;
