@@ -1877,3 +1877,6 @@ Validation: full inline JavaScript syntax and git whitespace checks pass; existi
 ## r330 — Entity-level Other income
 
 Generic amount flows separate from products and cash-interest balances. See R330_RELEASE_NOTES.md and R330_VALIDATION.md. Existing fixture fingerprints and five full public results are unchanged. Also clarifies fee role labels, explicit compensation units, and guarded-switch error/retry behavior.
+
+## r340
+Securities & AOCI redesign of the component editors (02 Interest-bearing balances, 03a Other assets, 03 Other liabilities) on one form grammar: collapsible component cards with a name, type tag and one-line summary; sections with a title rail (Identity, Balance/Formula, Income & cost, Opening & timing, Revenue source, Holding); rows with a fixed label column and one line of controls; one control height and width scale; units inside inputs; segmented controls for two-way choices; series controls on one line with the schedule editor as a drawer; numbered formula terms; long explanations moved to info tips. Settlement holding weights are a table. Simple securities books read as a quiet ledger. Console only: same handlers and stored fields, no engine change. Old renderers remain in the file, unused.

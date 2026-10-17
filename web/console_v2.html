@@ -890,6 +890,142 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 
 .tax-rule{border-top:1px solid #e5e4df;padding:14px 0;margin-top:12px}.tax-rule>summary{display:flex;align-items:center;gap:10px;font-size:12px;cursor:pointer}.tax-rule>summary::before{content:'▸';color:var(--grey)}.tax-rule[open]>summary::before{content:'▾'}.tax-rule>summary>span{margin-left:auto;color:var(--grey);font-size:11px}.tax-rule .tax-editor-head{align-items:center;margin:10px 0}.tax-rule .tax-editor-head .tax-fields{flex:1;margin:5px 0}.tax-rule-builder{padding:14px 16px;background:#f8f7f3;border:1px solid #e5e4df;border-radius:5px}.tax-rule-builder>.tax-fields:first-child{margin-top:0}.tax-operand{display:flex;gap:6px;align-items:end;min-width:0}.tax-operand .et-field{flex:1}.tax-rule-builder code{display:block;overflow-wrap:anywhere;font-size:11px;padding-top:10px}
 .tax-draft-fields{border:0;margin:0;padding:0;min-width:0}.tax-draft-fields:disabled{opacity:.7}
+
+/* ===== r340: form kit for the Securities & AOCI component editors ===== */
+#content #card-sec .fk-panel{--fk-l:168px;--fk-line:#ecebe6;--fk-bd:#dcd9d1;--fk-tx:#1d1c1a;--fk-mut:#8a867d;--fk-acc:#a3772a;font-size:13px;color:var(--fk-tx);margin:0;padding:0;border:0;background:transparent}
+#content #card-sec .fk-panel>.sec-managed-sleeve-head.fk-hide{display:none!important}
+#content #card-sec .fk-panel .fk-mode{margin:0 0 6px}
+/* sections: a title rail and rows */
+#content #card-sec .fk-panel .fk-sec{display:grid;grid-template-columns:150px minmax(0,1fr);column-gap:24px;padding:12px 0;border-top:1px solid var(--fk-line)}
+#content #card-sec .fk-panel .fk-sec:first-child{border-top:0}
+#content #card-sec .fk-panel .fk-sh{display:flex;flex-direction:column;gap:3px;padding-top:7px}
+#content #card-sec .fk-panel .fk-sh b{font-size:12.5px;font-weight:600;color:var(--fk-tx)}
+#content #card-sec .fk-panel .fk-sh span{font-size:11.5px;line-height:1.4;color:var(--fk-mut)}
+#content #card-sec .fk-panel .fk-rows{min-width:0}
+/* rows: fixed label column, one line of controls */
+#content #card-sec .fk-panel .fk-r{display:grid;grid-template-columns:var(--fk-l) minmax(0,1fr);column-gap:14px;align-items:center;min-height:38px;padding:3px 0}
+#content #card-sec .fk-panel .fk-r+.fk-r{border-top:1px solid #f3f2ee}
+#content #card-sec .fk-panel .fk-l{font-size:12.5px;color:#4a4740;display:flex;align-items:center;gap:6px;line-height:1.25}
+#content #card-sec .fk-panel .fk-c{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;min-width:0}
+#content #card-sec .fk-panel .fk-r>.fk-drawer,#content #card-sec .fk-panel .fk-r>.fk-sub{grid-column:2}
+#content #card-sec .fk-panel .fk-sub{display:flex;flex-wrap:wrap;align-items:center;gap:6px 8px;padding:4px 0 2px}
+/* controls: one height, one radius, sized by role */
+#content #card-sec .fk-panel select.fk-in,#content #card-sec .fk-panel .fk-num,#content #card-sec .fk-panel input.fk-title,#content #card-sec .fk-panel .fk-gr input,#content #card-sec .fk-panel .fk-gr select{height:30px!important;box-sizing:border-box;border:1px solid var(--fk-bd)!important;border-radius:7px!important;background:#fff!important;font:inherit;font-size:12.5px!important;color:var(--fk-tx);margin:0!important;box-shadow:none!important}
+#content #card-sec .fk-panel select.fk-in,#content #card-sec .fk-panel .fk-gr select{padding:0 26px 0 9px!important;appearance:none;-webkit-appearance:none;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%238a867d' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E")!important;background-repeat:no-repeat!important;background-position:right 9px center!important;text-overflow:ellipsis}
+#content #card-sec .fk-panel .fk-xs{width:92px!important;max-width:92px!important}
+#content #card-sec .fk-panel .fk-s{width:132px!important;max-width:132px!important}
+#content #card-sec .fk-panel .fk-sm{width:164px!important;max-width:164px!important}
+#content #card-sec .fk-panel .fk-m{width:200px!important;max-width:100%!important}
+#content #card-sec .fk-panel select.fk-wl{width:340px!important;max-width:100%!important;flex:0 1 340px}
+#content #card-sec .fk-panel .fk-num{flex:none;display:inline-flex;align-items:center;padding:0 9px 0 0;overflow:hidden}
+#content #card-sec .fk-panel .fk-num input{flex:1 1 auto;min-width:0;width:100%!important;height:28px!important;border:0!important;outline:0;background:transparent!important;text-align:right;padding:0 6px 0 9px!important;font:inherit;font-size:12.5px!important;font-variant-numeric:tabular-nums;margin:0!important;box-shadow:none!important}
+#content #card-sec .fk-panel .fk-num i{font-style:normal;font-size:11px;color:var(--fk-mut);white-space:nowrap}
+#content #card-sec .fk-panel .fk-num.fk-s{width:132px!important}
+#content #card-sec .fk-panel .fk-num.fk-m{width:168px!important}
+#content #card-sec .fk-panel select.fk-in:focus,#content #card-sec .fk-panel .fk-num:focus-within,#content #card-sec .fk-panel input.fk-title:focus{border-color:var(--fk-acc)!important;box-shadow:0 0 0 3px rgba(223,179,103,.25)!important;outline:0}
+#content #card-sec .fk-panel .fk-gr{display:inline-flex;align-items:center;gap:6px}
+#content #card-sec .fk-panel .fk-gr input{width:64px!important;text-align:right;padding:0 8px!important}
+#content #card-sec .fk-panel .fk-gr select{width:auto!important;min-width:84px}
+#content #card-sec .fk-panel .fk-gr .cu,#content #card-sec .fk-panel .fk-per{font-size:11.5px;color:var(--fk-mut)}
+#content #card-sec .fk-panel .fk-ser{display:inline-flex;flex-wrap:wrap;align-items:center;gap:6px 8px}
+#content #card-sec .fk-panel .fk-spark{display:inline-flex;align-items:center;gap:8px;height:30px;padding:0 10px;border-radius:7px;background:#f6f5f1;color:#4a4740;font-size:11.5px;font-variant-numeric:tabular-nums;max-width:340px}
+#content #card-sec .fk-panel .fk-spark em{font-style:normal;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#content #card-sec .fk-panel .fk-spark svg{width:56px;height:16px;flex:none}
+#content #card-sec .fk-panel .fk-link{border:0;background:none;padding:0 4px;color:var(--fk-acc);font-size:12.5px;font-weight:600;cursor:pointer;height:30px}
+#content #card-sec .fk-panel .fk-link:hover{text-decoration:underline}
+#content #card-sec .fk-panel .fk-drawer{margin:6px 0 4px;padding:10px 12px;border-radius:8px;background:#f8f7f3;border:1px solid var(--fk-line)}
+#content #card-sec .fk-panel .fk-drawer textarea{width:100%;box-sizing:border-box;border:1px solid var(--fk-bd);border-radius:7px;font:12px ui-monospace,Menlo,monospace;padding:7px 9px;background:#fff}
+#content #card-sec .fk-panel .fk-drawer-a{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-top:8px}
+#content #card-sec .fk-panel .fk-btn{height:28px;padding:0 12px;border:1px solid var(--fk-bd);border-radius:7px;background:#fff;font-size:12px;cursor:pointer}
+#content #card-sec .fk-panel .fk-btn:disabled{opacity:.45;cursor:default}
+#content #card-sec .fk-panel .fk-danger{color:#a5432f}
+#content #card-sec .fk-panel .fk-close{margin-left:auto}
+#content #card-sec .fk-panel .fk-chk{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:#3a3732;cursor:pointer;margin:0}
+#content #card-sec .fk-panel .fk-chk input{width:15px;height:15px;margin:0;accent-color:var(--fk-acc)}
+#content #card-sec .fk-panel .fk-i{display:inline-grid;place-items:center;width:15px;height:15px;border-radius:50%;border:1px solid #cfccc4;color:var(--fk-mut);font:600 9.5px/1 Georgia,serif;font-style:italic;cursor:help;flex:none}
+#content #card-sec .fk-panel .fk-i:hover,#content #card-sec .fk-panel .fk-i:focus{border-color:var(--fk-acc);color:var(--fk-acc);outline:0}
+#content #card-sec .fk-panel .fk-note{grid-column:2;margin:0;padding:2px 0 4px;font-size:11.5px;color:var(--fk-mut);line-height:1.45}
+/* segmented control */
+#content #card-sec .fk-panel .fk-seg{display:inline-flex;padding:2px;border-radius:8px;background:#efede8;gap:2px}
+#content #card-sec .fk-panel .fk-seg button{height:26px;padding:0 12px;border:0;border-radius:6px;background:transparent;font-size:12px;color:#5a564d;cursor:pointer;white-space:nowrap}
+#content #card-sec .fk-panel .fk-seg button.on{background:#fff;color:var(--fk-tx);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+/* list heading and add buttons */
+#content #card-sec .fk-panel .fk-list-h{display:flex;align-items:center;gap:8px;margin:16px 0 8px;font-size:12.5px}
+#content #card-sec .fk-panel .fk-list-h b{font-weight:600}
+#content #card-sec .fk-panel .fk-list-h>span:not(.fk-i){min-width:20px;height:18px;padding:0 6px;border-radius:9px;background:#efede8;color:#5a564d;font-size:11px;display:inline-grid;place-items:center}
+#content #card-sec .fk-panel .fk-add{border:0;background:none;padding:6px 2px;color:var(--fk-acc);font-size:12.5px;font-weight:600;cursor:pointer}
+#content #card-sec .fk-panel .fk-add:hover{text-decoration:underline}
+#content #card-sec .fk-panel .fk-add-main{margin-top:4px}
+#content #card-sec .fk-panel .fk-x{width:26px;height:26px;border:0;border-radius:6px;background:transparent;color:#a39f95;font-size:16px;line-height:1;cursor:pointer;flex:none}
+#content #card-sec .fk-panel .fk-x:hover{background:#f4e9e6;color:#a5432f}
+/* component cards */
+#content #card-sec .fk-panel details.fk-card{border:1px solid #e6e3dc;border-radius:10px;background:#fff;margin:0 0 8px;overflow:hidden}
+#content #card-sec .fk-panel details.fk-card>summary{display:flex;align-items:center;gap:10px;height:44px;padding:0 14px;cursor:pointer;list-style:none}
+#content #card-sec .fk-panel details.fk-card>summary::-webkit-details-marker{display:none}
+#content #card-sec .fk-panel details.fk-card>summary:hover{background:#faf9f6}
+#content #card-sec .fk-panel .fk-chev{width:8px;height:8px;border-right:1.5px solid #8a867d;border-bottom:1.5px solid #8a867d;transform:rotate(-45deg);transition:transform .15s;flex:none;margin-right:2px}
+#content #card-sec .fk-panel details[open]>summary .fk-chev{transform:rotate(45deg)}
+#content #card-sec .fk-panel .fk-name{font-weight:600;font-size:13px;white-space:nowrap}
+#content #card-sec .fk-panel .fk-tag{font-size:10.5px;font-weight:600;letter-spacing:.02em;color:#7a5a20;background:#f6efe0;border-radius:4px;padding:2px 7px;white-space:nowrap}
+#content #card-sec .fk-panel .fk-meta{margin-left:auto;font-size:11.5px;color:var(--fk-mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+#content #card-sec .fk-panel details[open]>summary{border-bottom:1px solid var(--fk-line)}
+#content #card-sec .fk-panel .fk-body{padding:4px 16px 12px}
+#content #card-sec .fk-panel .fk-head{display:flex;align-items:center;gap:10px;padding:10px 0 8px}
+#content #card-sec .fk-panel input.fk-title{flex:0 1 360px;width:360px!important;padding:0 10px!important;font-weight:600!important;font-size:13px!important}
+#content #card-sec .fk-panel .fk-head .fk-x{margin-left:auto}
+/* formula terms: numbered rows, settings indented under each */
+#content #card-sec .fk-panel .fk-terms{border-top:1px solid var(--fk-line);padding-top:6px}
+#content #card-sec .fk-panel .fk-term{padding:6px 0 4px}
+#content #card-sec .fk-panel .fk-term+.fk-term{border-top:1px dashed #e6e3dc}
+#content #card-sec .fk-panel .fk-term-h{display:flex;align-items:center;gap:8px;min-height:36px}
+#content #card-sec .fk-panel .fk-term-h .fk-x{margin-left:auto}
+#content #card-sec .fk-panel .fk-tn{width:20px;height:20px;border-radius:50%;background:#efede8;color:#5a564d;font-size:11px;font-weight:600;display:inline-grid;place-items:center;flex:none}
+#content #card-sec .fk-panel .fk-term-b{padding-left:28px}
+#content #card-sec .fk-panel .fk-term-b .fk-r{grid-template-columns:calc(var(--fk-l) - 28px) minmax(0,1fr)}
+@media(max-width:900px){#content #card-sec .fk-panel .fk-sec{grid-template-columns:1fr}#content #card-sec .fk-panel .fk-r{grid-template-columns:1fr;row-gap:4px}#content #card-sec .fk-panel .fk-r>.fk-drawer,#content #card-sec .fk-panel .fk-r>.fk-sub,#content #card-sec .fk-panel .fk-note{grid-column:1}}
+#content #card-sec .fk-panel input.fk-title{text-align:left!important;flex:0 1 340px;width:340px!important;max-width:100%!important;padding:0 10px!important;font-weight:500!important}
+#content #card-sec .fk-panel .fk-terms-h{display:flex;align-items:center;gap:6px;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--fk-mut);padding:6px 0 2px}
+#content #card-sec .fk-panel .fk-foot{display:flex;justify-content:flex-end;border-top:1px solid var(--fk-line);margin-top:8px;padding-top:8px}
+#content #card-sec .fk-panel .fk-del{border:0;background:none;color:#a5432f;font-size:12px;cursor:pointer;padding:4px 2px}
+#content #card-sec .fk-panel .fk-del:hover{text-decoration:underline}
+#content #card-sec .fk-panel .fk-spark{max-width:300px}
+#content #card-sec .fk-panel>.fk-hide+.fk-sec,#content #card-sec .fk-panel>.nie-mode+.fk-sec{border-top:0}
+#content #card-sec .fk-panel .fk-body>.fk-r-name{padding-top:10px}
+#content #card-sec .fk-panel .fk-toolbar{display:flex!important;align-items:center;gap:16px;margin:0 0 6px!important;padding:0!important;border:0!important;background:none!important}
+#content #card-sec .fk-panel .fk-toolbar .fk-hide{display:none}
+#content #card-sec .fk-panel .fk-banner{display:flex;align-items:center;gap:12px;padding:9px 12px;margin:0 0 10px;border-radius:8px;background:#f6efe0;color:#5a4318;font-size:12px}
+#content #card-sec .fk-panel .fk-banner .fk-link{margin-left:auto;white-space:nowrap}
+#content #card-sec .fk-panel .fk-empty{padding:14px;border:1px dashed #dcd9d1;border-radius:10px;color:var(--fk-mut);font-size:12.5px;display:flex;align-items:center;gap:10px}
+#content #card-sec .fk-panel .fk-shared{padding:8px 0;border-top:1px solid var(--fk-line)}
+#content #card-sec .fk-panel .fk-shared:first-child{border-top:0}
+#content #card-sec .fk-panel input.fk-title.fk-title-s{flex:0 1 240px;width:240px!important}
+#content #card-sec .fk-panel .fk-factor{display:flex;align-items:flex-start;gap:4px}
+#content #card-sec .fk-panel .fk-factor>.fk-r{flex:1 1 auto;min-width:0}
+#content #card-sec .fk-panel .fk-factor>.fk-x{margin-top:6px}
+#content #card-sec .fk-panel .fk-add-sub{font-weight:500;padding:4px 2px 2px;font-size:12px}
+#content #card-sec .fk-panel .fk-terms-flat{border-top:0;padding-top:0}
+#content #card-sec .fk-panel .fk-terms-a{display:flex;align-items:center;gap:18px;padding-top:6px}
+#content #card-sec .fk-panel .fk-callout{margin:4px 0;padding:9px 12px;border-radius:8px;background:#f6f5f1;color:#5a564d;font-size:12px}
+#content #card-sec .fk-panel .fk-grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));column-gap:24px}
+#content #card-sec .fk-panel .fk-grid2 .fk-r{grid-template-columns:120px minmax(0,1fr)}
+#content #card-sec .fk-panel .fk-grid2 .fk-r+.fk-r{border-top:0}
+#content #card-sec .fk-panel .fk-r-sub .fk-l{padding-left:14px;color:var(--fk-mut)}
+#content #card-sec .fk-panel .fk-adds{display:flex;gap:20px;margin-top:4px}
+#content #card-sec .fk-panel .fk-sec .fk-terms .fk-term-b{padding-left:28px}
+#content #card-sec .fk-panel .fk-sec .fk-term-b .fk-r{grid-template-columns:112px minmax(0,1fr)}
+#content #card-sec .fk-panel .fk-body>.fk-sec{grid-template-columns:112px minmax(0,1fr);column-gap:16px}
+#content #card-sec .fk-panel .fk-body>.fk-sec>.fk-rows>.fk-r{grid-template-columns:132px minmax(0,1fr)}
+#content #card-sec .fk-panel table.fk-tbl{border-collapse:collapse;width:auto;min-width:420px;margin:4px 0 2px;font-size:12.5px}
+#content #card-sec .fk-panel table.fk-tbl th{text-align:left;font-size:11px;font-weight:600;color:var(--fk-mut);padding:4px 14px 6px 0;border-bottom:1px solid var(--fk-line)}
+#content #card-sec .fk-panel table.fk-tbl td{padding:5px 14px 5px 0;border-bottom:1px solid #f3f2ee;vertical-align:middle;white-space:nowrap}
+#content #card-sec .fk-panel .fk-dim{color:var(--fk-mut);font-size:11.5px}
+#content #card-sec .fk-panel .fk-grid2 .fk-r{grid-template-columns:132px minmax(0,1fr)}
+/* 04 simple books: a quiet ledger. Inputs read as text until hovered or focused. */
+#content #card-sec #fsx-s4 .sec-book-editor input{border-color:transparent!important;background:transparent!important;box-shadow:none!important;border-radius:6px!important;font-variant-numeric:tabular-nums;transition:border-color .12s,background .12s}
+#content #card-sec #fsx-s4 .sec-book-editor:hover input{border-color:#e6e3dc!important;background:#fff!important}
+#content #card-sec #fsx-s4 .sec-book-editor input:focus{border-color:#a3772a!important;background:#fff!important;box-shadow:0 0 0 3px rgba(223,179,103,.25)!important;outline:0}
+#content #card-sec #fsx-s4 .sec-book-editor:hover{background:#faf9f6}
+#content #card-sec #fsx-s4 .sec-book-editor .sec-book-name{font-weight:500}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -8442,6 +8578,220 @@ function _faSeriesEditor(path,spec,label,kind,naturalPeriod){spec=spec&&typeof s
  if(spec.year_end_targets)h+=`<div class="bc-settings"><label>Target path<select data-nofit onchange="setPath('${path}.target_path',this.value);refresh()"><option value="ramp"${spec.target_path!=='full'?' selected':''}>Ramp to each year end</option><option value="full"${spec.target_path==='full'?' selected':''}>Full target throughout year</option></select></label><label>Year anchor<select data-nofit onchange="setPath('${path}.target_anchor',this.value);refresh()"><option value="model_year"${spec.target_anchor!=='calendar_year'?' selected':''}>Model year</option><option value="calendar_year"${spec.target_anchor==='calendar_year'?' selected':''}>Calendar year</option></select></label><label>Prior year-end target ($000s)<input type="text" inputmode="decimal" value="${fmtComma((spec.target_opening||0)/1000)}" onchange="setPath('${path}.target_opening',_pf(this.value)*1000);refresh();fmtField(this)"></label></div><p class="cmut">Targets define ending stocks. A ramp reaches each target at year end; it is not an income schedule.</p>`;
  }return h+'</div>';}
 
+// ===== r340: form kit (fk). One grammar for the Securities & AOCI component editors =====
+// A row is a fixed label column plus one line of controls. Sections carry a short title rail.
+// Series controls render on one line; an explicit schedule opens as a drawer beneath its row.
+function _fkRow(label,ctl,o){o=o||{};return `<div class="fk-r${o.cls?' '+o.cls:''}"${o.title?` title="${esc(o.title)}"`:''}><div class="fk-l">${label}</div><div class="fk-c">${ctl}</div>${o.after||''}</div>`;}
+function _fkSec(title,hint,rows,o){o=o||{};return `<div class="fk-sec${o.cls?' '+o.cls:''}"><div class="fk-sh">${title?`<b>${title}</b>`:''}${hint?`<span>${hint}</span>`:''}</div><div class="fk-rows">${rows}</div></div>`;}
+function _fkSel(opts,cur,onchange,o){o=o||{};return `<select data-nofit class="fk-in ${o.w||'fk-m'}"${o.aria?` aria-label="${esc(o.aria)}"`:''} onchange="${onchange}">${opts.map(([v,l])=>`<option value="${esc(String(v))}"${String(v)===String(cur)?' selected':''}>${esc(l)}</option>`).join('')}</select>`;}
+function _fkNum(val,onchange,unit,o){o=o||{};return `<span class="fk-num ${o.w||'fk-s'}"><input type="text" inputmode="decimal"${o.aria?` aria-label="${esc(o.aria)}"`:''} value="${val}" onchange="${onchange}">${unit?`<i>${esc(unit)}</i>`:''}</span>`;}
+function _fkChk(on,onchange,label){return `<label class="fk-chk"><input type="checkbox"${on?' checked':''} onchange="${onchange}"><span>${label}</span></label>`;}
+function _fkAdd(label,onclick,o){o=o||{};return `<button type="button" class="fk-add${o.cls?' '+o.cls:''}" onclick="${onclick}">${label}</button>`;}
+function _fkX(onclick,aria){return `<button type="button" class="fk-x" aria-label="${esc(aria||'Remove')}" title="${esc(aria||'Remove')}" onclick="${onclick}">×</button>`;}
+function _fkInfo(text){return text?`<span class="fk-i" tabindex="0" title="${esc(text)}" aria-label="${esc(text)}">i</span>`:'';}
+// Series: same handlers and storage as _faSeriesEditor; laid out as one line plus an optional drawer.
+function _fkSeries(path,spec,kind,naturalPeriod){
+ spec=spec&&typeof spec==="object"?spec:{source:"entered",trajectory:"flat",value:0};
+ const tr=spec.trajectory||"flat",id="fasp_"+path.replace(/[^a-zA-Z0-9]/g,"_");
+ const unit=kind==="days"?"days":kind==="rate"?"%":(kind==="multiplier"?"$000s / unit":(kind==="multiple"?"×":(kind==="count"?"count":(kind==="dollars"?"$ / unit":"$000s"))));
+ const raw=(kind==='multiple'||kind==='count'||kind==='dollars'||kind==='days'),show=v=>kind==='rate'?((+v||0)*100).toFixed(4):(raw?_numInput(+v||0,8):fmtComma((+v||0)/1000));
+ let h=`<span class="fk-ser">`+_fkSel([["flat","Flat"],["growth","Growth"],["explicit","Explicit"]],tr,`faSeriesTrajectory('${path}',this.value)`,{w:'fk-xs',aria:'Series shape'});
+ if(tr==="flat")h+=_fkNum(show(spec.value),`faSeriesValue('${path}','value',this.value,'${kind}');fmtField(this)`,unit);
+ if(tr==="growth")h+=_fkNum(show(spec.base),`faSeriesValue('${path}','base',this.value,'${kind}');fmtField(this)`,unit+' base')+`<span class="fk-gr">${growthSpecInline(path+'.growth_spec',spec.growth_spec,0,false,true)}</span>`;
+ let drawer='';
+ if(tr==="explicit"){
+  const cad=spec.cadence||_nativeFlowPeriod(),vals=spec.values||[],summary=_seriesPasteSummary(vals,v=>_faSeriesFmt(v,kind)),open=_faSeriesExplicitIsOpen(path);
+  const _f=v=>_faSeriesFmt(v,kind),_ss=vals.length?`${vals.length} ${cad==='month'?'mo':cad==='quarter'?'qtr':cad==='year'?'yr':'pts'} \u00b7 ${_f(vals[0])} \u2192 ${_f(vals[vals.length-1])}`:'No values yet';h+=`<span class="fk-spark" title="${esc(summary)}">${vals.length&&typeof _sparkHtml==='function'?_sparkHtml(vals):''}<em>${esc(_ss)}</em></span>`;
+  h+=_fkSel(_seriesCadenceOptions().map(x=>[x,x[0].toUpperCase()+x.slice(1)]),cad,`faSeriesCadence('${path}',this.value)`,{w:'fk-xs',aria:'Schedule cadence'});
+  if(_seriesResolutionUseful(cad))h+=_fkSel([["step","Step"],["smooth","Smooth"]],spec.resolution||'step',`faSeriesResolution('${path}',this.value)`,{w:'fk-xs',aria:'Between values'});
+  if(!open)h+=`<button type="button" class="fk-link" onclick="faSeriesExplicitOpen('${path}')">Edit</button>`;
+  if(open)drawer=`<div class="fk-drawer"><textarea id="${id}" rows="3" placeholder="Paste ${cad} values" oninput="_seriesExplicitPasteInput('${id}')"></textarea><div class="fk-drawer-a"><button id="${id}_load" class="fk-btn" disabled onclick="faSeriesPaste('${path}','${id}','${kind}')">Load (replace)</button><button class="fk-btn fk-danger" onclick="faSeriesClear('${path}')"${vals.length?'':' disabled'}>Clear</button>${_explicitPreviewHtml(vals,v=>_faSeriesFmt(v,kind),cad)}<button type="button" class="fk-btn fk-close" onclick="faSeriesExplicitClose('${path}')">Close</button></div></div>`;
+ }
+ if(naturalPeriod){const per=(spec.period&&spec.period!=="model_period")?spec.period:_nativeFlowPeriod();h+=`<span class="fk-per">per</span>`+_fkSel(["month","quarter","year"].map(x=>[x,x[0].toUpperCase()+x.slice(1)]),per,`faSeriesPeriod('${path}',this.value)`,{w:'fk-xs',aria:(kind==='rate'?'Rate':'Amount')+' period'});}
+ h+=`</span>`;
+ let extra='';
+ if(String(path).startsWith('assumptions.balance_components_model.')&&kind==='money'&&!naturalPeriod&&tr==='explicit'&&spec.cadence==='year'){
+  extra+=`<div class="fk-sub">${_fkChk(!!spec.year_end_targets,`setPath('${path}.year_end_targets',this.checked);renderContent();refresh()`,'Values are year-end balance targets')}`;
+  if(spec.year_end_targets)extra+=_fkSel([["ramp","Ramp to each year end"],["full","Full target all year"]],spec.target_path==='full'?'full':'ramp',`setPath('${path}.target_path',this.value);refresh()`,{aria:'Target path'})+_fkSel([["model_year","Model year"],["calendar_year","Calendar year"]],spec.target_anchor==='calendar_year'?'calendar_year':'model_year',`setPath('${path}.target_anchor',this.value);refresh()`,{w:'fk-s',aria:'Year anchor'})+`<span class="fk-per">prior year-end</span>`+_fkNum(fmtComma((spec.target_opening||0)/1000),`setPath('${path}.target_opening',_pf(this.value)*1000);refresh();fmtField(this)`,'$000s',{aria:'Prior year-end target'})+_fkInfo('Targets define ending stocks. A ramp reaches each target at year end; it is not an income schedule.');
+  extra+=`</div>`;
+ }
+ return {ctl:h,after:drawer+extra};
+}
+function _fkSeriesRow(label,path,spec,kind,naturalPeriod,o){const s=_fkSeries(path,spec,kind,naturalPeriod);return _fkRow(label,s.ctl,Object.assign({},o||{},{after:s.after}));}
+// A component: collapsible card. Summary line carries the name and what it is; the body is sections.
+function _fkCard(key,name,meta,body,o){o=o||{};const open=window._fkOpen&&window._fkOpen[key];
+ return `<details class="fk-card"${open||o.open?' open':''} ontoggle="window._fkOpen=window._fkOpen||{};window._fkOpen['${key}']=this.open"><summary><span class="fk-chev"></span><span class="fk-name">${esc(name)}</span>${o.tag?`<span class="fk-tag">${esc(o.tag)}</span>`:''}<span class="fk-meta">${meta||''}</span></summary><div class="fk-body">${body}</div></details>`;}
+// ---- 03a Other assets ----
+function _oaEditorHtmlFk(){
+ const a=cfg.assumptions,m=_oaState(false),mode=_oaMode();
+ let h=`<div class="sec-managed-sleeve oa-editor fk-panel"><div class="sec-managed-sleeve-head fk-hide"><div class="sec-book-label">Other assets</div></div><div class="nie-mode"><button class="${mode==='flat'?'on':''}" onclick="oaSetMode('flat')">Flat</button><button class="${mode==='formula_level'?'on':''}" onclick="oaSetMode('formula_level')">Formula / level</button></div>`;
+ if(mode==='flat')return h+_fkSec('Balance','One period-end balance.',_fkRow('Other assets',_fkNum(fmtComma((a.other_assets||0)/1000),"cfg.assumptions.other_assets=_pf(this.value)*1000;refresh();fmtField(this)",'$000s',{w:'fk-m',aria:'Other assets balance'})))+`</div>`;
+ const x=m||_oaState(true);
+ h+=_fkSec('Starting position','Base carries the earlier flat balance.',
+   _fkRow('Opening balance',_fkNum(fmtComma((x.opening_balance||0)/1000),"oaOpening(this.value);fmtField(this)",'$000s',{w:'fk-m',aria:'Other assets opening balance'}))
+  +_fkSeriesRow('Base asset level'+_fkInfo('The base preserves the previous flat balance. Set it to zero when components replace that balance.'),'assumptions.other_assets_model.base_spec',x.base_spec,'money',false));
+ h+=`<div class="fk-list-h"><b>Components</b><span>${(x.components||[]).length}</span>${_fkInfo('Each component is a sum of source × multiplier terms. Signed terms are allowed; total Other Assets must remain non-negative.')}</div>`;
+ (x.components||[]).forEach((c,i)=>{
+  const terms=_oaTermsView(c),opts=_oaDriverOptions();
+  let body=_fkSec('Identity','',_fkRow('Name',_fkName(c.name||'',`oaName(${i},this.value);renderContent()`,'Asset component name')));
+  let rows='';
+  terms.forEach((t,j)=>{
+   const b=`assumptions.other_assets_model.components.${i}.terms.${j}.`,entered=(t.driver_spec||{}).source==='entered',link=(t.driver_spec||{}).link||{},flow=link.kind==='bank_income_flow',count=link.kind==='workforce_role_count';
+   let r=`<div class="fk-term"><div class="fk-term-h"><span class="fk-tn">${j+1}</span>`+_fkSel([['link','Linked series'],['entered','Entered level']],entered?'entered':'link',`oaTermMode(${i},${j},this.value)`,{w:'fk-s',aria:'Term source'});
+   if(!entered)r+=_fkSel(opts.map(o=>[o.value,o.label]),_oaDriverValue(t),`oaDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Other asset source'});
+   r+=(terms.length>1?_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'):_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'))+`</div><div class="fk-term-b">`;
+   if(entered)r+=_fkSeriesRow('Asset level',b+'driver_spec',t.driver_spec,'money',false);
+   if(flow)r+=_fkRow('Flow to balance',_fkSeg([['multiple','Multiplier'],['days','Days outstanding']],t.days_spec?'days':'multiple',null,`oaDays(${i},${j},'%v'==='days')`));
+   if(t.days_spec){r+=_fkSeriesRow('Days outstanding',b+'days_spec',t.days_spec,'days',false);
+    r+=_fkRow('Days per year'+_fkInfo('Period income × days outstanding ÷ (days per year / periods per year). 360 gives 30 days monthly and 90 quarterly.'),_fkNum(t.year_days||360,`setPath('${b}year_days',+_pf(this.value));refresh()`,'',{w:'fk-xs',aria:'Days per year'}));}
+   r+=_fkSeriesRow(count?'Asset per FTE':'Multiplier',b+'multiplier_spec',t.multiplier_spec,count?'multiplier':'multiple',false);
+   rows+=r+`</div></div>`;
+  });
+  body+=_fkSec('Formula','Sum of terms',`<div class="fk-terms fk-terms-flat">${rows}<div class="fk-terms-a">${_fkAdd('+ Add term',`oaAddTerm(${i})`)}${_fkInfo('The component balance is the sum of its terms: each source times its multiplier. Signed terms are allowed.')}</div></div>`)+_fkFoot(`oaRemoveComponent(${i})`,'Remove component');
+  const meta=terms.length+' term'+(terms.length===1?'':'s')+' · '+terms.map(t=>(t.driver_spec||{}).source==='entered'?'entered level':((_oaDriverOptions().find(o=>o.value===_oaDriverValue(t))||{}).label||'linked series')).join(' + ');
+  h+=_fkCard('oa'+i,c.name||'Asset component',esc(meta),body,{tag:'Asset'});
+ });
+ return h+_fkAdd('+ Add component','oaAddComponent()',{cls:'fk-add-main'})+`</div>`;
+}
+// Segmented control. fn(value) or a template with %v.
+function _fkName(v,onchange,aria){return `<input class="fk-title" aria-label="${esc(aria||'Name')}" value="${esc(v)}" onchange="${onchange}">`;}
+function _fkFoot(onclick,label){return `<div class="fk-foot"><button type="button" class="fk-del" onclick="${onclick}">${esc(label)}</button></div>`;}
+function _fkSeg(opts,cur,fn,tpl){return `<span class="fk-seg" role="group">${opts.map(([v,l])=>`<button type="button" class="${String(v)===String(cur)?'on':''}" onclick="${tpl?tpl.replace(/%v/g,v):`${fn}('${v}')`}">${esc(l)}</button>`).join('')}</span>`;}
+
+// ---- 02 Interest-bearing balances (form kit) ----
+// Operand: the source picker plus whatever that source needs, laid out as rows.
+function _bcOperandFk(path,s,label,unit,canChooseUnit,o){
+ o=o||{};s=s||_bcFlat(0,unit);
+ const val=s.source==='input_ref'?'input_ref::'+s.input_id:s.source&&s.source!=='entered'?s.source==='reference_rate'?'reference_rate':s.source+'::'+(s.component_id||s.series_id):'entered';
+ let opts=_bcSourceOptions(unit);if(!opts.some(x=>x.value===val))opts.push({value:val,label:'Missing / incompatible source'});
+ const entered=!s.source||s.source==='entered';
+ let ctl='';
+ if(canChooseUnit)ctl+=_fkSel([['scalar','Multiplier'],['rate','Percentage'],['money_per_unit','Dollars per unit']],unit,`bcOperandUnit('${path}',this.value)`,{w:'fk-s',aria:label+' units'});
+ const _wide=!entered&&!['reference_rate','catalog_balance'].includes(s.source);ctl+=_fkSel(opts.map(x=>[x.value,x.label]),val,`bcSourceSet('${path}',this.value,'${unit}')`,{w:_wide?'fk-wl':'fk-m',aria:label+' source'});
+ let after='',rows='';
+ if(entered){const kind=unit==='money'?'money':unit==='rate'?'rate':unit==='count'?'count':unit==='money_per_unit'?'dollars':'multiple';const sr=_fkSeries(path,s,kind,false);ctl+=sr.ctl;after=sr.after;}
+ else if(s.source==='reference_rate'){ctl+=_fkSel([['effr','Fed Funds (EFFR)'],['sofr','SOFR'],['prime','Prime']],s.index||'effr',`setPath('${path}.index',this.value);refresh()`,{w:'fk-sm',aria:'Reference index'});rows+=_fkSeriesRow((o.sub||'')+'Spread',path+'.spread_spec',s.spread_spec||_bcFlat(0,'rate'),'rate',false,{cls:'fk-r-sub'});}
+ else if(s.source==='catalog_balance'){const ms=[['period_end','Current period end'],['period_begin','Beginning of period'],['period_average','Average of beginning and end']].filter(([v])=>(sourceCatalogRows.find(x=>x.series_id===s.series_id)?.measures||[]).includes(v));if(ms.length)ctl+=_fkSel(ms,s.measure||'period_end',`setPath('${path}.measure',this.value);refresh()`,{w:'fk-m',aria:'Balance measure'});}
+ else if(s.source==='bank_series'){
+  const tm=[['prior_period','Prior period']];if(['deposits','gross_loans'].includes(s.series_id))tm.push(['current_period','Current period']);
+  rows+=_fkRow((o.sub||'')+'Timing',_fkSel(tm,s.timing==='current_period'?'current_period':'prior_period',`setPath('${path}.timing',this.value);renderContent();refresh()`,{w:'fk-s',aria:'Timing'})+(s.timing!=='current_period'?`<span class="fk-per">first period</span>`+_fkSel([['opening','Opening stock'],['zero','Zero']],s.prior_initialization==='zero'?'zero':'opening',`setPath('${path}.prior_initialization',this.value);refresh()`,{w:'fk-s',aria:'First period'}):''),{cls:'fk-r-sub'});
+ }
+ return _fkRow(label,ctl,{after,cls:o.cls})+rows;
+}
+const _BC_TREAT=[['cash_allocation','Part of bank cash','Bank cash'],['residual_cash','Remaining bank cash','Remaining cash'],['earning_asset','Separate on-book asset','On-book asset'],['off_book','Off-book administered balance','Off-book']];
+function _bcSrcLabel(s,unit){if(!s)return '';if(!s.source||s.source==='entered')return s.trajectory==='explicit'?'entered schedule':'entered';if(s.source==='reference_rate')return String(s.index||'effr').toUpperCase()+' + spread';const v=s.source==='input_ref'?'input_ref::'+s.input_id:s.source+'::'+(s.component_id||s.series_id);const o=_bcSourceOptions(unit||'money').find(x=>x.value===v);return o?o.label:'linked';}
+function _bcEditorHtmlFk(){
+ const m=_bcState()||{enabled:false,components:[],inputs:[]},on=m.enabled!==false,base='assumptions.balance_components_model.';
+ let h=`<div class="sec-managed-sleeve bc-editor fk-panel"><div class="sec-managed-sleeve-head fk-toolbar"><div class="fk-hide"><div class="sec-book-label">Interest-bearing balances</div></div><label><input type="checkbox"${on?' checked':''} onchange="bcEnable(this.checked)">Model</label>${on?_fkChk(m.cash_interest_enabled!==false,"setPath('assumptions.balance_components_model.cash_interest_enabled',this.checked);refresh()",'Cash earns interest'):''}</div>`;
+ if(cfg.assumptions.interest_balance_model)h+=`<div class="fk-banner">Named components are active; the original setup is kept for rollback. Adoption adds component audit series, so the run fingerprint changes.<button type="button" class="fk-link" onclick="bcRestoreLegacy()">Restore original setup</button></div>`;
+ if(!on)return h+`<div class="fk-empty">Not modeled. ${_fkAdd('+ Add balance component','bcAdd()')}</div></div>`;
+ // shared assumptions
+ if((m.inputs||[]).length){
+  let rows='';m.inputs.forEach((x,i)=>{const path=base+'inputs.'+i+'.spec';
+   rows+=`<div class="fk-shared"><div class="fk-term-h"><input class="fk-title fk-title-s" aria-label="Shared assumption name" value="${esc(x.name)}" onchange="setPath('${base}inputs.${i}.name',this.value);renderContent();refresh()">`+_fkSel([['money','Balance ($000s)'],['count','Count'],['scalar','Multiplier'],['rate','Annual rate / share (%)'],['money_per_unit','Dollars per unit']],x.unit,`bcInputUnit(${i},this.value)`,{w:'fk-m',aria:'Shared assumption units'})+_fkX(`bcInputRemove(${i})`,'Remove shared assumption')+`</div><div class="fk-term-b">`+_bcOperandFk(path,x.spec,'Value',x.unit,false)+`</div></div>`;});
+  h+=_fkCard('bc-shared','Shared assumptions',m.inputs.length+' reusable input'+(m.inputs.length===1?'':'s'),rows+_fkAdd('+ Add shared assumption','bcInputAdd()'),{tag:'Inputs'});
+ }
+ h+=`<div class="fk-list-h"><b>Components</b><span>${(m.components||[]).length}</span>${_fkInfo('Each component is a named balance with an explicit accounting treatment, a balance formula and its own income and cost.')}</div>`;
+ (m.components||[]).forEach((c,i)=>{
+  const path=base+'components.'+i,kind=c.treatment,tr=_BC_TREAT.find(x=>x[0]===kind)||[kind,kind,kind];
+  let b='';
+  // Treatment
+  let t=_fkRow('Name',_fkName(c.name||'',`setPath('${path}.name',this.value);renderContent();refresh()`,'Balance component name'))+_fkRow('Accounting treatment',_fkSel(_BC_TREAT.map(x=>[x[0],x[1]]),kind,`bcTreatment(${i},this.value)`,{w:'fk-m'}))
+   +_fkRow('Interest measured on',_fkSel([['current_end','Current period end'],['prior_end','Prior period end'],['average','Average of prior and current']],c.interest_balance_measure||'current_end',`setPath('${path}.interest_balance_measure',this.value);refresh()`,{w:'fk-m'}));
+  if(['cash_allocation','residual_cash'].includes(kind))t+=_fkRow('First prior-end balance',_fkSel([['opening','Opening cash allocation'],['zero','Zero at launch']],c.prior_interest_initialization==='zero'?'zero':'opening',`setPath('${path}.prior_interest_initialization',this.value);refresh()`,{w:'fk-m'}));
+  if(kind==='cash_allocation')t+=_fkRow('',_fkChk(!!c.cap_at_available_cash,`setPath('${path}.cap_at_available_cash',this.checked);renderContent();refresh()`,'Cap at available bank cash')+_fkInfo('Fixed allocations are reserved first; capped allocations use remaining cash in component order. Capped allocations earn interest only.'));
+  b+=_fkSec('Identity','',t);
+  // Balance
+  let f='';
+  if(kind!=='residual_cash'){
+   (c.terms||[]).forEach((tm,j)=>{const tp=path+'.terms.'+j,sp=tm.source_spec||{},inp=(m.inputs||[]).find(x=>x.id===sp.input_id),unit=inp?inp.unit:sp.unit||(['customer_count'].includes(sp.source)?'count':'money');
+    f+=`<div class="fk-term"><div class="fk-term-h"><span class="fk-tn">${j+1}</span>`+_fkSeg([['1','Add'],['-1','Subtract']],tm.sign===-1?'-1':'1',null,`setPath('${tp}.sign',+'%v');renderContent();refresh()`)+_fkSel([['money','Balance ($000s)'],['count','Count']],unit,`bcSourceSet('${tp}.source_spec','entered',this.value)`,{w:'fk-sm',aria:'Source units'})+_fkX(`_bcState().components[${i}].terms.splice(${j},1);renderContent();refresh()`,'Remove term')+`</div><div class="fk-term-b">`;
+    f+=_bcOperandFk(tp+'.source_spec',sp,'Source',unit,false);
+    (tm.factors||[]).forEach((fa,k)=>{const ref=(m.inputs||[]).find(x=>x.id===fa.input_id),fu=ref?ref.unit:fa.unit||'scalar';f+=`<div class="fk-factor">${_bcOperandFk(tp+'.factors.'+k,fa,'× Factor '+(k+1),fu,true)}${_fkX(`_bcState().components[${i}].terms[${j}].factors.splice(${k},1);renderContent();refresh()`,'Remove factor')}</div>`;});
+    f+=_fkAdd('× Multiply by',`bcFactorAdd(${i},${j})`,{cls:'fk-add-sub'})+`</div></div>`;});
+   f=`<div class="fk-terms fk-terms-flat">${f}<div class="fk-terms-a">${_fkAdd('+ Add term',`bcTermAdd(${i})`)}${_fkChk(c.balance_floor==='zero',`setPath('${path}.balance_floor',this.checked?'zero':'none');refresh()`,'Floor balance at zero')}${_fkInfo('Add or subtract each term. Counts require a dollars-per-unit factor; balances use dimensionless factors.')}</div></div>`;
+  }else f=`<p class="fk-callout">Earns on the cash left after the other cash allocations. Only one component can own that remainder.</p>`;
+  b+=_fkSec('Balance',kind==='residual_cash'?'':'Sum of terms',f);
+  // Income & cost
+  let ic='';
+  if(['earning_asset','off_book'].includes(kind))ic+=_fkRow('Income calculation',_fkSel([['balance_yield','Yield on modeled balance'],['separate_balance_yield','Yield on a separate balance'],['entered_amount','Entered income amount']],c.income_method||'balance_yield',`bcIncomeMethod(${i},this.value)`,{w:'fk-m'}));
+  if(c.income_method==='entered_amount'&&['earning_asset','off_book'].includes(kind))ic+=_fkSeriesRow('Income amount'+_fkInfo('Entered income posts once, independently of the asset balance. Amount period controls annualization.'),path+'.income_amount_spec',c.income_amount_spec,'money',true);
+  else{if(c.income_method==='separate_balance_yield'&&['earning_asset','off_book'].includes(kind))ic+=_bcOperandFk(path+'.income_balance_spec',c.income_balance_spec,'Income balance basis'+_fkInfo('This basis prices income only; it does not add another asset.'),'money',false);ic+=_bcOperandFk(path+'.yield_spec',c.yield_spec,'Annual yield','rate',false);}
+  if(kind!=='residual_cash'){
+   ic+=_fkRow('Income posts to',_fkSeg([['interest','Interest income'],['fee','Fee income']],c.income_line==='fee'?'fee':'interest',null,`setPath('${path}.income_line','%v');renderContent();refresh()`));
+   if(c.cost_spec){ic+=_bcOperandFk(path+'.cost_spec',c.cost_spec,'Annual cost rate','rate',false);ic+=_fkRow('Cost posts to',_fkSeg([['interest_expense','Interest expense'],['operating_expense','Operating expense']],c.cost_line==='operating_expense'?'operating_expense':'interest_expense',null,`setPath('${path}.cost_line','%v');renderContent();refresh()`)+`<button type="button" class="fk-del" onclick="delete _bcState().components[${i}].cost_spec;renderContent();refresh()">Remove cost</button>`);}
+   else ic+=_fkRow('',_fkAdd('+ Add cost',`_bcState().components[${i}].cost_spec=_bcFlat(0,'rate');renderContent();refresh()`));
+  }
+  b+=_fkSec('Income & cost','',ic);
+  // Opening & timing
+  let ot=`<div class="fk-grid2">`;
+  if(kind!=='residual_cash')ot+=_fkRow('Opening balance',_fkNum(fmtComma((c.opening_balance||0)/1000),`setPath('${path}.opening_balance',_pf(this.value)*1000);refresh();fmtField(this)`,'$000s',{w:'fk-s'}));
+  if(kind!=='residual_cash')ot+=_fkRow('Balance begins',_fkNum(c.start_period||1,`setPath('${path}.start_period',parseInt(_pf(this.value))||1);refresh()`,PLAB(),{w:'fk-xs'}));
+  ot+=_fkRow('Interest begins',_fkNum(c.interest_start_period||c.start_period||1,`setPath('${path}.interest_start_period',parseInt(_pf(this.value))||1);refresh()`,PLAB(),{w:'fk-xs'}));
+  if(kind!=='off_book')ot+=_fkRow('Risk weight',_fkSel([0,.2,.5,1,1.5,2.5].map(v=>[v,(v*100)+'%']),c.risk_weight==null?'':c.risk_weight,`setPath('${path}.risk_weight',+this.value);refresh()`,{w:'fk-xs',aria:'Standardized risk weight'}));
+  b+=_fkSec('Opening & timing','',ot+`</div>`);
+  b+=_fkFoot(`bcRemove(${i})`,'Remove component');
+  const termsTxt=kind==='residual_cash'?'remaining cash':(c.terms||[]).map(tm=>{const sp=tm.source_spec||{},inp=(m.inputs||[]).find(x=>x.id===sp.input_id);return (tm.sign===-1?'− ':'')+_bcSrcLabel(sp,inp?inp.unit:sp.unit||(['customer_count'].includes(sp.source)?'count':'money'));}).join(' + ');
+  const inc=(c.income_method==='entered_amount'&&['earning_asset','off_book'].includes(kind))?'income entered':'yield '+_bcSrcLabel(c.yield_spec,'rate');const meta=[termsTxt,inc].filter(Boolean).join(' · ');
+  h+=_fkCard('bc'+i,c.name||'Balance component',esc(meta),b,{tag:tr[2]});
+ });
+ if(!(m.components||[]).length)h+='<div class="fk-empty">No balance components yet.</div>';
+ h+=`<div class="fk-adds">${_fkAdd('+ Add balance component','bcAdd()',{cls:'fk-add-main'})}${(m.inputs||[]).length?'':_fkAdd('+ Add shared assumption','bcInputAdd()')}</div>`;
+ return h+'</div>';
+}
+
+// ---- 03 Other liabilities (form kit) ----
+function _olSettlementCardFk(c,i){
+ const t=c.settlement||{},opts=settlementSourceOptions(),path='assumptions.other_liabilities_model.components.'+i,period=t.period||'month',weights=t.weights||[];
+ let id=_fkRow('Name',_fkName(c.name||'',`olName(${i},this.value);renderContent()`,'Settlement liability name'))
+  +_fkRow('Opening liability',_fkNum(fmtComma((c.opening_balance||0)/1000),`setPath('${path}.opening_balance',_pf(this.value)*1000);refresh();fmtField(this)`,'$000s',{w:'fk-s',aria:'Opening liability'}))
+  +_fkRow('Source sign',_fkSeg([['1','Keep (+1)'],['-1','Reverse (−1)']],t.sign===-1?'-1':'1',null,`setPath('${path}.settlement.sign',+'%v');renderContent();refresh()`))
+  +_fkRow('Holding period',_fkSeg([['month','Month'],['quarter','Quarter']],period,null,`setPath('${path}.settlement.period','%v');renderContent();refresh()`));
+ let src='';
+ (t.sources||[]).forEach((r,j)=>{
+  const so=[['','Select a source']];if(r.series_id&&!opts.some(x=>x.series_id===r.series_id))so.push([r.series_id,'Missing source']);opts.forEach(o=>so.push([o.series_id,o.label]));
+  src+=_fkRow(j?'':'Eligible revenue',_fkSel(so,r.series_id||'',`olSettlementSource(${i},${j},this.value)`,{w:'fk-m',aria:'Eligible revenue source'})+_fkSel([['reported_fee_income','Reported fee income'],['fee_product_cost','Direct stream cost'],['net_fee_income','Fee income less direct cost']],r.measure||'reported_fee_income',`setPath('${path}.settlement.sources.${j}.measure',this.value);refresh()`,{w:'fk-sm',aria:'Measure'})+_fkX(`olSettlementRemoveSource(${i},${j})`,'Remove revenue source'));
+ });
+ src+=_fkRow((t.sources||[]).length?'':'Eligible revenue',_fkAdd('+ Add revenue source',`olSettlementAddSource(${i})`));
+ let tb=`<table class="fk-tbl"><thead><tr><th>Revenue from</th><th>Weight held</th><th>Opening revenue</th><th></th></tr></thead><tbody>`;
+ weights.forEach((w,age)=>{const lab=olSettlementAgeLabel(age,period);
+  tb+=`<tr><td>${esc(lab[0].toUpperCase()+lab.slice(1))}</td><td><span class="fk-num fk-xs"><input id="settlement-weight-${i}-${age}" type="text" inputmode="decimal" aria-label="${esc(lab)} weight" value="${esc(w)}" onchange="olSettlementWeight(${i},${age},this.value)"><i>×</i></span></td><td>${age>0?`<span class="fk-num fk-s"><input aria-label="${esc(lab)} opening revenue" value="${esc(t.opening_history&&t.opening_history[age-1]!=null?t.opening_history[age-1]/1000:'')}" placeholder="Required" onchange="olSettlementHistory(${i},${age-1},this.value)"><i>$000s</i></span>`:'<span class="fk-dim">from the forecast</span>'}</td><td>${age>0&&age===weights.length-1?_fkX(`olSettlementRemoveAge(${i})`,'Remove oldest '+period):''}</td></tr>`;});
+ tb+=`</tbody></table><div class="fk-terms-a">${_fkAdd('+ Add earlier '+period,`olSettlementAddAge(${i})`)}${_fkInfo('Each weight multiplies revenue from its labeled period (1 = full amount, 0.5 = half). Opening revenue is signed history before the forecast, separate from the opening liability. Revenue is observed, not posted again.')}</div>`;
+ const b=_fkSec('Identity','',id)+_fkSec('Revenue source','Fee income that flows into the payable',src)+_fkSec('Holding','Share of each period’s revenue still unpaid',tb)+_fkFoot(`olRemoveComponent(${i})`,'Remove settlement liability');
+ const meta=(t.sources||[]).map(r=>(opts.find(o=>o.series_id===r.series_id)||{}).label||'no source').join(' + ')+' · '+weights.length+' '+period+(weights.length===1?'':'s')+' held';
+ return _fkCard('ol'+i,c.name||'Settlement liability',esc(meta),b,{tag:'Settlement'});
+}
+function _olComponentCardFk(c,i){
+ const opts=_olDriverOptions(),terms=_olTermsView(c);
+ let b=_fkSec('Identity','',_fkRow('Name',_fkName(c.name||('Liability component '+(i+1)),`olName(${i},this.value);renderContent()`,'Liability component name')));
+ let rows='';
+ terms.forEach((t,j)=>{
+  const dv=_olDriverValue(t),link=(((t.driver_spec||{}).link)||{}),isW=link.kind==='workforce_role_count',mp=t._legacy?`assumptions.other_liabilities_model.components.${i}.multiplier_spec`:`assumptions.other_liabilities_model.components.${i}.terms.${j}.multiplier_spec`;
+  const entered=(t.driver_spec||{}).source==='entered',dp=`assumptions.other_liabilities_model.components.${i}.terms.${j}.driver_spec`;
+  let r=`<div class="fk-term"><div class="fk-term-h"><span class="fk-tn">${j+1}</span>`+_fkSel([['entered','Entered level'],['link','Linked series']],entered?'entered':'link',`olTermSource(${i},${j},this.value)`,{w:'fk-s',aria:'Term source'});
+  if(!entered)r+=_fkSel(opts.map(o=>[o.value,o.label]),dv,`olDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Driver series'});
+  r+=_fkX(`olRemoveTerm(${i},${j})`,'Remove term')+`</div><div class="fk-term-b">`;
+  if(entered)r+=_fkSeriesRow('Liability level',dp,t.driver_spec,'money',false);
+  r+=_fkSeriesRow(isW?'Liability per FTE':'Multiplier',mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'multiplier':'multiple',false);
+  rows+=r+`</div></div>`;
+ });
+ b+=_fkSec('Formula','Sum of terms',`<div class="fk-terms fk-terms-flat">${rows}<div class="fk-terms-a">${_fkAdd('+ Add term',`olAddTerm(${i})`)}${_fkInfo('The liability is the sum of its terms: an entered level or linked series, times its multiplier. Signed multipliers are allowed.')}</div></div>`)+_fkFoot(`olRemoveComponent(${i})`,'Remove component');
+ const meta=terms.length+' term'+(terms.length===1?'':'s')+' · '+terms.map(t=>(t.driver_spec||{}).source==='entered'?'entered level':((opts.find(o=>o.value===_olDriverValue(t))||{}).label||'linked series')).join(' + ');
+ return _fkCard('ol'+i,c.name||('Liability component '+(i+1)),esc(meta),b,{tag:'Liability'});
+}
+function _olEditorHtmlFk(A4,_olm,mode){
+ let h=`<div class="sec-managed-sleeve fk-panel ol-editor" style="margin-top:10px"><div class="sec-managed-sleeve-head fk-hide"><div><div class="sec-book-label">Other liabilities</div></div></div>`;
+ h+=`<div class="nie-mode" role="group" aria-label="Other liabilities authoring mode"><button class="${mode==='flat'?'on':''}" onclick="olSetMode('flat')">Flat</button><button class="${mode==='formula_level'?'on':''}" onclick="olSetMode('formula_level')">Formula / level</button></div>`;
+ if(mode==='flat')return h+_fkSec('Balance','Switching modes keeps the saved Formula / level setup.',_fkRow('Other liabilities',_fkNum(fmtComma((A4.other_liabilities||0)/1000),"cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)",'$000s',{w:'fk-m',aria:'Other liabilities balance'})))+`</div>`;
+ const m=_olm||_olState(true);
+ h+=_fkSec('Starting position','Base carries the earlier flat balance.',
+   _fkRow('Opening balance',_fkNum(fmtComma((+m.opening_balance||0)/1000),"olOpening(this.value);fmtField(this)",'$000s',{w:'fk-m',aria:'Other liabilities opening balance'}))
+  +_fkSeriesRow('Base liability level'+_fkInfo('The base level is seeded from the prior flat Other liabilities balance. Set it to zero if linked components replace that balance rather than add to it.'),'assumptions.other_liabilities_model.base_spec',m.base_spec||{source:'entered',trajectory:'flat',value:0},'money',false));
+ h+=`<div class="fk-list-h"><b>Components</b><span>${(m.components||[]).length}</span>${_fkInfo('Each named liability is the sum of entered levels or linked series × multiplier terms. The total liability balance must remain non-negative.')}</div>`;
+ (m.components||[]).forEach((c,i)=>{h+=c.kind==='settlement'?_olSettlementCardFk(c,i):_olComponentCardFk(c,i);});
+ return h+`<div class="fk-adds">${_fkAdd('+ Add liability component','olAddComponent()',{cls:'fk-add-main'})}${_fkAdd('+ Add settlement liability','olAddSettlement()',{cls:'fk-add-main'})}</div></div>`;
+}
+
 // r289: named balances use the same series grammar; existing contracts remain opt-in compatibility.
 function _bcState(create){const a=cfg.assumptions;if(!a.balance_components_model&&create)a.balance_components_model={enabled:true,inputs:[],components:[]};return a.balance_components_model||null;}
 function _bcFlat(value,unit){return {source:'entered',trajectory:'flat',value,unit:unit||'scalar'};}
@@ -10687,7 +11037,7 @@ function _fsxBands(card){
   }
   // 03 Other liabilities: Starting position (paired), then one band per component (collapsible)
   const ol=card.querySelector('#fsx-s3 .fsx-b>.sec-managed-sleeve');
-  if(ol&&!ol.querySelector('.fsx-band')){
+  if(ol&&!ol.classList.contains('fk-panel')&&!ol.querySelector('.fsx-band')){
     const opening=ol.querySelector(':scope>.crow'), base=ol.querySelector(':scope>.sec-managed-series'), note=[...ol.children].find(c=>c.classList.contains('cmut'));
     const st=_fsxBand('Starting position',note?note.textContent.trim():'');
     const pair=_fsxEl('div','fsx-pair'); st.f.appendChild(pair);
@@ -14308,7 +14658,7 @@ function structuresSectionsHtml(){
 
       h += `</div></div>`;
       if(!A4.interest_balance_model || ((A4.balance_components_model||{}).enabled!==false && A4.balance_components_model)) {
-        h+=_bcEditorHtml();
+        h+=_bcEditorHtmlFk();
       }else
       { const ib=_ibState(false), on=!!(ib&&ib.enabled);
         h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Interest-bearing balances</div><div class="cmut">Remaining cash, operating cash, fiduciary AUA and Other earning asset. All assumptions default to zero.</div></div><label><input type="checkbox" ${on?'checked ':''}onchange="ibEnable(this.checked)"> Model</label></div>`;
@@ -14335,33 +14685,9 @@ function structuresSectionsHtml(){
           h += `</div></div></div><div class="cmut">M1 equity-derived balances are zero. Thereafter each uses prior-period equity.</div>`;
         } h += `</div>`;
       }
-      h += _oaEditorHtml();
+      h += _oaEditorHtmlFk();
       { const _olm=_olState(false), _olModeNow=_olMode();
-        h += `<div class="sec-managed-sleeve" style="margin-top:10px"><div class="sec-managed-sleeve-head"><div><div class="sec-book-label" style="font-weight:700">Other liabilities</div><div class="cmut">Choose a flat period-end balance or build it from named Formula / level components.</div></div></div>`;
-        h += `<div class="nie-mode" role="group" aria-label="Other liabilities authoring mode" style="margin:2px 0 8px"><button class="${_olModeNow==='flat'?'on':''}" onclick="olSetMode('flat')">Flat</button><button class="${_olModeNow==='formula_level'?'on':''}" onclick="olSetMode('formula_level')">Formula / level</button></div>`;
-        if(_olModeNow==='flat'){
-          h += `<div class="crow" style="align-items:center">Other liabilities balance<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((A4.other_liabilities||0)/1000)}" onchange="cfg.assumptions.other_liabilities=_pf(this.value)*1000;refresh();fmtField(this)"><span class="cu">$000s</span></div>`;
-          h += `<div class="cmut" style="margin:4px 0 7px">Switching modes does not delete the saved Formula / level setup.</div>`;
-        }else{
-          const _olmActive=_olm||_olState(true);
-          h += `<div class="crow" style="align-items:center">Opening balance<input type="text" inputmode="decimal" style="width:84px" value="${fmtComma((+_olmActive.opening_balance||0)/1000)}" onchange="olOpening(this.value);fmtField(this)"><span class="cu">$000s</span></div>`;
-          h += _faSeriesEditor('assumptions.other_liabilities_model.base_spec',_olmActive.base_spec||{source:'entered',trajectory:'flat',value:0},'Base liability level','money',false);
-          h += `<div class="cmut" style="margin:3px 0 7px">The base level is seeded from the prior flat Other liabilities balance for backward compatibility. Set it to zero if linked components replace that balance rather than add to it.</div>`;
-          (_olmActive.components||[]).forEach((c,i)=>{if(c.kind==='settlement'){h+=olSettlementHtml(c,i);return;}const opts=_olDriverOptions(),terms=_olTermsView(c);
-            h += `<details class="sec-managed-sleeve cfg-liability-component settlement-editor" ${window._liabilityUiOpen&&window._liabilityUiOpen[i]?'open':''} ontoggle="window._liabilityUiOpen=window._liabilityUiOpen||{};window._liabilityUiOpen[${i}]=this.open"><summary><strong>${esc(c.name||('Liability component '+(i+1)))}</strong><span>${terms.length} formula term${terms.length===1?'':'s'}</span></summary><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(c.name||('Liability component '+(i+1)))}" onchange="olName(${i},this.value)"><a href="#" class="cx" aria-label="Remove liability component" onclick="olRemoveComponent(${i});return false">×</a></div>`;
-            terms.forEach((t,j)=>{const dv=_olDriverValue(t),link=(((t.driver_spec||{}).link)||{}),isW=link.kind==='workforce_role_count',mp=t._legacy?`assumptions.other_liabilities_model.components.${i}.multiplier_spec`:`assumptions.other_liabilities_model.components.${i}.terms.${j}.multiplier_spec`;
-              const entered=(t.driver_spec||{}).source==='entered',dp=`assumptions.other_liabilities_model.components.${i}.terms.${j}.driver_spec`;
-              h += `<div class="crow" style="gap:8px;margin-top:8px"><span class="cmut">Source</span><select style="width:150px" onchange="olTermSource(${i},${j},this.value)"><option value="entered"${entered?' selected':''}>Entered level</option><option value="link"${!entered?' selected':''}>Linked series</option></select></div>`;
-              if(entered){h+=`<div class="sec-managed-grid"><div style="grid-column:1/-1">${_faSeriesEditor(dp,t.driver_spec,'Liability level','money',false)}</div><div style="grid-column:1/-1">${_faSeriesEditor(mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:1},'Multiplier','multiple',false)}</div><button class="btn-plain" onclick="olRemoveTerm(${i},${j});return false">Remove term</button></div>`;return;}
-              h += `<div class="sec-managed-grid" style="margin-top:${j?8:2}px;padding-top:${j?8:0}px;${j?'border-top:1px solid #2A2A2A;':''}"><div class="sec-managed-field"><label>Formula term ${j+1} · Driver Series</label><select onchange="olDriver(${i},${j},this.value)">${opts.map(o=>`<option value="${esc(o.value)}"${o.value===dv?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div><div style="display:flex;justify-content:flex-end;align-items:flex-start"><button class="btn-plain" style="color:#C77" onclick="olRemoveTerm(${i},${j});return false">Remove term</button></div>`;
-              h += `<div style="grid-column:1/-1">${_faSeriesEditor(mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'Liability per FTE':'Multiplier',isW?'multiplier':'multiple',false)}</div></div>`;
-            });
-            h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddTerm(${i})">+ Add formula term</button></details>`;
-          });
-          h += `<button class="pillbtn" style="margin-top:7px" onclick="olAddComponent()">+ Add liability component</button><button class="pillbtn" style="margin-left:6px" onclick="olAddSettlement()">+ Add settlement liability</button>`;
-          h += `<div class="cmut" style="margin-top:6px">Each named liability is the sum of entered levels or linked Series × multiplier terms. Signed multipliers are allowed; the total liability balance must remain non-negative.</div>`;
-        }
-        h += `</div>`;
+        h += _olEditorHtmlFk(A4,_olm,_olModeNow);   // r340: form kit
       }
       h += `</div>`;
     }
