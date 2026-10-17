@@ -1360,7 +1360,8 @@ def run_pf_a(cfg):
         _bc_bank[('prior_period','gross_loans')]=gross[q-1]
         _bc_bank[('current_period','gross_loans')]=gross[q]
         for _sid,_measures in _catalog_balances_q.items():
-            for _measure,_value in _measures.items():_bc_bank[('catalog',_sid,_measure)]=_value
+            for _measure,_value in _measures.items():
+                if not _measure.startswith('_'):_bc_bank[('catalog',_sid,_measure)]=_value
         for _index,_curve in rate_curves.items():_bc_bank[('rate',_index)]=_curve(q)
         for _sc in ((_ol_prepared or {}).get('components') or []):
             if _sc.get('settlement'):

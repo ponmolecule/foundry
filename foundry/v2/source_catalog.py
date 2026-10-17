@@ -120,6 +120,9 @@ def runtime_balances(a,dep,lend,pools,q):
             if x['key']=='lending_products' and p.get('_is_fv'):
                 beg+=p['_fvadj'][q-1];end+=p['_fvadj'][q]
         out[x['series_id']]={'period_begin':beg,'period_end':end,'period_average':(beg+end)/2}
+        if x['key']=='lending_products' and p.get('_repayment_profile'):
+            width=12//int(a.get('periods_per_year',4));rows=p['_repayment_profile']['monthly'][(q-1)*width:q*width]
+            out[x['series_id']]['_monthly']={k:[r[v] for r in rows] for k,v in [('period_begin','beginning'),('period_end','ending'),('period_average','average')]}
     return out
 
 
@@ -144,6 +147,12 @@ def result_balances(cfg,results,i,native=False):
         else:
             p=(dep if x['key']=='deposit_products' else lend)[x['index']];beg=p['bal'][i]*scale;end=p['bal'][i+1]*scale
         out[x['series_id']]={'period_begin':beg,'period_end':end,'period_average':(beg+end)/2}
+        if x['key']=='lending_products':
+            profiles=results.get('repayment_profiles') or []
+            profile=next((r['profile'] for r in profiles if r['product_index']==x['index']),None)
+            if profile:
+                width=12//int(a.get('periods_per_year',4));rows=profile['monthly'][i*width:(i+1)*width]
+                out[x['series_id']]['_monthly']={k:[r[v] for r in rows] for k,v in [('period_begin','beginning'),('period_end','ending'),('period_average','average')]}
     return out
 
 

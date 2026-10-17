@@ -807,6 +807,12 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                         notes = (f"Monthly {pair['measure']} AUC × {pair['rate_period']} rate, "
                                  "summed into engine period; see CAC Monthly Canonical. "
                                  "Additional factors: " + "".join(trace[2:]))
+                    if comp.get("catalog_monthly_accrual"):
+                        pair = comp["catalog_monthly_accrual"]
+                        source_base = None
+                        rate = None
+                        notes = (f"Canonical monthly {pair['measure']} balance × monthly periodized rate, "
+                                 "summed into engine period; see Repayment Monthly. Additional factors: " + "".join(trace[2:]))
                 elif drv == COST_POOL_CHARGE_DRIVER:
                     ref = str((comp or {}).get("ref") or "")
                     source_base = float((metrics.get("cost_pool") or {}).get(ref) or 0.0)
@@ -2062,12 +2068,12 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         for item in results['repayment_profiles']:
             profile=item['profile'];name=item['product']
             for row in profile['monthly']:
-                _period_rows.append([name,row['month']]+[row[k]/1000 for k in ('beginning','funded','charge_offs','repayments','ending','allowance','distributed')]+[row.get('transfers_out',0)/1000])
+                _period_rows.append([name,row['month']]+[row[k]/1000 for k in ('beginning','funded','charge_offs','repayments','ending','allowance','distributed')]+[row.get('transfers_out',0)/1000,item['convention'].get('repayment_basis','surviving_principal')])
             for row in profile['cohorts']:
                 _cohort_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('original_principal','beginning','funded','charge_offs','repayments','ending','allowance')]+[row['loss_exposure']/1000,row['loss_rate'],row['loss_factor'],row['loss_denominator'],row.get('transfers_out',0)/1000,row.get('loss_treatment',item['convention']['loss_basis'])])
             for row in profile.get('distributed_cohorts') or []:
                 _distributed_rows.append([name,row['month'],row['cohort'],row['age_month']]+[row[k]/1000 for k in ('beginning','funded','transfers_in','repayments','ending')])
-        _write_long_rows(wb.create_sheet('Repayment Monthly'),title='Profiled lending · monthly principal roll-forward',subtitle='Monthly funding buckets; age 0 is the funding month. Losses occur before conditional scheduled repayments. Beginning + funded − charge-offs − repayments − transfers out = ending. Transfers are at par; they are not repayments. Monetary values $000s.',headers=['Product','Month','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Distributed ending','Transfers out at par'],rows=_period_rows,widths=[30,12,22,22,22,22,22,22,22,24],formats={i:_RAW_MONEY_FMT for i in range(3,11)},freeze_col=3)
+        _write_long_rows(wb.create_sheet('Repayment Monthly'),title='Profiled lending · monthly principal roll-forward',subtitle='Monthly funding buckets; age 0 is the funding month. Repayment basis is explicit: surviving-principal cohort paydowns or independent original-funding portfolio schedules. Beginning + funded − charge-offs − repayments − transfers out = ending. Transfers are at par; they are not repayments. Monetary values $000s.',headers=['Product','Month','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Distributed ending','Transfers out at par','Repayment basis'],rows=_period_rows,widths=[30,12,22,22,22,22,22,22,22,24,28],formats={i:_RAW_MONEY_FMT for i in range(3,11)},freeze_col=3)
         _write_long_rows(wb.create_sheet('Repayment Cohorts'),title='Profiled lending · retained cohorts',subtitle='Age 0 is the funding month. Each cohort reconciles; remaining balance is part of the identity until fully extinguished. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Original principal','Beginning','Retained funded','Charge-offs','Repayments','Ending','Allowance','Loss exposure','Loss rate','Loss factor','Loss denominator','Transfers out at par','Loss treatment'],rows=_cohort_rows,widths=[30,12,24,14,24,22,22,22,22,22,22,22,16,16,18,24,28],formats={**{i:_RAW_MONEY_FMT for i in range(5,13)},13:'0.00%',14:'0.0000',15:'0',16:_RAW_MONEY_FMT},freeze_col=5)
 
         _write_long_rows(wb.create_sheet('Distributed Cohorts'),title='Profiled lending · distributed cohorts',subtitle='Beginning + distributed funded + transfers in − repayments = ending. These balances are off-book and carry no bank credit losses. Monetary values $000s.',headers=['Product','Month','Cohort','Monthly age','Beginning','Distributed funded','Transfers in at par','Repayments','Ending'],rows=_distributed_rows,widths=[30,12,30,14,22,22,24,22,22],formats={i:_RAW_MONEY_FMT for i in range(5,10)},freeze_col=5)

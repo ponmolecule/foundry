@@ -4,6 +4,13 @@ const ctx={cfg:{assumptions:{lending_products:[{name:'Generic',charge_off_ann:.0
 vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('function loanRepaymentMode('),html.indexOf('function loanFundedSourceChange(')),ctx);
 ctx.loanRepaymentMode(0,'profile');const p=ctx.cfg.assumptions.lending_products[0];assert.equal(p.charge_off_ann,0);assert.equal(p.repayment_profile.loss_rate_spec.value,.04);assert.equal(p.allowance_mode,'loss_rate_term');assert.equal(p.repayment_profile.repayment_fractions.length,0);
 ctx.loanRepaymentCurveLoad(0,'repayment_fractions','0%\t0%\t100%');assert.equal(JSON.stringify(p.repayment_profile.repayment_fractions),'[0,0,1]');
+let panel=ctx._loanRepaymentProfileHtml(0,'assumptions.lending_products.0',p);
+assert(panel.includes('Original funding · portfolio scheduled paydown'));
+p.repayment_profile.repayment_basis='portfolio_scheduled';
+panel=ctx._loanRepaymentProfileHtml(0,'assumptions.lending_products.0',p);
+assert(panel.includes('portfolio ledger, not surviving-cohort balances'));
+for(const match of panel.matchAll(/on(?:click|change)="([^"]+)"/g))new vm.Script(match[1]);
+delete p.repayment_profile.repayment_basis;
 const rendered=ctx._loanProfileCurveHtml(0,'repayment_fractions','Repayment');assert(rendered.includes('Monthly ages'));for(const match of rendered.matchAll(/onclick="([^"]+)"/g))new vm.Script(match[1]);
 ctx.loanRepaymentCurveClear(0,'repayment_fractions');assert.equal(p.repayment_profile.repayment_fractions.length,0);assert(ctx._loanProfileCurveHtml(0,'repayment_fractions','Repayment').includes('Load (replace)'));
 ctx.loanOpeningCohortAdd(0,'opening_cohorts');assert.equal(p.repayment_profile.opening_cohorts.length,1);ctx.loanOpeningCohortRemove(0,'opening_cohorts',0);assert.equal(p.repayment_profile.opening_cohorts.length,0);

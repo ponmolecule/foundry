@@ -76,7 +76,12 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
             if not sid:
                 raise ValueError(f"formula/driver linked source {source} requires series_id")
             out["series_id"] = sid
-        if source in {CAC_AUC_DRIVER, "catalog_quantity"}:
+        if source == "catalog_quantity":
+            measure = str(f.get("measure") or "period_end")
+            if measure not in {"period_begin", "period_end", "period_average"}:
+                raise ValueError("unsupported catalog balance measure")
+            out["measure"] = measure
+        elif source == CAC_AUC_DRIVER:
             from .balance_measures import normalize_balance_measure
             out["measure"] = normalize_balance_measure(f.get("measure"), default="period_end")
         return out
@@ -504,10 +509,10 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             if c["accrual_cadence"] != "monthly" or len(normalized) < 2:
                 raise ValueError("formula monthly accrual requires a balance and rate pair")
             base, rate = normalized[:2]
-            if (base.get("source") != CAC_AUC_DRIVER or base.get("kind") != "linked"
-                    or rate.get("kind") != "entered" or not rate.get("rate_period")
+            if (base.get("source") not in {CAC_AUC_DRIVER,"catalog_quantity"} or base.get("kind") != "linked"
+                    or rate.get("kind") != "entered" or not (rate.get("rate_period") or (base.get('source')=='catalog_quantity' and rate.get("periodized")))
                     or rate.get("op") != "multiply"):
-                raise ValueError("formula monthly accrual requires linked AUC × entered period rate")
+                raise ValueError("formula monthly accrual requires linked balance × entered period rate")
             out["accrual_cadence"] = "monthly"
         return out
     if drv == SERVICE_CAPACITY_DRIVER:
@@ -653,7 +658,16 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
             factors = []
             from .periodic_flows import resolve_periodic_flow
             monthly_pair = None
-            if c.get("accrual_cadence") == "monthly":
+            catalog_pair = None
+            if c.get("accrual_cadence") == "monthly" and c['factors'][0]['source']=='catalog_quantity':
+                base,rate=c['factors'][:2]
+                months=int(n_periods)*(12//int(ppy))
+                if rate.get('periodized'):
+                    monthly_rates=resolve_periodic_flow(rate['spec'],months,12,context=context)
+                else:
+                    monthly_rates=[float(v)/_RATE_PERIODS[rate['rate_period']] for v in resolve_entered_series(rate['spec'],months,12,context=context)]
+                catalog_pair={'series_id':base['series_id'],'measure':base['measure'],'rates':monthly_rates,'width':12//int(ppy)}
+            elif c.get("accrual_cadence") == "monthly":
                 base, rate = c["factors"][:2]
                 monthly_pair = resolve_linked_components({**(category or {}), "linked_components": [{
                     "driver": CAC_AUC_DRIVER, "series_id": base["series_id"],
@@ -665,6 +679,9 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                 if f.get("kind") == "entered":
                     if monthly_pair is not None and fi == 1:
                         vals = monthly_pair["rates"]
+                    elif catalog_pair is not None and fi == 1:
+                        width=catalog_pair['width'];monthly_rates=catalog_pair['rates']
+                        vals=[sum(monthly_rates[i:i+width]) for i in range(0,len(monthly_rates),width)]
                     elif f.get("periodized"):
                         vals = resolve_periodic_flow(f.get("spec"), int(n_periods), int(ppy),
                                                      context=context)
@@ -672,7 +689,7 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                         vals = resolve_entered_series(f.get("spec"), int(n_periods), int(ppy),
                                                       context=context)
                     scale = (12 / (int(ppy) * _RATE_PERIODS[f["rate_period"]])
-                             if f.get("rate_period") and not (monthly_pair is not None and fi == 1) else 1)
+                             if f.get("rate_period") and not ((monthly_pair is not None or catalog_pair is not None) and fi == 1) else 1)
                     row["values"] = [float(x or 0.0) * scale for x in vals]
                 factors.append(row)
             out.append({
@@ -681,6 +698,7 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                 "name": c.get("name") or "Formula / driver component",
                 "factors": factors,
                 **({"monthly_accrual_pair": monthly_pair} if monthly_pair is not None else {}),
+                **({"catalog_monthly_accrual": catalog_pair} if catalog_pair is not None else {}),
             })
             continue
         if c["driver"] == SERVICE_CAPACITY_DRIVER:
@@ -886,8 +904,19 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
     if drv == FORMULA_DRIVER:
         pair = component.get("monthly_accrual_pair")
         result = linked_component_amount(pair, i, metrics) if pair is not None else None
+        catalog_pair=component.get('catalog_monthly_accrual')
+        if catalog_pair:
+            sid=catalog_pair['series_id'];measure=catalog_pair['measure'];width=catalog_pair['width']
+            observations=(metrics.get('catalog_balances') or {}).get(sid,{})
+            monthly=(observations.get('_monthly') or {}).get(measure)
+            if monthly is None:
+                if width!=1:raise ValueError('Monthly expense accrual requires canonical monthly observations for '+sid)
+                monthly=[observations[measure]]
+            rates=catalog_pair['rates'][i*width:(i+1)*width]
+            if len(monthly)!=width or len(rates)!=width:raise ValueError('Incomplete canonical monthly balance/rate accrual')
+            result=sum(float(b)*float(r) for b,r in zip(monthly,rates))
         for fi, factor in enumerate(component.get("factors") or []):
-            if pair is not None and fi < 2:
+            if (pair is not None or catalog_pair is not None) and fi < 2:
                 continue
             value = _formula_factor_value(factor, i, metrics)
             op = "multiply" if fi == 0 else str(factor.get("op") or "multiply")

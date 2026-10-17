@@ -16,8 +16,15 @@ def validate(p, a=None):
     profile=p.get('repayment_profile')
     if profile is None:return None
     if not isinstance(profile,dict) or profile.get('cadence')!='month':raise ValueError('Repayment profile requires explicit monthly cadence')
-    allowed={'cadence','funding_timing','repayment_fractions','loss_basis','loss_balance_measure','loss_rate_spec','opening_cohorts','opening_distributed_cohorts','loss_timing_fractions','legacy_settings','name','memo'}
+    allowed={'cadence','funding_timing','repayment_fractions','loss_basis','loss_balance_measure','loss_rate_spec','opening_cohorts','opening_distributed_cohorts','loss_timing_fractions','legacy_settings','name','memo','repayment_basis'}
     if set(profile)-allowed:raise ValueError('Unsupported repayment profile settings: '+', '.join(sorted(set(profile)-allowed)))
+    basis=profile.get('repayment_basis','surviving_principal')
+    if basis not in {'surviving_principal','portfolio_scheduled'}:raise ValueError('Unknown repayment basis')
+    if basis=='portfolio_scheduled':
+        if profile.get('loss_basis')!='annual_balance':raise ValueError('Portfolio scheduled repayments require annual balance losses')
+        if p.get('allowance_mode','reserve_rate')!='reserve_rate':raise ValueError('Portfolio scheduled repayments require a reserve-percent allowance')
+        if p.get('allocation_group_id') or float(p.get('target_retention_share',1))!=1 or float(p.get('reserve_share',0))!=0 or profile.get('opening_distributed_cohorts'):
+            raise ValueError('Portfolio scheduled repayments require fully retained funding without shared-cap transfers or held-aside funding')
     if number(p.get('reserve_rate_pct_bal',0),'Reserve share')>1:raise ValueError('Reserve share must be within 0–100%')
     curve=profile.get('repayment_fractions')
     if not isinstance(curve,list) or not curve:raise ValueError('Enter a monthly repayment curve, age 0 = funding month')
@@ -95,9 +102,81 @@ def canonical_flow(p,a,n,ppy,context=None):
         out.append(number(arr[m],'Monthly funded activity'))
     return out
 
+def _project_portfolio(p,a,n,ppy,linked,context=None):
+    """Independent scheduled gross paydowns and balance losses on one portfolio.
+
+    Unlike surviving-principal cohorts, the original funding curve determines
+    contractual paydowns without reducing them for losses. This is an explicit
+    portfolio convention, not a claim that an extinguished cohort repays twice.
+    Reject impossible portfolio balances rather than clipping either cash flow.
+    """
+    from .series import resolve_entered_series
+    rp=p['repayment_profile'];months=n*(12//ppy);width=12//ppy
+    rates=resolve_entered_series(rp['loss_rate_spec'],months,12,context=context)
+    factors=resolve_entered_series(p['credit_loss_factor_spec'],months,12,context=context) if p.get('credit_loss_factor_spec') else [1.]*months
+    inputs=canonical_flow(p,a,n,ppy,context)
+    curve=rp['repayment_fractions'];scheduled=[0.]*months;funded=[]
+    for m,v in enumerate(inputs):
+        v=number(v,'Monthly funded activity')*number(p.get('_profile_volume_mult',1),'Stress funding multiplier')
+        q=m//width+1
+        if linked['input_stage']=='funded_volume':
+            if q<linked['start_period'] and v:raise ValueError('Final funded volume is nonzero before the configured start')
+        else:v*=linked['take_up_share']*(0 if q<linked['start_period'] else min(1,(q-linked['start_period']+1)/linked['ramp_periods']))
+        funded.append(v)
+        for age,f in enumerate(curve):
+            if m+age<months:scheduled[m+age]+=v*f
+    for c in rp['opening_cohorts']:
+        for age in range(c['next_age_month'],len(curve)):
+            m=age-c['next_age_month']
+            if m<months:scheduled[m]+=float(c['original_principal'])*curve[age]
+    begin=float(p.get('opening_balance') or 0);reserve=float(p.get('reserve_rate_pct_bal') or 0)
+    opening_allowance=begin*reserve;monthly=[]
+    overrides={int(k):number(v,'Stress annual loss') for k,v in (p.get('_profile_loss_overrides') or {}).items()}
+    for m,v in enumerate(funded):
+        quote=number(rates[m],'Annual loss rate')
+        if quote>1:raise ValueError('Annual loss rate must be within 0–100%')
+        rate=overrides.get(m//width+1,quote*number(p.get('_profile_loss_mult',1),'Stress loss multiplier'))
+        factor=number(factors[m],'Credit loss factor')
+        exposure=begin+(v if rp['loss_balance_measure']=='balance_plus_funding' else 0)
+        loss=exposure*rate*factor/12;pay=scheduled[m];end=begin+v-loss-pay
+        if end < -1e-7:
+            raise ValueError(f'Portfolio scheduled repayments and charge-offs exceed available principal in month {m+1}; revise repayment or loss assumptions')
+        end=max(0.,end)  # floating-point roundoff only, not economic clipping
+        allocation=yield end
+        if allocation!=1:raise ValueError('Portfolio scheduled repayments do not support shared-cap transfers')
+        monthly.append({'month':m+1,'beginning':begin,'funded':v,'charge_offs':loss,'repayments':pay,'ending':end,'average':(begin+end)/2,'allowance':end*reserve,'distributed':0.,'transfers_out':0.,'target_before_allocation':end,'allocation_factor':1.,'loss_exposure':exposure,'loss_rate':rate,'loss_factor':factor,'loss_denominator':12,'repayment_basis':'portfolio_scheduled'})
+        begin=end
+    def sums(k):return [sum(x[k] for x in monthly[i:i+width]) for i in range(0,months,width)]
+    def ends(k):return [monthly[i+width-1][k] for i in range(0,months,width)]
+    key={'period_begin':'beginning','period_end':'ending','period_average':'average'}[linked['interest_balance_measure']]
+    out={'monthly':monthly,'cohorts':[],'distributed_cohorts':[],'opening_allowance':opening_allowance,'ending_balance':ends('ending'),'allowance':ends('allowance'),'repayments':sums('repayments'),'transfers_out':sums('transfers_out'),'target_before_allocation':ends('ending'),'charge_offs':sums('charge_offs'),'retained_funded':sums('funded'),'interest_basis':[v/width for v in sums(key)],'average':[v/width for v in sums('average')],'distributed_balance':[0.]*n,'funded_volume':sums('funded'),'source_activity':[sum(inputs[i:i+width]) for i in range(0,months,width)],'monthly_funded_volume':funded,'outstanding':ends('ending'),'repayment_basis':'portfolio_scheduled'}
+    _validate_profile_fees(p,a,n,ppy,out,context)
+    return out
+
+
+def _validate_profile_fees(p,a,n,ppy,output,context):
+    if not p.get('fee_streams'):return
+    from .income_modules import product_fee_streams_q
+    activity,counts=monthly_sources(a,n,ppy,context)
+    operands={'own_balance':[x['average'] for x in output['monthly']],'distributed_balance':[x['distributed'] for x in output['monthly']],'product_funded_flow':output['monthly_funded_volume']}
+    def check(value):
+        if isinstance(value,dict):
+            if value.get('period')=='model_period' or value.get('cadence')=='model_period':raise ValueError('Profile fee paths require natural Month / Quarter / Year units')
+            for child in value.values():check(child)
+        elif isinstance(value,list):
+            for child in value:check(child)
+    for st in p['fee_streams']:
+        check(st)
+        if ((st.get('rate') or {}).get('params') or {}).get('schedule'):raise ValueError('Profile fees require a natural-period rate path, not a legacy model-period schedule')
+    for q in range(1,n+1):
+        product_fee_streams_q(p,q,{'growth_context':context,'account_activity':activity,'customer_acquisition_count':{},'cac_monthly_counts':counts,'_profile_monthly_operands':operands},ppy)
+
+
 def _project(p,a,n,ppy,linked,context=None):
     profile=validate(p,a)
     if profile is None:return None
+    if profile.get('repayment_basis')=='portfolio_scheduled':
+        return (yield from _project_portfolio(p,a,n,ppy,linked,context))
     months=n*(12//ppy);width=12//ppy;curve=profile['repayment_fractions'];cum=[];total=0.
     for x in curve:cum.append(total);total+=x
     from .series import resolve_entered_series
