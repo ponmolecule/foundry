@@ -1026,6 +1026,33 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 #content #card-sec #fsx-s4 .sec-book-editor input:focus{border-color:#a3772a!important;background:#fff!important;box-shadow:0 0 0 3px rgba(223,179,103,.25)!important;outline:0}
 #content #card-sec #fsx-s4 .sec-book-editor:hover{background:#faf9f6}
 #content #card-sec #fsx-s4 .sec-book-editor .sec-book-name{font-weight:500}
+
+/* r341: engagement reset */
+.btn-danger{font:inherit;font-size:12px;font-weight:600;padding:7px 14px;border-radius:3px;border:1px solid #A5432F;background:#A5432F;color:#FFF;cursor:pointer;white-space:nowrap}.btn-danger:hover{background:#8E3826}.btn-danger:disabled{opacity:.45;cursor:default}.ovcard .btn-danger{background:#FFF;color:#A5432F}.ovcard .btn-danger:hover{background:#FBF1EE}
+#modal.ers-modal{width:580px}
+.ers-lead{font-size:12px;line-height:1.55;color:#4A4A47;margin:0 0 12px}
+.ers-all,.ers-row{display:grid;grid-template-columns:18px 1fr auto 86px;align-items:center;gap:10px;padding:9px 10px;cursor:pointer}
+.ers-all{grid-template-columns:18px 1fr;border:1px solid #CECECB;border-radius:6px;background:#F7F6F3;margin-bottom:8px}
+.ers-all span,.ers-name{display:flex;flex-direction:column;gap:2px;min-width:0}
+.ers-all b,.ers-name b{font-size:12.5px;font-weight:600;color:#2A2A2A}
+.ers-all i,.ers-name i{font-style:normal;font-size:11px;color:#77776F;line-height:1.35}
+.ers-list{border:1px solid #E2E2DF;border-radius:6px;overflow:hidden}
+.ers-row+.ers-row{border-top:1px solid #EDEDEA}
+.ers-row:hover,.ers-all:hover{background:#FAF9F6}
+.ers-empty .ers-name b,.ers-empty .ers-cnt{color:#9A9A95}
+.ers-cnt{font-size:11px;color:#5B5B58;font-variant-numeric:tabular-nums;white-space:nowrap}
+.ers-lock{justify-self:end;font-size:9.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#8E5B1E;background:#F6ECDC;border-radius:99px;padding:3px 8px;white-space:nowrap}
+.ers-free{background:none;padding:0}
+.ers-tail{position:sticky;bottom:-20px;z-index:2;margin:12px -22px -20px;padding:10px 22px 14px;background:var(--paper,#FEFDFA);border-top:1px solid #E7E7E4}
+.ers-out{margin-top:0;font-size:12px;padding:9px 11px;border-radius:6px;background:#F6ECDC;color:#6B4615}
+.ers-out.ers-ok{background:#E8F0E9;color:#2F5B39}
+.ers-err{margin-top:10px;font-size:12px;color:#8e443a}
+.ers-foot{display:flex;align-items:center;gap:8px;margin-top:14px}
+.ers-foot span{flex:1;font-size:11px;color:#77776F}
+.ers-card{margin:14px 0;display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.ers-card .s{max-width:78ch;line-height:1.55;margin-top:4px}
+.eset-reset{margin-left:auto}
+@media(max-width:600px){.ers-row{grid-template-columns:18px 1fr auto}.ers-row .ers-lock{grid-column:2/4;justify-self:start}.ers-free{display:none}}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -7808,6 +7835,7 @@ function closeModal(){
   }
   document.getElementById("modal-bg").style.display="none";
   document.getElementById("modal").style.display="none";
+  document.getElementById("modal").classList.remove("ers-modal"); _engReset=null;   // r341
   // multi-add deferred the heavy render to avoid destroying the open modal;
   // do it now so everything picked this visit appears at once.
   if(window._modalAdded){ window._modalAdded = 0; syncModules(); renderContent(); refresh(); }
@@ -13616,6 +13644,11 @@ function renderStart(){
         ) : ''))
     + '</div>'
     + '</div>';
+  // r341: a real reset. Deletes chosen input areas, keeps setup and pre-opening expenses.
+  if(!snapshotMode && cfg && (cfg.proposed_bank || cfg.client_legal_name) && !cfg._blank_canvas)
+    h += '<div class="ovcard ers-card"><div><div class="k">Reset this engagement</div>'
+      + '<div class="s">Delete products, expenses, balances or edited curves, by area or all at once. Setup, pre-opening expenses and published rate data are kept. Once nothing protects it, cadence and charter are editable in Engagement setup.</div></div>'
+      + '<button class="btn-danger" onclick="engagementResetOpen()">Reset engagement\u2026</button></div>';
   // Demoted, quiet: bring-your-own-forecast, marked In Development.
   h += '<div class="ovcard" style="margin:14px 0;border-color:#C1C1BE;background:#F7F6F4;opacity:.72">'
     + '<div style="display:flex;align-items:center;gap:10px"><div class="k" style="margin:0">Already have a forecast?</div>'
@@ -15182,7 +15215,7 @@ function engagementSetupHtml(){const v=engagementSetupValues(),labels={national:
  h+=`<div class="eset-note">${esc(early?'Cadence, charter, opening date and horizon can still be revised. Pre-opening expenses and initial capital are preserved.':S.policy.structural_reason)}${!early?' Extending the horizon remains available if the existing sources support it.':''} ${esc(S.policy.extend_reason||'')} ${esc(S.policy.horizon_dependency||'')}</div>`;
  h+=`<div class="eset-note">${d.years} years × ${d.periods_per_year} periods/year = ${Math.round(d.years*d.periods_per_year)} model periods. Primary regulator: ${esc(REGULATOR_OF[d.charter_type]||d.charter_type||'Not set')}. Apply validates the change; existing schedules keep their extension rules.</div>`;
  if(S.error)h+=`<div class="eset-error" role="alert">${esc(S.error)}</div>`;
- h+=`<div class="eset-actions"><button class="btn-gold"${S.busy?' disabled':''} onclick="engagementSetupApply()">${S.busy?'Checking…':'Apply changes'}</button><button class="btn-plain"${S.busy?' disabled':''} onclick="engagementSetupCancel()">Cancel</button></div></div>`;
+ h+=`<div class="eset-actions"><button class="btn-gold"${S.busy?' disabled':''} onclick="engagementSetupApply()">${S.busy?'Checking…':'Apply changes'}</button><button class="btn-plain"${S.busy?' disabled':''} onclick="engagementSetupCancel()">Cancel</button>${!early?`<button class="btn-plain eset-reset"${S.busy?' disabled':''} onclick="engagementResetOpen()">Reset inputs to unlock…</button>`:''}</div></div>`;
  }else h+=`<div class="eset-error" role="alert">${esc(S.error||'Could not check setup')} <button class="btn-plain" onclick="engagementSetupCancel()">Close</button></div>`;}
  return h+'</div></section>';}
 function engagementSetupToggle(){_engSetupExpanded=!_engSetupExpanded;renderContent();}
@@ -15190,6 +15223,59 @@ async function engagementSetupOpen(){if(window.SNAPSHOT)return;_engSetupExpanded
 function engagementSetupDraft(k,value){if(!_engSetup||!_engSetup.draft||_engSetup.busy)return;_engSetup.draft[k]=k==='initial_capital'?Number(value)*1000:value;_engSetup.error='';if(['years','periods_per_year','charter_type','cblr_election'].includes(k))renderContent();}
 function engagementSetupCancel(){_engSetup=null;renderContent();}
 async function engagementSetupApply(){const S=_engSetup;if(!S||!S.draft||S.busy||window.SNAPSHOT)return;const original=cfg;S.busy=true;S.error='';renderContent();const signature=JSON.stringify(cfg);try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'apply',cfg:original,patch:S.draft})});const j=await r.json();if(!r.ok)throw Error(j.error||'Setup change was not accepted');if(_engSetup!==S)return;if(cfg!==original||JSON.stringify(cfg)!==signature)throw Error('Inputs changed while setup was being checked. Reopen setup and try again; nothing was replaced.');if(JSON.stringify(j.cfg)===signature){_engSetup=null;renderContent();appStatus('ok','Setup unchanged.');return;}cfg=j.cfg;_engSetup=null;lastRes=null;lastErrs=null;lastRunFailure=null;syncNameChrome();renderGlobals();renderContent();refresh();scheduleAutosave();appStatus('ok','Engagement setup updated. Existing inputs were preserved.');}catch(e){if(_engSetup!==S)return;S.busy=false;S.error=e.message;renderContent();}}
+
+// ===== r341: engagement reset =====
+// Deletes selected input areas (never zeroes them: a zero is still an authored input and still
+// protects setup). Keeps setup fields, pre-opening expenses and published rate data. The result is
+// an unsaved change, so Revert to last save undoes it.
+let _engReset=null;
+const _ENG_RESET_NOTES={lending:'Loan products and allocation groups',deposits:'Deposit products, retention pools, account adoption',fees:'Fee products, fee modules, other income',expenses:'Workforce, expense categories, cost pools, acquisition',funding:'Capital raises and scheduled borrowings',securities:'AFS, HTM and managed portfolios',balances:'Fixed assets, other assets and liabilities, interest-bearing balances',curves:'Manual SOFR / EFFR / Prime / FOMC edits revert to the published curve',other:'Values are kept and accepted as the new starting point'};
+async function engagementResetOpen(){
+ if(window.SNAPSHOT)return;
+ _engReset={loading:true,sel:new Set()};_engResetRender();
+ try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'policy',cfg})});const j=await r.json();if(!r.ok)throw Error(j.error||'Could not read the engagement');
+  if(!_engReset)return;_engReset={policy:j,areas:j.areas||[],sel:new Set((j.areas||[]).filter(a=>a.locks).map(a=>a.id)),busy:false,error:''};
+ }catch(e){if(_engReset)_engReset={error:e.message,areas:[],sel:new Set()};}
+ _engResetRender();
+}
+function _engResetAll(){const R=_engReset;return R&&R.areas.length&&R.areas.filter(a=>a.present).every(a=>R.sel.has(a.id))&&R.areas.filter(a=>!a.present).every(a=>R.sel.has(a.id));}
+function engagementResetToggle(id,on){const R=_engReset;if(!R||R.busy)return;if(id==='all'){R.sel=new Set(on?R.areas.map(a=>a.id):[]);}else{on?R.sel.add(id):R.sel.delete(id);}R.error='';_engResetRender();}
+function _engResetHtml(){
+ const R=_engReset;let h='<button type="button" class="modal-close-x" aria-label="Close" onclick="engagementResetClose()">×</button><h3>Reset engagement inputs</h3>';
+ if(!R||R.loading)return h+'<div class="memo">Reading the engagement…</div>';
+ if(R.error&&!R.areas.length)return h+`<div class="ers-err" role="alert">${esc(R.error)}</div><div class="modal-actions"><button class="btn-plain" onclick="engagementResetClose()">Close</button></div>`;
+ const v=(R.policy||{}).values||{},cad={12:'Monthly',4:'Quarterly',1:'Annual'}[v.periods_per_year]||v.periods_per_year;
+ h+=`<div class="ers-lead">Selected areas are deleted, not zeroed. Kept: <b>${esc(v.name||'institution')}</b>, charter, opening date, ${esc(String(cad).toLowerCase())} cadence, ${esc(String(v.years))}-year horizon, CBLR, initial capital, pre-opening expenses and published rate data.</div>`;
+ const all=_engResetAll();
+ h+=`<label class="ers-all"><input type="checkbox"${all?' checked':''}${R.busy?' disabled':''} onchange="engagementResetToggle('all',this.checked)"><span><b>Reset all</b><i>Every area below. Setup becomes fully editable.</i></span></label><div class="ers-list">`;
+ R.areas.forEach(a=>{const on=R.sel.has(a.id),empty=!a.present;
+  const cnt=a.id==='other'?(a.count?a.count+' edited':'none edited'):a.id==='curves'?(a.count?a.count+' edited':'none edited'):(a.count?a.count+' item'+(a.count===1?'':'s'):(a.present?'set':'empty'));
+  const note=a.id==='other'&&a.keys&&a.keys.length?'Kept, re-baselined: '+a.keys.slice(0,4).join(', ')+(a.keys.length>4?' and '+(a.keys.length-4)+' more':''):_ENG_RESET_NOTES[a.id]||'';
+  h+=`<label class="ers-row${empty?' ers-empty':''}"><input type="checkbox"${on?' checked':''}${R.busy?' disabled':''} onchange="engagementResetToggle('${a.id}',this.checked)"><span class="ers-name"><b>${esc(a.label)}</b><i>${esc(note)}</i></span><span class="ers-cnt">${esc(cnt)}</span>${a.locks?'<span class="ers-lock" title="These inputs currently protect cadence, charter and opening date">Locks setup</span>':'<span class="ers-lock ers-free"></span>'}</label>`;});
+ h+='</div>';
+ const still=R.areas.filter(a=>a.locks&&!R.sel.has(a.id)).map(a=>a.label),wasEarly=!!(R.policy||{}).early;
+ const outcome=!R.sel.size?'Select at least one area.':still.length?`Setup stays locked by ${still.join(', ')}.`:(wasEarly?'Setup is already editable; this only clears inputs.':'After this reset, cadence, charter, opening date and horizon are editable in Engagement setup.');
+ h+='<div class="ers-tail">';h+=`<div class="ers-out${!R.sel.size||still.length?'':' ers-ok'}">${esc(outcome)}</div>`;
+ if(R.error)h+=`<div class="ers-err" role="alert">${esc(R.error)}</div>`;
+ h+=`<div class="ers-foot"><span>${_engResetUndoable()?'Unsaved until you save. Revert to last save undoes it.':'This engagement has not been saved, so the reset cannot be reverted.'}</span><button class="btn-plain" onclick="engagementResetClose()"${R.busy?' disabled':''}>Cancel</button><button class="btn-danger ers-go" onclick="engagementResetConfirm()"${R.busy||!R.sel.size?' disabled':''}>${R.busy?'Resetting…':all?'Reset all':!R.sel.size?'Reset':'Reset '+R.sel.size+' area'+(R.sel.size===1?'':'s')}</button></div></div>`;
+ return h;
+}
+function _engResetUndoable(){try{return LC.baseline!=null&&LC.state()!=='NEW-UNSAVED'&&LC.state()!=='EMPTY';}catch(e){return false;}}
+function _engResetRender(){const m=document.getElementById('modal'),bg=document.getElementById('modal-bg');if(!m||!bg)return;m.classList.add('ers-modal');m.innerHTML=_engResetHtml();bg.style.display='block';m.style.display='block';}
+function engagementResetClose(){if(_engReset&&_engReset.busy)return;_engReset=null;const m=document.getElementById('modal');if(m){m.classList.remove('ers-modal');m.style.display='none';}const bg=document.getElementById('modal-bg');if(bg)bg.style.display='none';}
+async function engagementResetConfirm(){
+ const R=_engReset;if(!R||R.busy||!R.sel.size||window.SNAPSHOT)return;
+ const undo=_engResetUndoable(),areas=_engResetAll()?['all']:[...R.sel],original=cfg,signature=JSON.stringify(cfg);R.busy=true;R.error='';_engResetRender();
+ try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset',cfg:original,areas})});const j=await r.json();if(!r.ok)throw Error(j.error||'Reset was not accepted');
+  if(_engReset!==R)return;if(cfg!==original||JSON.stringify(cfg)!==signature)throw Error('Inputs changed while the reset was being prepared. Nothing was replaced.');
+  cfg=j.cfg;_resetTransientAuthoringUi(cfg);syncModules();ensureRateCurves();
+  lastRes=null;lastErrs=null;lastRunFailure=null;_engSetup=null;_engSetupExpanded=true;
+  R.busy=false;engagementResetClose();syncNameChrome();renderGlobals();renderContent();refresh();scheduleAutosave();if(typeof updateChangedChip==='function')updateChangedChip();
+  const tail=j.early?' Setup is editable at the top of Configuration.':(j.dependencies&&j.dependencies.length?' Setup is still protected by '+j.dependencies.join(', ')+'.':'');
+  const warn=(j.new_errors||[]).length?' '+j.new_errors.length+' kept input'+(j.new_errors.length===1?'':'s')+' now need attention: '+j.new_errors[0]:'';
+  appStatus('ok','<b>Reset '+esc((j.cleared||[]).join(', ')||'settings')+'.</b>'+esc(tail+warn)+(undo?' Unsaved; Revert to last save undoes it.':''));
+ }catch(e){if(_engReset!==R)return;R.busy=false;R.error=e.message;_engResetRender();}
+}
 
 function renderConfigTab(){
   const snapshotMode = !!window.SNAPSHOT;

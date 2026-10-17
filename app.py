@@ -1543,7 +1543,7 @@ def v31_tax_blocks_preview(body: dict, user=Depends(gate)):
 
 @app.post("/api/v31/engagement-setup")
 def v31_engagement_setup(body: dict, user=Depends(gate)):
-    from foundry.v2.engagement_setup import initialize, policy, apply
+    from foundry.v2.engagement_setup import initialize, policy, apply, reset
     cfg=body.get('cfg')
     if not isinstance(cfg,dict):return JSONResponse({'error':'An engagement configuration is required'},status_code=422)
     try:
@@ -1551,6 +1551,7 @@ def v31_engagement_setup(body: dict, user=Depends(gate)):
         if action=='initialize':return JSONResponse({'cfg':cfg if cfg.get('authoring_setup') else initialize(cfg)})
         if action=='policy':return JSONResponse(policy(cfg))
         if action=='apply':return JSONResponse({'cfg':apply(cfg,body.get('patch'))})
+        if action=='reset':return JSONResponse(reset(cfg,body.get('areas')))
         raise ValueError('Unsupported setup action')
     except (ValueError,TypeError) as e:return JSONResponse({'error':str(e)},status_code=422)
 

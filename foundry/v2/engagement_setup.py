@@ -1,13 +1,17 @@
-"""Explicit setup edits with input-dependent protection; never reset an engagement."""
+"""Explicit setup edits with input-dependent protection, plus a deliberate, area-scoped reset."""
 import copy,hashlib,json,math,re,datetime
 
 CHARTERS={'national':'OCC','national_trust':'OCC','state_member':'Federal Reserve + state supervisor','state_nonmember':'FDIC + state supervisor'}
 LABELS={'lending_products':'Lending inputs','deposit_products':'Deposit inputs','obs_exposures':'Fee / off-book inputs','nie_detail':'Operating expenses','cac_feeds':'Customer acquisition','rate_curves':'Manually edited reference curves'}
 FIELDS={'name','state','target_opening','charter_type','cblr_election','periods_per_year','years','initial_capital'}
 
+# Labels and generated identities carry no economics. source_catalog_id is minted by the
+# console the first time a product renders, which used to lock setup on a brand-new engagement.
+_IDENTITY_KEYS={'name','label','memo','description','source_vintage','vintage','retrieved_at','source_catalog_id'}
+
 def _clean(value):
     if isinstance(value,dict):
-        return {k:v for k,x in sorted(value.items()) if not k.startswith('_') and k not in {'name','label','memo','description','source_vintage','vintage','retrieved_at'} and (v:=_clean(x)) not in (None,{},[])}
+        return {k:v for k,x in sorted(value.items()) if not k.startswith('_') and k not in _IDENTITY_KEYS and (v:=_clean(x)) not in (None,{},[])}
     if isinstance(value,list):return [_clean(x) for x in value]
     return value
 
@@ -105,7 +109,7 @@ def policy(cfg):
     reason='Existing inputs protect these structural settings: '+', '.join(labels[:3])+(' and other inputs' if len(labels)>3 else '')+'.' if labels else ''
     if labels and not isinstance(baseline,dict):reason='This existing engagement has model inputs and no creation baseline. Its structural settings are protected.'
     manual=any(isinstance(v,dict) and v.get('edited') for v in ((cfg.get('assumptions') or {}).get('rate_curves') or {}).values())
-    return {'values':values(cfg),'early':not changed,'dependencies':labels,'structural_reason':reason,'extend_reason':'Manual dated anchors are preserved; added periods use the existing curve interpolation and terminal rule.' if manual else '', 'has_baseline':isinstance(baseline,dict),'horizon_dependency':_horizon_dependency(cfg)}
+    return {'areas':reset_areas(cfg,changed),'values':values(cfg),'early':not changed,'dependencies':labels,'structural_reason':reason,'extend_reason':'Manual dated anchors are preserved; added periods use the existing curve interpolation and terminal rule.' if manual else '', 'has_baseline':isinstance(baseline,dict),'horizon_dependency':_horizon_dependency(cfg)}
 
 def _cadence_defaults(a,old,new):
     ratio=old/new
@@ -207,3 +211,115 @@ def apply(cfg,patch):
     # Safe setup edits update the creation baseline, without erasing later authorship.
     if p['early']:out['authoring_setup']={'version':1,'creation_inputs':fingerprints(out)}
     return out
+
+
+# ---- r341: engagement reset -------------------------------------------------
+# A reset deletes authored inputs; it never zeroes them. A zero is still an
+# authored value and still protects setup, which is why "zero everything" did not
+# unlock cadence. Setup fields, pre-opening expenses and published rate data stay.
+RESET_AREAS=(
+    ('lending','Lending','lending_products',('lending_products','loan_allocation_groups')),
+    ('deposits','Deposits','deposit_products',('deposit_products','deposit_retention_pools','account_adoption')),
+    ('fees','Fees and off-book','obs_exposures',('obs_exposures','fee_modules','other_income_model')),
+    ('expenses','Operating expenses','nie_detail',('nie_detail','cost_pools','cac_feeds')),
+    ('funding','Capital raises and borrowings','capital_raises',('capital_raises','scheduled_borrowings')),
+    ('securities','Securities','securities_afs',('securities_afs','securities_htm','managed_securities_portfolios')),
+    ('balances','Other balance sheet','other_assets_model',('fixed_assets','other_assets_model','other_liabilities_model','other_assets_mode','other_liabilities_mode','interest_balances','interest_balance_model','balance_components_model')),
+    ('curves','Edited rate curves','rate_curves',('rate_curves',)),
+)
+_AREA_KEYS={k for *_,keys in RESET_AREAS for k in keys}
+_EMPTY_LIST={'lending_products','deposit_products','obs_exposures','capital_raises','scheduled_borrowings','securities_afs','securities_htm'}
+
+def _edited_curves(a):
+    return [k for k,v in (a.get('rate_curves') or {}).items() if isinstance(v,dict) and v.get('edited') is True]
+
+def _area_count(a,keys):
+    if keys==('rate_curves',):return len(_edited_curves(a))
+    n=0
+    for k in keys:
+        v=a.get(k)
+        if k.endswith('_mode'):continue
+        if isinstance(v,list):n+=len(v)
+        elif k=='nie_detail' and isinstance(v,dict):n+=len(((v.get('workforce') or {}).get('roles')) or [])+len(v.get('categories') or [])
+        elif k in {'other_assets_model','other_liabilities_model','balance_components_model','interest_balance_model'} and isinstance(v,dict):n+=len(v.get('components') or [])
+        elif k=='fixed_assets' and isinstance(v,dict):n+=len(v.get('assets') or [])
+        elif isinstance(v,dict) and _clean(v) not in (None,{},[]):n+=1
+    return n
+
+def reset_areas(cfg,changed=None):
+    a=cfg.get('assumptions') or {}
+    if changed is None:
+        p=policy(cfg);return p['areas']
+    locked=set(changed);out=[]
+    for aid,label,_,keys in RESET_AREAS:
+        present=any(_clean(a.get(k)) not in (None,{},[]) for k in keys if not k.endswith('_mode')) if aid!='curves' else bool(_edited_curves(a))
+        out.append({'id':aid,'label':label,'count':_area_count(a,keys),'present':present,'locks':bool(locked & set(keys))})
+    other=sorted(k for k in locked if k not in _AREA_KEYS)
+    out.append({'id':'other','label':'Other model settings','count':len(other),'present':bool(other),'locks':bool(other),
+                'keys':[k.replace('_',' ') for k in other]})
+    return out
+
+def _sync_modules(cfg):
+    s0=cfg.get('step_0')
+    if not isinstance(s0,dict) or not isinstance(s0.get('modules'),list):return
+    a=cfg.get('assumptions') or {}
+    keep={'balance_driven_deposits':bool(a.get('deposit_products')),'balance_driven_lending':bool(a.get('lending_products')),
+          'mortgage_banking':any(isinstance(p,dict) and p.get('mortgage_banking') for p in a.get('lending_products') or [])}
+    s0['modules']=[m for m in s0['modules'] if keep.get(m,True)]
+
+def reset(cfg,areas):
+    """Delete the selected input areas and move the setup baseline past them.
+
+    'all' clears every area and accepts the remaining scalar settings as the new
+    creation baseline, so setup is editable afterwards. A partial reset only
+    forgets the areas it cleared: inputs that were kept keep protecting setup.
+    """
+    ids={x for x in areas} if isinstance(areas,(list,tuple,set)) else set()
+    valid={aid for aid,*_ in RESET_AREAS}|{'other','all'}
+    if not ids or ids-valid:raise ValueError('Select at least one area to reset')
+    if 'all' in ids:ids=valid-{'all'}
+    out=copy.deepcopy(cfg);a=out.setdefault('assumptions',{})
+    before=policy(cfg);cleared=[]
+    for aid,label,_,keys in RESET_AREAS:
+        if aid not in ids:continue
+        if aid=='curves':
+            rc=a.get('rate_curves')
+            if isinstance(rc,dict):
+                for k in _edited_curves(a):rc.pop(k,None)
+            continue
+        for k in keys:
+            if k in _EMPTY_LIST:a[k]=[]
+            elif k=='fee_modules':a[k]={}
+            else:a.pop(k,None)
+        if aid=='balances':a['other_assets']=a.get('other_assets') or 0;a['other_liabilities']=a.get('other_liabilities') or 0
+        cleared.append(label)
+    _sync_modules(out)
+    current=fingerprints(out)
+    st=cfg.get('authoring_setup') or {}
+    baseline=dict(st.get('creation_inputs') or {}) if st.get('version')==1 and isinstance(st.get('creation_inputs'),dict) else None
+    if baseline is None:
+        # Legacy file without creation evidence: inputs that survive the reset keep protecting.
+        baseline={k:v for k,v in current.items()}
+        for k in current:
+            if k in _AREA_KEYS and _protects_setup(k,a.get(k)):baseline[k]='kept-before-baseline'
+    for aid,_,_,keys in RESET_AREAS:
+        if aid in ids:
+            for k in keys:
+                if k=='rate_curves':
+                    if k in current:baseline[k]=current[k]
+                    else:baseline.pop(k,None)
+                else:baseline.pop(k,None)
+    if 'other' in ids:
+        for k,v in current.items():
+            if k not in _AREA_KEYS:baseline[k]=v
+    out['authoring_setup']={'version':1,'creation_inputs':baseline}
+    from .validate_q import validate_errors_v2
+    def msgs(c):
+        r=[];seen=set()
+        for x in validate_errors_v2(copy.deepcopy(c)):
+            m=x.get('message') if isinstance(x,dict) else str(x);m=m or json.dumps(x,sort_keys=True)
+            if m not in seen:seen.add(m);r.append(m)
+        return r
+    old=set(msgs(cfg));new_errs=[m for m in msgs(out) if m not in old]
+    after=policy(out)
+    return {'cfg':out,'cleared':cleared,'early':after['early'],'was_early':before['early'],'dependencies':after['dependencies'],'new_errors':new_errs[:6]}

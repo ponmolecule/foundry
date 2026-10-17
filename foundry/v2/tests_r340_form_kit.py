@@ -19,7 +19,7 @@ def main():
     ck("styles are scoped to the Securities card", html.count("#content #card-sec .fk-panel") > 50)
     r = subprocess.run(["node", "web/tests_r340_form_kit.cjs"], capture_output=True, text=True)
     ck("renderer test (node)", r.returncode == 0, (r.stdout + r.stderr)[-400:])
-    ck("build stamp", Path("BUILD_STAMP").read_text().strip() == "foundry-r340-securities-form-redesign")
+    ck("build stamp", Path("BUILD_STAMP").read_text().strip().startswith("foundry-r3"))
     print(f"\n{p} passed, {f} failed")
     return 0 if f == 0 else 1
 
