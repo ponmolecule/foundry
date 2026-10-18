@@ -45,7 +45,7 @@ def catalog(a):
     from .settlement_balances import sources as settlement_sources
     for src in settlement_sources(a):
         for measure,label in [('reported_fee_income','Reported fee income'),('fee_product_cost','Direct stream cost'),('net_fee_income','Fee income less direct cost')]:
-            rows.append(dict(series_id=src['series_id']+'.'+measure,stream_id=src['series_id'],measure=measure,label=src['label']+' › '+label,family='Fee income',unit='money_flow',temporal='flow',consumers=['settlement_balance'],driver='fee_stream_economics'))
+            rows.append(dict(series_id=src['series_id']+'.'+measure,stream_id=src['series_id'],measure=measure,label=src['label']+' › '+label,family='Fee income',unit='money_flow',temporal='flow',measures=[],consumers=['settlement_balance'],driver='fee_stream_economics'))
     if a.get('other_liabilities_mode','formula_level')=='formula_level':
         for comp in (a.get('other_liabilities_model') or {}).get('components') or []:
             if comp.get('kind')=='settlement':
