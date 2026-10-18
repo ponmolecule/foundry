@@ -1269,6 +1269,28 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .lfx-legacy details{margin-top:8px}.lfx-legacy details summary{font-size:11.5px;color:var(--t2);cursor:pointer}
 .lfx-legacy .crow label{display:flex;align-items:center;gap:8px;color:var(--t2)}
 .lfx-rib.stale .op,.lfx-rib.stale .k{opacity:.75}
+/* r351: use the full stage width; wide screens get more columns, not wider boxes */
+#content .prd-card:has(.lfx) .fields,#content .prd-card:has(.lfx-st) .fields{max-width:none!important;width:100%!important;display:block!important}
+.lfx,.lfx-st{container-type:inline-size;width:100%}
+.lfx-ro{display:none}
+@container (min-width:1320px){
+  .lfx-b.has-ro{grid-template-columns:220px minmax(0,1fr) 300px}
+  .lfx-ro{display:block;padding:16px 18px;border-left:1px solid #EFEFED;background:#FCFCFB;min-width:0}
+  .lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:240px minmax(0,1fr) 300px}
+}
+.lfx-ro .ro-h{display:flex;justify-content:space-between;align-items:baseline;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
+.lfx-ro .ro-h b{font:500 9.5px var(--mono);letter-spacing:0;color:var(--t4)}
+.lfx-ro .ro-sp{display:block;width:100%;height:54px;margin-top:10px}
+.lfx-ro .ro-ax{position:relative;display:flex;justify-content:space-between;font:500 9.5px var(--mono);color:var(--t4);margin-top:3px}
+.lfx-ro .ro-t{width:100%;border-collapse:collapse;margin-top:10px}
+.lfx-ro .ro-t td{padding:5px 0;border-top:1px solid #EFEFED;font-size:11px;color:var(--t3);font-variant-numeric:tabular-nums}
+.lfx-ro .ro-t td:last-child{text-align:right;color:var(--t1);font-weight:600}
+.lfx-ro .ro-empty{margin-top:8px;font-size:10.5px;color:var(--t4)}
+.lfx-ro.stale .ro-t td:last-child{color:var(--t4)}
+.lfx-ro .ro-ax .rf{position:absolute;transform:translateX(-50%);color:var(--t2)}
+@container (min-width:1320px){.lfx-b.has-ro .lfx-rail .lfx-spark{display:none}}
+.lfx-ro .ro-sep{margin-top:14px}
+.lfx-ro .ro-sep td{border-top:1px solid var(--ln)}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -7237,8 +7259,8 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
       if(_lfx){
         h += `<section class="lfx-s lfx-sted"><div class="lfx-h st"><span class="no">F${_stSel+1}</span><span class="tt">${esc(m.name)}</span><span class="sm">Stream <b>${_stSel+1}</b> of <b>${_stMeta.length}</b></span><span class="lfx-nav"><button type="button" aria-label="Previous stream"${_stSel>0?'':' disabled'} onclick="stSelect(${_fi},${_stSel-1})">‹</button><button type="button" aria-label="Next stream"${_stSel<_stMeta.length-1?'':' disabled'} onclick="stSelect(${_fi},${_stSel+1})">›</button></span><button type="button" class="lfx-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
-        h += `<div class="lfx-b"><div class="lfx-rail"><div class="lfx-steps" role="tablist" aria-label="Stream settings">${TB.map((t,n)=>`<button type="button" role="tab" class="st-tab lfx-step${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')"><span class="d">${n+1}</span><b>${t[1]}</b><i>${t[2]}</i></button>`).join('')}</div></div>`;
-        h += `<div class="lfx-body"><div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div></section>`;
+        h += `<div class="lfx-b has-ro"><div class="lfx-rail"><div class="lfx-steps" role="tablist" aria-label="Stream settings">${TB.map((t,n)=>`<button type="button" role="tab" class="st-tab lfx-step${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')"><span class="d">${n+1}</span><b>${t[1]}</b><i>${t[2]}</i></button>`).join('')}</div></div>`;
+        h += `<div class="lfx-body"><div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div>${_lfxLiveHtml('sro',+_fi-1000,_stSel)}</div></section>`;
       } else {
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
@@ -7313,8 +7335,23 @@ function _lfxN(path,unit,suffix){return `<div class="lfx-in">${numInput(path,uni
 function _lfxRaw(input,suffix,pre){return `<div class="lfx-in${pre?' pre':''}">${pre?`<i>${pre}</i>`:''}${input}${suffix?`<i>${suffix}</i>`:''}</div>`;}
 function _lfxSel(inner){return `<div class="lfx-sel">${inner}</div>`;}
 function _lfxOut(v,suffix){return `<div class="lfx-out">${v}${suffix?`<i>${suffix}</i>`:''}</div>`;}
-function _lfxSecHtml(p,i,id,no,title,summary,rail,body){const open=_lfxIsOpen(p,id);
-  return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}')"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>${open?`<div class="lfx-b"><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div></div>`:''}</section>`;}
+function _lfxSecHtml(p,i,id,no,title,summary,rail,body){const open=_lfxIsOpen(p,id),ro=_LFX_RO[id]?_lfxLiveHtml('ro-'+id,i):'';
+  return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}')"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>${open?`<div class="lfx-b${ro?' has-ro':''}"><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div>${ro}</div>`:''}</section>`;}
+// Engine readouts beside each section on wide screens: the run's own series, never client arithmetic.
+const _LFX_RO={vol:1,exp:1,cred:1,price:1,fees:1,acct:1};
+function _lfxSparkSvg(arr,ref){const a=(arr||[]).map(x=>+x||0);if(a.length<2)return '';const mx=Math.max(...a),mn=Math.min(0,...a),rg=(mx-mn)||1,W=260,H=54;
+  const pt=(v,k)=>[(k/(a.length-1)*W).toFixed(1),(H-2-(v-mn)/rg*(H-6)).toFixed(1)];const pts=a.map(pt).map(x=>x.join(',')).join(' ');const r=pt(a[ref-1]||0,ref-1);
+  return `<svg class="ro-sp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${H} ${pts} ${W},${H}" fill="#F5ECDD"/><polyline points="${pts}" fill="none" stroke="#C9A25A" stroke-width="1.5" vector-effect="non-scaling-stroke"/><line x1="${r[0]}" x2="${r[0]}" y1="0" y2="${H}" stroke="#2C2C2C" stroke-width="1" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>`;}
+function _lfxRoHtml(id,p,C){const P=C.P,ref=C.ref,n=P&&P.fundedVolume?P.fundedVolume.length:0,per=_lfxPer(),Q=_lfxQ,sum=a=>a?a.reduce((x,y)=>x+(+y||0),0):null,at=(a,t)=>a&&a[t-1]!=null?+a[t-1]:null,end=n;
+  if(!P)return `<div class="ro-h">Engine results</div><div class="ro-empty">Appear after the next complete run.</div>`;
+  const pick={vol:['Funded flow',P.fundedVolume,[['Funded · '+Q(1),at(P.fundedVolume,1)],['Funded · '+Q(ref),at(P.fundedVolume,ref)],['Funded · '+Q(end),at(P.fundedVolume,end)],['Total funded, '+Q(1)+'–'+Q(end),sum(P.fundedVolume)]]],
+    exp:['Retained balance',(P.bal||[]).slice(1),[['Outstanding · '+Q(ref),at(P.calculatedOutstanding,ref)],['Retained · '+Q(ref),P.bal?+P.bal[ref]:null],['Retained · '+Q(Math.min(12,end)),P.bal?+P.bal[Math.min(12,end)]:null],['Retained · '+Q(end),P.bal?+P.bal[end]:null]]],
+    cred:['Allowance (ALLL)',P.alll,[['Charge-offs · '+Q(ref),at(P.co,ref)],['Charge-offs, '+Q(1)+'–'+Q(end),sum(P.co)],['ALLL · '+Q(ref),at(P.alll,ref)],['ALLL · '+Q(end),at(P.alll,end)]]],
+    price:['Interest income',P.interest,[['Yield · '+Q(1),P.rateQ&&P.rateQ[0]!=null?(+P.rateQ[0]).toFixed(2)+'%':null],['Yield · '+Q(end),P.rateQ&&P.rateQ[end-1]!=null?(+P.rateQ[end-1]).toFixed(2)+'%':null],['Interest · '+Q(ref),at(P.interest,ref)],['Interest, '+Q(1)+'–'+Q(end),sum(P.interest)]]],
+    fees:['Fee income',P.fees,[['Fees · '+Q(ref),at(P.fees,ref)],['Fees · '+Q(end),at(P.fees,end)],['Fees, '+Q(1)+'–'+Q(end),sum(P.fees)],['Direct cost, '+Q(1)+'–'+Q(end),sum(P.passCost)]]],
+    acct:['Operating cost',P.opex,[['Op cost · '+Q(ref),at(P.opex,ref)],['Op cost · '+Q(end),at(P.opex,end)],['Op cost, '+Q(1)+'–'+Q(end),sum(P.opex)],['Opening balance',P.bal?+P.bal[0]:null]]]}[id];
+  if(!pick)return '';
+  return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div>${_lfxSparkSvg(pick[1],ref)}<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<end?`<span class="rf" style="left:${((ref-1)/Math.max(1,end-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(end)}</span></div><table class="ro-t">${pick[2].map(([k,v])=>`<tr><td>${k}</td><td>${typeof v==='string'?v:_lfxAmt(v)}</td></tr>`).join('')}</table>${C.stale?'<div class="ro-empty">Last complete run.</div>':''}`;}
 function _lfxRes(){const bad=!!(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length);if(lastRes&&lastRes.products){if(!bad)window._lfxLast={cfg:cfg,res:lastRes};return {res:lastRes,stale:bad};}
   if(window._lfxLast&&window._lfxLast.cfg===cfg)return {res:window._lfxLast.res,stale:true};return {res:null,stale:false};}
 function _lfxRef(p,P){const fd=p.funded_flow_driver||{},src=(fd.input_stage||'funded_volume')==='source_activity';
@@ -7325,6 +7362,14 @@ function _lfxSpark(arr,ref){if(!arr||!arr.length)return '';const a=arr.slice(0,1
 
 function _lfxCtx(p){const {res,stale}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null;return {res,stale,P,ref:_lfxRef(p,P)};}
 function _lfxLiveHtml(kind,i,j){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';const C=_lfxCtx(p),P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
+  if(kind==='sro'){const st=(p.fee_streams||[])[j]||{},dr=st.driver||{},fpx=(dr.params||{}).flow_path||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],n=q?q.length:0;
+    const money=st.basis==='balance'||['product_funded_flow','distributed_balance'].includes(dr.source)||fpx.unit_kind==='money_flow',sc=v=>v==null?null:(money?v/1000:v),fmt=v=>v==null?'—':(money?_lfxAmt(v):Math.round(v).toLocaleString('en-US')),u=money?'$000s':'units',Q=_lfxQ;
+    let b=`<div class="ro-h"><span>Driver quantity</span><b>${u}</b></div>`;
+    if(!q)b+=`<div class="ro-empty">${C.P?'This stream has no quantity series in the latest run.':'Appears after the next complete run.'}</div>`;
+    else{const a=q.map(x=>sc(+x||0)),tot=a.reduce((x,y)=>x+y,0);b+=_lfxSparkSvg(a,ref)+`<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<n?`<span class="rf" style="left:${((ref-1)/Math.max(1,n-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(n)}</span></div><table class="ro-t">${[['Driver · '+Q(1),a[0]],['Driver · '+Q(ref),a[ref-1]],['Driver · '+Q(n),a[n-1]],['Total, '+Q(1)+'–'+Q(n),tot]].map(([k,v])=>`<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join('')}</table>`;}
+    const fees=C.P&&C.P.fees;if(fees)b+=`<table class="ro-t ro-sep"><tr><td>Product fees · ${Q(ref)}</td><td>${_lfxAmt(fees[ref-1])}</td></tr></table>`;
+    return `${A('sro','aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Stream results">${b}</aside>`;}
+  if(kind.slice(0,3)==='ro-')return `${A(kind,'aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Engine results">${_lfxRoHtml(kind.slice(3),p,C)}</aside>`;
   if(kind==='strip')return `${A('strip','div')}>${_lfxStripHtml(p,i)}</div>`;
   if(kind==='spark')return `${A('spark','div')}>${_lfxSpark(P&&P.fundedVolume,ref)}</div>`;
   if(kind==='full'){const fv=P&&P.fundedVolume?P.fundedVolume[t]:null;return `${A('full','div')} class="lfx-out">${_lfxAmt(fv)}<i>$000s / ${per} · ${_lfxQ(ref)}</i></div>`;}

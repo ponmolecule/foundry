@@ -15,6 +15,8 @@ ck('engine figures refresh in place after each run',"if(typeof refreshLfxLive===
 ck('strip reads engine product series, not client arithmetic',all(k in H for k in ('P.fundedVolume','P.calculatedOutstanding','P.interestBasis','P.rateQ')))
 ck('sections: open graphite, collapsed light',".lfx-s.c .lfx-h{background:#F7F7F6" in H and ".lfx-h{display:flex" in H)
 ck('styles are scoped to the flow-lending layout',not re.search(r'\n\.(?:fld|st-body|prd-card)\s*\{',H.split('/* ===== r350')[1].split('</style>')[0]))
+ck('r351: layout uses the full stage width (1180px cap lifted for flow lending)','#content .prd-card:has(.lfx) .fields' in H and 'max-width:none!important' in H)
+ck('r351: wide screens add an engine readout column instead of stretching fields','@container (min-width:1320px)' in H and "_lfxLiveHtml('sro'" in H and 'const _LFX_RO=' in H)
 ck('build stamp',(ROOT/'BUILD_STAMP').read_text().strip().startswith('foundry-r3'))
 r=subprocess.run(['node',str(ROOT/'web/tests_r350_flow_lending_ui.cjs')],capture_output=True,text=True)
 ck('renderer test (node)',r.returncode==0)
