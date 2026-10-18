@@ -7397,6 +7397,7 @@ function syncModules(){
   const mods = [];
   if((cfg.assumptions.deposit_products||[]).length) mods.push("balance_driven_deposits");
   if((cfg.assumptions.lending_products||[]).length) mods.push("balance_driven_lending");
+  if((cfg.assumptions.obs_exposures||[]).length) mods.push("balance_driven_obs");
   if((cfg.assumptions.lending_products||[]).some(p=>p.mortgage_banking)) mods.push("mortgage_banking");
   cfg.step_0.modules = mods;
 }
