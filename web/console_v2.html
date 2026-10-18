@@ -1053,6 +1053,222 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .ers-card .s{max-width:78ch;line-height:1.55;margin-top:4px}
 .eset-reset{margin-left:auto}
 @media(max-width:600px){.ers-row{grid-template-columns:18px 1fr auto}.ers-row .ers-lock{grid-column:2/4;justify-self:start}.ers-free{display:none}}
+
+/* ===== r350: flow-based lending, industrial setup and fee streams ===== */
+.lfx,.lfx-st{--g:#2C2C2C;--gold:#DFB367;--goldd:#8F6B30;--wash:#F5ECDD;--ln:#D8D8D8;--ln2:#C4C4C4;--t1:#2A2A2A;--t2:#4A4A4A;--t3:#6B6B66;--t4:#96928C;font-size:12.5px;color:var(--t1);font-family:var(--k-font,inherit)}
+.lfx *,.lfx-st *{box-sizing:border-box}
+.prd-card:has(.lfx){padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.prd-card:has(.lfx) .product-card{border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;margin:0!important}
+.prd-card:has(.lfx) .product-card>.fields{padding:0!important;display:block!important}
+.lfx button{font-family:inherit}
+/* identity */
+.lfx-id{display:flex;align-items:flex-end;gap:16px;margin:2px 0 14px;flex-wrap:wrap}
+.lfx-id .lfx-f.nm{flex:0 1 360px;min-width:240px}
+.lfx-chips{margin-left:auto;display:flex;gap:6px;flex-wrap:wrap}
+.lfx-chip{font-size:10.5px;color:var(--t2);background:#fff;border:1px solid var(--ln);border-radius:99px;padding:4px 10px;white-space:nowrap;cursor:pointer}
+.lfx-chip b{font-weight:600;color:var(--t1)}
+.lfx-chip:hover{border-color:var(--ln2)}
+.lfx-chip.w{background:var(--wash);border-color:#E9D3AC;color:var(--goldd)}
+.lfx-chip.w b{color:var(--goldd)}
+/* calculation strip */
+.lfx-rib{background:#fff;border:1px solid var(--ln);border-radius:6px;display:grid;overflow:hidden;margin-bottom:16px}
+.lfx-rib .n{position:relative;display:flex;flex-direction:column;align-items:flex-start;text-align:left;padding:12px 16px 13px;border:0;border-right:1px solid #ECECEA;background:#fff;cursor:pointer;min-width:0}
+.lfx-rib .n:hover{background:#FCFBF8}
+.lfx-rib .n:not(.tot):after{content:"";position:absolute;right:-6px;top:50%;width:10px;height:10px;background:inherit;border-top:1px solid #ECECEA;border-right:1px solid #ECECEA;transform:translateY(-50%) rotate(45deg);z-index:1}
+.lfx-rib .n.tot{border-right:0;background:var(--g);color:#F5F5F3;cursor:default}
+.lfx-rib .k{font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4);white-space:nowrap}
+.lfx-rib .tot .k{color:var(--gold)}
+.lfx-rib .v{font:600 19px/1.15 var(--k-disp,inherit);margin-top:5px;font-variant-numeric:tabular-nums;letter-spacing:-.01em;color:var(--t1);white-space:nowrap}
+.lfx-rib .tot .v{color:#fff}
+.lfx-rib .v small{font:500 10.5px var(--k-font,inherit);color:var(--t3);margin-left:4px;letter-spacing:0}
+.lfx-rib .tot .v small{color:#B9B9B4}
+.lfx-rib .op{font-size:10.5px;color:var(--t3);margin-top:3px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.lfx-rib .op i{font-style:normal;color:var(--goldd);font-weight:600}
+.lfx-rib .tot .op{color:#B9B9B4}.lfx-rib .tot .op i{color:var(--gold)}
+.lfx-rib.stale .v{color:var(--t4)}.lfx-rib.stale .tot .v{color:#B9B9B4}
+.lfx-ribcap{display:flex;justify-content:space-between;gap:12px;font-size:10.5px;color:var(--t4);margin:-10px 2px 16px}
+/* sections */
+.lfx-s{background:#fff;border:1px solid var(--ln);border-radius:6px;margin-bottom:12px;overflow:hidden}
+.lfx-h{display:flex;align-items:center;gap:12px;width:100%;height:38px;padding:0 16px;background:var(--g);color:#F5F5F3;border:0;cursor:pointer;text-align:left}
+.lfx-h .no{font:600 10.5px var(--mono);color:var(--gold);letter-spacing:.04em;min-width:16px}
+.lfx-h .tt{font:600 13px var(--k-disp,inherit);white-space:nowrap}
+.lfx-h .sm{margin-left:auto;font-size:11px;color:#B9B9B4;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lfx-h .sm b{color:#F5F5F3;font-weight:600}
+.lfx-h .cv{width:16px;text-align:center;color:#B9B9B4;font-size:10px;flex:none}
+.lfx-h:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.lfx-s.c .lfx-h{background:#F7F7F6;color:var(--t1)}
+.lfx-s.c .lfx-h:hover{background:#F1F0EE}
+.lfx-s.c .lfx-h .no{color:var(--goldd)}.lfx-s.c .lfx-h .sm{color:var(--t3)}.lfx-s.c .lfx-h .sm b{color:var(--t1)}.lfx-s.c .lfx-h .cv{color:var(--t3)}
+.lfx-b{display:grid;grid-template-columns:208px minmax(0,1fr)}
+.lfx-rail{padding:16px 18px;border-right:1px solid #EFEFED;background:#FCFCFB}
+.lfx-rail p{margin:0;font-size:11.5px;line-height:1.55;color:var(--t3)}
+.lfx-rail .fx{margin-top:12px;font:500 10.5px/1.6 var(--mono);color:var(--t2);background:#fff;border:1px solid #ECECEA;border-left:2px solid var(--gold);border-radius:3px;padding:7px 9px}
+.lfx-body{padding:16px 20px 18px;min-width:0}
+.lfx-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px 18px}
+.lfx-grid+.lfx-grid{margin-top:14px;padding-top:14px;border-top:1px dashed #E6E6E3}
+.lfx-grid:empty{display:none}
+.lfx-f{display:flex;flex-direction:column;gap:5px;min-width:0}
+.lfx-f.s2,.lfx-note.s2{grid-column:span 2}.lfx-f.s3{grid-column:span 3}.lfx-f.s4,.lfx-note.s4{grid-column:1/-1}
+.lfx-f>label{font-size:11px;font-weight:500;color:var(--t2);display:flex;align-items:center;gap:6px;white-space:nowrap;margin:0;text-transform:none;letter-spacing:0}
+.lfx-f>label .q{width:13px;height:13px;border-radius:50%;border:1px solid var(--ln2);font:600 8.5px/11px var(--k-font,inherit);color:var(--t4);text-align:center;cursor:help}
+.lfx-f.lfx-act{justify-content:flex-end;align-items:flex-start;padding-bottom:8px}
+/* controls */
+.lfx-in{display:flex;align-items:center;height:32px;border:1px solid var(--ln2);border-radius:4px;background:#fff;transition:border-color .12s,box-shadow .12s;min-width:0}
+.lfx-in:focus-within{border-color:var(--g);box-shadow:0 0 0 3px rgba(223,179,103,.28)}
+.lfx .lfx-in input,.lfx-st .lfx-in input{flex:1;min-width:0;width:auto!important;height:30px!important;border:0!important;outline:0!important;box-shadow:none!important;background:transparent!important;border-radius:0!important;margin:0!important;padding:0 8px 0 10px!important;font:500 12.5px var(--k-font,inherit)!important;color:var(--t1)!important;text-align:right;font-variant-numeric:tabular-nums;-moz-appearance:textfield}
+.lfx .lfx-in input::-webkit-inner-spin-button,.lfx .lfx-in input::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.lfx .lfx-in.tx input{text-align:left}
+.lfx .lfx-in.pre input{padding:0 10px 0 6px!important}
+.lfx-in i{font-style:normal;font-size:10.5px;color:var(--t4);padding:0 10px 0 0;white-space:nowrap;flex:none}
+.lfx-in.pre i:first-child{padding:0 0 0 10px}
+.lfx-sel{position:relative;min-width:0}
+.lfx-sel select{width:100%!important;max-width:none!important;height:32px!important;border:1px solid var(--ln2)!important;border-radius:4px!important;background:#fff!important;padding:0 30px 0 10px!important;font:400 12.5px var(--k-font,inherit)!important;color:var(--t1)!important;-webkit-appearance:none;appearance:none;margin:0!important;box-shadow:none!important;cursor:pointer}
+.lfx-sel select:focus{outline:0;border-color:var(--g)!important;box-shadow:0 0 0 3px rgba(223,179,103,.28)!important}
+.lfx-sel:after{content:"";position:absolute;right:12px;top:12px;width:6px;height:6px;border-right:1.5px solid var(--t3);border-bottom:1.5px solid var(--t3);transform:rotate(45deg);pointer-events:none}
+.lfx-seg{display:flex;height:32px;border:1px solid var(--ln2);border-radius:4px;overflow:hidden;background:#fff;min-width:0}
+.lfx-seg button{flex:1 1 0;min-width:0;display:flex;align-items:center;justify-content:center;font-size:11.5px;color:var(--t2);border:0;border-right:1px solid #E4E4E1;background:#fff;white-space:nowrap;padding:0 8px;cursor:pointer;overflow:hidden;text-overflow:ellipsis}
+.lfx-seg button:last-child{border-right:0}
+.lfx-seg button:hover:not(.on){background:#F7F7F5}
+.lfx-seg button.on{background:var(--g);color:#fff;font-weight:600;box-shadow:inset 0 -2px 0 var(--gold);cursor:default}
+.lfx-seg button:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+.lfx-out{display:flex;align-items:center;justify-content:flex-end;height:32px;padding:0 10px;border-radius:4px;background:#F7F4EE;border:1px solid #EFE6D6;font:600 12.5px var(--k-font,inherit);font-variant-numeric:tabular-nums;color:var(--t1);white-space:nowrap;overflow:hidden}
+.lfx-out i{font-style:normal;font-weight:400;font-size:10.5px;color:var(--t4);margin-left:6px}
+.lfx-note{font-size:11px;color:var(--t3);margin-top:12px;display:flex;gap:8px;align-items:baseline;line-height:1.5}
+.lfx-grid .lfx-note{margin-top:0}
+.lfx-note .dot{width:6px;height:6px;border-radius:50%;background:var(--gold);flex:none;transform:translateY(-1px)}
+.lfx-lnk{font-size:11.5px;color:var(--goldd);font-weight:600;white-space:nowrap;background:none;border:0;padding:0;cursor:pointer;text-decoration:none}
+.lfx-lnk:hover{text-decoration:underline}
+.lfx-lnk.neg{color:#A5432F}
+.lfx-f>label .lfx-lnk{font-size:10.5px;margin-left:auto}
+.lfx-btn{height:28px;padding:0 12px;border:1px solid var(--ln2);border-radius:4px;background:#fff;font-size:11.5px;color:var(--t1);cursor:pointer;white-space:nowrap}
+.lfx-btn.dk{background:var(--g);color:#fff;border-color:var(--g)}
+.lfx-btn:disabled{opacity:.45;cursor:default}
+.lfx-drawer{border:1px solid #E7D5B2;background:#FFFBF3;border-radius:4px;padding:10px}
+.lfx-drawer textarea{width:100%;min-height:58px;border:1px solid var(--ln2);border-radius:4px;padding:8px 10px;font:12px var(--mono);background:#fff;resize:vertical}
+.lfx-drawer-a{display:flex;align-items:center;gap:8px;margin-top:8px;flex-wrap:wrap}
+.lfx-drawer-a .explicit-preview,.lfx-drawer-a>div:not(.lfx-btn){flex:1;min-width:120px}
+.lfx-sched{display:flex;align-items:center;gap:12px;height:32px;font-size:11.5px;color:var(--t3)}
+.lfx-dim{font-size:10.5px;color:var(--t4)}
+/* spark */
+.lfx-spark{margin-top:12px}
+.lfx-spark .hd{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:var(--t3)}
+.lfx-spark .hd b{color:var(--t1);font-weight:600;white-space:nowrap}
+.lfx-spark .bars{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:7px}
+.lfx-spark .bars i{flex:1;background:#E9D3AC;border-radius:1.5px 1.5px 0 0}
+.lfx-spark .bars i.f{background:var(--gold)}
+.lfx-spark .ax{display:flex;justify-content:space-between;font:500 9.5px var(--mono);color:var(--t4);margin-top:4px}
+/* fee ledger */
+.lfx-tbl{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--ln);border-radius:5px;overflow:hidden;table-layout:auto}
+.lfx-tbl th{font-size:9.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--t4);text-align:left;padding:9px 12px;background:#FAFAF9;border-bottom:1px solid var(--ln)}
+.lfx-tbl td{padding:8px 12px;border-bottom:1px solid #EFEFED;vertical-align:middle;font-variant-numeric:tabular-nums}
+.lfx-tbl tbody tr:last-child td{border-bottom:0}
+.lfx-tbl td.ix{font:600 10.5px var(--mono);color:var(--goldd);width:34px}
+.lfx-tbl td.nm b{font-weight:600}
+.lfx-tbl td.nm span{display:block;font-size:10.5px;color:var(--t4);margin-top:2px}
+.lfx-tbl td.rt{width:230px}
+.lfx-tbl td.rt .lfx-in{width:150px;margin-left:auto}
+.lfx-tbl td.act{width:40px;text-align:right}
+.lfx-tbl tr.lfx-subrow td{background:#FCFBF8;padding:10px 12px 12px}
+.lfx-tbl tfoot td{background:#FAFAF9;border-top:1px solid var(--ln);font-size:11px;color:var(--t3)}
+.lfx-tbl tfoot td.tot{text-align:right;font-weight:600;color:var(--t1);font-size:12.5px}
+.lfx-tbl tfoot td.tot i{font-style:normal;font-weight:400;font-size:10.5px;color:var(--t4)}
+.lfx-pill{display:inline-block;font-size:10.5px;padding:3px 8px;border-radius:99px;background:#F3F3F1;color:var(--t2);white-space:nowrap}
+.lfx-x{width:24px;height:24px;border:1px solid transparent;border-radius:4px;background:none;color:var(--t4);font-size:15px;line-height:1;cursor:pointer}
+.lfx-x:hover{border-color:#E7C4B9;color:#A5432F;background:#FDF5F2}
+.lfx-adds{display:flex;gap:8px;margin-top:12px;align-items:center;flex-wrap:wrap}
+.lfx-adds .sp{flex:1}
+.lfx-add{height:30px;display:flex;align-items:center;gap:6px;padding:0 12px;border:1px dashed #CDB27E;border-radius:4px;color:var(--goldd);font-size:11.5px;font-weight:600;background:#FFFCF6;cursor:pointer}
+.lfx-add:hover:not(:disabled){border-style:solid;background:#FFF8EA}
+.lfx-add:disabled{opacity:.45;cursor:not-allowed}
+.lfx-empty{padding:14px 16px;border:1px dashed var(--ln2);border-radius:5px;font-size:11.5px;color:var(--t3);background:#FCFCFB}
+.lfx-warn{margin-top:12px;padding:9px 12px;border-radius:4px;background:var(--wash);border:1px solid #EAD6AF;font-size:11.5px;color:#6B4F1E;line-height:1.5}
+.lfx-foot{display:flex;justify-content:space-between;margin:4px 2px 0;font-size:11px;color:var(--t4)}
+/* legacy sub-editors reused inside the kit */
+.lfx-legacy{font-size:12px}
+.lfx-legacy select,.lfx-legacy input[type=text],.lfx-legacy input[type=number],.lfx-legacy input:not([type]){height:30px;border:1px solid var(--ln2);border-radius:4px;background:#fff;padding:0 8px;font:12px var(--k-font,inherit);color:var(--t1)}
+.lfx-legacy .sec-managed-series-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.lfx-legacy .sec-book-label{font-size:11px;font-weight:500;color:var(--t2);text-transform:none;letter-spacing:0}
+.lfx-legacy .sec-book-unit{font-size:10.5px;color:var(--t4)}
+.lfx-legacy .fld{margin:0 0 10px}
+.lfx-legacy .fld label{font-size:11px;font-weight:500;color:var(--t2)}
+.lfx-legacy .pillbtn{height:28px;padding:0 10px;border:1px solid var(--ln2);border-radius:4px;background:#fff;font-size:11px;cursor:pointer}
+.lfx-mini .sec-book-label{display:none}
+.lfx-mini .sec-managed-series-row{justify-content:flex-end}
+.lfx-mini input{width:90px;text-align:right}
+@media (max-width:1180px){.lfx-b{grid-template-columns:1fr}.lfx-rail{border-right:0;border-bottom:1px solid #EFEFED;display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap}.lfx-rail .fx,.lfx-spark{margin-top:0}.lfx-rail p{flex:1 1 260px}}
+@media (max-width:900px){.lfx-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.lfx-f.s3{grid-column:1/-1}.lfx-rib{grid-template-columns:repeat(2,minmax(0,1fr))!important}.lfx-rib .n{border-bottom:1px solid #ECECEA}.lfx-rib .n:after{display:none}.lfx-chips{margin-left:0}}
+/* fee streams tab */
+.prd-card[data-pp-tab="streams"]:has(.lfx-st){padding:0!important;border:0!important;background:transparent!important;box-shadow:none!important}
+.prd-card:has(.lfx-st) .product-card{border:0!important;background:transparent!important;box-shadow:none!important;padding:0!important;margin:0!important}
+.prd-card:has(.lfx-st) .product-card>.fields{padding:0!important;display:block!important}
+.lfx-st{grid-column:1/-1}
+.lfx-h.st{cursor:default}
+.lfx-h .lfx-nav{display:flex;gap:4px;margin-left:12px;flex:none}
+.lfx-h .lfx-nav button{width:24px;height:24px;border:1px solid #4A4A48;border-radius:3px;background:transparent;color:#D8D8D4;font-size:13px;line-height:1;cursor:pointer}
+.lfx-h .lfx-nav button:disabled{opacity:.35;cursor:default}
+.lfx-h .lfx-nav button:hover:not(:disabled){border-color:var(--gold);color:var(--gold)}
+.lfx-h .lfx-rm{height:24px;padding:0 10px;border:1px solid #6B4A3E;border-radius:3px;background:transparent;color:#E9A58F;font-size:11px;margin-left:10px;cursor:pointer;flex:none}
+.lfx-h .lfx-rm:hover{background:#3A2D29}
+.lfx-stlist{padding:14px 16px 16px}
+.lfx-st .st-chain{border:1px solid var(--ln);border-radius:5px;margin-bottom:12px}
+.lfx-st .st-list{border:1px solid var(--ln);border-radius:5px;overflow:hidden}
+.lfx-st .st-list table.cfg-grid{width:100%;border-collapse:separate;border-spacing:0}
+.lfx-st .st-list thead th{font-size:9.5px!important;font-weight:700!important;letter-spacing:.07em;text-transform:uppercase;color:var(--t4)!important;background:#FAFAF9!important;padding:9px 12px!important;border-bottom:1px solid var(--ln)!important;text-align:left}
+.lfx-st .st-list thead th.num{text-align:right}
+.lfx-st .st-list tbody td{padding:10px 12px!important;border-bottom:1px solid #EFEFED!important;font-size:12.5px;vertical-align:middle}
+.lfx-st .st-list tbody tr:last-child td{border-bottom:0!important}
+.lfx-st .st-list tbody tr.sel td{background:#FFFBF3!important}
+.lfx-st .st-list tbody tr.sel td:first-child{box-shadow:inset 3px 0 0 var(--gold)!important}
+.lfx-st .st-list td.name{font-weight:600}
+.lfx-st .st-foot{background:#FAFAF9;border-top:1px solid var(--ln);padding:9px 12px;font-size:11px;color:var(--t3)}
+.lfx-st .lfx-sted .lfx-b{grid-template-columns:220px minmax(0,1fr)}
+.lfx-steps{display:flex;flex-direction:column;gap:2px;margin:-4px -6px 0}
+.lfx-step{display:grid!important;grid-template-columns:22px minmax(0,1fr);gap:2px 9px;align-items:center;padding:9px 10px!important;border:0;border-radius:4px;background:transparent;text-align:left;cursor:pointer;width:100%}
+.lfx-step::after{display:none!important}
+.lfx-step:hover:not(.on){background:#F3F2EF}
+.lfx-step .d{grid-row:span 2;width:20px;height:20px;border-radius:50%;border:1px solid var(--ln2);font:600 10px/18px var(--mono);text-align:center;color:var(--t3);background:#fff}
+.lfx-step b{font-size:12px;font-weight:600;color:var(--t1)}
+.lfx-step i{font-style:normal;font-size:10.5px;color:var(--t4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.lfx-step.on{background:var(--g)!important}
+.lfx-step.on b{color:#fff}.lfx-step.on i{color:#B9B9B4}
+.lfx-step.on .d{background:var(--gold);border-color:var(--gold);color:var(--g)}
+.lfx-step:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+.lfx-st .st-body{padding:0!important;gap:14px 18px!important;grid-template-columns:repeat(2,minmax(0,1fr))!important}
+.lfx-st .st-body .fld{margin:0!important;min-width:0}
+.lfx-st .st-body .fld>label,.lfx-st .st-body label.wf-field .wf-field-label{font-size:11px!important;font-weight:500!important;color:var(--t2)!important;text-transform:none!important;letter-spacing:0!important;margin:0 0 5px!important;display:block}
+.lfx-st .st-body select{height:32px!important;border:1px solid var(--ln2)!important;border-radius:4px!important;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%236B6B66' stroke-width='1.5'/%3E%3C/svg%3E") no-repeat right 11px center!important;padding:0 30px 0 10px!important;font:400 12.5px var(--k-font,inherit)!important;color:var(--t1)!important;-webkit-appearance:none;appearance:none;box-shadow:none!important;max-width:100%}
+.lfx-st .st-body input[type=text],.lfx-st .st-body input[type=number],.lfx-st .st-body input:not([type]){height:32px!important;border:1px solid var(--ln2)!important;border-radius:4px!important;background:#fff!important;padding:0 10px!important;font:500 12.5px var(--k-font,inherit)!important;color:var(--t1)!important;box-shadow:none!important;font-variant-numeric:tabular-nums}
+.lfx-st .st-body select:focus,.lfx-st .st-body input:focus{outline:0!important;border-color:var(--g)!important;box-shadow:0 0 0 3px rgba(223,179,103,.28)!important}
+.lfx-st .st-body input[type=checkbox]{accent-color:var(--g)}
+.lfx-st .st-body details{border-top:1px solid #EFEFED;padding-top:10px;grid-column:1/-1}
+.lfx-st .st-body details summary{font-size:11.5px;color:var(--t2);cursor:pointer}
+.lfx-st .st-body .memo,.lfx-st .st-body .fhint,.lfx-st .st-body .chint{font-size:11px!important;color:var(--t3)!important;line-height:1.5}
+.lfx-st .st-body .pillbtn,.lfx-st .st-body .btn-plain{height:28px;padding:0 10px;border:1px solid var(--ln2);border-radius:4px;background:#fff;font-size:11px}
+.lfx-tiles{display:grid!important;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;padding:14px 16px 16px;margin:0!important}
+.lfx-tiles .fee-basis-tile{position:relative;min-width:0}
+.lfx-tiles .fee-add{display:grid!important;grid-template-columns:30px minmax(0,1fr);gap:2px 10px;align-items:center;width:100%;height:auto!important;padding:11px 12px!important;border:1px solid var(--ln)!important;border-radius:5px!important;background:#fff!important;text-align:left;cursor:pointer}
+.lfx-tiles .fee-add:hover{border-color:var(--gold)!important;box-shadow:inset 0 2px 0 var(--gold)}
+.lfx-tiles .fa-ic{grid-row:span 2;width:30px;height:30px;border-radius:5px;background:var(--wash);border:1px solid #EAD6AF;display:flex;align-items:center;justify-content:center;color:var(--goldd)}
+.lfx-tiles .fa-ic svg{width:15px;height:15px}
+.lfx-tiles .fa-t{display:flex;flex-direction:column;min-width:0}
+.lfx-tiles .fa-t b{font-size:12px;font-weight:600;color:var(--t1)}
+.lfx-tiles .fa-t small{font-size:10.5px;color:var(--t4);line-height:1.35;white-space:normal}
+.lfx-tiles .fa-plus{display:none}
+.lfx-tiles .fee-basis-info{position:absolute;top:6px;right:6px;width:16px;height:16px;border-radius:50%;border:1px solid var(--ln2);background:#fff;font:600 9px/14px var(--k-font,inherit);color:var(--t4);padding:0}
+@media (max-width:1180px){.lfx-tiles{grid-template-columns:repeat(3,minmax(0,1fr))}.lfx-st .lfx-sted .lfx-b{grid-template-columns:1fr}.lfx-steps{flex-direction:row;flex-wrap:wrap}.lfx-step{width:auto}}
+.lfx-tiles{align-items:stretch}
+.prd-card .lfx-tiles .fee-basis-tile .btn-plain.fee-add{min-height:0!important;height:100%!important;padding:11px 28px 11px 12px!important;gap:2px 10px!important;grid-template-columns:30px minmax(0,1fr)!important}
+.prd-card .lfx-tiles .fee-basis-info{top:7px;right:7px;width:16px;height:16px;font-size:9px;border-radius:50%}
+.lfx-legacy .sec-managed-series{background:none!important;border:0!important;padding:0!important;margin:0!important}
+.lfx-legacy .sec-managed-series-row{gap:8px}
+.lfx-legacy .sec-managed-series-row select{min-width:96px}
+.lfx-legacy .sec-managed-series-row input{width:120px;text-align:right}
+.lfx-legacy>.fld.wide{border:1px solid #ECECEA!important;border-radius:5px!important;padding:14px 16px!important;background:#FCFCFB}
+.lfx-legacy>.fld.wide>b{display:block;font-size:12px;font-weight:600;margin-bottom:4px}
+.lfx-legacy textarea{width:100%;border:1px solid var(--ln2);border-radius:4px;padding:8px 10px;font:12px var(--mono);background:#fff}
+.lfx-legacy details{margin-top:8px}.lfx-legacy details summary{font-size:11.5px;color:var(--t2);cursor:pointer}
+.lfx-legacy .crow label{display:flex;align-items:center;gap:8px;color:var(--t2)}
+.lfx-rib.stale .op,.lfx-rib.stale .k{opacity:.75}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -6648,6 +6864,7 @@ function _stOwner(i){ // r232: resolve a stream owner code to its product (fee p
 function _feeStreamsSectionHtml(fam, p, base, _fi){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   let h = "";
+  const _lfx=+_fi>=1000&&fam==='lending'&&typeof _lfxLiveHtml==='function'&&_loanBalanceMode(p)==='funded_flow_level';   // r350
   const SEL = (label, path, cur, opts) => {
       let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
       return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
@@ -6992,6 +7209,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
       _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};const revenue=rb==='cost_recovery'||nz((st.rate||{}).params,0),cost=ck&&ck!=='none';return revenue?(cost?'Revenue + Cost':'Revenue'):(cost?'Cost':'Driver');})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
+    if(_lfx) h += '<div class="lfx-st">'+_lfxLiveHtml('ststrip',+_fi-1000);
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
@@ -7010,20 +7228,33 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           +(down.length?'<span class="a">\u2192</span>'+down.map(j=>`<a href="#" class="c" onclick="stSelect(${_fi},${j});return false">${esc(_stMeta[j].name)}<small>driven by the selected stream</small></a>`).join(''):'')
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
-      h += '<div class="fld wide st-md">'+chainH;
+      h += _lfx?('<section class="lfx-s"><div class="lfx-h st"><span class="no">01</span><span class="tt">Streams</span><span class="sm"><b>'+_stMeta.length+' stream'+(_stMeta.length===1?'':'s')+'</b> · drag to reorder · select a row to edit</span></div><div class="lfx-body lfx-stlist">'+chainH):('<div class="fld wide st-md">'+chainH);
       h += '<div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}${typeof _fgChipHtml==='function'?_fgChipHtml((p.fee_streams||[])[k]):''}</td><td><span class="cfg-pill${z.role!=='Driver'?' x':''}" title="${z.role==='Driver'?'Carries quantity only':'Posts '+z.role.toLowerCase()}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry quantity only. Revenue and cost streams post their respective amounts. Click \u24D8 to see how a figure is calculated.</div></div>`;
+      if(_lfx) h += '</div></section>';
       const TB=[['activity','Activity',m.src==='fee_stream_quantity'?esc(feeQuantityLabel(m.ref)):esc(m.src==='stream_ref'?(m.ref||'Another stream'):(SRC[m.src]||_prdLab(m.src)))],['pricing','Pricing',esc(m.rbLab||_prdLab(m.rb))],['timing','Timing',tsum],['costs','Costs',esc(CK[m.ck]||_prdLab(m.ck))]];
+      if(_lfx){
+        h += `<section class="lfx-s lfx-sted"><div class="lfx-h st"><span class="no">F${_stSel+1}</span><span class="tt">${esc(m.name)}</span><span class="sm">Stream <b>${_stSel+1}</b> of <b>${_stMeta.length}</b></span><span class="lfx-nav"><button type="button" aria-label="Previous stream"${_stSel>0?'':' disabled'} onclick="stSelect(${_fi},${_stSel-1})">‹</button><button type="button" aria-label="Next stream"${_stSel<_stMeta.length-1?'':' disabled'} onclick="stSelect(${_fi},${_stSel+1})">›</button></span><button type="button" class="lfx-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
+        h += `<div class="lfx-b"><div class="lfx-rail"><div class="lfx-steps" role="tablist" aria-label="Stream settings">${TB.map((t,n)=>`<button type="button" role="tab" class="st-tab lfx-step${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')"><span class="d">${n+1}</span><b>${t[1]}</b><i>${t[2]}</i></button>`).join('')}</div></div>`;
+        h += `<div class="lfx-body"><div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div></section>`;
+      } else {
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
       { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
+      }
     } else if(+_fi>=1000&&_stSetupFeeRow(_fi)){   // r232: no streams yet, but the Setup fee yield is still listed
       h += '<div class="fld wide st-md"><div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver</th></tr></thead><tbody>'+_stSetupFeeRow(_fi)+'</tbody></table>'
         + '<div class="st-foot">No fee streams yet. The fee yield is set in Setup \u2192 Pricing; add a stream below for a fee with its own driver, pricing, timing or cost.</div></div></div>';
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
+    if(_lfx){
+      h += '<section class="lfx-s c lfx-tilesec"><div class="lfx-h st"><span class="no">+</span><span class="tt">Add a fee stream</span><span class="sm">Each type opens here as a new stream for this product</span></div><div class="lfx-tiles prd-tiles">';
+      ["balance","transaction","account","flat","event"].forEach(bz=>{ h += _feeBasisTileHtml(bz,_fi); });
+      h += '</div></section></div>';
+      return h;
+    }
     h += '<div class="fld wide" style="margin-top:8px"><label style="color:#D4A65C">Add a fee stream</label></div>';
     h += '<div class="fld wide prd-tiles">';
     ["balance","transaction","account","flat","event"].forEach(bz=>{ h += _feeBasisTileHtml(bz,_fi); });
@@ -7061,7 +7292,230 @@ function refreshProductStats(){
     const fresh = tmp.firstElementChild;
     if(fresh) el.innerHTML = fresh.innerHTML;
   });
+  if(typeof refreshLfxLive==='function') refreshLfxLive();   // r350
 }
+// ===== r350: flow-based lending, industrial setup =====
+// Presentation only. Every control below calls the same handler and writes the same field as the
+// r349 flow card; the calculation strip reads the engine's own per-period product series.
+const _lfxSec=new WeakMap();
+const _LFX_DEF={vol:true,exp:true,cred:true,price:true,fees:true,acct:false,rep:false};
+function _lfxIsOpen(p,id){const m=_lfxSec.get(p)||{};return id in m?m[id]:_LFX_DEF[id];}
+function lfxToggle(i,id){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;const m=Object.assign({},_lfxSec.get(p)||{});m[id]=!_lfxIsOpen(p,id);_lfxSec.set(p,m);renderContent();}
+function lfxOpenSection(i,id){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;const m=Object.assign({},_lfxSec.get(p)||{});m[id]=true;_lfxSec.set(p,m);renderContent();requestAnimationFrame(()=>{const el=document.querySelector('.lfx [data-lfx="'+id+'"]');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});});}
+function _lfxPct(v,d){if(v==null||!isFinite(+v))return '—';let x=(+v*100).toFixed(d==null?2:d);if(x.indexOf('.')>=0)x=x.replace(/0+$/,'').replace(/\.$/,'');return x+'%';}
+function _lfxPctFix(v,d){return v==null||!isFinite(+v)?'—':(+v*100).toFixed(d==null?2:d)+'%';}
+function _lfxAmt(v){if(v==null||!isFinite(+v))return '—';const a=Math.abs(+v);return a>=100?Math.round(+v).toLocaleString('en-US'):(+v).toFixed(2);}
+function _lfxQ(t){return (typeof PPY==='function'&&PPY()===4?'Q':'M')+t;}
+function _lfxPer(){return typeof PLAB==='function'?PLAB('full'):'month';}
+function _lfxSeg(opts,cur,js,aria){return `<div class="lfx-seg" role="group"${aria?` aria-label="${esc(aria)}"`:''}>${opts.map(([v,l])=>{const on=String(v)===String(cur);return `<button type="button" class="${on?'on':''}" aria-pressed="${on}" onclick="${js.replace(/%v/g,v)}">${l}</button>`;}).join('')}</div>`;}
+function _lfxF(label,ctrl,cls,tip){return `<div class="lfx-f${cls?' '+cls:''}"><label>${label}${tip?`<span class="q" tabindex="0" title="${esc(tip)}" aria-label="${esc(tip)}">i</span>`:''}</label>${ctrl}</div>`;}
+function _lfxN(path,unit,suffix){return `<div class="lfx-in">${numInput(path,unit)}${suffix?`<i>${suffix}</i>`:''}</div>`;}
+function _lfxRaw(input,suffix,pre){return `<div class="lfx-in${pre?' pre':''}">${pre?`<i>${pre}</i>`:''}${input}${suffix?`<i>${suffix}</i>`:''}</div>`;}
+function _lfxSel(inner){return `<div class="lfx-sel">${inner}</div>`;}
+function _lfxOut(v,suffix){return `<div class="lfx-out">${v}${suffix?`<i>${suffix}</i>`:''}</div>`;}
+function _lfxSecHtml(p,i,id,no,title,summary,rail,body){const open=_lfxIsOpen(p,id);
+  return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}')"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>${open?`<div class="lfx-b"><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div></div>`:''}</section>`;}
+function _lfxRes(){const bad=!!(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length);if(lastRes&&lastRes.products){if(!bad)window._lfxLast={cfg:cfg,res:lastRes};return {res:lastRes,stale:bad};}
+  if(window._lfxLast&&window._lfxLast.cfg===cfg)return {res:window._lfxLast.res,stale:true};return {res:null,stale:false};}
+function _lfxRef(p,P){const fd=p.funded_flow_driver||{},src=(fd.input_stage||'funded_volume')==='source_activity';
+  const start=Math.max(1,+fd.start_period||1),ramp=src?Math.max(1,+fd.ramp_periods||1):1,n=P&&P.fundedVolume?P.fundedVolume.length:(+(cfg.assumptions||{}).n_periods||12);
+  return Math.max(1,Math.min(n,start+ramp-1));}
+function _lfxSpark(arr,ref){if(!arr||!arr.length)return '';const a=arr.slice(0,12),mx=Math.max(...a.map(x=>+x||0),0);if(!(mx>0))return '';
+  return `<div class="lfx-spark"><div class="hd"><span>First ${a.length} ${_lfxPer()}s</span><b>${_lfxAmt(arr[ref-1])} at ${_lfxQ(ref)}</b></div><div class="bars">${a.map((x,k)=>`<i class="${k+1>=ref?'f':''}" style="height:${Math.max(3,Math.round((+x||0)/mx*100))}%"></i>`).join('')}</div><div class="ax"><span>${_lfxQ(1)}</span><span>${_lfxQ(a.length)}</span></div></div>`;}
+
+function _lfxCtx(p){const {res,stale}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null;return {res,stale,P,ref:_lfxRef(p,P)};}
+function _lfxLiveHtml(kind,i,j){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';const C=_lfxCtx(p),P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
+  if(kind==='strip')return `${A('strip','div')}>${_lfxStripHtml(p,i)}</div>`;
+  if(kind==='spark')return `${A('spark','div')}>${_lfxSpark(P&&P.fundedVolume,ref)}</div>`;
+  if(kind==='full'){const fv=P&&P.fundedVolume?P.fundedVolume[t]:null;return `${A('full','div')} class="lfx-out">${_lfxAmt(fv)}<i>$000s / ${per} · ${_lfxQ(ref)}</i></div>`;}
+  if(kind==='yield'){const rq=P&&P.rateQ&&P.rateQ.length?P.rateQ:null,fl=p.rate_type==='float';return `${A('yield','div')} class="lfx-out">${rq?(fl?`${(+rq[0]).toFixed(2)} → ${(+rq[rq.length-1]).toFixed(2)}`:(+rq[0]).toFixed(2)):'—'}<i>%</i></div>`;}
+  if(kind==='psum'){const fl=p.rate_type==='float',rq=P&&P.rateQ&&P.rateQ.length?P.rateQ:null,cre=p.call_report_line==='loanCRE'||p.line==='loanCRE',IDX=(p.index||'sofr').toUpperCase();
+    return `${A('psum')}>${fl?`<b>${IDX} + ${cre?(((+p.index_spread||0)*10000).toFixed(0)+' bps'):_lfxPctFix(+p.index_spread||0)}</b>${rq?` · <b>${(+rq[0]).toFixed(2)}%</b> all-in at ${_lfxQ(1)}`:''}`:`<b>Fixed ${_lfxPctFix(+p.yield_ann||0)}</b> annual`}</span>`;}
+  if(kind==='fsum'||kind==='ftot'){const fees=P&&P.fees?P.fees:null,fT=fees&&fees[t]!=null?+fees[t]:null;
+    if(kind==='ftot')return `${A('ftot','td')} class="tot">${fT!=null?_lfxAmt(fT)+' <i>$000s / '+per+' · '+_lfxQ(ref)+'</i>':'—'}</td>`;
+    const _ra=(+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0,_lo=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):_ra,n=(p.fee_streams||[]).length+((_lo||_ra)?1:0);
+    return `${A('fsum')}><b>${n} stream${n===1?'':'s'}</b>${fT!=null?` · fees <b>${_lfxAmt(fT)}</b> at ${_lfxQ(ref)}`:''}</span>`;}
+  if(kind==='ststrip'){const st=p.fee_streams||[],fees=P&&P.fees,pc=P&&P.passCost,f=fees&&fees[t]!=null?+fees[t]:null,c=pc&&pc[t]!=null?+pc[t]:null,sum=a=>a?a.reduce((x,y)=>x+(+y||0),0):null,n=fees?fees.length:0;
+    const nodes=[{k:'Streams',v:String(st.length),u:'active',op:'driver · pricing · timing · cost'},{k:'Fee income · '+_lfxQ(ref),v:_lfxAmt(f),u:'/ '+per,op:'all streams, this product'},{k:'Fee income · '+(n?_lfxQ(1)+'–'+_lfxQ(n):'horizon'),v:_lfxAmt(sum(fees)),u:'$000s',op:'full forecast'},{k:'Direct cost · '+_lfxQ(ref),v:_lfxAmt(c),u:'/ '+per,op:'fee product costs'}];
+    let h=`${A('ststrip','div')}><div class="lfx-rib${C.stale?' stale':''}" style="grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.2fr)">`;
+    nodes.forEach(x=>{h+=`<div class="n"><span class="k">${x.k}</span><span class="v">${x.v}<small>${x.u}</small></span><span class="op">${x.op}</span></div>`;});
+    h+=`<div class="n tot"><span class="k">Net fee income · ${_lfxQ(ref)}</span><span class="v">${f==null?'—':_lfxAmt(f-(c||0))}<small>$000s / ${per}</small></span><span class="op">fees ${_lfxAmt(f)} · <i>cost ${_lfxAmt(c)}</i></span></div></div>`;
+    return h+`<div class="lfx-ribcap"><span>${P?`Engine figures at ${_lfxQ(ref)}, the product's first full-size ${per}.`:'Figures appear after the next complete run.'} Driver streams carry a quantity for other streams and post nothing themselves.</span><span>$000s</span></div></div>`;}
+  if(kind==='fqty'){const st=(p.fee_streams||[])[j]||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],qv=q&&q[t]!=null?+q[t]/1000:null;return `${A('fqty')}>${qv!=null?' · '+_lfxAmt(qv):''}</span>`;}
+  return '';}
+function refreshLfxLive(){document.querySelectorAll('[data-lfx-live]').forEach(el=>{const html=_lfxLiveHtml(el.getAttribute('data-lfx-live'),+el.getAttribute('data-i'),el.hasAttribute('data-j')?+el.getAttribute('data-j'):null);if(html)el.outerHTML=html;});}
+function _lfxStripHtml(p,i){
+  const {res,stale}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null;
+  const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},src=(fd.input_stage||'funded_volume')==='source_activity',ref=_lfxRef(p,P),t=ref-1;
+  const at=a=>P&&Array.isArray(a)&&a[t]!=null?+a[t]:null,per=_lfxPer(),ppy=typeof PPY==='function'?PPY():12;
+  const linked=fd.source==='fee_stream_quantity',tr=(_loanFlowDraft['funded:'+i]?'explicit_schedule':(fp.trajectory||'flat'));
+  const trLab={flat:'flat',growth:'growing',explicit_schedule:'scheduled'}[tr]||tr;
+  const nodes=[];
+  if(src)nodes.push({k:'Source activity',v:at(P&&P.fundedInputVolume),u:'/ '+per,op:linked?'linked series':'entered · '+trLab,go:'vol'});
+  nodes.push({k:'Funded flow',v:at(P&&P.fundedVolume),u:'/ '+per,op:src?`<i>× ${_lfxPct(fd.take_up_share==null?1:fd.take_up_share,1)}</i> take-up · full by ${_lfxQ(ref)}`:(linked?'linked series':'entered · '+trLab),go:'vol'});
+  nodes.push({k:'Outstanding',v:at(P&&P.calculatedOutstanding),u:'$000s',op:p.repayment_profile?'<i>repayment curve</i>':`<i>× ${esc(String(p.term_days==null?0:p.term_days))} days</i> exposure`,go:'exp'});
+  const endBal=P&&Array.isArray(P.bal)&&P.bal[ref]!=null?+P.bal[ref]:null;
+  nodes.push({k:'Retained balance',v:endBal,u:'$000s',op:`<i>× ${_lfxPct(p.target_retention_share==null?1:p.target_retention_share,1)}</i> retained${p.allocation_group_id?' · capped':''}`,go:'exp'});
+  const rq=at(P&&P.rateQ),rate=rq!=null?rq/100:(p.rate_type==='float'?null:+p.yield_ann||0);
+  const ib=at(P&&P.interestBasis);
+  nodes.push({k:'Interest',v:at(P&&P.interest),u:'/ '+per,op:`<i>${rate==null?'—':_lfxPctFix(rate)}</i> ${p.rate_type==='float'?esc((p.index||'sofr').toUpperCase())+' + spread':'fixed'}${ib!=null?' on '+_lfxAmt(ib):''}`,go:'price'});
+  const iv=at(P&&P.interest),fv=at(P&&P.fees);
+  const rev=iv==null&&fv==null?null:(iv||0)+(fv||0);
+  let h=`<div class="lfx-rib${stale?' stale':''}" style="grid-template-columns:repeat(${nodes.length},minmax(0,1fr)) minmax(0,1.2fr)">`;
+  nodes.forEach(n=>{h+=`<button type="button" class="n" onclick="lfxOpenSection(${i},'${n.go}')"><span class="k">${n.k}</span><span class="v">${_lfxAmt(n.v)}<small>${n.u}</small></span><span class="op">${n.op}</span></button>`;});
+  h+=`<div class="n tot"><span class="k">Revenue · ${_lfxQ(ref)}</span><span class="v">${_lfxAmt(rev)}<small>$000s / ${per}</small></span><span class="op">interest ${_lfxAmt(iv)} · <i>fees ${_lfxAmt(fv)}</i></span></div></div>`;
+  const cap=!P?(lastErrs&&lastErrs.length?'Figures appear after the next complete run. Some inputs still need attention.':'Figures appear after the next complete run.')
+    :`${stale?`Last complete run, at ${_lfxQ(ref)}. Figures are muted until the current inputs run cleanly.`:`Engine figures at ${_lfxQ(ref)}, the first full-size ${per}. Select a step to open its section.`}`;
+  return h+`<div class="lfx-ribcap"><span>${cap}</span><span>$000s</span></div>`;
+}
+
+function _lfxSetupHtml(i,p,base){
+  const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},_stage=fd.input_stage||'funded_volume',src=_stage==='source_activity',linked=fd.source==='fee_stream_quantity';
+  const _fp=base+'.funded_flow_driver.flow_path',per=_lfxPer(),Per=per.replace(/^./,c=>c.toUpperCase());
+  const {res}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null,ref=_lfxRef(p,P);
+  const lineLab=LINE_LABELS_V31[p.call_report_line]||p.call_report_line||'Other loans';
+  let h='<div class="lfx">';
+  // Identity
+  h+=`<div class="lfx-id">${_lfxF('Product name',`<div class="lfx-in tx"><input value="${esc(p.name)}" aria-label="Product name" onchange="renameProduct('lending',${i},this.value)"></div>`,'nm')}<div class="lfx-chips"><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Balance <b>Funded flow × exposure term</b></button><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></button><button type="button" class="lfx-chip${p.call_report_line==='loanOther'?' w':''}" onclick="lfxOpenSection(${i},'rep')">Reporting <b>${esc(lineLab)}</b>${p.call_report_line==='loanOther'?' · provisional':''}</button></div></div>`;
+  h+=_lfxLiveHtml('strip',i);
+
+  // 01 Funded volume
+  { const tr=_loanFlowDraft['funded:'+i]?'explicit_schedule':(fp.trajectory||'flat');
+    let b=`<div class="lfx-grid">`+_lfxF('Input represents',_lfxSeg([['source_activity','Source activity'],['funded_volume','Final funded volume']],_stage,`loanFundedStageChange(${i},'%v')`,'Input represents'),'s2','Source activity applies take-up and the launch ramp. Final funded volume already includes both and must be zero before launch.')
+      +_lfxF('Volume source',_lfxSeg([['entered','Enter'],['fee_stream_quantity','Link upstream flow']],fd.source==='fee_stream_quantity'?'fee_stream_quantity':'entered',`loanFundedSourceChange(${i},'%v')`,'Volume source'),'s2')+'</div>';
+    b+='<div class="lfx-grid">';
+    if(linked){
+      const _up=[];const _flowSources=catalogSources('lending_funded_flow');if(_flowSources)_up.push(..._flowSources.map(x=>({id:x.series_id,label:x.label+' · Monetary throughput'})));else ['deposit_products','obs_exposures'].forEach(key=>((cfg.assumptions||{})[key]||[]).forEach(prod=>(prod.fee_streams||[]).forEach(st=>{if(st.basis==='transaction'&&st.quantity_series_id&&((st.driver||{}).source==='constant')&&(((((st.driver||{}).params||{}).flow_path||{}).unit_kind)==='money_flow'))_up.push({id:st.quantity_series_id,label:(prod.name||key)+' · '+(st.name||'flow')});})));
+      b+=_lfxF(`Upstream monetary flow <a href="#" class="lfx-lnk" onclick="browseLoanSources('${base}');return false">Browse / search</a>`,_lfxSel(`<select aria-label="Upstream monetary flow" onchange="setPath('${base}.funded_flow_driver.series_id',this.value);refresh()"><option value="">Select a flow</option>${_up.map(x=>`<option value="${esc(x.id)}"${fd.series_id===x.id?' selected':''}>${esc(x.label)}</option>`).join('')}</select>`),'s4');
+      b+=`<div class="lfx-note s4"><span class="dot"></span>Only monetary throughput quantities are eligible. A fee stream supplies its underlying activity volume, not its fee revenue or cost. Customer counts are excluded.</div>`;
+    }else{
+      if(tr!=='explicit_schedule')b+=_lfxF(src?'Source activity':'Final funded volume',_lfxN(_fp+'.value','k','$000s / '+(fp.period||'month')));
+      b+=_lfxF('Flow period',_lfxSeg([['month','Month'],['quarter','Qtr'],['year','Year']],fp.period||'month',`setPath('${_fp}.period','%v');renderContent();refresh()`,'Flow period'),tr==='explicit_schedule'?'s2':'');
+      b+=_lfxF('Trajectory',_lfxSeg([['flat','Flat'],['growth','Growth'],['explicit_schedule','Schedule']],tr,`loanFundedTrajectoryChange(${i},'%v')`,'Trajectory'),'s2');
+    }
+    b+='</div>';
+    if(!linked&&tr==='growth')b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${growthSpecInline(_fp+'.growth_spec',fp.growth_spec,0,false,true)}</div></div>`;
+    if(!linked&&tr==='explicit_schedule'){const _loaded=Object.keys(fp.schedule||{}).length,_editing=_loanFlowDraft['funded:'+i]!==false,_id='loanFundedPaste_'+i;
+      b+=`<div class="lfx-grid"><div class="lfx-f s4"><label>${src?'Source activity':'Final funded volume'} · $000s per ${esc(fp.period||'month')}</label>${_editing?`<div class="lfx-drawer"><textarea id="${_id}" rows="3" placeholder="Paste a row or column (${_seriesSourcePeriods(fp.period)} values)" oninput="_feeExplicitPasteInput('${_id}')"></textarea><div class="lfx-drawer-a"><button type="button" id="${_id}_load" class="lfx-btn dk" disabled onclick="loanFundedSchedule(${i},document.getElementById('${_id}').value)">Load (replace)</button><button type="button" class="lfx-btn" onclick="loanFundedScheduleClear(${i})"${_loaded?'':' disabled'}>Clear</button>${_explicitSchedulePreviewHtml(fp.schedule,1/1000,fp.period)}<button type="button" class="lfx-btn" onclick="loanFundedPasteClose(${i})">Close</button></div></div>`:`<div class="lfx-sched"><span>${_loaded} ${esc(fp.period||'month')}${_loaded===1?'':'s'} loaded</span><button type="button" class="lfx-btn" onclick="_loanFlowDraft['funded:'+${i}]=true;renderContent()">View / edit schedule</button></div>`}</div></div>`;}
+    b+='<div class="lfx-grid">';
+    b+=_lfxF('Starts in',_lfxRaw(`<input type="number" min="1" step="1" aria-label="Start ${per}" value="${fd.start_period==null?1:esc(fd.start_period)}" onchange="setUnit('${base}.funded_flow_driver.start_period','',this.value)">`,'',Per));
+    if(src){
+      b+=_lfxF('Take-up share',_lfxRaw(`<input type="number" min="0" max="100" step="any" aria-label="Take-up share" value="${fd.take_up_share==null?100:esc(+(fd.take_up_share*100).toFixed(6))}" onchange="setUnit('${base}.funded_flow_driver.take_up_share','pct',this.value)">`,'%'),'','Share of source activity the bank funds once fully launched.');
+      b+=_lfxF(`${Per}s to full size`,_lfxRaw(`<input type="number" min="1" step="1" aria-label="${Per}s to full size" value="${fd.ramp_periods==null?1:esc(fd.ramp_periods)}" onchange="setUnit('${base}.funded_flow_driver.ramp_periods','',this.value)">`,per+'s'));
+    }
+    b+=_lfxF('Funded at full size',_lfxLiveHtml('full',i),src?'':'s2');
+    b+='</div>';
+    const valTxt=linked?'linked flow':(tr==='explicit_schedule'?'scheduled':`<b>${fp.value==null?'—':_lfxAmt(+fp.value/1000)} / ${esc(fp.period||'month')}</b>${tr==='growth'?' growing':''}`);
+    const sum=`${src?'Source':'Funded'} ${valTxt}${src?` · take-up <b>${_lfxPct(fd.take_up_share==null?1:fd.take_up_share,1)}</b> · full size by <b>${_lfxQ(ref)}</b>`:''}`;
+    const rail=`<p>The activity this product finances. ${src?'Take-up and the launch ramp turn source activity into funded flow.':'Entered as final funded volume, after take-up and ramp.'}</p><div class="fx">${src?'funded = source<br>× take-up × ramp(t)':'funded = entered volume'}</div>${_lfxLiveHtml('spark',i)}`;
+    h+=_lfxSecHtml(p,i,'vol','01','Funded volume',sum,rail,b);
+  }
+
+  // 02 Exposure & retention
+  { const prof=!!p.repayment_profile,_im=p.interest_balance_measure||'period_average',_groups=(cfg.assumptions||{}).loan_allocation_groups||[],_gid=p.allocation_group_id||'';
+    let b='<div class="lfx-grid">'+_lfxF('Repayment model',_lfxSeg([['days','Average exposure days'],['profile','Monthly repayment curve']],prof?'profile':'days',`loanRepaymentMode(${i},'%v')`,'Repayment model'),'s2');
+    if(!prof)b+=_lfxF('Exposure term',_lfxN(base+'.term_days','','days'));
+    b+=_lfxF('Day count',_lfxN(base+'.day_count','','days / yr'),prof?'s2':'');
+    b+=_lfxF('Target retained share',_lfxN(base+'.target_retention_share','pct','%'));
+    b+=_lfxF('Funded volume held aside',_lfxN(base+'.reserve_share','pct','% of funded'));
+    b+=_lfxF('Interest accrues on',_lfxSeg([['period_begin','Beginning'],['period_average',prof?'Avg monthly exposure':'Average'],['period_end','Ending']],_im,`setPath('${base}.interest_balance_measure','%v');renderContent();refresh()`,'Interest balance measure'),'s2');
+    b+='</div>';
+    if(prof)b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${_loanRepaymentProfileHtml(i,base,p)}</div></div>`;
+    b+='<div class="lfx-grid">'+_lfxF('Shared balance cap',_lfxSel(`<select aria-label="Shared balance cap" onchange="loanAllocationGroupChange(${i},this.value)"><option value="">None · balance is uncapped</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select>`),'s2');
+    b+=`<div class="lfx-f s2 lfx-act">${_gid?`<button type="button" class="lfx-lnk neg" onclick="removeLoanAllocationGroup(${i})">Remove from shared cap</button>`:`<button type="button" class="lfx-lnk" onclick="addLoanAllocationGroup(${i})">+ Create a shared cap</button>`}</div>`;
+    const _gi=_groups.findIndex(g=>g.id===_gid),_group=_groups[_gi];
+    if(_group){const _gp='assumptions.loan_allocation_groups.'+_gi,_cs=_group.cap_source||'entered';
+      b+=_lfxF(`Cap for ${esc(_gid)}`,_lfxSeg([['entered','Entered capacity'],['deposit_book_end','Ending deposits × ratio']],_cs,`setPath('${_gp}.cap_source','%v');renderContent();refresh()`,'Cap source'),'s2');
+      if(_cs==='entered')b+=`<div class="lfx-f s4 lfx-legacy">${_faSeriesEditor(_gp+'.cap_spec',_group.cap_spec,'Shared capacity','money',false)}</div>`;
+      else b+=_lfxF('Cap ratio',_lfxN(_gp+'.cap_ratio','pct','% of ending deposits'));
+      if(prof)b+=`<div class="lfx-note s4"><span class="dot"></span>Cap applied monthly after losses and repayment. Excess transfers at par to the distributed book; no automatic buyback.${_cs==='deposit_book_end'?' In quarterly models, the quarter-end deposit target sets capacity for all three months. Use monthly modeling or entered monthly capacity for monthly deposit timing.':''}</div>`;
+    }
+    b+='</div>';
+    const sum=`${prof?'Repayment curve':`Term <b>${esc(String(p.term_days==null?0:p.term_days))} days</b>`} · retained <b>${_lfxPct(p.target_retention_share==null?1:p.target_retention_share,1)}</b> · interest on <b>${{period_begin:'beginning',period_average:'average',period_end:'ending'}[_im]||_im}</b>${_gid?` · cap <b>${esc(_gid)}</b>`:''}`;
+    const rail=`<p>How long each funded dollar stays outstanding, and how much of it the bank keeps.</p><div class="fx">${prof?'outstanding =<br>Σ cohorts × curve':'outstanding =<br>funded × term days<br>÷ days in '+per}<br><br>retained =<br>outstanding × share${_gid?'<br>up to the shared cap':''}</div>`;
+    h+=_lfxSecHtml(p,i,'exp','02','Exposure &amp; retention',sum,rail,b);
+  }
+
+  // 03 Credit & allowance
+  { const prof=!!p.repayment_profile,am=['loss_rate_term','profile_expected_loss'].includes(p.allowance_mode)?p.allowance_mode:'reserve_rate';
+    let b='<div class="lfx-grid">';
+    if(!prof)b+=_lfxF('Charge-offs',_lfxN(base+'.charge_off_ann','pct','% annual'));
+    if(!prof)b+=_lfxF('Charged on',_lfxSeg([['period_begin','Beginning'],['period_end','Retained end']],p.charge_off_balance_measure==='period_end'?'period_end':'period_begin',`setPath('${base}.charge_off_balance_measure','%v');renderContent();refresh()`,'Charge-off balance'));
+    b+=_lfxF('Allowance method',_lfxSel(`<select aria-label="Allowance method" onchange="setPath('${base}.allowance_mode',this.value);renderContent();refresh()"><option value="reserve_rate"${am==='reserve_rate'?' selected':''}>Reserve % of balance</option>${prof?`<option value="profile_expected_loss"${am==='profile_expected_loss'?' selected':''}>Remaining profile expected loss</option><option value="loss_rate_term"${am==='loss_rate_term'?' selected':''}>${p.repayment_profile.loss_basis==='annual_balance'?'Loss rate × remaining curve exposure':'Remaining cohort losses'}</option>`:`<option value="loss_rate_term"${am==='loss_rate_term'?' selected':''}>Annual loss × exposure term</option>`}</select>`),prof?'s2':'');
+    if(p.measurement!=='fair_value'&&am==='reserve_rate')b+=_lfxF('ALLL reserve',_lfxN(base+'.reserve_rate_pct_bal','pct','% of balance'));
+    b+='</div>';
+    if(am==='loss_rate_term'||prof)b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${_faSeriesEditor(base+'.credit_loss_factor_spec',p.credit_loss_factor_spec||{source:'entered',trajectory:'flat',value:1},'Credit loss factor','multiple',false)}</div></div>`;
+    const sum=prof?`Allowance <b>${am==='reserve_rate'?'reserve % of balance':am==='profile_expected_loss'?'profile expected loss':'remaining losses'}</b>`:`Charge-offs <b>${_lfxPctFix(+p.charge_off_ann||0)}</b>${p.measurement==='fair_value'?' · fair value, no reserve':am==='reserve_rate'?` · reserve <b>${_lfxPctFix(+p.reserve_rate_pct_bal||0)}</b> of balance`:' · loss × exposure term'}`;
+    const rail=`<p>Losses and the allowance held against the retained balance.</p><div class="fx">provision = ΔALLL<br>+ charge-offs</div>`;
+    h+=_lfxSecHtml(p,i,'cred','03','Credit &amp; allowance',sum,rail,b);
+  }
+
+  // 04 Pricing
+  { const fl=p.rate_type==='float',idx=(p.index||'sofr'),IDX=idx.toUpperCase(),cre=p.call_report_line==='loanCRE'||p.line==='loanCRE';
+    let b='<div class="lfx-grid">'+_lfxF('Rate type',_lfxSeg([['fixed','Fixed'],['float','Floating']],fl?'float':'fixed',`setPath('${base}.rate_type','%v');renderContent();refresh()`,'Rate type'));
+    if(fl){b+=_lfxF('Reference index',_lfxSeg([['sofr','SOFR'],['effr','EFFR'],['prime','Prime']],idx,`setPath('${base}.index','%v');renderContent();refresh()`,'Reference index'));
+      b+=_lfxF('Spread over '+IDX,cre?_lfxN(base+'.index_spread','bps','bps'):_lfxN(base+'.index_spread','pct','% annual'));}
+    else b+=_lfxF('Yield',_lfxN(base+'.yield_ann','pct','% annual'));
+    const rq=P&&P.rateQ&&P.rateQ.length?P.rateQ:null;
+    b+=_lfxF(fl?`All-in yield, ${_lfxQ(1)} → ${_lfxQ(rq?rq.length:(+(cfg.assumptions||{}).n_periods||1))}`:'Yield applied',_lfxLiveHtml('yield',i),fl?'':'s2');
+    b+='</div>';
+    const sum=_lfxLiveHtml('psum',i);
+    const rail=`<p>Interest earned on the retained balance. Floating rates reference the engagement's rate curves.</p><div class="fx">${fl?'yield(t) =<br>index(t) + spread':'yield = fixed rate'}<br><br>interest =<br>basis × yield ÷ ${typeof PPY==='function'?PPY():12}</div>`;
+    h+=_lfxSecHtml(p,i,'price','04','Pricing',sum,rail,b);
+  }
+
+  // 05 Fee streams
+  { const streams=p.fee_streams||[],qs=(((res||{}).fee_stream_quantities||{}).series)||{},t=ref-1;
+    const _retainedFeeActive=(+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0;
+    const _legacyOpen=_flowLegacyFeeOpen.has(p)?_flowLegacyFeeOpen.get(p):_retainedFeeActive;
+    const hasCap=!!p.allocation_group_id;
+    let rows='';
+    streams.forEach((st,j)=>{const sp=base+'.fee_streams.'+j,dr=st.driver||{},fpx=(dr.params||{}).flow_path||{},q=qs[st.quantity_series_id],qv=q&&q[t]!=null?+q[t]/1000:null;
+      let on,rate,sub,extra='';
+      if(dr.source==='distributed_balance'){on='Distributed balance';sub='Balance · above the shared cap';rate=`<div class="lfx-legacy lfx-mini">${_faSeriesEditor(sp+'.rate.params.rate_path',(st.rate||{}).params&&st.rate.params.rate_path,'Annual rate','rate',false)}</div>`;}
+      else if(st.basis==='transaction'&&dr.source==='product_funded_flow'){on='This product’s funded flow';sub='Transaction · each funding';rate=_lfxN(sp+'.rate.params.per_unit','pct','% of volume');}
+      else if(st.basis==='transaction'&&fpx.unit_kind==='money_flow'){on='Entered monetary flow';sub='Transaction · entered flow';rate=_lfxN(sp+'.rate.params.per_unit','pct','% of volume');
+        const _ftr=_loanFlowDraft[i+':'+j]?'explicit_schedule':(fpx.trajectory||'flat');
+        extra=`<tr class="lfx-subrow"><td></td><td colspan="5"><div class="lfx-grid">${_lfxF('Flow period',_lfxSeg([['month','Month'],['quarter','Qtr'],['year','Year']],fpx.period||'month',`setPath('${sp}.driver.params.flow_path.period','%v');renderContent();refresh()`,'Flow period'))}${_lfxF('Flow schedule',_lfxSeg([['flat','Flat'],['explicit_schedule','Schedule']],_ftr,`loanFlowTrajectoryChange(${i},${j},'%v')`,'Flow schedule'))}${_ftr==='explicit_schedule'?`<div class="lfx-f s2"><label>Funded flow · $000s per ${esc(fpx.period||'month')} · paste values</label><div class="lfx-drawer"><textarea rows="2" placeholder="Paste ordered values" onchange="loanFlowSchedule(${i},${j},this.value)"></textarea><span class="lfx-dim">${Object.keys(fpx.schedule||{}).length} periods loaded</span></div></div>`:_lfxF('Funded flow',_lfxN(sp+'.driver.params.flow_path.value','k','$000s / '+(fpx.period||'month')),'s2')}</div></td></tr>`;}
+      else {on=esc(_prdLab(dr.source||st.basis||'stream'));sub=esc((st.basis||'').replace(/^./,c=>c.toUpperCase()))+' · set in Fee streams';rate=`<button type="button" class="lfx-lnk" onclick="prdTabSet('streams')">Edit in Fee streams →</button>`;}
+      rows+=`<tr><td class="ix">F${j+1}</td><td class="nm"><b>${esc(st.name||'Fee stream')}</b><span>${sub}</span></td><td><span class="lfx-pill">${on}${_lfxLiveHtml('fqty',i,j)}</span></td><td class="rt">${rate}</td><td class="act"><button type="button" class="lfx-x" title="Remove ${esc(st.name||'fee stream')}" aria-label="Remove ${esc(st.name||'fee stream')}" onclick="cfg.assumptions.lending_products[${i}].fee_streams.splice(${j},1);renderContent();refresh()">×</button></td></tr>${extra}`;
+    });
+    if(_legacyOpen||_retainedFeeActive)rows+=`<tr><td class="ix">R</td><td class="nm"><b>Retained average balance fee</b><span>Annual rate on the retained balance</span></td><td><span class="lfx-pill">Retained balance</span></td><td class="rt">${_legacyOpen?_lfxN(base+'.fee_yield_ann','pct','% annual'):''}</td><td class="act"><button type="button" class="lfx-x" title="Clear the retained average balance fee and its overrides" aria-label="Remove retained average balance fee" onclick="flowLegacyFeeRemove(${i})">×</button></td></tr>`;
+    const fees=P&&P.fees?P.fees:null,fT=fees&&fees[t]!=null?+fees[t]:null;
+    let b='';
+    if(rows)b+=`<table class="lfx-tbl"><thead><tr><th></th><th>Stream</th><th>Priced on${P?' · '+_lfxQ(ref):''}</th><th>Rate</th><th></th></tr></thead><tbody>${rows}</tbody><tfoot><tr><td></td><td colspan="2">Product fee income</td>${_lfxLiveHtml('ftot',i)}<td></td></tr></tfoot></table>`;
+    else b+=`<div class="lfx-empty">No fee streams yet. Add a fee priced on this product's funded flow, on balance distributed above a shared cap, or on the retained balance.</div>`;
+    b+=`<div class="lfx-adds"><button type="button" class="lfx-add" onclick="loanAddEconomics(${i},'transaction')">+ Fee on funded flow</button><button type="button" class="lfx-add"${hasCap?'':' disabled title="Requires a shared balance cap (section 02)"'} onclick="loanAddEconomics(${i},'balance')">+ Fee on distributed balance</button>${_legacyOpen?'':`<button type="button" class="lfx-add" onclick="flowLegacyFeeToggle(${i})">+ Fee on retained balance</button>`}<span class="sp"></span><button type="button" class="lfx-lnk" onclick="prdTabSet('streams')">Timing, costs and drivers in Fee streams →</button></div>`;
+    if(_retainedFeeActive&&streams.length)b+=`<div class="lfx-note"><span class="dot"></span>Review fee streams for overlapping charges on the same activity.</div>`;
+    const sum=_lfxLiveHtml('fsum',i);
+    const rail=`<p>Fees priced on this product's own volumes. Each stream posts to fee income.</p><div class="fx">fee = basis × rate</div>`;
+    h+=_lfxSecHtml(p,i,'fees','05','Fee streams',sum,rail,b);
+  }
+
+  // 06 Costs & accounting
+  { const _lbm=_loanBalanceMode(p),fvm=p.measurement==='fair_value';
+    let b='<div class="lfx-grid">'+_lfxF('Balance authoring',_lfxSel(`<select aria-label="Balance authoring" onchange="loanBalanceModeChange(${i},this.value)"><option value="rollforward"${_lbm==='rollforward'?' selected':''}>Loan roll-forward</option><option value="linked_customer_level"${_lbm==='linked_customer_level'?' selected':''}>MAB Series × average lending / MAB</option><option value="explicit_level"${_lbm==='explicit_level'?' selected':''}>Entered target balance</option><option value="funded_flow_level"${_lbm==='funded_flow_level'?' selected':''}>Funded flow × exposure term</option></select>`),'s2');
+    b+=_lfxF('Opening balance',_lfxN(base+'.opening_balance','k','$000s'));
+    b+=_lfxF('Measurement',_lfxSeg([['amortized','Amortized cost'],['fair_value','Fair value']],fvm?'fair_value':'amortized',`setPath('${base}.measurement','%v');renderContent();refresh()`,'Measurement'));
+    b+=_lfxF('Servicing cost',_lfxN(base+'.opex_pct_ann','pct','% of avg bal'));
+    b+=_lfxF('Fixed cost',_lfxN(base+'.opex_fixed_per_period','kq','$000s / '+per));
+    if(fvm)b+=_lfxF('DCF discount spread',_lfxN(base+'.discount_spread_ann','pct','% over SOFR'));
+    b+='</div>';
+    const sum=`Opening <b>${Math.round((+p.opening_balance||0)/1000).toLocaleString('en-US')}</b> · servicing <b>${_lfxPctFix(+p.opex_pct_ann||0)}</b> + <b>${_lfxAmt((+p.opex_fixed_per_period||0)/1000)} / ${per}</b> · ${fvm?'fair value':'amortized cost'}`;
+    const rail=`<p>The starting book, its measurement basis, and the direct cost of servicing it.</p><div class="fx">cost = avg bal × rate<br>+ fixed / ${per}</div>`;
+    h+=_lfxSecHtml(p,i,'acct','06','Costs &amp; accounting',sum,rail,b);
+  }
+
+  // 07 Reporting
+  { let b='<div class="lfx-grid">'+_lfxF('Loan reporting category',_lfxSel(`<select aria-label="Loan reporting category" onchange="setPath('${base}.call_report_line',this.value);renderContent();refresh()">${LOAN_KEYS.map(k=>`<option value="${k}"${p.call_report_line===k?' selected':''}>${esc(LINE_LABELS_V31[k])}</option>`).join('')}</select>`),'s2')+'</div>';
+    if(p.call_report_line==='loanOther')b+=`<div class="lfx-warn"><b>Provisional.</b> Other loans is a holding category. Review it before relying on reporting or risk-weight outputs.</div>`;
+    const sum=`<b>${esc(lineLab)}</b>${p.call_report_line==='loanOther'?' · provisional, review before risk-weight outputs':''}`;
+    h+=_lfxSecHtml(p,i,'rep','07','Reporting',sum,`<p>Where the balance lands in Call Report schedules and risk-weight outputs.</p>`,b);
+  }
+  h+=`<div class="lfx-foot"><span>Amounts in $000s unless a field says otherwise. Changes recompute the model.</span></div></div>`;
+  return h;
+}
+
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();
 const _flowAdvancedOpen = new WeakMap();
@@ -7087,6 +7541,12 @@ function prodCardHtml(fam, i){
   h += '</div>';
   h += pstat(p.name);
   h += `<div class="fields${isOpen(key) ? "" : " hidden"}">`;
+  if(_flowCard){   // r350: flow-based lending renders through the industrial setup and fee-stream layouts
+    h += '<div class="pp-sec" data-pp="setup">'+_lfxSetupHtml(i,p,base)+'</div>';
+    h += '<div class="pp-sec" data-pp="streams">'+_feeStreamsSectionHtml(fam,p,base,1000+i)+'</div>';
+    h += '<div class="pp-sec" data-pp="overrides">'+(V21?ovGridHtml(fam,i):'')+'</div>';
+    return h+'</div></div>';
+  }
   h += '<div class="pp-sec" data-pp="setup">';
   h += `<div class="fld wide"><label>Name</label><input value="${esc(p.name)}" onchange="renameProduct('${fam}',${i},this.value)"></div>`;
   if(V31 && !_flowCard){
