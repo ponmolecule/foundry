@@ -6143,6 +6143,9 @@ _feeGlobal.feeCustomerCountMeasureChange=function(i,si,v){
   renderContent();refresh();
 };
 _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
+  // The unified picker carries the stable source ID; storage remains backward compatible.
+  const selectedCount=String(v).startsWith("cac_count:")?String(v).slice(10):null;
+  if(selectedCount!==null){if(!_feeCustomerCountOptions().some(o=>o.series_id===selectedCount))return;v="customer_acquisition_count";}
   const st=_stOwner(i).fee_streams[si];st.driver=st.driver||{source:"constant",trajectory:"flat",params:{}};st.driver.params=st.driver.params||{};st.rate=st.rate||{behavior:"flat",params:{}};st.rate.params=st.rate.params||{};
   const d=st.driver,old=String(d.source||"constant");
   // A pasted/manual Account count path is valuable authored work. Linking the stream to the
@@ -6163,6 +6166,7 @@ _feeGlobal.feeStreamDriverSourceChange=function(i,si,v){
   else if(v==='fee_stream_quantity'){d.source=v;delete d.ref;delete d.measure;if(old==='constant'&&d.params&&d.params.flow_path)d.trajectory='flat';if(st.rate.behavior==='cost_recovery'){st.rate.behavior='flat';st.rate.params={};}}
   else if(v==="constant"){d.source="constant";delete d.ref;delete d.measure;if(d._saved_constant_trajectory){d.trajectory=d._saved_constant_trajectory;delete d._saved_constant_trajectory;}if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
   else{d.source=v;delete d.ref;delete d.measure;if(st.rate.behavior==="cost_recovery"){st.rate.behavior="flat";st.rate.params={};}}
+  if(selectedCount!==null)d.ref=selectedCount;
   renderContent();if(v!=="stream_ref"&&v!=="fee_stream_quantity")refresh();
 };
 _feeGlobal.feeCostPoolAddComponent=function(ref){
@@ -6675,9 +6679,13 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const _drvOpts=[["constant",basis==="transaction"?"Entered driver":"Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
       if(_fi>=0&&_fi<1000&&["balance","transaction","account"].includes(basis))_drvOpts.push(["fee_stream_quantity","Linked stream quantity — across fee products"]);
-      if(basis==="account")_drvOpts.push(["customer_acquisition_count","Ending bank customers — Customer Acquisition"]);
+      if(basis==="account"){
+        const counts=_feeCustomerCountOptions(),ref=String(st.driver.ref||"");
+        counts.forEach(o=>_drvOpts.push(["cac_count:"+o.series_id,"Customer acquisition › "+o.feed+" › Customers"]));
+        if(src==="customer_acquisition_count"&&!counts.some(o=>o.series_id===ref))_drvOpts.push(["cac_count:"+ref,"Missing customer source: "+(ref||"select an acquisition feed")]);
+      }
       if(["account","transaction"].includes(basis))_drvOpts.push(["account_activity","Customer flows / account adoption"]);
-      h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${v[0]}"${v[0]===src?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
+      h += `<div class="fld"><label>Driver source</label><select onchange="feeStreamDriverSourceChange(${_fi},${si},this.value)">${_drvOpts.map(v=>`<option value="${esc(v[0])}"${v[0]===(src==="customer_acquisition_count"?"cac_count:"+String(st.driver.ref||""):src)?" selected":""}>${esc(v[1])}</option>`).join("")}</select></div>`;
       if(src==='managed_notional')h+=`<div class="fld"><label>AUC balance measure</label><select onchange="setPath('${sb}.driver.measure',this.value);renderContent();refresh()"><option value="period_average"${(st.driver.measure||'period_average')==='period_average'?' selected':''}>Average (begin + end)</option><option value="period_end"${st.driver.measure==='period_end'?' selected':''}>End of period</option></select></div>`;
       if(src==='fee_stream_quantity'){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
@@ -6699,10 +6707,9 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       }
       if(src==="bank_aggregate"){ h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]); }
       if(src==="customer_acquisition_count"){
-        const _ccopts=_feeCustomerCountOptions(),_ccref=String(st.driver.ref||"");let _ccsel=_ccopts.slice();if(_ccref&&!_ccsel.some(o=>o.series_id===_ccref))_ccsel.unshift({series_id:_ccref,label:"Missing Customer Acquisition count source: "+_ccref});
-        const _ccmeasure=String(st.driver.measure||"period_end");
-        h += `<div class="fld wide"><label>Ending bank customers source</label><select style="min-width:260px" onchange="feeCustomerCountSourceChange(${_fi},${si},this.value)">${_ccsel.length?_ccsel.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===_ccref?' selected':''}>${esc(o.label)}</option>`).join(''):'<option value="">No Customer Acquisition feeds yet</option>'}</select><span class="memo" style="margin:4px 0 0">Customer Acquisition owns this Series. Linking it here does not copy or recreate the customer path. Any manual count schedule previously entered on this stream is preserved in reserve and returns if Driver source is changed back to Constant.</span></div>`;
-        h += `<div class="fld wide"><label>Customer-count measure</label><select style="min-width:300px" onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end bank customers · held through model year</option><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>Ending bank customers · monthly period end</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Period-average bank customers</option></select><span class="memo" style="margin:4px 0 0">${_ccmeasure==='annual_count'?'Uses CAC’s year-end customer count in every model period of that year.':(_ccmeasure==='period_average'?'Uses (prior month-end + current month-end) / 2 and aggregates canonical monthly exposures in quarterly models.':'Uses CAC’s canonical monthly Ending bank customers Series; quarterly models average the three monthly EOP observations before applying an annual account fee.')}</span></div>`;
+        const _ccref=String(st.driver.ref||""),_ccmeasure=String(st.driver.measure||"period_end");
+        h += `<div class="fld"><label>Count measure</label><select onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>End of month</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Average (begin + end)</option><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end count · held through year</option></select></div>`;
+        h += `<div class="fld wide"><span class="memo">Customer Acquisition owns the linked count. Changes upstream flow through automatically. Switching back to an entered count restores its saved schedule. ${_ccmeasure==='annual_count'?'Uses the year-end customer count throughout that model year.':(_ccmeasure==='period_average'?'Uses the average of beginning and ending monthly counts. Quarterly models aggregate monthly exposures.':'Uses each month’s ending customer count. Quarterly models average the three monthly observations before applying an annual account fee.')}</span></div>`;
         h += `<div class="fld wide" data-fee-customer-count-preview data-product-index="${_fi}" data-stream-index="${si}">${_feeCustomerCountPreviewHtml(_ccref,_ccmeasure)}</div>`;
       }
       if(basis==='account'){
