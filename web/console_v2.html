@@ -14171,7 +14171,7 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
 
 function _cacMeta(method){
   if(method==="pool_conversion") return [
-    {k:"pool",lab:"Addressable pool",unit:"customers",kind:"number",flow:true},
+    {k:"pool",lab:"Addressable pool",unit:"customers",kind:"number",flow:true,linkKind:"acquisition_channel_new_customers",aggregation:"sum"},
     {k:"conversion_rate",lab:"Conversion rate",unit:"%",kind:"pct"},
     {k:"avg_auc_per_customer",lab:"Average AUC / new customer",unit:"$000s / customer",kind:"k"}];
   if(method==="spend_cac") return [
@@ -14224,7 +14224,7 @@ function _cacDisplay(v,kind){v=+v||0;if(kind==="pct")return (v*100).toFixed(2);i
 // (CAC $/customer) and natural counts remain raw, exactly like Fee Product $/unit prices.
 function _cacStored(v,kind){let x=_pf(v);if(kind==="pct")x/=100;else if(kind==="k")x*=1000;return x;}
 function _cacEnteredCurrent(ch,key){const sp=_cacEnsureSpec(ch,key),m=_cacMode(sp);if(m==="growth")return +(sp.base||0);if(m==="explicit")return +((sp.values||[])[0]||0);return +(sp.value||0);}
-function _cacLinkOptions(meta){
+function _cacLinkOptions(meta,fn,ci){
   _ensureLinkableSeriesIds(); const nd=(cfg.assumptions||{}).nie_detail||{},out=[];
   if(meta.linkKind==="operating_expense_category") (nd.categories||[]).forEach(x=>{
     const lcs=(x.linked_components||[]),wf=nd.workforce||{},roles=wf.roles||[];
@@ -14250,12 +14250,16 @@ function _cacLinkOptions(meta){
     out.push({id:x.series_id,kind:meta.linkKind,label:"Operating Expense · "+(x.name||"Unnamed category"),aggregation:"sum",disabled,disabledReason:reason});
   });
   if(meta.linkKind==="workforce_role_count") (((nd.workforce||{}).roles)||[]).forEach(x=>out.push({id:x.series_id,kind:meta.linkKind,label:"Workforce Count · "+(x.role||"Unnamed population"),aggregation:"average",disabled:!!x.activation}));
+  if(meta.linkKind==='acquisition_channel_new_customers')Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([feed,fd])=>(fd.channels||[]).forEach((ch,j)=>{
+    const ids=_cacEnsureDerivedIds(ch),self=feed===fn&&j===ci;
+    out.push({id:ids.new_customers,kind:meta.linkKind,label:'Customer acquisition · '+feed+' · '+(ch.name||'Unnamed channel')+' · New customers',aggregation:'sum',disabled:self,disabledReason:self?'same channel':''});
+  }));
   return out;
 }
 window.cacDriverSource=function(fn,ci,key,source){
   const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),old=_cacEnsureSpec(ch,key),cur=_cacEnteredCurrent(ch,key);
   if(source==="link"){
-    const opts=_cacLinkOptions(meta||{}).filter(x=>!x.disabled); if(!opts.length){
+    const opts=_cacLinkOptions(meta||{},fn,ci).filter(x=>!x.disabled); if(!opts.length){
       if((meta||{}).linkKind==="operating_expense_category") alert("Acquisition spend can link only to an Operating expense category, and none exists yet. Add the relevant Opex category (for example Marketing / Business Development), or keep Acquisition spend entered directly in Customer Acquisition.");
       else if((meta||{}).linkKind==="workforce_role_count") alert("No fixed/entered Workforce Count series is available to link. Metric-triggered workforce cannot drive Customer Acquisition because that would create a circular dependency.");
       else alert("No compatible Foundry series is available to link yet.");
@@ -14266,7 +14270,7 @@ window.cacDriverSource=function(fn,ci,key,source){
   renderContent();refresh();
 };
 window.cacDriverLink=function(fn,ci,key,val){
-  const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),o=_cacLinkOptions(meta||{}).find(x=>x.id===val);
+  const ch=cfg.assumptions.cac_feeds[fn].channels[ci],meta=_cacMeta(ch.method||"pool_conversion").find(x=>x.k===key),o=_cacLinkOptions(meta||{},fn,ci).find(x=>x.id===val);
   if(!o||o.disabled)return; ch.driver_specs=ch.driver_specs||{};const old=_cacEnsureSpec(ch,key); ch.driver_specs[key]={series_id:old.series_id||_seriesId("cac"),owner_module:"customer_acquisition",source:"link",link:{kind:o.kind,series_id:o.id,aggregation:o.aggregation}};renderContent();refresh();
 };
 window.cacDriverTrajectory=function(fn,ci,key,mode){
@@ -14327,6 +14331,11 @@ function _cacLinkedLatestAnnual(fn,ci,key){
 }
 function _cacLinkedSourcePreview(fn,ci,meta,sp){
   const lk=(sp||{}).link||{};
+  if(meta.linkKind==='acquisition_channel_new_customers'){
+    let hit=null;Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([feed,fd])=>(fd.channels||[]).forEach(ch=>{if((ch.derived_series_ids||{}).new_customers===lk.series_id)hit={feed,ch};}));
+    if(!hit)return '<div class="cac-link-preview"><b>Linked acquisition channel unavailable.</b> Restore the source or select another channel.</div>';
+    return `<div class="cac-link-preview"><b>${esc(hit.ch.name||'Unnamed channel')}</b> · ${esc(hit.feed)} · live monthly new-customer flow. Source assumptions remain owned by that channel; no schedule is copied. Dependent channels must not form a circular link.</div>`;
+  }
   if(meta.linkKind==="operating_expense_category"){
     const src=_cacOpexSourceById(lk.series_id);
     if(!src)return `<div class="cac-link-preview"><b>Linked source unavailable.</b> The selected Operating Expense Series could not be resolved.</div>`;
@@ -14377,12 +14386,12 @@ function _cacLinkedSourcePreview(fn,ci,meta,sp){
 }
 
 function _cacDriverHtml(fn,ci,ch,meta){
-  const sp=_cacEnsureSpec(ch,meta.k),mode=_cacMode(sp),opts=meta.linkKind?_cacLinkOptions(meta):[],canLink=!!meta.linkKind;
+  const sp=_cacEnsureSpec(ch,meta.k),mode=_cacMode(sp),opts=meta.linkKind?_cacLinkOptions(meta,fn,ci):[],canLink=!!meta.linkKind;
   let x=`<div style="border-top:1px solid #CFCFCC;padding:7px 0 5px"><div class="crow" style="align-items:center;margin:0"><span style="width:184px;color:#2A2A2A">${esc(meta.lab)}</span>`;
   if(canLink)x+=`<select style="width:96px" onchange="cacDriverSource('${esc(fn)}',${ci},'${meta.k}',this.value)"><option value="entered"${mode!=="link"?' selected':''}>Enter</option><option value="link"${mode==='link'?' selected':''}>Link</option></select>`;
   else x+=`<span class="cu" style="width:84px">Enter</span>`;
   if(mode==="link"){
-    const lk=(sp.link||{}),cur=lk.series_id||"";x+=`<select class="cac-link-source-select" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · '+esc(o.disabledReason||'not linkable upstream'):''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
+    const lk=(sp.link||{}),cur=lk.series_id||"";if(cur&&!opts.some(o=>o.id===cur))opts.unshift({id:cur,label:"Missing source: "+cur,disabled:true,disabledReason:"repair link"});x+=`<select class="cac-link-source-select" onchange="cacDriverLink('${esc(fn)}',${ci},'${meta.k}',this.value)">`+opts.map(o=>`<option value="${esc(o.id)}"${o.id===cur?' selected':''}${o.disabled?' disabled':''}>${esc(o.label)}${o.disabled?' · '+esc(o.disabledReason||'not linkable upstream'):''}</option>`).join('')+`</select><span class="cu">trajectory owned by source</span>`;
   } else {
     x+=`<select style="width:98px" onchange="cacDriverTrajectory('${esc(fn)}',${ci},'${meta.k}',this.value)">${[["flat","Flat"],["growth","Growth"],["explicit","Explicit"]].map(o=>`<option value="${o[0]}"${o[0]===mode?' selected':''}>${o[1]}</option>`).join('')}</select>`;
     if(mode==="growth"){

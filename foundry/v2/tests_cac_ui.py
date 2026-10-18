@@ -100,8 +100,18 @@ cfg.assumptions.cac_feeds.other={channels:[{name:'Other feed channel',method:'ex
 window._cacChannelDrag={feed:'growth',index:0};
 window.cacChannelDrop({preventDefault(){},currentTarget:{dataset:{dropAfter:'1'}}},'other',0);
 const crossFeedGuard={growthNames:fd.channels.map(x=>x.name),otherNames:cfg.assumptions.cac_feeds.other.channels.map(x=>x.name)};
+secondChannel.derived_series_ids.new_customers='second-channel-new'; // Unique identity; the test ID factory is intentionally constant.
+const channelOpts=_cacLinkOptions(_cacMeta('pool_conversion')[0],'growth',1);
+const channelSource=firstChannel.derived_series_ids.new_customers;
+const selfChannelOption=channelOpts.find(x=>x.id===secondChannel.derived_series_ids.new_customers);
+window.cacMethodChange('growth',1,'pool_conversion');
+window.cacDriverSource('growth',1,'pool','link');
+window.cacDriverLink('growth',1,'pool',channelSource);
+const acquisitionLink=fd.channels[1].driver_specs.pool.link;
+const acquisitionPreview=_cacLinkedSourcePreview('growth',1,_cacMeta('pool_conversion')[0],fd.channels[1].driver_specs.pool);
+const selfChannelDisabled=!!selfChannelOption?.disabled;
 window.nop=0;
-console.log(JSON.stringify({multiplierDefault,multiplierValues,multiplierFteLink,seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
+console.log(JSON.stringify({acquisitionLink,acquisitionPreview,selfChannelDisabled,multiplierDefault,multiplierValues,multiplierFteLink,seeded,pool:fd.channels[0].driver_specs.pool,poolLoaded,poolCleared,poolDefaultClosed,poolClosed,poolOpen,spendLink,spendPreviewFlat,spendPreviewExplicit,gaPreview,opexLinkOptions,fteLink,ftePreview,method:fd.channels[0].method,unitProbe,flowTrajectoryExplicit,flowTrajectoryFlat,attrTrajectoryExplicit,attrTrajectoryFlat,reordered,reorderedUp,crossFeedGuard}));
 '''
     br=subprocess.run(["node","-e",prefix+helpers+js+suffix],text=True,capture_output=True)
     bj={}
@@ -109,6 +119,7 @@ console.log(JSON.stringify({multiplierDefault,multiplierValues,multiplierFteLink
         try: bj=json.loads(br.stdout.strip().splitlines()[-1])
         except Exception: pass
     sd=bj.get("seeded") or {}
+    ck("Pool links consume stable acquisition-channel outputs, disable self and show live ownership", (bj.get("acquisitionLink") or {}).get("kind")=="acquisition_channel_new_customers" and (bj.get("acquisitionLink") or {}).get("aggregation")=="sum" and bj.get("selfChannelDisabled") is True and "live monthly new-customer flow" in bj.get("acquisitionPreview", ""), str({k:bj.get(k) for k in ["acquisitionLink","selfChannelDisabled","acquisitionPreview"]}))
     ck("Productivity multiplier defaults to 100%, loads percentage schedules and preserves workforce link", bj.get("multiplierDefault")==1 and bj.get("multiplierValues")==[0,.5,1] and bj.get("multiplierFteLink")=="wf-rm")
     ck("driver dials are equation-driven, not hard-coded to channel names",
        br.returncode==0 and sd.get("m0")==["avg_auc_per_customer","conversion_rate","pool"]

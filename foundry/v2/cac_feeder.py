@@ -121,7 +121,7 @@ def _explicit_source_values(spec, months, *, engine_ppy=12):
 
 
 def _resolve_operand_monthly(spec, months, semantic, *, assumptions=None, growth_context=None,
-                             engine_ppy=12, default_value=0.0):
+                             engine_ppy=12, default_value=0.0, channel_stack=()):
     """Resolve one CAC operand to the canonical monthly grid.
 
     ``semantic='flow'`` means the entered amount is a total for its natural/source period and is
@@ -135,6 +135,18 @@ def _resolve_operand_monthly(spec, months, semantic, *, assumptions=None, growth
         raw = {"source": "entered", "trajectory": "flat", "value": float(default_value or 0.0)}
     s = normalize_series_spec(raw, default_value=default_value)
     if s["source"] == "link":
+        if s['link'].get('kind')=='acquisition_channel_new_customers':
+            if semantic!='flow':raise ValueError('Acquisition channel new customers must feed a count-flow operand')
+            if s['link'].get('aggregation')!='sum':raise ValueError('Acquisition channel new-customer flow requires sum aggregation')
+            sid=str(s['link'].get('series_id') or '')
+            matches=[ch for f in (assumptions or {}).get('cac_feeds',{}).values() for ch in f.get('channels',[]) if (ch.get('derived_series_ids') or {}).get('new_customers')==sid]
+            if not sid or len(matches)!=1:raise ValueError('Acquisition channel source is missing or ambiguous: '+sid)
+            stack=tuple(channel_stack)
+            if sid in stack:raise ValueError('Circular acquisition channel link: '+' -> '.join(stack+(sid,)))
+            rows=_channel_monthly(matches[0],months,assumptions=assumptions,growth_context=growth_context,engine_ppy=engine_ppy,channel_stack=stack+(sid,))
+            values=[float(r['new_customers']) for r in rows]
+            if any(not math.isfinite(v) or v<0 for v in values):raise ValueError('Linked acquisition flow must be finite and nonnegative')
+            return values
         return [float(x or 0.0) for x in resolve_series_spec(
             s, assumptions or {}, int(months), 12, context=growth_context,
             default_value=default_value)]
@@ -170,16 +182,18 @@ def _channel_operand_specs(ch):
     raise ValueError(f"unsupported customer-acquisition method {method!r}")
 
 
-def _channel_monthly_operands(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12):
+def _channel_monthly_operands(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12, channel_stack=()):
     out = {}
     for key, semantic in _channel_operand_specs(ch).items():
         spec = _spec_for(ch, key)
+        if ((spec or {}).get('link') or {}).get('kind')=='acquisition_channel_new_customers' and key!='pool':
+            raise ValueError('Acquisition channel count-flow links are supported only as the Pool × conversion addressable pool')
         if spec is None:
             out[key] = [0.0] * int(months)
             continue
         out[key] = _resolve_operand_monthly(
             spec, months, semantic, assumptions=assumptions,
-            growth_context=growth_context, engine_ppy=engine_ppy)
+            growth_context=growth_context, engine_ppy=engine_ppy,channel_stack=channel_stack)
     if ch.get('method')=='fte_productivity' and 'productivity_multiplier' in (ch.get('driver_specs') or {}):
         values=_resolve_operand_monthly(_spec_for(ch,'productivity_multiplier'),months,'share',assumptions=assumptions,growth_context=growth_context,engine_ppy=engine_ppy)
         if any(not math.isfinite(v) or v<0 for v in values):
@@ -194,9 +208,9 @@ def _channel_monthly_operands(ch, months, *, assumptions=None, growth_context=No
     return out
 
 
-def _channel_monthly(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12):
+def _channel_monthly(ch, months, *, assumptions=None, growth_context=None, engine_ppy=12, channel_stack=()):
     op = _channel_monthly_operands(ch, months, assumptions=assumptions,
-                                   growth_context=growth_context, engine_ppy=engine_ppy)
+                                   growth_context=growth_context, engine_ppy=engine_ppy,channel_stack=channel_stack)
     method = str((ch or {}).get("method") or "")
     rows = []
     for mi in range(int(months)):
