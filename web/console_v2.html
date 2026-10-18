@@ -3334,9 +3334,11 @@ function _stCellHtml(metas,k,fi){
 function refreshStreamFigures(){
   const S=((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities)||{}).series||{};
   document.querySelectorAll('.st-list').forEach(list=>{
-    if(!list.offsetParent) return; const any=list.querySelector('[data-ip^="st:"]'); if(!any) return;
-    const fi=+any.getAttribute('data-ip').split(':')[1], metas=(window._stMetaByFi||{})[fi]; if(!metas) return;
+    if(!list.offsetParent) return;
+    const owner=list.getAttribute('data-stream-owner'); if(owner==null||owner==='') return;
+    const fi=Number(owner), metas=(window._stMetaByFi||{})[fi]; if(!Number.isFinite(fi)||!metas) return;
     metas.forEach(m=>{ if(m.qid) m.qty=S[m.qid]||null; });
+    const heading=list.querySelector('thead th.num'); if(heading) heading.textContent='Driver · '+_stProvP(metas);
     const tb=list.querySelector('tbody'); if(!tb) return;
     [...tb.querySelectorAll('tr')].filter(r=>!r.classList.contains('st-src')&&!r.classList.contains('st-setup')).forEach((r,k)=>{ const c=r.querySelector('.st-q'); if(c&&metas[k]) c.innerHTML=_stCellHtml(metas,k,fi); });
     tb.querySelectorAll('tr.st-src,tr.st-setup').forEach(x=>x.remove()); tb.insertAdjacentHTML('afterbegin',_stSrcRows(metas,fi)+_stSetupFeeRow(fi));
@@ -7009,7 +7011,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += '<div class="fld wide st-md">'+chainH;
-      h += '<div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
+      h += '<div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}${typeof _fgChipHtml==='function'?_fgChipHtml((p.fee_streams||[])[k]):''}</td><td><span class="cfg-pill${z.role!=='Driver'?' x':''}" title="${z.role==='Driver'?'Carries quantity only':'Posts '+z.role.toLowerCase()}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry quantity only. Revenue and cost streams post their respective amounts. Click \u24D8 to see how a figure is calculated.</div></div>`;
@@ -7018,7 +7020,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
       { h += `<div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div></div>`; }
     } else if(+_fi>=1000&&_stSetupFeeRow(_fi)){   // r232: no streams yet, but the Setup fee yield is still listed
-      h += '<div class="fld wide st-md"><div class="st-list"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver</th></tr></thead><tbody>'+_stSetupFeeRow(_fi)+'</tbody></table>'
+      h += '<div class="fld wide st-md"><div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver</th></tr></thead><tbody>'+_stSetupFeeRow(_fi)+'</tbody></table>'
         + '<div class="st-foot">No fee streams yet. The fee yield is set in Setup \u2192 Pricing; add a stream below for a fee with its own driver, pricing, timing or cost.</div></div></div>';
     }
     // The five GUT stream bases. Each add tile carries its own compact ontology help popover.
