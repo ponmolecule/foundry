@@ -1901,3 +1901,10 @@ Flow-lending tabs on wide monitors, re-proportioned. r351 filled very wide stage
 
 ## r353
 Industrial layout for every product family: roll-forward, entered-target and linked loans; deposits in all three balance methods (roll-forward, level, retention pool); off-balance-sheet commitments; and fee products. Console only. The product card still renders exactly as before; a decorator then re-seats the same controls (same elements, same handlers, same stored fields) into numbered sections with graphite headers when open and light when collapsed, a formula rail, and an engine results column. Units move from labels into the inputs; two- and three-way choices become segmented controls that drive the original selects. Each family gets an engine strip one year into the forecast (loans: opening, originations, balance, interest, credit cost, revenue; deposits: balance path, rate paid, interest, net cost; commitments: notional, fees, cost, net fee income; fee products without an AUC series: fee income path). The Fee streams tab layout from r350 now applies to every product with streams. Funded-flow loans are unchanged from r352.
+
+## r354
+Product sections tightened and centred. Console only: same controls, handlers and stored fields as r353; no engine change.
+
+Compact sections: a section whose inputs fit on one row of the four-column grid (a two-way toggle counts two columns, a full-width selector four) shrinks its chart to a 64px strip. Deposit Pricing (toggle + rate + fees), Timing and Costs go compact; Balance (selector + four inputs) keeps the 120px chart. Sections holding legacy blocks never go compact.
+
+Every section with an engine results column centres its rail, inputs and chart column vertically, including sections whose inputs outgrow the chart (flow-lending Exposure & retention). The four figures under each chart sit in one row instead of a 2×2 grid; labels wrap to two lines instead of truncating. The results column keeps at least 440px, taking width from the inputs column only on narrower stages (about 80px at 1920; none at 2560).

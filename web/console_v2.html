@@ -1337,6 +1337,31 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .prd-card .pp-sec[data-pp="streams"]:has(.lfx-st)>.fld.wide:not(.lfx-st)>label{flex:none!important;color:var(--t1)!important;font-weight:600;font-size:12.5px}
 .prd-card .pp-sec[data-pp="streams"]:has(.lfx-st)>.fld.wide:not(.lfx-st) .memo{font-size:11.5px;color:var(--t3)}
 .lfx-gen .lfx-legacy>.btn-plain{align-self:flex-start}
+/* r354: compact sections. One or two inputs: the chart becomes a strip and the figures one row */
+.lfx-b.compact .lfx-ro .ro-pl,.lfx-b.compact .lfx-ro .ro-pl svg{height:64px}
+.lfx-b.compact .lfx-ro .ro-yl{height:64px}
+.lfx-b.compact .lfx-ro .ro-yl span:nth-child(2){display:none}
+.lfx-b.compact .lfx-ro .ro-ch{margin-top:8px}
+.lfx-b.compact .lfx-ro .ro-k{grid-template-columns:repeat(4,minmax(0,1fr));margin-top:10px}
+.lfx-b.compact .lfx-ro .ro-k>div{padding:7px 10px}
+.lfx-b.compact .lfx-ro .ro-k b{font-size:13.5px}
+.lfx-b.compact .lfx-ro{padding:12px 20px 14px}
+.lfx-b.compact .lfx-rail{padding:12px 18px}
+.lfx-b.compact .lfx-body{padding:12px 20px 14px}
+.lfx-b.compact .lfx-rail p{font-size:11px}
+.lfx-b.compact .lfx-rail .fx{margin-top:8px}
+/* r354: sections with a chart column centre the rail and the inputs vertically against the chart column */
+@media (min-width:1181px){.lfx-b.has-ro>.lfx-rail,.lfx-b.has-ro>.lfx-body{display:flex;flex-direction:column;justify-content:center}
+.lfx-b.has-ro>.lfx-body>*{flex:0 0 auto}}
+/* r354: the chart column centres too, and its four figures sit in one row in every section */
+@container (min-width:1320px){
+  .lfx-b.has-ro>.lfx-ro{display:flex;flex-direction:column;justify-content:center}
+  .lfx-b.has-ro>.lfx-ro>*{flex:0 0 auto}
+  .lfx-ro .ro-k{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .lfx-ro .ro-k>div{display:grid;grid-template-rows:1fr auto;padding:8px 10px}
+  .lfx-ro .ro-k span{white-space:normal;line-height:1.3}
+  .lfx-b.has-ro,.lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:288px minmax(520px,900px) minmax(440px,1fr)}
+}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -7772,6 +7797,9 @@ function lfgDecorate(card){
     b.innerHTML=`<div class="lfx-rail">${_lfgRail(fam,p,g)}</div><div class="lfx-body"><div class="lfx-grid"></div></div>${ro?`<aside class="lfx-ro" data-lfg-live="ro" data-fam="${fam}" data-i="${i}" data-g="${g}" aria-label="Engine results">${_lfgRoHtml(fam,i,g)}</aside>`:''}`;
     const grid=b.querySelector('.lfx-grid');
     list.forEach(el=>{_lfgField(el);if(el.classList.contains('cu')||el.classList.contains('fhint')||(el.classList.contains('lfx-legacy')&&!el.querySelector('input,select,textarea,button')&&el.textContent.trim().length<260&&!el.querySelector('table'))){el.classList.add('lfx-note-blk');}grid.appendChild(el);});
+    { const fl=[...grid.children].filter(x=>x.classList.contains('lfx-f')&&!x.classList.contains('lfx-legacy')&&!x.classList.contains('lfx-note-blk')),lg=[...grid.children].filter(x=>x.classList.contains('lfx-legacy')&&!x.classList.contains('lfx-note-blk'));
+      const span=fl.reduce((a,x)=>a+(x.classList.contains('s4')?4:x.classList.contains('s3')?3:x.classList.contains('s2')?2:1),0);
+      if(ro&&fl.length&&span<=4&&!lg.length)b.classList.add('compact'); }   // r354: a section whose inputs fit on one row shrinks to that row
     s.appendChild(b);root.appendChild(s);});
   const foot=document.createElement('div');foot.className='lfx-foot';foot.innerHTML='<span>Amounts in $000s unless a field says otherwise. Changes recompute the model.</span>';root.appendChild(foot);
   ident.forEach(el=>{if(el.parentNode)el.remove();});
@@ -7779,6 +7807,7 @@ function lfgDecorate(card){
   host.prepend(root);
   card.setAttribute('data-lfg','1');
   return true;}
+
 
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();
