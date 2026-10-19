@@ -1908,3 +1908,12 @@ Product sections tightened and centred. Console only: same controls, handlers an
 Compact sections: a section whose inputs fit on one row of the four-column grid (a two-way toggle counts two columns, a full-width selector four) shrinks its chart to a 64px strip. Deposit Pricing (toggle + rate + fees), Timing and Costs go compact; Balance (selector + four inputs) keeps the 120px chart. Sections holding legacy blocks never go compact.
 
 Every section with an engine results column centres its rail, inputs and chart column vertically, including sections whose inputs outgrow the chart (flow-lending Exposure & retention). The four figures under each chart sit in one row instead of a 2×2 grid; labels wrap to two lines instead of truncating. The results column keeps at least 440px, taking width from the inputs column only on narrower stages (about 80px at 1920; none at 2560).
+
+## r355
+Console only; same handlers and stored fields; no engine change.
+
+Operating expense sub-tabs (Workforce, Expense categories, Assessments & other NIE) are one segmented control; the active tab is a graphite bar, matching Simple overhead / Detailed.
+
+Pre-opening expenses and fixed assets: the table opens with no entry box. Picking a row opens its box; Done, or picking the row again, closes it. Edits are kept when the box closes.
+
+Linked sources: every linked-source preview has Hide source / Show, remembered per source. New live previews, refreshed after each run, for the fee-stream linked quantity, stream reference and bank aggregate drivers, the OBS AUC feed, deposit linked balances and derived activity, the flow-lending upstream flow, other income, external tax inputs, other-asset and other-liability terms, the fixed-asset driver and the managed-securities target. Monetary quantities show in $000s. Other-asset and other-liability term dropdowns now show the linked source when it is not in the option list (previously they displayed the first option). Not yet previewed because the run does not publish them: deposit fee-share schedules, per-stream fee income and cost, per-role workforce expense, per-category opex paths, composite income drivers, weighted tiered drivers, balance-component shared inputs.

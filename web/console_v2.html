@@ -792,6 +792,13 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .capital-input-table tr.selected{background:#F3ECDE}.capital-input-table tr.selected .capital-input-pick{font-weight:600}
 .capital-input-remove{text-align:center;padding:6px!important}.capital-input-remove .cx{display:inline-block;position:static!important;margin:0!important;min-width:20px!important}
 .capital-input-detail{background:var(--k-surface2)}
+.capital-input-pick::after{content:"\25B8";display:inline-block;margin-left:7px;font-size:9px;color:var(--k-tx4);transition:transform .12s}
+.capital-input-table tr.selected .capital-input-pick::after{transform:rotate(90deg);color:#A3772A}
+.capital-input-fields{align-items:end}
+.capital-input-done{justify-self:end;align-self:end;height:28px;padding:0 14px;border:1px solid #2C2C2C;border-radius:3px;background:#2C2C2C;color:#fff;font:600 11.5px var(--k-font,inherit);cursor:pointer}
+.capital-input-done:hover{background:#000}
+#preopening-editor .capital-input-fields{grid-template-columns:minmax(0,1fr) 130px auto}
+#fixedassets-editor .capital-input-done{grid-column:3}
 .capital-input-fields{display:grid;grid-template-columns:minmax(0,1fr) 130px;gap:10px 16px}
 #fixedassets-editor .capital-input-fields{grid-template-columns:repeat(3,minmax(0,1fr))}
 #fixedassets-editor .capital-input-fields>label:first-child{grid-column:1/-1}
@@ -1635,6 +1642,12 @@ table.fin th{border-bottom:1px solid var(--gold)}
 .cfg-subtab.on{color:var(--k-tx1);font-weight:600}
 .cfg-subtab.on::after{content:"";position:absolute;left:12px;right:12px;bottom:-1px;height:2.5px;border-radius:2px 2px 0 0;background:var(--k-gold)}
 .cfg-subtab small{font-size:11px;font-weight:500;color:var(--k-tx4);margin-left:6px;font-variant-numeric:tabular-nums}
+/* r355: the opex sub-tabs read as one segmented control, like Simple overhead / Detailed: the active tab is a graphite bar */
+.cfg-subtabs{display:inline-flex;gap:0;padding:2px;margin:0 0 16px;background:#EFEFEF;border:0;border-radius:3px}
+.cfg-subtab{min-width:128px;height:27px;padding:0 16px;border-radius:3px;font-size:12.5px;font-weight:500;color:var(--k-tx2);display:inline-flex;align-items:center;justify-content:center}
+.cfg-subtab.on{background:#2C2C2C;color:#FFFFFF;font-weight:600}
+.cfg-subtab.on::after{display:none}
+.cfg-subtab.on small{color:rgba(255,255,255,.62)}
 #card-nie[data-nie-tab="workforce"] .nie-section[data-nie-pane]:not([data-nie-pane="workforce"]),
 #card-nie[data-nie-tab="categories"] .nie-section[data-nie-pane]:not([data-nie-pane="categories"]),
 #card-nie[data-nie-tab="assessments"] .nie-section[data-nie-pane]:not([data-nie-pane="assessments"]){display:none}
@@ -2584,7 +2597,8 @@ input:not([type=checkbox]):not([type=radio]):not([type=range]),select,textarea{b
 .opex-comp-all a{color:#3d5a80;text-decoration:none}.opex-comp-all a:hover{text-decoration:underline}
 .lsrc-wrap{position:relative}.lsrc-x{position:absolute;top:6px;right:8px;z-index:1;font-size:11.5px;color:#6E6A63;text-decoration:none;background:#FFFFFF;padding:1px 6px;border-radius:4px}
 .lsrc-x:hover{color:#9F5340;background:#f6e3db}
-.lsrc-bar{margin-top:4px;font-size:11.5px;color:#96928C}.lsrc-bar a{color:#3d5a80;text-decoration:none}
+.lsrc-bar{margin-top:4px;font-size:11.5px;color:#96928C}
+.lsrc-live{margin-top:8px}.lsrc-live .cac-link-preview{margin-left:0!important;max-width:100%!important;width:100%}.lsrc-live .cac-link-preview .cmut b{color:#2A2A2A}.lsrc-live .cac-link-readonly{max-height:84px;overflow:auto}.lsrc-bar a{color:#3d5a80;text-decoration:none}
 
 /* r260: categories with formula components get room: list stacked above a detail panel up to 1100px */
 .fx-row:not(.fx-linked){grid-template-columns:100px minmax(84px,1fr) 66px minmax(84px,1fr) 84px 110px 89px 28px!important;gap:8px 10px!important}
@@ -5383,6 +5397,7 @@ async function _previewInner(){
   if(V3 && currentTab==="config") refreshConfigPreviews();
   else if(!(V31 && currentTab==="products")) renderContent();
   else { refreshProductStats(); refreshFeeCustomerCountPreviews(); if(typeof refreshStreamFigures==='function') refreshStreamFigures(); }
+  if(typeof refreshLsrcLive==='function') refreshLsrcLive();   // r355: linked-source previews on either tab
   // A late-landing preview must refresh the Peer Corridor if it's on screen — the
   // corridor's modeled placements read lastRes, and without this an edit made just
   // before switching tabs (within the 350ms preview debounce) could leave the
@@ -6349,7 +6364,8 @@ function _feeCostPoolBalanceOptions(){const rows=catalogSources('cost_pool_balan
 function _legacyFeeCustomerCountOptions(){
   _ensureLinkableSeriesIds();const out=[];Object.entries((cfg.assumptions||{}).cac_feeds||{}).forEach(([name,fd])=>{if(fd&&fd.customer_count_series_id)out.push({series_id:String(fd.customer_count_series_id),feed:String(name),label:"Ending bank customers · "+name});});return out;
 }
-function _feeCustomerCountPreviewHtml(seriesId,measure){
+function _feeCustomerCountPreviewHtml(seriesId,measure){return (globalThis._lsrcWrap||((k,b)=>b||''))('cust:'+String(seriesId||'')+':'+String(measure||'period_end'),_feeCustomerCountPreviewBody(seriesId,measure),'Linked source');}
+function _feeCustomerCountPreviewBody(seriesId,measure){
   const sid=String(seriesId||""),opt=_feeCustomerCountOptions().find(o=>o.series_id===sid);
   if(!opt)return `<span class="memo" style="margin:3px 0 0">Customer-count source unavailable. Select a Customer Acquisition feed.</span>`;
   const ca=((((typeof lastRes!=="undefined"&&lastRes)||{}).customer_acquisition||{})[opt.feed]||{}),m=String(measure||"period_end");
@@ -6371,7 +6387,7 @@ function _feeCustomerCountPreviewHtml(seriesId,measure){
 function refreshFeeCustomerCountPreviews(){
   document.querySelectorAll('[data-fee-activity-preview]').forEach(el=>{
     const i=+el.getAttribute('data-product-index'),si=+el.getAttribute('data-stream-index'),st=(_stOwner(i).fee_streams||[])[si];
-    if(st&&st.driver.source==='account_activity')el.innerHTML=_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:st.driver.ref});
+    if(st&&st.driver.source==='account_activity')el.innerHTML=(globalThis._lsrcWrap||((k,b)=>b||''))('act:'+String(st.driver.ref||''),_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:st.driver.ref}),'Linked source');
   });
   if(!(V31 && currentTab==="products") || !lastRes)return;
   document.querySelectorAll("[data-fee-customer-count-preview]").forEach(el=>{
@@ -6571,11 +6587,11 @@ function depositOperandHtml(path,spec,label,share){
   const sp=spec||{source:'entered',trajectory:'flat',value:share?1:0},src=sp.source||'entered';
   let h=`<div class="fld wide deposit-operand"><label>${esc(label)}</label><select class="deposit-source" aria-label="${esc(label)} source" onchange="depositOperandSource('${path}',this.value,${!!share})">${[['entered','Enter'],['link','Link'],...(!share?[['derived','Derived']]:[])].map(x=>`<option value="${x[0]}"${src===x[0]?' selected':''}>${x[1]}</option>`).join('')}</select>`;
   if(src==='entered')h+=_faSeriesEditor(path,sp,'',share?'rate':'money',false).replace(/<span class="sec-book-label"[^>]*><\/span>/,'');
-  if(src==='link'){h+=`<a href="#" class="cadd" onclick="browseDepositSources('${path}','${share?'deposit_share':'deposit_balance'}',false);return false">Browse / search</a>`;const opts=depositSources(share?'fee_share':'fee_quantity','balance');h+=`<select aria-label="${esc(label)} linked series" onchange="setPath('${path}.link.series_id',this.value);refresh()"><option value="">Select a compatible Series</option>${opts.map(o=>`<option value="${esc(o.id)}"${(sp.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;}
+  if(src==='link'){h+=`<a href="#" class="cadd" onclick="browseDepositSources('${path}','${share?'deposit_share':'deposit_balance'}',false);return false">Browse / search</a>`;const opts=depositSources(share?'fee_share':'fee_quantity','balance');h+=`<select aria-label="${esc(label)} linked series" onchange="setPath('${path}.link.series_id',this.value);refresh()"><option value="">Select a compatible Series</option>${opts.map(o=>`<option value="${esc(o.id)}"${(sp.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;{const _l=(sp.link||{});if(_l.series_id&&_l.kind!=='fee_share')h+=(globalThis._lsrcLive||(()=>''))('fqk',_l.series_id,((opts.find(o=>o.id===_l.series_id)||{}).label)||_l.series_id,'upstream fee-stream quantity','money','deposit-lsrc');}}   // r355
   if(src==='derived'){
     const dp=path+'.derived',d=sp.derived||{},act=d.activity||{},ap=dp+'.activity';
     h+=`<div class="sec-book-label">Activity × holding days × share</div><select aria-label="Activity source" onchange="depositActivitySource('${ap}',this.value)"><option value="entered"${act.source==='entered'?' selected':''}>Enter activity</option><option value="link"${act.source==='link'?' selected':''}>Link activity</option></select>`;
-    if(act.source==='link')h+=`<a href="#" class="cadd" onclick="browseDepositSources('${ap}','deposit_transaction',true);return false">Browse / search</a><select aria-label="Linked activity" onchange="depositActivityLink('${ap}',this.value)"><option value="">Select monetary activity</option>${depositSources('fee_quantity','transaction').map(o=>`<option value="${esc(o.id)}"${(act.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`;
+    if(act.source==='link')h+=`<a href="#" class="cadd" onclick="browseDepositSources('${ap}','deposit_transaction',true);return false">Browse / search</a><select aria-label="Linked activity" onchange="depositActivityLink('${ap}',this.value)"><option value="">Select monetary activity</option>${depositSources('fee_quantity','transaction').map(o=>`<option value="${esc(o.id)}"${(act.link||{}).series_id===o.id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`+(()=>{const _l=act.link||{},_o=depositSources('fee_quantity','transaction').find(o=>o.id===_l.series_id)||{};return _l.series_id?(globalThis._lsrcLive||(()=>''))(_l.kind==='lending_funded_flow'?'fund':'fqk',_l.series_id,_o.label||_l.series_id,_l.kind==='lending_funded_flow'?'upstream funded flow':'upstream monetary activity','money','deposit-lsrc'):'';})();   // r355
     else h+=_faSeriesEditor(ap+'.amount_spec',act.amount_spec,'Activity','money',false)+`<select aria-label="Activity amount period" onchange="setPath('${ap}.period',this.value);refresh()">${['month','quarter','year'].map(v=>`<option${act.period===v?' selected':''}>${v}</option>`).join('')}</select>`;
     h+=_faSeriesEditor(dp+'.holding_days_spec',d.holding_days_spec,'Holding days','count',false);
     h+=depositOperandHtml(dp+'.share_spec',d.share_spec,'Share of activity',true);
@@ -6930,6 +6946,7 @@ function fieldsFor(fam, p, base){
       }
     } else {
       h += `<div class="fld wide"><span class="memo" style="margin:0">AUC driven by feed <b>${esc(p.managed_notional_source)}</b> (configured in Configuration \u2192 Customer Acquisition). Streams below charge against it.</span></div>`;
+      h += (globalThis._lsrcLive||(()=>''))('auc',p.managed_notional_source,p.managed_notional_source,'customer acquisition AUC, month end','money');   // r355
     }
     if(typeof window!=='undefined'&&window._ppMark) h += '</div><div class="pp-sec" data-pp="streams">';   // r204: fee streams tab
     h += _feeStreamsSectionHtml(fam, p, base, _fi);
@@ -7004,12 +7021,13 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
         h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
         h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
+        if(ref)h+=(globalThis._lsrcLive||(()=>''))('fq',ref,((choices.find(x=>x.value===ref)||{}).label)||ref,'upstream fee-stream quantity','native');   // r355
       }
       if(src==='account_activity'){
         const opts=_accountActivityOptions(basis),ref=String(st.driver.ref||'');
         h+=`<div class="fld wide"><label>Activity source</label><select data-nofit onchange="setPath('${sb}.driver.ref',this.value);renderContent();refresh()"><option value="">Select a ${basis==='account'?'subscriber count':'customer / subscriber flow'}…</option>${ref&&!opts.some(x=>x.series_id===ref)?`<option selected value="${esc(ref)}">Missing source: ${esc(ref)}</option>`:''}${opts.map(x=>`<option value="${esc(x.series_id)}"${x.series_id===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo">Create shared adoption sources under Customer acquisition. Count flows post no revenue or cost by themselves.</span></div>`;
         if(basis==='account')h+=SEL('Count measure',sb+'.driver.measure',st.driver.measure||'period_end',[['period_end','Month-end count'],['period_average','Average (begin + end)']]);
-        h+=`<div class="fld wide" data-fee-activity-preview data-product-index="${_fi}" data-stream-index="${si}">${_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:ref})}</div>`;
+        h+=`<div class="fld wide" data-fee-activity-preview data-product-index="${_fi}" data-stream-index="${si}">${(globalThis._lsrcWrap||((k,b)=>b||''))('act:'+ref,_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:ref}),'Linked source')}</div>`;
       }
       if(src==="stream_ref"){
         const _ref=String(st.driver.ref||"");
@@ -7017,8 +7035,9 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         const _refOpts=[["","Select a reference stream…"]].concat(_refNames.map(n=>[n,n]));
         if(_ref&&!_refNames.includes(_ref))_refOpts.splice(1,0,[_ref,"Missing / unavailable stream: "+_ref]);
         h += SEL("Reference stream", sb+".driver.ref", _ref, _refOpts);
+        { const _rs=(_stOwner(_fi).fee_streams||[]).find(x=>x&&String(x.name||'')===_ref); if(_rs&&_rs.quantity_series_id)h+=(globalThis._lsrcLive||(()=>''))('fq',_rs.quantity_series_id,_ref,'reference stream quantity','native'); }   // r355
       }
-      if(src==="bank_aggregate"){ h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]); }
+      if(src==="bank_aggregate"){ h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]); const _ba=(st.driver.ref||'total_deposits')==='total_assets'; h+=(globalThis._lsrcLive||(()=>''))('bs',_ba?'totalAssets':'deposits',_ba?'Bank \u203a Total assets':'Bank \u203a Total deposits','balance sheet, period end','money'); }   // r355
       if(src==="customer_acquisition_count"){
         const _ccref=String(st.driver.ref||""),_ccmeasure=String(st.driver.measure||"period_end");
         h += `<div class="fld"><label>Count measure</label><select onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>End of month</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Average (begin + end)</option><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end count · held through year</option></select></div>`;
@@ -7059,7 +7078,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             }
           });
           h += `<div class="memo" style="margin-top:5px">Component allocation determines what enters the eligible cost pool. Linked components observe already-posted costs; entered and balance-derived components are non-posting pricing assumptions. Recovery below separately determines how much of the eligible pool is charged/reimbursed.</div>`;
-          const _cpr=(((typeof lastRes!=="undefined"&&lastRes)||{}).cost_pools||{}),_cpa=((_cpr.series||{})[_cpid]||[]);if(_cpa.length){const _lab=PPY()===12?"M":(PPY()===4?"Q":"Y");h += `<div class="cac-link-preview-row" style="margin-top:7px"><span class="wf-field-label">Latest run · resolved eligible cost</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(_cpa.map((v,k)=>_lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
+          const _cpr=(((typeof lastRes!=="undefined"&&lastRes)||{}).cost_pools||{}),_cpa=((_cpr.series||{})[_cpid]||[]);if(_cpa.length){const _lab=PPY()===12?"M":(PPY()===4?"Q":"Y");h += (globalThis._lsrcWrap||((k,b)=>b||''))('pool:'+_cpid,`<div class="cac-link-preview-row" style="margin-top:7px"><span class="wf-field-label">Latest run · resolved eligible cost</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(_cpa.map((v,k)=>_lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`,'Linked cost');}
           h += `</div>`;
         }
       }
@@ -7509,6 +7528,7 @@ function _lfxSetupHtml(i,p,base){
     if(linked){
       const _up=[];const _flowSources=catalogSources('lending_funded_flow');if(_flowSources)_up.push(..._flowSources.map(x=>({id:x.series_id,label:x.label+' · Monetary throughput'})));else ['deposit_products','obs_exposures'].forEach(key=>((cfg.assumptions||{})[key]||[]).forEach(prod=>(prod.fee_streams||[]).forEach(st=>{if(st.basis==='transaction'&&st.quantity_series_id&&((st.driver||{}).source==='constant')&&(((((st.driver||{}).params||{}).flow_path||{}).unit_kind)==='money_flow'))_up.push({id:st.quantity_series_id,label:(prod.name||key)+' · '+(st.name||'flow')});})));
       b+=_lfxF(`Upstream monetary flow <a href="#" class="lfx-lnk" onclick="browseLoanSources('${base}');return false">Browse / search</a>`,_lfxSel(`<select aria-label="Upstream monetary flow" onchange="setPath('${base}.funded_flow_driver.series_id',this.value);refresh()"><option value="">Select a flow</option>${_up.map(x=>`<option value="${esc(x.id)}"${fd.series_id===x.id?' selected':''}>${esc(x.label)}</option>`).join('')}</select>`),'s4');
+      if(fd.series_id)b+=(globalThis._lsrcLive||(()=>''))('fqk',fd.series_id,((_up.find(x=>x.id===fd.series_id)||{}).label)||fd.series_id,'upstream monetary throughput, before take-up and ramp','money','lfx-f s4');   // r355
       b+=`<div class="lfx-note s4"><span class="dot"></span>Only monetary throughput quantities are eligible. A fee stream supplies its underlying activity volume, not its fee revenue or cost. Customer counts are excluded.</div>`;
     }else{
       if(tr!=='explicit_schedule')b+=_lfxF(src?'Source activity':'Final funded volume',_lfxN(_fp+'.value','k','$000s / '+(fp.period||'month')));
@@ -9304,7 +9324,7 @@ let h=`<div class="tax-workbench"><section class="tax-panel tax-settings"><div c
 h+=extTaxBlocksHtml();
 h+=`<section class="tax-panel"><details class="tax-section"${window._taxSourcesExpanded?' open':''} ontoggle="window._taxSourcesExpanded=this.open"><summary><span>Sources</span><span class="tax-count">${(m.inputs||[]).length} entered / linked</span></summary><p class="tax-muted">Your entered amounts and schedules are preserved. Monetary inputs use $000s.</p>`;
 (m.inputs||[]).forEach((x,i)=>{const p=root+'inputs.'+i;h+=`<details class="tax-source" ${(window._taxSourceOpen||{})[x.id]||window._taxNewSource===x.id?'open':''} ontoggle="window._taxSourceOpen=window._taxSourceOpen||{};window._taxSourceOpen['${esc(x.id)}']=this.open;if(!this.open)window._taxNewSource=null"><summary><strong>${esc(x.name||x.id)}</strong><span>${x.source==='linked_quantity'?'Linked quantity':esc((x.amount_spec||{}).trajectory||'Flat')} · ${x.unit==='scalar'?'rate / factor':x.measure==='level'?'balance':'period amount'}</span></summary><div class="tax-source-body"><div class="tax-fields">${extTaxField('Name',`<input aria-label="Tax source name" value="${esc(x.name||'')}" onchange="extTaxSet('inputs.${i}.name',this.value)">`)}${extTaxField('Units',`<select aria-label="Tax source units" onchange="extTaxSet('inputs.${i}.unit',this.value)"><option value="money"${x.unit!=='scalar'?' selected':''}>Money</option><option value="scalar"${x.unit==='scalar'?' selected':''}>Scalar / rate</option></select>`)}${extTaxField('Source',`<select onchange="extTaxSource(${i},this.value)"><option value="entered"${x.source!=='linked_quantity'?' selected':''}>Entered</option><option value="linked_quantity"${x.source==='linked_quantity'?' selected':''}>Linked quantity</option></select>`)}${x.unit!=='scalar'&&x.source!=='linked_quantity'?extTaxField('Measure',`<select aria-label="Tax amount measure" onchange="extTaxSet('inputs.${i}.measure',this.value)"><option value="flow"${x.measure!=='level'?' selected':''}>Period amount (flow)</option><option value="level"${x.measure==='level'?' selected':''}>Ending balance (stock)</option></select>`):''}</div>`;
-if(x.source==='linked_quantity')h+=`<div class="tax-fields">${extTaxField('Monetary flow',`<select onchange="extTaxSet('inputs.${i}.source_series_id',this.value)"><option value="">Choose monetary flow</option>${otherIncomeSources().map(o=>`<option value="${esc(o.series_id)}"${x.source_series_id===o.series_id?' selected':''}>${esc(o.label||o.name||o.series_id)}</option>`).join('')}</select>`)}${extTaxField('Multiplier',`<input value="${x.multiplier==null?1:x.multiplier}" onchange="extTaxSet('inputs.${i}.multiplier',_pf(this.value))">`)}</div>`;
+if(x.source==='linked_quantity')h+=`<div class="tax-fields">${extTaxField('Monetary flow',`<select onchange="extTaxSet('inputs.${i}.source_series_id',this.value)"><option value="">Choose monetary flow</option>${otherIncomeSources().map(o=>`<option value="${esc(o.series_id)}"${x.source_series_id===o.series_id?' selected':''}>${esc(o.label||o.name||o.series_id)}</option>`).join('')}</select>`)}${extTaxField('Multiplier',`<input value="${x.multiplier==null?1:x.multiplier}" onchange="extTaxSet('inputs.${i}.multiplier',_pf(this.value))">`)}</div>`+(x.source_series_id?(globalThis._lsrcLive||(()=>''))('fqk',x.source_series_id,((otherIncomeSources().find(o=>o.series_id===x.source_series_id)||{}).label)||x.source_series_id,'upstream monetary flow, before the multiplier','money','tax-lsrc'):'');
 else h+=_faSeriesEditor(p+'.amount_spec',x.amount_spec||{source:'entered',trajectory:'flat',value:0},x.unit==='scalar'?'Value / decimal rate':x.measure==='level'?'Ending balance':'Amount',x.unit==='scalar'?'multiple':'money',x.unit!=='scalar'&&x.measure!=='level');
 h+=`<div class="tax-source-foot"><details><summary>Source identifier</summary>${extTaxField('Identifier',`<input aria-label="Tax source identifier" value="${esc(x.id)}" onchange="extTaxSet('inputs.${i}.id',this.value)">`)}</details><button class="tax-icon" aria-label="Remove tax source" onclick="extTaxRemove('input',${i})">×</button></div></div></details>`;});
 h+='<button class="btn-plain" onclick="window._taxSourcesExpanded=true;extTaxAdd(\'input\')">+ Add source</button></details></section>';
@@ -9324,7 +9344,7 @@ window.otherIncomeRemove=function(i){cfg.assumptions.other_income_model.lines.sp
 window.otherIncomeSource=function(i,v){const line=otherIncomeState().lines[i];line.source=v;if(v==='linked_quantity'){line.source_series_id=line.source_series_id||'';line.multiplier=line.multiplier||0;}renderContent();refresh();};
 function otherIncomeHtml(){let h='<div class="cfgcard" id="card-income"><div class="cardhead"><span class="mi">'+ICONS.calc+'</span><span><div class="ct">Other income</div><div class="cd">Entity-level income, separate from products and bank cash interest. Amounts in $000s.</div></span></div>';
  (otherIncomeState().lines||[]).forEach((line,i)=>{const path='assumptions.other_income_model.lines.'+i;h+=`<details class="sec-managed-sleeve" open><summary style="cursor:pointer;font-weight:600">${esc(line.name||'Other income')}</summary><div style="display:flex;flex-wrap:wrap;gap:12px;align-items:end;margin:10px 0"><label>Name<input style="width:240px;max-width:100%;display:block" value="${esc(line.name||'')}" onchange="setPath('${path}.name',this.value);refresh()"></label><label>Classification<select style="width:150px;display:block" onchange="setPath('${path}.classification',this.value);refresh()">${[['other','Other income'],['dividend','Dividend income']].map(([v,t])=>`<option value="${v}"${line.classification===v?' selected':''}>${t}</option>`).join('')}</select></label><label>Source<select style="width:150px;display:block" onchange="otherIncomeSource(${i},this.value)"><option value="entered"${line.source!=='linked_quantity'?' selected':''}>Enter</option><option value="linked_quantity"${line.source==='linked_quantity'?' selected':''}>Linked quantity</option></select></label><button class="btn-plain" style="margin-left:auto" aria-label="Remove other income line" onclick="otherIncomeRemove(${i})">×</button></div>`;
- if(line.source==='linked_quantity'){const opts=otherIncomeSources();h+=`<div style="display:flex;flex-wrap:wrap;gap:12px"><label>Monetary flow source<select style="width:360px;max-width:100%;display:block" onchange="setPath('${path}.source_series_id',this.value);refresh()"><option value="">Select a source</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${line.source_series_id===o.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>Income per dollar of source<input style="width:110px;display:block" value="${esc(String(line.multiplier||0))}" onchange="setPath('${path}.multiplier',_pf(this.value));refresh()"></label></div><p class="cmut">Uses quantity, not existing revenue. This creates additional income; do not repeat income already posted elsewhere.</p>`;}else h+=_faSeriesEditor(path+'.amount_spec',line.amount_spec,'Income amount','money',true);
+ if(line.source==='linked_quantity'){const opts=otherIncomeSources();h+=`<div style="display:flex;flex-wrap:wrap;gap:12px"><label>Monetary flow source<select style="width:360px;max-width:100%;display:block" onchange="setPath('${path}.source_series_id',this.value);refresh()"><option value="">Select a source</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${line.source_series_id===o.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></label><label>Income per dollar of source<input style="width:110px;display:block" value="${esc(String(line.multiplier||0))}" onchange="setPath('${path}.multiplier',_pf(this.value));refresh()"></label></div><p class="cmut">Uses quantity, not existing revenue. This creates additional income; do not repeat income already posted elsewhere.</p>`;if(line.source_series_id)h+=(globalThis._lsrcLive||(()=>''))('fqk',line.source_series_id,((opts.find(o=>o.series_id===line.source_series_id)||{}).label)||line.source_series_id,'upstream monetary flow, before the multiplier','money','oi-lsrc');}else h+=_faSeriesEditor(path+'.amount_spec',line.amount_spec,'Income amount','money',true);
  h+='</details>';});return h+'<button class="pillbtn" onclick="otherIncomeAdd()">+ Add income line</button></div>';}
 
 function _grossEligibilityRows(){
@@ -9434,8 +9454,9 @@ function _oaEditorHtmlFk(){
   terms.forEach((t,j)=>{
    const b=`assumptions.other_assets_model.components.${i}.terms.${j}.`,entered=(t.driver_spec||{}).source==='entered',link=(t.driver_spec||{}).link||{},flow=link.kind==='bank_income_flow',count=link.kind==='workforce_role_count';
    let r=`<div class="fk-term"><div class="fk-term-h"><span class="fk-tn">${j+1}</span>`+_fkSel([['link','Linked series'],['entered','Entered level']],entered?'entered':'link',`oaTermMode(${i},${j},this.value)`,{w:'fk-s',aria:'Term source'});
-   if(!entered)r+=_fkSel(opts.map(o=>[o.value,o.label]),_oaDriverValue(t),`oaDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Other asset source'});
+   if(!entered)r+=_fkSel((globalThis._lsrcCurrentOpt||((k,i,j,v,o)=>o))('oat',i,j,_oaDriverValue(t),opts.map(o=>[o.value,o.label])),_oaDriverValue(t),`oaDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Other asset source'});
    r+=(terms.length>1?_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'):_fkX(`oaRemoveTerm(${i},${j})`,'Remove term'))+`</div><div class="fk-term-b">`;
+   if(!entered)r+=(globalThis._lsrcLive||(()=>''))('oat',i+'.'+j,((opts.find(o=>o.value===_oaDriverValue(t))||{}).label)||'Linked series','driver before the multiplier',count?'count':'money','fk-lsrc');   // r355
    if(entered)r+=_fkSeriesRow('Asset level',b+'driver_spec',t.driver_spec,'money',false);
    if(flow)r+=_fkRow('Flow to balance',_fkSeg([['multiple','Multiplier'],['days','Days outstanding']],t.days_spec?'days':'multiple',null,`oaDays(${i},${j},'%v'==='days')`));
    if(t.days_spec){r+=_fkSeriesRow('Days outstanding',b+'days_spec',t.days_spec,'days',false);
@@ -9565,8 +9586,9 @@ function _olComponentCardFk(c,i){
   const dv=_olDriverValue(t),link=(((t.driver_spec||{}).link)||{}),isW=link.kind==='workforce_role_count',mp=t._legacy?`assumptions.other_liabilities_model.components.${i}.multiplier_spec`:`assumptions.other_liabilities_model.components.${i}.terms.${j}.multiplier_spec`;
   const entered=(t.driver_spec||{}).source==='entered',dp=`assumptions.other_liabilities_model.components.${i}.terms.${j}.driver_spec`;
   let r=`<div class="fk-term"><div class="fk-term-h"><span class="fk-tn">${j+1}</span>`+_fkSel([['entered','Entered level'],['link','Linked series']],entered?'entered':'link',`olTermSource(${i},${j},this.value)`,{w:'fk-s',aria:'Term source'});
-  if(!entered)r+=_fkSel(opts.map(o=>[o.value,o.label]),dv,`olDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Driver series'});
+  if(!entered)r+=_fkSel((globalThis._lsrcCurrentOpt||((k,i,j,v,o)=>o))('olt',i,j,dv,opts.map(o=>[o.value,o.label])),dv,`olDriver(${i},${j},this.value)`,{w:'fk-wl',aria:'Driver series'});
   r+=_fkX(`olRemoveTerm(${i},${j})`,'Remove term')+`</div><div class="fk-term-b">`;
+  if(!entered)r+=(globalThis._lsrcLive||(()=>''))('olt',i+'.'+j,((opts.find(o=>o.value===dv)||{}).label)||'Linked series','driver before the multiplier',isW?'count':'money','fk-lsrc');   // r355
   if(entered)r+=_fkSeriesRow('Liability level',dp,t.driver_spec,'money',false);
   r+=_fkSeriesRow(isW?'Liability per FTE':'Multiplier',mp,t.multiplier_spec||{source:'entered',trajectory:'flat',value:isW?0:1},isW?'multiplier':'multiple',false);
   rows+=r+`</div></div>`;
@@ -9676,7 +9698,7 @@ function _bcEditorHtml(){
 }
 
 // r289: summaries first; select an expense/asset to edit its existing controls.
-window._capitalInputSelection=window._capitalInputSelection||{preopening:0,fixedassets:0};
+window._capitalInputSelection=window._capitalInputSelection||{preopening:-1,fixedassets:-1};   // r355: no entry box open until a row is picked
 
 // r291: "placed in service" is a whole period number typed into a box (0 = at opening, up to the forecast horizon),
 // replacing a dropdown as long as the horizon. Digits only; an out-of-range entry is refused, not silently clamped.
@@ -9693,7 +9715,7 @@ window.faInService=function(i,el){
   el.value=String(+t); el.dataset.saved=String(+t);
   cfg.assumptions.fixed_assets.assets[i].in_service_period=+t; refresh();
 };
-window.capitalInputSelect=function(kind,index){window._capitalInputSelection[kind]=index;renderContent();};
+window.capitalInputSelect=function(kind,index){const cur=window._capitalInputSelection[kind];window._capitalInputSelection[kind]=(cur===index?-1:index);renderContent();};   // r355: picking the open row closes it
 function _presentCapitalInputs(){
  for(const [kind,id]of [['preopening','preopening-editor'],['fixedassets','fixedassets-editor']]){
  const root=document.getElementById(id);if(!root||root.querySelector('.capital-input-table'))continue;
@@ -9703,7 +9725,7 @@ function _presentCapitalInputs(){
  if(!rows.length)continue;
  const table=document.createElement('div');table.className='capital-input-table';
  const placeholder=document.createComment('capital input table');rows[0].before(placeholder);
- const selected=Math.min(Math.max(0,window._capitalInputSelection[kind]||0),rows.length-1);
+ const _sel=window._capitalInputSelection[kind],selected=(Number.isInteger(_sel)&&_sel>=0&&_sel<rows.length)?_sel:-1;   // r355: -1 = closed
  const header=isAsset?['Asset','Cost ($000s)','In service','Life (years)','']:['Expense','Amount ($000s)',''];
  table.innerHTML='<table><thead><tr>'+header.map(x=>'<th>'+x+'</th>').join('')+'</tr></thead><tbody></tbody></table>';
  const tbody=table.querySelector('tbody');let total=0;
@@ -9718,6 +9740,7 @@ function _presentCapitalInputs(){
  const fields=document.createElement('div');fields.className='capital-input-fields';
  for(const [control,label]of [[name,isAsset?'Asset name':'Expense name'],[amount,isAsset?'Cost ($000s)':'Amount ($000s)'],...(isAsset?[[select,_faIspLabel()],[life,'Useful life (years)']]:[])]){
  if(!control)continue;const field=document.createElement('label');field.textContent=label;field.appendChild(control);fields.appendChild(field);}
+ const done=document.createElement('button');done.type='button';done.className='capital-input-done';done.textContent='Done';done.title='Close the entry box';done.onclick=()=>{window._capitalInputSelection[kind]=-1;renderContent();};fields.appendChild(done);
  cell.appendChild(fields);detail.appendChild(cell);tbody.appendChild(detail);
  fields.addEventListener('change',()=>{button.textContent=name.value;amtTd.textContent=amount.value;if(isAsset){tr.children[2].textContent=_faIspText(select);tr.children[3].textContent=life.value;}const costs=[...root.querySelectorAll('input[onchange*="'+(isAsset?'.cost=':'.total=')+'"]')];const sum=costs.reduce((t,x)=>t+_pf(x.value),0);const foot=root.querySelector('.capital-input-total b');if(foot)foot.textContent=fmtComma(sum)+' $000s';});
  }else{const stash=document.createElement('div');stash.hidden=true;stash.className='capital-input-stash';stash.appendChild(r);root.appendChild(stash);}
@@ -10316,7 +10339,7 @@ function _opexCostPoolEditorHtml(i,ct,calc,j){
       }
     });
     h += `<div class="memo" style="margin-top:5px">Component allocation determines the eligible cost pool. Linked components observe already-posted costs; entered and balance-derived components are non-posting calculation assumptions.</div>`;
-    const cpr=(((typeof lastRes!=="undefined"&&lastRes)||{}).cost_pools||{}),cpa=((cpr.series||{})[cpid]||[]);if(cpa.length){const lab=PPY()===12?'M':(PPY()===4?'Q':'Y');h += `<div class="cac-link-preview-row" style="margin-top:7px"><span class="wf-field-label">Latest run · resolved eligible cost</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(cpa.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`;}
+    const cpr=(((typeof lastRes!=="undefined"&&lastRes)||{}).cost_pools||{}),cpa=((cpr.series||{})[cpid]||[]);if(cpa.length){const lab=PPY()===12?'M':(PPY()===4?'Q':'Y');h += (globalThis._lsrcWrap||((k,b)=>b||''))('pool:'+cpid,`<div class="cac-link-preview-row" style="margin-top:7px"><span class="wf-field-label">Latest run · resolved eligible cost</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(cpa.map((v,k)=>lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`,'Linked cost');}
     h += `</div>`;
   }
   const mp=(calc&&calc.markup)||{value:0,period:'year',trajectory:'flat',resolution:'step'},mt=mp.trajectory||'flat',mper=mp.period||'year',mres=mp.resolution||'step';
@@ -14744,7 +14767,8 @@ function _pwNoRunNote(){   // why a preview is empty: no run results yet, or the
   const e=(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length)?lastErrs[0]:((typeof lastRunFailure!=='undefined'&&lastRunFailure)?lastRunFailure:null), m=e?String(e.message||e):'';
   return m ? `No latest-run values: the model did not run (${esc(m.length>180?m.slice(0,180)+'\u2026':m)}).` : 'No latest-run values yet: run the model to preview this series.';
 }
-function _tieredTermPreviewHtml(t){
+function _tieredTermPreviewHtml(t){return (globalThis._lsrcWrap||((k,b)=>b||''))('tier:'+String((t&&(t.series_id||t.source))||''),_tieredTermPreviewBody(t),'Linked source');}
+function _tieredTermPreviewBody(t){
   t=t||{};
   if(t.source==='customer_acquisition_auc'&&t.series_id) return `<div class="pw-preview">${_opexLinkedSourcePreview({driver:'customer_acquisition_auc',series_id:t.series_id,measure:t.measure||'period_end'})}</div>`;
   if(t.source==='fee_stream_balance_quantity'&&t.series_id){   // balance-basis fee-stream quantity, straight from the run
@@ -14774,7 +14798,50 @@ function _opexPiecewiseEditorHtml(i,lc,j){
   bands.forEach((b,k)=>{const last=k===bands.length-1;h+=`<div class="opex-piecewise-band-row"><label class="wf-field"><input aria-label="Lower bound ($000s)" value="${fmtComma((+b.lower_bound||0)/1000)}" readonly></label><label class="wf-field">${last?`<div class="opex-piecewise-open-ended">∞ · open-ended</div>`:`<input aria-label="Upper bound ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.upper_bound||0)/1000)}" onchange="nieCatPiecewiseBandUpper(${i},${j},${k},this.value);fmtField(this)">`}</label><label class="wf-field"><input aria-label="Band base fee ($000s)" type="text" inputmode="decimal" value="${fmtComma((+b.base_amount||0)/1000)}" onchange="nieCatPiecewiseBandBase(${i},${j},${k},this.value);fmtField(this)"></label><label class="wf-field"><input aria-label="Marginal rate (decimal)" type="number" step="any" value="${_numInput(+b.marginal_rate||0,12)}" onchange="nieCatPiecewiseBandRate(${i},${j},${k},this.value)"></label>${bands.length>1?`<button class="btn-plain opex-piecewise-remove" onclick="nieCatPiecewiseRemoveBand(${i},${j},${k});return false">Remove band</button>`:`<span></span>`}</div>`;});
   h+=`<div class="nie-actions opex-piecewise-actions"><a href="#" class="cadd" onclick="nieCatPiecewiseAddBand(${i},${j});return false">+ Add band</a></div></div><div class="cmut" style="margin-top:10px">If this replaces another assessment charge, disable the other charge to avoid double counting.</div></div>`;
   return h;
-}function _opexLinkedSourcePreview(lc){   // r259: every linked-series preview can be hidden (remembered per series)
+}// ===== r355: live linked-source previews. One resolver per published source kind; one show/hide grammar.
+function _lsrcCurrentOpt(kind,i,j,value,opts){   // r355: a linked term whose source is not in the option list still shows what it is linked to
+  if(!value||value==='::'||opts.some(o=>o[0]===value))return opts;
+  const r=(typeof lastRes!=='undefined'&&lastRes)||{},src=kind==='oat'?((r.other_assets_detail||{}).components||[]):((r.other_liabilities||{}).components||[]),t=(((src[i]||{}).terms)||[])[j]||{};
+  return [[value,'Current source \u00b7 '+(t.driver_name||value.replace(/^[^:]*::/,'')||'linked series')]].concat(opts);
+}
+function _lsrcVals(kind,arg){
+  const r=(typeof lastRes!=='undefined'&&lastRes)||null;if(!r)return null;const a=cfg.assumptions||{};
+  if(kind==='fq')return ((r.fee_stream_quantities||{}).series||{})[arg]||[];
+  if(kind==='fqk')return (((r.fee_stream_quantities||{}).series||{})[arg]||[]).map(v=>(+v||0)/1000);   // monetary quantities are native dollars
+  if(kind==='auc')return (((r.customer_acquisition||{})[arg]||{}).aucEndByMonth)||[];
+  if(kind==='bs')return ((((r.financials||{}).bs)||{})[arg])||[];
+  if(kind==='wf'){const w=r.workforce||{},ids=w.series_ids||[],c=w.counts||[];
+    if(String(arg)===String(((a.nie_detail||{}).workforce||{}).total_count_series_id||'')){const n=Math.max(0,...c.map(x=>Array.isArray(x)?x.length:0));return Array.from({length:n},(_,k)=>c.reduce((t,x)=>t+(Array.isArray(x)?(+x[k]||0):0),0));}
+    const at=ids.indexOf(String(arg));return at>=0?(c[at]||[]):[];}
+  if(kind==='fund'){const lp=(a.lending_products||[]).find(x=>String(x.balance_series_id||'')===String(arg));if(!lp)return [];const pr=(r.products||[]).find(x=>x&&x.family==='lending'&&x.name===lp.name);return (pr&&pr.fundedVolume)||[];}
+  if(kind==='oat'||kind==='olt'){const [i,j]=String(arg).split('.').map(Number),src=kind==='oat'?((r.other_assets_detail||{}).components||[]):((r.other_liabilities||{}).components||[]);const t=(((src[i]||{}).terms)||[])[j]||{};return t.driver||[];}
+  return [];
+}
+function _lsrcLiveInner(kind,arg,title,owner,unit){
+  const v=_lsrcVals(kind,arg);let body;
+  if((kind==='oat'||kind==='olt')&&typeof lastRes!=='undefined'&&lastRes){const [i,j]=String(arg).split('.').map(Number),src=kind==='oat'?((lastRes.other_assets_detail||{}).components||[]):((lastRes.other_liabilities||{}).components||[]),t=(((src[i]||{}).terms)||[])[j]||{};if(t.driver_name)title=t.driver_name;if(t.driver_unit)unit=t.driver_unit==='count'?'count':'money';}   // the run names what it resolved
+  if(v===null||!v.length)body=`<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(title)}</b>${owner?' · '+esc(owner):''}</div><div class="cmut">${typeof _pwNoRunNote==='function'?_pwNoRunNote():'Run the model to preview the linked source.'}</div></div>`;
+  else{const tag=(typeof _opexPeriodTag==='function'?_opexPeriodTag():'M'),open=(kind==='bs'&&v.length===((cfg.assumptions||{}).n_periods||0)+1),fmt=unit==='count'?(x=>_numInput(+x||0,6)):(x=>(+x||0).toLocaleString('en-US',{maximumFractionDigits:Math.abs(+x||0)>=100?0:2}));
+    const cells=v.map((x,k)=>(open?(k?tag+k:'Open'):tag+(k+1))+' '+fmt(x)).join(' · ');
+    body=`<div class="cac-link-preview"><div class="cmut" style="margin:0 0 5px"><b>${esc(title)}</b>${owner?' · '+esc(owner):''}</div><div class="cac-link-preview-row"><span class="wf-field-label">Latest run · resolved source</span><span class="cu">${esc(unit==='count'?'count':unit==='native'?'native units':'$000s')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(cells)}</div></div>`;}
+  return _lsrcWrap(kind+':'+arg,body,'Linked source');
+}
+function _lsrcLive(kind,arg,title,owner,unit,cls){
+  if(arg==null||arg==='')return '';
+  const spec=esc(JSON.stringify([kind,String(arg),title||'',owner||'',unit||'']));
+  return `<div class="${cls||'fld wide'} lsrc-live" data-lsrc-live="${spec}">${_lsrcLiveInner(kind,String(arg),title||'',owner||'',unit||'')}</div>`;
+}
+function refreshLsrcLive(){
+  if(typeof document==='undefined')return;
+  document.querySelectorAll('[data-lsrc-live]').forEach(el=>{try{const [k,a,t,o,u]=JSON.parse(el.getAttribute('data-lsrc-live'));const h=_lsrcLiveInner(k,a,t,o,u);if(el.innerHTML!==h)el.innerHTML=h;}catch(e){}});
+}
+function _lsrcWrap(key,body,noun,attrs){   // r355: one show/hide grammar for every linked-source preview (remembered per source)
+  if(!body) return body||''; key=String(key||''); noun=noun||'Linked source'; attrs=attrs||'';
+  window._lsrcHidden=window._lsrcHidden||{}; const k=esc(key).replace(/'/g,'&#39;');
+  if(window._lsrcHidden[key]) return `<div ${attrs} class="lsrc-bar">${esc(noun)} hidden \u00b7 <a href="#" onclick="window._lsrcHidden['${k}']=false;renderContent();return false">Show</a></div>`;
+  return `<div ${attrs} class="lsrc-wrap"><a href="#" class="lsrc-x" title="Hide ${esc(noun.toLowerCase())}" onclick="window._lsrcHidden=window._lsrcHidden||{};window._lsrcHidden['${k}']=true;renderContent();return false">Hide source \u00d7</a>${body}</div>`;
+}
+function _opexLinkedSourcePreview(lc){   // r259: every linked-series preview can be hidden (remembered per series)
   const key=String((lc&&(lc.series_id||lc.driver+':'+(lc.source||'')))||JSON.stringify(lc)), body=_opexLinkedSourcePreviewBody(lc), dp=esc(lc&&lc.series_id||JSON.stringify(lc));
   if(!body) return `<div data-engine-preview="linked-${dp}"></div>`;
   window._lsrcHidden=window._lsrcHidden||{}; const hid=!!window._lsrcHidden[key], k=esc(key).replace(/'/g,'&#39;');
@@ -15170,7 +15237,7 @@ function _cacDriverHtml(fn,ci,ch,meta){
     } else {const unit=_cacUnit(meta,sp);x+=`<input type="text" inputmode="decimal" style="width:92px" value="${_cacDisplay(sp.value,meta.kind)}" onchange="cacDriverValue('${esc(fn)}',${ci},'${meta.k}',this.value,'${meta.kind}','value');${meta.kind==='k'||meta.kind==='price'?'fmtField(this)':''}"><span class="cu">${esc(unit)}</span>`;if(meta.flow)x+=`<select style="width:82px" title="Natural period of this amount" onchange="cacDriverPeriod('${esc(fn)}',${ci},'${meta.k}',this.value)">${['year','quarter','month'].map(v=>`<option value="${v}"${(sp.period||'year')===v?' selected':''}>Per ${v}</option>`).join('')}</select>`;}
   }
   x+=`</div>`;
-  if(mode==="link")x+=_cacLinkedSourcePreview(fn,ci,meta,sp);
+  if(mode==="link")x+=(globalThis._lsrcWrap||((k,b)=>b||''))('cac:'+String(((sp||{}).link||{}).series_id||meta.k),_cacLinkedSourcePreview(fn,ci,meta,sp),'Linked source');   // r355
   if(mode==="explicit"&&!_cacExplicitIsClosed(fn,ci,meta.k)){
     const cad=sp.cadence||"year",vals=sp.values||[],expected=_seriesSourcePeriods(cad),boxId=('cacPaste_'+String(sp.series_id||fn+'_'+ci+'_'+meta.k)).replace(/[^A-Za-z0-9_]/g,'_');
     const placeholder=meta.kind==="pct"?"2.0\t2.5\t3.0":(meta.kind==="k"?"500\t550\t600":(meta.kind==="price"?"1,250\t1,300\t1,350":"1000\t1200\t1500"));
@@ -15380,6 +15447,7 @@ function structuresSectionsHtml(){
         comps.forEach((c,i)=>{const link=((c.driver_spec||{}).link||{}), cur='workforce_count::'+String(link.series_id||''), path=`assumptions.fixed_assets.formula_level.components.${i}.multiplier_spec`;
           _d += `<div class="sec-managed-sleeve" style="margin-top:8px"><div class="sec-managed-sleeve-head"><input class="sec-managed-sleeve-name" style="flex:1 1 auto;width:auto" value="${esc(_faComponentDisplayName(c,i))}" onchange="_faFormulaState().components[${i}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove fixed-asset level component" onclick="faFormulaRemoveComponent(${i});return false">×</a></div>`;
           _d += `<div class="sec-managed-grid"><div class="sec-managed-field"><label>Driver Series</label><select onchange="faFormulaDriver(${i},this.value)">${drvOpts.length?drvOpts.map(o=>`<option value="${esc(o.value)}"${o.value===cur?' selected':''}>${esc(o.label)}</option>`).join(''):`<option value="">No compatible level Series</option>`}</select></div>`;
+          if(link.series_id)_d+=`</div>`+(globalThis._lsrcLive||(()=>''))('wf',link.series_id,((drvOpts.find(o=>o.value===cur)||{}).label||'Workforce headcount').replace(/^Workforce headcount\s*\u00b7\s*/,''),'workforce headcount, before the multiplier','count','fa-lsrc')+`<div class="sec-managed-grid">`;   // r355
           _d += _faSeriesEditor(path,c.multiplier_spec||{source:'entered',trajectory:'flat',value:0},'Multiplier','multiplier',false);
           _d += `<div class="cmut" style="grid-column:1/-1">Multiplier is a stock coefficient — for example $5.0k per driver unit — so it has no Month / Quarter / Year amount period.</div></div></div>`;
         });
@@ -15425,6 +15493,7 @@ function structuresSectionsHtml(){
       const tp=`assumptions.managed_securities_portfolios.${mi}.target_ratio_spec`, ts=mp.target_ratio_spec||_secSeriesDefault(mp.target_ratio||0);
       _sb += `<div class="sec-managed-portfolio"><div class="sec-managed-portfolio-head"><input class="sec-managed-portfolio-title" style="flex:1 1 auto;width:auto" value="${esc(mp.name||'Managed securities portfolio')}" onchange="_managedSecPortfolios()[${mi}].name=this.value;refresh()"><a href="#" class="cx" aria-label="Remove managed portfolio" onclick="secManagedDeletePortfolio(${mi});return false">×</a></div>`;
       {const _tso=(mp.target_source||{}), _sid=(_tso.series_id||"bank.balance_sheet.equity.end"), _timing=(_tso.timing||"current_period"), _init=(_tso.prior_initialization||"zero"); _sb += `<div class="sec-managed-target"><div class="sec-managed-grid"><div class="sec-managed-field"><label>Target source</label><select title="Stable balance-sheet Series" onchange="secManagedTargetSource(${mi},this.value)">${_managedSecTargetSources().map(x=>`<option value="${x.id}"${x.id===_sid?' selected':''}>${esc(x.name)}</option>`).join('')}</select></div><div class="sec-managed-field"><label>Target timing</label><select title="Use the target source from the current or prior model period" onchange="secManagedTargetTiming(${mi},this.value)"><option value="current_period"${_timing==='current_period'?' selected':''}>Current period</option><option value="prior_period"${_timing==='prior_period'?' selected':''}>Prior period</option></select></div>${_timing==='prior_period'?`<div class="sec-managed-field"><label>First modeled period</label><select title="How a prior-period target initializes before the first projection period" onchange="secManagedTargetPriorInit(${mi},this.value)"><option value="zero"${_init==='zero'?' selected':''}>Zero</option><option value="opening_source"${_init==='opening_source'?' selected':''}>Opening source</option></select></div>`:''}${_secSeriesEditor(tp,ts,'Target %')}</div></div>`;}
+      {const _tsid=((mp.target_source||{}).series_id||'bank.balance_sheet.equity.end'),_dep=/deposit/i.test(_tsid);_sb+=(globalThis._lsrcLive||(()=>''))('bs',_dep?'deposits':'equity',_dep?'Bank \u203a Total deposits':'Bank \u203a Equity','balance sheet, period end','money','sec-lsrc');}   // r355
       const _slCards=[],_slMeta=[],_slArr=(mp.sleeves||[]),_slSel=_slArr.length?_mdPick(_slArr,'_secSlSel'+mi,'_secSlSeen'+mi):0;
       (mp.sleeves||[]).forEach((sl,si)=>{
         const _slMark=_sb.length;
