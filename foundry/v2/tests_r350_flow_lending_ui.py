@@ -8,7 +8,7 @@ def ck(name,cond):
     print(('  PASS  ' if cond else '  FAIL  ')+name);ok+=bool(cond);fail+=not cond
 ck('flow card routes Setup through the industrial renderer',"if(_flowCard){   // r350" in H and "_lfxSetupHtml(i,p,base)" in H)
 ck('flow card keeps the shared fee-stream editor and overrides grid',"'<div class=\"pp-sec\" data-pp=\"streams\">'+_feeStreamsSectionHtml(fam,p,base,1000+i)" in H and "ovGridHtml(fam,i)" in H)
-ck('fee streams tab switches layout only for flow-based lending',"const _lfx=+_fi>=1000&&fam==='lending'" in H and "_loanBalanceMode(p)==='funded_flow_level';   // r350" in H)
+ck('fee streams tab uses the industrial layout (all families since r353)',"const _lfx=typeof _lfxLiveHtml==='function'" in H and "// r350/r353" in H)
 ck('stream detail keeps st-tab/st-body hooks for stTabSet',"class=\"st-tab lfx-step" in H and '<div class="st-body" data-st-tab="${tab}">' in H)
 ck('non-flow products keep the original stream layout',"h += '<div class=\"fld wide\" style=\"margin-top:8px\"><label style=\"color:#D4A65C\">Add a fee stream</label></div>';" in H)
 ck('engine figures refresh in place after each run',"if(typeof refreshLfxLive==='function') refreshLfxLive();   // r350" in H)

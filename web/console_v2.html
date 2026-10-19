@@ -1318,6 +1318,25 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .lfx-f.s2>.lfx-out{max-width:300px}
 
 @media (max-width:900px){.lfx-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+/* r353: decorated families */
+.lfx-gen .lfx-f{margin:0!important;padding:0!important;border:0!important;background:none!important;min-width:0}
+.lfx .lfx-f>label{font-size:11px!important;font-weight:500!important;color:var(--t2)!important;text-transform:none!important;letter-spacing:0!important;margin:0!important;display:flex;align-items:center;gap:6px;white-space:nowrap;text-align:left!important}
+.lfx-gen .lfx-note-blk{grid-column:1/-1;font-size:11px;color:var(--t3);line-height:1.5}
+.lfx-gen .lfx-note-blk>label{display:none!important}
+.lfx-gen .lfx-legacy{font-size:12px}
+.lfx-gen .lfx-legacy .deposit-pool-step,.lfx-gen .lfx-legacy.deposit-pool-step{border:1px solid #ECECEA;border-radius:5px;padding:12px 14px;background:#FCFCFB}
+.lfx-gen .lfx-legacy .deposit-section-head{display:flex;justify-content:space-between;font-size:11.5px;margin-bottom:8px}
+.lfx-gen .lfx-legacy .deposit-section-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 18px}
+.lfx-gen .lfx-legacy details>summary{font-size:11.5px;color:var(--t2);cursor:pointer;padding:4px 0}
+.lfx-gen .lfx-legacy .btn-plain,.lfx-gen .lfx-legacy .pillbtn{height:28px;padding:0 12px;border:1px solid var(--ln2);border-radius:4px;background:#fff;font-size:11.5px;cursor:pointer;width:auto!important}
+.lfx-gen button.btn-plain[onclick*="mortgage_banking"]{color:var(--goldd);border-style:dashed;border-color:#CDB27E;background:#FFFCF6}
+.lfx-gen .lfx-in input[disabled]{color:var(--t3)!important}
+.lfx-b[hidden]{display:none!important}
+.lfx .lfx-in input{min-width:0!important}
+.prd-card .pp-sec[data-pp="streams"]:has(.lfx-st)>.fld.wide:not(.lfx-st){display:flex!important;align-items:center;justify-content:flex-start!important;gap:14px;text-align:left!important;background:#fff;border:1px solid var(--ln);border-radius:6px;padding:10px 16px!important;margin:0 0 12px!important}
+.prd-card .pp-sec[data-pp="streams"]:has(.lfx-st)>.fld.wide:not(.lfx-st)>label{flex:none!important;color:var(--t1)!important;font-weight:600;font-size:12.5px}
+.prd-card .pp-sec[data-pp="streams"]:has(.lfx-st)>.fld.wide:not(.lfx-st) .memo{font-size:11.5px;color:var(--t3)}
+.lfx-gen .lfx-legacy>.btn-plain{align-self:flex-start}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -3696,6 +3715,7 @@ function prdRefreshSetupSummaries(){   // r233: summaries follow edits made insi
 document.addEventListener('change',e=>{ if(e.target&&e.target.closest&&e.target.closest('.prd-card[data-grouped]')) prdRefreshSetupSummaries(); });
 function prdGroupSetup(){
   const card=document.querySelector('.prd-card'); if(!card||card.hasAttribute('data-grouped')) return;
+  if(typeof lfgDecorate==='function'&&lfgDecorate(card)) return;   // r353: every family uses the industrial layout
   const fam=card.getAttribute('data-fam'), idx=+card.getAttribute('data-i');
   if(fam!=='lending'&&fam!=='deposit') return;
   const p=((((cfg||{}).assumptions||{})[fam==='lending'?'lending_products':'deposit_products'])||[])[idx]; if(!p) return;
@@ -6913,7 +6933,7 @@ function _stOwner(i){ // r232: resolve a stream owner code to its product (fee p
 function _feeStreamsSectionHtml(fam, p, base, _fi){
   const F = (label, path, unit) => `<div class="fld"><label>${esc(label)}</label>${numInput(path, unit)}</div>`;
   let h = "";
-  const _lfx=+_fi>=1000&&fam==='lending'&&typeof _lfxLiveHtml==='function'&&_loanBalanceMode(p)==='funded_flow_level';   // r350
+  const _lfx=typeof _lfxLiveHtml==='function'&&typeof _lfgArr==='function'&&(+_fi>=1000?(fam==='lending'||fam==='deposit'):!!(p&&(p._fee_product||p.managed_notional)));   // r350/r353
   const SEL = (label, path, cur, opts) => {
       let o = opts.map(v=>`<option value="${v[0]}"${v[0]===cur?" selected":""}>${v[1]}</option>`).join("");
       return `<div class="fld"><label>${label}</label><select onchange="setPath(\x27${path}\x27,this.value);renderContent();refresh()">${o}</select></div>`;
@@ -7258,7 +7278,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
       _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};const revenue=rb==='cost_recovery'||nz((st.rate||{}).params,0),cost=ck&&ck!=='none';return revenue?(cost?'Revenue + Cost':'Revenue'):(cost?'Cost':'Driver');})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
-    if(_lfx) h += '<div class="lfx-st">'+_lfxLiveHtml('ststrip',+_fi-1000);
+    if(_lfx) h += '<div class="lfx-st">'+_lfxLiveHtml('ststrip',+_fi);
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
       const BAS={balance:'Balance',transaction:'Transaction',account:'Account',flat:'Flat',event:'Event'};
       const CK=_PRD_CK;
@@ -7287,7 +7307,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       if(_lfx){
         h += `<section class="lfx-s lfx-sted"><div class="lfx-h st"><span class="no">F${_stSel+1}</span><span class="tt">${esc(m.name)}</span><span class="sm">Stream <b>${_stSel+1}</b> of <b>${_stMeta.length}</b></span><span class="lfx-nav"><button type="button" aria-label="Previous stream"${_stSel>0?'':' disabled'} onclick="stSelect(${_fi},${_stSel-1})">‹</button><button type="button" aria-label="Next stream"${_stSel<_stMeta.length-1?'':' disabled'} onclick="stSelect(${_fi},${_stSel+1})">›</button></span><button type="button" class="lfx-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
         h += `<div class="lfx-b has-ro"><div class="lfx-rail"><div class="lfx-steps" role="tablist" aria-label="Stream settings">${TB.map((t,n)=>`<button type="button" role="tab" class="st-tab lfx-step${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')"><span class="d">${n+1}</span><b>${t[1]}</b><i>${t[2]}</i></button>`).join('')}</div></div>`;
-        h += `<div class="lfx-body"><div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div>${_lfxLiveHtml('sro',+_fi-1000,_stSel)}</div></section>`;
+        h += `<div class="lfx-body"><div class="st-body" data-st-tab="${tab}">${_stCards[_stSel]||''}</div></div>${_lfxLiveHtml('sro',+_fi,_stSel)}</div></section>`;
       } else {
       h += `<div class="st-detail"><div class="st-head"><b>${esc(m.name)}</b><span>Stream ${_stSel+1} of ${_stMeta.length}</span><button type="button" class="st-rm" onclick="feeRemoveStream(${_fi},${_stSel})">Remove stream</button></div>`;
       h += '<div class="st-tabs" role="tablist">'+TB.map(t=>`<button type="button" class="st-tab${t[0]===tab?' on':''}" data-tab="${t[0]}" onclick="stTabSet('${t[0]}')">${t[1]}<small>${t[2]}</small></button>`).join('')+'</div>';
@@ -7342,6 +7362,7 @@ function refreshProductStats(){
     if(fresh) el.innerHTML = fresh.innerHTML;
   });
   if(typeof refreshLfxLive==='function') refreshLfxLive();   // r350
+  if(typeof refreshLfgLive==='function') refreshLfgLive();   // r353
 }
 // ===== r350: flow-based lending, industrial setup =====
 // Presentation only. Every control below calls the same handler and writes the same field as the
@@ -7389,7 +7410,10 @@ function _lfxSpark(arr,ref){if(!arr||!arr.length)return '';const a=arr.slice(0,1
   return `<div class="lfx-spark"><div class="hd"><span>First ${a.length} ${_lfxPer()}s</span><b>${_lfxAmt(arr[ref-1])} at ${_lfxQ(ref)}</b></div><div class="bars">${a.map((x,k)=>`<i class="${k+1>=ref?'f':''}" style="height:${Math.max(3,Math.round((+x||0)/mx*100))}%"></i>`).join('')}</div><div class="ax"><span>${_lfxQ(1)}</span><span>${_lfxQ(a.length)}</span></div></div>`;}
 
 function _lfxCtx(p){const {res,stale}=_lfxRes(),P=res?(res.products||[]).find(x=>x&&x.name===p.name&&x.family==='lending'):null;return {res,stale,P,ref:_lfxRef(p,P)};}
-function _lfxLiveHtml(kind,i,j){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';const C=_lfxCtx(p),P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
+function _lfxLiveHtml(kind,i,j){let p,C;
+  if(kind==='ststrip'||kind==='sro'){const fi=+i,fam=fi>=2000?'deposit':fi>=1000?'lending':'obs',ix=fi>=2000?fi-2000:fi>=1000?fi-1000:fi;p=_lfgArr(fam)[ix];if(!p)return '';C=(fam==='lending'&&_loanBalanceMode(p)==='funded_flow_level')?_lfxCtx(p):_lfgCtx(fam,ix);}
+  else{p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';C=_lfxCtx(p);}
+  const P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
   if(kind==='sro'){const st=(p.fee_streams||[])[j]||{},dr=st.driver||{},fpx=(dr.params||{}).flow_path||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],n=q?q.length:0;
     const money=st.basis==='balance'||['product_funded_flow','distributed_balance'].includes(dr.source)||fpx.unit_kind==='money_flow',sc=v=>v==null?null:(money?v/1000:v),fmt=v=>v==null?'—':(money?_lfxAmt(v):Math.round(v).toLocaleString('en-US')),u=money?'$000s':'units',Q=_lfxQ;
     let b=`<div class="ro-h"><span>Driver quantity</span><b>${u}</b></div>`;
@@ -7413,7 +7437,7 @@ function _lfxLiveHtml(kind,i,j){const p=(cfg.assumptions.lending_products||[])[i
     let h=`${A('ststrip','div')}><div class="lfx-rib${C.stale?' stale':''}" style="grid-template-columns:repeat(4,minmax(0,1fr)) minmax(0,1.2fr)">`;
     nodes.forEach(x=>{h+=`<div class="n"><span class="k">${x.k}</span><span class="v">${x.v}<small>${x.u}</small></span><span class="op">${x.op}</span></div>`;});
     h+=`<div class="n tot"><span class="k">Net fee income · ${_lfxQ(ref)}</span><span class="v">${f==null?'—':_lfxAmt(f-(c||0))}<small>$000s / ${per}</small></span><span class="op">fees ${_lfxAmt(f)} · <i>cost ${_lfxAmt(c)}</i></span></div></div>`;
-    return h+`<div class="lfx-ribcap"><span>${P?`Engine figures at ${_lfxQ(ref)}, the product's first full-size ${per}.`:'Figures appear after the next complete run.'} Driver streams carry a quantity for other streams and post nothing themselves.</span><span>$000s</span></div></div>`;}
+    return h+`<div class="lfx-ribcap"><span>${P?`Engine figures at ${_lfxQ(ref)}, ${C.n!=null?'one year into the forecast':'the product’s first full-size '+per}.`:'Figures appear after the next complete run.'} Driver streams carry a quantity for other streams and post nothing themselves.</span><span>$000s</span></div></div>`;}
   if(kind==='fqty'){const st=(p.fee_streams||[])[j]||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],qv=q&&q[t]!=null?+q[t]/1000:null;return `${A('fqty')}>${qv!=null?' · '+_lfxAmt(qv):''}</span>`;}
   return '';}
 function refreshLfxLive(){document.querySelectorAll('[data-lfx-live]').forEach(el=>{const html=_lfxLiveHtml(el.getAttribute('data-lfx-live'),+el.getAttribute('data-i'),el.hasAttribute('data-j')?+el.getAttribute('data-j'):null);if(html)el.outerHTML=html;});}
@@ -7588,6 +7612,173 @@ function _lfxSetupHtml(i,p,base){
   h+=`<div class="lfx-foot"><span>Amounts in $000s unless a field says otherwise. Changes recompute the model.</span></div></div>`;
   return h;
 }
+
+// ===== r353: industrial layout for every product family =====
+// Loans (roll-forward, entered and linked levels), deposits, fee products and off-balance-sheet
+// commitments. Presentation only: the product card renders exactly as before, then this decorator
+// re-seats the existing controls (same elements, same handlers) into numbered sections, adds the
+// engine strip and readouts, and restyles. Funded-flow loans keep their own renderer.
+const _LFG_SECS={
+  lending:[['balance','Balance'],['pricing','Pricing'],['timing','Structure &amp; timing'],['credit','Credit &amp; allowance'],['costs','Costs &amp; accounting'],['other','Additional settings']],
+  deposit:[['balance','Balance'],['pricing','Pricing'],['timing','Timing'],['costs','Costs'],['other','Additional settings']],
+  obs:[['balance','Volume'],['pricing','Pricing'],['costs','Costs'],['other','Additional settings']]};
+const _LFG_RULES_OBS=[['id',/renameProduct|call_report_line/],['balance',/managed_notional|\.notional\b|growth_per_period|growth_spec|cac_feeds/],['pricing',/fee_yield_ann/],['costs',/opex_pct_ann|opex_fixed/]];
+window._lfgOpen=window._lfgOpen||{};
+function _lfgArr(fam){return ((cfg.assumptions||{})[fam==='lending'?'lending_products':fam==='deposit'?'deposit_products':'obs_exposures'])||[];}
+function _lfgCtx(fam,i){const p=_lfgArr(fam)[i];const {res,stale}=_lfxRes();let P=null;
+  if(res&&p){const fl=(res.products||[]).filter(x=>x&&x.family===fam);P=fl[i]&&fl[i].name===p.name?fl[i]:(fl.find(x=>x.name===p.name)||null);}
+  const n=P&&P.bal?Math.max(0,P.bal.length-1):(+(cfg.assumptions||{}).n_periods||12),ppy=typeof PPY==='function'?PPY():12;
+  return {p,P,res,stale,n,ref:Math.max(1,Math.min(n||1,ppy===4?4:12))};}
+function _lfgGrp(el,fam){
+  if(fam==='lending'){const t=[...el.querySelectorAll('[onchange],[oninput],[onclick]')].map(x=>(x.getAttribute('onchange')||'')+(x.getAttribute('oninput')||'')+(x.getAttribute('onclick')||'')).join(' ')+' '+(el.getAttribute&&(el.getAttribute('data-loan-customer-count-preview')!=null)?'balance_driver':'');
+    if(/ending_balance_spec|balance_driver|loanBalanceDriver|allocation_group|loanAllocationGroup|cap_spec|cap_ratio|cap_source/.test(t))return 'balance';
+    if(/loanAddEconomics|fee_streams|flowLegacyFee|loanFlowTrajectory|loanFlowSchedule|interest_balance_measure/.test(t))return 'pricing';}
+  if(fam!=='obs')return _prdGrpOf(el,fam);
+  if(el.dataset&&el.dataset.depositGroup)return el.dataset.depositGroup;
+  const lab=((el.querySelector('label')||{}).textContent||'').trim();
+  if(/^(Name|Call Report line)$/.test(lab))return 'id';
+  const ctl=el.querySelector('input,select,textarea,button');
+  const txt=[...el.querySelectorAll('[onchange],[oninput],[onclick]')].map(x=>(x.getAttribute('onchange')||'')+(x.getAttribute('oninput')||'')).join(' ');
+  for(const [g,re] of _LFG_RULES_OBS) if(re.test(txt)) return g;
+  if(!ctl) return 'hint';
+  return 'other';}
+function _lfgSummary(fam,p,g){
+  if(fam!=='obs'){const s=_prdGrpSummary(fam,p,g);return s?esc(s):'';}
+  const per=_lfxPer();
+  if(p._fee_product||p.managed_notional){const mn=p.managed_notional||{};
+    return {balance:p.managed_notional_source?('AUC from feed '+esc(p.managed_notional_source)):('AUC '+_prdK(mn.day1||0)+(mn.trajectory==='ramp_to_target'?' → '+_prdK(mn.target||0):'')),costs:_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period)+'/'+per}[g]||'';}
+  return {balance:_prdK(p.notional)+' notional · '+_prdPct(p.growth_per_period)+' growth/'+per,pricing:'Fees '+_prdPct(p.fee_yield_ann)+' of notional',costs:_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period)+'/'+per}[g]||'';}
+function _lfgRail(fam,p,g){
+  const per=_lfxPer(),ppy=typeof PPY==='function'?PPY():12,eq=a=>a.map(x=>x[0]==='~'?`<span class="ct">${x.slice(1)}</span>`:`<span class="eq">${x}</span>`).join('');
+  const fl=p.rate_type==='float',lm=fam==='lending'?_loanBalanceMode(p):'',dm=p.balance_mode||'rollforward';
+  const R={
+    lending:{balance:[lm==='explicit_level'?'The balance follows the entered target; Foundry derives the production or paydown.':lm==='linked_customer_level'?'The balance follows customer counts times average lending per customer.':'Opening book rolled forward by new originations and runoff.',
+               lm==='explicit_level'?['balance = entered target']:lm==='linked_customer_level'?['balance = MAB count','~× lending per MAB']:['bal(t) = bal(t−1) + originations','~− runoff − charge-offs']],
+             pricing:['Interest on the average balance, plus any fee yield set here.',[fl?'yield(t) = index(t) + spread':'yield = fixed rate','interest = avg bal × yield ÷ '+ppy]],
+             timing:['How the loan is structured: term loans amortize to maturity, revolving lines follow runoff.',null],
+             credit:['Losses and the allowance held against the balance.',['provision = ΔALLL + charge-offs']],
+             costs:['Measurement basis and the direct cost of servicing the book.',['cost = avg bal × rate','~+ fixed per '+per]],
+             other:['Settings that apply to this product type only.',null]},
+    deposit:{balance:[dm==='pool'?'This category draws its share of a retention and sweep pool.':dm==='level'?'The balance follows an entered, linked or derived level.':'Opening balance grown by growth and new deposits, less runoff.',
+               dm==='pool'?['balance = pool × share']:dm==='level'?['balance = entered level']:['bal(t) = bal(t−1) × (1 + g)','~+ new − runoff']],
+             pricing:['The rate paid on the balance, and any fees charged on it.',fl?['rate = index × beta + spread','~within floor and cap']:['rate = rate paid']],
+             timing:['Average maturity sets how quickly the book reprices.',null],
+             costs:['The direct cost of servicing the deposits.',['cost = avg bal × rate','~+ fixed per '+per]],
+             other:['Settings that apply to this product type only.',null]},
+    obs:{balance:[p._fee_product||p.managed_notional?'The off-book stock fees are charged against: entered as a ramp or driven by a customer feed.':'The off-book notional and how it grows.',p._fee_product||p.managed_notional?['AUC(t) from ramp or feed']:['notional(t) = notional(t−1)','~× (1 + g)']],
+         pricing:['Fees charged on the notional.',['fees = notional × fee rate ÷ '+ppy]],
+         costs:['The direct cost of carrying the program.',['cost = notional × rate','~+ fixed per '+per]],
+         other:['Settings that apply to this product type only.',null]}}[fam]||{};
+  const r=R[g]||R.other||['',null];
+  return `<p>${r[0]}</p>${r[1]?`<div class="fx">${eq(r[1])}</div>`:''}`;}
+
+function _lfgStripHtml(fam,i){
+  const C=_lfgCtx(fam,i),P=C.P,p=C.p||{},ref=C.ref,n=C.n,per=_lfxPer(),Q=_lfxQ,at=(a,t)=>P&&a&&a[t]!=null?+a[t]:null,am=_lfxAmt;
+  let nodes=[],tot;
+  if(fam==='lending'){const gos=at(P&&P.gos,ref-1);
+    nodes=[{k:'Opening balance',v:at(P&&P.bal,0),u:'$000s',op:'start of forecast',go:'balance'},{k:'Originations · '+Q(ref),v:at(P&&P.origq,ref-1),u:'/ '+per,op:_loanBalanceMode(p)==='rollforward'?`<i>${_prdPct(p.runoff_per_period)}</i> runoff / ${per}`:'derived from the level',go:'balance'},
+      {k:'Balance · '+Q(ref),v:at(P&&P.bal,ref),u:'$000s',op:'ending balance',go:'balance'},{k:'Interest · '+Q(ref),v:at(P&&P.interest,ref-1),u:'/ '+per,op:`<i>${P&&P.rateQ?(+P.rateQ[ref-1]).toFixed(2)+'%':'—'}</i> ${p.rate_type==='float'?esc(String(p.index||'sofr').toUpperCase())+' + spread':'fixed'}`,go:'pricing'},
+      {k:'Credit cost · '+Q(ref),v:at(P&&P.co,ref-1),u:'/ '+per,op:`ALLL <i>${am(at(P&&P.alll,ref-1))}</i>`,go:'credit'}];
+    const iv=at(P&&P.interest,ref-1),fv=at(P&&P.fees,ref-1);
+    tot={k:'Revenue · '+Q(ref),v:iv==null&&fv==null?null:(iv||0)+(fv||0)+(gos||0),op:`interest ${am(iv)} · <i>fees ${am(fv)}</i>${gos?' · sale gains '+am(gos):''}`};}
+  else if(fam==='deposit'){const ie0=at(P&&P.interest,ref-1),ie=ie0==null?null:Math.abs(ie0),fe=at(P&&P.fees,ref-1),ox=at(P&&P.opex,ref-1);
+    nodes=[{k:'Opening balance',v:at(P&&P.bal,0),u:'$000s',op:'start of forecast',go:'balance'},{k:'Balance · '+Q(ref),v:at(P&&P.bal,ref),u:'$000s',op:'ending balance',go:'balance'},{k:'Balance · '+Q(n),v:at(P&&P.bal,n),u:'$000s',op:'end of forecast',go:'balance'},
+      {k:'Rate paid · '+Q(ref),v:P&&P.rateQ?(+P.rateQ[ref-1]).toFixed(2):null,u:'%',op:p.rate_type==='float'?esc(String(p.index||'sofr').toUpperCase())+' × beta + spread':'fixed',go:'pricing',raw:1},
+      {k:'Interest · '+Q(ref),v:ie,u:'/ '+per,op:'paid on the average balance',go:'pricing'}];
+    tot={k:'Net cost · '+Q(ref),v:ie==null?null:(ie||0)+(ox||0)-(fe||0),op:`interest ${am(ie)} · op cost ${am(ox)} · <i>fees ${am(fe)}</i>`};}
+  else {const fe=at(P&&P.fees,ref-1),ox=at(P&&P.opex,ref-1),pc=at(P&&P.passCost,ref-1),fp=p._fee_product||p.managed_notional,noBal=!P||!(P.bal||[]).some(x=>+x);
+    if(fp&&noBal){const sm=a=>a?a.reduce((x,y)=>x+(+y||0),0):null;nodes=[{k:'Fee streams',v:String((p.fee_streams||[]).length),u:'active',op:'see Fee streams tab',go:'balance',raw:1},{k:'Fees · '+Q(1),v:at(P&&P.fees,0),u:'/ '+per,op:'first month',go:'balance'},{k:'Fees · '+Q(ref),v:fe,u:'/ '+per,op:'one year in',go:'balance'},{k:'Fees · '+Q(n),v:at(P&&P.fees,n-1),u:'/ '+per,op:'end of forecast',go:'balance'},{k:'Fees, '+Q(1)+'–'+Q(n),v:sm(P&&P.fees),u:'$000s',op:'full forecast',go:'balance'}];}
+    else nodes=[{k:(fp?'AUC':'Notional')+' · '+Q(1),v:at(P&&P.bal,1),u:'$000s',op:fp?'off-book stock':'off-book commitment',go:'balance'},{k:(fp?'AUC':'Notional')+' · '+Q(ref),v:at(P&&P.bal,ref),u:'$000s',op:'',go:'balance'},{k:(fp?'AUC':'Notional')+' · '+Q(n),v:at(P&&P.bal,n),u:'$000s',op:'end of forecast',go:'balance'},
+      {k:'Fees · '+Q(ref),v:fe,u:'/ '+per,op:fp?'all fee streams':`<i>${_prdPct(p.fee_yield_ann)}</i> of notional`,go:fp?'balance':'pricing'},{k:'Cost · '+Q(ref),v:(ox==null&&pc==null)?null:(ox||0)+(pc||0),u:'/ '+per,op:`op ${am(ox)} · direct ${am(pc)}`,go:'costs'}];
+    if(fp&&noBal)nodes[0].k='Fee streams';
+    tot={k:'Net fee income · '+Q(ref),v:fe==null?null:(fe||0)-(ox||0)-(pc||0),op:`fees ${am(fe)} · <i>cost ${am((ox||0)+(pc||0))}</i>`};}
+  let h=`<div class="lfx-rib${C.stale?' stale':''}" style="grid-template-columns:repeat(${nodes.length},minmax(0,1fr)) minmax(0,1.2fr)">`;
+  nodes.forEach(x=>{h+=`<button type="button" class="n" onclick="lfgOpenSection('${fam}',${i},'${x.go}')"><span class="k">${x.k}</span><span class="v">${x.raw?(x.v==null?'—':x.v):am(x.v)}<small>${x.u}</small></span><span class="op">${x.op||'&nbsp;'}</span></button>`;});
+  h+=`<div class="n tot"><span class="k">${tot.k}</span><span class="v">${am(tot.v)}<small>$000s / ${per}</small></span><span class="op">${tot.op}</span></div></div>`;
+  const cap=!P?'Figures appear after the next complete run.':(C.stale?`Last complete run, at ${Q(ref)}. Figures are muted until the current inputs run cleanly.`:`Engine figures at ${Q(ref)}, one year into the forecast. Select a step to open its section.`);
+  return h+`<div class="lfx-ribcap"><span>${cap}</span><span>$000s</span></div>`;}
+
+function _lfgRoHtml(fam,i,g){
+  const C=_lfgCtx(fam,i),P=C.P,p=C.p||{},ref=C.ref,end=C.n,Q=_lfxQ,sum=a=>a?a.reduce((x,y)=>x+(+y||0),0):null,at=(a,t)=>a&&a[t-1]!=null?+a[t-1]:null,b=t=>P&&P.bal&&P.bal[t]!=null?+P.bal[t]:null,pct=v=>v==null?'—':(+v).toFixed(2)+'%';
+  if(!P)return `<div class="ro-h"><span>Engine results</span></div><div class="ro-empty">Appear after the next complete run.</div>`;
+  const fp=p._fee_product||p.managed_notional,r2=Math.min(end,ref===12?24:8),BL=fam==='obs'?(fp?'AUC':'Notional'):'Balance';
+  const pick={
+    balance:[fam==='obs'?(fp?'AUC':'Notional'):'Balance',(P.bal||[]).slice(1),fam==='lending'?[['Opening',b(0)],['Balance · '+Q(ref),b(ref)],['Balance · '+Q(end),b(end)],['Originations, '+Q(1)+'–'+Q(end),sum(P.origq)]]:[['Opening',b(0)],[BL+' · '+Q(ref),b(ref)],[BL+' · '+Q(r2),b(r2)],[BL+' · '+Q(end),b(end)]]],
+    pricing:fam==='obs'?['Fee income',P.fees,[['Fees · '+Q(ref),at(P.fees,ref)],['Fees · '+Q(end),at(P.fees,end)],['Fees, '+Q(1)+'–'+Q(end),sum(P.fees)],['Net, '+Q(1)+'–'+Q(end),(sum(P.fees)||0)-(sum(P.opex)||0)-(sum(P.passCost)||0)]]]
+      :[fam==='deposit'?'Interest expense':'Interest income',fam==='deposit'?(P.interest||[]).map(x=>Math.abs(+x||0)):P.interest,[[(fam==='deposit'?'Rate paid':'Yield')+' · '+Q(1),P.rateQ?pct(P.rateQ[0]):null],[(fam==='deposit'?'Rate paid':'Yield')+' · '+Q(end),P.rateQ?pct(P.rateQ[end-1]):null],['Interest · '+Q(ref),fam==='deposit'?Math.abs(at(P.interest,ref)||0):at(P.interest,ref)],['Interest, '+Q(1)+'–'+Q(end),fam==='deposit'?Math.abs(sum(P.interest)||0):sum(P.interest)]]],
+    timing:['Balance',(P.bal||[]).slice(1),[['Balance · '+Q(ref),b(ref)],['Balance · '+Q(r2),b(r2)],['Balance · '+Q(end),b(end)],['Interest, '+Q(1)+'–'+Q(end),fam==='deposit'?Math.abs(sum(P.interest)||0):sum(P.interest)]]],
+    credit:['Allowance (ALLL)',P.alll,[['Charge-offs · '+Q(ref),at(P.co,ref)],['Charge-offs, '+Q(1)+'–'+Q(end),sum(P.co)],['ALLL · '+Q(ref),at(P.alll,ref)],['ALLL · '+Q(end),at(P.alll,end)]]],
+    costs:['Operating cost',P.opex,[['Op cost · '+Q(ref),at(P.opex,ref)],['Op cost · '+Q(end),at(P.opex,end)],['Op cost, '+Q(1)+'–'+Q(end),sum(P.opex)],['Direct cost, '+Q(1)+'–'+Q(end),sum(P.passCost)]]]}[g];
+  if(g==='balance'&&fam==='obs'&&fp&&!(P.bal||[]).some(x=>+x))pick&&(pick.splice(0,3,'Fee income',P.fees,[['Fees · '+Q(1),at(P.fees,1)],['Fees · '+Q(ref),at(P.fees,ref)],['Fees · '+Q(end),at(P.fees,end)],['Fees, '+Q(1)+'–'+Q(end),sum(P.fees)]]));
+  if(!pick||!pick[1])return '';
+  if(!pick[1].some(x=>+x))return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div><div class="ro-empty">Zero throughout the forecast.</div>`;
+  return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div>${_lfxSparkSvg(pick[1],ref)}<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<end?`<span class="rf" style="left:${((ref-1)/Math.max(1,end-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(end)}</span></div><div class="ro-k">${pick[2].map(([k,v])=>`<div><span>${k}</span><b>${typeof v==='string'?v:_lfxAmt(v)}</b></div>`).join('')}</div>${C.stale?'<div class="ro-empty">Last complete run.</div>':''}`;}
+function refreshLfgLive(){document.querySelectorAll('[data-lfg-live]').forEach(el=>{const k=el.getAttribute('data-lfg-live'),fam=el.getAttribute('data-fam'),i=+el.getAttribute('data-i');
+  if(k==='strip')el.innerHTML=_lfgStripHtml(fam,i);else if(k==='ro'){el.innerHTML=_lfgRoHtml(fam,i,el.getAttribute('data-g'));const C=_lfgCtx(fam,i);el.classList.toggle('stale',!!C.stale);}});}
+function lfgToggle(btn){const s=btn.closest('.lfx-s');if(!s)return;const key=s.getAttribute('data-lfg-key');const open=s.classList.contains('c');window._lfgOpen[key]=open;s.classList.toggle('c',!open);btn.setAttribute('aria-expanded',String(open));const cv=btn.querySelector('.cv');if(cv)cv.textContent=open?'▾':'▸';const b=s.querySelector('.lfx-b');if(b)b.hidden=!open;if(open&&typeof fitControls==='function')fitControls(s);}
+function lfgOpenSection(fam,i,g){const s=document.querySelector(`.lfx-s[data-lfg-key="${fam}:${i}:${g}"]`);if(!s)return;if(s.classList.contains('c'))lfgToggle(s.querySelector('.lfx-h'));s.scrollIntoView({behavior:'smooth',block:'start'});}
+
+function _lfgField(el){
+  if(!el.classList.contains('fld')){el.classList.add('lfx-f','s4','lfx-legacy');return;}
+  el.classList.add('lfx-f');
+  const wide=el.classList.contains('wide'),lab=el.querySelector(':scope>label'),kids=[...el.children].filter(x=>x!==lab);
+  const ctl=kids.length===1&&/^(INPUT|SELECT)$/.test(kids[0].tagName)?kids[0]:null;
+  if(!ctl){el.classList.add('s4','lfx-legacy');return;}
+  let unit='';
+  if(lab&&!lab.children.length){const m=lab.textContent.match(/^(.*?)\s*\(([^()]*)\)\s*$/);if(m){lab.textContent=m[1];unit=m[2].split(';')[0].replace(/\s*\/\s*/g,' / ').trim().replace(/^annual\s*%\s*of\s*/,'% of ').replace(/^annual\s*%$/,'% annual');}}
+  if(ctl.tagName==='INPUT'){const w=document.createElement('div');w.className='lfx-in';ctl.replaceWith(w);w.appendChild(ctl);ctl.removeAttribute('style');if(ctl.value&&isNaN(parseFloat(String(ctl.value).replace(/,/g,''))))w.classList.add('tx');if(unit){const t=document.createElement('i');t.textContent=unit;w.appendChild(t);}if(wide)el.classList.add('s2');return;}
+  ctl.setAttribute('data-nofit','');ctl.removeAttribute('style');
+  const opts=[...ctl.options].filter(o=>o.value!=='');
+  if(!ctl.multiple&&!ctl.disabled&&opts.length>=2&&opts.length<=3&&opts.every(o=>o.text.trim().length<=26)){
+    const seg=document.createElement('div');seg.className='lfx-seg';seg.setAttribute('role','group');if(lab)seg.setAttribute('aria-label',lab.textContent.trim());
+    opts.forEach(o=>{const b=document.createElement('button');b.type='button';b.textContent=o.text.replace(/\s+[——-]\s+.*$/,'').trim();b.title=o.text;const on=o.value===ctl.value;b.className=on?'on':'';b.setAttribute('aria-pressed',String(on));
+      b.addEventListener('click',()=>{if(ctl.value===o.value)return;ctl.value=o.value;seg.querySelectorAll('button').forEach(x=>{x.classList.toggle('on',x===b);x.setAttribute('aria-pressed',String(x===b));});ctl.dispatchEvent(new Event('change',{bubbles:true}));});seg.appendChild(b);});
+    ctl.style.display='none';ctl.after(seg);el.classList.add('s2');return;}
+  const w=document.createElement('div');w.className='lfx-sel';ctl.replaceWith(w);w.appendChild(ctl);el.classList.add(wide?'s4':'s2');}
+
+function lfgDecorate(card){
+  const fam=card.getAttribute('data-fam'),i=+card.getAttribute('data-i');
+  if(!['lending','deposit','obs'].includes(fam))return false;
+  const p=_lfgArr(fam)[i];if(!p)return false;
+  if(fam==='lending'&&_loanBalanceMode(p)==='funded_flow_level')return false;
+  if(card.querySelector('.lfx-gen'))return true;
+  const secs=[...card.querySelectorAll('.pp-sec[data-pp="setup"]')];if(!secs.length)return false;
+  const host=secs.find(s=>s.querySelector('.fld'))||secs[0];
+  const els=[];secs.forEach(s=>[...s.children].forEach(el=>els.push(el)));
+  // Unwrap the deposit balance block: its own heading is replaced by the section header.
+  const flat=[];els.forEach(el=>{if(el.classList.contains('deposit-section')){const g=el.querySelector('.deposit-section-grid');if(g){[...g.children].forEach(c=>{c.dataset.depositGroup='balance';flat.push(c);});return;}}flat.push(el);});
+  const groups={},ident=[];let last=null;
+  flat.forEach(el=>{let g=_lfgGrp(el,fam);if(g==='hint')g=last||'other';if(g==='id'){ident.push(el);last='id';return;}(groups[g]=groups[g]||[]).push(el);last=g;});
+  const per=_lfxPer(),root=document.createElement('div');root.className='lfx lfx-gen';
+  // Identity row
+  const nameEl=ident.find(el=>/renameProduct/.test(el.innerHTML)),lineEl=ident.find(el=>el!==nameEl);
+  const idrow=document.createElement('div');idrow.className='lfx-id';
+  if(nameEl){const inp=nameEl.querySelector('input');const f=document.createElement('div');f.className='lfx-f nm';f.innerHTML='<label>Product name</label>';const w=document.createElement('div');w.className='lfx-in tx';if(inp){inp.removeAttribute('style');w.appendChild(inp);}f.appendChild(w);idrow.appendChild(f);}
+  const chips=document.createElement('div');chips.className='lfx-chips';
+  const lineTxt=lineEl?(lineEl.querySelector('select')?((lineEl.querySelector('select').selectedOptions[0]||{}).text||''):(lineEl.textContent.replace(/^\s*(Call Report line|Loan reporting category)\s*/,'').trim())):'';
+  const kind=fam==='lending'?{rollforward:'Loan roll-forward',explicit_level:'Entered target balance',linked_customer_level:'MAB × lending / MAB'}[_loanBalanceMode(p)]:fam==='deposit'?{rollforward:'Opening + growth / inflows',level:'Entered / linked level',pool:'Retention pool'}[p.balance_mode||'rollforward']:(p._fee_product||p.managed_notional?'Fee product · AUC':'Off-balance-sheet commitment');
+  chips.innerHTML=`<span class="lfx-chip">Balance <b>${esc(kind||'')}</b></span>${fam==='lending'?`<span class="lfx-chip">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></span>`:''}${lineTxt?`<span class="lfx-chip">Reporting <b>${esc(lineTxt)}</b></span>`:''}`;
+  idrow.appendChild(chips);root.appendChild(idrow);
+  const strip=document.createElement('div');strip.setAttribute('data-lfg-live','strip');strip.setAttribute('data-fam',fam);strip.setAttribute('data-i',String(i));strip.innerHTML=_lfgStripHtml(fam,i);root.appendChild(strip);
+  let no=0;
+  (_LFG_SECS[fam]||[]).forEach(([g,title])=>{
+    const list=groups[g];if(!list||!list.length)return;no++;
+    const key=fam+':'+i+':'+g,open=key in window._lfgOpen?window._lfgOpen[key]:g!=='other';
+    const s=document.createElement('section');s.className='lfx-s'+(open?'':' c');s.setAttribute('data-lfg-key',key);s.setAttribute('data-lfx',g);
+    const sum=_lfgSummary(fam,p,g);
+    s.innerHTML=`<button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfgToggle(this)"><span class="no">${String(no).padStart(2,'0')}</span><span class="tt">${title}</span><span class="sm">${sum}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>`;
+    const ro=['balance','pricing','credit','costs','timing'].includes(g)&&!(fam==='obs'&&g==='pricing'&&!groups.pricing);
+    const b=document.createElement('div');b.className='lfx-b'+(ro?' has-ro':'');b.hidden=!open;
+    b.innerHTML=`<div class="lfx-rail">${_lfgRail(fam,p,g)}</div><div class="lfx-body"><div class="lfx-grid"></div></div>${ro?`<aside class="lfx-ro" data-lfg-live="ro" data-fam="${fam}" data-i="${i}" data-g="${g}" aria-label="Engine results">${_lfgRoHtml(fam,i,g)}</aside>`:''}`;
+    const grid=b.querySelector('.lfx-grid');
+    list.forEach(el=>{_lfgField(el);if(el.classList.contains('cu')||el.classList.contains('fhint')||(el.classList.contains('lfx-legacy')&&!el.querySelector('input,select,textarea,button')&&el.textContent.trim().length<260&&!el.querySelector('table'))){el.classList.add('lfx-note-blk');}grid.appendChild(el);});
+    s.appendChild(b);root.appendChild(s);});
+  const foot=document.createElement('div');foot.className='lfx-foot';foot.innerHTML='<span>Amounts in $000s unless a field says otherwise. Changes recompute the model.</span>';root.appendChild(foot);
+  ident.forEach(el=>{if(el.parentNode)el.remove();});
+  secs.forEach(s=>{[...s.children].forEach(c=>{if(c.classList.contains('deposit-section'))c.remove();});});
+  host.prepend(root);
+  card.setAttribute('data-lfg','1');
+  return true;}
 
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();
