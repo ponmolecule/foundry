@@ -1273,10 +1273,15 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 #content .prd-card:has(.lfx) .fields,#content .prd-card:has(.lfx-st) .fields{max-width:none!important;width:100%!important;display:block!important}
 .lfx,.lfx-st{container-type:inline-size;width:100%}
 .lfx-ro{display:none}
+/* r352: a framed canvas on wide monitors. Content stops at 1680px and centres; inputs keep their
+   natural width; the remaining width goes to the engine results, which get a real chart. */
+.prd-stage:has(.lfx),.prd-stage:has(.lfx-st){padding-left:clamp(40px,5.5vw,180px);padding-right:clamp(40px,5.5vw,180px)}
+.prd-stage:has(.lfx)>*,.prd-stage:has(.lfx-st)>*{max-width:1880px;margin-left:auto!important;margin-right:auto!important}
 @container (min-width:1320px){
-  .lfx-b.has-ro{grid-template-columns:220px minmax(0,1fr) 300px}
-  .lfx-ro{display:block;padding:16px 18px;border-left:1px solid #EFEFED;background:#FCFCFB;min-width:0}
-  .lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:240px minmax(0,1fr) 300px}
+  .lfx-b.has-ro{grid-template-columns:288px minmax(520px,900px) minmax(360px,1fr)}
+  .lfx-ro{display:block;padding:16px 20px 18px;border-left:1px solid #EFEFED;background:#FCFCFB;min-width:0}
+  .lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:288px minmax(520px,900px) minmax(360px,1fr)}
+  .lfx-b.has-ro .lfx-rail .lfx-spark{display:none}
 }
 .lfx-ro .ro-h{display:flex;justify-content:space-between;align-items:baseline;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--t4)}
 .lfx-ro .ro-h b{font:500 9.5px var(--mono);letter-spacing:0;color:var(--t4)}
@@ -1288,9 +1293,31 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .lfx-ro .ro-empty{margin-top:8px;font-size:10.5px;color:var(--t4)}
 .lfx-ro.stale .ro-t td:last-child{color:var(--t4)}
 .lfx-ro .ro-ax .rf{position:absolute;transform:translateX(-50%);color:var(--t2)}
-@container (min-width:1320px){.lfx-b.has-ro .lfx-rail .lfx-spark{display:none}}
 .lfx-ro .ro-sep{margin-top:14px}
 .lfx-ro .ro-sep td{border-top:1px solid var(--ln)}
+.lfx-ro .ro-ch{display:grid;grid-template-columns:auto minmax(0,1fr);gap:8px;margin-top:12px}
+.lfx-ro .ro-yl{display:flex;flex-direction:column;justify-content:space-between;align-items:flex-end;height:120px;font:500 10px var(--k-font,inherit);font-variant-numeric:tabular-nums;color:var(--t4);padding:2px 0}
+.lfx-ro .ro-pl{position:relative;height:120px}
+.lfx-ro .ro-pl svg{display:block;width:100%;height:120px}
+.lfx-ro .ro-dot{position:absolute;width:8px;height:8px;margin:-4px 0 0 -4px;border-radius:50%;background:#2C2C2C;border:2px solid #fff;box-shadow:0 0 0 1px #2C2C2C}
+.lfx-ro .ro-ch+.ro-ax{margin-left:var(--ro-yw,44px)}
+.lfx-ro .ro-k{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;background:#EFEFED;border:1px solid #EFEFED;border-radius:4px;overflow:hidden;margin-top:14px}
+.lfx-ro .ro-k>div{background:#fff;padding:9px 11px}
+.lfx-ro .ro-k span{display:block;font-size:10.5px;color:var(--t3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lfx-ro .ro-k b{display:block;font:600 15px var(--k-disp,inherit);font-variant-numeric:tabular-nums;color:var(--t1);margin-top:2px}
+.lfx-ro.stale .ro-k b{color:var(--t4)}
+.lfx-rail .fx .eq,.lfx-rail .fx .ct{display:block}
+.lfx-rail .fx .ct{padding-left:1.6em;color:var(--t3)}
+.lfx-rail .fx .eq+.eq,.lfx-rail .fx .ct+.eq{margin-top:6px}
+@container (min-width:1320px){.lfx-rail .fx .eq,.lfx-rail .fx .ct{white-space:nowrap}}
+/* r352: boxes keep natural widths at every width; extra width becomes air between them, not longer boxes */
+.lfx-grid{grid-template-columns:repeat(4,minmax(0,196px));column-gap:28px;justify-content:start}
+.lfx-f.s4 .lfx-sel,.lfx-f.s4 .lfx-in,.lfx-f.s4:has(> .lfx-sel)>label{max-width:600px}
+.lfx-f.s2 .lfx-sel{max-width:420px}
+.lfx-f.s2>.lfx-in{max-width:196px}
+.lfx-f.s2>.lfx-out{max-width:300px}
+
+@media (max-width:900px){.lfx-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -7339,19 +7366,20 @@ function _lfxSecHtml(p,i,id,no,title,summary,rail,body){const open=_lfxIsOpen(p,
   return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}')"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>${open?`<div class="lfx-b${ro?' has-ro':''}"><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div>${ro}</div>`:''}</section>`;}
 // Engine readouts beside each section on wide screens: the run's own series, never client arithmetic.
 const _LFX_RO={vol:1,exp:1,cred:1,price:1,fees:1,acct:1};
-function _lfxSparkSvg(arr,ref){const a=(arr||[]).map(x=>+x||0);if(a.length<2)return '';const mx=Math.max(...a),mn=Math.min(0,...a),rg=(mx-mn)||1,W=260,H=54;
-  const pt=(v,k)=>[(k/(a.length-1)*W).toFixed(1),(H-2-(v-mn)/rg*(H-6)).toFixed(1)];const pts=a.map(pt).map(x=>x.join(',')).join(' ');const r=pt(a[ref-1]||0,ref-1);
-  return `<svg class="ro-sp" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true"><polygon points="0,${H} ${pts} ${W},${H}" fill="#F5ECDD"/><polyline points="${pts}" fill="none" stroke="#C9A25A" stroke-width="1.5" vector-effect="non-scaling-stroke"/><line x1="${r[0]}" x2="${r[0]}" y1="0" y2="${H}" stroke="#2C2C2C" stroke-width="1" stroke-dasharray="2 2" vector-effect="non-scaling-stroke"/></svg>`;}
+function _lfxSparkSvg(arr,ref,fmt){const a=(arr||[]).map(x=>+x||0);if(a.length<2)return '';const mx=Math.max(...a,0),mn=Math.min(0,...a),rg=(mx-mn)||1,W=600,H=120,n=a.length;
+  const x=k=>(k/(n-1)*W),y=v=>(H-4-(v-mn)/rg*(H-14));const pts=a.map((v,k)=>x(k).toFixed(1)+','+y(v).toFixed(1)).join(' ');const rx=x(ref-1),f0=fmt||(v=>_lfxAmt(v)),f=v=>Math.abs(v)<1e-9?'0':f0(v);
+  const grid=[0.5,1].map(t=>`<line x1="0" x2="${W}" y1="${y(mn+rg*t).toFixed(1)}" y2="${y(mn+rg*t).toFixed(1)}" stroke="#ECEBE7" stroke-width="1" vector-effect="non-scaling-stroke"/>`).join('');
+  return `<div class="ro-ch"><div class="ro-yl"><span>${f(mx)}</span><span>${f(mn+rg/2)}</span><span>${f(mn)}</span></div><div class="ro-pl"><svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">${grid}<line x1="0" x2="${W}" y1="${y(mn).toFixed(1)}" y2="${y(mn).toFixed(1)}" stroke="#D8D8D8" stroke-width="1" vector-effect="non-scaling-stroke"/><polygon points="0,${y(mn).toFixed(1)} ${pts} ${W},${y(mn).toFixed(1)}" fill="#F5ECDD"/><polyline points="${pts}" fill="none" stroke="#C9A25A" stroke-width="1.75" vector-effect="non-scaling-stroke"/><line x1="${rx.toFixed(1)}" x2="${rx.toFixed(1)}" y1="0" y2="${H}" stroke="#2C2C2C" stroke-width="1" stroke-dasharray="3 3" vector-effect="non-scaling-stroke"/></svg><span class="ro-dot" style="left:${(rx/W*100).toFixed(2)}%;top:${(y(a[ref-1]||0)/H*100).toFixed(2)}%"></span></div></div>`;}
 function _lfxRoHtml(id,p,C){const P=C.P,ref=C.ref,n=P&&P.fundedVolume?P.fundedVolume.length:0,per=_lfxPer(),Q=_lfxQ,sum=a=>a?a.reduce((x,y)=>x+(+y||0),0):null,at=(a,t)=>a&&a[t-1]!=null?+a[t-1]:null,end=n;
   if(!P)return `<div class="ro-h">Engine results</div><div class="ro-empty">Appear after the next complete run.</div>`;
-  const pick={vol:['Funded flow',P.fundedVolume,[['Funded · '+Q(1),at(P.fundedVolume,1)],['Funded · '+Q(ref),at(P.fundedVolume,ref)],['Funded · '+Q(end),at(P.fundedVolume,end)],['Total funded, '+Q(1)+'–'+Q(end),sum(P.fundedVolume)]]],
-    exp:['Retained balance',(P.bal||[]).slice(1),[['Outstanding · '+Q(ref),at(P.calculatedOutstanding,ref)],['Retained · '+Q(ref),P.bal?+P.bal[ref]:null],['Retained · '+Q(Math.min(12,end)),P.bal?+P.bal[Math.min(12,end)]:null],['Retained · '+Q(end),P.bal?+P.bal[end]:null]]],
+  const r2=ref>1?ref:Math.min(12,end);const pick={vol:['Funded flow',P.fundedVolume,[['Funded · '+Q(1),at(P.fundedVolume,1)],['Funded · '+Q(r2),at(P.fundedVolume,r2)],['Funded · '+Q(end),at(P.fundedVolume,end)],['Total funded, '+Q(1)+'–'+Q(end),sum(P.fundedVolume)]]],
+    exp:['Retained balance',(P.bal||[]).slice(1),[['Outstanding · '+Q(ref),at(P.calculatedOutstanding,ref)],['Retained · '+Q(r2),P.bal?+P.bal[r2]:null],['Retained · '+Q(Math.min(r2===12?24:12,end)),P.bal?+P.bal[Math.min(r2===12?24:12,end)]:null],['Retained · '+Q(end),P.bal?+P.bal[end]:null]]],
     cred:['Allowance (ALLL)',P.alll,[['Charge-offs · '+Q(ref),at(P.co,ref)],['Charge-offs, '+Q(1)+'–'+Q(end),sum(P.co)],['ALLL · '+Q(ref),at(P.alll,ref)],['ALLL · '+Q(end),at(P.alll,end)]]],
     price:['Interest income',P.interest,[['Yield · '+Q(1),P.rateQ&&P.rateQ[0]!=null?(+P.rateQ[0]).toFixed(2)+'%':null],['Yield · '+Q(end),P.rateQ&&P.rateQ[end-1]!=null?(+P.rateQ[end-1]).toFixed(2)+'%':null],['Interest · '+Q(ref),at(P.interest,ref)],['Interest, '+Q(1)+'–'+Q(end),sum(P.interest)]]],
     fees:['Fee income',P.fees,[['Fees · '+Q(ref),at(P.fees,ref)],['Fees · '+Q(end),at(P.fees,end)],['Fees, '+Q(1)+'–'+Q(end),sum(P.fees)],['Direct cost, '+Q(1)+'–'+Q(end),sum(P.passCost)]]],
     acct:['Operating cost',P.opex,[['Op cost · '+Q(ref),at(P.opex,ref)],['Op cost · '+Q(end),at(P.opex,end)],['Op cost, '+Q(1)+'–'+Q(end),sum(P.opex)],['Opening balance',P.bal?+P.bal[0]:null]]]}[id];
   if(!pick)return '';
-  return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div>${_lfxSparkSvg(pick[1],ref)}<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<end?`<span class="rf" style="left:${((ref-1)/Math.max(1,end-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(end)}</span></div><table class="ro-t">${pick[2].map(([k,v])=>`<tr><td>${k}</td><td>${typeof v==='string'?v:_lfxAmt(v)}</td></tr>`).join('')}</table>${C.stale?'<div class="ro-empty">Last complete run.</div>':''}`;}
+  return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div>${_lfxSparkSvg(pick[1],ref)}<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<end?`<span class="rf" style="left:${((ref-1)/Math.max(1,end-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(end)}</span></div><div class="ro-k">${pick[2].map(([k,v])=>`<div><span>${k}</span><b>${typeof v==='string'?v:_lfxAmt(v)}</b></div>`).join('')}</div>${C.stale?'<div class="ro-empty">Last complete run.</div>':''}`;}
 function _lfxRes(){const bad=!!(typeof lastErrs!=='undefined'&&lastErrs&&lastErrs.length);if(lastRes&&lastRes.products){if(!bad)window._lfxLast={cfg:cfg,res:lastRes};return {res:lastRes,stale:bad};}
   if(window._lfxLast&&window._lfxLast.cfg===cfg)return {res:window._lfxLast.res,stale:true};return {res:null,stale:false};}
 function _lfxRef(p,P){const fd=p.funded_flow_driver||{},src=(fd.input_stage||'funded_volume')==='source_activity';
@@ -7366,7 +7394,7 @@ function _lfxLiveHtml(kind,i,j){const p=(cfg.assumptions.lending_products||[])[i
     const money=st.basis==='balance'||['product_funded_flow','distributed_balance'].includes(dr.source)||fpx.unit_kind==='money_flow',sc=v=>v==null?null:(money?v/1000:v),fmt=v=>v==null?'—':(money?_lfxAmt(v):Math.round(v).toLocaleString('en-US')),u=money?'$000s':'units',Q=_lfxQ;
     let b=`<div class="ro-h"><span>Driver quantity</span><b>${u}</b></div>`;
     if(!q)b+=`<div class="ro-empty">${C.P?'This stream has no quantity series in the latest run.':'Appears after the next complete run.'}</div>`;
-    else{const a=q.map(x=>sc(+x||0)),tot=a.reduce((x,y)=>x+y,0);b+=_lfxSparkSvg(a,ref)+`<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<n?`<span class="rf" style="left:${((ref-1)/Math.max(1,n-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(n)}</span></div><table class="ro-t">${[['Driver · '+Q(1),a[0]],['Driver · '+Q(ref),a[ref-1]],['Driver · '+Q(n),a[n-1]],['Total, '+Q(1)+'–'+Q(n),tot]].map(([k,v])=>`<tr><td>${k}</td><td>${fmt(v)}</td></tr>`).join('')}</table>`;}
+    else{const a=q.map(x=>sc(+x||0)),tot=a.reduce((x,y)=>x+y,0);b+=_lfxSparkSvg(a,ref,fmt)+`<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<n?`<span class="rf" style="left:${((ref-1)/Math.max(1,n-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(n)}</span></div><div class="ro-k">${[['Driver · '+Q(1),a[0]],['Driver · '+Q(ref),a[ref-1]],['Driver · '+Q(n),a[n-1]],['Total, '+Q(1)+'–'+Q(n),tot]].map(([k,v])=>`<div><span>${k}</span><b>${fmt(v)}</b></div>`).join('')}</div>`;}
     const fees=C.P&&C.P.fees;if(fees)b+=`<table class="ro-t ro-sep"><tr><td>Product fees · ${Q(ref)}</td><td>${_lfxAmt(fees[ref-1])}</td></tr></table>`;
     return `${A('sro','aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Stream results">${b}</aside>`;}
   if(kind.slice(0,3)==='ro-')return `${A(kind,'aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Engine results">${_lfxRoHtml(kind.slice(3),p,C)}</aside>`;
@@ -7452,7 +7480,7 @@ function _lfxSetupHtml(i,p,base){
     b+='</div>';
     const valTxt=linked?'linked flow':(tr==='explicit_schedule'?'scheduled':`<b>${fp.value==null?'—':_lfxAmt(+fp.value/1000)} / ${esc(fp.period||'month')}</b>${tr==='growth'?' growing':''}`);
     const sum=`${src?'Source':'Funded'} ${valTxt}${src?` · take-up <b>${_lfxPct(fd.take_up_share==null?1:fd.take_up_share,1)}</b> · full size by <b>${_lfxQ(ref)}</b>`:''}`;
-    const rail=`<p>The activity this product finances. ${src?'Take-up and the launch ramp turn source activity into funded flow.':'Entered as final funded volume, after take-up and ramp.'}</p><div class="fx">${src?'funded = source<br>× take-up × ramp(t)':'funded = entered volume'}</div>${_lfxLiveHtml('spark',i)}`;
+    const rail=`<p>The activity this product finances. ${src?'Take-up and the launch ramp turn source activity into funded flow.':'Entered as final funded volume, after take-up and ramp.'}</p><div class="fx">${src?'<span class="eq">funded = source × take-up × ramp(t)</span>':'<span class="eq">funded = entered volume</span>'}</div>${_lfxLiveHtml('spark',i)}`;
     h+=_lfxSecHtml(p,i,'vol','01','Funded volume',sum,rail,b);
   }
 
@@ -7463,7 +7491,7 @@ function _lfxSetupHtml(i,p,base){
     b+=_lfxF('Day count',_lfxN(base+'.day_count','','days / yr'),prof?'s2':'');
     b+=_lfxF('Target retained share',_lfxN(base+'.target_retention_share','pct','%'));
     b+=_lfxF('Funded volume held aside',_lfxN(base+'.reserve_share','pct','% of funded'));
-    b+=_lfxF('Interest accrues on',_lfxSeg([['period_begin','Beginning'],['period_average',prof?'Avg monthly exposure':'Average'],['period_end','Ending']],_im,`setPath('${base}.interest_balance_measure','%v');renderContent();refresh()`,'Interest balance measure'),'s2');
+    b+=_lfxF('Interest accrues on',_lfxSeg([['period_begin','Beginning'],['period_average',prof?'Monthly average':'Average'],['period_end','Ending']],_im,`setPath('${base}.interest_balance_measure','%v');renderContent();refresh()`,'Interest balance measure'),'s2');
     b+='</div>';
     if(prof)b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${_loanRepaymentProfileHtml(i,base,p)}</div></div>`;
     b+='<div class="lfx-grid">'+_lfxF('Shared balance cap',_lfxSel(`<select aria-label="Shared balance cap" onchange="loanAllocationGroupChange(${i},this.value)"><option value="">None · balance is uncapped</option>${_groups.map(g=>`<option value="${esc(g.id)}"${_gid===g.id?' selected':''}>${esc(g.id)}</option>`).join('')}</select>`),'s2');
@@ -7477,7 +7505,7 @@ function _lfxSetupHtml(i,p,base){
     }
     b+='</div>';
     const sum=`${prof?'Repayment curve':`Term <b>${esc(String(p.term_days==null?0:p.term_days))} days</b>`} · retained <b>${_lfxPct(p.target_retention_share==null?1:p.target_retention_share,1)}</b> · interest on <b>${{period_begin:'beginning',period_average:'average',period_end:'ending'}[_im]||_im}</b>${_gid?` · cap <b>${esc(_gid)}</b>`:''}`;
-    const rail=`<p>How long each funded dollar stays outstanding, and how much of it the bank keeps.</p><div class="fx">${prof?'outstanding =<br>Σ cohorts × curve':'outstanding =<br>funded × term days<br>÷ days in '+per}<br><br>retained =<br>outstanding × share${_gid?'<br>up to the shared cap':''}</div>`;
+    const rail=`<p>How long each funded dollar stays outstanding, and how much of it the bank keeps.</p><div class="fx">${prof?'<span class="eq">outstanding = Σ cohorts × curve</span>':'<span class="eq">outstanding = funded × term days</span><span class="ct">÷ days in '+per+'</span>'}<span class="eq">retained = outstanding × share</span>${_gid?'<span class="ct">up to the shared cap</span>':''}</div>`;
     h+=_lfxSecHtml(p,i,'exp','02','Exposure &amp; retention',sum,rail,b);
   }
 
@@ -7491,7 +7519,7 @@ function _lfxSetupHtml(i,p,base){
     b+='</div>';
     if(am==='loss_rate_term'||prof)b+=`<div class="lfx-grid"><div class="lfx-f s4 lfx-legacy">${_faSeriesEditor(base+'.credit_loss_factor_spec',p.credit_loss_factor_spec||{source:'entered',trajectory:'flat',value:1},'Credit loss factor','multiple',false)}</div></div>`;
     const sum=prof?`Allowance <b>${am==='reserve_rate'?'reserve % of balance':am==='profile_expected_loss'?'profile expected loss':'remaining losses'}</b>`:`Charge-offs <b>${_lfxPctFix(+p.charge_off_ann||0)}</b>${p.measurement==='fair_value'?' · fair value, no reserve':am==='reserve_rate'?` · reserve <b>${_lfxPctFix(+p.reserve_rate_pct_bal||0)}</b> of balance`:' · loss × exposure term'}`;
-    const rail=`<p>Losses and the allowance held against the retained balance.</p><div class="fx">provision = ΔALLL<br>+ charge-offs</div>`;
+    const rail=`<p>Losses and the allowance held against the retained balance.</p><div class="fx"><span class="eq">provision = ΔALLL + charge-offs</span></div>`;
     h+=_lfxSecHtml(p,i,'cred','03','Credit &amp; allowance',sum,rail,b);
   }
 
@@ -7505,7 +7533,7 @@ function _lfxSetupHtml(i,p,base){
     b+=_lfxF(fl?`All-in yield, ${_lfxQ(1)} → ${_lfxQ(rq?rq.length:(+(cfg.assumptions||{}).n_periods||1))}`:'Yield applied',_lfxLiveHtml('yield',i),fl?'':'s2');
     b+='</div>';
     const sum=_lfxLiveHtml('psum',i);
-    const rail=`<p>Interest earned on the retained balance. Floating rates reference the engagement's rate curves.</p><div class="fx">${fl?'yield(t) =<br>index(t) + spread':'yield = fixed rate'}<br><br>interest =<br>basis × yield ÷ ${typeof PPY==='function'?PPY():12}</div>`;
+    const rail=`<p>Interest earned on the retained balance. Floating rates reference the engagement's rate curves.</p><div class="fx"><span class="eq">${fl?'yield(t) = index(t) + spread':'yield = fixed rate'}</span><span class="eq">interest = basis × yield ÷ ${typeof PPY==='function'?PPY():12}</span></div>`;
     h+=_lfxSecHtml(p,i,'price','04','Pricing',sum,rail,b);
   }
 
@@ -7533,7 +7561,7 @@ function _lfxSetupHtml(i,p,base){
     b+=`<div class="lfx-adds"><button type="button" class="lfx-add" onclick="loanAddEconomics(${i},'transaction')">+ Fee on funded flow</button><button type="button" class="lfx-add"${hasCap?'':' disabled title="Requires a shared balance cap (section 02)"'} onclick="loanAddEconomics(${i},'balance')">+ Fee on distributed balance</button>${_legacyOpen?'':`<button type="button" class="lfx-add" onclick="flowLegacyFeeToggle(${i})">+ Fee on retained balance</button>`}<span class="sp"></span><button type="button" class="lfx-lnk" onclick="prdTabSet('streams')">Timing, costs and drivers in Fee streams →</button></div>`;
     if(_retainedFeeActive&&streams.length)b+=`<div class="lfx-note"><span class="dot"></span>Review fee streams for overlapping charges on the same activity.</div>`;
     const sum=_lfxLiveHtml('fsum',i);
-    const rail=`<p>Fees priced on this product's own volumes. Each stream posts to fee income.</p><div class="fx">fee = basis × rate</div>`;
+    const rail=`<p>Fees priced on this product's own volumes. Each stream posts to fee income.</p><div class="fx"><span class="eq">fee = basis × rate</span></div>`;
     h+=_lfxSecHtml(p,i,'fees','05','Fee streams',sum,rail,b);
   }
 
@@ -7547,7 +7575,7 @@ function _lfxSetupHtml(i,p,base){
     if(fvm)b+=_lfxF('DCF discount spread',_lfxN(base+'.discount_spread_ann','pct','% over SOFR'));
     b+='</div>';
     const sum=`Opening <b>${Math.round((+p.opening_balance||0)/1000).toLocaleString('en-US')}</b> · servicing <b>${_lfxPctFix(+p.opex_pct_ann||0)}</b> + <b>${_lfxAmt((+p.opex_fixed_per_period||0)/1000)} / ${per}</b> · ${fvm?'fair value':'amortized cost'}`;
-    const rail=`<p>The starting book, its measurement basis, and the direct cost of servicing it.</p><div class="fx">cost = avg bal × rate<br>+ fixed / ${per}</div>`;
+    const rail=`<p>The starting book, its measurement basis, and the direct cost of servicing it.</p><div class="fx"><span class="eq">cost = avg bal × rate</span><span class="ct">+ fixed per ${per}</span></div>`;
     h+=_lfxSecHtml(p,i,'acct','06','Costs &amp; accounting',sum,rail,b);
   }
 
