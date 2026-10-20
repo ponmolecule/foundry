@@ -9,7 +9,7 @@ const cfg={assumptions:{obs_exposures:[{fee_streams:[
  ]}],lending_products:[{fee_streams:[{basis:'transaction',quantity_series_id:'funded',driver:{source:'product_funded_flow'}}]}],deposit_products:[]}};
 const practice=Array.from({length:60},(_,i)=>(i+1)*4.8125),card=practice.map(x=>x*.6),purchase=card.map(x=>x*23000);
 const ctx={cfg,window:{},PPY:()=>12,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;'),lastRes:{fee_stream_quantities:{series:{practice,card,purchase,cross:purchase}}},document:{querySelectorAll:()=>[]}};
-vm.createContext(ctx);
+vm.createContext(ctx);vm.runInContext(html.slice(html.indexOf('// Numeric inspection stays'),html.indexOf('function _lfxRoHtml(')),ctx);
 for(const name of ['_numInput'])vm.runInContext(html.split('\n').find(l=>l.startsWith('function '+name+'(')),ctx);
 vm.runInContext(html.slice(html.indexOf('function _stOwner('),html.indexOf('function _feeStreamsSectionHtml(')),ctx);
 vm.runInContext(html.slice(html.indexOf('function _feeStreamQuantityKind('),html.indexOf('function _feePctSemantics(')),ctx);

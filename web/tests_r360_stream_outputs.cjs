@@ -2,7 +2,7 @@ const fs=require('fs'),vm=require('vm'),assert=require('assert'),H=fs.readFileSy
 for(const m of H.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(m[1]))new vm.Script(m[2]);
 const {cfg,res}=JSON.parse(fs.readFileSync(process.argv[2],'utf8'));
 const ctx={cfg,lastRes:res,window:{},PPY:()=>cfg.assumptions.periods_per_year,esc:s=>String(s).replaceAll('"','&quot;'),_numInput:v=>String(v),document:{querySelectorAll:()=>[]},_lfgArr:f=>cfg.assumptions[f==='obs'?'obs_exposures':f==='lending'?'lending_products':'deposit_products'],_lfgCtx:()=>({res,P:{fees:[999]},ref:1}),_lfxPer:()=> 'month',_lfxQ:n=>'M'+n,_lfxSparkSvg:arr=>'<spark>'+arr.join(',')+'</spark>',_stProv:()=>null};
-vm.createContext(ctx);vm.runInContext(H.split('\n').find(l=>l.startsWith('function _numInput(')),ctx);
+vm.createContext(ctx);vm.runInContext(H.slice(H.indexOf('// Numeric inspection stays'),H.indexOf('function _lfxRoHtml(')),ctx);vm.runInContext(H.split('\n').find(l=>l.startsWith('function _numInput(')),ctx);
 for(const [a,b] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['function _explicitPreviewHtml(','function _explicitSchedulePreviewHtml('],['// r360: dependent streams display','_feeGlobal.addFeeCostPool='],['function _stCellHtml(','function refreshStreamFigures'],['function _lfxLiveHtml(','function refreshLfxLive(']])vm.runInContext(H.slice(H.indexOf(a),H.indexOf(b,H.indexOf(a))),ctx);
 const st=cfg.assumptions.obs_exposures[0].fee_streams,before=JSON.stringify(cfg);
 for(const [i,label,val] of [[0,'Resolved count',10],[1,'Resolved count',6],[2,'Resolved volume',138],[3,'Stream revenue',3.036],[4,'Contra-revenue',-.1932],[5,'Stream cost',.06],[6,'Net stream income',1.104]]){

@@ -565,7 +565,7 @@ def run_v2(cfg):
         "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
         "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume", "sweptBalance", "sweepFee",
         "calculatedOutstanding", "targetBeforeAllocation", "distributedBalance",
-        "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut",
+        "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut", "interest", "avg",
     )
     _exact_products = (base_exact or {}).get("products") or []
     _public_products = base.get("products") or []
