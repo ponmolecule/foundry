@@ -17,3 +17,7 @@ Current Engagement 5 symptom: Receivable Advances Accounts exists and resolves c
 ## 3. Polish the CAC section
 
 Rework visual hierarchy and spacing of feed headers, opening-book inputs, attrition controls, channel navigation and calculated results. Retain the top Create feed action and independent feed expand/collapse behavior introduced in r363. Creating a feed should open it, close other feeds, and make its name easy to edit. Existing r363 presentation was judged unattractive; functional collapse controls alone do not complete this item. Preserve entered values, live links, precision and calculated summaries. Verify the finished layout visually.
+
+## 4. Investigate recurring disappearance of the CAC summary table
+
+User reports that the calculated customer-base roll-forward summary has disappeared again after previously being restored. Investigate result availability, rendering/refresh behavior and feed disclosure state; the cause is not yet established. Restore reliable visibility of the calculated summary for feeds with results, including after edits, reruns, reloads and collapse/expand. Do not assume a missing table means zero customers or require users to recreate feeds. The previously deferred missing-results placeholder is a separate item; this report does not establish that a placeholder alone fixes the recurrence.
