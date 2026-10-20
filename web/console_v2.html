@@ -5014,6 +5014,8 @@ function normalizeCfg(c){
      gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25},
     c.stress_params || {});
   c.assumptions = c.assumptions || {};
+  // Every stream needs an identity for its own result, independently of link eligibility.
+  ["obs_exposures","lending_products","deposit_products"].forEach(k=>(c.assumptions[k]||[]).forEach(p=>(p.fee_streams||[]).forEach(st=>{if(st&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");})));
   // Freeze the previous treatment on import; future module toggles cannot change it.
   if(c.assumptions.surplus_allocation_policy==null)c.assumptions.surplus_allocation_policy=_surplusAllocationPolicy(c);
   c.assumptions.obs_exposures = c.assumptions.obs_exposures || [];
@@ -8494,7 +8496,7 @@ window.feeGuideApplyConfirm=async function(){
     const rows=(js.streams||[]).filter(x=>!x.error);
     const bad=rows.filter(x=>!x.stream); if(bad.length) throw new Error('Still missing a link for '+bad.map(x=>'“'+x.name+'”').join(', ')+'.');
     if(S.mode==='replace'){ if(typeof feeConfirmDeletion==='function'&&!feeConfirmDeletion(p,(p.fee_streams||[]).slice())) return; p.fee_streams=[]; } p.fee_streams=p.fee_streams||[];
-    rows.forEach(x=>{ const st=x.stream; if(['account','transaction','balance'].includes(st.basis)) st.quantity_series_id=_seriesId('fee-qty'); p.fee_streams.push(st); window._fgNew.set(st,x.needs||[]); });
+    rows.forEach(x=>{ const st=x.stream; if(!st.quantity_series_id) st.quantity_series_id=_seriesId('fee-qty'); p.fee_streams.push(st); window._fgNew.set(st,x.needs||[]); });
     window._feeGuidePinnedPlans&&window._feeGuidePinnedPlans.delete(p);
     const cnt=rows.length, todo=rows.reduce((a,x)=>a+(x.needs||[]).filter(n=>!n.optional).length,0);
     window._prdTab='streams';   /* land on the streams, where the banner and chips are */
@@ -14748,7 +14750,7 @@ function _ensureLinkableSeriesIds(){
   if(_wf&&!_wf.total_count_series_id)_wf.total_count_series_id=_seriesId("wf-total-count");
   (((_wf||{}).roles)||[]).forEach(x=>{if(!x)return;if(!x.series_id)x.series_id=_seriesId("wf-count");if(!x.compensation_series_id)x.compensation_series_id=_seriesId("wf-comp");if(!x.expense_series_id)x.expense_series_id=_seriesId("wf-exp");if(!x.owner_module)x.owner_module="operating_expense.workforce";});
   [["Lending",(cfg.assumptions||{}).lending_products||[]],["Deposit",(cfg.assumptions||{}).deposit_products||[]],["Fee Product",(cfg.assumptions||{}).obs_exposures||[]]].forEach(pair=>{
-    (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&["transaction","balance","account"].includes(st.basis)&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
+    (pair[1]||[]).forEach(p=>((p||{}).fee_streams||[]).forEach(st=>{if(st&&!st.quantity_series_id)st.quantity_series_id=_seriesId("fee-qty");}));
   });
 }
 // Shared metadata comes from the server's typed publishers, outside run results.
