@@ -3764,7 +3764,7 @@ function _prdGrpSummary(fam,p,g){
   const opex=()=>_prdPct(p.opex_pct_ann)+' + '+_prdK(p.opex_fixed_per_period!=null?p.opex_fixed_per_period:p.opex_fixed_m)+'/'+per;
   if(fam==='lending') return {
     balance:_prdM(p.opening_balance)+' start \u00b7 '+_prdPct(p.runoff_per_period)+' runoff/'+per,
-    pricing:rate(p.yield_ann)+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
+    pricing:(p.rate_type!=='float'&&p.yield_ann_spec?('Fixed yield · '+({flat:'Flat',growth:'Growth',explicit:'Explicit schedule'}[p.yield_ann_spec.trajectory]||'scheduled')):rate(p.yield_ann))+(Number(p.fee_yield_ann)>0?' \u00b7 fees '+_prdPct(p.fee_yield_ann):''),
     timing:(p.structure?String(p.structure).replace(/_/g,' ').replace(/^./,c=>c.toUpperCase()):'Term')+(p.term_q?' \u00b7 '+p.term_q+' quarters':' \u00b7 no term set'),
     credit:_prdPct(p.charge_off_ann)+' charge-offs \u00b7 '+_prdPct(p.reserve_rate_pct_bal)+' reserve',
     costs:(p.measurement==='fair_value'?'Fair value':'Amortized cost')+' \u00b7 '+opex()}[g]||'';
@@ -6756,6 +6756,7 @@ function _loanAmountEditor(i,p,base){const s=p.balance_driver.average_balance_pe
  return h+'</div>';
 }
 
+function _loanFixedYieldEditor(p,base){return _faSeriesEditor(base+'.yield_ann_spec',p.yield_ann_spec||{source:'entered',trajectory:'flat',value:+p.yield_ann||0},'Yield (annual %)','rate',false)+`<p class="memo">Annualized rates: schedule cadence controls when rates change. The last pasted rate carries forward. Per-period yield overrides apply after this path.</p>`;}
 function _loanBalanceMode(p){const mode=String((p||{}).balance_mode||"rollforward");return ["linked_customer_level","explicit_level","funded_flow_level"].includes(mode)?mode:"rollforward";}
 function loanBalanceModeChange(i,v){
   const p=((cfg.assumptions||{}).lending_products||[])[i];if(!p)return;
@@ -6913,7 +6914,7 @@ function fieldsFor(fam, p, base){
         ? F("Spread over "+_idx+" (bps)", base+".index_spread", "bps")
         : F("Spread over "+_idx+" (annual %)", base+".index_spread", "pct");
     }
-    else h += F("Yield (annual %)", base+".yield_ann", "pct");
+    else h += `<div class="fld wide">${_loanFixedYieldEditor(p,base)}</div>`;
     if(!_funded)h += F("Fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     if(_level){
       const _retainedFeeActive=_funded&&((+p.fee_yield_ann||0)!==0||Object.keys(((p.overrides||{}).fee_yield_ann)||{}).length>0);
@@ -7706,7 +7707,7 @@ function _lfxSetupHtml(i,p,base){
     let b='<div class="lfx-grid">'+_lfxF('Rate type',_lfxSeg([['fixed','Fixed'],['float','Floating']],fl?'float':'fixed',`setPath('${base}.rate_type','%v');renderContent();refresh()`,'Rate type'));
     if(fl){b+=_lfxF('Reference index',_lfxSeg([['sofr','SOFR'],['effr','EFFR'],['prime','Prime']],idx,`setPath('${base}.index','%v');renderContent();refresh()`,'Reference index'));
       b+=_lfxF('Spread over '+IDX,cre?_lfxN(base+'.index_spread','bps','bps'):_lfxN(base+'.index_spread','pct','% annual'));}
-    else b+=_lfxF('Yield',_lfxN(base+'.yield_ann','pct','% annual'));
+    else b+=`<div class="lfx-f s4 lfx-legacy">${_loanFixedYieldEditor(p,base)}</div>`;
     const rq=P&&P.rateQ&&P.rateQ.length?P.rateQ:null;
     b+=_lfxF(fl?`All-in yield, ${_lfxQ(1)} → ${_lfxQ(rq?rq.length:(+(cfg.assumptions||{}).n_periods||1))}`:'Yield applied',_lfxLiveHtml('yield',i),fl?'':'s2');
     b+='</div>';
@@ -8118,7 +8119,7 @@ function ovGridHtml(fam, i){
       h += `<tr><td>${esc(label)}</td>`;
       for(let q=1;q<=NP();q++){
         const cur = ((p.overrides||{})[field]||{})[String(q)];
-        h += `<td><input type="number" step="any" value="${cur==null?"":ovDisp(cur,unit)}" placeholder="${base}"
+        h += `<td><input type="number" step="any" value="${cur==null?"":ovDisp(cur,unit)}" placeholder="${fam==='lending'&&field==='yield_ann'&&p.yield_ann_spec?'schedule':base}"
           onchange="setOv('${fam}',${i},'${field}','${unit}',${q},this.value)"></td>`;
       }
       h += '</tr>';
@@ -9489,7 +9490,7 @@ window._faSeriesExplicitOpen=window._faSeriesExplicitOpen||{};
 function _faSeriesExplicitIsOpen(path){return Object.prototype.hasOwnProperty.call(window._faSeriesExplicitOpen,String(path))?!!window._faSeriesExplicitOpen[String(path)]:false;}
 window.faSeriesExplicitOpen=function(path){window._faSeriesExplicitOpen[String(path)]=true;renderContent();};
 window.faSeriesExplicitClose=function(path){window._faSeriesExplicitOpen[String(path)]=false;renderContent();};
-function _faSeriesEnsure(path,def,period){let sp=getPath(path);if(!sp||typeof sp!=="object"){sp={source:"entered",trajectory:"flat",value:+(def||0)};if(period)sp.period=period;setPath(path,sp);}sp.source="entered";sp.trajectory=sp.trajectory||"flat";if(period&&!sp.period)sp.period=period;return sp;}
+function _faSeriesEnsure(path,def,period){let sp=getPath(path);const yieldMatch=String(path).match(/^assumptions\.lending_products\.(\d+)\.yield_ann_spec$/);if(!sp&&yieldMatch)def=+(cfg.assumptions.lending_products[+yieldMatch[1]].yield_ann||0);if(!sp||typeof sp!=="object"){sp={source:"entered",trajectory:"flat",value:+(def||0)};if(period)sp.period=period;setPath(path,sp);}sp.source="entered";sp.trajectory=sp.trajectory||"flat";if(period&&!sp.period)sp.period=period;return sp;}
 window.faSeriesTrajectory=function(path,traj){const sp=_faSeriesEnsure(path,0),inputName=sp.name,natural=sp.period,typedUnit=String(path).startsWith('assumptions.balance_components_model.')?sp.unit:null;traj=(traj==="growth"?"growth":traj==="explicit"?"explicit":"flat");if(traj==="flat"){const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="flat";sp.value=+v||0;}else if(traj==="growth"){const b=sp.base!=null?sp.base:(sp.value!=null?sp.value:((sp.values||[])[0]||0));Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="growth";sp.base=+b||0;sp.growth_spec={rate:0,period:"year",method:"step",anchor:"model_year"};}else{const v=sp.value!=null?sp.value:(sp.base!=null?sp.base:0);Object.keys(sp).forEach(k=>{if(!["source","trajectory"].includes(k))delete sp[k]});sp.source="entered";sp.trajectory="explicit";sp.cadence=_nativeFlowPeriod();sp.values=Array(_seriesSourcePeriods(sp.cadence)).fill(+v||0);sp.extend="hold";sp.resolution="step";window._faSeriesExplicitOpen[String(path)]=true;}if(natural)sp.period=natural;if(typedUnit)sp.unit=typedUnit;if(inputName!=null)sp.name=inputName;renderContent();refresh();};
 window.faSeriesValue=function(path,field,v,kind){const sp=_faSeriesEnsure(path,0);sp[field]=(kind==="rate"?_pf(v)/100:((kind==="multiple"||kind==="count"||kind==="dollars"||kind==="days")?_pf(v):_pf(v)*1000));refresh();};
 window.faSeriesCadence=function(path,v){const sp=_faSeriesEnsure(path,0);sp.cadence=v;if(v!=='year'){delete sp.year_end_targets;delete sp.target_path;delete sp.target_anchor;delete sp.target_opening;}sp.values=sp.values||[];_resizeSeriesValues(sp,sp.values.length?sp.values[sp.values.length-1]:0);renderContent();refresh();};

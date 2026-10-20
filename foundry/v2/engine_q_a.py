@@ -200,6 +200,9 @@ def _prod_rate(p, t, rate):
         curves = getattr(rate, "_curves", None)
         rfn = curves.get(idx) if (curves and idx in curves) else rate
         return rfn(t) + _ovq(p, "index_spread", t, p.get("index_spread", 0.0) or 0.0)
+    if p.get("_yield_ann_path"):
+        values = p["_yield_ann_path"]
+        return _ovq(p, "yield_ann", t, values[min(max(int(t)-1,0),len(values)-1)])
     if p.get("yield_ann") is not None:
         return _ovq(p, "yield_ann", t, p.get("yield_ann") or 0.0)
     return _ovq(p, "rate_paid_ann", t, p.get("rate_paid_ann") or 0.0)
@@ -429,6 +432,9 @@ def run_pf_a(cfg):
     ov = cfg.get("scenario_overlays")
     if ov:
         _apply_overlays(lend, dep, a, ov, ppy)
+
+    from .lending_rates import prepare_fixed_yields
+    prepare_fixed_yields(lend, Q, ppy, _growth_ctx)
 
     # One shared multi-curve builder governs both profiles. Generated curves are dated;
     # explicit manual path grids remain supported as intentional model-period assumptions.

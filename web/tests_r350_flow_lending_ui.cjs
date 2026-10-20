@@ -22,6 +22,7 @@ const ctx={cfg:{assumptions:{lending_products:[product()],loan_allocation_groups
  _prdLab:x=>String(x),renderContent(){},refresh(){},requestAnimationFrame(){} ,document:{querySelectorAll:()=>[]}};
 vm.createContext(ctx);
 for(const [x,y] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['// r360: dependent streams display','// r358: a fee stream previews']])vm.runInContext(html.slice(html.indexOf(x),html.indexOf(y,html.indexOf(x))),ctx);
+vm.runInContext(html.split('\n').find(l=>l.startsWith('function _loanFixedYieldEditor(')),ctx);
 vm.runInContext(html.slice(a,b),ctx);
 const render=()=>ctx._lfxSetupHtml(0,ctx.cfg.assumptions.lending_products[0],'assumptions.lending_products.0');
 const check=(out,tag)=>{assert(!/undefined|NaN|\[object Object\]/.test(out),tag+' leaks undefined/NaN');
