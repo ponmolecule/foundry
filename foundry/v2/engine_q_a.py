@@ -1873,6 +1873,8 @@ def run_pf_a(cfg):
                 }
                 _pr["balanceDriverCount"] = list(_lb["customer_count"])
                 _pr["averageBalancePerCustomer"] = list(_lb["average_balance_per_customer"])
+                if "assumption_detail" in _lb:
+                    _pr["lendingAssumptionDetail"] = copy.deepcopy(_lb["assumption_detail"])
                 _pr["linkedBalanceTarget"] = list(_lb["ending_balance"])
             products.append(_pr)
     _out = {"products": products,

@@ -134,6 +134,9 @@ class BalanceComponents:
             if sid not in allowed or s.get('timing','prior_period') not in {'prior_period','current_period'}:raise ValueError('Unsupported balance-component bank source')
             if s.get('timing')=='current_period' and sid not in {'deposits','gross_loans'}:raise ValueError('Current equity/assets are circular; use prior-period stock')
             if s.get('prior_initialization','opening') not in {'opening','zero'}:raise ValueError('Invalid prior-period initialization')
+        elif src=='weighted_sum' or (src=='entered' and s.get('factors')):
+            from .shared_assumptions import SharedAssumptions
+            self.cache[repr(s)] = SharedAssumptions({'balance_components_model':self.model},self.n,int(self.ppy),self.context).resolve(s,s.get('unit','scalar'))[0]
         elif src=='entered':
             key=repr(s)
             if key not in self.cache:

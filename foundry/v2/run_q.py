@@ -572,6 +572,8 @@ def run_v2(cfg):
     for _pub, _raw in zip(_public_products, _exact_products):
         if _pub.get("name") != _raw.get("name"):
             continue
+        if "lendingAssumptionDetail" in _raw:
+            _pub["lendingAssumptionDetail"] = copy.deepcopy(_raw["lendingAssumptionDetail"])
         _d = {}
         for _key in _detail_money_keys:
             _arr = _raw.get(_key)

@@ -2090,6 +2090,15 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         for row in _ws.iter_rows(min_row=2):
             for cell in row[3:]:cell.number_format=_RATE_FMT if cell.column==9 else _COUNT_FMT
 
+    _shared_rows=[]
+    for _product in exact.get('products') or []:
+        for _row in _product.get('lendingAssumptionDetail') or []:
+            for _field in ('amount','weight','weighted_amount','values'):
+                for _i,_v in enumerate(_row.get(_field) or [],1):
+                    _shared_rows.append([_product.get('name'),_row.get('input_id') or _row.get('component_id') or '',_row.get('name'),_field,'share' if _field=='weight' else _row.get('unit'),_i,_v])
+    if _shared_rows:
+        _write_long_rows(wb.create_sheet('Lending Assumptions'),title='Reusable lending assumptions',subtitle='Non-posting component amounts, weights, weighted outputs and product factors. Amounts are native dollars per customer; weights and factors are decimal fractions.',headers=['Product','Stable ID','Assumption / component','Observation','Units','Period','Value'],rows=_shared_rows,widths=[30,32,32,24,22,12,24],formats={6:'0',7:_RAW_NUM_FMT},freeze_col=6)
+
     _write_wide_rows(wb.create_sheet("All Series"), cfg, _all_series_rows(results, n),
                      title="All Public Run Series · Audit",
                      subtitle="Catch-all numeric Series inventory. Use subsystem sheets first; this sheet is the completeness backstop.", n=n, ppy=ppy)

@@ -137,20 +137,19 @@ def normalize_linked_loan_balance(product: Mapping | None, assumptions: Mapping 
     measure = normalize_customer_count_measure(raw.get("measure"), default="period_end")
     if measure == "annual_count":
         raise ValueError("linked loan balance requires period_end or period_average customer count")
-    multiplier = normalize_series_spec(raw.get("average_balance_per_customer_spec") or {
-        "source": "entered", "trajectory": "flat", "value": 0.0
-    })
-    if multiplier.get("source") != "entered":
-        raise ValueError("average balance per customer must be an entered Series")
-    vals = []
-    if multiplier.get("trajectory") == "flat":
-        vals = [multiplier.get("value")]
-    elif multiplier.get("trajectory") == "growth":
-        vals = [multiplier.get("base")]
+    raw_multiplier = raw.get("average_balance_per_customer_spec") or {"source":"entered","trajectory":"flat","value":0.0}
+    if raw_multiplier.get("source") == "input_ref":
+        from .shared_assumptions import SharedAssumptions
+        # Validate references, dimensions and cycles without posting balance components.
+        SharedAssumptions(assumptions or {}, 1, 12).resolve(raw_multiplier, "money_per_unit")
+        multiplier = dict(raw_multiplier)
     else:
-        vals = list(multiplier.get("values") or [])
-    if any(float(v or 0.0) < 0.0 for v in vals):
-        raise ValueError("average balance per customer must be nonnegative")
+        multiplier = normalize_series_spec(raw_multiplier)
+        if multiplier.get("source") != "entered":
+            raise ValueError("average balance per customer must be entered or reference a shared assumption")
+        vals = ([multiplier.get("value")] if multiplier.get("trajectory")=="flat" else
+                [multiplier.get("base")] if multiplier.get("trajectory")=="growth" else list(multiplier.get("values") or []))
+        if any(float(v or 0.0)<0 for v in vals):raise ValueError("average balance per customer must be nonnegative")
     if p.get("mortgage_banking"):
         raise ValueError("linked-level loans cannot also use mortgage-banking sale mechanics")
     if p.get("structure") == "term":
@@ -222,9 +221,14 @@ def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
     counts = [float(v or 0.0) for v in list(by_measure[measure])[:n_periods]]
     if len(counts) != int(n_periods):
         raise ValueError(f"linked loan customer-count Series {sid!r} has an incomplete horizon")
-    multipliers = resolve_entered_series(
-        cfg["average_balance_per_customer_spec"], n_periods, ppy,
-        context=growth_context, default_value=0.0)
+    detail = None
+    if cfg["average_balance_per_customer_spec"].get("source")=="input_ref":
+        from .shared_assumptions import SharedAssumptions
+        multipliers, detail = SharedAssumptions(assumptions, n_periods, ppy, growth_context).resolve(
+            cfg["average_balance_per_customer_spec"], "money_per_unit")
+    else:
+        multipliers = resolve_entered_series(cfg["average_balance_per_customer_spec"], n_periods, ppy,
+                                             context=growth_context, default_value=0.0)
     if any(float(v or 0.0) < 0.0 for v in multipliers):
         raise ValueError("average balance per customer resolves negative within the model horizon")
     if any(float(v or 0.0) < 0.0 for v in counts):
@@ -233,4 +237,5 @@ def resolve_linked_loan_balance(product: Mapping, assumptions: Mapping,
                 for i in range(int(n_periods))]
     return {**cfg, "customer_count": counts,
             "average_balance_per_customer": multipliers,
+            **({"assumption_detail":detail} if detail is not None else {}),
             "ending_balance": balances}
