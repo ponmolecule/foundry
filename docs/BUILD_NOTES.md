@@ -1925,3 +1925,7 @@ Workforce Customer capacity count method links an existing acquisition feed and 
 ## r357
 
 Attrition percentage fields and previews retain 15 significant digits instead of two decimal places; arbitrary decimal steps avoid re-edit precision loss. Workforce customer-capacity Count fields and population rows show engine-calculated FTE for a selected period, with a full forecast schedule and refresh hooks. No engine arithmetic or engagement inputs changed. See RELEASE_r357.md for evidence, limitations and recovery of previously overwritten rates.
+
+## r358
+
+Fee-stream Activity previews show the stream’s own engine-calculated quantity after driver transformations, in the shared compact sparkline / first-last / View all format. Duplicate upstream-number previews are removed from that editor; source selectors remain. Counts retain fractional precision; native monetary quantities convert once to $000s. Stable IDs, cross-family units and post-run refresh are covered. No engine or engagement data change. See RELEASE_r358.md.

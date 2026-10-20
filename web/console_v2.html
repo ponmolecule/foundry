@@ -6185,15 +6185,18 @@ function _feeStreamQuantityKind(i,si,seen){
   if(String(d.source||"constant").toLowerCase()==="constant"&&String((dp.flow_path||{}).unit_kind||"").toLowerCase()==="money_flow")return "money";
   if(String(c.kind||"").toLowerCase()==="amount_per_source_unit") return "money";
   const src=String(d.source||"constant").toLowerCase();
-  if(["own_balance","managed_notional","bank_aggregate","cost_pool"].includes(src)) return "money";
+  if(["own_balance","managed_notional","bank_aggregate","cost_pool","product_funded_flow","distributed_balance"].includes(src)) return "money";
   if(["customer_acquisition_count","account_activity"].includes(src)) return "count";
   if(src==="stream_ref"){
     const ref=String(d.ref||""), j=streams.findIndex(x=>String((x||{}).name||"")===ref);
     return j>=0?_feeStreamQuantityKind(i,j,seen):"native";
   }
   if(src==='fee_stream_quantity'){
-    const products=((cfg.assumptions||{}).obs_exposures||[]);
-    for(let pi=0;pi<products.length;pi++){const j=(products[pi].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return _feeStreamQuantityKind(pi,j,seen);}
+    const a=cfg.assumptions||{};
+    for(const [key,offset] of [['obs_exposures',0],['lending_products',1000],['deposit_products',2000]]){
+      const products=a[key]||[];
+      for(let pi=0;pi<products.length;pi++){const j=(products[pi].fee_streams||[]).findIndex(x=>x.quantity_series_id===d.ref);if(j>=0)return _feeStreamQuantityKind(offset+pi,j,seen);}
+    }
   }
   return "native";
 }
@@ -6391,18 +6394,24 @@ function _feeCustomerCountPreviewBody(seriesId,measure){
   if(vals.length)return `<div class="nie-actions" style="margin-top:4px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
   return `<span class="memo" style="margin:3px 0 0">Run the model to preview the linked customer path.</span>`;
 }
+// r358: a fee stream previews its own engine quantity, after its driver transformations.
+function _feeStreamResultBody(sid){
+ const a=cfg.assumptions||{},hits=[];
+ [['obs_exposures',0],['lending_products',1000],['deposit_products',2000]].forEach(([key,offset])=>(a[key]||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,si)=>{if(sid&&st.quantity_series_id===sid)hits.push({st,i:offset+pi,si});})));
+ if(hits.length!==1)return '<span class="memo">Stream quantity unavailable. Select a valid stream and run the model.</span>';
+ const {st,i,si}=hits[0],kind=_feeStreamQuantityKind(i,si,{}),money=kind==='money',label=kind==='count'?'Calculated count':money?(st.basis==='balance'?'Calculated balance':'Calculated volume'):'Calculated quantity',unit=money?'$000s':kind==='count'?'count':'native units';
+ const series=(((typeof lastRes!=='undefined'&&lastRes&&lastRes.fee_stream_quantities)||{}).series)||{},values=series[sid];
+ let h=`<div class="cmut" style="margin:0 0 5px"><b>${label}</b> · latest run · ${unit}</div>`;
+ if(!Array.isArray(values)||!values.length)return h+'<span class="memo">Run the model successfully to see this stream’s calculated quantity.</span>';
+ const shown=values.map(v=>money?Number(v)/1000:Number(v));
+ return h+_explicitPreviewHtml(shown,v=>_numInput(v,6),PPY()===12?'month':'quarter').replace(' loaded</span>',' periods</span>');
+}
+function _feeStreamResultPreviewHtml(i,si){const st=((_stOwner(i)||{}).fee_streams||[])[si]||{},sid=String(st.quantity_series_id||'');return `<div class="fld wide fee-stream-result-preview" data-fee-result-preview="${esc(sid)}">${_feeStreamResultBody(sid)}</div>`;}
+function refreshFeeStreamResultPreviews(){
+ document.querySelectorAll('[data-fee-result-preview]').forEach(el=>{const h=_feeStreamResultBody(el.getAttribute('data-fee-result-preview'));if(el.innerHTML!==h){const open=el.querySelector('details.explicit-preview')?.open;el.innerHTML=h;if(open){const d=el.querySelector('details.explicit-preview');if(d)d.open=true;}}});
+}
 function refreshFeeCustomerCountPreviews(){
-  document.querySelectorAll('[data-fee-activity-preview]').forEach(el=>{
-    const i=+el.getAttribute('data-product-index'),si=+el.getAttribute('data-stream-index'),st=(_stOwner(i).fee_streams||[])[si];
-    if(st&&st.driver.source==='account_activity')el.innerHTML=(globalThis._lsrcWrap||((k,b)=>b||''))('act:'+String(st.driver.ref||''),_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:st.driver.ref}),'Linked source');
-  });
-  if(!(V31 && currentTab==="products") || !lastRes)return;
-  document.querySelectorAll("[data-fee-customer-count-preview]").forEach(el=>{
-    const i=+(el.getAttribute("data-product-index")||-1),si=+(el.getAttribute("data-stream-index")||-1);
-    const st=(((_stOwner(i)||{}).fee_streams)||[])[si];
-    if(!st||!st.driver||st.driver.source!=="customer_acquisition_count")return;
-    el.innerHTML=_feeCustomerCountPreviewHtml(st.driver.ref,st.driver.measure||"period_end");
-  });
+  refreshFeeStreamResultPreviews();
 }
 _feeGlobal.addFeeCostPool=function(i,si){
   const pools=_feeCostPools();let n=1;const names=new Set(pools.map(p=>String((p||{}).name||"")));while(names.has("Cost pool "+n))n++;
@@ -7028,13 +7037,11 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         const choices=feeQuantityCandidates(_fi,si),ref=String(st.driver.ref||''),missing=ref&&!choices.some(x=>x.value===ref);
         h+=`<a href="#" class="cadd" onclick="browseFeeSources(${_fi},${si});return false">Browse / search sources</a>`;
         h+=`<div class="fld wide"><label>Source quantity</label><select onchange="feeQuantitySelect(${_fi},${si},this.value)"><option value="">Select a compatible stream…</option>${missing?`<option value="${esc(ref)}" selected>Missing / incompatible source: ${esc(ref)}</option>`:''}${choices.map(x=>`<option value="${esc(x.value)}"${x.value===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo" style="margin:4px 0 0">Links the source quantity, not its revenue. Rename or reorder either card without changing the reference.</span></div>`;
-        if(ref)h+=(globalThis._lsrcLive||(()=>''))('fq',ref,((choices.find(x=>x.value===ref)||{}).label)||ref,'upstream fee-stream quantity','native');   // r355
       }
       if(src==='account_activity'){
         const opts=_accountActivityOptions(basis),ref=String(st.driver.ref||'');
         h+=`<div class="fld wide"><label>Activity source</label><select data-nofit onchange="setPath('${sb}.driver.ref',this.value);renderContent();refresh()"><option value="">Select a ${basis==='account'?'subscriber count':'customer / subscriber flow'}…</option>${ref&&!opts.some(x=>x.series_id===ref)?`<option selected value="${esc(ref)}">Missing source: ${esc(ref)}</option>`:''}${opts.map(x=>`<option value="${esc(x.series_id)}"${x.series_id===ref?' selected':''}>${esc(x.label)}</option>`).join('')}</select><span class="memo">Create shared adoption sources under Customer acquisition. Count flows post no revenue or cost by themselves.</span></div>`;
         if(basis==='account')h+=SEL('Count measure',sb+'.driver.measure',st.driver.measure||'period_end',[['period_end','Month-end count'],['period_average','Average (begin + end)']]);
-        h+=`<div class="fld wide" data-fee-activity-preview data-product-index="${_fi}" data-stream-index="${si}">${(globalThis._lsrcWrap||((k,b)=>b||''))('act:'+ref,_opexLinkedSourcePreviewBody({driver:'account_activity',series_id:ref}),'Linked source')}</div>`;
       }
       if(src==="stream_ref"){
         const _ref=String(st.driver.ref||"");
@@ -7042,14 +7049,12 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         const _refOpts=[["","Select a reference stream…"]].concat(_refNames.map(n=>[n,n]));
         if(_ref&&!_refNames.includes(_ref))_refOpts.splice(1,0,[_ref,"Missing / unavailable stream: "+_ref]);
         h += SEL("Reference stream", sb+".driver.ref", _ref, _refOpts);
-        { const _rs=(_stOwner(_fi).fee_streams||[]).find(x=>x&&String(x.name||'')===_ref); if(_rs&&_rs.quantity_series_id)h+=(globalThis._lsrcLive||(()=>''))('fq',_rs.quantity_series_id,_ref,'reference stream quantity','native'); }   // r355
       }
-      if(src==="bank_aggregate"){ h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]); const _ba=(st.driver.ref||'total_deposits')==='total_assets'; h+=(globalThis._lsrcLive||(()=>''))('bs',_ba?'totalAssets':'deposits',_ba?'Bank \u203a Total assets':'Bank \u203a Total deposits','balance sheet, period end','money'); }   // r355
+      if(src==="bank_aggregate") h += SEL("Aggregate", sb+".driver.ref", st.driver.ref||"total_deposits", [["total_deposits","Total deposits"],["total_assets","Total assets"]]);
       if(src==="customer_acquisition_count"){
         const _ccref=String(st.driver.ref||""),_ccmeasure=String(st.driver.measure||"period_end");
         h += `<div class="fld"><label>Count measure</label><select onchange="feeCustomerCountMeasureChange(${_fi},${si},this.value)"><option value="period_end"${_ccmeasure==='period_end'?' selected':''}>End of month</option><option value="period_average"${_ccmeasure==='period_average'?' selected':''}>Average (begin + end)</option><option value="annual_count"${_ccmeasure==='annual_count'?' selected':''}>Year-end count · held through year</option></select></div>`;
         h += `<div class="fld wide"><span class="memo">Customer Acquisition owns the linked count. Changes upstream flow through automatically. Switching back to an entered count restores its saved schedule. ${_ccmeasure==='annual_count'?'Uses the year-end customer count throughout that model year.':(_ccmeasure==='period_average'?'Uses the average of beginning and ending monthly counts. Quarterly models aggregate monthly exposures.':'Uses each month’s ending customer count. Quarterly models average the three monthly observations before applying an annual account fee.')}</span></div>`;
-        h += `<div class="fld wide" data-fee-customer-count-preview data-product-index="${_fi}" data-stream-index="${si}">${_feeCustomerCountPreviewHtml(_ccref,_ccmeasure)}</div>`;
       }
       if(basis==='account'){
         if(st.driver.params.share_spec)h+=`<div class="fld wide">${_faSeriesEditor(sb+'.driver.params.share_spec',st.driver.params.share_spec,'Participation share','rate',false)}<button class="cx" aria-label="Remove participation share" onclick="delete _stOwner(${_fi}).fee_streams[${si}].driver.params.share_spec;renderContent();refresh()">×</button><span class="memo">Scales the count; it does not calculate subscriber openings or closures. Use Account adoption for those flows.</span></div>`;
@@ -7085,7 +7090,6 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
             }
           });
           h += `<div class="memo" style="margin-top:5px">Component allocation determines what enters the eligible cost pool. Linked components observe already-posted costs; entered and balance-derived components are non-posting pricing assumptions. Recovery below separately determines how much of the eligible pool is charged/reimbursed.</div>`;
-          const _cpr=(((typeof lastRes!=="undefined"&&lastRes)||{}).cost_pools||{}),_cpa=((_cpr.series||{})[_cpid]||[]);if(_cpa.length){const _lab=PPY()===12?"M":(PPY()===4?"Q":"Y");h += (globalThis._lsrcWrap||((k,b)=>b||''))('pool:'+_cpid,`<div class="cac-link-preview-row" style="margin-top:7px"><span class="wf-field-label">Latest run · resolved eligible cost</span><span class="cu">$000s / ${PPY()===12?'month':(PPY()===4?'quarter':'year')}</span></div><div class="cac-link-readonly" role="textbox" aria-readonly="true">${esc(_cpa.map((v,k)=>_lab+(k+1)+' '+fmtComma(+v||0)).join(' · '))}</div>`,'Linked cost');}
           h += `</div>`;
         }
       }
@@ -7163,6 +7167,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           }
         }
       }
+      h += (globalThis._feeStreamResultPreviewHtml||(()=>''))(_fi,si);
       h += '</div><div class="st-sec" data-st="pricing">';
       // Axis 4: pricing. New balance/account authoring uses the same Flat / Growth /
       // Explicit paradigm as other Foundry Series while legacy rate behaviors remain readable.
