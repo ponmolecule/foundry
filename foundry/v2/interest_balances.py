@@ -38,19 +38,19 @@ def prepare_interest_balance_model(assumptions, customer_counts, periods, ppy, *
         sid = str(mab_source.get("series_id") or "").strip()
         values = (fee_stream_quantities or {}).get(sid)
         if values is None:
-            raise ValueError(f"interest balance model fee-stream MAB source {sid!r} is unavailable")
+            raise ValueError(f"interest balance model fee-stream customer-count source {sid!r} is unavailable")
         mab = [float(v or 0.0) for v in values]
     elif source == "link":
         sid = str(mab_source.get("series_id") or "").strip()
         measure = str(mab_source.get("measure") or "period_end").strip()
         measures = customer_counts.get(sid)
         if measures is None or measure not in measures:
-            raise ValueError(f"interest balance model MAB source {sid!r} is unavailable")
+            raise ValueError(f"interest balance model customer-count source {sid!r} is unavailable")
         mab = [float(v or 0.0) for v in measures[measure]]
     else:
         mab = series("mab_spec")
     if any(v < 0 for v in mab):
-        raise ValueError("interest balance model MAB count cannot be negative")
+        raise ValueError("interest balance model customer count cannot be negative")
 
     out = {"mab": mab}
     out["affiliated_cash_interest_start_period"] = max(

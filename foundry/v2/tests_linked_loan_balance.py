@@ -107,8 +107,8 @@ def main():
         pass
 
     html = open("web/console_v2.html").read()
-    for token in ("Balance authoring", "MAB Series × average lending / MAB",
-                  "Customer-count measure", "Average lending / MAB", "$000s / unit"):
+    for token in ("Balance authoring", "Customer count × average lending per customer",
+                  "Customer-count measure", "Average lending per customer", "$000s / unit"):
         assert token in html
     print("PASS linked loan balance suite")
 
