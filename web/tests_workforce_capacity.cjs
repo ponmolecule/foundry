@@ -3,7 +3,7 @@ const html=fs.readFileSync(__dirname+'/console_v2.html','utf8');
 for(const m of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(m[1]))new vm.Script(m[2]);
 const start=html.indexOf('// r356: capacity-based workforce count;'),end=html.indexOf('window.nieWorkforceCountMode=',start);
 const cfg={assumptions:{cac_feeds:{'Renamed acquisition':{customer_count_series_id:'customer-1'}},nie_detail:{workforce:{roles:[{count:3,count_spec:{trajectory:'explicit',values:[3,5]},hire_period:2}]}}}};
-const ctx={cfg,window:{},_ensureLinkableSeriesIds(){},_ensureWorkforce(){return cfg.assumptions.nie_detail.workforce;},renderContent(){},refresh(){},esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),_faSeriesEditor:(p,s,l)=>`<div data-path="${p}">${l} ${s.value}</div>`,appStatus(){}};
+const ctx={cfg,lastRes:null,NP:()=>12,PPY:()=>12,_numInput:v=>String(v),window:{},_ensureLinkableSeriesIds(){},_ensureWorkforce(){return cfg.assumptions.nie_detail.workforce;},renderContent(){},refresh(){},esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&quot;').replaceAll('<','&lt;'),_faSeriesEditor:(p,s,l)=>`<div data-path="${p}">${l} ${s.value}</div>`,appStatus(){}};
 vm.createContext(ctx);vm.runInContext(html.slice(start,end),ctx);
 const role=cfg.assumptions.nie_detail.workforce.roles[0];
 ctx.window.nieWorkforceCountSource(0,'capacity');

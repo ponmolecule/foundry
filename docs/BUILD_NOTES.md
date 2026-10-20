@@ -1921,3 +1921,7 @@ Linked sources: every linked-source preview has Hide source / Show, remembered p
 ## r356
 
 Workforce Customer capacity count method links an existing acquisition feed and explicitly chooses active customers after attrition or cumulative acquisitions before attrition, including opening customers. Editable capacity and minimum use Flat/Growth/Explicit paths. Zero source gives zero FTE; positive source uses max(source/capacity, minimum), without rounding. Fixed windows and payroll basis remain explicit. Monthly calculations preserve exact quarterly payroll, with monthly capacity audit detail and dependency-cycle validation. See RELEASE_r356.md for entry and verification.
+
+## r357
+
+Attrition percentage fields and previews retain 15 significant digits instead of two decimal places; arbitrary decimal steps avoid re-edit precision loss. Workforce customer-capacity Count fields and population rows show engine-calculated FTE for a selected period, with a full forecast schedule and refresh hooks. No engine arithmetic or engagement inputs changed. See RELEASE_r357.md for evidence, limitations and recovery of previously overwritten rates.
