@@ -167,6 +167,9 @@ def _conv_workforce(wf):
     if not isinstance(wf, dict):
         return wf
     out = dict(wf)
+    if isinstance(wf.get("role_expenses"), list):
+        out["role_expenses"] = [[round(float(x) / 1000.0, 2) for x in row]
+                                for row in wf["role_expenses"]]
     for key in ("comp", "role_comp", "additive_comp"):
         if isinstance(wf.get(key), list):
             out[key] = [_k(x) for x in wf[key]]

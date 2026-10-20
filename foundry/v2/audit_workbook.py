@@ -874,8 +874,19 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
         cnt = list(counts[i]) if i < len(counts) else [0.0] * n
         hire = hires[i] if i < len(hires) else (role or {}).get("hire_period")
         start = int(hire or 1)
-        annual = workforce_role_compensation_series(role, n, ppy, growth_context=gctx,
-                                                     start_period=start, default_growth_spec=default_spec)
+        if role.get("capacity_count") and ppy != 12:
+            audit_role = dict(role)
+            if role.get("compensation_spec"):
+                audit_role["compensation_spec"] = dict(role["compensation_spec"])
+                if audit_role["compensation_spec"].get("cadence") == "model_period":
+                    audit_role["compensation_spec"]["cadence"] = "quarter"
+            width = 12 // ppy
+            monthly_comp = workforce_role_compensation_series(audit_role, n * width, 12,
+                growth_context=gctx, start_period=(start-1)*width+1, default_growth_spec=default_spec)
+            annual = [sum(monthly_comp[j:j+width])/width for j in range(0,len(monthly_comp),width)]
+        else:
+            annual = workforce_role_compensation_series(role, n, ppy, growth_context=gctx,
+                                                         start_period=start, default_growth_spec=default_spec)
         comp_period = workforce_compensation_period(role)
         comp_basis = workforce_compensation_basis(role)
         factor = {"year": 1.0, "quarter": 4.0, "month": 12.0}[comp_period]
@@ -893,6 +904,22 @@ def _workforce_rows(cfg, results, n, ppy, exact=None):
                  * (1.0 + load) / 1000.0) if active else 0.0
             exp.append(e)
             total[p] += e
+        if (role or {}).get("capacity_count"):
+            detail = (wfout.get("capacity_details") or [])[i]
+            exact_expenses = (wfout.get("role_expenses") or [])[i]
+            # Replace average-count × sampled-comp reconstruction with monthly payroll totals.
+            for j, value in enumerate(exact_expenses):
+                total[j] += float(value) / (1000.0 if exact is not None else 1.0) - exp[j]
+            exp = [float(value) / (1000.0 if exact is not None else 1.0) for value in exact_expenses]
+            width = 12 // ppy
+            for key, label in (("source", "Capacity source · monthly average"),
+                               ("capacity", "Customers per FTE · monthly average"),
+                               ("minimum", "Minimum FTE · monthly average")):
+                values = detail[key]
+                native = [sum(values[j:j+width])/width for j in range(0, len(values), width)]
+                rows.append((name, label, detail["series_id"], "count", native, _COUNT_FMT))
+            rows.append((name, "Capacity source measure", detail["series_id"], "measure",
+                         [detail["measure"]] * n, None))
         rows.append((name, "Active count", sid, "FTE / headcount", cnt, _COUNT_FMT))
         rows.append((name, "Compensation amount basis", sid, "basis",
                      [("Total" if comp_basis == "total" else "Per FTE")] * n, None))
@@ -1932,6 +1959,23 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
     _write_wide_rows(wb.create_sheet("Workforce"), cfg, _workforce_rows(cfg, results, n, ppy, exact=exact),
                      title="Workforce · Calculation Audit",
                      subtitle="Role-level headcount and payroll calculations, including resolved activation timing.", n=n, ppy=ppy)
+    capacity_rows = []
+    for role, detail in zip(((a.get("nie_detail") or {}).get("workforce") or {}).get("roles") or [],
+                            (exact.get("workforce") or {}).get("capacity_details") or []):
+        if not detail:
+            continue
+        for mi, source in enumerate(detail["source"]):
+            capacity_rows.append([role.get("role") or "", detail["series_id"], detail["measure"], mi+1,
+                                  source, detail["capacity"][mi], detail["minimum"][mi],
+                                  detail["counts"][mi], detail["active_counts"][mi]])
+    if capacity_rows:
+        _write_long_rows(wb.create_sheet("Workforce Capacity Detail"),
+            title="Workforce Capacity · Monthly Calculation Audit",
+            subtitle="Zero source gives zero FTE; positive source uses max(source / capacity, minimum). Cumulative acquisitions includes opening customers; active customers is after attrition. No rounding. Active FTE applies the authored start/end window.",
+            headers=["Role", "Customer source ID", "Measure", "Month", "Source customers",
+                     "Customers / FTE", "Minimum FTE", "Required FTE", "Active FTE"],
+            rows=capacity_rows, widths=[26,32,28,12,20,20,18,18,18],
+            formats={i:_COUNT_FMT for i in range(4,10)}, freeze_col=4)
     _write_long_rows(
         wb.create_sheet("Workforce Component Detail"),
         title="Workforce Additive Compensation Component Detail · Audit",

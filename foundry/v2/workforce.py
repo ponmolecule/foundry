@@ -2,6 +2,10 @@
 from __future__ import annotations
 
 from typing import Any, Callable, Mapping
+from contextvars import ContextVar
+import math
+
+_CAPACITY_STACK = ContextVar("workforce_capacity_stack", default=())
 
 from .activation import rule_satisfied
 from .growth import growth_multiplier
@@ -47,8 +51,66 @@ def workforce_compensation_basis(role: Mapping[str, Any] | None) -> str:
 
 
 
+def workforce_capacity_monthly(role, months, *, assumptions=None, growth_context=None, source_ppy=12):
+    """Resolve a live customer-book capacity requirement on the monthly grid.
+
+    Cumulative acquisitions includes the opening book and never subtracts attrition.
+    Active customers uses the acquisition owner's end-of-month book instead.
+    """
+    from .cac_feeder import cac_customer_count_catalog, cac_auc_rollforward
+    from .series import normalize_series_spec, resolve_entered_series
+    cfg = (role or {}).get("capacity_count") or {}
+    sid = str(cfg.get("series_id") or "").strip()
+    measure = str(cfg.get("measure") or "")
+    if measure not in {"active_customers", "cumulative_acquisitions"}:
+        raise ValueError("workforce capacity measure must be active_customers or cumulative_acquisitions")
+    if (role or {}).get("activation"):
+        raise ValueError("capacity-based workforce uses a fixed start window; remove the metric trigger")
+    matches = [x for x in cac_customer_count_catalog(assumptions) if x["series_id"] == sid]
+    if not sid or len(matches) != 1:
+        raise ValueError(f"workforce capacity customer source {sid!r} is missing or ambiguous")
+    # Context-local guard crosses CAC, workforce and Opex resolvers without global state.
+    token = str((role or {}).get("series_id") or id(role))
+    stack = _CAPACITY_STACK.get()
+    if token in stack:
+        raise ValueError("circular workforce capacity dependency: " + " -> ".join(stack + (token,)))
+    guard = _CAPACITY_STACK.set(stack + (token,))
+    try:
+        feed = assumptions["cac_feeds"][matches[0]["feed"]]
+        roll = cac_auc_rollforward(feed, int(months) // (12 // source_ppy), source_ppy, assumptions=assumptions,
+                                  growth_context=growth_context)
+        gross = float(feed.get("beginning_customers") or 0.0)
+        source = []
+        for row in roll["monthly"][:int(months)]:
+            gross += float(row.get("new_cust") or 0.0)
+            source.append(gross if measure == "cumulative_acquisitions" else float(row["end_cust"]))
+        paths = {}
+        for key in ("capacity_spec", "minimum_spec"):
+            spec = cfg.get(key)
+            if not spec:
+                raise ValueError(f"workforce capacity requires {key}")
+            ns = normalize_series_spec(spec)
+            if ns["source"] != "entered":
+                raise ValueError(f"workforce {key} must be an entered Flat, Growth or Explicit path")
+            if ns.get("cadence") == "model_period":
+                ns["cadence"] = "quarter" if source_ppy == 4 else "month"
+            paths[key] = resolve_entered_series(ns, int(months), 12, context=growth_context)
+        counts = []
+        for value, capacity, minimum in zip(source, paths["capacity_spec"], paths["minimum_spec"]):
+            if not all(math.isfinite(float(x)) for x in (value, capacity, minimum)):
+                raise ValueError("workforce capacity inputs must be finite")
+            if value < 0 or capacity <= 0 or minimum < 0:
+                raise ValueError("workforce capacity requires source >= 0, capacity > 0 and minimum >= 0")
+            counts.append(max(value / capacity, minimum) if value > 0 else 0.0)
+        return {"source": source, "capacity": paths["capacity_spec"],
+                "minimum": paths["minimum_spec"], "counts": counts,
+                "series_id": sid, "measure": measure}
+    finally:
+        _CAPACITY_STACK.reset(guard)
+
+
 def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, ppy: int = 4,
-                                 *, growth_context=None, include_activation_window: bool = True) -> list[float]:
+                                 *, growth_context=None, include_activation_window: bool = True, assumptions=None) -> list[float]:
     """Resolve one economically homogeneous workforce population's headcount path.
 
     ``count_spec`` is the new generic Foundry-Series contract (Flat / Growth / Explicit).
@@ -60,7 +122,12 @@ def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, 
     n, ppy = int(n_periods), int(ppy)
     base = float(role.get("count") if role.get("count") is not None else 1.0)
     spec = role.get("count_spec")
-    if spec:
+    if role.get("capacity_count"):
+        width = 12 // ppy
+        monthly = workforce_capacity_monthly(role, n * width, assumptions=assumptions,
+                                             growth_context=growth_context, source_ppy=ppy)["counts"]
+        arr = [sum(monthly[i:i+width]) / width for i in range(0, len(monthly), width)]
+    elif spec:
         from .series import normalize_series_spec, resolve_entered_series
         ns = normalize_series_spec(spec, default_value=base)
         if ns["source"] != "entered":
@@ -88,7 +155,7 @@ def workforce_role_count_series(role: Mapping[str, Any] | None, n_periods: int, 
 
 def workforce_count_series_by_id(workforce: Mapping[str, Any] | None, series_id: str,
                                  n_periods: int, ppy: int = 4, *, growth_context=None,
-                                 deterministic_only: bool = False) -> list[float]:
+                                 deterministic_only: bool = False, assumptions=None) -> list[float]:
     """Resolve a Workforce-owned Count Series by stable ID.
 
     ``series_id`` may identify either one role/population or Workforce's persisted aggregate
@@ -115,7 +182,7 @@ def workforce_count_series_by_id(workforce: Mapping[str, Any] | None, series_id:
                 "use fixed/entered activation windows or break the circular dependency")
         out = [0.0] * n
         for role in roles:
-            arr = workforce_role_count_series(role, n, ppy, growth_context=growth_context)
+            arr = workforce_role_count_series(role, n, ppy, growth_context=growth_context, assumptions=assumptions)
             out = [a + float(v or 0.0) for a, v in zip(out, arr)]
         return out
 
@@ -128,7 +195,7 @@ def workforce_count_series_by_id(workforce: Mapping[str, Any] | None, series_id:
         raise ValueError(
             "upstream link cannot consume a metric-triggered workforce count; "
             "use a fixed/entered activation window or break the circular dependency")
-    return workforce_role_count_series(role, n, ppy, growth_context=growth_context)
+    return workforce_role_count_series(role, n, ppy, growth_context=growth_context, assumptions=assumptions)
 
 
 def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods: int,
@@ -183,7 +250,7 @@ def workforce_role_compensation_series(role: Mapping[str, Any] | None, n_periods
 def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int,
                                    ppy: int = 4, *, growth_context=None,
                                    default_payroll_load_rate: float = 0.0,
-                                   default_salary_growth_spec: Mapping[str, Any] | None = None) -> list[float]:
+                                   default_salary_growth_spec: Mapping[str, Any] | None = None, assumptions=None) -> list[float]:
     """Resolve one role/population's native-period payroll expense flow.
 
     This is the observational cross-module seam used by cost pools.  It intentionally
@@ -205,7 +272,7 @@ def workforce_role_expense_series(role: Mapping[str, Any] | None, n_periods: int
         }),
         "roles": [row],
     }
-    return workforce_comp_series(wf, int(n_periods), int(ppy), growth_context=growth_context)
+    return workforce_comp_series(wf, int(n_periods), int(ppy), growth_context=growth_context, assumptions=assumptions)
 
 
 WORKFORCE_ADDITIVE_DRIVER = "piecewise_linked"
@@ -335,7 +402,8 @@ class WorkforceRuntime:
     resolved hire period and the role remains active thereafter unless ``end_period`` ends it.
     """
     def __init__(self, workforce: Mapping[str, Any] | None, n_periods: int,
-                 ppy: int = 4, *, growth_context=None):
+                 ppy: int = 4, *, growth_context=None, assumptions=None):
+        self.assumptions = assumptions
         self.wf = workforce or {}
         self.n = int(n_periods)
         self.ppy = int(ppy)
@@ -353,7 +421,7 @@ class WorkforceRuntime:
             count = float(row.get("count") if row.get("count") is not None else 1.0)
             count_series = workforce_role_count_series(row, self.n, self.ppy,
                                                        growth_context=self.growth_context,
-                                                       include_activation_window=False)
+                                                       include_activation_window=False, assumptions=assumptions)
             annual = float(row.get("annual_comp") or row.get("base_salary_annual") or 0.0)
             comp_period = workforce_compensation_period(row)
             comp_basis = workforce_compensation_basis(row)
@@ -384,14 +452,38 @@ class WorkforceRuntime:
                     raise ValueError(
                         "workforce compensation_spec must be entered; Link/Derived require a "
                         "compatible module-owned source and none is currently whitelisted")
-                if comp_ns["trajectory"] != "growth":
+                if comp_ns["trajectory"] != "growth" and not (row.get("capacity_count") and self.ppy != 12):
                     comp_series = workforce_role_compensation_series(
                         row, self.n, self.ppy, growth_context=self.growth_context,
                         start_period=comp_start, default_growth_spec=self.default_spec)
+            monthly_runtime = None
+            capacity_audit = None
+            if row.get("capacity_count"):
+                width = 12 // self.ppy
+                capacity_audit = workforce_capacity_monthly(row, self.n * width,
+                    assumptions=assumptions, growth_context=growth_context, source_ppy=self.ppy)
+                capacity_audit["active_counts"] = [v if (int(row.get("hire_period") or 1)-1)*width < m
+                    and (end is None or m <= end*width) else 0.0
+                    for m, v in enumerate(capacity_audit["counts"], 1)]
+                if self.ppy != 12:
+                    child = dict(row)
+                    del child["capacity_count"]
+                    child["count_spec"] = {"source": "entered", "trajectory": "explicit", "cadence": "month",
+                                           "values": capacity_audit["counts"], "extend": "hold"}
+                    if child.get("compensation_spec"):
+                        child["compensation_spec"] = dict(child["compensation_spec"])
+                        if child["compensation_spec"].get("cadence") == "model_period":
+                            child["compensation_spec"]["cadence"] = "quarter"
+                    child["hire_period"] = (int(row.get("hire_period") or 1) - 1) * width + 1
+                    if end is not None:
+                        child["end_period"] = end * width
+                    monthly_runtime = WorkforceRuntime({**self.wf, "roles": [child]}, self.n * width,
+                        12, growth_context=growth_context, assumptions=assumptions)
             self.rows.append({"raw": row, "count": count, "count_series": count_series,
                               "annual": annual, "comp_period": comp_period, "comp_basis": comp_basis,
                               "end": end, "load": load,
                               "activation": activation, "hire": hire, "spec": legacy_spec,
+                              "monthly_runtime": monthly_runtime, "capacity_audit": capacity_audit,
                               "comp_ns": comp_ns, "comp_series": comp_series})
 
     def expense_for_period(self, period: int, metric_getter: Callable[[str, str | None, int], float | None] | None = None) -> float:
@@ -399,6 +491,13 @@ class WorkforceRuntime:
         total = 0.0
         for st in self.rows:
             st.setdefault("period_expenses", {})[q] = 0.0
+            if st["monthly_runtime"] is not None:
+                width = 12 // self.ppy
+                amount = sum(st["monthly_runtime"].expense_for_period(m)
+                             for m in range((q-1)*width+1, q*width+1))
+                st["period_expenses"][q] = amount
+                total += amount
+                continue
             count_now = float(st["count_series"][q - 1]) if q <= len(st["count_series"]) else 0.0
             # Preserve the released Per-FTE contract exactly: a zero-count row never
             # posted payroll or resolved a metric-triggered hire. Total compensation
@@ -456,14 +555,14 @@ class WorkforceRuntime:
 
 def workforce_comp_series(workforce: Mapping[str, Any] | None, n_periods: int,
                           ppy: int = 4, *, growth_context=None,
-                          metric_series: Mapping[tuple[str, str | None], list[float]] | None = None) -> list[float]:
+                          metric_series: Mapping[tuple[str, str | None], list[float]] | None = None, assumptions=None) -> list[float]:
     """Return total payroll expense dollars per native engine period.
 
     ``metric_series`` is optional and only needed for metric-triggered roles.  Keys are
     ``(metric, source)`` tuples and values are zero-based native-period series.  Fixed-role
     behavior remains identical to the prior implementation.
     """
-    runtime = WorkforceRuntime(workforce, n_periods, ppy, growth_context=growth_context)
+    runtime = WorkforceRuntime(workforce, n_periods, ppy, growth_context=growth_context, assumptions=assumptions)
     series = metric_series or {}
 
     def getter(metric: str, source: str | None, period: int):

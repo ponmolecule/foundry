@@ -81,7 +81,7 @@ def run_pf_b(cfg):
     _wf_count_native = None
     if _nie_d and (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or [])):
         from .workforce import WorkforceRuntime
-        _wf_count_runtime = WorkforceRuntime(_wf_cfg, Q, 4, growth_context=_growth_ctx)
+        _wf_count_runtime = WorkforceRuntime(_wf_cfg, Q, 4, growth_context=_growth_ctx, assumptions=a)
         _wf_count_native = [[] for _ in _wf_count_runtime.rows]
     _opex_static_pre = list((_nie_d or {}).get("settlement_prepaid") or [0.0] * Q)
     _opex_static_acc = list((_nie_d or {}).get("settlement_accrued") or [0.0] * Q)
@@ -255,6 +255,7 @@ def run_pf_b(cfg):
                              else 0.0)
                 _occ_signed_balance += _occ_cash - _occ
             if _wf_count_runtime is not None:
+                _wf_count_runtime.expense_for_period(q)
                 _wf_counts_q = _wf_count_runtime.count_for_period(q)
                 for _wi, _cv in enumerate(_wf_counts_q):
                     _wf_count_native[_wi].append(_cv)
@@ -472,6 +473,9 @@ def run_pf_b(cfg):
             "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
             "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
             "counts": list(_wf_count_native or []),
+            "capacity_details": [st["capacity_audit"] for st in _wf_count_runtime.rows] if _wf_count_runtime else [],
+            "role_expenses": [[st.get("period_expenses", {}).get(q, 0.0) for q in range(1, Q+1)]
+                              for st in _wf_count_runtime.rows] if _wf_count_runtime else [],
             "total_count_series_id": str(_wf_cfg.get("total_count_series_id") or ""),
             "total_counts": [sum(float((row[i] if i < len(row) else 0.0) or 0.0)
                                  for row in (_wf_count_native or []))

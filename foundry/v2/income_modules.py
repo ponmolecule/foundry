@@ -58,7 +58,7 @@ def nie_detail_series(a, ppy=4, growth_context=None, *, defer_workforce=False, w
         else:
             from .workforce import workforce_comp_series
             comp = workforce_comp_series(_wf, Q, ppy, growth_context=growth_context,
-                                          metric_series=workforce_metric_series)
+                                          metric_series=workforce_metric_series, assumptions=a)
     else:
         fte = list(nd.get("fte_by_year") or [0, 0, 0])
         loaded = float(nd.get("loaded_comp_annual") or 0.0)

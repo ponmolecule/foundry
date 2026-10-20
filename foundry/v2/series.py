@@ -311,7 +311,7 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                         sid = str(f.get("series_id") or "")
                         count_paths[sid] = workforce_count_series_by_id(
                             wf, sid, int(n_periods), int(ppy), growth_context=context,
-                            deterministic_only=True)
+                            deterministic_only=True, assumptions=assumptions)
                 out = [float(base or 0.0) + linked_component_amount(
                     rc, i, {"workforce_count": {sid: vals[i] for sid, vals in count_paths.items()},
                             "periods_per_year": int(ppy)})
@@ -324,7 +324,7 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
                     "requires main-engine runtime metrics")
             counts = workforce_count_series_by_id(
                 wf, component.get("series_id"), int(n_periods), int(ppy),
-                growth_context=context, deterministic_only=True)
+                growth_context=context, deterministic_only=True, assumptions=assumptions)
             amounts = resolve_periodic_flow(
                 component.get("amount_spec"), int(n_periods), int(ppy), context=context)
             out = [float(base or 0.0) + float(count or 0.0) * float(amount or 0.0)
@@ -335,7 +335,7 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
         wf = nd.get("workforce") or {}
         return workforce_count_series_by_id(
             wf, ident, int(n_periods), int(ppy), growth_context=context,
-            deterministic_only=True)
+            deterministic_only=True, assumptions=assumptions)
     if kind == "fixed_asset_level":
         from .fixed_assets import fixed_asset_series_by_id
         return fixed_asset_series_by_id(
@@ -357,7 +357,7 @@ def resolve_linked_series(assumptions: Mapping[str, Any], link: Mapping[str, Any
         return workforce_role_expense_series(
             hits[0], int(n_periods), int(ppy), growth_context=context,
             default_payroll_load_rate=float(wf.get("default_payroll_load_rate") or 0.0),
-            default_salary_growth_spec=wf.get("default_salary_growth_spec"))
+            default_salary_growth_spec=wf.get("default_salary_growth_spec"), assumptions=assumptions)
     raise ValueError(f"unsupported Foundry linked-series kind {kind!r}")
 
 

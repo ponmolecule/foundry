@@ -512,7 +512,14 @@ def validate_config_v2(cfg):
             activation = role.get("activation") or None
             if not isinstance(cnt, (int, float)) or cnt < 0:
                 errs.append(f"nie_detail.workforce.roles[{i}].count must be non-negative")
-            if role.get("count_spec"):
+            if role.get("capacity_count"):
+                try:
+                    from .workforce import workforce_capacity_monthly
+                    workforce_capacity_monthly(role, max(1, int(a.get("n_periods") or 12)) * (12 // _ppy),
+                                               assumptions=a, growth_context=_growth_ctx, source_ppy=_ppy)
+                except (TypeError, ValueError) as e:
+                    errs.append(f"nie_detail.workforce.roles[{i}].capacity_count invalid: {e}")
+            if role.get("count_spec") and not role.get("capacity_count"):
                 try:
                     from .series import normalize_series_spec, resolve_entered_series
                     _cs = normalize_series_spec(role.get("count_spec"), default_value=float(cnt or 0.0))
@@ -538,8 +545,11 @@ def validate_config_v2(cfg):
                     if _cps.get("source") != "entered":
                         raise ValueError(
                             "workforce compensation_spec must be entered; no compatible Link/Derived source is whitelisted")
+                    _cp_ppy = 12 if role.get("capacity_count") else _ppy
+                    if role.get("capacity_count") and _cps.get("cadence") == "model_period":
+                        _cps["cadence"] = "quarter" if _ppy == 4 else "month"
                     _cp_arr = resolve_entered_series(
-                        _cps, max(1, int(a.get("n_periods") or 12)), _ppy,
+                        _cps, max(1, int(a.get("n_periods") or 12)) * (_cp_ppy // _ppy), _cp_ppy,
                         context=_growth_ctx, default_value=float(comp or 0.0))
                     if any(float(v) < 0 for v in _cp_arr):
                         raise ValueError("compensation values must be non-negative")

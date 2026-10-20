@@ -1260,7 +1260,7 @@ def run_pf_a(cfg):
     if (_wf_cfg.get("mode") == "roles" or (_wf_cfg.get("roles") or [])
             or (_wf_cfg.get("additive_components") or [])):
         from .workforce import WorkforceRuntime
-        _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx)
+        _wf_runtime = WorkforceRuntime(_wf_cfg, Q, ppy, growth_context=_growth_ctx, assumptions=a)
         _wf_count_native = [[] for _ in _wf_runtime.rows]
         _wf_additive_component_native = [[] for _ in _wf_runtime.additive_components]
 
@@ -1947,6 +1947,9 @@ def run_pf_a(cfg):
     if _wf_runtime is not None:
         _out["workforce"] = {
             "resolved_hire_periods": _wf_runtime.resolved_hires(),
+            "capacity_details": [st["capacity_audit"] for st in _wf_runtime.rows],
+            "role_expenses": [[st.get("period_expenses", {}).get(q, 0.0) for q in range(1, Q+1)]
+                              for st in _wf_runtime.rows],
             "roles": [str((r or {}).get("role") or "") for r in (_wf_cfg.get("roles") or [])],
             "series_ids": [str((r or {}).get("series_id") or "") for r in (_wf_cfg.get("roles") or [])],
             "counts": list(_wf_count_native or []),
