@@ -20,7 +20,9 @@ const ctx={cfg:{assumptions:{lending_products:[product()],loan_allocation_groups
  _explicitSchedulePreviewHtml:()=> '<div class="explicit-preview"></div>',growthSpecInline:p=>`<select onchange="setGrowthField('${p}','rate',this.value)"></select>`,
  _loanRepaymentProfileHtml:()=> '<div class="fld wide">profile</div>',_faSeriesEditor:(p,s,l)=>`<div class="sec-managed-series"><span class="sec-book-label">${l}</span><input onchange="faSeriesValue('${p}','value',this.value,'rate')"></div>`,
  _prdLab:x=>String(x),renderContent(){},refresh(){},requestAnimationFrame(){} ,document:{querySelectorAll:()=>[]}};
-vm.createContext(ctx);vm.runInContext(html.slice(a,b),ctx);
+vm.createContext(ctx);
+for(const [x,y] of [['function _stOwner(','function _feeStreamsSectionHtml('],['function _feeStreamQuantityKind(','function _feePctSemantics('],['// r360: dependent streams display','// r358: a fee stream previews']])vm.runInContext(html.slice(html.indexOf(x),html.indexOf(y,html.indexOf(x))),ctx);
+vm.runInContext(html.slice(a,b),ctx);
 const render=()=>ctx._lfxSetupHtml(0,ctx.cfg.assumptions.lending_products[0],'assumptions.lending_products.0');
 const check=(out,tag)=>{assert(!/undefined|NaN|\[object Object\]/.test(out),tag+' leaks undefined/NaN');
   for(const m of out.matchAll(/on(?:change|click|input)="([^"]+)"/g))new vm.Script(m[1].replace(/&quot;/g,'"').replace(/&amp;/g,'&'));};

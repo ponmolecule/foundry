@@ -1948,6 +1948,15 @@ table.prd-grid td.nm{font-weight:600}
 .prd-card[data-pp-tab="setup"] .pp-sec:not([data-pp="setup"]),
 .prd-card[data-pp-tab="streams"] .pp-sec:not([data-pp="streams"]),
 .prd-card[data-pp-tab="overrides"] .pp-sec:not([data-pp="overrides"]){display:none}
+.st-definition{grid-column:1/-1;background:#F6F6F3;border:1px solid #D9D9D3;border-radius:5px;padding:12px 14px;margin-bottom:4px;min-width:0}
+.st-definition-head{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;border-bottom:1px solid #DFDFD9;padding-bottom:8px;margin-bottom:10px}
+.st-definition-head b{font-size:12px;color:#393934}.st-definition-head span{font-size:11px;color:#73736C}
+.st-definition-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 16px;min-width:0}
+.st-definition-fields>.wide{grid-column:1/-1}.st-definition .fee-stream-block>label{display:block!important}
+.st-section-heading{display:flex;flex-direction:column;gap:3px;border-bottom:1px solid #D9D9D3;padding-bottom:9px;margin:4px 0!important}
+.st-section-heading b{font-size:13px;color:#393934}.st-section-heading span{font-size:11px;color:#73736C}
+.fee-stream-result-preview{grid-column:1/-1;border-top:1px solid #DFDFD9;padding-top:10px;margin-top:5px}
+@media(max-width:700px){.st-definition-fields{grid-template-columns:1fr}.st-definition-head{flex-direction:column}}
 .st-sec{display:contents}
 .st-body[data-st-tab="activity"] .st-sec:not([data-st="activity"]),
 .st-body[data-st-tab="pricing"] .st-sec:not([data-st="pricing"]),
@@ -3303,6 +3312,7 @@ window.prdAfterRender=function(){ // r219: one "About these settings" box per st
     if(body.getAttribute('data-about')) return; body.setAttribute('data-about','1');
     const bodyNotes=[], secNotes=new Map();
     body.querySelectorAll('.fld.wide').forEach(f=>{
+      if(f.closest('.st-definition'))return;
       if(f.children.length!==1||!f.firstElementChild.matches('span.memo')) return;
       const t=(f.textContent||'').replace(/\s+/g,' ').trim(); if(t.length<40) return;
       const sec=f.closest('.st-sec'); f.classList.add('st-memo-moved');
@@ -3658,9 +3668,10 @@ function fitInput(el){
 // r228: one renderer for a stream's figure cell, and an in-place refresh after every run so the grid (and
 // the cards it opens) always reflect the latest results without redrawing the editor being typed in.
 function _stCellHtml(metas,k,fi){
-  const pv=_stProv(metas,k,fi); if(!pv) return '\u2014'; const key='st:'+fi+':'+k;
-  return '<span class="st-v'+(pv.fixed?' st-fx':'')+'">'+pv.val+'</span>'+(pv.unit?'<span class="st-u">'+pv.unit+'</span>':'')+
-         '<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="How this is calculated">i</span>';
+ const m=metas[k];if(!m)return '—';const streams=(_stOwner(fi)||{}).fee_streams||[],si=streams.findIndex(st=>st.quantity_series_id===m.qid);if(si<0)return '—';
+ const out=_feeStreamResolvedOutput(fi,si),v=out.values&&out.values[out.values.length-1];if(v==null)return '—';
+ const pv=_stProv(metas,k,fi),key='st:'+fi+':'+k;
+ return '<span class="st-v" title="'+esc(out.label)+'">'+esc(out.format(v))+'</span><span class="st-u">'+esc(out.unit)+'</span>'+(pv?'<span class="ip-i" data-ip="'+key+'" role="button" tabindex="0" aria-label="Inspect calculation">i</span>':'');
 }
 function refreshStreamFigures(){
   const S=((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities)||{}).series||{};
@@ -3669,7 +3680,7 @@ function refreshStreamFigures(){
     const owner=list.getAttribute('data-stream-owner'); if(owner==null||owner==='') return;
     const fi=Number(owner), metas=(window._stMetaByFi||{})[fi]; if(!Number.isFinite(fi)||!metas) return;
     metas.forEach(m=>{ if(m.qid) m.qty=S[m.qid]||null; });
-    const heading=list.querySelector('thead th.num'); if(heading) heading.textContent='Driver · '+_stProvP(metas);
+    const heading=list.querySelector('thead th.num'); if(heading) heading.textContent='Result · '+_stProvP(metas);
     const tb=list.querySelector('tbody'); if(!tb) return;
     [...tb.querySelectorAll('tr')].filter(r=>!r.classList.contains('st-src')&&!r.classList.contains('st-setup')).forEach((r,k)=>{ const c=r.querySelector('.st-q'); if(c&&metas[k]) c.innerHTML=_stCellHtml(metas,k,fi); });
     tb.querySelectorAll('tr.st-src,tr.st-setup').forEach(x=>x.remove()); tb.insertAdjacentHTML('afterbegin',_stSrcRows(metas,fi)+_stSetupFeeRow(fi));
@@ -6395,6 +6406,24 @@ function _feeCustomerCountPreviewBody(seriesId,measure){
   if(vals.length)return `<div class="nie-actions" style="margin-top:4px">${_explicitPreviewHtml(vals,v=>fmtComma(v),'month')}</div>`;
   return `<span class="memo" style="margin:3px 0 0">Run the model to preview the linked customer path.</span>`;
 }
+// r360: dependent streams display their resolved output; never substitute a parent quantity for a posting.
+function _feeStreamRole(st){
+ const skip=new Set(['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory']);
+ const nonzero=(o,d=0)=>{if(o==null||d>8)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nonzero(v,d+1));return typeof o==='object'&&Object.keys(o).some(k=>!skip.has(k)&&nonzero(o[k],d+1));};
+ const revenue=(st.rate||{}).behavior==='cost_recovery'||nonzero((st.rate||{}).params)||st.revenue_presentation==='contra_revenue',cost=(st.cost||{}).kind&&st.cost.kind!=='none'&&st.cost.kind!=='pct_of_revenue';
+ return revenue?(cost?'Revenue + Cost':st.revenue_presentation==='contra_revenue'?'Contra-revenue':'Revenue'):cost?'Cost':'Driver';
+}
+function _feeStreamResolvedOutput(i,si,res){
+ const st=((_stOwner(i)||{}).fee_streams||[])[si]||{},sid=String(st.quantity_series_id||''),r=res===undefined?((typeof lastRes!=='undefined'&&lastRes)||{}):(res||{}),role=_feeStreamRole(st),display=_feeStreamDisplay(i,si);
+ const raw=((r.fee_stream_quantities||{}).series||{})[sid],rec=((r.fee_stream_economics||{}).series||{})[sid],income=rec&&rec.reported_fee_income,cost=rec&&rec.fee_product_cost;
+ let values=null,label,unit,financial=role!=='Driver';
+ if(!financial){values=Array.isArray(raw)?raw.map(display.scale):null;label=display.kind==='count'?'Resolved count':display.kind==='money'?(st.basis==='balance'?'Resolved balance':'Resolved volume'):'Resolved quantity';unit=display.unit;}
+ else{unit='$000s';label=role==='Revenue + Cost'?'Net stream income':role==='Contra-revenue'?'Contra-revenue':role==='Cost'?'Stream cost':'Stream revenue';
+   if(role==='Cost'&&Array.isArray(cost))values=cost.map(v=>v==null?null:+v/1000);
+   else if(Array.isArray(income)&&role!=='Cost')values=income.map((v,j)=>v==null||(role==='Revenue + Cost'&&(!Array.isArray(cost)||cost[j]==null))?null:(+v-(role==='Revenue + Cost'?+cost[j]:0))/1000);
+ }
+ return {sid,role,values,label,unit,financial,income:Array.isArray(income)?income.map(v=>v==null?null:+v/1000):null,cost:Array.isArray(cost)?cost.map(v=>v==null?null:+v/1000):null,format:v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumSignificantDigits:6})};
+}
 // r359: one display-unit contract for resolved stream quantity surfaces.
 function _feeStreamDisplay(i,si){const kind=_feeStreamQuantityKind(i,si,{});return {kind,unit:kind==='money'?'$000s':kind==='count'?'count':'native units',scale:v=>v==null?null:Number(v)/(kind==='money'?1000:1),format:v=>v==null?'—':Number(v).toLocaleString('en-US',{maximumSignificantDigits:6})};}
 // r358: a fee stream previews its own engine quantity, after its driver transformations.
@@ -6402,12 +6431,10 @@ function _feeStreamResultBody(sid){
  const a=cfg.assumptions||{},hits=[];
  [['obs_exposures',0],['lending_products',1000],['deposit_products',2000]].forEach(([key,offset])=>(a[key]||[]).forEach((p,pi)=>(p.fee_streams||[]).forEach((st,si)=>{if(sid&&st.quantity_series_id===sid)hits.push({st,i:offset+pi,si});})));
  if(hits.length!==1)return '<span class="memo">Stream quantity unavailable. Select a valid stream and run the model.</span>';
- const {st,i,si}=hits[0],display=_feeStreamDisplay(i,si),kind=display.kind,money=kind==='money',label=kind==='count'?'Calculated count':money?(st.basis==='balance'?'Calculated balance':'Calculated volume'):'Calculated quantity',unit=display.unit;
- const series=(((typeof lastRes!=='undefined'&&lastRes&&lastRes.fee_stream_quantities)||{}).series)||{},values=series[sid];
- let h=`<div class="cmut" style="margin:0 0 5px"><b>${label}</b> · latest run · ${unit}</div>`;
- if(!Array.isArray(values)||!values.length)return h+'<span class="memo">Run the model successfully to see this stream’s calculated quantity.</span>';
- const shown=values.map(display.scale);
- return h+_explicitPreviewHtml(shown,v=>_numInput(v,6),PPY()===12?'month':'quarter').replace(' loaded</span>',' periods</span>');
+ const {i,si}=hits[0],out=_feeStreamResolvedOutput(i,si);
+ let h=`<div class="cmut" style="margin:0 0 5px"><b>${esc(out.label)}</b> · latest run · ${esc(out.unit)}</div>`;
+ if(!out.values||!out.values.length)return h+'<span class="memo">Run the model successfully to see this stream’s resolved output.</span>';
+ return h+_explicitPreviewHtml(out.values,v=>v==null?'—':_numInput(v,6),PPY()===12?'month':'quarter').replace(' loaded</span>',' periods</span>');
 }
 function _feeStreamResultPreviewHtml(i,si){const st=((_stOwner(i)||{}).fee_streams||[])[si]||{},sid=String(st.quantity_series_id||'');return `<div class="fld wide fee-stream-result-preview" data-fee-result-preview="${esc(sid)}">${_feeStreamResultBody(sid)}</div>`;}
 function refreshFeeStreamResultPreviews(){
@@ -7015,15 +7042,17 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       const traj = st.driver.trajectory || "flat";
       const rb = st.rate.behavior || "flat";
       const ck = st.cost.kind || "none";
+      h += '<section class="st-definition" aria-label="Shared stream definition"><div class="st-definition-head"><b>Stream definition</b><span>Shared across Activity, Pricing, Timing and Costs</span></div><div class="st-definition-fields">';
       // Stream header (name + remove) then the full six-axis editor, always shown, stacked.
-      h += `<div class="fld wide fee-stream-block"><label style="color:#D4A65C">Stream ${si+1} <a href="#" onclick="feeRemoveStream(${_fi},${si});return false" style="color:#C77">\u00d7 remove</a></label>`;
+      h += `<div class="fld wide fee-stream-block"><label>Stream name</label>`;
       h += `<input placeholder="Stream name" value="${esc(st.name||"")}" onchange="setPath(\x27${sb}.name\x27,this.value)"></div>`;
       const _revPresentation=String(st.revenue_presentation||"revenue");
       h += `<div class="fld"><label>Income presentation</label><select onchange="_stOwner(${_fi}).fee_streams[${si}].revenue_presentation=this.value;refresh()"><option value="revenue"${_revPresentation==="revenue"?' selected':''}>Revenue</option><option value="contra_revenue"${_revPresentation==="contra_revenue"?' selected':''}>Contra-revenue</option></select></div>`;
       // Axis 1: basis
       h += `<div class="fld"><label>Basis (calculation)</label><select onchange="feeStreamBasisChange(${_fi},${si},this.value)">${[["balance","Balance — stock × annual rate"],["transaction","Transaction / throughput — volume × fee or spread"],["account","Account — count × fee"],["flat","Flat — periodic amount"],["event","Event — one-time amount"]].map(v=>`<option value="${v[0]}"${v[0]===basis?" selected":""}>${v[1]}</option>`).join("")}</select></div>`;
       h += `<div class="fld wide"><span class="memo" style="margin:0">Enter positive assumptions. Contra-revenue posts the calculated stream as a reduction of fee income.</span></div>`;
-      h += '<div class="st-sec" data-st="activity">';
+      h += '</div></section>';
+      h += '<div class="st-sec" data-st="activity"><div class="st-section-heading fld wide"><b>Activity</b><span>Choose the activity and how this stream resolves it.</span></div>';
       // Axis 2: driver source
       const _drvOpts=[["constant",basis==="transaction"?"Entered driver":"Constant (you enter)"],["own_balance","Own on-book balance"],["managed_notional","Managed notional (AUC/AUM)"],["stream_ref","Another stream"],["bank_aggregate","Bank aggregate"]];
       if(basis==="transaction")_drvOpts.push(["cost_pool","Cost pool — eligible cost base"]);
@@ -7172,8 +7201,8 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         }
       }
       if(src!=="constant"&&traj==='flat'&&!_isActivity&&!_isCostPool&&!_isCACAccountCount)h+='<div class="fld wide"><span class="memo">Uses the source quantity unchanged in each period. To scale that quantity, choose Derived (× source). Set the fee rate separately under Pricing.</span></div>';
-      h += (globalThis._feeStreamResultPreviewHtml||(()=>''))(_fi,si);
-      h += '</div><div class="st-sec" data-st="pricing">';
+
+      h += '</div><div class="st-sec" data-st="pricing"><div class="st-section-heading fld wide"><b>Pricing</b><span>Set the price or rate applied to this stream.</span></div>';
       // Axis 4: pricing. New balance/account authoring uses the same Flat / Growth /
       // Explicit paradigm as other Foundry Series while legacy rate behaviors remain readable.
       const _rbOpts = basis==="balance" ? [["flat","Series rate path"],["annual_change","Annual rate change"],["scheduled",`Legacy scheduled (per ${PLAB('full')})`],["tiered","Tiered (breakpoints)"]]
@@ -7277,12 +7306,12 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
       }
       if(rb==="tiered"){ h += `<div class="fld wide" style="font-size:11px;color:#888">Tiered breakpoints entered as JSON: [{"up_to":1000000,"rate":0.01},{"up_to":null,"rate":0.005}]</div>`;
         h += `<div class="fld wide"><input placeholder="tiers JSON" value='${esc(JSON.stringify(st.rate.params.tiers||[]))}' onchange="try{_stOwner(${_fi}).fee_streams[${si}].rate.params.tiers=JSON.parse(this.value);refresh()}catch(e){alert('Invalid JSON')}"></div>`; }
-      h += '</div><div class="st-sec" data-st="timing">';
+      h += '</div><div class="st-sec" data-st="timing"><div class="st-section-heading fld wide"><b>Timing</b><span>Set when this stream starts, stops and ramps.</span></div>';
       // Axis 5: timing
       h += F(`Revenue start (${PLAB('full')})`, sb+".timing.start_period", "n");
       h += F(`Revenue end (${PLAB('full')}, blank=never)`, sb+".timing.end_period", "n");
       h += F(`Ramp-in (${PLAB('full')}s, blank=step)`, sb+".timing.ramp_in_periods", "n");
-      h += '</div><div class="st-sec" data-st="costs">';
+      h += '</div><div class="st-sec" data-st="costs"><div class="st-section-heading fld wide"><b>Costs</b><span>Set costs attributable to this stream.</span></div>';
       // Axis 6: cost side
       if(rb==="cost_recovery"){
         h += `<div class="fld wide"><label>Cost side</label><span class="memo" style="margin:0"><b>None — the cost base is non-posting here.</b> Linked pool components already belong to their upstream expense owners; entered cost-base components are pricing assumptions only. Adding a fee-product cost here would double-count or invent expense.</span></div>`;
@@ -7336,8 +7365,9 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
         }
       }
       h += '</div>';
+      h += (globalThis._feeStreamResultPreviewHtml||(()=>''))(_fi,si);
       _stCards.push(h.slice(_stMark)); h=h.slice(0,_stMark);
-      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:(()=>{const SK=['growth_spec','period','resolution','anchor','method','kind','semantics','up_to','at_period','trajectory'];const nz=(o,d)=>{if(o==null||d>6)return false;if(typeof o==='number')return o!==0;if(Array.isArray(o))return o.some(v=>nz(v,d+1));if(typeof o==='object')return Object.keys(o).some(k=>!SK.includes(k)&&nz(o[k],d+1));return false;};const revenue=rb==='cost_recovery'||nz((st.rate||{}).params,0),cost=ck&&ck!=='none';return revenue?(cost?'Revenue + Cost':'Revenue'):(cost?'Cost':'Driver');})(),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
+      _stMeta.push({name:String(st.name||('Stream '+(si+1))),basis,src,ref:String((st.driver||{}).ref||''),rb,ck,rbLab:((_rbOpts||[]).find(o=>o[0]===rb)||[])[1]||'',role:_feeStreamRole(st),qty:((((typeof lastRes!=='undefined'&&lastRes)||{}).fee_stream_quantities||{}).series||{})[st.quantity_series_id]||null,qid:st.quantity_series_id,drv:(st.driver||{}),start:(st.timing||{}).start_period,end:(st.timing||{}).end_period,ramp:(st.timing||{}).ramp_in_periods});
     });
     if(_lfx) h += '<div class="lfx-st">'+_lfxLiveHtml('ststrip',+_fi);
     if(_stMeta.length){ // r205: product-level driver chain, then the stream grid beside the selected stream's unchanged editor
@@ -7359,7 +7389,7 @@ function _feeStreamsSectionHtml(fam, p, base, _fi){
           +(out.length?`<span class="st-out">${out.length<=2?out.map(j=>esc(_stMeta[j].name)).join(' and ')+(out.length===1?' sits':' sit'):out.length+' other streams sit'} outside this chain</span>`:'')+'</div>';
       }
       h += _lfx?('<section class="lfx-s"><div class="lfx-h st"><span class="no">01</span><span class="tt">Streams</span><span class="sm"><b>'+_stMeta.length+' stream'+(_stMeta.length===1?'':'s')+'</b> · drag to reorder · select a row to edit</span></div><div class="lfx-body lfx-stlist">'+chainH):('<div class="fld wide st-md">'+chainH);
-      h += '<div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Driver \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
+      h += '<div class="st-list" data-stream-owner="'+_fi+'"><table class="cfg-grid"><thead><tr><th>#</th><th>Stream</th><th>Role</th><th>Driven by</th><th class="c-opt">Pricing</th><th class="c-opt">Cost side</th><th class="num">Result \u00b7 '+_stProvP(_stMeta)+'</th></tr></thead><tbody>'+_stSrcRows(_stMeta,_fi)+_stSetupFeeRow(_fi); window._stMetaByFi=window._stMetaByFi||{}; window._stMetaByFi[_fi]=_stMeta;
       _stMeta.forEach((z,k)=>{ const q=z.qty;
         h += `<tr class="fee-stream-row ${k===_stSel?'sel':''}" ondragover="feeStreamDragOver(event,${_fi},${k})" ondragleave="feeStreamDragLeave(event)" ondrop="feeStreamDrop(event,${_fi},${k})" onclick="stSelect(${_fi},${k})"><td class="mut st-order"><button type="button" class="st-drag" data-st-order="${_fi}:${k}" draggable="true" aria-label="Move ${esc(z.name)} up or down" title="Drag to reorder; use Arrow Up / Down when focused" onclick="event.stopPropagation()" ondragstart="feeStreamDragStart(event,${_fi},${k})" ondragend="feeStreamDragEnd(event)" onkeydown="if(event.key==='ArrowUp'||event.key==='ArrowDown'){event.preventDefault();event.stopPropagation();feeStreamMove(${_fi},${k},event.key==='ArrowUp'?-1:1)}">⋮⋮</button><span>${k+1}</span></td><td class="name" title="${esc(z.name)}">${esc(z.name)}${typeof _fgChipHtml==='function'?_fgChipHtml((p.fee_streams||[])[k]):''}</td><td><span class="cfg-pill${z.role!=='Driver'?' x':''}" title="${z.role==='Driver'?'Carries quantity only':'Posts '+z.role.toLowerCase()}">${z.role}</span></td><td>${_src(z)}</td><td class="c-opt">${esc(z.rbLab||_prdLab(z.rb))}</td><td class="c-opt">${esc(CK[z.ck]||_prdLab(z.ck))}</td><td class="num st-q">${_stCellHtml(_stMeta,k,_fi)}</td></tr>`; });
       h += `</tbody></table><div class="st-foot">${_stMeta.length} fee stream${_stMeta.length===1?'':'s'}. Driver streams carry quantity only. Revenue and cost streams post their respective amounts. Click \u24D8 to see how a figure is calculated.</div></div>`;
@@ -7475,13 +7505,16 @@ function _lfxLiveHtml(kind,i,j){let p,C;
   if(kind==='ststrip'||kind==='sro'){const fi=+i,fam=fi>=2000?'deposit':fi>=1000?'lending':'obs',ix=fi>=2000?fi-2000:fi>=1000?fi-1000:fi;p=_lfgArr(fam)[ix];if(!p)return '';C=(fam==='lending'&&_loanBalanceMode(p)==='funded_flow_level')?_lfxCtx(p):_lfgCtx(fam,ix);}
   else{p=(cfg.assumptions.lending_products||[])[i];if(!p)return '';C=_lfxCtx(p);}
   const P=C.P,ref=C.ref,t=ref-1,per=_lfxPer(),A=(k,x)=>`<${x||'span'} data-lfx-live="${k}" data-i="${i}"${j!=null?` data-j="${j}"`:''}`;
-  if(kind==='sro'){const st=(p.fee_streams||[])[j]||{},dr=st.driver||{},fpx=(dr.params||{}).flow_path||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],n=q?q.length:0;
-    const display=_feeStreamDisplay(+i,+j),sc=display.scale,fmt=display.format,u=display.unit,Q=_lfxQ;
-    let b=`<div class="ro-h"><span>Calculated quantity</span><b>${u}</b></div>`;
-    if(!q)b+=`<div class="ro-empty">${C.P?'This stream has no quantity series in the latest run.':'Appears after the next complete run.'}</div>`;
-    else{const a=q.map(x=>sc(+x||0)),tot=a.reduce((x,y)=>x+y,0);b+=_lfxSparkSvg(a,ref,fmt)+`<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<n?`<span class="rf" style="left:${((ref-1)/Math.max(1,n-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(n)}</span></div><div class="ro-k">${[['Driver · '+Q(1),a[0]],['Driver · '+Q(ref),a[ref-1]],['Driver · '+Q(n),a[n-1]],['Total, '+Q(1)+'–'+Q(n),tot]].map(([k,v])=>`<div><span>${k}</span><b>${fmt(v)}</b></div>`).join('')}</div>`;}
-    const fees=C.P&&C.P.fees;if(fees)b+=`<table class="ro-t ro-sep"><tr><td>Product fees · ${Q(ref)}</td><td>${_lfxAmt(fees[ref-1])}</td></tr></table>`;
-    return `${A('sro','aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Stream results">${b}</aside>`;}
+  if(kind==='sro'){
+    const out=_feeStreamResolvedOutput(+i,+j,C.res),q=out.values,n=q?q.length:0,Q=_lfxQ,fmt=out.format;
+    let b=`<div class="ro-h"><span>${esc(out.label)}</span><b>${esc(out.unit)}</b></div>`;
+    if(!q||!q.length)b+='<div class="ro-empty">Appears after a successful run with per-stream results.</div>';
+    else{const total=q.every(v=>v!=null)?q.reduce((x,y)=>x+(+y||0),0):null;
+      b+=_lfxSparkSvg(q,ref,fmt)+`<div class="ro-ax"><span>${Q(1)}</span><span>${Q(n)}</span></div><div class="ro-k">${[[Q(1),q[0]],[Q(ref),q[ref-1]],[Q(n),q[n-1]],['Sum, '+Q(1)+'–'+Q(n),total]].map(([k,v])=>`<div><span>${k}</span><b>${fmt(v)}</b></div>`).join('')}</div>`;
+      if(out.role==='Revenue + Cost')b+=`<table class="ro-t ro-sep"><tr><td>Stream income · ${Q(ref)}</td><td>${fmt(out.income&&out.income[ref-1])}</td></tr><tr><td>Stream cost · ${Q(ref)}</td><td>${fmt(out.cost&&out.cost[ref-1])}</td></tr></table>`;
+    }
+    return `${A('sro','aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Resolved stream output">${b}</aside>`;
+  }
   if(kind.slice(0,3)==='ro-')return `${A(kind,'aside')} class="lfx-ro${C.stale?' stale':''}" aria-label="Engine results">${_lfxRoHtml(kind.slice(3),p,C)}</aside>`;
   if(kind==='strip')return `${A('strip','div')}>${_lfxStripHtml(p,i)}</div>`;
   if(kind==='spark')return `${A('spark','div')}>${_lfxSpark(P&&P.fundedVolume,ref)}</div>`;
@@ -7499,7 +7532,7 @@ function _lfxLiveHtml(kind,i,j){let p,C;
     nodes.forEach(x=>{h+=`<div class="n"><span class="k">${x.k}</span><span class="v">${x.v}<small>${x.u}</small></span><span class="op">${x.op}</span></div>`;});
     h+=`<div class="n tot"><span class="k">Net fee income · ${_lfxQ(ref)}</span><span class="v">${f==null?'—':_lfxAmt(f-(c||0))}<small>$000s / ${per}</small></span><span class="op">fees ${_lfxAmt(f)} · <i>cost ${_lfxAmt(c)}</i></span></div></div>`;
     return h+`<div class="lfx-ribcap"><span>${P?`Engine figures at ${_lfxQ(ref)}, ${C.n!=null?'one year into the forecast':'the product’s first full-size '+per}.`:'Figures appear after the next complete run.'} Driver streams carry a quantity for other streams and post nothing themselves.</span><span>$000s</span></div></div>`;}
-  if(kind==='fqty'){const st=(p.fee_streams||[])[j]||{},qs=(((C.res||{}).fee_stream_quantities||{}).series)||{},q=qs[st.quantity_series_id],display=_feeStreamDisplay(1000+(+i),+j),qv=display.scale(q&&q[t]);return `${A('fqty')}>${qv!=null?' · '+display.format(qv)+' '+display.unit:''}</span>`;}
+  if(kind==='fqty'){const out=_feeStreamResolvedOutput(1000+(+i),+j,C.res),v=out.values&&out.values[t];return `${A('fqty')}>${v!=null?' · '+out.format(v)+' '+out.unit:''}</span>`;}
   return '';}
 function refreshLfxLive(){document.querySelectorAll('[data-lfx-live]').forEach(el=>{const html=_lfxLiveHtml(el.getAttribute('data-lfx-live'),+el.getAttribute('data-i'),el.hasAttribute('data-j')?+el.getAttribute('data-j'):null);if(html)el.outerHTML=html;});}
 function _lfxStripHtml(p,i){

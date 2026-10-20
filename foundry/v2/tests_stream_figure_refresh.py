@@ -17,9 +17,9 @@ const first=make(0,2),second=make(1,1);const document={querySelectorAll(){return
 ''' + html[a:b] + r'''
 refreshStreamFigures();assert(first.cells.every(c=>c.innerHTML==='—'));
 lastRes={fee_stream_quantities:{series:{count:[1,2],money:[23000,46000],other:[9,10]}}};refreshStreamFigures();
-assert.equal(first.cells[0].innerHTML,'0:2');assert.equal(first.cells[1].innerHTML,'0:46000');assert.equal(second.cells[0].innerHTML,'1:10');assert.equal(first.heading.textContent,'Driver · M2');
+assert.equal(first.cells[0].innerHTML,'0:2');assert.equal(first.cells[1].innerHTML,'0:46000');assert.equal(second.cells[0].innerHTML,'1:10');assert.equal(first.heading.textContent,'Result · M2');
 lastRes=null;refreshStreamFigures();assert(first.cells.every(c=>c.innerHTML==='—'));assert(second.cells.every(c=>c.innerHTML==='—'));
-lastRes={fee_stream_quantities:{series:{count:[3],money:[69000],other:[11]}}};refreshStreamFigures();assert.equal(first.cells[0].innerHTML,'0:3');assert.equal(first.heading.textContent,'Driver · M1');
+lastRes={fee_stream_quantities:{series:{count:[3],money:[69000],other:[11]}}};refreshStreamFigures();assert.equal(first.cells[0].innerHTML,'0:3');assert.equal(first.heading.textContent,'Result · M1');
 console.log('PASS stream figures: all-dash startup, success, multiple owners, failure clearing, recovery and period header');
 '''
     assert 'data-stream-owner="\'+_fi+\'"' in html

@@ -1618,6 +1618,20 @@ def product_fee_streams_q(p, q, ctx, ppy=4):
             st_drv["params"] = st_params
             st["driver"] = st_drv
         _inc, _cost = fee_stream_q(st, q, ctx, ppy)
+        sid = str(st.get("quantity_series_id") or "")
+        qcap = ctx.get("capture_stream_qty")
+        if sid and isinstance(qcap, dict):
+            qty_path = qcap.setdefault(sid, [])
+            while len(qty_path) < q:
+                qty_path.append(0.0)
+        cap = ctx.get("capture_stream_economics")
+        if sid and isinstance(cap, dict):
+            rec = cap.setdefault(sid, {"basis": st.get("basis"), "cost_kind": (st.get("cost") or {}).get("kind", "none")})
+            for key, value in (("reported_fee_income", _inc), ("fee_product_cost", _cost)):
+                arr = rec.setdefault(key, [])
+                while len(arr) < q:
+                    arr.append(0.0)
+                arr[q-1] = float(value)
         inc_total += _inc
         cost_total += _cost
     return inc_total, cost_total

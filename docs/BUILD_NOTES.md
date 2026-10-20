@@ -1933,3 +1933,7 @@ Fee-stream Activity previews show the stream’s own engine-calculated quantity 
 ## r359
 
 Clarifies linked Flat as Follows source unchanged (100%); Derived scales quantity while Pricing separately prices it. Sweep confirms stream result surfaces use engine-resolved quantities. Repairs linked monetary chart units, fractional-count formatting, lending summary chip scaling and cross-family/count provenance inference through a shared unit contract. Engine arithmetic and saved assumptions unchanged. See RELEASE_r359.md.
+
+## r360
+
+Primary stream output now follows the resolved result: counts/volume for quantity drivers; actual reported income, signed contra-revenue, cost or net income for financial streams. Public per-stream economics exposes existing engine audit postings; no frontend pricing replay or source-volume fallback. Compact preview, chart, stream list and lending chips share the contract. Shared name/presentation/basis controls sit in a distinct Stream definition panel above menu-specific controls; each menu has a heading and the resolved output stays visible across menus. See RELEASE_r360.md for the corrected principle and verification.

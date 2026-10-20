@@ -14,10 +14,10 @@ for(const name of ['_numInput'])vm.runInContext(html.split('\n').find(l=>l.start
 vm.runInContext(html.slice(html.indexOf('function _stOwner('),html.indexOf('function _feeStreamsSectionHtml(')),ctx);
 vm.runInContext(html.slice(html.indexOf('function _feeStreamQuantityKind('),html.indexOf('function _feePctSemantics(')),ctx);
 vm.runInContext(html.slice(html.indexOf('function _explicitPreviewHtml('),html.indexOf('function _explicitSchedulePreviewHtml(')),ctx);
-vm.runInContext(html.slice(html.indexOf('// r359: one display-unit contract'),html.indexOf('_feeGlobal.addFeeCostPool=',html.indexOf('// r359: one display-unit contract'))),ctx);
+vm.runInContext(html.slice(html.indexOf('// r360: dependent streams display'),html.indexOf('_feeGlobal.addFeeCostPool=',html.indexOf('// r360: dependent streams display'))),ctx);
 const before=JSON.stringify(cfg);let h=ctx._feeStreamResultPreviewHtml(0,1);
 assert(h.includes('2.8875'),'M1 after 60%');assert(!h.includes('4.8125'),'must not repeat upstream M1');
-assert(h.includes('Calculated count'));assert(h.includes('60 periods'));assert(h.includes('View all'));assert(!h.includes('Show source'));assert(!h.includes('Hide source'));
+assert(h.includes('Resolved count'));assert(h.includes('60 periods'));assert(h.includes('View all'));assert(!h.includes('Show source'));assert(!h.includes('Hide source'));
 assert(h.includes('eps-c'));assert(h.includes('M60'));assert(h.includes('173.25'));
 assert(ctx._feeStreamResultBody('purchase').includes('$000s'));assert(ctx._feeStreamResultBody('purchase').includes('66.4125'));
 assert(ctx._feeStreamResultBody('cross').includes('$000s'),'cross-family monetary semantics');

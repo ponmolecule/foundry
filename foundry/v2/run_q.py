@@ -605,6 +605,8 @@ def run_v2(cfg):
         # parity adapter scales ordinary numeric arrays by 1/1000 for historical public
         # financial-statement compatibility, so the parity-shaped `base` tree is NOT a valid
         # source for this native-unit surface.  Publish the exact engine quantities instead.
+        "fee_stream_economics": {"series": copy.deepcopy((base_exact or {}).get("fee_stream_economics") or {}),
+                                 "monetary_units": "dollars", "quantity_units": "native quantity units"},
         "fee_stream_quantities": {"series": copy.deepcopy((base_exact or {}).get("fee_stream_quantities") or {}),
                                   "units": "native quantity units · engine-period series"},
         "ftp": _ftp_view(base, cfg, _ppy),
