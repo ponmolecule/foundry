@@ -7588,8 +7588,8 @@ function _lfxStripHtml(p,i){
 }
 
 function _lendingBalanceAuthoringHtml(i,p){
- const mode=_loanBalanceMode(p);
- return `<div class="lending-balance-authoring"><label for="loan-balance-mode-${i}">Balance authoring</label><div class="lfx-sel"><select id="loan-balance-mode-${i}" aria-label="Balance authoring" onchange="loanBalanceModeChange(${i},this.value)">${[['rollforward','Loan roll-forward'],['linked_customer_level','MAB Series × average lending / MAB'],['explicit_level','Entered target balance'],['funded_flow_level','Funded flow × exposure term']].map(([v,label])=>`<option value="${v}"${mode===v?' selected':''}>${label}</option>`).join('')}</select></div><p>Choose how the loan balance is calculated. The setup sections below follow this method.</p></div>`;
+ const mode=_loanBalanceMode(p),base='assumptions.lending_products.'+i;
+ return `<div class="lending-balance-authoring"><label for="loan-balance-mode-${i}">Balance authoring</label><div class="lfx-sel"><select id="loan-balance-mode-${i}" aria-label="Balance authoring" onchange="loanBalanceModeChange(${i},this.value)">${[['rollforward','Loan roll-forward'],['linked_customer_level','MAB Series × average lending / MAB'],['explicit_level','Entered target balance'],['funded_flow_level','Funded flow × exposure term']].map(([v,label])=>`<option value="${v}"${mode===v?' selected':''}>${label}</option>`).join('')}</select></div><p>Choose how the loan balance is calculated. The setup sections below follow this method.</p><div class="lfx-grid">${_lfxF('Opening balance',_lfxN(base+'.opening_balance','k','$000s'))}${_lfxF('Measurement',_lfxSeg([['amortized','Amortized cost'],['fair_value','Fair value']],p.measurement==='fair_value'?'fair_value':'amortized',`setPath('${base}.measurement','%v');renderContent();refresh()`,'Measurement'))}</div></div>`;
 }
 function _lfxSetupHtml(i,p,base){
   const fd=p.funded_flow_driver||{},fp=fd.flow_path||{},_stage=fd.input_stage||'funded_volume',src=_stage==='source_activity',linked=fd.source==='fee_stream_quantity';
@@ -7598,7 +7598,7 @@ function _lfxSetupHtml(i,p,base){
   const lineLab=LINE_LABELS_V31[p.call_report_line]||p.call_report_line||'Other loans';
   let h='<div class="lfx">';
   // Identity
-  h+=`<div class="lfx-id">${_lfxF('Product name',`<div class="lfx-in tx"><input value="${esc(p.name)}" aria-label="Product name" onchange="renameProduct('lending',${i},this.value)"></div>`,'nm')}<div class="lfx-chips"><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Balance <b>Funded flow × exposure term</b></button><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></button><button type="button" class="lfx-chip${p.call_report_line==='loanOther'?' w':''}" onclick="lfxOpenSection(${i},'rep')">Reporting <b>${esc(lineLab)}</b>${p.call_report_line==='loanOther'?' · provisional':''}</button></div></div>`;
+  h+=`<div class="lfx-id">${_lfxF('Product name',`<div class="lfx-in tx"><input value="${esc(p.name)}" aria-label="Product name" onchange="renameProduct('lending',${i},this.value)"></div>`,'nm')}<div class="lfx-chips"><button type="button" class="lfx-chip" onclick="document.getElementById('loan-balance-mode-${i}').focus()">Balance <b>Funded flow × exposure term</b></button><button type="button" class="lfx-chip" onclick="document.getElementById('loan-balance-mode-${i}').closest('.lending-balance-authoring').scrollIntoView({block:'start'})">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></button><button type="button" class="lfx-chip${p.call_report_line==='loanOther'?' w':''}" onclick="lfxOpenSection(${i},'rep')">Reporting <b>${esc(lineLab)}</b>${p.call_report_line==='loanOther'?' · provisional':''}</button></div></div>`;
   h+=_lendingBalanceAuthoringHtml(i,p);
   h+=_lendingSectionsControls(i);
   h+=_lfxLiveHtml('strip',i);
@@ -7720,14 +7720,12 @@ function _lfxSetupHtml(i,p,base){
   // 06 Costs & accounting
   { const _lbm=_loanBalanceMode(p),fvm=p.measurement==='fair_value';
     let b='<div class="lfx-grid">';
-    b+=_lfxF('Opening balance',_lfxN(base+'.opening_balance','k','$000s'));
-    b+=_lfxF('Measurement',_lfxSeg([['amortized','Amortized cost'],['fair_value','Fair value']],fvm?'fair_value':'amortized',`setPath('${base}.measurement','%v');renderContent();refresh()`,'Measurement'));
     b+=_lfxF('Servicing cost',_lfxN(base+'.opex_pct_ann','pct','% of avg bal'));
     b+=_lfxF('Fixed cost',_lfxN(base+'.opex_fixed_per_period','kq','$000s / '+per));
     if(fvm)b+=_lfxF('DCF discount spread',_lfxN(base+'.discount_spread_ann','pct','% over SOFR'));
     b+='</div>';
-    const sum=`Opening <b>${Math.round((+p.opening_balance||0)/1000).toLocaleString('en-US')}</b> · servicing <b>${_lfxPctFix(+p.opex_pct_ann||0)}</b> + <b>${_lfxAmt((+p.opex_fixed_per_period||0)/1000)} / ${per}</b> · ${fvm?'fair value':'amortized cost'}`;
-    const rail=`<p>The starting book, its measurement basis, and the direct cost of servicing it.</p><div class="fx"><span class="eq">cost = avg bal × rate</span><span class="ct">+ fixed per ${per}</span></div>`;
+    const sum=`Servicing <b>${_lfxPctFix(+p.opex_pct_ann||0)}</b> + <b>${_lfxAmt((+p.opex_fixed_per_period||0)/1000)} / ${per}</b> · ${fvm?'fair value':'amortized cost'}`;
+    const rail=`<p>The direct cost of servicing the retained balance.</p><div class="fx"><span class="eq">cost = avg bal × rate</span><span class="ct">+ fixed per ${per}</span></div>`;
     h+=_lfxSecHtml(p,i,'acct','06','Costs &amp; accounting',sum,rail,b);
   }
 
@@ -7747,7 +7745,7 @@ function _lfxSetupHtml(i,p,base){
 // re-seats the existing controls (same elements, same handlers) into numbered sections, adds the
 // engine strip and readouts, and restyles. Funded-flow loans keep their own renderer.
 const _LFG_SECS={
-  lending:[['balance','Balance'],['pricing','Pricing'],['timing','Structure &amp; timing'],['credit','Credit &amp; allowance'],['costs','Costs &amp; accounting'],['other','Additional settings']],
+  lending:[['balance','Balance'],['timing','Structure &amp; timing'],['pricing','Pricing'],['credit','Credit &amp; allowance'],['costs','Costs &amp; accounting'],['other','Additional settings']],
   deposit:[['balance','Balance'],['pricing','Pricing'],['timing','Timing'],['costs','Costs'],['other','Additional settings']],
   obs:[['balance','Volume'],['pricing','Pricing'],['costs','Costs'],['other','Additional settings']]};
 const _LFG_RULES_OBS=[['id',/renameProduct|call_report_line/],['balance',/managed_notional|\.notional\b|growth_per_period|growth_spec|cac_feeds/],['pricing',/fee_yield_ann/],['costs',/opex_pct_ann|opex_fixed/]];
@@ -7876,7 +7874,7 @@ function lfgDecorate(card){
   // Unwrap the deposit balance block: its own heading is replaced by the section header.
   const flat=[];els.forEach(el=>{if(el.classList.contains('deposit-section')){const g=el.querySelector('.deposit-section-grid');if(g){[...g.children].forEach(c=>{c.dataset.depositGroup='balance';flat.push(c);});return;}}flat.push(el);});
   const groups={},ident=[];let last=null;
-  const modeFields=fam==='lending'?flat.filter(el=>el.querySelector('select[onchange*="loanBalanceModeChange"]')):[];
+  const modeFields=fam==='lending'?flat.filter(el=>el.classList.contains('fld')&&[...el.querySelectorAll('[onchange]')].some(c=>/loanBalanceModeChange|\.opening_balance|\.measurement/.test(c.getAttribute('onchange')||''))):[];
   flat.forEach(el=>{if(modeFields.includes(el))return;let g=_lfgGrp(el,fam);if(g==='hint')g=last||'other';if(g==='id'){ident.push(el);last='id';return;}(groups[g]=groups[g]||[]).push(el);last=g;});
   const per=_lfxPer(),root=document.createElement('div');root.className='lfx lfx-gen';
   // Identity row
