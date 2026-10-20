@@ -1929,3 +1929,7 @@ Attrition percentage fields and previews retain 15 significant digits instead of
 ## r358
 
 Fee-stream Activity previews show the stream’s own engine-calculated quantity after driver transformations, in the shared compact sparkline / first-last / View all format. Duplicate upstream-number previews are removed from that editor; source selectors remain. Counts retain fractional precision; native monetary quantities convert once to $000s. Stable IDs, cross-family units and post-run refresh are covered. No engine or engagement data change. See RELEASE_r358.md.
+
+## r359
+
+Clarifies linked Flat as Follows source unchanged (100%); Derived scales quantity while Pricing separately prices it. Sweep confirms stream result surfaces use engine-resolved quantities. Repairs linked monetary chart units, fractional-count formatting, lending summary chip scaling and cross-family/count provenance inference through a shared unit contract. Engine arithmetic and saved assumptions unchanged. See RELEASE_r359.md.
