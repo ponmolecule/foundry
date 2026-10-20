@@ -371,6 +371,19 @@ table.dtab tr:hover td{background:rgba(162,120,46,.04)}
 .lab-tornado-swing{color:#436F4D;font-size:10px;white-space:nowrap}
 @media(max-width:900px){.lab-tornado-head,.lab-tornado-row{grid-template-columns:minmax(0,1fr) 66px}.lab-tornado-label{grid-column:1/-1;text-align:left;margin-top:3px}.lab-tornado-head .lab-tornado-label{display:none}.lab-tornado-head .lab-tornado-track{grid-column:1}.lab-tornado-track{grid-column:1}.lab-tornado-swing{grid-column:2}.opex-cost-pool-source-row,.opex-cost-pool-head,.opex-cost-pool-attached-row{grid-template-columns:1fr}.opex-cost-pool-head .btn-plain{justify-self:start}.opex-cost-pool-attached-actions{justify-content:flex-start}.opex-cost-pool-allocation{justify-content:flex-start}}
 .cac-feed-card{border:1px solid rgba(223,168,90,.30);background:linear-gradient(180deg,rgba(42,42,42,.96),rgba(42,42,42,.92));border-radius:3px;padding:11px 12px;margin:10px 0 12px;box-shadow:inset 0 0 0 1px rgba(216,171,100,.07)}
+.cac-feed-toolbar{display:flex;justify-content:flex-end;margin:8px 0 12px}
+.cac-feed-disclosure{scroll-margin-top:24px}
+.cac-feed-disclosure-head{display:flex;align-items:center;gap:12px;cursor:pointer;padding:12px;list-style:none;border-bottom:1px solid transparent}
+.cac-feed-disclosure-head::-webkit-details-marker{display:none}
+.cac-feed-disclosure-head:before{content:'▸'}
+.cac-feed-disclosure[open]>.cac-feed-disclosure-head:before{content:'▾'}
+.cac-feed-disclosure[open]>.cac-feed-disclosure-head{border-bottom-color:var(--k-line,#CACAC7)}
+.cac-feed-name{font-weight:600;overflow-wrap:anywhere}
+.cac-feed-disclosure-action{margin-left:auto;font-size:11px}
+.cac-feed-disclosure-action:after{content:'Expand'}
+.cac-feed-disclosure[open]>.cac-feed-disclosure-head .cac-feed-disclosure-action:after{content:'Collapse'}
+.cac-feed-disclosure-head:focus-visible{outline:2px solid #A3772A;outline-offset:2px}
+.cac-feed-content{padding-top:10px}
 .cac-feed-head{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
 .cac-feed-title{color:#9D793F;font-weight:600;letter-spacing:.02em}
 .cac-feed-summary{font-size:10.5px;color:#52514F;margin-top:4px}
@@ -15340,7 +15353,11 @@ function _cacDriverHtml(fn,ci,ch,meta){
 }
 window.cacMethodChange=function(fn,ci,m){const ch=cfg.assumptions.cac_feeds[fn].channels[ci];ch.method=m;_cacMeta(m).forEach(x=>_cacEnsureSpec(ch,x.k));renderContent();refresh();};
 window.renameCacFeed=function(oldName,newName){newName=(newName||"").trim();if(!newName||newName===oldName){renderContent();return;}var CF=cfg.assumptions.cac_feeds||{};if(CF[newName]){alert("A feed by that name already exists.");renderContent();return;}CF[newName]=CF[oldName];delete CF[oldName];(cfg.assumptions.obs_exposures||[]).forEach(function(pp){if(pp.managed_notional_source===oldName){pp.managed_notional_source=newName;const fd=CF[newName];if(fd&&fd.series_id)pp.managed_notional_source_id=fd.series_id;}});renderContent();refresh();};
-window.addCacFeed=function(){cfg.assumptions=cfg.assumptions||{};cfg.assumptions.cac_feeds=cfg.assumptions.cac_feeds||{};let n=1;while(cfg.assumptions.cac_feeds["feed_"+n])n++;cfg.assumptions.cac_feeds["feed_"+n]={series_id:_seriesId("cac-auc"),customer_count_series_id:_seriesId("cac-count"),owner_module:"customer_acquisition",channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,calculation_cadence:"month"};renderContent();refresh();};
+// Feed expansion is view state, independent of assumptions and feed names.
+const _cacFeedOpen=new WeakMap();
+function cacFeedRemember(el,fn){const fd=((cfg.assumptions||{}).cac_feeds||{})[fn];if(fd)_cacFeedOpen.set(fd,el.open);}
+function _cacFeedIsOpen(fd,index){return _cacFeedOpen.has(fd)?_cacFeedOpen.get(fd):index===0;}
+window.addCacFeed=function(){cfg.assumptions=cfg.assumptions||{};cfg.assumptions.cac_feeds=cfg.assumptions.cac_feeds||{};let n=1;while(cfg.assumptions.cac_feeds["feed_"+n])n++;cfg.assumptions.cac_feeds["feed_"+n]={series_id:_seriesId("cac-auc"),customer_count_series_id:_seriesId("cac-count"),owner_module:"customer_acquisition",channels:[],attrition_rate:0,beginning_auc:0,beginning_customers:0,calculation_cadence:"month"};Object.entries(cfg.assumptions.cac_feeds).forEach(([name,fd])=>_cacFeedOpen.set(fd,name==="feed_"+n));window._cfgSectionOpen.customeracq=true;renderContent();refresh();requestAnimationFrame(()=>{const el=document.getElementById("cac-feed-"+cfg.assumptions.cac_feeds["feed_"+n].series_id);if(el){el.scrollIntoView({block:"start",behavior:"smooth"});const input=el.querySelector('.cac-feed-head input');if(input)input.focus({preventScroll:true});}});};
 window.addCacChannel=function(fn){const fd=cfg.assumptions.cac_feeds[fn];if(!fd)return;fd.channels=fd.channels||[];const ch={name:"",method:"pool_conversion",params:{},avg_auc_per_customer:0,driver_specs:{},derived_series_ids:{new_customers:_seriesId("cac-newcust"),new_auc:_seriesId("cac-newauc")}};fd.channels.push(ch);_cacMeta(ch.method).forEach(m=>_cacEnsureSpec(ch,m.k));renderContent();refresh();};
 window._cacChannelDrag=null;
 function _cacChannelClearDropMarkers(){document.querySelectorAll('.cac-channel-card.drop-before,.cac-channel-card.drop-after').forEach(el=>el.classList.remove('drop-before','drop-after'));}
@@ -15956,10 +15973,11 @@ function structuresSectionsHtml(){
   const _cacCard=(A.cac_feeds=A.cac_feeds||{}), _cacFeedCount=Object.keys(_cacCard).length, _cacChannelCount=Object.values(_cacCard).reduce((n,fd)=>n+(((fd||{}).channels||[]).length),0), _cacOpen=_cfgSectionIsOpen('customeracq',_cacFeedCount||_cacChannelCount);
   h += `</div><div class="cfgcard" id="card-cac"><div class="cardhead" style="justify-content:space-between;align-items:flex-start;gap:12px"><div style="display:flex;align-items:flex-start;gap:14px;min-width:0;flex:1"><span class="mi">${ICONS.stack}</span><span><div class="ct">Customer acquisition</div><div class="cd">Build customers and AUC from causal acquisition equations. Each driver owns its own trajectory or links to a Foundry series owned elsewhere; CAC does not duplicate budgets or headcount assumptions.</div>${(!_cacOpen&&(_cacFeedCount||_cacChannelCount))?`<div class="nie-section-summary">${_cacFeedCount} feed${_cacFeedCount===1?'':'s'} · ${_cacChannelCount} acquisition channel${_cacChannelCount===1?'':'s'} loaded · expand to inspect or edit</div>`:''}</span></div><button class="nie-section-toggle" onclick="cacSectionSetOpen(${_cacOpen?'false':'true'})">${_cacOpen?'Collapse':'Expand'}</button></div>`;
   { const CF=_cacCard; const cfNames=Object.keys(CF); _ensureLinkableSeriesIds();
+    h+='<div class="cac-feed-toolbar"><button type="button" class="pillbtn" onclick="addCacFeed()">+ Create feed</button></div>';
     if(_cacOpen){
     if(!cfNames.length)h+='<div class="cmut" style="margin:8px 0">No acquisition feeds yet.</div>';
-    cfNames.forEach(function(fn){const fd=CF[fn];fd.channels=fd.channels||[];
-      h+=`<div class="cac-feed-card">`;
+    cfNames.forEach(function(fn,feedIndex){const fd=CF[fn];fd.channels=fd.channels||[];
+      h+=`<details class="cac-feed-card cac-feed-disclosure" id="cac-feed-${esc(fd.series_id)}"${_cacFeedIsOpen(fd,feedIndex)?' open':''} ontoggle="cacFeedRemember(this,'${esc(fn)}')"><summary class="cac-feed-disclosure-head"><span class="cac-feed-name">${esc(fn)}</span><span class="cmut">${fd.channels.length} channel${fd.channels.length===1?'':'s'}</span><span class="cac-feed-disclosure-action" aria-hidden="true"></span></summary><div class="cac-feed-content">`;
       h+=`<div class="cac-feed-head crow" style="align-items:center"><span class="cac-feed-title">Feed</span><input style="width:160px" value="${esc(fn)}" onchange="renameCacFeed('${esc(fn)}',this.value)"><span class="cu">Opening customers</span><input type="number" min="0" step="any" style="width:82px" title="Customers already on the books at model start" value="${fd.beginning_customers||0}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_customers=Math.max(0,_pf(this.value));refresh()"><span class="cu">Opening AUC</span><input type="text" inputmode="decimal" style="width:82px" title="AUC / managed notional already on the books at model start" value="${fmtComma((fd.beginning_auc||0)/1000)}" onchange="cfg.assumptions.cac_feeds['${esc(fn)}'].beginning_auc=Math.max(0,_pf(this.value))*1000;refresh();fmtField(this)"><span class="cu">$000s</span><a href="#" class="cx" style="margin-left:auto" onclick="delete cfg.assumptions.cac_feeds['${esc(fn)}'];renderContent();refresh();return false">×</a></div><div class="cac-feed-summary">Opening customers/AUC are the existing book at model start. Acquisition channels below are visually nested because they add incremental customers and AUC on top of that opening balance; feed-level attrition then runs against the applicable opening book.</div><div class="cac-feed-body">`;
       h+=`<div class="memo" style="margin:6px 0 8px"><b>Calculation cadence: monthly.</b> Month / Quarter / Year belong to each source assumption, not to the CAC module. Foundry resolves each operand to the canonical monthly grid, evaluates the acquisition equation monthly, and aggregates those results upward for the annual summary below. Legacy within-year shape fields, if present in an older saved model, are retained in the file but no longer manufacture the customer/AUC path.</div>`;
       h+=`<div class="memo" style="margin:7px 0 8px"><b>How to use this.</b> Pick the acquisition equation, then give each primitive the Foundry Series contract: <b>Enter</b> (Flat / Growth / Explicit), <b>Link</b> where another module owns the assumption, or <b>Derived</b> only when the owning module exposes a closed equation output. No arbitrary formulas.</div>`;
@@ -16005,9 +16023,8 @@ function structuresSectionsHtml(){
         h+=`</tbody></table></div>`;
       }
       h+='</div>';
-      h+=`</div></div>`;
+      h+=`</div></div></details>`;
     });
-    h+='<div style="border-top:1px solid #CACAC7;margin-top:10px;padding-top:8px"><a href="#" class="cadd" style="display:inline-block;border:1px solid #9D9D9A;border-radius:3px;padding:4px 10px;color:#A3772A;margin:0" onclick="addCacFeed();return false">+ New acquisition feed</a></div>';
     }
   }
   h+='</div>';
