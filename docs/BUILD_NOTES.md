@@ -1937,3 +1937,7 @@ Clarifies linked Flat as Follows source unchanged (100%); Derived scales quantit
 ## r360
 
 Primary stream output now follows the resolved result: counts/volume for quantity drivers; actual reported income, signed contra-revenue, cost or net income for financial streams. Public per-stream economics exposes existing engine audit postings; no frontend pricing replay or source-volume fallback. Compact preview, chart, stream list and lending chips share the contract. Shared name/presentation/basis controls sit in a distinct Stream definition panel above menu-specific controls; each menu has a heading and the resolved output stays visible across menus. See RELEASE_r360.md for the corrected principle and verification.
+
+## r361
+
+Adds product-scoped Expand all / Collapse all controls to funded-flow and standard lending Setup layouts. Reuses existing section state and handlers, with no model input or engine changes. See RELEASE_r361.md.

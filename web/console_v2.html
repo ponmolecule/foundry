@@ -1957,6 +1957,9 @@ table.prd-grid td.nm{font-weight:600}
 .st-section-heading b{font-size:13px;color:#393934}.st-section-heading span{font-size:11px;color:#73736C}
 .fee-stream-result-preview{grid-column:1/-1;border-top:1px solid #DFDFD9;padding-top:10px;margin-top:5px}
 @media(max-width:700px){.st-definition-fields{grid-template-columns:1fr}.st-definition-head{flex-direction:column}}
+.lending-section-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:7px;margin:0 0 12px}
+.lending-section-actions button{font:500 11px var(--k-font,inherit);padding:5px 10px;border:1px solid #CFCFCA;border-radius:4px;background:#FFFFFF;color:#44443E;cursor:pointer}
+.lending-section-actions button:hover{background:#F0F0EA}.lending-section-actions button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .st-sec{display:contents}
 .st-body[data-st-tab="activity"] .st-sec:not([data-st="activity"]),
 .st-body[data-st-tab="pricing"] .st-sec:not([data-st="pricing"]),
@@ -7462,6 +7465,14 @@ const _lfxSec=new WeakMap();
 const _LFX_DEF={vol:true,exp:true,cred:true,price:true,fees:true,acct:false,rep:false};
 function _lfxIsOpen(p,id){const m=_lfxSec.get(p)||{};return id in m?m[id]:_LFX_DEF[id];}
 function lfxToggle(i,id){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;const m=Object.assign({},_lfxSec.get(p)||{});m[id]=!_lfxIsOpen(p,id);_lfxSec.set(p,m);renderContent();}
+// r361: local controls expand/collapse the current loan's Setup sections only.
+function _lendingSectionsControls(i){return `<div class="lending-section-actions" role="group" aria-label="Lending sections"><button type="button" onclick="lendingSectionsSetAll(${i},true,this)">Expand all</button><button type="button" onclick="lendingSectionsSetAll(${i},false,this)">Collapse all</button></div>`;}
+function lendingSectionsSetAll(i,open,button){
+ const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;open=!!open;
+ if(_loanBalanceMode(p)==='funded_flow_level'){const state=Object.assign({},_lfxSec.get(p)||{});Object.keys(_LFX_DEF).forEach(id=>state[id]=open);_lfxSec.set(p,state);renderContent();return;}
+ const root=button&&button.closest('.lfx-gen');if(!root)return;
+ root.querySelectorAll('section[data-lfg-key]').forEach(s=>{const key=s.getAttribute('data-lfg-key');if(!key.startsWith('lending:'+i+':'))return;if(s.classList.contains('c')===open){const header=s.querySelector('button.lfx-h');if(header)lfgToggle(header);}});
+}
 function lfxOpenSection(i,id){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;const m=Object.assign({},_lfxSec.get(p)||{});m[id]=true;_lfxSec.set(p,m);renderContent();requestAnimationFrame(()=>{const el=document.querySelector('.lfx [data-lfx="'+id+'"]');if(el)el.scrollIntoView({behavior:'smooth',block:'start'});});}
 function _lfxPct(v,d){if(v==null||!isFinite(+v))return '—';let x=(+v*100).toFixed(d==null?2:d);if(x.indexOf('.')>=0)x=x.replace(/0+$/,'').replace(/\.$/,'');return x+'%';}
 function _lfxPctFix(v,d){return v==null||!isFinite(+v)?'—':(+v*100).toFixed(d==null?2:d)+'%';}
@@ -7568,6 +7579,7 @@ function _lfxSetupHtml(i,p,base){
   let h='<div class="lfx">';
   // Identity
   h+=`<div class="lfx-id">${_lfxF('Product name',`<div class="lfx-in tx"><input value="${esc(p.name)}" aria-label="Product name" onchange="renameProduct('lending',${i},this.value)"></div>`,'nm')}<div class="lfx-chips"><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Balance <b>Funded flow × exposure term</b></button><button type="button" class="lfx-chip" onclick="lfxOpenSection(${i},'acct')">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></button><button type="button" class="lfx-chip${p.call_report_line==='loanOther'?' w':''}" onclick="lfxOpenSection(${i},'rep')">Reporting <b>${esc(lineLab)}</b>${p.call_report_line==='loanOther'?' · provisional':''}</button></div></div>`;
+  h+=_lendingSectionsControls(i);
   h+=_lfxLiveHtml('strip',i);
 
   // 01 Funded volume
@@ -7854,6 +7866,7 @@ function lfgDecorate(card){
   const kind=fam==='lending'?{rollforward:'Loan roll-forward',explicit_level:'Entered target balance',linked_customer_level:'MAB × lending / MAB'}[_loanBalanceMode(p)]:fam==='deposit'?{rollforward:'Opening + growth / inflows',level:'Entered / linked level',pool:'Retention pool'}[p.balance_mode||'rollforward']:(p._fee_product||p.managed_notional?'Fee product · AUC':'Off-balance-sheet commitment');
   chips.innerHTML=`<span class="lfx-chip">Balance <b>${esc(kind||'')}</b></span>${fam==='lending'?`<span class="lfx-chip">Measurement <b>${p.measurement==='fair_value'?'Fair value':'Amortized cost'}</b></span>`:''}${lineTxt?`<span class="lfx-chip">Reporting <b>${esc(lineTxt)}</b></span>`:''}`;
   idrow.appendChild(chips);root.appendChild(idrow);
+  if(fam==='lending'){const actions=document.createElement('div');actions.innerHTML=_lendingSectionsControls(i);root.appendChild(actions.firstElementChild);}
   const strip=document.createElement('div');strip.setAttribute('data-lfg-live','strip');strip.setAttribute('data-fam',fam);strip.setAttribute('data-i',String(i));strip.innerHTML=_lfgStripHtml(fam,i);root.appendChild(strip);
   let no=0;
   (_LFG_SECS[fam]||[]).forEach(([g,title])=>{
