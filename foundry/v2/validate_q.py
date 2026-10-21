@@ -781,6 +781,7 @@ def validate_config_v2(cfg):
             if k not in p:
                 errs.append(ctx + f"missing required field '{k}'")
         if p.get("balance_mode", "rollforward") == "rollforward" \
+                and p.get("loan_rollforward") is None \
                 and "runoff_per_period" not in p:
             errs.append(ctx + "missing required field 'runoff_per_period'")
         if p.get("rate_type") == "float" and "index_spread" not in p:
