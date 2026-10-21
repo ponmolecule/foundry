@@ -1296,6 +1296,29 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .lfx-legacy details{margin-top:8px}.lfx-legacy details summary{font-size:11.5px;color:var(--t2);cursor:pointer}
 .lfx-legacy .crow label{display:flex;align-items:center;gap:8px;color:var(--t2)}
 .lfx-rib.stale .op,.lfx-rib.stale .k{opacity:.75}
+/* Scoped loan-production editor: align controls with existing lending fields. */
+.loan-contract-panel{min-width:0;gap:0!important}
+.loan-contract-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 18px;min-width:0}
+.loan-contract-grid>.full{grid-column:1/-1}
+.loan-contract-field{display:flex;flex-direction:column;gap:5px;min-width:0;align-self:start}
+.loan-contract-field>label{flex:0 0 auto!important;font-size:11px;font-weight:500;color:var(--t2);white-space:normal!important;line-height:1.4;margin:0}
+.loan-contract-field.full>.lfx-sel{width:100%;max-width:440px}
+.loan-contract-field .lfx-sel{min-width:0}
+.loan-contract-series{min-width:0}
+.loan-contract-series .sec-managed-series-row{gap:6px!important;min-width:0;flex-wrap:wrap!important}
+.loan-contract-series .sec-managed-series-row:first-child>.sec-book-label{display:none}
+.loan-contract-series .sec-managed-series-row input{width:116px!important;flex:1 1 100px!important;min-width:0!important;max-width:160px!important;height:32px!important;box-sizing:border-box}
+.loan-contract-series .sec-managed-series-row select{min-width:0!important;max-width:125px!important;height:32px!important;flex:0 1 auto}
+.loan-contract-series .sec-book-unit{white-space:nowrap}
+.loan-contract-series .sec-managed-explicit{min-width:0;max-width:100%;box-sizing:border-box}
+.loan-contract-series textarea{box-sizing:border-box;max-width:100%}
+.loan-contract-series .sec-managed-explicit-closed{min-width:0;flex-wrap:wrap}
+.loan-contract-grid>details{margin:0!important;min-width:0}
+.loan-contract-grid>details>summary{font-size:11px!important;color:var(--t3)!important;cursor:pointer}
+.loan-contract-options>.loan-contract-grid{margin-top:10px}
+.loan-contract-help p{margin:8px 0 0;max-width:66ch;font-size:11px;line-height:1.5}
+@container (max-width:700px){.loan-contract-grid{grid-template-columns:minmax(0,1fr)}}
+
 /* r351: use the full stage width; wide screens get more columns, not wider boxes */
 #content .prd-card:has(.lfx) .fields,#content .prd-card:has(.lfx-st) .fields{max-width:none!important;width:100%!important;display:block!important}
 .lfx,.lfx-st{container-type:inline-size;width:100%}
@@ -6754,22 +6777,29 @@ function loanContractEnable(i,on){const p=cfg.assumptions.lending_products[i],f=
  if(on&&!p.loan_rollforward)p.loan_rollforward={source:'entered_count',count_spec:f(0),loan_size_spec:f(0),payment_rate_spec:f(0),prepayment_rate_spec:f(0),reserve_rate_spec:f(p.reserve_rate_pct_bal||0),opening_allowance:(p.opening_balance||0)*(p.reserve_rate_pct_bal||0),provision_release_policy:'allow'};
  if(!on)delete p.loan_rollforward;renderContent();refresh();}
 function loanContractDeferred(i,on){const c=cfg.assumptions.lending_products[i].loan_rollforward,f=v=>({source:'entered',trajectory:'flat',value:v});if(on&&!c.deferred)c.deferred={basis:'per_loan',opening_net_cost:0,cost_spec:f(0),fee_spec:f(0),multiplier_spec:f(1),amortization_rate_spec:f(0),prepayment_rate_spec:f(0)};if(!on)delete c.deferred;renderContent();refresh();}
+const _loanContractDisclosureOpen = new Map();
+function loanContractDisclosure(key,open){_loanContractDisclosureOpen.set(key,open);}
 function _loanContractHtml(i,p,base){const c=p.loan_rollforward,b=base+'.loan_rollforward',f=v=>({source:'entered',trajectory:'flat',value:v});
- const wrap=(group,body)=>`<div class="fld wide" data-loan-contract-group="${group}">${body}</div>`;
- let h=wrap('balance',`<label>Production &amp; repayment method</label><select onchange="loanContractEnable(${i},this.value==='contract')"><option value="legacy"${!c?' selected':''}>Existing loan mechanics</option><option value="contract"${c?' selected':''}>Live production + balance-based repayment</option></select>`);
+ const field=(label,body,wide=false)=>`<div class="loan-contract-field${wide?' full':''}"><label>${label}</label>${body}</div>`;
+ const wrap=(group,body)=>`<div class="fld wide loan-contract-panel" data-loan-contract-group="${group}"><div class="loan-contract-grid">${body}</div></div>`;
+ const disclosure=(key,title,body,cls='loan-contract-options')=>`<details class="${cls} full"${_loanContractDisclosureOpen.get(b+':'+key)?' open':''} ontoggle="loanContractDisclosure('${b+':'+key}',this.open)"><summary>${title}</summary>${body}</details>`;
+ const note=(key,body)=>disclosure(key,'Calculation details',`<p class="memo">${body}</p>`,'loan-contract-help');
+ const select=(path,options,value)=>`<div class="lfx-sel"><select onchange="setPath('${path}',this.value);renderContent();refresh()">${options.map(([v,l])=>`<option value="${v}"${value===v?' selected':''}>${l}</option>`).join('')}</select></div>`;
+ let h=wrap('balance',field('Production &amp; repayment method',`<div class="lfx-sel"><select onchange="loanContractEnable(${i},this.value==='contract')"><option value="legacy"${!c?' selected':''}>Existing loan mechanics</option><option value="contract"${c?' selected':''}>Live production + balance-based repayment</option></select></div>`,true));
  if(!c)return h;
- const edit=(key,label,kind)=>_faSeriesEditor(b+'.'+key,c[key]||f(0),label,kind,false);
+ const edit=(key,label,kind)=>field(label,`<div class="loan-contract-series">${_faSeriesEditor(b+'.'+key,c[key]||f(0),'',kind,false)}</div>`);
  const ids=new Set();Object.values((cfg.assumptions||{}).cac_feeds||{}).forEach(x=>{if(x.activity_series_ids?.new_customers)ids.add(x.activity_series_ids.new_customers);(x.channels||[]).forEach(ch=>{if(ch.activity_series_ids?.new_customers)ids.add(ch.activity_series_ids.new_customers);});});
  const opts=_accountActivityOptions('transaction').filter(x=>ids.has(x.series_id));
- h+=wrap('balance',`<p class="memo">Profile A · amounts and counts are totals per model period; annual schedules hold that per-period amount through each year. Quarterly runs apply the rates once per quarter.</p><label>Origination source</label><select onchange="setPath('${b}.source',this.value);renderContent();refresh()">${[['entered_count','Entered new-loan count'],['account_activity','Gross new-customer flow'],['entered_money','Entered monetary originations']].map(([v,l])=>`<option value="${v}"${c.source===v?' selected':''}>${l}</option>`).join('')}</select>`+
- (c.source==='account_activity'?`<label>Gross new-customer flow</label><select onchange="setPath('${b}.series_id',this.value);refresh()"><option value="">Select a flow</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===c.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select>`:c.source==='entered_count'?edit('count_spec','New loans per model period','count'):edit('amount_spec','Originations per model period','money'))+
- (c.source!=='entered_money'?edit('loan_size_spec','Amount per new loan','dollars'):''));
- h+=wrap('timing',edit('payment_rate_spec','Principal payment rate · annual','rate')+edit('prepayment_rate_spec','Prepayment rate · annual','rate')+'<p class="memo">Each rate applies separately to beginning principal, divided by periods per year. New funding starts repayment next period. This method has no automatic maturity balloon.</p>');
- h+=wrap('credit',edit('reserve_rate_spec','Allowance target · % of ending principal','rate')+`<label>Opening allowance · $000s</label>${numInput(b+'.opening_allowance','k')}<label>Provision releases</label><select onchange="setPath('${b}.provision_release_policy',this.value);refresh()"><option value="allow"${c.provision_release_policy!=='floor_zero'?' selected':''}>Allow releases to target</option><option value="floor_zero"${c.provision_release_policy==='floor_zero'?' selected':''}>Floor provision at zero</option></select><p class="memo">Charge-offs reduce allowance. A zero provision floor may leave allowance above target.</p>`);
- let dhtml=`<label>Deferred origination fees &amp; costs</label><select onchange="loanContractDeferred(${i},this.value==='on')"><option value="off"${!c.deferred?' selected':''}>Off</option><option value="on"${c.deferred?' selected':''}>Capitalize and amortize</option></select>`;
- if(c.deferred){const d=c.deferred,db=b+'.deferred',de=(k,l,kind)=>_faSeriesEditor(db+'.'+k,d[k]||f(k==='multiplier_spec'?1:0),l,kind,false);
- dhtml+=`<p class="memo">Net costs add to loan carrying amount; net fees reduce it. Amortization reduces interest for net costs and increases it for net fees. No duplicate operating-expense posting.</p><label>Amount basis</label><select onchange="setPath('${db}.basis',this.value);renderContent();refresh()"><option value="per_loan"${d.basis!=='percent_funded'?' selected':''}>Dollars per new loan</option><option value="percent_funded"${d.basis==='percent_funded'?' selected':''}>Percent of funded amount</option></select><label>Opening net deferred cost / (fee) · $000s</label>${numInput(db+'.opening_net_cost','k')}`;
- dhtml+=de('cost_spec','Origination cost',d.basis==='percent_funded'?'rate':'dollars')+de('fee_spec','Origination fee',d.basis==='percent_funded'?'rate':'dollars')+de('multiplier_spec','Cost / fee multiplier','multiple')+de('amortization_rate_spec','Amortization rate · annual','rate')+de('prepayment_rate_spec','Prepayment catch-up rate · annual','rate')+'<p class="memo">Rates apply separately to beginning net deferred balance. This is balance-rate amortization, not an effective-interest-yield calculation. New deferrals start amortizing next period.</p>';
+ let production=field('Origination source',select(b+'.source',[['entered_count','Entered new-loan count'],['account_activity','Gross new-customer flow'],['entered_money','Entered monetary originations']],c.source),true);
+ production+=c.source==='account_activity'?field('Gross new-customer flow',`<div class="lfx-sel"><select onchange="setPath('${b}.series_id',this.value);refresh()"><option value="">Select a flow</option>${opts.map(o=>`<option value="${esc(o.series_id)}"${o.series_id===c.series_id?' selected':''}>${esc(o.label)}</option>`).join('')}</select></div>`,true):c.source==='entered_count'?edit('count_spec','New loans per model period','count'):edit('amount_spec','Originations per model period','money');
+ if(c.source!=='entered_money')production+=edit('loan_size_spec','Amount per new loan','dollars');
+ h+=wrap('balance',production+note('production-help','Profile A · entered amounts and counts are totals per model period. Annual schedules hold that per-period amount through the year. Quarterly runs apply rates once per quarter.'));
+ h+=wrap('timing',edit('payment_rate_spec','Principal payment rate · annual','rate')+edit('prepayment_rate_spec','Prepayment rate · annual','rate')+note('repayment-help','Each rate applies separately to beginning principal, divided by periods per year. New funding starts repayment next period. This method has no automatic maturity balloon.'));
+ h+=wrap('credit',edit('reserve_rate_spec','Allowance target · % of ending principal','rate')+field('Provision releases',select(b+'.provision_release_policy',[['allow','Allow releases to target'],['floor_zero','Floor provision at zero']],c.provision_release_policy||'allow'))+disclosure('opening-allowance','Opening allowance',`<div class="loan-contract-grid">${field('Opening allowance · $000s',`<div class="lfx-in">${numInput(b+'.opening_allowance','k')}</div>`)}</div>`)+note('credit-help','Charge-offs reduce allowance. A zero provision floor may leave allowance above target.'));
+ let dhtml=field('Deferred origination fees &amp; costs',`<div class="lfx-sel"><select onchange="loanContractDeferred(${i},this.value==='on')"><option value="off"${!c.deferred?' selected':''}>Off</option><option value="on"${c.deferred?' selected':''}>Capitalize and amortize</option></select></div>`,true);
+ if(c.deferred){const d=c.deferred,db=b+'.deferred',de=(k,l,kind)=>field(l,`<div class="loan-contract-series">${_faSeriesEditor(db+'.'+k,d[k]||f(k==='multiplier_spec'?1:0),'',kind,false)}</div>`);
+ dhtml+=field('Amount basis',select(db+'.basis',[['per_loan','Dollars per new loan'],['percent_funded','Percent of funded amount']],d.basis||'per_loan'),true)+de('cost_spec','Origination cost',d.basis==='percent_funded'?'rate':'dollars')+de('multiplier_spec','Cost / fee multiplier','multiple')+de('amortization_rate_spec','Amortization rate · annual','rate')+de('prepayment_rate_spec','Prepayment catch-up rate · annual','rate');
+ dhtml+=disclosure('deferred-options','Origination fees &amp; opening balance',`<div class="loan-contract-grid">${de('fee_spec','Origination fee',d.basis==='percent_funded'?'rate':'dollars')}${field('Opening net deferred cost / (fee) · $000s',`<div class="lfx-in">${numInput(db+'.opening_net_cost','k')}</div>`)}</div>`)+note('deferred-help','Net costs add to carrying amount; net fees reduce it. Beginning-balance amortization reduces interest for net costs and increases it for net fees. This is not an effective-interest-yield calculation. New deferrals start amortizing next period. No duplicate operating-expense posting.');
  }
  return h+wrap('costs',dhtml);}
 
@@ -7892,7 +7922,7 @@ function _lfgStripHtml(fam,i){
   const C=_lfgCtx(fam,i),P=C.P,p=C.p||{},ref=C.ref,n=C.n,per=_lfxPer(),Q=_lfxQ,at=(a,t)=>P&&a&&a[t]!=null?+a[t]:null,am=_lfxAmt;
   let nodes=[],tot;
   if(fam==='lending'){const gos=at(P&&P.gos,ref-1);
-    nodes=[{k:'Opening balance',v:at(P&&P.bal,0),u:'$000s',op:'start of forecast',go:'balance'},{k:'Originations · '+Q(ref),v:at(P&&P.origq,ref-1),u:'/ '+per,op:_loanBalanceMode(p)==='rollforward'?`<i>${_prdPct(p.runoff_per_period)}</i> runoff / ${per}`:'derived from the level',go:'balance'},
+    nodes=[{k:'Opening balance',v:at(P&&P.bal,0),u:'$000s',op:'start of forecast',go:'balance'},{k:'Originations · '+Q(ref),v:at(P&&P.origq,ref-1),u:'/ '+per,op:p.loan_rollforward?'separate repayment rates':_loanBalanceMode(p)==='rollforward'?`<i>${_prdPct(p.runoff_per_period)}</i> runoff / ${per}`:'derived from the level',go:'balance'},
       {k:'Balance · '+Q(ref),v:at(P&&P.bal,ref),u:'$000s',op:'ending balance',go:'balance'},{k:'Interest · '+Q(ref),v:at(P&&P.interest,ref-1),u:'/ '+per,op:`<i>${P&&P.rateQ?(+P.rateQ[ref-1]).toFixed(2)+'%':'—'}</i> ${p.rate_type==='float'?esc(String(p.index||'sofr').toUpperCase())+' + spread':'fixed'}`,go:'pricing'},
       {k:'Credit cost · '+Q(ref),v:at(P&&P.co,ref-1),u:'/ '+per,op:`ALLL <i>${am(at(P&&P.alll,ref-1))}</i>`,go:'credit'}];
     const iv=at(P&&P.interest,ref-1),fv=at(P&&P.fees,ref-1);
