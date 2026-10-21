@@ -371,7 +371,7 @@ def v31_engagement_save_current(body: dict, user=Depends(gate)):
     cfg.setdefault("proposed_bank", name)
     cfg.setdefault("client", name)
     try:
-        return JSONResponse(store.save_engagement(cfg, slug=name, user=user))
+        return JSONResponse(store.save_engagement(cfg, slug=name, user=user, allow_incomplete=True))
     except store.StructuralGapError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except store.SchemaVersionError as e:

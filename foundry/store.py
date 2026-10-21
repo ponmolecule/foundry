@@ -41,17 +41,15 @@ def slugify(name):
     return s or "engagement"
 
 
-def save_engagement(cfg, slug=None, user=None):
+def save_engagement(cfg, slug=None, user=None, *, allow_incomplete=False):
     """Stamp the schema version (if absent), persist, return metadata."""
     cfg2 = json.loads(json.dumps(cfg))  # deep copy via the same codec that stores it
-    # Fail-closed at the single persistence chokepoint: never store a config whose rate_type /
-    # measurement selector points at an empty field. That specific structural incompleteness is
-    # a half-finished type flip, not work-in-progress, and persisting it is how an engagement
-    # becomes un-importable later. Every save door funnels through here, so the gate can't be
-    # bypassed. (Broader validation stays with the caller; only this structural gap blocks save.)
+    # Authoring endpoints explicitly allow incomplete rate choices so work in
+    # progress survives a save/reload. Strict callers retain the completion gate.
+    # This never supplies a missing rate or relaxes preview/freeze validation.
     from foundry.v2.validate_q import structural_rate_gaps
     gaps = structural_rate_gaps(cfg2)
-    if gaps:
+    if gaps and not allow_incomplete:
         raise StructuralGapError("cannot save — resolve these rate settings first: "
                                  + "; ".join(gaps))
     cfg2.setdefault("config_schema_version", CONFIG_SCHEMA_VERSION)
@@ -72,8 +70,11 @@ def save_engagement(cfg, slug=None, user=None):
         _record_version(cfg2, slug, user)
     except Exception:
         pass
-    return {"slug": slug, "path": path,
-            "config_schema_version": cfg2["config_schema_version"]}
+    metadata = {"slug": slug, "path": path,
+                "config_schema_version": cfg2["config_schema_version"]}
+    if allow_incomplete:
+        metadata['input_warnings'] = gaps
+    return metadata
 
 
 def load_engagement(slug, user=None):

@@ -7565,12 +7565,20 @@ function refreshProductStats(){
 const _lfxSec=new WeakMap();
 const _LFX_DEF={vol:true,exp:true,cred:true,price:true,fees:true,acct:false,rep:false};
 function _lfxIsOpen(p,id){const m=_lfxSec.get(p)||{};return id in m?m[id]:_LFX_DEF[id];}
-function lfxToggle(i,id){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;const m=Object.assign({},_lfxSec.get(p)||{});m[id]=!_lfxIsOpen(p,id);_lfxSec.set(p,m);renderContent();}
+function lfxToggle(i,id,button){const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;
+ const m=Object.assign({},_lfxSec.get(p)||{}),open=!_lfxIsOpen(p,id);m[id]=open;_lfxSec.set(p,m);
+ const section=button?.closest('.lfx-s')||document.querySelector?.('.lfx [data-lfx="'+id+'"]');
+ if(!section)return;const header=section.querySelector('button.lfx-h'),body=section.querySelector('.lfx-b');
+ const top=header?.getBoundingClientRect().top;
+ section.classList.toggle('c',!open);if(header){header.setAttribute('aria-expanded',String(open));const cv=header.querySelector('.cv');if(cv)cv.textContent=open?'▾':'▸';}if(body)body.hidden=!open;
+ if(open&&typeof fitControls==='function')fitControls(section);
+ if(header&&top!=null)window.scrollBy(0,header.getBoundingClientRect().top-top);
+}
 // r361: local controls expand/collapse the current loan's Setup sections only.
 function _lendingSectionsControls(i){return `<div class="lending-section-actions" role="group" aria-label="Lending sections"><button type="button" onclick="lendingSectionsSetAll(${i},true,this)">Expand all</button><button type="button" onclick="lendingSectionsSetAll(${i},false,this)">Collapse all</button></div>`;}
 function lendingSectionsSetAll(i,open,button){
  const p=(cfg.assumptions.lending_products||[])[i];if(!p)return;open=!!open;
- if(_loanBalanceMode(p)==='funded_flow_level'){const state=Object.assign({},_lfxSec.get(p)||{});Object.keys(_LFX_DEF).forEach(id=>state[id]=open);_lfxSec.set(p,state);renderContent();return;}
+ if(_loanBalanceMode(p)==='funded_flow_level'){const state=Object.assign({},_lfxSec.get(p)||{});Object.keys(_LFX_DEF).forEach(id=>state[id]=open);_lfxSec.set(p,state);const root=button&&button.closest('.lfx');if(root)root.querySelectorAll('.lfx-s[data-lfx]').forEach(s=>{s.classList.toggle('c',!open);const h=s.querySelector('button.lfx-h'),b=s.querySelector('.lfx-b');if(h){h.setAttribute('aria-expanded',String(open));const cv=h.querySelector('.cv');if(cv)cv.textContent=open?'▾':'▸';}if(b)b.hidden=!open;});if(open&&root)fitControls(root);return;}
  const root=button&&button.closest('.lfx-gen');if(!root)return;
  root.querySelectorAll('section[data-lfg-key]').forEach(s=>{const key=s.getAttribute('data-lfg-key');if(!key.startsWith('lending:'+i+':'))return;if(s.classList.contains('c')===open){const header=s.querySelector('button.lfx-h');if(header)lfgToggle(header);}});
 }
@@ -7587,7 +7595,7 @@ function _lfxRaw(input,suffix,pre){return `<div class="lfx-in${pre?' pre':''}">$
 function _lfxSel(inner){return `<div class="lfx-sel">${inner}</div>`;}
 function _lfxOut(v,suffix){return `<div class="lfx-out">${v}${suffix?`<i>${suffix}</i>`:''}</div>`;}
 function _lfxSecHtml(p,i,id,no,title,summary,rail,body){const open=_lfxIsOpen(p,id),ro=_LFX_RO[id]?_lfxLiveHtml('ro-'+id,i):'';
-  return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}')"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button>${open?`<div class="lfx-b${ro?' has-ro':''}"><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div>${ro}</div>`:''}</section>`;}
+  return `<section class="lfx-s${open?'':' c'}" data-lfx="${id}"><button type="button" class="lfx-h" aria-expanded="${open}" onclick="lfxToggle(${i},'${id}',this)"><span class="no">${no}</span><span class="tt">${title}</span><span class="sm">${summary}</span><span class="cv" aria-hidden="true">${open?'▾':'▸'}</span></button><div class="lfx-b${ro?' has-ro':''}"${open?'':' hidden'}><div class="lfx-rail">${rail}</div><div class="lfx-body">${body}</div>${ro}</div></section>`;}
 // Engine readouts beside each section on wide screens: the run's own series, never client arithmetic.
 const _LFX_RO={vol:1,exp:1,cred:1,price:1,fees:1,acct:1};
 function _lfxSparkSvg(arr,ref,fmt){const a=(arr||[]).map(x=>+x||0);if(a.length<2)return '';const mx=Math.max(...a,0),mn=Math.min(0,...a),rg=(mx-mn)||1,W=600,H=120,n=a.length;
@@ -7961,7 +7969,7 @@ function _lfgRoHtml(fam,i,g){
   return `<div class="ro-h"><span>${pick[0]}</span><b>${Q(1)}–${Q(end)}</b></div>${_lfxSparkSvg(pick[1],ref)}<div class="ro-ax"><span>${Q(1)}</span>${ref>1&&ref<end?`<span class="rf" style="left:${((ref-1)/Math.max(1,end-1)*100).toFixed(1)}%">${Q(ref)}</span>`:''}<span>${Q(end)}</span></div><div class="ro-k">${pick[2].map(([k,v])=>`<div><span>${k}</span><b>${typeof v==='string'?v:_lfxAmt(v)}</b></div>`).join('')}</div>${_resultNumbersLink(_resultPanelSeries(P,g,pick[0],fam),C.stale)}${C.stale?'<div class="ro-empty">Last complete run.</div>':''}`;}
 function refreshLfgLive(){document.querySelectorAll('[data-lfg-live]').forEach(el=>{const k=el.getAttribute('data-lfg-live'),fam=el.getAttribute('data-fam'),i=+el.getAttribute('data-i');
   if(k==='strip')el.innerHTML=_lfgStripHtml(fam,i);else if(k==='ro'){el.innerHTML=_lfgRoHtml(fam,i,el.getAttribute('data-g'));const C=_lfgCtx(fam,i);el.classList.toggle('stale',!!C.stale);}});}
-function lfgToggle(btn){const s=btn.closest('.lfx-s');if(!s)return;const key=s.getAttribute('data-lfg-key');const open=s.classList.contains('c');window._lfgOpen[key]=open;s.classList.toggle('c',!open);btn.setAttribute('aria-expanded',String(open));const cv=btn.querySelector('.cv');if(cv)cv.textContent=open?'▾':'▸';const b=s.querySelector('.lfx-b');if(b)b.hidden=!open;if(open&&typeof fitControls==='function')fitControls(s);}
+function lfgToggle(btn){const top=btn.getBoundingClientRect().top;const s=btn.closest('.lfx-s');if(!s)return;const key=s.getAttribute('data-lfg-key');const open=s.classList.contains('c');window._lfgOpen[key]=open;s.classList.toggle('c',!open);btn.setAttribute('aria-expanded',String(open));const cv=btn.querySelector('.cv');if(cv)cv.textContent=open?'▾':'▸';const b=s.querySelector('.lfx-b');if(b)b.hidden=!open;if(open&&typeof fitControls==='function')fitControls(s);window.scrollBy(0,btn.getBoundingClientRect().top-top);}
 function lfgOpenSection(fam,i,g){const s=document.querySelector(`.lfx-s[data-lfg-key="${fam}:${i}:${g}"]`);if(!s)return;if(s.classList.contains('c'))lfgToggle(s.querySelector('.lfx-h'));s.scrollIntoView({behavior:'smooth',block:'start'});}
 
 function _lfgField(el){
@@ -12145,13 +12153,23 @@ document.addEventListener("click",function(ev){
   const ta=scope && scope.querySelector('textarea[id]');
   if(ta){_consumedPasteId=ta.id;queueMicrotask(()=>{_consumedPasteId=null;});}
 },true);
+let _authoringClickTarget=null;
+for(const type of ['click','change'])document.addEventListener(type,e=>{_authoringClickTarget=e.target?.closest?.('button,summary,input,select,textarea')||null;},true);
+function _authoringAnchor(root,element){
+ if(!element||!root.contains(element)||!element.getClientRects().length)return null;
+ const rect=element.getBoundingClientRect();if(rect.bottom<0||rect.top>window.innerHeight)return null;
+ for(const attr of ['id','data-focus','onchange','onclick']){const value=element.getAttribute(attr);if(value)return {attr,value,tag:element.tagName,top:element.getBoundingClientRect().top};}
+ return null;
+}
+function _findAuthoringAnchor(root,anchor){if(!anchor)return null;return [...root.querySelectorAll(anchor.tag)].find(e=>e.getAttribute(anchor.attr)===anchor.value)||null;}
 function _captureAuthoringState(){
   const root=document.getElementById('content'),ae=document.activeElement;
   const same=_renderedAuthoringTab===currentTab && _renderedAuthoringCfg===cfg;
   if(!root||!same)return null;
   const fields=Array.from(root.querySelectorAll('textarea[id]')).filter(el=>el.id!==_consumedPasteId).map(el=>({id:el.id,value:el.value,start:el.selectionStart,end:el.selectionEnd,direction:el.selectionDirection,top:el.scrollTop,left:el.scrollLeft,height:el.style.height}));
   const focus=ae && (root.contains(ae)||ae.hasAttribute('data-focus')) ? {id:ae.id,path:ae.getAttribute('data-focus'),start:ae.selectionStart,end:ae.selectionEnd,direction:ae.selectionDirection}:null;
-  return {fields,focus,x:window.scrollX,y:window.scrollY,scrolls:Array.from(document.querySelectorAll('[id]')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>({id:el.id,top:el.scrollTop,left:el.scrollLeft})),details:Array.from(root.querySelectorAll('details')).map(el=>el.open)};
+  const anchor=_authoringAnchor(root,_authoringClickTarget)||_authoringAnchor(root,ae);
+  return {fields,focus,anchor,x:window.scrollX,y:window.scrollY,scrolls:Array.from(document.querySelectorAll('[id]')).filter(el=>el.scrollTop||el.scrollLeft).map(el=>({id:el.id,top:el.scrollTop,left:el.scrollLeft})),details:Array.from(root.querySelectorAll('details')).map(el=>el.open)};
 }
 function _restoreAuthoringState(state){
   if(!state)return;
@@ -12163,6 +12181,8 @@ function _restoreAuthoringState(state){
   }
   state.scrolls.forEach(v=>{const el=document.getElementById(v.id);if(el){el.scrollTop=v.top;el.scrollLeft=v.left;}});
   window.scrollTo({left:state.x,top:state.y,behavior:'instant'});
+  const anchored=_findAuthoringAnchor(document.getElementById('content'),state.anchor);
+  if(anchored)window.scrollBy(0,anchored.getBoundingClientRect().top-state.anchor.top);
 }
 
 // r295: a render or engine run that changes the configuration on its own is not a user edit. If the engagement was
@@ -12189,9 +12209,11 @@ function _renderContentInner(){
   if(currentTab==='config' && typeof _presentSecuritiesPage==='function') _presentSecuritiesPage();
   if(currentTab==='config'&&typeof _presentCapitalInputs==='function') _presentCapitalInputs();
   restoreCardSelects();
+  if(currentTab==='products'&&typeof prdGroupSetup==='function')prdGroupSetup();
   _decoratePasteSurfaces();
-  _restoreAuthoringState(state);
   if(typeof cfgAfterRender==='function')cfgAfterRender();
+  if(typeof fitControls==='function')fitControls();
+  _restoreAuthoringState(state);
   _renderedAuthoringTab=currentTab;_renderedAuthoringCfg=cfg;
 }
 function refreshConfigPreviews(){
@@ -13765,15 +13787,16 @@ async function engMenuSave(nmOverride){
   // Persist the chosen name onto the config's scenario_name so it round-trips and shows in chrome.
   cfg.scenario_name = nm;
   const sn = document.getElementById("scenarioName"); if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
-  const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})});
+  let r;try{r = await fetch("/api/v31/engagement/save-current", {method:"POST",
+    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})});}catch(e){appStatus("err","<b>Save failed.</b> Your inputs remain in this tab. Check the connection and retry.");return;}
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
+  let savedInfo={};try{savedInfo=await r.clone().json();}catch(e){}
   window._lastSavedAt = new Date();
   try{ const _j = await r.clone().json(); if(_j && _j.slug) window._openSlug = _j.slug; }catch(e){}   /* r294 */
   await _purgeRecoveryDrafts();                        // explicit save retires any stale unsaved-work recovery draft
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
-  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.`);
+  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.${savedInfo.input_warnings?.length?' <span>Some rate inputs still need completion before running.</span>':''}`);
   await loadEngStore(true,true);   // refresh the list so the saved engagement shows immediately
   renderContent();
 }

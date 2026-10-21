@@ -789,8 +789,15 @@ def validate_config_v2(cfg):
                 and p.get("index") not in ("sofr", "effr", "prime"):
             errs.append(ctx + f"unknown floating index {p.get('index')!r}: must be one of "
                         "sofr, effr, prime (unknown indexes silently fell back to SOFR)")
-        if p.get("rate_type") == "fixed" and p.get("yield_ann") is None:
-            errs.append(ctx + "fixed rate requires 'yield_ann'")
+        if p.get('rate_type') == 'fixed':
+            if p.get('yield_ann_spec') is None and p.get('yield_ann') is None:
+                errs.append(ctx + "fixed rate requires a yield or yield schedule")
+            elif p.get('yield_ann_spec') is not None:
+                try:
+                    from .lending_rates import prepare_fixed_yields
+                    prepare_fixed_yields([dict(p)],int(a.get('n_periods') or 12),_ppy,_growth_ctx)
+                except (ValueError,TypeError) as e:
+                    errs.append(ctx + str(e))
         if p.get("measurement") == "fair_value" and p.get("discount_spread_ann") is None:
             errs.append(ctx + "fair-value election requires 'discount_spread_ann'")
         _range_check(p, PROD_RANGES, ctx, errs)
@@ -1022,12 +1029,12 @@ def validate_config_v2(cfg):
 
 
 def structural_rate_gaps(cfg):
-    """The specific structural incompleteness that must never be persisted: a rate_type /
-    measurement selector pointing at an empty field. This is a mistake (a half-finished type
-    flip), not legitimate work-in-progress, so the save door hard-refuses it — the same
-    fail-closed rule freeze and download already enforce. Returns a list of human messages
-    (empty => clean). NARROWER than validate_config_v2: only these selector-vs-value gaps,
-    so genuine WIP with other open questions can still be saved."""
+    """Rate/measurement completion warnings for strict consumers and working saves.
+
+    Working-copy persistence reports these without rejecting authoring progress;
+    preview and freeze must still reject incomplete financial configurations.
+    An active fixed-yield Series satisfies the rate contract without a duplicate scalar.
+    """
     a = cfg.get("assumptions") or {}
     gaps = []
     for p in a.get("deposit_products") or []:
@@ -1040,8 +1047,17 @@ def structural_rate_gaps(cfg):
         ctx = f"loan '{p.get('name', '<?>')}': "
         if p.get("rate_type") == "float" and p.get("index_spread") is None:
             gaps.append(ctx + "rate type is floating but no spread over SOFR is set")
-        if p.get("rate_type") == "fixed" and p.get("yield_ann") is None:
-            gaps.append(ctx + "rate type is fixed but no yield is set")
+        if p.get('rate_type') == 'fixed':
+            if p.get('yield_ann_spec') is None and p.get('yield_ann') is None:
+                gaps.append(ctx + 'rate type is fixed but no yield is set')
+            elif p.get('yield_ann_spec') is not None:
+                try:
+                    from .lending_rates import prepare_fixed_yields
+                    from .growth import growth_context_from_cfg
+                    _cadence=int(a.get('periods_per_year') or 4)
+                    prepare_fixed_yields([dict(p)],int(a.get('n_periods') or 12),_cadence,growth_context_from_cfg(cfg,_cadence))
+                except (ValueError,TypeError) as e:
+                    gaps.append(ctx + str(e))
         if p.get("measurement") == "fair_value" and p.get("discount_spread_ann") is None:
             gaps.append(ctx + "measurement is fair value but no DCF discount spread is set")
     return gaps

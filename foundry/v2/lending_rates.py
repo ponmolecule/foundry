@@ -7,6 +7,8 @@ def prepare_fixed_yields(products, n, ppy, context=None):
         if p.get('rate_type')=='float' or p.get('yield_ann_spec') is None:
             continue
         s=normalize_series_spec(p['yield_ann_spec'])
+        if s.get('trajectory')=='explicit' and not s.get('values'):
+            raise ValueError('Fixed lending yield schedule has no values')
         if s['source']!='entered':raise ValueError('Fixed lending yield must be an entered Flat/Growth/Explicit path')
         values=[float(v) for v in resolve_entered_series(s,n,ppy,context=context,default_value=0)]
         if any(not isfinite(v) or v<0 or v>.6 for v in values):
