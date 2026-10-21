@@ -2090,6 +2090,24 @@ def calculation_audit_workbook(cfg: Mapping[str, Any], results: Mapping[str, Any
         for row in _ws.iter_rows(min_row=2):
             for cell in row[3:]:cell.number_format=_RATE_FMT if cell.column==9 else _COUNT_FMT
 
+    _loan_rows=[]
+    for _product in exact.get('products') or []:
+        if _product.get('loanRollforwardMethod'):
+            for _key in ('newLoanCount','principalBalance','origq','principalPayments','prepayments','co',
+                         'grossInterest','deferredBeginning','deferredCosts','deferredFees',
+                         'deferredAmortization','deferredPrepaymentCatchup','deferredNetBalance',
+                         'loanCarryingAmount','interest','allowanceTarget','provision','alll'):
+                _values=_product.get(_key)
+                if isinstance(_values,list):
+                    _loan_rows.append(('Lending roll-forward',_product.get('name'),_key,
+                        'loans / period' if _key=='newLoanCount' else '$000s',
+                        _values if _key=='newLoanCount' else [v/1000 for v in _values],
+                        _COUNT_FMT if _key=='newLoanCount' else _RAW_MONEY_FMT))
+    if _loan_rows:
+        _write_wide_rows(wb.create_sheet('Loan Rollforward'),cfg,_loan_rows,
+            title='Loan principal and deferred fees / costs',
+            subtitle='Principal excludes deferred fees/costs. Carrying amount = principal + signed net deferred cost. Charge-offs are positive loss magnitudes. Provision = ending allowance - beginning allowance + charge-offs. Rates apply to native-period beginning balances.',n=n,ppy=ppy)
+
     _shared_rows=[]
     for _product in exact.get('products') or []:
         for _row in _product.get('lendingAssumptionDetail') or []:

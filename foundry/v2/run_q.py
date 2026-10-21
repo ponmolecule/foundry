@@ -565,6 +565,9 @@ def run_v2(cfg):
         "msrAmort", "msrBal", "servNet", "intInc", "co", "alll", "intExp",
         "fv", "fvAdj", "fees", "opex", "passCost", "fundedInputVolume", "fundedVolume", "sweptBalance", "sweepFee",
         "calculatedOutstanding", "targetBeforeAllocation", "distributedBalance",
+        "principalBalance", "principalPayments", "prepayments", "grossInterest", "deferredBeginning", "deferredCosts",
+        "deferredFees", "deferredAmortization", "deferredPrepaymentCatchup", "deferredNetBalance",
+        "loanCarryingAmount", "allowanceTarget", "provision",
         "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut", "interest", "avg",
     )
     _exact_products = (base_exact or {}).get("products") or []
@@ -572,6 +575,9 @@ def run_v2(cfg):
     for _pub, _raw in zip(_public_products, _exact_products):
         if _pub.get("name") != _raw.get("name"):
             continue
+        if 'loanRollforwardMethod' in _raw:
+            _pub['loanRollforwardMethod'] = _raw['loanRollforwardMethod']
+            if 'newLoanCount' in _raw: _pub['newLoanCount'] = list(_raw['newLoanCount'])
         if "lendingAssumptionDetail" in _raw:
             _pub["lendingAssumptionDetail"] = copy.deepcopy(_raw["lendingAssumptionDetail"])
         _d = {}

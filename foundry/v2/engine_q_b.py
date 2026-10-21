@@ -27,6 +27,9 @@ def run_pf_b(cfg):
     afs_p = copy.deepcopy(a.get("securities_afs") or [])
     htm_p = copy.deepcopy(a.get("securities_htm") or [])
 
+    if any(p.get('loan_rollforward') is not None for p in lend):
+        raise ValueError('Loan production and deferred fees/costs require Profile A; select Profile A before running')
+
     # Profile B is intentionally quarterly-only, but it still participates in the
     # same public scenario/rate contract as Profile A. Apply the common overlay and
     # common floating-rate dispatch rather than silently ignoring them.

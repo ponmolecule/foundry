@@ -335,6 +335,9 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
             p["reserve_rate_pct_bal"] *= res_m
         p["originations_q"] = (p.get("originations_q") or 0.0) * (1 - (ov.get("origination_volume_haircut", 0) or 0))
         if p.get("repayment_profile") is not None: p["_profile_volume_mult"] = 1 - (ov.get("origination_volume_haircut", 0) or 0)
+        if p.get('loan_rollforward') is not None:
+            p['_contract_reserve_mult'] = res_m
+            p['_contract_volume_mult'] = 1 - (ov.get('origination_volume_haircut', 0) or 0)
         mb = p.get("mortgage_banking")
         if mb:
             if "gain_on_sale_margin" in mb:
@@ -734,6 +737,13 @@ def run_pf_a(cfg):
             if any(float(v) < 0 for v in _loan["_credit_loss_factor"]):
                 raise ValueError("credit loss factor must be nonnegative")
 
+    from .lending_contracts import prepare as prepare_loan_contract
+    for _loan in lend:
+        _contract = prepare_loan_contract(_loan, a, _activity_series, _fee_stream_qty_series, Q, ppy, _growth_ctx)
+        if _contract is not None:
+            _loan['_loan_contract'] = _contract
+            _loan['_alll'][0] = _contract['opening_allowance']
+
     from .repayment_profiles import resolve as resolve_repayment_profile
     for _loan in lend:
         if _loan.get('repayment_profile') is not None and not _loan.get('allocation_group_id'):
@@ -827,7 +837,7 @@ def run_pf_a(cfg):
         # (the opening book, then each quarter's retained originations) amortizes on a constant-payment
         # schedule over term_q quarters and is gone at maturity. When not a term product, _amort stays
         # False and the flat-runoff path below runs UNCHANGED (byte-identical for every existing config).
-        _amort = (p.get("structure") == "term") and int(p.get("term_q") or 0) > 0
+        _amort = (p.get("structure") == "term") and int(p.get("term_q") or 0) > 0 and not p.get("_loan_contract")
         _linked_level = p.get("_linked_balance")
         if _amort:
             _T = quarters_to_periods(int(p["term_q"]), ppy)
@@ -846,7 +856,15 @@ def run_pf_a(cfg):
                  if _linked_level is None else 0.0)
             retained = o * (1 - p["_sale"])
             p["_sold"].append(o * p["_sale"])
-            if _linked_level is not None:
+            _contract_row = None
+            if p.get('_loan_contract') is not None:
+                from .lending_contracts import step as loan_contract_step
+                _contract_row = loan_contract_step(p['_loan_contract'], q-1, beg,
+                    _ovq(p, 'charge_off_ann', q, p.get('charge_off_ann') or 0.), r, ppy)
+                end = _contract_row['ending']; co = _contract_row['chargeOffs']
+                o = _contract_row['originations']; retained = o
+                p['_sold'][-1] = 0.
+            elif _linked_level is not None:
                 # Direct level contract: Customer Acquisition owns the customer path;
                 # the loan owns the resulting asset.  ``_orig`` carries the signed
                 # balancing production/(paydown) required to reconcile the ordinary
@@ -935,7 +953,7 @@ def run_pf_a(cfg):
             if p.get("_repayment_profile") is not None:
                 _interest_basis = p["_repayment_profile"]["interest_basis"][q-1]
                 p["_interest_basis"][-1] = _interest_basis
-            p["_ii"].append(_interest_basis * r / ppyf); p["_ie"].append(0.0)
+            p["_ii"].append(_contract_row["interest"] if _contract_row is not None else _interest_basis * r / ppyf); p["_ie"].append(0.0)
             _pf_inc, _pf_cost = product_fee_streams_q(p, q, {"own_balance": avg,
                                                             **({"_profile_monthly_operands": {"own_balance":[x['average'] for x in p['_repayment_profile']['monthly']], "distributed_balance":[x['distributed'] for x in p['_repayment_profile']['monthly']], "product_funded_flow":p['_repayment_profile']['monthly_funded_volume']}} if p.get('_repayment_profile') is not None else {}),
                                                             **({"product_funded_flow": _linked_level["funded_volume"][q - 1]}
@@ -950,7 +968,9 @@ def run_pf_a(cfg):
             p["_fee"].append(avg * _ovq(p, "fee_yield_ann", q, p.get("fee_yield_ann") or 0.0) / ppyf + _pf_inc)
             p["_ox"].append(avg * (p.get("opex_pct_ann") or 0.0) / ppyf + opex_fixed_period(p, ppy))
             p.setdefault("_fcost", [None]).append(_pf_cost)   # fee-stream op cost: NIE, post-gross-up
-            if p.get("_repayment_profile") is not None:
+            if _contract_row is not None:
+                _allowance = _contract_row["allowance"]
+            elif p.get("_repayment_profile") is not None:
                 _allowance = p["_repayment_profile"]["allowance"][q-1]
             elif p.get("allowance_mode") == "loss_rate_term":
                 _loss_factor = (p.get("_credit_loss_factor") or [1.0] * Q)[q - 1]
@@ -1053,6 +1073,9 @@ def run_pf_a(cfg):
     for q in range(0, Q + 1):
         for p in lend:
             carry = p["_bal"][q] + (p["_fvadj"][q] if p["_is_fv"] else 0.0)
+            if p.get('_loan_contract') is not None:
+                _lc = p['_loan_contract']
+                carry += _lc['rows'][q-1]['deferredNetBalance'] if q else _lc['opening_deferred']
             gross[q] += carry + p["_whc"][q]
             alll_t[q] += p["_alll"][q]
             hfs[q] += p["_whc"][q]
@@ -1826,6 +1849,16 @@ def run_pf_a(cfg):
                 "servNet": [(p["_snet"][q] if p.get("_snet") else 0.0) for q in range(1, Q + 1)],
                 "ftp_rate": [rate(q) for q in range(1, Q + 1)],
             }
+            if fam == 'lending' and p.get('_loan_contract') is not None:
+                _rows = p['_loan_contract']['rows']
+                _pr['loanRollforwardMethod'] = 'beginning_balance_rates'
+                _pr['principalBalance'] = list(p['_bal'][1:])
+                _pr['bal'] = [p['_bal'][0]+p['_loan_contract']['opening_deferred']] + [row['loanCarryingAmount'] for row in _rows]
+                for _key in ('newLoanCount','principalPayments','prepayments','grossInterest',
+                    'deferredBeginning','deferredCosts','deferredFees','deferredAmortization',
+                    'deferredPrepaymentCatchup','deferredNetBalance','loanCarryingAmount',
+                    'allowanceTarget','provision'):
+                    if _key in _rows[0]: _pr[_key] = [row[_key] for row in _rows]
             if fam == "deposit" and p.get("balance_mode", "rollforward") != "rollforward":
                 _pr["balanceMode"] = p["balance_mode"]
                 _pr["interestBalanceMeasure"] = p.get("interest_balance_measure", "period_average")

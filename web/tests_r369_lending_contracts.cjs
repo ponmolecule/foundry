@@ -1,0 +1,11 @@
+const fs=require('fs'),vm=require('vm'),assert=require('assert');
+const H=fs.readFileSync(__dirname+'/console_v2.html','utf8');
+for(const m of H.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi))if(!/\bsrc=/.test(m[1]))new vm.Script(m[2]);
+const p={reserve_rate_pct_bal:.01,opening_balance:1000},ctx={cfg:{assumptions:{lending_products:[p],cac_feeds:{practice:{activity_series_ids:{new_customers:'gross',lost_customers:'lost'}}}}},renderContent(){},refresh(){},esc:s=>String(s),numInput:(p,u)=>`<input data-path="${p}" data-unit="${u}">`,_accountActivityOptions:()=>[{series_id:'gross',label:'New practices'},{series_id:'lost',label:'Lost practices'}],_faSeriesEditor:(p,s,l,k)=>`<span data-path="${p}" data-kind="${k}">${l}</span>`};vm.createContext(ctx);
+vm.runInContext(H.slice(H.indexOf('function loanContractEnable('),H.indexOf('function _loanAmountEditor(')),ctx);
+assert(!p.loan_rollforward);ctx.loanContractEnable(0,true);const c=p.loan_rollforward;assert.equal(c.opening_allowance,10);assert.equal(c.source,'entered_count');
+c.source='account_activity';let html=ctx._loanContractHtml(0,p,'assumptions.lending_products.0');assert(html.includes('New practices'));assert(!html.includes('Lost practices'));assert(html.includes('data-loan-contract-group="timing"'));assert(html.includes('Floor provision at zero'));assert(!html.includes('Deferred amortization'));
+ctx.loanContractDeferred(0,true);html=ctx._loanContractHtml(0,p,'assumptions.lending_products.0');assert(html.includes('Cost / fee multiplier'));assert(html.includes('Prepayment catch-up'));assert(html.includes('data-kind="dollars"'));assert(html.includes('effective-interest-yield'));c.deferred.basis='percent_funded';html=ctx._loanContractHtml(0,p,'assumptions.lending_products.0');assert(html.includes('data-kind="rate"'));
+const saved=JSON.stringify(c);ctx._loanContractHtml(0,p,'assumptions.lending_products.0');assert.equal(JSON.stringify(c),saved);
+ctx.loanContractDeferred(0,false);assert(!c.deferred);ctx.loanContractEnable(0,false);assert(!p.loan_rollforward);
+console.log('PASS production/deferred opt-in, live gross-flow eligibility, grouped controls, units, explicit policy, no renderer mutation, disable');

@@ -10,7 +10,7 @@ const ctx={PPY:()=>12,esc:s=>String(s).replaceAll('&','&amp;').replaceAll('"','&
  const button={closest:()=>mounted};await ctx.resultNumbersCopy(button,0);assert.equal(copied.at(-1),'1.12345678912345\t2');await ctx.resultNumbersCopy(button,null);assert(copied.at(-1).startsWith('Series\tUnits\tM1\tM2\nCharge-offs\t$000s\t1.12345678912345\t2'));
  ctx.navigator.clipboard=null;await ctx.resultNumbersCopy(button,1);assert.equal(box.value,'3\t4');assert(!box.hidden&&box.selected);assert(status.textContent.includes('Ctrl+C'));
  const q=ctx._resultNumbersTsv([{name:'Zero',unit:'count',values:[0,null,3]}],true);assert(q.includes('Q1\tQ2\tQ3'));assert(q.endsWith('0\t\t3'));
- assert.equal(ctx._resultPanelSeries(p,'pricing','','lending')[1].unit,'%');assert.equal(ctx._resultPanelSeries({fees:[8]},'balance','Fee income','obs')[0].values[0],8);
+ assert.equal(ctx._resultPanelSeries(p,'pricing','','lending').find(x=>x.name==='Yield').unit,'%');assert.equal(ctx._resultPanelSeries({fees:[8]},'balance','Fee income','obs')[0].values[0],8);
  const z=ctx._resultNumbersLink([{name:'Zero',unit:'$000s',values:[0,0]}],true);assert(z.includes('Numbers'));assert(z.includes('stale'));
  console.log('PASS discreet closed state, separate credit series, exact precision, monthly/quarterly TSV, zero/missing observations, clipboard success/fallback, and no result mutations');
 })().catch(e=>{console.error(e);process.exitCode=1});
