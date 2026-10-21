@@ -1,0 +1,19 @@
+# Engagement 5 logic
+
+## Source-model clarification log — 2026-10-21
+
+These questions concern source intent or source formulas. They do not authorize changing Foundry to reproduce source errors. Preserve general modeling behavior and distinguish confirmed mechanics from unresolved intent.
+
+| ID | Product / area | Evidence and question | Current treatment / status |
+|---|---|---|---|
+| S01 | CRE, Equipment, Practice In/Out — allowance signs | Source stores charge-offs as negative amounts but subtracts them in the allowance roll-forward and adds them in the provision formula. This reverses their economic effect. With signed negative NCO, the identities are ending allowance = beginning allowance + NCO + provision, and provision = target − beginning allowance − NCO. Obtain source-owner correction. | Accounting sign issue established; source correction pending. Foundry uses positive charge-off magnitudes, deducts them from allowance, and includes them in required provision. A zero provision floor can leave allowance above target. |
+| S02 | Origination / servicing inflation | Source includes inconsistent rate/exponent references. Example advance origination formula: `$A54*(AA10-Z10)*(1+AM$66)^AA$67`, using AM66 = 1.8% with AA67 = 2. Confirm intended references and affected formulas individually rather than assuming every cost row is wrong. | Open. Intended shared schedule supplied: M1–12 rate 2.2%, blank exponent interpreted as zero; M13–24 rate 2%, exponent 2; M25–36 rate 1.8%, exponent 3; M37–48 exponent 4; M49–60 exponent 5. Multiplier is `(1 + current rate)^exponent`, not cumulative compounding. Origination/servicing discrepancies deferred. |
+| S03 | CRE — allowance target | Row 51 is blank in forecast M1–M3. Blanks were confirmed present; whether intentional remains unconfirmed. | Open. Foundry target is zero for those months. Correct-sign provision still replenishes charge-offs to maintain zero allowance; source's accumulating allowance is not reproduced. |
+| S04 | Equipment — Direct CAC | Row 104 is blank in first four forecast months although underlying row 109 contains amounts (reported 481, 963, 963, 1,375). Confirm intentional delay versus omitted formulas. | Open. Do not impose the omission as a general Foundry default. |
+| S05 | Term loans — interest-rate references | Observed formulas appear pinned to CRE `$S54`, Equipment `$P93`, and Practice In/Out `$R133`. Confirm whether these references remain pinned across the forecast or should track each period's scheduled yield. | Open. Foundry entered annual yield paths: CRE 7.5%, 7.2%, 6.9%, 6.9%, 6.9%; Equipment 9%, 8.7%, 8.4%, 8.4%, 8.4%; Practice In/Out 10%, 9.7%, 9.4%, 9.4%, 9.4%. M1–M3 reconciliation alone does not resolve later-year reference intent. |
+
+## Resolved precision differences
+
+- Receivable Advances: replace rounded practice-size weights and displayed 4.11% advance factor with supplied full precision (factor 4.1095851%). User confirmed reconciliation; M60 advance-balance difference reduced from $53,284,772.64 to $23.71. These are not outstanding source-logic errors.
+- Equipment and Practice In/Out: M1–M3 principal and net interest reconcile to the source's displayed precision. Credit reconciliation and separate servicing/marketing entry remain outstanding; this does not imply full-horizon reconciliation.
+- Compare source loan principal with Foundry **Principal balance**. Foundry's carrying amount also includes signed unamortized origination costs/fees and therefore is a different measure.
