@@ -364,6 +364,8 @@ def v31_engagement_delete(slug: str, user=Depends(gate)):
 def v31_engagement_save_current(body: dict, user=Depends(gate)):
     """Promote the live configuration to a saved engagement — no wizard required."""
     from foundry import store
+    if body.get("expected_user") is not None and body["expected_user"] != user:
+        return JSONResponse({"error": "The signed-in account changed. Sign in as the original account before saving this workspace."}, status_code=409)
     cfg = body.get("config")
     name = (body.get("name") or "").strip()
     if not cfg or not name:
@@ -654,6 +656,9 @@ def auth_login(body: dict):
         who = _legacy_env_auth(u, p)
     if not who:
         raise HTTPException(401, "Username or password did not verify.")
+    expected = body.get("expected_user")
+    if expected is not None and who != expected:
+        raise HTTPException(403, "Sign in as the original account to resume this workspace.")
     resp = JSONResponse({"ok": True, "user": who})
     _age = _session_max_age()
     resp.set_cookie("foundry_session", make_session(who, _age), max_age=_age,
@@ -668,7 +673,16 @@ def auth_logout():
 
 @app.get("/api/auth/whoami")
 def auth_whoami(user=Depends(gate)):
-    return {"user": user}
+    return JSONResponse({"user": user}, headers={"Cache-Control": "no-store"})
+
+@app.post("/api/auth/renew")
+def auth_renew(user=Depends(gate)):
+    """Renew a valid session during active authoring; never revive an expired token."""
+    age = _session_max_age()
+    resp = JSONResponse({"user": user, "expires_in": age}, headers={"Cache-Control": "no-store"})
+    resp.set_cookie("foundry_session", make_session(user, age), max_age=age,
+                    httponly=True, secure=_cookie_secure(), samesite="strict", path="/")
+    return resp
 
 @app.post("/api/auth/change-password")
 def auth_change(body: dict, user=Depends(gate)):

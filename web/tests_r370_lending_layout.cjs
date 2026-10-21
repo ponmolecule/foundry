@@ -2,7 +2,7 @@ const {chromium}=require('playwright');
 const path=require('path'),{execFileSync}=require('child_process');
 const fs=require('fs'),assert=require('assert');
 (async()=>{
-let html=fs.readFileSync('web/console_v2.html','utf8').replace('renderTabs();\nwhoami().then(u=>{ paintWho(); if(u){ boot(); } else { currentTab = "welcome"; renderContent(); } });','');
+let html=fs.readFileSync('web/console_v2.html','utf8').replace(/renderTabs\(\);\nwhoami\(\)\.then[^\n]+/,'');
 const browser=await chromium.launch({executablePath:process.env.FOUNDRY_CHROMIUM_PATH,args:['--no-sandbox','--disable-gpu','--single-process','--no-zygote'],headless:true});
 const page=await browser.newPage({viewport:{width:1440,height:1000}}),errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/*',r=>r.fulfill({status:200,body:'{}',contentType:'application/json'}));await page.goto('http://foundry.test');await page.setContent(html.replace('<script>','<script>window.V3=true;window.V31=true;</script><script>'));

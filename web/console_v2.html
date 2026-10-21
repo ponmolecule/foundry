@@ -1412,6 +1412,13 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
   .lfx-ro .ro-k span{white-space:normal;line-height:1.3}
   .lfx-b.has-ro,.lfx-st .lfx-sted .lfx-b.has-ro{grid-template-columns:288px minmax(520px,900px) minmax(440px,1fr)}
 }
+
+/* Session recovery is an exceptional overlay, not another authoring panel. */
+.session-safety-dialog::backdrop{background:rgba(0,0,0,.28)}
+.session-safety-dialog p{margin:12px 0}
+.session-safety-dialog input{height:36px;padding:6px 10px;border:1px solid #aaa;border-radius:3px;background:white}
+.session-safety-dialog button,#sessionSafetyNotice button{padding:6px 9px;margin:5px 4px 0 0;border:1px solid #aaa;border-radius:3px;background:#fff;color:#343434;font:inherit;cursor:pointer}
+.session-safety-dialog button[type=submit],#sessionSafetyRestore{background:#a47c38;color:white;border-color:#a47c38}
 </style>
 <style id="klaros-graphite">
 /* =====================================================================
@@ -4540,6 +4547,7 @@ async function doLogin(){
     paintWho();
     await boot();
     setTab('start');
+    sessionSafety.offer();
   }catch(e){ err.textContent = "Could not reach the server."; }
 }
 async function doLogout(){
@@ -4988,6 +4996,7 @@ function isPristine(){
   try{ return JSON.stringify(cfg) === _pristineJSON; }catch(e){ return false; }
 }
 function scheduleAutosave(){
+  if(window.sessionSafety)sessionSafety.schedule();
   if(window.SNAPSHOT) return;
   if(isPristine()) return;                     // no edit since load -> no draft
   clearTimeout(_asTimer); _asTimer = setTimeout(autosaveNow, 2500);
@@ -5428,7 +5437,10 @@ async function _previewInner(){
     let payload = null;
     try{ payload = raw ? JSON.parse(raw) : {}; }
     catch(_e){ payload = null; }
-    if(r.status === 422){
+    if(r.status === 401){
+      lastErrs = [{message:"Session expired. Figures are from the last successful run. Sign in to refresh."}];
+      lastRunFailure = null;
+    } else if(r.status === 422){
       lastErrs = (payload && Array.isArray(payload.errors)) ? payload.errors : [{message:"The engine rejected this configuration, but the validation response was unreadable."}];
       lastRes = null; lastRunFailure = null;
     } else if(!r.ok){
@@ -13233,11 +13245,15 @@ async function guardSaveAsConfirm(){
   if(!nm){ appStatus("err","<b>Enter a version name</b> to save this engagement."); return; }
   cfg.scenario_name = nm;
   if(typeof syncNameChrome==="function") syncNameChrome();
-  const r = await fetch("/api/v31/engagement/save-current", {method:"POST",
+  const guardSnapshot=JSON.stringify(cfg);sessionSafety.checkpoint();
+  let r;try{r = await fetch("/api/v31/engagement/save-current", {method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: nm})});
+    body: JSON.stringify({config: stampOriginalForSave(JSON.parse(JSON.stringify(cfg))), name: nm})});}catch(e){appStatus("err","Save failed. Your inputs remain in this tab.");return;}
   let j={}; try{ j = await r.json(); }catch(e){}
+  if(r.status===401){sessionSafety.expired();sessionSafety.signIn();return;}
   if(!r.ok){ appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
+  if(JSON.stringify(cfg)!==guardSnapshot){sessionSafety.checkpoint();appStatus("ok","Earlier inputs saved. Newer edits remain unsaved; save again before switching.");return;}
+  sessionSafety.saved(guardSnapshot);
   if(j && j.slug) window._openSlug = j.slug;   /* r294 */
   window._lastSavedAt = new Date();
   await _purgeRecoveryDrafts();                        // saved work must not reappear as crash recovery on next login
@@ -13787,14 +13803,19 @@ async function engMenuSave(nmOverride){
   // Persist the chosen name onto the config's scenario_name so it round-trips and shows in chrome.
   cfg.scenario_name = nm;
   const sn = document.getElementById("scenarioName"); if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
+  const saveSnapshot=JSON.stringify(cfg);
+  if(window.sessionSafety)sessionSafety.checkpoint();
   let r;try{r = await fetch("/api/v31/engagement/save-current", {method:"POST",
-    headers:{"Content-Type":"application/json"}, body: JSON.stringify({config: cfg, name: nm})});}catch(e){appStatus("err","<b>Save failed.</b> Your inputs remain in this tab. Check the connection and retry.");return;}
+    headers:{"Content-Type":"application/json"}, signal:AbortSignal.timeout(30000), body: JSON.stringify({config: JSON.parse(saveSnapshot), name: nm})});}catch(e){appStatus("err","<b>Save failed.</b> Your inputs remain in this tab. Check the connection and retry.");return;}
+  if(r.status===401){sessionSafety.saveFailed(nm);return;}
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){}
     appStatus("err", `<b>Save refused</b> \u2014 ${esc(j.error||String(r.status))}`); return; }
   let savedInfo={};try{savedInfo=await r.clone().json();}catch(e){}
   window._lastSavedAt = new Date();
-  try{ const _j = await r.clone().json(); if(_j && _j.slug) window._openSlug = _j.slug; }catch(e){}   /* r294 */
   await _purgeRecoveryDrafts();                        // explicit save retires any stale unsaved-work recovery draft
+  if(JSON.stringify(cfg)!==saveSnapshot){sessionSafety.checkpoint();appStatus("ok","Earlier inputs saved. Newer edits remain unsaved; click Save again.");return;}
+  sessionSafety.saved(saveSnapshot);
+  if(savedInfo.slug)window._openSlug=savedInfo.slug;
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
   appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.${savedInfo.input_warnings?.length?' <span>Some rate inputs still need completion before running.</span>':''}`);
   await loadEngStore(true,true);   // refresh the list so the saved engagement shows immediately
@@ -16583,8 +16604,54 @@ async function exportExecPdf(){
 }
 window.exportExecPdf=exportExecPdf;
 
+// r373 session continuity: account-bound local drafts, visible expiry, in-place reauthentication.
+const sessionSafety = (()=>{
+  let timer=null, activeAt=Date.now(), checking=false, blocked=false, pendingSave=null, storageFailed=false, recoverySource=null;
+  // Fresh per page instance: duplicated tabs must not share a writable recovery slot.
+  let tab;try{tab=crypto.randomUUID();}catch(_){tab=String(Date.now())+'-'+Math.random();}
+  const prefix=()=> 'foundry-recovery-v1:'+encodeURIComponent(window.AUTHED||'')+':';
+  const key=()=>prefix()+tab;
+  function real(){return window.AUTHED&&cfg&&!cfg._blank_canvas&&!window.SNAPSHOT;}
+  function notice(){let e=document.getElementById('sessionSafetyNotice');if(!e){e=document.createElement('div');e.id='sessionSafetyNotice';e.setAttribute('role','alert');e.style.cssText='position:fixed;bottom:12px;left:16px;right:16px;z-index:10020;background:#fff8e8;border:1px solid #b99550;padding:10px 14px;font-size:12px;color:#343434;box-shadow:0 2px 10px #0002';document.body.append(e);}return e;}
+  function backup(){downloadScenario();}
+  function checkpoint(){
+    if(!real()||isPristine())return false;
+    try{localStorage.setItem(key(),JSON.stringify({user:window.AUTHED,at:Date.now(),config:cfg}));storageFailed=false;return true;}
+    catch(_){storageFailed=true;notice().innerHTML='Browser recovery storage is unavailable. Keep this tab open until saving succeeds. <button onclick="sessionSafety.backup()">Download backup</button>';return false;}
+  }
+  function schedule(){clearTimeout(timer);timer=setTimeout(checkpoint,500);}
+  function saved(snapshot){try{const d=JSON.parse(localStorage.getItem(key())||'null');if(d&&JSON.stringify(d.config)===snapshot)localStorage.removeItem(key());if(recoverySource&&recoverySource.config===cfg&&localStorage.getItem(recoverySource.key)===recoverySource.raw)localStorage.removeItem(recoverySource.key);recoverySource=null;}catch(_){} }
+  function panel(){let e=document.getElementById('sessionSafetyDialog');if(!e){e=document.createElement('dialog');e.id='sessionSafetyDialog';e.className='session-safety-dialog';e.style.cssText='position:fixed;inset:0;margin:auto;width:420px;max-width:calc(100vw - 32px);max-height:90vh;overflow:auto;box-sizing:border-box;border:1px solid #bbb;border-radius:6px;padding:24px;color:#343434;background:#faf9f6;font-size:13px;line-height:1.5;box-shadow:0 12px 40px #0003';e.setAttribute('aria-label','Session recovery');document.body.append(e);}return e;}
+  function expired(){
+    if(!window.AUTHED)return;
+    blocked=true;checkpoint();
+    notice().innerHTML='Session expired. Server saving and calculation are paused; your inputs remain in this tab. <button onclick="sessionSafety.signIn()">Sign in to resume</button> <button onclick="sessionSafety.backup()">Download backup</button>';
+  }
+  function signIn(){const e=panel();e.innerHTML='<form onsubmit="sessionSafety.login(event)"><b>Resume your session</b><p>Your inputs stay in place. Sign in as <strong id="sessionSafetyUser"></strong>.</p><input id="sessionSafetyPassword" aria-label="Password" type="password" autocomplete="current-password" style="width:100%;box-sizing:border-box"><p id="sessionSafetyError" role="alert"></p><button type="submit">Sign in and resume</button> <button type="button" onclick="sessionSafety.backup()">Download backup</button> <button type="button" onclick="document.getElementById(\'sessionSafetyDialog\').close()">Later</button></form>';e.querySelector('#sessionSafetyUser').textContent=window.AUTHED;if(!e.open)e.showModal();e.querySelector('input').focus();}
+  function resumed(){blocked=false;const e=document.getElementById('sessionSafetyNotice');if(e)e.remove();const d=document.getElementById('sessionSafetyDialog');if(d&&d.open)d.close();const pending=pendingSave;pendingSave=null;if(pending&&pending.config===cfg&&cfg.scenario_name===pending.name)engMenuSave(pending.name);else{appStatus('ok','Session restored. Your inputs remain in place.');refresh();}}
+  async function login(event){event.preventDefault();const input=document.getElementById('sessionSafetyPassword'),err=document.getElementById('sessionSafetyError'),password=input.value;input.value='';try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:window.AUTHED,password,expected_user:window.AUTHED})});const j=await r.json();if(!r.ok){err.textContent=j.detail||'Sign-in failed.';return;}if(j.user!==window.AUTHED){err.textContent='Use the original account.';return;}activeAt=Date.now();resumed();}catch(_){err.textContent='Could not reach the server. Your inputs are still here.';}}
+  async function check(){if(!window.AUTHED||document.hidden||checking)return;checking=true;try{const r=await fetch(Date.now()-activeAt<120000?'/api/auth/renew':'/api/auth/whoami',{method:Date.now()-activeAt<120000?'POST':'GET',cache:'no-store',signal:AbortSignal.timeout(15000)});if(r.status===401){expired();return;}if(r.ok){const j=await r.json();if(j.user!==window.AUTHED){expired();return;}if(blocked)resumed();else{const e=document.getElementById('sessionSafetyNotice');if(e&&!storageFailed)e.remove();}}}catch(_){checkpoint();notice().innerHTML='Connection interrupted. Server saving has not been confirmed. <button onclick="sessionSafety.backup()">Download backup</button>'; }finally{checking=false;}}
+  function saveFailed(name){pendingSave={name,config:cfg};expired();signIn();}
+  function offer(){
+    if(!window.AUTHED)return;let rows=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(prefix())){const d=JSON.parse(localStorage.getItem(k));if(d&&d.user===window.AUTHED&&d.config)rows.push({key:k,...d});}}}catch(_){return;}
+    rows.sort((a,b)=>b.at-a.at);if(!rows.length)return;const d=rows[0],e=panel();
+    e.innerHTML='<b>Unsaved browser recovery copy</b><p id="sessionSafetyRecoveryLabel"></p><p>Restore this copy into the editor? It will not overwrite a saved engagement until you save.</p><button id="sessionSafetyRestore">Restore copy</button> <button id="sessionSafetyDismiss">Not now</button>';
+    e.querySelector('#sessionSafetyRecoveryLabel').textContent=(d.config.scenario_name||d.config.proposed_bank||'Engagement')+' · '+new Date(d.at).toLocaleString();
+    e.querySelector('#sessionSafetyRestore').onclick=()=>{if(!confirmDiscardUnsaved('Restoring browser recovery'))return;cfg=JSON.parse(JSON.stringify(d.config));recoverySource={key:d.key,raw:localStorage.getItem(d.key),config:cfg};_resetTransientAuthoringUi(cfg);lastRes=null;lastErrs=null;lastRunFailure=null;freezeOriginal('browser recovery');LC.land('created',cfg.scenario_name||'Recovered engagement');_pristineJSON=null;window._openSlug=null;syncNameChrome();renderGlobals();setTab('config');refresh();checkpoint();e.close();appStatus('ok','Browser copy restored. Save it to confirm server persistence.');};
+    e.querySelector('#sessionSafetyDismiss').onclick=()=>e.close();if(!e.open)e.showModal();
+  }
+  const originalFetch=window.fetch;
+  window.fetch=async function(url,options){if(window.AUTHED&&String(url).includes('/api/v31/engagement/save-current')&&options&&options.body){try{const b=JSON.parse(options.body);b.expected_user=window.AUTHED;options={...options,body:JSON.stringify(b)};}catch(_){}}const r=await originalFetch.call(this,url,options);const path=String(typeof url==='string'?url:url.url||'');if(r.status===401&&/\/api\//.test(path)&&!path.includes('/api/auth/'))expired();return r;};
+  for(const ev of ['input','change','pointerdown','keydown'])document.addEventListener(ev,()=>{activeAt=Date.now();schedule();},true);
+  document.addEventListener('visibilitychange',()=>{checkpoint();if(!document.hidden)check();});window.addEventListener('focus',check);
+  window.addEventListener('beforeunload',e=>{if(real()&&!isPristine()){checkpoint();e.preventDefault();e.returnValue='';}});
+  setInterval(check,60000);
+  return {checkpoint,schedule,saved,expired,signIn,login,backup,check,saveFailed,offer};
+})();
+window.sessionSafety=sessionSafety;
+
 renderTabs();
-whoami().then(u=>{ paintWho(); if(u){ boot(); } else { currentTab = "welcome"; renderContent(); } });
+whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });
 </script>
 </body>
 </html>
