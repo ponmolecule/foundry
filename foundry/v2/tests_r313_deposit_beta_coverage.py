@@ -88,7 +88,7 @@ def main():
     # --- console ---
     html = Path("web/console_v2.html").read_text(encoding="utf-8")
     ck("beta, floor and cap sit under Pricing", "interest_balance_measure|deposit_beta|deposit_rate_floor|deposit_rate_cap/]" in html
-       and 'class="cu" data-deposit-group="pricing">Rate = index × beta' in html)
+       and '_depositPricingOrder' in html and 'rate = index × beta + spread' in html)
     ck("unsaved-changes list formats them as rates", '"index_spread","deposit_beta","deposit_rate_floor","deposit_rate_cap",' in html)
     ck("Bank Design Lab offers beta as a lever", "`${nm}: index beta`" in html)
     ck("the unsaved-changes Download keeps the whole engagement", 'if(V31 && typeof downloadFIW==="function") return downloadFIW();' in html)

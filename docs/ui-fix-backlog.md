@@ -1,10 +1,16 @@
 # UI fix backlog
 
-## Deposit pricing arrangement — deferred to next build
+## Deposit pricing arrangement — implemented r381, pending deployment
 
 Reported 2026-10-22; screenshot image(20261022-232454).png, deployed r380. The floating-rate editor interleaves interest-balance measurement with index/spread/beta inputs, leaves floor/cap and retained-balance fees in disconnected positions, and repeats the rate equation already shown in the left rail.
 
 For the next build, arrange controls in coherent compact groups: rate type and reference index; index beta and spread; optional floor/cap; interest balance measure; retained-balance fees. Align labels, widths and spacing across fixed/floating states and narrower viewports, avoiding gaps introduced by document-order placement. Keep the existing Pricing section, live results, collapse/expand behavior and saved inputs. Remove redundant explanatory text where the equation rail already communicates it. Presentation only: preserve rate computation, defaults, units and persisted configuration. User explicitly deferred implementation until the next build; do not interrupt current data entry with a standalone release.
+
+Status: implemented in r381 alongside the monetary minimum feature after explicit build authorization. Controls follow the ordered groups and aligned grid; the repeated explanation is removed. Existing pricing assumptions are preserved. The new monetary minimum is opt-in.
+
+## Expense-accrual dropdown width — implemented r381, pending deployment
+
+Reported 2026-10-22; screenshot image(20261022-230635).png. The accrual dropdown spanned the full formula card and its help text sat outside the padded authoring area. The control is now limited to 320px, aligned to the form inset, with adjacent help that wraps below on smaller layouts. Calculation and saved configuration are unchanged. Browser containment checks cover 1440/1024/768 widths.
 
 ## Entered interest income units — implemented r376, pending deployment
 

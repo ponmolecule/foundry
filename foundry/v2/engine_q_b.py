@@ -173,6 +173,14 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     for p in dep + obs + afs_p + htm_p:
         project(p, False)
 
+    from .deposit_pricing import minimum_interest_path, apply_minimum
+    for p in dep:
+        minimum = minimum_interest_path(p, Q, 4, _growth_ctx)
+        if minimum is not None:
+            p['_minimum_interest'] = minimum
+            p['_interest_before_minimum'] = [p['_avg'][i] * _deposit_rate(p, i+1, _rate) / 4.0 for i in range(Q)]
+            p['_interest_expense'] = [apply_minimum(v, minimum, i) for i, v in enumerate(p['_interest_before_minimum'])]
+
     gl0 = sum(p["_beg"][0] for p in lend)
     alll = gl0 * floor_pct
     _po = cfg.get("pre_opening") or {}
@@ -227,7 +235,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
         int_sec_prod = sum(p["_avg"][qi] * (p.get("yield_ann") or 0.0) / 4.0 for p in afs_p + htm_p)
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
         int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
-        int_dep = sum(p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
+        int_dep = sum(p['_interest_expense'][qi] if '_minimum_interest' in p else p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
         int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
@@ -471,6 +479,12 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
                 "gos": [0.0] * Q, "servNet": [0.0] * Q,
                 "ftp_rate": [ftp] * Q,
             })
+            if fam == 'deposit' and '_minimum_interest' in p:
+                products[-1].update(intExp=list(p['_interest_expense']),
+                    interest=[-v for v in p['_interest_expense']],
+                    interestBeforeMinimum=list(p['_interest_before_minimum']),
+                    minimumInterestExpense=list(p['_minimum_interest']),
+                    minimumInterestTopUp=[v-b for v,b in zip(p['_interest_expense'],p['_interest_before_minimum'])])
     if _ol_prepared is None:
         out_bs.pop("otherLiab", None)
     _out = {"products": products, "bs": out_bs, "is": out_is, "ratios": out_ratios, "tax_interim": _tax_ledger.audit()}

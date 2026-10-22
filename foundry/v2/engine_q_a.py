@@ -623,6 +623,12 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     _deposit_feature = bool(a.get("deposit_retention_pools")) or any(p.get("balance_mode", "rollforward") != "rollforward" for p in dep)
     _deposit_direct, _deposit_pools = {}, []
     _deposit_customer_details = {}
+    from .deposit_pricing import minimum_interest_path, apply_minimum
+    for _dp in dep:
+        _minimum = minimum_interest_path(_dp, Q, ppy, _growth_ctx)
+        if _minimum is not None:
+            _dp['_minimum_interest'] = _minimum
+            _dp['_interest_before_minimum'] = []
     _deposit_prepared = False
     from .fee_links import has_links, FeeLinkPlan
     _fee_links = FeeLinkPlan(a) if has_links(a) else None
@@ -710,7 +716,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             r = (_deposit_rate(p, q, rate) if p in dep else _prod_rate(p, q, rate)) if "rate_type" in p else 0.0
             p["_bal"].append(end); p["_avg"].append(avg)
             p["_ii"].append(0.0)
-            p["_ie"].append(_interest_basis * r / ppyf if p in dep else 0.0)
+            _calculated_interest = _interest_basis * r / ppyf if p in dep else 0.0
+            p["_ie"].append(apply_minimum(_calculated_interest, p.get('_minimum_interest'), q-1))
+            if '_minimum_interest' in p:
+                p['_interest_before_minimum'].append(_calculated_interest)
             _pf_inc, _pf_cost = _project_fee_streams(p, q, {"own_balance": avg,
                                                             "distributed_balance": 0.0,
                                                             "managed_notional": _mn_avg[q - 1],
@@ -1360,7 +1369,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                 _dp["_avg"][q] = _avg
                 _measure = _dp.get("interest_balance_measure", "period_average")
                 _basis = _retained if _measure == "period_end" else _beg if _measure == "period_begin" else _avg
-                _dp["_ie"][q] = _basis * _deposit_rate(_dp, q, rate) / ppyf
+                _calculated_interest = _basis * _deposit_rate(_dp, q, rate) / ppyf
+                _dp["_ie"][q] = apply_minimum(_calculated_interest, _dp.get('_minimum_interest'), q-1)
+                if '_minimum_interest' in _dp:
+                    _dp['_interest_before_minimum'][q-1] = _calculated_interest
                 _inc, _cost = product_fee_streams_q(_dp, q, {"own_balance": _avg,
                     "distributed_balance": _swept, "managed_notional": _dp["_mn_avg"][q - 1],
                     "managed_notional_end": _dp["_mn_end"][q - 1],
@@ -1876,6 +1888,10 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     _pr["retentionPoolId"] = p["retention_pool_id"]
                     _pr["sweptBalance"] = p["_swept"]
                     _pr["sweepFee"] = p["_sweep_fee"]
+            if fam == 'deposit' and '_minimum_interest' in p:
+                _pr['interestBeforeMinimum'] = list(p['_interest_before_minimum'])
+                _pr['minimumInterestExpense'] = list(p['_minimum_interest'])
+                _pr['minimumInterestTopUp'] = [p['_ie'][q] - p['_interest_before_minimum'][q-1] for q in range(1, Q+1)]
             # Promote the off-book stock from a private calculation helper to an auditable,
             # native-cadence model output.  Only products that actually carry/supply managed
             # notional receive these keys, preserving the historical output shape elsewhere.

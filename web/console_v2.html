@@ -412,6 +412,7 @@ table.dtab tr:hover td{background:rgba(162,120,46,.04)}
 .wf-capacity-editor .sec-managed-series{margin-top:10px}
 .wf-capacity-editor .wf-field select{width:100%;box-sizing:border-box}
 .wf-field{min-width:0}
+.deposit-minimum{border-top:1px solid var(--line,#e3e1db);padding-top:10px}.deposit-minimum>summary{font-size:11px;cursor:pointer}.deposit-minimum-body{display:flex;align-items:flex-end;flex-wrap:wrap;gap:10px 16px;padding:12px 0}.deposit-minimum-body>.sec-managed-series{max-width:100%}.deposit-minimum-period{display:flex;flex-direction:column;gap:5px;font-size:11px;flex:0 1 130px}.deposit-minimum-period select{width:100%;box-sizing:border-box}.deposit-minimum-body>.fhint{flex:1 0 100%;margin:0}
 .fx-accrual{display:flex;align-items:flex-end;gap:8px 16px;flex-wrap:wrap;padding:14px 18px 0}
 .fx-accrual>.wf-field{flex:0 1 320px;max-width:100%;min-width:0}
 .fx-accrual>.wf-field>span{display:block;margin-bottom:5px;font-size:11px;color:var(--t2)}
@@ -6707,6 +6708,17 @@ function _explicitSchedulePreviewHtml(schedule,scale,cadence,fmt){
 }
 
 const _depositPoolOpen = new Set();
+const _depositMinimumOpen = new WeakMap();
+function depositMinimumEnable(i){const p=cfg.assumptions.deposit_products[i];p.minimum_interest_expense={period:'month',amount_spec:{source:'entered',trajectory:'flat',value:0}};_depositMinimumOpen.set(p,true);renderContent();refresh();}
+function depositMinimumRemove(i){const p=cfg.assumptions.deposit_products[i];delete p.minimum_interest_expense;_depositMinimumOpen.delete(p);renderContent();refresh();}
+function depositMinimumHtml(p,base){
+ const i=+base.split('.').pop(),m=p.minimum_interest_expense,path=base+'.minimum_interest_expense';
+ if(!m)return `<div class="fld wide" data-deposit-group="pricing"><button type="button" class="pillbtn" onclick="depositMinimumEnable(${i})">+ Minimum interest expense</button></div>`;
+ const open=_depositMinimumOpen.has(p)?_depositMinimumOpen.get(p):false;
+ return `<details class="fld wide deposit-minimum" data-deposit-group="pricing"${open?' open':''} ontoggle="_depositMinimumOpen.set(cfg.assumptions.deposit_products[${i}],this.open)"><summary>Minimum interest expense · ${esc(_depositSpecSummary(m.amount_spec,false))} / ${esc(m.period)}</summary><div class="deposit-minimum-body">${_faSeriesEditor(path+'.amount_spec',m.amount_spec,'Minimum interest expense ($000s)','money',false)}<label class="deposit-minimum-period">Amount is per<select aria-label="Minimum interest expense amount period" onchange="setPath('${path}.period',this.value);refresh()">${[['month','Month'],['quarter','Quarter'],['year','Year']].map(([v,l])=>`<option value="${v}"${m.period===v?' selected':''}>${l}</option>`).join('')}</select></label><p class="fhint">The greater of calculated interest and the monetary minimum posts each model period, including periods with zero balance. Amount period converts the minimum; rate floors and caps apply separately to the annual rate.</p><button type="button" class="btn-plain" onclick="depositMinimumRemove(${i})">Remove minimum</button></div></details>`;
+}
+function _depositPricingOrder(el){const t=el.outerHTML||'';if(/depositMinimum|minimum_interest_expense/.test(t))return 7;return [/\.rate_type/,/\.index['"]/,/\.deposit_beta/,/\.index_spread/,/\.deposit_rate_floor/,/\.deposit_rate_cap/,/\.interest_balance_measure/,/NEVER_MATCH/,/\.fee_yield_ann/].findIndex(re=>re.test(t));}
+
 const _depositDisclosureOpen = new Set();
 function _depositDisclosureAttrs(key){const k=esc(key);return `${_depositDisclosureOpen.has(key)?' open':''} ontoggle="if(this.open)_depositDisclosureOpen.add('${k}');else _depositDisclosureOpen.delete('${k}')"`;}
 // Deposit balance operands reuse Foundry's existing schedule editor and stable IDs.
@@ -7121,8 +7133,9 @@ function fieldsFor(fam, p, base){
         const val=p[key]==null?'':_numInput(p[key]*100,12);
         h += `<div class="fld"><label>${label}</label><input type="text" inputmode="decimal" style="width:100px;max-width:100%" value="${val}" placeholder="${placeholder}" onchange="setPath('${base}.${key}',this.value.trim()===''?null:_pf(this.value)/100)"></div>`;
       }
-      h += '<div class="cu" data-deposit-group="pricing">Rate = index × beta + spread, bounded by any floor/cap.</div>';   // r313: shown with Pricing, not under every sub-tab
+
     }
+    h += depositMinimumHtml(p,base);
     h += F("Retained-balance fees (annual % of avg bal)", base+".fee_yield_ann", "pct");
     h += F("Op cost (annual % of avg bal)", base+".opex_pct_ann", "pct");
     h += F(`Op cost fixed ($000s/${PLAB()})`, base+".opex_fixed_per_period", "kq");
@@ -7973,7 +7986,7 @@ function _lfgRail(fam,p,g){
              other:['Settings that apply to this product type only.',null]},
     deposit:{balance:[dm==='pool'?'This category draws its share of a retention and sweep pool.':dm==='linked_customer_level'?'The balance follows the linked customer count times dollars per customer.':dm==='level'?'The balance follows an entered, linked or derived level.':'Opening balance grown by growth and new deposits, less runoff.',
                dm==='pool'?['balance = pool × share']:dm==='linked_customer_level'?['balance = customer count','~× dollars per customer']:dm==='level'?['balance = entered level']:['bal(t) = bal(t−1) × (1 + g)','~+ new − runoff']],
-             pricing:['The rate paid on the balance, and any fees charged on it.',fl?['rate = index × beta + spread','~within floor and cap']:['rate = rate paid']],
+             pricing:['The rate paid on the balance, and any fees charged on it.',[...(fl?['rate = index × beta + spread','~within floor and cap']:['rate = rate paid']),...(p.minimum_interest_expense?['interest = greater of','~calculated or minimum']:[])]],
              timing:['Average maturity sets how quickly the book reprices.',null],
              costs:['The direct cost of servicing the deposits.',['cost = avg bal × rate','~+ fixed per '+per]],
              other:['Settings that apply to this product type only.',null]},
@@ -8085,6 +8098,7 @@ function lfgDecorate(card){
   let no=0;
   (_LFG_SECS[fam]||[]).forEach(([g,title])=>{
     const list=groups[g];if(!list||!list.length)return;no++;
+    if(fam==='deposit'&&g==='pricing')list.sort((a,b)=>{const rank=x=>{const v=_depositPricingOrder(x);return v<0?99:v;};return rank(a)-rank(b);});
     const key=fam+':'+i+':'+g,open=key in window._lfgOpen?window._lfgOpen[key]:g!=='other';
     const s=document.createElement('section');s.className='lfx-s'+(open?'':' c');s.setAttribute('data-lfg-key',key);s.setAttribute('data-lfx',g);
     const sum=_lfgSummary(fam,p,g);
@@ -8093,7 +8107,7 @@ function lfgDecorate(card){
     const b=document.createElement('div');b.className='lfx-b'+(ro?' has-ro':'');b.hidden=!open;
     b.innerHTML=`<div class="lfx-rail">${_lfgRail(fam,p,g)}</div><div class="lfx-body"><div class="lfx-grid"></div></div>${ro?`<aside class="lfx-ro" data-lfg-live="ro" data-fam="${fam}" data-i="${i}" data-g="${g}" aria-label="Engine results">${_lfgRoHtml(fam,i,g)}</aside>`:''}`;
     const grid=b.querySelector('.lfx-grid');
-    list.forEach(el=>{_lfgField(el);if(el.classList.contains('cu')||el.classList.contains('fhint')||(el.classList.contains('lfx-legacy')&&!el.querySelector('input,select,textarea,button')&&el.textContent.trim().length<260&&!el.querySelector('table'))){el.classList.add('lfx-note-blk');}grid.appendChild(el);});
+    list.forEach(el=>{_lfgField(el);if(fam==='deposit'&&g==='pricing'&&el.classList.contains('lfx-f')&&!el.classList.contains('lfx-legacy')){el.querySelectorAll('.lfx-seg button').forEach(b=>{b.textContent=b.textContent.replace(/^Floating.*$/,'Floating').replace(/^EFFR.*$/,'EFFR');});el.classList.remove('s4');el.classList.add('s2');if(/\.interest_balance_measure/.test(el.outerHTML)){el.classList.remove('s2');el.classList.add('s4');}}if(el.classList.contains('cu')||el.classList.contains('fhint')||(el.classList.contains('lfx-legacy')&&!el.querySelector('input,select,textarea,button')&&el.textContent.trim().length<260&&!el.querySelector('table'))){el.classList.add('lfx-note-blk');}grid.appendChild(el);});
     { const fl=[...grid.children].filter(x=>x.classList.contains('lfx-f')&&!x.classList.contains('lfx-legacy')&&!x.classList.contains('lfx-note-blk')),lg=[...grid.children].filter(x=>x.classList.contains('lfx-legacy')&&!x.classList.contains('lfx-note-blk'));
       const span=fl.reduce((a,x)=>a+(x.classList.contains('s4')?4:x.classList.contains('s3')?3:x.classList.contains('s2')?2:1),0);
       if(ro&&fl.length&&span<=4&&!lg.length)b.classList.add('compact'); }   // r354: a section whose inputs fit on one row shrinks to that row

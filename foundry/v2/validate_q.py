@@ -752,6 +752,13 @@ def validate_config_v2(cfg):
             errs.append("Deposit balance / retention: " + str(e))
     for p in dep:
         ctx = f"deposit '{p.get('name', '<?>')}': "
+        if p.get('minimum_interest_expense') is not None:
+            try:
+                from .deposit_pricing import minimum_interest_path
+                from .growth import growth_context_from_cfg
+                minimum_interest_path(p, int(a.get('n_periods') or 12), int(a.get('periods_per_year') or 4), growth_context_from_cfg(cfg, int(a.get('periods_per_year') or 4)))
+            except (ValueError, TypeError, KeyError) as e:
+                errs.append(ctx + str(e))
         for k in DEP_REQUIRED:
             if k not in p:
                 errs.append(ctx + f"missing required field '{k}'")

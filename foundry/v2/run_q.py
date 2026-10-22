@@ -569,6 +569,7 @@ def run_v2(cfg):
         "deferredFees", "deferredAmortization", "deferredPrepaymentCatchup", "deferredNetBalance",
         "loanCarryingAmount", "allowanceTarget", "provision",
         "interestBasis", "linkedBalanceTarget", "repayments", "principalTransfersOut", "interest", "avg",
+        "interestBeforeMinimum", "minimumInterestExpense", "minimumInterestTopUp",
     )
     _exact_products = (base_exact or {}).get("products") or []
     _public_products = base.get("products") or []
