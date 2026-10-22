@@ -183,6 +183,8 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             tid = str(term.get("term_id") or "").strip()
             term_ids.append(tid)
             ns = normalize_series_spec(term.get("driver_spec"), default_value=0.0)
+            if term.get('include_category_ids') is not None and (ns.get('link') or {}).get('kind') != 'operating_expense_flow':
+                raise ValueError('Included expense categories require a recognized expense-flow source')
             if term.get('days_spec') is not None and (ns.get('link') or {}).get('kind') != 'operating_expense_flow':
                 raise ValueError('Days payable requires a recognized expense flow')
             if ns.get("source") == "entered":
@@ -235,7 +237,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             selected = None
             if kind == 'operating_expense_flow':
                 from .expense_sources import selection
-                selected = selection(a, sid, term.get('exclude_category_ids') or [])
+                selected = selection(a, sid, term.get('exclude_category_ids') or [], term.get('include_category_ids'))
             if kind == 'operating_expense_flow' and any(not math.isfinite(v) for v in mult):
                 raise ValueError('Expense-linked liability multiplier must be finite')
             authored_mult = list(mult)
@@ -249,6 +251,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
                 "year_days": term.get('year_days',360) if days is not None else None,
                 "authored_multiplier": authored_mult,
                 "exclude_category_ids": term.get('exclude_category_ids') or [],
+                "include_category_ids": term.get('include_category_ids'),
                 "term_id": tid,
                 "driver_kind": kind,
                 "series_id": sid,
@@ -378,7 +381,7 @@ def other_liability_audit_payload(prepared: Mapping[str, Any] | None, total,
                 "amount": [float(x.get("amount") or 0.0) for x in tr],
             })
             if t.get('driver_kind') == 'operating_expense_flow':
-                row['terms'][-1].update(days=t.get('days'), year_days=t.get('year_days'), authored_multiplier=t.get('authored_multiplier'), exclude_category_ids=t.get('exclude_category_ids'))
+                row['terms'][-1].update(days=t.get('days'), year_days=t.get('year_days'), authored_multiplier=t.get('authored_multiplier'), exclude_category_ids=t.get('exclude_category_ids'), include_category_ids=t.get('include_category_ids'))
 
         if c.get("driver_kind") is not None and len(row["terms"]) == 1:  # r127 projection
             rt = row["terms"][0]

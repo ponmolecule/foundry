@@ -14,16 +14,25 @@ def categories(a):
 
 
 def catalog(a):
-    out = [dict(series_id=TOTAL, label='Operating expense categories · total')]
+    out = [dict(series_id=TOTAL, label='Operating expense categories · selected')]
     for c in categories(a):
         if c.get('series_id'):
             out.append(dict(series_id=str(c['series_id']), label='Operating expense · '+str(c.get('name') or 'Unnamed category')))
     return out
 
 
-def selection(a, sid, exclusions):
+def selection(a, sid, exclusions, inclusions=None):
     if not isinstance(exclusions, list) or any(not isinstance(x,str) for x in exclusions):
         raise ValueError('Expense exclusions must be a list of category Series IDs')
+    if inclusions is not None:
+        if not isinstance(inclusions,list) or any(not isinstance(x,str) or not x for x in inclusions):
+            raise ValueError('Included expense categories must be a list of stable category Series IDs')
+        if len(inclusions) != len(set(inclusions)):
+            raise ValueError('Included expense categories must be unique')
+        if exclusions:
+            raise ValueError('Use included expense categories without a second exclusion list')
+        if sid != TOTAL:
+            raise ValueError('Category selection applies only to the aggregate expense source')
     cs = categories(a)
     ids = [str(c['series_id']) for c in cs if c.get('series_id')]
     if len(ids) != len(set(ids)):
@@ -32,9 +41,11 @@ def selection(a, sid, exclusions):
         raise ValueError('Excluded expense category no longer exists')
     if sid != TOTAL and (sid not in ids or exclusions):
         raise ValueError('Select an existing expense category; exclusions apply only to the total')
-    chosen = [i for i,c in enumerate(cs) if (sid == TOTAL or c.get('series_id') == sid) and c.get('series_id') not in exclusions]
+    if inclusions is not None and any(x not in ids for x in inclusions):
+        raise ValueError('Included expense category no longer exists; review the payable base selection')
+    chosen = [i for i,c in enumerate(cs) if (c.get('series_id') in inclusions if inclusions is not None else (sid == TOTAL or c.get('series_id') == sid) and c.get('series_id') not in exclusions)]
     if not chosen:
-        raise ValueError('Expense-linked liability requires at least one eligible category')
+        raise ValueError('Select at least one included expense category for this liability')
     for i in chosen:
         # A stock link adds a payable separately. Do not post a second accrued balance
         # for the same category through independent deferred cash settlement.

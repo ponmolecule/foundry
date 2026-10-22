@@ -528,6 +528,8 @@ def _other_liabilities_level_sheet(ws, model):
             if t.get('days_spec') is not None:
                 series_rows(tr + '.days_spec', tsec, 'Days payable', t['days_spec'], 'days')
                 row(tr + '.year_days', tsec, 'Days per year', t.get('year_days',360), 'days / year')
+            for ii, sid in enumerate(t.get('include_category_ids') or []):
+                row(tr + f'.include_category_ids.{ii}', tsec, 'Included expense category', sid, 'stable Series ID', True)
             for ei, sid in enumerate(t.get('exclude_category_ids') or []):
                 row(tr + f'.exclude_category_ids.{ei}', tsec, 'Excluded expense category', sid, 'stable Series ID', True)
             units = "$/FTE" if link.get("kind") == "workforce_role_count" else "dimensionless multiple"

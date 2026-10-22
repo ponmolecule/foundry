@@ -1441,18 +1441,18 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 #card-cac .cac-channel-card:before{display:none}
 #card-cac .cac-channel-card{margin-left:0;background:transparent;border:0}
 #card-cac .cac-channel-opening-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:10px 0}
-.ol-exclusions{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;min-width:0;width:100%}
-.ol-exclusion-trigger{display:inline-flex!important;align-items:center;justify-content:space-between;gap:18px;min-width:155px;white-space:nowrap}
-.ol-exclusion-selected{display:flex;flex-wrap:wrap;gap:5px;min-width:0;max-width:100%}
-.ol-exclusion-selected:empty{display:none}
-.ol-exclusion-chip{display:inline-block;max-width:min(320px,100%);padding:3px 7px;background:#F1EFE9;border-radius:4px;font-size:11.5px;color:#59564F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
-.ol-exclusion-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 24px);padding:7px;border:1px solid #CCC7BE;border-radius:6px;background:#FFF;color:#34322D;box-shadow:0 8px 24px #0002;overflow:auto;font:12px/1.45 Inter,sans-serif}
-.ol-exclusion-menu::backdrop{background:transparent}
-.ol-exclusion-menu-title{font-size:11px;color:#716C62;padding:5px 8px 7px;border-bottom:1px solid #E9E5DD;margin-bottom:4px}
-.ol-exclusion-menu label{display:flex!important;align-items:flex-start;gap:8px;padding:7px 8px;cursor:pointer;border-radius:3px;white-space:normal}
-.ol-exclusion-menu label:hover{background:#F5F3EE}
-.ol-exclusion-menu input[type=checkbox]{appearance:auto!important;width:13px!important;min-width:13px!important;height:13px!important;padding:0!important;margin:2px 0 0!important;flex:none;accent-color:#B9904B}
-.ol-exclusion-menu label span{overflow-wrap:anywhere;min-width:0}
+.ol-inclusions{display:flex;flex-wrap:wrap;gap:6px 10px;align-items:center;min-width:0;width:100%}
+.ol-inclusion-trigger{display:inline-flex!important;align-items:center;justify-content:space-between;gap:18px;min-width:155px;white-space:nowrap}
+.ol-inclusion-selected{display:flex;flex-wrap:wrap;gap:5px;min-width:0;max-width:100%}
+.ol-inclusion-selected:empty{display:none}
+.ol-inclusion-chip{display:inline-block;max-width:min(320px,100%);padding:3px 7px;background:#F1EFE9;border-radius:4px;font-size:11.5px;color:#59564F;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;box-sizing:border-box}
+.ol-inclusion-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 24px);padding:7px;border:1px solid #CCC7BE;border-radius:6px;background:#FFF;color:#34322D;box-shadow:0 8px 24px #0002;overflow:auto;font:12px/1.45 Inter,sans-serif}
+.ol-inclusion-menu::backdrop{background:transparent}
+.ol-inclusion-menu-title{font-size:11px;color:#716C62;padding:5px 8px 7px;border-bottom:1px solid #E9E5DD;margin-bottom:4px}
+.ol-inclusion-menu label{display:flex!important;align-items:flex-start;gap:8px;padding:7px 8px;cursor:pointer;border-radius:3px;white-space:normal}
+.ol-inclusion-menu label:hover{background:#F5F3EE}
+.ol-inclusion-menu input[type=checkbox]{appearance:auto!important;width:13px!important;min-width:13px!important;height:13px!important;padding:0!important;margin:2px 0 0!important;flex:none;accent-color:#B9904B}
+.ol-inclusion-menu label span{overflow-wrap:anywhere;min-width:0}
 @media(max-width:900px){#card-cac .cac-feed-head{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}#card-cac .cac-feed-head .wf-field:first-child{grid-column:1/-1}#card-cac .cac-feed-head>.cx{grid-column:2;justify-self:end}#card-cac .cac-attr-box input,#card-cac .cac-attr-box select{max-width:100%}}
 
 </style>
@@ -9856,7 +9856,7 @@ function _olComponentCardFk(c,i){
    const base=`assumptions.other_liabilities_model.components.${i}.terms.${j}.`;
    r+=_fkRow('Flow to balance',_fkSeg([['multiple','Multiplier'],['days','Days payable']],t.days_spec?'days':'multiple',null,`olDays(${i},${j},'%v'==='days')`));
    if(t.days_spec){r+=_fkSeriesRow('Days payable',base+'days_spec',t.days_spec,'days',false);r+=_fkRow('Days per year',_fkNum(t.year_days==null?360:t.year_days,`setPath('${base}year_days',_pf(this.value));refresh()`,'days',{aria:'Days per year'}));}
-   if(link.series_id==='operating_expense_categories')r+=_fkRow('Exclude categories',_olExclusionsHtml(t,i,j));
+   if(link.series_id==='operating_expense_categories')r+=_fkRow('Include categories',_olInclusionsHtml(t,i,j));
    r+='<p class="cmut" style="font-size:12px;margin:6px 0">Recognized category expenses include additive components; workforce, product costs and depreciation are separate. Selected categories must use Recognition cash settlement to avoid duplicate accruals.</p>';
   }
 
@@ -10063,7 +10063,7 @@ function olSettlementHtml(c,i){const t=c.settlement||{},opts=settlementSourceOpt
 }
 function _olDriverOptions(){
   _ensureLinkableSeriesIds(); const out=[];
-  if(((cfg.assumptions.nie_detail||{}).categories||[]).length)out.push({value:'operating_expense_flow::operating_expense_categories',kind:'operating_expense_flow',series_id:'operating_expense_categories',label:'Operating expense categories · total',unit:'money_flow'});
+  if(((cfg.assumptions.nie_detail||{}).categories||[]).length)out.push({value:'operating_expense_flow::operating_expense_categories',kind:'operating_expense_flow',series_id:'operating_expense_categories',label:'Operating expense categories · selected',unit:'money_flow'});
   (((cfg.assumptions.nie_detail||{}).categories)||[]).forEach(c=>{if(c.series_id)out.push({value:'operating_expense_flow::'+c.series_id,kind:'operating_expense_flow',series_id:c.series_id,label:'Operating expense · '+(c.name||'Unnamed category'),unit:'money_flow'});});
   const wf=(((cfg.assumptions||{}).nie_detail||{}).workforce)||{};
   if(wf.total_count_series_id&&(wf.roles||[]).length)out.push({value:"workforce_role_count::"+String(wf.total_count_series_id),kind:"workforce_role_count",series_id:String(wf.total_count_series_id),label:"Workforce headcount · Total workforce",unit:"count"});
@@ -10086,37 +10086,43 @@ window.olEnable=function(){olSetMode("formula_level");};
 window.olOpening=function(v){const m=_olState(true);m.opening_balance=_pf(v)*1000;refresh();};
 window.olAddComponent=function(){const m=_olState(true);m.components.push({component_id:_seriesId("other-liability"),name:"Liability component",terms:[{term_id:_seriesId("other-liability-term"),driver_spec:{source:"entered",trajectory:"flat",value:0},multiplier_spec:{source:"entered",trajectory:"flat",value:1}}]});window._liabilityUiOpen=window._liabilityUiOpen||{};window._liabilityUiOpen[m.components.length-1]=true;renderContent();refresh();};
 window.olDays=function(i,j,on){const t=_olEnsureTerms(i)[j];if(!t)return;if(on){t.days_spec={source:'entered',trajectory:'flat',value:0};t.year_days=360;}else{delete t.days_spec;delete t.year_days;}renderContent();refresh();};
-function _olExclusionChoices(t){
+function _olIncludedIds(t){
+ if(Array.isArray(t.include_category_ids))return t.include_category_ids;
+ // Compatibility view: display the exact old all-except selection without rewriting it.
+ const excluded=t.exclude_category_ids||[];
+ return ((cfg.assumptions.nie_detail||{}).categories||[]).filter(c=>!excluded.includes(c.series_id)).map(c=>c.series_id);
+}
+function _olInclusionChoices(t){
  const cats=((cfg.assumptions.nie_detail||{}).categories||[]).map(c=>({id:c.series_id,name:c.name||'Unnamed category'}));
- (t.exclude_category_ids||[]).forEach(id=>{if(!cats.some(c=>c.id===id))cats.push({id,name:'Missing category: '+id});});return cats;
+ _olIncludedIds(t).forEach(id=>{if(!cats.some(c=>c.id===id))cats.push({id,name:'Missing category: '+id});});return cats;
 }
-function _olExclusionSelectedHtml(t){
- const choices=_olExclusionChoices(t),ids=t.exclude_category_ids||[];
- return ids.map(id=>{const name=(choices.find(c=>c.id===id)||{}).name||id;return `<span class="ol-exclusion-chip" title="${esc(name)}">${esc(name)}</span>`;}).join('');
+function _olInclusionSelectedHtml(t){
+ const choices=_olInclusionChoices(t),ids=_olIncludedIds(t),names=ids.map(id=>(choices.find(c=>c.id===id)||{}).name||id);
+ let h=names.slice(0,3).map(name=>`<span class="ol-inclusion-chip" title="${esc(name)}">${esc(name)}</span>`).join('');
+ if(names.length>3)h+=`<span class="ol-inclusion-chip" title="${esc(names.slice(3).join('; '))}">+${names.length-3} more</span>`;return h;
 }
-function _olExclusionsHtml(t,i,j){
- const id='ol-exclusions-'+i+'-'+j,n=(t.exclude_category_ids||[]).length;
- return `<div class="ol-exclusions" data-ol-exclusions="${i}.${j}"><button type="button" class="fk-btn ol-exclusion-trigger" popovertarget="${id}" aria-label="Choose excluded expense categories" aria-haspopup="true" onclick="olExclusionPosition(${i},${j},this)"><span>${n?n+' excluded':'Choose categories'}</span><span aria-hidden="true">▾</span></button><div class="ol-exclusion-selected" aria-live="polite">${_olExclusionSelectedHtml(t)}</div><div id="${id}" class="ol-exclusion-menu" popover="auto" role="group" aria-label="Excluded operating expense categories"><div class="ol-exclusion-menu-title">Exclude from the expense base</div>${_olExclusionChoices(t).map(c=>`<label><input type="checkbox" ${(t.exclude_category_ids||[]).includes(c.id)?'checked':''} onchange="olExclude(${i},${j},${esc(JSON.stringify(c.id))},this.checked)"><span>${esc(c.name)}</span></label>`).join('')}</div></div>`;
+function _olInclusionsHtml(t,i,j){
+ const id='ol-inclusions-'+i+'-'+j,ids=_olIncludedIds(t),n=ids.length;
+ return `<div class="ol-inclusions" data-ol-inclusions="${i}.${j}"><button type="button" class="fk-btn ol-inclusion-trigger" popovertarget="${id}" aria-label="Choose included expense categories" aria-haspopup="true" onclick="olInclusionPosition(${i},${j},this)"><span>${n?n+' included':'Choose categories'}</span><span aria-hidden="true">▾</span></button><div class="ol-inclusion-selected" aria-live="polite">${_olInclusionSelectedHtml(t)}</div><div id="${id}" class="ol-inclusion-menu" popover="auto" role="group" aria-label="Included operating expense categories"><div class="ol-inclusion-menu-title">Include in the payable expense base</div>${_olInclusionChoices(t).map(c=>`<label><input type="checkbox" ${ids.includes(c.id)?'checked':''} onchange="olInclude(${i},${j},${esc(JSON.stringify(c.id))},this.checked)"><span>${esc(c.name)}</span></label>`).join('')}</div></div>`;
 }
-window.olExclusionPosition=function(i,j,button){
- const menu=document.getElementById('ol-exclusions-'+i+'-'+j);if(!menu)return;
+window.olInclusionPosition=function(i,j,button){
+ const menu=document.getElementById('ol-inclusions-'+i+'-'+j);if(!menu)return;
  const r=button.getBoundingClientRect(),gap=6,pad=12,w=Math.min(520,innerWidth-pad*2),below=innerHeight-r.bottom-gap-pad,above=r.top-gap-pad;
  menu.style.width=w+'px';menu.style.left=Math.max(pad,Math.min(r.left,innerWidth-w-pad))+'px';
  menu.style.maxHeight=Math.max(100,Math.min(300,Math.max(below,above)))+'px';
  if(below>=Math.min(300,above)){menu.style.top=(r.bottom+gap)+'px';menu.style.bottom='auto';}else{menu.style.top='auto';menu.style.bottom=(innerHeight-r.top+gap)+'px';}
 };
-window.olExclude=function(i,j,id,on){
- const t=_olEnsureTerms(i)[j];if(!t)return;const ids=t.exclude_category_ids||[];t.exclude_category_ids=on?[...new Set([...ids,id])]:ids.filter(x=>x!==id);
- const box=document.querySelector('[data-ol-exclusions="'+i+'.'+j+'"]');if(box){box.querySelector('.ol-exclusion-trigger span').textContent=t.exclude_category_ids.length?t.exclude_category_ids.length+' excluded':'Choose categories';box.querySelector('.ol-exclusion-selected').innerHTML=_olExclusionSelectedHtml(t);}
+window.olInclude=function(i,j,id,on){
+ const t=_olEnsureTerms(i)[j];if(!t)return;const ids=_olIncludedIds(t);t.include_category_ids=on?[...new Set([...ids,id])]:ids.filter(x=>x!==id);delete t.exclude_category_ids;
+ const box=document.querySelector('[data-ol-inclusions="'+i+'.'+j+'"]');if(box){box.querySelector('.ol-inclusion-trigger span').textContent=t.include_category_ids.length?t.include_category_ids.length+' included':'Choose categories';box.querySelector('.ol-inclusion-selected').innerHTML=_olInclusionSelectedHtml(t);}
  refresh();
 };
-
-window.olTermSource=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;delete t.days_spec;delete t.year_days;delete t.exclude_category_ids;if(v==='entered'){t.driver_spec={source:'entered',trajectory:'flat',value:0};t.multiplier_spec={source:'entered',trajectory:'flat',value:1};}else{const o=_olDriverOptions()[0];if(!o){appStatus('err','No compatible linked Series is available.');return;}t.driver_spec={source:'link',link:{kind:o.kind,series_id:o.series_id,aggregation:'end'}};t.multiplier_spec={source:'entered',trajectory:'flat',value:0};}renderContent();refresh();};
+window.olTermSource=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;delete t.days_spec;delete t.year_days;delete t.exclude_category_ids;delete t.include_category_ids;if(v==='entered'){t.driver_spec={source:'entered',trajectory:'flat',value:0};t.multiplier_spec={source:'entered',trajectory:'flat',value:1};}else{const o=_olDriverOptions()[0];if(!o){appStatus('err','No compatible linked Series is available.');return;}t.driver_spec={source:'link',link:{kind:o.kind,series_id:o.series_id,aggregation:'end'}};if(o.kind==='operating_expense_flow'&&o.series_id==='operating_expense_categories')t.include_category_ids=[];t.multiplier_spec={source:'entered',trajectory:'flat',value:o.kind==='operating_expense_flow'?1:0};}renderContent();refresh();};
 window.olRemoveComponent=function(i){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;if(c.kind==='settlement'){const used=x=>x&&typeof x==='object'&&((x.source==='liability_component'&&x.component_id===c.component_id)||Object.values(x).some(used));if(used(cfg.assumptions.balance_components_model)){appStatus('err','This liability supplies a cash allocation. Repoint or remove its consumer before deleting it.');return;}}m.components.splice(i,1);renderContent();refresh();};
 window.olName=function(i,v){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;c.name=v;refresh();};
-window.olAddTerm=function(i){const ts=_olEnsureTerms(i),opts=_olDriverOptions();if(!opts.length){appStatus("err","No compatible linked Series is available.");return;}const o=opts[0];ts.push({term_id:_seriesId("other-liability-term"),driver_spec:{source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}},multiplier_spec:{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0}});renderContent();refresh();};
+window.olAddTerm=function(i){const ts=_olEnsureTerms(i),opts=_olDriverOptions();if(!opts.length){appStatus("err","No compatible linked Series is available.");return;}const o=opts[0];ts.push({term_id:_seriesId("other-liability-term"),...(o.kind==="operating_expense_flow"?{include_category_ids:[]}:{}),driver_spec:{source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}},multiplier_spec:{source:"entered",trajectory:"flat",value:["fixed_asset_level","operating_expense_flow"].includes(o.kind)?1:0}});renderContent();refresh();};
 window.olRemoveTerm=function(i,j){const ts=_olEnsureTerms(i);if(j<0||j>=ts.length)return;ts.splice(j,1);renderContent();refresh();};
-window.olDriver=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;const o=_olDriverOptions().find(x=>x.value===v);if(!o)return;delete t.days_spec;delete t.year_days;delete t.exclude_category_ids;t.driver_spec={source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}};t.multiplier_spec=t.multiplier_spec||{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0};renderContent();refresh();};
+window.olDriver=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;const o=_olDriverOptions().find(x=>x.value===v);if(!o)return;delete t.days_spec;delete t.year_days;delete t.exclude_category_ids;delete t.include_category_ids;t.driver_spec={source:"link",link:{kind:o.kind,series_id:o.series_id,aggregation:"end"}};if(o.kind==='operating_expense_flow'&&o.series_id==='operating_expense_categories')t.include_category_ids=[];t.multiplier_spec=t.multiplier_spec||{source:"entered",trajectory:"flat",value:o.kind==="fixed_asset_level"?1:0};renderContent();refresh();};
 function _oaState(create){const A=cfg.assumptions;let m=A.other_assets_model;if(create&&(!m||typeof m!=="object")){m={opening_balance:+(A.other_assets||0),base_spec:{source:"entered",trajectory:"flat",value:+(A.other_assets||0)},components:[]};A.other_assets_model=m;}if(m){m.components=m.components||[];m.base_spec=m.base_spec||{source:"entered",trajectory:"flat",value:0};if(m.opening_balance==null)m.opening_balance=+(A.other_assets||0);}return m||null;}
 function _oaMode(){const A=cfg.assumptions||{},raw=String(A.other_assets_mode||"").toLowerCase();if(raw==="flat"||raw==="formula_level")return raw;return (A.other_assets_model&&typeof A.other_assets_model==="object")?"formula_level":"flat";}
 window.oaSetMode=function(mode){const A=cfg.assumptions||{};if(mode==="formula_level"){_oaState(true);A.other_assets_mode="formula_level";}else A.other_assets_mode="flat";renderContent();refresh();};
