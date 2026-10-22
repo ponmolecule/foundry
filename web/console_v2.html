@@ -1449,6 +1449,11 @@ td[data-prov],th[data-prov]{box-shadow:inset 0 -1px 0 rgba(78,78,75,.45)}
 .ol-inclusion-menu{position:fixed;inset:auto;margin:0;box-sizing:border-box;max-width:calc(100vw - 24px);padding:7px;border:1px solid #CCC7BE;border-radius:6px;background:#FFF;color:#34322D;box-shadow:0 8px 24px #0002;overflow:auto;font:12px/1.45 Inter,sans-serif}
 .ol-inclusion-menu::backdrop{background:transparent}
 .ol-inclusion-menu-title{font-size:11px;color:#716C62;padding:5px 8px 7px;border-bottom:1px solid #E9E5DD;margin-bottom:4px}
+.ol-inclusion-menu-head{position:sticky;top:-7px;z-index:1;background:#FFF;padding-top:2px;border-bottom:1px solid #E9E5DD;margin-bottom:4px}
+.ol-inclusion-menu-head .ol-inclusion-menu-title{border:0;margin-bottom:0}
+.ol-inclusion-actions{display:flex;gap:10px;padding:0 4px 4px}
+.ol-inclusion-actions button{font:inherit;font-size:12px;color:#805D22;background:none;border:0;border-radius:3px;padding:5px 4px;cursor:pointer}
+.ol-inclusion-actions button:hover{background:#F5F3EE;text-decoration:underline}
 .ol-inclusion-menu label{display:flex!important;align-items:flex-start;gap:8px;padding:7px 8px;cursor:pointer;border-radius:3px;white-space:normal}
 .ol-inclusion-menu label:hover{background:#F5F3EE}
 .ol-inclusion-menu input[type=checkbox]{appearance:auto!important;width:13px!important;min-width:13px!important;height:13px!important;padding:0!important;margin:2px 0 0!important;flex:none;accent-color:#B9904B}
@@ -10103,7 +10108,7 @@ function _olInclusionSelectedHtml(t){
 }
 function _olInclusionsHtml(t,i,j){
  const id='ol-inclusions-'+i+'-'+j,ids=_olIncludedIds(t),n=ids.length;
- return `<div class="ol-inclusions" data-ol-inclusions="${i}.${j}"><button type="button" class="fk-btn ol-inclusion-trigger" popovertarget="${id}" aria-label="Choose included expense categories" aria-haspopup="true" onclick="olInclusionPosition(${i},${j},this)"><span>${n?n+' included':'Choose categories'}</span><span aria-hidden="true">▾</span></button><div class="ol-inclusion-selected" aria-live="polite">${_olInclusionSelectedHtml(t)}</div><div id="${id}" class="ol-inclusion-menu" popover="auto" role="group" aria-label="Included operating expense categories"><div class="ol-inclusion-menu-title">Include in the payable expense base</div>${_olInclusionChoices(t).map(c=>`<label><input type="checkbox" ${ids.includes(c.id)?'checked':''} onchange="olInclude(${i},${j},${esc(JSON.stringify(c.id))},this.checked)"><span>${esc(c.name)}</span></label>`).join('')}</div></div>`;
+ return `<div class="ol-inclusions" data-ol-inclusions="${i}.${j}"><button type="button" class="fk-btn ol-inclusion-trigger" popovertarget="${id}" aria-label="Choose included expense categories" aria-haspopup="true" onclick="olInclusionPosition(${i},${j},this)"><span>${n?n+' included':'Choose categories'}</span><span aria-hidden="true">▾</span></button><div class="ol-inclusion-selected" aria-live="polite">${_olInclusionSelectedHtml(t)}</div><div id="${id}" class="ol-inclusion-menu" popover="auto" role="group" aria-label="Included operating expense categories"><div class="ol-inclusion-menu-head"><div class="ol-inclusion-menu-title">Include in the payable expense base</div><div class="ol-inclusion-actions"><button type="button" onclick="olIncludeAll(${i},${j},true)">Select all</button><button type="button" onclick="olIncludeAll(${i},${j},false)">Deselect all</button></div></div>${_olInclusionChoices(t).map(c=>`<label><input type="checkbox" value="${esc(c.id)}" ${ids.includes(c.id)?'checked':''} onchange="olInclude(${i},${j},${esc(JSON.stringify(c.id))},this.checked)"><span>${esc(c.name)}</span></label>`).join('')}</div></div>`;
 }
 window.olInclusionPosition=function(i,j,button){
  const menu=document.getElementById('ol-inclusions-'+i+'-'+j);if(!menu)return;
@@ -10112,10 +10117,19 @@ window.olInclusionPosition=function(i,j,button){
  menu.style.maxHeight=Math.max(100,Math.min(300,Math.max(below,above)))+'px';
  if(below>=Math.min(300,above)){menu.style.top=(r.bottom+gap)+'px';menu.style.bottom='auto';}else{menu.style.top='auto';menu.style.bottom=(innerHeight-r.top+gap)+'px';}
 };
+function _olRefreshIncludedSelection(t,i,j){
+ const box=document.querySelector('[data-ol-inclusions="'+i+'.'+j+'"]');if(!box)return;
+ const ids=t.include_category_ids||[];box.querySelector('.ol-inclusion-trigger span').textContent=ids.length?ids.length+' included':'Choose categories';box.querySelector('.ol-inclusion-selected').innerHTML=_olInclusionSelectedHtml(t);
+ box.querySelectorAll('.ol-inclusion-menu input[type=checkbox]').forEach(input=>input.checked=ids.includes(input.value));
+}
 window.olInclude=function(i,j,id,on){
  const t=_olEnsureTerms(i)[j];if(!t)return;const ids=_olIncludedIds(t);t.include_category_ids=on?[...new Set([...ids,id])]:ids.filter(x=>x!==id);delete t.exclude_category_ids;
- const box=document.querySelector('[data-ol-inclusions="'+i+'.'+j+'"]');if(box){box.querySelector('.ol-inclusion-trigger span').textContent=t.include_category_ids.length?t.include_category_ids.length+' included':'Choose categories';box.querySelector('.ol-inclusion-selected').innerHTML=_olInclusionSelectedHtml(t);}
- refresh();
+ _olRefreshIncludedSelection(t,i,j);refresh();
+};
+window.olIncludeAll=function(i,j,on){
+ const t=_olEnsureTerms(i)[j];if(!t)return;
+ t.include_category_ids=on?[...new Set(((cfg.assumptions.nie_detail||{}).categories||[]).map(c=>c.series_id).filter(Boolean))]:[];delete t.exclude_category_ids;
+ _olRefreshIncludedSelection(t,i,j);refresh();
 };
 window.olTermSource=function(i,j,v){const ts=_olEnsureTerms(i),t=ts[j];if(!t)return;delete t.days_spec;delete t.year_days;delete t.exclude_category_ids;delete t.include_category_ids;if(v==='entered'){t.driver_spec={source:'entered',trajectory:'flat',value:0};t.multiplier_spec={source:'entered',trajectory:'flat',value:1};}else{const o=_olDriverOptions()[0];if(!o){appStatus('err','No compatible linked Series is available.');return;}t.driver_spec={source:'link',link:{kind:o.kind,series_id:o.series_id,aggregation:'end'}};if(o.kind==='operating_expense_flow'&&o.series_id==='operating_expense_categories')t.include_category_ids=[];t.multiplier_spec={source:'entered',trajectory:'flat',value:o.kind==='operating_expense_flow'?1:0};}renderContent();refresh();};
 window.olRemoveComponent=function(i){const m=_olState(),c=m&&((m.components||[])[i]);if(!c)return;if(c.kind==='settlement'){const used=x=>x&&typeof x==='object'&&((x.source==='liability_component'&&x.component_id===c.component_id)||Object.values(x).some(used));if(used(cfg.assumptions.balance_components_model)){appStatus('err','This liability supplies a cash allocation. Repoint or remove its consumer before deleting it.');return;}}m.components.splice(i,1);renderContent();refresh();};
