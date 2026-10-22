@@ -348,7 +348,10 @@ def _apply_overlays(lend, dep, a, ov, ppy=4):
                 mb["sale_pct_of_orig"] *= (1 - (ov.get("sale_share_retention_shift", 0) or 0))
 
 
-def run_pf_a(cfg):
+def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
+    from .annual_compensation import enabled, run_with_annual_pools
+    if _comp_plan is None and not _comp_probe and enabled(cfg):
+        return run_with_annual_pools(cfg, run_pf_a)
     a = {k: (list(v) if isinstance(v, list) else v) for k, v in cfg["assumptions"].items()}
     # Authoritative projection horizon: read from config (default 12 = the historical quarterly horizon).
     # This local Q shadows the module constant so every Q-reference below honors the chosen horizon; a
@@ -1683,6 +1686,7 @@ def run_pf_a(cfg):
                 _hist_total_rev = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(q)]
                 _wf_metrics = {
                     "periods_per_year": ppy,
+                    "annual_compensation_plan": _comp_plan, "annual_compensation_probe": _comp_probe,
                     "income_statement_flow_history": {
                         "fee_income": _hist_fee,
                         "gain_on_sale": _hist_gos,
@@ -2015,4 +2019,15 @@ def run_pf_a(cfg):
     if _gross_enabled: _out["expense_gross_up"] = {"periods": [_gross_audit[k] for k in sorted(_gross_audit)], "units": "dollars"}
     if any(p.get("_repayment_profile") is not None for p in lend):
         _out["repayment_profiles"] = [{"product": p.get("name"), "product_index": i, "profile": copy.deepcopy(p["_repayment_profile"]), "convention": copy.deepcopy(p["repayment_profile"])} for i,p in enumerate(lend) if p.get("_repayment_profile") is not None]
+    if _comp_probe or _comp_plan is not None:
+        if "_wf_metrics" not in locals():
+            raise ValueError("Full-year compensation requires active Workforce authoring")
+        _role_base = {}
+        for st in (_wf_runtime.rows if _wf_runtime else []):
+            sid = str((st.get("raw") or {}).get("series_id") or "")
+            if not sid: continue
+            if sid in _role_base:
+                raise ValueError("Annual compensation requires unique workforce role Series IDs")
+            _role_base[sid] = [float(st.get("period_expenses", {}).get(q, 0)) / (1 + st["load"]) for q in range(1, Q+1)]
+        _out["_comp_projection_inputs"] = {"income_statement_flow_history": _wf_metrics["income_statement_flow_history"], "role_base_pay": _role_base}
     return _out

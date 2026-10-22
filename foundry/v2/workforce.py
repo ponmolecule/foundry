@@ -330,11 +330,39 @@ def normalize_workforce_additive_component(component: Mapping[str, Any] | None, 
             terms.append(_normalize_piecewise_terms([t])[0])
     timing = _normalize_piecewise_timing(c.get("timing"))
     lag = _normalize_observation_lag(c.get("observation_lag"))
-    timing_interval(timing["mode"], int(ppy))
+    if c.get("allocation") != "model_year_equal":
+        timing_interval(timing["mode"], int(ppy))
     _lag_to_engine_periods(lag, int(ppy))
     if any(t["source"] == "bank_total_assets" for t in terms) and lag["value"] == 0:
         raise ValueError("workforce Total Assets term requires a positive observation lag to avoid circularity")
+    allocation = str(c.get("allocation") or "event")
+    if allocation not in {"event", "model_year_equal"}:
+        raise ValueError("Unknown compensation allocation")
+    load = float(c.get("payroll_load_rate") or 0)
+    import math
+    if not math.isfinite(load) or load < 0:
+        raise ValueError("Compensation pool payroll load must be finite and nonnegative")
+    floor = c.get("salary_floor")
+    if floor is not None:
+        if not isinstance(floor, dict):
+            raise ValueError("Compensation salary floor must be an object")
+        selected = floor.get("role_series_ids") or []
+        rate = float(floor.get("rate") or 0)
+        if not isinstance(selected, list) or not selected or any(not isinstance(x, str) or not x for x in selected) or len(set(selected)) != len(selected):
+            raise ValueError("Select distinct workforce roles for the compensation floor")
+        if not math.isfinite(rate) or rate < 0:
+            raise ValueError("Compensation floor rate must be finite and nonnegative")
+        floor = {"role_series_ids": list(selected), "rate": rate}
+        if allocation != "model_year_equal":
+            raise ValueError("Selected-role salary floors require full-year equal allocation")
+    if allocation == "model_year_equal":
+        upstream = WORKFORCE_INCOME_FLOW_METRICS
+        if any(t["source"] != WORKFORCE_INCOME_FLOW_SOURCE or t.get("metric") not in upstream for t in terms):
+            raise ValueError("Full-year compensation requires an Income Statement flow; stock / balance sources remain available with event observation")
+        if lag["value"] != 0:
+            raise ValueError("Full-year compensation allocation requires zero observation lag")
     return {
+        "allocation": allocation, "salary_floor": floor, "payroll_load_rate": load,
         "driver": drv,
         "component_id": str(c.get("component_id") or "").strip(),
         "name": str(c.get("name") or "Tiered / banded compensation component"),
@@ -379,6 +407,13 @@ def workforce_additive_component_amount(component: Mapping[str, Any], period_ind
     )
     c = component
     i = int(period_index)
+    if c.get("allocation") == "model_year_equal":
+        if metrics.get("annual_compensation_probe"):
+            return 0.0
+        row = (metrics.get("annual_compensation_plan") or {}).get(c["component_id"])
+        if row is None or i >= len(row["amounts"]):
+            raise ValueError("Full-year compensation allocation requires a resolved annual plan")
+        return float(row["amounts"][i])
     ppy = int(metrics.get("periods_per_year") or 12)
     if not _piecewise_event_due(c, i, ppy):
         return 0.0
@@ -391,7 +426,7 @@ def workforce_additive_component_amount(component: Mapping[str, Any], period_ind
         else:
             val = _piecewise_term_value(term, obs, metrics)
         total += float(term.get("weight") if term.get("weight") is not None else 1.0) * float(val or 0.0)
-    return apply_piecewise_schedule(total, c.get("bands"))
+    return apply_piecewise_schedule(total, c.get("bands")) * (1.0 + c.get("payroll_load_rate", 0.0))
 
 
 class WorkforceRuntime:

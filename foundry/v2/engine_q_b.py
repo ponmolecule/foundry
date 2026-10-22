@@ -17,7 +17,12 @@ def _ov(p, field, q, base):
     return float(v) if v is not None else base
 
 
-def run_pf_b(cfg):
+def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
+    from .annual_compensation import enabled, run_with_annual_pools
+    if _comp_plan is None and not _comp_probe and enabled(cfg):
+        if int(cfg["assumptions"].get("periods_per_year") or 4) != 4:
+            raise ValueError("Profile B full-year compensation requires quarterly model cadence")
+        return run_with_annual_pools(cfg, run_pf_b)
     import copy
     a = copy.deepcopy(cfg["assumptions"])
     Q = int(a.get("n_periods") or 12)
@@ -300,6 +305,7 @@ def run_pf_b(cfg):
                 _hist_total = [_hist_nii[_i] + _hist_nonint[_i] for _i in range(qi + 1)]
                 _wf_metrics = {
                     "periods_per_year": 4,
+                    "annual_compensation_plan": _comp_plan, "annual_compensation_probe": _comp_probe,
                     "income_statement_flow_history": {
                         "fee_income": _hist_fee, "gain_on_sale": _hist_zero, "servicing_net": _hist_zero,
                         "noninterest_income": _hist_nonint,
@@ -509,4 +515,15 @@ def run_pf_b(cfg):
         if _fa_mode == "formula_level":
             _out["fixed_assets"]["formula_level"] = dict(_fa.get("formula_level") or {})
     if _gross_enabled: _out["expense_gross_up"] = {"periods": _gross_audit, "units": "dollars"}
+    if _comp_probe or _comp_plan is not None:
+        if "_wf_metrics" not in locals():
+            raise ValueError("Full-year compensation requires active Workforce authoring")
+        _role_base = {}
+        for st in (_wf_count_runtime.rows if _wf_count_runtime else []):
+            sid = str((st.get("raw") or {}).get("series_id") or "")
+            if not sid: continue
+            if sid in _role_base:
+                raise ValueError("Annual compensation requires unique workforce role Series IDs")
+            _role_base[sid] = [float(st.get("period_expenses", {}).get(q, 0)) / (1 + st["load"]) for q in range(1, Q+1)]
+        _out["_comp_projection_inputs"] = {"income_statement_flow_history": _wf_metrics["income_statement_flow_history"], "role_base_pay": _role_base}
     return _out

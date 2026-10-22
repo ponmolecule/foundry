@@ -998,6 +998,20 @@ def _workforce_component_detail_rows(cfg, results, n, ppy, exact=None):
         comp = normalize_workforce_additive_component(raw, ppy)
         name = str(comp.get("name") or f"Component {ci+1}")
         cid = str(comp.get("component_id") or "")
+        if comp.get("allocation") == "model_year_equal":
+            annual = next((x for x in (source.get("workforce") or {}).get("annual_pool_calculations", []) if x.get("component_id") == cid), None)
+            if annual is None:
+                rows.append([name, cid, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, None, "Annual compensation calculation unavailable"])
+                continue
+            for i in range(n):
+                year = annual["years"][i // int(ppy)]
+                for ti, term in enumerate(year["terms"], 1):
+                    rows.append([name, cid, i+1, model_period_end_date(cfg, i+1, ppy), True,
+                                 (i//int(ppy)+1)*int(ppy), None, ti, "income_statement_flow", term["metric"],
+                                 "full_model_year", term["weight"], term["amount"], term["contribution"], year["composite"],
+                                 None, None, None, None, year["per_period"],
+                                 f"Selected base pay={year['selected_base_pay']}; minimum={year['salary_floor']}; band award={year['band_award']}; award={year['award']}; payroll load={year['payroll_load']}. Equal allocation; amounts in dollars."])
+            continue
         for i in range(n):
             metrics = {
                 "periods_per_year": ppy, "income_statement_flow_history": flow_hist,
