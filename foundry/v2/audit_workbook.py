@@ -1100,6 +1100,18 @@ def _product_rows(results, n, exact=None):
     for p in source_products:
         name = str(p.get("name") or "Product")
         fam = str(p.get("family") or "")
+        calc = p.get('depositCustomerCalculation')
+        if calc:
+            counts = calc['monthlyCount']
+            amounts = calc['monthlyDollarsPerCustomer']
+            step = len(counts) // n
+            selected = [counts[(i+1)*step-1] if calc['measure'] == 'period_end' else
+                        sum(counts[i*step:(i+1)*step])/step for i in range(n)]
+            rows.append((f'{fam} · {name}', 'Customer count · '+calc['measure'], calc['seriesId'], 'count', selected, _COUNT_FMT))
+            # Per-unit values retain dollars, unlike monetary balance output.
+            selected_amounts = [amounts[(i+1)*step-1] for i in range(n)]
+            rows.append((f'{fam} · {name}', 'Balance per customer · last monthly observation', 'balance_per_customer', '$ / customer', selected_amounts, _MONEY_FMT))
+            rows.append((f'{fam} · {name}', 'Customer-linked ending balance · monthly products resolved before aggregation', 'customer_balance', '$000s', _money_k_series(calc['endingBalanceDollars']), _MONEY_FMT))
         for key, arr in p.items():
             if not isinstance(arr, list) or not all(x is None or isinstance(x, (int, float)) for x in arr):
                 continue

@@ -622,6 +622,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     from .deposit_balance import prepare as prepare_deposits, allocate_period as allocate_deposit_period
     _deposit_feature = bool(a.get("deposit_retention_pools")) or any(p.get("balance_mode", "rollforward") != "rollforward" for p in dep)
     _deposit_direct, _deposit_pools = {}, []
+    _deposit_customer_details = {}
     _deposit_prepared = False
     from .fee_links import has_links, FeeLinkPlan
     _fee_links = FeeLinkPlan(a) if has_links(a) else None
@@ -646,7 +647,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     for p in (obs + dep if _deposit_feature else dep + obs):
         if _deposit_feature and p in dep and not _deposit_prepared:
             _finish_fee_links()
-            _deposit_direct, _deposit_pools = prepare_deposits(a, Q, ppy, _fee_stream_qty_series, _growth_ctx)
+            _deposit_direct, _deposit_pools = prepare_deposits(a, Q, ppy, _fee_stream_qty_series, _growth_ctx, _deposit_customer_details)
             _deposit_prepared = True
         # managed notional (off-book AUC/AUM) for fee products; empty => zeros (hash-safe)
         # managed_notional: inline on the product, OR sourced from a named CAC feed
@@ -1867,6 +1868,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                     if _key in _rows[0]: _pr[_key] = [row[_key] for row in _rows]
             if fam == "deposit" and p.get("balance_mode", "rollforward") != "rollforward":
                 _pr["balanceMode"] = p["balance_mode"]
+                if p.get('balance_mode') == 'linked_customer_level':
+                    _pr['depositCustomerCalculation'] = _deposit_customer_details[dep.index(p)]
                 _pr["interestBalanceMeasure"] = p.get("interest_balance_measure", "period_average")
                 _pr["interestBasis"] = [p["_bal"][q] if p.get("interest_balance_measure") == "period_end" else p["_bal"][q-1] if p.get("interest_balance_measure") == "period_begin" else p["_avg"][q] for q in range(1, Q+1)]
                 if p.get("balance_mode") == "pool":

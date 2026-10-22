@@ -580,6 +580,8 @@ def run_v2(cfg):
             if 'newLoanCount' in _raw: _pub['newLoanCount'] = list(_raw['newLoanCount'])
         if "lendingAssumptionDetail" in _raw:
             _pub["lendingAssumptionDetail"] = copy.deepcopy(_raw["lendingAssumptionDetail"])
+        if 'depositCustomerCalculation' in _raw:
+            _pub['depositCustomerCalculation'] = copy.deepcopy(_raw['depositCustomerCalculation'])
         _d = {}
         for _key in _detail_money_keys:
             _arr = _raw.get(_key)

@@ -130,7 +130,49 @@ def operand(spec, a, n, ppy, quantities=None, growth_context=None, share=False):
     return _check([v * ppy * days[i] / basis * shares[i] for i, v in enumerate(_check(flow, 'Deposit activity'))], 'Derived deposit balance')
 
 
-def prepare(a, n, ppy, quantities=None, growth_context=None):
+def customer_balance(product, a, n, ppy, growth_context=None):
+    """A monetary stock from the CAC-owned monthly book and dollars per customer.
+
+    Resolve monthly before selecting a period-end stock or averaging monthly
+    exposures. Never multiply a quarterly average count by an averaged amount.
+    """
+    from .cac_feeder import cac_customer_count_catalog, cac_auc_rollforward
+    from .balance_measures import monthly_balance_measure_series
+    d = product.get('balance_driver') or {}
+    if d.get('source', 'customer_acquisition_count') != 'customer_acquisition_count':
+        raise ValueError('Deposit customer balance requires a Customer Acquisition count source')
+    sid = str(d.get('series_id') or '')
+    matches = [x for x in cac_customer_count_catalog(a) if x['series_id'] == sid]
+    if len(matches) != 1:
+        raise ValueError('Deposit customer-count source is missing or unavailable')
+    measure = d.get('measure', 'period_end')
+    if measure not in {'period_end', 'period_average'}:
+        raise ValueError('Deposit customer-count measure must be period_end or period_average')
+    raw = d.get('balance_per_customer_spec')
+    if not isinstance(raw, dict):
+        raise ValueError('Deposit customer balance requires balance per customer')
+    spec = normalize_series_spec(raw)
+    if spec['source'] != 'entered':
+        raise ValueError('Deposit balance per customer must be an entered Series')
+    if ppy not in {4, 12}:
+        raise ValueError('Customer-linked deposits require monthly or quarterly cadence')
+    feed = a['cac_feeds'][matches[0]['feed']]
+    r = cac_auc_rollforward(feed, n, ppy, assumptions=a, growth_context=growth_context)
+    monthly_end = _check(r['customer_end_by_month'], 'Deposit customer count')
+    counts = (monthly_end if measure == 'period_end' else
+              monthly_balance_measure_series(float(feed.get('beginning_customers') or 0), monthly_end, 'period_average'))
+    amounts = _check(resolve_entered_series(spec, n * (12 // ppy), 12, context=growth_context), 'Deposit balance per customer')
+    if len(counts) != len(amounts):
+        raise ValueError('Deposit customer balance has an incomplete horizon')
+    balances = _check([c * v for c, v in zip(counts, amounts)], 'Deposit customer balance')
+    step = 12 // ppy
+    native = [balances[(i+1)*step-1] if measure == 'period_end' else
+              sum(balances[i*step:(i+1)*step]) / step for i in range(n)]
+    return {'seriesId': sid, 'measure': measure, 'monthlyCount': counts,
+            'monthlyDollarsPerCustomer': amounts, 'endingBalanceDollars': native}
+
+
+def prepare(a, n, ppy, quantities=None, growth_context=None, customer_details=None):
     """Resolve independent sources once; bank-state capacity is applied per period."""
     products = a.get('deposit_products') or []
     pools = a.get('deposit_retention_pools') or []
@@ -148,7 +190,7 @@ def prepare(a, n, ppy, quantities=None, growth_context=None):
     direct = {}
     for i, p in enumerate(products):
         mode = p.get('balance_mode', 'rollforward')
-        if mode not in {'rollforward', 'level', 'pool'}:
+        if mode not in {'rollforward', 'level', 'pool', 'linked_customer_level'}:
             raise ValueError('Unsupported deposit balance mode')
         if mode != 'rollforward' and (float(p.get('avg_maturity_m') or 0) != 0 or any(float(p.get(k) or 0) != 0 for k in ('growth_per_period', 'runoff_per_period', 'new_deposits_per_period', 'growth_q', 'runoff_q', 'new_deposits_q'))):
             raise ValueError('Deposit levels cannot also use growth, runoff, inflows or maturity; choose one balance method')
@@ -160,6 +202,11 @@ def prepare(a, n, ppy, quantities=None, growth_context=None):
             if not isinstance(p.get('ending_balance_spec'), dict):
                 raise ValueError('Deposit level requires an explicit ending balance source')
             direct[i] = r(p.get('ending_balance_spec'))
+        if mode == 'linked_customer_level':
+            resolved = customer_balance(p, a, n, ppy, growth_context)
+            direct[i] = resolved['endingBalanceDollars']
+            if customer_details is not None:
+                customer_details[i] = resolved
         if mode == 'pool' and p.get('retention_pool_id') not in ids:
             raise ValueError('Deposit retention pool does not exist')
     prepared = []
