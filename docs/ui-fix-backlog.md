@@ -1,5 +1,11 @@
 # UI fix backlog
 
+## Deposit pricing arrangement — deferred to next build
+
+Reported 2026-10-22; screenshot image(20261022-232454).png, deployed r380. The floating-rate editor interleaves interest-balance measurement with index/spread/beta inputs, leaves floor/cap and retained-balance fees in disconnected positions, and repeats the rate equation already shown in the left rail.
+
+For the next build, arrange controls in coherent compact groups: rate type and reference index; index beta and spread; optional floor/cap; interest balance measure; retained-balance fees. Align labels, widths and spacing across fixed/floating states and narrower viewports, avoiding gaps introduced by document-order placement. Keep the existing Pricing section, live results, collapse/expand behavior and saved inputs. Remove redundant explanatory text where the equation rail already communicates it. Presentation only: preserve rate computation, defaults, units and persisted configuration. User explicitly deferred implementation until the next build; do not interrupt current data entry with a standalone release.
+
 ## Entered interest income units — implemented r376, pending deployment
 
 Reported 2026-10-21. Deployment paused while Railway is unavailable.
