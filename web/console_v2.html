@@ -412,6 +412,11 @@ table.dtab tr:hover td{background:rgba(162,120,46,.04)}
 .wf-capacity-editor .sec-managed-series{margin-top:10px}
 .wf-capacity-editor .wf-field select{width:100%;box-sizing:border-box}
 .wf-field{min-width:0}
+.fx-accrual{display:flex;align-items:flex-end;gap:8px 16px;flex-wrap:wrap;padding:14px 18px 0}
+.fx-accrual>.wf-field{flex:0 1 320px;max-width:100%;min-width:0}
+.fx-accrual>.wf-field>span{display:block;margin-bottom:5px;font-size:11px;color:var(--t2)}
+.fx-accrual>.memo{flex:1 1 300px;margin:0;font-size:11px;line-height:1.4}
+
 .wf-series-details{margin:7px 0 0;border-top:1px solid rgba(85,85,82,.12);padding-top:6px}
 .wf-series-details>summary{cursor:pointer;color:#565653;font-size:10px;user-select:none;list-style-position:inside}
 .wf-series-details[open]>summary{color:#3B3A38}
@@ -15369,7 +15374,7 @@ function _opexFormulaDriverEditorHtml(i,j,lc){   // r256: Claude Design layout: 
   }
   let h=`<div class="fx-card opex-formula-component-card${open?'':' fx-closed'}"><div class="fx-head" role="button" tabindex="0" aria-expanded="${open}" title="${open?'Collapse':'Expand'}" onclick="window._fxOpen['${key}']=${open?'false':'true'};renderContent()" onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}"><span class="fx-chip">Formula</span><b>${esc(c.name||'Formula / driver component')}</b><span class="fx-sum">Expense = ${esc(expr||'factor chain')}</span><span class="fx-tog${open?' on':''}" aria-hidden="true"><svg viewBox="0 0 16 16" width="14" height="14"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span></div>`;
   if(!open) return h+`</div>`;
-  if(c.factors[0]?.source==='catalog_quantity')h+=`<label class="wf-field"><span>Expense accrual</span><select aria-label="Expense accrual" onchange="var c=_ensureNieFormulaDriver(${i},${j});if(this.value==='monthly')c.accrual_cadence='monthly';else delete c.accrual_cadence;renderContent();refresh()"><option value="native"${c.accrual_cadence!=='monthly'?' selected':''}>Model period balance × rate</option><option value="monthly"${c.accrual_cadence==='monthly'?' selected':''}>Monthly balance × rate, summed</option></select><span class="memo">Monthly accrual requires a linked balance followed by a period rate. Quarterly runs require a canonical monthly balance source, such as monthly repayment profiles.</span></label>`;
+  if(c.factors[0]?.source==='catalog_quantity')h+=`<div class="fx-accrual"><label class="wf-field"><span>Expense accrual</span><select aria-label="Expense accrual" onchange="var c=_ensureNieFormulaDriver(${i},${j});if(this.value==='monthly')c.accrual_cadence='monthly';else delete c.accrual_cadence;renderContent();refresh()"><option value="native"${c.accrual_cadence!=='monthly'?' selected':''}>Model period balance × rate</option><option value="monthly"${c.accrual_cadence==='monthly'?' selected':''}>Monthly balance × rate, summed</option></select></label><span class="memo">Monthly accrual requires a linked balance followed by a period rate. Quarterly runs require a canonical monthly balance source, such as monthly repayment profiles.</span></div>`;
   if(c.accrual_cadence==='monthly')h+=`<div class="nie-section-note">Balance × rate accrues monthly, then sums into each model period.</div>`;
   h+=`<div class="fx-body"><label class="fx-l fx-name"><span>Component name</span><input value="${esc(c.name||'Formula / driver component')}" onchange="nieCatFormulaName(${i},${j},this.value)"></label>`;
   factors.forEach((f,k)=>{
