@@ -12501,6 +12501,7 @@ function _renderContentBody(){
       if(oa){(oa.components||[]).forEach(c=>{if(Array.isArray(c.amount))h+=rowBS('&nbsp;&nbsp;'+esc(c.name||'Asset component'),arr12([0,...c.amount],bsHasOpen),null,null);});}
       h += rowBS('Other Assets', arr12(fin.bs.otherAssets || fin.bs.totalAssets.map(()=>G("assumptions.other_assets")/K), bsHasOpen),oa?'subtotal':null,'otherAssets');}
 
+    if(some(fin.bs.prepaidOpex)) h += rowBS('Prepaid Operating Expenses', arr12(fin.bs.prepaidOpex, bsHasOpen), null, 'prepaidOpex');
     if(some(fin.bs.dta)) h += rowBS(cfg.assumptions.tax_mode==='external'?'Recognized deferred tax assets':'Deferred tax assets — carryforwards and interim losses, net', arr12(fin.bs.dta, bsHasOpen), null, 'dta');
     if(fin.bs.taxReceivable)h+=rowBS('Current tax receivable',arr12(fin.bs.taxReceivable,bsHasOpen),null,'taxReceivable');
     h += rowBS('TOTAL ASSETS', arr12(fin.bs.totalAssets, bsHasOpen), 'grand', 'totalAssets');
