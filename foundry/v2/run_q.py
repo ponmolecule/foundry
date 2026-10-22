@@ -665,6 +665,8 @@ def run_v2(cfg):
             _cac_out[_nm] = {
                 "annual": _annual,
                 "monthly": _monthly,
+                "feedSeriesId": _fcfg.get("customer_count_series_id") or _fcfg.get("series_id"),
+                "flowEligibility": "gross" if (_fcfg.get("intra_period_path") or "monthly_flows") == "monthly_flows" else "interpolated_net",
                 "calculationCadence": "month",
                 "yearEndAUC": [float(v or 0.0) / 1000.0 for v in (_cr.get("year_end_auc") or [])],
                 "aucEndByPeriod": [float(v or 0.0) / 1000.0 for v in (_cr.get("auc_end_by_period") or [])],
@@ -684,7 +686,7 @@ def run_v2(cfg):
             }
         results["customer_acquisition"] = _cac_out
 
-    if (cfg.get('assumptions') or {}).get('account_adoption') or any(f.get('activity_series_ids') or any(c.get('activity_series_ids') for c in f.get('channels') or []) for f in ((cfg.get('assumptions') or {}).get('cac_feeds') or {}).values()):
+    if (cfg.get('assumptions') or {}).get('account_adoption') or (cfg.get('assumptions') or {}).get('cac_feeds'):
         from .account_activity import resolve as resolve_activity
         _activity, _adoption = resolve_activity(cfg['assumptions'], _NP, _ppy, _cac_growth_ctx)
         results['account_activity'] = {'series': _activity, 'adoption': _adoption, 'units':'count', 'calculationCadence':'month'}

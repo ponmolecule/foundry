@@ -68,7 +68,8 @@ def prepare_other_assets(a,n_periods,ppy,*,growth_context=None):
                 if kind!='bank_income_flow':raise ValueError('Days outstanding requires a monetary income flow')
                 days=entered(t['days_spec']);year_days=float(t.get('year_days',360))
                 if not math.isfinite(year_days) or year_days<=0 or any(x<0 for x in days):raise ValueError('Days outstanding must be non-negative and annual day basis positive')
-                mult=[authored[i]*days[i]/(year_days/ppy) for i in range(n)]
+                from .flow_balance import days_multiplier
+                mult=days_multiplier(authored, days, year_days, ppy)
             terms.append({'term_id':tid,'driver_kind':kind,'series_id':sid,'driver_name':name,
                           'driver_unit':unit,'driver':driver,'multiplier':mult,
                           'days':days,'year_days':year_days,'authored_multiplier':authored})

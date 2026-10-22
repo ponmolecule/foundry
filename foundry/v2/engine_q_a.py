@@ -586,6 +586,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     other_liab = a["other_liabilities"]
     # Other-liability Formula / level is opt-in. Historical scalar configs remain flat.
     from .other_liabilities import prepare_other_liabilities, other_liability_period, other_liability_audit_payload
+    from .expense_sources import period_amounts as expense_period_amounts
     _ol_prepared = prepare_other_liabilities(a, Q, ppy, growth_context=_growth_ctx)
     _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
                         else float(other_liab or 0.0))
@@ -1573,7 +1574,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
             _role_comp_q = 0.0
         if _ol_prepared is not None:
             _olr = other_liability_period(
-                _ol_prepared, q - 1, workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q])
+                _ol_prepared, q - 1, workforce_count=_wf_count_map_q, fixed_asset_net=prem_t[q],
+                expense_amounts=expense_period_amounts(_nie_d, q - 1, _gross_linked_values if _nie_d else []))
             _other_liab_q = float(_olr["total"] or 0.0)
             _ol_period_rows.append(_olr)
         else:

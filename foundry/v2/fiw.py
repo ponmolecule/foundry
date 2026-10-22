@@ -525,6 +525,11 @@ def _other_liabilities_level_sheet(ws, model):
                 "linked Series kind", True)
             row(tr + (".driver.series_id" if legacy else ".driver_spec.link.series_id"), tsec, "Driver Series ID",
                 link.get("series_id"), "stable Series ID", True)
+            if t.get('days_spec') is not None:
+                series_rows(tr + '.days_spec', tsec, 'Days payable', t['days_spec'], 'days')
+                row(tr + '.year_days', tsec, 'Days per year', t.get('year_days',360), 'days / year')
+            for ei, sid in enumerate(t.get('exclude_category_ids') or []):
+                row(tr + f'.exclude_category_ids.{ei}', tsec, 'Excluded expense category', sid, 'stable Series ID', True)
             units = "$/FTE" if link.get("kind") == "workforce_role_count" else "dimensionless multiple"
             series_rows(tr + ".multiplier_spec", tsec, "Multiplier",
                         t.get("multiplier_spec") or {"source":"entered","trajectory":"flat","value":0.0}, units)

@@ -141,6 +141,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     non_earn = _prem_t[0] + a["intangibles"] + _oa_t[0]
     other_liab = a["other_liabilities"]
     from .other_liabilities import prepare_other_liabilities, other_liability_period, other_liability_audit_payload
+    from .expense_sources import period_amounts as expense_period_amounts
     _ol_prepared = prepare_other_liabilities(a, Q, 4, growth_context=_growth_ctx)
     _other_liab_open = (float(_ol_prepared["opening_balance"]) if _ol_prepared is not None
                         else float(other_liab or 0.0))
@@ -341,7 +342,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
                 _wf_additive_component_native[_wci].append(float(_wf_add_values[_wci] if _wci < len(_wf_add_values) else 0.0))
         if _ol_prepared is not None:
             _olr = other_liability_period(
-                _ol_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1])
+                _ol_prepared, qi, workforce_count=_wf_count_map_q, fixed_asset_net=_prem_t[qi + 1],
+                expense_amounts=expense_period_amounts(_nie_d, qi, _gross_linked_values if _nie_d else []))
             _other_liab_q = float(_olr["total"] or 0.0)
             _ol_period_rows.append(_olr)
         else:

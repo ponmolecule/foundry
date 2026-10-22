@@ -1,6 +1,6 @@
 # Customer Acquisition — deferred fixes
 
-Recorded 2026-10-20. These items are requested for later implementation; recording them does not change the engine, UI or deployed release.
+Recorded 2026-10-20. All four items are implemented in r376, pending deployment. Original requests below are retained as scope history.
 
 ## 1. Distinguish gross flows from interpolated net movements
 
@@ -21,3 +21,11 @@ Rework visual hierarchy and spacing of feed headers, opening-book inputs, attrit
 ## 4. Investigate recurring disappearance of the CAC summary table
 
 User reports that the calculated customer-base roll-forward summary has disappeared again after previously being restored. Investigate result availability, rendering/refresh behavior and feed disclosure state; the cause is not yet established. Restore reliable visibility of the calculated summary for feeds with results, including after edits, reruns, reloads and collapse/expand. Do not assume a missing table means zero customers or require users to recreate feeds. The previously deferred missing-results placeholder is a separate item; this report does not establish that a placeholder alone fixes the recurrence.
+
+## r376 completion — 2026-10-22
+
+- Eligible Monthly flows feeds/channels receive missing stable publication metadata automatically; authored IDs survive. Straight-line stock paths keep their economics and do not publish fake gross flows. Catalog discovery and the feed editor explain eligibility.
+- Removed manual publication controls. Counts and expense/revenue posting equations are unchanged.
+- Aligned feed identity/opening fields, kept top Create feed and independent feed disclosure, moved explanatory material and optional channel-opening allocation into collapsed details. No additional account-adoption requirement.
+- Feed disclosure no longer uses the page-wide positional details restore. New feeds open while others close; detached toggle events cannot overwrite the state.
+- Stable-ID result containers update directly. Last completed summaries survive validation/network failures with an explicit stale message; a feed with no completed run gets an explanatory state instead of a disappearing panel. Recovery, rename, input-node preservation and independent disclosure are browser-tested. The cache is scoped to the current in-memory engagement; a reload obtains a new engine run, never another engagement's cached figures.

@@ -238,11 +238,11 @@ console.log(JSON.stringify({acquisitionLink,acquisitionPreview,selfChannelDisabl
        and "_cfgSectionIsOpen('customeracq'" in html
        and "${_cacOpen?'Collapse':'Expand'}" in html
        and 'expand to inspect or edit' in html)
-    ck("CAC hierarchy uses distinct feed containers with visibly nested acquisition-channel cards",
+    ck("CAC hierarchy separates feeds, opening-book fields and acquisition channels",
        'class="cac-feed-card cac-feed-disclosure"' in html and 'class="cac-channel-card"' in html
-       and '.cac-feed-card{border:1px solid rgba(223,168,90,.30)' in html
-       and '.cac-channel-card:before' in html
-       and 'Acquisition channels below are visually nested' in html)
+       and '#card-cac .cac-feed-head{display:grid;' in html
+       and 'Timing, units &amp; opening book' in html
+       and 'cac-feed-disclosure-head' in html)
     ck("Acquisition channels expose a dedicated mouse drag handle and drop affordance",
        'class="cac-channel-drag-handle"' in html
        and 'draggable="true" aria-label="Drag acquisition channel to reorder"' in html

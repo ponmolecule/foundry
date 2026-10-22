@@ -1577,10 +1577,16 @@ def _other_liability_rows(cfg, results, n):
                 mult_vals = [None] + money(mul)
                 dfmt, mfmt = _RAW_NUM_FMT, _RAW_MONEY_FMT
             else:
-                driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else ("$000s · entered liability level" if kind=="entered_level" else "$000s · linked Fixed Asset Series")), "dimensionless signed multiple"
+                driver_units, mult_units = ("$000s · selected revenue flow" if kind=="settlement_revenue" else ("$000s · entered liability level" if kind=="entered_level" else ("$000s · recognized expense flow" if kind=="operating_expense_flow" else "$000s · linked Fixed Asset Series"))), "dimensionless signed multiple"
                 driver_vals = [None] + money(drv)
                 mult_vals = [None] + [float(x or 0.0) for x in mul]
                 dfmt, mfmt = _RAW_MONEY_FMT, _RAW_NUM_FMT
+            if term.get('days') is not None:
+                rows.extend([
+                    (name, f"Term {j+1} days payable", f"{cid}:{tid}:days", "days", [None]+list(term['days']), _RAW_NUM_FMT),
+                    (name, f"Term {j+1} days per year", f"{cid}:{tid}:year_days", "days / year", [None]+[term['year_days']]*n, _RAW_NUM_FMT),
+                    (name, f"Term {j+1} authored multiplier", f"{cid}:{tid}:authored_multiplier", "dimensionless", [None]+list(term['authored_multiplier']), _RAW_NUM_FMT),
+                ])
             rows.extend([
                 (name, f"Term {j+1} driver · {tname}", f"{cid}:{tid}:driver", driver_units, driver_vals, dfmt),
                 (name, f"Term {j+1} multiplier", f"{cid}:{tid}:multiplier", mult_units, mult_vals, mfmt),

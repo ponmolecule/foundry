@@ -10,7 +10,8 @@ The grammar is intentionally generic and source-model agnostic::
     Other liabilities = entered base + Σ(named liability component)
     named liability component = Σ(linked Series × entered multiplier)
 
-Current linkable Series families are Workforce Count and Fixed Assets Formula / level.  Fixed
+Current linkable Series families are Workforce Count, Fixed Assets Formula / level,
+and recognized operating-expense categories (with optional exclusions and day conversion).  Fixed
 Assets publishes its entered base, named formula components, and aggregate gross / accumulated-
 depreciation / net balances as stable Series.  Signed multipliers are allowed so contra balances
 can be represented explicitly; the resolved total Other liabilities balance must remain >= 0.
@@ -21,9 +22,10 @@ components at runtime and retain their historical economics until the user actua
 from __future__ import annotations
 
 from typing import Any, Mapping
+import math
 
 
-_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level"}
+_ALLOWED_LINK_KINDS = {"workforce_role_count", "fixed_asset_level", "operating_expense_flow"}
 
 
 def _f(v, default=0.0):
@@ -112,6 +114,12 @@ def _component_terms(component: Mapping[str, Any], index: int) -> list[dict]:
 
 
 def _driver_metadata(assumptions: Mapping[str, Any], kind: str, series_id: str) -> tuple[str, str]:
+    if kind == "operating_expense_flow":
+        from .expense_sources import catalog
+        hit = next((x for x in catalog(assumptions) if x['series_id'] == series_id), None)
+        if not hit:
+            raise ValueError('Linked expense category does not exist')
+        return hit['label'], '$ / period'
     if kind == "workforce_role_count":
         from .opex_extensions import workforce_count_catalog
         hits = [x for x in workforce_count_catalog(assumptions) if str(x.get("series_id") or "") == series_id]
@@ -175,6 +183,8 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             tid = str(term.get("term_id") or "").strip()
             term_ids.append(tid)
             ns = normalize_series_spec(term.get("driver_spec"), default_value=0.0)
+            if term.get('days_spec') is not None and (ns.get('link') or {}).get('kind') != 'operating_expense_flow':
+                raise ValueError('Days payable requires a recognized expense flow')
             if ns.get("source") == "entered":
                 if ns.get("trajectory") == "explicit" and ns.get("cadence") == "month" and ppy < 12:
                     width = 12 // ppy
@@ -222,7 +232,23 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
             mult = _resolve_entered(
                 term.get("multiplier_spec") or {"source": "entered", "trajectory": "flat", "value": 0.0},
                 n, ppy, growth_context=growth_context, default_value=0.0)
+            selected = None
+            if kind == 'operating_expense_flow':
+                from .expense_sources import selection
+                selected = selection(a, sid, term.get('exclude_category_ids') or [])
+            if kind == 'operating_expense_flow' and any(not math.isfinite(v) for v in mult):
+                raise ValueError('Expense-linked liability multiplier must be finite')
+            authored_mult = list(mult)
+            days = None
+            if term.get('days_spec') is not None:
+                from .flow_balance import days_multiplier
+                days = _resolve_entered(term['days_spec'], n, ppy, growth_context=growth_context)
+                mult = days_multiplier(mult, days, term.get('year_days',360), ppy)
             resolved_terms.append({
+                "expense_indices": selected, "days": days,
+                "year_days": term.get('year_days',360) if days is not None else None,
+                "authored_multiplier": authored_mult,
+                "exclude_category_ids": term.get('exclude_category_ids') or [],
                 "term_id": tid,
                 "driver_kind": kind,
                 "series_id": sid,
@@ -257,7 +283,7 @@ def prepare_other_liabilities(assumptions: Mapping[str, Any] | None, n_periods: 
 
 
 def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int,
-                           *, workforce_count=None, fixed_asset_net=None, **_ignored) -> dict:
+                           *, workforce_count=None, fixed_asset_net=None, expense_amounts=None, **_ignored) -> dict:
     """Resolve one modeled period using engine-native Workforce counts where required."""
     if prepared is None:
         raise ValueError("generalized other-liability model is not active")
@@ -275,7 +301,14 @@ def other_liability_period(prepared: Mapping[str, Any] | None, period_index: int
         for t in c.get("terms") or []:
             kind = str(t.get("driver_kind") or "")
             sid = str(t.get("series_id") or "")
-            if kind == "workforce_role_count":
+            if kind == "operating_expense_flow":
+                if not isinstance(expense_amounts, Mapping):
+                    raise ValueError('Runtime recognized expenses are unavailable for other liabilities')
+                selected = t['expense_indices']
+                if any(j not in expense_amounts for j in selected):
+                    raise ValueError('Recognized expense category is unavailable')
+                driver = sum(expense_amounts[j] for j in selected)
+            elif kind == "workforce_role_count":
                 if sid not in wf:
                     raise ValueError(f"runtime Workforce Count Series {sid!r} is unavailable for other liabilities")
                 driver = float(wf.get(sid) or 0.0)
@@ -344,6 +377,9 @@ def other_liability_audit_payload(prepared: Mapping[str, Any] | None, total,
                 "multiplier": [float(x.get("multiplier") or 0.0) for x in tr],
                 "amount": [float(x.get("amount") or 0.0) for x in tr],
             })
+            if t.get('driver_kind') == 'operating_expense_flow':
+                row['terms'][-1].update(days=t.get('days'), year_days=t.get('year_days'), authored_multiplier=t.get('authored_multiplier'), exclude_category_ids=t.get('exclude_category_ids'))
+
         if c.get("driver_kind") is not None and len(row["terms"]) == 1:  # r127 projection
             rt = row["terms"][0]
             row.update({

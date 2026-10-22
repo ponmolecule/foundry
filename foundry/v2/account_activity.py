@@ -30,9 +30,42 @@ def _path(spec, months, context=None, probability=False):
         result.append(1 - (1-v)**(1/width) if probability else v)
     return result
 
+def flow_eligible(feed):
+    return (feed.get('intra_period_path') or 'monthly_flows') == 'monthly_flows'
+
+
+def ensure_flow_ids(a):
+    """Assign missing publication metadata only; existing authored IDs always win.
+
+    Deterministic IDs let API-only legacy models discover and consume flows before
+    a browser save. Authoring persists these IDs, so rename/reorder keeps identity.
+    """
+    from uuid import uuid5, NAMESPACE_URL
+    for name, feed in (a.get('cac_feeds') or {}).items():
+        if not flow_eligible(feed):
+            continue
+        seed = feed.get('customer_count_series_id') or feed.get('series_id')
+        if not seed:
+            seed = 'cac-count-' + uuid5(NAMESPACE_URL, 'foundry:feed:' + name).hex
+            feed['customer_count_series_id'] = seed
+        ids = feed.setdefault('activity_series_ids', {})
+        for field in FLOW_FIELDS:
+            ids.setdefault(field, str(seed) + '::' + field)
+        for ci, ch in enumerate(feed.get('channels') or []):
+            derived = ch.setdefault('derived_series_ids', {})
+            if not derived.get('new_customers'):
+                derived['new_customers'] = 'cac-new-' + uuid5(NAMESPACE_URL, str(seed) + ':' + str(ci) + ':' + str(ch.get('name') or '')).hex
+            ids = ch.setdefault('activity_series_ids', {})
+            for field in FLOW_FIELDS:
+                ids.setdefault(field, str(derived['new_customers']) + '::' + field)
+
+
 def catalog(a):
+    ensure_flow_ids(a)
     out = []
     for name, feed in (a.get('cac_feeds') or {}).items():
+        if not flow_eligible(feed):
+            continue
         ids = feed.get('activity_series_ids') or {}
         for field in FLOW_FIELDS:
             if ids.get(field):
@@ -58,6 +91,7 @@ def catalog(a):
 
 def resolve(a, n, ppy, growth_context=None):
     from .cac_feeder import cac_auc_rollforward
+    ensure_flow_ids(a)
     if ppy not in (4,12):raise ValueError('Account activity supports monthly and quarterly models')
     months=n*(12//ppy); result={};feeds={};audits={}
     def publish(sid, vals, temporal, opening=0):
@@ -70,7 +104,10 @@ def resolve(a, n, ppy, growth_context=None):
         if not f.get('activity_series_ids') and not any(c.get('activity_series_ids') for c in f.get('channels') or []) and not any(x.get('customer_source_id')==f.get('customer_count_series_id') for x in a.get('account_adoption') or []):continue
         # Straight-line interpolation has *implied* monthly losses, not gross attrition.
         # Reject it for this opt-in publisher instead of relabelling implied negatives.
-        if f.get('intra_period_path')=='straight_line':raise ValueError('Account activity requires CAC monthly_flows; straight-line implied losses are not gross attrition')
+        if not flow_eligible(f):
+            if any(x.get('customer_source_id') == f.get('customer_count_series_id') for x in a.get('account_adoption') or []):
+                raise ValueError('Account activity requires CAC monthly_flows; straight-line implied losses are not gross attrition')
+            continue
         r=cac_auc_rollforward(f,n,ppy,assumptions=a,growth_context=growth_context); rows=r['monthly'][:months];feeds[f.get('customer_count_series_id')]=(f,rows)
         ids=f.get('activity_series_ids') or {}
         for field,key in [('new_customers','new_cust'),('lost_customers','cust_lost')]:publish(ids.get(field),[float(x[key]) for x in rows],'flow')
