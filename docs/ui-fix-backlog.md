@@ -53,3 +53,7 @@ Users should be able to discover and select semantic quantities (e.g. active acc
 ## r389 delivery — 2026-10-23, implemented, not deployed
 
 Save tracking now uses the successful JSON revision, with an application revision header on reads and robust ETag fallback; proxy-stripped response regression passes. Production origin of the reported refusal remains unproven without the failed request. Missing versus stale revision conflicts are distinguished. Formula bases collapse into source summaries, with subsequent factors separated. Product validation updates in place and ignores superseded assumption responses. Deposit per-customer amount authoring converts displayed $000s to the existing stored dollars; raw unit costs are explicitly labeled. Existing values require no migration or re-entry. Customer-flow/linked-Series discovery remains deferred.
+
+## Searchable Index — implemented r390, not deployed
+
+Read-only Index to the right of Governance: six subject groups, search, 27 topics, 86 explained options/concepts, numerical illustrations and related links. All lending/deposit balance-method labels share definitions with live dropdowns. Airy six-card landing, expandable detail, responsive section navigation and scoped mobile header containment. No engagement migration or model edits. This reference does not replace the deferred customer-flow/source-selector simplification.
