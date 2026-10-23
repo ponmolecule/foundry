@@ -57,3 +57,7 @@ Save tracking now uses the successful JSON revision, with an application revisio
 ## Searchable Index — implemented r390, not deployed
 
 Read-only Index to the right of Governance: six subject groups, search, 27 topics, 86 explained options/concepts, numerical illustrations and related links. All lending/deposit balance-method labels share definitions with live dropdowns. Airy six-card landing, expandable detail, responsive section navigation and scoped mobile header containment. No engagement migration or model edits. This reference does not replace the deferred customer-flow/source-selector simplification.
+
+## Index breadth and alphabetical access — implemented r391, not deployed
+
+r390's selective field guide omitted major authoring areas. r391 expands to 102 topics covering all requested areas, with dedicated Operating expenses, Workforce and Compensation subjects. Sixteen subjects are grouped into four landing areas; A–Z indexes topic and option labels, with direct opening of the matching explanation. Coverage checks bind all current application tabs and Configuration modules to articles and guard declared balance/acquisition/Lab option sets. The index remains read-only; no engagement input migration. Expanded source-selector simplification remains a separate deferred UI item.
