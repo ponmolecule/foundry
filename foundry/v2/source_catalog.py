@@ -42,6 +42,13 @@ def catalog(a):
     from .income_modules import _fee_stream_quantity_kinds
     from .fee_links import has_links, FeeLinkPlan
     rows=balance_catalog(a)
+    for key,label in [('effr','EFFR'),('sofr','SOFR'),('prime','Prime')]:
+        rows.append(dict(series_id=key,label=label+' reference rate (annual)',family='Rates',unit='rate',temporal='rate',measures=[],consumers=['opex_formula'],driver='reference_rate'))
+    for p in a.get('deposit_products') or []:
+        sid=p.get('source_catalog_id')
+        if sid:rows.append(dict(series_id=sid,label='Deposit › '+str(p.get('name') or 'Deposit')+' › Interest expense',family='Deposit expense',unit='money_flow',temporal='flow',measures=[],consumers=['opex_formula'],driver='deposit_interest'))
+    for x in acquisition_share_catalog(a):
+        rows.append(dict(series_id=x['series_id'],label=x['label'],family='Customer acquisition',unit='share',temporal='share',measures=[],consumers=['opex_formula'],driver='acquisition_share'))
     from .settlement_balances import sources as settlement_sources
     for src in settlement_sources(a):
         for measure,label in [('reported_fee_income','Reported fee income'),('fee_product_cost','Direct stream cost'),('net_fee_income','Fee income less direct cost')]:
@@ -210,3 +217,48 @@ def balance_link_creates_cycle(a, category, sid):
     if inputs.get('retention_pool_id'):
         return balance_link_creates_cycle(a,category,'deposit_pool.'+inputs['retention_pool_id']+'.retainedBalance')
     return any(visit(x) for x in strings(inputs))
+
+
+def acquisition_share_catalog(a):
+    from .account_activity import catalog as activity_catalog
+    rows=activity_catalog(a);out=[]
+    for row in rows:
+        if row.get('field')!='new_customers' or 'channel' not in row:continue
+        total=next((x for x in rows if x.get('feed')==row.get('feed') and x.get('field')=='new_customers' and 'channel' not in x),None)
+        if total:
+            for observation,label in [('current','Current-period gross acquisition share'),('cumulative','Cumulative gross acquisition share')]:
+                out.append(dict(series_id=row['series_id']+'.share.'+observation,label=row['label'].rsplit(' › ',1)[0]+' › '+label,numerator=row['series_id'],denominator=total['series_id'],observation=observation))
+    return out
+
+def validate_formula_observation(a,category,f):
+    source=f['source'];sid=f['series_id']
+    if source=='reference_rate':
+        if sid not in {'effr','sofr','prime'}:raise ValueError('Unknown reference rate source')
+    elif source=='deposit_interest':
+        if not any(p.get('source_catalog_id')==sid for p in a.get('deposit_products') or []):raise ValueError('Missing deposit interest source')
+        if balance_link_creates_cycle(a,category,'deposit.'+sid+'.balance'):raise ValueError('Deposit interest observation would create an expense cycle')
+    else:
+        from .account_activity import expense_cycle
+        row=next((x for x in acquisition_share_catalog(a) if x['series_id']==sid),None)
+        if not row:raise ValueError('Gross acquisition share source unavailable')
+        if expense_cycle(a,category,row['numerator']) or expense_cycle(a,category,row['denominator']):raise ValueError('Acquisition share would create an expense cycle')
+        return {'_numerator':row['numerator'],'_denominator':row['denominator'],'_observation':row['observation']}
+    return {}
+
+def financial_observations(deposits,i,curves,*,profile_b=False,rate_fn=None,ppy=4):
+    out={('reference_rate',key):fn(i+1) for key,fn in curves.items()}
+    for p in deposits:
+        sid=p.get('source_catalog_id')
+        if sid:
+            value=(p['_interest_expense'][i] if '_minimum_interest' in p else p['_avg'][i]*rate_fn(p)/ppy) if profile_b else p['_ie'][i+1]
+            out[('deposit_interest',sid)]=float(value)
+    return out
+
+def result_financial_observations(cfg,results,i,native=False):
+    from .engine_q_a import _build_rate_curve_set
+    a=cfg['assumptions'];ppy=int(a.get('periods_per_year',4));curves=_build_rate_curve_set(a,cfg,ppy)
+    out={('reference_rate',k):fn(i+1) for k,fn in curves.items()}
+    for config,p in zip(a.get('deposit_products') or [],[p for p in results.get('products') or [] if p.get('family')=='deposit']):
+        sid=config.get('source_catalog_id')
+        if sid:out[('deposit_interest',sid)]=float(p['intExp'][i])*(1 if native else 1000)
+    return out

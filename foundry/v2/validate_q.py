@@ -376,6 +376,9 @@ def validate_config_v2(cfg):
                         validate_growth_spec_for_cadence(cat.get("growth_spec"), ppy=_ppy, context=_growth_ctx)
                     _lc = [normalize_linked_component(x) for x in (cat.get("linked_components") or [])]
                     for _x in _lc:
+                        if _x.get('positive_balance_guard') or _x.get('base_terms') or any(f.get('source') in {'reference_rate','deposit_interest','acquisition_share'} for f in _x.get('factors',[])):
+                            from .opex_extensions import resolve_linked_components
+                            resolve_linked_components({**cat,'linked_components':[_x]},int(a.get('n_periods') or _ppy),_ppy,context=_growth_ctx,assumptions=a)
                         if _x.get("driver") == "fee_stream_quantity" and _x.get("series_id") not in _fee_qty_ids:
                             raise ValueError(f"linked fee-stream quantity Series {_x.get('series_id')!r} does not exist")
                         if _x.get('driver') == 'fee_stream_quantity':

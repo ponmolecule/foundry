@@ -130,6 +130,25 @@ def operand(spec, a, n, ppy, quantities=None, growth_context=None, share=False):
     return _check([v * ppy * days[i] / basis * shares[i] for i, v in enumerate(_check(flow, 'Deposit activity'))], 'Derived deposit balance')
 
 
+def per_customer_amount(product, a, months, growth_context=None, seen=()):
+    from .shared_assumptions import SharedAssumptions
+    raw=(product.get('balance_driver') or {}).get('balance_per_customer_spec')
+    if not isinstance(raw,dict):raise ValueError('Deposit customer balance requires balance per customer')
+    source=raw.get('source','entered')
+    if source=='deposit_customer_amount':
+        sid=str(raw.get('series_id') or '')
+        if not sid or sid in seen:raise ValueError('Circular or missing deposit amount link')
+        hits=[p for p in a.get('deposit_products',[]) if p.get('source_catalog_id')==sid]
+        if len(hits)!=1 or hits[0].get('balance_mode')!='linked_customer_level':raise ValueError('Linked deposit per-customer amount is unavailable')
+        return per_customer_amount(hits[0],a,months,growth_context,seen+(sid,))
+    if source=='weighted_sum':
+        values,detail=SharedAssumptions(a,months,12,growth_context).resolve(raw,'money_per_unit')
+        return _check(values,'Deposit amount per customer'),detail
+    spec=normalize_series_spec(raw)
+    if spec['source']!='entered':raise ValueError('Choose an entered amount, local breakdown or another deposit per-customer amount')
+    return _check(resolve_entered_series(spec,months,12,context=growth_context),'Deposit balance per customer'),[]
+
+
 def customer_balance(product, a, n, ppy, growth_context=None):
     """A monetary stock from the CAC-owned monthly book and dollars per customer.
 
@@ -148,12 +167,6 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     measure = d.get('measure', 'period_end')
     if measure not in {'period_end', 'period_average'}:
         raise ValueError('Deposit customer-count measure must be period_end or period_average')
-    raw = d.get('balance_per_customer_spec')
-    if not isinstance(raw, dict):
-        raise ValueError('Deposit customer balance requires balance per customer')
-    spec = normalize_series_spec(raw)
-    if spec['source'] != 'entered':
-        raise ValueError('Deposit balance per customer must be an entered Series')
     if ppy not in {4, 12}:
         raise ValueError('Customer-linked deposits require monthly or quarterly cadence')
     feed = a['cac_feeds'][matches[0]['feed']]
@@ -161,15 +174,18 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     monthly_end = _check(r['customer_end_by_month'], 'Deposit customer count')
     counts = (monthly_end if measure == 'period_end' else
               monthly_balance_measure_series(float(feed.get('beginning_customers') or 0), monthly_end, 'period_average'))
-    amounts = _check(resolve_entered_series(spec, n * (12 // ppy), 12, context=growth_context), 'Deposit balance per customer')
+    amounts, detail = per_customer_amount(product,a,n*(12//ppy),growth_context,(str(product.get('source_catalog_id') or ''),))
+    shares = _check(resolve_entered_series(d.get('balance_share_spec') or {'source':'entered','trajectory':'flat','value':1}, n*(12//ppy),12,context=growth_context),'Deposit balance share',True)
     if len(counts) != len(amounts):
         raise ValueError('Deposit customer balance has an incomplete horizon')
-    balances = _check([c * v for c, v in zip(counts, amounts)], 'Deposit customer balance')
+    balances = _check([c * v * share for c, v, share in zip(counts, amounts, shares)], 'Deposit customer balance')
     step = 12 // ppy
     native = [balances[(i+1)*step-1] if measure == 'period_end' else
               sum(balances[i*step:(i+1)*step]) / step for i in range(n)]
     return {'seriesId': sid, 'measure': measure, 'monthlyCount': counts,
-            'monthlyDollarsPerCustomer': amounts, 'endingBalanceDollars': native}
+            'monthlyDollarsPerCustomer': amounts, 'endingBalanceDollars': native,
+            **({'breakdown': detail} if detail else {}),
+            **({'monthlyBalanceShare': shares} if d.get('balance_share_spec') is not None else {})}
 
 
 def prepare(a, n, ppy, quantities=None, growth_context=None, customer_details=None):

@@ -63,3 +63,8 @@ This is a proposed implementation boundary, not a claim that r382 already has th
 5. Monthly timing and mixed exposure bases are explicit and independently tested.
 6. Existing r382 configurations retain their results.
 7. The source's unresolved interpretation questions remain in the clarification log; implementation does not silently decide them.
+
+
+## Implemented decision: r386
+
+The implemented choice reuses two existing deposit products and their existing pricing; the proposed new split-pricing engine was not built. Per-customer detail is local to the first product and linked by the second, with ordinary balance shares. The existing Formula receives a flat Add/Subtract base and the missing read-only observations. No separate expression-tree tool or shared-deposit registry is restored. See `docs/r386-existing-mechanics.md` for the current implementation and authoring map.

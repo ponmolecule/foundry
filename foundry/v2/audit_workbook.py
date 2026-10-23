@@ -23,6 +23,7 @@ from openpyxl.utils import get_column_letter
 from .growth import growth_context_from_cfg
 from .timebase import model_period_end_date
 from .series import apply_amount_basis
+from .source_catalog import result_financial_observations
 
 _DARK = "383838"
 _DARK2 = "444444"
@@ -621,6 +622,7 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
                     "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
                     "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
+                    "financial_observations": result_financial_observations(cfg,exact if exact is not None else results,i,native=exact is not None),
             "fee_stream_quantities": qmap,
                     "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
                     "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -678,6 +680,7 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
             "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
             "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
+                    "financial_observations": result_financial_observations(cfg,exact if exact is not None else results,i,native=exact is not None),
             "fee_stream_quantities": qmap,
             "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
             "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -714,6 +717,10 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                                  None, None, None, None, None, None, None, None, None, None, None, f"ERROR: {exc}"])
                     continue
 
+                if comp.get('base_terms'):
+                    for ti,term in enumerate(comp['base_terms']):
+                        value=linked_component_amount(term,i,metrics)
+                        rows.append([cname,nm,cid,drv,i+1,pend,None,None,None,ti+1,term.get('name') or 'Base item',None,None,term['sign'],value,value*term['sign'],None,None,None,None,None,None,None,None,amount,'Signed base item, raw dollars; final amount includes subsequent factors/condition'])
                 if drv == PIECEWISE_LINKED_DRIVER:
                     due = bool((_period_result or {}).get("event_due"))
                     if not due and not abs(float(amount or 0.0)):
@@ -1102,6 +1109,15 @@ def _product_rows(results, n, exact=None):
         fam = str(p.get("family") or "")
         calc = p.get('depositCustomerCalculation')
         if calc:
+            for detail in calc.get('breakdown',[]):
+                for key in ('amount','weight','weighted_amount','values'):
+                    values=detail.get(key)
+                    if isinstance(values,list):
+                        stride=max(1,len(values)//n);unit='factor' if key=='weight' or detail.get('unit') in {'share','scalar','rate'} else '$ / customer'
+                        rows.append((f'{fam} · {name}',str(detail.get('name') or 'Amount')+' · '+key,detail.get('component_id') or '',unit,values[stride-1::stride],_RATE_FMT if unit=='factor' else _MONEY_FMT))
+            if calc.get('monthlyBalanceShare') is not None:
+                values=calc['monthlyBalanceShare'];stride=max(1,len(values)//n)
+                rows.append((f'{fam} · {name}','Balance share','balance_share','factor',values[stride-1::stride],_RATE_FMT))
             counts = calc['monthlyCount']
             amounts = calc['monthlyDollarsPerCustomer']
             step = len(counts) // n

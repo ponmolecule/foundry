@@ -1390,6 +1390,8 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
         _catalog_balances_q = runtime_balances(a, dep, lend, _deposit_pools, q)
         loan_int = sum(p["_ii"][q] for p in lend)
         dep_exp = sum(p["_ie"][q] for p in dep)
+        from .source_catalog import financial_observations
+        _financial_obs=financial_observations(dep,q-1,rate_curves)
         _ib_i = q - 1
         _operating_cash = (bs["equity"][q - 1] * _ibm["operating_cash_ratio_spec"][_ib_i]
                            if _ibm and q > 1 else 0.0)
@@ -1558,7 +1560,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                                                            for sid, arr in _fee_stream_qty_series.items()},
                                  "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                                  "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                                 "catalog_balances": _catalog_balances_q,
+                                 "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                     "fee_stream_quantity_history": _fee_stream_qty_series,
                                  "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
                                  "bank_total_assets_end_by_period": bs["totalAssets"],
@@ -1715,7 +1717,7 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
                                               for sid, arr in _fee_stream_qty_series.items()},
                     "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                    "catalog_balances": _catalog_balances_q,
+                    "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                     "fee_stream_quantity_history": _fee_stream_qty_series,
                     "fee_stream_quantity_known_ids": _fee_stream_qty_known_ids,
                     "bank_total_assets_end_by_period": bs["totalAssets"],

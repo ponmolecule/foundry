@@ -236,6 +236,8 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
         int_sweep = sweep * a["sweep_securities_yield"] / 4.0          # beginning balance
         int_cash = cash * a["cash_yield"] / 4.0                        # beginning balance
         int_dep = sum(p['_interest_expense'][qi] if '_minimum_interest' in p else p["_avg"][qi] * _deposit_rate(p, q, _rate) / 4.0 for p in dep)
+        from .source_catalog import financial_observations
+        _financial_obs=financial_observations(dep,qi,_curves,profile_b=True,rate_fn=lambda p: _deposit_rate(p,q,_rate),ppy=4)
         int_borrow = borrow * a["borrow_rate_ann"] / 4.0 + _sched_int[qi]   # beginning balance + scheduled
         nii = int_loans + int_sec_prod + int_sweep + int_cash - int_dep - int_borrow
 
@@ -293,7 +295,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
                               "fee_product_costs": 0.0,
                               "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                               "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                              "catalog_balances": _catalog_balances_q,
+                              "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                               "fee_stream_quantity_history": {},
                               "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),
                               "cost_pool": {k: float(v[qi] or 0.0) for k, v in _cost_pool_series.items()},
@@ -324,7 +326,7 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
                     },
                     "customer_acquisition_auc_monthly": _auc_month_sources, "account_activity": _activity_series,
                     "customer_acquisition_auc_beginning": _auc_beginning_sources,
-                    "catalog_balances": _catalog_balances_q,
+                    "catalog_balances": _catalog_balances_q, "financial_observations": _financial_obs,
                               "fee_stream_quantity_history": {},
                     "fee_stream_quantity_known_ids": set(),
                     "bank_total_assets_end_by_period": [prev_assets] + list(out_bs["totalAssets"]),

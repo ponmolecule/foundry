@@ -45,6 +45,12 @@ The r383/r384 shared-assumption creation workflow and new expression-tree expens
 
 Acquisition and attrition must remain linked. Source assumptions must remain separately editable. Neither pasted computed forecasts nor manually combined multipliers satisfy the replacement requirement. A simpler workflow and the smallest demonstrated extension are required before another enhancement build.
 
+### Replacement implemented in r386 — existing mechanics
+
+The replacement is built on r385: use the existing customer-linked deposit equation, a local weighted per-customer breakdown authored once, a typed per-customer link for the other deposit component, and ordinary balance shares/pricing. Existing Formula components gain a flat Add/Subtract base and typed rate/actual-interest/gross-acquisition-share observations; no new expression-tree component or shared-deposit registry is restored. The explicit decision to reuse two existing deposit products supersedes the earlier reassessment's optional new split-pricing suggestion. Ordinary fees and costs retain existing authoring.
+
+The partner/fraud bases must select the two Operating Account deposit components, not all bank deposits. HSA and other deposits are unrelated. The positive-balance condition can total those same selected components. Source questions S07–S10 remain open; no source formula correction has been imposed. See `docs/r386-existing-mechanics.md` for the complete authoring map. Data entry/reconciliation is still pending.
+
 ## Reconciliation notes
 
 - Receivable Advances: replace rounded practice-size weights and displayed 4.11% advance factor with supplied full precision (factor 4.1095851%). User confirmed reconciliation; M60 advance-balance difference reduced from $53,284,772.64 to $23.71. These are not outstanding source-logic errors.

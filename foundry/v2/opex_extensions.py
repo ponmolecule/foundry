@@ -36,7 +36,7 @@ PIECEWISE_LINKED_DRIVER = "piecewise_linked"
 _PIECEWISE_TERM_SOURCES = {"bank_total_assets", "customer_acquisition_auc", "fee_stream_balance_quantity"}
 _RATE_PERIODS = {"month": 1, "quarter": 3, "year": 12}
 _FORMULA_LINK_SOURCES = set(SAFE_REVENUE_DRIVERS) | {
-    NET_FEE_INCOME_DRIVER, "catalog_quantity", "account_activity",
+    NET_FEE_INCOME_DRIVER, "catalog_quantity", "account_activity", "reference_rate", "deposit_interest", "acquisition_share",
     FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER,
 }
 
@@ -71,11 +71,19 @@ def _normalize_formula_factor(raw: Mapping[str, Any] | None, *, first: bool = Fa
                 f"unsupported formula/driver linked source {source!r}; allowed: "
                 + ", ".join(sorted(_FORMULA_LINK_SOURCES)))
         out["source"] = source
-        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER, "catalog_quantity", "account_activity"}:
+        if source in {FEE_STREAM_QUANTITY_DRIVER, CAC_AUC_DRIVER, WORKFORCE_COUNT_DRIVER, "catalog_quantity", "account_activity", "reference_rate", "deposit_interest", "acquisition_share"}:
             sid = str(f.get("series_id") or "").strip()
             if not sid:
                 raise ValueError(f"formula/driver linked source {source} requires series_id")
             out["series_id"] = sid
+        if source == 'reference_rate':
+            period=f.get('rate_period','year')
+            if period not in {'month','quarter','year','none'}:raise ValueError('Invalid linked rate period')
+            out['rate_period']=period
+        if source == 'acquisition_share':
+            policy=f.get('zero_denominator','zero')
+            if policy not in {'zero','error'}:raise ValueError('Choose zero acquisition denominator policy')
+            out['zero_denominator']=policy
         if source == "catalog_quantity":
             measure = str(f.get("measure") or "period_end")
             if measure not in {"period_begin", "period_end", "period_average"}:
@@ -505,6 +513,18 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
             "name": str(c.get("name") or "Formula / driver component"),
             "factors": normalized,
         }
+        if c.get('positive_balance_guard') is not None:
+            guard=dict(c['positive_balance_guard'])
+            if guard.get('measure','period_end') not in {'period_begin','period_end','period_average'}:raise ValueError('Invalid balance condition measure')
+            out['positive_balance_guard']=guard
+        if c.get('base_terms') is not None:
+            terms=c['base_terms']
+            if not isinstance(terms,list) or not terms or len(terms)>32:raise ValueError('Formula base needs 1–32 add/subtract items')
+            out['base_terms']=[]
+            for term in terms:
+                if term.get('base_terms') is not None or term.get('sign',1) not in {1,-1}:raise ValueError('Formula base items are flat add/subtract factor chains')
+                out['base_terms'].append({**normalize_linked_component({**term,'driver':FORMULA_DRIVER}),'sign':term.get('sign',1)})
+            if c.get('accrual_cadence'):raise ValueError('Set accrual on each base item, not the outer formula')
         if c.get("accrual_cadence"):
             if c["accrual_cadence"] != "monthly" or len(normalized) < 2:
                 raise ValueError("formula monthly accrual requires a balance and rate pair")
@@ -655,6 +675,18 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                         "amount_per_fte": [float(x or 0.0) for x in amounts]})
             continue
         if c["driver"] == FORMULA_DRIVER:
+            guard=c.get('positive_balance_guard')
+            if guard:
+                from .source_catalog import require_balance,balance_link_creates_cycle
+                ids=guard.get('series_ids') or [guard.get('series_id')]
+                if not ids or len(ids)!=len(set(ids)):raise ValueError('Select distinct balances for the condition')
+                for sid in ids:
+                    require_balance(assumptions or {},sid,guard.get('measure','period_end'))
+                    if balance_link_creates_cycle(assumptions or {},category or {},sid):raise ValueError('Balance condition would create an expense cycle')
+            compiled_base=[]
+            for term in c.get('base_terms') or []:
+                item=resolve_linked_components({**(category or {}),'linked_components':[term]},n_periods,ppy,context=context,assumptions=assumptions)[0]
+                compiled_base.append({**item,'sign':term['sign']})
             factors = []
             from .periodic_flows import resolve_periodic_flow
             monthly_pair = None
@@ -691,12 +723,19 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
                     scale = (12 / (int(ppy) * _RATE_PERIODS[f["rate_period"]])
                              if f.get("rate_period") and not ((monthly_pair is not None or catalog_pair is not None) and fi == 1) else 1)
                     row["values"] = [float(x or 0.0) * scale for x in vals]
+                if f.get('kind')=='linked' and assumptions is not None:
+                    _validate_formula_source(assumptions,category or {},f)
+                if f.get('kind')=='linked' and f.get('source') in {'reference_rate','deposit_interest','acquisition_share'}:
+                    from .source_catalog import validate_formula_observation
+                    row.update(validate_formula_observation(assumptions or {},category or {},f))
                 factors.append(row)
             out.append({
                 "driver": FORMULA_DRIVER,
                 "component_id": c.get("component_id") or "",
                 "name": c.get("name") or "Formula / driver component",
                 "factors": factors,
+                **({"base_terms": compiled_base} if compiled_base else {}),
+                **({"positive_balance_guard": guard} if guard else {}),
                 **({"monthly_accrual_pair": monthly_pair} if monthly_pair is not None else {}),
                 **({"catalog_monthly_accrual": catalog_pair} if catalog_pair is not None else {}),
             })
@@ -902,8 +941,16 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
         amount = float(amounts[i] if i < len(amounts) else 0.0)
         return float(cmap.get(sid) or 0.0) * amount
     if drv == FORMULA_DRIVER:
+        guard=component.get('positive_balance_guard')
+        if guard:
+            total=0.
+            for sid in guard.get('series_ids') or [guard.get('series_id')]:
+                values=(metrics.get('catalog_balances') or {}).get(sid)
+                if values is None:raise ValueError('Balance condition source unavailable')
+                total+=float(values[guard.get('measure','period_end')])
+            if total<=0:return 0.
         pair = component.get("monthly_accrual_pair")
-        result = linked_component_amount(pair, i, metrics) if pair is not None else None
+        result = (sum(t['sign']*linked_component_amount(t,i,metrics) for t in component['base_terms']) if component.get('base_terms') else linked_component_amount(pair, i, metrics) if pair is not None else None)
         catalog_pair=component.get('catalog_monthly_accrual')
         if catalog_pair:
             sid=catalog_pair['series_id'];measure=catalog_pair['measure'];width=catalog_pair['width']
@@ -1001,6 +1048,23 @@ def _formula_factor_value(factor: Mapping[str, Any], period_index: int,
         return float(vals[i] if i < len(vals) else 0.0)
 
     src = str(factor.get("source") or "")
+    if src in {'reference_rate','deposit_interest'}:
+        key=(src,str(factor.get('series_id') or ''))
+        observations=metrics.get('financial_observations') or {}
+        if key not in observations:raise ValueError('Linked financial observation unavailable: '+str(key))
+        value=float(observations[key])
+        period=factor.get('rate_period','year')
+        return value*(12/(float(metrics['periods_per_year'])*_RATE_PERIODS[period]) if src=='reference_rate' and period!='none' else 1)
+    if src == 'acquisition_share':
+        num=(metrics.get('account_activity') or {}).get(factor['_numerator'])
+        den=(metrics.get('account_activity') or {}).get(factor['_denominator'])
+        if num is None or den is None:raise ValueError('Gross acquisition share source unavailable')
+        numerator=sum(num['values'][:i+1]) if factor['_observation']=='cumulative' else num['values'][i]
+        denominator=sum(den['values'][:i+1]) if factor['_observation']=='cumulative' else den['values'][i]
+        if denominator==0:
+            if factor.get('zero_denominator','zero')=='error':raise ValueError('Gross acquisition share denominator is zero')
+            return 0.
+        return numerator/denominator
     if src == "account_activity":
         sid = str(factor.get('series_id') or '')
         meta = (metrics.get('account_activity') or {}).get(sid)
@@ -1278,3 +1342,25 @@ def resolve_settlement(recognition: list[float], settlement: Mapping[str, Any] |
         prepaid.append(max(0.0, signed))
         accrued.append(max(0.0, -signed))
     return {"cash": payments, "prepaid": prepaid, "accrued": accrued}
+
+
+def _validate_formula_source(a, category, factor):
+    """Use the existing consumer gates for base items as well as top-level factors."""
+    source=factor['source'];sid=factor.get('series_id')
+    if source=='catalog_quantity':
+        from .source_catalog import require_balance,balance_link_creates_cycle
+        require_balance(a,sid,factor.get('measure','period_end'))
+        if balance_link_creates_cycle(a,category,sid):raise ValueError('Linked balance would create an expense cycle')
+    elif source=='account_activity':
+        from .account_activity import catalog,expense_cycle
+        if not any(x['series_id']==sid and x['temporal']=='flow' for x in catalog(a)):raise ValueError('Account activity flow source unavailable')
+        if expense_cycle(a,category,sid):raise ValueError('Account activity would create an expense cycle')
+    elif source==FEE_STREAM_QUANTITY_DRIVER:
+        from .account_activity import expense_cycle
+        if not any(x['series_id']==sid for x in fee_stream_quantity_catalog(a)):raise ValueError('Fee quantity source unavailable')
+        if expense_cycle(a,category,sid):raise ValueError('Fee quantity would create an expense cycle')
+    elif source==WORKFORCE_COUNT_DRIVER:
+        if not any(x['series_id']==sid for x in workforce_count_catalog(a)):raise ValueError('Workforce source unavailable')
+    elif source==CAC_AUC_DRIVER:
+        if not any(x['series_id']==sid for x in customer_acquisition_auc_catalog(a)):raise ValueError('Customer AUC source unavailable')
+        if auc_link_creates_cycle(a,category,sid):raise ValueError('AUC source would create an expense cycle')
