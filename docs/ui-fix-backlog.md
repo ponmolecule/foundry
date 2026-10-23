@@ -1,5 +1,9 @@
 # UI fix backlog
 
+## Rates applied/draft ambiguity — implemented r382, pending deployment
+
+Reported 2026-10-22; screenshot image(20261022-235324).png. Returning to the rates editor repopulated its paste box and displayed preview/apply prompts even when a schedule had already been applied. The UI now distinguishes applied settings, a loaded draft and unloaded form edits. Applied schedules use a collapsed read-only view with an explicit edit action. Re-previewing applied rates does not require reloading or reapplying. Schedule text buffers and disclosures survive same-engagement navigation and are isolated between engagements. Formatting avoids spurious percentage digits without altering stored rates. See rates-authoring-state.md.
+
 ## Deposit pricing arrangement — implemented r381, pending deployment
 
 Reported 2026-10-22; screenshot image(20261022-232454).png, deployed r380. The floating-rate editor interleaves interest-balance measurement with index/spread/beta inputs, leaves floor/cap and retained-balance fees in disconnected positions, and repeats the rate equation already shown in the left rail.

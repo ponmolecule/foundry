@@ -3,3 +3,6 @@
 /* Active source needs room for its complete option label, independent of compact numeric fields. */
 .rws .rws-fields label.rws-active-source{width:330px;max-width:100%;flex:0 1 330px}
 .rws .rws-active-source select{width:100%}
+
+/* r382: model-applied rates are distinct from draft or unloaded schedule edits. */
+.rws-applied-state{margin:12px 0;padding:9px 12px;border:1px solid #cbded7;border-radius:5px;background:#f1f7f4;color:#315b4d;font-size:11px}.rws-applied-state.pending{border-color:#e5d6b5;background:#fff9eb;color:#77591d}.rws-loaded-schedule{max-width:520px;max-height:240px;margin-top:10px}.rws-schedule-editor{margin-top:12px;padding-top:8px;border-top:1px solid #e5e1d8}
