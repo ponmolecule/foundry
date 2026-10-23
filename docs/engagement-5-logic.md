@@ -39,11 +39,11 @@ S06 is superseded by the user's confirmation: 70,000 gross acquisitions occur in
 
 Annual paths Y1–Y5: lower-tier rate 1.25%, 0.95%, 0.65%, 0.65%, 0.65%; remainder rate 3%, 2.7%, 2.4%, 2.4%, 2.4%; Fed Funds 3.9%, 3.6%, 3.3%, 3.3%, 3.3%. Opening column N confirmed zero/blank; Yield and CECL provision confirmed blank throughout.
 
-### Capability assessment — implemented in r383 (not yet deployed)
+### Authoring approach withdrawn — 2026-10-22
 
-- Reuse existing acquisition, gross channel flows, ordinary fees/costs and two independently priced deposit portions.
-- r383 extends customer-linked deposits to consume the existing reusable weighted amount-per-customer assumption, rather than require a manually calculated entered multiplier.
-- r383 extends reusable expense calculations and source observations for the partner calculation: cumulative gross channel/total acquisitions, rate × ending deposit exposure, actual deposit interest expense, subtraction and guarded division. Preserve source-specific choices as authored assumptions, not hard-coded platform defaults.
+The r383/r384 shared-assumption creation workflow and new expression-tree expense builder were rejected as too dependent on platform-internal knowledge. r385 restores the r382 application code while preserving this source log. The user will author Operating Accounts afresh. The earlier extension proposals below are superseded by the reassessment in `docs/r382-operating-accounts-reassessment.md`; they are not approved architecture merely because they were previously built.
+
+Acquisition and attrition must remain linked. Source assumptions must remain separately editable. Neither pasted computed forecasts nor manually combined multipliers satisfy the replacement requirement. A simpler workflow and the smallest demonstrated extension are required before another enhancement build.
 
 ## Reconciliation notes
 

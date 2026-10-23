@@ -23,7 +23,6 @@ from openpyxl.utils import get_column_letter
 from .growth import growth_context_from_cfg
 from .timebase import model_period_end_date
 from .series import apply_amount_basis
-from .linked_calculations import result_sources as calculation_result_sources
 
 _DARK = "383838"
 _DARK2 = "444444"
@@ -622,7 +621,6 @@ def _operating_expense_rows(cfg, results, n, ppy, exact=None):
                     "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
                     "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
                     "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
-                    "linked_calculation_sources": (calculation_result_sources(cfg, exact if exact is not None else results, i, native=exact is not None) if any(x.get('driver')=='linked_calculation' for c in cats for x in c.get('linked_components',[])) else {}),
             "fee_stream_quantities": qmap,
                     "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
                     "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -680,7 +678,6 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
             "servicing_net": ctx["servicing_net"][i] if i < len(ctx["servicing_net"]) else 0.0,
             "fee_product_costs": ctx["fee_product_costs"][i] if i < len(ctx["fee_product_costs"]) else 0.0,
             "catalog_balances": result_balances(cfg, exact if exact is not None else results, i, native=exact is not None),
-                    "linked_calculation_sources": (calculation_result_sources(cfg, exact if exact is not None else results, i, native=exact is not None) if any(x.get('driver')=='linked_calculation' for c in cats for x in c.get('linked_components',[])) else {}),
             "fee_stream_quantities": qmap,
             "customer_acquisition_auc_monthly": ctx["cac_monthly"], "account_activity": (results.get("account_activity") or {}).get("series") or {},
             "customer_acquisition_auc_beginning": ctx["cac_beginning"],
@@ -717,12 +714,6 @@ def _opex_component_detail_rows(cfg, results, n, ppy, exact=None):
                                  None, None, None, None, None, None, None, None, None, None, None, f"ERROR: {exc}"])
                     continue
 
-                if drv == 'linked_calculation':
-                    from .linked_calculations import evaluate
-                    trace=[];evaluate(comp['expression'],i,metrics,trace)
-                    for step in trace:
-                        rows.append([cname,nm,cid,drv,i+1,pend,None,None,None,None,step['label'],step['path'],None,None,None,None,None,None,None,None,None,None,None,step['value'],amount,'Operand unit: '+step['unit']+'; raw dollars for monetary values'])
-                    continue
                 if drv == PIECEWISE_LINKED_DRIVER:
                     due = bool((_period_result or {}).get("event_due"))
                     if not due and not abs(float(amount or 0.0)):
@@ -1111,13 +1102,6 @@ def _product_rows(results, n, exact=None):
         fam = str(p.get("family") or "")
         calc = p.get('depositCustomerCalculation')
         if calc:
-            for detail in calc.get('assumptionCalculation',[]):
-                for key in ('amount','weight','weighted_amount','values'):
-                    vals=detail.get(key)
-                    if isinstance(vals,list):
-                        step0=max(1,len(vals)//n)
-                        unit='share / factor' if key=='weight' or detail.get('unit') in {'share','scalar','rate'} else '$ / customer'
-                        rows.append((f'{fam} · {name}', str(detail.get('name') or 'Assumption')+' · '+key,detail.get('input_id') or detail.get('component_id') or '',unit,vals[step0-1::step0],_RATE_FMT if unit=='share / factor' else _MONEY_FMT))
             counts = calc['monthlyCount']
             amounts = calc['monthlyDollarsPerCustomer']
             step = len(counts) // n

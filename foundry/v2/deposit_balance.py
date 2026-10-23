@@ -151,9 +151,8 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     raw = d.get('balance_per_customer_spec')
     if not isinstance(raw, dict):
         raise ValueError('Deposit customer balance requires balance per customer')
-    shared = raw.get('source') == 'input_ref'
-    spec = raw if shared else normalize_series_spec(raw)
-    if not shared and spec['source'] != 'entered':
+    spec = normalize_series_spec(raw)
+    if spec['source'] != 'entered':
         raise ValueError('Deposit balance per customer must be an entered Series')
     if ppy not in {4, 12}:
         raise ValueError('Customer-linked deposits require monthly or quarterly cadence')
@@ -162,13 +161,7 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     monthly_end = _check(r['customer_end_by_month'], 'Deposit customer count')
     counts = (monthly_end if measure == 'period_end' else
               monthly_balance_measure_series(float(feed.get('beginning_customers') or 0), monthly_end, 'period_average'))
-    detail = []
-    if shared:
-        from .shared_assumptions import SharedAssumptions
-        amounts, detail = SharedAssumptions(a, n * (12 // ppy), 12, growth_context).resolve(spec, 'money_per_unit')
-    else:
-        amounts = resolve_entered_series(spec, n * (12 // ppy), 12, context=growth_context)
-    amounts = _check(amounts, 'Deposit balance per customer')
+    amounts = _check(resolve_entered_series(spec, n * (12 // ppy), 12, context=growth_context), 'Deposit balance per customer')
     if len(counts) != len(amounts):
         raise ValueError('Deposit customer balance has an incomplete horizon')
     balances = _check([c * v for c, v in zip(counts, amounts)], 'Deposit customer balance')
@@ -176,8 +169,7 @@ def customer_balance(product, a, n, ppy, growth_context=None):
     native = [balances[(i+1)*step-1] if measure == 'period_end' else
               sum(balances[i*step:(i+1)*step]) / step for i in range(n)]
     return {'seriesId': sid, 'measure': measure, 'monthlyCount': counts,
-            'monthlyDollarsPerCustomer': amounts, 'endingBalanceDollars': native,
-            **({'assumptionCalculation': detail} if shared else {})}
+            'monthlyDollarsPerCustomer': amounts, 'endingBalanceDollars': native}
 
 
 def prepare(a, n, ppy, quantities=None, growth_context=None, customer_details=None):
