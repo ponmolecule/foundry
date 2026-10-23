@@ -39,11 +39,11 @@ S06 is superseded by the user's confirmation: 70,000 gross acquisitions occur in
 
 Annual paths Y1–Y5: lower-tier rate 1.25%, 0.95%, 0.65%, 0.65%, 0.65%; remainder rate 3%, 2.7%, 2.4%, 2.4%, 2.4%; Fed Funds 3.9%, 3.6%, 3.3%, 3.3%, 3.3%. Opening column N confirmed zero/blank; Yield and CECL provision confirmed blank throughout.
 
-### Capability assessment — next implementation, not yet built
+### Capability assessment — implemented in r383 (not yet deployed)
 
 - Reuse existing acquisition, gross channel flows, ordinary fees/costs and two independently priced deposit portions.
-- Extend customer-linked deposits to consume the existing reusable weighted amount-per-customer assumption, rather than require a manually calculated entered multiplier.
-- Extend reusable expense calculations and source observations for the partner calculation: cumulative gross channel/total acquisitions, rate × ending deposit exposure, actual deposit interest expense, subtraction and guarded division. Preserve source-specific choices as authored assumptions, not hard-coded platform defaults.
+- r383 extends customer-linked deposits to consume the existing reusable weighted amount-per-customer assumption, rather than require a manually calculated entered multiplier.
+- r383 extends reusable expense calculations and source observations for the partner calculation: cumulative gross channel/total acquisitions, rate × ending deposit exposure, actual deposit interest expense, subtraction and guarded division. Preserve source-specific choices as authored assumptions, not hard-coded platform defaults.
 
 ## Reconciliation notes
 

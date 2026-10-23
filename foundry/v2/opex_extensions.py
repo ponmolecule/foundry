@@ -461,6 +461,10 @@ def normalize_linked_component(comp: Mapping[str, Any] | None) -> dict:
                                            FORMULA_DRIVER,
                                            COST_POOL_CHARGE_DRIVER,
                                            PIECEWISE_LINKED_DRIVER}
+    allowed.add('linked_calculation')
+    if drv == 'linked_calculation':
+        from .linked_calculations import normalize
+        return {**c, 'expression': normalize(c.get('expression'))}
     if drv not in allowed:
         raise ValueError(
             f"unsupported Opex linked driver {drv!r}; allowed: {', '.join(sorted(allowed))}")
@@ -623,6 +627,10 @@ def resolve_linked_components(category: Mapping[str, Any] | None, n_periods: int
     out = []
     for raw in list((category or {}).get("linked_components") or []):
         c = normalize_linked_component(raw)
+        if c['driver'] == 'linked_calculation':
+            from .linked_calculations import compile_expression
+            out.append({**c, 'expression': compile_expression(c['expression'], assumptions or {}, n_periods, ppy, context, category)})
+            continue
         if c["driver"] == COST_POOL_CHARGE_DRIVER:
             if assumptions is not None:
                 from .cost_pools import resolve_cost_pool_ref
@@ -883,6 +891,9 @@ def linked_component_amount(component: Mapping[str, Any], period_index: int,
                             metrics: Mapping[str, float]) -> float:
     drv = str(component.get("driver") or "")
     i = int(period_index)
+    if drv == 'linked_calculation':
+        from .linked_calculations import evaluate
+        return evaluate(component['expression'], i, metrics)
     rates = component.get("rates") or []
     rate = float(rates[i] if i < len(rates) else 0.0)
     if drv == COST_POOL_CHARGE_DRIVER:

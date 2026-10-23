@@ -42,6 +42,9 @@ def catalog(a):
     from .income_modules import _fee_stream_quantity_kinds
     from .fee_links import has_links, FeeLinkPlan
     rows=balance_catalog(a)
+    from .linked_calculations import source_options
+    for x in source_options(a):
+        rows.append(dict(series_id='calculation.'+x['op']+'.'+x['series_id'], label=x['label'], family='Calculation', unit={'money':'money_flow','count':'count','scalar':'share'}[x['unit']], temporal='observation', measures=x.get('measures',[]), consumers=['opex_calculation'], driver=x['op'], calculation_source_id=x['series_id']))
     from .settlement_balances import sources as settlement_sources
     for src in settlement_sources(a):
         for measure,label in [('reported_fee_income','Reported fee income'),('fee_product_cost','Direct stream cost'),('net_fee_income','Fee income less direct cost')]:
