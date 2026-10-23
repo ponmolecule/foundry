@@ -127,7 +127,10 @@ def save_engagement(cfg, slug=None, user=None, *, allow_incomplete=False, expect
                 previous = inp.read()
         revision = _digest(previous) if previous is not None else None
         if expected_revision is not _UNCHECKED and expected_revision != revision:
-            raise SaveConflictError('The saved engagement changed, or this copy has no verified saved version. Your edits have not been written. Open the latest saved version, or save this work under a new version name.')
+            reason = ('This copy has no verified saved revision for the existing engagement.' if expected_revision is None else
+                      'The saved engagement changed since this copy was opened.' if previous is not None else
+                      'The saved engagement was removed after this copy was opened.')
+            raise SaveConflictError(reason + ' Your edits have not been written. Keep this tab open and download a backup before comparing with the latest saved version.')
         # Back up the version being replaced BEFORE replacing it. A history failure stops the write.
         if previous is not None:
             _record_version(json.loads(previous), slug, user)

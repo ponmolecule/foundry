@@ -369,7 +369,7 @@ def _save_protocol_error(body, user=None):
 
 
 def _saved_response(metadata):
-    return JSONResponse(metadata, headers={'ETag': '"' + metadata['revision'] + '"', 'Cache-Control': 'no-store'})
+    return JSONResponse(metadata, headers={'ETag': '"' + metadata['revision'] + '"', 'Cache-Control': 'no-store', 'X-Foundry-Revision': metadata['revision']})
 
 
 @app.post("/api/v31/engagement/save-current")
@@ -403,7 +403,7 @@ def v31_engagement(slug: str, user=Depends(gate)):
     from foundry import store
     try:
         cfg, revision = store.load_engagement_with_revision(slug, user=user)
-        return JSONResponse(cfg, headers={'ETag': '"' + revision + '"', 'Cache-Control': 'no-store'})
+        return JSONResponse(cfg, headers={'ETag': '"' + revision + '"', 'X-Foundry-Revision': revision, 'Cache-Control': 'no-store'})
     except FileNotFoundError:
         return JSONResponse({"error": "no such engagement"}, status_code=404)
     except store.SchemaVersionError as e:

@@ -39,3 +39,17 @@ Scope clarified 2026-10-21: bring named liability components to parity with Othe
 ## r378 payable-base authoring correction — implemented, pending deployment
 
 Use Include categories: checked expense categories contribute to the payable base. New aggregate terms start empty and save explicit included stable IDs. The compact dropdown surfaces selected names and counts. Valid legacy exclusions display their equivalent inclusions without changing financial results; editing them writes an explicit inclusion list. See RELEASE_r378.md and expense-linked-liabilities.md.
+
+
+## Operating Expense Formula editor — open, reported 2026-10-23
+
+User reports the r386 Add/Subtract base extension is messy and user-unfriendly. Redesign the existing editor compactly: clearly separate the combined base from subsequent factors, group each source with its measure and optional annual rate, and make neutral factors and period conversion understandable. Avoid redundant rate/participation controls that invite double application. Preserve existing formulas, live source links, arithmetic and saved values; no engagement-specific authoring. Deferred at user request while data entry continues.
+
+
+## Quantity source discovery across streams and acquisition — open, reported 2026-10-23
+
+Users should be able to discover and select semantic quantities (e.g. active accounts versus gross new customers by channel) without knowing whether they originate in Customer flows / account adoption, Linked stream quantity, or Another stream. Explain stock versus gross inflow and attrition/net movement at selection, surface compatible sources together where practical, and retain provenance discreetly. Linked streams can carry either stock or flow depending on their actual resolved quantity; do not imply they are limited to active counts. Preserve units, cadence, gross-flow eligibility, cycle guards and existing links. General UI improvement, not an engagement-specific shortcut.
+
+## r389 delivery — 2026-10-23, implemented, not deployed
+
+Save tracking now uses the successful JSON revision, with an application revision header on reads and robust ETag fallback; proxy-stripped response regression passes. Production origin of the reported refusal remains unproven without the failed request. Missing versus stale revision conflicts are distinguished. Formula bases collapse into source summaries, with subsequent factors separated. Product validation updates in place and ignores superseded assumption responses. Deposit per-customer amount authoring converts displayed $000s to the existing stored dollars; raw unit costs are explicitly labeled. Existing values require no migration or re-entry. Customer-flow/linked-Series discovery remains deferred.
