@@ -771,8 +771,14 @@ def validate_config_v2(cfg):
                 and p.get("index") not in ("sofr", "effr", "prime"):
             errs.append(ctx + f"unknown floating index {p.get('index')!r}: must be one of "
                         "sofr, effr, prime (unknown indexes silently fell back to SOFR)")
-        if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None:
+        if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None and p.get("rate_paid_ann_spec") is None:
             errs.append(ctx + "fixed rate requires 'rate_paid_ann'")
+        if p.get('rate_type') == 'fixed' and p.get('rate_paid_ann_spec') is not None:
+            try:
+                from .lending_rates import prepare_fixed_deposit_rates
+                prepare_fixed_deposit_rates([dict(p)], int(a.get('n_periods') or _ppy), _ppy, _growth_ctx)
+            except (ValueError, TypeError) as e:
+                errs.append(ctx + str(e))
         _range_check(p, PROD_RANGES, ctx, errs)
         from math import isfinite
         for key in ("deposit_beta", "deposit_rate_floor", "deposit_rate_cap"):
@@ -1052,7 +1058,7 @@ def structural_rate_gaps(cfg):
         ctx = f"deposit '{p.get('name', '<?>')}': "
         if p.get("rate_type") == "float" and p.get("index_spread") is None:
             gaps.append(ctx + "rate type is floating but no spread over SOFR is set")
-        if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None:
+        if p.get("rate_type") == "fixed" and p.get("rate_paid_ann") is None and p.get("rate_paid_ann_spec") is None:
             gaps.append(ctx + "rate type is fixed but no rate paid is set")
     for p in a.get("lending_products") or []:
         ctx = f"loan '{p.get('name', '<?>')}': "

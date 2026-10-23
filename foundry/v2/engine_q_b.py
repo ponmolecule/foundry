@@ -45,8 +45,9 @@ def run_pf_b(cfg, *, _comp_plan=None, _comp_probe=False):
     _rate = _curves["sofr"]
     from .growth import growth_context_from_cfg
     _growth_ctx = growth_context_from_cfg(cfg, 4)
-    from .lending_rates import prepare_fixed_yields
+    from .lending_rates import prepare_fixed_yields, prepare_fixed_deposit_rates
     prepare_fixed_yields(lend, Q, 4, _growth_ctx)
+    prepare_fixed_deposit_rates(dep, Q, 4, _growth_ctx)
     from .cac_feeder import cac_auc_rollforward
     _auc_month_sources = {}
     _auc_beginning_sources = {}

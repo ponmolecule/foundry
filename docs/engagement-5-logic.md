@@ -56,3 +56,7 @@ The partner/fraud bases must select the two Operating Account deposit components
 - Receivable Advances: replace rounded practice-size weights and displayed 4.11% advance factor with supplied full precision (factor 4.1095851%). User confirmed reconciliation; M60 advance-balance difference reduced from $53,284,772.64 to $23.71. These are not outstanding source-logic errors.
 - Equipment and Practice In/Out: M1–M3 principal and net interest reconcile to the source's displayed precision. Credit reconciliation and separate servicing/marketing entry remain outstanding; this does not imply full-horizon reconciliation.
 - Compare source loan principal with Foundry **Principal balance**. Foundry's carrying amount also includes signed unamortized origination costs/fees and therefore is a different measure.
+
+### r387 authoring correction
+
+The r386 instruction referring to a fixed deposit “Rate schedule” did not match its UI; only the scalar field and individual period overrides existed. r387 adds the familiar entered Series path to fixed deposit pricing and groups it with Fixed/Floating. The compact amount table and bulk override tools preserve current data. Operating Accounts uses explicit annual Step rates (lower 1.25/0.95/0.65/0.65/0.65%; upper 3/2.7/2.4/2.4/2.4%), average beginning/end interest measurement, and existing 5%/95% shares. Overrides remain last and must be explicitly cleared if obsolete. No accounting clarification was resolved by this authoring change.

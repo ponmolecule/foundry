@@ -211,6 +211,9 @@ def _prod_rate(p, t, rate):
 def _deposit_rate(p, t, rate):
     """Deposit-only index participation; omitted settings preserve legacy rates."""
     if p.get("rate_type") != "float":
+        values = p.get("_rate_paid_ann_path")
+        if values:
+            return _ovq(p, "rate_paid_ann", t, values[min(max(int(t)-1,0),len(values)-1)])
         return _prod_rate(p, t, rate)
     idx = p.get("index")
     curves = getattr(rate, "_curves", None)
@@ -439,8 +442,9 @@ def run_pf_a(cfg, *, _comp_plan=None, _comp_probe=False):
     if ov:
         _apply_overlays(lend, dep, a, ov, ppy)
 
-    from .lending_rates import prepare_fixed_yields
+    from .lending_rates import prepare_fixed_yields, prepare_fixed_deposit_rates
     prepare_fixed_yields(lend, Q, ppy, _growth_ctx)
+    prepare_fixed_deposit_rates(dep, Q, ppy, _growth_ctx)
 
     # One shared multi-curve builder governs both profiles. Generated curves are dated;
     # explicit manual path grids remain supported as intentional model-period assumptions.
