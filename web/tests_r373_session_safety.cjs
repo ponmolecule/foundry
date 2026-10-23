@@ -10,7 +10,7 @@ const c=JSON.parse(execFileSync('python3',['-c','import json;from foundry.v2.tes
 await page.evaluate(c=>{window.AUTHED='analyst';cfg=c;cfg.scenario_name='working';normalizeCfg(cfg);syncModules();LC.land('open','saved');markPristine();cfg.assumptions.test_recovery=123;sessionSafety.checkpoint();},c);
 assert(await page.evaluate(()=>Object.keys(localStorage).some(k=>k.startsWith('foundry-recovery-v1:analyst:'))),'saved engagement edits not protected');
 // Authentication loss preserves model and latest results; no page navigation/reinitialization.
-await page.evaluate(()=>{lastRes={workforce:{counts:[[1,2]]},run_hash:'last-good'};lastErrs=null;window._before=JSON.stringify(cfg);normalizeCfg=()=>{};syncModules=()=>{};loadSourceCatalog=async()=>{};paintChrome=()=>{};renderContent=()=>{};refreshConfigPreviews=()=>{};refreshLsrcLive=()=>{};currentTab='config';});
+await page.evaluate(()=>{lastRes={workforce:{counts:[[1,2]]},run_hash:'last-good'};lastErrs=null;window._before=JSON.stringify(cfg);normalizeCfg=c=>c;syncModules=()=>{};loadSourceCatalog=async()=>{};paintChrome=()=>{};renderContent=()=>{};refreshConfigPreviews=()=>{};refreshLsrcLive=()=>{};currentTab='config';});
 await page.evaluate(()=>preview());assert(await page.evaluate(()=>lastRes?.run_hash==='last-good'&&lastErrs[0].message.includes('Session expired')&&JSON.stringify(cfg)===window._before),'401 removed results or edited model');
 assert(await page.locator('#sessionSafetyNotice').isVisible(),'no session warning');
 await page.evaluate(()=>{window._realSave=engMenuSave;window._retry=0;engMenuSave=async nm=>{window._retry++;window._retryName=nm;};refresh=()=>{};sessionSafety.saveFailed('working');});
@@ -18,13 +18,13 @@ await page.screenshot({path:'/tmp/r373-session.png'});await page.locator('#sessi
 await page.waitForFunction(()=>window._retry===1);assert(await page.evaluate(()=>JSON.stringify(cfg)===window._before&&window._retryName==='working'),'reauth replaced edits or lost requested save');
 assert.strictEqual(await page.locator('#sessionSafetyPassword').inputValue(),'');
 // Another user's local copy must never be offered. Recovery requires an explicit choice.
-await page.evaluate(()=>{sessionSafety.saved(JSON.stringify(cfg));localStorage.setItem('foundry-recovery-v1:someone-else:x',JSON.stringify({user:'someone-else',at:Date.now(),config:{scenario_name:'private'}}));sessionSafety.offer();});
+await page.evaluate(()=>{sessionSafety.saved(JSON.stringify(cfg));localStorage.setItem('foundry-recovery-v1:someone-else:x',JSON.stringify({user:'someone-else',at:Date.now(),config:{scenario_name:'private'}}));return sessionSafety.offer(true);});
 assert(!(await page.locator('#sessionSafetyDialog').evaluate(e=>e.open)),'cross-account draft offered');
-await page.evaluate(()=>{cfg.assumptions.test_recovery=456;sessionSafety.checkpoint();window._unrestored=JSON.stringify(cfg);sessionSafety.offer();});
+await page.evaluate(()=>{cfg.assumptions.test_recovery=456;sessionSafety.checkpoint();window._unrestored=JSON.stringify(cfg);return sessionSafety.offer(true);});
 assert(await page.locator('#sessionSafetyDialog').evaluate(e=>e.open),'no reload recovery offer');assert(await page.evaluate(()=>JSON.stringify(cfg)===window._unrestored),'offer silently replaced model');
 await page.locator('#sessionSafetyDismiss').click();
 // Explicit restore does not run boot or replace the server copy, and is marked unsaved.
-await page.evaluate(()=>{renderGlobals=()=>{};setTab=()=>{};syncNameChrome=()=>{};freezeOriginal=()=>{};confirmDiscardUnsaved=()=>true;cfg.assumptions.test_recovery=999;sessionSafety.offer();});
+await page.evaluate(()=>{renderGlobals=()=>{};setTab=()=>{};syncNameChrome=()=>{};freezeOriginal=()=>{};confirmDiscardUnsaved=()=>true;cfg.assumptions.test_recovery=999;return sessionSafety.offer(true);});
 await page.locator('#sessionSafetyRestore').click();assert(await page.evaluate(()=>cfg.assumptions.test_recovery===456&&!isPristine()&&LC.hasUnsaved()&&window._openSlug===null),'restore failed or falsely marked saved');
 // An in-flight save must not mark edits made after its submitted snapshot as saved.
 let release;holdSave=new Promise(r=>release=r);saveReceived=false;

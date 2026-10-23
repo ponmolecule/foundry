@@ -360,12 +360,27 @@ def v31_engagement_delete(slug: str, user=Depends(gate)):
         return JSONResponse({"error": "no such engagement"}, status_code=404)
 
 
+def _save_protocol_error(body, user=None):
+    if body.get("expected_user") is not None and body["expected_user"] != user:
+        return JSONResponse({"error": "The signed-in account changed. Sign in as the original account before saving this workspace."}, status_code=409)
+    if body.get('save_protocol') != 2:
+        return JSONResponse({'error': 'This tab uses an older save protocol. Its inputs have not been written. Download a backup of this tab before reopening Foundry in a new tab.', 'code': 'client_upgrade_required'}, status_code=428)
+    return None
+
+
+def _saved_response(metadata):
+    return JSONResponse(metadata, headers={'ETag': '"' + metadata['revision'] + '"', 'Cache-Control': 'no-store'})
+
+
 @app.post("/api/v31/engagement/save-current")
 def v31_engagement_save_current(body: dict, user=Depends(gate)):
     """Promote the live configuration to a saved engagement — no wizard required."""
     from foundry import store
     if body.get("expected_user") is not None and body["expected_user"] != user:
         return JSONResponse({"error": "The signed-in account changed. Sign in as the original account before saving this workspace."}, status_code=409)
+    problem = _save_protocol_error(body, user)
+    if problem is not None:
+        return problem
     cfg = body.get("config")
     name = (body.get("name") or "").strip()
     if not cfg or not name:
@@ -373,7 +388,10 @@ def v31_engagement_save_current(body: dict, user=Depends(gate)):
     cfg.setdefault("proposed_bank", name)
     cfg.setdefault("client", name)
     try:
-        return JSONResponse(store.save_engagement(cfg, slug=name, user=user, allow_incomplete=True))
+        return _saved_response(store.save_engagement(cfg, slug=body.get("slug") or name, user=user, allow_incomplete=True,
+                                                     expected_revision=body.get('expected_revision')))
+    except store.SaveConflictError as e:
+        return JSONResponse({'error': str(e), 'code': 'save_conflict'}, status_code=409)
     except store.StructuralGapError as e:
         return JSONResponse({"error": str(e)}, status_code=422)
     except store.SchemaVersionError as e:
@@ -384,11 +402,33 @@ def v31_engagement_save_current(body: dict, user=Depends(gate)):
 def v31_engagement(slug: str, user=Depends(gate)):
     from foundry import store
     try:
-        return JSONResponse(store.load_engagement(slug, user=user))
+        cfg, revision = store.load_engagement_with_revision(slug, user=user)
+        return JSONResponse(cfg, headers={'ETag': '"' + revision + '"', 'Cache-Control': 'no-store'})
     except FileNotFoundError:
         return JSONResponse({"error": "no such engagement"}, status_code=404)
     except store.SchemaVersionError as e:
         return JSONResponse({"error": str(e)}, status_code=409)
+
+
+@app.get('/api/v31/engagement/{slug}/revision')
+def v31_engagement_revision(slug: str, user=Depends(gate)):
+    from foundry import store
+    try:
+        _, revision = store.load_engagement_with_revision(slug, user=user)
+        return JSONResponse({'revision': revision}, headers={'Cache-Control': 'no-store'})
+    except FileNotFoundError:
+        return JSONResponse({'error': 'no such engagement'}, status_code=404)
+    except store.SchemaVersionError as e:
+        return JSONResponse({'error': str(e)}, status_code=409)
+
+
+@app.get('/api/v31/engagement/{slug}/history/{version}')
+def v31_engagement_version(slug: str, version: str, user=Depends(gate)):
+    from foundry import store
+    try:
+        return JSONResponse(store.load_version(slug, version, user=user), headers={'Cache-Control': 'no-store'})
+    except FileNotFoundError:
+        return JSONResponse({'error': 'no such saved version'}, status_code=404)
 
 
 @app.get("/api/v31/template")
@@ -1573,13 +1613,19 @@ def v31_engagement_setup(body: dict, user=Depends(gate)):
 @app.post("/api/v31/engagement")
 def v31_save_engagement(body: dict, user=Depends(gate)):
     from foundry import store
+    problem = _save_protocol_error(body, user)
+    if problem is not None:
+        return problem
     try:
-        return JSONResponse(store.save_engagement(body.get("cfg") or body,
-                                                   slug=body.get("slug"), user=user))
+        return _saved_response(store.save_engagement(body.get('cfg') or body.get('config') or {},
+                               slug=body.get('slug'), user=user,
+                               expected_revision=body.get('expected_revision')))
+    except store.SaveConflictError as e:
+        return JSONResponse({'error': str(e), 'code': 'save_conflict'}, status_code=409)
     except store.StructuralGapError as e:
-        return JSONResponse({"error": str(e)}, status_code=422)
+        return JSONResponse({'error': str(e)}, status_code=422)
     except store.SchemaVersionError as e:
-        return JSONResponse({"error": str(e)}, status_code=409)
+        return JSONResponse({'error': str(e)}, status_code=409)
 
 
 @app.get("/v3")

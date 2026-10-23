@@ -35,7 +35,7 @@ class WorkingSaveTests(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory() as d,patch.dict(os.environ,FOUNDRY_DATA_DIR=d):
                 c=config();c['assumptions']['lending_products'][0]['yield_ann']=None
-                r=client.post('/api/v31/engagement/save-current',json={'config':c,'name':'Working loan'})
+                r=client.post('/api/v31/engagement/save-current',json={'config':c,'name':'Working loan','save_protocol':2,'expected_revision':None})
                 self.assertEqual(r.status_code,200,r.text);self.assertTrue(r.json()['input_warnings'])
                 load=client.get('/api/v31/engagement/'+r.json()['slug']);self.assertEqual(load.status_code,200)
                 self.assertIsNone(load.json()['assumptions']['lending_products'][0]['yield_ann'])

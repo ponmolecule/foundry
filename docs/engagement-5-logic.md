@@ -60,3 +60,9 @@ The partner/fraud bases must select the two Operating Account deposit components
 ### r387 authoring correction
 
 The r386 instruction referring to a fixed deposit “Rate schedule” did not match its UI; only the scalar field and individual period overrides existed. r387 adds the familiar entered Series path to fixed deposit pricing and groups it with Fixed/Floating. The compact amount table and bulk override tools preserve current data. Operating Accounts uses explicit annual Step rates (lower 1.25/0.95/0.65/0.65/0.65%; upper 3/2.7/2.4/2.4/2.4%), average beginning/end interest measurement, and existing 5%/95% shares. Overrides remain last and must be explicitly cleared if obsolete. No accounting clarification was resolved by this authoring change.
+
+### r388 persistence incident and recovery
+
+The recorded 2026-10-23 00:40:37 CT snapshot retained five deposits, the upper/lower Operating Account setup, fixed-rate paths and two operating fee streams. Later saves at 10:11/10:12 replaced the configuration with an older representation. The prior snapshot was copied and verified under a separate recovery identity, leaving the original unchanged. The exact source of the later save is not proven. An old recovery prompt is consistent with the discovered selection/overwrite defects.
+
+r388 adds revision-checked public saves and separate recovery identities. It does not change the reconciled balances or fees. After deployment, reopen and verify the recovery version before continuing the seven remaining costs: onboarding, servicing, deposit operations, fraud, partner bounty, partner revenue share and Direct marketing/CAC.

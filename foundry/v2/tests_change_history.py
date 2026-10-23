@@ -34,9 +34,13 @@ def main():
         store._record_version = lambda *a, **k: (_ for _ in ()).throw(OSError("disk full"))
         try:
             c3 = copy.deepcopy(c2); c3["assumptions"]["lending_products"][0]["yield_ann"] = 0.072
-            r3 = store.save_engagement(copy.deepcopy(c3), slug="Hist Test", user="u1")
-            ck("a history failure never fails the save", r3["slug"] == "hist-test"
-               and json.load(open(r3["path"]))["assumptions"]["lending_products"][0]["yield_ann"] == 0.072)
+            refused = False
+            try:
+                store.save_engagement(copy.deepcopy(c3), slug="Hist Test", user="u1")
+            except OSError:
+                refused = True
+            ck("a predecessor-backup failure refuses the overwrite and preserves saved inputs", refused
+               and store.load_engagement('Hist Test', user='u1')['assumptions']['lending_products'][0]['yield_ann'] == 0.071)
         finally:
             store._record_version = orig
         for k in range(store.HISTORY_KEEP + 5):

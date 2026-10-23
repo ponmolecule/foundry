@@ -4139,7 +4139,7 @@ function _govHistHtml(){
   const P=S.pending;
   if(T && P && P.n){ h+=`<div class="gq-hist-row gq-pending"><div class="gq-hist-w">Now<span>not saved yet</span></div><div class="gq-hist-c"><b>${P.n} unsaved change${P.n===1?'':'s'}</b><span class="gq-mut"> \u00b7 compared with the last save</span>${_govDiffTable(P.changes,P.more)}</div></div>`; }
   tracked.forEach(v=>{
-    h+=`<div class="gq-hist-row"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">`;
+    h+=`<div class="gq-hist-row"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span>${_historyCopyAction(H.slug,v.id)}</div><div class="gq-hist-c">`;
     if(v.first||!tracked.length) h+=`<b>First recorded version</b>`;
     else if(!v.n_changes) h+=`<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>`;
     else h+=`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span>`+_govDiffTable(v.changes,v.more);
@@ -4150,7 +4150,7 @@ function _govHistHtml(){
     h+=`<div class="gq-build"><div>${build.length?(d0===d1?esc(d0):esc(d0)+' \u2013 '+esc(d1)):'\u2014'}</div><div><b>Build-out \u00b7 ${build.length} save${build.length===1?'':'s'}</b><span class="gq-mut"> \u00b7 ${T?'before tracking started':'not tracked yet; changes are compared from the moment tracking starts'}</span>`
       +(build.length?` <a href="#" class="gq-tgl" onclick="window._govShowBuild=!window._govShowBuild;renderGovTab();return false">${window._govShowBuild?'hide':'show'}</a>`:'')+`</div>`
       +(T?'<div></div>':`<a href="#" onclick="govStartTracking();return false">Start change tracking</a>`)+`</div>`;
-    if(window._govShowBuild) build.forEach(v=>{ h+=`<div class="gq-hist-row gq-sub"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span></div><div class="gq-hist-c">${v.first?'<b>First recorded version</b>':(v.n_changes?`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span>`+_govDiffTable(v.changes,v.more):'<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>')}</div></div>`; });
+    if(window._govShowBuild) build.forEach(v=>{ h+=`<div class="gq-hist-row gq-sub"><div class="gq-hist-w">${_gqWhen(v.saved_at)}<span>${esc(v.user||'')}</span>${_historyCopyAction(H.slug,v.id)}</div><div class="gq-hist-c">${v.first?'<b>First recorded version</b>':(v.n_changes?`<b>${v.n_changes} field${v.n_changes===1?'':'s'} changed</b><span class="gq-mut"> \u00b7 ${esc((v.areas||[]).join(', '))}</span>`+_govDiffTable(v.changes,v.more):'<b>Saved</b><span class="gq-mut"> \u00b7 no field changes</span>')}</div></div>`; });
   }
   return h+`</div><div class="gq-foot">History records each save of a named engagement (autosaves are not recorded) and keeps the newest ${H.keep||50}. Saves before tracking starts are kept as build-out. Freezing a run while tracking is off asks whether to start tracking.</div>`;
 }
@@ -4797,6 +4797,21 @@ function confirmDiscardUnsaved(actionLabel){
   return confirm((actionLabel || "This") + " will discard " + what + " \u2014 which hasn't been saved.\n\nSave it first from the \u25be menu if you want to keep it, or continue to discard and proceed.");
 }
 window.confirmDiscardUnsaved = confirmDiscardUnsaved;
+function saveSlug(name){return String(name||'').toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-+|-+$/g,'')||'engagement';}
+function openRecoveryCopy(raw,source){
+  if(!confirmDiscardUnsaved('Opening a recovery copy'))return false;
+  cfg=normalizeCfg(JSON.parse(JSON.stringify(raw)));_resetTransientAuthoringUi(cfg);
+  const stamp=new Date().toISOString().replace(/[:.]/g,'-'),nonce=Math.random().toString(36).slice(2,8);
+  cfg.scenario_name=_engNameFor('Recovery '+stamp+' '+nonce);
+  window._openSlug=null;window._saveHead=null;lastRes=null;lastErrs=null;lastRunFailure=null;
+  rehydrateOriginal(cfg);freezeOriginal(source||'recovery');LC.land('created',cfg.scenario_name);_pristineJSON=null;
+  syncNameChrome();renderGlobals();setTab('config');refresh();sessionSafety.checkpoint();
+  appStatus('ok','Recovery opened as a separate unsaved version. The existing saved engagement is unchanged.');return true;
+}
+window.govOpenHistoryCopy=async function(slug,version){
+  try{const r=await fetch('/api/v31/engagement/'+encodeURIComponent(slug)+'/history/'+encodeURIComponent(version),{cache:'no-store'});if(!r.ok)throw Error('Could not read that saved version.');const j=await r.json();openRecoveryCopy(j.config,'saved history');}catch(e){appStatus('err',esc(e.message));}
+};
+function _historyCopyAction(slug,id){return `<button type="button" class="btn-plain" style="font-size:10px;margin-top:6px" title="Open this historical version as a separate recovery copy" onclick="govOpenHistoryCopy('${esc(slug)}','${esc(id)}')">Open copy</button>`;}
 async function boot(){
   if (window.SNAPSHOT){ cfg = SNAPSHOT.cfg; lastRes = SNAPSHOT.res; paintChrome(); renderGlobals(); renderContent(); return; }
   // Brand-new session: an EMPTY canvas, not the populated example bank. The example is
@@ -4808,57 +4823,10 @@ async function boot(){
     origination_volume_haircut:0.40, gos_margin_compression:0.40, msr_value_haircut:0.20, sale_share_retention_shift:0.25};
   cfg.assumptions.obs_exposures = cfg.assumptions.obs_exposures || [];
   syncNameChrome();
-  // crash recovery: if UNSAVED scratch work from a prior session survived (browser closed/crashed
-  // before it was named & saved), offer it back. Named engagements are not kept here anymore, so this
-  // only fires for genuinely unsaved work — its true last-resort purpose.
-  try{
-    const rs = await fetch("/api/v31/engagements");
-    if(rs.ok){
-      const js = await rs.json();
-      const ws = (js.engagements||[]).find(e => _isRecoverySlug(e.slug));
-      if(ws){
-        const rc = await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug));
-        if(rc.ok){
-          const draftCfg = await rc.json();
-          // Only offer recovery if the draft actually holds work. An empty/blank draft (e.g. left by
-          // a delete-open race in an older build) is a SHELL — discard it, never offer it.
-          const _hasWork = draftCfg && !draftCfg._blank_canvas && (
-            (draftCfg.scenario_name && draftCfg.scenario_name.trim()) ||
-            ((draftCfg.assumptions && draftCfg.assumptions.lending_products || []).length) ||
-            ((draftCfg.assumptions && draftCfg.assumptions.deposit_products || []).length) ||
-            ((draftCfg.assumptions && draftCfg.assumptions.obs_exposures || []).length));
-          // Older builds could leave the crash-recovery copy behind even after an explicit save.
-          // If a named stored engagement contains the exact same settled config, this is not unsaved
-          // work at all; retire the stale draft silently instead of alarming the user on next login.
-          let _duplicateOfSaved = false;
-          if(_hasWork){
-            const ident = _cfgIdent(draftCfg).trim();
-            const candidates = (js.engagements||[]).filter(e => !_isRecoverySlug(e.slug)).slice(0,40)
-              .sort((a,b)=>((b.name||"").trim()===ident)-((a.name||"").trim()===ident));   /* r294: any saved engagement, same name first */
-            for(const e of candidates){
-              try{
-                const sr = await fetch("/api/v31/engagement/" + encodeURIComponent(e.slug));
-                if(sr.ok){ const savedCfg = await sr.json(); if(LC._ser(savedCfg) === LC._ser(draftCfg)){ _duplicateOfSaved=true; break; } }
-              }catch(err){}
-            }
-          }
-          if(!_hasWork || _duplicateOfSaved){
-            try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
-          } else if(confirm("Recover unsaved work from your last session?\n\nA previous session ended without saving. Recover it, or Cancel to discard and start clean.")){
-            cfg = normalizeCfg(draftCfg);
-            _resetTransientAuthoringUi(cfg);
-            rehydrateOriginal(cfg);
-            const sn = document.getElementById("scenarioName");
-            if(sn){ sn.value = (cfg.scenario_name||""); } syncBankLabel();
-            LC.land("created", (cfg.scenario_name || cfg.proposed_bank || cfg.client_legal_name || ""));
-            appStatus("ok", "<b>Recovered unsaved work.</b> Name &amp; save it to keep it, or clear the workspace from the \u25be menu.");
-          } else {
-            try{ await fetch("/api/v31/engagement/" + encodeURIComponent(ws.slug), {method:"DELETE"}); }catch(e){}
-          }
-        }
-      }
-    }
-  }catch(e){}
+  // Discover recovery candidates only. Selection and freshness checks happen in one recovery UI.
+  window._serverRecoveryCandidates=[];
+  try{const r=await fetch('/api/v31/engagements',{cache:'no-store'});if(r.ok){const j=await r.json();window._serverRecoveryCandidates=(j.engagements||[]).filter(e=>_isRecoverySlug(e.slug));}}catch(_){}
+
   renderGlobals();
   if(cfg._blank_canvas){ renderContent(); }   // blank: show the empty-canvas state, don't run the engine
   else { refresh(); }
@@ -4923,11 +4891,10 @@ function _isRecoverySlug(slug){
 // the current and legacy recovery slugs so a later login cannot offer already-saved work
 // as if it were unsaved. Best-effort: cleanup never turns a successful save into a failure.
 async function _purgeRecoveryDrafts(){
-  clearTimeout(_asTimer); _asTimer = null;
-  for(const slug of ["unsaved-engagement-crash-recovery", "working-session-autosaved"]){
-    try{ await fetch("/api/v31/engagement/" + encodeURIComponent(slug), {method:"DELETE"}); }catch(e){}
-  }
+  clearTimeout(_asTimer); _asTimer=null;
+  // Browser drafts retire by exact content after a confirmed save. Other copies remain isolated.
 }
+
 window._purgeRecoveryDrafts = _purgeRecoveryDrafts;
 let _asTimer = null, _asBusy = false, _pristineJSON = null, _pristineIdent = null;
 // Identity of a config for baseline-matching: the engagement it represents. Used so the unsaved-work
@@ -5083,7 +5050,8 @@ function _structuredPasteSetOpen(key,isOpen){
 }
 window._structuredPasteIsOpen=_structuredPasteIsOpen;
 window._structuredPasteSetOpen=_structuredPasteSetOpen;
-function _resetTransientAuthoringUi(c){
+function _resetTransientAuthoringUi(c,preserveSaveHead=false){
+  if(!preserveSaveHead)window._saveHead=null;
   _engSetup=null;
   _engSetupExpanded=true;
   _stripTransientPasteFlags(c);
@@ -5406,7 +5374,7 @@ window.revertToLastSave = function(){
   if(LC.baseline == null) return;
   if(!confirm("Revert to your last saved state?\n\nThis discards the changes you've made since then. Anything you've already saved or downloaded is untouched.")) return;
   try{ cfg = JSON.parse(LC.baseline); }catch(e){ return; }
-  _resetTransientAuthoringUi(cfg);
+  _resetTransientAuthoringUi(cfg,true);
   delete cfg._uploaded_original; delete cfg._blank_canvas;
   if(typeof syncNameChrome === "function") syncNameChrome();
   if(typeof syncModules === "function") syncModules();
@@ -13864,9 +13832,12 @@ async function _openEngagementNow(slug){
   const r = await fetch("/api/v31/engagement/" + slug);
   if(!r.ok){ let j={}; try{ j = await r.json(); }catch(e){} appStatus("err", `<b>Could not open the engagement (fail-closed)</b> \u2014 ${esc(j.error||String(r.status))}`); return false; }
   const cfg2 = await r.json();
+  if(_isRecoverySlug(slug)){return openRecoveryCopy(cfg2,'server recovery');}
   if(cfg2.assumptions && cfg2.assumptions.deposit_products){
     cfg = normalizeCfg(cfg2);
     _resetTransientAuthoringUi(cfg);
+    window._openSlug=slug;
+    window._saveHead={slug,name:cfg2.scenario_name||'',revision:(r.headers.get('ETag')||'').replace(/^"|"$/g,'')||null};
     lastRes = null; lastErrs = null;   // invalidate the outgoing engagement's result (see pstat name-match)
     rehydrateOriginal(cfg);
     syncNameChrome();
@@ -13946,9 +13917,9 @@ function paintEngMenu(){
 window.toggleEngMenu = toggleEngMenu;
 async function engMenuOpen(slug){
   document.getElementById("engMenu").style.display = "none";
-  window._openSlug = slug;
   appStatus("busy", "Opening engagement\u2026");
-  await openEngagement(slug);
+  const opened=await openEngagement(slug);
+  if(!opened||_isRecoverySlug(slug))return;
   const name = cfg.scenario_name || cfg.client_legal_name || cfg.proposed_bank || slug;
   appStatus("ok", `<b>Now working on \u201c${esc(name)}\u201d</b> \u2014 opened from the engagement store.`);
 }
@@ -13996,7 +13967,7 @@ async function engMenuSave(nmOverride){
   sessionSafety.saved(saveSnapshot);
   if(savedInfo.slug)window._openSlug=savedInfo.slug;
   freezeOriginal("saved"); markPristine(); LC.markSaved(nm); updateChangedChip();
-  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.${savedInfo.input_warnings?.length?' <span>Some rate inputs still need completion before running.</span>':''}`);
+  appStatus("ok", `<b>Saved.</b> \u201c${esc(nm)}\u201d is in the engagement store \u2014 open it any time from this menu.${(savedInfo.input_warnings?.length?' <span>Some rate inputs still need completion before running.</span>':'')+(savedInfo.history_warning?' '+esc(savedInfo.history_warning):'')}`);
   await loadEngStore(true,true);   // refresh the list so the saved engagement shows immediately
   renderContent();
 }
@@ -16624,7 +16595,7 @@ async function engagementResetConfirm(){
  const undo=_engResetUndoable(),areas=_engResetAll()?['all']:[...R.sel],original=cfg,signature=JSON.stringify(cfg);R.busy=true;R.error='';_engResetRender();
  try{const r=await fetch('/api/v31/engagement-setup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'reset',cfg:original,areas})});const j=await r.json();if(!r.ok)throw Error(j.error||'Reset was not accepted');
   if(_engReset!==R)return;if(cfg!==original||JSON.stringify(cfg)!==signature)throw Error('Inputs changed while the reset was being prepared. Nothing was replaced.');
-  cfg=j.cfg;_resetTransientAuthoringUi(cfg);syncModules();ensureRateCurves();
+  cfg=j.cfg;_resetTransientAuthoringUi(cfg,true);syncModules();ensureRateCurves();
   lastRes=null;lastErrs=null;lastRunFailure=null;_engSetup=null;_engSetupExpanded=true;
   R.busy=false;engagementResetClose();syncNameChrome();renderGlobals();renderContent();refresh();scheduleAutosave();if(typeof updateChangedChip==='function')updateChangedChip();
   const tail=j.early?' Setup is editable at the top of Configuration.':(j.dependencies&&j.dependencies.length?' Setup is still protected by '+j.dependencies.join(', ')+'.':'');
@@ -16842,7 +16813,7 @@ const sessionSafety = (()=>{
   function backup(){downloadScenario();}
   function checkpoint(){
     if(!real()||isPristine())return false;
-    try{localStorage.setItem(key(),JSON.stringify({user:window.AUTHED,at:Date.now(),config:cfg}));storageFailed=false;return true;}
+    try{localStorage.setItem(key(),JSON.stringify({user:window.AUTHED,at:Date.now(),origin:window._saveHead?{...window._saveHead}:null,config:cfg}));storageFailed=false;return true;}
     catch(_){storageFailed=true;notice().innerHTML='Browser recovery storage is unavailable. Keep this tab open until saving succeeds. <button onclick="sessionSafety.backup()">Download backup</button>';return false;}
   }
   function schedule(){clearTimeout(timer);timer=setTimeout(checkpoint,500);}
@@ -16858,23 +16829,52 @@ const sessionSafety = (()=>{
   async function login(event){event.preventDefault();const input=document.getElementById('sessionSafetyPassword'),err=document.getElementById('sessionSafetyError'),password=input.value;input.value='';try{const r=await fetch('/api/auth/login',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({username:window.AUTHED,password,expected_user:window.AUTHED})});const j=await r.json();if(!r.ok){err.textContent=j.detail||'Sign-in failed.';return;}if(j.user!==window.AUTHED){err.textContent='Use the original account.';return;}activeAt=Date.now();resumed();}catch(_){err.textContent='Could not reach the server. Your inputs are still here.';}}
   async function check(){if(!window.AUTHED||document.hidden||checking)return;checking=true;try{const r=await fetch(Date.now()-activeAt<120000?'/api/auth/renew':'/api/auth/whoami',{method:Date.now()-activeAt<120000?'POST':'GET',cache:'no-store',signal:AbortSignal.timeout(15000)});if(r.status===401){expired();return;}if(r.ok){const j=await r.json();if(j.user!==window.AUTHED){expired();return;}if(blocked)resumed();else{const e=document.getElementById('sessionSafetyNotice');if(e&&!storageFailed)e.remove();}}}catch(_){checkpoint();notice().innerHTML='Connection interrupted. Server saving has not been confirmed. <button onclick="sessionSafety.backup()">Download backup</button>'; }finally{checking=false;}}
   function saveFailed(name){pendingSave={name,config:cfg};expired();signIn();}
-  function offer(){
-    if(!window.AUTHED)return;let rows=[];try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(prefix())){const d=JSON.parse(localStorage.getItem(k));if(d&&d.user===window.AUTHED&&d.config)rows.push({key:k,...d});}}}catch(_){return;}
-    rows.sort((a,b)=>b.at-a.at);if(!rows.length)return;const d=rows[0],e=panel();
-    e.innerHTML='<b>Unsaved browser recovery copy</b><p id="sessionSafetyRecoveryLabel"></p><p>Restore this copy into the editor? It will not overwrite a saved engagement until you save.</p><button id="sessionSafetyRestore">Restore copy</button> <button id="sessionSafetyDismiss">Not now</button>';
-    e.querySelector('#sessionSafetyRecoveryLabel').textContent=(d.config.scenario_name||d.config.proposed_bank||'Engagement')+' · '+new Date(d.at).toLocaleString();
-    e.querySelector('#sessionSafetyRestore').onclick=()=>{if(!confirmDiscardUnsaved('Restoring browser recovery'))return;cfg=JSON.parse(JSON.stringify(d.config));recoverySource={key:d.key,raw:localStorage.getItem(d.key),config:cfg};_resetTransientAuthoringUi(cfg);lastRes=null;lastErrs=null;lastRunFailure=null;freezeOriginal('browser recovery');LC.land('created',cfg.scenario_name||'Recovered engagement');_pristineJSON=null;window._openSlug=null;syncNameChrome();renderGlobals();setTab('config');refresh();checkpoint();e.close();appStatus('ok','Browser copy restored. Save it to confirm server persistence.');};
-    e.querySelector('#sessionSafetyDismiss').onclick=()=>e.close();if(!e.open)e.showModal();
+  async function offer(show=false){
+    if(!window.AUTHED)return;let rows=[];
+    try{for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith(prefix())){const d=JSON.parse(localStorage.getItem(k));if(d&&d.user===window.AUTHED&&d.config)rows.push({key:k,...d,kind:'browser'});}}}catch(_){}
+    for(const d of window._serverRecoveryCandidates||[])rows.push({kind:'server',slug:d.slug,at:Date.parse(d.updated_at)||0,name:d.name});
+    rows.sort((a,b)=>b.at-a.at);if(!rows.length)return;
+    if(!show){let n=document.getElementById('recoveryCopiesNotice');if(!n){n=document.createElement('aside');n.id='recoveryCopiesNotice';n.setAttribute('role','status');n.style.cssText='position:fixed;bottom:12px;left:16px;z-index:10010;max-width:calc(100vw - 32px);padding:9px 12px;background:#faf9f6;border:1px solid #ccc;border-radius:4px;font-size:12px;color:#454541;box-sizing:border-box';n.innerHTML='Previous recovery copies are available; they may be older than your saved work. <button onclick="sessionSafety.offer(true)">Review</button> <button onclick="this.parentElement.remove()">Dismiss</button>';document.body.append(n);}return;}
+    const recoveryNotice=document.getElementById('recoveryCopiesNotice');if(recoveryNotice)recoveryNotice.remove();
+    const e=panel();e.innerHTML='<b>Previous recovery copies</b><p>A recovery checkpoint may be older than your saved work. It is not evidence that a save failed.</p><label>Copy<select id="recoveryCopyChoice" style="display:block;width:100%;margin:8px 0"></select></label><p id="sessionSafetyRecoveryLabel"></p><p id="recoveryCopyStatus" aria-live="polite">Checking the saved version…</p><p>Opening a recovery copy creates a separate version name. It cannot replace the saved engagement.</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="recoveryOpenSaved" disabled>Open saved version</button><button id="sessionSafetyRestore" disabled>Open recovery copy</button><button id="sessionSafetyDismiss">Not now</button></div>';
+    const select=e.querySelector('#recoveryCopyChoice');rows.forEach((d,i)=>{const o=document.createElement('option');o.value=String(i);o.textContent=(d.config?.scenario_name||d.name||'Recovery copy')+' · '+(d.kind==='browser'?'browser checkpoint':'server checkpoint')+' · '+(d.at?new Date(d.at).toLocaleString():'date unknown');select.appendChild(o);});
+    let selected=null,sequence=0;
+    const inspect=async()=>{const ticket=++sequence,d=rows[+select.value||0],restore=e.querySelector('#sessionSafetyRestore'),saved=e.querySelector('#recoveryOpenSaved'),status=e.querySelector('#recoveryCopyStatus');restore.disabled=true;saved.disabled=true;selected=null;status.textContent='Checking the saved version…';let raw=d.config;
+      try{if(!raw){const r=await fetch('/api/v31/engagement/'+encodeURIComponent(d.slug),{cache:'no-store'});if(!r.ok)throw Error('copy unavailable');raw=await r.json();}if(ticket!==sequence)return;
+        const sourceSlug=d.origin?.slug||saveSlug(raw.scenario_name||'');let revision=null,exists=false,verified=false;
+        if(sourceSlug&&!_isRecoverySlug(sourceSlug)){try{const r=await fetch('/api/v31/engagement/'+encodeURIComponent(sourceSlug)+'/revision',{cache:'no-store'});if(r.ok){revision=(await r.json()).revision;exists=true;verified=true;}else if(r.status===404)verified=true;}catch(_){} }
+        if(ticket!==sequence)return;selected={d,raw,sourceSlug,exists};e.querySelector('#sessionSafetyRecoveryLabel').textContent=raw.scenario_name||'Recovery copy';
+        status.textContent=!verified?'The server version could not be verified. This copy can only open separately.':!exists?'No saved version was found under this copy’s original name. It will open separately.':!d.origin?.revision?'This older copy has no saved-version information. Open the saved version to resume current work; recovery remains a separate copy.':d.origin.revision!==revision?'The server version changed after this copy began. Open the saved version to resume current work; recovery remains a separate copy.':'This copy started from the current saved version. Open a separate recovery copy to review its contents.';
+        restore.disabled=false;saved.disabled=!exists;
+      }catch(_){if(ticket===sequence)status.textContent='This recovery copy could not be read. Nothing has been changed.';}
+    };
+    select.onchange=inspect;
+    e.querySelector('#sessionSafetyRestore').onclick=()=>{if(!selected)return;const {d,raw}=selected;if(!openRecoveryCopy(raw,d.kind+' recovery'))return;if(d.key)recoverySource={key:d.key,raw:localStorage.getItem(d.key),config:cfg};e.close();};
+    e.querySelector('#recoveryOpenSaved').onclick=async()=>{if(!selected?.exists)return;const slug=selected.sourceSlug;e.close();await openEngagement(slug);};
+    e.querySelector('#sessionSafetyDismiss').onclick=()=>e.close();if(!e.open)e.showModal();await inspect();
   }
+
   const originalFetch=window.fetch;
   window.fetch=async function(url,options){if(window.AUTHED&&String(url).includes('/api/v31/engagement/save-current')&&options&&options.body){try{const b=JSON.parse(options.body);b.expected_user=window.AUTHED;options={...options,body:JSON.stringify(b)};}catch(_){}}const r=await originalFetch.call(this,url,options);const path=String(typeof url==='string'?url:url.url||'');if(r.status===401&&/\/api\//.test(path)&&!path.includes('/api/auth/'))expired();return r;};
   for(const ev of ['input','change','pointerdown','keydown'])document.addEventListener(ev,()=>{activeAt=Date.now();schedule();},true);
   document.addEventListener('visibilitychange',()=>{checkpoint();if(!document.hidden)check();});window.addEventListener('focus',check);
   window.addEventListener('beforeunload',e=>{if(real()&&!isPristine()){checkpoint();e.preventDefault();e.returnValue='';}});
   setInterval(check,60000);
-  return {checkpoint,schedule,saved,expired,signIn,login,backup,check,saveFailed,offer};
+  return {checkpoint,schedule,saved,expired,signIn,login,backup,check,saveFailed,offer,draftId:tab};
 })();
 window.sessionSafety=sessionSafety;
+
+// r388: an HTTP save is either create-only or a compare-and-swap of a revision actually read.
+window._saveHead=null;
+window._draftSaveHeads={};
+(function(){const previousFetch=window.fetch;
+  window.fetch=async function(url,options){const path=String(typeof url==='string'?url:url.url||''),isSave=/\/api\/v31\/engagement(?:\/save-current)?$/.test(path)&&String(options?.method||'').toUpperCase()==='POST';let requestBody,target,requestCfg,draft=false;
+    if(isSave){try{requestBody=JSON.parse(options.body);requestCfg=cfg;draft=requestBody.name===AUTOSAVE_NAME;if(draft)requestBody.name=AUTOSAVE_NAME+' '+sessionSafety.draftId;target=!draft&&window._saveHead&&requestBody.name===window._saveHead.name?window._saveHead.slug:saveSlug(requestBody.slug||requestBody.name||(requestBody.cfg||{}).client||(requestBody.cfg||{}).proposed_bank||'engagement');if(!draft&&requestBody.name)requestBody.slug=target;const head=draft?window._draftSaveHeads[target]:window._saveHead;requestBody.save_protocol=2;if(window.AUTHED)requestBody.expected_user=window.AUTHED;requestBody.expected_revision=head?.slug===target?head.revision:null;options={...options,body:JSON.stringify(requestBody)};}catch(_){}}
+    const response=await previousFetch.call(this,url,options);
+    if(isSave&&response.ok&&requestBody){const revision=(response.headers.get('ETag')||'').replace(/^"|"$/g,'');if(revision){if(draft)window._draftSaveHeads[target]={slug:target,revision};else if(cfg===requestCfg&&cfg.scenario_name===requestBody.name)window._saveHead={slug:target,name:requestBody.name||cfg.scenario_name,revision};}}
+    return response;
+  };
+})();
 
 renderTabs();
 whoami().then(u=>{ paintWho(); if(u){ boot().then(()=>sessionSafety.offer()); } else { currentTab = "welcome"; renderContent(); } });
