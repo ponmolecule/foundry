@@ -3436,6 +3436,15 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lbm-btn{font:600 11.5px var(--k-font,inherit);border:1px solid #CFCCC6;background:#fff;border-radius:3px;height:28px;padding:0 12px;color:#1F1F1E;cursor:pointer;white-space:nowrap}.lbm-btn.dk{background:#2C2C2C;color:#fff;border-color:#2C2C2C}
 .lnv-kv>span{white-space:nowrap}
 
+/* r396: Remove feed */
+#card-cac .cacn-set .cac-feed-head>button.cx{display:none}
+#card-cac .cacn-set .cac-feed-head{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr)}
+.cacn-band>div.e{gap:8px}
+.cacn-btn.rmo{color:#A9563F;border-color:#E4B7AA}.cacn-btn.rmo:hover{background:#FCF1EE}
+.cacn-btn.rm{background:#A9563F;border-color:#A9563F;color:#fff}
+.cacrm{display:flex;flex-wrap:wrap;gap:8px 10px;align-items:center;border:1px solid #E4B7AA;background:#FCF1EE;color:#7A3424;border-radius:3px;padding:9px 12px;margin:0 0 12px;font-size:12px;line-height:1.5}
+.cacrm>div{flex:1 1 360px;min-width:0}.cacrm-l{margin-top:3px;color:#8A4A3A}
+
 </style>
 </head>
 <body>
@@ -8597,8 +8606,8 @@ function cacnDecorate(){_cacnWrapAdd();
     main.innerHTML=`<div class="cacn-ph"><h3><span class="no">${String(k+1).padStart(2,'0')}</span>${esc(fn)}</h3><span>${(fd.channels||[]).length} channel${(fd.channels||[]).length===1?'':'s'} add new customers; attrition removes them.</span></div><div class="cacn-fx">customers[t] = customers[t−1] + Σ channel new customers − attrition</div>`;
     const open=!!_cacnSet.get(fd);
     const band=document.createElement('div');band.className='cacn-band'+(open?' open':'');
-    band.innerHTML=`<div><span>Opening customers</span><b>${_cacnN(fd.beginning_customers||0)}</b></div><div><span>Opening AUC</span><b>${_cacnN((+fd.beginning_auc||0)/1000)} <i>$000s</i></b></div><div><span>Attrition</span><b>${esc(_cacnAttr(fd))}</b></div><div><span>Path · timing</span><b>${esc(_cacnPath(fd))}</b></div><div class="e"><button type="button" class="cacn-btn${open?' dk':''}" onclick="cacnSettings()">${open?'Done':'Edit feed settings'}</button></div>`;
-    main.appendChild(band);
+    band.innerHTML=`<div><span>Opening customers</span><b>${_cacnN(fd.beginning_customers||0)}</b></div><div><span>Opening AUC</span><b>${_cacnN((+fd.beginning_auc||0)/1000)} <i>$000s</i></b></div><div><span>Attrition</span><b>${esc(_cacnAttr(fd))}</b></div><div><span>Path · timing</span><b>${esc(_cacnPath(fd))}</b></div><div class="e">${open?`<button type="button" class="cacn-btn rmo" onclick="cacnRemoveAsk(true)">Remove feed</button>`:''}<button type="button" class="cacn-btn${open?' dk':''}" onclick="cacnSettings()">${open?'Done':'Edit feed settings'}</button></div>`;
+    main.appendChild(band);{const rb=_cacrmBar(fn,fd);if(rb){const w=document.createElement('div');w.innerHTML=rb;main.appendChild(w.firstElementChild);}}
     if(content){
       const set=document.createElement('div');set.className='cacn-set';set.hidden=!open;
       ['.cac-feed-head','details.cac-help','.cac-attr-box'].forEach(q=>{const el=content.querySelector(':scope>'+q)||content.querySelector(q);if(el)set.appendChild(el);});
@@ -8656,6 +8665,21 @@ function _lbmNotice0(i,p){const mode=(typeof _loanBalanceMode==='function'?_loan
   if(mode!=='rollforward'&&_lbmAside.has(p))return `<div class="lbm-note"><span>Loan production inputs were removed. Switch back to Loan roll-forward in this session to restore them.</span></div>`;
   return '';}
 (function(){if(typeof _lendingBalanceAuthoringHtml!=='function')return;const orig=_lendingBalanceAuthoringHtml;_lendingBalanceAuthoringHtml=function(i,p){const h=orig(i,p),n=p?_lbmNotice(i,p):'';if(!n)return h;const k=h.indexOf('</p>');return k<0?h+n:h.slice(0,k+4)+n+h.slice(k+4);};})();
+
+// ===== r396: Remove feed · a labelled button that asks first and lists what links to the feed =====
+const _cacrmAsk=new WeakMap();
+function _cacrmIds(fd){const ids=[fd.series_id,fd.customer_count_series_id,...Object.values(fd.activity_series_ids||{})];
+  (fd.channels||[]).forEach(c=>{ids.push(...Object.values(c.activity_series_ids||{}),...Object.values(c.derived_series_ids||{}));});
+  return [...new Set(ids.filter(x=>typeof x==='string'&&x))];}
+function _cacrmLinks(fn,fd){const A=cfg.assumptions||{},ids=_cacrmIds(fd),out=[],hit=o=>{const j=JSON.stringify(o);return ids.some(id=>j.includes('"'+id+'"'));};
+  [['lending_products','Lending'],['deposit_products','Deposits'],['obs_exposures','Off-balance-sheet']].forEach(([k,lab])=>(A[k]||[]).forEach(p=>{if(p&&(p.managed_notional_source===fn||hit(p)))out.push(lab+' › '+(p.name||'unnamed'));}));
+  Object.entries(A.cac_feeds||{}).forEach(([n,f])=>{if(f!==fd&&hit(f))out.push('Customer acquisition › '+n);});
+  Object.entries(A).forEach(([k,v])=>{if(['lending_products','deposit_products','obs_exposures','cac_feeds'].includes(k)||!v||typeof v!=='object')return;if(hit(v))out.push('Configuration › '+k.replace(/_/g,' '));});
+  return out;}
+function cacnRemoveAsk(on){const s=_cacnSelected();if(!s)return;if(on)_cacrmAsk.set(s[1],true);else _cacrmAsk.delete(s[1]);renderContent();}
+function cacnRemoveConfirm(){const s=_cacnSelected();if(!s)return;const [fn,fd]=s;_cacrmAsk.delete(fd);delete cfg.assumptions.cac_feeds[fn];window._cacnSel=null;window._cacnSeenAll=true;renderContent();refresh();}
+function _cacrmBar(fn,fd){if(!_cacrmAsk.get(fd))return '';const L=_cacrmLinks(fn,fd),n=(fd.channels||[]).length;
+  return `<div class="cacrm" role="alert"><div><b>Remove ${esc(fn)}?</b> This deletes the feed, its ${n} channel${n===1?'':'s'}, its attrition and any account adoption. It cannot be undone except by reloading a saved copy.${L.length?`<div class="cacrm-l"><b>Linked to this feed:</b> ${L.map(esc).join(' · ')}. These will point at a missing feed; repoint them first or after removing.</div>`:'<div class="cacrm-l">Nothing else in the model links to this feed.</div>'}</div><button type="button" class="cacn-btn" onclick="cacnRemoveAsk(false)">Cancel</button><button type="button" class="cacn-btn rm" onclick="cacnRemoveConfirm()">Remove feed</button></div>`;}
 
 const _flowReportingOpen = new WeakMap();
 const _flowLegacyFeeOpen = new WeakMap();

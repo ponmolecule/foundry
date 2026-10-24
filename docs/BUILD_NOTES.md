@@ -1984,3 +1984,9 @@ Two fixes for problems found while writing the Reference. Console only; no engin
 - Fee-product AUC ramp unit. The ramp is stored as ramp_periods and the engine counts it in model periods, but the field was labelled "(quarters)". It is now labelled in the model's own period (months in a monthly model). No stored value changes; a ramp of 24 in a monthly model was, and is, 24 months.
 - Reference: the lending balance-authoring and AUC trajectory entries describe both behaviours; the two items leave docs/REFERENCE_FOLLOWUPS.md.
 - Tests: new tests_r395_switch_guards (node + py), including an engine check that the rejected state fails and runs once Loan production is removed.
+
+## r396
+Remove feed. Console only; no engine change; no migration.
+
+- Feed settings now carry a labelled "Remove feed" button beside Done, replacing the unlabelled × in the feed-name row (which deleted at once). It asks first, says what goes (the feed, its channels, attrition and account adoption), and names anything in the model that links to the feed (fee products using it as AUC source, products or other feeds reading its series), so links can be repointed. Cancel keeps the feed; Remove feed deletes it and returns the rail to All feeds.
+- Tests: new tests_r396_remove_feed (node + py); tests_r393_acquisition_layout picks the Edit / Done button explicitly now that the band has two buttons.

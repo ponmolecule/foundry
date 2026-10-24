@@ -30,10 +30,10 @@ const chN=await page.evaluate(fn=>cfg.assumptions.cac_feeds[fn].channels.length,
 assert(await root.locator('.cacn-band').isVisible()&&await root.locator('.cacn-ro').isVisible(),'band and results column');
 assert(s.wsH>=browseH-1,'workspace keeps its height while browsing');
 // 3. Feed settings open in place and hold the existing controls; edits use the existing handlers.
-await root.locator('.cacn-band .cacn-btn').click();s=await st();assert(s.setOpen);
+await root.locator('.cacn-band .cacn-btn:not(.rmo)').click();s=await st();assert(s.setOpen);
 const nm=root.locator('.cacn-set input[aria-label="Opening customers"]');await nm.fill('1234');await nm.dispatchEvent('change');
 assert.strictEqual(await page.evaluate(fn=>cfg.assumptions.cac_feeds[fn].beginning_customers,F[0]),1234);
-await root.locator('.cacn-band .cacn-btn').click();assert.strictEqual((await st()).setOpen,false);
+await root.locator('.cacn-band .cacn-btn:not(.rmo)').click();assert.strictEqual((await st()).setOpen,false);
 // 4. Edit opens the channel's driver editor beneath the table; the table stays and marks the row.
 await root.locator('.cacn-ch tbody tr').nth(0).locator('.cacn-lnk').click();s=await st();
 assert(s.editor&&s.editing===1&&s.chRows===chN,'inline editor beneath the summary table');
@@ -45,7 +45,7 @@ assert(/NEW CUSTOMERS \/ MONTH/.test(await root.locator('.cacn-ro').innerText())
 if(chN>1){await root.locator('.cacn-ch tbody tr').nth(1).locator('.cacn-lnk').click();const ch1=await page.evaluate(fn=>cfg.assumptions.cac_feeds[fn].channels[1].name,F[0]);assert((await root.locator('.cacn-editor .cfg-md-head').innerText()).includes(ch1),'switching channel');}
 await root.locator('.cacn-done .cacn-btn').click();s=await st();assert(!s.editor&&s.editing===0,'Done closes the editor');
 // 5. Results refresh in place: inputs stay mounted, figures update.
-await root.locator('.cacn-band .cacn-btn').click();
+await root.locator('.cacn-band .cacn-btn:not(.rmo)').click();
 await page.evaluate(()=>{window._held=document.querySelector('.cacn-set input[aria-label="Feed name"]');refreshConfigPreviews();});
 assert(await page.evaluate(()=>window._held&&window._held===document.querySelector('.cacn-set input[aria-label="Feed name"]')),'inputs stay mounted across refresh');
 // 6. Keyboard moves between feeds; rename keeps the selection; Create feed selects the new feed with settings open.
