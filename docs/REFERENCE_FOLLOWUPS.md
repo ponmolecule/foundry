@@ -2,13 +2,11 @@
 
 Statements the Reference authors could not fully confirm from the code, kept out of the entries until checked. Each line names the entry.
 
-- **loan-balance-authoring**: Switching away from Loan roll-forward does not delete an existing loan_rollforward (Loan production) block; lending_contracts.prepare then raises 'Loan production contract requires Loan roll-forward balance authoring'. Confirm whether the UI prevents or surfaces this.
 - **loan-structure**: For CRE lines the read-only Term is a display default (p.structure || 'term'); if structure is not stored, the engine condition structure == 'term' would not run level-payment amortization. Confirm presets store structure.
 - **loan-structure**: A code comment in prodCardHtml says the engine does not read structure or term_q; engine_q_a.py does read both. The comment appears stale.
 - **loan-repayment-model**: Monthly repayment curve illustration assumes age-0 repayment applies in the funding month as stated in the UI hint; the exact cohort arithmetic in repayment_profiles.py was not traced line by line.
 - **loan-measurement**: How fair value changes post to earnings was not traced in this pass.
 - **deposit-pool-capacity-limit**: The beginning credit term in the committed amount is passed in by the engine; its exact composition (for example, beginning net loans) was not traced.
-- **fee-auc-trajectory**: The ramp field is labelled quarters but is stored in ramp_periods, which the engine reads as model periods. In a monthly model the ramp may be in months.
 - **fee-auc-trajectory**: The Growth illustration uses the simple per-period growth path; a growth_spec path resolves through resolve_growth_series and may step annually.
 - **fee-rate-behavior**: Tiered rates on transaction basis are applied to the quantity without period division; units of tier breakpoints for transaction counts were not confirmed.
 - **growth-rate-period**: Whether a Step method with a Month rate is accepted for level fields in a quarterly model: growth.py raises 'cannot represent stepped month growth inside 4-period/year cadence' for level series, while natural-period flows resolve on a monthly grid.

@@ -1976,3 +1976,11 @@ Reference, phase 1. The Index tab becomes Reference. Read-only; no engine change
 - Fix found while documenting: choosing "At the start of each attrition period" for a customer-acquisition feed stored a value the engine rejects, so the run failed and the menu read back "end". It now stores the engine's value. A feed saved with the old value still reads "end"; choose Start again to correct it.
 - Statements the authors could not confirm from the code are listed in docs/REFERENCE_FOLLOWUPS.md and kept out of the entries.
 - Tests: tests_r390_index and tests_r391_index now run tests_r394_reference (the old Index layout is gone). New tests_r394_reference (node + py).
+
+## r395
+Two fixes for problems found while writing the Reference. Console only; no engine change; no migration.
+
+- Loan production and balance authoring. The engine accepts Loan production (loan_rollforward) only under Loan roll-forward, but switching a lending product to another balance-authoring method kept those inputs, so the next run failed with "Loan production contract requires Loan roll-forward balance authoring". Now the switch asks first ("Keep Loan roll-forward" / "Switch and remove"); confirming removes the Loan production inputs and changes the method. Switching back in the same session restores the same inputs. A product already saved in the rejected state shows "This product cannot run as saved" in the settings drawer, with "Remove Loan production inputs". Products without Loan production switch immediately, as before.
+- Fee-product AUC ramp unit. The ramp is stored as ramp_periods and the engine counts it in model periods, but the field was labelled "(quarters)". It is now labelled in the model's own period (months in a monthly model). No stored value changes; a ramp of 24 in a monthly model was, and is, 24 months.
+- Reference: the lending balance-authoring and AUC trajectory entries describe both behaviours; the two items leave docs/REFERENCE_FOLLOWUPS.md.
+- Tests: new tests_r395_switch_guards (node + py), including an engine check that the rejected state fails and runs once Loan production is removed.
