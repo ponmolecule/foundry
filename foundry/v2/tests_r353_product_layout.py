@@ -6,7 +6,7 @@ ok=fail=0
 def ck(name,cond):
     global ok,fail
     print(('  PASS  ' if cond else '  FAIL  ')+name);ok+=bool(cond);fail+=not cond
-ck('grouping hook hands loans, deposits and off-balance-sheet products to the decorator',"if(typeof lfgDecorate==='function'&&lfgDecorate(card)) return;   // r353" in H)
+ck('grouping hook hands loans, deposits and off-balance-sheet products to the decorator',"if(typeof lfgDecorate==='function'&&lfgDecorate(card)) {" in H)   # r392: the rail decorator follows
 ck('decorator re-seats existing controls rather than re-rendering them',"grid.appendChild(el)" in H and "ctl.dispatchEvent(new Event('change',{bubbles:true}))" in H)
 ck('funded-flow loans keep their own renderer',"if(fam==='lending'&&_loanBalanceMode(p)==='funded_flow_level')return false;" in H)
 ck('engine figures refresh in place after each run',"if(typeof refreshLfgLive==='function') refreshLfgLive();   // r353" in H)

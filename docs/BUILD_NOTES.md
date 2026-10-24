@@ -1941,3 +1941,14 @@ Primary stream output now follows the resolved result: counts/volume for quantit
 ## r361
 
 Adds product-scoped Expand all / Collapse all controls to funded-flow and standard lending Setup layouts. Reuses existing section state and handlers, with no model input or engine changes. See RELEASE_r361.md.
+
+## r392
+Product editor redesign for every product family (lending, funded-flow lending, deposits, off-balance-sheet commitments, fee products). Presentation only: the same controls, handlers and stored fields; no engine change; no migration.
+
+- Section rail: each section is one rail item with its current summary. One section is open at a time; the rail, Previous/Next links, the arrow keys and the engine-strip figures move between them. The workspace is as tall as the product's tallest section, so moving between sections never shifts the page; opening an advanced disclosure or an editor may grow it.
+- Product settings band: balance method, production and repayment method (lending roll-forward), opening balance, measurement and reporting line sit above the sections and are edited in a drawer, with the product name and the balance-authoring controls. Deposits move the balance-method choice into the drawer.
+- Advanced settings: when a section has advanced settings on, the rail shows a badge and the section shows chips naming them. Badges are read from the stored product: provision floored at zero, opening allowance, deferred fees and costs, shared balance cap, monthly repayment curve, originate-to-sell, deposit rate floor and cap.
+- A choice left unset (for example Structure) is flagged in the rail.
+- Method names: "Existing loan mechanics" is now "Dollar originations · single runoff rate"; "Live production + balance-based repayment" is now "Loan production · separate payment and prepayment rates". Stored values are unchanged. Switching from loan production back to dollar originations still removes the production inputs, as before; the switch now asks first.
+- Fixes: the duplicate Measurement / Balance authoring / Starting balance fields that rendered below lending products are hidden (the balance-authoring block already carries them).
+- Tests: tests_r370_lending_layout and tests_r371_authoring_stability now open each section through the rail before checking it (same assertions); tests_r370 exits on failure instead of leaving the browser open. New tests_r392_product_rail (node + py). tests_r381_deposit_pricing and tests_r389_authoring open Pricing (and Balance, Other) through the rail before driving those controls; tests_r353_product_layout checks the hook that now continues into the rail decorator.

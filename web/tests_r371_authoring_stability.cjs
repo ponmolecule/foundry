@@ -10,20 +10,22 @@ for(const width of [1440,768]){
  await page.setViewportSize({width,height:900});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
  const stability=await page.evaluate(async()=>{
   _authoringClickTarget=null;
+  lnvGo('lending',0,'costs');   // r392: the rail shows one section at a time
   const target=document.querySelector('[data-loan-contract-group="costs"]');window.scrollTo(0,target.getBoundingClientRect().top+scrollY-180);
   const before=target.getBoundingClientRect().top,snapshot=JSON.stringify(cfg);renderContent();const frames=[];
   for(let i=0;i<4;i++){await new Promise(requestAnimationFrame);frames.push(document.querySelector('[data-loan-contract-group="costs"]').getBoundingClientRect().top-before);}
   return {frames,unchanged:JSON.stringify(cfg)===snapshot};
  });assert(stability.frames.every(x=>Math.abs(x)<2),width+' rerender moved editor: '+JSON.stringify(stability));assert(stability.unchanged);
- const header=page.locator('.lfx-gen [data-lfx="credit"]>button.lfx-h');await header.scrollIntoViewIfNeeded();
+ const header=page.locator('.lfx-gen .lnv-ri[data-k="credit"]');   // r392: rail items replace section headers
+ await page.evaluate(()=>lnvGo('lending',0,'costs'));await header.scrollIntoViewIfNeeded();
  await page.evaluate(()=>{window._stableCard=document.querySelector('.lfx-gen');window._stableInput=document.querySelector('[data-loan-contract-group="costs"] input');});
  await header.click();await header.click();assert(await page.evaluate(()=>window._stableCard===document.querySelector('.lfx-gen')&&window._stableInput===document.querySelector('[data-loan-contract-group="costs"] input')),'standard section toggle replaced inputs');
 }
 // Authoring a schedule changes the active rate path without losing the edited control's position.
-await page.setViewportSize({width:1440,height:900});const trajectory=page.locator('[data-loan-contract-group="timing"] select').first();await trajectory.scrollIntoViewIfNeeded();const y=await trajectory.evaluate(e=>e.getBoundingClientRect().top);await trajectory.selectOption('growth');await page.evaluate(()=>new Promise(requestAnimationFrame));assert(Math.abs(await page.locator('[data-loan-contract-group="timing"] select').first().evaluate(e=>e.getBoundingClientRect().top)-y)<2,'trajectory edit jumped');
+await page.setViewportSize({width:1440,height:900});await page.evaluate(()=>lnvGo('lending',0,'timing'));const trajectory=page.locator('[data-loan-contract-group="timing"] select').first();await trajectory.scrollIntoViewIfNeeded();const y=await trajectory.evaluate(e=>e.getBoundingClientRect().top);await trajectory.selectOption('growth');await page.evaluate(()=>new Promise(requestAnimationFrame));assert(Math.abs(await page.locator('[data-loan-contract-group="timing"] select').first().evaluate(e=>e.getBoundingClientRect().top)-y)<2,'trajectory edit jumped');
 // Funded-flow sections retain mounted bodies and unsaved DOM input buffers.
 await page.evaluate(()=>{const p=cfg.assumptions.lending_products[0];delete p.loan_rollforward;Object.assign(p,{balance_mode:'funded_flow_level',structure:'revolving',mortgage_banking:null,term_days:60,day_count:360,reserve_share:0,target_retention_share:1,interest_balance_measure:'period_average',funded_flow_driver:{source:'entered',input_stage:'funded_volume',start_period:1,ramp_periods:1,take_up_share:1,flow_path:{unit_kind:'money_flow',period:'month',trajectory:'flat',value:100000}}});renderContent();prdGroupSetup();window._fundedRoot=document.querySelector('.lfx:not(.lfx-gen)');window._fundedInput=document.querySelector('[data-lfx="acct"] input');});
-const funded=page.locator('.lfx:not(.lfx-gen) [data-lfx="acct"]>button.lfx-h');await funded.click();await funded.click();assert(await page.evaluate(()=>window._fundedRoot===document.querySelector('.lfx:not(.lfx-gen)')&&!!window._fundedInput&&window._fundedInput===document.querySelector('[data-lfx="acct"] input')),'funded section remounted');
+const funded=page.locator('.lfx:not(.lfx-gen) .lnv-ri[data-k="acct"]');   // r392 rail itemawait funded.click();await funded.click();assert(await page.evaluate(()=>window._fundedRoot===document.querySelector('.lfx:not(.lfx-gen)')&&!!window._fundedInput&&window._fundedInput===document.querySelector('[data-lfx="acct"] input')),'funded section remounted');
 assert.deepStrictEqual(errors,[]);console.log('PASS 1440/768px settled-frame scroll stability, mounted standard/funded section inputs, anchored trajectory edit, unchanged config, no browser errors');
 }finally{await browser.close();}
 })().catch(e=>{console.error(e);process.exitCode=1});

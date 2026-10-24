@@ -27,12 +27,14 @@ for(const state of ['flat','growth','explicit','expanded','monetary','off','lega
    renderContent();prdGroupSetup();
  },state);
  if(state==='expanded'){
-   const summaries=page.locator('.loan-contract-options>summary');for(let j=0;j<await summaries.count();j++)await summaries.nth(j).click();
+   const summaries=page.locator('.loan-contract-options>summary');for(let j=0;j<await summaries.count();j++){await summaries.nth(j).evaluate(e=>lnvGo('lending',0,e.closest('section.lfx-s').getAttribute('data-lfx')));await summaries.nth(j).click();}   // r392: one section is shown at a time
    await page.evaluate(()=>{renderContent();prdGroupSetup();});
    assert.equal(await page.locator('.loan-contract-options[open]').count(),2,'secondary settings retain expanded state');
  }
  for(const width of [1920,1440,1280,1024,768]){
  await page.setViewportSize({width,height:1100});await page.evaluate(()=>{fitControls();});
+ for(const sec of await page.locator('.lfx-gen .lnv-pane>section.lfx-s').evaluateAll(xs=>xs.filter(x=>x.querySelector('.loan-contract-panel')).map(x=>x.getAttribute('data-lfx')))){   // r392: check every section in turn
+ await page.evaluate(k=>{lnvGo('lending',0,k);fitControls();},sec);
  const report=await page.locator('.lfx-gen').evaluate(root=>{
   const visible=e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden',issues=[];
   for(const panel of root.querySelectorAll('.loan-contract-panel')){
@@ -45,10 +47,11 @@ for(const state of ['flat','growth','explicit','expanded','monetary','off','lega
    for(let i=0;i<controls.length;i++)for(let j=i+1;j<controls.length;j++){const a=controls[i].getBoundingClientRect(),b=controls[j].getBoundingClientRect();if(Math.min(a.right,b.right)-Math.max(a.left,b.left)>2&&Math.min(a.bottom,b.bottom)-Math.max(a.top,b.top)>2)issues.push({reason:'overlap',a:controls[i].outerHTML.slice(0,80),b:controls[j].outerHTML.slice(0,80)});}
   }
   return {issues,pageOverflow:document.documentElement.scrollWidth>innerWidth+2,panels:root.querySelectorAll('.loan-contract-panel').length,heights:[...root.querySelectorAll('.loan-contract-panel')].map(e=>Math.round(e.getBoundingClientRect().height))};
- });checks.push({state,width,...report});assert.deepStrictEqual(report.issues,[],state+' '+width);assert(!report.pageOverflow,state+' '+width+' overflow');
+ });checks.push({state,width,sec,...report});assert.deepStrictEqual(report.issues,[],state+' '+width+' '+sec);assert(!report.pageOverflow,state+' '+width+' '+sec+' overflow');
+ }
  if(width===1440&&process.env.FOUNDRY_LAYOUT_DIR)await page.locator('.lfx-gen').screenshot({path:path.join(process.env.FOUNDRY_LAYOUT_DIR,'r370-'+state+'.png')});
 }
 }
 assert.deepStrictEqual(errors,[]);console.log('PASS '+checks.length+' browser layouts: Flat/Growth/Explicit/expanded/monetary/off/legacy, 1920–768px, contained controls, no overlaps/overflow or runtime errors');
 await browser.close();
-})().catch(e=>{console.error(e);process.exitCode=1});
+})().catch(e=>{console.error(e);process.exit(1)});   // r392: exit so a failure cannot leave the browser open
