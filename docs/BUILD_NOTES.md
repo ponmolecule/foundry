@@ -2004,3 +2004,11 @@ One step list for every lending product, the product type in the header, and the
 - Settings drawer: the balance-authoring fields no longer squeeze the Measurement switch ("Amortized cost" was cut off); Product type sits under Product name.
 - Reference: two funded-flow entry paths name the new steps.
 - Tests: new tests_r397_lending_steps (node + py, including an engine check that product_type changes no result); tests_r392_product_rail checks the band by its Edit settings button (the caption box hides on narrow bands).
+
+## r398
+Results charts stay on the right. Console layout only; no engine change; no migration.
+
+- Product editor (every family): the results column stays to the right of the inputs whenever the step has at least 560px. With the Assumptions panel closed that is every common screen width (measured: 1,230px of step at 2,000px wide, 874 at 1,600, 732 at 1,440, 589 at 1,280, 977 at 1,100 where the rail moves to the top). Narrower steps get a narrower chart (240–340px). Only cramped steps (under 560px, for example with the Assumptions panel open on a laptop) and phones under 700px place the chart below. r397 had moved charts below whenever the step was under 940px, and an r392 rule did the same under 1,100px; both are gone.
+- Narrow input areas reflow instead of running into the chart: field grids take as many columns as fit, wide fields span the row, long link buttons wrap, and tables scroll sideways inside their own box.
+- Customer acquisition: the feed view keeps its results column on the right down to 700px of module width (was 1,080px).
+- Tests: new tests_r398_charts_right (node + py): every step of lending (funded flow, roll-forward, target balance), deposit and fee products, and the acquisition feed view, at five widths with the Assumptions panel closed and two with it open; chart on the right and no input crossing into it, or stacked where the step is cramped.

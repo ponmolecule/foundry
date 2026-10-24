@@ -3268,7 +3268,7 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lnv-foot .k{font:10px var(--mono);color:#A3A09A}
 .lnv-pn{all:unset;cursor:pointer;color:#4A4945;font-weight:600;font-size:11.5px;min-width:200px}.lnv-pn.r{text-align:right}.lnv-pn[disabled]{cursor:default}
 .lnv-pn:hover:not([disabled]){color:#9A7330}
-@media (max-width:1100px){.lnv-ws{grid-template-columns:1fr}.lnv-rail{position:static;flex-direction:row;overflow:auto;max-height:none}.lnv-ri{min-width:180px}.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro{grid-template-columns:1fr!important}.lfx.lnv .lnv-pane .lfx-b>.lfx-ro{grid-column:1;grid-row:3;position:static}.lnv-ps{flex-wrap:wrap}.lnv-mg,.lnv-dgrid{grid-template-columns:1fr}}
+@media (max-width:1100px){.lnv-ws{grid-template-columns:1fr}.lnv-rail{position:static;flex-direction:row;overflow:auto;max-height:none}.lnv-ri{min-width:180px}.lnv-ps{flex-wrap:wrap}.lnv-mg,.lnv-dgrid{grid-template-columns:1fr}}
 .lfx.lnv .lnv-pane .lfx-b>.lfx-body{container-type:inline-size;container-name:lnvbody}
 @container lnvbody (max-width:720px){.lfx.lnv .loan-contract-grid{grid-template-columns:minmax(0,1fr)!important}}
 
@@ -3336,7 +3336,7 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .cacn-inc{display:flex;justify-content:space-between;gap:10px;font-size:11.5px;color:#76736C;padding:7px 0;border-bottom:1px solid #F0EFEB}.cacn-inc b{color:#1F1F1E;font-weight:600}
 .cacn-empty{font-size:12px;color:#A3A09A;padding:24px 0}
 #card-cac .cacn-set .cac-feed-head{grid-template-columns:minmax(0,2fr) minmax(0,1fr) minmax(0,1fr) 24px}
-@container cacn (max-width:1080px){.cacn-pane{grid-template-columns:minmax(0,1fr)}.cacn-ws .lfx-ro.cacn-ro{position:static;border-left:0;border-top:1px solid #E3E1DC}.cacn-es{grid-template-columns:repeat(3,minmax(0,1fr))}.cacn-es>div{border-bottom:1px solid #ECEBE7}}
+@container cacn (max-width:1080px){.cacn-pane{grid-template-columns:minmax(0,1fr) clamp(240px,30%,320px)}.cacn-ws .lfx-ro.cacn-ro{padding:14px}.cacn-es{grid-template-columns:repeat(3,minmax(0,1fr))}.cacn-es>div{border-bottom:1px solid #ECEBE7}}
 @container cacn (max-width:820px){.cacn-ws{grid-template-columns:minmax(0,1fr)}.cacn-rail{position:static;max-height:none;flex-direction:row;flex-wrap:wrap;border-right:0;border-bottom:1px solid #E3E1DC;padding:0}.cacn-ri{min-width:180px;flex:1 1 180px}.cacn-rsep,.cacn-rfoot{display:none}.cacn-add{align-self:center}.cacn-es{grid-template-columns:repeat(2,minmax(0,1fr))}#card-cac .cacn-set .cac-feed-head{grid-template-columns:minmax(0,1fr) minmax(0,1fr) 24px}#card-cac .cacn-set .cac-feed-head>:first-child{grid-column:1/-1}}
 
 /* r394: Reference */
@@ -3457,7 +3457,10 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 /* results charts: on every step that has one, sized from the step pane; below the inputs when narrow */
 .lfx.lnv .lnv-pane{container-type:inline-size;container-name:lncpane}
 .lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro>.lfx-ro{display:block!important;padding:16px 20px 18px;border-left:1px solid #EFEFED;background:#FCFCFB;min-width:0}
-@container lncpane (max-width:940px){.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro{grid-template-columns:minmax(0,1fr)!important}.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro>.lfx-ro{grid-column:1!important;grid-row:3!important;position:static!important;border-left:0;border-top:1px solid #EFEFED}}
+/* r398: the results column stays on the right whenever the step is at least 560px wide; narrower steps get a narrower chart; only cramped steps and phones stack */
+@container lncpane (max-width:940px){.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro{grid-template-columns:minmax(0,1fr) clamp(240px,34%,340px)!important}.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro>.lfx-ro{padding:14px 14px 16px}}
+@container lncpane (max-width:559px){.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro{grid-template-columns:minmax(0,1fr)!important}.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro>.lfx-ro{grid-column:1!important;grid-row:3!important;position:static!important;border-left:0;border-top:1px solid #EFEFED}}
+@media (max-width:700px){.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro{grid-template-columns:minmax(0,1fr)!important}.lfx.lnv .lnv-pane>section.lfx-s>.lfx-b.has-ro>.lfx-ro{grid-column:1!important;grid-row:3!important;position:static!important;border-left:0;border-top:1px solid #EFEFED}}
 .lnc-rosep{margin:16px 0 0;padding-top:12px;border-top:1px solid #E3E1DC;font-size:9.5px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#76736C}
 /* product-settings band: one row; a box gives up width before its neighbours move, and its value wraps inside it */
 .lnv-ps{flex-wrap:nowrap!important}
@@ -3473,6 +3476,11 @@ tr.opex-item-card.drop-before::before,tr.opex-item-card.drop-after::after,tr.ope
 .lnv-dgrid .lending-balance-authoring .lfx-grid{grid-template-columns:repeat(auto-fill,minmax(150px,1fr))!important}.lnv-dgrid .lending-balance-authoring .lfx-grid>.lfx-f{grid-column:auto!important}
 .lnv-dgrid>.lending-balance-authoring{grid-row:span 2}.lnv-dgrid{align-items:start}
 
+/* r398: narrow input areas reflow their fields instead of overflowing into the chart column */
+@container lnvbody (max-width:600px){.lfx.lnv .lfx-body .lfx-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr))!important}.lfx.lnv .lfx-body .lfx-grid>.lfx-f{grid-column:auto!important}.lfx.lnv .lfx-body .lfx-grid>.lfx-f.s2,.lfx.lnv .lfx-body .lfx-grid>.lfx-f.s3,.lfx.lnv .lfx-body .lfx-grid>.lfx-f.s4,.lfx.lnv .lfx-body .lfx-grid>.lfx-f.wide{grid-column:1/-1!important}.lfx.lnv .lfx-body .lfx-lnk{white-space:normal;text-align:left}}
+.lfx.lnv .lfx-body table{display:block;max-width:100%;overflow-x:auto}
+/* r398: customer acquisition results column stacks only on phones */
+@container cacn (max-width:699px){.cacn-pane{grid-template-columns:minmax(0,1fr)!important}.cacn-ws .lfx-ro.cacn-ro{position:static;border-left:0;border-top:1px solid #E3E1DC}}
 </style>
 </head>
 <body>
